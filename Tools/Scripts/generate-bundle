@@ -897,8 +897,6 @@ def main():
     parser.add_argument('--log-level', dest='log_level', choices=['quiet', 'minimal', 'info', 'debug'], default='info')
     parser.add_argument('--revision', action='store', dest='webkit_version')
     parser.add_argument('--builder-name', action='store', dest='builder_name')
-    parser.add_argument('--remote-config-file', action='store', dest='remote_config_file',
-                        help='Optional configuration file with the configuration needed to upload the generated the bundle to a remote server via sftp/ssh.')
     options = parser.parse_args()
 
     flatpakutils.run_in_sandbox_if_available([sys.argv[0], '--flatpak-' + options.platform] + sys.argv[1:])
@@ -909,11 +907,6 @@ def main():
     bundle_creator = BundleCreator(options.configuration, options.platform, options.bundle_binary, options.syslibs, options.ldd,
                                    not options.no_strip, options.compression, options.destination, options.webkit_version, options.builder_name)
     bundle_file_path = bundle_creator.create()
-
-    if options.remote_config_file is not None:
-        bundle_uploader = BundleUploader(bundle_file_path, options.remote_config_file, options.bundle_binary, options.platform,
-                                         options.configuration, options.compression, options.webkit_version, options.log_level)
-        return bundle_uploader.upload()
     return 0
 
 

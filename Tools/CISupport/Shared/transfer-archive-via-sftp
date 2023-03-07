@@ -113,6 +113,7 @@ class SftpClient(object):
                            '-i', ssh_key_file.name,
                            '-b', upload_instructions_file.name,
                            '{user_name}@{server_address}'.format(user_name=self._remote_cfg.user_name, server_address=self._remote_cfg.server_address)]
+            _.log.debug('Executing sftp command: {sftp_command}'.format(sftp_command=' '.join(sftp_command)))
             size_in_bytes = os.stat(local_path_archive_to_transfer).st_size
             size_human_str = human_readable_size(size_in_bytes)
             _log.info('Uploading archive to {server_name} as {remote_archive_path} with a size of {size_human_str} and SHA256 hash {sha256_hash}'.format(
