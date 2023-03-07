@@ -113,7 +113,7 @@ class SftpClient(object):
                            '-i', ssh_key_file.name,
                            '-b', upload_instructions_file.name,
                            '{user_name}@{server_address}'.format(user_name=self._remote_cfg.user_name, server_address=self._remote_cfg.server_address)]
-            _.log.debug('Executing sftp command: {sftp_command}'.format(sftp_command=' '.join(sftp_command)))
+            _log.debug('Executing sftp command: {sftpCommand}'.format(sftpCommand=' '.join(sftpCommand)))
             size_in_bytes = os.stat(local_path_archive_to_transfer).st_size
             size_human_str = human_readable_size(size_in_bytes)
             _log.info('Uploading archive to {server_name} as {remote_archive_path} with a size of {size_human_str} and SHA256 hash {sha256_hash}'.format(
@@ -272,7 +272,7 @@ def main():
     remote_config_args.add_argument('--server-port', type=int, help='SSH port of the server')
     remote_config_args.add_argument('--remote-dir',  help='Remote directory were to transfer the archive.')
     remote_config_args.add_argument('--remote-file', help='Remote filename to use for the tranfered archive.')
-    remote_config_args.add_argument('--download-url', help='An URL to be print after sucessfuly transfering the archive. Variables on the URL are expanded.')
+    remote_config_args.add_argument('--download-url', help='An URL to be print after sucessfuly transfering the archive. Variables inside {} on the URL are expanded.')
     remote_config_args.add_argument('--generate-sha256sum', action='store_true', help='If enabled it will upload a .sha256sum file with the SHA256 of the archive uploaded.')
     remote_config_args.add_argument('--update-last-is-file', action='store_true', help='If enabled it will create/update a file named "LAST-IS" in the remote directory with the name of the remote archive after sucessfuly transfering it.')
     remote_config_args.add_argument('--user-name', help='User name to use when connecting to the SSH server.')
