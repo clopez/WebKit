@@ -250,8 +250,8 @@ def configure_logging(logger, selected_log_level='info'):
 # "ssh_key": "can be a path to the ssh key or the output of the priv key in base64. E.g. cat ~/.ssh/id_rsa|base64 -w0"
 # }
 #
-
-
+# And then this is invoked as
+#
 # transfer-archive-via-sftp --archive WebKitBuild/release.zip [--remote-path X] [--generate-sha256sum] [--update-last-is] [--remote-config-file]
 # transfer-archive-via-sftp --archive WebKitBuild/MiniBrowser_gtk_release.zip [--remotedir x86_64/release/nightly/Ubuntu-20.04/MiniBrowser/] --remotefile MiniBrowser_gtk_261254@main.zip  --generate-sha256sum --update-last-is --remote-config-file ..
 # transfer-archive-via-sftp --archive WebKitBuild/jsc_gtk_release.zip [--remotedir release] --remotefile 261281@main.zip  [--generate-sha256sum --update-last-is] --remote-config-file ...
