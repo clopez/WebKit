@@ -7923,3 +7923,12 @@ webkit.org/b/294274 [ Debug ] platform/ios/mediastream/audio-muted-in-background
  webgl/2.0.y/conformance/textures/misc/gl-teximage.html [ Failure ]
 
 imported/w3c/web-platform-tests/focus/focus-contenteditable-element-in-iframe-scroll-into-view.html [ Skip ]
+
+fast/snapshot/nested-stacking-context.html [ Skip ]
+fast/snapshot/positioned-abs-relative-body.html [ Skip ]
+
+webkit.org/b/295432 imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-clip-rect-zoom.html [ Pass ImageOnlyFailure ]
+
+# The padding for native buttons and select controls is overridden on iOS 18 and earlier.
+imported/w3c/web-platform-tests/css/css-ui/button-author-level-padding-applies.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-ui/select-author-level-padding-applies.html [ Skip ]
