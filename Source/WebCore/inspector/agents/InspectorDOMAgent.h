@@ -108,7 +108,7 @@ public:
     static JSC::JSValue nodeAsScriptValue(JSC::JSGlobalObject&, Node*);
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*);
+    void didCreateFrontendAndBackend();
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason);
 
     // DOMBackendDispatcherHandler
@@ -279,7 +279,7 @@ private:
 
     Inspector::InjectedScriptManager& m_injectedScriptManager;
     const UniqueRef<Inspector::DOMFrontendDispatcher> m_frontendDispatcher;
-    const RefPtr<Inspector::DOMBackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::DOMBackendDispatcher> m_backendDispatcher;
     WeakRef<Page> m_inspectedPage;
     WeakRef<InspectorOverlay> m_overlay;
     WeakHashMap<Node, Inspector::Protocol::DOM::NodeId, WeakPtrImplWithEventTargetData> m_nodeToId;

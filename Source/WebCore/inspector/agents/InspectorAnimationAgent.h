@@ -60,7 +60,7 @@ public:
     ~InspectorAnimationAgent();
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*);
+    void didCreateFrontendAndBackend();
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason);
 
     // AnimationBackendDispatcherHandler
@@ -94,7 +94,7 @@ private:
     void stopTrackingStyleOriginatedAnimation(StyleOriginatedAnimation&);
 
     const UniqueRef<Inspector::AnimationFrontendDispatcher> m_frontendDispatcher;
-    const RefPtr<Inspector::AnimationBackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::AnimationBackendDispatcher> m_backendDispatcher;
 
     Inspector::InjectedScriptManager& m_injectedScriptManager;
     WeakRef<Page> m_inspectedPage;

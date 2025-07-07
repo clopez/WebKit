@@ -54,7 +54,7 @@ public:
     ~InspectorDOMStorageAgent();
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*);
+    void didCreateFrontendAndBackend();
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason);
 
     // DOMStorageBackendDispatcherHandler
@@ -76,7 +76,7 @@ private:
     RefPtr<StorageArea> findStorageArea(Inspector::Protocol::ErrorString&, Ref<JSON::Object>&& storageId, LocalFrame*&);
 
     const UniqueRef<Inspector::DOMStorageFrontendDispatcher> m_frontendDispatcher;
-    const RefPtr<Inspector::DOMStorageBackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::DOMStorageBackendDispatcher> m_backendDispatcher;
 
     WeakRef<Page> m_inspectedPage;
 };

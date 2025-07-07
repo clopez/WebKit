@@ -93,7 +93,7 @@ public:
     static DocumentLoader* assertDocumentLoader(Inspector::Protocol::ErrorString&, LocalFrame*);
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*);
+    void didCreateFrontendAndBackend();
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason);
 
     // PageBackendDispatcherHandler
@@ -170,7 +170,7 @@ private:
     Ref<Inspector::Protocol::Page::FrameResourceTree> buildObjectForFrameTree(LocalFrame*);
 
     const UniqueRef<Inspector::PageFrontendDispatcher> m_frontendDispatcher;
-    const RefPtr<Inspector::PageBackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::PageBackendDispatcher> m_backendDispatcher;
 
     WeakRef<Page> m_inspectedPage;
     InspectorClient* m_client { nullptr };
