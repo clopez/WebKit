@@ -58,7 +58,7 @@
 
     WebKit::CacheModel cacheModel;
 
-    double defaultRequestTimeoutInterval;
+    Markable<double> defaultRequestTimeoutInterval;
     unsigned backForwardCacheCapacity;
 
     bool shouldAlwaysUseComplexTextCodePath;
@@ -222,5 +222,13 @@
 
 #if ENABLE(NOTIFY_BLOCKING)
     Vector<std::pair<String, uint64_t>> notifyState;
+#endif
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    bool shouldInitializeAccessibility;
+#endif
+
+#if HAVE(LIQUID_GLASS)
+    bool isLiquidGlassEnabled;
 #endif
 };

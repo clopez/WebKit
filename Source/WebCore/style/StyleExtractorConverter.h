@@ -211,7 +211,6 @@ public:
     static Ref<CSSValue> convertLineBoxContain(ExtractorState&, OptionSet<Style::LineBoxContain>);
     static Ref<CSSValue> convertWebkitRubyPosition(ExtractorState&, RubyPosition);
     static Ref<CSSValue> convertPosition(ExtractorState&, const LengthPoint&);
-    static Ref<CSSValue> convertContainIntrinsicSize(ExtractorState&, const ContainIntrinsicSizeType&, const std::optional<WebCore::Length>&);
     static Ref<CSSValue> convertTouchAction(ExtractorState&, OptionSet<TouchAction>);
     static Ref<CSSValue> convertTextTransform(ExtractorState&, OptionSet<TextTransform>);
     static Ref<CSSValue> convertTextDecorationLine(ExtractorState&, OptionSet<TextDecorationLine>);
@@ -281,7 +280,7 @@ public:
     static Ref<CSSValue> convertAnimationName(ExtractorState&, const ScopedName&, const Animation*, const AnimationList*);
     static Ref<CSSValue> convertAnimationProperty(ExtractorState&, const Animation::TransitionProperty&, const Animation*, const AnimationList*);
     static Ref<CSSValue> convertAnimationAllowsDiscreteTransitions(ExtractorState&, bool, const Animation*, const AnimationList*);
-    static Ref<CSSValue> convertAnimationDuration(ExtractorState&, MarkableDouble, const Animation*, const AnimationList*);
+    static Ref<CSSValue> convertAnimationDuration(ExtractorState&, Markable<double>, const Animation*, const AnimationList*);
     static Ref<CSSValue> convertAnimationDelay(ExtractorState&, double, const Animation*, const AnimationList*);
     static Ref<CSSValue> convertAnimationIterationCount(ExtractorState&, double, const Animation*, const AnimationList*);
     static Ref<CSSValue> convertAnimationDirection(ExtractorState&, Animation::Direction, const Animation*, const AnimationList*);
@@ -302,9 +301,6 @@ public:
 
     static Ref<CSSValue> convertGridAutoFlow(ExtractorState&, GridAutoFlow);
     static Ref<CSSValue> convertGridPosition(ExtractorState&, const GridPosition&);
-    static Ref<CSSValue> convertGridTrackBreadth(ExtractorState&, const GridTrackBreadth&);
-    static Ref<CSSValue> convertGridTrackSize(ExtractorState&, const GridTrackSize&);
-    static Ref<CSSValue> convertGridTrackSizeList(ExtractorState&, const Vector<GridTrackSize>&);
 };
 
 // MARK: - Strong value conversions
@@ -1066,22 +1062,6 @@ inline Ref<CSSValue> ExtractorConverter::convertPosition(ExtractorState& state, 
         convertLength(state, position.x),
         convertLength(state, position.y)
     );
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertContainIntrinsicSize(ExtractorState& state, const ContainIntrinsicSizeType& type, const std::optional<WebCore::Length>& containIntrinsicLength)
-{
-    switch (type) {
-    case ContainIntrinsicSizeType::None:
-        return CSSPrimitiveValue::create(CSSValueNone);
-    case ContainIntrinsicSizeType::Length:
-        return convertLength(state, *containIntrinsicLength);
-    case ContainIntrinsicSizeType::AutoAndLength:
-        return CSSValuePair::create(CSSPrimitiveValue::create(CSSValueAuto), convertLength(state, *containIntrinsicLength));
-    case ContainIntrinsicSizeType::AutoAndNone:
-        return CSSValuePair::create(CSSPrimitiveValue::create(CSSValueAuto), CSSPrimitiveValue::create(CSSValueNone));
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-    return CSSPrimitiveValue::create(CSSValueNone);
 }
 
 inline Ref<CSSValue> ExtractorConverter::convertTouchAction(ExtractorState&, OptionSet<TouchAction> touchActions)
@@ -1931,7 +1911,7 @@ inline Ref<CSSValue> ExtractorConverter::convertAnimationAllowsDiscreteTransitio
     return CSSPrimitiveValue::create(allowsDiscreteTransitions ? CSSValueAllowDiscrete : CSSValueNormal);
 }
 
-inline Ref<CSSValue> ExtractorConverter::convertAnimationDuration(ExtractorState&, MarkableDouble duration, const Animation* animation, const AnimationList* animationList)
+inline Ref<CSSValue> ExtractorConverter::convertAnimationDuration(ExtractorState&, Markable<double> duration, const Animation* animation, const AnimationList* animationList)
 {
     auto animationListHasMultipleExplicitTimelines = [&] {
         if (!animationList || animationList->size() <= 1)
@@ -2282,44 +2262,6 @@ inline Ref<CSSValue> ExtractorConverter::convertGridPosition(ExtractorState&, co
 
     if (hasNamedGridLine)
         list.append(CSSPrimitiveValue::createCustomIdent(position.namedGridLine()));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertGridTrackBreadth(ExtractorState& state, const GridTrackBreadth& trackBreadth)
-{
-    if (!trackBreadth.isLength())
-        return createCSSValue(state.pool, state.style, trackBreadth.flex());
-    return createCSSValue(state.pool, state.style, trackBreadth.length());
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertGridTrackSize(ExtractorState& state, const GridTrackSize& trackSize)
-{
-    switch (trackSize.type()) {
-    case GridTrackSizeType::Length:
-        return convertGridTrackBreadth(state, trackSize.minTrackBreadth());
-    case GridTrackSizeType::FitContent:
-        return CSSFunctionValue::create(
-            CSSValueFitContent,
-            createCSSValue(state.pool, state.style, trackSize.fitContentTrackBreadth().length())
-        );
-    default:
-        ASSERT(trackSize.type() == GridTrackSizeType::MinMax);
-        if (trackSize.minTrackBreadth().isAuto() && trackSize.maxTrackBreadth().isFlex())
-            return createCSSValue(state.pool, state.style, trackSize.maxTrackBreadth().flex());
-
-        return CSSFunctionValue::create(
-            CSSValueMinmax,
-            convertGridTrackBreadth(state, trackSize.minTrackBreadth()),
-            convertGridTrackBreadth(state, trackSize.maxTrackBreadth())
-        );
-    }
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertGridTrackSizeList(ExtractorState& state, const Vector<GridTrackSize>& gridTrackSizeList)
-{
-    CSSValueListBuilder list;
-    for (auto& gridTrackSize : gridTrackSizeList)
-        list.append(convertGridTrackSize(state, gridTrackSize));
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 

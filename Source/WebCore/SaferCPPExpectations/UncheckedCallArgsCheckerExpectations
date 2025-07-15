@@ -1,7 +1,5 @@
 Modules/airplay/WebMediaSessionManager.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
-Modules/async-clipboard/ClipboardItemBindingsDataSource.cpp
-Modules/cookie-store/CookieStore.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/gamepad/GamepadManager.cpp
 Modules/indexeddb/IDBCursor.cpp
@@ -294,6 +292,7 @@ html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
 html/canvas/CanvasRenderingContext2D.cpp
 html/canvas/CanvasRenderingContext2DBase.cpp
+html/canvas/EXTDisjointTimerQuery.cpp
 html/canvas/OffscreenCanvasRenderingContext2D.cpp
 html/parser/HTMLConstructionSite.cpp
 html/parser/HTMLConstructionSite.h
@@ -481,10 +480,6 @@ page/SpatialNavigation.cpp
 page/TextIndicator.cpp
 page/VisualViewport.cpp
 page/cocoa/PageCocoa.mm
-page/csp/ContentSecurityPolicyDirectiveList.cpp
-page/csp/ContentSecurityPolicyMediaListDirective.cpp
-page/csp/ContentSecurityPolicySourceList.cpp
-page/csp/ContentSecurityPolicyTrustedTypesDirective.cpp
 page/mac/EventHandlerMac.mm
 page/mac/ServicesOverlayController.mm
 page/scrolling/AsyncScrollingCoordinator.cpp
@@ -808,8 +803,6 @@ svg/properties/SVGAnimatedString.cpp
 svg/properties/SVGAnimationAdditiveValueFunctionImpl.cpp
 testing/Internals.cpp
 testing/Internals.mm
-workers/DedicatedWorkerGlobalScope.cpp
-workers/Worker.cpp
 workers/WorkerGlobalScope.cpp
 workers/WorkerMessagingProxy.cpp
 workers/WorkerNotificationClient.cpp
@@ -818,8 +811,6 @@ workers/WorkerOrWorkletScriptController.cpp
 workers/WorkerRunLoop.cpp
 workers/WorkerThread.cpp
 workers/service/ExtendableEvent.cpp
-workers/service/ServiceWorkerGlobalScope.cpp
-workers/service/ServiceWorkerJob.cpp
 workers/service/context/ServiceWorkerThread.cpp
 workers/service/context/ServiceWorkerThreadProxy.cpp
 workers/service/server/SWRegistrationDatabase.cpp

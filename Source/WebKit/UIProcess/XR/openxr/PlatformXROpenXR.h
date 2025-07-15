@@ -32,7 +32,7 @@
 
 namespace WebCore {
 class GLContext;
-class PlatformDisplaySurfaceless;
+class PlatformDisplay;
 }
 
 namespace WebKit {
@@ -59,7 +59,7 @@ private:
     void initializeDevice();
     void initializeSystem();
     void initializeBlendModes();
-    void initializeGraphicsBinding();
+    void tryInitializeGraphicsBinding();
     void collectViewConfigurations();
     WebCore::IntSize recommendedResolution() const;
 
@@ -91,8 +91,9 @@ private:
     XrEnvironmentBlendMode m_arBlendMode;
 
     std::unique_ptr<OpenXRExtensions> m_extensions;
+    bool m_isSessionRunning { false };
 
-    std::unique_ptr<WebCore::PlatformDisplaySurfaceless> m_platformDisplay;
+    std::unique_ptr<WebCore::PlatformDisplay> m_platformDisplay;
     std::unique_ptr<WebCore::GLContext> m_glContext;
     XrGraphicsBindingEGLMNDX m_graphicsBinding;
 

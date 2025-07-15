@@ -631,7 +631,8 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
         WebExtensionMatchPattern::registerCustomURLScheme(scheme);
 #endif
 
-    setDefaultRequestTimeoutInterval(parameters.defaultRequestTimeoutInterval);
+    if (parameters.defaultRequestTimeoutInterval)
+        setDefaultRequestTimeoutInterval(*parameters.defaultRequestTimeoutInterval);
 
     setBackForwardCacheCapacity(parameters.backForwardCacheCapacity);
 
@@ -694,6 +695,10 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
     // as the WebPageProxy::gamepadsRecentlyAccessedThreshold value.
     // 3-times-as-often seems like it will guarantee proper behavior for almost all web pages.
     WebCore::NavigatorGamepad::setGamepadsRecentlyAccessedThreshold(WebPageProxy::gamepadsRecentlyAccessedThreshold / 3);
+#endif
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    m_shouldInitializeAccessibility = parameters.shouldInitializeAccessibility;
 #endif
 
     WEBPROCESS_RELEASE_LOG(Process, "initializeWebProcess: Presenting processPID=%d", legacyPresentingApplicationPID());

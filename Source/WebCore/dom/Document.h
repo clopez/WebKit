@@ -347,6 +347,10 @@ enum class EventTrackingRegionsEventType : uint8_t;
 enum class MediaSessionAction : uint8_t;
 #endif
 
+#if ENABLE(MODEL_ELEMENT)
+class LazyLoadModelObserver;
+#endif
+
 using IntDegrees = int32_t;
 using MediaProducerMediaStateFlags = OptionSet<MediaProducerMediaState>;
 using MediaProducerMutedStateFlags = OptionSet<MediaProducerMutedState>;
@@ -696,8 +700,8 @@ public:
     const Settings& settings() const { return m_settings.get(); }
     EditingBehavior editingBehavior() const;
 
-    inline Quirks& quirks();
-    inline const Quirks& quirks() const;
+    inline Quirks& quirks(); // Defined in DocumentInlines.h
+    inline const Quirks& quirks() const; // Defined in DocumentInlines.h
 
     float deviceScaleFactor() const;
 
@@ -763,7 +767,7 @@ public:
     void stopActiveDOMObjects() final;
     GraphicsClient* graphicsClient() final;
 
-    inline const SettingsValues& settingsValues() const final;
+    inline const SettingsValues& settingsValues() const final; // Defined in DocumentInlines.h.
 
     void suspendDeviceMotionAndOrientationUpdates();
     void resumeDeviceMotionAndOrientationUpdates();
@@ -1913,6 +1917,9 @@ public:
     bool allowsContentJavaScript() const;
 
     LazyLoadImageObserver& lazyLoadImageObserver();
+#if ENABLE(MODEL_ELEMENT)
+    LazyLoadModelObserver& lazyLoadModelObserver();
+#endif
 
     ContentVisibilityDocumentState& contentVisibilityDocumentState();
 
@@ -2272,6 +2279,9 @@ private:
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_cssTarget;
 
     std::unique_ptr<LazyLoadImageObserver> m_lazyLoadImageObserver;
+#if ENABLE(MODEL_ELEMENT)
+    std::unique_ptr<LazyLoadModelObserver> m_lazyLoadModelObserver;
+#endif
 
     std::unique_ptr<ContentVisibilityDocumentState> m_contentVisibilityDocumentState;
 
@@ -2719,8 +2729,6 @@ private:
     bool m_visualUpdatesAllowedChangeCompletesPageTransition { false };
 
     bool m_requiresTrustedTypes { false };
-
-    bool m_intersectionObserverUpdateTaskQueued { false };
 
     static bool hasEverCreatedAnAXObjectCache;
 

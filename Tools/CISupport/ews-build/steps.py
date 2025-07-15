@@ -764,7 +764,7 @@ class CheckOutSource(git.Git):
 
     def getResultSummary(self):
         if self.results == FAILURE:
-            self.build.addStepsAfterCurrentStep([CleanUpGitIndexLock()])
+            self.build.addStepsAfterCurrentStep([CleanUpGitIndexLock(workdir=self.workdir)])
 
         if self.results != SUCCESS:
             return {'step': 'Failed to updated working directory'}
@@ -4073,6 +4073,8 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
                 self.setCommand(self.command + ['--exit-after-n-failures', '{}'.format(self.EXIT_AFTER_FAILURES)])
             if not self.STRESS_MODE:
                 self.setCommand(self.command + ['--skip-failing-tests'])
+            else:
+                self.setCommand(self.command + ['--skipped', 'always'])
 
         if platform in ['gtk', 'wpe']:
             self.setCommand(self.command + ['--enable-core-dumps-nolimit'])

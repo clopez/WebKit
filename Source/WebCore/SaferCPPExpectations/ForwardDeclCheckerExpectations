@@ -42,7 +42,6 @@ bindings/js/WindowProxy.h
 bridge/objc/objc_runtime.h
 crypto/cocoa/CryptoAlgorithmEd25519Cocoa.cpp
 crypto/cocoa/CryptoKeyOKPCocoa.cpp
-css/CSSFontSelector.h
 css/CSSImageValue.cpp
 css/CSSStyleProperties.h
 css/CSSToLengthConversionData.h
@@ -133,7 +132,6 @@ workers/DedicatedWorkerThread.cpp
 workers/Worker.h
 workers/WorkerOrWorkletGlobalScope.h
 workers/WorkerThread.h
-workers/service/ServiceWorkerContainer.h
 workers/service/context/ServiceWorkerInspectorProxy.h
 workers/service/context/ServiceWorkerThread.cpp
 workers/service/context/ServiceWorkerThread.h

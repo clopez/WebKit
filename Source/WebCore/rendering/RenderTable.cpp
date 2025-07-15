@@ -1582,11 +1582,11 @@ RenderTableCell* RenderTable::cellAfter(const RenderTableCell* cell) const
     return cell->section()->primaryCellAt(cell->rowIndex(), effCol);
 }
 
-LayoutUnit RenderTable::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderTable::baselinePosition() const
 {
     if (auto baselinePos = firstLineBaseline())
-        return (direction == HorizontalLine ? marginTop() : marginRight()) + baselinePos.value();
-    return RenderBox::baselinePosition(firstLine, direction, linePositionMode);
+        return (writingMode().isHorizontal() ? marginTop() : marginRight()) + baselinePos.value();
+    return RenderBox::baselinePosition();
 }
 
 std::optional<LayoutUnit> RenderTable::inlineBlockBaseline(LineDirectionMode) const

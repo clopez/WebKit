@@ -82,6 +82,7 @@ GPUProcess/media/ios/RemoteMediaSessionHelperProxy.cpp
 GPUProcess/webrtc/LibWebRTCCodecsProxy.mm @no-unify
 GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager.cpp
 GPUProcess/webrtc/RemoteSampleBufferDisplayLayer.mm
+GPUProcess/webrtc/UserMediaCaptureManagerProxy.cpp
 
 ModelProcess/EntryPoint/Cocoa/XPCService/ModelServiceEntryPoint.mm
 ModelProcess/cocoa/ModelProcessCocoa.mm
@@ -179,7 +180,6 @@ Shared/Cocoa/SandboxInitialiationParametersCocoa.mm
 Shared/Cocoa/SandboxUtilities.mm
 Shared/Cocoa/SharedCARingBuffer.cpp
 Shared/Cocoa/TCCSoftLink.mm @no-unify
-Shared/Cocoa/WebCoreArgumentCodersCocoa.mm
 Shared/Cocoa/WebErrorsCocoa.mm
 Shared/Cocoa/WebKit2InitializeCocoa.mm
 Shared/Cocoa/WKNSArray.mm
@@ -289,6 +289,7 @@ UIProcess/API/Cocoa/_WKInspectorWindow.mm
 UIProcess/API/Cocoa/_WKInternalDebugFeature.mm
 UIProcess/API/Cocoa/_WKLinkIconParameters.mm
 UIProcess/API/Cocoa/_WKModalContainerInfo.mm
+UIProcess/API/Cocoa/_WKNodeInfo.mm
 UIProcess/API/Cocoa/_WKNotificationData.mm
 UIProcess/API/Cocoa/_WKPageLoadTiming.mm
 UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm
@@ -432,7 +433,6 @@ UIProcess/Cocoa/TextExtraction/WKTextExtractionUtilities.mm
 UIProcess/Cocoa/UIDelegate.mm
 UIProcess/Cocoa/UIProcessLogInitializationCocoa.mm
 UIProcess/Cocoa/UIRemoteObjectRegistry.cpp
-UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp
 UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm
 UIProcess/Cocoa/VideoPresentationManagerProxy.mm
 UIProcess/Cocoa/WebGeolocationManagerProxyCocoa.cpp
@@ -541,6 +541,7 @@ UIProcess/ios/WKTapHighlightView.mm
 UIProcess/ios/WKTextInteractionWrapper.mm
 UIProcess/ios/WKTouchActionGestureRecognizer.mm
 UIProcess/ios/WKTouchEventsGestureRecognizer.mm
+UIProcess/ios/WKUIScrollEdgeEffect.mm
 UIProcess/ios/WKUSDPreviewView.mm
 UIProcess/ios/WKVideoView.mm
 UIProcess/ios/WKVisibilityPropagationView.mm

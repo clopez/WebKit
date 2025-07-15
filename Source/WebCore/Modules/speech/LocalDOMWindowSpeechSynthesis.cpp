@@ -33,7 +33,10 @@
 
 #if ENABLE(SPEECH_SYNTHESIS)
 
+#include "Document.h"
 #include "LocalDOMWindow.h"
+#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "Page.h"
 #include <wtf/TZoneMallocInlines.h>
 

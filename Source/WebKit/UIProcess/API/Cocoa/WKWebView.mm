@@ -99,6 +99,7 @@
 #import "WKTextExtractionUtilities.h"
 #import "WKUIDelegate.h"
 #import "WKUIDelegateInternal.h"
+#import "WKUIScrollEdgeEffect.h"
 #import "WKUserContentControllerInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProvider.h"
@@ -1529,17 +1530,15 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     // This code doesn't consider snapshotConfiguration.afterScreenUpdates since the software snapshot always
     // contains recent updates. If we ever have a UI-side snapshot mechanism on macOS, we will need to factor
     // in snapshotConfiguration.afterScreenUpdates at that time.
-    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight, usesContentRect = snapshotOptions.contains(WebKit::SnapshotOption::FullContentRect)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
-        if (!imageHandle) {
+    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight, usesContentRect = snapshotOptions.contains(WebKit::SnapshotOption::FullContentRect)](CGImageRef cgImage) {
+        if (!cgImage) {
             tracePoint(TakeSnapshotEnd, snapshotFailedTraceValue);
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
         }
-        auto bitmap = WebCore::ShareableBitmap::create(WTFMove(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly);
-        RetainPtr<CGImageRef> cgImage = bitmap ? bitmap->makeCGImage() : nullptr;
-        auto width = usesContentRect ? (CGFloat)CGImageGetWidth(cgImage.get()) : snapshotWidth;
-        auto height = usesContentRect ? (CGFloat)CGImageGetHeight(cgImage.get()) : imageHeight;
-        auto image = adoptNS([[NSImage alloc] initWithCGImage:cgImage.get() size:NSMakeSize(width, height)]);
+        auto width = usesContentRect ? (CGFloat)CGImageGetWidth(cgImage) : snapshotWidth;
+        auto height = usesContentRect ? (CGFloat)CGImageGetHeight(cgImage) : imageHeight;
+        auto image = adoptNS([[NSImage alloc] initWithCGImage:cgImage size:NSMakeSize(width, height)]);
         tracePoint(TakeSnapshotEnd, true);
         handler(image.get(), nil);
     });
@@ -2024,12 +2023,26 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 }
 
 #if PLATFORM(MAC) && HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
+
 - (void)_invalidateWindowSnapshotReadinessHandler
 {
-    if (auto handler = std::exchange(_windowSnapshotReadinessHandler, nil))
-        handler();
+    auto handler = std::exchange(_windowSnapshotReadinessHandler, nil);
+    if (!handler)
+        return;
+
+    handler();
+
+    RefPtr page = _page;
+    if (!page) {
+        RELEASE_LOG(ViewState, "%p - Stopped holding window resize snapshot for window full screen (null page)", self);
+        return;
+    }
+
+    RELEASE_LOG(ViewState, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i] Stopped holding window resize snapshot for window full screen",
+        self, page->identifier().toUInt64(), page->webPageIDInMainFrameProcess().toUInt64(), page->legacyMainFrameProcessID());
 }
-#endif
+
+#endif // PLATFORM(MAC) && HAVE(NSWINDOW_SNAPSHOT_READINESS_HANDLER)
 
 #if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
 - (void)_spatialBackdropSourceDidChange
@@ -3301,18 +3314,11 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 - (void)_updateHiddenScrollPocketEdges
 {
 #if PLATFORM(IOS_FAMILY)
-    [_scrollView _setHiddenPocketEdgesInternal:[&] {
-        UIRectEdge edges = UIRectEdgeNone;
-        if ([self _shouldHideTopScrollPocket])
-            edges |= UIRectEdgeTop;
-        if ([self _hasVisibleColorExtensionView:WebCore::BoxSide::Right])
-            edges |= UIRectEdgeRight;
-        if ([self _hasVisibleColorExtensionView:WebCore::BoxSide::Bottom])
-            edges |= UIRectEdgeBottom;
-        if ([self _hasVisibleColorExtensionView:WebCore::BoxSide::Left])
-            edges |= UIRectEdgeLeft;
-        return edges;
-    }()];
+    RetainPtr scrollView = _scrollView;
+    [scrollView _wk_topEdgeEffect].internallyHidden = [self _shouldHideTopScrollPocket];
+    [scrollView _wk_rightEdgeEffect].internallyHidden = [self _hasVisibleColorExtensionView:WebCore::BoxSide::Right];
+    [scrollView _wk_leftEdgeEffect].internallyHidden = [self _hasVisibleColorExtensionView:WebCore::BoxSide::Left];
+    [scrollView _wk_bottomEdgeEffect].internallyHidden = [self _hasVisibleColorExtensionView:WebCore::BoxSide::Bottom];
 #else
     _impl->updateScrollPocket();
 #endif
@@ -3416,6 +3422,43 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 }
 
 #endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
+- (CocoaEdgeInsets)obscuredContentInsets
+{
+#if PLATFORM(IOS_FAMILY)
+    return self._obscuredInsets;
+#else
+    return self._obscuredContentInsets;
+#endif
+}
+
+- (void)setObscuredContentInsets:(CocoaEdgeInsets)insets
+{
+    if (insets.top < 0 || insets.left < 0 || insets.right < 0 || insets.bottom < 0) {
+#if PLATFORM(IOS_FAMILY)
+        [NSException raise:NSInvalidArgumentException format:@"-obscuredContentInsets cannot be negative: %@", NSStringFromUIEdgeInsets(insets)];
+#else
+        [NSException raise:NSInvalidArgumentException format:@"-obscuredContentInsets cannot be negative: { top=%f, left=%f, bottom=%f, right=%f }"
+            , insets.top, insets.left, insets.bottom, insets.right];
+#endif
+    }
+
+#if PLATFORM(IOS_FAMILY)
+    if (UIEdgeInsetsEqualToEdgeInsets(_obscuredInsets, insets))
+        return;
+
+    [self _setObscuredInsetsInternal:insets];
+    _automaticallyAdjustsViewLayoutSizesWithObscuredInset = !UIEdgeInsetsEqualToEdgeInsets(insets, UIEdgeInsetsZero);
+
+    [self _frameOrBoundsMayHaveChanged];
+#else
+    if (NSEdgeInsetsEqual(self._obscuredContentInsets, insets))
+        return;
+
+    self._automaticallyAdjustsContentInsets = NO;
+    [self _setObscuredContentInsets:insets immediate:NO];
+#endif
+}
 
 namespace WebKit {
 enum class WebViewDataType : uint32_t {

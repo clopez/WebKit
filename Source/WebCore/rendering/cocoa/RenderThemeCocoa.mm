@@ -106,6 +106,12 @@ static bool formControlRefreshEnabled(const Element* element)
     return element->document().settings().formControlRefreshEnabled();
 }
 
+static Color colorCompositedOverCanvasColor(const Color& color, OptionSet<StyleColorOptions> styleColorOptions)
+{
+    const auto backingColor = RenderTheme::singleton().systemColor(CSSValueCanvas, styleColorOptions);
+    return blendSourceOver(backingColor, color);
+}
+
 static Color colorCompositedOverCanvasColor(CSSValueID cssValue, OptionSet<StyleColorOptions> styleColorOptions)
 {
     const auto backingColor = RenderTheme::singleton().systemColor(CSSValueCanvas, styleColorOptions);
@@ -617,7 +623,7 @@ constexpr auto checkboxRadioBorderWidthForVectorBasedControls = 1.5f;
 
 static bool controlIsFocusedWithOutlineStyleAutoForVectorBasedControls(const RenderObject& renderer)
 {
-    return RenderTheme::singleton().isFocused(renderer) && renderer.style().hasAutoOutlineStyle();
+    return RenderTheme::singleton().isFocused(renderer) && renderer.style().outlineStyle() == OutlineStyle::Auto;
 }
 
 static constexpr auto checkboxRadioBorderDisabledOpacityForVectorBasedControls = 0.5f;
@@ -773,22 +779,20 @@ Color RenderThemeCocoa::checkboxRadioBackgroundColorForVectorBasedControls(const
     const auto isEnabled = states.contains(ControlStyle::State::Enabled);
     const auto isPressed = states.contains(ControlStyle::State::Pressed);
 
+    Color backgroundColor = Color::white;
+
 #if PLATFORM(IOS_FAMILY)
     if (PAL::currentUserInterfaceIdiomIsVision()) {
-        if (!isEnabled)
-            return RenderTheme::singleton().systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
+        if (isEnabled) {
+            backgroundColor = isEmpty ? Color(DisplayP3<float> { 0.835, 0.835, 0.835 }) : controlTintColor(style, styleColorOptions);
+            if (isPressed)
+                backgroundColor = platformAdjustedColorForPressedState(backgroundColor, styleColorOptions);
+        } else
+            backgroundColor = RenderTheme::singleton().systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
 
-        auto backgroundColor = isEmpty ? Color(DisplayP3<float> { 0.835, 0.835, 0.835 }) : controlTintColor(style, styleColorOptions);
-
-        if (isPressed)
-            return platformAdjustedColorForPressedState(backgroundColor, styleColorOptions);
-
-        return backgroundColor;
+        return colorCompositedOverCanvasColor(backgroundColor, styleColorOptions);
     }
-#endif
 
-    Color backgroundColor;
-#if PLATFORM(IOS_FAMILY)
     backgroundColor = isEmpty ? systemColor(CSSValueWebkitControlBackground, styleColorOptions) : controlTintColor(style, styleColorOptions);
 #else
     const auto isWindowActive = states.contains(ControlStyle::State::WindowActive);
@@ -806,7 +810,7 @@ Color RenderThemeCocoa::checkboxRadioBackgroundColorForVectorBasedControls(const
     else if (isPressed)
         backgroundColor = platformAdjustedColorForPressedState(backgroundColor, styleColorOptions);
 
-    return backgroundColor;
+    return colorCompositedOverCanvasColor(backgroundColor, styleColorOptions);
 }
 
 bool RenderThemeCocoa::paintCheckboxForVectorBasedControls(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
@@ -1667,7 +1671,8 @@ static void applyEmPadding(RenderStyle& style, const Element* element, float pad
     const auto horizontalPadding = isVertical ? paddingBlockPixels : paddingInlinePixels;
     const auto verticalPadding = isVertical ? paddingInlinePixels : paddingBlockPixels;
 
-    style.setPaddingBox({ verticalPadding, horizontalPadding, verticalPadding, horizontalPadding });
+    Style::PaddingBox paddingBox { verticalPadding, horizontalPadding, verticalPadding, horizontalPadding };
+    applyPaddingIfNotExplicitlySet(style, paddingBox);
 }
 
 #if PLATFORM(MAC)
@@ -4115,8 +4120,8 @@ void RenderThemeCocoa::adjustSwitchStyle(RenderStyle& style, const Element* elem
 
     adjustSwitchStyleDisplay(style);
 
-    if (style.hasAutoOutlineStyle())
-        style.setOutlineStyle(BorderStyle::None);
+    if (style.outlineStyle() == OutlineStyle::Auto)
+        style.setOutlineStyle(OutlineStyle::None);
 #endif
 }
 

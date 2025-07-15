@@ -6,8 +6,6 @@ Modules/airplay/WebMediaSessionManager.cpp
 Modules/applepay/ApplePaySession.cpp
 Modules/applepay/paymentrequest/ApplePayPaymentHandler.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
-Modules/async-clipboard/Clipboard.cpp
-Modules/async-clipboard/ClipboardItemBindingsDataSource.cpp
 Modules/audiosession/DOMAudioSession.cpp
 Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheStorage.cpp
@@ -62,7 +60,6 @@ Modules/mediastream/RTCRtpSender.cpp
 Modules/mediastream/RTCRtpTransform.cpp
 Modules/mediastream/UserMediaRequest.cpp
 Modules/mediastream/libwebrtc/LibWebRTCDtlsTransportBackend.cpp
-Modules/mediastream/libwebrtc/LibWebRTCMediaEndpoint.cpp
 Modules/mediastream/libwebrtc/LibWebRTCObservers.h
 Modules/mediastream/libwebrtc/LibWebRTCSctpTransportBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
@@ -298,9 +295,6 @@ css/CSSCounterValue.h
 css/CSSCursorImageValue.cpp
 css/CSSFontFace.cpp
 css/CSSFontFaceRule.cpp
-css/CSSFontSelector.cpp
-css/CSSFontStyleRangeValue.cpp
-css/CSSFontStyleRangeValue.h
 css/CSSFontValue.cpp
 css/CSSGridLineValue.cpp
 css/CSSGroupingRule.cpp
@@ -488,6 +482,7 @@ html/AttachmentAssociatedElement.cpp
 html/CachedHTMLCollection.h
 html/CachedHTMLCollectionInlines.h
 html/CollectionTraversalInlines.h
+html/CustomPaintCanvas.cpp
 html/DOMTokenList.cpp
 html/DirectoryFileListCreator.cpp
 html/FTPDirectoryDocument.cpp
@@ -545,8 +540,12 @@ html/RadioNodeList.cpp
 html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
 html/canvas/CanvasFilterContextSwitcher.cpp
+html/canvas/CanvasRenderingContext.cpp
 html/canvas/CanvasRenderingContext2D.cpp
 html/canvas/CanvasRenderingContext2DBase.cpp
+html/canvas/CanvasStyle.cpp
+html/canvas/EXTDisjointTimerQuery.cpp
+html/canvas/GPUCanvasContextCocoa.mm
 html/canvas/ImageBitmapRenderingContext.cpp
 html/canvas/OffscreenCanvasRenderingContext2D.cpp
 html/canvas/PlaceholderRenderingContext.cpp
@@ -1119,20 +1118,13 @@ testing/js/WebCoreTestSupport.cpp
 workers/DedicatedWorkerGlobalScope.cpp
 workers/Worker.cpp
 workers/WorkerAnimationController.cpp
-workers/WorkerConsoleClient.cpp
-workers/WorkerEventLoop.cpp
-workers/WorkerFontLoadRequest.cpp
 workers/WorkerGlobalScope.cpp
 workers/WorkerInspectorProxy.cpp
 workers/WorkerMessagingProxy.cpp
-workers/WorkerOrWorkletGlobalScope.cpp
 workers/WorkerOrWorkletThread.cpp
-workers/WorkerRunLoop.cpp
-workers/WorkerScriptLoader.cpp
 workers/service/ServiceWorker.cpp
 workers/service/ServiceWorkerContainer.cpp
 workers/service/ServiceWorkerGlobalScope.cpp
-workers/service/ServiceWorkerJob.cpp
 workers/service/ServiceWorkerRegistration.cpp
 workers/service/ServiceWorkerWindowClient.cpp
 workers/service/background-fetch/BackgroundFetch.cpp
@@ -1142,7 +1134,6 @@ workers/service/background-fetch/ServiceWorkerRegistrationBackgroundFetchAPI.cpp
 workers/service/server/SWServer.cpp
 workers/service/server/SWServerWorker.cpp
 workers/shared/SharedWorker.cpp
-workers/shared/SharedWorkerScriptLoader.cpp
 worklets/PaintWorkletGlobalScope.cpp
 worklets/WorkletGlobalScope.cpp
 worklets/WorkletPendingTasks.cpp

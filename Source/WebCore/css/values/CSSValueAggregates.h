@@ -127,6 +127,14 @@ template<typename T> inline constexpr ASCIILiteral SerializationSeparatorString 
 #define DEFINE_TUPLE_LIKE_CONFORMANCE_FOR_TYPE_WRAPPER(t) \
     DEFINE_TUPLE_LIKE_CONFORMANCE(t, 1)
 
+// Helper to define a variant-like conformance.
+#define DEFINE_VARIANT_LIKE_CONFORMANCE(t) \
+    template<> inline constexpr auto WebCore::TreatAsVariantLike<t> = true;
+
+// Helper to define a range-like conformance.
+#define DEFINE_RANGE_LIKE_CONFORMANCE(t) \
+    template<> inline constexpr auto WebCore::TreatAsRangeLike<t> = true;
+
 // MARK: - Conforming Existing Types
 
 // - Optional-like
@@ -793,6 +801,43 @@ template<size_t I, typename T> const auto& get(const SpaceSeparatedRectEdges<T>&
 template<typename T> inline constexpr auto TreatAsTupleLike<SpaceSeparatedRectEdges<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<SpaceSeparatedRectEdges<T>> = SerializationSeparatorType::Space;
 
+// Wraps a quad of elements of a single type representing the edges of a rect, semantically marking them as serializing as "comma separated".
+template<typename T> struct CommaSeparatedRectEdges : RectEdges<T> {
+    using value_type = T;
+
+    constexpr CommaSeparatedRectEdges(T repeat)
+        : RectEdges<T> { repeat, repeat, repeat, repeat }
+    {
+    }
+
+    constexpr CommaSeparatedRectEdges(T top, T right, T bottom, T left)
+        : RectEdges<T> { WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left) }
+    {
+    }
+
+    constexpr CommaSeparatedRectEdges(RectEdges<T>&& rectEdges)
+        : RectEdges<T> { WTFMove(rectEdges) }
+    {
+    }
+
+    constexpr bool operator==(const CommaSeparatedRectEdges<T>&) const = default;
+};
+
+template<size_t I, typename T> const auto& get(const CommaSeparatedRectEdges<T>& rectEdges)
+{
+    if constexpr (!I)
+        return rectEdges.top();
+    else if constexpr (I == 1)
+        return rectEdges.right();
+    else if constexpr (I == 2)
+        return rectEdges.bottom();
+    else if constexpr (I == 3)
+        return rectEdges.left();
+}
+
+template<typename T> inline constexpr auto TreatAsTupleLike<CommaSeparatedRectEdges<T>> = true;
+template<typename T> inline constexpr auto SerializationSeparator<CommaSeparatedRectEdges<T>> = SerializationSeparatorType::Comma;
+
 
 // A set of 4 values parsed and interpreted in the same manner as defined for the margin shorthand.
 //
@@ -920,25 +965,37 @@ template<typename T> void logForCSSOnVariantLike(TextStream& ts, const T& value)
 
 template<typename T, size_t inlineCapacity> TextStream& operator<<(TextStream& ts, const SpaceSeparatedVector<T, inlineCapacity>& value)
 {
-    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<T>);
+    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<SpaceSeparatedVector<T, inlineCapacity>>);
     return ts;
 }
 
 template<typename T, size_t inlineCapacity> TextStream& operator<<(TextStream& ts, const CommaSeparatedVector<T, inlineCapacity>& value)
 {
-    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<T>);
+    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<CommaSeparatedVector<T, inlineCapacity>>);
     return ts;
 }
 
 template<typename T> TextStream& operator<<(TextStream& ts, const SpaceSeparatedFixedVector<T>& value)
 {
-    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<T>);
+    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<SpaceSeparatedFixedVector<T>>);
     return ts;
 }
 
 template<typename T> TextStream& operator<<(TextStream& ts, const CommaSeparatedFixedVector<T>& value)
 {
-    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<T>);
+    logForCSSOnRangeLike(ts, value, SerializationSeparatorString<CommaSeparatedFixedVector<T>>);
+    return ts;
+}
+
+template<typename... Ts> TextStream& operator<<(TextStream& ts, const SpaceSeparatedTuple<Ts...>& value)
+{
+    logForCSSOnTupleLike(ts, value, SerializationSeparatorString<SpaceSeparatedTuple<Ts...>>);
+    return ts;
+}
+
+template<typename... Ts> TextStream& operator<<(TextStream& ts, const CommaSeparatedTuple<Ts...>& value)
+{
+    logForCSSOnTupleLike(ts, value, SerializationSeparatorString<CommaSeparatedTuple<Ts...>>);
     return ts;
 }
 
@@ -996,6 +1053,12 @@ public:
 
 template<typename T> class tuple_size<WebCore::SpaceSeparatedRectEdges<T>> : public std::integral_constant<size_t, 4> { };
 template<size_t I, typename T> class tuple_element<I, WebCore::SpaceSeparatedRectEdges<T>> {
+public:
+    using type = T;
+};
+
+template<typename T> class tuple_size<WebCore::CommaSeparatedRectEdges<T>> : public std::integral_constant<size_t, 4> { };
+template<size_t I, typename T> class tuple_element<I, WebCore::CommaSeparatedRectEdges<T>> {
 public:
     using type = T;
 };

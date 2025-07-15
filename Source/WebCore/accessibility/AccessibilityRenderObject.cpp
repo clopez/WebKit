@@ -39,6 +39,7 @@
 #include "CachedImage.h"
 #include "ComplexTextController.h"
 #include "ComposedTreeIterator.h"
+#include "ContainerNodeInlines.h"
 #include "DocumentSVG.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -83,6 +84,7 @@
 #include "Page.h"
 #include "PathUtilities.h"
 #include "PluginViewBase.h"
+#include "PositionInlines.h"
 #include "ProgressTracker.h"
 #include "Range.h"
 #include "RenderButton.h"
@@ -1453,6 +1455,11 @@ AXTextRuns AccessibilityRenderObject::textRuns()
         );
     }
 
+    if (is<SVGGraphicsElement>(element())) {
+        // Match TextIterator (and other browsers) and don't emit text positions for SVG graphics elements.
+        return { };
+    }
+
     if (isReplacedElement()) {
         auto* containingBlock = renderer ? renderer->containingBlock() : nullptr;
         FloatRect rect = frameRect();
@@ -1611,6 +1618,10 @@ AXTextRuns AccessibilityRenderObject::textRuns()
                 lineString.append(' ');
                 ++endIndex;
                 characterWidths.append(0);
+                // We also need to account for this in the DOM offset itself, as otherwise we'll
+                // compute the wrong value when going from rendered-text offset to DOM offset
+                // (e.g. via AXTextRuns::domOffset()).
+                textRunDomOffsets.last()[1] += 1;
             }
             runs.append({ currentLineIndex, startIndex, endIndex, { std::exchange(textRunDomOffsets, { }) }, std::exchange(characterWidths, { }), lineHeight, distanceFromBoundsInDirection });
 

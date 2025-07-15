@@ -10,7 +10,6 @@ Modules/webdatabase/SQLTransactionBackend.h
 accessibility/AXSearchManager.h
 bindings/js/JSEventTargetCustom.h
 bindings/js/JSLazyEventListener.cpp
-css/CSSFontSelector.h
 css/CSSPrimitiveValue.h
 css/CSSRule.h
 css/CSSRuleList.h
@@ -83,12 +82,8 @@ style/StyleScope.h
 style/StyleScopeRuleSets.h
 style/Styleable.h
 svg/properties/SVGPropertyOwnerRegistry.h
-workers/WorkerAnimationController.h
-workers/WorkerConsoleClient.h
 workers/WorkerMessagingProxy.h
-workers/WorkerNotificationClient.h
 workers/WorkerOrWorkletGlobalScope.h
-workers/service/ServiceWorkerContainer.h
 workers/service/background-fetch/ServiceWorkerRegistrationBackgroundFetchAPI.h
 xml/XPathGrammar.cpp
 xml/XPathGrammar.h

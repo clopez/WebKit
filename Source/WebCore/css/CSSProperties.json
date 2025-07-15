@@ -3886,10 +3886,8 @@
             ],
             "codegen-properties": {
                 "accepts-quirky-length": true,
-                "animation-wrapper": "ClipWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<Clip>",
                 "parser-grammar": "<rect()> | auto"
             },
             "specification": {
@@ -6664,8 +6662,6 @@
                 "double"
             ],
             "codegen-properties": {
-                "style-builder-custom": "All",
-                "auto-functions": true,
                 "parser-grammar": "auto | <outline-line-style>"
             },
             "specification": {
@@ -7889,10 +7885,8 @@
             ],
             "codegen-properties": {
                 "accepts-quirky-length": true,
-                "animation-wrapper": "TextIndentWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<TextIndent>",
                 "parser-grammar": "<length-percentage> && hanging? && each-line?"
             },
             "specification": {
@@ -8596,10 +8590,8 @@
                 "auto"
             ],
             "codegen-properties": {
-                "animation-wrapper": "AspectRatioWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<AspectRatio>",
                 "parser-grammar": "auto || <ratio>"
             },
             "specification": {
@@ -8636,10 +8628,8 @@
                     "name": "contain-intrinsic-size",
                     "resolver": "vertical"
                 },
-                "animation-wrapper": "ContainIntrinsicLengthWrapper",
-                "animation-wrapper-requires-override-parameters": ["CSSPropertyContainIntrinsicHeight", "&RenderStyle::containIntrinsicHeight", "&RenderStyle::setContainIntrinsicHeight", "&RenderStyle::containIntrinsicHeightType", "&RenderStyle::setContainIntrinsicHeightType"],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<ContainIntrinsicSize>",
                 "parser-grammar": "[ auto? [ none | <length [0,inf]> ] ]@(type=CSSValuePair)",
                 "parser-exported": true
             },
@@ -8660,10 +8650,8 @@
                     "name": "contain-intrinsic-size",
                     "resolver": "horizontal"
                 },
-                "animation-wrapper": "ContainIntrinsicLengthWrapper",
-                "animation-wrapper-requires-override-parameters": ["CSSPropertyContainIntrinsicWidth", "&RenderStyle::containIntrinsicWidth", "&RenderStyle::setContainIntrinsicWidth", "&RenderStyle::containIntrinsicWidthType", "&RenderStyle::setContainIntrinsicWidthType"],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<ContainIntrinsicSize>",
                 "parser-grammar": "[ auto? [ none | <length [0,inf]> ] ]@(type=CSSValuePair)",
                 "parser-exported": true
              },
@@ -9968,8 +9956,8 @@
             "animation-type-comment": "Current spec animation type is 'by computed value'",
             "initial": "auto",
             "codegen-properties": {
-                "style-converter": "GridTrackSizeList",
                 "separator": " ",
+                "style-converter": "StyleType<GridTrackSizes>",
                 "parser-function": "consumeGridTrackList",
                 "parser-grammar-unused": "<track-size>+",
                 "parser-grammar-unused-reason": "Needs investigation."
@@ -9984,8 +9972,8 @@
             "animation-type-comment": "Current spec animation type is 'by computed value'",
             "initial": "auto",
             "codegen-properties": {
-                "style-converter": "GridTrackSizeList",
                 "separator": " ",
+                "style-converter": "StyleType<GridTrackSizes>",
                 "parser-function": "consumeGridTrackList",
                 "parser-grammar-unused": "<track-size>+",
                 "parser-grammar-unused-reason": "Needs investigation."
@@ -10046,9 +10034,8 @@
             "animation-type": "see prose",
             "initial": "none",
             "codegen-properties": {
-                "animation-wrapper": "GridTemplateWrapper",
-                "render-style-name-for-methods": "GridColumnList",
-                "style-builder-conditional-converter": "GridTrackList",
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-builder-converter": "StyleType<GridTemplateList>",
                 "style-extractor-custom": true,
                 "parser-function": "consumeGridTemplatesRowsOrColumns",
                 "parser-grammar-unused": "none | <track-list> | <auto-track-list>",
@@ -10063,9 +10050,8 @@
             "animation-type": "see prose",
             "initial": "none",
             "codegen-properties": {
-                "animation-wrapper": "GridTemplateWrapper",
-                "render-style-name-for-methods": "GridRowList",
-                "style-builder-conditional-converter": "GridTrackList",
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-builder-converter": "StyleType<GridTemplateList>",
                 "style-extractor-custom": true,
                 "parser-function": "consumeGridTemplatesRowsOrColumns",
                 "parser-grammar-unused": "none | <track-list> | <auto-track-list>",
@@ -10142,10 +10128,7 @@
             "animation-type": "discrete",
             "initial": "none",
             "codegen-properties": {
-                "animation-wrapper": "GridTemplateAreasWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "style-converter": "StyleType<GridTemplateAreas>",
                 "parser-function": "consumeGridTemplateAreas",
                 "parser-grammar-unused": "none | <string>+",
                 "parser-grammar-unused-reason": "Needs support for nested grammars in <string> values."
@@ -11064,10 +11047,7 @@
                     "-epub-text-emphasis-style",
                     "-webkit-text-emphasis-style"
                 ],
-                "animation-wrapper": "TextEmphasisStyleWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
-                "style-extractor-custom": true,
+                "style-converter": "StyleType<TextEmphasisStyle>",
                 "parser-grammar": "none | [ [ filled | open ] || [ dot | circle | double-circle | triangle | sesame ] ] | <string>"
             },
             "specification": {

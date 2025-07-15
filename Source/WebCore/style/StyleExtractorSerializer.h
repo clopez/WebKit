@@ -123,7 +123,6 @@ public:
     static void serializeLineBoxContain(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<Style::LineBoxContain>);
     static void serializeWebkitRubyPosition(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, RubyPosition);
     static void serializePosition(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const LengthPoint&);
-    static void serializeContainIntrinsicSize(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const ContainIntrinsicSizeType&, const std::optional<WebCore::Length>&);
     static void serializeTouchAction(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TouchAction>);
     static void serializeTextTransform(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TextTransform>);
     static void serializeTextDecorationLine(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TextDecorationLine>);
@@ -192,7 +191,7 @@ public:
     static void serializeAnimationName(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const ScopedName&, const Animation*, const AnimationList*);
     static void serializeAnimationProperty(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const Animation::TransitionProperty&, const Animation*, const AnimationList*);
     static void serializeAnimationAllowsDiscreteTransitions(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, bool, const Animation*, const AnimationList*);
-    static void serializeAnimationDuration(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, MarkableDouble, const Animation*, const AnimationList*);
+    static void serializeAnimationDuration(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, Markable<double>, const Animation*, const AnimationList*);
     static void serializeAnimationDelay(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, double, const Animation*, const AnimationList*);
     static void serializeAnimationIterationCount(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, double, const Animation*, const AnimationList*);
     static void serializeAnimationDirection(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, Animation::Direction, const Animation*, const AnimationList*);
@@ -213,9 +212,6 @@ public:
 
     static void serializeGridAutoFlow(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, GridAutoFlow);
     static void serializeGridPosition(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const GridPosition&);
-    static void serializeGridTrackBreadth(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const GridTrackBreadth&);
-    static void serializeGridTrackSize(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const GridTrackSize&);
-    static void serializeGridTrackSizeList(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const Vector<GridTrackSize>&);
 };
 
 // MARK: - Strong value serializations
@@ -1283,30 +1279,6 @@ inline void ExtractorSerializer::serializePosition(ExtractorState& state, String
     serializeLength(state, builder, context, position.y);
 }
 
-inline void ExtractorSerializer::serializeContainIntrinsicSize(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const ContainIntrinsicSizeType& type, const std::optional<WebCore::Length>& containIntrinsicLength)
-{
-    switch (type) {
-    case ContainIntrinsicSizeType::None:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    case ContainIntrinsicSizeType::Length:
-        serializeLength(state, builder, context, *containIntrinsicLength);
-        return;
-    case ContainIntrinsicSizeType::AutoAndLength:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        builder.append(' ');
-        serializeLength(state, builder, context, *containIntrinsicLength);
-        return;
-    case ContainIntrinsicSizeType::AutoAndNone:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        builder.append(' ');
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
 inline void ExtractorSerializer::serializeTouchAction(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<TouchAction> touchActions)
 {
     if (touchActions & TouchAction::Auto) {
@@ -2149,7 +2121,7 @@ inline void ExtractorSerializer::serializeAnimationAllowsDiscreteTransitions(Ext
     builder.append(nameLiteralForSerialization(allowsDiscreteTransitions ? CSSValueAllowDiscrete : CSSValueNormal));
 }
 
-inline void ExtractorSerializer::serializeAnimationDuration(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, MarkableDouble duration, const Animation* animation, const AnimationList* animationList)
+inline void ExtractorSerializer::serializeAnimationDuration(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, Markable<double> duration, const Animation* animation, const AnimationList* animationList)
 {
     auto animationListHasMultipleExplicitTimelines = [&] {
         if (!animationList || animationList->size() <= 1)
@@ -2598,49 +2570,6 @@ inline void ExtractorSerializer::serializeGridPosition(ExtractorState& state, St
         builder.append(' ');
         serializationForCSS(builder, context, state.style, CustomIdentifier { AtomString { position.namedGridLine() } });
     }
-}
-
-inline void ExtractorSerializer::serializeGridTrackBreadth(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const GridTrackBreadth& trackBreadth)
-{
-    if (!trackBreadth.isLength())
-        serializationForCSS(builder, context, state.style, trackBreadth.flex());
-    else
-        serializationForCSS(builder, context, state.style, trackBreadth.length());
-}
-
-inline void ExtractorSerializer::serializeGridTrackSize(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const GridTrackSize& trackSize)
-{
-    switch (trackSize.type()) {
-    case GridTrackSizeType::Length:
-        serializeGridTrackBreadth(state, builder, context, trackSize.minTrackBreadth());
-        return;
-    case GridTrackSizeType::FitContent:
-        builder.append(nameLiteral(CSSValueFitContent), '(');
-        serializationForCSS(builder, context, state.style, trackSize.fitContentTrackBreadth().length());
-        builder.append(')');
-        return;
-    case GridTrackSizeType::MinMax:
-        if (trackSize.minTrackBreadth().isAuto() && trackSize.maxTrackBreadth().isFlex()) {
-            serializationForCSS(builder, context, state.style, trackSize.maxTrackBreadth().flex());
-            return;
-        }
-
-        builder.append(nameLiteral(CSSValueMinmax), '(');
-        serializeGridTrackBreadth(state, builder, context, trackSize.minTrackBreadth());
-        builder.append(", "_s);
-        serializeGridTrackBreadth(state, builder, context, trackSize.maxTrackBreadth());
-        builder.append(')');
-        return;
-    }
-
-    ASSERT_NOT_REACHED();
-}
-
-inline void ExtractorSerializer::serializeGridTrackSizeList(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const Vector<GridTrackSize>& gridTrackSizeList)
-{
-    builder.append(interleave(gridTrackSizeList, [&](auto& builder, auto& gridTrackSize) {
-        serializeGridTrackSize(state, builder, context, gridTrackSize);
-    }, ' '));
 }
 
 } // namespace Style

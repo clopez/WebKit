@@ -44,17 +44,13 @@ namespace Style {
 // Custom handling of computed value extraction.
 class ExtractorCustom {
 public:
-    static Ref<CSSValue> extractAspectRatio(ExtractorState&);
     static Ref<CSSValue> extractDirection(ExtractorState&);
     static Ref<CSSValue> extractWritingMode(ExtractorState&);
     static Ref<CSSValue> extractFloat(ExtractorState&);
-    static Ref<CSSValue> extractClip(ExtractorState&);
     static Ref<CSSValue> extractContent(ExtractorState&);
     static Ref<CSSValue> extractCursor(ExtractorState&);
     static Ref<CSSValue> extractBaselineShift(ExtractorState&);
     static Ref<CSSValue> extractVerticalAlign(ExtractorState&);
-    static Ref<CSSValue> extractTextEmphasisStyle(ExtractorState&);
-    static Ref<CSSValue> extractTextIndent(ExtractorState&);
     static Ref<CSSValue> extractLetterSpacing(ExtractorState&);
     static Ref<CSSValue> extractWordSpacing(ExtractorState&);
     static Ref<CSSValue> extractLineHeight(ExtractorState&);
@@ -86,8 +82,6 @@ public:
     static Ref<CSSValue> extractCounterIncrement(ExtractorState&);
     static Ref<CSSValue> extractCounterReset(ExtractorState&);
     static Ref<CSSValue> extractCounterSet(ExtractorState&);
-    static Ref<CSSValue> extractContainIntrinsicHeight(ExtractorState&);
-    static Ref<CSSValue> extractContainIntrinsicWidth(ExtractorState&);
     static Ref<CSSValue> extractBorderImageOutset(ExtractorState&);
     static Ref<CSSValue> extractBorderImageRepeat(ExtractorState&);
     static Ref<CSSValue> extractBorderImageSlice(ExtractorState&);
@@ -101,7 +95,6 @@ public:
     static Ref<CSSValue> extractScale(ExtractorState&);
     static Ref<CSSValue> extractRotate(ExtractorState&);
     static Ref<CSSValue> extractGridAutoFlow(ExtractorState&);
-    static Ref<CSSValue> extractGridTemplateAreas(ExtractorState&);
     static Ref<CSSValue> extractGridTemplateColumns(ExtractorState&);
     static Ref<CSSValue> extractGridTemplateRows(ExtractorState&);
 
@@ -152,17 +145,13 @@ public:
 
     // MARK: Custom Serialization
 
-    static void extractAspectRatioSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractDirectionSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractWritingModeSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractFloatSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractClipSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractContentSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractCursorSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBaselineShiftSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractVerticalAlignSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractTextEmphasisStyleSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractTextIndentSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractLetterSpacingSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractWordSpacingSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractLineHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -194,8 +183,6 @@ public:
     static void extractCounterIncrementSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractCounterResetSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractCounterSetSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractContainIntrinsicHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractContainIntrinsicWidthSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBorderImageOutsetSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBorderImageRepeatSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBorderImageSliceSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -209,7 +196,6 @@ public:
     static void extractScaleSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractRotateSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractGridAutoFlowSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractGridTemplateAreasSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractGridTemplateColumnsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractGridTemplateRowsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
 
@@ -808,7 +794,7 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
     }
 
     // Otherwise, the resolved value is the computed value, preserving repeat().
-    auto& computedTracks = (isRowAxis ? state.style.gridColumnList() : state.style.gridRowList()).list;
+    auto& computedTracks = (isRowAxis ? state.style.gridTemplateColumns() : state.style.gridTemplateRows()).list;
 
     auto repeatVisitor = [&](CSSValueListBuilder& list, const RepeatEntry& entry) {
         if (std::holds_alternative<Vector<String>>(entry)) {
@@ -817,13 +803,13 @@ template<GridTrackSizingDirection direction> Ref<CSSValue> extractGridTemplateVa
                 return;
             list.append(CSSGridLineNamesValue::create(names));
         } else
-            list.append(ExtractorConverter::convertGridTrackSize(state, std::get<GridTrackSize>(entry)));
+            list.append(ExtractorConverter::convertStyleType(state, std::get<GridTrackSize>(entry)));
     };
 
     for (auto& entry : computedTracks) {
         WTF::switchOn(entry,
             [&](const GridTrackSize& size) {
-                list.append(ExtractorConverter::convertGridTrackSize(state, size));
+                list.append(ExtractorConverter::convertStyleType(state, size));
             },
             [&](const Vector<String>& names) {
                 // Subgrids don't have track sizes specified, so empty line names sets
@@ -1207,43 +1193,6 @@ inline void extractFillLayerPropertyShorthandSerialization(ExtractorState& state
 
 // MARK: - Custom Extractors
 
-inline Ref<CSSValue> ExtractorCustom::extractAspectRatio(ExtractorState& state)
-{
-    switch (state.style.aspectRatioType()) {
-    case AspectRatioType::Auto:
-        return CSSPrimitiveValue::create(CSSValueAuto);
-    case AspectRatioType::AutoZero:
-    case AspectRatioType::Ratio:
-        return CSSRatioValue::create(CSS::Ratio { state.style.aspectRatioWidth(), state.style.aspectRatioHeight() });
-    case AspectRatioType::AutoAndRatio:
-        return CSSValueList::createSpaceSeparated(
-            CSSPrimitiveValue::create(CSSValueAuto),
-            CSSRatioValue::create(CSS::Ratio { state.style.aspectRatioWidth(), state.style.aspectRatioHeight() })
-        );
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-    return CSSPrimitiveValue::create(CSSValueAuto);
-}
-
-inline void ExtractorCustom::extractAspectRatioSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    switch (state.style.aspectRatioType()) {
-    case AspectRatioType::Auto:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        return;
-    case AspectRatioType::AutoZero:
-    case AspectRatioType::Ratio:
-        CSS::serializationForCSS(builder, context, CSS::Ratio { state.style.aspectRatioWidth(), state.style.aspectRatioHeight() });
-        return;
-    case AspectRatioType::AutoAndRatio:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        builder.append(' ');
-        CSS::serializationForCSS(builder, context, CSS::Ratio { state.style.aspectRatioWidth(), state.style.aspectRatioHeight() });
-        return;
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
 inline CSSValueID extractDirectionValueID(ExtractorState& state)
 {
     if (state.element.ptr() == state.element->document().documentElement() && !state.style.hasExplicitlySetDirection())
@@ -1293,49 +1242,6 @@ inline void ExtractorCustom::extractFloatSerialization(ExtractorState& state, St
     }
 
     ExtractorSerializer::serialize(state, builder, context, state.style.floating());
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractClip(ExtractorState& state)
-{
-    if (!state.style.hasClip())
-        return CSSPrimitiveValue::create(CSSValueAuto);
-
-    auto& clip = state.style.clip();
-
-    if (clip.allOf([](auto& side) { return side.isAuto(); }))
-        return CSSPrimitiveValue::create(CSSValueAuto);
-
-    return CSSRectValue::create({
-        ExtractorConverter::convertLengthOrAuto(state, clip.top()),
-        ExtractorConverter::convertLengthOrAuto(state, clip.right()),
-        ExtractorConverter::convertLengthOrAuto(state, clip.bottom()),
-        ExtractorConverter::convertLengthOrAuto(state, clip.left())
-    });
-}
-
-inline void ExtractorCustom::extractClipSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    if (!state.style.hasClip()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        return;
-    }
-
-    auto& clip = state.style.clip();
-
-    if (clip.allOf([](auto& side) { return side.isAuto(); })) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Auto { });
-        return;
-    }
-
-    builder.append(nameLiteral(CSSValueRect), '(');
-    ExtractorSerializer::serializeLengthOrAuto(state, builder, context, clip.top());
-    builder.append(", "_s);
-    ExtractorSerializer::serializeLengthOrAuto(state, builder, context, clip.right());
-    builder.append(", "_s);
-    ExtractorSerializer::serializeLengthOrAuto(state, builder, context, clip.bottom());
-    builder.append(", "_s);
-    ExtractorSerializer::serializeLengthOrAuto(state, builder, context, clip.left());
-    builder.append(')');
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractContent(ExtractorState& state)
@@ -1485,97 +1391,6 @@ inline void ExtractorCustom::extractVerticalAlignSerialization(ExtractorState& s
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractTextEmphasisStyle(ExtractorState& state)
-{
-    switch (state.style.textEmphasisMark()) {
-    case TextEmphasisMark::None:
-        return CSSPrimitiveValue::create(CSSValueNone);
-    case TextEmphasisMark::Custom:
-        return CSSPrimitiveValue::create(state.style.textEmphasisCustomMark());
-    case TextEmphasisMark::Auto:
-        ASSERT_NOT_REACHED();
-#if !ASSERT_ENABLED
-        [[fallthrough]];
-#endif
-    case TextEmphasisMark::Dot:
-    case TextEmphasisMark::Circle:
-    case TextEmphasisMark::DoubleCircle:
-    case TextEmphasisMark::Triangle:
-    case TextEmphasisMark::Sesame:
-        if (state.style.textEmphasisFill() == TextEmphasisFill::Filled)
-            return CSSValueList::createSpaceSeparated(ExtractorConverter::convert(state, state.style.textEmphasisMark()));
-        return CSSValueList::createSpaceSeparated(
-            ExtractorConverter::convert(state, state.style.textEmphasisFill()),
-            ExtractorConverter::convert(state, state.style.textEmphasisMark())
-        );
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
-inline void ExtractorCustom::extractTextEmphasisStyleSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    switch (state.style.textEmphasisMark()) {
-    case TextEmphasisMark::None:
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    case TextEmphasisMark::Custom:
-        serializeString(state.style.textEmphasisCustomMark(), builder);
-        return;
-    case TextEmphasisMark::Auto:
-        ASSERT_NOT_REACHED();
-#if !ASSERT_ENABLED
-        [[fallthrough]];
-#endif
-    case TextEmphasisMark::Dot:
-    case TextEmphasisMark::Circle:
-    case TextEmphasisMark::DoubleCircle:
-    case TextEmphasisMark::Triangle:
-    case TextEmphasisMark::Sesame:
-        if (state.style.textEmphasisFill() == TextEmphasisFill::Filled) {
-            ExtractorSerializer::serialize(state, builder, context, state.style.textEmphasisMark());
-            return;
-        }
-
-        ExtractorSerializer::serialize(state, builder, context, state.style.textEmphasisFill());
-        builder.append(' ');
-        ExtractorSerializer::serialize(state, builder, context, state.style.textEmphasisMark());
-        return;
-    }
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractTextIndent(ExtractorState& state)
-{
-    auto textIndent = ExtractorConverter::convertLength(state, state.style.textIndent());
-    auto textIndentLine = state.style.textIndentLine();
-    auto textIndentType = state.style.textIndentType();
-    if (textIndentLine == TextIndentLine::EachLine || textIndentType == TextIndentType::Hanging) {
-        CSSValueListBuilder list;
-        list.append(WTFMove(textIndent));
-        if (textIndentType == TextIndentType::Hanging)
-            list.append(CSSPrimitiveValue::create(CSSValueHanging));
-        if (textIndentLine == TextIndentLine::EachLine)
-            list.append(CSSPrimitiveValue::create(CSSValueEachLine));
-        return CSSValueList::createSpaceSeparated(WTFMove(list));
-    }
-    return textIndent;
-}
-
-inline void ExtractorCustom::extractTextIndentSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    ExtractorSerializer::serializeLength(state, builder, context, state.style.textIndent());
-
-    if (state.style.textIndentType() == TextIndentType::Hanging) {
-        builder.append(' ');
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Hanging { });
-    }
-
-    if (state.style.textIndentLine() == TextIndentLine::EachLine) {
-        builder.append(' ');
-        CSS::serializationForCSS(builder, context, CSS::Keyword::EachLine { });
-    }
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractLetterSpacing(ExtractorState& state)
@@ -2185,26 +2000,6 @@ inline void ExtractorCustom::extractCounterSetSerialization(ExtractorState& stat
     extractCounterSerialization<CSSPropertyCounterSet>(state, builder, context);
 }
 
-inline Ref<CSSValue> ExtractorCustom::extractContainIntrinsicHeight(ExtractorState& state)
-{
-    return ExtractorConverter::convertContainIntrinsicSize(state, state.style.containIntrinsicHeightType(), state.style.containIntrinsicHeight());
-}
-
-inline void ExtractorCustom::extractContainIntrinsicHeightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    ExtractorSerializer::serializeContainIntrinsicSize(state, builder, context, state.style.containIntrinsicHeightType(), state.style.containIntrinsicHeight());
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractContainIntrinsicWidth(ExtractorState& state)
-{
-    return ExtractorConverter::convertContainIntrinsicSize(state, state.style.containIntrinsicWidthType(), state.style.containIntrinsicWidth());
-}
-
-inline void ExtractorCustom::extractContainIntrinsicWidthSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    ExtractorSerializer::serializeContainIntrinsicSize(state, builder, context, state.style.containIntrinsicWidthType(), state.style.containIntrinsicWidth());
-}
-
 inline Ref<CSSValue> ExtractorCustom::extractBorderImageOutset(ExtractorState& state)
 {
     return ExtractorConverter::convertNinePieceImageQuad(state, state.style.borderImage().outset());
@@ -2412,35 +2207,6 @@ inline void ExtractorCustom::extractGridAutoFlowSerialization(ExtractorState& st
             builder.append(' ');
         CSS::serializationForCSS(builder, context, CSS::Keyword::Dense { });
     }
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractGridTemplateAreas(ExtractorState& state)
-{
-    if (!state.style.namedGridAreaRowCount()) {
-        ASSERT(!state.style.namedGridAreaColumnCount());
-        return CSSPrimitiveValue::create(CSSValueNone);
-    }
-    return CSSGridTemplateAreasValue::create(
-        state.style.namedGridArea(),
-        state.style.namedGridAreaRowCount(),
-        state.style.namedGridAreaColumnCount()
-    );
-}
-
-inline void ExtractorCustom::extractGridTemplateAreasSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    if (!state.style.namedGridAreaRowCount()) {
-        ASSERT(!state.style.namedGridAreaColumnCount());
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(CSSGridTemplateAreasValue::create(
-        state.style.namedGridArea(),
-        state.style.namedGridAreaRowCount(),
-        state.style.namedGridAreaColumnCount()
-    )->cssText(context));
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractGridTemplateColumns(ExtractorState& state)

@@ -139,8 +139,9 @@ class WebViewImpl;
 class ViewGestureController;
 #endif
 enum class HideScrollPocketReason : uint8_t {
-    FullScreen      = 1 << 0,
-    ScrolledToTop   = 1 << 1,
+    FullScreen          = 1 << 0,
+    ScrolledToTop       = 1 << 1,
+    SiteSpecificQuirk   = 1 << 2,
 };
 }
 
@@ -345,6 +346,7 @@ struct PerWebProcessState {
     std::optional<OverriddenLayoutParameters> _overriddenLayoutParameters;
 #if PLATFORM(IOS_FAMILY)
     BOOL _forcesInitialScaleFactor;
+    BOOL _automaticallyAdjustsViewLayoutSizesWithObscuredInset;
 #endif
     CGRect _inputViewBoundsInWindow;
 
@@ -466,6 +468,7 @@ struct PerWebProcessState {
     WebCore::RectEdges<RetainPtr<WKColorExtensionView>> _fixedColorExtensionViews;
     OptionSet<WebKit::HideScrollPocketReason> _reasonsToHideTopScrollPocket;
     BOOL _needsTopScrollPocketDueToVisibleContentInset;
+    BOOL _shouldUpdateNeedsTopScrollPocketDueToVisibleContentInset;
 #endif
 }
 

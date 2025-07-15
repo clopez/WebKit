@@ -27,6 +27,7 @@
 
 #include "FrameRateAligner.h"
 #include "ReducedResolutionSeconds.h"
+#include "Timer.h"
 #include "WebAnimationTypes.h"
 #include <wtf/CancellableTask.h>
 #include <wtf/CheckedRef.h>
@@ -96,7 +97,7 @@ private:
     TaskCancellationGroup m_pendingAnimationsProcessingTaskCancellationGroup;
     WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     FrameRateAligner m_frameRateAligner;
-    Markable<Seconds, Seconds::MarkableTraits> m_cachedCurrentTime;
+    Markable<Seconds> m_cachedCurrentTime;
     bool m_isSuspended { false };
 };
 

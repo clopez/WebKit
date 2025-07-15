@@ -180,9 +180,6 @@ public:
     static ScrollbarGutter convertScrollbarGutter(BuilderState&, const CSSValue&);
     // scrollbar-width converter is only needed for quirking.
     static ScrollbarWidth convertScrollbarWidth(BuilderState&, const CSSValue&);
-    static GridTrackSize convertGridTrackSize(BuilderState&, const CSSValue&);
-    static Vector<GridTrackSize> convertGridTrackSizeList(BuilderState&, const CSSValue&);
-    static std::optional<GridTrackList> convertGridTrackList(BuilderState&, const CSSValue&);
     static GridPosition convertGridPosition(BuilderState&, const CSSValue&);
     static GridAutoFlow convertGridAutoFlow(BuilderState&, const CSSValue&);
     static FilterOperations convertFilterOperations(BuilderState&, const CSSValue&);
@@ -261,12 +258,6 @@ private:
     friend class BuilderCustom;
 
     static WebCore::Length parseSnapCoordinate(BuilderState&, const CSSValue&);
-
-    static GridTrackBreadth createGridTrackBreadth(BuilderState&, const CSSPrimitiveValue&);
-    static GridTrackSize createGridTrackSize(BuilderState&, const CSSValue&);
-    static std::optional<GridTrackList> createGridTrackList(BuilderState&, const CSSValue&);
-    static GridPosition createGridPosition(BuilderState&, const CSSValue&);
-    static NamedGridLinesMap createImplicitNamedGridLinesFromGridArea(BuilderState&, const NamedGridAreaMap&, GridTrackSizingDirection);
 
     static CSSToLengthConversionData cssToLengthConversionDataWithTextZoomFactor(BuilderState&);
 };
@@ -1050,127 +1041,7 @@ inline ScrollbarWidth BuilderConverter::convertScrollbarWidth(BuilderState& buil
     return scrollbarWidth;
 }
 
-inline GridTrackBreadth BuilderConverter::createGridTrackBreadth(BuilderState& builderState, const CSSPrimitiveValue& primitiveValue)
-{
-    if (primitiveValue.isFlex())
-        return Flex<CSS::Nonnegative> { primitiveValue.resolveAsFlex<double>(builderState.cssToLengthConversionData()) };
-    return toStyleFromCSSValue<GridTrackBreadthLength>(builderState, primitiveValue);
-}
-
-inline GridTrackSize BuilderConverter::createGridTrackSize(BuilderState& builderState, const CSSValue& value)
-{
-    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value))
-        return GridTrackSize(createGridTrackBreadth(builderState, *primitiveValue));
-
-    auto function = requiredListDowncast<CSSFunctionValue, CSSPrimitiveValue>(builderState, value);
-    if (!function)
-        return { };
-
-    if (function->size() == 1) {
-        return GridTrackSize(
-            createGridTrackBreadth(builderState, function->item(0)),
-            GridTrackSizeType::FitContent
-        );
-    }
-
-    return GridTrackSize(
-        createGridTrackBreadth(builderState, function->item(0)),
-        createGridTrackBreadth(builderState, function->item(1))
-    );
-}
-
-inline std::optional<GridTrackList> BuilderConverter::createGridTrackList(BuilderState& builderState, const CSSValue& value)
-{
-    RefPtr<const CSSValueContainingVector> valueList;
-
-    GridTrackList trackList;
-
-    auto* subgridValue = dynamicDowncast<CSSSubgridValue>(value);
-    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
-        if (primitiveValue->valueID() == CSSValueMasonry) {
-            trackList.list.append(GridTrackEntryMasonry());
-            return { WTFMove(trackList) };
-        }
-        if (primitiveValue->valueID() == CSSValueNone)
-            return { WTFMove(trackList) };
-    } else if (subgridValue) {
-        valueList = subgridValue;
-        trackList.list.append(GridTrackEntrySubgrid());
-    } else if (auto* list = dynamicDowncast<CSSValueList>(value))
-        valueList = list;
-    else
-        return std::nullopt;
-
-    // https://drafts.csswg.org/css-grid-2/#computed-tracks
-    // The computed track list of a non-subgrid axis is a list alternating between line name sets
-    // and track sections, with the first and last items being line name sets.
-    auto ensureLineNames = [&](auto& list) {
-        if (subgridValue)
-            return;
-        if (list.isEmpty() || !std::holds_alternative<Vector<String>>(list.last()))
-            list.append(Vector<String>());
-    };
-
-    auto buildRepeatList = [&](const CSSValue& repeatValue, RepeatTrackList& repeatList) {
-        auto vectorValue = requiredDowncast<CSSValueContainingVector>(builderState, repeatValue);
-        if (!vectorValue)
-            return;
-        for (auto& currentValue : *vectorValue) {
-            if (auto* namesValue = dynamicDowncast<CSSGridLineNamesValue>(currentValue))
-                repeatList.append(Vector<String>(namesValue->names()));
-            else {
-                ensureLineNames(repeatList);
-                repeatList.append(createGridTrackSize(builderState, currentValue));
-            }
-        }
-
-        if (!repeatList.isEmpty())
-            ensureLineNames(repeatList);
-    };
-
-    auto addOne = [&](const CSSValue& currentValue) {
-        if (auto* namesValue = dynamicDowncast<CSSGridLineNamesValue>(currentValue)) {
-            trackList.list.append(Vector<String>(namesValue->names()));
-            return;
-        }
-
-        ensureLineNames(trackList.list);
-
-        if (auto* repeatValue = dynamicDowncast<CSSGridAutoRepeatValue>(currentValue)) {
-            CSSValueID autoRepeatID = repeatValue->autoRepeatID();
-            ASSERT(autoRepeatID == CSSValueAutoFill || autoRepeatID == CSSValueAutoFit);
-
-            GridTrackEntryAutoRepeat repeat;
-            repeat.type = autoRepeatID == CSSValueAutoFill ? AutoRepeatType::Fill : AutoRepeatType::Fit;
-
-            buildRepeatList(currentValue, repeat.list);
-            trackList.list.append(WTFMove(repeat));
-        } else if (auto* repeatValue = dynamicDowncast<CSSGridIntegerRepeatValue>(currentValue)) {
-            auto repetitions = clampTo(repeatValue->repetitions().resolveAsInteger(builderState.cssToLengthConversionData()), 1, GridPosition::max());
-
-            GridTrackEntryRepeat repeat;
-            repeat.repeats = repetitions;
-
-            buildRepeatList(currentValue, repeat.list);
-            trackList.list.append(WTFMove(repeat));
-        } else
-            trackList.list.append(createGridTrackSize(builderState, currentValue));
-    };
-
-    if (!valueList)
-        addOne(value);
-    else {
-        for (auto& value : *valueList)
-            addOne(value);
-    }
-
-    if (!trackList.list.isEmpty())
-        ensureLineNames(trackList.list);
-
-    return { WTFMove(trackList) };
-}
-
-inline GridPosition BuilderConverter::createGridPosition(BuilderState& builderState, const CSSValue& value)
+inline GridPosition BuilderConverter::convertGridPosition(BuilderState& builderState, const CSSValue& value)
 {
     GridPosition position;
 
@@ -1203,71 +1074,6 @@ inline GridPosition BuilderConverter::createGridPosition(BuilderState& builderSt
         position.setExplicitPosition(gridLineNumber, gridLineName);
 
     return position;
-}
-
-inline NamedGridLinesMap BuilderConverter::createImplicitNamedGridLinesFromGridArea(BuilderState&, const NamedGridAreaMap& namedGridAreas, GridTrackSizingDirection direction)
-{
-    NamedGridLinesMap namedGridLines;
-
-    for (auto& area : namedGridAreas.map) {
-        GridSpan areaSpan = direction == GridTrackSizingDirection::ForRows ? area.value.rows : area.value.columns;
-        {
-            auto& startVector = namedGridLines.map.add(makeString(area.key, "-start"_s), Vector<unsigned>()).iterator->value;
-            startVector.append(areaSpan.startLine());
-            std::ranges::sort(startVector);
-        }
-        {
-            auto& endVector = namedGridLines.map.add(makeString(area.key, "-end"_s), Vector<unsigned>()).iterator->value;
-            endVector.append(areaSpan.endLine());
-            std::ranges::sort(endVector);
-        }
-    }
-    // FIXME: For acceptable performance, should sort once at the end, not as we add each item, or at least insert in sorted order instead of using std::sort each time.
-
-    return namedGridLines;
-}
-
-inline Vector<GridTrackSize> BuilderConverter::convertGridTrackSizeList(BuilderState& builderState, const CSSValue& value)
-{
-    auto validateValue = [](const CSSValue& value) {
-        ASSERT_UNUSED(value, !value.isGridLineNamesValue());
-        ASSERT_UNUSED(value, !value.isGridAutoRepeatValue());
-        ASSERT_UNUSED(value, !value.isGridIntegerRepeatValue());
-    };
-
-    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
-        if (primitiveValue->isValueID()) {
-            ASSERT(primitiveValue->valueID() == CSSValueAuto);
-            return RenderStyle::initialGridAutoRows();
-        }
-        // Values coming from CSS Typed OM may not have been converted to a CSSValueList yet.
-        validateValue(*primitiveValue);
-        return Vector<GridTrackSize>({ convertGridTrackSize(builderState, *primitiveValue) });
-    }
-
-    if (auto* valueList = dynamicDowncast<CSSValueList>(value))  {
-        return WTF::map(*valueList, [&](auto& currentValue) {
-            validateValue(currentValue);
-            return convertGridTrackSize(builderState, currentValue);
-        });
-    }
-    validateValue(value);
-    return Vector<GridTrackSize>({ convertGridTrackSize(builderState, value) });
-}
-
-inline GridTrackSize BuilderConverter::convertGridTrackSize(BuilderState& builderState, const CSSValue& value)
-{
-    return createGridTrackSize(builderState, value);
-}
-
-inline std::optional<GridTrackList> BuilderConverter::convertGridTrackList(BuilderState& builderState, const CSSValue& value)
-{
-    return createGridTrackList(builderState, value);
-}
-
-inline GridPosition BuilderConverter::convertGridPosition(BuilderState& builderState, const CSSValue& value)
-{
-    return createGridPosition(builderState, value);
 }
 
 inline GridAutoFlow BuilderConverter::convertGridAutoFlow(BuilderState& builderState, const CSSValue& value)
@@ -2323,9 +2129,9 @@ inline NameScope BuilderConverter::convertNameScope(BuilderState& builderState, 
         case CSSValueNone:
             return { };
         case CSSValueAll:
-            return { NameScope::Type::All, { } };
+            return { NameScope::Type::All, { }, builderState.styleScopeOrdinal() };
         default:
-            return { NameScope::Type::Ident, { AtomString { primitiveValue->stringValue() } } };
+            return { NameScope::Type::Ident, { AtomString { primitiveValue->stringValue() } }, builderState.styleScopeOrdinal() };
         }
     }
 
@@ -2337,7 +2143,7 @@ inline NameScope BuilderConverter::convertNameScope(BuilderState& builderState, 
     for (auto& name : *list)
         nameHashSet.add(AtomString { name.stringValue() });
 
-    return { NameScope::Type::Ident, WTFMove(nameHashSet) };
+    return { NameScope::Type::Ident, WTFMove(nameHashSet), builderState.styleScopeOrdinal() };
 }
 
 inline FixedVector<PositionTryFallback> BuilderConverter::convertPositionTryFallbacks(BuilderState& builderState, const CSSValue& value)

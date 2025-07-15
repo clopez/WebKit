@@ -20,6 +20,7 @@
 #include "config.h"
 #include "Page.h"
 
+#include "AXLogger.h"
 #include "ActivityStateChangeObserver.h"
 #include "AdvancedPrivacyProtections.h"
 #include "AlternativeTextClient.h"
@@ -97,7 +98,7 @@
 #include "ImageAnalysisQueue.h"
 #include "ImageOverlay.h"
 #include "ImageOverlayController.h"
-#include "InspectorClient.h"
+#include "InspectorBackendClient.h"
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "IntelligenceTextEffectsSupport.h"
@@ -105,7 +106,7 @@
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
 #include "LocalFrameLoaderClient.h"
-#include "LocalFrameView.h"
+#include "LocalFrameViewInlines.h"
 #include "LogInitialization.h"
 #include "Logging.h"
 #include "LoginStatus.h"
@@ -363,7 +364,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #if ENABLE(CONTEXT_MENUS)
     , m_contextMenuController(makeUniqueRef<ContextMenuController>(*this, WTFMove(pageConfiguration.contextMenuClient)))
 #endif
-    , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<InspectorController>(*this, WTFMove(pageConfiguration.inspectorClient)))
+    , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<InspectorController>(*this, WTFMove(pageConfiguration.inspectorBackendClient)))
     , m_pointerCaptureController(makeUniqueRef<PointerCaptureController>(*this))
 #if ENABLE(POINTER_LOCK)
     , m_pointerLockController(makeUniqueRef<PointerLockController>(*this))
@@ -495,7 +496,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     protectedStorageNamespaceProvider()->setSessionStorageQuota(m_settings->sessionStorageQuota());
 
 #if ENABLE(REMOTE_INSPECTOR)
-    if (m_inspectorController->inspectorClient() && m_inspectorController->inspectorClient()->allowRemoteInspectionToPageDirectly())
+    if (m_inspectorController->inspectorBackendClient() && m_inspectorController->inspectorBackendClient()->allowRemoteInspectionToPageDirectly())
         m_inspectorDebuggable->init();
 #endif
 
@@ -793,16 +794,26 @@ void Page::settingsDidChange()
 #endif
 }
 
-std::optional<AXTreeData> Page::accessibilityTreeData() const
+std::optional<AXTreeData> Page::accessibilityTreeData(IncludeDOMInfo includeDOMInfo) const
 {
     RefPtr localTopDocument = this->localTopDocument();
     if (!localTopDocument)
         return std::nullopt;
 
     if (CheckedPtr cache = localTopDocument->existingAXObjectCache())
-        return { cache->treeData() };
+        return { includeDOMInfo == IncludeDOMInfo::Yes ? cache->treeData({ { AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::RendererOrNode } }) : cache->treeData() };
     return std::nullopt;
 }
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+void Page::clearAccessibilityIsolatedTree()
+{
+    if (CheckedPtr cache = axObjectCache()) {
+        if (std::optional identifier = this->identifier())
+            AXIsolatedTree::removeTreeForPageID(*identifier);
+    }
+}
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 void Page::progressEstimateChanged(LocalFrame& frameWithProgressUpdate) const
 {
@@ -1725,7 +1736,6 @@ void Page::screenPropertiesDidChange()
 #endif
 #if HAVE(SUPPORT_HDR_DISPLAY)
     updateDisplayEDRHeadroom();
-    updateDisplayEDRSuppression();
 #endif
 
     updateScreenSupportedContentsFormats();
@@ -5309,17 +5319,25 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
     if (!mainFrame)
         return;
 
+    RefPtr document = mainFrame->document();
+    if (!document)
+        return;
+
     RefPtr frameView = mainFrame->view();
     if (!frameView)
         return;
 
-    auto [edges, elements] = frameView->fixedContainerEdges([frameView, sides] {
+    auto [edges, elements] = frameView->fixedContainerEdges([&] {
         auto sidesToSample = sides;
         auto scrollOffset = frameView->scrollOffset();
         auto minimumOffset = frameView->minimumScrollOffset();
         auto maximumOffset = frameView->maximumScrollOffset();
 
-        if (scrollOffset.y() < minimumOffset.y())
+        bool canSampleTopEdge = settings().topContentInsetBackgroundCanChangeAfterScrolling()
+            || !frameView->wasEverScrolledExplicitlyByUser()
+            || document->parsing();
+
+        if (scrollOffset.y() < minimumOffset.y() || !canSampleTopEdge)
             sidesToSample.remove(BoxSideFlag::Top);
 
         if (scrollOffset.y() > maximumOffset.y())
@@ -5832,14 +5850,31 @@ bool Page::requiresUserGestureForVideoPlayback() const
 }
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
+bool Page::drawsHDRContent() const
+{
+    bool drawsHDRContent = false;
+    forEachRenderableDocument([&] (Document& document) {
+        if (document.drawsHDRContent())
+            drawsHDRContent = true;
+    });
+    return drawsHDRContent;
+}
+
 void Page::updateDisplayEDRHeadroom()
 {
+    static constexpr float kMinimumRequiredHeadroomForTonemapping = 2.7;
+    bool layersRequireTonemapping = false;
     float headroom = currentEDRHeadroomForDisplay(m_displayID);
-    if (headroom == m_displayEDRHeadroom)
+    if (m_settings->supportHDRCompositorTonemappingEnabled() && headroom >= kMinimumRequiredHeadroomForTonemapping) {
+        headroom = maxEDRHeadroomForDisplay(m_displayID);
+        layersRequireTonemapping = true;
+    }
+    if (headroom == m_displayEDRHeadroom && m_hdrLayersRequireTonemapping == layersRequireTonemapping)
         return;
 
     LOG_WITH_STREAM(HDR, stream << "Page " << this << " updateDisplayEDRHeadroom " << m_displayEDRHeadroom.headroom << " to " << headroom);
     m_displayEDRHeadroom = Headroom(headroom);
+    m_hdrLayersRequireTonemapping = layersRequireTonemapping;
 
     forEachDocument([&] (Document& document) {
         if (!document.drawsHDRContent())
@@ -5850,17 +5885,6 @@ void Page::updateDisplayEDRHeadroom()
     });
 }
 
-void Page::updateDisplayEDRSuppression()
-{
-    bool suppressEDR = suppressEDRForDisplay(m_displayID);
-    if (suppressEDR == m_suppressEDR)
-        return;
-
-    LOG_WITH_STREAM(HDR, stream << "Page " << this << " updateDisplayEDRSuppression " << m_suppressEDR << " to " << suppressEDR);
-    m_suppressEDR = suppressEDR;
-
-    forceRepaintAllFrames();
-}
 #endif
 
 } // namespace WebCore

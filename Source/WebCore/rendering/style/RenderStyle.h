@@ -63,7 +63,6 @@ class FontCascadeDescription;
 class FontMetrics;
 class FontSelectionValue;
 class GridPosition;
-class GridTrackSize;
 class HitTestRequest;
 class IntPoint;
 class IntSize;
@@ -74,6 +73,7 @@ class LayoutUnit;
 class LengthBox;
 class LineClampValue;
 class NinePieceImage;
+class OutlineValue;
 class PathOperation;
 class PositionArea;
 class PseudoIdSet;
@@ -111,7 +111,6 @@ enum class PaginationMode : uint8_t;
 enum class ApplePayButtonStyle : uint8_t;
 enum class ApplePayButtonType : uint8_t;
 enum class AppleVisualEffect : uint8_t;
-enum class AspectRatioType : uint8_t;
 enum class AutoRepeatType : uint8_t;
 enum class BackfaceVisibility : uint8_t;
 enum class BlendMode : uint8_t;
@@ -138,7 +137,6 @@ enum class ColumnFill : bool;
 enum class ColumnProgression : bool;
 enum class ColumnSpan : bool;
 enum class CompositeOperator : uint8_t;
-enum class ContainIntrinsicSizeType : uint8_t;
 enum class ContainerType : uint8_t;
 enum class Containment : uint8_t;
 enum class ContentDistribution : uint8_t;
@@ -182,6 +180,7 @@ enum class NinePieceImageRule : uint8_t;
 enum class NonCJKGlyphOrientation : bool;
 enum class ObjectFit : uint8_t;
 enum class Order : bool;
+enum class OutlineStyle : uint8_t;
 enum class Overflow : uint8_t;
 enum class OverflowAnchor : bool;
 enum class OverflowContinue : bool;
@@ -216,12 +215,8 @@ enum class TextCombine : bool;
 enum class TextDecorationLine : uint8_t;
 enum class TextDecorationSkipInk : uint8_t;
 enum class TextDecorationStyle : uint8_t;
-enum class TextEmphasisFill : bool;
-enum class TextEmphasisMark : uint8_t;
 enum class TextEmphasisPosition : uint8_t;
 enum class TextGroupAlign : uint8_t;
-enum class TextIndentLine : bool;
-enum class TextIndentType : bool;
 enum class TextJustify : uint8_t;
 enum class TextOverflow : bool;
 enum class TextSecurity : uint8_t;
@@ -256,9 +251,6 @@ struct Length;
 struct LengthPoint;
 struct LengthSize;
 struct ListStyleType;
-struct NamedGridAreaMap;
-struct NamedGridLinesMap;
-struct OrderedNamedGridLinesMap;
 struct SingleTimelineRange;
 
 struct ScrollSnapAlign;
@@ -288,16 +280,25 @@ class CustomPropertyData;
 class CustomPropertyRegistry;
 class ViewTransitionName;
 struct AnchorNames;
+struct AspectRatio;
 struct BorderRadius;
 struct BoxShadow;
+struct Clip;
 struct ClipPath;
 struct Color;
 struct ColorScheme;
+struct ContainIntrinsicSize;
 struct ContainerNames;
 struct CornerShapeValue;
 struct DynamicRangeLimit;
 struct FlexBasis;
 struct GapGutter;
+struct GridNamedLinesMap;
+struct GridOrderedNamedLinesMap;
+struct GridTemplateAreas;
+struct GridTemplateList;
+struct GridTrackSize;
+struct GridTrackSizes;
 struct InsetEdge;
 struct MarginEdge;
 struct MaximumSize;
@@ -320,6 +321,8 @@ struct ScopedName;
 struct ScrollMarginEdge;
 struct ScrollPaddingEdge;
 struct ScrollTimelines;
+struct TextEmphasisStyle;
+struct TextIndent;
 struct TextShadow;
 struct TextUnderlineOffset;
 struct Translate;
@@ -610,11 +613,12 @@ public:
     void setCornerTopLeftShape(Style::CornerShapeValue&&);
     void setCornerTopRightShape(Style::CornerShapeValue&&);
 
+    inline const OutlineValue& outline() const;
     float outlineSize() const { return std::max<float>(0, outlineWidth() + outlineOffset()); }
     float outlineWidth() const;
+    float outlineOffset() const;
     inline bool hasOutline() const;
-    inline BorderStyle outlineStyle() const;
-    inline bool hasAutoOutlineStyle() const;
+    inline OutlineStyle outlineStyle() const;
     inline bool hasOutlineInVisualOverflow() const;
     
     Overflow overflowX() const { return static_cast<Overflow>(m_nonInheritedFlags.overflowX); }
@@ -630,11 +634,7 @@ public:
     VerticalAlign verticalAlign() const;
     const Length& verticalAlignLength() const;
 
-    inline const Length& clipLeft() const;
-    inline const Length& clipRight() const;
-    inline const Length& clipTop() const;
-    inline const Length& clipBottom() const;
-    inline const LengthBox& clip() const;
+    inline const Style::Clip& clip() const;
     inline bool hasClip() const;
 
     UnicodeBidi unicodeBidi() const { return static_cast<UnicodeBidi>(m_nonInheritedFlags.unicodeBidi); }
@@ -663,7 +663,7 @@ public:
     inline const FontPalette& fontPalette() const;
     inline FontSizeAdjust fontSizeAdjust() const;
 
-    inline const Length& textIndent() const;
+    inline const Style::TextIndent& textIndent() const;
     inline TextAlignMode textAlign() const { return static_cast<TextAlignMode>(m_inheritedFlags.textAlign); }
     inline TextAlignLast textAlignLast() const;
     inline TextGroupAlign textGroupAlign() const;
@@ -676,8 +676,6 @@ public:
     inline const Style::TextUnderlineOffset& textUnderlineOffset() const;
     inline TextDecorationThickness textDecorationThickness() const;
 
-    inline TextIndentLine textIndentLine() const;
-    inline TextIndentType textIndentType() const;
     inline TextJustify textJustify() const;
 
     inline TextBoxTrim textBoxTrim() const;
@@ -816,22 +814,21 @@ public:
 
     OptionSet<HangingPunctuation> hangingPunctuation() const;
 
-    float outlineOffset() const;
-
     inline float textStrokeWidth() const;
     inline float opacity() const;
     inline bool hasOpacity() const;
     inline bool hasZeroOpacity() const;
     inline StyleAppearance appearance() const;
     inline StyleAppearance usedAppearance() const;
-    inline AspectRatioType aspectRatioType() const;
-    inline double aspectRatioWidth() const;
-    inline double aspectRatioHeight() const;
-    inline double aspectRatioLogicalWidth() const;
-    inline double aspectRatioLogicalHeight() const;
+
+    inline const Style::AspectRatio& aspectRatio() const;
+    inline Style::Number<CSS::Nonnegative> aspectRatioWidth() const;
+    inline Style::Number<CSS::Nonnegative> aspectRatioHeight() const;
+    inline Style::Number<CSS::Nonnegative> aspectRatioLogicalWidth() const;
+    inline Style::Number<CSS::Nonnegative> aspectRatioLogicalHeight() const;
     inline double logicalAspectRatio() const;
-    inline BoxSizing boxSizingForAspectRatio() const;
     inline bool hasAspectRatio() const;
+
     inline OptionSet<Containment> contain() const;
     inline OptionSet<Containment> usedContain() const;
     inline bool containsLayout() const;
@@ -853,20 +850,10 @@ public:
     inline ContentVisibility usedContentVisibility() const;
     inline bool isSkippedRootOrSkippedContent() const;
 
-    inline ContainIntrinsicSizeType containIntrinsicWidthType() const;
-    inline ContainIntrinsicSizeType containIntrinsicHeightType() const;
-    inline ContainIntrinsicSizeType containIntrinsicLogicalWidthType() const;
-    inline ContainIntrinsicSizeType containIntrinsicLogicalHeightType() const;
-    inline bool containIntrinsicWidthHasAuto() const;
-    inline bool containIntrinsicHeightHasAuto() const;
-    inline bool containIntrinsicWidthHasLength() const;
-    inline bool containIntrinsicHeightHasLength() const;
-    inline bool containIntrinsicLogicalWidthHasAuto() const;
-    inline bool containIntrinsicLogicalHeightHasAuto() const;
-    inline void containIntrinsicWidthAddAuto();
-    inline void containIntrinsicHeightAddAuto();
-    inline std::optional<Length> containIntrinsicWidth() const;
-    inline std::optional<Length> containIntrinsicHeight() const;
+    inline const Style::ContainIntrinsicSize& containIntrinsicWidth() const;
+    inline const Style::ContainIntrinsicSize& containIntrinsicHeight() const;
+    inline const Style::ContainIntrinsicSize& containIntrinsicLogicalWidth() const;
+    inline const Style::ContainIntrinsicSize& containIntrinsicLogicalHeight() const;
     inline bool hasAutoLengthContainIntrinsicSize() const;
 
     inline BoxAlignment boxAlign() const;
@@ -894,41 +881,40 @@ public:
     inline const StyleSelfAlignmentData& justifyItems() const;
     inline const StyleSelfAlignmentData& justifySelf() const;
 
-    inline const Vector<GridTrackSize>& gridColumnTrackSizes() const;
-    inline const Vector<GridTrackSize>& gridRowTrackSizes() const;
-    inline const Vector<GridTrackSize>& gridTrackSizes(GridTrackSizingDirection) const;
-    inline const GridTrackList& gridColumnList() const;
-    inline const GridTrackList& gridRowList() const;
-    inline const Vector<GridTrackSize>& gridAutoRepeatColumns() const;
-    inline const Vector<GridTrackSize>& gridAutoRepeatRows() const;
-    inline unsigned gridAutoRepeatColumnsInsertionPoint() const;
-    inline unsigned gridAutoRepeatRowsInsertionPoint() const;
-    inline AutoRepeatType gridAutoRepeatColumnsType() const;
-    inline AutoRepeatType gridAutoRepeatRowsType() const;
-    inline const NamedGridLinesMap& namedGridColumnLines() const;
-    inline const NamedGridLinesMap& namedGridRowLines() const;
-    inline const OrderedNamedGridLinesMap& orderedNamedGridColumnLines() const;
-    inline const OrderedNamedGridLinesMap& orderedNamedGridRowLines() const;
-    inline const NamedGridLinesMap& autoRepeatNamedGridColumnLines() const;
-    inline const NamedGridLinesMap& autoRepeatNamedGridRowLines() const;
-    inline const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridColumnLines() const;
-    inline const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridRowLines() const;
-    inline const NamedGridLinesMap& implicitNamedGridColumnLines() const;
-    inline const NamedGridLinesMap& implicitNamedGridRowLines() const;
-    inline const NamedGridAreaMap& namedGridArea() const;
-    inline size_t namedGridAreaRowCount() const;
-    inline size_t namedGridAreaColumnCount() const;
     inline GridAutoFlow gridAutoFlow() const;
-    inline bool gridSubgridRows() const;
-    inline bool gridSubgridColumns() const;
-    inline bool gridMasonryRows() const;
-    inline bool gridMasonryColumns() const;
     inline bool isGridAutoFlowDirectionRow() const;
     inline bool isGridAutoFlowDirectionColumn() const;
     inline bool isGridAutoFlowAlgorithmSparse() const;
     inline bool isGridAutoFlowAlgorithmDense() const;
-    inline const Vector<GridTrackSize>& gridAutoColumns() const;
-    inline const Vector<GridTrackSize>& gridAutoRows() const;
+    inline const Style::GridTrackSizes& gridAutoColumns() const;
+    inline const Style::GridTrackSizes& gridAutoRows() const;
+    inline const Style::GridTrackSizes& gridAutoList(GridTrackSizingDirection) const;
+    inline const Style::GridTemplateAreas& gridTemplateAreas() const;
+    inline const Style::GridTemplateList& gridTemplateColumns() const;
+    inline const Style::GridTemplateList& gridTemplateRows() const;
+    inline const Style::GridTemplateList& gridTemplateList(GridTrackSizingDirection) const;
+
+    inline const Vector<Style::GridTrackSize>& gridColumnTrackSizes() const;
+    inline const Vector<Style::GridTrackSize>& gridRowTrackSizes() const;
+    inline const Vector<Style::GridTrackSize>& gridTrackSizes(GridTrackSizingDirection) const;
+    inline const Vector<Style::GridTrackSize>& gridAutoRepeatColumns() const;
+    inline const Vector<Style::GridTrackSize>& gridAutoRepeatRows() const;
+    inline unsigned gridAutoRepeatColumnsInsertionPoint() const;
+    inline unsigned gridAutoRepeatRowsInsertionPoint() const;
+    inline AutoRepeatType gridAutoRepeatColumnsType() const;
+    inline AutoRepeatType gridAutoRepeatRowsType() const;
+    inline const Style::GridNamedLinesMap& namedGridColumnLines() const;
+    inline const Style::GridNamedLinesMap& namedGridRowLines() const;
+    inline const Style::GridOrderedNamedLinesMap& orderedNamedGridColumnLines() const;
+    inline const Style::GridOrderedNamedLinesMap& orderedNamedGridRowLines() const;
+    inline const Style::GridNamedLinesMap& autoRepeatNamedGridColumnLines() const;
+    inline const Style::GridNamedLinesMap& autoRepeatNamedGridRowLines() const;
+    inline const Style::GridOrderedNamedLinesMap& autoRepeatOrderedNamedGridColumnLines() const;
+    inline const Style::GridOrderedNamedLinesMap& autoRepeatOrderedNamedGridRowLines() const;
+    inline bool gridSubgridRows() const;
+    inline bool gridSubgridColumns() const;
+    inline bool gridMasonryRows() const;
+    inline bool gridMasonryColumns() const;
 
     inline const GridPosition& gridItemColumnStart() const;
     inline const GridPosition& gridItemColumnEnd() const;
@@ -945,6 +931,7 @@ public:
 
     inline StyleReflection* boxReflect() const;
     inline BoxSizing boxSizing() const;
+    inline BoxSizing boxSizingForAspectRatio() const;
     inline const Length& marqueeIncrement() const;
     inline int marqueeSpeed() const;
     inline int marqueeLoopCount() const;
@@ -1003,11 +990,8 @@ public:
 
     inline bool affectsTransform() const;
 
-    inline TextEmphasisFill textEmphasisFill() const;
-    TextEmphasisMark textEmphasisMark() const;
-    inline const AtomString& textEmphasisCustomMark() const;
+    inline const Style::TextEmphasisStyle& textEmphasisStyle() const;
     inline OptionSet<TextEmphasisPosition> textEmphasisPosition() const;
-    const AtomString& textEmphasisMarkString() const;
 
     inline RubyPosition rubyPosition() const;
     inline bool isInterCharacterRubyPosition() const;
@@ -1333,8 +1317,7 @@ public:
     inline void setBorderBottomColor(Style::Color&&);
 
     inline void setOutlineWidth(float);
-    inline void setOutlineStyle(BorderStyle);
-    inline void setHasAutoOutlineStyle();
+    inline void setOutlineStyle(OutlineStyle);
     inline void setOutlineColor(Style::Color&&);
 
     void setOverflowX(Overflow v) { m_nonInheritedFlags.overflowX =  static_cast<unsigned>(v); }
@@ -1345,13 +1328,7 @@ public:
     void setVerticalAlign(VerticalAlign);
     void setVerticalAlignLength(Length&&);
 
-    inline void setHasClip(bool = true);
-    inline void setClipLeft(Length&&);
-    inline void setClipRight(Length&&);
-    inline void setClipTop(Length&&);
-    inline void setClipBottom(Length&&);
-    void setClip(Length&& top, Length&& right, Length&& bottom, Length&& left);
-    inline void setClip(LengthBox&&);
+    inline void setClip(Style::Clip&&);
 
     void setUnicodeBidi(UnicodeBidi v) { m_nonInheritedFlags.unicodeBidi = static_cast<unsigned>(v); }
 
@@ -1375,26 +1352,25 @@ public:
     void setFontPalette(const FontPalette&);
 
     void setColor(Color&&);
-    inline void setTextIndent(Length&&);
+
     void setTextAlign(TextAlignMode v) { m_inheritedFlags.textAlign = static_cast<unsigned>(v); }
     inline void setTextAlignLast(TextAlignLast);
     inline void setTextGroupAlign(TextGroupAlign);
-    inline void setTextTransform(OptionSet<TextTransform>);
     inline void addToTextDecorationLineInEffect(OptionSet<TextDecorationLine>);
     inline void setTextDecorationLineInEffect(OptionSet<TextDecorationLine>);
     inline void setTextDecorationLine(OptionSet<TextDecorationLine>);
     inline void setTextDecorationStyle(TextDecorationStyle);
     inline void setTextDecorationSkipInk(TextDecorationSkipInk);
+    inline void setTextDecorationThickness(TextDecorationThickness);
+    inline void setTextIndent(Style::TextIndent&&);
     inline void setTextUnderlinePosition(OptionSet<TextUnderlinePosition>);
     inline void setTextUnderlineOffset(Style::TextUnderlineOffset&&);
-    inline void setTextDecorationThickness(TextDecorationThickness);
+    inline void setTextTransform(OptionSet<TextTransform>);
     void setLineHeight(Length&&);
     bool setZoom(float);
     inline bool setUsedZoom(float);
     inline void setTextZoom(TextZoom);
 
-    void setTextIndentLine(TextIndentLine);
-    void setTextIndentType(TextIndentType);
     inline void setTextJustify(TextJustify);
 
     inline void setTextBoxTrim(TextBoxTrim);
@@ -1452,17 +1428,16 @@ public:
     void setEmptyCells(EmptyCell v) { m_inheritedFlags.emptyCells = static_cast<unsigned>(v); }
     void setCaptionSide(CaptionSide v) { m_inheritedFlags.captionSide = static_cast<unsigned>(v); }
 
-    inline void setAspectRatioType(AspectRatioType);
-    inline void setAspectRatio(double width, double height);
+    inline void setAspectRatio(Style::AspectRatio&&);
 
     inline void setContain(OptionSet<Containment>);
     inline void setContainerType(ContainerType);
     inline void setContainerNames(Style::ContainerNames&&);
 
-    inline void setContainIntrinsicWidthType(ContainIntrinsicSizeType);
-    inline void setContainIntrinsicHeightType(ContainIntrinsicSizeType);
-    inline void setContainIntrinsicWidth(std::optional<Length>);
-    inline void setContainIntrinsicHeight(std::optional<Length>);
+    inline void containIntrinsicWidthAddAuto();
+    inline void containIntrinsicHeightAddAuto();
+    inline void setContainIntrinsicWidth(Style::ContainIntrinsicSize&&);
+    inline void setContainIntrinsicHeight(Style::ContainIntrinsicSize&&);
 
     inline void setContentVisibility(ContentVisibility);
 
@@ -1572,16 +1547,13 @@ public:
 
     inline void setBoxDecorationBreak(BoxDecorationBreak);
 
-    inline void setGridColumnList(const GridTrackList&);
-    inline void setGridRowList(const GridTrackList&);
-    inline void setGridAutoColumns(Vector<GridTrackSize>&&);
-    inline void setGridAutoRows(Vector<GridTrackSize>&&);
-    inline void setImplicitNamedGridColumnLines(const NamedGridLinesMap&);
-    inline void setImplicitNamedGridRowLines(const NamedGridLinesMap&);
-    inline void setNamedGridArea(const NamedGridAreaMap&);
-    inline void setNamedGridAreaRowCount(size_t);
-    inline void setNamedGridAreaColumnCount(size_t);
     inline void setGridAutoFlow(GridAutoFlow);
+    inline void setGridAutoColumns(Style::GridTrackSizes&&);
+    inline void setGridAutoRows(Style::GridTrackSizes&&);
+    inline void setGridTemplateAreas(Style::GridTemplateAreas&&);
+    inline void setGridTemplateColumns(Style::GridTemplateList&&);
+    inline void setGridTemplateRows(Style::GridTemplateList&&);
+
     inline void setGridItemColumnStart(const GridPosition&);
     inline void setGridItemColumnEnd(const GridPosition&);
     inline void setGridItemRowStart(const GridPosition&);
@@ -1636,9 +1608,7 @@ public:
     inline void setTextCombine(TextCombine);
     inline void setTextDecorationColor(Style::Color&&);
     inline void setTextEmphasisColor(Style::Color&&);
-    inline void setTextEmphasisFill(TextEmphasisFill);
-    inline void setTextEmphasisMark(TextEmphasisMark);
-    inline void setTextEmphasisCustomMark(const AtomString&);
+    inline void setTextEmphasisStyle(Style::TextEmphasisStyle&&);
     inline void setTextEmphasisPosition(OptionSet<TextEmphasisPosition>);
 
     inline void setObjectFit(ObjectFit);
@@ -1987,6 +1957,7 @@ public:
     static constexpr OverscrollBehavior initialOverscrollBehaviorY();
 
     static constexpr Clear initialClear();
+    static inline Style::Clip initialClip();
     static constexpr DisplayType initialDisplay();
     static constexpr UnicodeBidi initialUnicodeBidi();
     static constexpr PositionType initialPosition();
@@ -2037,7 +2008,7 @@ public:
     static inline Style::MarginEdge initialMargin();
     static constexpr OptionSet<MarginTrimType> initialMarginTrim();
     static inline Style::PaddingEdge initialPadding();
-    static inline Length initialTextIndent();
+    static inline Style::TextIndent initialTextIndent();
     static constexpr TextBoxTrim initialTextBoxTrim();
     static TextEdge initialTextBoxEdge();
     static TextEdge initialLineFitEdge();
@@ -2095,6 +2066,7 @@ public:
     static constexpr TextWrapMode initialTextWrapMode();
     static constexpr TextWrapStyle initialTextWrapStyle();
     static constexpr WordBreak initialWordBreak();
+    static constexpr OutlineStyle initialOutlineStyle();
     static constexpr OverflowWrap initialOverflowWrap();
     static constexpr NBSPMode initialNBSPMode();
     static constexpr LineBreak initialLineBreak();
@@ -2106,20 +2078,16 @@ public:
     static const AtomString& initialHyphenationString();
     static constexpr Resize initialResize();
     static constexpr StyleAppearance initialAppearance();
-    static constexpr AspectRatioType initialAspectRatioType();
+    static inline Style::AspectRatio initialAspectRatio();
     static constexpr OptionSet<Containment> initialContainment();
     static constexpr OptionSet<Containment> strictContainment();
     static constexpr OptionSet<Containment> contentContainment();
     static constexpr ContainerType initialContainerType();
     static constexpr ContentVisibility initialContentVisibility();
     static Style::ContainerNames initialContainerNames();
-    static double initialAspectRatioWidth() { return 1.0; }
-    static double initialAspectRatioHeight() { return 1.0; }
 
-    static constexpr ContainIntrinsicSizeType initialContainIntrinsicWidthType();
-    static constexpr ContainIntrinsicSizeType initialContainIntrinsicHeightType();
-    static inline std::optional<Length> initialContainIntrinsicWidth();
-    static inline std::optional<Length> initialContainIntrinsicHeight();
+    static inline Style::ContainIntrinsicSize initialContainIntrinsicWidth();
+    static inline Style::ContainIntrinsicSize initialContainIntrinsicHeight();
 
     static constexpr Order initialRTLOrdering();
     static float initialTextStrokeWidth() { return 0; }
@@ -2144,9 +2112,7 @@ public:
     static inline Length initialPerspectiveOriginY();
     static inline Style::Color initialBackgroundColor();
     static inline Style::Color initialTextEmphasisColor();
-    static constexpr TextEmphasisFill initialTextEmphasisFill();
-    static constexpr TextEmphasisMark initialTextEmphasisMark();
-    static inline const AtomString& initialTextEmphasisCustomMark();
+    static inline Style::TextEmphasisStyle initialTextEmphasisStyle();
     static constexpr OptionSet<TextEmphasisPosition> initialTextEmphasisPosition();
     static constexpr RubyPosition initialRubyPosition();
     static constexpr RubyAlign initialRubyAlign();
@@ -2165,8 +2131,6 @@ public:
 
     static inline Style::DynamicRangeLimit initialDynamicRangeLimit();
 
-    static constexpr TextIndentLine initialTextIndentLine();
-    static constexpr TextIndentType initialTextIndentType();
     static constexpr TextJustify initialTextJustify();
 
 #if ENABLE(CURSOR_VISIBILITY)
@@ -2211,34 +2175,17 @@ public:
     static constexpr AppleVisualEffect initialAppleVisualEffect();
 #endif
 
-    static inline Vector<GridTrackSize> initialGridColumnTrackSizes();
-    static inline Vector<GridTrackSize> initialGridRowTrackSizes();
-
-    static inline Vector<GridTrackSize> initialGridAutoRepeatTracks();
-    static unsigned initialGridAutoRepeatInsertionPoint() { return 0; }
-    static constexpr AutoRepeatType initialGridAutoRepeatType();
-
     static constexpr GridAutoFlow initialGridAutoFlow();
-
-    static inline Vector<GridTrackSize> initialGridAutoColumns();
-    static inline Vector<GridTrackSize> initialGridAutoRows();
-
-    static NamedGridAreaMap initialNamedGridArea();
-    static size_t initialNamedGridAreaCount() { return 0; }
-
-    static NamedGridLinesMap initialNamedGridColumnLines();
-    static NamedGridLinesMap initialNamedGridRowLines();
-
-    static OrderedNamedGridLinesMap initialOrderedNamedGridColumnLines();
-    static OrderedNamedGridLinesMap initialOrderedNamedGridRowLines();
+    static inline Style::GridTrackSizes initialGridAutoColumns();
+    static inline Style::GridTrackSizes initialGridAutoRows();
+    static inline Style::GridTemplateAreas initialGridTemplateAreas();
+    static inline Style::GridTemplateList initialGridTemplateColumns();
+    static inline Style::GridTemplateList initialGridTemplateRows();
 
     static inline GridPosition initialGridItemColumnStart();
     static inline GridPosition initialGridItemColumnEnd();
     static inline GridPosition initialGridItemRowStart();
     static inline GridPosition initialGridItemRowEnd();
-
-    static GridTrackList initialGridColumnList();
-    static GridTrackList initialGridRowList();
 
     static constexpr TabSize initialTabSize();
 

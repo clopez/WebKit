@@ -30,6 +30,7 @@
 #include "ColorLuminance.h"
 #include "ColorSerialization.h"
 #include "ColorWellPart.h"
+#include "ContainerNodeInlines.h"
 #include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "FileList.h"
@@ -62,6 +63,7 @@
 #include "PaintInfo.h"
 #include "ProgressBarPart.h"
 #include "RenderMeter.h"
+#include "RenderElementInlines.h"
 #include "RenderProgress.h"
 #include "RenderStyleSetters.h"
 #include "RenderView.h"
@@ -761,7 +763,7 @@ OptionSet<ControlStyle::State> RenderTheme::extractControlStyleStatesForRenderer
         if (isSpinUpButtonPartPressed(renderer))
             states.add(ControlStyle::State::SpinUp);
     }
-    if (isFocused(renderer) && renderer.style().hasAutoOutlineStyle())
+    if (isFocused(renderer) && renderer.style().outlineStyle() == OutlineStyle::Auto)
         states.add(ControlStyle::State::Focused);
     if (isEnabled(renderer))
         states.add(ControlStyle::State::Enabled);

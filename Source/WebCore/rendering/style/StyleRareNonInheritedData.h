@@ -38,8 +38,10 @@
 #include "ScrollbarGutter.h"
 #include "ShapeValue.h"
 #include "StyleAnchorName.h"
+#include "StyleClip.h"
 #include "StyleClipPath.h"
 #include "StyleColor.h"
+#include "StyleContainIntrinsicSize.h"
 #include "StyleContainerName.h"
 #include "StyleContentAlignmentData.h"
 #include "StyleGapGutter.h"
@@ -137,8 +139,8 @@ public:
 
     OptionSet<Containment> usedContain() const;
 
-    Markable<Length> containIntrinsicWidth;
-    Markable<Length> containIntrinsicHeight;
+    Style::ContainIntrinsicSize containIntrinsicWidth;
+    Style::ContainIntrinsicSize containIntrinsicHeight;
 
     Length perspectiveOriginX;
     Length perspectiveOriginY;
@@ -164,8 +166,7 @@ public:
     DataRef<StyleGridData> grid;
     DataRef<StyleGridItemData> gridItem;
 
-    // Only meaningful when `hasClip` is true.
-    LengthBox clip;
+    Style::Clip clip { CSS::Keyword::Auto { } };
 
     Style::ScrollMarginBox scrollMargin { 0_css_px };
     Style::ScrollPaddingBox scrollPadding { CSS::Keyword::Auto { } };
@@ -265,12 +266,9 @@ public:
     PREFERRED_TYPE(BreakBetween) unsigned breakBefore : 4;
     PREFERRED_TYPE(BreakBetween) unsigned breakAfter : 4;
     PREFERRED_TYPE(BreakInside) unsigned breakInside : 3;
-    PREFERRED_TYPE(ContainIntrinsicSizeType) unsigned containIntrinsicWidthType : 2;
-    PREFERRED_TYPE(ContainIntrinsicSizeType) unsigned containIntrinsicHeightType : 2;
     PREFERRED_TYPE(ContainerType) unsigned containerType : 2;
     PREFERRED_TYPE(TextBoxTrim) unsigned textBoxTrim : 2;
     PREFERRED_TYPE(OverflowAnchor) unsigned overflowAnchor : 1;
-    PREFERRED_TYPE(bool) unsigned hasClip : 1;
     PREFERRED_TYPE(Style::PositionTryOrder) unsigned positionTryOrder : 3;
     PREFERRED_TYPE(OptionSet<PositionVisibility>) unsigned positionVisibility : 3;
     PREFERRED_TYPE(FieldSizing) unsigned fieldSizing : 1;

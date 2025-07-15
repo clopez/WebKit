@@ -722,33 +722,6 @@ enum class WebCore::IndexedDB::RequestType : uint8_t {
     Other,
 };
 
-#if USE(CG)
-headers: <CoreGraphics/CGGeometry.h> <CoreGraphics/CGAffineTransform.h>
-[WebKitPlatform, AdditionalEncoder=StreamConnectionEncoder] struct CGSize {
-    CGFloat width
-    CGFloat height
-};
-
-[WebKitPlatform] struct CGPoint {
-    CGFloat x
-    CGFloat y
-};
-
-[WebKitPlatform] struct CGRect {
-    CGPoint origin
-    CGSize size
-};
-
-struct CGAffineTransform {
-  CGFloat a
-  CGFloat b
-  CGFloat c
-  CGFloat d
-  CGFloat tx
-  CGFloat ty
-};
-#endif
-
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::FloatRect {
     WebCore::FloatPoint location()
     WebCore::FloatSize size()
@@ -909,7 +882,7 @@ struct WebCore::SpatialBackdropSource {
 };
 #endif
 
-using WebCore::TargetedElementIdentifiers = std::pair<WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier>;
+using WebCore::TargetedElementIdentifiers = std::pair<WebCore::NodeIdentifier, WebCore::ScriptExecutionContextIdentifier>;
 using WebCore::TargetedElementSelectors = Vector<HashSet<String>>;
 
 header: <WebCore/ElementTargetingTypes.h>
@@ -927,7 +900,7 @@ header: <WebCore/ElementTargetingTypes.h>
 
 header: <WebCore/ElementTargetingTypes.h>
 [CustomHeader] struct WebCore::TargetedElementInfo {
-    WebCore::ElementIdentifier elementIdentifier
+    WebCore::NodeIdentifier nodeIdentifier
     WebCore::ScriptExecutionContextIdentifier documentIdentifier
     WebCore::RectEdges<bool> offsetEdges
     String renderedText
@@ -2079,7 +2052,7 @@ struct WebCore::ElementContext {
     WebCore::FloatRect boundingRect;
     Markable<WebCore::PageIdentifier> webPageIdentifier;
     Markable<WebCore::ScriptExecutionContextIdentifier> documentIdentifier;
-    Markable<WebCore::ElementIdentifier> elementIdentifier;
+    Markable<WebCore::NodeIdentifier> nodeIdentifier;
 };
 
 struct WebCore::ElementAnimationContext {
@@ -4526,7 +4499,7 @@ enum class WebCore::ScrollType : bool;
     Vector<WebCore::FloatSnapOffset> horizontalSnapOffsets;
     Vector<WebCore::FloatSnapOffset> verticalSnapOffsets;
     Vector<WebCore::FloatRect> snapAreas;
-    Vector<WebCore::ElementIdentifier> snapAreasIDs;
+    Vector<WebCore::NodeIdentifier> snapAreasIDs;
 }
 
 enum class WebCore::ScrollSnapStop : bool;
@@ -4535,7 +4508,7 @@ enum class WebCore::ScrollSnapStop : bool;
     float offset;
     WebCore::ScrollSnapStop stop;
     bool hasSnapAreaLargerThanViewport;
-    Markable<WebCore::ElementIdentifier> snapTargetID;
+    Markable<WebCore::NodeIdentifier> snapTargetID;
     bool isFocused;
     Vector<uint64_t> snapAreaIndices;
 };
@@ -5700,8 +5673,8 @@ header: <WebCore/SecurityPolicyViolationEvent.h>
     String sample();
     WebCore::SecurityPolicyViolationEventDisposition disposition();
     unsigned short statusCode();
-    unsigned long lineNumber();
-    unsigned long columnNumber();
+    uint64_t lineNumber();
+    uint64_t columnNumber();
 };
 
 class WebCore::SecurityOriginData {
@@ -6461,7 +6434,7 @@ struct WebCore::GlobalWindowIdentifier {
 
 struct WebCore::InteractionRegion {
     WebCore::InteractionRegion::Type type;
-    WebCore::ElementIdentifier elementIdentifier;
+    WebCore::NodeIdentifier nodeIdentifier;
     WebCore::FloatRect rectInLayerCoordinates;
     float cornerRadius;
     OptionSet<WebCore::InteractionRegion::CornerMask> maskedCorners;
@@ -6542,8 +6515,8 @@ header: <WebCore/ISOVTTCue.h>
     bool expectCancel;
     bool supportClientPin;
     bool supportInternalUV;
-    long maxCredentialCountInList;
-    long maxCredentialIdLength;
+    int64_t maxCredentialCountInList;
+    int64_t maxCredentialIdLength;
 };
 
 [Nested] enum class WebCore::MockWebAuthenticationConfiguration::NfcError : uint8_t {
@@ -7735,6 +7708,10 @@ struct WebCore::DragItem {
 struct WebCore::KeypressCommand {
     String commandName;
     String text;
+    Vector<WebCore::CompositionUnderline> underlines;
+    Vector<WebCore::CompositionHighlight> highlights;
+    WebCore::CharacterRange selectedRange;
+    WebCore::CharacterRange replacementRange;
 }
 #endif
 
@@ -8015,8 +7992,8 @@ enum class WebCore::CaptionUserPreferencesDisplayMode : uint8_t {
 };
 #endif
 
-header: <WebCore/InspectorClient.h>
-enum class WebCore::InspectorClientDeveloperPreference : uint8_t {
+header: <WebCore/InspectorBackendClient.h>
+enum class WebCore::InspectorBackendClientDeveloperPreference : uint8_t {
     PrivateClickMeasurementDebugModeEnabled,
     ITPDebugModeEnabled,
     MockCaptureDevicesEnabled,
@@ -8753,10 +8730,8 @@ using WebCore::GraphicsStyle = Variant<WebCore::GraphicsDropShadow, WebCore::Gra
 enum class WebCore::ScrollBehaviorForFixedElements : bool
 #if USE(CG)
 using WebCore::GlyphBufferGlyph = CGGlyph
-using WebCore::GlyphBufferAdvance = CGSize
 #else
 using WebCore::GlyphBufferGlyph = WebCore::Glyph
-using WebCore::GlyphBufferAdvance = WebCore::FloatSize
 #endif
 using WebCore::Glyph = unsigned short
 
@@ -8839,16 +8814,6 @@ enum class WebCore::PlatformMediaError : uint8_t {
     NotSupportedError,
     NetworkError,
 };
-#endif
-
-#if USE(CG)
-using WebCore::DashArray = FixedVector<CGFloat>;
-#endif
-#if USE(CAIRO)
-using WebCore::DashArray = FixedVector<double>;
-#endif
-#if !USE(CG) && !USE(CAIRO)
-using WebCore::DashArray = FixedVector<float>;
 #endif
 
 [WebKitPlatform] enum class WebCore::NotificationDirection : uint8_t {
@@ -9197,3 +9162,10 @@ struct WebCore::FocusEventData {
     bool altKey;
 }
 
+header: <WebCore/AXObjectCache.h>
+[CustomHeader] struct WebCore::AXDebugInfo {
+    bool isAccessibilityEnabled;
+    bool isAccessibilityThreadInitialized;
+    String liveTree;
+    String isolatedTree;
+}

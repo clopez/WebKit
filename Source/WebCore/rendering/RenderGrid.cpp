@@ -32,6 +32,7 @@
 #include "GridMasonryLayout.h"
 #include "GridPositionsResolver.h"
 #include "GridTrackSizingAlgorithm.h"
+#include "HitTestLocation.h"
 #include "LayoutRepainter.h"
 #include "RenderChildIterator.h"
 #include "RenderElementInlines.h"
@@ -195,8 +196,8 @@ bool RenderGrid::explicitGridDidResize(const RenderStyle& oldStyle) const
 {
     return oldStyle.gridColumnTrackSizes().size() != style().gridColumnTrackSizes().size()
         || oldStyle.gridRowTrackSizes().size() != style().gridRowTrackSizes().size()
-        || oldStyle.namedGridAreaColumnCount() != style().namedGridAreaColumnCount()
-        || oldStyle.namedGridAreaRowCount() != style().namedGridAreaRowCount()
+        || oldStyle.gridTemplateAreas().map.columnCount != style().gridTemplateAreas().map.columnCount
+        || oldStyle.gridTemplateAreas().map.rowCount != style().gridTemplateAreas().map.rowCount
         || oldStyle.gridAutoRepeatColumns().size() != style().gridAutoRepeatColumns().size()
         || oldStyle.gridAutoRepeatRows().size() != style().gridAutoRepeatRows().size();
 }
@@ -209,8 +210,8 @@ bool RenderGrid::namedGridLinesDefinitionDidChange(const RenderStyle& oldStyle) 
 
 bool RenderGrid::implicitGridLinesDefinitionDidChange(const RenderStyle& oldStyle) const
 {
-    return oldStyle.implicitNamedGridRowLines().map != style().implicitNamedGridRowLines().map
-        || oldStyle.implicitNamedGridColumnLines().map != style().implicitNamedGridColumnLines().map;
+    return oldStyle.gridTemplateAreas().implicitNamedGridRowLines != style().gridTemplateAreas().implicitNamedGridRowLines
+        || oldStyle.gridTemplateAreas().implicitNamedGridColumnLines != style().gridTemplateAreas().implicitNamedGridColumnLines;
 }
 
 // This method optimizes the gutters computation by skipping the available size
@@ -2012,14 +2013,13 @@ bool RenderGrid::isBaselineAlignmentForGridItem(const RenderBox& gridItem, GridT
 }
 
 // FIXME: This logic is shared by RenderFlexibleBox, so it might be refactored somehow.
-LayoutUnit RenderGrid::baselinePosition(bool, LineDirectionMode direction, LinePositionMode mode) const
+LayoutUnit RenderGrid::baselinePosition() const
 {
-    ASSERT_UNUSED(mode, mode == PositionOnContainingLine);
     auto baseline = firstLineBaseline();
     if (!baseline)
-        return synthesizedBaseline(*this, *parentStyle(), direction, BorderBox) + marginLogicalHeight();
+        return synthesizedBaseline(*this, *parentStyle(), containingBlock()->writingMode().isHorizontal() ? HorizontalLine : VerticalLine, BorderBox) + marginLogicalHeight();
 
-    return baseline.value() + (direction == HorizontalLine ? marginTop() : marginRight()).toInt();
+    return baseline.value() + (containingBlock()->writingMode().isHorizontal() ? marginTop() : marginRight()).toInt();
 }
 
 std::optional<LayoutUnit> RenderGrid::firstLineBaseline() const
