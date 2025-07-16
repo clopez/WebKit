@@ -56,7 +56,6 @@ bindings/js/JSDOMWindowBase.cpp
 bindings/js/JSDOMWindowCustom.cpp
 bindings/js/JSDOMWindowProperties.cpp
 bindings/js/JSDocumentCustom.cpp
-bindings/js/JSEventListener.cpp
 bindings/js/JSHTMLElementCustom.cpp
 bindings/js/JSHTMLTemplateElementCustom.cpp
 bindings/js/JSLazyEventListener.cpp
@@ -274,7 +273,6 @@ layout/integration/inline/LineSelection.h
 layout/layouttree/LayoutBox.cpp
 layout/layouttree/LayoutElementBox.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
-loader/ContentFilter.cpp
 loader/DocumentLoader.cpp
 loader/EmptyClients.cpp
 loader/FrameLoader.cpp
