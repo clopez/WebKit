@@ -817,16 +817,9 @@ LegacyInlineFlowBox* RenderInline::createAndAppendInlineFlowBox()
     return flowBox;
 }
 
-LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*direction*/, LinePositionMode /*linePositionMode*/) const
+LayoutUnit RenderInline::lineHeight() const
 {
-    auto& lineStyle = firstLine ? firstLineStyle() : style();
-    return LayoutUnit::fromFloatCeil(lineStyle.computedLineHeight());
-}
-
-LayoutUnit RenderInline::baselinePosition() const
-{
-    auto& fontMetrics = style().metricsOfPrimaryFont();
-    return LayoutUnit { fontMetrics.ascent() + (lineHeight(false, parent()->writingMode().isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine) - fontMetrics.height()) / 2 };
+    return LayoutUnit::fromFloatCeil(firstLineStyle().computedLineHeight());
 }
 
 LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child) const

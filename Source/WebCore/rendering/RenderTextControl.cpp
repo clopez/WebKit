@@ -108,7 +108,7 @@ RenderBox::LogicalExtentComputedValues RenderTextControl::computeLogicalHeight(L
 
     if (RenderBox* innerTextBox = innerText->renderBox()) {
         LayoutUnit nonContentHeight = innerTextBox->borderAndPaddingLogicalHeight() + innerTextBox->marginLogicalHeight();
-        logicalHeight = computeControlLogicalHeight(innerTextBox->lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes), nonContentHeight);
+        logicalHeight = computeControlLogicalHeight(innerTextBox->lineHeight(), nonContentHeight);
 
         // We are able to have a horizontal scrollbar if the overflow style is scroll, or if its auto and there's no word wrap.
         auto shouldIncludeScrollbarHeight = [&] {
@@ -239,9 +239,8 @@ bool RenderTextControl::canScroll() const
 
 int RenderTextControl::innerLineHeight() const
 {
-    auto innerText = innerTextElement();
-    if (innerText && innerText->renderer())
-        return innerText->renderer()->style().computedLineHeight();
+    if (auto innerTextElement = this->innerTextElement(); innerTextElement && innerTextElement->renderer())
+        return innerTextElement->renderer()->style().computedLineHeight();
     return style().computedLineHeight();
 }
 #endif

@@ -1975,11 +1975,6 @@ webkit.org/b/284492 [ Sequoia+ ] imported/w3c/web-platform-tests/fetch/api/cors/
 
 webkit.org/b/232282 fast/scrolling/mac/scrollbars/overlay-scrollbar-hovered.html [ Pass Failure ]
 
-# webkit.org/b/288409 [ MacOS iOS ] 3x imported/w3c/web-platform-tests/navigation-api/navigation are consistent failures
-imported/w3c/web-platform-tests/navigation-api/navigation-activation/activation-traverse-not-in-entries.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigation-methods/disambigaute-forward.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigation-methods/disambigaute-traverseTo-forward-multiple.html [ Failure ]
-
 # webkit.org/b/280415 [ Sequoia wk2 release arm64 ] 2x fast/selectors/* are flaky image only failures.
 [ arm64 ] fast/selectors/selection-window-inactive-stroke-color.html [ Pass ImageOnlyFailure ]
 [ arm64 ] fast/selectors/text-field-selection-stroke-color.html [ Pass ImageOnlyFailure ]
@@ -2161,11 +2156,6 @@ webkit.org/b/291966 [ Sequoia+ ] http/tests/webgpu/webgpu/api/validation/render_
 
 webkit.org/b/292203 [ Debug ] imported/w3c/web-platform-tests/css/css-view-transitions/transition-in-hidden-page.html [ Pass Crash ]
 
-# webkit.org/b/292582 REGRESSION (294079@main): [ MacOS iOS WK2 ] 3X imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form are consistent failures 
-imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form-userInitiated.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form-with-target.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form.html [ Failure ]
-
 webkit.org/b/292650 http/tests/iframe-monitor/throttler.html [ Timeout ]
 
 webkit.org/b/292794 [ Debug ] http/tests/media/media-play-stream-chunked-icy.html [ Pass Crash ]
@@ -2232,3 +2222,14 @@ webkit.org/b/295913 [ Sequoia Release arm64 ] media/video-seek-pause.html [ Pass
 webkit.org/b/295923 [ Release ] tiled-drawing/scrolling/scroll-with-top-left-content-inset.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/295938 scrollingcoordinator/mac/latching/horizontal-overflow-back-swipe-overscroll-behavior.html [ Pass Timeout ]
+
+# webkit.org/b/296008 [macOS Debug] http/tests/media/hls and platform/mac/media/encrypted-media tests are timing out on some EWS bots
+[ Sequoia Debug arm64 ] http/tests/media/hls/hls-audio-tracks-language.html [ Timeout ]
+[ Sequoia Debug arm64 ] http/tests/media/hls/hls-webvtt-default.html [ Timeout ]
+[ Sequoia Debug arm64 ] http/tests/media/hls/hls-webvtt-style.html [ Timeout ]
+[ Sequoia Debug arm64 ] http/tests/media/hls/range-request-cross-origin.html [ Timeout ]
+[ Sequoia Debug arm64 ] http/tests/media/hls/track-in-band-multiple-cues.html [ Timeout ]
+[ Sequoia Debug arm64 ] http/tests/media/hls/track-webvtt-multitracks.html [ Timeout ]
+[ Sequoia Debug arm64 ] platform/mac/media/encrypted-media/fps-generateRequest.html [ Timeout ]
+
+webkit.org/b/296017 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-021.html [ Pass ImageOnlyFailure ]

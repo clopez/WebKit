@@ -139,8 +139,7 @@ private:
 
     void dirtyLineFromChangedChild() final { m_legacyLineBoxes.dirtyLineFromChangedChild(*this); }
 
-    LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
-    LayoutUnit baselinePosition() const final;
+    LayoutUnit lineHeight() const final;
     
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) const final;
 
