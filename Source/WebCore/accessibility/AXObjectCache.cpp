@@ -2104,10 +2104,7 @@ void AXObjectCache::onAccessibilityPaintFinished()
 
     for (auto iterator = m_mostRecentlyPaintedText.begin(); iterator != m_mostRecentlyPaintedText.end(); ++iterator) {
         const auto& renderText = iterator->key;
-        // FIXME: Use InlineIteratorLogicalOrderTraversal instead. Otherwise we'll do the wrong thing for mixed direction
-        // content. We should do this at the same time AccessibilityRenderObject::textRuns switches to this function.
-        // Tracked by: https://bugs.webkit.org/show_bug.cgi?id=294632
-        if (auto textBox = InlineIterator::lineLeftmostTextBoxFor(renderText)) {
+        if (auto textBox = InlineIterator::firstTextBoxInLogicalOrderFor(renderText).first) {
             // The line index from TextBox::lineIndex is relative to the containing block, which count lines from
             // other renderers. The LineRange struct we have built expects the start and end line indices to be
             // relative to just this renderer, so normalize them by getting the first line index for this renderer.
@@ -3040,9 +3037,17 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXNotification::RequiredStatusChanged);
     else if (attrName == tabindexAttr) {
         if (oldValue.isEmpty() || newValue.isEmpty()) {
+#if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+            // When ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE), we don't need to do issue any children-changed events,
+            // which is quite expensive — just re-compute is-ignored on this single object.
+            if (RefPtr object = get(*element))
+                object->recomputeIsIgnored();
+#else
             RefPtr parent = element->parentNode();
             if (auto* renderer = parent ? parent->renderer() : nullptr)
                 childrenChanged(*renderer);
+#endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
             postNotification(element, AXNotification::FocusableStateChanged);
 #endif

@@ -80,6 +80,7 @@
 #include "RenderLayerInlines.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
+#include "RenderListMarker.h"
 #include "RenderMathMLBlock.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderObjectInlines.h"
@@ -418,8 +419,8 @@ static bool hasEquivalentGridPositioningStyle(const RenderStyle& style, const Re
         && oldStyle.gridItemRowEnd() == style.gridItemRowEnd()
         && oldStyle.order() == style.order()
         && oldStyle.hasOutOfFlowPosition() == style.hasOutOfFlowPosition())
-        && (oldStyle.gridSubgridColumns() == style.gridSubgridColumns() || style.orderedNamedGridColumnLines().map.isEmpty())
-        && (oldStyle.gridSubgridRows() == style.gridSubgridRows() || style.orderedNamedGridRowLines().map.isEmpty());
+        && (oldStyle.gridTemplateColumns().subgrid == style.gridTemplateColumns().subgrid || style.gridTemplateColumns().orderedNamedLines.map.isEmpty())
+        && (oldStyle.gridTemplateRows().subgrid == style.gridTemplateRows().subgrid || style.gridTemplateRows().orderedNamedLines.map.isEmpty());
 }
 
 void RenderBox::updateGridPositionAfterStyleChange(const RenderStyle& style, const RenderStyle* oldStyle)
@@ -2982,11 +2983,11 @@ bool RenderBox::hasStretchedLogicalHeight() const
         return false;
     }
     if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(GridTrackSizingDirection::ForColumns))
+        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Columns))
             return true;
         return style.resolvedJustifySelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
     }
-    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(GridTrackSizingDirection::ForRows))
+    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Rows))
         return true;
     return style.resolvedAlignSelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
 }
@@ -3005,11 +3006,11 @@ bool RenderBox::hasStretchedLogicalWidth(StretchingMode stretchingMode) const
     }
     auto normalItemPosition = stretchingMode == StretchingMode::Any ? containingBlock->selfAlignmentNormalBehavior(this) : ItemPosition::Normal;
     if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(GridTrackSizingDirection::ForRows))
+        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Rows))
             return true;
         return style.resolvedAlignSelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
     }
-    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(GridTrackSizingDirection::ForColumns))
+    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Columns))
         return true;
     return style.resolvedJustifySelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
 }
@@ -4963,8 +4964,19 @@ bool RenderBox::isUnsplittableForPagination() const
 
 LayoutUnit RenderBox::lineHeight() const
 {
+    auto shouldUseLineHeightFromStyle = [&] {
+        if (is<RenderBlock>(*this))
+            return true;
+        if (CheckedPtr listMarkerRenderer = dynamicDowncast<RenderListMarker>(*this))
+            return !listMarkerRenderer->isImage();
+        return false;
+    };
+    if (shouldUseLineHeightFromStyle())
+        return LayoutUnit::fromFloatCeil(firstLineStyle().computedLineHeight());
+
     if (isBlockLevelReplacedOrAtomicInline())
         return marginBefore() + logicalHeight() + marginAfter();
+
     return { };
 }
 

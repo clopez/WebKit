@@ -1366,7 +1366,7 @@ bool RenderBlock::establishesIndependentFormattingContext() const
     if (isGridItem()) {
         // Grid items establish a new independent formatting context, unless they're a subgrid
         // https://drafts.csswg.org/css-grid-2/#grid-item-display
-        if (!style.gridSubgridColumns() && !style.gridSubgridRows())
+        if (!style.gridTemplateColumns().subgrid && !style.gridTemplateRows().subgrid)
             return true;
         // Masonry makes grid items not subgrids.
         if (CheckedPtr parentGridBox = dynamicDowncast<RenderGrid>(parent()))
@@ -2474,11 +2474,6 @@ bool RenderBlock::hasLineIfEmpty() const
     return element && element->isRootEditableElement();
 }
 
-LayoutUnit RenderBlock::lineHeight() const
-{
-    return LayoutUnit::fromFloatCeil(firstLineStyle().computedLineHeight());
-}
-
 LayoutUnit RenderBlock::baselinePosition() const
 {
     // Inline blocks are replaced elements. Otherwise, just pass off to
@@ -2515,7 +2510,7 @@ LayoutUnit RenderBlock::baselinePosition() const
             return scrollableArea->horizontalScrollbar() || scrollableArea->scrollOffset().x();
         };
 
-        auto baselinePos = ignoreBaseline() ? std::optional<LayoutUnit>() : inlineBlockBaseline(direction);
+        auto baselinePos = ignoreBaseline() ? std::optional<LayoutUnit>() : inlineBlockBaseline();
         
         if (isRenderDeprecatedFlexibleBox()) {
             // Historically, we did this check for all baselines. But we can't
@@ -2571,8 +2566,9 @@ std::optional<LayoutUnit> RenderBlock::lastLineBaseline() const
     return { };
 }
 
-std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline(LineDirectionMode lineDirection) const
+std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline() const
 {
+    auto lineDirection = containingBlock()->writingMode().isHorizontal() ? HorizontalLine : VerticalLine;
     if (shouldApplyLayoutContainment()) {
         if (isInline())
             return synthesizedBaseline(*this, *parentStyle(), lineDirection, BorderBox) + (lineDirection == HorizontalLine ? marginBottom() : marginLeft());
@@ -2587,7 +2583,7 @@ std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline(LineDirectionMode lin
         if (box->isFloatingOrOutOfFlowPositioned())
             continue;
         haveNormalFlowChild = true;
-        if (auto result = box->inlineBlockBaseline(lineDirection))
+        if (auto result = box->inlineBlockBaseline())
             return LayoutUnit { (box->logicalTop() + result.value()).toInt() }; // Translate to our coordinate space.
     }
 

@@ -8408,7 +8408,8 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
         completionHandlerWrapper(policyAction);
     }, expectSafeBrowsing , ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No);
     if (expectSafeBrowsing == ShouldExpectSafeBrowsingResult::Yes && navigation) {
-        RunLoop::protectedMain()->dispatchAfter(MonotonicTime::now() - requestStart, [listener, navigation] () mutable {
+        Seconds timeout = (MonotonicTime::now() - requestStart) * 1.5 + 0.25_s;
+        RunLoop::protectedMain()->dispatchAfter(timeout, [listener, navigation] mutable {
             listener->didReceiveSafeBrowsingResults({ });
             navigation->setSafeBrowsingCheckTimedOut();
         });
@@ -16424,14 +16425,14 @@ void WebPageProxy::addConsoleMessage(FrameIdentifier frameID, MessageSource mess
 }
 
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
-void WebPageProxy::sendScrollPositionChangedForNode(std::optional<WebCore::FrameIdentifier> frameID, ScrollingNodeID nodeID, const FloatPoint& scrollPosition, std::optional<FloatPoint> layoutViewportOrigin, bool syncLayerPosition, bool isLastUpdate)
+void WebPageProxy::sendScrollUpdateForNode(std::optional<WebCore::FrameIdentifier> frameID, WebCore::ScrollUpdate update, bool isLastUpdate)
 {
-    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::RemoteScrollingCoordinator::ScrollPositionChangedForNode(nodeID, scrollPosition, layoutViewportOrigin, syncLayerPosition), [weakThis = WeakPtr { *m_scrollingCoordinatorProxy }, isLastUpdate] {
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::RemoteScrollingCoordinator::ScrollUpdateForNode(update), [weakThis = WeakPtr { *m_scrollingCoordinatorProxy }, isLastUpdate] {
         if (!weakThis)
             return;
 
         if (isLastUpdate)
-            weakThis->receivedLastScrollingTreeNodeDidScrollReply();
+            weakThis->receivedLastScrollingTreeNodeUpdateReply();
     });
 }
 #endif

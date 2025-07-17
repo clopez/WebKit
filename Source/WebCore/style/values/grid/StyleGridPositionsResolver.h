@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2016 Igalia S.L.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,59 +31,16 @@
 
 #pragma once
 
-#include "GridPosition.h"
-
 namespace WebCore {
 
 class GridSpan;
 class RenderBox;
 class RenderGrid;
-class RenderStyle;
 
-enum class GridTrackSizingDirection : uint8_t {
-    ForColumns = 1 << 0,
-    ForRows = 1 << 1
-};
+namespace Style {
 
-class NamedLineCollectionBase {
-    WTF_MAKE_NONCOPYABLE(NamedLineCollectionBase);
-public:
-    NamedLineCollectionBase(const RenderGrid&, const String& name, GridPositionSide, bool nameIsAreaName);
-
-
-    bool hasNamedLines() const;
-    bool hasExplicitNamedLines() const;
-    bool contains(unsigned line) const;
-protected:
-
-    void ensureInheritedNamedIndices();
-
-    const Vector<unsigned>* m_namedLinesIndices { nullptr };
-    const Vector<unsigned>* m_autoRepeatNamedLinesIndices { nullptr };
-    const Vector<unsigned>* m_implicitNamedLinesIndices { nullptr };
-
-    Vector<unsigned> m_inheritedNamedLinesIndices;
-
-    unsigned m_insertionPoint { 0 };
-    unsigned m_lastLine { 0 };
-    unsigned m_autoRepeatTotalTracks { 0 };
-    unsigned m_autoRepeatLines { 0 };
-    unsigned m_autoRepeatTrackListLength { 0 };
-    bool m_isSubgrid { false };
-};
-
-class NamedLineCollection : public NamedLineCollectionBase {
-    WTF_MAKE_NONCOPYABLE(NamedLineCollection);
-public:
-    NamedLineCollection(const RenderGrid&, const String& name, GridPositionSide, bool nameIsAreaName = false);
-
-    int firstPosition() const;
-
-    unsigned lastLine() const;
-
-private:
-    int firstExplicitPosition() const;
-};
+enum class GridPositionSide : uint8_t;
+enum class GridTrackSizingDirection : bool;
 
 // Class with all the code related to grid items positions resolution.
 class GridPositionsResolver {
@@ -90,9 +48,10 @@ public:
     static GridPositionSide initialPositionSide(GridTrackSizingDirection);
     static GridPositionSide finalPositionSide(GridTrackSizingDirection);
     static unsigned spanSizeForAutoPlacedItem(const RenderBox&, GridTrackSizingDirection);
-    static GridSpan resolveGridPositionsFromStyle(const RenderGrid& gridContainer, const RenderBox&, GridTrackSizingDirection);
+    static GridSpan resolveGridPositionsFromStyle(const RenderGrid&, const RenderBox&, GridTrackSizingDirection);
     static unsigned explicitGridColumnCount(const RenderGrid&);
     static unsigned explicitGridRowCount(const RenderGrid&);
 };
 
+} // namespace Style
 } // namespace WebCore

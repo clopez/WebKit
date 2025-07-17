@@ -518,7 +518,7 @@ public:
     
     virtual std::optional<LayoutUnit> firstLineBaseline() const { return { }; }
     virtual std::optional<LayoutUnit> lastLineBaseline() const { return { }; }
-    virtual std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const { return { }; } // Returns empty if we should skip this box when computing the baseline of an inline-block.
+    virtual std::optional<LayoutUnit> inlineBlockBaseline() const { return { }; } // Returns empty if we should skip this box when computing the baseline of an inline-block.
     LayoutUnit synthesizeBaseline(FontBaseline baselineType, BaselineSynthesisEdge) const;
 
     bool shrinkToAvoidFloats() const;
@@ -526,7 +526,7 @@ public:
 
     virtual void markForPaginationRelayoutIfNeeded() { }
     
-    LayoutUnit lineHeight() const override;
+    LayoutUnit lineHeight() const;
     virtual LayoutUnit baselinePosition() const;
 
     LayoutUnit offsetLeft() const override;
