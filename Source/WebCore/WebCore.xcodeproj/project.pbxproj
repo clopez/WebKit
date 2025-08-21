@@ -1833,6 +1833,7 @@
 		4822970E29C8EBC00033A126 /* RegionContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822970C29C8EBC00033A126 /* RegionContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4822FD1D2E2A7FA1004CAFF9 /* EventCounts.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822FD1B2E2A7FA1004CAFF9 /* EventCounts.h */; };
 		4822FD232E2A8058004CAFF9 /* PerformanceEventTiming.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822FD212E2A8058004CAFF9 /* PerformanceEventTiming.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4869472D2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h in Headers */ = {isa = PBXBuildFile; fileRef = 4869472C2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		486B8DC72A043C0600E00E73 /* AXGeometryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 486B8DC62A043C0600E00E73 /* AXGeometryManager.h */; };
 		48B0242A2B2A65AA0083D122 /* AXTextRun.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B024282B2A65AA0083D122 /* AXTextRun.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48B187762E54CC85009B57A9 /* AXUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 80A24B442E486831006FF9DB /* AXUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1840,6 +1841,7 @@
 		48B187782E54CC95009B57A9 /* AXTableHelpers.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B187742E54CC65009B57A9 /* AXTableHelpers.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48B5BF3729CA691700FEBE3B /* AccessibilityRegionContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B5BF3529CA691700FEBE3B /* AccessibilityRegionContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48D0E12929F7329E00263857 /* ElementAnimationContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 48D0E12829F7322900263857 /* ElementAnimationContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		48EA8D102E56212B00B1183B /* EventTimingInteractionID.h in Headers */ = {isa = PBXBuildFile; fileRef = 48EA8D0F2E56212B00B1183B /* EventTimingInteractionID.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		490D51012B698A8300C6B266 /* PseudoElementIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 490D51002B698A8300C6B266 /* PseudoElementIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		491342E32B43FFEF00FEEF18 /* CSSSelectorInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 491342DA2B43FAA800FEEF18 /* CSSSelectorInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		491342E42B43FFEF00FEEF18 /* CSSSelectorEnums.h in Headers */ = {isa = PBXBuildFile; fileRef = 491342D92B43FAA700FEEF18 /* CSSSelectorEnums.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3451,7 +3453,7 @@
 		86AA52712937ADB50065399E /* TextManipulationItem.h in Headers */ = {isa = PBXBuildFile; fileRef = 86AA52702937ADB40065399E /* TextManipulationItem.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		86AA527C2937BD620065399E /* TextManipulationToken.h in Headers */ = {isa = PBXBuildFile; fileRef = 86AA527B2937BD610065399E /* TextManipulationToken.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		86BBA9F02987EBF300A78986 /* ImageBufferBackendParameters.h in Headers */ = {isa = PBXBuildFile; fileRef = 86BBA9EF2987EBF100A78986 /* ImageBufferBackendParameters.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		86BE340115058CB200CE0FD8 /* PerformanceEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 86BE33FB15058CB200CE0FD8 /* PerformanceEntry.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		86BE340115058CB200CE0FD8 /* PerformanceEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 86BE33FB15058CB200CE0FD8 /* PerformanceEntry.h */; };
 		86D1969629A674390083B077 /* ServiceWorkerImportedScript.h in Headers */ = {isa = PBXBuildFile; fileRef = 86D1969529A674390083B077 /* ServiceWorkerImportedScript.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		86D196DD29ACE0930083B077 /* TextManipulationItemIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 86D196DC29ACE0920083B077 /* TextManipulationItemIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		86D982F7125C154000AD9E3D /* DocumentEventTiming.h in Headers */ = {isa = PBXBuildFile; fileRef = 86D982F6125C154000AD9E3D /* DocumentEventTiming.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -11367,6 +11369,7 @@
 		4822FD222E2A8058004CAFF9 /* PerformanceEventTiming.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PerformanceEventTiming.cpp; sourceTree = "<group>"; };
 		4822FD252E2A8082004CAFF9 /* PerformanceEventTiming.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = PerformanceEventTiming.idl; sourceTree = "<group>"; };
 		484F5FBD2CEFA23700E7B1B1 /* AXCoreObjectCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AXCoreObjectCocoa.mm; sourceTree = "<group>"; };
+		4869472C2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PerformanceEventTimingCandidate.h; sourceTree = "<group>"; };
 		486B8DC62A043C0600E00E73 /* AXGeometryManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXGeometryManager.h; sourceTree = "<group>"; };
 		486B8DC82A04500F00E00E73 /* AXGeometryManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AXGeometryManager.cpp; sourceTree = "<group>"; };
 		48AA91ED2DD7BDFD0038F076 /* AXTreeStore.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AXTreeStore.cpp; sourceTree = "<group>"; };
@@ -11379,6 +11382,7 @@
 		48B5BF3629CA691700FEBE3B /* AccessibilityRegionContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AccessibilityRegionContext.cpp; sourceTree = "<group>"; };
 		48C4E83C2B34D8380083460A /* AXTextRun.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AXTextRun.cpp; sourceTree = "<group>"; };
 		48D0E12829F7322900263857 /* ElementAnimationContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ElementAnimationContext.h; sourceTree = "<group>"; };
+		48EA8D0F2E56212B00B1183B /* EventTimingInteractionID.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EventTimingInteractionID.h; sourceTree = "<group>"; };
 		490D51002B698A8300C6B266 /* PseudoElementIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PseudoElementIdentifier.h; sourceTree = "<group>"; };
 		491342962B425C0100FEEF18 /* CSSPseudoSelectors.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = CSSPseudoSelectors.json; sourceTree = "<group>"; };
 		491342D92B43FAA700FEEF18 /* CSSSelectorEnums.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = CSSSelectorEnums.h; sourceTree = "<group>"; };
@@ -29067,6 +29071,7 @@
 				E0FEF371B27C53EAC1C1FBEE /* EventSource.cpp */,
 				E0FEF371B17C53EAC1C1FBEE /* EventSource.h */,
 				E0FEF371B07C53EAC1C1FBEE /* EventSource.idl */,
+				48EA8D0F2E56212B00B1183B /* EventTimingInteractionID.h */,
 				14993BE30B2F2B1C0050497F /* FocusController.cpp */,
 				14993BE40B2F2B1C0050497F /* FocusController.h */,
 				062287830B4DB322000C34DF /* FocusDirection.h */,
@@ -29233,6 +29238,7 @@
 				4822FD222E2A8058004CAFF9 /* PerformanceEventTiming.cpp */,
 				4822FD212E2A8058004CAFF9 /* PerformanceEventTiming.h */,
 				4822FD252E2A8082004CAFF9 /* PerformanceEventTiming.idl */,
+				4869472C2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h */,
 				AD5A0C211DECA10100707054 /* PerformanceLogging.cpp */,
 				AD5A0C201DECA0B500707054 /* PerformanceLogging.h */,
 				0FF2E80C1EE0D430009EABD4 /* PerformanceLoggingClient.cpp */,
@@ -42219,6 +42225,7 @@
 				97AA3CA5145237CC003E1DA6 /* EventTargetHeaders.h in Headers */,
 				9BDF285C2DC0AC8B0096B893 /* EventTargetInlines.h in Headers */,
 				97AA3CA6145237CC003E1DA6 /* EventTargetInterfaces.h in Headers */,
+				48EA8D102E56212B00B1183B /* EventTimingInteractionID.h in Headers */,
 				262EC41A1D078FB900BA78FC /* EventTrackingRegions.h in Headers */,
 				93D196331D6CAB8200FC7E47 /* Exception.h in Headers */,
 				935FBCF209BA143B00E230B1 /* ExceptionCode.h in Headers */,
@@ -44570,6 +44577,7 @@
 				8A844D0511D3C18E0014065C /* Performance.h in Headers */,
 				86BE340115058CB200CE0FD8 /* PerformanceEntry.h in Headers */,
 				4822FD232E2A8058004CAFF9 /* PerformanceEventTiming.h in Headers */,
+				4869472D2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h in Headers */,
 				AD5A0C251DECACCC00707054 /* PerformanceLogging.h in Headers */,
 				0F850FE31ED7C18300FB77A7 /* PerformanceLoggingClient.h in Headers */,
 				37C738E91EDBD2FA003F2B0B /* PerformanceMark.h in Headers */,

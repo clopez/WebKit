@@ -987,7 +987,7 @@ inline static RetainPtr<NSString> textRelativeToSelectionStart(WKRelativeTextRan
     _placeholder = information.placeholder.createNSString().get();
     _label = information.label.createNSString().get();
     if (information.frame)
-        _frame = wrapper(API::FrameInfo::create(WebKit::FrameInfoData { *information.frame }, [webView _page].get()));
+        _frame = wrapper(API::FrameInfo::create(WebKit::FrameInfoData { *information.frame }));
     return self;
 }
 
@@ -1706,6 +1706,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     _selectionInteractionType = SelectionInteractionType::None;
     _lastSelectionChildScrollViewContentOffset = std::nullopt;
+    _lastSelectionContainerViewOrigin = std::nullopt;
     _lastSiblingBeforeSelectionHighlight = nil;
     _waitingForEditorStateAfterScrollingSelectionContainer = NO;
 
@@ -9397,6 +9398,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
                 return { };
             }();
             _lastSiblingBeforeSelectionHighlight = [self _siblingBeforeSelectionHighlight];
+            _lastSelectionContainerViewOrigin = [containerView frame].origin;
         }
 
         _selectionNeedsUpdate = NO;
@@ -9407,7 +9409,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     } else {
         if (_lastSiblingBeforeSelectionHighlight != [self _siblingBeforeSelectionHighlight])
             [_textInteractionWrapper prepareToMoveSelectionContainer:self._selectionContainerViewInternal];
-        [self _updateSelectionViewsInChildScrollViewIfNeeded];
+        [self _updateSelectionViewsIfNeeded];
     }
 
     if (postLayoutData.isStableStateUpdate && _needsDeferredEndScrollingSelectionUpdate && _page->inStableState()) {
@@ -9426,25 +9428,42 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     return [[_textInteractionWrapper selectionHighlightView] _wk_previousSibling];
 }
 
-- (void)_updateSelectionViewsInChildScrollViewIfNeeded
+- (void)_updateSelectionViewsIfNeeded
 {
-    if (_waitingForEditorStateAfterScrollingSelectionContainer)
-        return;
-
     RetainPtr selectionContainer = [self _selectionContainerViewInternal];
-    RetainPtr scroller = [selectionContainer _wk_parentScrollView];
-    if (![_webView _isInStableState:scroller.get()])
-        return;
 
-    if (!is_objc<WKChildScrollView>(scroller.get()))
-        return;
+    auto updateLastSelectionChildScrollViewContentOffset = [&] {
+        if (_waitingForEditorStateAfterScrollingSelectionContainer)
+            return NO;
 
-    auto contentOffset = WebCore::roundedIntPoint([scroller contentOffset]);
-    if (_lastSelectionChildScrollViewContentOffset == contentOffset)
-        return;
+        RetainPtr scroller = [selectionContainer _wk_parentScrollView];
+        if (![_webView _isInStableState:scroller.get()])
+            return NO;
 
-    _lastSelectionChildScrollViewContentOffset = contentOffset;
-    [_textInteractionWrapper setNeedsSelectionUpdate];
+        if (!is_objc<WKChildScrollView>(scroller.get()))
+            return NO;
+
+        auto contentOffset = WebCore::roundedIntPoint([scroller contentOffset]);
+        if (_lastSelectionChildScrollViewContentOffset == contentOffset)
+            return NO;
+
+        _lastSelectionChildScrollViewContentOffset = contentOffset;
+        return YES;
+    };
+
+    auto updateLastSelectionContainerViewOrigin = [&] -> BOOL {
+        if (selectionContainer == self)
+            return NO;
+
+        auto previousOrigin = std::exchange(_lastSelectionContainerViewOrigin, [selectionContainer frame].origin);
+        return previousOrigin && !CGPointEqualToPoint(*previousOrigin, [selectionContainer frame].origin);
+    };
+
+    BOOL needsUpdateDueToScrolling = updateLastSelectionChildScrollViewContentOffset();
+    BOOL needsUpdateDueToOriginChange = updateLastSelectionContainerViewOrigin();
+
+    if (needsUpdateDueToScrolling || needsUpdateDueToOriginChange)
+        [_textInteractionWrapper setNeedsSelectionUpdate];
 }
 
 - (BOOL)shouldAllowHidingSelectionCommands
@@ -9657,7 +9676,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     auto webView = _webView.get();
     id <WKUIDelegatePrivate> uiDelegate = static_cast<id <WKUIDelegatePrivate>>([webView UIDelegate]);
     return [uiDelegate respondsToSelector:@selector(_webView:fileUploadPanelContentIsManagedWithInitiatingFrame:)]
-        && [uiDelegate _webView:webView.get() fileUploadPanelContentIsManagedWithInitiatingFrame:_frameInfoForFileUploadPanel ? wrapper(API::FrameInfo::create(*std::exchange(_frameInfoForFileUploadPanel, std::nullopt), _page.get())).get() : nil];
+        && [uiDelegate _webView:webView.get() fileUploadPanelContentIsManagedWithInitiatingFrame:_frameInfoForFileUploadPanel ? wrapper(API::FrameInfo::create(*std::exchange(_frameInfoForFileUploadPanel, std::nullopt))).get() : nil];
 }
 
 #if HAVE(PHOTOS_UI)
