@@ -2357,7 +2357,7 @@ private:
         unsigned length = str.length();
 
         // Guard against overflow
-        if (length > (std::numeric_limits<uint32_t>::max() - sizeof(uint32_t)) / sizeof(UChar)) {
+        if (length > (std::numeric_limits<uint32_t>::max() - sizeof(uint32_t)) / sizeof(char16_t)) {
             fail();
             return;
         }
@@ -3366,6 +3366,7 @@ private:
     {
         static_assert(endState == ArrayEndVisitNamedMember || endState == ObjectEndVisitNamedMember);
         VM& vm = m_lexicalGlobalObject->vm();
+        auto scope = DECLARE_THROW_SCOPE(vm);
         CachedStringRef cachedString;
         bool wasTerminator = false;
         if (!readStringData(cachedString, wasTerminator, ShouldAtomize::Yes)) {
@@ -3384,8 +3385,13 @@ private:
         if constexpr (endState == ArrayEndVisitNamedMember)
             RELEASE_ASSERT(identifier != vm.propertyNames->length);
 
-        if (JSValue terminal = readTerminal()) {
+        JSValue terminal = readTerminal();
+        if (scope.exception()) [[unlikely]]
+            return VisitNamedMemberResult::Error;
+        if (terminal) {
             putProperty(outputObjectStack.last(), identifier, terminal);
+            if (scope.exception()) [[unlikely]]
+                return VisitNamedMemberResult::Error;
             return VisitNamedMemberResult::Start;
         }
 
@@ -3396,7 +3402,11 @@ private:
 
     ALWAYS_INLINE void objectEndVisitNamedMember(MarkedVector<JSObject*, 32>& outputObjectStack, Vector<Identifier, 16>& propertyNameStack, JSValue& outValue)
     {
+        VM& vm = m_lexicalGlobalObject->vm();
+        auto scope = DECLARE_THROW_SCOPE(vm);
         putProperty(outputObjectStack.last(), propertyNameStack.last(), outValue);
+        if (scope.exception()) [[unlikely]]
+            return;
         propertyNameStack.removeLast();
     }
 
@@ -3581,7 +3591,7 @@ private:
 
     static bool readString(std::span<const uint8_t>& span, String& str, unsigned length, bool is8Bit, ShouldAtomize shouldAtomize)
     {
-        if (length >= std::numeric_limits<int32_t>::max() / sizeof(UChar))
+        if (length >= std::numeric_limits<int32_t>::max() / sizeof(char16_t))
             return false;
 
         if (is8Bit) {
@@ -3594,18 +3604,18 @@ private:
             return true;
         }
 
-        size_t size = length * sizeof(UChar);
+        size_t size = length * sizeof(char16_t);
         if (span.size() < size)
             return false;
 
 #if ASSUME_LITTLE_ENDIAN
         auto stringSpan = consumeSpan(span, size);
         if (shouldAtomize == ShouldAtomize::Yes)
-            str = AtomString(spanReinterpretCast<const UChar>(stringSpan));
+            str = AtomString(spanReinterpretCast<const char16_t>(stringSpan));
         else
-            str = String(spanReinterpretCast<const UChar>(stringSpan));
+            str = String(spanReinterpretCast<const char16_t>(stringSpan));
 #else
-        std::span<UChar> characters;
+        std::span<char16_t> characters;
         str = String::createUninitialized(length, characters);
         for (unsigned i = 0; i < length; ++i) {
             uint16_t c;
@@ -5539,7 +5549,7 @@ private:
 DeserializationResult CloneDeserializer::deserialize()
 {
     VM& vm = m_lexicalGlobalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
+    auto scope = DECLARE_CATCH_SCOPE(vm);
 
     Vector<uint32_t, 16> indexStack;
     Vector<Identifier, 16> propertyNameStack;
@@ -5609,7 +5619,13 @@ DeserializationResult CloneDeserializer::deserialize()
                     goto arrayStartVisitNamedMember;
             }
 
-            if (JSValue terminal = readTerminal()) {
+            JSValue terminal = readTerminal();
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
+            if (terminal) {
                 putProperty(outputObjectStack.last(), index, terminal);
                 if (scope.exception()) [[unlikely]] {
                     SERIALIZE_TRACE("FAIL deserialize");
@@ -5637,7 +5653,13 @@ DeserializationResult CloneDeserializer::deserialize()
         }
         arrayStartVisitNamedMember:
         case ArrayStartVisitNamedMember: {
-            switch (startVisitNamedMember<ArrayEndVisitNamedMember>(outputObjectStack, propertyNameStack, stateStack, outValue)) {
+            auto result = startVisitNamedMember<ArrayEndVisitNamedMember>(outputObjectStack, propertyNameStack, stateStack, outValue);
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
+            switch (result) {
             case VisitNamedMemberResult::Error:
                 goto error;
             case VisitNamedMemberResult::Break:
@@ -5651,6 +5673,11 @@ DeserializationResult CloneDeserializer::deserialize()
         }
         case ArrayEndVisitNamedMember: {
             objectEndVisitNamedMember(outputObjectStack, propertyNameStack, outValue);
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
             goto arrayStartVisitNamedMember;
         }
         objectStartState:
@@ -5664,7 +5691,13 @@ DeserializationResult CloneDeserializer::deserialize()
         startVisitNamedMember:
         [[fallthrough]];
         case ObjectStartVisitNamedMember: {
-            switch (startVisitNamedMember<ObjectEndVisitNamedMember>(outputObjectStack, propertyNameStack, stateStack, outValue)) {
+            auto result = startVisitNamedMember<ObjectEndVisitNamedMember>(outputObjectStack, propertyNameStack, stateStack, outValue);
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
+            switch (result) {
             case VisitNamedMemberResult::Error:
                 goto error;
             case VisitNamedMemberResult::Break:
@@ -5678,6 +5711,11 @@ DeserializationResult CloneDeserializer::deserialize()
         }
         case ObjectEndVisitNamedMember: {
             objectEndVisitNamedMember(outputObjectStack, propertyNameStack, outValue);
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
             goto startVisitNamedMember;
         }
         mapStartState: {
@@ -5749,7 +5787,13 @@ DeserializationResult CloneDeserializer::deserialize()
 
         stateUnknown:
         case StateUnknown:
-            if (JSValue terminal = readTerminal()) {
+            JSValue terminal = readTerminal();
+            if (scope.exception()) [[unlikely]] {
+                SERIALIZE_TRACE("FAIL deserialize");
+                fail();
+                goto error;
+            }
+            if (terminal) {
                 outValue = terminal;
                 break;
             }
@@ -6543,7 +6587,7 @@ JSValue SerializedScriptValue::deserialize(JSGlobalObject& lexicalGlobalObject, 
 JSValue SerializedScriptValue::deserialize(JSGlobalObject& lexicalGlobalObject, JSGlobalObject* globalObject, const Vector<Ref<MessagePort>>& messagePorts, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths, SerializationErrorMode throwExceptions, bool* didFail)
 {
     VM& vm = lexicalGlobalObject.vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
+    auto scope = DECLARE_CATCH_SCOPE(vm);
 
     DeserializationResult result = CloneDeserializer::deserialize(&lexicalGlobalObject, globalObject, messagePorts, WTFMove(m_internals.detachedImageBitmaps)
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
@@ -6726,6 +6770,74 @@ std::optional<ErrorInformation> extractErrorInformationFromErrorInstance(JSC::JS
     RETURN_IF_EXCEPTION(scope, std::nullopt);
 
     return { ErrorInformation { errorTypeString, message, line, column, sourceURL, stack, cause } };
+}
+
+auto SerializedScriptValue::deserializationBehavior(JSC::JSObject& object) -> DeserializationBehavior
+{
+    // These correspond to legacy use of m_canCreateDOMObject and m_isDOMGlobalObject.
+    if (object.inherits<JSBlob>()
+        || object.inherits<JSFile>()
+        || object.inherits<JSFileList>()
+        || object.inherits<JSImageData>())
+        return DeserializationBehavior::LegacyMapToNull;
+
+    if (object.inherits<JSDOMPoint>()
+        || object.inherits<JSDOMPointReadOnly>()
+        || object.inherits<JSDOMRect>()
+        || object.inherits<JSDOMRectReadOnly>()
+        || object.inherits<JSDOMMatrix>()
+        || object.inherits<JSDOMMatrixReadOnly>()
+        || object.inherits<JSDOMQuad>()
+        || object.inherits<JSDOMException>())
+        return DeserializationBehavior::LegacyMapToUndefined;
+
+#if ENABLE(WEB_RTC)
+    if (object.inherits<JSRTCCertificate>())
+        return DeserializationBehavior::LegacyMapToEmptyObject;
+#endif
+
+    if (object.inherits<DateInstance>()
+        || object.inherits<BooleanObject>()
+        || object.inherits<StringObject>()
+        || object.inherits<NumberObject>()
+        || object.inherits<BigIntObject>()
+        || object.inherits<RegExpObject>()
+        || object.inherits<ErrorInstance>()
+        || object.inherits<JSMessagePort>()
+        || object.inherits<JSArrayBuffer>()
+        || object.inherits<JSArrayBufferView>()
+        || object.inherits<JSCryptoKey>()
+#if ENABLE(WEBASSEMBLY)
+        || object.inherits<JSWebAssemblyModule>()
+        || object.inherits<JSWebAssemblyMemory>()
+#endif
+        || object.inherits<JSImageBitmap>()
+#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
+        || object.inherits<JSOffscreenCanvas>()
+#endif
+#if ENABLE(WEB_RTC)
+        || object.inherits<JSRTCDataChannel>()
+        || object.inherits<JSRTCEncodedAudioFrame>()
+        || object.inherits<JSRTCEncodedVideoFrame>()
+#endif
+#if ENABLE(WEB_CODECS)
+        || object.inherits<JSWebCodecsEncodedVideoChunk>()
+        || object.inherits<JSWebCodecsVideoFrame>()
+        || object.inherits<JSWebCodecsEncodedAudioChunk>()
+        || object.inherits<JSWebCodecsAudioData>()
+#endif
+#if ENABLE(MEDIA_STREAM)
+        || object.inherits<JSMediaStreamTrack>()
+#endif
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
+        || object.inherits<JSMediaSourceHandle>()
+#endif
+        || object.inherits<JSMap>()
+        || object.inherits<JSSet>()
+        || object.classInfo() == JSFinalObject::info())
+        return DeserializationBehavior::Succeed;
+
+    return DeserializationBehavior::Fail;
 }
 
 } // namespace WebCore

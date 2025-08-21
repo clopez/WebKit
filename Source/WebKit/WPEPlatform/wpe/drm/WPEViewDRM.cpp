@@ -454,8 +454,7 @@ static gboolean wpeViewDRMRenderBuffer(WPEView* view, WPEBuffer* buffer, const W
             return FALSE;
     }
 
-    if (WPE_IS_BUFFER_DMA_BUF(buffer))
-        drmBuffer->setFenceFD(UnixFileDescriptor { wpe_buffer_dma_buf_take_rendering_fence(WPE_BUFFER_DMA_BUF(buffer)), UnixFileDescriptor::Adopt });
+    drmBuffer->setFenceFD(UnixFileDescriptor { wpe_buffer_take_rendering_fence(buffer), UnixFileDescriptor::Adopt });
 
     auto* priv = WPE_VIEW_DRM(view)->priv;
     priv->pendingBuffer = buffer;
@@ -498,7 +497,7 @@ static void wpeViewDRMScheduleCursorUpdate(WPEViewDRM* view)
         return;
 
     if (!priv->cursorUpdateTimer) {
-        priv->cursorUpdateTimer = makeUnique<RunLoop::Timer>(RunLoop::currentSingleton(), [view] {
+        priv->cursorUpdateTimer = makeUnique<RunLoop::Timer>(RunLoop::currentSingleton(), "_WPEViewDRMPrivate::cursorUpdateTimer"_s, [view] {
             if (wpeViewDRMRequestUpdate(view, nullptr))
                 view->priv->updateFlags.add(UpdateFlags::CursorUpdateRequested);
         });
@@ -570,19 +569,4 @@ static void wpe_view_drm_class_init(WPEViewDRMClass* viewDRMClass)
     viewClass->render_buffer = wpeViewDRMRenderBuffer;
     viewClass->set_cursor_from_name = wpeViewDRMSetCursorFromName;
     viewClass->set_cursor_from_bytes = wpeViewDRMSetCursorFromBytes;
-}
-
-/**
- * wpe_view_drm_new:
- * @display: a #WPEDisplayDRM
- *
- * Create a new #WPEViewDRM
- *
- * Returns: (transfer full): a #WPEView
- */
-WPEView* wpe_view_drm_new(WPEDisplayDRM* display)
-{
-    g_return_val_if_fail(WPE_IS_DISPLAY_DRM(display), nullptr);
-
-    return WPE_VIEW(g_object_new(WPE_TYPE_VIEW_DRM, "display", display, nullptr));
 }

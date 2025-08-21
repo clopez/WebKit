@@ -28,9 +28,9 @@
 
 #pragma once
 
-#include "ThreadableLoader.h"
-#include "ThreadableLoaderClient.h"
-#include "URLKeepingBlobAlive.h"
+#include <WebCore/ThreadableLoader.h>
+#include <WebCore/ThreadableLoaderClient.h>
+#include <WebCore/URLKeepingBlobAlive.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/URL.h>
 
@@ -44,7 +44,7 @@ class ScriptExecutionContext;
 class FragmentedSharedBuffer;
 
 class WEBCORE_EXPORT FetchLoader final : public ThreadableLoaderClient {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FetchLoader, FetchLoader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FetchLoader);
 public:
     FetchLoader(FetchLoaderClient&, FetchBodyConsumer*);

@@ -949,6 +949,13 @@ TEST(EvaluateJavaScript, ReturnTypes)
         EXPECT_EQ([dict objectForKey:@"blob"], [NSNull null]);
     }];
 
+    NSString *containersWithNullAndUndefined = @"(function(){return [{'a':null, 'b':undefined}, [null, undefined, 0]]})()";
+    [webView evaluateJavaScript:containersWithNullAndUndefined completionHandler:^(id value, NSError *error) {
+        EXPECT_FALSE(error);
+        NSArray *expected = @[@{ @"a":NSNull.null }, @[NSNull.null, NSNull.null, @0]];
+        EXPECT_TRUE([value isEqual:expected]);
+    }];
+
     NSString *jsWithNestedObjects = @""
     "(function(){"
     "    let aBool = true;\n"
@@ -1100,7 +1107,7 @@ TEST(EvaluateJavaScript, ReturnTypes)
     }];
 
     constexpr NSUInteger depth { 100000 };
-    NSString *deeplyNestedArray = [[@"" stringByPaddingToLength:depth withString: @"[" startingAtIndex:0] stringByAppendingString:[@"" stringByPaddingToLength:depth withString: @"[" startingAtIndex:0]];
+    NSString *deeplyNestedArray = [[@"" stringByPaddingToLength:depth withString: @"{" startingAtIndex:0] stringByAppendingString:[@"" stringByPaddingToLength:depth withString: @"{" startingAtIndex:0]];
     [webView evaluateJavaScript:deeplyNestedArray completionHandler:^(id value, NSError *error) {
         EXPECT_WK_STREQ(error.domain, WKErrorDomain);
         EXPECT_EQ(error.code, WKErrorJavaScriptExceptionOccurred);

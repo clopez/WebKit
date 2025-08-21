@@ -50,7 +50,7 @@ JSWebAssemblyStruct::JSWebAssemblyStruct(VM& vm, WebAssemblyGCStructure* structu
 
 JSWebAssemblyStruct* JSWebAssemblyStruct::tryCreate(VM& vm, WebAssemblyGCStructure* structure)
 {
-    auto* structType = structure->typeDefinition().as<Wasm::StructType>();
+    SUPPRESS_UNCOUNTED_LOCAL auto* structType = structure->typeDefinition().as<Wasm::StructType>();
     auto* cell = tryAllocateCell<JSWebAssemblyStruct>(vm, TrailingArrayType::allocationSize(structType->instancePayloadSize()));
     if (!cell) [[unlikely]]
         return nullptr;
@@ -90,14 +90,14 @@ uint64_t JSWebAssemblyStruct::get(uint32_t fieldIndex) const
     case TypeKind::I64:
     case TypeKind::F64:
         return *std::bit_cast<const uint64_t*>(targetPointer);
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Funcref:
     case TypeKind::Ref:
     case TypeKind::RefNull:
         return JSValue::encode(std::bit_cast<WriteBarrierBase<Unknown>*>(targetPointer)->get());
     case TypeKind::V128:
-        // V128 is not supported in LLInt.
+        // V128 is not supported in IPInt.
     default:
         ASSERT_NOT_REACHED();
         return 0;
@@ -150,13 +150,13 @@ void JSWebAssemblyStruct::set(uint32_t fieldIndex, uint64_t argument)
     case TypeKind::Sub:
     case TypeKind::Subfinal:
     case TypeKind::Rec:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
     case TypeKind::I31ref: {
         break;
     }

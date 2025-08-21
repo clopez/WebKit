@@ -893,7 +893,7 @@ static void enableFeatureForPreferences(NSString *featureName, WKPreferences *pr
 }
 
 class WebPushDTestWebView {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebPushDTestWebView);
 public:
     WebPushDTestWebView(const String& pushPartition, const std::optional<WTF::UUID>& dataStoreIdentifier, WKProcessPool *processPool, TestNotificationProvider& notificationProvider, ASCIILiteral html, InstallDataStoreDelegate installDataStoreDelegate, BuiltInNotificationsEnabled builtInNotificationsEnabled)
         : m_pushPartition(pushPartition)
@@ -2437,9 +2437,9 @@ static constexpr ASCIILiteral json35 = R"JSONRESOURCE(
     "web_push": 8030,
     "notification": {
         "navigate": "https://example.com/",
-        "title": "Hello world!",
-        "mutable": 39
-    }
+        "title": "Hello world!"
+    },
+    "mutable": 39
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json36 = R"JSONRESOURCE(
@@ -2447,9 +2447,9 @@ static constexpr ASCIILiteral json36 = R"JSONRESOURCE(
     "web_push": 8030,
     "notification": {
         "navigate": "https://example.com/",
-        "title": "Hello world!",
-        "mutable": { }
-    }
+        "title": "Hello world!"
+    },
+    "mutable": { }
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json37 = R"JSONRESOURCE(
@@ -2457,9 +2457,9 @@ static constexpr ASCIILiteral json37 = R"JSONRESOURCE(
     "web_push": 8030,
     "notification": {
         "navigate": "https://example.com/",
-        "title": "Hello world!",
-        "mutable": "true"
-    }
+        "title": "Hello world!"
+    },
+    "mutable": "true"
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json38 = R"JSONRESOURCE(
@@ -2468,8 +2468,8 @@ static constexpr ASCIILiteral json38 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Hello world!",
-        "mutable": true
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json39 = R"JSONRESOURCE(
@@ -2478,9 +2478,9 @@ static constexpr ASCIILiteral json39 = R"JSONRESOURCE(
     "app_badge": "12",
     "notification": {
         "navigate": "https://example.com/",
-        "title": "Hello world!",
-        "mutable": true
-    }
+        "title": "Hello world!"
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json40 = R"JSONRESOURCE(
@@ -2490,9 +2490,9 @@ static constexpr ASCIILiteral json40 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Hello world!",
-        "mutable": true,
         "tag": "title Gotcha!"
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json41 = R"JSONRESOURCE(
@@ -2502,9 +2502,9 @@ static constexpr ASCIILiteral json41 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Hello world!",
-        "mutable": true,
         "tag": "badge 1024"
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json42 = R"JSONRESOURCE(
@@ -2514,9 +2514,9 @@ static constexpr ASCIILiteral json42 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Hello world!",
-        "mutable": true,
         "tag": "titleandbadge ThisRules 4096"
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json43 = R"JSONRESOURCE(
@@ -2526,10 +2526,10 @@ static constexpr ASCIILiteral json43 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Test the data object",
-        "mutable": true,
         "tag": "datatotitle",
         "data": "Raw string"
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json44 = R"JSONRESOURCE(
@@ -2539,10 +2539,10 @@ static constexpr ASCIILiteral json44 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Test the data object",
-        "mutable": true,
         "tag": "datatotitle",
         "data": { "key": "value" }
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
 static constexpr ASCIILiteral json45 = R"JSONRESOURCE(
@@ -2552,11 +2552,12 @@ static constexpr ASCIILiteral json45 = R"JSONRESOURCE(
     "notification": {
         "navigate": "https://example.com/",
         "title": "Test a default action URL override",
-        "mutable": true,
         "tag": "defaultactionurl https://webkit.org/"
-    }
+    },
+    "mutable": true
 }
 )JSONRESOURCE"_s;
+// Intentionally keep mutable as a child of notification here until we fix webkit.org/b/297389.
 static constexpr ASCIILiteral json46 = R"JSONRESOURCE(
 {
     "web_push": 8030,
@@ -3105,7 +3106,7 @@ TEST_F(WebPushDPushNotificationEventTest, Basic)
     runTest(json46);
     checkLastNotificationTitle(@"Test a missing default action URL override");
     checkLastNotificationDefaultActionURL(@"https://example.com/");
-    waitForMessageAndVerify(@"showNotification failed: TypeError: Call to showNotification() while handling a `pushnotification` event did not include NotificationOptions that specify a valid defaultAction url");
+    waitForMessageAndVerify(@"showNotification failed: TypeError: Call to showNotification() while handling a `push` event did not include NotificationOptions that specify a valid defaultAction url");
 
     // After the slew of above messages that were handled by service workers, silent push tracking should *not* have
     // kicked in, and therefore there should still be a push subscription.

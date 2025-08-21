@@ -52,6 +52,7 @@
 #include <WebCore/Site.h>
 #include <WebCore/UserGestureTokenIdentifier.h>
 #include <pal/SessionID.h>
+#include <wtf/Expected.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -208,7 +209,8 @@ public:
 #endif
     void waitForSharedPreferencesForWebProcessToSync(uint64_t sharedPreferencesVersion, CompletionHandler<void(bool success)>&&);
 
-    const std::optional<WebCore::Site>& site() const { return m_site; }
+    enum class SiteState : uint8_t { NotYetSpecified, MultipleSites, SharedProcess };
+    const Expected<WebCore::Site, SiteState>& site() const { return m_site; }
 
     enum class WillShutDown : bool { No, Yes };
     void setIsInProcessCache(bool, WillShutDown = WillShutDown::No);
@@ -315,7 +317,7 @@ public:
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
 
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     void setOptInCookiePartitioningEnabled(bool);
 #endif
 
@@ -389,7 +391,7 @@ public:
     ShutdownPreventingScopeCounter::Token shutdownPreventingScope() { return m_shutdownPreventingScopeCounter.count(); }
 
     void didStartProvisionalLoadForMainFrame(const URL&);
-    void didStartUsingProcessForSiteIsolation(const WebCore::Site&);
+    void didStartUsingProcessForSiteIsolation(const std::optional<WebCore::Site>&);
 
     // ProcessThrottlerClient
     void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
@@ -491,7 +493,7 @@ public:
 
     void markProcessAsRecentlyUsed();
 
-#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     void platformSuspendProcess();
     void platformResumeProcess();
 #endif
@@ -555,6 +557,10 @@ public:
     void setResourceMonitorRuleLists(RefPtr<WebCompiledContentRuleList>, CompletionHandler<void()>&&);
 #endif
 
+    std::optional<SandboxExtension::Handle> sandboxExtensionForFile(const String& fileName) const;
+    void addSandboxExtensionForFile(const String& fileName, SandboxExtension::Handle);
+    void clearSandboxExtensions();
+
 private:
     Type type() const final { return Type::WebContent; }
 
@@ -616,7 +622,7 @@ private:
 #endif
 
 #if ENABLE(MODEL_PROCESS)
-    void createModelProcessConnection(IPC::Connection::Handle&&, ModelProcessConnectionParameters&&);
+    void createModelProcessConnection(IPC::Connection::Handle&&);
 #endif
 
     bool shouldAllowNonValidInjectedCode() const;
@@ -631,7 +637,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
@@ -677,9 +683,9 @@ private:
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 #if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
-    void setupLogStream(uint32_t pid, IPC::StreamServerConnectionHandle&&, LogStreamIdentifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&&);
+    void createLogStream(IPC::StreamServerConnectionHandle&&, LogStreamIdentifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&&);
 #else
-    void setupLogStream(uint32_t pid, LogStreamIdentifier, CompletionHandler<void()>&&);
+    void createLogStream(LogStreamIdentifier, CompletionHandler<void()>&&);
 #endif
 #endif
 
@@ -754,7 +760,7 @@ private:
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;
 
-    std::optional<WebCore::Site> m_site;
+    Expected<WebCore::Site, SiteState> m_site { Unexpected<SiteState> { SiteState::NotYetSpecified } };
     bool m_isInProcessCache { false };
 
     enum class NoOrMaybe { No, Maybe } m_isResponsive;
@@ -822,7 +828,7 @@ private:
     const std::unique_ptr<AudioSessionRoutingArbitratorProxy> m_routingArbitrator;
 #endif
     bool m_isConnectedToHardwareConsole { true };
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool m_platformSuspendDidReleaseNearSuspendedAssertion { false };
 #endif
     mutable String m_environmentIdentifier;
@@ -851,11 +857,7 @@ private:
     bool m_hasRegisteredServiceWorkerClients { true };
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
     IPC::ScopedActiveMessageReceiveQueue<LogStream> m_logStream;
-#else
-    RefPtr<LogStream> m_logStream;
-#endif
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -865,6 +867,8 @@ private:
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
     HashMap<WebCore::ServiceWorkerIdentifier, Ref<ServiceWorkerDebuggableProxy>> m_serviceWorkerDebuggableProxies;
 #endif
+
+    HashMap<String, SandboxExtension::Handle> m_fileSandboxExtensions;
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const WebProcessProxy&);

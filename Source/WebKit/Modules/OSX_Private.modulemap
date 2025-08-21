@@ -974,6 +974,11 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module WKScriptMessageRef {
+    header "WKScriptMessageRef.h"
+    export *
+  }
+
   explicit module WKSessionStateRef {
     header "WKSessionStateRef.h"
     export *
@@ -1854,6 +1859,11 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module _WKJSHandle {
+    header "_WKJSHandle.h"
+    export *
+  }
+
   explicit module _WKLinkIconParameters {
     header "_WKLinkIconParameters.h"
     export *
@@ -1876,11 +1886,6 @@ framework module WebKit_Private [system] {
 
   explicit module _WKNotificationData {
     header "_WKNotificationData.h"
-    export *
-  }
-
-  explicit module _WKNodeInfo {
-    header "_WKNodeInfo.h"
     export *
   }
 
@@ -1966,6 +1971,11 @@ framework module WebKit_Private [system] {
 
   explicit module _WKSameDocumentNavigationType {
     header "_WKSameDocumentNavigationType.h"
+    export *
+  }
+
+  explicit module _WKSerializedNode {
+    header "_WKSerializedNode.h"
     export *
   }
 
@@ -2066,6 +2076,11 @@ framework module WebKit_Private [system] {
 
   explicit module WKWebExtensionActionPrivate {
     header "WKWebExtensionActionPrivate.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionBookmark {
+    header "_WKWebExtensionBookmarks.h"
     export *
   }
 

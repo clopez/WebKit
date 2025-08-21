@@ -140,6 +140,10 @@ struct WebExtensionCookieStoreParameters;
 struct WebExtensionMenuItemContextParameters;
 struct WebExtensionMessageTargetParameters;
 
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+struct ContentRuleListMatchedRule;
+#endif
+
 enum class WebExtensionContextInstallReason : uint8_t {
     None,
     ExtensionInstall,
@@ -256,6 +260,16 @@ public:
         BackgroundContentFailedToLoad,
     };
 
+    // Keep in sync with WKWebExtensionContextError values
+    enum class APIError : uint8_t {
+        Unknown = 1,
+        AlreadyLoaded,
+        NotLoaded,
+        BaseURLAlreadyInUse,
+        NoBackgroundContent,
+        BackgroundContentFailedToLoad
+    };
+
     enum class PermissionState : int8_t {
         DeniedExplicitly    = -3,
         DeniedImplicitly    = -2,
@@ -298,14 +312,17 @@ public:
 
     bool operator==(const WebExtensionContext& other) const { return (this == &other); }
 
-#if PLATFORM(COCOA)
-    NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
-    void recordErrorIfNeeded(NSError *error) { if (error) recordError(error); }
-    void recordError(NSError *);
+    Ref<API::Error> createError(Error, const String& customLocalizedDescription = nullString(), RefPtr<API::Error> underlyingError = nullptr);
+    void recordErrorIfNeeded(RefPtr<API::Error> error)
+    {
+        if (error)
+            recordError(*error);
+    }
+
+    void recordError(Ref<API::Error>);
     void clearError(Error);
 
-    NSArray *errors();
-#endif
+    Vector<Ref<API::Error>> errors();
 
     bool storageIsPersistent() const { return !m_storageDirectory.isEmpty(); }
     const String& storageDirectory() const { return m_storageDirectory; }
@@ -314,9 +331,9 @@ public:
 
     Ref<WebExtensionStorageSQLiteStore> storageForType(WebExtensionDataType);
 
-    bool load(WebExtensionController&, String storageDirectory, NSError ** = nullptr);
-    bool unload(NSError ** = nullptr);
-    bool reload(NSError ** = nullptr);
+    Expected<bool, RefPtr<API::Error>> load(WebExtensionController&, String storageDirectory);
+    Expected<bool, RefPtr<API::Error>> unload();
+    Expected<bool, RefPtr<API::Error>> reload();
 
     bool isLoaded() const { return !!m_extensionController; }
 
@@ -539,16 +556,16 @@ public:
     URL backgroundContentURL();
     WKWebView *backgroundWebView() const { return m_backgroundWebView.get(); }
     bool safeToLoadBackgroundContent() const { return m_safeToLoadBackgroundContent; }
-
-    NSError *backgroundContentLoadError() const { return m_backgroundContentLoadError.get(); }
 #endif
+
+    RefPtr<API::Error> backgroundContentLoadError() const { return m_backgroundContentLoadError; }
 
     NSString *backgroundWebViewInspectionName();
     void setBackgroundWebViewInspectionName(const String&);
 
     bool decidePolicyForNavigationAction(WKWebView *, WKNavigationAction *);
     void didFinishDocumentLoad(WKWebView *, WKNavigation *);
-    void didFailNavigation(WKWebView *, WKNavigation *, NSError *);
+    void didFailNavigation(WKWebView *, WKNavigation *, RefPtr<API::Error>);
     void webViewWebContentProcessDidTerminate(WKWebView *);
 
 #if PLATFORM(MAC)
@@ -564,6 +581,10 @@ public:
 
     bool handleContentRuleListNotificationForTab(WebExtensionTab&, const URL&, WebCore::ContentRuleListResults::Result);
     void incrementActionCountForTab(WebExtensionTab&, ssize_t incrementAmount);
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    void handleContentRuleListMatchedRule(WebExtensionTab&, WebCore::ContentRuleListMatchedRule&);
+#endif
 
     // Returns whether or not there are any matched rules after the purge.
     bool purgeMatchedRulesFromBefore(const WallTime&);
@@ -593,7 +614,7 @@ public:
 
     void cookiesDidChange(API::HTTPCookieStore&);
 
-    void loadBackgroundContent(CompletionHandler<void(NSError *)>&&);
+    void loadBackgroundContent(CompletionHandler<void(RefPtr<API::Error>)>&&);
 
     void wakeUpBackgroundContentIfNecessary(Function<void()>&&);
     void wakeUpBackgroundContentIfNecessaryToFireEvents(EventListenerTypeSet&&, Function<void()>&&);
@@ -633,6 +654,8 @@ private:
     friend class WebExtensionMessagePort;
 
     explicit WebExtensionContext();
+
+    int toAPIError(WebExtensionContext::Error);
 
     String stateFilePath() const;
     NSDictionary *currentState() const;
@@ -784,7 +807,7 @@ private:
 #if ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
     bool isBookmarksMessageAllowed(IPC::Decoder&);
     void bookmarksCreate(const std::optional<String>& parentId, const std::optional<uint64_t>& index, const std::optional<String>& url, const std::optional<String>& title, CompletionHandler<void(Expected<WebExtensionBookmarksParameters, WebExtensionError>&&)>&&);
-    void bookmarksGetTree(CompletionHandler<void(Expected<WebExtensionBookmarksParameters, WebExtensionError>&&)>&&);
+    void bookmarksGetTree(CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGetSubTree(const String& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGet(const Vector<String>& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
     void bookmarksGetChildren(const String& bookmarkId, CompletionHandler<void(Expected<Vector<WebExtensionBookmarksParameters>, WebExtensionError>&&)>&&);
@@ -987,8 +1010,8 @@ private:
 
 #if PLATFORM(COCOA)
     RetainPtr<NSMutableDictionary> m_state;
-    RetainPtr<NSMutableArray> m_errors;
 #endif
+    Vector<Ref<API::Error>> m_errors;
 
     RefPtr<WebExtension> m_extension;
     WeakPtr<WebExtensionController> m_extensionController;
@@ -1036,9 +1059,9 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<WKWebView> m_backgroundWebView;
     RefPtr<ProcessThrottlerActivity> m_backgroundWebViewActivity;
-    RetainPtr<NSError> m_backgroundContentLoadError;
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;
 #endif
+    RefPtr<API::Error> m_backgroundContentLoadError;
 
     String m_backgroundWebViewInspectionName;
 

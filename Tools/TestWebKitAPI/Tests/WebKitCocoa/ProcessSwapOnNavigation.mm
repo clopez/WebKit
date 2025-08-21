@@ -7272,12 +7272,7 @@ static bool hasOverlay(CALayer *layer)
 }
 #endif
 
-// FIXME when rdar://106098852 is resolved
-#if PLATFORM(MAC) && (__MAC_OS_X_VERSION_MIN_REQUIRED > 130000) || PLATFORM(IOS) || PLATFORM(VISION)
-TEST(ProcessSwap, DISABLED_PageOverlayLayerPersistence)
-#else
 TEST(ProcessSwap, PageOverlayLayerPersistence)
-#endif
 {
     auto processPoolConfiguration = psonProcessPoolConfiguration();
     [processPoolConfiguration setInjectedBundleURL:[[NSBundle mainBundle] URLForResource:@"TestWebKitAPI" withExtension:@"wkbundle"]];
@@ -9472,7 +9467,7 @@ TEST(ProcessSwap, ChangeViewSizeDuringNavigationActionPolicyDecision)
         decisionHandler(WKNavigationActionPolicyAllow);
 
         constexpr auto estimatedDelayForWebProcessLaunch = 5_ms;
-        RunLoop::protectedMain()->dispatchAfter(estimatedDelayForWebProcessLaunch, [webView] {
+        RunLoop::mainSingleton().dispatchAfter(estimatedDelayForWebProcessLaunch, [webView] {
             [webView setFrame:CGRectMake(0, 0, 320, 568)];
         });
     };

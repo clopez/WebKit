@@ -21,14 +21,14 @@
 
 #pragma once
 
-#include "ColorHash.h"
-#include "GraphicsContext.h"
-#include "PaintInfo.h"
-#include "PopupMenuStyle.h"
-#include "ScrollTypes.h"
-#include "StyleColor.h"
-#include "SwitchTrigger.h"
-#include "ThemeTypes.h"
+#include <WebCore/ColorHash.h>
+#include <WebCore/GraphicsContext.h>
+#include <WebCore/PaintInfo.h>
+#include <WebCore/PopupMenuStyle.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/SwitchTrigger.h>
+#include <WebCore/ThemeTypes.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -55,7 +55,9 @@ class Settings;
 template<typename> struct MinimallySerializingSpaceSeparatedRectEdges;
 
 namespace Style {
+struct LineWidth;
 struct PaddingEdge;
+using LineWidthBox = MinimallySerializingSpaceSeparatedRectEdges<LineWidth>;
 using PaddingBox = MinimallySerializingSpaceSeparatedRectEdges<PaddingEdge>;
 }
 
@@ -261,9 +263,11 @@ public:
     virtual void adjustTextControlInnerPlaceholderStyle(RenderStyle&, const RenderStyle&, const Element*) const { }
     virtual void adjustTextControlInnerTextStyle(RenderStyle&, const RenderStyle&, const Element*) const { }
 
-    virtual Color disabledSubmitButtonTextColor() const { return Color::black; }
+    virtual Color submitButtonTextColor(const RenderObject&) const { return Color::black; }
 
     virtual bool mayNeedBleedAvoidance(const RenderStyle&) const { return true; }
+
+    virtual float adjustedMaximumLogicalWidthForControl(const RenderStyle&, const Element&, float maximumLogicalWidth) const { return maximumLogicalWidth; }
 
 protected:
     ControlStyle extractControlStyleForRenderer(const RenderObject&) const;
@@ -396,7 +400,7 @@ protected:
     Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, const Style::PreferredSizePair&, float zoomFactor) const;
 
     // Allows the theme to modify the existing border.
-    virtual LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor, const Element*) const;
+    virtual Style::LineWidthBox controlBorder(StyleAppearance, const FontCascade&, const Style::LineWidthBox& zoomedBox, float zoomFactor, const Element*) const;
 
     // Whether or not whitespace: pre should be forced on always.
     virtual bool controlRequiresPreWhiteSpace(StyleAppearance) const { return false; }

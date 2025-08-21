@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "ContentSecurityPolicy.h"
-#include "FrameIdentifier.h"
-#include "PageIdentifier.h"
-#include "ShouldRelaxThirdPartyCookieBlocking.h"
+#include <WebCore/ContentSecurityPolicy.h>
+#include <WebCore/FrameIdentifier.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -41,15 +41,15 @@
 #include <wtf/Vector.h>
 
 #if ENABLE(APPLICATION_MANIFEST)
-#include "ApplicationManifest.h"
+#include <WebCore/ApplicationManifest.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
-#include "DeviceOrientationUpdateProvider.h"
+#include <WebCore/DeviceOrientationUpdateProvider.h>
 #endif
 
 #if PLATFORM(VISION) && ENABLE(GAMEPAD)
-#include "ShouldRequireExplicitConsentForGamepadAccess.h"
+#include <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
 #endif
 
 namespace WebCore {
@@ -76,6 +76,7 @@ class FrameLoader;
 class HistoryItemClient;
 class InspectorBackendClient;
 class LocalFrameLoaderClient;
+class MediaSessionManagerInterface;
 class ModelPlayerProvider;
 class PaymentCoordinatorClient;
 class PerformanceLoggingClient;
@@ -98,6 +99,7 @@ class WebRTCProvider;
 
 enum class SandboxFlag : uint16_t;
 using SandboxFlags = OptionSet<SandboxFlag>;
+using MediaSessionManagerFactory = Function<RefPtr<MediaSessionManagerInterface> (std::optional<PageIdentifier>)>;
 
 class PageConfiguration {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(PageConfiguration, WEBCORE_EXPORT);
@@ -244,6 +246,8 @@ public:
 #if HAVE(DIGITAL_CREDENTIALS_UI)
     Ref<CredentialRequestCoordinatorClient> credentialRequestCoordinatorClient;
 #endif
+
+    std::optional<MediaSessionManagerFactory> mediaSessionManagerFactory;
 };
 
 }

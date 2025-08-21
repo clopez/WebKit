@@ -29,7 +29,6 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/Lock.h>
-#include <wtf/MallocPtr.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
@@ -43,7 +42,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ConcurrentBuffer);
 template<typename T>
 class ConcurrentBuffer final {
     WTF_MAKE_NONCOPYABLE(ConcurrentBuffer);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(ConcurrentBuffer);
 public:
     
     ConcurrentBuffer() = default;
@@ -90,6 +89,8 @@ public:
         std::span<T> span() { return unsafeMakeSpan(data, size); }
         std::span<const T> span() const { return unsafeMakeSpan(data, size); }
     };
+
+    using ArrayPtr = std::unique_ptr<Array, NonDestructingDeleter<Array, ConcurrentBufferMalloc>>;
     
     Array* array() const { return m_array; }
     
@@ -97,18 +98,19 @@ public:
     const T& operator[](size_t index) const { return m_array->span()[index]; }
     
 private:
-    MallocPtr<Array, ConcurrentBufferMalloc> createArray(size_t size)
+    ArrayPtr createArray(size_t size)
     {
         Checked<size_t> objectSize = sizeof(T);
         objectSize *= size;
         objectSize += static_cast<size_t>(OBJECT_OFFSETOF(Array, data));
-        auto result = MallocPtr<Array, ConcurrentBufferMalloc>::malloc(objectSize);
+        auto* ptr = static_cast<Array*>(ConcurrentBufferMalloc::malloc(objectSize));
+        auto result = ArrayPtr(ptr, { });
         result->size = size;
         return result;
     }
     
     Array* m_array { nullptr };
-    Vector<MallocPtr<Array, ConcurrentBufferMalloc>> m_allArrays;
+    Vector<ArrayPtr> m_allArrays;
 };
 
 } // namespace WTF

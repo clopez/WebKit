@@ -35,6 +35,7 @@
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "Page.h"
+#include <JavaScriptCore/VM.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -83,7 +84,7 @@ Vector<std::pair<ASCIILiteral, size_t>> PerformanceLogging::memoryUsageStatistic
 
 HashCountedSet<ASCIILiteral> PerformanceLogging::javaScriptObjectCounts()
 {
-    return WTFMove(*commonVM().heap.objectTypeCounts());
+    return commonVM().heap.objectTypeCounts();
 }
 
 PerformanceLogging::PerformanceLogging(Page& page)

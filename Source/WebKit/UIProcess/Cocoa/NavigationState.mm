@@ -93,6 +93,10 @@
 #import "WebExtensionController.h"
 #endif
 
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+#import <WebCore/ContentRuleListMatchedRule.h>
+#endif
+
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 #import <pal/ios/ManagedConfigurationSoftLink.h>
 #import <pal/spi/ios/ManagedConfigurationSPI.h>
@@ -123,7 +127,7 @@ NavigationState::NavigationState(WKWebView *webView)
     , m_navigationDelegateMethods()
     , m_historyDelegateMethods()
 #if USE(RUNNINGBOARD)
-    , m_releaseNetworkActivityTimer(RunLoop::currentSingleton(), this, &NavigationState::releaseNetworkActivityAfterLoadCompletion)
+    , m_releaseNetworkActivityTimer(RunLoop::currentSingleton(), "NavigationState::ReleaseNetworkActivityTimer"_s, this, &NavigationState::releaseNetworkActivityAfterLoadCompletion)
 #endif
 {
     RefPtr page = webView->_page;
@@ -526,7 +530,7 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
         configuration.get().referrerURL = referrerURL.get();
 
         [LSAppLink openWithURL:url.createNSURL().get() configuration:configuration.get() completionHandler:[localCompletionHandler](BOOL success, NSError *) {
-            RunLoop::protectedMain()->dispatch([localCompletionHandler, success] {
+            RunLoop::mainSingleton().dispatch([localCompletionHandler, success] {
                 (*localCompletionHandler)(success);
                 delete localCompletionHandler;
             });
@@ -756,6 +760,17 @@ void NavigationState::NavigationClient::contentRuleListNotification(WebPageProxy
         for (auto&& pair : WTFMove(results.results))
             [static_cast<id<WKNavigationDelegatePrivate>>(navigationDelegate) _webView:protectedNavigationState()->webView().get() contentRuleListWithIdentifier:pair.first.createNSString().get() performedAction:wrapper(API::ContentRuleListAction::create(WTFMove(pair.second)).get()) forURL:url.createNSURL().get()];
     }
+}
+#endif
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+void NavigationState::NavigationClient::contentRuleListMatchedRule(WebPageProxy& page, WebCore::ContentRuleListMatchedRule&& matchedRule)
+{
+    if (!m_navigationState)
+        return;
+
+    if (RefPtr extensionController = page.webExtensionController())
+        extensionController->handleContentRuleListMatchedRule(page.identifier(), matchedRule);
 }
 #endif
     

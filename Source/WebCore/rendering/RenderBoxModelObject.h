@@ -23,15 +23,15 @@
 
 #pragma once
 
-#include "FontBaseline.h"
-#include "LayoutRect.h"
-#include "RectEdges.h"
-#include "RenderLayerModelObject.h"
+#include <WebCore/FontBaseline.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/RectEdges.h>
+#include <WebCore/RenderLayerModelObject.h>
 
 namespace WebCore {
 
 // Modes for some of the line-related functions.
-enum LineDirectionMode { HorizontalLine, VerticalLine };
+enum class LineDirection : bool { Horizontal, Vertical };
 
 enum class BleedAvoidance : uint8_t {
     None,
@@ -199,7 +199,7 @@ public:
 
     bool canHaveBoxInfoInFragment() const { return !isFloating() && !isBlockLevelReplacedOrAtomicInline() && !isInline() && !isRenderTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
 
-    void contentChanged(ContentChangeType);
+    void contentChanged(ContentChangeType, const std::optional<FloatRect>& = std::nullopt);
     bool hasAcceleratedCompositing() const;
 
     RenderBoxModelObject* continuation() const;
@@ -250,7 +250,7 @@ public:
     void removeOutOfFlowBoxesIfNeededOnStyleChange(RenderBlock& delegateBlock, const RenderStyle& oldStyle, const RenderStyle& newStyle);
 
     struct ContinuationChainNode {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ContinuationChainNode);
 
         SingleThreadWeakPtr<RenderBoxModelObject> renderer;
         ContinuationChainNode* previous { nullptr };

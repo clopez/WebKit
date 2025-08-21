@@ -24,13 +24,19 @@
 
 #pragma once
 
-#include "EventTarget.h"
-#include "NodeIdentifier.h"
-#include "RenderStyleConstants.h"
-#include "StyleValidity.h"
+#include <WebCore/EventTarget.h>
+#include <WebCore/NodeIdentifier.h>
+#include <WebCore/PlatformExportMacros.h>
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleValidity.h>
+#include <bit>
 #include <compare>
+#include <new>
+#include <wtf/CheckedPtr.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/CompactPointerTuple.h>
 #include <wtf/CompactUniquePtrTuple.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/FixedVector.h>
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
@@ -38,9 +44,12 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/ASCIILiteral.h>
 
 namespace WTF {
 class TextStream;
@@ -77,6 +86,8 @@ class TouchEvent;
 class TreeScope;
 class WebCoreOpaqueRoot;
 
+struct SerializedNode;
+
 enum class TextDirection : bool;
 
 template<typename T> class ExceptionOr;
@@ -91,6 +102,8 @@ WTF_ALLOW_COMPACT_POINTERS_TO_INCOMPLETE_TYPE(WebCore::NodeRareData);
 
 namespace WebCore {
 
+class JSDOMGlobalObject;
+
 enum class MutationObserverOptionType : uint8_t;
 enum class TaskSource : uint8_t;
 using MutationObserverOptions = OptionSet<MutationObserverOptionType>;
@@ -102,7 +115,7 @@ const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
 typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
 
 class Node : public EventTarget, public CanMakeCheckedPtr<Node> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Node);
+    WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED(Node);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Node);
 
     friend class Document;
@@ -192,9 +205,10 @@ public:
         SelfWithTemplateContent,
         Everything,
     };
-    virtual Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) = 0;
-    Ref<Node> cloneNode(bool deep);
-    WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep);
+    virtual Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const = 0;
+    virtual SerializedNode serializeNode(CloningOperation) const = 0;
+    Ref<Node> cloneNode(bool deep) const;
+    WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep) const;
 
     virtual const AtomString& localName() const;
     virtual const AtomString& namespaceURI() const;
@@ -258,7 +272,7 @@ public:
     bool isTreeScope() const { return isDocumentNode() || isShadowRoot(); }
     bool isDocumentFragment() const { return nodeType() == DOCUMENT_FRAGMENT_NODE; }
     bool isShadowRoot() const { return isDocumentFragment() && hasTypeFlag(TypeFlag::IsShadowRootOrFormControlElement); }
-    bool isUserAgentShadowRoot() const; // Defined in ShadowRoot.h
+    inline bool isUserAgentShadowRoot() const; // Defined in NodeInlines.h
 
     bool hasCustomStyleResolveCallbacks() const { return hasTypeFlag(TypeFlag::HasCustomStyleResolveCallbacks); }
 
@@ -312,8 +326,8 @@ public:
     Node* nonBoundaryShadowTreeRootNode();
 
     // Node's parent or shadow tree host.
-    inline ContainerNode* parentOrShadowHostNode() const; // Defined in ShadowRoot.h
-    inline RefPtr<ContainerNode> protectedParentOrShadowHostNode() const; // Defined in ShadowRoot.h
+    inline ContainerNode* parentOrShadowHostNode() const; // Defined in NodeInlines.h
+    inline RefPtr<ContainerNode> protectedParentOrShadowHostNode() const; // Defined in NodeInlines.h
     ContainerNode* parentInComposedTree() const;
     WEBCORE_EXPORT Element* parentElementInComposedTree() const;
     Element* parentOrShadowHostElement() const;

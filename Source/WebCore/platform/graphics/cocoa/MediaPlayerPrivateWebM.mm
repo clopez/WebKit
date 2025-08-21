@@ -28,6 +28,7 @@
 
 #if ENABLE(COCOA_WEBM_PLAYER)
 
+#import "AudioMediaStreamTrackRenderer.h"
 #import "AudioTrackPrivateWebM.h"
 #import "FloatSize.h"
 #import "GraphicsContext.h"
@@ -40,6 +41,7 @@
 #import "NativeImage.h"
 #import "NotImplemented.h"
 #import "PixelBufferConformerCV.h"
+#import "PlatformDynamicRangeLimitCocoa.h"
 #import "PlatformMediaResourceLoader.h"
 #import "ResourceError.h"
 #import "ResourceRequest.h"
@@ -59,6 +61,7 @@
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/MainThread.h>
 #import <wtf/NativePromise.h>
 #import <wtf/SoftLinking.h>
@@ -309,7 +312,7 @@ void MediaPlayerPrivateWebM::dataReceived(const SharedBuffer& buffer)
 
     invokeAsync(m_appendQueue, [buffer = Ref { buffer }, parser = m_parser]() mutable {
         return MediaPromise::createAndSettle(parser->appendData(WTFMove(buffer)));
-    })->whenSettled(RunLoop::protectedMain(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
+    })->whenSettled(RunLoop::mainSingleton(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->appendCompleted(!!result);
     });
@@ -432,7 +435,7 @@ void MediaPlayerPrivateWebM::seekInternal()
 
     m_seekState = Seeking;
 
-    seekTo(m_lastSeekTime)->whenSettled(RunLoop::protectedMain(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
+    seekTo(m_lastSeekTime)->whenSettled(RunLoop::mainSingleton(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
         if (!result)
             return; // seek cancelled.
 
@@ -1372,8 +1375,14 @@ void MediaPlayerPrivateWebM::ensureLayer()
 
     configureLayerOrVideoRenderer(m_sampleBufferDisplayLayer.get());
 
-    if (RefPtr player = m_player.get())
+    if (RefPtr player = m_player.get()) {
+        if ([m_sampleBufferDisplayLayer respondsToSelector:@selector(setToneMapToStandardDynamicRange:)])
+            [m_sampleBufferDisplayLayer setToneMapToStandardDynamicRange:player->shouldDisableHDR()];
+
+        setLayerDynamicRangeLimit(m_sampleBufferDisplayLayer.get(), player->platformDynamicRangeLimit());
+
         m_videoLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), player->presentationSize());
+    }
 }
 
 void MediaPlayerPrivateWebM::addAudioRenderer(TrackID trackId)
@@ -1402,9 +1411,14 @@ void MediaPlayerPrivateWebM::addAudioRenderer(TrackID trackId)
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
     auto deviceId = player->audioOutputDeviceIdOverride();
     if (!deviceId.isNull() && renderer) {
-        if (deviceId.isEmpty())
-            renderer.get().audioOutputDeviceUniqueID = nil;
-        else
+        if (deviceId.isEmpty() || deviceId == AudioMediaStreamTrackRenderer::defaultDeviceID()) {
+            // FIXME(rdar://155986053): Remove the @try/@catch when this exception is resolved.
+            @try {
+                renderer.get().audioOutputDeviceUniqueID = nil;
+            } @catch(NSException *exception) {
+                ERROR_LOG(LOGIDENTIFIER, "-[AVSampleBufferRenderSynchronizer setAudioOutputDeviceUniqueID:] threw an exception: ", exception.name, ", reason : ", exception.reason);
+            }
+        } else
             renderer.get().audioOutputDeviceUniqueID = deviceId.createNSString().get();
     }
 #endif
@@ -1652,15 +1666,9 @@ void MediaPlayerPrivateWebM::ensureLayerOrVideoRenderer(MediaPlayerEnums::NeedsR
 {
     switch (acceleratedVideoMode()) {
     case AcceleratedVideoMode::Layer:
-        destroyVideoRenderer();
-        [[fallthrough]];
-    case AcceleratedVideoMode::StagedLayer:
         ensureLayer();
         break;
     case AcceleratedVideoMode::VideoRenderer:
-        destroyLayer();
-        [[fallthrough]];
-    case AcceleratedVideoMode::StagedVideoRenderer:
         ensureVideoRenderer();
         break;
     }
@@ -1687,12 +1695,6 @@ void MediaPlayerPrivateWebM::ensureLayerOrVideoRenderer(MediaPlayerEnums::NeedsR
     case AcceleratedVideoMode::VideoRenderer:
         setVideoRenderer(renderer.get());
         break;
-    case AcceleratedVideoMode::StagedLayer:
-        needsRenderingModeChanged = MediaPlayerEnums::NeedsRenderingModeChanged::Yes;
-        [[fallthrough]];
-    case AcceleratedVideoMode::StagedVideoRenderer:
-        stageVideoRenderer(renderer.get());
-        break;
     }
 
     switch (needsRenderingModeChanged) {
@@ -1712,6 +1714,14 @@ void MediaPlayerPrivateWebM::setShouldDisableHDR(bool shouldDisable)
 
     ALWAYS_LOG(LOGIDENTIFIER, shouldDisable);
     [m_sampleBufferDisplayLayer setToneMapToStandardDynamicRange:shouldDisable];
+}
+
+void MediaPlayerPrivateWebM::setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit platformDynamicRangeLimit)
+{
+    if (!m_sampleBufferDisplayLayer)
+        return;
+
+    setLayerDynamicRangeLimit(m_sampleBufferDisplayLayer.get(), platformDynamicRangeLimit);
 }
 
 void MediaPlayerPrivateWebM::playerContentBoxRectChanged(const LayoutRect& newRect)
@@ -1824,11 +1834,7 @@ void MediaPlayerPrivateWebM::updateSpatialTrackingLabel()
 
 void MediaPlayerPrivateWebM::destroyLayerOrVideoRendererAndCreateRenderlessVideoMediaSampleRenderer()
 {
-    destroyLayer();
-    destroyVideoRenderer();
-
     setVideoRenderer(nil);
-    setHasAvailableVideoFrame(false);
 
     if (RefPtr player = m_player.get())
         player->renderingModeChanged();
@@ -1859,8 +1865,6 @@ void MediaPlayerPrivateWebM::configureLayerOrVideoRenderer(WebSampleBufferVideoR
 void MediaPlayerPrivateWebM::configureVideoRenderer(VideoMediaSampleRenderer& videoRenderer)
 {
     videoRenderer.setResourceOwner(m_resourceOwner);
-    if (auto renderer = videoRenderer.renderer())
-        m_listener->beginObservingVideoRenderer(renderer);
 }
 
 void MediaPlayerPrivateWebM::invalidateVideoRenderer(VideoMediaSampleRenderer& videoRenderer)
@@ -1868,8 +1872,6 @@ void MediaPlayerPrivateWebM::invalidateVideoRenderer(VideoMediaSampleRenderer& v
     videoRenderer.flush();
     videoRenderer.stopRequestingMediaData();
     videoRenderer.notifyWhenVideoRendererRequiresFlushToResumeDecoding({ });
-    if (auto renderer = videoRenderer.renderer())
-        m_listener->stopObservingVideoRenderer(renderer);
 }
 
 RefPtr<VideoMediaSampleRenderer> MediaPlayerPrivateWebM::protectedVideoRenderer() const
@@ -1879,22 +1881,12 @@ RefPtr<VideoMediaSampleRenderer> MediaPlayerPrivateWebM::protectedVideoRenderer(
 
 void MediaPlayerPrivateWebM::setVideoRenderer(WebSampleBufferVideoRendering *renderer)
 {
-    RefPtr videoRenderer = m_videoRenderer;
-    if (videoRenderer && renderer == videoRenderer->renderer()) {
-        if (RefPtr expiringVideoRenderer = std::exchange(m_expiringVideoRenderer, nullptr))
-            invalidateVideoRenderer(*expiringVideoRenderer);
-        return;
-    }
-
     ALWAYS_LOG(LOGIDENTIFIER, "!!renderer = ", !!renderer);
 
-    // FIXME: VideoMediaSampleRenderer could be re-used, even as the renderer is changing.
-    if (videoRenderer) {
-        invalidateVideoRenderer(*videoRenderer);
-        m_videoRenderer = nullptr;
-    }
+    if (m_videoRenderer)
+        return stageVideoRenderer(renderer);
 
-    videoRenderer = VideoMediaSampleRenderer::create(renderer);
+    RefPtr videoRenderer = VideoMediaSampleRenderer::create(renderer);
     m_videoRenderer = videoRenderer;
     videoRenderer->setPreferences(VideoMediaSampleRendererPreference::PrefersDecompressionSession);
     videoRenderer->setTimebase([m_synchronizer timebase]);
@@ -1916,42 +1908,61 @@ void MediaPlayerPrivateWebM::setVideoRenderer(WebSampleBufferVideoRendering *ren
             protectedThis->setLayerRequiresFlush();
     });
     configureVideoRenderer(*videoRenderer);
+    if (m_enabledVideoTrackID)
+        reenqueSamples(*m_enabledVideoTrackID, NeedsFlush::No);
 }
 
 void MediaPlayerPrivateWebM::stageVideoRenderer(WebSampleBufferVideoRendering *renderer)
 {
+    ASSERT(m_videoRenderer);
+
     RefPtr videoRenderer = m_videoRenderer;
-    if (videoRenderer && renderer == videoRenderer->renderer())
+    if (renderer == videoRenderer->renderer())
         return;
 
     ALWAYS_LOG(LOGIDENTIFIER, "!!renderer = ", !!renderer);
     ASSERT(!renderer || hasSelectedVideo());
 
-    if (RefPtr expiringVideoRenderer = std::exchange(m_expiringVideoRenderer, nullptr))
-        invalidateVideoRenderer(*expiringVideoRenderer);
+    Vector<RetainPtr<WebSampleBufferVideoRendering>> renderersToExpire { 2u };
+    if (renderer) {
+        switch (acceleratedVideoMode()) {
+        case AcceleratedVideoMode::Layer:
+            renderersToExpire.append(std::exchange(m_sampleBufferVideoRenderer, { }));
+            break;
+        case AcceleratedVideoMode::VideoRenderer:
+            if (m_sampleBufferDisplayLayer)
+                m_videoLayerManager->didDestroyVideoLayer();
+            renderersToExpire.append(std::exchange(m_sampleBufferDisplayLayer, { }));
+            break;
+        }
+    } else {
+        renderersToExpire.append(m_sampleBufferVideoRenderer);
+        renderersToExpire.append(m_sampleBufferDisplayLayer);
+    }
 
-    m_expiringVideoRenderer = std::exchange(m_videoRenderer, { });
-    videoRenderer = VideoMediaSampleRenderer::create(renderer);
-    m_videoRenderer = videoRenderer;
-    configureVideoRenderer(*videoRenderer);
-    if (m_enabledVideoTrackID)
-        reenqueSamples(*m_enabledVideoTrackID, NeedsFlush::No);
+    videoRenderer->changeRenderer(renderer)->whenSettled(RunLoop::mainSingleton(), [weakThis = ThreadSafeWeakPtr { *this }, renderersToExpire = WTFMove(renderersToExpire)] {
+        for (auto& rendererToExpire : renderersToExpire) {
+            if (!rendererToExpire)
+                continue;
+            if (RefPtr protectedThis = weakThis.get()) {
+                CMTime currentTime = PAL::CMTimebaseGetTime([protectedThis->m_synchronizer timebase]);
+                [protectedThis->m_synchronizer removeRenderer:rendererToExpire.get() atTime:currentTime completionHandler:nil];
+            }
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+            if (RetainPtr videoRenderer = dynamic_objc_cast<AVSampleBufferVideoRenderer>(rendererToExpire.get())) {
+                [videoRenderer respondsToSelector:@selector(removeAllVideoTargets)];
+                [videoRenderer removeAllVideoTargets];
+            }
+#endif
+        }
+    });
 }
 
 MediaPlayerPrivateWebM::AcceleratedVideoMode MediaPlayerPrivateWebM::acceleratedVideoMode() const
 {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    if (m_usingLinearMediaPlayer) {
-        RefPtr player = m_player.get();
-        if (player && player->isInFullscreenOrPictureInPicture()) {
-            if (m_videoTarget)
-                return AcceleratedVideoMode::VideoRenderer;
-            return AcceleratedVideoMode::StagedLayer;
-        }
-
-        if (m_videoTarget)
-            return AcceleratedVideoMode::StagedVideoRenderer;
-    }
+    if (m_videoTarget)
+        return AcceleratedVideoMode::VideoRenderer;
 #endif // ENABLE(LINEAR_MEDIA_PLAYER)
 
     return AcceleratedVideoMode::Layer;
@@ -1962,10 +1973,8 @@ WebSampleBufferVideoRendering *MediaPlayerPrivateWebM::layerOrVideoRenderer() co
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     switch (acceleratedVideoMode()) {
     case AcceleratedVideoMode::Layer:
-    case AcceleratedVideoMode::StagedLayer:
         return m_sampleBufferDisplayLayer.get();
     case AcceleratedVideoMode::VideoRenderer:
-    case AcceleratedVideoMode::StagedVideoRenderer:
         return m_sampleBufferVideoRenderer.get();
     }
 #else

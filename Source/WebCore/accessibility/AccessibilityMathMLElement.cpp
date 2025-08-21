@@ -31,23 +31,24 @@
 #include "AccessibilityMathMLElement.h"
 
 #include "AXObjectCache.h"
+#include "AXUtilities.h"
 #include "MathMLNames.h"
 #include "NodeInlines.h"
 #include "RenderStyleInlines.h"
 
 namespace WebCore {
 
-AccessibilityMathMLElement::AccessibilityMathMLElement(AXID axID, RenderObject& renderer, bool isAnonymousOperator)
-    : AccessibilityRenderObject(axID, renderer)
+AccessibilityMathMLElement::AccessibilityMathMLElement(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isAnonymousOperator)
+    : AccessibilityRenderObject(axID, renderer, cache)
     , m_isAnonymousOperator(isAnonymousOperator)
 {
 }
 
 AccessibilityMathMLElement::~AccessibilityMathMLElement() = default;
 
-Ref<AccessibilityMathMLElement> AccessibilityMathMLElement::create(AXID axID, RenderObject& renderer, bool isAnonymousOperator)
+Ref<AccessibilityMathMLElement> AccessibilityMathMLElement::create(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isAnonymousOperator)
 {
-    return adoptRef(*new AccessibilityMathMLElement(axID, renderer, isAnonymousOperator));
+    return adoptRef(*new AccessibilityMathMLElement(axID, renderer, cache, isAnonymousOperator));
 }
 
 AccessibilityRole AccessibilityMathMLElement::determineAccessibilityRole()
@@ -55,7 +56,7 @@ AccessibilityRole AccessibilityMathMLElement::determineAccessibilityRole()
     if (!m_renderer)
         return AccessibilityRole::Unknown;
 
-    if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Unknown)
+    if (m_ariaRole != AccessibilityRole::Unknown)
         return m_ariaRole;
 
     if (WebCore::elementName(m_renderer->protectedNode().get()) == ElementName::MathML_math)
@@ -92,7 +93,7 @@ void AccessibilityMathMLElement::addChildren()
 String AccessibilityMathMLElement::textUnderElement(TextUnderElementMode mode) const
 {
     if (m_isAnonymousOperator && !mode.isHidden()) {
-        UChar operatorChar = downcast<RenderMathMLOperator>(*m_renderer).textContent();
+        char16_t operatorChar = downcast<RenderMathMLOperator>(*m_renderer).textContent();
         return operatorChar ? String(span(operatorChar)) : String();
     }
 
@@ -253,7 +254,7 @@ bool AccessibilityMathMLElement::isMathMultiscriptObject(AccessibilityMathMultis
     return false;
 }
 
-std::optional<AXCoreObject::AccessibilityChildrenVector> AccessibilityMathMLElement::mathRadicand() 
+std::optional<AXCoreObject::AccessibilityChildrenVector> AccessibilityMathMLElement::mathRadicand()
 {
     if (!isMathRoot())
         return std::nullopt;

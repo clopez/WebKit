@@ -2080,8 +2080,8 @@ void RenderLayerCompositor::logLayerInfo(const RenderLayer& layer, ASCIILiteral 
     StringBuilder logString;
     logString.append(pad(' ', 12 + depth * 2, hex(reinterpret_cast<uintptr_t>(&layer), Lowercase)), " id "_s, backing->graphicsLayer()->primaryLayerID() ? backing->graphicsLayer()->primaryLayerID()->object().toUInt64() : 0, " ("_s, absoluteBounds.x().toFloat(), ',', absoluteBounds.y().toFloat(), '-', absoluteBounds.maxX().toFloat(), ',', absoluteBounds.maxY().toFloat(), ") "_s, FormattedNumber::fixedWidth(backing->backingStoreMemoryEstimate() / 1024, 2), "KB"_s);
 
-    if (!layer.renderer().style().hasAutoUsedZIndex())
-        logString.append(" z-index: "_s, layer.renderer().style().usedZIndex());
+    if (auto value = layer.renderer().style().usedZIndex().tryValue())
+        logString.append(" z-index: "_s, value->value);
 
     logString.append(" ("_s, logOneReasonForCompositing(layer), ") "_s);
 
@@ -2145,8 +2145,7 @@ static bool recompositeChangeRequiresGeometryUpdate(const RenderStyle& oldStyle,
         || oldStyle.transformOriginZ() != newStyle.transformOriginZ()
         || oldStyle.usedTransformStyle3D() != newStyle.usedTransformStyle3D()
         || oldStyle.perspective() != newStyle.perspective()
-        || oldStyle.perspectiveOriginX() != newStyle.perspectiveOriginX()
-        || oldStyle.perspectiveOriginY() != newStyle.perspectiveOriginY()
+        || oldStyle.perspectiveOrigin() != newStyle.perspectiveOrigin()
         || oldStyle.backfaceVisibility() != newStyle.backfaceVisibility()
         || oldStyle.offsetPath() != newStyle.offsetPath()
         || oldStyle.offsetAnchor() != newStyle.offsetAnchor()
@@ -2293,7 +2292,7 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
             }
             // If we're changing to/from 0 opacity, then we need to reconfigure the layer since we try to
             // skip backing store allocation for opacity:0.
-            if (oldStyle && oldStyle->opacity() != newStyle.opacity() && (!oldStyle->opacity() || !newStyle.opacity()))
+            if (oldStyle && oldStyle->opacity() != newStyle.opacity() && (oldStyle->opacity().isTransparent() || newStyle.opacity().isTransparent()))
                 layer.setNeedsCompositingConfigurationUpdate();
         }
         if (oldStyle && recompositeChangeRequiresGeometryUpdate(*oldStyle, newStyle)) {
@@ -3929,11 +3928,16 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderLayerModelObject&
     if (!renderer.isRenderHTMLCanvas())
         return false;
 
-    bool isCanvasLargeEnoughToForceCompositing = true;
+    bool isCanvasLargeEnoughOrHDRToForceCompositing = true;
 #if !USE(COMPOSITING_FOR_SMALL_CANVASES)
     RefPtr canvas = downcast<HTMLCanvasElement>(renderer.element());
     auto canvasArea = canvas->size().area<RecordOverflow>();
-    isCanvasLargeEnoughToForceCompositing = !canvasArea.hasOverflowed() && canvasArea >= canvasAreaThresholdRequiringCompositing;
+    if (canvasArea.hasOverflowed() || canvasArea < canvasAreaThresholdRequiringCompositing) {
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+        if (RefPtr renderingContext = canvas->renderingContext(); !renderingContext || !renderingContext->isHDR())
+#endif
+            isCanvasLargeEnoughOrHDRToForceCompositing = false;
+    }
 #endif
 
     CanvasCompositingStrategy compositingStrategy = canvasCompositingStrategy(renderer);
@@ -3941,7 +3945,7 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderLayerModelObject&
         return true;
 
     if (m_compositingPolicy == CompositingPolicy::Normal)
-        return compositingStrategy == CanvasPaintedToLayer && isCanvasLargeEnoughToForceCompositing;
+        return compositingStrategy == CanvasPaintedToLayer && isCanvasLargeEnoughOrHDRToForceCompositing;
 
     return false;
 }
@@ -4138,7 +4142,7 @@ bool RenderLayerCompositor::requiresCompositingForOverflowScrolling(const Render
 
 bool RenderLayerCompositor::requiresCompositingForAnchorPositioning(const RenderLayer& layer) const
 {
-    return !!layer.snapshottedScrollOffsetForAnchorPositioning();
+    return !!layer.anchorScrollAdjustment();
 }
 
 IndirectCompositingReason RenderLayerCompositor::computeIndirectCompositingReason(const RenderLayer& layer, bool hasCompositedDescendants, bool has3DTransformedDescendants, bool paintsIntoProvidedBacking) const

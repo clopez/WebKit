@@ -31,7 +31,6 @@
 
 #pragma once
 
-#include "Performance.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -39,7 +38,7 @@ namespace WebCore {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(PerformanceEntry);
 class PerformanceEntry : public RefCounted<PerformanceEntry> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(PerformanceEntry);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(PerformanceEntry, PerformanceEntry);
 public:
     virtual ~PerformanceEntry();
 
@@ -52,7 +51,9 @@ public:
         Mark        = 1 << 1,
         Measure     = 1 << 2,
         Resource    = 1 << 3,
-        Paint       = 1 << 4
+        Paint       = 1 << 4,
+        Event       = 1 << 5,
+        FirstInput  = 1 << 6
     };
 
     virtual Type performanceEntryType() const = 0;

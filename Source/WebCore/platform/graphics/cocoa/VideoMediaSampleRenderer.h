@@ -31,6 +31,7 @@
 #include "ProcessIdentity.h"
 #include "SampleMap.h"
 #include <wtf/Deque.h>
+#include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/Lock.h>
 #include <wtf/MonotonicTime.h>
@@ -42,7 +43,6 @@
 OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS AVSampleBufferVideoRenderer;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
-typedef struct opaqueCMBufferQueue *CMBufferQueueRef;
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
 typedef struct CF_BRIDGED_TYPE(id) __CVBuffer* CVPixelBufferRef;
@@ -80,6 +80,10 @@ public:
     void notifyWhenDecodingErrorOccurred(Function<void(OSStatus)>&&);
     void notifyWhenVideoRendererRequiresFlushToResumeDecoding(Function<void()>&&);
 
+#if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
+    Ref<GenericPromise> changeRenderer(WebSampleBufferVideoRendering *);
+#endif
+
     void flush();
 
     void expectMinimumUpcomingSampleBufferPresentationTime(const MediaTime&);
@@ -88,7 +92,11 @@ public:
 
     template <typename T> T* as() const;
     template <> AVSampleBufferVideoRenderer* as() const;
-    template <> AVSampleBufferDisplayLayer* as() const { return m_displayLayer.get(); }
+    template <> AVSampleBufferDisplayLayer* as() const
+    {
+        assertIsMainThread();
+        return m_displayLayer.get();
+    }
 
     struct DisplayedPixelBufferEntry {
         RetainPtr<CVPixelBufferRef> pixelBuffer;
@@ -104,6 +112,8 @@ public:
 
     void setResourceOwner(const ProcessIdentity&);
 
+    static WorkQueue& queueSingleton();
+
 private:
     VideoMediaSampleRenderer(WebSampleBufferVideoRendering *);
 
@@ -113,6 +123,9 @@ private:
     MediaTime currentTime() const;
 
     WebSampleBufferVideoRendering *rendererOrDisplayLayer() const;
+#if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
+    AVSampleBufferVideoRenderer *videoRendererFor(WebSampleBufferVideoRendering *);
+#endif
 
     void resetReadyForMoreMediaData();
     void initializeDecompressionSession();
@@ -158,10 +171,11 @@ private:
     bool useDecompressionSessionForProtectedContent() const;
     bool useStereoDecoding() const;
 
-    const RefPtr<WTF::WorkQueue> m_workQueue;
-    RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
+    const bool m_rendererIsThreadSafe { false };
+    RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer WTF_GUARDED_BY_CAPABILITY(mainThread);
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
-    RetainPtr<AVSampleBufferVideoRenderer> m_renderer;
+    RetainPtr<AVSampleBufferVideoRenderer> m_renderer WTF_GUARDED_BY_CAPABILITY(dispatcher().get());
+    RetainPtr<AVSampleBufferVideoRenderer> m_mainRenderer WTF_GUARDED_BY_CAPABILITY(mainThread);
 #endif
     mutable Lock m_lock;
     TimebaseAndTimerSource m_timebaseAndTimerSource WTF_GUARDED_BY_LOCK(m_lock);

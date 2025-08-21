@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "HitTestSource.h"
+#include <WebCore/HitTestSource.h>
 #include <memory>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
@@ -80,7 +80,7 @@ public:
     Element* focusedElementInScope();
     Element* pointerLockElement() const;
 
-    void setCustomElementRegistry(Ref<CustomElementRegistry>&&);
+    void setCustomElementRegistry(RefPtr<CustomElementRegistry>&&);
     CustomElementRegistry* customElementRegistry() const { return m_customElementRegistry.get(); }
 
     WEBCORE_EXPORT RefPtr<Element> getElementById(const AtomString&) const;

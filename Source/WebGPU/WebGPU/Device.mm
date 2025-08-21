@@ -410,7 +410,12 @@ Device::~Device()
 
 RefPtr<XRSubImage> Device::getXRViewSubImage(XRProjectionLayer& projectionLayer)
 {
-    RefPtr { m_xrSubImage }->update(projectionLayer.colorTexture(), projectionLayer.depthTexture(), projectionLayer.reusableTextureIndex(), projectionLayer.completionEvent());
+    RefPtr { m_xrSubImage }->update(projectionLayer);
+    return m_xrSubImage;
+}
+
+RefPtr<XRSubImage> Device::getXRViewSubImage() const
+{
     return m_xrSubImage;
 }
 

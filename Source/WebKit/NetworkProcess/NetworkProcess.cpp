@@ -75,6 +75,7 @@
 #include "WebsiteDataType.h"
 #include <WebCore/ClientOrigin.h>
 #include <WebCore/CommonAtomStrings.h>
+#include <WebCore/ContentFilterUnblockHandler.h>
 #include <WebCore/CookieJar.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/DNS.h>
@@ -129,6 +130,10 @@
 
 #if USE(CURL)
 #include <WebCore/CurlContext.h>
+#endif
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+#include <WebCore/ParentalControlsURLFilter.h>
 #endif
 
 namespace WebKit {
@@ -1372,6 +1377,23 @@ void NetworkProcess::grantStorageAccessForTesting(PAL::SessionID sessionID, Vect
     completionHandler();
 }
 
+void NetworkProcess::setStorageAccessPermissionForTesting(PAL::SessionID sessionID, bool granted, WebPageProxyIdentifier webPageProxyID, RegistrableDomain&& topFrameDomain, RegistrableDomain&& subFrameDomain, CompletionHandler<void()>&& completionHandler)
+{
+    if (CheckedPtr session = networkSession(sessionID)) {
+        if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics())
+            return resourceLoadStatistics->setStorageAccessPermissionForTesting(granted, webPageProxyID, WTFMove(topFrameDomain), WTFMove(subFrameDomain), WTFMove(completionHandler));
+    } else
+        ASSERT_NOT_REACHED();
+    completionHandler();
+}
+
+void NetworkProcess::clearStorageAccessForTesting(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+{
+    if (CheckedPtr networkStorageSession = storageSession(sessionID))
+        networkStorageSession->removeAllStorageAccess();
+    completionHandler();
+}
+
 void NetworkProcess::hasIsolatedSession(PAL::SessionID sessionID, const WebCore::RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler) const
 {
     bool result = false;
@@ -1524,7 +1546,7 @@ void NetworkProcess::setShouldSendPrivateTokenIPCForTesting(PAL::SessionID sessi
         session->setShouldSendPrivateTokenIPCForTesting(enabled);
 }
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
 void NetworkProcess::setOptInCookiePartitioningEnabled(PAL::SessionID sessionID, bool enabled) const
 {
     if (CheckedPtr session = networkSession(sessionID))
@@ -1605,7 +1627,7 @@ void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websit
 
         ~CallbackAggregator()
         {
-            RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(m_completionHandler), websiteData = WTFMove(m_websiteData)] () mutable {
+            RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(m_completionHandler), websiteData = WTFMove(m_websiteData)] () mutable {
                 completionHandler(WTFMove(websiteData));
                 RELEASE_LOG(Storage, "NetworkProcess::fetchWebsiteData finished fetching data");
             });
@@ -1974,7 +1996,7 @@ void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::Sess
         
         ~CallbackAggregator()
         {
-            RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(m_completionHandler), domains = WTFMove(m_domains)] () mutable {
+            RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(m_completionHandler), domains = WTFMove(m_domains)] () mutable {
                 RELEASE_LOG(Storage, "NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains finished deleting and restricting data");
                 completionHandler(WTFMove(domains));
             });
@@ -1985,7 +2007,7 @@ void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::Sess
     };
     
     auto callbackAggregator = adoptRef(*new CallbackAggregator([completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
-        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
             completionHandler(WTFMove(domainsWithData));
         });
     }));
@@ -2131,7 +2153,7 @@ void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID,
         
         ~CallbackAggregator()
         {
-            RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(m_completionHandler), websiteData = WTFMove(m_websiteData)] () mutable {
+            RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(m_completionHandler), websiteData = WTFMove(m_websiteData)] () mutable {
                 HashSet<RegistrableDomain> domains;
                 for (const auto& hostnameWithCookies : websiteData.hostNamesWithCookies)
                     domains.add(RegistrableDomain::uncheckedCreateFromHost(hostnameWithCookies));
@@ -2151,7 +2173,7 @@ void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID,
     };
     
     auto callbackAggregator = adoptRef(*new CallbackAggregator([completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
-        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
             completionHandler(WTFMove(domainsWithData));
         });
     }));
@@ -3119,7 +3141,7 @@ RTCDataChannelRemoteManagerProxy& NetworkProcess::rtcDataChannelProxy()
 {
     ASSERT(isMainRunLoop());
     if (!m_rtcDataChannelProxy)
-        m_rtcDataChannelProxy = RTCDataChannelRemoteManagerProxy::create();
+        m_rtcDataChannelProxy = RTCDataChannelRemoteManagerProxy::create(*this);
     return *m_rtcDataChannelProxy;
 }
 
@@ -3144,8 +3166,10 @@ void NetworkProcess::removeWebPageNetworkParameters(PAL::SessionID sessionID, We
     session->removeWebPageNetworkParameters(pageID);
     session->storageManager().clearStorageForWebPage(pageID);
 
-    if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics())
+    if (RefPtr resourceLoadStatistics = session->resourceLoadStatistics()) {
         resourceLoadStatistics->clearFrameLoadRecordsForStorageAccess(pageID);
+        resourceLoadStatistics->wasRevokedStorageAccessPermissionInPage(pageID);
+    }
 
     m_pagesWithRelaxedThirdPartyCookieBlocking.remove(pageID);
 }
@@ -3285,5 +3309,12 @@ void NetworkProcess::setDefaultRequestTimeoutInterval(double timeoutInterval)
 {
     ResourceRequestBase::setDefaultTimeoutInterval(timeoutInterval);
 }
+
+#if HAVE(WEBCONTENTRESTRICTIONS)
+void NetworkProcess::allowEvaluatedURL(const WebCore::ParentalControlsURLFilterParameters& parameters, CompletionHandler<void(bool)>&& completionHandler)
+{
+    WebCore::ParentalControlsURLFilter::allowURL(parameters, WTFMove(completionHandler));
+}
+#endif
 
 } // namespace WebKit

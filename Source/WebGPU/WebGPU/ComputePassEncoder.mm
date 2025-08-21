@@ -91,20 +91,7 @@ struct BindGroupId {
 };
 static bool addTextureToActiveResources(const void* resourceAddress, id<MTLResource> mtlResource, OptionSet<BindGroupEntryUsage> initialUsage, TextureEntryMapContainer& usagesForResource, BindGroupId bindGroup, uint32_t baseMipLevel, uint32_t baseArrayLayer, WGPUTextureAspect aspect)
 {
-    if (isTextureBindGroupEntryUsage(initialUsage)) {
-        ASSERT([mtlResource conformsToProtocol:@protocol(MTLTexture)]);
-        id<MTLTexture> textureView = (id<MTLTexture>)mtlResource;
-        if (id<MTLTexture> parentTexture = textureView.parentTexture) {
-            mtlResource = parentTexture;
-            ASSERT(textureView.parentRelativeLevel <= std::numeric_limits<uint32_t>::max() && textureView.parentRelativeSlice <= std::numeric_limits<uint32_t>::max());
-            if (baseMipLevel || baseArrayLayer) {
-                ASSERT(textureView.parentRelativeLevel == baseMipLevel);
-                ASSERT(textureView.parentRelativeSlice == baseArrayLayer);
-            }
-            baseMipLevel = static_cast<uint32_t>(textureView.parentRelativeLevel);
-            baseArrayLayer = static_cast<uint32_t>(textureView.parentRelativeSlice);
-        }
-    }
+    UNUSED_PARAM(mtlResource);
 
     auto mapKey = BindGroup::makeEntryMapKey(baseMipLevel, baseArrayLayer, aspect);
     EntryUsage resourceUsage = initialUsage;
@@ -293,8 +280,8 @@ id<MTLBuffer> ComputePassEncoder::runPredispatchIndirectCallValidation(const Buf
     static id<MTLFunction> function = nil;
     id<MTLDevice> mtlDevice = m_device->device();
     static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&] {
-        auto dimensionMax = m_device->limits().maxComputeWorkgroupsPerDimension;
+    std::call_once(onceFlag, [protectedThis = Ref { *this }, &mtlDevice] {
+        auto dimensionMax = protectedThis->m_device->limits().maxComputeWorkgroupsPerDimension;
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;

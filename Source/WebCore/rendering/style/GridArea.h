@@ -31,7 +31,8 @@
 
 #pragma once
 
-#include "GridSpan.h"
+#include <WebCore/GridSpan.h>
+#include <WebCore/StyleGridTrackSizingDirection.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -57,6 +58,11 @@ public:
 
     GridSpan columns;
     GridSpan rows;
+
+    const GridSpan& span(Style::GridTrackSizingDirection direction) const
+    {
+        return direction == Style::GridTrackSizingDirection::Columns ? columns : rows;
+    }
 };
 
 } // namespace WebCore

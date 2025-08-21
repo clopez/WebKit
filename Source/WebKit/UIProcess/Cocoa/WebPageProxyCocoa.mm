@@ -36,6 +36,7 @@
 #import "Connection.h"
 #import "CoreTelephonyUtilities.h"
 #import "DataDetectionResult.h"
+#import "ExtensionCapabilityGranter.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
@@ -237,20 +238,20 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::grantAccessToCurrentPasteboardDat
     return WebPasteboardProxy::singleton().grantAccessToCurrentData(m_legacyMainFrameProcess, pasteboardName, WTFMove(completionHandler));
 }
 
-void WebPageProxy::beginSafeBrowsingCheck(const URL& url, RefPtr<API::Navigation> navigation, WebFrameProxy& frame)
+void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navigation, bool forMainFrameNavigation)
 {
 #if HAVE(SAFE_BROWSING)
-    SSBLookupContext *context = [SSBLookupContext sharedLookupContext];
+    RetainPtr context = [SSBLookupContext sharedLookupContext];
     if (!url.isValid() || !context)
         return;
-    size_t redirectChainIndex = navigation->redirectChainIndex(url);
+    size_t redirectChainIndex = navigation.redirectChainIndex(url);
 
-    if (navigation)
-        navigation->setSafeBrowsingCheckOngoing(redirectChainIndex, true);
+    navigation.setSafeBrowsingCheckOngoing(redirectChainIndex, true);
 
-    auto completionHandler = makeBlockPtr([navigation = WTFMove(navigation), forMainFrameNavigation = frame.isMainFrame(), url, weakThis = WeakPtr { *this }, frame = Ref { frame }, redirectChainIndex] (SSBLookupResult *result, NSError *error) mutable {
-        RunLoop::protectedMain()->dispatch([frame = WTFMove(frame), navigation = WTFMove(navigation), result = retainPtr(result), error = retainPtr(error), forMainFrameNavigation, url = WTFMove(url), weakThis, redirectChainIndex] {
-            if (!navigation)
+    auto completionHandler = makeBlockPtr([weakThis = WeakPtr { *this }, navigation = Ref { navigation }, forMainFrameNavigation, url = url.isolatedCopy(), redirectChainIndex] (SSBLookupResult *result, NSError *error) mutable {
+        RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), navigation = WTFMove(navigation), result = retainPtr(result), error = retainPtr(error), forMainFrameNavigation, url = WTFMove(url).isolatedCopy(), redirectChainIndex] {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
                 return;
             navigation->setSafeBrowsingCheckOngoing(redirectChainIndex, false);
             if (error)
@@ -263,12 +264,12 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, RefPtr<API::Navigation
                 }
             }
             if (!navigation->safeBrowsingCheckOngoing() && navigation->safeBrowsingWarning() && navigation->safeBrowsingCheckTimedOut())
-                frame->protectedPage()->showBrowsingWarning(navigation->safeBrowsingWarning());
+                protectedThis->showBrowsingWarning(navigation->safeBrowsingWarning());
         });
     });
 
     if ([context respondsToSelector:@selector(lookUpURL:isMainFrame:hasHighConfidenceOfSafety:completionHandler:)])
-        [context lookUpURL:url.createNSURL().get() isMainFrame:frame.isMainFrame() hasHighConfidenceOfSafety:NO completionHandler:completionHandler.get()];
+        [context lookUpURL:url.createNSURL().get() isMainFrame:forMainFrameNavigation hasHighConfidenceOfSafety:NO completionHandler:completionHandler.get()];
     else
         [context lookUpURL:url.createNSURL().get() completionHandler:completionHandler.get()];
 #endif
@@ -795,7 +796,7 @@ void WebPageProxy::scheduleActivityStateUpdate()
             // We can't call dispatchActivityStateChange directly underneath this commit handler, because it has side-effects
             // that may result in other frameworks trying to install commit handlers for the same phase, which is not allowed.
             // So, dispatch_async here; we only care that the activity state change doesn't apply until after the active commit is complete.
-            WorkQueue::protectedMain()->dispatch([weakThis] {
+            WorkQueue::mainSingleton().dispatch([weakThis] {
                 RefPtr protectedThis { weakThis.get() };
                 if (!protectedThis)
                     return;
@@ -1187,7 +1188,7 @@ void WebPageProxy::deactivateMediaCapability(MediaCapability& capability)
     WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "deactivateMediaCapability: deactivating (envID=%{public}s) for URL '%{sensitive}s'", capability.environmentIdentifier().utf8().data(), capability.webPageURL().string().utf8().data());
     Ref processPool { protectedLegacyMainFrameProcess()->protectedProcessPool() };
     processPool->extensionCapabilityGranter().setMediaCapabilityActive(capability, false);
-    processPool->extensionCapabilityGranter().revoke(capability);
+    processPool->extensionCapabilityGranter().revoke(capability, *this);
 }
 
 void WebPageProxy::resetMediaCapability()
@@ -1224,7 +1225,7 @@ void WebPageProxy::updateMediaCapability()
         processPool->extensionCapabilityGranter().setMediaCapabilityActive(*mediaCapability, true);
 
     if (mediaCapability->isActivatingOrActive())
-        processPool->extensionCapabilityGranter().grant(*mediaCapability);
+        processPool->extensionCapabilityGranter().grant(*mediaCapability, *this);
 }
 
 bool WebPageProxy::shouldActivateMediaCapability() const
@@ -1232,13 +1233,7 @@ bool WebPageProxy::shouldActivateMediaCapability() const
     if (!isViewVisible())
         return false;
 
-    if (internals().mediaState.contains(MediaProducerMediaState::IsPlayingAudio))
-        return true;
-
-    if (internals().mediaState.contains(MediaProducerMediaState::IsPlayingVideo))
-        return true;
-
-    return MediaProducer::isCapturing(internals().mediaState);
+    return MediaProducer::needsMediaCapability(internals().mediaState);
 }
 
 bool WebPageProxy::shouldDeactivateMediaCapability() const
@@ -1758,6 +1753,7 @@ String WebPageProxy::presentingApplicationBundleIdentifier() const
     return { };
 }
 
+#if PLATFORM(MAC)
 NSDictionary *WebPageProxy::getAccessibilityWebProcessDebugInfo()
 {
     const Seconds messageTimeout(2);
@@ -1772,7 +1768,9 @@ NSDictionary *WebPageProxy::getAccessibilityWebProcessDebugInfo()
         @"axIsEnabled": [NSNumber numberWithBool:result.isAccessibilityEnabled],
         @"axIsThreadInitialized": [NSNumber numberWithBool:result.isAccessibilityThreadInitialized],
         @"axLiveTree": result.liveTree.createNSString().get(),
-        @"axIsolatedTree": result.isolatedTree.createNSString().get()
+        @"axIsolatedTree": result.isolatedTree.createNSString().get(),
+        @"axWebProcessRemoteHash": [NSNumber numberWithUnsignedInteger:result.remoteTokenHash],
+        @"axWebProcessLocalHash": [NSNumber numberWithUnsignedInteger:result.webProcessLocalTokenHash]
     };
 }
 
@@ -1784,6 +1782,7 @@ void WebPageProxy::clearAccessibilityIsolatedTree()
     });
 }
 #endif
+#endif // PLATFORM(MAC)
 
 } // namespace WebKit
 

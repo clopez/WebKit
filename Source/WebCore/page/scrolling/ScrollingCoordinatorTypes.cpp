@@ -200,6 +200,7 @@ TextStream& operator<<(TextStream& ts, ScrollUpdateType type)
     case ScrollUpdateType::AnimatedScrollDidEnd: ts << "animated scroll did end"_s; break;
     case ScrollUpdateType::WheelEventScrollWillStart: ts << "wheel event scroll will start"_s; break;
     case ScrollUpdateType::WheelEventScrollDidEnd: ts << "wheel event scroll did end"_s; break;
+    case ScrollUpdateType::ProgrammaticScrollDidEnd: ts << "programmatic scroll did end"_s; break;
     }
     return ts;
 }
@@ -253,7 +254,11 @@ TextStream& operator<<(TextStream& ts, const RequestedScrollData& requestedScrol
 
 TextStream& operator<<(TextStream& ts, const ScrollUpdate& update)
 {
-    ts << "updateType: " << update.updateType << " nodeID: " << update.nodeID << " scrollPosition: " << update.scrollPosition << " layoutViewportOrigin: " << update.layoutViewportOrigin << " updateLayerPositionAction: " << update.updateLayerPositionAction;
+    if (update.updateType == ScrollUpdateType::PositionUpdate)
+        ts << "updateType: " << update.updateType << " nodeID: " << update.nodeID << " scrollPosition: " << update.scrollPosition << " layoutViewportOrigin: " << update.layoutViewportOrigin << " updateLayerPositionAction: " << update.updateLayerPositionAction;
+    else
+        ts << "updateType: " << update.updateType << " nodeID: " << update.nodeID;
+
     return ts;
 }
 

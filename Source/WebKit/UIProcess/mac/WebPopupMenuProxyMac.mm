@@ -37,6 +37,8 @@
 #import <pal/system/mac/PopupMenu.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/ProcessPrivilege.h>
+#import <wtf/SetForScope.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -44,7 +46,6 @@ using namespace WebCore;
 WebPopupMenuProxyMac::WebPopupMenuProxyMac(NSView *webView, WebPopupMenuProxy::Client& client)
     : WebPopupMenuProxy(client)
     , m_webView(webView)
-    , m_wasCanceled(false)
 {
 }
 
@@ -68,7 +69,7 @@ void WebPopupMenuProxyMac::populate(const Vector<WebPopupItem>& items, NSFont *f
 
     for (int i = 0; i < size; i++) {
         if (items[i].m_type == WebPopupItem::Type::Separator)
-            [[m_popup menu] addItem:[NSMenuItem separatorItem]];
+            [protectedMenu() addItem:[NSMenuItem separatorItem]];
         else {
             [m_popup addItemWithTitle:@""];
             RetainPtr menuItem = [m_popup lastItem];
@@ -87,6 +88,8 @@ void WebPopupMenuProxyMac::populate(const Vector<WebPopupItem>& items, NSFont *f
                 RetainPtr<NSArray> writingDirectionArray = adoptNS([[NSArray alloc] initWithObjects:writingDirectionNumber.get(), nil]);
                 [attributes setObject:writingDirectionArray.get() forKey:NSWritingDirectionAttributeName];
             }
+            if (!items[i].m_language.isEmpty())
+                [attributes setObject:items[i].m_language.createNSString().get() forKey:NSLanguageIdentifierAttributeName];
             RetainPtr<NSAttributedString> string = adoptNS([[NSAttributedString alloc] initWithString:items[i].m_text.createNSString().get() attributes:attributes.get()]);
 
             [menuItem setAttributedTitle:string.get()];
@@ -172,6 +175,8 @@ void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection text
         break;
     }
 
+    SetForScope visibleScope { m_isVisible, true };
+
     Ref<WebPopupMenuProxyMac> protect(*this);
     PAL::popUpMenu(menu.get(), location, roundf(NSWidth(rect)), dummyView.get(), selectedIndex, font.get(), controlSize, data.hideArrows);
 
@@ -217,13 +222,23 @@ void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection text
 
 void WebPopupMenuProxyMac::hidePopupMenu()
 {
-    [[m_popup menu] cancelTracking];
+    [protectedMenu() cancelTracking];
 }
 
 void WebPopupMenuProxyMac::cancelTracking()
 {
-    [[m_popup menu] cancelTracking];
+    [protectedMenu() cancelTracking];
     m_wasCanceled = true;
+}
+
+RetainPtr<NSPopUpButtonCell> WebPopupMenuProxyMac::protectedPopup() const
+{
+    return m_popup;
+}
+
+RetainPtr<NSMenu> WebPopupMenuProxyMac::protectedMenu() const
+{
+    return [m_popup menu];
 }
 
 } // namespace WebKit

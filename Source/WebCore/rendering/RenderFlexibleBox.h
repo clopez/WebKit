@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include "OrderIterator.h"
-#include "RenderBlock.h"
-#include "RenderStyleInlines.h"
+#include <WebCore/OrderIterator.h>
+#include <WebCore/RenderBlock.h>
+#include <WebCore/RenderStyleInlines.h>
 #include <wtf/WeakHashSet.h>
 
 namespace WebCore {
@@ -56,40 +56,15 @@ public:
     bool canDropAnonymousBlockChild() const final { return false; }
     void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) final;
 
-    LayoutUnit baselinePosition() const override;
     std::optional<LayoutUnit> firstLineBaseline() const override;
     std::optional<LayoutUnit> lastLineBaseline() const override;
-    std::optional<LayoutUnit> inlineBlockBaseline() const override;
 
     void styleDidChange(StyleDifference, const RenderStyle*) override;
     bool hitTestChildren(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint& adjustedLocation, HitTestAction) override;
     void paintChildren(PaintInfo& forSelf, const LayoutPoint&, PaintInfo& forChild, bool usePrintRect) override;
 
     bool isHorizontalFlow() const;
-    inline Direction crossAxisDirection() const
-    {
-        switch (writingMode().blockDirection()) {
-        case FlowDirection::TopToBottom:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-        case FlowDirection::BottomToTop:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::TopToBottom : Direction::BottomToTop;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-        case FlowDirection::LeftToRight:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::RightToLeft : Direction::LeftToRight;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-        case FlowDirection::RightToLeft:
-            if (style().isRowFlexDirection())
-                return (style().flexWrap() == FlexWrap::Reverse) ? Direction::LeftToRight : Direction::RightToLeft;
-            return (style().flexWrap() == FlexWrap::Reverse) ? Direction::BottomToTop : Direction::TopToBottom;
-        default:
-            ASSERT_NOT_REACHED();
-            return Direction::TopToBottom;
-        }
-    }
+    Direction crossAxisDirection() const;
 
     const OrderIterator& orderIterator() const { return m_orderIterator; }
 
@@ -128,6 +103,9 @@ public:
     bool hasModernLayout() const { return m_hasFlexFormattingContextLayout && *m_hasFlexFormattingContextLayout; }
 
     bool shouldResetFlexItemLogicalHeightBeforeLayout() const { return m_shouldResetFlexItemLogicalHeightBeforeLayout; }
+
+    bool isColumnOrRowReverse() const;
+    bool isWrapReverse() const;
 
 protected:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
@@ -201,7 +179,6 @@ private:
 
     bool mainAxisIsFlexItemInlineAxis(const RenderBox&) const;
     bool isColumnFlow() const;
-    bool isColumnOrRowReverse() const;
     bool isLeftToRightFlow() const;
     bool isMultiline() const;
     Style::FlexBasis flexBasisForFlexItem(const RenderBox& flexItem) const;
@@ -238,6 +215,7 @@ private:
     LayoutUnit crossAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutUnit mainAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutUnit crossAxisScrollbarExtent() const;
+    LayoutUnit mainAxisScrollbarExtent() const;
     LayoutUnit crossAxisScrollbarExtentForFlexItem(const RenderBox& flexItem) const;
     LayoutPoint flowAwareLocationForFlexItem(const RenderBox& flexItem) const;
 

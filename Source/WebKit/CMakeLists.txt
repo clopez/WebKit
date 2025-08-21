@@ -182,7 +182,7 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/ShapeDetection/RemoteFaceDetector
     GPUProcess/ShapeDetection/RemoteTextDetector
 
-    GPUProcess/graphics/RemoteDisplayListRecorder
+    GPUProcess/graphics/RemoteGraphicsContext
     GPUProcess/graphics/RemoteGraphicsContextGL
     GPUProcess/graphics/RemoteImageBuffer
     GPUProcess/graphics/RemoteImageBufferSet
@@ -489,6 +489,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/MonotonicObjectIdentifier.serialization.in
     Shared/NavigationActionData.serialization.in
     Shared/NetworkProcessConnectionParameters.serialization.in
+    Shared/NodeHitTestResult.serialization.in
     Shared/Pasteboard.serialization.in
     Shared/PlatformFontInfo.serialization.in
     Shared/PlatformPopupMenuData.serialization.in
@@ -507,6 +508,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/SandboxExtension.serialization.in
     Shared/ScriptTrackingPrivacyFilter.serialization.in
     Shared/ScrollingAccelerationCurve.serialization.in
+    Shared/SerializedNode.serialization.in
     Shared/SessionState.serialization.in
     Shared/SyntheticEditingCommandType.serialization.in
     Shared/TextFlags.serialization.in

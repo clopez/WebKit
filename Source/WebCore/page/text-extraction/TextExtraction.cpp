@@ -26,12 +26,22 @@
 #include "config.h"
 #include "TextExtraction.h"
 
+#include "AXObjectCache.h"
+#include "AccessibilityObject.h"
+#include "BoundaryPointInlines.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
+#include "Editor.h"
 #include "ElementInlines.h"
+#include "EventListenerMap.h"
+#include "EventNames.h"
+#include "EventTargetInlines.h"
 #include "ExceptionCode.h"
 #include "ExceptionOr.h"
+#include "FocusController.h"
 #include "FrameSelection.h"
+#include "GeometryUtilities.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLButtonElement.h"
 #include "HTMLFrameOwnerElement.h"
@@ -39,9 +49,16 @@
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HTMLOptionElement.h"
+#include "HTMLSelectElement.h"
+#include "HandleUserInputEventResult.h"
+#include "HitTestResult.h"
 #include "ImageOverlay.h"
 #include "LocalFrame.h"
 #include "Page.h"
+#include "PlatformKeyboardEvent.h"
+#include "PlatformMouseEvent.h"
+#include "PositionInlines.h"
 #include "RenderBox.h"
 #include "RenderDescendantIterator.h"
 #include "RenderIFrame.h"
@@ -53,6 +70,9 @@
 #include "SimpleRange.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "UserGestureIndicator.h"
+#include "UserTypingGestureIndicator.h"
+#include "VisibleSelection.h"
 #include "WritingMode.h"
 #include <ranges>
 #include <unicode/uchar.h>
@@ -115,6 +135,9 @@ struct TraversalContext {
     const TextAndSelectedRangeMap visibleText;
     const std::optional<WebCore::FloatRect> rectInRootView;
     unsigned onlyCollectTextAndLinksCount { 0 };
+    bool mergeParagraphs { false };
+    bool skipNearlyTransparentContent { false };
+    bool canIncludeIdentifiers { false };
 
     inline bool shouldIncludeNodeWithRect(const FloatRect& rect) const
     {
@@ -270,7 +293,9 @@ static bool shouldTreatAsPasswordField(const Element* element)
     return input && input->hasEverBeenPasswordField();
 }
 
-static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(Node& node, TraversalContext& context)
+enum class FallbackPolicy : bool { Skip, Extract };
+
+static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(Node& node, FallbackPolicy policy, TraversalContext& context)
 {
     CheckedPtr renderer = node.renderer();
 
@@ -278,7 +303,10 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (element && element->hasDisplayContents())
         return { SkipExtraction::Self };
 
-    if (!renderer || renderer->style().opacity() < minOpacityToConsiderVisible)
+    if (!renderer)
+        return { SkipExtraction::SelfAndSubtree };
+
+    if (context.skipNearlyTransparentContent && renderer->style().opacity() < minOpacityToConsiderVisible)
         return { SkipExtraction::SelfAndSubtree };
 
     if (renderer->style().usedVisibility() == Visibility::Hidden)
@@ -300,8 +328,15 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
     if (element->isLink()) {
         if (auto href = element->attributeWithoutSynchronization(HTMLNames::hrefAttr); !href.isEmpty()) {
-            if (auto url = element->document().completeURL(href); !url.isEmpty())
-                return { url };
+            if (auto url = element->document().completeURL(href); !url.isEmpty()) {
+                if (context.mergeParagraphs)
+                    return { WTFMove(url) };
+
+                if (RefPtr anchor = dynamicDowncast<HTMLAnchorElement>(*element))
+                    return { LinkItemData { anchor->target(), WTFMove(url) } };
+
+                return { LinkItemData { { }, WTFMove(url) } };
+            }
         }
     }
 
@@ -312,20 +347,61 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
         return { SkipExtraction::Self };
     }
 
-    if (!element->isInUserAgentShadowTree() && element->isRootEditableElement())
-        return { Editable { } };
+    if (!element->isInUserAgentShadowTree() && element->isRootEditableElement()) {
+        if (context.mergeParagraphs)
+            return { Editable { } };
+
+        return { ContentEditableData {
+            .isPlainTextOnly = !element->hasRichlyEditableStyle(),
+            .isFocused = element->document().activeElement() == element,
+        } };
+    }
 
     if (RefPtr image = dynamicDowncast<HTMLImageElement>(element))
         return { ImageItemData { image->getURLAttribute(HTMLNames::srcAttr).lastPathComponent().toString(), image->altText() } };
 
-    if (RefPtr control = dynamicDowncast<HTMLTextFormControlElement>(element); control && control->isTextField()) {
+    if (RefPtr control = dynamicDowncast<HTMLTextFormControlElement>(element)) {
         RefPtr input = dynamicDowncast<HTMLInputElement>(control);
-        return { Editable {
+        Editable editable {
             labelText(*control),
             input ? input->placeholder() : nullString(),
             shouldTreatAsPasswordField(element.get()),
             element->document().activeElement() == control
-        } };
+        };
+
+        if (context.mergeParagraphs && control->isTextField())
+            return { WTFMove(editable) };
+
+        if (!context.mergeParagraphs) {
+            RefPtr input = dynamicDowncast<HTMLInputElement>(*control);
+            return { TextFormControlData {
+                .editable = WTFMove(editable),
+                .controlType = control->type(),
+                .autocomplete = control->autocomplete(),
+                .isReadonly = input && input->isReadOnly(),
+                .isDisabled = control->isDisabled(),
+                .isChecked = input && input->checked(),
+            } };
+        }
+    }
+
+    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(element)) {
+        SelectData selectData;
+        for (WeakPtr weakItem : select->listItems()) {
+            RefPtr item = weakItem.get();
+            if (!item)
+                continue;
+
+            if (RefPtr option = dynamicDowncast<HTMLOptionElement>(*item)) {
+                if (!option->selected())
+                    continue;
+
+                if (auto optionValue = option->value(); !optionValue.isEmpty())
+                    selectData.selectedValues.append(WTFMove(optionValue));
+            }
+        }
+        selectData.isMultiple = select->multiple();
+        return selectData;
     }
 
     if (RefPtr button = dynamicDowncast<HTMLButtonElement>(element))
@@ -362,7 +438,44 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (CheckedPtr renderElement = dynamicDowncast<RenderBox>(*renderer); renderElement && renderElement->style().hasViewportConstrainedPosition())
         return { ItemData { ContainerType::ViewportConstrained } };
 
+    if (policy == FallbackPolicy::Extract) {
+        // As a last resort, if the element doesn't fall into any of the other buckets above,
+        // we still need to extract it to preserve data about event listeners and accessibility
+        // attributes.
+        return { ItemData { ContainerType::Generic } };
+    }
+
     return { SkipExtraction::Self };
+}
+
+static inline bool shouldIncludeNodeIdentifier(OptionSet<EventListenerCategory> eventListeners, AccessibilityRole role, const ItemData& data)
+{
+    return WTF::switchOn(data,
+        [eventListeners, role](ContainerType type) {
+            switch (type) {
+            case ContainerType::Root:
+            case ContainerType::Article:
+                return false;
+            case ContainerType::ViewportConstrained:
+            case ContainerType::List:
+            case ContainerType::ListItem:
+            case ContainerType::BlockQuote:
+            case ContainerType::Section:
+            case ContainerType::Nav:
+            case ContainerType::Generic:
+                return eventListeners || AccessibilityObject::isARIAControl(role);
+            case ContainerType::Button:
+                return true;
+            }
+            ASSERT_NOT_REACHED();
+            return false;
+        },
+        [](const TextItemData&) {
+            return false;
+        },
+        [](auto&) {
+            return true;
+        });
 }
 
 static inline void extractRecursive(Node& node, Item& parentItem, TraversalContext& context)
@@ -372,7 +485,59 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
     std::optional<URL> linkURL;
     bool shouldSkipSubtree = false;
 
-    WTF::switchOn(extractItemData(node, context),
+    OptionSet<EventListenerCategory> eventListeners;
+    node.enumerateEventListenerTypes([&](auto& type, unsigned) {
+        auto typeInfo = eventNames().typeInfoForEvent(type);
+        if (typeInfo.isInCategory(EventCategory::Wheel))
+            eventListeners.add(EventListenerCategory::Wheel);
+        else if (typeInfo.isInCategory(EventCategory::MouseClickRelated))
+            eventListeners.add(EventListenerCategory::Click);
+        else if (typeInfo.isInCategory(EventCategory::MouseMoveRelated))
+            eventListeners.add(EventListenerCategory::Hover);
+        else if (typeInfo.isInCategory(EventCategory::TouchRelated))
+            eventListeners.add(EventListenerCategory::Touch);
+
+        switch (typeInfo.type()) {
+        case EventType::keydown:
+        case EventType::keypress:
+        case EventType::keyup:
+            eventListeners.add(EventListenerCategory::Keyboard);
+            break;
+
+        default:
+            break;
+        }
+    });
+
+    HashMap<String, String> ariaAttributes;
+    String role;
+    if (RefPtr element = dynamicDowncast<Element>(node)) {
+        auto attributesToExtract = std::array {
+            HTMLNames::aria_labelAttr.get(),
+            HTMLNames::aria_expandedAttr.get(),
+            HTMLNames::aria_modalAttr.get(),
+            HTMLNames::aria_disabledAttr.get(),
+            HTMLNames::aria_checkedAttr.get(),
+            HTMLNames::aria_selectedAttr.get(),
+            HTMLNames::aria_readonlyAttr.get(),
+            HTMLNames::aria_haspopupAttr.get(),
+            HTMLNames::aria_descriptionAttr.get(),
+            HTMLNames::aria_multilineAttr.get(),
+            HTMLNames::aria_valueminAttr.get(),
+            HTMLNames::aria_valuemaxAttr.get(),
+            HTMLNames::aria_valuenowAttr.get(),
+            HTMLNames::aria_valuetextAttr.get(),
+        };
+        for (auto& attributeName : attributesToExtract) {
+            if (auto value = element->attributeWithoutSynchronization(attributeName); !value.isEmpty())
+                ariaAttributes.set(attributeName.toString(), WTFMove(value));
+        }
+        role = element->attributeWithoutSynchronization(HTMLNames::roleAttr);
+    }
+
+    auto policy = eventListeners || !ariaAttributes.isEmpty() || !role.isEmpty() ? FallbackPolicy::Extract : FallbackPolicy::Skip;
+
+    WTF::switchOn(extractItemData(node, policy, context),
         [&](SkipExtraction skipExtraction) {
             switch (skipExtraction) {
             case SkipExtraction::Self:
@@ -382,12 +547,32 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
                 return;
             }
         },
-        [&](URL&& result) { linkURL = WTFMove(result); },
-        [&](Editable&& result) { editable = WTFMove(result); },
+        [&](URL&& result) {
+            ASSERT(context.mergeParagraphs);
+            linkURL = WTFMove(result);
+        },
+        [&](Editable&& result) {
+            ASSERT(context.mergeParagraphs);
+            editable = WTFMove(result);
+        },
         [&](ItemData&& result) {
             auto bounds = rootViewBounds(node);
-            if (context.shouldIncludeNodeWithRect(bounds))
-                item = { { WTFMove(result), WTFMove(bounds), { } } };
+            if (!context.shouldIncludeNodeWithRect(bounds))
+                return;
+
+            std::optional<NodeIdentifier> nodeIdentifier;
+            if (context.canIncludeIdentifiers && shouldIncludeNodeIdentifier(eventListeners, AccessibilityObject::ariaRoleToWebCoreRole(role), result))
+                nodeIdentifier = node.nodeIdentifier();
+
+            item = { {
+                WTFMove(result),
+                WTFMove(bounds),
+                { },
+                WTFMove(nodeIdentifier),
+                eventListeners,
+                WTFMove(ariaAttributes),
+                WTFMove(role),
+            } };
         });
 
     if (shouldSkipSubtree)
@@ -399,14 +584,18 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
             item = {
                 TextItemData { { }, { }, emptyString(), { } },
                 WTFMove(bounds),
-                { }
+                { },
+                { },
+                eventListeners,
+                WTFMove(ariaAttributes),
+                WTFMove(role),
             };
         }
         context.onlyCollectTextAndLinksCount++;
     }
 
     if (RefPtr container = dynamicDowncast<ContainerNode>(node)) {
-        for (auto& child : composedTreeChildren(*container))
+        for (auto& child : composedTreeChildren<0>(*container))
             extractRecursive(child, item ? *item : parentItem, context);
     }
 
@@ -427,11 +616,13 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
     if (!item)
         return;
 
-    if (parentItem.children.isEmpty()) {
-        if (canMerge(parentItem, *item))
-            return merge(parentItem, WTFMove(*item));
-    } else if (auto& lastChild = parentItem.children.last(); canMerge(lastChild, *item))
-        return merge(lastChild, WTFMove(*item));
+    if (context.mergeParagraphs) {
+        if (parentItem.children.isEmpty()) {
+            if (canMerge(parentItem, *item))
+                return merge(parentItem, WTFMove(*item));
+        } else if (auto& lastChild = parentItem.children.last(); canMerge(lastChild, *item))
+            return merge(lastChild, WTFMove(*item));
+    }
 
     parentItem.children.append(WTFMove(*item));
 }
@@ -450,9 +641,9 @@ static void pruneRedundantItemsRecursive(Item& item)
         pruneRedundantItemsRecursive(child);
 }
 
-Item extractItem(std::optional<WebCore::FloatRect>&& collectionRectInRootView, Page& page)
+Item extractItem(Request&& request, Page& page)
 {
-    Item root { ContainerType::Root, { }, { } };
+    Item root { ContainerType::Root, { }, { }, { }, { }, { }, { } };
     RefPtr mainFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
     if (!mainFrame) {
         // FIXME: Propagate text extraction to RemoteFrames.
@@ -471,7 +662,14 @@ Item extractItem(std::optional<WebCore::FloatRect>&& collectionRectInRootView, P
     root.rectInRootView = rootViewBounds(*bodyElement);
 
     {
-        TraversalContext context { collectText(*mainDocument), WTFMove(collectionRectInRootView) };
+        TraversalContext context {
+            .visibleText = collectText(*mainDocument),
+            .rectInRootView = WTFMove(request.collectionRectInRootView),
+            .onlyCollectTextAndLinksCount = 0,
+            .mergeParagraphs = request.mergeParagraphs,
+            .skipNearlyTransparentContent = request.skipNearlyTransparentContent,
+            .canIncludeIdentifiers = request.canIncludeIdentifiers,
+        };
         extractRecursive(*bodyElement, root, context);
     }
 
@@ -565,7 +763,7 @@ static void extractRenderedTokens(Vector<TokenAndBlockOffset>& tokensAndOffsets,
             if (textRenderer->hasRenderedText()) {
                 Vector<Token> tokens;
                 for (auto token : textRenderer->text().simplifyWhiteSpace(isASCIIWhitespace).split(' ')) {
-                    auto candidate = token.removeCharacters([](UChar character) {
+                    auto candidate = token.removeCharacters([](char16_t character) {
                         return !u_isalpha(character) && !u_isdigit(character);
                     });
                     if (!candidate.isEmpty())
@@ -664,7 +862,7 @@ static Vector<std::pair<String, FloatRect>> extractAllTextAndRectsRecursive(Docu
         if (RefPtr frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(*node))
             frameOwners.add(frameOwner.releaseNonNull());
 
-        auto trimmedText = iterator.text().trim(isASCIIWhitespace<UChar>);
+        auto trimmedText = iterator.text().trim(isASCIIWhitespace<char16_t>);
         if (trimmedText.isEmpty())
             continue;
 
@@ -672,7 +870,20 @@ static Vector<std::pair<String, FloatRect>> extractAllTextAndRectsRecursive(Docu
         if (!renderer)
             continue;
 
-        result.append({ trimmedText.toString(), view->contentsToRootView(renderer->absoluteBoundingBoxRect()) });
+        FloatRect absoluteBounds;
+        auto textRange = iterator.range();
+        if (!textRange.collapsed()) {
+            absoluteBounds = enclosingIntRect(unionRectIgnoringZeroRects(RenderObject::absoluteBorderAndTextRects(textRange, {
+                RenderObject::BoundingRectBehavior::IgnoreTinyRects,
+                RenderObject::BoundingRectBehavior::IgnoreEmptyTextSelections,
+                RenderObject::BoundingRectBehavior::UseSelectionHeight,
+            })));
+        }
+
+        if (absoluteBounds.isEmpty())
+            absoluteBounds = renderer->absoluteBoundingBoxRect();
+
+        result.append({ trimmedText.toString(), view->contentsToRootView(absoluteBounds) });
     }
 
     for (auto& frameOwner : frameOwners) {
@@ -699,5 +910,321 @@ Vector<std::pair<String, FloatRect>> extractAllTextAndRects(Page& page)
     return extractAllTextAndRectsRecursive(*document);
 }
 
-} // namespace TextExtractor
+static std::optional<SimpleRange> searchForText(Node& node, const String& searchText)
+{
+    auto searchRange = makeRangeSelectingNodeContents(node);
+    auto foundRange = findPlainText(searchRange, searchText, {
+        FindOption::DoNotRevealSelection,
+        FindOption::DoNotSetSelection,
+    });
+
+    if (foundRange.collapsed())
+        return { };
+
+    return { WTFMove(foundRange) };
+}
+
+static String invalidNodeIdentifierDescription(NodeIdentifier identifier)
+{
+    return makeString("Failed to resolve nodeIdentifier "_s, identifier.loggingString());
+}
+
+static String searchTextNotFoundDescription(const String& searchText)
+{
+    return makeString('\'', searchText, "' not found inside the target node"_s);
+}
+
+static constexpr auto nullFrameDescription = "Browsing context has been detached"_s;
+static constexpr auto interactedWithSelectElementDescription = "Successfully updated option in select element"_s;
+
+static void dispatchSimulatedClick(Page& page, IntPoint location, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr frame = page.localMainFrame();
+    if (!frame)
+        return completion(false, nullFrameDescription);
+
+    frame->eventHandler().handleMouseMoveEvent({
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap
+    });
+
+    frame->eventHandler().handleMousePressEvent({
+        location, location, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap
+    });
+
+    frame->eventHandler().handleMouseReleaseEvent({
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap
+    });
+
+    completion(true, { });
+}
+
+static void dispatchSimulatedClick(Node& targetNode, const String& searchText, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr element = dynamicDowncast<Element>(targetNode);
+    if (!element)
+        element = targetNode.parentElementInComposedTree();
+
+    if (!element || !element->isConnected())
+        return completion(false, "Target has been disconnected from the DOM"_s);
+
+    {
+        CheckedPtr renderer = element->renderer();
+        if (!renderer)
+            return completion(false, "Target is not rendered (possibly display: none)"_s);
+
+        if (renderer->style().usedVisibility() != Visibility::Visible)
+            return completion(false, "Target is hidden via CSS visibility"_s);
+    }
+
+    Ref document = element->document();
+    RefPtr view = document->view();
+    if (!view)
+        return completion(false, "Document is not visible to the user"_s);
+
+    RefPtr page = document->page();
+    if (!page)
+        return completion(false, "Document has been detached from the page"_s);
+
+    static constexpr OptionSet defaultHitTestOptions {
+        HitTestRequest::Type::ReadOnly,
+        HitTestRequest::Type::DisallowUserAgentShadowContent,
+    };
+
+    std::optional<FloatRect> targetRectInRootView;
+    if (!searchText.isEmpty()) {
+        auto foundRange = searchForText(*element, searchText);
+        if (!foundRange) {
+            // Err on the side of failing, if the text has changed since the interaction was triggered.
+            return completion(false, searchTextNotFoundDescription(searchText));
+        }
+
+        if (auto absoluteQuads = RenderObject::absoluteTextQuads(*foundRange); !absoluteQuads.isEmpty()) {
+            // If the text match wraps across multiple lines, arbitrarily click over the first rect to avoid
+            // missing the text node altogether.
+            targetRectInRootView = view->contentsToRootView(absoluteQuads.first().boundingBox());
+        }
+    }
+
+    if (!targetRectInRootView)
+        targetRectInRootView = rootViewBounds(*element);
+
+    auto centerInRootView = roundedIntPoint(targetRectInRootView->center());
+    auto centerInContents = view->rootViewToContents(centerInRootView);
+    HitTestResult result { centerInContents };
+    if (document->hitTest(defaultHitTestOptions, result)) {
+        if (RefPtr target = result.innerNode(); target && (target == element || target->isShadowIncludingDescendantOf(*element))) {
+            // Dispatch mouse events over the center of the element, if possible.
+            return dispatchSimulatedClick(*page, centerInRootView, WTFMove(completion));
+        }
+    }
+
+    UserGestureIndicator indicator { IsProcessingUserGesture::Yes, element->protectedDocument().ptr() };
+
+    // Fall back to dispatching a programmatic click.
+    if (element->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents))
+        completion(false, "Failed to click (tried falling back to dispatching programmatic click since target could not be hit-tested)"_s);
+    else
+        completion(true, { });
+}
+
+static void dispatchSimulatedClick(NodeIdentifier identifier, const String& searchText, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr foundNode = Node::fromIdentifier(identifier);
+    if (!foundNode)
+        return completion(false, invalidNodeIdentifierDescription(identifier));
+
+    dispatchSimulatedClick(*foundNode, searchText, WTFMove(completion));
+}
+
+static bool selectOptionByValue(NodeIdentifier identifier, const String& optionText)
+{
+    RefPtr foundNode = Node::fromIdentifier(identifier);
+    if (!foundNode)
+        return false;
+
+    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(*foundNode)) {
+        if (optionText.isEmpty())
+            return false;
+
+        select->setValue(optionText);
+        return select->selectedIndex() != -1;
+    }
+
+    return false;
+}
+
+static void selectText(NodeIdentifier identifier, const String& searchText, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr foundNode = Node::fromIdentifier(identifier);
+    if (!foundNode)
+        return completion(false, invalidNodeIdentifierDescription(identifier));
+
+    if (RefPtr control = dynamicDowncast<HTMLTextFormControlElement>(*foundNode)) {
+        // FIXME: This should probably honor `searchText`.
+        control->select();
+        return completion(true, { });
+    }
+
+    std::optional<SimpleRange> targetRange;
+    if (searchText.isEmpty())
+        targetRange = makeRangeSelectingNodeContents(*foundNode);
+    else
+        targetRange = searchForText(*foundNode, searchText);
+
+    if (!targetRange)
+        return completion(false, searchTextNotFoundDescription(searchText));
+
+    if (!foundNode->protectedDocument()->selection().setSelectedRange(*targetRange, Affinity::Downstream, FrameSelection::ShouldCloseTyping::Yes, UserTriggered::Yes))
+        return completion(false, "Failed to set selected range"_s);
+
+    return completion(true, { });
+}
+
+static bool simulateKeyPress(LocalFrame& frame, const String& key)
+{
+    auto keyDown = PlatformKeyboardEvent::syntheticEventFromText(PlatformEvent::Type::KeyDown, key);
+    if (!keyDown)
+        return false;
+
+    auto keyUp = PlatformKeyboardEvent::syntheticEventFromText(PlatformEvent::Type::KeyUp, key);
+    if (!keyUp)
+        return false;
+
+    frame.eventHandler().keyEvent(*keyDown);
+    frame.eventHandler().keyEvent(*keyUp);
+    return true;
+}
+
+static void simulateKeyPress(Page& page, std::optional<NodeIdentifier>&& identifier, const String& text, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    if (identifier) {
+        RefPtr focusTarget = dynamicDowncast<Element>(Node::fromIdentifier(*identifier));
+        if (!focusTarget)
+            return completion(false, makeString(identifier->loggingString()));
+
+        if (focusTarget != focusTarget->protectedDocument()->activeElement())
+            focusTarget->focus();
+    }
+
+    RefPtr targetFrame = page.focusController().focusedOrMainFrame();
+    if (!targetFrame)
+        return completion(false, nullFrameDescription);
+
+    String canonicalKey = text;
+    if (text == "\n"_s || text == "Return"_s)
+        canonicalKey = "Enter"_s;
+    else if (text == "Left"_s || text == "Right"_s || text == "Up"_s || text == "Down"_s)
+        canonicalKey = makeString("Arrow"_s, text);
+
+    if (simulateKeyPress(*targetFrame, canonicalKey))
+        return completion(true, { });
+
+    if (!text.is8Bit()) {
+        // FIXME: Consider falling back to simulating text insertion.
+        return completion(false, "Only 8-bit strings are supported"_s);
+    }
+
+    bool succeeded = true;
+    for (auto character : text.span8()) {
+        if (!simulateKeyPress(*targetFrame, { std::span { &character, 1 } }))
+            succeeded = false;
+    }
+
+    completion(succeeded, succeeded
+        ? makeString('\'', text, "' is not a valid key, but we successfully fell back to typing each character in the string separately"_s)
+        : makeString("One or more key events failed (tried to input '"_s, text, "' character by character"_s));
+}
+
+static void focusAndInsertText(NodeIdentifier identifier, String&& text, bool replaceAll, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr foundNode = Node::fromIdentifier(identifier);
+    if (!foundNode)
+        return completion(false, invalidNodeIdentifierDescription(identifier));
+
+    RefPtr<Element> elementToFocus;
+    if (RefPtr element = dynamicDowncast<Element>(*foundNode); element && element->isTextField())
+        elementToFocus = element;
+    else if (RefPtr host = foundNode->shadowHost(); host && host->isTextField()) {
+        if (RefPtr formControl = dynamicDowncast<HTMLTextFormControlElement>(host.get()))
+            elementToFocus = WTFMove(formControl);
+    }
+
+    if (!elementToFocus)
+        elementToFocus = foundNode->isRootEditableElement() ? dynamicDowncast<Element>(*foundNode) : foundNode->rootEditableElement();
+
+    if (!elementToFocus)
+        return completion(false, makeString(identifier.loggingString(), " cannot be edited (requires text field or contentEditable)"_s));
+
+    Ref document = elementToFocus->document();
+    RefPtr frame = document->frame();
+    if (!frame)
+        return completion(false, nullFrameDescription);
+
+    // First, attempt to dispatch a click over the editable area (and fall back to programmatically setting focus).
+    dispatchSimulatedClick(*elementToFocus, { }, [document = document.copyRef(), elementToFocus, frame, replaceAll, text = WTFMove(text), completion = WTFMove(completion)](bool clicked, String&&) mutable {
+        if (!clicked || elementToFocus != document->activeElement())
+            elementToFocus->focus();
+
+        if (replaceAll) {
+            if (elementToFocus->isRootEditableElement())
+                document->selection().setSelectedRange(makeRangeSelectingNodeContents(*elementToFocus), Affinity::Downstream, FrameSelection::ShouldCloseTyping::Yes, UserTriggered::Yes);
+            else
+                document->selection().selectAll();
+        }
+
+        UserTypingGestureIndicator indicator { *frame };
+
+        document->protectedEditor()->pasteAsPlainText(text, false);
+        completion(true, "Inserted text by simulating paste with plain text"_s);
+    });
+}
+
+void handleInteraction(Interaction&& interaction, Page& page, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    switch (interaction.action) {
+    case Action::Click: {
+        if (auto location = interaction.locationInRootView)
+            return dispatchSimulatedClick(page, roundedIntPoint(*location), WTFMove(completion));
+
+        if (auto identifier = interaction.nodeIdentifier)
+            return dispatchSimulatedClick(*identifier, WTFMove(interaction.text), WTFMove(completion));
+
+        return completion(false, "Missing location and nodeIdentifier"_s);
+    }
+    case Action::SelectMenuItem: {
+        if (auto identifier = interaction.nodeIdentifier) {
+            if (selectOptionByValue(*identifier, interaction.text))
+                return completion(true, interactedWithSelectElementDescription);
+
+            return dispatchSimulatedClick(*identifier, interaction.text, WTFMove(completion));
+        }
+
+        return completion(false, "Missing nodeIdentifier"_s);
+    }
+    case Action::SelectText: {
+        if (auto identifier = interaction.nodeIdentifier) {
+            if (selectOptionByValue(*identifier, interaction.text))
+                return completion(true, interactedWithSelectElementDescription);
+
+            return selectText(*identifier, WTFMove(interaction.text), WTFMove(completion));
+        }
+
+        return completion(false, "Missing nodeIdentifier"_s);
+    }
+    case Action::TextInput: {
+        if (auto identifier = interaction.nodeIdentifier)
+            return focusAndInsertText(*identifier, WTFMove(interaction.text), interaction.replaceAll, WTFMove(completion));
+
+        return completion(false, "Missing nodeIdentifier"_s);
+    }
+    case Action::KeyPress:
+        return simulateKeyPress(page, WTFMove(interaction.nodeIdentifier), interaction.text, WTFMove(completion));
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    completion(false, "Invalid action"_s);
+}
+
+} // namespace TextExtraction
 } // namespace WebCore

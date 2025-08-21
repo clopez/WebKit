@@ -97,6 +97,7 @@
 #include "LocalFrameView.h"
 #include "MutationEvent.h"
 #include "Node.h"
+#include "NodeInlines.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "Pasteboard.h"
@@ -147,7 +148,7 @@ using namespace Inspector;
 using namespace HTMLNames;
 
 static const size_t maxTextSize = 10000;
-static const UChar horizontalEllipsisUChar[] = { horizontalEllipsis, 0 };
+static const char16_t horizontalEllipsisUChar[] = { horizontalEllipsis, 0 };
 
 static std::optional<Color> parseColor(RefPtr<JSON::Object>&& colorObject)
 {

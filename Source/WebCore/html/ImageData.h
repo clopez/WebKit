@@ -28,12 +28,13 @@
 
 #pragma once
 
-#include "ByteArrayPixelBuffer.h"
-#include "ImageDataArray.h"
-#include "ImageDataSettings.h"
-#include "IntSize.h"
-#include "PredefinedColorSpace.h"
 #include <JavaScriptCore/Forward.h>
+#include <WebCore/ByteArrayPixelBuffer.h>
+#include <WebCore/Float16ArrayPixelBuffer.h>
+#include <WebCore/ImageDataArray.h>
+#include <WebCore/ImageDataSettings.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/PredefinedColorSpace.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -43,6 +44,10 @@ template<typename> class ExceptionOr;
 class ImageData : public RefCounted<ImageData> {
 public:
     WEBCORE_EXPORT static Ref<ImageData> create(Ref<ByteArrayPixelBuffer>&&, std::optional<ImageDataStorageFormat> = { });
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+    WEBCORE_EXPORT static Ref<ImageData> create(Ref<Float16ArrayPixelBuffer>&&, std::optional<ImageDataStorageFormat> = { });
+#endif
+    WEBCORE_EXPORT static RefPtr<ImageData> create(Ref<PixelBuffer>&&, std::optional<ImageDataStorageFormat> = { });
     WEBCORE_EXPORT static RefPtr<ImageData> create(RefPtr<ByteArrayPixelBuffer>&&, std::optional<ImageDataStorageFormat> = { });
     WEBCORE_EXPORT static RefPtr<ImageData> create(const IntSize&, PredefinedColorSpace, ImageDataStorageFormat = ImageDataStorageFormat::Uint8);
     WEBCORE_EXPORT static RefPtr<ImageData> create(const IntSize&, ImageDataArray&&, PredefinedColorSpace);
@@ -63,7 +68,11 @@ public:
     PredefinedColorSpace colorSpace() const { return m_colorSpace; }
     ImageDataStorageFormat storageFormat() const { return m_data.storageFormat(); }
 
-    Ref<ByteArrayPixelBuffer> pixelBuffer() const;
+    Ref<ByteArrayPixelBuffer> byteArrayPixelBuffer() const;
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+    Ref<Float16ArrayPixelBuffer> float16ArrayPixelBuffer() const;
+#endif
+    Ref<PixelBuffer> pixelBuffer() const;
 
 private:
     explicit ImageData(const IntSize&, ImageDataArray&&, PredefinedColorSpace);

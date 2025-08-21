@@ -152,7 +152,6 @@ interface TestRunner {
     attribute double databaseMaxQuota;
 
     // Text search testing.
-    Promise<boolean> findString(DOMString target, object optionsArray);
     undefined findStringMatchesInPage(DOMString target, object optionsArray);
     undefined indicateFindMatch(unsigned long matchIndex);
     undefined replaceFindMatchesAtIndices(object matchIndicesArray, DOMString replacementText, boolean selectionOnly);
@@ -371,6 +370,8 @@ interface TestRunner {
     // Storage Access API
     undefined getAllStorageAccessEntries(object callback);
     undefined setRequestStorageAccessThrowsExceptionUntilReload(boolean enabled);
+    Promise<undefined> setStorageAccessPermission(boolean value, DOMString subFrameURL);
+    Promise<undefined> setStorageAccess(boolean value);
 
     // Open panel
     undefined setOpenPanelFiles(object filesArray);
@@ -471,4 +472,6 @@ interface TestRunner {
     // ResourceMonitor
     readonly attribute boolean canModifyResourceMonitorList;
     Promise<undefined> setResourceMonitorList(DOMString rulesText);
+
+    undefined setHasMouseDeviceForTesting(boolean hasMouseDevice);
 };

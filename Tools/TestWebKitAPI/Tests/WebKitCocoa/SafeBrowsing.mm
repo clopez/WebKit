@@ -516,8 +516,10 @@ TEST(SafeBrowsing, WKWebViewGoBackIFrame)
         EXPECT_NOT_NULL(error);
         auto failingURL = (NSURL *)[error.userInfo valueForKey:NSURLErrorFailingURLErrorKey];
         EXPECT_TRUE([failingURL.lastPathComponent isEqualToString:@"simple.html"]);
-        auto failingURLString = (NSString *)[error.userInfo valueForKey:@"NSErrorFailingURLStringKey"];
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+        auto failingURLString = (NSString *)[error.userInfo valueForKey:NSURLErrorFailingURLStringErrorKey];
         EXPECT_TRUE([failingURLString hasSuffix:@"/simple.html"]);
+#endif
         navigationFailed = true;
     };
     delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *navigation) {
@@ -568,7 +570,7 @@ static Seconds delayDuration;
 - (void)lookUpURL:(NSURL *)URL completionHandler:(void (^)(TestLookupResult *, NSError *))completionHandler
 {
     BOOL phishing = ![URL isEqual:resourceURL(@"simple2")] && ![[URL path] isEqual:@"/safe"];
-    RunLoop::protectedMain()->dispatchAfter(delayDuration, [completionHandler = makeBlockPtr(completionHandler), phishing] {
+    RunLoop::mainSingleton().dispatchAfter(delayDuration, [completionHandler = makeBlockPtr(completionHandler), phishing] {
         completionHandler.get()([TestLookupResult resultWithResults:@[[TestServiceLookupResult resultWithProvider:@"SSBProviderApple" phishing:phishing malware:NO unwantedSoftware:NO]]], nil);
     });
 }
@@ -633,8 +635,10 @@ TEST(SafeBrowsing, PostResponseIframe)
         EXPECT_NOT_NULL(error);
         auto failingURL = (NSURL *)[error.userInfo valueForKey:NSURLErrorFailingURLErrorKey];
         EXPECT_TRUE([failingURL.lastPathComponent isEqualToString:@"simple.html"]);
-        auto failingURLString = (NSString *)[error.userInfo valueForKey:@"NSErrorFailingURLStringKey"];
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+        auto failingURLString = (NSString *)[error.userInfo valueForKey:NSURLErrorFailingURLStringErrorKey];
         EXPECT_TRUE([failingURLString hasSuffix:@"/simple.html"]);
+#endif
         navigationFailed = true;
     };
     delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *navigation) {
@@ -662,7 +666,7 @@ TEST(SafeBrowsing, PreresponseSafeBrowsingWarning)
     [webView setNavigationDelegate:delegate.get()];
 
     [handler setStartURLSchemeTaskHandler:^(WKWebView *, id<WKURLSchemeTask> task) {
-        RunLoop::protectedMain()->dispatchAfter(1000_s, [task = retainPtr(task)] {
+        RunLoop::mainSingleton().dispatchAfter(1000_s, [task = retainPtr(task)] {
             auto response = adoptNS([[NSURLResponse alloc] initWithURL:task.get().request.URL MIMEType:@"text/html" expectedContentLength:0 textEncodingName:nil]);
             [task didReceiveResponse:response.get()];
             [task didReceiveData:[NSData dataWithBytes:mainResource length:strlen(mainResource)]];

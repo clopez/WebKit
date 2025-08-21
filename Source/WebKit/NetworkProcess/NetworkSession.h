@@ -48,6 +48,7 @@
 #include <wtf/CheckedPtr.h>
 #include <wtf/Deque.h>
 #include <wtf/HashSet.h>
+#include <wtf/LazyUniqueRef.h>
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
@@ -134,6 +135,8 @@ public:
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
     void setTrackingPreventionEnabled(bool);
     bool isTrackingPreventionEnabled() const;
+    static WebCore::IsKnownCrossSiteTracker isRequestToKnownCrossSiteTracker(const WebCore::ResourceRequest&);
+    static WebCore::IsKnownCrossSiteTracker isResourceFromKnownCrossSiteTracker(const URL& firstParty, const URL& resource);
     void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     void registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     bool enableResourceLoadStatisticsLogTestingEvent() const { return m_enableResourceLoadStatisticsLogTestingEvent; }
@@ -225,8 +228,8 @@ public:
     void resumeBackgroundFetch(const String&, CompletionHandler<void()>&&);
     void clickBackgroundFetch(const String&, CompletionHandler<void()>&&);
 
-    WebSharedWorkerServer* sharedWorkerServer() { return m_sharedWorkerServer.get(); }
-    WebSharedWorkerServer& ensureSharedWorkerServer();
+    WebSharedWorkerServer* sharedWorkerServer() { return const_cast<WebSharedWorkerServer*>(m_sharedWorkerServer.getIfExists()); }
+    WebSharedWorkerServer& ensureSharedWorkerServer() { return const_cast<WebSharedWorkerServer&>(m_sharedWorkerServer.get(*this)); }
 
     NetworkStorageManager& storageManager() { return m_storageManager.get(); }
     void clearCacheEngine();
@@ -240,7 +243,7 @@ public:
 
     void setShouldSendPrivateTokenIPCForTesting(bool);
     bool shouldSendPrivateTokenIPCForTesting() const { return m_shouldSendPrivateTokenIPCForTesting; }
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     void setOptInCookiePartitioningEnabled(bool);
 #endif
 
@@ -386,7 +389,7 @@ protected:
     RefPtr<WebCore::SWServer> m_swServer;
     const RefPtr<BackgroundFetchStoreImpl> m_backgroundFetchStore;
     bool m_inspectionForServiceWorkersAllowed { true };
-    const std::unique_ptr<WebSharedWorkerServer> m_sharedWorkerServer;
+    const LazyUniqueRef<NetworkSession, WebSharedWorkerServer> m_sharedWorkerServer;
 
     struct RecentHTTPSConnectionTiming {
         static constexpr unsigned maxEntries { 25 };

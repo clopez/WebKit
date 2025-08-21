@@ -400,7 +400,7 @@ void ServiceWorkerFetchTask::cannotHandle()
 {
     SWFETCH_RELEASE_LOG("cannotHandle:");
     // Make sure we call didNotHandle asynchronously because failing synchronously would get the NetworkResourceLoader in a bad state.
-    RunLoop::protectedMain()->dispatch([weakThis = WeakPtr { *this }] {
+    RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->didNotHandle();
     });
@@ -623,6 +623,15 @@ MonotonicTime ServiceWorkerFetchTask::startTime() const
 RefPtr<NetworkResourceLoader> ServiceWorkerFetchTask::protectedLoader() const
 {
     return m_loader.get();
+}
+
+std::optional<SharedPreferencesForWebProcess> ServiceWorkerFetchTask::sharedPreferencesForWebProcess() const
+{
+    RefPtr loader = m_loader.get();
+    if (!loader)
+        return std::nullopt;
+
+    return loader->connectionToWebProcess().sharedPreferencesForWebProcess();
 }
 
 } // namespace WebKit

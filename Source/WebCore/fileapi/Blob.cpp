@@ -182,6 +182,18 @@ Blob::Blob(ScriptExecutionContext* context, Vector<uint8_t>&& data, const String
     ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, { BlobPart(WTFMove(data)) }, contentType);
 }
 
+Blob::Blob(ScriptExecutionContext* context, Ref<FragmentedSharedBuffer>&& buffer, const String& contentType)
+    : ActiveDOMObject(context)
+    , m_type(contentType)
+    , m_size(buffer->size())
+    , m_memoryCost(buffer->size())
+    , m_internalURL(BlobURL::createInternalURL())
+{
+    BlobBuilder builder(EndingType::Transparent);
+    builder.append(WTFMove(buffer));
+    ThreadableBlobRegistry::registerInternalBlobURL(m_internalURL, builder.finalize(), contentType);
+}
+
 Blob::Blob(ReferencingExistingBlobConstructor, ScriptExecutionContext* context, const Blob& blob)
     : ActiveDOMObject(context)
     , m_type(blob.type())
@@ -219,7 +231,7 @@ Blob::~Blob()
 {
     ThreadableBlobRegistry::unregisterBlobURL(m_internalURL, std::nullopt);
     while (!m_blobLoaders.isEmpty())
-        (*m_blobLoaders.begin())->cancel();
+        CheckedPtr { (*m_blobLoaders.begin()).get() }->cancel();
 }
 
 Ref<Blob> Blob::slice(long long start, long long end, const String& contentType) const

@@ -44,6 +44,7 @@
 #import <wtf/Ref.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 @interface NSWindow (WebWindowDetails)
 - (BOOL)_needsToResetDragMargins;
@@ -340,6 +341,18 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, Int
 }
 
 FloatPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, FloatPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return [rootWidget->platformWidget() convertPoint:point fromView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
+DoublePoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, DoublePoint point)
 {
     if (!rootWidget->platformWidget())
         return point;

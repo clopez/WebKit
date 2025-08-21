@@ -181,12 +181,12 @@ bool isGridItemInlineSizeDependentOnBlockConstraints(const RenderBox& gridItem, 
 
 Style::GridTrackSizingDirection flowAwareDirectionForGridItem(const RenderGrid& grid, const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
 {
-    return !isOrthogonalGridItem(grid, gridItem) ? direction : (direction == Style::GridTrackSizingDirection::Columns ? Style::GridTrackSizingDirection::Rows : Style::GridTrackSizingDirection::Columns);
+    return !isOrthogonalGridItem(grid, gridItem) ? direction : orthogonalDirection(direction);
 }
 
 Style::GridTrackSizingDirection flowAwareDirectionForParent(const RenderGrid& grid, const RenderElement& parent, Style::GridTrackSizingDirection direction)
 {
-    return isOrthogonalParent(grid, parent) ? (direction == Style::GridTrackSizingDirection::Columns ? Style::GridTrackSizingDirection::Rows : Style::GridTrackSizingDirection::Columns) : direction;
+    return isOrthogonalParent(grid, parent) ? orthogonalDirection(direction) : direction;
 }
 
 std::optional<RenderBox::GridAreaSize> overridingContainingBlockContentSizeForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
@@ -230,6 +230,144 @@ void clearOverridingContentSizeForGridItem(const RenderGrid& renderGrid, RenderB
         direction == Style::GridTrackSizingDirection::Columns ? gridItem.clearOverridingBorderBoxLogicalWidth() : gridItem.clearOverridingBorderBoxLogicalHeight();
     else
         direction == Style::GridTrackSizingDirection::Columns ? gridItem.clearOverridingBorderBoxLogicalHeight() : gridItem.clearOverridingBorderBoxLogicalWidth();
+}
+
+bool hasAutoMarginsInColumnAxis(const RenderBox& gridItem, WritingMode parentWritingMode)
+{
+    if (parentWritingMode.isHorizontal())
+        return gridItem.style().marginTop().isAuto() || gridItem.style().marginBottom().isAuto();
+    return gridItem.style().marginLeft().isAuto() || gridItem.style().marginRight().isAuto();
+}
+
+bool hasAutoMarginsInRowAxis(const RenderBox& gridItem, WritingMode parentWritingMode)
+{
+    if (parentWritingMode.isHorizontal())
+        return gridItem.style().marginLeft().isAuto() || gridItem.style().marginRight().isAuto();
+    return gridItem.style().marginTop().isAuto() || gridItem.style().marginBottom().isAuto();
+}
+
+bool hasAutoSizeInColumnAxis(const RenderBox& gridItem, WritingMode parentWritingMode)
+{
+    if (gridItem.style().hasAspectRatio()) {
+        // FIXME: should align-items + align-self: auto/justify-items + justify-self: auto be taken into account?
+        if (parentWritingMode.isHorizontal() == gridItem.isHorizontalWritingMode() && gridItem.style().alignSelf().position() != ItemPosition::Stretch) {
+            // A non-auto inline size means the same for block size (column axis size) because of the aspect ratio.
+            if (!gridItem.style().logicalWidth().isAuto())
+                return false;
+        } else if (gridItem.style().justifySelf().position() != ItemPosition::Stretch) {
+            auto& logicalHeight = gridItem.style().logicalHeight();
+            if (logicalHeight.isFixed() || (logicalHeight.isPercentOrCalculated() && gridItem.percentageLogicalHeightIsResolvable()))
+                return false;
+        }
+    }
+    return parentWritingMode.isHorizontal() ? gridItem.style().height().isAuto() : gridItem.style().width().isAuto();
+}
+
+bool hasAutoSizeInRowAxis(const RenderBox& gridItem, WritingMode parentWritingMode)
+{
+    if (gridItem.style().hasAspectRatio()) {
+        // FIXME: should align-items + align-self: auto/justify-items + justify-self: auto be taken into account?
+        if (parentWritingMode.isHorizontal() == gridItem.isHorizontalWritingMode() && gridItem.style().alignSelf().position() != ItemPosition::Stretch) {
+            // A non-auto block size means the same for inline size (row axis size) because of the aspect ratio.
+            auto& logicalHeight = gridItem.style().logicalHeight();
+            if (logicalHeight.isFixed() || (logicalHeight.isPercentOrCalculated() && gridItem.percentageLogicalHeightIsResolvable()))
+                return false;
+        } else if (gridItem.style().justifySelf().position() != ItemPosition::Stretch) {
+            if (!gridItem.style().logicalWidth().isAuto())
+                return false;
+        }
+    }
+    return parentWritingMode.isHorizontal() ? gridItem.style().width().isAuto() : gridItem.style().height().isAuto();
+}
+
+bool allowedToStretchGridItemAlongColumnAxis(const RenderBox& gridItem, ItemPosition alignSelf, WritingMode writingMode)
+{
+    return alignSelf == ItemPosition::Stretch && hasAutoSizeInColumnAxis(gridItem, writingMode) && !hasAutoMarginsInColumnAxis(gridItem, writingMode);
+}
+
+bool allowedToStretchGridItemAlongRowAxis(const RenderBox& gridItem, ItemPosition justifySelf, WritingMode writingMode)
+{
+    return justifySelf == ItemPosition::Stretch && hasAutoSizeInRowAxis(gridItem, writingMode) && !hasAutoMarginsInRowAxis(gridItem, writingMode);
+}
+
+LayoutUnit availableAlignmentSpaceForGridItemBeforeStretching(const RenderGrid& grid, LayoutUnit gridAreaBreadthForGridItem, const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
+{
+    // Because we want to avoid multiple layouts, stretching logic might be performed before
+    // grid items are laid out, so we can't use the grid item cached values. Hence, we need to
+    // compute margins in order to determine the available height before stretching.
+    auto gridItemFlowDirection = flowAwareDirectionForGridItem(grid, gridItem, direction);
+    return std::max(0_lu, gridAreaBreadthForGridItem - marginLogicalSizeForGridItem(grid, gridItemFlowDirection, gridItem));
+}
+
+void updateAutoMarginsIfNeeded(RenderBox& gridItem, WritingMode writingMode)
+{
+    updateAutoMarginsInRowAxisIfNeeded(gridItem, writingMode);
+    updateAutoMarginsInColumnAxisIfNeeded(gridItem, writingMode);
+}
+
+void updateAutoMarginsInRowAxisIfNeeded(RenderBox& gridItem, WritingMode writingMode)
+{
+    ASSERT(!gridItem.isOutOfFlowPositioned());
+
+    auto& marginStart = gridItem.style().marginStart(writingMode);
+    auto& marginEnd = gridItem.style().marginEnd(writingMode);
+    LayoutUnit marginLogicalWidth;
+    // We should only consider computed margins if their specified value isn't
+    // 'auto', since such computed value may come from a previous layout and may
+    // be incorrect now.
+    if (!marginStart.isAuto())
+        marginLogicalWidth += gridItem.marginStart();
+    if (!marginEnd.isAuto())
+        marginLogicalWidth += gridItem.marginEnd();
+
+    auto availableAlignmentSpace = gridItem.gridAreaContentLogicalWidth()->value() - gridItem.logicalWidth() - marginLogicalWidth;
+    if (availableAlignmentSpace <= 0)
+        return;
+
+    if (marginStart.isAuto() && marginEnd.isAuto()) {
+        gridItem.setMarginStart(availableAlignmentSpace / 2, writingMode);
+        gridItem.setMarginEnd(availableAlignmentSpace / 2, writingMode);
+    } else if (marginStart.isAuto()) {
+        gridItem.setMarginStart(availableAlignmentSpace, writingMode);
+    } else if (marginEnd.isAuto())
+        gridItem.setMarginEnd(availableAlignmentSpace, writingMode);
+}
+
+void updateAutoMarginsInColumnAxisIfNeeded(RenderBox& gridItem, WritingMode writingMode)
+{
+    ASSERT(!gridItem.isOutOfFlowPositioned());
+
+    auto& marginBefore = gridItem.style().marginBefore(writingMode);
+    auto& marginAfter = gridItem.style().marginAfter(writingMode);
+    LayoutUnit marginLogicalHeight;
+    // We should only consider computed margins if their specified value isn't
+    // 'auto', since such computed value may come from a previous layout and may
+    // be incorrect now.
+    if (!marginBefore.isAuto())
+        marginLogicalHeight += gridItem.marginBefore();
+    if (!marginAfter.isAuto())
+        marginLogicalHeight += gridItem.marginAfter();
+
+    auto availableAlignmentSpace = gridItem.gridAreaContentLogicalHeight()->value() - gridItem.logicalHeight() - marginLogicalHeight;
+    if (availableAlignmentSpace <= 0)
+        return;
+
+    if (marginBefore.isAuto() && marginAfter.isAuto()) {
+        gridItem.setMarginBefore(availableAlignmentSpace / 2, writingMode);
+        gridItem.setMarginAfter(availableAlignmentSpace / 2, writingMode);
+    } else if (marginBefore.isAuto()) {
+        gridItem.setMarginBefore(availableAlignmentSpace, writingMode);
+    } else if (marginAfter.isAuto())
+        gridItem.setMarginAfter(availableAlignmentSpace, writingMode);
+}
+
+bool isRelativeGridTrackBreadthAsAuto(const Style::GridTrackFitContentLength& length, std::optional<LayoutUnit> availableSpace)
+{
+    return length.isPercentOrCalculated() && !availableSpace;
+}
+bool isRelativeGridTrackBreadthAsAuto(const Style::GridTrackBreadth& length, std::optional<LayoutUnit> availableSpace)
+{
+    return length.isPercentOrCalculated() && !availableSpace;
 }
 
 } // namespace GridLayoutFunctions

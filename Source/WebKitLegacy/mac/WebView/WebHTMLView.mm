@@ -91,6 +91,7 @@
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragController.h>
 #import <WebCore/DragImage.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EditorDeleteAction.h>
 #import <WebCore/Element.h>
@@ -103,7 +104,6 @@
 #import <WebCore/FontCache.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameSelection.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
@@ -116,9 +116,11 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
+#import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/Page.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
+#import <WebCore/RenderStyleInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/SharedBuffer.h>
@@ -2156,11 +2158,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!coreFrame)
         return nil;
 
-    WebCore::TextIndicatorData textIndicator;
-    auto dragImage = createDragImageForSelection(*coreFrame, textIndicator);
-    [dragImage _web_dissolveToFraction:WebDragImageAlpha];
+    auto [dragImageRef, textIndicator] = createDragImageForSelection(*coreFrame);
+    [dragImageRef _web_dissolveToFraction:WebDragImageAlpha];
 
-    return dragImage.autorelease();
+    return dragImageRef.autorelease();
 }
 
 - (NSRect)_selectionDraggingRect
@@ -2855,7 +2856,7 @@ WEBCORE_COMMAND(toggleUnderline)
     COMMAND_PROLOGUE
 
     if (auto* coreFrame = core([self _frame]))
-        coreFrame->selection().revealSelection(WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignCenterAlways);
+        coreFrame->selection().revealSelection({ WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignCenterAlways });
 }
 
 #if PLATFORM(MAC)
@@ -5063,7 +5064,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     COMMAND_PROLOGUE
 
     if (auto* coreFrame = core([self _frame]))
-        coreFrame->selection().revealSelection(WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignCenterAlways);
+        coreFrame->selection().revealSelection({ WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignCenterAlways });
 }
 
 #if PLATFORM(MAC)
@@ -6964,8 +6965,8 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
 #if PLATFORM(IOS_FAMILY)
     return selectionImage(coreFrame.get(), forceBlackText);
 #else
-    WebCore::TextIndicatorData textIndicator;
-    return createDragImageForSelection(*coreFrame, textIndicator, forceBlackText).autorelease();
+    auto [dragImageRef, textIndicator] = createDragImageForSelection(*coreFrame, forceBlackText);
+    return dragImageRef.autorelease();
 #endif
 }
 

@@ -238,7 +238,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
     if (!frame)
         return nullptr;
 
-    auto result = frame->eventHandler().hitTestResultAtPoint(mouseEvent->absoluteLocation(), WTFMove(hitType));
+    auto result = frame->eventHandler().hitTestResultAtPoint(LayoutPoint(mouseEvent->absoluteLocation()), WTFMove(hitType));
     if (!result.innerNonSharedNode())
         return nullptr;
 
@@ -284,7 +284,7 @@ static void openNewWindow(const URL& urlToLoad, LocalFrame& frame, Event* event,
 
 #if PLATFORM(GTK)
 
-static void insertUnicodeCharacter(UChar character, LocalFrame& frame)
+static void insertUnicodeCharacter(char16_t character, LocalFrame& frame)
 {
     String text(span(character));
     if (!frame.protectedEditor()->shouldInsertText(text, frame.selection().selection().toNormalizedRange(), EditorInsertAction::Typed))
@@ -502,7 +502,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
             ASSERT(document);
             Ref command = ReplaceSelectionCommand::create(*document, createFragmentFromMarkup(*document, title, emptyString()), replaceOptions);
             command->apply();
-            frame->checkedSelection()->revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded);
+            frame->checkedSelection()->revealSelection({ SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded });
         }
         break;
     }

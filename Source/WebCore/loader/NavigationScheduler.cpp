@@ -65,7 +65,7 @@ namespace WebCore {
 unsigned NavigationDisabler::s_globalNavigationDisableCount = 0;
 
 class ScheduledNavigation {
-    WTF_MAKE_NONCOPYABLE(ScheduledNavigation); WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_MAKE_NONCOPYABLE(ScheduledNavigation); WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ScheduledNavigation, Loader);
 public:
     ScheduledNavigation(double delay, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool wasDuringLoad, bool isLocationChange)
         : m_delay(delay)
@@ -85,7 +85,7 @@ public:
         , m_userGestureToForward(UserGestureIndicator::currentUserGesture())
         , m_shouldOpenExternalURLsPolicy(externalURLPolicy)
     {
-        if (auto* frame = lexicalFrameFromCommonVM()) {
+        if (RefPtr frame = lexicalFrameFromCommonVM()) {
             if (frame->isMainFrame())
                 m_initiatedByMainFrame = InitiatedByMainFrame::Yes;
         }
@@ -225,10 +225,11 @@ private:
 
 class ScheduledLocationChange : public ScheduledURLNavigation {
 public:
-    ScheduledLocationChange(Document& initiatingDocument, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad, NavigationHistoryBehavior navigationHandling, CompletionHandler<void(bool)>&& completionHandler)
+    ScheduledLocationChange(Document& initiatingDocument, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad, NavigationHistoryBehavior navigationHandling, bool hasDispatchedNavigateEvent, CompletionHandler<void(bool)>&& completionHandler)
         : ScheduledURLNavigation(initiatingDocument, 0.0, securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad, true)
         , m_completionHandler(WTFMove(completionHandler))
         , m_navigationHistoryBehavior(navigationHandling)
+        , m_hasDispatchedNavigateEvent(hasDispatchedNavigateEvent)
     {
     }
 
@@ -249,6 +250,7 @@ public:
         frameLoadRequest.disableNavigationToInvalidURL();
         frameLoadRequest.setShouldOpenExternalURLsPolicy(shouldOpenExternalURLs());
         frameLoadRequest.setNavigationHistoryBehavior(m_navigationHistoryBehavior);
+        frameLoadRequest.setSkipNavigateEvent(m_hasDispatchedNavigateEvent);
 
         auto completionHandler = std::exchange(m_completionHandler, nullptr);
         frame.changeLocation(WTFMove(frameLoadRequest));
@@ -258,6 +260,7 @@ public:
 private:
     CompletionHandler<void(bool)> m_completionHandler;
     NavigationHistoryBehavior m_navigationHistoryBehavior;
+    bool m_hasDispatchedNavigateEvent { false };
 };
 
 class ScheduledRefresh : public ScheduledURLNavigation {
@@ -334,17 +337,17 @@ public:
 
     std::optional<Ref<HistoryItem>> findBackForwardItemByKey(const LocalFrame& localFrame)
     {
-        auto entry = localFrame.window()->navigation().findEntryByKey(m_key);
+        RefPtr entry = localFrame.window()->protectedNavigation()->findEntryByKey(m_key);
         if (!entry)
             return std::nullopt;
 
-        Ref historyItem = entry.value()->associatedHistoryItem();
+        Ref historyItem = entry->associatedHistoryItem();
 
         if (localFrame.isMainFrame())
             return historyItem;
 
         // FIXME: heuristic to fix disambigaute-* tests, we should find something more exact.
-        bool backwards = entry.value()->index() < localFrame.window()->navigation().currentEntry()->index();
+        bool backwards = entry->index() < localFrame.window()->navigation().currentEntry()->index();
 
         RefPtr page { localFrame.page() };
         auto items = page->checkedBackForward()->allItems();
@@ -437,7 +440,7 @@ public:
             navigationHistoryBehavior = NavigationHistoryBehavior::Push;
         frameLoadRequest.setNavigationHistoryBehavior(navigationHistoryBehavior);
         if (localFrame)
-            localFrame->loader().loadFrameRequest(WTFMove(frameLoadRequest), m_submission->protectedEvent().get(), m_submission->takeState());
+            localFrame->loader().loadFrameRequest(WTFMove(frameLoadRequest), m_submission->event(), m_submission->takeState());
         else
             frame.changeLocation(WTFMove(frameLoadRequest));
     }
@@ -613,7 +616,7 @@ void NavigationScheduler::scheduleLocationChange(Document& initiatingDocument, S
         && localFrame
         && equalIgnoringFragmentIdentifier(localFrame->document()->url(), url)) {
         ResourceRequest resourceRequest { localFrame->protectedDocument()->completeURL(url.string()), referrer, ResourceRequestCachePolicy::UseProtocolCachePolicy };
-        auto* frame = lexicalFrameFromCommonVM();
+        RefPtr frame = lexicalFrameFromCommonVM();
         auto initiatedByMainFrame = frame && frame->isMainFrame() ? InitiatedByMainFrame::Yes : InitiatedByMainFrame::Unknown;
         
         FrameLoadRequest frameLoadRequest { initiatingDocument, securityOrigin, WTFMove(resourceRequest), selfTargetFrameName(), initiatedByMainFrame };
@@ -627,11 +630,33 @@ void NavigationScheduler::scheduleLocationChange(Document& initiatingDocument, S
         return completionHandler(ScheduleLocationChangeResult::Completed);
     }
 
+    // Fire Navigation API navigate event synchronously before scheduling navigation.
+    // This ensures proper event ordering where navigate event fires before microtasks.
+    // Only fire for same-origin navigations to avoid cross-origin issues.
+    bool hasDispatchedNavigateEvent = false;
+    if (localFrame && !url.protocolIsJavaScript()) {
+        RefPtr document = localFrame->document();
+        if (document && document->settings().navigationAPIEnabled() && document->securityOrigin().isSameOriginAs(securityOrigin)) {
+            if (RefPtr window = document->window()) {
+                if (RefPtr navigation = window->navigation()) {
+                    auto navigationType = (historyHandling == NavigationHistoryBehavior::Replace) ? NavigationNavigationType::Replace : NavigationNavigationType::Push;
+                    bool isSameDocument = false;
+                    FormState* formState = nullptr;
+
+                    if (!navigation->dispatchPushReplaceReloadNavigateEvent(url, navigationType, isSameDocument, formState))
+                        return completionHandler(ScheduleLocationChangeResult::Stopped);
+
+                    hasDispatchedNavigateEvent = true;
+                }
+            }
+        }
+    }
+
     // Handle a location change of a page with no document as a special case.
     // This may happen when a frame changes the location of another frame.
     bool duringLoad = loader && !loader->stateMachine().committedFirstRealDocumentLoad();
 
-    schedule(makeUnique<ScheduledLocationChange>(initiatingDocument, &securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad, historyHandling, [completionHandler = WTFMove(completionHandler)] (bool hasStarted) mutable {
+    schedule(makeUnique<ScheduledLocationChange>(initiatingDocument, &securityOrigin, url, referrer, lockHistory, lockBackForwardList, duringLoad, historyHandling, hasDispatchedNavigateEvent, [completionHandler = WTFMove(completionHandler)] (bool hasStarted) mutable {
         completionHandler(hasStarted ? ScheduleLocationChangeResult::Started : ScheduleLocationChangeResult::Stopped);
     }));
 }

@@ -1948,15 +1948,6 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(ImageBitmap& imageBitm
     return { };
 }
 
-void CanvasRenderingContext2DBase::drawImageFromRect(HTMLImageElement& imageElement, float sx, float sy, float sw, float sh, float dx, float dy, float dw, float dh, const String& compositeOperation)
-{
-    CompositeOperator op;
-    auto blendOp = BlendMode::Normal;
-    if (!parseCompositeAndBlendOperator(compositeOperation, op, blendOp) || blendOp != BlendMode::Normal)
-        op = CompositeOperator::SourceOver;
-    drawImage(imageElement, FloatRect { sx, sy, sw, sh }, FloatRect { dx, dy, dw, dh }, op, BlendMode::Normal);
-}
-
 void CanvasRenderingContext2DBase::clearCanvas()
 {
     auto* c = effectiveDrawingContext();
@@ -2304,7 +2295,7 @@ ExceptionOr<RefPtr<CanvasPattern>> CanvasRenderingContext2DBase::createPattern(H
 #endif
 
     auto renderingMode = drawingContext() ? drawingContext()->renderingMode() : RenderingMode::Unaccelerated;
-    auto imageBuffer = videoElement.createBufferForPainting(size(videoElement), renderingMode, colorSpace(), pixelFormat());
+    auto imageBuffer = videoElement.createBufferForPainting(size(videoElement), renderingMode, colorSpace(), { pixelFormat() });
     if (!imageBuffer)
         return nullptr;
 
@@ -2382,10 +2373,13 @@ void CanvasRenderingContext2DBase::didDraw(std::optional<FloatRect> rect, Option
         dirtyRect.unite(shadowRect);
     }
 
+#if !USE(COORDINATED_GRAPHICS)
     // FIXME: This does not apply the clip because we have no way of reading the clip out of the GraphicsContext.
     if (m_dirtyRect.contains(dirtyRect))
         canvasBase().didDraw(std::nullopt, shouldApplyPostProcessing);
-    else {
+    else
+#endif
+    {
         // Inflate dirty rect to cover antialiasing on image buffers.
         if (context->shouldAntialias())
             dirtyRect.inflate(1);
@@ -2522,6 +2516,9 @@ RefPtr<ByteArrayPixelBuffer> CanvasRenderingContext2DBase::cacheImageDataIfPossi
     if (imageData.colorSpace() != m_settings.colorSpace)
         return nullptr;
 
+    if (imageData.storageFormat() != ImageDataStorageFormat::Uint8)
+        return nullptr;
+
     // Consider:
     //   * Real putImageData needs premultiply step.
     //   * Retrieve from cache needs to ensure premultiply + unpremultiply was made to simulate the real putImageData.
@@ -2603,31 +2600,32 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
     if (sw < 0) {
         sx += sw;
         sw = -sw;
-    }    
+    }
     if (sh < 0) {
         sy += sh;
         sh = -sh;
     }
 
     IntRect imageDataRect { sx, sy, sw, sh };
-    auto overridingStorageFormat = settings ? std::optional(settings->storageFormat) : std::optional<ImageDataStorageFormat>();
+    auto outputStorageFormat = settings ? settings->storageFormat : ImageDataStorageFormat::Uint8;
+    auto outputPixelFormat = toPixelFormat(outputStorageFormat);
 
     if (scriptContext && scriptContext->requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::Canvas)) {
         RefPtr buffer = canvasBase().createImageForNoiseInjection();
         if (!buffer)
             return Exception { ExceptionCode::InvalidStateError };
 
-        auto format = PixelBufferFormat { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, buffer->colorSpace() };
+        auto format = PixelBufferFormat { AlphaPremultiplication::Unpremultiplied, outputPixelFormat, buffer->colorSpace() };
         RefPtr pixelBuffer = dynamicDowncast<ByteArrayPixelBuffer>(buffer->getPixelBuffer(format, imageDataRect));
         if (!pixelBuffer)
             return Exception { ExceptionCode::InvalidStateError };
 
-        return { { ImageData::create(pixelBuffer.releaseNonNull(), overridingStorageFormat) } };
+        return { { ImageData::create(pixelBuffer.releaseNonNull(), outputStorageFormat) } };
     }
 
     auto computedColorSpace = ImageData::computeColorSpace(settings, m_settings.colorSpace);
 
-    if (!overridingStorageFormat || *overridingStorageFormat == ImageDataStorageFormat::Uint8) {
+    if (outputStorageFormat == ImageDataStorageFormat::Uint8) {
         if (auto imageData = makeImageDataIfContentsCached(imageDataRect, computedColorSpace))
             return imageData.releaseNonNull();
     }
@@ -2636,8 +2634,8 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
     if (!buffer)
         return ImageData::create(imageDataRect.width(), imageDataRect.height(), m_settings.colorSpace, settings);
 
-    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, toDestinationColorSpace(computedColorSpace) };
-    RefPtr pixelBuffer = dynamicDowncast<ByteArrayPixelBuffer>(buffer->getPixelBuffer(format, imageDataRect));
+    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, outputPixelFormat, toDestinationColorSpace(computedColorSpace) };
+    RefPtr pixelBuffer = buffer->getPixelBuffer(format, imageDataRect);
     if (!pixelBuffer) {
         scriptContext->addConsoleMessage(MessageSource::Rendering, MessageLevel::Error,
             makeString("Unable to get image data from canvas. Requested size was "_s, imageDataRect.width(), " x "_s, imageDataRect.height()));
@@ -2646,7 +2644,10 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
 
     ASSERT(pixelBuffer->format().colorSpace == toDestinationColorSpace(computedColorSpace));
 
-    return { { ImageData::create(pixelBuffer.releaseNonNull(), overridingStorageFormat) } };
+    if (RefPtr imageData = ImageData::create(pixelBuffer.releaseNonNull(), outputStorageFormat))
+        return { { imageData.releaseNonNull() } };
+
+    return Exception { ExceptionCode::InvalidStateError };
 }
 
 void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy)
@@ -2679,11 +2680,15 @@ void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy,
 
     OptionSet<DidDrawOption> options; // ignore transform, shadow, clip, and post-processing
     if (!sourceRect.isEmpty()) {
-        auto pixelBuffer = cacheImageDataIfPossible(data, sourceRect, destOffset);
+        RefPtr<PixelBuffer> pixelBuffer = cacheImageDataIfPossible(data, sourceRect, destOffset);
         if (pixelBuffer)
             options.add(DidDrawOption::PreserveCachedContents);
         else
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
             pixelBuffer = data.pixelBuffer();
+#else
+            pixelBuffer = data.byteArrayPixelBuffer();
+#endif
         buffer->putPixelBuffer(*pixelBuffer, sourceRect, destOffset);
     }
 
@@ -2812,7 +2817,7 @@ bool CanvasRenderingContext2DBase::canDrawText(double x, double y, bool fill, st
     return true;
 }
 
-static inline bool isSpaceThatNeedsReplacing(UChar c)
+static inline bool isSpaceThatNeedsReplacing(char16_t c)
 {
     // According to specification all space characters should be replaced with 0x0020 space character.
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#text-preparation-algorithm
@@ -2830,7 +2835,7 @@ String CanvasRenderingContext2DBase::normalizeSpaces(const String& text)
         return text;
 
     unsigned textLength = text.length();
-    Vector<UChar> charVector(textLength);
+    Vector<char16_t> charVector(textLength);
     StringView(text).getCharacters(charVector.mutableSpan());
 
     charVector[i++] = ' ';

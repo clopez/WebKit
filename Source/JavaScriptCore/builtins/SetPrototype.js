@@ -67,87 +67,6 @@ function getSetSizeAsInt(other)
     return sizeInt;
 }
 
-function union(other)
-{
-    "use strict";
-
-    if (!@isSet(this))
-        @throwTypeError("Set operation called on non-Set object");
-
-    // Get Set Record
-    var size = @getSetSizeAsInt(other); // unused but @getSetSizeAsInt call is observable
-
-    var has = other.has;
-    if (!@isCallable(has))
-        @throwTypeError("Set.prototype.union expects other.has to be callable");
-
-    var keys = other.keys;
-    if (!@isCallable(keys))
-        @throwTypeError("Set.prototype.union expects other.keys to be callable");
-
-    var iterator = keys.@call(other);
-    var iteratorNextMethod = iterator.next;
-    var wrapper = {
-        @@iterator: function () {
-           return { next: function () { return iteratorNextMethod.@call(iterator); } };
-        }
-    };
-
-    var result = @setClone(this);
-    for (var key of wrapper)
-        result.@add(key);
-
-    return result;
-}
-
-function intersection(other)
-{
-    "use strict";
-
-    if (!@isSet(this))
-        @throwTypeError("Set operation called on non-Set object");
-
-    // Get Set Record
-    var size = @getSetSizeAsInt(other);
-
-    var has = other.has;
-    if (!@isCallable(has))
-        @throwTypeError("Set.prototype.intersection expects other.has to be callable");
-
-    var keys = other.keys;
-    if (!@isCallable(keys))
-        @throwTypeError("Set.prototype.intersection expects other.keys to be callable");
-
-    var result = new @Set();
-    if (this.@size <= size) {
-        var storage = @setStorage(this);
-        var entry = 0;
-
-        do {
-            storage = @setIterationNext(storage, entry);
-            if (storage == @orderedHashTableSentinel)
-                break;
-            entry = @setIterationEntry(storage) + 1;
-            var key = @setIterationEntryKey(storage);
-
-            if (has.@call(other, key))
-                result.@add(key);
-        } while (true);
-    } else {
-        var iterator = keys.@call(other);
-        var wrapper = {
-            @@iterator: function () { return iterator; }
-        };
-
-        for (var key of wrapper) {
-            if (this.@has(key))
-                result.@add(key);
-        }
-    }
-
-    return result;
-}
-
 function difference(other)
 {
     "use strict";
@@ -231,44 +150,6 @@ function symmetricDifference(other)
     }
 
     return result;
-}
-
-function isSubsetOf(other)
-{
-    "use strict";
-
-    if (!@isSet(this))
-        @throwTypeError("Set operation called on non-Set object");
-
-    // Get Set Record
-    var size = @getSetSizeAsInt(other);
-
-    var has = other.has;
-    if (!@isCallable(has))
-        @throwTypeError("Set.prototype.isSubsetOf expects other.has to be callable");
-
-    var keys = other.keys;
-    if (!@isCallable(keys))
-        @throwTypeError("Set.prototype.isSubsetOf expects other.keys to be callable");
-
-    if (this.@size > size)
-        return false;
-
-    var storage = @setStorage(this);
-    var entry = 0;
-
-    do {
-        storage = @setIterationNext(storage, entry);
-        if (storage == @orderedHashTableSentinel)
-            break;
-        entry = @setIterationEntry(storage) + 1;
-        var key = @setIterationEntryKey(storage);
-
-        if (!has.@call(other, key))
-            return false;
-    } while (true);
-
-    return true;
 }
 
 function isSupersetOf(other)

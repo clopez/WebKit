@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "BackForwardFrameItemIdentifier.h"
-#include "FrameIdentifier.h"
+#include <WebCore/BackForwardFrameItemIdentifier.h>
+#include <WebCore/FrameIdentifier.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -75,6 +75,8 @@ public:
     WEBCORE_EXPORT RefPtr<HistoryItem> forwardItem(std::optional<FrameIdentifier> = std::nullopt);
 
     Vector<Ref<HistoryItem>> allItems();
+    Vector<Ref<HistoryItem>> itemsForFrame(FrameIdentifier);
+    Vector<Ref<HistoryItem>> reachableItemsForFrame(FrameIdentifier);
 
 private:
     Ref<Page> protectedPage() const;

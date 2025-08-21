@@ -34,12 +34,14 @@
 #import "TestRunnerWKWebView.h"
 #import "UIScriptContext.h"
 #import "WKTextExtractionTestingHelpers.h"
+#import "_WKTextExtractionInternal.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <WebKit/WKURLCF.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <WebKit/_WKTargetedElementInfo.h>
 #import <WebKit/_WKTargetedElementRequest.h>
+#import <WebKit/_WKTextExtraction.h>
 #import <wtf/BlockPtr.h>
 
 @interface WKWebView (WKWebViewInternal)
@@ -341,12 +343,81 @@ void UIScriptControllerCocoa::requestTextExtraction(JSValueRef callback, TextExt
 
     auto includeRects = options && options->includeRects ? IncludeRects::Yes : IncludeRects::No;
     unsigned callbackID = m_context->prepareForAsyncTask(callback, CallbackTypeNonPersistent);
-    [webView() _requestTextExtraction:extractionRect completionHandler:^(WKTextExtractionItem *item) {
+    RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+    [configuration setTargetRect:extractionRect];
+    [configuration setMergeParagraphs:options && options->mergeParagraphs];
+    [configuration setSkipNearlyTransparentContent:options && options->skipNearlyTransparentContent];
+    [webView() _requestTextExtraction:configuration.get() completionHandler:^(WKTextExtractionResult *result) {
         if (!m_context)
             return;
 
-        auto description = adopt(JSStringCreateWithCFString((__bridge CFStringRef)recursiveDescription(item, includeRects)));
+        auto description = adopt(JSStringCreateWithCFString((__bridge CFStringRef)recursiveDescription([result rootItem], includeRects)));
         m_context->asyncTaskComplete(callbackID, { JSValueMakeString(m_context->jsContext(), description.get()) });
+    }];
+}
+
+void UIScriptControllerCocoa::requestDebugText(JSValueRef callback)
+{
+    unsigned callbackID = m_context->prepareForAsyncTask(callback, CallbackTypeNonPersistent);
+    RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+    [webView() _debugTextWithConfiguration:configuration.get() completionHandler:^(NSString *text) {
+        if (!m_context)
+            return;
+
+        auto description = adopt(JSStringCreateWithCFString((__bridge CFStringRef)text));
+        m_context->asyncTaskComplete(callbackID, { JSValueMakeString(m_context->jsContext(), description.get()) });
+    }];
+}
+
+void UIScriptControllerCocoa::performTextExtractionInteraction(JSStringRef jsAction, TextExtractionInteractionOptions* options, JSValueRef callback)
+{
+    unsigned callbackID = m_context->prepareForAsyncTask(callback, CallbackTypeNonPersistent);
+
+    if (!options) {
+        ASSERT_NOT_REACHED();
+        return m_context->asyncTaskComplete(callbackID, { JSValueMakeBoolean(m_context->jsContext(), false) });
+    }
+
+    auto actionName = toWTFString(jsAction);
+    std::optional<_WKTextExtractionAction> action;
+    if (equalLettersIgnoringASCIICase(actionName, "click"))
+        action = _WKTextExtractionActionClick;
+    if (equalLettersIgnoringASCIICase(actionName, "selecttext"))
+        action = _WKTextExtractionActionSelectText;
+    if (equalLettersIgnoringASCIICase(actionName, "selectmenuitem"))
+        action = _WKTextExtractionActionSelectMenuItem;
+    if (equalLettersIgnoringASCIICase(actionName, "textinput"))
+        action = _WKTextExtractionActionTextInput;
+    if (equalLettersIgnoringASCIICase(actionName, "keypress"))
+        action = _WKTextExtractionActionKeyPress;
+
+    if (!action) {
+        ASSERT_NOT_REACHED();
+        return m_context->asyncTaskComplete(callbackID, { JSValueMakeBoolean(m_context->jsContext(), false) });
+    }
+
+    RetainPtr interaction = adoptNS([[_WKTextExtractionInteraction alloc] initWithAction:*action]);
+
+    if (options->nodeIdentifier && JSStringGetLength(options->nodeIdentifier.get()) > 0)
+        [interaction setNodeIdentifier:toWTFString(options->nodeIdentifier.get()).createNSString().get()];
+
+    if (options->text && JSStringGetLength(options->text.get()) > 0)
+        [interaction setText:toWTFString(options->text.get()).createNSString().get()];
+
+    [interaction setReplaceAll:options->replaceAll];
+
+    if (auto location = options->location) {
+        auto [x, y] = *location;
+        [interaction setLocation:CGPointMake(x, y)];
+    }
+
+    [webView() _performInteraction:interaction.get() completionHandler:^(_WKTextExtractionInteractionResult *result) {
+        if (!m_context)
+            return;
+
+        RetainPtr description = [result.error.userInfo objectForKey:NSDebugDescriptionErrorKey] ?: @"";
+        JSRetainPtr jsDescription = adopt(JSStringCreateWithCFString((__bridge CFStringRef)description.get()));
+        m_context->asyncTaskComplete(callbackID, { JSValueMakeString(m_context->jsContext(), jsDescription.get()) });
     }];
 }
 

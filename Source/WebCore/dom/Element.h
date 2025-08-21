@@ -24,16 +24,16 @@
 
 #pragma once
 
-#include "AXTextStateChangeIntent.h"
-#include "ContainerNode.h"
-#include "EventOptions.h"
-#include "FocusOptions.h"
-#include "HitTestRequest.h"
-#include "QualifiedName.h"
-#include "RenderPtr.h"
-#include "ScrollTypes.h"
-#include "SimulatedClickOptions.h"
 #include <JavaScriptCore/Forward.h>
+#include <WebCore/AXTextStateChangeIntent.h>
+#include <WebCore/ContainerNode.h>
+#include <WebCore/EventOptions.h>
+#include <WebCore/FocusOptions.h>
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/QualifiedName.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/SimulatedClickOptions.h>
 
 #define DUMP_NODE_STATISTICS 0
 
@@ -369,8 +369,8 @@ public:
 
     String nodeName() const override;
 
-    Ref<Element> cloneElementWithChildren(Document&, CustomElementRegistry*);
-    Ref<Element> cloneElementWithoutChildren(Document&, CustomElementRegistry*);
+    Ref<Element> cloneElementWithChildren(Document&, CustomElementRegistry*) const;
+    Ref<Element> cloneElementWithoutChildren(Document&, CustomElementRegistry*) const;
 
     void normalizeAttributes();
 
@@ -568,7 +568,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> setOuterHTML(Variant<RefPtr<TrustedHTML>, String>&&);
     WEBCORE_EXPORT String innerText();
     WEBCORE_EXPORT String outerText();
- 
+
     virtual String title() const;
 
     WEBCORE_EXPORT const AtomString& userAgentPart() const;
@@ -963,9 +963,10 @@ private:
     void disconnectFromResizeObserversSlow(ResizeObserverData&);
 
     // The cloneNode function is private so that non-virtual cloneElementWith/WithoutChildren are used instead.
-    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) override;
-    void cloneShadowTreeIfPossible(Element& newHost, CustomElementRegistry*);
-    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*);
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const override;
+    SerializedNode serializeNode(CloningOperation) const override;
+    void cloneShadowTreeIfPossible(Element& newHost) const;
+    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const;
 
     inline void removeShadowRoot(); // Defined in ElementRareData.h.
     void removeShadowRootSlow(ShadowRoot&);
@@ -991,9 +992,9 @@ private:
 
     // Anyone thinking of using this should call document instead of ownerDocument.
     void ownerDocument() const = delete;
-    
+
     void attachAttributeNodeIfNeeded(Attr&);
-    
+
 #if ASSERT_ENABLED
     WEBCORE_EXPORT bool fastAttributeLookupAllowed(const QualifiedName&) const;
 #endif

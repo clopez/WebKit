@@ -677,13 +677,11 @@ void VideoPresentationManagerProxy::applicationDidBecomeActive()
 
 void VideoPresentationManagerProxy::requestRouteSharingPolicyAndContextUID(PlaybackSessionContextIdentifier contextId, CompletionHandler<void(WebCore::RouteSharingPolicy, String)>&& callback)
 {
-    RefPtr page = m_page.get();
-    if (!page)
-        return callback({ }, { });
-    RefPtr process = WebProcessProxy::processForIdentifier(contextId.processIdentifier());
-    if (!process)
-        return callback({ }, { });
-    process->sendWithAsyncReply(Messages::VideoPresentationManager::RequestRouteSharingPolicyAndContextUID(contextId.object()), WTFMove(callback), page->webPageIDInProcess(*process));
+    // FIXME: This needs to be implemented for site isolation in a way that doesn't re-introduce rdar://155266545
+    if (RefPtr page = m_page.get())
+        page->protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::VideoPresentationManager::RequestRouteSharingPolicyAndContextUID(contextId.object()), WTFMove(callback), page->webPageIDInMainFrameProcess());
+    else
+        callback({ }, { });
 }
 
 static Ref<PlatformVideoPresentationInterface> videoPresentationInterface(WebPageProxy& page, PlatformPlaybackSessionInterface& playbackSessionInterface)
@@ -1435,7 +1433,9 @@ void VideoPresentationManagerProxy::didExitFullscreen(PlaybackSessionContextIden
         page->didExitStandby(contextId);
     else
 #endif
+#if ENABLE(VIDEO_PRESENTATION_MODE)
     page->didExitFullscreen(contextId);
+#endif
 
     callCloseCompletionHandlers();
 }
@@ -1457,7 +1457,9 @@ void VideoPresentationManagerProxy::didEnterFullscreen(PlaybackSessionContextIde
         page->didEnterStandby(contextId);
     else
 #endif
+#if ENABLE(VIDEO_PRESENTATION_MODE)
     page->didEnterFullscreen(contextId);
+#endif
 }
 
 void VideoPresentationManagerProxy::failedToEnterFullscreen(PlaybackSessionContextIdentifier contextId)

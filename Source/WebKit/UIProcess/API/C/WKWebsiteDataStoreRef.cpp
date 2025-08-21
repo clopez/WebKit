@@ -467,7 +467,7 @@ void WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForT
         case kWKThirdPartyCookieBlockingPolicyAllOnlyOnSitesWithoutUserInteraction:
             blockingMode = WebCore::ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction;
             break;
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
         case kWKThirdPartyCookieBlockingPolicyAllExceptPartitioned:
             blockingMode = WebCore::ThirdPartyCookieBlockingMode::AllExceptPartitioned;
             break;
@@ -795,4 +795,28 @@ void WKWebsiteDataStoreResetResourceMonitorThrottler(WKWebsiteDataStoreRef dataS
     if (callback)
         callback(context);
 #endif
+}
+
+void WKWebsiteDataStoreSetStorageAccessPermissionForTesting(WKWebsiteDataStoreRef dataStoreRef, WKPageRef pageRef, bool granted, WKStringRef topFrame, WKStringRef subFrame, void* context, WKWebsiteDataStoreSetStorageAccessPermissionForTestingFunction completionHandler)
+{
+    Ref callbackAggregator = CallbackAggregator::create([context, completionHandler] {
+        completionHandler(context);
+    });
+
+    Ref store = *WebKit::toImpl(dataStoreRef);
+    if (!granted)
+        store->clearResourceLoadStatisticsInWebProcesses([callbackAggregator] { });
+    store->setStorageAccessPermissionForTesting(granted, WebKit::toImpl(pageRef)->identifier(), WebKit::toProtectedImpl(topFrame)->string(), WebKit::toProtectedImpl(subFrame)->string(), [callbackAggregator] { });
+}
+
+void WKWebsiteDataStoreSetStorageAccessForTesting(WKWebsiteDataStoreRef dataStoreRef, bool blocked, void* context, WKWebsiteDataStoreSetStorageAccessForTestingFunction completionHandler)
+{
+    Ref callbackAggregator = CallbackAggregator::create([context, completionHandler] {
+        completionHandler(context);
+    });
+
+    Ref store = *WebKit::toImpl(dataStoreRef);
+    if (blocked)
+        store->clearStorageAccessForTesting([callbackAggregator] { });
+    store->setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(blocked, WebCore::ThirdPartyCookieBlockingMode::All, [callbackAggregator] { });
 }

@@ -42,8 +42,8 @@
 #include "HashMapHelper.h"
 #include "JITOperations.h"
 #include "JSAsyncGenerator.h"
+#include "JSCellButterfly.h"
 #include "JSGenerator.h"
-#include "JSImmutableButterfly.h"
 #include "JSInternalPromise.h"
 #include "JSInternalPromiseConstructor.h"
 #include "JSPromiseConstructor.h"
@@ -2394,6 +2394,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 || node->isBinaryUseKind(StringIdentUse)
                 || (node->op() == CompareEq && node->isBinaryUseKind(ObjectUse))
                 || (node->op() == CompareEq && node->isSymmetricBinaryUseKind(ObjectUse, ObjectOrOtherUse))
+                || (node->op() == CompareEq && value.isType(SpecObject))
                 || value.isType(SpecInt32Only)
                 || value.isType(SpecInt52Any)
                 || value.isType(SpecAnyIntAsDouble)
@@ -2401,15 +2402,25 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 || value.isType(SpecString)
                 || value.isType(SpecBoolean)
                 || value.isType(SpecSymbol)
-                || (node->op() == CompareEq && value.isType(SpecObject))
                 || value.isType(SpecOther)) {
                 switch (node->op()) {
                 case CompareLess:
                 case CompareGreater:
+                    // symbol < symbol, symbol > symbol throws TypeError
+                    if (value.isType(SpecSymbol))
+                        break;
                     setConstant(node, jsBoolean(false));
                     break;
                 case CompareLessEq:
-                case CompareGreaterEq:
+                case CompareGreaterEq: {
+                    // null <= null is true, but undefined <= undefined is false.
+                    if (value.isType(SpecOther))
+                        break;
+                    // symbol <= symbol, symbol >= symbol throws TypeError
+                    if (value.isType(SpecSymbol))
+                        break;
+                    [[fallthrough]];
+                }
                 case CompareEq:
                     setConstant(node, jsBoolean(true));
                     break;
@@ -2702,7 +2713,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
                 // Check that the early StructureID is not nuked, get the butterfly, and check the late StructureID again.
                 // And we check the indexing mode of the structure. If the indexing mode is CoW, the butterfly is
-                // definitely JSImmutableButterfly.
+                // definitely a JSCellButterfly and immutable.
                 StructureID structureIDEarly = array->structureID();
                 if (structureIDEarly.isNuked())
                     return false;
@@ -2731,7 +2742,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     }
                     ASSERT(isCopyOnWrite(structure->indexingMode()));
 
-                    JSImmutableButterfly* immutableButterfly = JSImmutableButterfly::fromButterfly(butterfly);
+                    JSCellButterfly* immutableButterfly = JSCellButterfly::fromButterfly(butterfly);
                     if (index < immutableButterfly->length()) {
                         JSValue value = immutableButterfly->get(index);
                         ASSERT(value);
@@ -3671,7 +3682,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             break;
         }
 
-        setForNode(node, m_vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous));
+        setForNode(node, m_vm.cellButterflyStructure(CopyOnWriteArrayWithContiguous));
         break;
         
     case NewArrayBuffer:
@@ -5482,7 +5493,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         makeHeapTopForNode(node);
         break;
 
-    case CallWasm: {
+    case CallWasm:
+    case TailCallInlinedCallerWasm: {
 #if ENABLE(WEBASSEMBLY)
         clobberWorld();
 

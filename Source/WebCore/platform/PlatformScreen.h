@@ -25,19 +25,15 @@
 
 #pragma once
 
-#include "ContentsFormat.h"
+#include <WebCore/ContentsFormat.h>
 #include <wtf/Forward.h>
 
 #if PLATFORM(MAC)
 OBJC_CLASS NSScreen;
 OBJC_CLASS NSWindow;
-#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
+
 typedef struct CGRect NSRect;
 typedef struct CGPoint NSPoint;
-#else
-typedef struct _NSRect NSRect;
-typedef struct _NSPoint NSPoint;
-#endif
 #endif
 
 #if PLATFORM(IOS_FAMILY)

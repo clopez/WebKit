@@ -323,8 +323,10 @@ Variant<std::optional<DragOperation>, RemoteUserInputEventData> DragController::
     }
 
     if (RefPtr remoteSubframe = dynamicDowncast<RemoteFrame>(frame.eventHandler().subframeForTargetNode(hitTestResult.targetNode()))) {
-        // FIXME(264611): These mouse coordinates need to be correctly transformed.
-        return RemoteUserInputEventData { remoteSubframe->frameID(), dragData.clientPosition() };
+        auto pointInFrame = hitTestResult.roundedPointInInnerNodeFrame();
+        if (auto remoteEventData = frame.eventHandler().userInputEventDataForRemoteFrame(remoteSubframe.get(), pointInFrame))
+            return *remoteEventData;
+        return std::nullopt;
     }
 
     mouseMovedIntoDocument(hitTestResult.innerNode() ? RefPtr { hitTestResult.innerNode()->protectedDocument() } : nullptr);
@@ -1011,7 +1013,7 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
     auto linkURL = hitTestResult->absoluteLinkURL();
     auto imageURL = hitTestResult->absoluteImageURL();
 
-    IntPoint mouseDraggedPoint = src.view()->windowToContents(dragEvent.position());
+    IntPoint mouseDraggedPoint = src.view()->windowToContents(flooredIntPoint(dragEvent.position()));
 
     m_draggingImageURL = URL();
     m_sourceDragOperationMask = sourceOperationMask;
@@ -1094,10 +1096,10 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         }
         client().willPerformDragSourceAction(DragSourceAction::Selection, dragOrigin, dataTransfer);
         if (!dragImage) {
-            TextIndicatorData textIndicator;
-            dragImage = DragImage { dissolveDragImageToFraction(createDragImageForSelection(src, textIndicator), DragImageAlpha) };
-            if (textIndicator.contentImage)
-                dragImage.setTextIndicator(TextIndicator::create(textIndicator));
+            auto [dragImageRef, textIndicator] = createDragImageForSelection(src);
+            dragImage = DragImage { dissolveDragImageToFraction(dragImageRef, DragImageAlpha) };
+            if (textIndicator && textIndicator->contentImage())
+                dragImage.setTextIndicator(textIndicator);
             dragLoc = dragLocForSelectionDrag(src);
             m_dragOffset = IntPoint(dragOrigin.x() - dragLoc.x(), dragOrigin.y() - dragLoc.y());
         }
@@ -1240,15 +1242,15 @@ bool DragController::startDrag(LocalFrame& src, const DragState& state, OptionSe
         client().willPerformDragSourceAction(DragSourceAction::Attachment, dragOrigin, dataTransfer);
         
         if (!dragImage) {
-            TextIndicatorData textIndicator;
             CheckedPtr attachmentRenderer = dynamicDowncast<RenderAttachment>(attachment->renderer());
             if (attachmentRenderer)
                 attachmentRenderer->setShouldDrawBorder(false);
-            dragImage = DragImage { dissolveDragImageToFraction(createDragImageForSelection(src, textIndicator), DragImageAlpha) };
+            auto [dragImageRef, textIndicator] = createDragImageForSelection(src);
+            dragImage = DragImage { dissolveDragImageToFraction(dragImageRef, DragImageAlpha) };
             if (attachmentRenderer)
                 attachmentRenderer->setShouldDrawBorder(true);
-            if (textIndicator.contentImage)
-                dragImage.setTextIndicator(TextIndicator::create(textIndicator));
+            if (textIndicator && textIndicator->contentImage())
+                dragImage.setTextIndicator(textIndicator);
             dragLoc = dragLocForSelectionDrag(src);
             m_dragOffset = IntPoint(dragOrigin.x() - dragLoc.x(), dragOrigin.y() - dragLoc.y());
         }

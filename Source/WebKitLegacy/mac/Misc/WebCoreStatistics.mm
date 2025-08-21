@@ -33,6 +33,7 @@
 #import "WebFrameInternal.h"
 #import <JavaScriptCore/JSLock.h>
 #import <JavaScriptCore/MemoryStatistics.h>
+#import <JavaScriptCore/VM.h>
 #import <WebCore/BackForwardCache.h>
 #import <WebCore/CommonVM.h>
 #import <WebCore/FontCache.h>
@@ -93,13 +94,13 @@ static RetainPtr<NSCountedSet> createNSCountedSet(const HashCountedSet<ASCIILite
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts
 {
     JSLockHolder lock(commonVM());
-    return createNSCountedSet(*commonVM().heap.protectedObjectTypeCounts()).autorelease();
+    return createNSCountedSet(commonVM().heap.protectedObjectTypeCounts()).autorelease();
 }
 
 + (NSCountedSet *)javaScriptObjectTypeCounts
 {
     JSLockHolder lock(commonVM());
-    return createNSCountedSet(*commonVM().heap.objectTypeCounts()).autorelease();
+    return createNSCountedSet(commonVM().heap.objectTypeCounts()).autorelease();
 }
 
 + (void)garbageCollectJavaScriptObjects

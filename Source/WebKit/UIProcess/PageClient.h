@@ -87,6 +87,7 @@ OBJC_CLASS UIView;
 OBJC_CLASS UIViewController;
 OBJC_CLASS WKBaseScrollView;
 OBJC_CLASS WKBEScrollViewScrollUpdate;
+OBJC_CLASS WKFullScreenWindowController;
 OBJC_CLASS _WKRemoteObjectRegistry;
 
 #if USE(APPKIT)
@@ -260,8 +261,12 @@ public:
     // Return whether the view is focused.
     virtual bool isViewFocused() = 0;
 
-    // Return whether the view is visible.
-    virtual bool isViewVisible() = 0;
+    // Return whether the active view is visible.
+    virtual bool isActiveViewVisible() = 0;
+
+    // Return whether the main view is visible.
+    // This is relevant for page client that can have multiple views.
+    virtual bool isMainViewVisible() { return isActiveViewVisible(); }
 
     // Called when the activity state of the page transitions from non-visible to visible.
     virtual void viewIsBecomingVisible() { }
@@ -274,13 +279,13 @@ public:
 #endif
 
     // Return whether the view is visible, or occluded by another window.
-    virtual bool isViewVisibleOrOccluded() { return isViewVisible(); }
+    virtual bool isViewVisibleOrOccluded() { return isActiveViewVisible(); }
 
     // Return whether the view is in a window.
     virtual bool isViewInWindow() = 0;
 
     // Return whether the view is visually idle.
-    virtual bool isVisuallyIdle() { return !isViewVisible(); }
+    virtual bool isVisuallyIdle() { return !isActiveViewVisible(); }
 
     virtual WindowKind windowKind() { return isViewInWindow() ? WindowKind::Normal : WindowKind::Unparented; }
 
@@ -327,6 +332,7 @@ public:
         completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotSupportedError, "Digital credentials are not supported."_s }));
     }
     virtual void dismissDigitalCredentialsPicker(WTF::CompletionHandler<void(bool)>&& completionHandler) { completionHandler(true); }
+    virtual void dismissAnyOpenPicker() { }
 
     virtual void didChangeContentSize(const WebCore::IntSize&) = 0;
 
@@ -716,7 +722,7 @@ public:
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
     virtual void willReceiveEditDragSnapshot() = 0;
-    virtual void didReceiveEditDragSnapshot(std::optional<WebCore::TextIndicatorData>) = 0;
+    virtual void didReceiveEditDragSnapshot(RefPtr<WebCore::TextIndicator>&&) = 0;
 #endif
 
 #if ENABLE(MODEL_PROCESS)
@@ -826,6 +832,11 @@ public:
     virtual void didChangeScreenTimeWebpageControllerURL() { };
     virtual void setURLIsPictureInPictureForScreenTime(bool) { };
     virtual void setURLIsPlayingVideoForScreenTime(bool) { };
+#endif
+
+#if ENABLE(POINTER_LOCK)
+    virtual void beginPointerLockMouseTracking() { }
+    virtual void endPointerLockMouseTracking() { }
 #endif
 };
 

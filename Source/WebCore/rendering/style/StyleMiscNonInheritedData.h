@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,12 +26,16 @@
 
 #pragma once
 
-#include "LengthPoint.h"
-#include "StyleAppearance.h"
-#include "StyleAspectRatio.h"
-#include "StyleBoxShadow.h"
-#include "StyleContentAlignmentData.h"
-#include "StyleSelfAlignmentData.h"
+#include <WebCore/LengthPoint.h>
+#include <WebCore/StyleAppearance.h>
+#include <WebCore/StyleAspectRatio.h>
+#include <WebCore/StyleBoxShadow.h>
+#include <WebCore/StyleContent.h>
+#include <WebCore/StyleContentAlignmentData.h>
+#include <WebCore/StyleObjectPosition.h>
+#include <WebCore/StyleOpacity.h>
+#include <WebCore/StyleOrder.h>
+#include <WebCore/StyleSelfAlignmentData.h>
 #include <memory>
 #include <wtf/DataRef.h>
 #include <wtf/FixedVector.h>
@@ -45,7 +50,6 @@ class TextStream;
 namespace WebCore {
 
 class AnimationList;
-class ContentData;
 class FillLayer;
 class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
@@ -54,11 +58,9 @@ class StyleMultiColData;
 class StyleTransformData;
 class StyleVisitedLinkColorData;
 
-constexpr int appearanceBitWidth = 7;
-
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData);
 class StyleMiscNonInheritedData : public RefCounted<StyleMiscNonInheritedData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData, StyleMiscNonInheritedData);
 public:
     static Ref<StyleMiscNonInheritedData> create() { return adoptRef(*new StyleMiscNonInheritedData); }
     Ref<StyleMiscNonInheritedData> copy() const;
@@ -70,13 +72,10 @@ public:
     void dumpDifferences(TextStream&, const StyleMiscNonInheritedData&) const;
 #endif
 
-    bool hasOpacity() const { return opacity < 1; }
-    bool hasZeroOpacity() const { return !opacity; }
     bool hasFilters() const;
-    bool contentDataEquivalent(const StyleMiscNonInheritedData&) const;
 
     // This is here to pack in with m_refCount.
-    float opacity;
+    Style::Opacity opacity;
 
     DataRef<StyleDeprecatedFlexibleBoxData> deprecatedFlexibleBox; // Flexible box properties
     DataRef<StyleFlexibleBoxData> flexibleBox;
@@ -88,9 +87,8 @@ public:
 
     RefPtr<AnimationList> animations;
     RefPtr<AnimationList> transitions;
-    std::unique_ptr<ContentData> content;
+    Style::Content content;
     Style::BoxShadows boxShadow;
-    String altText;
     Style::AspectRatio aspectRatio;
     StyleContentAlignmentData alignContent;
     StyleContentAlignmentData justifyContent;
@@ -98,8 +96,8 @@ public:
     StyleSelfAlignmentData alignSelf;
     StyleSelfAlignmentData justifyItems;
     StyleSelfAlignmentData justifySelf;
-    LengthPoint objectPosition;
-    int order;
+    Style::ObjectPosition objectPosition;
+    Style::Order order;
 
     PREFERRED_TYPE(bool) unsigned hasAttrContent : 1 { false };
     PREFERRED_TYPE(bool) unsigned hasDisplayAffectedByAnimations : 1 { false };

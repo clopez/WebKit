@@ -32,6 +32,7 @@
 #include "JSWebAssemblyGlobal.h"
 #include "JSWebAssemblyMemory.h"
 #include "JSWebAssemblyTable.h"
+#include "StackManager.h"
 #include "WasmCalleeGroup.h"
 #include "WasmCreationMode.h"
 #include "WasmFormat.h"
@@ -40,6 +41,7 @@
 #include "WasmModule.h"
 #include "WasmModuleInformation.h"
 #include "WasmTable.h"
+#include "WebAssemblyBuiltin.h"
 #include "WebAssemblyFunction.h"
 #include "WriteBarrier.h"
 #include <wtf/BitVector.h>
@@ -82,6 +84,8 @@ public:
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     DECLARE_EXPORT_INFO;
+
+    DECLARE_VISIT_CHILDREN;
 
     void initializeImports(JSGlobalObject*, JSObject* importObject, Wasm::CreationMode);
     void finalizeCreation(VM&, JSGlobalObject*, Ref<Wasm::CalleeGroup>&&, Wasm::CreationMode);
@@ -127,9 +131,7 @@ public:
 
     using FunctionWrapperMap = UncheckedKeyHashMap<uint32_t, WriteBarrier<Unknown>, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
 
-    static constexpr ptrdiff_t offsetOfSoftStackLimit() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_softStackLimit); }
-
-    void updateSoftStackLimit(void* softStackLimit) { m_softStackLimit = softStackLimit; }
+    static constexpr ptrdiff_t offsetOfSoftStackLimit() { return OBJECT_OFFSETOF(JSWebAssemblyInstance, m_stackMirror) + StackManager::Mirror::offsetOfSoftStackLimit(); }
 
     Wasm::Module& module() const { return m_module.get(); }
     SourceTaintedOrigin taintedness() const { return m_sourceProvider->sourceTaintedOrigin(); }
@@ -243,6 +245,7 @@ public:
     JSValue getFunctionWrapper(unsigned) const;
     typename FunctionWrapperMap::ValuesConstIteratorRange functionWrappers() const { return m_functionWrappers.values(); }
     void setFunctionWrapper(unsigned, JSValue);
+    void setBuiltinCalleeBits(uint32_t builtinID, CalleeBits calleeBits) { m_builtinCalleeBits[builtinID] = calleeBits; }
 
     Wasm::Global* getGlobalBinding(unsigned i)
     {
@@ -277,12 +280,14 @@ public:
 
     static_assert(sizeof(WasmOrJSImportableFunctionCallLinkInfo) == WTF::roundUpToMultipleOf<sizeof(uint64_t)>(sizeof(WasmOrJSImportableFunctionCallLinkInfo)), "We rely on this for the alignment to be correct");
     static constexpr size_t offsetOfTablePtr(unsigned numImportFunctions, unsigned i) { return offsetOfTail() + sizeof(WasmOrJSImportableFunctionCallLinkInfo) * numImportFunctions + sizeof(Wasm::Table*) * i; }
-    static constexpr size_t offsetOfGlobalPtr(unsigned numImportFunctions, unsigned numTables, unsigned i) { return roundUpToMultipleOf<sizeof(Wasm::Global::Value)>(offsetOfTablePtr(numImportFunctions, numTables)) + sizeof(Wasm::Global::Value) * i; }
-    static constexpr size_t offsetOfGCObjectStructure(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned i) { return offsetOfGlobalPtr(numImportFunctions, numTables, numGlobals) + sizeof(WriteBarrier<WebAssemblyGCStructure>) * i; }
-    WriteBarrier<WebAssemblyGCStructure>& gcObjectStructure(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned i) { return *std::bit_cast<WriteBarrier<WebAssemblyGCStructure>*>(reinterpret_cast<char*>(this) + offsetOfGCObjectStructure(numImportFunctions, numTables, numGlobals, i)); }
-    WriteBarrier<WebAssemblyGCStructure>& gcObjectStructure(unsigned typeIndex) { return gcObjectStructure(numImportFunctions(), moduleInformation().tableCount(), moduleInformation().globalCount(), typeIndex); }
+    static constexpr size_t offsetOfGlobalPtr(unsigned numImportFunctions, unsigned numTables, unsigned i) { return roundUpToMultipleOf<alignof(Wasm::Global::Value)>(offsetOfTablePtr(numImportFunctions, numTables)) + sizeof(Wasm::Global::Value) * i; }
+    static constexpr size_t offsetOfGCObjectStructureID(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned i) { return WTF::roundUpToMultipleOf<alignof(WriteBarrierStructureID)>(offsetOfGlobalPtr(numImportFunctions, numTables, numGlobals)) + sizeof(WriteBarrierStructureID) * i; }
+    WriteBarrierStructureID& gcObjectStructureID(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned i) { return *std::bit_cast<WriteBarrierStructureID*>(reinterpret_cast<char*>(this) + offsetOfGCObjectStructureID(numImportFunctions, numTables, numGlobals, i)); }
+    WriteBarrierStructureID& gcObjectStructureID(unsigned typeIndex) { return gcObjectStructureID(numImportFunctions(), moduleInformation().tableCount(), moduleInformation().globalCount(), typeIndex); }
 
-    static constexpr size_t offsetOfAllocatorForGCObject(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned numTypes, unsigned i) { return offsetOfGCObjectStructure(numImportFunctions, numTables, numGlobals, numTypes) + sizeof(Allocator) * i; }
+    WebAssemblyGCStructure* gcObjectStructure(unsigned typeIndex) { return jsCast<WebAssemblyGCStructure*>(gcObjectStructureID(numImportFunctions(), moduleInformation().tableCount(), moduleInformation().globalCount(), typeIndex).get()); }
+
+    static constexpr size_t offsetOfAllocatorForGCObject(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned numTypes, unsigned i) { return WTF::roundUpToMultipleOf<alignof(Allocator)>(offsetOfGCObjectStructureID(numImportFunctions, numTables, numGlobals, numTypes)) + sizeof(Allocator) * i; }
     Allocator& allocatorForGCObject(unsigned numImportFunctions, unsigned numTables, unsigned numGlobals, unsigned numTypes, unsigned i) { ASSERT(moduleInformation().hasGCObjectTypes()); return *std::bit_cast<Allocator*>(reinterpret_cast<char*>(this) + offsetOfAllocatorForGCObject(numImportFunctions, numTables, numGlobals, numTypes, i)); }
     Allocator& allocatorForGCObject(unsigned sizeClassIndex) { return allocatorForGCObject(numImportFunctions(), moduleInformation().tableCount(), moduleInformation().globalCount(), moduleInformation().typeCount(), sizeClassIndex); }
 
@@ -295,7 +300,7 @@ public:
         m_temporaryCallFrame = callFrame;
     }
 
-    void* softStackLimit() const { return m_softStackLimit; }
+    void* softStackLimit() const { return m_stackMirror.softStackLimit(); }
 
     void setFaultPC(void* pc) { m_faultPC = pc; };
     void* faultPC() const { return m_faultPC; }
@@ -304,7 +309,6 @@ private:
     JSWebAssemblyInstance(VM&, Structure*, JSWebAssemblyModule*, WebAssemblyModuleRecord*, RefPtr<SourceProvider>&&);
     ~JSWebAssemblyInstance();
     void finishCreation(VM&);
-    DECLARE_VISIT_CHILDREN;
 
     static size_t allocationSize(const Wasm::ModuleInformation&);
     bool evaluateConstantExpression(uint64_t, Wasm::Type, uint64_t&);
@@ -314,7 +318,7 @@ private:
     WriteBarrier<WebAssemblyModuleRecord> m_moduleRecord;
     WriteBarrier<JSWebAssemblyMemory> m_memory;
     FixedVector<WriteBarrier<JSWebAssemblyTable>> m_tables;
-    void* m_softStackLimit { nullptr };
+    StackManager::Mirror m_stackMirror;
     CagedPtr<Gigacage::Primitive, void> m_cachedMemory;
     size_t m_cachedBoundsCheckingSize { 0 };
     const Ref<Wasm::Module> m_module;
@@ -332,6 +336,9 @@ private:
     FixedVector<RefPtr<const Wasm::Tag>> m_tags;
     Vector<Ref<Wasm::WasmToJSCallee>> importCallees;
     void* m_faultPC { nullptr };
+    // Used by builtin trampolines to quickly fetch callee bits to store in the call frame.
+    // The actual callees are owned by builtins. Populated by WebAssemblyModuleRecord::initializeImports().
+    CalleeBits m_builtinCalleeBits[WASM_BUILTIN_COUNT];
 };
 
 } // namespace JSC

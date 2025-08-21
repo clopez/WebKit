@@ -27,6 +27,7 @@
 
 #if ENABLE(WEBXR_LAYERS)
 
+#include "PlatformXR.h"
 #include "WebGPUXRProjectionLayer.h"
 #include "WebXRRigidTransform.h"
 #include "XRCompositionLayer.h"
@@ -56,19 +57,23 @@ public:
 
     bool ignoreDepthValues() const;
     std::optional<float> fixedFoveation() const;
-    [[noreturn]] void setFixedFoveation(std::optional<float>);
+    void setFixedFoveation(std::optional<float>);
     WebXRRigidTransform* deltaPose() const;
-    [[noreturn]] void setDeltaPose(WebXRRigidTransform*);
+    void setDeltaPose(WebXRRigidTransform*);
 
     // WebXRLayer
     void startFrame(PlatformXR::FrameData&) final;
     PlatformXR::Device::Layer endFrame() final;
 
     WebCore::WebGPU::XRProjectionLayer& backing();
+    std::optional<PlatformXR::FrameData::LayerData> layerData() const;
+
 private:
     XRProjectionLayer(ScriptExecutionContext&, Ref<WebCore::WebGPU::XRProjectionLayer>&&);
 
     const Ref<WebCore::WebGPU::XRProjectionLayer> m_backing;
+    std::optional<PlatformXR::FrameData::LayerData> m_layerData;
+    RefPtr<WebXRRigidTransform> m_transform;
 };
 
 } // namespace WebCore

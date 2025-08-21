@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "CSSValue.h"
+#include <WebCore/CSSValue.h>
 #include <array>
 #include <unicode/umachine.h>
 #include <wtf/MallocSpan.h>
@@ -99,7 +99,7 @@ private:
 
 class CSSValueList final : public CSSValueContainingVector {
 public:
-    static Ref<CSSValueList> create(UChar separator, CSSValueListBuilder);
+    static Ref<CSSValueList> create(char16_t separator, CSSValueListBuilder);
 
     static Ref<CSSValueList> createCommaSeparated(CSSValueListBuilder);
     static Ref<CSSValueList> createCommaSeparated(Ref<CSSValue>); // FIXME: Upgrade callers to not use a list at all.

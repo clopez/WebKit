@@ -29,6 +29,8 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "AXRemoteFrame.h"
+#import "AXRemoteTokenIOS.h"
+#import "AXUtilities.h"
 #import "AccessibilityRenderObject.h"
 #import "EventNames.h"
 #import "EventTargetInlines.h"
@@ -62,7 +64,7 @@ SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityAcceptedInlineTextCompletion, NSStr
 #define AccessibilityAcceptedInlineTextCompletion getUIAccessibilityAcceptedInlineTextCompletion()
 
 namespace WebCore {
-    
+
 void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType)
 {
     [wrapper() detach];
@@ -94,12 +96,6 @@ FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect,
     return convertFrameToSpace(rect, space);
 }
 
-// On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
-bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
-{
-    return false;
-}
-
 // In iPhone only code for now. It's debateable whether this is desired on all platforms.
 unsigned AccessibilityObject::accessibilitySecureFieldLength()
 {
@@ -112,11 +108,16 @@ unsigned AccessibilityObject::accessibilitySecureFieldLength()
     return inputElement ? inputElement->value()->length() : 0;
 }
 
+void AccessibilityObject::markPlatformWrapperIgnoredStateDirty() const
+{
+    [wrapper() _clearCachedIsAccessibilityElementState];
+}
+
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
 {
     return [[wrapper() attachmentView] accessibilityIsIgnored];
 }
-    
+
 AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
 {
     if (role() == AccessibilityRole::Unknown)
@@ -341,17 +342,6 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
     return result;
 }
 
-namespace Accessibility {
-
-RetainPtr<NSData> newAccessibilityRemoteToken(NSString *uuidString)
-{
-    if (!uuidString)
-        return nil;
-    return [NSKeyedArchiver archivedDataWithRootObject:@{ @"ax-pid" : @(getpid()), @"ax-uuid" : uuidString, @"ax-register" : @YES } requiringSecureCoding:YES error:nullptr];
-}
-
-}
-
-} // WebCore
+} // namespace WebCore
 
 #endif // PLATFORM(IOS_FAMILY)

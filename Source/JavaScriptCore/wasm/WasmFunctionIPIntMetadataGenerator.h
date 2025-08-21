@@ -31,15 +31,15 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "BytecodeConventions.h"
-#include "HandlerInfo.h"
-#include "InstructionStream.h"
-#include "MacroAssemblerCodeRef.h"
-#include "SIMDInfo.h"
-#include "WasmHandlerInfo.h"
-#include "WasmIPIntGenerator.h"
-#include "WasmIPIntTierUpCounter.h"
-#include "WasmOps.h"
+#include <JavaScriptCore/BytecodeConventions.h>
+#include <JavaScriptCore/HandlerInfo.h>
+#include <JavaScriptCore/InstructionStream.h>
+#include <JavaScriptCore/MacroAssemblerCodeRef.h>
+#include <JavaScriptCore/SIMDInfo.h>
+#include <JavaScriptCore/WasmHandlerInfo.h>
+#include <JavaScriptCore/WasmIPIntGenerator.h>
+#include <JavaScriptCore/WasmIPIntTierUpCounter.h>
+#include <JavaScriptCore/WasmOps.h>
 #include <wtf/BitVector.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
@@ -66,10 +66,6 @@ struct JumpTableEntry;
     } while (false)
 
 class FunctionIPIntMetadataGenerator {
-    struct MetadataBufferMalloc final : public FastMalloc {
-        static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity) { return capacity + capacity; }
-    };
-
     WTF_MAKE_TZONE_ALLOCATED(FunctionIPIntMetadataGenerator);
     WTF_MAKE_NONCOPYABLE(FunctionIPIntMetadataGenerator);
 
@@ -98,6 +94,9 @@ public:
     unsigned addSignature(const TypeDefinition&);
 
 private:
+    struct MetadataBufferMalloc final : public FastMalloc {
+        static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity) { return capacity + capacity; }
+    };
     using MetadataBuffer = Vector<uint8_t, 0, UnsafeVectorOverflow, 16, MetadataBufferMalloc>;
 
     inline void addBlankSpace(size_t);

@@ -28,22 +28,22 @@
 
 #pragma once
 
-#include "CachedResourceHandle.h"
-#include "FrameLoaderTypes.h"
-#include "ResourceHandleClient.h"
-#include "ResourceLoadTiming.h"
-#include "ResourceLoaderIdentifier.h"
-#include "ResourceLoaderOptions.h"
-#include "ResourceLoaderTypes.h"
-#include "ResourceRequest.h"
-#include "ResourceResponse.h"
-#include "SharedBuffer.h"
+#include <WebCore/CachedResourceHandle.h>
+#include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/ResourceHandleClient.h>
+#include <WebCore/ResourceLoadTiming.h>
+#include <WebCore/ResourceLoaderIdentifier.h>
+#include <WebCore/ResourceLoaderOptions.h>
+#include <WebCore/ResourceLoaderTypes.h>
+#include <WebCore/ResourceRequest.h>
+#include <WebCore/ResourceResponse.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
-#include "ResourceLoadInfo.h"
+#include <WebCore/ResourceLoadInfo.h>
 #endif
 
 namespace WTF {
@@ -66,7 +66,7 @@ class ResourceMonitor;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ResourceLoader);
 class ResourceLoader : public RefCountedAndCanMakeWeakPtr<ResourceLoader>, protected ResourceHandleClient {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ResourceLoader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ResourceLoader, ResourceLoader);
 public:
     virtual ~ResourceLoader() = 0;
 

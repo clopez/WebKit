@@ -329,14 +329,6 @@ static std::optional<WKFindOptions> findOptionsFromArray(JSContextRef context, J
     return options;
 }
 
-void TestRunner::findString(JSContextRef context, JSStringRef target, JSValueRef optionsArrayAsValue, JSValueRef callback)
-{
-    postMessageWithAsyncReply(context, "FindString", createWKDictionary({
-        { "String", toWK(target) },
-        { "FindOptions", adoptWK(WKUInt64Create(findOptionsFromArray(context, optionsArrayAsValue).value_or(WKFindOptions { }))) },
-    }), callback);
-}
-
 void TestRunner::findStringMatchesInPage(JSContextRef context, JSStringRef target, JSValueRef optionsArrayAsValue)
 {
     if (auto options = findOptionsFromArray(context, optionsArrayAsValue)) {
@@ -1566,6 +1558,19 @@ void TestRunner::setRequestStorageAccessThrowsExceptionUntilReload(bool enabled)
     postSynchronousPageMessage("SetRequestStorageAccessThrowsExceptionUntilReload", enabled);
 }
 
+void TestRunner::setStorageAccessPermission(JSContextRef context, bool granted, JSStringRef subFrameURL, JSValueRef callback)
+{
+    postMessageWithAsyncReply(context, "SetStorageAccessPermission", createWKDictionary({
+        { "Value", adoptWK(WKBooleanCreate(granted)) },
+        { "SubFrameURL", toWK(subFrameURL) },
+    }), callback);
+}
+
+void TestRunner::setStorageAccess(JSContextRef context, bool blocked, JSValueRef callback)
+{
+    postMessageWithAsyncReply(context, "SetStorageAccess", adoptWK(WKBooleanCreate(blocked)), callback);
+}
+
 void TestRunner::loadedSubresourceDomains(JSContextRef context, JSValueRef callback)
 {
     postMessageWithAsyncReply(context, "LoadedSubresourceDomains", callback);
@@ -2179,6 +2184,11 @@ void TestRunner::dumpChildFrameScrollPositions()
 bool TestRunner::shouldDumpAllFrameScrollPositions() const
 {
     return postSynchronousPageMessageReturningBoolean("ShouldDumpAllFrameScrollPositions");
+}
+
+void TestRunner::setHasMouseDeviceForTesting(bool hasMouseDevice)
+{
+    postSynchronousPageMessage("SetHasMouseDeviceForTesting", hasMouseDevice);
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_END

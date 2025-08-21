@@ -26,9 +26,10 @@
 #ifndef KeypressCommand_h
 #define KeypressCommand_h
 
-#include "CharacterRange.h"
-#include "CompositionHighlight.h"
-#include "CompositionUnderline.h"
+#include <WebCore/CharacterRange.h>
+#include <WebCore/CompositionHighlight.h>
+#include <WebCore/CompositionUnderline.h>
+#include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
 #include <wtf/text/WTFString.h>
 

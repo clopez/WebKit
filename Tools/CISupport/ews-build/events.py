@@ -46,7 +46,7 @@ custom_suffix = get_custom_suffix()
 
 class Events(service.BuildbotService):
 
-    EVENT_SERVER_ENDPOINT = f'https://ews.webkit{custom_suffix}.org/results/'
+    EVENT_SERVER_ENDPOINT = load_password('EVENT_SERVER_ENDPOINT', default=f'https://ews.webkit{custom_suffix}.org/results/')
     MAX_GITHUB_DESCRIPTION = 140
     STEPS_TO_REPORT = [
         'analyze-api-tests-results', 'analyze-compile-webkit-results', 'analyze-jsc-tests-results',
@@ -136,7 +136,8 @@ class Events(service.BuildbotService):
             "status": "started",
             "hostname": self.master_hostname,
             "change_id": self.extractProperty(build, 'github.head.sha') or self.extractProperty(build, 'patch_id'),
-            "pr_id": self.extractProperty(build, 'github.number') or -1,
+            "pr_author": self.extractProperty(build, 'github.head.user.login'),
+            "pr_number": self.extractProperty(build, 'github.number') or -1,
             "pr_project": self.extractProperty(build, 'project') or '',
             "build_id": build.get('buildid'),
             "builder_id": build.get('builderid'),
@@ -195,7 +196,8 @@ class Events(service.BuildbotService):
             "status": "finished",
             "hostname": self.master_hostname,
             "change_id": self.extractProperty(build, 'github.head.sha') or self.extractProperty(build, 'patch_id'),
-            "pr_id": self.extractProperty(build, 'github.number') or -1,
+            "pr_author": self.extractProperty(build, 'github.head.user.login'),
+            "pr_number": self.extractProperty(build, 'github.number') or -1,
             "pr_project": self.extractProperty(build, 'project') or '',
             "build_id": build.get('buildid'),
             "builder_id": build.get('builderid'),

@@ -2474,8 +2474,10 @@ void GraphicsContextGLANGLE::blitFramebuffer(GCGLint srcX0, GCGLint srcY0, GCGLi
     prepareForDrawingBufferWriteIfBound();
     if (m_isForWebGL2)
         GL_BlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    else
+    else if (isExtensionEnabled("GL_NV_framebuffer_blit"_s))
         GL_BlitFramebufferNV(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+    else
+        GL_BlitFramebufferANGLE(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
     checkGPUStatus();
 }
 
@@ -2969,7 +2971,6 @@ GCGLExternalSync GraphicsContextGLANGLE::createExternalSync(ExternalSyncSource&&
     notImplemented();
     return { };
 }
-#endif
 
 void GraphicsContextGLANGLE::deleteExternalSync(GCGLExternalSync sync)
 {
@@ -2985,6 +2986,8 @@ void GraphicsContextGLANGLE::deleteExternalSync(GCGLExternalSync sync)
     if (!result) [[unlikely]]
         addError(GCGLErrorCode::InvalidOperation);
 }
+
+#endif
 
 void GraphicsContextGLANGLE::multiDrawArraysANGLE(GCGLenum mode, GCGLSpanTuple<const GCGLint, const GCGLsizei> firstsAndCounts)
 {

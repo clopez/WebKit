@@ -53,6 +53,7 @@
 #include "RenderTheme.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
+#include "StyleLengthWrapper+Platform.h"
 #include "StyleResolver.h"
 #include "TextRun.h"
 #include <math.h>
@@ -452,9 +453,7 @@ void RenderMenuList::didUpdateActiveOption(int optionIndex)
     if (listIndex < 0 || listIndex >= static_cast<int>(selectElement().listItems().size()))
         return;
 
-    auto* axObject = axCache->get(this);
-    if (RefPtr menuList = dynamicDowncast<AccessibilityMenuList>(axObject))
-        menuList->didUpdateActiveOption(optionIndex);
+    axCache->onSelectedOptionChanged(*this, optionIndex);
 }
 
 String RenderMenuList::itemText(unsigned listIndex) const
@@ -547,6 +546,7 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
         style->visitedDependentColorWithColorFilter(CSSPropertyColor),
         itemBackgroundColor,
         style->fontCascade(),
+        element->getAttribute(langAttr),
         style->visibility() == Visibility::Visible,
         style->display() == DisplayType::None,
         true,
@@ -597,6 +597,7 @@ PopupMenuStyle RenderMenuList::menuStyle() const
         styleToUse.visitedDependentColorWithColorFilter(CSSPropertyColor),
         styleToUse.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor),
         styleToUse.fontCascade(),
+        nullString(),
         styleToUse.usedVisibility() == Visibility::Visible,
         styleToUse.display() == DisplayType::None,
         style().hasUsedAppearance() && style().usedAppearance() == StyleAppearance::Menulist,

@@ -11,6 +11,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 
 set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
+    "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
     "${WebCore_DERIVED_SOURCES_DIR}"
     "${WEBCORE_DIR}"
     "${WEBCORE_DIR}/Modules/ShapeDetection"
@@ -201,29 +202,45 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/style/values"
     "${WEBCORE_DIR}/style/values/align"
     "${WEBCORE_DIR}/style/values/anchor-position"
+    "${WEBCORE_DIR}/style/values/backgrounds"
     "${WEBCORE_DIR}/style/values/borders"
     "${WEBCORE_DIR}/style/values/box"
+    "${WEBCORE_DIR}/style/values/break"
     "${WEBCORE_DIR}/style/values/color-adjust"
     "${WEBCORE_DIR}/style/values/color"
     "${WEBCORE_DIR}/style/values/contain"
+    "${WEBCORE_DIR}/style/values/content"
+    "${WEBCORE_DIR}/style/values/counter-styles"
+    "${WEBCORE_DIR}/style/values/css2"
+    "${WEBCORE_DIR}/style/values/display"
     "${WEBCORE_DIR}/style/values/easing"
+    "${WEBCORE_DIR}/style/values/fill-stroke"
     "${WEBCORE_DIR}/style/values/filter-effects"
     "${WEBCORE_DIR}/style/values/flexbox"
     "${WEBCORE_DIR}/style/values/grid"
     "${WEBCORE_DIR}/style/values/images"
     "${WEBCORE_DIR}/style/values/inline"
+    "${WEBCORE_DIR}/style/values/line-grid"
+    "${WEBCORE_DIR}/style/values/lists"
     "${WEBCORE_DIR}/style/values/masking"
     "${WEBCORE_DIR}/style/values/motion"
+    "${WEBCORE_DIR}/style/values/multicol"
+    "${WEBCORE_DIR}/style/values/non-standard"
+    "${WEBCORE_DIR}/style/values/overflow"
     "${WEBCORE_DIR}/style/values/position"
     "${WEBCORE_DIR}/style/values/primitives"
+    "${WEBCORE_DIR}/style/values/rhythm"
     "${WEBCORE_DIR}/style/values/scroll-animations"
     "${WEBCORE_DIR}/style/values/scroll-snap"
+    "${WEBCORE_DIR}/style/values/scrollbars"
     "${WEBCORE_DIR}/style/values/shapes"
+    "${WEBCORE_DIR}/style/values/size-adjust"
     "${WEBCORE_DIR}/style/values/sizing"
     "${WEBCORE_DIR}/style/values/svg"
     "${WEBCORE_DIR}/style/values/text"
     "${WEBCORE_DIR}/style/values/text-decoration"
     "${WEBCORE_DIR}/style/values/transforms"
+    "${WEBCORE_DIR}/style/values/ui"
     "${WEBCORE_DIR}/style/values/view-transitions"
     "${WEBCORE_DIR}/svg"
     "${WEBCORE_DIR}/svg/animation"
@@ -1469,6 +1486,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/DOMWindow+Selection.idl
     page/DOMWindow+VisualViewport.idl
     page/DOMWindow.idl
+    page/EventCounts.idl
     page/EventSource.idl
     page/FragmentDirective.idl
     page/GetComposedRangesOptions.idl
@@ -1497,12 +1515,17 @@ set(WebCore_NON_SVG_IDL_FILES
     page/NavigatorServiceWorker.idl
     page/NavigatorShare.idl
     page/NavigatorStorage.idl
+    page/NavigatorUA.idl
+    page/NavigatorUABrandVersion.idl
+    page/NavigatorUAData.idl
+    page/Performance+EventCounts.idl
     page/Performance+NavigationTiming.idl
     page/Performance+PerformanceTimeline.idl
     page/Performance+ResourceTiming.idl
     page/Performance+UserTiming.idl
     page/Performance.idl
     page/PerformanceEntry.idl
+    page/PerformanceEventTiming.idl
     page/PerformanceMark.idl
     page/PerformanceMarkOptions.idl
     page/PerformanceMeasure.idl
@@ -1532,11 +1555,14 @@ set(WebCore_NON_SVG_IDL_FILES
     page/ShadowRealmGlobalScope.idl
     page/ShareData.idl
     page/StructuredSerializeOptions.idl
+    page/UADataValues.idl
+    page/UALowEntropyJSON.idl
     page/UndoItem.idl
     page/UndoManager.idl
     page/VisualViewport.idl
-    page/WebKitNodeInfo.idl
+    page/WebKitJSHandle.idl
     page/WebKitPoint.idl
+    page/WebKitSerializedNode.idl
     page/WindowEventHandlers.idl
     page/WindowLocalStorage.idl
     page/WindowOrWorkerGlobalScope+Crypto.idl
@@ -2828,7 +2854,7 @@ GENERATE_BINDINGS(WebCoreBindings
         --workletGlobalScopeConstructorsFile ${WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --paintWorkletGlobalScopeConstructorsFile ${PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --audioWorkletGlobalScopeConstructorsFile ${AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE})
-list(APPEND WebCore_DEPENDENCIES WebCoreBindings)
+list(APPEND WebCore_DEPENDENCIES WebCoreBindings WebCore_CopyPrivateHeaders)
 
 if (ENABLE_WEBINSPECTORUI)
     list(APPEND WebCore_DEPENDENCIES WebInspectorUI)
@@ -2997,20 +3023,13 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/ProtectionSpaceBase.serialization.in
 )
 
-WEBKIT_COPY_FILES(WebCore_CopyPrivateHeaders
+WEBKIT_SYMLINK_FILES(WebCore_CopyPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore
     FILES ${WebCore_PRIVATE_FRAMEWORK_HEADERS}
     FLATTENED
 )
 list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
 list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
-# WebCore_CopyPrivateHeaders needs to have a direct or indirect
-# dependency of WebCore target for CMake Visual Studio generator to
-# eliminate duplicated custom commands. Otherwise, CSSPropertyNames.h
-# will be generated in both projects.
-if (NOT INTERNAL_BUILD)
-    add_dependencies(WebCore_CopyPrivateHeaders WebCore)
-endif ()
 
 WEBKIT_FRAMEWORK(WebCore)
 

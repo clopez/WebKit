@@ -35,14 +35,17 @@ class WorkQueue;
 
 namespace WebCore {
 
+struct ParentalControlsURLFilterParameters;
+
 class ParentalControlsURLFilter {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(ParentalControlsURLFilter);
 public:
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
     static ParentalControlsURLFilter& filterWithConfigurationPath(const String&);
 #else
     static ParentalControlsURLFilter& singleton();
 #endif
+    WEBCORE_EXPORT static void allowURL(const ParentalControlsURLFilterParameters&, CompletionHandler<void(bool)>&&);
 
     void resetIsEnabled();
     bool isEnabled() const;

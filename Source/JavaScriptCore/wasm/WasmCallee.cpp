@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,9 +36,10 @@
 #include "LLIntThunks.h"
 #include "NativeCalleeRegistry.h"
 #include "PCToCodeOriginMap.h"
-#include "VMInspector.h"
+#include "VMManager.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
+#include "WebAssemblyBuiltin.h"
 
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -57,7 +58,7 @@ WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OMGCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OMGOSREntryCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(BBQCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(IPIntCallee);
-WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(LLIntCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(WasmBuiltinCallee);
 
 Callee::Callee(Wasm::CompilationMode compilationMode)
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Private)
@@ -77,8 +78,7 @@ Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, 
 void Callee::reportToVMsForDestruction()
 {
     // We don't know which VMs a Module has ever run on so we just report to all of them.
-    Locker locker(VMInspector::singleton().getLock());
-    VMInspector::singleton().iterate([&] (VM& vm) {
+    VMManager::forEachVM([&] (VM& vm) {
         vm.heap.reportWasmCalleePendingDestruction(Ref(*this));
         return IterationStatus::Continue;
     });
@@ -90,9 +90,6 @@ inline void Callee::runWithDowncast(const Func& func)
     switch (m_compilationMode) {
     case CompilationMode::IPIntMode:
         func(static_cast<IPIntCallee*>(this));
-        break;
-    case CompilationMode::LLIntMode:
-        func(static_cast<LLIntCallee*>(this));
         break;
     case CompilationMode::JSToWasmEntrypointMode:
         func(static_cast<JSEntrypointCallee*>(this));
@@ -124,6 +121,9 @@ inline void Callee::runWithDowncast(const Func& func)
         break;
     case CompilationMode::WasmToJSMode:
         func(static_cast<WasmToJSCallee*>(this));
+        break;
+    case CompilationMode::WasmBuiltinMode:
+        func(static_cast<WasmBuiltinCallee*>(this));
         break;
     }
 }
@@ -235,12 +235,9 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpac
     , m_signatures(WTFMove(generator.m_signatures))
     , m_bytecode(generator.m_bytecode.data() + generator.m_bytecodeOffset)
     , m_bytecodeEnd(m_bytecode + (generator.m_bytecode.size() - generator.m_bytecodeOffset - 1))
-    , m_metadataVector(WTFMove(generator.m_metadata))
-    , m_metadata(m_metadataVector.span().data())
+    , m_metadata(WTFMove(generator.m_metadata))
     , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
-    , m_argumINTBytecodePointer(m_argumINTBytecode.span().data())
     , m_uINTBytecode(WTFMove(generator.m_uINTBytecode))
-    , m_uINTBytecodePointer(m_uINTBytecode.span().data())
     , m_highestReturnStackOffset(generator.m_highestReturnStackOffset)
     , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
     , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)
@@ -314,98 +311,6 @@ RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
     return &calleeSaveRegisters.get();
 }
 
-LLIntCallee::LLIntCallee(FunctionCodeBlockGenerator& generator, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
-    : Callee(Wasm::CompilationMode::LLIntMode, index, WTFMove(name))
-    , m_functionIndex(generator.m_functionIndex)
-    , m_numVars(generator.m_numVars)
-    , m_numCalleeLocals(generator.m_numCalleeLocals)
-    , m_numArguments(generator.m_numArguments)
-    , m_constantTypes(WTFMove(generator.m_constantTypes))
-    , m_constants(WTFMove(generator.m_constants))
-    , m_instructions(WTFMove(generator.m_instructions))
-    , m_instructionsRawPointer(generator.m_instructionsRawPointer)
-    , m_jumpTargets(WTFMove(generator.m_jumpTargets))
-    , m_signatures(WTFMove(generator.m_signatures))
-    , m_outOfLineJumpTargets(WTFMove(generator.m_outOfLineJumpTargets))
-    , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
-    , m_jumpTables(WTFMove(generator.m_jumpTables))
-{
-    if (size_t count = generator.numberOfExceptionHandlers()) {
-        m_exceptionHandlers = FixedVector<HandlerInfo>(count);
-        for (size_t i = 0; i < count; i++) {
-            const UnlinkedHandlerInfo& unlinkedHandler = generator.exceptionHandler(i);
-            HandlerInfo& handler = m_exceptionHandlers[i];
-            auto& instruction = *m_instructions->at(unlinkedHandler.m_target).ptr();
-            CodeLocationLabel<ExceptionHandlerPtrTag> target;
-            switch (unlinkedHandler.m_type) {
-            case HandlerType::Catch:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmCatch(instruction.width()).code());
-                break;
-            case HandlerType::CatchAll:
-            case HandlerType::Delegate:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmCatchAll(instruction.width()).code());
-                break;
-            case HandlerType::TryTableCatch:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catch, instruction.width()).code());
-                break;
-            case HandlerType::TryTableCatchRef:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchref, instruction.width()).code());
-                break;
-            case HandlerType::TryTableCatchAll:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchall, instruction.width()).code());
-                break;
-            case HandlerType::TryTableCatchAllRef:
-                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchallref, instruction.width()).code());
-                break;
-            }
-
-            handler.initialize(unlinkedHandler, target);
-        }
-    }
-}
-
-void LLIntCallee::setEntrypoint(CodePtr<WasmEntryPtrTag> entrypoint)
-{
-    ASSERT(!m_entrypoint);
-    m_entrypoint = entrypoint;
-    NativeCalleeRegistry::singleton().registerCallee(this);
-}
-
-RegisterAtOffsetList* LLIntCallee::calleeSaveRegistersImpl()
-{
-    static LazyNeverDestroyed<RegisterAtOffsetList> calleeSaveRegisters;
-    static std::once_flag initializeFlag;
-    std::call_once(initializeFlag, [] {
-        RegisterSet registers;
-        registers.add(GPRInfo::regCS0, IgnoreVectors); // JSWebAssemblyInstance
-#if CPU(X86_64)
-        registers.add(GPRInfo::regCS2, IgnoreVectors); // PB
-#elif CPU(ARM64) || CPU(RISCV64)
-        registers.add(GPRInfo::regCS7, IgnoreVectors); // PB
-#elif CPU(ARM)
-        registers.add(GPRInfo::regCS1, IgnoreVectors); // PB
-#else
-#error Unsupported architecture.
-#endif
-        ASSERT(registers.numberOfSetRegisters() == numberOfLLIntCalleeSaveRegisters);
-        calleeSaveRegisters.construct(WTFMove(registers));
-    });
-    return &calleeSaveRegisters.get();
-}
-
-WasmInstructionStream::Offset LLIntCallee::outOfLineJumpOffset(WasmInstructionStream::Offset bytecodeOffset)
-{
-    ASSERT(m_outOfLineJumpTargets.contains(bytecodeOffset));
-    return m_outOfLineJumpTargets.get(bytecodeOffset);
-}
-
-const WasmInstruction* LLIntCallee::outOfLineJumpTarget(const WasmInstruction* pc)
-{
-    int offset = bytecodeOffset(pc);
-    int target = outOfLineJumpOffset(offset);
-    return m_instructions->at(offset + target).ptr();
-}
-
 #if ENABLE(WEBASSEMBLY_OMGJIT)
 void OptimizingJITCallee::addCodeOrigin(unsigned firstInlineCSI, unsigned lastInlineCSI, const Wasm::ModuleInformation& info, uint32_t functionIndex)
 {
@@ -425,7 +330,7 @@ void OptimizingJITCallee::addCodeOrigin(unsigned firstInlineCSI, unsigned lastIn
     codeOrigins.append({ firstInlineCSI, lastInlineCSI, functionIndex, 0 });
 }
 
-IndexOrName OptimizingJITCallee::getOrigin(unsigned csi, unsigned depth, bool& isInlined) const
+const WasmCodeOrigin* OptimizingJITCallee::getCodeOrigin(unsigned csi, unsigned depth, bool& isInlined) const
 {
     isInlined = false;
     auto iter = std::lower_bound(codeOrigins.begin(), codeOrigins.end(), WasmCodeOrigin { 0, csi, 0, 0 }, [&](const auto& a, const auto& b) {
@@ -436,11 +341,25 @@ IndexOrName OptimizingJITCallee::getOrigin(unsigned csi, unsigned depth, bool& i
     while (iter != codeOrigins.end()) {
         if (iter->firstInlineCSI <= csi && iter->lastInlineCSI >= csi && !(depth--)) {
             isInlined = true;
-            return IndexOrName(iter->functionIndex, nameSections[iter->moduleIndex]->get(iter->functionIndex));
+            return iter;
         }
         ++iter;
     }
 
+    return nullptr;
+}
+
+IndexOrName OptimizingJITCallee::getIndexOrName(const WasmCodeOrigin* codeOrigin) const
+{
+    if (!codeOrigin)
+        return indexOrName();
+    return IndexOrName(codeOrigin->functionIndex, nameSections[codeOrigin->moduleIndex]->get(codeOrigin->functionIndex));
+}
+
+IndexOrName OptimizingJITCallee::getOrigin(unsigned csi, unsigned depth, bool& isInlined) const
+{
+    if (auto* codeOrigin = getCodeOrigin(csi, depth, isInlined))
+        return getIndexOrName(codeOrigin);
     return indexOrName();
 }
 
@@ -574,6 +493,19 @@ BBQCallee::~BBQCallee()
 }
 
 #endif
+
+WasmBuiltinCallee::WasmBuiltinCallee(const WebAssemblyBuiltin* builtin, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+    : Callee(Wasm::CompilationMode::WasmBuiltinMode, index, WTFMove(name))
+    , m_builtin(builtin, { })
+{
+    void* cFunctionPtr = std::bit_cast<void*>(m_builtin->implementation());
+    m_hostFunction = CodePtr<CFunctionPtrTag>::fromTaggedPtr(cFunctionPtr).retagged<WasmEntryPtrTag>();
+}
+
+CodePtr<WasmEntryPtrTag> WasmBuiltinCallee::entrypointImpl() const
+{
+    return CodePtr<CFunctionPtrTag>(m_builtin->implementation()).retagged<WasmEntryPtrTag>();
+}
 
 } // namespace JSC::Wasm
 

@@ -66,7 +66,7 @@ WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaDevices);
 
 inline MediaDevices::MediaDevices(Document& document)
     : ActiveDOMObject(document)
-    , m_scheduledEventTimer(RunLoop::main(), this, &MediaDevices::scheduledEventTimerFired)
+    , m_scheduledEventTimer(RunLoop::mainSingleton(), "MediaDevices::ScheduledEventTimer"_s, this, &MediaDevices::scheduledEventTimerFired)
     , m_eventNames(eventNames())
 {
     static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Monitor) == static_cast<size_t>(DisplaySurfaceType::Monitor), "MediaDevices::DisplayCaptureSurfaceType::Monitor is not equal to DisplaySurfaceType::Monitor as expected");
@@ -473,6 +473,11 @@ void MediaDevices::scheduledEventTimerFired()
 bool MediaDevices::virtualHasPendingActivity() const
 {
     return hasEventListeners(m_eventNames.devicechangeEvent);
+}
+
+ScriptExecutionContext* MediaDevices::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 void MediaDevices::listenForDeviceChanges()

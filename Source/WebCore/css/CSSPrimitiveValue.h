@@ -21,13 +21,13 @@
 
 #pragma once
 
-#include "CSSAttrValue.h"
-#include "CSSCalcValue.h"
-#include "CSSPrimitiveNumericUnits.h"
-#include "CSSPropertyNames.h"
-#include "CSSValue.h"
-#include "CSSValueKeywords.h"
-#include "LayoutUnit.h"
+#include <WebCore/CSSAttrValue.h>
+#include <WebCore/CSSCalcValue.h>
+#include <WebCore/CSSPrimitiveNumericUnits.h>
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/CSSValue.h>
+#include <WebCore/CSSValueKeywords.h>
+#include <WebCore/LayoutUnit.h>
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/MathExtras.h>
@@ -779,6 +779,18 @@ inline bool CSSValue::isCustomIdent() const
 inline String CSSValue::customIdent() const
 {
     ASSERT(isCustomIdent());
+    return downcast<CSSPrimitiveValue>(*this).stringValue();
+}
+
+inline bool CSSValue::isString() const
+{
+    auto* value = dynamicDowncast<CSSPrimitiveValue>(*this);
+    return value && value->isString();
+}
+
+inline String CSSValue::string() const
+{
+    ASSERT(isString());
     return downcast<CSSPrimitiveValue>(*this).stringValue();
 }
 

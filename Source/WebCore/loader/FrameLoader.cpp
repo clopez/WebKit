@@ -72,6 +72,7 @@
 #include "FrameNetworkingContext.h"
 #include "FrameTree.h"
 #include "GCController.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLInputElement.h"
@@ -324,7 +325,7 @@ private:
 
 
 class FrameLoader::FrameProgressTracker final : public CanMakeCheckedPtr<FrameLoader::FrameProgressTracker> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FrameProgressTracker, Loader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FrameProgressTracker);
 public:
     explicit FrameProgressTracker(LocalFrame& frame)
@@ -492,7 +493,7 @@ void FrameLoader::checkContentPolicy(const ResourceResponse& response, ContentPo
     protectedClient()->dispatchDecidePolicyForResponse(response, activeDocumentLoader()->request(), activeDocumentLoader()->downloadAttribute(), WTFMove(function));
 }
 
-void FrameLoader::changeLocation(const URL& url, const AtomString& passedTarget, Event* triggeringEvent, const ReferrerPolicy& referrerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> openerPolicy, const AtomString& downloadAttribute, std::optional<PrivateClickMeasurement>&& privateClickMeasurement, NavigationHistoryBehavior historyBehavior)
+void FrameLoader::changeLocation(const URL& url, const AtomString& passedTarget, Event* triggeringEvent, const ReferrerPolicy& referrerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> openerPolicy, const AtomString& downloadAttribute, std::optional<PrivateClickMeasurement>&& privateClickMeasurement, NavigationHistoryBehavior historyBehavior, Element* sourceElement)
 {
     RefPtr frame = lexicalFrameFromCommonVM();
     auto initiatedByMainFrame = frame && frame->isMainFrame() ? InitiatedByMainFrame::Yes : InitiatedByMainFrame::Unknown;
@@ -505,6 +506,7 @@ void FrameLoader::changeLocation(const URL& url, const AtomString& passedTarget,
     frameLoadRequest.setShouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy);
     frameLoadRequest.disableShouldReplaceDocumentIfJavaScriptURL();
     frameLoadRequest.setNavigationHistoryBehavior(historyBehavior);
+    frameLoadRequest.setSourceElement(sourceElement);
     changeLocation(WTFMove(frameLoadRequest), triggeringEvent, WTFMove(privateClickMeasurement));
 }
 
@@ -801,7 +803,7 @@ static AtomString extractContentLanguageFromHeader(const String& header)
     auto commaIndex = header.find(',');
     if (commaIndex == notFound)
         return AtomString { header.trim(isASCIIWhitespace) };
-    return StringView(header).left(commaIndex).trim(isASCIIWhitespace<UChar>).toAtomString();
+    return StringView(header).left(commaIndex).trim(isASCIIWhitespace<char16_t>).toAtomString();
 }
 
 void FrameLoader::didBeginDocument(bool dispatch, LocalDOMWindow* previousWindow)
@@ -1482,7 +1484,7 @@ void FrameLoader::loadFrameRequest(FrameLoadRequest&& request, Event* event, Ref
                 RefPtr<SerializedScriptValue> stateObject;
                 if (RefPtr currentItem = history().currentItem())
                     stateObject = currentItem->navigationAPIStateObject();
-                if (!dispatchNavigateEvent(url, loadType, request.downloadAttribute(), request.navigationHistoryBehavior(), false, formState.get(), stateObject.get()))
+                if (!dispatchNavigateEvent(loadType, request, false, formState.get(), event, stateObject.get()))
                     return;
                 if (!frame->page())
                     return;
@@ -1579,7 +1581,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     if (!isNavigationAllowed())
         return;
 
-    NavigationAction action { frameLoadRequest.requester(), request, frameLoadRequest.initiatedByMainFrame(), frameLoadRequest.isRequestFromClientOrUserInput(), newLoadType, isFormSubmission, event, frameLoadRequest.shouldOpenExternalURLsPolicy(), frameLoadRequest.downloadAttribute() };
+    NavigationAction action { frameLoadRequest.requester(), request, frameLoadRequest.initiatedByMainFrame(), frameLoadRequest.isRequestFromClientOrUserInput(), newLoadType, isFormSubmission, event, frameLoadRequest.shouldOpenExternalURLsPolicy(), frameLoadRequest.downloadAttribute(), frameLoadRequest.sourceElement() };
     action.setLockHistory(frameLoadRequest.lockHistory());
     action.setLockBackForwardList(frameLoadRequest.lockBackForwardList());
     action.setShouldReplaceDocumentIfJavaScriptURL(frameLoadRequest.shouldReplaceDocumentIfJavaScriptURL());
@@ -1599,6 +1601,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
         if (newURL.protocolIsJavaScript() || (documentLoader() && documentLoader()->isInitialAboutBlank()))
             historyHandling = NavigationHistoryBehavior::Replace;
     }
+    frameLoadRequest.setNavigationHistoryBehavior(historyHandling);
     action.setNavigationAPIType(determineNavigationType(newLoadType, historyHandling));
     if (privateClickMeasurement && frame->isMainFrame())
         action.setPrivateClickMeasurement(WTFMove(*privateClickMeasurement));
@@ -1635,8 +1638,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     // exactly the same so pages with '#' links and DHTML side effects
     // work properly.
     if (shouldPerformFragmentNavigation(isFormSubmission, httpMethod, newLoadType, newURL)) {
-
-        if (!dispatchNavigateEvent(newURL, newLoadType, action.downloadAttribute(), historyHandling, true))
+        if (!dispatchNavigateEvent(newLoadType, frameLoadRequest, true, formState.get(), event))
             return;
 
         oldDocumentLoader->setTriggeringAction(WTFMove(action));
@@ -1651,7 +1653,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     }
 
     if (isSameOrigin && newLoadType != FrameLoadType::Reload) {
-        if (!dispatchNavigateEvent(newURL, newLoadType, action.downloadAttribute(), historyHandling, false))
+        if (!dispatchNavigateEvent(newLoadType, frameLoadRequest, false, formState.get(), event))
             return;
     }
 
@@ -2412,6 +2414,16 @@ void FrameLoader::commitProvisionalLoad()
         // FIXME: This API should be turned around so that we ground CachedPage into the Page.
         RefPtr page = frame->page();
         cachedPage->restore(*page);
+
+        // Dispatch any pending navigate event after BFCache restoration is complete.
+        if (RefPtr item = std::exchange(m_pendingNavigationAPIItem, nullptr)) {
+            // Ensure we use the restored document context, not the previous one
+            if (m_frame->document() && m_frame->document()->window()) {
+                RefPtr navigation = m_frame->document()->protectedWindow()->navigation();
+                if (navigation && navigation->frame())
+                    navigation->dispatchTraversalNavigateEvent(*item);
+            }
+        }
 
 #if PLATFORM(IOS_FAMILY)
         page->chrome().setDispatchViewportDataDidChangeSuppressed(false);
@@ -3561,6 +3573,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
     action.setLockBackForwardList(request.lockBackForwardList());
     action.setShouldReplaceDocumentIfJavaScriptURL(request.shouldReplaceDocumentIfJavaScriptURL());
     action.setNewFrameOpenerPolicy(request.newFrameOpenerPolicy());
+    action.setNavigationAPIType(determineNavigationType(loadType, request.navigationHistoryBehavior()));
 
     if (!frameName.isEmpty()) {
         // The search for a target frame is done earlier in the case of form submission.
@@ -3589,7 +3602,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
     }
 
     if (request.protectedRequesterSecurityOrigin()->isSameOriginDomain(frame->protectedDocument()->protectedSecurityOrigin().get())) {
-        if (!dispatchNavigateEvent(url, loadType, action.downloadAttribute(), request.navigationHistoryBehavior(), false, formState.get()))
+        if (!dispatchNavigateEvent(loadType, request, false, formState.get()))
             return completionHandler();
     }
 
@@ -4009,7 +4022,37 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
     Ref frame = m_frame.get();
 
     bool urlIsDisallowed = allowNavigationToInvalidURL == AllowNavigationToInvalidURL::No && !request.url().isValid();
-    bool canContinue = navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad && shouldClose() && !urlIsDisallowed;
+
+    // For Navigation API traversal navigation, dispatch navigate event AFTER beforeunload.
+    bool navigateEventAborted = false;
+    bool shouldCloseResult = true;
+
+    if (m_pendingNavigationAPIItem) {
+        // Check if this will be a BFCache load - if so, defer navigate event until after restoration
+        bool willLoadFromBFCache = false;
+        if (RefPtr provisionalItem = history().provisionalItem(); provisionalItem && provisionalItem->isInBackForwardCache())
+            willLoadFromBFCache = true;
+
+        // Only call shouldClose() early for Navigation API traversals
+        shouldCloseResult = shouldClose();
+
+        if (shouldCloseResult && !willLoadFromBFCache) {
+            // For non-BFCache traversals, dispatch navigate event now
+            if (RefPtr window = frame->document()->window()) {
+                if (RefPtr navigation = window->navigation(); navigation->frame()) {
+                    if (navigation->dispatchTraversalNavigateEvent(Ref { *m_pendingNavigationAPIItem }) == Navigation::DispatchResult::Aborted)
+                        navigateEventAborted = true;
+                }
+            }
+
+            m_pendingNavigationAPIItem = nullptr;
+        }
+    } else {
+        // For non-Navigation API traversals, use original behavior with short-circuit evaluation
+        shouldCloseResult = (navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad && !urlIsDisallowed) ? shouldClose() : false;
+    }
+
+    bool canContinue = navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad && shouldCloseResult && !navigateEventAborted && !urlIsDisallowed;
     bool isTargetItem = frame->loader().history().provisionalItem() ? frame->loader().history().provisionalItem()->isTargetItem() : false;
 
     if (!canContinue) {
@@ -4322,7 +4365,7 @@ RefPtr<Frame> FrameLoader::findFrameForNavigation(const AtomString& name, Docume
     return frame;
 }
 
-bool FrameLoader::dispatchNavigateEvent(const URL& newURL, FrameLoadType loadType, const AtomString& downloadAttribute, NavigationHistoryBehavior historyHandling, bool isSameDocument, FormState* formState, SerializedScriptValue* classicHistoryAPIState)
+bool FrameLoader::dispatchNavigateEvent(FrameLoadType loadType, const FrameLoadRequest& request, bool isSameDocument, FormState* formState, Event* event, SerializedScriptValue* classicHistoryAPIState)
 {
     RefPtr document = m_frame->document();
     if (!document || !document->settings().navigationAPIEnabled())
@@ -4330,18 +4373,37 @@ bool FrameLoader::dispatchNavigateEvent(const URL& newURL, FrameLoadType loadTyp
     RefPtr window = document->window();
     if (!window)
         return true;
-    // Download events are handled later in PolicyChecker::checkNavigationPolicy().
-    if (!downloadAttribute.isNull())
+    if (request.skipNavigateEvent())
         return true;
+    // Download events are handled later in PolicyChecker::checkNavigationPolicy().
+    if (!request.downloadAttribute().isNull())
+        return true;
+
+    const URL& newURL = request.resourceRequest().url();
     if (!isSameDocument && !newURL.hasFetchScheme())
         return true;
 
-    auto navigationType = determineNavigationType(loadType, historyHandling);
+    auto navigationType = determineNavigationType(loadType, request.navigationHistoryBehavior());
+
+    if (m_policyDocumentLoader && m_policyDocumentLoader->triggeringAction().isFromNavigationAPI()) {
+        auto& action = m_policyDocumentLoader->triggeringAction();
+        auto apiType = action.navigationAPIType();
+        // If this is from Navigation API and should be a traverse, dispatch proper traverse event.
+        if (apiType && *apiType == NavigationNavigationType::Traverse)
+            return true;
+    }
+
     // Traversals are handled earlier, in loadItem().
     if (navigationType == NavigationNavigationType::Traverse)
         return true;
 
-    return window->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(newURL, navigationType, isSameDocument, formState, classicHistoryAPIState);
+    RefPtr sourceElement = event ? dynamicDowncast<Element>(event->target()) : nullptr;
+
+    // If sourceElement is from a different frame, it should be null.
+    if (sourceElement && sourceElement->document().frame() != m_frame.ptr())
+        sourceElement = nullptr;
+
+    return window->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(newURL, navigationType, isSameDocument, formState, classicHistoryAPIState, sourceElement.get());
 }
 
 void FrameLoader::loadSameDocumentItem(HistoryItem& item)
@@ -4490,28 +4552,47 @@ void FrameLoader::loadDifferentDocumentItem(HistoryItem& item, HistoryItem* from
     loadWithNavigationAction(WTFMove(request), WTFMove(action), loadType, { }, AllowNavigationToInvalidURL::Yes, shouldTreatAsContinuingLoad);
 }
 
+bool FrameLoader::shouldDispatchNavigateEventForHistoryTraversal(const HistoryItem& item, const HistoryItem* fromItem)
+{
+    // Only dispatch navigate event if this history item belongs to the current frame
+    // and the navigation is same-origin. This prevents:
+    // 1. Joint session history bug where main frame incorrectly handles iframe history
+    // 2. Cross-origin navigations from firing navigate events
+    // Related spec: https://html.spec.whatwg.org/multipage/nav-history-apis.html#has-entries-and-events-disabled
+    return fromItem && item.frameID() == frame().frameID() && SecurityOrigin::create(item.url())->isSameOriginAs(SecurityOrigin::create(fromItem->url()));
+}
+
 // Loads content into this frame, as specified by history item
 void FrameLoader::loadItem(HistoryItem& item, HistoryItem* fromItem, FrameLoadType loadType, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
 {
     m_requestedHistoryItem = item;
     RefPtr currentItem = history().currentItem();
 
-    if (frame().document() && frame().document()->settings().navigationAPIEnabled() && fromItem && SecurityOrigin::create(item.url())->isSameOriginAs(SecurityOrigin::create(fromItem->url()))) {
-        if (RefPtr window = frame().document()->window()) {
-            if (RefPtr navigation = window->navigation(); navigation->frame()) {
-                if (navigation->dispatchTraversalNavigateEvent(item) == Navigation::DispatchResult::Aborted)
-                    return;
-                // In case the event detached the frame.
-                if (!navigation->frame())
-                    return;
-            }
-        }
-    }
-
     bool sameDocumentNavigation = currentItem && item.shouldDoSameDocumentNavigationTo(*currentItem);
 
     // If we're continuing this history navigation in a new process, then doing a same document navigation never makes sense.
     ASSERT(!sameDocumentNavigation || shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::No);
+
+    // Check if Navigation API should handle this traversal
+    if (frame().document() && frame().document()->settings().navigationAPIEnabled() && shouldDispatchNavigateEventForHistoryTraversal(item, fromItem)) {
+        if (sameDocumentNavigation) {
+            // For same-document navigation, dispatch navigate event immediately.
+            // https://html.spec.whatwg.org/multipage/nav-history-apis.html#fire-a-traverse-navigate-event
+            if (RefPtr window = frame().document()->window()) {
+                if (RefPtr navigation = window->navigation(); navigation->frame()) {
+                    if (navigation->dispatchTraversalNavigateEvent(item) == Navigation::DispatchResult::Aborted)
+                        return;
+                    // In case the event detached the frame.
+                    if (!navigation->frame())
+                        return;
+                }
+            }
+        } else {
+            // For cross-document navigation, save the item for later dispatch.
+            // Navigate event will be dispatched after beforeunload.
+            m_pendingNavigationAPIItem = &item;
+        }
+    }
 
     if (sameDocumentNavigation) {
         m_loadType = loadType;

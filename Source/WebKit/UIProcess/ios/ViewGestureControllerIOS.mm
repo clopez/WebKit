@@ -108,6 +108,9 @@ static const float swipeSnapshotRemovalRenderTreeSizeTargetFraction = 0.5;
 
 - (BOOL)shouldBeginInteractiveTransition:(_UINavigationInteractiveTransitionBase *)transition
 {
+    if (_gestureController->hasActiveSwipeGesture())
+        return NO;
+
     using enum WebKit::ViewGestureController::DeferToConflictingGestures;
     auto deferToConflictingGestures = transition.gestureRecognizer.state == UIGestureRecognizerStateFailed ? Yes : No;
     return _gestureController->canSwipeInDirection([self directionForTransition:transition], deferToConflictingGestures);
@@ -489,6 +492,11 @@ bool ViewGestureController::completeSimulatedSwipeInDirectionForTesting(SwipeDir
     [transition _completeStoppedInteractiveTransition];
 
     return true;
+}
+
+WebBackForwardList* ViewGestureController::backForwardListForNavigation() const
+{
+    return &m_webPageProxyForBackForwardListForCurrentSwipe->backForwardList();
 }
 
 } // namespace WebKit

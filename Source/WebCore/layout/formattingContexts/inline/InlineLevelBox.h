@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,12 +26,12 @@
 
 #pragma once
 
-#include "FontCascade.h"
-#include "InlineRect.h"
-#include "LayoutBox.h"
-#include "LayoutUnits.h"
-#include "LengthFunctions.h"
-#include "StyleTextEdge.h"
+#include <WebCore/FontCascade.h>
+#include <WebCore/InlineRect.h>
+#include <WebCore/LayoutBox.h>
+#include <WebCore/LayoutUnits.h>
+#include <WebCore/LengthFunctions.h>
+#include <WebCore/StyleTextEdge.h>
 #include <wtf/OptionSet.h>
 
 namespace WebCore {
@@ -67,11 +68,8 @@ public:
     bool hasContent() const { return m_hasContent; }
     void setHasContent();
 
-    struct VerticalAlignment {
-        VerticalAlign type { VerticalAlign::Baseline };
-        std::optional<InlineLayoutUnit> baselineOffset;
-    };
-    VerticalAlignment verticalAlign() const { return m_style.verticalAlignment; }
+    using VerticalAlignment = Variant<CSS::Keyword::Baseline, CSS::Keyword::Sub, CSS::Keyword::Super, CSS::Keyword::Top, CSS::Keyword::TextTop, CSS::Keyword::Middle, CSS::Keyword::Bottom, CSS::Keyword::TextBottom, CSS::Keyword::WebkitBaselineMiddle, InlineLayoutUnit>;
+    const VerticalAlignment& verticalAlign() const { return m_style.verticalAlignment; }
     bool hasLineBoxRelativeAlignment() const;
 
     InlineLayoutUnit preferredLineHeight() const;
@@ -200,8 +198,8 @@ inline InlineLayoutUnit InlineLevelBox::preferredLineHeight() const
 
 inline bool InlineLevelBox::hasLineBoxRelativeAlignment() const
 {
-    auto verticalAlignment = verticalAlign().type;
-    return verticalAlignment == VerticalAlign::Top || verticalAlignment == VerticalAlign::Bottom;
+    return WTF::holdsAlternative<CSS::Keyword::Top>(m_style.verticalAlignment)
+        || WTF::holdsAlternative<CSS::Keyword::Bottom>(m_style.verticalAlignment);
 }
 
 inline void InlineLevelBox::AscentAndDescent::round()
@@ -212,4 +210,3 @@ inline void InlineLevelBox::AscentAndDescent::round()
 
 }
 }
-

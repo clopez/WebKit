@@ -1,7 +1,4 @@
 Modules/applicationmanifest/ApplicationManifestParser.cpp
-Modules/cache/DOMCache.cpp
-Modules/cache/DOMCacheStorage.cpp
-Modules/gamepad/GamepadHapticActuator.cpp
 Modules/indexeddb/IDBActiveDOMObject.h
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBIndex.cpp
@@ -21,7 +18,6 @@ Modules/mediasource/SourceBuffer.cpp
 Modules/mediastream/PeerConnectionBackend.cpp
 Modules/mediastream/RTCController.cpp
 Modules/mediastream/RTCPeerConnection.cpp
-Modules/mediastream/RTCRtpScriptTransformer.cpp
 Modules/mediastream/UserMediaRequest.cpp
 Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
@@ -207,7 +203,6 @@ dom/UIEventWithKeyState.cpp
 editing/ApplyStyleCommand.cpp
 editing/ChangeListTypeCommand.cpp
 editing/Editing.cpp
-editing/EditingStyle.cpp
 editing/Editor.cpp
 editing/EditorCommand.cpp
 editing/FormatBlockCommand.cpp
@@ -225,7 +220,7 @@ editing/VisibleUnits.cpp
 editing/cocoa/DataDetection.mm
 editing/cocoa/DictionaryLookup.mm
 editing/cocoa/EditorCocoa.mm
-editing/cocoa/HTMLConverter.mm
+editing/cocoa/NodeHTMLConverter.mm
 editing/mac/EditorMac.mm
 editing/mac/FrameSelectionMac.mm
 history/CachedFrame.cpp
@@ -297,17 +292,10 @@ layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
 loader/ApplicationManifestLoader.cpp
-loader/DocumentLoader.cpp
 loader/EmptyClients.cpp
-loader/NavigationAction.cpp
-loader/NavigationScheduler.cpp
-loader/ThreadableLoader.cpp
 loader/appcache/ApplicationCacheGroup.cpp
 loader/appcache/ApplicationCacheHost.cpp
 loader/appcache/ApplicationCacheStorage.cpp
-loader/archive/cf/LegacyWebArchive.cpp
-loader/cache/CachedImage.cpp
-loader/cache/CachedResourceRequest.cpp
 mathml/MathMLSelectElement.cpp
 page/BarProp.cpp
 page/CaptionUserPreferences.cpp
@@ -319,9 +307,7 @@ page/DragController.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
 page/FocusController.cpp
-page/Frame.cpp
 page/FrameSnapshotting.cpp
-page/FrameTree.cpp
 page/FrameView.cpp
 page/ImageAnalysisQueue.cpp
 page/InteractionRegion.cpp
@@ -429,7 +415,6 @@ platform/text/BidiResolver.h
 plugins/PluginData.cpp
 plugins/PluginInfoProvider.cpp
 rendering/BackgroundPainter.cpp
-rendering/BorderPainter.cpp
 rendering/GlyphDisplayListCache.cpp
 rendering/HitTestResult.cpp
 rendering/ImageQualityController.cpp
@@ -467,9 +452,7 @@ rendering/RenderWidget.cpp
 rendering/TextBoxPainter.cpp
 rendering/mac/RenderThemeMac.mm
 rendering/mathml/MathMLStyle.cpp
-rendering/shapes/ShapeOutsideInfo.cpp
 rendering/style/FillLayer.cpp
-rendering/style/NinePieceImage.cpp
 rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleSetters.h
 rendering/style/StyleCachedImage.cpp
@@ -527,7 +510,6 @@ style/StyleBuilderState.cpp
 style/StyleCustomPropertyRegistry.cpp
 style/StyleExtractor.cpp
 style/StyleExtractorCustom.h
-style/StyleInterpolationFunctions.h
 style/StyleInterpolationWrappers.h
 style/StyleInvalidationFunctions.h
 style/StyleInvalidator.cpp

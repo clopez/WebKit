@@ -24,6 +24,8 @@
 // This file would be called String.h, but that conflicts with <string.h>
 // on systems without case-sensitive file systems.
 
+#include <span>
+
 #include <wtf/Compiler.h>
 #include <wtf/text/IntegerToStringConversion.h>
 #include <wtf/text/StringImpl.h>
@@ -53,7 +55,7 @@ template<bool isSpecialCharacter(char16_t), typename CharacterType, std::size_t 
 enum class TrailingZerosPolicy : bool { Keep, Truncate };
 
 class String final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(String);
 public:
     // Construct a null string, distinguishable from an empty string.
     String() = default;
@@ -372,6 +374,11 @@ template<> struct IntegerToStringConversionTrait<String> {
     using ReturnType = String;
     using AdditionalArgumentType = void;
     static String flush(std::span<const LChar> characters, void*) { return characters; }
+};
+
+template<> struct MarkableTraits<String> {
+    static bool isEmptyValue(const String& string) { return string.isNull(); }
+    static String emptyValue() { return nullString(); }
 };
 
 #ifdef __OBJC__

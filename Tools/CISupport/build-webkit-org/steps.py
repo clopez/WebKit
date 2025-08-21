@@ -173,13 +173,13 @@ class TestWithFailureCount(shell.TestNewStyle):
         return {'step': status}
 
 
-class ConfigureBuild(buildstep.BuildStep):
+class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
     name = "configure-build"
     description = ["configuring build"]
     descriptionDone = ["configured build"]
 
     def __init__(self, platform, configuration, architecture, buildOnly, additionalArguments, device_model, triggers, *args, **kwargs):
-        buildstep.BuildStep.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.platform = platform
         if platform != 'jsc-only':
             self.platform = platform.split('-', 1)[0]
@@ -191,7 +191,8 @@ class ConfigureBuild(buildstep.BuildStep):
         self.device_model = device_model
         self.triggers = triggers
 
-    def start(self):
+    @defer.inlineCallbacks
+    def run(self):
         self.setProperty("platform", self.platform)
         self.setProperty("fullPlatform", self.fullPlatform)
         self.setProperty("configuration", self.configuration)
@@ -200,8 +201,8 @@ class ConfigureBuild(buildstep.BuildStep):
         self.setProperty("additionalArguments", self.additionalArguments)
         self.setProperty("device_model", self.device_model)
         self.setProperty("triggers", self.triggers)
-        self.finished(SUCCESS)
-        return defer.succeed(None)
+        yield self._addToLog('stdio', 'Set build properties')
+        return defer.returnValue(SUCCESS)
 
 
 class CheckOutSource(git.Git):
@@ -289,51 +290,51 @@ class CheckOutSpecificRevision(shell.ShellCommandNewStyle):
         return super().run()
 
 
-class KillOldProcesses(shell.Compile):
+class KillOldProcesses(shell.CompileNewStyle):
     name = "kill-old-processes"
     description = ["killing old processes"]
     descriptionDone = ["killed old processes"]
     command = ["python3", "Tools/CISupport/kill-old-processes", "buildbot"]
 
 
-class TriggerCrashLogSubmission(shell.Compile):
+class TriggerCrashLogSubmission(shell.CompileNewStyle):
     name = "trigger-crash-log-submission"
     description = ["triggering crash log submission"]
     descriptionDone = ["triggered crash log submission"]
     command = ["python3", "Tools/CISupport/trigger-crash-log-submission"]
 
 
-class WaitForCrashCollection(shell.Compile):
+class WaitForCrashCollection(shell.CompileNewStyle):
     name = "wait-for-crash-collection"
     description = ["waiting for crash collection to quiesce"]
     descriptionDone = ["crash collection has quiesced"]
     command = ["python3", "Tools/CISupport/wait-for-crash-collection", "--timeout", str(5 * 60)]
 
 
-class CleanBuildIfScheduled(shell.Compile):
+class CleanBuildIfScheduled(shell.CompileNewStyle):
     name = "delete-WebKitBuild-directory"
     description = ["deleting WebKitBuild directory"]
     descriptionDone = ["deleted WebKitBuild directory"]
     command = ["python3", "Tools/CISupport/clean-build", WithProperties("--platform=%(fullPlatform)s"), WithProperties("--%(configuration)s")]
 
-    def start(self):
+    def run(self):
         if not self.getProperty('is_clean'):
             self.hideStepIf = True
             return SKIPPED
-        return shell.Compile.start(self)
+        return super().run()
 
 
-class DeleteStaleBuildFiles(shell.Compile):
+class DeleteStaleBuildFiles(shell.CompileNewStyle):
     name = "delete-stale-build-files"
     description = ["deleting stale build files"]
     descriptionDone = ["deleted stale build files"]
     command = ["python3", "Tools/CISupport/delete-stale-build-files", WithProperties("--platform=%(fullPlatform)s"), WithProperties("--%(configuration)s")]
 
-    def start(self):
+    def run(self):
         if self.getProperty('is_clean'):  # Nothing to be done if WebKitBuild had been removed.
             self.hideStepIf = True
             return SKIPPED
-        return shell.Compile.start(self)
+        return super().run()
 
 
 class InstallGtkDependencies(shell.ShellCommandNewStyle, CustomFlagsMixin):
@@ -360,11 +361,10 @@ class InstallWpeDependencies(shell.ShellCommandNewStyle, CustomFlagsMixin):
         return super().run()
 
 
-class CompileWebKit(shell.Compile, CustomFlagsMixin, ShellMixin):
+class CompileWebKit(shell.CompileNewStyle, CustomFlagsMixin, ShellMixin, AddToLogMixin):
     build_command = ["perl", "Tools/Scripts/build-webkit", "--no-fatal-warnings"]
     filter_command = ['perl', 'Tools/Scripts/filter-build-webkit', '-logfile', 'build-log.txt']
     APPLE_PLATFORMS = ('mac', 'ios', 'visionos', 'tvos', 'watchos')
-    env = {'MFLAGS': ''}
     name = "compile-webkit"
     description = ["compiling"]
     descriptionDone = ["compiled"]
@@ -372,7 +372,8 @@ class CompileWebKit(shell.Compile, CustomFlagsMixin, ShellMixin):
     cancelled_due_to_huge_logs = False
     line_count = 0
 
-    def start(self):
+    @defer.inlineCallbacks
+    def run(self):
         platform = self.getProperty('platform')
         buildOnly = self.getProperty('buildOnly')
         architecture = self.getProperty('architecture')
@@ -408,27 +409,24 @@ class CompileWebKit(shell.Compile, CustomFlagsMixin, ShellMixin):
         # filter-build-webkit is specifically designed for Xcode and doesn't work generally
         if platform in self.APPLE_PLATFORMS:
             full_command = f"{' '.join(build_command)} 2>&1 | {' '.join(self.filter_command)}"
-            self.setCommand(self.shell_command(full_command))
+            self.command = self.shell_command(full_command)
         else:
-            self.setCommand(build_command)
+            self.command = build_command
 
-        return shell.Compile.start(self)
+        rc = yield super().run()
+        defer.returnValue(rc)
 
-    def buildCommandKwargs(self, warnings):
-        kwargs = super(CompileWebKit, self).buildCommandKwargs(warnings)
-        kwargs['timeout'] = 60 * 60
-        return kwargs
+    def __init__(self, *args, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 60 * 60
+        super().__init__(*args, **kwargs)
 
     def parseOutputLine(self, line):
         self.line_count += 1
         if self.line_count == THRESHOLD_FOR_EXCESSIVE_LOGS:
             self.handleExcessiveLogging()
             return
-
-        if "arning:" in line:
-            self._addToLog('warnings', line + '\n')
-        if "rror:" in line:
-            self._addToLog('errors', line + '\n')
+        # FIXME: Re-enable error and warning filtering from logs.
 
     def handleExcessiveLogging(self):
         build_url = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
@@ -452,14 +450,6 @@ class CompileWebKit(shell.Compile, CustomFlagsMixin, ShellMixin):
                 )
             ]
         return []
-
-    @defer.inlineCallbacks
-    def _addToLog(self, logName, message):
-        try:
-            log = self.getLog(logName)
-        except KeyError:
-            log = yield self.addLog(logName)
-        log.addStdout(message)
 
     def evaluateCommand(self, cmd):
         rc = super().evaluateCommand(cmd)
@@ -502,16 +492,16 @@ class CompileWebKit(shell.Compile, CustomFlagsMixin, ShellMixin):
             return {'step': MSG_FOR_EXCESSIVE_LOGS, 'build': MSG_FOR_EXCESSIVE_LOGS}
         if self.results == FAILURE:
             return {'step': f'Failed {self.name}'}
-        return shell.Compile.getResultSummary(self)
+        return super().getResultSummary()
 
 
 class CompileLLINTCLoop(CompileWebKit):
     build_command = ["perl", "Tools/Scripts/build-jsc", "--cloop"]
 
 
-class Compile32bitJSC(CompileWebKit):
+class CompileJSCOnly32(CompileWebKit):
     name = 'compile-jsc-32bit'
-    build_command = ["perl", "Tools/Scripts/build-jsc", "--32-bit"]
+    build_command = ["linux32", "perl", "Tools/Scripts/build-jsc", "--32-bit", "--cmakeargs", "-DUSE_LIBBACKTRACE=OFF -DDEVELOPER_MODE=ON -DENABLE_OFFLINE_ASM_ALT_ENTRY=1 -DCMAKE_CXX_FLAGS='-fuse-ld=gold -Wl,--no-map-whole-files -Wl,--no-keep-memory -Wl,--no-keep-files-mapped -Wl,--no-mmap-output-file -fno-omit-frame-pointer' -DCMAKE_C_FLAGS='-fuse-ld=gold -Wl,--no-map-whole-files -Wl,--no-keep-memory -Wl,--no-keep-files-mapped -Wl,--no-mmap-output-file -fno-omit-frame-pointer' -DUSE_LD_LLD=OFF"]
 
 
 class CompileJSCOnly(CompileWebKit):
@@ -746,6 +736,10 @@ class RunJavaScriptCoreTests(TestWithFailureCount, CustomFlagsMixin, ShellMixin)
         # but do not fail the whole run if the pass rate of the failing tests is
         # high enough.
         self.command += self.commandExtra
+
+        if self.getProperty('architecture') in ["armv7"]:
+            self.command = ["linux32"] + self.command
+
         # Currently run-javascriptcore-test doesn't support run javascript core test binaries list below remotely
         if architecture in ['aarch64']:
             self.command += ['--no-testmasm', '--no-testair', '--no-testb3', '--no-testdfg', '--no-testapi']
@@ -1356,7 +1350,7 @@ class RunWPEAPITests(RunGLibAPITests):
     command = ["python3", "Tools/Scripts/run-wpe-tests", WithProperties("--%(configuration)s")]
 
 
-class RunWebDriverTests(shell.Test, CustomFlagsMixin, ShellMixin):
+class RunWebDriverTests(shell.TestNewStyle, CustomFlagsMixin, ShellMixin):
     name = "webdriver-test"
     description = ["webdriver-tests running"]
     descriptionDone = ["webdriver-tests"]
@@ -1443,9 +1437,9 @@ class RunWebKit1LeakTests(RunWebKit1Tests):
     want_stderr = False
     warnOnWarnings = True
 
-    def start(self):
+    def run(self):
         self.command += ["--leaks", "--result-report-flavor", "Leaks"]
-        return RunWebKit1Tests.start(self)
+        return super().run()
 
 
 class RunAndUploadPerfTests(shell.TestNewStyle):

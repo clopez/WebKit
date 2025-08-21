@@ -44,8 +44,6 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRareNonInheritedData);
 StyleRareNonInheritedData::StyleRareNonInheritedData()
     : containIntrinsicWidth(RenderStyle::initialContainIntrinsicWidth())
     , containIntrinsicHeight(RenderStyle::initialContainIntrinsicHeight())
-    , perspectiveOriginX(RenderStyle::initialPerspectiveOriginX())
-    , perspectiveOriginY(RenderStyle::initialPerspectiveOriginY())
     , lineClamp(RenderStyle::initialLineClamp())
     , zoom(RenderStyle::initialZoom())
     , maxLines(RenderStyle::initialMaxLines())
@@ -64,12 +62,13 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     // counterDirectives
     , willChange(RenderStyle::initialWillChange())
     // boxReflect
-    , maskBorder(NinePieceImage::Type::Mask)
+    , maskBorder(RenderStyle::initialMaskBorder())
     // pageSize
     , shapeOutside(RenderStyle::initialShapeOutside())
     , shapeMargin(RenderStyle::initialShapeMargin())
     , shapeImageThreshold(RenderStyle::initialShapeImageThreshold())
     , perspective(RenderStyle::initialPerspective())
+    , perspectiveOrigin(RenderStyle::initialPerspectiveOrigin())
     , clipPath(RenderStyle::initialClipPath())
     , textDecorationColor(RenderStyle::initialTextDecorationColor())
     , customProperties(Style::CustomPropertyData::create())
@@ -96,7 +95,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , viewTimelineAxes(RenderStyle::initialViewTimelineAxes())
     , viewTimelineNames(RenderStyle::initialViewTimelineNames())
     // timelineScope
-    // scrollbarGutter
+    , scrollbarGutter(RenderStyle::initialScrollbarGutter())
     // scrollSnapType
     // scrollSnapAlign
     // scrollSnapStop
@@ -106,6 +105,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , positionAnchor(RenderStyle::initialPositionAnchor())
     , positionArea(RenderStyle::initialPositionArea())
     , positionTryFallbacks(RenderStyle::initialPositionTryFallbacks())
+    , lastSuccessfulPositionTryFallbackIndex()
     , blockStepSize(RenderStyle::initialBlockStepSize())
     , blockStepAlign(static_cast<unsigned>(RenderStyle::initialBlockStepAlign()))
     , blockStepInsert(static_cast<unsigned>(RenderStyle::initialBlockStepInsert()))
@@ -116,7 +116,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , transformStyle3D(static_cast<unsigned>(RenderStyle::initialTransformStyle3D()))
     , transformStyleForcedToFlat(false)
     , backfaceVisibility(static_cast<unsigned>(RenderStyle::initialBackfaceVisibility()))
-    , useSmoothScrolling(static_cast<unsigned>(RenderStyle::initialUseSmoothScrolling()))
+    , scrollBehavior(static_cast<unsigned>(RenderStyle::initialScrollBehavior()))
     , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
     , textGroupAlign(static_cast<unsigned>(RenderStyle::initialTextGroupAlign()))
     , contentVisibility(static_cast<unsigned>(RenderStyle::initialContentVisibility()))
@@ -151,8 +151,6 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     : RefCounted<StyleRareNonInheritedData>()
     , containIntrinsicWidth(o.containIntrinsicWidth)
     , containIntrinsicHeight(o.containIntrinsicHeight)
-    , perspectiveOriginX(o.perspectiveOriginX)
-    , perspectiveOriginY(o.perspectiveOriginY)
     , lineClamp(o.lineClamp)
     , zoom(o.zoom)
     , maxLines(o.maxLines)
@@ -177,6 +175,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , shapeMargin(o.shapeMargin)
     , shapeImageThreshold(o.shapeImageThreshold)
     , perspective(o.perspective)
+    , perspectiveOrigin(o.perspectiveOrigin)
     , clipPath(o.clipPath)
     , textDecorationColor(o.textDecorationColor)
     , customProperties(o.customProperties)
@@ -213,6 +212,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , positionAnchor(o.positionAnchor)
     , positionArea(o.positionArea)
     , positionTryFallbacks(o.positionTryFallbacks)
+    , lastSuccessfulPositionTryFallbackIndex(o.lastSuccessfulPositionTryFallbackIndex)
     , blockStepSize(o.blockStepSize)
     , blockStepAlign(o.blockStepAlign)
     , blockStepInsert(o.blockStepInsert)
@@ -223,7 +223,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , transformStyle3D(o.transformStyle3D)
     , transformStyleForcedToFlat(o.transformStyleForcedToFlat)
     , backfaceVisibility(o.backfaceVisibility)
-    , useSmoothScrolling(o.useSmoothScrolling)
+    , scrollBehavior(o.scrollBehavior)
     , textDecorationStyle(o.textDecorationStyle)
     , textGroupAlign(o.textGroupAlign)
     , contentVisibility(o.contentVisibility)
@@ -265,8 +265,6 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
 {
     return containIntrinsicWidth == o.containIntrinsicWidth
         && containIntrinsicHeight == o.containIntrinsicHeight
-        && perspectiveOriginX == o.perspectiveOriginX
-        && perspectiveOriginY == o.perspectiveOriginY
         && lineClamp == o.lineClamp
         && zoom == o.zoom
         && maxLines == o.maxLines
@@ -287,10 +285,11 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && arePointingToEqualData(boxReflect, o.boxReflect)
         && maskBorder == o.maskBorder
         && pageSize == o.pageSize
-        && arePointingToEqualData(shapeOutside, o.shapeOutside)
+        && shapeOutside == o.shapeOutside
         && shapeMargin == o.shapeMargin
         && shapeImageThreshold == o.shapeImageThreshold
         && perspective == o.perspective
+        && perspectiveOrigin == o.perspectiveOrigin
         && clipPath == o.clipPath
         && textDecorationColor == o.textDecorationColor
         && customProperties == o.customProperties
@@ -325,6 +324,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && positionAnchor == o.positionAnchor
         && positionArea == o.positionArea
         && positionTryFallbacks == o.positionTryFallbacks
+        && lastSuccessfulPositionTryFallbackIndex == o.lastSuccessfulPositionTryFallbackIndex
         && blockStepSize == o.blockStepSize
         && blockStepAlign == o.blockStepAlign
         && blockStepInsert == o.blockStepInsert
@@ -335,7 +335,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && transformStyle3D == o.transformStyle3D
         && transformStyleForcedToFlat == o.transformStyleForcedToFlat
         && backfaceVisibility == o.backfaceVisibility
-        && useSmoothScrolling == o.useSmoothScrolling
+        && scrollBehavior == o.scrollBehavior
         && textDecorationStyle == o.textDecorationStyle
         && textGroupAlign == o.textGroupAlign
         && effectiveBlendMode == o.effectiveBlendMode
@@ -401,9 +401,6 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT(containIntrinsicWidth);
     LOG_IF_DIFFERENT(containIntrinsicHeight);
 
-    LOG_IF_DIFFERENT(perspectiveOriginX);
-    LOG_IF_DIFFERENT(perspectiveOriginY);
-
     LOG_IF_DIFFERENT(lineClamp);
 
     LOG_IF_DIFFERENT(zoom);
@@ -430,10 +427,11 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT(pageSize);
 
     LOG_IF_DIFFERENT(shapeOutside);
-
     LOG_IF_DIFFERENT(shapeMargin);
     LOG_IF_DIFFERENT(shapeImageThreshold);
+
     LOG_IF_DIFFERENT(perspective);
+    LOG_IF_DIFFERENT(perspectiveOrigin);
 
     LOG_IF_DIFFERENT(clipPath);
 
@@ -486,6 +484,7 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT(positionAnchor);
     LOG_IF_DIFFERENT(positionArea);
     LOG_IF_DIFFERENT(positionTryFallbacks);
+    LOG_IF_DIFFERENT(lastSuccessfulPositionTryFallbackIndex);
     LOG_IF_DIFFERENT(positionVisibility);
 
     LOG_IF_DIFFERENT(blockStepSize);
@@ -503,7 +502,7 @@ void StyleRareNonInheritedData::dumpDifferences(TextStream& ts, const StyleRareN
     LOG_IF_DIFFERENT_WITH_CAST(bool, transformStyleForcedToFlat);
     LOG_IF_DIFFERENT_WITH_CAST(BackfaceVisibility, backfaceVisibility);
 
-    LOG_IF_DIFFERENT_WITH_CAST(ScrollBehavior, useSmoothScrolling);
+    LOG_IF_DIFFERENT_WITH_CAST(Style::ScrollBehavior, scrollBehavior);
     LOG_IF_DIFFERENT_WITH_CAST(TextDecorationStyle, textDecorationStyle);
     LOG_IF_DIFFERENT_WITH_CAST(TextGroupAlign, textGroupAlign);
 

@@ -182,7 +182,6 @@ public:
     void addUserStyleSheet(JSStringRef source, bool allFrames);
 
     // Text search testing.
-    void findString(JSContextRef, JSStringRef, JSValueRef optionsArray, JSValueRef callback);
     void findStringMatchesInPage(JSContextRef, JSStringRef, JSValueRef optionsArray);
     void indicateFindMatch(JSContextRef, uint32_t index);
     void replaceFindMatchesAtIndices(JSContextRef, JSValueRef matchIndices, JSStringRef replacementText, bool selectionOnly);
@@ -482,6 +481,8 @@ public:
     // Storage Access API
     void getAllStorageAccessEntries(JSContextRef, JSValueRef callback);
     void setRequestStorageAccessThrowsExceptionUntilReload(bool enabled);
+    void setStorageAccessPermission(JSContextRef, bool, JSStringRef, JSValueRef callback);
+    void setStorageAccess(JSContextRef, bool, JSValueRef callback);
 
     // Open panel
     void setOpenPanelFiles(JSContextRef, JSValueRef);
@@ -586,6 +587,8 @@ public:
 #endif
     }
     void setResourceMonitorList(JSContextRef, JSStringRef rulesText, JSValueRef callback);
+
+    void setHasMouseDeviceForTesting(bool);
 
 private:
     TestRunner();

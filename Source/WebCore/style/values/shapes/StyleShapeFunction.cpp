@@ -33,6 +33,7 @@
 #include "SVGPathByteStreamSource.h"
 #include "SVGPathParser.h"
 #include "SVGPathSource.h"
+#include "StyleLengthWrapper+Blending.h"
 #include "StylePathFunction.h"
 #include "StylePrimitiveNumericTypes+Blending.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
@@ -299,7 +300,7 @@ private:
 
     static CoordinatePair toCoordinatePair(FloatPoint p)
     {
-        return toPosition(p).value;
+        return { LengthPercentage<>::Dimension { p.x() }, LengthPercentage<>::Dimension { p.y() } };
     }
 
     static Position absoluteOffsetPoint(FloatPoint p)

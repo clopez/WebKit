@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include "FrameLoaderTypes.h"
-#include "LoaderMalloc.h"
-#include "Timer.h"
+#include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/LoaderMalloc.h>
+#include <WebCore/Timer.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/WeakRef.h>
@@ -51,7 +51,7 @@ enum class ScheduleLocationChangeResult : uint8_t { Stopped, Completed, Started 
 enum class ScheduleHistoryNavigationResult : bool { Completed, Aborted };
 
 class NavigationScheduler final {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(NavigationScheduler, Loader);
 public:
     explicit NavigationScheduler(Frame&);
     ~NavigationScheduler();

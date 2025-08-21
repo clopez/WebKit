@@ -27,7 +27,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "WasmCallee.h"
+#include <JavaScriptCore/WasmCallee.h>
 
 extern "C" void SYSV_ABI ipint_entry();
 extern "C" void SYSV_ABI ipint_entry_simd();
@@ -793,6 +793,7 @@ FOR_EACH_IPINT_UINT_OPCODE(IPINT_VALIDATE_DEFINE_FUNCTION);
 namespace JSC { namespace IPInt {
 
 void initialize();
+void verifyInitialization();
 
 } }
 

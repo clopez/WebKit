@@ -174,8 +174,6 @@ wasm/WasmFunctionParser.h
 wasm/WasmIPIntGenerator.cpp
 wasm/WasmIPIntPlan.cpp
 wasm/WasmIPIntSlowPaths.cpp
-wasm/WasmLLIntGenerator.cpp
-wasm/WasmLLIntPlan.cpp
 wasm/WasmMemory.cpp
 wasm/WasmMemory.h
 wasm/WasmOMGIRGenerator.cpp
@@ -185,7 +183,6 @@ wasm/WasmOperations.cpp
 wasm/WasmOperationsInlines.h
 wasm/WasmPlan.cpp
 wasm/WasmSectionParser.cpp
-wasm/WasmSlowPaths.cpp
 wasm/WasmStreamingCompiler.cpp
 wasm/WasmStreamingParser.cpp
 wasm/WasmTag.h
@@ -194,15 +191,11 @@ wasm/WasmTypeDefinition.h
 wasm/WasmTypeDefinitionInlines.h
 wasm/WasmWorklist.cpp
 wasm/js/JSWebAssembly.cpp
-wasm/js/JSWebAssemblyArray.h
-wasm/js/JSWebAssemblyException.cpp
 wasm/js/JSWebAssemblyHelpers.h
 wasm/js/JSWebAssemblyInstance.cpp
 wasm/js/JSWebAssemblyInstance.h
 wasm/js/JSWebAssemblyMemory.cpp
 wasm/js/JSWebAssemblyMemory.h
-wasm/js/JSWebAssemblyStruct.cpp
-wasm/js/JSWebAssemblyStruct.h
 wasm/js/WasmToJS.cpp
 wasm/js/WebAssemblyFunction.h
 wasm/js/WebAssemblyInstanceConstructor.cpp

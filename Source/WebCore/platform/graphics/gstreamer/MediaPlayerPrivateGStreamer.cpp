@@ -30,6 +30,7 @@
 
 #include "AudioTrackPrivateGStreamer.h"
 #include "GStreamerAudioMixer.h"
+#include "GStreamerCaptureDeviceManager.h"
 #include "GStreamerCommon.h"
 #include "GStreamerQuirks.h"
 #include "GStreamerRegistryScanner.h"
@@ -168,8 +169,8 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     , m_maxTimeLoaded(MediaTime::zeroTime())
     , m_preload(player->preload())
     , m_maxTimeLoadedAtLastDidLoadingProgress(MediaTime::zeroTime())
-    , m_drawTimer(RunLoop::main(), this, &MediaPlayerPrivateGStreamer::repaint)
-    , m_pausedTimerHandler(RunLoop::main(), this, &MediaPlayerPrivateGStreamer::pausedTimerFired)
+    , m_drawTimer(RunLoop::mainSingleton(), "MediaPlayerPrivateGStreamer::DrawTimer"_s, this, &MediaPlayerPrivateGStreamer::repaint)
+    , m_pausedTimerHandler(RunLoop::mainSingleton(), "MediaPlayerPrivateGStreamer::PausedTimerHandler"_s, this, &MediaPlayerPrivateGStreamer::pausedTimerFired)
 #if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
@@ -1320,7 +1321,7 @@ void MediaPlayerPrivateGStreamer::videoSinkCapsChanged(GstPad* videoSinkPad)
         return;
     }
 
-    RunLoop::protectedMain()->dispatch([weakThis = ThreadSafeWeakPtr { *this }, this, caps = WTFMove(caps)] {
+    RunLoop::mainSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, this, caps = WTFMove(caps)] {
         RefPtr self = weakThis.get();
         if (!self)
             return;
@@ -3604,7 +3605,7 @@ bool MediaPlayerPrivateGStreamer::performTaskAtTime(Function<void()>&& task, con
     // Dispatch the task if the time is already reached. Dispatching instead of directly running the
     // task prevents infinite recursion in case the task calls performTaskAtTime() internally.
     if (taskToSchedule)
-        RunLoop::protectedMain()->dispatch(WTFMove(taskToSchedule.value()));
+        RunLoop::mainSingleton().dispatch(WTFMove(taskToSchedule.value()));
 
     return true;
 }
@@ -3803,7 +3804,7 @@ void MediaPlayerPrivateGStreamer::invalidateCachedPosition() const
 
 void MediaPlayerPrivateGStreamer::invalidateCachedPositionOnNextIteration() const
 {
-    RunLoop::protectedMain()->dispatch([weakThis = ThreadSafeWeakPtr { *this }, this] {
+    RunLoop::mainSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, this] {
         RefPtr player = weakThis.get();
         if (!player)
             return;
@@ -3829,7 +3830,7 @@ void MediaPlayerPrivateGStreamer::triggerRepaint(GRefPtr<GstSample>&& sample)
         MediaTime currentTime = MediaTime(gst_segment_to_stream_time(gst_sample_get_segment(sample.get()), GST_FORMAT_TIME, GST_BUFFER_PTS(buffer)), GST_SECOND);
         DataMutexLocker taskAtMediaTimeScheduler { m_TaskAtMediaTimeSchedulerDataMutex };
         if (auto task = taskAtMediaTimeScheduler->checkTaskForScheduling(currentTime))
-            RunLoop::protectedMain()->dispatch(WTFMove(task.value()));
+            RunLoop::mainSingleton().dispatch(WTFMove(task.value()));
     }
 
     bool shouldTriggerResize;
@@ -3872,7 +3873,7 @@ void MediaPlayerPrivateGStreamer::triggerRepaint(GRefPtr<GstSample>&& sample)
                 }
             }
         }
-        RunLoop::protectedMain()->dispatch([weakThis = ThreadSafeWeakPtr { *this }, this, caps = WTFMove(caps)] {
+        RunLoop::mainSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, this, caps = WTFMove(caps)] {
             RefPtr self = weakThis.get();
             if (!self)
                 return;
@@ -4390,7 +4391,7 @@ void MediaPlayerPrivateGStreamer::initializationDataEncountered(InitData&& initD
         return;
     }
 
-    RunLoop::protectedMain()->dispatch([weakThis = ThreadSafeWeakPtr { *this }, initData = WTFMove(initData)] {
+    RunLoop::mainSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, initData = WTFMove(initData)] {
         RefPtr self = weakThis.get();
         if (!self)
             return;
@@ -4581,17 +4582,32 @@ void MediaPlayerPrivateGStreamer::checkPlayingConsistency()
     }
 }
 
-static void applyAudioSinkDevice(GstElement* audioSinkBin, const String& deviceId)
+bool MediaPlayerPrivateGStreamer::applyAudioSinkDevice(GstElement* audioSink, GstDevice* device)
 {
-    for (auto* element : GstIteratorAdaptor<GstElement>(gst_bin_iterate_sinks(GST_BIN_CAST(audioSinkBin)))) {
-        // pulsesink and alsasink have a "device" property, whilst pipewiresink has "target-object"
-        if (gstElementMatchesFactoryAndHasProperty(element, "pulsesink"_s, "device"_s) || gstElementMatchesFactoryAndHasProperty(element, "alsasink"_s, "device"_s))
-            g_object_set(element, "device", deviceId.utf8().data(), nullptr);
-        else if (gstElementMatchesFactoryAndHasProperty(element, "pipewiresink"_s, "target-object"_s))
-            g_object_set(element, "target-object", deviceId.utf8().data(), nullptr);
-        else if (GST_IS_BIN(element))
-            applyAudioSinkDevice(element, deviceId);
+    bool changed = false;
+
+    if (GST_IS_BIN(audioSink)) {
+        for (auto* element : GstIteratorAdaptor<GstElement>(gst_bin_iterate_sinks(GST_BIN_CAST(audioSink)))) {
+            if (applyAudioSinkDevice(element, device))
+                changed = true;
+        }
+        return changed;
     }
+
+    if (gstElementFactoryEquals(audioSink, "fakeaudiosink"_s) || gstElementFactoryEquals(audioSink, "fakesink"_s)) {
+#if ENABLE(DEVELOPER_MODE)
+        // Testing bots have fakeaudiosink upranked to run layout tests, so in that case consider the change done.
+        GST_DEBUG_OBJECT(pipeline(), "Found fake sink, considering the change done for testing.");
+        return true;
+#else
+        GST_WARNING_OBJECT(pipeline(), "Skipped unexpected fake sink, your audio configuration may have issues.");
+        return changed;
+#endif
+    }
+
+    changed = !!gst_device_reconfigure_element(device, audioSink);
+    GST_DEBUG_OBJECT(pipeline(), "%s element '%s' with device %s<%p>", changed ? "Reconfigured" : "Skipped", GST_ELEMENT_NAME(audioSink), GST_OBJECT_NAME(device), device);
+    return changed;
 }
 
 void MediaPlayerPrivateGStreamer::audioOutputDeviceChanged()
@@ -4600,8 +4616,24 @@ void MediaPlayerPrivateGStreamer::audioOutputDeviceChanged()
     if (!player)
         return;
 
+    auto* sink = audioSink();
+    if (!sink) {
+        GST_DEBUG_OBJECT(pipeline(), "No audio sink, skipping audio output device change");
+        return;
+    }
+
+    bool changed = false;
     auto deviceId = player->audioOutputDeviceId();
-    applyAudioSinkDevice(m_audioSink.get(), deviceId);
+
+    if (auto captureDevice = GStreamerAudioCaptureDeviceManager::singleton().gstreamerDeviceWithUID(deviceId)) {
+        auto* device = captureDevice->device();
+        GUniquePtr<char> deviceName(gst_device_get_display_name(device));
+        GST_DEBUG_OBJECT(pipeline(), "Switching to %s<%p>, output '%s'", GST_OBJECT_NAME(device), device, deviceName.get());
+        changed = applyAudioSinkDevice(sink, device);
+    } else
+        GST_WARNING_OBJECT(pipeline(), "Could not obtain GstDevice for identifier '%s'", deviceId.utf8().data());
+
+    GST_DEBUG_OBJECT(pipeline(), "%s to audio output device '%s'", changed ? "Changed" : "Could not change", deviceId.utf8().data());
 }
 
 String MediaPlayerPrivateGStreamer::codecForStreamId(TrackID streamId)

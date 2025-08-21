@@ -1,14 +1,9 @@
 NetworkProcess/Classifier/ResourceLoadStatisticsStore.cpp
 NetworkProcess/DatabaseUtilities.cpp
 NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDatabase.cpp
-NetworkProcess/SharedWorker/WebSharedWorkerServerConnection.cpp
-NetworkProcess/cocoa/WKURLSessionTaskDelegate.mm
-NetworkProcess/cocoa/WebSocketTaskCocoa.mm
 Platform/IPC/ArgumentCoders.h
 Platform/cocoa/_WKWebViewTextInputNotifications.mm
-Shared/RemoteLayerTree/RemoteLayerBackingStoreCollection.mm
 Shared/RemoteLayerTree/RemoteLayerTreeTransaction.mm
-Shared/WebWheelEventCoalescer.cpp
 UIProcess/API/Cocoa/WKWebView.mm
 UIProcess/API/Cocoa/WKWebViewTesting.mm
 UIProcess/API/Cocoa/_WKInspectorExtension.mm
@@ -42,8 +37,6 @@ WebProcess/Network/webrtc/LibWebRTCDnsResolverFactory.cpp
 WebProcess/Network/webrtc/LibWebRTCNetwork.h
 WebProcess/Network/webrtc/LibWebRTCProvider.cpp
 WebProcess/Network/webrtc/LibWebRTCResolver.cpp
-WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager.cpp
-WebProcess/Storage/WebServiceWorkerFetchTaskClient.cpp
 WebProcess/WebCoreSupport/WebChromeClient.cpp
 WebProcess/WebCoreSupport/mac/WebPopupMenuMac.mm
 WebProcess/WebPage/Cocoa/TextAnimationController.mm
@@ -61,7 +54,6 @@ WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm
 WebProcess/WebPage/mac/WKAccessibilityWebPageObjectBase.mm
 WebProcess/WebPage/mac/WebPageMac.mm
 WebProcess/cocoa/PlaybackSessionManager.mm
-WebProcess/cocoa/RemoteRealtimeMediaSource.cpp
 WebProcess/cocoa/UserMediaCaptureManager.cpp
 WebProcess/cocoa/VideoPresentationManager.mm
 WebProcess/cocoa/WebProcessCocoa.mm

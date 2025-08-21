@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2025 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -38,32 +38,16 @@ macro getuOperandWide16JS(opcodeStruct, fieldName, dst)
     loadh constexpr %opcodeStruct%_%fieldName%_index * 2 + OpcodeIDWide16SizeJS[PB, PC, 1], dst
 end
 
-macro getuOperandWide16Wasm(opcodeStruct, fieldName, dst)
-    loadh constexpr %opcodeStruct%_%fieldName%_index * 2 + OpcodeIDWide16SizeWasm[PB, PC, 1], dst
-end
-
 macro getOperandWide16JS(opcodeStruct, fieldName, dst)
     loadhsi constexpr %opcodeStruct%_%fieldName%_index * 2 + OpcodeIDWide16SizeJS[PB, PC, 1], dst
-end
-
-macro getOperandWide16Wasm(opcodeStruct, fieldName, dst)
-    loadhsi constexpr %opcodeStruct%_%fieldName%_index * 2 + OpcodeIDWide16SizeWasm[PB, PC, 1], dst
 end
 
 macro getuOperandWide32JS(opcodeStruct, fieldName, dst)
     loadi constexpr %opcodeStruct%_%fieldName%_index * 4 + OpcodeIDWide32SizeJS[PB, PC, 1], dst
 end
 
-macro getuOperandWide32Wasm(opcodeStruct, fieldName, dst)
-    loadi constexpr %opcodeStruct%_%fieldName%_index * 4 + OpcodeIDWide32SizeWasm[PB, PC, 1], dst
-end
-
 macro getOperandWide32JS(opcodeStruct, fieldName, dst)
     loadis constexpr %opcodeStruct%_%fieldName%_index * 4 + OpcodeIDWide32SizeJS[PB, PC, 1], dst
-end
-
-macro getOperandWide32Wasm(opcodeStruct, fieldName, dst)
-    loadis constexpr %opcodeStruct%_%fieldName%_index * 4 + OpcodeIDWide32SizeWasm[PB, PC, 1], dst
 end
 
 macro storeJSValueConcurrent(store, tag, payload)
@@ -244,7 +228,7 @@ macro doVMEntry(makeCall)
     # and the frame for the JS code we're executing. We need to do this check
     # before we start copying the args from the protoCallFrame below.
     if C_LOOP
-        bpaeq t3, VM::m_cloopStackLimit[vm], .stackHeightOK
+        bpaeq t3, VMCLoopStackLimitOffset[vm], .stackHeightOK
         move entry, t4
         move vm, t5
         cloopCallSlowPath _llint_stack_check_at_vm_entry, vm, t3
@@ -258,7 +242,7 @@ macro doVMEntry(makeCall)
         move t5, vm
         jmp _llint_throw_stack_overflow_error_from_vm_entry
     else
-        bplteq t3, VM::m_softStackLimit[vm], _llint_throw_stack_overflow_error_from_vm_entry
+        bpbeq t3, VMSoftStackLimitOffset[vm], _llint_throw_stack_overflow_error_from_vm_entry
     end
 
 .stackHeightOK:
@@ -728,9 +712,9 @@ macro functionArityCheck(opcodeName, doneLabel)
     subp cfr, t3, t5
     loadp CodeBlock::m_vm[t1], t0
     if C_LOOP
-        bplteq VM::m_cloopStackLimit[t0], t5, .stackHeightOK
+        bpbeq VMCLoopStackLimitOffset[t0], t5, .stackHeightOK
     else
-        bplteq VM::m_softStackLimit[t0], t5, .stackHeightOK
+        bpbeq VMSoftStackLimitOffset[t0], t5, .stackHeightOK
     end
 
     prepareStateForCCall()

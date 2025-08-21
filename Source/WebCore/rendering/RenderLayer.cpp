@@ -310,7 +310,7 @@ static ScrollingScope nextScrollingScope()
     return ++currentScope;
 }
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderLayer);
+WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(RenderLayer);
 
 RenderLayer::RenderLayer(RenderLayerModelObject& renderer)
     : m_isRenderViewLayer(renderer.isRenderView())
@@ -613,7 +613,7 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || renderer.hasReflection()
         || renderer.style().hasIsolation()
         || renderer.shouldApplyPaintContainment()
-        || !renderer.style().hasAutoUsedZIndex()
+        || !renderer.style().usedZIndex().isAuto()
         || (renderer.style().willChange() && renderer.style().willChange()->canCreateStackingContext())
         || layer.establishesTopLayer();
 }
@@ -634,7 +634,14 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::shouldBeCSSStackingContext() const
 {
-    return !renderer().style().hasAutoUsedZIndex() || renderer().shouldApplyLayoutContainment() || renderer().shouldApplyPaintContainment() || renderer().requiresRenderingConsolidationForViewTransition() || renderer().isRenderViewTransitionCapture() ||  renderer().isViewTransitionRoot() || renderer().isViewTransitionContainingBlock() || isRenderViewLayer();
+    return !renderer().style().usedZIndex().isAuto()
+        || renderer().shouldApplyLayoutContainment()
+        || renderer().shouldApplyPaintContainment()
+        || renderer().requiresRenderingConsolidationForViewTransition()
+        || renderer().isRenderViewTransitionCapture()
+        || renderer().isViewTransitionRoot()
+        || renderer().isViewTransitionContainingBlock()
+        || isRenderViewLayer();
 }
 
 bool RenderLayer::computeCanBeBackdropRoot() const
@@ -1005,7 +1012,7 @@ RenderLayerCompositor& RenderLayer::compositor() const
     return renderer().view().compositor();
 }
 
-void RenderLayer::contentChanged(ContentChangeType changeType)
+void RenderLayer::contentChanged(ContentChangeType changeType, const std::optional<FloatRect>& dirtyRect)
 {
     if (changeType == ContentChangeType::Canvas || changeType == ContentChangeType::Video || changeType == ContentChangeType::FullScreen || changeType == ContentChangeType::Model || changeType == ContentChangeType::HDRImage) {
         setNeedsPostLayoutCompositingUpdate();
@@ -1013,7 +1020,7 @@ void RenderLayer::contentChanged(ContentChangeType changeType)
     }
 
     if (auto* backing = this->backing())
-        backing->contentChanged(changeType);
+        backing->contentChanged(changeType, dirtyRect);
 }
 
 bool RenderLayer::canRender3DTransforms() const
@@ -1703,8 +1710,8 @@ void RenderLayer::updateTransformFromStyle(TransformationMatrix& transform, cons
     // > After layout has been performed for abspos, it is additionally shifted by
     // > the default scroll shift, as if affected by a transform
     // > ** (before any other transforms). **
-    if (m_snapshottedScrollOffsetForAnchorPositioning)
-        transform.translate(m_snapshottedScrollOffsetForAnchorPositioning->width(), m_snapshottedScrollOffsetForAnchorPositioning->height());
+    if (m_anchorScrollAdjustment)
+        transform.translate(m_anchorScrollAdjustment->width(), m_anchorScrollAdjustment->height());
 
     auto referenceBoxRect = snapRectToDevicePixelsIfNeeded(renderer().transformReferenceBoxRect(style), renderer());
     renderer().applyTransform(transform, style, referenceBoxRect, options);
@@ -2285,7 +2292,7 @@ FloatPoint RenderLayer::perspectiveOrigin() const
 {
     if (!renderer().hasTransformRelatedProperty())
         return { };
-    return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), renderer().transformReferenceBoxRect(renderer().style()).size());
+    return Style::evaluate(renderer().style().perspectiveOrigin(), renderer().transformReferenceBoxRect(renderer().style()).size());
 }
 
 static inline bool isContainerForPositioned(RenderLayer& layer, PositionType position, bool establishesTopLayer)
@@ -2997,7 +3004,7 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const LayoutSize& oldOff
     float zoomFactor = renderer->style().usedZoom();
 
     auto absolutePoint = document->view()->windowToContents(evt.position());
-    auto localPoint = roundedIntPoint(absoluteToContents(absolutePoint));
+    auto localPoint = roundedIntPoint(absoluteToContents(LayoutPoint(absolutePoint)));
 
     LayoutSize newOffset = offsetFromResizeCorner(localPoint);
     newOffset.setWidth(newOffset.width() / zoomFactor);
@@ -4669,25 +4676,27 @@ bool RenderLayer::participatesInPreserve3D() const
     return ancestorLayerIsDOMParent(parent()) && parent()->preserves3D() && (transform() || renderer().style().backfaceVisibility() == BackfaceVisibility::Hidden || preserves3D());
 }
 
-void RenderLayer::setSnapshottedScrollOffsetForAnchorPositioning(LayoutSize offset)
+bool RenderLayer::setAnchorScrollAdjustment(LayoutSize offset)
 {
-    if (m_snapshottedScrollOffsetForAnchorPositioning == offset)
-        return;
+    if (m_anchorScrollAdjustment == offset)
+        return false;
 
     // FIXME: Scroll offset should be adjusted in the scrolling tree so layers stay exactly in sync.
-    m_snapshottedScrollOffsetForAnchorPositioning = offset;
+    m_anchorScrollAdjustment = offset;
     updateTransform();
 
     if (isComposited())
         setNeedsCompositingGeometryUpdate();
+
+    return true;
 }
 
-void RenderLayer::clearSnapshottedScrollOffsetForAnchorPositioning()
+void RenderLayer::clearAnchorScrollAdjustment()
 {
-    if (!m_snapshottedScrollOffsetForAnchorPositioning)
+    if (!m_anchorScrollAdjustment)
         return;
 
-    m_snapshottedScrollOffsetForAnchorPositioning = { };
+    m_anchorScrollAdjustment = { };
     updateTransform();
 
     if (isComposited())
@@ -5987,8 +5996,8 @@ static bool rendererHasHDRContent(const RenderElement& renderer)
                 return true;
         }
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
-    } else if (CheckedPtr canavsRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer)) {
-        if (auto* renderingContext = canavsRenderer->canvasElement().renderingContext()) {
+    } else if (CheckedPtr canvasRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer)) {
+        if (auto* renderingContext = canvasRenderer->canvasElement().renderingContext()) {
             if (renderingContext->isHDR())
                 return true;
         }
@@ -6001,9 +6010,8 @@ static bool rendererHasHDRContent(const RenderElement& renderer)
                 return true;
         }
 
-        if (style.hasBorderImage()) {
-            auto image = style.borderImage().image();
-            if (auto* cachedImage = image ? image->cachedImage() : nullptr) {
+        if (auto image = style.borderImage().source().tryImage()) {
+            if (auto* cachedImage = image ? image->value->cachedImage() : nullptr) {
                 if (cachedImage->hasHDRContent())
                     return true;
             }
@@ -6115,14 +6123,14 @@ bool RenderLayer::hasVisibleBoxDecorations() const
 
 bool RenderLayer::isVisibilityHiddenOrOpacityZero() const
 {
-    return !hasVisibleContent() || renderer().style().hasZeroOpacity();
+    return !hasVisibleContent() || renderer().style().opacity().isTransparent();
 }
 
 bool RenderLayer::isVisuallyNonEmpty(PaintedContentRequest* request) const
 {
     ASSERT(!m_visibleContentStatusDirty);
 
-    if (!hasVisibleContent() || renderer().style().hasZeroOpacity())
+    if (!hasVisibleContent() || renderer().style().opacity().isTransparent())
         return false;
 
     if (renderer().isRenderReplaced() || (m_scrollableArea && m_scrollableArea->hasOverflowControls())) {
@@ -6196,7 +6204,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
         if (oldStyle->isOverflowVisible() != renderer().style().isOverflowVisible())
             setSelfAndDescendantsNeedPositionUpdate();
 
-        if (oldStyle->hasZeroOpacity() != renderer().style().hasZeroOpacity())
+        if (oldStyle->opacity().isTransparent() != renderer().style().opacity().isTransparent())
             setNeedsPositionUpdate();
 
         if (oldStyle->preserves3D() != preserves3D()) {
@@ -6318,7 +6326,7 @@ RenderStyle RenderLayer::createReflectionStyle()
     newStyle.setTransform(TransformOperations { WTFMove(operations) });
 
     // Map in our mask.
-    newStyle.setMaskBorder(renderer().style().boxReflect()->mask());
+    newStyle.setMaskBorder(Style::MaskBorder { renderer().style().boxReflect()->mask() });
 
     // Style has transform and mask, so needs to be stacking context.
     newStyle.setUsedZIndex(0);
@@ -6458,7 +6466,7 @@ bool RenderLayer::isTransparentRespectingParentFrames() const
 
     float currentOpacity = 1;
     for (auto* layer = this; layer; layer = parentLayerCrossFrame(*layer)) {
-        currentOpacity *= layer->renderer().style().opacity();
+        currentOpacity *= layer->renderer().style().opacity().value.value;
         if (currentOpacity < minimumVisibleOpacity)
             return true;
     }

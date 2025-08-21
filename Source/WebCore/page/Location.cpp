@@ -36,6 +36,7 @@
 #include "LocalFrame.h"
 #include "NavigationScheduler.h"
 #include "Quirks.h"
+#include "ScriptWrappableInlines.h"
 #include "SecurityOrigin.h"
 #include "ServiceWorkerContainer.h"
 #include <wtf/TZoneMallocInlines.h>
@@ -160,6 +161,8 @@ ExceptionOr<void> Location::setProtocol(LocalDOMWindow& incumbentWindow, LocalDO
     URL url = localFrame->document()->url();
     if (!url.setProtocol(protocol))
         return Exception { ExceptionCode::SyntaxError };
+    if (!url.protocolIsInHTTPFamily())
+        return { };
     return setLocation(incumbentWindow, firstWindow, url.string());
 }
 
@@ -333,5 +336,7 @@ RefPtr<DOMWindow> Location::protectedWindow()
 {
     return m_window.get();
 }
+
+Location::~Location() = default;
 
 } // namespace WebCore

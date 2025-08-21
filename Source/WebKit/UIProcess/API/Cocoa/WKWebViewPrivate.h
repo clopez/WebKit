@@ -133,6 +133,7 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 @class _WKFrameTreeNode;
 @class _WKHitTestResult;
 @class _WKInspector;
+@class _WKJSHandle;
 @class _WKRemoteObjectRegistry;
 @class _WKSafeBrowsingWarning;
 @class _WKSessionState;
@@ -140,6 +141,10 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 @class _WKTargetedElementInfo;
 @class _WKTargetedElementRequest;
 @class _WKTextInputContext;
+@class _WKTextExtractionConfiguration;
+@class _WKTextExtractionInteraction;
+@class _WKTextExtractionInteractionResult;
+@class WKTextExtractionResult;
 @class _WKTextManipulationConfiguration;
 @class _WKTextManipulationItem;
 @class _WKTextRun;
@@ -433,6 +438,12 @@ for this property.
 - (void)_convertPoint:(CGPoint)point fromFrame:(WKFrameInfo *)frame toMainFrameCoordinates:(void (^)(CGPoint, NSError *error))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 - (void)_convertRect:(CGRect)rect fromFrame:(WKFrameInfo *)frame toMainFrameCoordinates:(void (^)(CGRect, NSError *error))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
+// If frame is nil, the main frame will be used if there is a main frame.
+// If frame is non-nil, not only will frame's coordinate space be used, but frame's subtree will be searched,
+// so a node from a parent node won't be returned, even if point is outside frame's rect.
+// The result frame info is the frame that contains the hit node.
+- (void)_hitTestAtPoint:(CGPoint)point inFrameCoordinateSpace:(WKFrameInfo *)frame completionHandler:(void (^)(_WKJSHandle *, WKFrameInfo *, NSError *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
 + (NSString *)_userVisibleStringForURL:(NSURL *)url WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 - (void)_takePDFSnapshotWithConfiguration:(WKSnapshotConfiguration *)snapshotConfiguration completionHandler:(void (^)(NSData *pdfSnapshotData, NSError *error))completionHandler WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
@@ -620,6 +631,16 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 @property (nonatomic) audit_token_t presentingApplicationAuditToken WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
 
 @property (nonatomic, setter=_setShouldSuppressTopColorExtensionView:) BOOL _shouldSuppressTopColorExtensionView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+#if TARGET_OS_OSX
+- (NSUInteger)accessibilityRemoteChildTokenHash;
+- (NSUInteger)accessibilityUIProcessLocalTokenHash;
+- (NSArray<NSNumber *> *)registeredRemoteAccessibilityPids;
+- (bool)hasRemoteAccessibilityChild;
+#endif
+
+- (void)_debugTextWithConfiguration:(_WKTextExtractionConfiguration *)configuration completionHandler:(WK_SWIFT_UI_ACTOR void(^)(NSString *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) NS_SWIFT_NAME(_debugText(with:completionHandler:));
+- (void)_performInteraction:(_WKTextExtractionInteraction *)interaction completionHandler:(WK_SWIFT_UI_ACTOR void(^)(_WKTextExtractionInteractionResult *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) NS_SWIFT_NAME(_performInteraction(_:completionHandler:));
 
 @end
 
@@ -887,6 +908,7 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 @property (nonatomic, readonly) NSEdgeInsets _obscuredContentInsets WK_API_AVAILABLE(macos(WK_MAC_TBA));
 @property (nonatomic, setter=_setUsesAutomaticContentInsetBackgroundFill:) BOOL _usesAutomaticContentInsetBackgroundFill WK_API_AVAILABLE(macos(WK_MAC_TBA));
 @property (nonatomic, copy, setter=_setOverrideTopScrollEdgeEffectColor:) NSColor *_overrideTopScrollEdgeEffectColor WK_API_AVAILABLE(macos(WK_MAC_TBA));
+@property (nonatomic, setter=_setOverflowHeightForTopScrollEdgeEffect:) CGFloat _overflowHeightForTopScrollEdgeEffect WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000
 @property (nonatomic, readonly) NSScrollPocket *_topScrollPocket WK_API_AVAILABLE(macos(26.0));

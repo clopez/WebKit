@@ -27,34 +27,34 @@
 
 #pragma once
 
-#include "AsyncNodeDeletionQueue.h"
-#include "Color.h"
-#include "ContainerNode.h"
-#include "ContextDestructionObserver.h"
-#include "DocumentClasses.h"
-#include "DocumentEnums.h"
-#include "DocumentEventTiming.h"
-#include "FontSelectorClient.h"
-#include "FrameDestructionObserver.h"
-#include "FrameIdentifier.h"
-#include "HitTestSource.h"
-#include "PageIdentifier.h"
-#include "PlaybackTargetClientContextIdentifier.h"
-#include "PseudoElementIdentifier.h"
-#include "QualifiedName.h"
-#include "RegistrableDomain.h"
-#include "RenderPtr.h"
-#include "ReportingClient.h"
-#include "ScriptExecutionContext.h"
-#include "SpatialBackdropSource.h"
-#include "StringWithDirection.h"
-#include "Supplementable.h"
-#include "Timer.h"
-#include "TreeScope.h"
-#include "TrustedHTML.h"
-#include "URLKeepingBlobAlive.h"
-#include "UserActionElementSet.h"
-#include "ViewportArguments.h"
+#include <WebCore/AsyncNodeDeletionQueue.h>
+#include <WebCore/Color.h>
+#include <WebCore/ContainerNode.h>
+#include <WebCore/ContextDestructionObserver.h>
+#include <WebCore/DocumentClasses.h>
+#include <WebCore/DocumentEnums.h>
+#include <WebCore/DocumentEventTiming.h>
+#include <WebCore/FontSelectorClient.h>
+#include <WebCore/FrameDestructionObserver.h>
+#include <WebCore/FrameIdentifier.h>
+#include <WebCore/HitTestSource.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/PlaybackTargetClientContextIdentifier.h>
+#include <WebCore/PseudoElementIdentifier.h>
+#include <WebCore/QualifiedName.h>
+#include <WebCore/RegistrableDomain.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/ReportingClient.h>
+#include <WebCore/ScriptExecutionContext.h>
+#include <WebCore/SpatialBackdropSource.h>
+#include <WebCore/StringWithDirection.h>
+#include <WebCore/Supplementable.h>
+#include <WebCore/Timer.h>
+#include <WebCore/TreeScope.h>
+#include <WebCore/TrustedHTML.h>
+#include <WebCore/URLKeepingBlobAlive.h>
+#include <WebCore/UserActionElementSet.h>
+#include <WebCore/ViewportArguments.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
 #include <wtf/FixedVector.h>
@@ -74,7 +74,7 @@
 #include <wtf/text/AtomStringHash.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-#include "IntRect.h"
+#include <WebCore/IntRect.h>
 #include <wtf/ThreadingPrimitives.h>
 #endif
 
@@ -396,6 +396,8 @@ enum class CustomElementNameValidationStatus {
     ConflictsWithStandardElementName
 };
 
+enum class ClonedDocumentType : uint8_t { XMLDocument, XHTMLDocument, HTMLDocument, SVGDocument, Document };
+
 using RenderingContext = Variant<
 #if ENABLE(WEBGL)
     RefPtr<WebGLRenderingContext>,
@@ -435,6 +437,7 @@ public:
     inline static Ref<Document> create(const Settings&, const URL&);
     static Ref<Document> createNonRenderedPlaceholder(LocalFrame&, const URL&);
     static Ref<Document> create(Document&);
+    static Ref<Document> createCloned(ClonedDocumentType, const Settings&, const URL&, const URL& baseURL, const URL& baseURLOverride, const Variant<String, URL>& documentURI, DocumentCompatibilityMode, Document& contextDocument, SecurityOriginPolicy*, const String& contentType, TextResourceDecoder*);
 
     virtual ~Document();
 
@@ -532,6 +535,7 @@ public:
     WEBCORE_EXPORT Ref<Element> createElement(const QualifiedName&, bool createdByParser, CustomElementRegistry* = nullptr);
 
     RefPtr<CustomElementRegistry> customElementRegistryForBindings();
+    CustomElementRegistry* effectiveGlobalCustomElementRegistry();
     static CustomElementNameValidationStatus validateCustomElementName(const AtomString&);
     void setActiveCustomElementRegistry(CustomElementRegistry*);
     CustomElementRegistry* activeCustomElementRegistry() { return m_activeCustomElementRegistry.get(); }
@@ -730,6 +734,7 @@ public:
     enum class ResolveStyleType : bool { Normal, Rebuild };
     WEBCORE_EXPORT void resolveStyle(ResolveStyleType = ResolveStyleType::Normal);
     WEBCORE_EXPORT bool updateStyleIfNeeded();
+    bool updateStyleIfNeededIgnoringPendingStylesheets();
     bool needsStyleRecalc() const;
     unsigned lastStyleUpdateSizeForTesting() const { return m_lastStyleUpdateSizeForTesting; }
 
@@ -902,6 +907,7 @@ public:
     bool inQuirksMode() const { return m_compatibilityMode == DocumentCompatibilityMode::QuirksMode; }
     bool inLimitedQuirksMode() const { return m_compatibilityMode == DocumentCompatibilityMode::LimitedQuirksMode; }
     bool inNoQuirksMode() const { return m_compatibilityMode == DocumentCompatibilityMode::NoQuirksMode; }
+    DocumentCompatibilityMode compatibilityMode() const { return m_compatibilityMode; }
 
     void setReadyState(ReadyState);
     void setParsing(bool);
@@ -1497,8 +1503,8 @@ public:
     WEBCORE_EXPORT unsigned styleRecalcCount() const;
 
 #if ENABLE(TOUCH_EVENTS)
-    bool hasTouchEventHandlers() const { return m_touchEventTargets && !m_touchEventTargets->isEmptyIgnoringNullReferences(); }
-    bool touchEventTargetsContain(Node& node) const { return m_touchEventTargets && m_touchEventTargets->contains(node); }
+    bool hasTouchEventHandlers() const { return !m_touchEventTargets.isEmptyIgnoringNullReferences(); }
+    bool touchEventTargetsContain(Node& node) const { return m_touchEventTargets.contains(node); }
 #else
     bool hasTouchEventHandlers() const { return false; }
     bool touchEventTargetsContain(Node&) const { return false; }
@@ -1523,21 +1529,10 @@ public:
 
     void didRemoveEventTargetNode(Node&);
 
-    const EventTargetSet* touchEventTargets() const
-    {
-#if ENABLE(TOUCH_EVENTS)
-        return m_touchEventTargets.get();
-#else
-        return nullptr;
-#endif
-    }
-
-    bool hasWheelEventHandlers() const { return m_wheelEventTargets && !m_wheelEventTargets->isEmptyIgnoringNullReferences(); }
-    const EventTargetSet* wheelEventTargets() const { return m_wheelEventTargets.get(); }
+    bool hasWheelEventHandlers() const { return !m_wheelEventTargets.isEmptyIgnoringNullReferences(); }
 
     using RegionFixedPair = std::pair<Region, bool>;
-    RegionFixedPair absoluteEventRegionForNode(Node&);
-    RegionFixedPair absoluteRegionForEventTargets(const EventTargetSet*);
+    RegionFixedPair absoluteRegionForWheelEventTargets();
 
     LayoutRect absoluteEventHandlerBounds(bool&) final;
 
@@ -1642,6 +1637,7 @@ public:
     void runResizeSteps();
     void flushDeferredResizeEvents();
 
+    void addPendingScrollendEventTarget(ContainerNode&);
     void addPendingScrollEventTarget(ContainerNode&);
     void setNeedsVisualViewportScrollEvent();
     void runScrollSteps();
@@ -1928,6 +1924,8 @@ public:
     bool hasVisuallyNonEmptyCustomContent() const { return m_hasVisuallyNonEmptyCustomContent; }
     void enqueuePaintTimingEntryIfNeeded();
 
+    void enqueueEventTimingEntriesIfNeeded();
+
     WEBCORE_EXPORT Editor& editor();
     WEBCORE_EXPORT const Editor& editor() const;
     WEBCORE_EXPORT Ref<Editor> protectedEditor();
@@ -1950,7 +1948,7 @@ public:
     WEBCORE_EXPORT JSC::VM& vm() final;
     JSC::VM* vmIfExists() const final;
 
-    String debugDescription() const;
+    String debugDescription() const override;
 
     URL fallbackBaseURL() const;
 
@@ -1985,6 +1983,7 @@ public:
     void invalidateDOMCookieCache();
 
     void detachFromFrame();
+    void willBeDisconnectedFromFrame(Document&);
 
     PermissionsPolicy permissionsPolicy() const;
 
@@ -2020,8 +2019,6 @@ protected:
     WEBCORE_EXPORT Document(LocalFrame*, const Settings&, const URL&, DocumentClasses = { }, OptionSet<ConstructionFlag> = { }, std::optional<ScriptExecutionContextIdentifier> = std::nullopt);
 
     void clearXMLVersion() { m_xmlVersion = String(); }
-
-    virtual Ref<Document> cloneDocumentWithoutChildren() const;
 
 private:
     friend class DocumentParserYieldToken;
@@ -2077,8 +2074,10 @@ private:
 
     String nodeName() const final;
     bool childTypeAllowed(NodeType) const final;
-    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) final;
-    void cloneDataFromDocument(const Document&);
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const final;
+    ClonedDocumentType clonedDocumentType() const;
+
+    SerializedNode serializeNode(CloningOperation) const final;
 
     Seconds minimumDOMTimerInterval() const final;
 
@@ -2188,6 +2187,8 @@ private:
     void populateDocumentSyncDataForNewlyConstructedDocument(ProcessSyncDataType);
 
     bool mainFrameDocumentHasHadUserInteraction() const;
+
+    RegionFixedPair absoluteEventRegionForNode(Node&);
 
     const Ref<const Settings> m_settings;
 
@@ -2344,7 +2345,7 @@ private:
     WeakHashSet<VisibilityChangeClient> m_visibilityStateCallbackClients;
     bool m_deferResizeEventForVisibilityChange { false };
 
-    std::unique_ptr<HashMap<String, WeakPtr<Element, WeakPtrImplWithEventTargetData>, ASCIICaseInsensitiveHash>> m_accessKeyCache;
+    std::optional<HashMap<String, WeakPtr<Element, WeakPtrImplWithEventTargetData>, ASCIICaseInsensitiveHash>> m_accessKeyCache;
 
     std::unique_ptr<ConstantPropertyMap> m_constantPropertyMap;
 
@@ -2389,10 +2390,10 @@ private:
     RefPtr<MediaQueryMatcher> m_mediaQueryMatcher;
     
 #if ENABLE(TOUCH_EVENTS)
-    std::unique_ptr<EventTargetSet> m_touchEventTargets;
+    EventTargetSet m_touchEventTargets;
 #endif
 
-    std::unique_ptr<EventTargetSet> m_wheelEventTargets;
+    EventTargetSet m_wheelEventTargets;
 
     MonotonicTime m_lastHandledUserGestureTimestamp;
     MonotonicTime m_userActivatedMediaFinishedPlayingTimestamp;
@@ -2453,9 +2454,9 @@ private:
     RefPtr<CustomElementRegistry> m_activeCustomElementRegistry;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    using TargetIdToClientMap = HashMap<PlaybackTargetClientContextIdentifier, WebCore::MediaPlaybackTargetClient*>;
+    using TargetIdToClientMap = HashMap<PlaybackTargetClientContextIdentifier, WeakPtr<MediaPlaybackTargetClient>>;
     TargetIdToClientMap m_idToClientMap;
-    using TargetClientToIdMap = HashMap<WebCore::MediaPlaybackTargetClient*, PlaybackTargetClientContextIdentifier>;
+    using TargetClientToIdMap = WeakHashMap<MediaPlaybackTargetClient, PlaybackTargetClientContextIdentifier>;
     TargetClientToIdMap m_clientToIDMap;
 #endif
 
@@ -2478,7 +2479,7 @@ private:
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_associatedFormControls;
 
-    std::unique_ptr<OrientationNotifier> m_orientationNotifier;
+    const std::unique_ptr<OrientationNotifier> m_orientationNotifier;
     mutable RefPtr<Logger> m_logger;
     RefPtr<StringCallback> m_consoleMessageListener;
 
@@ -2548,6 +2549,7 @@ private:
 
     struct PendingScrollEventTargetList;
     std::unique_ptr<PendingScrollEventTargetList> m_pendingScrollEventTargetList;
+    std::unique_ptr<PendingScrollEventTargetList> m_pendingScrollendEventTargetList;
 
     WeakHashSet<ValidationMessage> m_validationMessagesToPosition;
 
@@ -2741,6 +2743,8 @@ private:
     mutable std::unique_ptr<CSSParserContext> m_cachedCSSParserContext;
     mutable std::unique_ptr<PermissionsPolicy> m_permissionsPolicy;
 
+    // FIXME: This will need to be re-evaluated for site isolation.
+    mutable WeakPtr<AXObjectCache> m_topAXObjectCache;
     RefPtr<FrameMemoryMonitor> m_frameMemoryMonitor;
 
 #if ENABLE(CONTENT_EXTENSIONS)

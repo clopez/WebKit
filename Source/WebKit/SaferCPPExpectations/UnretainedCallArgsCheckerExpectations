@@ -2,7 +2,6 @@ GPUProcess/mac/GPUProcessMac.mm
 GPUProcess/webrtc/RemoteSampleBufferDisplayLayer.mm
 GeneratedWebKitSecureCoding.mm
 NetworkProcess/Authentication/cocoa/AuthenticationManagerCocoa.mm
-NetworkProcess/Downloads/cocoa/WKDownloadProgress.mm
 NetworkProcess/Notifications/Cocoa/WebPushDaemonConnectionCocoa.mm
 NetworkProcess/PrivateClickMeasurement/cocoa/PrivateClickMeasurementConnectionCocoa.mm
 NetworkProcess/PrivateClickMeasurement/cocoa/PrivateClickMeasurementNetworkLoaderCocoa.mm
@@ -10,7 +9,6 @@ NetworkProcess/cache/NetworkCacheDataCocoa.mm
 NetworkProcess/cache/NetworkCacheIOChannelCocoa.mm
 NetworkProcess/cocoa/LaunchServicesDatabaseObserver.mm
 NetworkProcess/cocoa/NetworkProcessCocoa.mm
-NetworkProcess/cocoa/WKURLSessionTaskDelegate.mm
 NetworkProcess/mac/NetworkProcessMac.mm
 NetworkProcess/webrtc/NetworkRTCTCPSocketCocoa.mm
 NetworkProcess/webrtc/NetworkRTCUDPSocketCocoa.mm
@@ -45,7 +43,6 @@ Shared/Cocoa/ArgumentCodersCocoa.mm
 Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
 Shared/Cocoa/CoreIPCContacts.mm
-Shared/Cocoa/CoreIPCPKPaymentSetupFeature.mm
 Shared/Cocoa/CoreIPCPKSecureElementPass.mm
 Shared/Cocoa/CoreIPCPassKit.mm
 Shared/Cocoa/CoreIPCPersonNameComponents.mm
@@ -72,9 +69,7 @@ Shared/mac/AuxiliaryProcessMac.mm
 Shared/mac/ScrollingAccelerationCurveMac.mm
 UIProcess/API/C/mac/WKNotificationPrivateMac.mm
 UIProcess/API/C/mac/WKProtectionSpaceNS.mm
-UIProcess/API/Cocoa/APIAttachmentCocoa.mm
 UIProcess/API/Cocoa/NSAttributedString.mm
-UIProcess/API/Cocoa/WKContentRuleListStore.mm
 UIProcess/API/Cocoa/WKDownload.mm
 UIProcess/API/Cocoa/WKFrameInfo.mm
 UIProcess/API/Cocoa/WKNSURLAuthenticationChallenge.mm
@@ -84,7 +79,6 @@ UIProcess/API/Cocoa/WKProcessPool.mm
 UIProcess/API/Cocoa/WKSecurityOrigin.mm
 UIProcess/API/Cocoa/WKSnapshotConfiguration.mm
 UIProcess/API/Cocoa/WKURLSchemeTask.mm
-UIProcess/API/Cocoa/WKUserContentController.mm
 UIProcess/API/Cocoa/WKUserScript.mm
 UIProcess/API/Cocoa/WKWebView.mm
 UIProcess/API/Cocoa/WKWebViewConfiguration.mm
@@ -152,7 +146,6 @@ UIProcess/Cocoa/WebPageProxyCocoa.mm
 UIProcess/Cocoa/WebProcessPoolCocoa.mm
 UIProcess/Cocoa/WebProcessProxyCocoa.mm
 UIProcess/Cocoa/_WKWarningView.mm
-UIProcess/Extensions/Cocoa/WebExtensionCocoa.mm
 UIProcess/Extensions/WebExtensionController.h
 UIProcess/Gamepad/mac/UIGamepadProviderMac.mm
 UIProcess/Inspector/Cocoa/InspectorExtensionDelegate.mm
@@ -198,7 +191,6 @@ UIProcess/mac/WKQuickLookPreviewController.mm
 UIProcess/mac/WKRevealItemPresenter.mm
 UIProcess/mac/WKSharingServicePickerDelegate.mm
 UIProcess/mac/WKTextAnimationManagerMac.mm
-UIProcess/mac/WKTextFinderClient.mm
 UIProcess/mac/WebColorPickerMac.mm
 UIProcess/mac/WebContextMenuProxyMac.mm
 UIProcess/mac/WebDataListSuggestionsDropdownMac.mm

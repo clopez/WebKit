@@ -23,13 +23,13 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "AttachmentAssociatedElement.h"
-#include "DecodingOptions.h"
-#include "FormAssociatedElement.h"
-#include "GraphicsTypes.h"
-#include "HTMLElement.h"
-#include "MediaQuery.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/AttachmentAssociatedElement.h>
+#include <WebCore/DecodingOptions.h>
+#include <WebCore/FormAssociatedElement.h>
+#include <WebCore/GraphicsTypes.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/MediaQuery.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -139,7 +139,7 @@ public:
 
     bool usesSrcsetOrPicture() const;
 
-    const AtomString& loadingForBindings() const;
+    enum LoadingValues { Lazy, Eager };
 
     bool isLazyLoadable() const;
     static bool hasLazyLoadableAttributeValue(StringView);
@@ -185,7 +185,7 @@ private:
     void invalidateAttributeMapping();
     void collectExtraStyleForPresentationalHints(MutableStyleProperties&) override;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const final;
 
     // ActiveDOMObject.
     bool virtualHasPendingActivity() const final;

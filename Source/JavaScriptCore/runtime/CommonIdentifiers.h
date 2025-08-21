@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "Identifier.h"
+#include <JavaScriptCore/Identifier.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -328,6 +328,8 @@
     macro(move) \
     macro(AsyncDisposableStack) \
     macro(disposeAsync) \
+    macro(keys) \
+    macro(flat) \
 
 #define JSC_COMMON_IDENTIFIERS_EACH_PRIVATE_FIELD(macro) \
     macro(constructor)

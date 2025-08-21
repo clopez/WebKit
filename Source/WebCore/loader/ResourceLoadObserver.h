@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "LoaderMalloc.h"
-#include "ResourceLoadStatistics.h"
+#include <WebCore/LoaderMalloc.h>
+#include <WebCore/ResourceLoadStatistics.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 
@@ -38,7 +38,7 @@ class ResourceRequest;
 class ResourceResponse;
 
 class ResourceLoadObserver {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ResourceLoadObserver, Loader);
 public:
     using TopFrameDomain = WebCore::RegistrableDomain;
     using SubResourceDomain = WebCore::RegistrableDomain;

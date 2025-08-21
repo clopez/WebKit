@@ -1,4 +1,3 @@
-Modules/gamepad/GamepadHapticActuator.cpp
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBTransaction.cpp
 Modules/indexeddb/server/MemoryBackingStoreTransaction.cpp
@@ -17,22 +16,15 @@ Modules/storage/WorkerStorageConnection.cpp
 Modules/webaudio/AudioWorkletGlobalScope.cpp
 Modules/webdatabase/SQLStatement.cpp
 Modules/websockets/WebSocket.cpp
-accessibility/AXCoreObject.cpp
 accessibility/AXObjectCache.cpp
-accessibility/AXTextMarker.cpp
-accessibility/AccessibilityListBox.cpp
 accessibility/AccessibilityListBoxOption.cpp
 accessibility/AccessibilityMathMLElement.cpp
 accessibility/AccessibilityNodeObject.cpp
 accessibility/AccessibilityObject.cpp
 accessibility/AccessibilityRenderObject.cpp
-accessibility/AccessibilitySVGObject.cpp
 accessibility/AccessibilityScrollView.cpp
 accessibility/AccessibilitySlider.cpp
-accessibility/AccessibilityTable.cpp
 accessibility/AccessibilityTableCell.cpp
-accessibility/AccessibilityTableColumn.cpp
-accessibility/AccessibilityTableRow.cpp
 accessibility/cocoa/AccessibilityObjectCocoa.mm
 accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedTree.cpp
@@ -126,7 +118,6 @@ editing/BreakBlockquoteCommand.cpp
 editing/ChangeListTypeCommand.cpp
 editing/DictationCommand.cpp
 editing/Editing.cpp
-editing/EditingStyle.cpp
 editing/Editor.cpp
 editing/EditorCommand.cpp
 editing/FormatBlockCommand.cpp
@@ -146,7 +137,8 @@ editing/TextManipulationController.cpp
 editing/VisibleUnits.cpp
 editing/cocoa/DataDetection.mm
 editing/cocoa/DictionaryLookup.mm
-editing/cocoa/HTMLConverter.mm
+editing/cocoa/EditingHTMLConverter.mm
+editing/cocoa/NodeHTMLConverter.mm
 editing/cocoa/WebContentReaderCocoa.mm
 editing/mac/EditorMac.mm
 editing/mac/FrameSelectionMac.mm
@@ -276,12 +268,10 @@ loader/EmptyClients.cpp
 loader/FrameLoader.cpp
 loader/archive/cf/LegacyWebArchive.cpp
 loader/cache/CachedImage.cpp
-loader/cache/CachedResourceRequest.cpp
 loader/cache/MemoryCache.cpp
 mathml/MathMLSelectElement.cpp
 page/AutoscrollController.cpp
 page/ContextMenuController.cpp
-page/DebugPageOverlays.cpp
 page/DeviceController.cpp
 page/DragController.cpp
 page/ElementTargetingController.cpp
@@ -396,7 +386,6 @@ rendering/RenderLayerModelObject.cpp
 rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
 rendering/RenderLineBoxList.cpp
-rendering/RenderLineBreak.cpp
 rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
 rendering/RenderListMarker.cpp

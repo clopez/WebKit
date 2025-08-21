@@ -99,6 +99,7 @@
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/PointerLockController.h>
 #include <WebCore/PopupMenuClient.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ScriptController.h>
@@ -172,6 +173,10 @@
 #if ENABLE(DAMAGE_TRACKING)
 #include "LayerTreeHost.h"
 #include <WebCore/Damage.h>
+#endif
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+#include <WebCore/ContentRuleListMatchedRule.h>
 #endif
 
 namespace WebKit {
@@ -704,6 +709,12 @@ KeyboardUIMode WebChromeClient::keyboardUIMode()
     return page ? page->keyboardUIMode() : KeyboardAccessDefault;
 }
 
+bool WebChromeClient::hasAccessoryMousePointingDevice() const
+{
+    RefPtr page = m_page.get();
+    return page && page->hasAccessoryMousePointingDevice();
+}
+
 bool WebChromeClient::hoverSupportedByPrimaryPointingDevice() const
 {
     RefPtr page = m_page.get();
@@ -732,20 +743,28 @@ OptionSet<PointerCharacteristics> WebChromeClient::pointerCharacteristicsOfAllAv
 
 #if ENABLE(POINTER_LOCK)
 
-bool WebChromeClient::requestPointerLock()
+void WebChromeClient::requestPointerLock(CompletionHandler<void(WebCore::PointerLockRequestResult)>&& completionHandler)
 {
     RefPtr page = m_page.get();
-    if (!page)
-        return false;
+    if (!page) {
+        completionHandler(WebCore::PointerLockRequestResult::Failure);
+        return;
+    }
 
-    page->send(Messages::WebPageProxy::RequestPointerLock());
-    return true;
+    page->sendWithAsyncReply(Messages::WebPageProxy::RequestPointerLock(), [completionHandler = WTFMove(completionHandler)](bool result) mutable {
+        if (result)
+            completionHandler(WebCore::PointerLockRequestResult::Success);
+        else
+            completionHandler(WebCore::PointerLockRequestResult::Failure);
+    });
 }
 
-void WebChromeClient::requestPointerUnlock()
+void WebChromeClient::requestPointerUnlock(CompletionHandler<void(bool)>&& completionHandler)
 {
     if (RefPtr page = m_page.get())
-        page->send(Messages::WebPageProxy::RequestPointerUnlock());
+        page->sendWithAsyncReply(Messages::WebPageProxy::RequestPointerUnlock(), WTFMove(completionHandler));
+    else
+        completionHandler(false);
 }
 
 #endif
@@ -1056,7 +1075,7 @@ RefPtr<Icon> WebChromeClient::createIconForFiles(const Vector<String>& filenames
 
 #endif
 
-void WebChromeClient::didAssociateFormControls(const Vector<RefPtr<Element>>& elements, WebCore::LocalFrame& frame)
+void WebChromeClient::didAssociateFormControls(const Vector<Ref<Element>>& elements, WebCore::LocalFrame& frame)
 {
     auto webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
@@ -1108,7 +1127,7 @@ WebCore::DisplayRefreshMonitorFactory* WebChromeClient::displayRefreshMonitorFac
 }
 
 #if ENABLE(GPU_PROCESS)
-RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat pixelFormat) const
+RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferFormat pixelFormat) const
 {
     if (WebProcess::singleton().shouldUseRemoteRenderingFor(purpose)) {
         RefPtr page = m_page.get();
@@ -1118,7 +1137,7 @@ RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, Re
     }
 
     if (purpose == RenderingPurpose::ShareableSnapshot || purpose == RenderingPurpose::ShareableLocalSnapshot)
-        return ImageBuffer::create<ImageBufferShareableBitmapBackend>(size, resolutionScale, colorSpace, ImageBufferPixelFormat::BGRA8, purpose, { });
+        return ImageBuffer::create<ImageBufferShareableBitmapBackend>(size, resolutionScale, colorSpace, { ImageBufferPixelFormat::BGRA8 }, purpose, { });
 
     return nullptr;
 }
@@ -1349,6 +1368,14 @@ void WebChromeClient::contentRuleListNotification(const URL& url, const ContentR
         page->send(Messages::WebPageProxy::ContentRuleListNotification(url, results));
 #endif
 }
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+void WebChromeClient::contentRuleListMatchedRule(const WebCore::ContentRuleListMatchedRule& matchedRule)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::ContentRuleListMatchedRule(matchedRule));
+}
+#endif
 
 bool WebChromeClient::layerTreeStateIsFrozen() const
 {
@@ -2002,12 +2029,12 @@ void WebChromeClient::hasStorageAccess(RegistrableDomain&& subFrameDomain, Regis
         completionHandler(false);
 }
 
-void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, LocalFrame& frame, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
+void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, LocalFrame& frame, StorageAccessScope scope, HasOrShouldIgnoreUserGesture hasOrShouldIgnoreUserGesture, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
 {
     auto webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
     if (RefPtr page = m_page.get())
-        page->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, scope, WTFMove(completionHandler));
+        page->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, scope, hasOrShouldIgnoreUserGesture, WTFMove(completionHandler));
     else
         completionHandler({ });
 }
@@ -2357,6 +2384,11 @@ void WebChromeClient::getImageBufferResourceLimitsForTesting(CompletionHandler<v
 bool WebChromeClient::requiresScriptTrackingPrivacyProtections(const URL& url, const SecurityOrigin& topOrigin) const
 {
     return WebProcess::singleton().requiresScriptTrackingPrivacyProtections(url, topOrigin);
+}
+
+bool WebChromeClient::shouldAllowScriptAccess(const URL& url, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory category) const
+{
+    return WebProcess::singleton().shouldAllowScriptAccess(url, topOrigin, category);
 }
 
 void WebChromeClient::callAfterPendingSyntheticClick(CompletionHandler<void(SyntheticClickResult)>&& completion)

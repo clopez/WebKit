@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "RotateTransformOperation.h"
-#include "StylePrimitiveNumericTypes.h"
-#include "StyleTransformOperationWrapper.h"
+#include <WebCore/RotateTransformOperation.h>
+#include <WebCore/StylePrimitiveNumericTypes.h>
+#include <WebCore/StyleTransformOperationWrapper.h>
 #include <wtf/PointerComparison.h>
 
 namespace WebCore {
@@ -126,5 +126,5 @@ template<> struct ToPlatform<Rotate> { auto operator()(const Rotate&) -> RefPtr<
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::Rotate::Operation> = true;
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::Rotate> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::Rotate::Operation)
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::Rotate)

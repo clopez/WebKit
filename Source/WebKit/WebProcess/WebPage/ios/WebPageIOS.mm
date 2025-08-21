@@ -70,6 +70,8 @@
 #import "WebProcess.h"
 #import "WebTouchEvent.h"
 #import <CoreText/CTFont.h>
+#import <WebCore/AXRemoteTokenIOS.h>
+#import <WebCore/AccessibilityObject.h>
 #import <WebCore/Autofill.h>
 #import <WebCore/AutofillElements.h>
 #import <WebCore/BoundaryPointInlines.h>
@@ -85,6 +87,7 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragController.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/EditingInlines.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EditorClient.h>
@@ -102,7 +105,6 @@
 #import <WebCore/HTMLAreaElement.h>
 #import <WebCore/HTMLAttachmentElement.h>
 #import <WebCore/HTMLBodyElement.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLElementTypeHelpers.h>
 #import <WebCore/HTMLFormElement.h>
@@ -168,6 +170,7 @@
 #import <WebCore/ShadowRoot.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/SharedMemory.h>
+#import <WebCore/StylePrimitiveNumericTypes+Evaluation.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIterator.h>
@@ -789,7 +792,7 @@ IntRect WebPage::rectForElementAtInteractionLocation() const
     RefPtr localMainFrame = m_page->localMainFrame();
     if (!localMainFrame)
         return IntRect();
-    HitTestResult result = localMainFrame->eventHandler().hitTestResultAtPoint(m_lastInteractionLocation, hitType);
+    HitTestResult result = localMainFrame->eventHandler().hitTestResultAtPoint(flooredIntPoint(m_lastInteractionLocation), hitType);
     Node* hitNode = result.innerNode();
     if (!hitNode || !hitNode->renderer())
         return IntRect();
@@ -1256,7 +1259,7 @@ void WebPage::didFinishLoadingImageForElement(WebCore::HTMLImageElement& element
 
 void WebPage::computeAndSendEditDragSnapshot()
 {
-    std::optional<TextIndicatorData> textIndicatorData;
+    RefPtr<WebCore::TextIndicator> textIndicator;
     constexpr OptionSet<TextIndicatorOption> defaultTextIndicatorOptionsForEditDrag {
         TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
         TextIndicatorOption::ExpandClipBeyondVisibleRect,
@@ -1267,11 +1270,10 @@ void WebPage::computeAndSendEditDragSnapshot()
         TextIndicatorOption::UseSelectionRectForSizing,
         TextIndicatorOption::IncludeSnapshotWithSelectionHighlight
     };
-    if (auto range = std::exchange(m_rangeForDropSnapshot, std::nullopt)) {
-        if (auto textIndicator = TextIndicator::createWithRange(*range, defaultTextIndicatorOptionsForEditDrag, TextIndicatorPresentationTransition::None, { }))
-            textIndicatorData = textIndicator->data();
-    }
-    send(Messages::WebPageProxy::DidReceiveEditDragSnapshot(WTFMove(textIndicatorData)));
+    if (auto range = std::exchange(m_rangeForDropSnapshot, std::nullopt))
+        textIndicator = TextIndicator::createWithRange(*range, defaultTextIndicatorOptionsForEditDrag, TextIndicatorPresentationTransition::None, { });
+
+    send(Messages::WebPageProxy::DidReceiveEditDragSnapshot(WTFMove(textIndicator)));
 }
 
 #endif
@@ -2066,9 +2068,9 @@ IntRect WebPage::absoluteInteractionBounds(const Node& node)
     auto& style = renderer->style();
     FloatRect boundingBox = renderer->absoluteBoundingBoxRect(true /* use transforms*/);
     // This is wrong. It's subtracting borders after converting to absolute coords on something that probably doesn't represent a rectangular element.
-    boundingBox.move(style.borderLeftWidth(), style.borderTopWidth());
-    boundingBox.setWidth(boundingBox.width() - style.borderLeftWidth() - style.borderRightWidth());
-    boundingBox.setHeight(boundingBox.height() - style.borderBottomWidth() - style.borderTopWidth());
+    boundingBox.move(WebCore::Style::evaluate(style.borderLeftWidth()), WebCore::Style::evaluate(style.borderTopWidth()));
+    boundingBox.setWidth(boundingBox.width() - WebCore::Style::evaluate(style.borderLeftWidth()) - WebCore::Style::evaluate(style.borderRightWidth()));
+    boundingBox.setHeight(boundingBox.height() - WebCore::Style::evaluate(style.borderBottomWidth()) - WebCore::Style::evaluate(style.borderTopWidth()));
     return enclosingIntRect(boundingBox);
 }
 
@@ -3613,7 +3615,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
     if (linkElement && info.title.isEmpty())
         info.title = element.innerText();
     if (element.renderer())
-        info.touchCalloutEnabled = element.renderer()->style().touchCalloutEnabled();
+        info.touchCalloutEnabled = element.renderer()->style().touchCallout() == WebCore::Style::WebkitTouchCallout::Default;
 
     if (linkElement && !info.isImageOverlayText) {
         info.isLink = true;
@@ -3730,7 +3732,7 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
     }
 #if PLATFORM(MACCATALYST)
     bool isInsideFixedPosition;
-    VisiblePosition caretPosition(renderer->positionForPoint(request.point, HitTestSource::User, nullptr));
+    VisiblePosition caretPosition(renderer->visiblePositionForPoint(request.point, HitTestSource::User));
     info.caretRect = caretPosition.absoluteCaretBounds(&isInsideFixedPosition);
 #endif
 
@@ -3770,7 +3772,7 @@ static bool canForceCaretForPosition(const VisiblePosition& position)
 
     auto* renderer = node->renderer();
     auto* style = renderer ? &renderer->style() : nullptr;
-    auto cursorType = style ? style->cursor() : CursorType::Auto;
+    auto cursorType = style ? style->cursorType() : CursorType::Auto;
 
     if (cursorType == CursorType::Text)
         return true;
@@ -4150,9 +4152,9 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformation()
     FocusedElementInformation information;
 
     if (RefPtr webFrame = WebProcess::singleton().webFrame(focusedOrMainFrame->frameID()))
-        information.frame = webFrame->info();
+        information.frame = webFrame->info(WithCertificateInfo::Yes);
 
-    information.lastInteractionLocation = m_lastInteractionLocation;
+    information.lastInteractionLocation = flooredIntPoint(m_lastInteractionLocation);
     if (auto elementContext = contextForElement(*focusedElement))
         information.elementContext = WTFMove(*elementContext);
 
@@ -4934,7 +4936,7 @@ void WebPage::applicationWillResignActive()
     [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillResignActiveNotification object:nil];
 
     // FIXME(224775): Move to WebProcess
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationWillBecomeInactive();
 
     if (m_page)
@@ -4949,7 +4951,7 @@ void WebPage::applicationDidEnterBackground(bool isSuspendedUnderLock)
     freezeLayerTree(LayerTreeFreezeReason::BackgroundApplication);
 
     // FIXME(224775): Move to WebProcess
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationDidEnterBackground(isSuspendedUnderLock);
 
     if (m_page)
@@ -4971,7 +4973,7 @@ void WebPage::applicationWillEnterForeground(bool isSuspendedUnderLock)
     [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillEnterForegroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
 
     // FIXME(224775): Move to WebProcess
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationWillEnterForeground(isSuspendedUnderLock);
 
     if (m_page)
@@ -4983,7 +4985,7 @@ void WebPage::applicationDidBecomeActive()
     [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationDidBecomeActiveNotification object:nil];
 
     // FIXME(224775): Move to WebProcess
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationDidBecomeActive();
 
     if (m_page)
@@ -4992,13 +4994,13 @@ void WebPage::applicationDidBecomeActive()
 
 void WebPage::applicationDidEnterBackgroundForMedia(bool isSuspendedUnderLock)
 {
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationDidEnterBackground(isSuspendedUnderLock);
 }
 
 void WebPage::applicationWillEnterForegroundForMedia(bool isSuspendedUnderLock)
 {
-    if (auto* manager = PlatformMediaSessionManager::singletonIfExists())
+    if (RefPtr manager = mediaSessionManagerIfExists())
         manager->applicationWillEnterForeground(isSuspendedUnderLock);
 }
 
@@ -5233,6 +5235,10 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
             layerAction = ScrollingLayerPositionAction::SetApproximate;
         }
         scrollingCoordinator->reconcileScrollingState(frameView, scrollPosition, visibleContentRectUpdateInfo.layoutViewportRect(), ScrollType::User, viewportStability, layerAction);
+        if (visibleContentRectUpdateInfo.needsScrollend()) {
+            auto scrollUpdate = ScrollUpdate { *frameView.scrollingNodeID(), { }, { }, ScrollUpdateType::WheelEventScrollDidEnd };
+            scrollingCoordinator->applyScrollUpdate(WTFMove(scrollUpdate), ScrollType::User);
+        }
     }
 }
 
@@ -5499,7 +5505,7 @@ static bool isMousePrimaryPointingDevice()
 #endif
 }
 
-static bool hasAccessoryMousePointingDevice()
+bool WebPage::hasAccessoryMousePointingDevice() const
 {
     if (isMousePrimaryPointingDevice())
         return true;

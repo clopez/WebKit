@@ -64,6 +64,7 @@
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "MutableStyleProperties.h"
+#include "NodeInlines.h"
 #include "OpacityCaretAnimator.h"
 #include "Page.h"
 #include "PositionInlines.h"
@@ -561,7 +562,7 @@ void FrameSelection::updateAndRevealSelection(const AXTextStateChangeIntent& int
         if (forceCenterScroll == ForceCenterScroll::Yes)
             alignment = ScrollAlignment::alignCenterAlways;
 
-        revealSelection(m_selectionRevealMode, alignment, revealExtent, scrollBehavior, onlyAllowForwardScrolling);
+        revealSelection({ m_selectionRevealMode, alignment, revealExtent, scrollBehavior, onlyAllowForwardScrolling });
     }
     if (!m_document->editor().ignoreSelectionChanges())
         notifyAccessibilityForSelectionChange(intent);
@@ -2128,7 +2129,7 @@ bool FrameSelection::contains(const LayoutPoint& point) const
         return false;
     }
 
-    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->positionForPoint(result.localPoint(), HitTestSource::User, nullptr)));
+    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->visiblePositionForPoint(result.localPoint(), HitTestSource::User)));
 }
 
 // Workaround for the fact that it's hard to delete a frame.
@@ -2654,9 +2655,9 @@ RefPtr<HTMLFormElement> FrameSelection::currentForm() const
     return scanForForm(start.get());
 }
 
-void FrameSelection::revealSelection(SelectionRevealMode revealMode, const ScrollAlignment& alignment, RevealExtentOption revealExtentOption, ScrollBehavior scrollBehavior, OnlyAllowForwardScrolling onlyAllowForwardScrolling)
+void FrameSelection::revealSelection(const RevealSelectionOptions& revealSelectionOptions)
 {
-    if (revealMode == SelectionRevealMode::DoNotReveal)
+    if (revealSelectionOptions.selectionRevealMode == SelectionRevealMode::DoNotReveal)
         return;
 
     if (isNone())
@@ -2669,7 +2670,7 @@ void FrameSelection::revealSelection(SelectionRevealMode revealMode, const Scrol
     if (isCaret())
         rect = absoluteCaretBounds(&insideFixed);
     else
-        rect = revealExtentOption == RevealExtentOption::RevealExtent ? VisiblePosition(m_selection.extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(ClipToVisibleContent::No));
+        rect = revealSelectionOptions.revealExtentOption == RevealExtentOption::RevealExtent ? VisiblePosition(m_selection.extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(ClipToVisibleContent::No));
 
     Position start = m_selection.start();
     ASSERT(start.deprecatedNode());
@@ -2685,7 +2686,7 @@ void FrameSelection::revealSelection(SelectionRevealMode revealMode, const Scrol
     // the selection rect could intersect more than just that.
     // See <rdar://problem/4799899>.
     m_document->frame()->view()->setLastUserScrollType(LocalFrameView::UserScrollType::Implicit);
-    LocalFrameView::scrollRectToVisible(rect, *start.deprecatedNode()->renderer(), insideFixed, { revealMode, alignment, alignment, ShouldAllowCrossOriginScrolling::Yes, scrollBehavior, onlyAllowForwardScrolling });
+    LocalFrameView::scrollRectToVisible(rect, *start.deprecatedNode()->renderer(), insideFixed, { revealSelectionOptions.selectionRevealMode, revealSelectionOptions.scrollAlignment, revealSelectionOptions.scrollAlignment, ShouldAllowCrossOriginScrolling::Yes, revealSelectionOptions.scrollBehavior, revealSelectionOptions.onlyAllowForwardScrolling });
     updateAppearance();
 
 #if PLATFORM(IOS_FAMILY)
@@ -2831,7 +2832,7 @@ void FrameSelection::expandSelectionToStartOfWordContainingCaretSelection()
     moveTo(s2, e1);
 }
 
-UChar FrameSelection::characterInRelationToCaretSelection(int amount) const
+char16_t FrameSelection::characterInRelationToCaretSelection(int amount) const
 {
     auto position = m_selection.visibleStart();
     if (amount < 0) {
@@ -2856,7 +2857,7 @@ bool FrameSelection::selectionAtWordStart() const
         previousCount++;
         if (isStartOfParagraph(position))
             return previousCount != 1;
-        if (UChar c = position.characterAfter())
+        if (char16_t c = position.characterAfter())
             return deprecatedIsSpaceOrNewline(c) || c == noBreakSpace || (u_ispunct(c) && c != ',' && c != '-' && c != '\'');
     }
     return true;
@@ -2889,7 +2890,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
         return VisibleSelection();
 
     if (isEndOfParagraph(endVisiblePosBeforeExpansion)) {
-        UChar c(endVisiblePosBeforeExpansion.characterBefore());
+        char16_t c(endVisiblePosBeforeExpansion.characterBefore());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // End of paragraph with space.
             return VisibleSelection();
@@ -2932,7 +2933,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
             // Empty document
             return VisibleSelection();
         }
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // Space at end of line
             return VisibleSelection();
@@ -2947,7 +2948,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
             // On empty line
             return VisibleSelection();
         }
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (deprecatedIsSpaceOrNewline(c) || c == noBreakSpace) {
             // Space at end of line
             return VisibleSelection();
@@ -2967,7 +2968,7 @@ VisibleSelection FrameSelection::wordSelectionContainingCaretSelection(const Vis
     // Now loop backwards until we find a non-space.
     while (endVisiblePos != startVisiblePos) {
         VisiblePosition previous(endVisiblePos.previous());
-        UChar c(previous.characterAfter());
+        char16_t c(previous.characterAfter());
         if (!deprecatedIsSpaceOrNewline(c) && c != noBreakSpace)
             break;
         endVisiblePos = previous;

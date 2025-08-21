@@ -36,7 +36,6 @@
 #include "JSWebAssemblyStruct.h"
 #include "TypedArrayController.h"
 #include "WaiterListManager.h"
-#include "WasmLLIntGenerator.h"
 #include "WasmModuleInformation.h"
 #include "WasmTypeDefinition.h"
 
@@ -67,7 +66,7 @@ inline JSValue arrayNew(JSWebAssemblyInstance* instance, uint32_t typeIndex, uin
 {
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
 
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     const Wasm::TypeDefinition& arraySignature = structure->typeDefinition();
     ASSERT(arraySignature.is<ArrayType>());
     Wasm::FieldType fieldType = arraySignature.as<ArrayType>()->elementType();
@@ -106,7 +105,7 @@ inline JSValue arrayNew(JSWebAssemblyInstance* instance, uint32_t typeIndex, uin
 
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
 
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     const Wasm::TypeDefinition& arraySignature = structure->typeDefinition();
     ASSERT(arraySignature.is<ArrayType>());
     Wasm::FieldType fieldType = arraySignature.as<ArrayType>()->elementType();
@@ -147,12 +146,12 @@ JSWebAssemblyArray* tryCopyElementsInReverse(JSWebAssemblyInstance* instance, We
 inline JSValue arrayNewFixed(JSWebAssemblyInstance* instance, uint32_t typeIndex, uint32_t size, uint64_t* arguments)
 {
     // Get the array element type and determine the element size
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     const Wasm::TypeDefinition& arraySignature = structure->typeDefinition();
     ASSERT(arraySignature.is<ArrayType>());
     Wasm::FieldType fieldType = arraySignature.as<ArrayType>()->elementType();
     size_t elementSize = fieldType.type.elementSize();
-    RefPtr arrayRTT = instance->module().moduleInformation().rtts[typeIndex];
+    Ref arrayRTT = instance->module().moduleInformation().rtts[typeIndex];
 
     // Copy the elements into the result array in reverse order
     JSWebAssemblyArray* array = nullptr;
@@ -205,7 +204,7 @@ inline EncodedJSValue arrayNewData(JSWebAssemblyInstance* instance, uint32_t typ
 {
     // Check that the type index is within bounds
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     const Wasm::TypeDefinition& arraySignature = structure->typeDefinition();
     ASSERT(arraySignature.is<ArrayType>());
 
@@ -262,7 +261,7 @@ inline EncodedJSValue arrayNewElem(JSWebAssemblyInstance* instance, uint32_t typ
     // Check that the type index is within bounds
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
 
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     ASSERT(structure->typeDefinition().is<ArrayType>());
 
     // Ensure that adding the offset to the desired array length doesn't overflow int32 or
@@ -462,7 +461,7 @@ inline EncodedJSValue structNew(JSWebAssemblyInstance* instance, uint32_t typeIn
     JSGlobalObject* globalObject = instance->globalObject();
     VM& vm = globalObject->vm();
 
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     ASSERT(structure->typeDefinition().is<StructType>());
     const StructType& structType = *structure->typeDefinition().as<StructType>();
     JSWebAssemblyStruct* structValue = JSWebAssemblyStruct::create(vm, structure);
@@ -781,10 +780,15 @@ inline void* throwWasmToJSException(CallFrame* callFrame, Wasm::ExceptionType ty
     // Do not retrieve VM& from CallFrame since CallFrame's callee is not a JSCell.
     VM& vm = globalObject->vm();
 
-    {
+    do {
         auto throwScope = DECLARE_THROW_SCOPE(vm);
 
         JSObject* error;
+        if (type == ExceptionType::Termination) {
+            // Nothing to do because the exception should have already been thrown.
+            RELEASE_ASSERT(vm.hasPendingTerminationException());
+            break;
+        }
         if (type == ExceptionType::StackOverflow)
             error = createStackOverflowError(globalObject);
         else if (isTypeErrorExceptionType(type))
@@ -792,7 +796,7 @@ inline void* throwWasmToJSException(CallFrame* callFrame, Wasm::ExceptionType ty
         else
             error = createJSWebAssemblyRuntimeError(globalObject, vm, type);
         throwException(globalObject, throwScope, error);
-    }
+    } while (false);
 
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);

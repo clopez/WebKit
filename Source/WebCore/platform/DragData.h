@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "Color.h"
-#include "DragActions.h"
-#include "IntPoint.h"
-#include "PageIdentifier.h"
+#include <WebCore/Color.h>
+#include <WebCore/DragActions.h>
+#include <WebCore/IntPoint.h>
+#include <WebCore/PageIdentifier.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/OptionSet.h>
@@ -47,7 +47,7 @@ typedef void* DragDataRef;
 
 #elif PLATFORM(WIN)
 typedef struct IDataObject* DragDataRef;
-#elif PLATFORM(GTK)
+#elif PLATFORM(GTK) || PLATFORM(WPE)
 namespace WebCore {
 class SelectionData;
 }

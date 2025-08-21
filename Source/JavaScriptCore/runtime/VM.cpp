@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,7 +70,7 @@
 #include "JSAPIValueWrapper.h"
 #include "JSBigInt.h"
 #include "JSGlobalObject.h"
-#include "JSImmutableButterflyInlines.h"
+#include "JSCellButterflyInlines.h"
 #include "JSIterator.h"
 #include "JSLock.h"
 #include "JSMap.h"
@@ -128,7 +128,7 @@
 #include "UnlinkedProgramCodeBlockInlines.h"
 #include "VMEntryScopeInlines.h"
 #include "VMInlines.h"
-#include "VMInspector.h"
+#include "VMManager.h"
 #include "VariableEnvironment.h"
 #include "WaiterListManager.h"
 #include "WasmWorklist.h"
@@ -145,10 +145,6 @@
 #include <wtf/Threading.h>
 #include <wtf/text/AtomStringTable.h>
 #include <wtf/text/StringToIntegerConversion.h>
-
-#if ENABLE(C_LOOP)
-#include "CLoopStackInlines.h"
-#endif
 
 #if ENABLE(DFG_JIT)
 #include "ConservativeRoots.h"
@@ -246,7 +242,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     if (vmCreationShouldCrash || g_jscConfig.vmCreationDisallowed) [[unlikely]]
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMCreationDisallowed, "VM creation disallowed"_s, 0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
-    VMInspector::singleton().add(this);
+    VMManager::add(this);
 
     // Set up lazy initializers.
     {
@@ -310,14 +306,14 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     symbolTableStructure.setWithoutWriteBarrier(SymbolTable::createStructure(*this, nullptr, jsNull()));
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    rawImmutableButterflyStructure(CopyOnWriteArrayWithInt32).setWithoutWriteBarrier(JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithInt32));
-    Structure* copyOnWriteArrayWithContiguousStructure = JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous);
-    rawImmutableButterflyStructure(CopyOnWriteArrayWithDouble).setWithoutWriteBarrier(Options::allowDoubleShape() ? JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguousStructure);
+    rawImmutableButterflyStructure(CopyOnWriteArrayWithInt32).setWithoutWriteBarrier(JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithInt32));
+    Structure* copyOnWriteArrayWithContiguousStructure = JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous);
+    rawImmutableButterflyStructure(CopyOnWriteArrayWithDouble).setWithoutWriteBarrier(Options::allowDoubleShape() ? JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguousStructure);
     rawImmutableButterflyStructure(CopyOnWriteArrayWithContiguous).setWithoutWriteBarrier(copyOnWriteArrayWithContiguousStructure);
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
-    // This is only for JSImmutableButterfly filled with atom strings.
-    immutableButterflyOnlyAtomStringsStructure.setWithoutWriteBarrier(JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous));
+    // This is only for JSCellButterfly filled with atom strings.
+    cellButterflyOnlyAtomStringsStructure.setWithoutWriteBarrier(JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous));
 
     sourceCodeStructure.setWithoutWriteBarrier(JSSourceCode::createStructure(*this, nullptr, jsNull()));
     scriptFetcherStructure.setWithoutWriteBarrier(JSScriptFetcher::createStructure(*this, nullptr, jsNull()));
@@ -510,7 +506,7 @@ VM::~VM()
 
     JSRunLoopTimer::Manager::singleton().unregisterVM(*this);
 
-    VMInspector::singleton().remove(this);
+    VMManager::remove(this);
 
     delete emptyList;
 
@@ -936,7 +932,7 @@ void VM::setException(Exception* exception)
     m_exception = exception;
     m_lastException = exception;
     if (exception)
-        traps().setTrapBit(VMTraps::NeedExceptionHandling);
+        traps().fireTrap(VMTraps::NeedExceptionHandling);
 }
 
 void VM::throwTerminationException()
@@ -1009,7 +1005,7 @@ size_t VM::updateSoftReservedZoneSize(size_t softReservedZoneSize)
     size_t oldSoftReservedZoneSize = m_currentSoftReservedZoneSize;
     m_currentSoftReservedZoneSize = softReservedZoneSize;
 #if ENABLE(C_LOOP)
-    interpreter.cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
+    cloopStack().setSoftReservedZoneSize(softReservedZoneSize);
 #endif
 
     updateStackLimits();
@@ -1044,7 +1040,7 @@ static void preCommitStackMemory(void* stackLimit)
 
 void VM::updateStackLimits()
 {
-    void* lastSoftStackLimit = m_softStackLimit;
+    void* lastSoftStackLimit = m_traps.softStackLimit();
 
     const StackBounds& stack = Thread::currentSingleton().stack();
     size_t reservedZoneSize = Options::reservedZoneSize();
@@ -1054,35 +1050,28 @@ void VM::updateStackLimits()
     // that the value is sane.
     RELEASE_ASSERT(reservedZoneSize >= minimumReservedZoneSize);
 
+    void* newSoftStackLimit = 0;
     if (m_stackPointerAtVMEntry) {
         char* startOfStack = reinterpret_cast<char*>(m_stackPointerAtVMEntry);
-        m_softStackLimit = stack.recursionLimit(startOfStack, Options::maxPerThreadStackUsage(), m_currentSoftReservedZoneSize);
+        newSoftStackLimit = stack.recursionLimit(startOfStack, Options::maxPerThreadStackUsage(), m_currentSoftReservedZoneSize);
         m_stackLimit = stack.recursionLimit(startOfStack, Options::maxPerThreadStackUsage(), reservedZoneSize);
     } else {
-        m_softStackLimit = stack.recursionLimit(m_currentSoftReservedZoneSize);
+        newSoftStackLimit = stack.recursionLimit(m_currentSoftReservedZoneSize);
         m_stackLimit = stack.recursionLimit(reservedZoneSize);
     }
 
-    if (lastSoftStackLimit != m_softStackLimit) {
+    if (lastSoftStackLimit != newSoftStackLimit) {
+        m_traps.setStackSoftLimit(newSoftStackLimit);
 #if OS(WINDOWS)
-        // We only need to precommit stack memory dictated by the VM::m_softStackLimit limit.
-        // This is because VM::m_softStackLimit applies to stack usage by LLINT asm or JIT
+        // We only need to precommit stack memory dictated by the VM::softStackLimit() limit.
+        // This is because VM::softStackLimit() applies to stack usage by LLINT asm or JIT
         // generated code which can allocate stack space that the C++ compiler does not know
         // about. As such, we have to precommit that stack memory manually.
         //
         // In contrast, we do not need to worry about VM::m_stackLimit because that limit is
         // used exclusively by C++ code, and the C++ compiler will automatically commit the
         // needed stack pages.
-        preCommitStackMemory(m_softStackLimit);
-#endif
-#if ENABLE(WEBASSEMBLY)
-        // PreciseAllocations are always eagerly swept so we don't have to worry about handling instances pending destruction thus need a HeapIterationScope
-        if (heap.m_webAssemblyInstanceSpace) {
-            heap.m_webAssemblyInstanceSpace->forEachLiveCell([&] (HeapCell* cell, HeapCell::Kind kind) {
-                ASSERT_UNUSED(kind, kind == HeapCell::JSCell);
-                SUPPRESS_MEMORY_UNSAFE_CAST static_cast<JSWebAssemblyInstance*>(cell)->updateSoftStackLimit(m_softStackLimit);
-            });
-        }
+        preCommitStackMemory(newSoftStackLimit);
 #endif
     }
 }
@@ -1388,7 +1377,7 @@ void sanitizeStackForVM(VM& vm)
 
     RELEASE_ASSERT(stack.contains(vm.lastStackTop()), 0xaa10, vm.lastStackTop(), stack.origin(), stack.end());
 #if ENABLE(C_LOOP)
-    vm.interpreter.cloopStack().sanitizeStack();
+    vm.cloopStack().sanitizeStack();
 #else
     sanitizeStackForVMImpl(&vm);
 #endif
@@ -1407,23 +1396,6 @@ size_t VM::committedStackByteCount()
     return CLoopStack::committedByteCount();
 #endif
 }
-
-#if ENABLE(C_LOOP)
-bool VM::ensureStackCapacityForCLoop(Register* newTopOfStack)
-{
-    return interpreter.cloopStack().ensureCapacityFor(newTopOfStack);
-}
-
-bool VM::isSafeToRecurseSoftCLoop() const
-{
-    return interpreter.cloopStack().isSafeToRecurse();
-}
-
-void* VM::currentCLoopStackPointer() const
-{
-    return interpreter.cloopStack().currentStackPointer();
-}
-#endif // ENABLE(C_LOOP)
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
 void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionEventLocation& location)
@@ -1454,7 +1426,7 @@ void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionE
         out.println(StackTracePrinter { *currentTrace, "    " });
 
         dataLog(out.toCString());
-        RELEASE_ASSERT(!m_needExceptionCheck);
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("exception check validation failed");
     }
 }
 #endif
@@ -1670,9 +1642,9 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(regExpStructure);
     visitor.append(symbolStructure);
     visitor.append(symbolTableStructure);
-    for (auto& structure : immutableButterflyStructures)
+    for (auto& structure : cellButterflyStructures)
         visitor.append(structure);
-    visitor.append(immutableButterflyOnlyAtomStringsStructure);
+    visitor.append(cellButterflyOnlyAtomStringsStructure);
     visitor.append(sourceCodeStructure);
     visitor.append(scriptFetcherStructure);
     visitor.append(scriptFetchParametersStructure);
@@ -1747,7 +1719,6 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
             if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringFullGC < remainingTime) {
                 dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] FULL", " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
                 heap.collectSync(CollectionScope::Full);
-                heap.m_shouldDoOpportunisticFullCollection = false;
                 return;
             }
         }
@@ -1758,8 +1729,12 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
             if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringEdenGC < remainingTime) {
                 dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] EDEN: ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.totalBytesAllocatedThisCycle(), " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.totalBytesAllocatedThisCycle()) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
                 heap.collectSync(CollectionScope::Eden);
-                heap.m_shouldDoOpportunisticFullCollection = false;
                 return;
+            } else if (estimatedGCDuration < 2 * remainingTime) {
+                if (heap.totalBytesAllocatedThisCycle() * 2 > heap.m_minBytesPerCycle) {
+                    heap.collectAsync(CollectionScope::Eden);
+                    return;
+                }
             }
         }
 

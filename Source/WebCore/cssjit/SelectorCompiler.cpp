@@ -1247,8 +1247,7 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         return FunctionType::SimpleSelectorChecker;
 
     case CSSSelector::PseudoClass::Scope:
-        fragment.pseudoClasses.add(CSSSelector::PseudoClass::Scope);
-        return FunctionType::SelectorCheckerWithCheckingContext;
+        return FunctionType::CannotCompile;
 
     case CSSSelector::PseudoClass::Active:
     case CSSSelector::PseudoClass::Empty:
@@ -1514,7 +1513,7 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
             break;
         }
         case CSSSelector::Match::List:
-            if (selector->value().find(isASCIIWhitespace<UChar>) != notFound)
+            if (selector->value().find(isASCIIWhitespace<char16_t>) != notFound)
                 return FunctionType::CannotMatchAnything;
             [[fallthrough]];
         case CSSSelector::Match::Begin:
@@ -4454,8 +4453,8 @@ void SelectorCodeGenerator::generateMarkPseudoStyleForPseudoElement(Assembler::J
     // When the requested pseudoId isn't PseudoId::None, there's no need to mark the pseudo element style.
     successCases.append(m_assembler.branch8(Assembler::NotEqual, Assembler::Address(checkingContext, OBJECT_OFFSETOF(SelectorChecker::CheckingContext, pseudoId)), Assembler::TrustedImm32(static_cast<unsigned>(PseudoId::None))));
 
-    // When resolving mode is CollectingRulesIgnoringVirtualPseudoElements, there's no need to mark the pseudo element style.
-    successCases.append(branchOnResolvingModeWithCheckingContext(Assembler::Equal, SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements, checkingContext));
+    // When style invalidation, there's no need to mark the pseudo element style.
+    successCases.append(branchOnResolvingModeWithCheckingContext(Assembler::Equal, SelectorChecker::Mode::StyleInvalidation, checkingContext));
 
     // When resolving mode is ResolvingStyle, mark the pseudo style for pseudo element.
     PseudoId dynamicPseudo = CSSSelector::pseudoId(fragment.pseudoElementSelector->pseudoElement());

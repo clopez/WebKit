@@ -10,14 +10,16 @@ configure_file(wpe-platform-uninstalled.pc.in ${CMAKE_BINARY_DIR}/wpe-platform-$
 configure_file(wpe/WPEConfig.h.in ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe/WPEConfig.h)
 configure_file(wpe/WPEVersion.h.in ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe/WPEVersion.h)
 
-set(WPEPlatform_SOURCES_FOR_INTROSPECTION
+set(WPEPlatform_SOURCES
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBuffer.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferAndroid.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABuf.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormats.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferSHM.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEClipboard.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEColor.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPECursorTheme.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDRMDevice.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDisplay.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEGLError.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEvent.cpp
@@ -43,18 +45,15 @@ set(WPEPlatform_SOURCES_FOR_INTROSPECTION
     ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe/WPEEnumTypes.cpp
 )
 
-set(WPEPlatform_SOURCES
-    ${WPEPlatform_SOURCES_FOR_INTROSPECTION}
-    ${WEBKIT_DIR}/WPEPlatform/wpe/LibDRMUtilities.cpp
-)
-
 set(WPEPlatform_INSTALLED_HEADERS
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBuffer.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferAndroid.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABuf.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormats.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferSHM.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEClipboard.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEColor.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDRMDevice.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDefines.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDisplay.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEGLError.h
@@ -132,6 +131,10 @@ if (USE_LIBDRM)
     )
 endif ()
 
+if (ANDROID)
+    list(APPEND WPEPlatform_LIBRARIES Android::Android)
+endif ()
+
 if (USE_ATK)
     list(APPEND WPEPlatform_SYSTEM_INCLUDE_DIRECTORIES
         ${ATK_INCLUDE_DIRS}
@@ -201,7 +204,7 @@ GI_INTROSPECT(WPEPlatform ${WPE_API_VERSION} wpe/wpe-platform.h
         -I${WPEPlatform_DERIVED_SOURCES_DIR}
     SOURCES
         ${WPEPlatform_INSTALLED_HEADERS}
-        ${WPEPlatform_SOURCES_FOR_INTROSPECTION}
+        ${WPEPlatform_SOURCES}
     NO_IMPLICIT_SOURCES
 )
 

@@ -23,11 +23,14 @@
 #include <initializer_list>
 #include <wtf/Compiler.h>
 #include <wtf/Forward.h>
+#include <wtf/HashFunctions.h>
 #include <wtf/HashIterators.h>
 #include <wtf/HashTable.h>
 #include <wtf/HashTraits.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/KeyValuePair.h>
+#include <wtf/OptionSetHash.h>
+#include <wtf/Packed.h>
 
 namespace WTF {
 
@@ -37,7 +40,7 @@ template<typename T> struct KeyValuePairKeyExtractor {
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg, typename TableTraitsArg, ShouldValidateKey shouldValidateKey, typename Malloc>
 class HashMap final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(HashMap);
 private:
     using KeyTraits = KeyTraitsArg;
     using MappedTraits = MappedTraitsArg;

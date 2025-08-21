@@ -37,11 +37,13 @@
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Event.h"
+#include "EventCounts.h"
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "ExceptionOr.h"
 #include "LocalFrame.h"
 #include "PerformanceEntry.h"
+#include "PerformanceEventTiming.h"
 #include "PerformanceMarkOptions.h"
 #include "PerformanceMeasureOptions.h"
 #include "PerformanceNavigation.h"
@@ -53,6 +55,7 @@
 #include "PerformanceUserTiming.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
+#include "dom/DOMHighResTimeStamp.h"
 #include <ranges>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -126,15 +129,38 @@ Seconds Performance::timeResolution()
     return timePrecision;
 }
 
+Seconds Performance::relativeTimeFromTimeOriginInReducedResolutionSeconds(MonotonicTime timestamp) const
+{
+    return reduceTimeResolution(timestamp - m_timeOrigin);
+}
+
 DOMHighResTimeStamp Performance::relativeTimeFromTimeOriginInReducedResolution(MonotonicTime timestamp) const
 {
-    Seconds seconds = timestamp - m_timeOrigin;
-    return reduceTimeResolution(seconds).milliseconds();
+    return relativeTimeFromTimeOriginInReducedResolutionSeconds(timestamp).milliseconds();
 }
 
 MonotonicTime Performance::monotonicTimeFromRelativeTime(DOMHighResTimeStamp relativeTime) const
 {
     return m_timeOrigin + Seconds::fromMilliseconds(relativeTime);
+}
+
+ScriptExecutionContext* Performance::scriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
+}
+
+EventCounts* Performance::eventCounts()
+{
+    if (!is<Document>(scriptExecutionContext()))
+        return nullptr;
+
+    ASSERT(isMainThread());
+    // FIXME: stop lazy-initializing m_eventCounts after event
+    // timing stops being gated by a flag:
+    if (!m_eventCounts)
+        lazyInitialize(m_eventCounts, makeUniqueWithoutRefCountedCheck<EventCounts>(this));
+
+    return m_eventCounts.get();
 }
 
 PerformanceNavigation* Performance::navigation()
@@ -247,12 +273,48 @@ void Performance::appendBufferedEntriesByType(const String& entryType, Vector<Re
     if (entryType == "paint"_s && m_firstContentfulPaint)
         entries.append(*m_firstContentfulPaint);
 
+    if (entryType == "event"_s)
+        entries.appendVector(m_eventTimingBuffer);
+
+    if (entryType == "first-input"_s && m_firstInput)
+        entries.append(*m_firstInput);
+
     if (m_userTiming) {
         if (entryType.isNull() || entryType == "mark"_s)
             entries.appendVector(m_userTiming->getMarks());
         if (entryType.isNull() || entryType == "measure"_s)
             entries.appendVector(m_userTiming->getMeasures());
     }
+}
+
+void Performance::countEvent(EventType type)
+{
+    ASSERT(isMainThread());
+    eventCounts()->add(type);
+}
+
+void Performance::processEventEntry(PerformanceEventTiming::Candidate& candidate, Seconds duration)
+{
+    // FIXME: handle firstInput based on InteractionId
+    if (!m_firstInput) {
+        m_firstInput = PerformanceEventTiming::create(candidate, duration, true);
+        queueEntry(*m_firstInput);
+    }
+
+    if (duration < minDurationCutoffBeforeRounding)
+        return;
+
+    // FIXME: early return more often by keeping track of m_observers; we
+    // should keep track of the minimum defaultThreshold and whether any
+    // observers are interested in 'event' entries:
+    if (duration <= defaultDurationCutoffBeforeRounding && !m_observers.size())
+        return;
+
+    auto entry = PerformanceEventTiming::create(candidate, duration);
+    if (m_eventTimingBuffer.size() < m_eventTimingBufferSize && duration > defaultDurationCutoffBeforeRounding)
+        m_eventTimingBuffer.append(entry);
+
+    queueEntry(entry);
 }
 
 void Performance::clearResourceTimings()
@@ -410,7 +472,9 @@ ExceptionOr<Ref<PerformanceMeasure>> Performance::measure(JSC::JSGlobalObject& g
         if (correctedStartTime != correctedEndTime)
             correctedEndTime -= 1;
         auto message = measureName.utf8();
-        WTFEmitSignpostAlways(entry.ptr(), WebKitPerformance, "%{public}s %{public, signpost.description:begin_time}llu %{public, signpost.description:end_time}llu", message.data(), correctedStartTime, correctedEndTime);
+
+        WTFBeginSignpostAlwaysWithSpecificTime(entry.ptr(), WebKitPerformance, correctedStartTime, "%" PUBLIC_LOG_STRING, message.data());
+        WTFEndSignpostAlwaysWithSpecificTime(entry.ptr(), WebKitPerformance, correctedEndTime, "%" PUBLIC_LOG_STRING, message.data());
 #endif
     }
 
@@ -459,7 +523,11 @@ void Performance::queueEntry(PerformanceEntry& entry)
 {
     bool shouldScheduleTask = false;
     for (auto& observer : m_observers) {
-        if (observer->typeFilter().contains(entry.performanceEntryType())) {
+        bool isObserverInterested = observer->typeFilter().contains(entry.performanceEntryType());
+        if (entry.performanceEntryType() == PerformanceEntry::Type::Event && entry.duration() < observer->durationThreshold().milliseconds())
+            isObserverInterested = false;
+
+        if (isObserverInterested) {
             observer->queueEntry(entry);
             shouldScheduleTask = true;
         }

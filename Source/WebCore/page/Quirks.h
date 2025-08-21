@@ -25,8 +25,9 @@
 
 #pragma once
 
-#include "Event.h"
-#include "QuirksData.h"
+#include <WebCore/Event.h>
+#include <WebCore/QuirksData.h>
+#include <WebCore/RegistrableDomain.h>
 #include <optional>
 #include <wtf/Forward.h>
 #include <wtf/TZoneMalloc.h>
@@ -45,7 +46,6 @@ class LayoutUnit;
 class LocalFrame;
 class Node;
 class PlatformMouseEvent;
-class RegistrableDomain;
 class ResourceRequest;
 class RenderStyle;
 class SecurityOriginData;
@@ -87,6 +87,7 @@ public:
 
     bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const;
     bool shouldFlipScreenDimensions() const;
+    bool shouldAllowDownloadsInSpiteOfCSP() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
@@ -259,6 +260,9 @@ public:
 
     bool needsLimitedMatroskaSupport() const;
 
+    bool needsCustomUserAgentData() const;
+    bool needsNavigatorUserAgentDataQuirk() const;
+
     WEBCORE_EXPORT bool needsNowPlayingFullscreenSwapQuirk() const;
 
     bool needsWebKitMediaTextTrackDisplayQuirk() const;
@@ -271,6 +275,8 @@ public:
     bool shouldPreventKeyframeEffectAcceleration(const KeyframeEffect&) const;
 
     bool shouldEnterNativeFullscreenWhenCallingElementRequestFullscreenQuirk() const;
+
+    bool shouldDisableDOMAudioSessionQuirk() const;
 
 private:
     bool needsQuirks() const;

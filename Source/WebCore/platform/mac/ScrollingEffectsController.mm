@@ -78,6 +78,9 @@ void ScrollingEffectsController::stopAllTimers()
         m_client.didStopScrollSnapAnimation();
     }
 
+    if (m_discreteScrollendTimer)
+        m_discreteScrollendTimer->stop();
+
 #if ASSERT_ENABLED
     m_timersWereStopped = true;
 #endif
@@ -231,6 +234,8 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
         } else {
             delta.scale(scrollWheelMultiplier());
             m_client.immediateScrollBy(delta);
+            if (wheelEvent.phase() == PlatformWheelEventPhase::None && wheelEvent.momentumPhase() == PlatformWheelEventPhase::None)
+                scheduleScrollendTimer();
         }
     }
 
@@ -532,6 +537,7 @@ enum class WheelEventStatus {
     UserScrollBegin,
     UserScrolling,
     UserScrollEnd,
+    MomentumScrollWillBegin,
     MomentumScrollBegin,
     MomentumScrolling,
     MomentumScrollEnd,
@@ -555,11 +561,14 @@ static inline WheelEventStatus toWheelEventStatus(PlatformWheelEventPhase phase,
         case PlatformWheelEventPhase::None:
             return WheelEventStatus::DiscreteScrollEvent;
 
+        case PlatformWheelEventPhase::WillBegin:
+            return WheelEventStatus::MomentumScrollWillBegin;
+
         default:
             return WheelEventStatus::Unknown;
         }
     }
-    if (momentumPhase == PlatformWheelEventPhase::None) {
+    if (momentumPhase == PlatformWheelEventPhase::None || momentumPhase == PlatformWheelEventPhase::WillBegin) {
         switch (phase) {
         case PlatformWheelEventPhase::Began:
         case PlatformWheelEventPhase::MayBegin:
@@ -571,7 +580,8 @@ static inline WheelEventStatus toWheelEventStatus(PlatformWheelEventPhase phase,
         case PlatformWheelEventPhase::Ended:
         case PlatformWheelEventPhase::Cancelled:
             return WheelEventStatus::UserScrollEnd;
-                
+        case PlatformWheelEventPhase::WillBegin:
+            return WheelEventStatus::MomentumScrollWillBegin;
         default:
             return WheelEventStatus::Unknown;
         }
@@ -586,6 +596,7 @@ static TextStream& operator<<(TextStream& ts, WheelEventStatus status)
     case WheelEventStatus::UserScrollBegin: ts << "UserScrollBegin"_s; break;
     case WheelEventStatus::UserScrolling: ts << "UserScrolling"_s; break;
     case WheelEventStatus::UserScrollEnd: ts << "UserScrollEnd"_s; break;
+    case WheelEventStatus::MomentumScrollWillBegin: ts << "MomentumScrollWillBegin"_s; break;
     case WheelEventStatus::MomentumScrollBegin: ts << "MomentumScrollBegin"_s; break;
     case WheelEventStatus::MomentumScrolling: ts << "MomentumScrolling"_s; break;
     case WheelEventStatus::MomentumScrollEnd: ts << "MomentumScrollEnd"_s; break;
@@ -629,6 +640,18 @@ void ScrollingEffectsController::scheduleDiscreteScrollSnap(const FloatSize& del
     startDeferringWheelEventTestCompletion(WheelEventTestMonitor::DeferReason::ScrollSnapInProgress);
 }
 
+void ScrollingEffectsController::scheduleScrollendTimer()
+{
+    static const Seconds discreteScrollDelay = 100_ms;
+
+    if (!m_discreteScrollendTimer) {
+        m_discreteScrollendTimer = m_client.createTimer([this] {
+            scrollendTimerFired();
+        });
+    }
+    m_discreteScrollendTimer->startOneShot(discreteScrollDelay);
+}
+
 void ScrollingEffectsController::discreteSnapTransitionTimerFired()
 {
     auto recentDiscreteWheelDeltas = std::exchange(m_recentDiscreteWheelDeltas, { });
@@ -660,6 +683,11 @@ void ScrollingEffectsController::discreteSnapTransitionTimerFired()
         stopDeferringWheelEventTestCompletion(WheelEventTestMonitor::DeferReason::ScrollSnapInProgress);
         m_client.didStopScrollSnapAnimation();
     }
+}
+
+void ScrollingEffectsController::scrollendTimerFired()
+{
+    m_client.didStopWheelEventScroll();
 }
 
 bool ScrollingEffectsController::processWheelEventForScrollSnap(const PlatformWheelEvent& wheelEvent)
@@ -700,6 +728,8 @@ bool ScrollingEffectsController::processWheelEventForScrollSnap(const PlatformWh
     case WheelEventStatus::DiscreteScrollEvent:
         m_scrollSnapState->transitionToUserInteractionState();
         scheduleDiscreteScrollSnap(wheelEvent.delta());
+        break;
+    case WheelEventStatus::MomentumScrollWillBegin:
         break;
     case WheelEventStatus::Unknown:
         ASSERT_NOT_REACHED();

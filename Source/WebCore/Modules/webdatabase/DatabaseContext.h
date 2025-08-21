@@ -27,8 +27,8 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "Document.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/Document.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -65,7 +65,7 @@ public:
     bool allowDatabaseAccess() const;
     void databaseExceededQuota(const String& name, DatabaseDetails);
 
-    Document* document() const { return downcast<Document>(ActiveDOMObject::scriptExecutionContext()); }
+    Document* document() const;
     const SecurityOriginData& securityOrigin() const;
 
     bool isContextThread() const;

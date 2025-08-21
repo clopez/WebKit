@@ -32,6 +32,7 @@
 #include "JavaScriptEvaluationResult.h"
 #include "NotificationService.h"
 #include "PageLoadState.h"
+#include "PlatformXRSystem.h"
 #include "ProcessTerminationReason.h"
 #include "ProvisionalPageProxy.h"
 #include "RunJavaScriptParameters.h"
@@ -246,6 +247,7 @@ enum {
     PROP_DEFAULT_CONTENT_SECURITY_POLICY,
 
     PROP_THEME_COLOR,
+    PROP_IS_IMMERSIVE_MODE_ENABLED,
 
     N_PROPERTIES,
 };
@@ -316,7 +318,7 @@ private:
 #if PLATFORM(WPE)
 static unsigned frameDisplayCallbackID;
 struct FrameDisplayedCallback {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(FrameDisplayedCallback);
     FrameDisplayedCallback(WebKitFrameDisplayedCallback callback, gpointer userData = nullptr, GDestroyNotify destroyNotifyFunction = nullptr)
         : id(++frameDisplayCallbackID)
         , callback(callback)
@@ -343,7 +345,7 @@ struct FrameDisplayedCallback {
 #endif // PLATFORM(WPE)
 
 struct _WebKitWebViewPrivate {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(_WebKitWebViewPrivate);
     ~_WebKitWebViewPrivate()
     {
         // For modal dialogs, make sure the main loop is stopped when finalizing the webView.
@@ -427,6 +429,9 @@ struct _WebKitWebViewPrivate {
     WebKitWebExtensionMode webExtensionMode;
 
     bool isWebProcessResponsive;
+#if ENABLE(WEBXR) && USE(OPENXR)
+    bool isImmersiveModeEnabled;
+#endif
 };
 
 static std::array<unsigned, LAST_SIGNAL> signals;
@@ -713,7 +718,7 @@ static void gotFaviconCallback(GObject* object, GAsyncResult* result, gpointer u
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(userData);
     webkitWebViewUpdateFavicon(webView, favicon.get());
-    webView->priv->faviconCancellable = 0;
+    webView->priv->faviconCancellable = nullptr;
 }
 
 static WebKitFaviconDatabase* webkitWebViewGetFaviconDatabase(WebKitWebView* webView)
@@ -1197,6 +1202,9 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
 #endif
         break;
     }
+    case PROP_IS_IMMERSIVE_MODE_ENABLED:
+        g_value_set_boolean(value, webkit_web_view_is_immersive_mode_enabled(webView));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
     }
@@ -1745,6 +1753,20 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
 #else
         GDK_TYPE_RGBA,
 #endif
+        WEBKIT_PARAM_READABLE);
+
+    /**
+     * WebKitWebView:is-immersive-mode-enabled: (attributes org.gtk.Property.get=webkit_web_view_is_immersive_mode_enabled) (getter is_immersive_mode_enabled):
+     *
+     * Whether the #WebKitWebView is in immersive mode.
+     *
+     * Since: 2.52
+     */
+    sObjProperties[PROP_IS_IMMERSIVE_MODE_ENABLED] =
+    g_param_spec_boolean(
+        "is-immersive-mode-enabled",
+        nullptr, nullptr,
+        FALSE,
         WEBKIT_PARAM_READABLE);
 
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties.data());
@@ -3096,20 +3118,21 @@ void webkitWebViewDidReceiveUserMessage(WebKitWebView* webView, UserMessage&& me
 }
 
 #if ENABLE(POINTER_LOCK)
-void webkitWebViewRequestPointerLock(WebKitWebView* webView)
+void webkitWebViewRequestPointerLock(WebKitWebView* webView, CompletionHandler<void(bool)>&& completionHandler)
 {
 #if PLATFORM(GTK)
-    webkitWebViewBaseRequestPointerLock(WEBKIT_WEB_VIEW_BASE(webView));
+    webkitWebViewBaseRequestPointerLock(WEBKIT_WEB_VIEW_BASE(webView), WTFMove(completionHandler));
 #endif
 
 #if PLATFORM(WPE)
     webView->priv->view->requestPointerLock();
+    completionHandler(true);
 #endif
 }
 
-void webkitWebViewDenyPointerLockRequest(WebKitWebView* webView)
+void webkitWebViewDenyPointerLockRequest(CompletionHandler<void(bool)>&& completionHandler)
 {
-    getPage(webView).didDenyPointerLock();
+    completionHandler(false);
 }
 
 void webkitWebViewDidLosePointerLock(WebKitWebView* webView)
@@ -3171,12 +3194,12 @@ void webkitWebViewPermissionStateQuery(WebKitWebView* webView, WebKitPermissionS
 }
 
 #if PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
-RendererBufferFormat webkitWebViewGetRendererBufferFormat(WebKitWebView* webView)
+RendererBufferDescription webkitWebViewGetRendererBufferDescription(WebKitWebView* webView)
 {
 #if PLATFORM(GTK)
-    return webkitWebViewBaseGetRendererBufferFormat(WEBKIT_WEB_VIEW_BASE(webView));
+    return webkitWebViewBaseGetRendererBufferDescription(WEBKIT_WEB_VIEW_BASE(webView));
 #elif PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
-    return static_cast<WKWPE::ViewPlatform*>(webView->priv->view.get())->renderBufferFormat();
+    return static_cast<WKWPE::ViewPlatform*>(webView->priv->view.get())->renderBufferDescription();
 #endif
 }
 #endif
@@ -4207,7 +4230,7 @@ JSGlobalContextRef webkit_web_view_get_javascript_global_context(WebKitWebView* 
     // We keep a reference to the js context in the view only when this method is called
     // for backwards compatibility.
     if (!webView->priv->jsContext)
-        webView->priv->jsContext = API::SerializedScriptValue::sharedJSCContext();
+        webView->priv->jsContext = jscContextGetOrCreate(API::SerializedScriptValue::deserializationContext().get()).get();
     return jscContextGetJSContext(webView->priv->jsContext.get());
 }
 #endif
@@ -4834,7 +4857,7 @@ gboolean webkit_web_view_can_show_mime_type(WebKitWebView* webView, const char* 
 
 #if ENABLE(MHTML)
 struct ViewSaveAsyncData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ViewSaveAsyncData);
     RefPtr<API::Data> webData;
     GRefPtr<GFile> file;
 };
@@ -5199,6 +5222,10 @@ void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessT
 
     // Reset the state of the responsiveness property.
     webkitWebViewSetIsWebProcessResponsive(webView, true);
+
+#if ENABLE(WEBXR) && USE(OPENXR)
+    webkitWebViewSetIsImmersiveModeEnabled(webView, false);
+#endif
 }
 
 /**
@@ -5841,4 +5868,69 @@ webkit_web_view_get_default_content_security_policy(WebKitWebView* webView)
         return nullptr;
 
     return webView->priv->defaultContentSecurityPolicy.data();
+}
+
+#if ENABLE(WEBXR) && USE(OPENXR)
+void webkitWebViewSetIsImmersiveModeEnabled(WebKitWebView* webView, bool isImmersiveModeEnabled)
+{
+    if (webView->priv->isImmersiveModeEnabled == isImmersiveModeEnabled)
+        return;
+
+    webView->priv->isImmersiveModeEnabled = isImmersiveModeEnabled;
+    g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_IS_IMMERSIVE_MODE_ENABLED]);
+}
+#endif
+
+/**
+ * webkit_web_view_is_immersive_mode_enabled: (get-property is-immersive-mode-enabled):
+ * @web_view: a #WebKitWebView
+ *
+ * Gets whether @web_view is in immersive mode.
+ *
+ * An immersive session is a mode in which the user is presented with a fully immersive XR experience
+ * (such as VR or AR), typically rendered via a headset.
+ *
+ * Note that if WebXR is disabled or OPENXR is not used, this API always returns %FALSE.
+ *
+ * Returns: %TRUE if the @web_view is in immersive mode, or %FALSE otherwise.
+ *
+ * Since: 2.52
+ */
+gboolean webkit_web_view_is_immersive_mode_enabled(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+#if ENABLE(WEBXR) && USE(OPENXR)
+    return webView->priv->isImmersiveModeEnabled;
+#else
+    return false;
+#endif
+}
+
+/**
+ * webkit_web_view_leave_immersive_mode:
+ * @web_view: a #WebKitWebView
+ *
+ * Requests to leave the immersive mode this #WebKitWebView is in.
+ *
+ * Users interact with web content to start XR sessions, and can typically
+ * end the sessions themselves, but applications might need to end a session on their
+ * own based on application or platform logic.
+ *
+ * Note that if WebXR is disabled, or if it is enabled but the @web_view is not in
+ * immersive mode, this API does nothing. See also webkit_web_view_is_immersive_mode_enabled().
+ *
+ * Since: 2.52
+ */
+void webkit_web_view_leave_immersive_mode(WebKitWebView* webView)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+#if ENABLE(WEBXR) && USE(OPENXR)
+    if (!webView->priv->isImmersiveModeEnabled)
+        return;
+
+    Ref page = getPage(webView);
+    if (auto xrSystem = page->xrSystem())
+        xrSystem->invalidate(PlatformXRSystem::InvalidationReason::Client);
+#endif
 }

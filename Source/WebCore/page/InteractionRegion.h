@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "FloatRect.h"
-#include "NodeIdentifier.h"
-#include "Path.h"
-#include "Region.h"
+#include <WebCore/FloatRect.h>
+#include <WebCore/NodeIdentifier.h>
+#include <WebCore/Path.h>
+#include <WebCore/Region.h>
 
 namespace IPC {
 class Decoder;
@@ -62,6 +62,7 @@ struct InteractionRegion {
     OptionSet<CornerMask> maskedCorners { };
     ContentHint contentHint { ContentHint::Default };
     std::optional<Path> clipPath { std::nullopt };
+    bool useContinuousCorners { false };
 #if ENABLE(INTERACTION_REGION_TEXT_CONTENT)
     String text { };
 #endif

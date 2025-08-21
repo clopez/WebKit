@@ -105,7 +105,7 @@ namespace WebKit {
 using namespace WebCore;
 
 struct NetworkResourceLoader::SynchronousLoadData {
-    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(NetworkResourceLoader);
 
     SynchronousLoadData(CompletionHandler<void(const ResourceError&, const ResourceResponse, Vector<uint8_t>&&)>&& reply)
         : delayedReply(WTFMove(reply))
@@ -502,6 +502,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
         case WebCore::FetchOptions::Destination::Document:
         case WebCore::FetchOptions::Destination::Iframe:
             return ResourceLoadInfo::Type::Document;
+        case WebCore::FetchOptions::Destination::Json:
+            return ResourceLoadInfo::Type::Script;
         case WebCore::FetchOptions::Destination::Embed:
             return ResourceLoadInfo::Type::Object;
         case WebCore::FetchOptions::Destination::Environmentmap:
@@ -977,7 +979,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         auto error = networkLoadChecker->validateResponse(m_networkLoad ? m_networkLoad->currentRequest() : originalRequest(), m_response);
         if (!error.isNull()) {
             LOADER_RELEASE_LOG_ERROR("didReceiveResponse: NetworkLoadChecker::validateResponse returned an error (error.domain=%" PUBLIC_LOG_STRING ", error.code=%d)", error.domain().utf8().data(), error.errorCode());
-            RunLoop::protectedMain()->dispatch([protectedThis = Ref { *this }, error = WTFMove(error)] {
+            RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, error = WTFMove(error)] {
                 if (protectedThis->m_networkLoad)
                     protectedThis->didFailLoading(error);
             });
@@ -999,7 +1001,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
     // https://html.spec.whatwg.org/multipage/origin.html#check-a-global-object's-embedder-policy
     if (shouldInterruptWorkerLoadForCrossOriginEmbedderPolicy(m_response)) {
         LOADER_RELEASE_LOG_ERROR("didReceiveResponse: Interrupting worker load due to Cross-Origin-Opener-Policy");
-        RunLoop::protectedMain()->dispatch([protectedThis = Ref { *this }, url = m_response.url()] {
+        RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, url = m_response.url()] {
             if (protectedThis->m_networkLoad)
                 protectedThis->didFailLoading(ResourceError { errorDomainWebKitInternal, 0, url, "Worker load was blocked by Cross-Origin-Embedder-Policy"_s, ResourceError::Type::AccessControl });
         });
@@ -1008,7 +1010,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
 
     if (auto error = doCrossOriginOpenerHandlingOfResponse(m_response)) {
         LOADER_RELEASE_LOG_ERROR("didReceiveResponse: Interrupting load due to Cross-Origin-Opener-Policy");
-        RunLoop::protectedMain()->dispatch([protectedThis = Ref { *this }, error = WTFMove(*error)] {
+        RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, error = WTFMove(*error)] {
             if (protectedThis->m_networkLoad)
                 protectedThis->didFailLoading(error);
         });
@@ -1241,7 +1243,7 @@ std::optional<Seconds> NetworkResourceLoader::validateCacheEntryForMaxAgeCapVali
     
     if (!existingCacheEntryMatchesNewResponse) {
         if (CheckedPtr networkStorageSession = protectedConnectionToWebProcess()->networkProcess().storageSession(sessionID()))
-            return networkStorageSession->maxAgeCacheCap(request);
+            return networkStorageSession->maxAgeCacheCap(request, NetworkSession::isRequestToKnownCrossSiteTracker(request));
     }
     return std::nullopt;
 }
@@ -1984,7 +1986,7 @@ void NetworkResourceLoader::logCookieInformation(NetworkConnectionToWebProcess& 
 {
     ASSERT(shouldLogCookieInformation(connection, networkStorageSession.sessionID()));
 
-    if (networkStorageSession.shouldBlockCookies(firstParty, url, frameID, pageID, ShouldRelaxThirdPartyCookieBlocking::No))
+    if (networkStorageSession.shouldBlockCookies(firstParty, url, frameID, pageID, ShouldRelaxThirdPartyCookieBlocking::No, IsKnownCrossSiteTracker::No))
         logBlockedCookieInformation(connection, label, loggedObject, networkStorageSession, firstParty, sameSiteInfo, url, referrer, frameID, pageID, identifier);
     else
         logCookieInformationInternal(connection, label, loggedObject, networkStorageSession, firstParty, sameSiteInfo, url, referrer, frameID, pageID, identifier);

@@ -31,12 +31,14 @@
 #import <WebCore/BoxSides.h>
 
 @class UIScrollEdgeEffect;
+@class WKScrollView;
 
 @interface WKUIScrollEdgeEffect : NSObject
 
-- (instancetype)initWithScrollEdgeEffect:(UIScrollEdgeEffect *)effect boxSide:(WebCore::BoxSide)side;
+- (instancetype)initWithScrollView:(WKScrollView *)scrollView scrollEdgeEffect:(UIScrollEdgeEffect *)effect boxSide:(WebCore::BoxSide)side;
 
 @property (nonatomic, getter=isInternallyHidden) BOOL internallyHidden;
+@property (nonatomic) BOOL usesHardStyle;
 
 @end
 

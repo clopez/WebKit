@@ -39,9 +39,11 @@
 #include <WebKit/WKRetainPtr.h>
 #include <WebKit/WebKit2_C.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Logging.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextStream.h>
 
 namespace WTR {
 
@@ -548,7 +550,7 @@ unsigned InjectedBundle::userMediaPermissionRequestCount() const
 
 void InjectedBundle::resetUserMediaPermissionRequestCount()
 {
-    postPageMessage("ResetUserMediaPermissionRequestCount");
+    WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("ResetUserMediaPermissionRequestCount").get(), 0, 0);
 }
 
 void InjectedBundle::setCustomPolicyDelegate(bool enabled, bool permissive)

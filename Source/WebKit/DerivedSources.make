@@ -279,11 +279,11 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/ShapeDetection/RemoteBarcodeDetector \
 	GPUProcess/ShapeDetection/RemoteFaceDetector \
 	GPUProcess/ShapeDetection/RemoteTextDetector \
-	GPUProcess/graphics/RemoteDisplayListRecorder \
+	GPUProcess/graphics/RemoteGraphicsContext \
+	GPUProcess/graphics/RemoteGraphicsContextGL \
 	GPUProcess/graphics/RemoteImageBuffer \
 	GPUProcess/graphics/RemoteImageBufferSet \
 	GPUProcess/graphics/RemoteRenderingBackend \
-	GPUProcess/graphics/RemoteGraphicsContextGL \
 	GPUProcess/graphics/WebGPU/RemoteAdapter \
 	GPUProcess/graphics/WebGPU/RemoteBindGroup \
 	GPUProcess/graphics/WebGPU/RemoteBindGroupLayout \
@@ -456,9 +456,12 @@ SANDBOX_PROFILES_IOS = \
 	com.apple.WebKit.adattributiond.sb \
 	com.apple.WebKit.webpushd.sb \
 	com.apple.WebKit.GPU.sb \
+	com.apple.WebKit.GPU.Development.sb \
 	com.apple.WebKit.Model.sb \
 	com.apple.WebKit.Networking.sb \
-	com.apple.WebKit.WebContent.sb
+	com.apple.WebKit.Networking.Development.sb \
+	com.apple.WebKit.WebContent.sb \
+	com.apple.WebKit.WebContent.Development.sb
 
 sandbox-profiles-ios : $(SANDBOX_PROFILES_IOS)
 
@@ -673,6 +676,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Cocoa/CoreIPCPresentationIntent.serialization.in \
 	Shared/Cocoa/CoreIPCSecureCoding.serialization.in \
 	Shared/Cocoa/CoreIPCString.serialization.in \
+	Shared/Cocoa/CoreIPCStringSet.serialization.in \
 	Shared/Cocoa/CoreIPCURL.serialization.in \
 	Shared/Cocoa/CoreIPCCFCharacterSet.serialization.in \
 	Shared/Cocoa/DataDetectionResult.serialization.in \
@@ -742,6 +746,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/MonotonicObjectIdentifier.serialization.in \
 	Shared/NavigationActionData.serialization.in \
 	Shared/NetworkProcessConnectionParameters.serialization.in \
+	Shared/NodeHitTestResult.serialization.in \
 	Shared/Pasteboard.serialization.in \
 	Shared/PlatformPopupMenuData.serialization.in \
 	Shared/PolicyDecision.serialization.in \
@@ -760,6 +765,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/SandboxExtension.serialization.in \
 	Shared/ScriptTrackingPrivacyFilter.serialization.in \
 	Shared/ScrollingAccelerationCurve.serialization.in \
+	Shared/SerializedNode.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/SyntheticEditingCommandType.serialization.in \
 	Shared/TextFlags.serialization.in \
@@ -817,7 +823,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/cf/CoreIPCSecCertificate.serialization.in \
 	Shared/cf/CoreIPCSecKeychainItem.serialization.in \
 	Shared/cf/CoreIPCSecTrust.serialization.in \
-	Shared/graphics/DoubleGeometry.serialization.in \
 	Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in \
 	Shared/mac/PDFContextMenuItem.serialization.in \
 	Shared/mac/SecItemRequestData.serialization.in \

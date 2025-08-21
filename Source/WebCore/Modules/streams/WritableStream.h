@@ -25,8 +25,9 @@
 
 #pragma once
 
-#include "JSDOMGlobalObject.h"
 #include <JavaScriptCore/Strong.h>
+#include <WebCore/ExceptionOr.h>
+#include <WebCore/JSDOMGlobalObject.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 

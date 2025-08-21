@@ -20,30 +20,30 @@
 
 #pragma once
 
-#include "ActivityState.h"
-#include "AnimationFrameRate.h"
-#include "BackForwardItemIdentifier.h"
-#include "BoxExtents.h"
-#include "Color.h"
-#include "DocumentEnums.h"
-#include "FindOptions.h"
-#include "FrameIdentifier.h"
-#include "FrameLoaderTypes.h"
-#include "ImageTypes.h"
-#include "IntRectHash.h"
-#include "LoadSchedulingMode.h"
-#include "MediaSessionGroupIdentifier.h"
-#include "PageIdentifier.h"
-#include "Pagination.h"
-#include "PlaybackTargetClientContextIdentifier.h"
-#include "ProcessSwapDisposition.h"
-#include "RegistrableDomain.h"
-#include "ScriptExecutionContextIdentifier.h"
-#include "ScriptTrackingPrivacyCategory.h"
-#include "ScrollTypes.h"
-#include "Supplementable.h"
-#include "Timer.h"
-#include "UserInterfaceLayoutDirection.h"
+#include <WebCore/ActivityState.h>
+#include <WebCore/AnimationFrameRate.h>
+#include <WebCore/BackForwardItemIdentifier.h>
+#include <WebCore/BoxExtents.h>
+#include <WebCore/Color.h>
+#include <WebCore/DocumentEnums.h>
+#include <WebCore/FindOptions.h>
+#include <WebCore/FrameIdentifier.h>
+#include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/ImageTypes.h>
+#include <WebCore/IntRectHash.h>
+#include <WebCore/LoadSchedulingMode.h>
+#include <WebCore/MediaSessionGroupIdentifier.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/Pagination.h>
+#include <WebCore/PlaybackTargetClientContextIdentifier.h>
+#include <WebCore/ProcessSwapDisposition.h>
+#include <WebCore/RegistrableDomain.h>
+#include <WebCore/ScriptExecutionContextIdentifier.h>
+#include <WebCore/ScriptTrackingPrivacyCategory.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/Supplementable.h>
+#include <WebCore/Timer.h>
+#include <WebCore/UserInterfaceLayoutDirection.h>
 #include <memory>
 #include <pal/SessionID.h>
 #include <wtf/Assertions.h>
@@ -66,11 +66,11 @@
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(APPLICATION_MANIFEST)
-#include "ApplicationManifest.h"
+#include <WebCore/ApplicationManifest.h>
 #endif
 
 #if PLATFORM(VISION) && ENABLE(GAMEPAD)
-#include "ShouldRequireExplicitConsentForGamepadAccess.h"
+#include <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
 #endif
 
 namespace JSC {
@@ -149,6 +149,7 @@ class LowPowerModeNotifier;
 class MediaCanStartListener;
 class MediaPlaybackTarget;
 class MediaSessionCoordinatorPrivate;
+class MediaSessionManagerInterface;
 class ModelPlayerProvider;
 class PageConfiguration;
 class PageConsoleClient;
@@ -252,6 +253,7 @@ enum class FindOption : uint16_t;
 enum class FilterRenderingMode : uint8_t;
 enum class LayoutMilestone : uint16_t;
 enum class LoginStatusAuthenticationType : uint8_t;
+enum class PlatformMediaSessionPlaybackControlsPurpose : uint8_t;
 enum class MediaPlaybackTargetContextMockState : uint8_t;
 enum class MediaProducerMediaState : uint32_t;
 enum class MediaProducerMediaCaptureKind : uint8_t;
@@ -1330,6 +1332,7 @@ public:
     WEBCORE_EXPORT void flushDeferredScrollEvents();
 
     bool reportScriptTrackingPrivacy(const URL&, ScriptTrackingPrivacyCategory);
+    bool shouldAllowScriptAccess(const URL&, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory) const;
     bool requiresScriptTrackingPrivacyProtections(const URL&) const;
 
     WEBCORE_EXPORT bool isAlwaysOnLoggingAllowed() const;
@@ -1345,6 +1348,12 @@ public:
     const String& presentingApplicationBundleIdentifier() const;
     WEBCORE_EXPORT void setPresentingApplicationBundleIdentifier(String&&);
 #endif
+
+    WEBCORE_EXPORT RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlatformMediaSessionPlaybackControlsPurpose, Document*);
+
+    WEBCORE_EXPORT MediaSessionManagerInterface& mediaSessionManager();
+    WEBCORE_EXPORT MediaSessionManagerInterface* mediaSessionManagerIfExists() const;
+    WEBCORE_EXPORT static MediaSessionManagerInterface* mediaSessionManagerForPageIdentifier(PageIdentifier);
 
 #if ENABLE(MODEL_ELEMENT)
     bool shouldDisableModelLoadDelaysForTesting() const { return m_modelLoadDelaysDisabledForTesting; }
@@ -1733,6 +1742,7 @@ private:
     Color m_underPageBackgroundColorOverride;
     std::optional<Color> m_sampledPageTopColor;
     std::pair<UniqueRef<FixedContainerEdges>, WeakElementEdges> m_fixedContainerEdgesAndElements;
+    bool m_userHasInteractedSinceLastPageLoad { false };
 
     const bool m_httpsUpgradeEnabled { true };
     mutable Markable<MediaSessionGroupIdentifier> m_mediaSessionGroupIdentifier;
@@ -1818,6 +1828,10 @@ private:
 #if PLATFORM(COCOA)
     String m_presentingApplicationBundleIdentifier;
 #endif
+
+    using MediaSessionManagerFactory = Function<RefPtr<MediaSessionManagerInterface> (std::optional<PageIdentifier>)>;
+    std::optional<MediaSessionManagerFactory> m_mediaSessionManagerFactory;
+    RefPtr<MediaSessionManagerInterface> m_mediaSessionManager;
 
 #if ENABLE(MODEL_ELEMENT)
     bool m_modelLoadDelaysDisabledForTesting { false };

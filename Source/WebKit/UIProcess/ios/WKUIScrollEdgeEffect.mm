@@ -28,6 +28,7 @@
 
 #if PLATFORM(IOS_FAMILY) && HAVE(LIQUID_GLASS)
 
+#import "WKScrollView.h"
 #import <UIKit/UIKit.h>
 #import <wtf/OptionSet.h>
 
@@ -41,16 +42,19 @@ enum class HiddenScrollEdgeEffectSource : uint8_t {
 } // namespace WebKit
 
 @implementation WKUIScrollEdgeEffect {
+    __weak WKScrollView *_scrollView;
     __weak UIScrollEdgeEffect *_effect;
     OptionSet<WebKit::HiddenScrollEdgeEffectSource> _hiddenSources;
     WebCore::BoxSide _boxSide;
+    BOOL _usesHardStyle;
 }
 
-- (instancetype)initWithScrollEdgeEffect:(UIScrollEdgeEffect *)effect boxSide:(WebCore::BoxSide)boxSide
+- (instancetype)initWithScrollView:(WKScrollView *)scrollView scrollEdgeEffect:(UIScrollEdgeEffect *)effect boxSide:(WebCore::BoxSide)boxSide
 {
     if (!(self = [super init]))
         return nil;
 
+    _scrollView = scrollView;
     _boxSide = boxSide;
     _effect = effect;
     _hiddenSources = { };
@@ -100,6 +104,17 @@ enum class HiddenScrollEdgeEffectSource : uint8_t {
         return;
 
     _effect.hidden = !newVisible;
+}
+
+- (void)setStyle:(UIScrollEdgeEffectStyle *)style
+{
+    BOOL wasUsingHardStyle = _usesHardStyle;
+    _usesHardStyle = [style isEqual:UIScrollEdgeEffectStyle.hardStyle];
+
+    _effect.style = style;
+
+    if (_boxSide == WebCore::BoxSide::Top && wasUsingHardStyle != _usesHardStyle)
+        [_scrollView _didChangeTopScrollEdgeEffectStyle];
 }
 
 - (NSString *)description

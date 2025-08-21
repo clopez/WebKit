@@ -142,18 +142,6 @@ void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element*) con
     style.setHeight(size);
 }
 
-LayoutRect RenderThemeIOS::adjustedPaintRect(const RenderBox& box, const LayoutRect& paintRect) const
-{
-    // Workaround for <rdar://problem/6209763>. Force the painting bounds of checkboxes and radio controls to be square.
-    if (box.style().usedAppearance() == StyleAppearance::Checkbox || box.style().usedAppearance() == StyleAppearance::Radio) {
-        float width = std::min(paintRect.width(), paintRect.height());
-        float height = width;
-        return enclosingLayoutRect(FloatRect(paintRect.x(), paintRect.y() + (box.height() - height) / 2, width, height)); // Vertically center the checkbox, like on desktop
-    }
-
-    return paintRect;
-}
-
 int RenderThemeIOS::baselinePosition(const RenderBox& box) const
 {
     auto baseline = RenderTheme::baselinePosition(box);
@@ -395,7 +383,7 @@ Style::PaddingBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& sty
     auto padding = emSize->resolveAsLength<float>({ style, nullptr, nullptr, nullptr });
 
     if (style.usedAppearance() == StyleAppearance::MenulistButton) {
-        auto value = toTruncatedPaddingEdge(padding + style.borderTopWidth());
+        auto value = toTruncatedPaddingEdge(padding + Style::evaluate(style.borderTopWidth()));
         if (style.writingMode().isBidiRTL())
             return { 0_css_px, 0_css_px, 0_css_px, value };
         return { 0_css_px, value, 0_css_px, 0_css_px };
@@ -622,9 +610,9 @@ void RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const 
     FloatPoint glyphOrigin;
     glyphOrigin.setY(logicalRect.center().y() - glyphSize.height() / 2.0f);
     if (!style.writingMode().isInlineFlipped())
-        glyphOrigin.setX(logicalRect.maxX() - glyphSize.width() - box.style().borderEndWidth() - Style::evaluate(box.style().paddingEnd(), logicalRect.width()));
+        glyphOrigin.setX(logicalRect.maxX() - glyphSize.width() - Style::evaluate(box.style().borderEndWidth()) - Style::evaluate(box.style().paddingEnd(), logicalRect.width()));
     else
-        glyphOrigin.setX(logicalRect.x() + box.style().borderEndWidth() + Style::evaluate(box.style().paddingEnd(), logicalRect.width()));
+        glyphOrigin.setX(logicalRect.x() + Style::evaluate(box.style().borderEndWidth()) + Style::evaluate(box.style().paddingEnd(), logicalRect.width()));
 
     if (!isHorizontalWritingMode)
         glyphOrigin = glyphOrigin.transposedPoint();
@@ -911,17 +899,6 @@ void RenderThemeIOS::paintSearchFieldDecorations(const RenderBox& box, const Pai
 // This value matches the opacity applied to UIKit controls.
 constexpr auto pressedStateOpacity = 0.75f;
 
-bool RenderThemeIOS::isSubmitStyleButton(const Element& element) const
-{
-    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element))
-        return input->isSubmitButton();
-
-    if (RefPtr button = dynamicDowncast<HTMLButtonElement>(element))
-        return button->isExplicitlySetSubmitButton();
-
-    return false;
-}
-
 void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Element& element) const
 {
     if (PAL::currentUserInterfaceIdiomIsVision())
@@ -932,7 +909,7 @@ void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Elem
 
     if (!style.hasAutoAccentColor()) {
         auto tintColor = style.usedAccentColor(element.document().styleColorOptions(&style));
-        if (isSubmitStyleButton(element))
+        if (isSubmitStyleButton(&element))
             style.setBackgroundColor(WTFMove(tintColor));
         else
             style.setColor(WTFMove(tintColor));

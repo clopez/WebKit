@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "JSCJSValue.h"
-#include "Lexer.h"
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/Lexer.h>
 #include <wtf/dtoa.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -233,7 +233,7 @@ static ALWAYS_INLINE typename std::invoke_result<CallbackWhenNoException, String
 }
 
 // Mapping from integers 0..35 to digit identifying this value, for radix 2..36.
-const char radixDigits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+extern const char radixDigits[37]; // in JSCJSValue.cpp
 
 } // namespace JSC
 

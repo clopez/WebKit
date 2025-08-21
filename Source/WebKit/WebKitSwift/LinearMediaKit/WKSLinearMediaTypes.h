@@ -49,6 +49,7 @@ typedef NS_ENUM(NSInteger, WKSLinearMediaPresentationState) {
     WKSLinearMediaPresentationStateEnteringFullscreen,
     WKSLinearMediaPresentationStateFullscreen,
     WKSLinearMediaPresentationStateExitingFullscreen,
+    WKSLinearMediaPresentationStateEnteringExternal,
     WKSLinearMediaPresentationStateExternal
 };
 
@@ -104,6 +105,8 @@ NS_SWIFT_UI_ACTOR
 @property (nonatomic) BOOL dismissFullScreenOnExitingDocking;
 
 @property (nonatomic) BOOL automaticallyDockOnFullScreenPresentation;
+
+@property (nonatomic) BOOL prefersAutoDimming;
 
 @end
 

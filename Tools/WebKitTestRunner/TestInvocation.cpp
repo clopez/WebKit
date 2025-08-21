@@ -43,9 +43,11 @@
 #include <WebKit/WKWebsiteDataStoreRef.h>
 #include <climits>
 #include <cstdio>
+#include <wtf/Logging.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/TextStream.h>
 
 #if PLATFORM(MAC) && !PLATFORM(IOS_FAMILY)
 #include <Carbon/Carbon.h>
@@ -84,8 +86,8 @@ Ref<TestInvocation> TestInvocation::create(WKURLRef url, const TestOptions& opti
 TestInvocation::TestInvocation(WKURLRef url, const TestOptions& options)
     : m_options(options)
     , m_url(url)
-    , m_waitToDumpWatchdogTimer(RunLoop::main(), this, &TestInvocation::waitToDumpWatchdogTimerFired)
-    , m_waitForPostDumpWatchdogTimer(RunLoop::main(), this, &TestInvocation::waitForPostDumpWatchdogTimerFired)
+    , m_waitToDumpWatchdogTimer(RunLoop::mainSingleton(), "TestInvocation::WaitToDumpWatchdogTimer"_s, this, &TestInvocation::waitToDumpWatchdogTimerFired)
+    , m_waitForPostDumpWatchdogTimer(RunLoop::mainSingleton(), "TestInvocation::WaitForPostDumpWatchdogTimer"_s, this, &TestInvocation::waitForPostDumpWatchdogTimerFired)
     , m_textOutput(OverflowPolicy::RecordOverflow)
 {
     m_urlString = toWTFString(adoptWK(WKURLCopyString(m_url.get())).get());
@@ -453,11 +455,6 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
 
     if (WKStringIsEqualToUTF8CString(messageName, "DelayUserMediaRequestDecision")) {
         TestController::singleton().delayUserMediaRequestDecision();
-        return;
-    }
-
-    if (WKStringIsEqualToUTF8CString(messageName, "ResetUserMediaPermissionRequestCount")) {
-        TestController::singleton().resetUserMediaPermissionRequestCount();
         return;
     }
 
@@ -998,6 +995,11 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
     if (WKStringIsEqualToUTF8CString(messageName, "UserMediaPermissionRequestCount"))
         return adoptWK(WKUInt64Create(TestController::singleton().userMediaPermissionRequestCount()));
 
+    if (WKStringIsEqualToUTF8CString(messageName, "ResetUserMediaPermissionRequestCount")) {
+        TestController::singleton().resetUserMediaPermissionRequestCount();
+        return nullptr;
+    }
+
     if (WKStringIsEqualToUTF8CString(messageName, "GrantNotificationPermission")) {
         WKPageSetPermissionLevelForTesting(TestController::singleton().mainWebView()->page(), stringValue(messageBody), true);
         return adoptWK(WKBooleanCreate(TestController::singleton().grantNotificationPermission(stringValue(messageBody))));
@@ -1468,6 +1470,11 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
     if (WKStringIsEqualToUTF8CString(messageName, "ShouldDumpAllFrameScrollPositions"))
         return adoptWK(WKBooleanCreate(m_shouldDumpAllFrameScrollPositions));
 
+    if (WKStringIsEqualToUTF8CString(messageName, "SetHasMouseDeviceForTesting")) {
+        TestController::singleton().setHasMouseDeviceForTesting((booleanValue(messageBody)));
+        return nullptr;
+    }
+
     ASSERT_NOT_REACHED();
     return nullptr;
 }
@@ -1628,7 +1635,7 @@ void TestInvocation::done()
     m_gotFinalMessage = true;
     invalidateWaitToDumpWatchdogTimer();
     invalidateWaitForPostDumpWatchdogTimer();
-    RunLoop::protectedMain()->dispatch([] {
+    RunLoop::mainSingleton().dispatch([] {
         TestController::singleton().notifyDone();
     });
 }

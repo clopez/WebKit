@@ -32,13 +32,13 @@
 
 #pragma once
 
-#include "CSSColor.h"
-#include "CSSColorDescriptors.h"
-#include "CSSColorType.h"
-#include "CSSValueKeywords.h"
-#include "StyleColorOptions.h"
-#include "StyleCurrentColor.h"
-#include "StyleResolvedColor.h"
+#include <WebCore/CSSColor.h>
+#include <WebCore/CSSColorDescriptors.h>
+#include <WebCore/CSSColorType.h>
+#include <WebCore/CSSValueKeywords.h>
+#include <WebCore/StyleColorOptions.h>
+#include <WebCore/StyleCurrentColor.h>
+#include <WebCore/StyleResolvedColor.h>
 #include <wtf/Markable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/UniqueRef.h>
@@ -164,6 +164,9 @@ private:
 WebCore::Color resolveColor(const Color&, const WebCore::Color& currentColor);
 bool containsCurrentColor(const Color&);
 
+void serializationForCSSTokenization(StringBuilder&, const CSS::SerializationContext&, const Color&);
+String serializationForCSSTokenization(const CSS::SerializationContext&, const Color&);
+
 template<> struct Serialize<Color> {
     void operator()(StringBuilder&, const CSS::SerializationContext&, const RenderStyle&, const Color&);
 };
@@ -235,4 +238,4 @@ struct MarkableTraits<WebCore::Style::Color> {
 
 }
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::Color> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::Color)

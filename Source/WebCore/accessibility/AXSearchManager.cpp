@@ -26,8 +26,10 @@
 #include "AXSearchManager.h"
 
 #include "AXLogger.h"
+#include "AXLoggerBase.h"
 #include "AXObjectCache.h"
 #include "AccessibilityObject.h"
+#include "Logging.h"
 #include "TextIterator.h"
 
 namespace WebCore {
@@ -145,10 +147,10 @@ bool AXSearchManager::matchForSearchKeyAtIndex(Ref<AXCoreObject> axObject, const
             && !axObject->hasSameStyle(*criteria.startObject);
     case AccessibilitySearchKey::TableSameLevel:
         return criteria.startObject
-            && axObject->isTable() && axObject->isExposable()
+            && axObject->isExposableTable()
             && axObject->tableLevel() == criteria.startObject->tableLevel();
     case AccessibilitySearchKey::Table:
-        return axObject->isTable() && axObject->isExposable();
+        return axObject->isExposableTable();
     case AccessibilitySearchKey::TextField:
         return axObject->isTextControl();
     case AccessibilitySearchKey::Underline:
@@ -199,9 +201,9 @@ static void appendAccessibilityObject(Ref<AXCoreObject> object, AccessibilityObj
 {
     if (!object->isAttachment()) [[likely]]
         results.append(WTFMove(object));
-    else {
+    else if (RefPtr axObject = dynamicDowncast<AccessibilityObject>(object)) {
         // Find the next descendant of this attachment object so search can continue through frames.
-        RefPtr widget = object->widgetForAttachmentView();
+        RefPtr widget = axObject->widgetForAttachmentView();
         RefPtr frameView = dynamicDowncast<LocalFrameView>(widget);
         if (!frameView)
             return;
@@ -209,9 +211,9 @@ static void appendAccessibilityObject(Ref<AXCoreObject> object, AccessibilityObj
         if (!document || !document->hasLivingRenderTree())
             return;
 
-        CheckedPtr cache = object->axObjectCache();
+        CheckedPtr cache = axObject->axObjectCache();
         if (RefPtr axDocument = cache ? cache->getOrCreate(*document) : nullptr)
-            results.append(*axDocument);
+            results.append(axDocument.releaseNonNull());
     }
 }
 
@@ -221,7 +223,7 @@ static void appendChildrenToArray(Ref<AXCoreObject> object, bool isForward, RefP
     // The rows from the table should be queried, since those are direct descendants of the table, and they contain content.
     // FIXME: Unlike AXCoreObject::children(), AXCoreObject::rows() returns a copy, not a const-reference. This can be wasteful
     // for tables with lots of rows and probably should be changed.
-    const auto& searchChildren = object->isTable() && object->isExposable() ? object->rows() : object->unignoredChildren();
+    const auto& searchChildren = object->isExposableTable() ? object->rows() : object->unignoredChildren();
 
     size_t childrenSize = searchChildren.size();
 
@@ -243,7 +245,7 @@ static void appendChildrenToArray(Ref<AXCoreObject> object, bool isForward, RefP
         // and we should never have created an isolated object from an ignored live object.
         // FIXME: This is not true for ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE), fix this before shipping it.
         // FIXME: We hit this ASSERT on google.com. https://bugs.webkit.org/show_bug.cgi?id=293263
-        ASSERT(is<AccessibilityObject>(startObject));
+        AX_BROKEN_ASSERT(is<AccessibilityObject>(startObject));
         RefPtr newStartObject = dynamicDowncast<AccessibilityObject>(startObject.get());
         // Get the un-ignored sibling based on the search direction, and update the searchPosition.
         if (newStartObject && newStartObject->isIgnored())

@@ -25,17 +25,18 @@
 
 #pragma once
 
-#include "AdvancedPrivacyProtections.h"
-#include "FrameLoaderTypes.h"
-#include "ReferrerPolicy.h"
-#include "ResourceRequest.h"
-#include "ShouldTreatAsContinuingLoad.h"
-#include "SubstituteData.h"
+#include <WebCore/AdvancedPrivacyProtections.h>
+#include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/ReferrerPolicy.h>
+#include <WebCore/ResourceRequest.h>
+#include <WebCore/ShouldTreatAsContinuingLoad.h>
+#include <WebCore/SubstituteData.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
 class Document;
+class Element;
 class LocalFrame;
 class SecurityOrigin;
 
@@ -108,6 +109,9 @@ public:
 
     const AtomString& downloadAttribute() const { return m_downloadAttribute; }
 
+    Element* sourceElement() const { return m_sourceElement.get(); }
+    void setSourceElement(Element* sourceElement) { m_sourceElement = sourceElement; }
+
     InitiatedByMainFrame initiatedByMainFrame() const { return m_initiatedByMainFrame; }
 
     void setIsRequestFromClientOrUserInput() { m_isRequestFromClientOrUserInput = true; }
@@ -124,6 +128,9 @@ public:
 
     bool isHandledByAboutSchemeHandler() const { return m_isHandledByAboutSchemeHandler; }
     void setIsHandledByAboutSchemeHandler(bool isHandledByAboutSchemeHandler) { m_isHandledByAboutSchemeHandler = isHandledByAboutSchemeHandler; }
+
+    bool skipNavigateEvent() const { return m_skipNavigateEvent; }
+    void setSkipNavigateEvent(bool value) { m_skipNavigateEvent = value; }
 
 private:
     Ref<Document> m_requester;
@@ -143,6 +150,7 @@ private:
     ShouldReplaceDocumentIfJavaScriptURL m_shouldReplaceDocumentIfJavaScriptURL { ReplaceDocumentIfJavaScriptURL };
     ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
     AtomString m_downloadAttribute;
+    RefPtr<Element> m_sourceElement;
     InitiatedByMainFrame m_initiatedByMainFrame { InitiatedByMainFrame::Unknown };
     bool m_isRequestFromClientOrUserInput { false };
     bool m_isInitialFrameSrcLoad { false };
@@ -151,6 +159,7 @@ private:
     NavigationHistoryBehavior m_navigationHistoryBehavior { NavigationHistoryBehavior::Auto };
     bool m_isFromNavigationAPI { false };
     bool m_isHandledByAboutSchemeHandler { false };
+    bool m_skipNavigateEvent { false };
 };
 
 } // namespace WebCore

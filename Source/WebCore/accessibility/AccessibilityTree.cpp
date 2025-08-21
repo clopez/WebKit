@@ -30,6 +30,7 @@
 #include "AccessibilityTree.h"
 
 #include "AXObjectCache.h"
+#include "AXUtilities.h"
 #include "AccessibilityTreeItem.h"
 #include "Element.h"
 #include "HTMLNames.h"
@@ -39,27 +40,27 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-    
-AccessibilityTree::AccessibilityTree(AXID axID, RenderObject& renderer)
-    : AccessibilityRenderObject(axID, renderer)
+
+AccessibilityTree::AccessibilityTree(AXID axID, RenderObject& renderer, AXObjectCache& cache)
+    : AccessibilityRenderObject(axID, renderer, cache)
 {
 }
 
-AccessibilityTree::AccessibilityTree(AXID axID, Node& node)
-    : AccessibilityRenderObject(axID, node)
+AccessibilityTree::AccessibilityTree(AXID axID, Node& node, AXObjectCache& cache)
+    : AccessibilityRenderObject(axID, node, cache)
 {
 }
 
 AccessibilityTree::~AccessibilityTree() = default;
-    
-Ref<AccessibilityTree> AccessibilityTree::create(AXID axID, RenderObject& renderer)
+
+Ref<AccessibilityTree> AccessibilityTree::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityTree(axID, renderer));
+    return adoptRef(*new AccessibilityTree(axID, renderer, cache));
 }
 
-Ref<AccessibilityTree> AccessibilityTree::create(AXID axID, Node& node)
+Ref<AccessibilityTree> AccessibilityTree::create(AXID axID, Node& node, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityTree(axID, node));
+    return adoptRef(*new AccessibilityTree(axID, node, cache));
 }
 
 bool AccessibilityTree::computeIsIgnored() const
@@ -69,7 +70,7 @@ bool AccessibilityTree::computeIsIgnored() const
 
 AccessibilityRole AccessibilityTree::determineAccessibilityRole()
 {
-    if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Tree)
+    if (m_ariaRole != AccessibilityRole::Tree)
         return AccessibilityRenderObject::determineAccessibilityRole();
 
     return isTreeValid() ? AccessibilityRole::Tree : AccessibilityRole::Generic;
@@ -82,7 +83,7 @@ bool AccessibilityTree::isTreeValid() const
     RefPtr node = this->node();
     if (!node)
         return false;
-    
+
     Deque<Ref<Node>> queue;
     for (RefPtr child = node->firstChild(); child; child = queue.last()->nextSibling())
         queue.append(child.releaseNonNull());

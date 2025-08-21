@@ -74,7 +74,7 @@
 #endif
 
 #if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
-#include "DMABufRendererBufferFormat.h"
+#include "RendererBufferFormat.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -184,6 +184,7 @@ struct WebPageCreationParameters {
 
     bool useDarkAppearance { false };
     bool useElevatedUserInterfaceLevel { false };
+    bool allowJSHandleInPageContentWorld { false };
 
 #if PLATFORM(MAC)
     std::optional<WebCore::DestinationColorSpace> colorSpace { };
@@ -316,6 +317,10 @@ struct WebPageCreationParameters {
 
     bool hasResizableWindows { false };
 
+#if PLATFORM(MAC)
+    double overflowHeightForTopScrollEdgeEffect { 0 };
+#endif
+
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 
     std::optional<RemotePageParameters> remotePageParameters { };
@@ -337,7 +342,7 @@ struct WebPageCreationParameters {
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #if USE(GBM)
-    Vector<DMABufRendererBufferFormat> preferredBufferFormats { };
+    Vector<RendererBufferFormat> preferredBufferFormats { };
 #endif
 #endif
 

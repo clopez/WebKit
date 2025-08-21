@@ -2,7 +2,6 @@ AutomationFrontendDispatchers.cpp
 AutomationProtocolObjects.h
 GeneratedSerializers.mm
 Platform/IPC/ArgumentCoders.h
-Shared/RemoteLayerTree/RemoteLayerWithRemoteRenderingBackingStore.mm
 UIProcess/API/C/mac/WKPagePrivateMac.mm
 UIProcess/API/Cocoa/WKContentWorld.mm
 UIProcess/API/Cocoa/WKDownload.mm
@@ -10,6 +9,7 @@ UIProcess/API/Cocoa/WKFrameInfo.mm
 UIProcess/API/Cocoa/WKOpenPanelParameters.mm
 UIProcess/API/Cocoa/WKPreferences.mm
 UIProcess/API/Cocoa/WKProcessPool.mm
+UIProcess/API/Cocoa/WKScriptMessage.mm
 UIProcess/API/Cocoa/WKURLSchemeTask.mm
 UIProcess/API/Cocoa/WKUserContentController.mm
 UIProcess/API/Cocoa/WKUserScript.mm
@@ -32,11 +32,12 @@ UIProcess/API/Cocoa/_WKInspectorConfiguration.mm
 UIProcess/API/Cocoa/_WKInspectorDebuggableInfo.mm
 UIProcess/API/Cocoa/_WKInspectorExtension.mm
 UIProcess/API/Cocoa/_WKInspectorTesting.mm
-UIProcess/API/Cocoa/_WKNodeInfo.mm
+UIProcess/API/Cocoa/_WKJSHandle.mm
 UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm
 UIProcess/API/Cocoa/_WKRemoteWebInspectorViewController.mm
 UIProcess/API/Cocoa/_WKResourceLoadStatisticsFirstParty.mm
 UIProcess/API/Cocoa/_WKResourceLoadStatisticsThirdParty.mm
+UIProcess/API/Cocoa/_WKSerializedNode.mm
 UIProcess/API/Cocoa/_WKTargetedElementInfo.mm
 UIProcess/API/Cocoa/_WKTargetedElementRequest.mm
 UIProcess/API/Cocoa/_WKUserInitiatedAction.mm
@@ -98,7 +99,6 @@ WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp
 WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp
 WebProcess/Inspector/WebInspectorUI.cpp
 WebProcess/Inspector/WebInspectorUIExtensionController.cpp
-WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager.cpp
 WebProcess/Storage/WebSWClientConnection.cpp
 WebProcess/WebCoreSupport/ShareableBitmapUtilities.cpp
 WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp
@@ -124,9 +124,6 @@ WebProcess/WebPage/mac/WKAccessibilityWebPageObjectBase.mm
 WebProcess/WebPage/mac/WKAccessibilityWebPageObjectMac.mm
 WebProcess/cocoa/PlaybackSessionManager.mm
 WebProcess/cocoa/RemoteCaptureSampleManager.cpp
-WebProcess/cocoa/RemoteRealtimeAudioSource.cpp
-WebProcess/cocoa/RemoteRealtimeMediaSource.cpp
-WebProcess/cocoa/RemoteRealtimeVideoSource.cpp
 WebProcess/cocoa/TextTrackRepresentationCocoa.mm
 WebProcess/cocoa/UserMediaCaptureManager.cpp
 WebProcess/cocoa/VideoPresentationManager.mm

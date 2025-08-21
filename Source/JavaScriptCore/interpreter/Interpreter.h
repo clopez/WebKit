@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,17 +29,13 @@
 
 #pragma once
 
-#include "BytecodeIndex.h"
-#include "JSCJSValue.h"
-#include "MacroAssemblerCodeRef.h"
-#include "NativeFunction.h"
-#include "Opcode.h"
+#include <JavaScriptCore/BytecodeIndex.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/MacroAssemblerCodeRef.h>
+#include <JavaScriptCore/NativeFunction.h>
+#include <JavaScriptCore/Opcode.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
-
-#if ENABLE(C_LOOP)
-#include "CLoopStack.h"
-#endif
 
 
 namespace JSC {
@@ -54,11 +50,9 @@ struct HandlerInfo;
 
 template<typename> struct BaseInstruction;
 struct JSOpcodeTraits;
-struct WasmOpcodeTraits;
 using JSInstruction = BaseInstruction<JSOpcodeTraits>;
-using WasmInstruction = BaseInstruction<WasmOpcodeTraits>;
 
-using JSOrWasmInstruction = Variant<const JSInstruction*, const WasmInstruction*, uintptr_t /* IPIntOffset */>;
+using JSOrWasmInstruction = Variant<const JSInstruction*, uintptr_t /* IPIntOffset */>;
 
     class ArgList;
     class CachedCall;
@@ -136,11 +130,6 @@ using JSOrWasmInstruction = Variant<const JSInstruction*, const WasmInstruction*
         Interpreter();
         ~Interpreter();
 
-#if ENABLE(C_LOOP)
-        CLoopStack& cloopStack() { return m_cloopStack; }
-        const CLoopStack& cloopStack() const { return m_cloopStack; }
-#endif
-        
         static inline JSC::Opcode getOpcode(OpcodeID);
 
         static inline OpcodeID getOpcodeID(JSC::Opcode);
@@ -181,9 +170,6 @@ using JSOrWasmInstruction = Variant<const JSInstruction*, const WasmInstruction*
 #endif
 
         inline VM& vm();
-#if ENABLE(C_LOOP)
-        CLoopStack m_cloopStack;
-#endif
         
 #if ENABLE(COMPUTED_GOTO_OPCODES)
 #if !ENABLE(LLINT_EMBEDDED_OPCODE_ID) || ASSERT_ENABLED

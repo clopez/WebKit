@@ -28,6 +28,8 @@
 #include <initializer_list>
 #include <limits>
 #include <optional>
+#include <type_traits>
+#include <wtf/EnumTraits.h>
 
 namespace WTF {
 class TextStream;
@@ -118,8 +120,9 @@ enum class PseudoId : uint32_t {
 
     FirstPublicPseudoId = FirstLine,
     FirstInternalPseudoId = WebKitScrollbarThumb,
-    PublicPseudoIdMask = ((1 << FirstInternalPseudoId) - 1) & ~((1 << FirstPublicPseudoId) - 1)
 };
+
+constexpr auto PublicPseudoIdMask = static_cast<std::underlying_type_t<PseudoId>>(((1U << enumToUnderlyingType(PseudoId::FirstInternalPseudoId)) - 1U) & ~((1U << enumToUnderlyingType(PseudoId::FirstPublicPseudoId)) - 1U));
 
 inline std::optional<PseudoId> parentPseudoElement(PseudoId pseudoId)
 {
@@ -303,19 +306,6 @@ enum class Overflow : uint8_t {
     Auto,
     PagedX,
     PagedY
-};
-
-enum class VerticalAlign : uint8_t {
-    Baseline,
-    Middle,
-    Sub,
-    Super,
-    TextTop,
-    TextBottom,
-    Top,
-    Bottom,
-    BaselineMiddle,
-    Length
 };
 
 enum class Clear : uint8_t {
@@ -671,8 +661,9 @@ enum class TextDecorationLine : uint8_t {
     Overline      = 1 << 1,
     LineThrough   = 1 << 2,
     Blink         = 1 << 3,
+    SpellingError = 1 << 4
 };
-constexpr auto maxTextDecorationLineValue = TextDecorationLine::Blink;
+constexpr auto maxTextDecorationLineValue = TextDecorationLine::SpellingError;
 
 enum class TextDecorationStyle : uint8_t {
     Solid,
@@ -1177,6 +1168,11 @@ enum class EventListenerRegionType : uint32_t {
     NonPassiveMouseMove    = 1 << 30,
 };
 
+enum class MathShift : bool {
+    Normal,
+    Compact,
+};
+
 enum class MathStyle : bool {
     Normal,
     Compact,
@@ -1237,6 +1233,13 @@ enum class PositionVisibility : uint8_t {
     AnchorsValid   = 1 << 0,
     AnchorsVisible = 1 << 1,
     NoOverflow     = 1 << 2
+};
+
+enum class NinePieceImageRule : uint8_t {
+    Stretch,
+    Round,
+    Space,
+    Repeat,
 };
 
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
@@ -1309,6 +1312,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, MarqueeBehavior);
 WTF::TextStream& operator<<(WTF::TextStream&, MarqueeDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, MaskMode);
 WTF::TextStream& operator<<(WTF::TextStream&, NBSPMode);
+WTF::TextStream& operator<<(WTF::TextStream&, NinePieceImageRule);
 WTF::TextStream& operator<<(WTF::TextStream&, ObjectFit);
 WTF::TextStream& operator<<(WTF::TextStream&, Order);
 WTF::TextStream& operator<<(WTF::TextStream&, OutlineStyle);
@@ -1360,11 +1364,11 @@ WTF::TextStream& operator<<(WTF::TextStream&, TransformStyle3D);
 WTF::TextStream& operator<<(WTF::TextStream&, UserDrag);
 WTF::TextStream& operator<<(WTF::TextStream&, UserModify);
 WTF::TextStream& operator<<(WTF::TextStream&, UserSelect);
-WTF::TextStream& operator<<(WTF::TextStream&, VerticalAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, Visibility);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpace);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpaceCollapse);
 WTF::TextStream& operator<<(WTF::TextStream&, WordBreak);
+WTF::TextStream& operator<<(WTF::TextStream&, MathShift);
 WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, ContainIntrinsicSizeType);
 WTF::TextStream& operator<<(WTF::TextStream&, FieldSizing);

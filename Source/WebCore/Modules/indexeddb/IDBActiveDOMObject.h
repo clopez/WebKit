@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "ActiveDOMObject.h"
-#include "ContextDestructionObserverInlines.h"
-#include "ScriptExecutionContextInlines.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/ContextDestructionObserverInlines.h>
+#include <WebCore/ScriptExecutionContextInlines.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
@@ -86,7 +86,7 @@ protected:
     }
 
 private:
-    Ref<Thread> m_originThread { Thread::currentSingleton() };
+    const Ref<Thread> m_originThread { Thread::currentSingleton() };
     Lock m_scriptExecutionContextLock;
 };
 

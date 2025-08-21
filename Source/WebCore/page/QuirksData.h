@@ -187,11 +187,14 @@ struct WEBCORE_EXPORT QuirksData {
     bool shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk : 1 { false };
 #endif
 
+    bool needsNavigatorUserAgentDataQuirk : 1 { false };
+    bool needsCustomUserAgentData : 1 { false };
     bool needsNowPlayingFullscreenSwapQuirk : 1 { false };
     bool needsWebKitMediaTextTrackDisplayQuirk : 1 { false };
     bool needsMediaRewriteRangeRequestQuirk : 1 { false };
     bool shouldEnterNativeFullscreenWhenCallingElementRequestFullscreen : 1 { false };
     bool shouldDelayReloadWhenRegisteringServiceWorker : 1 { false };
+    bool shouldDisableDOMAudioSession : 1 { false };
 };
 
 } // namespace WebCore

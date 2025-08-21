@@ -23,13 +23,13 @@
 
 #pragma once
 
-#include "FontBaseline.h"
-#include "LocalFrameView.h"
-#include "RenderBoxModelObject.h"
-#include "RenderOverflow.h"
-#include "ScrollSnapOffsetsInfo.h"
-#include "ScrollTypes.h"
-#include "ShapeOutsideInfo.h"
+#include <WebCore/FontBaseline.h>
+#include <WebCore/LocalFrameView.h>
+#include <WebCore/RenderBoxModelObject.h>
+#include <WebCore/RenderOverflow.h>
+#include <WebCore/ScrollSnapOffsetsInfo.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/ShapeOutsideInfo.h>
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
@@ -169,9 +169,8 @@ public:
     void addVisualEffectOverflow();
     LayoutRect applyVisualEffectOverflow(const LayoutRect&) const;
 
-    void addOverflowFromChild(const RenderBox& child) { addOverflowFromChild(child, child.locationOffset()); }
-    void addOverflowFromChild(const RenderBox& child, const LayoutSize& delta);
-    void addOverflowFromChild(const RenderBox&, const LayoutSize& delta, const LayoutRect& flippedClientRect);
+    void addOverflowFromInFlowChildOrAbsolutePositionedDescendant(const RenderBox&);
+    void addOverflowFromFloatBox(const FloatingObject&);
 
     void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption>) const override;
 
@@ -241,6 +240,8 @@ public:
     LayoutUnit marginAfter() const { return marginAfter(writingMode()); }
     LayoutUnit marginStart() const { return marginStart(writingMode()); }
     LayoutUnit marginEnd() const { return marginEnd(writingMode()); }
+
+    inline LayoutUnit marginBoxLogicalHeight(WritingMode) const;
 
     void setMarginBefore(LayoutUnit value, const WritingMode writingMode) { m_marginBox.setBefore(value, writingMode); }
     void setMarginAfter(LayoutUnit value, const WritingMode writingMode) { m_marginBox.setAfter(value, writingMode); }
@@ -509,7 +510,7 @@ public:
 
     LayoutRect maskClipRect(const LayoutPoint& paintOffset);
 
-    VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
+    PositionWithAffinity positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) override;
 
     void removeFloatingAndInvalidateForLayout();
     void removeFloatingOrOutOfFlowChildFromBlockLists();
@@ -527,7 +528,6 @@ public:
     virtual void markForPaginationRelayoutIfNeeded() { }
     
     LayoutUnit lineHeight() const;
-    virtual LayoutUnit baselinePosition() const;
 
     LayoutUnit offsetLeft() const override;
     LayoutUnit offsetTop() const override;
@@ -556,7 +556,6 @@ public:
     bool hasVisualOverflow() const { return m_overflow && !borderBoxRect().contains(m_overflow->visualOverflowRect()); }
 
     virtual bool shouldInvalidatePreferredWidths() const;
-    virtual void computeIntrinsicRatioInformation(FloatSize& /* intrinsicSize */, FloatSize& /* intrinsicRatio */) const { }
 
     ScrollPosition scrollPosition() const;
     LayoutSize cachedSizeForOverflowClip() const;
@@ -711,6 +710,8 @@ protected:
     bool overflowChangesMayAffectLayout() const final;
 
 private:
+    void addOverflowWithRendererOffset(const RenderBox&, LayoutSize);
+
     bool replacedMinMaxLogicalHeightComputesAsNone(const auto& logicalHeight, const auto& initialLogicalHeight) const;
     bool replacedMinLogicalHeightComputesAsNone() const;
     bool replacedMaxLogicalHeightComputesAsNone() const;
@@ -874,8 +875,6 @@ inline RenderBox* RenderBox::nextInFlowSiblingBox() const
     }
     return nullptr;
 }
-
-LayoutUnit synthesizedBaseline(const RenderBox&, const RenderStyle& parentStyle, LineDirectionMode, BaselineSynthesisEdge);
 
 } // namespace WebCore
 

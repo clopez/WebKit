@@ -28,6 +28,7 @@
 #include "config.h"
 #include "AXObjectCache.h"
 
+#include "AXNotifications.h"
 #include "AccessibilityObject.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -130,7 +131,7 @@ void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* o
 {
     if (!obj)
         return;
-    
+
     Document* document = obj->document();
     if (!document)
         return;

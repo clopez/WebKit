@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -38,4 +38,4 @@ struct OffsetDistance : LengthWrapperBase<LengthPercentage<>> {
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::OffsetDistance> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::OffsetDistance)

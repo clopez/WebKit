@@ -25,21 +25,21 @@
 
 #pragma once
 
-#include "Cursor.h"
-#include "DragActions.h"
-#include "FocusDirection.h"
-#include "HitTestRequest.h"
-#include "ImmediateActionStage.h"
-#include "IntPointHash.h"
-#include "LayoutPoint.h"
-#include "NodeIdentifier.h"
-#include "PlatformMouseEvent.h"
-#include "RenderObject.h"
-#include "ScrollTypes.h"
-#include "SimpleRange.h"
-#include "TextEventInputType.h"
-#include "TextGranularity.h"
-#include "Timer.h"
+#include <WebCore/Cursor.h>
+#include <WebCore/DragActions.h>
+#include <WebCore/FocusDirection.h>
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/ImmediateActionStage.h>
+#include <WebCore/IntPointHash.h>
+#include <WebCore/LayoutPoint.h>
+#include <WebCore/NodeIdentifier.h>
+#include <WebCore/PlatformMouseEvent.h>
+#include <WebCore/RenderObject.h>
+#include <WebCore/ScrollTypes.h>
+#include <WebCore/SimpleRange.h>
+#include <WebCore/TextEventInputType.h>
+#include <WebCore/TextGranularity.h>
+#include <WebCore/Timer.h>
 #include <memory>
 #include <utility>
 #include <wtf/CheckedRef.h>
@@ -63,7 +63,7 @@ OBJC_CLASS NSEvent;
 #endif
 
 #if PLATFORM(IOS_FAMILY) && defined(__OBJC__)
-#include "WAKAppKitStubs.h"
+#include <WebCore/WAKAppKitStubs.h>
 #endif
 
 namespace WebCore {
@@ -103,6 +103,7 @@ class Scrollbar;
 class TextEvent;
 class Touch;
 class TouchEvent;
+class VisiblePosition;
 class VisibleSelection;
 class WheelEvent;
 class Widget;
@@ -200,8 +201,8 @@ public:
     void resizeLayerDestroyed();
 
     // FIXME: Each Frame has an EventHandler, and not every event goes to all frames, so this position can be stale. It should probably be stored on Page.
-    IntPoint lastKnownMousePosition() const;
-    IntPoint lastKnownMouseGlobalPosition() const { return m_lastKnownMouseGlobalPosition; }
+    DoublePoint lastKnownMousePosition() const;
+    DoublePoint lastKnownMouseGlobalPosition() const { return m_lastKnownMouseGlobalPosition; }
     Cursor currentMouseCursor() const { return m_currentMouseCursor; }
 
     IntPoint targetPositionInWindowForSelectionAutoscroll() const;
@@ -235,7 +236,7 @@ public:
     void defaultWheelEventHandler(Node*, WheelEvent&);
     void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, OptionSet<EventHandling>);
 
-    WEBCORE_EXPORT void setLastKnownMousePosition(IntPoint position, IntPoint globalPosition);
+    WEBCORE_EXPORT void setLastKnownMousePosition(DoublePoint position, DoublePoint globalPosition);
 
     bool handlePasteGlobalSelection();
 
@@ -251,7 +252,7 @@ public:
 #if ENABLE(IOS_TOUCH_EVENTS)
     enum class InTouchEventHandling : bool { No, Yes };
     enum class InMotion : bool { No, Yes };
-    void updateTouchLastGlobalPositionAndDelta(PointerID, const IntPoint&, InTouchEventHandling, InMotion);
+    void updateTouchLastGlobalPositionAndDelta(PointerID, const DoublePoint&, InTouchEventHandling, InMotion);
     bool dispatchTouchEvent(const PlatformTouchEvent&, const AtomString&, const EventTargetTouchArrayMap&, float, float);
     WEBCORE_EXPORT bool dispatchSimulatedTouchEvent(IntPoint location);
     Frame* touchEventTargetSubframe() const { return m_touchEventTargetSubframe.get(); }
@@ -402,6 +403,8 @@ public:
 
     bool keyboardScrollRecursively(std::optional<ScrollDirection>, std::optional<ScrollGranularity>, Node*, bool isKeyRepeat);
     WEBCORE_EXPORT bool shouldUseSmoothKeyboardScrollingForFocusedScrollableArea();
+
+    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -625,7 +628,6 @@ private:
     bool canMouseDownStartSelect(const MouseEventWithHitTestResults&);
     bool mouseDownMayStartSelect() const;
 
-    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
     std::optional<RemoteFrameGeometryTransformer> geometryTransformerForRemoteFrame(RemoteFrame*);
 
     bool isCapturingMouseEventsElement() const { return m_capturingMouseEventsElement || m_isCapturingRootElementForMouseEvents; }
@@ -679,8 +681,8 @@ private:
     
     int m_clickCount { 0 };
 
-    std::optional<IntPoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
-    IntPoint m_lastKnownMouseGlobalPosition;
+    std::optional<DoublePoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
+    DoublePoint m_lastKnownMouseGlobalPosition;
     IntPoint m_mouseDownContentsPosition;
     WallTime m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDownEvent;
@@ -737,7 +739,7 @@ private:
 
     TouchArray m_touches;
     RefPtr<Frame> m_touchEventTargetSubframe;
-    HashMap<PointerID, std::pair<IntPoint, IntPoint>, WTF::IntHash<PointerID>, WTF::UnsignedWithZeroKeyHashTraits<PointerID>> m_touchLastGlobalPositionAndDeltaMap;
+    HashMap<PointerID, std::pair<DoublePoint, DoublePoint>, WTF::IntHash<PointerID>, WTF::UnsignedWithZeroKeyHashTraits<PointerID>> m_touchLastGlobalPositionAndDeltaMap;
 #endif
 
 #if PLATFORM(COCOA)

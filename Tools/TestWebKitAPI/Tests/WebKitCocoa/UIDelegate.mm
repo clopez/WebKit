@@ -28,8 +28,10 @@
 #import "ClassMethodSwizzler.h"
 #import "DeprecatedGlobalValues.h"
 #import "HTTPServer.h"
+#import "IOSMouseEventTestHarness.h"
 #import "InstanceMethodSwizzler.h"
 #import "PlatformUtilities.h"
+#import "TestCocoa.h"
 #import "TestNavigationDelegate.h"
 #import "TestURLSchemeHandler.h"
 #import "TestWKWebView.h"
@@ -43,7 +45,22 @@
 #import <WebKit/WKProcessPoolPrivate.h>
 #import <WebKit/WKRetainPtr.h>
 #import <WebKit/WKUIDelegatePrivate.h>
+#import <WebKit/WKWebViewConfiguration.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
+
+#if ENABLE(POINTER_LOCK)
+#import <GameController/GameController.h>
+
+@interface GCMouse ()
+- (instancetype)initWithName:(NSString *)name additionalButtons:(uint32_t)additionalButtons;
+@end
+
+@interface GCMouseInput ()
+- (void)handleMouseMovementEventWithDelta:(CGPoint)delta;
+@end
+#endif
+
+#import <WebKit/_WKFeature.h>
 #import <WebKit/_WKHitTestResult.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
@@ -681,88 +698,6 @@ TEST(WebKit, ShowWebView)
     TestWebKitAPI::Util::run(&done);
     
     ASSERT_EQ(webViewFromDelegateCallback, createdWebView);
-}
-
-@interface PointerLockDelegate : NSObject <WKUIDelegatePrivate>
-- (void)resetState;
-- (void)waitForPointerLockEngaged;
-- (void)waitForPointerLockLost;
-@end
-
-@implementation PointerLockDelegate {
-    bool _didEngagePointerLock;
-    bool _didLosePointerLock;
-}
-
-- (void)resetState
-{
-    _didEngagePointerLock = false;
-    _didLosePointerLock = false;
-}
-
-- (void)waitForPointerLockEngaged
-{
-    TestWebKitAPI::Util::run(&_didEngagePointerLock);
-}
-
-- (void)waitForPointerLockLost
-{
-    TestWebKitAPI::Util::run(&_didLosePointerLock);
-}
-
-- (void)_webViewDidRequestPointerLock:(WKWebView *)webView completionHandler:(void (^)(BOOL))completionHandler
-{
-    completionHandler(YES);
-    _didEngagePointerLock = true;
-}
-
-- (void)_webViewDidLosePointerLock:(WKWebView *)webView
-{
-    _didLosePointerLock = true;
-}
-
-@end
-
-TEST(WebKit, PointerLock)
-{
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
-    auto delegate = adoptNS([[PointerLockDelegate alloc] init]);
-    [webView setUIDelegate:delegate.get()];
-    [webView synchronouslyLoadHTMLString:
-        @"<canvas width='800' height='600'></canvas><script>"
-        @"var canvas = document.querySelector('canvas');"
-        @"canvas.onclick = ()=>{canvas.requestPointerLock()};"
-        @"</script>"
-    ];
-    [webView sendClicksAtPoint:NSMakePoint(200, 200) numberOfClicks:1];
-    [delegate waitForPointerLockEngaged];
-}
-
-TEST(WebKit, ClientDisplaysAlertSheetWhilePointerLockActive)
-{
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
-    auto delegate = adoptNS([[PointerLockDelegate alloc] init]);
-    [webView setUIDelegate:delegate.get()];
-    [webView synchronouslyLoadHTMLString:
-        @"<canvas width='800' height='600'></canvas><script>"
-        @"var canvas = document.querySelector('canvas');"
-        @"canvas.onclick = ()=>{canvas.requestPointerLock()};"
-        @"</script>"
-    ];
-    [webView sendClicksAtPoint:NSMakePoint(200, 200) numberOfClicks:1];
-    [delegate waitForPointerLockEngaged];
-    [delegate resetState];
-
-    // Check that pointer lock is lost upon sheet presentation.
-    auto alert = adoptNS([[NSAlert alloc] init]);
-    [alert beginSheetModalForWindow:[webView hostWindow] completionHandler:^(NSModalResponse) { }];
-    [delegate waitForPointerLockLost];
-    [[webView hostWindow] endSheet:[alert window]];
-    [delegate resetState];
-
-    // Check that pointer lock can be requested again successfully.
-    [webView sendClicksAtPoint:NSMakePoint(200, 200) numberOfClicks:1];
-    [delegate waitForPointerLockEngaged];
 }
 
 static bool receivedWindowFrame;
@@ -1426,11 +1361,6 @@ TEST(WebKit, TabDoesNotTakeFocusFromEditableWebView)
     ASSERT_FALSE(delegate->_done);
 }
 
-#define MOUSE_EVENT_CAUSES_DOWNLOAD 0
-// FIXME: At least on El Capitan, sending a mouse event does not cause the PDFPlugin to think the download button has been clicked.
-// This test works on High Sierra, but it should be investigated on older platforms.
-#if MOUSE_EVENT_CAUSES_DOWNLOAD
-
 @interface SaveDataToFileDelegate : NSObject <WKUIDelegatePrivate, WKNavigationDelegate>
 @end
 
@@ -1455,18 +1385,17 @@ TEST(WebKit, TabDoesNotTakeFocusFromEditableWebView)
 
 @end
 
-TEST(WebKit, SaveDataToFile)
+// FIXME: <webkit.org/b/296970> [macOS] Several API tests interacting with the PDF HUD are failing
+TEST(WebKit, DISABLED_SaveDataToFile)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
-    auto delegate = adoptNS([[SaveDataToFileDelegate alloc] init]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
+    RetainPtr delegate = adoptNS([[SaveDataToFileDelegate alloc] init]);
     [webView setUIDelegate:delegate.get()];
     [webView setNavigationDelegate:delegate.get()];
     NSURL *pdfURL = [NSBundle.test_resourcesBundle URLForResource:@"test" withExtension:@"pdf"];
     [webView loadRequest:[NSURLRequest requestWithURL:pdfURL]];
     TestWebKitAPI::Util::run(&done);
 }
-
-#endif // MOUSE_EVENT_CAUSES_DOWNLOAD
 
 #define RELIABLE_DID_NOT_HANDLE_WHEEL_EVENT 0
 // FIXME: make wheel event handling more reliable.
@@ -1515,3 +1444,277 @@ TEST(WebKit, DidNotHandleWheelEvent)
 #endif // RELIABLE_DID_NOT_HANDLE_WHEEL_EVENT
 
 #endif // PLATFORM(MAC)
+
+#if ENABLE(POINTER_LOCK)
+
+@interface PointerLockDelegate : NSObject <WKUIDelegatePrivate, WKScriptMessageHandler>
+@property (nonatomic, readonly) bool didEngagePointerLock;
+@property (nonatomic, readonly) NSArray<NSValue *> *mouseMoveEvents;
+- (void)resetState;
+- (void)waitForPointerLockEngaged;
+- (void)waitForPointerLockLost;
+- (void)waitForMouseMoveEvents;
+@end
+
+@implementation PointerLockDelegate {
+    bool _didLosePointerLock;
+    RetainPtr<NSMutableArray<NSValue *>> _mouseMoveEvents;
+}
+
+- (instancetype)init
+{
+    if (self = [super init])
+        _mouseMoveEvents = adoptNS([[NSMutableArray alloc] init]);
+    return self;
+}
+
+- (NSArray<NSValue *> *)mouseMoveEvents
+{
+    return _mouseMoveEvents.get();
+}
+
+- (void)resetState
+{
+    _didEngagePointerLock = false;
+    _didLosePointerLock = false;
+    [_mouseMoveEvents removeAllObjects];
+}
+
+- (void)waitForPointerLockEngaged
+{
+    TestWebKitAPI::Util::run(&_didEngagePointerLock);
+}
+
+- (void)waitForPointerLockLost
+{
+    TestWebKitAPI::Util::run(&_didLosePointerLock);
+}
+
+- (void)waitForMouseMoveEvents
+{
+    TestWebKitAPI::Util::waitFor([&] {
+        return [_mouseMoveEvents count];
+    });
+}
+
+- (void)_webViewDidRequestPointerLock:(WKWebView *)webView completionHandler:(void (^)(BOOL))completionHandler
+{
+    completionHandler(YES);
+    _didEngagePointerLock = true;
+}
+
+- (void)_webViewDidLosePointerLock:(WKWebView *)webView
+{
+    _didLosePointerLock = true;
+}
+
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message
+{
+#if PLATFORM(IOS_FAMILY)
+    if ([message.name isEqualToString:@"testHandler"]) {
+        NSDictionary *moveData = message.body;
+        CGPoint delta = CGPointMake([moveData[@"deltaX"] floatValue], [moveData[@"deltaY"] floatValue]);
+        [_mouseMoveEvents addObject:[NSValue valueWithCGPoint:delta]];
+    }
+#endif
+}
+
+@end
+
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+
+@interface WKMouseDeviceObserver
++ (WKMouseDeviceObserver *)sharedInstance;
+- (void)start;
+- (void)stop;
+- (void)_setHasMouseDeviceForTesting:(BOOL)hasMouseDevice;
+@end
+
+#endif
+
+class PointerLockTests : public testing::Test {
+public:
+    void SetUp() final
+    {
+#if PLATFORM(IOS_FAMILY)
+        TestWebKitAPI::Util::instantiateUIApplicationIfNeeded();
+#endif
+        setHasMouseDeviceForTesting(true);
+
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+        m_fakeMouse = adoptNS([[GCMouse.class alloc] initWithName:@"TestMouse" additionalButtons:0]);
+        m_currentMouseSwizzler = makeUnique<ClassMethodSwizzler>(GCMouse.class, @selector(current),
+            imp_implementationWithBlock(^GCMouse *() {
+                return m_fakeMouse.get();
+            })
+        );
+        m_miceSwizzler = makeUnique<ClassMethodSwizzler>(GCMouse.class, @selector(mice),
+            imp_implementationWithBlock(^NSArray<GCMouse *> *() {
+                return @[ m_fakeMouse.get() ];
+            })
+        );
+#endif
+
+        m_webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configurationForWebViewTestingPointerLock().get()]);
+        m_delegate = adoptNS([[PointerLockDelegate alloc] init]);
+        [m_webView setUIDelegate:m_delegate.get()];
+        [[m_webView configuration].userContentController addScriptMessageHandler:m_delegate.get() name:@"testHandler"];
+        [m_webView synchronouslyLoadHTMLString:
+            @"<canvas width='800' height='600'></canvas><script>"
+            @"var canvas = document.querySelector('canvas');"
+            @"var mouseMoveEvents = [];"
+            @"canvas.onclick = () => canvas.requestPointerLock();"
+            @"document.addEventListener('pointermove', (e) => {"
+            @"    if (document.pointerLockElement) {"
+            @"        mouseMoveEvents.push({deltaX: e.movementX, deltaY: e.movementY, timeStamp: e.timeStamp});"
+            @"        window.webkit.messageHandlers.testHandler.postMessage({deltaX: e.movementX, deltaY: e.movementY});"
+            @"    }"
+            @"});"
+            @"</script>"
+        ];
+
+        [m_webView focus];
+    }
+
+    static void SetUpTestSuite()
+    {
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+        [sharedMouseDeviceObserver() start];
+#endif
+    }
+
+    static void TearDownTestSuite()
+    {
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+        [sharedMouseDeviceObserver() stop];
+#endif
+    }
+
+    void setHasMouseDeviceForTesting(bool hasMouseDeviceForTesting)
+    {
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+        [sharedMouseDeviceObserver() _setHasMouseDeviceForTesting:hasMouseDeviceForTesting];
+#endif
+        UNUSED_PARAM(hasMouseDeviceForTesting);
+    }
+
+    void click(int x, int y)
+    {
+#if PLATFORM(IOS_FAMILY)
+        TestWebKitAPI::MouseEventTestHarness testHarness { m_webView.get() };
+        testHarness.mouseMove(x, y);
+        testHarness.mouseDown();
+        testHarness.mouseUp();
+#else
+        [m_webView sendClickAtPoint:NSMakePoint(x, y)];
+#endif
+    }
+
+    RetainPtr<TestWKWebView> webView() const { return m_webView.get(); }
+    RetainPtr<PointerLockDelegate> pointerLockDelegate() const { return m_delegate.get(); }
+    RetainPtr<GCMouse> fakeMouse() const { return m_fakeMouse.get(); }
+
+private:
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+    static WKMouseDeviceObserver *sharedMouseDeviceObserver()
+    {
+        return [NSClassFromString(@"WKMouseDeviceObserver") sharedInstance];
+    }
+#endif
+
+    static RetainPtr<WKWebViewConfiguration> configurationForWebViewTestingPointerLock()
+    {
+        RetainPtr configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
+
+        for (_WKFeature *feature in [WKPreferences _features]) {
+            if ([feature.key isEqualToString:@"PointerLockEnabled"])
+                [[configuration preferences] _setEnabled:YES forFeature:feature];
+        }
+
+        return configuration;
+    }
+
+    RetainPtr<TestWKWebView> m_webView;
+    RetainPtr<PointerLockDelegate> m_delegate;
+    RetainPtr<GCMouse> m_fakeMouse;
+    std::unique_ptr<ClassMethodSwizzler> m_currentMouseSwizzler;
+    std::unique_ptr<ClassMethodSwizzler> m_miceSwizzler;
+};
+
+TEST_F(PointerLockTests, Simple)
+{
+    click(200, 200);
+    [pointerLockDelegate() waitForPointerLockEngaged];
+}
+
+// FIXME: <https://webkit.org/296955> Add test coverage for equivalent flows on iOS.
+#if PLATFORM(MAC)
+TEST_F(PointerLockTests, ClientDisplaysAlertSheetWhilePointerLockActive)
+{
+    click(200, 200);
+
+    RetainPtr delegate = pointerLockDelegate();
+    [delegate waitForPointerLockEngaged];
+    [delegate resetState];
+
+    // Check that pointer lock is lost upon sheet presentation.
+    RetainPtr alert = adoptNS([[NSAlert alloc] init]);
+    [alert beginSheetModalForWindow:[webView() hostWindow] completionHandler:^(NSModalResponse) { }];
+    [delegate waitForPointerLockLost];
+    [[webView() hostWindow] endSheet:[alert window]];
+    [delegate resetState];
+
+    // Check that pointer lock can be requested again successfully.
+    click(200, 200);
+    [delegate waitForPointerLockEngaged];
+}
+#endif
+
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+
+TEST_F(PointerLockTests, DeniedWithoutMouseDevice)
+{
+    setHasMouseDeviceForTesting(false);
+
+    click(200, 200);
+
+    __block bool done = false;
+
+    [webView() _doAfterProcessingAllPendingMouseEvents:^{
+        EXPECT_FALSE([pointerLockDelegate() didEngagePointerLock]);
+        done = true;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+}
+
+TEST_F(PointerLockTests, MouseDeviceMove)
+{
+    click(200, 200);
+    [pointerLockDelegate() waitForPointerLockEngaged];
+
+    float deltaX = 10.0f;
+    float deltaY = 5.0f;
+    RetainPtr mouseInput = [fakeMouse() mouseInput];
+    [mouseInput handleMouseMovementEventWithDelta:CGPointMake(deltaX, deltaY)];
+
+    [pointerLockDelegate() waitForMouseMoveEvents];
+    CGPoint capturedDelta = [[pointerLockDelegate() mouseMoveEvents].firstObject CGPointValue];
+    EXPECT_EQ(deltaX, capturedDelta.x);
+    EXPECT_EQ(deltaY, capturedDelta.y);
+}
+
+TEST_F(PointerLockTests, MouseDeviceDisconnect)
+{
+    click(200, 200);
+
+    RetainPtr delegate = pointerLockDelegate();
+    [delegate waitForPointerLockEngaged];
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:GCMouseDidStopBeingCurrentNotification object:fakeMouse().get() userInfo:nil];
+    [delegate waitForPointerLockLost];
+}
+
+#endif
+
+#endif

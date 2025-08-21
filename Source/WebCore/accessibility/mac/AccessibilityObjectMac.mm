@@ -28,8 +28,6 @@
 
 #import "AXObjectCache.h"
 #import "AXRemoteFrame.h"
-#import "AccessibilityLabel.h"
-#import "AccessibilityList.h"
 #import "ColorCocoa.h"
 #import "CompositionHighlight.h"
 #import "CompositionUnderline.h"
@@ -105,19 +103,15 @@ FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect,
 
         NSRect nsRect = NSRectFromCGRect(cgRect);
         NSView *view = frameView->documentView();
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         nsRect = [[view window] convertRectToScreen:[view convertRect:nsRect toView:nil]];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
+
         return NSRectToCGRect(nsRect);
     }
 
     return convertFrameToSpace(rect, space);
-}
-
-// On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
-bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
-{
-    return true;
 }
 
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
@@ -150,7 +144,7 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     // Special case is when the unknown object is actually an attachment.
     if (role() == AccessibilityRole::Unknown && !isAttachment())
         return AccessibilityObjectInclusion::IgnoreObject;
-    
+
     if (role() == AccessibilityRole::Inline && !isStyleFormatGroup())
         return AccessibilityObjectInclusion::IgnoreObject;
 
@@ -162,10 +156,10 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
                 return AccessibilityObjectInclusion::IgnoreObject;
         }
     }
-    
+
     return AccessibilityObjectInclusion::DefaultBehavior;
 }
-    
+
 bool AccessibilityObject::caretBrowsingEnabled() const
 {
     RefPtr frame = this->frame();
@@ -205,10 +199,11 @@ String AccessibilityObject::subrolePlatformString() const
 
     if (isAttachment()) {
         NSView* attachView = [wrapper() attachmentView];
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if ([[attachView accessibilityAttributeNames] containsObject:NSAccessibilitySubroleAttribute])
             return [attachView accessibilityAttributeValue:NSAccessibilitySubroleAttribute];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (isMeter())
@@ -249,6 +244,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (isDescriptionList())
             return "AXDescriptionList"_s;
     }
+
+    if (listBoxInterpretation() == ListBoxInterpretation::ActuallyStaticList)
+        return "AXContentList"_s;
 
     // ARIA content subroles.
     switch (role) {
@@ -530,6 +528,6 @@ void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uin
         cache->onRemoteFrameInitialized(*this);
 }
 
-} // WebCore
+} // namespace WebCore
 
 #endif // PLATFORM(MAC)

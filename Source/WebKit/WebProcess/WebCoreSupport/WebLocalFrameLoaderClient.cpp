@@ -48,6 +48,7 @@
 #include "WKBundleAPICast.h"
 #include "WebAutomationSessionProxy.h"
 #include "WebBackForwardListProxy.h"
+#include "WebChromeClient.h"
 #include "WebErrors.h"
 #include "WebEvent.h"
 #include "WebFrame.h"
@@ -95,6 +96,7 @@
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
+#include <WebCore/Site.h>
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/UIEventWithKeyState.h>
 #include <WebCore/Widget.h>
@@ -198,11 +200,7 @@ void WebLocalFrameLoaderClient::detachedFromParent2()
     if (!webPage)
         return;
 
-    if (m_frameSpecificStorageAccessIdentifier) {
-        WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
-            m_frameSpecificStorageAccessIdentifier->frameID, m_frameSpecificStorageAccessIdentifier->pageID), 0);
-        m_frameSpecificStorageAccessIdentifier = std::nullopt;
-    }
+    removeStorageAccess();
 
     RefPtr<API::Object> userData;
 
@@ -463,11 +461,8 @@ void WebLocalFrameLoaderClient::dispatchWillChangeDocument(const URL& currentURL
     if (!webPage)
         return;
 
-    if (m_frameSpecificStorageAccessIdentifier && !WebCore::areRegistrableDomainsEqual(currentURL, newURL)) {
-        WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
-            m_frameSpecificStorageAccessIdentifier->frameID, m_frameSpecificStorageAccessIdentifier->pageID), 0);
-        m_frameSpecificStorageAccessIdentifier = std::nullopt;
-    }
+    if (!SecurityOrigin::create(currentURL)->isSameOriginAs(SecurityOrigin::create(newURL)))
+        removeStorageAccess();
 }
 
 void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocumentNavigationType navigationType)
@@ -1057,6 +1052,11 @@ WebCore::AllowsContentJavaScript WebLocalFrameLoaderClient::allowsContentJavaScr
 void WebLocalFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction& navigationAction, const ResourceRequest& request, const ResourceResponse& redirectResponse,
     FormState* formState, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier> navigationID, std::optional<WebCore::HitTestResult>&& hitTestResult, bool hasOpener, IsPerformingHTTPFallback isPerformingHTTPFallback, WebCore::SandboxFlags sandboxFlags, PolicyDecisionMode policyDecisionMode, FramePolicyFunction&& function)
 {
+    if (auto requestor = navigationAction.requester()) {
+        if (requestor->frameID && *requestor->frameID != m_frame->frameID() && Site(requestor->url) != Site(m_frame->url()))
+            removeStorageAccess();
+    }
+
     WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(navigationAction, request, redirectResponse, formState, clientRedirectSourceForHistory, navigationID, WTFMove(hitTestResult), hasOpener, isPerformingHTTPFallback, sandboxFlags, policyDecisionMode, WTFMove(function));
 }
 
@@ -1116,7 +1116,15 @@ void WebLocalFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, Com
     RefPtr<API::Object> userData;
     webPage->injectedBundleFormClient().willSubmitForm(webPage.get(), form.ptr(), m_frame.ptr(), sourceFrame.get(), values, userData);
 
-    webPage->sendWithAsyncReply(Messages::WebPageProxy::WillSubmitForm(m_frame->frameID(), sourceFrame->frameID(), values, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())), WTFMove(completionHandler));
+    if (!userData) {
+        auto userInfo = form->userInfo();
+        if (!userInfo.isNull()) {
+            if (auto data = JSON::Value::parseJSON(userInfo))
+                userData = userDataFromJSONData(*data);
+        }
+    }
+
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::WillSubmitForm(m_frame->info(), sourceFrame->info(), values, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())), WTFMove(completionHandler));
 }
 
 void WebLocalFrameLoaderClient::revertToProvisionalState(DocumentLoader*)
@@ -1320,32 +1328,6 @@ void WebLocalFrameLoaderClient::shouldGoToHistoryItemAsync(HistoryItem& item, Co
     webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldGoToBackForwardListItem(item.itemID(), item.isInBackForwardCache()), WTFMove(completionHandler));
 }
 
-void WebLocalFrameLoaderClient::didDisplayInsecureContent()
-{
-    RefPtr webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    RefPtr<API::Object> userData;
-
-    webPage->injectedBundleLoaderClient().didDisplayInsecureContentForFrame(*webPage, m_frame, userData);
-
-    webPage->send(Messages::WebPageProxy::DidDisplayInsecureContentForFrame(m_frame->frameID(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
-}
-
-void WebLocalFrameLoaderClient::didRunInsecureContent(SecurityOrigin&)
-{
-    RefPtr webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    RefPtr<API::Object> userData;
-
-    webPage->injectedBundleLoaderClient().didRunInsecureContentForFrame(*webPage, m_frame, userData);
-
-    webPage->send(Messages::WebPageProxy::DidRunInsecureContentForFrame(m_frame->frameID(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
-}
-
 bool WebLocalFrameLoaderClient::shouldFallBack(const ResourceError& error) const
 {
     static NeverDestroyed<const ResourceError> cancelledError(WebKit::cancelledError(ResourceRequest()));
@@ -1388,6 +1370,10 @@ void WebLocalFrameLoaderClient::loadStorageAccessQuirksIfNeeded()
     RefPtr webPage = m_frame->page();
 
     if (!webPage || !m_frame->isMainFrame() || !m_localFrame->document())
+        return;
+
+    RefPtr corePage = webPage->corePage();
+    if (!corePage || !corePage->settings().storageAccessAPIEnabled())
         return;
 
     RefPtr document = m_localFrame->document();
@@ -2091,6 +2077,15 @@ void WebLocalFrameLoaderClient::didExceedNetworkUsageThreshold()
 }
 
 #endif
+
+void WebLocalFrameLoaderClient::removeStorageAccess()
+{
+    if (m_frameSpecificStorageAccessIdentifier) {
+        WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
+            m_frameSpecificStorageAccessIdentifier->frameID, m_frameSpecificStorageAccessIdentifier->pageID), 0);
+        m_frameSpecificStorageAccessIdentifier = std::nullopt;
+    }
+}
 
 } // namespace WebKit
 

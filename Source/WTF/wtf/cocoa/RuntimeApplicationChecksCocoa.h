@@ -114,7 +114,6 @@ enum class SDKAlignedBehavior {
     ThrowIfCanDeclareGlobalFunctionFails,
     ThrowOnKVCInstanceVariableAccess,
     LaxCookieSameSiteAttribute,
-    BlockOptionallyBlockableMixedContent,
     UseCFNetworkNetworkLoader,
     AutoLayoutInWKWebView,
     BlockCrossOriginRedirectDownloads,
@@ -126,6 +125,7 @@ enum class SDKAlignedBehavior {
     BlobFileAccessEnforcement,
     SupportGameControllerEventInteractionAPI,
     DidFailProvisionalNavigationWithErrorForFileURLNavigation,
+    CrashWhenPreconnectingFromBackgroundThread,
 
     NumberOfBehaviors
 };
@@ -151,7 +151,7 @@ WTF_EXPORT_PRIVATE void clearApplicationBundleIdentifierTestingOverride();
 namespace CocoaApplication {
 
 WTF_EXPORT_PRIVATE bool isAppleApplication();
-WTF_EXPORT_PRIVATE bool isIBooks();
+WTF_EXPORT_PRIVATE bool isAppleBooks();
 WTF_EXPORT_PRIVATE bool isWebkitTestRunner();
 
 }
@@ -196,7 +196,6 @@ WTF_EXPORT_PRIVATE bool isSafariViewService();
 WTF_EXPORT_PRIVATE bool isStocks();
 WTF_EXPORT_PRIVATE bool isWebBookmarksD();
 WTF_EXPORT_PRIVATE bool isWebProcess();
-WTF_EXPORT_PRIVATE bool isIBooksStorytime();
 WTF_EXPORT_PRIVATE bool isMobileStore();
 WTF_EXPORT_PRIVATE bool isUNIQLOApp();
 WTF_EXPORT_PRIVATE bool isDOFUSTouch();

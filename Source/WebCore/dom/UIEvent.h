@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "Event.h"
-#include "UIEventInit.h"
-#include "WindowProxy.h"
+#include <WebCore/Event.h>
+#include <WebCore/UIEventInit.h>
+#include <WebCore/WindowProxy.h>
 
 namespace WebCore {
 
@@ -58,8 +58,12 @@ public:
     virtual int layerX();
     virtual int layerY();
 
-    virtual int pageX() const;
-    virtual int pageY() const;
+    virtual double screenX() const;
+    virtual double screenY() const;
+    virtual double pageX() const;
+    virtual double pageY() const;
+    virtual double clientX() const;
+    virtual double clientY() const;
 
     virtual unsigned which() const;
 

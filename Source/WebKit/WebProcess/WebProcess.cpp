@@ -128,7 +128,7 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/PermissionController.h>
 #include <WebCore/PlatformKeyboardEvent.h>
-#include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/PlatformMediaSession.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessWarming.h>
 #include <WebCore/Quirks.h>
@@ -144,6 +144,7 @@
 #include <WebCore/SharedWorkerContextManager.h>
 #include <WebCore/SharedWorkerThreadProxy.h>
 #include <WebCore/UserGestureIndicator.h>
+#include <WebCore/WebKitJSHandle.h>
 #include <algorithm>
 #include <pal/Logging.h>
 #include <wtf/CallbackAggregator.h>
@@ -431,7 +432,7 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 static void scheduleLogMemoryStatistics(LogMemoryStatisticsReason reason)
 {
     // Log stats in the next turn of the run loop so that it runs after the low memory handler.
-    RunLoop::protectedMain()->dispatch([reason] {
+    RunLoop::mainSingleton().dispatch([reason] {
         WebCore::logMemoryStatistics(reason);
     });
 }
@@ -739,7 +740,7 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
     
     ensureNetworkProcessConnection();
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     setOptInCookiePartitioningEnabled(parameters.isOptInCookiePartitioningEnabled);
 #endif
 }
@@ -762,6 +763,19 @@ void WebProcess::updateIsWebTransportEnabled()
         }
     }
     m_isWebTransportEnabled = false;
+}
+
+void WebProcess::updateIsBroadcastChannelEnabled()
+{
+    if (m_isBroadcastChannelEnabled)
+        return;
+
+    for (auto& page : m_pageMap.values()) {
+        if (page->corePage()->settings().broadcastChannelEnabled()) {
+            m_isBroadcastChannelEnabled = true;
+            return;
+        }
+    }
 }
 
 void WebProcess::setHasSuspendedPageProxy(bool hasSuspendedPageProxy)
@@ -973,6 +987,8 @@ void WebProcess::createWebPage(PageIdentifier pageID, WebPageCreationParameters&
         disableTermination();
         updateCPULimit();
         updateIsWebTransportEnabled();
+        updateIsBroadcastChannelEnabled();
+
 #if OS(LINUX)
         RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
 #endif
@@ -998,6 +1014,8 @@ void WebProcess::removeWebPage(PageIdentifier pageID)
     enableTermination();
     updateCPULimit();
     updateIsWebTransportEnabled();
+    updateIsBroadcastChannelEnabled();
+
 #if OS(LINUX)
     RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
 #endif
@@ -1314,7 +1332,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
         }
 #endif
         // This can be called during a WebPage's constructor, so wait until after the constructor returns to touch the WebPage.
-        RunLoop::protectedMain()->dispatch([this, protectedThis = Ref { *this }] {
+        RunLoop::mainSingleton().dispatch([this, protectedThis = Ref { *this }] {
             for (auto& webPage : m_pageMap.values())
                 webPage->synchronizeCORSDisablingPatternsWithNetworkProcess();
         });
@@ -1746,8 +1764,9 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
 
 #if ENABLE(VIDEO)
     suspendAllMediaBuffering();
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->processWillSuspend();
+
+    for (auto& page : m_pageMap.values())
+        page->processWillSuspend();
 #endif
 
     // Ask the process to slim down before it suspends, in case it suspends for a very long time.
@@ -1844,8 +1863,8 @@ void WebProcess::processDidResume()
 #endif
 
 #if ENABLE(VIDEO)
-    if (RefPtr platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
-        platformMediaSessionManager->processDidResume();
+    for (auto& page : m_pageMap.values())
+        page->processDidResume();
     resumeAllMediaBuffering();
 #endif
 }
@@ -1856,6 +1875,11 @@ void WebProcess::sendPrewarmInformation(const URL& url)
     if (registrableDomain.isEmpty())
         return;
     protectedParentProcessConnection()->send(Messages::WebProcessProxy::DidCollectPrewarmInformation(registrableDomain, WebCore::ProcessWarming::collectPrewarmInformation()), 0);
+}
+
+void WebProcess::jSHandleDestroyed(WebCore::JSHandleIdentifier identifier)
+{
+    WebCore::WebKitJSHandle::jsHandleDestroyed(identifier);
 }
 
 void WebProcess::pageDidEnterWindow(PageIdentifier pageID)
@@ -1983,8 +2007,10 @@ void WebProcess::clearResourceLoadStatistics()
 {
     if (auto* observer = ResourceLoadObserver::sharedIfExists())
         observer->clearState();
-    for (auto& page : m_pageMap.values())
+    for (auto& page : m_pageMap.values()) {
         page->clearPageLevelStorageAccess();
+        page->revokeFrameSpecificStorageAccess();
+    }
 }
 
 void WebProcess::flushResourceLoadStatistics()
@@ -2085,7 +2111,7 @@ void WebProcess::setEnabledServices(bool hasImageServices, bool hasSelectionServ
 }
 #endif
 
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
 void WebProcess::setOptInCookiePartitioningEnabled(bool enabled)
 {
     m_cookieJar->setOptInCookiePartitioningEnabled(enabled);
@@ -2557,9 +2583,14 @@ void WebProcess::updateCachedCookiesEnabled()
         document->updateCachedCookiesEnabled();
 }
 
-bool WebProcess::requiresScriptTrackingPrivacyProtections(const URL& url, const WebCore::SecurityOrigin& topOrigin) const
+bool WebProcess::requiresScriptTrackingPrivacyProtections(const URL& url, const SecurityOrigin& topOrigin) const
 {
     return m_scriptTrackingPrivacyFilter && m_scriptTrackingPrivacyFilter->matches(url, topOrigin);
+}
+
+bool WebProcess::shouldAllowScriptAccess(const URL& url, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory category) const
+{
+    return m_scriptTrackingPrivacyFilter && m_scriptTrackingPrivacyFilter->shouldAllowAccess(url, topOrigin, category);
 }
 
 void WebProcess::enableMediaPlayback()
@@ -2613,6 +2644,12 @@ void WebProcess::setResourceMonitorContentRuleListAsync(WebCompiledContentRuleLi
     completionHandler();
 }
 #endif
+
+void WebProcess::didReceiveRemoteCommand(PlatformMediaSession::RemoteControlCommandType type, const PlatformMediaSession::RemoteCommandArgument& argument)
+{
+    for (auto& page : m_pageMap.values())
+        page->didReceiveRemoteCommand(type, argument);
+}
 
 } // namespace WebKit
 

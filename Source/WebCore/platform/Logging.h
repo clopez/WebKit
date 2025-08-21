@@ -36,7 +36,7 @@
 #define OPTIONAL_ARGS(...) __VA_OPT__(COMMA()) __VA_ARGS__
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-#include "LogClient.h"
+#include <WebCore/LogClient.h>
 
 #define RELEASE_LOG_FORWARDABLE(category, logMessage, ...) do { \
     if (auto& client = logClient()) \
@@ -141,10 +141,12 @@ namespace WebCore {
     M(MessagePorts) \
     M(ModelElement) \
     M(NativePromise) \
+    M(Navigation) \
     M(Network) \
     M(NotYetImplemented) \
     M(OverlayScrollbars) \
     M(PerformanceLogging) \
+    M(PerformanceTimeline) \
     M(PlatformLeaks) \
     M(Plugins) \
     M(PopupBlocking) \

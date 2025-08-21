@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "Gate.h"
-#include "Opcode.h"
-#include "OptionsList.h"
-#include "SecureARM64EHashPins.h"
+#include <JavaScriptCore/Gate.h>
+#include <JavaScriptCore/Opcode.h>
+#include <JavaScriptCore/OptionsList.h>
+#include <JavaScriptCore/SecureARM64EHashPins.h>
 #include <wtf/WTFConfig.h>
 
 namespace JSC {
@@ -82,7 +82,6 @@ struct Config {
 #if CPU(ARM64E)
     bool canUseFPAC;
 #endif
-
     ExecutableAllocator* executableAllocator;
     FixedVMPoolExecutableAllocator* fixedVMPoolExecutableAllocator;
     void* startExecutableMemory;
@@ -92,12 +91,6 @@ struct Config {
     uintptr_t sizeOfStructureHeap;
     void* defaultCallThunk;
     void* arityFixupThunk;
-
-    void* ipint_dispatch_base;
-    void* ipint_gc_dispatch_base;
-    void* ipint_conversion_dispatch_base;
-    void* ipint_simd_dispatch_base;
-    void* ipint_atomic_dispatch_base;
 
 #if ENABLE(SEPARATED_WX_HEAP)
     JITWriteSeparateHeapsFunction jitWriteSeparateHeaps;
@@ -109,7 +102,6 @@ struct Config {
 
     struct {
         uint8_t exceptionInstructions[maxBytecodeStructLength + 1];
-        uint8_t wasmExceptionInstructions[maxBytecodeStructLength + 1];
         const void* gateMap[numberOfGates];
     } llint;
 

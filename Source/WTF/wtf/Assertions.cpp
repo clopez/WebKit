@@ -441,7 +441,7 @@ void WTFReportError(const char* file, int line, const char* function, const char
 }
 
 class WTFLoggingAccumulator {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WTFLoggingAccumulator);
 public:
     void accumulate(const String&);
     void resetAccumulatedLogs();
@@ -607,7 +607,7 @@ void WTFInitializeLogChannelStatesFromString(WTFLogChannel* channels[], size_t c
 #if USE(OS_LOG) && !RELEASE_LOG_DISABLED
     for (size_t i = 0; i < count; ++i) {
         WTFLogChannel* channel = channels[i];
-        channel->osLogChannel = os_log_create(channel->subsystem, channel->name);
+        channel->osLogChannel = os_log_create(LOG_CHANNEL_WEBKIT_SUBSYSTEM, channel->name);
     }
 #endif
 

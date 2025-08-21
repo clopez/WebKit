@@ -690,6 +690,20 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'extract-built-product',
             'jscore-test'
         ],
+        'Apple-Sonoma-Intel-Release-JSC-Tests': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'prune-coresymbolicationd-cache-if-too-large',
+            'download-built-product',
+            'extract-built-product',
+            'jscore-test'
+        ],
         'Apple-iOS-18-Release-Build': [
             'configure-build',
             'configuration',
@@ -1390,7 +1404,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'show-identifier',
             'delete-WebKitBuild-directory',
             'delete-stale-build-files',
-            'compile-jsc',
+            'compile-jsc-32bit',
             'jscore-test'
         ],
         'WPE-Linux-64-bit-Release-Build': [

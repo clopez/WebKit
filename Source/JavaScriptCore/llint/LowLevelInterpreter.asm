@@ -262,6 +262,7 @@ const JSEntryPtrTag = constexpr JSEntryPtrTag
 const HostFunctionPtrTag = constexpr HostFunctionPtrTag
 const JSEntrySlowPathPtrTag = constexpr JSEntrySlowPathPtrTag
 const NativeToJITGatePtrTag = constexpr NativeToJITGatePtrTag
+const VMEntryToJITGatePtrTag = constexpr VMEntryToJITGatePtrTag
 const ExceptionHandlerPtrTag = constexpr ExceptionHandlerPtrTag
 const YarrEntryPtrTag = constexpr YarrEntryPtrTag
 const CSSSelectorPtrTag = constexpr CSSSelectorPtrTag
@@ -270,6 +271,11 @@ const NoPtrTag = constexpr NoPtrTag
  
 # VMTraps data
 const VMTrapsAsyncEvents = constexpr VMTraps::AsyncEvents
+
+# VM offsets
+const VMTrapAwareSoftStackLimitOffset = VM::m_traps + VMTraps::m_stack + StackManager::m_trapAwareSoftStackLimit
+const VMCLoopStackLimitOffset = VM::m_traps + VMTraps::m_stack + StackManager::m_cloopStackLimit
+const VMSoftStackLimitOffset = VM::m_traps + VMTraps::m_stack + StackManager::m_softStackLimit
 
 # Some register conventions.
 # - We use a pair of registers to represent the PC: one register for the
@@ -332,22 +338,29 @@ macro loadBoolJSCOption(name, reg)
     loadb JSCConfigOffset + JSC::Config::options + OptionsStorage::%name%[reg], reg
 end
 
+macro validateOpcodeConfig(scratchReg)
+    if ARM64E
+        leap _g_opcodeConfigStorage, scratchReg
+        loadp [scratchReg], scratchReg
+    end
+end
+
 macro nextInstruction()
     loadb [PB, PC, 1], t0
-    leap _g_opcodeMap, t1
-    jmp [t1, t0, PtrSize], BytecodePtrTag, AddressDiversified
+    leap _g_opcodeConfigStorage, t1
+    jmp JSC::LLInt::OpcodeConfig::opcodeMap[t1, t0, PtrSize]
 end
 
 macro nextInstructionWide16()
     loadb OpcodeIDNarrowSize[PB, PC, 1], t0
-    leap _g_opcodeMapWide16, t1
-    jmp [t1, t0, PtrSize], BytecodePtrTag, AddressDiversified
+    leap _g_opcodeConfigStorage, t1
+    jmp JSC::LLInt::OpcodeConfig::opcodeMapWide16[t1, t0, PtrSize]
 end
 
 macro nextInstructionWide32()
     loadb OpcodeIDNarrowSize[PB, PC, 1], t0
-    leap _g_opcodeMapWide32, t1
-    jmp [t1, t0, PtrSize], BytecodePtrTag, AddressDiversified
+    leap _g_opcodeConfigStorage, t1
+    jmp JSC::LLInt::OpcodeConfig::opcodeMapWide32[t1, t0, PtrSize]
 end
 
 macro dispatch(advanceReg)
@@ -1545,17 +1558,21 @@ if not ADDRESS64
     bpa t0, cfr, .needStackCheck
 end
     loadp CodeBlock::m_vm[t1], t2
-    if C_LOOP
-        bplteq VM::m_cloopStackLimit[t2], t0, .stackHeightOK
-    else
-        bplteq VM::m_softStackLimit[t2], t0, .stackHeightOK
-    end
+    bpbeq VMTrapAwareSoftStackLimitOffset[t2], t0, .stackHeightOK
 
 .needStackCheck:
     # Stack height check failed - need to call a slow_path.
     # Set up temporary stack pointer for call including callee saves
     subp maxFrameExtentForSlowPathCall, sp
-    callSlowPath(_llint_stack_check)
+
+    # Do the equivalent of callSlowPath() except with 3 arguments.
+    prepareStateForCCall()
+    move t0, a2
+    move cfr, a0
+    move PC, a1
+    cCall3(_llint_check_stack_and_vm_traps)
+    restoreStateAfterCCall()
+
     bpeq r1, 0, .stackHeightOKGetCodeBlock
 
     # We're throwing before the frame is fully set up. This frame will be
@@ -2856,10 +2873,6 @@ end
 
 if WEBASSEMBLY
 
-entry(wasm, macro()
-    include InitWasm
-end)
-
 macro wasmScope()
     # Wrap the script in a macro since it overwrites some of the LLInt macros,
     # but we don't want to interfere with the LLInt opcodes
@@ -2867,12 +2880,12 @@ macro wasmScope()
     include InPlaceInterpreter
 end
 
-global _wasmLLIntPCRangeStart
-_wasmLLIntPCRangeStart:
+global _wasmIPIntPCRangeStart
+_wasmIPIntPCRangeStart:
     break # FIXME: rdar://96556827
 wasmScope()
-global _wasmLLIntPCRangeEnd
-_wasmLLIntPCRangeEnd:
+global _wasmIPIntPCRangeEnd
+_wasmIPIntPCRangeEnd:
     break # FIXME: rdar://96556827
 
 else
@@ -2882,31 +2895,11 @@ op(js_to_wasm_wrapper_entry, macro ()
     crash()
 end)
 
-op(wasm_to_wasm_wrapper_entry, macro ()
-    crash()
-end)
-
 op(wasm_to_wasm_ipint_wrapper_entry, macro ()
     crash()
 end)
 
 op(wasm_to_js_wrapper_entry, macro ()
-    crash()
-end)
-
-op(wasm_function_prologue_trampoline, macro ()
-    crash()
-end)
-
-op(wasm_function_prologue, macro ()
-    crash()
-end)
-
-op(wasm_function_prologue_simd_trampoline, macro ()
-    crash()
-end)
-
-op(wasm_function_prologue_simd, macro ()
     crash()
 end)
 
@@ -2950,24 +2943,12 @@ op(ipint_table_catch_allref_entry, macro()
     crash()
 end)
 
-_wasm_trampoline_wasm_call:
-_wasm_trampoline_wasm_call_indirect:
-_wasm_trampoline_wasm_call_ref:
-_wasm_trampoline_wasm_call_wide16:
-_wasm_trampoline_wasm_call_indirect_wide16:
-_wasm_trampoline_wasm_call_ref_wide16:
-_wasm_trampoline_wasm_call_wide32:
-_wasm_trampoline_wasm_call_indirect_wide32:
-_wasm_trampoline_wasm_call_ref_wide32:
-_wasm_trampoline_wasm_tail_call:
-_wasm_trampoline_wasm_tail_call_indirect:
-_wasm_trampoline_wasm_tail_call_ref:
-_wasm_trampoline_wasm_tail_call_wide16:
-_wasm_trampoline_wasm_tail_call_indirect_wide16:
-_wasm_trampoline_wasm_tail_call_ref_wide16:
-_wasm_trampoline_wasm_tail_call_wide32:
-_wasm_trampoline_wasm_tail_call_indirect_wide32:
-_wasm_trampoline_wasm_tail_call_ref_wide32:
+op(wasm_throw_from_slow_path_trampoline, macro ()
+end)
+
+op(wasm_throw_from_fault_handler_trampoline_reg_instance, macro ()
+end)
+
 _wasm_trampoline_wasm_ipint_call:
 _wasm_trampoline_wasm_ipint_call_wide16:
 _wasm_trampoline_wasm_ipint_call_wide32:

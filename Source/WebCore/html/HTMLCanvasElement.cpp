@@ -564,25 +564,43 @@ GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* g
     return dynamicDowncast<GPUCanvasContext>(m_context.get());
 }
 
+std::optional<FloatRect> HTMLCanvasElement::computeDirtyRectangleIfNeeded(const std::optional<FloatRect>& rect) const
+{
+    if (!rect)
+        return std::nullopt;
+
+#if ENABLE(DAMAGE_TRACKING)
+    if (usesContentsAsLayerContents() && !document().settings().propagateDamagingInformation())
+        return std::nullopt;
+#else
+    if (usesContentsAsLayerContents())
+        return std::nullopt;
+#endif
+
+    FloatRect destRect;
+    CheckedPtr renderer = renderBox();
+    if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
+        destRect = renderReplaced->replacedContentRect();
+    else
+        destRect = renderer->contentBoxRect();
+
+    FloatRect dirtyRect = mapRect(*rect, FloatRect { { }, size() }, destRect);
+    dirtyRect.intersect(destRect);
+    if (dirtyRect.isEmpty())
+        return std::nullopt;
+
+    return dirtyRect;
+}
+
 void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
     clearCopiedImage();
     if (CheckedPtr renderer = renderBox()) {
+        const std::optional<FloatRect> dirtyRect = computeDirtyRectangleIfNeeded(rect);
         if (usesContentsAsLayerContents())
-            renderer->contentChanged(ContentChangeType::CanvasPixels);
-        else if (rect) {
-            FloatRect destRect;
-            if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
-                destRect = renderReplaced->replacedContentRect();
-            else
-                destRect = renderer->contentBoxRect();
-
-            FloatRect r = mapRect(*rect, FloatRect { { }, size() }, destRect);
-            r.intersect(destRect);
-
-            if (!r.isEmpty())
-                renderer->repaintRectangle(enclosingIntRect(r));
-        }
+            renderer->contentChanged(ContentChangeType::CanvasPixels, dirtyRect);
+        else if (dirtyRect)
+            renderer->repaintRectangle(enclosingIntRect(*dirtyRect));
     }
     CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
 }
@@ -720,7 +738,7 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
 #if USE(CG)
     // Try to get ImageData first, as that may avoid lossy conversions.
     if (auto imageData = getImageData())
-        return UncachedString { dataURL(imageData->pixelBuffer(), encodingMIMEType, quality) };
+        return UncachedString { dataURL(imageData->byteArrayPixelBuffer(), encodingMIMEType, quality) };
 #endif
 
     if (auto url = document->quirks().advancedPrivacyProtectionSubstituteDataURLForScriptWithFeatures(lastFillText(), width(), height()); !url.isNull()) {
@@ -770,7 +788,7 @@ ExceptionOr<void> HTMLCanvasElement::toBlob(Ref<BlobCallback>&& callback, const 
 
 #if USE(CG)
     if (auto imageData = getImageData()) {
-        scheduleCallbackWithBlobData(WTFMove(callback), encodeData(imageData->pixelBuffer(), encodingMIMEType, quality));
+        scheduleCallbackWithBlobData(WTFMove(callback), encodeData(imageData->byteArrayPixelBuffer(), encodingMIMEType, quality));
         return { };
     }
 #endif

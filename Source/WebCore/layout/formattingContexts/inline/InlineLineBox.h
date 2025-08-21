@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "InlineLevelBox.h"
-#include "InlineLine.h"
-#include "InlineRect.h"
-#include "LayoutElementBox.h"
+#include <WebCore/InlineLevelBox.h>
+#include <WebCore/InlineLine.h>
+#include <WebCore/InlineRect.h>
+#include <WebCore/LayoutElementBox.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
@@ -119,7 +119,7 @@ private:
     InlineRect m_logicalRect;
     OptionSet<InlineLevelBox::Type> m_boxTypes;
 
-    FontBaseline m_baselineType { AlphabeticBaseline };
+    FontBaseline m_baselineType { FontBaseline::Alphabetic };
     InlineLevelBox m_rootInlineBox;
     InlineLevelBoxList m_nonRootInlineLevelBoxList;
 

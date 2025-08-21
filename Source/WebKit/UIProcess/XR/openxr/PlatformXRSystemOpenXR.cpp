@@ -29,6 +29,7 @@
 #include "PlatformXRSystem.h"
 
 #include "PlatformXROpenXR.h"
+#include "WebPageProxy.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
@@ -41,6 +42,18 @@ PlatformXRCoordinator* PlatformXRSystem::xrCoordinator()
         xrCoordinator.construct();
     });
     return &xrCoordinator.get();
+}
+
+void PlatformXRSystem::createLayerProjection(IPC::Connection&, uint32_t width, uint32_t height, bool alpha)
+{
+    ASSERT(RunLoop::isMain());
+
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    if (auto* xrCoordinator = PlatformXRSystem::xrCoordinator())
+        xrCoordinator->createLayerProjection(width, height, alpha);
 }
 
 } // namespace WebKit

@@ -87,10 +87,6 @@ const int optionsSpacingInlineStart = 2;
 // Default size when the multiple attribute is present but size attribute is absent.
 const int defaultSize = 4;
 
-// FIXME: This hardcoded baselineAdjustment is what we used to do for the old
-// widget, but I'm not sure this is right for the new control.
-const int baselineAdjustment = 7;
-
 RenderListBox::RenderListBox(HTMLSelectElement& element, RenderStyle&& style)
     : RenderBlockFlow(Type::ListBox, element, WTFMove(style))
 {
@@ -306,14 +302,6 @@ RenderBox::LogicalExtentComputedValues RenderListBox::computeLogicalHeight(Layou
     cacheIntrinsicContentLogicalHeightForFlexItem(logicalHeight);
     logicalHeight += writingMode().isHorizontal() ? verticalBorderAndPaddingExtent() : horizontalBorderAndPaddingExtent();
     return RenderBox::computeLogicalHeight(logicalHeight, logicalTop);
-}
-
-LayoutUnit RenderListBox::baselinePosition() const
-{
-    auto baseline = RenderBox::baselinePosition();
-    if (!shouldApplyLayoutContainment())
-        baseline -= baselineAdjustment;
-    return baseline;
 }
 
 LayoutRect RenderListBox::itemBoundingBoxRect(const LayoutPoint& additionalOffset, int index) const
@@ -649,7 +637,7 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
     // FIXME: This doesn't work correctly with transforms.
     FloatPoint absOffset = localToAbsolute();
 
-    IntPoint lastKnownMousePosition = frame().eventHandler().lastKnownMousePosition();
+    IntPoint lastKnownMousePosition = flooredIntPoint(frame().eventHandler().lastKnownMousePosition());
     // We need to check if the last known mouse position is out of the window. When the mouse is out of the window, the position is incoherent
     static IntPoint previousMousePosition;
     if (lastKnownMousePosition.y() < 0)
@@ -713,7 +701,7 @@ int RenderListBox::scrollToward(const IntPoint& destination)
 
 void RenderListBox::autoscroll(const IntPoint&)
 {
-    IntPoint pos = frame().view()->windowToContents(frame().eventHandler().lastKnownMousePosition());
+    IntPoint pos = flooredIntPoint(frame().view()->windowToContents(frame().eventHandler().lastKnownMousePosition()));
 
     int endIndex = scrollToward(pos);
     if (selectElement().isDisabledFormControl())
@@ -1230,6 +1218,14 @@ bool RenderListBox::isVisibleToHitTesting() const
 std::optional<FrameIdentifier> RenderListBox::rootFrameID() const
 {
     return view().frameView().frame().rootFrame().frameID();
+}
+
+void RenderListBox::scrollDidEnd()
+{
+    if (ScrollAnimator* scrollAnimator = existingScrollAnimator(); scrollAnimator && !scrollAnimator->isUserScrollInProgress() && !isAwaitingScrollend()) {
+        setIsAwaitingScrollend(false);
+        selectElement().protectedDocument()->addPendingScrollendEventTarget(selectElement());
+    }
 }
 
 } // namespace WebCore

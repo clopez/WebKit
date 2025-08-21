@@ -35,6 +35,7 @@
 #include "RenderElementInlines.h"
 #include "RenderLayerModelObject.h"
 #include "RenderStyleInlines.h"
+#include "StyleLengthWrapper+Platform.h"
 #include "StyleOffsetAnchor.h"
 #include "StyleOffsetDistance.h"
 #include "StyleOffsetPath.h"
@@ -114,7 +115,7 @@ template<typename T> static RefPtr<TransformOperation> resolveCalculateValuesFor
 
 AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const IntRect& borderBoxRect, const RenderLayerModelObject* renderer)
 {
-    opacity = style.opacity();
+    opacity = style.opacity().value.value;
 
     auto borderBoxSize = borderBoxRect.size();
 
@@ -126,7 +127,7 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
     translate = resolveCalculateValuesForTransformOperation(Style::toPlatform(style.translate()), borderBoxSize);
     scale = resolveCalculateValuesForTransformOperation(Style::toPlatform(style.scale()), borderBoxSize);
     rotate = resolveCalculateValuesForTransformOperation(Style::toPlatform(style.rotate()), borderBoxSize);
-    transformOrigin = resolveCalculateValuesFor(style.transformOriginXY(), borderBoxSize);
+    transformOrigin = resolveCalculateValuesFor(Style::toPlatform(style.transformOrigin().xy()), borderBoxSize);
     offsetPath = Style::toPlatform(style.offsetPath());
     offsetPosition = resolveCalculateValuesFor(Style::toPlatform(style.offsetPosition()), borderBoxSize);
     offsetAnchor = resolveCalculateValuesFor(Style::toPlatform(style.offsetAnchor()), borderBoxSize);

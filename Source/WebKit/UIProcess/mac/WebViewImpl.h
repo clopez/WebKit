@@ -507,6 +507,12 @@ public:
     id accessibilityAttributeValue(NSString *, id parameter = nil);
     RetainPtr<NSAccessibilityRemoteUIElement> remoteAccessibilityChildIfNotSuspended();
 
+    // Accessibility info for debugging
+    NSUInteger accessibilityRemoteChildTokenHash();
+    NSUInteger accessibilityUIProcessLocalTokenHash();
+    NSArray<NSNumber *> *registeredRemoteAccessibilityPids();
+    bool hasRemoteAccessibilityChild();
+
     void updatePrimaryTrackingAreaOptions(NSTrackingAreaOptions);
 
     NSTrackingRectTag addTrackingRect(CGRect, id owner, void* userData, bool assumeInside);
@@ -852,7 +858,8 @@ private:
     void sendToolTipMouseEntered();
 
     void reparentLayerTreeInThumbnailView();
-    void updateThumbnailViewLayer();
+    // Returns true if the thumbnail view consumed the layer.
+    bool updateThumbnailViewLayer();
 
     void setUserInterfaceItemState(NSString *commandName, bool enabled, int state);
 
@@ -1004,7 +1011,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     bool m_allowsMagnification { false };
 
     RetainPtr<NSAccessibilityRemoteUIElement> m_remoteAccessibilityChild;
+    RetainPtr<NSData> m_remoteAccessibilityChildToken;
+    RetainPtr<NSData> m_remoteAccessibilityTokenGeneratedByUIProcess;
     RetainPtr<NSMutableDictionary> m_remoteAccessibilityFrameCache;
+    HashSet<pid_t> m_registeredRemoteAccessibilityPids;
 
     RefPtr<WebCore::Image> m_promisedImage;
     String m_promisedFilename;

@@ -27,11 +27,11 @@
 
 #pragma once
 
-#include "PathElement.h"
-#include "PathImpl.h"
-#include "PathSegment.h"
-#include "PlatformPath.h"
-#include "WindRule.h"
+#include <WebCore/PathElement.h>
+#include <WebCore/PathImpl.h>
+#include <WebCore/PathSegment.h>
+#include <WebCore/PlatformPath.h>
+#include <WebCore/WindRule.h>
 #include <wtf/DataRef.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -68,6 +68,7 @@ public:
     void addRect(const FloatRect&);
     WEBCORE_EXPORT void addRoundedRect(const FloatRoundedRect&, PathRoundedRect::Strategy = PathRoundedRect::Strategy::PreferNative);
     void addRoundedRect(const FloatRect&, const FloatSize& roundingRadii, PathRoundedRect::Strategy = PathRoundedRect::Strategy::PreferNative);
+    void addContinuousRoundedRect(const FloatRect&, float cornerRadius);
     void addContinuousRoundedRect(const FloatRect&, float cornerWidth, float cornerHeight);
     void addRoundedRect(const LayoutRoundedRect&);
     void closeSubpath();

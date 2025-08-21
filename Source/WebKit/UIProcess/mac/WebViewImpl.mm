@@ -77,6 +77,7 @@
 #import "WebEventFactory.h"
 #import "WebFrameProxy.h"
 #import "WebInspectorUIProxy.h"
+#import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
@@ -179,8 +180,8 @@
 
 #import "AppKitSoftLink.h"
 #import <pal/cocoa/RevealSoftLink.h>
-#import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/cocoa/TranslationUIServicesSoftLink.h>
+#import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
@@ -722,7 +723,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)menuDidClose:(NSMenu *)menu
 {
-    RunLoop::protectedMain()->dispatch([impl = _impl] {
+    RunLoop::mainSingleton().dispatch([impl = _impl] {
         if (impl)
             impl->hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     });
@@ -1491,7 +1492,7 @@ bool WebViewImpl::isOpaque() const
 }
 
 void WebViewImpl::setShouldSuppressFirstResponderChanges(bool shouldSuppress)
-{   
+{
     m_pageClient->setShouldSuppressFirstResponderChanges(shouldSuppress);
 }
 
@@ -1765,7 +1766,7 @@ void WebViewImpl::updateWindowAndViewFrames()
 
     m_didScheduleWindowAndViewFrameUpdate = true;
 
-    RunLoop::protectedMain()->dispatch([weakThis = WeakPtr { *this }] {
+    RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
 
@@ -2132,7 +2133,7 @@ void WebViewImpl::windowDidResize()
 void WebViewImpl::windowWillBeginSheet()
 {
 #if ENABLE(POINTER_LOCK)
-    m_page->requestPointerUnlock();
+    m_page->resetPointerLockState();
 #endif
 }
 
@@ -2935,7 +2936,7 @@ void WebViewImpl::didBecomeEditable()
 {
     [m_windowVisibilityObserver enableObservingFontPanel];
 
-    RunLoop::protectedMain()->dispatch([] {
+    RunLoop::mainSingleton().dispatch([] {
         [[NSSpellChecker sharedSpellChecker] _preflightChosenSpellServer];
     });
 }
@@ -3380,7 +3381,7 @@ void WebViewImpl::requestCandidatesForSelectionIfNeeded()
 
     WeakPtr weakThis { *this };
     m_lastCandidateRequestSequenceNumber = [[NSSpellChecker sharedSpellChecker] requestCandidatesForSelectedRange:selectedRange inString:postLayoutData->paragraphContextForCandidateRequest.createNSString().get() types:checkingTypes options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() completionHandler:[weakThis](NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates) {
-        RunLoop::protectedMain()->dispatch([weakThis, sequenceNumber, candidates = retainPtr(candidates)] {
+        RunLoop::mainSingleton().dispatch([weakThis, sequenceNumber, candidates = retainPtr(candidates)] {
             if (!weakThis)
                 return;
             weakThis->handleRequestedCandidates(sequenceNumber, candidates.get());
@@ -3670,6 +3671,8 @@ void WebViewImpl::videoControlsManagerDidChange()
 
 void WebViewImpl::setIgnoresNonWheelEvents(bool ignoresNonWheelEvents)
 {
+    RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::setIgnoresNonWheelEvents:%d", m_page->identifier().toUInt64(), ignoresNonWheelEvents);
+
     if (m_ignoresNonWheelEvents == ignoresNonWheelEvents)
         return;
 
@@ -3686,6 +3689,7 @@ void WebViewImpl::setIgnoresNonWheelEvents(bool ignoresNonWheelEvents)
 
 void WebViewImpl::setIgnoresAllEvents(bool ignoresAllEvents)
 {
+    RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::setIgnoresAllEvents:%d", m_page->identifier().toUInt64(), ignoresAllEvents);
     m_ignoresAllEvents = ignoresAllEvents;
     setIgnoresNonWheelEvents(ignoresAllEvents);
 }
@@ -3699,8 +3703,32 @@ void WebViewImpl::setAccessibilityWebProcessToken(NSData *data, pid_t pid)
 {
     if (pid == m_page->legacyMainFrameProcess().processID()) {
         m_remoteAccessibilityChild = data.length ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:data]) : nil;
+        m_remoteAccessibilityChildToken = data;
         updateRemoteAccessibilityRegistration(true);
     }
+}
+
+NSUInteger WebViewImpl::accessibilityRemoteChildTokenHash()
+{
+    return [m_remoteAccessibilityChildToken hash];
+}
+
+NSUInteger WebViewImpl::accessibilityUIProcessLocalTokenHash()
+{
+    return [m_remoteAccessibilityTokenGeneratedByUIProcess hash];
+}
+
+NSArray<NSNumber *> *WebViewImpl::registeredRemoteAccessibilityPids()
+{
+    NSMutableArray<NSNumber *> *result = [NSMutableArray new];
+    for (pid_t pid : m_registeredRemoteAccessibilityPids)
+        [result addObject:@(pid)];
+    return result;
+}
+
+bool WebViewImpl::hasRemoteAccessibilityChild()
+{
+    return !!remoteAccessibilityChildIfNotSuspended();
 }
 
 void WebViewImpl::updateRemoteAccessibilityRegistration(bool registerProcess)
@@ -3714,20 +3742,25 @@ void WebViewImpl::updateRemoteAccessibilityRegistration(bool registerProcess)
     else if (!registerProcess) {
         pid = [m_remoteAccessibilityChild processIdentifier];
         m_remoteAccessibilityChild = nil;
+        m_remoteAccessibilityChildToken = nil;
     }
     if (!pid)
         return;
 
-    if (registerProcess)
+    if (registerProcess) {
         [NSAccessibilityRemoteUIElement registerRemoteUIProcessIdentifier:pid];
-    else
+        m_registeredRemoteAccessibilityPids.add(pid);
+    } else {
         [NSAccessibilityRemoteUIElement unregisterRemoteUIProcessIdentifier:pid];
+        m_registeredRemoteAccessibilityPids.remove(pid);
+    }
 }
 
 void WebViewImpl::accessibilityRegisterUIProcessTokens()
 {
     // Initialize remote accessibility when the window connection has been established.
     RetainPtr remoteElementToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:m_view.getAutoreleased()];
+    m_remoteAccessibilityTokenGeneratedByUIProcess = remoteElementToken.get();
     RetainPtr remoteWindowToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:[m_view window]];
     m_page->registerUIProcessAccessibilityTokens(span(remoteElementToken.get()), span(remoteWindowToken.get()));
 }
@@ -3976,10 +4009,8 @@ void WebViewImpl::setAcceleratedCompositingRootLayer(CALayer *rootLayer)
     m_rootLayer = rootLayer;
     rootLayer.hidden = NO;
 
-    if (m_thumbnailView) {
-        updateThumbnailViewLayer();
+    if (m_thumbnailView && updateThumbnailViewLayer())
         return;
-    }
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
@@ -4042,13 +4073,17 @@ void WebViewImpl::reparentLayerTreeInThumbnailView()
     [m_thumbnailView.get() _setThumbnailLayer: m_rootLayer.get()];
 }
 
-void WebViewImpl::updateThumbnailViewLayer()
+bool WebViewImpl::updateThumbnailViewLayer()
 {
     RetainPtr thumbnailView = m_thumbnailView.get();
     ASSERT(thumbnailView);
 
-    if ([thumbnailView _waitingForSnapshot] && [m_view window])
+    if ([thumbnailView _waitingForSnapshot] && [m_view window]) {
         reparentLayerTreeInThumbnailView();
+        return true;
+    }
+
+    return false;
 }
 
 void WebViewImpl::setInspectorAttachmentView(NSView *newView)
@@ -4233,7 +4268,7 @@ static bool handleLegacyFilesPromisePasteboard(id<NSDraggingInfo> draggingInfo, 
             if (errorOrNil)
                 return;
 
-            RunLoop::protectedMain()->dispatch([protectedPage = WTFMove(protectedPage), path = RetainPtr { fileURL.path }, fileNames, fileCount, dragData, pasteboardName] () mutable {
+            RunLoop::mainSingleton().dispatch([protectedPage = WTFMove(protectedPage), path = RetainPtr { fileURL.path }, fileNames, fileCount, dragData, pasteboardName] () mutable {
                 fileNames->append(path.get());
                 if (fileNames->size() != fileCount)
                     return;
@@ -4275,7 +4310,7 @@ static bool handleLegacyFilesPasteboard(id<NSDraggingInfo> draggingInfo, Box<Web
                 RELEASE_LOG_ERROR_IF(error, DragAndDrop, "Failed to coordinate reading file: %@.", error.localizedDescription);
             }
 
-            RunLoop::protectedMain()->dispatch([protectedPage = WTFMove(protectedPage), fileNames, dragData, pasteboardName, completionHandler = makeBlockPtr(completionHandler)] mutable {
+            RunLoop::mainSingleton().dispatch([protectedPage = WTFMove(protectedPage), fileNames, dragData, pasteboardName, completionHandler = makeBlockPtr(completionHandler)] mutable {
                 performDragWithLegacyFiles(protectedPage, WTFMove(fileNames), WTFMove(dragData), pasteboardName);
                 completionHandler();
             });
@@ -4949,14 +4984,18 @@ void WebViewImpl::setDidMoveSwipeSnapshotCallback(BlockPtr<void (CGRect)>&& call
 
 void WebViewImpl::scrollWheel(NSEvent *event)
 {
-    if (m_ignoresAllEvents)
+    if (m_ignoresAllEvents) {
+        RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::scrollWheel: ignored event", m_page->identifier().toUInt64());
         return;
+    }
 
     if (event.phase == NSEventPhaseBegan)
         dismissContentRelativeChildWindowsWithAnimation(false);
 
-    if (m_allowsBackForwardNavigationGestures && ensureProtectedGestureController()->handleScrollWheelEvent(event))
+    if (m_allowsBackForwardNavigationGestures && ensureProtectedGestureController()->handleScrollWheelEvent(event)) {
+        RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::scrollWheel: Gesture controller handled wheel event", m_page->identifier().toUInt64());
         return;
+    }
 
     auto webEvent = NativeWebWheelEvent(event, m_view.getAutoreleased());
     m_page->handleNativeWheelEvent(webEvent);
@@ -5878,8 +5917,10 @@ static TextStream& operator<<(TextStream& ts, NSEventType eventType)
 
 void WebViewImpl::nativeMouseEventHandler(NSEvent *event)
 {
-    if (m_ignoresNonWheelEvents)
+    if (m_ignoresNonWheelEvents) {
+        RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::nativeMouseEventHandler: ignored event", m_page->identifier().toUInt64());
         return;
+    }
 
     if (RetainPtr context = [m_view inputContext]) {
         WeakPtr weakThis { *this };
@@ -7050,10 +7091,11 @@ void WebViewImpl::updateScrollPocket()
 
     RetainPtr view = m_view.get();
     CGFloat topContentInset = obscuredContentInsets().top();
+    CGFloat additionalHeight = m_page->overflowHeightForTopScrollEdgeEffect();
     bool needsTopView = m_page->preferences().contentInsetBackgroundFillEnabled()
         && view
         && !view->_reasonsToHideTopScrollPocket
-        && topContentInset > 0;
+        && (topContentInset > 0 || additionalHeight > 0);
 
     RetainPtr topScrollPocketSelector = NSStringFromSelector(@selector(_topScrollPocket));
     if (!needsTopView) {
@@ -7090,7 +7132,7 @@ void WebViewImpl::updateScrollPocket()
     if (RetainPtr attachedInspectorView = [view _horizontallyAttachedInspectorWebView])
         bounds = NSUnionRect(bounds, [attachedInspectorView convertRect:[attachedInspectorView bounds] toView:view.get()]);
 
-    auto topInsetFrame = NSMakeRect(NSMinX(bounds), NSMinY(bounds), NSWidth(bounds), std::min<CGFloat>(topContentInset, NSHeight(bounds)));
+    auto topInsetFrame = NSMakeRect(NSMinX(bounds), NSMinY(bounds) - additionalHeight, NSWidth(bounds), additionalHeight + std::min<CGFloat>(topContentInset, NSHeight(bounds)));
 
     if ([m_view _usesAutomaticContentInsetBackgroundFill]) {
         for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())

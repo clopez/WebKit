@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004-2024 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *  Copyright (C) 2006 Bjoern Graf (bjoern.graf@gmail.com)
  *
  *  This library is free software; you can redistribute it and/or
@@ -80,7 +80,7 @@
 #include "TestRunnerUtils.h"
 #include "TypedArrayInlines.h"
 #include "VMInlines.h"
-#include "VMInspector.h"
+#include "VMManager.h"
 #include "VMTrapsInlines.h"
 #include "WasmCapabilities.h"
 #include "WasmFaultSignalHandler.h"
@@ -590,7 +590,7 @@ private:
     static constexpr unsigned DontEnum = 0 | PropertyAttribute::DontEnum;
 
     class PropertyFilter : public SideDataRepository::SideData {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(PropertyFilter);
     public:
         void add(UniquedStringImpl* uid)
         {
@@ -1525,6 +1525,9 @@ JSObject* GlobalObject::moduleLoaderCreateImportMetaProperties(JSGlobalObject* g
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     metaProperties->putDirect(vm, Identifier::fromString(vm, "filename"_s), key);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+
+    metaProperties->putDirect(vm, JSC::Identifier::fromString(vm, "url"_s), key);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     return metaProperties;
@@ -3504,12 +3507,11 @@ static void startTimeoutTimer(Seconds duration)
 {
     Thread::create("jsc Timeout Thread"_s, [=] () {
         sleep(duration);
-        VMInspector::forEachVM([&] (VM& vm) -> IterationStatus {
-            if (&vm != s_vm)
-                return IterationStatus::Continue;
-            vm.notifyNeedShellTimeoutCheck();
-            return IterationStatus::Done;
+        VM* foundVM = VMManager::findMatchingVM([&] (VM& vm) {
+            return &vm != s_vm;
         });
+        if (foundVM)
+            foundVM->notifyNeedShellTimeoutCheck();
 
         if (const char* timeoutString = getenv("JSCTEST_hardTimeout")) {
             double hardTimeoutInDouble = 0;

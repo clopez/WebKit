@@ -95,6 +95,7 @@ void* tryLargeZeroedMemalignVirtual(size_t requiredAlignment, size_t requestedSi
 
     if (result)
         vmZeroAndPurge(result, size);
+
     return result;
 }
 

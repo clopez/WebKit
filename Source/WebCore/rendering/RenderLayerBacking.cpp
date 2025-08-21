@@ -709,7 +709,7 @@ static LayoutRect overflowControlsHostLayerRect(const RenderBox& renderBox)
 
 void RenderLayerBacking::updateOpacity(const RenderStyle& style)
 {
-    m_graphicsLayer->setOpacity(compositingOpacity(style.opacity()));
+    m_graphicsLayer->setOpacity(compositingOpacity(style.opacity().value.value));
 }
 
 void RenderLayerBacking::updateTransform(const RenderStyle& style)
@@ -726,7 +726,7 @@ void RenderLayerBacking::updateTransform(const RenderStyle& style)
                 t.translate(-scrollPosition.x(), -scrollPosition.y());
             }
         }
-    } else if (m_owningLayer.isTransformed() || m_owningLayer.snapshottedScrollOffsetForAnchorPositioning())
+    } else if (m_owningLayer.isTransformed())
         m_owningLayer.updateTransformFromStyle(t, style, RenderStyle::individualTransformOperations());
     
     if (m_contentsContainmentLayer) {
@@ -1017,9 +1017,11 @@ bool RenderLayerBacking::shouldClipCompositedBounds() const
 
 static bool hasNonZeroTransformOrigin(const RenderLayerModelObject& renderer)
 {
-    const RenderStyle& style = renderer.style();
-    return (style.transformOriginX().isFixed() && style.transformOriginX().value())
-        || (style.transformOriginY().isFixed() && style.transformOriginY().value());
+    auto& style = renderer.style();
+    auto fixedTransformOriginX = style.transformOriginX().tryFixed();
+    auto fixedTransformOriginY = style.transformOriginY().tryFixed();
+    return (fixedTransformOriginX && fixedTransformOriginX->value)
+        || (fixedTransformOriginY && fixedTransformOriginY->value);
 }
 
 bool RenderLayerBacking::updateCompositedBounds()
@@ -3439,7 +3441,7 @@ bool RenderLayerBacking::rendererHasHDRContent() const
 }
 #endif
 
-void RenderLayerBacking::contentChanged(ContentChangeType changeType)
+void RenderLayerBacking::contentChanged(ContentChangeType changeType, const std::optional<FloatRect>& dirtyRect)
 {
     PaintedContentsInfo contentsInfo(*this);
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
@@ -3480,9 +3482,14 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
         if (changeType == ContentChangeType::Canvas)
             compositor().scheduleCompositingLayerUpdate();
 
-        m_graphicsLayer->setContentsNeedsDisplay();
+        if (dirtyRect)
+            m_graphicsLayer->setContentsNeedsDisplayInRect(*dirtyRect);
+        else
+            m_graphicsLayer->setContentsNeedsDisplay();
         return;
     }
+#else
+    UNUSED_PARAM(dirtyRect);
 #endif
 }
 
@@ -4144,7 +4151,7 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
         paintIntoLayer(graphicsLayer, context, dirtyRect, behavior);
 
         auto visibleDebugOverlayRegions = OptionSet<DebugOverlayRegions>::fromRaw(renderer().settings().visibleDebugOverlayRegions());
-        if (visibleDebugOverlayRegions.containsAny({ DebugOverlayRegions::TouchActionRegion, DebugOverlayRegions::EditableElementRegion, DebugOverlayRegions::WheelEventHandlerRegion, DebugOverlayRegions::InteractionRegion, DebugOverlayRegions::SiteIsolationRegion }))
+        if (visibleDebugOverlayRegions.containsAny({ DebugOverlayRegions::TouchActionRegion, DebugOverlayRegions::EditableElementRegion, DebugOverlayRegions::WheelEventHandlerRegion, DebugOverlayRegions::InteractionRegion }))
             paintDebugOverlays(graphicsLayer, context);
 
     } else if (graphicsLayer == layerForHorizontalScrollbar()) {
@@ -4367,7 +4374,7 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& anim
             transformVector.insert(makeUnique<TransformAnimationValue>(offset, keyframeStyle->transform(), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyOpacity))
-            opacityVector.insert(makeUnique<FloatAnimationValue>(offset, keyframeStyle->opacity(), tf));
+            opacityVector.insert(makeUnique<FloatAnimationValue>(offset, keyframeStyle->opacity().value.value, tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyFilter))
             filterVector.insert(makeUnique<FilterAnimationValue>(offset, keyframeStyle->filter(), tf));

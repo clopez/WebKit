@@ -32,7 +32,7 @@ namespace WTR {
 class TestController;
 
 class EventSenderProxyClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(EventSenderProxyClient);
 public:
     virtual ~EventSenderProxyClient() = default;
 
@@ -42,6 +42,8 @@ public:
     virtual void mouseScrollBy(int, int, double, double, double) = 0;
 
     virtual void keyDown(WKStringRef, double, WKEventModifiers, unsigned) = 0;
+    virtual void rawKeyDown(WKStringRef, WKEventModifiers, unsigned) = 0;
+    virtual void rawKeyUp(WKStringRef, WKEventModifiers, unsigned) = 0;
 
 #if ENABLE(TOUCH_EVENTS)
     virtual void addTouchPoint(int, int, double) { };

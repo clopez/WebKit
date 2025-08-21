@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "AnimationList.h"
-#include "AnimationMalloc.h"
-#include "CSSPropertyNames.h"
-#include "WebAnimationTypes.h"
+#include <WebCore/AnimationList.h>
+#include <WebCore/AnimationMalloc.h>
+#include <WebCore/CSSPropertyNames.h>
+#include <WebCore/WebAnimationTypes.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -52,7 +52,7 @@ struct ResolutionContext;
 }
 
 class KeyframeEffectStack {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(KeyframeEffectStack, Animation);
 public:
     explicit KeyframeEffectStack();
     ~KeyframeEffectStack();

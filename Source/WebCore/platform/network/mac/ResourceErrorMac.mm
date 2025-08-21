@@ -95,7 +95,7 @@ static NSDictionary* dictionaryThatCanCode(NSDictionary* src)
 
 namespace WebCore {
 
-static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceErrorBase& resourceError)
+static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceErrorBase& resourceError, NSError *underlyingError = nil)
 {
     RetainPtr<NSMutableDictionary> userInfo = adoptNS([[NSMutableDictionary alloc] init]);
 
@@ -103,10 +103,15 @@ static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceError
         [userInfo setValue:resourceError.localizedDescription().createNSString().get() forKey:NSLocalizedDescriptionKey];
 
     if (!resourceError.failingURL().isEmpty()) {
-        [userInfo setValue:resourceError.failingURL().string().createNSString().get() forKey:@"NSErrorFailingURLStringKey"];
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
+        [userInfo setValue:resourceError.failingURL().string().createNSString().get() forKey:NSURLErrorFailingURLStringErrorKey];
+#endif
         if (RetainPtr cocoaURL = resourceError.failingURL().createNSURL())
             [userInfo setValue:cocoaURL.get() forKey:NSURLErrorFailingURLErrorKey];
     }
+
+    if (underlyingError)
+        [userInfo setValue:underlyingError forKey:NSUnderlyingErrorKey];
 
     return adoptNS([[NSError alloc] initWithDomain:resourceError.domain().createNSString().get() code:resourceError.errorCode() userInfo:userInfo.get()]);
 }
@@ -262,6 +267,19 @@ NSError *ResourceError::nsError() const
     return m_platformError.get();
 }
 
+NSError *ResourceError::nsError(NSError *underlyingError) const
+{
+    if (isNull()) {
+        ASSERT(!m_platformError);
+        return nil;
+    }
+
+    if (!m_platformError)
+        m_platformError = createNSErrorFromResourceErrorBase(*this, underlyingError);
+
+    return m_platformError.get();
+}
+
 ResourceError::operator NSError *() const
 {
     return nsError();
@@ -270,6 +288,11 @@ ResourceError::operator NSError *() const
 CFErrorRef ResourceError::cfError() const
 {
     return (__bridge CFErrorRef)nsError();
+}
+
+CFErrorRef ResourceError::cfError(CFErrorRef underlyingError) const
+{
+    return (__bridge CFErrorRef)nsError((__bridge NSError *)underlyingError);
 }
 
 ResourceError::operator CFErrorRef() const
@@ -314,13 +337,14 @@ String ResourceError::blockedTrackerHostName() const
 
 #endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
 
+#if USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
 bool ResourceError::hasMatchingFailingURLKeys() const
 {
     if (RetainPtr<id> nsErrorFailingURL = [nsError().userInfo objectForKey:NSURLErrorFailingURLErrorKey]) {
         RetainPtr failingURL = dynamic_objc_cast<NSURL>(nsErrorFailingURL.get());
         if (!failingURL)
             return false;
-        if (RetainPtr<id> nsErrorFailingURLString = [nsError().userInfo objectForKey:@"NSErrorFailingURLStringKey"]) {
+        if (RetainPtr<id> nsErrorFailingURLString = [nsError().userInfo objectForKey:NSURLErrorFailingURLStringErrorKey]) {
             RetainPtr failingURLString = dynamic_objc_cast<NSString>(nsErrorFailingURLString.get());
             if (!failingURLString)
                 return false;
@@ -330,5 +354,6 @@ bool ResourceError::hasMatchingFailingURLKeys() const
     }
     return true;
 }
+#endif
 
 } // namespace WebCore

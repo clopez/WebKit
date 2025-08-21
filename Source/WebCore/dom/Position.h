@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "CharacterData.h"
-#include "ContainerNode.h"
-#include "EditingBoundary.h"
-#include "TextAffinity.h"
+#include <WebCore/CharacterData.h>
+#include <WebCore/ContainerNode.h>
+#include <WebCore/EditingBoundary.h>
+#include <WebCore/TextAffinity.h>
 
 namespace WTF {
 class TextStream;
@@ -256,6 +256,24 @@ struct PositionRange {
 };
 
 std::optional<SimpleRange> makeSimpleRange(const PositionRange&);
+
+class PositionWithAffinity {
+public:
+    PositionWithAffinity() = default;
+
+    PositionWithAffinity(const Position& position, Affinity affinity = Affinity::Downstream)
+        : m_position(position)
+        , m_affinity(affinity)
+    {
+    }
+
+    const Position& position() const { return m_position; }
+    Affinity affinity() const { return m_affinity; }
+
+private:
+    Position m_position;
+    Affinity m_affinity { Affinity::Downstream };
+};
 
 // inlines
 

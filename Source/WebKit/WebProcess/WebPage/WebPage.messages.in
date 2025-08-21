@@ -22,6 +22,7 @@
 
 // Currently DispatchedFrom both the Networking and UI process
 [
+    ExceptionForDispatchedFrom,
     DispatchedTo=WebContent
 ]
 messages -> WebPage WantsAsyncDispatchMessage {
@@ -147,6 +148,9 @@ messages -> WebPage WantsAsyncDispatchMessage {
     FocusTextInputContextAndPlaceCaret(struct WebCore::ElementContext context, WebCore::IntPoint point) -> (bool success)
     ClearServiceWorkerEntitlementOverride() -> ()
 #endif
+
+    ProcessWillSuspend()
+    ProcessDidResume()
 
     RequestImageBitmap(struct WebCore::ElementContext elementContext) -> (std::optional<WebCore::ShareableBitmapHandle> image, String sourceMIMEType)
 
@@ -509,9 +513,11 @@ messages -> WebPage WantsAsyncDispatchMessage {
     ResolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier frameID, WebCore::IntPoint point) -> (String result)
     EnableAccessibility()
 
+#if PLATFORM(MAC)
     GetAccessibilityWebProcessDebugInfo() -> (struct WebCore::AXDebugInfo result) Synchronous
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     ClearAccessibilityIsolatedTree()
+#endif
 #endif
 
 #if PLATFORM(COCOA)
@@ -603,6 +609,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
     DidBeginMagnificationGesture()
     DidEndMagnificationGesture()
+
+    SetOverflowHeightForTopScrollEdgeEffect(double value)
 #endif
 
     StartDeferringResizeEvents();
@@ -635,8 +643,6 @@ messages -> WebPage WantsAsyncDispatchMessage {
 #endif
 
 #if ENABLE(POINTER_LOCK)
-    DidAcquirePointerLock()
-    DidNotAcquirePointerLock()
     DidLosePointerLock()
 #endif
 
@@ -708,7 +714,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
 #endif
 
 #if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
-    PreferredBufferFormatsDidChange(Vector<WebKit::DMABufRendererBufferFormat> preferredBufferFormats)
+    PreferredBufferFormatsDidChange(Vector<WebKit::RendererBufferFormat> preferredBufferFormats)
 #endif
 
     StartTextManipulations(Vector<WebCore::TextManipulationControllerExclusionRule> exclusionRules, bool includeSubframes) -> ()
@@ -803,7 +809,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
     RequestAllTargetableElements(float hitTestInterval) -> (Vector<Vector<WebCore::TargetedElementInfo>> elements)
 
-    RequestTextExtraction(std::optional<WebCore::FloatRect> collectionRectInRootView) -> (struct WebCore::TextExtraction::Item item)
+    RequestTextExtraction(struct WebCore::TextExtraction::Request request) -> (struct WebCore::TextExtraction::Item item)
+    HandleTextExtractionInteraction(struct WebCore::TextExtraction::Interaction interaction) -> (bool succeeded, String description)
 
 #if PLATFORM(IOS_FAMILY)
     ShouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint point) -> (bool shouldDismiss)
@@ -858,6 +865,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     ContentsToRootViewRect(WebCore::FrameIdentifier frameID, WebCore::FloatRect rect) -> (WebCore::FloatRect rect)
     ContentsToRootViewPoint(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point) -> (WebCore::FloatPoint point)
     RemoteDictionaryPopupInfoToRootView(WebCore::FrameIdentifier frameID, struct WebCore::DictionaryPopupInfo popupInfo) -> (struct WebCore::DictionaryPopupInfo popupInfo)
+    HitTestAtPoint(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point) -> (struct WebKit::NodeHitTestResult result)
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     SetDefaultSpatialTrackingLabel(String label)

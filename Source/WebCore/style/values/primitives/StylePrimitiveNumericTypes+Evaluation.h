@@ -24,15 +24,15 @@
 
 #pragma once
 
-#include "FloatConversion.h"
-#include "FloatPoint.h"
-#include "FloatSize.h"
-#include "LayoutPoint.h"
-#include "LayoutSize.h"
-#include "LayoutUnit.h"
-#include "StylePrimitiveNumericTypes+Calculation.h"
-#include "StylePrimitiveNumericTypes.h"
-#include "StyleValueTypes.h"
+#include <WebCore/FloatConversion.h>
+#include <WebCore/FloatPoint.h>
+#include <WebCore/FloatSize.h>
+#include <WebCore/LayoutPoint.h>
+#include <WebCore/LayoutSize.h>
+#include <WebCore/LayoutUnit.h>
+#include <WebCore/StylePrimitiveNumericTypes+Calculation.h>
+#include <WebCore/StylePrimitiveNumericTypes.h>
+#include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
 namespace Style {
@@ -42,9 +42,9 @@ using namespace CSS::Literals;
 // MARK: - Percentage
 
 template<auto R, typename V> struct Evaluation<Percentage<R, V>> {
-    constexpr double operator()(const Percentage<R, V>& percentage)
+    constexpr typename Percentage<R, V>::ResolvedValueType operator()(const Percentage<R, V>& percentage)
     {
-        return static_cast<double>(percentage.value) / 100.0;
+        return percentage.value / static_cast<typename Percentage<R, V>::ResolvedValueType>(100.0);
     }
     template<typename Reference> constexpr auto operator()(const Percentage<R, V>& percentage, Reference referenceLength) -> Reference
     {
@@ -61,9 +61,9 @@ template<auto R, typename V> constexpr LayoutUnit evaluate(const Percentage<R, V
 // MARK: - Numeric
 
 template<NonCompositeNumeric StyleType> struct Evaluation<StyleType> {
-    constexpr double operator()(const StyleType& value)
+    constexpr typename StyleType::ResolvedValueType operator()(const StyleType& value)
     {
-        return static_cast<double>(value.value);
+        return value.value;
     }
     template<typename Reference> constexpr auto operator()(const StyleType& value, Reference) -> Reference
     {

@@ -45,6 +45,7 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
+#include "NodeInlines.h"
 #include "PrintContext.h"
 #include "PseudoElement.h"
 #include "RemoteFrame.h"
@@ -78,6 +79,7 @@
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
 #include "StylePropertiesInlines.h"
+#include "StylePrimitiveNumericTypes+Logging.h"
 #include <wtf/HexNumber.h>
 #include <wtf/Vector.h>
 #include <wtf/text/TextStream.h>
@@ -161,7 +163,7 @@ String quoteAndEscapeNonPrintables(StringView s)
     StringBuilder result;
     result.append('"');
     for (unsigned i = 0; i != s.length(); ++i) {
-        UChar c = s[i];
+        char16_t c = s[i];
         if (c == '\\') {
             result.append("\\\\"_s);
         } else if (c == '"') {
@@ -194,8 +196,8 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
     if (behavior.contains(RenderAsTextFlag::ShowAddresses))
         ts << ' ' << &o;
 
-    if (o.style().usedZIndex()) // FIXME: This should use !hasAutoUsedZIndex().
-        ts << " zI: "_s << o.style().usedZIndex();
+    if (auto value = o.style().usedZIndex().tryValue(); value && value->value) // FIXME: This should log even when value->value is zero.
+        ts << " zI: "_s << value->value;
 
     if (o.node()) {
         String tagName = getTagName(o.node());
@@ -272,8 +274,8 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                 && textStrokeColor != color && textStrokeColor != Color::transparentBlack)
                 ts << " [textStrokeColor="_s << serializationForRenderTreeAsText(textStrokeColor) << ']';
 
-            if (renderElement->parent()->style().textStrokeWidth() != renderElement->style().textStrokeWidth() && renderElement->style().textStrokeWidth() > 0)
-                ts << " [textStrokeWidth="_s << renderElement->style().textStrokeWidth() << ']';
+            if (renderElement->parent()->style().textStrokeWidth() != renderElement->style().textStrokeWidth() && renderElement->style().textStrokeWidth().isPositive())
+                ts << " [textStrokeWidth="_s << Style::evaluate(renderElement->style().textStrokeWidth()) << ']';
         }
 
         auto* box = dynamicDowncast<RenderBoxModelObject>(o);

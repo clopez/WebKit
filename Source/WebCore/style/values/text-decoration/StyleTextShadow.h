@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include "CSSTextShadow.h"
-#include "StyleColor.h"
-#include "StylePrimitiveNumericTypes.h"
-#include "StyleShadow.h"
+#include <WebCore/CSSTextShadow.h>
+#include <WebCore/StyleColor.h>
+#include <WebCore/StylePrimitiveNumericTypes.h>
+#include <WebCore/StyleShadow.h>
 
 namespace WebCore {
 namespace Style {
@@ -97,4 +97,4 @@ constexpr LayoutUnit paintingSpread(const TextShadow&)
 } // namespace WebCore
 
 DEFINE_SPACE_SEPARATED_TUPLE_LIKE_CONFORMANCE(WebCore::Style::TextShadow, 3)
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::TextShadows> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::TextShadows)

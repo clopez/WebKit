@@ -37,7 +37,6 @@
 #include "WasmContext.h"
 #include "WasmFunctionIPIntMetadataGenerator.h"
 #include "WasmFunctionParser.h"
-#include "WasmGeneratorTraits.h"
 #include <wtf/Assertions.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RefPtr.h>
@@ -198,7 +197,6 @@ public:
     using ExpressionType = Value;
     using CallType = CallLinkInfo::CallType;
     using ResultList = Vector<Value, 8>;
-    using ArgumentList = Vector<Value, 8>;
 
     using ExpressionList = Vector<Value, 1>;
     using ControlEntry = FunctionParser<IPIntGenerator>::ControlEntry;
@@ -206,6 +204,7 @@ public:
     using Stack = FunctionParser<IPIntGenerator>::Stack;
     using TypedExpression = FunctionParser<IPIntGenerator>::TypedExpression;
     using CatchHandler = FunctionParser<IPIntGenerator>::CatchHandler;
+    using ArgumentList = FunctionParser<IPIntGenerator>::ArgumentList;
 
     static ExpressionType emptyExpression() { return { }; };
     PartialResult WARN_UNUSED_RETURN addDrop(ExpressionType);
@@ -579,7 +578,7 @@ public:
         auto& target = m_controlStructuresAwaitingCoalescing[index];
         if (target.isLoop) {
             ASSERT(target.m_entryResolved);
-            IPInt::BlockMetadata md = { target.m_entryTarget.pc - loc.pc, target.m_entryTarget.mc - loc.mc };
+            IPInt::BlockMetadata md = { static_cast<int32_t>(target.m_entryTarget.pc - loc.pc), static_cast<int32_t>(target.m_entryTarget.mc - loc.mc) };
             WRITE_TO_METADATA(metadata + loc.mc, md, IPInt::BlockMetadata);
         } else {
             ASSERT(!target.m_exitResolved);
@@ -844,7 +843,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addArguments(const TypeDefiniti
 #elif USE(JSVALUE32_64)
             ASSERT_UNUSED(NUM_ARGUMINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) < NUM_ARGUMINT_GPRS);
             ASSERT_UNUSED(NUM_ARGUMINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().tagGPR()) < NUM_ARGUMINT_GPRS);
-            m_metadata->m_argumINTBytecode.append(static_cast<uint8_t>(IPInt::ArgumINTBytecode::ArgGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord)));
+            m_metadata->m_argumINTBytecode.append(static_cast<uint8_t>(IPInt::ArgumINTBytecode::ArgGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord)) / 2);
 #endif
         } else if (loc.isFPR()) {
             ASSERT_UNUSED(NUM_ARGUMINT_FPRS, FPRInfo::toArgumentIndex(loc.fpr()) < NUM_ARGUMINT_FPRS);
@@ -1997,7 +1996,7 @@ void IPIntGenerator::coalesceControlFlow(bool force)
         m_controlStructuresAwaitingCoalescing.shrink(0);
 
     for (auto& src : m_exitHandlersAwaitingCoalescing) {
-        IPInt::BlockMetadata md = { here.pc - src.pc, here.mc - src.mc };
+        IPInt::BlockMetadata md = { static_cast<int32_t>(here.pc - src.pc), static_cast<int32_t>(here.mc - src.mc) };
         WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
     }
     m_exitHandlersAwaitingCoalescing.shrink(0);
@@ -2009,12 +2008,12 @@ void IPIntGenerator::resolveEntryTarget(unsigned index, IPIntLocation loc)
     ASSERT(!control.m_entryResolved);
     for (auto& src : control.m_awaitingEntryTarget) {
         // write delta PC and delta MC
-        IPInt::BlockMetadata md = { loc.pc - src.pc, loc.mc - src.mc };
+        IPInt::BlockMetadata md = { static_cast<int32_t>(loc.pc - src.pc), static_cast<int32_t>(loc.mc - src.mc) };
         WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
     }
     if (control.isLoop) {
         for (auto& src : control.m_awaitingBranchTarget) {
-            IPInt::BlockMetadata md = { loc.pc - src.pc, loc.mc - src.mc };
+            IPInt::BlockMetadata md = { static_cast<int32_t>(loc.pc - src.pc), static_cast<int32_t>(loc.mc - src.mc) };
             WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
         }
         control.m_awaitingBranchTarget.clear();
@@ -2030,12 +2029,12 @@ void IPIntGenerator::resolveExitTarget(unsigned index, IPIntLocation loc)
     ASSERT(!control.m_exitResolved);
     for (auto& src : control.m_awaitingExitTarget) {
         // write delta PC and delta MC
-        IPInt::BlockMetadata md = { loc.pc - src.pc, loc.mc - src.mc };
+        IPInt::BlockMetadata md = { static_cast<int32_t>(loc.pc - src.pc), static_cast<int32_t>(loc.mc - src.mc) };
         WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
     }
     if (!control.isLoop) {
         for (auto& src : control.m_awaitingBranchTarget) {
-            IPInt::BlockMetadata md = { loc.pc - src.pc, loc.mc - src.mc };
+            IPInt::BlockMetadata md = { static_cast<int32_t>(loc.pc - src.pc), static_cast<int32_t>(loc.mc - src.mc) };
             WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
         }
         control.m_awaitingBranchTarget.clear();
@@ -2786,7 +2785,7 @@ void IPIntGenerator::addTailCallCommonData(const FunctionSignature& signature)
 #elif USE(JSVALUE32_64)
                 ASSERT_UNUSED(NUM_MINT_CALL_GPRS, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) < NUM_MINT_CALL_GPRS);
                 ASSERT_UNUSED(NUM_MINT_CALL_GPRS, GPRInfo::toArgumentIndex(loc.jsr().tagGPR()) < NUM_MINT_CALL_GPRS);
-                return static_cast<uint8_t>(IPInt::CallArgumentBytecode::ArgumentGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord));
+                return static_cast<uint8_t>(IPInt::CallArgumentBytecode::ArgumentGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord)) / 2;
 #endif
             }
 

@@ -71,6 +71,7 @@
 #include <WebCore/MessagePort.h>
 #include <WebCore/NavigationScheduler.h>
 #include <WebCore/Page.h>
+#include <WebCore/PermissionController.h>
 #include <WebCore/SharedBuffer.h>
 #include <pal/SessionID.h>
 
@@ -212,7 +213,7 @@ void NetworkProcessConnection::didClose(IPC::Connection&)
         swConnection->connectionToServerLost();
 }
 
-void NetworkProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t)
+void NetworkProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>&)
 {
 }
 
@@ -353,5 +354,10 @@ void NetworkProcessConnection::connectToRTCDataChannelRemoteSource(WebCore::RTCD
     callback(RTCDataChannelRemoteManager::singleton().connectToRemoteSource(localIdentifier, remoteIdentifier));
 }
 #endif
+
+void NetworkProcessConnection::storageAccessPermissionChanged(const WebCore::RegistrableDomain& topFrameDomain, const WebCore::RegistrableDomain& subFrameDomain)
+{
+    WebCore::PermissionController::singleton().storageAccessPermissionChanged(topFrameDomain, subFrameDomain);
+}
 
 } // namespace WebKit

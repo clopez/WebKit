@@ -330,7 +330,7 @@ SMILTime SVGSMILElement::parseOffsetValue(StringView data)
 {
     bool ok;
     double result = 0;
-    auto parse = data.trim(isUnicodeCompatibleASCIIWhitespace<UChar>);
+    auto parse = data.trim(isUnicodeCompatibleASCIIWhitespace<char16_t>);
     if (parse.endsWith('h'))
         result = parse.left(parse.length() - 1).toDouble(ok) * 60 * 60;
     else if (parse.endsWith("min"_s))
@@ -351,7 +351,7 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
     if (data.isNull())
         return SMILTime::unresolved();
 
-    auto parse = data.trim(isUnicodeCompatibleASCIIWhitespace<UChar>);
+    auto parse = data.trim(isUnicodeCompatibleASCIIWhitespace<char16_t>);
     if (parse == indefiniteAtom())
         return SMILTime::indefinite();
 
@@ -379,7 +379,7 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
     
 bool SVGSMILElement::parseCondition(StringView value, BeginOrEnd beginOrEnd)
 {
-    auto parseString = value.trim(isUnicodeCompatibleASCIIWhitespace<UChar>);
+    auto parseString = value.trim(isUnicodeCompatibleASCIIWhitespace<char16_t>);
     
     double sign = 1.;
     size_t pos = parseString.find('+');
@@ -393,8 +393,8 @@ bool SVGSMILElement::parseCondition(StringView value, BeginOrEnd beginOrEnd)
     if (pos == notFound)
         conditionString = parseString;
     else {
-        conditionString = parseString.left(pos).trim(isUnicodeCompatibleASCIIWhitespace<UChar>);
-        auto offsetString = parseString.substring(pos + 1).trim(isUnicodeCompatibleASCIIWhitespace<UChar>);
+        conditionString = parseString.left(pos).trim(isUnicodeCompatibleASCIIWhitespace<char16_t>);
+        auto offsetString = parseString.substring(pos + 1).trim(isUnicodeCompatibleASCIIWhitespace<char16_t>);
         offset = parseOffsetValue(offsetString);
         if (offset.isUnresolved())
             return false;
@@ -514,6 +514,9 @@ void SVGSMILElement::attributeChanged(const QualifiedName& name, const AtomStrin
         break;
     case AttributeNames::onbeginAttr:
         setAttributeEventListener(eventNames().beginEventEvent, name, newValue);
+        break;
+    case AttributeNames::onrepeatAttr:
+        setAttributeEventListener(eventNames().repeatEventEvent, name, newValue);
         break;
     default:
         break;
@@ -1160,6 +1163,11 @@ bool SVGSMILElement::progress(SMILTime elapsed, SVGSMILElement& firstAnimation, 
         if (oldActiveState == Inactive)
             startedActiveInterval();
 
+        // Only send repeat events here during normal animation run.
+        // When seekToTime is true, all repeat events are handled in the seekToTime block below.
+        if (!seekToTime && repeat && repeat != m_lastRepeat)
+            smilEventSender().dispatchEventSoon(*this, eventNames().repeatEventEvent);
+
         updateAnimation(percent, repeat);
         m_lastPercent = percent;
         m_lastRepeat = repeat;
@@ -1174,9 +1182,21 @@ bool SVGSMILElement::progress(SMILTime elapsed, SVGSMILElement& firstAnimation, 
         smilEventSender().dispatchEventSoon(*this, eventNames().beginEventEvent);
 
     // Triggering all the pending events if the animation timeline is changed.
+    // Handle repeat events entirely here when seeking.
     if (seekToTime) {
         if (m_activeState == Inactive || m_activeState == Frozen)
             smilEventSender().dispatchEventSoon(*this, eventNames().endEventEvent);
+
+        if (repeat) {
+            // We intentionally dispatch repeat - 1 events here because the first repeat
+            // event (for the initial loop) is sent elsewhere during continuous animation run.
+            // If repeat == 1, no events are dispatched here.
+            for (unsigned i = 0; i < repeat - 1; ++i)
+                smilEventSender().dispatchEventSoon(*this, eventNames().repeatEventEvent);
+
+            if (m_activeState == Inactive)
+                smilEventSender().dispatchEventSoon(*this, eventNames().repeatEventEvent);
+        }
     }
 
     m_nextProgressTime = calculateNextProgressTime(elapsed);

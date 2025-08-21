@@ -36,9 +36,11 @@
 #include "DOMHighResTimeStamp.h"
 #include "EventTarget.h"
 #include "EventTargetInterfaces.h"
+#include "PerformanceEventTiming.h"
 #include "ReducedResolutionSeconds.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
+#include <memory>
 #include <wtf/ContinuousTime.h>
 #include <wtf/ListHashSet.h>
 
@@ -52,6 +54,7 @@ class CachedResource;
 class Document;
 class DocumentLoadTiming;
 class DocumentLoader;
+class EventCounts;
 class NetworkLoadMetrics;
 class PerformanceUserTiming;
 class PerformanceEntry;
@@ -65,6 +68,7 @@ class PerformanceTiming;
 class ResourceResponse;
 class ResourceTiming;
 class ScriptExecutionContext;
+enum class EventType : uint16_t;
 struct PerformanceMarkOptions;
 struct PerformanceMeasureOptions;
 template<typename> class ExceptionOr;
@@ -81,11 +85,17 @@ public:
 
     PerformanceNavigation* navigation();
     PerformanceTiming* timing();
+    EventCounts* eventCounts();
+
+    unsigned interactionCount() { return 0; }
 
     Vector<Ref<PerformanceEntry>> getEntries() const;
     Vector<Ref<PerformanceEntry>> getEntriesByType(const String& entryType) const;
     Vector<Ref<PerformanceEntry>> getEntriesByName(const String& name, const String& entryType) const;
     void appendBufferedEntriesByType(const String& entryType, Vector<Ref<PerformanceEntry>>&, PerformanceObserver&) const;
+
+    void countEvent(EventType);
+    void processEventEntry(PerformanceEventTiming::Candidate&, Seconds duration);
 
     void clearResourceTimings();
     void setResourceTimingBufferSize(unsigned);
@@ -111,10 +121,11 @@ public:
     static Seconds timeResolution();
     static Seconds reduceTimeResolution(Seconds);
 
+    Seconds relativeTimeFromTimeOriginInReducedResolutionSeconds(MonotonicTime) const;
     DOMHighResTimeStamp relativeTimeFromTimeOriginInReducedResolution(MonotonicTime) const;
     MonotonicTime monotonicTimeFromRelativeTime(DOMHighResTimeStamp) const;
 
-    ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
 
     using RefCounted::ref;
     using RefCounted::deref;
@@ -139,15 +150,27 @@ private:
     void queueEntry(PerformanceEntry&);
     void scheduleTaskIfNeeded();
 
+    const std::unique_ptr<EventCounts> m_eventCounts;
     mutable RefPtr<PerformanceNavigation> m_navigation;
     mutable RefPtr<PerformanceTiming> m_timing;
 
     // https://w3c.github.io/resource-timing/#sec-extensions-performance-interface recommends initial buffer size of 250.
     Vector<Ref<PerformanceEntry>> m_resourceTimingBuffer;
-    unsigned m_resourceTimingBufferSize { 250 };
 
     Timer m_resourceTimingBufferFullTimer;
     Vector<Ref<PerformanceEntry>> m_backupResourceTimingBuffer;
+
+    RefPtr<PerformanceEventTiming> m_firstInput;
+    Vector<Ref<PerformanceEventTiming>> m_eventTimingBuffer;
+
+    // Sizes recommended by https://w3c.github.io/timing-entrytypes-registry/#registry:
+    unsigned m_eventTimingBufferSize { 150 };
+    unsigned m_resourceTimingBufferSize { 250 };
+
+    // Constants to avoid the need to round to PerformanceEventTiming::durationResolution
+    // when filtering candidate entries:
+    static constexpr Seconds minDurationCutoffBeforeRounding = PerformanceEventTiming::minimumDurationThreshold - (PerformanceEventTiming::durationResolution / 2);
+    static constexpr Seconds defaultDurationCutoffBeforeRounding = PerformanceEventTiming::defaultDurationThreshold - (PerformanceEventTiming::durationResolution / 2);
 
     // https://w3c.github.io/resource-timing/#dfn-resource-timing-buffer-full-flag
     bool m_resourceTimingBufferFullFlag { false };

@@ -25,21 +25,21 @@
 
 #pragma once
 
-#include "AXTextRun.h"
-#include "CharacterRange.h"
-#include "Color.h"
-#include "ColorConversion.h"
-#include "HTMLTextFormControlElement.h"
-#include "InputType.h"
-#include "LayoutRect.h"
-#include "LocalFrameLoaderClient.h"
-#include "LocalizedStrings.h"
-#include "NodeName.h"
-#include "SimpleRange.h"
-#include "TextChecking.h"
-#include "TextIteratorBehavior.h"
-#include "VisibleSelection.h"
-#include "Widget.h"
+#include <WebCore/AXTextRun.h>
+#include <WebCore/CharacterRange.h>
+#include <WebCore/Color.h>
+#include <WebCore/ColorConversion.h>
+#include <WebCore/HTMLTextFormControlElement.h>
+#include <WebCore/InputType.h>
+#include <WebCore/LayoutRect.h>
+#include <WebCore/LocalFrameLoaderClient.h>
+#include <WebCore/LocalizedStrings.h>
+#include <WebCore/NodeName.h>
+#include <WebCore/SimpleRange.h>
+#include <WebCore/TextChecking.h>
+#include <WebCore/TextIteratorBehavior.h>
+#include <WebCore/VisibleSelection.h>
+#include <WebCore/Widget.h>
 #include <wtf/HashSet.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/ProcessID.h>
@@ -659,6 +659,7 @@ enum class AccessibilityOrientation : uint8_t {
     Vertical
 };
 
+enum class IncludeListMarkerText : bool { No, Yes };
 enum class TrimWhitespace : bool { No, Yes };
 
 struct TextUnderElementMode {
@@ -806,17 +807,23 @@ enum class AXDebugStringOption {
 
 enum class TextEmissionBehavior : uint8_t {
     None,
-    Space,
     Tab,
     Newline,
     DoubleNewline
 };
 
+enum class ListBoxInterpretation : uint8_t {
+    ActuallyListBox,
+    ActuallyStaticList,
+    InvalidListBox,
+    NotListBox
+};
+
 class AXCoreObject : public RefCountedAndCanMakeWeakPtr<AXCoreObject> {
 public:
     virtual ~AXCoreObject() = default;
-    String dbg(bool verbose = false) const { return dbgInternal(verbose, { }); }
-    String dbg(OptionSet<AXDebugStringOption> options) const { return dbgInternal(false, options); }
+    String debugDescription(bool verbose = false) const { return debugDescriptionInternal(verbose); }
+    String debugDescription(OptionSet<AXDebugStringOption> options) const { return debugDescriptionInternal(false, { options }); }
 
     inline AXID objectID() const { return m_id; }
     virtual std::optional<AXID> treeID() const = 0;
@@ -833,8 +840,6 @@ public:
 
     virtual bool isAccessibilityObject() const = 0;
     virtual bool isAccessibilityRenderObject() const = 0;
-    virtual bool isAccessibilityTableInstance() const = 0;
-    virtual bool isAccessibilityARIAGridCellInstance() const = 0;
     virtual bool isAXIsolatedObjectInstance() const = 0;
     virtual bool isAXRemoteFrame() const = 0;
 
@@ -851,9 +856,8 @@ public:
     bool isCheckbox() const { return role() == AccessibilityRole::Checkbox; }
     bool isRadioButton() const { return role() == AccessibilityRole::RadioButton; }
     bool isListBox() const { return role() == AccessibilityRole::ListBox; }
-    // The children of listboxes must be of specific roles. Returns true if at least one of those is present.
-    bool isValidListBox() const;
-    bool isInvalidListBox() const { return isListBox() && !isValidListBox(); }
+    // For elements with role=listbox, checks its children to determine if it's actually a valid listbox, a static list, or neither.
+    ListBoxInterpretation listBoxInterpretation() const;
     bool isListBoxOption() const { return role() == AccessibilityRole::ListBoxOption; }
     virtual bool isAttachment() const = 0;
     bool isMenuRelated() const;
@@ -879,7 +883,7 @@ public:
 
     // Table support.
     virtual bool isTable() const = 0;
-    virtual bool isExposable() const = 0;
+    virtual bool isExposableTable() const = 0;
     unsigned tableLevel() const;
     bool hasGridRole() const;
     bool hasCellRole() const;
@@ -896,7 +900,7 @@ public:
     virtual AccessibilityChildrenVector visibleRows() = 0;
     AccessibilityChildrenVector selectedCells();
     // Returns an object that contains, as children, all the objects that act as headers.
-    virtual AXCoreObject* headerContainer() = 0;
+    virtual AXCoreObject* tableHeaderContainer() = 0;
     virtual int axColumnCount() const = 0;
     virtual int axRowCount() const = 0;
 
@@ -915,6 +919,8 @@ public:
     virtual std::pair<unsigned, unsigned> columnIndexRange() const = 0;
     virtual std::optional<unsigned> axColumnIndex() const = 0;
     virtual std::optional<unsigned> axRowIndex() const = 0;
+    virtual String axColumnIndexText() const = 0;
+    virtual String axRowIndexText() const = 0;
 
     // Table column support.
     bool isTableColumn() const { return role() == AccessibilityRole::Column; }
@@ -1056,6 +1062,9 @@ public:
     virtual float valueForRange() const = 0;
     virtual float maxValueForRange() const = 0;
     virtual float minValueForRange() const = 0;
+#if ENABLE(ATTACHMENT_ELEMENT)
+    virtual bool hasProgress() const { return false; }
+#endif
     AXCoreObject* selectedRadioButton();
     AXCoreObject* selectedTabItem();
     virtual int layoutCount() const = 0;
@@ -1178,7 +1187,22 @@ public:
     // A programmatic way to set a name on an AccessibleObject.
     virtual void setAccessibleName(const AtomString&) = 0;
 
-    virtual String title() const = 0;
+    bool fileUploadButtonReturnsValueInTitle() const
+    {
+#if PLATFORM(MAC)
+        return true;
+#else
+        return false;
+#endif
+    }
+    // This should be the visible text that's actually on the screen if possible.
+    // If there's alternative text (e.g. provided by description()), that can override the title.
+    virtual String title() const;
+    // This is the value of the title HTML / SVG attribute, differing from the above function which refers to
+    // the notion of "title" accessibility text, a composite of many different attributes and page text.
+    virtual String titleAttribute() const = 0;
+    virtual String webAreaTitle() const { return emptyString(); }
+
     virtual String description() const = 0;
 
     virtual std::optional<String> textContent() const = 0;
@@ -1212,8 +1236,9 @@ public:
     virtual const String placeholderValue() const = 0;
 
     // Abbreviations
-    virtual String expandedTextValue() const = 0;
-    virtual bool supportsExpandedTextValue() const = 0;
+    virtual String abbreviation() const = 0;
+    String expandedTextValue() const;
+    bool supportsExpandedTextValue() const;
 
     // Only if isColorWell()
     virtual SRGBA<uint8_t> colorValue() const = 0;
@@ -1237,8 +1262,6 @@ public:
     String ariaLandmarkRoleDescription() const;
     // Non-localized string associated with the object's subrole.
     virtual String subrolePlatformString() const = 0;
-
-    virtual AXObjectCache* axObjectCache() const = 0;
 
     bool supportsPressAction() const;
     virtual Element* actionElement() const = 0;
@@ -1555,14 +1578,8 @@ public:
     virtual void setPreventKeyboardDOMEventDispatch(bool) = 0;
     virtual OptionSet<SpeakAs> speakAs() const = 0;
     String speechHint() const;
-    virtual bool fileUploadButtonReturnsValueInTitle() const = 0;
     String descriptionAttributeValue() const;
-    bool shouldComputeDescriptionAttributeValue() const;
     String helpTextAttributeValue() const;
-    // This should be the visible text that's actually on the screen if possible.
-    // If there's alternative text, that can override the title.
-    virtual String titleAttributeValue() const;
-    bool shouldComputeTitleAttributeValue() const;
 
     virtual bool hasApplePDFAnnotationAttribute() const = 0;
 #endif
@@ -1609,8 +1626,14 @@ protected:
         , m_id(axID)
     { }
 
+    explicit AXCoreObject(AXID axID, AccessibilityRole role, bool getsGeometryFromChildren)
+        : m_role(role)
+        , m_getsGeometryFromChildren(getsGeometryFromChildren)
+        , m_id(axID)
+    { }
+
 private:
-    virtual String dbgInternal(bool, OptionSet<AXDebugStringOption>) const = 0;
+    virtual String debugDescriptionInternal(bool, std::optional<OptionSet<AXDebugStringOption>> = std::nullopt) const = 0;
 
     // Detaches this object from the objects it references and it is referenced by.
     virtual void detachRemoteParts(AccessibilityDetachmentType) = 0;
@@ -1623,10 +1646,27 @@ private:
 // MARK: Member variables
 protected:
     AccessibilityRole m_role { AccessibilityRole::Unknown };
+    // Only used by AccessibilityObject, but placed here to use space that would otherwise be taken by padding.
+    OptionSet<AXAncestorFlag> m_ancestorFlags;
+    // Only used by AccessibilityObject, but placed here to use space that would otherwise be taken by padding.
+    AccessibilityObjectInclusion m_lastKnownIsIgnoredValue { AccessibilityObjectInclusion::DefaultBehavior };
+    // Only used by AccessibilityObject, but placed here to use space that would otherwise be taken by padding.
+    // FIXME: This can be replaced by AXAncestorFlags.
+    AccessibilityIsIgnoredFromParentData m_isIgnoredFromParentData;
+
     // This index always refers to the parent's m_children. Keep in mind that when
     // ENABLE(INCLUDE_IGNORE_IN_CORE_AX_TREE), m_children includes ignored objects, so cannot be
     // used to determine the place of |this| relative to its unignored siblings (only its ignored ones).
     unsigned m_indexInParent;
+
+    bool m_childrenDirty { false };
+    // Only used by AccessibilityObject, but placed here to use space that would otherwise be taken by padding.
+    bool m_subtreeDirty { false };
+    // Only used by AccessibilityObject, but placed here to use space that would otherwise be taken by padding.
+    mutable bool m_childrenInitialized { false };
+    // Only used by AXIsolatedObject, but placed here to use space that would otherwise be taken by padding.
+    // Some objects (e.g. display:contents) form their geometry through their children.
+    bool m_getsGeometryFromChildren { false };
 
 private:
     AXID m_id;
@@ -1653,20 +1693,6 @@ void attributedStringSetExpandedText(NSMutableAttributedString *, const AXCoreOb
 void attributedStringSetNeedsSpellCheck(NSMutableAttributedString *, const AXCoreObject&);
 void attributedStringSetElement(NSMutableAttributedString *, NSString *attribute, const AXCoreObject&, const NSRange&);
 #endif // PLATFORM(MAC)
-
-#if PLATFORM(COCOA)
-inline bool AXCoreObject::shouldComputeDescriptionAttributeValue() const
-{
-    // Static text objects shouldn't return a description. Their content is communicated via AXValue.
-    return role() != AccessibilityRole::StaticText;
-}
-
-inline bool AXCoreObject::shouldComputeTitleAttributeValue() const
-{
-    // Static text objects shouldn't return a title. Their content is communicated via AXValue.
-    return role() != AccessibilityRole::StaticText;
-}
-#endif // PLATFORM(COCOA)
 
 inline const String AXCoreObject::defaultLiveRegionStatusForRole(AccessibilityRole role)
 {
@@ -1874,7 +1900,7 @@ template<typename T>
 T* exposedTableAncestor(const T& object, bool includeSelf = false)
 {
     return findAncestor<T>(object, includeSelf, [] (const T& object) {
-        return object.isTable() && object.isExposable();
+        return object.isExposableTable();
     });
 }
 
@@ -1978,6 +2004,7 @@ String roleToPlatformString(AccessibilityRole);
 #if ENABLE(AX_THREAD_TEXT_APIS)
 std::optional<AXTextMarkerRange> markerRangeFrom(NSRange, const AXCoreObject&);
 #endif
+Color defaultColor();
 
 // Intended to work with size-types (like IntSize) or rect-types (like LayoutRect).
 template <typename SizeOrRectType>

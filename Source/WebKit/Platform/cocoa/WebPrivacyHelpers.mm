@@ -30,10 +30,12 @@
 
 #import "Logging.h"
 #import "RestrictedOpenerType.h"
-#import "WKContentRuleListStore.h"
+#import "WKContentRuleListStoreInternal.h"
 #import <WebCore/DNS.h>
 #import <WebCore/LinkDecorationFilteringData.h>
+#import <WebCore/NetworkStorageSession.h>
 #import <WebCore/OrganizationStorageAccessPromptQuirk.h>
+#import <WebCore/ResourceRequest.h>
 #import <numeric>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/NetworkSPI.h>
@@ -262,7 +264,7 @@ void StorageAccessPromptQuirkController::updateList(CompletionHandler<void()>&& 
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessPromptQuirksData:completionHandler:)]) {
-        RunLoop::protectedMain()->dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
         return;
     }
 
@@ -304,7 +306,7 @@ void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<v
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessUserAgentStringQuirksData:completionHandler:)]) {
-        RunLoop::protectedMain()->dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
         return;
     }
 
@@ -412,6 +414,11 @@ ResourceMonitorURLsController& ResourceMonitorURLsController::singleton()
     return sharedInstance.get();
 }
 
+void ResourceMonitorURLsController::setContentRuleListStore(API::ContentRuleListStore& store)
+{
+    m_contentRuleListStore = &store;
+}
+
 void ResourceMonitorURLsController::prepare(CompletionHandler<void(WKContentRuleList*, bool)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
@@ -425,9 +432,9 @@ void ResourceMonitorURLsController::prepare(CompletionHandler<void(WKContentRule
     if (lookupCompletionHandlers->size() > 1)
         return;
 
-    WKContentRuleListStore *store = [WKContentRuleListStore defaultStore];
+    Ref<API::ContentRuleListStore> store = m_contentRuleListStore ? *m_contentRuleListStore : API::ContentRuleListStore::defaultStoreSingleton();
 
-    [[PAL::getWPResourcesClass() sharedInstance] prepareResourceMonitorRulesForStore:store completionHandler:^(WKContentRuleList *list, bool updated, NSError *error) {
+    [[PAL::getWPResourcesClass() sharedInstance] prepareResourceMonitorRulesForStore:wrapper(store.get()) completionHandler:^(WKContentRuleList *list, bool updated, NSError *error) {
         if (error)
             RELEASE_LOG_ERROR(ResourceMonitoring, "Failed to request resource monitor urls from WebPrivacy: %@", error);
 
@@ -744,19 +751,56 @@ bool isKnownTrackerAddressOrDomain(StringView host)
     return TrackerDomainLookupInfo::find(domain.string()).owner().length();
 }
 
+IsKnownCrossSiteTracker isRequestToKnownCrossSiteTracker(const ResourceRequest& request)
+{
+    return request.isThirdParty() && isKnownTrackerAddressOrDomain(request.url().host()) ? WebCore::IsKnownCrossSiteTracker::Yes : WebCore::IsKnownCrossSiteTracker::No;
+}
 #else
 
 void configureForAdvancedPrivacyProtections(NSURLSession *) { }
 bool isKnownTrackerAddressOrDomain(StringView) { return false; }
+WebCore::IsKnownCrossSiteTracker isRequestToKnownCrossSiteTracker(const WebCore::ResourceRequest&) { return WebCore::IsKnownCrossSiteTracker::No; }
 
 #endif
+
+#if ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
+
+static WebCore::ScriptTrackingPrivacyFlags allowedScriptTrackingCategories(WPScriptAccessCategories categories)
+{
+    WebCore::ScriptTrackingPrivacyFlags result;
+    if (categories & WPScriptAccessCategoryAudio)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Audio);
+    if (categories & WPScriptAccessCategoryCanvas)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Canvas);
+    if (categories & WPScriptAccessCategoryCookies)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Cookies);
+    if (categories & WPScriptAccessCategoryHardwareConcurrency)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::HardwareConcurrency);
+    if (categories & WPScriptAccessCategoryLocalStorage)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::LocalStorage);
+    if (categories & WPScriptAccessCategoryPayments)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Payments);
+    if (categories & WPScriptAccessCategoryQueryParameters)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::QueryParameters);
+    if (categories & WPScriptAccessCategoryReferrer)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Referrer);
+    if (categories & WPScriptAccessCategoryScreenOrViewport)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::ScreenOrViewport);
+    if (categories & WPScriptAccessCategorySpeech)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Speech);
+    if (categories & WPScriptAccessCategoryFormControls)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::FormControls);
+    return result;
+}
+
+#endif // ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
 
 void ScriptTrackingPrivacyController::updateList(CompletionHandler<void()>&& completion)
 {
     ASSERT(RunLoop::isMain());
 #if ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestFingerprintingScripts:completionHandler:)]) {
-        RunLoop::protectedMain()->dispatch(WTFMove(completion));
+        RunLoop::mainSingleton().dispatch(WTFMove(completion));
         return;
     }
 
@@ -781,22 +825,24 @@ void ScriptTrackingPrivacyController::updateList(CompletionHandler<void()>&& com
 
         ScriptTrackingPrivacyRules result;
         for (WPFingerprintingScript *script in scripts) {
+            static bool supportsAllowedCategories = [script respondsToSelector:@selector(allowedCategories)];
+            auto allowedCategories = allowedScriptTrackingCategories(supportsAllowedCategories ? script.allowedCategories : WPScriptAccessCategoryNone);
             if (script.firstParty) {
                 if (script.topDomain)
-                    result.firstPartyTopDomains.append(script.host);
+                    result.firstPartyTopDomains.append({ script.host, allowedCategories });
                 else
-                    result.firstPartyHosts.append(script.host);
+                    result.firstPartyHosts.append({ script.host, allowedCategories });
             } else {
                 if (script.topDomain)
-                    result.thirdPartyTopDomains.append(script.host);
+                    result.thirdPartyTopDomains.append({ script.host, allowedCategories });
                 else
-                    result.thirdPartyHosts.append(script.host);
+                    result.thirdPartyHosts.append({ script.host, allowedCategories });
             }
         }
         setCachedListData(WTFMove(result));
     }];
 #else
-    RunLoop::protectedMain()->dispatch(WTFMove(completion));
+    RunLoop::mainSingleton().dispatch(WTFMove(completion));
 #endif
 }
 

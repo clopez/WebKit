@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "StyleLengthWrapper.h"
+#include <WebCore/StyleLengthWrapper.h>
 
 namespace WebCore {
 namespace Style {
@@ -34,6 +34,9 @@ namespace Style {
 struct TextUnderlineOffset : LengthWrapperBase<LengthPercentage<>, CSS::Keyword::Auto> {
     using Base::Base;
 
+    ALWAYS_INLINE bool isAuto() const { return holdsAlternative<CSS::Keyword::Auto>(); }
+
+    float resolve(const RenderStyle&, float autoValue = 0.0f) const;
     float resolve(float fontSize, float autoValue = 0.0f) const;
 };
 
@@ -47,4 +50,4 @@ template<> struct Blending<TextUnderlineOffset> {
 } // namespace Style
 } // namespace WebCore
 
-template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::TextUnderlineOffset> = true;
+DEFINE_VARIANT_LIKE_CONFORMANCE(WebCore::Style::TextUnderlineOffset)

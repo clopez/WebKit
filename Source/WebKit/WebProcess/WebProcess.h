@@ -29,7 +29,9 @@
 #include "CacheModel.h"
 #include "EventDispatcher.h"
 #include "IdentifierTypes.h"
+#include "NetworkProcessConnection.h"
 #include "ScriptTrackingPrivacyFilter.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "StorageAreaMapIdentifier.h"
 #include "TextCheckerState.h"
 #include "WebInspectorInterruptDispatcher.h"
@@ -86,11 +88,6 @@ OBJC_CLASS NSMutableDictionary;
 #include <WebCore/CaptionUserPreferences.h>
 #endif
 
-#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-#include "LogStreamIdentifier.h"
-#include "StreamClientConnection.h"
-#endif
-
 namespace API {
 class Object;
 }
@@ -109,8 +106,10 @@ class Site;
 class UserGestureToken;
 
 enum class EventMakesGamepadsVisible : bool;
+enum class PlatformMediaSessionRemoteControlCommandType : uint8_t;
 enum class RenderAsTextFlag : uint16_t;
 enum class RenderingPurpose : uint8_t;
+enum class ScriptTrackingPrivacyCategory : uint8_t;
 
 struct ClientOrigin;
 struct DisplayUpdate;
@@ -118,8 +117,12 @@ struct MessagePortIdentifier;
 struct MessageWithMessagePorts;
 struct MockMediaDevice;
 struct PrewarmInformation;
+struct PlatformMediaSessionRemoteCommandArgument;
 struct ScreenProperties;
 struct ServiceWorkerContextData;
+struct JSHandleIdentifierType;
+
+using JSHandleIdentifier = ProcessQualified<ObjectIdentifier<JSHandleIdentifierType>>;
 }
 
 namespace WebKit {
@@ -133,7 +136,6 @@ class LibWebRTCCodecs;
 class LibWebRTCNetwork;
 class ModelProcessConnection;
 class ModelProcessModelPlayerManager;
-class NetworkProcessConnection;
 class RemoteCDMFactory;
 class RemoteImageDecoderAVFManager;
 class RemoteLegacyCDMFactory;
@@ -231,6 +233,7 @@ public:
     WebPage* focusedWebPage() const;
     bool hasEverHadAnyWebPages() const { return m_hasEverHadAnyWebPages; }
     bool isWebTransportEnabled() const { return m_isWebTransportEnabled; }
+    bool isBroadcastChannelEnabled() const { return m_isBroadcastChannelEnabled; }
 
     InjectedBundle* injectedBundle() const { return m_injectedBundle.get(); }
     
@@ -282,6 +285,10 @@ public:
     RefPtr<WebTransportSession> webTransportSession(WebTransportSessionIdentifier);
     void addWebTransportSession(WebTransportSessionIdentifier, WebTransportSession&);
     void removeWebTransportSession(WebTransportSessionIdentifier);
+
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcessValue() const { return m_sharedPreferencesForWebProcess; }
+    void updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess sharedPreferencesForWebProcess) { m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess); }
 
 #if ENABLE(GPU_PROCESS)
     GPUProcessConnection& ensureGPUProcessConnection();
@@ -356,6 +363,8 @@ public:
     void releaseMemory(CompletionHandler<void()>&&);
     void prepareToSuspend(bool isSuspensionImminent, MonotonicTime estimatedSuspendTime, CompletionHandler<void()>&&);
     void processDidResume();
+
+    void jSHandleDestroyed(WebCore::JSHandleIdentifier);
 
     void sendPrewarmInformation(const URL&);
 
@@ -464,6 +473,7 @@ public:
 #endif
 
     bool requiresScriptTrackingPrivacyProtections(const URL&, const WebCore::SecurityOrigin& topOrigin) const;
+    bool shouldAllowScriptAccess(const URL&, const WebCore::SecurityOrigin& topOrigin, WebCore::ScriptTrackingPrivacyCategory) const;
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled.value(); }
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
@@ -509,6 +519,8 @@ public:
     void registerAdditionalFonts(AdditionalFonts&&);
     void registerFontMap(HashMap<String, URL>&&, HashMap<String, Vector<String>>&&, Vector<SandboxExtension::Handle>&& sandboxExtensions);
 #endif
+
+    void didReceiveRemoteCommand(WebCore::PlatformMediaSessionRemoteControlCommandType, const WebCore::PlatformMediaSessionRemoteCommandArgument&);
 
 #if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
     void initializeAccessibility(Vector<SandboxExtension::Handle>&&);
@@ -574,7 +586,7 @@ private:
     void seedResourceLoadStatisticsForTesting(const WebCore::RegistrableDomain& firstPartyDomain, const WebCore::RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&&);
     void userPreferredLanguagesChanged(const Vector<String>&) const;
     void fullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled);
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
     void setOptInCookiePartitioningEnabled(bool);
 #endif
 
@@ -741,9 +753,7 @@ private:
     void accessibilityRelayProcessSuspended(bool);
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-    void registerLogHook();
-    void setupLogStream();
-    void sendLogOnStream(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<const uint8_t> logString, os_log_type_t);
+    void initializeLogForwarding();
 #endif
 
     bool isProcessBeingCachedForPerformance();
@@ -880,6 +890,7 @@ private:
     HashMap<StorageAreaMapIdentifier, WeakPtr<StorageAreaMap>> m_storageAreaMaps;
 
     void updateIsWebTransportEnabled();
+    void updateIsBroadcastChannelEnabled();
     
     // Prewarmed WebProcesses do not have an associated sessionID yet, which is why this is an optional.
     // By the time the WebProcess gets a WebPage, it is guaranteed to have a sessionID.
@@ -917,6 +928,8 @@ private:
     bool m_hasEverHadAnyWebPages { false };
     bool m_hasPendingAccessibilityUnsuspension { false };
     bool m_isWebTransportEnabled { false };
+    bool m_isBroadcastChannelEnabled { false };
+
 #if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
     bool m_prefersNonBlinkingCursor { false };
 #endif
@@ -928,6 +941,8 @@ private:
     HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
     std::unique_ptr<ScriptTrackingPrivacyFilter> m_scriptTrackingPrivacyFilter;
     bool m_mediaPlaybackEnabled { false };
+
+    SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
 
 #if ENABLE(NOTIFY_BLOCKING)
     HashMap<String, int> m_notifyTokens;

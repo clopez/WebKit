@@ -60,7 +60,7 @@ RenderStyle resolveForDocument(const Document& document)
     auto documentStyle = RenderStyle::create();
 
     documentStyle.setDisplay(DisplayType::Block);
-    documentStyle.setRTLOrdering(document.visuallyOrdered() ? Order::Visual : Order::Logical);
+    documentStyle.setRTLOrdering(document.visuallyOrdered() ? WebCore::Order::Visual : WebCore::Order::Logical);
     documentStyle.setZoom(!document.printing() ? renderView.frame().pageZoomFactor() : 1);
     documentStyle.setPageScaleTransform(renderView.frame().frameScaleFactor());
 
@@ -68,7 +68,7 @@ RenderStyle resolveForDocument(const Document& document)
     documentStyle.setUserModify(document.inDesignMode() ? UserModify::ReadWrite : UserModify::ReadOnly);
 #if PLATFORM(IOS_FAMILY)
     if (document.inDesignMode())
-        documentStyle.setTextSizeAdjust(TextSizeAdjustment::none());
+        documentStyle.setTextSizeAdjust(CSS::Keyword::None { });
 #endif
 
     Adjuster::adjustEventListenerRegionTypesForRootStyle(documentStyle, document);

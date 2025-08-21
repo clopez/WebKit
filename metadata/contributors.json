@@ -944,6 +944,18 @@
    },
    {
       "emails" : [
+         "a_tarbinian@apple.com",
+         "a.tarbinian@apple.com",
+         "atar137h@gmail.com"
+      ],
+      "github" : "atar13",
+      "name" : "Anthony Tarbinian",
+      "nicks" : [
+         "atar"
+      ]
+   },
+   {
+      "emails" : [
          "piman@chromium.org"
       ],
       "name" : "Antoine Labour",
@@ -1927,6 +1939,14 @@
    },
    {
       "emails" : [
+         "ccarley2@apple.com",
+         "cole.carley@gmail.com"
+      ],
+      "github" : "colelao",
+      "name" : "Cole Carley"
+   },
+   {
+      "emails" : [
          "collinj@webkit.org"
       ],
       "name" : "Collin Jackson",
@@ -2197,7 +2217,8 @@
    },
    {
       "emails" : [
-         "d_degazio@apple.com"
+         "d_degazio@apple.com",
+         "david.degazio@gmail.com"
       ],
       "github" : "ddegazio",
       "name" : "David Degazio",
@@ -5420,7 +5441,7 @@
       ],
       "github" : "lilyspiniolas",
       "name" : "Lily Spiniolas",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -7681,6 +7702,7 @@
    },
    {
       "emails" : [
+         "sosuke@bun.sh",
          "aosukeke@gmail.com"
       ],
       "github" : "sosukesuzuki",
@@ -8260,8 +8282,17 @@
       "emails" : [
          "v_bykov@apple.com"
       ],
+      "expertise" : "JavaScriptCore",
       "github" : "ast-hugger",
-      "name" : "Vassili Bykov"
+      "name" : "Vassili Bykov",
+      "status" : "committer"
+   },
+   {
+      "emails" : [
+         "v_periwal@apple.com"
+      ],
+      "github" : "vedaperi",
+      "name" : "Veda Periwal"
    },
    {
       "emails" : [
@@ -8732,6 +8763,13 @@
          "yurys"
       ],
       "status" : "committer"
+   },
+   {
+      "emails" : [
+         "yura.yaroshevich@gmail.com"
+      ],
+      "github" : "mstyura",
+      "name" : "Yury Yarashevich"
    },
    {
       "emails" : [

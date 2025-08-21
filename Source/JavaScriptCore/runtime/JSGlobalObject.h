@@ -23,15 +23,15 @@
 
 #pragma once
 
-#include "DeferredWorkTimer.h"
-#include "JSSegmentedVariableObject.h"
-#include "LazyClassStructure.h"
-#include "RegExpGlobalData.h"
-#include "RuntimeFlags.h"
-#include "SourceTaintedOrigin.h"
-#include "StructureCache.h"
-#include "Watchpoint.h"
-#include "WeakGCSet.h"
+#include <JavaScriptCore/DeferredWorkTimer.h>
+#include <JavaScriptCore/JSSegmentedVariableObject.h>
+#include <JavaScriptCore/LazyClassStructure.h>
+#include <JavaScriptCore/RegExpGlobalData.h>
+#include <JavaScriptCore/RuntimeFlags.h>
+#include <JavaScriptCore/SourceTaintedOrigin.h>
+#include <JavaScriptCore/StructureCache.h>
+#include <JavaScriptCore/Watchpoint.h>
+#include <JavaScriptCore/WeakGCSet.h>
 #include <wtf/FixedVector.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
@@ -423,6 +423,7 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_webAssemblyModuleRecordStructure;
     LazyProperty<JSGlobalObject, Structure> m_webAssemblyFunctionStructure;
     LazyProperty<JSGlobalObject, Structure> m_webAssemblyWrapperFunctionStructure;
+    LazyProperty<JSGlobalObject, JSWebAssemblyTag> m_webAssemblyJSTag;
     FOR_EACH_WEBASSEMBLY_CONSTRUCTOR_TYPE(DEFINE_STORAGE_FOR_LAZY_TYPE)
 #endif // ENABLE(WEBASSEMBLY)
 
@@ -487,6 +488,7 @@ public:
     InlineWatchpointSet m_regExpPrimordialPropertiesWatchpointSet { IsWatched };
     InlineWatchpointSet m_mapSetWatchpointSet { IsWatched };
     InlineWatchpointSet m_setAddWatchpointSet { IsWatched };
+    InlineWatchpointSet m_setPrimordialPropertiesWatchpointSet { IsWatched };
     InlineWatchpointSet m_arraySpeciesWatchpointSet { ClearWatchpoint };
     InlineWatchpointSet m_arrayJoinWatchpointSet { IsWatched };
     InlineWatchpointSet m_arrayToStringWatchpointSet { IsWatched };
@@ -553,6 +555,7 @@ public:
     InlineWatchpointSet& regExpPrimordialPropertiesWatchpointSet() { return m_regExpPrimordialPropertiesWatchpointSet; }
     InlineWatchpointSet& mapSetWatchpointSet() { return m_mapSetWatchpointSet; }
     InlineWatchpointSet& setAddWatchpointSet() { return m_setAddWatchpointSet; }
+    InlineWatchpointSet& setPrimordialPropertiesWatchpointSet() { return m_setPrimordialPropertiesWatchpointSet; }
     InlineWatchpointSet& arraySpeciesWatchpointSet() { return m_arraySpeciesWatchpointSet; }
     InlineWatchpointSet& arrayPrototypeChainIsSaneWatchpointSet() { return m_arrayPrototypeChainIsSaneWatchpointSet; }
     InlineWatchpointSet& objectPrototypeChainIsSaneWatchpointSet() { return m_objectPrototypeChainIsSaneWatchpointSet; }
@@ -925,6 +928,7 @@ public:
     Structure* webAssemblyModuleRecordStructure() const { return m_webAssemblyModuleRecordStructure.get(this); }
     Structure* webAssemblyFunctionStructure() const { return m_webAssemblyFunctionStructure.get(this); }
     Structure* webAssemblyWrapperFunctionStructure() const { return m_webAssemblyWrapperFunctionStructure.get(this); }
+    JSWebAssemblyTag* webAssemblyJSTag() { return m_webAssemblyJSTag.get(this); }
 #endif // ENABLE(WEBASSEMBLY)
     Structure* collatorStructure() { return m_collatorStructure.get(this); }
     Structure* dateTimeFormatStructure() { return m_dateTimeFormatStructure.get(this); }

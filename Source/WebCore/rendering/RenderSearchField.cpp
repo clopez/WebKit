@@ -47,6 +47,7 @@
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "StyleLengthWrapper+Platform.h"
 #include "StyleResolver.h"
 #include "TextControlInnerElements.h"
 #include "UnicodeBidi.h"
@@ -289,6 +290,7 @@ PopupMenuStyle RenderSearchField::menuStyle() const
         style().visitedDependentColorWithColorFilter(CSSPropertyColor),
         style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor),
         style().fontCascade(),
+        nullString(),
         style().usedVisibility() == Visibility::Visible,
         style().display() == DisplayType::None,
         true,

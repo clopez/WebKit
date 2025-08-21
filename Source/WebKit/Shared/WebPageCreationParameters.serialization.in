@@ -106,6 +106,7 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     bool useDarkAppearance;
     bool useElevatedUserInterfaceLevel;
+    bool allowJSHandleInPageContentWorld;
 
 #if PLATFORM(MAC)
     std::optional<WebCore::DestinationColorSpace> colorSpace;
@@ -237,6 +238,10 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     bool hasResizableWindows;
 
+#if PLATFORM(MAC)
+    double overflowHeightForTopScrollEdgeEffect;
+#endif
+
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension;
 
     std::optional<WebKit::RemotePageParameters> remotePageParameters;
@@ -258,7 +263,7 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #if USE(GBM)
-    Vector<WebKit::DMABufRendererBufferFormat> preferredBufferFormats;
+    Vector<WebKit::RendererBufferFormat> preferredBufferFormats;
 #endif
 #endif
 

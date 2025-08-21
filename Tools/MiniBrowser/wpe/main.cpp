@@ -237,6 +237,13 @@ static gboolean wpeViewEventCallback(WPEView* view, WPEEvent* event, WebKitWebVi
         }
     }
 
+    if (keyval == WPE_KEY_Escape) {
+        if (webkit_web_view_is_immersive_mode_enabled(webView)) {
+            webkit_web_view_leave_immersive_mode(webView);
+            return TRUE;
+        }
+    }
+
     return FALSE;
 }
 

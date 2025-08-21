@@ -2487,12 +2487,12 @@ void SpeculativeJIT::compileMapGetImpl(Node* node)
         speculate(node, node->child2());
 
     JumpList notPresentInTable;
-    JIT_COMMENT(*this, "Get the JSImmutableButterfly first.");
+    JIT_COMMENT(*this, "Get the JSCellButterfly first.");
     loadPtr(Address(mapGPR, MapOrSet::offsetOfButterfly()), mapStorageOrDataGPR);
     notPresentInTable.append(branchTestPtr(Zero, mapStorageOrDataGPR));
 
     JIT_COMMENT(*this, "Compute the bucketCount = Capacity / LoadFactor and bucketIndex = hashTableStartIndex + (hash & bucketCount - 1).");
-    addPtr(TrustedImm32(JSImmutableButterfly::offsetOfData()), mapStorageOrDataGPR);
+    addPtr(TrustedImm32(JSCellButterfly::offsetOfData()), mapStorageOrDataGPR);
     static_assert(MapOrSet::Helper::LoadFactor == 1);
     load32(Address(mapStorageOrDataGPR, MapOrSet::Helper::capacityIndex() * sizeof(uint64_t)), bucketCountGPR);
     sub32(bucketCountGPR, TrustedImm32(1), bucketIndexOrDeletedValueGPR);
@@ -6602,6 +6602,7 @@ void SpeculativeJIT::compile(Node* node)
     case IdentityWithProfile:
     case CPUIntrinsic:
     case CallWasm:
+    case TailCallInlinedCallerWasm:
     case MultiGetByVal:
     case MultiPutByVal:
         DFG_CRASH(m_graph, node, "Unexpected node");
@@ -8469,6 +8470,28 @@ void SpeculativeJIT::compileCreateClonedArguments(Node* node)
     setupResults(resultGPR);
 
     cellResult(resultGPR, node);
+}
+
+void SpeculativeJIT::unboxRealNumberDouble(Node* node, FPRReg boxedFPR, FPRReg resultFPR, GPRReg scratchGPR)
+{
+    ASSERT(boxedFPR != resultFPR);
+
+    move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(JSValue::DoubleEncodeOffset)), resultFPR);
+    sub64(boxedFPR, resultFPR, resultFPR);
+    auto doneCase = branchIfNotNaN(resultFPR);
+
+    moveDoubleTo64(boxedFPR, scratchGPR);
+    speculationCheck(BadType, JSValueRegs { }, node, branchIfNotInt32(scratchGPR));
+    convertInt32ToDouble(scratchGPR, resultFPR);
+
+    doneCase.link(this);
+}
+
+void SpeculativeJIT::boxDoubleAsDouble(FPRReg inputFPR, FPRReg resultFPR)
+{
+    ASSERT(inputFPR != resultFPR);
+    move64ToDouble(TrustedImm64(std::bit_cast<uint64_t>(JSValue::DoubleEncodeOffset)), resultFPR);
+    add64(inputFPR, resultFPR, resultFPR);
 }
 
 #endif

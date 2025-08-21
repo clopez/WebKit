@@ -1,8 +1,6 @@
 Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
 Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheStorage.cpp
-Modules/encryptedmedia/NavigatorEME.cpp
-Modules/gamepad/GamepadHapticActuator.cpp
 Modules/indexeddb/client/IDBConnectionProxy.cpp
 Modules/indexeddb/server/UniqueIDBDatabaseConnection.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
@@ -25,10 +23,7 @@ Modules/webcodecs/WebCodecsVideoDecoder.cpp
 Modules/webcodecs/WebCodecsVideoEncoder.cpp
 Modules/webdatabase/DatabaseThread.cpp
 Modules/webdatabase/SQLCallbackWrapper.h
-accessibility/AXObjectCache.h
-accessibility/AccessibilityARIAGridRow.cpp
 accessibility/AccessibilityScrollView.cpp
-accessibility/AccessibilityTable.cpp
 accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedObject.h
 accessibility/isolatedtree/AXIsolatedTree.cpp

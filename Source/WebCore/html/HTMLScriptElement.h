@@ -23,9 +23,9 @@
 
 #pragma once
 
-#include "DOMTokenList.h"
-#include "HTMLElement.h"
-#include "ScriptElement.h"
+#include <WebCore/DOMTokenList.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/ScriptElement.h>
 
 namespace WebCore {
 
@@ -104,7 +104,7 @@ private:
 
     bool isScriptPreventedByAttributes() const final;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) const final;
 
     const std::unique_ptr<DOMTokenList> m_blockingList;
     bool m_isRenderBlocking { false };

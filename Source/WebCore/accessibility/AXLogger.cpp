@@ -32,9 +32,11 @@
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 #include "AXIsolatedObject.h"
 #endif
+#include "AXNotifications.h"
 #include "AXObjectCache.h"
 #include "AXSearchManager.h"
 #include "AXTextRun.h"
+#include "AXUtilities.h"
 #include "DocumentInlines.h"
 #include "LocalFrameView.h"
 #include "LogInitialization.h"
@@ -239,7 +241,7 @@ void AXLogger::log(const String& collectionName, const AXObjectCache::DeferredCo
         [&size] (const WeakHashSet<Element, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashSet<HTMLTableElement, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashSet<AccessibilityObject>& typedCollection) { size = typedCollection.computeSize(); },
-        [&size] (const WeakHashSet<AccessibilityTable>& typedCollection) { size = typedCollection.computeSize(); },
+        [&size] (const WeakHashSet<AccessibilityNodeObject>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashSet<AccessibilityTableCell>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakListHashSet<Node, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakListHashSet<Element, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
@@ -604,7 +606,8 @@ TextStream& operator<<(TextStream& stream, AXNotification notification)
     case AXNotification::name: \
         stream << #name; \
         break;
-    WEBCORE_AXNOTIFICATION_KEYS(WEBCORE_LOG_AXNOTIFICATION)
+
+        WEBCORE_AXNOTIFICATION_KEYS(WEBCORE_LOG_AXNOTIFICATION)
 #undef WEBCORE_LOG_AXNOTIFICATION
     }
 
@@ -638,11 +641,20 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::AXColumnIndex:
         stream << "AXColumnIndex";
         break;
+    case AXProperty::AXColumnIndexText:
+        stream << "AXColumnIndexText";
+        break;
     case AXProperty::AXRowCount:
         stream << "AXRowCount";
         break;
     case AXProperty::AXRowIndex:
         stream << "AXRowIndex";
+        break;
+    case AXProperty::AXRowIndexText:
+        stream << "AXRowIndexText";
+        break;
+    case AXProperty::Abbreviation:
+        stream << "Abbreviation";
         break;
     case AXProperty::AccessKey:
         stream << "AccessKey";
@@ -748,12 +760,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::EmbeddedImageDescription:
         stream << "EmbeddedImageDescription";
         break;
-    case AXProperty::TextEmissionBehavior:
-        stream << "TextEmissionBehavior";
-        break;
-    case AXProperty::ExpandedTextValue:
-        stream << "ExpandedTextValue";
-        break;
     case AXProperty::ExplicitAutoCompleteValue:
         stream << "ExplicitAutoCompleteValue";
         break;
@@ -819,9 +825,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::HasTextShadow:
         stream << "HasTextShadow";
         break;
-    case AXProperty::HasUnderline:
-        stream << "HasUnderline";
-        break;
     case AXProperty::HorizontalScrollBar:
         stream << "HorizontalScrollBar";
         break;
@@ -873,8 +876,8 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::IsExpanded:
         stream << "IsExpanded";
         break;
-    case AXProperty::IsExposable:
-        stream << "IsExposable";
+    case AXProperty::IsExposableTable:
+        stream << "IsExposableTable";
         break;
     case AXProperty::IsExposedTableCell:
         stream << "IsExposedTableCell";
@@ -965,6 +968,15 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         break;
     case AXProperty::IsTableRow:
         stream << "IsTableRow";
+        break;
+    case AXProperty::IsTextEmissionBehaviorDoubleNewline:
+        stream << "IsTextEmissionBehaviorDoubleNewline";
+        break;
+    case AXProperty::IsTextEmissionBehaviorNewline:
+        stream << "IsTextEmissionBehaviorNewline";
+        break;
+    case AXProperty::IsTextEmissionBehaviorTab:
+        stream << "IsTextEmissionBehaviorTab";
         break;
     case AXProperty::IsTree:
         stream << "IsTree";
@@ -1149,9 +1161,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::SupportsExpanded:
         stream << "SupportsExpanded";
         break;
-    case AXProperty::SupportsExpandedTextValue:
-        stream << "SupportsExpandedTextValue";
-        break;
     case AXProperty::SupportsKeyShortcuts:
         stream << "SupportsKeyShortcuts";
         break;
@@ -1180,11 +1189,8 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         stream << "TextRuns";
         break;
 #endif
-    case AXProperty::Title:
-        stream << "Title";
-        break;
-    case AXProperty::TitleAttributeValue:
-        stream << "TitleAttributeValue";
+    case AXProperty::TitleAttribute:
+        stream << "TitleAttribute";
         break;
     case AXProperty::URL:
         stream << "URL";
@@ -1209,6 +1215,9 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         break;
     case AXProperty::VisibleRows:
         stream << "VisibleRows";
+        break;
+    case AXProperty::WebAreaTitle:
+        stream << "WebAreaTitle";
         break;
     }
     return stream;

@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "RenderStyleConstants.h"
-#include "StyleGridTemplateAreas.h"
-#include "StyleGridTemplateList.h"
-#include "StyleGridTrackSizes.h"
+#include <WebCore/RenderStyleConstants.h>
+#include <WebCore/StyleGridTemplateAreas.h>
+#include <WebCore/StyleGridTemplateList.h>
+#include <WebCore/StyleGridTrackSizes.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -39,7 +39,7 @@ class RenderStyle;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleGridData);
 class StyleGridData : public RefCounted<StyleGridData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleGridData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleGridData, StyleGridData);
 public:
     static Ref<StyleGridData> create() { return adoptRef(*new StyleGridData); }
     Ref<StyleGridData> copy() const;

@@ -51,6 +51,7 @@
 #import "WKOpenPanelParametersInternal.h"
 #import "WKPreferencesInternal.h"
 #import "WKProcessPoolInternal.h"
+#import "WKScriptMessageInternal.h"
 #import "WKSecurityOriginInternal.h"
 #import "WKURLSchemeTaskInternal.h"
 #import "WKUserContentControllerInternal.h"
@@ -83,11 +84,12 @@
 #import "_WKInspectorConfigurationInternal.h"
 #import "_WKInspectorDebuggableInfoInternal.h"
 #import "_WKInspectorInternal.h"
-#import "_WKNodeInfoInternal.h"
+#import "_WKJSHandleInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import "_WKResourceLoadInfoInternal.h"
 #import "_WKResourceLoadStatisticsFirstPartyInternal.h"
 #import "_WKResourceLoadStatisticsThirdPartyInternal.h"
+#import "_WKSerializedNodeInternal.h"
 #import "_WKTargetedElementInfoInternal.h"
 #import "_WKTargetedElementRequestInternal.h"
 #import "_WKTextRunInternal.h"
@@ -521,8 +523,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         wrapper = [WKWebProcessPlugInScriptWorld alloc];
         break;
 
-    case Type::NodeInfo:
-        wrapper = [_WKNodeInfo alloc];
+    case Type::ScriptMessage:
+        wrapper = [WKScriptMessage alloc];
+        break;
+
+    case Type::SerializedNode:
+        wrapper = [_WKSerializedNode alloc];
+        break;
+
+    case Type::JSHandle:
+        wrapper = [_WKJSHandle alloc];
         break;
 
     default:

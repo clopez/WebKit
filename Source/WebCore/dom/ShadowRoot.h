@@ -27,12 +27,12 @@
 
 #pragma once
 
-#include "DocumentFragment.h"
-#include "Element.h"
-#include "StyleScopeOrdinal.h"
-#include "ShadowRootMode.h"
-#include "SlotAssignmentMode.h"
-#include "TreeScope.h"
+#include <WebCore/DocumentFragment.h>
+#include <WebCore/Element.h>
+#include <WebCore/ShadowRootMode.h>
+#include <WebCore/SlotAssignmentMode.h>
+#include <WebCore/StyleScopeOrdinal.h>
+#include <WebCore/TreeScope.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -111,7 +111,8 @@ public:
     String innerHTML() const;
     ExceptionOr<void> setInnerHTML(Variant<RefPtr<TrustedHTML>, String>&&);
 
-    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) override;
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) const override;
+    SerializedNode serializeNode(CloningOperation) const override;
 
     Element* activeElement() const;
 
@@ -198,25 +199,6 @@ private:
 inline Element* ShadowRoot::activeElement() const
 {
     return treeScope().focusedElementInScope();
-}
-
-inline bool Node::isUserAgentShadowRoot() const
-{
-    auto* shadowRoot = dynamicDowncast<ShadowRoot>(*this);
-    return shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent;
-}
-
-inline ContainerNode* Node::parentOrShadowHostNode() const
-{
-    ASSERT(isMainThreadOrGCThread());
-    if (auto* shadowRoot = dynamicDowncast<ShadowRoot>(*this))
-        return shadowRoot->host();
-    return parentNode();
-}
-
-inline RefPtr<ContainerNode> Node::protectedParentOrShadowHostNode() const
-{
-    return parentOrShadowHostNode();
 }
 
 inline bool hasShadowRootParent(const Node& node)

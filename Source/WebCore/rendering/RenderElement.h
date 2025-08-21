@@ -22,11 +22,11 @@
 
 #pragma once
 
-#include "HitTestRequest.h"
-#include "LengthFunctions.h"
-#include "RenderObject.h"
-#include "RenderPtr.h"
-#include "RenderStyle.h"
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/LengthFunctions.h>
+#include <WebCore/RenderObject.h>
+#include <WebCore/RenderPtr.h>
+#include <WebCore/RenderStyle.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Packed.h>
@@ -35,7 +35,6 @@ namespace WebCore {
 
 class Animation;
 class ContainerNode;
-class ContentData;
 class BlendingKeyframes;
 class ReferencedSVGResources;
 class RenderBlock;
@@ -51,13 +50,17 @@ namespace Layout {
 class ElementBox;
 }
 
+namespace Style {
+struct Content;
+}
+
 class RenderElement : public RenderObject {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderElement);
 public:
     virtual ~RenderElement();
 
-    static bool isContentDataSupported(const ContentData&);
+    static bool isContentDataSupported(const Style::Content&);
 
     enum class ConstructBlockLevelRendererFor {
         Inline           = 1 << 0,
@@ -415,7 +418,7 @@ private:
 
     void updateFillImages(const FillLayer*, const FillLayer*);
     void updateImage(StyleImage*, StyleImage*);
-    void updateShapeImage(const ShapeValue*, const ShapeValue*);
+    void updateShapeImage(const Style::ShapeOutside*, const Style::ShapeOutside*);
 
     StyleDifference adjustStyleDifference(StyleDifference, OptionSet<StyleDifferenceContextSensitiveProperty>) const;
 

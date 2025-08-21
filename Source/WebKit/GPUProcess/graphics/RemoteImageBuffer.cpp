@@ -32,7 +32,7 @@
 #include "IPCSemaphore.h"
 #include "ImageBufferBackendHandleSharing.h"
 #include "Logging.h"
-#include "RemoteDisplayListRecorder.h"
+#include "RemoteGraphicsContext.h"
 #include "RemoteImageBufferMessages.h"
 #include "RemoteImageBufferProxyMessages.h"
 #include "RemoteRenderingBackend.h"
@@ -45,31 +45,31 @@
 
 namespace WebKit {
 
-Ref<RemoteImageBuffer> RemoteImageBuffer::create(Ref<WebCore::ImageBuffer>&& imageBuffer, WebCore::RenderingResourceIdentifier identifier, RemoteDisplayListRecorderIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
+Ref<RemoteImageBuffer> RemoteImageBuffer::create(Ref<WebCore::ImageBuffer>&& imageBuffer, WebCore::RenderingResourceIdentifier identifier, RemoteGraphicsContextIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
 {
     auto instance = adoptRef(*new RemoteImageBuffer(WTFMove(imageBuffer), identifier, contextIdentifier, renderingBackend));
     instance->startListeningForIPC();
     return instance;
 }
 
-RemoteImageBuffer::RemoteImageBuffer(Ref<WebCore::ImageBuffer>&& imageBuffer, WebCore::RenderingResourceIdentifier identifier, RemoteDisplayListRecorderIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
+RemoteImageBuffer::RemoteImageBuffer(Ref<WebCore::ImageBuffer>&& imageBuffer, WebCore::RenderingResourceIdentifier identifier, RemoteGraphicsContextIdentifier contextIdentifier, RemoteRenderingBackend& renderingBackend)
     : m_imageBuffer(WTFMove(imageBuffer))
     , m_identifier(identifier)
     , m_renderingBackend(renderingBackend)
-    , m_context(RemoteDisplayListRecorder::create(m_imageBuffer, contextIdentifier, m_renderingBackend))
+    , m_context(RemoteGraphicsContext::create(m_imageBuffer, contextIdentifier, m_renderingBackend))
 {
-    m_renderingBackend->protectedSharedResourceCache()->didCreateImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
+    m_renderingBackend->sharedResourceCache().didCreateImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
 
     // If the ImageBuffer was an error buffer, this will fail and nullopt will be sent, signaling
     // allocation failure.
     auto* sharing = m_imageBuffer->toBackendSharing();
     auto handle = sharing ? downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle() : std::nullopt;
-    m_renderingBackend->protectedStreamConnection()->send(Messages::RemoteImageBufferProxy::DidCreateBackend(WTFMove(handle)), m_identifier);
+    m_renderingBackend->streamConnection().send(Messages::RemoteImageBufferProxy::DidCreateBackend(WTFMove(handle)), m_identifier);
 }
 
 RemoteImageBuffer::~RemoteImageBuffer()
 {
-    m_renderingBackend->protectedSharedResourceCache()->didReleaseImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
+    m_renderingBackend->sharedResourceCache().didReleaseImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
     // Volatile image buffers do not have contexts.
     if (m_imageBuffer->volatilityState() == WebCore::VolatilityState::Volatile)
         return;
@@ -84,13 +84,13 @@ RemoteImageBuffer::~RemoteImageBuffer()
 
 void RemoteImageBuffer::startListeningForIPC()
 {
-    m_renderingBackend->protectedStreamConnection()->startReceivingMessages(*this, Messages::RemoteImageBuffer::messageReceiverName(), m_identifier.toUInt64());
+    m_renderingBackend->streamConnection().startReceivingMessages(*this, Messages::RemoteImageBuffer::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteImageBuffer::stopListeningForIPC()
 {
     m_context.reset();
-    m_renderingBackend->protectedStreamConnection()->stopReceivingMessages(Messages::RemoteImageBuffer::messageReceiverName(), m_identifier.toUInt64());
+    m_renderingBackend->streamConnection().stopReceivingMessages(Messages::RemoteImageBuffer::messageReceiverName(), m_identifier.toUInt64());
 }
 
 Ref<WebCore::ImageBuffer> RemoteImageBuffer::sinkIntoImageBuffer(Ref<RemoteImageBuffer>&& remote)

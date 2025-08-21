@@ -54,6 +54,10 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+#include "ContentRuleListMatchedRule.h"
+#endif
+
 namespace WebCore::ContentExtensions {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ContentExtensionsBackend);
@@ -275,6 +279,9 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
         ContentRuleListResults::Result result;
         for (const auto& action : actionsFromContentRuleList.actions) {
             WTF::visit(WTF::makeVisitor([&](const BlockLoadAction&) {
+                if (results.summary.redirected)
+                    return;
+
                 results.summary.blockedLoad = true;
                 result.blockedLoad = true;
             }, [&](const BlockCookiesAction&) {
@@ -305,13 +312,23 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
                 }
             }, [&] (const RedirectAction& redirectAction) {
                 if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(contentRuleListIdentifier, url)) {
-                    if (!results.summary.blockedLoad)
-                        results.summary.redirectedPriorToBlock = true;
+                    if (results.summary.blockedLoad)
+                        return;
 
                     result.redirected = true;
+                    results.summary.redirected = true;
                     results.summary.redirectActions.append({ redirectAction, m_contentExtensions.get(contentRuleListIdentifier)->extensionBaseURL() });
                 }
             }), action.data());
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+            // FIXME: <rdar://157880177> Include the rest of the parameters on the ContentRuleListMatchedRule struct.
+            ContentRuleListMatchedRule matchedRule;
+            matchedRule.request.url = url.string();
+            matchedRule.rule.extensionId = contentRuleListIdentifier;
+            matchedRule.rule.ruleId = action.actionID();
+            page.chrome().client().contentRuleListMatchedRule(matchedRule);
+#endif
         }
 
         if (!actionsFromContentRuleList.sawIgnorePreviousRules) {

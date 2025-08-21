@@ -21,13 +21,13 @@
 
 #pragma once
 
-#include "FloatRect.h"
-#include "FontMetrics.h"
-#include "FontPlatformData.h"
-#include "GlyphBuffer.h"
-#include "GlyphMetricsMap.h"
-#include "GlyphPage.h"
-#include "RenderingResourceIdentifier.h"
+#include <WebCore/FloatRect.h>
+#include <WebCore/FontMetrics.h>
+#include <WebCore/FontPlatformData.h>
+#include <WebCore/GlyphBuffer.h>
+#include <WebCore/GlyphMetricsMap.h>
+#include <WebCore/GlyphPage.h>
+#include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/BitVector.h>
 #include <wtf/Hasher.h>
 #include <wtf/WeakPtr.h>
@@ -40,7 +40,7 @@
 #endif
 
 #if ENABLE(MATHML)
-#include "OpenTypeMathData.h"
+#include <WebCore/OpenTypeMathData.h>
 #endif
 
 #if ENABLE(OPENTYPE_VERTICAL)
@@ -93,7 +93,7 @@ struct FontInternalAttributes {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Font);
 class Font : public RefCounted<Font>, public CanMakeSingleThreadWeakPtr<Font> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Font);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Font, Font);
 public:
     using Origin = FontOrigin;
     using IsInterstitial = FontIsInterstitial;
@@ -341,7 +341,7 @@ private:
     Attributes m_attributes;
 
     struct DerivedFonts {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(DerivedFonts);
     public:
 
         RefPtr<Font> smallCapsFont;

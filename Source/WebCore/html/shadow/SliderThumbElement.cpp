@@ -353,7 +353,7 @@ void SliderThumbElement::defaultEventHandler(Event& event)
         return;
     } else if (eventType == eventNames().mousemoveEvent) {
         if (m_inDragMode)
-            setPositionFromPoint(mouseEvent->absoluteLocation());
+            setPositionFromPoint(LayoutPoint(mouseEvent->absoluteLocation()));
         return;
     }
 
@@ -588,7 +588,7 @@ std::optional<Style::UnadjustedStyle> SliderThumbElement::resolveCustomStyle(con
     return elementStyle;
 }
 
-Ref<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*)
+Ref<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*) const
 {
     return create(document);
 }

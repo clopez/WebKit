@@ -169,7 +169,7 @@ void HTMLTextFormControlElement::forwardEvent(Event& event)
         innerText->defaultEventHandler(event);
 }
 
-static bool isNotLineBreak(UChar ch) { return ch != newlineCharacter && ch != carriageReturn; }
+static bool isNotLineBreak(char16_t ch) { return ch != newlineCharacter && ch != carriageReturn; }
 
 bool HTMLTextFormControlElement::isPlaceholderEmpty() const
 {
@@ -697,8 +697,8 @@ void HTMLTextFormControlElement::setInnerTextValue(String&& value)
                     previousValue = renderText->textWithoutConvertingBackslashToYenSymbol();
             }
 #endif
-            if (AXObjectCache* cache = document().existingAXObjectCache())
-                cache->postNotification(this, AXNotification::ValueChanged, PostTarget::ObservableParent);
+            if (CheckedPtr cache = document().existingAXObjectCache())
+                cache->onEditableTextValueChanged(*this);
         }
 #endif
 

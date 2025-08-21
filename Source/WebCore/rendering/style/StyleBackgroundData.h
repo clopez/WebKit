@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "FillLayer.h"
-#include "OutlineValue.h"
-#include "StyleColor.h"
+#include <WebCore/FillLayer.h>
+#include <WebCore/OutlineValue.h>
+#include <WebCore/StyleColor.h>
 #include <wtf/DataRef.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Ref.h>
@@ -39,7 +39,7 @@ namespace WebCore {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleBackgroundData);
 class StyleBackgroundData : public RefCounted<StyleBackgroundData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleBackgroundData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleBackgroundData, StyleBackgroundData);
 public:
     static Ref<StyleBackgroundData> create() { return adoptRef(*new StyleBackgroundData); }
     Ref<StyleBackgroundData> copy() const;

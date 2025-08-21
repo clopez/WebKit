@@ -22,12 +22,12 @@
 
 #pragma once
 
-#include "CachedImageClient.h"
-#include "CachedResourceHandle.h"
-#include "Element.h"
-#include "LoaderMalloc.h"
-#include "NodeInlines.h"
-#include "Timer.h"
+#include <WebCore/CachedImageClient.h>
+#include <WebCore/CachedResourceHandle.h>
+#include <WebCore/Element.h>
+#include <WebCore/LoaderMalloc.h>
+#include <WebCore/NodeInlines.h>
+#include <WebCore/Timer.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomString.h>
 
@@ -47,7 +47,7 @@ enum class RelevantMutation : bool { No, Yes };
 enum class LazyImageLoadState : uint8_t { None, Deferred, LoadImmediately, FullImage };
 
 class ImageLoader : public CachedImageClient {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ImageLoader, Loader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ImageLoader);
 public:
     virtual ~ImageLoader();

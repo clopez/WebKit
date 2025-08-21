@@ -30,34 +30,48 @@
 
 #include "AXObjectCache.h"
 #include "ElementChildIteratorInlines.h"
+#include "ElementInlines.h"
 #include "EventTargetInlines.h"
 #include "HTMLNames.h"
 #include "RenderIterator.h"
+#include "RenderObject.h"
 #include "RenderObjectInlines.h"
 #include "RenderText.h"
 #include "SVGAElement.h"
 #include "SVGDescElement.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGElement.h"
+#include "SVGNames.h"
 #include "SVGTitleElement.h"
 #include "SVGUseElement.h"
+#include "TypedElementDescendantIteratorInlines.h"
 #include "XLinkNames.h"
 #include <wtf/Language.h>
 
 namespace WebCore {
 
-AccessibilitySVGObject::AccessibilitySVGObject(AXID axID, RenderObject& renderer, AXObjectCache* cache)
-    : AccessibilityRenderObject(axID, renderer)
-    , m_axObjectCache(cache)
+AccessibilitySVGObject::AccessibilitySVGObject(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isSVGRoot)
+    : AccessibilityRenderObject(axID, renderer, cache)
 {
-    ASSERT(cache);
+    m_isSVGRoot = isSVGRoot;
+}
+
+AccessibilitySVGObject::AccessibilitySVGObject(AXID axID, Element& element, AXObjectCache& cache, bool isSVGRoot)
+    : AccessibilityRenderObject(axID, element, cache)
+{
+    m_isSVGRoot = isSVGRoot;
 }
 
 AccessibilitySVGObject::~AccessibilitySVGObject() = default;
 
-Ref<AccessibilitySVGObject> AccessibilitySVGObject::create(AXID axID, RenderObject& renderer, AXObjectCache* cache)
+Ref<AccessibilitySVGObject> AccessibilitySVGObject::create(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isSVGRoot)
 {
-    return adoptRef(*new AccessibilitySVGObject(axID, renderer, cache));
+    return adoptRef(*new AccessibilitySVGObject(axID, renderer, cache, isSVGRoot));
+}
+
+Ref<AccessibilitySVGObject> AccessibilitySVGObject::create(AXID axID, Element& element, AXObjectCache& cache, bool isSVGRoot)
+{
+    return adoptRef(*new AccessibilitySVGObject(axID, element, cache, isSVGRoot));
 }
 
 AccessibilityObject* AccessibilitySVGObject::targetForUseElement() const
@@ -70,7 +84,7 @@ AccessibilityObject* AccessibilitySVGObject::targetForUseElement() const
     if (href.isEmpty())
         href = getAttribute(HTMLNames::hrefAttr);
 
-    auto target = SVGURIReference::targetElementFromIRIString(href, use->treeScopeForSVGReferences());
+    auto target = SVGURIReference::targetElementFromIRIString(href, Ref { use->treeScopeForSVGReferences() });
     CheckedPtr cache = axObjectCache();
     return cache ? cache->getOrCreate(target.element.get()) : nullptr;
 }
@@ -237,8 +251,8 @@ bool AccessibilitySVGObject::computeIsIgnored() const
 
     // The SVG AAM states text elements should also be included, if they have content.
     if (m_renderer->isRenderSVGText() || m_renderer->isRenderSVGTextPath()) {
-        for (auto& child : childrenOfType<RenderText>(downcast<RenderElement>(*m_renderer))) {
-            if (!child.containsOnlyCollapsibleWhitespace())
+        for (CheckedRef child : childrenOfType<RenderText>(downcast<RenderElement>(*m_renderer))) {
+            if (!child->containsOnlyCollapsibleWhitespace())
                 return false;
         }
     }
@@ -289,11 +303,14 @@ AccessibilityRole AccessibilitySVGObject::determineAriaRoleAttribute() const
 
 AccessibilityRole AccessibilitySVGObject::determineAccessibilityRole()
 {
-    if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Unknown)
+    if (m_ariaRole != AccessibilityRole::Unknown)
         return m_ariaRole;
 
     if (!m_renderer)
         return AccessibilityRole::Unknown;
+
+    if (isAccessibilitySVGRoot())
+        return AccessibilityRole::Generic;
 
     RefPtr element = this->element();
     if (m_renderer->isRenderOrLegacyRenderSVGShape() || m_renderer->isRenderOrLegacyRenderSVGPath() || m_renderer->isRenderOrLegacyRenderSVGImage() || is<SVGUseElement>(element))
@@ -319,6 +336,58 @@ AccessibilityRole AccessibilitySVGObject::determineAccessibilityRole()
         return AccessibilityRole::Link;
 
     return AccessibilityRenderObject::determineAccessibilityRole();
+}
+
+AccessibilityObject* AccessibilitySVGObject::parentObject() const
+{
+    if (m_parent) {
+        // If a parent was set because this is a remote SVG resource, use that.
+        ASSERT(m_isSVGRoot);
+        return m_parent.get();
+    }
+
+    // Otherwise, we should rely on the standard render tree for the parent.
+    return AccessibilityRenderObject::parentObject();
+}
+
+bool AccessibilitySVGObject::isRootWithAccessibleContent() const
+{
+    if (!isAccessibilitySVGRoot())
+        return false;
+
+    RefPtr rootElement = this->element();
+    if (!rootElement)
+        return false;
+
+    auto isAccessibleSVGElement = [] (const SVGElement& element) -> bool {
+        // The presence of an SVGTitle or SVGDesc element is enough to deem the SVG hierarchy as accessible.
+        if (is<SVGTitleElement>(element)
+            || is<SVGDescElement>(element))
+            return true;
+
+        // Text content is accessible.
+        if (element.isTextContent())
+            return true;
+
+        // If the role or aria-label attributes are specified, this is accessible.
+        if (!element.attributeWithoutSynchronization(HTMLNames::roleAttr).isEmpty()
+            || !element.attributeWithoutSynchronization(HTMLNames::aria_labelAttr).isEmpty())
+            return true;
+
+        return false;
+    };
+
+    RefPtr svgRootElement = dynamicDowncast<SVGElement>(*rootElement);
+    if (svgRootElement && isAccessibleSVGElement(*svgRootElement))
+        return true;
+
+    // This SVG hierarchy is accessible if any of its descendants is accessible.
+    for (const Ref descendant : descendantsOfType<SVGElement>(*rootElement)) {
+        if (isAccessibleSVGElement(descendant.get()))
+            return true;
+    }
+
+    return false;
 }
 
 } // namespace WebCore

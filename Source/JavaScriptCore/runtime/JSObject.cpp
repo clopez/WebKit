@@ -33,10 +33,10 @@
 #include "HeapAnalyzer.h"
 #include "IndexingHeaderInlines.h"
 #include "JSCInlines.h"
+#include "JSCellButterfly.h"
 #include "JSCustomGetterFunction.h"
 #include "JSCustomSetterFunction.h"
 #include "JSFunction.h"
-#include "JSImmutableButterfly.h"
 #include "Lookup.h"
 #include "PropertyDescriptor.h"
 #include "PropertyNameArray.h"
@@ -84,7 +84,7 @@ ALWAYS_INLINE void JSObject::markAuxiliaryAndVisitOutOfLineProperties(Visitor& v
         return;
 
     if (isCopyOnWrite(structure->indexingMode())) {
-        visitor.append(std::bit_cast<WriteBarrier<JSCell>>(JSImmutableButterfly::fromButterfly(butterfly)));
+        visitor.append(std::bit_cast<WriteBarrier<JSCell>>(JSCellButterfly::fromButterfly(butterfly)));
         return;
     }
 
@@ -125,7 +125,7 @@ ALWAYS_INLINE Structure* JSObject::visitButterflyImpl(Visitor& visitor)
 
     auto visitElements = [&] (IndexingType indexingMode) {
         switch (indexingMode) {
-        // We don't need to visit the elements for CopyOnWrite butterflies since they we marked the JSImmutableButterfly acting as our butterfly.
+        // We don't need to visit the elements for CopyOnWrite butterflies since they we marked the JSCellButterfly acting as our butterfly.
         case ALL_WRITABLE_CONTIGUOUS_INDEXING_TYPES:
             visitor.appendValuesHidden(butterfly->contiguous().data(), butterfly->publicLength());
             break;
@@ -1212,6 +1212,11 @@ void JSObject::notifyPresenceOfIndexedAccessors(VM& vm)
     globalObject()->haveABadTime(vm);
 }
 
+static inline size_t nextLength(size_t length)
+{
+    return length + length / 2;
+}
+
 Butterfly* JSObject::createInitialIndexedStorage(VM& vm, unsigned length)
 {
     ASSERT(length <= MAX_STORAGE_VECTOR_LENGTH);
@@ -1791,7 +1796,7 @@ void JSObject::convertFromCopyOnWrite(VM& vm)
     const bool hasIndexingHeader = true;
     Butterfly* oldButterfly = butterfly();
     size_t propertyCapacity = 0;
-    unsigned newVectorLength = Butterfly::optimalContiguousVectorLength(propertyCapacity, std::min(oldButterfly->vectorLength() * 2, MAX_STORAGE_VECTOR_LENGTH));
+    unsigned newVectorLength = Butterfly::optimalContiguousVectorLength(propertyCapacity, std::min<size_t>(nextLength(oldButterfly->vectorLength()), MAX_STORAGE_VECTOR_LENGTH));
     Butterfly* newButterfly = Butterfly::createUninitialized(vm, this, 0, propertyCapacity, hasIndexingHeader, newVectorLength * sizeof(JSValue));
 
     // memcpy is fine since newButterfly is not tied to any object yet.
@@ -2562,8 +2567,6 @@ JSValue JSObject::ordinaryToPrimitive(JSGlobalObject* globalObject, PreferredPri
             return value;
     }
 
-    scope.assertNoExceptionExceptTermination();
-
     return throwTypeError(globalObject, scope, "No default value"_s);
 }
 
@@ -2796,9 +2799,9 @@ void JSObject::getOwnNonIndexPropertyNames(JSGlobalObject* globalObject, Propert
     methodTable()->getOwnSpecialPropertyNames(this, globalObject, propertyNames, mode);
     RETURN_IF_EXCEPTION(scope, void());
 
+    scope.release();
     getNonReifiedStaticPropertyNames(vm, propertyNames, mode);
     structure()->getPropertyNamesFromStructure(vm, propertyNames, mode);
-    scope.assertNoExceptionExceptTermination();
 }
 
 double JSObject::toNumber(JSGlobalObject* globalObject) const
@@ -3808,7 +3811,7 @@ bool JSObject::ensureLengthSlow(VM& vm, unsigned length)
         newVectorLength = availableOldLength;
     } else {
         newVectorLength = Butterfly::optimalContiguousVectorLength(
-            propertyCapacity, std::min(length * 2, MAX_STORAGE_VECTOR_LENGTH));
+            propertyCapacity, std::min<size_t>(nextLength(length), MAX_STORAGE_VECTOR_LENGTH));
         butterfly = butterfly->reallocArrayRightIfPossible(
             vm, deferralContext, this, structure, propertyCapacity, true,
             oldVectorLength * sizeof(EncodedJSValue),

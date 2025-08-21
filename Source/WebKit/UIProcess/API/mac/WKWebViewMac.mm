@@ -1151,7 +1151,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!_page->preferences().contentInsetBackgroundFillEnabled())
         return NO;
 
-    return _page->obscuredContentInsets().top() > 0;
+    return _page->obscuredContentInsets().top() > 0 || _page->overflowHeightForTopScrollEdgeEffect() > 0;
 }
 
 - (void)registerPocketContainer:(NSView *)container onEdge:(NSScrollPocketEdge)edge
@@ -1470,6 +1470,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_setIgnoresNonWheelEvents:(BOOL)ignoresNonWheelEvents
 {
+    RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] [WKWebView _setIgnoresNonWheelEvents:%d]", _page->identifier().toUInt64(), ignoresNonWheelEvents);
     _impl->setIgnoresNonWheelEvents(ignoresNonWheelEvents);
 }
 
@@ -1606,6 +1607,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         static_cast<CGFloat>(insets.bottom()),
         static_cast<CGFloat>(insets.right())
     );
+}
+
+- (CGFloat)_overflowHeightForTopScrollEdgeEffect
+{
+    return _page->overflowHeightForTopScrollEdgeEffect();
+}
+
+- (void)_setOverflowHeightForTopScrollEdgeEffect:(CGFloat)height
+{
+    if (_page->overflowHeightForTopScrollEdgeEffect() == height)
+        return;
+
+    _page->setOverflowHeightForTopScrollEdgeEffect(height);
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    _impl->updateScrollPocket();
+#endif
+
+    if (RetainPtr attachedInspectorWebView = [self _horizontallyAttachedInspectorWebView])
+        [attachedInspectorWebView _setOverflowHeightForTopScrollEdgeEffect:height];
 }
 
 - (NSColor *)_overrideTopScrollEdgeEffectColor
@@ -1810,6 +1831,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_setIgnoresAllEvents:(BOOL)ignoresAllEvents
 {
+    RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] [WKWebView _setIgnoresAllEvents:%d]", _page->identifier().toUInt64(), ignoresAllEvents);
     _impl->setIgnoresAllEvents(ignoresAllEvents);
 }
 

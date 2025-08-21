@@ -40,7 +40,7 @@ namespace Wasm {
     macro(OutOfBoundsCallIndirect, "Out of bounds call_indirect"_s) \
     macro(NullTableEntry,  "call_indirect to a null table entry"_s) \
     macro(NullReference,  "call_ref to a null reference"_s) \
-    macro(NullExnReference,  "throw_ref on a null reference"_s) \
+    macro(NullExnrefReference,  "throw_ref on a null reference"_s) \
     macro(NullI31Get, "i31.get_<sx> to a null reference"_s) \
     macro(BadSignature, "call_indirect to a signature that does not match"_s) \
     macro(OutOfBoundsTrunc, "Out of bounds Trunc operation"_s) \
@@ -74,7 +74,9 @@ namespace Wasm {
     macro(CastFailure, "ref.cast failed to cast reference to target heap type"_s) \
     macro(OutOfBoundsDataSegmentAccess, "Offset + array length would exceed the size of a data segment"_s) \
     macro(OutOfBoundsElementSegmentAccess, "Offset + array length would exceed the length of an element segment"_s) \
-    macro(OutOfMemory,  "Out of memory"_s)
+    macro(OutOfMemory, "Out of memory"_s) \
+    macro(IllegalArgument, "Illegal argument"_s) \
+    macro(Termination, "Termination"_s)
 
 enum class ExceptionType : uint32_t {
 #define MAKE_ENUM(enumName, error) enumName,
@@ -110,7 +112,7 @@ ALWAYS_INLINE bool isTypeErrorExceptionType(ExceptionType type)
     case ExceptionType::OutOfBoundsCallIndirect:
     case ExceptionType::NullTableEntry:
     case ExceptionType::NullReference:
-    case ExceptionType::NullExnReference:
+    case ExceptionType::NullExnrefReference:
     case ExceptionType::NullI31Get:
     case ExceptionType::BadSignature:
     case ExceptionType::OutOfBoundsTrunc:
@@ -140,6 +142,8 @@ ALWAYS_INLINE bool isTypeErrorExceptionType(ExceptionType type)
     case ExceptionType::NullRefAsNonNull:
     case ExceptionType::CastFailure:
     case ExceptionType::OutOfMemory:
+    case ExceptionType::IllegalArgument:
+    case ExceptionType::Termination:
         return false;
     case ExceptionType::InvalidGCTypeUse:
     case ExceptionType::TypeErrorInvalidValueUse:

@@ -36,9 +36,11 @@
 #include "EventNames.h"
 #include "EventTargetInlines.h"
 #include "Logging.h"
+#include "MediaSessionManagerInterface.h"
 #include "MediaStreamTrackEvent.h"
 #include "Page.h"
 #include "RealtimeMediaSource.h"
+#include "ScriptWrappableInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -304,6 +306,11 @@ void MediaStream::startProducingData()
         return;
     m_isProducingData = true;
     m_private->startProducingData();
+
+    if (!getAudioTracks().isEmpty()) {
+        if (RefPtr manager = mediaSessionManager())
+            manager->sessionCanProduceAudioChanged();
+    }
 }
 
 void MediaStream::stopProducingData()
@@ -395,13 +402,31 @@ Ref<MediaStreamPrivate> MediaStream::protectedPrivateStream()
     return m_private;
 }
 
+ScriptExecutionContext* MediaStream::scriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
+}
+
 #if !RELEASE_LOG_DISABLED
 WTFLogChannel& MediaStream::logChannel() const
 {
     return LogWebRTC;
 }
 #endif
-    
+
+RefPtr<MediaSessionManagerInterface> MediaStream::mediaSessionManager() const
+{
+    RefPtr document = dynamicDowncast<Document>(scriptExecutionContext());
+    if (!document)
+        return nullptr;
+
+    RefPtr page = document->page();
+    if (!page)
+        return nullptr;
+
+    return &page->mediaSessionManager();
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(MEDIA_STREAM)

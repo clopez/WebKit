@@ -55,9 +55,15 @@ void XRProjectionLayer::startFrame(PlatformXR::FrameData& data)
 
     auto& frameData = it->value;
     if (frameData->layerSetup && frameData->textureData) {
+        m_layerData = frameData;
         auto& textureData = frameData->textureData;
-        m_backing->startFrame(frameData->renderingFrameIndex, WTFMove(textureData->colorTexture.handle), WTFMove(textureData->depthStencilBuffer.handle), WTFMove(frameData->layerSetup->completionSyncEvent), textureData->reusableTextureIndex);
+        m_backing->startFrame(frameData->renderingFrameIndex, WTFMove(textureData->colorTexture.handle), WTFMove(textureData->depthStencilBuffer.handle), WTFMove(frameData->layerSetup->completionSyncEvent), textureData->reusableTextureIndex, WTFMove(frameData->layerSetup->foveationRateMapDesc));
     }
+}
+
+std::optional<PlatformXR::FrameData::LayerData> XRProjectionLayer::layerData() const
+{
+    return m_layerData;
 }
 
 PlatformXR::Device::Layer XRProjectionLayer::endFrame()
@@ -92,27 +98,26 @@ uint32_t XRProjectionLayer::textureArrayLength() const
 
 bool XRProjectionLayer::ignoreDepthValues() const
 {
-    RELEASE_ASSERT_NOT_REACHED();
+    return false;
 }
 
 std::optional<float> XRProjectionLayer::fixedFoveation() const
 {
-    RELEASE_ASSERT_NOT_REACHED();
+    return 1.0;
 }
 
 void XRProjectionLayer::setFixedFoveation(std::optional<float>)
 {
-    RELEASE_ASSERT_NOT_REACHED();
 }
 
 WebXRRigidTransform* XRProjectionLayer::deltaPose() const
 {
-    RELEASE_ASSERT_NOT_REACHED();
+    return m_transform.get();
 }
 
-void XRProjectionLayer::setDeltaPose(WebXRRigidTransform*)
+void XRProjectionLayer::setDeltaPose(WebXRRigidTransform* deltaPose)
 {
-    RELEASE_ASSERT_NOT_REACHED();
+    m_transform = deltaPose;
 }
 
 WebCore::WebGPU::XRProjectionLayer& XRProjectionLayer::backing()

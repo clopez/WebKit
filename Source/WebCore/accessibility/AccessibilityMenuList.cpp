@@ -26,6 +26,7 @@
 #include "config.h"
 #include "AccessibilityMenuList.h"
 
+#include "AXNotifications.h"
 #include "AXObjectCache.h"
 #include "AccessibilityMenuListPopup.h"
 #include "RenderMenuList.h"
@@ -34,7 +35,7 @@
 namespace WebCore {
 
 AccessibilityMenuList::AccessibilityMenuList(AXID axID, RenderMenuList& renderer, AXObjectCache& cache)
-    : AccessibilityRenderObject(axID, renderer)
+    : AccessibilityRenderObject(axID, renderer, cache)
     , m_popup(downcast<AccessibilityMenuListPopup>(*cache.create(AccessibilityRole::MenuListPopup)))
 {
 }

@@ -34,6 +34,7 @@
 
 namespace WebCore {
 class HTMLImageElement;
+enum class PointerLockRequestResult : uint8_t;
 }
 
 @class WebView;
@@ -150,12 +151,13 @@ private:
     void updateTextIndicator(const WebCore::TextIndicatorData&) const final;
 
 #if ENABLE(POINTER_LOCK)
-    bool requestPointerLock() final;
-    void requestPointerUnlock() final;
+    void requestPointerLock(CompletionHandler<void(WebCore::PointerLockRequestResult)>&&) final;
+    void requestPointerUnlock(CompletionHandler<void(bool)>&&) final;
 #endif
 
     WebCore::KeyboardUIMode keyboardUIMode() final;
 
+    bool hasAccessoryMousePointingDevice() const override { return true; }
     bool hoverSupportedByPrimaryPointingDevice() const override { return true; }
     bool hoverSupportedByAnyAvailablePointingDevice() const override { return true; }
     std::optional<WebCore::PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const override { return WebCore::PointerCharacteristics::Fine; }

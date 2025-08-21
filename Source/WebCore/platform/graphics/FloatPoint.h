@@ -26,8 +26,9 @@
 
 #pragma once
 
-#include "FloatSize.h"
-#include "IntPoint.h"
+#include <WebCore/DoublePoint.h>
+#include <WebCore/FloatSize.h>
+#include <WebCore/IntPoint.h>
 #include <wtf/Hasher.h>
 #include <wtf/MathExtras.h>
 #include <wtf/TZoneMalloc.h>
@@ -37,11 +38,7 @@ typedef struct CGPoint CGPoint;
 #endif
 
 #if PLATFORM(MAC)
-#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGPoint NSPoint;
-#else
-typedef struct _NSPoint NSPoint;
-#endif
 #endif // PLATFORM(MAC)
 
 namespace WTF {
@@ -62,6 +59,8 @@ public:
     constexpr FloatPoint(float x, float y) : m_x(x), m_y(y) { }
     WEBCORE_EXPORT FloatPoint(const IntPoint&);
     explicit FloatPoint(const FloatSize& size) : m_x(size.width()), m_y(size.height()) { }
+    explicit FloatPoint(const DoublePoint& point)
+        : m_x(static_cast<float>(point.x())), m_y(static_cast<float>(point.y())) { }
 
     static constexpr FloatPoint zero() { return FloatPoint(); }
     constexpr bool isZero() const { return !m_x && !m_y; }
@@ -172,14 +171,14 @@ public:
         return { m_y, m_x };
     }
 
+    FloatPoint scaledBy(float scale) const
+    {
+        return FloatPoint(m_x * scale, m_y * scale);
+    }
+
 #if USE(CG)
     WEBCORE_EXPORT FloatPoint(const CGPoint&);
     WEBCORE_EXPORT operator CGPoint() const;
-#endif
-
-#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
-    WEBCORE_EXPORT FloatPoint(const NSPoint&);
-    WEBCORE_EXPORT operator NSPoint() const;
 #endif
 
 #if PLATFORM(WIN)
@@ -194,6 +193,8 @@ public:
 
     WEBCORE_EXPORT String toJSONString() const;
     WEBCORE_EXPORT Ref<JSON::Object> toJSONObject() const;
+
+    operator DoublePoint() const { return { m_x, m_y }; }
 
     friend bool operator==(const FloatPoint&, const FloatPoint&) = default;
 
@@ -266,6 +267,13 @@ inline IntSize flooredIntSize(const FloatPoint& p)
 {
     return IntSize(clampToInteger(floorf(p.x())), clampToInteger(floorf(p.y())));
 }
+
+#if USE(CG)
+inline IntPoint roundedIntPoint(const CGPoint& p)
+{
+    return IntPoint(clampToInteger(roundf(p.x)), clampToInteger(roundf(p.y)));
+}
+#endif
 
 inline IntPoint roundedIntPoint(const FloatPoint& p)
 {

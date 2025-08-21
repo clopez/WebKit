@@ -74,7 +74,7 @@ enum GeneratedOperandType { GeneratedOperandTypeUnknown, GeneratedOperandInteger
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
 class SpeculativeJIT : public JITCompiler {
     using Base = JITCompiler;
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(SpeculativeJIT, SpeculativeJIT);
     friend struct OSRExit;
 private:
     typedef JITCompiler::TrustedImm32 TrustedImm32;
@@ -1938,8 +1938,8 @@ public:
     void speculateDateObject(Edge);
     void speculateDateObject(Edge, GPRReg cell);
     void speculateMapObject(Edge);
-    void speculateImmutableButterfly(Edge, GPRReg);
-    void speculateImmutableButterfly(Edge);
+    void speculateCellButterfly(Edge, GPRReg);
+    void speculateCellButterfly(Edge);
     void speculateMapObject(Edge, GPRReg cell);
     void speculateSetObject(Edge);
     void speculateSetObject(Edge, GPRReg cell);
@@ -1993,6 +1993,11 @@ public:
 
     unsigned appendOSRExit(OSRExit&&, bool isExceptionHandler = false);
     unsigned appendExceptionHandlingOSRExit(ExitKind, unsigned eventStreamIndex, CodeOrigin, HandlerInfo* exceptionHandler, CallSiteIndex, MacroAssembler::JumpList jumpsToFail = MacroAssembler::JumpList());
+
+#if USE(JSVALUE64)
+    void unboxRealNumberDouble(Node*, FPRReg boxedFPR, FPRReg resultFPR, GPRReg scratchGPR);
+    void boxDoubleAsDouble(FPRReg inputFPR, FPRReg resultFPR);
+#endif
 
     template<bool strict>
     GPRReg fillSpeculateInt32Internal(Edge, DataFormat& returnFormat);

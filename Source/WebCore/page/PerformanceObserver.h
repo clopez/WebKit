@@ -25,8 +25,10 @@
 
 #pragma once
 
+#include "Performance.h"
 #include "PerformanceEntry.h"
 #include "PerformanceObserverCallback.h"
+#include "dom/DOMHighResTimeStamp.h"
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -44,6 +46,7 @@ public:
         std::optional<Vector<String>> entryTypes;
         std::optional<String> type;
         bool buffered;
+        std::optional<DOMHighResTimeStamp> durationThreshold;
     };
 
     static Ref<PerformanceObserver> create(ScriptExecutionContext& context, Ref<PerformanceObserverCallback>&& callback)
@@ -69,6 +72,7 @@ public:
 
     bool isRegistered() const { return m_registered; }
     PerformanceObserverCallback& callback() { return m_callback.get(); }
+    Seconds durationThreshold() const { return m_durationThreshold; }
 
 private:
     PerformanceObserver(ScriptExecutionContext&, Ref<PerformanceObserverCallback>&&);
@@ -82,6 +86,7 @@ private:
     bool m_registered { false };
     bool m_isTypeObserver { false };
     bool m_hasNavigationTiming { false };
+    Seconds m_durationThreshold = PerformanceEventTiming::defaultDurationThreshold;
 };
 
 } // namespace WebCore

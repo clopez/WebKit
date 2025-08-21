@@ -27,17 +27,39 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "InstanceMethodSwizzler.h"
 #import "PlatformUtilities.h"
 #import "TestWKWebView.h"
 #import "UIKitSPIForTesting.h"
 #import "UserInterfaceSwizzler.h"
 #import "WKBrowserEngineDefinitions.h"
+#import <WebCore/ColorCocoa.h>
+#import <WebCore/ColorSerialization.h>
 #import <WebCore/WebEvent.h>
+#import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
+#import <WebKit/_WKFeature.h>
 
 constexpr CGFloat blackColorComponents[4] = { 0, 0, 0, 1 };
 constexpr CGFloat whiteColorComponents[4] = { 1, 1, 1, 1 };
+
+@interface UIView (TestWebKitAPI)
+- (BOOL)_appearsBeforeViewInSubviewOrder:(UIView *)view;
+@end
+
+@implementation UIView (TestWebKitAPI)
+
+- (BOOL)_appearsBeforeViewInSubviewOrder:(UIView *)view
+{
+    if (!view || view.superview != self.superview)
+        return false;
+
+    RetainPtr subviews = [self.superview subviews];
+    return [subviews count] && [subviews indexOfObject:self] < [subviews indexOfObject:view];
+}
+
+@end
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
 
@@ -594,6 +616,143 @@ TEST(WKScrollViewTests, ColorExtensionViewsWhenZoomedIn)
     [webView waitForNextVisibleContentRectUpdate];
     [webView waitForNextPresentationUpdate];
     EXPECT_EQ([topColorExtension frame], CGRectMake(0, 0, 600, 50));
+}
+
+TEST(WKScrollViewTests, ColorExtensionViewsDuringAnimatedResize)
+{
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    RetainPtr preferences = [configuration preferences];
+    for (_WKFeature *feature in WKPreferences._features) {
+        if ([feature.key isEqualToString:@"AutomaticLiveResizeEnabled"]) {
+            [preferences _setEnabled:YES forFeature:feature];
+            break;
+        }
+    }
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 300) configuration:configuration.get()]);
+    RetainPtr window = [webView window];
+
+    static CGSize windowSceneSize = CGSizeZero;
+    InstanceMethodSwizzler boundsSwizzler {
+        [window windowScene].effectiveGeometry.coordinateSpace.class,
+        @selector(bounds),
+        imp_implementationWithBlock(^{
+            return CGRect { CGPointZero, windowSceneSize };
+        })
+    };
+
+    auto insets = UIEdgeInsetsMake(50, 0, 0, 0);
+    [webView setObscuredContentInsets:insets];
+
+    RetainPtr scrollView = [webView scrollView];
+    [scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    [scrollView setContentInset:insets];
+
+    [webView synchronouslyLoadTestPageNamed:@"top-fixed-element"];
+    [webView waitForNextPresentationUpdate];
+
+    auto targetSizes = std::array {
+        CGSizeMake(600, 400),
+        CGSizeMake(700, 500),
+        CGSizeMake(800, 600),
+        CGSizeMake(900, 700),
+        CGSizeMake(1000, 800),
+    };
+
+    RetainPtr topColorExtension = [webView _colorExtensionViewForTesting:UIRectEdgeTop];
+    for (auto size : targetSizes) {
+        windowSceneSize = size;
+        auto newFrame = CGRectMake(0, 0, size.width, size.height);
+        [window setFrame:newFrame];
+        [webView setFrame:newFrame];
+        [webView waitForNextPresentationUpdate];
+        EXPECT_EQ([topColorExtension frame], CGRectMake(0, -50, size.width, 50));
+    }
+}
+
+TEST(WKScrollViewTests, ShouldSuppressTopColorExtensionView)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)]);
+
+    auto insets = UIEdgeInsetsMake(50, 0, 0, 0);
+    [webView setObscuredContentInsets:insets];
+
+    RetainPtr scrollView = [webView scrollView];
+    [scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    [scrollView setContentInset:insets];
+
+    [webView _setShouldSuppressTopColorExtensionView:YES];
+    [webView synchronouslyLoadTestPageNamed:@"top-fixed-element"];
+    [webView waitForNextPresentationUpdate];
+
+    EXPECT_NULL([webView _colorExtensionViewForTesting:UIRectEdgeTop]);
+
+    [webView _setShouldSuppressTopColorExtensionView:NO];
+    RetainPtr topColorExtension = [webView _colorExtensionViewForTesting:UIRectEdgeTop];
+    EXPECT_NOT_NULL(topColorExtension);
+    EXPECT_FALSE([topColorExtension isHidden]);
+
+    [webView _setShouldSuppressTopColorExtensionView:YES];
+    Util::waitForConditionWithLogging([topColorExtension] {
+        return [topColorExtension isHidden];
+    }, 5, @"Color extension view failed to hide");
+}
+
+TEST(WKScrollViewTests, TopColorExtensionViewAfterRemovingRefreshControl)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 800)]);
+    RetainPtr contentView = [webView wkContentView];
+    RetainPtr scrollView = [webView scrollView];
+
+    auto insets = UIEdgeInsetsMake(50, 0, 0, 0);
+    [webView setObscuredContentInsets:insets];
+
+    [scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    [scrollView setContentInset:insets];
+
+    RetainPtr refreshControl = adoptNS([[UIRefreshControl alloc] init]);
+    [scrollView setRefreshControl:refreshControl.get()];
+
+    [webView synchronouslyLoadTestPageNamed:@"top-fixed-element"];
+    [webView waitForNextPresentationUpdate];
+
+    RetainPtr topColorExtension = [webView _colorExtensionViewForTesting:UIRectEdgeTop];
+
+    [scrollView setContentOffset:CGPointMake(0, -100)];
+    [webView waitForNextVisibleContentRectUpdate];
+    EXPECT_TRUE([topColorExtension _appearsBeforeViewInSubviewOrder:refreshControl.get()]);
+
+    [scrollView setRefreshControl:nil];
+    [scrollView setContentOffset:CGPointMake(0, 100)];
+    [webView waitForNextVisibleContentRectUpdate];
+    EXPECT_TRUE([contentView _appearsBeforeViewInSubviewOrder:topColorExtension.get()]);
+}
+
+TEST(WKScrollViewTests, TopScrollPocketCaptureColorAfterSettingHardStyle)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 600, 400)]);
+    RetainPtr scrollView = [webView scrollView];
+
+    [scrollView topEdgeEffect].style = UIScrollEdgeEffectStyle.softStyle;
+
+    auto insets = UIEdgeInsetsMake(50, 0, 0, 0);
+    [webView setObscuredContentInsets:insets];
+
+    [scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
+    [scrollView setContentInset:insets];
+
+    [webView synchronouslyLoadTestPageNamed:@"top-fixed-element"];
+    [webView waitForNextPresentationUpdate];
+
+    EXPECT_NULL([scrollView _pocketColorForEdge:UIRectEdgeTop]);
+    EXPECT_FALSE([scrollView _prefersSolidColorHardPocketForEdge:UIRectEdgeTop]);
+
+    [scrollView topEdgeEffect].style = UIScrollEdgeEffectStyle.hardStyle;
+    [webView waitForNextPresentationUpdate];
+
+    auto topPocketColor = WebCore::colorFromCocoaColor([scrollView _pocketColorForEdge:UIRectEdgeTop]);
+    EXPECT_WK_STREQ("rgb(255, 99, 71)", WebCore::serializationForCSS(topPocketColor));
+    EXPECT_TRUE([scrollView _prefersSolidColorHardPocketForEdge:UIRectEdgeTop]);
 }
 
 #endif // HAVE(LIQUID_GLASS)

@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "RenderBoxModelObject.h"
-#include "RenderLineBoxList.h"
+#include <WebCore/RenderBoxModelObject.h>
+#include <WebCore/RenderLineBoxList.h>
 
 namespace WebCore {
 
@@ -131,7 +131,7 @@ protected:
     const RenderElement* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;
 
 private:
-    VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) final;
+    PositionWithAffinity positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) final;
 
     LayoutRect frameRectForStickyPositioning() const final { return linesBoundingBox(); }
 

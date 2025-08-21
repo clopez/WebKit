@@ -1,7 +1,6 @@
 Modules/airplay/WebMediaSessionManager.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
-Modules/gamepad/GamepadManager.cpp
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBIndex.cpp
 Modules/indexeddb/IDBTransaction.cpp
@@ -15,7 +14,6 @@ Modules/indexeddb/server/UniqueIDBDatabase.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
 Modules/mediasession/MediaMetadata.cpp
-Modules/mediasession/MediaSession.cpp
 Modules/mediastream/RTCController.cpp
 Modules/mediastream/RTCPeerConnection.cpp
 Modules/mediastream/RTCRtpScriptTransformer.cpp
@@ -42,12 +40,8 @@ Modules/websockets/WebSocketChannelInspector.cpp
 Modules/websockets/WorkerThreadableWebSocketChannel.cpp
 StyleBuilderGenerated.cpp
 StyleExtractorGenerated.cpp
-accessibility/AXImage.cpp
 accessibility/AXObjectCache.cpp
 accessibility/AXObjectCache.h
-accessibility/AXTextMarker.cpp
-accessibility/AccessibilityList.cpp
-accessibility/AccessibilityListBox.cpp
 accessibility/AccessibilityListBoxOption.cpp
 accessibility/AccessibilityMathMLElement.cpp
 accessibility/AccessibilityMenuList.cpp
@@ -62,7 +56,6 @@ accessibility/AccessibilityScrollView.cpp
 accessibility/AccessibilityScrollbar.cpp
 accessibility/AccessibilitySlider.cpp
 accessibility/AccessibilitySpinButton.cpp
-accessibility/AccessibilityTable.cpp
 accessibility/AccessibilityTableCell.cpp
 accessibility/cocoa/AccessibilityObjectCocoa.mm
 accessibility/isolatedtree/AXIsolatedTree.cpp
@@ -189,7 +182,6 @@ editing/ChangeListTypeCommand.cpp
 editing/CompositeEditCommand.cpp
 editing/DeleteSelectionCommand.cpp
 editing/Editing.cpp
-editing/EditingStyle.cpp
 editing/Editor.cpp
 editing/EditorCommand.cpp
 editing/FormatBlockCommand.cpp
@@ -221,8 +213,9 @@ editing/VisiblePosition.h
 editing/VisibleSelection.cpp
 editing/VisibleUnits.cpp
 editing/cocoa/AutofillElements.cpp
+editing/cocoa/EditingHTMLConverter.mm
 editing/cocoa/EditorCocoa.mm
-editing/cocoa/HTMLConverter.mm
+editing/cocoa/NodeHTMLConverter.mm
 editing/cocoa/WebContentReaderCocoa.mm
 editing/mac/EditorMac.mm
 editing/mac/FrameSelectionMac.mm
@@ -425,7 +418,6 @@ loader/appcache/ApplicationCacheGroup.cpp
 loader/appcache/ApplicationCacheStorage.cpp
 loader/archive/cf/LegacyWebArchive.cpp
 loader/cache/CachedImage.cpp
-loader/icon/IconLoader.cpp
 mathml/MathMLElement.cpp
 mathml/MathMLMathElement.cpp
 mathml/MathMLOperatorElement.cpp
@@ -439,7 +431,6 @@ page/DragController.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
 page/FocusController.cpp
-page/Frame.cpp
 page/FrameSnapshotting.cpp
 page/ImageOverlayController.cpp
 page/IntelligenceTextEffectsSupport.cpp
@@ -488,7 +479,6 @@ page/text-extraction/TextExtraction.cpp
 page/writing-tools/WritingToolsController.mm
 platform/DragImage.cpp
 platform/KeyboardScrollingAnimator.cpp
-platform/OrientationNotifier.h
 platform/ScrollAnimator.cpp
 platform/ScrollView.cpp
 platform/Scrollbar.cpp
@@ -597,7 +587,6 @@ rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerModelObject.cpp
 rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
-rendering/RenderLineBreak.cpp
 rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
 rendering/RenderListMarker.cpp
@@ -659,7 +648,6 @@ rendering/mathml/RenderMathMLSpace.cpp
 rendering/mathml/RenderMathMLToken.cpp
 rendering/mathml/RenderMathMLUnderOver.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
-rendering/style/ContentData.cpp
 rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleInlines.h
 rendering/style/StyleCachedImage.cpp
@@ -697,7 +685,6 @@ rendering/svg/SVGTextBoxPainter.cpp
 rendering/svg/SVGTextChunk.cpp
 rendering/svg/SVGTextLayoutEngine.cpp
 rendering/svg/SVGTextLayoutEngineBaseline.cpp
-rendering/svg/SVGTextLayoutEngineSpacing.cpp
 rendering/svg/SVGTextMetrics.cpp
 rendering/svg/SVGTextQuery.cpp
 rendering/svg/SVGVisitedRendererTracking.h
@@ -771,6 +758,7 @@ style/Styleable.cpp
 style/Styleable.h
 style/values/color/StyleColor.cpp
 style/values/color/StyleKeywordColor.cpp
+style/values/content/StyleContent.cpp
 style/values/grid/StyleGridPositionsResolver.cpp
 style/values/primitives/StyleLengthResolution.cpp
 svg/SVGAElement.cpp

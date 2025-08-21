@@ -61,6 +61,7 @@ enum class ThirdPartyCookieBlockingMode : uint8_t;
 namespace WebKit {
 
 class NetworkSession;
+class StorageAccessPermissionChangeObserver;
 class ResourceLoadStatisticsStore;
 class WebFrameProxy;
 class WebProcessProxy;
@@ -95,7 +96,7 @@ struct RegistrableDomainsToDeleteOrRestrictWebsiteDataFor {
 };
 
 class WebResourceLoadStatisticsStore final : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebResourceLoadStatisticsStore, WTF::DestructionThread::Main>, public CanMakeThreadSafeCheckedPtr<WebResourceLoadStatisticsStore> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(WebResourceLoadStatisticsStore);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebResourceLoadStatisticsStore);
 public:
     using ResourceLoadStatistics = WebCore::ResourceLoadStatistics;
@@ -130,7 +131,7 @@ public:
     void populateMemoryStoreFromDisk(CompletionHandler<void()>&&);
     void setShouldClassifyResourcesBeforeDataRecordsRemoval(bool, CompletionHandler<void()>&&);
 
-    void grantStorageAccess(SubFrameDomain&&, TopFrameDomain&&, WebCore::FrameIdentifier, WebCore::PageIdentifier, StorageAccessPromptWasShown, StorageAccessScope, CompletionHandler<void(RequestStorageAccessResult)>&&);
+    void grantStorageAccess(SubFrameDomain&&, TopFrameDomain&&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, StorageAccessPromptWasShown, StorageAccessScope, CompletionHandler<void(RequestStorageAccessResult)>&&);
 
     void logFrameNavigation(NavigatedToDomain&&, TopFrameDomain&&, NavigatedFromDomain&&, bool isRedirect, bool isMainFrame, Seconds delayAfterMainFrameDocumentLoad, bool wasPotentiallyInitiatedByUser);
     void logUserInteraction(TopFrameDomain&&, CompletionHandler<void()>&&);
@@ -147,7 +148,8 @@ public:
     void hasHadUserInteraction(RegistrableDomain&&, CompletionHandler<void(bool)>&&);
     void hasStorageAccess(SubFrameDomain&&, TopFrameDomain&&, std::optional<WebCore::FrameIdentifier>, WebCore::PageIdentifier, CompletionHandler<void(bool)>&&);
     bool hasStorageAccessForFrame(const SubFrameDomain&, const TopFrameDomain&, WebCore::FrameIdentifier, WebCore::PageIdentifier);
-    void requestStorageAccess(SubFrameDomain&&, TopFrameDomain&&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, StorageAccessScope,  CompletionHandler<void(RequestStorageAccessResult)>&&);
+    void requestStorageAccess(SubFrameDomain&&, TopFrameDomain&&, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, StorageAccessScope, WebCore::HasOrShouldIgnoreUserGesture, CompletionHandler<void(RequestStorageAccessResult)>&&);
+    void queryStorageAccessPermission(SubFrameDomain&&, TopFrameDomain&&, CompletionHandler<void(WebCore::PermissionState)>&&);
     void setLoginStatus(RegistrableDomain&&, IsLoggedIn, std::optional<LoginStatus>&&, CompletionHandler<void()>&&);
     void isLoggedIn(RegistrableDomain&&, CompletionHandler<void(bool)>&&);
     void setLastSeen(RegistrableDomain&&, Seconds, CompletionHandler<void()>&&);
@@ -229,6 +231,13 @@ public:
     void clearFrameLoadRecordsForStorageAccess(WebCore::FrameIdentifier);
     void clearFrameLoadRecordsForStorageAccess(WebPageProxyIdentifier);
 
+    void setStorageAccessPermissionForTesting(bool, WebPageProxyIdentifier, RegistrableDomain&& topFrameDomain, RegistrableDomain&& subFrameDomain, CompletionHandler<void()>&&);
+    void wasRevokedStorageAccessPermissionInPage(WebPageProxyIdentifier);
+
+    void startListeningForStorageAccessPermissionChanges(StorageAccessPermissionChangeObserver&, TopFrameDomain&&, SubFrameDomain&&);
+    void stopListeningForStorageAccessPermissionChanges(StorageAccessPermissionChangeObserver&, TopFrameDomain&&, SubFrameDomain&&);
+    void stopListeningForStorageAccessPermissionChanges(StorageAccessPermissionChangeObserver&);
+
 private:
     explicit WebResourceLoadStatisticsStore(NetworkSession&, const String&, ShouldIncludeLocalhost, WebCore::ResourceLoadStatistics::IsEphemeral);
 
@@ -251,6 +260,8 @@ private:
     void destroyResourceLoadStatisticsStore(CompletionHandler<void()>&&);
     StorageAccessWasGranted storageAccessWasGrantedValueForFrame(WebCore::FrameIdentifier, const WebCore::RegistrableDomain&);
 
+    void wasGrantedStorageAccessPermissionInPage(WebPageProxyIdentifier, const RegistrableDomain& topFrameDomain, const RegistrableDomain& subFrameDomain);
+
     WeakPtr<NetworkSession> m_networkSession;
     const Ref<SuspendableWorkQueue> m_statisticsQueue;
     RefPtr<ResourceLoadStatisticsStore> m_statisticsStore;
@@ -263,6 +274,7 @@ private:
     HashSet<RegistrableDomain> m_domainsWithUserInteractionQuirk;
     HashMap<TopFrameDomain, Vector<SubResourceDomain>> m_domainsWithCrossPageStorageAccessQuirk;
     HashMap<RegistrableDomain, std::pair<IsLoggedIn, std::optional<WebCore::LoginStatus>>> m_loginStatus;
+    HashMap<WebPageProxyIdentifier, HashSet<std::pair<TopFrameDomain, SubFrameDomain>>> m_domainsGrantedStorageAccessPermissionInPage;
 
     bool m_hasScheduledProcessStats { false };
     bool m_firstNetworkProcessCreated { false };
@@ -274,6 +286,7 @@ private:
     };
     using StorageAccessRequestRecordKey = std::pair<WebCore::FrameIdentifier, RegistrableDomain>;
     HashMap<StorageAccessRequestRecordKey, StorageAccessRequestRecordValue> m_storageAccessRequestRecords;
+    HashMap<std::pair<RegistrableDomain, RegistrableDomain>, WeakHashSet<StorageAccessPermissionChangeObserver>> m_storageAccessPermissionChangeObservers;
 };
 
 } // namespace WebKit

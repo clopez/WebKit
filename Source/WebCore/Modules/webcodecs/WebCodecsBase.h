@@ -27,8 +27,8 @@
 
 #if ENABLE(WEB_CODECS)
 
-#include "ActiveDOMObject.h"
-#include "EventTarget.h"
+#include <WebCore/ActiveDOMObject.h>
+#include <WebCore/EventTarget.h>
 #include "WebCodecsCodecState.h"
 #include <wtf/Deque.h>
 #include <wtf/TZoneMalloc.h>
@@ -59,7 +59,7 @@ public:
 
 protected:
     WebCodecsBase(ScriptExecutionContext&);
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
+    ScriptExecutionContext* scriptExecutionContext() const final;
 
     void setState(WebCodecsCodecState state) { m_state = state; }
 

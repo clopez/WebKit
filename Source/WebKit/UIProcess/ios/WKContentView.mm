@@ -59,7 +59,7 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
 #import <CoreGraphics/CoreGraphics.h>
-#import <WebCore/AccessibilityObject.h>
+#import <WebCore/AXRemoteTokenIOS.h>
 #import <WebCore/FloatConversion.h>
 #import <WebCore/FloatQuad.h>
 #import <WebCore/InspectorOverlay.h>
@@ -80,12 +80,17 @@
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 #import <wtf/threads/BinarySemaphore.h>
-#import "AppKitSoftLink.h"
 
 #if USE(EXTENSIONKIT)
 #import <UIKit/UIInteraction.h>
 #import "ExtensionKitSPI.h"
 #endif
+
+#if ENABLE(MODEL_PROCESS)
+#import "ModelPresentationManagerProxy.h"
+#endif
+
+#import "AppKitSoftLink.h"
 
 @interface _WKPrintFormattingAttributes : NSObject
 @property (nonatomic, readonly) size_t pageCount;
@@ -581,7 +586,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _page->setScreenIsBeingCaptured([self screenIsBeingCaptured]);
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    RunLoop::protectedMain()->dispatch([strongSelf = retainPtr(self)] {
+    RunLoop::mainSingleton().dispatch([strongSelf = retainPtr(self)] {
         if (![strongSelf window])
             return;
 
@@ -714,6 +719,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
         !!_sizeChangedSinceLastVisibleContentRectUpdate,
         !!self.webView._allowsViewportShrinkToFit,
         !!enclosedInScrollableAncestorView,
+        self.webView->_needsScrollend,
         velocityData,
         downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedMainFrameLayerTreeTransactionID());
 
@@ -727,6 +733,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
     _page->adjustLayersForLayoutViewport(_page->unobscuredContentRect().location(), layoutViewport, _page->displayedContentScale());
 
     _sizeChangedSinceLastVisibleContentRectUpdate = NO;
+    self.webView->_needsScrollend = NO;
 
     drawingArea->updateDebugIndicator();
 
@@ -738,6 +745,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
 
 - (void)didFinishScrolling
 {
+    self.webView->_needsScrollend = YES;
     [self _didEndScrollingOrZooming];
 }
 
@@ -1084,6 +1092,14 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 {
     return [_webView _targetContentZoomScaleForRect:targetRect currentScale:currentScale fitEntireRect:fitEntireRect minimumScale:minimumScale maximumScale:maximumScale];
 }
+
+#if ENABLE(MODEL_PROCESS)
+- (void)_setTransform3DForModelViews:(CGFloat)newScale
+{
+    if (RefPtr modelPresentationManager = _page->modelPresentationManagerProxy())
+        modelPresentationManager->pageScaleDidChange(newScale);
+}
+#endif
 
 - (void)_applicationWillResignActive:(NSNotification*)notification
 {

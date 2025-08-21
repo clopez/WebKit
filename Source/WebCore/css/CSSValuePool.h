@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "CSSColorValue.h"
-#include "CSSPrimitiveValue.h"
-#include "ColorHash.h"
+#include <WebCore/CSSColorValue.h>
+#include <WebCore/CSSPrimitiveValue.h>
+#include <WebCore/ColorHash.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/AtomStringHash.h>
@@ -66,7 +66,7 @@ WEBCORE_EXPORT extern LazyNeverDestroyed<StaticCSSValuePool> staticCSSValuePool;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSValuePool);
 class CSSValuePool {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CSSValuePool);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CSSValuePool, CSSValuePool);
     WTF_MAKE_NONCOPYABLE(CSSValuePool);
 public:
     CSSValuePool();

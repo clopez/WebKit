@@ -27,9 +27,9 @@
 
 #if ENABLE(NOTIFICATIONS)
 
-#include "Notification.h"
-#include "SharedBuffer.h"
-#include "ThreadableLoader.h"
+#include <WebCore/Notification.h>
+#include <WebCore/SharedBuffer.h>
+#include <WebCore/ThreadableLoader.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>
@@ -55,7 +55,7 @@ private:
     static bool resourceIsSupportedInPlatform(Resource);
 
     class ResourceLoader final : public ThreadableLoaderClient {
-        WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ResourceLoader, ResourceLoader);
         WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ResourceLoader);
     public:
         ResourceLoader(ScriptExecutionContext&, const URL&, CompletionHandler<void(ResourceLoader*, RefPtr<BitmapImage>&&)>&&);

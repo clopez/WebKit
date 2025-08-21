@@ -25,18 +25,18 @@
 
 #pragma once
 
-#include "ARM64Assembler.h"
-#include "AbortReason.h"
-#include "AssemblerBuffer.h"
-#include "AssemblerCommon.h"
-#include "AssemblyComments.h"
-#include "CPU.h"
-#include "CodeLocation.h"
-#include "JSCJSValue.h"
-#include "JSCPtrTag.h"
-#include "MacroAssemblerCodeRef.h"
-#include "MacroAssemblerHelpers.h"
-#include "Options.h"
+#include <JavaScriptCore/ARM64Assembler.h>
+#include <JavaScriptCore/AbortReason.h>
+#include <JavaScriptCore/AssemblerBuffer.h>
+#include <JavaScriptCore/AssemblerCommon.h>
+#include <JavaScriptCore/AssemblyComments.h>
+#include <JavaScriptCore/CPU.h>
+#include <JavaScriptCore/CodeLocation.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSCPtrTag.h>
+#include <JavaScriptCore/MacroAssemblerCodeRef.h>
+#include <JavaScriptCore/MacroAssemblerHelpers.h>
+#include <JavaScriptCore/Options.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SharedTask.h>
@@ -1085,7 +1085,7 @@ public:
 
     void emitNops(size_t memoryToFillWithNopsInBytes)
     {
-#if CPU(ARM64)
+#if CPU(ARM64) || CPU(ARM)
         RELEASE_ASSERT(memoryToFillWithNopsInBytes % 4 == 0);
         for (unsigned i = 0; i < memoryToFillWithNopsInBytes / 4; ++i)
             m_assembler.nop();
@@ -1094,7 +1094,7 @@ public:
         size_t startCodeSize = buffer.codeSize();
         size_t targetCodeSize = startCodeSize + memoryToFillWithNopsInBytes;
         buffer.ensureSpace(memoryToFillWithNopsInBytes);
-        AssemblerType::template fillNops<MachineCodeCopyMode::Memcpy>(static_cast<char*>(buffer.data()) + startCodeSize, memoryToFillWithNopsInBytes);
+        AssemblerType::fillNops(static_cast<char*>(buffer.data()) + startCodeSize, memoryToFillWithNopsInBytes);
         buffer.setCodeSize(targetCodeSize);
 #endif
     }
@@ -1250,4 +1250,3 @@ void printInternal(PrintStream& out, JSC::AbstractMacroAssemblerBase::StatusCond
 } // namespace WTF
 
 #endif // ENABLE(ASSEMBLER)
-

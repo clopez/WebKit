@@ -1192,6 +1192,7 @@ bool Quirks::requiresUserGestureToPauseInPictureInPicture() const
 }
 
 // bbc.co.uk: rdar://126494734
+// bbc.com: rdar://157499149
 bool Quirks::returnNullPictureInPictureElementDuringFullscreenChange() const
 {
     return needsQuirks() && m_quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk;
@@ -1457,10 +1458,6 @@ bool Quirks::needsIPadMiniUserAgent(const URL& url)
     if (host == "roblox.com"_s || host.endsWith(".roblox.com"_s))
         return true;
 
-    // FIXME: Remove this quirk when <rdar://122481999> is complete.
-    if (host == "spotify.com"_s || host.endsWith(".spotify.com"_s) || host.endsWith(".spotifycdn.com"_s))
-        return true;
-
     // FIXME: Remove this quirk if seatguru decides to adjust their site. See https://webkit.org/b/276947
     if (host == "seatguru.com"_s || host.endsWith(".seatguru.com"_s))
         return true;
@@ -1540,6 +1537,15 @@ bool Quirks::shouldUseEphemeralPartitionedStorageForDOMCookies(const URL& url) c
         return true;
 
     return false;
+}
+
+// rdar://155649992
+bool Quirks::shouldAllowDownloadsInSpiteOfCSP() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return isDomain("dropbox.com"_s);
 }
 
 // rdar://127398734
@@ -1770,7 +1776,7 @@ bool Quirks::shouldAvoidStartingSelectionOnMouseDownOverPointerCursor(const Node
         return false;
 
     if (CheckedPtr style = target.renderStyle()) {
-        if (style->cursor() == CursorType::Pointer)
+        if (style->cursorType() == CursorType::Pointer)
             return true;
     }
 
@@ -1891,6 +1897,16 @@ bool Quirks::needsLimitedMatroskaSupport() const
 #endif
 }
 
+bool Quirks::needsCustomUserAgentData() const
+{
+    return needsQuirks() && m_quirksData.needsCustomUserAgentData;
+}
+
+bool Quirks::needsNavigatorUserAgentDataQuirk() const
+{
+    return needsQuirks() && m_quirksData.needsNavigatorUserAgentDataQuirk;
+}
+
 bool Quirks::needsNowPlayingFullscreenSwapQuirk() const
 {
     return needsQuirks() && m_quirksData.needsNowPlayingFullscreenSwapQuirk;
@@ -1934,6 +1950,11 @@ bool Quirks::shouldEnterNativeFullscreenWhenCallingElementRequestFullscreenQuirk
 bool Quirks::shouldDelayReloadWhenRegisteringServiceWorker() const
 {
     return needsQuirks() && m_quirksData.shouldDelayReloadWhenRegisteringServiceWorker;
+}
+
+bool Quirks::shouldDisableDOMAudioSessionQuirk() const
+{
+    return needsQuirks() && m_quirksData.shouldDisableDOMAudioSession;
 }
 
 URL Quirks::topDocumentURL() const
@@ -2171,6 +2192,18 @@ static void handleICloudQuirks(QuirksData& quirksData, const URL& quirksURL, con
 }
 #endif
 
+static void handleTMobileQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
+{
+    UNUSED_PARAM(quirksDomainString);
+    UNUSED_PARAM(documentURL);
+    auto topDocumentHost = quirksURL.host();
+    if (topDocumentHost != "digits.t-mobile.com")
+        return;
+
+    quirksData.needsNavigatorUserAgentDataQuirk = true;
+    quirksData.needsCustomUserAgentData = true;
+}
+
 #if PLATFORM(MAC)
 static void handleCEACStateGovQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
 {
@@ -2389,8 +2422,9 @@ static void handleBBCQuirks(QuirksData& quirksData, const URL& quirksURL, const 
     UNUSED_PARAM(quirksURL);
     UNUSED_PARAM(documentURL);
 
-    if (quirksDomainString == "bbc.co.uk"_s) {
+    if (quirksDomainString == "bbc.co.uk"_s || quirksDomainString == "bbc.com"_s) {
         // bbc.co.uk rdar://126494734
+        // bbc.com rdar://157499149
         quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk = true;
     }
 }
@@ -2431,6 +2465,17 @@ static void handleBungalowQuirks(QuirksData& quirksData, const URL& quirksURL, c
     UNUSED_PARAM(documentURL);
     // bungalow.com rdar://61658940
     quirksData.shouldBypassAsyncScriptDeferring = true;
+}
+
+static void handleDescriptQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
+{
+    if (quirksDomainString != "descript.com"_s)
+        return;
+
+    UNUSED_PARAM(quirksURL);
+    UNUSED_PARAM(documentURL);
+    // descript.com rdar://156024693
+    quirksData.shouldDisableDOMAudioSession = true;
 }
 
 static void handleESPNQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
@@ -2488,7 +2533,7 @@ static void handleGoogleQuirks(QuirksData& quirksData, const URL& quirksURL, con
         quirksData.needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk = startsWithLettersIgnoringASCIICase(quirksURL.path(), "/spreadsheets/"_s);
     } else if (topDocumentHost == "mail.google.com"_s) {
         // mail.google.com rdar://49403416
-        quirksData.needsGMailOverflowScrollQuirk =true;
+        quirksData.needsGMailOverflowScrollQuirk = true;
     } else if (topDocumentHost == "translate.google.com"_s) {
         // translate.google.com rdar://106539018
         quirksData.needsGoogleTranslateScrollingQuirk = true;
@@ -2974,6 +3019,8 @@ void Quirks::determineRelevantQuirks()
         { "digitaltrends"_s, &handleDigitalTrendsQuirks },
         { "steampowered"_s, &handleSteamQuirks },
 #endif
+        { "t-mobile"_s, &handleTMobileQuirks },
+        { "descript"_s, &handleDescriptQuirks },
 #if PLATFORM(IOS_FAMILY)
         { "disneyplus"_s, &handleDisneyPlusQuirks },
 #endif
@@ -3019,7 +3066,7 @@ void Quirks::determineRelevantQuirks()
         { "ralphlauren"_s, &handleRalphLaurenQuirks },
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-        { "reddit"_s, & handleRedditQuirks },
+        { "reddit"_s, &handleRedditQuirks },
 #endif
         { "sfusd"_s, &handleSFUSDQuirks },
 #if PLATFORM(IOS_FAMILY)

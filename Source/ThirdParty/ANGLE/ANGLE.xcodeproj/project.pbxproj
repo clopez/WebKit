@@ -485,6 +485,7 @@
 		7BA890622CB522F40020C411 /* context_private_call_autogen.h in Headers */ = {isa = PBXBuildFile; fileRef = 7BA890612CB522F40020C411 /* context_private_call_autogen.h */; };
 		7BA890652CB5234E0020C411 /* BuiltIn_autogen.h in Headers */ = {isa = PBXBuildFile; fileRef = 7BA890642CB5234E0020C411 /* BuiltIn_autogen.h */; };
 		7BA890662CB5234E0020C411 /* BuiltIn_autogen.h in Headers */ = {isa = PBXBuildFile; fileRef = 7BA890642CB5234E0020C411 /* BuiltIn_autogen.h */; };
+		7BAE34A62E4121A5006BDDA7 /* libWebKitAdditions.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 7BE34ADA2E019371001AD21A /* libWebKitAdditions.a */; };
 		7BB2CF222B1A554B00848B36 /* PreTransformTextureCubeGradDerivatives.h in Headers */ = {isa = PBXBuildFile; fileRef = 7BB2CF202B1A554B00848B36 /* PreTransformTextureCubeGradDerivatives.h */; };
 		7BB2CF232B1A554B00848B36 /* PreTransformTextureCubeGradDerivatives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7BB2CF212B1A554B00848B36 /* PreTransformTextureCubeGradDerivatives.cpp */; };
 		7BB62F522AA2008600C1DDA8 /* RescopeGlobalVariables.h in Headers */ = {isa = PBXBuildFile; fileRef = 7BB62F502AA2008600C1DDA8 /* RescopeGlobalVariables.h */; };
@@ -664,7 +665,6 @@
 		7BDE1EF62DED90D7007E43DC /* gtest.framework in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 7BDE1EF22DED90B6007E43DC /* gtest.framework */; };
 		7BDE1EFB2DED923F007E43DC /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BDE1EFA2DED923F007E43DC /* libgtest.a */; };
 		7BDE1EFC2DED9248007E43DC /* libgtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BDE1EFA2DED923F007E43DC /* libgtest.a */; };
-		7BE34ADB2E019371001AD21A /* libWebKitAdditions.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BE34ADA2E019371001AD21A /* libWebKitAdditions.a */; };
 		7BE34ADC2E01938A001AD21A /* libWebKitAdditions.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 7BE34ADA2E019371001AD21A /* libWebKitAdditions.a */; };
 		7BE34ADE2E0193AC001AD21A /* libWebKitAdditions.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 7BE34ADA2E019371001AD21A /* libWebKitAdditions.a */; };
 		7BF554C42C81EF29002B101E /* libtranslator.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BF5549B2C81EDE0002B101E /* libtranslator.a */; };
@@ -1584,6 +1584,7 @@
 			dstSubfolderSpec = 16;
 			files = (
 				7BDE1EF62DED90D7007E43DC /* gtest.framework in Product Dependencies */,
+				7BAE34A62E4121A5006BDDA7 /* libWebKitAdditions.a in Product Dependencies */,
 			);
 			name = "Product Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1603,7 +1604,7 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 7;
+			dstSubfolderSpec = 16;
 			files = (
 				7BE34ADE2E0193AC001AD21A /* libWebKitAdditions.a in Product Dependencies */,
 			);
@@ -2870,7 +2871,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7BE34ADB2E019371001AD21A /* libWebKitAdditions.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

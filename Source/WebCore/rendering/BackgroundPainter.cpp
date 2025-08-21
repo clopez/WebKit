@@ -500,6 +500,7 @@ void BackgroundPainter::paintFillLayer(const Color& color, const FillLayer& bgLa
                 m_renderer.chooseInterpolationQuality(context, *image, &bgLayer, geometry.tileSize),
                 document().settings().imageSubsamplingEnabled() ? AllowImageSubsampling::Yes : AllowImageSubsampling::No,
                 document().settings().showDebugBorders() ? ShowDebugBackground::Yes : ShowDebugBackground::No,
+                m_paintInfo.paintBehavior.contains(PaintBehavior::DrawsHDRContent) ? DrawsHDRContent::Yes : DrawsHDRContent::No,
                 style.dynamicRangeLimit().toPlatformDynamicRangeLimit()
             };
 
@@ -647,7 +648,7 @@ BackgroundImageGeometry BackgroundPainter::calculateBackgroundImageGeometry(cons
 
     LayoutSize spaceSize;
     LayoutSize phase;
-    LayoutUnit computedXPosition = minimumValueForLength(fillLayer.xPosition(), availableWidth);
+    auto computedXPosition = Style::evaluate(fillLayer.xPosition(), availableWidth);
     if (backgroundRepeatX == FillRepeat::Round && positioningAreaSize.width() > 0 && tileSize.width() > 0) {
         int numTiles = std::max(1, roundToInt(positioningAreaSize.width() / tileSize.width()));
         if (fillLayer.size().size.height.isAuto() && backgroundRepeatY != FillRepeat::Round)
@@ -657,7 +658,7 @@ BackgroundImageGeometry BackgroundPainter::calculateBackgroundImageGeometry(cons
         phase.setWidth(tileSize.width() ? tileSize.width() - fmodf((computedXPosition + left), tileSize.width()) : 0);
     }
 
-    LayoutUnit computedYPosition = minimumValueForLength(fillLayer.yPosition(), availableHeight);
+    auto computedYPosition = Style::evaluate(fillLayer.yPosition(), availableHeight);
     if (backgroundRepeatY == FillRepeat::Round && positioningAreaSize.height() > 0 && tileSize.height() > 0) {
         int numTiles = std::max(1, roundToInt(positioningAreaSize.height() / tileSize.height()));
         if (fillLayer.size().size.width.isAuto() && backgroundRepeatX != FillRepeat::Round)

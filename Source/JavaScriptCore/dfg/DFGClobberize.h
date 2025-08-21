@@ -35,7 +35,7 @@
 #include "DOMJITCallDOMGetterSnippet.h"
 #include "DOMJITSignature.h"
 #include "InlineCallFrame.h"
-#include "JSImmutableButterfly.h"
+#include "JSCellButterfly.h"
 
 namespace JSC { namespace DFG {
 
@@ -782,6 +782,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case ConstructForwardVarargs:
     case CallDirectEval:
     case CallWasm:
+    case TailCallInlinedCallerWasm:
     case CallCustomAccessorGetter:
     case CallCustomAccessorSetter:
     case ToPrimitive:
@@ -2034,7 +2035,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         read(HeapObjectCount);
         write(HeapObjectCount);
 
-        auto* array = node->castOperand<JSImmutableButterfly*>();
+        auto* array = node->castOperand<JSCellButterfly*>();
         unsigned numElements = array->length();
         def(HeapLocation(ArrayLengthLoc, Butterfly_publicLength, node),
             LazyNode(graph.freeze(jsNumber(numElements))));

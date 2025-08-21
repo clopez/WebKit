@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "StyleGridPosition.h"
+#include <WebCore/StyleGridPosition.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
@@ -38,7 +38,7 @@ namespace WebCore {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleGridItemData);
 class StyleGridItemData : public RefCounted<StyleGridItemData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleGridItemData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleGridItemData, StyleGridItemData);
 public:
     static Ref<StyleGridItemData> create() { return adoptRef(*new StyleGridItemData); }
     Ref<StyleGridItemData> copy() const;

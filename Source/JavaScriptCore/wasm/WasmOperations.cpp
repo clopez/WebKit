@@ -48,7 +48,6 @@
 #include "WasmCallee.h"
 #include "WasmCallingConvention.h"
 #include "WasmContext.h"
-#include "WasmLLIntGenerator.h"
 #include "WasmMemory.h"
 #include "WasmModuleInformation.h"
 #include "WasmOMGPlan.h"
@@ -223,6 +222,12 @@ JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildReturnFrame, EncodedJ
 
     auto calleeSPOffsetFromFP = -(static_cast<intptr_t>(callee->frameSize()) + JSEntrypointCallee::SpillStackSpaceAligned - JSEntrypointCallee::RegisterStackSpaceAligned);
 
+    auto fillArrayRemainderWithUndefined = [&](unsigned start) -> EncodedJSValue {
+        for (unsigned i = start; i < functionSignature.returnCount(); i++)
+            resultArray->initializeIndex(initializationScope, i, jsUndefined());
+        return encodedJSValue();
+    };
+
     for (unsigned i = 0; i < functionSignature.returnCount(); ++i) {
         ValueLocation loc = wasmFrameConvention.results[i].location;
         Type type = functionSignature.returnType(i);
@@ -234,7 +239,7 @@ JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildReturnFrame, EncodedJ
                 break;
             case TypeKind::I64:
                 result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(registerSpace, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister)));
-                OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+                OPERATION_RETURN_IF_EXCEPTION(scope, fillArrayRemainderWithUndefined(i));
                 break;
             case TypeKind::F32:
                 result = jsNumber(purifyNaN(*access.operator()<float>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(loc.fpr()) * bytesForWidth(Width::Width64))));
@@ -255,7 +260,7 @@ JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildReturnFrame, EncodedJ
                 break;
             case TypeKind::I64:
                 result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(callFrame, calleeSPOffsetFromFP + loc.offsetFromSP()));
-                OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+                OPERATION_RETURN_IF_EXCEPTION(scope, fillArrayRemainderWithUndefined(i));
                 break;
             case TypeKind::F32:
                 result = jsNumber(purifyNaN(*access.operator()<float>(callFrame, calleeSPOffsetFromFP + loc.offsetFromSP())));
@@ -341,10 +346,10 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
         case TypeKind::Arrayref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
-        case TypeKind::Nullexn:
-        case TypeKind::Nullref:
-        case TypeKind::Nullfuncref:
-        case TypeKind::Nullexternref:
+        case TypeKind::Noexnref:
+        case TypeKind::Noneref:
+        case TypeKind::Nofuncref:
+        case TypeKind::Noexternref:
         case TypeKind::I31ref:
         case TypeKind::Rec:
         case TypeKind::Sub:
@@ -355,7 +360,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
         case TypeKind::Ref:
         case TypeKind::Externref:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::I32: {
             if (wasmParam.isStackArgument()) {
                 uint64_t raw = *access.operator()<UCPURegister>(cfr, wasmParam.offsetFromSP() + sizeof(CallerFrameAndPC));
@@ -634,7 +639,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmToJSExitIterateResults, bool, (JS
     NativeCallFrameTracer tracer(vm, callFrame);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    const FunctionSignature* signature = type->as<FunctionSignature>();
+    SUPPRESS_UNCOUNTED_LOCAL const FunctionSignature* signature = type->as<FunctionSignature>();
 
     auto wasmCallInfo = wasmCallingConvention().callInformationFor(*type, CallRole::Callee);
 
@@ -1239,7 +1244,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe:
             context.gpr(value.gprLo(B3::ValueRep::OSRValueRep)) = encodedValue & 0xffffffff;
 #endif
         } else if (value.isFPR()) {
-            ASSERT(type.isFloat()); // We don't expect vectors from LLInt right now.
+            ASSERT(type.isFloat()); // We don't expect vectors from IPInt right now.
             context.fpr(value.fpr()) = encodedValue;
         } else if (value.isStack()) {
             auto* baseStore = std::bit_cast<uint8_t*>(context.fp()) + value.offsetFromFP();
@@ -1257,7 +1262,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe:
                 *std::bit_cast<double*>(baseStore) = std::bit_cast<double>(encodedValue);
                 break;
             case B3::V128:
-                RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("We shouldn't be receiving v128 values when tiering up from LLInt into BBQ.");
+                RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("We shouldn't be receiving v128 values when tiering up from IPInt into BBQ.");
                 break;
             default:
                 RELEASE_ASSERT_NOT_REACHED();
@@ -1619,7 +1624,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmStructNewEmpty, EncodedJSValue, (
     assertCalleeIsReferenced(callFrame, instance);
     VM& vm = instance->vm();
     NativeCallFrameTracer tracer(vm, callFrame);
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     auto* result = JSWebAssemblyStruct::tryCreate(vm, structure);
     if (!result) [[unlikely]]
         return JSValue::encode(jsNull());
@@ -1707,11 +1712,6 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmRethrow, void*, (JSWebAssemblyIns
     JSGlobalObject* globalObject = instance->globalObject();
 
     JSValue thrownValue = JSValue::decode(encodedThrownValue);
-    if (auto* exception = jsDynamicCast<JSWebAssemblyException*>(thrownValue)) {
-        if (&exception->tag() == &Wasm::Tag::jsExceptionTag())
-            thrownValue = JSValue::decode(exception->payload().at(0));
-    }
-
     throwException(globalObject, throwScope, thrownValue);
 
     genericUnwind(vm, callFrame);
@@ -1835,7 +1835,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNewEmpty, EncodedJSValue, (J
     NativeCallFrameTracer tracer(vm, callFrame);
 
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     auto* array = JSWebAssemblyArray::tryCreate(vm, structure, size);
     if (!array) [[unlikely]]
         return JSValue::encode(jsNull());

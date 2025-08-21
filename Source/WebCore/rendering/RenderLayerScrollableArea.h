@@ -44,8 +44,8 @@
 
 #pragma once
 
-#include "RenderLayer.h"
-#include "ScrollableArea.h"
+#include <WebCore/RenderLayer.h>
+#include <WebCore/ScrollableArea.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -120,8 +120,9 @@ public:
 
     Color scrollbarThumbColorStyle() const final;
     Color scrollbarTrackColorStyle() const final;
-    ScrollbarGutter scrollbarGutterStyle() const final;
+    Style::ScrollbarGutter scrollbarGutterStyle() const final;
     ScrollbarWidth scrollbarWidthStyle() const final;
+    std::optional<ScrollbarColor> scrollbarColorStyle() const final;
 
     bool requiresScrollPositionReconciliation() const { return m_requiresScrollPositionReconciliation; }
     void setRequiresScrollPositionReconciliation(bool requiresReconciliation = true) { m_requiresScrollPositionReconciliation = requiresReconciliation; }
@@ -305,6 +306,7 @@ private:
     void registerScrollableAreaForAnimatedScroll();
 
     float deviceScaleFactor() const final;
+    void scrollDidEnd() final;
 
 private:
     bool m_scrollDimensionsDirty { true };

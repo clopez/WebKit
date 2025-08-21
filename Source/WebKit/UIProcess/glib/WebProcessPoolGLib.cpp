@@ -28,7 +28,7 @@
 #include "config.h"
 #include "WebProcessPool.h"
 
-#include "DRMDevice.h"
+#include "DRMMainDevice.h"
 #include "LegacyGlobalSettings.h"
 #include "MemoryPressureMonitor.h"
 #include "WebMemoryPressureHandler.h"
@@ -62,7 +62,7 @@
 #endif
 
 #if PLATFORM(GTK)
-#include "AcceleratedBackingStoreDMABuf.h"
+#include "AcceleratedBackingStore.h"
 #include "Display.h"
 #include <gtk/gtk.h>
 #endif
@@ -191,15 +191,15 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if USE(GBM)
-    parameters.renderDeviceFile = drmRenderNodeDevice();
+    parameters.drmDevice = drmMainDevice();
 #endif
 
 #if PLATFORM(GTK)
-    parameters.rendererBufferTransportMode = AcceleratedBackingStoreDMABuf::rendererBufferTransportMode();
+    parameters.rendererBufferTransportMode = AcceleratedBackingStore::rendererBufferTransportMode();
 #elif ENABLE(WPE_PLATFORM)
     if (usingWPEPlatformAPI) {
 #if USE(GBM)
-        if (!parameters.renderDeviceFile.isEmpty())
+        if (!parameters.drmDevice.isNull())
             parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::Hardware);
 #endif
         parameters.rendererBufferTransportMode.add(RendererBufferTransportMode::SharedMemory);

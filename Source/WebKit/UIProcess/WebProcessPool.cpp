@@ -48,6 +48,7 @@
 #include "LegacyGlobalSettings.h"
 #include "LoadedWebArchive.h"
 #include "Logging.h"
+#include "ModelProcessConnectionParameters.h"
 #include "ModelProcessProxy.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
@@ -160,6 +161,7 @@
 
 #if ENABLE(EXTENSION_CAPABILITIES)
 #include "ExtensionCapabilityGrant.h"
+#include "ExtensionCapabilityGranter.h"
 #include "MediaCapability.h"
 #endif
 
@@ -256,26 +258,26 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_userObservablePageCounter([this](RefCounterEvent) { updateProcessSuppressionState(); })
     , m_processSuppressionDisabledForPageCounter([this](RefCounterEvent) { updateProcessSuppressionState(); })
     , m_hiddenPageThrottlingAutoIncreasesCounter([this](RefCounterEvent) { m_hiddenPageThrottlingTimer.startOneShot(0_s); })
-    , m_hiddenPageThrottlingTimer(RunLoop::main(), this, &WebProcessPool::updateHiddenPageThrottlingAutoIncreaseLimit)
+    , m_hiddenPageThrottlingTimer(RunLoop::mainSingleton(), "WebProcessPool::HiddenPageThrottlingTimer"_s, this, &WebProcessPool::updateHiddenPageThrottlingAutoIncreaseLimit)
 #if ENABLE(GPU_PROCESS)
-    , m_resetGPUProcessCrashCountTimer(RunLoop::main(), [this] { m_recentGPUProcessCrashCount = 0; })
+    , m_resetGPUProcessCrashCountTimer(RunLoop::mainSingleton(), "WebProcessPool::ResetGPUProcessCrashCountTimer"_s, [this] { m_recentGPUProcessCrashCount = 0; })
 #endif
 #if ENABLE(MODEL_PROCESS)
-    , m_resetModelProcessCrashCountTimer(RunLoop::main(), [this] { m_recentModelProcessCrashCount = 0; })
+    , m_resetModelProcessCrashCountTimer(RunLoop::mainSingleton(), "WebProcessPool::ResetModelProcessCrashCountTimer"_s, [this] { m_recentModelProcessCrashCount = 0; })
 #endif
     , m_foregroundWebProcessCounter([this](RefCounterEvent) { updateProcessAssertions(); })
     , m_backgroundWebProcessCounter([this](RefCounterEvent) { updateProcessAssertions(); })
     , m_backForwardCache(makeUniqueRefWithoutRefCountedCheck<WebBackForwardCache>(*this))
     , m_webProcessCache(makeUniqueRef<WebProcessCache>(*this))
     , m_webProcessWithAudibleMediaCounter([this](RefCounterEvent) { updateAudibleMediaAssertions(); })
-    , m_audibleActivityTimer(RunLoop::main(), this, &WebProcessPool::clearAudibleActivity)
+    , m_audibleActivityTimer(RunLoop::mainSingleton(), "WebProcessPool::AudibleActivityTimer"_s, this, &WebProcessPool::clearAudibleActivity)
     , m_webProcessWithMediaStreamingCounter([this](RefCounterEvent) { updateMediaStreamingActivity(); })
 #if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
     , m_lastMemoryPressureStatusTime(ApproximateTime::now() - memoryPressureCheckInterval())
-    , m_checkMemoryPressureStatusTimer(RunLoop::main(), this, &WebProcessPool::checkMemoryPressureStatus)
+    , m_checkMemoryPressureStatusTimer(RunLoop::mainSingleton(), "WebProcessPool::CheckMemoryPressureStatusTimer"_s, this, &WebProcessPool::checkMemoryPressureStatus)
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)
-    , m_resourceMonitorRuleListRefreshTimer(RunLoop::main(), this, &WebProcessPool::loadOrUpdateResourceMonitorRuleList)
+    , m_resourceMonitorRuleListRefreshTimer(RunLoop::mainSingleton(), "WebProcessPool::ResourceMonitorRuleListRefreshTimer"_s, this, &WebProcessPool::loadOrUpdateResourceMonitorRuleList)
 #endif
 #if ENABLE(IPC_TESTING_API)
     , m_ipcTester(IPCTester::create())
@@ -973,7 +975,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
         WTFMove(containerTemporaryDirectoryExtensionHandle),
 #endif
         websiteDataStore.trackingPreventionEnabled()
-#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+#if ENABLE(OPT_IN_PARTITIONED_COOKIES)
         , websiteDataStore.isOptInCookiePartitioningEnabled()
 #endif
     };
@@ -1101,7 +1103,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 #endif
 
 #if PLATFORM(IOS) && ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
-    if (WTF::CocoaApplication::isIBooks())
+    if (WTF::CocoaApplication::isAppleBooks())
         registerAssetFonts(process);
 #endif
 
@@ -1185,7 +1187,7 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 #if ENABLE(EXTENSION_CAPABILITIES)
     for (auto& page : process.pages()) {
         if (RefPtr mediaCapability = page->mediaCapability()) {
-            WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching[envID=%{public}s]: updating media capability", mediaCapability->environmentIdentifier().utf8().data());
+            WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching[envID=%" PUBLIC_LOG_STRING "]: updating media capability", mediaCapability->environmentIdentifier().utf8().data());
             page->updateMediaCapability();
         }
     }
@@ -1237,7 +1239,7 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
     removeProcessFromOriginCacheSet(process);
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    extensionCapabilityGranter().invalidateGrants(moveToVector(std::exchange(process.extensionCapabilityGrants(), { }).values()));
+    ExtensionCapabilityGranter::invalidateGrants(moveToVector(std::exchange(process.extensionCapabilityGrants(), { }).values()));
 #endif
 }
 
@@ -1481,6 +1483,9 @@ void WebProcessPool::handleMemoryPressureWarning(Critical)
     if (RefPtr prewarmedProcess = m_prewarmedProcess.get())
         prewarmedProcess->shutDown();
     ASSERT(!m_prewarmedProcess);
+
+    for (Ref process : m_processes)
+        process->clearSandboxExtensions();
 }
 
 ProcessID WebProcessPool::prewarmedProcessID()
@@ -2745,7 +2750,7 @@ void WebProcessPool::updateWebProcessSuspensionDelayWithPacing(WeakHashSet<WebPr
     // triggers other operations (like full GC and cache clearing) that can be expensive. We pace
     // these state changes to reduce the likelihood of CPU or swap storms.
     static constexpr Seconds intervalBetweenUpdates { 500_ms };
-    WorkQueue::protectedMain()->dispatchAfter(intervalBetweenUpdates, [weakThis = WeakPtr { *this }, processes = WTFMove(processes)]() mutable {
+    WorkQueue::mainSingleton().dispatchAfter(intervalBetweenUpdates, [weakThis = WeakPtr { *this }, processes = WTFMove(processes)]() mutable {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->updateWebProcessSuspensionDelayWithPacing(WTFMove(processes));
     });

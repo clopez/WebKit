@@ -68,7 +68,6 @@ JSWebAssemblyInstance::JSWebAssemblyInstance(VM& vm, Structure* structure, JSWeb
     , m_jsModule(module, WriteBarrierEarlyInit)
     , m_moduleRecord(moduleRecord, WriteBarrierEarlyInit)
     , m_tables(module->module().moduleInformation().tableCount())
-    , m_softStackLimit(vm.softStackLimit())
     , m_module(module->module())
     , m_sourceProvider(sourceProvider)
     , m_globalsToMark(m_module.get().moduleInformation().globalCount())
@@ -109,7 +108,7 @@ JSWebAssemblyInstance::JSWebAssemblyInstance(VM& vm, Structure* structure, JSWeb
     }
 
     if (moduleInformation.hasGCObjectTypes()) {
-        memset(reinterpret_cast<char*>(&gcObjectStructure(0)), 0, moduleInformation.typeCount() * sizeof(std::decay_t<decltype(gcObjectStructure(0))>));
+        memset(reinterpret_cast<char*>(&gcObjectStructureID(0)), 0, moduleInformation.typeCount() * sizeof(std::decay_t<decltype(gcObjectStructureID(0))>));
 
         CompleteSubspace* subspace = JSWebAssemblyArray::subspaceFor<JSWebAssemblyArray, SubspaceAccess::OnMainThread>(vm);
         CompleteSubspace* structSubspace = JSWebAssemblyStruct::subspaceFor<JSWebAssemblyStruct, SubspaceAccess::OnMainThread>(vm);
@@ -131,18 +130,21 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
     auto& moduleInformation = m_module->moduleInformation();
     JSGlobalObject* globalObject = this->globalObject();
     for (unsigned i = 0; i < moduleInformation.typeCount(); ++i) {
-        RefPtr rtt = moduleInformation.rtts[i];
+        Ref rtt = moduleInformation.rtts[i];
         if (rtt->kind() == RTTKind::Array)
-            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyArray::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), rtt.releaseNonNull()));
+            gcObjectStructureID(i).setWithoutWriteBarrier(JSWebAssemblyArray::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), WTFMove(rtt)));
         else if (rtt->kind() == RTTKind::Struct)
-            gcObjectStructure(i).setWithoutWriteBarrier(JSWebAssemblyStruct::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), rtt.releaseNonNull()));
+            gcObjectStructureID(i).setWithoutWriteBarrier(JSWebAssemblyStruct::createStructure(vm, globalObject, moduleInformation.typeSignatures[i]->expand(), WTFMove(rtt)));
     }
     if (moduleInformation.typeCount())
         vm.writeBarrier(this);
+
+    m_vm->traps().registerMirror(m_stackMirror);
 }
 
 JSWebAssemblyInstance::~JSWebAssemblyInstance()
 {
+    m_vm->traps().unregisterMirror(m_stackMirror);
     clearJSCallICs(*m_vm);
     for (unsigned i = 0; i < m_numImportFunctions; ++i)
         importFunctionInfo(i)->~WasmOrJSImportableFunctionCallLinkInfo();
@@ -183,7 +185,7 @@ void JSWebAssemblyInstance::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     const auto& moduleInformation = thisObject->moduleInformation();
     if (moduleInformation.hasGCObjectTypes()) {
         for (unsigned i = 0; i < moduleInformation.typeCount(); ++i)
-            visitor.append(thisObject->gcObjectStructure(thisObject->numImportFunctions(), moduleInformation.tableCount(), moduleInformation.globalCount(), i));
+            visitor.append(thisObject->gcObjectStructureID(thisObject->numImportFunctions(), moduleInformation.tableCount(), moduleInformation.globalCount(), i));
     }
 
     Locker locker { cell->cellLock() };
@@ -216,19 +218,21 @@ void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObjec
         return;
     }
 
-    RELEASE_ASSERT(wasmCalleeGroup->isSafeToRun(memoryMode()));
-
-    // When memory is imported, we will initialize all memory modes with the initial LLInt compilation
+    // When memory is imported, we will initialize all memory modes with the initial IPInt compilation
     // results, so that later when memory imports become available, the appropriate CalleeGroup can be used.
-    // If LLInt is disabled, we instead defer compilation to module evaluation.
+    // If IPInt is disabled, we instead defer compilation to module evaluation.
     // If the code is already compiled, e.g. the module was already instantiated before, we do not re-initialize.
-    if (Options::useWasmLLInt() && module().moduleInformation().hasMemoryImport())
+    if (module().moduleInformation().hasMemoryImport())
         module().copyInitialCalleeGroupToAllMemoryModes(memoryMode());
+
+
+    RELEASE_ASSERT(wasmCalleeGroup->isSafeToRun(memoryMode()));
 
     for (unsigned importFunctionNum = 0; importFunctionNum < numImportFunctions(); ++importFunctionNum) {
         auto functionSpaceIndex = FunctionSpaceIndex(importFunctionNum);
         auto* info = importFunctionInfo(importFunctionNum);
         if (!info->targetInstance) {
+            // the import is a JS function
             info->importFunctionStub = module().importFunctionStub(functionSpaceIndex);
             importCallees.append(adoptRef(*new WasmToJSCallee(functionSpaceIndex, { nullptr, nullptr })));
             ASSERT(*info->boxedWasmCalleeLoadLocation == CalleeBits::nullCallee());
@@ -241,8 +245,16 @@ void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObjec
             info->callLinkInfo = WTFMove(callLinkInfo);
             vm.writeBarrier(this); // Materialized CallLinkInfo and we need rescan of JSWebAssemblyInstance.
         } else {
-            info->importFunctionStub = wasmCalleeGroup->wasmToWasmExitStub(functionSpaceIndex);
-            ASSERT(info->boxedWasmCalleeLoadLocation && *info->boxedWasmCalleeLoadLocation);
+            // the import is a Wasm function or a builtin
+            auto calleeBits = *info->boxedWasmCalleeLoadLocation;
+            if (calleeBits.isNativeCallee()) {
+                auto* callee = std::bit_cast<Callee*>(calleeBits.asNativeCallee());
+                // if the callee is a builtin, info->importFunctionStub has already been set
+                if (callee->compilationMode() != CompilationMode::WasmBuiltinMode) {
+                    info->importFunctionStub = wasmCalleeGroup->wasmToWasmExitStub(functionSpaceIndex);
+                    ASSERT(info->boxedWasmCalleeLoadLocation && *info->boxedWasmCalleeLoadLocation);
+                }
+            }
         }
     }
 
@@ -266,13 +278,11 @@ size_t JSWebAssemblyInstance::allocationSize(const Wasm::ModuleInformation& info
     Checked<size_t> size = offsetOfTail();
     size += sizeof(WasmOrJSImportableFunctionCallLinkInfo) * info.importFunctionCount();
     size += sizeof(Wasm::Table*) * info.tableCount();
-    size = roundUpToMultipleOf<sizeof(Wasm::Global::Value)>(size);
-    size += sizeof(Wasm::Global::Value) * info.globalCount();
+    size = roundUpToMultipleOf<alignof(Wasm::Global::Value)>(size) + sizeof(Wasm::Global::Value) * info.globalCount();
     if (info.hasGCObjectTypes()) {
-        size += sizeof(WriteBarrier<Structure>) * info.typeCount();
-        size += sizeof(Allocator) * MarkedSpace::numSizeClasses;
+        size = roundUpToMultipleOf<alignof(WriteBarrierStructureID)>(size) + sizeof(WriteBarrierStructureID) * info.typeCount();
+        size = roundUpToMultipleOf<alignof(Allocator)>(size) + sizeof(Allocator) * MarkedSpace::numSizeClasses;
     }
-
     return size;
 }
 

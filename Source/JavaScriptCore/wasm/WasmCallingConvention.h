@@ -27,16 +27,16 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "AllowMacroScratchRegisterUsage.h"
-#include "CallFrame.h"
-#include "LinkBuffer.h"
-#include "RegisterAtOffsetList.h"
-#include "RegisterSet.h"
-#include "StackAlignment.h"
-#include "WasmFormat.h"
-#include "WasmTypeDefinition.h"
-#include "WasmTypeDefinitionInlines.h"
-#include "WasmValueLocation.h"
+#include <JavaScriptCore/AllowMacroScratchRegisterUsage.h>
+#include <JavaScriptCore/CallFrame.h>
+#include <JavaScriptCore/LinkBuffer.h>
+#include <JavaScriptCore/RegisterAtOffsetList.h>
+#include <JavaScriptCore/RegisterSet.h>
+#include <JavaScriptCore/StackAlignment.h>
+#include <JavaScriptCore/WasmFormat.h>
+#include <JavaScriptCore/WasmTypeDefinition.h>
+#include <JavaScriptCore/WasmTypeDefinitionInlines.h>
+#include <JavaScriptCore/WasmValueLocation.h>
 
 namespace JSC { namespace Wasm {
 
@@ -175,7 +175,7 @@ private:
         case TypeKind::I32:
         case TypeKind::I64:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
@@ -202,7 +202,7 @@ public:
             switch (signature.returnType(i).kind) {
             case TypeKind::I32:
             case TypeKind::I64:
-            case TypeKind::Exn:
+            case TypeKind::Exnref:
             case TypeKind::Externref:
             case TypeKind::Funcref:
             case TypeKind::RefNull:
@@ -228,10 +228,10 @@ public:
             case TypeKind::Arrayref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
-            case TypeKind::Nullexn:
-            case TypeKind::Nullref:
-            case TypeKind::Nullfuncref:
-            case TypeKind::Nullexternref:
+            case TypeKind::Noexnref:
+            case TypeKind::Noneref:
+            case TypeKind::Nofuncref:
+            case TypeKind::Noexternref:
             case TypeKind::I31ref:
             case TypeKind::Sub:
             case TypeKind::Subfinal:
@@ -253,7 +253,7 @@ public:
             switch (signature.argumentType(i).kind) {
             case TypeKind::I32:
             case TypeKind::I64:
-            case TypeKind::Exn:
+            case TypeKind::Exnref:
             case TypeKind::Externref:
             case TypeKind::Funcref:
             case TypeKind::RefNull:
@@ -279,10 +279,10 @@ public:
             case TypeKind::Arrayref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
-            case TypeKind::Nullexn:
-            case TypeKind::Nullref:
-            case TypeKind::Nullfuncref:
-            case TypeKind::Nullexternref:
+            case TypeKind::Noexnref:
+            case TypeKind::Noneref:
+            case TypeKind::Nofuncref:
+            case TypeKind::Noexternref:
             case TypeKind::I31ref:
             case TypeKind::Sub:
             case TypeKind::Subfinal:
@@ -300,7 +300,7 @@ public:
 
     CallInformation callInformationFor(const TypeDefinition& type, CallRole role = CallRole::Caller) const
     {
-        const auto& signature = *type.as<FunctionSignature>();
+        SUPPRESS_UNCOUNTED_LOCAL const auto& signature = *type.as<FunctionSignature>();
         return callInformationFor(signature, role);
     }
 
@@ -381,7 +381,7 @@ private:
         case TypeKind::I32:
         case TypeKind::I64:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
@@ -396,7 +396,11 @@ private:
     }
 
 public:
-    CallInformation callInformationFor(const TypeDefinition& signature, CallRole role = CallRole::Callee) const { return callInformationFor(*signature.as<FunctionSignature>(), role); }
+    CallInformation callInformationFor(const TypeDefinition& signature, CallRole role = CallRole::Callee) const
+    {
+        SUPPRESS_UNCOUNTED_LOCAL auto& functionSignature = *signature.as<FunctionSignature>();
+        return callInformationFor(functionSignature, role);
+    }
     CallInformation callInformationFor(const FunctionSignature& signature, CallRole role = CallRole::Callee) const
     {
         size_t gpArgumentCount = 0;
@@ -485,7 +489,7 @@ private:
         switch (valueType.kind) {
         case TypeKind::I64:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::RefNull:
         case TypeKind::Ref:
@@ -513,7 +517,7 @@ public:
             switch (signature.returnType(i).kind) {
             case TypeKind::I64:
             case TypeKind::Funcref:
-            case TypeKind::Exn:
+            case TypeKind::Exnref:
             case TypeKind::Externref:
             case TypeKind::RefNull:
             case TypeKind::Ref:
@@ -554,7 +558,7 @@ public:
             switch (signature.argumentType(i).kind) {
             case TypeKind::I64:
             case TypeKind::Funcref:
-            case TypeKind::Exn:
+            case TypeKind::Exnref:
             case TypeKind::Externref:
             case TypeKind::RefNull:
             case TypeKind::Ref:

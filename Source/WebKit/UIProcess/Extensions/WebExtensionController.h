@@ -50,7 +50,6 @@
 #include <wtf/URLHash.h>
 #include <wtf/WeakHashSet.h>
 
-OBJC_CLASS NSError;
 OBJC_CLASS NSMenu;
 OBJC_CLASS _WKWebExtensionControllerHelper;
 OBJC_PROTOCOL(WKWebExtensionControllerDelegatePrivate);
@@ -74,6 +73,10 @@ class WebProcessPool;
 class WebsiteDataStore;
 struct WebExtensionControllerParameters;
 struct WebExtensionFrameParameters;
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+struct ContentRuleListMatchedRule;
+#endif
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 class WebInspectorUIProxy;
@@ -128,8 +131,8 @@ public:
     bool hasLoadedContexts() const { return !m_extensionContexts.isEmpty(); }
     bool isFreshlyCreated() const { return m_freshlyCreated; }
 
-    bool load(WebExtensionContext&, NSError ** = nullptr);
-    bool unload(WebExtensionContext&, NSError ** = nullptr);
+    Expected<bool, RefPtr<API::Error>> load(WebExtensionContext&);
+    Expected<bool, RefPtr<API::Error>> unload(WebExtensionContext&);
 
     void unloadAll();
 
@@ -170,6 +173,10 @@ public:
 #endif
 
     void handleContentRuleListNotification(WebPageProxyIdentifier, URL&, WebCore::ContentRuleListResults&);
+
+#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
+    void handleContentRuleListMatchedRule(WebPageProxyIdentifier, WebCore::ContentRuleListMatchedRule&);
+#endif
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     void inspectorWillOpen(WebInspectorUIProxy&, WebPageProxy&);

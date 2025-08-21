@@ -27,11 +27,11 @@
 
 #if PLATFORM(COCOA)
 
-#include "AudioHardwareListener.h"
-#include "AudioSession.h"
-#include "NowPlayingManager.h"
-#include "PlatformMediaSessionManager.h"
-#include "RemoteCommandListener.h"
+#include <WebCore/AudioHardwareListener.h>
+#include <WebCore/AudioSession.h>
+#include <WebCore/NowPlayingManager.h>
+#include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/RemoteCommandListener.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -133,7 +133,7 @@ private:
     RefPtr<AudioHardwareListener> m_audioHardwareListener;
 
     AudioHardwareListener::BufferSizeRange m_supportedAudioHardwareBufferSizes;
-    size_t m_defaultBufferSize;
+    std::optional<size_t> m_defaultBufferSize;
 
     RunLoop::Timer m_delayCategoryChangeTimer;
     AudioSession::CategoryType m_previousCategory { AudioSession::CategoryType::None };

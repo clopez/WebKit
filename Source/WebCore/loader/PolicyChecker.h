@@ -29,14 +29,14 @@
 
 #pragma once
 
-#include "FrameLoader.h"
-#include "LocalFrameLoaderClient.h"
-#include "ResourceRequest.h"
+#include <WebCore/FrameLoader.h>
+#include <WebCore/LocalFrameLoaderClient.h>
+#include <WebCore/ResourceRequest.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(CONTENT_FILTERING)
-#include "ContentFilterUnblockHandler.h"
+#include <WebCore/ContentFilterUnblockHandler.h>
 #endif
 
 namespace WebCore {
@@ -74,7 +74,7 @@ enum class PolicyDecisionMode { Synchronous, Asynchronous };
 
 class PolicyChecker : public CanMakeWeakPtr<PolicyChecker> {
     WTF_MAKE_NONCOPYABLE(PolicyChecker);
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(PolicyChecker, Loader);
 public:
     explicit PolicyChecker(LocalFrame&);
 

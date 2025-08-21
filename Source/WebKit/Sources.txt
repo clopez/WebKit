@@ -30,8 +30,9 @@ GPUProcess/ShapeDetection/RemoteFaceDetector.cpp
 GPUProcess/ShapeDetection/RemoteTextDetector.cpp
 GPUProcess/ShapeDetection/ShapeDetectionObjectHeap.cpp
 GPUProcess/graphics/ImageBufferShareableAllocator.cpp
-GPUProcess/graphics/RemoteDisplayListRecorder.cpp
+GPUProcess/graphics/RemoteGraphicsContext.cpp
 GPUProcess/graphics/RemoteGraphicsContextGL.cpp
+GPUProcess/graphics/RemoteGraphicsContextGLFunctionsGenerated.cpp
 GPUProcess/graphics/RemoteImageBuffer.cpp
 GPUProcess/graphics/RemoteImageBufferSet.cpp
 GPUProcess/graphics/RemoteRenderingBackend.cpp
@@ -275,7 +276,6 @@ Shared/API/APIData.cpp
 Shared/API/APIDictionary.cpp
 Shared/API/APIError.cpp
 Shared/API/APIObject.cpp
-Shared/API/APISerializedScriptValue.cpp
 Shared/API/APIURLRequest.cpp
 
 Shared/API/c/WKArray.cpp
@@ -485,13 +485,15 @@ UIProcess/API/APIHTTPCookieStore.cpp
 UIProcess/API/APIHitTestResult.cpp
 UIProcess/API/APIInspectorConfiguration.cpp
 UIProcess/API/APIInspectorExtension.cpp
+UIProcess/API/APIJSHandle.cpp
 UIProcess/API/APINavigation.cpp
 UIProcess/API/APINavigationData.cpp
 UIProcess/API/APINavigationResponse.cpp
-UIProcess/API/APINodeInfo.cpp
 UIProcess/API/APIPageConfiguration.cpp
 UIProcess/API/APIProcessPoolConfiguration.cpp
 UIProcess/API/APIOpenPanelParameters.cpp
+UIProcess/API/APIScriptMessage.cpp
+UIProcess/API/APISerializedNode.cpp
 UIProcess/API/APISessionState.cpp
 UIProcess/API/APITargetedElementInfo.cpp
 UIProcess/API/APITargetedElementRequest.cpp
@@ -548,6 +550,7 @@ UIProcess/API/C/WKPageGroup.cpp
 UIProcess/API/C/WKPreferences.cpp
 UIProcess/API/C/WKProtectionSpace.cpp
 UIProcess/API/C/WKResourceCacheManager.cpp
+UIProcess/API/C/WKScriptMessageRef.cpp
 UIProcess/API/C/WKSessionStateRef.cpp
 UIProcess/API/C/WKSpeechRecognitionPermissionCallback.cpp
 UIProcess/API/C/WKTextChecker.cpp
@@ -555,6 +558,7 @@ UIProcess/API/C/WKUserContentControllerRef.cpp
 UIProcess/API/C/WKUserContentExtensionStoreRef.cpp
 UIProcess/API/C/WKUserMediaPermissionCheck.cpp
 UIProcess/API/C/WKUserMediaPermissionRequest.cpp
+UIProcess/API/C/WKUserScriptRef.cpp
 UIProcess/API/C/WKWebsiteDataStoreConfigurationRef.cpp
 UIProcess/API/C/WKWebsiteDataStoreRef.cpp
 UIProcess/API/C/WKWebsitePolicies.cpp
@@ -768,7 +772,7 @@ WebProcess/GPU/graphics/ImageBufferShareableBitmapBackend.cpp
 WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.cpp
 WebProcess/GPU/graphics/RemoteGraphicsContextGLProxyFunctionsGenerated.cpp
 WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.cpp
-WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp
+WebProcess/GPU/graphics/RemoteGraphicsContextProxy.cpp
 WebProcess/GPU/graphics/RemoteImageBufferProxy.cpp
 WebProcess/GPU/graphics/RemoteNativeImageBackendProxy.cpp
 WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp
@@ -929,7 +933,7 @@ NetworkTransportSessionMessageReceiver.cpp
 RTCDataChannelRemoteManagerMessageReceiver.cpp
 RTCDataChannelRemoteManagerProxyMessageReceiver.cpp
 RemoteAudioMediaStreamTrackRendererInternalUnitManagerMessageReceiver.cpp
-RemoteDisplayListRecorderMessageReceiver.cpp
+RemoteGraphicsContextMessageReceiver.cpp
 RemoteGraphicsContextGLMessageReceiver.cpp
 RemoteGraphicsContextGLProxyMessageReceiver.cpp
 PlatformXRSystemMessageReceiver.cpp

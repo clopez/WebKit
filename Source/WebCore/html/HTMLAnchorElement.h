@@ -23,12 +23,12 @@
 
 #pragma once
 
-#include "Document.h"
-#include "HTMLElement.h"
-#include "HTMLNames.h"
-#include "PrivateClickMeasurement.h"
-#include "SharedStringHash.h"
-#include "URLDecomposition.h"
+#include <WebCore/Document.h>
+#include <WebCore/HTMLElement.h>
+#include <WebCore/HTMLNames.h>
+#include <WebCore/PrivateClickMeasurement.h>
+#include <WebCore/SharedStringHash.h>
+#include <WebCore/URLDecomposition.h>
 #include <wtf/OptionSet.h>
 
 namespace WebCore {
@@ -83,6 +83,8 @@ public:
 
     Node::InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode& parentOfInsertedTree) override;
 
+    AtomString target() const override;
+
 protected:
     HTMLAnchorElement(const QualifiedName&, Document&);
 
@@ -96,7 +98,6 @@ private:
     void setActive(bool active, Style::InvalidationScope) final;
     bool isURLAttribute(const Attribute&) const final;
     bool canStartSelection() const final;
-    AtomString target() const override;
     int defaultTabIndex() const final;
     bool draggable() const final;
     bool isInteractiveContent() const final;

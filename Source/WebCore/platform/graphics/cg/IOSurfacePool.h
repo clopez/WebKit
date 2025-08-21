@@ -27,10 +27,10 @@
 
 #if HAVE(IOSURFACE)
 
-#include "IOSurface.h"
-#include "IntSize.h"
-#include "IntSizeHash.h"
-#include "Timer.h"
+#include <WebCore/IOSurface.h>
+#include <WebCore/IntSize.h>
+#include <WebCore/IntSizeHash.h>
+#include <WebCore/Timer.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
@@ -55,7 +55,7 @@ public:
 
     WEBCORE_EXPORT ~IOSurfacePool();
 
-    std::unique_ptr<IOSurface> takeSurface(IntSize, const DestinationColorSpace&, IOSurface::Format);
+    std::unique_ptr<IOSurface> takeSurface(IntSize, const DestinationColorSpace&, IOSurface::Format, UseLosslessCompression);
     WEBCORE_EXPORT void addSurface(std::unique_ptr<IOSurface>&&);
 
     WEBCORE_EXPORT void discardAllSurfaces();

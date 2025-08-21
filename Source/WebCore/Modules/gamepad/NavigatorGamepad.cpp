@@ -31,15 +31,18 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "FrameInlines.h"
 #include "Gamepad.h"
 #include "GamepadManager.h"
 #include "GamepadProvider.h"
 #include "LocalDOMWindow.h"
+#include "LocalFrame.h"
 #include "Navigator.h"
 #include "Page.h"
 #include "PermissionsPolicy.h"
 #include "PlatformGamepad.h"
+#include "Settings.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -49,7 +52,9 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorGamepad);
 NavigatorGamepad::NavigatorGamepad(Navigator& navigator)
     : m_navigator(navigator)
 {
-    GamepadManager::singleton().registerNavigator(navigator);
+    RefPtr document = navigator.document();
+    if (document && document->settingsValues().gamepadsEnabled)
+        GamepadManager::singleton().registerNavigator(navigator);
 }
 
 NavigatorGamepad::~NavigatorGamepad()
@@ -57,14 +62,9 @@ NavigatorGamepad::~NavigatorGamepad()
     GamepadManager::singleton().unregisterNavigator(m_navigator.get());
 }
 
-ASCIILiteral NavigatorGamepad::supplementName()
-{
-    return "NavigatorGamepad"_s;
-}
-
 NavigatorGamepad& NavigatorGamepad::from(Navigator& navigator)
 {
-    auto* supplement = static_cast<NavigatorGamepad*>(Supplement<Navigator>::from(&navigator, supplementName()));
+    auto* supplement = downcast<NavigatorGamepad>(Supplement<Navigator>::from(&navigator, supplementName()));
     if (!supplement) {
         auto newSupplement = makeUnique<NavigatorGamepad>(navigator);
         supplement = newSupplement.get();
@@ -94,11 +94,6 @@ ExceptionOr<const Vector<RefPtr<Gamepad>>&> NavigatorGamepad::getGamepads(Naviga
         return Exception { ExceptionCode::SecurityError, "Third-party iframes are not allowed to call getGamepads() unless explicitly allowed via Feature-Policy (gamepad)"_s };
 
     return NavigatorGamepad::from(navigator).gamepads();
-}
-
-Navigator& NavigatorGamepad::navigator() const
-{
-    return m_navigator.get();
 }
 
 // The UIProcess tracks when a WebPage has recently used gamepads to configure certain behaviors on the page.
@@ -146,9 +141,7 @@ const Vector<RefPtr<Gamepad>>& NavigatorGamepad::gamepads()
             ASSERT(!m_gamepads[i]);
             continue;
         }
-
-        ASSERT(m_gamepads[i]);
-        m_gamepads[i]->updateFromPlatformGamepad(*platformGamepads[i]);
+        Ref { *m_gamepads[i] }->updateFromPlatformGamepad(*platformGamepads[i]);
     }
 
     return m_gamepads;

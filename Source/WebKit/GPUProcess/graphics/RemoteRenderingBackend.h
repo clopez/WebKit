@@ -34,7 +34,7 @@
 #include "MarkSurfacesAsVolatileRequestIdentifier.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
-#include "RemoteDisplayListRecorderIdentifier.h"
+#include "RemoteGraphicsContextIdentifier.h"
 #include "RemoteImageBufferSetIdentifier.h"
 #include "RemoteResourceCache.h"
 #include "RemoteSerializedImageBufferIdentifier.h"
@@ -93,7 +93,7 @@ namespace ShapeDetection {
 class ObjectHeap;
 }
 
-class RemoteRenderingBackend : private IPC::MessageSender, public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteRenderingBackend> {
+class RemoteRenderingBackend : public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteRenderingBackend> {
 public:
     static Ref<RemoteRenderingBackend> create(GPUConnectionToWebProcess&, RenderingBackendIdentifier, Ref<IPC::StreamServerConnection>&&);
     virtual ~RemoteRenderingBackend();
@@ -103,7 +103,6 @@ public:
 
     RemoteResourceCache& remoteResourceCache() { return m_remoteResourceCache; }
     RemoteSharedResourceCache& sharedResourceCache() { return m_sharedResourceCache; }
-    Ref<RemoteSharedResourceCache> protectedSharedResourceCache() { return m_sharedResourceCache; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
@@ -111,20 +110,17 @@ public:
     void dispatch(Function<void()>&&);
 
     IPC::StreamServerConnection& streamConnection() const { return m_streamConnection.get(); }
-    Ref<IPC::StreamServerConnection> protectedStreamConnection() const { return m_streamConnection; }
 
     GPUConnectionToWebProcess& gpuConnectionToWebProcess() { return m_gpuConnectionToWebProcess.get(); }
-    Ref<GPUConnectionToWebProcess> protectedGPUConnectionToWebProcess();
 
     void setSharedMemoryForGetPixelBuffer(RefPtr<WebCore::SharedMemory> memory) { m_getPixelBufferSharedMemory = WTFMove(memory); }
     RefPtr<WebCore::SharedMemory> sharedMemoryForGetPixelBuffer() const { return m_getPixelBufferSharedMemory; }
 
     IPC::StreamConnectionWorkQueue& workQueue() const { return m_workQueue; }
-    Ref<IPC::StreamConnectionWorkQueue> protectedWorkQueue() const { return m_workQueue; }
 
     RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier);
 
-    RefPtr<WebCore::ImageBuffer> allocateImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat, WebCore::ImageBufferCreationContext);
+    RefPtr<WebCore::ImageBuffer> allocateImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferFormat, WebCore::ImageBufferCreationContext);
 
     void terminateWebProcess(ASCIILiteral message);
 
@@ -135,16 +131,17 @@ private:
     void startListeningForIPC();
     void workQueueInitialize();
     void workQueueUninitialize();
-
-    // IPC::MessageSender.
-    IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override;
+    template<typename T>
+    IPC::Error send(T&& message) const
+    {
+        return m_streamConnection->send(std::forward<T>(message), m_renderingBackendIdentifier);
+    }
 
     // Messages to be received.
-    void createImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat, WebCore::RenderingResourceIdentifier, RemoteDisplayListRecorderIdentifier);
+    void createImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferFormat, WebCore::RenderingResourceIdentifier, RemoteGraphicsContextIdentifier);
     void releaseImageBuffer(WebCore::RenderingResourceIdentifier);
     void moveToSerializedBuffer(WebCore::RenderingResourceIdentifier, RemoteSerializedImageBufferIdentifier);
-    void moveToImageBuffer(RemoteSerializedImageBufferIdentifier, WebCore::RenderingResourceIdentifier, RemoteDisplayListRecorderIdentifier);
+    void moveToImageBuffer(RemoteSerializedImageBufferIdentifier, WebCore::RenderingResourceIdentifier, RemoteGraphicsContextIdentifier);
 #if PLATFORM(COCOA)
     void didDrawRemoteToPDF(WebCore::PageIdentifier, WebCore::RenderingResourceIdentifier, WebCore::SnapshotIdentifier);
 #endif
@@ -165,7 +162,7 @@ private:
     void releaseNativeImages();
     void finalizeRenderingUpdate(RenderingUpdateID);
     void markSurfacesVolatile(MarkSurfacesAsVolatileRequestIdentifier, const Vector<std::pair<RemoteImageBufferSetIdentifier, OptionSet<BufferInSetType>>>&, bool forcePurge);
-    void createImageBufferSet(WebKit::RemoteImageBufferSetIdentifier, RemoteDisplayListRecorderIdentifier);
+    void createImageBufferSet(WebKit::RemoteImageBufferSetIdentifier, RemoteGraphicsContextIdentifier);
     void releaseImageBufferSet(WebKit::RemoteImageBufferSetIdentifier);
 
 #if USE(GRAPHICS_LAYER_WC)
@@ -186,8 +183,6 @@ private:
     void createRemoteTextDetector(ShapeDetectionIdentifier);
     void releaseRemoteTextDetector(ShapeDetectionIdentifier);
 
-    Ref<ShapeDetection::ObjectHeap> protectedShapeDetectionObjectHeap() const;
-
     bool shouldUseLockdownFontParser() const;
 
     void getImageBufferResourceLimitsForTesting(CompletionHandler<void(WebCore::ImageBufferResourceLimits)>&&);
@@ -195,7 +190,7 @@ private:
     const Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     const Ref<IPC::StreamServerConnection> m_streamConnection;
     const Ref<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
-    Ref<RemoteSharedResourceCache> m_sharedResourceCache;
+    const Ref<RemoteSharedResourceCache> m_sharedResourceCache;
     RemoteResourceCache m_remoteResourceCache;
     WebCore::ProcessIdentity m_resourceOwner;
     RenderingBackendIdentifier m_renderingBackendIdentifier;
@@ -203,7 +198,7 @@ private:
 
     HashMap<WebCore::RenderingResourceIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteImageBuffer>> m_remoteImageBuffers WTF_GUARDED_BY_CAPABILITY(workQueue());
     HashMap<RemoteImageBufferSetIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteImageBufferSet>> m_remoteImageBufferSets WTF_GUARDED_BY_CAPABILITY(workQueue());
-    Ref<ShapeDetection::ObjectHeap> m_shapeDetectionObjectHeap;
+    const Ref<ShapeDetection::ObjectHeap> m_shapeDetectionObjectHeap;
 };
 
 bool isSmallLayerBacking(const WebCore::ImageBufferParameters&);

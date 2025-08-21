@@ -32,39 +32,39 @@
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
-#include "CalleeBits.h"
-#include "CodeSpecializationKind.h"
-#include "ConcurrentJSLock.h"
-#include "DFGDoesGCCheck.h"
-#include "DeleteAllCodeEffort.h"
-#include "ExceptionEventLocation.h"
-#include "FunctionHasExecutedCache.h"
-#include "Heap.h"
-#include "ImplementationVisibility.h"
-#include "IndexingType.h"
-#include "Integrity.h"
-#include "Interpreter.h"
-#include "Intrinsic.h"
-#include "JSCJSValue.h"
-#include "JSDateMath.h"
-#include "JSLock.h"
-#include "JSONAtomStringCache.h"
-#include "KeyAtomStringCache.h"
-#include "MicrotaskQueue.h"
-#include "NativeFunction.h"
-#include "NumericStrings.h"
-#include "SlotVisitorMacros.h"
-#include "SmallStrings.h"
-#include "SourceTaintedOrigin.h"
-#include "StringReplaceCache.h"
-#include "StringSplitCache.h"
-#include "Strong.h"
-#include "SubspaceAccess.h"
-#include "ThunkGenerator.h"
-#include "VMTraps.h"
-#include "WasmContext.h"
-#include "WeakGCMap.h"
-#include "WriteBarrier.h"
+#include <JavaScriptCore/CalleeBits.h>
+#include <JavaScriptCore/CodeSpecializationKind.h>
+#include <JavaScriptCore/ConcurrentJSLock.h>
+#include <JavaScriptCore/DFGDoesGCCheck.h>
+#include <JavaScriptCore/DeleteAllCodeEffort.h>
+#include <JavaScriptCore/ExceptionEventLocation.h>
+#include <JavaScriptCore/FunctionHasExecutedCache.h>
+#include <JavaScriptCore/Heap.h>
+#include <JavaScriptCore/ImplementationVisibility.h>
+#include <JavaScriptCore/IndexingType.h>
+#include <JavaScriptCore/Integrity.h>
+#include <JavaScriptCore/Interpreter.h>
+#include <JavaScriptCore/Intrinsic.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSDateMath.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/JSONAtomStringCache.h>
+#include <JavaScriptCore/KeyAtomStringCache.h>
+#include <JavaScriptCore/MicrotaskQueue.h>
+#include <JavaScriptCore/NativeFunction.h>
+#include <JavaScriptCore/NumericStrings.h>
+#include <JavaScriptCore/SlotVisitorMacros.h>
+#include <JavaScriptCore/SmallStrings.h>
+#include <JavaScriptCore/SourceTaintedOrigin.h>
+#include <JavaScriptCore/StringReplaceCache.h>
+#include <JavaScriptCore/StringSplitCache.h>
+#include <JavaScriptCore/Strong.h>
+#include <JavaScriptCore/SubspaceAccess.h>
+#include <JavaScriptCore/ThunkGenerator.h>
+#include <JavaScriptCore/VMTraps.h>
+#include <JavaScriptCore/WasmContext.h>
+#include <JavaScriptCore/WeakGCMap.h>
+#include <JavaScriptCore/WriteBarrier.h>
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/DoublyLinkedList.h>
@@ -225,7 +225,7 @@ enum VMIdentifierType { };
 using VMIdentifier = AtomicObjectIdentifier<VMIdentifierType>;
 
 class VM : public ThreadSafeRefCountedWithSuppressingSaferCPPChecking<VM>, public DoublyLinkedListNode<VM> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VM);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VM, VM);
 public:
     // WebCore has a one-to-one mapping of threads to VMs;
     // create() should only be called once
@@ -354,12 +354,11 @@ public:
     };
     JS_EXPORT_PRIVATE void performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSet<SchedulerOptions>);
 
-    Structure* immutableButterflyStructure(IndexingType indexingType) { return rawImmutableButterflyStructure(indexingType).get(); }
+    Structure* cellButterflyStructure(IndexingType indexingType) { return rawImmutableButterflyStructure(indexingType).get(); }
 
     // Keep super frequently accessed fields top in VM.
     unsigned disallowVMEntryCount { 0 };
 private:
-    void* m_softStackLimit { nullptr };
     Exception* m_exception { nullptr };
     Exception* m_terminationException { nullptr };
     Exception* m_lastException { nullptr };
@@ -395,7 +394,7 @@ private:
         m_entryScopeServices.remove(service);
     }
 
-    WriteBarrier<Structure>& rawImmutableButterflyStructure(IndexingType indexingType) { return immutableButterflyStructures[arrayIndexFromIndexingType(indexingType) - NumberOfIndexingShapes]; }
+    WriteBarrier<Structure>& rawImmutableButterflyStructure(IndexingType indexingType) { return cellButterflyStructures[arrayIndexFromIndexingType(indexingType) - NumberOfIndexingShapes]; }
 
 public:
     Heap heap;
@@ -415,7 +414,6 @@ public:
     ALWAYS_INLINE CompleteSubspace& immutableButterflyAuxiliarySpace() { return heap.immutableButterflyAuxiliarySpace; }
     ALWAYS_INLINE CompleteSubspace& gigacageAuxiliarySpace(Gigacage::Kind kind) { return heap.gigacageAuxiliarySpace(kind); }
     ALWAYS_INLINE CompleteSubspace& cellSpace() { return heap.cellSpace; }
-    ALWAYS_INLINE CompleteSubspace& variableSizedCellSpace() { return heap.variableSizedCellSpace; }
     ALWAYS_INLINE CompleteSubspace& destructibleObjectSpace() { return heap.destructibleObjectSpace; }
 #if ENABLE(WEBASSEMBLY)
     template<SubspaceAccess mode>
@@ -475,8 +473,8 @@ public:
     WriteBarrier<Structure> regExpStructure;
     WriteBarrier<Structure> symbolStructure;
     WriteBarrier<Structure> symbolTableStructure;
-    std::array<WriteBarrier<Structure>, NumberOfCopyOnWriteIndexingModes> immutableButterflyStructures;
-    WriteBarrier<Structure> immutableButterflyOnlyAtomStringsStructure;
+    std::array<WriteBarrier<Structure>, NumberOfCopyOnWriteIndexingModes> cellButterflyStructures;
+    WriteBarrier<Structure> cellButterflyOnlyAtomStringsStructure;
     WriteBarrier<Structure> sourceCodeStructure;
     WriteBarrier<Structure> scriptFetcherStructure;
     WriteBarrier<Structure> scriptFetchParametersStructure;
@@ -666,14 +664,19 @@ public:
         return OBJECT_OFFSETOF(VM, heap) + OBJECT_OFFSETOF(Heap, m_mutatorShouldBeFenced);
     }
 
+    static constexpr ptrdiff_t offsetOfTraps()
+    {
+        return OBJECT_OFFSETOF(VM, m_traps);
+    }
+
     static constexpr ptrdiff_t offsetOfTrapsBits()
     {
-        return OBJECT_OFFSETOF(VM, m_traps) + VMTraps::offsetOfTrapsBits();
+        return offsetOfTraps() + VMTraps::offsetOfTrapsBits();
     }
 
     static constexpr ptrdiff_t offsetOfSoftStackLimit()
     {
-        return OBJECT_OFFSETOF(VM, m_softStackLimit);
+        return offsetOfTraps() + VMTraps::offsetOfSoftStackLimit();
     }
 
     void clearLastException() { m_lastException = nullptr; }
@@ -704,16 +707,11 @@ public:
     size_t updateSoftReservedZoneSize(size_t softReservedZoneSize);
     
     static size_t committedStackByteCount();
-    inline bool ensureStackCapacityFor(Register* newTopOfStack);
+    inline bool ensureJSStackCapacityFor(Register* newTopOfStack);
 
     void* stackLimit() { return m_stackLimit; }
-    void* softStackLimit() { return m_softStackLimit; }
-    void** addressOfSoftStackLimit() { return &m_softStackLimit; }
-#if ENABLE(C_LOOP)
-    void* cloopStackLimit() { return m_cloopStackLimit; }
-    void setCLoopStackLimit(void* limit) { m_cloopStackLimit = limit; }
-    JS_EXPORT_PRIVATE void* currentCLoopStackPointer() const;
-#endif
+    ALWAYS_INLINE void* softStackLimit() const { return m_traps.softStackLimit(); }
+    ALWAYS_INLINE void** addressOfSoftStackLimit() { return m_traps.addressOfSoftStackLimit(); }
 
     inline bool isSafeToRecurseSoft() const;
     bool isSafeToRecurse() const
@@ -724,6 +722,13 @@ public:
     void* lastStackTop() { return m_lastStackTop; }
     void setLastStackTop(const Thread&);
     
+#if ENABLE(C_LOOP)
+    ALWAYS_INLINE CLoopStack& cloopStack() { return m_traps.cloopStack(); }
+    ALWAYS_INLINE const CLoopStack& cloopStack() const { return m_traps.cloopStack(); }
+    ALWAYS_INLINE void* cloopStackLimit() { return m_traps.cloopStackLimit(); }
+    ALWAYS_INLINE void* currentCLoopStackPointer() const { return m_traps.currentCLoopStackPointer(); }
+#endif
+
     EncodedJSValue encodedHostCallReturnValue { };
     CallFrame* newCallFrameReturnValue;
     CallFrame* callFrameForCatch { nullptr };
@@ -1009,15 +1014,10 @@ private:
         m_throwingThread = nullptr;
 #endif
         m_exception = nullptr;
-        traps().clearTrapBit(VMTraps::NeedExceptionHandling);
+        traps().clearTrap(VMTraps::NeedExceptionHandling);
     }
 
     JS_EXPORT_PRIVATE void setException(Exception*);
-
-#if ENABLE(C_LOOP)
-    bool ensureStackCapacityForCLoop(Register* newTopOfStack);
-    bool isSafeToRecurseSoftCLoop() const;
-#endif // ENABLE(C_LOOP)
 
     JS_EXPORT_PRIVATE Exception* throwException(JSGlobalObject*, Exception*);
     JS_EXPORT_PRIVATE Exception* throwException(JSGlobalObject*, JSValue);
@@ -1040,9 +1040,6 @@ private:
     void* m_stackPointerAtVMEntry { nullptr };
     size_t m_currentSoftReservedZoneSize;
     void* m_stackLimit { nullptr };
-#if ENABLE(C_LOOP)
-    void* m_cloopStackLimit { nullptr };
-#endif
     void* m_lastStackTop { nullptr };
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)

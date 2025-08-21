@@ -218,7 +218,7 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
         RefPtr document = frame->document();
         if (document && document->settings().navigationAPIEnabled()) {
             if (RefPtr window = document->window()) {
-                if (!window->protectedNavigation()->dispatchDownloadNavigateEvent(request.url(), action.downloadAttribute()))
+                if (!window->protectedNavigation()->dispatchDownloadNavigateEvent(request.url(), action.downloadAttribute(), action.sourceElement()))
                     return function({ }, nullptr, NavigationPolicyDecision::IgnoreLoad);
             }
         }
@@ -304,7 +304,10 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
         if (RefPtr page = frame->page()) {
             auto resourceType = frame->isMainFrame() ? ContentExtensions::ResourceType::TopDocument : ContentExtensions::ResourceType::ChildDocument;
             auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), resourceType, *frame->loader().documentLoader());
-            ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
+
+            // Only apply the results if a redirct will occur. See https://webkit.org/b/297077.
+            if (results.summary.redirected)
+                ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), request);
         }
     }
 #endif

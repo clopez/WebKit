@@ -30,7 +30,7 @@
 #include "AccessibilityTableCell.h"
 
 #include "AXObjectCache.h"
-#include "AccessibilityTable.h"
+#include "AXUtilities.h"
 #include "AccessibilityTableRow.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLTableCellElement.h"
@@ -42,26 +42,28 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-AccessibilityTableCell::AccessibilityTableCell(AXID axID, RenderObject& renderer)
-    : AccessibilityRenderObject(axID, renderer)
+AccessibilityTableCell::AccessibilityTableCell(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isARIAGridCell)
+    : AccessibilityRenderObject(axID, renderer, cache)
 {
+    m_isARIAGridCell = isARIAGridCell;
 }
 
-AccessibilityTableCell::AccessibilityTableCell(AXID axID, Node& node)
-    : AccessibilityRenderObject(axID, node)
+AccessibilityTableCell::AccessibilityTableCell(AXID axID, Node& node, AXObjectCache& cache, bool isARIAGridCell)
+    : AccessibilityRenderObject(axID, node, cache)
 {
+    m_isARIAGridCell = isARIAGridCell;
 }
 
 AccessibilityTableCell::~AccessibilityTableCell() = default;
 
-Ref<AccessibilityTableCell> AccessibilityTableCell::create(AXID axID, RenderObject& renderer)
+Ref<AccessibilityTableCell> AccessibilityTableCell::create(AXID axID, RenderObject& renderer, AXObjectCache& cache, bool isARIAGridCell)
 {
-    return adoptRef(*new AccessibilityTableCell(axID, renderer));
+    return adoptRef(*new AccessibilityTableCell(axID, renderer, cache, isARIAGridCell));
 }
 
-Ref<AccessibilityTableCell> AccessibilityTableCell::create(AXID axID, Node& node)
+Ref<AccessibilityTableCell> AccessibilityTableCell::create(AXID axID, Node& node, AXObjectCache& cache, bool isARIAGridCell)
 {
-    return adoptRef(*new AccessibilityTableCell(axID, node));
+    return adoptRef(*new AccessibilityTableCell(axID, node, cache, isARIAGridCell));
 }
 
 bool AccessibilityTableCell::computeIsIgnored() const
@@ -82,27 +84,36 @@ bool AccessibilityTableCell::computeIsIgnored() const
     return !isExposedTableCell() && AccessibilityRenderObject::computeIsIgnored();
 }
 
-AccessibilityTable* AccessibilityTableCell::parentTable() const
+AccessibilityObject* AccessibilityTableCell::parentTable() const
 {
+    // ARIA gridcells may have multiple levels of unignored ancestors that are not the parent table,
+    // including rows and interactive rowgroups. In addition, poorly-formed grids may contain elements
+    // which pass the tests for inclusion.
+    if (isARIAGridCell()) {
+        return Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const auto& ancestor) {
+            return ancestor.isExposableTable() && !ancestor.isIgnored();
+        });
+    }
+
     CheckedPtr cache = axObjectCache();
     // If the document no longer exists, we might not have an axObjectCache.
     if (!cache)
         return nullptr;
-    
-    // Do not use getOrCreate. parentTable() can be called while the render tree is being modified 
+
+    // Do not use getOrCreate. parentTable() can be called while the render tree is being modified
     // by javascript, and creating a table element may try to access the render tree while in a bad state.
     // By using only get() implies that the AXTable must be created before AXTableCells. This should
     // always be the case when AT clients access a table.
     // https://bugs.webkit.org/show_bug.cgi?id=42652
-    RefPtr<AccessibilityTable> tableFromRenderTree;
+    RefPtr<AccessibilityObject> tableFromRenderTree;
     if (auto* renderTableCell = dynamicDowncast<RenderTableCell>(renderer()))
-        tableFromRenderTree = dynamicDowncast<AccessibilityTable>(cache->get(renderTableCell->table()));
+        tableFromRenderTree = cache->get(renderTableCell->table());
 
-    if (!tableFromRenderTree) {
+    if (!tableFromRenderTree || !tableFromRenderTree->isTable()) {
         if (node()) {
-            return downcast<AccessibilityTable>(Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const auto& ancestor) {
-                return is<AccessibilityTable>(ancestor);
-            }));
+            return Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const auto& ancestor) {
+                return ancestor.isTable();
+            });
         }
         return nullptr;
     }
@@ -113,28 +124,42 @@ AccessibilityTable* AccessibilityTableCell::parentTable() const
         for (RefPtr ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
             // If this is a non-anonymous table object, but not an accessibility table, we should stop because
             // we don't want to choose another ancestor table as this cell's table.
-            if (auto* ancestorTable = dynamicDowncast<AccessibilityTable>(ancestor.get())) {
-                if (ancestorTable->isExposable())
-                    return ancestorTable;
-                if (ancestorTable->node())
+            if (ancestor->isTable()) {
+                if (ancestor->isExposableTable())
+                    return ancestor.get();
+                if (ancestor->node())
                     break;
             }
         }
         return nullptr;
     }
-    
+
     return tableFromRenderTree.get();
 }
-    
+
+String AccessibilityTableCell::readOnlyValue() const
+{
+    const AtomString& readOnlyValue = getAttribute(aria_readonlyAttr);
+    if (readOnlyValue != nullAtom())
+        return readOnlyValue.string().convertToASCIILowercase();
+
+    // ARIA 1.1 requires user agents to propagate the grid's aria-readonly value to all
+    // gridcell elements if the property is not present on the gridcell element itself.
+    if (RefPtr parent = parentTable())
+        return parent->readOnlyValue();
+
+    return String();
+}
+
 bool AccessibilityTableCell::isExposedTableCell() const
 {
     // If the parent table is an accessibility table, then we are a table cell.
     // This used to check if the unignoredParent was a row, but that exploded performance if
     // this was in nested tables. This check should be just as good.
     RefPtr parentTable = this->parentTable();
-    return parentTable && parentTable->isExposable();
+    return parentTable && parentTable->isExposableTable();
 }
-    
+
 AccessibilityRole AccessibilityTableCell::determineAccessibilityRole()
 {
     // AccessibilityRenderObject::determineAccessibleRole provides any ARIA-supplied
@@ -147,11 +172,11 @@ AccessibilityRole AccessibilityTableCell::determineAccessibilityRole()
     // This matches the logic of `isExposedTableCell()`, but allows us to keep the pointer to the parentTable
     // for use at the bottom of this method.
     RefPtr parentTable = this->parentTable();
-    if (!parentTable || !parentTable->isExposable())
+    if (!parentTable || !parentTable->isExposableTable())
         return defaultRole;
     return parentTable->hasGridRole() ? AccessibilityRole::GridCell : AccessibilityRole::Cell;
 }
-    
+
 bool AccessibilityTableCell::isTableHeaderCell() const
 {
     RefPtr node = this->node();
@@ -234,16 +259,6 @@ bool AccessibilityTableCell::isRowHeader() const
     }
     return false;
 }
-    
-String AccessibilityTableCell::expandedTextValue() const
-{
-    return getAttribute(abbrAttr);
-}
-    
-bool AccessibilityTableCell::supportsExpandedTextValue() const
-{
-    return isTableHeaderCell() && hasAttribute(abbrAttr);
-}
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityTableCell::rowHeaders()
 {
@@ -309,7 +324,7 @@ std::pair<unsigned, unsigned> AccessibilityTableCell::rowIndexRange() const
     ensureIndexesUpToDate();
     return { m_rowIndex, m_effectiveRowSpan };
 }
-    
+
 std::pair<unsigned, unsigned> AccessibilityTableCell::columnIndexRange() const
 {
     ensureIndexesUpToDate();
@@ -328,7 +343,7 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     // they are title ui elements
     if (WebCore::elementName(node()) == ElementName::HTML_th)
         return nullptr;
-    
+
     RenderTableCell& renderCell = downcast<RenderTableCell>(*m_renderer);
 
     // If this cell is in the first column, there is no need to continue.
@@ -341,7 +356,7 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     RenderTableSection* section = renderCell.section();
     if (!section)
         return nullptr;
-    
+
     RenderTableCell* headerCell = section->primaryCellAt(row, 0);
     if (!headerCell || headerCell == &renderCell)
         return nullptr;
@@ -352,7 +367,7 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
 
     return axObjectCache()->getOrCreate(*headerCell);
 }
-    
+
 std::optional<unsigned> AccessibilityTableCell::axColumnIndex() const
 {
     if (int value = integralAttribute(aria_colindexAttr); value >= 1)
@@ -366,7 +381,7 @@ std::optional<unsigned> AccessibilityTableCell::axColumnIndex() const
 
     return { };
 }
-    
+
 std::optional<unsigned> AccessibilityTableCell::axRowIndex() const
 {
     // ARIA 1.1: Authors should place aria-rowindex on each row. Authors may also place
@@ -376,6 +391,22 @@ std::optional<unsigned> AccessibilityTableCell::axRowIndex() const
 
     if (RefPtr parentRow = this->parentRow())
         return parentRow->axRowIndex();
+
+    return { };
+}
+
+String AccessibilityTableCell::axColumnIndexText() const
+{
+    return getAttribute(aria_colindextextAttr);
+}
+
+String AccessibilityTableCell::axRowIndexText() const
+{
+    if (String text = getAttribute(aria_rowindextextAttr); !text.isNull())
+        return text;
+
+    if (RefPtr parentRow = this->parentRow())
+        return parentRow->axRowIndexText();
 
     return { };
 }

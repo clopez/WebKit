@@ -148,7 +148,7 @@ float RenderTextControl::getAverageCharWidth()
     if (style().fontCascade().fastAverageCharWidthIfAvailable(width))
         return width;
 
-    const UChar ch = '0';
+    const char16_t ch = '0';
     const String str = span(ch);
     const FontCascade& font = style().fontCascade();
     TextRun textRun = constructTextRun(str, style(), ExpansionBehavior::allowRightOnly());
@@ -178,6 +178,8 @@ void RenderTextControl::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
     }
     // Use average character width. Matches IE.
     maxLogicalWidth = preferredContentLogicalWidth(const_cast<RenderTextControl*>(this)->getAverageCharWidth());
+    maxLogicalWidth = RenderTheme::singleton().adjustedMaximumLogicalWidthForControl(style(), textFormControlElement(), maxLogicalWidth);
+
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
         minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu));

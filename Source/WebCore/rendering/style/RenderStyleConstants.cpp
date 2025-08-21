@@ -832,6 +832,17 @@ TextStream& operator<<(TextStream& ts, NBSPMode mode)
     return ts;
 }
 
+TextStream& operator<<(TextStream& ts, NinePieceImageRule rule)
+{
+    switch (rule) {
+    case NinePieceImageRule::Stretch: ts << "stretch"_s; break;
+    case NinePieceImageRule::Round: ts << "round"_s; break;
+    case NinePieceImageRule::Space: ts << "space"_s; break;
+    case NinePieceImageRule::Repeat: ts << "repeat"_s; break;
+    }
+    return ts;
+}
+
 TextStream& operator<<(TextStream& ts, ObjectFit objectFit)
 {
     switch (objectFit) {
@@ -1183,6 +1194,7 @@ TextStream& operator<<(TextStream& ts, TextDecorationLine line)
     case TextDecorationLine::Overline: ts << "overline"_s; break;
     case TextDecorationLine::LineThrough: ts << "line-through"_s; break;
     case TextDecorationLine::Blink: ts << "blink"_s; break;
+    case TextDecorationLine::SpellingError: ts << "spelling-error"_s; break;
     }
     return ts;
 }
@@ -1419,23 +1431,6 @@ TextStream& operator<<(TextStream& ts, UserSelect userSelect)
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, VerticalAlign verticalAlign)
-{
-    switch (verticalAlign) {
-    case VerticalAlign::Baseline: ts << "baseline"_s; break;
-    case VerticalAlign::Middle: ts << "middle"_s; break;
-    case VerticalAlign::Sub: ts << "sub"_s; break;
-    case VerticalAlign::Super: ts << "super"_s; break;
-    case VerticalAlign::TextTop: ts << "text-top"_s; break;
-    case VerticalAlign::TextBottom: ts << "text-bottom"_s; break;
-    case VerticalAlign::Top: ts << "top"_s; break;
-    case VerticalAlign::Bottom: ts << "bottom"_s; break;
-    case VerticalAlign::BaselineMiddle: ts << "baseline-middle"_s; break;
-    case VerticalAlign::Length: ts << "length"_s; break;
-    }
-    return ts;
-}
-
 TextStream& operator<<(TextStream& ts, Visibility visibility)
 {
     switch (visibility) {
@@ -1479,6 +1474,15 @@ TextStream& operator<<(TextStream& ts, WordBreak wordBreak)
     case WordBreak::KeepAll: ts << "keep-all"_s; break;
     case WordBreak::BreakWord: ts << "break-word"_s; break;
     case WordBreak::AutoPhrase: ts << "auto-phrase"_s; break;
+    }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, MathShift mathShift)
+{
+    switch (mathShift) {
+    case MathShift::Normal: ts << "normal"_s; break;
+    case MathShift::Compact: ts << "compact"_s; break;
     }
     return ts;
 }
