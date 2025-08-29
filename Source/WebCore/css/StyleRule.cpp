@@ -49,6 +49,7 @@
 #include "MutableStyleProperties.h"
 #include "StyleProperties.h"
 #include "StylePropertiesInlines.h"
+#include "StyleRuleFunction.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
 
@@ -135,6 +136,10 @@ template<typename Visitor> constexpr decltype(auto) StyleRuleBase::visitDerived(
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleViewTransition>(*this));
     case StyleRuleType::PositionTry:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRulePositionTry>(*this));
+    case StyleRuleType::Function:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleFunction>(*this));
+    case StyleRuleType::FunctionDeclarations:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleFunctionDeclarations>(*this));
     case StyleRuleType::Margin:
         break;
     }
@@ -235,6 +240,12 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
         [&](StyleRulePositionTry& rule) -> Ref<CSSRule> {
             return CSSPositionTryRule::create(rule, parentSheet);
         },
+        [&](StyleRuleFunction&) -> Ref<CSSRule> {
+            RELEASE_ASSERT_NOT_REACHED();
+        },
+        [&](StyleRuleFunctionDeclarations&) -> Ref<CSSRule> {
+            RELEASE_ASSERT_NOT_REACHED();
+        },
         [](StyleRuleCharset&) -> Ref<CSSRule> {
             RELEASE_ASSERT_NOT_REACHED();
         },
@@ -332,7 +343,7 @@ Vector<Ref<StyleRule>> StyleRule::splitIntoMultipleRulesWithMaximumSelectorCompo
 
     for (auto& selector : selectorList()) {
         Vector<const CSSSelector*, 8> componentsInThisSelector;
-        for (const CSSSelector* component = &selector; component; component = component->tagHistory())
+        for (const CSSSelector* component = &selector; component; component = component->precedingInComplexSelector())
             componentsInThisSelector.append(component);
 
         if (componentsInThisSelector.size() + componentsSinceLastSplit.size() > maxCount && !componentsSinceLastSplit.isEmpty()) {

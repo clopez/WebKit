@@ -430,6 +430,11 @@ bool CaptionUserPreferencesMediaAF::captionStrokeWidthForFont(float fontSize, co
     return true;
 }
 
+bool CaptionUserPreferencesMediaAF::testingMode() const
+{
+    return CaptionUserPreferences::testingMode() || hasNullCaptionProfile();
+}
+
 String CaptionUserPreferencesMediaAF::captionsTextEdgeCSS() const
 {
     MACaptionAppearanceBehavior behavior;
@@ -592,6 +597,16 @@ Vector<String> CaptionUserPreferencesMediaAF::preferredAudioCharacteristics() co
         return CaptionUserPreferences::preferredAudioCharacteristics();
 
     return makeVector<String>(characteristics.get());
+}
+
+bool CaptionUserPreferencesMediaAF::hasNullCaptionProfile() const
+{
+    if (!canLoad_MediaAccessibility_MACaptionAppearanceCopyActiveProfileID())
+        return false;
+
+    String captionProfile = adoptCF(MACaptionAppearanceCopyActiveProfileID()).get();
+
+    return captionProfile.isEmpty();
 }
 #endif // HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 

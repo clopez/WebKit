@@ -26,7 +26,9 @@
 #pragma once
 
 #include <WebCore/ColorTypes.h>
+#include <WebCore/PlatformExportMacros.h>
 #include <functional>
+#include <wtf/Assertions.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {

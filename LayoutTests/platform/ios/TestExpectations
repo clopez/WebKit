@@ -7620,7 +7620,7 @@ imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-block
 imported/w3c/web-platform-tests/css/css-view-transitions/capture-with-opacity-zero-child.html [ Pass ImageOnlyFailure ]
 
 # webkit.org/b/278934 [ macOS iOS wk2 ] imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html is a flaky failure.
-[ Debug ] imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html [ Failure Pass ]
+imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html [ Failure Pass ]
 
 webkit.org/b/279295 fast/inline/list-marker-inside-container-with-margin.html [ ImageOnlyFailure ]
 
@@ -7916,9 +7916,6 @@ webkit.org/b/292650 http/tests/iframe-monitor/throttler.html [ Timeout ]
 
 webkit.org/b/288957 imported/w3c/web-platform-tests/css/CSS2/tables/border-collapse-dynamic-column-001.xht [ ImageOnlyFailure ]
 
-#rdar://145604998 (REGRESSION(iOS 18.4, macOS Sequoia 15.4 ): fast/text/international/hindi-spacing.html is a constant text failure)
-fast/text/international/hindi-spacing.html [ Failure ]
-
 webkit.org/b/288518 fast/text/emoji-num-glyphs.html [ Failure ]
 
 # rdar://148254605 (REGRESSION (iOS 18.4): media/sources-fallback-codecs.html is constantly failing.)
@@ -8120,7 +8117,6 @@ webkit.org/b/296209 http/tests/workers/service/basic-timeout.https.html [ Pass F
 compositing/layer-creation/sticky-overlap-extent.html [ Failure ]
 editing/pasteboard/copy-paste-bidi.html [ Failure ]
 editing/selection/ios/show-selection-in-transformed-container-2.html [ Failure ]
-fast/events/touch/page-scaled-touch-gesture-click.html [ Failure ]
 fast/mediastream/play-newly-added-audio-track.html [ Failure ]
 http/tests/resourceLoadStatistics/only-partitioned-cookies-after-redirect.html [ Failure ]
 http/tests/websocket/tests/hybi/websocket-allowed-setting-cookie-as-third-party-with-third-party-cookie-blocking.https.html [ Failure ]
@@ -8206,8 +8202,6 @@ webkit.org/b/297081 http/tests/resourceLoadStatistics/exemptDomains/managed-doma
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-010.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-013.html [ Pass Failure ]
 
-webkit.org/b/297141 [ Debug ] fast/eventsource/eventsource-attribute-listeners.html [ Pass Crash ]
-
 # Inactive window appearance for form controls is not supported on iOS.
 fast/forms/form-control-refresh/accent-color-contrast-does-not-affect-inactive-window-light-mode.html [ Skip ]
 fast/forms/form-control-refresh/accent-color-contrast-does-not-affect-inactive-window-dark-mode.html [ Skip ]
@@ -8237,6 +8231,9 @@ webkit.org/b/294931 ipc/LocalSampleBufferDisplayLayer-LogIdentifier-data-race-ua
 
 webkit.org/b/289010 imported/w3c/web-platform-tests/html/semantics/disabled-elements/event-propagate-disabled-keyboard.tentative.html [ Failure ]
 
+# Clicking/tapping within a selection on iOS is not supposed to clear the selection.
+fast/events/selection-clear-on-click-fractional-coordinates.html [ Skip ]
+
 # webkit.org/b/297599 [ iOS ] 6x http/tests/iframe-monitor (layout-tests) tests are constantly timing out 
 http/tests/iframe-monitor/workers/shared-worker.html [ Timeout ]
 http/tests/iframe-monitor/workers/service-worker.html [ Timeout ]
@@ -8250,3 +8247,9 @@ webkit.org/b/261344 [ Release ] requestidlecallback/requestidlecallback-does-not
 webkit.org/b/297669 [ Release ] http/tests/site-isolation/edge-sampling-viewport-constrained-object.html [ Pass Failure ]
 
 webkit.org/b/297674 [ Release ] http/wpt/mediarecorder/MediaRecorder-matroska-AV-audio-video-dataavailable.html [ Pass Failure ]
+
+webkit.org/b/295435 compositing/layer-creation/overlap-animation-container.html [ Pass Failure ]
+
+webkit.org/b/297984 [ Release ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/navigate-top-to-aboutblank.https.html [ Failure ]
+
+webkit.org/b/298042 [ Release ] http/tests/security/clipboard/copy-paste-html-cross-origin-iframe-across-origin.html [ Pass Failure ]

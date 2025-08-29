@@ -24,9 +24,15 @@
 
 #pragma once
 
+#include "AXObjectCache.h"
+#include "Element.h"
+#include "Node.h"
+#include "RenderImage.h"
+
 namespace WebCore {
 
 enum class AXNotification : uint8_t;
+enum class AccessibilityRole : uint8_t;
 enum class NodeName : uint16_t;
 class ContainerNode;
 class Document;
@@ -69,5 +75,7 @@ const RenderStyle* safeStyleFrom(Element&);
 WTF::TextStream& operator<<(WTF::TextStream&, AXNotification);
 
 void dumpAccessibilityTreeToStderr(Document&);
+
+String roleToString(AccessibilityRole);
 
 } // WebCore

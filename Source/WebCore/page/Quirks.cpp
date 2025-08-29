@@ -97,7 +97,9 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Quirks);
 
+#if PLATFORM(IOS_FAMILY)
 static constexpr auto chromeUserAgentScript = "(function() { let userAgent = navigator.userAgent; Object.defineProperty(navigator, 'userAgent', { get: () => { return userAgent + ' Chrome/130.0.0.0 Android/15.0'; }, configurable: true }); })();"_s;
+#endif
 
 static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document& document)
 {
@@ -922,6 +924,13 @@ bool Quirks::shouldEnableEnumerateDeviceQuirk() const
 }
 #endif
 
+#if ENABLE(WEB_RTC)
+bool Quirks::shouldEnableRTCEncodedStreamsQuirk() const
+{
+    return needsQuirks() && m_quirksData.shouldEnableRTCEncodedStreamsQuirk;
+}
+#endif
+
 bool Quirks::shouldUnloadHeavyFrame() const
 {
     return needsQuirks() && m_quirksData.shouldUnloadHeavyFrames;
@@ -1463,6 +1472,8 @@ bool Quirks::needsIPhoneUserAgent(const URL& url)
 {
 #if PLATFORM(IOS_FAMILY)
     if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
+        return true;
+    if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
         return true;
 #else
     UNUSED_PARAM(url);

@@ -50,11 +50,11 @@ namespace WasmBBQPlanInternal {
 static constexpr bool verbose = false;
 }
 
-BBQPlan::BBQPlan(VM& vm, Ref<ModuleInformation>&& moduleInformation, FunctionCodeIndex functionIndex, std::optional<bool> hasExceptionHandlers, Ref<CalleeGroup>&& calleeGroup, CompletionTask&& completionTask)
+BBQPlan::BBQPlan(VM& vm, Ref<ModuleInformation>&& moduleInformation, FunctionCodeIndex functionIndex, Ref<IPIntCallee>&& profiledCallee, Ref<CalleeGroup>&& calleeGroup, CompletionTask&& completionTask)
     : Plan(vm, WTFMove(moduleInformation), WTFMove(completionTask))
+    , m_profiledCallee(WTFMove(profiledCallee))
     , m_calleeGroup(WTFMove(calleeGroup))
     , m_functionIndex(functionIndex)
-    , m_hasExceptionHandlers(hasExceptionHandlers)
 {
     ASSERT(Options::useBBQJIT());
     setMode(m_calleeGroup->mode());
@@ -100,8 +100,7 @@ void BBQPlan::work()
 
     LinkBuffer linkBuffer(*context.wasmEntrypointJIT, callee.ptr(), LinkBuffer::Profile::WasmBBQ, JITCompilationCanFail);
     if (linkBuffer.didFailToAllocate()) [[unlikely]] {
-        Locker locker { m_lock };
-        Base::fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex.rawIndex()), Plan::Error::OutOfMemory);
+        fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex.rawIndex()), CompilationError::OutOfMemory);
         return;
     }
 
@@ -152,12 +151,10 @@ void BBQPlan::work()
         }
 
         m_calleeGroup->updateCallsitesToCallUs(locker, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex);
-
+        WTF::storeStoreFence();
         {
-            WTF::storeStoreFence();
-            IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
-            Locker locker { ipintCallee.tierUpCounter().m_lock };
-            ipintCallee.tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
+            Locker locker { m_profiledCallee->tierUpCounter().m_lock };
+            m_profiledCallee->tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
         }
     }
 
@@ -178,19 +175,31 @@ std::unique_ptr<InternalFunction> BBQPlan::compileFunction(FunctionCodeIndex fun
 
     beginCompilerSignpost(callee);
     RELEASE_ASSERT(mode() == m_calleeGroup->mode());
-    parseAndCompileResult = parseAndCompileBBQ(context, callee, function, signature, unlinkedWasmToWasmCalls, m_calleeGroup.get(), m_moduleInformation.get(), m_mode, functionIndex, m_hasExceptionHandlers, UINT32_MAX);
+    parseAndCompileResult = parseAndCompileBBQ(context, m_profiledCallee.get(), callee, function, signature, unlinkedWasmToWasmCalls, m_calleeGroup.get(), m_moduleInformation.get(), m_mode, functionIndex);
     endCompilerSignpost(callee);
 
     if (!parseAndCompileResult) [[unlikely]] {
-        Locker locker { m_lock };
-        if (!m_errorMessage) {
-            // Multiple compiles could fail simultaneously. We arbitrarily choose the first.
-            fail(makeString(parseAndCompileResult.error(), ", in function at index "_s, functionIndex.rawIndex())); // FIXME: make this an Expected.
-        }
+        fail(makeString(parseAndCompileResult.error(), ", in function at index "_s, functionIndex.rawIndex()), CompilationError::Parse); // FIXME: make this an Expected.
         return nullptr;
     }
 
     return WTFMove(*parseAndCompileResult);
+}
+
+void BBQPlan::fail(String&& errorMessage, CompilationError error)
+{
+    {
+        Locker locker { m_lock };
+        if (!m_errorMessage) {
+            // Multiple compiles could fail simultaneously. We arbitrarily choose the first.
+            Base::fail(WTFMove(errorMessage), error);
+        }
+    }
+    {
+        Locker locker { m_profiledCallee->tierUpCounter().m_lock };
+        m_profiledCallee->tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Failed);
+        m_profiledCallee->tierUpCounter().setCompilationError(mode(), error);
+    }
 }
 
 } } // namespace JSC::Wasm

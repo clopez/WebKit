@@ -214,7 +214,6 @@ set(LLINT_ASM
     llint/LowLevelInterpreter.asm
     llint/LowLevelInterpreter32_64.asm
     llint/LowLevelInterpreter64.asm
-    llint/WebAssembly.asm
 )
 
 set(OFFLINE_ASM
@@ -1275,6 +1274,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ParseInt.h
     runtime/PrivateFieldPutKind.h
     runtime/PrivateName.h
+    runtime/ProfilerSupport.h
     runtime/ProgramExecutable.h
     runtime/PropertyDescriptor.h
     runtime/PropertyName.h
@@ -1395,6 +1395,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     tools/SourceProfiler.h
 
     wasm/WasmBranchHints.h
+    wasm/WasmCallSlot.h
     wasm/WasmCallee.h
     wasm/WasmCalleeGroup.h
     wasm/WasmCallingConvention.h

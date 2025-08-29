@@ -143,6 +143,11 @@ void AccessibilityObject::init()
         ensureRareData();
 }
 
+AXObjectCache* AccessibilityObject::axObjectCache() const
+{
+    return m_axObjectCache.get();
+}
+
 std::optional<AXID> AccessibilityObject::treeID() const
 {
     auto* cache = axObjectCache();
@@ -153,7 +158,7 @@ String AccessibilityObject::debugDescriptionInternal(bool verbose, std::optional
 {
     StringBuilder result;
     result.append("{"_s);
-    result.append("role: "_s, accessibilityRoleToString(role()));
+    result.append("role: "_s, roleToString(role()));
     result.append(", ID "_s, objectID().loggingString());
 
     if (debugOptions) {

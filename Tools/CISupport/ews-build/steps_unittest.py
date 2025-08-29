@@ -944,6 +944,82 @@ class TestKillOldProcesses(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
 
+class TestTriggerCrashLogSubmission(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setUpBuildStep()
+
+    def tearDown(self):
+        return self.tearDownBuildStep()
+
+    def test_success(self):
+        self.setupStep(TriggerCrashLogSubmission())
+        self.assertEqual(TriggerCrashLogSubmission.haltOnFailure, False)
+        self.assertEqual(TriggerCrashLogSubmission.flunkOnFailure, False)
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        command=['python3', 'Tools/CISupport/trigger-crash-log-submission'],
+                        logEnviron=False,
+                        timeout=60,
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Triggered crash log submission')
+        return self.runStep()
+
+    def test_failure(self):
+        self.setupStep(TriggerCrashLogSubmission())
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        command=['python3', 'Tools/CISupport/trigger-crash-log-submission'],
+                        logEnviron=False,
+                        timeout=60,
+                        )
+            + ExpectShell.log('stdio', stdout='Unexpected error.')
+            + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='Failed to trigger crash log submission')
+        return self.runStep()
+
+
+class TestWaitForCrashCollection(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setUpBuildStep()
+
+    def tearDown(self):
+        return self.tearDownBuildStep()
+
+    def test_success(self):
+        self.setupStep(WaitForCrashCollection())
+        self.assertEqual(WaitForCrashCollection.haltOnFailure, False)
+        self.assertEqual(WaitForCrashCollection.flunkOnFailure, False)
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        command=['python3', 'Tools/CISupport/wait-for-crash-collection', '--timeout', str(5 * 60)],
+                        logEnviron=False,
+                        timeout=360,
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Crash collection has quiesced')
+        return self.runStep()
+
+    def test_failure(self):
+        self.setupStep(WaitForCrashCollection())
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        command=['python3', 'Tools/CISupport/wait-for-crash-collection', '--timeout', str(5 * 60)],
+                        logEnviron=False,
+                        timeout=360,
+                        )
+            + ExpectShell.log('stdio', stdout='Unexpected error.')
+            + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='Crash log collection process still running')
+        return self.runStep()
+
+
 class TestCleanBuild(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
@@ -6904,7 +6980,7 @@ class TestPushCommitToWebKitRepo(BuildStepMixinAdditions, unittest.TestCase):
                         logEnviron=False,
                         env=dict(GIT_USER='webkit-commit-queue', GIT_PASSWORD='password'),
                         command=['git', 'push', 'origin', 'HEAD:main']) +
-            ExpectShell.log('stdio', stdout=' 4c3bac1de151...b94dc426b331 ') +
+            ExpectShell.log('stdio', stdout=' 4c3bac1de151...b94dc426b331 \n') +
             0,
         )
         self.expectOutcome(result=SUCCESS, state_string='')
@@ -7445,7 +7521,7 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
                         timeout=300,
                         logEnviron=False,
                         command=['python3', 'Tools/Scripts/git-webkit', 'find', '51a6aec9f664']) +
-            ExpectShell.log('stdio', stdout='Identifier: 233175@main') +
+            ExpectShell.log('stdio', stdout='Identifier: 233175@main\n') +
             0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Identifier: 233175@main')
@@ -7470,7 +7546,7 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
                         timeout=300,
                         logEnviron=False,
                         command=['python3', 'Tools/Scripts/git-webkit', 'find', '51a6aec9f664']) +
-            ExpectShell.log('stdio', stdout='Identifier: 233175@main') +
+            ExpectShell.log('stdio', stdout='Identifier: 233175@main\n') +
             0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Identifier: 233175@main')
@@ -7491,7 +7567,7 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
                         timeout=300,
                         logEnviron=False,
                         command=['python3', 'Tools/Scripts/git-webkit', 'find', '51a6aec9f664']) +
-            ExpectShell.log('stdio', stdout='Identifier: 233175@main') +
+            ExpectShell.log('stdio', stdout='Identifier: 233175@main\n') +
             0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Identifier: 233175@main')

@@ -24,6 +24,7 @@
 
 #include "APIUIClient.h"
 #include "OpenXRExtensions.h"
+#include "OpenXRInput.h"
 #include "OpenXRLayer.h"
 #include "OpenXRUtils.h"
 #include "WebPageProxy.h"
@@ -36,6 +37,7 @@
 #endif
 #include <WebCore/GLContext.h>
 #include <WebCore/GLDisplay.h>
+#include <WebCore/GLFence.h>
 #include <openxr/openxr_platform.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WorkQueue.h>
@@ -79,11 +81,7 @@ void OpenXRCoordinator::getPrimaryDeviceInfo(WebPageProxy&, DeviceInfoCallback&&
         return;
     }
 
-    auto supportsOrientationTracking = [instance = m_instance, system = m_systemId]() -> bool {
-        XrSystemProperties systemProperties = createOpenXRStruct<XrSystemProperties, XR_TYPE_SYSTEM_PROPERTIES>();
-        CHECK_XRCMD(xrGetSystemProperties(instance, system, &systemProperties));
-        return systemProperties.trackingProperties.orientationTracking == XR_TRUE;
-    };
+    auto runtimeProperties = systemProperties(m_instance, m_systemId);
 
     auto recommendedResolution = [&views = m_viewConfigurationViews]() -> WebCore::IntSize {
         // OpenXR is very flexible wrt views resolution, but the current WebKit architecture expects a single resolution for all views.
@@ -91,7 +89,7 @@ void OpenXRCoordinator::getPrimaryDeviceInfo(WebPageProxy&, DeviceInfoCallback&&
     };
 
     XRDeviceInfo deviceInfo { .identifier = m_deviceIdentifier, .vrFeatures = { }, .arFeatures = { } };
-    deviceInfo.supportsOrientationTracking = supportsOrientationTracking();
+    deviceInfo.supportsOrientationTracking = runtimeProperties.supportsOrientationTracking;
     deviceInfo.supportsStereoRendering = m_currentViewConfiguration == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
     deviceInfo.recommendedResolution = recommendedResolution();
     LOG(XR, "OpenXR device info:\n\tOrientation tracking: %s\n\tStereo rendering: %s\n\tRecommended resolution: %dx%d", deviceInfo.supportsOrientationTracking ? "yes" : "no", deviceInfo.supportsStereoRendering ? "yes" : "no", deviceInfo.recommendedResolution.width(), deviceInfo.recommendedResolution.height());
@@ -102,10 +100,17 @@ void OpenXRCoordinator::getPrimaryDeviceInfo(WebPageProxy&, DeviceInfoCallback&&
     deviceInfo.vrFeatures.append(PlatformXR::SessionFeature::ReferenceSpaceTypeLocal);
     deviceInfo.arFeatures.append(PlatformXR::SessionFeature::ReferenceSpaceTypeLocal);
 
-    if (m_extensions->isExtensionSupported(XR_MSFT_UNBOUNDED_REFERENCE_SPACE_EXTENSION_NAME ""_span)) {
+    if (OpenXRExtensions::singleton().isExtensionSupported(XR_MSFT_UNBOUNDED_REFERENCE_SPACE_EXTENSION_NAME ""_span)) {
         deviceInfo.vrFeatures.append(PlatformXR::SessionFeature::ReferenceSpaceTypeUnbounded);
         deviceInfo.arFeatures.append(PlatformXR::SessionFeature::ReferenceSpaceTypeUnbounded);
     }
+
+#if ENABLE(WEBXR_HANDS) && defined(XR_EXT_hand_tracking)
+    if (runtimeProperties.supportsHandTracking && OpenXRExtensions::singleton().isExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME ""_span)) {
+        deviceInfo.vrFeatures.append(PlatformXR::SessionFeature::HandTracking);
+        deviceInfo.arFeatures.append(PlatformXR::SessionFeature::HandTracking);
+    }
+#endif
 
     // In order to get the supported reference space types, we need the session to be created. However at this point we shouldn't do it.
     // Instead, we report ReferenceSpaceTypeLocalFloor as available, because we can supoport it via either the STAGE reference space, the
@@ -226,6 +231,7 @@ void OpenXRCoordinator::startSession(WebPageProxy& page, WeakPtr<PlatformXRCoord
                     LOG(XR, "OpenXRCoordinator: failed to create the session");
                     return;
                 }
+                m_input = OpenXRInput::create(m_instance, m_session, systemProperties(m_instance, m_systemId));
                 renderLoop(renderState);
             });
         },
@@ -333,11 +339,19 @@ void OpenXRCoordinator::createInstance()
 
     Vector<char *, 2> extensions;
 #if defined(XR_USE_PLATFORM_EGL)
-    if (m_extensions->isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span))
+    if (OpenXRExtensions::singleton().isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span))
         extensions.append(const_cast<char*>(XR_MNDX_EGL_ENABLE_EXTENSION_NAME));
 #endif
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
     extensions.append(const_cast<char*>(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME));
+#endif
+#if defined(XR_EXT_hand_interaction)
+    if (OpenXRExtensions::singleton().isExtensionSupported(XR_EXT_HAND_INTERACTION_EXTENSION_NAME ""_span))
+        extensions.append(const_cast<char*>(XR_EXT_HAND_INTERACTION_EXTENSION_NAME));
+#endif
+#if ENABLE(WEBXR_HANDS) && defined(XR_EXT_hand_tracking)
+    if (OpenXRExtensions::singleton().isExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME ""_span))
+        extensions.append(const_cast<char*>(XR_EXT_HAND_TRACKING_EXTENSION_NAME));
 #endif
 
     XrInstanceCreateInfo createInfo = createOpenXRStruct<XrInstanceCreateInfo, XR_TYPE_INSTANCE_CREATE_INFO >();
@@ -436,19 +450,13 @@ void OpenXRCoordinator::initializeDevice()
         return;
     }
 
-    m_extensions = OpenXRExtensions::create();
-    if (!m_extensions) {
-        LOG(XR, "Failed to create OpenXRExtensions.");
-        return;
-    }
-
     createInstance();
     if (m_instance == XR_NULL_HANDLE) {
         LOG(XR, "Failed to create OpenXR instance.");
         return;
     }
 
-    if (!m_extensions->loadMethods(m_instance)) {
+    if (!OpenXRExtensions::singleton().loadMethods(m_instance)) {
         LOG(XR, "Failed to load extension methods.");
         return;
     }
@@ -495,7 +503,7 @@ void OpenXRCoordinator::initializeBlendModes()
 
 void OpenXRCoordinator::tryInitializeGraphicsBinding()
 {
-    if (!m_extensions->isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span)) {
+    if (!OpenXRExtensions::singleton().isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span)) {
         LOG(XR, "OpenXR MNDX_EGL_ENABLE extension is not supported.");
         return;
     }
@@ -517,7 +525,7 @@ void OpenXRCoordinator::tryInitializeGraphicsBinding()
     m_graphicsBinding.display = m_glDisplay->eglDisplay();
     m_graphicsBinding.context = m_glContext->platformContext();
     m_graphicsBinding.config = m_glContext->config();
-    m_graphicsBinding.getProcAddress = m_extensions->methods().getProcAddressFunc;
+    m_graphicsBinding.getProcAddress = OpenXRExtensions::singleton().methods().getProcAddressFunc;
 }
 
 void OpenXRCoordinator::createSessionIfNeeded()
@@ -530,7 +538,7 @@ void OpenXRCoordinator::createSessionIfNeeded()
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
     auto requirements = createOpenXRStruct<XrGraphicsRequirementsOpenGLESKHR, XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR>();
-    CHECK_XRCMD(m_extensions->methods().xrGetOpenGLESGraphicsRequirementsKHR(m_instance, m_systemId, &requirements));
+    CHECK_XRCMD(OpenXRExtensions::singleton().methods().xrGetOpenGLESGraphicsRequirementsKHR(m_instance, m_systemId, &requirements));
 #endif
 
     tryInitializeGraphicsBinding();
@@ -560,6 +568,7 @@ void OpenXRCoordinator::cleanupSessionAndAssociatedResources()
 
     m_layers.clear();
     m_views.clear();
+    m_input.reset();
 
     if (m_session != XR_NULL_HANDLE) {
         CHECK_XRCMD(xrDestroySession(m_session));
@@ -600,7 +609,6 @@ void OpenXRCoordinator::handleSessionStateChange()
         cleanupSessionAndAssociatedResources();
         break;
     default:
-        LOG(XR, "OpenXR session state changed to %s", toString(m_sessionState));
         break;
     }
 }
@@ -622,6 +630,13 @@ OpenXRCoordinator::PollResult OpenXRCoordinator::pollEvents()
             m_sessionState = event->state;
             handleSessionStateChange();
             return m_session == XR_NULL_HANDLE ? PollResult::Stop : PollResult::Continue;
+        }
+        case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED: {
+            auto* event = reinterpret_cast<XrEventDataInteractionProfileChanged*>(&runtimeEvent);
+            LOG(XR, "OpenXR interaction profile changed for session %p", static_cast<void*>(event->session));
+            if (m_input && event->session == m_session)
+                m_input->updateInteractionProfile();
+            break;
         }
         default:
             LOG(XR, "Unhandled OpenXR event type %d\n", runtimeEvent.type);
@@ -659,6 +674,9 @@ PlatformXR::FrameData OpenXRCoordinator::populateFrameData(Box<RenderState> rend
     frameData.isTrackingValid = viewState.viewStateFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
     frameData.isPositionValid = viewState.viewStateFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT;
     frameData.isPositionEmulated = !(viewState.viewStateFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT);
+
+    if (m_input)
+        frameData.inputSources = m_input->collectInputSources(renderState->frameState, m_localSpace);
 
     frameData.origin = XrIdentityPose();
 
@@ -715,7 +733,7 @@ void OpenXRCoordinator::createReferenceSpacesIfNeeded(Box<RenderState> renderSta
     m_localSpace = createReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
 
 #if defined(XR_EXT_local_floor)
-    if (supportedSpaces.contains(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT) && m_extensions->isExtensionSupported(XR_EXT_LOCAL_FLOOR_EXTENSION_NAME ""_span)) {
+    if (supportedSpaces.contains(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT) && OpenXRExtensions::singleton().isExtensionSupported(XR_EXT_LOCAL_FLOOR_EXTENSION_NAME ""_span)) {
         m_floorSpace = createReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT);
         LOG(XR, "OpenXRCoordinator: created LOCAL_FLOOR reference space");
     }
@@ -789,6 +807,12 @@ void OpenXRCoordinator::endFrame(Box<RenderState> renderState, Vector<XRDeviceLa
             LOG(XR, "Didn't find a OpenXRLayer with %d handle", layer.handle);
             continue;
         }
+
+        if (layer.fenceFD) {
+            if (auto fence = WebCore::GLFence::importFD(*m_glDisplay, WTFMove(layer.fenceFD)))
+                fence->serverWait();
+        }
+
         auto header = it->value->endFrame(layer, m_localSpace, m_views);
         if (!header) {
             LOG(XR, "endFrame() call failed in OpenXRLayer with %d handle", layer.handle);

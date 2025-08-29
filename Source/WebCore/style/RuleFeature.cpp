@@ -58,6 +58,8 @@ static bool isSiblingOrSubject(MatchElement matchElement)
     case MatchElement::HasChild:
     case MatchElement::HasDescendant:
     case MatchElement::HasSiblingDescendant:
+    case MatchElement::HasChildParent:
+    case MatchElement::HasChildAncestor:
     case MatchElement::HasNonSubject:
     case MatchElement::HasScopeBreaking:
         return false;
@@ -104,6 +106,8 @@ static bool isScopeBreaking(MatchElement matchElement)
     case MatchElement::HasChild:
     case MatchElement::HasDescendant:
     case MatchElement::HasSiblingDescendant:
+    case MatchElement::HasChildParent:
+    case MatchElement::HasChildAncestor:
     case MatchElement::HasNonSubject:
         return false;
     }
@@ -207,7 +211,7 @@ static MatchElement computeNextHasPseudoClassMatchElement(MatchElement matchElem
 MatchElement computeHasPseudoClassMatchElement(const CSSSelector& hasSelector)
 {
     auto hasMatchElement = MatchElement::Subject;
-    for (auto* simpleSelector = &hasSelector; simpleSelector->tagHistory(); simpleSelector = simpleSelector->tagHistory())
+    for (auto* simpleSelector = &hasSelector; simpleSelector->precedingInComplexSelector(); simpleSelector = simpleSelector->precedingInComplexSelector())
         hasMatchElement = computeNextMatchElement(hasMatchElement, simpleSelector->relation());
 
     switch (hasMatchElement) {
@@ -230,6 +234,8 @@ MatchElement computeHasPseudoClassMatchElement(const CSSSelector& hasSelector)
     case MatchElement::HasSibling:
     case MatchElement::HasSiblingDescendant:
     case MatchElement::HasAnySibling:
+    case MatchElement::HasChildParent:
+    case MatchElement::HasChildAncestor:
     case MatchElement::HasNonSubject:
     case MatchElement::HasScopeBreaking:
     case MatchElement::Host:
@@ -258,9 +264,21 @@ static MatchElement computeSubSelectorMatchElement(MatchElement matchElement, co
             return MatchElement::Host;
 
         if (type == CSSSelector::PseudoClass::Has) {
+            auto hasSelectorMatchElement = computeHasPseudoClassMatchElement(childSelector);
+
+            if (hasSelectorMatchElement == MatchElement::HasChild) {
+                // :has(> .changed) > .subject
+                if (matchElement == MatchElement::Parent)
+                    return MatchElement::HasChildParent;
+                // :has(> .changed) .subject
+                if (matchElement == MatchElement::Ancestor)
+                    return MatchElement::HasChildAncestor;
+            }
+
             if (matchElement != MatchElement::Subject)
                 return MatchElement::HasNonSubject;
-            return computeHasPseudoClassMatchElement(childSelector);
+
+            return hasSelectorMatchElement;
         }
 
     }
@@ -329,7 +347,7 @@ DoesBreakScope RuleFeatureSet::recursivelyCollectFeaturesFromSelector(SelectorFe
             }
         }
 
-        if (!selector->tagHistory())
+        if (!selector->precedingInComplexSelector())
             break;
 
         matchElement = [&] {
@@ -341,7 +359,7 @@ DoesBreakScope RuleFeatureSet::recursivelyCollectFeaturesFromSelector(SelectorFe
         if (isScopeBreaking(matchElement))
             doesBreakScope = DoesBreakScope::Yes;
 
-        selector = selector->tagHistory();
+        selector = selector->precedingInComplexSelector();
     };
 
     return doesBreakScope;
@@ -357,11 +375,17 @@ PseudoClassInvalidationKey makePseudoClassInvalidationKey(CSSSelector::PseudoCla
     };
 };
 
+bool unlikelyToHaveSelectorForAttribute(const AtomString& name)
+{
+    return name == HTMLNames::classAttr->localName() || name == HTMLNames::idAttr->localName() || name == HTMLNames::styleAttr->localName();
+}
+
 static PseudoClassInvalidationKey makePseudoClassInvalidationKey(CSSSelector::PseudoClass pseudoClass, const CSSSelector& selector)
 {
+    AtomString attributeName;
     AtomString className;
     AtomString tagName;
-    for (auto* simpleSelector = selector.firstInCompound(); simpleSelector; simpleSelector = simpleSelector->tagHistory()) {
+    for (auto* simpleSelector = selector.firstInCompound(); simpleSelector; simpleSelector = simpleSelector->precedingInComplexSelector()) {
         if (simpleSelector->match() == CSSSelector::Match::Id)
             return makePseudoClassInvalidationKey(pseudoClass, InvalidationKeyType::Id, simpleSelector->value());
 
@@ -371,9 +395,15 @@ static PseudoClassInvalidationKey makePseudoClassInvalidationKey(CSSSelector::Ps
         if (simpleSelector->match() == CSSSelector::Match::Tag)
             tagName = simpleSelector->tagLowercaseLocalName();
 
+        if (simpleSelector->isAttributeSelector() && !unlikelyToHaveSelectorForAttribute(simpleSelector->attribute().localNameLowercase()))
+            attributeName = simpleSelector->attribute().localNameLowercase();
+
         if (simpleSelector->relation() != CSSSelector::Relation::Subselector)
             break;
     }
+    if (!attributeName.isEmpty())
+        return makePseudoClassInvalidationKey(pseudoClass, InvalidationKeyType::Attribute, attributeName);
+
     if (!className.isEmpty())
         return makePseudoClassInvalidationKey(pseudoClass, InvalidationKeyType::Class, className);
 

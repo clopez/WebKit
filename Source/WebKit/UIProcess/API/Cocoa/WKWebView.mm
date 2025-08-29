@@ -3373,6 +3373,17 @@ WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContai
     return adjustedColor.get() ?: color;
 }
 
+- (RetainPtr<NSScrollPocket>)_copyTopScrollPocket
+{
+    RetainPtr clonedScrollPocket = adoptNS([NSScrollPocket new]);
+    RetainPtr currentScrollPocket = _impl->topScrollPocket();
+    [clonedScrollPocket setEdge:[currentScrollPocket edge]];
+    [clonedScrollPocket setStyle:[currentScrollPocket style]];
+    [clonedScrollPocket setPrefersSolidColorHardPocket:[currentScrollPocket prefersSolidColorHardPocket]];
+    [clonedScrollPocket setCaptureColor:[currentScrollPocket captureColor]];
+    return clonedScrollPocket;
+}
+
 - (BOOL)_alwaysPrefersSolidColorHardPocket
 {
     return _alwaysPrefersSolidColorHardPocket;
@@ -4278,21 +4289,16 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     });
 }
 
-- (void)_hitTestAtPoint:(CGPoint)point inFrameCoordinateSpace:(WKFrameInfo *)frame completionHandler:(void (^)(_WKJSHandle *, WKFrameInfo *, NSError *))completionHandler
+- (void)_hitTestAtPoint:(CGPoint)point inFrameCoordinateSpace:(WKFrameInfo *)frame completionHandler:(void (^)(_WKJSHandle *, NSError *))completionHandler
 {
     RefPtr mainFrame = _page->mainFrame();
     if (!frame && !mainFrame)
-        return completionHandler(nil, nil, unknownError().get());
+        return completionHandler(nil, unknownError().get());
     _page->hitTestAtPoint(frame ? frame->_frameInfo->frameInfoData().frameID : mainFrame->frameID(), point, [completionHandler = makeBlockPtr(completionHandler)] (auto&& result) mutable {
         if (!result)
-            return completionHandler(nil, nil, unknownError().get());
-        completionHandler(wrapper(API::JSHandle::create(WTFMove(result->node))).get(), wrapper(API::FrameInfo::create(WTFMove(result->frame))).get(), nil);
+            return completionHandler(nil, unknownError().get());
+        completionHandler(wrapper(API::JSHandle::create(WTFMove(*result))).get(), nil);
     });
-}
-
-+ (NSString *)_userVisibleStringForURL:(NSURL *)url
-{
-    return WTF::userVisibleString(url);
 }
 
 - (void)_toggleInWindow

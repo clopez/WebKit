@@ -227,7 +227,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> createJSToWasmJITShared()
     static std::once_flag onceKey;
     std::call_once(onceKey, [&] {
         // JIT version of js_to_wasm_wrapper_entry
-        // If you change this, make sure to modify WebAssembly.asm:op(js_to_wasm_wrapper_entry)
+        // If you change this, make sure to modify InPlaceInterpreter.asm:op(js_to_wasm_wrapper_entry)
         CCallHelpers jit;
 
         CCallHelpers::JumpList exceptionChecks;
@@ -267,6 +267,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> createJSToWasmJITShared()
         jit.push(GPRInfo::regWS1);
         jit.push(GPRInfo::regWS1);
         jit.transferPtr(CCallHelpers::Address(GPRInfo::regWS0, WebAssemblyFunction::offsetOfBoxedJSToWasmCallee()), CCallHelpers::addressFor(CallFrameSlot::callee));
+        jit.store32(CCallHelpers::TrustedImm32(JSValue::NativeCalleeTag), CCallHelpers::addressFor(CallFrameSlot::callee).withOffset(TagOffset));
 #endif
 
         // Prepare frame
@@ -278,7 +279,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> createJSToWasmJITShared()
         jit.storePtr(GPRInfo::wasmBaseMemoryPointer, CCallHelpers::addressFor(CallFrameSlot::callee));
 #else
         jit.transferPtr(CCallHelpers::Address(CCallHelpers::stackPointerRegister, 0), CCallHelpers::addressFor(CallFrameSlot::callee));
-        jit.addPtr(CCallHelpers::TrustedImm32(2 * 8), CCallHelpers::stackPointerRegister);
+        jit.addPtr(CCallHelpers::TrustedImm32(2 * sizeof(void*)), CCallHelpers::stackPointerRegister);
 #endif
 
         static_assert(CCallHelpers::operationExceptionRegister<operationJSToWasmEntryWrapperBuildFrame>() != InvalidGPRReg, "We don't have a VM readily available so we rely on exception being returned");

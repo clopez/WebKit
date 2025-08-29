@@ -721,6 +721,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/system-preview/ARKitBadgeSystemImage.h
 
+    Modules/url-pattern/URLPattern.h
+    Modules/url-pattern/URLPatternComponent.h
+    Modules/url-pattern/URLPatternInit.h
+
     Modules/web-locks/WebLock.h
     Modules/web-locks/WebLockIdentifier.h
     Modules/web-locks/WebLockManagerSnapshot.h
@@ -852,6 +856,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/AccessibilityNodeObject.h
     accessibility/AccessibilityObject.h
     accessibility/AccessibilityRenderObject.h
+    accessibility/AccessibilityRole.h
     accessibility/AccessibilityScrollView.h
     accessibility/ForcedAccessibilityValue.h
     accessibility/isolatedtree/AXIsolatedObject.h
@@ -913,7 +918,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/DOMPromiseProxy.h
     bindings/js/DOMWrapperWorld.h
     bindings/js/ExceptionDetails.h
-    bindings/js/GCController.h
+    bindings/js/GarbageCollectionController.h
     bindings/js/IDBBindingUtilities.h
     bindings/js/JSCSSRuleCustom.h
     bindings/js/JSCSSStyleDeclarationCustom.h
@@ -1262,6 +1267,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ActiveDOMCallback.h
     dom/ActiveDOMObject.h
     dom/AddEventListenerOptions.h
+    dom/AddEventListenerOptionsInlines.h
     dom/AsyncNodeDeletionQueue.h
     dom/AsyncNodeDeletionQueueInlines.h
     dom/Attr.h
@@ -1695,6 +1701,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/canvas/PredefinedColorSpace.h
     html/canvas/WebGLAny.h
     html/canvas/WebGLContextAttributes.h
+    html/canvas/WebGLExtension.h
     html/canvas/WebGLExtensionAny.h
 
     html/closewatcher/CloseWatcher.h
@@ -3352,6 +3359,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/text/StyleHyphenateLimitLines.h
     style/values/text/StyleTextIndent.h
 
+    style/values/text-decoration/StyleTextDecorationLine.h
     style/values/text-decoration/StyleTextDecorationThickness.h
     style/values/text-decoration/StyleTextEmphasisStyle.h
     style/values/text-decoration/StyleTextShadow.h
@@ -3569,12 +3577,14 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/JSWebKitSerializedNode.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSXPathExpression.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSXPathResult.h
+    ${WebCore_DERIVED_SOURCES_DIR}/MathMLNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Namespace.h
     ${WebCore_DERIVED_SOURCES_DIR}/NodeName.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableByteStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableStreamInternalsBuiltins.h
+    ${WebCore_DERIVED_SOURCES_DIR}/SVGNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
     ${WebCore_DERIVED_SOURCES_DIR}/StreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/TagName.h

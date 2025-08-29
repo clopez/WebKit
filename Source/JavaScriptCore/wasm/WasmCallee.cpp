@@ -37,6 +37,7 @@
 #include "NativeCalleeRegistry.h"
 #include "PCToCodeOriginMap.h"
 #include "VMManager.h"
+#include "WasmCallSlot.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
 #include "WebAssemblyBuiltin.h"
@@ -244,6 +245,7 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpac
     , m_numLocals(generator.m_numLocals)
     , m_numArgumentsOnStack(generator.m_numArgumentsOnStack)
     , m_maxFrameSizeInV128(generator.m_maxFrameSizeInV128)
+    , m_callSlots(generator.m_numCallSlots)
     , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
 {
     if (size_t count = generator.m_exceptionHandlers.size()) {
@@ -294,13 +296,13 @@ RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
         RegisterSet registers;
         registers.add(GPRInfo::regCS0, IgnoreVectors); // JSWebAssemblyInstance
 #if CPU(X86_64)
-        registers.add(GPRInfo::regCS1, IgnoreVectors); // PM (pointer to metadata)
+        registers.add(GPRInfo::regCS1, IgnoreVectors); // MC (pointer to metadata)
         registers.add(GPRInfo::regCS2, IgnoreVectors); // PB
 #elif CPU(ARM64) || CPU(RISCV64)
-        registers.add(GPRInfo::regCS6, IgnoreVectors); // PM
+        registers.add(GPRInfo::regCS6, IgnoreVectors); // MC
         registers.add(GPRInfo::regCS7, IgnoreVectors); // PB
 #elif CPU(ARM)
-        registers.add(GPRInfo::regCS0, IgnoreVectors); // PM
+        registers.add(GPRInfo::regCS0, IgnoreVectors); // MC
         registers.add(GPRInfo::regCS1, IgnoreVectors); // PB
 #else
 #error Unsupported architecture.

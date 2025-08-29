@@ -1173,6 +1173,20 @@ CSSFontVariantEmojiEnabled:
     WebCore:
       default: false
 
+CSSFunctionAtRuleEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS @function"
+  humanReadableDescription: "Enable CSS @function rule"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSInputSecurityEnabled:
   type: bool
   status: testable
@@ -2639,6 +2653,20 @@ EnterKeyHintEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)": true
+      default: false
+    WebCore:
+      default: false
+
+EnumeratedARIAAttributeReflectionEnabled:
+  type: bool
+  status: developer
+  category: javascript
+  humanReadableName: "Enumerated ARIA Attribute Reflection"
+  humanReadableDescription: "Enable enumerated ARIA attributes"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false

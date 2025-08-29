@@ -755,7 +755,7 @@ public:
     void setActiveOpenPanelResultListener(Ref<WebOpenPanelResultListener>&&);
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-    bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
 
     // -- InjectedBundle methods
 #if ENABLE(CONTEXT_MENUS)
@@ -1245,6 +1245,7 @@ public:
     void setIsolatedTree(Ref<WebCore::AXIsolatedTree>&&);
 #endif
     NSObject *accessibilityObjectForMainFramePlugin();
+    bool shouldFallbackToWebContentAXObjectForMainFramePlugin() const;
     const WebCore::FloatPoint& accessibilityPosition() const { return m_accessibilityPosition; }
 
     void setTextAsync(const String&);
@@ -2018,6 +2019,8 @@ public:
     void updateOpener(WebCore::FrameIdentifier, WebCore::FrameIdentifier);
 
     WebHistoryItemClient& historyItemClient() const { return m_historyItemClient.get(); }
+
+    const String& overrideReferrerForAllRequests() const { return m_overrideReferrerForAllRequests; }
 
     bool isAlwaysOnLoggingAllowed() const;
 
@@ -3102,6 +3105,7 @@ private:
     bool m_textManipulationIncludesSubframes { false };
 
     Vector<String> m_corsDisablingPatterns;
+    const String m_overrideReferrerForAllRequests;
 
     std::unique_ptr<WebCore::CachedPage> m_cachedPage;
 

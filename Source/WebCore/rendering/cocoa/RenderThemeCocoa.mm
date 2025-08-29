@@ -1173,6 +1173,11 @@ bool RenderThemeCocoa::paintCheckboxForVectorBasedControls(const RenderObject& b
     context.setFillColor(indicatorColor);
     context.fillPath(glyphPath);
 
+#if PLATFORM(MAC)
+    if (Theme::singleton().userPrefersContrast())
+        drawHighContrastOutline(context, path, box.styleColorOptions());
+#endif
+
     return true;
 }
 
@@ -1236,6 +1241,11 @@ bool RenderThemeCocoa::paintRadioForVectorBasedControls(const RenderObject& box,
 
         context.setFillColor(indicatorColor);
         context.fillEllipse(innerCircleRect);
+
+#if PLATFORM(MAC)
+    if (Theme::singleton().userPrefersContrast())
+        drawHighContrastOutline(context, boundingPath, box.styleColorOptions());
+#endif
     } else if (!isVision) {
         const auto borderColor = checkboxRadioBorderColorForVectorBasedControls(controlStates, styleColorOptions);
         const auto borderThickness = checkboxRadioBorderWidthForVectorBasedControls * usedZoom;
@@ -2170,7 +2180,7 @@ static bool paintTextAreaOrTextField(const RenderObject& box, const PaintInfo& p
 #endif
 
     const auto styleColorOptions = box.styleColorOptions();
-    auto backgroundColor = RenderTheme::singleton().systemColor(CSSValueCanvas, styleColorOptions);
+    auto backgroundColor = style->visitedDependentColor(CSSPropertyBackgroundColor);
 #if PLATFORM(MAC)
     const auto prefersContrast = Theme::singleton().userPrefersContrast();
     auto borderColor = prefersContrast ? highContrastOutlineColor(styleColorOptions) : RenderTheme::singleton().systemColor(CSSValueAppleSystemContainerBorder, styleColorOptions);

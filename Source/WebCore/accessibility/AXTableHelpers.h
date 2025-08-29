@@ -25,14 +25,16 @@
 
 #pragma once
 
+#include <WebCore/AccessibilityRole.h>
+
 namespace WebCore {
 
-enum class AccessibilityRole : uint8_t;
 class AXObjectCache;
 class Node;
 class Element;
 class HTMLTableElement;
 class HTMLTableSectionElement;
+class RenderObject;
 class RenderStyle;
 struct AccessibilityText;
 
