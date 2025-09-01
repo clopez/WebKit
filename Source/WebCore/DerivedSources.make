@@ -416,7 +416,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediacapabilities/TransferFunction.idl \
     $(WebCore)/Modules/mediacapabilities/VideoConfiguration.idl \
     $(WebCore)/Modules/mediacapabilities/WorkerNavigator+MediaCapabilities.idl \
+    $(WebCore)/Modules/mediacontrols/DOMWindow+MediaControls.idl \
     $(WebCore)/Modules/mediacontrols/MediaControlsHost.idl \
+    $(WebCore)/Modules/mediacontrols/MediaControlsUtils.idl \
     $(WebCore)/Modules/mediarecorder/BlobEvent.idl \
     $(WebCore)/Modules/mediarecorder/MediaRecorder.idl \
     $(WebCore)/Modules/mediarecorder/MediaRecorderErrorEvent.idl \
@@ -2120,6 +2122,7 @@ MODERN_MEDIA_CONTROLS_STYLE_SHEETS = \
     $(WebCore)/Modules/modern-media-controls/controls/slider.css \
     $(WebCore)/Modules/modern-media-controls/controls/status-label.css \
     $(WebCore)/Modules/modern-media-controls/controls/text-tracks.css \
+    $(WebCore)/Modules/modern-media-controls/controls/time-control.css \
     $(WebCore)/Modules/modern-media-controls/controls/time-label.css \
     $(WebCore)/Modules/modern-media-controls/controls/tvos-media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/vision-media-controls.css \
