@@ -147,6 +147,7 @@
 #include "ShadowRoot.h"
 #include "SourceGraphic.h"
 #include "StyleAttributeMutationScope.h"
+#include "StyleLengthWrapper+Platform.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
 #include "Styleable.h"
@@ -6023,7 +6024,7 @@ static bool rendererHasHDRContent(const RenderElement& renderer)
             }
         }
 
-        if (auto image = style.listStyleImage()) {
+        if (RefPtr image = style.listStyleImage().tryStyleImage()) {
             if (auto* cachedImage = image->cachedImage()) {
                 if (cachedImage->hasHDRContent())
                     return true;
@@ -6296,43 +6297,41 @@ RenderStyle RenderLayer::createReflectionStyle()
     auto newStyle = RenderStyle::create();
     newStyle.inheritFrom(renderer().style());
     
-    // Map in our transform.
-    Vector<Ref<TransformOperation>> operations;
+    auto reflection = renderer().style().boxReflect().tryReflection();
 
-    switch (renderer().style().boxReflect()->direction()) {
+    switch (reflection->direction) {
     case ReflectionDirection::Below:
-        operations = {
-            TranslateTransformOperation::create(Length(0, LengthType::Fixed), Length(100., LengthType::Percent), TransformOperation::Type::Translate),
-            TranslateTransformOperation::create(Length(0, LengthType::Fixed), renderer().style().boxReflect()->offset(), TransformOperation::Type::Translate),
-            ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::Type::Scale)
-        };
+        newStyle.setTransform(Style::Transform {
+            Style::TransformFunction { TranslateTransformOperation::create(Length(0, LengthType::Fixed), Length(100., LengthType::Percent), TransformOperation::Type::Translate) },
+            Style::TransformFunction { TranslateTransformOperation::create(Length(0, LengthType::Fixed), Style::toPlatform(reflection->offset), TransformOperation::Type::Translate) },
+            Style::TransformFunction { ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::Type::Scale) },
+        });
         break;
     case ReflectionDirection::Above:
-        operations = {
-            ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::Type::Scale),
-            TranslateTransformOperation::create(Length(0, LengthType::Fixed), Length(100., LengthType::Percent), TransformOperation::Type::Translate),
-            TranslateTransformOperation::create(Length(0, LengthType::Fixed), renderer().style().boxReflect()->offset(), TransformOperation::Type::Translate)
-        };
+        newStyle.setTransform(Style::Transform {
+            Style::TransformFunction { ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::Type::Scale) },
+            Style::TransformFunction { TranslateTransformOperation::create(Length(0, LengthType::Fixed), Length(100., LengthType::Percent), TransformOperation::Type::Translate) },
+            Style::TransformFunction { TranslateTransformOperation::create(Length(0, LengthType::Fixed), Style::toPlatform(reflection->offset), TransformOperation::Type::Translate) },
+        });
         break;
     case ReflectionDirection::Right:
-        operations = {
-            TranslateTransformOperation::create(Length(100., LengthType::Percent), Length(0, LengthType::Fixed), TransformOperation::Type::Translate),
-            TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, LengthType::Fixed), TransformOperation::Type::Translate),
-            ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::Type::Scale)
-        };
+        newStyle.setTransform(Style::Transform {
+            Style::TransformFunction { TranslateTransformOperation::create(Length(100., LengthType::Percent), Length(0, LengthType::Fixed), TransformOperation::Type::Translate) },
+            Style::TransformFunction { TranslateTransformOperation::create(Style::toPlatform(reflection->offset), Length(0, LengthType::Fixed), TransformOperation::Type::Translate) },
+            Style::TransformFunction { ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::Type::Scale) },
+        });
         break;
     case ReflectionDirection::Left:
-        operations = {
-            ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::Type::Scale),
-            TranslateTransformOperation::create(Length(100., LengthType::Percent), Length(0, LengthType::Fixed), TransformOperation::Type::Translate),
-            TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, LengthType::Fixed), TransformOperation::Type::Translate)
-        };
+        newStyle.setTransform(Style::Transform {
+            Style::TransformFunction { ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::Type::Scale) },
+            Style::TransformFunction { TranslateTransformOperation::create(Length(100., LengthType::Percent), Length(0, LengthType::Fixed), TransformOperation::Type::Translate) },
+            Style::TransformFunction { TranslateTransformOperation::create(Style::toPlatform(reflection->offset), Length(0, LengthType::Fixed), TransformOperation::Type::Translate) },
+        });
         break;
     }
-    newStyle.setTransform(TransformOperations { WTFMove(operations) });
 
     // Map in our mask.
-    newStyle.setMaskBorder(Style::MaskBorder { renderer().style().boxReflect()->mask() });
+    newStyle.setMaskBorder(Style::MaskBorder { reflection->mask });
 
     // Style has transform and mask, so needs to be stacking context.
     newStyle.setUsedZIndex(0);

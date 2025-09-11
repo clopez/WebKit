@@ -31,13 +31,11 @@
 #import "AXAttributeCacheScope.h"
 #import "AXLogger.h"
 #import "AXNotifications.h"
-#import "AXObjectCache.h"
 #import "AXObjectCacheInlines.h"
 #import "AXSearchManager.h"
 #import "AXUtilities.h"
 #import "AccessibilityRenderObject.h"
 #import "AccessibilityScrollView.h"
-#import "AccessibilityTableCell.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
 #import "FontCascade.h"
@@ -1235,13 +1233,13 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return [result length] ? result : nil;
 }
 
-- (AccessibilityTableCell*)tableCellParent
+- (AccessibilityObject*)tableCellParent
 {
     // Find if this element is in a table cell.
     if (AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*self.axBackingObject, true, [] (const AXCoreObject& object) {
         return object.isExposedTableCell();
     }))
-        return &downcast<AccessibilityTableCell>(*parent);
+        return &downcast<AccessibilityObject>(*parent);
     return nil;
 }
 
@@ -1269,7 +1267,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    AccessibilityTableCell* tableCell = [self tableCellParent];
+    AccessibilityObject* tableCell = [self tableCellParent];
     if (!tableCell)
         return nil;
 
@@ -1365,7 +1363,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 {
     if (![self _prepareAccessibilityCall])
         return NSNotFound;
-    AccessibilityTableCell* tableCell = [self tableCellParent];
+    AccessibilityObject* tableCell = [self tableCellParent];
     if (!tableCell)
         return NSNotFound;
 
@@ -1377,7 +1375,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 {
     if (![self _prepareAccessibilityCall])
         return NSNotFound;
-    AccessibilityTableCell* tableCell = [self tableCellParent];
+    AccessibilityObject* tableCell = [self tableCellParent];
     if (!tableCell)
         return NSNotFound;
 
@@ -1389,7 +1387,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    RefPtr<AccessibilityTableCell> tableCell = [self tableCellParent];
+    RefPtr<AccessibilityObject> tableCell = [self tableCellParent];
     if (!tableCell)
         return nil;
 
@@ -1401,7 +1399,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    RefPtr<AccessibilityTableCell> tableCell = [self tableCellParent];
+    RefPtr<AccessibilityObject> tableCell = [self tableCellParent];
     if (!tableCell)
         return nil;
 
@@ -1481,7 +1479,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return NSMakeRange(NSNotFound, 0);
 
-    AccessibilityTableCell* tableCell = [self tableCellParent];
+    AccessibilityObject* tableCell = [self tableCellParent];
     if (!tableCell)
         return NSMakeRange(NSNotFound, 0);
 
@@ -2108,14 +2106,17 @@ static RenderObject* rendererForView(WAKView* view)
 
 - (id)_accessibilityParentForSubview:(id)subview
 {
-    RenderObject* renderer = rendererForView(subview);
+    CheckedPtr renderer = rendererForView(subview);
     if (!renderer)
         return nil;
 
-    AccessibilityObject* obj = renderer->document().axObjectCache()->getOrCreate(*renderer);
-    if (obj)
-        return obj->parentObjectUnignored()->wrapper();
-    return nil;
+    CheckedPtr cache = renderer->protectedDocument()->axObjectCache();
+    if (!cache)
+        return nil;
+
+    RefPtr object = cache->getOrCreate(*renderer);
+    RefPtr parent = object ? object->parentObjectUnignored() : nullptr;
+    return parent ? parent->wrapper() : nil;
 }
 
 // These will be used by the UIKit wrapper to calculate an appropriate description of scroll status.

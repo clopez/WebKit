@@ -49,7 +49,6 @@
 namespace WebCore {
 
 class AffineTransform;
-class DecomposedGlyphs;
 class Filter;
 class FilterResults;
 class FloatRoundedRect;
@@ -247,7 +246,7 @@ public:
 
     IntSize compatibleImageBufferSize(const FloatSize&) const;
 
-    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, float resolutionScale = 1, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt, ImageBufferFormat = { ImageBufferPixelFormat::BGRA8 }) const;
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, float resolutionScale = 1, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt, ImageBufferFormat = { PixelFormat::BGRA8 }) const;
 
     WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatSize&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
     WEBCORE_EXPORT RefPtr<ImageBuffer> createScaledImageBuffer(const FloatRect&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, std::optional<RenderingMethod> = std::nullopt) const;
@@ -309,8 +308,6 @@ public:
     WEBCORE_EXPORT virtual void drawBidiText(const FontCascade&, const TextRun&, const FloatPoint&, FontCascade::CustomFontNotReadyAction = FontCascade::CustomFontNotReadyAction::DoNotPaintIfFontNotReady);
 
     WEBCORE_EXPORT virtual void drawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
-    WEBCORE_EXPORT virtual void drawDecomposedGlyphs(const Font&, const DecomposedGlyphs&);
-
     WEBCORE_EXPORT void drawDisplayList(const DisplayList::DisplayList&);
     WEBCORE_EXPORT virtual void drawDisplayList(const DisplayList::DisplayList&, ControlFactory&);
     WEBCORE_EXPORT FloatRect computeUnderlineBoundsForText(const FloatRect&, bool printing);

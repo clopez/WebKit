@@ -1429,7 +1429,12 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
 
     m_cacheStorageProvider->networkProcessConnectionClosed();
 
-    for (auto& weakSession : copyToVector(m_webTransportSessions.values())) {
+    Vector<ThreadSafeWeakPtr<WebTransportSession>> sessions;
+    {
+        Locker locker { m_webTransportSessionsLock };
+        sessions = copyToVector(m_webTransportSessions.values());
+    }
+    for (auto& weakSession : sessions) {
         if (RefPtr webtransportSession = weakSession.get())
             webtransportSession->networkProcessCrashed();
     }
@@ -2207,6 +2212,17 @@ bool WebProcess::removeServiceWorkerRegistration(WebCore::ServiceWorkerRegistrat
     return m_swRegistrationCounts.remove(identifier);
 }
 
+bool WebProcess::registerServiceWorker(WebCore::ServiceWorkerIdentifier identifier)
+{
+    return m_swServiceWorkerCounts.add(identifier).isNewEntry;
+}
+
+bool WebProcess::unregisterServiceWorker(WebCore::ServiceWorkerIdentifier identifier)
+{
+    ASSERT(m_swServiceWorkerCounts.contains(identifier));
+    return m_swServiceWorkerCounts.remove(identifier);
+}
+
 #if ENABLE(MEDIA_STREAM)
 void WebProcess::addMockMediaDevice(const WebCore::MockMediaDevice& device)
 {
@@ -2559,20 +2575,20 @@ Ref<WebNotificationManager> WebProcess::protectedNotificationManager()
 
 RefPtr<WebTransportSession> WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
 {
-    ASSERT(RunLoop::isMain());
+    Locker locker { m_webTransportSessionsLock };
     return m_webTransportSessions.get(identifier).get();
 }
 
 void WebProcess::addWebTransportSession(WebTransportSessionIdentifier identifier, WebTransportSession& session)
 {
-    ASSERT(RunLoop::isMain());
+    Locker locker { m_webTransportSessionsLock };
     ASSERT(!m_webTransportSessions.contains(identifier));
     m_webTransportSessions.set(identifier, session);
 }
 
 void WebProcess::removeWebTransportSession(WebTransportSessionIdentifier identifier)
 {
-    ASSERT(RunLoop::isMain());
+    Locker locker { m_webTransportSessionsLock };
     ASSERT(m_webTransportSessions.contains(identifier));
     m_webTransportSessions.remove(identifier);
 }

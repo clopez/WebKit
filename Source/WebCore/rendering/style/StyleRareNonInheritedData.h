@@ -28,7 +28,6 @@
 #include <WebCore/CSSPropertyNames.h>
 #include <WebCore/CounterDirectives.h>
 #include <WebCore/LengthPoint.h>
-#include <WebCore/LineClampValue.h>
 #include <WebCore/NameScope.h>
 #include <WebCore/PositionArea.h>
 #include <WebCore/PositionTryFallback.h>
@@ -50,6 +49,7 @@
 #include <WebCore/StyleOffsetPath.h>
 #include <WebCore/StyleOffsetPosition.h>
 #include <WebCore/StyleOffsetRotate.h>
+#include <WebCore/StylePageSize.h>
 #include <WebCore/StylePerspective.h>
 #include <WebCore/StylePerspectiveOrigin.h>
 #include <WebCore/StylePrimitiveNumericTypes.h>
@@ -74,6 +74,9 @@
 #include <WebCore/StyleViewTimelines.h>
 #include <WebCore/StyleViewTransitionClass.h>
 #include <WebCore/StyleViewTransitionName.h>
+#include <WebCore/StyleWebKitBoxReflect.h>
+#include <WebCore/StyleWebKitInitialLetter.h>
+#include <WebCore/StyleWebKitLineClamp.h>
 #include <WebCore/TouchAction.h>
 #include <memory>
 #include <wtf/DataRef.h>
@@ -97,7 +100,6 @@ class StyleFlexibleBoxData;
 class StyleGridData;
 class StyleGridItemData;
 class StyleMultiColData;
-class StyleReflection;
 class StyleResolver;
 class StyleTransformData;
 class WillChangeData;
@@ -108,16 +110,6 @@ struct StyleMarqueeData;
 namespace Style {
 class CustomPropertyData;
 }
-
-// Page size type.
-// StyleRareNonInheritedData::pageSize is meaningful only when
-// StyleRareNonInheritedData::pageSizeType is PAGE_SIZE_RESOLVED.
-enum class PageSizeType : uint8_t {
-    Auto, // size: auto
-    AutoLandscape, // size: landscape
-    AutoPortrait, // size: portrait
-    Resolved // Size is fully resolved.
-};
 
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
@@ -145,7 +137,7 @@ public:
     Style::ContainIntrinsicSize containIntrinsicWidth;
     Style::ContainIntrinsicSize containIntrinsicHeight;
 
-    LineClampValue lineClamp; // An Apple extension.
+    Style::WebkitLineClamp lineClamp;
 
     float zoom;
 
@@ -157,7 +149,7 @@ public:
     OptionSet<MarginTrimType> marginTrim;
     OptionSet<Containment> contain;
 
-    FloatSize initialLetter;
+    Style::WebkitInitialLetter initialLetter;
 
     DataRef<StyleMarqueeData> marquee; // Marquee properties
 
@@ -174,12 +166,12 @@ public:
     CounterDirectiveMap counterDirectives;
 
     RefPtr<WillChangeData> willChange; // Null indicates 'auto'.
-    
-    RefPtr<StyleReflection> boxReflect;
+
+    Style::WebkitBoxReflect boxReflect;
 
     Style::MaskBorder maskBorder;
 
-    LengthSize pageSize;
+    Style::PageSize pageSize;
 
     Style::ShapeOutside shapeOutside;
     Style::ShapeMargin shapeMargin;
@@ -248,7 +240,6 @@ public:
     PREFERRED_TYPE(OverscrollBehavior) unsigned overscrollBehaviorX : 2;
     PREFERRED_TYPE(OverscrollBehavior) unsigned overscrollBehaviorY : 2;
 
-    PREFERRED_TYPE(PageSizeType) unsigned pageSizeType : 2;
     PREFERRED_TYPE(TransformStyle3D) unsigned transformStyle3D : 2;
     PREFERRED_TYPE(bool) unsigned transformStyleForcedToFlat : 1; // The used value for transform-style is forced to flat by a grouping property.
     PREFERRED_TYPE(BackfaceVisibility) unsigned backfaceVisibility : 1;

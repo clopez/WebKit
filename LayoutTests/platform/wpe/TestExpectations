@@ -16,10 +16,6 @@
 #       it picks as the valid rule the last one matching.
 #////////////////////////////////////////////////////////////////////////////////////////
 
-# Incorrect upstream, but seem to pass on the bots, possibly with a broken baseline.
-# https://github.com/w3c/web-platform-tests/issues/8407
-css2.1/20110323/replaced-intrinsic-002.htm [ Pass ]
-
 fast/events/constructors/keyboard-event-constructor.html [ Pass ]
 
 webkit.org/b/136754 imported/w3c/web-platform-tests/css/css-flexbox/flexbox_flex-natural-mixed-basis-auto.html [ Pass ]
@@ -107,8 +103,6 @@ pointerevents/mouse [ Pass ]
 # Test passing for WPE but failing in GTK.
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-013.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-control.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-ui/resize-child-will-change-transform.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-ui/resize-generated-content.html [ Pass ]
 
 http/tests/cookies/same-site [ Pass ]
 
@@ -148,6 +142,9 @@ imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.ht
 # Accessibility
 webkit.org/b/237820 accessibility/native-text-control-attributed-string.html [ Timeout ]
 
+# AutoResize
+webkit.org/b/99028 fast/autoresize [ Skip ]
+
 # CSS transitions
 webkit.org/b/221313 [ Debug ] imported/w3c/web-platform-tests/css/css-transitions/properties-value-001.html [ Timeout ]
 webkit.org/b/221313 [ Debug ] imported/w3c/web-platform-tests/css/css-transitions/properties-value-inherit-001.html [ Timeout ]
@@ -161,8 +158,26 @@ webkit.org/b/213829 css3/calc/background-position-parsing.html [ ImageOnlyFailur
 webkit.org/b/296415 editing/editability/user-modify-read-only-in-editable-view.html [ Failure ]
 webkit.org/b/296415 editing/editability/user-select-all-in-editable-view.html [ Failure ]
 
+webkit.org/b/298527 editing/spelling [ Skip ]
+
+# Forms
+webkit.org/b/298580 fast/forms/range/slider-delete-while-dragging-thumb.html [ Failure ]
+
+webkit.org/b/298585 fast/forms/validation-message-in-relative-body.html [ Failure ]
+webkit.org/b/298585 fast/forms/validation-message-on-range.html [ Failure ]
+webkit.org/b/298585 fast/forms/validation-message-on-textarea.html [ Failure ]
+
+# HTML Media Capture
+webkit.org/b/85958 fast/forms/file/file-input-capture.html [ Skip ]
+
 # Hyphenation
 webkit.org/b/221377 [ Debug ] fast/text/hyphenation-unknown-locale.html [ Skip ]
+
+# Input
+webkit.org/b/298525 fast/forms/date/date-validity-badinput.html [ Skip ]
+webkit.org/b/298525 fast/forms/datetimelocal/datetimelocal-validity-badinput.html [ Skip ]
+webkit.org/b/298525 fast/forms/time/time-validity-badinput.html [ Skip ]
+webkit.org/b/298525 fast/forms/time-input-svg-font.html [ Skip ]
 
 # Link target
 webkit.org/b/212083 loader/navigation-policy/should-open-external-urls/user-gesture-target-blank-with-flag-from-subframe.html
@@ -181,6 +196,16 @@ http/wpt/mediastream/mediastreamtrackprocessor-videoframe-timestamp.html [ Pass 
 # Media Queries
 webkit.org/b/226521 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/source-media-outside-doc.html [ Pass Failure ]
 webkit.org/b/226521 [ Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/source-media-outside-doc.html [ Pass ]
+
+webkit.org/b/298588 fast/media/mq-any-hover-matchMedia.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-any-hover-styling.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-any-pointer-matchMedia.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-any-pointer-styling.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-hover-matchMedia.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-hover-styling.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-pointer-matchMedia.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-pointer-styling.html [ Skip ]
+webkit.org/b/298588 fast/media/mq-pointer.html [ Skip ]
 
 # Pending to create bug.
 [ Release ] fast/events/prevent-default-prevents-interaction-with-scrollbars.html [ Failure Pass ]
@@ -214,14 +239,15 @@ imported/w3c/web-platform-tests/storage/storagemanager-estimate.https.any.html [
 imported/w3c/web-platform-tests/storage/storagemanager-estimate.https.any.worker.html [ Failure ]
 imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.worker.html [ Failure ]
 imported/w3c/web-platform-tests/workers/SharedWorker_dataUrl.html [ Failure Pass ]
-imported/w3c/web-platform-tests/xhr/event-error-order.sub.html [ Failure ]
-imported/w3c/web-platform-tests/xhr/event-error.sub.any.worker.html [ Failure ]
 imported/w3c/web-platform-tests/xhr/send-authentication-basic-setrequestheader-existing-session.htm [ Failure ]
-imported/w3c/web-platform-tests/xhr/send-network-error-async-events.sub.htm [ Failure ]
 imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-overridesexpires.html [ Skip ]
 
 imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-synconmain.html?timeout_after_open [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-synconmain.html?timeout_before_open [ DumpJSConsoleLogInStdErr ]
+
+# Ping attribute
+
+webkit.org/b/298589 http/tests/navigation/ping-attribute [ Skip ]
 
 # Repaint
 
@@ -298,6 +324,8 @@ fast/events/drag-customData.html [ Skip ]
 fast/events/drag-image-filename.html [ Skip ]
 fast/events/resources/drag-in-frames-left.html [ Skip ]
 fast/events/resources/drag-in-frames-right.html [ Skip ]
+fast/forms/drag-into-textarea.html [ Skip ]
+fast/forms/drag-out-of-textarea.html [ Skip ]
 http/tests/local/drag-over-remote-content.html [ Skip ]
 
 fast/loader/plain-text-document-dark-mode.html [ Pass ]
@@ -325,6 +353,8 @@ fast/events/file-input-hidden-in-ondrop.html
 fast/events/input-element-display-none-in-dragleave-crash.html
 fast/events/only-valid-drop-targets-receive-file-drop.html
 fast/events/prevent-drag-to-navigate.html
+fast/forms/file/file-input-empty-validation.html [ Skip ]
+fast/forms/file/file-input-reset-validation.html [ Skip ]
 
 # WebKitTestRunner needs textInputController
 # <https://bugs.webkit.org/show_bug.cgi?id=42337>
@@ -388,9 +418,6 @@ webkit.org/b/206653 imported/w3c/web-platform-tests/clipboard-apis/async-navigat
 
 webkit.org/b/285785 printing/background-clip-text.html [ ImageOnlyFailure ]
 
-webkit.org/b/208869 fast/images/inline-image-box-with-no-alt-should-collapse-no-quirks.html [ Failure ]
-webkit.org/b/208869 fast/images/inline-image-box-with-no-alt-should-collapse-quirks.html [ Failure ]
-
 webkit.org/b/208985 fast/viewport/ios/shrink-to-fit-large-content-width.html [ Failure ]
 
 webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-backgrounds/background-attachment-local/attachment-local-positioning-5.html [ ImageOnlyFailure Pass ]
@@ -424,6 +451,13 @@ webkit.org/b/224596 fast/scrolling/rtl-scrollbars-listbox-scroll.html [ Skip ] #
 webkit.org/b/224596 imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-lr-001.html [ ImageOnlyFailure ]
 webkit.org/b/224596 imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-rl-001.html [ ImageOnlyFailure ]
 webkit.org/b/227061 imported/w3c/web-platform-tests/css/css-ui/outline-negative-offset-composited-scroll.html [ ImageOnlyFailure ]
+webkit.org/b/298634 fast/repaint/vertical-overflow-child.html [ Skip ]
+webkit.org/b/298634 fast/repaint/vertical-overflow-parent.html [ Skip ]
+webkit.org/b/298634 fast/repaint/vertical-overflow-same.html [ Skip ]
+webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-child.html [ Skip ]
+webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-parent.html [ Skip ]
+webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-same.html [ Skip ]
+
 
 webkit.org/b/252954 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-height-constrained-by-max-width.html [ ImageOnlyFailure ]
 webkit.org/b/252954 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-width-constrained-by-max-height.html [ ImageOnlyFailure ]
@@ -439,72 +473,38 @@ js/dom/lockdown-mode [ Skip ]
 # 3. UNRESOLVED TESTS
 #////////////////////////////////////////////////////////////////////////////////////////
 
-editing/execCommand/change-list-type.html [ Skip ]
-editing/execCommand/delete-selection-has-style-live-range.html [ Skip ]
-editing/execCommand/delete-selection-has-style.html [ Skip ]
-editing/execCommand/format-block-multiple-paragraphs-in-pre.html [ Skip ]
-editing/execCommand/insert-nested-lists.html [ Skip ]
-editing/execCommand/selectAll.html [ Skip ]
-editing/style/preserve-selection-direction.html [ Skip ]
-editing/style/stylewithcss-without-selection.html [ Skip ]
-
 webkit.org/b/213131 editing/pasteboard [ Skip ]
 webkit.org/b/213131 editing/secure-input [ Skip ]
-webkit.org/b/213131 editing/spelling [ Skip ]
 
-webkit.org/b/213131 inspector/ [ Skip ]
+# WPE Legacy doesn't support inspector.
+inspector [ Skip ]
+http/tests/inspector [ Skip ]
 
-Bug(WPE) fast/autoresize [ Skip ]
-
-fast/forms/date/date-validity-badinput.html [ Skip ]
-fast/forms/datetimelocal/datetimelocal-validity-badinput.html [ Skip ]
-fast/forms/drag-into-textarea.html [ Skip ]
-fast/forms/drag-out-of-textarea.html [ Skip ]
-fast/forms/file/file-input-capture.html [ Skip ]
-fast/forms/file/file-input-empty-validation.html [ Skip ]
-fast/forms/file/file-input-reset-validation.html [ Skip ]
-fast/forms/listbox-onchange.html [ Skip ]
-fast/forms/number/number-min-max-spinbutton-appearance-none-percentage-width.html [ Skip ]
-fast/forms/range/slider-delete-while-dragging-thumb.html [ Skip ]
-fast/forms/range/slider-zoomed.html [ Skip ]
-fast/forms/search/search-zoom-computed-style-height.html [ Skip ]
-fast/forms/select/popup-closes-on-blur.html [ Skip ]
-fast/forms/textarea-metrics.html [ Skip ]
-fast/forms/time-input-svg-font.html [ Skip ]
-fast/forms/time/time-validity-badinput.html [ Skip ]
-fast/forms/validation-message-in-relative-body.html [ Skip ]
-fast/forms/validation-message-maxLength.html [ Skip ]
-fast/forms/validation-message-on-range.html [ Skip ]
-fast/forms/validation-message-on-textarea.html [ Skip ]
-
-fast/media/mq-any-hover-matchMedia.html [ Skip ]
-fast/media/mq-any-hover-styling.html [ Skip ]
-fast/media/mq-any-pointer-matchMedia.html [ Skip ]
-fast/media/mq-any-pointer-styling.html [ Skip ]
-fast/media/mq-hover-matchMedia.html [ Skip ]
-fast/media/mq-hover-styling.html [ Skip ]
-fast/media/mq-pointer-matchMedia.html [ Skip ]
-fast/media/mq-pointer-styling.html [ Skip ]
-fast/media/mq-pointer.html [ Skip ]
-fast/media/mq-inverted-colors-ua-style-on-to-off.html [ Skip ]
-
+# -webkit-overflow-scrolling (ENABLE_WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY) is only for iOS
 fast/repaint/overflow-scroll-touch-repaint.html [ Skip ]
-fast/repaint/vertical-overflow-child.html [ Skip ]
-fast/repaint/vertical-overflow-parent.html [ Skip ]
-fast/repaint/vertical-overflow-same.html [ Skip ]
-
-fast/repaint/horizontal-bt-overflow-child.html [ Skip ]
-fast/repaint/horizontal-bt-overflow-parent.html [ Skip ]
-fast/repaint/horizontal-bt-overflow-same.html [ Skip ]
-fast/repaint/fixed-move-after-keyboard-scroll.html [ Skip ]
 
 Bug(WPE) fast/text/woff2-totalsfntsize.html [ Pass ]
 Bug(WPE) fast/text/woff2.html [ Pass ]
 
-http/tests/inspector [ Skip ]
-http/tests/navigation/ping-attribute/ [ Skip ]
 http/tests/pointer-lock [ Skip ]
-http/tests/security [ Skip ]
+
+http/tests/security/contentSecurityPolicy/report-blocked-file-uri.py [ Failure ]
+http/tests/security/drag-over-remote-content-iframe.html [ Failure ]
+http/tests/security/frame-loading-via-document-write-async-delegates.html [ Failure ]
+http/tests/security/frame-loading-via-document-write.html [ Failure ]
+http/tests/security/local-CSS-from-remote.html [ Failure ]
+http/tests/security/local-JavaScript-from-remote.html [ Failure ]
+http/tests/security/local-iFrame-from-remote.html [ Failure ]
+http/tests/security/local-image-from-remote.html [ Failure ]
+http/tests/security/local-user-CSS-from-remote.html [ Failure ]
+http/tests/security/local-video-poster-from-remote.html [ Failure ]
+http/tests/security/local-video-source-from-remote.html [ Failure ]
+http/tests/security/local-video-src-from-remote.html [ Failure ]
+http/tests/security/module-no-mime-type.html [ Failure ]
+http/tests/security/video-cross-origin-accessfailure.html [ Failure ]
+http/tests/security/xss-ALLOWED-xsl-external-entity-xslt-docloader.html [ Failure ]
+http/tests/security/xss-DENIED-xsl-external-entity-redirect.xml [ Failure ]
+http/tests/security/xss-DENIED-xsl-external-entity.xml [ Failure ]
 
 Bug(WPE) fast/dom/Geolocation/page-reload-cancel-permission-requests.html [ Skip ]
 Bug(WPE) fast/dom/Geolocation/requestQueuingForHiddenPage.html [ Skip ]
@@ -543,34 +543,6 @@ webkit.org/b/177633 editing/async-clipboard/clipboard-read-text-from-platform.ht
 webkit.org/b/204112 editing/async-clipboard/clipboard-change-data-while-getting-type.html [ Timeout Pass ]
 webkit.org/b/204112 editing/async-clipboard/clipboard-change-data-while-reading.html [ Timeout ]
 webkit.org/b/204112 editing/async-clipboard/clipboard-get-type-with-old-items.html [ Timeout Pass ]
-
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-body.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-div.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-document.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-root.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-window.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-body.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-div.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-document.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-root.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-window.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-body.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-div.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-document.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-root.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-window.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-body.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-div.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-document.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-root.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-window.html [ Crash ]
-
-webkit.org/b/286930 media/modern-media-controls/scrubber-support/scrubber-support-seek-back.html [ Crash ]
-
-# Crashes with WTR::UIScriptController::notImplemented():
-webkit.org/b/296246 imported/w3c/web-platform-tests/event-timing/first-input-interactionid-key.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/event-timing/interaction-count-tap.html [ Crash ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/event-timing/TapToStopFling.html [ Crash ]
 
 # Event timing: times out, probably missing automation
 webkit.org/b/244186 imported/w3c/web-platform-tests/event-timing/click-timing.html [ Skip ]
@@ -728,8 +700,6 @@ webkit.org/b/142292 fast/images/animated-gif-window-resizing.html [ Timeout ]
 
 webkit.org/b/207711 [ Debug ] http/tests/workers/service/serviceworkerclients-matchAll.https.html [ Timeout ]
 
-webkit.org/b/208000 [ Release ] http/tests/inspector/network/contentextensions/blocked-websocket-crash.html [ Skip ] # Timeout.
-
 webkit.org/b/208932 scrollbars/scroll-rtl-or-bt-layer.html [ Timeout Pass ]
 
 
@@ -779,8 +749,12 @@ Bug(WPE) security/contentSecurityPolicy/video-with-blob-url-allowed-by-media-src
 # WPT: css
 # ========
 
-Bug(WPE) imported/w3c/web-platform-tests/css/css-color [ Skip ]
-Bug(WPE) imported/w3c/web-platform-tests/css/css-multicol [ Skip ]
+imported/w3c/web-platform-tests/css/css-color/system-color-consistency.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-color/system-color-support.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-color/t32-opacity-offscreen-multiple-boxes-1-c.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-color/t32-opacity-offscreen-multiple-boxes-2-c.xht [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/css-multicol/multicol-fill-balance-021.html [ Failure ]
 
 webkit.org/b/186262 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-007.html [ ImageOnlyFailure ]
 webkit.org/b/186262 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-normal-lo-000.html [ ImageOnlyFailure ]
@@ -1083,7 +1057,6 @@ fast/canvas/webgl/lose-context-on-timeout.html [ Skip ] # Timeout.
 fast/encoding/backslash-encoding-jp.html [ Skip ] # Timeout.
 fast/encoding/char-encoding-mac.html [ Skip ] # Timeout.
 fast/encoding/char-encoding.html [ Skip ] # Timeout.
-fast/html/transient-activation.html [ Skip ] # Timeout.
 fast/html/history-action-user-activation.html [ Skip ] # Timeout.
 fast/mediastream/video-srcObject-set-twice.html [ Skip ] # Timeout.
 fast/replaced/pdf-as-embed-with-no-mime-type-is-not-blank.html [ Skip ] # Timeout.
@@ -1099,7 +1072,6 @@ webgl/2.0.y/conformance/reading/read-pixels-test.html [ Pass Timeout ]
 
 imported/blink/fast/text/international/vertical-positioning-with-combining-marks.html [ ImageOnlyFailure ]
 imported/mozilla/svg/tspan-rotate-07.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-animations/flip-running-animation-via-variable.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-painting-iframe-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-painting-iframe-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
@@ -1147,7 +1119,6 @@ imported/w3c/web-platform-tests/css/css-masking/clip-path-svg-content/mask-users
 
 # Also webkit.org/b/266573
 webkit.org/b/266577 webgl/2.0.0/conformance2/textures/video/tex-2d-rgb16f-rgb-half_float.html [ Failure Timeout Pass ]
-webkit.org/b/266577 fast/canvas/webgl/texImage2D-mse-in-dom-flipY-false.html [ Failure Crash ]
 
 webkit.org/b/266671 http/wpt/webcodecs/videoFrame-rect.html [ Failure ]
 
@@ -1281,6 +1252,7 @@ webkit.org/b/287572 imported/w3c/web-platform-tests/css/compositing/mix-blend-mo
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-canvas-sibling.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-iframe-parent.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-iframe-sibling.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/compositing/root-element-background-image-transparency-001.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat/background-repeat-round-roundup.xht [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-background-properties-border-radius.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-background-properties.html [ ImageOnlyFailure ]
@@ -1412,11 +1384,5 @@ imported/w3c/web-platform-tests/css/css-pseudo/highlight-custom-properties-dynam
 imported/w3c/web-platform-tests/css/css-view-transitions/start-skip-start.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/start-view-transtion-skips-active.html [ Failure ]
 
-# These tests are passing in WebKitGTK, but failing on WPE (timeout).
-http/tests/websocket/tests/hybi/inspector/before-load.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/binary.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/client-close.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/resolveWebSocket.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/send-and-receive.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/send-and-recieve-debugger.html [ Skip ]
-http/tests/websocket/tests/hybi/inspector/server-close.html [ Skip ]
+# Not supported on this platform.
+security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Skip ]

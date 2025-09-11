@@ -41,6 +41,7 @@
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/ScriptTrackingPrivacyCategory.h>
 #include <WebCore/ScrollTypes.h>
+#include <WebCore/SimpleRange.h>
 #include <WebCore/Supplementable.h>
 #include <WebCore/Timer.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
@@ -102,7 +103,6 @@ class ApplePayAMSUIPaymentHandler;
 class ActivityStateChangeObserver;
 class AlternativeTextClient;
 class AnimationTimelinesController;
-class ApplicationCacheStorage;
 class AttachmentElementClient;
 class AuthenticatorCoordinator;
 class BackForwardController;
@@ -230,7 +230,6 @@ struct ClientOrigin;
 struct FixedContainerEdges;
 struct NavigationAPIMethodTracker;
 struct ProcessSyncData;
-struct SimpleRange;
 struct SpatialBackdropSource;
 struct SystemPreviewInfo;
 struct TextRecognitionResult;
@@ -374,6 +373,7 @@ public:
     WEBCORE_EXPORT static Ref<Page> create(PageConfiguration&&);
     WEBCORE_EXPORT ~Page();
 
+    static void updateControlTintsForAllPages();
     WEBCORE_EXPORT static void updateStyleForAllPagesAfterGlobalChangeInEnvironment();
     WEBCORE_EXPORT static void clearPreviousItemFromAllPages(BackForwardItemIdentifier);
 
@@ -554,7 +554,11 @@ public:
     void setTabKeyCyclesThroughElements(bool b) { m_tabKeyCyclesThroughElements = b; }
     bool tabKeyCyclesThroughElements() const { return m_tabKeyCyclesThroughElements; }
 
-    WEBCORE_EXPORT std::optional<FrameIdentifier> findString(const String&, FindOptions, DidWrap* = nullptr);
+    struct FindStringData {
+        std::optional<FrameIdentifier> frameIdentifier;
+        std::optional<SimpleRange> range;
+    };
+    WEBCORE_EXPORT FindStringData findString(const String&, FindOptions, DidWrap* = nullptr);
     WEBCORE_EXPORT uint32_t replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace, const String& replacementText, bool selectionOnly);
     WEBCORE_EXPORT uint32_t replaceSelectionWithText(const String& replacementText);
 
@@ -991,7 +995,6 @@ public:
     void setLastSpatialNavigationCandidateCount(unsigned count) { m_lastSpatialNavigationCandidatesCount = count; }
     unsigned lastSpatialNavigationCandidateCount() const { return m_lastSpatialNavigationCandidatesCount; }
 
-    ApplicationCacheStorage* applicationCacheStorage() { return m_applicationCacheStorage.get(); }
     DatabaseProvider& databaseProvider() { return m_databaseProvider; }
     CacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider; }
     SocketProvider& socketProvider() { return m_socketProvider; }
@@ -1446,6 +1449,8 @@ private:
 
     bool hasLocalMainFrame();
 
+    void updateControlTints();
+
     struct Internals;
     const UniqueRef<Internals> m_internals;
 
@@ -1609,7 +1614,6 @@ private:
 
     const Ref<SocketProvider> m_socketProvider;
     const Ref<CookieJar> m_cookieJar;
-    RefPtr<ApplicationCacheStorage> m_applicationCacheStorage;
     const Ref<CacheStorageProvider> m_cacheStorageProvider;
     const Ref<DatabaseProvider> m_databaseProvider;
     const Ref<PluginInfoProvider> m_pluginInfoProvider;

@@ -211,7 +211,6 @@ public:
     virtual bool isVideo() const { return false; }
     bool hasVideo() const override { return false; }
     WEBCORE_EXPORT bool hasAudio() const override;
-    bool hasRenderer() const { return static_cast<bool>(renderer()); }
 
     WEBCORE_EXPORT static HashSet<WeakRef<HTMLMediaElement>>& allMediaElements();
 
@@ -604,7 +603,8 @@ public:
     void allowsMediaDocumentInlinePlaybackChanged();
     void updateShouldPlay();
 
-    RenderMedia* renderer() const;
+    inline bool hasRenderer() const; // Defined in RenderMedia.h.
+    inline RenderMedia* renderer() const; // Defined in RenderMedia.h.
 
     void resetPlaybackSessionState();
     WEBCORE_EXPORT bool isVisibleInViewport() const;
@@ -1404,7 +1404,7 @@ private:
     size_t m_reportedExtraMemoryCost { 0 };
 
     friend class MediaControlsHost;
-    RefPtr<MediaControlsHost> m_mediaControlsHost;
+    const std::unique_ptr<MediaControlsHost> m_mediaControlsHost;
 
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStream> m_mediaStreamSrcObject;

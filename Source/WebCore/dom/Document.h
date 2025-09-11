@@ -38,6 +38,7 @@
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/HitTestSource.h>
+#include <WebCore/MutationObserverOptions.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
 #include <WebCore/PseudoElementIdentifier.h>
@@ -1084,7 +1085,7 @@ public:
     void didConnectPluginElement() { ++m_connectedPluginElementCount; }
     void didDisconnectPluginElement() { ASSERT(m_connectedPluginElementCount); --m_connectedPluginElementCount; }
 
-    inline bool hasMutationObserversOfType(MutationObserverOptionType) const;
+    bool hasMutationObserversOfType(MutationObserverOptionType type) const { return m_mutationObserverTypes.containsAny(type); }
     bool hasMutationObservers() const { return !m_mutationObserverTypes.isEmpty(); }
     void addMutationObserverTypes(MutationObserverOptions types) { m_mutationObserverTypes.add(types); }
 
@@ -1270,6 +1271,7 @@ public:
     bool shouldDeferAsynchronousScriptsUntilParsingFinishes() const;
 
     bool supportsPaintTiming() const;
+    bool supportsLargestContentfulPaint() const;
 
 #if ENABLE(XSLT)
     void scheduleToApplyXSLTransforms();
@@ -1800,8 +1802,6 @@ public:
     Logger& logger();
     const Logger& logger() const { return const_cast<Document&>(*this).logger(); }
     WEBCORE_EXPORT static const Logger& sharedLogger();
-
-    WEBCORE_EXPORT void setConsoleMessageListener(RefPtr<StringCallback>&&); // For testing.
 
     void updateAnimationsAndSendEvents();
     void updateStaleScrollTimelines();
@@ -2482,7 +2482,6 @@ private:
 
     const std::unique_ptr<OrientationNotifier> m_orientationNotifier;
     mutable RefPtr<Logger> m_logger;
-    RefPtr<StringCallback> m_consoleMessageListener;
 
     RefPtr<DocumentTimeline> m_timeline;
     const std::unique_ptr<AnimationTimelinesController> m_timelinesController;

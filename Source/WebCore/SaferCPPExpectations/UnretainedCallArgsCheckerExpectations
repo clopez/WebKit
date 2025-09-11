@@ -1,13 +1,4 @@
-Modules/ShapeDetection/Implementation/Cocoa/BarcodeDetectorImplementation.mm
-Modules/ShapeDetection/Implementation/Cocoa/FaceDetectorImplementation.mm
-Modules/ShapeDetection/Implementation/Cocoa/TextDetectorImplementation.mm
-Modules/ShapeDetection/Implementation/Cocoa/VisionUtilities.mm
 Modules/WebGPU/GPUQueue.cpp
-Modules/applepay/ApplePayLogoSystemImage.mm
-Modules/applepay/PaymentInstallmentConfiguration.mm
-Modules/applepay/cocoa/PaymentContactCocoa.mm
-Modules/applepay/cocoa/PaymentMerchantSessionCocoa.mm
-Modules/applepay/cocoa/PaymentSummaryItemsCocoa.mm
 Modules/model-element/scenekit/SceneKitModelLoader.mm
 Modules/model-element/scenekit/SceneKitModelLoaderUSD.mm
 Modules/model-element/scenekit/SceneKitModelPlayer.mm
@@ -42,7 +33,6 @@ bridge/objc/objc_runtime.mm
 bridge/objc/objc_utility.mm
 crypto/cocoa/SerializedCryptoKeyWrapMac.mm
 editing/SmartReplaceCF.cpp
-editing/cocoa/AttributedString.mm
 editing/cocoa/DataDetection.mm
 editing/cocoa/DictionaryLookup.mm
 editing/cocoa/EditingHTMLConverter.mm
@@ -120,11 +110,9 @@ platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm
 platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm
 platform/graphics/avfoundation/objc/InbandTextTrackPrivateAVFObjC.mm
 platform/graphics/avfoundation/objc/LocalSampleBufferDisplayLayer.mm
-platform/graphics/avfoundation/objc/MediaPlaybackTargetPickerMac.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm
-platform/graphics/avfoundation/objc/MediaSampleAVFObjC.mm
 platform/graphics/avfoundation/objc/QueuedVideoOutput.mm
 platform/graphics/avfoundation/objc/SourceBufferParserAVFObjC.mm
 platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm
@@ -156,14 +144,12 @@ platform/graphics/cocoa/GraphicsContextGLCocoa.mm
 platform/graphics/cocoa/IOSurface.mm
 platform/graphics/cocoa/MediaPlayerEnumsCocoa.mm
 platform/graphics/cocoa/MediaPlayerPrivateWebM.mm
-platform/graphics/cocoa/SystemFontDatabaseCocoa.mm
 platform/graphics/cocoa/SystemFontDatabaseCoreText.cpp
 platform/graphics/cocoa/TextTrackRepresentationCocoa.mm
 platform/graphics/cocoa/VideoMediaSampleRenderer.mm
 platform/graphics/cocoa/WebCoreCALayerExtras.mm
 platform/graphics/cocoa/WebCoreDecompressionSession.mm
 platform/graphics/cocoa/WebProcessGraphicsContextGLCocoa.mm
-platform/graphics/cocoa/controls/ApplePayButtonCocoa.mm
 platform/graphics/coreimage/FilterImageCoreImage.mm
 platform/graphics/coreimage/SourceGraphicCoreImageApplier.mm
 platform/graphics/coretext/ComplexTextControllerCoreText.mm
@@ -187,7 +173,6 @@ platform/graphics/mac/controls/WebControlView.mm
 platform/ios/PlaybackSessionInterfaceAVKitLegacy.mm
 platform/ios/WebAVPlayerController.mm
 platform/libwebrtc/LibWebRTCVPXVideoEncoder.cpp
-platform/mac/CursorMac.mm
 platform/mac/DataDetectorHighlight.mm
 platform/mac/HIDDevice.cpp
 platform/mac/PasteboardMac.mm

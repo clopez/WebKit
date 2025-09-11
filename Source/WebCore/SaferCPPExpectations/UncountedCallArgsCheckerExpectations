@@ -1,10 +1,4 @@
 EventNames.h
-Modules/ShapeDetection/BarcodeDetector.cpp
-Modules/ShapeDetection/FaceDetector.cpp
-Modules/ShapeDetection/TextDetector.cpp
-Modules/airplay/WebMediaSessionManager.cpp
-Modules/applepay/ApplePaySession.cpp
-Modules/applepay/paymentrequest/ApplePayPaymentHandler.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/cache/DOMCache.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
@@ -14,19 +8,6 @@ Modules/entriesapi/FileSystemFileEntry.cpp
 Modules/filesystem/FileSystemFileHandle.cpp
 Modules/filesystem/WorkerFileSystemStorageConnection.cpp
 Modules/identity/CredentialRequestCoordinator.cpp
-Modules/indexeddb/IDBCursor.cpp
-Modules/indexeddb/IDBDatabase.cpp
-Modules/indexeddb/IDBIndex.cpp
-Modules/indexeddb/IDBKey.cpp
-Modules/indexeddb/IDBKeyRange.cpp
-Modules/indexeddb/IDBObjectStore.cpp
-Modules/indexeddb/IDBOpenDBRequest.cpp
-Modules/indexeddb/IDBRequest.cpp
-Modules/indexeddb/IDBTransaction.cpp
-Modules/indexeddb/client/IDBConnectionProxy.cpp
-Modules/indexeddb/server/MemoryObjectStore.cpp
-Modules/indexeddb/server/UniqueIDBDatabase.cpp
-Modules/indexeddb/server/UniqueIDBDatabaseTransaction.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediasession/MediaMetadata.cpp
 Modules/mediasession/MediaSession.cpp
@@ -140,8 +121,6 @@ accessibility/AccessibilityTableHeaderContainer.cpp
 accessibility/isolatedtree/AXIsolatedTree.cpp
 accessibility/mac/AXObjectCacheMac.mm
 accessibility/mac/AccessibilityObjectMac.mm
-accessibility/mac/WebAccessibilityObjectWrapperBase.mm
-accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 animation/AcceleratedEffectStackUpdater.cpp
 animation/AnimationEffectTiming.cpp
 animation/AnimationTimeline.cpp
@@ -248,7 +227,6 @@ bindings/js/ScheduledAction.cpp
 bindings/js/ScriptBufferSourceProvider.h
 bindings/js/ScriptCachedFrameData.cpp
 bindings/js/ScriptModuleLoader.cpp
-bindings/js/SerializedScriptValue.cpp
 bindings/js/WebAssemblyScriptBufferSourceProvider.h
 bindings/js/WebCoreJSClientData.cpp
 bindings/js/WebCoreTypedArrayController.cpp
@@ -299,6 +277,7 @@ css/CSSStyleSheetObservableArray.cpp
 css/CSSValueList.cpp
 css/CSSViewValue.cpp
 css/CSSViewValue.h
+css/DOMMatrixReadOnly.cpp
 css/DeprecatedCSSOMPrimitiveValue.h
 css/DeprecatedCSSOMRGBColor.h
 css/FontFace.cpp
@@ -416,7 +395,6 @@ editing/CustomUndoStep.cpp
 editing/DeleteSelectionCommand.cpp
 editing/EditCommand.cpp
 editing/Editing.cpp
-editing/EditingStyle.cpp
 editing/Editor.cpp
 editing/EditorCommand.cpp
 editing/FormatBlockCommand.cpp
@@ -488,7 +466,6 @@ html/HTMLNameCollectionInlines.h
 html/HTMLObjectElement.cpp
 html/HTMLOptionsCollection.cpp
 html/HTMLPlugInElement.cpp
-html/HTMLPlugInImageElement.cpp
 html/HTMLTableCellElement.cpp
 html/HTMLTableElement.cpp
 html/HTMLTablePartElement.cpp
@@ -573,7 +550,6 @@ inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
 inspector/agents/InspectorDOMDebuggerAgent.cpp
 inspector/agents/InspectorDOMStorageAgent.cpp
-inspector/agents/InspectorIndexedDBAgent.cpp
 inspector/agents/InspectorLayerTreeAgent.cpp
 inspector/agents/InspectorMemoryAgent.cpp
 inspector/agents/InspectorNetworkAgent.cpp
@@ -607,9 +583,6 @@ loader/PolicyChecker.cpp
 loader/ResourceLoadNotifier.cpp
 loader/ResourceLoader.cpp
 loader/WorkerThreadableLoader.cpp
-loader/appcache/ApplicationCacheGroup.cpp
-loader/appcache/ApplicationCacheHost.cpp
-loader/appcache/ApplicationCacheStorage.cpp
 loader/archive/cf/LegacyWebArchive.cpp
 loader/cache/CachedImage.cpp
 loader/cache/CachedImage.h
@@ -751,7 +724,6 @@ platform/graphics/ca/cocoa/GraphicsLayerAsyncContentsDisplayDelegateCocoa.mm
 platform/graphics/ca/cocoa/PlatformCAAnimationCocoa.mm
 platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
 platform/graphics/cocoa/ImageAdapterCocoa.mm
-platform/graphics/controls/ApplePayButtonPart.cpp
 platform/graphics/controls/ButtonPart.h
 platform/graphics/controls/ColorWellPart.h
 platform/graphics/controls/ImageControlsButtonPart.h
@@ -778,6 +750,7 @@ platform/graphics/filters/software/FELightingSoftwareParallelApplier.cpp
 platform/graphics/filters/software/FETurbulenceSoftwareApplier.cpp
 platform/graphics/mac/PDFDocumentImageMac.mm
 platform/graphics/opentype/OpenTypeMathData.cpp
+platform/graphics/transforms/TransformOperationsSharedPrimitivesPrefix.h
 platform/graphics/transforms/TransformOperations.cpp
 platform/libwebrtc/LibWebRTCVPXVideoEncoder.cpp
 platform/mac/PasteboardWriter.mm
@@ -844,6 +817,7 @@ rendering/RenderListMarker.cpp
 rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnSet.cpp
 rendering/RenderObject.cpp
+rendering/RenderObjectNode.h
 rendering/RenderProgress.cpp
 rendering/RenderQuote.cpp
 rendering/RenderReplaced.cpp
@@ -861,7 +835,6 @@ rendering/RenderTextControlSingleLine.h
 rendering/RenderTextFragment.cpp
 rendering/RenderTheme.cpp
 rendering/RenderTreeAsText.cpp
-rendering/RenderView.cpp
 rendering/RenderWidget.cpp
 rendering/TextBoxPainter.cpp
 rendering/mathml/MathOperator.cpp
@@ -874,10 +847,8 @@ rendering/mathml/RenderMathMLToken.cpp
 rendering/mathml/RenderMathMLUnderOver.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
 rendering/shapes/ShapeOutsideInfo.h
-rendering/style/FillLayer.cpp
 rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleInlines.h
-rendering/style/RenderStyleSetters.h
 rendering/style/SVGRenderStyle.cpp
 rendering/style/SVGRenderStyle.h
 rendering/style/StyleCachedImage.cpp
@@ -951,7 +922,6 @@ style/StyleExtractorConverter.h
 style/StyleExtractorCustom.h
 style/StyleExtractorSerializer.h
 style/StyleInterpolation.cpp
-style/StyleInterpolationWrappers.h
 style/StyleInvalidator.cpp
 style/StylePendingResources.cpp
 style/StyleResolveForDocument.cpp
@@ -964,11 +934,13 @@ style/StyleTreeResolver.cpp
 style/StyleUpdate.cpp
 style/Styleable.cpp
 style/Styleable.h
-style/TransformOperationsBuilder.cpp
 style/UserAgentStyle.cpp
+style/values/backgrounds/StyleFillLayers.h
 style/values/primitives/StyleLengthWrapperData.cpp
 style/values/transforms/StyleRotate.cpp
 style/values/transforms/StyleScale.cpp
+style/values/transforms/StyleTransformFunction.cpp
+style/values/transforms/StyleTransformList.cpp
 style/values/transforms/StyleTranslate.cpp
 svg/SVGAElement.cpp
 svg/SVGAElement.h

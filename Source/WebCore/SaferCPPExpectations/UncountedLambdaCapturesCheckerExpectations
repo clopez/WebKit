@@ -1,8 +1,6 @@
 Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
 Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheStorage.cpp
-Modules/indexeddb/client/IDBConnectionProxy.cpp
-Modules/indexeddb/server/UniqueIDBDatabaseConnection.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediasession/MediaMetadata.cpp
 Modules/mediasource/MediaSource.cpp
@@ -28,7 +26,6 @@ accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedObject.h
 accessibility/isolatedtree/AXIsolatedTree.cpp
 accessibility/isolatedtree/mac/AXIsolatedObjectMac.mm
-accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 animation/KeyframeEffect.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 contentextensions/ContentExtensionsBackend.cpp
@@ -96,6 +93,7 @@ rendering/updating/RenderTreeUpdater.cpp
 style/StyleCustomProperty.cpp
 style/Styleable.cpp
 style/values/StyleValueTypes.h
+style/values/backgrounds/StyleFillLayers.h
 style/values/images/StyleGradient.cpp
 testing/MockMediaSessionCoordinator.cpp
 workers/Worker.cpp

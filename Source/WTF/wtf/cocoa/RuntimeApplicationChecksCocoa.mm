@@ -225,6 +225,16 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
         disableBehavior(SDKAlignedBehavior::SupportGameControllerEventInteractionAPI);
     }
 
+    if (linkedBefore(dyld_2024_SU_C_os_versions, DYLD_IOS_VERSION_18_2, DYLD_MACOSX_VERSION_15_2))
+        disableBehavior(SDKAlignedBehavior::BlobFileAccessEnforcementAndNetworkProcessRoundTrip);
+
+    if (linkedBefore(dyld_2024_SU_E_os_versions, DYLD_IOS_VERSION_18_4, DYLD_MACOSX_VERSION_15_4)) {
+        disableBehavior(SDKAlignedBehavior::DevolvableWidgets);
+        disableBehavior(SDKAlignedBehavior::SetSelectionRangeCachesSelectionIfNotFocusedOrSelected);
+        disableBehavior(SDKAlignedBehavior::DispatchFocusEventBeforeNotifyingClient);
+        disableBehavior(SDKAlignedBehavior::BlobFileAccessEnforcement);
+    }
+
     if (linkedBefore(dyld_2024_SU_F_os_versions, DYLD_IOS_VERSION_18_5, DYLD_MACOSX_VERSION_15_5))
         disableBehavior(SDKAlignedBehavior::NavigationActionSourceFrameNonNull);
 
@@ -392,7 +402,9 @@ bool CocoaApplication::shouldOSFaultLogForAppleApplicationUsingWebKit1()
             String bundleIdentifier = applicationBundleIdentifier();
             if (bundleIdentifier.startsWith("com.apple.InstallerRemotePluginService."_s))
                 return false;
-            if (applicationBundleIsEqualTo("TestWebKitAPI"_s))
+            if (applicationBundleIsEqualTo("com.apple.WebKit.TestWebKitAPI"_s))
+                return false;
+            if (applicationBundleIsEqualTo("com.apple.ibtool"_s))
                 return false;
             if (CocoaApplication::isDumpRenderTree())
                 return false;

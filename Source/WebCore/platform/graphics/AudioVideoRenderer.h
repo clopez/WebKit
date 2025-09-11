@@ -70,6 +70,7 @@ public:
     virtual void notifyWhenRequiresFlushToResume(Function<void()>&&) { }
     virtual void notifyRenderingModeChanged(Function<void()>&&) { }
     virtual void setMinimumUpcomingPresentationTime(const MediaTime&) { }
+    virtual void notifySizeChanged(Function<void(const MediaTime&, FloatSize)>&&) { }
     virtual void setShouldDisableHDR(bool) { };
     virtual void setPlatformDynamicRangeLimit(const PlatformDynamicRangeLimit&) { };
     virtual void setResourceOwner(const ProcessIdentity&) { }
@@ -129,6 +130,8 @@ public:
 
     virtual void flush() = 0;
     virtual void flushTrack(TrackIdentifier) = 0;
+
+    virtual void applicationWillResignActive() { }
 
     virtual void notifyWhenErrorOccurs(Function<void(PlatformMediaError)>&&) = 0;
 

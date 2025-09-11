@@ -26,7 +26,6 @@
 #pragma once
 
 #include <WebCore/Document.h>
-#include <WebCore/DocumentInlines.h>
 
 namespace WebCore {
 

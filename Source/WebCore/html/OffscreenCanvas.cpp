@@ -31,6 +31,7 @@
 #include "BitmapImage.h"
 #include "CSSValuePool.h"
 #include "CanvasRenderingContext.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Chrome.h"
 #include "Document.h"
 #include "EventDispatcher.h"
@@ -469,6 +470,16 @@ std::unique_ptr<CSSParserContext> OffscreenCanvas::createCSSParserContext() cons
 {
     // FIXME: Rather than using a default CSSParserContext, there should be one exposed via ScriptExecutionContext.
     return makeUnique<CSSParserContext>(HTMLStandardMode);
+}
+
+ScriptExecutionContext* OffscreenCanvas::scriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
+}
+
+ScriptExecutionContext* OffscreenCanvas::canvasBaseScriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
 }
 
 }

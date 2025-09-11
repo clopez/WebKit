@@ -83,7 +83,6 @@
 #include "markup.h"
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
-#include <wtf/WallTime.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(PDFJS)
@@ -211,14 +210,14 @@ static void prepareContextForQRCode(ContextMenuContext& context)
     if (!frame)
         return;
 
-    auto nodeSnapshotImageBuffer = snapshotNode(*frame, *element, { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() });
+    auto nodeSnapshotImageBuffer = snapshotNode(*frame, *element, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
     RefPtr nodeSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(nodeSnapshotImageBuffer)));
     context.setPotentialQRCodeNodeSnapshotImage(nodeSnapshotImage.get());
 
     // FIXME: Node snapshotting does not take transforms into account, making it unreliable for QR code detection.
     // As a fallback, also take a viewport-level snapshot. A node snapshot is still required to capture partially
     // obscured elements. This workaround can be removed once rdar://87204215 is fixed.
-    auto viewportSnapshotImageBuffer = snapshotFrameRect(*frame, elementRect, { { }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() });
+    auto viewportSnapshotImageBuffer = snapshotFrameRect(*frame, elementRect, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
     RefPtr viewportSnapshotImage = BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(viewportSnapshotImageBuffer)));
     context.setPotentialQRCodeViewportSnapshotImage(viewportSnapshotImage.get());
 }
@@ -526,7 +525,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
             frameLoadRequest.setNewFrameOpenerPolicy(NewFrameOpenerPolicy::Suppress);
             if (targetFrame->isMainFrame())
                 frameLoadRequest.setShouldOpenExternalURLsPolicy(ShouldOpenExternalURLsPolicy::ShouldAllow);
-            targetFrame->loader().loadFrameRequest(WTFMove(frameLoadRequest), eventForLoadRequests.get(), { });
+            targetFrame->loadFrameRequest(WTFMove(frameLoadRequest), eventForLoadRequests.get());
         } else
             openNewWindow(m_context.hitTestResult().absoluteLinkURL(), *frame, eventForLoadRequests.get(), ShouldOpenExternalURLsPolicy::ShouldAllow);
         break;
@@ -1864,7 +1863,7 @@ void ContextMenuController::showContextMenuAt(LocalFrame& frame, const IntPoint&
     clearContextMenu();
     
     // Simulate a click in the middle of the accessibility object.
-    PlatformMouseEvent mouseEvent(clickPoint, clickPoint, MouseButton::Right, PlatformEvent::Type::MousePressed, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap);
+    PlatformMouseEvent mouseEvent(clickPoint, clickPoint, MouseButton::Right, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap);
 
     frame.eventHandler().handleMousePressEvent(mouseEvent);
     bool handled = frame.eventHandler().sendContextMenuEvent(mouseEvent);

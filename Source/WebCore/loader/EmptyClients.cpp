@@ -29,7 +29,6 @@
 #include "EmptyClients.h"
 
 #include "AppHighlight.h"
-#include "ApplicationCacheStorage.h"
 #include "BackForwardClient.h"
 #include "BadgeClient.h"
 #include "BroadcastChannelRegistry.h"
@@ -735,7 +734,7 @@ void EmptyFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader*, 
 {
 }
 
-void EmptyFrameLoaderClient::assignIdentifierToInitialRequest(ResourceLoaderIdentifier, IsMainResourceLoad, DocumentLoader*, const ResourceRequest&)
+void EmptyFrameLoaderClient::assignIdentifierToInitialRequest(ResourceLoaderIdentifier, DocumentLoader*, const ResourceRequest&)
 {
 }
 
@@ -778,7 +777,7 @@ void EmptyFrameLoaderClient::dispatchDidReceiveContentLength(DocumentLoader*, Re
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDidFinishLoading(DocumentLoader*, IsMainResourceLoad, ResourceLoaderIdentifier)
+void EmptyFrameLoaderClient::dispatchDidFinishLoading(DocumentLoader*, ResourceLoaderIdentifier)
 {
 }
 
@@ -790,7 +789,7 @@ void EmptyFrameLoaderClient::dispatchDidFinishDataDetection(NSArray *)
 
 #endif
 
-void EmptyFrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, IsMainResourceLoad, ResourceLoaderIdentifier, const ResourceError&)
+void EmptyFrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, ResourceLoaderIdentifier, const ResourceError&)
 {
 }
 
@@ -1198,7 +1197,7 @@ private:
 class EmptySocketProvider final : public SocketProvider {
 public:
     RefPtr<ThreadableWebSocketChannel> createWebSocketChannel(Document&, WebSocketChannelClient&) final { return nullptr; }
-    Ref<WebTransportSessionPromise> initializeWebTransportSession(ScriptExecutionContext&, WebTransportSessionClient&, const URL&) { return WebTransportSessionPromise::createAndReject(); }
+    std::pair<RefPtr<WebTransportSession>, Ref<WebTransportSessionPromise>> initializeWebTransportSession(ScriptExecutionContext&, WebTransportSessionClient&, const URL&) { return { nullptr, WebTransportSessionPromise::createAndReject() }; }
 };
 
 class EmptyHistoryItemClient final : public HistoryItemClient {
@@ -1258,7 +1257,6 @@ PageConfiguration pageConfigurationWithEmptyClients(std::optional<PageIdentifier
 
     pageConfiguration.diagnosticLoggingClient = makeUnique<EmptyDiagnosticLoggingClient>();
 
-    pageConfiguration.applicationCacheStorage = ApplicationCacheStorage::create({ }, { });
     pageConfiguration.databaseProvider = adoptRef(*new EmptyDatabaseProvider);
     pageConfiguration.pluginInfoProvider = adoptRef(*new EmptyPluginInfoProvider);
     pageConfiguration.storageNamespaceProvider = adoptRef(*new EmptyStorageNamespaceProvider);

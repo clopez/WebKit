@@ -330,6 +330,15 @@ public:
             return val;
         }
 
+        ALWAYS_INLINE static Value fromPointer(void* pointer)
+        {
+#if USE(JSVALUE64)
+            return fromI64(std::bit_cast<uintptr_t>(pointer));
+#else
+            return fromI32(std::bit_cast<uintptr_t>(pointer));
+#endif
+        }
+
         ALWAYS_INLINE static Value fromRef(TypeKind refType, EncodedJSValue ref)
         {
             Value val;
@@ -1070,7 +1079,7 @@ public:
     // FIXME: Support fused branch compare on 32-bit platforms.
     static constexpr bool shouldFuseBranchCompare = is64Bit();
 
-    static constexpr bool tierSupportsSIMD = true;
+    static constexpr bool tierSupportsSIMD() { return true; }
     static constexpr bool validateFunctionBodySize = true;
 
     BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, CalleeGroup&, IPIntCallee& profiledCallee, BBQCallee& callee, const FunctionData& function, FunctionCodeIndex functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation);
@@ -1370,7 +1379,6 @@ public:
     FloatingPointRange lookupTruncationRange(TruncationKind truncationKind);
 
     void truncInBounds(TruncationKind truncationKind, Location operandLocation, Location resultLocation, FPRReg scratch1FPR, FPRReg scratch2FPR);
-    void truncInBounds(TruncationKind truncationKind, Location operandLocation, Value& result, Location resultLocation);
 
     PartialResult WARN_UNUSED_RETURN truncTrapping(OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType);
     PartialResult WARN_UNUSED_RETURN truncSaturated(Ext1OpType truncationOp, Value operand, Value& result, Type returnType, Type operandType);
@@ -2218,6 +2226,9 @@ private:
 
     void emitIncrementCallSlotCount(unsigned callSlotIndex);
 
+    void emitSaveCalleeSaves();
+    void emitRestoreCalleeSaves();
+
     CCallHelpers& m_jit;
     CalleeGroup& m_calleeGroup;
     IPIntCallee& m_profiledCallee;
@@ -2249,7 +2260,7 @@ private:
     Vector<DataLabelPtr, 1> m_frameSizeLabels;
     int m_frameSize { 0 };
     int m_maxCalleeStackSize { 0 };
-    int m_localStorage { 0 }; // Stack offset pointing to the local with the lowest address.
+    int m_localAndCalleeSaveStorage { 0 }; // Stack offset pointing to the local and callee save with the lowest address.
     bool m_usesSIMD { false }; // Whether the function we are compiling uses SIMD instructions or not.
     bool m_usesExceptions { false };
     Checked<unsigned> m_tryCatchDepth { 0 };

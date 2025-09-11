@@ -245,7 +245,6 @@ public:
     virtual void setResizable(bool) = 0;
 
     virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID) = 0;
-    virtual void addMessageWithArgumentsToConsole(MessageSource, MessageLevel, const String& message, std::span<const String> messageArguments, unsigned lineNumber, unsigned columnNumber, const String& sourceID) { UNUSED_PARAM(message); UNUSED_PARAM(messageArguments); UNUSED_PARAM(lineNumber); UNUSED_PARAM(columnNumber); UNUSED_PARAM(sourceID); }
 
     virtual bool canRunBeforeUnloadConfirmPanel() = 0;
     virtual bool runBeforeUnloadConfirmPanel(String&& message, LocalFrame&) = 0;
@@ -332,16 +331,6 @@ public:
     // The chrome client would need to take some action such as evicting some
     // old caches.
     virtual void reachedMaxAppCacheSize(int64_t) { }
-
-    // Callback invoked when the application cache origin quota is reached. This
-    // means that the resources attempting to be cached via the manifest are
-    // more than allowed on this origin. This callback allows the chrome client
-    // to take action, such as prompting the user to ask to increase the quota
-    // for this origin. The totalSpaceNeeded parameter is the total amount of
-    // storage, in bytes, needed to store the new cache along with all of the
-    // other existing caches for the origin that would not be replaced by
-    // the new cache.
-    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin&, int64_t) { }
 
     WEBCORE_EXPORT virtual std::unique_ptr<WorkerClient> createWorkerClient(SerialFunctionDispatcher&);
 

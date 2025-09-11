@@ -1,15 +1,5 @@
 Modules/applicationmanifest/ApplicationManifestParser.cpp
-Modules/indexeddb/IDBActiveDOMObject.h
-Modules/indexeddb/IDBCursor.cpp
-Modules/indexeddb/IDBIndex.cpp
-Modules/indexeddb/IDBObjectStore.cpp
-Modules/indexeddb/IDBTransaction.cpp
-Modules/indexeddb/client/IDBConnectionProxy.cpp
-Modules/indexeddb/server/IDBServer.cpp
-Modules/indexeddb/server/MemoryBackingStoreTransaction.cpp
-Modules/indexeddb/server/MemoryIDBBackingStore.cpp
-Modules/indexeddb/server/MemoryObjectStore.cpp
-Modules/indexeddb/server/UniqueIDBDatabase.cpp
+Modules/indexeddb/IDBActiveDOMObjectInlines.h
 Modules/mediacapabilities/MediaCapabilities.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
@@ -51,7 +41,6 @@ Modules/webdatabase/DatabaseManager.cpp
 Modules/webdatabase/SQLCallbackWrapper.h
 StyleBuilderGenerated.cpp
 accessibility/AXObjectCache.cpp
-accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 animation/KeyframeEffect.cpp
 bindings/js/CommonVM.cpp
 bindings/js/DOMWrapperWorld.cpp
@@ -107,7 +96,6 @@ bindings/js/JSWorkerGlobalScopeCustom.cpp
 bindings/js/JSXMLHttpRequestCustom.cpp
 bindings/js/ScriptCachedFrameData.cpp
 bindings/js/ScriptModuleLoader.cpp
-bindings/js/SerializedScriptValue.cpp
 bindings/js/StructuredClone.cpp
 bridge/objc/objc_runtime.mm
 bridge/objc/objc_utility.mm
@@ -128,7 +116,6 @@ css/CSSStyleProperties.cpp
 css/CSSStyleRule.cpp
 css/CSSStyleSheet.cpp
 css/CSSStyleSheetObservableArray.cpp
-css/CSSToStyleMap.cpp
 css/CSSValue.cpp
 css/CSSValueList.cpp
 css/CSSValueList.h
@@ -280,7 +267,6 @@ inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
 inspector/agents/InspectorDOMDebuggerAgent.cpp
 inspector/agents/InspectorDOMStorageAgent.cpp
-inspector/agents/InspectorIndexedDBAgent.cpp
 inspector/agents/InspectorLayerTreeAgent.cpp
 inspector/agents/InspectorNetworkAgent.cpp
 inspector/agents/InspectorPageAgent.cpp
@@ -293,9 +279,6 @@ layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
 loader/ApplicationManifestLoader.cpp
 loader/EmptyClients.cpp
-loader/appcache/ApplicationCacheGroup.cpp
-loader/appcache/ApplicationCacheHost.cpp
-loader/appcache/ApplicationCacheStorage.cpp
 mathml/MathMLSelectElement.cpp
 page/BarProp.cpp
 page/CaptionUserPreferences.cpp
@@ -412,11 +395,9 @@ platform/text/BidiContext.cpp
 platform/text/BidiResolver.h
 plugins/PluginData.cpp
 plugins/PluginInfoProvider.cpp
-rendering/BackgroundPainter.cpp
 rendering/GlyphDisplayListCache.cpp
 rendering/HitTestResult.cpp
 rendering/ImageQualityController.cpp
-rendering/InlineBoxPainter.cpp
 rendering/MarkedText.cpp
 rendering/ReferencedSVGResources.cpp
 rendering/RenderAttachment.cpp
@@ -450,7 +431,6 @@ rendering/RenderWidget.cpp
 rendering/TextBoxPainter.cpp
 rendering/mac/RenderThemeMac.mm
 rendering/mathml/MathMLStyle.cpp
-rendering/style/FillLayer.cpp
 rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleSetters.h
 rendering/style/StyleCachedImage.cpp
@@ -508,10 +488,8 @@ style/StyleBuilderState.cpp
 style/StyleCustomPropertyRegistry.cpp
 style/StyleExtractor.cpp
 style/StyleExtractorCustom.h
-style/StyleInterpolationWrappers.h
 style/StyleInvalidationFunctions.h
 style/StyleInvalidator.cpp
-style/StylePendingResources.cpp
 style/StyleRelations.cpp
 style/StyleResolver.cpp
 style/StyleScope.cpp
@@ -519,8 +497,8 @@ style/StyleScopeRuleSets.cpp
 style/StyleTreeResolver.cpp
 style/StyleUpdate.cpp
 style/Styleable.cpp
-style/TransformOperationsBuilder.cpp
 style/UserAgentStyle.cpp
+style/values/transforms/StyleTransformFunction.cpp
 svg/SVGAnimateMotionElement.cpp
 svg/SVGClipPathElement.cpp
 svg/SVGCursorElement.cpp

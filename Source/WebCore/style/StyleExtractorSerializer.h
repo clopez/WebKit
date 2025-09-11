@@ -81,23 +81,18 @@ public:
 
     // MARK: Shared serializations
 
-    static void serializeImageOrNone(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const StyleImage*);
     static void serializeGlyphOrientation(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, GlyphOrientation);
     static void serializeGlyphOrientationOrAuto(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, GlyphOrientation);
     static void serializeMarginTrim(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<MarginTrimType>);
-    static void serializeDPath(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const StylePathData*);
     static void serializeStrokeDashArray(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const FixedVector<WebCore::Length>&);
     static void serializeFilterOperations(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const FilterOperations&);
     static void serializeAppleColorFilterOperations(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const FilterOperations&);
     static void serializeWebkitTextCombine(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, TextCombine);
     static void serializeImageOrientation(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, ImageOrientation);
-    static void serializeLineClamp(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const LineClampValue&);
     static void serializeContain(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<Containment>);
     static void serializeSmoothScrolling(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, bool);
-    static void serializeInitialLetter(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FloatSize);
     static void serializeTextSpacingTrim(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, TextSpacingTrim);
     static void serializeTextAutospace(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, TextAutospace);
-    static void serializeReflection(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const StyleReflection*);
     static void serializeLineFitEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const TextEdge&);
     static void serializeTextBoxEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const TextEdge&);
     static void serializePositionTryFallbacks(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const FixedVector<PositionTryFallback>&);
@@ -128,18 +123,10 @@ public:
 
     // MARK: FillLayer serializations
 
-    static void serializeFillLayerAttachment(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillAttachment);
-    static void serializeFillLayerBlendMode(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, BlendMode);
-    static void serializeFillLayerClip(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillBox);
-    static void serializeFillLayerOrigin(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillBox);
-    static void serializeFillLayerRepeat(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillRepeatXY);
-    static void serializeFillLayerBackgroundSize(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillSize);
-    static void serializeFillLayerMaskSize(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, FillSize);
     static void serializeFillLayerMaskComposite(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, CompositeOperator);
     static void serializeFillLayerWebkitMaskComposite(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, CompositeOperator);
     static void serializeFillLayerMaskMode(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, MaskMode);
     static void serializeFillLayerWebkitMaskSourceType(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, MaskMode);
-    static void serializeFillLayerImage(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const StyleImage*);
 
     // MARK: Font serializations
 
@@ -363,211 +350,7 @@ inline void ExtractorSerializer::serializeTransformationMatrix(const RenderStyle
     }, ", "_s), ')');
 }
 
-inline void ExtractorSerializer::serializeTransformOperation(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const TransformOperation& operation)
-{
-    serializeTransformOperation(state.style, builder, context, operation);
-}
-
-inline void ExtractorSerializer::serializeTransformOperation(const RenderStyle& style, StringBuilder& builder, const CSS::SerializationContext& context, const TransformOperation& operation)
-{
-    auto translateLength = [&](const auto& length) {
-        if (length.isZero()) {
-            builder.append("0px"_s);
-            return;
-        }
-        serializeLength(style, builder, context, length);
-    };
-
-    auto translateAngle = [&](auto angle) {
-        CSS::serializationForCSS(builder, context, CSS::AngleRaw<> { CSS::AngleUnit::Deg, angle });
-    };
-
-    auto translateNumber = [&](auto number) {
-        CSS::serializationForCSS(builder, context, CSS::NumberRaw<> { number });
-    };
-
-
-    auto includeLength = [](const auto& length) -> bool {
-        return !length.isZero() || length.isPercent();
-    };
-
-    switch (operation.type()) {
-    case TransformOperation::Type::TranslateX:
-        builder.append(nameLiteral(CSSValueTranslateX), '(');
-        translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).x());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::TranslateY:
-        builder.append(nameLiteral(CSSValueTranslateY), '(');
-        translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).y());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::TranslateZ:
-        builder.append(nameLiteral(CSSValueTranslateZ), '(');
-        translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).z());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::Translate:
-    case TransformOperation::Type::Translate3D: {
-        auto& translate = uncheckedDowncast<TranslateTransformOperation>(operation);
-        if (!translate.is3DOperation()) {
-            if (!includeLength(translate.y())) {
-                builder.append(nameLiteral(CSSValueTranslate), '(');
-                translateLength(translate.x());
-                builder.append(')');
-                return;
-            }
-            builder.append(nameLiteral(CSSValueTranslate), '(');
-            translateLength(translate.x());
-            builder.append(", "_s);
-            translateLength(translate.y());
-            builder.append(')');
-            return;
-        }
-        builder.append(nameLiteral(CSSValueTranslate3d), '(');
-        translateLength(translate.x());
-        builder.append(", "_s);
-        translateLength(translate.y());
-        builder.append(", "_s);
-        translateLength(translate.z());
-        builder.append(')');
-        return;
-    }
-    case TransformOperation::Type::ScaleX:
-        builder.append(nameLiteral(CSSValueScaleX), '(');
-        translateNumber(uncheckedDowncast<ScaleTransformOperation>(operation).x());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::ScaleY:
-        builder.append(nameLiteral(CSSValueScaleY), '(');
-        translateNumber(uncheckedDowncast<ScaleTransformOperation>(operation).y());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::ScaleZ:
-        builder.append(nameLiteral(CSSValueScaleZ), '(');
-        translateNumber(uncheckedDowncast<ScaleTransformOperation>(operation).z());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::Scale:
-    case TransformOperation::Type::Scale3D: {
-        auto& scale = uncheckedDowncast<ScaleTransformOperation>(operation);
-        if (!scale.is3DOperation()) {
-            if (scale.x() == scale.y()) {
-                builder.append(nameLiteral(CSSValueScale), '(');
-                translateNumber(scale.x());
-                builder.append(')');
-                return;
-            }
-            builder.append(nameLiteral(CSSValueScale), '(');
-            translateNumber(scale.x());
-            builder.append(", "_s);
-            translateNumber(scale.y());
-            builder.append(')');
-            return;
-        }
-        builder.append(nameLiteral(CSSValueScale3d), '(');
-        translateNumber(scale.x());
-        builder.append(", "_s);
-        translateNumber(scale.y());
-        builder.append(", "_s);
-        translateNumber(scale.z());
-        builder.append(')');
-        return;
-    }
-    case TransformOperation::Type::RotateX:
-        builder.append(nameLiteral(CSSValueRotateX), '(');
-        translateAngle(uncheckedDowncast<RotateTransformOperation>(operation).angle());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::RotateY:
-        builder.append(nameLiteral(CSSValueRotateY), '(');
-        translateAngle(uncheckedDowncast<RotateTransformOperation>(operation).angle());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::RotateZ:
-        builder.append(nameLiteral(CSSValueRotateZ), '(');
-        translateAngle(uncheckedDowncast<RotateTransformOperation>(operation).angle());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::Rotate:
-        builder.append(nameLiteral(CSSValueRotate), '(');
-        translateAngle(uncheckedDowncast<RotateTransformOperation>(operation).angle());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::Rotate3D: {
-        auto& rotate = uncheckedDowncast<RotateTransformOperation>(operation);
-        builder.append(nameLiteral(CSSValueRotate3d), '(');
-        translateNumber(rotate.x());
-        builder.append(", "_s);
-        translateNumber(rotate.y());
-        builder.append(", "_s);
-        translateNumber(rotate.z());
-        builder.append(", "_s);
-        translateAngle(uncheckedDowncast<RotateTransformOperation>(operation).angle());
-        builder.append(')');
-        return;
-    }
-    case TransformOperation::Type::SkewX:
-        builder.append(nameLiteral(CSSValueSkewX), '(');
-        translateAngle(uncheckedDowncast<SkewTransformOperation>(operation).angleX());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::SkewY:
-        builder.append(nameLiteral(CSSValueSkewY), '(');
-        translateAngle(uncheckedDowncast<SkewTransformOperation>(operation).angleY());
-        builder.append(')');
-        return;
-    case TransformOperation::Type::Skew: {
-        auto& skew = uncheckedDowncast<SkewTransformOperation>(operation);
-        if (!skew.angleY()) {
-            builder.append(nameLiteral(CSSValueSkew), '(');
-            translateAngle(skew.angleX());
-            builder.append(')');
-            return;
-        }
-        builder.append(nameLiteral(CSSValueSkew), '(');
-        translateAngle(skew.angleX());
-        builder.append(", "_s);
-        translateAngle(skew.angleY());
-        builder.append(')');
-        return;
-    }
-    case TransformOperation::Type::Perspective:
-        if (auto perspective = uncheckedDowncast<PerspectiveTransformOperation>(operation).perspective()) {
-            builder.append(nameLiteral(CSSValuePerspective), '(');
-            serializeLength(style, builder, context, *perspective);
-            builder.append(')');
-            return;
-        }
-        builder.append(nameLiteral(CSSValuePerspective), '(', nameLiteralForSerialization(CSSValueNone), ')');
-        return;
-    case TransformOperation::Type::Matrix:
-    case TransformOperation::Type::Matrix3D: {
-        TransformationMatrix transform;
-        operation.apply(transform, { });
-        serializeTransformationMatrix(style, builder, context, transform);
-        return;
-    }
-    case TransformOperation::Type::Identity:
-    case TransformOperation::Type::None:
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
 // MARK: - Shared serializations
-
-inline void ExtractorSerializer::serializeImageOrNone(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StyleImage* image)
-{
-    if (!image) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-
-    builder.append(image->computedStyleValue(state.style)->cssText(context));
-}
 
 inline void ExtractorSerializer::serializeGlyphOrientation(ExtractorState&, StringBuilder& builder, const CSS::SerializationContext& context, GlyphOrientation orientation)
 {
@@ -654,15 +437,6 @@ inline void ExtractorSerializer::serializeMarginTrim(ExtractorState& state, Stri
     appendOption(MarginTrimType::InlineEnd, CSSValueInlineEnd);
 }
 
-inline void ExtractorSerializer::serializeDPath(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePathData* path)
-{
-    if (!path) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-
-    serializationForCSS(builder, context, state.style, Ref { *path }->path(), PathConversion::ForceAbsolute);
-}
 
 inline void ExtractorSerializer::serializeStrokeDashArray(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const FixedVector<WebCore::Length>& dashes)
 {
@@ -700,19 +474,6 @@ inline void ExtractorSerializer::serializeImageOrientation(ExtractorState&, Stri
     builder.append(nameLiteralForSerialization(imageOrientation == ImageOrientation::Orientation::FromImage ? CSSValueFromImage : CSSValueNone));
 }
 
-inline void ExtractorSerializer::serializeLineClamp(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const LineClampValue& lineClamp)
-{
-    if (lineClamp.isNone()) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-    if (lineClamp.isPercentage()) {
-        CSS::serializationForCSS(builder, context, CSS::PercentageRaw<> { lineClamp.value() });
-        return;
-    }
-    serialize(state, builder, context, lineClamp.value());
-}
-
 inline void ExtractorSerializer::serializeContain(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<Containment> containment)
 {
     if (!containment) {
@@ -742,25 +503,6 @@ inline void ExtractorSerializer::serializeContain(ExtractorState& state, StringB
     appendOption(Containment::Layout, CSSValueLayout);
     appendOption(Containment::Style, CSSValueStyle);
     appendOption(Containment::Paint, CSSValuePaint);
-}
-
-inline void ExtractorSerializer::serializeInitialLetter(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FloatSize initialLetter)
-{
-    auto append = [&](auto axis) {
-        if (!axis)
-            serializationForCSS(builder, context, state.style, CSS::Keyword::Normal { });
-        else
-            CSS::serializationForCSS(builder, context, CSS::NumberRaw<> { axis });
-    };
-
-    if (initialLetter.width() == initialLetter.height()) {
-        append(initialLetter.width());
-        return;
-    }
-
-    append(initialLetter.width());
-    builder.append(' ');
-    append(initialLetter.height());
 }
 
 inline void ExtractorSerializer::serializeTextSpacingTrim(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, TextSpacingTrim textSpacingTrim)
@@ -813,36 +555,6 @@ inline void ExtractorSerializer::serializeTextAutospace(ExtractorState& state, S
         serializationForCSS(builder, context, state.style, CSS::Keyword::IdeographNumeric { });
         return;
     }
-}
-
-inline void ExtractorSerializer::serializeReflection(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StyleReflection* reflection)
-{
-    if (!reflection) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-
-    // FIXME: Consider omitting 0px when the mask is null.
-
-    auto offset = [&] -> Ref<CSSPrimitiveValue> {
-        auto& reflectionOffset = reflection->offset();
-        if (reflectionOffset.isPercentOrCalculated())
-            return CSSPrimitiveValue::create(reflectionOffset.percent(), CSSUnitType::CSS_PERCENTAGE);
-        return ExtractorConverter::convertNumberAsPixels(state, reflectionOffset.value());
-    }();
-
-    auto mask = [&] -> RefPtr<CSSValue> {
-        auto& reflectionMask = reflection->mask();
-        if (reflectionMask.source().isNone())
-            return CSSPrimitiveValue::create(CSSValueNone);
-        return createCSSValue(state.pool, state.style, reflectionMask);
-    }();
-
-    builder.append(CSSReflectValue::create(
-        toCSSValueID(reflection->direction()),
-        WTFMove(offset),
-        WTFMove(mask)
-    )->cssText(context));
 }
 
 inline void ExtractorSerializer::serializeLineFitEdge(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const TextEdge& textEdge)
@@ -1099,7 +811,6 @@ inline void ExtractorSerializer::serializeTextTransform(ExtractorState& state, S
     if (listEmpty)
         serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
 }
-
 
 inline void ExtractorSerializer::serializeTextUnderlinePosition(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<TextUnderlinePosition> textUnderlinePosition)
 {
@@ -1395,92 +1106,6 @@ inline void ExtractorSerializer::serializePositionVisibility(ExtractorState& sta
 
 // MARK: - FillLayer serializations
 
-inline void ExtractorSerializer::serializeFillLayerAttachment(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillAttachment attachment)
-{
-    serialize(state, builder, context, attachment);
-}
-
-inline void ExtractorSerializer::serializeFillLayerBlendMode(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, BlendMode blendMode)
-{
-    serialize(state, builder, context, blendMode);
-}
-
-inline void ExtractorSerializer::serializeFillLayerClip(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillBox clip)
-{
-    serialize(state, builder, context, clip);
-}
-
-inline void ExtractorSerializer::serializeFillLayerOrigin(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillBox origin)
-{
-    serialize(state, builder, context, origin);
-}
-
-inline void ExtractorSerializer::serializeFillLayerRepeat(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillRepeatXY repeat)
-{
-    if (repeat.x == repeat.y) {
-        serialize(state, builder, context, repeat.x);
-        return;
-    }
-
-    if (repeat.x == FillRepeat::Repeat && repeat.y == FillRepeat::NoRepeat) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::RepeatX { });
-        return;
-    }
-
-    if (repeat.x == FillRepeat::NoRepeat && repeat.y == FillRepeat::Repeat) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::RepeatY { });
-        return;
-    }
-
-    serialize(state, builder, context, repeat.x);
-    builder.append(' ');
-    serialize(state, builder, context, repeat.y);
-}
-
-inline void ExtractorSerializer::serializeFillLayerBackgroundSize(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillSize size)
-{
-    if (size.type == FillSizeType::Contain) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Contain { });
-        return;
-    }
-
-    if (size.type == FillSizeType::Cover) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Cover { });
-        return;
-    }
-
-    if (size.size.height.isAuto() && size.size.width.isAuto()) {
-        serializeLength(state, builder, context, size.size.width);
-        return;
-    }
-
-    serializeLength(state, builder, context, size.size.width);
-    builder.append(' ');
-    serializeLength(state, builder, context, size.size.height);
-}
-
-inline void ExtractorSerializer::serializeFillLayerMaskSize(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, FillSize size)
-{
-    if (size.type == FillSizeType::Contain) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Contain { });
-        return;
-    }
-
-    if (size.type == FillSizeType::Cover) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Cover { });
-        return;
-    }
-
-    if (size.size.height.isAuto()) {
-        serializeLength(state, builder, context, size.size.width);
-        return;
-    }
-
-    serializeLength(state, builder, context, size.size.width);
-    builder.append(' ');
-    serializeLength(state, builder, context, size.size.height);
-}
-
 inline void ExtractorSerializer::serializeFillLayerMaskComposite(ExtractorState&, StringBuilder& builder, const CSS::SerializationContext&, CompositeOperator composite)
 {
     builder.append(nameLiteralForSerialization(toCSSValueID(composite, CSSPropertyMaskComposite)));
@@ -1522,11 +1147,6 @@ inline void ExtractorSerializer::serializeFillLayerWebkitMaskSourceType(Extracto
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();
-}
-
-inline void ExtractorSerializer::serializeFillLayerImage(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StyleImage* image)
-{
-    serializeImageOrNone(state, builder, context, image);
 }
 
 // MARK: - Font serializations

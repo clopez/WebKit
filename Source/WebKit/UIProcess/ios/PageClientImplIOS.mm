@@ -46,6 +46,7 @@
 #import "RemoteLayerTreeNode.h"
 #import "RunningBoardServicesSPI.h"
 #import "TapHandlingResult.h"
+#import "TextExtractionFilter.h"
 #import "UIKitSPI.h"
 #import "UIKitUtilities.h"
 #import "UndoOrRedo.h"
@@ -339,6 +340,10 @@ void PageClientImpl::didCommitLoadForMainFrame(const String& mimeType, bool useC
     [webView _hidePasswordView];
     [webView _setHasCustomContentView:useCustomContentProvider loadedMIMEType:mimeType];
     [contentView() _didCommitLoadForMainFrame];
+#if ENABLE(TEXT_EXTRACTION_FILTER)
+    if (RefPtr filter = TextExtractionFilter::singletonIfCreated())
+        filter->resetCache();
+#endif
 }
 
 void PageClientImpl::didChangeContentSize(const WebCore::IntSize&)
@@ -1066,7 +1071,7 @@ void PageClientImpl::startDrag(const DragItem& item, ShareableBitmap::Handle&& i
     auto bitmap = ShareableBitmap::create(WTFMove(image));
     if (!bitmap)
         return;
-    [contentView() _startDrag:bitmap->makeCGImageCopy() item:item nodeID:nodeID];
+    [contentView() _startDrag:bitmap->createPlatformImage() item:item nodeID:nodeID];
 }
 
 void PageClientImpl::willReceiveEditDragSnapshot()

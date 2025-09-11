@@ -36,6 +36,7 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "DNS.h"
 #include "DocumentInlines.h"
 #include "Event.h"
@@ -692,6 +693,11 @@ bool RTCPeerConnection::doClose()
     if (isClosed())
         return false;
 
+#if USE(GSTREAMER_WEBRTC)
+    if (auto backend = protectedBackend())
+        backend->prepareForClose();
+#endif
+
     m_shouldDelayTasks = false;
     m_connectionState = RTCPeerConnectionState::Closed;
     m_iceConnectionState = RTCIceConnectionState::Closed;
@@ -717,6 +723,11 @@ void RTCPeerConnection::close()
 
     ASSERT(isClosed());
     protectedBackend()->close();
+}
+
+ScriptExecutionContext* RTCPeerConnection::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
 }
 
 void RTCPeerConnection::emulatePlatformEvent(const String& action)

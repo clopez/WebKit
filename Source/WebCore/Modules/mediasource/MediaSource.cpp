@@ -39,6 +39,7 @@
 #include "AudioTrackPrivate.h"
 #include "ContentType.h"
 #include "ContentTypeUtilities.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DocumentInlines.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -1669,6 +1670,10 @@ void MediaSource::addTextTrackToElement(Ref<TextTrack>&& track)
 void MediaSource::addVideoTrackToElement(Ref<VideoTrack>&& track)
 {
     ensureWeakOnHTMLMediaElementContext([track = WTFMove(track)](auto& mediaElement) mutable {
+        // Select the first video track being added and unselect the next ones, since only one
+        // video track can be selected at once.
+        auto videoTracks = mediaElement.videoTracks();
+        track->setSelected(!(videoTracks && videoTracks->length()));
         mediaElement.addVideoTrack(WTFMove(track));
     });
 }

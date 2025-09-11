@@ -77,17 +77,6 @@ MediaSessionManagerCocoa::MediaSessionManagerCocoa()
 {
 }
 
-static bool s_shouldUseModernAVContentKeySession;
-void MediaSessionManagerCocoa::setShouldUseModernAVContentKeySession(bool enabled)
-{
-    s_shouldUseModernAVContentKeySession = enabled;
-}
-
-bool MediaSessionManagerCocoa::shouldUseModernAVContentKeySession()
-{
-    return s_shouldUseModernAVContentKeySession;
-}
-
 void MediaSessionManagerCocoa::updateSessionState()
 {
     constexpr auto delayBeforeSettingCategoryNone = 2_s;
@@ -595,7 +584,7 @@ std::optional<bool> MediaSessionManagerCocoa::supportsSpatialAudioPlaybackForCon
 
 static id<MRNowPlayingActivityUIControllable> nowPlayingActivityController()
 {
-    static id<MRNowPlayingActivityUIControllable> controller = RetainPtr([getMRUIControllerProviderClass() nowPlayingActivityController]).leakRef();
+    static id<MRNowPlayingActivityUIControllable> controller = RetainPtr([getMRUIControllerProviderClassSingleton() nowPlayingActivityController]).leakRef();
     return controller;
 }
 

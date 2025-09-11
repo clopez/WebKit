@@ -62,7 +62,6 @@
 #include "CSSValuePool.h"
 #include "CSSViewValue.h"
 #include "ContainerNodeInlines.h"
-#include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "FontSelectionValueInlines.h"
 #include "HTMLFrameOwnerElement.h"
@@ -74,7 +73,6 @@
 #include "RenderElementInlines.h"
 #include "RenderGrid.h"
 #include "RenderInline.h"
-#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "SVGRenderStyle.h"
 #include "ScrollTimeline.h"
@@ -96,13 +94,11 @@
 #include "StyleMinimumSize.h"
 #include "StyleOffsetPath.h"
 #include "StylePadding.h"
-#include "StylePathData.h"
 #include "StylePerspective.h"
 #include "StylePreferredSize.h"
 #include "StylePrimitiveKeyword+CSSValueCreation.h"
 #include "StylePrimitiveNumericTypes+CSSValueCreation.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
-#include "StyleReflection.h"
 #include "StyleRotate.h"
 #include "StyleScale.h"
 #include "StyleScrollMargin.h"
@@ -155,27 +151,20 @@ public:
 
     static Ref<CSSValue> convertTransformationMatrix(ExtractorState&, const TransformationMatrix&);
     static Ref<CSSValue> convertTransformationMatrix(const RenderStyle&, const TransformationMatrix&);
-    static Ref<CSSValue> convertTransformOperation(ExtractorState&, const TransformOperation&);
-    static Ref<CSSValue> convertTransformOperation(const RenderStyle&, const TransformOperation&);
 
     // MARK: Shared conversions
 
-    static Ref<CSSValue> convertImageOrNone(ExtractorState&, const StyleImage*);
     static Ref<CSSValue> convertGlyphOrientation(ExtractorState&, GlyphOrientation);
     static Ref<CSSValue> convertGlyphOrientationOrAuto(ExtractorState&, GlyphOrientation);
     static Ref<CSSValue> convertMarginTrim(ExtractorState&, OptionSet<MarginTrimType>);
-    static Ref<CSSValue> convertDPath(ExtractorState&, const StylePathData*);
     static Ref<CSSValue> convertStrokeDashArray(ExtractorState&, const FixedVector<WebCore::Length>&);
     static Ref<CSSValue> convertFilterOperations(ExtractorState&, const FilterOperations&);
     static Ref<CSSValue> convertAppleColorFilterOperations(ExtractorState&, const FilterOperations&);
     static Ref<CSSValue> convertWebkitTextCombine(ExtractorState&, TextCombine);
     static Ref<CSSValue> convertImageOrientation(ExtractorState&, ImageOrientation);
-    static Ref<CSSValue> convertLineClamp(ExtractorState&, const LineClampValue&);
     static Ref<CSSValue> convertContain(ExtractorState&, OptionSet<Containment>);
-    static Ref<CSSValue> convertInitialLetter(ExtractorState&, FloatSize);
     static Ref<CSSValue> convertTextSpacingTrim(ExtractorState&, TextSpacingTrim);
     static Ref<CSSValue> convertTextAutospace(ExtractorState&, TextAutospace);
-    static Ref<CSSValue> convertReflection(ExtractorState&, const StyleReflection*);
     static Ref<CSSValue> convertLineFitEdge(ExtractorState&, const TextEdge&);
     static Ref<CSSValue> convertTextBoxEdge(ExtractorState&, const TextEdge&);
     static Ref<CSSValue> convertPositionTryFallbacks(ExtractorState&, const FixedVector<PositionTryFallback>&);
@@ -207,18 +196,10 @@ public:
 
     // MARK: FillLayer conversions
 
-    static Ref<CSSValue> convertFillLayerAttachment(ExtractorState&, FillAttachment);
-    static Ref<CSSValue> convertFillLayerBlendMode(ExtractorState&, BlendMode);
-    static Ref<CSSValue> convertFillLayerClip(ExtractorState&, FillBox);
-    static Ref<CSSValue> convertFillLayerOrigin(ExtractorState&, FillBox);
-    static Ref<CSSValue> convertFillLayerRepeat(ExtractorState&, FillRepeatXY);
-    static Ref<CSSValue> convertFillLayerBackgroundSize(ExtractorState&, FillSize);
-    static Ref<CSSValue> convertFillLayerMaskSize(ExtractorState&, FillSize);
     static Ref<CSSValue> convertFillLayerMaskComposite(ExtractorState&, CompositeOperator);
     static Ref<CSSValue> convertFillLayerWebkitMaskComposite(ExtractorState&, CompositeOperator);
     static Ref<CSSValue> convertFillLayerMaskMode(ExtractorState&, MaskMode);
     static Ref<CSSValue> convertFillLayerWebkitMaskSourceType(ExtractorState&, MaskMode);
-    static Ref<CSSValue> convertFillLayerImage(ExtractorState&, const StyleImage*);
 
     // MARK: Font conversions
 
@@ -399,114 +380,7 @@ inline Ref<CSSValue> ExtractorConverter::convertTransformationMatrix(const Rende
     return CSSFunctionValue::create(CSSValueMatrix3d, WTFMove(arguments));
 }
 
-inline Ref<CSSValue> ExtractorConverter::convertTransformOperation(ExtractorState& state, const TransformOperation& operation)
-{
-    return convertTransformOperation(state.style, operation);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertTransformOperation(const RenderStyle& style, const TransformOperation& operation)
-{
-    auto translateLength = [&](const auto& length) -> Ref<CSSPrimitiveValue> {
-        if (length.isZero())
-            return CSSPrimitiveValue::create(0, CSSUnitType::CSS_PX);
-        return convertLength(style, length);
-    };
-
-    auto includeLength = [](const auto& length) -> bool {
-        return !length.isZero() || length.isPercent();
-    };
-
-    switch (operation.type()) {
-    case TransformOperation::Type::TranslateX:
-        return CSSFunctionValue::create(CSSValueTranslateX, translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).x()));
-    case TransformOperation::Type::TranslateY:
-        return CSSFunctionValue::create(CSSValueTranslateY, translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).y()));
-    case TransformOperation::Type::TranslateZ:
-        return CSSFunctionValue::create(CSSValueTranslateZ, translateLength(uncheckedDowncast<TranslateTransformOperation>(operation).z()));
-    case TransformOperation::Type::Translate:
-    case TransformOperation::Type::Translate3D: {
-        auto& translate = uncheckedDowncast<TranslateTransformOperation>(operation);
-        if (!translate.is3DOperation()) {
-            if (!includeLength(translate.y()))
-                return CSSFunctionValue::create(CSSValueTranslate, translateLength(translate.x()));
-            return CSSFunctionValue::create(CSSValueTranslate, translateLength(translate.x()),
-                translateLength(translate.y()));
-        }
-        return CSSFunctionValue::create(CSSValueTranslate3d,
-            translateLength(translate.x()),
-            translateLength(translate.y()),
-            translateLength(translate.z()));
-    }
-    case TransformOperation::Type::ScaleX:
-        return CSSFunctionValue::create(CSSValueScaleX, CSSPrimitiveValue::create(uncheckedDowncast<ScaleTransformOperation>(operation).x()));
-    case TransformOperation::Type::ScaleY:
-        return CSSFunctionValue::create(CSSValueScaleY, CSSPrimitiveValue::create(uncheckedDowncast<ScaleTransformOperation>(operation).y()));
-    case TransformOperation::Type::ScaleZ:
-        return CSSFunctionValue::create(CSSValueScaleZ, CSSPrimitiveValue::create(uncheckedDowncast<ScaleTransformOperation>(operation).z()));
-    case TransformOperation::Type::Scale:
-    case TransformOperation::Type::Scale3D: {
-        auto& scale = uncheckedDowncast<ScaleTransformOperation>(operation);
-        if (!scale.is3DOperation()) {
-            if (scale.x() == scale.y())
-                return CSSFunctionValue::create(CSSValueScale, CSSPrimitiveValue::create(scale.x()));
-            return CSSFunctionValue::create(CSSValueScale, CSSPrimitiveValue::create(scale.x()),
-                CSSPrimitiveValue::create(scale.y()));
-        }
-        return CSSFunctionValue::create(CSSValueScale3d,
-            CSSPrimitiveValue::create(scale.x()),
-            CSSPrimitiveValue::create(scale.y()),
-            CSSPrimitiveValue::create(scale.z()));
-    }
-    case TransformOperation::Type::RotateX:
-        return CSSFunctionValue::create(CSSValueRotateX, CSSPrimitiveValue::create(uncheckedDowncast<RotateTransformOperation>(operation).angle(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::RotateY:
-        return CSSFunctionValue::create(CSSValueRotateY, CSSPrimitiveValue::create(uncheckedDowncast<RotateTransformOperation>(operation).angle(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::RotateZ:
-        return CSSFunctionValue::create(CSSValueRotateZ, CSSPrimitiveValue::create(uncheckedDowncast<RotateTransformOperation>(operation).angle(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::Rotate:
-        return CSSFunctionValue::create(CSSValueRotate, CSSPrimitiveValue::create(uncheckedDowncast<RotateTransformOperation>(operation).angle(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::Rotate3D: {
-        auto& rotate = uncheckedDowncast<RotateTransformOperation>(operation);
-        return CSSFunctionValue::create(CSSValueRotate3d, CSSPrimitiveValue::create(rotate.x()), CSSPrimitiveValue::create(rotate.y()), CSSPrimitiveValue::create(rotate.z()), CSSPrimitiveValue::create(rotate.angle(), CSSUnitType::CSS_DEG));
-    }
-    case TransformOperation::Type::SkewX:
-        return CSSFunctionValue::create(CSSValueSkewX, CSSPrimitiveValue::create(uncheckedDowncast<SkewTransformOperation>(operation).angleX(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::SkewY:
-        return CSSFunctionValue::create(CSSValueSkewY, CSSPrimitiveValue::create(uncheckedDowncast<SkewTransformOperation>(operation).angleY(), CSSUnitType::CSS_DEG));
-    case TransformOperation::Type::Skew: {
-        auto& skew = uncheckedDowncast<SkewTransformOperation>(operation);
-        if (!skew.angleY())
-            return CSSFunctionValue::create(CSSValueSkew, CSSPrimitiveValue::create(skew.angleX(), CSSUnitType::CSS_DEG));
-        return CSSFunctionValue::create(CSSValueSkew, CSSPrimitiveValue::create(skew.angleX(), CSSUnitType::CSS_DEG),
-            CSSPrimitiveValue::create(skew.angleY(), CSSUnitType::CSS_DEG));
-    }
-    case TransformOperation::Type::Perspective:
-        if (auto perspective = uncheckedDowncast<PerspectiveTransformOperation>(operation).perspective())
-            return CSSFunctionValue::create(CSSValuePerspective, convertLength(style, *perspective));
-        return CSSFunctionValue::create(CSSValuePerspective, CSSPrimitiveValue::create(CSSValueNone));
-    case TransformOperation::Type::Matrix:
-    case TransformOperation::Type::Matrix3D: {
-        TransformationMatrix transform;
-        operation.apply(transform, { });
-        return convertTransformationMatrix(style, transform);
-    }
-    case TransformOperation::Type::Identity:
-    case TransformOperation::Type::None:
-        break;
-    }
-
-    ASSERT_NOT_REACHED();
-    return CSSPrimitiveValue::create(CSSValueNone);
-}
-
 // MARK: - Shared conversions
-
-inline Ref<CSSValue> ExtractorConverter::convertImageOrNone(ExtractorState& state, const StyleImage* image)
-{
-    if (image)
-        return image->computedStyleValue(state.style);
-    return CSSPrimitiveValue::create(CSSValueNone);
-}
 
 inline Ref<CSSValue> ExtractorConverter::convertGlyphOrientation(ExtractorState&, GlyphOrientation orientation)
 {
@@ -570,14 +444,6 @@ inline Ref<CSSValue> ExtractorConverter::convertMarginTrim(ExtractorState&, Opti
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
-
-inline Ref<CSSValue> ExtractorConverter::convertDPath(ExtractorState& state, const StylePathData* path)
-{
-    if (!path)
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return CSSPathValue::create(toCSS(Ref { *path }->path(), state.style, PathConversion::ForceAbsolute));
-}
-
 inline Ref<CSSValue> ExtractorConverter::convertStrokeDashArray(ExtractorState& state, const FixedVector<WebCore::Length>& dashes)
 {
     if (dashes.isEmpty())
@@ -612,15 +478,6 @@ inline Ref<CSSValue> ExtractorConverter::convertImageOrientation(ExtractorState&
     return CSSPrimitiveValue::create(CSSValueNone);
 }
 
-inline Ref<CSSValue> ExtractorConverter::convertLineClamp(ExtractorState&, const LineClampValue& lineClamp)
-{
-    if (lineClamp.isNone())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    if (lineClamp.isPercentage())
-        return CSSPrimitiveValue::create(lineClamp.value(), CSSUnitType::CSS_PERCENTAGE);
-    return CSSPrimitiveValue::createInteger(lineClamp.value());
-}
-
 inline Ref<CSSValue> ExtractorConverter::convertContain(ExtractorState&, OptionSet<Containment> containment)
 {
     if (!containment)
@@ -641,14 +498,6 @@ inline Ref<CSSValue> ExtractorConverter::convertContain(ExtractorState&, OptionS
     if (containment & Containment::Paint)
         list.append(CSSPrimitiveValue::create(CSSValuePaint));
     return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertInitialLetter(ExtractorState&, FloatSize initialLetter)
-{
-    return CSSValuePair::create(
-        !initialLetter.width() ? CSSPrimitiveValue::create(CSSValueNormal) : CSSPrimitiveValue::create(initialLetter.width()),
-        !initialLetter.height() ? CSSPrimitiveValue::create(CSSValueNormal) : CSSPrimitiveValue::create(initialLetter.height())
-    );
 }
 
 inline Ref<CSSValue> ExtractorConverter::convertTextSpacingTrim(ExtractorState&, TextSpacingTrim textSpacingTrim)
@@ -683,34 +532,6 @@ inline Ref<CSSValue> ExtractorConverter::convertTextAutospace(ExtractorState&, T
         list.append(CSSPrimitiveValue::create(CSSValueIdeographNumeric));
 
     return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertReflection(ExtractorState& state, const StyleReflection* reflection)
-{
-    if (!reflection)
-        return CSSPrimitiveValue::create(CSSValueNone);
-
-    // FIXME: Consider omitting 0px when the mask is null.
-
-    auto offset = [&] -> Ref<CSSPrimitiveValue> {
-        auto& reflectionOffset = reflection->offset();
-        if (reflectionOffset.isPercentOrCalculated())
-            return CSSPrimitiveValue::create(reflectionOffset.percent(), CSSUnitType::CSS_PERCENTAGE);
-        return convertNumberAsPixels(state, reflectionOffset.value());
-    }();
-
-    auto mask = [&] -> RefPtr<CSSValue> {
-        auto& reflectionMask = reflection->mask();
-        if (reflectionMask.source().isNone())
-            return CSSPrimitiveValue::create(CSSValueNone);
-        return createCSSValue(state.pool, state.style, reflectionMask);
-    }();
-
-    return CSSReflectValue::create(
-        toCSSValueID(reflection->direction()),
-        WTFMove(offset),
-        WTFMove(mask)
-    );
 }
 
 inline Ref<CSSValue> ExtractorConverter::convertLineFitEdge(ExtractorState& state, const TextEdge& textEdge)
@@ -1295,77 +1116,6 @@ inline Ref<CSSValue> ExtractorConverter::convertPositionVisibility(ExtractorStat
 
 // MARK: - FillLayer conversions
 
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerAttachment(ExtractorState& state, FillAttachment attachment)
-{
-    return convert(state, attachment);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerBlendMode(ExtractorState& state, BlendMode blendMode)
-{
-    return convert(state, blendMode);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerClip(ExtractorState& state, FillBox clip)
-{
-    return convert(state, clip);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerOrigin(ExtractorState& state, FillBox origin)
-{
-    return convert(state, origin);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerRepeat(ExtractorState& state, FillRepeatXY repeat)
-{
-    if (repeat.x == repeat.y)
-        return convert(state, repeat.x);
-
-    if (repeat.x == FillRepeat::Repeat && repeat.y == FillRepeat::NoRepeat)
-        return CSSPrimitiveValue::create(CSSValueRepeatX);
-
-    if (repeat.x == FillRepeat::NoRepeat && repeat.y == FillRepeat::Repeat)
-        return CSSPrimitiveValue::create(CSSValueRepeatY);
-
-    return CSSValueList::createSpaceSeparated(
-        convert(state, repeat.x),
-        convert(state, repeat.y)
-    );
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerBackgroundSize(ExtractorState& state, FillSize size)
-{
-    if (size.type == FillSizeType::Contain)
-        return CSSPrimitiveValue::create(CSSValueContain);
-
-    if (size.type == FillSizeType::Cover)
-        return CSSPrimitiveValue::create(CSSValueCover);
-
-    if (size.size.height.isAuto() && size.size.width.isAuto())
-        return convertLength(state, size.size.width);
-
-    return CSSValueList::createSpaceSeparated(
-        convertLength(state, size.size.width),
-        convertLength(state, size.size.height)
-    );
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerMaskSize(ExtractorState& state, FillSize size)
-{
-    if (size.type == FillSizeType::Contain)
-        return CSSPrimitiveValue::create(CSSValueContain);
-
-    if (size.type == FillSizeType::Cover)
-        return CSSPrimitiveValue::create(CSSValueCover);
-
-    if (size.size.height.isAuto())
-        return convertLength(state, size.size.width);
-
-    return CSSValueList::createSpaceSeparated(
-        convertLength(state, size.size.width),
-        convertLength(state, size.size.height)
-    );
-}
-
 inline Ref<CSSValue> ExtractorConverter::convertFillLayerMaskComposite(ExtractorState&, CompositeOperator composite)
 {
     return CSSPrimitiveValue::create(toCSSValueID(composite, CSSPropertyMaskComposite));
@@ -1403,11 +1153,6 @@ inline Ref<CSSValue> ExtractorConverter::convertFillLayerWebkitMaskSourceType(Ex
     }
     ASSERT_NOT_REACHED();
     return CSSPrimitiveValue::create(CSSValueAlpha);
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertFillLayerImage(ExtractorState& state, const StyleImage* image)
-{
-    return convertImageOrNone(state, image);
 }
 
 // MARK: - Font conversions

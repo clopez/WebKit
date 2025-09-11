@@ -33,12 +33,11 @@
 #include "AXIsolatedObject.h"
 #include "AXLogger.h"
 #include "AXNotifications.h"
+#include "AXObjectCacheInlines.h"
 #include "AXTreeStore.h"
 #include "AXTreeStoreInlines.h"
 #include "AXUtilities.h"
-#include "AccessibilityImageMapLink.h"
-#include "AccessibilityTableCell.h"
-#include "AccessibilityTableRow.h"
+#include "AccessibilityObjectInlines.h"
 #include "DocumentInlines.h"
 #include "FrameSelection.h"
 #include "HTMLNames.h"
@@ -567,16 +566,14 @@ void AXIsolatedTree::objectChangedIgnoredState(const AccessibilityObject& object
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     ASSERT(isMainThread());
 
-    if (RefPtr cell = dynamicDowncast<AccessibilityTableCell>(object)) {
-        if (RefPtr parentTable = cell->parentTable()) {
-            // FIXME: This should be as simple as:
-            //     queueNodeUpdate(*parentTable->objectID(), { { AXProperty::Cells, AXProperty::CellSlots, AXProperty::Columns } });
-            // As these are the table properties that depend on cells. But we can't do that, because we compute "new" column accessibility objects
-            // every time we clearChildren() and addChildren(), so just re-computing AXProperty::Columns means that we won't have AXIsolatedObjects
-            // for the columns. Instead we have to do a significantly more wasteful children update.
-            queueNodeUpdate(parentTable->objectID(), NodeUpdateOptions::childrenUpdate());
-            queueNodeUpdate(parentTable->objectID(), { { AXProperty::Cells, AXProperty::CellSlots } });
-        }
+    if (RefPtr parentTable = object.parentTableIfTableCell()) {
+        // FIXME: This should be as simple as:
+        //     queueNodeUpdate(*parentTable->objectID(), { { AXProperty::Cells, AXProperty::CellSlots, AXProperty::Columns } });
+        // As these are the table properties that depend on cells. But we can't do that, because we compute "new" column accessibility objects
+        // every time we clearChildren() and addChildren(), so just re-computing AXProperty::Columns means that we won't have AXIsolatedObjects
+        // for the columns. Instead we have to do a significantly more wasteful children update.
+        queueNodeUpdate(parentTable->objectID(), NodeUpdateOptions::childrenUpdate());
+        queueNodeUpdate(parentTable->objectID(), { { AXProperty::Cells, AXProperty::CellSlots } });
     }
 
     if (object.isLink()) {
@@ -730,6 +727,9 @@ void AXIsolatedTree::updateNodeProperties(AccessibilityObject& axObject, const A
         case AXProperty::IsExpanded:
             properties.append({ AXProperty::IsExpanded, axObject.isExpanded() });
             break;
+        case AXProperty::IsHiddenUntilFoundContainer:
+            properties.append({ AXProperty::IsHiddenUntilFoundContainer, axObject.isHiddenUntilFoundContainer() });
+            break;
         case AXProperty::IsIgnored:
             properties.append({ AXProperty::IsIgnored, axObject.isIgnored() });
             break;
@@ -785,6 +785,9 @@ void AXIsolatedTree::updateNodeProperties(AccessibilityObject& axObject, const A
             break;
         case AXProperty::CellScope:
             properties.append({ AXProperty::CellScope, axObject.cellScope().isolatedCopy() });
+            break;
+        case AXProperty::RadioButtonGroupMembers:
+            properties.append({ AXProperty::RadioButtonGroupMembers, axIDs(axObject.radioButtonGroup()) });
             break;
         case AXProperty::ScreenRelativePosition:
             properties.append({ AXProperty::ScreenRelativePosition, axObject.screenRelativePosition() });
@@ -858,6 +861,12 @@ void AXIsolatedTree::updateNodeProperties(AccessibilityObject& axObject, const A
         case AXProperty::LinethroughColor:
             properties.append({ AXProperty::LinethroughColor, axObject.lineDecorationStyle().linethroughColor });
             break;
+        case AXProperty::RevealableText:
+            // We should only cache this property for ignored objects.
+            ASSERT(axObject.isIgnored());
+            if (String text = axObject.revealableText(); !text.isEmpty())
+                properties.append({ AXProperty::RevealableText, WTFMove(text).isolatedCopy() });
+            break;
         case AXProperty::TextColor: {
             if (RefPtr parent = axObject.parentObject()) {
                 auto color = axObject.textColor();
@@ -926,7 +935,7 @@ void AXIsolatedTree::updateDependentProperties(AccessibilityObject& axObject)
     updateRelatedObjects(axObject);
 
     // When a row gains or loses cells, or a table changes rows in a row group, the column count of the table can change.
-    bool updateTableAncestorColumns = is<AccessibilityTableRow>(axObject);
+    bool updateTableAncestorColumns = axObject.isExposedTableRow();
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     updateTableAncestorColumns = updateTableAncestorColumns || isRowGroup(axObject.node());
 #endif
@@ -1243,8 +1252,8 @@ void AXIsolatedTree::updateFrame(AXID axID, IntRect&& newFrame)
 
     AXPropertyVector properties;
     properties.append({ AXProperty::RelativeFrame, WTFMove(newFrame) });
-    // We can clear the initially-cached rough frame, since the object's frame has been cached
-    properties.append({ AXProperty::InitialFrameRect, FloatRect() });
+    // We can clear the initially-cached rough frame, since the object's frame has been cached.
+    properties.append({ AXProperty::InitialLocalRect, FloatRect() });
     Locker locker { m_changeLogLock };
     m_pendingPropertyChanges.append({ axID, WTFMove(properties) });
 }
@@ -1418,26 +1427,22 @@ void AXIsolatedTree::applyPendingChangesLocked()
         auto& wrapper = item.wrapper;
         if (!wrapper)
             continue;
-        Ref newObject = AXIsolatedObject::create(WTFMove(item.data));
 
-        if (RefPtr existingObject = m_readerThreadNodeMap.take(axID)) {
-            if (existingObject->wrapper() == wrapper.get()) {
-                // The new IsolatedObject is a replacement for an existing object
-                // as the result of an update. Thus detach the existing object
-                // and attach the wrapper to the new one.
-                existingObject->detach(AccessibilityDetachmentType::ElementChanged);
-                newObject->attachPlatformWrapper(wrapper.get());
-            }
-        }
+        auto addResult = m_readerThreadNodeMap.ensure(axID, [&] {
+            return AXIsolatedObject::create(WTFMove(item.data));
+        });
+
+        Ref<AXIsolatedObject>& object = addResult.iterator->value;
+        if (!addResult.isNewEntry)
+            object->updateFromData(WTFMove(item.data));
 
         // If the new object hasn't been attached to a wrapper yet, or if it was detached from
         // the wrapper when processing removals above, we must attach / re-attach it.
-        if (newObject->isDetached())
-            newObject->attachPlatformWrapper(wrapper.get());
+        if (object->isDetached())
+            object->attachPlatformWrapper(wrapper.get());
 
-        auto addResult = m_readerThreadNodeMap.add(axID, WTFMove(newObject));
-        // The newly added object must have a wrapper.
-        ASSERT_UNUSED(addResult, addResult.iterator->value->wrapper());
+        // The object must have a wrapper by this point.
+        ASSERT(object->wrapper());
         // The reference count of the just added IsolatedObject must be 2
         // because it is referenced by m_readerThreadNodeMap and m_pendingAppends.
         // When m_pendingAppends is cleared, the object will be held only by m_readerThreadNodeMap. The exception is the root node whose reference count is 3.
@@ -1623,8 +1628,23 @@ void AXIsolatedTree::processQueuedNodeUpdates()
 
     if (m_mostRecentlyPaintedTextIsDirty) {
         m_mostRecentlyPaintedTextIsDirty = false;
+        // Resolving `mostRecentlyPaintedText()` can result in this sequence:
+        //   1. AXObjectCache::getOrCreate, which calls AccessibilityObject::recomputeIsIgnored
+        //   2. If the ignored state changes, AXObjectCache::objectBecameUnignored may be called
+        //   3. AXIsolatedTree::treeForPageID() will be called to try to inform the isolated tree
+        //      of this change, which requires taking AXTreeStore::s_storeLock.
+        //
+        // If we (the main-thread) held the m_changeLogLock when the above sequence happened, we would deadlock
+        // if the accessibility thread was simultaneously running applyPendingChangesForAllIsolatedTrees(), which
+        // holds the s_storeLock for the length of the function. The main-thread would be waiting on the storeLock,
+        // and the accessibility thread would be waiting on the m_changeLogLock to run AXIsolatedTree::applyPendingChanges()
+        // while holding the s_storeLock. Thus, a deadlock.
+        //
+        // So it's crucial to resolve the mostRecentlyPaintedText structure before the m_changeLogLock critical section,
+        // and only perform a move or copy while in the critical section to avoid a deadlock.
+        auto mostRecentlyPaintedText = cache->mostRecentlyPaintedText();
         Locker lock { m_changeLogLock };
-        m_pendingMostRecentlyPaintedText = cache->mostRecentlyPaintedText();
+        m_pendingMostRecentlyPaintedText = WTFMove(mostRecentlyPaintedText);
     }
 
     queueRemovalsAndUnresolvedChanges();
@@ -1680,6 +1700,8 @@ std::optional<AXPropertyFlag> convertToPropertyFlag(AXProperty property)
         return AXPropertyFlag::IsExposedTableCell;
     case AXProperty::IsGrabbed:
         return AXPropertyFlag::IsGrabbed;
+    case AXProperty::IsHiddenUntilFoundContainer:
+        return AXPropertyFlag::IsHiddenUntilFoundContainer;
     case AXProperty::IsIgnored:
         return AXPropertyFlag::IsIgnored;
     case AXProperty::IsInlineText:
@@ -1688,8 +1710,8 @@ std::optional<AXPropertyFlag> convertToPropertyFlag(AXProperty property)
         return AXPropertyFlag::IsKeyboardFocusable;
     case AXProperty::IsNonLayerSVGObject:
         return AXPropertyFlag::IsNonLayerSVGObject;
-    case AXProperty::IsTableRow:
-        return AXPropertyFlag::IsTableRow;
+    case AXProperty::IsExposedTableRow:
+        return AXPropertyFlag::IsExposedTableRow;
     case AXProperty::IsVisited:
         return AXPropertyFlag::IsVisited;
     case AXProperty::SupportsCheckedState:
@@ -1711,11 +1733,25 @@ std::optional<AXPropertyFlag> convertToPropertyFlag(AXProperty property)
 
 void setPropertyIn(AXProperty property, AXPropertyValueVariant&& value, AXPropertyVector& properties, OptionSet<AXPropertyFlag>& propertyFlags)
 {
-    if (const bool* boolValue = std::get_if<bool>(&value); boolValue && *boolValue) {
-        if (std::optional propertyFlag = convertToPropertyFlag(property)) {
-            propertyFlags.add(*propertyFlag);
+    if (const bool* boolValue = std::get_if<bool>(&value)) {
+        if (!*boolValue) {
+            // Because this function is only for building the initial set of properties,
+            // we don't need to handle a false value, as there never should be an attempt
+            // to un-set (with false) a bool property that has already been set.
+            // These asserts verify this.
+            ASSERT(!properties.containsIf([&property] (const auto& propertyPair) {
+                return propertyPair.first == property;
+            }));
+            ASSERT(!convertToPropertyFlag(property) || !propertyFlags.contains(*convertToPropertyFlag(property)));
             return;
         }
+
+        if (std::optional propertyFlag = convertToPropertyFlag(property))
+            propertyFlags.add(*propertyFlag);
+        else
+            properties.append(std::pair(property, WTFMove(value)));
+
+        return;
     }
 
     if (!isDefaultValue(property, value))
@@ -1838,14 +1874,19 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
         if (!language.isEmpty())
             setProperty(AXProperty::Language, WTFMove(language).isolatedCopy());
         setProperty(AXProperty::IsEnabled, object.isEnabled());
+        setProperty(AXProperty::IsHiddenUntilFoundContainer, object.isHiddenUntilFoundContainer());
         appendBasePlatformProperties(properties, propertyFlags, axObject);
     };
 
     bool needsAllProperties = true;
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+    bool isIgnored = true;
     if (object.includeIgnoredInCoreTree()) {
-        bool isIgnored = object.isIgnored();
+        isIgnored = object.isIgnored();
         setProperty(AXProperty::IsIgnored, isIgnored);
+
+        // Do not set any properties in this block, as this is before we reserve capacity for the property vector.
+
         // Maintain full properties for objects meeting this criteria:
         //   - Unconnected objects, which are involved in relations or outgoing notifications
         //   - Static text. We sometimes ignore static text (e.g. because it descends from a text field),
@@ -1944,7 +1985,7 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
             // The GeometryManager does not have a relative frame for ScrollViews, WebAreas, or scrollbars yet. We need to get it from the
             // live object so that we don't need to hit the main thread in the case a request comes in while the whole isolated tree is being built.
             setProperty(AXProperty::RelativeFrame, enclosingIntRect(object.relativeFrame()));
-        } else if (!object.renderer() && object.node() && is<AccessibilityNodeObject>(object) && !is<AccessibilityImageMapLink>(object)) {
+        } else if (!object.renderer() && object.node() && is<AccessibilityNodeObject>(object) && !object.isImageMapLink()) {
             // The frame of node-only AX objects is made up of their children.
             // This excludes image-map links (a.k.a. <area> elements), which will never have rendered children.
             getsGeometryFromChildren = true;
@@ -1952,7 +1993,7 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
             // AccessibilityMenuListPopup's elementRect is hardcoded to return an empty rect, so preserve that behavior.
             setProperty(AXProperty::RelativeFrame, IntRect());
         } else
-            setProperty(AXProperty::InitialFrameRect, object.frameRect());
+            setProperty(AXProperty::InitialLocalRect, object.localRect());
 
         if (isWebArea)
             setProperty(AXProperty::IsEditableWebArea, object.isEditableWebArea());
@@ -2019,9 +2060,9 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
             setProperty(AXProperty::Abbreviation, object.abbreviation().isolatedCopy());
         }
 
-        bool isTableRow = object.isTableRow();
-        if (isTableRow) {
-            setProperty(AXProperty::IsTableRow, true);
+        bool isExposedTableRow = object.isExposedTableRow();
+        if (isExposedTableRow) {
+            setProperty(AXProperty::IsExposedTableRow, true);
             setProperty(AXProperty::RowIndex, object.rowIndex());
         } else if (object.isTableColumn())
             setProperty(AXProperty::ColumnIndex, object.columnIndex());
@@ -2042,8 +2083,7 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
         setProperty(AXProperty::IsTree, object.isTree());
         if (object.isRadioButton()) {
             setProperty(AXProperty::NameAttribute, object.nameAttribute().isolatedCopy());
-            // FIXME: This property doesn't get updated when a page changes dynamically.
-            setObjectVectorProperty(AXProperty::RadioButtonGroup, object.radioButtonGroup());
+            setObjectVectorProperty(AXProperty::RadioButtonGroupMembers, object.radioButtonGroup());
         }
 
         if (object.isImage())
@@ -2147,7 +2187,7 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
             setProperty(AXProperty::CanBeMultilineTextField, canBeMultilineTextField(object));
         }
 
-        if (object.isHeading() || isTableRow || isTreeItem)
+        if (object.isHeading() || isExposedTableRow || isTreeItem)
             setProperty(AXProperty::ARIALevel, object.ariaLevel());
 
         // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
@@ -2170,6 +2210,16 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
 
     RefPtr axParent = object.parentInCoreTree();
     Markable<AXID> parentID = axParent ? std::optional(axParent->objectID()) : std::nullopt;
+
+#if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+    if (isIgnored) {
+        if (String text = axObject->revealableText(); !text.isEmpty()) {
+            // We only need to cache this for ignored objects, as unignored objects
+            // have no need to be revealed.
+            setProperty(AXProperty::RevealableText, WTFMove(text).isolatedCopy());
+        }
+    }
+#endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
 
     properties.shrinkToFit();
     return {

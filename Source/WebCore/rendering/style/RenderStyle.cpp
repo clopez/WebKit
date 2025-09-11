@@ -556,7 +556,7 @@ unsigned RenderStyle::hashForTextAutosizing() const
 {
     // FIXME: Not a very smart hash. Could be improved upon. See <https://bugs.webkit.org/show_bug.cgi?id=121131>.
     unsigned hash = m_nonInheritedData->miscData->usedAppearance;
-    hash ^= m_nonInheritedData->rareData->lineClamp.value();
+    hash ^= m_nonInheritedData->rareData->lineClamp.valueForTextAutosizingHash();
     hash ^= m_rareInheritedData->overflowWrap;
     hash ^= m_rareInheritedData->nbspMode;
     hash ^= m_rareInheritedData->lineBreak;
@@ -659,7 +659,7 @@ bool RenderStyle::isIdempotentTextAutosizingCandidate(AutosizeStatus status) con
         return false;
     }
 
-    if (hasBackgroundImage() && backgroundRepeat() == FillRepeatXY { FillRepeat::NoRepeat, FillRepeat::NoRepeat })
+    if (hasBackgroundImage() && backgroundLayers().first().repeat() == FillRepeat::NoRepeat)
         return false;
 
     return true;
@@ -830,7 +830,7 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.columnGap != second.columnGap || first.rowGap != second.rowGap)
         return true;
 
-    if (!arePointingToEqualData(first.boxReflect, second.boxReflect))
+    if (first.boxReflect != second.boxReflect)
         return true;
 
     // If the counter directives change, trigger a relayout to re-calculate counter values and rebuild the counter node tree.
@@ -1619,7 +1619,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyTransformOriginZ);
         if (first.transformBox != second.transformBox)
             changingProperties.m_properties.set(CSSPropertyTransformBox);
-        if (first.operations != second.operations)
+        if (first.transform != second.transform)
             changingProperties.m_properties.set(CSSPropertyTransform);
     };
 
@@ -2019,7 +2019,6 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // marquee
         // boxReflect
         // pageSize
-        // pageSizeType
         // overscrollBehaviorX
         // overscrollBehaviorY
         // applePayButtonStyle
@@ -2162,7 +2161,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyStrokeLinejoin);
         if (first.hasSetStrokeWidth != second.hasSetStrokeWidth || first.strokeWidth != second.strokeWidth)
             changingProperties.m_properties.set(CSSPropertyStrokeWidth);
-        if (!arePointingToEqualData(first.listStyleImage, second.listStyleImage))
+        if (first.listStyleImage != second.listStyleImage)
             changingProperties.m_properties.set(CSSPropertyListStyleImage);
         if (first.scrollbarColor != second.scrollbarColor)
             changingProperties.m_properties.set(CSSPropertyScrollbarColor);
@@ -2370,20 +2369,9 @@ void RenderStyle::setPageScaleTransform(float scale)
     if (scale == 1)
         return;
 
-    setTransform(TransformOperations { ScaleTransformOperation::create(scale, scale, TransformOperation::Type::Scale) });
+    setTransform(Style::Transform { Style::TransformFunction { ScaleTransformOperation::create(scale, scale, TransformOperation::Type::Scale) } });
     setTransformOriginX(0_css_px);
     setTransformOriginY(0_css_px);
-}
-
-StyleImage* RenderStyle::listStyleImage() const
-{
-    return m_rareInheritedData->listStyleImage.get();
-}
-
-void RenderStyle::setListStyleImage(RefPtr<StyleImage>&& v)
-{
-    if (m_rareInheritedData->listStyleImage != v)
-        m_rareInheritedData.access().listStyleImage = WTFMove(v);
 }
 
 const Color& RenderStyle::color() const
@@ -2404,24 +2392,6 @@ void RenderStyle::setColor(Color&& v)
 void RenderStyle::setVisitedLinkColor(Color&& v)
 {
     SET_VAR(m_inheritedData, visitedLinkColor, WTFMove(v));
-}
-
-bool RenderStyle::hasEntirelyFixedBackground() const
-{
-    for (auto* layer = &backgroundLayers(); layer; layer = layer->next()) {
-        if (!(layer->image() && layer->attachment() == FillAttachment::FixedBackground))
-            return false;
-    }
-    return true;
-}
-
-bool RenderStyle::hasAnyBackgroundClipText() const
-{
-    for (auto* layer = &backgroundLayers(); layer; layer = layer->next()) {
-        if (layer->clip() == FillBox::Text)
-            return true;
-    }
-    return false;
 }
 
 const CounterDirectiveMap& RenderStyle::counterDirectives() const

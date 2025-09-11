@@ -1,12 +1,9 @@
-Modules/ShapeDetection/Implementation/Cocoa/BarcodeDetectorImplementation.mm
 accessibility/cocoa/AXCoreObjectCocoa.mm
 accessibility/cocoa/AccessibilityObjectCocoa.mm
 accessibility/mac/AXObjectCacheMac.mm
 accessibility/mac/AccessibilityObjectMac.mm
 accessibility/mac/WebAccessibilityObjectWrapperBase.mm
-accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 bindings/js/ScriptControllerMac.mm
-bindings/js/SerializedScriptValue.cpp
 bridge/objc/WebScriptObject.mm
 bridge/objc/objc_class.mm
 bridge/objc/objc_instance.mm
@@ -14,7 +11,6 @@ bridge/objc/objc_runtime.mm
 bridge/objc/objc_utility.mm
 crypto/cocoa/SerializedCryptoKeyWrapMac.mm
 editing/cocoa/AlternativeTextUIController.mm
-editing/cocoa/AttributedString.mm
 editing/cocoa/DataDetection.mm
 editing/cocoa/EditingHTMLConverter.mm
 editing/cocoa/NodeHTMLConverter.mm
@@ -59,7 +55,6 @@ platform/graphics/avfoundation/objc/LocalSampleBufferDisplayLayer.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm
-platform/graphics/avfoundation/objc/MediaSampleAVFObjC.mm
 platform/graphics/avfoundation/objc/QueuedVideoOutput.mm
 platform/graphics/avfoundation/objc/SourceBufferParserAVFObjC.mm
 platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm

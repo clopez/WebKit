@@ -182,7 +182,7 @@ void BoxGeometryUpdater::setListMarkerOffsetForMarkerOutside(const RenderListMar
         }
         auto offset = offsetFromParentListItem;
         for (ancestor = ancestor->containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
-            offset -= (ancestor->borderStart() + ancestor->paddingStart());
+            offset -= (ancestor->marginStart() + ancestor->borderStart() + ancestor->paddingStart());
             if (ancestor == associatedListItem)
                 break;
         }
@@ -640,10 +640,10 @@ void BoxGeometryUpdater::updateLayoutBoxDimensions(const RenderBox& renderBox, s
     }
 
     boxGeometry.setSpaceForScrollbar(scrollbarSize);
-
-    boxGeometry.setContentBoxWidth(contentLogicalWidthForRenderer(renderBox));
-    boxGeometry.setContentBoxHeight(contentLogicalHeightForRenderer(renderBox));
-
+    if (!renderBox.isOutOfFlowPositioned()) {
+        boxGeometry.setContentBoxWidth(contentLogicalWidthForRenderer(renderBox));
+        boxGeometry.setContentBoxHeight(contentLogicalHeightForRenderer(renderBox));
+    }
     boxGeometry.setVerticalMargin(verticalLogicalMargin(renderBox, availableWidth, writingMode));
     boxGeometry.setHorizontalMargin(inlineMargin);
     boxGeometry.setBorder(border);

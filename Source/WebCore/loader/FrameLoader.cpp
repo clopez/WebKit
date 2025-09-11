@@ -36,7 +36,6 @@
 #include "FrameLoader.h"
 
 #include "AXObjectCache.h"
-#include "ApplicationCacheHost.h"
 #include "BackForwardCache.h"
 #include "BackForwardController.h"
 #include "BeforeUnloadEvent.h"
@@ -1714,7 +1713,7 @@ void FrameLoader::load(FrameLoadRequest&& request)
     m_provisionalLoadHappeningInAnotherProcess = false;
 
     if (request.shouldCheckNewWindowPolicy()) {
-        NavigationAction action { request.requester(), request.resourceRequest(), InitiatedByMainFrame::Unknown, request.isRequestFromClientOrUserInput(), NavigationType::Other, request.shouldOpenExternalURLsPolicy() };
+        NavigationAction action { request, NavigationType::Other };
         action.setNewFrameOpenerPolicy(request.newFrameOpenerPolicy());
         policyChecker().checkNewWindowPolicy(WTFMove(action), WTFMove(request.resourceRequest()), { }, request.frameName(), [this, protectedThis = Ref { *this }] (ResourceRequest&& request, WeakPtr<FormState>&& weakFormState, const AtomString& frameName, const NavigationAction& action, ShouldContinuePolicyCheck shouldContinue) {
             continueLoadAfterNewWindowPolicy(WTFMove(request), RefPtr { weakFormState.get() }.get(), frameName, action, shouldContinue, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Suppress);
@@ -1968,8 +1967,8 @@ bool FrameLoader::willLoadMediaElementURL(URL& url, Node& initiatorNode)
         request.setIsAppInitiated(m_documentLoader->lastNavigationWasAppInitiated());
 
     ResourceError error;
-    auto identifier = requestFromDelegate(request, IsMainResourceLoad::No, error);
-    notifier().sendRemainingDelegateMessages(protectedDocumentLoader().get(), IsMainResourceLoad::No, identifier, request, ResourceResponse(URL { url }, String(), -1, String()), nullptr, -1, -1, error);
+    auto identifier = requestFromDelegate(request, error);
+    notifier().sendRemainingDelegateMessages(protectedDocumentLoader().get(), identifier, request, ResourceResponse(URL { url }, String(), -1, String()), nullptr, -1, -1, error);
 
     url = request.url();
 
@@ -2402,7 +2401,7 @@ void FrameLoader::commitProvisionalLoad()
         // consistency with all other loads. See https://bugs.webkit.org/show_bug.cgi?id=150927.
         ResourceError mainResouceError;
         ResourceRequest mainResourceRequest(cachedPage->documentLoader()->request());
-        auto mainResourceIdentifier = requestFromDelegate(mainResourceRequest, IsMainResourceLoad::Yes, mainResouceError);
+        auto mainResourceIdentifier = requestFromDelegate(mainResourceRequest, mainResouceError);
         notifier().dispatchDidReceiveResponse(cachedPage->protectedDocumentLoader().get(), mainResourceIdentifier, cachedPage->documentLoader()->response());
 
         auto hasInsecureContent = cachedPage->cachedMainFrame()->hasInsecureContent();
@@ -2441,7 +2440,7 @@ void FrameLoader::commitProvisionalLoad()
                 m_client->dispatchDidReceiveTitle(title);
 
             // Send remaining notifications for the main resource.
-            notifier().sendRemainingDelegateMessages(documentLoader.get(), IsMainResourceLoad::Yes, mainResourceIdentifier, mainResourceRequest, ResourceResponse(), nullptr, static_cast<int>(documentLoader->response().expectedContentLength()), 0, mainResouceError);
+            notifier().sendRemainingDelegateMessages(documentLoader.get(), mainResourceIdentifier, mainResourceRequest, ResourceResponse(), nullptr, static_cast<int>(documentLoader->response().expectedContentLength()), 0, mainResouceError);
         }
 
         Vector<Ref<LocalFrame>> targetFrames;
@@ -2492,11 +2491,11 @@ IGNORE_GCC_WARNINGS_END
             ResourceError error;
             ResourceRequest request(URL { response.url() });
             request.setIsAppInitiated(documentLoader->lastNavigationWasAppInitiated());
-            auto identifier = requestFromDelegate(request, IsMainResourceLoad::Yes, error);
+            auto identifier = requestFromDelegate(request, error);
             // FIXME: If we get a resource with more than 2B bytes, this code won't do the right thing.
             // However, with today's computers and networking speeds, this won't happen in practice.
             // Could be an issue with a giant local file.
-            notifier().sendRemainingDelegateMessages(documentLoader.get(), IsMainResourceLoad::Yes, identifier, request, response, nullptr, static_cast<int>(response.expectedContentLength()), 0, error);
+            notifier().sendRemainingDelegateMessages(documentLoader.get(), identifier, request, response, nullptr, static_cast<int>(response.expectedContentLength()), 0, error);
         }
 
         // FIXME: Why only this frame and not parent frames?
@@ -2961,9 +2960,6 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
                 page->didFinishLoad();
             }
         }
-
-        if (RefPtr window = m_frame->document() ? m_frame->document()->window() : nullptr)
-            window->protectedPerformance()->scheduleNavigationObservationTaskIfNeeded();
 
         auto& error = documentLoader->mainDocumentError();
 
@@ -3643,7 +3639,7 @@ ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRe
 
     URL initialRequestURL = initialRequest.url();
     ResourceRequest newRequest = WTFMove(initialRequest);
-    auto identifier = requestFromDelegate(newRequest, IsMainResourceLoad::No, error);
+    auto identifier = requestFromDelegate(newRequest, error);
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (error.isNull()) {
@@ -3668,17 +3664,14 @@ ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRe
         ASSERT(!newRequest.isNull());
 
         RefPtr documentLoader = this->documentLoader();
-        if (!documentLoader->applicationCacheHost().maybeLoadSynchronously(newRequest, error, response, data)) {
-            Vector<uint8_t> buffer;
-            platformStrategies()->loaderStrategy()->loadResourceSynchronously(*this, identifier, newRequest, clientCredentialPolicy, options, originalRequestHeaders, error, response, buffer);
-            data = SharedBuffer::create(WTFMove(buffer));
-            documentLoader->applicationCacheHost().maybeLoadFallbackSynchronously(newRequest, error, response, data);
-            ResourceLoadObserver::shared().logSubresourceLoading(protectedFrame().ptr(), newRequest, response,
-                (isScriptLikeDestination(options.destination) ? ResourceLoadObserver::FetchDestinationIsScriptLike::Yes : ResourceLoadObserver::FetchDestinationIsScriptLike::No));
-        }
+        Vector<uint8_t> buffer;
+        platformStrategies()->loaderStrategy()->loadResourceSynchronously(*this, identifier, newRequest, clientCredentialPolicy, options, originalRequestHeaders, error, response, buffer);
+        data = SharedBuffer::create(WTFMove(buffer));
+        ResourceLoadObserver::shared().logSubresourceLoading(protectedFrame().ptr(), newRequest, response,
+            (isScriptLikeDestination(options.destination) ? ResourceLoadObserver::FetchDestinationIsScriptLike::Yes : ResourceLoadObserver::FetchDestinationIsScriptLike::No));
     }
 
-    notifier().sendRemainingDelegateMessages(protectedDocumentLoader().get(), IsMainResourceLoad::No, identifier, request, response, data.get(), data ? data->size() : 0, -1, error);
+    notifier().sendRemainingDelegateMessages(protectedDocumentLoader().get(), identifier, request, response, data.get(), data ? data->size() : 0, -1, error);
     return identifier;
 }
 
@@ -4206,13 +4199,13 @@ void FrameLoader::continueLoadAfterNewWindowPolicy(ResourceRequest&& request,
     mainFrameLoader->loadWithNavigationAction(WTFMove(request), WTFMove(newAction), FrameLoadType::Standard, formState, allowNavigationToInvalidURL, ShouldTreatAsContinuingLoad::No);
 }
 
-ResourceLoaderIdentifier FrameLoader::requestFromDelegate(ResourceRequest& request, IsMainResourceLoad isMainResourceLoad, ResourceError& error)
+ResourceLoaderIdentifier FrameLoader::requestFromDelegate(ResourceRequest& request, ResourceError& error)
 {
     ASSERT(!request.isNull());
 
     auto identifier = ResourceLoaderIdentifier::generate();
     RefPtr documentLoader = m_documentLoader;
-    notifier().assignIdentifierToInitialRequest(identifier, isMainResourceLoad, documentLoader.get(), request);
+    notifier().assignIdentifierToInitialRequest(identifier, documentLoader.get(), request);
 
     ResourceRequest newRequest(request);
     notifier().dispatchWillSendRequest(documentLoader.get(), identifier, newRequest, ResourceResponse(), nullptr);
@@ -4254,11 +4247,11 @@ void FrameLoader::loadedResourceFromMemoryCache(CachedResource& resource, Resour
         return;
     }
 
-    auto identifier = requestFromDelegate(newRequest, IsMainResourceLoad::No, error);
+    auto identifier = requestFromDelegate(newRequest, error);
 
     ResourceResponse response = resource.response();
     response.setSource(ResourceResponse::Source::MemoryCache);
-    notifier().sendRemainingDelegateMessages(documentloader.get(), IsMainResourceLoad::No, identifier, newRequest, response, nullptr, resource.encodedSize(), 0, error);
+    notifier().sendRemainingDelegateMessages(documentloader.get(), identifier, newRequest, response, nullptr, resource.encodedSize(), 0, error);
 }
 
 void FrameLoader::applyUserAgentIfNeeded(ResourceRequest& request)
@@ -4853,7 +4846,8 @@ std::pair<RefPtr<Frame>, CreatedNewPage> createWindow(LocalFrame& openerFrame, F
 
     String openedMainFrameName = isBlankTargetFrameName(request.frameName()) ? String() : request.frameName();
     ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy = shouldOpenExternalURLsPolicyToApply(openerFrame, request);
-    NavigationAction action { request.requester(), request.resourceRequest(), request.initiatedByMainFrame(), request.isRequestFromClientOrUserInput(), NavigationType::Other, shouldOpenExternalURLsPolicy };
+    NavigationAction action { request, NavigationType::Other };
+    action.setShouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy);
     action.setNewFrameOpenerPolicy(features.wantsNoOpener() ? NewFrameOpenerPolicy::Suppress : NewFrameOpenerPolicy::Allow);
     RefPtr page = oldPage->chrome().createWindow(openerFrame, openedMainFrameName, features, action);
     if (!page)

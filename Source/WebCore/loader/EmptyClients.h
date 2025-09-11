@@ -88,7 +88,6 @@ class EmptyChromeClient : public ChromeClient {
     void setResizable(bool) final { }
 
     void addMessageToConsole(MessageSource, MessageLevel, const String&, unsigned, unsigned, const String&) final { }
-    void addMessageWithArgumentsToConsole(MessageSource, MessageLevel, const String&, std::span<const String>, unsigned, unsigned, const String&) final { }
 
     bool canRunBeforeUnloadConfirmPanel() final { return false; }
     bool runBeforeUnloadConfirmPanel(String&&, LocalFrame&) final { return true; }
@@ -142,7 +141,6 @@ class EmptyChromeClient : public ChromeClient {
     void exceededDatabaseQuota(LocalFrame&, const String&, DatabaseDetails) final { }
 
     void reachedMaxAppCacheSize(int64_t) final { }
-    void reachedApplicationCacheOriginQuota(SecurityOrigin&, int64_t) final { }
 
     RefPtr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) final;
 

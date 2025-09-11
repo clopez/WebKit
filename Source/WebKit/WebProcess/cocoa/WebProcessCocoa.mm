@@ -125,6 +125,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/cf/NotificationCenterCF.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -1319,7 +1320,7 @@ void WebProcess::updatePageAccessibilitySettings()
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 void WebProcess::colorPreferencesDidChange()
 {
-    CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(), CFSTR("NSColorLocalPreferencesChangedNotification"), nullptr, nullptr, true);
+    CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenterSingleton(), CFSTR("NSColorLocalPreferencesChangedNotification"), nullptr, nullptr, true);
 }
 #endif
 
@@ -1375,12 +1376,13 @@ void WebProcess::dispatchSimulatedNotificationsForPreferenceChange(const String&
         RetainPtr notificationCenter = [NSNotificationCenter defaultCenter];
         [notificationCenter postNotificationName:@"NSSystemColorsWillChangeNotification" object:nil];
         [notificationCenter postNotificationName:NSSystemColorsDidChangeNotification object:nil];
+    } else if (key == increaseContrastPreferenceKey()) {
+        RetainPtr notificationCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
+        [notificationCenter postNotificationName:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:nil];
     }
 #endif
-    if (key == captionProfilePreferenceKey()) {
-        RetainPtr notificationCenter = CFNotificationCenterGetLocalCenter();
-        CFNotificationCenterPostNotification(notificationCenter.get(), kMAXCaptionAppearanceSettingsChangedNotification, nullptr, nullptr, true);
-    }
+    if (key == captionProfilePreferenceKey())
+        CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenterSingleton(), kMAXCaptionAppearanceSettingsChangedNotification, nullptr, nullptr, true);
 }
 
 void WebProcess::handlePreferenceChange(const String& domain, const String& key, id value)

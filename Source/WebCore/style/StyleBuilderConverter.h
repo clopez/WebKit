@@ -46,7 +46,6 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParserConsumer+Font.h"
-#include "CSSReflectValue.h"
 #include "CSSSubgridValue.h"
 #include "CSSURLValue.h"
 #include "CSSValuePair.h"
@@ -55,7 +54,6 @@
 #include "FontSelectionValueInlines.h"
 #include "FontSizeAdjust.h"
 #include "FrameDestructionObserverInlines.h"
-#include "LineClampValue.h"
 #include "LocalFrame.h"
 #include "Quirks.h"
 #include "RenderStyleInlines.h"
@@ -87,14 +85,12 @@
 #include "StyleOffsetPosition.h"
 #include "StyleOffsetRotate.h"
 #include "StylePadding.h"
-#include "StylePathData.h"
 #include "StylePerspective.h"
 #include "StylePreferredSize.h"
 #include "StylePrimitiveKeyword+CSSValueConversion.h"
 #include "StylePrimitiveNumericTypes+CSSValueConversion.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StyleRayFunction.h"
-#include "StyleReflection.h"
 #include "StyleResolveForFont.h"
 #include "StyleRotate.h"
 #include "StyleSVGPaint.h"
@@ -110,7 +106,6 @@
 #include "TextSpacing.h"
 #include "TimelineRange.h"
 #include "TouchAction.h"
-#include "TransformOperationsBuilder.h"
 #include "ViewTimeline.h"
 #include "WillChangeData.h"
 #include <ranges>
@@ -135,22 +130,15 @@ public:
     template<typename T> static T convertLineWidth(BuilderState&, const CSSValue&);
     static OptionSet<TextTransform> convertTextTransform(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumber(BuilderState&, const CSSValue&);
-    static RefPtr<StyleImage> convertImageOrNone(BuilderState&, CSSValue&);
     static ImageOrientation convertImageOrientation(BuilderState&, const CSSValue&);
-    static TransformOperations convertTransform(BuilderState&, const CSSValue&);
     template<CSSValueID> static AtomString convertCustomIdentAtomOrKeyword(BuilderState&, const CSSValue&);
 
     static OptionSet<TextEmphasisPosition> convertTextEmphasisPosition(BuilderState&, const CSSValue&);
     static TextAlignMode convertTextAlign(BuilderState&, const CSSValue&);
     static TextAlignLast convertTextAlignLast(BuilderState&, const CSSValue&);
-    static RefPtr<StylePathData> convertDPath(BuilderState&, const CSSValue&);
     static Resize convertResize(BuilderState&, const CSSValue&);
-    static int convertMarqueeRepetition(BuilderState&, const CSSValue&);
-    static int convertMarqueeSpeed(BuilderState&, const CSSValue&);
     static OptionSet<TextUnderlinePosition> convertTextUnderlinePosition(BuilderState&, const CSSValue&);
-    static RefPtr<StyleReflection> convertReflection(BuilderState&, const CSSValue&);
     static TextEdge convertTextEdge(BuilderState&, const CSSValue&);
-    static FloatSize convertInitialLetter(BuilderState&, const CSSValue&);
     static OptionSet<LineBoxContain> convertLineBoxContain(BuilderState&, const CSSValue&);
     static ScrollSnapType convertScrollSnapType(BuilderState&, const CSSValue&);
     static ScrollSnapAlign convertScrollSnapAlign(BuilderState&, const CSSValue&);
@@ -208,8 +196,6 @@ public:
     static std::optional<PositionArea> convertPositionArea(BuilderState&, const CSSValue&);
     static OptionSet<PositionVisibility> convertPositionVisibility(BuilderState&, const CSSValue&);
 
-    static LineClampValue convertLineClamp(BuilderState&, const CSSValue&);
-
     static RefPtr<TimingFunction> convertTimingFunction(BuilderState&, const CSSValue&);
 
     static NameScope convertNameScope(BuilderState&, const CSSValue&);
@@ -218,6 +204,8 @@ public:
     static SingleTimelineRange convertAnimationRangeEnd(BuilderState&, const CSSValue&);
 
     static FixedVector<PositionTryFallback> convertPositionTryFallbacks(BuilderState&, const CSSValue&);
+
+    static MaskMode convertFillLayerMaskMode(BuilderState&, const CSSValue&);
 
 private:
     friend class BuilderCustom;
@@ -352,11 +340,6 @@ inline T BuilderConverter::convertNumber(BuilderState& builderState, const CSSVa
     return primitiveValue->resolveAsNumber<T>(builderState.cssToLengthConversionData());
 }
 
-inline RefPtr<StyleImage> BuilderConverter::convertImageOrNone(BuilderState& builderState, CSSValue& value)
-{
-    return builderState.createStyleImage(value);
-}
-
 inline ImageOrientation BuilderConverter::convertImageOrientation(BuilderState& builderState, const CSSValue& value)
 {
     auto* primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
@@ -365,14 +348,6 @@ inline ImageOrientation BuilderConverter::convertImageOrientation(BuilderState& 
     if (primitiveValue->valueID() == CSSValueFromImage)
         return ImageOrientation::Orientation::FromImage;
     return ImageOrientation::Orientation::None;
-}
-
-inline TransformOperations BuilderConverter::convertTransform(BuilderState& builderState, const CSSValue& value)
-{
-    CSSToLengthConversionData conversionData = builderState.useSVGZoomRulesForLength() ?
-        builderState.cssToLengthConversionData().copyWithAdjustedZoom(1.0f)
-        : builderState.cssToLengthConversionData();
-    return createTransformOperations(value, builderState);
 }
 
 template<CSSValueID keyword> inline AtomString BuilderConverter::convertCustomIdentAtomOrKeyword(BuilderState& builderState, const CSSValue& value)
@@ -475,16 +450,6 @@ inline TextAlignLast BuilderConverter::convertTextAlignLast(BuilderState& builde
     return parentStyle.textAlignLast();
 }
 
-inline RefPtr<StylePathData> BuilderConverter::convertDPath(BuilderState& builderState, const CSSValue& value)
-{
-    if (RefPtr pathValue = dynamicDowncast<CSSPathValue>(value))
-        return StylePathData::create(toStyle(pathValue->path(), builderState));
-
-    ASSERT(is<CSSPrimitiveValue>(value));
-    ASSERT(downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNone);
-    return nullptr;
-}
-
 inline Resize BuilderConverter::convertResize(BuilderState& builderState, const CSSValue& value)
 {
     auto* primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
@@ -498,33 +463,6 @@ inline Resize BuilderConverter::convertResize(BuilderState& builderState, const 
         resize = fromCSSValue<Resize>(value);
 
     return resize;
-}
-
-inline int BuilderConverter::convertMarqueeRepetition(BuilderState& builderState, const CSSValue& value)
-{
-    auto* primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
-    if (!primitiveValue)
-        return { };
-    if (primitiveValue->valueID() == CSSValueInfinite)
-        return -1; // -1 means repeat forever.
-
-    ASSERT(primitiveValue->isNumber());
-    return primitiveValue->resolveAsNumber<int>(builderState.cssToLengthConversionData());
-}
-
-inline int BuilderConverter::convertMarqueeSpeed(BuilderState& builderState, const CSSValue& value)
-{
-    auto& conversionData = builderState.cssToLengthConversionData();
-
-    auto* primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
-    if (!primitiveValue)
-        return { };
-    if (primitiveValue->isTime())
-        return primitiveValue->resolveAsTime<int, CSS::TimeUnit::Ms>(conversionData);
-
-    // For scrollamount support.
-    ASSERT(primitiveValue->isNumber());
-    return primitiveValue->resolveAsNumber<int>(conversionData);
 }
 
 inline static OptionSet<TextUnderlinePosition> valueToUnderlinePosition(const CSSPrimitiveValue& primitiveValue)
@@ -562,32 +500,6 @@ inline OptionSet<TextUnderlinePosition> BuilderConverter::convertTextUnderlinePo
     auto position = valueToUnderlinePosition(pair->first);
     position.add(valueToUnderlinePosition(pair->second));
     return position;
-}
-
-inline RefPtr<StyleReflection> BuilderConverter::convertReflection(BuilderState& builderState, const CSSValue& value)
-{
-    if (is<CSSPrimitiveValue>(value)) {
-        ASSERT(value.valueID() == CSSValueNone);
-        return nullptr;
-    }
-
-    auto* reflectValue = requiredDowncast<CSSReflectValue>(builderState, value);
-    if (!reflectValue)
-        return { };
-
-    Style::MaskBorder mask { };
-    if (RefPtr maskValue = reflectValue->mask())
-        mask = toStyleFromCSSValue<Style::MaskBorder>(builderState, *maskValue);
-
-    auto maskSlice = mask.slice();
-    maskSlice.fill = CSS::Keyword::Fill { };
-    mask.setSlice(WTFMove(maskSlice));
-
-    auto reflection = StyleReflection::create();
-    reflection->setDirection(fromCSSValueID<ReflectionDirection>(reflectValue->direction()));
-    reflection->setOffset(convertLength(builderState, reflectValue->offset()));
-    reflection->setMask(WTFMove(mask));
-    return reflection;
 }
 
 inline TextEdge BuilderConverter::convertTextEdge(BuilderState& builderState, const CSSValue& value)
@@ -651,23 +563,6 @@ inline TextEdge BuilderConverter::convertTextEdge(BuilderState& builderState, co
     return {
         overValue(pair->first->valueID()),
         underValue(pair->second->valueID())
-    };
-}
-
-inline FloatSize BuilderConverter::convertInitialLetter(BuilderState& builderState, const CSSValue& value)
-{
-    if (value.valueID() == CSSValueNormal)
-        return { };
-
-    auto& conversionData = builderState.cssToLengthConversionData();
-
-    auto pair = requiredPairDowncast<CSSPrimitiveValue>(builderState, value);
-    if (!pair)
-        return { };
-
-    return {
-        pair->second->resolveAsNumber<float>(conversionData),
-        pair->first->resolveAsNumber<float>(conversionData)
     };
 }
 
@@ -1719,22 +1614,6 @@ inline OptionSet<PositionVisibility> BuilderConverter::convertPositionVisibility
     return result;
 }
 
-inline LineClampValue BuilderConverter::convertLineClamp(BuilderState& builderState, const CSSValue& value)
-{
-    auto* primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
-    if (!primitiveValue)
-        return { };
-
-    if (primitiveValue->primitiveType() == CSSUnitType::CSS_INTEGER)
-        return LineClampValue(std::max(primitiveValue->resolveAsInteger<int>(builderState.cssToLengthConversionData()), 1), LineClamp::LineCount);
-
-    if (primitiveValue->primitiveType() == CSSUnitType::CSS_PERCENTAGE)
-        return LineClampValue(std::max(primitiveValue->resolveAsPercentage<int>(builderState.cssToLengthConversionData()), 0), LineClamp::Percentage);
-
-    ASSERT(primitiveValue->valueID() == CSSValueNone);
-    return LineClampValue();
-}
-
 inline RefPtr<TimingFunction> BuilderConverter::convertTimingFunction(BuilderState& builderState, const CSSValue& value)
 {
     return createTimingFunction(value, builderState.cssToLengthConversionData());
@@ -1811,6 +1690,23 @@ inline FixedVector<PositionTryFallback> BuilderConverter::convertPositionTryFall
         auto fallback = convertFallback(item);
         return fallback ? *fallback : PositionTryFallback { };
     });
+}
+
+inline MaskMode BuilderConverter::convertFillLayerMaskMode(BuilderState& builderState, const CSSValue& value)
+{
+    switch (value.valueID()) {
+    case CSSValueAlpha:
+        return MaskMode::Alpha;
+    case CSSValueLuminance:
+        return MaskMode::Luminance;
+    case CSSValueMatchSource:
+        return MaskMode::MatchSource;
+    case CSSValueAuto: // -webkit-mask-source-type
+        return MaskMode::MatchSource;
+    default:
+        builderState.setCurrentPropertyInvalidAtComputedValueTime();
+        return MaskMode::MatchSource;
+    }
 }
 
 } // namespace Style

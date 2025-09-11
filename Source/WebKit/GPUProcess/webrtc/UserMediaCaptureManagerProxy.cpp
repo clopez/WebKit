@@ -29,9 +29,11 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include "Connection.h"
+#include "Logging.h"
 #include "RemoteCaptureSampleManagerMessages.h"
 #include "RemoteVideoFrameObjectHeap.h"
 #include "SharedCARingBuffer.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "UserMediaCaptureManagerMessages.h"
 #include "UserMediaCaptureManagerProxyMessages.h"
 #include <WebCore/AudioSession.h>
@@ -125,6 +127,9 @@ public:
 
     void audioUnitWillStart() final
     {
+#if PLATFORM(IOS_FAMILY)
+        m_providePresentingApplicationPIDFunction();
+#endif
         Ref session = AudioSession::singleton();
         session->setCategory(AudioSession::CategoryType::PlayAndRecord, AudioSession::Mode::VideoChat, RouteSharingPolicy::Default);
         session->tryToSetActive(true);
@@ -316,6 +321,13 @@ public:
         return m_source->getPhotoSettings();
     }
 
+#if PLATFORM(IOS_FAMILY)
+    void setProvidePresentingApplicationPIDFunction(Function<void()>&& providePresentingApplicationPIDFunction)
+    {
+        m_providePresentingApplicationPIDFunction = WTFMove(providePresentingApplicationPIDFunction);
+    }
+#endif
+
 private:
     UserMediaCaptureManagerProxySourceProxy(RealtimeMediaSourceIdentifier id, Ref<IPC::Connection>&& connection, ProcessIdentity&& resourceOwner, Ref<RealtimeMediaSource>&& source, RefPtr<RemoteVideoFrameObjectHeap>&& videoFrameObjectHeap)
         : m_id(id)
@@ -452,6 +464,9 @@ private:
     size_t m_frameChunkSize { 0 };
     MediaTime m_startTime;
     RefPtr<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+#if PLATFORM(IOS_FAMILY)
+    Function<void()> m_providePresentingApplicationPIDFunction;
+#endif
 
     std::optional<WebCore::RealtimeMediaSourceSettings> m_settings;
     int m_widthConstraint { 0 };
@@ -589,6 +604,13 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     Ref connection = m_connectionProxy->connection();
     RefPtr remoteVideoFrameObjectHeap = shouldUseGPUProcessRemoteFrames ? m_connectionProxy->remoteVideoFrameObjectHeap() : nullptr;
     auto proxy = UserMediaCaptureManagerProxySourceProxy::create(id, WTFMove(connection), ProcessIdentity { m_connectionProxy->resourceOwner() }, WTFMove(source), WTFMove(remoteVideoFrameObjectHeap));
+
+#if PLATFORM(IOS_FAMILY)
+    proxy->setProvidePresentingApplicationPIDFunction([weakThis = WeakPtr { *this }, pageIdentifier] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->m_connectionProxy->providePresentingApplicationPID(pageIdentifier);
+    });
+#endif
 
     auto completeSetup = [](UserMediaCaptureManagerProxySourceProxy& proxy, CreateSourceCallback&& completionHandler) mutable {
         proxy.whenReady(WTFMove(completionHandler));
@@ -733,6 +755,12 @@ void UserMediaCaptureManagerProxy::clone(RealtimeMediaSourceIdentifier clonedID,
         RefPtr remoteVideoFrameObjectHeap = m_connectionProxy->remoteVideoFrameObjectHeap();
         auto cloneProxy = UserMediaCaptureManagerProxySourceProxy::create(newSourceID, WTFMove(connection), ProcessIdentity { m_connectionProxy->resourceOwner() }, WTFMove(sourceClone), WTFMove(remoteVideoFrameObjectHeap));
         cloneProxy->copySettings(*proxy);
+#if PLATFORM(IOS_FAMILY)
+        cloneProxy->setProvidePresentingApplicationPIDFunction([weakThis = WeakPtr { *this }, pageIdentifier] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->m_connectionProxy->providePresentingApplicationPID(pageIdentifier);
+        });
+#endif
         if (proxy->isObservingMedia())
             cloneProxy->observeMedia();
         m_proxies.add(newSourceID, WTFMove(cloneProxy));

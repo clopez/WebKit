@@ -29,7 +29,6 @@
 #include "Document.h"
 
 #include "AXIsolatedTree.h"
-#include "AXObjectCache.h"
 #include "AXObjectCacheInlines.h"
 #include "AnimationTimelinesController.h"
 #include "ApplicationManifest.h"
@@ -75,6 +74,7 @@
 #include "DOMAudioSession.h"
 #include "DOMCSSPaintWorklet.h"
 #include "DOMImplementation.h"
+#include "DOMTimer.h"
 #include "DateComponents.h"
 #include "DebugPageOverlays.h"
 #include "DeprecatedGlobalSettings.h"
@@ -263,6 +263,7 @@
 #include "ScopedEventQueue.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
+#include "ScriptExecutionContextInlines.h"
 #include "ScriptModuleLoader.h"
 #include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
@@ -3353,38 +3354,31 @@ void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int&
     updateStyleIfNeeded();
     auto style = styleScope().resolver().styleForPage(pageIndex);
 
-    int width = pageSize.width();
-    int height = pageSize.height();
-    switch (style->pageSizeType()) {
-    case PageSizeType::Auto:
-        break;
-    case PageSizeType::AutoLandscape:
-        if (width < height)
-            std::swap(width, height);
-        break;
-    case PageSizeType::AutoPortrait:
-        if (width > height)
-            std::swap(width, height);
-        break;
-    case PageSizeType::Resolved: {
-        auto& size = style->pageSize();
-        ASSERT(size.width.isFixed());
-        ASSERT(size.height.isFixed());
-        width = valueForLength(size.width, 0);
-        height = valueForLength(size.height, 0);
-        break;
-    }
-    default:
-        ASSERT_NOT_REACHED();
-    }
-    pageSize = IntSize(width, height);
+    pageSize = WTF::switchOn(style->pageSize(),
+        [&](const CSS::Keyword::Auto&) {
+            return pageSize;
+        },
+        [&](const CSS::Keyword::Landscape&) {
+            if (pageSize.width() < pageSize.height())
+                return pageSize.transposedSize();
+            return pageSize;
+        },
+        [&](const CSS::Keyword::Portrait&) {
+            if (pageSize.width() > pageSize.height())
+                return pageSize.transposedSize();
+            return pageSize;
+        },
+        [&](const Style::PageSize::Lengths& lengths) -> IntSize {
+            return { static_cast<int>(lengths.width().value), static_cast<int>(lengths.height().value) };
+        }
+    );
 
     // The percentage is calculated with respect to the width even for margin top and bottom.
     // http://www.w3.org/TR/CSS2/box.html#margin-properties
-    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate(style->marginTop(), width);
-    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate(style->marginRight(), width);
-    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate(style->marginBottom(), width);
-    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate(style->marginLeft(), width);
+    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate(style->marginTop(), pageSize.width());
+    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate(style->marginRight(), pageSize.width());
+    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate(style->marginBottom(), pageSize.width());
+    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate(style->marginLeft(), pageSize.width());
 }
 
 void Document::fontsNeedUpdate(FontSelector&)
@@ -3485,6 +3479,9 @@ void Document::didBecomeCurrentDocumentInFrame()
         if (m_timelinesController)
             m_timelinesController->resumeAnimations();
     }
+
+    if (isTopDocument() && m_quirks)
+        m_quirks->determineRelevantQuirks();
 }
 
 void Document::frameDestroyed()
@@ -4345,6 +4342,11 @@ bool Document::isLayoutPending() const
 bool Document::supportsPaintTiming() const
 {
     return protectedSecurityOrigin()->isSameOriginDomain(topOrigin());
+}
+
+bool Document::supportsLargestContentfulPaint() const
+{
+    return settings().largestContentfulPaintEnabled();
 }
 
 // https://w3c.github.io/paint-timing/#ref-for-mark-paint-timing
@@ -8016,7 +8018,7 @@ void Document::setHasHDRContent()
 
 bool Document::drawsHDRContent() const
 {
-    if (!(settings().supportHDRDisplayEnabled() || settings().canvasPixelFormatEnabled()))
+    if (!(settings().supportHDRDisplayEnabled() || settings().canvasColorTypeEnabled()))
         return false;
 
     if (!hasHDRContent())
@@ -8562,12 +8564,8 @@ void Document::addConsoleMessage(MessageSource source, MessageLevel level, const
         postTask(AddConsoleMessageTask(source, level, message));
         return;
     }
-
     if (RefPtr page = this->page())
         page->console().addMessage(source, level, message, requestIdentifier, this);
-
-    if (RefPtr consoleMessageListener = m_consoleMessageListener)
-        consoleMessageListener->scheduleCallback(*this, message);
 }
 
 void Document::addMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<Inspector::ScriptCallStack>&& callStack, JSC::JSGlobalObject* state, unsigned long requestIdentifier)
@@ -10611,11 +10609,6 @@ void Document::downgradeReferrerToRegistrableDomain()
         m_referrerOverride = makeString(referrerURL.protocol(), "://"_s, domainString, ':', *port, '/');
     else
         m_referrerOverride = makeString(referrerURL.protocol(), "://"_s, domainString, '/');
-}
-
-void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
-{
-    m_consoleMessageListener = listener;
 }
 
 AnimationTimelinesController& Document::ensureTimelinesController()

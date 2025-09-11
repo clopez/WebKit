@@ -22,9 +22,6 @@ Modules/WebGPU/Implementation/WebGPUTextureImpl.cpp
 Modules/WebGPU/Implementation/WebGPUTextureViewImpl.cpp
 Modules/WebGPU/Implementation/WebGPUXRBindingImpl.cpp
 Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.cpp
-Modules/airplay/WebMediaSessionManager.cpp
-Modules/applepay/cocoa/PaymentMerchantSessionCocoa.mm
-Modules/indexeddb/IDBDatabase.h
 Modules/mediastream/RTCPeerConnection.h
 Modules/notifications/NotificationController.h
 Modules/webdatabase/DatabaseManager.h
@@ -57,8 +54,6 @@ editing/VisibleUnits.cpp
 html/HTMLMediaElement.cpp
 html/canvas/PlaceholderRenderingContext.cpp
 html/parser/HTMLConstructionSite.cpp
-html/parser/HTMLDocumentParser.cpp
-html/parser/HTMLTreeBuilder.h
 html/shadow/DateTimeEditElement.h
 html/track/InbandGenericTextTrack.cpp
 html/track/InbandWebVTTTextTrack.cpp

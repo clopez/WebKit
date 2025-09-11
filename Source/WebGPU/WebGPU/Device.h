@@ -223,6 +223,7 @@ public:
     ExternalTextureData createExternalTextureFromPixelBuffer(CVPixelBufferRef, WGPUColorSpace) const;
     RefPtr<XRSubImage> getXRViewSubImage(XRProjectionLayer&);
     RefPtr<XRSubImage> getXRViewSubImage() const;
+    id<MTLTexture> getXRViewSubImageDepthTexture() const;
     const std::optional<const MachSendRight> webProcessID() const;
 #if CPU(X86_64)
     bool isIntel() const { return [m_device.name localizedCaseInsensitiveContainsString:@"intel"]; }
@@ -354,8 +355,7 @@ private:
     bool m_supressAllErrors { false };
     const uint32_t m_maxVerticesPerDrawCall { 0 };
     bool m_shaderValidationEnabled { true };
-// FIXME: remove @safe once rdar://151039766 lands
-} __attribute__((swift_attr("@safe"))) SWIFT_SHARED_REFERENCE(refDevice, derefDevice);
+} SWIFT_SHARED_REFERENCE(refDevice, derefDevice);
 
 } // namespace WebGPU
 

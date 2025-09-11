@@ -2646,22 +2646,8 @@ enum class WebCore::PixelFormat : uint8_t {
 enum class WebCore::UseLosslessCompression : bool;
 
 [AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ImageBufferFormat {
-    WebCore::ImageBufferPixelFormat pixelFormat;
+    WebCore::PixelFormat pixelFormat;
     WebCore::UseLosslessCompression useLosslessCompression;
-};
-
-enum class WebCore::ImageBufferPixelFormat : uint8_t {
-    BGRX8,
-    BGRA8,
-#if ENABLE(PIXEL_FORMAT_RGB10)
-    RGB10,
-#endif
-#if ENABLE(PIXEL_FORMAT_RGB10A8)
-    RGB10A8,
-#endif
-#if ENABLE(PIXEL_FORMAT_RGBA16F)
-    RGBA16F,
-#endif
 };
 
 [AdditionalEncoder=StreamConnectionEncoder] struct WebCore::PixelBufferFormat {
@@ -3684,7 +3670,7 @@ enum class WebCore::ResourceLoadPriority : uint8_t {
     MemoryCache,
     MemoryCacheAfterValidation,
     ServiceWorker,
-    ApplicationCache,
+    LegacyApplicationCachePlaceholder,
     DOMCache,
     InspectorOverride
 };
@@ -6626,6 +6612,8 @@ header: <WebCore/ISOVTTCue.h>
 
 [Nested] struct WebCore::MockWebAuthenticationConfiguration::HidConfiguration {
     Vector<String> payloadBase64;
+    Vector<String> expectedCommandsBase64;
+    bool validateExpectedCommands;
     WebCore::MockWebAuthenticationConfiguration::HidStage stage;
     WebCore::MockWebAuthenticationConfiguration::HidSubStage subStage;
     WebCore::MockWebAuthenticationConfiguration::HidError error;
@@ -9278,11 +9266,12 @@ enum class WebCore::DOMAudioSessionType : uint8_t {
 };
 #endif
 
-header: <WebCore/MediaSample.h>
-[Nested] enum class WebCore::TrackInfo::TrackType : uint8_t {
+header: <WebCore/MediaPlayerEnums.h>
+[Nested] enum class WebCore::TrackInfoTrackType : uint8_t {
     Unknown,
     Audio,
-    Video
+    Video,
+    Text
 };
 
 header: <WebCore/MediaSample.h>

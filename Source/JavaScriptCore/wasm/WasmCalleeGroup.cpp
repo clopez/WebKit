@@ -38,9 +38,9 @@
 
 namespace JSC { namespace Wasm {
 
-Ref<CalleeGroup> CalleeGroup::createFromIPInt(VM& vm, MemoryMode mode, ModuleInformation& moduleInformation, RefPtr<IPIntCallees> ipintCallees)
+Ref<CalleeGroup> CalleeGroup::createFromIPInt(VM& vm, MemoryMode mode, ModuleInformation& moduleInformation, Ref<IPIntCallees>&& ipintCallees)
 {
-    return adoptRef(*new CalleeGroup(vm, mode, moduleInformation, ipintCallees));
+    return adoptRef(*new CalleeGroup(vm, mode, moduleInformation, WTFMove(ipintCallees)));
 }
 
 Ref<CalleeGroup> CalleeGroup::createFromExisting(MemoryMode mode, const CalleeGroup& other)
@@ -52,9 +52,9 @@ CalleeGroup::CalleeGroup(MemoryMode mode, const CalleeGroup& other)
     : m_calleeCount(other.m_calleeCount)
     , m_mode(mode)
     , m_ipintCallees(other.m_ipintCallees)
-    , m_jsEntrypointCallees(other.m_jsEntrypointCallees)
+    , m_jsToWasmCallees(other.m_jsToWasmCallees)
     , m_callers(m_calleeCount)
-    , m_wasmIndirectCallEntryPoints(other.m_wasmIndirectCallEntryPoints)
+    , m_wasmIndirectCallEntrypoints(other.m_wasmIndirectCallEntrypoints)
     , m_wasmIndirectCallWasmCallees(other.m_wasmIndirectCallWasmCallees)
     , m_wasmToWasmExitStubs(other.m_wasmToWasmExitStubs)
 {
@@ -62,10 +62,10 @@ CalleeGroup::CalleeGroup(MemoryMode mode, const CalleeGroup& other)
     setCompilationFinished();
 }
 
-CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInformation, RefPtr<IPIntCallees> ipintCallees)
+CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInformation, Ref<IPIntCallees>&& ipintCallees)
     : m_calleeCount(moduleInformation.internalFunctionCount())
     , m_mode(mode)
-    , m_ipintCallees(ipintCallees)
+    , m_ipintCallees(WTFMove(ipintCallees))
     , m_callers(m_calleeCount)
 {
     RefPtr<CalleeGroup> protectedThis = this;
@@ -77,16 +77,16 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
             return;
         }
 
-        m_wasmIndirectCallEntryPoints = FixedVector<CodePtr<WasmEntryPtrTag>>(m_calleeCount);
+        m_wasmIndirectCallEntrypoints = FixedVector<CodePtr<WasmEntryPtrTag>>(m_calleeCount);
         m_wasmIndirectCallWasmCallees = FixedVector<RefPtr<Wasm::IPIntCallee>>(m_calleeCount);
 
         for (unsigned i = 0; i < m_calleeCount; ++i) {
-            m_wasmIndirectCallEntryPoints[i] = m_ipintCallees->at(i)->entrypoint();
+            m_wasmIndirectCallEntrypoints[i] = m_ipintCallees->at(i)->entrypoint();
             m_wasmIndirectCallWasmCallees[i] = m_ipintCallees->at(i).ptr();
         }
 
         m_wasmToWasmExitStubs = m_plan->takeWasmToWasmExitStubs();
-        m_jsEntrypointCallees = static_cast<IPIntPlan*>(m_plan.get())->takeJSCallees();
+        m_jsToWasmCallees = static_cast<IPIntPlan*>(m_plan.get())->takeJSToWasmCallees();
 
         setCompilationFinished();
     })));
@@ -169,8 +169,7 @@ void CalleeGroup::releaseBBQCallee(const AbstractLocker&, FunctionCodeIndex func
     // It's possible there are still a IPIntCallee around even when the BBQCallee
     // is destroyed. Since this function was clearly hot enough to get to OMG we should
     // tier it up soon.
-    if (m_ipintCallees)
-        m_ipintCallees->at(functionIndex)->tierUpCounter().resetAndOptimizeSoon(m_mode);
+    m_ipintCallees->at(functionIndex)->tierUpCounter().resetAndOptimizeSoon(m_mode);
 
     // We could have triggered a tier up from a BBQCallee has MemoryMode::BoundsChecking
     // but is currently running a MemoryMode::Signaling memory. In that case there may
@@ -260,7 +259,7 @@ void CalleeGroup::updateCallsitesToCallUs(const AbstractLocker& locker, CodeLoca
     resetInstructionCacheOnAllThreads();
     WTF::storeStoreFence(); // This probably isn't necessary but it's good to be paranoid.
 
-    m_wasmIndirectCallEntryPoints[functionIndex] = entrypoint;
+    m_wasmIndirectCallEntrypoints[functionIndex] = entrypoint;
 
     // FIXME: This does an icache flush for each repatch but we
     // 1) only need one at the end.
@@ -334,7 +333,7 @@ TriState CalleeGroup::calleeIsReferenced(const AbstractLocker&, Wasm::Callee* ca
     }
 #endif
     // FIXME: This doesn't record the index its associated with so we can't validate anything here.
-    case CompilationMode::JSToWasmEntrypointMode:
+    case CompilationMode::JSToWasmMode:
     // FIXME: These are owned by JS, it's not clear how to verify they're still alive here.
     case CompilationMode::JSToWasmICMode:
     case CompilationMode::WasmToJSMode:

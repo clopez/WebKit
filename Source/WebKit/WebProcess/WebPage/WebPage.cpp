@@ -192,6 +192,7 @@
 #include <WebCore/Chrome.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/ContactsRequestData.h>
+#include <WebCore/ContainerNodeInlines.h>
 #include <WebCore/ContextMenuController.h>
 #include <WebCore/CrossOriginEmbedderPolicy.h>
 #include <WebCore/CrossOriginOpenerPolicy.h>
@@ -3312,8 +3313,6 @@ void WebPage::pageDidScroll()
     if (!m_inDynamicSizeUpdate)
         m_internals->dynamicSizeUpdateHistory.clear();
 #endif
-    m_uiClient->pageDidScroll(this);
-
     m_pageScrolledHysteresis.impulse();
 
     if (RefPtr view = protectedCorePage()->protectedMainFrame()->virtualView())
@@ -3358,11 +3357,11 @@ RefPtr<WebContextMenu> WebPage::contextMenuAtPointInWindow(FrameIdentifier frame
     corePage()->contextMenuController().clearContextMenu();
 
     // Simulate a mouse click to generate the correct menu.
-    PlatformMouseEvent mousePressEvent(point, point, MouseButton::Right, PlatformEvent::Type::MousePressed, 1, { }, WallTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
+    PlatformMouseEvent mousePressEvent(point, point, MouseButton::Right, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
     coreFrame->eventHandler().handleMousePressEvent(mousePressEvent);
     bool handled = coreFrame->eventHandler().sendContextMenuEvent(mousePressEvent);
     RefPtr menu = handled ? &contextMenu() : nullptr;
-    PlatformMouseEvent mouseReleaseEvent(point, point, MouseButton::Right, PlatformEvent::Type::MouseReleased, 1, { }, WallTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
+    PlatformMouseEvent mouseReleaseEvent(point, point, MouseButton::Right, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap);
     coreFrame->eventHandler().handleMouseReleaseEvent(mouseReleaseEvent);
 
     return menu;
@@ -3692,14 +3691,12 @@ void WebPage::flushDeferredDidReceiveMouseEvent()
         send(Messages::WebPageProxy::DidReceiveEventIPC(*info->type, info->handled, std::nullopt));
 }
 
-void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>, UserData&&)>&& completionHandler)
+void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>)>&& completionHandler)
 {
     auto modifiers = event.modifiers();
     RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame || !localMainFrame->view()) {
-        completionHandler({ }, modifiers, { });
-        return;
-    }
+    if (!localMainFrame || !localMainFrame->view())
+        return completionHandler({ }, modifiers);
 
     auto hitTestResult = localMainFrame->eventHandler().getHitTestResultForMouseEvent(platform(event));
 
@@ -3707,11 +3704,9 @@ void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, Completion
     TextDirection toolTipDirection;
     corePage()->chrome().getToolTip(hitTestResult, toolTip, toolTipDirection);
 
-    RefPtr<API::Object> userData;
     WebHitTestResultData hitTestResultData { hitTestResult, toolTip };
-    injectedBundleUIClient().mouseDidMoveOverElement(this, hitTestResult, modifiers, userData);
 
-    completionHandler(WTFMove(hitTestResultData), modifiers, UserData(WebProcess::singleton().transformObjectsToHandles(WTFMove(userData).get()).get()));
+    completionHandler(WTFMove(hitTestResultData), modifiers);
 }
 
 void WebPage::handleWheelEvent(FrameIdentifier frameID, const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps, std::optional<bool> willStartSwipe, CompletionHandler<void(std::optional<WebCore::ScrollingNodeID>, std::optional<WebCore::WheelScrollGestureState>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
@@ -5619,7 +5614,7 @@ void WebPage::dragEnded(std::optional<FrameIdentifier> frameID, IntPoint clientP
         return completionHandler(std::nullopt);
 
     // FIXME: These are fake modifier keys here, but they should be real ones instead.
-    PlatformMouseEvent event(adjustedClientPosition, adjustedGlobalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), 0, WebCore::SyntheticClickType::NoTap);
+    PlatformMouseEvent event(adjustedClientPosition, adjustedGlobalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), 0, WebCore::SyntheticClickType::NoTap);
     auto remoteUserInputEventData = localFrame->eventHandler().dragSourceEndedAt(event, dragOperationMask);
 
     completionHandler(remoteUserInputEventData);
@@ -6668,7 +6663,7 @@ void WebPage::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>&
     Ref frameView = *localMainFrame->view();
     auto snapshotRect = IntRect { rect.value_or(FloatRect { { }, frameView->contentsSize() }) };
 
-    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::PDFDocument, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
+    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::PDFDocument, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!buffer)
         return;
 
@@ -6688,7 +6683,7 @@ void WebPage::drawRemoteToPDF(FrameIdentifier frameID, const std::optional<Float
     auto snapshotRect = IntRect { rect.value_or(FloatRect { { }, frameView->contentsSize() }) };
     auto renderingMode = m_page->settings().siteIsolationEnabled() ? RenderingMode::DisplayList : RenderingMode::PDFDocument;
 
-    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), renderingMode, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, &m_page->chrome());
+    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), renderingMode, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8, &m_page->chrome());
     if (!buffer)
         return;
 
@@ -6806,17 +6801,25 @@ void WebPage::drawPagesForPrinting(FrameIdentifier frameID, const PrintInfo& pri
 }
 #endif
 
-void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, bool isMainResourceLoad, const WebCore::ResourceRequest& request, const DocumentLoader* loader, LocalFrame* frame)
+void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, const WebCore::ResourceRequest& request, const DocumentLoader* loader, LocalFrame* frame)
 {
-    if (frame && !isMainResourceLoad) {
+    bool isHTTPRequest = request.url().protocolIsInHTTPFamily();
+
+    // Ignore main resource loads here, since they can start in one process and end up in another.
+    // See 283102@main for an explanation for how we handle main resource loads. We also ignore
+    // very low priority loads like ping and beacon requests to match previous PLT heuristics.
+    // We consider file requests as part of the PLT network heuristic for ease of API testing.
+    if (frame && request.requester() != ResourceRequestRequester::Main && request.priority() != WebCore::ResourceLoadPriority::VeryLow && (isHTTPRequest || request.url().protocolIsFile())) {
         auto frameID = frame->frameID();
-        auto addResult = m_networkResourceRequestCountForPageLoadTiming.add(frameID, 0);
-        if (!addResult.iterator->value)
+        auto& identifiers = m_networkResourceRequestIdentifiersForPageLoadTiming.ensure(frameID, [] {
+            return HashSet<WebCore::ResourceLoaderIdentifier> { };
+        }).iterator->value;
+        if (identifiers.isEmpty())
             send(Messages::WebPageProxy::StartNetworkRequestsForPageLoadTiming(frameID));
-        ++addResult.iterator->value;
+        identifiers.add(identifier);
     }
 
-    if (!request.url().protocolIsInHTTPFamily())
+    if (!isHTTPRequest)
         return;
 
     if (m_mainFrameProgressCompleted && !UserGestureIndicator::processingUserGesture())
@@ -6829,15 +6832,14 @@ void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, b
         send(Messages::WebPageProxy::SetNetworkRequestsInProgress(true));
 }
 
-void WebPage::removeResourceRequest(WebCore::ResourceLoaderIdentifier identifier, bool isMainResourceLoad, LocalFrame* frame)
+void WebPage::removeResourceRequest(WebCore::ResourceLoaderIdentifier identifier, LocalFrame* frame)
 {
-    if (frame && !isMainResourceLoad) {
+    if (frame) {
         auto frameID = frame->frameID();
-        auto it = m_networkResourceRequestCountForPageLoadTiming.find(frameID);
-        ASSERT(it != m_networkResourceRequestCountForPageLoadTiming.end());
-        --it->value;
-        if (!it->value)
-            send(Messages::WebPageProxy::EndNetworkRequestsForPageLoadTiming(frameID, WallTime::now()));
+        if (auto it = m_networkResourceRequestIdentifiersForPageLoadTiming.find(frameID); it != m_networkResourceRequestIdentifiersForPageLoadTiming.end()) {
+            if (it->value.remove(identifier) && it->value.isEmpty())
+                send(Messages::WebPageProxy::EndNetworkRequestsForPageLoadTiming(frameID, WallTime::now()));
+        }
     }
 
     if (!m_trackedNetworkResourceRequestIdentifiers.remove(identifier))
@@ -8032,6 +8034,9 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_needsFixedContainerEdgesUpdate = true;
 
     flushDeferredDidReceiveMouseEvent();
+
+    if (frame && frame->isMainFrame())
+        m_networkResourceRequestIdentifiersForPageLoadTiming.clear();
 }
 
 void WebPage::didFinishDocumentLoad(WebFrame& frame)
@@ -8879,7 +8884,7 @@ void WebPage::updateAttachmentIcon(const String& identifier, std::optional<Share
     if (RefPtr attachment = attachmentElementWithIdentifier(identifier)) {
         if (auto icon = iconHandle ? ShareableBitmap::create(WTFMove(*iconHandle)) : nullptr) {
             if (attachment->isWideLayout()) {
-                if (auto imageBuffer = ImageBuffer::create(icon->size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1.0, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8)) {
+                if (auto imageBuffer = ImageBuffer::create(icon->size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1.0, DestinationColorSpace::SRGB(), PixelFormat::BGRA8)) {
                     icon->paint(imageBuffer->context(), IntPoint::zero(), IntRect(IntPoint::zero(), icon->size()));
                     auto data = imageBuffer->toData("image/png"_s);
                     attachment->updateIconForWideLayout(WTFMove(data));
@@ -10471,7 +10476,7 @@ void WebPage::simulateClickOverFirstMatchingTextInViewportWithUserInteraction(co
 
     auto locationInWindow = view->contentsToWindow(location);
     auto makeSyntheticEvent = [&](PlatformEvent::Type type) -> PlatformMouseEvent {
-        return { locationInWindow, locationInWindow, MouseButton::Left, type, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::OneFingerTap, mousePointerID };
+        return { locationInWindow, locationInWindow, MouseButton::Left, type, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::OneFingerTap, mousePointerID };
     };
 
     WEBPAGE_RELEASE_LOG(MouseHandling, "Simulating click - dispatching events");

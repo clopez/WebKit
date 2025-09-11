@@ -27,11 +27,10 @@
 #include "config.h"
 #include "Internals.h"
 
-#include "AXObjectCache.h"
+#include "AXObjectCacheInlines.h"
 #include "AddEventListenerOptionsInlines.h"
 #include "AnimationTimeline.h"
 #include "AnimationTimelinesController.h"
-#include "ApplicationCacheStorage.h"
 #include "AudioSession.h"
 #include "AudioTrackPrivateMediaStream.h"
 #include "Autofill.h"
@@ -60,6 +59,7 @@
 #include "ColorSerialization.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CookieJar.h"
 #include "CrossOriginPreflightResultCache.h"
 #include "Cursor.h"
@@ -394,6 +394,10 @@
 #include <wtf/spi/darwin/SandboxSPI.h>
 #endif
 
+#if PLATFORM(WPE)
+#include <wtf/glib/GResources.h>
+#endif
+
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 #include "MediaSessionCoordinator.h"
 #include "MockMediaSessionCoordinator.h"
@@ -582,6 +586,8 @@ void Internals::resetToConsistentState(Page& page)
     page.setDefersLoading(false);
     page.setResourceCachingDisabledByWebInspector(false);
 
+    page.console().setConsoleMessageListener(nullptr);
+
     RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
         return;
@@ -614,8 +620,6 @@ void Internals::resetToConsistentState(Page& page)
     if (localMainFrame->editor().isOverwriteModeEnabled())
         localMainFrame->editor().toggleOverwriteModeEnabled();
     localMainFrame->loader().clearTestingOverrides();
-    if (auto* applicationCacheStorage = page.applicationCacheStorage())
-        applicationCacheStorage->setDefaultOriginQuota(ApplicationCacheStorage::noQuota());
 
     auto& sessionManager = page.mediaSessionManager();
 #if ENABLE(VIDEO)
@@ -745,8 +749,6 @@ Internals::Internals(Document& document)
         setAutomaticLinkDetectionEnabled(false);
         setAutomaticTextReplacementEnabled(true);
     }
-
-    setConsoleMessageListener(nullptr);
 
 #if ENABLE(APPLE_PAY)
     auto* frame = document.frame();
@@ -946,7 +948,7 @@ static String responseSourceToString(const ResourceResponse& response)
         return "Memory cache"_s;
     case ResourceResponse::Source::MemoryCacheAfterValidation:
         return "Memory cache after validation"_s;
-    case ResourceResponse::Source::ApplicationCache:
+    case ResourceResponse::Source::LegacyApplicationCachePlaceholder:
         return "Application cache"_s;
     case ResourceResponse::Source::DOMCache:
         return "DOM cache"_s;
@@ -2123,7 +2125,7 @@ ExceptionOr<RefPtr<ImageData>> Internals::snapshotNode(Node& node)
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    SnapshotOptions options { { SnapshotFlags::DraggableElement }, ImageBufferPixelFormat::BGRA8, DestinationColorSpace::SRGB() };
+    SnapshotOptions options { { SnapshotFlags::DraggableElement }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() };
 
     RefPtr imageBuffer = WebCore::snapshotNode(*document->frame(), node, WTFMove(options));
     if (!imageBuffer)
@@ -3282,6 +3284,10 @@ RefPtr<WindowProxy> Internals::openDummyInspectorFrontend(const String& url)
     if (!window)
         return nullptr;
 
+#if PLATFORM(WPE)
+    WTF::registerInspectorResourceIfNeeded();
+#endif
+
     auto frontendWindowProxy = window->open(*window, *window, url, emptyAtom(), emptyString()).releaseReturnValue();
     m_inspectorFrontend = makeUnique<InspectorStubFrontend>(*inspectedPage, downcast<LocalDOMWindow>(frontendWindowProxy->window()));
     return frontendWindowProxy;
@@ -4076,15 +4082,6 @@ void Internals::setCanvasNoiseInjectionSalt(HTMLCanvasElement& element, unsigned
 bool Internals::doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement& element) const
 {
     return element.havePendingCanvasNoiseInjection();
-}
-
-void Internals::setApplicationCacheOriginQuota(unsigned long long quota)
-{
-    Document* document = contextDocument();
-    if (!document || !document->page())
-        return;
-    if (auto* applicationCacheStorage = document->page()->applicationCacheStorage())
-        applicationCacheStorage->storeUpdatedQuotaForOrigin(&document->securityOrigin(), quota);
 }
 
 void Internals::registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme)
@@ -6654,10 +6651,11 @@ void Internals::updateQuotaBasedOnSpaceUsage()
 
 void Internals::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
 {
-    if (!contextDocument())
+    RefPtr page = contextDocument() ? contextDocument()->page() : nullptr;
+    if (!page)
         return;
 
-    contextDocument()->setConsoleMessageListener(WTFMove(listener));
+    page->console().setConsoleMessageListener(WTFMove(listener));
 }
 
 void Internals::setResponseSizeWithPadding(FetchResponse& response, uint64_t size)
@@ -7769,7 +7767,7 @@ AccessibilityObject* Internals::axObjectForElement(Element& element) const
 
     if (CheckedPtr cache = document->axObjectCache()) {
         cache->performDeferredCacheUpdate(ForceLayout::No);
-        return cache->getOrCreate(element);
+        return cache->exportedGetOrCreate(element);
     }
     return nullptr;
 }
@@ -7910,7 +7908,7 @@ std::optional<RenderingMode> Internals::getEffectiveRenderingModeOfNewlyCreatedA
     if (!document || !document->page())
         return std::nullopt;
 
-    if (RefPtr imageBuffer = ImageBuffer::create({ 100, 100 }, RenderingMode::Accelerated, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8,  &document->page()->chrome())) {
+    if (RefPtr imageBuffer = ImageBuffer::create({ 100, 100 }, RenderingMode::Accelerated, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8,  &document->page()->chrome())) {
         imageBuffer->ensureBackendCreated();
         if (imageBuffer->hasBackend())
             return imageBuffer->renderingMode();

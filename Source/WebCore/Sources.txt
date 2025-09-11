@@ -572,8 +572,8 @@ accessibility/AXTextRun.cpp
 accessibility/AXTreeStore.cpp
 accessibility/AXUtilities.cpp
 accessibility/AXAttachmentHelpers.cpp
+accessibility/AXImageMapHelpers.cpp
 accessibility/AXListHelpers.cpp
-accessibility/AccessibilityImageMapLink.cpp
 accessibility/AccessibilityListBoxOption.cpp
 accessibility/AccessibilityMathMLElement.cpp
 accessibility/AccessibilityMenuList.cpp
@@ -590,12 +590,8 @@ accessibility/AccessibilityScrollbar.cpp
 accessibility/AccessibilitySlider.cpp
 accessibility/AccessibilitySpinButton.cpp
 accessibility/AccessibilitySpinButtonPart.cpp
-accessibility/AccessibilityTableCell.cpp
 accessibility/AccessibilityTableColumn.cpp
 accessibility/AccessibilityTableHeaderContainer.cpp
-accessibility/AccessibilityTableRow.cpp
-accessibility/AccessibilityTree.cpp
-accessibility/AccessibilityTreeItem.cpp
 accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedTree.cpp
 animation/AcceleratedEffectStackUpdater.cpp
@@ -907,6 +903,9 @@ css/CSSFontStyleRangeValue.cpp
 css/CSSFontStyleWithAngleValue.cpp
 css/CSSFontValue.cpp
 css/CSSFontVariationValue.cpp
+css/CSSFunctionDeclarations.cpp
+css/CSSFunctionDescriptors.cpp
+css/CSSFunctionRule.cpp
 css/CSSFunctionValue.cpp
 css/CSSGradientValue.cpp
 css/CSSGridAutoRepeatValue.cpp
@@ -1592,7 +1591,6 @@ html/HTMLParagraphElement.cpp
 html/HTMLParamElement.cpp
 html/HTMLPictureElement.cpp
 html/HTMLPlugInElement.cpp
-html/HTMLPlugInImageElement.cpp
 html/HTMLPreElement.cpp
 html/HTMLProgressElement.cpp
 html/HTMLQuoteElement.cpp
@@ -1921,6 +1919,8 @@ layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingQuirks.c
 layout/formattingContexts/flex/FlexFormattingContext.cpp
 layout/formattingContexts/flex/FlexFormattingUtils.cpp
 layout/formattingContexts/flex/FlexLayout.cpp
+layout/formattingContexts/grid/GridFormattingContext.cpp
+layout/formattingContexts/grid/GridLayout.cpp
 layout/formattingContexts/inline/AbstractLineBuilder.cpp
 layout/formattingContexts/inline/InlineContentAligner.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
@@ -2046,13 +2046,6 @@ loader/TextResourceDecoder.cpp
 loader/TextTrackLoader.cpp
 loader/ThreadableLoader.cpp
 loader/WorkerThreadableLoader.cpp
-loader/appcache/ApplicationCache.cpp
-loader/appcache/ApplicationCacheGroup.cpp
-loader/appcache/ApplicationCacheHost.cpp
-loader/appcache/ApplicationCacheManifestParser.cpp
-loader/appcache/ApplicationCacheResource.cpp
-loader/appcache/ApplicationCacheResourceLoader.cpp
-loader/appcache/ApplicationCacheStorage.cpp
 loader/archive/Archive.cpp
 loader/archive/ArchiveFactory.cpp
 loader/archive/ArchiveResource.cpp
@@ -2135,6 +2128,7 @@ page/IntelligenceTextEffectsSupport.cpp
 page/InteractionRegion.cpp
 page/IntersectionObserver.cpp
 page/IntersectionObserverEntry.cpp
+page/LargestContentfulPaint.cpp
 page/LocalDOMWindow.cpp
 page/LocalDOMWindowProperty.cpp
 page/LocalFrame.cpp
@@ -2468,7 +2462,6 @@ platform/graphics/ComplexTextController.cpp
 platform/graphics/ContentTypeUtilities.cpp
 platform/graphics/ContentsFormat.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
-platform/graphics/DecomposedGlyphs.cpp
 platform/graphics/DestinationColorSpace.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
 platform/graphics/DisplayRefreshMonitorClient.cpp
@@ -2681,7 +2674,6 @@ platform/graphics/transforms/ScaleTransformOperation.cpp
 platform/graphics/transforms/SkewTransformOperation.cpp
 platform/graphics/transforms/TransformOperation.cpp
 platform/graphics/transforms/TransformOperations.cpp
-platform/graphics/transforms/TransformOperationsSharedPrimitivesPrefix.cpp
 platform/graphics/transforms/TransformState.cpp
 platform/graphics/transforms/TransformationMatrix.cpp
 platform/graphics/transforms/TranslateTransformOperation.cpp
@@ -2821,6 +2813,7 @@ rendering/ImageQualityController.cpp
 rendering/InlineBoxPainter.cpp
 rendering/LayerAncestorClippingStack.cpp
 rendering/LayerOverlapMap.cpp
+rendering/LayoutScope.cpp
 rendering/LayoutDisallowedScope.cpp
 rendering/LayoutRepainter.cpp
 rendering/LegacyInlineBox.cpp
@@ -2956,7 +2949,6 @@ rendering/style/AutosizeStatus.cpp
 rendering/style/BorderData.cpp
 rendering/style/BorderValue.cpp
 rendering/style/DropShadowFilterOperationWithStyleColor.cpp
-rendering/style/FillLayer.cpp
 rendering/style/GridSpan.cpp
 rendering/style/OutlineValue.cpp
 rendering/style/PositionArea.cpp
@@ -2994,7 +2986,6 @@ rendering/style/StyleMultiImage.cpp
 rendering/style/StyleNamedImage.cpp
 rendering/style/StyleNonInheritedData.cpp
 rendering/style/StylePaintImage.cpp
-rendering/style/StylePathData.cpp
 rendering/style/StyleRareInheritedData.cpp
 rendering/style/StyleRareNonInheritedData.cpp
 rendering/style/StyleScrollSnapPoints.cpp
@@ -3147,8 +3138,9 @@ style/StyleSheetContentsCache.cpp
 style/StyleTreeResolver.cpp
 style/StyleUpdate.cpp
 style/Styleable.cpp
-style/TransformOperationsBuilder.cpp
 style/UserAgentStyle.cpp
+style/values/backgrounds/StyleBackgroundLayer.cpp
+style/values/backgrounds/StyleBackgroundSize.cpp
 style/values/backgrounds/StyleBorderImageOutset.cpp
 style/values/backgrounds/StyleBorderImageRepeat.cpp
 style/values/backgrounds/StyleBorderImageSlice.cpp
@@ -3156,6 +3148,7 @@ style/values/backgrounds/StyleBorderImageSource.cpp
 style/values/backgrounds/StyleBorderImageWidth.cpp
 style/values/backgrounds/StyleBorderImage.cpp
 style/values/backgrounds/StyleLineWidth.cpp
+style/values/backgrounds/StyleRepeatStyle.cpp
 style/values/borders/StyleBorderRadius.cpp
 style/values/borders/StyleBoxShadow.cpp
 style/values/borders/StyleCornerShapeValue.cpp
@@ -3209,8 +3202,10 @@ style/values/grid/StyleGridTrackBreadth.cpp
 style/values/grid/StyleGridTrackSize.cpp
 style/values/grid/StyleGridTrackSizes.cpp
 style/values/images/StyleGradient.cpp
+style/values/images/StyleImageOrNone.cpp
 style/values/images/StyleImageWrapper.cpp
 style/values/inline/StyleVerticalAlign.cpp
+style/values/inline/StyleWebKitInitialLetter.cpp
 style/values/lists/StyleListStyleType.cpp
 style/values/masking/StyleClip.cpp
 style/values/masking/StyleClipPath.cpp
@@ -3220,6 +3215,7 @@ style/values/masking/StyleMaskBorderSlice.cpp
 style/values/masking/StyleMaskBorderSource.cpp
 style/values/masking/StyleMaskBorderWidth.cpp
 style/values/masking/StyleMaskBorder.cpp
+style/values/masking/StyleMaskLayer.cpp
 style/values/motion/StyleOffsetAnchor.cpp
 style/values/motion/StyleOffsetPath.cpp
 style/values/motion/StyleOffsetPosition.cpp
@@ -3227,12 +3223,15 @@ style/values/motion/StyleOffsetRotate.cpp
 style/values/motion/StyleRayFunction.cpp
 style/values/multicol/StyleColumnCount.cpp
 style/values/multicol/StyleColumnWidth.cpp
+style/values/non-standard/StyleWebKitBoxReflect.cpp
+style/values/non-standard/StyleWebKitLineClamp.cpp
 style/values/non-standard/StyleWebKitOverflowScrolling.cpp
 style/values/non-standard/StyleWebKitTextStrokeWidth.cpp
 style/values/non-standard/StyleWebKitTouchCallout.cpp
 style/values/overflow/StyleBlockEllipsis.cpp
 style/values/overflow/StyleScrollBehavior.cpp
 style/values/overflow/StyleScrollbarGutter.cpp
+style/values/page/StylePageSize.cpp
 style/values/primitives/StyleLengthResolution.cpp
 style/values/primitives/StyleLengthWrapperData.cpp
 style/values/primitives/StylePosition.cpp
@@ -3263,6 +3262,7 @@ style/values/sizing/StyleContainIntrinsicSize.cpp
 style/values/sizing/StylePreferredSize.cpp
 style/values/svg/StyleSVGBaselineShift.cpp
 style/values/svg/StyleSVGPaint.cpp
+style/values/svg/StyleSVGPathData.cpp
 style/values/svg/StyleSVGStrokeDasharray.cpp
 style/values/svg/StyleSVGStrokeDashoffset.cpp
 style/values/text-decoration/StyleTextDecorationLine.cpp
@@ -3274,6 +3274,9 @@ style/values/text/StyleTextIndent.cpp
 style/values/transforms/StylePerspective.cpp
 style/values/transforms/StyleRotate.cpp
 style/values/transforms/StyleScale.cpp
+style/values/transforms/StyleTransform.cpp
+style/values/transforms/StyleTransformFunction.cpp
+style/values/transforms/StyleTransformList.cpp
 style/values/transforms/StyleTranslate.cpp
 style/values/ui/StyleCursor.cpp
 style/values/view-transitions/StyleViewTransitionName.cpp
@@ -3669,6 +3672,9 @@ JSCSSFontFaceDescriptors.cpp
 JSCSSFontFaceRule.cpp
 JSCSSFontFeatureValuesRule.cpp
 JSCSSFontPaletteValuesRule.cpp
+JSCSSFunctionDeclarations.cpp
+JSCSSFunctionDescriptors.cpp
+JSCSSFunctionRule.cpp
 JSCSSGroupingRule.cpp
 JSCSSHSL.cpp
 JSCSSHWB.cpp
@@ -4267,7 +4273,7 @@ JSImageBitmapRenderingContextSettings.cpp
 JSImageCapture.cpp
 JSImageData.cpp
 JSImageDataSettings.cpp
-JSImageDataStorageFormat.cpp
+JSImageDataPixelFormat.cpp
 JSImageResource.cpp
 JSImageSmoothingQuality.cpp
 JSImportNodeOptions.cpp
@@ -4292,6 +4298,7 @@ JSKeyframeEffect.cpp
 JSKeyframeEffectOptions.cpp
 JSLandmark.cpp
 JSLandmarkType.cpp
+JSLargestContentfulPaint.cpp
 JSLatencyMode.cpp
 JSLocation.cpp
 JSLongRange.cpp

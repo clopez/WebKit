@@ -1524,9 +1524,9 @@ ExactTime ExactTime::fromISOPartsAndOffset(int32_t year, uint8_t month, uint8_t 
     return ExactTime { utcNanoseconds - offset };
 }
 
-using CheckedInt128 = Checked<Int128, RecordOverflow>;
+} // namespace ISO8601
 
-static CheckedInt128 checkedCastDoubleToInt128(double n)
+CheckedInt128 checkedCastDoubleToInt128(double n)
 {
     // Based on __fixdfti() and __fixunsdfti() from compiler_rt:
     // https://github.com/llvm/llvm-project/blob/f3671de5500ff1f8210419226a9603a7d83b1a31/compiler-rt/lib/builtins/fp_fixint_impl.inc
@@ -1565,6 +1565,8 @@ static CheckedInt128 checkedCastDoubleToInt128(double n)
     result *= sign;
     return { result };
 }
+
+namespace ISO8601 {
 
 template<TemporalUnit unit>
 std::optional<Int128> Duration::totalNanoseconds() const
@@ -1746,8 +1748,7 @@ static Int128 roundTimeDurationToIncrement(JSGlobalObject* globalObject, Int128 
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal-roundtimeduration
-static Int128 roundTimeDuration(JSGlobalObject* globalObject, Int128 timeDuration, unsigned increment,
-    TemporalUnit unit, RoundingMode roundingMode)
+Int128 roundTimeDuration(JSGlobalObject* globalObject, Int128 timeDuration, unsigned increment, TemporalUnit unit, RoundingMode roundingMode)
 {
     auto divisor = lengthInNanoseconds(unit);
 

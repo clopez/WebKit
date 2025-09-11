@@ -27,6 +27,7 @@
 #import "_WKTextExtractionInternal.h"
 
 #import <WebKit/WKError.h>
+#import <wtf/RetainPtr.h>
 
 @implementation _WKTextExtractionConfiguration
 
@@ -36,6 +37,7 @@
         return nil;
 
     _canIncludeIdentifiers = YES;
+    _shouldFilterText = YES;
     _targetRect = CGRectNull;
     return self;
 }

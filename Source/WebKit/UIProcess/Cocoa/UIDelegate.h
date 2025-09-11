@@ -121,7 +121,7 @@ private:
         bool focusFromServiceWorker(WebKit::WebPageProxy&) final;
         bool runOpenPanel(WebPageProxy&, WebFrameProxy*, FrameInfoData&&, API::OpenPanelParameters*, WebOpenPanelResultListenerProxy*) final;
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-        void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData&, OptionSet<WebEventModifier>, API::Object*);
+        void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData&, OptionSet<WebEventModifier>);
 #endif
 
 #if PLATFORM(MAC)
@@ -190,6 +190,8 @@ private:
         void queryPermission(const String&, API::SecurityOrigin&, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&&) final;
         void didEnableInspectorBrowserDomain(WebPageProxy&) final;
         void didDisableInspectorBrowserDomain(WebPageProxy&) final;
+
+        void addMessageToConsoleForTesting(WebPageProxy&, String&&) final;
 
 #if ENABLE(WEBXR)
         void requestPermissionOnXRSessionFeatures(WebPageProxy&, const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& /* granted */, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, const PlatformXR::Device::FeatureList& /* requiredFeaturesRequested */, const PlatformXR::Device::FeatureList& /* optionalFeaturesRequested */, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&&) final;
@@ -272,7 +274,6 @@ private:
         bool webViewLockScreenOrientation : 1;
         bool webViewUnlockScreenOrientation : 1;
 #endif
-        bool webViewDecideWebApplicationCacheQuotaForSecurityOriginCurrentQuotaTotalBytesNeeded : 1;
         bool webViewPrintFrame : 1;
         bool webViewPrintFramePDFFirstPageSizeCompletionHandler : 1;
         bool webViewDidClose : 1;

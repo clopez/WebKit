@@ -668,6 +668,7 @@ BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, CalleeGroup& 
     gprSetBuilder.exclude(RegisterSetBuilder::specialRegisters());
     gprSetBuilder.exclude(RegisterSetBuilder::macroClobberedGPRs());
     gprSetBuilder.exclude(RegisterSetBuilder::wasmPinnedRegisters());
+    gprSetBuilder.exclude(RegisterSetBuilder::bbqCalleeSaveRegisters());
     // FIXME: handle callee-saved registers better.
     gprSetBuilder.exclude(RegisterSetBuilder::vmCalleeSaveRegisters());
 
@@ -707,6 +708,11 @@ BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, CalleeGroup& 
     }
 
     CallInformation callInfo = wasmCallingConvention().callInformationFor(signature.expand(), CallRole::Callee);
+
+    // Allocate callee save register spaces.
+    for (size_t i = 0, size = RegisterAtOffsetList::bbqCalleeSaveRegisters().registerCount(); i < size; ++i)
+        allocateStack(Value::fromPointer(nullptr));
+
     ASSERT(callInfo.params.size() == m_functionSignature->argumentCount());
     for (unsigned i = 0; i < m_functionSignature->argumentCount(); i ++) {
         const Type& type = m_functionSignature->argumentType(i);
@@ -718,7 +724,7 @@ BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, CalleeGroup& 
         bind(parameter, Location::fromArgumentLocation(callInfo.params[i], type.kind));
         m_arguments.append(i);
     }
-    m_localStorage = m_frameSize; // All stack slots allocated so far are locals.
+    m_localAndCalleeSaveStorage = m_frameSize; // All stack slots allocated so far are locals.
 }
 
 bool BBQJIT::canTierUpToOMG() const
@@ -740,10 +746,8 @@ void BBQJIT::emitIncrementCallSlotCount(unsigned callSlotIndex)
 {
     // Note that this CallSlots are shared by all wasm threads, so this knowingly racy.
     // But this is OK since this is just for profiling counter information.
-    // FIXME: We should extend BBQ to have callee save registers and put this CallSlots vector to one of that register.
-    // This can reduce code size.
-    auto& slot = m_profiledCallee.callSlots()[callSlotIndex];
-    m_jit.add32(TrustedImm32(1), CCallHelpers::AbsoluteAddress(slot.addressOfCount()));
+    ASSERT(m_profiledCallee.needsProfiling());
+    m_jit.add32(TrustedImm32(1), CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(sizeof(CallSlot) * callSlotIndex + CallSlot::offsetOfCount())));
 }
 
 void BBQJIT::setParser(FunctionParser<BBQJIT>* parser)
@@ -821,7 +825,7 @@ PartialResult BBQJIT::addLocal(Type type, uint32_t numberOfLocals)
     for (uint32_t i = 0; i < numberOfLocals; i ++) {
         uint32_t localIndex = m_locals.size();
         m_localSlots.append(allocateStack(Value::fromLocal(type.kind, localIndex)));
-        m_localStorage = m_frameSize;
+        m_localAndCalleeSaveStorage = m_frameSize;
         m_locals.append(m_localSlots.last());
         m_localTypes.append(type.kind);
     }
@@ -2997,6 +3001,10 @@ ControlData WARN_UNUSED_RETURN BBQJIT::addTopLevel(BlockSignature signature)
 
     m_pcToCodeOriginMapBuilder.appendItem(m_jit.label(), PCToCodeOriginMapBuilder::defaultCodeOrigin());
     m_jit.emitFunctionPrologue();
+    emitSaveCalleeSaves();
+    if (m_profiledCallee.needsProfiling())
+        m_jit.move(CCallHelpers::TrustedImmPtr(m_profiledCallee.callSlots().mutableSpan().data()), GPRInfo::jitDataRegister);
+
     m_topLevel = ControlData(*this, BlockType::TopLevel, signature, 0);
 
     JIT_COMMENT(m_jit, "Store boxed JIT callee");
@@ -3163,6 +3171,9 @@ MacroAssembler::Label BBQJIT::addLoopOSREntrypoint()
     //  - Don't need to zero our locals, since they are restored from the OSR entry scratch buffer anyway.
     auto label = m_jit.label();
     m_jit.emitFunctionPrologue();
+    emitSaveCalleeSaves();
+    if (m_profiledCallee.needsProfiling())
+        m_jit.move(CCallHelpers::TrustedImmPtr(m_profiledCallee.callSlots().mutableSpan().data()), GPRInfo::jitDataRegister);
 
     m_jit.move(CCallHelpers::TrustedImmPtr(CalleeBits::boxNativeCallee(&m_callee)), wasmScratchGPR);
     static_assert(CallFrameSlot::codeBlock + 1 == CallFrameSlot::callee);
@@ -3345,6 +3356,8 @@ void BBQJIT::emitLoopTierUpCheckAndOSREntryData(const ControlData& data, Stack& 
         Probe::SavedFPWidth savedFPWidth = generator.m_usesSIMD ? Probe::SavedFPWidth::SaveVectors : Probe::SavedFPWidth::DontSaveVectors; // By the time we reach the late path, we should know whether or not the function uses SIMD.
         jit.probe(tagCFunction<JITProbePtrTag>(operationWasmTriggerOSREntryNow), osrEntryDataPtr, savedFPWidth);
         jit.branchTestPtr(CCallHelpers::Zero, GPRInfo::nonPreservedNonArgumentGPR0).linkTo(tierUpResume, &jit);
+
+        // operationWasmTriggerOSREntryNow is already restoring callee saves. Thus we do not need to restore them before jumping.
         jit.farJump(GPRInfo::nonPreservedNonArgumentGPR0, WasmEntryPtrTag);
     });
 #else
@@ -3670,6 +3683,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addReturn(const ControlData& data, cons
         }
     }
 
+    emitRestoreCalleeSaves();
     m_jit.emitFunctionEpilogue();
     m_jit.ret();
     return { };
@@ -4154,12 +4168,14 @@ void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndexSpace, const TypeDefin
     parameterLocations.reserveInitialCapacity(arguments.size() + isX86());
 
     // Save the old Frame Pointer for later and make sure the return address gets saved to its canonical location.
+    emitRestoreCalleeSaves();
     auto preserved = callingConvention.argumentGPRs();
     if constexpr (isARM64E())
         preserved.add(callingConvention.prologueScratchGPRs[0], IgnoreVectors);
     ScratchScope<1, 0> scratches(*this, WTFMove(preserved));
     GPRReg callerFramePointer = scratches.gpr(0);
     scratches.unbindPreserved();
+
 #if CPU(X86_64)
     m_jit.loadPtr(Address(MacroAssembler::framePointerRegister), callerFramePointer);
     resolvedArguments.append(Value::pinned(pointerType(), Location::fromStack(sizeof(Register))));
@@ -4227,12 +4243,8 @@ void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndexSpace, const TypeDefin
         // Emit the call.
         Vector<UnlinkedWasmToWasmCall>* unlinkedWasmToWasmCalls = &m_unlinkedWasmToWasmCalls;
         ASSERT(!m_info.isImportedFunctionFromFunctionIndexSpace(functionIndexSpace));
-        RefPtr<IPIntCallee> callee;
-        {
-            Locker locker { m_calleeGroup.m_lock };
-            callee = m_calleeGroup.ipintCalleeFromFunctionIndexSpace(locker, functionIndexSpace);
-        }
-        m_jit.storeWasmCalleeToCalleeCallFrame(TrustedImmPtr(CalleeBits::boxNativeCallee(callee.get())), sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
+        Ref<IPIntCallee> callee = m_calleeGroup.ipintCalleeFromFunctionIndexSpace(functionIndexSpace);
+        m_jit.storeWasmCalleeToCalleeCallFrame(TrustedImmPtr(CalleeBits::boxNativeCallee(callee.ptr())), sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
         CCallHelpers::Call call = m_jit.threadSafePatchableNearTailCall();
 
         m_jit.addLinkTask([unlinkedWasmToWasmCalls, call, functionIndexSpace] (LinkBuffer& linkBuffer) {
@@ -4279,12 +4291,8 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(unsigned callSlotIndex, Functio
         // Emit the call.
         Vector<UnlinkedWasmToWasmCall>* unlinkedWasmToWasmCalls = &m_unlinkedWasmToWasmCalls;
         ASSERT(!m_info.isImportedFunctionFromFunctionIndexSpace(functionIndexSpace));
-        RefPtr<IPIntCallee> callee;
-        {
-            Locker locker { m_calleeGroup.m_lock };
-            callee = m_calleeGroup.ipintCalleeFromFunctionIndexSpace(locker, functionIndexSpace);
-        }
-        m_jit.storeWasmCalleeToCalleeCallFrame(TrustedImmPtr(CalleeBits::boxNativeCallee(callee.get())), 0);
+        Ref<IPIntCallee> callee = m_calleeGroup.ipintCalleeFromFunctionIndexSpace(functionIndexSpace);
+        m_jit.storeWasmCalleeToCalleeCallFrame(TrustedImmPtr(CalleeBits::boxNativeCallee(callee.ptr())), 0);
         CCallHelpers::Call call = m_jit.threadSafePatchableNearCall();
 
         m_jit.addLinkTask([unlinkedWasmToWasmCalls, call, functionIndexSpace] (LinkBuffer& linkBuffer) {
@@ -4392,6 +4400,7 @@ void BBQJIT::emitIndirectTailCall(const char* opcode, const Value& callee, GPRRe
     parameterLocations.append(Location::fromStack(tailCallStackOffsetFromFP + Checked<int>(CallFrameSlot::callee * sizeof(Register))));
 
     // Save the old Frame Pointer for later and make sure the return address gets saved to its canonical location.
+    emitRestoreCalleeSaves();
 #if CPU(X86_64)
     // There are no remaining non-argument non-preserved gprs left on X86_64 so we have to shuffle FP to a temp slot.
     resolvedArguments.append(Value::pinned(pointerType(), Location::fromStack(0)));
@@ -4563,38 +4572,23 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callSlotIndex,
             // We should move just to use a single branch and then figure out what
             // error to use in the exception handler.
 
-            // Save the table entry in calleeRTT if needed for the subtype check.
-            bool needsSubtypeCheck = !originalSignature.isFinalType();
-            if (needsSubtypeCheck)
-                m_jit.move(calleeSignatureIndex, calleeRTT);
+            auto targetRTT = TypeInformation::getCanonicalRTT(originalSignature.index());
+            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfRTT());
+            m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), calleeCode, calleeRTT);
+            if (originalSignature.isFinalType())
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, calleeRTT, TrustedImmPtr(targetRTT.ptr())));
+            else {
+                auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeRTT, TrustedImmPtr(targetRTT.ptr()));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchTestPtr(ResultCondition::Zero, calleeRTT));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branch32(CCallHelpers::BelowOrEqual, Address(calleeRTT, RTT::offsetOfDisplaySizeExcludingThis()), TrustedImm32(targetRTT->displaySizeExcludingThis())));
+                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, CCallHelpers::Address(calleeRTT, RTT::offsetOfData() + targetRTT->displaySizeExcludingThis() * sizeof(RefPtr<const RTT>)), TrustedImmPtr(targetRTT.ptr())));
 
-            auto calleeSignatureIndexTmp = scratches.gpr(2);
-            m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), calleeCode, calleeSignatureIndexTmp);
-
-            recordJumpToThrowException(ExceptionType::NullTableEntry, m_jit.branchTestPtr(ResultCondition::Zero, calleeSignatureIndexTmp, calleeSignatureIndexTmp));
-
-            {
-                auto calleeTmp = calleeInstance;
-                m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfBoxedWasmCalleeLoadLocation()), calleeTmp);
-                m_jit.loadPtr(Address(calleeTmp), calleeTmp);
-                m_jit.storeWasmCalleeToCalleeCallFrame(calleeTmp);
+                indexEqual.link(&m_jit);
             }
 
-            m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfInstance()), calleeInstance);
-
-            auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeSignatureIndexTmp, TrustedImmPtr(TypeInformation::get(originalSignature)));
-
-            if (needsSubtypeCheck) {
-                auto targetRTT = TypeInformation::getCanonicalRTT(originalSignature.index());
-                JIT_COMMENT(m_jit, "RTT::isStrictSubRTT()");
-                m_jit.loadPtr(Address(calleeRTT, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfRTT()), calleeRTT);
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branch32(CCallHelpers::BelowOrEqual, Address(calleeRTT, RTT::offsetOfDisplaySizeExcludingThis()), TrustedImm32(targetRTT->displaySizeExcludingThis())));
-                recordJumpToThrowException(ExceptionType::BadSignature, m_jit.branchPtr(CCallHelpers::NotEqual, CCallHelpers::Address(calleeRTT, RTT::offsetOfData() + targetRTT->displaySizeExcludingThis() * sizeof(const RTT*)), TrustedImmPtr(targetRTT.ptr())));
-            } else
-                emitThrowException(ExceptionType::BadSignature);
-
-            indexEqual.link(&m_jit);
-            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfSignatureIndex());
+            m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfBoxedCallee()), calleeInstance);
+            m_jit.storeWasmCalleeToCalleeCallFrame(calleeInstance);
+            m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfTargetInstance()), calleeInstance);
         }
     }
 
@@ -5030,7 +5024,7 @@ Location BBQJIT::canonicalSlot(Value value)
         return m_localSlots[value.asLocal()];
 
     LocalOrTempIndex tempIndex = value.asTemp();
-    int slotOffset = WTF::roundUpToMultipleOf<tempSlotSize>(m_localStorage) + (tempIndex + 1) * tempSlotSize;
+    int slotOffset = WTF::roundUpToMultipleOf<tempSlotSize>(m_localAndCalleeSaveStorage) + (tempIndex + 1) * tempSlotSize;
     if (m_frameSize < slotOffset)
         m_frameSize = slotOffset;
     return Location::fromStack(-slotOffset);
@@ -5091,6 +5085,16 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(Compilati
     compilationContext.bbqDisassembler = irGenerator.takeDisassembler();
 
     return result;
+}
+
+void BBQJIT::emitSaveCalleeSaves()
+{
+    m_jit.emitSaveCalleeSavesFor(&RegisterAtOffsetList::bbqCalleeSaveRegisters());
+}
+
+void BBQJIT::emitRestoreCalleeSaves()
+{
+    m_jit.emitRestoreCalleeSavesFor(&RegisterAtOffsetList::bbqCalleeSaveRegisters());
 }
 
 } } // namespace JSC::Wasm

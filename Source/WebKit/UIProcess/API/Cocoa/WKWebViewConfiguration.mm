@@ -792,6 +792,16 @@ static NSString *defaultApplicationNameForUserAgent()
     return _pageConfiguration->overrideReferrerForAllRequests().createNSString().autorelease();
 }
 
+- (void)_setShouldSendConsoleLogsToUIProcessForTesting:(BOOL)should
+{
+    _pageConfiguration->setShouldSendConsoleLogsToUIProcessForTesting(should);
+}
+
+- (BOOL)_shouldSendConsoleLogsToUIProcessForTesting
+{
+    return _pageConfiguration->shouldSendConsoleLogsToUIProcessForTesting();
+}
+
 - (BOOL)_allowTopNavigationToDataURLs
 {
     return _pageConfiguration->allowTopNavigationToDataURLs();
@@ -1026,7 +1036,7 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 
 - (Class)_attachmentFileWrapperClass
 {
-    return _pageConfiguration->attachmentFileWrapperClass();
+    return _pageConfiguration->attachmentFileWrapperClassSingleton();
 }
 
 - (void)_setAttachmentFileWrapperClass:(Class)attachmentFileWrapperClass

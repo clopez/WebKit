@@ -1,16 +1,5 @@
-Modules/airplay/WebMediaSessionManager.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
-Modules/indexeddb/IDBCursor.cpp
-Modules/indexeddb/IDBIndex.cpp
-Modules/indexeddb/IDBTransaction.cpp
-Modules/indexeddb/server/IDBConnectionToClient.cpp
-Modules/indexeddb/server/MemoryBackingStoreTransaction.cpp
-Modules/indexeddb/server/MemoryIndex.cpp
-Modules/indexeddb/server/MemoryObjectStore.cpp
-Modules/indexeddb/server/SQLiteIDBBackingStore.cpp
-Modules/indexeddb/server/SQLiteIDBCursor.cpp
-Modules/indexeddb/server/UniqueIDBDatabase.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
 Modules/mediasession/MediaMetadata.cpp
@@ -60,7 +49,6 @@ accessibility/cocoa/AccessibilityObjectCocoa.mm
 accessibility/isolatedtree/AXIsolatedTree.cpp
 accessibility/mac/AXObjectCacheMac.mm
 accessibility/mac/AccessibilityObjectMac.mm
-accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 animation/AnimationTimelinesController.cpp
 animation/BlendingKeyframes.cpp
 animation/DocumentTimeline.cpp
@@ -162,7 +150,6 @@ dom/Range.cpp
 dom/RangeBoundaryPoint.h
 dom/ScriptElement.cpp
 dom/ScriptRunner.cpp
-dom/SecurityContext.cpp
 dom/SelectorQuery.cpp
 dom/ShadowRoot.cpp
 dom/SimpleRange.cpp
@@ -255,7 +242,6 @@ html/HTMLObjectElement.cpp
 html/HTMLOptionElement.cpp
 html/HTMLOptionsCollection.cpp
 html/HTMLPlugInElement.cpp
-html/HTMLPlugInImageElement.cpp
 html/HTMLSelectElement.cpp
 html/HTMLStyleElement.cpp
 html/HTMLTableCellElement.cpp
@@ -318,7 +304,6 @@ inspector/agents/InspectorCSSAgent.cpp
 inspector/agents/InspectorCSSAgent.h
 inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
-inspector/agents/InspectorIndexedDBAgent.cpp
 inspector/agents/InspectorLayerTreeAgent.cpp
 inspector/agents/InspectorNetworkAgent.cpp
 inspector/agents/InspectorPageAgent.cpp
@@ -413,8 +398,6 @@ loader/SubframeLoader.cpp
 loader/SubresourceLoader.cpp
 loader/ThreadableLoaderClientWrapper.h
 loader/WorkerThreadableLoader.cpp
-loader/appcache/ApplicationCacheGroup.cpp
-loader/appcache/ApplicationCacheStorage.cpp
 loader/archive/cf/LegacyWebArchive.cpp
 loader/cache/CachedImage.cpp
 mathml/MathMLElement.cpp
@@ -593,6 +576,7 @@ rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnFlow.cpp
 rendering/RenderMultiColumnSet.cpp
 rendering/RenderObject.cpp
+rendering/RenderObjectNode.h
 rendering/RenderProgress.cpp
 rendering/RenderQuote.cpp
 rendering/RenderReplaced.cpp

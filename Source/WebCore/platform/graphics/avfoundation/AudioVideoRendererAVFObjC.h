@@ -76,6 +76,8 @@ public:
     void flush() final;
     void flushTrack(TrackIdentifier) final;
 
+    void applicationWillResignActive() final;
+
     void notifyWhenErrorOccurs(Function<void(PlatformMediaError)>&&) final;
 
     // SynchronizerInterface
@@ -109,6 +111,7 @@ public:
     void notifyWhenRequiresFlushToResume(Function<void()>&&) final;
     void notifyRenderingModeChanged(Function<void()>&&) final;
     void setMinimumUpcomingPresentationTime(const MediaTime&) final;
+    void notifySizeChanged(Function<void(const MediaTime&, FloatSize)>&&) final;
     void setShouldDisableHDR(bool) final;
     void setPlatformDynamicRangeLimit(const PlatformDynamicRangeLimit&) final;
     void setResourceOwner(const ProcessIdentity& resourceOwner) final { m_resourceOwner = resourceOwner; }
@@ -131,6 +134,10 @@ private:
     MediaTime clampTimeToLastSeekTime(const MediaTime&) const;
     void maybeCompleteSeek();
     bool shouldBePlaying() const;
+    bool allRenderersHaveAvailableSamples() const { return m_allRenderersHaveAvailableSamples; }
+    void updateAllRenderersHaveAvailableSamples();
+    void setHasAvailableVideoFrame(bool);
+    void setHasAvailableAudioSample(TrackIdentifier, bool);
 
     std::optional<TrackType> typeOf(TrackIdentifier) const;
 
@@ -179,6 +186,9 @@ private:
 
     RefPtr<VideoMediaSampleRenderer> protectedVideoRenderer() const;
 
+    void sizeWillChangeAtTime(const MediaTime&, const FloatSize&);
+    void flushPendingSizeChanges();
+
     // Logger
     const Logger& logger() const final { return m_logger.get(); }
     Ref<const Logger> protectedLogger() const { return logger(); }
@@ -209,6 +219,7 @@ private:
     Function<void(const MediaTime&, double)> m_hasAvailableVideoFrameCallback;
     Function<void()> m_notifyWhenRequiresFlushToResume;
     Function<void()> m_renderingModeChangedCallback;
+    Function<void(const MediaTime&, FloatSize)> m_sizeChangedCallback;
 
     RetainPtr<id> m_durationObserver;
     bool m_isPlaying { false };
@@ -228,11 +239,17 @@ private:
     RetainPtr<id> m_timeJumpedObserver;
     bool m_isSynchronizerSeeking { false };
     bool m_hasAvailableVideoFrame { false };
+    bool m_allRenderersHaveAvailableSamples { false };
+
+    struct AudioTrackProperties {
+        bool hasAudibleSample { false };
+    };
+    HashMap<TrackIdentifier, AudioTrackProperties> m_audioTracksMap;
+    bool m_readyToRequestVideoData { true };
+    bool m_readyToRequestAudioData { true };
 
     HashMap<TrackIdentifier, TrackType> m_trackTypes;
     HashMap<TrackIdentifier, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
-    bool m_readyToRequestVideoData { true };
-    bool m_readyToRequestAudioData { true };
     RetainPtr<AVSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
     RetainPtr<AVSampleBufferVideoRenderer> m_sampleBufferVideoRenderer;
     RefPtr<VideoMediaSampleRenderer> m_videoRenderer;
@@ -241,6 +258,8 @@ private:
     IntSize m_presentationSize;
     bool m_shouldMaintainAspectRatio { true };
     std::optional<TrackIdentifier> m_enabledVideoTrackId;
+    std::optional<FloatSize> m_cachedSize;
+    Deque<RetainPtr<id>> m_sizeChangeObservers;
     bool m_shouldDisableHDR { false };
     PlatformDynamicRangeLimit m_dynamicRangeLimit { PlatformDynamicRangeLimit::initialValueForVideos() };
     ProcessIdentity m_resourceOwner;

@@ -1376,8 +1376,8 @@ public:
     void drawPagesForPrintingDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(std::optional<WebCore::SharedMemoryHandle>&&, WebCore::ResourceError&&)>&& completionHandler) { drawPagesForPrinting(frameID, printInfo, WTFMove(completionHandler)); }
 #endif
 
-    void addResourceRequest(WebCore::ResourceLoaderIdentifier, bool isMainResourceLoad, const WebCore::ResourceRequest&, const WebCore::DocumentLoader*, WebCore::LocalFrame*);
-    void removeResourceRequest(WebCore::ResourceLoaderIdentifier, bool isMainResourceLoad, WebCore::LocalFrame*);
+    void addResourceRequest(WebCore::ResourceLoaderIdentifier, const WebCore::ResourceRequest&, const WebCore::DocumentLoader*, WebCore::LocalFrame*);
+    void removeResourceRequest(WebCore::ResourceLoaderIdentifier, WebCore::LocalFrame*);
 
     void setMediaVolume(float);
     void setMuted(WebCore::MediaProducerMutedStateFlags, CompletionHandler<void()>&&);
@@ -1988,7 +1988,6 @@ public:
     void saveSnapshotOfTextPlaceholderForAnimation(const WebCore::SimpleRange&);
     void clearAnimationsForActiveWritingToolsSession();
 
-    std::optional<WebCore::TextIndicatorData> createTextIndicatorForRange(const WebCore::SimpleRange&);
     void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&&);
 
     void didEndPartialIntelligenceTextAnimation();
@@ -2449,7 +2448,7 @@ private:
     void handleAcceptedCandidate(WebCore::TextCheckingResult);
 #endif
 
-    void performHitTestForMouseEvent(const WebMouseEvent&, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>, UserData&&)>&&);
+    void performHitTestForMouseEvent(const WebMouseEvent&, CompletionHandler<void(WebHitTestResultData&&, OptionSet<WebEventModifier>)>&&);
 
 #if PLATFORM(COCOA)
     void requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, WebCore::NowPlayingInfo&&)>&&);
@@ -2863,7 +2862,7 @@ private:
     };
     std::optional<DeferredDidReceiveMouseEvent> m_deferredDidReceiveMouseEvent;
 
-    HashMap<WebCore::FrameIdentifier, unsigned> m_networkResourceRequestCountForPageLoadTiming;
+    HashMap<WebCore::FrameIdentifier, HashSet<WebCore::ResourceLoaderIdentifier>> m_networkResourceRequestIdentifiersForPageLoadTiming;
     HashSet<WebCore::ResourceLoaderIdentifier> m_trackedNetworkResourceRequestIdentifiers;
 
     WebCore::IntSize m_minimumSizeForAutoLayout;

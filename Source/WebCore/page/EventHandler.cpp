@@ -290,6 +290,7 @@ public:
         static constexpr double radiusXDefaultValue = 1;
         static constexpr double radiusYDefaultValue = 1;
         static constexpr float rotationAngleDefaultValue = 0.0f;
+        static constexpr double twistDefaultValue = 0;
         static constexpr float forceDefaultValue = 1.0f;
 
         m_id = idDefaultValue; // There is only one active TouchPoint.
@@ -297,6 +298,7 @@ public:
         m_pos = event.position();
         m_radius = { radiusXDefaultValue, radiusYDefaultValue };
         m_rotationAngle = rotationAngleDefaultValue;
+        m_twist = twistDefaultValue;
         m_force = forceDefaultValue;
 
         PlatformEvent::Type type = event.type();
@@ -465,6 +467,7 @@ void EventHandler::clear()
     m_lastScrollbarUnderMouse = nullptr;
     m_clickCount = 0;
     m_clickNode = nullptr;
+    m_clickCaptureElement = nullptr;
 #if ENABLE(IOS_GESTURE_EVENTS)
     m_gestureInitialDiameter = GestureUnknown;
     m_gestureInitialRotation = GestureUnknown;
@@ -509,6 +512,9 @@ void EventHandler::nodeWillBeRemoved(Node& nodeToBeRemoved)
 
     if (nodeToBeRemoved.isShadowIncludingInclusiveAncestorOf(RefPtr { m_lastElementUnderMouse }.get()))
         m_lastElementUnderMouse = nullptr;
+
+    if (nodeToBeRemoved.isShadowIncludingInclusiveAncestorOf(RefPtr { m_clickCaptureElement }.get()))
+        m_clickCaptureElement = nullptr;
 }
 
 static void setSelectionIfNeeded(FrameSelection& selection, const VisibleSelection& newSelection)
@@ -2383,6 +2389,7 @@ void EventHandler::invalidateClick()
 {
     m_clickCount = 0;
     m_clickNode = nullptr;
+    m_clickCaptureElement = nullptr;
 }
 
 static RefPtr<Node> targetNodeForClickEvent(Node* mousePressNode, Node* mouseReleaseNode)
@@ -2402,7 +2409,7 @@ static RefPtr<Node> targetNodeForClickEvent(Node* mousePressNode, Node* mouseRel
     auto mouseReleaseShadowHost = mouseReleaseNode->shadowHost();
     if (mouseReleaseShadowHost && mouseReleaseShadowHost == mousePressNode->shadowHost()) {
         // We want to dispatch the click to the shadow tree host element to give listeners the illusion that the
-        // shadom tree is a single element. For example, we want to give the illusion that <input type="range">
+        // shadow tree is a single element. For example, we want to give the illusion that <input type="range">
         // is a single element even though it is a composition of multiple shadom tree elements.
         return mouseReleaseShadowHost;
     }
@@ -2426,7 +2433,7 @@ bool EventHandler::swallowAnyClickEvent(const PlatformMouseEvent& platformMouseE
         return targetNodeForClickEvent(RefPtr { m_clickNode }.get(), mouseEvent.protectedTargetNode().get());
     }();
 
-    if (!nodeToClick)
+    if (!nodeToClick && !m_clickCaptureElement)
         return false;
 
     bool isPrimaryPointerButton = platformMouseEvent.button() == MouseButton::Left;
@@ -2439,7 +2446,13 @@ bool EventHandler::swallowAnyClickEvent(const PlatformMouseEvent& platformMouseE
     // The click event should only be fired for the primary pointer button.
 
     auto& eventName = isPrimaryPointerButton ? eventNames().clickEvent : eventNames().auxclickEvent;
-    bool swallowed = !dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
+
+    bool swallowed = false;
+    if (RefPtr clickCaptureElement = std::exchange(m_clickCaptureElement, nullptr)) {
+        updateMouseEventTargetNode(eventName, nodeToClick.get(), platformMouseEvent, FireMouseOverOut::Yes);
+        swallowed = !dispatchAnyClickEvent(eventName, clickCaptureElement.get(), m_clickCount, platformMouseEvent);
+    } else
+        swallowed = !dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
 
     if (RefPtr page = m_frame->page())
         page->chrome().client().didDispatchClickEvent(platformMouseEvent, *nodeToClick);
@@ -2602,7 +2615,7 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
         return false;
 
     auto dragEvent = DragEvent::create(eventType, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes,
-        event.timestamp().approximateMonotonicTime(), &frame->windowProxy(), 0,
+        event.timestamp(), &frame->windowProxy(), 0,
         flooredIntPoint(event.globalPosition()), flooredIntPoint(event.position()), event.movementDelta().x(), event.movementDelta().y(),
         event.modifiers(), MouseButton::Left, 0, nullptr, event.force(), SyntheticClickType::NoTap, &dataTransfer);
 
@@ -2858,6 +2871,10 @@ void EventHandler::pointerCaptureElementDidChange(Element* element)
 
     setCapturingMouseEventsElement(element);
 
+    // Click events should be aware of pointer capture, too.
+    if (element && m_clickNode)
+        m_clickCaptureElement = element;
+
     // Now that we have a new capture element, we need to dispatch boundary mouse events.
     updateMouseEventTargetNode(eventNames().gotpointercaptureEvent, element, m_lastPlatformMouseEvent, FireMouseOverOut::Yes);
 }
@@ -2918,7 +2935,7 @@ void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node*
 {
     Ref frame = m_frame.get();
     RefPtr<Element> targetElement;
-    
+
     // If we're capturing, we always go right to that element.
     if (m_capturingMouseEventsElement)
         targetElement = m_capturingMouseEventsElement.get();
@@ -3079,10 +3096,23 @@ void EventHandler::notifyScrollableAreasOfMouseEvents(const AtomString& eventTyp
         scrollableAreaForNodeUnderMouse->mouseEnteredContentArea();
 }
 
+bool EventHandler::dispatchAnyClickEvent(const AtomString& eventType, Node* clickNode, int clickCount, const PlatformMouseEvent& platformMouseEvent)
+{
+    if (clickNode) {
+        if (RefPtr node = dynamicDowncast<Element>(*clickNode))
+            return node->dispatchMouseEvent(platformMouseEvent, eventType, clickCount, nullptr, IsSyntheticClick::No).first == Element::EventIsDispatched::Yes;
+    }
+    return false;
+}
+
 bool EventHandler::dispatchMouseEvent(const AtomString& eventType, Node* targetNode, int clickCount, const PlatformMouseEvent& platformMouseEvent, FireMouseOverOut fireMouseOverOut)
 {
     Ref frame = m_frame.get();
 
+    if (eventType == eventNames().clickEvent) {
+        if (RefPtr window = frame->window())
+            window->updateLastUserClickEvent(platformMouseEvent.modifiers());
+    }
     updateMouseEventTargetNode(eventType, targetNode, platformMouseEvent, fireMouseOverOut);
 
     bool isMouseDownEvent = eventType == eventNames().mousedownEvent;
@@ -3734,7 +3764,7 @@ bool EventHandler::sendContextMenuEventForKey()
 #else
     PlatformEvent::Type eventType = PlatformEvent::Type::MousePressed;
 #endif
-    PlatformMouseEvent platformMouseEvent(position, globalPosition, MouseButton::Right, eventType, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::NoTap);
+    PlatformMouseEvent platformMouseEvent(position, globalPosition, MouseButton::Right, eventType, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap);
 
     return sendContextMenuEvent(platformMouseEvent);
 }
@@ -3820,7 +3850,7 @@ void EventHandler::fakeMouseMoveEventTimerFired()
         return;
 
     auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
-    PlatformMouseEvent fakeMouseMoveEvent(valueOrDefault(m_lastKnownMousePosition), m_lastKnownMouseGlobalPosition, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, modifiers, WallTime::now(), 0, SyntheticClickType::NoTap);
+    PlatformMouseEvent fakeMouseMoveEvent(valueOrDefault(m_lastKnownMousePosition), m_lastKnownMouseGlobalPosition, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, modifiers, MonotonicTime::now(), 0, SyntheticClickType::NoTap);
     mouseMoved(fakeMouseMoveEvent);
 }
 #endif // !ENABLE(IOS_TOUCH_EVENTS)

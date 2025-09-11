@@ -29,8 +29,6 @@
 
 #if ENABLE(VIDEO)
 
-#include "ApplicationCacheHost.h"
-#include "ApplicationCacheResource.h"
 #include "Attribute.h"
 #include "AudioTrackConfiguration.h"
 #include "AudioTrackList.h"
@@ -47,6 +45,7 @@
 #include "ContentRuleListResults.h"
 #include "ContentSecurityPolicy.h"
 #include "ContentType.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CookieJar.h"
 #include "DNS.h"
 #include "DeprecatedGlobalSettings.h"
@@ -974,6 +973,8 @@ void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomStr
     switch (name.nodeName()) {
     case AttributeNames::idAttr:
         m_id = newValue;
+        if (RefPtr player = m_player)
+            player->elementIdChanged(m_id);
         break;
     case AttributeNames::srcAttr:
         // https://html.spec.whatwg.org/multipage/embedded-content.html#location-of-the-media-resource
@@ -1184,7 +1185,7 @@ inline void HTMLMediaElement::updateRenderer()
     if (CheckedPtr renderer = this->renderer())
         renderer->updateFromElement();
 
-    if (RefPtr mediaControlsHost = m_mediaControlsHost)
+    if (RefPtr mediaControlsHost = m_mediaControlsHost.get())
         mediaControlsHost->updateCaptionDisplaySizes();
 
     if (RefPtr player = m_player)
@@ -1856,17 +1857,6 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
     // The resource fetch algorithm
     m_networkState = NETWORK_LOADING;
 
-    // If the URL should be loaded from the application cache, pass the URL of the cached file to the media engine.
-    RefPtr<ApplicationCacheResource> resource;
-    if (!url.isEmpty() && frame->loader().documentLoader()->applicationCacheHost().shouldLoadResourceFromApplicationCache(ResourceRequest(URL { url }), resource)) {
-        // Resources that are not present in the manifest will always fail to load (at least, after the
-        // cache has been primed the first time), making the testing of offline applications simpler.
-        if (!resource || resource->path().isEmpty()) {
-            mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-            return;
-        }
-    }
-
     // Log that we started loading a media element.
     page->diagnosticLoggingClient().logDiagnosticMessage(isVideo() ? DiagnosticLoggingKeys::videoKey() : DiagnosticLoggingKeys::audioKey(), DiagnosticLoggingKeys::loadingKey(), ShouldSample::No);
 
@@ -1875,11 +1865,6 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
     // Set m_currentSrc *before* changing to the cache URL, the fact that we are loading from the app
     // cache is an internal detail not exposed through the media element API.
     setCurrentSrc(url);
-
-    if (resource) {
-        url = ApplicationCacheHost::createFileURL(resource->path());
-        INFO_LOG(logSiteIdentifier, "will load from app cache ", url);
-    }
 
     INFO_LOG(logSiteIdentifier, "m_currentSrc is ", m_currentSrc);
 
@@ -5382,7 +5367,7 @@ void HTMLMediaElement::layoutSizeChanged()
         if (RefPtr root = element.userAgentShadowRoot())
             root->dispatchEvent(Event::create(eventNames().resizeEvent, Event::CanBubble::No, Event::IsCancelable::No));
 
-        if (RefPtr mediaControlsHost = element.m_mediaControlsHost)
+        if (RefPtr mediaControlsHost = element.m_mediaControlsHost.get())
             mediaControlsHost->updateCaptionDisplaySizes();
     });
 
@@ -7843,7 +7828,7 @@ void HTMLMediaElement::captionPreferencesChanged()
     if (!isVideo())
         return;
 
-    if (RefPtr mediaControlsHost = m_mediaControlsHost)
+    if (RefPtr mediaControlsHost = m_mediaControlsHost.get())
         mediaControlsHost->updateCaptionDisplaySizes(MediaControlsHost::ForceUpdate::Yes);
 
     if (RefPtr player = m_player)
@@ -8699,10 +8684,10 @@ bool HTMLMediaElement::ensureMediaControls()
                 return false;
 
             if (!m_mediaControlsHost)
-                m_mediaControlsHost = MediaControlsHost::create(*this);
+                lazyInitialize(m_mediaControlsHost, makeUniqueWithoutRefCountedCheck<MediaControlsHost>(*this));
 
             auto mediaJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *this);
-            auto mediaControlsHostJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *m_mediaControlsHost.copyRef());
+            auto mediaControlsHostJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *m_mediaControlsHost);
 
             JSC::MarkedArgumentBuffer argList;
             argList.append(toJS(&lexicalGlobalObject, &globalObject, Ref { ensureUserAgentShadowRoot() }));
@@ -8750,10 +8735,10 @@ bool HTMLMediaElement::ensureMediaControls()
                 return false;
 
             if (!m_mediaControlsHost)
-                m_mediaControlsHost = MediaControlsHost::create(*this);
+                lazyInitialize(m_mediaControlsHost, makeUniqueWithoutRefCountedCheck<MediaControlsHost>(*this));
 
             auto mediaJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *this);
-            auto mediaControlsHostJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *m_mediaControlsHost.copyRef());
+            auto mediaControlsHostJSWrapper = toJS(&lexicalGlobalObject, &globalObject, *m_mediaControlsHost);
 
             JSC::MarkedArgumentBuffer argList;
             argList.append(toJS(&lexicalGlobalObject, &globalObject, Ref { ensureUserAgentShadowRoot() }));

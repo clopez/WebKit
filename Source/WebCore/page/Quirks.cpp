@@ -30,6 +30,7 @@
 #include "Attr.h"
 #include "ContainerNodeInlines.h"
 #include "DeprecatedGlobalSettings.h"
+#include "DatasetDOMStringMap.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
@@ -47,6 +48,7 @@
 #include "HTMLMetaElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
+#include "HTMLScriptElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HTMLVideoElement.h"
 #include "JSEventListener.h"
@@ -70,6 +72,7 @@
 #include "ScriptSourceCode.h"
 #include "Settings.h"
 #include "SpaceSplitString.h"
+#include "StaticNodeList.h"
 #include "TrustedFonts.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "UserAgent.h"
@@ -131,6 +134,7 @@ static inline bool needsDesktopUserAgentInternal(const URL&) { return false; }
 static inline bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscapeInternal(const URL&) { return false; }
 static inline String standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(const String&, const String&, UserAgentType) { return { }; }
 static inline bool shouldNotAutoUpgradeToHTTPSNavigationInternal(const URL&) { return false; }
+static inline bool shouldDisableBlobFileAccessEnforcementInternal() { return false; }
 #endif
 
 Quirks::Quirks(Document& document)
@@ -149,6 +153,11 @@ inline bool Quirks::needsQuirks() const
 bool Quirks::shouldIgnoreInvalidSignal() const
 {
     return needsQuirks();
+}
+
+bool Quirks::shouldDisableBlobFileAccessEnforcement()
+{
+    return shouldDisableBlobFileAccessEnforcementInternal();
 }
 
 // FIXME: Add more options to the helper to cover more patterns.
@@ -525,7 +534,7 @@ bool Quirks::needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const
 // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=199587
 bool Quirks::inputMethodUsesCorrectKeyEventOrder() const
 {
-    return needsQuirks() && m_quirksData.inputMethodUsesCorrectKeyEventOrder;
+    return false;
 }
 
 // FIXME: Remove after the site is fixed, <rdar://problem/50374200>
@@ -900,6 +909,42 @@ bool Quirks::shouldMakeEventListenerPassive(const EventTarget& eventTarget, cons
 }
 
 #if ENABLE(MEDIA_STREAM)
+bool Quirks::shouldEnableFacebookFlagQuirk() const
+{
+    return needsQuirks() && m_quirksData.shouldEnableFacebookFlagQuirk;
+}
+
+static Ref<Element> createFacebookFlagElement(Document& document, ASCIILiteral value)
+{
+    Ref text = Text::create(document, makeString("{\"require\":[[\"HasteSupportData\",\"handle\",null,[{\"gkxData\":{\""_s, value, "\":{\"result\":true,\"hash\":null}}}]]]}"_s));
+
+    Ref script = HTMLScriptElement::create(HTMLNames::scriptTag, document, false);
+    script->dataset().setNamedItem("contentLen"_s, AtomString { makeString(text->length()) });
+    script->appendChild(text);
+
+    return script;
+}
+
+static Vector<Ref<Element>> copyElements(const NodeList& nodeList)
+{
+    Vector<Ref<Element>> elements;
+    for (size_t cptr = 0; cptr < nodeList.length(); ++cptr) {
+        if (RefPtr element = dynamicDowncast<Element>(nodeList.item(cptr)))
+            elements.append(element.releaseNonNull());
+    }
+    return elements;
+}
+
+Ref<NodeList> Quirks::applyFacebookFlagQuirk(Document& document, const NodeList& nodeList)
+{
+    m_quirksData.shouldEnableFacebookFlagQuirk = false;
+
+    auto elements = copyElements(nodeList);
+    // Live Streaming flag activation
+    elements.append(createFacebookFlagElement(document, "23460"_s));
+    return StaticElementList::create(WTFMove(elements));
+}
+
 // warbyparker.com rdar://72839707
 // baidu.com rdar://56421276
 bool Quirks::shouldEnableLegacyGetUserMediaQuirk() const
@@ -1291,6 +1336,14 @@ bool Quirks::shouldEnableFontLoadingAPIQuirk() const
     return m_quirksData.shouldEnableFontLoadingAPIQuirk;
 }
 
+#if HAVE(PIP_SKIP_PREROLL)
+// play.hbomax.com rdar://158430821
+bool Quirks::shouldDisableAdSkippingInPip() const
+{
+    return needsQuirks() && m_quirksData.shouldDisableAdSkippingInPip;
+}
+#endif
+
 // hulu.com rdar://100199996
 bool Quirks::needsVideoShouldMaintainAspectRatioQuirk() const
 {
@@ -1564,10 +1617,31 @@ bool Quirks::needsLaxSameSiteCookieQuirk(const URL& requestURL) const
     return url.protocolIs("https"_s) && url.host() == "login.microsoftonline.com"_s && requestURL.protocolIs("https"_s) && requestURL.host() == "www.bing.com"_s;
 }
 
+#if PLATFORM(COCOA)
+
+#if !PLATFORM(IOS_FAMILY)
+static constexpr auto frozenVersion = "10_15_7"_s;
+#elif PLATFORM(WATCHOS)
+static constexpr auto frozenVersion = "11_6_1"_s;
+#elif PLATFORM(APPLETV)
+static constexpr auto frozenVersion = "18_6"_s;
+#else
+static constexpr auto frozenVersion = "18_7"_s;
+#endif
+
 String Quirks::standardUserAgentWithApplicationNameIncludingCompatOverrides(const String& applicationName, const String& userAgentOSVersion, UserAgentType type)
 {
-    return standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(applicationName, userAgentOSVersion, type);
+    auto overriddenUAString = standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(applicationName, userAgentOSVersion, type);
+    if (overriddenUAString.length())
+        return overriddenUAString;
+
+    if (userAgentOSVersion == frozenVersion)
+        return { };
+
+    return standardUserAgentWithApplicationName(applicationName, frozenVersion, type);
 }
+
+#endif
 
 #if ENABLE(TEXT_AUTOSIZING)
 // news.ycombinator.com: rdar://127246368
@@ -2374,6 +2448,8 @@ static void handleFacebookQuirks(QuirksData& quirksData, const URL& quirksURL, c
 #if ENABLE(MEDIA_STREAM)
     // facebook.com rdar://158736355
     quirksData.shouldEnableCameraAndMicrophonePermissionStateQuirk = true;
+    // facebook.com rdar://41104397
+    quirksData.shouldEnableFacebookFlagQuirk = true;
 #endif
 #if ENABLE(WEB_RTC)
     // facebook.com rdar://158736355
@@ -2570,6 +2646,11 @@ static void handleHBOMaxQuirks(QuirksData& quirksData, const URL& quirksURL, con
 
     // play.hbomax.com https://bugs.webkit.org/show_bug.cgi?id=244737
     quirksData.shouldEnableFontLoadingAPIQuirk = true;
+
+#if HAVE(PIP_SKIP_PREROLL)
+    // play.hbomax.com rdar://158430821
+    quirksData.shouldDisableAdSkippingInPip = true;
+#endif
 }
 
 static void handleHotelsQuirks(QuirksData& quirksData, const URL&, const String& quirksDomainString, const URL&)

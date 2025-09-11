@@ -283,27 +283,27 @@ template<CSSPropertyID propertyID> void extractSerialization(ExtractorState& sta
 
 // MARK: - Utilities
 
-template<typename MappingFunctor> Ref<CSSValue> extractFillLayerValue(ExtractorState& state, const FillLayer& layers, MappingFunctor&& mapper)
+template<typename Layers, typename MappingFunctor> Ref<CSSValue> extractFillLayerValue(ExtractorState& state, const Layers& layers, MappingFunctor&& mapper)
 {
-    if (!layers.next())
-        return mapper(state, layers);
+    if (layers.size() == 1)
+        return mapper(state, layers.first());
     CSSValueListBuilder list;
-    for (auto* layer = &layers; layer; layer = layer->next())
-        list.append(mapper(state, *layer));
+    for (auto& layer : layers)
+        list.append(mapper(state, layer));
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
-template<typename MappingFunctor> void extractFillLayerValueSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const FillLayer& layers, MappingFunctor&& mapper)
+template<typename Layers, typename MappingFunctor> void extractFillLayerValueSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const Layers& layers, MappingFunctor&& mapper)
 {
     bool includeComma = false;
 
-    if (!layers.next()) {
-        mapper(state, builder, context, includeComma, layers);
+    if (layers.size() == 1) {
+        mapper(state, builder, context, includeComma, layers.first());
         return;
     }
 
-    for (auto* layer = &layers; layer; layer = layer->next()) {
-        mapper(state, builder, context, includeComma, *layer);
+    for (auto& layer : layers) {
+        mapper(state, builder, context, includeComma, layer);
         includeComma = true;
     }
 }
@@ -1113,9 +1113,9 @@ inline void extractBorderRadiusShorthandSerialization(ExtractorState& state, Str
     builder.append(extractBorderRadiusShorthand(state, propertyID)->cssText(context));
 }
 
-inline Ref<CSSValue> extractFillLayerPropertyShorthand(ExtractorState& state, CSSPropertyID property, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
+template<CSSPropertyID property> inline Ref<CSSValue> extractFillLayerPropertyShorthand(ExtractorState& state, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
 {
-    ASSERT(property == CSSPropertyBackground || property == CSSPropertyMask);
+    static_assert(property == CSSPropertyBackground || property == CSSPropertyMask);
 
     auto computeRenderStyle = [&](std::unique_ptr<RenderStyle>& ownedStyle) -> const RenderStyle* {
         if (auto renderer = state.element->renderer(); renderer && renderer->isComposited() && Style::Interpolation::isAccelerated(property, state.element->document().settings())) {
@@ -1138,14 +1138,16 @@ inline Ref<CSSValue> extractFillLayerPropertyShorthand(ExtractorState& state, CS
         if (!style)
             return 0;
 
-        auto& layers = property == CSSPropertyMask ? style->maskLayers() : style->backgroundLayers();
+        const auto& layers = [&] {
+            if constexpr (property == CSSPropertyMask)
+                return style->maskLayers();
+            else
+                return style->backgroundLayers();
+        }();
 
-        size_t layerCount = 0;
-        for (auto* layer = &layers; layer; layer = layer->next())
-            layerCount++;
-        if (layerCount == 1 && property == CSSPropertyMask && !layers.image())
+        if (layers.size() == 1 && property == CSSPropertyMask && !layers.first().hasImage())
             return 0;
-        return layerCount;
+        return layers.size();
     }();
     if (!layerCount) {
         ASSERT(property == CSSPropertyMask);
@@ -1181,10 +1183,10 @@ inline Ref<CSSValue> extractFillLayerPropertyShorthand(ExtractorState& state, CS
     return CSSValueList::createCommaSeparated(WTFMove(layers));
 }
 
-inline void extractFillLayerPropertyShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, CSSPropertyID property, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
+template<CSSPropertyID property> inline void extractFillLayerPropertyShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
 {
     // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(extractFillLayerPropertyShorthand(state, property, propertiesBeforeSlashSeparator, propertiesAfterSlashSeparator, lastLayerProperty)->cssText(context));
+    builder.append(extractFillLayerPropertyShorthand<property>(state, propertiesBeforeSlashSeparator, propertiesAfterSlashSeparator, lastLayerProperty)->cssText(context));
 }
 
 // MARK: - Custom Extractors
@@ -1876,7 +1878,7 @@ inline void ExtractorCustom::extractBorderImageWidthSerialization(ExtractorState
 inline Ref<CSSValue> ExtractorCustom::extractTransform(ExtractorState& state)
 {
     if (!state.style.hasTransform())
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
     if (state.renderer) {
         TransformationMatrix transform;
@@ -1888,21 +1890,15 @@ inline Ref<CSSValue> ExtractorCustom::extractTransform(ExtractorState& state)
     // If we don't have a renderer, then the value should be "none" if we're asking for the
     // resolved value (such as when calling getComputedStyle()).
     if (state.valueType == ExtractorState::PropertyValueType::Resolved)
-        return CSSPrimitiveValue::create(CSSValueNone);
+        return createCSSValue(state.pool, state.style, CSS::Keyword::None { });
 
-    CSSValueListBuilder list;
-    for (auto& operation : state.style.transform())
-        list.append(ExtractorConverter::convertTransformOperation(state, operation));
-    if (!list.isEmpty())
-        return CSSTransformListValue::create(WTFMove(list));
-
-    return CSSPrimitiveValue::create(CSSValueNone);
+    return createCSSValue(state.pool, state.style, state.style.transform());
 }
 
 inline void ExtractorCustom::extractTransformSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     if (!state.style.hasTransform()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
 
@@ -1917,18 +1913,11 @@ inline void ExtractorCustom::extractTransformSerialization(ExtractorState& state
     // If we don't have a renderer, then the value should be "none" if we're asking for the
     // resolved value (such as when calling getComputedStyle()).
     if (state.valueType == ExtractorState::PropertyValueType::Resolved) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
+        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
         return;
     }
 
-    if (state.style.transform().isEmpty()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::None { });
-        return;
-    }
-
-    builder.append(interleave(state.style.transform(), [&](auto& builder, auto& transform) {
-        ExtractorSerializer::serializeTransformOperation(state, builder, context, transform);
-    }, ' '));
+    serializationForCSS(builder, context, state.style, state.style.transform());
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractTranslate(ExtractorState& state)
@@ -2091,9 +2080,8 @@ inline RefPtr<CSSValue> ExtractorCustom::extractBackgroundShorthand(ExtractorSta
     static constexpr std::array propertiesBeforeSlashSeparator { CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat, CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition };
     static constexpr std::array propertiesAfterSlashSeparator { CSSPropertyBackgroundSize, CSSPropertyBackgroundOrigin, CSSPropertyBackgroundClip };
 
-    return extractFillLayerPropertyShorthand(
+    return extractFillLayerPropertyShorthand<CSSPropertyBackground>(
         state,
-        CSSPropertyBackground,
         StylePropertyShorthand(CSSPropertyBackground, std::span { propertiesBeforeSlashSeparator }),
         StylePropertyShorthand(CSSPropertyBackground, std::span { propertiesAfterSlashSeparator }),
         CSSPropertyBackgroundColor
@@ -2105,11 +2093,10 @@ inline void ExtractorCustom::extractBackgroundShorthandSerialization(ExtractorSt
     static constexpr std::array propertiesBeforeSlashSeparator { CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat, CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition };
     static constexpr std::array propertiesAfterSlashSeparator { CSSPropertyBackgroundSize, CSSPropertyBackgroundOrigin, CSSPropertyBackgroundClip };
 
-    extractFillLayerPropertyShorthandSerialization(
+    extractFillLayerPropertyShorthandSerialization<CSSPropertyBackground>(
         state,
         builder,
         context,
-        CSSPropertyBackground,
         StylePropertyShorthand(CSSPropertyBackground, std::span { propertiesBeforeSlashSeparator }),
         StylePropertyShorthand(CSSPropertyBackground, std::span { propertiesAfterSlashSeparator }),
         CSSPropertyBackgroundColor
@@ -2480,9 +2467,8 @@ inline RefPtr<CSSValue> ExtractorCustom::extractMaskShorthand(ExtractorState& st
     static constexpr std::array propertiesBeforeSlashSeparator { CSSPropertyMaskImage, CSSPropertyMaskPosition };
     static constexpr std::array propertiesAfterSlashSeparator { CSSPropertyMaskSize, CSSPropertyMaskRepeat, CSSPropertyMaskOrigin, CSSPropertyMaskClip, CSSPropertyMaskComposite, CSSPropertyMaskMode };
 
-    return extractFillLayerPropertyShorthand(
+    return extractFillLayerPropertyShorthand<CSSPropertyMask>(
         state,
-        CSSPropertyMask,
         StylePropertyShorthand(CSSPropertyMask, std::span { propertiesBeforeSlashSeparator }),
         StylePropertyShorthand(CSSPropertyMask, std::span { propertiesAfterSlashSeparator }),
         CSSPropertyInvalid
@@ -2494,11 +2480,10 @@ inline void ExtractorCustom::extractMaskShorthandSerialization(ExtractorState& s
     static constexpr std::array propertiesBeforeSlashSeparator { CSSPropertyMaskImage, CSSPropertyMaskPosition };
     static constexpr std::array propertiesAfterSlashSeparator { CSSPropertyMaskSize, CSSPropertyMaskRepeat, CSSPropertyMaskOrigin, CSSPropertyMaskClip, CSSPropertyMaskComposite, CSSPropertyMaskMode };
 
-    extractFillLayerPropertyShorthandSerialization(
+    extractFillLayerPropertyShorthandSerialization<CSSPropertyMask>(
         state,
         builder,
         context,
-        CSSPropertyMask,
         StylePropertyShorthand(CSSPropertyMask, std::span { propertiesBeforeSlashSeparator }),
         StylePropertyShorthand(CSSPropertyMask, std::span { propertiesAfterSlashSeparator }),
         CSSPropertyInvalid
