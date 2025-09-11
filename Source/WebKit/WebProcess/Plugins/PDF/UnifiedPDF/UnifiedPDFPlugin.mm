@@ -90,6 +90,7 @@
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/ImmediateActionStage.h>
 #include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/NotImplemented.h>
@@ -277,7 +278,8 @@ void UnifiedPDFPlugin::teardown()
     m_annotationContainer = nullptr;
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)
-    frame->protectedPage()->removePDFPageNumberIndicator(*this);
+    if (RefPtr webPage = frame->page())
+        webPage->removePDFPageNumberIndicator(*this);
 #endif
 }
 

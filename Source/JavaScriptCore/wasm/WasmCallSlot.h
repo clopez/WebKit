@@ -42,11 +42,37 @@ public:
         ++m_count;
     }
 
-    uint32_t* addressOfCount() { return &m_count; }
+    void observeCrossInstanceCall()
+    {
+        m_boxedCallee = megamorphicCallee;
+    }
+
+    void observeCallIndirect(EncodedJSValue boxedCallee)
+    {
+        if (m_boxedCallee == boxedCallee)
+            return;
+
+        if (!m_boxedCallee) {
+            m_boxedCallee = boxedCallee;
+            return;
+        }
+
+        // Initially, we are giving up for polymorphic calls.
+        m_boxedCallee = megamorphicCallee;
+    }
+
+    EncodedJSValue boxedCallee() const { return m_boxedCallee; }
+
     static constexpr ptrdiff_t offsetOfCount() { return OBJECT_OFFSETOF(CallSlot, m_count); }
+    static constexpr ptrdiff_t offsetOfBoxedCallee() { return OBJECT_OFFSETOF(CallSlot, m_boxedCallee); }
+
+    static constexpr EncodedJSValue initCallee = 0b00;
+    static constexpr EncodedJSValue polymorphicCallee = 0b01;
+    static constexpr EncodedJSValue megamorphicCallee = 0b11;
 
 private:
     uint32_t m_count { 0 };
+    EncodedJSValue m_boxedCallee { initCallee };
 };
 
 } // namespace JSC::Wasm

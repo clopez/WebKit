@@ -4298,8 +4298,38 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     _page->hitTestAtPoint(frame ? frame->_frameInfo->frameInfoData().frameID : mainFrame->frameID(), point, [completionHandler = makeBlockPtr(completionHandler)] (auto&& result) mutable {
         if (!result)
             return completionHandler(nil, unknownError().get());
-        completionHandler(wrapper(API::JSHandle::create(WTFMove(*result))).get(), nil);
+        completionHandler(wrapper(API::JSHandle::getOrCreate(WTFMove(*result))).get(), nil);
     });
+}
+
+- (void)_setStatusBarIsVisible:(BOOL)visible
+{
+    _page->setStatusBarIsVisible(visible);
+}
+
+- (BOOL)_statusBarIsVisible
+{
+    return _page->statusBarIsVisible();
+}
+
+- (void)_setMenuBarIsVisible:(BOOL)visible
+{
+    _page->setMenuBarIsVisible(visible);
+}
+
+- (BOOL)_menuBarIsVisible
+{
+    return _page->menuBarIsVisible();
+}
+
+- (void)_setToolbarsAreVisible:(BOOL)visible
+{
+    _page->setToolbarsAreVisible(visible);
+}
+
+- (BOOL)_toolbarsAreVisible
+{
+    return _page->toolbarsAreVisible();
 }
 
 - (void)_toggleInWindow

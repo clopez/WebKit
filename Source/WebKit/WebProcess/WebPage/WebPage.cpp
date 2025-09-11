@@ -712,6 +712,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if ENABLE(WRITING_TOOLS)
     , m_textAnimationController(makeUniqueRef<TextAnimationController>(*this))
 #endif
+    , m_statusBarIsVisible(parameters.statusBarIsVisible)
+    , m_menuBarIsVisible(parameters.menuBarIsVisible)
+    , m_toolbarsAreVisible(parameters.toolbarsAreVisible)
 {
     WEBPAGE_RELEASE_LOG(Loading, "constructor:");
 
@@ -10193,7 +10196,7 @@ void WebPage::hitTestAtPoint(WebCore::FrameIdentifier frameID, WebCore::FloatPoi
         RELEASE_ASSERT(lexicalGlobalObject->template inherits<WebCore::JSDOMGlobalObject>());
         auto* domGlobalObject = jsCast<WebCore::JSDOMGlobalObject*>(lexicalGlobalObject);
         JSLockHolder locker(lexicalGlobalObject);
-        return WebCore::WebKitJSHandle::create(document, WebCore::toJS(lexicalGlobalObject, domGlobalObject, *node).toObject(lexicalGlobalObject));
+        return WebCore::WebKitJSHandle::getOrCreate(*lexicalGlobalObject, WebCore::toJS(lexicalGlobalObject, domGlobalObject, *node).toObject(lexicalGlobalObject));
     }();
     completionHandler({ JSHandleInfo { nodeHandle->identifier(), nodeWebFrame->info(), nodeHandle->windowFrameIdentifier() } });
 }
