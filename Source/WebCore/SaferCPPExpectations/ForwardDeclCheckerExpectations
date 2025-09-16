@@ -7,7 +7,6 @@ Modules/WebGPU/Implementation/WebGPUComputePassEncoderImpl.cpp
 Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp
 Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
 Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
-Modules/WebGPU/Implementation/WebGPUExternalTextureImpl.cpp
 Modules/WebGPU/Implementation/WebGPUImpl.cpp
 Modules/WebGPU/Implementation/WebGPUPipelineLayoutImpl.cpp
 Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp
@@ -81,15 +80,12 @@ page/EventHandler.h
 page/Page.h
 page/PageOverlayController.cpp
 page/WheelEventTestMonitor.h
-page/csp/ContentSecurityPolicy.h
 page/mac/ImageOverlayControllerMac.mm
 page/mac/ServicesOverlayController.mm
 page/scrolling/ScrollingStateNode.h
 page/scrolling/ScrollingStateScrollingNode.cpp
 platform/PODRedBlackTree.h
-platform/PlatformStrategies.h
 platform/Scrollbar.h
-platform/ThreadGlobalData.h
 platform/cocoa/TelephoneNumberDetectorCocoa.cpp
 platform/graphics/ImageBufferContextSwitcher.h
 platform/graphics/StringTruncator.cpp

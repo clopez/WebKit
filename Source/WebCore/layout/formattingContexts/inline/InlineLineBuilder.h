@@ -42,9 +42,10 @@ public:
     LineLayoutResult layoutInlineContent(const LineInput&, const std::optional<PreviousLine>&, bool isFirstFormattedLineCandidate) final;
 
 private:
-    void candidateContentForLine(LineCandidate&, size_t inlineItemIndex, const InlineItemRange& needsLayoutRange, InlineLayoutUnit currentLogicalRight);
-    InlineLayoutUnit leadingPunctuationWidthForLineCandiate(size_t firstInlineTextItemIndex, size_t candidateContentStartIndex) const;
-    InlineLayoutUnit trailingPunctuationOrStopOrCommaWidthForLineCandiate(size_t lastInlineTextItemIndex, size_t layoutRangeEnd) const;
+    enum class SkipFloats : bool { No, Yes };
+    void candidateContentForLine(LineCandidate&, std::pair<size_t, size_t> startEndIndex, const InlineItemRange& needsLayoutRange, InlineLayoutUnit currentLogicalRight, SkipFloats = SkipFloats::No);
+    InlineLayoutUnit leadingPunctuationWidthForLineCandiate(const LineCandidate&) const;
+    InlineLayoutUnit trailingPunctuationOrStopOrCommaWidthForLineCandiate(const LineCandidate&, size_t startIndexAfterCandidateContent,  size_t layoutRangeEnd) const;
 
     struct Result {
         InlineContentBreaker::IsEndOfLine isEndOfLine { InlineContentBreaker::IsEndOfLine::No };
@@ -66,9 +67,9 @@ private:
     };
     RectAndFloatConstraints floatAvoidingRect(const InlineRect& lineLogicalRect, InlineLayoutUnit lineMarginStart) const;
     RectAndFloatConstraints adjustedLineRectWithCandidateInlineContent(const LineCandidate&) const;
+    void commitCanidateContent(const LineCandidate&, std::optional<InlineContentBreaker::Result::PartialTrailingContent>);
     size_t rebuildLineWithInlineContent(const InlineItemRange& needsLayoutRange, const InlineItem& lastInlineItemToAdd);
     size_t rebuildLineForTrailingSoftHyphen(const InlineItemRange& layoutRange);
-    void commitPartialContent(const InlineContentBreaker::ContinuousContent::RunList&, const InlineContentBreaker::Result::PartialTrailingContent&);
     void initialize(const InlineRect& initialLineLogicalRect, const InlineItemRange& needsLayoutRange, const std::optional<PreviousLine>&, bool isFirstFormattedLineCandidate);
     UniqueRef<LineContent> placeInlineAndFloatContent(const InlineItemRange&);
     struct InitialLetterOffsets {

@@ -18,7 +18,6 @@ Modules/webcodecs/WebCodecsBase.cpp
 Modules/webcodecs/WebCodecsVideoDecoder.cpp
 Modules/webcodecs/WebCodecsVideoEncoder.cpp
 Modules/webdatabase/DatabaseThread.cpp
-Modules/webdatabase/SQLCallbackWrapper.h
 accessibility/AccessibilityScrollView.cpp
 accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedObject.h
@@ -47,11 +46,8 @@ page/IntelligenceTextEffectsSupport.cpp
 page/Navigator.cpp
 page/ShareDataReader.cpp
 page/cocoa/ResourceUsageOverlayCocoa.mm
-page/csp/ContentSecurityPolicy.cpp
 page/writing-tools/WritingToolsController.mm
-platform/RemoteCommandListener.cpp
 platform/ScrollableArea.cpp
-platform/Timer.h
 platform/cocoa/NetworkExtensionContentFilter.mm
 platform/encryptedmedia/CDMProxy.cpp
 platform/encryptedmedia/clearkey/CDMClearKey.cpp

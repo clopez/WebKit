@@ -20,6 +20,7 @@ Modules/webaudio/MediaStreamAudioDestinationNode.cpp
 Modules/webaudio/WaveShaperNode.cpp
 Modules/webdatabase/ChangeVersionWrapper.cpp
 Modules/webdatabase/Database.cpp
+Modules/webdatabase/DatabaseContext.cpp
 Modules/webdatabase/DatabaseManager.cpp
 Modules/webdatabase/DatabaseTracker.cpp
 Modules/webdatabase/LocalDOMWindowWebDatabase.cpp
@@ -38,7 +39,7 @@ accessibility/AccessibilityMenuListOption.cpp
 accessibility/AccessibilityMenuListPopup.cpp
 accessibility/AccessibilityNodeObject.cpp
 accessibility/AccessibilityObject.cpp
-accessibility/AccessibilityObject.h
+accessibility/AccessibilityObjectInlines.h
 accessibility/AccessibilityProgressIndicator.cpp
 accessibility/AccessibilityRenderObject.cpp
 accessibility/AccessibilityScrollView.cpp
@@ -412,6 +413,7 @@ page/DragController.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
 page/FocusController.cpp
+page/FrameConsoleClient.cpp
 page/FrameSnapshotting.cpp
 page/ImageOverlayController.cpp
 page/IntelligenceTextEffectsSupport.cpp
@@ -425,9 +427,7 @@ page/Location.cpp
 page/MemoryRelease.cpp
 page/NavigateEvent.cpp
 page/Navigator.cpp
-page/Page.cpp
 page/PageColorSampler.cpp
-page/PageConsoleClient.cpp
 page/PageOverlay.cpp
 page/PageOverlayController.cpp
 page/PageSerializer.cpp
@@ -436,7 +436,6 @@ page/PerformanceMonitor.cpp
 page/PointerCaptureController.cpp
 page/PointerLockController.cpp
 page/PrintContext.cpp
-page/Quirks.cpp
 page/RemoteFrame.cpp
 page/ResizeObservation.cpp
 page/ResizeObserver.cpp
@@ -465,7 +464,6 @@ platform/ScrollView.cpp
 platform/Scrollbar.cpp
 platform/ScrollbarsController.cpp
 platform/ScrollingEffectsController.cpp
-platform/ThreadGlobalData.cpp
 platform/Widget.cpp
 platform/audio/PlatformMediaSession.cpp
 platform/audio/PlatformMediaSessionInterface.h

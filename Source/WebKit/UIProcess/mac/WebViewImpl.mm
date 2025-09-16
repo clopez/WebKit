@@ -167,6 +167,7 @@
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 #import <wtf/spi/darwin/OSVariantSPI.h>
 #import <wtf/text/MakeString.h>
 
@@ -4354,7 +4355,7 @@ static bool handleLegacyFilesPasteboard(id<NSDraggingInfo> draggingInfo, Box<Web
         RELEASE_LOG_ERROR_IF(prepareError, DragAndDrop, "Failed to prepare for reading files with error: %@.", prepareError.localizedDescription);
     });
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), task.get());
+    dispatch_async(globalDispatchQueueSingleton(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), task.get());
     return true;
 }
 
@@ -6976,11 +6977,12 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
     auto startTime = MonotonicTime::now();
     [ensureImageAnalyzer() processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([completion = WTFMove(completion), startTime] (CocoaImageAnalysis *analysis, NSError *) mutable {
         BOOL result = [analysis hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
-        CFRunLoopPerformBlock(CFRunLoopGetMain(), (__bridge CFStringRef)NSEventTrackingRunLoopMode, makeBlockPtr([completion = WTFMove(completion), result, startTime] () mutable {
+        RetainPtr loop = CFRunLoopGetMain();
+        CFRunLoopPerformBlock(loop.get(), (__bridge CFStringRef)NSEventTrackingRunLoopMode, makeBlockPtr([completion = WTFMove(completion), result, startTime] () mutable {
             RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (found visual search results? %d)", (MonotonicTime::now() - startTime).milliseconds(), result);
             completion(result);
         }).get());
-        CFRunLoopWakeUp(CFRunLoopGetMain());
+        CFRunLoopWakeUp(loop.get());
     }).get()];
 }
 

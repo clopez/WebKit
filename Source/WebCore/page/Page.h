@@ -153,7 +153,6 @@ class MediaSessionCoordinatorPrivate;
 class MediaSessionManagerInterface;
 class ModelPlayerProvider;
 class PageConfiguration;
-class PageConsoleClient;
 class PageDebuggable;
 class PageGroup;
 class PageOverlayController;
@@ -186,6 +185,7 @@ class StorageConnection;
 class StorageNamespace;
 class StorageNamespaceProvider;
 class StorageProvider;
+class StringCallback;
 class TextIndicator;
 class ThermalMitigationNotifier;
 class UserContentProvider;
@@ -421,6 +421,7 @@ public:
     WEBCORE_EXPORT void setMainFrame(Ref<Frame>&&);
     WEBCORE_EXPORT const URL& mainFrameURL() const;
     SecurityOrigin& mainFrameOrigin() const;
+    Ref<SecurityOrigin> protectedMainFrameOrigin() const;
 
     WEBCORE_EXPORT void setMainFrameURLAndOrigin(const URL&, RefPtr<SecurityOrigin>&&);
 #if ENABLE(DOM_AUDIO_SESSION)
@@ -532,6 +533,9 @@ public:
 
     WEBCORE_EXPORT Ref<DOMRectList> touchEventRectsForEventForTesting(EventTrackingRegionsEventType);
     WEBCORE_EXPORT Ref<DOMRectList> passiveTouchEventListenerRectsForTesting();
+
+    WEBCORE_EXPORT void setConsoleMessageListenerForTesting(RefPtr<StringCallback>&&);
+    WEBCORE_EXPORT RefPtr<StringCallback> consoleMessageListenerForTesting() const;
 
     WEBCORE_EXPORT void settingsDidChange();
 
@@ -968,9 +972,6 @@ public:
     void sawMediaEngine(const String& engineName);
     void resetSeenMediaEngines();
 
-    PageConsoleClient& console() { return m_consoleClient.get(); }
-    const PageConsoleClient& console() const { return m_consoleClient.get(); }
-
 #if ENABLE(REMOTE_INSPECTOR)
     PageDebuggable& inspectorDebuggable() { return m_inspectorDebuggable.get(); }
     const PageDebuggable& inspectorDebuggable() const { return m_inspectorDebuggable.get(); }
@@ -1356,6 +1357,7 @@ public:
     WEBCORE_EXPORT RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlatformMediaSessionPlaybackControlsPurpose, Document*);
 
     WEBCORE_EXPORT MediaSessionManagerInterface& mediaSessionManager();
+    WEBCORE_EXPORT Ref<MediaSessionManagerInterface> protectedMediaSessionManager();
     WEBCORE_EXPORT MediaSessionManagerInterface* mediaSessionManagerIfExists() const;
     WEBCORE_EXPORT static MediaSessionManagerInterface* mediaSessionManagerForPageIdentifier(PageIdentifier);
 
@@ -1426,6 +1428,7 @@ private:
     void prioritizeVisibleResources();
 
     RenderingUpdateScheduler& renderingUpdateScheduler();
+    CheckedRef<RenderingUpdateScheduler> checkedRenderingUpdateScheduler();
     RenderingUpdateScheduler* existingRenderingUpdateScheduler();
 
     WheelEventTestMonitor& ensureWheelEventTestMonitor();
@@ -1597,7 +1600,6 @@ private:
     std::unique_ptr<AlternativeTextClient> m_alternativeTextClient;
 
     bool m_scriptedAnimationsSuspended { false };
-    const UniqueRef<PageConsoleClient> m_consoleClient;
 
 #if ENABLE(REMOTE_INSPECTOR)
     const Ref<PageDebuggable> m_inspectorDebuggable;
@@ -1753,6 +1755,8 @@ private:
     mutable Markable<MediaSessionGroupIdentifier> m_mediaSessionGroupIdentifier;
 
     std::optional<std::pair<uint16_t, uint16_t>> m_portsForUpgradingInsecureSchemeForTesting;
+
+    RefPtr<StringCallback> m_consoleMessageListenerForTesting;
 
     const UniqueRef<StorageProvider> m_storageProvider;
     const Ref<ModelPlayerProvider> m_modelPlayerProvider;

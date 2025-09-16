@@ -49,16 +49,28 @@
 #import <wtf/MathExtras.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/darwin/DispatchExtras.h>
 
 #import "MediaRemoteSoftLink.h"
 #include <pal/cocoa/AVFoundationSoftLink.h>
 
 static const size_t kLowPowerVideoBufferSize = 4096;
 
+#if RELEASE_LOG_DISABLED
+#define MEDIASESSIONMANAGER_RELEASE_LOG(formatString, ...)
+#else
 #define MEDIASESSIONMANAGER_RELEASE_LOG(formatString, ...) \
-if (willLog(WTFLogLevel::Always)) { \
-    RELEASE_LOG_FORWARDABLE(Media, MEDIASESSIONMANAGERCOCOA_##formatString, ##__VA_ARGS__); \
-} \
+do { \
+    if (willLog(WTFLogLevel::Always)) { \
+        RELEASE_LOG_FORWARDABLE(Media, MEDIASESSIONMANAGERCOCOA_##formatString, ##__VA_ARGS__); \
+        if (logger().hasEnabledInspector()) { \
+            char buffer[1024] = { 0 }; \
+            SAFE_SPRINTF(std::span { buffer }, MESSAGE_MEDIASESSIONMANAGERCOCOA_##formatString, ##__VA_ARGS__); \
+            logger().toObservers(logChannel(), WTFLogLevel::Always, String::fromUTF8(buffer)); \
+        } \
+    } \
+} while (0)
+#endif
 
 namespace WebCore {
 
@@ -72,7 +84,7 @@ RefPtr<PlatformMediaSessionManager> PlatformMediaSessionManager::create(std::opt
 #endif // !PLATFORM(MAC)
 
 MediaSessionManagerCocoa::MediaSessionManagerCocoa()
-    : m_nowPlayingManager(hasPlatformStrategies() ? platformStrategies()->mediaStrategy().createNowPlayingManager() : nullptr)
+    : m_nowPlayingManager(hasPlatformStrategies() ? platformStrategies()->mediaStrategy()->createNowPlayingManager() : nullptr)
     , m_delayCategoryChangeTimer(RunLoop::mainSingleton(), "MediaSessionManagerCocoa::DelayCategoryChangeTimer"_s, this, &MediaSessionManagerCocoa::possiblyChangeAudioCategory)
 {
 }
@@ -361,7 +373,7 @@ void MediaSessionManagerCocoa::clearNowPlayingInfo()
 
     MRMediaRemoteSetCanBeNowPlayingApplication(false);
     MRMediaRemoteSetNowPlayingInfo(nullptr);
-    MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), kMRPlaybackStateStopped, dispatch_get_main_queue(), ^(MRMediaRemoteError error) {
+    MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), kMRPlaybackStateStopped, mainDispatchQueueSingleton(), ^(MRMediaRemoteError error) {
 #if LOG_DISABLED
         UNUSED_PARAM(error);
 #else
@@ -428,7 +440,7 @@ void MediaSessionManagerCocoa::setNowPlayingInfo(bool setAsNowPlayingApplication
         MRMediaRemoteSetParentApplication(MRMediaRemoteGetLocalOrigin(), nowPlayingInfo.metadata.sourceApplicationIdentifier.createCFString().get());
 
     MRPlaybackState playbackState = (nowPlayingInfo.isPlaying) ? kMRPlaybackStatePlaying : kMRPlaybackStatePaused;
-    MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), playbackState, dispatch_get_main_queue(), ^(MRMediaRemoteError error) {
+    MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), playbackState, mainDispatchQueueSingleton(), ^(MRMediaRemoteError error) {
 #if LOG_DISABLED
         UNUSED_PARAM(error);
 #else

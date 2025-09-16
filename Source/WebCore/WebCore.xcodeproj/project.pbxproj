@@ -1708,6 +1708,7 @@
 		45830D4E1679B4F800ACF8C3 /* AutoscrollController.h in Headers */ = {isa = PBXBuildFile; fileRef = 45830D4C1679B4F800ACF8C3 /* AutoscrollController.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		458FE40A1589DF0B005609E6 /* RenderSearchField.h in Headers */ = {isa = PBXBuildFile; fileRef = 458FE4081589DF0B005609E6 /* RenderSearchField.h */; };
 		45B5D8612A968620004C85A0 /* LoaderMalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 45B5D85F2A968620004C85A0 /* LoaderMalloc.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		45E434C32E74E6E5004BD91D /* IOSurfacePoolIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		45EA87922D35D30400DD0194 /* CSSParserFastPaths.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7C5E522BE2A8FB00AE645C /* CSSParserFastPaths.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		45FEA5D0156DDE8C00654101 /* Decimal.h in Headers */ = {isa = PBXBuildFile; fileRef = 45FEA5CE156DDE8C00654101 /* Decimal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46014ACC28333F65004C0B84 /* FrameDestructionObserverInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 46014ACB28333F52004C0B84 /* FrameDestructionObserverInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5800,7 +5801,7 @@
 		D92FD76128A32AB8008BB050 /* WorkerNavigatorPermissions.h in Headers */ = {isa = PBXBuildFile; fileRef = D92FD76028A32AB8008BB050 /* WorkerNavigatorPermissions.h */; };
 		D98DB1B228CFEE6A00369DDE /* MainThreadPermissionObserverIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = D98DB1B128CFEE3D00369DDE /* MainThreadPermissionObserverIdentifier.h */; };
 		D98DB1B328CFEE6F00369DDE /* MainThreadPermissionObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = D98DB1AF28CFEE3C00369DDE /* MainThreadPermissionObserver.h */; };
-		DAED203116F244480070EC0F /* PageConsoleClient.h in Headers */ = {isa = PBXBuildFile; fileRef = DAACB3DA16F2416400666135 /* PageConsoleClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DAED203116F244480070EC0F /* FrameConsoleClient.h in Headers */ = {isa = PBXBuildFile; fileRef = DAACB3DA16F2416400666135 /* FrameConsoleClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DB23C2CC0A508D29002489EB /* IndentOutdentCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = DB23C2CA0A508D29002489EB /* IndentOutdentCommand.h */; };
 		DCA7EDF52C655235000F16C7 /* BoxSides.h in Headers */ = {isa = PBXBuildFile; fileRef = DCA7EDF42C655235000F16C7 /* BoxSides.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD05637D29B6B88100A98258 /* InlineDisplayContent.h in Headers */ = {isa = PBXBuildFile; fileRef = DD05637C29B6B88100A98258 /* InlineDisplayContent.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -11140,6 +11141,7 @@
 		45BA2FCA2C3C77870042DA4F /* JSWebCodecsAudioEncoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsAudioEncoderCustom.cpp; sourceTree = "<group>"; };
 		45BA2FCB2C3C77870042DA4F /* JSWebCodecsVideoEncoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsVideoEncoderCustom.cpp; sourceTree = "<group>"; };
 		45D021E32C8B91F40089F09A /* JSStylePropertyMapReadOnlyCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSStylePropertyMapReadOnlyCustom.cpp; sourceTree = "<group>"; };
+		45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOSurfacePoolIdentifier.h; sourceTree = "<group>"; };
 		45F4864B2C38CCE9008B9897 /* JSWebCodecsVideoDecoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsVideoDecoderCustom.cpp; sourceTree = "<group>"; };
 		45FEA5CD156DDE8C00654101 /* Decimal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Decimal.cpp; sourceTree = "<group>"; };
 		45FEA5CE156DDE8C00654101 /* Decimal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Decimal.h; sourceTree = "<group>"; };
@@ -20251,8 +20253,8 @@
 		D98DB1AF28CFEE3C00369DDE /* MainThreadPermissionObserver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MainThreadPermissionObserver.h; sourceTree = "<group>"; };
 		D98DB1B028CFEE3C00369DDE /* MainThreadPermissionObserver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MainThreadPermissionObserver.cpp; sourceTree = "<group>"; };
 		D98DB1B128CFEE3D00369DDE /* MainThreadPermissionObserverIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MainThreadPermissionObserverIdentifier.h; sourceTree = "<group>"; };
-		DAACB3D916F2416400666135 /* PageConsoleClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PageConsoleClient.cpp; sourceTree = "<group>"; };
-		DAACB3DA16F2416400666135 /* PageConsoleClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PageConsoleClient.h; sourceTree = "<group>"; };
+		DAACB3D916F2416400666135 /* FrameConsoleClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FrameConsoleClient.cpp; sourceTree = "<group>"; };
+		DAACB3DA16F2416400666135 /* FrameConsoleClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FrameConsoleClient.h; sourceTree = "<group>"; };
 		DB23C2C90A508D29002489EB /* IndentOutdentCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IndentOutdentCommand.cpp; sourceTree = "<group>"; };
 		DB23C2CA0A508D29002489EB /* IndentOutdentCommand.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IndentOutdentCommand.h; sourceTree = "<group>"; };
 		DBFCB0EBFF5CD77EBEB35395 /* RenderMathMLSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RenderMathMLSpace.cpp; sourceTree = "<group>"; };
@@ -29182,6 +29184,8 @@
 				27E818052BF5C67300B872DA /* FragmentDirective.idl */,
 				46B95194207D633000A7D2DD /* Frame.cpp */,
 				46B9518F207D632B00A7D2DD /* Frame.h */,
+				DAACB3D916F2416400666135 /* FrameConsoleClient.cpp */,
+				DAACB3DA16F2416400666135 /* FrameConsoleClient.h */,
 				974A862014B7ADBB003FDC76 /* FrameDestructionObserver.cpp */,
 				974A862114B7ADBB003FDC76 /* FrameDestructionObserver.h */,
 				46014ACB28333F52004C0B84 /* FrameDestructionObserverInlines.h */,
@@ -29312,8 +29316,6 @@
 				95F45D26264DFBEB00D0B8B8 /* PageColorSampler.h */,
 				CD5E5B601A15F156000C609E /* PageConfiguration.cpp */,
 				CD5E5B5E1A15CE54000C609E /* PageConfiguration.h */,
-				DAACB3D916F2416400666135 /* PageConsoleClient.cpp */,
-				DAACB3DA16F2416400666135 /* PageConsoleClient.h */,
 				A5A2AF091829734300DE1729 /* PageDebuggable.cpp */,
 				A5A2AF0A1829734300DE1729 /* PageDebuggable.h */,
 				9302B0BC0D79F82900C7EE83 /* PageGroup.cpp */,
@@ -34500,6 +34502,7 @@
 				B27535340B053814002CE64F /* IntSizeCG.cpp */,
 				1C21E57A183ED1FF001C289D /* IOSurfacePool.cpp */,
 				1C21E57B183ED1FF001C289D /* IOSurfacePool.h */,
+				45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */,
 				377A3A8F15EFCE9A0059F5C7 /* NativeImageCG.cpp */,
 				B27535350B053814002CE64F /* PathCG.cpp */,
 				7246F02E2A1549CB00FD74F1 /* PathCG.h */,
@@ -42653,6 +42656,7 @@
 				2D9153F028AE0E330073A385 /* FragmentDirectiveRangeFinder.h in Headers */,
 				2DDF3EE42C8D94B30047786D /* FragmentDirectiveUtilities.h in Headers */,
 				46B95196207D633A00A7D2DD /* Frame.h in Headers */,
+				DAED203116F244480070EC0F /* FrameConsoleClient.h in Headers */,
 				974A862314B7ADBB003FDC76 /* FrameDestructionObserver.h in Headers */,
 				46014ACC28333F65004C0B84 /* FrameDestructionObserverInlines.h in Headers */,
 				0F11781822E3C47F008BD570 /* FrameIdentifier.h in Headers */,
@@ -43209,6 +43213,7 @@
 				2D0B4AAB18DA1CCD00434DE1 /* IOSurface.h in Headers */,
 				7B66CFD52D31387D00BD6CB5 /* IOSurfaceDrawingBuffer.h in Headers */,
 				1C21E57D183ED1FF001C289D /* IOSurfacePool.h in Headers */,
+				45E434C32E74E6E5004BD91D /* IOSurfacePoolIdentifier.h in Headers */,
 				3C8D24EE2E25CF1A00D2A929 /* IPAddressSpace.h in Headers */,
 				9BAF70C12DC1C35A0027B01E /* IsImportant.h in Headers */,
 				6DD53F3D2C49D37F0049F1C5 /* IsLoggedIn.h in Headers */,
@@ -44705,7 +44710,6 @@
 				95F45D27264DFBF100D0B8B8 /* PageColorSampler.h in Headers */,
 				CD5E5B5F1A15CE54000C609E /* PageConfiguration.h in Headers */,
 				A5B81CC21FAA44BC0037D1E6 /* PageConsoleAgent.h in Headers */,
-				DAED203116F244480070EC0F /* PageConsoleClient.h in Headers */,
 				A5A2AF0C1829734300DE1729 /* PageDebuggable.h in Headers */,
 				A5F36D3B18F758720054C024 /* PageDebugger.h in Headers */,
 				A5B81CC31FAA44BC0037D1E6 /* PageDebuggerAgent.h in Headers */,

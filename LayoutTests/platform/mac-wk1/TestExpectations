@@ -1300,8 +1300,6 @@ webkit.org/b/132421 fast/multicol/fixed-stack.html [ ImageOnlyFailure ]
 
 webkit.org/b/104104 fast/overflow/scrollbar-click-retains-focus.html [ Failure ]
 
-webkit.org/b/82981 http/tests/misc/favicon-loads-with-icon-loading-override.html [ Failure ]
-
 webkit.org/b/138697 fast/events/overflow-scroll-fake-mouse-move.html [ Pass Failure ]
 
 webkit.org/b/82747 fast/events/scroll-div-with-prevent-default-in-subframe.html [ Failure ]
@@ -3219,3 +3217,8 @@ webkit.org/b/298211 accessibility/mac/media-query-values-change.html [ Skip ]
 webkit.org/b/298211 accessibility/mac/increase-contrast-system-color-changes.html [ Skip ]
 
 webkit.org/b/289382 fast/canvas/offscreen-no-script-context-crash.html [ Skip ]
+
+webkit.org/b/298748 css3/text-decoration/text-decoration-line-grammar-error-1.html [ Skip ]
+webkit.org/b/298748 css3/text-decoration/text-decoration-line-grammar-error-2.html [ Skip ]
+webkit.org/b/298748 css3/text-decoration/text-decoration-line-grammar-error-3.html [ Skip ]
+

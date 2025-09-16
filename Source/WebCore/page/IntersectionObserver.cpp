@@ -28,6 +28,7 @@
 #include "IntersectionObserver.h"
 
 #include "ContainerNodeInlines.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserConsumer+CSSPrimitiveValueResolver.h"
 #include "CSSPropertyParserConsumer+LengthPercentageDefinitions.h"

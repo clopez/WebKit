@@ -40,6 +40,7 @@
 #include "BufferSource.h"
 #include "BufferedChangeEvent.h"
 #include "ContentTypeUtilities.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -596,12 +597,6 @@ Ref<SourceBuffer::ComputeSeekPromise> SourceBuffer::computeSeekTime(const SeekTa
 {
     ALWAYS_LOG(LOGIDENTIFIER, target);
     return m_private->computeSeekTime(target);
-}
-
-void SourceBuffer::seekToTime(const MediaTime& time)
-{
-    ALWAYS_LOG(LOGIDENTIFIER, time);
-    m_private->seekToTime(time);
 }
 
 bool SourceBuffer::virtualHasPendingActivity() const

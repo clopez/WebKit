@@ -113,7 +113,6 @@ public:
     void removedFromMediaSource();
     using ComputeSeekPromise = SourceBufferPrivate::ComputeSeekPromise;
     Ref<ComputeSeekPromise> computeSeekTime(const SeekTarget&);
-    void seekToTime(const MediaTime&);
 
     bool hasVideo() const;
 
@@ -121,6 +120,7 @@ public:
 
     // EventTarget
     ScriptExecutionContext* scriptExecutionContext() const final;
+    using ActiveDOMObject::protectedScriptExecutionContext;
 
     enum class AppendMode { Segments, Sequence };
     AppendMode mode() const { return m_mode; }

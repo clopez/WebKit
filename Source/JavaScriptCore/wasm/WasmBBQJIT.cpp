@@ -3167,7 +3167,7 @@ ControlData WARN_UNUSED_RETURN BBQJIT::addTopLevel(BlockSignature signature)
     m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), wasmScratchGPR));
 
     if (m_profiledCallee.hasExceptionHandlers())
-        m_jit.store32(CCallHelpers::TrustedImm32(PatchpointExceptionHandle::s_invalidCallSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+        m_jit.store32(CCallHelpers::TrustedImm32(wasmInvalidCallSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 
     // Because we compile in a single pass, we always need to pessimistically check for stack underflow/overflow.
     static_assert(wasmScratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
@@ -4514,9 +4514,9 @@ void BBQJIT::emitIndirectCall(const char* opcode, unsigned callSlotIndex, const 
 
         isSameInstanceBefore.link(&m_jit);
         m_jit.loadPtr(CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallSlot) * callSlotIndex + CallSlot::offsetOfBoxedCallee())), wasmScratchGPR);
-        profilingDone.append(m_jit.branch64(CCallHelpers::Equal, wasmScratchGPR, boxedCallee));
-        profilingDone.append(m_jit.branch64(CCallHelpers::Equal, wasmScratchGPR, TrustedImm32(CallSlot::megamorphicCallee)));
-        profilingGiveUp.append(m_jit.branchTest64(CCallHelpers::NonZero, wasmScratchGPR));
+        profilingDone.append(m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, boxedCallee));
+        profilingDone.append(m_jit.branchPtr(CCallHelpers::Equal, wasmScratchGPR, TrustedImmPtr(CallSlot::megamorphicCallee)));
+        profilingGiveUp.append(m_jit.branchTestPtr(CCallHelpers::NonZero, wasmScratchGPR));
         m_jit.move(boxedCallee, wasmScratchGPR);
         auto store = m_jit.jump();
 
@@ -4524,7 +4524,7 @@ void BBQJIT::emitIndirectCall(const char* opcode, unsigned callSlotIndex, const 
         m_jit.move(TrustedImm32(CallSlot::megamorphicCallee), wasmScratchGPR);
 
         store.link(m_jit);
-        m_jit.store64(wasmScratchGPR, CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallSlot) * callSlotIndex + CallSlot::offsetOfBoxedCallee()))); // Give up for cross-instance indirect calls.
+        m_jit.storePtr(wasmScratchGPR, CCallHelpers::Address(GPRInfo::jitDataRegister, safeCast<int32_t>(BaselineData::offsetOfData() + sizeof(CallSlot) * callSlotIndex + CallSlot::offsetOfBoxedCallee()))); // Give up for cross-instance indirect calls.
         profilingDone.link(m_jit);
     }
 
@@ -4706,17 +4706,27 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned callSlotIndex,
 
             ASSERT(tableIndex < m_info.tableCount());
 
-            m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), callableFunctionBufferLength);
             auto& tableInformation = m_info.table(tableIndex);
             if (tableInformation.maximum() && tableInformation.maximum().value() == tableInformation.initial()) {
-                if (!tableInformation.isImport())
-                    m_jit.addPtr(TrustedImm32(FuncRefTable::offsetOfFunctionsForFixedSizedTable()), callableFunctionBufferLength, callableFunctionBuffer);
-                else
-                    m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
+                if (!tableIndex)
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Buffer()), callableFunctionBuffer);
+                else {
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), callableFunctionBufferLength);
+                    if (!tableInformation.isImport())
+                        m_jit.addPtr(TrustedImm32(FuncRefTable::offsetOfFunctionsForFixedSizedTable()), callableFunctionBufferLength, callableFunctionBuffer);
+                    else
+                        m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
+                }
                 m_jit.move(TrustedImm32(tableInformation.initial()), callableFunctionBufferLength);
             } else {
-                m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
-                m_jit.load32(Address(callableFunctionBufferLength, FuncRefTable::offsetOfLength()), callableFunctionBufferLength);
+                if (!tableIndex) {
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Buffer()), callableFunctionBuffer);
+                    m_jit.load32(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedTable0Length()), callableFunctionBufferLength);
+                } else {
+                    m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), callableFunctionBufferLength);
+                    m_jit.loadPtr(Address(callableFunctionBufferLength, FuncRefTable::offsetOfFunctions()), callableFunctionBuffer);
+                    m_jit.load32(Address(callableFunctionBufferLength, FuncRefTable::offsetOfLength()), callableFunctionBufferLength);
+                }
             }
             ASSERT(calleeIndexLocation.isGPR());
 

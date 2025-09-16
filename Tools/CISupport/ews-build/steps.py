@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2025 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -3701,14 +3701,14 @@ class CompileJSCWithoutChange32(CompileJSC32):
         return shell.CompileNewStyle.evaluateCommand(self, cmd)
 
 
-class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
+class RunJavaScriptCoreTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
     name = 'jscore-test'
     description = ['jscore-tests running']
     descriptionDone = ['jscore-tests']
     flunkOnFailure = True
     jsonFileName = 'jsc_results.json'
     logfiles = {'json': jsonFileName}
-    command = ['perl', 'Tools/Scripts/run-javascriptcore-tests', '--no-build', '--no-fail-fast', '--json-output={0}'.format(jsonFileName), WithProperties('--%(configuration)s')]
+    command = ['perl', 'Tools/Scripts/run-javascriptcore-tests', '--no-build', '--no-fail-fast', f'--json-output={jsonFileName}', WithProperties('--%(configuration)s')]
     # We rely on run-jsc-stress-tests to weed out any flaky tests
     command_extra = ['--treat-failing-as-flaky=0.6,10,200']
     prefix = 'jsc_'
@@ -3720,7 +3720,8 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
         self.stressTestFailures = []
         self.flaky = {}
 
-    def start(self):
+    @defer.inlineCallbacks
+    def run(self):
         self.log_observer_json = logobserver.BufferLogObserver()
         self.addLogObserver('json', self.log_observer_json)
         self.log_observer = logobserver.BufferLogObserver()
@@ -3729,7 +3730,7 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
         # add remotes configuration file path to the command line if needed
         remotesfile = self.getProperty('remotes', False)
         if remotesfile:
-            self.command.append('--remote-config-file={0}'.format(remotesfile))
+            self.command.append(f'--remote-config-file={remotesfile}')
 
         platform = self.getProperty('platform')
         if platform == 'jsc-only' and remotesfile:
@@ -3747,7 +3748,36 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
         self.command += customBuildFlag(self.getProperty('platform'), self.getProperty('fullPlatform'))
         self.command.extend(self.command_extra)
         self.command = self.shell_command(' '.join(quote(str(c)) for c in self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs jsc')
-        return super().start()
+        rc = yield super().run()
+
+        logLines = self.log_observer_json.getStdout()
+        json_text = ''.join([line for line in logLines.splitlines()])
+        try:
+            jsc_results = json.loads(json_text)
+        except Exception as ex:
+            yield self._addToLog('stderr', f'ERROR: unable to parse data, exception: {ex}')
+            defer.returnValue(rc)
+
+        if jsc_results.get('allMasmTestsPassed') is False:
+            self.binaryFailures.append('testmasm')
+        if jsc_results.get('allAirTestsPassed') is False:
+            self.binaryFailures.append('testair')
+        if jsc_results.get('allB3TestsPassed') is False:
+            self.binaryFailures.append('testb3')
+        if jsc_results.get('allDFGTestsPassed') is False:
+            self.binaryFailures.append('testdfg')
+        if jsc_results.get('allApiTestsPassed') is False:
+            self.binaryFailures.append('testapi')
+        self.stressTestFailures = jsc_results.get('stressTestFailures')
+        if self.stressTestFailures:
+            self.setProperty(self.prefix + 'stress_test_failures', self.stressTestFailures)
+        self.flaky = jsc_results.get('flakyAndPassed')
+        if self.flaky:
+            self.setProperty(self.prefix + 'flaky_and_passed', self.flaky)
+        if self.binaryFailures:
+            self.setProperty(self.prefix + 'binary_failures', self.binaryFailures)
+
+        defer.returnValue(rc)
 
     def evaluateCommand(self, cmd):
         rc = super().evaluateCommand(cmd)
@@ -3782,35 +3812,6 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
             ]
         self.build.addStepsAfterCurrentStep(steps_to_add)
         return rc
-
-    def commandComplete(self, cmd):
-        super().commandComplete(cmd)
-        logLines = self.log_observer_json.getStdout()
-        json_text = ''.join([line for line in logLines.splitlines()])
-        try:
-            jsc_results = json.loads(json_text)
-        except Exception as ex:
-            self._addToLog('stderr', 'ERROR: unable to parse data, exception: {}'.format(ex))
-            return
-
-        if jsc_results.get('allMasmTestsPassed') is False:
-            self.binaryFailures.append('testmasm')
-        if jsc_results.get('allAirTestsPassed') is False:
-            self.binaryFailures.append('testair')
-        if jsc_results.get('allB3TestsPassed') is False:
-            self.binaryFailures.append('testb3')
-        if jsc_results.get('allDFGTestsPassed') is False:
-            self.binaryFailures.append('testdfg')
-        if jsc_results.get('allApiTestsPassed') is False:
-            self.binaryFailures.append('testapi')
-        self.stressTestFailures = jsc_results.get('stressTestFailures')
-        if self.stressTestFailures:
-            self.setProperty(self.prefix + 'stress_test_failures', self.stressTestFailures)
-        self.flaky = jsc_results.get('flakyAndPassed')
-        if self.flaky:
-            self.setProperty(self.prefix + 'flaky_and_passed', self.flaky)
-        if self.binaryFailures:
-            self.setProperty(self.prefix + 'binary_failures', self.binaryFailures)
 
     def getResultSummary(self):
         if self.results != SUCCESS and (self.stressTestFailures or self.binaryFailures):
@@ -3868,7 +3869,7 @@ class RunJSCTestsWithoutChange(RunJavaScriptCoreTests):
     prefix = 'jsc_clean_tree_'
 
     def evaluateCommand(self, cmd):
-        rc = shell.Test.evaluateCommand(self, cmd)
+        rc = shell.TestNewStyle.evaluateCommand(self, cmd)
         self.setProperty('clean_tree_run_status', rc)
         return rc
 
@@ -3988,7 +3989,7 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep, AddToLogMixin):
             print('Error in sending email for pre-existing failure: {}'.format(e))
 
 
-class CleanBuild(shell.Compile):
+class CleanBuild(shell.CompileNewStyle):
     name = 'delete-WebKitBuild-directory'
     description = ['deleting WebKitBuild directory']
     descriptionDone = ['Deleted WebKitBuild directory']
@@ -6480,7 +6481,7 @@ class MapBranchAlias(shell.ShellCommandNewStyle):
         return not self.doStepIf(step)
 
 
-class ValidateSquashed(shell.ShellCommand):
+class ValidateSquashed(shell.ShellCommandNewStyle, AddToLogMixin):
     name = 'validate-squashed'
     haltOnFailure = False
     flunkOnFailure = True
@@ -6489,21 +6490,17 @@ class ValidateSquashed(shell.ShellCommand):
         self.summary = ''
         super().__init__(logEnviron=False, **kwargs)
 
-    def start(self, BufferLogObserverClass=logobserver.BufferLogObserver):
+    @defer.inlineCallbacks
+    def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
         base_ref = self.getProperty('github.base.ref', f'{DEFAULT_REMOTE}/{DEFAULT_BRANCH}')
         head_ref = self.getProperty('github.head.ref', 'HEAD')
-        self.command = ['git', 'log', '--format=format:"%H"', head_ref, f'^{base_ref}', f'--max-count={MAX_COMMITS_IN_PR_SERIES + 1}']
+        self.command = ['git', 'log', '--format=format:%H', head_ref, f'^{base_ref}', f'--max-count={MAX_COMMITS_IN_PR_SERIES + 1}']
 
         self.log_observer = BufferLogObserverClass(wantStderr=True)
         self.addLogObserver('stdio', self.log_observer)
 
-        return shell.ShellCommand.start(self)
-
-    def getResultSummary(self):
-        return {'step': self.summary}
-
-    def evaluateCommand(self, cmd):
-        rc = shell.ShellCommand.evaluateCommand(self, cmd)
+        rc = yield super().run()
+        yield self._addToLog('stdio', '\n')
 
         pr_number = self.getProperty('github.number')
         patch_id = self.getProperty('patch_id')
@@ -6522,9 +6519,9 @@ class ValidateSquashed(shell.ShellCommand):
                 LeaveComment(),
                 BlockPullRequest() if pr_number else SetCommitQueueMinusFlagOnPatch(),
             ])
-            return rc
+            return defer.returnValue(rc)
 
-        log_text = self.log_observer.getStdout()
+        log_text = self.log_observer.getStdout().rstrip()
         commit_count = len(log_text.splitlines())
         self.setProperty('commit_count', commit_count)
 
@@ -6535,7 +6532,7 @@ class ValidateSquashed(shell.ShellCommand):
         if ['Cherry-pick'] == classification:
             if commit_count > 0 and commit_count < MAX_COMMITS_IN_PR_SERIES:
                 self.summary = 'Commit sequence is entirely cherry-picks'
-                return SUCCESS
+                return defer.returnValue(SUCCESS)
 
             self.summary = 'Too many commits in a pull-request'
             comment = 'Policy allows for multiple cherry-picks to be landed simultaneously ' \
@@ -6544,7 +6541,7 @@ class ValidateSquashed(shell.ShellCommand):
         else:
             if commit_count == 1:
                 self.summary = 'Verified commit is squashed'
-                return SUCCESS
+                return defer.returnValue(SUCCESS)
 
             self.summary = 'Can only land squashed commits'
             comment = 'This change contains multiple commits which are not squashed together'
@@ -6560,7 +6557,10 @@ class ValidateSquashed(shell.ShellCommand):
             LeaveComment(),
             BlockPullRequest() if pr_number else SetCommitQueueMinusFlagOnPatch(),
         ])
-        return FAILURE
+        defer.returnValue(FAILURE)
+
+    def getResultSummary(self):
+        return {'step': self.summary}
 
 
 class AddReviewerMixin(object):

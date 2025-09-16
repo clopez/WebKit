@@ -1020,7 +1020,7 @@ void MediaPlayerPrivateRemote::remoteVideoTrackConfigurationChanged(TrackID trac
 void MediaPlayerPrivateRemote::load(const URL& url, const LoadOptions& options, MediaSourcePrivateClient& client)
 {
     if (m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE
-        || (platformStrategies()->mediaStrategy().mockMediaSourceEnabled() && m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::MockMSE)) {
+        || (platformStrategies()->mediaStrategy()->mockMediaSourceEnabled() && m_remoteEngineIdentifier == MediaPlayerEnums::MediaEngineIdentifier::MockMSE)) {
 
         RefPtr mediaSourcePrivate = downcast<MediaSourcePrivateRemote>(client.mediaSourcePrivate());
         RemoteMediaSourceIdentifier identifier = [&] {
@@ -1601,14 +1601,14 @@ void MediaPlayerPrivateRemote::setPlatformDynamicRangeLimit(WebCore::PlatformDyn
     connection().send(Messages::RemoteMediaPlayerProxy::SetPlatformDynamicRangeLimit(platformDynamicRangeLimit), m_id);
 }
 
-bool MediaPlayerPrivateRemote::performTaskAtTime(WTF::Function<void()>&& task, const MediaTime& mediaTime)
+bool MediaPlayerPrivateRemote::performTaskAtTime(WTF::Function<void(const MediaTime&)>&& task, const MediaTime& mediaTime)
 {
     auto asyncReplyHandler = [weakThis = ThreadSafeWeakPtr { *this }, task = WTFMove(task)](std::optional<MediaTime> currentTime) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !currentTime)
             return;
 
-        task();
+        task(*currentTime);
     };
 
     connection().sendWithAsyncReply(Messages::RemoteMediaPlayerProxy::PerformTaskAtTime(mediaTime), WTFMove(asyncReplyHandler), m_id);

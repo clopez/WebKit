@@ -1,5 +1,4 @@
 Modules/applicationmanifest/ApplicationManifestParser.cpp
-Modules/indexeddb/IDBActiveDOMObjectInlines.h
 Modules/mediacapabilities/MediaCapabilities.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
@@ -36,9 +35,7 @@ Modules/webauthn/AuthenticatorAttestationResponse.cpp
 Modules/webauthn/AuthenticatorCoordinator.cpp
 Modules/webauthn/PublicKeyCredential.cpp
 Modules/webdatabase/Database.cpp
-Modules/webdatabase/DatabaseContext.cpp
 Modules/webdatabase/DatabaseManager.cpp
-Modules/webdatabase/SQLCallbackWrapper.h
 StyleBuilderGenerated.cpp
 accessibility/AXObjectCache.cpp
 animation/KeyframeEffect.cpp
@@ -49,7 +46,6 @@ bindings/js/JSAttrCustom.cpp
 bindings/js/JSAudioWorkletProcessorCustom.cpp
 bindings/js/JSCSSRuleListCustom.cpp
 bindings/js/JSCSSStyleDeclarationCustom.cpp
-bindings/js/JSCallbackData.cpp
 bindings/js/JSCustomElementInterface.cpp
 bindings/js/JSCustomElementRegistryCustom.cpp
 bindings/js/JSDOMAbstractOperations.h
@@ -65,7 +61,6 @@ bindings/js/JSDOMWindowProperties.cpp
 bindings/js/JSDocumentCustom.cpp
 bindings/js/JSErrorHandler.cpp
 bindings/js/JSEventTargetCustom.h
-bindings/js/JSExecState.cpp
 bindings/js/JSHTMLAllCollectionCustom.cpp
 bindings/js/JSHTMLElementCustom.cpp
 bindings/js/JSHTMLTemplateElementCustom.cpp
@@ -73,7 +68,6 @@ bindings/js/JSHistoryCustom.cpp
 bindings/js/JSIDBCursorCustom.cpp
 bindings/js/JSIDBRequestCustom.cpp
 bindings/js/JSIntersectionObserverCustom.cpp
-bindings/js/JSKeyframeEffectCustom.cpp
 bindings/js/JSLazyEventListener.cpp
 bindings/js/JSLocationCustom.cpp
 bindings/js/JSMediaListCustom.h
@@ -92,7 +86,6 @@ bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWindowProxy.cpp
 bindings/js/JSWorkerGlobalScopeBase.cpp
-bindings/js/JSWorkerGlobalScopeCustom.cpp
 bindings/js/JSXMLHttpRequestCustom.cpp
 bindings/js/ScriptCachedFrameData.cpp
 bindings/js/ScriptModuleLoader.cpp
@@ -100,13 +93,11 @@ bindings/js/StructuredClone.cpp
 bridge/objc/objc_runtime.mm
 bridge/objc/objc_utility.mm
 contentextensions/ContentExtensionsBackend.cpp
-crypto/SubtleCrypto.cpp
 crypto/algorithms/CryptoAlgorithmECDH.cpp
 crypto/algorithms/CryptoAlgorithmX25519.cpp
 css/CSSCounterStyleDescriptors.cpp
 css/CSSFontFace.cpp
 css/CSSFontFaceSet.cpp
-css/CSSFontFaceSource.cpp
 css/CSSGroupingRule.cpp
 css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
@@ -166,7 +157,6 @@ dom/ElementTraversal.h
 dom/EventPath.cpp
 dom/InlineStyleSheetOwner.cpp
 dom/KeyboardEvent.cpp
-dom/MessagePort.cpp
 dom/MouseRelatedEvent.cpp
 dom/Node.cpp
 dom/NodeTraversal.cpp
@@ -247,7 +237,6 @@ html/canvas/CanvasRenderingContext2DBase.cpp
 html/canvas/OffscreenCanvasRenderingContext2D.cpp
 html/parser/HTMLConstructionSite.cpp
 html/track/TextTrack.cpp
-inspector/CommandLineAPIHost.cpp
 inspector/DOMPatchSupport.cpp
 inspector/InspectorAuditAccessibilityObject.cpp
 inspector/InspectorAuditResourcesObject.cpp
@@ -282,13 +271,13 @@ loader/EmptyClients.cpp
 mathml/MathMLSelectElement.cpp
 page/BarProp.cpp
 page/CaptionUserPreferences.cpp
-page/CaptionUserPreferencesMediaAF.cpp
 page/ContextMenuController.cpp
 page/DebugPageOverlays.cpp
 page/DeviceController.cpp
 page/DragController.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
+page/FrameConsoleClient.cpp
 page/FocusController.cpp
 page/FrameSnapshotting.cpp
 page/FrameView.cpp
@@ -300,13 +289,11 @@ page/LocalFrame.cpp
 page/LocalFrameView.cpp
 page/OpportunisticTaskScheduler.cpp
 page/PageColorSampler.cpp
-page/PageConsoleClient.cpp
 page/PageGroup.cpp
 page/PageGroupLoadDeferrer.cpp
 page/PageOverlay.cpp
 page/PageOverlayController.cpp
 page/PageSerializer.cpp
-page/Performance.cpp
 page/PerformanceLogging.cpp
 page/PerformanceMark.cpp
 page/PerformanceNavigation.cpp
@@ -315,7 +302,6 @@ page/PerformanceTiming.cpp
 page/PerformanceUserTiming.cpp
 page/PointerCaptureController.cpp
 page/PrintContext.cpp
-page/Quirks.cpp
 page/RemoteDOMWindow.cpp
 page/RemoteFrame.cpp
 page/ResizeObservation.cpp
@@ -346,8 +332,6 @@ platform/ScrollAnimator.cpp
 platform/ScrollView.cpp
 platform/ScrollableArea.cpp
 platform/ScrollbarsController.cpp
-platform/ThreadGlobalData.cpp
-platform/ThreadGlobalData.h
 platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/graphics/ComplexTextController.cpp
 platform/graphics/DisplayRefreshMonitorManager.cpp
@@ -360,7 +344,6 @@ platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
 platform/graphics/avfoundation/objc/MediaSourcePrivateAVFObjC.mm
 platform/graphics/ca/GraphicsLayerCA.cpp
 platform/graphics/ca/TileGrid.cpp
-platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
 platform/graphics/coreimage/FEColorMatrixCoreImageApplier.mm
 platform/graphics/coreimage/FEComponentTransferCoreImageApplier.mm
 platform/graphics/coreimage/SourceGraphicCoreImageApplier.mm
@@ -438,7 +421,6 @@ rendering/style/StyleCanvasImage.cpp
 rendering/style/StyleCursorImage.cpp
 rendering/style/StyleCustomPropertyData.cpp
 rendering/style/StyleGradientImage.cpp
-rendering/style/StylePaintImage.cpp
 rendering/svg/RenderSVGPath.cpp
 rendering/svg/RenderSVGResourcePattern.cpp
 rendering/svg/RenderSVGShape.cpp

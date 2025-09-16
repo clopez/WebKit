@@ -2804,7 +2804,7 @@
       "nicks" : [
          "fantasai"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -3143,6 +3143,13 @@
       "nicks" : [
          "tolmasky"
       ]
+   },
+   {
+      "emails" : [
+         "franco_vieira@apple.com"
+      ],
+      "github" : "francovs",
+      "name" : "Franco Vieira de Souza"
    },
    {
       "emails" : [

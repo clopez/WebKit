@@ -264,6 +264,7 @@ page/DeviceController.cpp
 page/DragController.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
+page/FrameConsoleClient.cpp
 page/FocusController.cpp
 page/FrameSnapshotting.cpp
 page/FrameView.cpp
@@ -276,9 +277,7 @@ page/LocalDOMWindow.cpp
 page/LocalFrame.cpp
 page/LocalFrameView.cpp
 page/LocalFrameViewLayoutContext.cpp
-page/Page.cpp
 page/PageColorSampler.cpp
-page/PageConsoleClient.cpp
 page/PageOverlay.cpp
 page/PageSerializer.cpp
 page/PerformanceTiming.cpp

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ServiceWorker.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
@@ -146,7 +147,7 @@ void ServiceWorker::stop()
 {
     m_isStopped = true;
     removeAllEventListeners();
-    scriptExecutionContext()->unregisterServiceWorker(*this);
+    protectedScriptExecutionContext()->unregisterServiceWorker(*this);
     updatePendingActivityForEventDispatch();
 }
 

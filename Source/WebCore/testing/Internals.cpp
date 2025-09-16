@@ -585,8 +585,7 @@ void Internals::resetToConsistentState(Page& page)
 
     page.setDefersLoading(false);
     page.setResourceCachingDisabledByWebInspector(false);
-
-    page.console().setConsoleMessageListener(nullptr);
+    page.setConsoleMessageListenerForTesting(nullptr);
 
     RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
@@ -4863,7 +4862,7 @@ void Internals::initializeMockMediaSource()
     if (!document || (!document->settings().mediaSourceEnabled() && !document->settings().managedMediaSourceEnabled()))
         return;
 
-    platformStrategies()->mediaStrategy().enableMockMediaSource();
+    platformStrategies()->mediaStrategy()->enableMockMediaSource();
 }
 
 void Internals::setMaximumSourceBufferSize(SourceBuffer& buffer, uint64_t maximumSize, DOMPromiseDeferred<void>&& promise)
@@ -6651,11 +6650,11 @@ void Internals::updateQuotaBasedOnSpaceUsage()
 
 void Internals::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
 {
-    RefPtr page = contextDocument() ? contextDocument()->page() : nullptr;
-    if (!page)
+    if (!contextDocument())
         return;
 
-    page->console().setConsoleMessageListener(WTFMove(listener));
+    if (RefPtr page = contextDocument()->page())
+        page->setConsoleMessageListenerForTesting(WTFMove(listener));
 }
 
 void Internals::setResponseSizeWithPadding(FetchResponse& response, uint64_t size)

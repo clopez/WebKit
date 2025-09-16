@@ -1419,6 +1419,7 @@ imported/w3c/web-platform-tests/css/css-view-transitions/inline-with-offset-from
 
 # Needs special fuzziness on iOS.
 imported/w3c/web-platform-tests/css/css-view-transitions/rotated-cat-off-top-edge.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/table-caption.html [ ImageOnlyFailure ]
 
 # Site isolation testing infrastructure for accessibility doesn't exist on iOS.
 http/tests/site-isolation/accessibility/ [ Skip ]
@@ -1454,7 +1455,6 @@ http/tests/local/formdata/send-form-data-with-sliced-file.html [ Failure ]
 http/tests/local/formdata/send-form-data.html [ Failure ]
 http/tests/local/link-stylesheet-load-order-preload.html [ Failure ]
 http/tests/local/link-stylesheet-load-order.html [ Failure ]
-http/tests/misc/favicon-loads-with-icon-loading-override.html [ Failure ]
 http/tests/misc/link-rel-icon-beforeload.html [ Failure ]
 http/tests/misc/object-embedding-svg-delayed-size-negotiation.xhtml [ Failure ]
 http/tests/misc/willCacheResponse-delegate-callback.html [ Failure ]
@@ -2964,7 +2964,6 @@ fast/mediastream/getDisplayMedia-size.html [ Skip ]
 webkit.org/b/177401 webrtc/captureCanvas-webrtc.html [ Pass Timeout Failure ]
 
 webkit.org/b/210173 webrtc/h265.html [ Skip ]
-webrtc/video-rotation-black.html [ Slow ]
 
 webkit.org/b/209878 [ Debug ] webrtc/datachannel/multiple-connections.html [ Slow ]
 
@@ -4513,6 +4512,9 @@ webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interaction-cou
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interaction-count-press-key.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-auxclick.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-click.html [ Skip ]
+webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-keyboard-event-simulated-click-button-space.html [ Skip ]
+webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-keyboard-event-simulated-click-checkbox-space.html [ Skip ]
+webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-keyboard-event-simulated-click-link-enter.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-keypress.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-orphan-pointerup.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-press-key-as-input.html [ Skip ]
@@ -5873,9 +5875,6 @@ fast/viewport/ios/ignore-minimum-device-width-for-page-with-viewport-device-widt
 
 # problem with blur handling
 mathml/focus-event-handling.html [ Failure ]
-
-# <rdar://problem/56512107> [ iOS ] Three editing/pasteboard/smart-paste-paragraph tests have been flaky since they landed in r243124 (203264)
-webkit.org/b/203264 [ Release ] editing/pasteboard/smart-paste-paragraph-001.html [ Pass Failure ]
 
 webkit.org/b/253708 editing/pasteboard/copy-paste-text-with-trailing-colon.html [ Failure ]
 
@@ -7750,8 +7749,6 @@ webkit.org/b/288694 [ Debug arm64 ] fast/multicol/body-stuck-with-dirty-bit-with
 
 webkit.org/b/287569 http/tests/site-isolation/page-visibility-onvisibilitychange-in-iframe.html [ Timeout ]
 
-webkit.org/b/287033 fast/mediastream/microphone-interruption-and-audio-session.html [ Failure ]
-
 webkit.org/b/288987 fast/viewport/ios/device-width-viewport-after-changing-view-scale.html [ Pass Failure ]
 
 webkit.org/b/289002 [ Release ] imported/blink/fast/text/international-iteration-simple-text.html [ Pass Failure ]
@@ -8165,8 +8162,6 @@ webkit.org/b/296566 [ Release ] imported/w3c/web-platform-tests/screen-orientati
 
 webkit.org/b/296637 [ Release ] http/tests/dom/noopener-window-not-targetable.html [ Pass Failure ]
 
-webkit.org/b/296639 [ Release ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/cross-document-traversal-cross-document-traversal.html [ Pass Failure ]
-
 webkit.org/b/296657 fast/scrolling/ios/scroll-anchoring-when-revealing-focused-element.html [ Pass Failure ]
 
 webkit.org/b/296707 imported/w3c/web-platform-tests/screen-orientation/non-fully-active.html [ Pass Failure ]
@@ -8277,3 +8272,7 @@ fast/images/async-image-intersect-different-size-for-drawing.html [ Pass Timeout
 fast/images/low-memory-decode.html [ Pass Timeout ]
 
 webkit.org/b/298608 imported/w3c/web-platform-tests/digital-credentials/create.tentative.https.html [ Pass Failure ]
+
+webkit.org/b/298903 [ Release ] webrtc/video-rotation-black.html [ Pass Failure ]
+
+webkit.org/b/298905 imported/w3c/web-platform-tests/html/semantics/popovers/label-in-invoker.html [ Pass Failure ]

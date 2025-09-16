@@ -28,10 +28,12 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "ContextDestructionObserverInlines.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "ExceptionOr.h"
 #include "MediaSourcePrivate.h"
+#include "ScriptExecutionContext.h"
 #include "Settings.h"
 #include "SourceBufferList.h"
 #include <wtf/TZoneMallocInlines.h>
