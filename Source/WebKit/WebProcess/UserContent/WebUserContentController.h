@@ -91,7 +91,7 @@ private:
     void forEachUserMessageHandler(NOESCAPE const Function<void(const WebCore::UserMessageHandlerDescriptor&)>&) const final;
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)
-    WebCore::ContentExtensions::ContentExtensionsBackend& userContentExtensionBackend() override { return m_contentExtensionBackend; }
+    const WebCore::ContentExtensions::ContentExtensionsBackend& userContentExtensionBackend() const override { return m_contentExtensionBackend; }
 #endif
 
     // IPC::MessageReceiver.
@@ -123,16 +123,16 @@ private:
     void removeUserScriptMessageHandlerInternal(InjectedBundleScriptWorld&, ScriptMessageHandlerIdentifier);
 #endif
 
-    UserContentControllerIdentifier m_identifier;
+    const UserContentControllerIdentifier m_identifier;
 
-    typedef HashMap<RefPtr<InjectedBundleScriptWorld>, Vector<std::pair<std::optional<UserScriptIdentifier>, WebCore::UserScript>>> WorldToUserScriptMap;
+    using WorldToUserScriptMap = HashMap<Ref<InjectedBundleScriptWorld>, Vector<std::pair<std::optional<UserScriptIdentifier>, WebCore::UserScript>>>;
     WorldToUserScriptMap m_userScripts;
 
-    typedef HashMap<RefPtr<InjectedBundleScriptWorld>, Vector<std::pair<std::optional<UserStyleSheetIdentifier>, WebCore::UserStyleSheet>>> WorldToUserStyleSheetMap;
+    using WorldToUserStyleSheetMap = HashMap<Ref<InjectedBundleScriptWorld>, Vector<std::pair<std::optional<UserStyleSheetIdentifier>, WebCore::UserStyleSheet>>>;
     WorldToUserStyleSheetMap m_userStyleSheets;
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
-    typedef HashMap<RefPtr<InjectedBundleScriptWorld>, Vector<std::pair<ScriptMessageHandlerIdentifier, RefPtr<WebUserMessageHandlerDescriptorProxy>>>> WorldToUserMessageHandlerVectorMap;
+    using WorldToUserMessageHandlerVectorMap = HashMap<Ref<InjectedBundleScriptWorld>, Vector<std::pair<ScriptMessageHandlerIdentifier, Ref<WebUserMessageHandlerDescriptorProxy>>>>;
     WorldToUserMessageHandlerVectorMap m_userMessageHandlers;
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)

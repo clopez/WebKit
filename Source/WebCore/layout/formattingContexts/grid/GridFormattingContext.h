@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,16 @@
 #pragma once
 
 #include "LayoutUnit.h"
-
-#include <wtf/CheckedPtr.h>
+#include <wtf/CheckedRef.h>
 
 namespace WebCore {
 namespace Layout {
 
 class ElementBox;
+class LayoutState;
+
+class UnplacedGridItem;
+using UnplacedGridItems = Vector<UnplacedGridItem>;
 
 class GridFormattingContext : public CanMakeCheckedPtr<GridFormattingContext> {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(GridFormattingContext);
@@ -44,9 +47,14 @@ public:
         std::optional<LayoutUnit> blockAxisAvailableSpace;
     };
 
-    GridFormattingContext(const ElementBox& gridBox);
+    GridFormattingContext(const ElementBox& gridBox, LayoutState&);
 
     void layout(GridLayoutConstraints);
+private:
+    UnplacedGridItems constructUnplacedGridItems() const;
+
+    const CheckedRef<const ElementBox> m_gridBox;
+    const CheckedRef<LayoutState> m_globalLayoutState;
 };
 
 } // namespace Layout

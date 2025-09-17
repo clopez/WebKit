@@ -223,6 +223,13 @@
 #define WTF_EXTERN_C_END
 #endif
 
+/* CONCURRENT_SAFE */
+
+/* This is only used to annotate some functions as documentation that they are safe to call from any threads without additional
+ * synchronization. It also documents that these functions should not be altered in a way that breaks its concurrency promise.
+ * There isn't currently any compiler constructs that corresponds to this. */
+#define CONCURRENT_SAFE
+
 /* FALLTHROUGH */
 
 #if !defined(FALLTHROUGH) && !defined(__cplusplus)
@@ -660,11 +667,13 @@
     ALLOW_COMMA_BEGIN \
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN \
     ALLOW_UNUSED_PARAMETERS_BEGIN \
+    IGNORE_WARNINGS_BEGIN("attributes") \
     IGNORE_WARNINGS_BEGIN("cast-align") \
     IGNORE_CLANG_WARNINGS_BEGIN("thread-safety-reference-return")
 
 #define WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END \
     IGNORE_CLANG_WARNINGS_END \
+    IGNORE_WARNINGS_END \
     IGNORE_WARNINGS_END \
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_END \
     ALLOW_COMMA_END \

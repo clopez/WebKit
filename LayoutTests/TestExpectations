@@ -275,8 +275,11 @@ imported/w3c/web-platform-tests/fs/ [ Skip ]
 storage/filesystemaccess/ [ Skip ]
 storage/storagemanager/ [ Skip ]
 
-# Not implemented yet
+# Not implemented yet.
 imported/w3c/web-platform-tests/largest-contentful-paint/ [ Skip ]
+
+# Not implemented, but resources referenced by largest-contentful-paint.
+imported/w3c/web-platform-tests/element-timing/ [ Skip ]
 
 # Tests that require wheel events
 compositing/repaint/sticky-repaint-on-scroll.html [ Skip ]
@@ -6188,6 +6191,8 @@ imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/cs
 # modulepreload is not supported
 imported/w3c/web-platform-tests/import-maps/acquiring/modulepreload.html [ Skip ]
 imported/w3c/web-platform-tests/import-maps/acquiring/modulepreload-link-header.html [ Skip ]
+
+webkit.org/b/298948 imported/w3c/web-platform-tests/import-maps/http-url-like-specifiers.sub.html [ Failure Pass ]
 
 # WebKit2 Only
 fullscreen/fullscreen-enter-bottom-padding-animation.html [ Skip ]

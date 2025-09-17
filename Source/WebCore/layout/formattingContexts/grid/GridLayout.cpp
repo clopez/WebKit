@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,6 @@ GridLayout::GridLayout(const GridFormattingContext& gridFormattingContext)
 {
 }
 
-void GridLayout::layout(GridFormattingContext::GridLayoutConstraints) { }
+void GridLayout::layout(GridFormattingContext::GridLayoutConstraints, UnplacedGridItems) { }
 } // namespace Layout
 } // namespace WebCore

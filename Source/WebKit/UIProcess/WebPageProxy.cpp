@@ -6538,26 +6538,6 @@ void WebPageProxy::getResourceDataFromFrame(WebFrameProxy& frame, API::URL* reso
     sendWithAsyncReply(Messages::WebPage::GetResourceDataFromFrame(frame.frameID(), resourceURL->string()), toAPIDataCallback(WTFMove(callback)));
 }
 
-void WebPageProxy::getWebArchiveOfFrame(WebFrameProxy* frame, CompletionHandler<void(API::Data*)>&& callback)
-{
-    launchInitialProcessIfNecessary();
-    sendWithAsyncReply(Messages::WebPage::GetWebArchiveOfFrame(frame ? std::optional(frame->frameID()) : std::nullopt), toAPIDataCallback(WTFMove(callback)));
-}
-
-void WebPageProxy::getWebArchive(CompletionHandler<void(API::Data*)>&& completionHandler)
-{
-#if PLATFORM(COCOA)
-    if (!protectedPreferences()->siteIsolationEnabled()) {
-        getWebArchiveOfFrame(nullptr, WTFMove(completionHandler));
-        return;
-    }
-
-    getWebArchiveData(WTFMove(completionHandler));
-#else
-    getWebArchiveOfFrame(nullptr, WTFMove(completionHandler));
-#endif
-}
-
 void WebPageProxy::getAccessibilityTreeData(CompletionHandler<void(API::Data*)>&& callback)
 {
     sendWithAsyncReply(Messages::WebPage::GetAccessibilityTreeData(), toAPIDataCallback(WTFMove(callback)));
@@ -12169,7 +12149,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.canUseCredentialStorage = m_canUseCredentialStorage;
 
     parameters.httpsUpgradeEnabled = preferences->upgradeKnownHostsToHTTPSEnabled() ? m_configuration->httpsUpgradeEnabled() : false;
-    parameters.allowJSHandleInPageContentWorld = m_configuration->allowJSHandleInPageContentWorld();
     parameters.allowPostingLegacySynchronousMessages = m_configuration->allowPostingLegacySynchronousMessages();
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -13913,7 +13892,7 @@ void WebPageProxy::takeSnapshot(const IntRect& rect, const IntSize& bitmapSize, 
 
 #if HAVE(SUPPORT_HDR_DISPLAY_APIS)
         if (image && headroom > Headroom::None)
-            image = CGImageCreateCopyWithContentHeadroom(headroom.headroom, image.get());
+            image = adoptCF(CGImageCreateCopyWithContentHeadroom(headroom.headroom, image.get()));
 #endif
 
         callback(image.get());

@@ -1255,6 +1255,19 @@ ScrollPosition RenderBox::scrollPosition() const
     return scrollableArea->scrollPosition();
 }
 
+ScrollPosition RenderBox::constrainedScrollPosition() const
+{
+    if (!hasPotentiallyScrollableOverflow())
+        return { 0, 0 };
+
+    ASSERT(hasLayer());
+    auto* scrollableArea = layer()->scrollableArea();
+    if (!scrollableArea)
+        return { 0, 0 };
+
+    return scrollableArea->constrainedScrollPosition(scrollableArea->scrollPosition());
+}
+
 LayoutSize RenderBox::cachedSizeForOverflowClip() const
 {
     ASSERT(hasNonVisibleOverflow());
@@ -4083,7 +4096,8 @@ template<typename SizeType> LayoutUnit RenderBox::computeReplacedLogicalHeightUs
             && !(container->style().top().isAuto() || container->style().bottom().isAuto())) {
             auto& block = downcast<RenderBlock>(*container);
             auto computedValues = block.computeLogicalHeight(block.logicalHeight(), 0);
-            LayoutUnit newContentHeight = computedValues.m_extent - block.borderAndPaddingLogicalHeight() - block.scrollbarLogicalHeight();
+            LayoutUnit borderPaddingAdjustment = isOutOfFlowPositioned() ? block.borderLogicalHeight() : block.borderAndPaddingLogicalHeight();
+            LayoutUnit newContentHeight = computedValues.m_extent - block.scrollbarLogicalHeight() - borderPaddingAdjustment;
             return adjustContentBoxLogicalHeightForBoxSizing(Style::evaluate(logicalHeight, newContentHeight));
         }
         

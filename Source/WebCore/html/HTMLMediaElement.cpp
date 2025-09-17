@@ -1856,8 +1856,10 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    if (RefPtr documentLoader = frame->loader().documentLoader()) {
-        if (page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, url, ContentExtensions::ResourceType::Media, *documentLoader).shouldBlock()) {
+    RefPtr documentLoader = frame->loader().documentLoader();
+    RefPtr userContentProvider = frame->userContentProvider();
+    if (documentLoader && userContentProvider) {
+        if (userContentProvider->processContentRuleListsForLoad(*page, url, ContentExtensions::ResourceType::Media, *documentLoader).shouldBlock()) {
             mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
             return;
         }
@@ -8887,7 +8889,8 @@ bool HTMLMediaElement::canProduceAudio() const
 
 bool HTMLMediaElement::isSuspended() const
 {
-    ASSERT(Node::scriptExecutionContext() == ActiveDOMObject::scriptExecutionContext());
+    ASSERT(Node::scriptExecutionContext() == ActiveDOMObject::scriptExecutionContext()
+        || (!ActiveDOMObject::scriptExecutionContext() && document().activeDOMObjectsAreStopped()));
     return document().activeDOMObjectsAreSuspended() || document().activeDOMObjectsAreStopped();
 }
 

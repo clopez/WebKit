@@ -838,21 +838,24 @@ VisualViewport& LocalDOMWindow::visualViewport()
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
 
-bool LocalDOMWindow::shouldHaveWebKitNamespaceForWorld(DOMWrapperWorld& world)
+bool LocalDOMWindow::shouldHaveWebKitNamespaceForWorld(DOMWrapperWorld& world, JSC::JSGlobalObject* globalObject)
 {
-    if (world.allowJSHandleCreation() || world.allowNodeSerialization())
+    if (world.allowNodeSerialization())
         return true;
 
-    RefPtr frame = this->frame();
+    if (jsCast<JSDOMGlobalObject*>(globalObject)->allowsJSHandleCreation())
+        return true;
+
+    RefPtr frame = this->localFrame();
     if (!frame)
         return false;
 
-    RefPtr page = frame->page();
-    if (!page)
+    RefPtr userContentProvider = frame->userContentProvider();
+    if (!userContentProvider)
         return false;
 
     bool hasUserMessageHandler = false;
-    page->protectedUserContentProvider()->forEachUserMessageHandler([&](const UserMessageHandlerDescriptor& descriptor) {
+    userContentProvider->forEachUserMessageHandler([&](const UserMessageHandlerDescriptor& descriptor) {
         if (&descriptor.world() == &world) {
             hasUserMessageHandler = true;
             return;
@@ -866,11 +869,14 @@ WebKitNamespace* LocalDOMWindow::webkitNamespace()
 {
     if (!isCurrentlyDisplayedInFrame())
         return nullptr;
-    RefPtr page = frame()->page();
-    if (!page)
+    RefPtr frame = localFrame();
+    if (!frame)
+        return nullptr;
+    RefPtr userContentProvider = frame->userContentProvider();
+    if (!userContentProvider)
         return nullptr;
     if (!m_webkitNamespace)
-        m_webkitNamespace = WebKitNamespace::create(*this, page->protectedUserContentProvider());
+        m_webkitNamespace = WebKitNamespace::create(*this, *userContentProvider);
     return m_webkitNamespace.get();
 }
 
@@ -2818,15 +2824,12 @@ ExceptionOr<RefPtr<WindowProxy>> LocalDOMWindow::open(LocalDOMWindow& activeWind
 #if ENABLE(CONTENT_EXTENSIONS)
     RefPtr page = firstFrame->page();
     RefPtr firstFrameDocument = firstFrame->document();
-
-    RefPtr localFrame = dynamicDowncast<LocalFrame>(firstFrame->mainFrame());
-
-    if (firstFrameDocument && page) {
-        if (RefPtr firstFrameDocumentLoader = firstFrameDocument->loader()) {
-            auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, firstFrameDocument->completeURL(urlString), ContentExtensions::ResourceType::Popup, *firstFrameDocumentLoader);
-            if (results.shouldBlock())
-                return RefPtr<WindowProxy> { nullptr };
-        }
+    RefPtr userContentProvider = firstFrame->userContentProvider();
+    RefPtr firstFrameDocumentLoader = firstFrameDocument ? firstFrameDocument->loader() : nullptr;
+    if (firstFrameDocument && page && userContentProvider && firstFrameDocumentLoader) {
+        auto results = userContentProvider->processContentRuleListsForLoad(*page, firstFrameDocument->completeURL(urlString), ContentExtensions::ResourceType::Popup, *firstFrameDocumentLoader);
+        if (results.shouldBlock())
+            return RefPtr<WindowProxy> { nullptr };
     }
 #endif
 

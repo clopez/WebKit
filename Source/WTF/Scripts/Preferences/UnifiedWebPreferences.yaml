@@ -3266,7 +3266,7 @@ GoogleAntiFlickerOptimizationQuirkEnabled:
 
 GraphicsContextBlurFilterEnabled:
    type: bool
-   status: unstable
+   status: testable
    category: media
    webcoreOnChange: setNeedsRelayoutAllFrames
    humanReadableName: "GraphicsContext Blur Filter Rendering"
@@ -7802,6 +7802,20 @@ TextRecognitionInVideosEnabled:
       default: defaultTextRecognitionInVideosEnabled()
   sharedPreferenceForWebProcess: true
   mediaPlaybackRelated: true
+
+TextShapingAcrossInlineBoxes:
+  type: bool
+  status: unstable
+  category: css
+  humanReadableName: "Text Shaping Across Inline Boxes"
+  humanReadableDescription: "Enable Text Shaping Across Inline Boxes"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
 
 TextTracksInMSEEnabled:
   type: bool

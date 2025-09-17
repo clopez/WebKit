@@ -475,6 +475,15 @@ void Adjuster::adjustFromBuilder(RenderStyle& style)
     style.adjustViewTimelines();
 }
 
+void Adjuster::adjustFirstLetterStyle(RenderStyle& style)
+{
+    if (style.pseudoElementType() != PseudoId::FirstLetter)
+        return;
+
+    // Force inline display (except for floating first-letters).
+    style.setEffectiveDisplay(style.isFloating() ? DisplayType::Block : DisplayType::Inline);
+}
+
 void Adjuster::adjust(RenderStyle& style) const
 {
     if (style.display() == DisplayType::Contents)
@@ -514,6 +523,8 @@ void Adjuster::adjust(RenderStyle& style) const
         // Absolute/fixed positioned elements, floating elements and the document element need block-like outside display.
         if (style.hasOutOfFlowPosition() || style.isFloating() || (m_element && m_document->documentElement() == m_element.get()))
             style.setEffectiveDisplay(equivalentBlockDisplay(style));
+
+        adjustFirstLetterStyle(style);
 
         // FIXME: Don't support this mutation for pseudo styles like first-letter or first-line, since it's not completely
         // clear how that should work.
@@ -1065,6 +1076,11 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         static MainThreadNeverDestroyed<const AtomString> className("xnw9j1v"_s);
         if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className))
             style.setEffectiveDisplay(DisplayType::None);
+    }
+
+    if (m_document->quirks().needsTextInputBoxSizingBorderBoxQuirk()) {
+        if (RefPtr input = dynamicDowncast<HTMLInputElement>(m_element); input && input->isTextField())
+            style.setBoxSizing(BoxSizing::BorderBox);
     }
 }
 
