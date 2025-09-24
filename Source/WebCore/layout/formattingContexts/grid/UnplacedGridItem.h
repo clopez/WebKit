@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,18 +25,74 @@
 
 #pragma once
 
-#include "LayoutElementBox.h"
 #include "StyleGridPosition.h"
 
 namespace WebCore {
 namespace Layout {
 
+class ElementBox;
+
 class UnplacedGridItem {
 public:
-    UnplacedGridItem(const ElementBox&);
+    UnplacedGridItem(const ElementBox&, Style::GridPosition columnStart, Style::GridPosition columnEnd, Style::GridPosition rowStart, Style::GridPosition rowEnd);
+    UnplacedGridItem(WTF::HashTableEmptyValueType);
+
+    bool operator==(const UnplacedGridItem& other) const;
+
+    bool isHashTableDeletedValue() const { return m_layoutBox.isHashTableDeletedValue(); }
+    bool isHashTableEmptyValue() const { return m_layoutBox.isHashTableEmptyValue(); }
+
+    // The grammar for <grid-line>, which is used by the grid-{column, row}-{start-end}
+    // placement properties is 1-index in regards to line numbers. To allow for easy
+    // indexing from these line numbers into our structures we subtract 1 from them
+    // into these helper functions to make them 0-index. For example, grid-column-start: 1
+    // and grid-column-end: 2 would make to [0, 1] and place the grid item into
+    // Grid[rowIndex][0].
+    int explicitColumnStart() const;
+    int explicitColumnEnd() const;
+    int explicitRowStart() const;
+    int explicitRowEnd() const;
+
 private:
-    const CheckedRef<const ElementBox> m_layoutBox;
+    CheckedRef<const ElementBox> m_layoutBox;
+
+    // https://drafts.csswg.org/css-grid-1/#typedef-grid-row-start-grid-line
+    std::pair<Style::GridPosition, Style::GridPosition> m_columnPosition;
+    std::pair<Style::GridPosition, Style::GridPosition> m_rowPosition;
+
+    friend class PlacedGridItem;
+    friend void add(Hasher&, const WebCore::Layout::UnplacedGridItem&);
+};
+
+// https://drafts.csswg.org/css-grid-1/#auto-placement-algo
+struct UnplacedGridItems {
+    // 1. Position anything that’s not auto-positioned.
+    Vector<UnplacedGridItem> nonAutoPositionedItems;
+    // 2. Process the items locked to a given row.
+    Vector<UnplacedGridItem> definiteRowPositionedItems;
+    // 4. Position the remaining grid items.
+    Vector<UnplacedGridItem> autoPositionedItems;
 };
 
 }
 }
+
+namespace WTF {
+
+template<> struct HashTraits<WebCore::Layout::UnplacedGridItem> : SimpleClassHashTraits<WebCore::Layout::UnplacedGridItem> {
+    static const bool emptyValueIsZero = HashTraits<CheckedRef<const WebCore::Layout::ElementBox>>::emptyValueIsZero;
+    static constexpr bool hasIsEmptyValueFunction = true;
+
+    static bool isEmptyValue(const WebCore::Layout::UnplacedGridItem& unplacedGridItem) { return unplacedGridItem.isHashTableEmptyValue(); }
+};
+
+template<> struct DefaultHash<WebCore::Layout::UnplacedGridItem> {
+    static constexpr bool safeToCompareToEmptyOrDeleted = true;
+
+    static unsigned hash (const WebCore::Layout::UnplacedGridItem key) { return computeHash(key); }
+
+    static bool equal(const WebCore::Layout::UnplacedGridItem& a, const WebCore::Layout::UnplacedGridItem& b) { return a == b; }
+};
+
+}
+

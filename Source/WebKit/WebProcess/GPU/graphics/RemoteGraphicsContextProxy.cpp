@@ -32,6 +32,7 @@
 #include "RemoteGraphicsContextMessages.h"
 #include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendProxy.h"
+#include "RemoteSnapshotRecorderMessages.h"
 #include "SharedVideoFrame.h"
 #include "StreamClientConnection.h"
 #include "WebProcess.h"
@@ -43,7 +44,7 @@
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/NotImplemented.h>
-#include <WebCore/SVGFilter.h>
+#include <WebCore/SVGFilterRenderer.h>
 #include <wtf/MathExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
@@ -246,7 +247,7 @@ void RemoteGraphicsContextProxy::drawFilteredImageBuffer(ImageBuffer* sourceImag
         }
     }
 
-    RefPtr svgFilter = dynamicDowncast<SVGFilter>(filter);
+    RefPtr svgFilter = dynamicDowncast<SVGFilterRenderer>(filter);
     if (svgFilter && svgFilter->hasValidRenderingResourceIdentifier())
         recordResourceUse(filter);
 
@@ -609,10 +610,10 @@ void RemoteGraphicsContextProxy::applyDeviceScaleFactor(float scaleFactor)
     send(Messages::RemoteGraphicsContext::ApplyDeviceScaleFactor(scaleFactor));
 }
 
-void RemoteGraphicsContextProxy::beginPage(const IntSize& pageSize)
+void RemoteGraphicsContextProxy::beginPage(const FloatRect& pageRect)
 {
     appendStateChangeItemIfNecessary();
-    send(Messages::RemoteGraphicsContext::BeginPage(pageSize));
+    send(Messages::RemoteGraphicsContext::BeginPage(pageRect));
 }
 
 void RemoteGraphicsContextProxy::endPage()
@@ -765,8 +766,13 @@ void RemoteGraphicsContextProxy::appendStateChangeItemIfNecessary()
         if (auto packedColor = fillBrush.packedColor())
             send(Messages::RemoteGraphicsContext::SetFillPackedColor(*packedColor));
         else if (RefPtr pattern = fillBrush.pattern()) {
-            recordResourceUse(pattern->tileImage());
-            send(Messages::RemoteGraphicsContext::SetFillPattern(pattern->tileImage().imageIdentifier(), pattern->parameters()));
+            if (RefPtr image = pattern->tileNativeImage()) {
+                if (recordResourceUse(*image))
+                    send(Messages::RemoteGraphicsContext::SetFillPatternNativeImage(image->renderingResourceIdentifier(), pattern->parameters()));
+            } else if (RefPtr buffer = pattern->tileImageBuffer()) {
+                if (recordResourceUse(*buffer))
+                    send(Messages::RemoteGraphicsContext::SetFillPatternImageBuffer(buffer->renderingResourceIdentifier(), pattern->parameters()));
+            }
         } else if (RefPtr gradient = fillBrush.gradient()) {
             if (auto identifier = recordResourceUse(*gradient))
                 send(Messages::RemoteGraphicsContext::SetFillCachedGradient(*identifier, fillBrush.gradientSpaceTransform()));
@@ -784,8 +790,13 @@ void RemoteGraphicsContextProxy::appendStateChangeItemIfNecessary()
             } else
                 send(Messages::RemoteGraphicsContext::SetStrokePackedColor(*packedColor));
         } else if (RefPtr pattern = strokeBrush.pattern()) {
-            recordResourceUse(pattern->tileImage());
-            send(Messages::RemoteGraphicsContext::SetStrokePattern(pattern->tileImage().imageIdentifier(), pattern->parameters()));
+            if (RefPtr image = pattern->tileNativeImage()) {
+                if (recordResourceUse(*image))
+                    send(Messages::RemoteGraphicsContext::SetStrokePatternNativeImage(image->renderingResourceIdentifier(), pattern->parameters()));
+            } else if (RefPtr buffer = pattern->tileImageBuffer()) {
+                if (recordResourceUse(*buffer))
+                    send(Messages::RemoteGraphicsContext::SetStrokePatternImageBuffer(buffer->renderingResourceIdentifier(), pattern->parameters()));
+            }
         } else if (RefPtr gradient = strokeBrush.gradient()) {
             if (auto identifier = recordResourceUse(*gradient))
                 send(Messages::RemoteGraphicsContext::SetStrokeCachedGradient(*identifier, strokeBrush.gradientSpaceTransform()));
@@ -884,6 +895,9 @@ void RemoteGraphicsContextProxy::abandon()
     disconnect();
     m_renderingBackend = nullptr;
 }
+
+// Instantiate the send() helper for the few subclass messages here to avoid listing it in the header.
+template void RemoteGraphicsContextProxy::send<Messages::RemoteSnapshotRecorder::DrawSnapshotFrame>(Messages::RemoteSnapshotRecorder::DrawSnapshotFrame&&);
 
 }
 

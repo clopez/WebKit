@@ -73,6 +73,7 @@ namespace Style {
 template<typename T> inline T forwardInheritedValue(T&& value) { return std::forward<T>(value); }
 template<auto R, typename V> inline Length<R, V> forwardInheritedValue(const Length<R, V>& value) { auto copy = value; return copy; }
 inline AnchorNames forwardInheritedValue(const AnchorNames& value) { auto copy = value; return copy; }
+inline AppleColorFilter forwardInheritedValue(const AppleColorFilter& value) { auto copy = value; return copy; }
 inline AspectRatio forwardInheritedValue(const AspectRatio& value) { auto copy = value; return copy; }
 inline BackgroundSize forwardInheritedValue(const BackgroundSize& value) { auto copy = value; return copy; }
 inline BlockEllipsis forwardInheritedValue(const BlockEllipsis& value) { auto copy = value; return copy; }
@@ -85,9 +86,8 @@ inline ContainerNames forwardInheritedValue(const ContainerNames& value) { auto 
 inline Content forwardInheritedValue(const Content& value) { auto copy = value; return copy; }
 inline WebCore::Color forwardInheritedValue(const WebCore::Color& value) { auto copy = value; return copy; }
 inline Color forwardInheritedValue(const Color& value) { auto copy = value; return copy; }
+inline EasingFunction forwardInheritedValue(const EasingFunction& value) { auto copy = value; return copy; }
 inline WebCore::Length forwardInheritedValue(const WebCore::Length& value) { auto copy = value; return copy; }
-inline LengthSize forwardInheritedValue(const LengthSize& value) { auto copy = value; return copy; }
-inline LengthBox forwardInheritedValue(const LengthBox& value) { auto copy = value; return copy; }
 inline GapGutter forwardInheritedValue(const GapGutter& value) { auto copy = value; return copy; }
 inline FilterOperations forwardInheritedValue(const FilterOperations& value) { auto copy = value; return copy; }
 inline TransformOperations forwardInheritedValue(const TransformOperations& value) { auto copy = value; return copy; }
@@ -106,6 +106,7 @@ inline Translate forwardInheritedValue(const Translate& value) { auto copy = val
 inline PreferredSize forwardInheritedValue(const PreferredSize& value) { auto copy = value; return copy; }
 inline MinimumSize forwardInheritedValue(const MinimumSize& value) { auto copy = value; return copy; }
 inline MaximumSize forwardInheritedValue(const MaximumSize& value) { auto copy = value; return copy; }
+inline Filter forwardInheritedValue(const Filter& value) { auto copy = value; return copy; }
 inline FlexBasis forwardInheritedValue(const FlexBasis& value) { auto copy = value; return copy; }
 inline DynamicRangeLimit forwardInheritedValue(const DynamicRangeLimit& value) { auto copy = value; return copy; }
 inline Clip forwardInheritedValue(const Clip& value) { auto copy = value; return copy; }
@@ -128,16 +129,25 @@ inline PositionY forwardInheritedValue(const PositionY& value) { auto copy = val
 inline SVGBaselineShift forwardInheritedValue(const SVGBaselineShift& value) { auto copy = value; return copy; }
 inline SVGCenterCoordinateComponent forwardInheritedValue(const SVGCenterCoordinateComponent& value) { auto copy = value; return copy; }
 inline SVGCoordinateComponent forwardInheritedValue(const SVGCoordinateComponent& value) { auto copy = value; return copy; }
+inline SVGMarkerResource forwardInheritedValue(const SVGMarkerResource& value) { auto copy = value; return copy; }
 inline SVGPathData forwardInheritedValue(const SVGPathData& value) { auto copy = value; return copy; }
 inline SVGPaint forwardInheritedValue(const SVGPaint& value) { auto copy = value; return copy; }
 inline SVGRadius forwardInheritedValue(const SVGRadius& value) { auto copy = value; return copy; }
 inline SVGRadiusComponent forwardInheritedValue(const SVGRadiusComponent& value) { auto copy = value; return copy; }
 inline SVGStrokeDasharray forwardInheritedValue(const SVGStrokeDasharray& value) { auto copy = value; return copy; }
 inline SVGStrokeDashoffset forwardInheritedValue(const SVGStrokeDashoffset& value) { auto copy = value; return copy; }
+inline ScrollSnapAlign forwardInheritedValue(const ScrollSnapAlign& value) { auto copy = value; return copy; }
+inline ScrollSnapType forwardInheritedValue(const ScrollSnapType& value) { auto copy = value; return copy; }
 inline ScrollbarColor forwardInheritedValue(const ScrollbarColor& value) { auto copy = value; return copy; }
 inline ScrollbarGutter forwardInheritedValue(const ScrollbarGutter& value) { auto copy = value; return copy; }
 inline ShapeMargin forwardInheritedValue(const ShapeMargin& value) { auto copy = value; return copy; }
 inline ShapeOutside forwardInheritedValue(const ShapeOutside& value) { auto copy = value; return copy; }
+inline SingleAnimationName forwardInheritedValue(const SingleAnimationName& value) { auto copy = value; return copy; }
+inline SingleAnimationRangeStart forwardInheritedValue(const SingleAnimationRangeStart& value) { auto copy = value; return copy; }
+inline SingleAnimationRangeEnd forwardInheritedValue(const SingleAnimationRangeEnd& value) { auto copy = value; return copy; }
+inline SingleAnimationRange forwardInheritedValue(const SingleAnimationRange& value) { auto copy = value; return copy; }
+inline SingleAnimationTimeline forwardInheritedValue(const SingleAnimationTimeline& value) { auto copy = value; return copy; }
+inline SingleTransitionProperty forwardInheritedValue(const SingleTransitionProperty& value) { auto copy = value; return copy; }
 inline StrokeWidth forwardInheritedValue(const StrokeWidth& value) { auto copy = value; return copy; }
 inline TextDecorationLine forwardInheritedValue(const TextDecorationLine& value) { auto copy = value; return copy; }
 inline TextDecorationThickness forwardInheritedValue(const TextDecorationThickness& value) { auto copy = value; return copy; }
@@ -239,7 +249,16 @@ private:
     static float determineRubyTextSizeMultiplier(BuilderState&);
 };
 
-// MARK: - Utilities
+// MARK: - List Utilities
+
+template<auto setter, auto getter>
+void fillRemainingViaRepetition(auto& list, size_t indexToStartAt)
+{
+    for (size_t i = indexToStartAt, patternIndex = 0; i < list.size(); ++i, ++patternIndex)
+        (list[i].*setter)(forwardInheritedValue((list[patternIndex % indexToStartAt].*getter)()));
+}
+
+// MARK: - FillLayer List Utilities
 
 template<auto layersSetter, auto layersInitial>
 void applyInitialPrimaryFillLayerProperty(BuilderState& builderState)
@@ -293,13 +312,6 @@ void applyInitialSecondaryFillLayerProperty(BuilderState& builderState)
 
     for (auto& layer : layers)
         (layer.*setter)(initial());
-}
-
-template<auto setter, auto getter>
-void fillRemainingViaRepetition(auto& layers, size_t indexToStartAt)
-{
-    for (size_t i = indexToStartAt, patternIndex = 0; i < layers.size(); ++i, ++patternIndex)
-        (layers[i].*setter)(forwardInheritedValue((layers[patternIndex % indexToStartAt].*getter)()));
 }
 
 template<auto layersMutableGetter, auto layersGetter, auto setter, auto getter>
@@ -357,6 +369,77 @@ void applyValueSecondaryFillLayerProperty(BuilderState& builderState, CSSValue& 
 
     // We need to fill in any remaining values with the pattern specified.
     fillRemainingViaRepetition<setter, getter>(layers, maxIndexSet + 1);
+}
+
+// MARK: - Animation or Transition List Utilities
+
+template<auto animationListMutableGetter, auto setter, auto initial, auto clear, typename ListType>
+void applyInitialAnimationOrTransitionProperty(BuilderState& builderState)
+{
+    auto& list = (builderState.style().*animationListMutableGetter)();
+    if (list.isEmpty())
+        list.append(typename ListType::value_type { });
+
+    (list[0].*setter)(initial());
+
+    // Reset any remaining animations to not have the property set.
+    for (size_t i = 0; i < list.size(); ++i)
+        (list[i].*clear)();
+}
+
+template<auto animationListMutableGetter, auto animationListGetter, auto getter, auto setter, auto clear, auto isSet, typename ListType>
+void applyInheritAnimationOrTransitionProperty(BuilderState& builderState)
+{
+    auto& list = (builderState.style().*animationListMutableGetter)();
+    auto& parentList = (builderState.parentStyle().*animationListGetter)();
+
+    size_t i = 0;
+    size_t parentSize = parentList.isNone() ? 0 : parentList.size();
+
+    for (; i < parentSize && (parentList[i].*isSet)(); ++i) {
+        if (list.size() <= i)
+            list.append(typename ListType::value_type { });
+        (list[i].*setter)(forwardInheritedValue((parentList[i].*getter)()));
+    }
+
+    // Reset any remaining animations to not have the property set.
+    for (; i < list.size(); ++i)
+        (list[i].*clear)();
+}
+
+template<auto animationListMutableGetter, auto setter, auto initial, auto clear, auto converter, typename ListType>
+void applyValuePrimaryAnimationOrTransitionProperty(BuilderState& builderState, CSSValue& value)
+{
+    auto& list = (builderState.style().*animationListMutableGetter)();
+
+    auto set = [&](auto i, auto& item) {
+        if (item.valueID() == CSSValueInitial)
+            (list[i].*setter)(initial());
+        else
+            (list[i].*setter)(converter(builderState, item));
+    };
+
+    size_t i = 0;
+    if (RefPtr valueList = dynamicDowncast<CSSValueList>(value)) {
+        // Walk each value and put it into an animation, creating new animations as needed.
+        for (Ref item : *valueList) {
+            if (i >= list.size())
+                list.append(typename ListType::value_type { });
+
+            set(i, item.get());
+            ++i;
+        }
+    } else {
+        if (list.isEmpty())
+            list.append(typename ListType::value_type { });
+
+        set(0, value);
+        i = 1;
+    }
+
+    // Reset any remaining animations to not have the property set.
+    for (; i < list.size(); ++i)
+        (list[i].*clear)();
 }
 
 // MARK: - Custom conversions

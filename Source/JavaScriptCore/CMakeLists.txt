@@ -898,14 +898,18 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/remote/RemoteInspectionTarget.h
     inspector/remote/RemoteInspector.h
 
+    interpreter/CachedCall.h
     interpreter/CalleeBits.h
     interpreter/CallFrame.h
     interpreter/CallFrameInlines.h
     interpreter/CheckpointOSRExitSideState.h
     interpreter/CLoopStack.h
+    interpreter/CLoopStackInlines.h
     interpreter/EntryFrame.h
     interpreter/FrameTracers.h
     interpreter/Interpreter.h
+    interpreter/ProtoCallFrame.h
+    interpreter/ProtoCallFrameInlines.h
     interpreter/Register.h
     interpreter/RegisterInlines.h
     interpreter/ShadowChicken.h
@@ -1400,7 +1404,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     wasm/WasmBaselineData.h
     wasm/WasmBranchHints.h
-    wasm/WasmCallSlot.h
+    wasm/WasmCallProfile.h
     wasm/WasmCallee.h
     wasm/WasmCalleeGroup.h
     wasm/WasmCallingConvention.h
@@ -1412,10 +1416,12 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmFaultSignalHandler.h
     wasm/WasmFormat.h
     wasm/WasmFunctionIPIntMetadataGenerator.h
+    wasm/WasmGlobal.h
     wasm/WasmHandlerInfo.h
     wasm/WasmIPIntGenerator.h
-    wasm/WasmIndexOrName.h
     wasm/WasmIPIntTierUpCounter.h
+    wasm/WasmIndexOrName.h
+    wasm/WasmInstanceAnchor.h
     wasm/WasmJS.h
     wasm/WasmLimits.h
     wasm/WasmMemory.h
@@ -1428,7 +1434,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmOpcodeOrigin.h
     wasm/WasmParser.h
     wasm/WasmPlan.h
-    wasm/WasmProfileCollection.h
     wasm/WasmSIMDOpcodes.h
     wasm/WasmSections.h
     wasm/WasmSIMDOpcodes.h
@@ -1442,13 +1447,20 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmValueLocation.h
 
     wasm/js/JSWebAssembly.h
+    wasm/js/JSWebAssemblyGlobal.h
+    wasm/js/JSWebAssemblyInstance.h
     wasm/js/JSWebAssemblyLinkError.h
     wasm/js/JSWebAssemblyMemory.h
     wasm/js/JSWebAssemblyModule.h
+    wasm/js/JSWebAssemblyTable.h
+    wasm/js/WebAssemblyBuiltin.h
+    wasm/js/WebAssemblyFunction.h
+    wasm/js/WebAssemblyFunctionBase.h
     wasm/js/WebAssemblyGCStructure.h
     wasm/js/WebAssemblyLinkErrorConstructor.h
     wasm/js/WebAssemblyLinkErrorPrototype.h
     wasm/js/WebAssemblyModuleRecord.h
+    wasm/js/WebAssemblyWrapperFunction.h
 
     yarr/RegularExpression.h
     yarr/Yarr.h

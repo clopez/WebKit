@@ -48,6 +48,7 @@
 #include "WebContextMenu.h"
 #include "WebEventConversion.h"
 #include "WebEventFactory.h"
+#include "WebFrameInspectorTarget.h"
 #include "WebFrameProxyMessages.h"
 #include "WebImage.h"
 #include "WebPage.h"
@@ -85,6 +86,7 @@
 #include <WebCore/JSCSSStyleDeclaration.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/JSFile.h>
+#include <WebCore/JSNode.h>
 #include <WebCore/JSRange.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
@@ -101,9 +103,12 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/ShareableBitmapHandle.h>
+#include <WebCore/SharedMemory.h>
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
+#include <WebCore/WebKitJSHandle.h>
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -178,6 +183,8 @@ Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, We
 WebFrame::WebFrame(WebPage& page, WebCore::FrameIdentifier frameID)
     : m_page(page)
     , m_frameID(frameID)
+    // FIXME: <https://webkit.org/b/299052> Consider lazily creating this inspector target.
+    , m_inspectorTarget(makeUniqueRef<WebFrameInspectorTarget>(*this))
 {
     ASSERT(!WebProcess::singleton().webFrame(m_frameID));
     WebProcess::singleton().addWebFrame(m_frameID, this);
@@ -1544,6 +1551,46 @@ void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirec
     }
 
     completionHandler(foundElementInRemoteFrame);
+}
+
+void WebFrame::takeSnapshotOfNode(JSHandleIdentifier identifier, CompletionHandler<void(std::optional<ShareableBitmapHandle>&&)>&& completion)
+{
+    RefPtr page = m_page.get();
+    if (!page)
+        return completion({ });
+
+    auto [globalObject, object] = WebKitJSHandle::objectForIdentifier(identifier);
+    if (!globalObject || !object)
+        return completion({ });
+
+    auto* jsNode = jsDynamicCast<JSNode*>(object);
+    if (!jsNode)
+        return completion({ });
+
+    RefPtr node = jsNode->wrapped();
+    if (!node)
+        return completion({ });
+
+    RefPtr bitmap = page->shareableBitmapSnapshotForNode(*node);
+    if (!bitmap)
+        return completion({ });
+
+    completion(bitmap->createHandle(SharedMemory::Protection::ReadOnly));
+}
+
+void WebFrame::connectInspector(Inspector::FrontendChannel::ConnectionType connectionType)
+{
+    m_inspectorTarget->connect(connectionType);
+}
+
+void WebFrame::disconnectInspector()
+{
+    m_inspectorTarget->disconnect();
+}
+
+void WebFrame::sendMessageToInspectorTarget(const String& message)
+{
+    m_inspectorTarget->sendMessageToTargetBackend(message);
 }
 
 } // namespace WebKit

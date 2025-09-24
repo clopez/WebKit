@@ -40,6 +40,7 @@
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SystemImage.h>
 #include <WebCore/TextFlags.h>
+#include <wtf/Box.h>
 #include <wtf/TypeCasts.h>
 
 namespace WTF {
@@ -535,6 +536,21 @@ public:
 
 private:
     Ref<const DisplayList> m_displayList;
+};
+
+class DrawPlaceholder {
+public:
+    static constexpr char name[] = "draw-placeholder";
+
+    DrawPlaceholder(Function<void(GraphicsContext&)>&&);
+    ~DrawPlaceholder();
+
+    void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
+private:
+    using FunctionHolder = Box<Function<void(GraphicsContext&)>>;
+    FunctionHolder m_function;
 };
 
 class DrawImageBuffer {
@@ -1263,18 +1279,18 @@ class BeginPage {
 public:
     static constexpr char name[] = "begin-page";
 
-    BeginPage(const IntSize& pageSize)
-        : m_pageSize(pageSize)
+    BeginPage(const FloatRect& pageRect)
+        : m_pageRect(pageRect)
     {
     }
 
-    const IntSize& pageSize() const { return m_pageSize; }
+    const FloatRect& pageRect() const { return m_pageRect; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    IntSize m_pageSize;
+    FloatRect m_pageRect;
 };
 
 class EndPage {

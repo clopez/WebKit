@@ -27,25 +27,25 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "CallLinkInfo.h"
-#include "JSDestructibleObject.h"
-#include "JSWebAssemblyGlobal.h"
-#include "JSWebAssemblyMemory.h"
-#include "JSWebAssemblyTable.h"
-#include "StackManager.h"
-#include "WasmCalleeGroup.h"
-#include "WasmCreationMode.h"
-#include "WasmFormat.h"
-#include "WasmGlobal.h"
-#include "WasmMemory.h"
-#include "WasmModule.h"
-#include "WasmModuleInformation.h"
-#include "WasmProfileCollection.h"
-#include "WasmTable.h"
-#include "WebAssemblyBuiltin.h"
-#include "WebAssemblyFunction.h"
-#include "WebAssemblyGCStructure.h"
-#include "WriteBarrier.h"
+#include <JavaScriptCore/CallLinkInfo.h>
+#include <JavaScriptCore/JSDestructibleObject.h>
+#include <JavaScriptCore/JSWebAssemblyGlobal.h>
+#include <JavaScriptCore/JSWebAssemblyMemory.h>
+#include <JavaScriptCore/JSWebAssemblyTable.h>
+#include <JavaScriptCore/StackManager.h>
+#include <JavaScriptCore/WasmCalleeGroup.h>
+#include <JavaScriptCore/WasmCreationMode.h>
+#include <JavaScriptCore/WasmFormat.h>
+#include <JavaScriptCore/WasmGlobal.h>
+#include <JavaScriptCore/WasmInstanceAnchor.h>
+#include <JavaScriptCore/WasmMemory.h>
+#include <JavaScriptCore/WasmModule.h>
+#include <JavaScriptCore/WasmModuleInformation.h>
+#include <JavaScriptCore/WasmTable.h>
+#include <JavaScriptCore/WebAssemblyBuiltin.h>
+#include <JavaScriptCore/WebAssemblyFunction.h>
+#include <JavaScriptCore/WebAssemblyGCStructure.h>
+#include <JavaScriptCore/WriteBarrier.h>
 #include <wtf/BitVector.h>
 #include <wtf/FixedVector.h>
 #include <wtf/Ref.h>
@@ -381,7 +381,12 @@ public:
 
     void* softStackLimit() const { return m_stackMirror.softStackLimit(); }
 
-    void setFaultPC(void* pc) { m_faultPC = pc; };
+    void setFaultPC(Wasm::ExceptionType exception, void* pc)
+    {
+        m_exception = exception;
+        m_faultPC = pc;
+    }
+    Wasm::ExceptionType exception() const { return m_exception; }
     void* faultPC() const { return m_faultPC; }
 
 private:
@@ -405,7 +410,7 @@ private:
     uint32_t m_cachedTable0Length { 0 };
     const Ref<Wasm::Module> m_module;
     const Ref<const Wasm::ModuleInformation> m_moduleInformation;
-    const Ref<Wasm::ProfileCollection> m_profiles;
+    RefPtr<Wasm::InstanceAnchor> m_anchor;
     RefPtr<SourceProvider> m_sourceProvider;
 
     CallFrame* m_temporaryCallFrame { nullptr };
@@ -422,6 +427,7 @@ private:
     // Used by builtin trampolines to quickly fetch callee bits to store in the call frame.
     // The actual callees are owned by builtins. Populated by WebAssemblyModuleRecord::initializeImports().
     CalleeBits m_builtinCalleeBits[WASM_BUILTIN_COUNT];
+    Wasm::ExceptionType m_exception { Wasm::ExceptionType::Termination };
 };
 
 } // namespace JSC

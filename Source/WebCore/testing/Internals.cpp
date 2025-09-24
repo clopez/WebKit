@@ -620,21 +620,21 @@ void Internals::resetToConsistentState(Page& page)
         localMainFrame->editor().toggleOverwriteModeEnabled();
     localMainFrame->loader().clearTestingOverrides();
 
-    auto& sessionManager = page.mediaSessionManager();
+    RefPtr sessionManager = page.mediaSessionManager();
 #if ENABLE(VIDEO)
     page.group().ensureCaptionPreferences().setCaptionDisplayMode(CaptionUserPreferences::CaptionDisplayMode::ForcedOnly);
     page.group().ensureCaptionPreferences().setCaptionsStyleSheetOverride(emptyString());
 
-    sessionManager.resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
-    sessionManager.resetRestrictions();
-    sessionManager.resetSessionState();
-    sessionManager.setWillIgnoreSystemInterruptions(true);
-    sessionManager.applicationWillEnterForeground(false);
+    sessionManager->resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
+    sessionManager->resetRestrictions();
+    sessionManager->resetSessionState();
+    sessionManager->setWillIgnoreSystemInterruptions(true);
+    sessionManager->applicationWillEnterForeground(false);
     if (page.mediaPlaybackIsSuspended())
         page.resumeAllMediaPlayback();
 #endif
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    sessionManager.setIsPlayingToAutomotiveHeadUnit(false);
+    sessionManager->setIsPlayingToAutomotiveHeadUnit(false);
 #endif
     AXObjectCache::setEnhancedUserInterfaceAccessibility(false);
     AXObjectCache::disableAccessibility();
@@ -5901,7 +5901,7 @@ JSValue Internals::cloneArrayBuffer(JSC::JSGlobalObject& lexicalGlobalObject, JS
 
 String Internals::resourceLoadStatisticsForURL(const DOMURL& url)
 {
-    return ResourceLoadObserver::shared().statisticsForURL(url.href());
+    return ResourceLoadObserver::singleton().statisticsForURL(url.href());
 }
 
 void Internals::setTrackingPreventionEnabled(bool enable)
@@ -6560,6 +6560,25 @@ bool Internals::audioSessionActive() const
     return false;
 }
 
+String Internals::webContentProcessVariant() const
+{
+    auto* document = contextDocument();
+    if (!document)
+        return { };
+    auto* page = document->page();
+    if (!page)
+        return { };
+
+    switch (page->webContentProcessVariant()) {
+    case WebContentProcessVariant::Security:
+        return "security"_s;
+    case WebContentProcessVariant::Lockdown:
+        return "lockdown"_s;
+    default:
+        return "standard"_s;
+    }
+}
+
 void Internals::storeRegistrationsOnDisk(DOMPromiseDeferred<void>&& promise)
 {
     if (!contextDocument())
@@ -6922,7 +6941,7 @@ ExceptionOr<unsigned> Internals::pluginScrollPositionY(Element& element)
 
 void Internals::notifyResourceLoadObserver()
 {
-    ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
+    ResourceLoadObserver::singleton().updateCentralStatisticsStore([] { });
 }
 
 unsigned Internals::primaryScreenDisplayID()
@@ -8021,7 +8040,7 @@ RefPtr<MediaSessionManagerInterface> Internals::sessionManager() const
     if (!page)
         return nullptr;
 
-    return &page->mediaSessionManager();
+    return page->mediaSessionManager();
 }
 
 #if ENABLE(MODEL_ELEMENT)

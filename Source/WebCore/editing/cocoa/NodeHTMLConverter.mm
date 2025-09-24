@@ -481,7 +481,7 @@ static bool stringFromCSSValue(CSSValue& value, String& result)
                 return true;
             }
         }
-    } else if (value.isValueList() || value.isAppleColorFilterPropertyValue() || value.isFilterPropertyValue() || value.isTextShadowPropertyValue() || value.isBoxShadowPropertyValue() || value.isURL()) {
+    } else if (value.isValueList() || value.isAppleColorFilterValue() || value.isFilterValue() || value.isTextShadowPropertyValue() || value.isBoxShadowPropertyValue() || value.isURL()) {
         result = value.cssText(CSS::defaultSerializationContext());
         return true;
     }
@@ -877,7 +877,7 @@ static PlatformFont *_font(Element& element)
     Ref primaryFont = renderer->style().fontCascade().primaryFont();
     if (primaryFont->attributes().origin == FontOrigin::Remote)
         return [PlatformFontClass systemFontOfSize:defaultFontSize];
-    return (__bridge PlatformFont *)primaryFont->getCTFont();
+    return (__bridge PlatformFont *)primaryFont->ctFont();
 }
 
 NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)

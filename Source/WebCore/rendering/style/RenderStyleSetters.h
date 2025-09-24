@@ -46,8 +46,10 @@ namespace WebCore {
 template<typename T, typename U> inline bool compareEqual(const T& a, const U& b) { return a == b; }
 
 inline void RenderStyle::addToTextDecorationLineInEffect(const Style::TextDecorationLine& value) { m_inheritedFlags.textDecorationLineInEffect = textDecorationLineInEffect().addOrReplaceIfNotNone(value); }
-inline void RenderStyle::clearAnimations() { m_nonInheritedData.access().miscData.access().animations = nullptr; }
-inline void RenderStyle::clearTransitions() { m_nonInheritedData.access().miscData.access().transitions = nullptr; }
+inline void RenderStyle::clearAnimations() { m_nonInheritedData.access().miscData.access().animations = CSS::Keyword::None { }; }
+inline void RenderStyle::clearTransitions() { m_nonInheritedData.access().miscData.access().transitions = CSS::Keyword::None { }; }
+inline Style::Animations& RenderStyle::ensureAnimations() { return m_nonInheritedData.access().miscData.access().animations.access(); }
+inline Style::Transitions& RenderStyle::ensureTransitions() { return m_nonInheritedData.access().miscData.access().transitions.access(); }
 inline Style::BackgroundLayers& RenderStyle::ensureBackgroundLayers() { return m_nonInheritedData.access().backgroundData.access().background.access(); }
 inline Style::MaskLayers& RenderStyle::ensureMaskLayers() { return m_nonInheritedData.access().miscData.access().mask.access(); }
 inline void RenderStyle::inheritColumnPropertiesFrom(const RenderStyle& parent) { m_nonInheritedData.access().miscData.access().multiCol = parent.m_nonInheritedData->miscData->multiCol; }
@@ -73,7 +75,7 @@ inline void RenderStyle::setAlignSelfPosition(ItemPosition position) { m_nonInhe
 inline void RenderStyle::setAnchorNames(Style::AnchorNames&& names) { SET_NESTED(m_nonInheritedData, rareData, anchorNames, WTFMove(names)); }
 inline void RenderStyle::setAnchorScope(const NameScope& scope) { SET_NESTED(m_nonInheritedData, rareData, anchorScope, scope); }
 inline void RenderStyle::setAppearance(StyleAppearance appearance) { SET_NESTED_PAIR(m_nonInheritedData, miscData, appearance, static_cast<unsigned>(appearance), usedAppearance, static_cast<unsigned>(appearance)); }
-inline void RenderStyle::setAppleColorFilter(FilterOperations&& ops) { SET_NESTED(m_rareInheritedData, appleColorFilter, operations, WTFMove(ops)); }
+inline void RenderStyle::setAppleColorFilter(Style::AppleColorFilter&& appleColorFilter) { SET_NESTED(m_rareInheritedData, appleColorFilter, appleColorFilter, WTFMove(appleColorFilter)); }
 #if HAVE(CORE_MATERIAL)
 inline void RenderStyle::setAppleVisualEffect(AppleVisualEffect effect) { SET_NESTED(m_nonInheritedData, rareData, appleVisualEffect, static_cast<unsigned>(effect)); }
 inline void RenderStyle::setUsedAppleVisualEffectForSubtree(AppleVisualEffect effect) { SET(m_rareInheritedData, usedAppleVisualEffectForSubtree, static_cast<unsigned>(effect)); }
@@ -142,10 +144,11 @@ inline void RenderStyle::setContent(Style::Content&& value) { SET_NESTED(m_nonIn
 inline void RenderStyle::setContentVisibility(ContentVisibility value) { SET_NESTED(m_nonInheritedData, rareData, contentVisibility, static_cast<unsigned>(value)); }
 inline void RenderStyle::setUsedAppearance(StyleAppearance a) { SET_NESTED(m_nonInheritedData, miscData, usedAppearance, static_cast<unsigned>(a)); }
 inline void RenderStyle::setEffectiveInert(bool effectiveInert) { SET(m_rareInheritedData, effectiveInert, effectiveInert); }
+inline void RenderStyle::setIsEffectivelyTransparent(bool effectivelyTransparent) { SET(m_rareInheritedData, effectivelyTransparent, effectivelyTransparent); }
 inline void RenderStyle::setUsedTouchActions(OptionSet<TouchAction> touchActions) { SET(m_rareInheritedData, usedTouchActions, touchActions); }
 inline void RenderStyle::setEventListenerRegionTypes(OptionSet<EventListenerRegionType> eventListenerTypes) { SET(m_rareInheritedData, eventListenerRegionTypes, eventListenerTypes); }
 inline void RenderStyle::setFieldSizing(FieldSizing value) { SET_NESTED(m_nonInheritedData, rareData, fieldSizing, static_cast<unsigned>(value)); }
-inline void RenderStyle::setFilter(FilterOperations&& ops) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, filter, operations, WTFMove(ops)); }
+inline void RenderStyle::setFilter(Style::Filter&& filter) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, filter, filter, WTFMove(filter)); }
 inline void RenderStyle::setFlexBasis(Style::FlexBasis&& basis) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, flexibleBox, flexBasis, WTFMove(basis)); }
 inline void RenderStyle::setFlexDirection(FlexDirection direction) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, flexibleBox, flexDirection, static_cast<unsigned>(direction)); }
 inline void RenderStyle::setFlexGrow(Style::FlexGrow grow) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, flexibleBox, flexGrow, grow); }
@@ -266,6 +269,9 @@ inline void RenderStyle::setRubyAlign(RubyAlign alignment) { SET(m_rareInherited
 inline void RenderStyle::setRubyOverhang(RubyOverhang overhang) { SET(m_rareInheritedData, rubyOverhang, static_cast<unsigned>(overhang)); }
 inline void RenderStyle::setScale(Style::Scale&& scale) { SET_NESTED(m_nonInheritedData, rareData, scale, WTFMove(scale)); }
 inline void RenderStyle::setScrollBehavior(Style::ScrollBehavior behavior) { SET_NESTED(m_nonInheritedData, rareData, scrollBehavior, static_cast<unsigned>(behavior)); }
+inline void RenderStyle::setScrollSnapAlign(Style::ScrollSnapAlign&& align) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapAlign, WTFMove(align)); }
+inline void RenderStyle::setScrollSnapStop(ScrollSnapStop stop) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapStop, stop); }
+inline void RenderStyle::setScrollSnapType(Style::ScrollSnapType&& type) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapType, WTFMove(type)); }
 inline void RenderStyle::setScrollTimelineAxes(Style::ProgressTimelineAxes&& axes) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineAxes, WTFMove(axes)); }
 inline void RenderStyle::setScrollTimelineNames(Style::ProgressTimelineNames&& names) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineNames, WTFMove(names)); }
 inline void RenderStyle::setVerticalAlign(Style::VerticalAlign&& align) { SET_NESTED(m_nonInheritedData, boxData, m_verticalAlign, WTFMove(align)); }
@@ -288,6 +294,8 @@ inline void RenderStyle::setStrokeWidth(Style::StrokeWidth&& width) { SET(m_rare
 inline void RenderStyle::setTabSize(const TabSize& size) { SET(m_rareInheritedData, tabSize, size); }
 inline void RenderStyle::setTextAlignLast(TextAlignLast value) { SET(m_rareInheritedData, textAlignLast, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextBoxTrim(TextBoxTrim value) { SET_NESTED(m_nonInheritedData, rareData, textBoxTrim, static_cast<unsigned>(value)); }
+inline void RenderStyle::setTextBoxEdge(Style::TextBoxEdge value) { SET(m_rareInheritedData, textBoxEdge, value); }
+inline void RenderStyle::setLineFitEdge(Style::LineFitEdge value) { SET(m_rareInheritedData, lineFitEdge, value); }
 inline void RenderStyle::setTextCombine(TextCombine value) { SET(m_rareInheritedData, textCombine, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextDecorationColor(Style::Color&& color) { SET_NESTED(m_nonInheritedData, rareData, textDecorationColor, WTFMove(color)); }
 inline void RenderStyle::setTextDecorationLine(Style::TextDecorationLine&& value) { m_nonInheritedFlags.textDecorationLine = value.toRaw(); }
@@ -371,7 +379,7 @@ inline void RenderStyle::setHasExplicitlySetColorScheme() { SET_NESTED(m_nonInhe
 
 inline void RenderStyle::setDynamicRangeLimit(Style::DynamicRangeLimit&& limit) { SET(m_rareInheritedData, dynamicRangeLimit, WTFMove(limit)); }
 
-inline void RenderStyle::setBackdropFilter(FilterOperations&& ops) { SET_DOUBLY_NESTED(m_nonInheritedData, rareData, backdropFilter, operations, WTFMove(ops)); }
+inline void RenderStyle::setBackdropFilter(Style::Filter&& filter) { SET_DOUBLY_NESTED(m_nonInheritedData, rareData, backdropFilter, filter, WTFMove(filter)); }
 
 #if ENABLE(WEBKIT_TOUCH_CALLOUT_CSS_PROPERTY)
 inline void RenderStyle::setTouchCallout(Style::WebkitTouchCallout value) { SET(m_rareInheritedData, webkitTouchCallout, static_cast<unsigned>(value)); }

@@ -50,7 +50,11 @@ extension WebPage {
     }
 
     func insertText(_ text: String) async {
+        #if os(macOS)
         backingWebView.insertText(text)
+        #else
+        backingWebView.textInputContentView.insertText(text)
+        #endif
         await waitForNextPresentationUpdate()
     }
 }

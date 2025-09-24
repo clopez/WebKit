@@ -26,19 +26,51 @@
 #pragma once
 
 #include "GridFormattingContext.h"
+#include "StyleGridTrackBreadth.h"
 
 namespace WebCore {
+class RenderStyle;
+
+namespace Style {
+struct GridTrackSize;
+};
+
 namespace Layout {
 
+class ImplicitGrid;
+class PlacedGridItem;
 class UnplacedGridItem;
-using UnplacedGridItems = Vector<UnplacedGridItem>;
+struct UnplacedGridItems;
 
 class GridLayout {
 public:
     GridLayout(const GridFormattingContext&);
 
-    void layout(GridFormattingContext::GridLayoutConstraints, UnplacedGridItems);
+    void layout(GridFormattingContext::GridLayoutConstraints, const UnplacedGridItems&);
+
+    struct TrackSizingFunctions {
+        Style::GridTrackBreadth min { CSS::Keyword::Auto { } };
+        Style::GridTrackBreadth max { CSS::Keyword::Auto { } };
+    };
+
 private:
+    using PlacedGridItems = Vector<PlacedGridItem>;
+    using TrackSizingFunctionsList = Vector<TrackSizingFunctions>;
+
+    static auto placeGridItems(const UnplacedGridItems&, const Vector<Style::GridTrackSize>& gridTemplateColumnsTrackSizes,
+        const Vector<Style::GridTrackSize>& gridTemplateRowsTrackSizes);
+    static TrackSizingFunctionsList trackSizingFunctions(size_t implicitGridTracksCount, const Vector<Style::GridTrackSize> gridTemplateTrackSizes);
+
+    struct UsedTrackSizes {
+        using TrackSizes = Vector<LayoutUnit>;
+        TrackSizes columnSizes;
+        TrackSizes rowSizes;
+    };
+    static UsedTrackSizes performGridSizingAlgorithm(const PlacedGridItems&, const TrackSizingFunctionsList& columnTrackSizingFunctionsList, const TrackSizingFunctionsList& rowTrackSizingFunctionsList);
+
+    const ElementBox& gridContainer() const;
+    const RenderStyle& gridContainerStyle() const;
+
     const CheckedRef<const GridFormattingContext> m_gridFormattingContext;
 };
 

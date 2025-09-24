@@ -27,8 +27,8 @@
 
 #include "MediaPlayerEnums.h"
 #include "MediaPromiseTypes.h"
-#include "MediaSample.h"
 #include "PlatformLayer.h"
+#include "TrackInfo.h"
 #include "VideoPlaybackQualityMetrics.h"
 #include "VideoTarget.h"
 #include <optional>
@@ -41,6 +41,7 @@ namespace WebCore {
 
 class FloatRect;
 class LayoutRect;
+class MediaSample;
 class PlatformDynamicRangeLimit;
 class ProcessIdentity;
 class TextTrackRepresentation;
@@ -136,6 +137,7 @@ public:
     virtual void notifyTimeReachedAndStall(const MediaTime&, Function<void(const MediaTime&)>&&) { }
     virtual void cancelTimeReachedAction() { }
     virtual void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) { }
+    virtual void setTimeObserver(Seconds, Function<void(const MediaTime&)>&&) { }
 
     virtual void flush() = 0;
     virtual void flushTrack(TrackIdentifier) = 0;

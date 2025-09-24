@@ -87,6 +87,8 @@ media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
 media/wireless-route-monitoring.html [ Pass ]
 
+security/cocoa [ Pass ]
+
 # mac-only IPC test
 ipc/webpageproxy-correctionpanel-no-crash.html [ Skip ]
 
@@ -440,6 +442,7 @@ storage/storagequota-request-quota.html
 # iOS doesn't have a local inspector
 inspector/ [ Skip ]
 http/tests/inspector/ [ Skip ]
+http/tests/site-isolation/inspector/ [ Skip ]
 http/tests/websocket/tests/hybi/inspector/ [ Skip ]
 
 # Needs testRunner.enableAutoResizeMode()
@@ -2040,7 +2043,6 @@ fast/dom/DeviceOrientation/updates.html
 fast/dom/MutationObserver/inline-event-listener.html
 fast/dom/Window/open-window-min-size.html
 fast/dom/rtl-scroll-to-leftmost-and-resize.html
-fast/dynamic/paused-event-dispatch.html
 fast/events/resize-subframe.html
 fast/files/read-blob-async.html
 fast/files/read-file-async.html
@@ -3304,9 +3306,6 @@ webkit.org/b/207766 http/wpt/service-workers/header-filtering.https.html [ Pass 
 webkit.org/b/207767 http/wpt/service-workers/online.https.html [ Pass Failure ]
 
 webkit.org/b/207768 http/wpt/service-workers/useragent.https.html [ Pass Failure ]
-
-webkit.org/b/254706 [ Release ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Failure ]
-webkit.org/b/254706 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Slow Pass Failure ]
 
 webkit.org/b/205216 imported/w3c/web-platform-tests/content-security-policy/reporting/report-same-origin-with-cookies.html [ Pass Failure ]
 
@@ -6289,6 +6288,7 @@ webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-i
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-indent-vrl-012.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-indent-vrl-014.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-indent-vrl-016.xht [ ImageOnlyFailure ]
+webkit.org/b/214291 imported/w3c/web-platform-tests/css/css-writing-modes/wm-propagation-body-scroll-offset-vertical-rl.html [ Failure ]
 
 # webkit.org/b/275710 (REGRESSION (iOS 14): [ iOS ] 8 quicklook tests are constantly failing.)
 quicklook/keynote-09.html [ Failure ]
@@ -7906,8 +7906,6 @@ webkit.org/b/292294 webgl/2.0.y/conformance2/extensions/webgl-stencil-texturing.
 
 webkit.org/b/292402 http/tests/site-isolation/draw-after-cross-origin-navigation-between-two-remote-frames.html [ ImageOnlyFailure ]
 
-webkit.org/b/292650 http/tests/iframe-monitor/throttler.html [ Timeout ]
-
 webkit.org/b/288957 imported/w3c/web-platform-tests/css/CSS2/tables/border-collapse-dynamic-column-001.xht [ ImageOnlyFailure ]
 
 webkit.org/b/288518 fast/text/emoji-num-glyphs.html [ Failure ]
@@ -8204,13 +8202,9 @@ webkit.org/b/297144 fast/forms/state-restore-to-non-edited-controls.html [ Pass 
 
 webkit.org/b/297240 http/tests/site-isolation/edge-sampling-commit-root-frame-load.html [ Failure ]
 
-webkit.org/b/297131 [ Debug ] imported/w3c/web-platform-tests/web-locks/storage-buckets.tentative.https.any.worker.html [ Pass Failure ]
-
 webkit.org/b/295751 [ Release ] http/tests/geolocation/geolocation-get-current-position-does-not-leak.https.html [ Pass Failure ]
 
 webkit.org/b/297251 [ Release ] fast/mediastream/getUserMedia-echoCancellation.html [ Pass Failure ]
-
-webkit.org/b/297346 workers/message-port-gc.html [ Crash ]
 
 # webkit.org/b/297405 2x imported/w3c/web-platform-tests/css/css-flexbox/ (layout-tests) tests are constant image failures 
 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-002.xhtml [ Failure ]
@@ -8219,7 +8213,6 @@ imported/w3c/web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-001.
 webkit.org/b/297462 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-size-containment-001.html [ Failure ]
 
 webkit.org/b/295599 [ Release ] http/tests/webcodecs/audio-decoder-callbacks-do-not-leak.html [ Pass Failure ]
-webkit.org/b/286318 http/tests/iframe-monitor [ Pass ]
 
 webkit.org/b/294931 ipc/LocalSampleBufferDisplayLayer-LogIdentifier-data-race-uaf.html [ Skip ]
 
@@ -8227,14 +8220,6 @@ webkit.org/b/289010 imported/w3c/web-platform-tests/html/semantics/disabled-elem
 
 # Clicking/tapping within a selection on iOS is not supposed to clear the selection.
 fast/events/selection-clear-on-click-fractional-coordinates.html [ Skip ]
-
-# webkit.org/b/297599 [ iOS ] 6x http/tests/iframe-monitor (layout-tests) tests are constantly timing out 
-http/tests/iframe-monitor/workers/shared-worker.html [ Timeout ]
-http/tests/iframe-monitor/workers/service-worker.html [ Timeout ]
-http/tests/iframe-monitor/workers/service-worker-not-count-twice.html [ Timeout ]
-http/tests/iframe-monitor/iframe-unload.html [ Timeout ]
-http/tests/iframe-monitor/eligibility.html [ Timeout ]
-http/tests/iframe-monitor/dark-mode.html [ Timeout ]
 
 webkit.org/b/261344 [ Release ] requestidlecallback/requestidlecallback-does-not-block-timer.html [ Pass Failure ]
 
@@ -8245,8 +8230,6 @@ webkit.org/b/297674 [ Release ] http/wpt/mediarecorder/MediaRecorder-matroska-AV
 webkit.org/b/295435 compositing/layer-creation/overlap-animation-container.html [ Pass Failure ]
 
 webkit.org/b/298042 [ Release ] http/tests/security/clipboard/copy-paste-html-cross-origin-iframe-across-origin.html [ Pass Failure ]
-
-webkit.org/b/298125 imported/w3c/web-platform-tests/mediacapture-streams/parallel-capture-requests.https.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/css-break/block-in-inline-012.html [ ImageOnlyFailure ]
 
@@ -8273,10 +8256,12 @@ fast/images/low-memory-decode.html [ Pass Timeout ]
 
 webkit.org/b/298608 imported/w3c/web-platform-tests/digital-credentials/create.tentative.https.html [ Pass Failure ]
 
-webkit.org/b/298903 [ Release ] webrtc/video-rotation-black.html [ Pass Failure ]
-
 webkit.org/b/298905 imported/w3c/web-platform-tests/html/semantics/popovers/label-in-invoker.html [ Pass Failure ]
 
 webkit.org/b/298962 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/cross-document-traversal-cross-document-traversal.html [ Pass Failure ]
 
 webkit.org/b/298974 fast/forms/ios/keyboard-restoration-after-element-replacement.html [ Timeout ]
+
+webkit.org/b/280234 imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Skip ]
+
+webkit.org/b/299110 webrtc/calling-peerconnection-once-closed.html? [ Pass Failure ]

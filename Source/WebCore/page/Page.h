@@ -285,6 +285,12 @@ enum class FinalizeRenderingUpdateFlags : uint8_t {
     InvalidateImagesWithAsyncDecodes    = 1 << 1,
 };
 
+enum class WebContentProcessVariant : uint8_t {
+    Standard,
+    Lockdown,
+    Security
+};
+
 enum class RenderingUpdateStep : uint32_t {
     Reveal                          = 1 << 0,
     Resize                          = 1 << 1,
@@ -466,6 +472,7 @@ public:
 
     WEBCORE_EXPORT static void forEachPage(NOESCAPE const Function<void(Page&)>&);
     WEBCORE_EXPORT static unsigned nonUtilityPageCount();
+    static Page* fromPageIdentifier(PageIdentifier);
 
     unsigned subframeCount() const;
 
@@ -1355,10 +1362,9 @@ public:
 
     WEBCORE_EXPORT RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlatformMediaSessionPlaybackControlsPurpose, Document*);
 
-    WEBCORE_EXPORT MediaSessionManagerInterface& mediaSessionManager();
-    WEBCORE_EXPORT Ref<MediaSessionManagerInterface> protectedMediaSessionManager();
+    WEBCORE_EXPORT RefPtr<MediaSessionManagerInterface> mediaSessionManager();
     WEBCORE_EXPORT MediaSessionManagerInterface* mediaSessionManagerIfExists() const;
-    WEBCORE_EXPORT static MediaSessionManagerInterface* mediaSessionManagerForPageIdentifier(PageIdentifier);
+    WEBCORE_EXPORT static RefPtr<MediaSessionManagerInterface> mediaSessionManagerForPageIdentifier(PageIdentifier);
 
 #if ENABLE(MODEL_ELEMENT)
     bool shouldDisableModelLoadDelaysForTesting() const { return m_modelLoadDelaysDisabledForTesting; }
@@ -1375,6 +1381,13 @@ public:
     void updateDisplayEDRHeadroom();
     void updateDisplayEDRSuppression();
 #endif
+
+    // Checking hardware keyboard attached
+    void setHardwareKeyboardAttached(bool attached) { m_hardwareKeyboardAttached = attached; }
+    bool hardwareKeyboardAttached() const { return m_hardwareKeyboardAttached; }
+
+    void setWebContentProcessVariant(WebContentProcessVariant variant) { m_webContentProcessVariant = variant; };
+    WebContentProcessVariant webContentProcessVariant() const { return m_webContentProcessVariant; };
 
 private:
     explicit Page(PageConfiguration&&);
@@ -1837,13 +1850,21 @@ private:
     String m_presentingApplicationBundleIdentifier;
 #endif
 
-    using MediaSessionManagerFactory = Function<RefPtr<MediaSessionManagerInterface> (std::optional<PageIdentifier>)>;
+    using MediaSessionManagerFactory = Function<RefPtr<MediaSessionManagerInterface> (PageIdentifier)>;
     std::optional<MediaSessionManagerFactory> m_mediaSessionManagerFactory;
     RefPtr<MediaSessionManagerInterface> m_mediaSessionManager;
 
 #if ENABLE(MODEL_ELEMENT)
     bool m_modelLoadDelaysDisabledForTesting { false };
 #endif
+
+    // Checking hardware keyboard attached
+#if PLATFORM(IOS_FAMILY)
+    bool m_hardwareKeyboardAttached { false };
+#else
+    bool m_hardwareKeyboardAttached { true };
+#endif
+    WebContentProcessVariant m_webContentProcessVariant { WebContentProcessVariant::Standard };
 }; // class Page
 
 WTF::TextStream& operator<<(WTF::TextStream&, RenderingUpdateStep);

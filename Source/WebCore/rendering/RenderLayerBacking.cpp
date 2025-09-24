@@ -827,19 +827,14 @@ void RenderLayerBacking::updateChildrenTransformAndAnchorPoint(const LayoutRect&
     removeChildrenTransformFromLayers(layerForPerspective);
 }
 
-static FilterOperations resolveFilters(const FilterOperations& filterOperations, const RenderStyle& style)
+static FilterOperations resolveFilters(const Style::Filter& filter, const RenderStyle& style)
 {
-    Vector<Ref<FilterOperation>> resolvedOperations;
-    resolvedOperations.reserveInitialCapacity(filterOperations.size());
-
-    for (auto& filter : filterOperations) {
-        if (auto dropShadow = dynamicDowncast<Style::DropShadowFilterOperationWithStyleColor>(filter))
-            resolvedOperations.append(dropShadow->createEquivalentWithResolvedColor(style));
-        else
-            resolvedOperations.append(filter);
-    }
-
-    return FilterOperations { WTFMove(resolvedOperations) };
+    return FilterOperations { WTF::map(filter, [&](const auto& value) -> Ref<FilterOperation> {
+        Ref operation = value.value;
+        if (auto dropShadow = dynamicDowncast<Style::DropShadowFilterOperationWithStyleColor>(operation))
+            return dropShadow->createEquivalentWithResolvedColor(style);
+        return operation;
+    }) };
 }
 
 void RenderLayerBacking::updateFilters(const RenderStyle& style)
@@ -4328,7 +4323,7 @@ void RenderLayerBacking::verifyNotPainting()
 }
 #endif
 
-bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& animation, const BlendingKeyframes& keyframes)
+bool RenderLayerBacking::startAnimation(double timeOffset, const GraphicsLayerAnimation& animation, const BlendingKeyframes& keyframes)
 {
     if (renderer().capturedInViewTransition())
         return false;
@@ -4381,10 +4376,10 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation& anim
             opacityVector.insert(makeUnique<FloatAnimationValue>(offset, keyframeStyle->opacity().value.value, tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyFilter))
-            filterVector.insert(makeUnique<FilterAnimationValue>(offset, keyframeStyle->filter(), tf));
+            filterVector.insert(makeUnique<FilterAnimationValue>(offset, Style::toPlatform(keyframeStyle->filter()), tf));
 
         if (currentKeyframe.animatesProperty(CSSPropertyWebkitBackdropFilter) || currentKeyframe.animatesProperty(CSSPropertyBackdropFilter))
-            backdropFilterVector.insert(makeUnique<FilterAnimationValue>(offset, keyframeStyle->backdropFilter(), tf));
+            backdropFilterVector.insert(makeUnique<FilterAnimationValue>(offset, Style::toPlatform(keyframeStyle->backdropFilter()), tf));
     }
 
     bool didAnimate = false;

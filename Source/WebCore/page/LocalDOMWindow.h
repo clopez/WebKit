@@ -296,6 +296,9 @@ public:
     void finalizeEventTimingEntry(PerformanceEventTimingCandidate&, const Event&, EventType);
     void dispatchPendingEventTimingEntries();
     uint64_t interactionCount() { return m_interactionCount; }
+    // Misleading function names that mirror the spec; see https://github.com/w3c/event-timing/issues/158 :
+    bool hasDispatchedInputEvent() const { return m_hasDispatchedInputEvent; }
+    void setDispatchedInputEvent() { m_hasDispatchedInputEvent = true; }
 
     // HTML 5 key/value storage
     ExceptionOr<Storage*> sessionStorage();
@@ -466,10 +469,15 @@ private:
 
     bool m_contextMenuTriggered { false };
 
-    HashMap<int64_t, PerformanceEventTimingCandidate, IntHash<int64_t>, WTF::SignedWithZeroKeyHashTraits<int64_t>> m_pendingKeyDowns;
+    struct PendingKeyDownState {
+        PerformanceEventTimingCandidate keyDown;
+        std::optional<PerformanceEventTimingCandidate> keyPress { std::nullopt };
+    };
+    HashMap<int64_t, PendingKeyDownState, IntHash<int64_t>, WTF::SignedWithZeroKeyHashTraits<int64_t>> m_pendingKeyDowns;
 
     EventTimingInteractionID m_userInteractionValue;
     uint64_t m_interactionCount { 0 };
+    bool m_hasDispatchedInputEvent { false };
 
     String m_status;
 

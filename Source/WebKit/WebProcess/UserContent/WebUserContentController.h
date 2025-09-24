@@ -39,22 +39,19 @@
 #include <WebCore/ContentExtensionsBackend.h>
 #endif
 
-namespace WebCore {
-namespace ContentExtensions {
-class CompiledContentExtension;
-}
-}
-
 namespace WebKit {
 
 class InjectedBundleScriptWorld;
 class WebCompiledContentRuleListData;
 class WebUserMessageHandlerDescriptorProxy;
+
+struct UserContentControllerParameters;
+
 enum class InjectUserScriptImmediately : bool;
 
 class WebUserContentController final : public WebCore::UserContentProvider, public IPC::MessageReceiver {
 public:
-    static Ref<WebUserContentController> getOrCreate(UserContentControllerIdentifier);
+    static Ref<WebUserContentController> getOrCreate(UserContentControllerParameters&&);
     virtual ~WebUserContentController();
 
     void ref() const final { WebCore::UserContentProvider::ref(); }
@@ -72,14 +69,15 @@ public:
 
     InjectedBundleScriptWorld* worldForIdentifier(ContentWorldIdentifier);
 
-    void addContentWorlds(const Vector<ContentWorldData>&);
-    InjectedBundleScriptWorld* addContentWorld(const ContentWorldData&);
+    void addContentWorldIfNecessary(const ContentWorldData&);
     void addUserScripts(Vector<WebUserScriptData>&&, InjectUserScriptImmediately);
-    void addUserStyleSheets(const Vector<WebUserStyleSheetData>&);
-    void addUserScriptMessageHandlers(const Vector<WebScriptMessageHandlerData>&);
+    void addUserStyleSheets(Vector<WebUserStyleSheetData>&&);
+    void addUserScriptMessageHandlers(Vector<WebScriptMessageHandlerData>&&);
 #if ENABLE(CONTENT_EXTENSIONS)
     void addContentRuleLists(Vector<std::pair<WebCompiledContentRuleListData, URL>>&&);
 #endif
+
+    static void removeContentWorld(ContentWorldIdentifier);
 
 private:
     explicit WebUserContentController(UserContentControllerIdentifier);
@@ -96,8 +94,6 @@ private:
 
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
-
-    void removeContentWorlds(const Vector<ContentWorldIdentifier>&);
 
     void removeUserScript(ContentWorldIdentifier, UserScriptIdentifier);
     void removeAllUserScripts(const Vector<ContentWorldIdentifier>&);

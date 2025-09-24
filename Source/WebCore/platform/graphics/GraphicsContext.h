@@ -86,6 +86,12 @@ public:
 
     virtual bool hasPlatformContext() const { return false; }
     virtual PlatformGraphicsContext* platformContext() const { return nullptr; }
+#if USE(CG)
+    RetainPtr<CGContextRef> protectedPlatformContext() const { return platformContext(); }
+#else
+    // On other platforms, the PlatformGraphicsContext type is not refcounted.
+    PlatformGraphicsContext* protectedPlatformContext() const { return platformContext(); }
+#endif
 
     virtual const DestinationColorSpace& colorSpace() const { return DestinationColorSpace::SRGB(); }
 
@@ -351,7 +357,7 @@ public:
     WEBCORE_EXPORT FloatSize scaleFactorForDrawing(const FloatRect& destRect, const FloatRect& srcRect) const;
 
     // PDF, printing and snapshotting
-    virtual void beginPage(const IntSize&) { }
+    virtual void beginPage(const FloatRect&) { }
     virtual void endPage() { }
 
     // Links

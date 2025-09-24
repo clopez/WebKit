@@ -47,6 +47,7 @@ tiled-drawing [ Pass ]
 ipc/mac [ Pass ]
 ipc/restrictedendpoints/mac [ Pass ]
 fast/page-color-sampling [ Pass ]
+security/cocoa [ Pass ]
 
 fast/events/autoscroll-when-zoomed.html [ Pass ]
 fast/events/autoscroll-main-document.html [ Pass ]
@@ -1563,6 +1564,7 @@ webkit.org/b/263396 css3/color/text.html [ Skip ]
 
 # WebGPU
 fast/webgpu/nocrash/fuzz-275294.html [ Pass ]
+[ x86_64 ] fast/webgpu/nocrash/fuzz-298315.html [ Skip ]
 
 # skipped due to infinite loop compute shaders normally not terminating on macOS, test must be run locally for now
 fast/webgpu/nocrash/fuzz-286820.html [ Skip ]
@@ -2139,11 +2141,8 @@ webkit.org/b/291966 [ Sequoia+ ] http/tests/webgpu/webgpu/api/validation/render_
 [ Sonoma+ Debug ] imported/w3c/web-platform-tests/webcodecs/video-encoder-rescaling.https.any.worker.html?vp9_p0 [ Skip ]
 
 webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-to-element-with-overscroll-behavior.html [ Skip ]
-webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-fires-to-text-input.html [ Skip ]
 
 webkit.org/b/292203 [ Debug ] imported/w3c/web-platform-tests/css/css-view-transitions/transition-in-hidden-page.html [ Pass Crash ]
-
-webkit.org/b/292650 http/tests/iframe-monitor/throttler.html [ Timeout ]
 
 webkit.org/b/292794 [ Debug ] http/tests/media/media-play-stream-chunked-icy.html [ Pass Crash ]
 
@@ -2163,8 +2162,6 @@ webkit.org/b/293804 [ Debug ] pdf/annotations/checkbox-set-active.html [ Pass Ti
 [ Debug ] imported/w3c/web-platform-tests/css/css-fill-stroke/paint-order-001.html [ ImageOnlyFailure ]
 
 webkit.org/b/295076 imported/w3c/web-platform-tests/css/css-pseudo/highlight-custom-properties-dynamic-001.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/295217 [ Sequoia x86_64 ] svg/gradients/spreadMethodAlpha.svg [ ImageOnlyFailure ]
 
 webkit.org/b/295226 http/wpt/mediarecorder/MediaRecorder-audio-samplingrate-change.html [ Pass Failure ]
 
@@ -2256,8 +2253,6 @@ webkit.org/b/296209 http/tests/workers/service/basic-timeout.https.html [ Pass F
 [ Sequoia Release arm64 ] http/tests/webgpu/webgpu/shader/validation/statement/phony.html [ Failure ]
 
 webkit.org/b/296289 media/media-session/play-after-seek.html [ Pass Failure ]
-
-webkit.org/b/296296 [ Sequoia Release arm64 ] imported/w3c/web-platform-tests/css/css-fill-stroke/paint-order-001.html [ ImageOnlyFailure ]
 
 webkit.org/b/296300 [ Sequoia Debug arm64 ] webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Pass Timeout ]
 
@@ -2405,8 +2400,6 @@ webkit.org/b/298278 imported/w3c/web-platform-tests/html/anonymous-iframe/local-
 
 webkit.org/b/298292 [ Sequoia ] http/tests/webgpu/webgpu/api/operation/sampling/sampler_texture.html [ Pass ]
 
-webkit.org/b/298746 [ x86_64 ] fast/webgpu/nocrash/fuzz-298315.html [ Timeout ]
-
 # run as pass for now to catch subtest regressions. but some of these tests are still failing.
 http/tests/webgpu/webgpu/web_platform/copyToTexture [ Pass Timeout ]
 
@@ -2423,3 +2416,5 @@ http/tests/webgpu/webgpu/web_platform/copyToTexture/ImageBitmap.html [ Pass Time
 webkit.org/b/298903 webrtc/video-rotation-black.html [ Pass Failure ]
 
 webkit.org/b/298416 [ Debug ] http/tests/websocket/construct-in-detached-frame.html [ Skip ]
+
+webkit.org/b/299110 webrtc/calling-peerconnection-once-closed.html [ Pass Failure ]

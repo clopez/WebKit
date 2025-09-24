@@ -92,12 +92,7 @@ platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.h
 platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.h
 platform/graphics/ca/GraphicsLayerCA.cpp
 platform/graphics/ca/cocoa/PlatformCAAnimationCocoa.mm
-platform/graphics/mac/controls/ControlFactoryMac.mm
 platform/graphics/mac/controls/ControlMac.mm
-platform/mac/PasteboardMac.mm
-platform/mac/ScrollbarsControllerMac.mm
-platform/mac/SerializedPlatformDataCueMac.mm
-platform/mac/WebCoreFullScreenWindow.mm
 rendering/BidiRun.cpp
 rendering/BidiRun.h
 rendering/RenderAncestorIterator.h
@@ -122,4 +117,3 @@ testing/Internals.cpp
 testing/cocoa/WebArchiveDumpSupport.mm
 workers/WorkerGlobalScope.cpp
 workers/WorkerThread.cpp
-workers/service/background-fetch/ServiceWorkerRegistrationBackgroundFetchAPI.cpp

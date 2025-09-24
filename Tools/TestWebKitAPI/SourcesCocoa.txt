@@ -117,6 +117,7 @@ Tests/WebKitCocoa/DuplicateCompletionHandlerCalls.mm
 Tests/WebKitCocoa/EditorStateTests.mm
 Tests/WebKitCocoa/ElementTargetingTests.mm
 Tests/WebKitCocoa/ElementTextPreview.mm
+Tests/WebKitCocoa/EnhancedSecurity.mm
 Tests/WebKitCocoa/EventAttribution.mm
 Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.mm
 Tests/WebKitCocoa/ExitPiPOnSuspendVideoElement.mm
@@ -235,6 +236,7 @@ Tests/WebKitCocoa/PushAPI.mm
 Tests/WebKitCocoa/QuickLook.mm
 Tests/WebKitCocoa/ReloadWithDifferingInitialScale.mm
 Tests/WebKitCocoa/RemoteObjectRegistry.mm
+Tests/WebKitCocoa/RemoveFullscreenElementFromDOM.mm
 Tests/WebKitCocoa/RenderedImageWithOptions.mm
 Tests/WebKitCocoa/RenderingProgress.mm
 Tests/WebKitCocoa/ReparentWebViewTimeout.mm

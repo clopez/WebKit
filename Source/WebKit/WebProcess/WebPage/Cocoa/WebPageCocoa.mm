@@ -593,36 +593,6 @@ void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
     [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
 }
 
-void WebPage::pdfSnapshotAtSize(LocalFrame& localMainFrame, GraphicsContext& context, const IntRect& snapshotRect, SnapshotOptions options)
-{
-    Ref frameView = *localMainFrame.view();
-
-    auto rect = snapshotRect;
-    auto bitmapSize = rect.size();
-
-    int64_t remainingHeight = bitmapSize.height();
-    int64_t nextRectY = rect.y();
-    while (remainingHeight > 0) {
-        // PDFs have a per-page height limit of 200 inches at 72dpi.
-        // We'll export one PDF page at a time, up to that maximum height.
-        static const int64_t maxPageHeight = 72 * 200;
-        bitmapSize.setHeight(std::min(remainingHeight, maxPageHeight));
-        rect.setHeight(bitmapSize.height());
-        rect.setY(nextRectY);
-
-        context.beginPage(bitmapSize);
-        context.scale({ 1, -1 });
-        context.translate(0, -bitmapSize.height());
-
-        paintSnapshotAtSize(rect, bitmapSize, options, localMainFrame, frameView, context);
-
-        context.endPage();
-
-        nextRectY += bitmapSize.height();
-        remainingHeight -= maxPageHeight;
-    }
-}
-
 void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completionHandler)
 {
 #if PLATFORM(MAC)
@@ -1359,18 +1329,16 @@ void WebPage::drawPDFDocument(CGContextRef context, PDFDocument *pdfDocument, co
     }
 }
 
-void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, uint32_t first, uint32_t count)
+void WebPage::drawPagesToPDFFromPDFDocument(GraphicsContext& context, PDFDocument *pdfDocument, const PrintInfo& printInfo, const WebCore::FloatRect& mediaBox, uint32_t first, uint32_t count)
 {
     NSUInteger pageCount = [pdfDocument pageCount];
     for (uint32_t page = first; page < first + count; ++page) {
         if (page >= pageCount)
             break;
 
-        RetainPtr pageInfo = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-        CGPDFContextBeginPage(context, pageInfo.get());
-        drawPDFPage(pdfDocument, page, context, printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
-        CGPDFContextEndPage(context);
+        context.beginPage(mediaBox);
+        drawPDFPage(pdfDocument, page, context.platformContext(), printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
+        context.endPage();
     }
 }
 
@@ -1386,7 +1354,7 @@ void WebPage::computePagesForPrintingPDFDocument(WebCore::FrameIdentifier, const
     notImplemented();
 }
 
-void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef, PDFDocument *, const PrintInfo&, uint32_t, uint32_t)
+void WebPage::drawPagesToPDFFromPDFDocument(GraphicsContext&, PDFDocument *, const PrintInfo&, const WebCore::FloatRect&, uint32_t, uint32_t)
 {
     notImplemented();
 }
@@ -1453,7 +1421,6 @@ void WebPage::getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& fr
         if (RefPtr archive = WebCore::LegacyWebArchive::create(*document, WTFMove(options)))
             result.add(localFrame->frameID(), archive.releaseNonNull());
     }
-
     completionHandler(WTFMove(result));
 }
 

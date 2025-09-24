@@ -819,8 +819,7 @@
             ],
             "codegen-properties": {
                 "settings-flag": "cssTextBoxTrimEnabled",
-                "style-builder-converter": "TextEdge",
-                "style-extractor-converter": "TextBoxEdge",
+                "style-converter": "StyleType<TextBoxEdge>",
                 "parser-function": "consumeTextBoxEdge",
                 "parser-grammar-unused": "auto | [ [ text | cap | ex | ideographic | ideographic-ink ] [ text | alphabetic | ideographic | ideographic-ink ]? ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
@@ -1753,6 +1752,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Delay",
+                "style-converter": "StyleType<SingleAnimationDelay>",
                 "separator": ",",
                 "parser-grammar": "<time>#"
             },
@@ -1793,6 +1793,8 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Duration",
+                "style-converter": "StyleType<SingleAnimationDuration>",
+                "style-extractor-custom": true,
                 "separator": ",",
                 "parser-grammar": "<single-animation-duration>#"
             },
@@ -1834,6 +1836,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "IterationCount",
+                "style-converter": "StyleType<SingleAnimationIterationCount>",
                 "separator": ",",
                 "parser-grammar": "<single-animation-iteration-count>#"
             },
@@ -1854,6 +1857,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Name",
+                "style-converter": "StyleType<SingleAnimationName>",
                 "separator": ",",
                 "parser-grammar": "<single-animation-name>#"
             },
@@ -1916,6 +1920,7 @@
             "codegen-properties": {
                 "animation-property": true,
                 "animation-name-for-methods": "RangeStart",
+                "style-converter": "StyleType<SingleAnimationRangeStart>",
                 "separator": ",",
                 "parser-grammar": "<single-animation-range-start>#",
                 "settings-flag": "scrollDrivenAnimationsEnabled"
@@ -1940,6 +1945,7 @@
             "codegen-properties": {
                 "animation-property": true,
                 "animation-name-for-methods": "RangeEnd",
+                "style-converter": "StyleType<SingleAnimationRangeEnd>",
                 "separator": ",",
                 "parser-grammar": "<single-animation-range-end>#",
                 "settings-flag": "scrollDrivenAnimationsEnabled"
@@ -1960,7 +1966,7 @@
                 "settings-flag": "scrollDrivenAnimationsEnabled",
                 "animation-property": true,
                 "animation-name-for-methods": "Timeline",
-                "style-builder-converter": "AnimationTimeline",
+                "style-converter": "StyleType<SingleAnimationTimeline>",
                 "parser-grammar": "<single-animation-timeline>#"
             },
             "specification": {
@@ -1986,6 +1992,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "TimingFunction",
+                "style-converter": "StyleType<EasingFunction>",
                 "separator": ",",
                 "parser-grammar": "<easing-function>#"
             },
@@ -3689,7 +3696,7 @@
                 "inset"
             ],
             "codegen-properties": {
-                "animation-wrapper": "ShadowWrapper<BoxShadows>",
+                "animation-wrapper": "StyleTypeWrapper",
                 "style-converter": "StyleType<BoxShadows>",
                 "parser-function": "consumeBoxShadow",
                 "parser-grammar-unused": "none | <shadow>#",
@@ -4974,15 +4981,14 @@
             ],
             "codegen-properties": {
                 "settings-flag": "cssLineFitEdgeEnabled",
-                "style-builder-converter": "TextEdge",
-                "style-extractor-converter": "LineFitEdge",
+                "style-converter": "StyleType<LineFitEdge>",
                 "parser-function": "consumeLineFitEdge",
                 "parser-grammar-unused": "leading | [ [ text | cap | ex | ideographic | ideographic-ink ] [ text | alphabetic | ideographic | ideographic-ink ]? ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
             },
             "specification": {
                 "category": "css-inline",
-                "url": "https://www.w3.org/TR/css-inline-3/#text-edges"
+                "url": "https://drafts.csswg.org/css-inline-3/#propdef-line-fit-edge"
             },
             "status": "experimental"
         },
@@ -5456,8 +5462,7 @@
                 "none"
             ],
             "codegen-properties": {
-                "render-style-name-for-methods": "MarkerEndResource",
-                "style-converter": "SVGURIReference",
+                "style-converter": "StyleType<SVGMarkerResource>",
                 "svg": true,
                 "parser-grammar": "none | <marker-ref>"
             },
@@ -5474,8 +5479,7 @@
                 "none"
             ],
             "codegen-properties": {
-                "render-style-name-for-methods": "MarkerMidResource",
-                "style-converter": "SVGURIReference",
+                "style-converter": "StyleType<SVGMarkerResource>",
                 "svg": true,
                 "parser-grammar": "none | <marker-ref>"
             },
@@ -5492,8 +5496,7 @@
                 "none"
             ],
             "codegen-properties": {
-                "render-style-name-for-methods": "MarkerStartResource",
-                "style-converter": "SVGURIReference",
+                "style-converter": "StyleType<SVGMarkerResource>",
                 "svg": true,
                 "parser-grammar": "none | <marker-ref>"
             },
@@ -7931,7 +7934,7 @@
                 "none"
             ],
             "codegen-properties": {
-                "animation-wrapper": "ShadowWrapper<TextShadows>",
+                "animation-wrapper": "StyleTypeWrapper",
                 "style-converter": "StyleType<TextShadows>",
                 "parser-function": "consumeTextShadow",
                 "parser-grammar-unused": "none | [ <color>? && <length>{2,3} ]#",
@@ -8062,7 +8065,7 @@
                     "transition-delay",
                     "transition-behavior"
                 ],
-                "parser-function": "consumeAnimationShorthand",
+                "parser-function": "consumeTransitionShorthand",
                 "parser-shorthand": "transitionShorthandForParsing",
                 "parser-grammar-unused": "<single-transition>#",
                 "parser-grammar-unused-reason": "Needs support for shorthand grammars."
@@ -8081,7 +8084,7 @@
             ],
             "codegen-properties": {
                 "animation-property": true,
-                "animation-name-for-methods": "AllowsDiscreteTransitions",
+                "animation-name-for-methods": "Behavior",
                 "separator": ",",
                 "parser-grammar": "<transition-behavior-value>#"
             },
@@ -8099,6 +8102,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Delay",
+                "style-converter": "StyleType<SingleTransitionDelay>",
                 "separator": ",",
                 "parser-grammar": "<time>#"
             },
@@ -8116,6 +8120,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Duration",
+                "style-converter": "StyleType<SingleTransitionDuration>",
                 "separator": ",",
                 "parser-grammar": "<time [0,inf]>#"
             },
@@ -8128,7 +8133,8 @@
             "animation-type": "not animatable",
             "initial": "all",
             "values": [
-                "none"
+                "none",
+                "all"
             ],
             "codegen-properties": {
                 "aliases": [
@@ -8136,6 +8142,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "Property",
+                "style-converter": "StyleType<SingleTransitionProperty>",
                 "parser-grammar": "none  | <single-transition-property>#"
             },
             "specification": {
@@ -8161,6 +8168,7 @@
                 ],
                 "animation-property": true,
                 "animation-name-for-methods": "TimingFunction",
+                "style-converter": "StyleType<EasingFunction>",
                 "parser-grammar": "<easing-function>#"
             },
             "specification": {
@@ -9017,7 +9025,7 @@
                 "cascade-alias": "box-shadow",
                 "skip-style-builder": true,
                 "style-extractor-converter": "StyleType<BoxShadows>",
-                "animation-wrapper": "ShadowWrapper<BoxShadows>",
+                "animation-wrapper": "StyleTypeWrapper",
                 "parser-function": "consumeWebkitBoxShadow",
                 "parser-grammar-unused": "none | <shadow>#",
                 "parser-grammar-unused-reason": "Needs support for the strong value representation.",
@@ -9426,9 +9434,9 @@
                 "aliases": [
                     "-webkit-filter"
                 ],
-                "animation-wrapper": "FilterWrapper",
+                "animation-wrapper": "StyleTypeWrapper",
                 "animation-wrapper-acceleration": "always",
-                "style-converter": "FilterOperations",
+                "style-converter": "StyleType<Filter>",
                 "parser-function": "consumeFilter",
                 "parser-grammar-unused": "none | <filter-value-list>",
                 "parser-grammar-unused-reason": "Needs support for the strong value representation."
@@ -9446,9 +9454,9 @@
                 "none"
             ],
             "codegen-properties": {
-                "animation-wrapper": "FilterWrapper",
+                "animation-wrapper": "StyleTypeWrapper",
                 "settings-flag": "colorFilterEnabled",
-                "style-converter": "AppleColorFilterOperations",
+                "style-converter": "StyleType<AppleColorFilter>",
                 "parser-function": "consumeAppleColorFilter",
                 "parser-grammar-unused": "none | <-apple-color-filter-value-list>",
                 "parser-grammar-unused-reason": "Needs support for the strong value representation."
@@ -9769,8 +9777,8 @@
             "codegen-properties": {
                 "cascade-alias": "backdrop-filter",
                 "skip-style-builder": true,
-                "style-extractor-converter": "FilterOperations",
-                "animation-wrapper": "FilterWrapper",
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-extractor-converter": "StyleType<Filter>",
                 "parser-function": "consumeFilter",
                 "parser-grammar-unused": "none | <filter-value-list>",
                 "parser-grammar-unused-reason": "Needs support for the strong value representation."
@@ -9787,9 +9795,9 @@
             "animation-type": "see prose",
             "initial": "none",
             "codegen-properties": {
-                "animation-wrapper": "FilterWrapper",
+                "animation-wrapper": "StyleTypeWrapper",
                 "animation-wrapper-acceleration": "always",
-                "style-converter": "FilterOperations",
+                "style-converter": "StyleType<Filter>",
                 "parser-function": "consumeFilter",
                 "parser-grammar-unused": "none | <filter-value-list>",
                 "parser-grammar-unused-reason": "Needs support for the strong value representation.",
@@ -11805,7 +11813,7 @@
                 "center"
             ],
             "codegen-properties": {
-                "style-converter": "ScrollSnapAlign",
+                "style-converter": "StyleType<ScrollSnapAlign>",
                 "parser-grammar": "[ none | start | end | center ]{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -11827,7 +11835,7 @@
                 "proximity"
             ],
             "codegen-properties": {
-                "style-converter": "ScrollSnapType",
+                "style-converter": "StyleType<ScrollSnapType>",
                 "parser-function": "consumeScrollSnapType",
                 "parser-grammar-unused": "none | [ [ x | y | block | inline | both ] [ mandatory | proximity ]? ]",
                 "parser-grammar-unused-reason": "Needs support for default values on optionals."

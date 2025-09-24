@@ -259,7 +259,7 @@ void writeSVGPaintingFeatures(TextStream& ts, const RenderElement& renderer, Opt
         writeIfNotDefault(ts, "clip rule"_s, svgStyle->clipRule(), WindRule::NonZero);
     }
 
-    auto writeMarker = [&](ASCIILiteral name, const Style::URL& value) {
+    auto writeMarker = [&](ASCIILiteral name, const Style::SVGMarkerResource& value) {
         auto* element = renderer.element();
         if (!element)
             return;
@@ -268,9 +268,9 @@ void writeSVGPaintingFeatures(TextStream& ts, const RenderElement& renderer, Opt
         writeIfNotEmpty(ts, name, fragment);
     };
 
-    writeMarker("start marker"_s, svgStyle->markerStartResource());
-    writeMarker("middle marker"_s, svgStyle->markerMidResource());
-    writeMarker("end marker"_s, svgStyle->markerEndResource());
+    writeMarker("start marker"_s, svgStyle->markerStart());
+    writeMarker("middle marker"_s, svgStyle->markerMid());
+    writeMarker("end marker"_s, svgStyle->markerEnd());
 }
 
 static TextStream& writePositionAndStyle(TextStream& ts, const RenderElement& renderer, OptionSet<RenderAsTextFlag> behavior = { })
@@ -461,7 +461,7 @@ void writeSVGResourceContainer(TextStream& ts, const LegacyRenderSVGResourceCont
         // Creating a placeholder filter which is passed to the builder.
         FloatRect dummyRect;
         FloatSize dummyScale(1, 1);
-        auto dummyFilter = SVGFilter::create(filter.protectedFilterElement(), FilterRenderingMode::Software, dummyScale, dummyRect, dummyRect, NullGraphicsContext());
+        auto dummyFilter = SVGFilterRenderer::create(filter.protectedFilterElement(), FilterRenderingMode::Software, dummyScale, dummyRect, dummyRect, NullGraphicsContext());
         if (dummyFilter) {
             TextStream::IndentScope indentScope(ts);
             dummyFilter->externalRepresentation(ts, FilterRepresentation::TestOutput);
@@ -584,12 +584,9 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
     // FIXME: We want to use SVGResourcesCache to determine which resources are present, instead of quering the resource <-> id cache.
     // For now leave the DRT output as is, but later on we should change this so cycles are properly ignored in the DRT output.
     if (style.hasPositionedMask()) {
-        RefPtr maskImage = style.maskLayers().first().image().tryStyleImage();
-        auto maskImageURL = maskImage ? maskImage->url() : Style::URL::none();
-
-        if (!maskImageURL.isNone()) {
+        if (RefPtr maskImage = style.maskLayers().first().image().tryStyleImage()) {
             Ref document = renderer.document();
-            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImageURL, document);
+            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImage->url(), document);
             if (auto* masker = getRenderSVGResourceById<LegacyRenderSVGResourceMasker>(renderer.treeScopeForSVGReferences(), resourceID)) {
                 ts << indent << ' ';
                 writeNameAndQuotedValue(ts, "masker"_s, resourceID);
@@ -613,9 +610,9 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
         [&](const auto&) { }
     );
     if (style.hasFilter()) {
-        const FilterOperations& filterOperations = style.filter();
+        const auto& filterOperations = style.filter();
         if (filterOperations.size() == 1) {
-            if (RefPtr referenceFilterOperation = dynamicDowncast<Style::ReferenceFilterOperation>(*filterOperations.at(0))) {
+            if (RefPtr referenceFilterOperation = dynamicDowncast<Style::ReferenceFilterOperation>(filterOperations[0].platform())) {
                 auto id = referenceFilterOperation->fragment();
                 if (LegacyRenderSVGResourceFilter* filter = getRenderSVGResourceById<LegacyRenderSVGResourceFilter>(renderer.treeScopeForSVGReferences(), id)) {
                     ts << indent << ' ';

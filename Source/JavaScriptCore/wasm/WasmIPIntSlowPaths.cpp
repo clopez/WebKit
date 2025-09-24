@@ -40,7 +40,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "LLIntExceptions.h"
 #include "WasmBBQPlan.h"
 #include "WasmBaselineData.h"
-#include "WasmCallSlot.h"
+#include "WasmCallProfile.h"
 #include "WasmCallee.h"
 #include "WasmCallingConvention.h"
 #include "WasmIPIntGenerator.h"
@@ -638,7 +638,7 @@ WASM_IPINT_EXTERN_CPP_DECL(struct_get, EncodedJSValue object, uint32_t fieldInde
 {
     UNUSED_PARAM(instance);
     if (JSValue::decode(object).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullStructGet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
     IPINT_RETURN(Wasm::structGet(object, fieldIndex));
 }
 
@@ -646,7 +646,7 @@ WASM_IPINT_EXTERN_CPP_DECL(struct_get_s, EncodedJSValue object, uint32_t fieldIn
 {
     UNUSED_PARAM(instance);
     if (JSValue::decode(object).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullStructGet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
 
     EncodedJSValue value = Wasm::structGet(object, fieldIndex);
 
@@ -666,7 +666,7 @@ WASM_IPINT_EXTERN_CPP_DECL(struct_set, EncodedJSValue object, uint32_t fieldInde
 {
     UNUSED_PARAM(instance);
     if (JSValue::decode(object).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullStructSet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
     Wasm::structSet(object, fieldIndex, sp->i64);
     IPINT_END();
 }
@@ -739,7 +739,7 @@ WASM_IPINT_EXTERN_CPP_DECL(array_new_elem, IPInt::ArrayNewElemMetadata* metadata
 WASM_IPINT_EXTERN_CPP_DECL(array_get, uint32_t type, EncodedJSValue array, uint32_t index)
 {
     if (JSValue::decode(array).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullArrayGet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
     JSValue arrayValue = JSValue::decode(array);
     ASSERT(arrayValue.isObject());
     JSWebAssemblyArray* arrayObject = jsCast<JSWebAssemblyArray*>(arrayValue.getObject());
@@ -751,7 +751,7 @@ WASM_IPINT_EXTERN_CPP_DECL(array_get, uint32_t type, EncodedJSValue array, uint3
 WASM_IPINT_EXTERN_CPP_DECL(array_get_s, uint32_t type, EncodedJSValue array, uint32_t index)
 {
     if (JSValue::decode(array).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullArrayGet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
     JSValue arrayValue = JSValue::decode(array);
     ASSERT(arrayValue.isObject());
     JSWebAssemblyArray* arrayObject = jsCast<JSWebAssemblyArray*>(arrayValue.getObject());
@@ -776,7 +776,7 @@ WASM_IPINT_EXTERN_CPP_DECL(array_set, uint32_t type, IPIntStackEntry* sp)
     // sp[1] = index
     // sp[2] = array ref
     if (JSValue::decode(sp[2].ref).isNull()) [[unlikely]]
-        IPINT_THROW(Wasm::ExceptionType::NullArraySet);
+        IPINT_THROW(Wasm::ExceptionType::NullAccess);
 
     JSValue arrayValue = JSValue::decode(sp[2].ref);
     ASSERT(arrayValue.isObject());
@@ -897,8 +897,11 @@ WASM_IPINT_EXTERN_CPP_DECL(ref_cast, int32_t heapType, bool allowNull, EncodedJS
     }
 
     auto& info = instance->module().moduleInformation();
-    if (!Wasm::refCast(value, allowNull, info.typeSignatures[heapType]->index(), info.rtts[heapType].ptr())) [[unlikely]]
+    if (!Wasm::refCast(value, allowNull, info.typeSignatures[heapType]->index(), info.rtts[heapType].ptr())) [[unlikely]] {
+        if (!allowNull && JSValue::decode(value).isNull())
+            IPINT_THROW(Wasm::ExceptionType::NullAccess);
         IPINT_THROW(Wasm::ExceptionType::CastFailure);
+    }
     IPINT_RETURN(value);
 }
 
@@ -913,7 +916,7 @@ WASM_IPINT_EXTERN_CPP_DECL(ref_cast, int32_t heapType, bool allowNull, EncodedJS
 WASM_IPINT_EXTERN_CPP_DECL(prepare_call, CallFrame* callFrame, CallMetadata* call, Register* calleeAndWasmInstanceReturn)
 {
     auto* callee = IPINT_CALLEE(callFrame);
-    instance->ensureBaselineData(callee->functionIndex()).at(call->callSlotIndex).incrementCount();
+    instance->ensureBaselineData(callee->functionIndex()).at(call->callProfileIndex).incrementCount();
 
     Wasm::FunctionSpaceIndex functionIndex = call->functionIndex;
 
@@ -946,8 +949,8 @@ WASM_IPINT_EXTERN_CPP_DECL(prepare_call, CallFrame* callFrame, CallMetadata* cal
 WASM_IPINT_EXTERN_CPP_DECL(prepare_call_indirect, CallFrame* callFrame, Wasm::FunctionSpaceIndex* functionIndex, CallIndirectMetadata* call)
 {
     auto* callee = IPINT_CALLEE(callFrame);
-    auto& callSlot = instance->ensureBaselineData(callee->functionIndex()).at(call->callSlotIndex);
-    callSlot.incrementCount();
+    auto& callProfile = instance->ensureBaselineData(callee->functionIndex()).at(call->callProfileIndex);
+    callProfile.incrementCount();
 
     unsigned tableIndex = call->tableIndex;
     const Wasm::FuncRefTable::Function* function = nullptr;
@@ -979,9 +982,9 @@ WASM_IPINT_EXTERN_CPP_DECL(prepare_call_indirect, CallFrame* callFrame, Wasm::Fu
         auto* targetInstance = function->m_function.targetInstance.get();
         functionInfoSlot = targetInstance;
         if (instance != targetInstance)
-            callSlot.observeCrossInstanceCall();
+            callProfile.observeCrossInstanceCall();
         else
-            callSlot.observeCallIndirect(boxedCallee);
+            callProfile.observeCallIndirect(boxedCallee);
     }
 
     auto callTarget = *function->m_function.entrypointLoadLocation;
@@ -991,8 +994,8 @@ WASM_IPINT_EXTERN_CPP_DECL(prepare_call_indirect, CallFrame* callFrame, Wasm::Fu
 WASM_IPINT_EXTERN_CPP_DECL(prepare_call_ref, CallFrame* callFrame, CallRefMetadata* call, IPIntStackEntry* sp)
 {
     auto* callee = IPINT_CALLEE(callFrame);
-    auto& callSlot = instance->ensureBaselineData(callee->functionIndex()).at(call->callSlotIndex);
-    callSlot.incrementCount();
+    auto& callProfile = instance->ensureBaselineData(callee->functionIndex()).at(call->callProfileIndex);
+    callProfile.incrementCount();
 
     JSValue targetReference = JSValue::decode(sp->ref);
 
@@ -1015,9 +1018,9 @@ WASM_IPINT_EXTERN_CPP_DECL(prepare_call_ref, CallFrame* callFrame, CallRefMetada
         auto* targetInstance = function.targetInstance.get();
         functionInfoSlot = targetInstance;
         if (instance != targetInstance)
-            callSlot.observeCrossInstanceCall();
+            callProfile.observeCrossInstanceCall();
         else
-            callSlot.observeCallIndirect(boxedCallee);
+            callProfile.observeCallIndirect(boxedCallee);
     }
 
     auto callTarget = *function.entrypointLoadLocation;
@@ -1103,18 +1106,9 @@ extern "C" void SYSV_ABI wasm_log_crash(CallFrame*, JSWebAssemblyInstance* insta
 
 extern "C" UGPRPair SYSV_ABI slow_path_wasm_throw_exception(CallFrame* callFrame, JSWebAssemblyInstance* instance, Wasm::ExceptionType exceptionType)
 {
-    SlowPathFrameTracer tracer(instance->vm(), callFrame);
-#if ENABLE(WEBASSEMBLY_BBQJIT)
-    void* pc = instance->faultPC();
-    instance->setFaultPC(nullptr);
-    auto* callee = callFrame->callee().asNativeCallee();
-    ASSERT(callee->category() == NativeCallee::Category::Wasm);
-    auto& wasmCallee = static_cast<Wasm::Callee&>(*callee);
-    if (isAnyOMG(wasmCallee.compilationMode())) {
-        if (auto callSiteIndexFromPC = static_cast<Wasm::OptimizingJITCallee&>(wasmCallee).tryGetCallSiteIndex(pc))
-            callFrame->setCallSiteIndex(callSiteIndexFromPC.value());
-    }
-#endif
+    // FaultPC is the exact PC causing the fault. When using it as a returnPC, we should point one next instruction instead.
+    WasmOperationPrologueCallFrameTracer tracer(instance->vm(), callFrame, std::bit_cast<void*>(std::bit_cast<uintptr_t>(instance->faultPC()) + 1));
+    instance->setFaultPC(Wasm::ExceptionType::Termination, nullptr);
     WASM_RETURN_TWO(Wasm::throwWasmToJSException(callFrame, exceptionType, instance), nullptr);
 }
 
@@ -1123,18 +1117,9 @@ extern "C" UGPRPair SYSV_ABI slow_path_wasm_throw_exception(CallFrame* callFrame
 extern "C" UCPURegister SYSV_ABI slow_path_wasm_unwind_exception(CallFrame* callFrame, JSWebAssemblyInstance* instance)
 {
     VM& vm = instance->vm();
-    SlowPathFrameTracer tracer(vm, callFrame);
-#if ENABLE(WEBASSEMBLY_BBQJIT)
-    void* pc = instance->faultPC();
-    instance->setFaultPC(nullptr);
-    auto* callee = callFrame->callee().asNativeCallee();
-    ASSERT(callee->category() == NativeCallee::Category::Wasm);
-    auto& wasmCallee = static_cast<Wasm::Callee&>(*callee);
-    if (isAnyOMG(wasmCallee.compilationMode())) {
-        if (auto callSiteIndexFromPC = static_cast<Wasm::OptimizingJITCallee&>(wasmCallee).tryGetCallSiteIndex(pc))
-            callFrame->setCallSiteIndex(callSiteIndexFromPC.value());
-    }
-#endif
+    // FaultPC is the exact PC causing the fault. When using it as a returnPC, we should point one next instruction instead.
+    WasmOperationPrologueCallFrameTracer tracer(instance->vm(), callFrame, std::bit_cast<void*>(std::bit_cast<uintptr_t>(instance->faultPC()) + 1));
+    instance->setFaultPC(Wasm::ExceptionType::Termination, nullptr);
     genericUnwind(vm, callFrame);
     ASSERT(!!vm.callFrameForCatch);
     ASSERT(!!vm.targetMachinePCForThrow);

@@ -705,7 +705,7 @@ InlineLayoutUnit LineBuilder::trailingPunctuationOrStopOrCommaWidthForLineCandia
     return { };
 }
 
-Vector<std::pair<size_t, size_t>> LineBuilder::collectShapingRanges(const LineCandidate& lineCandidate) const
+Vector<std::pair<size_t, size_t>> LineBuilder::collectShapeRanges(const LineCandidate& lineCandidate) const
 {
     // Normally candidate content is inline items between 2 soft wraping opportunities e.g.
     // <div>some text<span>more text</span></div>
@@ -788,14 +788,22 @@ Vector<std::pair<size_t, size_t>> LineBuilder::collectShapingRanges(const LineCa
     auto leadingContentRunIndex = std::optional<size_t> { };
     auto trailingContentRunIndex = std::optional<size_t> { };
     auto hasBoundaryBetween = false;
+
+    auto resetCandidateRange = [&] {
+        leadingContentRunIndex = { };
+        trailingContentRunIndex = { };
+        hasBoundaryBetween = false;
+    };
+    auto commitIfHasContentAndReset = [&] {
+        if (leadingContentRunIndex && trailingContentRunIndex && hasBoundaryBetween)
+            ranges.append({ *leadingContentRunIndex, *trailingContentRunIndex });
+        resetCandidateRange();
+    };
+
     for (auto entry : contentList) {
         switch (entry.type) {
         case ShapingType::Break:
-            if (leadingContentRunIndex && trailingContentRunIndex && hasBoundaryBetween)
-                ranges.append({ *leadingContentRunIndex, *trailingContentRunIndex });
-            leadingContentRunIndex = { };
-            trailingContentRunIndex = { };
-            hasBoundaryBetween = false;
+            commitIfHasContentAndReset();
             break;
         case ShapingType::Keep:
             if (hasBoundaryBetween) {
@@ -806,30 +814,30 @@ Vector<std::pair<size_t, size_t>> LineBuilder::collectShapingRanges(const LineCa
             if (leadingContentRunIndex)
                 hasBoundaryBetween = true;
             break;
-        case ShapingType::Content:
+        case ShapingType::Content: {
+            auto& inlineTextItem = downcast<InlineTextItem>(runs[entry.index].inlineItem);
+            auto& inlineTextBox = inlineTextItem.inlineTextBox();
+            auto isEligibleText = !inlineTextBox.canUseSimpleFontCodePath() && !inlineTextBox.isCombined() && inlineTextItem.direction() == TextDirection::RTL;
+
             if (!leadingContentRunIndex) {
-                auto& inlineTextItem = downcast<InlineTextItem>(runs[entry.index].inlineItem);
-                auto& inlineTextBox = inlineTextItem.inlineTextBox();
-                auto isEligibleText = !inlineTextBox.canUseSimpleFontCodePath() && !inlineTextBox.isCombined() && (inlineTextItem.bidiLevel() != UBIDI_DEFAULT_LTR && (inlineTextItem.bidiLevel() % 2));
                 if (isEligibleText)
                     leadingContentRunIndex = entry.index;
                 lastFontCascade = isFirstFormattedLineCandidate ? &inlineTextItem.firstLineStyle().fontCascade() : &inlineTextItem.style().fontCascade();
             } else if (hasBoundaryBetween) {
-                auto& inlineTextItem = downcast<InlineTextItem>(runs[entry.index].inlineItem);
-                if (*lastFontCascade.get() == (isFirstFormattedLineCandidate ? inlineTextItem.firstLineStyle().fontCascade() : inlineTextItem.style().fontCascade()))
+                auto hasMatchingFontCascade = *lastFontCascade.get() == (isFirstFormattedLineCandidate ? inlineTextItem.firstLineStyle().fontCascade() : inlineTextItem.style().fontCascade());
+                if (isEligibleText && hasMatchingFontCascade)
                     trailingContentRunIndex = entry.index;
-                else {
-                    leadingContentRunIndex = { };
-                    trailingContentRunIndex = { };
-                    hasBoundaryBetween = false;
-                }
-            }
+                else
+                    resetCandidateRange();
+            } else if (!isEligibleText)
+                resetCandidateRange();
+            break;
+        }
+        default:
+            ASSERT_NOT_REACHED();
         }
     }
-
-    if (leadingContentRunIndex && trailingContentRunIndex && hasBoundaryBetween)
-        ranges.append({ *leadingContentRunIndex, *trailingContentRunIndex });
-
+    commitIfHasContentAndReset();
     return ranges;
 }
 
@@ -854,16 +862,16 @@ void LineBuilder::applyShapingOnRunRange(LineCandidate& lineCandidate, std::pair
     auto characterScanForCodePath = true;
     auto& style = isFirstFormattedLineCandidate() ? runs[range.first].inlineItem.firstLineStyle() : runs[range.first].inlineItem.style();
     auto textRun = TextRun { textContent, m_lineLogicalRect.left(), { }, ExpansionBehavior::defaultBehavior(), TextDirection::RTL, style.rtlOrdering() == Order::Visual, characterScanForCodePath };
-    auto glyphSizes = ComplexTextController::glyphBoundsForTextRun(style.fontCascade(), textRun);
+    auto glyphAdvances = ComplexTextController::glyphAdvancesForTextRun(style.fontCascade(), textRun);
 
-    if (glyphSizes.size() != textRun.length()) {
+    if (glyphAdvances.size() != textRun.length()) {
         ASSERT_NOT_REACHED();
         return;
     }
 
     size_t glyphIndex = 0;
     auto shapedContentWidth = InlineLayoutUnit { };
-    for (auto index = range.first; index < range.second; ++index) {
+    for (auto index = range.first; index <= range.second; ++index) {
         auto& run = runs[index];
         auto* inlineTextItem = dynamicDowncast<InlineTextItem>(run.inlineItem);
         if (!inlineTextItem) {
@@ -872,13 +880,14 @@ void LineBuilder::applyShapingOnRunRange(LineCandidate& lineCandidate, std::pair
         }
         auto runWidth = InlineLayoutUnit { };
         for (size_t i = 0; i < inlineTextItem->length(); ++i) {
-            runWidth += std::max(0.f, glyphSizes[glyphIndex]);
+            runWidth += std::max(0.f, glyphAdvances[glyphIndex]);
             ++glyphIndex;
         }
         run.adjustContentWidth(runWidth);
         shapedContentWidth += runWidth;
     }
     inlineContent.continuousContent().adjustLogicalWidth(shapedContentWidth);
+    inlineContent.continuousContent().setHasShapedContent();
 }
 
 void LineBuilder::applyShapingIfNeeded(LineCandidate& lineCandidate)
@@ -889,8 +898,57 @@ void LineBuilder::applyShapingIfNeeded(LineCandidate& lineCandidate)
     if (!lineCandidate.inlineContent.isShapingCandidateByContent())
         return;
 
-    for (auto range : collectShapingRanges(lineCandidate))
+    for (auto range : collectShapeRanges(lineCandidate))
         applyShapingOnRunRange(lineCandidate, range);
+}
+
+void LineBuilder::shapePartialLineCandidate(LineCandidate& lineCandidate, size_t trailingRunIndex) const
+{
+    auto& inlineContent = lineCandidate.inlineContent;
+    auto& runs = inlineContent.continuousContent().runs();
+
+    if (trailingRunIndex >= runs.size()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    // Find the shaping boundary end to see if we need to reshape the candidate text.
+    for (auto index = trailingRunIndex + 1; index < runs.size(); ++index) {
+        auto shapingBoundary = runs[index].shapingBoundary;
+        if (!shapingBoundary)
+            continue;
+        if (*shapingBoundary == InlineContentBreaker::ContinuousContent::Run::ShapingBoundary::Start) {
+            // Trailing content is a new shaping boundary, no need to reshape leading content.
+            return;
+        }
+        ASSERT(*shapingBoundary == InlineContentBreaker::ContinuousContent::Run::ShapingBoundary::End);
+        auto endPosition = std::optional<size_t> { };
+        for (auto i = trailingRunIndex + 1; i--;) {
+            auto& run = runs[i];
+            if (!endPosition && run.inlineItem.isText())
+                endPosition = i;
+
+            auto shapingBoundary = run.shapingBoundary;
+            if (shapingBoundary && *shapingBoundary == InlineContentBreaker::ContinuousContent::Run::ShapingBoundary::Start) {
+                if (!endPosition) {
+                    ASSERT_NOT_REACHED();
+                    return;
+                }
+                if (*endPosition == i) {
+                    // No shaping is needed when content does not cross multiple boxes.
+                    run.shapingBoundary = { };
+                    if (i < trailingRunIndex)
+                        run.adjustContentWidth(formattingContext().formattingUtils().inlineItemWidth(run.inlineItem, { }, isFirstFormattedLineCandidate()));
+                    return;
+                }
+
+                applyShapingOnRunRange(lineCandidate, { i, *endPosition });
+                return;
+            }
+        }
+        // We should always find a start when there's an end.
+        ASSERT_NOT_REACHED();
+    }
 }
 
 void LineBuilder::candidateContentForLine(LineCandidate& lineCandidate, std::pair<size_t, size_t> startEndIndex, const InlineItemRange& layoutRange, InlineLayoutUnit currentLogicalRight, SkipFloats skipFloats)
@@ -1254,7 +1312,7 @@ bool LineBuilder::tryPlacingFloatBox(const Box& floatBox, MayOverConstrainLine m
     return true;
 }
 
-LineBuilder::Result LineBuilder::handleInlineContent(const InlineItemRange& layoutRange, const LineCandidate& lineCandidate)
+LineBuilder::Result LineBuilder::handleInlineContent(const InlineItemRange& layoutRange, LineCandidate& lineCandidate)
 {
     auto result = LineBuilder::Result { };
     auto& inlineContent = lineCandidate.inlineContent;
@@ -1432,7 +1490,7 @@ InlineContentBreaker::Result LineBuilder::handleInlineContentWithClonedDecoratio
     return inlineContentBreaker().processInlineContent(continuousInlineContent, lineStatus);
 }
 
-void LineBuilder::commitCandidateContent(const LineCandidate& lineCandidate, std::optional<InlineContentBreaker::Result::PartialTrailingContent> partialTrailingContent)
+void LineBuilder::commitCandidateContent(LineCandidate& lineCandidate, std::optional<InlineContentBreaker::Result::PartialTrailingContent> partialTrailingContent)
 {
     auto& inlineContent = lineCandidate.inlineContent;
     auto& runs = inlineContent.continuousContent().runs();
@@ -1513,6 +1571,9 @@ void LineBuilder::commitCandidateContent(const LineCandidate& lineCandidate, std
         ASSERT_NOT_REACHED();
     };
 
+    if (partialTrailingContent && inlineContent.continuousContent().hasShapedContent())
+        shapePartialLineCandidate(lineCandidate, partialTrailingContent->trailingRunIndex);
+
     ASSERT(!partialTrailingContent || partialTrailingContent->trailingRunIndex <= runs.size());
     auto endOfNonPartialContent = (partialTrailingContent ? std::min(partialTrailingContent->trailingRunIndex, runs.size()) : runs.size());
     for (size_t index = 0; index < endOfNonPartialContent; ++index)
@@ -1545,7 +1606,7 @@ void LineBuilder::commitCandidateContent(const LineCandidate& lineCandidate, std
     }
 }
 
-LineBuilder::Result LineBuilder::processLineBreakingResult(const LineCandidate& lineCandidate, const InlineItemRange& layoutRange, const InlineContentBreaker::Result& lineBreakingResult)
+LineBuilder::Result LineBuilder::processLineBreakingResult(LineCandidate& lineCandidate, const InlineItemRange& layoutRange, const InlineContentBreaker::Result& lineBreakingResult)
 {
     auto& candidateRuns = lineCandidate.inlineContent.continuousContent().runs();
 

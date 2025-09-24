@@ -310,6 +310,22 @@ void DrawDisplayList::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("display-list"_s, displayList);
 }
 
+DrawPlaceholder::DrawPlaceholder(Function<void(GraphicsContext&)>&& function)
+    : m_function(FunctionHolder::create(WTFMove(function)))
+{
+}
+
+DrawPlaceholder::~DrawPlaceholder() = default;
+
+void DrawPlaceholder::apply(GraphicsContext& context) const
+{
+    return (*m_function)(context);
+}
+
+void DrawPlaceholder::dump(TextStream&, OptionSet<AsTextFlag>) const
+{
+}
+
 void DrawImageBuffer::apply(GraphicsContext& context) const
 {
     context.drawImageBuffer(m_imageBuffer, m_destinationRect, m_srcRect, m_options);
@@ -728,12 +744,12 @@ void ApplyDeviceScaleFactor::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 
 void BeginPage::apply(GraphicsContext& context) const
 {
-    context.beginPage(m_pageSize);
+    context.beginPage(m_pageRect);
 }
 
 void BeginPage::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
-    ts.dumpProperty("page-size"_s, pageSize());
+    ts.dumpProperty("page-rect"_s, pageRect());
 }
 
 void EndPage::apply(GraphicsContext& context) const

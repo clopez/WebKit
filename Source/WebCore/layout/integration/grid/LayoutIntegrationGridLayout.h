@@ -28,6 +28,10 @@
 #include "LayoutState.h"
 #include <wtf/CheckedPtr.h>
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class RenderGrid;
@@ -44,6 +48,8 @@ public:
 
     void layout();
 
+    friend WTF::TextStream& operator<<(WTF::TextStream&, const GridLayout&);
+
 private:
     const Layout::ElementBox& gridBox() const { return *m_gridBox; }
     Layout::ElementBox& gridBox() { return *m_gridBox; }
@@ -51,11 +57,14 @@ private:
     const RenderGrid& gridBoxRenderer() const { return downcast<RenderGrid>(*m_gridBox->rendererForIntegration()); }
     RenderGrid& gridBoxRenderer() { return downcast<RenderGrid>(*m_gridBox->rendererForIntegration()); }
 
+    Layout::LayoutState& layoutState() { return m_layoutState; }
     const Layout::LayoutState& layoutState() const { return m_layoutState; }
 
     const CheckedPtr<Layout::ElementBox> m_gridBox;
     CheckedRef<Layout::LayoutState> m_layoutState;
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, const GridLayout&);
 
 } // namespace LayoutIntegration
 

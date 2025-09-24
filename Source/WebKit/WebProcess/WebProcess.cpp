@@ -90,6 +90,7 @@
 #include "WebSharedWorkerContextManagerConnectionMessages.h"
 #include "WebSharedWorkerProvider.h"
 #include "WebTransportSession.h"
+#include "WebUserContentController.h"
 #include "WebsiteData.h"
 #include "WebsiteDataStoreParameters.h"
 #include "WebsiteDataType.h"
@@ -383,6 +384,7 @@ WebProcess::~WebProcess()
 void WebProcess::initializeProcess(const AuxiliaryProcessInitializationParameters& parameters)
 {
     m_isLockdownModeEnabled = parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("enable-lockdown-mode"_s) == "1"_s;
+    m_isEnhancedSecurityEnabled = parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("enable-enhanced-security"_s) == "1"_s;
 
     WTF::setProcessPrivileges({ });
 
@@ -724,11 +726,11 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
 
     m_thirdPartyCookieBlockingMode = parameters.thirdPartyCookieBlockingMode;
     if (parameters.trackingPreventionEnabled) {
-        if (!ResourceLoadObserver::sharedIfExists())
+        if (!ResourceLoadObserver::singletonIfExists())
             ResourceLoadObserver::setShared(*new WebResourceLoadObserver(parameters.sessionID.isEphemeral() ? WebCore::ResourceLoadStatistics::IsEphemeral::Yes : WebCore::ResourceLoadStatistics::IsEphemeral::No));
-        ResourceLoadObserver::shared().setDomainsWithUserInteraction(WTFMove(parameters.domainsWithUserInteraction));
+        ResourceLoadObserver::singleton().setDomainsWithUserInteraction(WTFMove(parameters.domainsWithUserInteraction));
         if (!parameters.sessionID.isEphemeral())
-            ResourceLoadObserver::shared().setDomainsWithCrossPageStorageAccess(WTFMove(parameters.domainsWithStorageAccessQuirk), [] { });
+            ResourceLoadObserver::singleton().setDomainsWithCrossPageStorageAccess(WTFMove(parameters.domainsWithStorageAccessQuirk), [] { });
     }
 
     m_mediaKeysStorageDirectory = parameters.mediaKeyStorageDirectory;
@@ -1164,6 +1166,11 @@ void WebProcess::isJITEnabled(CompletionHandler<void(bool)>&& completionHandler)
     completionHandler(JSC::Options::useJIT());
 }
 
+void WebProcess::isEnhancedSecurityEnabled(CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(m_isEnhancedSecurityEnabled.value_or(false));
+}
+
 void WebProcess::garbageCollectJavaScriptObjects()
 {
     GarbageCollectionController::singleton().garbageCollectNow();
@@ -1410,8 +1417,10 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     m_webSocketChannelManager.networkProcessCrashed();
     m_broadcastChannelRegistry->networkProcessCrashed();
 
+#if USE(LIBWEBRTC)
     if (m_libWebRTCNetwork)
         m_libWebRTCNetwork->networkProcessCrashed();
+#endif
 
     for (auto& page : m_pageMap.values()) {
         page->stopAllURLSchemeTasks();
@@ -2004,13 +2013,13 @@ void WebProcess::setTrackingPreventionEnabled(bool enabled)
     if (WebCore::DeprecatedGlobalSettings::trackingPreventionEnabled() == enabled)
         return;
     WebCore::DeprecatedGlobalSettings::setTrackingPreventionEnabled(enabled);
-    if (enabled && !ResourceLoadObserver::sharedIfExists())
+    if (enabled && !ResourceLoadObserver::singletonIfExists())
         WebCore::ResourceLoadObserver::setShared(*new WebResourceLoadObserver(m_sessionID && m_sessionID->isEphemeral() ? WebCore::ResourceLoadStatistics::IsEphemeral::Yes : WebCore::ResourceLoadStatistics::IsEphemeral::No));
 }
 
 void WebProcess::clearResourceLoadStatistics()
 {
-    if (auto* observer = ResourceLoadObserver::sharedIfExists())
+    if (auto* observer = ResourceLoadObserver::singletonIfExists())
         observer->clearState();
     for (auto& page : m_pageMap.values()) {
         page->clearPageLevelStorageAccess();
@@ -2020,13 +2029,13 @@ void WebProcess::clearResourceLoadStatistics()
 
 void WebProcess::flushResourceLoadStatistics()
 {
-    if (auto* observer = ResourceLoadObserver::sharedIfExists())
+    if (auto* observer = ResourceLoadObserver::singletonIfExists())
         observer->updateCentralStatisticsStore([] { });
 }
 
 void WebProcess::seedResourceLoadStatisticsForTesting(const RegistrableDomain& firstPartyDomain, const RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&& completionHandler)
 {
-    if (auto* observer = ResourceLoadObserver::sharedIfExists())
+    if (auto* observer = ResourceLoadObserver::singletonIfExists())
         observer->logSubresourceLoadingForTesting(firstPartyDomain, thirdPartyDomain, shouldScheduleNotification);
     completionHandler();
 }
@@ -2166,6 +2175,7 @@ void WebProcess::clearCachedPage(BackForwardItemIdentifier backForwardItemID, Co
     completionHandler();
 }
 
+#if USE(LIBWEBRTC)
 LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 {
     if (!m_libWebRTCNetwork)
@@ -2177,6 +2187,7 @@ Ref<LibWebRTCNetwork> WebProcess::protectedLibWebRTCNetwork()
 {
     return libWebRTCNetwork();
 }
+#endif
 
 void WebProcess::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType workerType, PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, Site&& site, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
 {
@@ -2364,7 +2375,7 @@ void WebProcess::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode th
 
 void WebProcess::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains)
 {
-    ResourceLoadObserver::shared().setDomainsWithUserInteraction(WTFMove(domains));
+    ResourceLoadObserver::singleton().setDomainsWithUserInteraction(WTFMove(domains));
 }
 
 void WebProcess::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
@@ -2375,12 +2386,12 @@ void WebProcess::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Ve
                 webPage->addDomainWithPageLevelStorageAccess(domain, subResourceDomain);
         }
     }
-    ResourceLoadObserver::shared().setDomainsWithCrossPageStorageAccess(WTFMove(domains), WTFMove(completionHandler));
+    ResourceLoadObserver::singleton().setDomainsWithCrossPageStorageAccess(WTFMove(domains), WTFMove(completionHandler));
 }
 
 void WebProcess::sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&& completionHandler)
 {
-    ResourceLoadObserver::shared().updateCentralStatisticsStore(WTFMove(completionHandler));
+    ResourceLoadObserver::singleton().updateCentralStatisticsStore(WTFMove(completionHandler));
 }
 
 bool WebProcess::haveStorageAccessQuirksForDomain(const WebCore::RegistrableDomain& domain)
@@ -2665,6 +2676,11 @@ void WebProcess::didReceiveRemoteCommand(PlatformMediaSession::RemoteControlComm
 {
     for (auto& page : m_pageMap.values())
         page->didReceiveRemoteCommand(type, argument);
+}
+
+void WebProcess::contentWorldDestroyed(ContentWorldIdentifier identifier)
+{
+    WebUserContentController::removeContentWorld(identifier);
 }
 
 } // namespace WebKit

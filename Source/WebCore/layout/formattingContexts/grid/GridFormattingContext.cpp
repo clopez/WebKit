@@ -28,6 +28,7 @@
 
 #include "GridLayout.h"
 #include "LayoutChildIterator.h"
+#include "RenderStyleInlines.h"
 #include "StylePrimitiveNumeric.h"
 #include "UnplacedGridItem.h"
 
@@ -59,9 +60,50 @@ UnplacedGridItems GridFormattingContext::constructUnplacedGridItems() const
 
     std::ranges::stable_sort(gridItems, { }, &GridItem::order);
 
-    return gridItems.map([](const GridItem& gridItem) -> UnplacedGridItem {
-        return UnplacedGridItem { gridItem.layoutBox.get() };
-    });
+    UnplacedGridItems unplacedGridItems;
+    for (auto& gridItem : gridItems) {
+        CheckedRef gridItemStyle = gridItem.layoutBox->style();
+
+        auto gridItemColumnStart = gridItemStyle->gridItemColumnStart();
+        auto gridItemColumnEnd = gridItemStyle->gridItemColumnEnd();
+        auto gridItemRowStart = gridItemStyle->gridItemRowStart();
+        auto gridItemRowEnd = gridItemStyle->gridItemRowEnd();
+
+        // Check if this item is fully explicitly positioned
+        bool fullyExplicitlyPositionedItem = gridItemColumnStart.isExplicit()
+            && gridItemColumnEnd.isExplicit()
+            && gridItemRowStart.isExplicit()
+            && gridItemRowEnd.isExplicit();
+
+        bool definiteRowPositioned = gridItemRowStart.isExplicit() || gridItemRowEnd.isExplicit();
+
+        if (fullyExplicitlyPositionedItem) {
+            unplacedGridItems.nonAutoPositionedItems.constructAndAppend(
+                gridItem.layoutBox,
+                gridItemColumnStart,
+                gridItemColumnEnd,
+                gridItemRowStart,
+                gridItemRowEnd
+            );
+        } else if (definiteRowPositioned) {
+            unplacedGridItems.definiteRowPositionedItems.constructAndAppend(
+                gridItem.layoutBox,
+                gridItemColumnStart,
+                gridItemColumnEnd,
+                gridItemRowStart,
+                gridItemRowEnd
+            );
+        } else {
+            unplacedGridItems.autoPositionedItems.constructAndAppend(
+                gridItem.layoutBox,
+                gridItemColumnStart,
+                gridItemColumnEnd,
+                gridItemRowStart,
+                gridItemRowEnd
+            );
+        }
+    }
+    return unplacedGridItems;
 }
 
 void GridFormattingContext::layout(GridLayoutConstraints layoutConstraints)

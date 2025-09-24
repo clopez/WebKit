@@ -2060,9 +2060,9 @@ IntRect WebPage::absoluteInteractionBounds(const Node& node)
     auto& style = renderer->style();
     FloatRect boundingBox = renderer->absoluteBoundingBoxRect(true /* use transforms*/);
     // This is wrong. It's subtracting borders after converting to absolute coords on something that probably doesn't represent a rectangular element.
-    boundingBox.move(WebCore::Style::evaluate(style.borderLeftWidth()), WebCore::Style::evaluate(style.borderTopWidth()));
-    boundingBox.setWidth(boundingBox.width() - WebCore::Style::evaluate(style.borderLeftWidth()) - WebCore::Style::evaluate(style.borderRightWidth()));
-    boundingBox.setHeight(boundingBox.height() - WebCore::Style::evaluate(style.borderBottomWidth()) - WebCore::Style::evaluate(style.borderTopWidth()));
+    boundingBox.move(WebCore::Style::evaluate(style.borderLeftWidth(), 1.0f /* FIXME FIND ZOOM */), WebCore::Style::evaluate(style.borderTopWidth(), 1.0f /* FIXME FIND ZOOM */));
+    boundingBox.setWidth(boundingBox.width() - WebCore::Style::evaluate(style.borderLeftWidth(), 1.0f /* FIXME FIND ZOOM */) - WebCore::Style::evaluate(style.borderRightWidth(), 1.0f /* FIXME FIND ZOOM */));
+    boundingBox.setHeight(boundingBox.height() - WebCore::Style::evaluate(style.borderBottomWidth(), 1.0f /* FIXME FIND ZOOM */) - WebCore::Style::evaluate(style.borderTopWidth(), 1.0f /* FIXME FIND ZOOM */));
     return enclosingIntRect(boundingBox);
 }
 
@@ -3142,7 +3142,7 @@ void WebPage::requestAutocorrectionData(const String& textForAutocorrection, Com
     bool multipleFonts = false;
     CTFontRef font = nil;
     if (auto coreFont = frame->editor().fontForSelection(multipleFonts))
-        font = coreFont->getCTFont();
+        font = coreFont->ctFont();
 
     reply({ WTFMove(rootViewSelectionRects) , (__bridge UIFont *)font });
 }
@@ -3734,14 +3734,6 @@ static void textInteractionPositionInformation(WebPage& page, const HTMLInputEle
     HitTestResult result = localMainFrame->eventHandler().hitTestResultAtPoint(request.point, hitType);
     if (result.innerNode() == input.dataListButtonElement())
         info.preventTextInteraction = true;
-}
-
-RefPtr<ShareableBitmap> WebPage::shareableBitmapSnapshotForNode(Element& element)
-{
-    // Ensure that the image contains at most 600K pixels, so that it is not too big.
-    if (auto snapshot = snapshotNode(element, SnapshotOption::Shareable, 600 * 1024))
-        return snapshot->bitmap();
-    return nullptr;
 }
 
 static bool canForceCaretForPosition(const VisiblePosition& position)
@@ -5462,9 +5454,9 @@ void WebPage::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, 
         return;
     }
 
-    RetainPtr<CFMutableDataRef> pdfPageData;
+    RefPtr<SharedBuffer> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, 0, pageCount, pdfPageData);
-    reply(SharedBuffer::create(pdfPageData.get()));
+    reply(WTFMove(pdfPageData));
 
     endPrinting();
 }

@@ -630,7 +630,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-pull-request',
             'kill-old-processes',
             'validate-change',
-            'compile-jsc-32bit'
+            'compile-jsc'
         ],
         'JSC-ARMv7-32bits-Tests-EWS': [
             'configure-build',
@@ -648,7 +648,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'kill-old-processes',
             'download-built-product',
             'extract-built-product',
-            'jscore-test-32bit'
+            'jscore-test'
         ],
         'Bindings-Tests-EWS': [
             'configure-build',
@@ -787,7 +787,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'apply-patch',
             'checkout-pull-request',
             'validate-change',
-            'build-webkit-org-unit-tests',
             'buildbot-check-config-for-build-webkit',
             'ews-unit-tests',
             'buildbot-check-config-for-ews',

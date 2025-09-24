@@ -138,39 +138,10 @@ bool InsertTextCommand::performOverwrite(const String& text, bool selectInserted
 }
 
 #if PLATFORM(COCOA)
-static AtomString inlineStyleForListStyleType(StyledElement& element, Style::ListStyleType styleType)
-{
-    CheckedPtr renderer = element.renderer();
-    if (!renderer) {
-        ASSERT_NOT_REACHED();
-        return WTF::nullAtom();
-    }
-
-    CheckedRef style = renderer->style();
-    auto& pool = CSSValuePool::singleton();
-
-    Ref value = Style::createCSSValue(pool, style, styleType);
-
-    RefPtr inlineStyle = element.inlineStyle() ? element.inlineStyle()->mutableCopy() : MutableStyleProperties::create();
-
-    inlineStyle->setProperty(CSSPropertyListStyleType, WTFMove(value));
-    return inlineStyle->asTextAtom(CSS::defaultSerializationContext());
-}
-
 bool InsertTextCommand::applySmartListsIfNeeded()
 {
-    if (!document().editor().isSmartListsEnabled())
+    if (!selectionAllowsSmartLists(m_text, endingSelection()))
         return false;
-
-    if (m_text != " "_s) {
-        // Smart Lists can only be "activated" by a space character.
-        return false;
-    }
-
-    if (!endingSelection().isCaret()) {
-        // Smart Lists can only be "activated" if the selection does not contain any content.
-        return false;
-    }
 
     auto lineStart = startOfLine(endingSelection().visibleBase());
     if (lineStart.isNull() || lineStart.isOrphan()) {
@@ -208,21 +179,9 @@ bool InsertTextCommand::applySmartListsIfNeeded()
         return false;
     }
 
-    // Ordered lists must have an ordinal to use for their `start` attribute.
-    if (smartList->ordered) {
-        ASSERT(smartList->styleType.isDecimal());
-        ASSERT(smartList->startingItemNumber > 0);
-
-        auto start = AtomString::number(smartList->startingItemNumber);
-
-        // This is either a newly created list, or an existing list that was just appended to.
-        // In the case of the latter, the existing list's ordering takes precedent over any new elements.
-        if (!listElement->hasAttributeWithoutSynchronization(HTMLNames::startAttr))
-            setNodeAttribute(*listElement, HTMLNames::startAttr, start);
-    }
-
-    if (auto style = inlineStyleForListStyleType(*listElement, smartList->styleType); !style.isNull())
-        setNodeAttribute(*listElement, HTMLNames::styleAttr, style);
+    auto attributes = nodeAttributesForSmartList(*listElement, *smartList);
+    for (const auto& [attribute, value] : attributes)
+        setNodeAttribute(*listElement, attribute, value);
 
     deleteSelection();
     return true;

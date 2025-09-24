@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/CachedCall.h>
 #include <JavaScriptCore/IterationModeMetadata.h>
 #include <JavaScriptCore/JSArrayIterator.h>
 #include <JavaScriptCore/JSCJSValue.h>
@@ -47,9 +48,11 @@ struct IterationRecord {
 };
 
 JSValue iteratorNext(JSGlobalObject*, IterationRecord, JSValue argument = JSValue());
+JSValue iteratorNextWithCachedCall(JSGlobalObject*, IterationRecord, CachedCall*, JSValue argument = JSValue());
 JS_EXPORT_PRIVATE JSValue iteratorValue(JSGlobalObject*, JSValue iterResult);
 bool iteratorComplete(JSGlobalObject*, JSValue iterResult);
 JS_EXPORT_PRIVATE JSValue iteratorStep(JSGlobalObject*, IterationRecord);
+JS_EXPORT_PRIVATE JSValue iteratorStepWithCachedCall(JSGlobalObject*, IterationRecord, CachedCall*);
 JS_EXPORT_PRIVATE void iteratorClose(JSGlobalObject*, JSValue iterator);
 JS_EXPORT_PRIVATE JSObject* createIteratorResultObject(JSGlobalObject*, JSValue, bool done);
 
@@ -62,6 +65,20 @@ JS_EXPORT_PRIVATE IterationRecord iteratorDirect(JSGlobalObject*, JSValue);
 
 JS_EXPORT_PRIVATE JSValue iteratorMethod(JSGlobalObject*, JSObject*);
 JS_EXPORT_PRIVATE bool hasIteratorMethod(JSGlobalObject*, JSValue);
+
+enum class IterableValidationResult : uint8_t {
+    Valid,
+    NullNotIterable,
+    UndefinedNotIterable,
+    NumberNotIterable,
+    BooleanNotIterable,
+    SymbolNotIterable,
+    ObjectNotIterable,
+    ValueNotIterable
+};
+
+JS_EXPORT_PRIVATE IterableValidationResult validateIterable(VM&, JSValue iterable, JSValue symbolIterator);
+JS_EXPORT_PRIVATE ASCIILiteral getIteratorErrorMessage(IterableValidationResult, JSValue iterable);
 
 JS_EXPORT_PRIVATE IterationMode getIterationMode(VM&, JSGlobalObject*, JSValue iterable);
 JS_EXPORT_PRIVATE IterationMode getIterationMode(VM&, JSGlobalObject*, JSValue iterable, JSValue symbolIterator);
@@ -154,8 +171,25 @@ ALWAYS_INLINE void forEachInIterationRecord(JSGlobalObject* globalObject, Iterat
     auto& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    JSValue nextMethod = iterationRecord.nextMethod;
+    auto callData = getCallData(nextMethod);
+
+    std::optional<CachedCall> cachedCallHolder;
+    CachedCall* cachedCall = nullptr;
+    if (callData.type == CallData::Type::JS) [[likely]] {
+        cachedCallHolder.emplace(globalObject, jsCast<JSFunction*>(nextMethod), 0);
+        if (scope.exception()) [[unlikely]]
+            return;
+        cachedCall = &cachedCallHolder.value();
+    }
+
     while (true) {
-        JSValue next = iteratorStep(globalObject, iterationRecord);
+        JSValue next;
+        if (cachedCall) [[likely]] {
+            cachedCall->clearArguments();
+            next = iteratorStepWithCachedCall(globalObject, iterationRecord, cachedCall);
+        } else
+            next = iteratorStep(globalObject, iterationRecord);
         if (scope.exception()) [[unlikely]]
             return;
         if (next.isFalse())
@@ -216,7 +250,8 @@ void forEachInIterable(JSGlobalObject& globalObject, JSObject* iterable, JSValue
     auto& vm = getVM(&globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (getIterationMode(vm, &globalObject, iterable, iteratorMethod) == IterationMode::FastArray) {
+    auto iterationMode = getIterationMode(vm, &globalObject, iterable, iteratorMethod);
+    if (iterationMode == IterationMode::FastArray) {
         auto* array = jsCast<JSArray*>(iterable);
         for (unsigned index = 0; index < array->length(); ++index) {
             JSValue nextValue = array->getIndex(&globalObject, index);
@@ -233,10 +268,34 @@ void forEachInIterable(JSGlobalObject& globalObject, JSObject* iterable, JSValue
         return;
     }
 
+    auto validationResult = validateIterable(vm, iterable, iteratorMethod);
+    if (validationResult != IterableValidationResult::Valid) [[unlikely]] {
+        throwTypeError(&globalObject, scope, getIteratorErrorMessage(validationResult, iterable));
+        return;
+    }
+
     auto iterationRecord = iteratorForIterable(&globalObject, iterable, iteratorMethod);
     RETURN_IF_EXCEPTION(scope, void());
+
+    JSValue nextMethod = iterationRecord.nextMethod;
+    auto callData = getCallData(nextMethod);
+
+    std::optional<CachedCall> cachedCallHolder;
+    CachedCall* cachedCall = nullptr;
+    if (callData.type == CallData::Type::JS) [[likely]] {
+        cachedCallHolder.emplace(&globalObject, jsCast<JSFunction*>(nextMethod), 0);
+        if (scope.exception()) [[unlikely]]
+            return;
+        cachedCall = &cachedCallHolder.value();
+    }
+
     while (true) {
-        JSValue next = iteratorStep(&globalObject, iterationRecord);
+        JSValue next;
+        if (cachedCall) [[likely]] {
+            cachedCall->clearArguments();
+            next = iteratorStepWithCachedCall(&globalObject, iterationRecord, cachedCall);
+        } else
+            next = iteratorStep(&globalObject, iterationRecord);
         if (scope.exception()) [[unlikely]]
             return;
         if (next.isFalse())

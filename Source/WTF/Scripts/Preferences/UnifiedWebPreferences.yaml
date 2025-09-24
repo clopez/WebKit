@@ -2708,7 +2708,7 @@ EventHandlerDrivenSmoothKeyboardScrollingEnabled:
 
 EventTimingEnabled:
   type: bool
-  status: testable
+  status: preview
   category: dom
   humanReadableName: "Event Timing API"
   humanReadableDescription: "Enable the Event Timing API and supporting instrumentation"
@@ -3266,7 +3266,7 @@ GoogleAntiFlickerOptimizationQuirkEnabled:
 
 GraphicsContextBlurFilterEnabled:
    type: bool
-   status: testable
+   status: stable
    category: media
    webcoreOnChange: setNeedsRelayoutAllFrames
    humanReadableName: "GraphicsContext Blur Filter Rendering"
@@ -3274,11 +3274,11 @@ GraphicsContextBlurFilterEnabled:
    condition: USE(GRAPHICS_CONTEXT_FILTERS)
    defaultValue:
      WebKitLegacy:
-       default: false
+       default: true
      WebKit:
-       default: false
+       default: true
      WebCore:
-       default: false
+       default: true
 
 GraphicsContextFiltersEnabled:
    type: bool
@@ -7346,12 +7346,12 @@ SmartInsertDeleteEnabled:
     WebCore:
       default: true
 
-SmartListsEnabled:
+SmartListsAvailable:
   type: bool
   status: embedder
   category: dom
   humanReadableName: "Smart Lists"
-  humanReadableDescription: "Enable Smart Lists"
+  humanReadableDescription: "Allow Smart Lists to be enabled"
   defaultValue:
     WebKit:
       default: false
@@ -7768,6 +7768,18 @@ TextExtractionEnabled:
   defaultValue:
     WebKit:
       "HAVE(UIINTELLIGENCESUPPORT_FRAMEWORK)": true
+      default: false
+
+TextExtractionFilterEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Text Extraction Filter"
+  humanReadableDescription: "Enable Text Extraction Filter"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      "ENABLE(TEXT_EXTRACTION_FILTER)": true
       default: false
 
 TextInteractionEnabled:

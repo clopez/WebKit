@@ -38,7 +38,7 @@
 #include "PCToCodeOriginMap.h"
 #include "VMManager.h"
 #include "WasmBaselineData.h"
-#include "WasmCallSlot.h"
+#include "WasmCallProfile.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
 #include "WebAssemblyBuiltin.h"
@@ -238,7 +238,7 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpac
     , m_numLocals(generator.m_numLocals)
     , m_numArgumentsOnStack(generator.m_numArgumentsOnStack)
     , m_maxFrameSizeInV128(generator.m_maxFrameSizeInV128)
-    , m_numCallSlots(generator.m_numCallSlots)
+    , m_numCallProfiles(generator.m_numCallProfiles)
     , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
 {
     if (size_t count = generator.m_exceptionHandlers.size()) {
@@ -289,7 +289,7 @@ const RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
 
 bool IPIntCallee::needsProfiling() const
 {
-    return m_numCallSlots;
+    return m_numCallProfiles;
 }
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
@@ -374,11 +374,14 @@ const StackMap& OptimizingJITCallee::stackmap(CallSiteIndex callSiteIndex) const
 
 Box<PCToCodeOriginMap> OptimizingJITCallee::materializePCToOriginMap(B3::PCToOriginMap&& originMap, LinkBuffer& linkBuffer)
 {
+    constexpr bool verbose = false;
+    ASSERT(originMap.ranges().size());
+    dataLogLnIf(verbose, "Materializing PCToOriginMap of size: ", originMap.ranges().size());
     constexpr bool shouldBuildMapping = true;
     PCToCodeOriginMapBuilder builder(shouldBuildMapping);
     for (const B3::PCToOriginMap::OriginRange& originRange : originMap.ranges()) {
         B3::Origin b3Origin = originRange.origin;
-        if (auto* origin = b3Origin.maybeOMGOrigin()) {
+        if (auto* origin = b3Origin.maybeWasmOrigin()) {
             // We stash the location into a BytecodeIndex.
             builder.appendItem(originRange.label, CodeOrigin(BytecodeIndex(origin->m_callSiteIndex.bits())));
         } else
@@ -392,7 +395,7 @@ Box<PCToCodeOriginMap> OptimizingJITCallee::materializePCToOriginMap(B3::PCToOri
         PCToCodeOriginMapBuilder samplingProfilerBuilder(shouldBuildMapping);
         for (const B3::PCToOriginMap::OriginRange& originRange : originMap.ranges()) {
             B3::Origin b3Origin = originRange.origin;
-            if (auto* origin = b3Origin.maybeOMGOrigin()) {
+            if (auto* origin = b3Origin.maybeWasmOrigin()) {
                 // We stash the location into a BytecodeIndex.
                 samplingProfilerBuilder.appendItem(originRange.label, CodeOrigin(BytecodeIndex(origin->m_opcodeOrigin.location())));
             } else

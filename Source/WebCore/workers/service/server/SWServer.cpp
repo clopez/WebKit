@@ -316,7 +316,7 @@ void SWServer::clearAll(CompletionHandler<void()>&& completionHandler)
 
     m_jobQueues.clear();
     while (!m_registrations.isEmpty())
-        m_registrations.begin()->value->clear();
+        Ref { m_registrations.begin()->value }->clear();
     m_pendingContextDatas.clear();
     m_originStore->clearAll();
 
@@ -514,25 +514,25 @@ void SWServer::scheduleJob(ServiceWorkerJobData&& jobData)
         if (!protectedThis)
             return;
         if (protectedThis->m_hasServiceWorkerEntitlement || isValid) {
-            auto& jobQueue = *protectedThis->m_jobQueues.ensure(jobData.registrationKey(), [&] {
+            CheckedRef jobQueue = *protectedThis->m_jobQueues.ensure(jobData.registrationKey(), [&] {
                 return makeUnique<SWServerJobQueue>(*protectedThis, jobData.registrationKey());
             }).iterator->value;
 
-            if (!jobQueue.size()) {
-                jobQueue.enqueueJob(WTFMove(jobData));
-                jobQueue.runNextJob();
+            if (!jobQueue->size()) {
+                jobQueue->enqueueJob(WTFMove(jobData));
+                jobQueue->runNextJob();
                 return;
             }
-            auto& lastJob = jobQueue.lastJob();
+            auto& lastJob = jobQueue->lastJob();
             if (jobData.isEquivalent(lastJob)) {
                 // FIXME: Per the spec, check if this job is equivalent to the last job on the queue.
                 // If it is, stack it along with that job. For now, we just make sure to not call soft-update too often.
                 if (jobData.type == ServiceWorkerJobType::Update && jobData.connectionIdentifier() == Process::identifier())
                     return;
             }
-            jobQueue.enqueueJob(WTFMove(jobData));
-            if (jobQueue.size() == 1)
-                jobQueue.runNextJob();
+            jobQueue->enqueueJob(WTFMove(jobData));
+            if (jobQueue->size() == 1)
+                jobQueue->runNextJob();
         } else
             protectedThis->rejectJob(jobData, { ExceptionCode::TypeError, "Job rejected for non app-bound domain"_s });
     });
@@ -1335,37 +1335,38 @@ void SWServer::unregisterServiceWorkerClientInternal(const ClientOrigin& clientO
 
     auto iterator = m_clientIdentifiersPerOrigin.find(clientOrigin);
     ASSERT(iterator != m_clientIdentifiersPerOrigin.end());
+    if (iterator != m_clientIdentifiersPerOrigin.end()) {
+        auto& clientIdentifiers = iterator->value.identifiers;
+        clientIdentifiers.removeFirst(clientIdentifier);
 
-    auto& clientIdentifiers = iterator->value.identifiers;
-    clientIdentifiers.removeFirst(clientIdentifier);
+        if (clientIdentifiers.isEmpty() && shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {
+            ASSERT(!iterator->value.terminateServiceWorkersTimer);
+            iterator->value.terminateServiceWorkersTimer = makeUnique<Timer>([clientOrigin, clientRegistrableDomain, weakThis = WeakPtr { *this }] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
 
-    if (clientIdentifiers.isEmpty() && shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {
-        ASSERT(!iterator->value.terminateServiceWorkersTimer);
-        iterator->value.terminateServiceWorkersTimer = makeUnique<Timer>([clientOrigin, clientRegistrableDomain, weakThis = WeakPtr { *this }] {
-            RefPtr protectedThis = weakThis.get();
-            if (!protectedThis)
-                return;
+                Vector<Ref<SWServerWorker>> workersToTerminate;
+                for (auto& worker : protectedThis->m_runningOrTerminatingWorkers.values()) {
+                    if (worker->isRunning() && worker->origin() == clientOrigin && !worker->shouldContinue())
+                        workersToTerminate.append(worker);
+                }
+                for (auto& worker : workersToTerminate)
+                    worker->terminate();
 
-            Vector<Ref<SWServerWorker>> workersToTerminate;
-            for (auto& worker : protectedThis->m_runningOrTerminatingWorkers.values()) {
-                if (worker->isRunning() && worker->origin() == clientOrigin && !worker->shouldContinue())
-                    workersToTerminate.append(worker);
-            }
-            for (auto& worker : workersToTerminate)
-                worker->terminate();
+                if (protectedThis->removeContextConnectionIfPossible(clientRegistrableDomain) == ShouldDelayRemoval::Yes) {
+                    auto iterator = protectedThis->m_clientIdentifiersPerOrigin.find(clientOrigin);
+                    ASSERT(iterator != protectedThis->m_clientIdentifiersPerOrigin.end());
+                    iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
+                    return;
+                }
 
-            if (protectedThis->removeContextConnectionIfPossible(clientRegistrableDomain) == ShouldDelayRemoval::Yes) {
-                auto iterator = protectedThis->m_clientIdentifiersPerOrigin.find(clientOrigin);
-                ASSERT(iterator != protectedThis->m_clientIdentifiersPerOrigin.end());
-                iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
-                return;
-            }
-
-            protectedThis->m_clientIdentifiersPerOrigin.remove(clientOrigin);
-        });
-        RefPtr contextConnection = contextConnectionForRegistrableDomain(clientRegistrableDomain);
-        bool shouldContextConnectionBeTerminatedWhenPossible = contextConnection && contextConnection->shouldTerminateWhenPossible();
-        iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !shouldContextConnectionBeTerminatedWhenPossible && !didUnregister ? defaultTerminationDelay : 0_s);
+                protectedThis->m_clientIdentifiersPerOrigin.remove(clientOrigin);
+            });
+            RefPtr contextConnection = contextConnectionForRegistrableDomain(clientRegistrableDomain);
+            bool shouldContextConnectionBeTerminatedWhenPossible = contextConnection && contextConnection->shouldTerminateWhenPossible();
+            iterator->value.terminateServiceWorkersTimer->startOneShot(m_isProcessTerminationDelayEnabled && !MemoryPressureHandler::singleton().isUnderMemoryPressure() && !shouldContextConnectionBeTerminatedWhenPossible && !didUnregister ? defaultTerminationDelay : 0_s);
+        }
     }
 
     if (shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {

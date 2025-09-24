@@ -57,7 +57,8 @@ Ref<Gradient> LegacyRenderSVGResourceLinearGradient::buildGradient(const RenderS
         Gradient::LinearData { startPoint(m_attributes), endPoint(m_attributes) },
         { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied },
         platformSpreadMethodFromSVGType(m_attributes.spreadMethod()),
-        stopsByApplyingColorFilter(m_attributes.stops(), style));
+        stopsByApplyingColorFilter(m_attributes.stops(), style),
+        false);
 }
 
 }

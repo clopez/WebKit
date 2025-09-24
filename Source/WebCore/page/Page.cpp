@@ -280,6 +280,17 @@ void Page::forEachPage(NOESCAPE const Function<void(Page&)>& function)
         function(Ref { page.get() });
 }
 
+Page* Page::fromPageIdentifier(PageIdentifier identifier)
+{
+    Page* result = nullptr;
+    forEachPage([identifier, &result](auto& page) {
+        if (identifier == page.identifier())
+            result = &page;
+    });
+
+    return result;
+}
+
 void Page::updateValidationBubbleStateIfNeeded()
 {
     if (auto* client = validationMessageClient())
@@ -517,6 +528,11 @@ Page::Page(PageConfiguration&& pageConfiguration)
         m_throttlingReasons.add(ThrottlingReason::ThermalMitigation);
         m_throttlingReasons.set(ThrottlingReason::AggressiveThermalMitigation, settings().respondToThermalPressureAggressively());
     }
+
+#if ENABLE(IMAGE_ANALYSIS)
+    if (pageConfiguration.imageTranslationLanguageIdentifiers)
+        imageAnalysisQueue().setTranslationLanguageIdentifiers(WTFMove(*pageConfiguration.imageTranslationLanguageIdentifiers));
+#endif
 }
 
 Page::~Page()
@@ -1232,9 +1248,7 @@ void Page::analyzeImagesForFindInPage(Function<void()>&& callback)
     if (settings().imageAnalysisDuringFindInPageEnabled()) {
         Ref imageAnalysisQueue = this->imageAnalysisQueue();
         imageAnalysisQueue->setDidBecomeEmptyCallback(WTFMove(callback));
-        RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        if (RefPtr mainDocument = localMainFrame ? localMainFrame->document() : nullptr)
-            imageAnalysisQueue->enqueueAllImagesIfNeeded(*mainDocument, { }, { });
+        imageAnalysisQueue->enqueueAllImagesIfNeeded(m_mainFrame.get(), { }, { });
     }
 }
 #endif
@@ -3057,7 +3071,11 @@ void Page::schedulePlaybackControlsManagerUpdate()
 
 RefPtr<HTMLMediaElement> Page::bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose purpose, Document* document)
 {
-    auto selectedSession = protectedMediaSessionManager()->bestEligibleSessionForRemoteControls([document] (auto& session) {
+    RefPtr manager = mediaSessionManager();
+    if (!manager)
+        return nullptr;
+
+    auto selectedSession = manager->bestEligibleSessionForRemoteControls([document] (auto& session) {
         auto* mediaElementSession = dynamicDowncast<MediaElementSession>(session);
         if (!mediaElementSession)
             return false;
@@ -3121,9 +3139,12 @@ void Page::setShouldSuppressHDR(bool shouldSuppressHDR)
         return;
 
     m_shouldSuppressHDR = shouldSuppressHDR;
+
+#if ENABLE(VIDEO)
     forEachDocument([](auto& document) {
         document.shouldSuppressHDRDidChange();
     });
+#endif
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -3309,7 +3330,8 @@ void Page::setActivityState(OptionSet<ActivityState> activityState)
         observer.activityStateDidChange(oldActivityState, m_activityState);
 
     if (wasVisibleAndActive != isVisibleAndActive()) {
-        protectedMediaSessionManager()->updateNowPlayingInfoIfNecessary();
+        if (RefPtr manager = mediaSessionManager())
+            manager->updateNowPlayingInfoIfNecessary();
         stopKeyboardScrollAnimation();
     }
 
@@ -5707,10 +5729,11 @@ void Page::updateActiveNowPlayingSessionNow()
     if (m_activeNowPlayingSessionUpdateTimer.isActive())
         m_activeNowPlayingSessionUpdateTimer.stop();
 
-    if (!mediaSessionManagerIfExists())
+    RefPtr manager = mediaSessionManagerIfExists();
+    if (!manager)
         return;
 
-    bool hasActiveNowPlayingSession = protectedMediaSessionManager()->hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
+    bool hasActiveNowPlayingSession = manager->hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
     if (hasActiveNowPlayingSession == m_hasActiveNowPlayingSession)
         return;
 
@@ -5726,7 +5749,7 @@ void Page::setLastAuthentication(LoginStatus::AuthenticationType authType)
     m_lastAuthentication = loginStatus.releaseReturnValue().moveToUniquePtr();
 
     if (RefPtr document = localMainFrame() ? localMainFrame()->document() : nullptr)
-        ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(*document);
+        ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*document);
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -5894,11 +5917,14 @@ static RefPtr<PlatformMediaSessionManager>& mediaSessionManagerSingleton()
     return manager.get();
 }
 
-MediaSessionManagerInterface& Page::mediaSessionManager()
+RefPtr<MediaSessionManagerInterface> Page::mediaSessionManager()
 {
+    if (!m_identifier)
+        return nullptr;
+
     if (!m_mediaSessionManager) {
         if (!m_mediaSessionManagerFactory) {
-            m_mediaSessionManagerFactory = [](std::optional<PageIdentifier> identifier) {
+            m_mediaSessionManagerFactory = [](PageIdentifier identifier) {
                 RefPtr<PlatformMediaSessionManager>& manager = mediaSessionManagerSingleton();
                 if (!manager) {
                     manager = PlatformMediaSessionManager::create(identifier);
@@ -5908,7 +5934,7 @@ MediaSessionManagerInterface& Page::mediaSessionManager()
             };
         }
 
-        m_mediaSessionManager = m_mediaSessionManagerFactory.value()(m_identifier);
+        m_mediaSessionManager = m_mediaSessionManagerFactory.value()(*m_identifier);
 
         MediaEngineConfigurationFactory::setMediaSessionManagerProvider([] (PageIdentifier identifier) {
             return Page::mediaSessionManagerForPageIdentifier(identifier);
@@ -5918,26 +5944,17 @@ MediaSessionManagerInterface& Page::mediaSessionManager()
     return *m_mediaSessionManager;
 }
 
-Ref<MediaSessionManagerInterface> Page::protectedMediaSessionManager()
-{
-    return mediaSessionManager();
-}
-
 MediaSessionManagerInterface* Page::mediaSessionManagerIfExists() const
 {
     return m_mediaSessionManager.get();
 }
 
-MediaSessionManagerInterface* Page::mediaSessionManagerForPageIdentifier(PageIdentifier identifier)
+RefPtr<MediaSessionManagerInterface> Page::mediaSessionManagerForPageIdentifier(PageIdentifier identifier)
 {
-    RefPtr<MediaSessionManagerInterface> manager;
+    if (RefPtr page = Page::fromPageIdentifier(identifier))
+        return page->mediaSessionManager().get();
 
-    forEachPage([identifier, &manager](auto& page) {
-        if (identifier == page.identifier())
-            manager = &page.mediaSessionManager();
-    });
-
-    return manager.get();
+    return nullptr;
 }
 
 #if HAVE(SUPPORT_HDR_DISPLAY)

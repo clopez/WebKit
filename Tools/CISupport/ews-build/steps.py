@@ -3675,32 +3675,8 @@ class CompileJSC(CompileWebKit):
         return shell.CompileNewStyle.getResultSummary(self)
 
 
-class CompileJSC32(CompileWebKit):
-    name = 'compile-jsc-32bit'
-    descriptionDone = ['Compiled JSC']
-    build_command = ["linux32", "perl", "Tools/Scripts/build-jsc", "--32-bit", "--cmakeargs", "-DUSE_LIBBACKTRACE=OFF -DDEVELOPER_MODE=ON -DENABLE_OFFLINE_ASM_ALT_ENTRY=1 -DCMAKE_CXX_FLAGS='-fuse-ld=gold -Wl,--no-map-whole-files -Wl,--no-keep-memory -Wl,--no-keep-files-mapped -Wl,--no-mmap-output-file -fno-omit-frame-pointer' -DCMAKE_C_FLAGS='-fuse-ld=gold -Wl,--no-map-whole-files -Wl,--no-keep-memory -Wl,--no-keep-files-mapped -Wl,--no-mmap-output-file -fno-omit-frame-pointer' -DUSE_LD_LLD=OFF"]
-
-    @defer.inlineCallbacks
-    def run(self):
-        self.setProperty('group', 'jsc')
-        rc = yield super().run()
-        defer.returnValue(rc)
-
-    def getResultSummary(self):
-        if self.results == FAILURE:
-            return {'step': 'Failed to compile JSC'}
-        return shell.CompileNewStyle.getResultSummary(self)
-
-
 class CompileJSCWithoutChange(CompileJSC):
     name = 'compile-jsc-without-change'
-
-    def evaluateCommand(self, cmd):
-        return shell.CompileNewStyle.evaluateCommand(self, cmd)
-
-
-class CompileJSCWithoutChange32(CompileJSC32):
-    name = 'compile-jsc-32bit-without-change'
 
     def evaluateCommand(self, cmd):
         return shell.CompileNewStyle.evaluateCommand(self, cmd)
@@ -3761,7 +3737,8 @@ class RunJavaScriptCoreTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
             self.command = self.shell_command(' '.join(quote(str(c)) for c in self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs jsc')
         rc = yield super().run()
 
-        logLines = self.log_observer_json.getStdout()
+        yield self._addToLog('json', '\n')
+        logLines = self.log_observer_json.getStdout().rstrip()
         json_text = ''.join([line for line in logLines.splitlines()])
         try:
             jsc_results = json.loads(json_text)
@@ -3832,7 +3809,7 @@ class RunJavaScriptCoreTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
                 RevertAppliedChanges(),
                 CleanWorkingDirectory(),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
-                CompileJSCWithoutChange() if self.bits() == 64 else CompileJSCWithoutChange32(),
+                CompileJSCWithoutChange(),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
                 KillOldProcesses(),
                 RunJSCTestsWithoutChange(),
@@ -3922,16 +3899,6 @@ class RunJavaScriptCoreTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
             count += int(match.group(1))
 
         return count
-
-    def bits(self):
-        return 64
-
-
-class RunJavaScriptCoreTests32(RunJavaScriptCoreTests):
-    name = 'jscore-test-32bit'
-
-    def bits(self):
-        return 32
 
 
 class RunJSCTestsWithoutChange(RunJavaScriptCoreTests):
@@ -4244,8 +4211,9 @@ class RunWebKitTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
     def runCommand(self, command):
         yield super().runCommand(command)
 
+        yield self._addToLog('json', '\n')
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
-        logTextJson = self.log_observer_json.getStdout()
+        logTextJson = self.log_observer_json.getStdout().rstrip()
 
         first_results = LayoutTestFailures.results_from_string(logTextJson)
         is_main = self.getProperty('github.base.ref', DEFAULT_BRANCH) == DEFAULT_BRANCH
@@ -4357,6 +4325,7 @@ class RunWebKitTests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
             if RunWebKitTestsInStressMode.FAILURE_MSG_IN_STRESS_MODE not in previous_build_summary:
                 self.setProperty('build_summary', message)
             steps_to_add += [ArchiveTestResults(), UploadTestResults(), ExtractTestResults()]
+            self.build.addStepsAfterCurrentStep(steps_to_add)
             return WARNINGS
         else:
             steps_to_add += [
@@ -4558,8 +4527,9 @@ class ReRunWebKitTests(RunWebKitTests):
     def runCommand(self, command):
         yield shell.TestNewStyle.runCommand(self, command)
 
+        yield self._addToLog('json', '\n')
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
-        logTextJson = self.log_observer_json.getStdout()
+        logTextJson = self.log_observer_json.getStdout().rstrip()
 
         second_results = LayoutTestFailures.results_from_string(logTextJson)
         is_main = self.getProperty('github.base.ref', DEFAULT_BRANCH) == DEFAULT_BRANCH
@@ -4633,8 +4603,9 @@ class RunWebKitTestsWithoutChange(RunWebKitTests):
     def runCommand(self, command):
         yield shell.TestNewStyle.runCommand(self, command)
 
+        yield self._addToLog('json', '\n')
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
-        logTextJson = self.log_observer_json.getStdout()
+        logTextJson = self.log_observer_json.getStdout().rstrip()
 
         clean_tree_results = LayoutTestFailures.results_from_string(logTextJson)
 
@@ -5090,8 +5061,9 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
     @defer.inlineCallbacks
     def runCommand(self, command):
         yield shell.TestNewStyle.runCommand(self, command)
+        yield self._addToLog('json', '\n')
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
-        logTextJson = self.log_observer_json.getStdout()
+        logTextJson = self.log_observer_json.getStdout().rstrip()
         with_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
         if with_change_repeat_failures_results:
             self.setProperty('with_change_repeat_failures_results_exceed_failure_limit', with_change_repeat_failures_results.did_exceed_test_failure_limit)
@@ -5158,8 +5130,9 @@ class RunWebKitTestsRepeatFailuresWithoutChangeRedTree(RunWebKitTestsRedTree):
     @defer.inlineCallbacks
     def runCommand(self, command):
         yield shell.TestNewStyle.runCommand(self, command)
+        yield self._addToLog('json', '\n')
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
-        logTextJson = self.log_observer_json.getStdout()
+        logTextJson = self.log_observer_json.getStdout().rstrip()
         without_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
         if without_change_repeat_failures_results:
             self.setProperty('without_change_repeat_failures_results_exceed_failure_limit', without_change_repeat_failures_results.did_exceed_test_failure_limit)
@@ -5673,6 +5646,11 @@ class RunAPITests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
                            '--json-output={0}'.format(self.jsonFileName)]
         else:
             self.command = self.command + customBuildFlag(platform, self.getProperty('fullPlatform'))
+
+        additionalArguments = self.getProperty('additionalArguments')
+        if additionalArguments:
+            self.command += additionalArguments
+
         if self.name == RunAPITestsWithoutChange.name:
             first_results_failing_tests = set(self.getProperty('first_run_failures', set()))
             second_results_failing_tests = set(self.getProperty('second_run_failures', set()))
@@ -5680,7 +5658,7 @@ class RunAPITests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
             if list_failed_tests_with_change:
                 self.command = self.command + list_failed_tests_with_change
         if SHOULD_FILTER_LOGS is True:
-            self.command = self.shell_command(' '.join(self.command) + ' > logs.txt 2>&1 ; grep "Ran " logs.txt')
+            self.command = self.shell_command(' '.join(self.command) + ' > logs.txt 2>&1 ; ret=$? ; grep "Ran " logs.txt ; exit $ret')
 
         rc = yield super().run()
 
@@ -5760,7 +5738,8 @@ class RunAPITests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
 
     @defer.inlineCallbacks
     def analyze_failures_using_results_db(self):
-        logTextJson = self.log_observer_json.getStdout()
+        yield self._addToLog('json', '\n')
+        logTextJson = self.log_observer_json.getStdout().rstrip()
 
         failures = self.parse_api_failures_from_string(logTextJson)
         self.setProperty(f'{self.suffix}_failures', sorted(failures))
@@ -7111,13 +7090,12 @@ class ScanBuild(steps.ShellSequence, ShellMixin):
     description = ["scanning with static analyzer"]
     descriptionDone = ["scanned with static analyzer"]
     flunkOnFailure = True
-    analyzeFailed = False
+    analyze_failed = False
     bugs = 0
     output_directory = SCAN_BUILD_OUTPUT_DIR
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, timeout=2 * 60 * 60, **kwargs)
-        self.commandFailed = False
 
     @defer.inlineCallbacks
     def run(self):
@@ -7149,10 +7127,24 @@ class ScanBuild(steps.ShellSequence, ShellMixin):
 
         f_index = log_text.rfind('ANALYZE SUCCEEDED')
         if f_index == -1:
-            self.analyzeFailed = True
+            self.analyze_failed = True
             rc = FAILURE
 
-        steps_to_add = [
+        self.addFollowUpSteps(rc)
+
+        defer.returnValue(rc)
+
+    def addFollowUpSteps(self, rc):
+        steps_to_add = self.uploadLogsSteps()
+        if rc == SUCCESS:
+            steps_to_add += self.addResultsSteps()
+        else:
+            steps_to_add += [ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange(analyze_safercpp_results=False)]
+
+        self.build.addStepsAfterCurrentStep(steps_to_add)
+
+    def uploadLogsSteps(self):
+        return [
             GenerateS3URL(
                 f"{self.getProperty('fullPlatform')}-{self.getProperty('architecture')}-{self.getProperty('configuration')}-{self.name}",
                 extension='txt',
@@ -7164,18 +7156,12 @@ class ScanBuild(steps.ShellSequence, ShellMixin):
             )
         ]
 
-        if rc == SUCCESS:
-            steps_to_add += self.addResultsSteps()
-        self.build.addStepsAfterCurrentStep(steps_to_add)
-
-        defer.returnValue(rc)
-
     def addResultsSteps(self):
         return [ParseStaticAnalyzerResults(), FindUnexpectedStaticAnalyzerResults()]
 
     def getResultSummary(self):
         status = ''
-        if self.analyzeFailed or self.commandFailed:
+        if self.analyze_failed:
             status += 'Failed to build and analyze WebKit'
         if self.results == SUCCESS:
             status += f'Found {self.bugs} issues'
@@ -7186,8 +7172,53 @@ class ScanBuildWithoutChange(ScanBuild):
     name = 'scan-build-without-change'
     output_directory = SCAN_BUILD_OUTPUT_DIR + '-baseline'
 
+    def __init__(self, analyze_safercpp_results=True, **kwargs):
+        self.analyze_safercpp_results = analyze_safercpp_results
+        super().__init__(**kwargs)
+
+    def addFollowUpSteps(self, rc):
+        steps_to_add = self.uploadLogsSteps()
+        # If running this step after a successful build, proceed to analyze results.
+        if self.analyze_safercpp_results:
+            steps_to_add += self.addResultsSteps()
+        # If this step is run after a build failure, we need to either raise the PR failure or retry the build.
+        elif rc == SUCCESS:
+            patch_id = self.getProperty('patch_id', '')
+            pr_number = self.getProperty('github.number')
+            sha = self.getProperty('github.head.sha')
+            if sha and pr_number:
+                message = 'Hash {} for PR {} does not build'.format(sha[:HASH_LENGTH_TO_DISPLAY], pr_number)
+            else:
+                message = 'Patch {} does not build'.format(patch_id)
+            self.build.buildFinished([message], FAILURE)
+        elif rc == FAILURE:
+            message = 'Unable to build WebKit without change, retrying build'
+            self.descriptionDone = message
+            self.send_email_for_unexpected_build_failure()
+            self.build.buildFinished([message], RETRY)
+
+        self.build.addStepsAfterCurrentStep(steps_to_add)
+
     def addResultsSteps(self):
         return [ParseStaticAnalyzerResultsWithoutChange(), FindUnexpectedStaticAnalyzerResultsWithoutChange()]
+
+    def send_email_for_unexpected_build_failure(self):
+        try:
+            pr_number = self.getProperty('github.number')
+            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
+            owners = self.getProperty('owners', [])
+            author = owners[0] if owners else '?'
+            builder_name = self.getProperty('buildername', '')
+            worker_name = self.getProperty('workername', '')
+            build_url = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
+            email_subject = f'{worker_name} might be in bad state, unable to build WebKit'
+            email_text = f'{worker_name} might be in bad state. It is unable to build WebKit.'
+            email_text += f' Same code was built successfuly on builder queue previously.'
+            email_text += f'\n\nBuild: {build_url}\n\nBuilder: {builder_name}'
+            email_text += f'\n\nPR: {pr_number}, Hash: {sha}, By: {author}\n'
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, f'build-failure-{worker_name}')
+        except Exception as e:
+            print(f'Error in sending email for unexpected build failure: {e}')
 
 
 class ParseStaticAnalyzerResults(shell.ShellCommandNewStyle):
@@ -7403,7 +7434,8 @@ class FindUnexpectedStaticAnalyzerResults(shell.ShellCommandNewStyle, AnalyzeCha
 
     @defer.inlineCallbacks
     def decode_results_data(self):
-        logTextJson = self.log_observer_json.getStdout()
+        yield self._addToLog('json', '\n')
+        logTextJson = self.log_observer_json.getStdout().rstrip()
         if not logTextJson:
             yield self._addToLog(self.results_db_log_name, f'Failed to retrieve JSON output for unexpected results.\n')
             return defer.returnValue(None)

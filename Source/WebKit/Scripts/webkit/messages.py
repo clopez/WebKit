@@ -338,7 +338,6 @@ def atomic_object_identifier(type):
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
         'WebCore::ServiceWorkerRegistrationIdentifier',
-        'WebCore::SnapshotIdentifier',
         'WebCore::WebSocketIdentifier',
         'WebKit::GPUProcessConnectionIdentifier',
         'WebKit::LibWebRTCResolverIdentifier',
@@ -350,6 +349,8 @@ def atomic_object_identifier(type):
         'WebKit::RemoteDisplayListIdentifier',
         'WebKit::RemoteDisplayListRecorderIdentifier',
         'WebKit::RemoteSerializedImageBufferIdentifier',
+        'WebKit::RemoteSnapshotIdentifier',
+        'WebKit::RemoteSnapshotRecorderIdentifier',
         'WebKit::RemoteVideoFrameIdentifier',
         'WebKit::StorageAreaIdentifier',
         'WebKit::WebGPUIdentifier',
@@ -437,7 +438,6 @@ def serialized_identifiers():
         'WebCore::SharedWorkerIdentifier',
         'WebCore::SharedWorkerObjectIdentifierID',
         'WebCore::SleepDisablerIdentifier',
-        'WebCore::SnapshotIdentifier',
         'WebCore::SpeechRecognitionConnectionClientIdentifier',
         'WebCore::TextCheckingRequestIdentifier',
         'WebCore::TextManipulationItemIdentifier',
@@ -489,6 +489,8 @@ def serialized_identifiers():
         'WebKit::RemoteMediaSourceIdentifier',
         'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RemoteSerializedImageBufferIdentifier',
+        'WebKit::RemoteSnapshotIdentifier',
+        'WebKit::RemoteSnapshotRecorderIdentifier',
         'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RemoteVideoFrameIdentifier',
         'WebKit::RemoteRenderingBackendIdentifier',
@@ -1000,6 +1002,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::AttributedStringTextListID': ['<WebCore/AttributedString.h>'],
         'WebCore::AttributedStringTextTableID': ['<WebCore/AttributedString.h>'],
         'WebCore::AttributedStringTextTableBlockID': ['<WebCore/AttributedString.h>'],
+        'WebCore::AudioInfo': ['<WebCore/TrackInfo.h>'],
         'WebCore::AudioSessionCategory': ['<WebCore/AudioSession.h>'],
         'WebCore::AudioSessionMode': ['<WebCore/AudioSession.h>'],
         'WebCore::AudioSessionRoutingArbitrationClient::DefaultRouteChanged': ['<WebCore/AudioSession.h>'],
@@ -1243,10 +1246,10 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::TextManipulationTokenIdentifier': ['<WebCore/TextManipulationToken.h>'],
         'WebCore::ThirdPartyCookieBlockingMode': ['<WebCore/NetworkStorageSession.h>'],
         'WebCore::TrackID': ['<WebCore/TrackBase.h>'],
-        'WebCore::TrackInfo': ['<WebCore/MediaSample.h>'],
-        'WebCore::TrackInfo::TrackType': ['<WebCore/MediaSample.h>'],
-        'WebCore::TrackInfoTrackType': ['<WebCore/MediaPlayerEnums.h>'],
+        'WebCore::TrackInfo::TrackType': ['<WebCore/TrackInfo.h>'],
+        'WebCore::TrackInfoTrackType': ['<WebCore/TrackInfo.h>'],
         'WebCore::UserGestureTokenIdentifierID': ['"GeneratedSerializers.h"'],
+        'WebCore::VideoInfo': ['<WebCore/TrackInfo.h>'],
         'WebCore::WindowIdentifier': ['<WebCore/GlobalWindowIdentifier.h>'],
         'WebCore::WritingTools::Context': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::ContextID': ['<WebCore/WritingToolsTypes.h>'],
@@ -1353,11 +1356,9 @@ def headers_for_type(type, for_implementation_file=False):
         'WebKit::WebRTCNetwork::IPAddress': ['"RTCNetwork.h"'],
         'WebKit::WebRTCNetwork::SocketAddress': ['"RTCNetwork.h"'],
         'WebKit::ReloadFromOrigin': ['"WebExtensionTab.h"'],
-        'WebKit::RemoteAudioInfo': ['"RemoteTrackInfo.h"'],
         'WebKit::RemoteLayerBackingStoreProperties': ['"RemoteLayerBackingStore.h"'],
         'WebKit::RemoteVideoFrameReadReference': ['"RemoteVideoFrameIdentifier.h"'],
         'WebKit::RemoteVideoFrameWriteReference': ['"RemoteVideoFrameIdentifier.h"'],
-        'WebKit::RemoteVideoInfo': ['"RemoteTrackInfo.h"'],
         'WebKit::RespectSelectionAnchor': ['"GestureTypes.h"'],
         'WebKit::SandboxExtensionHandle': ['"SandboxExtension.h"'],
         'WebKit::ScriptTrackingPrivacyHost': ['"ScriptTrackingPrivacyFilter.h"'],
@@ -1708,7 +1709,7 @@ def generate_message_handler(receiver):
         result.append('    ASSERT(decoder.messageReceiverName() == IPC::ReceiverName::%s);\n' % (receiver.name))
         result.append('    switch (decoder.messageName()) {\n')
         for message in receiver.messages:
-            if message.reply_parameters is None:
+            if message.reply_parameters is None or message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
                 continue
             result.append('    case IPC::MessageName::%s_%s: {\n' % (receiver.name, message.name))
             result.append('        auto arguments = decoder.decode<typename Messages::%s::%s::Arguments>();\n' % (receiver.name, message.name))

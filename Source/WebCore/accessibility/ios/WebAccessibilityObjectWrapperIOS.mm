@@ -2000,7 +2000,12 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    return accessibleElementsForObjects(self.axBackingObject->detailedByObjects());
+
+    return createNSArray(self.axBackingObject->detailedByObjects(), [] (auto&& detailedByObject) -> id {
+        auto wrapper = detailedByObject->wrapper();
+        ASSERT(wrapper);
+        return wrapper;
+    }).autorelease();
 }
 
 - (NSArray *)accessibilityErrorMessageElements
@@ -3244,6 +3249,37 @@ static RenderObject* rendererForView(WAKView* view)
 - (NSString *)description
 {
     return [NSString stringWithFormat:@"%@: %@", [self class], [self accessibilityLabel]];
+}
+
+- (AccessibilityOrientation)accessibilityOrientation
+{
+    if (![self _prepareAccessibilityCall])
+        return AccessibilityOrientation::Undefined;
+
+    std::optional defaultOrientation = self.axBackingObject->defaultOrientation();
+    // If we don't have a default orientation (unknown or otherwise), don't expose anything.
+    if (!defaultOrientation)
+        return AccessibilityOrientation::Undefined;
+
+    // If the orientation is the default, we don't need to share that with ATs.
+    std::optional orientation = self.axBackingObject->orientation();
+    return orientation && *orientation == *defaultOrientation ? AccessibilityOrientation::Undefined : *orientation;
+}
+
+- (BOOL)accessibilitySupportsKeyboardShortcuts
+{
+    if (![self _prepareAccessibilityCall])
+        return NO;
+
+    return self.axBackingObject->supportsKeyShortcuts();
+}
+
+- (NSString *)accessibilityKeyboardShortcuts
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    return self.axBackingObject->keyShortcuts().createNSString().autorelease();
 }
 
 @end

@@ -1742,7 +1742,6 @@ void WebPageProxy::getWebArchiveDataWithFrame(WebFrameProxy& frame, CompletionHa
             return completionHandler(nullptr);
         completionHandler(API::Data::create(span(data.get())).ptr());
     });
-
     HashMap<Ref<WebProcessProxy>, Vector<WebCore::FrameIdentifier>> processFrames;
     RefPtr currentFrame = &frame;
     while (currentFrame) {

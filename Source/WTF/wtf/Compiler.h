@@ -213,6 +213,12 @@
 #define ALWAYS_INLINE_LAMBDA
 #endif
 
+/* COLD */
+
+#if !defined(COLD)
+#define COLD __attribute((__cold__))
+#endif
+
 /* WTF_EXTERN_C_{BEGIN, END} */
 
 #ifdef __cplusplus
@@ -559,10 +565,16 @@
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.UnretainedLocalVarsChecker")
 #define SUPPRESS_UNRETAINED_ARG \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.UnretainedCallArgsChecker")
+#define SUPPRESS_UNRETAINED_MEMBER \
+    IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.NoUnretainedMemberChecker")
+#define SUPPRESS_RETAINPTR_CTOR_ADOPT \
+    IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.RetainPtrCtorAdoptChecker")
 #else
 #define SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE
 #define SUPPRESS_UNRETAINED_LOCAL
 #define SUPPRESS_UNRETAINED_ARG
+#define SUPPRESS_UNRETAINED_MEMBER
+#define SUPPRESS_RETAINPTR_CTOR_ADOPT
 #endif
 
 // To suppress webkit.RefCntblBaseVirtualDtor, use NoVirtualDestructorBase instead.

@@ -38,7 +38,6 @@
 #include <WebCore/GLContext.h>
 #include <WebCore/GLDisplay.h>
 #include <WebCore/GLFence.h>
-#include <openxr/openxr_platform.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WorkQueue.h>
 
@@ -48,6 +47,13 @@
 #include <WebCore/GBMDevice.h>
 #endif
 
+#if OS(ANDROID)
+#include <dlfcn.h>
+using WPEAndroidRuntimeGetJavaVMFunction = JavaVM* (*)();
+using WPEAndroidRuntimeGetActivityFunction = jobject (*)();
+#undef jobject
+#endif
+
 namespace WebKit {
 
 struct OpenXRCoordinator::RenderState {
@@ -55,6 +61,7 @@ struct OpenXRCoordinator::RenderState {
     bool pendingFrame { false };
     PlatformXR::Device::RequestFrameCallback onFrameUpdate;
     XrFrameState frameState;
+    bool passthroughFullyObscured { false };
 };
 
 OpenXRCoordinator::OpenXRCoordinator()
@@ -282,7 +289,7 @@ void OpenXRCoordinator::endSessionIfExists(WebPageProxy& page)
         });
 }
 
-void OpenXRCoordinator::scheduleAnimationFrame(WebPageProxy& page, std::optional<PlatformXR::RequestData>&&, PlatformXR::Device::RequestFrameCallback&& onFrameUpdateCallback)
+void OpenXRCoordinator::scheduleAnimationFrame(WebPageProxy& page, std::optional<PlatformXR::RequestData>&& requestData, PlatformXR::Device::RequestFrameCallback&& onFrameUpdateCallback)
 {
     WTF::switchOn(m_state,
         [&](Idle&) {
@@ -300,7 +307,8 @@ void OpenXRCoordinator::scheduleAnimationFrame(WebPageProxy& page, std::optional
                 onFrameUpdateCallback({ });
             }
 
-            active.renderQueue->dispatch([this, renderState = active.renderState, onFrameUpdateCallback = WTFMove(onFrameUpdateCallback)]() mutable {
+            active.renderQueue->dispatch([this, renderState = active.renderState, requestData = WTFMove(requestData), onFrameUpdateCallback = WTFMove(onFrameUpdateCallback)]() mutable {
+                renderState->passthroughFullyObscured = requestData ? requestData->isPassthroughFullyObscured : false;
                 renderState->onFrameUpdate = WTFMove(onFrameUpdateCallback);
                 renderLoop(renderState);
             });
@@ -337,7 +345,7 @@ void OpenXRCoordinator::createInstance()
     ASSERT(RunLoop::isMain());
     ASSERT(m_instance == XR_NULL_HANDLE);
 
-    Vector<char *, 2> extensions;
+    Vector<char *> extensions;
 #if defined(XR_USE_PLATFORM_EGL)
     if (OpenXRExtensions::singleton().isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span))
         extensions.append(const_cast<char*>(XR_MNDX_EGL_ENABLE_EXTENSION_NAME));
@@ -353,12 +361,36 @@ void OpenXRCoordinator::createInstance()
     if (OpenXRExtensions::singleton().isExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME ""_span))
         extensions.append(const_cast<char*>(XR_EXT_HAND_TRACKING_EXTENSION_NAME));
 #endif
+#if OS(ANDROID)
+    extensions.append(const_cast<char*>(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME));
+#endif
 
     XrInstanceCreateInfo createInfo = createOpenXRStruct<XrInstanceCreateInfo, XR_TYPE_INSTANCE_CREATE_INFO >();
     createInfo.applicationInfo = { "WebKit", 1, "WebKit", 1, XR_CURRENT_API_VERSION };
     createInfo.enabledApiLayerCount = 0;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.enabledExtensionNames = extensions.mutableSpan().data();
+
+#if OS(ANDROID)
+    static WPEAndroidRuntimeGetJavaVMFunction s_wpeAndroidRuntimeGetJavaVM =
+        reinterpret_cast<WPEAndroidRuntimeGetJavaVMFunction>(dlsym(RTLD_DEFAULT, "wpe_android_runtime_get_current_java_vm"));
+    if (!s_wpeAndroidRuntimeGetJavaVM) [[unlikely]] {
+        RELEASE_LOG_ERROR(XR, "Cannot resolve wpe_android_runtime_get_current_java_vm(): %s.", dlerror());
+        return;
+    }
+
+    static WPEAndroidRuntimeGetActivityFunction s_wpeAndroidRuntimeGetActivity =
+        reinterpret_cast<WPEAndroidRuntimeGetActivityFunction>(dlsym(RTLD_DEFAULT, "wpe_android_runtime_get_current_activity"));
+    if (!s_wpeAndroidRuntimeGetActivity) [[unlikely]] {
+        RELEASE_LOG_ERROR(XR, "Cannot resolve wpe_android_runtime_get_current_activity(): %s.", dlerror());
+        return;
+    }
+
+    auto java = createOpenXRStruct<XrInstanceCreateInfoAndroidKHR, XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR>();
+    java.applicationVM = s_wpeAndroidRuntimeGetJavaVM();
+    java.applicationActivity = s_wpeAndroidRuntimeGetActivity();
+    createInfo.next = reinterpret_cast<XrBaseInStructure*>(&java);
+#endif
 
     CHECK_XRCMD(xrCreateInstance(&createInfo, &m_instance));
 }
@@ -378,6 +410,17 @@ RefPtr<WebCore::GLDisplay> OpenXRCoordinator::createGLDisplay() const
     };
 
     RefPtr<WebCore::GLDisplay> glDisplay;
+
+#if OS(ANDROID)
+    if (WebCore::GLContext::isExtensionSupported(extensions, "EGL_KHR_platform_android")) {
+        glDisplay = tryCreateDisplay(EGL_PLATFORM_ANDROID_KHR, EGL_DEFAULT_DISPLAY);
+        if (!glDisplay)
+            glDisplay = WebCore::GLDisplay::create(eglGetDisplay(EGL_DEFAULT_DISPLAY));
+        if (glDisplay && !(glDisplay->extensions().ANDROID_get_native_client_buffer && glDisplay->extensions().ANDROID_image_native_buffer))
+            glDisplay = nullptr;
+    }
+#endif // OS(ANDROID)
+
     if (WebCore::GLContext::isExtensionSupported(extensions, "EGL_MESA_platform_surfaceless")) {
         glDisplay = tryCreateDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY);
         if (glDisplay && !glDisplay->extensions().MESA_image_dma_buf_export)
@@ -504,10 +547,12 @@ void OpenXRCoordinator::initializeBlendModes()
 
 void OpenXRCoordinator::tryInitializeGraphicsBinding()
 {
+#if !OS(ANDROID)
     if (!OpenXRExtensions::singleton().isExtensionSupported(XR_MNDX_EGL_ENABLE_EXTENSION_NAME ""_span)) {
         LOG(XR, "OpenXR MNDX_EGL_ENABLE extension is not supported.");
         return;
     }
+#endif
 
     if (!m_glContext) {
 #if USE(GBM)
@@ -522,11 +567,15 @@ void OpenXRCoordinator::tryInitializeGraphicsBinding()
         }
     }
 
+#if OS(ANDROID)
+    m_graphicsBinding = createOpenXRStruct<XrGraphicsBindingOpenGLESAndroidKHR, XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR>();
+#else
     m_graphicsBinding = createOpenXRStruct<XrGraphicsBindingEGLMNDX, XR_TYPE_GRAPHICS_BINDING_EGL_MNDX>();
+    m_graphicsBinding.getProcAddress = OpenXRExtensions::singleton().methods().getProcAddressFunc;
+#endif
     m_graphicsBinding.display = m_glDisplay->eglDisplay();
     m_graphicsBinding.context = m_glContext->platformContext();
     m_graphicsBinding.config = m_glContext->config();
-    m_graphicsBinding.getProcAddress = OpenXRExtensions::singleton().methods().getProcAddressFunc;
 }
 
 void OpenXRCoordinator::createSessionIfNeeded()
@@ -825,7 +874,7 @@ void OpenXRCoordinator::endFrame(Box<RenderState> renderState, Vector<XRDeviceLa
 
     XrFrameEndInfo frameEndInfo = createOpenXRStruct<XrFrameEndInfo, XR_TYPE_FRAME_END_INFO>();
     frameEndInfo.displayTime = renderState->frameState.predictedDisplayTime;
-    frameEndInfo.environmentBlendMode = m_sessionMode == PlatformXR::SessionMode::ImmersiveAr ? m_arBlendMode : m_vrBlendMode;
+    frameEndInfo.environmentBlendMode = (m_sessionMode == PlatformXR::SessionMode::ImmersiveAr && !renderState->passthroughFullyObscured) ? m_arBlendMode : m_vrBlendMode;
     frameEndInfo.layerCount = static_cast<uint32_t>(frameEndLayers.size());
     frameEndInfo.layers = frameEndLayers.mutableSpan().data();
     CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));

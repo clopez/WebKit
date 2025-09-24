@@ -52,12 +52,6 @@ symbols = [
     "nw_resolver_create_with_path",
 ]
 
-[[staging]]
-symbols = [
-    "MACaptionAppearanceCopyActiveProfileID",
-]
-requires = ["!HAVE_MEDIA_ACCESSIBILITY_PROFILES_API"]
-
 [[temporary-usage]]
 request = "rdar://159806937"
 cleanup = "rdar://159806845"
@@ -65,3 +59,10 @@ symbols = [
     "CGDataProviderCreateWithCopyOfData",
 ]
 
+[[temporary-usage]]
+request = "rdar://159947920"
+cleanup = "rdar://159948141"
+selectors = [
+    { name = "_enumerateAllDeclaredTypesUsingBlock:", class = "UTType" },
+    { name = "_parentTypes", class = "UTType" },
+]
