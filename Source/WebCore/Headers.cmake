@@ -3350,6 +3350,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StyleRatio.h
     style/values/primitives/StyleURL.h
     style/values/primitives/StyleUnevaluatedCalculation.h
+    style/values/primitives/StyleZoomNeededToken.h
 
     style/values/rhythm/StyleBlockStepSize.h
 
@@ -3651,6 +3652,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/UserAgentParts.h
     ${WebCore_DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreJSBuiltinInternals.h
+    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h
+    ${WebCore_DERIVED_SOURCES_DIR}/WebCoreVirtualLogFunctions.h
     ${WebCore_DERIVED_SOURCES_DIR}/WebKitFontFamilyNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/WritableStreamInternalsBuiltins.h
 )

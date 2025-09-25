@@ -73,7 +73,7 @@ static inline Layout::ConstraintsForFlexContent constraintsForFlexContent(const 
 
     auto widthValue = [&](auto& computedValue) -> std::optional<LayoutUnit> {
         if (auto fixedWidth = computedValue.tryFixed())
-            return LayoutUnit { boxSizingIsContentBox ? fixedWidth->value : fixedWidth->value - horizontalMarginBorderAndPadding };
+            return LayoutUnit { boxSizingIsContentBox ? fixedWidth->resolveZoom(Style::ZoomNeeded { }) : fixedWidth->resolveZoom(Style::ZoomNeeded { }) - horizontalMarginBorderAndPadding };
 
         if (auto percentageWidth = computedValue.tryPercentage()) {
             auto value = Style::evaluate(*percentageWidth, flexContainerRenderer.containingBlock()->logicalWidth());
@@ -84,14 +84,14 @@ static inline Layout::ConstraintsForFlexContent constraintsForFlexContent(const 
 
     auto heightValue = [&](auto& computedValue, bool callRendererForPercentValue = false) -> std::optional<LayoutUnit> {
         if (auto fixedHeight = computedValue.tryFixed())
-            return LayoutUnit { boxSizingIsContentBox ? fixedHeight->value : fixedHeight->value - verticalMarginBorderAndPadding };
+            return LayoutUnit { boxSizingIsContentBox ? fixedHeight->resolveZoom(Style::ZoomNeeded { }) : fixedHeight->resolveZoom(Style::ZoomNeeded { }) - verticalMarginBorderAndPadding };
 
         if (auto percentageHeight = computedValue.tryPercentage()) {
             if (callRendererForPercentValue)
                 return flexContainerRenderer.computePercentageLogicalHeight(*percentageHeight, RenderBox::UpdatePercentageHeightDescendants::No);
 
             if (auto fixedContainingBlockHeight = flexContainerRenderer.containingBlock()->style().height().tryFixed()) {
-                auto value = Style::evaluate(*percentageHeight, fixedContainingBlockHeight->value, 1.0f);
+                auto value = Style::evaluate(*percentageHeight, fixedContainingBlockHeight->resolveZoom(Style::ZoomNeeded { }));
                 return LayoutUnit { boxSizingIsContentBox ? value : value - verticalMarginBorderAndPadding };
             }
         }

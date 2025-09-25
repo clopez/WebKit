@@ -195,7 +195,7 @@ void RenderTextControl::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
 
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu, 1.0f /* FIXME FIND ZOOM */));
+        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu, Style::ZoomNeeded { }));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
@@ -211,7 +211,7 @@ void RenderTextControl::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = 0;
     m_maxPreferredLogicalWidth = 0;
 
-    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->value >= 0)
+    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->isPositiveOrZero())
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);

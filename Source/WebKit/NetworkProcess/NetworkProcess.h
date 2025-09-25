@@ -523,6 +523,8 @@ private:
     void createNetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&,  CompletionHandler<void(std::optional<IPC::Connection::Handle>&&, WebCore::HTTPCookieAcceptPolicy)>&&);
     void sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
 
+    void fetchWebsitesWithUserInteractions(PAL::SessionID, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
+
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData&&)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, const HashSet<WebCore::ProcessIdentifier>& activeWebProcesses, CompletionHandler<void()>&&);
 
@@ -674,6 +676,10 @@ private:
         CompletionHandler<void()> completionHandler;
     };
     HashMap<TaskIdentifier, DeleteWebsiteDataTask> m_deleteWebsiteDataTasks;
+
+#if PLATFORM(IOS_SIMULATOR)
+    OSObjectPtr<nw_resolver_config_t> m_resolverConfig;
+#endif
 };
 
 #if !PLATFORM(COCOA)

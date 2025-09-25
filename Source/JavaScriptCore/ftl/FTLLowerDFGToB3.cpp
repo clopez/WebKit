@@ -1897,11 +1897,7 @@ private:
             break;
         }
 
-        case PhantomNewArrayWithButterfly: {
-            // It would be very bad to get here in this state and could lead to horrible GC bugs. See ObjectAllocationSinking::handleNode for details.
-            RELEASE_ASSERT(m_node->child2()->op() == PhantomNewButterflyWithSize);
-            [[fallthrough]];
-        }
+        case PhantomNewArrayWithButterfly:
         case PhantomLocal:
         case MovHint:
         case ZombieHint:
@@ -5256,7 +5252,7 @@ private:
         // Signify that the state against which the atomic operations are serialized is confined to just
         // the typed array storage, since that's as precise of an abstraction as we can have of shared
         // array buffer storage.
-        m_heaps.decorateFencedAccess(&m_heaps.typedArrayProperties, atomicValue);
+        m_heaps.decorateFencedAccess(&m_heaps.TypedArrayProperties, atomicValue);
 
         // We have to keep base alive since that keeps storage alive.
         ensureStillAliveHere(lowCell(baseEdge));
@@ -7316,7 +7312,7 @@ IGNORE_CLANG_WARNINGS_END
             ASSERT(isTypedView(type));
             {
                 TypedPointer pointer = TypedPointer(
-                    m_heaps.typedArrayProperties,
+                    m_heaps.TypedArrayProperties,
                     m_out.add(
                         storage,
                         m_out.shl(
@@ -10375,7 +10371,7 @@ IGNORE_CLANG_WARNINGS_END
             m_out.int32Zero,
             m_out.castToInt32(m_out.lShr(byteSize, m_out.constIntPtr(3))),
             m_out.int64Zero,
-            m_heaps.typedArrayProperties);
+            m_heaps.TypedArrayProperties);
 
         ValueFromBlock haveStorage = m_out.anchor(storage);
 
@@ -19531,7 +19527,7 @@ IGNORE_CLANG_WARNINGS_END
 
         LValue vector = caged(Gigacage::Primitive, m_out.loadPtr(dataView, m_heaps.JSArrayBufferView_vector), dataView);
 
-        TypedPointer pointer(m_heaps.typedArrayProperties, m_out.add(vector, m_out.zeroExtPtr(index)));
+        TypedPointer pointer(m_heaps.TypedArrayProperties, m_out.add(vector, m_out.zeroExtPtr(index)));
 
         if (m_node->op() == DataViewGetInt) {
             switch (data.byteSize) {
@@ -19722,7 +19718,7 @@ IGNORE_CLANG_WARNINGS_END
         }
 
         LValue vector = caged(Gigacage::Primitive, m_out.loadPtr(dataView, m_heaps.JSArrayBufferView_vector), dataView);
-        TypedPointer pointer(m_heaps.typedArrayProperties, m_out.add(vector, m_out.zeroExtPtr(index)));
+        TypedPointer pointer(m_heaps.TypedArrayProperties, m_out.add(vector, m_out.zeroExtPtr(index)));
 
         if (data.isFloatingPoint) {
             switch (data.byteSize) {
@@ -20772,10 +20768,11 @@ IGNORE_CLANG_WARNINGS_END
 
         m_out.appendTo(slowBlock);
         VM& vm = this->vm();
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         LValue slowButterflyBase = lazySlowPath(
             [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
                 return createLazyCallGenerator(vm,
-                    operationAllocateUnitializedAuxiliaryBase, locations[0].directGPR(), CCallHelpers::TrustedImmPtr(&vm),
+                    operationAllocateUnitializedAuxiliaryBase, locations[0].directGPR(), CCallHelpers::TrustedImmPtr(globalObject),
                     locations[1].directGPR());
             },
             allocationSizeInBytes);
@@ -21870,7 +21867,7 @@ IGNORE_CLANG_WARNINGS_END
         LValue offset = m_out.shl(m_out.zeroExtPtr(index), m_out.constIntPtr(logElementSize(type)));
 
         return TypedPointer(
-            m_heaps.typedArrayProperties,
+            m_heaps.TypedArrayProperties,
             m_out.add(
                 storage,
                 offset
@@ -24791,6 +24788,10 @@ IGNORE_CLANG_WARNINGS_END
         value = m_doubleValues.get(node);
         if (isValid(value))
             return exitArgument(arguments, DataFormatDouble, value.value());
+
+        value = m_storageValues.get(node);
+        if (isValid(value))
+            return exitArgument(arguments, DataFormatStorage, value.value());
 
         DFG_CRASH(m_graph, m_node, toCString("Cannot find value for node: ", node).data());
         return ExitValue::dead();

@@ -168,6 +168,7 @@
 #include "JSViewTransitionUpdateCallback.h"
 #include "KeyboardEvent.h"
 #include "KeyframeEffect.h"
+#include "LargestContentfulPaint.h"
 #include "LargestContentfulPaintData.h"
 #include "LayoutDisallowedScope.h"
 #include "LazyLoadImageObserver.h"
@@ -2059,7 +2060,7 @@ void Document::setReadyState(ReadyState readyState)
                 eventTiming->domLoading = now;
             // We do this here instead of in the Document constructor because monotonicTimestamp() is 0 when the Document constructor is running.
             if (!url().isEmpty())
-                WTFBeginSignpostWithTimeDelta(this, NavigationAndPaintTiming, -Seconds(monotonicTimestamp()), "Loading %" PUBLIC_LOG_STRING " | isMainFrame: %d", url().string().utf8().data(), frame() && frame()->isMainFrame());
+                WTFBeginSignpostWithTimeDelta(this, NavigationAndPaintTiming, -Seconds(monotonicTimestamp()), "Loading %" PRIVATE_LOG_STRING " | isMainFrame: %d", url().string().utf8().data(), frame() && frame()->isMainFrame());
             WTFEmitSignpost(this, NavigationAndPaintTiming, "domLoading");
         }
         break;
@@ -3363,16 +3364,19 @@ void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int&
             return pageSize;
         },
         [&](const Style::PageSize::Lengths& lengths) -> IntSize {
-            return { static_cast<int>(lengths.width().value), static_cast<int>(lengths.height().value) };
+            return {
+                static_cast<int>(lengths.width().resolveZoom(Style::ZoomNeeded { })),
+                static_cast<int>(lengths.height().resolveZoom(Style::ZoomNeeded { })),
+            };
         }
     );
 
     // The percentage is calculated with respect to the width even for margin top and bottom.
     // http://www.w3.org/TR/CSS2/box.html#margin-properties
-    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate(style->marginTop(), pageSize.width(), 1.0f /* FIXME FIND ZOOM */);
-    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate(style->marginRight(), pageSize.width(), 1.0f /* FIXME FIND ZOOM */);
-    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate(style->marginBottom(), pageSize.width(), 1.0f /* FIXME FIND ZOOM */);
-    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate(style->marginLeft(), pageSize.width(), 1.0f /* FIXME FIND ZOOM */);
+    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate(style->marginTop(), pageSize.width(), Style::ZoomNeeded { });
+    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate(style->marginRight(), pageSize.width(), Style::ZoomNeeded { });
+    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate(style->marginBottom(), pageSize.width(), Style::ZoomNeeded { });
+    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate(style->marginLeft(), pageSize.width(), Style::ZoomNeeded { });
 }
 
 void Document::fontsNeedUpdate(FontSelector&)
@@ -3769,23 +3773,41 @@ void Document::stopActiveDOMObjects()
 
 void Document::clearAXObjectCache()
 {
-    ASSERT(isTopDocument());
     // Clear the cache member variable before calling delete because attempts
     // are made to access it during destruction.
-    if (RefPtr page = this->page())
-        page->clearAXObjectCache();
+    m_axObjectCache = nullptr;
+
+#if !ENABLE_ACCESSIBILITY_LOCAL_FRAME
+    if (m_topAXObjectCache || !isTopDocument()) {
+        if (RefPtr mainFrameDocument = this->mainFrameDocument()) {
+            if (mainFrameDocument.get() != this)
+                mainFrameDocument->clearAXObjectCache();
+        }
+    }
+
     m_topAXObjectCache = nullptr;
+#endif
 }
 
 AXObjectCache* Document::existingAXObjectCacheSlow() const
 {
     ASSERT(hasEverCreatedAnAXObjectCache);
-    if (m_topAXObjectCache)
-        return m_topAXObjectCache.get();
 
-    if (RefPtr page = this->page())
-        m_topAXObjectCache = page->existingAXObjectCache();
+#if ENABLE_ACCESSIBILITY_LOCAL_FRAME
+    return m_axObjectCache.get();
+#else
+    if (m_axObjectCache)
+        return m_axObjectCache.get();
+
+    if (!isTopDocument() && !m_topAXObjectCache) {
+        if (RefPtr mainFrameDocument = this->mainFrameDocument()) {
+            if (mainFrameDocument.get() != this)
+                m_topAXObjectCache = mainFrameDocument->existingAXObjectCacheSlow();
+        }
+    }
+
     return m_topAXObjectCache.get();
+#endif // !ENABLE_ACCESSIBILITY_LOCAL_FRAME
 }
 
 AXObjectCache* Document::axObjectCache() const
@@ -3793,14 +3815,27 @@ AXObjectCache* Document::axObjectCache() const
     if (!AXObjectCache::accessibilityEnabled())
         return nullptr;
 
+    if (m_axObjectCache)
+        return m_axObjectCache.get();
+
+    if (!m_frame)
+        return nullptr;
+
+#if !ENABLE_ACCESSIBILITY_LOCAL_FRAME
+    if (!isTopDocument()) {
+        if (RefPtr mainFrameDocument = this->mainFrameDocument()) {
+            if (mainFrameDocument.get() != this)
+                m_topAXObjectCache = mainFrameDocument->axObjectCache();
+        }
+    }
+
     if (m_topAXObjectCache)
         return m_topAXObjectCache.get();
+#endif // !ENABLE_ACCESSIBILITY_LOCAL_FRAME
 
-    RefPtr page = this->page();
-    if (!page)
-        return nullptr;
-    m_topAXObjectCache = page->axObjectCache();
-    return m_topAXObjectCache.get();
+    m_axObjectCache = makeUnique<AXObjectCache>(*m_frame, const_cast<Document*>(this));
+    Document::hasEverCreatedAnAXObjectCache = true;
+    return m_axObjectCache.get();
 }
 
 void Document::setVisuallyOrdered()
@@ -4346,9 +4381,6 @@ bool Document::supportsLargestContentfulPaint() const
 // https://w3c.github.io/paint-timing/#ref-for-mark-paint-timing
 void Document::enqueuePaintTimingEntryIfNeeded()
 {
-    if (m_didEnqueueFirstContentfulPaint)
-        return;
-
     if (!supportsPaintTiming())
         return;
 
@@ -4359,16 +4391,36 @@ void Document::enqueuePaintTimingEntryIfNeeded()
     if (!view()->isVisuallyNonEmpty() || view()->needsLayout())
         return;
 
-    if (!view()->hasContentfulDescendants())
-        return;
+    // Should this use frozenNowTimestamp()?
+    auto nowTime = protectedWindow()->performance().now();
 
-    if (!ContentfulPaintChecker::qualifiesForContentfulPaint(*view()))
-        return;
+    auto enqueuePaintTimingIfNecessary = [&]() {
+        if (!view()->hasContentfulDescendants())
+            return;
 
-    WTFEmitSignpost(this, NavigationAndPaintTiming, "firstContentfulPaint");
+        if (m_didEnqueueFirstContentfulPaint)
+            return;
 
-    protectedWindow()->performance().reportFirstContentfulPaint();
-    m_didEnqueueFirstContentfulPaint = true;
+        if (!ContentfulPaintChecker::qualifiesForContentfulPaint(*view()))
+            return;
+
+        WTFEmitSignpost(this, NavigationAndPaintTiming, "firstContentfulPaint");
+
+        protectedWindow()->performance().reportFirstContentfulPaint(nowTime);
+        m_didEnqueueFirstContentfulPaint = true;
+    };
+
+    auto enqueueLargestContentfulPaintIfNecessary = [&]() {
+        WTFEmitSignpost(this, NavigationAndPaintTiming, "largestContentfulPaint");
+
+        if (RefPtr entry = largestContentfulPaintData().takePendingEntry(nowTime)) {
+            Ref entryRef = entry.releaseNonNull();
+            protectedWindow()->performance().reportLargestContentfulPaint(WTFMove(entryRef));
+        }
+    };
+
+    enqueuePaintTimingIfNecessary();
+    enqueueLargestContentfulPaintIfNecessary();
 }
 
 void Document::enqueueEventTimingEntriesIfNeeded()
