@@ -214,13 +214,11 @@ enum class WordBreak : uint8_t;
 
 struct CSSPropertiesBitSet;
 struct CounterDirectiveMap;
-struct FontPalette;
 struct FontSizeAdjust;
 struct GridTrackList;
 struct ImageOrientation;
 struct Length;
 struct NameScope;
-struct TabSize;
 struct TransformOperationData;
 
 template<typename> class FontTaggedSettings;
@@ -267,6 +265,7 @@ struct Cursor;
 struct DynamicRangeLimit;
 struct Filter;
 struct FlexBasis;
+struct FontPalette;
 struct GapGutter;
 struct GridPosition;
 struct GridTemplateAreas;
@@ -333,6 +332,7 @@ struct ShapeMargin;
 struct ShapeOutside;
 struct StrokeMiterlimit;
 struct StrokeWidth;
+struct TabSize;
 struct TextBoxEdge;
 struct TextDecorationThickness;
 struct TextEmphasisStyle;
@@ -716,7 +716,7 @@ public:
     inline FontSelectionValue fontWeight() const;
     inline FontSelectionValue fontWidth() const;
     inline std::optional<FontSelectionValue> fontItalic() const;
-    inline const FontPalette& fontPalette() const;
+    inline Style::FontPalette fontPalette() const;
     inline FontSizeAdjust fontSizeAdjust() const;
 
     inline const Style::TextIndent& textIndent() const;
@@ -1071,7 +1071,7 @@ public:
     inline TextCombine textCombine() const;
     inline bool hasTextCombine() const;
 
-    inline const TabSize& tabSize() const;
+    inline const Style::TabSize& tabSize() const;
 
     inline const Style::WebkitLineGrid& lineGrid() const;
     inline LineSnap lineSnap() const;
@@ -1353,7 +1353,7 @@ public:
     void setFontWeight(FontSelectionValue);
     void setFontWidth(FontSelectionValue);
     void setFontItalic(std::optional<FontSelectionValue>);
-    void setFontPalette(const FontPalette&);
+    void setFontPalette(Style::FontPalette&&);
 
     void setColor(Color&&);
 
@@ -1605,7 +1605,7 @@ public:
     inline void setBackdropFilter(Style::Filter&&);
     inline void setAppleColorFilter(Style::AppleColorFilter&&);
 
-    inline void setTabSize(const TabSize&);
+    inline void setTabSize(Style::TabSize&&);
 
     inline void setBreakBefore(BreakBetween);
     inline void setBreakAfter(BreakBetween);
@@ -1936,6 +1936,7 @@ public:
     static constexpr PositionType initialPosition();
     static inline Style::VerticalAlign initialVerticalAlign();
     static constexpr Float initialFloating();
+    static inline Style::FontPalette initialFontPalette();
     static constexpr BreakBetween initialBreakBetween();
     static constexpr BreakInside initialBreakInside();
     static constexpr OptionSet<HangingPunctuation> initialHangingPunctuation();
@@ -2171,7 +2172,7 @@ public:
     static inline Style::GridPosition initialGridItemRowStart();
     static inline Style::GridPosition initialGridItemRowEnd();
 
-    static constexpr TabSize initialTabSize();
+    static constexpr Style::TabSize initialTabSize();
 
     static inline Style::WebkitLineGrid initialLineGrid();
     static constexpr LineSnap initialLineSnap();

@@ -373,7 +373,11 @@ Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/speech/SpeechSynthesisVoice.cpp
 Modules/storage/StorageManager.cpp
 Modules/storage/WorkerStorageConnection.cpp
+Modules/streams/ByteLengthQueuingStrategy.cpp
+Modules/streams/ReadableByteStreamController.cpp
 Modules/streams/ReadableStream.cpp
+Modules/streams/ReadableStreamBYOBReader.cpp
+Modules/streams/ReadableStreamBYOBRequest.cpp
 Modules/streams/ReadableStreamDefaultReader.cpp
 Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
@@ -1961,6 +1965,7 @@ layout/formattingContexts/table/TableLayout.cpp
 layout/integration/LayoutIntegrationBoxGeometryUpdater.cpp
 layout/integration/LayoutIntegrationBoxTreeUpdater.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
+layout/integration/grid/LayoutIntegrationGridCoverage.cpp
 layout/integration/LayoutIntegrationFormattingContextLayout.cpp
 layout/integration/LayoutIntegrationUtils.cpp
 layout/integration/flex/LayoutIntegrationFlexLayout.cpp
@@ -3204,6 +3209,7 @@ style/values/filter-effects/StyleOpacityFunction.cpp
 style/values/filter-effects/StyleSaturateFunction.cpp
 style/values/filter-effects/StyleSepiaFunction.cpp
 style/values/flexbox/StyleFlexBasis.cpp
+style/values/fonts/StyleFontPalette.cpp
 style/values/grid/StyleGridNamedLinesMap.cpp
 style/values/grid/StyleGridPosition.cpp
 style/values/grid/StyleGridPositionsResolver.cpp
@@ -3286,6 +3292,7 @@ style/values/text-decoration/StyleTextDecorationThickness.cpp
 style/values/text-decoration/StyleTextEmphasisStyle.cpp
 style/values/text-decoration/StyleTextShadow.cpp
 style/values/text-decoration/StyleTextUnderlineOffset.cpp
+style/values/text/StyleTabSize.cpp
 style/values/text/StyleTextIndent.cpp
 style/values/transforms/StylePerspective.cpp
 style/values/transforms/StyleRotate.cpp
@@ -4624,6 +4631,9 @@ JSRTCTrackEvent.cpp
 JSRTCTransformEvent.cpp
 JSRadioNodeList.cpp
 JSRange.cpp
+JSReadableByteStreamController.cpp
+JSReadableStreamBYOBReader.cpp
+JSReadableStreamBYOBRequest.cpp
 JSReadableStream.cpp
 JSReadableStreamDefaultController.cpp
 JSReadableStreamDefaultReader.cpp

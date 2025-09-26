@@ -519,15 +519,6 @@ inline void ExtractorSerializer::serializeWillChange(ExtractorState& state, Stri
     builder.append(CSSValueList::createCommaSeparated(WTFMove(list))->cssText(context));
 }
 
-inline void ExtractorSerializer::serializeTabSize(ExtractorState&, StringBuilder& builder, const CSS::SerializationContext& context, const TabSize& tabSize)
-{
-    auto value = tabSize.widthInPixels(1.0);
-    if (tabSize.isSpaces())
-        CSS::serializationForCSS(builder, context, CSS::NumberRaw<> { value });
-    else
-        CSS::serializationForCSS(builder, context, CSS::LengthRaw<> { CSS::LengthUnit::Px, value });
-}
-
 inline void ExtractorSerializer::serializeLineBoxContain(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<Style::LineBoxContain> lineBoxContain)
 {
     if (!lineBoxContain) {
@@ -1030,25 +1021,6 @@ inline void ExtractorSerializer::serializeFontSizeAdjust(ExtractorState& state, 
     serialize(state, builder, context, metric);
     builder.append(' ');
     CSS::serializationForCSS(builder, context, CSS::NumberRaw<> { *value });
-}
-
-inline void ExtractorSerializer::serializeFontPalette(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const FontPalette& fontPalette)
-{
-    switch (fontPalette.type) {
-    case FontPalette::Type::Normal:
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Normal { });
-        return;
-    case FontPalette::Type::Light:
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Light { });
-        return;
-    case FontPalette::Type::Dark:
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Dark { });
-        return;
-    case FontPalette::Type::Custom:
-        serializationForCSS(builder, context, state.style, CustomIdentifier { fontPalette.identifier });
-        return;
-    }
-    RELEASE_ASSERT_NOT_REACHED();
 }
 
 inline void ExtractorSerializer::serializeFontWeight(ExtractorState&, StringBuilder& builder, const CSS::SerializationContext& context, FontSelectionValue fontWeight)

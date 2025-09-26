@@ -1844,7 +1844,6 @@ imported/w3c/web-platform-tests/mathml/relations/css-styling/lengths-1.html [ Im
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/character-level-mirroring.html [ Skip ]
 
 mathml/non-core/mathvariant/mathvariant-case-sensitivity.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/mrow/legacy-mfenced-element-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/radicals/dynamic-radical-paint-invalidation-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/subsup-legacy-scriptshift-attributes-001.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-form-minus-plus.html [ ImageOnlyFailure ]
@@ -5973,8 +5972,29 @@ webkit.org/b/274088 imported/w3c/web-platform-tests/trusted-types/Element-setAtt
 webkit.org/b/289904 imported/w3c/web-platform-tests/trusted-types/should-sink-type-mismatch-violation-be-blocked-by-csp-001.html [ Skip ]
 
 # WebKit doesn't support CSP violation reporting inside Workers
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-DedicatedWorker-constructor.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-eval.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-function-constructor.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-importScripts.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-ServiceWorkerContainer-register.https.html [ Skip ]
 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-DedicatedWorker-setTimeout-setInterval.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-ServiceWorker-eval.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-ServiceWorker-function-constructor.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-ServiceWorker-importScripts.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-ServiceWorker-ServiceWorkerContainer-register.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-ServiceWorker-setTimeout-setInterval.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-DedicatedWorker-constructor.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-eval.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-function-constructor.html [ Skip ]
 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-setTimeout-setInterval.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-ServiceWorkerContainer-register.https.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting-for-SharedWorker-importScripts.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/should-sink-type-mismatch-violation-be-blocked-by-csp-002-worker.html [ Skip ]
+imported/w3c/web-platform-tests/trusted-types/should-trusted-type-policy-creation-be-blocked-by-csp-004-worker.html [ Skip ]
+
+webkit.org/b/298792 imported/w3c/web-platform-tests/trusted-types/navigate-to-javascript-url-006.sub.html [ Skip ]
+webkit.org/b/298792 imported/w3c/web-platform-tests/trusted-types/navigate-to-javascript-url-003.html [ Skip ]
+webkit.org/b/298792 imported/w3c/web-platform-tests/trusted-types/navigate-to-javascript-url-csp-headers.html [ Skip ]
 
 # Close watchers aren't implemented yet
 webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n-activate-preventDefault.html?dialog [ Skip ]
@@ -7484,11 +7504,7 @@ webkit.org/b/282024 fast/text/text-box-edge-with-margin-padding-border-simple.ht
 # general failures
 webkit.org/b/289743 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-007.html [ ImageOnlyFailure ]
 webkit.org/b/289743 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-008.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-chained-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-chained-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-012.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-to-sticky-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-to-sticky-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-with-position.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-overflow-scroll.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-colspan-003.html [ ImageOnlyFailure ]
@@ -7499,6 +7515,14 @@ imported/w3c/web-platform-tests/css/css-anchor-position/transform-004.tentative.
 imported/w3c/web-platform-tests/css/css-anchor-position/transform-006.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/transform-007.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/transform-008.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-inline-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-015.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-016.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-multicol-nested-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/container-queries/anchored-fallback-color-change.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/container-queries/anchored-fallback-style-containment.html [ ImageOnlyFailure ]
+# This is passing only on mac-wk2
+webkit.org/b/299561 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-chained-003.html [ ImageOnlyFailure ]
 
 # Might be a test error, see https://github.com/w3c/csswg-drafts/issues/12577
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-non-anchored-fallback.html [ ImageOnlyFailure ]
