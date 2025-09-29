@@ -276,9 +276,6 @@ imported/w3c/web-platform-tests/fs/ [ Skip ]
 storage/filesystemaccess/ [ Skip ]
 storage/storagemanager/ [ Skip ]
 
-# Not implemented yet.
-imported/w3c/web-platform-tests/largest-contentful-paint/ [ Skip ]
-
 # Not implemented, but resources referenced by largest-contentful-paint.
 imported/w3c/web-platform-tests/element-timing/ [ Skip ]
 
@@ -1280,10 +1277,6 @@ imported/w3c/web-platform-tests/resource-timing/TAO-match.html [ Pass Failure ]
 imported/w3c/web-platform-tests/resource-timing/iframe-failed-commit.html [ Pass Failure ]
 imported/w3c/web-platform-tests/resource-timing/fetch-cross-origin-redirect.https.html [ Pass Failure ]
 
-# Timing out (missing auxclick automation?):
-webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-aux-pointerdown-and-pointerdown.html [ Skip ]
-webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/interactionid-aux-pointerdown.html [ Skip ]
-
 # No browser passes, test is likely outdated:
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/modal-dialog-interrupt-paint.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/TapToStopFling.html [ Skip ]
@@ -1296,6 +1289,20 @@ webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/first-input-int
 # Missing automation:
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/event-click-visibilitychange.html [ Skip ]
 webkit.org/b/214677 imported/w3c/web-platform-tests/event-timing/selection-autoscroll.html [ Skip ]
+
+# Only partially implemented.
+imported/w3c/web-platform-tests/largest-contentful-paint/ [ Skip ]
+imported/w3c/web-platform-tests/largest-contentful-paint/animated/observe-cross-origin-tao-animated-image.tentative.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/background-image-set-image.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/broken-image-icon.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/idlharness.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/iframe-content-not-observed.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/image-sw-same-origin.https.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/image-upscaling.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/invisible-images.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/larger-image.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/supported-lcp-type.html [ Pass ]
+imported/w3c/web-platform-tests/largest-contentful-paint/video-play-after-poster.html [ Pass ]
 
 imported/w3c/web-platform-tests/mediacapture-streams/MediaStreamTrack-MediaElement-disabled-video-is-black.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/mediacapture-streams/MediaDevices-enumerateDevices-per-origin-ids.sub.https.html [ Skip ]
@@ -2981,6 +2988,7 @@ webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shapin
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-003.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-004.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-005.html [ ImageOnlyFailure ]
+webkit.org/b/299633 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-009.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-010.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-first-001.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-first-002.html [ ImageOnlyFailure ]

@@ -48,6 +48,7 @@
 #include "JSLexicalEnvironment.h"
 #include "JSMapIterator.h"
 #include "JSPromiseAllContext.h"
+#include "JSPromiseReaction.h"
 #include "JSRegExpStringIterator.h"
 #include "JSSetIterator.h"
 #include "JSWrapForValidIterator.h"
@@ -190,6 +191,9 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationPopulateObjectInOSR, void, (JSGlobalO
         case JSPromiseAllContextType:
             materialize(jsCast<JSPromiseAllContext*>(target));
             break;
+        case JSPromiseReactionType:
+            materialize(jsCast<JSPromiseReaction*>(target));
+            break;
         case JSRegExpStringIteratorType:
             materialize(jsCast<JSRegExpStringIterator*>(target));
             break;
@@ -271,6 +275,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
             throwOutOfMemoryError(globalObject, scope);
             OPERATION_RETURN(scope, nullptr);
         }
+        Butterfly::clearRange(materialization->indexingType(), result, 0, size);
 
         return std::bit_cast<HeapCell*>(result);
     }
@@ -488,6 +493,8 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, HeapCell*, (J
             return create.operator()<JSAsyncFromSyncIterator>();
         case JSPromiseAllContextType:
             return create.operator()<JSPromiseAllContext>();
+        case JSPromiseReactionType:
+            return create.operator()<JSPromiseReaction>();
         case JSRegExpStringIteratorType:
             return create.operator()<JSRegExpStringIterator>();
         case JSPromiseType:

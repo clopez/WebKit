@@ -391,10 +391,25 @@
 		0D943BFC2C65452300D33BA5 /* WebGPUXRProjectionLayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D943BFB2C65452300D33BA5 /* WebGPUXRProjectionLayer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0D943C052C6555CF00D33BA5 /* WebGPUXRSubImage.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D943C042C6555CF00D33BA5 /* WebGPUXRSubImage.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0D943C0C2C6559DE00D33BA5 /* WebGPUXREye.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D943C0B2C6559DE00D33BA5 /* WebGPUXREye.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D9649082E73D4EE000F9CDA /* ModelObjectDescriptorBase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D9649062E73D332000F9CDA /* ModelObjectDescriptorBase.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D96490B2E747347000F9CDA /* DDMeshDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EAC2E73875900A9B266 /* DDMeshDescriptor.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D96490C2E747347000F9CDA /* DDVertexAttributeFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EB02E73875900A9B266 /* DDVertexAttributeFormat.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D96490D2E747347000F9CDA /* DDReplaceVertices.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EAE2E73875900A9B266 /* DDReplaceVertices.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D96490E2E747347000F9CDA /* DDMeshPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EAD2E73875900A9B266 /* DDMeshPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D96490F2E747347000F9CDA /* DDVertexLayout.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EB12E73875900A9B266 /* DDVertexLayout.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D9649102E747347000F9CDA /* DDMesh.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EAB2E73875900A9B266 /* DDMesh.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0D9649112E747347000F9CDA /* DDUpdateMeshDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D078EAF2E73875900A9B266 /* DDUpdateMeshDescriptor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DA0424F2E4167AE00683D92 /* XRGPUProjectionLayerInit.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D68A4142C631A5F0062C559 /* XRGPUProjectionLayerInit.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DA042502E417B1500683D92 /* GPUTextureFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C66A7C42A4F78580086DB6F /* GPUTextureFormat.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DA042512E417B3500683D92 /* GPUTextureUsage.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C66A6FB2A4F78170086DB6F /* GPUTextureUsage.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DA042522E417B4800683D92 /* GPUIntegralTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C66A7DA2A4F785E0086DB6F /* GPUIntegralTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0DACD8592E79D8C100CDA0DC /* DDModel.serialization.in in Headers */ = {isa = PBXBuildFile; fileRef = 0DACD8582E79D8C100CDA0DC /* DDModel.serialization.in */; settings = {ATTRIBUTES = (Private, ); }; };
+		0DACD85D2E7A2A7700CDA0DC /* ModelDDInlineConverters.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DACD85C2E7A2A7700CDA0DC /* ModelDDInlineConverters.h */; };
+		0DD1FE922E7886CC009DFD33 /* UsdModelLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9649032E73BE32000F9CDA /* UsdModelLoader.swift */; };
+		0DD1FE972E78BEEA009DFD33 /* ModelDDTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DD1FE962E78BEAB009DFD33 /* ModelDDTypes.h */; };
+		0DD1FE9B2E78C00B009DFD33 /* WebCoreInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DD1FE992E78C00B009DFD33 /* WebCoreInternal.h */; };
+		0DD1FEA12E79C6EA009DFD33 /* DDFloat4x4.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DD1FEA02E79C6EA009DFD33 /* DDFloat4x4.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0DD1FEA52E79D3AC009DFD33 /* DDFloat3.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DD1FEA42E79D3AC009DFD33 /* DDFloat3.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DE11A792C8AB2950003F6EE /* DigitalCredentialsResponseData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DE11A782C8AB2840003F6EE /* DigitalCredentialsResponseData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DF687F62C88414900C16DC9 /* DigitalCredentialsRequestData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DF687F52C8840D100C16DC9 /* DigitalCredentialsRequestData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0DFB86682B16CC98009A0A0D /* JSCredentialMediationRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DFB86642B16CC1E009A0A0D /* JSCredentialMediationRequirement.h */; };
@@ -1848,6 +1863,7 @@
 		46EF142D1F97B7D800C2A524 /* ServiceWorkerClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 46EF14241F97B7BA00C2A524 /* ServiceWorkerClient.h */; };
 		46EFAF121E5FB9F100E7F34B /* LowPowerModeNotifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 46EFAF101E5FB9E100E7F34B /* LowPowerModeNotifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46F02A1A23737F8300106A64 /* EventLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B0ABCA123679AB300B45085 /* EventLoop.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		46F674252E865AF300A1C067 /* WebCoreMainThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 46F674212E865ABB00A1C067 /* WebCoreMainThread.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46FC422A29084F4B00773DD5 /* MainThreadStylePropertyMapReadOnly.h in Headers */ = {isa = PBXBuildFile; fileRef = 46FC422929084F4400773DD5 /* MainThreadStylePropertyMapReadOnly.h */; };
 		46FCB6181A70820E00C5A21E /* DiagnosticLoggingKeys.h in Headers */ = {isa = PBXBuildFile; fileRef = CD37B37515C1A7E1006DC898 /* DiagnosticLoggingKeys.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46FE73D22968E52000B8064C /* GameControllerHapticEngines.h in Headers */ = {isa = PBXBuildFile; fileRef = 46FE73D02968E51F00B8064C /* GameControllerHapticEngines.h */; };
@@ -2279,11 +2295,11 @@
 		532042021F9A9F1000B81B2A /* UserAgentScriptsData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CDAB6D3017C9259500C60B34 /* UserAgentScriptsData.cpp */; };
 		536D5A20193E18E900CE4CAB /* HTMLSrcsetParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 536D5A1F193E18E900CE4CAB /* HTMLSrcsetParser.h */; };
 		538EC8021F96AF81004D22A8 /* UnifiedSource1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7FA1F96AA70004D22A8 /* UnifiedSource1.cpp */; };
-		538EC8031F96AF81004D22A8 /* UnifiedSource1-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7F31F96AA5B004D22A8 /* UnifiedSource1-mm.mm */; };
+		538EC8031F96AF81004D22A8 /* UnifiedSource1-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7F31F96AA5B004D22A8 /* UnifiedSource1-nonARC.mm */; };
 		538EC8041F96AF81004D22A8 /* UnifiedSource2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7EE1F96AA56004D22A8 /* UnifiedSource2.cpp */; };
-		538EC8051F96AF81004D22A8 /* UnifiedSource2-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7F81F96AA69004D22A8 /* UnifiedSource2-mm.mm */; };
+		538EC8051F96AF81004D22A8 /* UnifiedSource2-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7F81F96AA69004D22A8 /* UnifiedSource2-nonARC.mm */; };
 		538EC8061F96AF81004D22A8 /* UnifiedSource3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7EC1F96AA54004D22A8 /* UnifiedSource3.cpp */; };
-		538EC8071F96AF81004D22A8 /* UnifiedSource3-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7ED1F96AA55004D22A8 /* UnifiedSource3-mm.mm */; };
+		538EC8071F96AF81004D22A8 /* UnifiedSource3-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7ED1F96AA55004D22A8 /* UnifiedSource3-nonARC.mm */; };
 		538EC8081F96AF81004D22A8 /* UnifiedSource4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7EF1F96AA57004D22A8 /* UnifiedSource4.cpp */; };
 		538EC8091F96AF81004D22A8 /* UnifiedSource5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7F01F96AA58004D22A8 /* UnifiedSource5.cpp */; };
 		538EC80A1F96AF81004D22A8 /* UnifiedSource6.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 538EC7EB1F96AA53004D22A8 /* UnifiedSource6.cpp */; };
@@ -4918,6 +4934,7 @@
 		BC092AB02E31747F002ACB2C /* StyleWebKitLineGrid.h in Headers */ = {isa = PBXBuildFile; fileRef = BC092AA02E3141F7002ACB2C /* StyleWebKitLineGrid.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC092AFA2E33DBE9002ACB2C /* StyleStrokeWidth.h in Headers */ = {isa = PBXBuildFile; fileRef = BC092AF72E33DBDF002ACB2C /* StyleStrokeWidth.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC092AFE2E33E8FD002ACB2C /* StyleLineWidth.h in Headers */ = {isa = PBXBuildFile; fileRef = BC092AFB2E33E2E9002ACB2C /* StyleLineWidth.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC0A309B2E875E98007B809D /* StyleFontWidth.h in Headers */ = {isa = PBXBuildFile; fileRef = BC0A30952E875222007B809D /* StyleFontWidth.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC10137C25C3624B00DC773C /* ColorModels.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10137B25C3624B00DC773C /* ColorModels.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC10137F25C3631600DC773C /* ColorTransferFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10137E25C3631600DC773C /* ColorTransferFunctions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC10D76817D8EE71005E2626 /* RenderBlockFlow.h in Headers */ = {isa = PBXBuildFile; fileRef = BCFB45F317D8E39200444446 /* RenderBlockFlow.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4926,6 +4943,8 @@
 		BC10DA8A2E80D200000EE742 /* StyleTextEdge.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10DA882E80D1DB000EE742 /* StyleTextEdge.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC10DA912E80DC39000EE742 /* StyleTextBoxEdge.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10DA902E80DB7C000EE742 /* StyleTextBoxEdge.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC10DA922E80DC42000EE742 /* StyleLineFitEdge.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10DA8B2E80D597000EE742 /* StyleLineFitEdge.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC10DA9C2E81B928000EE742 /* StyleWordSpacing.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10DA992E81B57D000EE742 /* StyleWordSpacing.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC10DA9D2E81B92F000EE742 /* StyleLetterSpacing.h in Headers */ = {isa = PBXBuildFile; fileRef = BC10DA982E81B57D000EE742 /* StyleLetterSpacing.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC124EE80C2641CD009E2349 /* BarProp.h in Headers */ = {isa = PBXBuildFile; fileRef = BC124EE50C2641CD009E2349 /* BarProp.h */; };
 		BC124F000C26447A009E2349 /* JSBarProp.h in Headers */ = {isa = PBXBuildFile; fileRef = BC124EFE0C26447A009E2349 /* JSBarProp.h */; };
 		BC128A73137C867C00CAC845 /* RenderGrid.h in Headers */ = {isa = PBXBuildFile; fileRef = BC128A72137C867C00CAC845 /* RenderGrid.h */; };
@@ -4939,7 +4958,7 @@
 		BC2272BD0E82EAAE00E7F975 /* StyleRareNonInheritedData.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2272BB0E82EAAE00E7F975 /* StyleRareNonInheritedData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC2272E40E82EE9B00E7F975 /* StyleRareInheritedData.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2272E20E82EE9B00E7F975 /* StyleRareInheritedData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC2273040E82F1E600E7F975 /* StyleInheritedData.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2273020E82F1E600E7F975 /* StyleInheritedData.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BC2274790E8366E200E7F975 /* SVGRenderStyle.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2274750E8366E200E7F975 /* SVGRenderStyle.h */; };
+		BC2274790E8366E200E7F975 /* SVGRenderStyle.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2274750E8366E200E7F975 /* SVGRenderStyle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC22747B0E8366E200E7F975 /* SVGRenderStyleDefs.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2274770E8366E200E7F975 /* SVGRenderStyleDefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC22AA392E353BAC009AC0C3 /* StyleWebKitTextStrokeWidth.h in Headers */ = {isa = PBXBuildFile; fileRef = BC22AA382E353B7B009AC0C3 /* StyleWebKitTextStrokeWidth.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC22AA612E357814009AC0C3 /* StyleSVGRadius.h in Headers */ = {isa = PBXBuildFile; fileRef = BC22AA5D2E3571A3009AC0C3 /* StyleSVGRadius.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5456,7 +5475,7 @@
 		C26017A41C72DC9900F74A16 /* CSSFontFaceSet.h in Headers */ = {isa = PBXBuildFile; fileRef = C26017A21C72DC9900F74A16 /* CSSFontFaceSet.h */; };
 		C280833F1C6DC26F001451B6 /* JSFontFace.h in Headers */ = {isa = PBXBuildFile; fileRef = C280833E1C6DC22C001451B6 /* JSFontFace.h */; };
 		C2AB0AF71E6B3C6C001348C5 /* FontSelectionAlgorithm.h in Headers */ = {isa = PBXBuildFile; fileRef = C2AB0AF51E6B3C6C001348C5 /* FontSelectionAlgorithm.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		C2E1F43F1D6254E10094625C /* BreakLines.h in Headers */ = {isa = PBXBuildFile; fileRef = BCEA4816097D93020094C9E4 /* BreakLines.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2E1F43F1D6254E10094625C /* BreakablePositions.h in Headers */ = {isa = PBXBuildFile; fileRef = BCEA4816097D93020094C9E4 /* BreakablePositions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2E38EFE1E8396FD00CA3ADF /* CSSFontStyleWithAngleValue.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E38EFC1E8396FD00CA3ADF /* CSSFontStyleWithAngleValue.h */; };
 		C2E38F021E84573500CA3ADF /* CSSFontStyleRangeValue.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E38F001E84573500CA3ADF /* CSSFontStyleRangeValue.h */; };
 		C2F4E78C1E45C3EF006D7105 /* ComplexTextController.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4E7891E45AEDF006D7105 /* ComplexTextController.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5515,7 +5534,7 @@
 		CD1115B42E8368B3000E9E44 /* WebCoreVirtualLogFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = CDE44A4D2E6CA88000CA40CD /* WebCoreVirtualLogFunctions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD1115B52E836A14000E9E44 /* WebCoreLogDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = CDE44A4C2E6CA88000CA40CD /* WebCoreLogDefinitions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD127DEE14F3098400E84779 /* WebCoreFullScreenWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = CD127DEA14F3097900E84779 /* WebCoreFullScreenWindow.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		CD17A45D213740810079EC7B /* UnifiedSource62-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD17A459213740160079EC7B /* UnifiedSource62-mm.mm */; };
+		CD17A45D213740810079EC7B /* UnifiedSource62-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD17A459213740160079EC7B /* UnifiedSource62-nonARC.mm */; };
 		CD19A2681A13E700008D650E /* DiagnosticLoggingClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CD19A2671A13E700008D650E /* DiagnosticLoggingClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD19FEA81F573972000C42FB /* ImageDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = CD19FEA61F573972000C42FB /* ImageDecoder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD19FEAE1F574B6D000C42FB /* ImageDecoderAVFObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = CD19FEAC1F574B6D000C42FB /* ImageDecoderAVFObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -6028,53 +6047,53 @@
 		DE5F85321FA1A4F9006DB63A /* UnifiedSource448.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F84A61FA1A484006DB63A /* UnifiedSource448.cpp */; };
 		DE5F85331FA1A4F9006DB63A /* UnifiedSource449.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F84B01FA1A48E006DB63A /* UnifiedSource449.cpp */; };
 		DE5F85341FA1A4F9006DB63A /* UnifiedSource450.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F84B31FA1A491006DB63A /* UnifiedSource450.cpp */; };
-		DE5F856C1FA1ABF3006DB63A /* UnifiedSource4-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85491FA1ABBD006DB63A /* UnifiedSource4-mm.mm */; };
-		DE5F856D1FA1ABF3006DB63A /* UnifiedSource5-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85651FA1ABD6006DB63A /* UnifiedSource5-mm.mm */; };
-		DE5F856E1FA1ABF3006DB63A /* UnifiedSource6-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-mm.mm */; };
-		DE5F856F1FA1ABF3006DB63A /* UnifiedSource7-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-mm.mm */; };
-		DE5F85701FA1ABF3006DB63A /* UnifiedSource8-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-mm.mm */; };
-		DE5F85711FA1ABF3006DB63A /* UnifiedSource9-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85541FA1ABC7006DB63A /* UnifiedSource9-mm.mm */; };
-		DE5F85721FA1ABF3006DB63A /* UnifiedSource10-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85631FA1ABD5006DB63A /* UnifiedSource10-mm.mm */; };
-		DE5F85731FA1ABF3006DB63A /* UnifiedSource11-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85611FA1ABD3006DB63A /* UnifiedSource11-mm.mm */; };
-		DE5F85741FA1ABF3006DB63A /* UnifiedSource12-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85641FA1ABD5006DB63A /* UnifiedSource12-mm.mm */; };
-		DE5F85751FA1ABF3006DB63A /* UnifiedSource13-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-mm.mm */; };
-		DE5F85761FA1ABF3006DB63A /* UnifiedSource14-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-mm.mm */; };
-		DE5F85771FA1ABF3006DB63A /* UnifiedSource15-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-mm.mm */; };
-		DE5F85781FA1ABF3006DB63A /* UnifiedSource16-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-mm.mm */; };
-		DE5F85791FA1ABF4006DB63A /* UnifiedSource17-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-mm.mm */; };
-		DE5F857A1FA1ABF4006DB63A /* UnifiedSource18-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85501FA1ABC3006DB63A /* UnifiedSource18-mm.mm */; };
-		DE5F857B1FA1ABF4006DB63A /* UnifiedSource19-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85531FA1ABC6006DB63A /* UnifiedSource19-mm.mm */; };
-		DE5F857C1FA1ABF4006DB63A /* UnifiedSource20-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85521FA1ABC5006DB63A /* UnifiedSource20-mm.mm */; };
-		DE5F857D1FA1ABF4006DB63A /* UnifiedSource21-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-mm.mm */; };
-		DE5F857E1FA1ABF4006DB63A /* UnifiedSource22-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-mm.mm */; };
-		DE5F857F1FA1ABF4006DB63A /* UnifiedSource23-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85411FA1ABB6006DB63A /* UnifiedSource23-mm.mm */; };
-		DE5F85801FA1ABF4006DB63A /* UnifiedSource24-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85461FA1ABBB006DB63A /* UnifiedSource24-mm.mm */; };
-		DE5F85811FA1ABF4006DB63A /* UnifiedSource25-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85471FA1ABBB006DB63A /* UnifiedSource25-mm.mm */; };
-		DE5F85821FA1ABF4006DB63A /* UnifiedSource26-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-mm.mm */; };
-		DE5F85831FA1ABF4006DB63A /* UnifiedSource27-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85691FA1ABDA006DB63A /* UnifiedSource27-mm.mm */; };
-		DE5F85841FA1ABF4006DB63A /* UnifiedSource28-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-mm.mm */; };
-		DE5F85851FA1ABF4006DB63A /* UnifiedSource29-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85681FA1ABD9006DB63A /* UnifiedSource29-mm.mm */; };
-		DE5F85861FA1ABF4006DB63A /* UnifiedSource30-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85421FA1ABB7006DB63A /* UnifiedSource30-mm.mm */; };
-		DE5F85871FA1ABF4006DB63A /* UnifiedSource31-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85511FA1ABC4006DB63A /* UnifiedSource31-mm.mm */; };
-		DE5F85881FA1ABF4006DB63A /* UnifiedSource32-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85601FA1ABD2006DB63A /* UnifiedSource32-mm.mm */; };
-		DE5F85891FA1ABF4006DB63A /* UnifiedSource33-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-mm.mm */; };
-		DE5F858A1FA1ABF4006DB63A /* UnifiedSource34-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85571FA1ABCA006DB63A /* UnifiedSource34-mm.mm */; };
-		DE5F858B1FA1ABF4006DB63A /* UnifiedSource35-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85401FA1ABB5006DB63A /* UnifiedSource35-mm.mm */; };
-		DE5F858C1FA1ABF4006DB63A /* UnifiedSource36-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85551FA1ABC8006DB63A /* UnifiedSource36-mm.mm */; };
-		DE5F858D1FA1ABF4006DB63A /* UnifiedSource37-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85451FA1ABBA006DB63A /* UnifiedSource37-mm.mm */; };
-		DE5F858E1FA1ABF4006DB63A /* UnifiedSource38-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-mm.mm */; };
-		DE5F858F1FA1ABF4006DB63A /* UnifiedSource39-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85591FA1ABCC006DB63A /* UnifiedSource39-mm.mm */; };
-		DE5F85901FA1ABF4006DB63A /* UnifiedSource40-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85561FA1ABC9006DB63A /* UnifiedSource40-mm.mm */; };
-		DE5F85911FA1ABF4006DB63A /* UnifiedSource41-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85661FA1ABD7006DB63A /* UnifiedSource41-mm.mm */; };
-		DE5F85921FA1ABF4006DB63A /* UnifiedSource42-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-mm.mm */; };
-		DE5F85931FA1ABF4006DB63A /* UnifiedSource43-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85481FA1ABBC006DB63A /* UnifiedSource43-mm.mm */; };
-		DE5F85941FA1ABF4006DB63A /* UnifiedSource44-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85431FA1ABB8006DB63A /* UnifiedSource44-mm.mm */; };
-		DE5F85951FA1ABF4006DB63A /* UnifiedSource45-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85581FA1ABCB006DB63A /* UnifiedSource45-mm.mm */; };
-		DE5F85961FA1ABF4006DB63A /* UnifiedSource46-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85441FA1ABB9006DB63A /* UnifiedSource46-mm.mm */; };
-		DE5F85971FA1ABF4006DB63A /* UnifiedSource47-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85621FA1ABD4006DB63A /* UnifiedSource47-mm.mm */; };
-		DE5F85981FA1ABF4006DB63A /* UnifiedSource48-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85671FA1ABD8006DB63A /* UnifiedSource48-mm.mm */; };
-		DE5F85991FA1ABF4006DB63A /* UnifiedSource49-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-mm.mm */; };
-		DE5F859A1FA1ABF4006DB63A /* UnifiedSource50-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-mm.mm */; };
+		DE5F856C1FA1ABF3006DB63A /* UnifiedSource4-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85491FA1ABBD006DB63A /* UnifiedSource4-nonARC.mm */; };
+		DE5F856D1FA1ABF3006DB63A /* UnifiedSource5-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85651FA1ABD6006DB63A /* UnifiedSource5-nonARC.mm */; };
+		DE5F856E1FA1ABF3006DB63A /* UnifiedSource6-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-nonARC.mm */; };
+		DE5F856F1FA1ABF3006DB63A /* UnifiedSource7-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-nonARC.mm */; };
+		DE5F85701FA1ABF3006DB63A /* UnifiedSource8-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-nonARC.mm */; };
+		DE5F85711FA1ABF3006DB63A /* UnifiedSource9-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85541FA1ABC7006DB63A /* UnifiedSource9-nonARC.mm */; };
+		DE5F85721FA1ABF3006DB63A /* UnifiedSource10-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85631FA1ABD5006DB63A /* UnifiedSource10-nonARC.mm */; };
+		DE5F85731FA1ABF3006DB63A /* UnifiedSource11-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85611FA1ABD3006DB63A /* UnifiedSource11-nonARC.mm */; };
+		DE5F85741FA1ABF3006DB63A /* UnifiedSource12-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85641FA1ABD5006DB63A /* UnifiedSource12-nonARC.mm */; };
+		DE5F85751FA1ABF3006DB63A /* UnifiedSource13-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-nonARC.mm */; };
+		DE5F85761FA1ABF3006DB63A /* UnifiedSource14-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-nonARC.mm */; };
+		DE5F85771FA1ABF3006DB63A /* UnifiedSource15-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-nonARC.mm */; };
+		DE5F85781FA1ABF3006DB63A /* UnifiedSource16-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-nonARC.mm */; };
+		DE5F85791FA1ABF4006DB63A /* UnifiedSource17-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-nonARC.mm */; };
+		DE5F857A1FA1ABF4006DB63A /* UnifiedSource18-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85501FA1ABC3006DB63A /* UnifiedSource18-nonARC.mm */; };
+		DE5F857B1FA1ABF4006DB63A /* UnifiedSource19-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85531FA1ABC6006DB63A /* UnifiedSource19-nonARC.mm */; };
+		DE5F857C1FA1ABF4006DB63A /* UnifiedSource20-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85521FA1ABC5006DB63A /* UnifiedSource20-nonARC.mm */; };
+		DE5F857D1FA1ABF4006DB63A /* UnifiedSource21-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-nonARC.mm */; };
+		DE5F857E1FA1ABF4006DB63A /* UnifiedSource22-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-nonARC.mm */; };
+		DE5F857F1FA1ABF4006DB63A /* UnifiedSource23-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85411FA1ABB6006DB63A /* UnifiedSource23-nonARC.mm */; };
+		DE5F85801FA1ABF4006DB63A /* UnifiedSource24-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85461FA1ABBB006DB63A /* UnifiedSource24-nonARC.mm */; };
+		DE5F85811FA1ABF4006DB63A /* UnifiedSource25-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85471FA1ABBB006DB63A /* UnifiedSource25-nonARC.mm */; };
+		DE5F85821FA1ABF4006DB63A /* UnifiedSource26-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-nonARC.mm */; };
+		DE5F85831FA1ABF4006DB63A /* UnifiedSource27-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85691FA1ABDA006DB63A /* UnifiedSource27-nonARC.mm */; };
+		DE5F85841FA1ABF4006DB63A /* UnifiedSource28-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-nonARC.mm */; };
+		DE5F85851FA1ABF4006DB63A /* UnifiedSource29-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85681FA1ABD9006DB63A /* UnifiedSource29-nonARC.mm */; };
+		DE5F85861FA1ABF4006DB63A /* UnifiedSource30-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85421FA1ABB7006DB63A /* UnifiedSource30-nonARC.mm */; };
+		DE5F85871FA1ABF4006DB63A /* UnifiedSource31-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85511FA1ABC4006DB63A /* UnifiedSource31-nonARC.mm */; };
+		DE5F85881FA1ABF4006DB63A /* UnifiedSource32-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85601FA1ABD2006DB63A /* UnifiedSource32-nonARC.mm */; };
+		DE5F85891FA1ABF4006DB63A /* UnifiedSource33-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-nonARC.mm */; };
+		DE5F858A1FA1ABF4006DB63A /* UnifiedSource34-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85571FA1ABCA006DB63A /* UnifiedSource34-nonARC.mm */; };
+		DE5F858B1FA1ABF4006DB63A /* UnifiedSource35-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85401FA1ABB5006DB63A /* UnifiedSource35-nonARC.mm */; };
+		DE5F858C1FA1ABF4006DB63A /* UnifiedSource36-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85551FA1ABC8006DB63A /* UnifiedSource36-nonARC.mm */; };
+		DE5F858D1FA1ABF4006DB63A /* UnifiedSource37-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85451FA1ABBA006DB63A /* UnifiedSource37-nonARC.mm */; };
+		DE5F858E1FA1ABF4006DB63A /* UnifiedSource38-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-nonARC.mm */; };
+		DE5F858F1FA1ABF4006DB63A /* UnifiedSource39-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85591FA1ABCC006DB63A /* UnifiedSource39-nonARC.mm */; };
+		DE5F85901FA1ABF4006DB63A /* UnifiedSource40-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85561FA1ABC9006DB63A /* UnifiedSource40-nonARC.mm */; };
+		DE5F85911FA1ABF4006DB63A /* UnifiedSource41-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85661FA1ABD7006DB63A /* UnifiedSource41-nonARC.mm */; };
+		DE5F85921FA1ABF4006DB63A /* UnifiedSource42-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-nonARC.mm */; };
+		DE5F85931FA1ABF4006DB63A /* UnifiedSource43-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85481FA1ABBC006DB63A /* UnifiedSource43-nonARC.mm */; };
+		DE5F85941FA1ABF4006DB63A /* UnifiedSource44-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85431FA1ABB8006DB63A /* UnifiedSource44-nonARC.mm */; };
+		DE5F85951FA1ABF4006DB63A /* UnifiedSource45-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85581FA1ABCB006DB63A /* UnifiedSource45-nonARC.mm */; };
+		DE5F85961FA1ABF4006DB63A /* UnifiedSource46-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85441FA1ABB9006DB63A /* UnifiedSource46-nonARC.mm */; };
+		DE5F85971FA1ABF4006DB63A /* UnifiedSource47-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85621FA1ABD4006DB63A /* UnifiedSource47-nonARC.mm */; };
+		DE5F85981FA1ABF4006DB63A /* UnifiedSource48-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85671FA1ABD8006DB63A /* UnifiedSource48-nonARC.mm */; };
+		DE5F85991FA1ABF4006DB63A /* UnifiedSource49-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-nonARC.mm */; };
+		DE5F859A1FA1ABF4006DB63A /* UnifiedSource50-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-nonARC.mm */; };
 		DE5F85F21FA2386A006DB63A /* UnifiedSource451.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85BB1FA23839006DB63A /* UnifiedSource451.cpp */; };
 		DE5F85F31FA2386A006DB63A /* UnifiedSource452.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85C21FA2383F006DB63A /* UnifiedSource452.cpp */; };
 		DE5F85F41FA2386A006DB63A /* UnifiedSource453.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DE5F85BD1FA2383A006DB63A /* UnifiedSource453.cpp */; };
@@ -6109,17 +6128,17 @@
 		DE5F86121FA239E7006DB63A /* JSGCObservation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 51714EAE1CF6654A004723C4 /* JSGCObservation.cpp */; };
 		DE5F861D1FA2815B006DB63A /* WebAccessibilityObjectWrapperMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA478A7E16CD70C3007D1BB4 /* WebAccessibilityObjectWrapperMac.mm */; };
 		DE5F861E1FA281FD006DB63A /* WebAccessibilityObjectWrapperBase.mm in Sources */ = {isa = PBXBuildFile; fileRef = 29A812460FBB9CA900510293 /* WebAccessibilityObjectWrapperBase.mm */; };
-		DE5F86501FA2AF24006DB63A /* UnifiedSource51-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86361FA2AF04006DB63A /* UnifiedSource51-mm.mm */; };
-		DE5F86511FA2AF24006DB63A /* UnifiedSource52-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86371FA2AF05006DB63A /* UnifiedSource52-mm.mm */; };
-		DE5F86521FA2AF24006DB63A /* UnifiedSource53-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86351FA2AF03006DB63A /* UnifiedSource53-mm.mm */; };
-		DE5F86531FA2AF24006DB63A /* UnifiedSource54-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86331FA2AF00006DB63A /* UnifiedSource54-mm.mm */; };
-		DE5F86541FA2AF24006DB63A /* UnifiedSource55-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863B1FA2AF08006DB63A /* UnifiedSource55-mm.mm */; };
-		DE5F86551FA2AF24006DB63A /* UnifiedSource56-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86341FA2AF01006DB63A /* UnifiedSource56-mm.mm */; };
-		DE5F86561FA2AF24006DB63A /* UnifiedSource57-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86381FA2AF06006DB63A /* UnifiedSource57-mm.mm */; };
-		DE5F86571FA2AF24006DB63A /* UnifiedSource58-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86391FA2AF07006DB63A /* UnifiedSource58-mm.mm */; };
-		DE5F86581FA2AF24006DB63A /* UnifiedSource59-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86321FA2AEFF006DB63A /* UnifiedSource59-mm.mm */; };
-		DE5F86591FA2AF24006DB63A /* UnifiedSource60-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863A1FA2AF07006DB63A /* UnifiedSource60-mm.mm */; };
-		DE5F86591FA2AF24006DB63B /* UnifiedSource61-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863A1FA2AF07006DB63B /* UnifiedSource61-mm.mm */; };
+		DE5F86501FA2AF24006DB63A /* UnifiedSource51-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86361FA2AF04006DB63A /* UnifiedSource51-nonARC.mm */; };
+		DE5F86511FA2AF24006DB63A /* UnifiedSource52-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86371FA2AF05006DB63A /* UnifiedSource52-nonARC.mm */; };
+		DE5F86521FA2AF24006DB63A /* UnifiedSource53-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86351FA2AF03006DB63A /* UnifiedSource53-nonARC.mm */; };
+		DE5F86531FA2AF24006DB63A /* UnifiedSource54-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86331FA2AF00006DB63A /* UnifiedSource54-nonARC.mm */; };
+		DE5F86541FA2AF24006DB63A /* UnifiedSource55-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863B1FA2AF08006DB63A /* UnifiedSource55-nonARC.mm */; };
+		DE5F86551FA2AF24006DB63A /* UnifiedSource56-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86341FA2AF01006DB63A /* UnifiedSource56-nonARC.mm */; };
+		DE5F86561FA2AF24006DB63A /* UnifiedSource57-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86381FA2AF06006DB63A /* UnifiedSource57-nonARC.mm */; };
+		DE5F86571FA2AF24006DB63A /* UnifiedSource58-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86391FA2AF07006DB63A /* UnifiedSource58-nonARC.mm */; };
+		DE5F86581FA2AF24006DB63A /* UnifiedSource59-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F86321FA2AEFF006DB63A /* UnifiedSource59-nonARC.mm */; };
+		DE5F86591FA2AF24006DB63A /* UnifiedSource60-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863A1FA2AF07006DB63A /* UnifiedSource60-nonARC.mm */; };
+		DE5F86591FA2AF24006DB63B /* UnifiedSource61-nonARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = DE5F863A1FA2AF07006DB63B /* UnifiedSource61-nonARC.mm */; };
 		DE7710861FA2F0D600460016 /* WebArchiveDumpSupport.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1763F3C1E205234001D58DE /* WebArchiveDumpSupport.mm */; };
 		DEC0E3172C2A6ADF00DC5FBD /* AnchorPositionEvaluator.h in Headers */ = {isa = PBXBuildFile; fileRef = DEC0E3162C2A6ADF00DC5FBD /* AnchorPositionEvaluator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DECA7D931F9E67B500E3B661 /* UnifiedSource131.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DECA7D6D1F9E61CF00E3B661 /* UnifiedSource131.cpp */; };
@@ -7639,6 +7658,15 @@
 		0C45342510CDBBFA00869157 /* JSWebGLUniformLocation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebGLUniformLocation.cpp; sourceTree = "<group>"; };
 		0C45342610CDBBFA00869157 /* JSWebGLUniformLocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSWebGLUniformLocation.h; sourceTree = "<group>"; };
 		0D0631632C54C09200ED051D /* XRCompositionLayer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = XRCompositionLayer.cpp; sourceTree = "<group>"; };
+		0D078EA82E73875900A9B266 /* DDMeshImpl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDMeshImpl.h; sourceTree = "<group>"; };
+		0D078EA92E73875900A9B266 /* DDMeshImpl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DDMeshImpl.cpp; sourceTree = "<group>"; };
+		0D078EAB2E73875900A9B266 /* DDMesh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDMesh.h; sourceTree = "<group>"; };
+		0D078EAC2E73875900A9B266 /* DDMeshDescriptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDMeshDescriptor.h; sourceTree = "<group>"; };
+		0D078EAD2E73875900A9B266 /* DDMeshPart.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDMeshPart.h; sourceTree = "<group>"; };
+		0D078EAE2E73875900A9B266 /* DDReplaceVertices.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDReplaceVertices.h; sourceTree = "<group>"; };
+		0D078EAF2E73875900A9B266 /* DDUpdateMeshDescriptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDUpdateMeshDescriptor.h; sourceTree = "<group>"; };
+		0D078EB02E73875900A9B266 /* DDVertexAttributeFormat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDVertexAttributeFormat.h; sourceTree = "<group>"; };
+		0D078EB12E73875900A9B266 /* DDVertexLayout.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDVertexLayout.h; sourceTree = "<group>"; };
 		0D2F291B2BC84EA100872B23 /* GPUQueueDescriptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GPUQueueDescriptor.h; sourceTree = "<group>"; };
 		0D2F291C2BC84EA100872B23 /* GPUQueueDescriptor.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = GPUQueueDescriptor.idl; sourceTree = "<group>"; };
 		0D431A7C2B5A397C00864655 /* DigitalCredential.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredential.h; sourceTree = "<group>"; };
@@ -7684,9 +7712,17 @@
 		0D943C032C6555AC00D33BA5 /* WebGPUXRSubImageImpl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebGPUXRSubImageImpl.cpp; sourceTree = "<group>"; };
 		0D943C042C6555CF00D33BA5 /* WebGPUXRSubImage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebGPUXRSubImage.h; sourceTree = "<group>"; };
 		0D943C0B2C6559DE00D33BA5 /* WebGPUXREye.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebGPUXREye.h; sourceTree = "<group>"; };
+		0D9649032E73BE32000F9CDA /* UsdModelLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsdModelLoader.swift; sourceTree = "<group>"; };
+		0D9649062E73D332000F9CDA /* ModelObjectDescriptorBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelObjectDescriptorBase.h; sourceTree = "<group>"; };
+		0D9649142E7487A0000F9CDA /* ModelDowncastConvertToBackingContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelDowncastConvertToBackingContext.h; sourceTree = "<group>"; };
+		0D9649152E7487A0000F9CDA /* ModelDowncastConvertToBackingContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ModelDowncastConvertToBackingContext.cpp; sourceTree = "<group>"; };
+		0D9649162E7488A8000F9CDA /* ModelConvertToBackingContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelConvertToBackingContext.h; sourceTree = "<group>"; };
+		0D9649172E7488A8000F9CDA /* ModelConvertToBackingContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ModelConvertToBackingContext.cpp; sourceTree = "<group>"; };
 		0DA55D9528E678F6004A6758 /* UserActivation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UserActivation.cpp; sourceTree = "<group>"; };
 		0DA55D9628E678F6004A6758 /* UserActivation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UserActivation.h; sourceTree = "<group>"; };
 		0DA55D9928E6797E004A6758 /* Navigator+UserActivation.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Navigator+UserActivation.idl"; sourceTree = "<group>"; };
+		0DACD8582E79D8C100CDA0DC /* DDModel.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = DDModel.serialization.in; sourceTree = "<group>"; };
+		0DACD85C2E7A2A7700CDA0DC /* ModelDDInlineConverters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelDDInlineConverters.h; sourceTree = "<group>"; };
 		0DC19CD22C543A6600104CAB /* WebXRRenderState+Layers.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "WebXRRenderState+Layers.idl"; sourceTree = "<group>"; };
 		0DC19CD32C543A6600104CAB /* XRCompositionLayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRCompositionLayer.h; sourceTree = "<group>"; };
 		0DC19CD42C543A6600104CAB /* XRCompositionLayer.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = XRCompositionLayer.idl; sourceTree = "<group>"; };
@@ -7734,6 +7770,11 @@
 		0DD1F6EE291433EA00B79355 /* GPUCanvasContext.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = GPUCanvasContext.idl; sourceTree = "<group>"; };
 		0DD1F6EF291433EA00B79355 /* GPUCanvasContext.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GPUCanvasContext.cpp; sourceTree = "<group>"; };
 		0DD1F6F0291433EB00B79355 /* GPUCanvasContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GPUCanvasContext.h; sourceTree = "<group>"; };
+		0DD1FE962E78BEAB009DFD33 /* ModelDDTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelDDTypes.h; sourceTree = "<group>"; };
+		0DD1FE982E78C00B009DFD33 /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		0DD1FE992E78C00B009DFD33 /* WebCoreInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebCoreInternal.h; sourceTree = "<group>"; };
+		0DD1FEA02E79C6EA009DFD33 /* DDFloat4x4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDFloat4x4.h; sourceTree = "<group>"; };
+		0DD1FEA42E79D3AC009DFD33 /* DDFloat3.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DDFloat3.h; sourceTree = "<group>"; };
 		0DE11A782C8AB2840003F6EE /* DigitalCredentialsResponseData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredentialsResponseData.h; sourceTree = "<group>"; };
 		0DF687F52C8840D100C16DC9 /* DigitalCredentialsRequestData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredentialsRequestData.h; sourceTree = "<group>"; };
 		0DFB86632B16CC1E009A0A0D /* JSCredentialMediationRequirement.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSCredentialMediationRequirement.cpp; sourceTree = "<group>"; };
@@ -10906,6 +10947,8 @@
 		41E616DA2E82AC0F00662181 /* ReadableByteStreamController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ReadableByteStreamController.cpp; sourceTree = "<group>"; };
 		41E616DB2E82ACB900662181 /* ReadableStreamBYOBRequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReadableStreamBYOBRequest.h; sourceTree = "<group>"; };
 		41E616DC2E82ACB900662181 /* ReadableStreamBYOBRequest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ReadableStreamBYOBRequest.cpp; sourceTree = "<group>"; };
+		41E616F22E84228B00662181 /* InternalWritableStreamWriter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = InternalWritableStreamWriter.h; sourceTree = "<group>"; };
+		41E616F32E84228B00662181 /* InternalWritableStreamWriter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = InternalWritableStreamWriter.cpp; sourceTree = "<group>"; };
 		41E67A7F25D16846007B0A4C /* STUNMessageParsing.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = STUNMessageParsing.cpp; sourceTree = "<group>"; };
 		41E67A8125D16847007B0A4C /* STUNMessageParsing.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = STUNMessageParsing.h; sourceTree = "<group>"; };
 		41E6D72126EAA04500B765D6 /* WritableStream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WritableStream.h; sourceTree = "<group>"; };
@@ -11468,6 +11511,8 @@
 		46EFAF0D1E5FB9C200E7F34B /* LowPowerModeNotifier.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = LowPowerModeNotifier.mm; sourceTree = "<group>"; };
 		46EFAF0F1E5FB9E100E7F34B /* LowPowerModeNotifier.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LowPowerModeNotifier.cpp; sourceTree = "<group>"; };
 		46EFAF101E5FB9E100E7F34B /* LowPowerModeNotifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LowPowerModeNotifier.h; sourceTree = "<group>"; };
+		46F674212E865ABB00A1C067 /* WebCoreMainThread.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebCoreMainThread.h; sourceTree = "<group>"; };
+		46F674222E865ABB00A1C067 /* WebCoreMainThread.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebCoreMainThread.cpp; sourceTree = "<group>"; };
 		46F91BC91FCDD0FE001599C3 /* JSWorkerNavigatorCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSWorkerNavigatorCustom.cpp; sourceTree = "<group>"; };
 		46FC422829084F4400773DD5 /* MainThreadStylePropertyMapReadOnly.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MainThreadStylePropertyMapReadOnly.cpp; sourceTree = "<group>"; };
 		46FC422929084F4400773DD5 /* MainThreadStylePropertyMapReadOnly.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MainThreadStylePropertyMapReadOnly.h; sourceTree = "<group>"; };
@@ -12373,18 +12418,18 @@
 		536D5A1F193E18E900CE4CAB /* HTMLSrcsetParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HTMLSrcsetParser.h; sourceTree = "<group>"; };
 		538EC7EB1F96AA53004D22A8 /* UnifiedSource6.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource6.cpp; sourceTree = "<group>"; };
 		538EC7EC1F96AA54004D22A8 /* UnifiedSource3.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource3.cpp; sourceTree = "<group>"; };
-		538EC7ED1F96AA55004D22A8 /* UnifiedSource3-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource3-mm.mm"; sourceTree = "<group>"; };
+		538EC7ED1F96AA55004D22A8 /* UnifiedSource3-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource3-nonARC.mm"; sourceTree = "<group>"; };
 		538EC7EE1F96AA56004D22A8 /* UnifiedSource2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource2.cpp; sourceTree = "<group>"; };
 		538EC7EF1F96AA57004D22A8 /* UnifiedSource4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource4.cpp; sourceTree = "<group>"; };
 		538EC7F01F96AA58004D22A8 /* UnifiedSource5.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource5.cpp; sourceTree = "<group>"; };
 		538EC7F11F96AA59004D22A8 /* UnifiedSource7.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource7.cpp; sourceTree = "<group>"; };
 		538EC7F21F96AA5A004D22A8 /* UnifiedSource8.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource8.cpp; sourceTree = "<group>"; };
-		538EC7F31F96AA5B004D22A8 /* UnifiedSource1-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource1-mm.mm"; sourceTree = "<group>"; };
+		538EC7F31F96AA5B004D22A8 /* UnifiedSource1-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource1-nonARC.mm"; sourceTree = "<group>"; };
 		538EC7F41F96AA5D004D22A8 /* UnifiedSource11.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource11.cpp; sourceTree = "<group>"; };
 		538EC7F51F96AA5E004D22A8 /* UnifiedSource10.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource10.cpp; sourceTree = "<group>"; };
 		538EC7F61F96AA5F004D22A8 /* UnifiedSource12.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource12.cpp; sourceTree = "<group>"; };
 		538EC7F71F96AA60004D22A8 /* UnifiedSource16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource16.cpp; sourceTree = "<group>"; };
-		538EC7F81F96AA69004D22A8 /* UnifiedSource2-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource2-mm.mm"; sourceTree = "<group>"; };
+		538EC7F81F96AA69004D22A8 /* UnifiedSource2-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource2-nonARC.mm"; sourceTree = "<group>"; };
 		538EC7F91F96AA6E004D22A8 /* UnifiedSource19.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource19.cpp; sourceTree = "<group>"; };
 		538EC7FA1F96AA70004D22A8 /* UnifiedSource1.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource1.cpp; sourceTree = "<group>"; };
 		538EC7FB1F96AA72004D22A8 /* UnifiedSource18.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource18.cpp; sourceTree = "<group>"; };
@@ -18230,6 +18275,9 @@
 		BC06F24C06D18A7E004A6FA3 /* XSLTProcessor.h */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = XSLTProcessor.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		BC06F24D06D18A7E004A6FA3 /* XSLTProcessorLibxslt.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = XSLTProcessorLibxslt.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		BC073BA90C399B1F000F5979 /* FloatConversion.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FloatConversion.h; sourceTree = "<group>"; };
+		BC08A72C2E8864D6005C4CD1 /* InspectorCanvasArguments.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = InspectorCanvasArguments.h; sourceTree = "<group>"; };
+		BC08A72D2E888B5E005C4CD1 /* InspectorCanvasProcessedArguments.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = InspectorCanvasProcessedArguments.h; sourceTree = "<group>"; };
+		BC08A72E2E889885005C4CD1 /* InspectorCanvasArguments.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = InspectorCanvasArguments.cpp; sourceTree = "<group>"; };
 		BC09297E2E29CE29002ACB2C /* StyleTextSizeAdjust.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleTextSizeAdjust.cpp; sourceTree = "<group>"; };
 		BC09297F2E29CE29002ACB2C /* StyleTextSizeAdjust.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleTextSizeAdjust.h; sourceTree = "<group>"; };
 		BC0929A82E2AA1D6002ACB2C /* StyleScrollBehavior.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleScrollBehavior.h; sourceTree = "<group>"; };
@@ -18252,6 +18300,8 @@
 		BC092AF82E33DBDF002ACB2C /* StyleStrokeWidth.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleStrokeWidth.cpp; sourceTree = "<group>"; };
 		BC092AFB2E33E2E9002ACB2C /* StyleLineWidth.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleLineWidth.h; sourceTree = "<group>"; };
 		BC092AFC2E33E2E9002ACB2C /* StyleLineWidth.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleLineWidth.cpp; sourceTree = "<group>"; };
+		BC0A30952E875222007B809D /* StyleFontWidth.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleFontWidth.h; sourceTree = "<group>"; };
+		BC0A30962E875222007B809D /* StyleFontWidth.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleFontWidth.cpp; sourceTree = "<group>"; };
 		BC0CA74C264AED0A004FDC62 /* PixelBufferConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PixelBufferConversion.h; sourceTree = "<group>"; };
 		BC0CA74D264AED0A004FDC62 /* PixelBufferConversion.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PixelBufferConversion.cpp; sourceTree = "<group>"; };
 		BC10137B25C3624B00DC773C /* ColorModels.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ColorModels.h; sourceTree = "<group>"; };
@@ -18265,6 +18315,10 @@
 		BC10DA8F2E80DA5E000EE742 /* StyleTextEdge+CSSValueConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StyleTextEdge+CSSValueConversion.h"; sourceTree = "<group>"; };
 		BC10DA902E80DB7C000EE742 /* StyleTextBoxEdge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleTextBoxEdge.h; sourceTree = "<group>"; };
 		BC10DAAF2E81FCE9000EE742 /* StyleSVGMarkerResource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleSVGMarkerResource.h; sourceTree = "<group>"; };
+		BC10DA982E81B57D000EE742 /* StyleLetterSpacing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleLetterSpacing.h; sourceTree = "<group>"; };
+		BC10DA992E81B57D000EE742 /* StyleWordSpacing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleWordSpacing.h; sourceTree = "<group>"; };
+		BC10DA9A2E81B64E000EE742 /* StyleLetterSpacing.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleLetterSpacing.cpp; sourceTree = "<group>"; };
+		BC10DA9B2E81B64E000EE742 /* StyleWordSpacing.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleWordSpacing.cpp; sourceTree = "<group>"; };
 		BC124EE40C2641CD009E2349 /* BarProp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BarProp.cpp; sourceTree = "<group>"; };
 		BC124EE50C2641CD009E2349 /* BarProp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BarProp.h; sourceTree = "<group>"; };
 		BC124EE60C2641CD009E2349 /* BarProp.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = BarProp.idl; sourceTree = "<group>"; };
@@ -19356,8 +19410,8 @@
 		BCEA477D097CAAC80094C9E4 /* CSSComputedStyleDeclaration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSSComputedStyleDeclaration.h; sourceTree = "<group>"; };
 		BCEA478C097CAAC80094C9E4 /* CSSValueKeywords.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CSSValueKeywords.in; sourceTree = "<group>"; };
 		BCEA4813097D93020094C9E4 /* LegacyLineLayout.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = LegacyLineLayout.cpp; sourceTree = "<group>"; };
-		BCEA4815097D93020094C9E4 /* BreakLines.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BreakLines.cpp; sourceTree = "<group>"; };
-		BCEA4816097D93020094C9E4 /* BreakLines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BreakLines.h; sourceTree = "<group>"; };
+		BCEA4815097D93020094C9E4 /* BreakablePositions.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BreakablePositions.cpp; sourceTree = "<group>"; };
+		BCEA4816097D93020094C9E4 /* BreakablePositions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BreakablePositions.h; sourceTree = "<group>"; };
 		BCEA481A097D93020094C9E4 /* LegacyInlineTextBox.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = LegacyInlineTextBox.cpp; sourceTree = "<group>"; };
 		BCEA481B097D93020094C9E4 /* LegacyInlineTextBox.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = LegacyInlineTextBox.h; sourceTree = "<group>"; };
 		BCEA4820097D93020094C9E4 /* RenderBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RenderBlock.cpp; sourceTree = "<group>"; };
@@ -19675,7 +19729,7 @@
 		CD1795E62B0DA16C00D8BC6B /* VideoTrackConfiguration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VideoTrackConfiguration.cpp; sourceTree = "<group>"; };
 		CD1795E72B0DA26D00D8BC6B /* VideoColorSpace.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VideoColorSpace.cpp; sourceTree = "<group>"; };
 		CD1795E92B0DA84500D8BC6B /* AudioTrackConfiguration.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AudioTrackConfiguration.cpp; sourceTree = "<group>"; };
-		CD17A459213740160079EC7B /* UnifiedSource62-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource62-mm.mm"; sourceTree = "<group>"; };
+		CD17A459213740160079EC7B /* UnifiedSource62-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource62-nonARC.mm"; sourceTree = "<group>"; };
 		CD19A2671A13E700008D650E /* DiagnosticLoggingClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DiagnosticLoggingClient.h; sourceTree = "<group>"; };
 		CD19FEA61F573972000C42FB /* ImageDecoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageDecoder.h; sourceTree = "<group>"; };
 		CD19FEA71F573972000C42FB /* ImageDecoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageDecoder.cpp; sourceTree = "<group>"; };
@@ -20602,53 +20656,53 @@
 		DE5F84CF1FA1A4AB006DB63A /* UnifiedSource439.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource439.cpp; sourceTree = "<group>"; };
 		DE5F84CF1FA1A4AB006DB63B /* UnifiedSource489.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource489.cpp; sourceTree = "<group>"; };
 		DE5F84D01FA1A4AC006DB63A /* UnifiedSource401.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource401.cpp; sourceTree = "<group>"; };
-		DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource8-mm.mm"; sourceTree = "<group>"; };
-		DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource15-mm.mm"; sourceTree = "<group>"; };
-		DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource28-mm.mm"; sourceTree = "<group>"; };
-		DE5F85401FA1ABB5006DB63A /* UnifiedSource35-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource35-mm.mm"; sourceTree = "<group>"; };
-		DE5F85411FA1ABB6006DB63A /* UnifiedSource23-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource23-mm.mm"; sourceTree = "<group>"; };
-		DE5F85421FA1ABB7006DB63A /* UnifiedSource30-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource30-mm.mm"; sourceTree = "<group>"; };
-		DE5F85431FA1ABB8006DB63A /* UnifiedSource44-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource44-mm.mm"; sourceTree = "<group>"; };
-		DE5F85441FA1ABB9006DB63A /* UnifiedSource46-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource46-mm.mm"; sourceTree = "<group>"; };
-		DE5F85451FA1ABBA006DB63A /* UnifiedSource37-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource37-mm.mm"; sourceTree = "<group>"; };
-		DE5F85461FA1ABBB006DB63A /* UnifiedSource24-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource24-mm.mm"; sourceTree = "<group>"; };
-		DE5F85471FA1ABBB006DB63A /* UnifiedSource25-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource25-mm.mm"; sourceTree = "<group>"; };
-		DE5F85481FA1ABBC006DB63A /* UnifiedSource43-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource43-mm.mm"; sourceTree = "<group>"; };
-		DE5F85491FA1ABBD006DB63A /* UnifiedSource4-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource4-mm.mm"; sourceTree = "<group>"; };
-		DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource17-mm.mm"; sourceTree = "<group>"; };
-		DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource49-mm.mm"; sourceTree = "<group>"; };
-		DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource50-mm.mm"; sourceTree = "<group>"; };
-		DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource22-mm.mm"; sourceTree = "<group>"; };
-		DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource14-mm.mm"; sourceTree = "<group>"; };
-		DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource42-mm.mm"; sourceTree = "<group>"; };
-		DE5F85501FA1ABC3006DB63A /* UnifiedSource18-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource18-mm.mm"; sourceTree = "<group>"; };
-		DE5F85511FA1ABC4006DB63A /* UnifiedSource31-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource31-mm.mm"; sourceTree = "<group>"; };
-		DE5F85521FA1ABC5006DB63A /* UnifiedSource20-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource20-mm.mm"; sourceTree = "<group>"; };
-		DE5F85531FA1ABC6006DB63A /* UnifiedSource19-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource19-mm.mm"; sourceTree = "<group>"; };
-		DE5F85541FA1ABC7006DB63A /* UnifiedSource9-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource9-mm.mm"; sourceTree = "<group>"; };
-		DE5F85551FA1ABC8006DB63A /* UnifiedSource36-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource36-mm.mm"; sourceTree = "<group>"; };
-		DE5F85561FA1ABC9006DB63A /* UnifiedSource40-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource40-mm.mm"; sourceTree = "<group>"; };
-		DE5F85571FA1ABCA006DB63A /* UnifiedSource34-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource34-mm.mm"; sourceTree = "<group>"; };
-		DE5F85581FA1ABCB006DB63A /* UnifiedSource45-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource45-mm.mm"; sourceTree = "<group>"; };
-		DE5F85591FA1ABCC006DB63A /* UnifiedSource39-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource39-mm.mm"; sourceTree = "<group>"; };
-		DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource21-mm.mm"; sourceTree = "<group>"; };
-		DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource33-mm.mm"; sourceTree = "<group>"; };
-		DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource38-mm.mm"; sourceTree = "<group>"; };
-		DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource26-mm.mm"; sourceTree = "<group>"; };
-		DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource16-mm.mm"; sourceTree = "<group>"; };
-		DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource7-mm.mm"; sourceTree = "<group>"; };
-		DE5F85601FA1ABD2006DB63A /* UnifiedSource32-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource32-mm.mm"; sourceTree = "<group>"; };
-		DE5F85611FA1ABD3006DB63A /* UnifiedSource11-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource11-mm.mm"; sourceTree = "<group>"; };
-		DE5F85621FA1ABD4006DB63A /* UnifiedSource47-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource47-mm.mm"; sourceTree = "<group>"; };
-		DE5F85631FA1ABD5006DB63A /* UnifiedSource10-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource10-mm.mm"; sourceTree = "<group>"; };
-		DE5F85641FA1ABD5006DB63A /* UnifiedSource12-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource12-mm.mm"; sourceTree = "<group>"; };
-		DE5F85651FA1ABD6006DB63A /* UnifiedSource5-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource5-mm.mm"; sourceTree = "<group>"; };
-		DE5F85661FA1ABD7006DB63A /* UnifiedSource41-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource41-mm.mm"; sourceTree = "<group>"; };
-		DE5F85671FA1ABD8006DB63A /* UnifiedSource48-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource48-mm.mm"; sourceTree = "<group>"; };
-		DE5F85681FA1ABD9006DB63A /* UnifiedSource29-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource29-mm.mm"; sourceTree = "<group>"; };
-		DE5F85691FA1ABDA006DB63A /* UnifiedSource27-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource27-mm.mm"; sourceTree = "<group>"; };
-		DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource13-mm.mm"; sourceTree = "<group>"; };
-		DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource6-mm.mm"; sourceTree = "<group>"; };
+		DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource8-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource15-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource28-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85401FA1ABB5006DB63A /* UnifiedSource35-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource35-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85411FA1ABB6006DB63A /* UnifiedSource23-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource23-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85421FA1ABB7006DB63A /* UnifiedSource30-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource30-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85431FA1ABB8006DB63A /* UnifiedSource44-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource44-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85441FA1ABB9006DB63A /* UnifiedSource46-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource46-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85451FA1ABBA006DB63A /* UnifiedSource37-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource37-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85461FA1ABBB006DB63A /* UnifiedSource24-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource24-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85471FA1ABBB006DB63A /* UnifiedSource25-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource25-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85481FA1ABBC006DB63A /* UnifiedSource43-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource43-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85491FA1ABBD006DB63A /* UnifiedSource4-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource4-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource17-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource49-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource50-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource22-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource14-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource42-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85501FA1ABC3006DB63A /* UnifiedSource18-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource18-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85511FA1ABC4006DB63A /* UnifiedSource31-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource31-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85521FA1ABC5006DB63A /* UnifiedSource20-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource20-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85531FA1ABC6006DB63A /* UnifiedSource19-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource19-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85541FA1ABC7006DB63A /* UnifiedSource9-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource9-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85551FA1ABC8006DB63A /* UnifiedSource36-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource36-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85561FA1ABC9006DB63A /* UnifiedSource40-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource40-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85571FA1ABCA006DB63A /* UnifiedSource34-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource34-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85581FA1ABCB006DB63A /* UnifiedSource45-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource45-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85591FA1ABCC006DB63A /* UnifiedSource39-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource39-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource21-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource33-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource38-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource26-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource16-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource7-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85601FA1ABD2006DB63A /* UnifiedSource32-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource32-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85611FA1ABD3006DB63A /* UnifiedSource11-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource11-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85621FA1ABD4006DB63A /* UnifiedSource47-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource47-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85631FA1ABD5006DB63A /* UnifiedSource10-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource10-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85641FA1ABD5006DB63A /* UnifiedSource12-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource12-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85651FA1ABD6006DB63A /* UnifiedSource5-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource5-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85661FA1ABD7006DB63A /* UnifiedSource41-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource41-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85671FA1ABD8006DB63A /* UnifiedSource48-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource48-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85681FA1ABD9006DB63A /* UnifiedSource29-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource29-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F85691FA1ABDA006DB63A /* UnifiedSource27-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource27-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource13-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource6-nonARC.mm"; sourceTree = "<group>"; };
 		DE5F85B61FA23835006DB63A /* UnifiedSource468.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource468.cpp; sourceTree = "<group>"; };
 		DE5F85B61FA23835006DB63B /* UnifiedSource518.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource518.cpp; sourceTree = "<group>"; };
 		DE5F85B71FA23835006DB63A /* UnifiedSource469.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource469.cpp; sourceTree = "<group>"; };
@@ -20709,17 +20763,17 @@
 		DE5F85D21FA23856006DB63B /* UnifiedSource528.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource528.cpp; sourceTree = "<group>"; };
 		DE5F85D31FA23859006DB63A /* UnifiedSource480.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource480.cpp; sourceTree = "<group>"; };
 		DE5F85D31FA23859006DB63B /* UnifiedSource530.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource530.cpp; sourceTree = "<group>"; };
-		DE5F86321FA2AEFF006DB63A /* UnifiedSource59-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource59-mm.mm"; sourceTree = "<group>"; };
-		DE5F86331FA2AF00006DB63A /* UnifiedSource54-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource54-mm.mm"; sourceTree = "<group>"; };
-		DE5F86341FA2AF01006DB63A /* UnifiedSource56-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource56-mm.mm"; sourceTree = "<group>"; };
-		DE5F86351FA2AF03006DB63A /* UnifiedSource53-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource53-mm.mm"; sourceTree = "<group>"; };
-		DE5F86361FA2AF04006DB63A /* UnifiedSource51-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource51-mm.mm"; sourceTree = "<group>"; };
-		DE5F86371FA2AF05006DB63A /* UnifiedSource52-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource52-mm.mm"; sourceTree = "<group>"; };
-		DE5F86381FA2AF06006DB63A /* UnifiedSource57-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource57-mm.mm"; sourceTree = "<group>"; };
-		DE5F86391FA2AF07006DB63A /* UnifiedSource58-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource58-mm.mm"; sourceTree = "<group>"; };
-		DE5F863A1FA2AF07006DB63A /* UnifiedSource60-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource60-mm.mm"; sourceTree = "<group>"; };
-		DE5F863A1FA2AF07006DB63B /* UnifiedSource61-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource61-mm.mm"; sourceTree = "<group>"; };
-		DE5F863B1FA2AF08006DB63A /* UnifiedSource55-mm.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource55-mm.mm"; sourceTree = "<group>"; };
+		DE5F86321FA2AEFF006DB63A /* UnifiedSource59-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource59-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86331FA2AF00006DB63A /* UnifiedSource54-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource54-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86341FA2AF01006DB63A /* UnifiedSource56-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource56-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86351FA2AF03006DB63A /* UnifiedSource53-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource53-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86361FA2AF04006DB63A /* UnifiedSource51-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource51-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86371FA2AF05006DB63A /* UnifiedSource52-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource52-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86381FA2AF06006DB63A /* UnifiedSource57-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource57-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F86391FA2AF07006DB63A /* UnifiedSource58-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource58-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F863A1FA2AF07006DB63A /* UnifiedSource60-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource60-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F863A1FA2AF07006DB63B /* UnifiedSource61-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource61-nonARC.mm"; sourceTree = "<group>"; };
+		DE5F863B1FA2AF08006DB63A /* UnifiedSource55-nonARC.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "UnifiedSource55-nonARC.mm"; sourceTree = "<group>"; };
 		DEC0E3152C2A6ADF00DC5FBD /* AnchorPositionEvaluator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AnchorPositionEvaluator.cpp; sourceTree = "<group>"; };
 		DEC0E3162C2A6ADF00DC5FBD /* AnchorPositionEvaluator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AnchorPositionEvaluator.h; sourceTree = "<group>"; };
 		DEC2975D1B4DEB2A005F5945 /* JSCustomEventCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSCustomEventCustom.cpp; sourceTree = "<group>"; };
@@ -23436,6 +23490,48 @@
 			tabWidth = 4;
 			usesTabs = 0;
 		};
+		0D078EAA2E73875900A9B266 /* Implementation */ = {
+			isa = PBXGroup;
+			children = (
+				0D078EA92E73875900A9B266 /* DDMeshImpl.cpp */,
+				0D078EA82E73875900A9B266 /* DDMeshImpl.h */,
+				0D9649172E7488A8000F9CDA /* ModelConvertToBackingContext.cpp */,
+				0D9649162E7488A8000F9CDA /* ModelConvertToBackingContext.h */,
+				0D9649152E7487A0000F9CDA /* ModelDowncastConvertToBackingContext.cpp */,
+				0D9649142E7487A0000F9CDA /* ModelDowncastConvertToBackingContext.h */,
+			);
+			path = Implementation;
+			sourceTree = "<group>";
+		};
+		0D078EB22E73875900A9B266 /* InternalAPI */ = {
+			isa = PBXGroup;
+			children = (
+				0DD1FEA42E79D3AC009DFD33 /* DDFloat3.h */,
+				0DD1FEA02E79C6EA009DFD33 /* DDFloat4x4.h */,
+				0D078EAB2E73875900A9B266 /* DDMesh.h */,
+				0D078EAC2E73875900A9B266 /* DDMeshDescriptor.h */,
+				0D078EAD2E73875900A9B266 /* DDMeshPart.h */,
+				0DACD8582E79D8C100CDA0DC /* DDModel.serialization.in */,
+				0D078EAE2E73875900A9B266 /* DDReplaceVertices.h */,
+				0D078EAF2E73875900A9B266 /* DDUpdateMeshDescriptor.h */,
+				0D078EB02E73875900A9B266 /* DDVertexAttributeFormat.h */,
+				0D078EB12E73875900A9B266 /* DDVertexLayout.h */,
+				0D9649062E73D332000F9CDA /* ModelObjectDescriptorBase.h */,
+			);
+			path = InternalAPI;
+			sourceTree = "<group>";
+		};
+		0D078EB32E73875900A9B266 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				0D078EAA2E73875900A9B266 /* Implementation */,
+				0D078EB22E73875900A9B266 /* InternalAPI */,
+				0DACD85C2E7A2A7700CDA0DC /* ModelDDInlineConverters.h */,
+				0DD1FE962E78BEAB009DFD33 /* ModelDDTypes.h */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
 		0DC0AEDC2B706E5700AF1E41 /* identity */ = {
 			isa = PBXGroup;
 			children = (
@@ -23459,6 +23555,15 @@
 			name = identity;
 			path = Modules/identity;
 			sourceTree = SOURCE_ROOT;
+		};
+		0DD1FE9A2E78C00B009DFD33 /* Internal */ = {
+			isa = PBXGroup;
+			children = (
+				0DD1FE982E78C00B009DFD33 /* module.modulemap */,
+				0DD1FE992E78C00B009DFD33 /* WebCoreInternal.h */,
+			);
+			path = Internal;
+			sourceTree = "<group>";
 		};
 		0FE5FBC91C3DD5060007A2CA /* displaylists */ = {
 			isa = PBXGroup;
@@ -24715,8 +24820,11 @@
 				1C81B9580E97330800266E07 /* InspectorBackendClient.h */,
 				6A22E8721F1042C400F546C3 /* InspectorCanvas.cpp */,
 				6A22E86F1F10418600F546C3 /* InspectorCanvas.h */,
+				BC08A72E2E889885005C4CD1 /* InspectorCanvasArguments.cpp */,
+				BC08A72C2E8864D6005C4CD1 /* InspectorCanvasArguments.h */,
 				95AA570D25EEED30004E9283 /* InspectorCanvasCallTracer.cpp */,
 				95AA570E25EEED31004E9283 /* InspectorCanvasCallTracer.h */,
+				BC08A72D2E888B5E005C4CD1 /* InspectorCanvasProcessedArguments.h */,
 				1C81B9570E97330800266E07 /* InspectorController.cpp */,
 				1C81B9560E97330800266E07 /* InspectorController.h */,
 				99D1B2D123AC143000811CF0 /* InspectorDebuggableType.h */,
@@ -26744,6 +26852,7 @@
 				BCA5591D263F10B9007F19B3 /* PredefinedColorSpace.cpp */,
 				BCA5591A263F10B9007F19B3 /* PredefinedColorSpace.h */,
 				BCA5591C263F10B9007F19B3 /* PredefinedColorSpace.idl */,
+				0D9649032E73BE32000F9CDA /* UsdModelLoader.swift */,
 				D3F3D35B1A69A5060059FC2B /* WebGL2RenderingContext.cpp */,
 				D3F3D35C1A69A5060059FC2B /* WebGL2RenderingContext.h */,
 				D3F3D35D1A69A5060059FC2B /* WebGL2RenderingContext.idl */,
@@ -27600,129 +27709,129 @@
 		538EC7EA1F96A95B004D22A8 /* unified-sources */ = {
 			isa = PBXGroup;
 			children = (
-				538EC7F31F96AA5B004D22A8 /* UnifiedSource1-mm.mm */,
+				538EC7F31F96AA5B004D22A8 /* UnifiedSource1-nonARC.mm */,
 				538EC7FA1F96AA70004D22A8 /* UnifiedSource1.cpp */,
-				538EC7F81F96AA69004D22A8 /* UnifiedSource2-mm.mm */,
+				538EC7F81F96AA69004D22A8 /* UnifiedSource2-nonARC.mm */,
 				538EC7EE1F96AA56004D22A8 /* UnifiedSource2.cpp */,
-				538EC7ED1F96AA55004D22A8 /* UnifiedSource3-mm.mm */,
+				538EC7ED1F96AA55004D22A8 /* UnifiedSource3-nonARC.mm */,
 				538EC7EC1F96AA54004D22A8 /* UnifiedSource3.cpp */,
-				DE5F85491FA1ABBD006DB63A /* UnifiedSource4-mm.mm */,
+				DE5F85491FA1ABBD006DB63A /* UnifiedSource4-nonARC.mm */,
 				538EC7EF1F96AA57004D22A8 /* UnifiedSource4.cpp */,
-				DE5F85651FA1ABD6006DB63A /* UnifiedSource5-mm.mm */,
+				DE5F85651FA1ABD6006DB63A /* UnifiedSource5-nonARC.mm */,
 				538EC7F01F96AA58004D22A8 /* UnifiedSource5.cpp */,
-				DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-mm.mm */,
+				DE5F856B1FA1ABDB006DB63A /* UnifiedSource6-nonARC.mm */,
 				538EC7EB1F96AA53004D22A8 /* UnifiedSource6.cpp */,
-				DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-mm.mm */,
+				DE5F855F1FA1ABD1006DB63A /* UnifiedSource7-nonARC.mm */,
 				538EC7F11F96AA59004D22A8 /* UnifiedSource7.cpp */,
-				DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-mm.mm */,
+				DE5F853D1FA1ABB2006DB63A /* UnifiedSource8-nonARC.mm */,
 				538EC7F21F96AA5A004D22A8 /* UnifiedSource8.cpp */,
-				DE5F85541FA1ABC7006DB63A /* UnifiedSource9-mm.mm */,
+				DE5F85541FA1ABC7006DB63A /* UnifiedSource9-nonARC.mm */,
 				538EC7FE1F96AA76004D22A8 /* UnifiedSource9.cpp */,
-				DE5F85631FA1ABD5006DB63A /* UnifiedSource10-mm.mm */,
+				DE5F85631FA1ABD5006DB63A /* UnifiedSource10-nonARC.mm */,
 				538EC7F51F96AA5E004D22A8 /* UnifiedSource10.cpp */,
-				DE5F85611FA1ABD3006DB63A /* UnifiedSource11-mm.mm */,
+				DE5F85611FA1ABD3006DB63A /* UnifiedSource11-nonARC.mm */,
 				538EC7F41F96AA5D004D22A8 /* UnifiedSource11.cpp */,
-				DE5F85641FA1ABD5006DB63A /* UnifiedSource12-mm.mm */,
+				DE5F85641FA1ABD5006DB63A /* UnifiedSource12-nonARC.mm */,
 				538EC7F61F96AA5F004D22A8 /* UnifiedSource12.cpp */,
-				DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-mm.mm */,
+				DE5F856A1FA1ABDB006DB63A /* UnifiedSource13-nonARC.mm */,
 				538EC7FD1F96AA74004D22A8 /* UnifiedSource13.cpp */,
-				DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-mm.mm */,
+				DE5F854E1FA1ABC2006DB63A /* UnifiedSource14-nonARC.mm */,
 				538EC7FC1F96AA73004D22A8 /* UnifiedSource14.cpp */,
-				DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-mm.mm */,
+				DE5F853E1FA1ABB3006DB63A /* UnifiedSource15-nonARC.mm */,
 				538EC7FF1F96AA77004D22A8 /* UnifiedSource15.cpp */,
-				DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-mm.mm */,
+				DE5F855E1FA1ABD0006DB63A /* UnifiedSource16-nonARC.mm */,
 				538EC7F71F96AA60004D22A8 /* UnifiedSource16.cpp */,
-				DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-mm.mm */,
+				DE5F854A1FA1ABBE006DB63A /* UnifiedSource17-nonARC.mm */,
 				538EC8011F96AA7A004D22A8 /* UnifiedSource17.cpp */,
-				DE5F85501FA1ABC3006DB63A /* UnifiedSource18-mm.mm */,
+				DE5F85501FA1ABC3006DB63A /* UnifiedSource18-nonARC.mm */,
 				538EC7FB1F96AA72004D22A8 /* UnifiedSource18.cpp */,
-				DE5F85531FA1ABC6006DB63A /* UnifiedSource19-mm.mm */,
+				DE5F85531FA1ABC6006DB63A /* UnifiedSource19-nonARC.mm */,
 				538EC7F91F96AA6E004D22A8 /* UnifiedSource19.cpp */,
-				DE5F85521FA1ABC5006DB63A /* UnifiedSource20-mm.mm */,
+				DE5F85521FA1ABC5006DB63A /* UnifiedSource20-nonARC.mm */,
 				538EC8001F96AA78004D22A8 /* UnifiedSource20.cpp */,
-				DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-mm.mm */,
+				DE5F855A1FA1ABCD006DB63A /* UnifiedSource21-nonARC.mm */,
 				538EC8351F993F0D004D22A8 /* UnifiedSource21.cpp */,
-				DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-mm.mm */,
+				DE5F854D1FA1ABC1006DB63A /* UnifiedSource22-nonARC.mm */,
 				538EC84A1F993F18004D22A8 /* UnifiedSource22.cpp */,
-				DE5F85411FA1ABB6006DB63A /* UnifiedSource23-mm.mm */,
+				DE5F85411FA1ABB6006DB63A /* UnifiedSource23-nonARC.mm */,
 				538EC82A1F993F07004D22A8 /* UnifiedSource23.cpp */,
-				DE5F85461FA1ABBB006DB63A /* UnifiedSource24-mm.mm */,
+				DE5F85461FA1ABBB006DB63A /* UnifiedSource24-nonARC.mm */,
 				538EC83F1F993F12004D22A8 /* UnifiedSource24.cpp */,
-				DE5F85471FA1ABBB006DB63A /* UnifiedSource25-mm.mm */,
+				DE5F85471FA1ABBB006DB63A /* UnifiedSource25-nonARC.mm */,
 				538EC83A1F993F10004D22A8 /* UnifiedSource25.cpp */,
-				DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-mm.mm */,
+				DE5F855D1FA1ABCF006DB63A /* UnifiedSource26-nonARC.mm */,
 				538EC84C1F993F19004D22A8 /* UnifiedSource26.cpp */,
-				DE5F85691FA1ABDA006DB63A /* UnifiedSource27-mm.mm */,
+				DE5F85691FA1ABDA006DB63A /* UnifiedSource27-nonARC.mm */,
 				538EC85F1F993F23004D22A8 /* UnifiedSource27.cpp */,
-				DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-mm.mm */,
+				DE5F853F1FA1ABB4006DB63A /* UnifiedSource28-nonARC.mm */,
 				538EC84B1F993F18004D22A8 /* UnifiedSource28.cpp */,
-				DE5F85681FA1ABD9006DB63A /* UnifiedSource29-mm.mm */,
+				DE5F85681FA1ABD9006DB63A /* UnifiedSource29-nonARC.mm */,
 				538EC8551F993F1E004D22A8 /* UnifiedSource29.cpp */,
-				DE5F85421FA1ABB7006DB63A /* UnifiedSource30-mm.mm */,
+				DE5F85421FA1ABB7006DB63A /* UnifiedSource30-nonARC.mm */,
 				538EC8761F993F2F004D22A8 /* UnifiedSource30.cpp */,
-				DE5F85511FA1ABC4006DB63A /* UnifiedSource31-mm.mm */,
+				DE5F85511FA1ABC4006DB63A /* UnifiedSource31-nonARC.mm */,
 				538EC85B1F993F21004D22A8 /* UnifiedSource31.cpp */,
-				DE5F85601FA1ABD2006DB63A /* UnifiedSource32-mm.mm */,
+				DE5F85601FA1ABD2006DB63A /* UnifiedSource32-nonARC.mm */,
 				538EC82B1F993F08004D22A8 /* UnifiedSource32.cpp */,
-				DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-mm.mm */,
+				DE5F855B1FA1ABCE006DB63A /* UnifiedSource33-nonARC.mm */,
 				538EC87F1F993F34004D22A8 /* UnifiedSource33.cpp */,
-				DE5F85571FA1ABCA006DB63A /* UnifiedSource34-mm.mm */,
+				DE5F85571FA1ABCA006DB63A /* UnifiedSource34-nonARC.mm */,
 				538EC8571F993F1F004D22A8 /* UnifiedSource34.cpp */,
-				DE5F85401FA1ABB5006DB63A /* UnifiedSource35-mm.mm */,
+				DE5F85401FA1ABB5006DB63A /* UnifiedSource35-nonARC.mm */,
 				538EC87A1F993F31004D22A8 /* UnifiedSource35.cpp */,
-				DE5F85551FA1ABC8006DB63A /* UnifiedSource36-mm.mm */,
+				DE5F85551FA1ABC8006DB63A /* UnifiedSource36-nonARC.mm */,
 				538EC8601F993F23004D22A8 /* UnifiedSource36.cpp */,
-				DE5F85451FA1ABBA006DB63A /* UnifiedSource37-mm.mm */,
+				DE5F85451FA1ABBA006DB63A /* UnifiedSource37-nonARC.mm */,
 				538EC8321F993F0C004D22A8 /* UnifiedSource37.cpp */,
-				DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-mm.mm */,
+				DE5F855C1FA1ABCE006DB63A /* UnifiedSource38-nonARC.mm */,
 				538EC87B1F993F32004D22A8 /* UnifiedSource38.cpp */,
-				DE5F85591FA1ABCC006DB63A /* UnifiedSource39-mm.mm */,
+				DE5F85591FA1ABCC006DB63A /* UnifiedSource39-nonARC.mm */,
 				538EC87C1F993F32004D22A8 /* UnifiedSource39.cpp */,
-				DE5F85561FA1ABC9006DB63A /* UnifiedSource40-mm.mm */,
+				DE5F85561FA1ABC9006DB63A /* UnifiedSource40-nonARC.mm */,
 				538EC8491F993F17004D22A8 /* UnifiedSource40.cpp */,
-				DE5F85661FA1ABD7006DB63A /* UnifiedSource41-mm.mm */,
+				DE5F85661FA1ABD7006DB63A /* UnifiedSource41-nonARC.mm */,
 				538EC84E1F993F1A004D22A8 /* UnifiedSource41.cpp */,
-				DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-mm.mm */,
+				DE5F854F1FA1ABC3006DB63A /* UnifiedSource42-nonARC.mm */,
 				538EC83B1F993F10004D22A8 /* UnifiedSource42.cpp */,
-				DE5F85481FA1ABBC006DB63A /* UnifiedSource43-mm.mm */,
+				DE5F85481FA1ABBC006DB63A /* UnifiedSource43-nonARC.mm */,
 				538EC8521F993F1C004D22A8 /* UnifiedSource43.cpp */,
-				DE5F85431FA1ABB8006DB63A /* UnifiedSource44-mm.mm */,
+				DE5F85431FA1ABB8006DB63A /* UnifiedSource44-nonARC.mm */,
 				538EC86A1F993F29004D22A8 /* UnifiedSource44.cpp */,
-				DE5F85581FA1ABCB006DB63A /* UnifiedSource45-mm.mm */,
+				DE5F85581FA1ABCB006DB63A /* UnifiedSource45-nonARC.mm */,
 				538EC83C1F993F11004D22A8 /* UnifiedSource45.cpp */,
-				DE5F85441FA1ABB9006DB63A /* UnifiedSource46-mm.mm */,
+				DE5F85441FA1ABB9006DB63A /* UnifiedSource46-nonARC.mm */,
 				538EC8771F993F30004D22A8 /* UnifiedSource46.cpp */,
-				DE5F85621FA1ABD4006DB63A /* UnifiedSource47-mm.mm */,
+				DE5F85621FA1ABD4006DB63A /* UnifiedSource47-nonARC.mm */,
 				538EC8681F993F28004D22A8 /* UnifiedSource47.cpp */,
-				DE5F85671FA1ABD8006DB63A /* UnifiedSource48-mm.mm */,
+				DE5F85671FA1ABD8006DB63A /* UnifiedSource48-nonARC.mm */,
 				538EC8431F993F14004D22A8 /* UnifiedSource48.cpp */,
-				DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-mm.mm */,
+				DE5F854B1FA1ABBF006DB63A /* UnifiedSource49-nonARC.mm */,
 				538EC87D1F993F33004D22A8 /* UnifiedSource49.cpp */,
-				DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-mm.mm */,
+				DE5F854C1FA1ABC0006DB63A /* UnifiedSource50-nonARC.mm */,
 				538EC8271F993F06004D22A8 /* UnifiedSource50.cpp */,
-				DE5F86361FA2AF04006DB63A /* UnifiedSource51-mm.mm */,
+				DE5F86361FA2AF04006DB63A /* UnifiedSource51-nonARC.mm */,
 				538EC8471F993F16004D22A8 /* UnifiedSource51.cpp */,
-				DE5F86371FA2AF05006DB63A /* UnifiedSource52-mm.mm */,
+				DE5F86371FA2AF05006DB63A /* UnifiedSource52-nonARC.mm */,
 				538EC8801F993F34004D22A8 /* UnifiedSource52.cpp */,
-				DE5F86351FA2AF03006DB63A /* UnifiedSource53-mm.mm */,
+				DE5F86351FA2AF03006DB63A /* UnifiedSource53-nonARC.mm */,
 				538EC82C1F993F09004D22A8 /* UnifiedSource53.cpp */,
-				DE5F86331FA2AF00006DB63A /* UnifiedSource54-mm.mm */,
+				DE5F86331FA2AF00006DB63A /* UnifiedSource54-nonARC.mm */,
 				538EC8691F993F28004D22A8 /* UnifiedSource54.cpp */,
-				DE5F863B1FA2AF08006DB63A /* UnifiedSource55-mm.mm */,
+				DE5F863B1FA2AF08006DB63A /* UnifiedSource55-nonARC.mm */,
 				538EC86C1F993F2A004D22A8 /* UnifiedSource55.cpp */,
-				DE5F86341FA2AF01006DB63A /* UnifiedSource56-mm.mm */,
+				DE5F86341FA2AF01006DB63A /* UnifiedSource56-nonARC.mm */,
 				538EC8851F993F3A004D22A8 /* UnifiedSource56.cpp */,
-				DE5F86381FA2AF06006DB63A /* UnifiedSource57-mm.mm */,
+				DE5F86381FA2AF06006DB63A /* UnifiedSource57-nonARC.mm */,
 				538EC8781F993F30004D22A8 /* UnifiedSource57.cpp */,
-				DE5F86391FA2AF07006DB63A /* UnifiedSource58-mm.mm */,
+				DE5F86391FA2AF07006DB63A /* UnifiedSource58-nonARC.mm */,
 				538EC82F1F993F0A004D22A8 /* UnifiedSource58.cpp */,
-				DE5F86321FA2AEFF006DB63A /* UnifiedSource59-mm.mm */,
+				DE5F86321FA2AEFF006DB63A /* UnifiedSource59-nonARC.mm */,
 				538EC86B1F993F29004D22A8 /* UnifiedSource59.cpp */,
-				DE5F863A1FA2AF07006DB63A /* UnifiedSource60-mm.mm */,
+				DE5F863A1FA2AF07006DB63A /* UnifiedSource60-nonARC.mm */,
 				538EC8791F993F31004D22A8 /* UnifiedSource60.cpp */,
-				DE5F863A1FA2AF07006DB63B /* UnifiedSource61-mm.mm */,
+				DE5F863A1FA2AF07006DB63B /* UnifiedSource61-nonARC.mm */,
 				538EC87E1F993F33004D22A8 /* UnifiedSource61.cpp */,
-				CD17A459213740160079EC7B /* UnifiedSource62-mm.mm */,
+				CD17A459213740160079EC7B /* UnifiedSource62-nonARC.mm */,
 				538EC85A1F993F20004D22A8 /* UnifiedSource62.cpp */,
 				538EC8611F993F24004D22A8 /* UnifiedSource63.cpp */,
 				538EC8421F993F14004D22A8 /* UnifiedSource64.cpp */,
@@ -31937,12 +32046,14 @@
 				44E88E472368DF0F009B4847 /* highlight */,
 				0DC0AEDC2B706E5700AF1E41 /* identity */,
 				9712A55315004E3C0048AF10 /* indexeddb */,
+				0DD1FE9A2E78C00B009DFD33 /* Internal */,
 				CDBD3D271FE85C920012C545 /* mediacapabilities */,
 				CD9A37F517C7D93600C5FA7A /* mediacontrols */,
 				4D3B00A0215D5C0F0076B983 /* mediarecorder */,
 				CDDDEA212538CD3500A1300C /* mediasession */,
 				B1A942DD15B5CE2200D525D1 /* mediasource */,
 				07221B4617CEC32700848E51 /* mediastream */,
+				0D078EB32E73875900A9B266 /* Model */,
 				71F849CC2565AB7E008C37F2 /* model-element */,
 				71D6AA391DA4EAF700B23969 /* modern-media-controls */,
 				333F703D0FB49C16008E12A6 /* notifications */,
@@ -35472,6 +35583,8 @@
 				419DFA722E813B3500BA5860 /* InternalReadableStreamDefaultReader.h */,
 				41418A0325643E1200363417 /* InternalWritableStream.cpp */,
 				41418A0425643E1300363417 /* InternalWritableStream.h */,
+				41E616F32E84228B00662181 /* InternalWritableStreamWriter.cpp */,
+				41E616F22E84228B00662181 /* InternalWritableStreamWriter.h */,
 				9BD4E9141C462872005065BC /* JSCustomElementInterface.cpp */,
 				9BD4E9151C462872005065BC /* JSCustomElementInterface.h */,
 				7C57BFE61EDE2F5B00534A48 /* JSDOMAbstractOperations.h */,
@@ -36004,6 +36117,8 @@
 			children = (
 				BC7826742E845D5400FB0C7E /* StyleFontPalette.cpp */,
 				BC7826732E845D5400FB0C7E /* StyleFontPalette.h */,
+				BC0A30962E875222007B809D /* StyleFontWidth.cpp */,
+				BC0A30952E875222007B809D /* StyleFontWidth.h */,
 			);
 			path = fonts;
 			sourceTree = "<group>";
@@ -36837,10 +36952,14 @@
 				BC092AA62E314978002ACB2C /* StyleHyphenateCharacter.h */,
 				BC092AAA2E3157CF002ACB2C /* StyleHyphenateLimitEdge.h */,
 				BC092AA72E315080002ACB2C /* StyleHyphenateLimitLines.h */,
+				BC10DA9A2E81B64E000EE742 /* StyleLetterSpacing.cpp */,
+				BC10DA982E81B57D000EE742 /* StyleLetterSpacing.h */,
 				BC78261E2E82027900FB0C7E /* StyleTabSize.cpp */,
 				BC78261D2E82027900FB0C7E /* StyleTabSize.h */,
 				BCD9EFEF2E198A6100D1C3DF /* StyleTextIndent.cpp */,
 				BCD9EFE52E18E56700D1C3DF /* StyleTextIndent.h */,
+				BC10DA9B2E81B64E000EE742 /* StyleWordSpacing.cpp */,
+				BC10DA992E81B57D000EE742 /* StyleWordSpacing.h */,
 			);
 			path = text;
 			sourceTree = "<group>";
@@ -37371,6 +37490,8 @@
 				4110A25B28E5C84700321D09 /* VideoPixelFormat.cpp */,
 				4110A25828E5C41700321D09 /* VideoPixelFormat.h */,
 				A1DD61892B7EB59300075A92 /* VideoReceiverEndpoint.h */,
+				46F674222E865ABB00A1C067 /* WebCoreMainThread.cpp */,
+				46F674212E865ABB00A1C067 /* WebCoreMainThread.h */,
 				5CE19CF428D8FB3700A4571E /* WebCorePersistentCoders.cpp */,
 				5CE19CF328D8FB3700A4571E /* WebCorePersistentCoders.h */,
 				9380F47109A11AB4001FDB34 /* Widget.cpp */,
@@ -39601,8 +39722,8 @@
 				E444B0A028C7437900CA560E /* BorderPainter.h */,
 				0F29D8742C6EFE3C00CEA122 /* BorderShape.cpp */,
 				0F29D8732C6EFE3B00CEA122 /* BorderShape.h */,
-				BCEA4815097D93020094C9E4 /* BreakLines.cpp */,
-				BCEA4816097D93020094C9E4 /* BreakLines.h */,
+				BCEA4815097D93020094C9E4 /* BreakablePositions.cpp */,
+				BCEA4816097D93020094C9E4 /* BreakablePositions.h */,
 				E4F0BE3025710A76009E7431 /* CaretRectComputation.cpp */,
 				E4F0BE2E25710A75009E7431 /* CaretRectComputation.h */,
 				5803715F1A66F00A00BAF519 /* ClipRect.cpp */,
@@ -41711,8 +41832,8 @@
 				F42BDC022D54528000818A9A /* BoxExtents.h in Headers */,
 				6ED8C37A183BFF8C009E53BD /* BoxLayoutShape.h in Headers */,
 				DCA7EDF52C655235000F16C7 /* BoxSides.h in Headers */,
+				C2E1F43F1D6254E10094625C /* BreakablePositions.h in Headers */,
 				93309DDB099E64920056E581 /* BreakBlockquoteCommand.h in Headers */,
-				C2E1F43F1D6254E10094625C /* BreakLines.h in Headers */,
 				59B5977511086579007159E8 /* BridgeJSC.h in Headers */,
 				469CCCFE269D021C006E0314 /* BroadcastChannel.h in Headers */,
 				46DD93D7269DE756001AFD88 /* BroadcastChannelIdentifier.h in Headers */,
@@ -42385,6 +42506,16 @@
 				F55B3DBA1251F12D003EF269 /* DateTimeLocalInputType.h in Headers */,
 				E5F06AEB24D49BF700BBC4F8 /* DateTimeNumericFieldElement.h in Headers */,
 				E5F06AEF24D4A63700BBC4F8 /* DateTimeSymbolicFieldElement.h in Headers */,
+				0DD1FEA52E79D3AC009DFD33 /* DDFloat3.h in Headers */,
+				0DD1FEA12E79C6EA009DFD33 /* DDFloat4x4.h in Headers */,
+				0D9649102E747347000F9CDA /* DDMesh.h in Headers */,
+				0D96490B2E747347000F9CDA /* DDMeshDescriptor.h in Headers */,
+				0D96490E2E747347000F9CDA /* DDMeshPart.h in Headers */,
+				0DACD8592E79D8C100CDA0DC /* DDModel.serialization.in in Headers */,
+				0D96490D2E747347000F9CDA /* DDReplaceVertices.h in Headers */,
+				0D9649112E747347000F9CDA /* DDUpdateMeshDescriptor.h in Headers */,
+				0D96490C2E747347000F9CDA /* DDVertexAttributeFormat.h in Headers */,
+				0D96490F2E747347000F9CDA /* DDVertexLayout.h in Headers */,
 				BC4A532D256056D50028C592 /* DebugOverlayRegions.h in Headers */,
 				0F6A12BE1A00923700C6DE72 /* DebugPageOverlays.h in Headers */,
 				45FEA5D0156DDE8C00654101 /* Decimal.h in Headers */,
@@ -44779,7 +44910,10 @@
 				F49328832769041B003E20F8 /* ModalContainerTypes.h in Headers */,
 				2DC8D39825F2FE9700CFCBAB /* Model.h in Headers */,
 				5266C7E82D115B7C000C4997 /* ModelContext.h in Headers */,
+				0DACD85D2E7A2A7700CDA0DC /* ModelDDInlineConverters.h in Headers */,
+				0DD1FE972E78BEEA009DFD33 /* ModelDDTypes.h in Headers */,
 				313E79EA273C86B80097F905 /* ModelDocument.h in Headers */,
+				0D9649082E73D4EE000F9CDA /* ModelObjectDescriptorBase.h in Headers */,
 				BC2B41172732F41E00A2D191 /* ModelPlayer.h in Headers */,
 				52597BB52DC3FAF900CAAF01 /* ModelPlayerAnimationState.h in Headers */,
 				BC2B41192732F42900A2D191 /* ModelPlayerClient.h in Headers */,
@@ -46135,6 +46269,7 @@
 				0F4011952B491DB300A735BC /* StyleFontData.h in Headers */,
 				BC7826762E845D6000FB0C7E /* StyleFontPalette.h in Headers */,
 				E4D58EB917B4ED8900CBDCA8 /* StyleFontSizeFunctions.h in Headers */,
+				BC0A309B2E875E98007B809D /* StyleFontWidth.h in Headers */,
 				BC4AF4292CFA293F0037C65C /* StyleForVisitedLink.h in Headers */,
 				BC2A0D912E089160003CBA0E /* StyleGapGutter.h in Headers */,
 				BCEF444A0E6745E0001C1287 /* StyleGeneratedImage.h in Headers */,
@@ -46173,6 +46308,7 @@
 				BC22AAFC2E37F879009AC0C3 /* StyleLengthWrapper.h in Headers */,
 				BC2A0D5A2E0791C7003CBA0E /* StyleLengthWrapperData.h in Headers */,
 				BC2A0D5A2E0791C7003CBA0E /* StyleLengthWrapperData.h in Headers */,
+				BC10DA9D2E81B92F000EE742 /* StyleLetterSpacing.h in Headers */,
 				BC2387AC2D8744E100698102 /* StyleLineBoxContain.h in Headers */,
 				BC10DA922E80DC42000EE742 /* StyleLineFitEdge.h in Headers */,
 				BC092AFE2E33E8FD002ACB2C /* StyleLineWidth.h in Headers */,
@@ -46357,6 +46493,7 @@
 				BC0929AF2E2AA652002ACB2C /* StyleWebKitTouchCallout.h in Headers */,
 				BC34D2C52E3BF0AB001EAD95 /* StyleWidows.h in Headers */,
 				BCEA07452CC97000000AC148 /* StyleWindRuleComputation.h in Headers */,
+				BC10DA9C2E81B928000EE742 /* StyleWordSpacing.h in Headers */,
 				BCB2720D2CC1F1DB00265123 /* StyleXywhFunction.h in Headers */,
 				BC34D30B2E3D327B001EAD95 /* StyleZIndex.h in Headers */,
 				BC7826432E8310FF00FB0C7E /* StyleZoomNeededToken.h in Headers */,
@@ -46986,12 +47123,14 @@
 				CDC69DDA16371FD4007C38DF /* WebCoreFullScreenPlaceholderView.h in Headers */,
 				CDC69DD61632026C007C38DF /* WebCoreFullScreenWarningView.h in Headers */,
 				CD127DEE14F3098400E84779 /* WebCoreFullScreenWindow.h in Headers */,
+				0DD1FE9B2E78C00B009DFD33 /* WebCoreInternal.h in Headers */,
 				E3582C282527F66900D1B790 /* WebCoreJITOperations.h in Headers */,
 				BC348BD40DB7F804004ABABB /* WebCoreJSBuiltinInternals.h in Headers */,
 				BC348BD40DB7F804004ABABA /* WebCoreJSBuiltins.h in Headers */,
 				BC53D911114310CC000D817E /* WebCoreJSClientData.h in Headers */,
 				93F199BB08245E59001E9ABC /* WebCoreKeyboardUIMode.h in Headers */,
 				CD1115B52E836A14000E9E44 /* WebCoreLogDefinitions.h in Headers */,
+				46F674252E865AF300A1C067 /* WebCoreMainThread.h in Headers */,
 				3140379B124BEA7F00AF40E4 /* WebCoreMotionManager.h in Headers */,
 				CDC979F51C498C0900DB50D4 /* WebCoreNSErrorExtras.h in Headers */,
 				F4E57EE1213F434A004EA98E /* WebCoreNSFontManagerExtras.h in Headers */,
@@ -48046,129 +48185,129 @@
 				072F696F2E755BFA00281FC5 /* TextListParser.cpp in Sources */,
 				BE39137129B267F500FA5D4F /* TextTransformCocoa.cpp in Sources */,
 				51DF6D800B92A18E00C2DC85 /* ThreadCheck.mm in Sources */,
-				538EC8031F96AF81004D22A8 /* UnifiedSource1-mm.mm in Sources */,
+				538EC8031F96AF81004D22A8 /* UnifiedSource1-nonARC.mm in Sources */,
 				538EC8021F96AF81004D22A8 /* UnifiedSource1.cpp in Sources */,
-				538EC8051F96AF81004D22A8 /* UnifiedSource2-mm.mm in Sources */,
+				538EC8051F96AF81004D22A8 /* UnifiedSource2-nonARC.mm in Sources */,
 				538EC8041F96AF81004D22A8 /* UnifiedSource2.cpp in Sources */,
-				538EC8071F96AF81004D22A8 /* UnifiedSource3-mm.mm in Sources */,
+				538EC8071F96AF81004D22A8 /* UnifiedSource3-nonARC.mm in Sources */,
 				538EC8061F96AF81004D22A8 /* UnifiedSource3.cpp in Sources */,
-				DE5F856C1FA1ABF3006DB63A /* UnifiedSource4-mm.mm in Sources */,
+				DE5F856C1FA1ABF3006DB63A /* UnifiedSource4-nonARC.mm in Sources */,
 				538EC8081F96AF81004D22A8 /* UnifiedSource4.cpp in Sources */,
-				DE5F856D1FA1ABF3006DB63A /* UnifiedSource5-mm.mm in Sources */,
+				DE5F856D1FA1ABF3006DB63A /* UnifiedSource5-nonARC.mm in Sources */,
 				538EC8091F96AF81004D22A8 /* UnifiedSource5.cpp in Sources */,
-				DE5F856E1FA1ABF3006DB63A /* UnifiedSource6-mm.mm in Sources */,
+				DE5F856E1FA1ABF3006DB63A /* UnifiedSource6-nonARC.mm in Sources */,
 				538EC80A1F96AF81004D22A8 /* UnifiedSource6.cpp in Sources */,
-				DE5F856F1FA1ABF3006DB63A /* UnifiedSource7-mm.mm in Sources */,
+				DE5F856F1FA1ABF3006DB63A /* UnifiedSource7-nonARC.mm in Sources */,
 				538EC80B1F96AF81004D22A8 /* UnifiedSource7.cpp in Sources */,
-				DE5F85701FA1ABF3006DB63A /* UnifiedSource8-mm.mm in Sources */,
+				DE5F85701FA1ABF3006DB63A /* UnifiedSource8-nonARC.mm in Sources */,
 				538EC80C1F96AF81004D22A8 /* UnifiedSource8.cpp in Sources */,
-				DE5F85711FA1ABF3006DB63A /* UnifiedSource9-mm.mm in Sources */,
+				DE5F85711FA1ABF3006DB63A /* UnifiedSource9-nonARC.mm in Sources */,
 				538EC80D1F96AF81004D22A8 /* UnifiedSource9.cpp in Sources */,
-				DE5F85721FA1ABF3006DB63A /* UnifiedSource10-mm.mm in Sources */,
+				DE5F85721FA1ABF3006DB63A /* UnifiedSource10-nonARC.mm in Sources */,
 				538EC80E1F96AF81004D22A8 /* UnifiedSource10.cpp in Sources */,
-				DE5F85731FA1ABF3006DB63A /* UnifiedSource11-mm.mm in Sources */,
+				DE5F85731FA1ABF3006DB63A /* UnifiedSource11-nonARC.mm in Sources */,
 				538EC80F1F96AF81004D22A8 /* UnifiedSource11.cpp in Sources */,
-				DE5F85741FA1ABF3006DB63A /* UnifiedSource12-mm.mm in Sources */,
+				DE5F85741FA1ABF3006DB63A /* UnifiedSource12-nonARC.mm in Sources */,
 				538EC8101F96AF81004D22A8 /* UnifiedSource12.cpp in Sources */,
-				DE5F85751FA1ABF3006DB63A /* UnifiedSource13-mm.mm in Sources */,
+				DE5F85751FA1ABF3006DB63A /* UnifiedSource13-nonARC.mm in Sources */,
 				538EC8111F96AF81004D22A8 /* UnifiedSource13.cpp in Sources */,
-				DE5F85761FA1ABF3006DB63A /* UnifiedSource14-mm.mm in Sources */,
+				DE5F85761FA1ABF3006DB63A /* UnifiedSource14-nonARC.mm in Sources */,
 				538EC8121F96AF81004D22A8 /* UnifiedSource14.cpp in Sources */,
-				DE5F85771FA1ABF3006DB63A /* UnifiedSource15-mm.mm in Sources */,
+				DE5F85771FA1ABF3006DB63A /* UnifiedSource15-nonARC.mm in Sources */,
 				538EC8131F96AF81004D22A8 /* UnifiedSource15.cpp in Sources */,
-				DE5F85781FA1ABF3006DB63A /* UnifiedSource16-mm.mm in Sources */,
+				DE5F85781FA1ABF3006DB63A /* UnifiedSource16-nonARC.mm in Sources */,
 				538EC8141F96AF81004D22A8 /* UnifiedSource16.cpp in Sources */,
-				DE5F85791FA1ABF4006DB63A /* UnifiedSource17-mm.mm in Sources */,
+				DE5F85791FA1ABF4006DB63A /* UnifiedSource17-nonARC.mm in Sources */,
 				538EC8151F96AF81004D22A8 /* UnifiedSource17.cpp in Sources */,
-				DE5F857A1FA1ABF4006DB63A /* UnifiedSource18-mm.mm in Sources */,
+				DE5F857A1FA1ABF4006DB63A /* UnifiedSource18-nonARC.mm in Sources */,
 				538EC8161F96AF81004D22A8 /* UnifiedSource18.cpp in Sources */,
-				DE5F857B1FA1ABF4006DB63A /* UnifiedSource19-mm.mm in Sources */,
+				DE5F857B1FA1ABF4006DB63A /* UnifiedSource19-nonARC.mm in Sources */,
 				538EC8171F96AF81004D22A8 /* UnifiedSource19.cpp in Sources */,
-				DE5F857C1FA1ABF4006DB63A /* UnifiedSource20-mm.mm in Sources */,
+				DE5F857C1FA1ABF4006DB63A /* UnifiedSource20-nonARC.mm in Sources */,
 				538EC8181F96AF81004D22A8 /* UnifiedSource20.cpp in Sources */,
-				DE5F857D1FA1ABF4006DB63A /* UnifiedSource21-mm.mm in Sources */,
+				DE5F857D1FA1ABF4006DB63A /* UnifiedSource21-nonARC.mm in Sources */,
 				538EC8861F993F9C004D22A8 /* UnifiedSource21.cpp in Sources */,
-				DE5F857E1FA1ABF4006DB63A /* UnifiedSource22-mm.mm in Sources */,
+				DE5F857E1FA1ABF4006DB63A /* UnifiedSource22-nonARC.mm in Sources */,
 				538EC8871F993F9C004D22A8 /* UnifiedSource22.cpp in Sources */,
-				DE5F857F1FA1ABF4006DB63A /* UnifiedSource23-mm.mm in Sources */,
+				DE5F857F1FA1ABF4006DB63A /* UnifiedSource23-nonARC.mm in Sources */,
 				538EC8881F993F9C004D22A8 /* UnifiedSource23.cpp in Sources */,
-				DE5F85801FA1ABF4006DB63A /* UnifiedSource24-mm.mm in Sources */,
+				DE5F85801FA1ABF4006DB63A /* UnifiedSource24-nonARC.mm in Sources */,
 				538EC8891F993F9D004D22A8 /* UnifiedSource24.cpp in Sources */,
-				DE5F85811FA1ABF4006DB63A /* UnifiedSource25-mm.mm in Sources */,
+				DE5F85811FA1ABF4006DB63A /* UnifiedSource25-nonARC.mm in Sources */,
 				538EC88A1F993F9D004D22A8 /* UnifiedSource25.cpp in Sources */,
-				DE5F85821FA1ABF4006DB63A /* UnifiedSource26-mm.mm in Sources */,
+				DE5F85821FA1ABF4006DB63A /* UnifiedSource26-nonARC.mm in Sources */,
 				538EC88B1F993F9D004D22A8 /* UnifiedSource26.cpp in Sources */,
-				DE5F85831FA1ABF4006DB63A /* UnifiedSource27-mm.mm in Sources */,
+				DE5F85831FA1ABF4006DB63A /* UnifiedSource27-nonARC.mm in Sources */,
 				538EC88C1F993F9D004D22A8 /* UnifiedSource27.cpp in Sources */,
-				DE5F85841FA1ABF4006DB63A /* UnifiedSource28-mm.mm in Sources */,
+				DE5F85841FA1ABF4006DB63A /* UnifiedSource28-nonARC.mm in Sources */,
 				538EC88D1F993F9D004D22A8 /* UnifiedSource28.cpp in Sources */,
-				DE5F85851FA1ABF4006DB63A /* UnifiedSource29-mm.mm in Sources */,
+				DE5F85851FA1ABF4006DB63A /* UnifiedSource29-nonARC.mm in Sources */,
 				538EC88E1F993F9D004D22A8 /* UnifiedSource29.cpp in Sources */,
-				DE5F85861FA1ABF4006DB63A /* UnifiedSource30-mm.mm in Sources */,
+				DE5F85861FA1ABF4006DB63A /* UnifiedSource30-nonARC.mm in Sources */,
 				538EC88F1F993F9D004D22A8 /* UnifiedSource30.cpp in Sources */,
-				DE5F85871FA1ABF4006DB63A /* UnifiedSource31-mm.mm in Sources */,
+				DE5F85871FA1ABF4006DB63A /* UnifiedSource31-nonARC.mm in Sources */,
 				538EC8901F993F9D004D22A8 /* UnifiedSource31.cpp in Sources */,
-				DE5F85881FA1ABF4006DB63A /* UnifiedSource32-mm.mm in Sources */,
+				DE5F85881FA1ABF4006DB63A /* UnifiedSource32-nonARC.mm in Sources */,
 				538EC8911F993F9D004D22A8 /* UnifiedSource32.cpp in Sources */,
-				DE5F85891FA1ABF4006DB63A /* UnifiedSource33-mm.mm in Sources */,
+				DE5F85891FA1ABF4006DB63A /* UnifiedSource33-nonARC.mm in Sources */,
 				538EC8921F993F9D004D22A8 /* UnifiedSource33.cpp in Sources */,
-				DE5F858A1FA1ABF4006DB63A /* UnifiedSource34-mm.mm in Sources */,
+				DE5F858A1FA1ABF4006DB63A /* UnifiedSource34-nonARC.mm in Sources */,
 				538EC8931F993F9D004D22A8 /* UnifiedSource34.cpp in Sources */,
-				DE5F858B1FA1ABF4006DB63A /* UnifiedSource35-mm.mm in Sources */,
+				DE5F858B1FA1ABF4006DB63A /* UnifiedSource35-nonARC.mm in Sources */,
 				538EC8941F993F9D004D22A8 /* UnifiedSource35.cpp in Sources */,
-				DE5F858C1FA1ABF4006DB63A /* UnifiedSource36-mm.mm in Sources */,
+				DE5F858C1FA1ABF4006DB63A /* UnifiedSource36-nonARC.mm in Sources */,
 				538EC8951F993F9D004D22A8 /* UnifiedSource36.cpp in Sources */,
-				DE5F858D1FA1ABF4006DB63A /* UnifiedSource37-mm.mm in Sources */,
+				DE5F858D1FA1ABF4006DB63A /* UnifiedSource37-nonARC.mm in Sources */,
 				538EC8961F993F9D004D22A8 /* UnifiedSource37.cpp in Sources */,
-				DE5F858E1FA1ABF4006DB63A /* UnifiedSource38-mm.mm in Sources */,
+				DE5F858E1FA1ABF4006DB63A /* UnifiedSource38-nonARC.mm in Sources */,
 				538EC8971F993F9D004D22A8 /* UnifiedSource38.cpp in Sources */,
-				DE5F858F1FA1ABF4006DB63A /* UnifiedSource39-mm.mm in Sources */,
+				DE5F858F1FA1ABF4006DB63A /* UnifiedSource39-nonARC.mm in Sources */,
 				538EC8981F993F9D004D22A8 /* UnifiedSource39.cpp in Sources */,
-				DE5F85901FA1ABF4006DB63A /* UnifiedSource40-mm.mm in Sources */,
+				DE5F85901FA1ABF4006DB63A /* UnifiedSource40-nonARC.mm in Sources */,
 				538EC8991F993F9D004D22A8 /* UnifiedSource40.cpp in Sources */,
-				DE5F85911FA1ABF4006DB63A /* UnifiedSource41-mm.mm in Sources */,
+				DE5F85911FA1ABF4006DB63A /* UnifiedSource41-nonARC.mm in Sources */,
 				538EC89A1F993F9D004D22A8 /* UnifiedSource41.cpp in Sources */,
-				DE5F85921FA1ABF4006DB63A /* UnifiedSource42-mm.mm in Sources */,
+				DE5F85921FA1ABF4006DB63A /* UnifiedSource42-nonARC.mm in Sources */,
 				538EC89B1F993F9D004D22A8 /* UnifiedSource42.cpp in Sources */,
-				DE5F85931FA1ABF4006DB63A /* UnifiedSource43-mm.mm in Sources */,
+				DE5F85931FA1ABF4006DB63A /* UnifiedSource43-nonARC.mm in Sources */,
 				538EC89C1F993F9D004D22A8 /* UnifiedSource43.cpp in Sources */,
-				DE5F85941FA1ABF4006DB63A /* UnifiedSource44-mm.mm in Sources */,
+				DE5F85941FA1ABF4006DB63A /* UnifiedSource44-nonARC.mm in Sources */,
 				538EC89D1F993F9D004D22A8 /* UnifiedSource44.cpp in Sources */,
-				DE5F85951FA1ABF4006DB63A /* UnifiedSource45-mm.mm in Sources */,
+				DE5F85951FA1ABF4006DB63A /* UnifiedSource45-nonARC.mm in Sources */,
 				538EC89E1F993F9D004D22A8 /* UnifiedSource45.cpp in Sources */,
-				DE5F85961FA1ABF4006DB63A /* UnifiedSource46-mm.mm in Sources */,
+				DE5F85961FA1ABF4006DB63A /* UnifiedSource46-nonARC.mm in Sources */,
 				538EC89F1F993F9D004D22A8 /* UnifiedSource46.cpp in Sources */,
-				DE5F85971FA1ABF4006DB63A /* UnifiedSource47-mm.mm in Sources */,
+				DE5F85971FA1ABF4006DB63A /* UnifiedSource47-nonARC.mm in Sources */,
 				538EC8A01F993F9D004D22A8 /* UnifiedSource47.cpp in Sources */,
-				DE5F85981FA1ABF4006DB63A /* UnifiedSource48-mm.mm in Sources */,
+				DE5F85981FA1ABF4006DB63A /* UnifiedSource48-nonARC.mm in Sources */,
 				538EC8A11F993F9D004D22A8 /* UnifiedSource48.cpp in Sources */,
-				DE5F85991FA1ABF4006DB63A /* UnifiedSource49-mm.mm in Sources */,
+				DE5F85991FA1ABF4006DB63A /* UnifiedSource49-nonARC.mm in Sources */,
 				538EC8A21F993F9D004D22A8 /* UnifiedSource49.cpp in Sources */,
-				DE5F859A1FA1ABF4006DB63A /* UnifiedSource50-mm.mm in Sources */,
+				DE5F859A1FA1ABF4006DB63A /* UnifiedSource50-nonARC.mm in Sources */,
 				538EC8A31F993F9D004D22A8 /* UnifiedSource50.cpp in Sources */,
-				DE5F86501FA2AF24006DB63A /* UnifiedSource51-mm.mm in Sources */,
+				DE5F86501FA2AF24006DB63A /* UnifiedSource51-nonARC.mm in Sources */,
 				538EC8A41F993F9D004D22A8 /* UnifiedSource51.cpp in Sources */,
-				DE5F86511FA2AF24006DB63A /* UnifiedSource52-mm.mm in Sources */,
+				DE5F86511FA2AF24006DB63A /* UnifiedSource52-nonARC.mm in Sources */,
 				538EC8A51F993F9D004D22A8 /* UnifiedSource52.cpp in Sources */,
-				DE5F86521FA2AF24006DB63A /* UnifiedSource53-mm.mm in Sources */,
+				DE5F86521FA2AF24006DB63A /* UnifiedSource53-nonARC.mm in Sources */,
 				538EC8A61F993F9D004D22A8 /* UnifiedSource53.cpp in Sources */,
-				DE5F86531FA2AF24006DB63A /* UnifiedSource54-mm.mm in Sources */,
+				DE5F86531FA2AF24006DB63A /* UnifiedSource54-nonARC.mm in Sources */,
 				538EC8A71F993F9D004D22A8 /* UnifiedSource54.cpp in Sources */,
-				DE5F86541FA2AF24006DB63A /* UnifiedSource55-mm.mm in Sources */,
+				DE5F86541FA2AF24006DB63A /* UnifiedSource55-nonARC.mm in Sources */,
 				538EC8A81F993F9D004D22A8 /* UnifiedSource55.cpp in Sources */,
-				DE5F86551FA2AF24006DB63A /* UnifiedSource56-mm.mm in Sources */,
+				DE5F86551FA2AF24006DB63A /* UnifiedSource56-nonARC.mm in Sources */,
 				538EC8A91F993F9D004D22A8 /* UnifiedSource56.cpp in Sources */,
-				DE5F86561FA2AF24006DB63A /* UnifiedSource57-mm.mm in Sources */,
+				DE5F86561FA2AF24006DB63A /* UnifiedSource57-nonARC.mm in Sources */,
 				538EC8AA1F993F9D004D22A8 /* UnifiedSource57.cpp in Sources */,
-				DE5F86571FA2AF24006DB63A /* UnifiedSource58-mm.mm in Sources */,
+				DE5F86571FA2AF24006DB63A /* UnifiedSource58-nonARC.mm in Sources */,
 				538EC8AB1F993F9D004D22A8 /* UnifiedSource58.cpp in Sources */,
-				DE5F86581FA2AF24006DB63A /* UnifiedSource59-mm.mm in Sources */,
+				DE5F86581FA2AF24006DB63A /* UnifiedSource59-nonARC.mm in Sources */,
 				538EC8AC1F993F9D004D22A8 /* UnifiedSource59.cpp in Sources */,
-				DE5F86591FA2AF24006DB63A /* UnifiedSource60-mm.mm in Sources */,
+				DE5F86591FA2AF24006DB63A /* UnifiedSource60-nonARC.mm in Sources */,
 				538EC8AD1F993F9D004D22A8 /* UnifiedSource60.cpp in Sources */,
-				DE5F86591FA2AF24006DB63B /* UnifiedSource61-mm.mm in Sources */,
+				DE5F86591FA2AF24006DB63B /* UnifiedSource61-nonARC.mm in Sources */,
 				538EC8AE1F993F9D004D22A8 /* UnifiedSource61.cpp in Sources */,
-				CD17A45D213740810079EC7B /* UnifiedSource62-mm.mm in Sources */,
+				CD17A45D213740810079EC7B /* UnifiedSource62-nonARC.mm in Sources */,
 				538EC8AF1F993F9D004D22A8 /* UnifiedSource62.cpp in Sources */,
 				538EC8B01F993F9D004D22A8 /* UnifiedSource63.cpp in Sources */,
 				538EC8B11F993F9D004D22A8 /* UnifiedSource64.cpp in Sources */,
@@ -48639,6 +48778,7 @@
 				2D8B92FE203D13E1009C868F /* UnifiedSource529.cpp in Sources */,
 				2D8B92FF203D13E1009C868F /* UnifiedSource530.cpp in Sources */,
 				C18CC0A72580F0FA003D75FB /* UniversalAccessZoom.mm in Sources */,
+				0DD1FE922E7886CC009DFD33 /* UsdModelLoader.swift in Sources */,
 				D28D8FEA2B460CF4006F16F5 /* UserAgentParts.cpp in Sources */,
 				532042021F9A9F1000B81B2A /* UserAgentScriptsData.cpp in Sources */,
 				7C3B79711908757B00B47A2D /* UserMessageHandler.cpp in Sources */,

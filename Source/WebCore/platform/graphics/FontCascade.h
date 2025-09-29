@@ -171,12 +171,10 @@ public:
 
     bool isSmallCaps() const { return m_fontDescription.variantCaps() == FontVariantCaps::Small; }
 
-    float letterSpacing() const;
-    float wordSpacing() const;
-    const Length& computedLetterSpacing() const { return m_spacing.letter; }
-    const Length& computedWordSpacing() const { return m_spacing.word; }
-    void setLetterSpacing(const Length& spacing) { m_spacing.letter = spacing; }
-    void setWordSpacing(const Length& spacing) { m_spacing.word = spacing; }
+    float letterSpacing() const { return m_spacing.letter; }
+    float wordSpacing() const { return m_spacing.word; }
+    void setLetterSpacing(float spacing) { m_spacing.letter = spacing; }
+    void setWordSpacing(float spacing) { m_spacing.word = spacing; }
     TextSpacingTrim textSpacingTrim() const { return m_fontDescription.textSpacingTrim(); }
     TextAutospace textAutospace() const { return m_fontDescription.textAutospace(); }
     bool isFixedPitch() const;
@@ -235,7 +233,7 @@ public:
     enum class CodePath : uint8_t { Auto, Simple, Complex, SimpleWithGlyphOverflow };
     WEBCORE_EXPORT CodePath codePath(const TextRun&, std::optional<unsigned> from = std::nullopt, std::optional<unsigned> to = std::nullopt) const;
 
-    static CodePath characterRangeCodePath(std::span<const LChar>) { return CodePath::Simple; }
+    static CodePath characterRangeCodePath(std::span<const Latin1Character>) { return CodePath::Simple; }
     WEBCORE_EXPORT static CodePath characterRangeCodePath(std::span<const char16_t>);
 
     bool primaryFontIsSystemFont() const;
@@ -270,7 +268,7 @@ private:
     int offsetForPositionForComplexText(const TextRun&, float position, bool includePartialGlyphs) const;
     void adjustSelectionRectForComplexText(const TextRun&, LayoutRect& selectionRect, unsigned from, unsigned to) const;
 
-    static std::pair<unsigned, bool> expansionOpportunityCountInternal(std::span<const LChar>, TextDirection, ExpansionBehavior);
+    static std::pair<unsigned, bool> expansionOpportunityCountInternal(std::span<const Latin1Character>, TextDirection, ExpansionBehavior);
     static std::pair<unsigned, bool> expansionOpportunityCountInternal(std::span<const char16_t>, TextDirection, ExpansionBehavior);
 
     friend struct WidthIterator;
@@ -335,7 +333,7 @@ public:
         return character;
     }
 
-    static String normalizeSpaces(std::span<const LChar>);
+    static String normalizeSpaces(std::span<const Latin1Character>);
     static String normalizeSpaces(std::span<const char16_t>);
     static String normalizeSpaces(StringView);
 
@@ -401,10 +399,9 @@ private:
     }
 
     struct Spacing {
-        Length letter;
-        Length word;
-        Spacing() : letter(LengthType::Fixed) , word(LengthType::Fixed) { };
-        bool operator==(const Spacing& other) const = default;
+        float letter { 0 };
+        float word { 0 };
+        constexpr bool operator==(const Spacing&) const = default;
     };
 
     static constexpr unsigned bitsPerCharacterInCanUseSimplifiedTextMeasuringForAutoVariantCache = 2;

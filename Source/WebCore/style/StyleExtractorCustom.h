@@ -92,6 +92,8 @@ public:
     static Ref<CSSValue> extractGridTemplateColumns(ExtractorState&);
     static Ref<CSSValue> extractGridTemplateRows(ExtractorState&);
     static Ref<CSSValue> extractAnimationDuration(ExtractorState&);
+    static Ref<CSSValue> extractWidows(ExtractorState&);
+    static Ref<CSSValue> extractOrphans(ExtractorState&);
 
     // MARK: Shorthands
 
@@ -185,6 +187,8 @@ public:
     static void extractGridTemplateColumnsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractGridTemplateRowsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractAnimationDurationSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractWidowsSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
+    static void extractOrphansSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
 
     static void extractAnimationShorthandSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractAnimationRangeShorthandSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -242,6 +246,27 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyContent> {
     }
 };
 
+template<> struct PropertyExtractorAdaptor<CSSPropertyLetterSpacing> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        // "For legacy reasons, a computed letter-spacing of zero yields a
+        //  resolved value (getComputedStyle() return value) of `normal`."
+        // https://www.w3.org/TR/css-text-4/#letter-spacing-property
+
+        auto& spacing = state.style.computedLetterSpacing();
+        if (spacing.isFixed() && spacing.isZero())
+            return functor(CSS::Keyword::Normal { });
+        return functor(spacing);
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyWordSpacing> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.computedWordSpacing());
+    }
+};
+
 template<> struct PropertyExtractorAdaptor<CSSPropertyRotate> {
     template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
     {
@@ -282,6 +307,21 @@ template<CSSPropertyID propertyID> void extractSerialization(ExtractorState& sta
         serializationForCSS(builder, context, state.style, value);
     });
 }
+
+// FIXME: if 'auto' value is removed then this can likely also be removed.
+template<> struct PropertyExtractorAdaptor<CSSPropertyWidows> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.widows().tryValue().value_or(2));
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyOrphans> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return functor(state.style.orphans().tryValue().value_or(2));
+    }
+};
 
 // MARK: - Utilities
 
@@ -1256,30 +1296,22 @@ inline void ExtractorCustom::extractContentSerialization(ExtractorState& state, 
 
 inline Ref<CSSValue> ExtractorCustom::extractLetterSpacing(ExtractorState& state)
 {
-    auto& spacing = state.style.computedLetterSpacing();
-    if (spacing.isFixed() && spacing.isZero())
-        return CSSPrimitiveValue::create(CSSValueNormal);
-    return ExtractorConverter::convertLength(state, spacing);
+    return extractCSSValue<CSSPropertyLetterSpacing>(state);
 }
 
 inline void ExtractorCustom::extractLetterSpacingSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto& spacing = state.style.computedLetterSpacing();
-    if (spacing.isFixed() && spacing.isZero()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Normal { });
-        return;
-    }
-    ExtractorSerializer::serializeLength(state, builder, context, spacing);
+    extractSerialization<CSSPropertyLetterSpacing>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractWordSpacing(ExtractorState& state)
 {
-    return ExtractorConverter::convertLength(state, state.style.computedWordSpacing());
+    return extractCSSValue<CSSPropertyWordSpacing>(state);
 }
 
 inline void ExtractorCustom::extractWordSpacingSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    ExtractorSerializer::serializeLength(state, builder, context, state.style.computedWordSpacing());
+    extractSerialization<CSSPropertyWordSpacing>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractLineHeight(ExtractorState& state)
@@ -2000,6 +2032,16 @@ inline void ExtractorCustom::extractGridTemplateColumnsSerialization(ExtractorSt
 inline Ref<CSSValue> ExtractorCustom::extractGridTemplateRows(ExtractorState& state)
 {
     return WebCore::Style::extractGridTemplateValue<GridTrackSizingDirection::Rows>(state);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractWidows(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyWidows>(state);
+}
+
+inline Ref<CSSValue> ExtractorCustom::extractOrphans(ExtractorState& state)
+{
+    return extractCSSValue<CSSPropertyOrphans>(state);
 }
 
 inline void ExtractorCustom::extractGridTemplateRowsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
@@ -3327,6 +3369,16 @@ inline RefPtr<CSSValue> ExtractorCustom::extractWebkitMaskPositionShorthand(Extr
 inline void ExtractorCustom::extractWebkitMaskPositionShorthandSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     extractMaskPositionShorthandSerialization(state, builder, context);
+}
+
+inline void ExtractorCustom::extractWidowsSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyWidows>(state, builder, context);
+}
+
+inline void ExtractorCustom::extractOrphansSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
+{
+    extractSerialization<CSSPropertyOrphans>(state, builder, context);
 }
 
 } // namespace Style
