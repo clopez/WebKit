@@ -43,7 +43,6 @@
 #include "CSSTextShadowPropertyValue.h"
 #include "CSSURLValue.h"
 #include "ElementAncestorIteratorInlines.h"
-#include "FontVariantBuilder.h"
 #include "HTMLElement.h"
 #include "LocalFrame.h"
 #include "SVGElement.h"
@@ -72,6 +71,7 @@ namespace Style {
 
 template<typename T> inline T forwardInheritedValue(T&& value) { return std::forward<T>(value); }
 template<auto R, typename V> inline Length<R, V> forwardInheritedValue(const Length<R, V>& value) { auto copy = value; return copy; }
+inline AccentColor forwardInheritedValue(const AccentColor& value) { auto copy = value; return copy; }
 inline AnchorNames forwardInheritedValue(const AnchorNames& value) { auto copy = value; return copy; }
 inline AppleColorFilter forwardInheritedValue(const AppleColorFilter& value) { auto copy = value; return copy; }
 inline AspectRatio forwardInheritedValue(const AspectRatio& value) { auto copy = value; return copy; }
@@ -118,6 +118,7 @@ inline GridTemplateList forwardInheritedValue(const GridTemplateList& value) { a
 inline GridTrackSizes forwardInheritedValue(const GridTrackSizes& value) { auto copy = value; return copy; }
 inline HyphenateCharacter forwardInheritedValue(const HyphenateCharacter& value) { auto copy = value; return copy; }
 inline LetterSpacing forwardInheritedValue(const LetterSpacing& value) { auto copy = value; return copy; }
+inline LineHeight forwardInheritedValue(const LineHeight& value) { auto copy = value; return copy; }
 inline ListStyleType forwardInheritedValue(const ListStyleType& value) { auto copy = value; return copy; }
 inline OffsetAnchor forwardInheritedValue(const OffsetAnchor& value) { auto copy = value; return copy; }
 inline OffsetDistance forwardInheritedValue(const OffsetDistance& value) { auto copy = value; return copy; }
@@ -158,7 +159,6 @@ inline TextIndent forwardInheritedValue(const TextIndent& value) { auto copy = v
 inline TextShadows forwardInheritedValue(const TextShadows& value) { auto copy = value; return copy; }
 inline TextUnderlineOffset forwardInheritedValue(const TextUnderlineOffset& value) { auto copy = value; return copy; }
 inline URL forwardInheritedValue(const URL& value) { auto copy = value; return copy; }
-inline FixedVector<WebCore::Length> forwardInheritedValue(const FixedVector<WebCore::Length>& value) { auto copy = value; return copy; }
 inline FixedVector<PositionTryFallback> forwardInheritedValue(const FixedVector<PositionTryFallback>& value) { auto copy = value; return copy; }
 inline ProgressTimelineAxes forwardInheritedValue(const ProgressTimelineAxes& value) { auto copy = value; return copy; }
 inline ProgressTimelineNames forwardInheritedValue(const ProgressTimelineNames& value) { auto copy = value; return copy; }
@@ -197,11 +197,6 @@ public:
     DECLARE_PROPERTY_CUSTOM_HANDLERS(Fill);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontFamily);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(FontSize);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontStyle);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantAlternates);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantLigatures);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantNumeric);
-    DECLARE_PROPERTY_CUSTOM_HANDLERS(FontVariantEastAsian);
     DECLARE_PROPERTY_CUSTOM_HANDLERS(LetterSpacing);
 #if ENABLE(TEXT_AUTOSIZING)
     DECLARE_PROPERTY_CUSTOM_HANDLERS(LineHeight);
@@ -734,21 +729,22 @@ inline void BuilderCustom::applyValueLineHeight(BuilderState& builderState, CSSV
         return;
     }
 
-    auto lineHeight = BuilderConverter::convertLineHeight(builderState, value, 1);
+    RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
+    if (!primitiveValue)
+        return;
 
-    WebCore::Length computedLineHeight;
-    if (lineHeight.isNormal())
-        computedLineHeight = lineHeight;
-    else {
-        auto primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
-        if (!primitiveValue)
-            return;
+    auto lineHeight = toStyleFromCSSValue<LineHeight>(builderState, *primitiveValue, 1.0f);
+
+    auto computedLineHeight = [&] -> LineHeight {
+        if (lineHeight.isNormal())
+            return lineHeight;
+
         auto multiplier = computeLineHeightMultiplierDueToFontSize(builderState.document(), builderState.style(), *primitiveValue);
         if (multiplier == 1)
-            computedLineHeight = lineHeight;
-        else
-            computedLineHeight = BuilderConverter::convertLineHeight(builderState, value, multiplier);
-    }
+            return lineHeight;
+
+        return toStyleFromCSSValue<LineHeight>(builderState, *primitiveValue, multiplier);
+    }();
 
     builderState.style().setLineHeight(WTFMove(computedLineHeight));
     builderState.style().setSpecifiedLineHeight(WTFMove(lineHeight));
@@ -865,7 +861,7 @@ inline void BuilderCustom::applyInitialFontFamily(BuilderState& builderState)
 
 inline void BuilderCustom::applyInheritFontFamily(BuilderState& builderState)
 {
-    auto parentFontDescription = builderState.parentStyle().fontDescription();
+    auto& parentFontDescription = builderState.parentStyle().fontDescription();
 
     builderState.setFontDescriptionFamilies(parentFontDescription.families());
     builderState.setFontDescriptionIsSpecifiedFont(parentFontDescription.isSpecifiedFont());
@@ -1157,114 +1153,6 @@ inline void BuilderCustom::applyValueStroke(BuilderState& builderState, CSSValue
         style.setVisitedLinkStroke(toStyleFromCSSValue<SVGPaint>(builderState, value, ForVisitedLink::Yes));
 }
 
-inline void BuilderCustom::applyInheritFontVariantLigatures(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantCommonLigatures(builderState.parentFontDescription().variantCommonLigatures());
-    builderState.setFontDescriptionVariantDiscretionaryLigatures(builderState.parentFontDescription().variantDiscretionaryLigatures());
-    builderState.setFontDescriptionVariantHistoricalLigatures(builderState.parentFontDescription().variantHistoricalLigatures());
-    builderState.setFontDescriptionVariantContextualAlternates(builderState.parentFontDescription().variantContextualAlternates());
-}
-
-inline void BuilderCustom::applyInitialFontVariantLigatures(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantCommonLigatures(FontVariantLigatures::Normal);
-    builderState.setFontDescriptionVariantDiscretionaryLigatures(FontVariantLigatures::Normal);
-    builderState.setFontDescriptionVariantHistoricalLigatures(FontVariantLigatures::Normal);
-    builderState.setFontDescriptionVariantContextualAlternates(FontVariantLigatures::Normal);
-}
-
-inline void BuilderCustom::applyValueFontVariantLigatures(BuilderState& builderState, CSSValue& value)
-{
-    if (CSSPropertyParserHelpers::isSystemFontShorthand(value.valueID())) {
-        applyInitialFontVariantLigatures(builderState);
-        return;
-    }
-    auto variantLigatures = extractFontVariantLigatures(value);
-    builderState.setFontDescriptionVariantCommonLigatures(variantLigatures.commonLigatures);
-    builderState.setFontDescriptionVariantDiscretionaryLigatures(variantLigatures.discretionaryLigatures);
-    builderState.setFontDescriptionVariantHistoricalLigatures(variantLigatures.historicalLigatures);
-    builderState.setFontDescriptionVariantContextualAlternates(variantLigatures.contextualAlternates);
-}
-
-inline void BuilderCustom::applyInheritFontVariantNumeric(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantNumericFigure(builderState.parentFontDescription().variantNumericFigure());
-    builderState.setFontDescriptionVariantNumericSpacing(builderState.parentFontDescription().variantNumericSpacing());
-    builderState.setFontDescriptionVariantNumericFraction(builderState.parentFontDescription().variantNumericFraction());
-    builderState.setFontDescriptionVariantNumericOrdinal(builderState.parentFontDescription().variantNumericOrdinal());
-    builderState.setFontDescriptionVariantNumericSlashedZero(builderState.parentFontDescription().variantNumericSlashedZero());
-}
-
-inline void BuilderCustom::applyInitialFontVariantNumeric(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantNumericFigure(FontVariantNumericFigure::Normal);
-    builderState.setFontDescriptionVariantNumericSpacing(FontVariantNumericSpacing::Normal);
-    builderState.setFontDescriptionVariantNumericFraction(FontVariantNumericFraction::Normal);
-    builderState.setFontDescriptionVariantNumericOrdinal(FontVariantNumericOrdinal::Normal);
-    builderState.setFontDescriptionVariantNumericSlashedZero(FontVariantNumericSlashedZero::Normal);
-}
-
-inline void BuilderCustom::applyValueFontVariantNumeric(BuilderState& builderState, CSSValue& value)
-{
-    if (CSSPropertyParserHelpers::isSystemFontShorthand(value.valueID())) {
-        applyInitialFontVariantNumeric(builderState);
-        return;
-    }
-    auto variantNumeric = extractFontVariantNumeric(value);
-    builderState.setFontDescriptionVariantNumericFigure(variantNumeric.figure);
-    builderState.setFontDescriptionVariantNumericSpacing(variantNumeric.spacing);
-    builderState.setFontDescriptionVariantNumericFraction(variantNumeric.fraction);
-    builderState.setFontDescriptionVariantNumericOrdinal(variantNumeric.ordinal);
-    builderState.setFontDescriptionVariantNumericSlashedZero(variantNumeric.slashedZero);
-}
-
-inline void BuilderCustom::applyInheritFontVariantEastAsian(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantEastAsianVariant(builderState.parentFontDescription().variantEastAsianVariant());
-    builderState.setFontDescriptionVariantEastAsianWidth(builderState.parentFontDescription().variantEastAsianWidth());
-    builderState.setFontDescriptionVariantEastAsianRuby(builderState.parentFontDescription().variantEastAsianRuby());
-}
-
-inline void BuilderCustom::applyInitialFontVariantEastAsian(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantEastAsianVariant(FontVariantEastAsianVariant::Normal);
-    builderState.setFontDescriptionVariantEastAsianWidth(FontVariantEastAsianWidth::Normal);
-    builderState.setFontDescriptionVariantEastAsianRuby(FontVariantEastAsianRuby::Normal);
-}
-
-inline void BuilderCustom::applyValueFontVariantEastAsian(BuilderState& builderState, CSSValue& value)
-{
-    if (CSSPropertyParserHelpers::isSystemFontShorthand(value.valueID())) {
-        applyInitialFontVariantEastAsian(builderState);
-        return;
-    }
-    auto variantEastAsian = extractFontVariantEastAsian(value);
-    builderState.setFontDescriptionVariantEastAsianVariant(variantEastAsian.variant);
-    builderState.setFontDescriptionVariantEastAsianWidth(variantEastAsian.width);
-    builderState.setFontDescriptionVariantEastAsianRuby(variantEastAsian.ruby);
-}
-
-inline void BuilderCustom::applyInheritFontVariantAlternates(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantAlternates(builderState.parentFontDescription().variantAlternates());
-}
-
-inline void BuilderCustom::applyInitialFontVariantAlternates(BuilderState& builderState)
-{
-    builderState.setFontDescriptionVariantAlternates(FontVariantAlternates::Normal());
-}
-
-inline void BuilderCustom::applyValueFontVariantAlternates(BuilderState& builderState, CSSValue& value)
-{
-    if (CSSPropertyParserHelpers::isSystemFontShorthand(value.valueID())) {
-        applyInitialFontVariantAlternates(builderState);
-        return;
-    }
-    auto fontDescription = builderState.fontDescription();
-    fontDescription.setVariantAlternates(extractFontVariantAlternates(value, builderState));
-    builderState.setFontDescription(WTFMove(fontDescription));
-}
-
 inline void BuilderCustom::applyInitialFontSize(BuilderState& builderState)
 {
     auto fontDescription = builderState.fontDescription();
@@ -1331,40 +1219,6 @@ inline float BuilderCustom::determineRubyTextSizeMultiplier(BuilderState& builde
     return 0.25f;
 }
 
-static inline void applyFontStyle(BuilderState& state, std::optional<FontSelectionValue> slope, FontStyleAxis axis)
-{
-    auto& description = state.fontDescription();
-    if (description.italic() == slope && description.fontStyleAxis() == axis)
-        return;
-
-    auto copy = description;
-    copy.setItalic(slope);
-    copy.setFontStyleAxis(axis);
-    state.setFontDescription(WTFMove(copy));
-}
-
-inline void BuilderCustom::applyInitialFontStyle(BuilderState& state)
-{
-    applyFontStyle(state, FontCascadeDescription::initialItalic(), FontCascadeDescription::initialFontStyleAxis());
-}
-
-inline void BuilderCustom::applyInheritFontStyle(BuilderState& state)
-{
-    applyFontStyle(state, state.parentFontDescription().italic(), state.parentFontDescription().fontStyleAxis());
-}
-
-inline void BuilderCustom::applyValueFontStyle(BuilderState& state, CSSValue& value)
-{
-    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
-    auto keyword = primitiveValue ? primitiveValue->valueID() : CSSValueOblique;
-
-    std::optional<FontSelectionValue> slope;
-    if (!CSSPropertyParserHelpers::isSystemFontShorthand(keyword))
-        slope = BuilderConverter::convertFontStyleFromValue(state, value);
-
-    applyFontStyle(state, slope, keyword == CSSValueItalic ? FontStyleAxis::ital : FontStyleAxis::slnt);
-}
-
 inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSValue& value)
 {
     auto& fontDescription = builderState.fontDescription();
@@ -1425,11 +1279,6 @@ inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSVal
         return;
 
     builderState.setFontDescriptionFontSize(std::min(maximumAllowedFontSize, size));
-}
-
-inline void BuilderCustom::applyValueFontSizeAdjust(BuilderState& builderState, CSSValue& value)
-{
-    builderState.setFontDescriptionFontSizeAdjust(BuilderConverter::convertFontSizeAdjust(builderState, value));
 }
 
 inline void BuilderCustom::applyValueStrokeWidth(BuilderState& builderState, CSSValue& value)

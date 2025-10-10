@@ -56,6 +56,7 @@
 #include "WebsiteDataStore.h"
 #include "WebsitePoliciesData.h"
 #include <WebCore/FocusController.h>
+#include <WebCore/FocusControllerTypes.h>
 #include <WebCore/FocusEventData.h>
 #include <WebCore/FrameTreeSyncData.h>
 #include <WebCore/Image.h>
@@ -182,6 +183,9 @@ void WebFrameProxy::webProcessWillShutDown()
 {
     for (auto& childFrame : std::exchange(m_childFrames, { }))
         childFrame->webProcessWillShutDown();
+
+    if (RefPtr page = m_page.get())
+        page->inspectorController().destroyInspectorTarget(WebFrameInspectorTarget::toTargetID(frameID()));
 
     m_page = nullptr;
 
@@ -466,6 +470,13 @@ void WebFrameProxy::disconnect()
         parentFrame->m_childFrames.remove(*this);
 }
 
+bool WebFrameProxy::isConnected() const
+{
+    if (RefPtr parentFrame = m_parentFrame.get())
+        return parentFrame->m_childFrames.contains(*this);
+    return false;
+}
+
 void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&& frameName, SandboxFlags effectiveSandboxFlags, ReferrerPolicy effectiveReferrerPolicy, WebCore::ScrollbarMode scrollingMode)
 {
     // The DecidePolicyForNavigationActionSync IPC is synchronous and may therefore get processed before the DidCreateSubframe one.
@@ -498,10 +509,11 @@ void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process,
     Site navigationSite(navigation.currentRequest().url());
     RefPtr page = m_page.get();
     // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
-    RegistrableDomain mainFrameDomain(page->mainFrame()->url());
+    Site mainFrameSite(page->mainFrame()->url());
+    auto mainFrameDomain = mainFrameSite.domain();
 
     m_provisionalFrame = nullptr;
-    m_provisionalFrame = adoptRef(*new ProvisionalFrameProxy(*this, group.ensureProcessForSite(navigationSite, process, page->protectedPreferences())));
+    m_provisionalFrame = adoptRef(*new ProvisionalFrameProxy(*this, group.ensureProcessForSite(navigationSite, mainFrameSite, process, page->protectedPreferences())));
     page->protectedWebsiteDataStore()->protectedNetworkProcess()->addAllowedFirstPartyForCookies(process, mainFrameDomain, LoadedWebArchive::No, [pageID = page->webPageIDInProcess(process), completionHandler = WTFMove(completionHandler)] mutable {
         completionHandler(pageID);
     });
@@ -635,7 +647,7 @@ Ref<FrameTreeSyncData> WebFrameProxy::calculateFrameTreeSyncData() const
     bool isSecureForPaymentSession = false;
 #endif
 
-    return FrameTreeSyncData::create(isSecureForPaymentSession, WebCore::SecurityOrigin::create(url()));
+    return FrameTreeSyncData::create(isSecureForPaymentSession, WebCore::SecurityOrigin::create(url()), url().protocol().toString());
 }
 
 void WebFrameProxy::broadcastFrameTreeSyncData(Ref<FrameTreeSyncData>&& data)

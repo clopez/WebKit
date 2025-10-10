@@ -44,8 +44,8 @@
 #include "CSSImageValue.h"
 #include "CSSNamedImageValue.h"
 #include "CSSPaintImageValue.h"
-#include "Document.h"
 #include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "ElementInlines.h"
 #include "ElementTraversal.h"
 #include "FontCache.h"
@@ -72,6 +72,8 @@
 
 namespace WebCore {
 namespace Style {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BuilderState);
 
 BuilderState::BuilderState(RenderStyle& style)
     : m_style(style)
@@ -243,8 +245,8 @@ void BuilderState::updateFontForSizeChange()
     auto& fontCascade = m_style.mutableFontCascadeWithoutUpdate();
     auto fontSize = fontCascade.size();
 
-    auto newWordSpacing = evaluate<float>(m_style.computedWordSpacing(), fontSize, ZoomNeeded { });
-    auto newLetterSpacing = evaluate<float>(m_style.computedLetterSpacing(), fontSize, ZoomNeeded { });
+    auto newWordSpacing = evaluate<float>(m_style.computedWordSpacing(), fontSize, m_style.usedZoomForLength());
+    auto newLetterSpacing = evaluate<float>(m_style.computedLetterSpacing(), fontSize, m_style.usedZoomForLength());
 
     if (newWordSpacing != fontCascade.wordSpacing())
         fontCascade.setWordSpacing(newWordSpacing);

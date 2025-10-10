@@ -271,7 +271,7 @@ public:
     String getShaderSource(WebGLShader&);
     virtual std::optional<Vector<String>> getSupportedExtensions() = 0;
     virtual WebGLAny getTexParameter(GCGLenum target, GCGLenum pname);
-    WebGLAny getUniform(WebGLProgram&, const WebGLUniformLocation&);
+    WebGLAny getUniform(WebGLProgram&, WebGLUniformLocation&);
     RefPtr<WebGLUniformLocation> getUniformLocation(WebGLProgram&, const String&);
     WebGLAny getVertexAttrib(GCGLuint index, GCGLenum pname);
     long long getVertexAttribOffset(GCGLuint index, GCGLenum pname);
@@ -461,7 +461,7 @@ public:
 
     // GraphicsContextGL::Client
     void forceContextLost() final;
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const String&) final;
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final;
 
     void recycleContext();
 

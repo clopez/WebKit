@@ -28,7 +28,7 @@
 
 #include "CachedImage.h"
 #include "ContainerNodeInlines.h"
-#include "DocumentInlines.h"
+#include "DocumentView.h"
 #include "ElementInlines.h"
 #include "FloatQuad.h"
 #include "LargestContentfulPaint.h"
@@ -38,9 +38,9 @@
 #include "Logging.h"
 #include "Page.h"
 #include "Performance.h"
-#include "RenderBlock.h"
+#include "RenderBlockFlow.h"
 #include "RenderBox.h"
-#include "RenderElement.h"
+#include "RenderElementInlines.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
 #include "RenderObjectInlines.h"
@@ -49,7 +49,7 @@
 #include "RenderText.h"
 #include "RenderView.h"
 #include "VisibleRectContext.h"
-
+#include <wtf/CheckedRef.h>
 #include <wtf/Ref.h>
 #include <wtf/text/TextStream.h>
 
@@ -124,14 +124,15 @@ std::optional<float> LargestContentfulPaintData::effectiveVisualArea(const Eleme
 }
 
 // https://w3c.github.io/largest-contentful-paint/#sec-add-lcp-entry
-void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect, DOMHighResTimeStamp paintTimestamp)
+void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect, MonotonicTime loadTime, DOMHighResTimeStamp paintTimestamp)
 {
     bool isNewCandidate = false;
     if (image) {
         isNewCandidate = m_imageContentSet.ensure(element, [] {
             return WeakHashSet<CachedImage> { };
         }).iterator->value.add(*image).isNewEntry;
-    }
+    } else
+        isNewCandidate = m_textContentSet.add(element).isNewEntry;
 
     LOG_WITH_STREAM(LargestContentfulPaint, stream << "LargestContentfulPaintData " << this << " potentiallyAddLargestContentfulPaintEntry() " << element << " image " << (image ? image->url().string() : emptyString()) << " rect " << intersectionRect << " - isNewCandidate " << isNewCandidate);
 
@@ -171,7 +172,8 @@ void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Eleme
 
     if (image) {
         pendingEntry->setURLString(image->url().string());
-        // FIXME: Need to get resource loadTime: webkit.org/b/299556.
+        auto loadTimestamp = window->protectedPerformance()->relativeTimeFromTimeOriginInReducedResolution(loadTime);
+        pendingEntry->setLoadTime(loadTimestamp);
     }
 
     if (element.hasID())
@@ -188,16 +190,29 @@ void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Eleme
 RefPtr<LargestContentfulPaint> LargestContentfulPaintData::takePendingEntry(DOMHighResTimeStamp paintTimestamp)
 {
     auto imageRecords = std::exchange(m_pendingImageRecords, { });
-    for (auto [weakElement, imageAndRects] : imageRecords) {
+    for (auto [weakElement, imageAndData] : imageRecords) {
         RefPtr element = weakElement;
         if (!element)
             continue;
 
         // FIXME: This is doing multiple localToAbsolute on the same element.
-        for (auto [image, rect] : imageAndRects) {
-            auto intersectionRect = computeViewportIntersectionRect(*element, rect);
-            potentiallyAddLargestContentfulPaintEntry(*element, &image, rect, intersectionRect, paintTimestamp);
+        for (auto [image, imageData] : imageAndData) {
+            if (imageData.rect.isEmpty())
+                continue;
+            auto intersectionRect = computeViewportIntersectionRect(*element, imageData.rect);
+            auto loadTimeSeconds = imageData.loadTime ? *imageData.loadTime : MonotonicTime::now();
+            potentiallyAddLargestContentfulPaintEntry(*element, &image, imageData.rect, intersectionRect, loadTimeSeconds, paintTimestamp);
         }
+    }
+
+    auto textRecords = std::exchange(m_paintedTextRecords, { });
+    for (auto [weakElement, rect] : textRecords) {
+        RefPtr element = weakElement;
+        if (!element)
+            continue;
+
+        auto intersectionRect = computeViewportIntersectionRect(*element, rect);
+        potentiallyAddLargestContentfulPaintEntry(*element, nullptr, { }, intersectionRect, { }, paintTimestamp);
     }
 
     return std::exchange(m_pendingEntry, nullptr);
@@ -277,8 +292,37 @@ FloatRect LargestContentfulPaintData::computeViewportIntersectionRectForTextCont
     return intersectionRect;
 }
 
+void LargestContentfulPaintData::didLoadImage(Element& element, CachedImage* image)
+{
+    LOG_WITH_STREAM(LargestContentfulPaint, stream << "LargestContentfulPaintData " << this << " didLoadImage() " << element << " image " << (image ? image->url().string() : emptyString()));
+
+    if (!image)
+        return;
+
+    if (!isExposedForPaintTiming(element))
+        return;
+
+    auto it = m_imageContentSet.find(element);
+    if (it != m_imageContentSet.end()) {
+        auto& imageSet = it->value;
+        if (imageSet.contains(*image))
+            return;
+    }
+
+    auto addResult = m_pendingImageRecords.ensure(element, [] {
+        return WeakHashMap<CachedImage, PendingImageData> { };
+    });
+
+    auto& imageRectMap = addResult.iterator->value;
+    imageRectMap.ensure(*image, [] {
+        return PendingImageData { { }, MonotonicTime::now() };
+    });
+}
+
 void LargestContentfulPaintData::didPaintImage(Element& element, CachedImage* image, FloatRect localRect)
 {
+    LOG_WITH_STREAM(LargestContentfulPaint, stream << "LargestContentfulPaintData " << this << " didPaintImage() " << element << " image " << (image ? image->url().string() : emptyString()) << " localRect " << localRect);
+
     if (!image)
         return;
 
@@ -300,21 +344,61 @@ void LargestContentfulPaintData::didPaintImage(Element& element, CachedImage* im
             page->scheduleRenderingUpdate(RenderingUpdateStep::PaintTiming);
     }
 
-    auto addResult = m_pendingImageRecords.ensure(element, [] {
-        return WeakHashMap<CachedImage, FloatRect> { };
+    auto& imageRectMap = m_pendingImageRecords.ensure(element, [] {
+        return WeakHashMap<CachedImage, PendingImageData> { };
+    }).iterator->value;
+
+    auto addResult = imageRectMap.ensure(*image, [&] {
+        return PendingImageData { localRect, MonotonicTime::now() };
     });
 
-    auto& imageRectMap = addResult.iterator->value;
-    auto imageAddResult = imageRectMap.add(*image, localRect);
     if (!addResult.isNewEntry) {
-        auto& existingRect = imageAddResult.iterator->value;
-        if (localRect.area() > existingRect.area())
-            imageAddResult.iterator->value = localRect;
+        auto& pendingImageData = addResult.iterator->value;
+        if (localRect.area() > pendingImageData.rect.area())
+            pendingImageData.rect = localRect;
+
+        if (!pendingImageData.loadTime)
+            pendingImageData.loadTime = MonotonicTime::now();
     }
 }
 
-void LargestContentfulPaintData::didPaintText(const RenderText&, FloatRect)
+void LargestContentfulPaintData::didPaintText(const RenderBlockFlow& formattingContextRoot, FloatRect localRect)
 {
+    auto& renderBlockFlow = const_cast<RenderBlockFlow&>(formattingContextRoot);
+    // https://w3c.github.io/paint-timing/#sec-modifications-dom says to get the containing block.
+    CheckedPtr<RenderBlock> containingBlock = &renderBlockFlow;
+    if (containingBlock->isAnonymous()) {
+        CheckedPtr ancestor = containingBlock->firstNonAnonymousAncestor();
+        if (CheckedPtr ancestorBlock = dynamicDowncast<RenderBlock>(ancestor.get()))
+            containingBlock = ancestorBlock;
+        else
+            containingBlock = containingBlock->containingBlock();
+    }
+
+    if (!containingBlock)
+        return;
+
+    RefPtr element = containingBlock->element();
+    if (!element)
+        return;
+
+    if (m_textContentSet.contains(*element))
+        return;
+
+    if (!isExposedForPaintTiming(*element))
+        return;
+
+    if (containingBlock != &formattingContextRoot)
+        localRect = formattingContextRoot.localToContainerQuad({ localRect }, containingBlock.get()).boundingBox();
+
+    if (m_paintedTextRecords.isEmptyIgnoringNullReferences()) {
+        if (RefPtr page = element->document().page())
+            page->scheduleRenderingUpdate(RenderingUpdateStep::PaintTiming);
+    }
+
+    m_paintedTextRecords.ensure(*element, [] {
+        return FloatRect { };
+    }).iterator->value.unite(localRect);
 }
 
 } // namespace WebCore

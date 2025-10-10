@@ -2691,6 +2691,20 @@ EnumeratingVisibleNetworkInterfacesEnabled:
     WebKit:
       default: true
 
+EvaluationTimeZoomEnabled:
+  category: css
+  type: bool
+  status: testable
+  humanReadableName: "Evaluation time zoom enabled"
+  humanReadableDescription: "Enables used zoom value to be applied during layout and avoid applying at style-build time"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 EventHandlerDrivenSmoothKeyboardScrollingEnabled:
   type: bool
   status: internal
@@ -2708,17 +2722,17 @@ EventHandlerDrivenSmoothKeyboardScrollingEnabled:
 
 EventTimingEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "Event Timing API"
   humanReadableDescription: "Enable the Event Timing API and supporting instrumentation"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ExperimentalSandboxEnabled:
   type: bool
@@ -2852,6 +2866,20 @@ FTPEnabled:
     WebKit:
       default: false
     WebKitLegacy:
+      default: false
+
+FacebookLiveRecordingQuirkEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Facebook Live Recording Quirk"
+  humanReadableDescription: "Enable Facebook Live Recording Quirk"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      PLATFORM(MAC): true
+      default: false
+    WebCore:
       default: false
 
 FantasyFontFamily:
@@ -3309,6 +3337,20 @@ GridFormattingContextIntegrationEnabled:
       default: false
     WebCore:
       default: false
+
+HTMLEnhancedSelectParsingEnabled:
+   type: bool
+   status: testable
+   category: dom
+   humanReadableName: "Enhanced HTML select element parsing"
+   humanReadableDescription: "Enable enhanced HTML select element parsing"
+   defaultValue:
+     WebKitLegacy:
+       default: false
+     WebKit:
+       default: false
+     WebCore:
+       default: false
 
 HTMLLegacyAttributeValueSerializationEnabled:
    type: bool
@@ -4215,7 +4257,7 @@ LargeImageAsyncDecodingEnabled:
 
 LargestContentfulPaintEnabled:
   type: bool
-  status: testable
+  status: preview
   category: dom
   humanReadableName: "Largest Contentful Paint"
   humanReadableDescription: "Enable Largest Contentful Paint performance entries"
@@ -5151,6 +5193,22 @@ MediaSourcePrefersDecompressionSession:
       default: true
   sharedPreferenceForWebProcess: true
 
+MediaSourceUseRemoteAudioVideoRenderer:
+  type: bool
+  status: unstable
+  category: media
+  humanReadableName: "MSE player uses GPU renderer"
+  humanReadableDescription: "MSE player uses GPU renderer"
+  condition: PLATFORM(COCOA) && ENABLE(VIDEO)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  sharedPreferenceForWebProcess: true
+
 MediaStreamTrackProcessingEnabled:
   type: bool
   status: mature
@@ -5612,6 +5670,18 @@ OffscreenCanvasInWorkersEnabled:
       default: false
     WebCore:
       "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
+      default: false
+
+OpenXRDMABufRelaxedForTesting:
+  type: bool
+  status: internal
+  humanReadableName: "OpenXR DMA-BUF requirement relaxed for testing"
+  humanReadableDescription: "During testing, allows relaxing the requirement that the GL display used by the OpenXR coordinator has MESA_image_dma_buf_export"
+  webcoreBinding: none
+  condition: ENABLE(DEVELOPER_MODE) && USE(OPENXR)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
       default: false
 
 # FIXME: Reenable this on iOS once we can mitigate impact on memory use.
@@ -6171,6 +6241,20 @@ PushAPIEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+
+RTCEncodedStreamsQuirkEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "RTC Encoded Streams Quirk"
+  humanReadableDescription: "Enable RTC Encoded Streams Quirk"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      PLATFORM(MAC): true
+      default: false
+    WebCore:
+      default: false
 
 ReadableByteStreamAPIEnabled:
   type: bool
@@ -7349,6 +7433,21 @@ SiteIsolationSharedProcessEnabled:
       default: false
   sharedPreferenceForWebProcess: true
 
+SlowFrameIndicatorVisible:
+  type: bool
+  status: internal
+  defaultsOverridable: true
+  humanReadableName: "Slow frame indicator"
+  humanReadableDescription: "Make slow frame indicator visible"
+  webcoreName: showSlowFrameIndicator
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: This is handled via WebView SPI rather than WebPreferences for WebKitLegacy. We should change the SPI to lookup the WebPreferences value instead.
 SmartInsertDeleteEnabled:
   type: bool
@@ -7431,6 +7530,23 @@ SpeakerSelectionRequiresUserGesture:
       default: true
     WebCore:
       default: true
+
+SpeculationRulesPrefetchEnabled:
+  type: bool
+  status: testable 
+  category: html
+  humanReadableName: "SpeculationRules prefetch"
+  humanReadableDescription: "SpeculationRules prefetch"
+  defaultValue:
+    WebKitLegacy:
+      default: false 
+    WebKit:
+      default: false 
+    WebCore:
+      default: false 
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
+  richJavaScript: true
 
 SpeechRecognitionEnabled:
   type: bool
@@ -9093,6 +9209,22 @@ WebLocksAPIEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
+WebMUseRemoteAudioVideoRenderer:
+  type: bool
+  status: testable
+  category: media
+  humanReadableName: "WebM player uses GPU renderer"
+  humanReadableDescription: "WebM player uses GPU renderer"
+  condition: PLATFORM(COCOA) && ENABLE(VIDEO)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  sharedPreferenceForWebProcess: true
+
 WebPageSpatialBackdropEnabled:
   type: bool
   status: testable
@@ -9313,6 +9445,21 @@ WebRTCSocketsProxyingEnabled:
       default: false
     WebKit:
       default: true
+    WebCore:
+      default: false
+
+WebRTCSocketsServiceClassEnabled:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "WebRTC Sockets Service Class"
+  humanReadableDescription: "Enable setting WebRTC Sockets Service Class"
+  condition: ENABLE(WEB_RTC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 

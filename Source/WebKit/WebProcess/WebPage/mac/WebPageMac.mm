@@ -63,11 +63,15 @@
 #import <WebCore/ColorMac.h>
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/DocumentPage.h>
+#import <WebCore/DocumentQuirks.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/Editing.h>
 #import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/GraphicsContext.h>
@@ -155,7 +159,7 @@ void WebPage::createMockAccessibilityElement(pid_t pid)
     m_mockAccessibilityElement = WTFMove(mockAccessibilityElement);
 }
 
-void WebPage::platformReinitialize()
+void WebPage::platformReinitializeAccessibilityToken()
 {
     RefPtr frame = m_page->focusController().focusedOrMainFrame();
     if (!frame)

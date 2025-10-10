@@ -22,6 +22,7 @@
 #include "config.h"
 #include "TemporalObject.h"
 
+#include "FractionToDouble.h"
 #include "FunctionPrototype.h"
 #include "IntlObjectInlines.h"
 #include "JSCJSValueInlines.h"
@@ -41,6 +42,8 @@
 #include "TemporalPlainDateTime.h"
 #include "TemporalPlainDateTimeConstructor.h"
 #include "TemporalPlainDateTimePrototype.h"
+#include "TemporalPlainMonthDayConstructor.h"
+#include "TemporalPlainMonthDayPrototype.h"
 #include "TemporalPlainTime.h"
 #include "TemporalPlainTimeConstructor.h"
 #include "TemporalPlainTimePrototype.h"
@@ -98,6 +101,13 @@ static JSValue createPlainDateTimeConstructor(VM& vm, JSObject* object)
     return TemporalPlainDateTimeConstructor::create(vm, TemporalPlainDateTimeConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<TemporalPlainDateTimePrototype*>(globalObject->plainDateTimeStructure()->storedPrototypeObject()));
 }
 
+static JSValue createPlainMonthDayConstructor(VM& vm, JSObject* object)
+{
+    TemporalObject* temporalObject = jsCast<TemporalObject*>(object);
+    auto* globalObject = temporalObject->globalObject();
+    return TemporalPlainMonthDayConstructor::create(vm, TemporalPlainMonthDayConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<TemporalPlainMonthDayPrototype*>(globalObject->plainMonthDayStructure()->storedPrototypeObject()));
+}
+
 static JSValue createPlainTimeConstructor(VM& vm, JSObject* object)
 {
     TemporalObject* temporalObject = jsCast<TemporalObject*>(object);
@@ -127,6 +137,7 @@ namespace JSC {
   PlainDate      createPlainDateConstructor      DontEnum|PropertyCallback
   PlainDateTime  createPlainDateTimeConstructor  DontEnum|PropertyCallback
   PlainTime      createPlainTimeConstructor      DontEnum|PropertyCallback
+  PlainMonthDay  createPlainMonthDayConstructor  DontEnum|PropertyCallback
   TimeZone       createTimeZoneConstructor       DontEnum|PropertyCallback
 @end
 */
@@ -587,7 +598,9 @@ double temporalRoundingIncrement(JSGlobalObject* globalObject, JSObject* options
 
 // RoundNumberToIncrement ( x, increment, roundingMode )
 // https://tc39.es/proposal-temporal/#sec-temporal-roundnumbertoincrement
-double roundNumberToIncrement(double x, double increment, RoundingMode mode)
+// See comment on roundNumberToIncrementInt128() for why there are two
+// roundNumberToIncrement functions.
+double roundNumberToIncrementDouble(double x, double increment, RoundingMode mode)
 {
     auto quotient = x / increment;
     auto truncatedQuotient = std::trunc(quotient);
@@ -663,7 +676,7 @@ Int128 roundNumberToIncrementAsIfPositive(Int128 x, Int128 increment, RoundingMo
 
 // There are two different versions of this method due to the lack
 // of float128. The names are different (roundNumberToIncrementInt128() and
-// roundNumberToIncrement()) to avoid confusion in the presence of
+// roundNumberToIncrementDouble()) to avoid confusion in the presence of
 // implicit casts.
 // https://tc39.es/proposal-temporal/#sec-temporal-roundnumbertoincrement
 Int128 roundNumberToIncrementInt128(Int128 x, Int128 increment, RoundingMode mode)
@@ -705,6 +718,16 @@ TemporalOverflow toTemporalOverflow(JSGlobalObject* globalObject, JSObject* opti
     return intlOption<TemporalOverflow>(globalObject, options, globalObject->vm().propertyNames->overflow,
         { { "constrain"_s, TemporalOverflow::Constrain }, { "reject"_s, TemporalOverflow::Reject } },
         "overflow must be either \"constrain\" or \"reject\""_s, TemporalOverflow::Constrain);
+}
+
+TemporalOverflow toTemporalOverflow(JSGlobalObject* globalObject, JSValue val)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSObject* options = intlGetOptionsObject(globalObject, val);
+    RETURN_IF_EXCEPTION(scope, { });
+    RELEASE_AND_RETURN(scope, toTemporalOverflow(globalObject, options));
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal-rejectobjectwithcalendarortimezone

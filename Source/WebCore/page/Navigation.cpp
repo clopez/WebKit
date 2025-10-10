@@ -32,8 +32,10 @@
 #include "CallbackResult.h"
 #include "CommonVM.h"
 #include "DOMFormData.h"
-#include "DocumentInlines.h"
+#include "DocumentEventLoop.h"
 #include "DocumentLoader.h"
+#include "DocumentSecurityOrigin.h"
+#include "DocumentView.h"
 #include "ErrorEvent.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
@@ -625,11 +627,7 @@ void Navigation::updateNavigationEntry(Ref<HistoryItem>&& item, ShouldCopyStateO
     if (!frame())
         return;
 
-    RefPtr firstChild = frame()->tree().firstChild();
-    if (!firstChild)
-        return;
-
-    for (RefPtr child = firstChild.get(); child; child = child->tree().nextSibling()) {
+    for (RefPtr child = frame()->tree().firstChild(); child; child = child->tree().nextSibling()) {
         RefPtr localChild = dynamicDowncast<LocalFrame>(child.get());
         if (!localChild)
             continue;
@@ -641,6 +639,54 @@ void Navigation::updateNavigationEntry(Ref<HistoryItem>&& item, ShouldCopyStateO
 
             window->protectedNavigation()->updateNavigationEntry(childItem.releaseNonNull(), shouldCopyStateObjectFromCurrentEntry);
         }
+    }
+}
+
+void Navigation::disposeOfForwardEntriesInParents(BackForwardItemIdentifier itemID)
+{
+    RefPtr localMainFrame = protectedFrame()->localMainFrame();
+    if (!localMainFrame)
+        return;
+
+    RefPtr localMainFrameWindow = localMainFrame->window();
+    if (!localMainFrameWindow)
+        return;
+
+    localMainFrameWindow->protectedNavigation()->recursivelyDisposeOfForwardEntriesInParents(itemID, protectedFrame().get());
+}
+
+void Navigation::recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIdentifier itemID, LocalFrame* navigatedFrame)
+{
+    if (frame() == navigatedFrame)
+        return;
+
+    std::optional<size_t> index = std::nullopt;
+    for (size_t i = 0; i < m_entries.size(); i++) {
+        if (m_entries[i]->associatedHistoryItem().itemID() == itemID) {
+            index = i;
+            break;
+        }
+    }
+
+    if (!index)
+        return;
+
+    for (size_t i = *index + 1; i < m_entries.size(); i++)
+        Ref { m_entries[i] }->dispatchDisposeEvent();
+
+    m_currentEntryIndex = index;
+    m_entries.resize(*m_currentEntryIndex + 1);
+
+    for (RefPtr child = frame()->tree().firstChild(); child; child = child->tree().nextSibling()) {
+        RefPtr localChild = dynamicDowncast<LocalFrame>(child.get());
+        if (!localChild)
+            continue;
+
+        RefPtr window = localChild->window();
+        if (!window)
+            continue;
+
+        window->protectedNavigation()->recursivelyDisposeOfForwardEntriesInParents(itemID, navigatedFrame);
     }
 }
 
@@ -663,6 +709,7 @@ void Navigation::updateForNavigation(Ref<HistoryItem>&& item, NavigationNavigati
             return;
         break;
     case NavigationNavigationType::Push:
+        disposeOfForwardEntriesInParents(oldCurrentEntry->associatedHistoryItem().itemID());
         m_currentEntryIndex = *m_currentEntryIndex + 1;
         for (size_t i = *m_currentEntryIndex; i < m_entries.size(); i++)
             disposedEntries.append(m_entries[i]);
@@ -940,19 +987,19 @@ Navigation::DispatchResult Navigation::innerDispatchNavigateEvent(NavigationNavi
 
     RefPtr scriptExecutionContext = this->scriptExecutionContext();
     RefPtr<DOMFormData> formData = nullptr;
-    if (formState) {
-        if (formState->form().isMethodPost() && (navigationType == NavigationNavigationType::Push || navigationType == NavigationNavigationType::Replace)) {
-            if (auto domFormData = DOMFormData::create(*scriptExecutionContext, Ref { formState->form() }.ptr(), RefPtr { formState->submitter() }.get()); !domFormData.hasException())
+    RefPtr updatedSourceElement = sourceElement;
+    if (RefPtr state = formState) {
+        RefPtr submitter = state->submitter();
+        Ref form = state->form();
+
+        if (form->isMethodPost() && (navigationType == NavigationNavigationType::Push || navigationType == NavigationNavigationType::Replace)) {
+            if (auto domFormData = DOMFormData::create(*scriptExecutionContext, form.ptr(), submitter.get()); !domFormData.hasException())
                 formData = domFormData.releaseReturnValue();
         }
 
-        if (!formState->form().target().isEmpty())
-            sourceElement = nullptr;
-        else {
-            sourceElement = formState->submitter();
-            if (!sourceElement)
-                sourceElement = &formState->form();
-        }
+        updatedSourceElement = submitter.get();
+        if (!updatedSourceElement)
+            updatedSourceElement = form.ptr();
     }
 
     RefPtr abortController = AbortController::create(*scriptExecutionContext);
@@ -965,7 +1012,7 @@ Navigation::DispatchResult Navigation::innerDispatchNavigateEvent(NavigationNavi
         formData,
         downloadRequestFilename,
         info,
-        sourceElement,
+        updatedSourceElement.get(),
         canIntercept,
         UserGestureIndicator::processingUserGesture(document.get()),
         hashChange,
@@ -1156,6 +1203,39 @@ void Navigation::abortOngoingNavigationIfNeeded()
 {
     if (RefPtr ongoingNavigateEvent = m_ongoingNavigateEvent)
         abortOngoingNavigation(*ongoingNavigateEvent);
+}
+
+// https://html.spec.whatwg.org/multipage/browsing-the-web.html#getting-session-history-entries-for-the-navigation-api
+Vector<Ref<HistoryItem>> Navigation::filterHistoryItemsForNavigationAPI(Vector<Ref<HistoryItem>>&& allItems, HistoryItem& currentItem)
+{
+    auto startingIndex = allItems.findIf([currentItemID = currentItem.itemID()](const Ref<HistoryItem> entry) {
+        return entry->itemID() == currentItemID;
+    });
+
+    if (startingIndex == notFound)
+        return { currentItem };
+
+    Vector<Ref<HistoryItem>> filteredItems;
+    Ref startingOrigin = SecurityOrigin::create(currentItem.url());
+
+    for (int i = static_cast<int>(startingIndex) - 1; i >= 0; --i) {
+        Ref item = allItems[i];
+        if (!SecurityOrigin::create(item->url())->isSameOriginAs(startingOrigin))
+            break;
+        filteredItems.append(WTFMove(item));
+    }
+
+    filteredItems.reverse();
+    filteredItems.append(currentItem);
+
+    for (size_t i = startingIndex + 1; i < allItems.size(); ++i) {
+        Ref item = allItems[i];
+        if (!SecurityOrigin::create(item->url())->isSameOriginAs(startingOrigin))
+            break;
+        filteredItems.append(WTFMove(item));
+    }
+
+    return filteredItems;
 }
 
 } // namespace WebCore

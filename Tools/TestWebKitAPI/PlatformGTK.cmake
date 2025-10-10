@@ -31,6 +31,15 @@ list(APPEND TestWTF_LIBRARIES
     GTK::GTK
 )
 
+# TestJavaScriptCore
+list(APPEND TestJavaScriptCore_SOURCES
+    ${test_main_SOURCES}
+)
+
+list(APPEND TestJavaScriptCore_LIBRARIES
+    GTK::GTK
+)
+
 # TestWebCore
 list(APPEND TestWebCore_SOURCES
     ${test_main_SOURCES}
@@ -46,12 +55,10 @@ list(APPEND TestWebCore_SOURCES
 )
 
 list(APPEND TestWebCore_SYSTEM_INCLUDE_DIRECTORIES
-    ${GLIB_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTREAMER_AUDIO_INCLUDE_DIRS}
     ${GSTREAMER_PBUTILS_INCLUDE_DIRS}
     ${GSTREAMER_VIDEO_INCLUDE_DIRS}
-    ${LIBSOUP_INCLUDE_DIRS}
 )
 
 list(APPEND TestWebCore_LIBRARIES

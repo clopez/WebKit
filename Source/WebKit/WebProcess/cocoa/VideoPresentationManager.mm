@@ -42,7 +42,6 @@
 #import <WebCore/Chrome.h>
 #import <WebCore/Color.h>
 #import <WebCore/DocumentFullscreen.h>
-#import <WebCore/DocumentInlines.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/HTMLVideoElement.h>
@@ -135,6 +134,12 @@ void VideoPresentationInterfaceContext::audioSessionCategoryChanged(WebCore::Aud
 {
     if (RefPtr manager = m_manager.get())
         manager->audioSessionCategoryChanged(m_contextId, category, mode, policy);
+}
+
+void VideoPresentationInterfaceContext::routingContextUIDChanged(const String& routingContextUID)
+{
+    if (RefPtr manager = m_manager.get())
+        manager->routingContextUIDChanged(m_contextId, routingContextUID);
 }
 
 void VideoPresentationInterfaceContext::hasBeenInteractedWith()
@@ -599,6 +604,12 @@ void VideoPresentationManager::audioSessionCategoryChanged(WebCore::MediaPlayerC
 {
     if (RefPtr page = m_page.get())
         page->send(Messages::VideoPresentationManagerProxy::AudioSessionCategoryChanged(processQualify(contextId), category, mode, policy));
+}
+
+void VideoPresentationManager::routingContextUIDChanged(WebCore::MediaPlayerClientIdentifier contextId, const String& routingContextUID)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::VideoPresentationManagerProxy::RoutingContextUIDChanged(processQualify(contextId), routingContextUID));
 }
 
 void VideoPresentationManager::hasBeenInteractedWith(WebCore::MediaPlayerClientIdentifier contextId)

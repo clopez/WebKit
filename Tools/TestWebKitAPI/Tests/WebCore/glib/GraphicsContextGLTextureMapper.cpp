@@ -67,7 +67,7 @@ static RefPtr<TestedGraphicsContextGLTextureMapper> createTestedGraphicsContextG
 class MockGraphicsContextGLClient final : public GraphicsContextGL::Client {
 public:
     void forceContextLost() final { ++m_contextLostCalls; }
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const String&) final { }
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final { }
     int contextLostCalls() { return m_contextLostCalls; }
 private:
     int m_contextLostCalls { 0 };
@@ -393,7 +393,7 @@ TEST_P(AnyContextAttributeTest, WebXRBlitTest)
         PlatformGLObject color = gl->createRenderbuffer();
         ASSERT_NE(color, 0u);
         gl->bindRenderbuffer(GL::RENDERBUFFER, color);
-        gl->renderbufferStorageMultisampleANGLE(GL::RENDERBUFFER, 0, GL::BGRA_EXT, 2, 2);
+        gl->renderbufferStorageMultisampleANGLE(GL::RENDERBUFFER, 0, GL::RGBA8, 2, 2);
         gl->framebufferRenderbuffer(GL::DRAW_FRAMEBUFFER, GL::COLOR_ATTACHMENT0, GL::RENDERBUFFER, color);
     }
     {

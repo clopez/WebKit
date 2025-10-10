@@ -29,7 +29,6 @@
 
 #include "AXObjectCache.h"
 #include "BitmapImage.h"
-#include "DocumentInlines.h"
 #include "GeometryUtilities.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
@@ -37,7 +36,7 @@
 #include "ImageQualityController.h"
 #include "LayoutRepainter.h"
 #include "PointerEventsHitRules.h"
-#include "RenderElementInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderImageResource.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"
@@ -363,6 +362,11 @@ void RenderSVGImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     if (CheckedPtr cache = document().existingAXObjectCache())
         cache->deferRecomputeIsIgnoredIfNeeded(protectedImageElement().ptr());
+
+    if (auto* image = imageResource().cachedImage(); image && image->currentFrameIsComplete(this)) {
+        if (auto styleable = Styleable::fromRenderer(*this))
+            protectedDocument()->didLoadImage(styleable->protectedElement().get(), image);
+    }
 }
 
 bool RenderSVGImage::bufferForeground(PaintInfo& paintInfo, const LayoutPoint& paintOffset)

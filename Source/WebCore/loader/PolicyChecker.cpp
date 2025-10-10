@@ -34,7 +34,7 @@
 #include "BlobRegistry.h"
 #include "ContentFilter.h"
 #include "ContentSecurityPolicy.h"
-#include "DocumentInlines.h"
+#include "DocumentEventLoop.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventHandler.h"
@@ -52,6 +52,7 @@
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "Navigation.h"
+#include "NodeDocument.h"
 #include "PlatformStrategies.h"
 #include "ResourceLoadInfo.h"
 #include "ThreadableBlobRegistry.h"
@@ -116,13 +117,15 @@ URLKeepingBlobAlive PolicyChecker::extendBlobURLLifetimeIfNecessary(const Resour
     return { request.url(), topOrigin };
 }
 
-void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const ResourceResponse& redirectResponse, DocumentLoader* loader, RefPtr<FormState>&& formState, NavigationPolicyDecisionFunction&& function, PolicyDecisionMode policyDecisionMode)
+void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const ResourceResponse& redirectResponse, DocumentLoader* loader, RefPtr<FormState>&& formState, NavigationPolicyDecisionFunction&& function, PolicyDecisionMode policyDecisionMode, std::optional<NavigationNavigationType> navigationAPIType)
 {
     NavigationAction action = loader->triggeringAction();
     Ref frame = m_frame.get();
     if (action.isEmpty()) {
         action = NavigationAction { frame->protectedDocument().releaseNonNull(), request, InitiatedByMainFrame::Unknown, loader->isRequestFromClientOrUserInput(), NavigationType::Other, loader->shouldOpenExternalURLsPolicyToPropagate() };
         action.setIsContentRuleListRedirect(loader->isContentRuleListRedirect());
+        if (navigationAPIType)
+            action.setNavigationAPIType(*navigationAPIType);
         loader->setTriggeringAction(NavigationAction { action });
     }
 

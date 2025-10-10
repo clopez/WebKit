@@ -124,10 +124,7 @@ class TestRunner(object):
         return driver
 
     def _setup_testing_environment_for_driver(self, driver):
-        test_env = driver._setup_environ_for_test()
-        test_env["TEST_WEBKIT_API_WEBKIT2_RESOURCES_PATH"] = common.top_level_path("Tools", "TestWebKitAPI", "Tests", "WebKit")
-        test_env["TEST_WEBKIT_API_WEBKIT2_INJECTED_BUNDLE_PATH"] = common.library_build_path(self._port)
-        test_env["WEBKIT_EXEC_PATH"] = self._programs_path
+        test_env = driver._setup_environ_for_test() | self._port.environment_for_api_tests()
         # The python display-server driver may set WPE_DISPLAY, but we unset it here because it causes issues with
         # some WPE API tests like WPEPlatform/TestDisplayDefault that check the default behaviour of the APIs.
         test_env.pop("WPE_DISPLAY", None)
@@ -194,8 +191,6 @@ class TestRunner(object):
         wpe_legacy_api = self._use_wpe_legacy_api()
         if self.is_webxr_test(test_program):
             env = self._monado_env | self._test_env
-            # WebXR tests use a null compositor
-            env.pop('LIBGL_ALWAYS_SOFTWARE', None)
         else:
             env = self._weston_env if self.is_wpe_platform_wayland_test(test_program) else self._test_env
             if self.is_wpe_platform_test(test_program):
@@ -251,6 +246,7 @@ class TestRunner(object):
                 prefix = line
                 continue
             else:
+                line = line.partition('#')[0]
                 test_name = prefix + line.strip()
                 if not test_name in skipped_test_cases:
                     tests.append(test_name)

@@ -34,7 +34,6 @@
 #include "ArchiveResourceCollection.h"
 #include "CachedPage.h"
 #include "CachedRawResource.h"
-#include "CachedResourceLoader.h"
 #include "ContentExtensionError.h"
 #include "ContentRuleListResults.h"
 #include "ContentSecurityPolicy.h"
@@ -44,12 +43,19 @@
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentInlines.h"
 #include "DocumentParser.h"
+#include "DocumentPrefetcher.h"
+#include "DocumentQuirks.h"
+#include "DocumentResourceLoader.h"
+#include "DocumentSecurityOrigin.h"
+#include "DocumentView.h"
+#include "DocumentWindow.h"
 #include "DocumentWriter.h"
 #include "ElementChildIteratorInlines.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
 #include "FormState.h"
+#include "FrameInlines.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "HTMLFormElement.h"
@@ -58,8 +64,8 @@
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "HTTPStatusCodes.h"
-#include "HistoryItem.h"
 #include "HistoryController.h"
+#include "HistoryItem.h"
 #include "IconLoader.h"
 #include "InspectorInstrumentation.h"
 #include "IntegrityPolicy.h"
@@ -68,7 +74,7 @@
 #include "LinkIconType.h"
 #include "LoaderStrategy.h"
 #include "LocalDOMWindow.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
@@ -86,7 +92,6 @@
 #include "PlatformStrategies.h"
 #include "PolicyChecker.h"
 #include "ProgressTracker.h"
-#include "Quirks.h"
 #include "ResourceLoadObserver.h"
 #include "ResourceMonitor.h"
 #include "SWClientConnection.h"
@@ -253,7 +258,6 @@ void DocumentLoader::setRequest(ResourceRequest&& req)
     // Replacing an unreachable URL with alternate content looks like a server-side
     // redirect at this point, but we can replace a committed dataSource.
     bool handlingUnreachableURL = false;
-
     handlingUnreachableURL = m_substituteData.isValid() && !m_substituteData.failingURL().isEmpty();
 
     bool shouldNotifyAboutProvisionalURLChange = false;
@@ -433,7 +437,7 @@ bool DocumentLoader::isLoading() const
     return isLoadingMainResource() || !m_subresourceLoaders.isEmpty() || !m_plugInStreamLoaders.isEmpty();
 }
 
-void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics& metrics, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
+void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics& fetchMetrics, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(isMainThread());
 #if ENABLE(CONTENT_FILTERING)
@@ -441,9 +445,17 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
         return;
 #endif
 
+    Box<NetworkLoadMetrics> metrics;
+    if (RefPtr frameLoader = this->frameLoader()) {
+        if (auto prefetchedMetrics = frameLoader->documentPrefetcher().takePrefetchedNetworkLoadMetrics(url()))
+            metrics = WTFMove(prefetchedMetrics);
+    }
+    if (!metrics)
+        metrics = Box<NetworkLoadMetrics>::create(fetchMetrics);
+
     if (RefPtr document = this->document()) {
         if (RefPtr window = document->window())
-            window->protectedPerformance()->documentLoadFinished(metrics);
+            window->protectedPerformance()->documentLoadFinished(*metrics);
     }
 
     ASSERT_UNUSED(resource, m_mainResource == &resource);
@@ -700,7 +712,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
 
     ASSERT(frame);
 
-    RefPtr topFrame = dynamicDowncast<LocalFrame>(frame->tree().top());
+    RefPtr topFrame = frame->tree().top();
 
     RefPtr document = frame->document();
     ASSERT(document);
@@ -727,7 +739,10 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
 
     if (topFrame && topFrame != frame.get()) {
         // We shouldn't check for mixed content against the current frame when navigating; we only need to be concerned with the ancestor frames.
-        RefPtr parentFrame = dynamicDowncast<LocalFrame>(frame->tree().parent());
+        RefPtr parentFrame = frame->tree().parent();
+        if (!parentFrame)
+            parentFrame = frameLoader()->client().provisionalParentFrame();
+
         if (!parentFrame)
             return completionHandler(WTFMove(newRequest));
 
@@ -1111,9 +1126,7 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
         if (RefPtr mainResourceLoader = this->mainResourceLoader())
             InspectorInstrumentation::continueWithPolicyDownload(*frame, *mainResourceLoader->identifier(), *this, m_response);
 
-        RefPtr document = frame->document();
-        bool shouldIgnoreSandboxFlags = frame->isMainFrame() && document && document->quirks().shouldAllowDownloadsInSpiteOfCSP();
-        if (!frame->effectiveSandboxFlags().contains(SandboxFlag::Downloads) || shouldIgnoreSandboxFlags) {
+        if (!frame->effectiveSandboxFlags().contains(SandboxFlag::Downloads)) {
             // When starting the request, we didn't know that it would result in download and not navigation. Now we know that main document URL didn't change.
             // Download may use this knowledge for purposes unrelated to cookies, notably for setting file quarantine data.
             protectedFrameLoader()->setOriginalURLForDownloadRequest(m_request);
@@ -1123,7 +1136,7 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
                 protectedFrameLoader()->protectedClient()->startDownload(m_request);
             } else
                 protectedFrameLoader()->protectedClient()->convertMainResourceLoadToDownload(this, m_request, m_response);
-        } else if (document)
+        } else if (RefPtr document = frame->document())
             document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Not allowed to download due to sandboxing"_s);
 
         // The main resource might be loading from the memory cache, or its loader might have gone missing.
@@ -2313,7 +2326,8 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
     ResourceRequest updatedRequest = mainResourceLoader() ? mainResourceLoader()->originalRequest() : mainResourceRequest.resourceRequest();
     // If there was a fragment identifier on m_request, the cache will have stripped it. m_request should include
     // the fragment identifier, so add that back in.
-    if (equalIgnoringFragmentIdentifier(m_request.url(), updatedRequest.url()))
+    // Otherwise, if the main resource was loaded from a prefetch, we need to conserve the redirect URL here
+    if (equalIgnoringFragmentIdentifier(m_request.url(), updatedRequest.url()) || (m_mainResource && m_mainResource->options().cachingPolicy == CachingPolicy::AllowCachingPrefetch))
         updatedRequest.setURL(URL { m_request.url() });
     setRequest(WTFMove(updatedRequest));
 }

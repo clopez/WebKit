@@ -47,10 +47,12 @@
 #import <wtf/NakedPtr.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/Variant.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/spi/cocoa/NSObjCRuntimeSPI.h>
 
 #if ENABLE(SCREEN_TIME)
+#import <ScreenTime/STScreenTimeConfiguration.h>
 #import <ScreenTime/STWebpageController.h>
 #endif
 
@@ -108,6 +110,7 @@ class Attachment;
 
 namespace WebCore {
 struct AppHighlight;
+struct ExceptionData;
 struct ExceptionDetails;
 struct TextAnimationData;
 enum class BoxSide : uint8_t;
@@ -119,11 +122,14 @@ enum class TextSuggestionState : uint8_t;
 
 #if HAVE(DIGITAL_CREDENTIALS_UI)
 struct DigitalCredentialsRequestData;
+struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
 struct OpenID4VPRequest;
 #endif
 
-}
+struct NodeIdentifierType;
+using NodeIdentifier = ObjectIdentifier<NodeIdentifierType>;
+} // namespace WebCore
 
 namespace WebKit {
 enum class ContinueUnsafeLoad : bool;
@@ -186,6 +192,9 @@ enum class HideScrollPocketReason : uint8_t {
 @protocol _WKTextManipulationDelegate;
 @protocol _WKInputDelegate;
 @protocol _WKAppHighlightDelegate;
+
+enum class SimilarToOriginalTextTag : uint8_t { Value };
+using TextValidationMapValue = Variant<String, SimilarToOriginalTextTag>;
 
 #if PLATFORM(IOS_FAMILY)
 struct LiveResizeParameters {
@@ -308,6 +317,7 @@ struct PerWebProcessState {
 
 #if ENABLE(SCREEN_TIME)
     RetainPtr<STWebpageController> _screenTimeWebpageController;
+    RetainPtr<STScreenTimeConfigurationObserver> _screenTimeConfigurationObserver;
 #if PLATFORM(MAC)
     RetainPtr<NSVisualEffectView> _screenTimeBlurredSnapshot;
 #else
@@ -480,6 +490,10 @@ struct PerWebProcessState {
     BOOL _needsTopScrollPocketDueToVisibleContentInset;
     BOOL _shouldUpdateNeedsTopScrollPocketDueToVisibleContentInset;
 #endif
+
+#if ENABLE(TEXT_EXTRACTION_FILTER)
+    HashMap<unsigned /* string hash */, TextValidationMapValue> _textValidationCache;
+#endif
 }
 
 - (BOOL)_isValid;
@@ -627,6 +641,14 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const std::optional<WebCore::Exce
 #endif
 
 WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContainerEdges&, WebCore::BoxSide);
+
+#if ENABLE(TEXT_EXTRACTION_FILTER)
+
+@interface WKWebView (TextExtractionFilter)
+- (void)_clearTextExtractionFilterCache;
+@end
+
+#endif
 
 #endif // !__has_feature(modules)
 #endif // __cplusplus

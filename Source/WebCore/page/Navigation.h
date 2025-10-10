@@ -185,6 +185,8 @@ public:
 
     void updateNavigationEntry(Ref<HistoryItem>&&, ShouldCopyStateObjectFromCurrentEntry);
 
+    static Vector<Ref<HistoryItem>> filterHistoryItemsForNavigationAPI(Vector<Ref<HistoryItem>>&&, HistoryItem&);
+
 private:
     explicit Navigation(LocalDOMWindow&);
 
@@ -212,6 +214,9 @@ private:
 
     size_t entryIndexOfKey(const String&) const;
     bool hasEntryWithKey(const String&) const;
+
+    void disposeOfForwardEntriesInParents(BackForwardItemIdentifier);
+    void recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIdentifier, LocalFrame* navigatedFrame);
 
     std::optional<size_t> m_currentEntryIndex;
     RefPtr<NavigationTransition> m_transition;

@@ -35,10 +35,13 @@
 #include "CSSGridIntegerRepeatValue.h"
 #include "CSSGridLineNamesValue.h"
 #include "CSSPropertyNames.h"
+#include "LengthFunctions.h"
+#include "RenderElementStyleInlines.h"
 #include "StyleExtractorConverter.h"
 #include "StyleExtractorSerializer.h"
 #include "StyleInterpolation.h"
 #include "StyleOrderedNamedLinesCollector.h"
+#include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
 
@@ -57,11 +60,6 @@ public:
     static Ref<CSSValue> extractLineHeight(ExtractorState&);
     static Ref<CSSValue> extractFontFamily(ExtractorState&);
     static Ref<CSSValue> extractFontSize(ExtractorState&);
-    static Ref<CSSValue> extractFontStyle(ExtractorState&);
-    static Ref<CSSValue> extractFontVariantLigatures(ExtractorState&);
-    static Ref<CSSValue> extractFontVariantNumeric(ExtractorState&);
-    static Ref<CSSValue> extractFontVariantAlternates(ExtractorState&);
-    static Ref<CSSValue> extractFontVariantEastAsian(ExtractorState&);
     static Ref<CSSValue> extractTop(ExtractorState&);
     static Ref<CSSValue> extractRight(ExtractorState&);
     static Ref<CSSValue> extractBottom(ExtractorState&);
@@ -152,11 +150,6 @@ public:
     static void extractLineHeightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractFontFamilySerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractFontSizeSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractFontStyleSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractFontVariantLigaturesSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractFontVariantNumericSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractFontVariantAlternatesSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
-    static void extractFontVariantEastAsianSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractTopSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractRightSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
     static void extractBottomSerialization(ExtractorState&, StringBuilder&, const CSS::SerializationContext&);
@@ -254,7 +247,7 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyLetterSpacing> {
         // https://www.w3.org/TR/css-text-4/#letter-spacing-property
 
         auto& spacing = state.style.computedLetterSpacing();
-        if (spacing.isFixed() && spacing.isZero())
+        if (auto fixedSpacing = spacing.tryFixed(); fixedSpacing && fixedSpacing->isZero())
             return functor(CSS::Keyword::Normal { });
         return functor(spacing);
     }
@@ -264,6 +257,36 @@ template<> struct PropertyExtractorAdaptor<CSSPropertyWordSpacing> {
     template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
     {
         return functor(state.style.computedWordSpacing());
+    }
+};
+
+template<> struct PropertyExtractorAdaptor<CSSPropertyLineHeight> {
+    template<typename F> decltype(auto) computedValue(ExtractorState& state, F&& functor) const
+    {
+        return WTF::switchOn(state.style.lineHeight(),
+            [&](const CSS::Keyword::Normal& keyword) {
+                return functor(keyword);
+            },
+            [&](const LineHeight::Fixed& fixed) {
+                return functor(fixed);
+            },
+            [&](const LineHeight::Percentage& percentage) {
+                // CSSValueConversion<LineHeight> will convert a percentage value to a fixed value,
+                // and a number value to a percentage value. To be able to roundtrip a number value, we thus
+                // look for a percent value and convert it back to a number.
+                if (state.valueType == ExtractorState::PropertyValueType::Computed)
+                    return functor(Number<CSS::Nonnegative> { percentage.value / 100 });
+
+                // This is imperfect, because it doesn't include the zoom factor and the real computation
+                // for how high to be in pixels does include things like minimum font size and the zoom factor.
+                // On the other hand, since font-size doesn't include the zoom factor, we really can't do
+                // that here either.
+                return functor(Length<CSS::Nonnegative> { percentage.value * state.style.fontDescription().computedSize() / 100 });
+            },
+            [&](const LineHeight::Calc& calc) {
+                return functor(Length<CSS::Nonnegative> { evaluate<float>(calc, 0.0f) });
+            }
+        );
     }
 };
 
@@ -1316,50 +1339,12 @@ inline void ExtractorCustom::extractWordSpacingSerialization(ExtractorState& sta
 
 inline Ref<CSSValue> ExtractorCustom::extractLineHeight(ExtractorState& state)
 {
-    auto& length = state.style.lineHeight();
-    if (length.isNormal())
-        return CSSPrimitiveValue::create(CSSValueNormal);
-    if (length.isPercent()) {
-        // BuilderConverter::convertLineHeight() will convert a percentage value to a fixed value,
-        // and a number value to a percentage value. To be able to roundtrip a number value, we thus
-        // look for a percent value and convert it back to a number.
-        if (state.valueType == ExtractorState::PropertyValueType::Computed)
-            return CSSPrimitiveValue::create(length.value() / 100);
-
-        // This is imperfect, because it doesn't include the zoom factor and the real computation
-        // for how high to be in pixels does include things like minimum font size and the zoom factor.
-        // On the other hand, since font-size doesn't include the zoom factor, we really can't do
-        // that here either.
-        return ExtractorConverter::convertNumberAsPixels(state, static_cast<double>(length.percent() * state.style.fontDescription().computedSize()) / 100);
-    }
-    return ExtractorConverter::convertNumberAsPixels(state, floatValueForLength(length, 0, 1.0f /* FIXME FIND ZOOM */));
+    return extractCSSValue<CSSPropertyLineHeight>(state);
 }
 
 inline void ExtractorCustom::extractLineHeightSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
-    auto& length = state.style.lineHeight();
-    if (length.isNormal()) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Normal { });
-        return;
-    }
-    if (length.isPercent()) {
-        // BuilderConverter::convertLineHeight() will convert a percentage value to a fixed value,
-        // and a number value to a percentage value. To be able to roundtrip a number value, we thus
-        // look for a percent value and convert it back to a number.
-        if (state.valueType == ExtractorState::PropertyValueType::Computed) {
-            ExtractorSerializer::serializeNumber(state, builder, context, length.value() / 100);
-            return;
-        }
-
-        // This is imperfect, because it doesn't include the zoom factor and the real computation
-        // for how high to be in pixels does include things like minimum font size and the zoom factor.
-        // On the other hand, since font-size doesn't include the zoom factor, we really can't do
-        // that here either.
-        ExtractorSerializer::serializeNumberAsPixels(state, builder, context, static_cast<double>(length.percent() * state.style.fontDescription().computedSize()) / 100);
-        return;
-    }
-
-    ExtractorSerializer::serializeNumberAsPixels(state, builder, context, floatValueForLength(length, 0, 1.0f /* FIXME FIND ZOOM */));
+    extractSerialization<CSSPropertyLineHeight>(state, builder, context);
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractFontFamily(ExtractorState& state)
@@ -1388,236 +1373,6 @@ inline Ref<CSSValue> ExtractorCustom::extractFontSize(ExtractorState& state)
 inline void ExtractorCustom::extractFontSizeSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
 {
     ExtractorSerializer::serializeNumberAsPixels(state, builder, context, state.style.fontDescription().computedSize());
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractFontStyle(ExtractorState& state)
-{
-    auto italic = state.style.fontDescription().italic();
-    if (auto keyword = fontStyleKeyword(italic, state.style.fontDescription().fontStyleAxis()))
-        return CSSPrimitiveValue::create(*keyword);
-    return CSSFontStyleWithAngleValue::create({ CSS::AngleUnit::Deg, static_cast<float>(*italic) });
-}
-
-inline void ExtractorCustom::extractFontStyleSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    auto italic = state.style.fontDescription().italic();
-    if (auto keyword = fontStyleKeyword(italic, state.style.fontDescription().fontStyleAxis())) {
-        builder.append(nameLiteralForSerialization(*keyword));
-        return;
-    }
-
-    float angle = *italic;
-    if (!angle) {
-        CSS::serializationForCSS(builder, context, CSS::Keyword::Normal { });
-        return;
-    }
-
-    CSS::serializationForCSS(builder, context, CSS::Keyword::Oblique { });
-    builder.append(' ');
-    CSS::serializationForCSS(builder, context, CSS::AngleRaw<> { CSS::AngleUnit::Deg, angle });
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractFontVariantLigatures(ExtractorState& state)
-{
-    auto common = state.style.fontDescription().variantCommonLigatures();
-    auto discretionary = state.style.fontDescription().variantDiscretionaryLigatures();
-    auto historical = state.style.fontDescription().variantHistoricalLigatures();
-    auto contextualAlternates = state.style.fontDescription().variantContextualAlternates();
-
-    if (common == FontVariantLigatures::No && discretionary == FontVariantLigatures::No && historical == FontVariantLigatures::No && contextualAlternates == FontVariantLigatures::No)
-        return CSSPrimitiveValue::create(CSSValueNone);
-    if (common == FontVariantLigatures::Normal && discretionary == FontVariantLigatures::Normal && historical == FontVariantLigatures::Normal && contextualAlternates == FontVariantLigatures::Normal)
-        return CSSPrimitiveValue::create(CSSValueNormal);
-
-    auto appendLigaturesValue = [](auto& list, auto value, auto yesValue, auto noValue) {
-        switch (value) {
-        case FontVariantLigatures::Normal:
-            return;
-        case FontVariantLigatures::No:
-            list.append(CSSPrimitiveValue::create(noValue));
-            return;
-        case FontVariantLigatures::Yes:
-            list.append(CSSPrimitiveValue::create(yesValue));
-            return;
-        }
-        ASSERT_NOT_REACHED();
-    };
-
-    CSSValueListBuilder valueList;
-    appendLigaturesValue(valueList, common, CSSValueCommonLigatures, CSSValueNoCommonLigatures);
-    appendLigaturesValue(valueList, discretionary, CSSValueDiscretionaryLigatures, CSSValueNoDiscretionaryLigatures);
-    appendLigaturesValue(valueList, historical, CSSValueHistoricalLigatures, CSSValueNoHistoricalLigatures);
-    appendLigaturesValue(valueList, contextualAlternates, CSSValueContextual, CSSValueNoContextual);
-    return CSSValueList::createSpaceSeparated(WTFMove(valueList));
-}
-
-inline void ExtractorCustom::extractFontVariantLigaturesSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(extractFontVariantLigatures(state)->cssText(context));
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractFontVariantNumeric(ExtractorState& state)
-{
-    auto figure = state.style.fontDescription().variantNumericFigure();
-    auto spacing = state.style.fontDescription().variantNumericSpacing();
-    auto fraction = state.style.fontDescription().variantNumericFraction();
-    auto ordinal = state.style.fontDescription().variantNumericOrdinal();
-    auto slashedZero = state.style.fontDescription().variantNumericSlashedZero();
-
-    if (figure == FontVariantNumericFigure::Normal && spacing == FontVariantNumericSpacing::Normal && fraction == FontVariantNumericFraction::Normal && ordinal == FontVariantNumericOrdinal::Normal && slashedZero == FontVariantNumericSlashedZero::Normal)
-        return CSSPrimitiveValue::create(CSSValueNormal);
-
-    CSSValueListBuilder valueList;
-    switch (figure) {
-    case FontVariantNumericFigure::Normal:
-        break;
-    case FontVariantNumericFigure::LiningNumbers:
-        valueList.append(CSSPrimitiveValue::create(CSSValueLiningNums));
-        break;
-    case FontVariantNumericFigure::OldStyleNumbers:
-        valueList.append(CSSPrimitiveValue::create(CSSValueOldstyleNums));
-        break;
-    }
-
-    switch (spacing) {
-    case FontVariantNumericSpacing::Normal:
-        break;
-    case FontVariantNumericSpacing::ProportionalNumbers:
-        valueList.append(CSSPrimitiveValue::create(CSSValueProportionalNums));
-        break;
-    case FontVariantNumericSpacing::TabularNumbers:
-        valueList.append(CSSPrimitiveValue::create(CSSValueTabularNums));
-        break;
-    }
-
-    switch (fraction) {
-    case FontVariantNumericFraction::Normal:
-        break;
-    case FontVariantNumericFraction::DiagonalFractions:
-        valueList.append(CSSPrimitiveValue::create(CSSValueDiagonalFractions));
-        break;
-    case FontVariantNumericFraction::StackedFractions:
-        valueList.append(CSSPrimitiveValue::create(CSSValueStackedFractions));
-        break;
-    }
-
-    if (ordinal == FontVariantNumericOrdinal::Yes)
-        valueList.append(CSSPrimitiveValue::create(CSSValueOrdinal));
-    if (slashedZero == FontVariantNumericSlashedZero::Yes)
-        valueList.append(CSSPrimitiveValue::create(CSSValueSlashedZero));
-
-    return CSSValueList::createSpaceSeparated(WTFMove(valueList));
-}
-
-inline void ExtractorCustom::extractFontVariantNumericSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(extractFontVariantNumeric(state)->cssText(context));
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractFontVariantAlternates(ExtractorState& state)
-{
-    auto alternates = state.style.fontDescription().variantAlternates();
-    if (alternates.isNormal())
-        return CSSPrimitiveValue::create(CSSValueNormal);
-
-    CSSValueListBuilder valueList;
-
-    if (!alternates.values().stylistic.isNull())
-        valueList.append(CSSFunctionValue::create(CSSValueStylistic, CSSPrimitiveValue::createCustomIdent(alternates.values().stylistic)));
-
-    if (alternates.values().historicalForms)
-        valueList.append(CSSPrimitiveValue::create(CSSValueHistoricalForms));
-
-    if (!alternates.values().styleset.isEmpty()) {
-        CSSValueListBuilder stylesetArguments;
-        for (auto& argument : alternates.values().styleset)
-            stylesetArguments.append(CSSPrimitiveValue::createCustomIdent(argument));
-        valueList.append(CSSFunctionValue::create(CSSValueStyleset, WTFMove(stylesetArguments)));
-    }
-
-    if (!alternates.values().characterVariant.isEmpty()) {
-        CSSValueListBuilder characterVariantArguments;
-        for (auto& argument : alternates.values().characterVariant)
-            characterVariantArguments.append(CSSPrimitiveValue::createCustomIdent(argument));
-        valueList.append(CSSFunctionValue::create(CSSValueCharacterVariant, WTFMove(characterVariantArguments)));
-    }
-
-    if (!alternates.values().swash.isNull())
-        valueList.append(CSSFunctionValue::create(CSSValueSwash, CSSPrimitiveValue::createCustomIdent(alternates.values().swash)));
-
-    if (!alternates.values().ornaments.isNull())
-        valueList.append(CSSFunctionValue::create(CSSValueOrnaments, CSSPrimitiveValue::createCustomIdent(alternates.values().ornaments)));
-
-    if (!alternates.values().annotation.isNull())
-        valueList.append(CSSFunctionValue::create(CSSValueAnnotation, CSSPrimitiveValue::createCustomIdent(alternates.values().annotation)));
-
-    if (valueList.size() == 1)
-        return WTFMove(valueList[0]);
-
-    return CSSValueList::createSpaceSeparated(WTFMove(valueList));
-}
-
-inline void ExtractorCustom::extractFontVariantAlternatesSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(extractFontVariantAlternates(state)->cssText(context));
-}
-
-inline Ref<CSSValue> ExtractorCustom::extractFontVariantEastAsian(ExtractorState& state)
-{
-    auto variant = state.style.fontDescription().variantEastAsianVariant();
-    auto width = state.style.fontDescription().variantEastAsianWidth();
-    auto ruby = state.style.fontDescription().variantEastAsianRuby();
-    if (variant == FontVariantEastAsianVariant::Normal && width == FontVariantEastAsianWidth::Normal && ruby == FontVariantEastAsianRuby::Normal)
-        return CSSPrimitiveValue::create(CSSValueNormal);
-
-    CSSValueListBuilder valueList;
-    switch (variant) {
-    case FontVariantEastAsianVariant::Normal:
-        break;
-    case FontVariantEastAsianVariant::Jis78:
-        valueList.append(CSSPrimitiveValue::create(CSSValueJis78));
-        break;
-    case FontVariantEastAsianVariant::Jis83:
-        valueList.append(CSSPrimitiveValue::create(CSSValueJis83));
-        break;
-    case FontVariantEastAsianVariant::Jis90:
-        valueList.append(CSSPrimitiveValue::create(CSSValueJis90));
-        break;
-    case FontVariantEastAsianVariant::Jis04:
-        valueList.append(CSSPrimitiveValue::create(CSSValueJis04));
-        break;
-    case FontVariantEastAsianVariant::Simplified:
-        valueList.append(CSSPrimitiveValue::create(CSSValueSimplified));
-        break;
-    case FontVariantEastAsianVariant::Traditional:
-        valueList.append(CSSPrimitiveValue::create(CSSValueTraditional));
-        break;
-    }
-
-    switch (width) {
-    case FontVariantEastAsianWidth::Normal:
-        break;
-    case FontVariantEastAsianWidth::Full:
-        valueList.append(CSSPrimitiveValue::create(CSSValueFullWidth));
-        break;
-    case FontVariantEastAsianWidth::Proportional:
-        valueList.append(CSSPrimitiveValue::create(CSSValueProportionalWidth));
-        break;
-    }
-
-    if (ruby == FontVariantEastAsianRuby::Yes)
-        valueList.append(CSSPrimitiveValue::create(CSSValueRuby));
-
-    return CSSValueList::createSpaceSeparated(WTFMove(valueList));
-}
-
-inline void ExtractorCustom::extractFontVariantEastAsianSerialization(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context)
-{
-    // FIXME: Do this more efficiently without creating and destroying a CSSValue object.
-    builder.append(extractFontVariantEastAsian(state)->cssText(context));
 }
 
 inline Ref<CSSValue> ExtractorCustom::extractTop(ExtractorState& state)
@@ -2557,7 +2312,7 @@ inline RefPtr<CSSValue> ExtractorCustom::extractFontShorthand(ExtractorState& st
 {
     auto& description = state.style.fontDescription();
     auto fontWidth = fontWidthKeyword(description.width());
-    auto fontStyle = fontStyleKeyword(description.italic(), description.fontStyleAxis());
+    auto fontStyle = fontStyleKeyword(description.fontStyleSlope(), description.fontStyleAxis());
 
     auto propertiesResetByShorthandAreExpressible = [&] {
         // The font shorthand can express "font-variant-caps: small-caps". Overwrite with "normal" so we can use isAllNormal to check that all the other settings are normal.

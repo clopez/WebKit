@@ -30,7 +30,6 @@
 
 #import "AddEventListenerOptionsInlines.h"
 #import "DocumentFullscreen.h"
-#import "DocumentInlines.h"
 #import "Event.h"
 #import "EventListener.h"
 #import "EventNames.h"
@@ -40,7 +39,7 @@
 #import "LocalDOMWindow.h"
 #import "Logging.h"
 #import "MediaControlsHost.h"
-#import "NodeInlines.h"
+#import "NodeDocument.h"
 #import "Page.h"
 #import "PlaybackSessionModelMediaElement.h"
 #import "TextTrackList.h"
@@ -473,6 +472,12 @@ void VideoPresentationModelVideoElement::audioSessionCategoryChanged(AudioSessio
 {
     for (auto& client : copyToVector(m_clients))
         client->audioSessionCategoryChanged(category, mode, policy);
+}
+
+void VideoPresentationModelVideoElement::routingContextUIDChanged(const String& routingContextUID)
+{
+    for (auto& client : copyToVector(m_clients))
+        client->routingContextUIDChanged(routingContextUID);
 }
 
 #if !RELEASE_LOG_DISABLED

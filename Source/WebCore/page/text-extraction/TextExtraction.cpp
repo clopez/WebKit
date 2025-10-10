@@ -31,8 +31,11 @@
 #include "BoundaryPointInlines.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
+#include "DocumentPage.h"
+#include "DocumentView.h"
 #include "Editor.h"
 #include "ElementInlines.h"
+#include "EventHandler.h"
 #include "EventListenerMap.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
@@ -1468,6 +1471,31 @@ InteractionDescription interactionDescription(const Interaction& interaction)
         description.append(", replacing any existing content"_s);
 
     return { description.toString(), WTFMove(stringsToValidate) };
+}
+
+std::optional<SimpleRange> rangeForExtractedText(const LocalFrame& frame, ExtractedText&& extractedText)
+{
+    auto [text, nodeIdentifier] = extractedText;
+
+    RefPtr node = [&] -> RefPtr<Node> {
+        if (nodeIdentifier) {
+            if (RefPtr node = Node::fromIdentifier(*nodeIdentifier))
+                return node;
+        }
+
+        if (RefPtr document = frame.document())
+            return document->body();
+
+        return { };
+    }();
+
+    if (!node)
+        return { };
+
+    if (text.isEmpty())
+        return { makeRangeSelectingNodeContents(*node) };
+
+    return searchForText(*node, text);
 }
 
 } // namespace TextExtraction

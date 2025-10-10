@@ -8517,6 +8517,37 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     _legacyTextInputTraits = nil;
     _extendedTextInputTraits = nil;
 
+    // For elements that have selectable content (e.g. text field) we need to wait for the web process to send an up-to-date
+    // selection rect before we can zoom and reveal the selection. Non-selectable elements (e.g. <select>) can be zoomed
+    // immediately because they have no selection to reveal.
+    // We create RevealFocusedElementDeferrer before callin becomeFirstResponder as the latter can result in _keyboardWillShow.
+    if (requiresKeyboard) {
+        bool ignorePreviousKeyboardWillShowNotification = [] {
+            // In the case where out-of-process keyboard is enabled and the software keyboard is shown,
+            // we end up getting two sets of "KeyboardWillShow" -> "KeyboardDidShow" notifications when
+            // the keyboard animates up, after reloading input views. When the first set of notifications
+            // is dispatched underneath the call to -reloadInputViews above, the keyboard hasn't yet
+            // become full height, so attempts to reveal the focused element using the current height will
+            // fail. The second set of keyboard notifications contains the final keyboard height, and is the
+            // one we should use for revealing the focused element.
+            // See also: <rdar://111704216>.
+            if (!UIKeyboard.usesInputSystemUI)
+                return false;
+
+            auto keyboard = UIKeyboard.activeKeyboard;
+            return keyboard && !keyboard.isMinimized;
+        }();
+        _revealFocusedElementDeferrer = WebKit::RevealFocusedElementDeferrer::create(self, [&] {
+            OptionSet reasons { WebKit::RevealFocusedElementDeferralReason::EditorState };
+            if (!self._scroller.firstResponderKeyboardAvoidanceEnabled)
+                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardDidShow);
+            else if (_waitingForKeyboardAppearanceAnimationToStart || ignorePreviousKeyboardWillShowNotification)
+                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardWillShow);
+            return reasons;
+        }());
+        _page->setWaitingForPostLayoutEditorStateUpdateAfterFocusingElement(true);
+    }
+
     if (![self isFirstResponder])
         [self becomeFirstResponder];
 
@@ -8561,35 +8592,7 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     if (editableChanged)
         [_webView _scheduleVisibleContentRectUpdate];
 
-    // For elements that have selectable content (e.g. text field) we need to wait for the web process to send an up-to-date
-    // selection rect before we can zoom and reveal the selection. Non-selectable elements (e.g. <select>) can be zoomed
-    // immediately because they have no selection to reveal.
-    if (requiresKeyboard) {
-        bool ignorePreviousKeyboardWillShowNotification = [] {
-            // In the case where out-of-process keyboard is enabled and the software keyboard is shown,
-            // we end up getting two sets of "KeyboardWillShow" -> "KeyboardDidShow" notifications when
-            // the keyboard animates up, after reloading input views. When the first set of notifications
-            // is dispatched underneath the call to -reloadInputViews above, the keyboard hasn't yet
-            // become full height, so attempts to reveal the focused element using the current height will
-            // fail. The second set of keyboard notifications contains the final keyboard height, and is the
-            // one we should use for revealing the focused element.
-            // See also: <rdar://111704216>.
-            if (!UIKeyboard.usesInputSystemUI)
-                return false;
-
-            auto keyboard = UIKeyboard.activeKeyboard;
-            return keyboard && !keyboard.isMinimized;
-        }();
-        _revealFocusedElementDeferrer = WebKit::RevealFocusedElementDeferrer::create(self, [&] {
-            OptionSet reasons { WebKit::RevealFocusedElementDeferralReason::EditorState };
-            if (!self._scroller.firstResponderKeyboardAvoidanceEnabled)
-                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardDidShow);
-            else if (_waitingForKeyboardAppearanceAnimationToStart || ignorePreviousKeyboardWillShowNotification)
-                reasons.add(WebKit::RevealFocusedElementDeferralReason::KeyboardWillShow);
-            return reasons;
-        }());
-        _page->setWaitingForPostLayoutEditorStateUpdateAfterFocusingElement(true);
-    } else
+    if (!requiresKeyboard)
         [self _zoomToRevealFocusedElement];
 
     [self _updateAccessory];
@@ -11772,17 +11775,21 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
 
 - (UITargetedPreview *)_createTargetedContextMenuHintPreviewIfPossible
 {
+    RetainPtr<UIView> containerForContextMenuHintPreviews = self.containerForContextMenuHintPreviews;
+    if (![containerForContextMenuHintPreviews window])
+        return nil;
+
     RetainPtr<UITargetedPreview> targetedPreview;
 
     if (_positionInformation.isLink && _positionInformation.textIndicator && _positionInformation.textIndicator->contentImage()) {
         RefPtr textIndicator = _positionInformation.textIndicator;
         _positionInformationLinkIndicator = textIndicator;
 
-        targetedPreview = [self _createTargetedPreviewFromTextIndicator:WTFMove(textIndicator) previewContainer:self.containerForContextMenuHintPreviews];
+        targetedPreview = [self _createTargetedPreviewFromTextIndicator:WTFMove(textIndicator) previewContainer:containerForContextMenuHintPreviews.get()];
     } else if ((_positionInformation.isAttachment || _positionInformation.isImage) && _positionInformation.image) {
         RetainPtr cgImage = _positionInformation.image->createPlatformImage();
         auto image = adoptNS([[UIImage alloc] initWithCGImage:cgImage.get()]);
-        targetedPreview = createTargetedPreview(image.get(), self, self.containerForContextMenuHintPreviews, _positionInformation.bounds, { }, nil);
+        targetedPreview = createTargetedPreview(image.get(), self, containerForContextMenuHintPreviews.get(), _positionInformation.bounds, { }, nil);
     }
 
     if (!targetedPreview) {
@@ -11794,7 +11801,7 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
             return _positionInformation.bounds;
         }();
 
-        targetedPreview = createFallbackTargetedPreview(self, self.containerForContextMenuHintPreviews, boundsForFallbackPreview, nil);
+        targetedPreview = createFallbackTargetedPreview(self, containerForContextMenuHintPreviews.get(), boundsForFallbackPreview, nil);
     }
 
     [self _updateTargetedPreviewScrollViewUsingContainerScrollingNodeID:_positionInformation.containerScrollingNodeID];

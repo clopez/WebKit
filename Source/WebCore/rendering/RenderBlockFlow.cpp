@@ -27,6 +27,7 @@
 
 #include "AXObjectCache.h"
 #include "BlockStepSizing.h"
+#include "DocumentView.h"
 #include "Editor.h"
 #include "ElementInlines.h"
 #include "FloatingObjects.h"
@@ -55,7 +56,7 @@
 #include "RenderCombineText.h"
 #include "RenderCounter.h"
 #include "RenderDeprecatedFlexibleBox.h"
-#include "RenderElementInlines.h"
+#include "RenderElementStyleInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
 #include "RenderIterator.h"
@@ -420,16 +421,12 @@ bool RenderBlockFlow::willCreateColumns(std::optional<unsigned> desiredColumnCou
     if (!style().hasInlineColumnAxis())
         return true;
 
-    // Non-auto column-width always initiates MultiColumnFlow.
-    if (!style().columnWidth().isAuto())
+    // Non-auto column-width or column-count always initiates MultiColumnFlow.
+    if (!style().columnWidth().isAuto() || !style().columnCount().isAuto())
         return true;
 
     if (desiredColumnCount)
         return desiredColumnCount.value() > 1;
-
-    // column-count > 1 always initiates MultiColumnFlow.
-    if (auto columnCount = style().columnCount().tryValue())
-        return columnCount->value > 1;
 
     ASSERT_NOT_REACHED();
     return false;
@@ -3296,12 +3293,12 @@ LayoutUnit RenderBlockFlow::adjustEnclosingTopForPrecedingBlock(LayoutUnit top) 
         const RenderElement* object = this;
         const RenderObject* sibling = nullptr;
         do {
-            sibling = object->previousSibling();
+            sibling = object->previousInFlowSibling();
             while (sibling) {
                 auto* siblingBlock = dynamicDowncast<RenderBlock>(*sibling);
                 if (siblingBlock && !siblingBlock->isSelectionRoot())
                     break;
-                sibling = sibling->previousSibling();
+                sibling = sibling->previousInFlowSibling();
             }
 
             auto& objectBlock = downcast<RenderBlock>(*object);
@@ -3840,7 +3837,7 @@ static bool hasSimpleStaticPositionForInlineLevelOutOfFlowChildrenByStyle(const 
 {
     if (rootStyle.textAlign() != TextAlignMode::Start)
         return false;
-    if (!rootStyle.textIndent().length.isZero())
+    if (!rootStyle.textIndent().length.isKnownZero())
         return false;
     return true;
 }
@@ -4567,7 +4564,7 @@ static inline std::optional<LayoutUnit> textIndentForBlockContainer(const Render
 {
     auto& style = renderer.style();
     if (auto fixedTextIndent = style.textIndent().length.tryFixed())
-        return !fixedTextIndent->isZero() ? std::make_optional(LayoutUnit { fixedTextIndent->resolveZoom(Style::ZoomNeeded { }) }) : std::nullopt;
+        return !fixedTextIndent->isZero() ? std::make_optional(LayoutUnit { fixedTextIndent->resolveZoom(style.usedZoomForLength()) }) : std::nullopt;
 
     auto indentValue = LayoutUnit { };
     if (auto* containingBlock = renderer.containingBlock()) {
@@ -4575,7 +4572,7 @@ static inline std::optional<LayoutUnit> textIndentForBlockContainer(const Render
             auto containingBlockFixedLogicalWidthValue = Style::evaluate<LayoutUnit>(*containingBlockFixedLogicalWidth, Style::ZoomNeeded { });
             // At this point of the shrink-to-fit computation, we don't have a used value for the containing block width
             // (that's exactly to what we try to contribute here) unless the computed value is fixed.
-            indentValue = Style::evaluate<LayoutUnit>(style.textIndent().length, containingBlockFixedLogicalWidthValue, Style::ZoomNeeded { });
+            indentValue = Style::evaluate<LayoutUnit>(style.textIndent().length, containingBlockFixedLogicalWidthValue, containingBlock->style().usedZoomForLength());
         }
     }
     return indentValue ? std::make_optional(indentValue) : std::nullopt;

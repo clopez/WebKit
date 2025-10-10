@@ -293,6 +293,7 @@ struct DictationContextType;
 struct ElementContext;
 struct ExceptionData;
 struct ExceptionDetails;
+struct FocusOptions;
 struct FontAttributes;
 struct GlobalFrameIdentifier;
 struct GlobalWindowIdentifier;
@@ -311,7 +312,7 @@ struct MessageWithMessagePorts;
 struct NavigationIdentifierType;
 struct NowPlayingInfo;
 struct PlatformMediaSessionRemoteCommandArgument;
-struct ProcessSyncData;
+struct DocumentSyncSerializationData;
 struct PromisedAttachmentInfo;
 struct RemoteUserInputEventData;
 struct RequestStorageAccessResult;
@@ -351,6 +352,7 @@ using ScrollOffset = IntPoint;
 using UserMediaRequestIdentifier = ObjectIdentifier<UserMediaRequestIdentifierType>;
 
 namespace TextExtraction {
+struct ExtractedText;
 struct InteractionDescription;
 struct Interaction;
 struct Item;
@@ -575,6 +577,7 @@ public:
     void deref() const final;
 
     void reinitializeWebPage(WebPageCreationParameters&&);
+    void platformReinitializeAccessibilityToken();
 
     void close();
 
@@ -800,8 +803,8 @@ public:
     void frameWasRemovedInAnotherProcess(WebCore::FrameIdentifier);
     void updateFrameTreeSyncData(WebCore::FrameIdentifier, Ref<WebCore::FrameTreeSyncData>&&);
 
-    void processSyncDataChangedInAnotherProcess(const WebCore::ProcessSyncData&);
-    void topDocumentSyncDataChangedInAnotherProcess(Ref<WebCore::DocumentSyncData>&&);
+    void topDocumentSyncDataChangedInAnotherProcess(const WebCore::DocumentSyncSerializationData&);
+    void allTopDocumentSyncDataChangedInAnotherProcess(Ref<WebCore::DocumentSyncData>&&);
 
     std::optional<WebCore::SimpleRange> currentSelectionAsRange();
 
@@ -1109,7 +1112,7 @@ public:
     void autofillLoginCredentials(const String&, const String&);
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection);
-    void setIsShowingInputViewForFocusedElement(bool showingInputView) { m_isShowingInputViewForFocusedElement = showingInputView; }
+    void setIsShowingInputViewForFocusedElement(bool);
     bool isShowingInputViewForFocusedElement() const { return m_isShowingInputViewForFocusedElement; }
     void updateSelectionAppearance();
     void getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
@@ -1577,7 +1580,6 @@ public:
     bool shouldDispatchFakeMouseMoveEvents() const { return m_shouldDispatchFakeMouseMoveEvents; }
 
     void postMessage(const String& messageName, API::Object* messageBody);
-    void postMessageWithAsyncReply(const String& messageName, API::Object* messageBody, CompletionHandler<void(API::Object*)>&&);
     void postSynchronousMessageForTesting(const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData);
     void postMessageIgnoringFullySynchronousMode(const String& messageName, API::Object* messageBody);
 
@@ -2101,7 +2103,6 @@ private:
     uint64_t messageSenderDestinationID() const override;
 
     void platformInitialize(const WebPageCreationParameters&);
-    void platformReinitialize();
     void platformDetach();
     void getPlatformEditorState(WebCore::LocalFrame&, EditorState&) const;
     bool requiresPostLayoutDataForEditorState(const WebCore::LocalFrame&) const;
@@ -2569,7 +2570,8 @@ private:
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
-    void frameWasFocusedInAnotherProcess(WebCore::FrameIdentifier);
+    void elementWasFocusedInAnotherProcess(WebCore::FrameIdentifier, WebCore::FocusOptions);
+    void frameWasFocusedInAnotherProcess(std::optional<WebCore::FrameIdentifier>&&);
 
 #if ENABLE(WRITING_TOOLS)
     void willBeginWritingToolsSession(const std::optional<WebCore::WritingTools::Session>&, CompletionHandler<void(const Vector<WebCore::WritingTools::Context>&)>&&);
@@ -2617,6 +2619,7 @@ private:
     void requestTextExtraction(WebCore::TextExtraction::Request&&, CompletionHandler<void(WebCore::TextExtraction::Item&&)>&&);
     void handleTextExtractionInteraction(WebCore::TextExtraction::Interaction&&, CompletionHandler<void(bool, String&&)>&&);
     void describeTextExtractionInteraction(WebCore::TextExtraction::Interaction&&, CompletionHandler<void(WebCore::TextExtraction::InteractionDescription&&)>&&);
+    void takeSnapshotOfExtractedText(WebCore::TextExtraction::ExtractedText&&, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&&);
 
 #if HAVE(SANDBOX_STATE_FLAGS)
     static void setHasLaunchedWebContentProcess();

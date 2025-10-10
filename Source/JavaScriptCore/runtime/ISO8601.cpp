@@ -27,6 +27,7 @@
 #include "config.h"
 #include "ISO8601.h"
 
+#include "FractionToDouble.h"
 #include "IntlObject.h"
 #include "ParseInt.h"
 #include "TemporalObject.h"
@@ -48,9 +49,6 @@ static constexpr int64_t nsPerMinute = 1000LL * 1000 * 1000 * 60;
 static constexpr int64_t nsPerSecond = 1000LL * 1000 * 1000;
 static constexpr int64_t nsPerMillisecond = 1000LL * 1000;
 static constexpr int64_t nsPerMicrosecond = 1000LL;
-
-static constexpr int32_t maxYear = 275760;
-static constexpr int32_t minYear = -271821;
 
 std::optional<TimeZoneID> parseTimeZoneName(StringView string)
 {
@@ -1092,6 +1090,10 @@ static std::optional<PlainDate> parseDate(StringParsingBuffer<CharacterType>& bu
     } else
         return std::nullopt;
 
+    // PlainDate represents out-of-range years using outOfRangeYear
+    if (!isYearWithinLimits(year)) [[unlikely]]
+        year = outOfRangeYear;
+
     return PlainDate(year, month, day);
 }
 
@@ -1826,6 +1828,24 @@ bool isDateTimeWithinLimits(int32_t year, uint8_t month, uint8_t day, unsigned h
 bool isYearWithinLimits(double year)
 {
     return year >= minYear && year <= maxYear;
+}
+
+// https://tc39.es/proposal-temporal/#sec-temporal-isvalidisodate
+bool isValidISODate(double year, double month, double day)
+{
+    if (month < 1 || month > 12)
+        return false;
+    auto daysInMonth1 = daysInMonth(year, month);
+    if (day < 1 || day > daysInMonth1)
+        return false;
+    return true;
+}
+
+// https://tc39.es/proposal-temporal/#sec-temporal-create-iso-date-record
+PlainDate createISODateRecord(double year, double month, double day)
+{
+    ASSERT(isValidISODate(year, month, day));
+    return PlainDate(year, month, day);
 }
 
 } // namespace ISO8601
