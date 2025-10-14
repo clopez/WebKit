@@ -817,7 +817,7 @@ public:
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-    PlaybackSessionManagerProxy* playbackSessionManager();
+    PlaybackSessionManagerProxy* playbackSessionManager() { return m_playbackSessionManager.get(); }
     RefPtr<PlaybackSessionManagerProxy> protectedPlaybackSessionManager();
     VideoPresentationManagerProxy* videoPresentationManager();
     RefPtr<VideoPresentationManagerProxy> protectedVideoPresentationManager();
@@ -1597,7 +1597,6 @@ public:
     void findString(const String&, OptionSet<FindOptions>, unsigned maxMatchCount);
     void findString(const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(bool)>&&);
     void findStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount);
-    void findRectsForStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&&);
     void getImageForFindMatch(int32_t matchIndex);
     void selectFindMatch(int32_t matchIndex);
     void indicateFindMatch(int32_t matchIndex);

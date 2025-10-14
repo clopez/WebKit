@@ -322,7 +322,8 @@ static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSRe
     // If the page doesn't respond in DefaultWatchdogTimerInterval seconds, it could be because
     // the WebProcess has hung, so exit anyway.
     if (!_watchdogTimer) {
-        [self _protectedManager]->requestExitFullScreen();
+        if (RefPtr manager = [self _manager])
+            manager->requestExitFullScreen();
         _watchdogTimer = adoptNS([[NSTimer alloc] initWithFireDate:[NSDate dateWithTimeIntervalSinceNow:DefaultWatchdogTimerInterval] interval:0 target:self selector:@selector(_watchdogTimerFired:) userInfo:nil repeats:NO]);
         [[NSRunLoop mainRunLoop] addTimer:_watchdogTimer.get() forMode:NSDefaultRunLoopMode];
     }
@@ -358,7 +359,7 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     size_t bytesPerRow = CGImageGetBytesPerRow(sourceImage);
     RetainPtr<CGColorSpaceRef> colorSpace = CGImageGetColorSpace(sourceImage);
     CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(sourceImage);
-    RetainPtr<CGDataProviderRef> provider = createImageProviderWithCopiedData(CGImageGetDataProvider(sourceImage));
+    RetainPtr<CGDataProviderRef> provider = createImageProviderWithCopiedData(retainPtr(CGImageGetDataProvider(sourceImage)).get());
     bool shouldInterpolate = CGImageGetShouldInterpolate(sourceImage);
     CGColorRenderingIntent intent = CGImageGetRenderingIntent(sourceImage);
 
@@ -428,7 +429,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     _savedScale = page->pageScaleFactor();
     page->scalePageRelativeToScrollPosition(1, { });
-    [self _protectedManager]->setAnimatingFullScreen(true);
+    if (RefPtr manager = [self _manager])
+        manager->setAnimatingFullScreen(true);
     completionHandler(true);
 }
 
@@ -604,7 +606,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     page->startDeferringScrollEvents();
     [_webViewPlaceholder setTarget:nil];
 
-    [self _protectedManager]->setAnimatingFullScreen(true);
+    if (RefPtr manager = [self _manager])
+        manager->setAnimatingFullScreen(true);
     completionHandler();
 }
 
@@ -613,7 +616,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (_fullScreenState == NotInFullScreen)
         return;
 
-    [self _protectedManager]->requestExitFullScreen();
+    if (RefPtr manager = [self _manager])
+        manager->requestExitFullScreen();
     [_webViewPlaceholder setExitWarningVisible:NO];
     _fullScreenState = ExitingFullScreen;
     [self finishedExitFullScreenAnimationAndExitImmediately:YES];
@@ -626,7 +630,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)requestExitFullScreen
 {
-    [self _protectedManager]->requestExitFullScreen();
+    if (RefPtr manager = [self _manager])
+        manager->requestExitFullScreen();
 }
 
 - (void)beganExitFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame completionHandler:(CompletionHandler<void()>&&)completionHandler
@@ -945,7 +950,8 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
 {
     RetainPtr<NSArray<NSLayoutConstraint *>> constraints = view.constraints;
     RetainPtr<NSIndexSet> validConstraints = [constraints indexesOfObjectsPassingTest:^BOOL(NSLayoutConstraint *constraint, NSUInteger, BOOL *) {
-        return ![constraint isKindOfClass:objc_getClass("NSAutoresizingMaskLayoutConstraint")];
+        // FIXME: isKindOfClass call can cause a static analysis false positive (https://github.com/llvm/llvm-project/issues/162979).
+        SUPPRESS_UNRETAINED_ARG return ![constraint isKindOfClass:objc_getClass("NSAutoresizingMaskLayoutConstraint")];
     }];
     self.savedConstraints = [constraints objectsAtIndexes:validConstraints.get()];
 }
@@ -986,7 +992,7 @@ static RetainPtr<CALayer> createMask(const WebCore::FloatRect& bounds)
     RetainPtr maskLayer = [CALayer layer];
     maskLayer.get().anchorPoint = CGPointZero;
     maskLayer.get().frame = bounds;
-    maskLayer.get().backgroundColor = CGColorGetConstantColor(kCGColorBlack);
+    maskLayer.get().backgroundColor = retainPtr(CGColorGetConstantColor(kCGColorBlack)).get();
     maskLayer.get().autoresizingMask = (NSViewWidthSizable | NSViewHeightSizable);
     return maskLayer;
 }
@@ -1022,9 +1028,9 @@ static RetainPtr<CAAnimation> fadeAnimation(CFTimeInterval duration, AnimationDi
 {
     RetainPtr fadeAnimation = [CABasicAnimation animationWithKeyPath:@"backgroundColor"];
     if (direction == AnimateIn)
-        fadeAnimation.get().toValue = (id)CGColorGetConstantColor(kCGColorBlack);
+        fadeAnimation.get().toValue = static_cast<id>(RetainPtr<CGColorRef>(CGColorGetConstantColor(kCGColorBlack)).get());
     else
-        fadeAnimation.get().fromValue = (id)CGColorGetConstantColor(kCGColorBlack);
+        fadeAnimation.get().fromValue = static_cast<id>(RetainPtr<CGColorRef>(CGColorGetConstantColor(kCGColorBlack)).get());
     fadeAnimation.get().duration = duration;
     fadeAnimation.get().removedOnCompletion = NO;
     fadeAnimation.get().fillMode = kCAFillModeBoth;
@@ -1050,7 +1056,8 @@ static RetainPtr<CAAnimation> fadeAnimation(CFTimeInterval duration, AnimationDi
     if ([self isFullScreen]) {
         // We still believe we're in full screen mode, so we must have been asked to exit full
         // screen by the system full screen button.
-        [self _protectedManager]->requestExitFullScreen();
+        if (RefPtr manager = [self _manager])
+            manager->requestExitFullScreen();
         [self exitFullScreen:[] { }];
         _fullScreenState = ExitingFullScreen;
     }

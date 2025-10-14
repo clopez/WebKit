@@ -1189,6 +1189,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/StyleSheetContents.h
     css/StyleSheetList.h
 
+    css/calc/CSSCalcOperator.h
     css/calc/CSSCalcRandomCachingKey.h
     css/calc/CSSCalcRandomCachingKeyMap.h
     css/calc/CSSCalcSymbolTable.h
@@ -1256,6 +1257,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/values/primitives/CSSPrimitiveData.h
     css/values/primitives/CSSPrimitiveKeywordList.h
     css/values/primitives/CSSPrimitiveNumeric.h
+    css/values/primitives/CSSPrimitiveNumericCategory.h
     css/values/primitives/CSSPrimitiveNumericConcepts.h
     css/values/primitives/CSSPrimitiveNumericOrKeyword.h
     css/values/primitives/CSSPrimitiveNumericRange.h
@@ -1776,6 +1778,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/InspectorFrontendHost.h
     inspector/InspectorInstrumentationPublic.h
     inspector/InspectorInstrumentationWebKit.h
+    inspector/InstrumentingAgents.h
     inspector/InspectorOverlay.h
     inspector/InspectorOverlayLabel.h
     inspector/InspectorWebAgentBase.h
@@ -1816,7 +1819,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/flex/FlexRect.h
     layout/formattingContexts/flex/LogicalFlexItem.h
 
+    layout/formattingContexts/grid/GridAreaLines.h
     layout/formattingContexts/grid/GridFormattingContext.h
+    layout/formattingContexts/grid/GridItemRect.h
+    layout/formattingContexts/grid/GridTypeAliases.h
 
     layout/formattingContexts/inline/AbstractLineBuilder.h
     layout/formattingContexts/inline/AvailableLineWidthOverride.h
@@ -2289,8 +2295,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/LLVMProfiling.h
     platform/LayoutUnit.h
     platform/LegacySchemeRegistry.h
-    platform/Length.h
-    platform/LengthFunctions.h
     platform/LinkIcon.h
     platform/LocalizedStrings.h
     platform/LogClient.h
@@ -2469,12 +2473,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/RealtimeAudioThread.h
     platform/audio/SharedAudioDestination.h
     platform/audio/SincResampler.h
-
-    platform/calc/CalculationCategory.h
-    platform/calc/CalculationOperator.h
-    platform/calc/CalculationRange.h
-    platform/calc/CalculationTree.h
-    platform/calc/CalculationValue.h
 
     platform/encryptedmedia/CDMEncryptionScheme.h
     platform/encryptedmedia/CDMFactory.h
@@ -3229,6 +3227,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/StyleValidity.h
     style/Styleable.h
 
+    style/calc/StyleCalculationTree.h
+    style/calc/StyleCalculationValue.h
+
     style/values/StyleValueTypes.h
 
     style/values/align/StyleGapGutter.h
@@ -3387,7 +3388,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/primitives/StyleCoordinatedValueList.h
     style/values/primitives/StyleLengthWrapper+Blending.h
-    style/values/primitives/StyleLengthWrapper+Platform.h
     style/values/primitives/StyleLengthWrapper.h
     style/values/primitives/StyleLengthWrapperData.h
     style/values/primitives/StylePosition.h
@@ -3396,12 +3396,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StylePrimitiveKeyword+ValueRepresentationNeeded.h
     style/values/primitives/StylePrimitiveNumeric+Forward.h
     style/values/primitives/StylePrimitiveNumeric.h
-    style/values/primitives/StylePrimitiveNumericAdaptors.h
     style/values/primitives/StylePrimitiveNumericConcepts.h
     style/values/primitives/StylePrimitiveNumericOrKeyword.h
     style/values/primitives/StylePrimitiveNumericTypes+Calculation.h
     style/values/primitives/StylePrimitiveNumericTypes+Evaluation.h
-    style/values/primitives/StylePrimitiveNumericTypes+Platform.h
     style/values/primitives/StylePrimitiveNumericTypes.h
     style/values/primitives/StyleRatio.h
     style/values/primitives/StyleURL.h

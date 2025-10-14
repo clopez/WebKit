@@ -5035,6 +5035,8 @@ void WebPage::willCommitLayerTree(RemoteLayerTreeTransaction& layerTransaction, 
         m_lastTransactionPageScaleFactor = layerTransaction.pageScaleFactor();
         m_internals->lastTransactionIDWithScaleChange = layerTransaction.transactionID();
     }
+
+    m_pendingLocalChangeTransactionID = std::nullopt;
 #endif
 
     layerTransaction.setScrollPosition(frameView->scrollPosition());
@@ -5203,11 +5205,6 @@ void WebPage::releaseMemory(Critical)
 
 void WebPage::willDestroyDecodedDataForAllImages()
 {
-#if ENABLE(GPU_PROCESS)
-    if (RefPtr renderingBackend = m_remoteRenderingBackendProxy)
-        renderingBackend->releaseNativeImages();
-#endif
-
     if (RefPtr drawingArea = m_drawingArea)
         drawingArea->setNextRenderingUpdateRequiresSynchronousImageDecoding();
 }
@@ -5218,7 +5215,7 @@ unsigned WebPage::remoteImagesCountForTesting() const
     if (RefPtr renderingBackend = m_remoteRenderingBackendProxy)
         return renderingBackend->nativeImageCountForTesting();
 #endif
-return 0;
+    return 0;
 }
 
 WebInspector* WebPage::inspector(LazyCreationPolicy behavior)
@@ -5818,11 +5815,6 @@ void WebPage::findStringIncludingImages(const String& string, OptionSet<FindOpti
 void WebPage::findStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<Vector<WebCore::IntRect>>, int32_t)>&& completionHandler)
 {
     findController().findStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
-}
-
-void WebPage::findRectsForStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<FloatRect>&&)>&& completionHandler)
-{
-    findController().findRectsForStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
 }
 
 void WebPage::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& completionHandler)
@@ -10840,6 +10832,17 @@ std::unique_ptr<FrameInfoData> WebPage::takeMainFrameNavigationInitiator()
 bool WebPage::hasAccessoryMousePointingDevice() const
 {
     return true;
+}
+#endif
+
+#if ENABLE(ASYNC_SCROLLING) && !PLATFORM(IOS_FAMILY)
+bool WebPage::shouldIgnoreScrollPositionUpdate(TransactionID) const
+{
+    return false;
+}
+
+void WebPage::markPendingLocalScrollPositionChange()
+{
 }
 #endif
 

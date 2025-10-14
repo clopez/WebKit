@@ -254,13 +254,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     auto sidesWithInsets = [](UIEdgeInsets insets) {
         WebCore::BoxSideSet sides;
         if (insets.top > 0)
-            sides.add(WebCore::BoxSideFlag::Top);
+            sides.add(WebCore::BoxSide::Top);
         if (insets.left > 0)
-            sides.add(WebCore::BoxSideFlag::Left);
+            sides.add(WebCore::BoxSide::Left);
         if (insets.bottom > 0)
-            sides.add(WebCore::BoxSideFlag::Bottom);
+            sides.add(WebCore::BoxSide::Bottom);
         if (insets.right > 0)
-            sides.add(WebCore::BoxSideFlag::Right);
+            sides.add(WebCore::BoxSide::Right);
         return sides;
     };
     BOOL updateFixedColorExtensionViews = sidesWithInsets(_obscuredInsets) != sidesWithInsets(obscuredInsets);
@@ -3992,7 +3992,8 @@ static bool isLockdownModeWarningNeeded()
             if (!appDisplayName)
                 appDisplayName = [[NSBundle mainBundle] objectForInfoDictionaryKey:(__bridge NSString *)kCFBundleNameKey];
 
-            auto alert = WebKit::createUIAlertController(adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Lockdown Mode is Turned On For “%@“", "Lockdown Mode alert title"), appDisplayName]).get(), message.get());
+            SUPPRESS_UNRETAINED_ARG RetainPtr title = adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Lockdown Mode is Turned On For “%@“", "Lockdown Mode alert title"), appDisplayName]);
+            auto alert = WebKit::createUIAlertController(title.get(), message.get());
 
             [alert addAction:[UIAlertAction actionWithTitle:WEB_UI_NSSTRING(@"OK", "Lockdown Mode alert OK button") style:UIAlertActionStyleDefault handler:nil]];
 

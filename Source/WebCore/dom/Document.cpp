@@ -4426,11 +4426,10 @@ void Document::enqueuePaintTimingEntryIfNeeded()
     };
 
     auto enqueueLargestContentfulPaintIfNecessary = [&]() {
-        WTFEmitSignpost(this, NavigationAndPaintTiming, "largestContentfulPaint");
-
-        if (RefPtr entry = largestContentfulPaintData().takePendingEntry(nowTime)) {
+        if (RefPtr entry = largestContentfulPaintData().generateLargestContentfulPaintEntry(nowTime)) {
+            WTFEmitSignpost(this, NavigationAndPaintTiming, "largestContentfulPaint");
             Ref entryRef = entry.releaseNonNull();
-            protectedWindow()->performance().reportLargestContentfulPaint(WTFMove(entryRef));
+            protectedWindow()->performance().enqueueLargestContentfulPaint(WTFMove(entryRef));
         }
     };
 
@@ -8156,7 +8155,7 @@ Ref<HTMLCollection> Document::anchors()
     return ensureCachedCollection<CollectionType::DocAnchors>();
 }
 
-Ref<HTMLCollection> Document::all()
+Ref<HTMLAllCollection> Document::all()
 {
     return ensureRareData().ensureNodeLists().addCachedCollection<HTMLAllCollection>(*this, CollectionType::DocAll);
 }
@@ -11958,7 +11957,7 @@ double Document::lookupCSSRandomBaseValue(const CSSCalc::RandomCachingKey& key) 
     return m_randomCachingKeyMap->lookupCSSRandomBaseValue(key);
 }
 
-void Document::prefetch(const URL& url, const Vector<String>& tags, const String& referrerPolicy, bool lowPriority)
+void Document::prefetch(const URL& url, const Vector<String>& tags, std::optional<ReferrerPolicy> referrerPolicy, bool lowPriority)
 {
     RefPtr frame = this->frame();
     if (!frame)

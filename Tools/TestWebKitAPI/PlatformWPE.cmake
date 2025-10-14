@@ -17,23 +17,16 @@ set(test_main_SOURCES generic/main.cpp)
 list(APPEND TestWTF_SOURCES
     ${test_main_SOURCES}
 
+    Tests/WTF/glib/ActivityObserver.cpp
     Tests/WTF/glib/GRefPtr.cpp
     Tests/WTF/glib/GUniquePtr.cpp
     Tests/WTF/glib/GWeakPtr.cpp
     Tests/WTF/glib/WorkQueueGLib.cpp
 )
 
-list(APPEND TestWTF_SYSTEM_INCLUDE_DIRECTORIES
-    ${GLIB_INCLUDE_DIRS}
-)
-
 # TestJavaScriptCore
 list(APPEND TestJavaScriptCore_SOURCES
     ${test_main_SOURCES}
-)
-
-list(APPEND TestJavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
-    ${GLIB_INCLUDE_DIRS}
 )
 
 # TestWebCore
@@ -44,6 +37,7 @@ list(APPEND TestWebCore_SOURCES
 
     Tests/WebCore/glib/Damage.cpp
     Tests/WebCore/glib/GraphicsContextGLTextureMapper.cpp
+    Tests/WebCore/glib/RunLoopObserver.cpp
 
     Tests/WebCore/gstreamer/GStreamerTest.cpp
     Tests/WebCore/gstreamer/GstElementHarness.cpp

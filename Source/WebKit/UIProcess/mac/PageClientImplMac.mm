@@ -148,7 +148,7 @@ IntSize PageClientImpl::viewSize()
 NSView *PageClientImpl::activeView() const
 {
     CheckedPtr impl = m_impl.get();
-    return (impl && impl->thumbnailView()) ? (NSView *)impl->thumbnailView() : m_view.getAutoreleased();
+    return (impl && impl->thumbnailView()) ? impl->thumbnailView().unsafeGet() : m_view.getAutoreleased();
 }
 
 NSWindow *PageClientImpl::activeWindow() const
@@ -922,7 +922,7 @@ void PageClientImpl::didFinishNavigation(API::Navigation* navigation)
     if (RefPtr gestureController = m_impl->gestureController())
         gestureController->didFinishNavigation(navigation);
 
-    NSAccessibilityPostNotification(NSAccessibilityUnignoredAncestor(m_view.get().get()), @"AXLoadComplete");
+    NSAccessibilityPostNotification(RetainPtr { NSAccessibilityUnignoredAncestor(m_view.get().get()) }.get(), @"AXLoadComplete");
 }
 
 void PageClientImpl::didFailNavigation(API::Navigation* navigation)
@@ -930,7 +930,7 @@ void PageClientImpl::didFailNavigation(API::Navigation* navigation)
     if (RefPtr gestureController = m_impl->gestureController())
         gestureController->didFailNavigation(navigation);
 
-    NSAccessibilityPostNotification(NSAccessibilityUnignoredAncestor(m_view.get().get()), @"AXLoadComplete");
+    NSAccessibilityPostNotification(RetainPtr { NSAccessibilityUnignoredAncestor(m_view.get().get()) }.get(), @"AXLoadComplete");
 }
 
 void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType type)

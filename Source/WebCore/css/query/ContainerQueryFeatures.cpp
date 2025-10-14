@@ -27,7 +27,7 @@
 
 #include "BoxSides.h"
 #include "CSSCustomPropertyValue.h"
-#include "CalculationCategory.h"
+#include "CSSPrimitiveNumericCategory.h"
 #include "ComputedStyleDependencies.h"
 #include "ContainerQueryEvaluator.h"
 #include "RenderBoxInlines.h"

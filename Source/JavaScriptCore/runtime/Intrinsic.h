@@ -199,7 +199,16 @@ namespace JSC {
     macro(WrapForValidIteratorCreateIntrinsic) \
     macro(AsyncFromSyncIteratorCreateIntrinsic) \
     macro(PromiseAllContextCreateIntrinsic) \
+    macro(PromiseAllGlobalContextCreateIntrinsic) \
     macro(RegExpStringIteratorCreateIntrinsic) \
+    macro(ResolvePromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(RejectPromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(FulfillPromiseWithFirstResolvingFunctionCallCheckIntrinsic) \
+    macro(PromiseConstructorResolveIntrinsic) \
+    macro(PromiseResolveIntrinsic) \
+    macro(PromiseConstructorRejectIntrinsic) \
+    macro(PromiseRejectIntrinsic) \
+    macro(PromisePrototypeThenIntrinsic) \
     \
     /* Getter intrinsics. */ \
     macro(TypedArrayLengthIntrinsic) \

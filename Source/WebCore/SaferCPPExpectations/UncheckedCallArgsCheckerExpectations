@@ -216,7 +216,6 @@ html/DOMTokenList.cpp
 html/FTPDirectoryDocument.cpp
 html/FormAssociatedCustomElement.cpp
 html/FormAssociatedElement.cpp
-html/HTMLAnchorElement.cpp
 html/HTMLAttachmentElement.cpp
 html/HTMLBaseElement.cpp
 html/HTMLBodyElement.cpp
@@ -310,6 +309,7 @@ inspector/agents/page/PageRuntimeAgent.cpp
 inspector/agents/worker/WorkerAuditAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
 inspector/agents/worker/WorkerRuntimeAgent.cpp
+inspector/InspectorResourceUtilities.cpp
 layout/floats/FloatingContext.cpp
 layout/floats/PlacedFloats.cpp
 layout/formattingContexts/FormattingGeometry.cpp
@@ -767,6 +767,7 @@ xml/parser/XMLDocumentParserLibxml2.cpp
 [ iOS ] accessibility/ios/WebAccessibilityObjectWrapperIOS.mm
 [ iOS ] editing/ios/EditorIOS.mm
 [ iOS ] html/ColorInputType.cpp
+[ iOS ] html/HTMLAnchorElement.cpp
 [ iOS ] page/Chrome.cpp
 [ iOS ] page/DOMTimer.cpp
 [ iOS ] page/Page.cpp

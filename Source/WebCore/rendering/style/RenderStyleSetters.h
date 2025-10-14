@@ -177,7 +177,7 @@ inline void RenderStyle::setHasExplicitlySetPaddingRight(bool value) { SET_NESTE
 inline void RenderStyle::setHasExplicitlySetPaddingTop(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetPaddingTop, value); }
 inline void RenderStyle::setHasExplicitlySetStrokeColor(bool value) { SET(m_rareInheritedData, hasSetStrokeColor, static_cast<unsigned>(value)); }
 inline void RenderStyle::setHasExplicitlySetStrokeWidth(bool value) { SET(m_rareInheritedData, hasSetStrokeWidth, static_cast<unsigned>(value)); }
-inline void RenderStyle::setHasPseudoStyles(PseudoIdSet set) { m_nonInheritedFlags.setHasPseudoStyles(set); }
+inline void RenderStyle::setHasPseudoStyles(EnumSet<PseudoId> set) { m_nonInheritedFlags.setHasPseudoStyles(set); }
 inline void RenderStyle::setHasVisitedLinkAutoCaretColor() { SET_PAIR(m_rareInheritedData, hasVisitedLinkAutoCaretColor, true, visitedLinkCaretColor, Style::Color::currentColor()); }
 inline void RenderStyle::setHeight(Style::PreferredSize&& length) { SET_NESTED(m_nonInheritedData, boxData, m_height, WTFMove(length)); }
 inline void RenderStyle::setHyphenateLimitAfter(Style::HyphenateLimitEdge limit) { SET(m_rareInheritedData, hyphenateLimitAfter, limit); }
@@ -334,7 +334,7 @@ inline void RenderStyle::setTransformStyle3D(TransformStyle3D b) { SET_NESTED(m_
 inline void RenderStyle::setTransformStyleForcedToFlat(bool b) { SET_NESTED(m_nonInheritedData, rareData, transformStyleForcedToFlat, static_cast<unsigned>(b)); }
 inline void RenderStyle::setTranslate(Style::Translate&& translate) { SET_NESTED(m_nonInheritedData, rareData, translate, WTFMove(translate)); }
 inline void RenderStyle::setUsesAnchorFunctions() { SET_NESTED(m_nonInheritedData, rareData, usesAnchorFunctions, true); }
-inline void RenderStyle::setAnchorFunctionScrollCompensatedAxes(OptionSet<BoxAxisFlag> axes) { SET_NESTED(m_nonInheritedData, rareData, anchorFunctionScrollCompensatedAxes, axes.toRaw()); }
+inline void RenderStyle::setAnchorFunctionScrollCompensatedAxes(EnumSet<BoxAxis> axes) { SET_NESTED(m_nonInheritedData, rareData, anchorFunctionScrollCompensatedAxes, axes.toRaw()); }
 inline void RenderStyle::setIsPopoverInvoker() { SET_NESTED(m_nonInheritedData, rareData, isPopoverInvoker, true); }
 inline void RenderStyle::setUsedZIndex(Style::ZIndex index) { SET_NESTED_PAIR(m_nonInheritedData, boxData, m_hasAutoUsedZIndex, static_cast<uint8_t>(index.m_isAuto), m_usedZIndexValue, index.m_value); }
 inline void RenderStyle::setUserDrag(UserDrag value) { SET_NESTED(m_nonInheritedData, miscData, userDrag, static_cast<unsigned>(value)); }
@@ -442,11 +442,11 @@ inline void RenderStyle::setMarkerStart(Style::SVGMarkerResource&& marker) { SET
 inline void RenderStyle::setMarkerMid(Style::SVGMarkerResource&& marker) { SET_NESTED(m_svgStyle, inheritedResourceData, markerMid, WTFMove(marker)); }
 inline void RenderStyle::setMarkerEnd(Style::SVGMarkerResource&& marker) { SET_NESTED(m_svgStyle, inheritedResourceData, markerEnd, WTFMove(marker)); }
 
-inline void RenderStyle::NonInheritedFlags::setHasPseudoStyles(PseudoIdSet pseudoIdSet)
+inline void RenderStyle::NonInheritedFlags::setHasPseudoStyles(EnumSet<PseudoId> pseudoIdSet)
 {
     ASSERT(pseudoIdSet);
-    ASSERT((pseudoIdSet.data() & PublicPseudoIdMask) == pseudoIdSet.data());
-    pseudoBits |= pseudoIdSet.data() >> 1; // Shift down as we do not store a bit for PseudoId::None.
+    ASSERT(pseudoIdSet.containsOnly(allPublicPseudoIds));
+    pseudoBits = pseudoIdSet.toRaw() >> 1; // Shift down as we do not store a bit for PseudoId::None.
 }
 
 inline void RenderStyle::resetBorder()
@@ -517,6 +517,11 @@ inline void RenderStyle::setPseudoElementNameArgument(const AtomString& identifi
         || pseudoElementType() == PseudoId::Highlight
         || identifier.isNull());
     SET_NESTED(m_nonInheritedData, rareData, pseudoElementNameArgument, identifier);
+}
+
+inline void RenderStyle::setPseudoElementType(PseudoId pseudoElementType)
+{
+    m_nonInheritedFlags.pseudoElementType = enumToUnderlyingType(pseudoElementType);
 }
 
 inline void RenderStyle::setGridTemplateColumns(Style::GridTemplateList&& list)

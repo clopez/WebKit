@@ -798,6 +798,7 @@ inline bool RenderStyle::specifiesColumns() const { return !columnCount().isAuto
 constexpr OptionSet<Containment> RenderStyle::strictContainment() { return { Containment::Size, Containment::Layout, Containment::Paint, Containment::Style }; }
 inline const Style::Color& RenderStyle::strokeColor() const { return m_rareInheritedData->strokeColor; }
 inline Style::StrokeMiterlimit RenderStyle::strokeMiterLimit() const { return m_rareInheritedData->miterLimit; }
+inline PseudoId RenderStyle::pseudoElementType() const { return static_cast<PseudoId>(m_nonInheritedFlags.pseudoElementType); }
 inline const AtomString& RenderStyle::pseudoElementNameArgument() const { return m_nonInheritedData->rareData->pseudoElementNameArgument; }
 inline const Style::TabSize& RenderStyle::tabSize() const { return m_rareInheritedData->tabSize; }
 inline TableLayoutType RenderStyle::tableLayout() const { return static_cast<TableLayoutType>(m_nonInheritedData->miscData->tableLayout); }
@@ -898,7 +899,7 @@ inline bool RenderStyle::isInSubtreeWithBlendMode() const { return m_rareInherit
 inline bool RenderStyle::isForceHidden() const { return m_rareInheritedData->isForceHidden; }
 inline Isolation RenderStyle::isolation() const { return static_cast<Isolation>(m_nonInheritedData->rareData->isolation); }
 inline bool RenderStyle::usesAnchorFunctions() const { return m_nonInheritedData->rareData->usesAnchorFunctions; }
-inline OptionSet<BoxAxisFlag> RenderStyle::anchorFunctionScrollCompensatedAxes() const { return OptionSet<BoxAxisFlag>::fromRaw(m_nonInheritedData->rareData->anchorFunctionScrollCompensatedAxes); }
+inline EnumSet<BoxAxis> RenderStyle::anchorFunctionScrollCompensatedAxes() const { return EnumSet<BoxAxis>::fromRaw(m_nonInheritedData->rareData->anchorFunctionScrollCompensatedAxes); }
 
 inline bool RenderStyle::isPopoverInvoker() const { return m_nonInheritedData->rareData->isPopoverInvoker; }
 
@@ -1045,14 +1046,14 @@ inline Style::SVGBaselineShift RenderStyle::initialBaselineShift() { return CSS:
 
 inline bool RenderStyle::NonInheritedFlags::hasPseudoStyle(PseudoId pseudo) const
 {
-    ASSERT(pseudo > PseudoId::None);
-    ASSERT(pseudo < PseudoId::FirstInternalPseudoId);
-    return pseudoBits & (1 << (static_cast<unsigned>(pseudo) - 1 /* PseudoId::None */));
+    ASSERT(allPublicPseudoIds.contains(pseudo));
+    // Shift because PseudoId::None is not stored.
+    return EnumSet<PseudoId>::fromRaw(pseudoBits << 1).contains(pseudo);
 }
 
 inline bool RenderStyle::NonInheritedFlags::hasAnyPublicPseudoStyles() const
 {
-    return PublicPseudoIdMask & pseudoBits;
+    return !!pseudoBits;
 }
 
 inline bool RenderStyle::breakOnlyAfterWhiteSpace() const
@@ -1309,7 +1310,7 @@ inline bool shouldApplyLayoutContainment(const RenderStyle& style, const Element
         return false;
     if (style.isInternalTableBox() && style.display() != DisplayType::TableCell)
         return false;
-    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(style)))
+    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(&style)))
         return false;
     return true;
 }
@@ -1330,7 +1331,7 @@ inline bool shouldApplySizeContainment(const RenderStyle& style, const Element& 
         return false;
     if (style.isInternalTableBox())
         return false;
-    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(style)))
+    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(&style)))
         return false;
     return true;
 }
@@ -1350,7 +1351,7 @@ inline bool shouldApplyInlineSizeContainment(const RenderStyle& style, const Ele
         return false;
     if (style.isInternalTableBox())
         return false;
-    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(style)))
+    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(&style)))
         return false;
     return true;
 }
@@ -1375,7 +1376,7 @@ inline bool shouldApplyPaintContainment(const RenderStyle& style, const Element&
         return false;
     if (style.isInternalTableBox() && style.display() != DisplayType::TableCell)
         return false;
-    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(style)))
+    if (style.isRubyContainerOrInternalRubyBox() || (style.display() == DisplayType::Inline && !element.isReplaced(&style)))
         return false;
     return true;
 }

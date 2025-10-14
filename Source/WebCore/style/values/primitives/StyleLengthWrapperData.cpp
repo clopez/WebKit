@@ -25,19 +25,12 @@
 #include "config.h"
 #include "StyleLengthWrapperData.h"
 
-#include "CalculationValue.h"
-#include "CalculationValueMap.h"
+#include "StyleCalculationValue.h"
+#include "StyleCalculationValueMap.h"
 #include <cmath>
 
 namespace WebCore {
 namespace Style {
-
-LengthWrapperData::LengthWrapperData(uint8_t opaqueType, LengthCalculation&& value)
-    : m_opaqueType { opaqueType }
-    , m_kind { LengthWrapperDataKind::Calculation }
-{
-    m_calculationValueHandle = CalculationValueMap::calculationValues().insert(value.length.protectedCalculationValue());
-}
 
 LengthWrapperData::LengthWrapperData(uint8_t opaqueType, Ref<CalculationValue>&& value)
     : m_opaqueType { opaqueType }

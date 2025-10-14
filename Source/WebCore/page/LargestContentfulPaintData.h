@@ -55,20 +55,20 @@ public:
     void didPaintImage(Element&, CachedImage*, FloatRect localRect);
     void didPaintText(const RenderBlockFlow& formattingContextRoot, FloatRect localRect);
 
-    RefPtr<LargestContentfulPaint> takePendingEntry(DOMHighResTimeStamp);
+    RefPtr<LargestContentfulPaint> generateLargestContentfulPaintEntry(DOMHighResTimeStamp);
 
     static bool isExposedForPaintTiming(const Element&);
 
 private:
 
-    static std::optional<float> effectiveVisualArea(const Element&, CachedImage*, FloatRect imageLocalRect, FloatRect intersectionRect);
+    static std::optional<float> effectiveVisualArea(const Element&, CachedImage*, FloatRect imageLocalRect, FloatRect intersectionRect, FloatSize viewportSize);
 
     static FloatRect computeViewportIntersectionRect(Element&, FloatRect localRect);
     static FloatRect computeViewportIntersectionRectForTextContainer(Element&, const WeakHashSet<Text, WeakPtrImplWithEventTargetData>&);
 
     static bool isEligibleForLargestContentfulPaint(const Element&, float effectiveVisualArea);
 
-    void potentiallyAddLargestContentfulPaintEntry(Element&, CachedImage*, FloatRect imageLocalRect, FloatRect intsectionRect, MonotonicTime loadTime, DOMHighResTimeStamp paintTime);
+    void potentiallyAddLargestContentfulPaintEntry(Element&, CachedImage*, FloatRect imageLocalRect, FloatRect intersectionRect, MonotonicTime loadTime, DOMHighResTimeStamp paintTimestamp, std::optional<FloatSize>& viewportSize);
 
     float m_largestPaintArea { 0 };
 
@@ -76,8 +76,6 @@ private:
         FloatRect rect;
         Markable<MonotonicTime> loadTime;
     };
-
-    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_textContentSet;
 
     WeakHashMap<Element, WeakHashSet<CachedImage>, WeakPtrImplWithEventTargetData> m_imageContentSet;
     WeakHashMap<Element, WeakHashMap<CachedImage, PendingImageData>, WeakPtrImplWithEventTargetData> m_pendingImageRecords;

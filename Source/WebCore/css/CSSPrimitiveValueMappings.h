@@ -41,7 +41,6 @@
 #include <WebCore/CompositeOperation.h>
 #include <WebCore/FontSizeAdjust.h>
 #include <WebCore/GraphicsTypes.h>
-#include <WebCore/Length.h>
 #include <WebCore/PositionTryFallback.h>
 #include <WebCore/RenderStyleConstants.h>
 #include <WebCore/SVGRenderStyleDefs.h>
@@ -88,7 +87,7 @@ public:
 
     operator const CSSPrimitiveValue&() const
     {
-        return downcast<CSSPrimitiveValue>(m_value);
+        return downcast<CSSPrimitiveValue>(m_value).unsafeGet();
     }
 
     operator const CSSValue&() const

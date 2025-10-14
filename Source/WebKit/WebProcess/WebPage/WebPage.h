@@ -137,6 +137,10 @@ OBJC_CLASS PDFSelection;
 OBJC_CLASS WKAccessibilityWebPageObject;
 #endif
 
+#if ENABLE(ASYNC_SCROLLING)
+#include "MonotonicObjectIdentifier.h"
+#endif
+
 #define ENABLE_VIEWPORT_RESIZING PLATFORM(IOS_FAMILY)
 
 namespace WTF {
@@ -599,6 +603,8 @@ public:
 
 #if ENABLE(ASYNC_SCROLLING)
     WebCore::ScrollingCoordinator* scrollingCoordinator() const;
+    bool shouldIgnoreScrollPositionUpdate(TransactionID) const;
+    void markPendingLocalScrollPositionChange();
 #endif
 
     WebPageGroupProxy* pageGroup() const { return m_pageGroup.get(); }
@@ -2385,7 +2391,6 @@ private:
     void hideFindUI();
     void countStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(uint32_t)>&&);
     void replaceMatches(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly, CompletionHandler<void(uint64_t)>&&);
-    void findRectsForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&&);
 
     void findTextRangesForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&&);
     void replaceFoundTextRangeWithString(const WebFoundTextRange&, const String&);
@@ -3185,6 +3190,10 @@ private:
 
 #if ENABLE(WRITING_TOOLS)
     const UniqueRef<TextAnimationController> m_textAnimationController;
+#endif
+
+#if ENABLE(ASYNC_SCROLLING)
+    std::optional<TransactionID> m_pendingLocalChangeTransactionID;
 #endif
 
     std::unique_ptr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;

@@ -35,7 +35,6 @@
 #include "FontSelector.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineTextBoxStyle.h"
-#include "LengthFunctions.h"
 #include "Logging.h"
 #include "MotionPath.h"
 #include "Pagination.h"
@@ -52,7 +51,6 @@
 #include "StyleExtractor.h"
 #include "StyleImage.h"
 #include "StyleInheritedData.h"
-#include "StyleLengthWrapper+Platform.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleResolver.h"
 #include "StyleScaleTransformFunction.h"
@@ -108,11 +106,11 @@ struct SameSizeAsRenderStyle : CanMakeCheckedPtr<SameSizeAsRenderStyle> {
 
 static_assert(sizeof(RenderStyle) == sizeof(SameSizeAsRenderStyle), "RenderStyle should stay small");
 
-static_assert(PublicPseudoIDBits == enumToUnderlyingType(PseudoId::FirstInternalPseudoId) - enumToUnderlyingType(PseudoId::FirstPublicPseudoId));
+static_assert(PublicPseudoIDBits == allPublicPseudoIds.size());
 
 static_assert(!(static_cast<unsigned>(maxTextTransformValue) >> TextTransformBits));
 
-static_assert(!((enumToUnderlyingType(PseudoId::AfterLastInternalPseudoId) - 1) >> PseudoElementTypeBits));
+static_assert(!(enumToUnderlyingType(PseudoId::HighestEnumValue) >> PseudoElementTypeBits));
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(PseudoStyleCache);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderStyle);
@@ -226,7 +224,7 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
     m_nonInheritedFlags.lastChildState = false;
     m_nonInheritedFlags.isLink = false;
     m_nonInheritedFlags.pseudoElementType = static_cast<unsigned>(PseudoId::None);
-    m_nonInheritedFlags.pseudoBits = static_cast<unsigned>(PseudoId::None);
+    m_nonInheritedFlags.pseudoBits = 0;
 
     static_assert((sizeof(InheritedFlags) <= 8), "InheritedFlags does not grow");
     static_assert((sizeof(NonInheritedFlags) <= 8), "NonInheritedFlags does not grow");
@@ -3580,7 +3578,7 @@ float RenderStyle::computedStrokeWidth(const IntSize& viewportSize) const
     // Since there will be no visible stroke when stroke-color is not specified (transparent by default), we fall
     // back to the legacy Webkit text stroke combination in that case.
     if (!hasExplicitlySetStrokeColor())
-        return Style::evaluate<float>(textStrokeWidth(), Style::ZoomNeeded { });
+        return Style::evaluate<float>(textStrokeWidth(), usedZoomForLength());
 
     return WTF::switchOn(strokeWidth(),
         [&](const Style::StrokeWidth::Fixed& fixedStrokeWidth) -> float {

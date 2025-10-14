@@ -510,8 +510,6 @@ VM::~VM()
         worklist->cancelAllPlansForVM(*this);
 #endif // ENABLE(JIT)
     
-    waitForAsynchronousDisassembly();
-    
     // Clear this first to ensure that nobody tries to remove themselves from it.
     m_perBytecodeProfiler = nullptr;
 
@@ -1367,35 +1365,17 @@ void VM::drainMicrotasks()
         std::optional<VMEntryScope> entryScope;
         if (!m_defaultMicrotaskQueue.isEmpty())
             entryScope.emplace(*this, nullptr);
-        do {
-            m_defaultMicrotaskQueue.performMicrotaskCheckpoint(*this,
+        while (true) {
+            m_defaultMicrotaskQueue.performMicrotaskCheckpoint</* useCallOnEachMicrotask */ true>(*this,
                 [&](QueuedTask& task) ALWAYS_INLINE_LAMBDA {
                     auto* globalObject = task.globalObject();
                     entryScope->setGlobalObject(globalObject);
                     if (RefPtr dispatcher = task.dispatcher())
                         return dispatcher->run(task);
 
-                    auto identifier = task.identifier();
-                    {
-                        auto catchScope = DECLARE_CATCH_SCOPE(*this);
-                        if (auto* debugger = globalObject->debugger()) [[unlikely]] {
-                            DeferTerminationForAWhile deferTerminationForAWhile(*this);
-                            debugger->willRunMicrotask(globalObject, identifier);
-                            if (!catchScope.clearExceptionExceptTermination()) [[unlikely]]
-                                return QueuedTask::Result::Executed;
-                        }
-
-                        runInternalMicrotask(globalObject, task.job(), task.arguments());
-                        if (!catchScope.clearExceptionExceptTermination()) [[unlikely]]
-                            return QueuedTask::Result::Executed;
-
-                        if (auto* debugger = globalObject->debugger()) [[unlikely]] {
-                            DeferTerminationForAWhile deferTerminationForAWhile(*this);
-                            debugger->didRunMicrotask(globalObject, identifier);
-                            if (!catchScope.clearExceptionExceptTermination()) [[unlikely]]
-                                return QueuedTask::Result::Executed;
-                        }
-                    }
+                    auto catchScope = DECLARE_CATCH_SCOPE(*this);
+                    runInternalMicrotask(globalObject, task.job(), task.arguments());
+                    catchScope.clearExceptionExceptTermination();
                     return QueuedTask::Result::Executed;
                 });
             if (hasPendingTerminationException()) [[unlikely]]
@@ -1403,7 +1383,11 @@ void VM::drainMicrotasks()
             didExhaustMicrotaskQueue();
             if (hasPendingTerminationException()) [[unlikely]]
                 return;
-        } while (!m_defaultMicrotaskQueue.isEmpty());
+            if (m_defaultMicrotaskQueue.isEmpty())
+                break;
+            if (!entryScope)
+                entryScope.emplace(*this, nullptr);
+        }
     }
     finalizeSynchronousJSExecution();
 }

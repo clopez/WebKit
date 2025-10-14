@@ -203,6 +203,7 @@
 #include "JSWithScope.h"
 #include "JSWrapForValidIteratorInlines.h"
 #include "JSPromiseAllContextInlines.h"
+#include "JSPromiseAllGlobalContext.h"
 #include "JSPromiseReaction.h"
 #include "LazyClassStructureInlines.h"
 #include "LazyPropertyInlines.h"
@@ -353,6 +354,12 @@ static JSC_DECLARE_HOST_FUNCTION(fulfillPromiseWithFirstResolvingFunctionCallChe
 static JSC_DECLARE_HOST_FUNCTION(resolveWithoutPromiseForAsyncAwait);
 static JSC_DECLARE_HOST_FUNCTION(awaitValue);
 static JSC_DECLARE_HOST_FUNCTION(newHandledRejectedPromise);
+static JSC_DECLARE_HOST_FUNCTION(promiseOnRejectedWithContext);
+static JSC_DECLARE_HOST_FUNCTION(promiseAllOnFulfilled);
+static JSC_DECLARE_HOST_FUNCTION(promiseEmptyOnFulfilled);
+static JSC_DECLARE_HOST_FUNCTION(promiseEmptyOnRejected);
+static JSC_DECLARE_HOST_FUNCTION(promiseResolve);
+static JSC_DECLARE_HOST_FUNCTION(promiseReject);
 static JSC_DECLARE_HOST_FUNCTION(performPromiseThen);
 #if ASSERT_ENABLED
 static JSC_DECLARE_HOST_FUNCTION(assertCall);
@@ -649,14 +656,14 @@ const GlobalObjectMethodTable* JSGlobalObject::baseGlobalObjectMethodTable()
         &supportsRichSourceInfo,
         &shouldInterruptScript,
         &javaScriptRuntimeFlags,
-        nullptr, // queueMicrotaskToEventLoop
+        &queueMicrotaskToEventLoop,
         &shouldInterruptScriptBeforeTimeout,
         nullptr, // moduleLoaderImportModule
         nullptr, // moduleLoaderResolve
         nullptr, // moduleLoaderFetch
         nullptr, // moduleLoaderCreateImportMetaProperties
         nullptr, // moduleLoaderEvaluate
-        nullptr, // promiseRejectionTracker
+        &promiseRejectionTracker,
         &reportUncaughtExceptionAtEventLoop,
         &currentScriptExecutionOwner,
         &scriptExecutionStatus,
@@ -736,7 +743,7 @@ JSC_DEFINE_HOST_FUNCTION(rejectPromise, (JSGlobalObject* globalObject, CallFrame
 {
     auto* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
     JSValue argument = callFrame->uncheckedArgument(1);
-    promise->rejectPromise(globalObject, argument);
+    promise->rejectPromise(globalObject->vm(), globalObject, argument);
     return encodedJSUndefined();
 }
 
@@ -744,7 +751,7 @@ JSC_DEFINE_HOST_FUNCTION(fulfillPromise, (JSGlobalObject* globalObject, CallFram
 {
     auto* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
     JSValue argument = callFrame->uncheckedArgument(1);
-    promise->fulfillPromise(globalObject, argument);
+    promise->fulfillPromise(globalObject->vm(), globalObject, argument);
     return encodedJSUndefined();
 }
 
@@ -778,7 +785,7 @@ JSC_DEFINE_HOST_FUNCTION(rejectPromiseWithFirstResolvingFunctionCallCheck, (JSGl
 {
     auto* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
     JSValue argument = callFrame->uncheckedArgument(1);
-    promise->reject(globalObject, argument);
+    promise->reject(globalObject->vm(), globalObject, argument);
     return encodedJSUndefined();
 }
 
@@ -786,7 +793,7 @@ JSC_DEFINE_HOST_FUNCTION(fulfillPromiseWithFirstResolvingFunctionCallCheck, (JSG
 {
     auto* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
     JSValue argument = callFrame->uncheckedArgument(1);
-    promise->fulfill(globalObject, argument);
+    promise->fulfill(globalObject->vm(), globalObject, argument);
     return encodedJSUndefined();
 }
 
@@ -817,6 +824,75 @@ JSC_DEFINE_HOST_FUNCTION(newHandledRejectedPromise, (JSGlobalObject* globalObjec
     return JSValue::encode(promise);
 }
 
+JSC_DEFINE_HOST_FUNCTION(promiseOnRejectedWithContext, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    JSValue argument = callFrame->uncheckedArgument(0);
+    auto* context = jsCast<JSPromiseAllContext*>(callFrame->uncheckedArgument(1));
+    auto* globalContext = jsCast<JSPromiseAllGlobalContext*>(context->globalContext());
+    auto* promise = jsCast<JSPromise*>(globalContext->promise());
+    promise->reject(globalObject->vm(), globalObject, argument);
+    return encodedJSUndefined();
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseAllOnFulfilled, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue argument = callFrame->uncheckedArgument(0);
+    auto* context = jsCast<JSPromiseAllContext*>(callFrame->uncheckedArgument(1));
+    auto* globalContext = jsCast<JSPromiseAllGlobalContext*>(context->globalContext());
+
+    auto* values = jsCast<JSArray*>(globalContext->values());
+    uint64_t index = context->index().toIndex(globalObject, "exceeding index size"_s);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    values->putByIndexInline(globalObject, index, argument, true);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    uint64_t count = globalContext->remainingElementsCount().toIndex(globalObject, "count exceeds size"_s);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    --count;
+    globalContext->setRemainingElementsCount(vm, jsNumber(count));
+    if (!count) {
+        auto* promise = jsCast<JSPromise*>(globalContext->promise());
+        scope.release();
+        promise->resolve(globalObject, values);
+    }
+    return encodedJSUndefined();
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseEmptyOnFulfilled, (JSGlobalObject*, CallFrame* callFrame))
+{
+    return JSValue::encode(callFrame->argument(0));
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseEmptyOnRejected, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    JSValue argument = callFrame->argument(0);
+    scope.throwException(globalObject, argument);
+    return encodedJSUndefined();
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseResolve, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    ASSERT(callFrame->argumentCount() == 2);
+    JSObject* constructor = jsCast<JSObject*>(callFrame->uncheckedArgument(0));
+    JSValue argument = callFrame->uncheckedArgument(1);
+    return JSValue::encode(JSPromise::promiseResolve(globalObject, constructor, argument));
+}
+
+JSC_DEFINE_HOST_FUNCTION(promiseReject, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    ASSERT(callFrame->argumentCount() == 2);
+    JSObject* constructor = jsCast<JSObject*>(callFrame->uncheckedArgument(0));
+    JSValue argument = callFrame->uncheckedArgument(1);
+    return JSValue::encode(JSPromise::promiseReject(globalObject, constructor, argument));
+}
+
 JSC_DEFINE_HOST_FUNCTION(performPromiseThen, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     auto* promise = jsCast<JSPromise*>(callFrame->uncheckedArgument(0));
@@ -824,7 +900,7 @@ JSC_DEFINE_HOST_FUNCTION(performPromiseThen, (JSGlobalObject* globalObject, Call
     JSValue onRejected = callFrame->uncheckedArgument(2);
     JSValue promiseOrCapability = callFrame->uncheckedArgument(3);
     JSValue context = callFrame->uncheckedArgument(4);
-    promise->performPromiseThen(globalObject, onFulfilled, onRejected, promiseOrCapability, context);
+    promise->performPromiseThen(globalObject->vm(), globalObject, onFulfilled, onRejected, promiseOrCapability, context);
     return encodedJSUndefined();
 }
 
@@ -1038,11 +1114,6 @@ void JSGlobalObject::init(VM& vm)
     m_arrayProtoValuesFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 0, init.vm.propertyNames->builtinNames().valuesPublicName().string(), arrayProtoFuncValues, ImplementationVisibility::Public, ArrayValuesIntrinsic));
-        });
-
-    m_promiseResolveFunction.initLater(
-        [] (const Initializer<JSFunction>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), promiseConstructorResolveCodeGenerator(init.vm), init.owner));
         });
 
     m_numberProtoToStringFunction.initLater(
@@ -1309,6 +1380,8 @@ void JSGlobalObject::init(VM& vm)
 
     m_promiseAllContextStructure.set(vm, this, JSPromiseAllContext::createStructure(vm, this, jsNull()));
 
+    m_promiseAllGlobalContextStructure.set(vm, this, JSPromiseAllGlobalContext::createStructure(vm, this, jsNull()));
+
     auto* asyncFromSyncIteratorPrototype = AsyncFromSyncIteratorPrototype::create(vm, this, AsyncFromSyncIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
     m_asyncFromSyncIteratorStructure.set(vm, this, JSAsyncFromSyncIterator::createStructure(vm, this, asyncFromSyncIteratorPrototype));
 
@@ -1317,7 +1390,7 @@ void JSGlobalObject::init(VM& vm)
 
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::sentinelString)].set(vm, this, vm.smallStrings.sentinelString());
 
-    JSFunction* defaultPromiseThen = JSFunction::create(vm, this, 2, vm.propertyNames->then.impl(), promiseProtoFuncThen, ImplementationVisibility::Public, NoIntrinsic);
+    JSFunction* defaultPromiseThen = JSFunction::create(vm, this, 2, vm.propertyNames->then.impl(), promiseProtoFuncThen, ImplementationVisibility::Public, PromisePrototypeThenIntrinsic);
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::defaultPromiseThen)].set(vm, this, defaultPromiseThen);
 
 #define CREATE_PROTOTYPE_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) if (featureFlag) { \
@@ -1725,7 +1798,12 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 
     // PromiseAllContext Helpers
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseAllContextCreate)].initLater([](const Initializer<JSCell>& init) {
-        init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "promiseAllContextCreate"_s, promiseAllContextPrivateFuncCreate, ImplementationVisibility::Private, PromiseAllContextCreateIntrinsic));
+        init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseAllContextCreate"_s, promiseAllContextPrivateFuncCreate, ImplementationVisibility::Private, PromiseAllContextCreateIntrinsic));
+    });
+
+    // PromiseAllGlobalContext Helpers
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseAllGlobalContextCreate)].initLater([](const Initializer<JSCell>& init) {
+        init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 3, "promiseAllGlobalContextCreate"_s, promiseAllGlobalContextPrivateFuncCreate, ImplementationVisibility::Private, PromiseAllGlobalContextCreateIntrinsic));
     });
 
     // RegExpStringIteratorHelpers
@@ -1828,13 +1906,13 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "fulfillWithoutPromise"_s, fulfillWithoutPromise, ImplementationVisibility::Private));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolvePromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "resolvePromiseWithFirstResolvingFunctionCallCheck"_s, resolvePromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "resolvePromiseWithFirstResolvingFunctionCallCheck"_s, resolvePromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, ResolvePromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::rejectPromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "rejectPromiseWithFirstResolvingFunctionCallCheck"_s, rejectPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "rejectPromiseWithFirstResolvingFunctionCallCheck"_s, rejectPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, RejectPromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::fulfillPromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "fulfillPromiseWithFirstResolvingFunctionCallCheck"_s, fulfillPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "fulfillPromiseWithFirstResolvingFunctionCallCheck"_s, fulfillPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, FulfillPromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolveWithoutPromiseForAsyncAwait)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "resolveWithoutPromiseForAsyncAwait"_s, resolveWithoutPromiseForAsyncAwait, ImplementationVisibility::Private));
@@ -1845,7 +1923,24 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::newHandledRejectedPromise)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "newHandledRejectedPromise"_s, newHandledRejectedPromise, ImplementationVisibility::Private));
         });
-
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseOnRejectedWithContext)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseOnRejectedWithContext"_s, promiseOnRejectedWithContext, ImplementationVisibility::Private));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseAllOnFulfilled)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseAllOnFulfilled"_s, promiseAllOnFulfilled, ImplementationVisibility::Private));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseEmptyOnFulfilled)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "promiseEmptyOnFulfilled"_s, promiseEmptyOnFulfilled, ImplementationVisibility::Private));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseEmptyOnRejected)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "promiseEmptyOnRejected"_s, promiseEmptyOnRejected, ImplementationVisibility::Private));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseResolve)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseResolve"_s, promiseResolve, ImplementationVisibility::Private, PromiseResolveIntrinsic));
+        });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseReject)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseReject"_s, promiseReject, ImplementationVisibility::Private, PromiseRejectIntrinsic));
+        });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::performPromiseThen)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 5, "performPromiseThen"_s, performPromiseThen, ImplementationVisibility::Private));
         });
@@ -2794,7 +2889,6 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     thisObject->m_objectProtoToStringFunction.visit(visitor);
     thisObject->m_arrayProtoToStringFunction.visit(visitor);
     thisObject->m_arrayProtoValuesFunction.visit(visitor);
-    thisObject->m_promiseResolveFunction.visit(visitor);
     visitor.append(thisObject->m_objectProtoValueOfFunction);
     thisObject->m_numberProtoToStringFunction.visit(visitor);
     visitor.append(thisObject->m_functionProtoHasInstanceSymbolFunction);
@@ -2885,6 +2979,7 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     visitor.append(thisObject->m_setIteratorStructure);
     visitor.append(thisObject->m_wrapForValidIteratorStructure);
     visitor.append(thisObject->m_promiseAllContextStructure);
+    visitor.append(thisObject->m_promiseAllGlobalContextStructure);
     visitor.append(thisObject->m_asyncFromSyncIteratorStructure);
     visitor.append(thisObject->m_regExpStringIteratorStructure);
     thisObject->m_iteratorResultObjectStructure.visit(visitor);
@@ -3478,14 +3573,30 @@ void JSGlobalObject::bumpGlobalLexicalBindingEpoch(VM& vm)
     }
 }
 
+void JSGlobalObject::queueMicrotaskToEventLoop(JSC::JSGlobalObject& globalObject, JSC::QueuedTask&& task)
+{
+    if (globalObject.debugger()) [[unlikely]]
+        task.setDispatcher(DebuggableMicrotaskDispatcher::create());
+    globalObject.vm().queueMicrotask(WTFMove(task));
+}
+
 void JSGlobalObject::queueMicrotask(InternalMicrotask job, JSValue argument0, JSValue argument1, JSValue argument2, JSValue argument3)
 {
     QueuedTask task { nullptr, job, this, argument0, argument1, argument2, argument3 };
-    if (globalObjectMethodTable()->queueMicrotaskToEventLoop) {
-        globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
-        return;
+    globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTFMove(task));
+}
+
+void JSGlobalObject::promiseRejectionTracker(JSGlobalObject* globalObject, JSPromise* promise, JSPromiseRejectionOperation operation)
+{
+    switch (operation) {
+    case JSC::JSPromiseRejectionOperation::Handle: {
+        break;
     }
-    vm().queueMicrotask(WTFMove(task));
+    case JSC::JSPromiseRejectionOperation::Reject: {
+        globalObject->vm().promiseRejected(promise);
+        break;
+    }
+    }
 }
 
 void JSGlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception* exception)

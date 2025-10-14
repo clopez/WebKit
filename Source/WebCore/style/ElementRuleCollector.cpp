@@ -570,7 +570,7 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
             specificity = selector->computeSpecificity();
     }
 
-    m_matchedPseudoElementIds.merge(context.pseudoIDSet);
+    m_matchedPseudoElementIds.add(context.pseudoIDSet);
     m_styleRelations.appendVector(context.styleRelations);
 
     return selectorMatches;
@@ -637,7 +637,7 @@ bool ElementRuleCollector::containerQueriesMatch(const RuleData& ruleData, const
     auto selectionMode = [&] {
         if (matchRequest.matchingPartPseudoElementRules)
             return ContainerQueryEvaluator::SelectionMode::PartPseudoElement;
-        if (ruleData.canMatchPseudoElement())
+        if (ruleData.canMatchPseudoElement() && !complexSelectorMatchesElementBackedPseudoElement(*ruleData.selector()))
             return ContainerQueryEvaluator::SelectionMode::PseudoElement;
         return ContainerQueryEvaluator::SelectionMode::Element;
     }();

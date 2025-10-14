@@ -87,6 +87,12 @@ namespace JSC {
     macro(resolveWithoutPromiseForAsyncAwait) \
     macro(awaitValue) \
     macro(newHandledRejectedPromise) \
+    macro(promiseOnRejectedWithContext) \
+    macro(promiseAllOnFulfilled) \
+    macro(promiseEmptyOnFulfilled) \
+    macro(promiseEmptyOnRejected) \
+    macro(promiseResolve) \
+    macro(promiseReject) \
     macro(performPromiseThen) \
     macro(push) \
     macro(repeatCharacter) \
@@ -223,6 +229,7 @@ namespace JSC {
     macro(wrapForValidIteratorCreate) \
     macro(asyncFromSyncIteratorCreate) \
     macro(promiseAllContextCreate) \
+    macro(promiseAllGlobalContextCreate) \
     macro(regExpStringIteratorCreate) \
     macro(iteratorHelperCreate) \
     macro(syncIterator) \

@@ -94,7 +94,7 @@ public:
 
     constexpr MediaPlatformType platformType() const final { return MediaPlatformType::AVFObjC; }
 
-    void didProvideContentKeyRequestInitializationDataForTrackID(Ref<SharedBuffer>&&, TrackID, Box<BinarySemaphore>);
+    void didProvideContentKeyRequestInitializationDataForTrackID(Ref<SharedBuffer>&&, TrackID);
 
     void didProvideContentKeyRequestIdentifierForTrackID(Ref<SharedBuffer>&&, TrackID);
 
@@ -154,7 +154,6 @@ private:
 
     // SourceBufferPrivate overrides
     Ref<MediaPromise> appendInternal(Ref<SharedBuffer>&&) final;
-    void abort() final;
     void resetParserStateInternal() final;
     void removedFromMediaSource() final;
     void flush(TrackID) final;
@@ -171,6 +170,7 @@ private:
     void processFormatDescriptionForTrackId(Ref<TrackInfo>&&, TrackID) final;
     void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&&) final;
 
+    Ref<AudioVideoRenderer> protectedRenderer() const { return m_renderer; }
     void enqueueSample(Ref<MediaSampleAVFObjC>&&, TrackID);
     void attachContentKeyToSampleIfNeeded(const MediaSampleAVFObjC&);
     void didBecomeReadyForMoreSamples(TrackID);
@@ -208,7 +208,6 @@ private:
     const Ref<SourceBufferParser> m_parser;
     Vector<Function<void()>> m_pendingTrackChangeTasks;
     Deque<std::pair<TrackID, Ref<MediaSampleAVFObjC>>> m_blockedSamples;
-    Box<BinarySemaphore> m_hasSessionSemaphore;
     Box<Semaphore> m_abortSemaphore;
     const Ref<WTF::WorkQueue> m_appendQueue;
 
@@ -227,14 +226,6 @@ private:
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     using KeyIDs = Vector<Ref<SharedBuffer>>;
-    struct TrackInitData {
-        RefPtr<SharedBuffer> initData;
-        KeyIDs keyIDs;
-    };
-    using TrackInitDataMap = StdUnorderedMap<TrackID, TrackInitData>;
-    TrackInitDataMap m_pendingProtectedTrackInitDataMap;
-    TrackInitDataMap m_protectedTrackInitDataMap;
-
     using TrackKeyIDsMap = StdUnorderedMap<TrackID, KeyIDs>;
     TrackKeyIDsMap m_currentTrackIDs;
 

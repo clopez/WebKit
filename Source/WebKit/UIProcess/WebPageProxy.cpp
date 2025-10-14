@@ -1787,6 +1787,11 @@ void WebPageProxy::close()
             automationSession->willClosePage(*this);
     }
 
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr fullscreenManager = std::exchange(m_fullScreenManager, nullptr))
+        fullscreenManager->detachFromClient();
+#endif
+
 #if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
     if (RefPtr webExtensionController = m_webExtensionController)
         webExtensionController->removePage(*this);
@@ -6273,16 +6278,6 @@ void WebPageProxy::findString(const String& string, OptionSet<FindOptions> optio
     findString(string, options, maxMatchCount, [](bool) { });
 }
 
-void WebPageProxy::findRectsForStringMatches(const String& string, OptionSet<WebKit::FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&& callbackFunction)
-{
-    auto completionHandler = [protectedThis = Ref { *this }, string, callbackFunction = WTFMove(callbackFunction)](Vector<WebCore::FloatRect>&& matchRects) mutable {
-        if (matchRects.isEmpty())
-            protectedThis->findClient().didFailToFindString(protectedThis.ptr(), string);
-        callbackFunction(WTFMove(matchRects));
-    };
-    sendWithAsyncReply(Messages::WebPage::FindRectsForStringMatches(string, options, maxMatchCount), WTFMove(completionHandler));
-}
-
 void WebPageProxy::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& callbackFunction)
 {
     sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
@@ -6711,7 +6706,8 @@ void WebPageProxy::setNetworkRequestsInProgress(bool networkRequestsInProgress)
 
 void WebPageProxy::startNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier frameID)
 {
-    if (RefPtr frame = WebFrameProxy::webFrame(frameID); !frame || !frame->isConnected())
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame || (!frame->isMainFrame() && !frame->parentFrame()))
         return;
 
     m_generatePageLoadTimingTimer.stop();
@@ -9970,11 +9966,6 @@ void WebPageProxy::setFullScreenClientForTesting(std::unique_ptr<WebFullScreenMa
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-
-PlaybackSessionManagerProxy* WebPageProxy::playbackSessionManager()
-{
-    return m_playbackSessionManager.get();
-}
 
 RefPtr<PlaybackSessionManagerProxy> WebPageProxy::protectedPlaybackSessionManager()
 {

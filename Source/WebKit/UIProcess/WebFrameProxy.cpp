@@ -468,13 +468,7 @@ void WebFrameProxy::disconnect()
 {
     if (RefPtr parentFrame = m_parentFrame.get())
         parentFrame->m_childFrames.remove(*this);
-}
-
-bool WebFrameProxy::isConnected() const
-{
-    if (RefPtr parentFrame = m_parentFrame.get())
-        return parentFrame->m_childFrames.contains(*this);
-    return false;
+    m_parentFrame = nullptr;
 }
 
 void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&& frameName, SandboxFlags effectiveSandboxFlags, ReferrerPolicy effectiveReferrerPolicy, WebCore::ScrollbarMode scrollingMode)
@@ -797,7 +791,7 @@ WebFrameProxy& WebFrameProxy::rootFrame()
     Ref rootFrame = *this;
     while (rootFrame->m_parentFrame && rootFrame->m_parentFrame->process().coreProcessIdentifier() == process().coreProcessIdentifier())
         rootFrame = *rootFrame->m_parentFrame;
-    return rootFrame;
+    return rootFrame.unsafeGet();
 }
 
 bool WebFrameProxy::isMainFrame() const

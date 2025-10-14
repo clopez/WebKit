@@ -88,17 +88,16 @@ bool LargestContentfulPaintData::isEligibleForLargestContentfulPaint(const Eleme
 }
 
 // https://w3c.github.io/largest-contentful-paint/#sec-effective-visual-size
-std::optional<float> LargestContentfulPaintData::effectiveVisualArea(const Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect)
+std::optional<float> LargestContentfulPaintData::effectiveVisualArea(const Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect, FloatSize viewportSize)
 {
     RefPtr frameView = element.document().view();
     if (!frameView)
         return { };
 
-    auto visualViewportSize = FloatSize { frameView->visualViewportRect().size() };
-    if (intersectionRect.area() >= visualViewportSize.area())
+    auto area = intersectionRect.area();
+    if (area >= viewportSize.area())
         return { };
 
-    auto area = intersectionRect.area();
     if (image) {
         CheckedPtr renderer = element.renderer();
         if (!renderer)
@@ -124,15 +123,18 @@ std::optional<float> LargestContentfulPaintData::effectiveVisualArea(const Eleme
 }
 
 // https://w3c.github.io/largest-contentful-paint/#sec-add-lcp-entry
-void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect, MonotonicTime loadTime, DOMHighResTimeStamp paintTimestamp)
+void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Element& element, CachedImage* image, FloatRect imageLocalRect, FloatRect intersectionRect, MonotonicTime loadTime, DOMHighResTimeStamp paintTimestamp, std::optional<FloatSize>& viewportSize)
 {
     bool isNewCandidate = false;
     if (image) {
         isNewCandidate = m_imageContentSet.ensure(element, [] {
             return WeakHashSet<CachedImage> { };
         }).iterator->value.add(*image).isNewEntry;
-    } else
-        isNewCandidate = m_textContentSet.add(element).isNewEntry;
+    } else {
+        ASSERT(!element.isInLargestContentfulPaintTextContentSet());
+        element.setInLargestContentfulPaintTextContentSet();
+        isNewCandidate = true;
+    }
 
     LOG_WITH_STREAM(LargestContentfulPaint, stream << "LargestContentfulPaintData " << this << " potentiallyAddLargestContentfulPaintEntry() " << element << " image " << (image ? image->url().string() : emptyString()) << " rect " << intersectionRect << " - isNewCandidate " << isNewCandidate);
 
@@ -152,7 +154,10 @@ void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Eleme
     if ((view->wasEverScrolledExplicitlyByUser() || window->hasDispatchedInputEvent()))
         return;
 
-    auto elementArea = effectiveVisualArea(element, image, imageLocalRect, intersectionRect);
+    if (!viewportSize)
+        viewportSize = FloatSize { view->visualViewportRect().size() };
+
+    auto elementArea = effectiveVisualArea(element, image, imageLocalRect, intersectionRect, *viewportSize);
     if (!elementArea)
         return;
 
@@ -187,21 +192,24 @@ void LargestContentfulPaintData::potentiallyAddLargestContentfulPaintEntry(Eleme
     m_pendingEntry = RefPtr { WTFMove(pendingEntry) };
 }
 
-RefPtr<LargestContentfulPaint> LargestContentfulPaintData::takePendingEntry(DOMHighResTimeStamp paintTimestamp)
+// https://w3c.github.io/largest-contentful-paint/#sec-report-largest-contentful-paint
+RefPtr<LargestContentfulPaint> LargestContentfulPaintData::generateLargestContentfulPaintEntry(DOMHighResTimeStamp paintTimestamp)
 {
+    std::optional<FloatSize> viewportSize;
+
     auto imageRecords = std::exchange(m_pendingImageRecords, { });
     for (auto [weakElement, imageAndData] : imageRecords) {
         RefPtr element = weakElement;
         if (!element)
             continue;
 
-        // FIXME: This is doing multiple localToAbsolute on the same element.
+        // FIXME: This is doing multiple localToAbsolute on the same element, but multiple images per element is rare.
         for (auto [image, imageData] : imageAndData) {
             if (imageData.rect.isEmpty())
                 continue;
             auto intersectionRect = computeViewportIntersectionRect(*element, imageData.rect);
             auto loadTimeSeconds = imageData.loadTime ? *imageData.loadTime : MonotonicTime::now();
-            potentiallyAddLargestContentfulPaintEntry(*element, &image, imageData.rect, intersectionRect, loadTimeSeconds, paintTimestamp);
+            potentiallyAddLargestContentfulPaintEntry(*element, &image, imageData.rect, intersectionRect, loadTimeSeconds, paintTimestamp, viewportSize);
         }
     }
 
@@ -212,7 +220,7 @@ RefPtr<LargestContentfulPaint> LargestContentfulPaintData::takePendingEntry(DOMH
             continue;
 
         auto intersectionRect = computeViewportIntersectionRect(*element, rect);
-        potentiallyAddLargestContentfulPaintEntry(*element, nullptr, { }, intersectionRect, { }, paintTimestamp);
+        potentiallyAddLargestContentfulPaintEntry(*element, nullptr, { }, intersectionRect, { }, paintTimestamp, viewportSize);
     }
 
     return std::exchange(m_pendingEntry, nullptr);
@@ -236,8 +244,6 @@ FloatRect LargestContentfulPaintData::computeViewportIntersectionRect(Element& e
     auto layoutViewport = frameView->layoutViewportRect();
 
     auto localTargetBounds = LayoutRect { localRect };
-
-    // FIXME: This clips for ancestors, which maybe isn't what we want.
     auto absoluteRects = targetRenderer->computeVisibleRectsInContainer(
         { localTargetBounds },
         &targetRenderer->checkedView().get(),
@@ -299,15 +305,15 @@ void LargestContentfulPaintData::didLoadImage(Element& element, CachedImage* ima
     if (!image)
         return;
 
-    if (!isExposedForPaintTiming(element))
-        return;
-
     auto it = m_imageContentSet.find(element);
     if (it != m_imageContentSet.end()) {
         auto& imageSet = it->value;
         if (imageSet.contains(*image))
             return;
     }
+
+    if (!isExposedForPaintTiming(element))
+        return;
 
     auto addResult = m_pendingImageRecords.ensure(element, [] {
         return WeakHashMap<CachedImage, PendingImageData> { };
@@ -329,15 +335,15 @@ void LargestContentfulPaintData::didPaintImage(Element& element, CachedImage* im
     if (localRect.isEmpty())
         return;
 
-    if (!isExposedForPaintTiming(element))
-        return;
-
     auto it = m_imageContentSet.find(element);
     if (it != m_imageContentSet.end()) {
         auto& imageSet = it->value;
         if (imageSet.contains(*image))
             return;
     }
+
+    if (!isExposedForPaintTiming(element))
+        return;
 
     if (m_pendingImageRecords.isEmptyIgnoringNullReferences()) {
         if (RefPtr page = element.document().page())
@@ -364,6 +370,9 @@ void LargestContentfulPaintData::didPaintImage(Element& element, CachedImage* im
 
 void LargestContentfulPaintData::didPaintText(const RenderBlockFlow& formattingContextRoot, FloatRect localRect)
 {
+    if (localRect.isEmpty())
+        return;
+
     auto& renderBlockFlow = const_cast<RenderBlockFlow&>(formattingContextRoot);
     // https://w3c.github.io/paint-timing/#sec-modifications-dom says to get the containing block.
     CheckedPtr<RenderBlock> containingBlock = &renderBlockFlow;
@@ -382,7 +391,7 @@ void LargestContentfulPaintData::didPaintText(const RenderBlockFlow& formattingC
     if (!element)
         return;
 
-    if (m_textContentSet.contains(*element))
+    if (element->isInLargestContentfulPaintTextContentSet())
         return;
 
     if (!isExposedForPaintTiming(*element))

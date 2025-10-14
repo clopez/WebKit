@@ -124,6 +124,7 @@ enum class CodeGenerationMode : uint8_t;
 enum class ErrorType : uint8_t;
 enum class LinkTimeConstant : int32_t;
 enum class FunctionConstructionMode : uint8_t;
+enum class JSPromiseRejectionOperation : unsigned;
 
 struct GlobalObjectMethodTable;
 
@@ -289,7 +290,6 @@ public:
     LazyProperty<JSGlobalObject, JSFunction> m_objectProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoValuesFunction;
-    LazyProperty<JSGlobalObject, JSFunction> m_promiseResolveFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_numberProtoToStringFunction;
     WriteBarrier<JSFunction> m_objectProtoValueOfFunction;
     WriteBarrier<JSFunction> m_functionProtoHasInstanceSymbolFunction;
@@ -384,6 +384,7 @@ public:
     WriteBarrierStructureID m_setIteratorStructure;
     WriteBarrierStructureID m_wrapForValidIteratorStructure;
     WriteBarrierStructureID m_promiseAllContextStructure;
+    WriteBarrierStructureID m_promiseAllGlobalContextStructure;
     WriteBarrierStructureID m_regExpMatchesArrayStructure;
     WriteBarrierStructureID m_regExpMatchesArrayWithIndicesStructure;
     WriteBarrierStructureID m_regExpMatchesIndicesArrayStructure;
@@ -751,7 +752,6 @@ public:
     JSFunction* arrayProtoValuesFunction() const { return m_arrayProtoValuesFunction.get(this); }
     JSFunction* arrayProtoValuesFunctionConcurrently() const { return m_arrayProtoValuesFunction.getConcurrently(); }
     JSFunction* iteratorProtocolFunction() const;
-    JSFunction* promiseResolveFunction() const { return m_promiseResolveFunction.get(this); }
     JSFunction* promiseProtoThenFunction() const;
     JSFunction* objectProtoValueOfFunction() const { return m_objectProtoValueOfFunction.get(); }
     JSFunction* numberProtoToStringFunction() const { return m_numberProtoToStringFunction.getInitializedOnMainThread(this); }
@@ -920,6 +920,7 @@ public:
     Structure* setIteratorStructure() const { return m_setIteratorStructure.get(); }
     Structure* wrapForValidIteratorStructure() const { return m_wrapForValidIteratorStructure.get(); }
     Structure* promiseAllContextStructure() const { return m_promiseAllContextStructure.get(); }
+    Structure* promiseAllGlobalContextStructure() const { return m_promiseAllGlobalContextStructure.get(); }
     Structure* stringObjectStructure() const { return m_stringObjectStructure.get(); }
     Structure* symbolObjectStructure() const { return m_symbolObjectStructure.get(); }
     Structure* iteratorResultObjectStructure() const { return m_iteratorResultObjectStructure.get(this); }
@@ -1126,8 +1127,8 @@ public:
     static bool shouldInterruptScriptBeforeTimeout(const JSGlobalObject*) { return false; }
     static RuntimeFlags javaScriptRuntimeFlags(const JSGlobalObject*) { return RuntimeFlags(); }
 
-    JS_EXPORT_PRIVATE void queueMicrotask(InternalMicrotask, JSValue, JSValue, JSValue, JSValue);
-
+    JS_EXPORT_PRIVATE static void queueMicrotaskToEventLoop(JSGlobalObject&, QueuedTask&&);
+    JS_EXPORT_PRIVATE static void promiseRejectionTracker(JSGlobalObject*, JSPromise*, JSPromiseRejectionOperation);
     static void reportViolationForUnsafeEval(const JSGlobalObject*, const String&) { }
 
     bool evalEnabled() const { return m_evalEnabled; }
@@ -1150,6 +1151,8 @@ public:
         if (Options::useTrustedTypes())
             m_trustedTypesEnforcement = enforcement;
     }
+
+    void queueMicrotask(InternalMicrotask, JSValue, JSValue, JSValue, JSValue);
 
 #if ASSERT_ENABLED
     const JSGlobalObject* globalObjectAtDebuggerEntry() const { return m_globalObjectAtDebuggerEntry; }
