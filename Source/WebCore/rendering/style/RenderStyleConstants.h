@@ -438,7 +438,6 @@ enum class ItemPosition : uint8_t {
     Left,
     Right,
     AnchorCenter,
-    Dialog
 };
 
 enum class OverflowAlignment : uint8_t {
@@ -1293,6 +1292,8 @@ enum class MaskType : uint8_t {
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
 
 constexpr float defaultMiterLimit = 4;
+
+enum class UsesSVGZoomRulesForLength : bool { No, Yes };
 
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationFillMode);

@@ -1411,6 +1411,11 @@ inline bool RenderStyle::enableEvaluationTimeZoom() const
     return m_rareInheritedData->enableEvaluationTimeZoom;
 }
 
+inline float RenderStyle::deviceScaleFactor() const
+{
+    return m_rareInheritedData->deviceScaleFactor;
+}
+
 inline bool RenderStyle::useSVGZoomRulesForLength() const
 {
     return m_nonInheritedData->rareData->useSVGZoomRulesForLength;
@@ -1419,12 +1424,12 @@ inline bool RenderStyle::useSVGZoomRulesForLength() const
 inline Style::ZoomFactor RenderStyle::usedZoomForLength() const
 {
     if (useSVGZoomRulesForLength())
-        return Style::ZoomFactor(1.0f);
+        return Style::ZoomFactor(1.0f, deviceScaleFactor());
 
     if (enableEvaluationTimeZoom())
-        return Style::ZoomFactor(usedZoom());
+        return Style::ZoomFactor(usedZoom(), deviceScaleFactor());
 
-    return Style::ZoomFactor(1.0f);
+    return Style::ZoomFactor(1.0f, deviceScaleFactor());
 }
 
 } // namespace WebCore

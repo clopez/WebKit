@@ -280,6 +280,8 @@ UIProcess/gtk/ClipboardGtk4.cpp @no-unify
 UIProcess/gtk/Display.cpp @no-unify
 UIProcess/gtk/DisplayX11.cpp @no-unify
 UIProcess/gtk/DisplayWayland.cpp @no-unify
+UIProcess/gtk/GRefPtrGtk.cpp @no-unify
+UIProcess/gtk/GtkUtilities.cpp @no-unify
 UIProcess/gtk/WebDateTimePickerGtk.cpp
 UIProcess/gtk/HardwareAccelerationManager.cpp
 UIProcess/gtk/KeyBindingTranslator.cpp
@@ -289,6 +291,7 @@ UIProcess/gtk/PointerLockManagerX11.cpp @no-unify
 UIProcess/gtk/ScreenManagerGtk.cpp @no-unify
 UIProcess/gtk/SystemSettingsManagerProxyGtk.cpp
 UIProcess/gtk/TextCheckerGtk.cpp @no-unify
+UIProcess/gtk/ValidationBubbleGtk.cpp
 UIProcess/gtk/ViewSnapshotStoreGtk3.cpp @no-unify
 UIProcess/gtk/ViewSnapshotStoreGtk4.cpp @no-unify
 UIProcess/gtk/ViewGestureControllerGtk.cpp

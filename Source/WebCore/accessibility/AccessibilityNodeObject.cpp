@@ -738,17 +738,13 @@ void AccessibilityNodeObject::updateChildrenIfNecessary()
 void AccessibilityNodeObject::clearChildren()
 {
     AccessibilityObject::clearChildren();
+
     m_childrenDirty = false;
+    m_containsOnlyStaticText = false;
+    m_containsOnlyStaticTextDirty = false;
 
-    if (isNativeLabel()) {
-        m_containsOnlyStaticText = false;
-        m_containsOnlyStaticTextDirty = false;
-    }
-
-    CheckedPtr rareData = isTable() ? this->rareData() : nullptr;
-    if (!rareData)
-        return;
-    rareData->resetChildrenDependentTableFields();
+    if (CheckedPtr rareData = this->rareData())
+        rareData->resetChildrenDependentTableFields();
 }
 
 void AccessibilityNodeObject::updateOwnedChildrenIfNecessary()
@@ -1513,7 +1509,7 @@ static RefPtr<Element> nodeActionElement(Node& node)
 {
     auto elementName = WebCore::elementName(node);
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(node)) {
-        if (!input->isDisabledFormControl() && (input->isRadioButton() || input->isCheckbox() || input->isTextButton() || input->isFileUpload() || input->isImageButton() || input->isTextField()))
+        if (!input->isDisabledFormControl() && (input->isRadioButton() || input->isCheckbox() || input->isTextButton() || input->isFileUpload() || input->isImageButton() || input->isTextField() || input->isDateField() || input->isDateTimeLocalField()))
             return input;
     } else if (elementName == ElementName::HTML_button || elementName == ElementName::HTML_select)
         return &downcast<Element>(node);

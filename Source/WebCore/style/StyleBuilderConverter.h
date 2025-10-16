@@ -454,7 +454,8 @@ inline float zoomWithTextZoomFactor(BuilderState& builderState)
 {
     if (auto* frame = builderState.document().frame()) {
         float textZoomFactor = builderState.style().textZoom() != TextZoom::Reset ? frame->textZoomFactor() : 1.0f;
-        return builderState.style().usedZoom() * textZoomFactor;
+        auto usedZoom = shouldUseEvaluationTimeZoom(builderState) ? 1.0f : builderState.style().usedZoom();
+        return usedZoom * textZoomFactor;
     }
     return builderState.cssToLengthConversionData().zoom();
 }
@@ -516,7 +517,6 @@ inline ItemPosition oppositeItemPosition(ItemPosition position)
     case ItemPosition::LastBaseline:
     case ItemPosition::Center:
     case ItemPosition::AnchorCenter:
-    case ItemPosition::Dialog:
         return position;
 
     case ItemPosition::Start:

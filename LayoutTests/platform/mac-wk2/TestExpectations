@@ -830,7 +830,6 @@ http/tests/resourceLoadStatistics/user-interaction-reported-after-website-data-r
 http/tests/storageAccess/ [ Pass ]
 imported/w3c/web-platform-tests/storage-access-api/ [ Pass ]
 imported/w3c/web-platform-tests/storage-access-api/hasStorageAccess.sub.https.window.html [ Skip ]
-imported/w3c/web-platform-tests/storage-access-api/requestStorageAccess-cross-origin-fetch.sub.https.window.html [ Skip ]
 imported/w3c/web-platform-tests/storage-access-api/storage-access-beyond-cookies.BlobURLDedicatedWorker.sub.https.tentative.window.html [ Skip ]
 imported/w3c/web-platform-tests/storage-access-api/storage-access-beyond-cookies.BlobURLSharedWorker.sub.https.tentative.window.html [ Skip ]
 imported/w3c/web-platform-tests/storage-access-api/storage-access-beyond-cookies.thirdPartyBlobStorage.sub.https.window.html [ Skip ]
@@ -1083,8 +1082,6 @@ webkit.org/b/230485 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCSctpTr
 webkit.org/b/214683 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-implicit.html [ Pass Failure ]
 
 webkit.org/b/214824 [ Debug ] js/throw-large-string-oom.html [ Skip ]
-
-webkit.org/b/215245 [ Release ] imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-child-fallback.https.sub.html [ Pass Failure ]
 
 webkit.org/b/215304 fast/forms/auto-fill-button/caps-lock-indicator-should-be-visible-after-hiding-auto-fill-strong-password-button.html [ Pass Failure ]
 
@@ -1447,9 +1444,6 @@ media/video-source-load.html [ Pass Crash ]
 media/track/video-track.html [ Pass Crash ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/interfaces/TextTrack/activeCues.html [ Pass Crash ]
 http/tests/media/media-stream/audio-capture-and-category.https.html [ Pass Crash ]
-
-# Lack of support for WPT custom domains.
-imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/sandbox-top-navigation-escalate-privileges.tentative.sub.window.html [ Failure ]
 
 webkit.org/b/259160 http/tests/privateClickMeasurement/attribution-conversion-through-fetch-keepalive.html [ Pass Failure ] # related: https://webkit.org/b/227555
 webkit.org/b/259160 http/tests/privateClickMeasurement/attribution-conversion-through-image-redirect-ephemeral.html [ Pass Failure ]

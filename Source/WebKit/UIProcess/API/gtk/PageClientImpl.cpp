@@ -30,9 +30,11 @@
 
 #include "Clipboard.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
+#include "GtkUtilities.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
+#include "ValidationBubbleGtk.h"
 #include "ViewSnapshotStore.h"
 #include "WebColorPickerGtk.h"
 #include "WebContextMenuProxyGtk.h"
@@ -49,14 +51,12 @@
 #include "WebProcessPool.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/EventNames.h>
-#include <WebCore/GtkUtilities.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/Region.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SystemSettings.h>
-#include <WebCore/ValidationBubble.h>
 #include <wtf/Compiler.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GWeakPtr.h>
@@ -309,9 +309,7 @@ RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestions
 
 Ref<ValidationBubble> PageClientImpl::createValidationBubble(String&& message, const ValidationBubble::Settings& settings)
 {
-    return ValidationBubble::create(m_viewWidget, WTFMove(message), settings, [](GtkWidget* webView, bool shouldNotifyFocusEvents) {
-        webkitWebViewBaseSetShouldNotifyFocusEvents(WEBKIT_WEB_VIEW_BASE(webView), shouldNotifyFocusEvents);
-    });
+    return ValidationBubbleGtk::create(m_viewWidget, WTFMove(message), settings);
 }
 
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)

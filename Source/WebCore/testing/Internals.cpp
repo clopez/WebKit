@@ -4596,19 +4596,6 @@ void Internals::enterViewerMode(HTMLVideoElement& element)
     element.enterFullscreen(HTMLMediaElementEnums::VideoFullscreenModeInWindow);
 }
 
-
-void Internals::beginSimulatedHDCPError(HTMLMediaElement& element)
-{
-    if (RefPtr player = element.player())
-        player->beginSimulatedHDCPError();
-}
-
-void Internals::endSimulatedHDCPError(HTMLMediaElement& element)
-{
-    if (RefPtr player = element.player())
-        player->endSimulatedHDCPError();
-}
-
 ExceptionOr<bool> Internals::mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement& element)
 {
     return element.mediaPlayerRenderingCanBeAccelerated();
@@ -6794,7 +6781,7 @@ void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&&
             return TextRecognitionBlockData { block.text, getQuad(block) };
         })
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-        , TextRecognitionResult::encodeVKCImageAnalysis(fakeImageAnalysisResultForTesting(lines))
+        , TextRecognitionResult::extractAttributedString(fakeImageAnalysisResultForTesting(lines).get())
 #endif
     });
 #else
