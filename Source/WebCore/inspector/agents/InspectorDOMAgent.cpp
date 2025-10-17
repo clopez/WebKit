@@ -209,7 +209,7 @@ public:
     void timerFired();
 
 private:
-    InspectorDOMAgent* m_domAgent;
+    const CheckedPtr<InspectorDOMAgent> m_domAgent;
     Timer m_timer;
     HashSet<RefPtr<Element>> m_elements;
 };
@@ -265,14 +265,14 @@ public:
     void handleEvent(ScriptExecutionContext&, Event& event) final
     {
         RefPtr node = dynamicDowncast<Node>(event.target());
-        if (!node || m_domAgent.m_dispatchedEvents.contains(&event))
+        if (!node || m_domAgent->m_dispatchedEvents.contains(&event))
             return;
 
-        auto nodeId = m_domAgent.pushNodePathToFrontend(node.get());
+        auto nodeId = m_domAgent->pushNodePathToFrontend(node.get());
         if (!nodeId)
             return;
 
-        m_domAgent.m_dispatchedEvents.add(&event);
+        m_domAgent->m_dispatchedEvents.add(&event);
 
         RefPtr<JSON::Object> data = JSON::Object::create();
 
@@ -281,8 +281,8 @@ public:
             data->setBoolean("enabled"_s, !!node->document().fullscreen().fullscreenElement());
 #endif // ENABLE(FULLSCREEN_API)
 
-        auto timestamp = m_domAgent.m_environment.executionStopwatch().elapsedTime().seconds();
-        m_domAgent.m_frontendDispatcher->didFireEvent(nodeId, event.type(), timestamp, data->size() ? WTFMove(data) : nullptr);
+        auto timestamp = m_domAgent->m_environment.executionStopwatch().elapsedTime().seconds();
+        m_domAgent->m_frontendDispatcher->didFireEvent(nodeId, event.type(), timestamp, data->size() ? WTFMove(data) : nullptr);
     }
 
 private:
@@ -292,7 +292,7 @@ private:
     {
     }
 
-    InspectorDOMAgent& m_domAgent;
+    const CheckedRef<InspectorDOMAgent> m_domAgent;
 };
 
 String InspectorDOMAgent::toErrorString(ExceptionCode ec)
@@ -1540,14 +1540,15 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightSelector(co
             continue;
 
         auto isInUserAgentShadowTree = descendantElement->isInUserAgentShadowTree();
-        auto pseudoId = descendantElement->pseudoId();
+        auto pseudoElementIdentifier = descendantElement->pseudoElementIdentifier();
 
         for (auto& selector : *selectorList) {
             if (isInUserAgentShadowTree && (selector.match() != CSSSelector::Match::PseudoElement || selector.value() != descendantElement->userAgentPart()))
                 continue;
 
             SelectorChecker::CheckingContext context(SelectorChecker::Mode::ResolvingStyle);
-            context.pseudoId = pseudoId;
+            if (pseudoElementIdentifier)
+                context.setRequestedPseudoElement(*pseudoElementIdentifier);
 
             if (selectorChecker.match(selector, *descendantElement, context)) {
                 if (seenNodes.add(*descendantElement))
@@ -2051,9 +2052,9 @@ Ref<Inspector::Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* 
         if (state != Inspector::Protocol::DOM::CustomElementState::Builtin)
             value->setCustomElementState(state);
 
-        if (element->pseudoId() != PseudoId::None) {
+        if (element->pseudoElementIdentifier()) {
             Inspector::Protocol::DOM::PseudoType pseudoType;
-            if (pseudoElementType(element->pseudoId(), &pseudoType))
+            if (pseudoElementType(element->pseudoElementIdentifier()->pseudoId, &pseudoType))
                 value->setPseudoType(pseudoType);
         } else {
             if (auto pseudoElements = buildArrayForPseudoElements(*element))

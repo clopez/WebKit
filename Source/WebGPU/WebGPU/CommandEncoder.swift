@@ -101,7 +101,7 @@ extension WebGPU.CommandEncoder {
         }
 
         if getEncoderState() != WebGPU.CommandsMixin.EncoderState.Open {
-            return "GPUCommandEncoder.finish: encoder state is \(String(describing: encoderStateNameWrapper())), expected 'Open'"
+            return "GPUCommandEncoder.finish: encoder state is '\(encoderStateName() ?? "")', expected 'Open'"
         }
 
         if m_debugGroupStackSize != 0 {
@@ -833,7 +833,7 @@ extension WebGPU.CommandEncoder {
             return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), error)
         }
 
-        if m_commandBuffer != nil && m_commandBuffer!.status.rawValue >= MTLCommandBufferStatus.enqueued.rawValue {
+        if let m_commandBuffer, m_commandBuffer.status.rawValue >= MTLCommandBufferStatus.enqueued.rawValue {
             return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "command buffer has already been committed")
         }
 
@@ -842,9 +842,10 @@ extension WebGPU.CommandEncoder {
         var counterSampleBufferOffset: UInt32 = 0
         if let wgpuTimestampWrites = wgpuGetRenderPassDescriptorTimestampWrites(descriptorSpan)?[0] {
             let wgpuQuerySet = wgpuTimestampWrites.querySet
-            let querySet = WebGPU.fromAPI(wgpuQuerySet)
-            counterSampleBuffer = unsafe querySet.counterSampleBufferWithOffset().first
-            counterSampleBufferOffset = unsafe querySet.counterSampleBufferWithOffset().second
+            let timestampsWrites = WebGPU.fromAPI(wgpuQuerySet)
+            counterSampleBuffer = unsafe timestampsWrites.counterSampleBufferWithOffset().first
+            counterSampleBufferOffset = unsafe timestampsWrites.counterSampleBufferWithOffset().second
+            timestampsWrites.setCommandEncoder(self)
         }
 
         if m_device.ptr().enableEncoderTimestamps() || counterSampleBuffer != nil {
@@ -1854,7 +1855,18 @@ extension WebGPU.CommandEncoder {
             self.generateInvalidEncoderStateError()
             return
         }
-        guard self.validateResolveQuerySet(querySet: querySet, firstQuery: firstQuery, queryCount: queryCount, destination: destination, destinationOffset: destinationOffset) else {
+
+        guard
+            self.validateResolveQuerySet(
+                querySet: querySet,
+                firstQuery: firstQuery,
+                queryCount: queryCount,
+                destination: destination,
+                destinationOffset: destinationOffset
+            ),
+            WebGPU_Internal.isValidToUseWithQuerySetCommandEncoder(querySet, self),
+            WebGPU_Internal.isValidToUseWithBufferCommandEncoder(destination, self)
+        else {
             self.makeInvalid("GPUCommandEncoder.resolveQuerySet validation failed")
             return
         }
@@ -1862,7 +1874,7 @@ extension WebGPU.CommandEncoder {
         // FIXME: rdar://138042799 need to pass in the default argument.
         destination.setCommandEncoder(self, false)
         destination.indirectBufferInvalidated(self);
-        guard !(querySet.isDestroyed() || destination.isDestroyed() || queryCount == 0) else {
+        if querySet.isDestroyed() || destination.isDestroyed() || queryCount == 0 {
             return
         }
 
@@ -1901,32 +1913,39 @@ extension WebGPU.CommandEncoder {
     }
     public func validateResolveQuerySet(querySet: WebGPU.QuerySet, firstQuery: UInt32, queryCount: UInt32, destination: WebGPU.Buffer, destinationOffset: UInt64) -> Bool
     {
-        guard (destinationOffset % 256) == 0 else {
+        if !querySet.isDestroyed() && !querySet.isValid() {
             return false
         }
-        guard querySet.isDestroyed() || querySet.isValid() else {
+        if !destination.isDestroyed() && !destination.isValid() {
             return false
         }
-        guard destination.isDestroyed() || destination.isValid() else {
+        if (destination.usage() & WGPUBufferUsage_QueryResolve.rawValue) == 0 {
             return false
         }
-        guard (destination.usage() & WGPUBufferUsage_QueryResolve.rawValue) != 0 else {
+
+        if firstQuery >= querySet.count() {
             return false
         }
-        guard firstQuery < querySet.count() else {
+
+        let (countEnd, didOverflow) = firstQuery.addingReportingOverflow(queryCount)
+        if didOverflow || countEnd > querySet.count() {
             return false
         }
-        let countEnd: UInt32 = firstQuery
-        var (additionResult, didOverflow) = countEnd.addingReportingOverflow(queryCount)
-        guard !didOverflow && additionResult <= querySet.count() else {
+
+        if (destinationOffset % 256) != 0 {
             return false
         }
-        let countTimes8PlusOffset = destinationOffset
-        let additionResult64: UInt64
-        (additionResult64, didOverflow) = countTimes8PlusOffset.addingReportingOverflow(8 * UInt64(queryCount))
-        guard !didOverflow && destination.initialSize() >= additionResult64 else {
+
+        let (queryCountTimes8, didOverflowMul) = UInt64(queryCount).multipliedReportingOverflow(by: 8)
+        if didOverflowMul {
             return false
         }
+
+        let (countTimes8PlusOffset, didOverflowSum) = destinationOffset.addingReportingOverflow(UInt64(queryCountTimes8))
+        if didOverflowSum || countTimes8PlusOffset > destination.initialSize() {
+            return false
+        }
+
         return true
     }
 
@@ -2121,7 +2140,7 @@ extension WebGPU.CommandEncoder {
             return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), String(error!))
         }
 
-        if m_commandBuffer != nil && m_commandBuffer!.status.rawValue >= MTLCommandBufferStatus.enqueued.rawValue {
+        if let m_commandBuffer, m_commandBuffer.status.rawValue >= MTLCommandBufferStatus.enqueued.rawValue {
             return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), "command buffer has already been committed")
         }
 
@@ -2135,8 +2154,10 @@ extension WebGPU.CommandEncoder {
         var counterSampleBuffer: MTLCounterSampleBuffer? = nil
         var counterSampleBufferOffset: UInt32 = 0
         if let wgpuTimestampWrites = wgpuGetComputePassDescriptorTimestampWrites(collection.span)?[0] {
-            counterSampleBuffer = unsafe WebGPU.fromAPI(wgpuTimestampWrites.querySet).counterSampleBufferWithOffset().first
-            counterSampleBufferOffset = unsafe WebGPU.fromAPI(wgpuTimestampWrites.querySet).counterSampleBufferWithOffset().second
+            let timestampsWrites = WebGPU.fromAPI(wgpuTimestampWrites.querySet)
+            counterSampleBuffer = unsafe timestampsWrites.counterSampleBufferWithOffset().first
+            counterSampleBufferOffset = unsafe timestampsWrites.counterSampleBufferWithOffset().second
+            timestampsWrites.setCommandEncoder(self)
         }
 
         if m_device.ptr().enableEncoderTimestamps() || counterSampleBuffer != nil {
@@ -2147,7 +2168,7 @@ extension WebGPU.CommandEncoder {
             computePassDescriptor.sampleBufferAttachments[0].endOfEncoderSampleIndex = timestampWriteIndex(writeIndex: timestampWrites!.endOfPassWriteIndex, defaultValue: MTLCounterDontSample, offset: counterSampleBufferOffset)
 
             if counterSampleBuffer != nil {
-                m_device.ptr().trackTimestampsBuffer(m_commandBuffer, counterSampleBuffer);
+                m_device.ptr().trackTimestampsBuffer(m_commandBuffer, counterSampleBuffer)
             }
         }
         guard let computeCommandEncoder = m_commandBuffer?.makeComputeCommandEncoder(descriptor: computePassDescriptor) else {

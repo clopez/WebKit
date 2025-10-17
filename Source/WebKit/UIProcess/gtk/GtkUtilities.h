@@ -37,6 +37,7 @@ typedef struct _GdkTexture GdkTexture;
 #endif
 
 namespace WebCore {
+class Color;
 class IntPoint;
 class SelectionData;
 }
@@ -72,5 +73,12 @@ GRefPtr<GdkTexture> skiaImageToGdkTexture(SkImage&);
 RefPtr<cairo_surface_t> skiaImageToCairoSurface(SkImage&);
 #endif
 #endif
+
+#if USE(CAIRO)
+GRefPtr<GdkPixbuf> cairoSurfaceToGdkPixbuf(cairo_surface_t*);
+#endif
+
+WebCore::Color gdkRGBAToColor(const GdkRGBA&);
+GdkRGBA colorToGdkRGBA(const WebCore::Color&);
 
 } // namespace WebKit

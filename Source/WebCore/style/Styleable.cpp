@@ -67,7 +67,13 @@ namespace WebCore {
 
 const std::optional<const Styleable> Styleable::fromRenderer(const RenderElement& renderer)
 {
-    switch (renderer.style().pseudoElementType()) {
+    if (!renderer.style().pseudoElementType()) {
+        if (auto* element = renderer.element())
+            return fromElement(*element);
+        return { };
+    }
+
+    switch (*renderer.style().pseudoElementType()) {
     case PseudoId::Backdrop:
         for (auto& topLayerElement : renderer.document().topLayerElements()) {
             if (topLayerElement->renderer() && topLayerElement->renderer()->backdropRenderer() == &renderer)
@@ -97,7 +103,6 @@ const std::optional<const Styleable> Styleable::fromRenderer(const RenderElement
         break;
     case PseudoId::After:
     case PseudoId::Before:
-    case PseudoId::None:
         if (auto* element = renderer.element())
             return fromElement(*element);
         break;
@@ -189,9 +194,9 @@ bool Styleable::computeAnimationExtent(LayoutRect& bounds) const
     if (!animations)
         return false;
 
-    KeyframeEffect* matchingEffect = nullptr;
+    RefPtr<KeyframeEffect> matchingEffect = nullptr;
     for (const auto& animation : *animations) {
-        if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+        if (RefPtr keyframeEffect = animation->keyframeEffect()) {
             if (keyframeEffect->blendingKeyframes().containsProperty(CSSPropertyTransform))
                 matchingEffect = keyframeEffect;
         }
@@ -250,7 +255,7 @@ bool Styleable::hasRunningAcceleratedAnimations() const
 
     if (auto* animations = this->animations()) {
         for (const auto& animation : *animations) {
-            if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+            if (RefPtr keyframeEffect = animation->keyframeEffect()) {
                 if (keyframeEffect->isRunningAccelerated())
                     return true;
             }
@@ -973,7 +978,7 @@ void Styleable::queryContainerDidChange() const
     if (!animations)
         return;
     for (auto& animation : *animations) {
-        RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect());
+        RefPtr keyframeEffect = animation->keyframeEffect();
         if (keyframeEffect && keyframeEffect->blendingKeyframes().usesContainerUnits()) {
             if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(animation))
                 cssAnimation->keyframesRuleDidChange();

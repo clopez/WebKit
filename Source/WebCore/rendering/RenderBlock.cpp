@@ -558,27 +558,12 @@ void RenderBlock::layoutBlock(RelayoutChildren, LayoutUnit)
     ASSERT_NOT_REACHED();
 }
 
-void RenderBlock::addOverflowFromChildren()
-{
-    if (childrenInline()) {
-        addOverflowFromInlineChildren();
-    
-        // If this block is flowed inside a flow thread, make sure its overflow is propagated to the containing fragments.
-        if (m_overflow) {
-            if (CheckedPtr flow = enclosingFragmentedFlow())
-                flow->addFragmentsVisualOverflow(*this, m_overflow->visualOverflowRect());
-        }
-    } else
-        addOverflowFromBlockChildren();
-}
-
 // Overflow is always relative to the border-box of the element in question.
 // Therefore, if the element has a vertical scrollbar placed on the left, an overflow rect at x=2px would conceptually intersect the scrollbar.
-void RenderBlock::computeOverflow(LayoutUnit oldClientAfterEdge, bool)
+void RenderBlock::computeOverflow(LayoutUnit oldClientAfterEdge, OptionSet<ComputeOverflowOptions> options)
 {
     clearOverflow();
-    addOverflowFromChildren();
-
+    addOverflowFromInFlowChildren(options);
     addOverflowFromOutOfFlowBoxes();
 
     if (hasNonVisibleOverflow()) {
@@ -622,14 +607,6 @@ void RenderBlock::clearLayoutOverflow()
     m_overflow->setLayoutOverflow(borderBoxRect());
 }
 
-void RenderBlock::addOverflowFromBlockChildren()
-{
-    for (auto& child : childrenOfType<RenderBox>(*this)) {
-        if (!child.isFloatingOrOutOfFlowPositioned())
-            addOverflowFromInFlowChildOrAbsolutePositionedDescendant(child);
-    }
-}
-
 void RenderBlock::addOverflowFromOutOfFlowBoxes()
 {
     TrackedRendererListHashSet* outOfFlowDescendants = outOfFlowBoxes();
@@ -639,7 +616,7 @@ void RenderBlock::addOverflowFromOutOfFlowBoxes()
     for (auto& outOfFlowBox : *outOfFlowDescendants) {
         // Fixed positioned elements don't contribute to layout overflow, since they don't scroll with the content.
         if (outOfFlowBox.isAbsolutelyPositioned())
-            addOverflowFromInFlowChildOrAbsolutePositionedDescendant(outOfFlowBox);
+            addOverflowFromContainedBox(outOfFlowBox);
     }
 }
 
@@ -757,7 +734,7 @@ bool RenderBlock::simplifiedLayout()
     // computeOverflow expects the bottom edge before we clamp our height. Since this information isn't available during
     // simplifiedLayout, we cache the value in m_overflow.
     LayoutUnit oldClientAfterEdge = hasRenderOverflow() ? m_overflow->layoutClientAfterEdge() : clientLogicalBottom();
-    computeOverflow(oldClientAfterEdge, true);
+    computeOverflow(oldClientAfterEdge, ComputeOverflowOptions::RecomputeFloats);
 
     updateLayerTransform();
 
@@ -1981,28 +1958,30 @@ bool RenderBlock::isPointInOverflowControl(HitTestResult& result, const LayoutPo
 
 Node* RenderBlock::nodeForHitTest() const
 {
-    switch (style().pseudoElementType()) {
-    // If we're a ::backdrop pseudo-element, we should hit-test to the element that generated it.
-    // This matches the behavior that other browsers have.
-    case PseudoId::Backdrop:
-        for (auto& element : document().topLayerElements()) {
-            if (!element->renderer())
-                continue;
-            ASSERT(element->renderer()->backdropRenderer());
-            if (element->renderer()->backdropRenderer() == this)
-                return element.ptr();
+    if (auto pseudoId = style().pseudoElementType()) {
+        switch (*pseudoId) {
+        case PseudoId::Backdrop:
+            // If we're a ::backdrop pseudo-element, we should hit-test to the element that generated it.
+            // This matches the behavior that other browsers have.
+            for (auto& element : document().topLayerElements()) {
+                if (!element->renderer())
+                    continue;
+                ASSERT(element->renderer()->backdropRenderer());
+                if (element->renderer()->backdropRenderer() == this)
+                    return element.ptr();
+            }
+            ASSERT_NOT_REACHED();
+            break;
+
+        case PseudoId::ViewTransition:
+        case PseudoId::ViewTransitionGroup:
+        case PseudoId::ViewTransitionImagePair:
+            // The view transition pseudo-elements should hit-test to their originating element (the document element).
+            return document().documentElement();
+
+        default:
+            break;
         }
-        ASSERT_NOT_REACHED();
-        break;
-
-    // The view transition pseudo-elements should hit-test to their originating element (the document element).
-    case PseudoId::ViewTransition:
-    case PseudoId::ViewTransitionGroup:
-    case PseudoId::ViewTransitionImagePair:
-        return document().documentElement();
-
-    default:
-        break;
     }
 
     // If we are in the margins of block elements that are part of a
@@ -2078,8 +2057,11 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
 
 bool RenderBlock::hitTestContents(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
 {
-    if (childrenInline() && !isRenderTable())
+    if (childrenInline() && !isRenderTable()) {
+        if (style().isSkippedRootOrSkippedContent())
+            return false;
         return hitTestInlineChildren(request, result, locationInContainer, accumulatedOffset, hitTestAction);
+    }
 
     // Hit test our children.
     HitTestAction childHitTest = hitTestAction;

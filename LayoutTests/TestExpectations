@@ -7587,7 +7587,6 @@ imported/w3c/web-platform-tests/css/css-viewport/width.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom.sub.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/list-style-image.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-viewport/zoom/relative-units-from-parent.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/border.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/bottom.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/height.html [ ImageOnlyFailure ]
@@ -7658,7 +7657,7 @@ webkit.org/b/294638 imported/w3c/web-platform-tests/css/selectors/focus-visible-
 
 # Skip large regular expression tests on Debug to avoid timeout.
 [ Debug ] fast/regex/slow.html [ Skip ]
-[ Debug ] imported/w3c/web-platform-tests/html/semantics/forms/constraints/infinite_backtracking.html [ Skip ]
+[ Debug ] imported/w3c/web-platform-tests/html/semantics/forms/constraints/infinite_backtracking.tentative.html [ Skip ]
 
 # Cocoa-only test.
 webkit.org/b/286318 http/tests/iframe-monitor [ Skip ]

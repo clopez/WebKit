@@ -133,7 +133,7 @@ static Ref<JSON::ArrayOf<Inspector::Protocol::Animation::Keyframe>> buildObjectF
 
         // Synthesize CSS style declarations for each keyframe so the frontend can display them.
 
-        auto pseudoElementIdentifier = target->pseudoId() == PseudoId::None ? std::nullopt : std::optional(Style::PseudoElementIdentifier { target->pseudoId() });
+        auto pseudoElementIdentifier = target->pseudoElementIdentifier();
         Style::Extractor computedStyleExtractor(target, false, pseudoElementIdentifier);
 
         for (size_t i = 0; i < blendingKeyframes.size(); ++i) {
@@ -343,7 +343,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::Styleable>> Ins
     if (!domAgent)
         return makeUnexpected("DOM domain must be enabled"_s);
 
-    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect());
+    RefPtr keyframeEffect = animation->keyframeEffect();
     if (!keyframeEffect)
         return makeUnexpected("Animation for given animationId does not have an effect"_s);
 

@@ -1257,7 +1257,7 @@ fast/css/pseudo-visited-background-color-on-input.html [ ImageOnlyFailure ]
 fast/css/read-only-read-write-input-basics.html [ ImageOnlyFailure ]
 fast/forms/color [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/color-attributes.window.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/color.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/color.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/color.window.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/range-tick-marks-01.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/range-tick-marks-03.html [ ImageOnlyFailure ]
@@ -1310,10 +1310,10 @@ media/media-source/media-managedmse-stall-endofstream.html [ Skip ]
 media/media-source/media-managedmse-video-with-poster.html [ Skip ]
 
 # CRABS WebM isn't supported in WK1
-media/media-webm-opus-buffered.html [ Failure ]
-media/media-webm-opus-error.html [ Failure ]
-media/media-webm-opus-variable-length.html [ Failure ]
-media/media-webm-no-duration.html [ Failure ]
+media/media-webm-opus-buffered.html [ Skip ]
+media/media-webm-opus-error.html [ Skip ]
+media/media-webm-opus-variable-length.html [ Skip ]
+media/media-webm-no-duration.html [ Skip ]
 
 media/video-currenttime-monotonic.html [ Failure ]
 

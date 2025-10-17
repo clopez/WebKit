@@ -1257,8 +1257,6 @@ webkit.org/b/173946 [ Debug ] media/modern-media-controls/fullscreen-support/ful
 
 webkit.org/b/183490 media/modern-media-controls/start-support/start-support-fullscreen.html [ Failure ]
 
-webkit.org/b/183764 fast/css/apple-system-control-colors.html [ Pass ]
-
 webkit.org/b/177616 http/tests/media/video-buffered-range-contains-currentTime.html [ Pass Timeout ]
 
 webkit.org/b/184612 media/audio-concurrent-supported.html [ Pass Failure ]
@@ -1722,7 +1720,8 @@ webkit.org/b/221152 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-a
 
 webkit.org/b/221491 animations/keyframe-pseudo-shadow.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/221973 media/media-webm-no-duration.html [ Failure ]
+# webkit.org/b/221973 for failure, webkit.org/b/300940 for crash
+media/media-webm-no-duration.html [ Crash Failure ]
 
 webkit.org/b/221100 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletnode-channel-count.https.html [ Pass Failure ]
 
@@ -1771,8 +1770,6 @@ webkit.org/b/223973 [ Debug ] imported/w3c/web-platform-tests/xhr/xhr-timeout-lo
 webkit.org/b/223975 inspector/protocol/condition.html [ Pass Timeout ]
 
 webkit.org/b/223976 [ Debug ] imported/w3c/web-platform-tests/cors/redirect-preflight.htm [ Pass Failure ]
-
-webkit.org/b/224123 media/modern-media-controls/macos-inline-media-controls/macos-inline-media-dropping-controls.html [ Pass Failure ]
 
 webkit.org/b/224212 [ arm64 ] compositing/background-color/no-composited-background-color-when-perspective.html [ Pass ImageOnlyFailure ]
 
@@ -2530,8 +2527,6 @@ fast/forms/menulist-separator-painting.html [ Pass Failure ]
 fast/forms/menulist-restrict-line-height.html [ Pass Failure ]
 platform/mac/fast/forms/switch-repaint-size-vertical.html [ Pass Failure ]
 fast/forms/color/color-input-set-attribute-value.html [ Pass ImageOnlyFailure ]
-fast/dom/DOMURL/url-very-large-password-no-crash.html [ Pass Timeout ]
-fast/dom/DOMURL/url-very-large-username-no-crash.html [ Pass Timeout ]
 fast/css/accent-color/select.html [ Pass ImageOnlyFailure ]
 media/modern-media-controls/css/visibility-hidden.html [ Pass ImageOnlyFailure ]
 pdf/images/jpeg2000-embed-pdf.html [ Pass ImageOnlyFailure ]
@@ -2542,7 +2537,6 @@ imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-no-fallback-props
 imported/w3c/web-platform-tests/css/css-contain/contain-layout-suppress-baseline-002.html [ Pass ImageOnlyFailure ]
 media/modern-media-controls/volume-support/volume-support-drag-to-mute.html [ Pass Timeout ]
 fast/forms/input-appearance-spinbutton-up.html [ Pass Failure ]
-fast/forms/month/month-editable-components/month-editable-components-mouse-events.html [ Pass Failure ]
 fast/forms/001.html [ Pass Failure ]
 fast/forms/basic-textareas.html [ Pass Failure ]
 fast/forms/basic-textareas-quirks.html [ Pass Failure ]
@@ -2557,3 +2551,24 @@ fast/forms/number/number-appearance-spinbutton-layer.html [ Pass Failure ]
 fast/forms/select-style.html [ Pass Failure ]
 fast/forms/textarea-metrics.html [ Pass Failure ]
 fast/forms/time/time-editable-components/time-editable-components-mouse-events.html [ Pass Failure ]
+
+webkit.org/b/300994 fast/animation/request-animation-frame-throttling-aggressiveThermalMitigation.html [ Pass Failure ]
+
+webkit.org/b/300997 webrtc/filtering-ice-candidate-after-reload.html [ Pass Failure ]
+
+# https://bugs.webkit.org/show_bug.cgi?id=300996 [ macOS Tahoe ] 4 fast/forms tests (layout-tests) are constant image failures
+[ Tahoe Debug ] fast/forms/switch/pointer-tracking.html [ ImageOnlyFailure ]
+[ Tahoe Debug ] fast/forms/switch/click-animation.html [ ImageOnlyFailure ]
+[ Tahoe Debug ] fast/forms/switch/click-animation-redundant-disabled.html [ ImageOnlyFailure ]
+[ Tahoe Debug ] fast/forms/switch/click-animation-redundant-checked.html  [ ImageOnlyFailure ]
+
+# https://bugs.webkit.org/show_bug.cgi?id=301000 [ macOS Tahoe ] 3x fast/ tests (layout-tests) are constant text failures
+[ Tahoe Debug ] fast/forms/month/month-editable-components/month-editable-components-mouse-events.html [ Failure ]
+[ Tahoe Debug ] fast/html/text-field-input-types.html [ Failure ]
+[ Tahoe Debug ] fast/repaint/block-inputrange-repaint.html [ Failure ]
+
+# https://bugs.webkit.org/show_bug.cgi?id=301002 [ macOS Tahoe ] fast/css/apple-system-control-colors.html is a constant text failure
+[ Tahoe Debug ] fast/css/apple-system-control-colors.html [ Failure ]
+
+# https://bugs.webkit.org/show_bug.cgi?id=301013 [ macOS Tahoe ] http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html is a flaky text failure
+[ Tahoe ] http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Pass Failure ]
