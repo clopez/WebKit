@@ -27,7 +27,6 @@
 
 #if ENABLE(VIDEO)
 
-#include "HTMLMediaElement.h"
 #include "JSValueInWrappedObject.h"
 #include "MediaSession.h"
 #include <wtf/Ref.h>
@@ -49,6 +48,8 @@ class TextTrackList;
 class TextTrackRepresentation;
 class VoidCallback;
 
+enum class HTMLMediaElementSourceType : uint8_t;
+
 class MediaControlsHost final
     : public CanMakeWeakPtr<MediaControlsHost>
 #if ENABLE(MEDIA_SESSION)
@@ -62,8 +63,13 @@ public:
     explicit MediaControlsHost(HTMLMediaElement&);
     ~MediaControlsHost();
 
+#if ENABLE(MEDIA_SESSION)
+    void ref() const final;
+    void deref() const final;
+#else
     void ref() const;
     void deref() const;
+#endif
 
     static const AtomString& automaticKeyword();
     static const AtomString& forcedOnlyKeyword();
@@ -122,7 +128,7 @@ public:
     bool showMediaControlsContextMenu(HTMLElement&, String&& optionsJSONString, Ref<VoidCallback>&&);
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
 
-    using SourceType = HTMLMediaElement::SourceType;
+    using SourceType = HTMLMediaElementSourceType;
     std::optional<SourceType> sourceType() const;
 
     void presentationModeChanged();

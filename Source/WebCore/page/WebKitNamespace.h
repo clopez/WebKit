@@ -41,6 +41,7 @@ namespace WebCore {
 class Node;
 class UserContentProvider;
 class UserMessageHandlersNamespace;
+class WebKitBufferNamespace;
 class WebKitJSHandle;
 class WebKitSerializedNode;
 
@@ -54,6 +55,7 @@ public:
     virtual ~WebKitNamespace();
 
     UserMessageHandlersNamespace* messageHandlers();
+    WebKitBufferNamespace& buffers();
     Ref<WebKitJSHandle> createJSHandle(JSC::JSGlobalObject&, JSC::Strong<JSC::JSObject>);
 
     struct SerializedNodeInit {
@@ -65,6 +67,7 @@ private:
     explicit WebKitNamespace(LocalDOMWindow&, UserContentProvider&);
 
     const Ref<UserMessageHandlersNamespace> m_messageHandlerNamespace;
+    const Ref<WebKitBufferNamespace> m_buffers;
 };
 
 } // namespace WebCore

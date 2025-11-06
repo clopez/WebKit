@@ -205,10 +205,10 @@ static void writeSVGStrokePaintingResource(TextStream& ts, const RenderElement& 
     auto& style = renderer.style();
 
     SVGLengthContext lengthContext(&shape);
-    double dashOffset = lengthContext.valueForLength(style.strokeDashOffset());
-    double strokeWidth = lengthContext.valueForLength(style.strokeWidth());
+    double dashOffset = lengthContext.valueForLength(style.strokeDashOffset(), Style::ZoomNeeded { });
+    double strokeWidth = lengthContext.valueForLength(style.strokeWidth(), Style::ZoomNeeded { });
     auto dashArray = DashArray::map(style.strokeDashArray(), [&](auto& length) -> DashArrayElement {
-        return lengthContext.valueForLength(length);
+        return lengthContext.valueForLength(length, Style::ZoomNeeded { });
     });
 
     writeIfNotDefault(ts, "opacity"_s, style.strokeOpacity().value.value, 1.0f);
@@ -583,7 +583,7 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
     // FIXME: We want to use SVGResourcesCache to determine which resources are present, instead of quering the resource <-> id cache.
     // For now leave the DRT output as is, but later on we should change this so cycles are properly ignored in the DRT output.
     if (style.hasPositionedMask()) {
-        if (RefPtr maskImage = style.maskLayers().first().image().tryStyleImage()) {
+        if (RefPtr maskImage = style.maskLayers().usedFirst().image().tryStyleImage()) {
             Ref document = renderer.document();
             auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImage->url(), document);
             if (auto* masker = getRenderSVGResourceById<LegacyRenderSVGResourceMasker>(renderer.treeScopeForSVGReferences(), resourceID)) {

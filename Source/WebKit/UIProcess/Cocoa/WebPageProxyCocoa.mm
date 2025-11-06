@@ -38,6 +38,7 @@
 #import "DataDetectionResult.h"
 #import "ExtensionCapabilityGranter.h"
 #import "InsertTextOptions.h"
+#import "LegacyWebArchiveCallbackAggregator.h"
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
 #import "NativeWebGestureEvent.h"
@@ -47,6 +48,7 @@
 #import "PageClient.h"
 #import "PlatformXRSystem.h"
 #import "PlaybackSessionManagerProxy.h"
+#import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "SafeBrowsingSPI.h"
 #import "SharedBufferReference.h"
@@ -57,6 +59,7 @@
 #import "WebContextMenuProxy.h"
 #import "WebFrameProxy.h"
 #import "WebPage.h"
+#import "WebPageLoadTiming.h"
 #import "WebPageMessages.h"
 #import "WebPageProxyInternals.h"
 #import "WebPasteboardProxy.h"
@@ -149,6 +152,23 @@ constexpr IntSize iconSize = IntSize(400, 400);
 
 void WebPageProxy::didGeneratePageLoadTiming(const WebPageLoadTiming& timing)
 {
+    // These times will not exactly match times reported by the PLT benchmark, since the benchmark
+    // uses loadRequestForNavigation as the start timestamp, while this object uses navigationStart
+    // (didStartProvisionalLoadForFrameShared) as the start timestamp.
+    auto url = m_mainFrame ? m_mainFrame->url() : URL();
+    auto startTime = timing.navigationStart();
+    auto firstVisualLayoutDuration = timing.firstVisualLayout() - startTime;
+    auto firstMeaningfulPaintDuration = timing.firstMeaningfulPaint() - startTime;
+    auto documentFinishedLoadingDuration = timing.documentFinishedLoading() - startTime;
+    auto finishedLoadingDuration = timing.finishedLoading() - startTime;
+    auto subresourcesFinishedLoadingDuration = timing.allSubresourcesFinishedLoading() - startTime;
+
+    WEBPAGEPROXY_RELEASE_LOG(Loading, "didGeneratePageLoadTiming: url=%" SENSITIVE_LOG_STRING " firstVisualLayout=%.3f firstMeaningfulPaint=%.3f domContentLoaded=%.3f loadEvent=%.3f subresourcesFinished=%.3f", url.string().ascii().data(), firstVisualLayoutDuration.seconds(), firstMeaningfulPaintDuration.seconds(), documentFinishedLoadingDuration.seconds(), finishedLoadingDuration.seconds(), subresourcesFinishedLoadingDuration.seconds());
+
+    static bool shouldLogFrameTree = CFPreferencesGetAppBooleanValue(CFSTR("WebKitDebugLogFrameTreesWithPageLoadTiming"), kCFPreferencesCurrentApplication, nullptr);
+    if (shouldLogFrameTree)
+        logFrameTree();
+
     if (RefPtr state = NavigationState::fromWebPage(*this))
         state->didGeneratePageLoadTiming(timing);
 }
@@ -159,13 +179,9 @@ static bool exceedsRenderTreeSizeSizeThreshold(uint64_t thresholdSize, uint64_t 
     return committedSize > thresholdSize * thesholdSizeFraction;
 }
 
-void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction)
+void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction, const std::optional<MainFrameData>& mainFrameData)
 {
     if (layerTreeTransaction.isMainFrameProcessTransaction()) {
-        themeColorChanged(layerTreeTransaction.themeColor());
-        pageExtendedBackgroundColorDidChange(layerTreeTransaction.pageExtendedBackgroundColor());
-        sampledPageTopColorChanged(layerTreeTransaction.sampledPageTopColor());
-
         if (!m_hasUpdatedRenderingAfterDidCommitLoad
             && (internals().firstLayerTreeTransactionIdAfterDidCommitLoad && layerTreeTransaction.transactionID().greaterThanOrEqualSameProcess(*internals().firstLayerTreeTransactionIdAfterDidCommitLoad))) {
             m_hasUpdatedRenderingAfterDidCommitLoad = true;
@@ -182,7 +198,7 @@ void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTre
     }
 
     if (RefPtr pageClient = this->pageClient())
-        pageClient->didCommitLayerTree(layerTreeTransaction);
+        pageClient->didCommitLayerTree(layerTreeTransaction, mainFrameData);
 
     // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
     if (internals().observedLayoutMilestones.contains(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
@@ -190,6 +206,13 @@ void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTre
         m_hitRenderTreeSizeThreshold = true;
         didReachLayoutMilestone(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold, WallTime::now());
     }
+}
+
+void WebPageProxy::didCommitMainFrameData(const MainFrameData& mainFrameData)
+{
+    themeColorChanged(mainFrameData.themeColor);
+    pageExtendedBackgroundColorDidChange(mainFrameData.pageExtendedBackgroundColor);
+    sampledPageTopColorChanged(mainFrameData.sampledPageTopColor);
 }
 
 void WebPageProxy::layerTreeCommitComplete()
@@ -202,7 +225,9 @@ void WebPageProxy::layerTreeCommitComplete()
 
 void WebPageProxy::setDataDetectionResult(DataDetectionResult&& dataDetectionResult)
 {
-    m_dataDetectionResults = WTFMove(dataDetectionResult.results);
+    m_dataDetectionResults = createNSArray(dataDetectionResult.results, [](const RetainPtr<DDScannerResult>& result) {
+        return result.get();
+    });
 }
 
 void WebPageProxy::handleClickForDataDetectionResult(const DataDetectorElementInfo& info, const IntPoint& clickLocation)
@@ -278,21 +303,22 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navig
 #if ENABLE(CONTENT_FILTERING)
 void WebPageProxy::contentFilterDidBlockLoadForFrame(IPC::Connection& connection, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
 {
+    contentFilterDidBlockLoadForFrameShared(connection, unblockHandler, frameID);
+}
+
+void WebPageProxy::contentFilterDidBlockLoadForFrameShared(IPC::Connection& connection, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
+{
 #if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
     bool usesWebContentRestrictions = false;
 #if HAVE(WEBCONTENTRESTRICTIONS)
     usesWebContentRestrictions = protectedPreferences()->usesWebContentRestrictionsForFilter();
 #endif
     if (usesWebContentRestrictions)
-        MESSAGE_CHECK(unblockHandler.webFilterEvaluatorData().isEmpty(), connection);
+        MESSAGE_CHECK(!unblockHandler.webFilterEvaluator(), connection);
+#else
+    UNUSED_PARAM(connection);
 #endif
 
-    RefPtr process = dynamicDowncast<WebProcessProxy>(AuxiliaryProcessProxy::fromConnection(connection));
-    contentFilterDidBlockLoadForFrameShared(*process, unblockHandler, frameID);
-}
-
-void WebPageProxy::contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&& process, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
-{
     if (RefPtr frame = WebFrameProxy::webFrame(frameID))
         frame->contentFilterDidBlockLoad(unblockHandler);
 }
@@ -930,7 +956,7 @@ void WebPageProxy::startApplePayAMSUISession(URL&& originatingURL, ApplePayAMSUI
         return;
     }
 
-    RetainPtr amsRequest = adoptNS([allocAMSEngagementRequestInstance() initWithRequestDictionary:dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:[request.engagementRequest.createNSString() dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil])]);
+    RetainPtr amsRequest = adoptNS([allocAMSEngagementRequestInstance() initWithRequestDictionary:dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:retainPtr([request.engagementRequest.createNSString() dataUsingEncoding:NSUTF8StringEncoding]).get() options:0 error:nil])]);
     [amsRequest setOriginatingURL:originatingURL.createNSURL().get()];
 
     auto amsBag = retainPtr([getAMSUIEngagementTaskClassSingleton() createBagForSubProfile]);
@@ -1045,7 +1071,7 @@ NSDictionary *WebPageProxy::contentsOfUserInterfaceItem(NSString *userInterfaceI
 bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
 {
     RetainPtr fileURL = adoptNS([[NSURL alloc] initWithString:fileURLString.createNSString().get()]);
-    if ([fileURL.get().pathExtension caseInsensitiveCompare:@"webarchive"] != NSOrderedSame)
+    if ([retainPtr(fileURL.get().pathExtension) caseInsensitiveCompare:@"webarchive"] != NSOrderedSame)
         return false;
 
     qtn_file_t qf = qtn_file_alloc();
@@ -1643,6 +1669,9 @@ bool WebPageProxy::tryToSendCommandToActiveControlledVideo(PlatformMediaSession:
 
 void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, CompletionHandler<void(Expected<std::pair<String, Vector<IntSize>>, WebCore::ImageDecodingError>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(makeUnexpected(WebCore::ImageDecodingError::Internal));
+
     ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::GetInformationFromImageData(WTFMove(data)), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
         completionHandler(WTFMove(result));
     }, webPageIDInMainFrameProcess());
@@ -1650,6 +1679,9 @@ void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, Completio
 
 void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buffer, const Vector<unsigned>& lengths, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(nullptr);
+
     // Supported ICO image sizes by ImageIO.
     constexpr std::array<unsigned, 5> availableLengths { { 16, 32, 48, 128, 256 } };
     auto targetLengths = lengths.isEmpty() ? std::span { availableLengths } : lengths;
@@ -1664,6 +1696,9 @@ void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buff
 
 void WebPageProxy::decodeImageData(Ref<WebCore::SharedBuffer>&& buffer, std::optional<WebCore::FloatSize> preferredSize, CompletionHandler<void(RefPtr<WebCore::ShareableBitmap>&&)>&& completionHandler)
 {
+    if (isClosed())
+        return completionHandler(nullptr);
+
     ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::DecodeImageData(WTFMove(buffer), preferredSize), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
         completionHandler(WTFMove(result));
     }, webPageIDInMainFrameProcess());
@@ -1694,56 +1729,10 @@ void WebPageProxy::getWebArchiveDataWithFrame(WebFrameProxy& frame, CompletionHa
 
 void WebPageProxy::getWebArchiveDataWithSelectedFrames(WebFrameProxy& rootFrame, const std::optional<HashSet<WebCore::FrameIdentifier>>& selectedFrameIdentifiers, CompletionHandler<void(API::Data*)>&& completionHandler)
 {
-    class WebArchvieCallbackAggregator final : public ThreadSafeRefCounted<WebArchvieCallbackAggregator, WTF::DestructionThread::MainRunLoop> {
-    public:
-        using Callback = CompletionHandler<void(RefPtr<LegacyWebArchive>&&)>;
-        static Ref<WebArchvieCallbackAggregator> create(WebCore::FrameIdentifier rootFrameIdentifier, Callback&& callback)
-        {
-            return adoptRef(*new WebArchvieCallbackAggregator(rootFrameIdentifier, WTFMove(callback)));
-        }
-
-        RefPtr<WebCore::LegacyWebArchive> completeFrameArchive(FrameIdentifier identifier)
-        {
-            RefPtr archive = m_frameArchives.take(identifier);
-            if (!archive)
-                return archive;
-
-            for (auto subframeIdentifier : archive->subframeIdentifiers()) {
-                if (auto subframeArchive = completeFrameArchive(subframeIdentifier))
-                    archive->appendSubframeArchive(subframeArchive.releaseNonNull());
-            }
-
-            return archive;
-        }
-
-        ~WebArchvieCallbackAggregator()
-        {
-            if (m_callback)
-                m_callback(completeFrameArchive(m_rootFrameIdentifier));
-        }
-
-        void addResult(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&& frameArchives)
-        {
-            for (auto&& [frameIdentifier, archive] : frameArchives)
-                m_frameArchives.set(frameIdentifier, WTFMove(archive));
-        }
-
-    private:
-        WebArchvieCallbackAggregator(WebCore::FrameIdentifier rootFrameIdentifier, Callback&& callback)
-            : m_rootFrameIdentifier(rootFrameIdentifier)
-            , m_callback(WTFMove(callback))
-        {
-        }
-
-        WebCore::FrameIdentifier m_rootFrameIdentifier;
-        Callback m_callback;
-        HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>> m_frameArchives;
-    };
-
     if (selectedFrameIdentifiers && !selectedFrameIdentifiers->contains(rootFrame.frameID()))
         return completionHandler(nullptr);
 
-    auto callbackAggregator = WebArchvieCallbackAggregator::create(rootFrame.frameID(), [completionHandler = WTFMove(completionHandler)](auto webArchive) mutable {
+    auto callbackAggregator = LegacyWebArchiveCallbackAggregator::create(rootFrame.frameID(), { }, [completionHandler = WTFMove(completionHandler)](auto webArchive) mutable {
         if (!webArchive)
             return completionHandler(nullptr);
 

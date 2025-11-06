@@ -29,8 +29,10 @@
 #import "Test.h"
 #import "TestWKWebView.h"
 #import "Utilities.h"
+#import <WebKit/WKContentWorldPrivate.h>
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
+#import <WebKit/_WKContentWorldConfiguration.h>
 #import <WebKit/_WKTextExtraction.h>
 
 @interface WKWebView (TextExtractionTests)
@@ -212,6 +214,105 @@ TEST(TextExtractionTests, InteractionDebugDescription)
         EXPECT_WK_STREQ("Select menu item “Three” in select with role “menu”", description);
         EXPECT_NULL(error);
     }
+    {
+        RetainPtr interaction = adoptNS([[_WKTextExtractionInteraction alloc] initWithAction:_WKTextExtractionActionClick]);
+        auto clickLocation = [webView elementMidpointFromSelector:@"#test-button"];
+        [interaction setLocation:clickLocation];
+        description = [interaction debugDescriptionInWebView:webView.get() error:&error];
+        RetainPtr expectedString = [NSString stringWithFormat:@"Click at coordinates (%.0f, %.0f) on child node of button labeled “Click Me”, with rendered text “Test”", clickLocation.x, clickLocation.y];
+        EXPECT_WK_STREQ(expectedString.get(), description);
+        EXPECT_NULL(error);
+    }
+}
+
+TEST(TextExtractionTests, TargetNodeAndClientAttributes)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+    [webView synchronouslyLoadTestPageNamed:@"debug-text-extraction"];
+    [webView evaluateJavaScript:@"getSelection().selectAllChildren(document.querySelector('h3[aria-label=\"Heading\"]'))" completionHandler:nil];
+
+    RetainPtr world = [WKContentWorld _worldWithConfiguration:^{
+        RetainPtr configuration = adoptNS([_WKContentWorldConfiguration new]);
+        [configuration setAllowJSHandleCreation:YES];
+        return configuration.autorelease();
+    }()];
+
+    RetainPtr editorHandle = [webView querySelector:@"div[contenteditable]" frame:nil world:world.get()];
+    RetainPtr headingHandle = [webView querySelector:@"h3[aria-label='Heading']" frame:nil world:world.get()];
+    RetainPtr debugText = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setTargetNode:editorHandle.get()];
+        [configuration addClientAttribute:@"extra-data-1" value:@"abc" forNode:editorHandle.get()];
+        [configuration addClientAttribute:@"extra-data-1" value:@"123" forNode:headingHandle.get()];
+        [configuration addClientAttribute:@"extra-data-2" value:@"xyz" forNode:headingHandle.get()];
+        return configuration.autorelease();
+    }()];
+
+    EXPECT_TRUE([debugText containsString:@"Compose a new message"]);
+    EXPECT_TRUE([debugText containsString:@"aria-label='Compose a new message',extra-data-1='abc'"]);
+    EXPECT_TRUE([debugText containsString:@"aria-label='Heading',extra-data-1='123',extra-data-2='xyz'"]);
+    EXPECT_TRUE([debugText containsString:@"Subject"]);
+    EXPECT_TRUE([debugText containsString:@"The quick brown fox jumped over the lazy dog"]);
+    EXPECT_FALSE([debugText containsString:@"select,"]);
+    EXPECT_FALSE([debugText containsString:@"Click Me"]);
+    EXPECT_FALSE([debugText containsString:@"Recipient address"]);
+}
+
+TEST(TextExtractionTests, ReplacementStrings)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+    [webView synchronouslyLoadTestPageNamed:@"debug-text-extraction"];
+
+    RetainPtr debugTextWithoutReplacements = [webView synchronouslyGetDebugText:nil];
+    EXPECT_TRUE([debugTextWithoutReplacements containsString:@"The quick brown fox jumped over the lazy dog"]);
+
+    RetainPtr debugTextWithReplacements = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setReplacementStrings:@{
+            @"fox": @"cat",
+            @"dog": @"mouse",
+            @"lazy": @""
+        }];
+        return configuration.autorelease();
+    }()];
+
+    EXPECT_FALSE([debugTextWithReplacements containsString:@"fox"]);
+    EXPECT_FALSE([debugTextWithReplacements containsString:@"dog"]);
+    EXPECT_FALSE([debugTextWithReplacements containsString:@"lazy"]);
+    EXPECT_TRUE([debugTextWithReplacements containsString:@"The quick brown cat jumped over the  mouse"]);
+}
+
+TEST(TextExtractionTests, VisibleTextOnly)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+    [webView synchronouslyLoadTestPageNamed:@"debug-text-extraction"];
+
+    RetainPtr debugText = [webView synchronouslyGetDebugText:[_WKTextExtractionConfiguration configurationForVisibleTextOnly]];
+
+    EXPECT_TRUE([debugText containsString:@"Test"]);
+    EXPECT_TRUE([debugText containsString:@"foo"]);
+    EXPECT_TRUE([debugText containsString:@"Subject “The quick brown fox jumped over the lazy dog”"]);
+    EXPECT_TRUE([debugText containsString:@"0"]);
+#if ENABLE(TEXT_EXTRACTION_FILTER)
+    EXPECT_FALSE([debugText containsString:@"Here’s to the crazy ones"]);
+    EXPECT_FALSE([debugText containsString:@"The round pegs in the square holes"]);
+    EXPECT_FALSE([debugText containsString:@"The ones who see things differently"]);
+    EXPECT_FALSE([debugText containsString:@"And they have no respect for the status quo"]);
+    EXPECT_FALSE([debugText containsString:@"They push the human race forward"]);
+    EXPECT_FALSE([debugText containsString:@"Because the people who are crazy"]);
+#endif // ENABLE(TEXT_EXTRACTION_FILTER)
 }
 
 } // namespace TestWebKitAPI

@@ -26,14 +26,14 @@
 #import "config.h"
 #import "RemoteAnimationStack.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimationStack);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimationStack);
 
 Ref<RemoteAnimationStack> RemoteAnimationStack::create(RemoteAnimations&& animations, WebCore::AcceleratedEffectValues&& baseValues, WebCore::FloatRect bounds)
 {
@@ -216,4 +216,4 @@ void RemoteAnimationStack::clear(PlatformLayer *layer)
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

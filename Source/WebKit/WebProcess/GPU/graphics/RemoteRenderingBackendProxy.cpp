@@ -34,17 +34,16 @@
 #include "ImageBufferRemotePDFDocumentBackend.h"
 #include "ImageBufferShareableBitmapBackend.h"
 #include "Logging.h"
+#include "PrepareBackingStoreBuffersData.h"
 #include "RemoteDisplayListRecorderProxy.h"
 #include "RemoteImageBufferMessages.h"
 #include "RemoteImageBufferProxy.h"
 #include "RemoteImageBufferProxyMessages.h"
 #include "RemoteImageBufferSetProxy.h"
-#include "RemoteImageBufferSetProxyMessages.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
 #include "RemoteSharedResourceCacheProxy.h"
 #include "RemoteSnapshotRecorderProxy.h"
-#include "SwapBuffersDisplayRequirement.h"
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <JavaScriptCore/TypedArrayInlines.h>
@@ -108,7 +107,8 @@ void RemoteRenderingBackendProxy::ensureGPUProcessConnection()
     auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2, WebProcess::singleton().gpuProcessTimeoutDuration());
     if (!connectionPair)
         CRASH();
-    auto [streamConnection, serverHandle] = WTFMove(*connectionPair);
+    Ref streamConnection = WTFMove(connectionPair->streamConnection);
+    auto serverHandle = WTFMove(connectionPair->connectionHandle);
     m_connection = streamConnection.ptr();
     // RemoteRenderingBackendProxy behaves as the dispatcher for the connection to obtain isolated state for its
     // connection. This prevents waits on RemoteRenderingBackendProxy to process messages from other connections.
@@ -412,6 +412,11 @@ void RemoteRenderingBackendProxy::cacheNativeImage(ShareableBitmap::Handle&& han
     send(Messages::RemoteRenderingBackend::CacheNativeImage(WTFMove(handle), renderingResourceIdentifier));
 }
 
+void RemoteRenderingBackendProxy::cacheNativeImageFromSharedNativeImage(const RemoteNativeImageProxy& image)
+{
+    send(Messages::RemoteRenderingBackend::CacheNativeImageFromSharedNativeImage(image.renderingResourceIdentifier()));
+}
+
 void RemoteRenderingBackendProxy::releaseNativeImage(RenderingResourceIdentifier identifier)
 {
     if (!m_connection)
@@ -531,13 +536,13 @@ void RemoteRenderingBackendProxy::endPreparingImageBufferSetsForDisplay()
         auto sendResult = sendSync(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplaySync(inputData));
         if (!sendResult.succeeded()) {
             for (auto& bufferSetToPrepare : m_bufferSetsToPrepare)
-                bufferSetToPrepare.bufferSet->setNeedsDisplay();
+                Ref { bufferSetToPrepare.bufferSet }->setNeedsDisplay();
         } else {
             auto [result] = sendResult.takeReply();
             RELEASE_ASSERT(result.size() == m_bufferSetsToPrepare.size());
             for (unsigned i = 0; i < result.size(); ++i) {
                 if (result[i] == SwapBuffersDisplayRequirement::NeedsFullDisplay)
-                    m_bufferSetsToPrepare[i].bufferSet->setNeedsDisplay();
+                    Ref { m_bufferSetsToPrepare[i].bufferSet }->setNeedsDisplay();
             }
         }
     } else {
@@ -558,7 +563,7 @@ void RemoteRenderingBackendProxy::markSurfacesVolatile(Vector<std::pair<Ref<Remo
     Vector<std::pair<ImageBufferSetIdentifier, OptionSet<BufferInSetType>>> identifiers;
     for (auto& pair : bufferSets) {
         identifiers.append(std::make_pair(pair.first->identifier(), pair.second));
-        pair.first->addRequestedVolatility(pair.second);
+        Ref { pair.first }->addRequestedVolatility(pair.second);
     }
     auto requestIdentifier = MarkSurfacesAsVolatileRequestIdentifier::generate();
     auto result = send(Messages::RemoteRenderingBackend::MarkSurfacesVolatile(requestIdentifier, identifiers, forcePurge));

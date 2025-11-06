@@ -30,8 +30,8 @@
 #include "RemoteScrollingCoordinatorProxy.h"
 #include <wtf/TZoneMalloc.h>
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-#import "RemoteAnimationTimeline.h"
+#if ENABLE(THREADED_ANIMATIONS)
+#import "RemoteMonotonicTimelineRegistry.h"
 #endif
 
 OBJC_CLASS UIScrollView;
@@ -72,11 +72,11 @@ public:
     OverlayRegionCandidatesMap overlayRegionCandidates() const;
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     void animationsWereAddedToNode(RemoteLayerTreeNode&) override WTF_IGNORES_THREAD_SAFETY_ANALYSIS;
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&) override;
-    void registerTimelineIfNecessary(WebCore::ProcessIdentifier, Seconds, MonotonicTime) override;
-    const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const override;
+    void updateTimelineRegistration(WebCore::ProcessIdentifier, const HashSet<Ref<WebCore::AcceleratedTimeline>>&, MonotonicTime) override;
+    RefPtr<const RemoteAnimationTimeline> timeline(const TimelineID&) const override;
     void updateAnimations();
 #endif
 
@@ -104,9 +104,9 @@ private:
     HashMap<WebCore::PlatformLayerIdentifier, WebCore::ScrollingNodeID> m_scrollingNodesByLayerID;
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     HashSet<WebCore::PlatformLayerIdentifier> m_animatedNodeLayerIDs;
-    HashMap<WebCore::ProcessIdentifier, Ref<RemoteAnimationTimeline>> m_timelines;
+    std::unique_ptr<RemoteMonotonicTimelineRegistry> m_monotonicTimelineRegistry;
 #endif
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Igalia S.L.
+ * Copyright (C) 2014, 2025 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "CompositingRunLoop.h"
 #include "CoordinatedSceneState.h"
 #include "LayerTreeHost.h"
+#include "RenderProcessInfo.h"
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/CoordinatedPlatformLayer.h>
@@ -47,6 +48,7 @@
 #endif
 
 #if USE(LIBEPOXY)
+#include <epoxy/egl.h>
 #include <epoxy/gl.h>
 #else
 #include <GLES2/gl2.h>
@@ -68,9 +70,12 @@ ThreadedCompositor::ThreadedCompositor(LayerTreeHost& layerTreeHost)
     , m_sceneState(&m_layerTreeHost->sceneState())
     , m_flipY(m_surface->shouldPaintMirrored())
     , m_compositingRunLoop(makeUnique<CompositingRunLoop>([this] { renderLayerTree(); }))
-    , m_didRenderFrameTimer(RunLoop::mainSingleton(), "ThreadedCompositor::DidRenderFrameTimer"_s, this, &ThreadedCompositor::didRenderFrameTimerFired)
 {
     ASSERT(RunLoop::isMain());
+
+    m_didCompositeRunLoopObserver = makeUnique<RunLoopObserver>(RunLoopObserver::WellKnownOrder::GraphicsCommit, [this] {
+        this->didCompositeRunLoopObserverFired();
+    });
 
     initializeFPSCounter();
 #if ENABLE(DAMAGE_TRACKING)
@@ -81,10 +86,6 @@ ThreadedCompositor::ThreadedCompositor(LayerTreeHost& layerTreeHost)
     updateSceneAttributes(webPage.size(), webPage.deviceScaleFactor());
 
     m_surface->didCreateCompositingRunLoop(m_compositingRunLoop->runLoop());
-
-#if USE(GLIB_EVENT_LOOP)
-    m_didRenderFrameTimer.setPriority(RunLoopSourcePriority::RunLoopTimer - 1);
-#endif
 
     m_compositingRunLoop->performTaskSync([this, protectedThis = Ref { *this }] {
         // GLNativeWindowType depends on the EGL implementation: reinterpret_cast works
@@ -114,7 +115,7 @@ void ThreadedCompositor::invalidate()
 {
     ASSERT(RunLoop::isMain());
     m_compositingRunLoop->stopUpdates();
-    m_didRenderFrameTimer.stop();
+    m_didCompositeRunLoopObserver->invalidate();
     m_compositingRunLoop->performTaskSync([this, protectedThis = Ref { *this }] {
         if (!m_context || !m_context->makeContextCurrent())
             return;
@@ -321,8 +322,6 @@ void ThreadedCompositor::renderLayerTree()
 
     uint32_t compositionRequestID = m_compositionRequestID.load();
     m_compositionResponseID = compositionRequestID;
-    if (!m_didRenderFrameTimer.isActive())
-        m_didRenderFrameTimer.startOneShot(0_s);
 #if !HAVE(OS_SIGNPOST) && !USE(SYSPROF_CAPTURE)
     UNUSED_VARIABLE(compositionRequestID);
 #endif
@@ -332,6 +331,7 @@ void ThreadedCompositor::renderLayerTree()
     m_context->swapBuffers();
 
     m_surface->didRenderFrame();
+    m_didCompositeRunLoopObserver->schedule(&RunLoop::mainSingleton());
 
     RunLoop::mainSingleton().dispatch([this, protectedThis = Ref { *this }] {
         if (m_layerTreeHost)
@@ -369,10 +369,11 @@ void ThreadedCompositor::frameComplete()
     m_compositingRunLoop->updateCompleted(stateLocker);
 }
 
-void ThreadedCompositor::didRenderFrameTimerFired()
+void ThreadedCompositor::didCompositeRunLoopObserverFired()
 {
     if (m_layerTreeHost)
         m_layerTreeHost->didComposite(m_compositionResponseID);
+    m_didCompositeRunLoopObserver->invalidate();
 }
 
 void ThreadedCompositor::updateSceneAttributes(const IntSize& size, float deviceScaleFactor)
@@ -416,5 +417,27 @@ void ThreadedCompositor::updateFPSCounter()
         m_fpsCounter.fps = std::nullopt;
 }
 
+void ThreadedCompositor::fillGLInformation(RenderProcessInfo&& info, CompletionHandler<void(RenderProcessInfo&&)>&& completionHandler)
+{
+    ASSERT(m_compositingRunLoop);
+    m_compositingRunLoop->performTask([protectedThis = Ref { *this }, info = WTFMove(info), completionHandler = WTFMove(completionHandler)]() mutable {
+        info.glRenderer = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+        info.glVendor = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+        info.glVersion = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+        info.glShadingVersion = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+        info.glExtensions = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS)));
+
+        auto eglDisplay = eglGetCurrentDisplay();
+        info.eglVersion = String::fromUTF8(eglQueryString(eglDisplay, EGL_VERSION));
+        info.eglVendor = String::fromUTF8(eglQueryString(eglDisplay, EGL_VENDOR));
+        info.eglExtensions = makeString(unsafeSpan(eglQueryString(nullptr, EGL_EXTENSIONS)), ' ', unsafeSpan(eglQueryString(eglDisplay, EGL_EXTENSIONS)));
+
+        RunLoop::mainSingleton().dispatch([info = WTFMove(info), completionHandler = WTFMove(completionHandler)]() mutable {
+            completionHandler(WTFMove(info));
+        });
+    });
 }
+
+} // namespace WebKit
+
 #endif // USE(COORDINATED_GRAPHICS)

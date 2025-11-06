@@ -36,6 +36,7 @@
 #include <memory>
 #include <queue>
 #include <wtf/Assertions.h>
+#include <wtf/Hasher.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
@@ -275,57 +276,57 @@ unsigned CSSSelector::specificityForPage() const
     return s;
 }
 
-std::optional<PseudoId> CSSSelector::pseudoId(PseudoElement type)
+std::optional<PseudoElementType> CSSSelector::stylePseudoElementTypeFor(PseudoElement type)
 {
     switch (type) {
     case PseudoElement::FirstLine:
-        return PseudoId::FirstLine;
+        return PseudoElementType::FirstLine;
     case PseudoElement::FirstLetter:
-        return PseudoId::FirstLetter;
+        return PseudoElementType::FirstLetter;
     case PseudoElement::GrammarError:
-        return PseudoId::GrammarError;
+        return PseudoElementType::GrammarError;
     case PseudoElement::SpellingError:
-        return PseudoId::SpellingError;
+        return PseudoElementType::SpellingError;
     case PseudoElement::Selection:
-        return PseudoId::Selection;
+        return PseudoElementType::Selection;
     case PseudoElement::TargetText:
-        return PseudoId::TargetText;
+        return PseudoElementType::TargetText;
     case PseudoElement::Highlight:
-        return PseudoId::Highlight;
+        return PseudoElementType::Highlight;
     case PseudoElement::Marker:
-        return PseudoId::Marker;
+        return PseudoElementType::Marker;
     case PseudoElement::Backdrop:
-        return PseudoId::Backdrop;
+        return PseudoElementType::Backdrop;
     case PseudoElement::Before:
-        return PseudoId::Before;
+        return PseudoElementType::Before;
     case PseudoElement::After:
-        return PseudoId::After;
+        return PseudoElementType::After;
     case PseudoElement::WebKitScrollbar:
-        return PseudoId::WebKitScrollbar;
+        return PseudoElementType::WebKitScrollbar;
     case PseudoElement::WebKitScrollbarButton:
-        return PseudoId::WebKitScrollbarButton;
+        return PseudoElementType::WebKitScrollbarButton;
     case PseudoElement::WebKitScrollbarCorner:
-        return PseudoId::WebKitScrollbarCorner;
+        return PseudoElementType::WebKitScrollbarCorner;
     case PseudoElement::WebKitScrollbarThumb:
-        return PseudoId::WebKitScrollbarThumb;
+        return PseudoElementType::WebKitScrollbarThumb;
     case PseudoElement::WebKitScrollbarTrack:
-        return PseudoId::WebKitScrollbarTrack;
+        return PseudoElementType::WebKitScrollbarTrack;
     case PseudoElement::WebKitScrollbarTrackPiece:
-        return PseudoId::WebKitScrollbarTrackPiece;
+        return PseudoElementType::WebKitScrollbarTrackPiece;
     case PseudoElement::WebKitResizer:
-        return PseudoId::WebKitResizer;
+        return PseudoElementType::WebKitResizer;
     case PseudoElement::ViewTransition:
-        return PseudoId::ViewTransition;
+        return PseudoElementType::ViewTransition;
     case PseudoElement::ViewTransitionGroup:
-        return PseudoId::ViewTransitionGroup;
+        return PseudoElementType::ViewTransitionGroup;
     case PseudoElement::ViewTransitionImagePair:
-        return PseudoId::ViewTransitionImagePair;
+        return PseudoElementType::ViewTransitionImagePair;
     case PseudoElement::ViewTransitionOld:
-        return PseudoId::ViewTransitionOld;
+        return PseudoElementType::ViewTransitionOld;
     case PseudoElement::ViewTransitionNew:
-        return PseudoId::ViewTransitionNew;
+        return PseudoElementType::ViewTransitionNew;
     case PseudoElement::InternalWritingSuggestions:
-        return PseudoId::InternalWritingSuggestions;
+        return PseudoElementType::InternalWritingSuggestions;
 #if ENABLE(VIDEO)
     case PseudoElement::Cue:
 #endif
@@ -814,6 +815,23 @@ bool CSSSelector::RareData::matchNth(int count)
     return count == b;
 }
 
+bool CSSSelector::RareData::equals(const RareData& other) const
+{
+    if (selectorList || other.selectorList) {
+        if (!selectorList || !other.selectorList || *selectorList != *other.selectorList)
+            return false;
+    }
+    return matchingValue == other.matchingValue
+        && serializingValue == other.serializingValue
+        && a == other.a
+        && b == other.b
+        && attribute == other.attribute
+        && argument == other.argument
+        && argumentList == other.argumentList
+        && langList == other.langList
+        && serializingValue == other.serializingValue;
+}
+
 CSSSelector::CSSSelector(const CSSSelector& other)
     : m_relation(other.m_relation)
     , m_match(other.m_match)
@@ -962,6 +980,122 @@ bool complexSelectorMatchesElementBackedPseudoElement(const CSSSelector& complex
         }
     }
     return result;
+}
+
+bool CSSSelector::simpleSelectorEqual(const CSSSelector& other) const
+{
+    auto valuesEqual = [&] {
+        if (m_hasRareData)
+            return m_data.rareData->equals(*other.m_data.rareData);
+        if (match() == Match::Tag)
+            return *m_data.tagQName == *other.m_data.tagQName;
+        return m_data.value == other.m_data.value;
+    };
+
+    // Relation and selector list bits are ignored.
+    return m_match == other.m_match
+        && m_pseudoType == other.m_pseudoType
+        && m_hasRareData == other.m_hasRareData
+        && m_tagIsForNamespaceRule == other.m_tagIsForNamespaceRule
+        && m_caseInsensitiveAttributeValueMatching == other.m_caseInsensitiveAttributeValueMatching
+        && m_isImplicit == other.m_isImplicit
+        && valuesEqual();
+}
+
+bool isElementBackedPseudoElement(CSSSelector::PseudoElement pseudoElement)
+{
+    switch (pseudoElement) {
+    case CSSSelector::PseudoElement::Part:
+    case CSSSelector::PseudoElement::Slotted:
+    case CSSSelector::PseudoElement::UserAgentPart:
+    case CSSSelector::PseudoElement::UserAgentPartLegacyAlias:
+#if ENABLE(VIDEO)
+    case CSSSelector::PseudoElement::Cue:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool shouldSkipForEqualMode(const CSSSelector& simpleSelector, ComplexSelectorsEqualMode mode)
+{
+    if (mode == ComplexSelectorsEqualMode::IgnoreNonElementBackedPseudoElements)
+        return simpleSelector.matchesPseudoElement() && !isElementBackedPseudoElement(simpleSelector.pseudoElement());
+    return false;
+};
+
+bool complexSelectorsEqual(const CSSSelector& complexA, const CSSSelector& complexB, ComplexSelectorsEqualMode mode)
+{
+    auto aRelation = CSSSelector::Relation::Subselector;
+    auto bRelation = CSSSelector::Relation::Subselector;
+
+    for (auto a = &complexA, b = &complexB; a || b; a = a->precedingInComplexSelector(), b = b->precedingInComplexSelector()) {
+        if (a && shouldSkipForEqualMode(*a, mode)) {
+            aRelation = a->relation();
+            a = a->precedingInComplexSelector();
+        }
+        if (b && shouldSkipForEqualMode(*b, mode)) {
+            bRelation = b->relation();
+            b = b->precedingInComplexSelector();
+        }
+        if (!a || !b)
+            return a == b;
+        if (aRelation != bRelation)
+            return false;
+        if (!a->simpleSelectorEqual(*b))
+            return false;
+        aRelation = a->relation();
+        bRelation = b->relation();
+    }
+    return true;
+}
+
+static void addSimpleSelector(Hasher& hasher, const CSSSelector& simpleSelector)
+{
+    // This hash does try to include every possible thing in a selector.
+    add(hasher, simpleSelector.match());
+
+    switch (simpleSelector.match()) {
+    case CSSSelector::Match::Tag:
+        add(hasher, simpleSelector.tagQName());
+        break;
+    case CSSSelector::Match::PseudoClass:
+        add(hasher, simpleSelector.pseudoClass());
+        break;
+    case CSSSelector::Match::PseudoElement:
+        add(hasher, simpleSelector.pseudoElement());
+        break;
+    case CSSSelector::Match::Exact:
+    case CSSSelector::Match::Set:
+    case CSSSelector::Match::List:
+    case CSSSelector::Match::Hyphen:
+    case CSSSelector::Match::Begin:
+    case CSSSelector::Match::End:
+    case CSSSelector::Match::Contain:
+        add(hasher, simpleSelector.attribute());
+        add(hasher, simpleSelector.value());
+        break;
+    default:
+        add(hasher, simpleSelector.value());
+        break;
+    }
+    if (simpleSelector.selectorList())
+        add(hasher, *simpleSelector.selectorList());
+}
+
+void addComplexSelector(Hasher& hasher, const CSSSelector& complexSelector, ComplexSelectorsEqualMode mode)
+{
+    auto relationToRight = CSSSelector::Relation::Subselector;
+    for (auto simpleSelector = &complexSelector; simpleSelector; simpleSelector = simpleSelector->precedingInComplexSelector()) {
+        if (shouldSkipForEqualMode(*simpleSelector, mode)) {
+            relationToRight = simpleSelector->relation();
+            continue;
+        }
+        add(hasher, relationToRight);
+        addSimpleSelector(hasher, *simpleSelector);
+        relationToRight = simpleSelector->relation();
+    }
 }
 
 } // namespace WebCore

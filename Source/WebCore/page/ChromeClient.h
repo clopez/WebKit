@@ -293,6 +293,10 @@ public:
     virtual void didFinishLoadingImageForElement(HTMLImageElement&) = 0;
     virtual void didFinishLoadingImageForSVGImage(SVGImageElement&) { }
 
+#if ENABLE(MODEL_PROCESS)
+    virtual void setHasModelElement(bool) { }
+#endif
+
     virtual PlatformPageClient platformPageClient() const = 0;
 
     virtual void setCursor(const Cursor&) = 0;
@@ -564,7 +568,7 @@ public:
     virtual void AXFinishFrameLoad() = 0;
 #endif
 
-#if PLATFORM(PLAYSTATION)
+#if PLATFORM(PLAYSTATION) || PLATFORM(HAIKU)
     virtual void postAccessibilityNotification(AccessibilityObject&, AXNotification) = 0;
     virtual void postAccessibilityNodeTextChangeNotification(AccessibilityObject*, AXTextChange, unsigned, const String&) = 0;
     virtual void postAccessibilityFrameLoadingEventNotification(AccessibilityObject*, AXLoadingEvent) = 0;
@@ -697,7 +701,7 @@ public:
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if ENABLE(WEBXR)
-    virtual void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&& completionHandler) { PlatformXR::Instance::singleton().enumerateImmersiveXRDevices(WTFMove(completionHandler)); }
+    virtual void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::DeviceList&)>&& completionHandler) { completionHandler({ }); }
     virtual void requestPermissionOnXRSessionFeatures(const SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, const PlatformXR::Device::FeatureList& /* requiredFeaturesRequested */, const PlatformXR::Device::FeatureList& /* optionalFeaturesRequested */, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler) { completionHandler(granted); }
 #endif
 

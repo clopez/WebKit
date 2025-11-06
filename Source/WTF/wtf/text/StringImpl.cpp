@@ -278,6 +278,28 @@ Ref<StringImpl> StringImpl::create(std::span<const Latin1Character> characters)
     return createInternal(characters);
 }
 
+RefPtr<StringImpl> StringImpl::create(std::span<const char8_t> codeUnits)
+{
+    RELEASE_ASSERT(codeUnits.size() <= String::MaxLength);
+
+    if (!codeUnits.data())
+        return nullptr;
+    if (codeUnits.empty())
+        return empty();
+
+    if (charactersAreAllASCII(codeUnits))
+        return create(byteCast<Latin1Character>(codeUnits));
+
+    Vector<char16_t, 1024> buffer(codeUnits.size());
+
+    auto result = Unicode::convert(codeUnits, buffer.mutableSpan());
+    if (result.code != Unicode::ConversionResultCode::Success)
+        return nullptr;
+
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(result.buffer.size() <= codeUnits.size());
+    return create(result.buffer);
+}
+
 Ref<StringImpl> StringImpl::createStaticStringImpl(std::span<const Latin1Character> characters)
 {
     if (characters.empty())
@@ -313,6 +335,17 @@ Ref<StringImpl> StringImpl::create8BitIfPossible(std::span<const char16_t> chara
         data[i++] = static_cast<Latin1Character>(character);
     }
 
+    return string;
+}
+
+Ref<StringImpl> StringImpl::create8BitUnconditionally(std::span<const char16_t> characters)
+{
+    if (characters.empty())
+        return *empty();
+
+    std::span<Latin1Character> data;
+    auto string = createUninitializedInternalNonEmpty(characters.size(), data);
+    copyElements(data, characters);
     return string;
 }
 

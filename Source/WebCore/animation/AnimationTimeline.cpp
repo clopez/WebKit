@@ -38,8 +38,11 @@
 namespace WebCore {
 
 AnimationTimeline::AnimationTimeline(std::optional<WebAnimationTime> duration)
-    : m_duration(duration)
+#if ENABLE(THREADED_ANIMATIONS)
+    : m_acceleratedTimelineIdentifier(TimelineIdentifier::generate())
+#endif
 {
+    m_duration = duration;
 }
 
 AnimationTimeline::~AnimationTimeline() = default;
@@ -120,5 +123,21 @@ Style::SingleAnimationRange AnimationTimeline::defaultRange() const
         .end = { CSS::Keyword::Normal { } },
     };
 }
+
+
+#if ENABLE(THREADED_ANIMATIONS)
+AcceleratedTimeline& AnimationTimeline::acceleratedRepresentation()
+{
+    if (!m_acceleratedRepresentation)
+        m_acceleratedRepresentation = createAcceleratedRepresentation();
+    return *m_acceleratedRepresentation;
+}
+
+Ref<AcceleratedTimeline> AnimationTimeline::createAcceleratedRepresentation()
+{
+    ASSERT_NOT_REACHED();
+    return AcceleratedTimeline::create(m_acceleratedTimelineIdentifier, 0_s);
+}
+#endif
 
 } // namespace WebCore

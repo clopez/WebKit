@@ -323,6 +323,7 @@ $(PROJECT_DIR)/Shared/IPCConnectionTester.messages.in
 $(PROJECT_DIR)/Shared/IPCStreamTester.messages.in
 $(PROJECT_DIR)/Shared/IPCStreamTesterProxy.messages.in
 $(PROJECT_DIR)/Shared/IPCTester.messages.in
+$(PROJECT_DIR)/Shared/IPCTester.serialization.in
 $(PROJECT_DIR)/Shared/IPCTesterReceiver.messages.in
 $(PROJECT_DIR)/Shared/ImageOptions.serialization.in
 $(PROJECT_DIR)/Shared/InspectorExtensionTypes.serialization.in
@@ -372,6 +373,7 @@ $(PROJECT_DIR)/Shared/TextAnimationType.serialization.in
 $(PROJECT_DIR)/Shared/TextAnimationTypes.serialization.in
 $(PROJECT_DIR)/Shared/TextFlags.serialization.in
 $(PROJECT_DIR)/Shared/TextIndicatorStyle.serialization.in
+$(PROJECT_DIR)/Shared/TextManipulationParameters.serialization.in
 $(PROJECT_DIR)/Shared/TextRecognitionResult.serialization.in
 $(PROJECT_DIR)/Shared/TextRecognitionUpdateResult.serialization.in
 $(PROJECT_DIR)/Shared/URLSchemeTaskParameters.serialization.in
@@ -394,6 +396,7 @@ $(PROJECT_DIR)/Shared/WebExtensionControllerParameters.serialization.in
 $(PROJECT_DIR)/Shared/WebFindOptions.serialization.in
 $(PROJECT_DIR)/Shared/WebFoundTextRange.serialization.in
 $(PROJECT_DIR)/Shared/WebFrameMetrics.serialization.in
+$(PROJECT_DIR)/Shared/WebGL.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUBindGroupDescriptor.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUBindGroupEntry.serialization.in
 $(PROJECT_DIR)/Shared/WebGPU/WebGPUBindGroupLayoutDescriptor.serialization.in
@@ -537,6 +540,7 @@ $(PROJECT_DIR)/UIProcess/Inspector/WebInspectorUIExtensionControllerProxy.messag
 $(PROJECT_DIR)/UIProcess/Inspector/WebInspectorUIProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Media/AudioSessionRoutingArbitratorProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Media/RemoteMediaSessionCoordinatorProxy.messages.in
+$(PROJECT_DIR)/UIProcess/Media/RemoteMediaSessionManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Model/ModelProcessProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Network/NetworkProcessProxy.messages.in
@@ -620,7 +624,6 @@ $(PROJECT_DIR)/WebProcess/GPU/graphics/BufferIdentifierSet.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteImageBufferProxy.messages.in
-$(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteImageBufferSetProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteRenderingBackendProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/AudioVideoRendererRemoteMessageReceiver.messages.in
@@ -655,10 +658,13 @@ $(PROJECT_DIR)/WebProcess/GPU/webrtc/SampleBufferDisplayLayer.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/SharedVideoFrame.serialization.in
 $(PROJECT_DIR)/WebProcess/Geolocation/WebGeolocationManager.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/RemoteWebInspectorUI.messages.in
+$(PROJECT_DIR)/WebProcess/Inspector/WasmDebuggerDispatcher.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/WebInspector.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/WebInspectorInterruptDispatcher.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/WebInspectorUI.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/WebInspectorUIExtensionController.messages.in
+$(PROJECT_DIR)/WebProcess/Media/RemoteMediaSessionManager.messages.in
+$(PROJECT_DIR)/WebProcess/Media/RemoteMediaSessionState.serialization.in
 $(PROJECT_DIR)/WebProcess/MediaSession/RemoteMediaSessionCoordinator.messages.in
 $(PROJECT_DIR)/WebProcess/MediaStream/MediaDeviceSandboxExtensions.serialization.in
 $(PROJECT_DIR)/WebProcess/Model/ModelProcessConnection.messages.in

@@ -345,6 +345,10 @@ RetainPtr<_WKTextExtractionConfiguration> createTextExtractionConfiguration(WKWe
     RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
     [configuration setIncludeRects:options && options->includeRects];
     [configuration setIncludeURLs:options && options->includeURLs];
+    [configuration setIncludeNodeIdentifiers:options && options->includeNodeIdentifiers];
+    [configuration setIncludeEventListeners:options && options->includeEventListeners];
+    [configuration setIncludeAccessibilityAttributes:options && options->includeAccessibilityAttributes];
+    [configuration setIncludeTextInAutoFilledControls:options && options->includeTextInAutoFilledControls];
     if (auto wordLimit = options ? options->wordLimit : 0)
         [configuration setMaxWordsPerParagraph:static_cast<NSUInteger>(wordLimit)];
     [configuration setTargetRect:extractionRect];
@@ -401,6 +405,8 @@ void UIScriptControllerCocoa::performTextExtractionInteraction(JSStringRef jsAct
         action = _WKTextExtractionActionTextInput;
     if (equalLettersIgnoringASCIICase(actionName, "keypress"))
         action = _WKTextExtractionActionKeyPress;
+    if (equalLettersIgnoringASCIICase(actionName, "highlighttext"))
+        action = _WKTextExtractionActionHighlightText;
 
     if (!action) {
         ASSERT_NOT_REACHED();
@@ -416,6 +422,7 @@ void UIScriptControllerCocoa::performTextExtractionInteraction(JSStringRef jsAct
         [interaction setText:toWTFString(options->text.get()).createNSString().get()];
 
     [interaction setReplaceAll:options->replaceAll];
+    [interaction setScrollToVisible:options->scrollToVisible];
 
     if (auto location = options->location) {
         auto [x, y] = *location;

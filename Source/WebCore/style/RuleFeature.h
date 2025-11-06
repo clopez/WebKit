@@ -24,6 +24,7 @@
 #include "CSSSelectorList.h"
 #include "CommonAtomStrings.h"
 #include <wtf/Forward.h>
+#include <wtf/GenericHashKey.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/text/AtomString.h>
@@ -82,6 +83,8 @@ struct RuleAndSelector {
     RefPtr<const StyleRule> styleRule;
     uint16_t selectorIndex; // Keep in sync with RuleData's selectorIndex size.
     uint16_t selectorListIndex; // Keep in sync with RuleData's selectorListIndex size.
+
+    const CSSSelector& selector() const;
 };
 
 struct RuleFeature : public RuleAndSelector {
@@ -103,11 +106,30 @@ using PseudoClassInvalidationKey = std::tuple<unsigned, uint8_t, AtomString>;
 
 using RuleFeatureVector = Vector<RuleFeature>;
 
+template<typename RuleFeatureType>
+struct RuleFeatureDeduplicationKey {
+    const Vector<RuleFeatureType>* vector;
+    RuleFeatureType feature;
+
+    unsigned hash() const;
+    bool operator==(const RuleFeatureDeduplicationKey&) const;
+};
+
+template<typename FeatureType>
+using RuleFeatureDeduplicationSetForFeatureType = HashSet<GenericHashKey<RuleFeatureDeduplicationKey<FeatureType>>>;
+using RuleFeatureDeduplicationSet = RuleFeatureDeduplicationSetForFeatureType<RuleFeature>;
+using RuleFeatureWithInvalidationSelectorDeduplicationSet = RuleFeatureDeduplicationSetForFeatureType<RuleFeatureWithInvalidationSelector>;
+
 struct RuleFeatureSet {
     void add(const RuleFeatureSet&);
     void clear();
     void shrinkToFit();
-    void collectFeatures(const RuleData&, const Vector<Ref<const StyleRuleScope>>& scopeRules = { });
+
+    struct CollectionContext {
+        RuleFeatureDeduplicationSet deduplicationSet;
+        RuleFeatureWithInvalidationSelectorDeduplicationSet withInvalidationSelectorDeduplicationSet;
+    };
+    void collectFeatures(CollectionContext&, const RuleData&, const Vector<Ref<const StyleRuleScope>>& scopeRules = { });
     void registerContentAttribute(const AtomString&);
 
     bool usesHasPseudoClass() const;

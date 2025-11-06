@@ -553,6 +553,10 @@
 #define ENABLE_TEXT_SELECTION 1
 #endif
 
+#if !defined(ENABLE_THREADED_ANIMATIONS)
+#define ENABLE_THREADED_ANIMATIONS 0
+#endif
+
 #if !defined(ENABLE_THUNDER)
 #define ENABLE_THUNDER 0
 #endif
@@ -619,6 +623,10 @@
 
 #if !defined(ENABLE_WEBGPU)
 #define ENABLE_WEBGPU PLATFORM(COCOA)
+#endif
+
+#if !defined(ENABLE_WEBXR_HIT_TEST)
+#define ENABLE_WEBXR_HIT_TEST 0
 #endif
 
 #if !defined(ENABLE_WEBXR_LAYERS)
@@ -1046,6 +1054,10 @@
 
 #if ENABLE(WEBXR_HANDS) && !ENABLE(WEBXR)
 #error "ENABLE(WEBXR_HANDS) requires ENABLE(WEBXR)"
+#endif
+
+#if ENABLE(WEBXR_HIT_TEST) && !ENABLE(WEBXR)
+#error "ENABLE(WEBXR_HIT_TEST) requires ENABLE(WEBXR)"
 #endif
 
 #if ENABLE(WEBXR_LAYERS) && !ENABLE(WEBXR)

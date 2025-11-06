@@ -75,12 +75,14 @@ WK_COMMON_OTHER_TAPI_FLAGS = -x objective-c++ -std=c++2b -fno-rtti $(WK_SANITIZE
 OTHER_TAPI_FLAGS = $(inherited) $(WK_COMMON_OTHER_TAPI_FLAGS);
 
 WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos*] = $(WK_NOT_$(WK_ANY_SANITIZER_ENABLED));
-// Explicitly disable auditing on tvOS and visionOS, because some SDKs fall
-// back to reading settings for iOS.
+// Explicitly disable auditing on other embedded platforms, because some SDKs
+// fall back to reading settings for iOS.
 WK_DEFAULT_WK_AUDIT_SPI[sdk=appletvos*] = ;
+WK_DEFAULT_WK_AUDIT_SPI[sdk=watchos*] = ;
 WK_DEFAULT_WK_AUDIT_SPI[sdk=xros*] = ;
 // Disable auditing on internal builds of already-shipped releases.
 WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos18*.internal] = ;
+WK_DEFAULT_WK_AUDIT_SPI[sdk=iphoneos26.0.internal] = ;
 
 WK_AUDIT_SPI = $(WK_DEFAULT_WK_AUDIT_SPI);
 
@@ -94,30 +96,6 @@ GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 
 WK_COMMON_WARNING_CFLAGS = -Wall -Wc99-designator -Wconditional-uninitialized -Wextra -Wdeprecated-enum-enum-conversion -Wdeprecated-enum-float-conversion -Wenum-float-conversion -Wfinal-dtor-non-final-class -Wformat=2 -Wmisleading-indentation -Wpointer-to-int-cast -Wreorder-init-list -Wundef -Wunused-but-set-variable -Wvla;
 WARNING_CFLAGS = $(inherited) $(WK_COMMON_WARNING_CFLAGS) $(WK_SANITIZER_WARNING_CFLAGS);
-
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx13*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx14*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=macosx15.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=iphone*18.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=appletv*18.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=watch*11.3*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.0*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.1*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.2*] = ;
-WK_NO_UNSAFE_BUFFER_USAGE_IN_LIBC_CALL[sdk=xr*2.3*] = ;
 
 CLANG_CXX_STANDARD_LIBRARY_HARDENING = extensive;
 

@@ -1,5 +1,3 @@
-WebProcess/InjectedBundle/API/c/WKBundlePage.cpp
-WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp
 [ iOS ] NetworkProcess/cocoa/NetworkSessionCocoa.mm
 [ iOS ] NetworkProcess/ios/NetworkConnectionToWebProcessIOS.mm
 [ iOS ] UIProcess/API/ios/WKWebViewIOS.mm

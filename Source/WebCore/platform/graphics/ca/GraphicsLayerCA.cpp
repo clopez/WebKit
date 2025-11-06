@@ -58,6 +58,7 @@
 #include <QuartzCore/CATransform3D.h>
 #include <limits.h>
 #include <pal/spi/cf/CFUtilitiesSPI.h>
+#include <ranges>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/HexNumber.h>
 #include <wtf/MathExtras.h>
@@ -75,7 +76,7 @@
 #include "WebCoreThread.h"
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #include "AcceleratedEffect.h"
 #include "AcceleratedEffectStack.h"
 #endif
@@ -605,7 +606,7 @@ void GraphicsLayerCA::setPosition(const FloatPoint& point)
 
 void GraphicsLayerCA::syncPosition(const FloatPoint& point)
 {
-    if (point == m_position)
+    if (point == m_position && !m_approximatePosition)
         return;
 
     GraphicsLayer::syncPosition(point);
@@ -700,6 +701,20 @@ void GraphicsLayerCA::moveOrCopyLayerAnimation(MoveOrCopy operation, const Strin
 
 void GraphicsLayerCA::moveOrCopyAnimations(MoveOrCopy operation, PlatformCALayer *fromLayer, PlatformCALayer *toLayer)
 {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (RefPtr effectsStack = acceleratedEffectStack()) {
+        auto isBackdropLayer = [&] {
+            SUPPRESS_UNRETAINED_LOCAL if (auto* platformLayer = fromLayer->platformLayer())
+                SUPPRESS_UNRETAINED_ARG return PlatformCALayerCocoa::layerTypeForPlatformLayer(platformLayer) == PlatformCALayerLayerType::LayerTypeBackdropLayer;
+            return false;
+        };
+        auto& effects = isBackdropLayer() ? effectsStack->backdropLayerEffects() : effectsStack->primaryLayerEffects();
+        if (operation == Move)
+            fromLayer->clearAcceleratedEffectsAndBaseValues();
+        toLayer->setAcceleratedEffectsAndBaseValues(effects, effectsStack->baseValues());
+        return;
+    }
+#endif
     for (auto& animationGroup : m_animationGroups) {
         if ((animatedPropertyIsTransformOrRelated(animationGroup.m_property)
             || animationGroup.m_property == AnimatedProperty::Opacity
@@ -3582,7 +3597,7 @@ void GraphicsLayerCA::updateAnimations()
 
             LayerPropertyAnimation* earliestAnimation = nullptr;
             Vector<RefPtr<PlatformCAAnimation>> caAnimations;
-            for (auto* animation : makeReversedRange(animations)) {
+            for (auto* animation : animations | std::views::reverse) {
                 if (!animation->m_beginTime)
                     animation->m_beginTime = currentTime - animationGroupBeginTime;
                 if (auto beginTime = animation->computedBeginTime()) {
@@ -3621,7 +3636,7 @@ void GraphicsLayerCA::updateAnimations()
 
 bool GraphicsLayerCA::isRunningTransformAnimation() const
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     if (RefPtr effectStack = acceleratedEffectStack()) {
         return effectStack->primaryLayerEffects().findIf([](auto& effect) {
             return effect->animatesTransformRelatedProperty();
@@ -5270,13 +5285,13 @@ Vector<std::pair<String, double>> GraphicsLayerCA::acceleratedAnimationsForTesti
 {
     Vector<std::pair<String, double>> animations;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     auto addAcceleratedEffect = [&](const AcceleratedEffect& effect) {
         for (auto property : effect.animatedProperties())
             animations.append({ acceleratedEffectPropertyIDAsString(property), effect.playbackRate() });
     };
 
-    if (settings.threadedAnimationResolutionEnabled()) {
+    if (settings.threadedScrollDrivenAnimationsEnabled() || settings.threadedTimeBasedAnimationsEnabled()) {
         if (RefPtr effectsStack = acceleratedEffectStack()) {
             for (auto& effect : effectsStack->primaryLayerEffects())
                 addAcceleratedEffect(effect.get());
@@ -5311,7 +5326,7 @@ RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCA::createAsyncCo
     return adoptRef(new GraphicsLayerAsyncContentsDisplayDelegateCocoa(*this));
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void GraphicsLayerCA::setAcceleratedEffectsAndBaseValues(AcceleratedEffects&& effects, AcceleratedEffectValues&& baseValues)
 {
     auto hadEffectStack = !!acceleratedEffectStack();
@@ -5331,12 +5346,12 @@ void GraphicsLayerCA::setAcceleratedEffectsAndBaseValues(AcceleratedEffects&& ef
     if (RefPtr effectsStack = acceleratedEffectStack()) {
         auto& primaryLayerEffects = effectsStack->primaryLayerEffects();
         hasEffectsTargetingPrimaryLayer = !primaryLayerEffects.isEmpty();
-        layer->setAcceleratedEffectsAndBaseValues(primaryLayerEffects, baseValues);
+        layer->setAcceleratedEffectsAndBaseValues(primaryLayerEffects, effectsStack->baseValues());
 
         auto& backdropLayerEffects = effectsStack->backdropLayerEffects();
         hasEffectsTargetingBackdropLayer = !backdropLayerEffects.isEmpty();
         if (RefPtr backdropLayer = m_backdropLayer)
-            backdropLayer->setAcceleratedEffectsAndBaseValues(backdropLayerEffects, baseValues);
+            backdropLayer->setAcceleratedEffectsAndBaseValues(backdropLayerEffects, effectsStack->baseValues());
     }
 
     if (!hasEffectsTargetingPrimaryLayer)

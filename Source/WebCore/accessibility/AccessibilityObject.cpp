@@ -70,7 +70,6 @@
 #include "HTMLDetailsElement.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLInputElement.h"
-#include "HTMLMediaElement.h"
 #include "HTMLModelElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
@@ -112,6 +111,7 @@
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
 #include <numeric>
+#include <ranges>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/MakeString.h>
@@ -460,7 +460,7 @@ std::optional<SimpleRange> AccessibilityObject::misspellingRange(const SimpleRan
                 return *misspellingRange;
         }
     } else {
-        for (auto& misspelling : makeReversedRange(misspellings)) {
+        for (auto& misspelling : misspellings | std::views::reverse) {
             auto misspellingRange = editor->rangeForTextCheckingResult(misspelling);
             if (misspellingRange && is_lt(treeOrder<ComposedTree>(misspellingRange->start, start.start)))
                 return *misspellingRange;
@@ -1879,11 +1879,11 @@ bool AccessibilityObject::shouldCacheStringValue() const
     if (CheckedPtr containingBlock = renderer->containingBlock()) {
         // Check for ::first-letter, which would require some special handling to serve off the main-thread
         // that we don't have right now.
-        if (containingBlock->style().hasPseudoStyle(PseudoId::FirstLetter))
+        if (containingBlock->style().hasPseudoStyle(PseudoElementType::FirstLetter))
             return true;
         if (containingBlock->isAnonymous()) {
             containingBlock = containingBlock->containingBlock();
-            return containingBlock && containingBlock->style().hasPseudoStyle(PseudoId::FirstLetter);
+            return containingBlock && containingBlock->style().hasPseudoStyle(PseudoElementType::FirstLetter);
         }
     }
     // Getting to the end means we can avoid caching string value.
@@ -3085,6 +3085,8 @@ AccessibilityObject* AccessibilityObject::focusedUIElement() const
 AccessibilityObject* AccessibilityObject::focusedUIElementInAnyLocalFrame() const
 {
     RefPtr page = this->page();
+    if (!page)
+        return nullptr;
 
     RefPtr focusedOrMainFrame = page->focusController().focusedOrMainFrame();
     if (!focusedOrMainFrame)

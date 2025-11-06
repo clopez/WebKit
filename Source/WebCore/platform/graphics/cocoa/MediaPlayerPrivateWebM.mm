@@ -88,6 +88,11 @@ Ref<AudioVideoRenderer> MediaPlayerPrivateWebM::createRenderer(LoggerHelper& log
     return AudioVideoRendererAVFObjC::create(Ref { loggerHelper.logger() }, loggerHelper.logIdentifier());
 }
 
+Ref<MediaPlayerPrivateWebM> MediaPlayerPrivateWebM::create(MediaPlayer* player)
+{
+    return adoptRef(*new MediaPlayerPrivateWebM(player));
+}
+
 MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
     : m_player(player)
     , m_parser(SourceBufferParserWebM::create().releaseNonNull())
@@ -95,6 +100,7 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
     , m_seekTimer(*this, &MediaPlayerPrivateWebM::seekInternal)
+    , m_rendererSeekRequest(NativePromiseRequest::create())
     , m_playerIdentifier(MediaPlayerIdentifier::generate())
     , m_renderer(createRenderer(*this, player->clientIdentifier(), m_playerIdentifier))
 {
@@ -109,69 +115,6 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
         if (RefPtr protectedThis = weakThis.get())
             didProvideMediaDataForTrackId(WTFMove(sample), trackId, mediaType);
     });
-
-#if ENABLE(LINEAR_MEDIA_PLAYER)
-    m_renderer->setVideoTarget(player->videoTarget());
-#endif
-
-    m_renderer->notifyWhenErrorOccurs([weakThis = WeakPtr { *this }](PlatformMediaError error) {
-        if (RefPtr protectedThis = weakThis.get()) {
-            protectedThis->m_errored = true;
-            if (RefPtr player = protectedThis->m_player.get(); player && error == PlatformMediaError::IPCError) {
-                player->reloadAndResumePlaybackIfNeeded();
-                return;
-            }
-            protectedThis->setNetworkState(MediaPlayer::NetworkState::DecodeError);
-            protectedThis->setReadyState(MediaPlayer::ReadyState::HaveNothing);
-        }
-    });
-
-    if (RefPtr protectedPlayer = player) {
-        m_renderer->setVolume(protectedPlayer->volume());
-        m_renderer->setVolume(protectedPlayer->muted());
-        m_renderer->setPreservesPitchAndCorrectionAlgorithm(protectedPlayer->preservesPitch(), protectedPlayer->pitchCorrectionAlgorithm());
-#if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
-        m_renderer->setOutputDeviceId(protectedPlayer->audioOutputDeviceIdOverride());
-#endif
-    }
-
-    m_renderer->notifyFirstFrameAvailable([weakThis = WeakPtr { *this }] {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->setHasAvailableVideoFrame(true);
-    });
-
-    m_renderer->notifyWhenRequiresFlushToResume([weakThis = WeakPtr { *this }] {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->setLayerRequiresFlush();
-    });
-
-    m_renderer->notifyRenderingModeChanged([weakThis = WeakPtr { *this }] {
-        if (RefPtr protectedThis = weakThis.get()) {
-            if (RefPtr player = protectedThis->m_player.get())
-                player->renderingModeChanged();
-        }
-    });
-
-    m_renderer->notifySizeChanged([weakThis = WeakPtr { *this }](const MediaTime&, FloatSize size) {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->setNaturalSize(size);
-    });
-
-    m_renderer->notifyEffectiveRateChanged([weakThis = WeakPtr { *this }](double) {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->effectiveRateChanged();
-    });
-
-    m_renderer->setPreferences(VideoRendererPreference::PrefersDecompressionSession);
-
-    m_renderer->notifyVideoLayerSizeChanged([weakThis = WeakPtr { *this }](const MediaTime&, FloatSize size) {
-        if (RefPtr protectedThis = weakThis.get()) {
-            if (RefPtr player = protectedThis->m_player.get())
-                player->videoLayerSizeDidChange(size);
-        }
-    });
-
-    m_renderer->renderingCanBeAcceleratedChanged(player->renderingCanBeAccelerated());
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     m_defaultSpatialTrackingLabel = player->defaultSpatialTrackingLabel();
@@ -263,6 +206,86 @@ void MediaPlayerPrivateWebM::load(const URL& url, const LoadOptions& options)
         m_parser->allowLimitedMatroska();
 
     m_renderer->setPreferences(options.videoRendererPreferences | VideoRendererPreference::PrefersDecompressionSession);
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    m_renderer->setVideoTarget(player->videoTarget());
+#endif
+
+    m_renderer->notifyWhenErrorOccurs([weakThis = WeakPtr { *this }](PlatformMediaError error) {
+        ensureOnMainThread([weakThis, error] {
+            if (RefPtr protectedThis = weakThis.get()) {
+                protectedThis->m_errored = true;
+                if (RefPtr player = protectedThis->m_player.get(); player && error == PlatformMediaError::IPCError) {
+                    player->reloadAndResumePlaybackIfNeeded();
+                    return;
+                }
+                protectedThis->setNetworkState(MediaPlayer::NetworkState::DecodeError);
+                protectedThis->setReadyState(MediaPlayer::ReadyState::HaveNothing);
+            }
+        });
+    });
+
+    m_renderer->notifyFirstFrameAvailable([weakThis = WeakPtr { *this }] {
+        ensureOnMainThread([weakThis] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->setHasAvailableVideoFrame(true);
+        });
+    });
+
+    m_renderer->notifyWhenRequiresFlushToResume([weakThis = WeakPtr { *this }] {
+        ensureOnMainThread([weakThis] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->setLayerRequiresFlush();
+        });
+    });
+
+    m_renderer->notifyRenderingModeChanged([weakThis = WeakPtr { *this }] {
+        ensureOnMainThread([weakThis] {
+            if (RefPtr protectedThis = weakThis.get()) {
+                if (RefPtr player = protectedThis->m_player.get())
+                    player->renderingModeChanged();
+            }
+        });
+    });
+
+    m_renderer->notifySizeChanged([weakThis = WeakPtr { *this }](const MediaTime&, FloatSize size) {
+        ensureOnMainThread([weakThis, size] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->setNaturalSize(size);
+        });
+    });
+
+    m_renderer->notifyEffectiveRateChanged([weakThis = WeakPtr { *this }](double) {
+        ensureOnMainThread([weakThis] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->effectiveRateChanged();
+        });
+    });
+
+    m_renderer->setPreferences(VideoRendererPreference::PrefersDecompressionSession);
+
+    m_renderer->notifyVideoLayerSizeChanged([weakThis = WeakPtr { *this }](const MediaTime&, FloatSize size) {
+        ensureOnMainThread([weakThis, size] {
+            if (RefPtr protectedThis = weakThis.get()) {
+                if (RefPtr player = protectedThis->m_player.get())
+                    player->videoLayerSizeDidChange(size);
+            }
+        });
+    });
+
+    if (RefPtr player = m_player.get()) {
+        m_renderer->setVolume(player->volume());
+        m_renderer->setMuted(player->muted());
+        m_renderer->setPreservesPitchAndCorrectionAlgorithm(player->preservesPitch(), player->pitchCorrectionAlgorithm());
+#if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
+        m_renderer->setOutputDeviceId(player->audioOutputDeviceIdOverride());
+#endif
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+        m_renderer->setVideoTarget(player->videoTarget());
+#endif
+        m_renderer->setPresentationSize(player->presentationSize());
+        m_renderer->renderingCanBeAcceleratedChanged(player->renderingCanBeAccelerated());
+    }
 
     doPreload();
 }
@@ -501,8 +524,8 @@ void MediaPlayerPrivateWebM::seekInternal()
 
 void MediaPlayerPrivateWebM::cancelPendingSeek()
 {
-    if (m_rendererSeekRequest)
-        m_rendererSeekRequest.disconnect();
+    if (m_rendererSeekRequest->hasCallback())
+        m_rendererSeekRequest->disconnect();
     if (auto promise = std::exchange(m_waitForTimeBufferedPromise, std::nullopt))
         promise->reject();
 }
@@ -517,7 +540,7 @@ void MediaPlayerPrivateWebM::startSeek(const MediaTime& seekTime)
         if (!protectedThis)
             return;
 
-        protectedThis->m_rendererSeekRequest.complete();
+        protectedThis->m_rendererSeekRequest->complete();
 
         if (!result) {
             ASSERT(result.error() == PlatformMediaError::RequiresFlushToResume);
@@ -527,7 +550,7 @@ void MediaPlayerPrivateWebM::startSeek(const MediaTime& seekTime)
             return protectedThis->startSeek(seekTime);
         }
         protectedThis->completeSeek(*result);
-    })->track(m_rendererSeekRequest);
+    })->track(m_rendererSeekRequest.get());
 }
 
 void MediaPlayerPrivateWebM::completeSeek(const MediaTime& seekedTime)
@@ -784,11 +807,13 @@ void MediaPlayerPrivateWebM::setDuration(MediaTime duration)
         return;
 
     m_renderer->notifyTimeReachedAndStall(duration, [weakThis = ThreadSafeWeakPtr { *this }](const MediaTime&) {
-        if (RefPtr protectedThis = weakThis.get()) {
-            protectedThis->m_renderer->pause();
-            if (RefPtr player = protectedThis->m_player.get())
-                player->timeChanged();
-        }
+        ensureOnMainThread([weakThis] {
+            if (RefPtr protectedThis = weakThis.get()) {
+                protectedThis->m_renderer->pause();
+                if (RefPtr player = protectedThis->m_player.get())
+                    player->timeChanged();
+            }
+        });
     });
 
     m_duration = WTFMove(duration);
@@ -982,8 +1007,10 @@ void MediaPlayerPrivateWebM::notifyClientWhenReadyForMoreSamples(TrackID trackId
     m_requestReadyForMoreSamplesSetMap[trackId] = true;
 
     m_renderer->requestMediaDataWhenReady(trackIdentifierFor(trackId), [weakThis = ThreadSafeWeakPtr { *this }, trackId](AudioVideoRenderer::TrackIdentifier) {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->didBecomeReadyForMoreSamples(trackId);
+        ensureOnMainThread([weakThis, trackId] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->didBecomeReadyForMoreSamples(trackId);
+        });
     });
 }
 
@@ -1121,8 +1148,10 @@ void MediaPlayerPrivateWebM::trackDidChangeEnabled(AudioTrackPrivate& track, boo
             characteristicsChanged();
         }
         m_renderer->notifyTrackNeedsReenqueuing(trackIdentifier, [weakThis = WeakPtr { *this }, trackId](TrackIdentifier, const MediaTime&) {
-            if (RefPtr protectedThis = weakThis.get())
-                protectedThis->reenqueSamples(trackId, NeedsFlush::No);
+            ensureOnMainThread([weakThis, trackId] {
+                if (RefPtr protectedThis = weakThis.get())
+                    protectedThis->reenqueSamples(trackId, NeedsFlush::No);
+            });
         });
         return;
     }
@@ -1308,8 +1337,10 @@ void MediaPlayerPrivateWebM::startVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = true;
     m_renderer->notifyWhenHasAvailableVideoFrame([weakThis = WeakPtr { *this }](const MediaTime& presentationTime, double displayTime) {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->checkNewVideoFrameMetadata(presentationTime, displayTime);
+        ensureOnMainThread([weakThis, presentationTime, displayTime] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->checkNewVideoFrameMetadata(presentationTime, displayTime);
+        });
     });
 }
 
@@ -1367,7 +1398,7 @@ private:
 
     Ref<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer* player) const final
     {
-        return adoptRef(*new MediaPlayerPrivateWebM(player));
+        return MediaPlayerPrivateWebM::create(player);
     }
 
     void getSupportedTypes(HashSet<String>& types) const final

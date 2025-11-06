@@ -158,7 +158,7 @@ static float computedUnderlineOffset(const UnderlineOffsetArguments& context)
     if (isAlignedForUnder(styleToUse)) {
         ASSERT(context.textUnderlinePositionUnder);
         // FIXME: This needs to be flipped for sideways-lr.
-        if (textUnderlinePosition.contains(TextUnderlinePosition::Right)) {
+        if (styleToUse.writingMode().isVerticalTypographic() && textUnderlinePosition.contains(TextUnderlinePosition::Right)) {
             ASSERT(!textUnderlinePosition.contains(TextUnderlinePosition::Left));
             // In vertical typographic modes, the underline is aligned as for under, except it is always aligned to the right edge of the text.
             underlineOffset = 0.f - (styleToUse.textUnderlineOffset().resolve(styleToUse) + defaultGap(styleToUse));
@@ -309,13 +309,50 @@ static inline float inlineBoxContentBoxHeight(const InlineIterator::InlineBox& i
     return contentBoxHeight;
 }
 
+float textBoxEdgeAdjustmentForUnderline(const RenderStyle& style)
+{
+    if (!style.writingMode().isHorizontal()) {
+        // FIXME: In TextBoxPainter, we need to figure out how logical coords work in vertical writing mode (when context is rotated).
+        return 0.f;
+    }
+
+    if (style.textBoxTrim() != TextBoxTrim::TrimStart && style.textBoxTrim() != TextBoxTrim::TrimBoth)
+        return 0.f;
+
+    auto textEdge = style.textBoxEdge().tryTextEdgePair();
+    if (!textEdge)
+        return 0.f;
+
+    auto& fontMetrics = style.metricsOfPrimaryFont();
+    switch (textEdge->over) {
+    case TextEdgeOver::Text:
+        return 0.f;
+    case TextEdgeOver::Cap:
+        return fontMetrics.intAscent() - fontMetrics.intCapHeight();
+    case TextEdgeOver::Ex:
+        return roundf(fontMetrics.xHeight().value_or(0.f));
+    case TextEdgeOver::Ideographic:
+        return fontMetrics.intAscent(FontBaseline::Ideographic);
+    case TextEdgeOver::IdeographicInk:
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return 0.f;
+    default:
+        ASSERT_NOT_REACHED();
+        return 0.f;
+    }
+}
+
 float underlineOffsetForTextBoxPainting(const InlineIterator::InlineBox& inlineBox, const RenderStyle& style)
 {
+    auto underlineOffset = 0.f;
     if (!isAlignedForUnder(style))
-        return computedUnderlineOffset({ style, { } });
+        underlineOffset = computedUnderlineOffset({ style, { } });
+    else {
+        auto textRunOffset = boxOffsetFromBottomMost(inlineBox.lineBox(), inlineBox.renderer(), inlineBox.logicalTop(), inlineBox.logicalBottom());
+        underlineOffset = computedUnderlineOffset({ style, TextUnderlinePositionUnder { inlineBoxContentBoxHeight(inlineBox), textRunOffset } });
+    }
 
-    auto textRunOffset = boxOffsetFromBottomMost(inlineBox.lineBox(), inlineBox.renderer(), inlineBox.logicalTop(), inlineBox.logicalBottom());
-    return computedUnderlineOffset({ style, TextUnderlinePositionUnder { inlineBoxContentBoxHeight(inlineBox), textRunOffset } });
+    return underlineOffset - textBoxEdgeAdjustmentForUnderline(style);
 }
 
 float overlineOffsetForTextBoxPainting(const InlineIterator::InlineBox& inlineBox, const RenderStyle& style)

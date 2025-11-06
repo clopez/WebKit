@@ -56,7 +56,7 @@ public:
     ~FetchBodyConsumer();
     FetchBodyConsumer& operator=(FetchBodyConsumer&&);
 
-    FetchBodyConsumer clone();
+    UniqueRef<FetchBodyConsumer> clone();
 
     void append(const SharedBuffer&);
 

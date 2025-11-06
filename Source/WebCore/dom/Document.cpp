@@ -445,10 +445,6 @@
 #include "WebGL2RenderingContext.h"
 #endif
 
-#if ENABLE(PICTURE_IN_PICTURE_API)
-#include "HTMLVideoElement.h"
-#endif
-
 #define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, frameID() ? frameID()->toUInt64() : 0, this->isTopDocument(), ##__VA_ARGS__)
 #define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, frameID() ? frameID()->toUInt64() : 0, this->isTopDocument(), ##__VA_ARGS__)
 
@@ -996,6 +992,8 @@ void Document::commonTeardown()
         highlightRegistry->clear();
     if (RefPtr fragmentHighlightRegistry = m_fragmentHighlightRegistry)
         fragmentHighlightRegistry->clear();
+    if (RefPtr textExtractionHighlightRegistry = m_textExtractionHighlightRegistry)
+        textExtractionHighlightRegistry->clear();
 #if ENABLE(APP_HIGHLIGHTS)
     if (RefPtr appHighlightRegistry = m_appHighlightRegistry)
         appHighlightRegistry->clear();
@@ -1210,7 +1208,7 @@ void Document::setMarkupUnsafe(const String& markup, OptionSet<ParserContentPoli
 
 ExceptionOr<Ref<Document>> Document::parseHTMLUnsafe(Document& context, Variant<RefPtr<TrustedHTML>, String>&& html)
 {
-    auto stringValueHolder = trustedTypeCompliantString(*context.scriptExecutionContext(), WTFMove(html), "Document parseHTMLUnsafe"_s);
+    auto stringValueHolder = trustedTypeCompliantString(context.contextDocument(), WTFMove(html), "Document parseHTMLUnsafe"_s);
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
 
@@ -1367,6 +1365,7 @@ void Document::setCompatibilityMode(DocumentCompatibilityMode mode)
             extensionStyleSheets->clearPageUserSheet();
             extensionStyleSheets->invalidateInjectedStyleSheetCache();
         }
+        styleScope().didChangeStyleSheetEnvironment();
     }
 
     if (CheckedPtr view = renderView())
@@ -2639,7 +2638,7 @@ void Document::visibilityStateChanged()
     });
 
     m_visibilityStateCallbackClients.forEach([](auto& client) {
-        Ref { client }->visibilityStateChanged();
+        client.visibilityStateChanged();
     });
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
@@ -2695,7 +2694,7 @@ void Document::forEachMediaElement(NOESCAPE const Function<void(HTMLMediaElement
 {
     ASSERT(!m_mediaElements.hasNullReferences());
     m_mediaElements.forEach([&](auto& element) {
-        function(Ref { element });
+        function(element);
     });
 }
 
@@ -3187,8 +3186,8 @@ std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets
 
     auto elementStyle = resolver->styleForElement(element, { parentStyle });
     if (pseudoElementIdentifier) {
-        auto pseudoId = pseudoElementIdentifier->pseudoId;
-        if ((pseudoId == PseudoId::FirstLetter || pseudoId == PseudoId::FirstLine) && elementStyle.style && !Style::supportsFirstLineAndLetterPseudoElement(*elementStyle.style))
+        auto type = pseudoElementIdentifier->type;
+        if ((type == PseudoElementType::FirstLetter || type == PseudoElementType::FirstLine) && elementStyle.style && !Style::supportsFirstLineAndLetterPseudoElement(*elementStyle.style))
             return { };
 
         auto style = resolver->styleForPseudoElement(element, { *pseudoElementIdentifier }, { parentStyle });
@@ -3363,6 +3362,7 @@ void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int&
 {
     updateStyleIfNeeded();
     auto style = styleScope().resolver().styleForPage(pageIndex);
+    const auto& zoomFactor = style->usedZoomForLength();
 
     pageSize = WTF::switchOn(style->pageSize(),
         [&](const CSS::Keyword::Auto&) {
@@ -3388,10 +3388,10 @@ void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int&
 
     // The percentage is calculated with respect to the width even for margin top and bottom.
     // http://www.w3.org/TR/CSS2/box.html#margin-properties
-    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate<int>(style->marginTop(), pageSize.width(), Style::ZoomNeeded { });
-    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate<int>(style->marginRight(), pageSize.width(), Style::ZoomNeeded { });
-    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate<int>(style->marginBottom(), pageSize.width(), Style::ZoomNeeded { });
-    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate<int>(style->marginLeft(), pageSize.width(), Style::ZoomNeeded { });
+    marginTop = style->marginTop().isAuto() ? marginTop : Style::evaluate<int>(style->marginTop(), pageSize.width(), zoomFactor);
+    marginRight = style->marginRight().isAuto() ? marginRight : Style::evaluate<int>(style->marginRight(), pageSize.width(), zoomFactor);
+    marginBottom = style->marginBottom().isAuto() ? marginBottom : Style::evaluate<int>(style->marginBottom(), pageSize.width(), zoomFactor);
+    marginLeft = style->marginLeft().isAuto() ? marginLeft : Style::evaluate<int>(style->marginLeft(), pageSize.width(), zoomFactor);
 }
 
 void Document::fontsNeedUpdate(FontSelector&)
@@ -3542,6 +3542,15 @@ void Document::destroyRenderTree()
     ASSERT(frame());
     ASSERT(frame()->document() == this);
     ASSERT(page());
+
+#if ENABLE(MODEL_PROCESS)
+    if (m_modelElementCount) {
+        if (RefPtr page = this->page()) {
+            page->decrementModelElementCount(m_modelElementCount);
+            m_modelElementCount = 0;
+        }
+    }
+#endif
 
     // Prevent Widget tree changes from committing until the RenderView is dead and gone.
     WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
@@ -3727,11 +3736,10 @@ void Document::resumeDeviceMotionAndOrientationUpdates()
         return;
     m_areDeviceMotionAndOrientationUpdatesSuspended = false;
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
-    auto origin = securityOrigin().data();
     if (m_deviceMotionController)
-        m_deviceMotionController->resumeUpdates(origin);
+        m_deviceMotionController->resumeUpdates();
     if (m_deviceOrientationController)
-        m_deviceOrientationController->resumeUpdates(origin);
+        m_deviceOrientationController->resumeUpdates();
 #endif
 }
 
@@ -3853,6 +3861,11 @@ AXObjectCache* Document::axObjectCache() const
     return m_axObjectCache.get();
 }
 
+CheckedPtr<AXObjectCache> Document::checkedAXObjectCache() const
+{
+    return axObjectCache();
+}
+
 void Document::setVisuallyOrdered()
 {
     m_visuallyOrdered = true;
@@ -3870,6 +3883,7 @@ bool Document::hasHighlight() const
 {
     return (m_highlightRegistry && !m_highlightRegistry->isEmpty())
         || (m_fragmentHighlightRegistry && !m_fragmentHighlightRegistry->isEmpty())
+        || (m_textExtractionHighlightRegistry && !m_textExtractionHighlightRegistry->isEmpty())
 #if ENABLE(APP_HIGHLIGHTS)
         || (m_appHighlightRegistry && !m_appHighlightRegistry->isEmpty())
 #endif
@@ -3888,6 +3902,13 @@ HighlightRegistry& Document::fragmentHighlightRegistry()
     if (!m_fragmentHighlightRegistry)
         m_fragmentHighlightRegistry = HighlightRegistry::create();
     return *m_fragmentHighlightRegistry;
+}
+
+HighlightRegistry& Document::textExtractionHighlightRegistry()
+{
+    if (!m_textExtractionHighlightRegistry)
+        m_textExtractionHighlightRegistry = HighlightRegistry::create();
+    return *m_textExtractionHighlightRegistry;
 }
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -3946,6 +3967,8 @@ void Document::updateHighlightPositions()
         collectHighlightRangesFromRegister(highlightRanges, *m_highlightRegistry.get());
     if (m_fragmentHighlightRegistry)
         collectHighlightRangesFromRegister(highlightRanges, *m_fragmentHighlightRegistry.get());
+    if (m_textExtractionHighlightRegistry)
+        collectHighlightRangesFromRegister(highlightRanges, *m_textExtractionHighlightRegistry.get());
 #if ENABLE(APP_HIGHLIGHTS)
     if (m_appHighlightRegistry)
         collectHighlightRangesFromRegister(highlightRanges, *m_appHighlightRegistry.get());
@@ -4169,6 +4192,11 @@ HTMLElement* Document::bodyOrFrameset() const
             return &child;
     }
     return nullptr;
+}
+
+RefPtr<HTMLElement> Document::protectedBodyOrFrameset() const
+{
+    return bodyOrFrameset();
 }
 
 ExceptionOr<void> Document::setBodyOrFrameset(RefPtr<HTMLElement>&& newBody)
@@ -4498,7 +4526,7 @@ ExceptionOr<void> Document::write(Document* entryDocument, FixedVector<Variant<R
     }
 
     String textString = text.toString();
-    auto stringValueHolder = trustedTypeCompliantString(TrustedType::TrustedHTML, *scriptExecutionContext(), textString, lineFeed.isEmpty() ? "Document write"_s : "Document writeln"_s);
+    auto stringValueHolder = trustedTypeCompliantString(TrustedType::TrustedHTML, contextDocument(), textString, lineFeed.isEmpty() ? "Document write"_s : "Document writeln"_s);
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
     SegmentedString trustedText(stringValueHolder.releaseReturnValue());
@@ -4572,6 +4600,8 @@ Seconds Document::domTimerAlignmentInterval(bool hasReachedMaxNestingLevel) cons
         return alignmentInterval;
 
     // Apply Document-level DOMTimer throttling only if timers have reached their maximum nesting level as the Page may still be visible.
+    alignmentInterval = std::max(alignmentInterval, DOMTimer::minimumAlignmentForMaximallyNestedTimers());
+
     if (m_isTimerThrottlingEnabled)
         alignmentInterval = std::max(alignmentInterval, DOMTimer::hiddenPageAlignmentInterval());
 
@@ -5878,6 +5908,11 @@ void Document::flushDeferredScrollEvents()
     runScrollSteps();
 }
 
+void Document::flushDeferredIntersectionObservations()
+{
+    scheduleRenderingUpdate(RenderingUpdateStep::IntersectionObservations);
+}
+
 void Document::invalidateScrollbars()
 {
     if (RefPtr frameView = view())
@@ -6559,18 +6594,17 @@ bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions&
     }
 
     if (m_focusedElement) {
-
         if (settings().navigationAPIEnabled())
             window()->navigation().setFocusChanged(FocusDidChange::Yes);
+    }
 
 #if PLATFORM(GTK)
-        // GTK relies on creating the AXObjectCache when a focus change happens.
-        if (CheckedPtr cache = axObjectCache())
+    // GTK relies on creating the AXObjectCache when a focus change happens.
+    if (CheckedPtr cache = axObjectCache())
 #else
-        if (CheckedPtr cache = existingAXObjectCache())
+    if (CheckedPtr cache = existingAXObjectCache())
 #endif
-            cache->onFocusChange(oldFocusedElement.get(), newFocusedElement);
-    }
+        cache->onFocusChange(oldFocusedElement.get(), newFocusedElement);
 
     if (RefPtr page = this->page())
         page->chrome().focusedElementChanged(protectedFocusedElement().get(), page->focusController().focusedLocalFrame(), options, broadcast);
@@ -7764,7 +7798,7 @@ void Document::captionPreferencesChanged()
 {
     ASSERT(!m_captionPreferencesChangedElements.hasNullReferences());
     m_captionPreferencesChangedElements.forEach([](HTMLMediaElement& element) {
-        Ref { element }->captionPreferencesChanged();
+        element.captionPreferencesChanged();
     });
 }
 
@@ -7829,7 +7863,7 @@ ExceptionOr<bool> Document::execCommand(const String& commandName, bool userInte
         [&commandName, this](const String& str) -> ExceptionOr<String> {
             if (commandName != "insertHTML"_s)
                 return String(str);
-            return trustedTypeCompliantString(TrustedType::TrustedHTML, *scriptExecutionContext(), str, "Document execCommand"_s);
+            return trustedTypeCompliantString(TrustedType::TrustedHTML, contextDocument(), str, "Document execCommand"_s);
         },
         [](const RefPtr<TrustedHTML>& trustedHtml) -> ExceptionOr<String> {
             return trustedHtml->toString();
@@ -8562,7 +8596,7 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
     RefPtr element = getCSSCanvasElement(name);
     if (!element)
         return std::nullopt;
-    element->setSize({ width, height });
+    element->setCSSCanvasContextSize({ width, height });
     auto context = element->getContext(type);
     if (!context)
         return std::nullopt;
@@ -9135,12 +9169,12 @@ void Document::didPaintImage(Element& element, CachedImage* image, FloatRect loc
     largestContentfulPaintData().didPaintImage(element, image, localRect);
 }
 
-void Document::didPaintText(const RenderBlockFlow& formattingContextRoot, FloatRect localRect) const
+void Document::didPaintText(const RenderBlockFlow& formattingContextRoot, FloatRect localRect, bool isOnlyTextBoxForElement) const
 {
     if (!supportsLargestContentfulPaint())
         return;
 
-    largestContentfulPaintData().didPaintText(formattingContextRoot, localRect);
+    largestContentfulPaintData().didPaintText(formattingContextRoot, localRect, isOnlyTextBoxForElement);
 }
 
 int Document::requestAnimationFrame(Ref<RequestAnimationFrameCallback>&& callback)
@@ -9579,13 +9613,23 @@ Element* eventTargetElementForDocument(Document* document)
     return element;
 }
 
+// get(Bounding)ClientRect APIs now returns scaled (=zoomed) rect.
+// The zoom argument will be used to divide the rect, returning an unzoomed rect if passed.
+// https://drafts.csswg.org/css-viewport/#zoom-om
+std::optional<float> Document::zoomForClient(const RenderStyle& style) const
+{
+    if (!settings().getBoundingClientRectZoomedEnabled())
+        return style.usedZoom();
+    return { };
+}
+
 void Document::convertAbsoluteToClientQuads(Vector<FloatQuad>& quads, const RenderStyle& style)
 {
     RefPtr frameView = view();
     if (!frameView)
         return;
 
-    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.usedZoom());
+    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(zoomForClient(style));
     auto documentToClientOffset = frameView->documentToClientOffset();
 
     for (auto& quad : quads) {
@@ -9602,7 +9646,7 @@ void Document::convertAbsoluteToClientRects(Vector<FloatRect>& rects, const Rend
     if (!frameView)
         return;
 
-    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.usedZoom());
+    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(zoomForClient(style));
     auto documentToClientOffset = frameView->documentToClientOffset();
 
     for (auto& rect : rects) {
@@ -9619,7 +9663,7 @@ void Document::convertAbsoluteToClientRect(FloatRect& rect, const RenderStyle& s
     if (!frameView)
         return;
 
-    rect = frameView->absoluteToDocumentRect(rect, style.usedZoom());
+    rect = frameView->absoluteToDocumentRect(rect, zoomForClient(style));
     rect = frameView->documentToClientRect(rect);
 }
 
@@ -9841,6 +9885,11 @@ Document& Document::ensureTemplateDocument()
     templateDocument->setTemplateDocumentHost(this); // balanced in dtor.
 
     return *m_templateDocument;
+}
+
+Ref<Document> Document::ensureProtectedTemplateDocument()
+{
+    return ensureTemplateDocument();
 }
 
 Ref<DocumentFragment> Document::documentFragmentForInnerOuterHTML()
@@ -10275,6 +10324,10 @@ void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionO
 {
     RefPtr frameView = view();
     if (!frameView)
+        return;
+
+    RefPtr page = this->page();
+    if (!page || page->shouldDeferIntersectionObservations())
         return;
 
     bool needsLayout = frameView->layoutContext().isLayoutPending() || (renderView() && renderView()->needsLayout());
@@ -10744,6 +10797,11 @@ AnimationTimelinesController& Document::ensureTimelinesController()
     return *m_timelinesController.get();
 }
 
+CheckedRef<AnimationTimelinesController> Document::ensureCheckedTimelinesController()
+{
+    return ensureTimelinesController();
+}
+
 StyleOriginatedTimelinesController& Document::ensureStyleOriginatedTimelinesController()
 {
     if (!m_styleOriginatedTimelinesController)
@@ -10761,8 +10819,10 @@ void Document::updateAnimationsAndSendEvents()
         timelinesController->updateAnimationsAndSendEvents(window->frozenNowTimestamp());
 }
 
-void Document::updateStaleScrollTimelines()
+void Document::runPostRenderingUpdateAnimationTasks()
 {
+    if (m_timeline)
+        m_timeline->runPostRenderingUpdateTasks();
     if (CheckedPtr timelinesController = this->timelinesController())
         timelinesController->updateStaleScrollTimelines();
 }
@@ -10876,9 +10936,9 @@ void Document::removeTopLayerElement(Element& element)
 
 HTMLDialogElement* Document::activeModalDialog() const
 {
-    for (auto& element : makeReversedRange(m_topLayerElements)) {
-        if (RefPtr dialog = dynamicDowncast<HTMLDialogElement>(element.get()); dialog && dialog->isModal())
-            return dialog.unsafeGet();
+    for (auto& element : m_topLayerElements | std::views::reverse) {
+        if (auto* dialog = dynamicDowncast<HTMLDialogElement>(element.get()); dialog && dialog->isModal())
+            return dialog;
     }
 
     return nullptr;
@@ -10970,7 +11030,7 @@ void Document::handlePopoverLightDismiss(const PointerEvent& event, Node& target
                 return second;
             if (!second)
                 return first;
-            for (auto& element : makeReversedRange(m_autoPopoverList)) {
+            for (auto& element : m_autoPopoverList | std::views::reverse) {
                 if (element.ptr() == first || element.ptr() == second)
                     return element.ptr();
             }
@@ -11272,6 +11332,11 @@ DeviceOrientationAndMotionAccessController& Document::deviceOrientationAndMotion
     return *m_deviceOrientationAndMotionAccessController;
 }
 
+CheckedRef<DeviceOrientationAndMotionAccessController> Document::checkedDeviceOrientationAndMotionAccessController()
+{
+    return deviceOrientationAndMotionAccessController();
+}
+
 #endif
 
 PaintWorklet& Document::ensurePaintWorklet()
@@ -11393,6 +11458,11 @@ TextManipulationController& Document::textManipulationController()
     return *m_textManipulationController;
 }
 
+CheckedRef<TextManipulationController> Document::checkedTextManipulationController()
+{
+    return textManipulationController();
+}
+
 LazyLoadImageObserver& Document::lazyLoadImageObserver()
 {
     if (!m_lazyLoadImageObserver)
@@ -11407,6 +11477,35 @@ LazyLoadModelObserver& Document::lazyLoadModelObserver()
         m_lazyLoadModelObserver = makeUnique<LazyLoadModelObserver>();
     return *m_lazyLoadModelObserver;
 }
+#endif
+
+#if ENABLE(MODEL_PROCESS)
+
+void Document::incrementModelElementCount()
+{
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
+    m_modelElementCount++;
+    page->incrementModelElementCount();
+}
+
+void Document::decrementModelElementCount()
+{
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
+    if (!m_modelElementCount) [[unlikely]] {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    page->decrementModelElementCount(1);
+    m_modelElementCount--;
+}
+
 #endif
 
 const CrossOriginOpenerPolicy& Document::crossOriginOpenerPolicy() const

@@ -26,7 +26,6 @@
 #include <WebCore/RenderStyleInlines.h>
 #include <WebCore/StyleOpacity.h>
 #include <WebCore/StyleShapeOutside.h>
-#include <WebCore/WillChangeData.h>
 
 namespace WebCore {
 
@@ -94,7 +93,7 @@ inline bool RenderElement::isBeforeContent() const
     // Text nodes don't have their own styles, so ignore the style on a text node.
     // if (isRenderText())
     //     return false;
-    if (style().pseudoElementType() != PseudoId::Before)
+    if (style().pseudoElementType() != PseudoElementType::Before)
         return false;
     return true;
 }
@@ -104,7 +103,7 @@ inline bool RenderElement::isAfterContent() const
     // Text nodes don't have their own styles, so ignore the style on a text node.
     // if (isRenderText())
     //     return false;
-    if (style().pseudoElementType() != PseudoId::After)
+    if (style().pseudoElementType() != PseudoElementType::After)
         return false;
     return true;
 }

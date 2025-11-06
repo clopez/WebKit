@@ -219,7 +219,6 @@ fast/images/jpegxl-as-image.html [ Pass ]
 fast/images/jpegxl-image-decoding.html [ Pass ]
 fast/images/jpegxl-with-color-profile.html [ Pass ]
 fast/images/animated-jpegxl-loop-count.html [ Pass ]
-fast/images/image-size-unsigned-overflow.html [ Skip ]
 
 # DataTransferItems is not yet implemented
 fast/events/clipboard-dataTransferItemList.html [ Skip ]
@@ -1980,7 +1979,9 @@ imported/w3c/web-platform-tests/event-timing/interaction-count-click.html [ Skip
 imported/w3c/web-platform-tests/event-timing/interaction-count-press-key.html [ Skip ]
 
 # Timeout:
-imported/w3c/web-platform-tests/event-timing/interactionid-orphan-pointerup.html [ Skip ]
+webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/gap-keydown-keyup.html [ Skip ]
+webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/gap-pointerdown-pointerup.html [ Skip ]
+webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/interactionid-orphan-pointerup.html [ Skip ]
 
 # Fail with AccessDeniedAccess
 imported/w3c/web-platform-tests/event-timing/contextmenu.html [ Skip ]
@@ -4339,6 +4340,8 @@ fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 fast/events/wheel/wheel-event-destroys-frame.html [ Skip ] # Timeout
 fast/text/install-font-style-recalc.html [ Skip ] # Timeout
 
+webkit.org/b/301856 fast/events/contextmenu-items-match-node-receiving-contextmenu-event.html [ Skip ]
+
 
 # Tests depend on the system timezone.
 storage/indexeddb/modern/date-basic-private.html [ Failure Pass ]
@@ -4585,3 +4588,9 @@ webkit.org/b/298727 css3/text-decoration/text-decoration-line-spelling-error-3.h
 webkit.org/b/298727 css3/text-decoration/text-decoration-line-grammar-error-1.html [ Skip ]
 webkit.org/b/298727 css3/text-decoration/text-decoration-line-grammar-error-2.html [ Skip ]
 webkit.org/b/298727 css3/text-decoration/text-decoration-line-grammar-error-3.html [ Skip ]
+
+imported/w3c/web-platform-tests/css/CSS2/visudet/height-applies-to-010a.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/visudet/inline-block-baseline-001.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/visudet/inline-block-baseline-002.xht [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/CSS2/stacking-context/composite-change-after-scroll-preserves-stacking-order.html [ ImageOnlyFailure ]

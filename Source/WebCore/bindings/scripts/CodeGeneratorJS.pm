@@ -1119,7 +1119,7 @@ sub GenerateGetOwnPropertyNames
     my $namedGetterOperation = GetNamedGetterOperation($interface);
     my $indexedGetterOperation = GetIndexedGetterOperation($interface);
     
-    push(@$outputArray, "void ${className}::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, DontEnumPropertiesMode mode)\n");
+    push(@$outputArray, "void ${className}::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArrayBuilder& propertyNames, DontEnumPropertiesMode mode)\n");
     push(@$outputArray, "{\n");
     if ($indexedGetterOperation || $namedGetterOperation) {
         push(@$outputArray, "    SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);\n");
@@ -3242,7 +3242,7 @@ sub GenerateHeader
     }
     
     if (InstanceOverridesGetOwnPropertyNames($interface)) {
-        push(@headerContent, "    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::DontEnumPropertiesMode);\n");
+        push(@headerContent, "    static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArrayBuilder&, JSC::DontEnumPropertiesMode);\n");
         $structureFlags{"JSC::OverridesGetOwnPropertyNames"} = 1;
     }
     
@@ -4170,25 +4170,7 @@ sub GetGnuMangledNameForInterface
 sub GetGnuVTableOffsetForType
 {
     my $typename = shift;
-    if ($typename eq "ApplePaySession"
-        || $typename eq "SVGAElement"
-        || $typename eq "SVGCircleElement"
-        || $typename eq "SVGClipPathElement"
-        || $typename eq "SVGDefsElement"
-        || $typename eq "SVGEllipseElement"
-        || $typename eq "SVGForeignObjectElement"
-        || $typename eq "SVGGElement"
-        || $typename eq "SVGImageElement"
-        || $typename eq "SVGLineElement"
-        || $typename eq "SVGPathElement"
-        || $typename eq "SVGPolyElement"
-        || $typename eq "SVGPolygonElement"
-        || $typename eq "SVGPolylineElement"
-        || $typename eq "SVGGeometryElement"
-        || $typename eq "SVGGraphicsElement"
-        || $typename eq "SVGSwitchElement"
-        || $typename eq "SVGTextElement"
-        || $typename eq "SVGUseElement") {
+    if ($typename eq "ApplePaySession") {
         return "3";
     }
     return "2";

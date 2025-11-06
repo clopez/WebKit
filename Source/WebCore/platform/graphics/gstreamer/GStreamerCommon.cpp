@@ -52,6 +52,7 @@
 #include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/URL.h>
 #include <wtf/UUID.h>
 #include <wtf/glib/GSpanExtras.h>
 #include <wtf/glib/GThreadSafeWeakPtr.h>
@@ -246,6 +247,66 @@ bool getSampleVideoInfo(GstSample* sample, GstVideoInfo& videoInfo)
         return false;
 
     return true;
+}
+
+std::optional<WebCore::IntSize> getDisplaySize(WebCore::IntSize originalSize, int pixelAspectRatioNumerator, int pixelAspectRatioDenominator)
+{
+    WebCore::IntSize computedSize { 0, 0 };
+    unsigned width = 0, height = 0;
+
+    // Calculate DAR based on PAR and video size.
+    // Assume regular display (1:1).
+    if (!gst_video_calculate_display_ratio(&width, &height, originalSize.width(), originalSize.height(), pixelAspectRatioNumerator, pixelAspectRatioDenominator, 1, 1))
+        return std::nullopt;
+
+    // Apply DAR to original video size. This is the same behavior as in xvimagesink's setcaps function.
+    if (!(originalSize.height() % height)) {
+        GST_DEBUG("Keeping video original height");
+        width = gst_util_uint64_scale_int(originalSize.height(), width, height);
+        height = originalSize.height();
+    } else if (!(originalSize.width() % width)) {
+        GST_DEBUG("Keeping video original width");
+        height = gst_util_uint64_scale_int(originalSize.width(), height, width);
+        width = originalSize.width();
+    } else {
+        GST_DEBUG("Approximating while keeping original video height");
+        width = gst_util_uint64_scale_int(originalSize.height(), width, height);
+        height = originalSize.height();
+    }
+
+    computedSize.setWidth(width);
+    computedSize.setHeight(height);
+
+    return computedSize;
+}
+
+bool isProtocolAllowed(const WTF::URL& url)
+{
+    HashSet<String> allowedProtocols = { "blob"_s, "data"_s, "file"_s, "http"_s, "https"_s };
+#if ENABLE(MEDIA_SOURCE)
+    allowedProtocols.add("mediasourceblob"_s);
+#endif
+#if ENABLE(MEDIA_STREAM)
+    allowedProtocols.add("mediastream"_s);
+#endif
+
+    // Parse and add protocols from environment variable
+    auto additionalProtocols = String::fromLatin1(std::getenv("WEBKIT_GST_ALLOWED_URI_PROTOCOLS"));
+    if (!additionalProtocols.isEmpty()) {
+        for (auto protocols : additionalProtocols.split(',')) {
+            auto trimmedProtocol = protocols.trim(deprecatedIsSpaceOrNewline).convertToLowercaseWithoutLocale();
+            if (!trimmedProtocol.isEmpty())
+                allowedProtocols.add(trimmedProtocol);
+        }
+    }
+
+    auto protocol = url.protocol().toString().convertToLowercaseWithoutLocale();
+    bool isAllowed = allowedProtocols.contains(protocol);
+
+    GST_DEBUG("URL: %s", url.string().utf8().data());
+    GST_DEBUG("Requested protocol: %s (allowed: %s)", protocol.utf8().data(), isAllowed ? "yes" : "no");
+
+    return isAllowed;
 }
 #endif
 

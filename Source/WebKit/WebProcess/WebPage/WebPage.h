@@ -137,10 +137,6 @@ OBJC_CLASS PDFSelection;
 OBJC_CLASS WKAccessibilityWebPageObject;
 #endif
 
-#if ENABLE(ASYNC_SCROLLING)
-#include "MonotonicObjectIdentifier.h"
-#endif
-
 #define ENABLE_VIEWPORT_RESIZING PLATFORM(IOS_FAMILY)
 
 namespace WTF {
@@ -509,11 +505,15 @@ struct InsertTextOptions;
 struct InteractionInformationAtPosition;
 struct InteractionInformationRequest;
 struct LoadParameters;
+struct MainFrameData;
 struct NodeHitTestResult;
 struct PDFPluginIdentifierType;
 struct PlatformFontInfo;
 struct PrintInfo;
 struct ProvisionalFrameCreationParameters;
+#if PLATFORM(GTK) || PLATFORM(WPE)
+struct RenderProcessInfo;
+#endif
 struct RunJavaScriptParameters;
 struct StorageNamespaceIdentifierType;
 struct TapIdentifierType;
@@ -603,8 +603,7 @@ public:
 
 #if ENABLE(ASYNC_SCROLLING)
     WebCore::ScrollingCoordinator* scrollingCoordinator() const;
-    bool shouldIgnoreScrollPositionUpdate(TransactionID) const;
-    void markPendingLocalScrollPositionChange();
+    RefPtr<WebCore::ScrollingCoordinator> protectedScrollingCoordinator() const;
 #endif
 
     WebPageGroupProxy* pageGroup() const { return m_pageGroup.get(); }
@@ -637,6 +636,7 @@ public:
 
 #if PLATFORM(COCOA)
     void willCommitLayerTree(RemoteLayerTreeTransaction&, WebCore::FrameIdentifier);
+    void willCommitMainFrameData(MainFrameData&);
     void didFlushLayerTreeAtTime(MonotonicTime, bool flushSucceeded);
 #endif
 
@@ -796,9 +796,10 @@ public:
 
     WebFrame& mainWebFrame() const { return m_mainFrame; }
 
-    WebCore::Frame* mainFrame() const; // May return nullptr.
-    WebCore::FrameView* mainFrameView() const; // May return nullptr.
-    WebCore::LocalFrameView* localMainFrameView() const; // May return nullptr.
+    WebCore::Frame* mainFrame() const;
+    WebCore::FrameView* mainFrameView() const;
+    WebCore::LocalFrameView* localMainFrameView() const;
+    CheckedPtr<WebCore::LocalFrameView> checkedLocalMainFrameView() const;
     RefPtr<WebCore::LocalFrame> localMainFrame() const;
     RefPtr<WebCore::Document> localTopDocument() const;
 
@@ -1194,7 +1195,7 @@ public:
 #if ENABLE(CONTEXT_MENUS)
     WebContextMenu& contextMenu();
     Ref<WebContextMenu> protectedContextMenu();
-    RefPtr<WebContextMenu> contextMenuAtPointInWindow(WebCore::FrameIdentifier, const WebCore::IntPoint&);
+    RefPtr<WebContextMenu> contextMenuAtPointInWindow(WebCore::FrameIdentifier, const WebCore::DoublePoint&);
 #endif
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
@@ -1250,6 +1251,7 @@ public:
     void registerUIProcessAccessibilityTokens(std::span<const uint8_t> elementToken, std::span<const uint8_t> windowToken);
     void registerRemoteFrameAccessibilityTokens(pid_t, std::span<const uint8_t>, WebCore::FrameIdentifier);
     WKAccessibilityWebPageObject* accessibilityRemoteObject();
+    RetainPtr<WKAccessibilityWebPageObject> protectedAccessibilityRemoteObject();
     WebCore::IntPoint accessibilityRemoteFrameOffset();
     void createMockAccessibilityElement(pid_t);
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -1637,7 +1639,6 @@ public:
 #endif
 
     void didGetLoadDecisionForIcon(bool decision, CallbackID, CompletionHandler<void(const IPC::SharedBufferReference&)>&&);
-    void setUseIconLoadingClient(bool);
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
     void didConcludeEditDrag();
@@ -1645,6 +1646,10 @@ public:
 #endif
 
     void didFinishLoadingImageForElement(WebCore::HTMLImageElement&);
+
+#if ENABLE(MODEL_PROCESS)
+    void setHasModelElement(bool);
+#endif
 
     WebURLSchemeHandlerProxy* urlSchemeHandlerForScheme(StringView);
     void stopAllURLSchemeTasks();
@@ -1730,6 +1735,7 @@ public:
 
 #if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
     WebExtensionControllerProxy* webExtensionControllerProxy() const { return m_webExtensionController.get(); }
+    RefPtr<WebExtensionControllerProxy> protectedWebExtensionControllerProxy() const;
 #endif
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() const { return m_userInterfaceLayoutDirection; }
@@ -1958,6 +1964,9 @@ public:
 
     void startDeferringScrollEvents();
     void flushDeferredScrollEvents();
+
+    void startDeferringIntersectionObservations();
+    void flushDeferredIntersectionObservations();
 
     void flushDeferredDidReceiveMouseEvent();
 
@@ -2310,7 +2319,6 @@ private:
     void getRenderTreeExternalRepresentation(CompletionHandler<void(const String&)>&&);
     void getSelectionOrContentsAsString(CompletionHandler<void(const String&)>&&);
     void getSourceForFrame(WebCore::FrameIdentifier, CompletionHandler<void(const String&)>&&);
-    void getWebArchiveOfFrame(std::optional<WebCore::FrameIdentifier>, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
 #if PLATFORM(COCOA)
     void getWebArchiveData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& frameIdentifiers, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&&)>&&);
@@ -2555,6 +2563,8 @@ private:
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void sendMessageToWebProcessExtension(UserMessage&&);
     void sendMessageToWebProcessExtensionWithReply(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&);
+
+    void getRenderProcessInfo(CompletionHandler<void(RenderProcessInfo&&)>&&);
 #endif
 
 #if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
@@ -3192,11 +3202,7 @@ private:
     const UniqueRef<TextAnimationController> m_textAnimationController;
 #endif
 
-#if ENABLE(ASYNC_SCROLLING)
-    std::optional<TransactionID> m_pendingLocalChangeTransactionID;
-#endif
-
-    std::unique_ptr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;
+    RefPtr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;
     std::unique_ptr<FrameInfoData> m_mainFrameNavigationInitiator;
 
     mutable RefPtr<Logger> m_logger;

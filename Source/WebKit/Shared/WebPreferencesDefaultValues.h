@@ -37,7 +37,7 @@
 #if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT
 #define Webgpu_feature_status Stable
 #else
-#define Webgpu_feature_status Preview
+#define Webgpu_feature_status Unstable
 #endif
 
 #if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT && defined(HAVE_SUPPORT_HDR_DISPLAY) && HAVE_SUPPORT_HDR_DISPLAY
@@ -185,9 +185,14 @@ bool defaultIFrameResourceMonitoringEnabled();
 bool defaultPreferSpatialAudioExperience();
 #endif
 
+bool defaultRTCEncodedStreamsQuirkEnabled();
+
 bool defaultMutationEventsEnabled();
 
 bool defaultTrustedTypesEnabled();
+
+bool defaultGetBoundingClientRectZoomedEnabled();
+bool defaultFacebookLiveRecordingQuirkEnabled();
 
 #if HAVE(MATERIAL_HOSTING)
 bool defaultHostedBlurMaterialInMediaControlsEnabled();

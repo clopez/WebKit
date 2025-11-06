@@ -251,6 +251,10 @@ ISO8601::PlainDate TemporalCalendar::isoDateFromFields(JSGlobalObject* globalObj
 // https://tc39.es/proposal-temporal/#sec-temporal-balanceisodate
 ISO8601::PlainDate TemporalCalendar::balanceISODate(JSGlobalObject* globalObject, double year, double month, double day)
 {
+    // Avoid turning an out-of-range date into an in-range date
+    ASSERT(std::isfinite(year));
+    if (static_cast<int32_t>(year) == ISO8601::outOfRangeYear) [[unlikely]]
+        return ISO8601::PlainDate { ISO8601::outOfRangeYear, 1, 1 };
     auto epochDays = makeDay(year, month - 1, day);
     double ms = makeDate(epochDays, 0);
     double daysToUse = msToDays(ms);
@@ -261,7 +265,9 @@ ISO8601::PlainDate TemporalCalendar::balanceISODate(JSGlobalObject* globalObject
         return ISO8601::PlainDate { ISO8601::outOfRangeYear, 1, 1 };
     }
     auto [ y, m, d ] = globalObject->vm().dateCache.yearMonthDayFromDaysWithCache(static_cast<int32_t>(daysToUse));
-    return ISO8601::PlainDate { y, (unsigned) m + 1, (unsigned) d };
+    if (!ISO8601::isYearWithinLimits(y)) [[unlikely]]
+        return ISO8601::PlainDate { ISO8601::outOfRangeYear, static_cast<unsigned>(m + 1), static_cast<unsigned>(d) };
+    return ISO8601::PlainDate { y, static_cast<unsigned>(m + 1), static_cast<unsigned>(d) };
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal-adddurationtodate

@@ -62,7 +62,7 @@ public:
 
     Ref<RemoteNativeImageProxy> createNativeImage(const WebCore::IntSize&, WebCore::PlatformColorSpace&&, bool hasAlpha);
 
-    void recordNativeImageUse(WebCore::NativeImage&, const WebCore::DestinationColorSpace&);
+    [[nodiscard]] bool recordNativeImageUse(WebCore::NativeImage&, const WebCore::DestinationColorSpace&);
     void recordFontUse(WebCore::Font&);
     RemoteGradientIdentifier recordGradientUse(WebCore::Gradient&);
     void recordFilterUse(WebCore::Filter&);
@@ -81,6 +81,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     unsigned nativeImageCountForTesting() const { return m_nativeImages.size(); }
 

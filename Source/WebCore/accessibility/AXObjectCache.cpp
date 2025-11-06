@@ -70,6 +70,7 @@
 #include "ElementRareData.h"
 #include "EventNames.h"
 #include "FocusController.h"
+#include "FrameLoader.h"
 #include "HTMLAreaElement.h"
 #include "HTMLButtonElement.h"
 #include "HTMLCanvasElement.h"
@@ -79,7 +80,6 @@
 #include "HTMLInputElement.h"
 #include "HTMLLabelElement.h"
 #include "HTMLMapElement.h"
-#include "HTMLMediaElement.h"
 #include "HTMLMeterElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
@@ -565,6 +565,13 @@ AccessibilityObject* AXObjectCache::focusedObjectForLocalFrame()
     if (!document)
         return nullptr;
 
+    RefPtr page = document->page();
+    RefPtr focusedOrMainFrame = page ? page->focusController().focusedOrMainFrame() : nullptr;
+    if (!focusedOrMainFrame)
+        return nullptr;
+    if (focusedOrMainFrame->document() != document.get())
+        return nullptr;
+
     document->updateStyleIfNeeded();
     if (RefPtr focusedElement = document->focusedElement())
         return focusedObjectForNode(focusedElement.get());
@@ -729,7 +736,7 @@ AccessibilityObject* AXObjectCache::getOrCreateSlow(Node& node, IsPartOfRelation
 #endif
 
     bool isYouTubeReplacement = false;
-    if (CheckedPtr renderer = node.renderer()) {
+    if (CheckedPtr renderer = nodeRendererIsValid(node) ? node.renderer() : nullptr) {
         if (!renderer->isYouTubeReplacement()) [[likely]]
             return getOrCreate(*renderer);
         isYouTubeReplacement = true;
@@ -848,8 +855,14 @@ RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree()
         return nullptr;
 
     RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID);
-    if (tree)
-        return tree;
+    if (tree) {
+        if (tree->treeID() == treeID())
+            return tree;
+
+        // The tree belongs to a different document (navigation occurred). Remove the old tree and create a new one.
+        AXIsolatedTree::removeTreeForFrameID(*m_frameID);
+        tree = nullptr;
+    }
 
     // A new isolated tree needs to be created. Initialize the GeometryManager primary screen rect to be ready when needed.
     m_geometryManager->initializePrimaryScreenRect();

@@ -118,6 +118,7 @@
 #include <wtf/URLHash.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakListHashSet.h>
+#include <wtf/text/ASCIILiteral.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
@@ -141,6 +142,10 @@
 
 #if ENABLE(ROUTING_ARBITRATION)
 #include "AudioSessionRoutingArbitratorProxy.h"
+#endif
+
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+#include "WasmDebuggerDispatcherMessages.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -303,10 +308,11 @@ Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType wo
 WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* websiteDataStore, IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode, LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity)
     : AuxiliaryProcessProxy(processPool.shouldTakeUIBackgroundAssertion() ? ShouldTakeUIBackgroundAssertion::Yes : ShouldTakeUIBackgroundAssertion::No
     , processPool.alwaysRunsAtBackgroundPriority() ? AlwaysRunsAtBackgroundPriority::Yes : AlwaysRunsAtBackgroundPriority::No)
-    , m_backgroundResponsivenessTimer(*this)
+    , m_backgroundResponsivenessTimer(makeUniqueRef<BackgroundProcessResponsivenessTimer>(*this))
     , m_processPool(processPool, isPrewarmed == IsPrewarmed::Yes ? IsWeak::Yes : IsWeak::No)
-    , m_mayHaveUniversalFileReadSandboxExtension(false)
-    , m_numberOfTimesSuddenTerminationWasDisabled(0)
+#if HAVE(DISPLAY_LINK)
+    , m_displayLinkClient(makeUniqueRef<DisplayLinkProcessProxyClient>())
+#endif
     , m_isResponsive(NoOrMaybe::Maybe)
     , m_visiblePageCounter([this](RefCounterEvent) { updateBackgroundResponsivenessTimer(); })
     , m_websiteDataStore(websiteDataStore)
@@ -327,6 +333,14 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
     WebPasteboardProxy::singleton().addWebProcessProxy(*this);
 
     platformInitialize();
+
+#if PLATFORM(COCOA)
+    static bool registeredObservers;
+    if (!registeredObservers) {
+        registeredObservers = true;
+        registerNotifyObservers();
+    }
+#endif
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -361,7 +375,7 @@ WebProcessProxy::~WebProcessProxy()
 
 #if HAVE(DISPLAY_LINK)
     if (RefPtr<WebProcessPool> processPool = m_processPool.get())
-        processPool->displayLinks().stopDisplayLinks(m_displayLinkClient);
+        processPool->displayLinks().stopDisplayLinks(m_displayLinkClient.get());
 #endif
 
     auto isResponsiveCallbacks = WTFMove(m_isResponsiveCallbacks);
@@ -644,7 +658,7 @@ void WebProcessProxy::connectionWillOpen(IPC::Connection& connection)
     connection.setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
 
 #if HAVE(DISPLAY_LINK)
-    m_displayLinkClient.setConnection(&connection);
+    m_displayLinkClient->setConnection(&connection);
 #endif
 }
 
@@ -654,8 +668,8 @@ void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
     ASSERT_UNUSED(connection, &this->connection() == &connection);
 
 #if HAVE(DISPLAY_LINK)
-    m_displayLinkClient.setConnection(nullptr);
-    Ref<WebProcessPool> { processPool() }->displayLinks().stopDisplayLinks(m_displayLinkClient);
+    m_displayLinkClient->setConnection(nullptr);
+    Ref<WebProcessPool> { processPool() }->displayLinks().stopDisplayLinks(m_displayLinkClient.get());
 #endif
 }
 
@@ -668,22 +682,22 @@ std::optional<unsigned> WebProcessProxy::nominalFramesPerSecondForDisplay(WebCor
 void WebProcessProxy::startDisplayLink(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    protectedProcessPool()->displayLinks().startDisplayLink(m_displayLinkClient, observerID, displayID, preferredFramesPerSecond);
+    protectedProcessPool()->displayLinks().startDisplayLink(m_displayLinkClient.get(), observerID, displayID, preferredFramesPerSecond);
 }
 
 void WebProcessProxy::stopDisplayLink(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID)
 {
-    protectedProcessPool()->displayLinks().stopDisplayLink(m_displayLinkClient, observerID, displayID);
+    protectedProcessPool()->displayLinks().stopDisplayLink(m_displayLinkClient.get(), observerID, displayID);
 }
 
 void WebProcessProxy::setDisplayLinkPreferredFramesPerSecond(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
 {
-    protectedProcessPool()->displayLinks().setDisplayLinkPreferredFramesPerSecond(m_displayLinkClient, observerID, displayID, preferredFramesPerSecond);
+    protectedProcessPool()->displayLinks().setDisplayLinkPreferredFramesPerSecond(m_displayLinkClient.get(), observerID, displayID, preferredFramesPerSecond);
 }
 
 void WebProcessProxy::setDisplayLinkForDisplayWantsFullSpeedUpdates(WebCore::PlatformDisplayID displayID, bool wantsFullSpeedUpdates)
 {
-    protectedProcessPool()->displayLinks().setDisplayLinkForDisplayWantsFullSpeedUpdates(m_displayLinkClient, displayID, wantsFullSpeedUpdates);
+    protectedProcessPool()->displayLinks().setDisplayLinkForDisplayWantsFullSpeedUpdates(m_displayLinkClient.get(), displayID, wantsFullSpeedUpdates);
 }
 #endif
 
@@ -699,7 +713,12 @@ void WebProcessProxy::shutDown()
 
     shutDownProcess();
 
-    m_backgroundResponsivenessTimer.invalidate();
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    if (JSC::Options::enableWasmDebugger()) [[unlikely]]
+        destroyWasmDebuggerTarget();
+#endif
+
+    m_backgroundResponsivenessTimer->invalidate();
     m_audibleMediaActivity = std::nullopt;
     m_mediaStreamingActivity = std::nullopt;
     m_foregroundToken = nullptr;
@@ -1424,7 +1443,12 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #endif
 
     protectedProcessPool()->processDidFinishLaunching(*this);
-    m_backgroundResponsivenessTimer.updateState();
+    m_backgroundResponsivenessTimer->updateState();
+
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    if (JSC::Options::enableWasmDebugger()) [[unlikely]]
+        createWasmDebuggerTarget();
+#endif
 
 #if ENABLE(IPC_TESTING_API)
     if (m_ignoreInvalidMessageForTesting)
@@ -1539,7 +1563,7 @@ void WebProcessProxy::consumeIfNotVerifiablyFromUIProcess(PageIdentifier pageID,
 
 bool WebProcessProxy::isResponsive() const
 {
-    return responsivenessTimer().isResponsive() && m_backgroundResponsivenessTimer.isResponsive();
+    return responsivenessTimer().isResponsive() && m_backgroundResponsivenessTimer->isResponsive();
 }
 
 void WebProcessProxy::didDestroyUserGestureToken(PageIdentifier pageID, UserGestureTokenIdentifier identifier)
@@ -1597,7 +1621,7 @@ bool WebProcessProxy::canTerminateAuxiliaryProcess()
         || !m_provisionalPages.isEmptyIgnoringNullReferences()
         || m_isInProcessCache
         || m_shutdownPreventingScopeCounter.value()) {
-        WEBPROCESSPROXY_RELEASE_LOG(Process, "canTerminateAuxiliaryProcess: returns false (pageCount=%u, provisionalPageCount=%u, suspendedPageCount=%u, m_isInProcessCache=%d, m_shutdownPreventingScopeCounter=%lu)", m_pageMap.size(), m_provisionalPages.computeSize(), m_suspendedPages.computeSize(), m_isInProcessCache, m_shutdownPreventingScopeCounter.value());
+        WEBPROCESSPROXY_RELEASE_LOG(Process, "canTerminateAuxiliaryProcess: returns false (pageCount=%u, remotePageCount=%u, provisionalPageCount=%u, suspendedPageCount=%u, m_isInProcessCache=%d, m_shutdownPreventingScopeCounter=%lu)", m_pageMap.size(), m_remotePages.computeSize(), m_provisionalPages.computeSize(), m_suspendedPages.computeSize(), m_isInProcessCache, m_shutdownPreventingScopeCounter.value());
         return false;
     }
 
@@ -1890,12 +1914,12 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
     }
 
     ASSERT(!m_backgroundToken || !m_foregroundToken);
-    m_backgroundResponsivenessTimer.updateState();
+    m_backgroundResponsivenessTimer->updateState();
 }
 
 void WebProcessProxy::didDropLastAssertion()
 {
-    m_backgroundResponsivenessTimer.updateState();
+    m_backgroundResponsivenessTimer->updateState();
     updateRuntimeStatistics();
 }
 
@@ -2044,13 +2068,13 @@ bool WebProcessProxy::isJITEnabled() const
 
 void WebProcessProxy::didReceiveBackgroundResponsivenessPing()
 {
-    m_backgroundResponsivenessTimer.didReceiveBackgroundResponsivenessPong();
+    m_backgroundResponsivenessTimer->didReceiveBackgroundResponsivenessPong();
 }
 
 void WebProcessProxy::processTerminated()
 {
     WEBPROCESSPROXY_RELEASE_LOG(Process, "processTerminated:");
-    m_backgroundResponsivenessTimer.processTerminated();
+    m_backgroundResponsivenessTimer->processTerminated();
 }
 
 void WebProcessProxy::logDiagnosticMessageForResourceLimitTermination(const String& limitKey)
@@ -2164,7 +2188,7 @@ void WebProcessProxy::didExceedCPULimit()
 
 void WebProcessProxy::updateBackgroundResponsivenessTimer()
 {
-    m_backgroundResponsivenessTimer.updateState();
+    m_backgroundResponsivenessTimer->updateState();
 }
 
 #if !PLATFORM(COCOA)
@@ -3129,6 +3153,93 @@ void WebProcessProxy::didPostLegacySynchronousMessage(WebPageProxyIdentifier pag
 {
     didPostMessage(pageID, identifier, WTFMove(frameInfo), handlerID, WTFMove(message), WTFMove(completionHandler));
 }
+
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+
+void WebProcessProxy::createWasmDebuggerTarget()
+{
+    ASSERT(!m_wasmDebuggerDebuggable);
+    m_wasmDebuggerDebuggable = WasmDebuggerDebuggable::create(*this);
+    RefPtr debuggable = m_wasmDebuggerDebuggable;
+    debuggable->setInspectable(true);
+    debuggable->init();
+}
+
+void WebProcessProxy::destroyWasmDebuggerTarget()
+{
+    if (RefPtr debuggable = m_wasmDebuggerDebuggable) {
+        debuggable->detachFromProcess();
+        m_wasmDebuggerDebuggable = nullptr;
+    }
+}
+
+void WebProcessProxy::connectWasmDebuggerTarget(bool isAutomaticConnection, bool immediatelyPause)
+{
+    // Called by RWI framework when a frontend connects to this WebAssembly debug target.
+    //
+    // This is intentionally a no-op because the WasmDebugServer has process-lifetime semantics:
+    // - Server starts when WebContent process launches (if JSC::Options::enableWasmDebugger() flag is set)
+    // - Server is always "ready" to receive debug packets once started
+    // - No per-connection lifecycle management needed
+    //
+    // This differs from WebPageDebuggable which forwards to WebPageInspectorController
+    // because web page debugging has per-page state and connection lifecycle.
+    UNUSED_PARAM(isAutomaticConnection);
+    UNUSED_PARAM(immediatelyPause);
+}
+
+void WebProcessProxy::disconnectWasmDebuggerTarget()
+{
+    // Called by RWI framework when a frontend disconnects from this WebAssembly debug target.
+    //
+    // This is intentionally a no-op because the WasmDebugServer continues running for
+    // the entire process lifetime. When the frontend disconnects, we simply stop receiving
+    // debug packets - no cleanup or state changes needed in the server.
+}
+
+void WebProcessProxy::dispatchWasmDebuggerMessage(const String& message)
+{
+    RefPtr debuggable = m_wasmDebuggerDebuggable;
+    if (!debuggable) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Inspector, "dispatchWasmDebuggerMessage: Cannot dispatch message - no WebAssembly debug target");
+        return;
+    }
+
+    if (canSendMessage())
+        send(Messages::WasmDebuggerDispatcher::DispatchMessage(message), 0);
+}
+
+void WebProcessProxy::setWasmDebuggerTargetIndicating(bool indicating)
+{
+    // Called by RWI framework to show/hide visual indication when debugging is active.
+    //
+    // This is intentionally a no-op because WebAssembly debugging has no visual indication.
+    // Unlike web page debugging (which shows a blue overlay when Web Inspector is attached),
+    // Wasm debugging is purely backend/protocol-level with no UI indication needed.
+    UNUSED_PARAM(indicating);
+}
+
+void WebProcessProxy::sendWasmDebuggerResponse(const String& response)
+{
+    RefPtr debuggable = m_wasmDebuggerDebuggable;
+    if (!debuggable) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Inspector, "sendWasmDebuggerResponse: Cannot send response - no WebAssembly debug target");
+        return;
+    }
+
+    debuggable->sendResponseToFrontend(response);
+}
+
+#if ENABLE(IPC_TESTING_API)
+void WebProcessProxy::takeInvalidMessageStringForTesting(CompletionHandler<void(String&&)>&& callback)
+{
+    ASCIILiteral error = protectedConnection()->takeErrorString();
+    String errorString = !error.isNull() ? String::fromUTF8(error) : emptyString();
+    callback(WTFMove(errorString));
+}
+#endif
+
+#endif // ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
 
 } // namespace WebKit
 

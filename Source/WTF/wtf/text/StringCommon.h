@@ -27,6 +27,7 @@
 #pragma once
 
 #include <algorithm>
+#include <concepts>
 #include <unicode/uchar.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Float16.h>
@@ -246,24 +247,24 @@ ALWAYS_INLINE bool equal(const Latin1Character* a, std::span<const Latin1Charact
     ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
     unsigned length = b.size();
 
-    const char* a = byteCast<char>(a);
-    const char* b = byteCast<char>(b.data());
+    const char* aString = byteCast<char>(a);
+    const char* bString = byteCast<char>(b.data());
 
     unsigned wordLength = length >> 2;
     for (unsigned i = 0; i != wordLength; ++i) {
-        if (unalignedLoad<uint32_t>(a) != unalignedLoad<uint32_t>(b))
+        if (unalignedLoad<uint32_t>(aString) != unalignedLoad<uint32_t>(bString))
             return false;
-        a += sizeof(uint32_t);
-        b += sizeof(uint32_t);
+        aString += sizeof(uint32_t);
+        bString += sizeof(uint32_t);
     }
 
     length &= 3;
 
     if (length) {
-        const Latin1Character* aRemainder = byteCast<Latin1Character>(a);
-        const Latin1Character* bRemainder = byteCast<Latin1Character>(b);
+        const Latin1Character* aRemainder = byteCast<Latin1Character>(aString);
+        const Latin1Character* bRemainder = byteCast<Latin1Character>(bString);
 
-        for (unsigned i = 0; i <  length; ++i) {
+        for (unsigned i = 0; i < length; ++i) {
             if (aRemainder[i] != bRemainder[i])
                 return false;
         }
@@ -277,18 +278,18 @@ ALWAYS_INLINE bool equal(const char16_t* a, std::span<const char16_t> b)
     ASSERT(b.size() <= std::numeric_limits<unsigned>::max());
     unsigned length = b.size();
 
-    const char* a = reinterpret_cast<const char*>(a);
-    const char* b = reinterpret_cast<const char*>(b.data());
+    const char* aString = reinterpret_cast<const char*>(a);
+    const char* bString = reinterpret_cast<const char*>(b.data());
 
     unsigned wordLength = length >> 1;
     for (unsigned i = 0; i != wordLength; ++i) {
-        if (unalignedLoad<uint32_t>(a) != unalignedLoad<uint32_t>(b))
+        if (unalignedLoad<uint32_t>(aString) != unalignedLoad<uint32_t>(bString))
             return false;
-        a += sizeof(uint32_t);
-        b += sizeof(uint32_t);
+        aString += sizeof(uint32_t);
+        bString += sizeof(uint32_t);
     }
 
-    if (length & 1 && *reinterpret_cast<const char16_t*>(a) != *reinterpret_cast<const char16_t*>(b))
+    if (length & 1 && *reinterpret_cast<const char16_t*>(aString) != *reinterpret_cast<const char16_t*>(bString))
         return false;
 
     return true;
@@ -689,7 +690,8 @@ ALWAYS_INLINE const char16_t* find16NonASCII(std::span<const char16_t> data)
 }
 #endif
 
-template<typename CharacterType1, typename CharacterType2, std::enable_if_t<std::is_integral_v<CharacterType1> && std::is_integral_v<CharacterType2> && sizeof(CharacterType1) == sizeof(CharacterType2)>* = nullptr>
+template<std::integral CharacterType1, std::integral CharacterType2>
+    requires (sizeof(CharacterType1) == sizeof(CharacterType2))
 inline size_t find(std::span<const CharacterType1> characters, CharacterType2 matchCharacter, size_t index = 0)
 {
     if constexpr (sizeof(CharacterType1) == 1) {
@@ -732,7 +734,7 @@ inline size_t find(std::span<const Latin1Character> characters, char16_t matchCh
     return find(characters, static_cast<Latin1Character>(matchCharacter), index);
 }
 
-template<typename CharacterType1, typename CharacterType2, std::enable_if_t<std::is_integral_v<CharacterType1> && std::is_integral_v<CharacterType2>>* = nullptr>
+template<std::integral CharacterType1, std::integral CharacterType2>
 inline bool contains(std::span<const CharacterType1> characters, CharacterType2 matchCharacter, size_t index = 0)
 {
     return find(characters, matchCharacter, index) != notFound;

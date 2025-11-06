@@ -40,6 +40,7 @@ class RenderBlock;
 class RenderStyle;
 class RenderTreeBuilder;
 class StyleImage;
+struct ImageOrientation;
 
 struct MarginRect {
     LayoutRect marginRect;
@@ -332,7 +333,7 @@ public:
     bool isFixedPositioned() const { return isOutOfFlowPositioned() && style().position() == PositionType::Fixed; }
     bool isAbsolutelyPositioned() const { return isOutOfFlowPositioned() && style().position() == PositionType::Absolute; }
 
-    bool isViewTransitionContainer() const { return style().pseudoElementType() == PseudoId::ViewTransition || style().pseudoElementType() == PseudoId::ViewTransitionGroup || style().pseudoElementType() == PseudoId::ViewTransitionImagePair; }
+    bool isViewTransitionContainer() const { return style().pseudoElementType() == PseudoElementType::ViewTransition || style().pseudoElementType() == PseudoElementType::ViewTransitionGroup || style().pseudoElementType() == PseudoElementType::ViewTransitionImagePair; }
     bool isViewTransitionPseudo() const { return isRenderViewTransitionCapture() || isViewTransitionContainer(); }
 
     inline bool hasPotentiallyScrollableOverflow() const;
@@ -440,7 +441,7 @@ private:
     void updateReferencedSVGResources();
     void clearReferencedSVGResources();
 
-    const RenderStyle* textSegmentPseudoStyle(PseudoId) const;
+    const RenderStyle* textSegmentPseudoStyle(PseudoElementType) const;
 
     SingleThreadPackedWeakPtr<RenderObject> m_firstChild;
     unsigned m_hasInitializedStyle : 1;

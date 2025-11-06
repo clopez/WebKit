@@ -161,6 +161,9 @@ ProvisionalPageProxy::~ProvisionalPageProxy()
 #endif
 
     Ref process = this->process();
+    if (RefPtr drawingArea = m_drawingArea)
+        drawingArea->stopReceivingMessages(process);
+
     if (!m_wasCommitted && m_page) {
         Ref page = *m_page;
         page->inspectorController().willDestroyProvisionalPage(*this);
@@ -206,6 +209,8 @@ void ProvisionalPageProxy::processDidTerminate()
 
 RefPtr<DrawingAreaProxy> ProvisionalPageProxy::takeDrawingArea()
 {
+    if (RefPtr drawingArea = m_drawingArea)
+        drawingArea->stopReceivingMessages(protectedProcess());
     return WTFMove(m_drawingArea);
 }
 
@@ -251,10 +256,12 @@ void ProvisionalPageProxy::cancel()
 void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& websitePolicies)
 {
     Ref page = *m_page;
-    RefPtr drawingArea = page->protectedPageClient()->createDrawingAreaProxy(protectedProcess());
-    m_drawingArea = drawingArea.copyRef();
     Ref process = this->process();
     Ref preferences = page->preferences();
+
+    RefPtr drawingArea = page->protectedPageClient()->createDrawingAreaProxy(process);
+    drawingArea->startReceivingMessages(process);
+    m_drawingArea = drawingArea.copyRef();
 
     bool registerWithInspectorController { true };
     if (websitePolicies)
@@ -638,22 +645,13 @@ void ProvisionalPageProxy::bindAccessibilityTree(const String& plugID)
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
-void ProvisionalPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
+void ProvisionalPageProxy::contentFilterDidBlockLoadForFrame(IPC::Connection& connection, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
 {
     RefPtr page = m_page.get();
     if (!page)
         return;
 
-#if HAVE(PARENTAL_CONTROLS_WITH_UNBLOCK_HANDLER)
-    bool usesWebContentRestrictions = false;
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    usesWebContentRestrictions = page->protectedPreferences()->usesWebContentRestrictionsForFilter();
-#endif
-    if (usesWebContentRestrictions)
-        MESSAGE_CHECK(unblockHandler.webFilterEvaluatorData().isEmpty());
-#endif
-
-    page->contentFilterDidBlockLoadForFrameShared(protectedProcess(), unblockHandler, frameID);
+    page->contentFilterDidBlockLoadForFrameShared(connection, unblockHandler, frameID);
 }
 #endif
 

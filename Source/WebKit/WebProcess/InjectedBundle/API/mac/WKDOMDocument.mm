@@ -45,7 +45,7 @@
 - (instancetype)initWithDocument:(std::reference_wrapper<WebCore::Document>)document
 {
     if (self = [super init])
-        _token = document.get().createParserYieldToken();
+        _token = Ref { document.get() }->createParserYieldToken();
     return self;
 }
 
@@ -69,7 +69,7 @@
 
 - (WKDOMElement *)body
 {
-    return WebKit::toWKDOMElement(downcast<WebCore::Document>(*_impl).bodyOrFrameset());
+    return WebKit::toWKDOMElement(downcast<WebCore::Document>(*_impl).protectedBodyOrFrameset().get());
 }
 
 - (WKDOMNode *)createDocumentFragmentWithMarkupString:(NSString *)markupString baseURL:(NSURL *)baseURL

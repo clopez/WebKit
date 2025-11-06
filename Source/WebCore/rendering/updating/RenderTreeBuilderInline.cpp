@@ -36,6 +36,7 @@
 #include "RenderTreeBuilderBlock.h"
 #include "RenderTreeBuilderMultiColumn.h"
 #include "RenderTreeBuilderTable.h"
+#include "Settings.h"
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -106,6 +107,7 @@ static RenderElement* inFlowPositionedInlineAncestor(RenderElement& renderer)
 
 RenderTreeBuilder::Inline::Inline(RenderTreeBuilder& builder)
     : m_builder(builder)
+    , m_buildsContinuations(!builder.view().settings().blocksInInlineLayoutEnabled())
 {
 }
 
@@ -123,6 +125,8 @@ void RenderTreeBuilder::Inline::attach(RenderInline& parent, RenderPtr<RenderObj
 
 void RenderTreeBuilder::Inline::insertChildToContinuation(RenderInline& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild)
 {
+    ASSERT(m_buildsContinuations);
+
     if (!beforeChild) {
         auto& parentCandidate = parentCandidateInContinuation(parent, { });
         auto* lastContinuation = nextContinuation(&parentCandidate);
@@ -186,7 +190,7 @@ void RenderTreeBuilder::Inline::attachIgnoringContinuation(RenderInline& parent,
 
     bool childInline = newChildIsInline(parent, *child);
     // This code is for the old block-inside-inline model that uses continuations.
-    if (!childInline && !child->isFloatingOrOutOfFlowPositioned()) {
+    if (m_buildsContinuations && !childInline && !child->isFloatingOrOutOfFlowPositioned()) {
         // We are placing a block inside an inline. We have to perform a split of this
         // inline into continuations. This involves creating an anonymous block box to hold
         // |newChild|. We then make that block box a continuation of this inline. We take all of
@@ -217,6 +221,7 @@ void RenderTreeBuilder::Inline::attachIgnoringContinuation(RenderInline& parent,
 
 void RenderTreeBuilder::Inline::splitFlow(RenderInline& parent, RenderObject* beforeChild, RenderPtr<RenderBlock> newBlockBox, RenderPtr<RenderObject> child, RenderBoxModelObject* oldCont)
 {
+    ASSERT(m_buildsContinuations);
     ASSERT(newBlockBox);
     auto& addedBlockBox = *newBlockBox;
     RenderBlock* pre = nullptr;
@@ -295,6 +300,7 @@ void RenderTreeBuilder::Inline::splitFlow(RenderInline& parent, RenderObject* be
 
 void RenderTreeBuilder::Inline::splitInlines(RenderInline& parent, RenderBlock* fromBlock, RenderBlock* toBlock, RenderBlock* middleBlock, RenderObject* beforeChild, RenderBoxModelObject* oldCont)
 {
+    ASSERT(m_buildsContinuations);
     auto internalMoveScope = SetForScope { m_builder.m_internalMovesType, IsInternalMove::Yes };
     // Create a clone of this inline.
     RenderPtr<RenderInline> cloneInline = cloneAsContinuation(parent);
@@ -410,6 +416,9 @@ bool RenderTreeBuilder::Inline::newChildIsInline(const RenderInline& parent, con
 
 void RenderTreeBuilder::Inline::childBecameNonInline(RenderInline& parent, RenderElement& child)
 {
+    if (!m_buildsContinuations)
+        return;
+
     // We have to split the parent flow.
     auto newBox = Block::createAnonymousBlockWithStyle(parent.containingBlock()->protectedDocument(), parent.containingBlock()->style());
     newBox->setIsContinuation();
@@ -420,6 +429,63 @@ void RenderTreeBuilder::Inline::childBecameNonInline(RenderInline& parent, Rende
     auto* beforeChild = child.nextSibling();
     auto removedChild = m_builder.detachFromRenderElement(parent, child, WillBeDestroyed::No);
     splitFlow(parent, beforeChild, WTFMove(newBox), WTFMove(removedChild), oldContinuation);
+}
+
+void RenderTreeBuilder::Inline::updateAfterDescendants(RenderInline& parent)
+{
+    if (m_buildsContinuations)
+        return;
+    wrapRunsOfBlocksInAnonymousBlock(parent);
+}
+
+void RenderTreeBuilder::Inline::wrapRunsOfBlocksInAnonymousBlock(RenderInline& parent)
+{
+    // Wrap runs of block boxes with an anonymous block so their margins collapse correctly for blocks-in-inline.
+    ASSERT(!m_buildsContinuations);
+
+    auto dropNestedAnonymousBlocks = [&](CheckedRef<RenderBlock> anonymousBlock) {
+        ASSERT(anonymousBlock->isAnonymousBlock());
+        SingleThreadWeakPtr<RenderObject> nextChild;
+        for (SingleThreadWeakPtr<RenderObject> movedChild = anonymousBlock->firstChild(); movedChild; movedChild = nextChild) {
+            nextChild = movedChild->nextSibling();
+            auto blockChild = dynamicDowncast<RenderBlockFlow>(movedChild.get());
+            if (blockChild && blockChild->isAnonymousBlock() && !blockChild->childrenInline())
+                m_builder.blockBuilder().dropAnonymousBoxChild(anonymousBlock, *blockChild);
+        }
+    };
+
+    SingleThreadWeakPtr<RenderBlock> firstInRun;
+    SingleThreadWeakPtr<RenderBlock> lastInRun;
+
+    auto wrapInAnonymousBlockIfNeeded = [&] {
+        // Only wrap if there are multiple consecutive blocks.
+        if (firstInRun == lastInRun)
+            return;
+
+        auto newBlock = Block::createAnonymousBlockWithStyle(parent.protectedDocument(), parent.style());
+        newBlock->setChildrenInline(false);
+        CheckedRef block = *newBlock;
+        m_builder.attachToRenderElementInternal(parent, WTFMove(newBlock), firstInRun.get());
+        m_builder.moveChildren(parent, block, firstInRun.get(), lastInRun->nextSibling(), RenderTreeBuilder::NormalizeAfterInsertion::No);
+
+        // We might have wrapped existing anonymous blocks and they are now nested. Get rid of them,
+        dropNestedAnonymousBlocks(block);
+    };
+
+    for (CheckedPtr child = parent.firstChild() ; child; child = child->nextSibling()) {
+        if (child->isInline()) {
+            wrapInAnonymousBlockIfNeeded();
+            firstInRun = nullptr;
+            lastInRun = nullptr;
+            continue;
+        }
+        if (auto* blockChild = dynamicDowncast<RenderBlock>(*child)) {
+            if (!firstInRun)
+                firstInRun = blockChild;
+            lastInRun = blockChild;
+        }
+    }
+    wrapInAnonymousBlockIfNeeded();
 }
 
 }

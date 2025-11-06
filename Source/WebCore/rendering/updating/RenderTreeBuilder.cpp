@@ -999,6 +999,8 @@ void RenderTreeBuilder::updateAfterDescendants(RenderElement& renderer)
         listBuilder().updateItemMarker(*listItem);
     if (auto* blockFlow = dynamicDowncast<RenderBlockFlow>(renderer))
         multiColumnBuilder().updateAfterDescendants(*blockFlow);
+    if (auto* inlineRenderer = dynamicDowncast<RenderInline>(renderer))
+        inlineBuilder().updateAfterDescendants(*inlineRenderer);
 }
 
 RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderGrid(RenderGrid& parent, RenderObject& child, WillBeDestroyed willBeDestroyed)
@@ -1107,7 +1109,7 @@ void RenderTreeBuilder::reportVisuallyNonEmptyContent(const RenderElement& paren
             auto fixedHeight = style.height().tryFixed();
             if (!fixedWidth || !fixedHeight)
                 return { };
-            return std::make_optional(IntSize { static_cast<int>(fixedWidth->resolveZoom(Style::ZoomNeeded { })), static_cast<int>(fixedHeight->resolveZoom(Style::ZoomNeeded { })) });
+            return std::make_optional(IntSize { static_cast<int>(fixedWidth->resolveZoom(style.usedZoomForLength())), static_cast<int>(fixedHeight->resolveZoom(style.usedZoomForLength())) });
         };
         // SVG content tends to have a fixed size construct. However this is known to be inaccurate in certain cases (box-sizing: border-box) or especially when the parent box is oversized.
         auto candidateSize = IntSize { };

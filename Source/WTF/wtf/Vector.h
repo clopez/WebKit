@@ -38,6 +38,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/NotFound.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/SwiftBridging.h>
 #include <wtf/ValueCheck.h>
 #include <wtf/VectorTraits.h>
 
@@ -871,6 +872,7 @@ public:
     Vector<std::invoke_result_t<MapFunction, const T&>> map(NOESCAPE const MapFunction&) const;
 
     bool isHashTableDeletedValue() const { return m_size == std::numeric_limits<decltype(m_size)>::max(); }
+    static constexpr bool safeToCompareToHashTableEmptyOrDeletedValue = true;
 
 private:
     void unsafeAppendWithoutCapacityCheck(value_type&& value) { unsafeAppendWithoutCapacityCheck<value_type>(std::forward<value_type>(value)); }
@@ -936,7 +938,7 @@ private:
 #if ASAN_ENABLED
     using Base::endOfBuffer;
 #endif
-};
+} SWIFT_ESCAPABLE_IF(T);
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
 Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(const Vector& other)
@@ -1855,6 +1857,13 @@ struct CompactMapTraits<RefPtr<T>> {
 };
 
 template<typename T>
+struct CompactMapTraits<CheckedPtr<T>> {
+    using ItemType = CheckedRef<T>;
+    static bool hasValue(const CheckedPtr<T>& returnValue) { return !!returnValue; }
+    static ItemType extractValue(CheckedPtr<T>&& returnValue) { return returnValue.releaseNonNull(); }
+};
+
+template<typename T>
 struct CompactMapTraits<RetainPtr<T>> {
     using ItemType = RetainPtr<T>;
     static bool hasValue(const RetainPtr<T>& returnValue) { return !!returnValue; }
@@ -1878,7 +1887,8 @@ struct CompactMapper {
 };
 
 template<typename MapFunction, typename DestinationVectorType, typename SourceType>
-struct CompactMapper<MapFunction, DestinationVectorType, SourceType, typename std::enable_if<std::is_rvalue_reference<SourceType&&>::value>::type> {
+    requires (std::is_rvalue_reference_v<SourceType&&>)
+struct CompactMapper<MapFunction, DestinationVectorType, SourceType> {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
     using ResultItemType = typename std::invoke_result<MapFunction, SourceItemType&&>::type;
 
@@ -1936,7 +1946,8 @@ struct FlatMapper {
     }
 };
 
-template<typename MapFunction, typename SourceType> requires std::is_rvalue_reference<SourceType&&>::value
+template<typename MapFunction, typename SourceType>
+    requires (std::is_rvalue_reference_v<SourceType&&>)
 struct FlatMapper<MapFunction, SourceType> {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
     using DestinationItemType = typename CollectionInspector<typename std::invoke_result<MapFunction, SourceItemType&&>::type>::SourceItemType;

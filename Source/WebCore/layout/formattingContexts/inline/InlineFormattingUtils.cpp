@@ -37,6 +37,7 @@
 #include "LayoutElementBox.h"
 #include "RenderStyleInlines.h"
 #include "RubyFormattingContext.h"
+#include <ranges>
 
 namespace WebCore {
 namespace Layout {
@@ -54,7 +55,7 @@ InlineLayoutUnit InlineFormattingUtils::logicalTopForNextLine(const LineLayoutRe
         // with the clear property set, the next line needs to clear the existing floats.
         if (!lineLayoutResult.hasInlineContent())
             return lineLogicalRect.bottom();
-        auto& lastRunLayoutBox = lineLayoutResult.inlineAndOpaqueContent.last().layoutBox();
+        auto& lastRunLayoutBox = lineLayoutResult.runs.last().layoutBox();
         if (!lastRunLayoutBox.hasFloatClear() || lastRunLayoutBox.isOutOfFlowPositioned())
             return lineLogicalRect.bottom();
         auto blockAxisPositionWithClearance = floatingContext.blockAxisPositionWithClearance(lastRunLayoutBox, formattingContext().geometryForBox(lastRunLayoutBox));
@@ -66,7 +67,7 @@ InlineLayoutUnit InlineFormattingUtils::logicalTopForNextLine(const LineLayoutRe
     auto intrusiveFloatBottom = [&]() -> std::optional<InlineLayoutUnit> {
         // Floats must have prevented us placing any content on the line.
         // Move next line below the intrusive float(s).
-        ASSERT(!lineLayoutResult.hasInlineContent() || lineLayoutResult.inlineAndOpaqueContent[0].isLineSpanningInlineBoxStart());
+        ASSERT(!lineLayoutResult.hasInlineContent() || lineLayoutResult.runs[0].isLineSpanningInlineBoxStart());
         auto nextLineLogicalTop = [&]() -> LayoutUnit {
             if (auto nextLineLogicalTopCandidate = lineLayoutResult.hintForNextLineTopToAvoidIntrusiveFloat)
                 return LayoutUnit { *nextLineLogicalTopCandidate };
@@ -303,7 +304,7 @@ InlineItemPosition InlineFormattingUtils::leadingInlineItemPositionForNextLine(I
 
 InlineLayoutUnit InlineFormattingUtils::inlineItemWidth(const InlineItem& inlineItem, InlineLayoutUnit contentLogicalLeft, bool useFirstLineStyle) const
 {
-    ASSERT(inlineItem.layoutBox().isInlineLevelBox());
+    ASSERT(inlineItem.layoutBox().isInlineLevelBox() || inlineItem.isBlock());
     if (auto* inlineTextItem = dynamicDowncast<InlineTextItem>(inlineItem)) {
         if (auto contentWidth = inlineTextItem->width())
             return *contentWidth;
@@ -330,6 +331,9 @@ InlineLayoutUnit InlineFormattingUtils::inlineItemWidth(const InlineItem& inline
 
     if (inlineItem.isOpaque())
         return { };
+
+    if (inlineItem.isBlock())
+        return boxGeometry.marginBoxWidth();
 
     // Non-replaced inline box (e.g. inline-block)
     return boxGeometry.marginBoxWidth();
@@ -484,6 +488,11 @@ size_t InlineFormattingUtils::nextWrapOpportunity(size_t startIndex, const Inlin
             // This item is invisible to line breaking. Need to pretend it's not here.
             continue;
         }
+        if (currentItem.isBlock()) {
+            // Let's break before and after a block level box.
+            auto wrappingPosition = index == startIndex ? std::min(index + 1, layoutRange.endIndex()) : index;
+            return wrappingPosition;
+        }
         ASSERT(currentItem.isText() || currentItem.isAtomicInlineBox() || currentItem.isFloat() || currentItem.layoutBox().isRubyInlineBox());
         if (currentItem.isFloat()) {
             // While floats are not part of the inline content and they are not supposed to introduce soft wrap opportunities,
@@ -603,7 +612,7 @@ LineEndingTruncationPolicy InlineFormattingUtils::lineEndingTruncationPolicy(con
 
 std::optional<LineLayoutResult::InlineContentEnding> InlineFormattingUtils::inlineContentEnding(const Line::Result& lineContent)
 {
-    for (auto& run : makeReversedRange(lineContent.runs)) {
+    for (auto& run : lineContent.runs | std::views::reverse) {
         if (run.isOpaque())
             continue;
 

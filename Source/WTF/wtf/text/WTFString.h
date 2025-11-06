@@ -69,6 +69,9 @@ public:
     WTF_EXPORT_PRIVATE String(std::span<const char> characters);
     ALWAYS_INLINE static String fromLatin1(const char* characters) { return String { characters }; }
 
+    // Construct a string with UTF-8 data, null string if it contains invalid UTF-8 sequences.
+    WTF_EXPORT_PRIVATE String(std::span<const char8_t>);
+
     // Construct a string referencing an existing StringImpl.
     String(StringImpl&);
     String(StringImpl*);
@@ -153,7 +156,8 @@ public:
     size_t findIgnoringASCIICase(StringView) const;
     size_t findIgnoringASCIICase(StringView, unsigned start) const;
 
-    template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, char16_t>>* = nullptr>
+    template<typename CodeUnitMatchFunction>
+        requires (std::is_invocable_r_v<bool, CodeUnitMatchFunction, char16_t>)
     size_t find(CodeUnitMatchFunction matchFunction, unsigned start = 0) const { return m_impl ? m_impl->find(matchFunction, start) : notFound; }
     size_t find(ASCIILiteral literal, unsigned start = 0) const { return m_impl ? m_impl->find(literal, start) : notFound; }
 
@@ -170,7 +174,8 @@ public:
     bool contains(char16_t character) const { return find(character) != notFound; }
     bool contains(ASCIILiteral literal) const { return find(literal) != notFound; }
     bool contains(StringView) const;
-    template<typename CodeUnitMatchFunction, std::enable_if_t<std::is_invocable_r_v<bool, CodeUnitMatchFunction, char16_t>>* = nullptr>
+    template<typename CodeUnitMatchFunction>
+        requires (std::is_invocable_r_v<bool, CodeUnitMatchFunction, char16_t>)
     bool contains(CodeUnitMatchFunction matchFunction) const { return find(matchFunction, 0) != notFound; }
     bool containsIgnoringASCIICase(StringView) const;
     bool containsIgnoringASCIICase(StringView, unsigned start) const;
@@ -338,10 +343,10 @@ inline void swap(String& a, String& b) { a.swap(b); }
 #ifdef __OBJC__
 
 // Used in a small number of places where the long standing behavior has been "nil if empty".
-NSString * nsStringNilIfEmpty(const String&);
+RetainPtr<NSString> nsStringNilIfEmpty(const String&);
 
 // Used in a small number of places where null strings should be converted to nil but empty strings should be maintained.
-NSString * nsStringNilIfNull(const String&);
+RetainPtr<NSString> nsStringNilIfNull(const String&);
 
 #endif
 
@@ -515,18 +520,18 @@ inline RetainPtr<NSString> String::createNSString() const
     return @"";
 }
 
-inline NSString * nsStringNilIfEmpty(const String& string)
+inline RetainPtr<NSString> nsStringNilIfEmpty(const String& string)
 {
     if (string.isEmpty())
         return nil;
-    return *string.impl();
+    return string.impl()->createNSString();
 }
 
-inline NSString * nsStringNilIfNull(const String& string)
+inline RetainPtr<NSString> nsStringNilIfNull(const String& string)
 {
     if (string.isNull())
         return nil;
-    return *string.impl();
+    return string.impl()->createNSString();
 }
 
 #endif

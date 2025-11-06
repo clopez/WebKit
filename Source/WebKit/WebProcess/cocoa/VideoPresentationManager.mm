@@ -53,7 +53,7 @@
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerBacking.h>
 #import <WebCore/RenderObjectInlines.h>
-#import <WebCore/RenderVideo.h>
+#import <WebCore/RenderVideoInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/Settings.h>
 #import <WebCore/TimeRanges.h>
@@ -77,10 +77,10 @@ static FloatRect inlineVideoFrame(HTMLVideoElement& element)
     if (!renderer)
         return { };
 
-    if (renderer->hasLayer() && renderer->enclosingLayer()->isComposited()) {
+    if (renderer->hasLayer() && renderer->checkedEnclosingLayer()->isComposited()) {
         FloatQuad contentsBox = static_cast<FloatRect>(renderer->enclosingLayer()->backing()->contentsBox());
         contentsBox = renderer->localToAbsoluteQuad(contentsBox);
-        return document->view()->contentsToRootView(contentsBox.boundingBox());
+        return document->protectedView()->contentsToRootView(contentsBox.boundingBox());
     }
 
     return renderer->videoBoxInRootView();
@@ -112,8 +112,8 @@ void VideoPresentationInterfaceContext::setRootLayer(RetainPtr<CALayer> layer)
 
 void VideoPresentationInterfaceContext::hasVideoChanged(bool hasVideo)
 {
-    if (m_manager)
-        m_manager->hasVideoChanged(m_contextId, hasVideo);
+    if (RefPtr manager = m_manager.get())
+        manager->hasVideoChanged(m_contextId, hasVideo);
 }
 
 void VideoPresentationInterfaceContext::documentVisibilityChanged(bool isDocumentVisible)
@@ -148,14 +148,14 @@ void VideoPresentationInterfaceContext::hasBeenInteractedWith()
 
 void VideoPresentationInterfaceContext::videoDimensionsChanged(const FloatSize& videoDimensions)
 {
-    if (m_manager)
-        m_manager->videoDimensionsChanged(m_contextId, videoDimensions);
+    if (RefPtr manager = m_manager.get())
+        manager->videoDimensionsChanged(m_contextId, videoDimensions);
 }
 
 void VideoPresentationInterfaceContext::setPlayerIdentifier(std::optional<MediaPlayerIdentifier> identifier)
 {
-    if (m_manager)
-        m_manager->setPlayerIdentifier(m_contextId, identifier);
+    if (RefPtr manager = m_manager.get())
+        manager->setPlayerIdentifier(m_contextId, identifier);
 }
 
 #pragma mark - VideoPresentationManager
@@ -288,7 +288,7 @@ bool VideoPresentationManager::canEnterVideoFullscreen(HTMLVideoElement& videoEl
     ASSERT(mode != HTMLMediaElementEnums::VideoFullscreenModeNone);
 
 #if ENABLE(FULLSCREEN_API)
-    if (videoElement.protectedDocument()->fullscreen().isAnimatingFullscreen())
+    if (videoElement.protectedDocument()->protectedFullscreen()->isAnimatingFullscreen())
         return false;
 #endif
 
@@ -638,7 +638,7 @@ void VideoPresentationManager::requestFullscreenMode(WebCore::MediaPlayerClientI
 void VideoPresentationManager::fullscreenModeChanged(WebCore::MediaPlayerClientIdentifier contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode)
 {
     auto [model, interface] = ensureModelAndInterface(contextId);
-    model->fullscreenModeChanged(videoFullscreenMode);
+    model->fullscreenModeChanged(videoFullscreenMode, VideoPresentationModel::ShouldNotifyMediaElement::Yes);
     interface->setFullscreenMode(videoFullscreenMode);
 }
 

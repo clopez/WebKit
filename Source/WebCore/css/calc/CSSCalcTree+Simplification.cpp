@@ -172,12 +172,8 @@ std::optional<CanonicalDimension> canonicalize(NonCanonicalDimension root, const
     };
 
     auto tryMakeCanonical = [&](double value, CSS::LengthUnit lengthUnit) -> std::optional<CanonicalDimension> {
-        if (conversionData) {
-            // We are only interested in canonicalizing to `px`, not adjusting for zoom, which will be handled later. When computing font-size, zoom is not applied in the same way, so must be special cased here.
-            if (conversionData->computingFontSize())
-                return CanonicalDimension { .value = Style::computeNonCalcLengthDouble(value, lengthUnit, *conversionData), .dimension = CanonicalDimension::Dimension::Length };
-            return CanonicalDimension { .value = Style::computeNonCalcLengthDouble(value, lengthUnit, *conversionData) / conversionData->style()->usedZoom(), .dimension = CanonicalDimension::Dimension::Length };
-        }
+        if (conversionData)
+            return CanonicalDimension { .value = Style::computeCanonicalNonCalcLengthDouble(value, lengthUnit, *conversionData), .dimension = CanonicalDimension::Dimension::Length };
         return { };
     };
 
@@ -500,7 +496,7 @@ std::optional<Child> simplify(Number&, const SimplificationOptions&)
 std::optional<Child> simplify(Percentage&, const SimplificationOptions&)
 {
     // 1.1. If root is a percentage that will be resolved against another value, and there is enough information available to resolve it, do so, and express the resulting numeric value in the appropriate canonical unit. Return the value.
-    // NOTE: Handled by the Style::Calculation::Tree / Style::CalculationValue types at use time.
+    // NOTE: Handled by the Style::Calculation::Tree / Style::Calculation::Value types at use time.
     return { };
 }
 

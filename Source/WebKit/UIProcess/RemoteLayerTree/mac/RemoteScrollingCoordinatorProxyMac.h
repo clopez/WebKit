@@ -71,14 +71,14 @@ private:
 
     void applyScrollingTreeLayerPositionsAfterCommit() override;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     void willCommitLayerAndScrollingTrees() override WTF_ACQUIRES_LOCK(m_eventDispatcher->m_animationLock);
     void didCommitLayerAndScrollingTrees() override WTF_RELEASES_LOCK(m_eventDispatcher->m_animationLock);
 
     void animationsWereAddedToNode(RemoteLayerTreeNode&) override;
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&) override;
-    void registerTimelineIfNecessary(WebCore::ProcessIdentifier, Seconds, MonotonicTime) override;
-    const RemoteAnimationTimeline* timeline(WebCore::ProcessIdentifier) const override;
+    void updateTimelineRegistration(WebCore::ProcessIdentifier, const HashSet<Ref<WebCore::AcceleratedTimeline>>&, MonotonicTime) override;
+    RefPtr<const RemoteAnimationTimeline> timeline(const TimelineID&) const override;
 #else
     void willCommitLayerAndScrollingTrees() override;
     void didCommitLayerAndScrollingTrees() override;

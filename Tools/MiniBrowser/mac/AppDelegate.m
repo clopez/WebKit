@@ -48,6 +48,8 @@ static const NSString * const kURLArgumentString = @"--url";
 static const NSString * const kSiteIsolationArgumentString = @"--force-site-isolation";
 static const NSString * const kWebInspectorArgumentString = @"--web-inspector";
 
+static NSString *sTargetURL = nil;
+
 // Force MiniBrowser to run with or without site isolation.
 static BOOL sForceSiteIsolationSetting = NO;
 static BOOL sShouldEnableSiteIsolation = NO;
@@ -252,11 +254,17 @@ static NSNumber *_currentBadge;
                                                        andSelector:@selector(_handleURLEvent:withReplyEvent:)
                                                      forEventClass:'WWW!'
                                                         andEventID:'OURL'];
+    [self _parseArguments];
 }
 
 - (void)_parseArguments
 {
     NSArray *args = [[NSProcessInfo processInfo] arguments];
+
+    const NSUInteger targetURLIndex = [args indexOfObject:kURLArgumentString];
+    if (targetURLIndex != NSNotFound && targetURLIndex + 1 < [args count])
+        sTargetURL = [args objectAtIndex:targetURLIndex + 1];
+
     const NSUInteger siteIsolationIndex = [args indexOfObject:kSiteIsolationArgumentString];
     sForceSiteIsolationSetting = (siteIsolationIndex != NSNotFound && siteIsolationIndex + 1 < [args count]);
     if (sForceSiteIsolationSetting) {
@@ -305,8 +313,6 @@ static NSNumber *_currentBadge;
         configuration.preferences._notificationsEnabled = YES;
         configuration.preferences._notificationEventEnabled = YES;
         configuration.preferences._appBadgeEnabled = YES;
-
-        [self _parseArguments];
 
         if (sForceSiteIsolationSetting)
             configuration.preferences._siteIsolationEnabled = sShouldEnableSiteIsolation;
@@ -366,18 +372,15 @@ static NSNumber *_currentBadge;
     return controller;
 }
 
-- (NSString *)targetURLOrDefaultURL
+- (NSString *)targetURL
 {
-    NSArray *args = [[NSProcessInfo processInfo] arguments];
-    const NSUInteger targetURLIndex = [args indexOfObject:kURLArgumentString];
-    NSString *targetURL = nil;
+    NSString *url = sTargetURL;
+    sTargetURL = nil;
 
-    if (targetURLIndex != NSNotFound && targetURLIndex + 1 < [args count])
-        targetURL = [args objectAtIndex:targetURLIndex + 1];
+    if (!url || [url isEqualToString:@""])
+        url = _settingsController.defaultURL;
 
-    if (!targetURL || [targetURL isEqualToString:@""])
-        return _settingsController.defaultURL;
-    return targetURL;
+    return url;
 }
 
 - (IBAction)newWindow:(id)sender
@@ -387,7 +390,7 @@ static NSNumber *_currentBadge;
         return;
 
     [[controller window] makeKeyAndOrderFront:sender];
-    [controller loadURLString:[self targetURLOrDefaultURL]];
+    [controller loadURLString:[self targetURL]];
 
     if (sOpenWebInspector)
         [controller showHideWebInspector:sender];
@@ -403,7 +406,7 @@ static NSNumber *_currentBadge;
     [[controller window] makeKeyAndOrderFront:sender];
     [_browserWindowControllers addObject:controller];
 
-    [controller loadURLString:_settingsController.defaultURL];
+    [controller loadURLString:[self targetURL]];
 
     if (sOpenWebInspector)
         [controller showHideWebInspector:sender];

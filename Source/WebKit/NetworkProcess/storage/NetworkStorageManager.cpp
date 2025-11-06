@@ -1332,6 +1332,13 @@ void NetworkStorageManager::suspend(CompletionHandler<void()>&& completionHandle
     }, WTFMove(completionHandler));
 }
 
+bool NetworkStorageManager::isSuspended() const
+{
+    ASSERT(RunLoop::isMain());
+
+    return workQueue().isSuspended();
+}
+
 void NetworkStorageManager::resume()
 {
     ASSERT(RunLoop::isMain());
@@ -1752,8 +1759,18 @@ void NetworkStorageManager::databaseConnectionPendingClose(WebCore::IDBDatabaseC
 
 void NetworkStorageManager::databaseConnectionClosed(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier)
 {
-    if (RefPtr connection = m_idbStorageRegistry->connection(databaseConnectionIdentifier))
+    RefPtr connection = m_idbStorageRegistry->connection(databaseConnectionIdentifier);
+    if (!connection)
+        return;
+
+    WebCore::IDBDatabaseIdentifier databaseIdentifier;
+    if (CheckedPtr database = connection->database()) {
+        databaseIdentifier = database->identifier();
         connection->connectionClosedFromClient();
+    }
+
+    if (databaseIdentifier.isValid())
+        checkedOriginStorageManager(databaseIdentifier.origin())->checkedIDBStorageManager(*m_idbStorageRegistry)->tryCloseDatabase(databaseIdentifier);
 }
 
 void NetworkStorageManager::abortOpenAndUpgradeNeeded(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const std::optional<WebCore::IDBResourceIdentifier>& transactionIdentifier)

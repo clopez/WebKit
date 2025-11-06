@@ -174,16 +174,6 @@ static StringView singularUnit(StringView unit)
     return unit.endsWith('s') ? unit.left(unit.length() - 1) : unit;
 }
 
-double nonNegativeModulo(double x, double y)
-{
-    double result = std::fmod(x, y);
-    if (!result)
-        return 0;
-    if (result < 0)
-        result += y;
-    return result;
-}
-
 // For use in error messages where a string value is potentially unbounded
 WTF::String ellipsizeAt(unsigned maxLength, const WTF::String& string)
 {
@@ -656,6 +646,8 @@ Int128 roundNumberToIncrementAsIfPositive(Int128 x, Int128 increment, RoundingMo
         r2 = quotient;
     }
     auto doubleRemainder = absInt128(remainder * 2);
+    auto cmp = (doubleRemainder < increment ? -1 : doubleRemainder == increment ? 0 : 1)
+        * (x < 0 ? -1 : 1);
     auto even = r1 % 2;
     if (quotient * increment == x)
         return x;
@@ -663,9 +655,9 @@ Int128 roundNumberToIncrementAsIfPositive(Int128 x, Int128 increment, RoundingMo
         return r1 * increment;
     if (unsignedRoundingMode == UnsignedRoundingMode::Infinity)
         return r2 * increment;
-    if (doubleRemainder < increment)
+    if (cmp < 0)
         return r1 * increment;
-    if (doubleRemainder > increment)
+    if (cmp > 0)
         return r2 * increment;
     if (unsignedRoundingMode == UnsignedRoundingMode::HalfZero)
         return r1 * increment;

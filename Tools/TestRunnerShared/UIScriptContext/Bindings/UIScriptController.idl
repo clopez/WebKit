@@ -47,6 +47,10 @@ dictionary TextExtractionTestOptions {
     boolean clipToBounds = false;
     boolean includeRects = false;
     boolean includeURLs = false;
+    boolean includeNodeIdentifiers = false;
+    boolean includeEventListeners = false;
+    boolean includeAccessibilityAttributes = false;
+    boolean includeTextInAutoFilledControls = false;
     boolean mergeParagraphs = false;
     boolean skipNearlyTransparentContent = false;
 };
@@ -57,6 +61,7 @@ dictionary TextExtractionInteractionOptions {
     double x = -1;
     double y = -1;
     boolean replaceAll = false;
+    boolean scrollToVisible = false;
 };
 
 interface UIScriptController {
@@ -451,4 +456,7 @@ interface UIScriptController {
     undefined resetVisibilityAdjustments(object callback);
 
     DOMString frontmostViewAtPoint(long x, long y);
+
+    readonly attribute boolean didCallEnsurePositionInformationIsUpToDateSinceLastCheck;
+    undefined clearEnsurePositionInformationIsUpToDateTracking();
 };

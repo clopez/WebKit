@@ -33,6 +33,7 @@
 #include <wtf/NumberOfCores.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #if PLATFORM(IOS_FAMILY)
+#import <pal/system/ios/Device.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #endif
 #endif
@@ -391,6 +392,15 @@ bool defaultPreferSpatialAudioExperience()
 }
 #endif
 
+bool defaultRTCEncodedStreamsQuirkEnabled()
+{
+#if PLATFORM(MAC)
+    return WTF::MacApplication::isSafariTechnologyPreview();
+#else
+    return false;
+#endif
+}
+
 #if PLATFORM(COCOA)
 static bool isSafariOrWebApp()
 {
@@ -417,6 +427,26 @@ bool defaultTrustedTypesEnabled()
     return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableTrustedTypesByDefault);
 #else
     return true;
+#endif
+}
+
+bool defaultGetBoundingClientRectZoomedEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::GetBoundingClientRectZoomed);
+#else
+    return true;
+#endif
+}
+
+bool defaultFacebookLiveRecordingQuirkEnabled()
+{
+#if PLATFORM(MAC)
+    return true;
+#elif PLATFORM(IOS)
+    return !PAL::deviceClassIsSmallScreen();
+#else
+    return false;
 #endif
 }
 

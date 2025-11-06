@@ -99,11 +99,12 @@
 #include <wtf/URL.h>
 #include <wtf/UniStdExtras.h>
 #include <wtf/WallTime.h>
+#include <wtf/glib/GSpanExtras.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
-#include <wtf/text/AtomString.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
+#include <wtf/text/WTFString.h>
 
 #if USE(GSTREAMER_MPEGTS)
 #define GST_USE_UNSTABLE_API
@@ -348,6 +349,11 @@ void MediaPlayerPrivateGStreamer::load(const String& urlString)
 {
     URL url { urlString };
     if (url.protocolIsAbout()) {
+        loadingFailed(MediaPlayer::NetworkState::FormatError, MediaPlayer::ReadyState::HaveNothing, true);
+        return;
+    }
+
+    if (!isProtocolAllowed(url)) {
         loadingFailed(MediaPlayer::NetworkState::FormatError, MediaPlayer::ReadyState::HaveNothing, true);
         return;
     }
@@ -1689,17 +1695,17 @@ void MediaPlayerPrivateGStreamer::playbin3SendSelectStreamsIfAppropriate()
     if (m_wantedVideoStreamId) {
         auto track = m_videoTracks.get(m_wantedVideoStreamId.value());
         m_requestedVideoStreamId = m_wantedVideoStreamId;
-        streams = g_list_append(streams, g_strdup(track->gstStreamId().string().utf8().data()));
+        streams = g_list_append(streams, g_strdup(track->gstStreamId().utf8().data()));
     }
     if (m_wantedAudioStreamId) {
         auto track = m_audioTracks.get(m_wantedAudioStreamId.value());
         m_requestedAudioStreamId = m_wantedAudioStreamId;
-        streams = g_list_append(streams, g_strdup(track->gstStreamId().string().utf8().data()));
+        streams = g_list_append(streams, g_strdup(track->gstStreamId().utf8().data()));
     }
     if (m_wantedTextStreamId) {
         auto track = m_textTracks.get(m_wantedTextStreamId.value());
         m_requestedTextStreamId = m_wantedTextStreamId;
-        streams = g_list_append(streams, g_strdup(track->gstStreamId().string().utf8().data()));
+        streams = g_list_append(streams, g_strdup(track->gstStreamId().utf8().data()));
     }
 
     if (!streams)
@@ -2479,12 +2485,12 @@ void MediaPlayerPrivateGStreamer::processMpegTsSection(GstMpegtsSection* section
     if (section->section_type == GST_MPEGTS_SECTION_PMT) {
         const GstMpegtsPMT* pmt = gst_mpegts_section_get_pmt(section);
         m_metadataTracks.clear();
-        for (unsigned i = 0; i < pmt->streams->len; ++i) {
-            const GstMpegtsPMTStream* stream = static_cast<const GstMpegtsPMTStream*>(g_ptr_array_index(pmt->streams, i));
+        GRefPtr<GPtrArray> streams = pmt->streams;
+        for (auto stream : span<GstMpegtsPMTStream*>(streams)) {
             if (stream->stream_type == 0x05 || stream->stream_type >= 0x80) {
-                AtomString pid = AtomString::number(stream->pid);
+                TrackID pid = stream->pid;
                 RefPtr<InbandMetadataTextTrackPrivateGStreamer> track = InbandMetadataTextTrackPrivateGStreamer::create(
-                    InbandTextTrackPrivate::Kind::Metadata, InbandTextTrackPrivate::CueFormat::Data, pid);
+                    InbandTextTrackPrivate::Kind::Metadata, InbandTextTrackPrivate::CueFormat::Data, String::number(pid));
 
                 // 4.7.10.12.2 Sourcing in-band text tracks
                 // If the new text track's kind is metadata, then set the text track in-band metadata track dispatch
@@ -2498,29 +2504,26 @@ void MediaPlayerPrivateGStreamer::processMpegTsSection(GstMpegtsSection* section
                 // expressed in hexadecimal using uppercase ASCII hex digits.
                 StringBuilder inbandMetadataTrackDispatchType;
                 inbandMetadataTrackDispatchType.append(hex(stream->stream_type, 2));
-                for (unsigned j = 0; j < stream->descriptors->len; ++j) {
-                    const GstMpegtsDescriptor* descriptor = static_cast<const GstMpegtsDescriptor*>(g_ptr_array_index(stream->descriptors, j));
+                GRefPtr<GPtrArray> descriptors = stream->descriptors;
+                for (auto descriptor : span<GstMpegtsDescriptor*>(descriptors)) {
+                    auto descriptorData = unsafeMakeSpan(descriptor->data, descriptor->length);
                     for (unsigned k = 0; k < descriptor->length; ++k)
-                        inbandMetadataTrackDispatchType.append(hex(descriptor->data[k], 2));
+                        inbandMetadataTrackDispatchType.append(hex(descriptorData[k], 2));
                 }
-                track->setInBandMetadataTrackDispatchType(inbandMetadataTrackDispatchType.toAtomString());
+                track->setInBandMetadataTrackDispatchType(inbandMetadataTrackDispatchType.toString());
 
-                m_metadataTracks.add(pid, track);
+                m_metadataTracks.add(stream->pid, track);
                 if (RefPtr player = m_player.get())
                     player->addTextTrack(*track);
             }
         }
     } else {
-        AtomString pid = AtomString::number(section->pid);
-        RefPtr<InbandMetadataTextTrackPrivateGStreamer> track = m_metadataTracks.get(pid);
+        RefPtr<InbandMetadataTextTrackPrivateGStreamer> track = m_metadataTracks.get(section->pid);
         if (!track)
             return;
 
-        GRefPtr<GBytes> data = gst_mpegts_section_get_data(section);
-        gsize size;
-        const void* bytes = g_bytes_get_data(data.get(), &size);
-
-        track->addDataCue(currentTime(), currentTime(), { static_cast<const uint8_t*>(bytes), size });
+        GRefPtr<GBytes> data = adoptGRef(gst_mpegts_section_get_data(section));
+        track->addDataCue(currentTime(), currentTime(), span(data));
     }
 }
 #endif
@@ -3813,33 +3816,14 @@ void MediaPlayerPrivateGStreamer::updateVideoSizeAndOrientationFromCaps(const Gs
     GST_DEBUG_OBJECT(pipeline(), "Original video size: %dx%d, orientation: %u", originalSize.width(), originalSize.height(), static_cast<unsigned>(orientation));
     GST_DEBUG_OBJECT(pipeline(), "Applying pixel aspect ratio: %d/%d", pixelAspectRatioNumerator, pixelAspectRatioDenominator);
 
-    // Calculate DAR based on PAR and video size.
-    int displayWidth = originalSize.width() * pixelAspectRatioNumerator;
-    int displayHeight = originalSize.height() * pixelAspectRatioDenominator;
-
-    // Divide display width and height by their GCD to avoid possible overflows.
-    int displayAspectRatioGCD = gst_util_greatest_common_divisor(displayWidth, displayHeight);
-    displayWidth /= displayAspectRatioGCD;
-    displayHeight /= displayAspectRatioGCD;
-
-    // Apply DAR to original video size. This is the same behavior as in xvimagesink's setcaps function.
-    uint64_t width = 0, height = 0;
-    if (!(originalSize.height() % displayHeight)) {
-        GST_DEBUG_OBJECT(pipeline(), "Keeping video original height");
-        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
-        height = originalSize.height();
-    } else if (!(originalSize.width() % displayWidth)) {
-        GST_DEBUG_OBJECT(pipeline(), "Keeping video original width");
-        height = gst_util_uint64_scale_int(originalSize.width(), displayHeight, displayWidth);
-        width = originalSize.width();
-    } else {
-        GST_DEBUG_OBJECT(pipeline(), "Approximating while keeping original video height");
-        width = gst_util_uint64_scale_int(originalSize.height(), displayWidth, displayHeight);
-        height = originalSize.height();
+    auto computedSize = getDisplaySize(originalSize, pixelAspectRatioNumerator, pixelAspectRatioDenominator);
+    if (!computedSize.has_value()) {
+        GST_WARNING_OBJECT(pipeline(), "Failed to get the size after applying the display aspect-ratio");
+        return;
     }
 
-    GST_DEBUG_OBJECT(pipeline(), "Saving natural size: %" G_GUINT64_FORMAT "x%" G_GUINT64_FORMAT, width, height);
-    m_videoSize = FloatSize(static_cast<int>(width), static_cast<int>(height));
+    GST_DEBUG_OBJECT(pipeline(), "Saving natural size: %u" "x%u", computedSize.value().width(), computedSize.value().height());
+    m_videoSize = FloatSize(computedSize.value().width(), computedSize.value().height());
 }
 
 void MediaPlayerPrivateGStreamer::setCachedPosition(const MediaTime& cachedPosition) const

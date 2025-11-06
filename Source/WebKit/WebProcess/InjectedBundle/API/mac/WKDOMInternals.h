@@ -40,7 +40,7 @@ class Document;
 
 @interface WKDOMNode () {
 @package
-    RefPtr<WebCore::Node> _impl;
+    const RefPtr<WebCore::Node> _impl;
 }
 
 - (id)_initWithImpl:(WebCore::Node*)impl;
@@ -48,7 +48,7 @@ class Document;
 
 @interface WKDOMRange () {
 @package
-    RefPtr<WebCore::Range> _impl;
+    const RefPtr<WebCore::Range> _impl;
 }
 
 - (id)_initWithImpl:(WebCore::Range*)impl;
@@ -89,12 +89,14 @@ DOMCache<WebCore::Range*, __unsafe_unretained WKDOMRange *>& WKDOMRangeCache();
 // -- Node and classes derived from Node. --
 
 WebCore::Node* toWebCoreNode(WKDOMNode *);
+RefPtr<WebCore::Node> toProtectedWebCoreNode(WKDOMNode *);
 WKDOMNode *toWKDOMNode(WebCore::Node*);
 
 WebCore::Element* toWebCoreElement(WKDOMElement *);
 WKDOMElement *toWKDOMElement(WebCore::Element*);
 
 WebCore::Document* toWebCoreDocument(WKDOMDocument *);
+RefPtr<WebCore::Document> toProtectedWebCoreDocument(WKDOMDocument *);
 WKDOMDocument *toWKDOMDocument(WebCore::Document*);
 
 WebCore::Text* toWebCoreText(WKDOMText *);
@@ -103,6 +105,7 @@ WKDOMText *toWKDOMText(WebCore::Text*);
 // -- Range. --
 
 WebCore::Range* toWebCoreRange(WKDOMRange *);
+RefPtr<WebCore::Range> toProtectedWebCoreRange(WKDOMRange *);
 WKDOMRange *toWKDOMRange(WebCore::Range*);
 
 } // namespace WebKit

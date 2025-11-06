@@ -26,13 +26,13 @@
 #import "config.h"
 #import "RemoteAnimation.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimation);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimation);
 
 Ref<RemoteAnimation> RemoteAnimation::create(const WebCore::AcceleratedEffect& effect, const RemoteAnimationTimeline& timeline)
 {
@@ -47,9 +47,9 @@ RemoteAnimation::RemoteAnimation(const WebCore::AcceleratedEffect& effect, const
 
 void RemoteAnimation::apply(WebCore::AcceleratedEffectValues& values)
 {
-    Ref { m_effect }->apply(m_timeline->currentTime(), values);
+    m_effect->apply(values, m_timeline->currentTime(), m_timeline->duration());
 }
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

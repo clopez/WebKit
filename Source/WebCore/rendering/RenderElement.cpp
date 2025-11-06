@@ -282,13 +282,13 @@ const RenderStyle& RenderElement::firstLineStyle() const
     // FIXME: It would be better to just set anonymous block first-line styles correctly.
     if (isAnonymousBlock()) {
         if (!previousInFlowSibling()) {
-            if (auto* firstLineStyle = parent()->style().getCachedPseudoStyle({ PseudoId::FirstLine }))
+            if (auto* firstLineStyle = parent()->style().getCachedPseudoStyle({ PseudoElementType::FirstLine }))
                 return *firstLineStyle;
         }
         return style();
     }
 
-    if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoId::FirstLine }))
+    if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoElementType::FirstLine }))
         return *firstLineStyle;
 
     return style();
@@ -326,7 +326,7 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
     }
     
     if (contextSensitiveProperties & StyleDifferenceContextSensitiveProperty::WillChange) {
-        if (style().willChange() && style().willChange()->canTriggerCompositing())
+        if (style().willChange().canTriggerCompositing())
             diff = std::max(diff, StyleDifference::RecompositeLayer);
     }
     
@@ -400,10 +400,10 @@ template<typename FillLayers> void RenderElement::updateFillImages(const FillLay
             return true;
         if (!layers1 || !layers2)
             return false;
-        if (layers1->size() != layers2->size())
+        if (layers1->usedLength() != layers2->usedLength())
             return false;
 
-        for (auto [layer1, layer2] : zippedRange(*layers1, *layers2)) {
+        for (auto [layer1, layer2] : zippedRange(layers1->usedValues(), layers2->usedValues())) {
             if (layer1.image() != layer2.image())
                 return false;
             if (RefPtr image = layer1.image().tryStyleImage(); image && (image->errorOccurred() || !image->hasImage() || image->usesDataProtocol()))
@@ -415,7 +415,7 @@ template<typename FillLayers> void RenderElement::updateFillImages(const FillLay
     auto isRegisteredWithNewFillImages = [&]() -> bool {
         if (!newLayers)
             return true;
-        for (auto& layer : *newLayers) {
+        for (auto& layer : newLayers->usedValues()) {
             if (RefPtr image = layer.image().tryStyleImage(); image && !image->hasClient(*this))
                 return false;
         }
@@ -429,13 +429,13 @@ template<typename FillLayers> void RenderElement::updateFillImages(const FillLay
 
     // Add before removing, to avoid removing all clients of an image that is in both sets.
     if (newLayers) {
-        for (auto& layer : *newLayers) {
+        for (auto& layer : newLayers->usedValues()) {
             if (RefPtr image = layer.image().tryStyleImage())
                 image->addClient(*this);
         }
     }
     if (oldLayers) {
-        for (auto& layer : *oldLayers) {
+        for (auto& layer : oldLayers->usedValues()) {
             if (RefPtr image = layer.image().tryStyleImage())
                 image->removeClient(*this);
         }
@@ -460,10 +460,6 @@ void RenderElement::updateShapeImage(const Style::ShapeOutside* oldShapeValue, c
 
 bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
-    if (oldStyle.usedVisibility() == Visibility::Hidden) {
-        // Repaint on hidden renderer is a no-op.
-        return false;
-    }
     enum class RequiredRepaint { None, RendererOnly, RendererAndDescendantsRenderersWithLayers };
     auto shouldRepaintBeforeStyleChange = [&]() -> RequiredRepaint {
         if (!parent()) {
@@ -545,6 +541,10 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
 
     if (shouldRepaintBeforeStyleChange == RequiredRepaint::RendererOnly) {
         if (isOutOfFlowPositioned() && downcast<RenderLayerModelObject>(*this).checkedLayer()->isSelfPaintingLayer()) {
+            if (oldStyle.usedVisibility() == Visibility::Hidden) {
+                // Repaint on hidden renderer is a no-op.
+                return false;
+            }
             if (auto cachedClippedOverflowRect = downcast<RenderLayerModelObject>(*this).checkedLayer()->cachedClippedOverflowRect()) {
                 repaintUsingContainer(containerForRepaint().renderer.get(), *cachedClippedOverflowRect);
                 return true;
@@ -1032,10 +1032,10 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
     }
 
     bool newStyleSlowScroll = false;
-    if (newStyle.backgroundLayers().hasImageWithAttachment(FillAttachment::FixedBackground) && !settings().fixedBackgroundsPaintRelativeToDocument()) {
+    if (Style::hasImageWithAttachment(newStyle.backgroundLayers(), FillAttachment::FixedBackground) && !settings().fixedBackgroundsPaintRelativeToDocument()) {
         newStyleSlowScroll = true;
         bool drawsRootBackground = isDocumentElementRenderer() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
-        if (drawsRootBackground && newStyle.backgroundLayers().hasEntirelyFixedBackground() && view().compositor().supportsFixedRootBackgroundCompositing())
+        if (drawsRootBackground && Style::hasEntirelyFixedBackground(newStyle.backgroundLayers()) && view().compositor().supportsFixedRootBackgroundCompositing())
             newStyleSlowScroll = false;
     }
 
@@ -1062,9 +1062,9 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     auto registerImages = [this](auto* style, auto* oldStyle) {
         if (!style && !oldStyle)
             return;
-        if ((style && style->backgroundLayers().hasImage()) || (oldStyle && oldStyle->backgroundLayers().hasImage()))
+        if ((style && Style::hasImageInAnyLayer(style->backgroundLayers())) || (oldStyle && Style::hasImageInAnyLayer(oldStyle->backgroundLayers())))
             updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style ? &style->backgroundLayers() : nullptr);
-        if ((style && style->maskLayers().hasImage()) || (oldStyle && oldStyle->maskLayers().hasImage()))
+        if ((style && Style::hasImageInAnyLayer(style->maskLayers())) || (oldStyle && Style::hasImageInAnyLayer(oldStyle->maskLayers())))
             updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style ? &style->maskLayers() : nullptr);
         updateImage(oldStyle ? oldStyle->borderImage().source().tryStyleImage().get() : nullptr, style ? style->borderImage().source().tryStyleImage().get() : nullptr);
         updateImage(oldStyle ? oldStyle->maskBorder().source().tryStyleImage().get() : nullptr, style ? style->maskBorder().source().tryStyleImage().get() : nullptr);
@@ -1074,7 +1074,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     registerImages(&style(), oldStyle);
 
     // Are there other pseudo-elements that need the resources to be registered?
-    registerImages(style().getCachedPseudoStyle({ PseudoId::FirstLine }), oldStyle ? oldStyle->getCachedPseudoStyle({ PseudoId::FirstLine }) : nullptr);
+    registerImages(style().getCachedPseudoStyle({ PseudoElementType::FirstLine }), oldStyle ? oldStyle->getCachedPseudoStyle({ PseudoElementType::FirstLine }) : nullptr);
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1195,7 +1195,7 @@ void RenderElement::willBeDestroyed()
     if (!renderTreeBeingDestroyed() && element())
         document().contentChangeObserver().rendererWillBeDestroyed(*element());
 #endif
-    if (m_style.backgroundLayers().hasImageWithAttachment(FillAttachment::FixedBackground) && !settings().fixedBackgroundsPaintRelativeToDocument())
+    if (Style::hasImageWithAttachment(m_style.backgroundLayers(), FillAttachment::FixedBackground) && !settings().fixedBackgroundsPaintRelativeToDocument())
         view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
@@ -1213,9 +1213,9 @@ void RenderElement::willBeDestroyed()
     };
 
     auto unregisterImages = [&](auto& style) {
-        for (auto& backgroundLayer : style.backgroundLayers())
+        for (auto& backgroundLayer : style.backgroundLayers().usedValues())
             unregisterImage(backgroundLayer.image().tryStyleImage().get());
-        for (auto& maskLayer : style.maskLayers())
+        for (auto& maskLayer : style.maskLayers().usedValues())
             unregisterImage(maskLayer.image().tryStyleImage().get());
         unregisterImage(style.borderImage().source().tryStyleImage().get());
         unregisterImage(style.maskBorder().source().tryStyleImage().get());
@@ -1228,7 +1228,7 @@ void RenderElement::willBeDestroyed()
         if (style().hasOutline())
             checkedView()->decrementRendersWithOutline();
 
-        if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoId::FirstLine }))
+        if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoElementType::FirstLine }))
             unregisterImages(*firstLineStyle);
     }
 
@@ -1345,17 +1345,17 @@ void RenderElement::layout()
 template<typename FillLayers> static bool mustRepaintFillLayers(const RenderElement& renderer, const FillLayers& layers)
 {
     // Nobody will use multiple layers without wanting fancy positioning.
-    if (layers.size() > 1)
+    if (layers.usedLength() > 1)
         return true;
 
-    auto& layer = layers.first();
+    auto& layer = layers.usedFirst();
 
     // Make sure we have a valid image.
     RefPtr image = layer.image().tryStyleImage();
     if (!image || !image->canRender(&renderer, renderer.style().usedZoom()))
         return false;
 
-    if (!layer.xPosition().isKnownZero() || !layer.yPosition().isKnownZero())
+    if (!layer.positionX().isKnownZero() || !layer.positionY().isKnownZero())
         return true;
 
     return WTF::switchOn(layer.size(),
@@ -1793,7 +1793,7 @@ bool RenderElement::repaintForPausedImageAnimationsIfNeeded(const IntRect& visib
 
 const RenderStyle* RenderElement::getCachedPseudoStyle(const Style::PseudoElementIdentifier& pseudoElementIdentifier, const RenderStyle* parentStyle) const
 {
-    if (allPublicPseudoIds.contains(pseudoElementIdentifier.pseudoId) && !style().hasPseudoStyle(pseudoElementIdentifier.pseudoId))
+    if (allPublicPseudoElementTypes.contains(pseudoElementIdentifier.type) && !style().hasPseudoStyle(pseudoElementIdentifier.type))
         return nullptr;
 
     auto* cachedStyle = style().getCachedPseudoStyle(pseudoElementIdentifier);
@@ -1808,7 +1808,7 @@ const RenderStyle* RenderElement::getCachedPseudoStyle(const Style::PseudoElemen
 
 std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const Style::PseudoElementRequest& pseudoElementRequest, const RenderStyle* parentStyle, const RenderStyle* ownStyle) const
 {
-    if (allPublicPseudoIds.contains(pseudoElementRequest.pseudoId()) && !ownStyle && !style().hasPseudoStyle(pseudoElementRequest.pseudoId()))
+    if (allPublicPseudoElementTypes.contains(pseudoElementRequest.type()) && !ownStyle && !style().hasPseudoStyle(pseudoElementRequest.type()))
         return nullptr;
 
     if (!parentStyle) {
@@ -1848,12 +1848,12 @@ RenderElement* RenderElement::rendererForPseudoStyleAcrossShadowBoundary() const
     return nullptr;
 }
 
-const RenderStyle* RenderElement::textSegmentPseudoStyle(PseudoId pseudoId) const
+const RenderStyle* RenderElement::textSegmentPseudoStyle(PseudoElementType pseudoElementType) const
 {
     if (isAnonymous())
         return nullptr;
 
-    if (auto* pseudoStyle = getCachedPseudoStyle({ pseudoId })) {
+    if (auto* pseudoStyle = getCachedPseudoStyle({ pseudoElementType })) {
         // We intentionally return the pseudo style here if it exists before ascending to the
         // shadow host element. This allows us to apply pseudo styles in user agent shadow
         // roots, instead of always deferring to the shadow host's selection pseudo style.
@@ -1861,7 +1861,7 @@ const RenderStyle* RenderElement::textSegmentPseudoStyle(PseudoId pseudoId) cons
     }
 
     if (auto* renderer = rendererForPseudoStyleAcrossShadowBoundary())
-        return renderer->getCachedPseudoStyle({ pseudoId });
+        return renderer->getCachedPseudoStyle({ pseudoElementType });
 
     return nullptr;
 }
@@ -1891,7 +1891,7 @@ std::unique_ptr<RenderStyle> RenderElement::selectionPseudoStyle() const
     if (isAnonymous())
         return nullptr;
 
-    if (auto selectionStyle = getUncachedPseudoStyle({ PseudoId::Selection })) {
+    if (auto selectionStyle = getUncachedPseudoStyle({ PseudoElementType::Selection })) {
         // We intentionally return the pseudo selection style here if it exists before ascending to
         // the shadow host element. This allows us to apply selection pseudo styles in user agent
         // shadow roots, instead of always deferring to the shadow host's selection pseudo style.
@@ -1899,7 +1899,7 @@ std::unique_ptr<RenderStyle> RenderElement::selectionPseudoStyle() const
     }
 
     if (auto* renderer = rendererForPseudoStyleAcrossShadowBoundary())
-        return renderer->getUncachedPseudoStyle({ PseudoId::Selection });
+        return renderer->getUncachedPseudoStyle({ PseudoElementType::Selection });
 
     return nullptr;
 }
@@ -1939,17 +1939,17 @@ Color RenderElement::selectionBackgroundColor() const
 
 const RenderStyle* RenderElement::spellingErrorPseudoStyle() const
 {
-    return textSegmentPseudoStyle(PseudoId::SpellingError);
+    return textSegmentPseudoStyle(PseudoElementType::SpellingError);
 }
 
 const RenderStyle* RenderElement::grammarErrorPseudoStyle() const
 {
-    return textSegmentPseudoStyle(PseudoId::GrammarError);
+    return textSegmentPseudoStyle(PseudoElementType::GrammarError);
 }
 
 const RenderStyle* RenderElement::targetTextPseudoStyle() const
 {
-    return textSegmentPseudoStyle(PseudoId::TargetText);
+    return textSegmentPseudoStyle(PseudoElementType::TargetText);
 }
 
 bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
@@ -2329,7 +2329,7 @@ bool RenderElement::requiresRenderingConsolidationForViewTransition() const
 
 bool RenderElement::isViewTransitionRoot() const
 {
-    return style().pseudoElementType() == PseudoId::ViewTransition;
+    return style().pseudoElementType() == PseudoElementType::ViewTransition;
 }
 
 bool RenderElement::checkForRepaintDuringLayout() const
@@ -2340,7 +2340,9 @@ bool RenderElement::checkForRepaintDuringLayout() const
 ImageOrientation RenderElement::imageOrientation() const
 {
     auto* imageElement = dynamicDowncast<HTMLImageElement>(element());
-    return (imageElement && !imageElement->allowsOrientationOverride()) ? ImageOrientation(ImageOrientation::Orientation::FromImage) : style().imageOrientation();
+    return (imageElement && !imageElement->allowsOrientationOverride())
+        ? ImageOrientation(ImageOrientation::Orientation::FromImage)
+        : Style::toPlatform(style().imageOrientation());
 }
 
 void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded(const RenderStyle& oldStyle, const RenderStyle& newStyle)
@@ -2520,7 +2522,7 @@ static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderOb
         if (CheckedPtr block = dynamicDowncast<RenderBlock>(renderer)) {
             // For fixed height styles, if the overflow size of the element spills out of the specified
             // height, assume we can apply text auto-sizing.
-            if (block->effectiveOverflowY() == Overflow::Visible && fixedHeight->resolveZoom(Style::ZoomNeeded { }) < block->layoutOverflowRect().maxY())
+            if (block->effectiveOverflowY() == Overflow::Visible && fixedHeight->resolveZoom(style.usedZoomForLength()) < block->layoutOverflowRect().maxY())
                 return RenderObject::OverflowHeight;
         }
         return RenderObject::FixedHeight;

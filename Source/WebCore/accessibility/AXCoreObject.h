@@ -76,7 +76,7 @@ class AccessibilityObjectAtspi;
 
 typedef WebCore::AccessibilityObjectAtspi AccessibilityObjectWrapper;
 
-#elif PLATFORM(PLAYSTATION)
+#elif PLATFORM(PLAYSTATION) || PLATFORM(HAIKU)
 class AccessibilityObjectWrapper : public RefCounted<AccessibilityObjectWrapper> { };
 #else
 class AccessibilityObjectWrapper;
@@ -1197,7 +1197,7 @@ public:
 
     AccessibilityObjectWrapper* wrapper() const { return m_wrapper.get(); }
 #if PLATFORM(COCOA)
-    RetainPtr<AccessibilityObjectWrapper> protectedWrapper() const;
+    WEBCORE_EXPORT RetainPtr<AccessibilityObjectWrapper> protectedWrapper() const;
 #endif
     void setWrapper(AccessibilityObjectWrapper* wrapper) { m_wrapper = wrapper; }
     void detachWrapper(AccessibilityDetachmentType);
@@ -1319,7 +1319,7 @@ private:
     RetainPtr<WebAccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN)
     COMPtr<AccessibilityObjectWrapper> m_wrapper;
-#elif PLATFORM(PLAYSTATION)
+#elif PLATFORM(PLAYSTATION) || PLATFORM(HAIKU)
     RefPtr<AccessibilityObjectWrapper> m_wrapper;
 #elif USE(ATSPI)
     RefPtr<AccessibilityObjectAtspi> m_wrapper;

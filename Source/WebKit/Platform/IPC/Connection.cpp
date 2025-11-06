@@ -131,6 +131,8 @@ private:
 
     // The set of connections for which we've scheduled a call to dispatchMessageAndResetDidScheduleDispatchMessagesForConnection.
     HashSet<RefPtr<Connection>> m_didScheduleDispatchMessagesWorkSet WTF_GUARDED_BY_LOCK(m_lock);
+    HashSet<RefPtr<Connection>> m_allMessagesShouldBeDispatchedWhileWaitingForSyncReplySet WTF_GUARDED_BY_LOCK(m_lock);
+
 
     struct ConnectionAndIncomingMessage {
         Ref<Connection> connection;
@@ -196,23 +198,26 @@ void Connection::SyncMessageState::enqueueMatchingMessages(Connection& connectio
 
 bool Connection::SyncMessageState::processIncomingMessage(Connection& connection, UniqueRef<Decoder>& message)
 {
-    switch (message->shouldDispatchMessageWhenWaitingForSyncReply()) {
-    case ShouldDispatchWhenWaitingForSyncReply::No:
-        return false;
-    case ShouldDispatchWhenWaitingForSyncReply::YesDuringUnboundedIPC:
-        if (!UnboundedSynchronousIPCScope::hasOngoingUnboundedSyncIPC())
-            return false;
-        break;
-    case ShouldDispatchWhenWaitingForSyncReply::Yes:
-        break;
-    }
-
     bool shouldDispatch;
     {
         Locker locker { m_lock };
+        if (!m_allMessagesShouldBeDispatchedWhileWaitingForSyncReplySet.contains(&connection)) {
+            switch (message->shouldDispatchMessageWhenWaitingForSyncReply()) {
+            case ShouldDispatchWhenWaitingForSyncReply::No:
+                return false;
+            case ShouldDispatchWhenWaitingForSyncReply::YesDuringUnboundedIPC:
+                if (!UnboundedSynchronousIPCScope::hasOngoingUnboundedSyncIPC())
+                    return false;
+                break;
+            case ShouldDispatchWhenWaitingForSyncReply::Yes:
+                break;
+            }
+        }
+
         shouldDispatch = m_didScheduleDispatchMessagesWorkSet.add(&connection).isNewEntry;
         connection.m_incomingMessagesLock.assertIsOwner();
         if (message->shouldMaintainOrderingWithAsyncMessages()) {
+            m_allMessagesShouldBeDispatchedWhileWaitingForSyncReplySet.add(&connection);
             // This sync message should maintain ordering with async messages so we need to process the pending async messages first.
             while (!connection.m_incomingMessages.isEmpty())
                 m_messagesToDispatchWhileWaitingForSyncReply.append(ConnectionAndIncomingMessage { connection, connection.m_incomingMessages.takeFirst() });
@@ -288,6 +293,7 @@ void Connection::SyncMessageState::dispatchMessagesAndResetDidScheduleDispatchMe
         Locker locker { m_lock };
         ASSERT(m_didScheduleDispatchMessagesWorkSet.contains(&connection));
         m_didScheduleDispatchMessagesWorkSet.remove(&connection);
+        m_allMessagesShouldBeDispatchedWhileWaitingForSyncReplySet.remove(&connection);
         Deque<ConnectionAndIncomingMessage> messagesToPutBack;
         for (auto& connectionAndIncomingMessage : m_messagesToDispatchWhileWaitingForSyncReply) {
             if (&connection == connectionAndIncomingMessage.connection.ptr())
@@ -471,6 +477,9 @@ void Connection::dispatchMessageReceiverMessage(MessageReceiverType& messageRece
 #endif
 
 #if ENABLE(IPC_TESTING_API)
+    if (decoder->hasErrorString())
+        setErrorString(decoder->takeErrorString());
+
     if (m_ignoreInvalidMessageForTesting)
         return;
 #endif
@@ -1077,6 +1086,18 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
         return;
 
     if (message->isAsyncReplyMessage()) {
+        // Disallow async replies with invalid destinationIDs to be sent
+        if (!AtomicObjectIdentifier<AsyncReplyIDType>::isValidIdentifier(message->destinationID())) {
+            incomingMessagesLocker.unlockEarly();
+            waitForMessagesLocker.unlockEarly();
+#if ENABLE(IPC_TESTING_API)
+            // Don't terminate WebContent sender for IPC Testing
+            if (m_ignoreInvalidMessageForTesting)
+                return;
+#endif
+            dispatchDidReceiveInvalidMessage(message->messageName(), message->indicesOfObjectsFailingDecoding());
+            return;
+        }
         if (auto replyHandlerWithDispatcher = takeAsyncReplyHandlerWithDispatcherWithLockHeld(AtomicObjectIdentifier<AsyncReplyIDType>(message->destinationID()))) {
             replyHandlerWithDispatcher(this, message.moveToUniquePtr());
             return;
@@ -1382,7 +1403,7 @@ void Connection::dispatchMessage(Decoder& decoder)
     if (decoder.isAsyncReplyMessage()) {
         auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoder.destinationID()));
         if (!handler) {
-            markCurrentlyDispatchedMessageAsInvalid();
+            markCurrentlyDispatchedMessageAsInvalid("Failed to get reply handler for message"_s);
 #if ENABLE(IPC_TESTING_API)
             if (m_ignoreInvalidMessageForTesting)
                 return;
@@ -1409,6 +1430,14 @@ void Connection::dispatchMessage(Decoder& decoder)
 #endif
 
     client->didReceiveMessage(*this, decoder);
+
+#if ENABLE(IPC_TESTING_API)
+    // If we haven't registered an error yet, check whether we found one
+    // when decoding. It's possible we failed before we reached the message
+    // receiver.
+    if (!hasErrorString() && decoder.hasErrorString())
+        setErrorString(decoder.takeErrorString());
+#endif
 }
 
 void Connection::dispatchMessage(UniqueRef<Decoder> message)

@@ -24,11 +24,11 @@
 #include <WebCore/GraphicsTypesGL.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSize.h>
+#include <WebCore/TransformationMatrix.h>
 #include <memory>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Platform.h>
-#include <wtf/Ref.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/UniqueRef.h>
@@ -48,6 +48,10 @@
 #include <wtf/MachSendRight.h>
 #endif
 
+#if ENABLE(WEBXR_HIT_TEST)
+#include <WebCore/ExceptionOr.h>
+#endif
+
 namespace PlatformXR {
 class TrackingAndRenderingClient;
 }
@@ -58,6 +62,7 @@ template<> struct IsDeprecatedWeakRefSmartPointerException<PlatformXR::TrackingA
 }
 
 namespace WebCore {
+enum class XRHitTestTrackableType : uint8_t;
 class SecurityOriginData;
 
 struct XRCanvasConfiguration;
@@ -106,6 +111,7 @@ enum class VisibilityState : uint8_t {
 using LayerHandle = int;
 
 #if ENABLE(WEBXR)
+using HitTestSource = unsigned;
 using InputSourceHandle = int;
 
 // https://immersive-web.github.io/webxr/#enumdef-xrhandedness
@@ -132,6 +138,9 @@ enum class SessionFeature : uint8_t {
     ReferenceSpaceTypeUnbounded,
 #if ENABLE(WEBXR_HANDS)
     HandTracking,
+#endif
+#if ENABLE(WEBXR_HIT_TEST)
+    HitTest,
 #endif
     WebGPU,
 };
@@ -175,6 +184,10 @@ inline std::optional<SessionFeature> parseSessionFeatureDescriptor(StringView st
     if (feature == "hand-tracking"_s)
         return SessionFeature::HandTracking;
 #endif
+#if ENABLE(WEBXR_HIT_TEST)
+    if (feature == "hit-test"_s)
+        return SessionFeature::HitTest;
+#endif
     if (feature == "webgpu"_s)
         return SessionFeature::WebGPU;
 
@@ -197,6 +210,10 @@ inline String sessionFeatureDescriptor(SessionFeature sessionFeature)
 #if ENABLE(WEBXR_HANDS)
     case SessionFeature::HandTracking:
         return "hand-tracking"_s;
+#endif
+#if ENABLE(WEBXR_HIT_TEST)
+    case SessionFeature::HitTest:
+        return "hit-test"_s;
 #endif
     case SessionFeature::WebGPU:
         return "webgpu"_s;
@@ -259,6 +276,19 @@ struct RateMapDescription {
     Vector<float> verticalSamples;
 };
 
+#if ENABLE(WEBXR_HIT_TEST)
+struct Ray {
+    WebCore::FloatPoint3D origin;
+    WebCore::FloatPoint3D direction;
+};
+
+struct HitTestOptions {
+    WebCore::TransformationMatrix nativeOrigin;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    Ray offsetRay;
+};
+#endif // ENABLE(WEBXR_HIT_TEST)
+
 struct FrameData {
     struct FloatQuaternion {
         float x { 0.0f };
@@ -312,6 +342,8 @@ struct FrameData {
 #if PLATFORM(COCOA)
         MachSendRight handle;
         bool isSharedTexture { false };
+
+        explicit operator bool() const { return !!handle; }
 #else
         Vector<WTF::UnixFileDescriptor> fds;
         Vector<uint32_t> strides;
@@ -374,6 +406,12 @@ struct FrameData {
 #endif
     };
 
+#if ENABLE(WEBXR_HIT_TEST)
+    struct HitTestResult {
+        Pose pose;
+    };
+#endif
+
     bool isTrackingValid { false };
     bool isPositionValid { false };
     bool isPositionEmulated { false };
@@ -384,6 +422,9 @@ struct FrameData {
     StageParameters stageParameters;
     Vector<View> views;
     HashMap<LayerHandle, UniqueRef<LayerData>> layers;
+#if ENABLE(WEBXR_HIT_TEST)
+    HashMap<HitTestSource, Vector<HitTestResult>> hitTestResults;
+#endif
     Vector<InputSource> inputSources;
 
     FrameData copy() const;
@@ -429,6 +470,11 @@ public:
     virtual std::optional<LayerHandle> createLayerProjection(uint32_t width, uint32_t height, bool alpha) = 0;
     virtual void deleteLayer(LayerHandle) = 0;
 
+#if ENABLE(WEBXR_HIT_TEST)
+    virtual void requestHitTestSource(const HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<HitTestSource>)>&&) = 0;
+    virtual void deleteHitTestSource(HitTestSource) = 0;
+#endif
+
     struct LayerView {
         Eye eye { Eye::None };
         WebCore::IntRect viewport;
@@ -468,6 +514,8 @@ protected:
     WeakPtr<TrackingAndRenderingClient> m_trackingAndRenderingClient;
 };
 
+using DeviceList = Vector<Ref<Device>>;
+
 class TrackingAndRenderingClient : public CanMakeWeakPtr<TrackingAndRenderingClient> {
 public:
     virtual ~TrackingAndRenderingClient() = default;
@@ -479,24 +527,6 @@ public:
     virtual void sessionDidEnd() = 0;
     virtual void updateSessionVisibilityState(VisibilityState) = 0;
     // FIXME: handle frame update
-};
-
-class Instance {
-public:
-    WEBCORE_EXPORT static Instance& singleton();
-
-    using DeviceList = Vector<Ref<Device>>;
-    WEBCORE_EXPORT void enumerateImmersiveXRDevices(CompletionHandler<void(const DeviceList&)>&&);
-
-private:
-    friend LazyNeverDestroyed<Instance>;
-    Instance();
-    ~Instance() = default;
-
-    struct Impl;
-    UniqueRef<Impl> m_impl;
-
-    DeviceList m_immersiveXRDevices;
 };
 
 inline FrameData FrameData::copy() const

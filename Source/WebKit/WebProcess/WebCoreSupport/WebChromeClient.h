@@ -27,12 +27,12 @@
 #pragma once
 
 #include <WebCore/ChromeClient.h>
-#include <WebCore/HTMLVideoElement.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 
 namespace WebCore {
 class HTMLImageElement;
+class HTMLVideoElement;
 class RegistrableDomain;
 enum class BroadcastFocusedElement : bool;
 enum class CookieConsentDecisionResult : uint8_t;
@@ -142,6 +142,10 @@ private:
     void mainFrameDidChange() final;
 
     void didFinishLoadingImageForElement(WebCore::HTMLImageElement&) final;
+
+#if ENABLE(MODEL_PROCESS)
+    void setHasModelElement(bool) final;
+#endif
 
     PlatformPageClient platformPageClient() const final;
     void contentsSizeChanged(WebCore::LocalFrame&, const WebCore::IntSize&) const final;
@@ -499,7 +503,7 @@ private:
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if ENABLE(WEBXR)
-    void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&&) final;
+    void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::DeviceList&)>&&) final;
     void requestPermissionOnXRSessionFeatures(const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& /* granted */, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, const PlatformXR::Device::FeatureList& /* requiredFeaturesRequested */, const PlatformXR::Device::FeatureList& /* optionalFeaturesRequested */,  CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&&) final;
 #endif
 

@@ -1987,9 +1987,6 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::arrayFromFastFillWithUndefined)].initLater([] (const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "arrayFromFastFillWithUndefined"_s, arrayProtoPrivateFuncFromFastFillWithUndefined, ImplementationVisibility::Private));
     });
-    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::arrayFromFastFillWithEmpty)].initLater([] (const Initializer<JSCell>& init) {
-        init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "arrayFromFastFillWithEmpty"_s, arrayProtoPrivateFuncFromFastFillWithEmpty, ImplementationVisibility::Private));
-    });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isDetached)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "typedArrayViewIsDetached"_s, typedArrayViewPrivateFuncIsDetached, ImplementationVisibility::Private));
         });
@@ -2016,9 +2013,6 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isArraySlow)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "isArraySlow"_s, arrayConstructorPrivateFuncIsArraySlow, ImplementationVisibility::Private));
-        });
-    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::appendMemcpy)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "appendMemcpy"_s, arrayProtoPrivateFuncAppendMemcpy, ImplementationVisibility::Private));
         });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::importInRealm)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "importInRealm"_s, importInRealm, ImplementationVisibility::Private));
@@ -2214,6 +2208,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, jsSetPrototype(), vm.propertyNames->keys), m_setPrimordialPropertiesWatchpointSet);
 
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, promisePrototype(), vm.propertyNames->then), m_promiseThenWatchpointSet);
+    installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_promiseConstructor.get(), vm.propertyNames->resolve), m_promiseResolveWatchpointSet);
 
     // Detect property absence.
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->replaceSymbol, objectPrototype()), m_stringSymbolReplaceWatchpointSet);

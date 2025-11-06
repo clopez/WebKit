@@ -345,7 +345,6 @@
 		DD3DC8AE27A4BF8E007E5B61 /* WordLock.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FE4479B1B7AAA03009498EB /* WordLock.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8AF27A4BF8E007E5B61 /* FastTLS.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F79C7C31E73511800EB34D1 /* FastTLS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8B027A4BF8E007E5B61 /* BagToHashMap.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FB14E1A1810E1DA009B6B4D /* BagToHashMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD3DC8B127A4BF8E007E5B61 /* VectorHash.h in Headers */ = {isa = PBXBuildFile; fileRef = E419F2E623AB9E2300B26129 /* VectorHash.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8B227A4BF8E007E5B61 /* IterationStatus.h in Headers */ = {isa = PBXBuildFile; fileRef = 5295B00427920C54006D746A /* IterationStatus.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8B327A4BF8E007E5B61 /* RandomDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 24F1B248619F412296D1C19C /* RandomDevice.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8B427A4BF8E007E5B61 /* LikelyDenseUnsignedIntegerSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 337B2D6926546EAA00DDFD3D /* LikelyDenseUnsignedIntegerSet.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -421,7 +420,6 @@
 		DD3DC8FD27A4BF8E007E5B61 /* PlatformRegisters.h in Headers */ = {isa = PBXBuildFile; fileRef = E3200AB41E9A536D003B59D2 /* PlatformRegisters.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8FE27A4BF8E007E5B61 /* StackShot.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F9DAA041FD1C37B0079C5B2 /* StackShot.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8FF27A4BF8E007E5B61 /* WTFConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = FE032AD12463E43B0012D7C7 /* WTFConfig.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD3DC90027A4BF8E007E5B61 /* IteratorAdaptors.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CDD7FF7186D291E007433CD /* IteratorAdaptors.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC90127A4BF8E007E5B61 /* HashTable.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472B9151A825A004123FF /* HashTable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC90227A4BF8E007E5B61 /* UniqueRef.h in Headers */ = {isa = PBXBuildFile; fileRef = 5C7C88D31D0A3A0A009D2F6D /* UniqueRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC90327A4BF8E007E5B61 /* URL.h in Headers */ = {isa = PBXBuildFile; fileRef = 5CC0EE7121629F1800A1A842 /* URL.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1436,7 +1434,6 @@
 		7C98CDC723E7A9B80012F232 /* PlatformEnableCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformEnableCocoa.h; sourceTree = "<group>"; };
 		7CBBA07319BB7FDC00BBF025 /* OSObjectPtr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSObjectPtr.h; sourceTree = "<group>"; };
 		7CD4C26F1E2C82B900929470 /* StringConcatenateNumbers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StringConcatenateNumbers.h; sourceTree = "<group>"; };
-		7CDD7FF7186D291E007433CD /* IteratorAdaptors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IteratorAdaptors.h; sourceTree = "<group>"; };
 		7CDD7FF9186D2A54007433CD /* IteratorRange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IteratorRange.h; sourceTree = "<group>"; };
 		7CEAE5AC1EA6E10F00DB6890 /* NotFound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NotFound.h; sourceTree = "<group>"; };
 		7CEF23EB23D1257900F8B904 /* PlatformCallingConventions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformCallingConventions.h; sourceTree = "<group>"; };
@@ -2002,7 +1999,6 @@
 		E3EE4E8E2E8A34BC00398282 /* unumberoptions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = unumberoptions.h; sourceTree = "<group>"; };
 		E3EE4E8F2E8A34BC00398282 /* usimplenumberformatter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = usimplenumberformatter.h; sourceTree = "<group>"; };
 		E3FD6D6627A1F6AD00935000 /* GenericHashKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GenericHashKey.h; sourceTree = "<group>"; };
-		E419F2E623AB9E2300B26129 /* VectorHash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VectorHash.h; sourceTree = "<group>"; };
 		E42785642E9BC0F200A0DEF4 /* EnumSet.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EnumSet.h; sourceTree = "<group>"; };
 		E4A0AD371A96245500536DF6 /* WorkQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WorkQueue.cpp; sourceTree = "<group>"; };
 		E4A0AD381A96245500536DF6 /* WorkQueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WorkQueue.h; sourceTree = "<group>"; };
@@ -2459,7 +2455,6 @@
 				0F7EB85B1FA8FF4100F1ABCB /* IsoMalloc.h */,
 				0F7EB85C1FA8FF4200F1ABCB /* IsoMallocInlines.h */,
 				5295B00427920C54006D746A /* IterationStatus.h */,
-				7CDD7FF7186D291E007433CD /* IteratorAdaptors.h */,
 				7CDD7FF9186D2A54007433CD /* IteratorRange.h */,
 				7A05093E1FB9DCC500B33FB8 /* JSONValues.cpp */,
 				7A05093D1FB9DCC500B33FB8 /* JSONValues.h */,
@@ -2766,7 +2761,6 @@
 				BC05ACA52CEA70E500750CB1 /* VariantListOperations.h */,
 				0F95B63420CB53C100479635 /* Vector.cpp */,
 				A8A47370151A825B004123FF /* Vector.h */,
-				E419F2E623AB9E2300B26129 /* VectorHash.h */,
 				A8A47371151A825B004123FF /* VectorTraits.h */,
 				A8A47372151A825B004123FF /* VMTags.h */,
 				0F66B2881DC97BAB004A1D3F /* WallTime.cpp */,
@@ -3607,7 +3601,6 @@
 				DD3DC8BA27A4BF8E007E5B61 /* IsoMalloc.h in Headers */,
 				DD3DC89827A4BF8E007E5B61 /* IsoMallocInlines.h in Headers */,
 				DD3DC8B227A4BF8E007E5B61 /* IterationStatus.h in Headers */,
-				DD3DC90027A4BF8E007E5B61 /* IteratorAdaptors.h in Headers */,
 				DD3DC86B27A4BF8E007E5B61 /* IteratorRange.h in Headers */,
 				DD3DC92D27A4BF8E007E5B61 /* JSONValues.h in Headers */,
 				DD3DC86F27A4BF8E007E5B61 /* JSValueMalloc.h in Headers */,
@@ -3929,7 +3922,6 @@
 				DD3DC90B27A4BF8E007E5B61 /* Vector.h in Headers */,
 				4448265228D18CA600D916E8 /* VectorCF.h in Headers */,
 				DDF3079727C086CD006A526F /* VectorCocoa.h in Headers */,
-				DD3DC8B127A4BF8E007E5B61 /* VectorHash.h in Headers */,
 				DD3DC95327A4BF8E007E5B61 /* VectorTraits.h in Headers */,
 				DD3DC95127A4BF8E007E5B61 /* VMTags.h in Headers */,
 				DD3DC8EE27A4BF8E007E5B61 /* WallTime.h in Headers */,

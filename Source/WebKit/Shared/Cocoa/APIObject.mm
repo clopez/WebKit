@@ -84,6 +84,7 @@
 #import "_WKInspectorConfigurationInternal.h"
 #import "_WKInspectorDebuggableInfoInternal.h"
 #import "_WKInspectorInternal.h"
+#import "_WKJSBufferInternal.h"
 #import "_WKJSHandleInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import "_WKResourceLoadInfoInternal.h"
@@ -532,6 +533,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     case Type::JSHandle:
         SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKJSHandle alloc];
+        break;
+
+    case Type::JSBuffer:
+        SUPPRESS_RETAINPTR_CTOR_ADOPT wrapper = [_WKJSBuffer alloc];
         break;
 
     default:

@@ -214,6 +214,7 @@ public:
     // Testing
     bool beginSimulatedSwipeInDirectionForTesting(SwipeDirection);
     bool completeSimulatedSwipeInDirectionForTesting(SwipeDirection);
+    bool didCallEndSwipeGesture() const { return m_didCallEndSwipeGesture; }
 
 private:
     explicit ViewGestureController(WebPageProxy&);
@@ -512,7 +513,7 @@ private:
     bool m_didCallEndSwipeGesture { false };
     bool m_removeSnapshotImmediatelyWhenGestureEnds { false };
 
-    SnapshotRemovalTracker m_snapshotRemovalTracker;
+    const UniqueRef<SnapshotRemovalTracker> m_snapshotRemovalTracker;
     WTF::Function<void()> m_loadCallback;
 };
 

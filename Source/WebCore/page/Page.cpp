@@ -1058,10 +1058,10 @@ void Page::goToItemForNavigationAPI(LocalFrame& frame, HistoryItem& item, FrameL
 
 void Page::setGroupName(const String& name)
 {
-    if (m_group && !m_group->name().isEmpty()) {
-        ASSERT(m_group != m_singlePageGroup.get());
+    if (CheckedPtr group = m_group.get(); group && !group->name().isEmpty()) {
+        ASSERT(group != m_singlePageGroup.get());
         ASSERT(!m_singlePageGroup);
-        m_group->removePage(*this);
+        group->removePage(*this);
     }
 
     if (name.isEmpty())
@@ -1069,7 +1069,7 @@ void Page::setGroupName(const String& name)
     else {
         m_singlePageGroup = nullptr;
         m_group = PageGroup::pageGroup(name);
-        m_group->addPage(*this);
+        CheckedRef { *m_group }->addPage(*this);
     }
 }
 
@@ -1092,7 +1092,7 @@ void Page::initGroup()
 {
     ASSERT(!m_singlePageGroup);
     ASSERT(!m_group);
-    m_singlePageGroup = makeUnique<PageGroup>(*this);
+    m_singlePageGroup = PageGroup::create(*this).moveToUniquePtr();
     m_group = m_singlePageGroup.get();
 }
 
@@ -1900,7 +1900,7 @@ void Page::didCommitLoad()
 #endif
 
 #if ENABLE(GEOLOCATION)
-    if (auto* geolocationController = GeolocationController::from(this))
+    if (CheckedPtr geolocationController = GeolocationController::from(this))
         geolocationController->didNavigatePage();
 #endif
 
@@ -2019,6 +2019,11 @@ PageGroup& Page::group()
     if (!m_group)
         initGroup();
     return *m_group;
+}
+
+CheckedRef<PageGroup> Page::checkedGroup()
+{
+    return group();
 }
     
 void Page::setVerticalScrollElasticity(ScrollElasticity elasticity)
@@ -2290,7 +2295,7 @@ void Page::updateRendering()
 
     // https://drafts.csswg.org/scroll-animations-1/#event-loop
     forEachDocument([] (Document& document) {
-        document.updateStaleScrollTimelines();
+        document.runPostRenderingUpdateAnimationTasks();
     });
 
     runProcessingStep(RenderingUpdateStep::FocusFixup, [&] (Document& document) {
@@ -3075,6 +3080,31 @@ void Page::schedulePlaybackControlsManagerUpdate()
 #endif
 }
 
+#if ENABLE(MODEL_PROCESS)
+
+void Page::incrementModelElementCount()
+{
+    m_modelElementCount++;
+    if (m_modelElementCount == 1)
+        chrome().client().setHasModelElement(true);
+}
+
+void Page::decrementModelElementCount(unsigned count)
+{
+    m_modelElementCount -= count;
+    if (!m_modelElementCount) {
+        chrome().client().setHasModelElement(false);
+        return;
+    }
+
+    if (m_modelElementCount < 0) [[unlikely]] {
+        m_modelElementCount = 0;
+        ASSERT_NOT_REACHED();
+    }
+}
+
+#endif
+
 #if ENABLE(VIDEO)
 
 RefPtr<HTMLMediaElement> Page::bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose purpose, Document* document)
@@ -3334,8 +3364,8 @@ void Page::setActivityState(OptionSet<ActivityState> activityState)
     if (changed.containsAny({ActivityState::IsVisible, ActivityState::IsVisuallyIdle, ActivityState::IsAudible, ActivityState::IsLoading, ActivityState::IsCapturingMedia }))
         updateTimerThrottlingState();
 
-    for (auto& observer : m_activityStateChangeObservers)
-        observer.activityStateDidChange(oldActivityState, m_activityState);
+    for (CheckedRef observer : m_activityStateChangeObservers)
+        observer->activityStateDidChange(oldActivityState, m_activityState);
 
     if (wasVisibleAndActive != isVisibleAndActive()) {
         if (RefPtr manager = mediaSessionManager())
@@ -4880,23 +4910,34 @@ void Page::recomputeTextAutoSizingInAllFrames()
 
 #endif
 
-OptionSet<FilterRenderingMode> Page::preferredFilterRenderingModes() const
+OptionSet<FilterRenderingMode> Page::preferredFilterRenderingModes(const GraphicsContext& context) const
 {
     OptionSet<FilterRenderingMode> modes = FilterRenderingMode::Software;
 #if USE(CORE_IMAGE)
     if (settings().acceleratedFiltersEnabled())
         modes.add(FilterRenderingMode::Accelerated);
 #endif
+
 #if USE(SKIA)
     if (settings().acceleratedCompositingEnabled())
         modes.add(FilterRenderingMode::Accelerated);
 #endif
+
+    UNUSED_PARAM(context);
+
 #if USE(GRAPHICS_CONTEXT_FILTERS)
-    if (settings().graphicsContextFiltersEnabled())
-        modes.add(FilterRenderingMode::GraphicsContext);
-    if (settings().graphicsContextBlurFilterEnabled())
-        modes.add(FilterRenderingMode::GraphicsContextBlur);
+#if !HAVE(FIX_FOR_RADAR_104392017)
+    if (context.renderingMode() == RenderingMode::Accelerated || !context.knownToHaveFloatBasedBacking()) {
 #endif
+        if (settings().graphicsContextFiltersEnabled())
+            modes.add(FilterRenderingMode::GraphicsContext);
+        if (settings().graphicsContextBlurFilterEnabled())
+            modes.add(FilterRenderingMode::GraphicsContextBlur);
+#if !HAVE(FIX_FOR_RADAR_104392017)
+    }
+#endif
+#endif
+
     return modes;
 }
 
@@ -5802,6 +5843,19 @@ void Page::flushDeferredScrollEvents()
     m_shouldDeferScrollEvents = false;
     forEachDocument([&] (Document& document) {
         document.flushDeferredScrollEvents();
+    });
+}
+
+void Page::startDeferringIntersectionObservations()
+{
+    m_shouldDeferIntersectionObservations = true;
+}
+
+void Page::flushDeferredIntersectionObservations()
+{
+    m_shouldDeferIntersectionObservations = false;
+    forEachDocument([&] (Document& document) {
+        document.flushDeferredIntersectionObservations();
     });
 }
 

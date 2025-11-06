@@ -200,6 +200,10 @@
 #include <JavaScriptCore/RemoteInspector.h>
 #endif
 
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+#include <JavaScriptCore/WasmDebugServer.h>
+#endif
+
 #if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 #include "RemoteMediaPlayerManager.h"
 #endif
@@ -253,6 +257,10 @@
 
 #if PLATFORM(MAC)
 #import <wtf/spi/darwin/SandboxSPI.h>
+#endif
+
+#if ENABLE(GPU_PROCESS) && ENABLE(WEBGL) && USE(COORDINATED_GRAPHICS) && USE(GBM)
+#include <WebCore/GraphicsContextGLTextureMapperGBM.h>
 #endif
 
 #undef WEBPROCESS_RELEASE_LOG
@@ -313,6 +321,9 @@ WebProcess::WebProcess()
     , m_viewUpdateDispatcher(*this)
 #endif
     , m_webInspectorInterruptDispatcher(*this)
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    , m_wasmDebuggerDispatcher(*this)
+#endif
     , m_webLoaderStrategy(makeUniqueRefWithoutRefCountedCheck<WebLoaderStrategy>(*this))
 #if PLATFORM(COCOA) && USE(LIBWEBRTC) && ENABLE(WEB_CODECS)
     , m_remoteVideoCodecFactory(*this)
@@ -427,6 +438,9 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 #endif // PLATFORM(IOS_FAMILY)
 
     protectedWebInspectorInterruptDispatcher()->initializeConnection(*connection);
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    protectedWasmDebuggerDispatcher()->initializeConnection(*connection);
+#endif
 
     for (auto& supplement : m_supplements.values())
         supplement->initializeConnection(connection);
@@ -703,6 +717,18 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 
 #if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
     m_shouldInitializeAccessibility = parameters.shouldInitializeAccessibility;
+#endif
+
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    if (JSC::Options::enableWasmDebugger()) [[unlikely]] {
+        if (JSC::VM* vm = WebCore::commonVMOrNull()) {
+            bool success = JSC::Wasm::DebugServer::singleton().startRWI(vm, [](const String& response) {
+                return WebKit::WebProcess::singleton().send(Messages::WebProcessProxy::SendWasmDebuggerResponse(response), 0);
+            });
+            if (!success)
+                WEBPROCESS_RELEASE_LOG_ERROR(Inspector, "Failed to start WasmDebugServer in RWI mode");
+        }
+    }
 #endif
 
     WEBPROCESS_RELEASE_LOG(Process, "initializeWebProcess: Presenting processPID=%d", legacyPresentingApplicationPID());
@@ -2530,7 +2556,15 @@ void WebProcess::setUseGPUProcessForWebGL(bool useGPUProcessForWebGL)
 
 bool WebProcess::shouldUseRemoteRenderingForWebGL() const
 {
+#if USE(COORDINATED_GRAPHICS)
+#if USE(GBM)
+    return m_useGPUProcessForWebGL && WebCore::GraphicsContextGLTextureMapperGBM::checkRequirements();
+#else
+    return false;
+#endif
+#else
     return m_useGPUProcessForWebGL;
+#endif
 }
 #endif // ENABLE(WEBGL)
 
@@ -2628,7 +2662,7 @@ void WebProcess::enableMediaPlayback()
 #endif
 
 #if ENABLE(ROUTING_ARBITRATION)
-    m_routingArbitrator = makeUnique<AudioSessionRoutingArbitrator>(*this);
+    lazyInitialize(m_routingArbitrator, makeUniqueWithoutRefCountedCheck<AudioSessionRoutingArbitrator>(*this));
 #endif
 }
 

@@ -196,7 +196,7 @@ Style::PreferredSize RenderTableCell::logicalWidthFromColumns(RenderTableCol* fi
             return colWidth;
         }
 
-        colWidthSum += fixedColWidth->resolveZoom(Style::ZoomNeeded { });
+        colWidthSum += fixedColWidth->resolveZoom(tableCol->style().usedZoomForLength());
         tableCol = tableCol->nextColumn();
         // If no next <col> tag found for the span we just return what we have for now.
         if (!tableCol)
@@ -231,13 +231,14 @@ void RenderTableCell::computePreferredLogicalWidths()
     if (!element() || !style().autoWrap() || !element()->hasAttributeWithoutSynchronization(nowrapAttr))
         return;
 
-    if (auto fixedLogicalWidth = styleOrColLogicalWidth().tryFixed()) {
+    auto [ logicalWidth, usedZoom ] = styleOrColLogicalWidth();
+    if (auto fixedLogicalWidth = logicalWidth.tryFixed()) {
         // Nowrap is set, but we didn't actually use it because of the
         // fixed width set on the cell. Even so, it is a WinIE/Moz trait
         // to make the minwidth of the cell into the fixed width. They do this
         // even in strict mode, so do not make this a quirk. Affected the top
         // of hiptop.com.
-        m_minPreferredLogicalWidth = std::max(LayoutUnit(fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { })), m_minPreferredLogicalWidth);
+        m_minPreferredLogicalWidth = std::max(LayoutUnit(fixedLogicalWidth->resolveZoom(usedZoom)), m_minPreferredLogicalWidth);
     }
 }
 
@@ -367,7 +368,7 @@ LayoutUnit RenderTableCell::logicalHeightForRowSizing() const
     auto specifiedSize = !isOrthogonal() ? style().logicalHeight() : style().logicalWidth();
     if (!specifiedSize.isSpecified())
         return usedLogicalSize;
-    auto computedLogicaSize = Style::evaluate<LayoutUnit>(specifiedSize, 0_lu, Style::ZoomNeeded { });
+    auto computedLogicaSize = Style::evaluate<LayoutUnit>(specifiedSize, 0_lu, style().usedZoomForLength());
     // In strict mode, box-sizing: content-box do the right thing and actually add in the border and padding.
     // Call computedCSSPadding* directly to avoid including implicitPadding.
     if (!document().inQuirksMode() && style().boxSizing() != BoxSizing::BorderBox)
@@ -620,7 +621,6 @@ void RenderTableCell::styleDidChange(StyleDifference diff, const RenderStyle* ol
     ASSERT(!row() || row()->rowIndexWasSet());
 
     RenderBlockFlow::styleDidChange(diff, oldStyle);
-    setHasVisibleBoxDecorations(true); // FIXME: Optimize this to only set to true if necessary.
 
     if (parent() && section() && oldStyle && style().height() != oldStyle->height())
         section()->rowLogicalHeightChanged(rowIndex());
@@ -1496,7 +1496,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
     auto& bgLayers = style.backgroundLayers();
 
     auto color = style.visitedDependentColor(CSSPropertyBackgroundColor);
-    if (!bgLayers.hasImage() && !color.isVisible())
+    if (!Style::hasImageInAnyLayer(bgLayers) && !color.isVisible())
         return;
 
     color = style.colorByApplyingColorFilter(color);
@@ -1509,7 +1509,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
     // or row group. Draw them at the backgroundObject's dimensions, but
     // clipped to this cell.
     // FIXME: This should also apply to columns and column groups.
-    bool paintBackgroundObject = backgroundObject != this && bgLayers.hasImage() && !is<RenderTableCol>(backgroundObject);
+    bool paintBackgroundObject = backgroundObject != this && Style::hasImageInAnyLayer(bgLayers) && !is<RenderTableCol>(backgroundObject);
     // We have to clip here because the background would paint
     // on top of the borders otherwise. This only matters for cells and rows.
     bool shouldClip = paintBackgroundObject || (backgroundObject->hasLayer() && (backgroundObject == this || backgroundObject == parent()) && tableElt->collapseBorders());

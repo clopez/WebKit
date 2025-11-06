@@ -75,6 +75,7 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "StyleSingleAnimationRange.h"
+#include "StyleWillChange.h"
 #include "StyledElement.h"
 #include "TimelineRangeOffset.h"
 #include "TimingFunction.h"
@@ -88,7 +89,7 @@
 #include <wtf/UUID.h>
 #include <wtf/text/TextStream.h>
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #include "AcceleratedEffect.h"
 #include "AcceleratedEffectStackUpdater.h"
 #endif
@@ -401,7 +402,7 @@ static inline ExceptionOr<KeyframeEffect::KeyframeLikeObject> processKeyframeLik
     //       name to IDL attribute name algorithm.
 
     // 3. Let input properties be the result of calling the EnumerableOwnNames operation with keyframe input as the object.
-    PropertyNameArray inputProperties(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
+    PropertyNameArrayBuilder inputProperties(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
     JSObject::getOwnPropertyNames(keyframesInput.get(), &lexicalGlobalObject, inputProperties, DontEnumPropertiesMode::Exclude);
 
     auto isDirectionAwareShorthand = [](CSSPropertyID property) {
@@ -1365,8 +1366,8 @@ void KeyframeEffect::checkForMatchingTransformFunctionLists()
 std::optional<unsigned> KeyframeEffect::transformFunctionListPrefix() const
 {
     auto isTransformFunctionListsMatchPrefixRelevant = [&]() {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-        if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+        if (threadedAnimationsEnabled()) {
             // The prefix is only relevant if the animation is fully replaced.
             if (m_compositeOperation != CompositeOperation::Replace || m_hasKeyframeComposingAcceleratedProperty)
                 return false;
@@ -1461,7 +1462,7 @@ void KeyframeEffect::computeStackingContextImpact()
 {
     m_triggersStackingContext = false;
     for (auto property : m_blendingKeyframes.properties()) {
-        if (std::holds_alternative<CSSPropertyID>(property) && WillChangeData::propertyCreatesStackingContext(std::get<CSSPropertyID>(property))) {
+        if (std::holds_alternative<CSSPropertyID>(property) && Style::WillChangeAnimatableFeature::propertyCreatesStackingContext(std::get<CSSPropertyID>(property))) {
             m_triggersStackingContext = true;
             break;
         }
@@ -1506,7 +1507,7 @@ void KeyframeEffect::updateEffectStackMembership()
     if (!target)
         return;
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     StackMembershipMutationScope stackMembershipMutationScope(*this);
 #endif
 
@@ -1603,7 +1604,7 @@ void KeyframeEffect::didChangeTargetStyleable(const std::optional<const Styleabl
     // any animated styles are removed immediately.
     invalidateElement(previousTargetStyleable);
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     StackMembershipMutationScope stackMembershipMutationScope(*this);
 #endif
 
@@ -1642,8 +1643,8 @@ OptionSet<AnimationImpact> KeyframeEffect::apply(RenderStyle& targetStyle, const
 
 bool KeyframeEffect::isRunningAccelerated() const
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         if (!m_inTargetEffectStack || !canBeAccelerated())
             return false;
         RefPtr animation = this->animation();
@@ -1662,7 +1663,7 @@ bool KeyframeEffect::isCurrentlyAffectingProperty(CSSPropertyID property, Accele
     if (!m_blendingKeyframes.properties().contains(property))
         return false;
 
-    if (m_pseudoElementIdentifier && m_pseudoElementIdentifier->pseudoId == PseudoId::Marker && !Style::isValidMarkerStyleProperty(property))
+    if (m_pseudoElementIdentifier && m_pseudoElementIdentifier->type == PseudoElementType::Marker && !Style::isValidMarkerStyleProperty(property))
         return false;
 
     return m_phaseAtLastApplication == AnimationEffectPhase::Active;
@@ -1934,13 +1935,10 @@ const TimingFunction* KeyframeEffect::timingFunctionForKeyframeAtIndex(size_t in
 
 bool KeyframeEffect::canBeAccelerated() const
 {
-    if (!animation())
+    if (!animation() || animation()->pending())
         return false;
 
     if (m_acceleratedPropertiesState == AcceleratedProperties::None)
-        return false;
-
-    if (m_isAssociatedWithProgressBasedTimeline)
         return false;
 
     if (m_hasAcceleratedPropertyOverriddenByCascadeProperty)
@@ -1960,10 +1958,18 @@ bool KeyframeEffect::canBeAccelerated() const
             return false;
     }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
-        return true;
+#if ENABLE(THREADED_ANIMATIONS)
+    if (RefPtr document = this->document()) {
+        Ref settings = document->settings();
+        if (m_isAssociatedWithProgressBasedTimeline && settings->threadedScrollDrivenAnimationsEnabled())
+            return true;
+        if (!m_isAssociatedWithProgressBasedTimeline && settings->threadedTimeBasedAnimationsEnabled())
+            return true;
+    }
 #endif
+
+    if (m_isAssociatedWithProgressBasedTimeline)
+        return false;
 
     if (m_someKeyframesUseStepsTimingFunction || is<StepsTimingFunction>(timingFunction()))
         return false;
@@ -1982,8 +1988,8 @@ bool KeyframeEffect::canBeAccelerated() const
 
 bool KeyframeEffect::preventsAcceleration() const
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         return false;
 #endif
 
@@ -2012,8 +2018,8 @@ bool KeyframeEffect::preventsAcceleration() const
 
 void KeyframeEffect::updateAcceleratedActions()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         return;
 #endif
 
@@ -2057,8 +2063,8 @@ void KeyframeEffect::updateAcceleratedActions()
 
 void KeyframeEffect::addPendingAcceleratedAction(AcceleratedAction action)
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         return;
 #endif
 
@@ -2081,6 +2087,11 @@ void KeyframeEffect::animationDidTick()
     invalidate();
     updateAcceleratedActions();
 
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
+        updateAcceleratedAnimationIfNecessary();
+#endif
+
     if (RefPtr viewTimeline = activeViewTimeline())
         computeMissingKeyframeOffsets(m_parsedKeyframes, viewTimeline.get(), animation());
 }
@@ -2094,8 +2105,8 @@ void KeyframeEffect::animationDidChangeTimingProperties()
 
 void KeyframeEffect::updateAcceleratedAnimationIfNecessary()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         if (canBeAccelerated())
             updateAssociatedThreadedEffectStack();
         return;
@@ -2115,8 +2126,8 @@ void KeyframeEffect::updateAcceleratedAnimationIfNecessary()
 
 void KeyframeEffect::animationDidFinish()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         updateAcceleratedAnimationIfNecessary();
 #endif
 }
@@ -2214,8 +2225,8 @@ std::optional<KeyframeEffect::RecomputationReason> KeyframeEffect::recomputeKeyf
 
 void KeyframeEffect::animationWasCanceled()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         updateAcceleratedAnimationIfNecessary();
         return;
     }
@@ -2238,8 +2249,8 @@ void KeyframeEffect::wasRemovedFromEffectStack()
 
 void KeyframeEffect::willChangeRenderer()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         updateAcceleratedAnimationIfNecessary();
         return;
     }
@@ -2251,8 +2262,8 @@ void KeyframeEffect::willChangeRenderer()
 
 void KeyframeEffect::animationSuspensionStateDidChange(bool animationIsSuspended)
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         updateAssociatedThreadedEffectStack();
         return;
     }
@@ -2264,8 +2275,8 @@ void KeyframeEffect::animationSuspensionStateDidChange(bool animationIsSuspended
 
 void KeyframeEffect::applyPendingAcceleratedActionsOrUpdateTimingProperties()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         return;
 #endif
 
@@ -2282,8 +2293,8 @@ void KeyframeEffect::applyPendingAcceleratedActionsOrUpdateTimingProperties()
 
 void KeyframeEffect::applyPendingAcceleratedActions()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         return;
 #endif
 
@@ -2655,8 +2666,8 @@ bool KeyframeEffect::ticksContinuouslyWhileActive() const
         return false;
 
     if (isCompletelyAccelerated() && isRunningAccelerated()) {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-        if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+        if (threadedAnimationsEnabled())
             return !m_acceleratedRepresentation || !m_acceleratedRepresentation->disallowedProperties().isEmpty();
 #endif
         return false;
@@ -2701,8 +2712,8 @@ void KeyframeEffect::setComposite(CompositeOperation compositeOperation)
     m_compositeOperation = compositeOperation;
     invalidate();
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled())
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled())
         updateAcceleratedAnimationIfNecessary();
 #endif
 }
@@ -2906,7 +2917,7 @@ void KeyframeEffect::computeHasSizeDependentTransform()
     // the position at the same time as the size animates, even slight desynchronizations look
     // stuttery.
     if (auto target = targetStyleable()) {
-        if (target->pseudoElementIdentifier && target->pseudoElementIdentifier->pseudoId == PseudoId::ViewTransitionGroup)
+        if (target->pseudoElementIdentifier && target->pseudoElementIdentifier->type == PseudoElementType::ViewTransitionGroup)
             m_animatesSizeAndSizeDependentTransform |= ((m_blendingKeyframes.containsProperty(CSSPropertyWidth) || m_blendingKeyframes.containsProperty(CSSPropertyHeight)) && m_blendingKeyframes.containsProperty(CSSPropertyTransform));
     }
 }
@@ -2929,8 +2940,8 @@ void KeyframeEffect::effectStackNoLongerAllowsAcceleration()
 
 void KeyframeEffect::effectStackNoLongerAllowsAccelerationDuringAcceleratedActionApplication()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         ASSERT_NOT_REACHED();
         return;
     }
@@ -2944,8 +2955,8 @@ void KeyframeEffect::effectStackNoLongerAllowsAccelerationDuringAcceleratedActio
 
 void KeyframeEffect::abilityToBeAcceleratedDidChange()
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         updateAssociatedThreadedEffectStack();
         return;
     }
@@ -2970,7 +2981,7 @@ KeyframeEffect::CanBeAcceleratedMutationScope::CanBeAcceleratedMutationScope(Key
 {
     ASSERT(effect);
     m_couldOriginallyPreventAcceleration = effect->preventsAcceleration();
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     m_couldOriginallyBeAccelerated = effect->canBeAccelerated();
 #endif
 }
@@ -2982,13 +2993,13 @@ KeyframeEffect::CanBeAcceleratedMutationScope::~CanBeAcceleratedMutationScope()
 
     if (m_couldOriginallyPreventAcceleration != m_effect->preventsAcceleration())
         m_effect->abilityToBeAcceleratedDidChange();
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     else if (m_couldOriginallyBeAccelerated != m_effect->canBeAccelerated())
         m_effect->abilityToBeAcceleratedDidChange();
 #endif
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 static bool acceleratedPropertyDidChange(AnimatableCSSProperty property, const RenderStyle& previousStyle, const RenderStyle& currentStyle, const Settings& settings)
 {
 #if ASSERT_ENABLED
@@ -3035,8 +3046,8 @@ static bool acceleratedPropertyDidChange(AnimatableCSSProperty property, const R
 
 void KeyframeEffect::lastStyleChangeEventStyleDidChange(const RenderStyle* previousStyle, const RenderStyle* currentStyle)
 {
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (threadedAnimationResolutionEnabled()) {
+#if ENABLE(THREADED_ANIMATIONS)
+    if (threadedAnimationsEnabled()) {
         if (!isRunningAccelerated())
             return;
 
@@ -3076,7 +3087,7 @@ bool KeyframeEffect::preventsAnimationReadiness() const
     return document() && !document()->hasBrowsingContext();
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 KeyframeEffect::StackMembershipMutationScope::StackMembershipMutationScope(KeyframeEffect& effect)
     : m_effect(&effect)
 {
@@ -3102,15 +3113,18 @@ KeyframeEffect::StackMembershipMutationScope::~StackMembershipMutationScope()
     }
 }
 
-bool KeyframeEffect::threadedAnimationResolutionEnabled() const
+bool KeyframeEffect::threadedAnimationsEnabled() const
 {
-    auto* document = this->document();
-    return document && document->settings().threadedAnimationResolutionEnabled();
+    if (RefPtr document = this->document()) {
+        Ref settings = document->settings();
+        return settings->threadedScrollDrivenAnimationsEnabled() || settings->threadedTimeBasedAnimationsEnabled();
+    }
+    return false;
 }
 
 void KeyframeEffect::updateAssociatedThreadedEffectStack(const std::optional<const Styleable>& previousTarget)
 {
-    if (!threadedAnimationResolutionEnabled())
+    if (!threadedAnimationsEnabled())
         return;
 
     ASSERT(document());

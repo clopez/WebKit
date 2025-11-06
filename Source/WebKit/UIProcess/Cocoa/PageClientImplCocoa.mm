@@ -27,6 +27,7 @@
 #import "PageClientImplCocoa.h"
 
 #import "APIUIClient.h"
+#import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "WKWebViewInternal.h"
 #import "WebFullScreenManagerProxy.h"
@@ -221,7 +222,7 @@ void PageClientImplCocoa::removeDictationAlternatives(WebCore::DictationContext 
 
 Vector<String> PageClientImplCocoa::dictationAlternatives(WebCore::DictationContext dictationContext)
 {
-    return makeVector<String>(RetainPtr { platformDictationAlternatives(dictationContext) }.get().alternativeStrings);
+    return makeVector<String>(retainPtr(RetainPtr { platformDictationAlternatives(dictationContext) }.get().alternativeStrings).get());
 }
 
 PlatformTextAlternatives *PageClientImplCocoa::platformDictationAlternatives(WebCore::DictationContext dictationContext)
@@ -450,10 +451,10 @@ void PageClientImplCocoa::setFullScreenClientForTesting(std::unique_ptr<WebFullS
 }
 #endif
 
-void PageClientImplCocoa::didCommitLayerTree(const RemoteLayerTreeTransaction& transaction)
+void PageClientImplCocoa::didCommitLayerTree(const RemoteLayerTreeTransaction& transaction, const std::optional<MainFrameData>& mainFrameData)
 {
-    if (auto& edges = transaction.fixedContainerEdges())
-        [webView() _updateFixedContainerEdges:*edges];
+    if (mainFrameData && mainFrameData->fixedContainerEdges)
+        [webView() _updateFixedContainerEdges:*mainFrameData->fixedContainerEdges];
     [webView() _updateScrollGeometryWithContentOffset:transaction.scrollPosition() contentSize:transaction.scrollGeometryContentSize()];
 }
 

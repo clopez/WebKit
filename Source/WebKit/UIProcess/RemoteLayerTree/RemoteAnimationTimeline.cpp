@@ -26,36 +26,21 @@
 #import "config.h"
 #import "RemoteAnimationTimeline.h"
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RemoteAnimationTimeline);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAnimationTimeline);
 
-static WebCore::WebAnimationTime computeCurrentTime(Seconds originTime, MonotonicTime now)
+RemoteAnimationTimeline::RemoteAnimationTimeline(TimelineID identifier, std::optional<WebCore::WebAnimationTime> duration)
+    : m_identifier(identifier)
+    , m_duration(duration)
 {
-    return now.secondsSinceEpoch() - originTime;
-}
-
-Ref<RemoteAnimationTimeline> RemoteAnimationTimeline::create(Seconds originTime, MonotonicTime now)
-{
-    return adoptRef(*new RemoteAnimationTimeline(originTime, computeCurrentTime(originTime, now)));
-}
-
-RemoteAnimationTimeline::RemoteAnimationTimeline(Seconds originTime, WebCore::WebAnimationTime currentTime)
-    : m_originTime(originTime)
-    , m_currentTime(currentTime)
-{
-}
-
-void RemoteAnimationTimeline::updateCurrentTime(MonotonicTime now)
-{
-    m_currentTime = computeCurrentTime(m_originTime, now);
 }
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)
 

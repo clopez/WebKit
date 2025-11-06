@@ -29,6 +29,7 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/FloatSize.h>
 #include <WebCore/NodeIdentifier.h>
+#include <WebCore/WebKitJSHandle.h>
 #include <wtf/Forward.h>
 #include <wtf/URL.h>
 
@@ -41,6 +42,7 @@ enum class Action : uint8_t {
     SelectMenuItem,
     TextInput,
     KeyPress,
+    HighlightText,
 };
 
 struct Interaction {
@@ -49,6 +51,7 @@ struct Interaction {
     std::optional<FloatPoint> locationInRootView;
     std::optional<NodeIdentifier> nodeIdentifier;
     bool replaceAll { false };
+    bool scrollToVisible { false };
 };
 
 struct ExtractedText {
@@ -70,10 +73,15 @@ enum class EventListenerCategory : uint8_t {
 };
 
 struct Request {
-    std::optional<WebCore::FloatRect> collectionRectInRootView;
+    HashMap<String, HashMap<JSHandleIdentifier, String>> clientNodeAttributes;
+    std::optional<FloatRect> collectionRectInRootView;
+    std::optional<JSHandleIdentifier> targetNodeHandleIdentifier;
     bool mergeParagraphs { false };
     bool skipNearlyTransparentContent { false };
-    bool canIncludeIdentifiers { false };
+    bool includeNodeIdentifiers { false };
+    bool includeEventListeners { false };
+    bool includeAccessibilityAttributes { false };
+    bool includeTextInAutoFilledControls { false };
 };
 
 struct Editable {
@@ -147,6 +155,7 @@ struct Item {
     OptionSet<EventListenerCategory> eventListeners;
     HashMap<String, String> ariaAttributes;
     String accessibilityRole;
+    HashMap<String, String> clientAttributes;
 };
 
 } // namespace TextExtraction

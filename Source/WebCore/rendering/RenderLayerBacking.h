@@ -47,6 +47,10 @@ class RenderLayerCompositor;
 class TiledBacking;
 class TransformationMatrix;
 
+#if ENABLE(THREADED_ANIMATIONS)
+class AcceleratedTimeline;
+#endif
+
 enum CompositingLayerType {
     NormalCompositingLayer, // non-tiled layer with backing store
     TiledCompositingLayer, // tiled layer (always has backing store)
@@ -191,8 +195,8 @@ public:
     void suspendAnimations(MonotonicTime = MonotonicTime());
     void resumeAnimations();
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    bool updateAcceleratedEffectsAndBaseValues();
+#if ENABLE(THREADED_ANIMATIONS)
+    bool updateAcceleratedEffectsAndBaseValues(HashSet<Ref<AcceleratedTimeline>>&);
 #endif
 
     WEBCORE_EXPORT LayoutRect compositedBounds() const;

@@ -84,7 +84,7 @@ enum class StyleDifferenceContextSensitiveProperty : uint8_t {
     WillChange  = 1 << 5,
 };
 
-enum class PseudoId : uint8_t {
+enum class PseudoElementType : uint8_t {
     // Public:
     FirstLine,
     FirstLetter,
@@ -116,46 +116,46 @@ enum class PseudoId : uint8_t {
     HighestEnumValue = InternalWritingSuggestions
 };
 
-constexpr auto allPublicPseudoIds = EnumSet {
-    PseudoId::FirstLine,
-    PseudoId::FirstLetter,
-    PseudoId::GrammarError,
-    PseudoId::Highlight,
-    PseudoId::Marker,
-    PseudoId::Before,
-    PseudoId::After,
-    PseudoId::Selection,
-    PseudoId::Backdrop,
-    PseudoId::WebKitScrollbar,
-    PseudoId::SpellingError,
-    PseudoId::TargetText,
-    PseudoId::ViewTransition,
-    PseudoId::ViewTransitionGroup,
-    PseudoId::ViewTransitionImagePair,
-    PseudoId::ViewTransitionOld,
-    PseudoId::ViewTransitionNew
+constexpr auto allPublicPseudoElementTypes = EnumSet {
+    PseudoElementType::FirstLine,
+    PseudoElementType::FirstLetter,
+    PseudoElementType::GrammarError,
+    PseudoElementType::Highlight,
+    PseudoElementType::Marker,
+    PseudoElementType::Before,
+    PseudoElementType::After,
+    PseudoElementType::Selection,
+    PseudoElementType::Backdrop,
+    PseudoElementType::WebKitScrollbar,
+    PseudoElementType::SpellingError,
+    PseudoElementType::TargetText,
+    PseudoElementType::ViewTransition,
+    PseudoElementType::ViewTransitionGroup,
+    PseudoElementType::ViewTransitionImagePair,
+    PseudoElementType::ViewTransitionOld,
+    PseudoElementType::ViewTransitionNew
 };
 
-constexpr auto allInternalPseudoIds = EnumSet {
-    PseudoId::WebKitScrollbarThumb,
-    PseudoId::WebKitScrollbarButton,
-    PseudoId::WebKitScrollbarTrack,
-    PseudoId::WebKitScrollbarTrackPiece,
-    PseudoId::WebKitScrollbarCorner,
-    PseudoId::WebKitResizer,
-    PseudoId::InternalWritingSuggestions,
+constexpr auto allInternalPseudoElementTypes = EnumSet {
+    PseudoElementType::WebKitScrollbarThumb,
+    PseudoElementType::WebKitScrollbarButton,
+    PseudoElementType::WebKitScrollbarTrack,
+    PseudoElementType::WebKitScrollbarTrackPiece,
+    PseudoElementType::WebKitScrollbarCorner,
+    PseudoElementType::WebKitResizer,
+    PseudoElementType::InternalWritingSuggestions,
 };
 
-constexpr auto allPseudoIds = allPublicPseudoIds | allInternalPseudoIds;
+constexpr auto allPseudoElementTypes = allPublicPseudoElementTypes | allInternalPseudoElementTypes;
 
-inline std::optional<PseudoId> parentPseudoElement(PseudoId pseudoId)
+inline std::optional<PseudoElementType> parentPseudoElement(PseudoElementType pseudoElementType)
 {
-    switch (pseudoId) {
-    case PseudoId::FirstLetter: return PseudoId::FirstLine;
-    case PseudoId::ViewTransitionGroup: return PseudoId::ViewTransition;
-    case PseudoId::ViewTransitionImagePair: return PseudoId::ViewTransitionGroup;
-    case PseudoId::ViewTransitionNew: return PseudoId::ViewTransitionImagePair;
-    case PseudoId::ViewTransitionOld: return PseudoId::ViewTransitionImagePair;
+    switch (pseudoElementType) {
+    case PseudoElementType::FirstLetter: return PseudoElementType::FirstLine;
+    case PseudoElementType::ViewTransitionGroup: return PseudoElementType::ViewTransition;
+    case PseudoElementType::ViewTransitionImagePair: return PseudoElementType::ViewTransitionGroup;
+    case PseudoElementType::ViewTransitionNew: return PseudoElementType::ViewTransitionImagePair;
+    case PseudoElementType::ViewTransitionOld: return PseudoElementType::ViewTransitionImagePair;
     default: return std::nullopt;
     }
 }
@@ -321,11 +321,6 @@ enum class FillRepeat : uint8_t {
     NoRepeat,
     Round,
     Space
-};
-
-enum class FillLayerType : bool {
-    Background,
-    Mask
 };
 
 // CSS3 Background Values
@@ -620,6 +615,7 @@ enum class TextTransform : uint8_t {
     Lowercase     = 1 << 2,
     FullSizeKana  = 1 << 3,
     FullWidth     = 1 << 4,
+    MathAuto      = 1 << 5,
 };
 constexpr auto maxTextTransformValue = TextTransform::FullWidth;
 
@@ -991,21 +987,6 @@ enum class ColorScheme : uint8_t {
 
 constexpr size_t ColorSchemeBits = 2;
 
-constexpr size_t GridAutoFlowBits = 4;
-enum InternalGridAutoFlow : uint8_t {
-    InternalAutoFlowAlgorithmSparse = 1 << 0,
-    InternalAutoFlowAlgorithmDense  = 1 << 1,
-    InternalAutoFlowDirectionRow    = 1 << 2,
-    InternalAutoFlowDirectionColumn = 1 << 3
-};
-
-enum GridAutoFlow : uint8_t {
-    AutoFlowRow = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionRow,
-    AutoFlowColumn = InternalAutoFlowAlgorithmSparse | InternalAutoFlowDirectionColumn,
-    AutoFlowRowDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionRow,
-    AutoFlowColumnDense = InternalAutoFlowAlgorithmDense | InternalAutoFlowDirectionColumn
-};
-
 enum class AutoRepeatType : uint8_t {
     None,
     Fill,
@@ -1061,23 +1042,6 @@ enum class ScrollSnapAxisAlignType : uint8_t {
 enum class ScrollSnapStop : bool {
     Normal,
     Always,
-};
-
-// These are all minimized combinations of paint-order.
-enum class PaintOrder : uint8_t {
-    Normal,
-    Fill,
-    FillMarkers,
-    Stroke,
-    StrokeMarkers,
-    Markers,
-    MarkersStroke
-};
-
-enum class PaintType : uint8_t {
-    Fill,
-    Stroke,
-    Markers
 };
 
 enum class FontLoadingBehavior : uint8_t {
@@ -1342,7 +1306,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, FlexDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, FlexWrap);
 WTF::TextStream& operator<<(WTF::TextStream&, Float);
 WTF::TextStream& operator<<(WTF::TextStream&, UsedFloat);
-WTF::TextStream& operator<<(WTF::TextStream&, GridAutoFlow);
 WTF::TextStream& operator<<(WTF::TextStream&, HangingPunctuation);
 WTF::TextStream& operator<<(WTF::TextStream&, Hyphens);
 WTF::TextStream& operator<<(WTF::TextStream&, ImageRendering);
@@ -1366,12 +1329,11 @@ WTF::TextStream& operator<<(WTF::TextStream&, OutlineStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, WebCore::Overflow);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowAlignment);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowWrap);
-WTF::TextStream& operator<<(WTF::TextStream&, PaintOrder);
 WTF::TextStream& operator<<(WTF::TextStream&, PointerEvents);
 WTF::TextStream& operator<<(WTF::TextStream&, PositionType);
 WTF::TextStream& operator<<(WTF::TextStream&, PositionVisibility);
 WTF::TextStream& operator<<(WTF::TextStream&, PrintColorAdjust);
-WTF::TextStream& operator<<(WTF::TextStream&, PseudoId);
+WTF::TextStream& operator<<(WTF::TextStream&, PseudoElementType);
 WTF::TextStream& operator<<(WTF::TextStream&, QuoteType);
 WTF::TextStream& operator<<(WTF::TextStream&, ReflectionDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, Resize);

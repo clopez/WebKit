@@ -85,6 +85,10 @@
 #include "ServiceWorkerDebuggableProxy.h"
 #endif
 
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+#include "WasmDebuggerDebuggable.h"
+#endif
+
 namespace API {
 class Navigation;
 class PageConfiguration;
@@ -578,6 +582,21 @@ public:
     bool receivedLogsDuringLaunchForTesting() const { return m_didReceiveLogsDuringLaunchForTesting; }
 #endif
 
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    void createWasmDebuggerTarget();
+    void destroyWasmDebuggerTarget();
+    void connectWasmDebuggerTarget(bool isAutomaticConnection, bool immediatelyPause);
+    void disconnectWasmDebuggerTarget();
+    void dispatchWasmDebuggerMessage(const String& message);
+    void setWasmDebuggerTargetIndicating(bool);
+
+    void sendWasmDebuggerResponse(const String& response);
+#endif
+
+#if ENABLE(IPC_TESTING_API)
+    void takeInvalidMessageStringForTesting(CompletionHandler<void(String&&)>&&);
+#endif
+
 private:
     Type type() const final { return Type::WebContent; }
 
@@ -626,6 +645,10 @@ private:
 
     void platformInitialize();
     void platformDestroy();
+
+#if PLATFORM(COCOA)
+    static void registerNotifyObservers();
+#endif
 
     ProcessTerminationReason terminationReason() const;
 
@@ -748,11 +771,11 @@ private:
         RefPtr<T> m_strongObject;
     };
 
-    BackgroundProcessResponsivenessTimer m_backgroundResponsivenessTimer;
+    const UniqueRef<BackgroundProcessResponsivenessTimer> m_backgroundResponsivenessTimer;
     
     WeakOrStrongPtr<WebProcessPool> m_processPool; // Pre-warmed and cached processes do not hold a strong reference to their pool.
 
-    bool m_mayHaveUniversalFileReadSandboxExtension; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
+    bool m_mayHaveUniversalFileReadSandboxExtension { false }; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
     HashSet<String> m_localPathsWithAssumedReadAccess;
     HashSet<String> m_previouslyApprovedFilePaths;
 
@@ -765,13 +788,13 @@ private:
 
     WeakHashMap<VisitedLinkStore, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
 
-    int m_numberOfTimesSuddenTerminationWasDisabled;
+    int m_numberOfTimesSuddenTerminationWasDisabled { 0 };
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
     bool m_areThrottleStateChangesEnabled { true };
 
 #if HAVE(DISPLAY_LINK)
-    DisplayLinkProcessProxyClient m_displayLinkClient;
+    const UniqueRef<DisplayLinkProcessProxyClient> m_displayLinkClient;
 #endif
 
 #if PLATFORM(COCOA)
@@ -889,6 +912,9 @@ private:
 #endif
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
     HashMap<WebCore::ServiceWorkerIdentifier, Ref<ServiceWorkerDebuggableProxy>> m_serviceWorkerDebuggableProxies;
+#endif
+#if ENABLE(REMOTE_INSPECTOR) && ENABLE(WEBASSEMBLY)
+    RefPtr<WasmDebuggerDebuggable> m_wasmDebuggerDebuggable;
 #endif
 
     HashMap<String, SandboxExtension::Handle> m_fileSandboxExtensions;

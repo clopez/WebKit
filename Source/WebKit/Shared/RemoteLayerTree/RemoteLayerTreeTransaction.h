@@ -53,9 +53,8 @@
 #include "DynamicViewportSizeUpdate.h"
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-#include <WebCore/AcceleratedEffect.h>
-#include <WebCore/AcceleratedEffectValues.h>
+#if ENABLE(THREADED_ANIMATIONS)
+#include <WebCore/AcceleratedTimeline.h>
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
@@ -86,7 +85,7 @@ struct ChangedLayers {
     ~ChangedLayers();
 };
 
-class RemoteLayerTreeTransaction : public CanMakeCheckedPtr<RemoteLayerTreeTransaction> {
+class RemoteLayerTreeTransaction final : public CanMakeCheckedPtr<RemoteLayerTreeTransaction, WTF::DefaultedOperatorEqual::No, WTF::CheckedPtrDeleteCheckException::Yes> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeTransaction);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteLayerTreeTransaction);
 public:
@@ -190,15 +189,6 @@ public:
     WebCore::LayoutPoint maxStableLayoutViewportOrigin() const { return m_maxStableLayoutViewportOrigin; }
     void setMaxStableLayoutViewportOrigin(const WebCore::LayoutPoint& point) { m_maxStableLayoutViewportOrigin = point; };
 
-    WebCore::Color themeColor() const { return m_themeColor; }
-    void setThemeColor(WebCore::Color color) { m_themeColor = color; }
-
-    WebCore::Color pageExtendedBackgroundColor() const { return m_pageExtendedBackgroundColor; }
-    void setPageExtendedBackgroundColor(WebCore::Color color) { m_pageExtendedBackgroundColor = color; }
-
-    WebCore::Color sampledPageTopColor() const { return m_sampledPageTopColor; }
-    void setSampledPageTopColor(WebCore::Color color) { m_sampledPageTopColor = color; }
-
     WebCore::IntPoint scrollPosition() const { return m_scrollPosition; }
     void setScrollPosition(WebCore::IntPoint p) { m_scrollPosition = p; }
 
@@ -207,17 +197,6 @@ public:
 
     bool scaleWasSetByUIProcess() const { return m_scaleWasSetByUIProcess; }
     void setScaleWasSetByUIProcess(bool scaleWasSetByUIProcess) { m_scaleWasSetByUIProcess = scaleWasSetByUIProcess; }
-
-#if PLATFORM(MAC)
-    std::optional<WebCore::PlatformLayerIdentifier> pageScalingLayerID() const { return m_pageScalingLayerID.asOptional(); }
-    void setPageScalingLayerID(std::optional<WebCore::PlatformLayerIdentifier> layerID) { m_pageScalingLayerID = layerID; }
-
-    std::optional<WebCore::PlatformLayerIdentifier> scrolledContentsLayerID() const { return m_scrolledContentsLayerID.asOptional(); }
-    void setScrolledContentsLayerID(std::optional<WebCore::PlatformLayerIdentifier> layerID) { m_scrolledContentsLayerID = layerID; }
-
-    std::optional<WebCore::PlatformLayerIdentifier> mainFrameClipLayerID() const { return m_mainFrameClipLayerID.asOptional(); }
-    void setMainFrameClipLayerID(std::optional<WebCore::PlatformLayerIdentifier> layerID) { m_mainFrameClipLayerID = layerID; }
-#endif // PLATFORM(MAC)
 
     uint64_t renderTreeSize() const { return m_renderTreeSize; }
     void setRenderTreeSize(uint64_t renderTreeSize) { m_renderTreeSize = renderTreeSize; }
@@ -243,9 +222,6 @@ public:
     bool viewportMetaTagCameFromImageDocument() const { return m_viewportMetaTagCameFromImageDocument; }
     void setViewportMetaTagCameFromImageDocument(bool cameFromImageDocument) { m_viewportMetaTagCameFromImageDocument = cameFromImageDocument; }
 
-    bool isInStableState() const { return m_isInStableState; }
-    void setIsInStableState(bool isInStableState) { m_isInStableState = isInStableState; }
-
     bool allowsUserScaling() const { return m_allowsUserScaling; }
     void setAllowsUserScaling(bool allowsUserScaling) { m_allowsUserScaling = allowsUserScaling; }
 
@@ -254,35 +230,18 @@ public:
 
     TransactionID transactionID() const { return m_transactionID; }
 
-    ActivityStateChangeID activityStateChangeID() const { return m_activityStateChangeID; }
-    void setActivityStateChangeID(ActivityStateChangeID activityStateChangeID) { m_activityStateChangeID = activityStateChangeID; }
-
-    using TransactionCallbackID = IPC::AsyncReplyID;
-    const Vector<TransactionCallbackID>& callbackIDs() const { return m_callbackIDs; }
-    void setCallbackIDs(Vector<TransactionCallbackID>&& callbackIDs) { m_callbackIDs = WTFMove(callbackIDs); }
-
-    OptionSet<WebCore::LayoutMilestone> newlyReachedPaintingMilestones() const { return m_newlyReachedPaintingMilestones; }
-    void setNewlyReachedPaintingMilestones(OptionSet<WebCore::LayoutMilestone> milestones) { m_newlyReachedPaintingMilestones = milestones; }
-
-    bool hasEditorState() const { return !!m_editorState; }
-    const EditorState& editorState() const { return m_editorState.value(); }
-    void setEditorState(const EditorState& editorState) { m_editorState = editorState; }
-
 #if PLATFORM(IOS_FAMILY)
     std::optional<DynamicViewportSizeUpdateID> dynamicViewportSizeUpdateID() const { return m_dynamicViewportSizeUpdateID; }
     void setDynamicViewportSizeUpdateID(DynamicViewportSizeUpdateID resizeID) { m_dynamicViewportSizeUpdateID = resizeID; }
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    Seconds acceleratedTimelineTimeOrigin() const { return m_acceleratedTimelineTimeOrigin; }
-    void setAcceleratedTimelineTimeOrigin(Seconds timeOrigin) { m_acceleratedTimelineTimeOrigin = timeOrigin; }
+#if ENABLE(THREADED_ANIMATIONS)
+    const HashSet<Ref<WebCore::AcceleratedTimeline>>& timelines() const { return m_timelines; }
+    void setTimelines(const HashSet<Ref<WebCore::AcceleratedTimeline>>& timelines) { m_timelines = timelines; }
 #endif
 
-    const std::optional<WebCore::FixedContainerEdges>& fixedContainerEdges() const { return m_fixedContainerEdges; }
-    void setFixedContainerEdges(const WebCore::FixedContainerEdges& edges) { m_fixedContainerEdges = edges; }
-
 private:
-    friend struct IPC::ArgumentCoder<RemoteLayerTreeTransaction, void>;
+    friend struct IPC::ArgumentCoder<RemoteLayerTreeTransaction>;
 
     // Do not use, IPC constructor only
     explicit RemoteLayerTreeTransaction();
@@ -297,8 +256,6 @@ private:
     Vector<WebCore::PlatformLayerIdentifier> m_videoLayerIDsPendingFullscreen;
     Vector<WebCore::PlatformLayerIdentifier> m_layerIDsWithNewlyUnreachableBackingStore;
 
-    Vector<TransactionCallbackID> m_callbackIDs;
-
     WebCore::IntSize m_contentsSize;
     WebCore::IntSize m_scrollGeometryContentSize;
     WebCore::IntPoint m_scrollOrigin;
@@ -306,16 +263,6 @@ private:
     WebCore::LayoutPoint m_minStableLayoutViewportOrigin;
     WebCore::LayoutPoint m_maxStableLayoutViewportOrigin;
     WebCore::IntPoint m_scrollPosition;
-    WebCore::Color m_themeColor;
-    WebCore::Color m_pageExtendedBackgroundColor;
-    WebCore::Color m_sampledPageTopColor;
-    std::optional<WebCore::FixedContainerEdges> m_fixedContainerEdges;
-
-#if PLATFORM(MAC)
-    Markable<WebCore::PlatformLayerIdentifier> m_pageScalingLayerID; // Only used for non-delegated scaling.
-    Markable<WebCore::PlatformLayerIdentifier> m_scrolledContentsLayerID;
-    Markable<WebCore::PlatformLayerIdentifier> m_mainFrameClipLayerID;
-#endif
 
     double m_pageScaleFactor { 1 };
     double m_minimumScaleFactor { 1 };
@@ -324,22 +271,18 @@ private:
     double m_viewportMetaTagWidth { -1 };
     uint64_t m_renderTreeSize { 0 };
     TransactionID m_transactionID;
-    ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
-    OptionSet<WebCore::LayoutMilestone> m_newlyReachedPaintingMilestones;
     bool m_scaleWasSetByUIProcess { false };
     bool m_allowsUserScaling { false };
     bool m_avoidsUnsafeArea { true };
     bool m_viewportMetaTagWidthWasExplicit { false };
     bool m_viewportMetaTagCameFromImageDocument { false };
-    bool m_isInStableState { false };
     WebCore::InteractiveWidget m_viewportMetaTagInteractiveWidget { WebCore::InteractiveWidget::ResizesVisual };
 
-    std::optional<EditorState> m_editorState;
 #if PLATFORM(IOS_FAMILY)
     std::optional<DynamicViewportSizeUpdateID> m_dynamicViewportSizeUpdateID;
 #endif
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    Seconds m_acceleratedTimelineTimeOrigin;
+#if ENABLE(THREADED_ANIMATIONS)
+    HashSet<Ref<WebCore::AcceleratedTimeline>> m_timelines;
 #endif
 };
 

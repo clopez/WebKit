@@ -107,12 +107,12 @@ struct SameSizeAsRenderStyle : CanMakeCheckedPtr<SameSizeAsRenderStyle> {
 
 static_assert(sizeof(RenderStyle) == sizeof(SameSizeAsRenderStyle), "RenderStyle should stay small");
 
-static_assert(PublicPseudoIDBits == allPublicPseudoIds.size());
+static_assert(PublicPseudoIDBits == allPublicPseudoElementTypes.size());
 
 static_assert(!(static_cast<unsigned>(maxTextTransformValue) >> TextTransformBits));
 
 // Value zero is used to indicate no pseudo-element.
-static_assert(!((enumToUnderlyingType(PseudoId::HighestEnumValue) + 1) >> PseudoElementTypeBits));
+static_assert(!((enumToUnderlyingType(PseudoElementType::HighestEnumValue) + 1) >> PseudoElementTypeBits));
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(PseudoStyleCache);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderStyle);
@@ -166,7 +166,7 @@ RenderStyle RenderStyle::createAnonymousStyleWithDisplay(const RenderStyle& pare
 
 RenderStyle RenderStyle::createStyleInheritingFromPseudoStyle(const RenderStyle& pseudoStyle)
 {
-    ASSERT(pseudoStyle.pseudoElementType() == PseudoId::Before || pseudoStyle.pseudoElementType() == PseudoId::After);
+    ASSERT(pseudoStyle.pseudoElementType() == PseudoElementType::Before || pseudoStyle.pseudoElementType() == PseudoElementType::After);
 
     auto style = create();
     style.inheritFrom(pseudoStyle);
@@ -420,9 +420,9 @@ void RenderStyle::copyContentFrom(const RenderStyle& other)
     m_nonInheritedData.access().miscData.access().content = other.m_nonInheritedData->miscData->content;
 }
 
-void RenderStyle::setEnableEvaluationTimeZoom(bool value)
+void RenderStyle::setEvaluationTimeZoomEnabled(bool value)
 {
-    SET_VAR(m_rareInheritedData, enableEvaluationTimeZoom, value);
+    SET_VAR(m_rareInheritedData, evaluationTimeZoomEnabled, value);
 }
 
 void RenderStyle::setDeviceScaleFactor(float value)
@@ -632,7 +632,7 @@ bool RenderStyle::isIdempotentTextAutosizingCandidate(AutosizeStatus status) con
                 if (auto fixedHeight = height().tryFixed(); fixedHeight && specifiedLineHeight().isFixed()) {
                     if (auto fixedSpecifiedLineHeight = specifiedLineHeight().tryFixed()) {
                         float specifiedSize = specifiedFontSize();
-                        if (fixedHeight->resolveZoom(Style::ZoomNeeded { }) == specifiedSize && fixedSpecifiedLineHeight->resolveZoom(usedZoomForLength()) == specifiedSize)
+                        if (fixedHeight->resolveZoom(usedZoomForLength()) == specifiedSize && fixedSpecifiedLineHeight->resolveZoom(usedZoomForLength()) == specifiedSize)
                             return false;
                     }
                 }
@@ -643,7 +643,7 @@ bool RenderStyle::isIdempotentTextAutosizingCandidate(AutosizeStatus status) con
                     if (auto fixedSpecifiedLineHeight = specifiedLineHeight().tryFixed()) {
                         float specifiedSize = specifiedFontSize();
                         if (fixedSpecifiedLineHeight->resolveZoom(Style::ZoomFactor { 1.0f, deviceScaleFactor() }) - specifiedSize > smallMinimumDifferenceThresholdBetweenLineHeightAndSpecifiedFontSizeForBoostingText
-                                && fixedHeight->resolveZoom(Style::ZoomNeeded { }) - specifiedSize > smallMinimumDifferenceThresholdBetweenLineHeightAndSpecifiedFontSizeForBoostingText)
+                            && fixedHeight->resolveZoom(usedZoomForLength()) - specifiedSize > smallMinimumDifferenceThresholdBetweenLineHeightAndSpecifiedFontSizeForBoostingText)
                             return true;
                     }
                 }
@@ -677,7 +677,7 @@ bool RenderStyle::isIdempotentTextAutosizingCandidate(AutosizeStatus status) con
         return false;
     }
 
-    if (hasBackgroundImage() && backgroundLayers().first().repeat() == FillRepeat::NoRepeat)
+    if (hasBackgroundImage() && backgroundLayers().usedFirst().repeat() == FillRepeat::NoRepeat)
         return false;
 
     return true;
@@ -869,7 +869,7 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
         || first.gridItem != second.gridItem)
         return true;
 
-    if (!arePointingToEqualData(first.willChange, second.willChange)) {
+    if (first.willChange != second.willChange) {
         changedContextSensitiveProperties.add(StyleDifferenceContextSensitiveProperty::WillChange);
         // Don't return; keep looking for another change
     }
@@ -1139,15 +1139,15 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
     if ((usedVisibility() == Visibility::Collapse) != (other.usedVisibility() == Visibility::Collapse))
         return true;
 
-    bool hasFirstLineStyle = hasPseudoStyle(PseudoId::FirstLine);
-    if (hasFirstLineStyle != other.hasPseudoStyle(PseudoId::FirstLine))
+    bool hasFirstLineStyle = hasPseudoStyle(PseudoElementType::FirstLine);
+    if (hasFirstLineStyle != other.hasPseudoStyle(PseudoElementType::FirstLine))
         return true;
 
     if (hasFirstLineStyle) {
-        auto* firstLineStyle = getCachedPseudoStyle({ PseudoId::FirstLine });
+        auto* firstLineStyle = getCachedPseudoStyle({ PseudoElementType::FirstLine });
         if (!firstLineStyle)
             return true;
-        auto* otherFirstLineStyle = other.getCachedPseudoStyle({ PseudoId::FirstLine });
+        auto* otherFirstLineStyle = other.getCachedPseudoStyle({ PseudoElementType::FirstLine });
         if (!otherFirstLineStyle)
             return true;
         // FIXME: Not all first line style changes actually need layout.
@@ -2263,14 +2263,6 @@ void RenderStyle::setQuotes(Style::Quotes&& quotes)
         m_rareInheritedData.access().quotes = WTFMove(quotes);
 }
 
-void RenderStyle::setWillChange(RefPtr<WillChangeData>&& willChangeData)
-{
-    if (arePointingToEqualData(m_nonInheritedData->rareData->willChange.get(), willChangeData.get()))
-        return;
-
-    m_nonInheritedData.access().rareData.access().willChange = WTFMove(willChangeData);
-}
-
 bool RenderStyle::affectedByTransformOrigin() const
 {
     if (rotate().affectedByTransformOrigin())
@@ -2440,50 +2432,34 @@ const AtomString& RenderStyle::hyphenString() const
 
 void RenderStyle::adjustAnimations()
 {
-    if (m_nonInheritedData->miscData->animations.isNone())
+    if (animations().isInitial())
         return;
 
-    auto& animationList = ensureAnimations();
-
-    // Get rid of empty animations and anything beyond them
-    for (size_t i = 0, size = animationList.size(); i < size; ++i) {
-        if (animationList[i].isEmpty()) {
-            animationList.resize(i);
-            break;
-        }
-    }
-
-    if (animationList.isEmpty()) {
-        clearAnimations();
-        return;
-    }
-
-    // Repeat patterns into layers that don't have some properties set.
-    animationList.fillUnsetProperties();
+    ensureAnimations().prepareForUse();
 }
 
 void RenderStyle::adjustTransitions()
 {
-    if (m_nonInheritedData->miscData->transitions.isNone())
+    if (transitions().isInitial())
         return;
 
-    auto& transitionList = ensureTransitions();
+    ensureTransitions().prepareForUse();
+}
 
-    // Get rid of empty transitions and anything beyond them
-    for (size_t i = 0, size = transitionList.size(); i < size; ++i) {
-        if (transitionList[i].isEmpty()) {
-            transitionList.resize(i);
-            break;
-        }
-    }
-
-    if (transitionList.isEmpty()) {
-        clearTransitions();
+void RenderStyle::adjustBackgroundLayers()
+{
+    if (backgroundLayers().isInitial())
         return;
-    }
 
-    // Repeat patterns into layers that don't have some properties set.
-    transitionList.fillUnsetProperties();
+    ensureBackgroundLayers().prepareForUse();
+}
+
+void RenderStyle::adjustMaskLayers()
+{
+    if (maskLayers().isInitial())
+        return;
+
+    ensureMaskLayers().prepareForUse();
 }
 
 const FontMetrics& RenderStyle::metricsOfPrimaryFont() const
@@ -2515,16 +2491,6 @@ float RenderStyle::specifiedFontSize() const
 float RenderStyle::computedFontSize() const
 {
     return fontDescription().computedSize();
-}
-
-TextSpacingTrim RenderStyle::textSpacingTrim() const
-{
-    return fontDescription().textSpacingTrim();
-}
-
-TextAutospace RenderStyle::textAutospace() const
-{
-    return fontDescription().textAutospace();
 }
 
 void RenderStyle::setFontCascade(FontCascade&& fontCascade)
@@ -2604,22 +2570,22 @@ float RenderStyle::computeLineHeight(const Style::LineHeight& lineHeight) const
             return Style::evaluate<LayoutUnit>(percentage, LayoutUnit { computedFontSize() }).toFloat();
         },
         [&](const Style::LineHeight::Calc& calc) -> float {
-            return Style::evaluate<LayoutUnit>(calc, LayoutUnit { computedFontSize() }).toFloat();
+            return Style::evaluate<LayoutUnit>(calc, LayoutUnit { computedFontSize() }, usedZoomForLength()).toFloat();
         }
     );
 }
 
-void RenderStyle::setTextSpacingTrim(TextSpacingTrim value)
+void RenderStyle::setTextSpacingTrim(Style::TextSpacingTrim value)
 {
     auto description = fontDescription();
-    description.setTextSpacingTrim(value);
+    description.setTextSpacingTrim(value.platform());
     setFontDescription(WTFMove(description));
 }
 
-void RenderStyle::setTextAutospace(TextAutospace value)
+void RenderStyle::setTextAutospace(Style::TextAutospace value)
 {
     auto description = fontDescription();
-    description.setTextAutospace(value);
+    description.setTextAutospace(Style::toPlatform(value));
     setFontDescription(WTFMove(description));
 }
 
@@ -3552,33 +3518,6 @@ bool RenderStyle::shouldPlaceVerticalScrollbarOnLeft() const
     return !writingMode().isAnyLeftToRight();
 }
 
-std::span<const PaintType, 3> RenderStyle::paintTypesForPaintOrder(PaintOrder order)
-{
-    static constexpr std::array fill { PaintType::Fill, PaintType::Stroke, PaintType::Markers };
-    static constexpr std::array fillMarkers { PaintType::Fill, PaintType::Markers, PaintType::Stroke };
-    static constexpr std::array stroke { PaintType::Stroke, PaintType::Fill, PaintType::Markers };
-    static constexpr std::array strokeMarkers { PaintType::Stroke, PaintType::Markers, PaintType::Fill };
-    static constexpr std::array markers { PaintType::Markers, PaintType::Fill, PaintType::Stroke };
-    static constexpr std::array markersStroke { PaintType::Markers, PaintType::Stroke, PaintType::Fill };
-    switch (order) {
-    case PaintOrder::Normal:
-    case PaintOrder::Fill:
-        return fill;
-    case PaintOrder::FillMarkers:
-        return fillMarkers;
-    case PaintOrder::Stroke:
-        return stroke;
-    case PaintOrder::StrokeMarkers:
-        return strokeMarkers;
-    case PaintOrder::Markers:
-        return markers;
-    case PaintOrder::MarkersStroke:
-        return markersStroke;
-    };
-    ASSERT_NOT_REACHED();
-    return fill;
-}
-
 float RenderStyle::computedStrokeWidth(const IntSize& viewportSize) const
 {
     // Use the stroke-width and stroke-color value combination only if stroke-color has been explicitly specified.
@@ -3598,7 +3537,7 @@ float RenderStyle::computedStrokeWidth(const IntSize& viewportSize) const
         },
         [&](const Style::StrokeWidth::Calc& calcStrokeWidth) -> float {
             // FIXME: It is almost certainly wrong that calc and percentage are being handled differently - https://bugs.webkit.org/show_bug.cgi?id=296482
-            return Style::evaluate<float>(calcStrokeWidth, viewportSize.width());
+            return Style::evaluate<float>(calcStrokeWidth, viewportSize.width(), Style::ZoomNeeded { });
         }
     );
 }

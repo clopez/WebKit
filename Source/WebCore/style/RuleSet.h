@@ -29,7 +29,6 @@
 #include "StyleRule.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/VectorHash.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -147,7 +146,7 @@ private:
     using ContainerQueryIdentifier = unsigned;
     using ScopeRuleIdentifier = unsigned;
 
-    void addRule(RuleData&&, CascadeLayerIdentifier, ContainerQueryIdentifier, ScopeRuleIdentifier);
+    void addRule(RuleData&&, CascadeLayerIdentifier, ContainerQueryIdentifier, ScopeRuleIdentifier, RuleFeatureSet::CollectionContext*);
 
     struct ResolverMutatingRule {
         Ref<StyleRuleBase> rule;

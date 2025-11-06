@@ -33,7 +33,7 @@
 namespace WebCore::Style {
 
 struct PseudoElementIdentifier {
-    PseudoId pseudoId;
+    PseudoElementType type;
 
     // highlight name for ::highlight or view transition name for view transition pseudo elements.
     AtomString nameArgument { nullAtom() };
@@ -43,12 +43,12 @@ struct PseudoElementIdentifier {
 
 inline void add(Hasher& hasher, const PseudoElementIdentifier& pseudoElementIdentifier)
 {
-    add(hasher, pseudoElementIdentifier.pseudoId, pseudoElementIdentifier.nameArgument);
+    add(hasher, pseudoElementIdentifier.type, pseudoElementIdentifier.nameArgument);
 }
 
 inline WTF::TextStream& operator<<(WTF::TextStream& ts, const PseudoElementIdentifier& pseudoElementIdentifier)
 {
-    ts << "::"_s << pseudoElementIdentifier.pseudoId;
+    ts << "::"_s << pseudoElementIdentifier.type;
     if (!pseudoElementIdentifier.nameArgument.isNull())
         ts << '(' << pseudoElementIdentifier.nameArgument << ')';
     return ts;
@@ -59,11 +59,11 @@ inline bool isNamedViewTransitionPseudoElement(const std::optional<Style::Pseudo
     if (!pseudoElementIdentifier)
         return false;
 
-    switch (pseudoElementIdentifier->pseudoId) {
-    case PseudoId::ViewTransitionGroup:
-    case PseudoId::ViewTransitionImagePair:
-    case PseudoId::ViewTransitionOld:
-    case PseudoId::ViewTransitionNew:
+    switch (pseudoElementIdentifier->type) {
+    case PseudoElementType::ViewTransitionGroup:
+    case PseudoElementType::ViewTransitionImagePair:
+    case PseudoElementType::ViewTransitionOld:
+    case PseudoElementType::ViewTransitionNew:
         return true;
     default:
         return false;
@@ -86,13 +86,6 @@ struct HashTraits<WebCore::Style::PseudoElementIdentifier> : GenericHashTraits<W
 };
 
 template<>
-struct DefaultHash<WebCore::Style::PseudoElementIdentifier> {
-    static unsigned hash(const WebCore::Style::PseudoElementIdentifier& data) { return computeHash(data); }
-    static bool equal(const WebCore::Style::PseudoElementIdentifier& a, const WebCore::Style::PseudoElementIdentifier& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = false;
-};
-
-template<>
 struct HashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> : GenericHashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> {
     typedef std::optional<WebCore::Style::PseudoElementIdentifier> EmptyValueType;
 
@@ -107,14 +100,6 @@ struct HashTraits<std::optional<WebCore::Style::PseudoElementIdentifier>> : Gene
     {
         return identifer && HashTraits<WebCore::Style::PseudoElementIdentifier>::isDeletedValue(*identifer);
     }
-};
-
-template<>
-struct DefaultHash<std::optional<WebCore::Style::PseudoElementIdentifier>> {
-    static unsigned hash(const std::optional<WebCore::Style::PseudoElementIdentifier>& data) { return computeHash(data); }
-    static bool equal(const std::optional<WebCore::Style::PseudoElementIdentifier>& a, const std::optional<WebCore::Style::PseudoElementIdentifier>& b) { return a == b; }
-
-    static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
 } // namespace WTF

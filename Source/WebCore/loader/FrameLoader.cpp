@@ -130,6 +130,7 @@
 #include "SVGViewElement.h"
 #include "SVGViewSpec.h"
 #include "ScriptController.h"
+#include "ScriptDisallowedScope.h"
 #include "ScriptSourceCode.h"
 #include "ScrollAnimator.h"
 #include "SecurityOrigin.h"
@@ -147,7 +148,7 @@
 #include "UserGestureIndicator.h"
 #include "WindowFeatures.h"
 #include "XMLDocumentParser.h"
-#include <dom/ScriptDisallowedScope.h>
+#include <ranges>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
@@ -881,7 +882,7 @@ void FrameLoader::didBeginDocument(bool dispatch, LocalDOMWindow* previousWindow
         if (auto integrityPolicyReportOnly = documentLoader->integrityPolicyReportOnly())
             document->setIntegrityPolicyReportOnly(WTFMove(integrityPolicyReportOnly));
 
-        navigationType = m_documentLoader->triggeringAction().navigationAPIType();
+        navigationType = documentLoader->triggeringAction().navigationAPIType();
     }
 
     if (document->settings().navigationAPIEnabled() && document->window() && !document->protectedSecurityOrigin()->isOpaque())
@@ -1295,14 +1296,10 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
         // we have already saved away the scroll and doc state for the long slow load,
         // but it's not an obvious case.
 
-        std::optional<WTF::UUID> uuid;
-        if (historyHandling == NavigationHistoryBehavior::Replace) {
-            if (RefPtr currentItem = history().currentItem())
-                uuid = currentItem->uuidIdentifier();
-        }
-        history().updateBackForwardListForFragmentScroll();
-        if (uuid)
-            history().currentItem()->setUUIDIdentifier(*uuid);
+        if (historyHandling == NavigationHistoryBehavior::Replace)
+            history().updateBackForwardListForReplaceState(nullptr, url.string());
+        else
+            history().updateBackForwardListForFragmentScroll();
 
         if (!document->hasRecentUserInteractionForNavigationFromJS() && !documentLoader()->triggeringAction().isRequestFromClientOrUserInput()) {
             if (RefPtr currentItem = history().currentItem())
@@ -1315,8 +1312,12 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
     history().updateForSameDocumentNavigation();
 
     auto navigationType = determineNavigationType(m_loadType, historyHandling);
-    if (document->settings().navigationAPIEnabled() && document->window() && history().currentItem())
-        document->protectedWindow()->protectedNavigation()->updateForNavigation(*history().currentItem(), navigationType, ShouldCopyStateObjectFromCurrentEntry::Yes);
+    if (document->settings().navigationAPIEnabled() && document->window() && history().currentItem()) {
+        Ref navigation = document->protectedWindow()->navigation();
+        // Skip updateForNavigation() for intercepted traverse navigations, as it was already called after intercept detection in innerDispatchNavigateEvent().
+        if (navigationType != NavigationNavigationType::Traverse || !navigation->hasInterceptedOngoingNavigateEvent())
+            navigation->updateForNavigation(*history().currentItem(), navigationType, ShouldCopyStateObjectFromCurrentEntry::Yes);
+    }
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
     if (hashChange)
@@ -1668,9 +1669,13 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
         return;
     }
 
-    if (isSameOrigin && newLoadType != FrameLoadType::Reload) {
-        if (!dispatchNavigateEvent(newLoadType, frameLoadRequest, false, formState.get(), event))
-            return;
+    if (isSameOrigin && newLoadType != FrameLoadType::Reload && !frameLoadRequest.isInitialFrameSrcLoad()) {
+        // FIXME: Ideally, we'd call dispatchNavigateEvent() directly from continueLoadAfterNavigationPolicy()
+        // instead of storing a lambda on the NavigationAction.
+        action.setPendingDispatchNavigateEvent([weakThis = WeakPtr { *this }, newLoadType, frameLoadRequest, formState, event = RefPtr { event }] {
+            RefPtr protectedThis = weakThis.get();
+            return protectedThis && protectedThis->dispatchNavigateEvent(newLoadType, frameLoadRequest, false, formState.get(), event.get());
+        });
     }
 
     // Must grab this now, since this load may stop the previous load and clear this flag.
@@ -3205,7 +3210,7 @@ void FrameLoader::checkLoadComplete(LoadWillContinueInAnotherProcess loadWillCon
     }
 
     // To process children before their parents, iterate the vector backwards.
-    for (Ref frame : makeReversedRange(frames)) {
+    for (Ref frame : frames | std::views::reverse) {
         if (frame->page())
             frame->loader().checkLoadCompleteForThisFrame(loadWillContinueInAnotherProcess);
     }
@@ -4120,6 +4125,11 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         return;
     }
 
+    if (auto pendingDispatchNavigateEvent = m_policyDocumentLoader->triggeringAction().takePendingDispatchNavigateEvent()) {
+        if (!pendingDispatchNavigateEvent())
+            return;
+    }
+
     FrameLoadType type = policyChecker().loadType();
 
     {
@@ -4415,11 +4425,6 @@ bool FrameLoader::dispatchNavigateEvent(FrameLoadType loadType, const FrameLoadR
         return true;
 
     RefPtr sourceElement = event ? dynamicDowncast<Element>(event->target()) : nullptr;
-
-    // For non-form navigations, if sourceElement is from a different frame, it should be null.
-    // For form submissions, sourceElement can be from a different frame (when form has target attribute).
-    if (!formState && sourceElement && sourceElement->document().frame() != m_frame.ptr())
-        sourceElement = nullptr;
 
     return window->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(newURL, navigationType, isSameDocument, formState, classicHistoryAPIState, sourceElement.get());
 }

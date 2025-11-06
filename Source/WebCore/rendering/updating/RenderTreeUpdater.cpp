@@ -175,12 +175,13 @@ void RenderTreeUpdater::updateRebuildRoots()
             return true;
         }
 
-        if (!element.renderer())
-            return element.hasDisplayContents();
+        CheckedPtr existingStyle = element.renderOrDisplayContentsStyle();
+        if (!existingStyle)
+            return false;
 
         auto* parent = composedTreeAncestors(element).first();
         m_styleUpdate->addElement(element, parent, Style::ElementUpdate {
-            makeUnique<RenderStyle>(RenderStyle::cloneIncludingPseudoElements(element.renderer()->style())),
+            makeUnique<RenderStyle>(RenderStyle::cloneIncludingPseudoElements(*existingStyle)),
             Style::Change::Renderer
         });
         return true;
@@ -349,7 +350,7 @@ void RenderTreeUpdater::popParentsToDepth(unsigned depth)
 void RenderTreeUpdater::updateBeforeDescendants(Element& element, const Style::ElementUpdate* update)
 {
     if (update)
-        generatedContent().updateBeforeOrAfterPseudoElement(element, *update, PseudoId::Before);
+        generatedContent().updateBeforeOrAfterPseudoElement(element, *update, PseudoElementType::Before);
 
     if (auto* before = element.beforePseudoElement())
         storePreviousRenderer(*before);
@@ -358,7 +359,7 @@ void RenderTreeUpdater::updateBeforeDescendants(Element& element, const Style::E
 void RenderTreeUpdater::updateAfterDescendants(Element& element, const Style::ElementUpdate* update)
 {
     if (update)
-        generatedContent().updateBeforeOrAfterPseudoElement(element, *update, PseudoId::After);
+        generatedContent().updateBeforeOrAfterPseudoElement(element, *update, PseudoElementType::After);
 
     auto* renderer = element.renderer();
     if (!renderer) {
@@ -585,7 +586,23 @@ bool RenderTreeUpdater::textRendererIsNeeded(const Text& textNode)
         return true;
     }
 
-    if (parentRenderer.isRenderBlock() && !parentRenderer.childrenInline() && (!previousRenderer || !previousRenderer->isInline()))
+    auto wouldBeFirstInlineContentInsideBlock = [&] {
+        if (!parentRenderer.isRenderBlock())
+            return false;
+
+        if (!previousRenderer)
+            return !parentRenderer.childrenInline();
+
+        if (previousRenderer->parent() == &parentRenderer)
+            return !parentRenderer.childrenInline() && !previousRenderer->isInline();
+
+        if (CheckedPtr parent = previousRenderer->parent(); parent->isAnonymous())
+            return !parent->childrenInline() && !previousRenderer->isInline();
+
+        // Can't tell yet.
+        return false;
+    };
+    if (wouldBeFirstInlineContentInsideBlock())
         return false;
 
     return renderingParent.hasPrecedingInFlowChild;
@@ -863,7 +880,7 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
                 // we cannot create a Styleable with a PseudoElement.
                 if (auto* renderListItem = dynamicDowncast<RenderListItem>(element.renderer())) {
                     if (renderListItem->markerRenderer())
-                        Styleable(element, Style::PseudoElementIdentifier { PseudoId::Marker }).cancelStyleOriginatedAnimations();
+                        Styleable(element, Style::PseudoElementIdentifier { PseudoElementType::Marker }).cancelStyleOriginatedAnimations();
                 }
             }
 

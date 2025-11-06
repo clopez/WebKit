@@ -1,5 +1,3 @@
-WebProcess/InjectedBundle/API/c/WKBundlePage.cpp
-WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp
 [ iOS ] GPUProcess/media/RemoteAudioSessionProxyManager.cpp
 [ iOS ] NetworkProcess/cocoa/NetworkSessionCocoa.mm
 [ iOS ] Shared/ApplePay/ios/WebPaymentCoordinatorProxyIOS.mm

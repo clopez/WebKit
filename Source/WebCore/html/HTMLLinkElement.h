@@ -31,6 +31,7 @@
 #include <WebCore/LinkLoader.h>
 #include <WebCore/LinkLoaderClient.h>
 #include <WebCore/LinkRelAttribute.h>
+#include <wtf/CheckedPtr.h>
 
 namespace WebCore {
 
@@ -149,8 +150,10 @@ private:
 
     void removePendingSheet();
 
+    CheckedPtr<Style::Scope> checkedStyleScope();
+
     LinkLoader m_linkLoader;
-    Style::Scope* m_styleScope { nullptr };
+    CheckedPtr<Style::Scope> m_styleScope;
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
     enum DisabledState : uint8_t {

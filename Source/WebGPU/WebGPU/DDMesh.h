@@ -63,9 +63,12 @@ public:
     void updateTexture(WGPUDDUpdateTextureDescriptor*);
     void addMaterial(WGPUDDMaterialDescriptor*);
     void updateMaterial(WGPUDDUpdateMaterialDescriptor*);
+    void play(bool);
 
     id<MTLTexture> texture() const;
     void render() const;
+    void setTransform(const simd_float4x4&);
+    void setCameraDistance(float);
 
 private:
     DDMesh(const WGPUDDCreateMeshDescriptor&, Instance&);
@@ -77,6 +80,7 @@ private:
 
 #if ENABLE(WEBGPU_SWIFT)
     DDBridgeReceiver* m_ddReceiver;
+    simd_float4x4 m_transform { matrix_identity_float4x4 };
 #endif
     NSUUID* m_ddMeshIdentifier;
     mutable uint32_t m_currentTexture { 0 };

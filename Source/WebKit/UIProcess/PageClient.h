@@ -208,6 +208,7 @@ struct FocusedElementInformation;
 struct FrameInfoData;
 struct InteractionInformationAtPosition;
 struct KeyEventInterpretationContext;
+struct MainFrameData;
 struct WebAutocorrectionContext;
 struct WebHitTestResultData;
 
@@ -387,7 +388,7 @@ public:
     virtual void selectionDidChange() = 0;
 #endif
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
     virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) = 0;
 #endif
 
@@ -539,7 +540,7 @@ public:
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(COCOA)
-    virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&) = 0;
+    virtual void didCommitLayerTree(const RemoteLayerTreeTransaction&, const std::optional<MainFrameData>&) = 0;
     virtual void layerTreeCommitComplete() { }
 
     virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;

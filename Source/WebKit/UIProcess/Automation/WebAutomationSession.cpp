@@ -467,6 +467,19 @@ CommandResult<void> WebAutomationSession::deleteSession()
     return { };
 }
 
+void WebAutomationSession::resolveBrowsingContext(const Inspector::Protocol::Automation::BrowsingContextHandle& browsingContextHandle, const Inspector::Protocol::Automation::FrameHandle& frameHandle, CommandCallback<void>&& callback)
+{
+    auto page = webPageProxyForHandle(browsingContextHandle);
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!page, WindowNotFound);
+
+    bool frameNotFound = false;
+    auto frameID = webFrameIDForHandle(frameHandle, frameNotFound);
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(frameNotFound, FrameNotFound);
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(frameID && !WebFrameProxy::webFrame(frameID.value()), FrameNotFound);
+
+    callback({ });
+}
+
 void WebAutomationSession::switchToBrowsingContext(const Inspector::Protocol::Automation::BrowsingContextHandle& browsingContextHandle, const Inspector::Protocol::Automation::FrameHandle& frameHandle, CommandCallback<void>&& callback)
 {
     auto page = webPageProxyForHandle(browsingContextHandle);
@@ -2597,7 +2610,7 @@ void WebAutomationSession::takeScreenshot(const Inspector::Protocol::Automation:
     bool scrollIntoViewIfNeeded = optionalScrollIntoViewIfNeeded ? *optionalScrollIntoViewIfNeeded : false;
     bool clipToViewport = optionalClipToViewport ? *optionalClipToViewport : false;
 
-#if PLATFORM(COCOA) || !PLATFORM(GTK)
+#if PLATFORM(COCOA) || (!PLATFORM(GTK) && !(PLATFORM(WPE) && USE(SKIA)))
     auto ipcCompletionHandler = [] (CommandCallback<String>&& callback) mutable {
         return CompletionHandler<void(std::optional<ShareableBitmap::Handle>&&, String&&)> { [callback = WTFMove(callback)] (std::optional<ShareableBitmap::Handle>&& imageDataHandle, String&& errorType) mutable {
             if (!errorType.isEmpty())
@@ -2623,7 +2636,7 @@ void WebAutomationSession::takeScreenshot(const Inspector::Protocol::Automation:
     if (!nodeHandle.isEmpty())
         return page->sendWithAsyncReplyToProcessContainingFrameWithoutDestinationIdentifier(frameID, Messages::WebAutomationSessionProxy::TakeScreenshot(page->webPageIDInMainFrameProcess(), frameID, nodeHandle, scrollIntoViewIfNeeded, clipToViewport), ipcCompletionHandler(WTFMove(callback)));
 #endif
-#if PLATFORM(GTK) || PLATFORM(COCOA)
+#if PLATFORM(GTK) || PLATFORM(COCOA) || (PLATFORM(WPE) && USE(SKIA))
     Function<void(WebPageProxy&, std::optional<WebCore::IntRect>&&, CommandCallback<String>&&)> takeViewSnapshot = [](WebPageProxy& page, std::optional<WebCore::IntRect>&& rect, CommandCallback<String>&& callback) {
         page.callAfterNextPresentationUpdate([page = Ref { page }, rect = WTFMove(rect), callback = WTFMove(callback)] () mutable {
             RefPtr snapshot = page->takeViewSnapshot(WTFMove(rect), ForceSoftwareCapturingViewportSnapshot::Yes);

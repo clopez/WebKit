@@ -27,6 +27,8 @@
 
 #import <WebKit/_WKTextExtraction.h>
 
+@class _WKJSHandle;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface _WKTextExtractionConfiguration ()
@@ -45,15 +47,21 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) BOOL skipNearlyTransparentContent;
 
 /*!
- Whether to include unique identifiers, for each interactive element.
- Defaults to `YES`.
- */
-@property (nonatomic) BOOL canIncludeIdentifiers;
-
-/*!
  Defaults to `YES`.
  */
 @property (nonatomic) BOOL shouldFilterText;
+
+/*!
+ Iterates over all custom node attributes added via -addClientAttribute:value:forNode:.
+ */
+- (void)forEachClientNodeAttribute:(void(^)(NSString *attribute, NSString *value, _WKJSHandle *))block;
+
+/*!
+ Only include visible text content, excluding all DOM attributes and element types.
+ Takes precedence over `includeURLs`, `includeRects`, etc.
+ Defaults to `NO`.
+ */
+@property (nonatomic) BOOL onlyIncludeVisibleText;
 
 @end
 

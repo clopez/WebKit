@@ -30,6 +30,7 @@
 #include <WebCore/InlineLineTypes.h>
 #include <WebCore/InlineTextItem.h>
 #include <WebCore/RenderStyle.h>
+#include <ranges>
 #include <unicode/ubidi.h>
 #include <wtf/Range.h>
 
@@ -57,6 +58,7 @@ public:
     void appendLineBreak(const InlineItem&, const RenderStyle&);
     void appendWordBreakOpportunity(const InlineItem&, const RenderStyle&);
     void appendOpaqueBox(const InlineItem&, const RenderStyle&);
+    void appendBlock(const InlineItem&, InlineLayoutUnit marginBoxLogicalWidth);
 
     void setContentNeedsBidiReordering() { m_hasNonDefaultBidiLevelRun = true; }
 
@@ -100,7 +102,8 @@ public:
             InlineBoxStart,
             InlineBoxEnd,
             LineSpanningInlineBoxStart,
-            Opaque
+            Opaque,
+            Block
         };
 
         bool isText() const { return m_type == Type::Text || isWordSeparator() || isNonBreakingSpace(); }
@@ -119,8 +122,9 @@ public:
         bool isLineSpanningInlineBoxStart() const { return m_type == Type::LineSpanningInlineBoxStart; }
         bool isInlineBoxEnd() const { return m_type == Type::InlineBoxEnd; }
         bool isOpaque() const { return m_type == Type::Opaque; }
+        bool isBlock() const { return m_type == Type::Block; }
 
-        bool isContentful() const { return (isText() && textContent()->length) || isAtomicInlineBox() || isLineBreak() || isListMarker(); }
+        bool isContentful() const { return (isText() && textContent()->length) || isAtomicInlineBox() || isLineBreak() || isListMarker() || isBlock(); }
         bool isGenerated() const { return isListMarker(); }
         static bool isContentfulOrHasDecoration(const Run&, const InlineFormattingContext&);
 
@@ -331,7 +335,7 @@ inline bool Line::hasContentOrListMarker() const
 
 inline bool Line::hasContent() const
 {
-    for (auto& run : makeReversedRange(m_runs)) {
+    for (auto& run : m_runs | std::views::reverse) {
         if (run.isContentful() && !run.isGenerated())
             return true;
     }

@@ -42,7 +42,6 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
-#include <wtf/VectorHash.h>
 #include <wtf/WeakPtrFactory.h>
 
 namespace WebCore {
@@ -84,6 +83,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return IPC::Connection::Client::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { IPC::Connection::Client::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { IPC::Connection::Client::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { IPC::Connection::Client::setDidBeginCheckedPtrDeletion(); }
 
     virtual ~AuxiliaryProcessProxy();
 

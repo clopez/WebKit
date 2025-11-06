@@ -31,6 +31,7 @@
 #include "ContextDestructionObserverInlines.h"
 #include "ExceptionOr.h"
 #include "WebXRBoundedReferenceSpace.h"
+#include "WebXRHitTestSource.h"
 #include "WebXRJointPose.h"
 #include "WebXRJointSpace.h"
 #include "WebXRReferenceSpace.h"
@@ -38,6 +39,11 @@
 #include "WebXRViewerPose.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
 #include <wtf/TZoneMallocInlines.h>
+
+#if ENABLE(WEBXR_HIT_TEST)
+#include "WebXRHitTestResult.h"
+#include "WebXRTransientInputHitTestResult.h"
+#endif
 
 namespace WebCore {
 
@@ -380,6 +386,34 @@ ExceptionOr<bool> WebXRFrame::fillPoses(const Document& document, const Vector<R
     return allValid;
 }
 
+#endif
+
+#if ENABLE(WEBXR_HIT_TEST)
+// https://immersive-web.github.io/hit-test/#dom-xrframe-gethittestresults
+ExceptionOr<Vector<Ref<WebXRHitTestResult>>> WebXRFrame::getHitTestResults(const WebXRHitTestSource& source)
+{
+    if (!m_active)
+        return Exception { ExceptionCode::InvalidStateError, "Frame is not active"_s };
+    if (!source.handle())
+        return Exception { ExceptionCode::InvalidStateError, "Hit test source is already cancelled"_s };
+
+    auto& platformResultsHash = m_session->frameData().hitTestResults;
+    auto platformResults = platformResultsHash.find(*source.handle());
+    if (platformResults == platformResultsHash.end())
+        return Exception { ExceptionCode::InvalidStateError, "Unable to obtain hit test results for specified hit test source."_s };
+
+    Vector<Ref<WebXRHitTestResult>> results(platformResults->value.size());
+    for (auto& platformResult : platformResults->value)
+        results.append(WebXRHitTestResult::create(*this, platformResult));
+    return results;
+}
+
+// https://immersive-web.github.io/hit-test/#dom-xrframe-gethittestresultsfortransientinput
+ExceptionOr<Vector<Ref<WebXRTransientInputHitTestResult>>> WebXRFrame::getHitTestResultsForTransientInput(const WebXRTransientInputHitTestSource&)
+{
+    Vector<Ref<WebXRTransientInputHitTestResult>> results;
+    return results;
+}
 #endif
 
 } // namespace WebCore

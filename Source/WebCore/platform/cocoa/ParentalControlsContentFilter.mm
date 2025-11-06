@@ -93,6 +93,11 @@ ParentalControlsContentFilter::ParentalControlsContentFilter(const PlatformConte
     UNUSED_PARAM(params);
 }
 
+void ParentalControlsContentFilter::willSendRequest(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    completionHandler({ });
+}
+
 static inline bool canHandleResponse(const ResourceResponse& response)
 {
 #if HAVE(SYSTEM_HTTP_CONTENT_FILTERING)
@@ -127,7 +132,7 @@ void ParentalControlsContentFilter::responseReceived(const ResourceResponse& res
 #if HAVE(WEBCONTENTANALYSIS_FRAMEWORK)
     ASSERT(!m_webFilterEvaluator);
 
-    m_webFilterEvaluator = adoptNS([allocWebFilterEvaluatorInstance() initWithResponse:response.nsURLResponse()]);
+    m_webFilterEvaluator = adoptNS([allocWebFilterEvaluatorInstance() initWithResponse:response.protectedNSURLResponse().get()]);
 #if HAVE(WEBFILTEREVALUATOR_AUDIT_TOKEN)
     if (m_hostProcessAuditToken)
         m_webFilterEvaluator.get().browserAuditToken = *m_hostProcessAuditToken;

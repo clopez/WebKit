@@ -130,7 +130,7 @@ RefPtr<StyleImage> BuilderState::createStyleImage(const CSSValue& value) const
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)
 {
-    if (style().pseudoElementType() == PseudoId::Before || style().pseudoElementType() == PseudoId::After)
+    if (style().pseudoElementType() == PseudoElementType::Before || style().pseudoElementType() == PseudoElementType::After)
         m_registeredContentAttributes.append(attributeLocalName);
 }
 
@@ -271,7 +271,8 @@ void BuilderState::updateFontForSizeChange()
 void BuilderState::setFontSize(FontCascadeDescription& fontDescription, float size)
 {
     fontDescription.setSpecifiedSize(size);
-    fontDescription.setComputedSize(Style::computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules(), &style(), document()));
+    auto computedFontSize = Style::computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules(), &style(), document());
+    fontDescription.setComputedSize(computedFontSize.size, computedFontSize.usedZoomFactor);
 }
 
 CSSPropertyID BuilderState::cssPropertyID() const

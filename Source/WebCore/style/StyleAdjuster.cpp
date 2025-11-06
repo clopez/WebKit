@@ -454,7 +454,7 @@ static bool shouldTreatAutoZIndexAsZero(const RenderStyle& style)
         || style.hasIsolation()
         || style.position() == PositionType::Sticky
         || style.position() == PositionType::Fixed
-        || style.willChangeCreatesStackingContext();
+        || style.willChange().canCreateStackingContext();
 }
 
 void Adjuster::adjustFromBuilder(RenderStyle& style)
@@ -468,9 +468,11 @@ void Adjuster::adjustFromBuilder(RenderStyle& style)
     } else if (style.position() != PositionType::Static)
         style.setUsedZIndex(style.specifiedZIndex());
 
-    // Cull out any useless animations and transitions.
+    // Adjust any coordinated value lists.
     style.adjustAnimations();
     style.adjustTransitions();
+    style.adjustBackgroundLayers();
+    style.adjustMaskLayers();
 
     // Do the same for scroll-timeline and view-timeline longhands.
     style.adjustScrollTimelines();
@@ -479,7 +481,7 @@ void Adjuster::adjustFromBuilder(RenderStyle& style)
 
 void Adjuster::adjustFirstLetterStyle(RenderStyle& style)
 {
-    if (style.pseudoElementType() != PseudoId::FirstLetter)
+    if (style.pseudoElementType() != PseudoElementType::FirstLetter)
         return;
 
     // Force inline display (except for floating first-letters).
@@ -885,7 +887,7 @@ void Adjuster::adjustDisplayContentsStyle(RenderStyle& style) const
         return;
     }
 
-    if (!m_element && style.pseudoElementType() != PseudoId::Before && style.pseudoElementType() != PseudoId::After) {
+    if (!m_element && style.pseudoElementType() != PseudoElementType::Before && style.pseudoElementType() != PseudoElementType::After) {
         style.setEffectiveDisplay(DisplayType::None);
         return;
     }
@@ -990,8 +992,8 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         return;
 
     if (is<HTMLBodyElement>(*m_element) && m_document->quirks().needsBodyScrollbarWidthNoneDisabledQuirk()) {
-        if (style.scrollbarWidth() == ScrollbarWidth::None)
-            style.setScrollbarWidth(ScrollbarWidth::Auto);
+        if (style.scrollbarWidth().isNone())
+            style.setScrollbarWidth(CSS::Keyword::Auto { });
     }
 
     if (m_document->quirks().needsGMailOverflowScrollQuirk()) {
@@ -1089,6 +1091,11 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className))
             style.setEffectiveDisplay(DisplayType::None);
     }
+
+#if PLATFORM(IOS_FAMILY)
+    if (m_document->quirks().needsClaudeSidebarViewportUnitQuirk(*m_element, style))
+        style.setHeight(Style::PreferredSize::Fixed { m_document->renderView()->sizeForCSSDynamicViewportUnits().height() });
+#endif
 }
 
 void Adjuster::propagateToDocumentElementAndInitialContainingBlock(Update& update, const Document& document)
@@ -1255,8 +1262,8 @@ bool Adjuster::adjustForTextAutosizing(RenderStyle& style, const Element& elemen
 
 void Adjuster::adjustVisibilityForPseudoElement(RenderStyle& style, const Element& host)
 {
-    if ((style.pseudoElementType() == PseudoId::After && host.visibilityAdjustment().contains(VisibilityAdjustment::AfterPseudo))
-        || (style.pseudoElementType() == PseudoId::Before && host.visibilityAdjustment().contains(VisibilityAdjustment::BeforePseudo)))
+    if ((style.pseudoElementType() == PseudoElementType::After && host.visibilityAdjustment().contains(VisibilityAdjustment::AfterPseudo))
+        || (style.pseudoElementType() == PseudoElementType::Before && host.visibilityAdjustment().contains(VisibilityAdjustment::BeforePseudo)))
         style.setIsForceHidden();
 }
 

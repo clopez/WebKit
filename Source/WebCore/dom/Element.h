@@ -190,7 +190,7 @@ public:
     AtomString getAttributeForBindings(const QualifiedName&, ResolveURLs = ResolveURLs::NoExcludingURLsForPrivacy) const;
     template<typename... QualifiedNames>
     inline const AtomString& getAttribute(const QualifiedName&, const QualifiedNames&...) const;
-    WEBCORE_EXPORT ExceptionOr<void> setAttribute(const QualifiedName&, const AtomString& value, bool enforceTrustedTypes = false);
+    WEBCORE_EXPORT void setAttribute(const QualifiedName&, const AtomString& value);
     void setAttributeWithoutOverwriting(const QualifiedName&, const AtomString& value);
     WEBCORE_EXPORT void setAttributeWithoutSynchronization(const QualifiedName&, const AtomString& value);
     void setSynchronizedLazyAttribute(const QualifiedName&, const AtomString& value);
@@ -466,6 +466,7 @@ public:
     WEBCORE_EXPORT ShadowRoot* userAgentShadowRoot() const;
     RefPtr<ShadowRoot> protectedUserAgentShadowRoot() const;
     WEBCORE_EXPORT ShadowRoot& ensureUserAgentShadowRoot();
+    Ref<ShadowRoot> ensureProtectedUserAgentShadowRoot();
     WEBCORE_EXPORT ShadowRoot& createUserAgentShadowRoot();
 
     void setIsDefinedCustomElement(JSCustomElementInterface&);
@@ -629,7 +630,7 @@ public:
     void beginParsingChildren() { clearIsParsingChildrenFinished(); }
     virtual void finishParsingChildren();
 
-    PseudoElement& ensurePseudoElement(PseudoId);
+    PseudoElement& ensurePseudoElement(PseudoElementType);
     WEBCORE_EXPORT PseudoElement* beforePseudoElement() const;
     WEBCORE_EXPORT PseudoElement* afterPseudoElement() const;
     RefPtr<PseudoElement> pseudoElementIfExists(Style::PseudoElementIdentifier);

@@ -34,6 +34,7 @@
 #include "GPUProcessProxyMessages.h"
 #include "ImageBufferShareableBitmapBackend.h"
 #include "Logging.h"
+#include "PrepareBackingStoreBuffersData.h"
 #include "RemoteBarcodeDetector.h"
 #include "RemoteBarcodeDetectorMessages.h"
 #include "RemoteDisplayListRecorder.h"
@@ -53,7 +54,6 @@
 #include "RemoteTextDetector.h"
 #include "RemoteTextDetectorMessages.h"
 #include "ShapeDetectionObjectHeap.h"
-#include "SwapBuffersDisplayRequirement.h"
 #include "WebPageProxy.h"
 #include <WebCore/Filter.h>
 #include <WebCore/FontCustomPlatformData.h>
@@ -387,6 +387,15 @@ void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, 
         return;
 
     bool success = m_remoteResourceCache.cacheNativeImage(imageIdentifier, image.releaseNonNull());
+    MESSAGE_CHECK(success, "NativeImage already cached.");
+}
+
+void RemoteRenderingBackend::cacheNativeImageFromSharedNativeImage(WebCore::RenderingResourceIdentifier identifier)
+{
+    assertIsCurrent(workQueue());
+    RefPtr image = m_sharedResourceCache->takeNativeImage(identifier);
+    MESSAGE_CHECK(image, "Shared NativeImage not found.");
+    bool success = m_remoteResourceCache.cacheNativeImage(identifier, image.releaseNonNull());
     MESSAGE_CHECK(success, "NativeImage already cached.");
 }
 

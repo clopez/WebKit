@@ -613,6 +613,18 @@ static std::pair<CSSPropertyID, bool> applyTryTacticsToInset(CSSPropertyID prope
                 isFlipped = true;
             }
             break;
+        case PositionTryFallback::Tactic::FlipX:
+            if (BoxAxis::Horizontal == mapInsetPropertyToPhysicalAxis(propertyID, writingMode)) {
+                propertyID = getOppositeInset(propertyID);
+                isFlipped = true;
+            }
+            break;
+        case PositionTryFallback::Tactic::FlipY:
+            if (BoxAxis::Vertical == mapInsetPropertyToPhysicalAxis(propertyID, writingMode)) {
+                propertyID = getOppositeInset(propertyID);
+                isFlipped = true;
+            }
+            break;
         case PositionTryFallback::Tactic::FlipStart:
             propertyID = [&] {
                 switch (propertyID) {
@@ -728,7 +740,7 @@ CheckedPtr<RenderBoxModelObject> AnchorPositionEvaluator::findAnchorForAnchorFun
 
         // FIXME: Support remaining box generating pseudo-elements (like ::marker).
         auto pseudoElement = style.pseudoElementType();
-        if (pseudoElement && pseudoElement != PseudoId::Before && pseudoElement != PseudoId::After)
+        if (pseudoElement && pseudoElement != PseudoElementType::Before && pseudoElement != PseudoElementType::After)
             return false;
 
         return true;
@@ -1185,7 +1197,7 @@ static RefPtr<Element> findLastAcceptableAnchorWithName(ResolvedScopedName ancho
 
     const auto& anchors = anchorsForAnchorName.get(anchorName);
 
-    for (auto& anchor : makeReversedRange(anchors)) {
+    for (auto& anchor : anchors | std::views::reverse) {
         if (isAcceptableAnchorElement(anchor.get(), anchorPositionedElement, anchorName))
             return anchor->element();
     }
@@ -1451,6 +1463,12 @@ CSSPropertyID AnchorPositionEvaluator::resolvePositionTryFallbackProperty(CSSPro
         case PositionTryFallback::Tactic::FlipBlock:
             propertyID = writingMode.isHorizontal() ? flipVertical(propertyID) : flipHorizontal(propertyID);
             break;
+        case PositionTryFallback::Tactic::FlipX:
+            propertyID = flipHorizontal(propertyID);
+            break;
+        case PositionTryFallback::Tactic::FlipY:
+            propertyID = flipVertical(propertyID);
+            break;
         case PositionTryFallback::Tactic::FlipStart:
             propertyID = flipStart(propertyID, writingMode);
             break;
@@ -1534,7 +1552,7 @@ RefPtr<const Element> AnchorPositionEvaluator::anchorPositionedElementOrPseudoEl
 AnchorPositionedKey AnchorPositionEvaluator::keyForElementOrPseudoElement(const Element& element)
 {
     if (auto* pseudoElement = dynamicDowncast<PseudoElement>(element))
-        return { pseudoElement->hostElement(), PseudoElementIdentifier { pseudoElement->pseudoId() } };
+        return { pseudoElement->hostElement(), PseudoElementIdentifier { pseudoElement->pseudoElementType() } };
     return { &element, { } };
 }
 
@@ -1555,8 +1573,8 @@ bool AnchorPositionEvaluator::isImplicitAnchor(const RenderStyle& style)
 
     // "The implicit anchor element of a pseudo-element is its originating element, unless otherwise specified."
     // https://drafts.csswg.org/css-anchor-position-1/#implicit
-    auto isImplicitAnchorForPseudoElement = [&](PseudoId pseudoId) {
-        const RenderStyle* pseudoElementStyle = style.getCachedPseudoStyle({ pseudoId });
+    auto isImplicitAnchorForPseudoElement = [&](PseudoElementType pseudoElementType) {
+        const RenderStyle* pseudoElementStyle = style.getCachedPseudoStyle({ pseudoElementType });
         if (!pseudoElementStyle)
             return false;
         // If we have an explicit anchor name then there is no need for an implicit anchor.
@@ -1565,7 +1583,7 @@ bool AnchorPositionEvaluator::isImplicitAnchor(const RenderStyle& style)
 
         return pseudoElementStyle->usesAnchorFunctions() || isLayoutTimeAnchorPositioned(*pseudoElementStyle);
     };
-    return isImplicitAnchorForPseudoElement(PseudoId::Before) || isImplicitAnchorForPseudoElement(PseudoId::After);
+    return isImplicitAnchorForPseudoElement(PseudoElementType::Before) || isImplicitAnchorForPseudoElement(PseudoElementType::After);
 }
 
 ScopedName AnchorPositionEvaluator::defaultAnchorName(const RenderStyle& style)

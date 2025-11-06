@@ -135,6 +135,7 @@ struct IPIntControlType {
     { }
 
     static bool isIf(const IPIntControlType& control) { return control.blockType() == BlockType::If; }
+    static bool isElse(const IPIntControlType& control) { return control.blockType() == BlockType::Else; }
     static bool isTry(const IPIntControlType& control) { return control.blockType() == BlockType::Try; }
     static bool isTryTable(const IPIntControlType& control) { return control.blockType() == BlockType::TryTable; }
     static bool isAnyCatch(const IPIntControlType& control) { return control.blockType() == BlockType::Catch; }
@@ -175,8 +176,6 @@ private:
     BlockSignature m_signature;
     BlockType m_blockType;
     CatchKind m_catchKind;
-
-    bool isElse { false };
 
     int32_t m_pendingOffset { -1 };
 
@@ -560,7 +559,7 @@ public:
                     bool isControlFlowInstruction = Wasm::isControlFlowInstructionWithExtGC(currentOpcode, [this]() {
                         return m_parser->currentExtendedOpcode();
                     });
-                    if (!isControlFlowInstruction)
+                    if (!isControlFlowInstruction || currentOpcode == AnnotatedSelect)
                         RECORD_NEXT_INSTRUCTION(curPC(), nextPC());
                 }
             }
@@ -2154,7 +2153,7 @@ void IPIntGenerator::resolveEntryTarget(unsigned index, IPIntLocation loc)
         // write delta PC and delta MC
         IPInt::BlockMetadata md = { static_cast<int32_t>(loc.pc - src.pc), static_cast<int32_t>(loc.mc - src.mc) };
         WRITE_TO_METADATA(m_metadata->m_metadata.mutableSpan().data() + src.mc, md, IPInt::BlockMetadata);
-        RECORD_NEXT_INSTRUCTION(src.pc, loc.pc);
+        RECORD_NEXT_INSTRUCTION(src.pc, loc.pc); // FIXME: coalescing sequential blocks - should update instead of adding
     }
     if (control.isLoop) {
         for (auto& src : control.m_awaitingBranchTarget) {
@@ -2312,21 +2311,19 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addElseToUnreachable(ControlTyp
     if (m_parser->currentOpcode() == OpType::End) {
         // Edge case: if ... end with no else
         mdIf->elseDeltaMC = curMC() - block.m_mc;
-        block = ControlType(block.signature(), block.stackSize(), BlockType::Block);
+        block = ControlType(block.signature(), block.stackSize(), BlockType::Else);
         block.m_index = ifIndex;
         block.m_pendingOffset = -1;
-        block.isElse = true;
         return { };
     }
 
     // New MC, normal case
     mdIf->elseDeltaMC = safeCast<uint32_t>(curMC() + sizeof(IPInt::BlockMetadata)) - block.m_mc;
-    block = ControlType(block.signature(), block.stackSize(), BlockType::Block);
+    block = ControlType(block.signature(), block.stackSize(), BlockType::Else);
     block.m_index = ifIndex;
     block.m_pc = curPC();
     block.m_mc = curMC();
     block.m_pendingOffset = curMC();
-    block.isElse = true;
 
     m_metadata->addBlankSpace<IPInt::BlockMetadata>();
     return { };
@@ -2763,18 +2760,15 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntr
 
     if (ControlType::isIf(block)) {
         m_exitHandlersAwaitingCoalescing.append({ block.m_pc, block.m_mc });
+    } else if (ControlType::isElse(block)) {
+        // if it's not an if ... end, coalesce
+        if (block.m_pendingOffset != -1)
+            m_exitHandlersAwaitingCoalescing.append({ block.m_pc, block.m_mc });
+        m_coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
+        --m_coalesceDebt;
     } else if (ControlType::isBlock(block)) {
-        if (block.isElse) {
-            // if it's not an if ... end, coalesce
-            if (block.m_pendingOffset != -1)
-                m_exitHandlersAwaitingCoalescing.append({ block.m_pc, block.m_mc });
-            m_coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
-            --m_coalesceDebt;
-        } else {
-            // block
-            m_coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
-            --m_coalesceDebt;
-        }
+        m_coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
+        --m_coalesceDebt;
     } else if (ControlType::isLoop(block)) {
         m_coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
         --m_coalesceDebt;
@@ -3010,6 +3004,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCall(unsigned callProfileInd
 {
     const FunctionSignature& signature = *type.as<FunctionSignature>();
     const CallInformation& callConvention = cachedCallInformationFor(signature);
+    m_metadata->addCallTarget(callProfileIndex, index);
 
     if (callType == CallType::TailCall) {
         // on a tail call, we need to:
@@ -3055,6 +3050,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallIndirect(unsigned callPr
 {
     const FunctionSignature& signature = *originalSignature.expand().as<FunctionSignature>();
     const CallInformation& callConvention = cachedCallInformationFor(signature);
+    m_metadata->addCallTarget(callProfileIndex, { });
 
     if (callType == CallType::TailCall) {
         const unsigned callIndex = 1;
@@ -3105,6 +3101,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallRef(unsigned callProfile
 {
     const FunctionSignature& signature = *originalSignature.expand().as<FunctionSignature>();
     const CallInformation& callConvention = cachedCallInformationFor(signature);
+    m_metadata->addCallTarget(callProfileIndex, { });
 
     if (callType == CallType::TailCall) {
         const unsigned callIndex = 1;
@@ -3173,7 +3170,8 @@ std::unique_ptr<FunctionIPIntMetadataGenerator> IPIntGenerator::finalize()
     m_metadata->m_maxFrameSizeInV128 = roundUpToMultipleOf<2>(m_metadata->m_numLocals) / 2;
     m_metadata->m_maxFrameSizeInV128 += m_metadata->m_numAlignedRethrowSlots / 2;
     m_metadata->m_maxFrameSizeInV128 += m_maxStackSize;
-    m_metadata->m_numCallProfiles = m_parser->numCallProfiles();
+    if (m_metadata->m_callTargets.size() < m_parser->numCallProfiles())
+        m_metadata->m_callTargets.insertFill(m_metadata->m_callTargets.size(), FunctionSpaceIndex { }, m_parser->numCallProfiles() - m_metadata->m_callTargets.size());
 
     return WTFMove(m_metadata);
 }

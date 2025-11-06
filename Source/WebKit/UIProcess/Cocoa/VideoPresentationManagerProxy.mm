@@ -370,11 +370,14 @@ void VideoPresentationModelContext::setVideoFullscreenFrame(WebCore::FloatRect f
         manager->setVideoFullscreenFrame(m_contextId, frame);
 }
 
-void VideoPresentationModelContext::fullscreenModeChanged(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
+void VideoPresentationModelContext::fullscreenModeChanged(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode, ShouldNotifyMediaElement shouldNotifyMediaElement)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, mode);
-    if (RefPtr manager = m_manager.get())
+    if (RefPtr manager = m_manager.get(); manager && shouldNotifyMediaElement == ShouldNotifyMediaElement::Yes)
         manager->fullscreenModeChanged(m_contextId, mode);
+    m_clients.forEach([&](auto& client) {
+        client.fullscreenModeChanged(mode);
+    });
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -878,14 +881,15 @@ PlatformLayerContainer VideoPresentationManagerProxy::createLayerWithID(Playback
     if (!interface->playerLayer()) {
         ALWAYS_LOG(LOGIDENTIFIER, model->logIdentifier(), ", Creating AVPlayerLayer, initialSize: ", initialSize, ", nativeSize: ", nativeSize);
         auto playerLayer = adoptNS([[WebAVPlayerLayer alloc] init]);
+        RetainPtr viewLayer = [view layer];
 
         [playerLayer setPresentationModel:model.ptr()];
-        [playerLayer setVideoSublayer:[view layer]];
+        [playerLayer setVideoSublayer:viewLayer.get()];
 
         // The videoView may already be reparented in fullscreen, so only parent the view
         // if it has no existing parent:
-        if (![[view layer] superlayer])
-            [playerLayer addSublayer:[view layer]];
+        if (![viewLayer superlayer])
+            [playerLayer addSublayer:viewLayer.get()];
 
         interface->setPlayerLayer(playerLayer.get());
 
@@ -944,7 +948,7 @@ RetainPtr<WKLayerHostView> VideoPresentationManagerProxy::createLayerHostViewWit
     [view setContextID:hostingContext.contextID];
 #endif
 
-    interface->setupCaptionsLayer([view layer], initialSize);
+    interface->setupCaptionsLayer(retainPtr([view layer]).get(), initialSize);
 
     return view;
 }
@@ -1109,7 +1113,7 @@ void VideoPresentationManagerProxy::setupFullscreenWithID(PlaybackSessionContext
     IntRect initialWindowRect;
     page->rootViewToWindow(enclosingIntRect(screenRect), initialWindowRect);
     interface->setupFullscreen(initialWindowRect, page->protectedPlatformWindow().get(), videoFullscreenMode, allowsPictureInPicture);
-    interface->setupCaptionsLayer([view layer], initialSize);
+    interface->setupCaptionsLayer(retainPtr([view layer]).get(), initialSize);
 #endif
 }
 
@@ -1239,7 +1243,7 @@ void VideoPresentationManagerProxy::setVideoFullscreenMode(PlaybackSessionContex
 {
     MESSAGE_CHECK((mode | HTMLMediaElementEnums::VideoFullscreenModeAllValidBitsMask) == HTMLMediaElementEnums::VideoFullscreenModeAllValidBitsMask);
 
-    ensureInterface(contextId)->setMode(mode, false);
+    ensureInterface(contextId)->setMode(mode, VideoPresentationModel::ShouldNotifyMediaElement::No);
 }
 
 void VideoPresentationManagerProxy::clearVideoFullscreenMode(PlaybackSessionContextIdentifier contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
@@ -1247,7 +1251,7 @@ void VideoPresentationManagerProxy::clearVideoFullscreenMode(PlaybackSessionCont
     MESSAGE_CHECK((mode | HTMLMediaElementEnums::VideoFullscreenModeAllValidBitsMask) == HTMLMediaElementEnums::VideoFullscreenModeAllValidBitsMask);
 
 #if PLATFORM(MAC)
-    ensureInterface(contextId)->clearMode(mode);
+    ensureInterface(contextId)->clearMode(mode, VideoPresentationModel::ShouldNotifyMediaElement::Yes);
 #endif
 }
 
@@ -1500,7 +1504,7 @@ void VideoPresentationManagerProxy::didCleanupFullscreen(PlaybackSessionContextI
     if (RetainPtr playerLayer = interface->playerLayer()) {
         // Return the video layer to the player layer
         RetainPtr videoView = interface->layerHostView();
-        [playerLayer addSublayer:[videoView layer]];
+        [playerLayer addSublayer:retainPtr([videoView layer]).get()];
         [playerLayer layoutSublayers];
     } else {
         [CATransaction flush];
@@ -1511,7 +1515,7 @@ void VideoPresentationManagerProxy::didCleanupFullscreen(PlaybackSessionContextI
     sendToWebProcess(contextId, Messages::VideoPresentationManager::DidCleanupFullscreen(contextId.object()));
 
     if (!hasMode(HTMLMediaElementEnums::VideoFullscreenModeInWindow)) {
-        interface->setMode(HTMLMediaElementEnums::VideoFullscreenModeNone, false);
+        interface->setMode(HTMLMediaElementEnums::VideoFullscreenModeNone, VideoPresentationModel::ShouldNotifyMediaElement::No);
         removeClientForContext(contextId);
     }
 

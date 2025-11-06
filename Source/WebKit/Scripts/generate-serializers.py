@@ -966,8 +966,12 @@ def decode_type(type, serialized_types):
                 result.append('    if (!decoder.isValid()) [[unlikely]]')
                 result.append('        return std::nullopt;')
                 result.append('')
-                result.append(f'    if (!({validator}))')
+                result.append(f'    if (!({validator})) {{')
+                result.append('#if ENABLE(IPC_TESTING_API)')
+                result.append(f'        decoder.setErrorString("Validation failed: {validator}"_s);')
+                result.append('#endif')
                 result.append('        return std::nullopt;')
+                result.append(f'    }}')
                 continue
             else:
                 match = re.search(r'Validator', attribute)
@@ -1871,14 +1875,14 @@ def generate_webkit_secure_coding_impl(serialized_types, headers):
             if member.has_container_contents():
                 if member.value_is_optional():
                     if member.dictionary_contents() is not None:
-                        result.append(f'    m_{member.type} = optionalVectorFromDictionary<{member.dictionary_contents()}>(({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"]);')
+                        result.append(f'    m_{member.type} = optionalVectorFromDictionary<{member.dictionary_contents()}>(({member.ns_type_pointer()})retainPtr([dictionary objectForKey:@"{member.type}"]).get());')
                     if member.array_contents() is not None:
-                        result.append(f'    m_{member.type} = optionalVectorFromArray<{member.array_contents()}>(({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"]);')
+                        result.append(f'    m_{member.type} = optionalVectorFromArray<{member.array_contents()}>(({member.ns_type_pointer()})retainPtr([dictionary objectForKey:@"{member.type}"]).get());')
                 else:
                     if member.dictionary_contents() is not None:
-                        result.append(f'    m_{member.type} = vectorFromDictionary<{member.dictionary_contents()}>(({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"]);')
+                        result.append(f'    m_{member.type} = vectorFromDictionary<{member.dictionary_contents()}>(({member.ns_type_pointer()})retainPtr([dictionary objectForKey:@"{member.type}"]).get());')
                     if member.array_contents() is not None:
-                        result.append(f'    m_{member.type} = vectorFromArray<{member.array_contents()}>(({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"]);')
+                        result.append(f'    m_{member.type} = vectorFromArray<{member.array_contents()}>(({member.ns_type_pointer()})retainPtr([dictionary objectForKey:@"{member.type}"]).get());')
             else:
                 result.append(f'    m_{member.type} = ({member.ns_type_pointer()})[dictionary objectForKey:@"{member.type}"];')
                 # FIXME: isKindOfClass call from type_check() can cause a static analysis false positive (https://github.com/llvm/llvm-project/issues/162979).
@@ -1965,7 +1969,7 @@ def generate_webkit_secure_coding_header(serialized_types):
         result.append('    RetainPtr<id> toID() const;')
         result.append('')
         result.append('private:')
-        result.append(f'    friend struct IPC::ArgumentCoder<{type.cpp_struct_or_class_name()}, void>;')
+        result.append(f'    friend struct IPC::ArgumentCoder<{type.cpp_struct_or_class_name()}>;')
         result.append('')
         result.append(f'    {type.cpp_struct_or_class_name()}(')
         for i in range(len(type.dictionary_members)):

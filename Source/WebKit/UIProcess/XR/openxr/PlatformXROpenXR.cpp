@@ -62,6 +62,10 @@ struct OpenXRCoordinator::RenderState {
     PlatformXR::Device::RequestFrameCallback onFrameUpdate;
     XrFrameState frameState;
     bool passthroughFullyObscured { false };
+#if ENABLE(WEBXR_HIT_TEST)
+    PlatformXR::HitTestSource nextHitTestSource { 1 };
+    HashSet<PlatformXR::HitTestSource> hitTestSources;
+#endif
 };
 
 OpenXRCoordinator::OpenXRCoordinator()
@@ -71,10 +75,7 @@ OpenXRCoordinator::OpenXRCoordinator()
 
 OpenXRCoordinator::~OpenXRCoordinator()
 {
-    m_viewConfigurationViews.clear();
-
-    if (m_instance != XR_NULL_HANDLE)
-        xrDestroyInstance(m_instance);
+    cleanupInstanceAndAssociatedResources();
 }
 
 void OpenXRCoordinator::getPrimaryDeviceInfo(WebPageProxy& page, DeviceInfoCallback&& callback)
@@ -117,6 +118,10 @@ void OpenXRCoordinator::getPrimaryDeviceInfo(WebPageProxy& page, DeviceInfoCallb
         deviceInfo.vrFeatures.append(PlatformXR::SessionFeature::HandTracking);
         deviceInfo.arFeatures.append(PlatformXR::SessionFeature::HandTracking);
     }
+#endif
+
+#if ENABLE(WEBXR_HIT_TEST)
+    deviceInfo.arFeatures.append(PlatformXR::SessionFeature::HitTest);
 #endif
 
     // In order to get the supported reference space types, we need the session to be created. However at this point we shouldn't do it.
@@ -185,21 +190,23 @@ std::unique_ptr<OpenXRSwapchain> OpenXRCoordinator::createSwapchain(uint32_t wid
     return OpenXRSwapchain::create(m_session, info, alpha ? OpenXRSwapchain::HasAlpha::Yes : OpenXRSwapchain::HasAlpha::No);
 }
 
-void OpenXRCoordinator::createLayerProjection(uint32_t width, uint32_t height, bool alpha)
+void OpenXRCoordinator::createLayerProjection(uint32_t width, uint32_t height, bool alpha, CompletionHandler<void(std::optional<PlatformXR::LayerHandle>)>&& reply)
 {
     ASSERT(RunLoop::isMain());
     WTF::switchOn(m_state,
-        [&](Idle&) { },
+        [&](Idle&) { reply(std::nullopt); },
         [&](Active& active) {
-            active.renderQueue->dispatch([this, width, height, alpha] {
+            active.renderQueue->dispatch([this, width, height, alpha, completionHandler = WTFMove(reply)] mutable {
                 if (!collectSwapchainFormatsIfNeeded()) {
                     RELEASE_LOG(XR, "OpenXRCoordinator: no supported swapchain formats");
+                    completionHandler(std::nullopt);
                     return;
                 }
 
                 auto swapchain = createSwapchain(width, height, alpha);
                 if (!swapchain) {
                     RELEASE_LOG(XR, "OpenXRCoordinator: failed to create swapchain");
+                    completionHandler(std::nullopt);
                     return;
                 }
 
@@ -208,7 +215,9 @@ void OpenXRCoordinator::createLayerProjection(uint32_t width, uint32_t height, b
                     if (m_gbmDevice)
                         layer->setGBMDevice(m_gbmDevice);
 #endif
-                    m_layers.add(defaultLayerHandle(), WTFMove(layer));
+                    auto layerHandle = m_nextLayerHandle++;
+                    m_layers.add(layerHandle, WTFMove(layer));
+                    completionHandler(layerHandle);
                 }
             });
         });
@@ -218,6 +227,8 @@ void OpenXRCoordinator::startSession(WebPageProxy& page, WeakPtr<PlatformXRCoord
 {
     ASSERT(RunLoop::isMain());
     LOG(XR, "OpenXRCoordinator::startSession");
+
+    initializeDevice(page.protectedPreferences()->openXRDMABufRelaxedForTesting());
 
     WTF::switchOn(m_state,
         [&](Idle&) {
@@ -270,7 +281,7 @@ void OpenXRCoordinator::endSessionIfExists(WebPageProxy& page)
             active.renderState->terminateRequested = true;
             active.renderQueue->dispatchSync([this, renderState = active.renderState] {
                 if (!m_isSessionRunning) {
-                    cleanupSessionAndAssociatedResources();
+                    cleanupAllResources();
                     return;
                 }
                 // OpenXR will transition the session to STOPPING state and then we will call xrEndSession().
@@ -345,6 +356,62 @@ void OpenXRCoordinator::submitFrame(WebPageProxy& page, Vector<XRDeviceLayer>&& 
             });
         });
 }
+
+#if ENABLE(WEBXR_HIT_TEST)
+void OpenXRCoordinator::requestHitTestSource(WebPageProxy& page, const PlatformXR::HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::HitTestSource>)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    WTF::switchOn(m_state,
+        [&](Idle&) {
+            RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a hit test source for an inactive session");
+        },
+        [&](Active& active) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a hit test source for session owned by another page");
+                return;
+            }
+
+            if (active.renderState->terminateRequested.load()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a hit test source for a terminating session");
+                return;
+            }
+
+            active.renderQueue->dispatch([this, renderState = active.renderState, completionHandler = WTFMove(completionHandler)]() mutable {
+                auto addResult = renderState->hitTestSources.add(renderState->nextHitTestSource);
+                ASSERT_UNUSED(addResult.isNewEntry, addResult);
+                callOnMainRunLoop([source = renderState->nextHitTestSource, completionHandler = WTFMove(completionHandler)] mutable {
+                    completionHandler(source);
+                });
+                renderState->nextHitTestSource++;
+            });
+        });
+}
+
+void OpenXRCoordinator::deleteHitTestSource(WebPageProxy& page, PlatformXR::HitTestSource source)
+{
+    ASSERT(RunLoop::isMain());
+    WTF::switchOn(m_state,
+        [&](Idle&) {
+            RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a hit test source for an inactive session");
+        },
+        [&](Active& active) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a hit test source for session owned by another page");
+                return;
+            }
+
+            if (active.renderState->terminateRequested.load()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a hit test source for a terminating session");
+                return;
+            }
+
+            active.renderQueue->dispatch([this, renderState = active.renderState, source]() mutable {
+                bool removed = renderState->hitTestSources.remove(source);
+                ASSERT_UNUSED(removed, removed);
+            });
+        });
+}
+#endif
 
 void OpenXRCoordinator::createInstance()
 {
@@ -634,6 +701,27 @@ void OpenXRCoordinator::cleanupSessionAndAssociatedResources()
     m_glContext.reset();
 }
 
+void OpenXRCoordinator::cleanupInstanceAndAssociatedResources()
+{
+    m_viewConfigurationViews.clear();
+    m_systemId = XR_NULL_SYSTEM_ID;
+
+    ASSERT(!m_glContext);
+    m_glDisplay = nullptr;
+
+    if (m_instance == XR_NULL_HANDLE)
+        return;
+
+    xrDestroyInstance(m_instance);
+    m_instance = XR_NULL_HANDLE;
+}
+
+void OpenXRCoordinator::cleanupAllResources()
+{
+    cleanupSessionAndAssociatedResources();
+    cleanupInstanceAndAssociatedResources();
+}
+
 void OpenXRCoordinator::handleSessionStateChange()
 {
     ASSERT(!RunLoop::isMain());
@@ -664,7 +752,7 @@ void OpenXRCoordinator::handleSessionStateChange()
         break;
     case XR_SESSION_STATE_LOSS_PENDING:
     case XR_SESSION_STATE_EXITING:
-        cleanupSessionAndAssociatedResources();
+        cleanupAllResources();
         break;
     default:
         break;
@@ -752,6 +840,11 @@ PlatformXR::FrameData OpenXRCoordinator::populateFrameData(Box<RenderState> rend
             frameData.layers.add(layer.key, WTFMove(layerDataRef));
         }
     }
+
+#if ENABLE(WEBXR_HIT_TEST)
+    for (auto source : renderState->hitTestSources)
+        frameData.hitTestResults.add(source, Vector<PlatformXR::FrameData::HitTestResult> { });
+#endif
 
     return frameData;
 }

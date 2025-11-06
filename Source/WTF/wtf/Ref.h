@@ -31,6 +31,7 @@
 #include <wtf/GetPtr.h>
 #include <wtf/RawPtrTraits.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/SwiftBridging.h>
 #include <wtf/TypeCasts.h>
 
 #if ASAN_ENABLED
@@ -171,7 +172,7 @@ private:
     }
 
     typename PtrTraits::StorageType m_ptr;
-};
+} SWIFT_ESCAPABLE;
 
 template<typename T, typename _PtrTraits, typename RefDerefTraits> Ref<T, _PtrTraits, RefDerefTraits> adoptRef(T&);
 
@@ -246,7 +247,8 @@ inline void Ref<X, _PtrTraits, RefDerefTraits>::swap(Ref<Y, _OtherPtrTraits, Oth
     _PtrTraits::swap(m_ptr, other.m_ptr);
 }
 
-template<typename X, typename APtrTraits, typename ARefDerefTraits, typename Y, typename BPtrTraits, typename BRefDerefTraits, typename = std::enable_if_t<!std::is_same<APtrTraits, RawPtrTraits<X>>::value || !std::is_same<BPtrTraits, RawPtrTraits<Y>>::value>>
+template<typename X, typename APtrTraits, typename ARefDerefTraits, typename Y, typename BPtrTraits, typename BRefDerefTraits>
+    requires (!std::is_same_v<APtrTraits, RawPtrTraits<X>> || !std::is_same_v<BPtrTraits, RawPtrTraits<Y>>)
 inline void swap(Ref<X, APtrTraits, ARefDerefTraits>& a, Ref<Y, BPtrTraits, BRefDerefTraits>& b)
 {
     a.swap(b);

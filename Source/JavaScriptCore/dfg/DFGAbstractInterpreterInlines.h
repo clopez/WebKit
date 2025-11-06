@@ -47,6 +47,7 @@
 #include "JSInternalPromise.h"
 #include "JSInternalPromiseConstructor.h"
 #include "JSPromiseConstructor.h"
+#include "JSPromisePrototype.h"
 #include "JSWebAssemblyInstance.h"
 #include "MathCommon.h"
 #include "NumberConstructor.h"
@@ -3214,11 +3215,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setNonCellTypeForNode(node, SpecBoolean);
         break;
 
-    case ArrayIndexOf: {
+    case ArrayIndexOf:
+    case ArrayLastIndexOf: {
         setNonCellTypeForNode(node, SpecInt32Only);
         break;
     }
-            
+
     case ArrayPop:
         clobberWorld();
         makeHeapTopForNode(node);
@@ -4351,6 +4353,24 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
                     if (attemptToFold(m_vm.propertyNames->replaceSymbol.impl(), globalObject->regExpProtoSymbolReplaceFunction()))
                         break;
+                }
+                if (structure->typeInfo().type() == JSPromiseType
+                    && !structure->hasPolyProto()
+                    && structure->storedPrototype() == globalObject->promisePrototype()
+                    && !structure->isDictionary()
+                    && structure->propertyAccessesAreCacheable()
+                    && structure->propertyAccessesAreCacheableForAbsence()
+                    && m_graph.isWatchingPromiseThenWatchpoint(node)) {
+                    UniquedStringImpl* uid = node->cacheableIdentifier().uid();
+                    if (uid == m_vm.propertyNames->then.impl()) {
+                        unsigned attributes;
+                        PropertyOffset offset = structure->getConcurrently(uid, attributes);
+                        if (!isValidOffset(offset)) {
+                            didFoldClobberWorld();
+                            setConstant(node, *m_graph.freeze(globalObject->promiseProtoThenFunction()));
+                            break;
+                        }
+                    }
                 }
             }
         }

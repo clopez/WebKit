@@ -151,6 +151,14 @@ public:
     USING_CAN_MAKE_WEAKPTR(MessageReceiver);
     USING_CAN_MAKE_CHECKEDPTR(IPC::Connection::Client);
 
+    void setDidBeginCheckedPtrDeletion()
+    {
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+        WebPaymentCoordinatorProxy::Client::setDidBeginCheckedPtrDeletion();
+#endif
+        IPC::Connection::Client::setDidBeginCheckedPtrDeletion();
+    }
+
     using RegistrableDomain = WebCore::RegistrableDomain;
 
     static Ref<NetworkConnectionToWebProcess> create(NetworkProcess&, WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&, IPC::Connection::Identifier&&);
@@ -295,6 +303,9 @@ private:
     void sendH2Ping(NetworkResourceLoadParameters&&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
     void preconnectTo(std::optional<WebCore::ResourceLoaderIdentifier> preconnectionIdentifier, NetworkResourceLoadParameters&&);
     void isResourceLoadFinished(WebCore::ResourceLoaderIdentifier, CompletionHandler<void(bool)>&&);
+#if ENABLE(IPC_TESTING_API)
+    void takeInvalidMessageStringForTesting(CompletionHandler<void(String&&)>&&);
+#endif
 
     void removeLoadIdentifier(WebCore::ResourceLoaderIdentifier);
     void pageLoadCompleted(WebCore::PageIdentifier);

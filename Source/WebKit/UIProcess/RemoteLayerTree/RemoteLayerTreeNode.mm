@@ -40,7 +40,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 #import "RemoteAnimation.h"
 #import "RemoteAnimationStack.h"
 #endif
@@ -88,7 +88,7 @@ RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerI
 RemoteLayerTreeNode::~RemoteLayerTreeNode()
 {
     RetainPtr layer = this->layer();
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
     if (RefPtr animationStack = m_animationStack)
         animationStack->clear(layer.get());
 #endif
@@ -280,7 +280,8 @@ RemoteLayerTreeNode* RemoteLayerTreeNode::forCALayer(CALayer *layer)
 NSString *RemoteLayerTreeNode::appendLayerDescription(NSString *description, CALayer *layer)
 {
     auto layerID = WebKit::RemoteLayerTreeNode::layerID(layer);
-    RetainPtr layerDescription = adoptNS([[NSString alloc] initWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, layer.name ? layer.name : @""]);
+    RetainPtr<NSString> name = layer.name ? layer.name : @"";
+    RetainPtr layerDescription = adoptNS([[NSString alloc] initWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, name.get()]);
     return [description stringByAppendingString:layerDescription.get()];
 }
 
@@ -302,7 +303,7 @@ void RemoteLayerTreeNode::removeFromHostingNode()
 #endif
 }
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects& effects, const WebCore::AcceleratedEffectValues& baseValues, RemoteLayerTreeHost& host)
 {
     ASSERT(isUIThread());
@@ -316,7 +317,8 @@ void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::Acce
         return;
 
     Ref animationStack = RemoteAnimationStack::create(effects.map([&](const Ref<AcceleratedEffect>& effect) {
-        RefPtr timeline = host.timeline(m_layerID.processIdentifier());
+        TimelineID timelineID { effect->timelineIdentifier(), m_layerID.processIdentifier() };
+        RefPtr timeline = host.timeline(timelineID);
         ASSERT(timeline);
         return RemoteAnimation::create(Ref { effect }.get(), *timeline);
     }), baseValues.clone(), layer.get().bounds);

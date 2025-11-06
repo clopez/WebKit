@@ -1485,7 +1485,7 @@ void MediaPlayerPrivateAVFoundationObjC::startVideoFrameMetadataGathering()
     // the QueuedVideoOutput so paints of the current frame succeed;
     updateLastPixelBuffer();
 
-    m_currentImageChangedObserver = WTF::makeUnique<Observer<void()>>([weakThis = ThreadSafeWeakPtr { *this }] {
+    m_currentImageChangedObserver = Observer<void()>::create([weakThis = ThreadSafeWeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get()) {
             protectedThis->m_currentImageChangedObserver = nullptr;
             protectedThis->checkNewVideoFrameMetadata();
@@ -1493,7 +1493,7 @@ void MediaPlayerPrivateAVFoundationObjC::startVideoFrameMetadataGathering()
     });
 
     if (RefPtr videoOutput = m_videoOutput)
-        videoOutput->addCurrentImageChangedObserver(*m_currentImageChangedObserver);
+        videoOutput->addCurrentImageChangedObserver(Ref { *m_currentImageChangedObserver });
 
     m_isGatheringVideoFrameMetadata = true;
 }
@@ -2357,8 +2357,10 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
         updateAudioTracks();
         updateVideoTracks();
 
-        hasAudio |= (m_audibleGroup && m_audibleGroup->selectedOption());
-        hasVideo |= (m_visualGroup && m_visualGroup->selectedOption());
+        RefPtr audibleGroup = m_audibleGroup;
+        RefPtr visualGroup = m_visualGroup;
+        hasAudio |= (audibleGroup && audibleGroup->selectedOption());
+        hasVideo |= (visualGroup && visualGroup->selectedOption());
 
         // HLS streams will occasionally recreate all their tracks; during seek and after
         // buffering policy changes. "debounce" notifications which result in no enabled
@@ -2485,7 +2487,7 @@ void determineChangedTracksFromNewTracksAndOldItems(MediaSelectionGroupAVFObjC* 
     for (auto& option : group->options()) {
         if (!option)
             continue;
-        AVMediaSelectionOption* avOption = option->avMediaSelectionOption();
+        RetainPtr avOption = option->avMediaSelectionOption();
         if (!avOption)
             continue;
         newSelectionOptions.add(option);
@@ -2666,11 +2668,11 @@ void MediaPlayerPrivateAVFoundationObjC::createVideoOutput()
         ERROR_LOG(LOGIDENTIFIER, "-[AVPlayerItemVideoOutput initWithPixelBufferAttributes:] failed!");
         return;
     }
-    if (m_currentImageChangedObserver)
-        videoOutput->addCurrentImageChangedObserver(*m_currentImageChangedObserver);
+    if (RefPtr observer = m_currentImageChangedObserver)
+        videoOutput->addCurrentImageChangedObserver(*observer);
 
-    if (m_waitForVideoOutputMediaDataWillChangeObserver)
-        videoOutput->addCurrentImageChangedObserver(*m_waitForVideoOutputMediaDataWillChangeObserver);
+    if (RefPtr observer = m_waitForVideoOutputMediaDataWillChangeObserver)
+        videoOutput->addCurrentImageChangedObserver(*observer);
 
     setNeedsRenderingModeChanged();
 }
@@ -2860,12 +2862,12 @@ auto MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()
     std::optional<RunLoop::Timer> timeoutTimer;
 
     if (!m_runLoopNestingLevel) {
-        m_waitForVideoOutputMediaDataWillChangeObserver = WTF::makeUnique<Observer<void()>>([weakThis = ThreadSafeWeakPtr { *this }] {
+        m_waitForVideoOutputMediaDataWillChangeObserver = Observer<void()>::create([weakThis = ThreadSafeWeakPtr { *this }] {
             if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_runLoopNestingLevel)
                 RunLoop::mainSingleton().stop();
         });
         if (RefPtr videoOutput = m_videoOutput)
-            videoOutput->addCurrentImageChangedObserver(*m_waitForVideoOutputMediaDataWillChangeObserver);
+            videoOutput->addCurrentImageChangedObserver(Ref { *m_waitForVideoOutputMediaDataWillChangeObserver });
 
         timeoutTimer.emplace(RunLoop::mainSingleton(), "MediaPlayerPrivateAVFoundationObjC::TimeoutTimer"_s, [&] {
             RunLoop::mainSingleton().stop();

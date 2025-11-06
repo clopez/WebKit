@@ -72,6 +72,7 @@ public:
     uint32_t checkedPtrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::checkedPtrCountWithoutThreadCheck(); }
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
+    void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     // PlaybackSessionModel
     void addClient(WebCore::PlaybackSessionModelClient&) final;
@@ -241,7 +242,7 @@ private:
     std::optional<WebCore::SpatialVideoMetadata> m_spatialVideoMetadata;
     std::optional<WebCore::VideoProjectionMetadata> m_videoProjectionMetadata;
 
-    bool m_prefersAutoDimming { false };
+    bool m_prefersAutoDimming { true };
 #if !RELEASE_LOG_DISABLED
     uint64_t m_logIdentifier { 0 };
 #endif

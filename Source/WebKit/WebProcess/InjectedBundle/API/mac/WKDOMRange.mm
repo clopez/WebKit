@@ -44,7 +44,8 @@
     if (!self)
         return nil;
 
-    _impl = impl;
+    RELEASE_ASSERT(impl);
+    lazyInitialize(_impl, Ref { *impl });
     WebKit::WKDOMRangeCache().add(impl, self);
 
     return self;
@@ -52,7 +53,7 @@
 
 - (id)initWithDocument:(WKDOMDocument *)document
 {
-    return [self _initWithImpl:WebCore::Range::create(*WebKit::toWebCoreDocument(document)).ptr()];
+    return [self _initWithImpl:WebCore::Range::create(*WebKit::toProtectedWebCoreDocument(document)).ptr()];
 }
 
 - (void)dealloc
@@ -86,19 +87,19 @@
 {
     if (!node)
         return;
-    _impl->selectNode(*WebKit::toWebCoreNode(node));
+    _impl->selectNode(*WebKit::toProtectedWebCoreNode(node));
 }
 
 - (void)selectNodeContents:(WKDOMNode *)node
 {
     if (!node)
         return;
-    _impl->selectNodeContents(*WebKit::toWebCoreNode(node));
+    _impl->selectNodeContents(*WebKit::toProtectedWebCoreNode(node));
 }
 
 - (WKDOMNode *)startContainer
 {
-    return WebKit::toWKDOMNode(&_impl->startContainer());
+    return WebKit::toWKDOMNode(_impl->protectedStartContainer().ptr());
 }
 
 - (NSInteger)startOffset
@@ -108,7 +109,7 @@
 
 - (WKDOMNode *)endContainer
 {
-    return WebKit::toWKDOMNode(&_impl->endContainer());
+    return WebKit::toWKDOMNode(_impl->protectedEndContainer().ptr());
 }
 
 - (NSInteger)endOffset
@@ -119,7 +120,7 @@
 - (NSString *)text
 {
     auto range = makeSimpleRange(*_impl);
-    range.start.document().updateLayout();
+    range.start.protectedDocument()->updateLayout();
     return plainText(range).createNSString().autorelease();
 }
 
@@ -131,7 +132,7 @@
 - (NSArray *)textRects
 {
     auto range = makeSimpleRange(*_impl);
-    range.start.document().updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
+    range.start.protectedDocument()->updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
     return createNSArray(WebCore::RenderObject::absoluteTextRects(range)).autorelease();
 }
 
@@ -149,7 +150,7 @@
 - (WKBundleRangeHandleRef)_copyBundleRangeHandleRef
 {
     auto rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(_impl.get());
-    return toAPI(rangeHandle.leakRef());
+    return toAPILeakingRef(WTFMove(rangeHandle));
 }
 
 @end

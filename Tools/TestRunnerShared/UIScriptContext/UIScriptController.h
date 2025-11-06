@@ -62,9 +62,12 @@ struct TextExtractionTestOptions {
     bool clipToBounds { false };
     bool includeRects { false };
     bool includeURLs { false };
+    bool includeNodeIdentifiers { false };
+    bool includeEventListeners { false };
+    bool includeAccessibilityAttributes { false };
+    bool includeTextInAutoFilledControls { false };
     bool mergeParagraphs { false };
     bool skipNearlyTransparentContent { false };
-    bool canIncludeIdentifiers { false };
 };
 
 TextExtractionTestOptions* toTextExtractionTestOptions(JSContextRef, JSValueRef);
@@ -74,6 +77,7 @@ struct TextExtractionInteractionOptions {
     JSRetainPtr<JSStringRef> text;
     std::optional<std::pair<double, double>> location;
     bool replaceAll { false };
+    bool scrollToVisible { false };
 };
 
 TextExtractionInteractionOptions* toTextExtractionInteractionOptions(JSContextRef, JSValueRef);
@@ -460,6 +464,9 @@ public:
     virtual void resetVisibilityAdjustments(JSValueRef) { notImplemented(); }
 
     virtual JSRetainPtr<JSStringRef> frontmostViewAtPoint(int, int) { notImplemented(); return { }; }
+
+    virtual bool didCallEnsurePositionInformationIsUpToDateSinceLastCheck() const { notImplemented(); return false; }
+    virtual void clearEnsurePositionInformationIsUpToDateTracking() { notImplemented(); }
 
 protected:
     explicit UIScriptController(UIScriptContext&);

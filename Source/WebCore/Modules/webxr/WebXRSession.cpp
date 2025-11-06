@@ -30,19 +30,25 @@
 #if ENABLE(WEBXR)
 
 #include "ContextDestructionObserverInlines.h"
+#include "DocumentPage.h"
 #include "EventNames.h"
 #include "JSDOMPromiseDeferred.h"
+#include "JSWebXRHitTestSource.h"
 #include "JSWebXRReferenceSpace.h"
+#include "JSWebXRTransientInputHitTestSource.h"
 #include "Page.h"
 #include "PlatformXR.h"
 #include "SecurityOrigin.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WebXRBoundedReferenceSpace.h"
 #include "WebXRFrame.h"
+#include "WebXRHitTestSource.h"
 #include "WebXRSystem.h"
+#include "WebXRTransientInputHitTestSource.h"
 #include "WebXRView.h"
 #include "XRFrameRequestCallback.h"
 #include "XRGPUProjectionLayerInit.h"
+#include "XRHitTestOptionsInit.h"
 #include "XRRenderStateInit.h"
 #include "XRSessionEvent.h"
 #include <wtf/RefPtr.h>
@@ -92,9 +98,6 @@ WebXRSession::WebXRSession(Document& document, WebXRSystem& system, XRSessionMod
 
 WebXRSession::~WebXRSession()
 {
-    if (RefPtr sessionDocument = downcast<Document>(scriptExecutionContext()))
-        sessionDocument->unregisterForVisibilityStateChangedCallbacks(*this);
-
     auto device = m_device.get();
     if (!m_ended && device)
         device->shutDownTrackingAndRendering();
@@ -743,6 +746,46 @@ bool WebXRSession::posesCanBeReported(const Document& document) const
 bool WebXRSession::isHandTrackingEnabled() const
 {
     return m_requestedFeatures.contains(PlatformXR::SessionFeature::HandTracking);
+}
+#endif
+
+#if ENABLE(WEBXR_HIT_TEST)
+// https://immersive-web.github.io/hit-test/#dom-xrsession-requesthittestsource
+void WebXRSession::requestHitTestSource(const XRHitTestOptionsInit& init, RequestHitTestSourcePromise&& promise)
+{
+    // 3. If session’s ended value is true, throw an InvalidStateError and abort these steps.
+    if (m_ended) {
+        promise.reject(Exception { ExceptionCode::InvalidStateError, "The session was already ended"_s });
+        return;
+    }
+    RefPtr device = this->device();
+    if (!device) {
+        promise.reject(Exception { ExceptionCode::InvalidStateError });
+        return;
+    }
+    auto maybeNativeOrigin = init.space->nativeOrigin();
+    if (!maybeNativeOrigin) {
+        promise.reject(Exception { ExceptionCode::InvalidStateError, "Unable to retrieve the native origin from XRSpace"_s });
+        return;
+    }
+    auto toFloatPoint3D = [](auto& point) {
+        return FloatPoint3D(point.x(), point.y(), point.z());
+    };
+    PlatformXR::Ray ray { { 0, 0, 0 }, { 0, 0, -1 } };
+    if (init.offsetRay)
+        ray = PlatformXR::Ray { toFloatPoint3D(init.offsetRay->origin()), toFloatPoint3D(init.offsetRay->direction()) };
+    PlatformXR::HitTestOptions options = { *WTFMove(maybeNativeOrigin), init.entityTypes, WTFMove(ray) };
+    device->requestHitTestSource(options, [protectedThis = Ref { *this }, promise = WTFMove(promise)](ExceptionOr<PlatformXR::HitTestSource> exceptionOrSource) mutable {
+        if (exceptionOrSource.hasException())
+            promise.reject(exceptionOrSource.releaseException());
+        else
+            promise.resolve(WebXRHitTestSource::create(protectedThis, exceptionOrSource.releaseReturnValue()));
+    });
+}
+
+void WebXRSession::requestHitTestSourceForTransientInput(const XRTransientInputHitTestOptionsInit&, RequestHitTestSourceForTransientInputPromise&& promise)
+{
+    promise.resolve(WebXRTransientInputHitTestSource::create());
 }
 #endif
 

@@ -69,9 +69,9 @@ inline void BuilderState::setFontDescriptionFontSize(float fontSize)
     }
 
     SUPPRESS_UNCOUNTED_ARG auto computedSize = Style::computedFontSizeFromSpecifiedSize(fontSize, m_style.fontDescription().isAbsoluteSize(), useSVGZoomRules(), &style(), document());
-    if (m_style.fontDescription().computedSize() != computedSize) {
+    if (m_style.fontDescription().computedSize() != computedSize.size || m_style.fontDescription().usedZoomFactor() != computedSize.usedZoomFactor) {
         m_fontDirty = true;
-        m_style.mutableFontDescriptionWithoutUpdate().setComputedSize(computedSize);
+        m_style.mutableFontDescriptionWithoutUpdate().setComputedSize(computedSize.size, computedSize.usedZoomFactor);
     }
 }
 
@@ -214,11 +214,11 @@ inline void BuilderState::setFontDescriptionSpecifiedLocale(const AtomString& sp
 
 inline void BuilderState::setFontDescriptionTextAutospace(TextAutospace textAutospace)
 {
-    if (m_style.fontDescription().textAutospace() == textAutospace)
+    if (m_style.fontDescription().textAutospace() == toPlatform(textAutospace))
         return;
 
     m_fontDirty = true;
-    m_style.mutableFontDescriptionWithoutUpdate().setTextAutospace(textAutospace);
+    m_style.mutableFontDescriptionWithoutUpdate().setTextAutospace(toPlatform(textAutospace));
 }
 
 inline void BuilderState::setFontDescriptionTextRenderingMode(TextRenderingMode textRenderingMode)
@@ -235,11 +235,11 @@ inline void BuilderState::setFontDescriptionTextRenderingMode(TextRenderingMode 
 
 inline void BuilderState::setFontDescriptionTextSpacingTrim(TextSpacingTrim textSpacingTrim)
 {
-    if (m_style.fontDescription().textSpacingTrim() == textSpacingTrim)
+    if (m_style.fontDescription().textSpacingTrim() == textSpacingTrim.platform())
         return;
 
     m_fontDirty = true;
-    m_style.mutableFontDescriptionWithoutUpdate().setTextSpacingTrim(textSpacingTrim);
+    m_style.mutableFontDescriptionWithoutUpdate().setTextSpacingTrim(textSpacingTrim.platform());
 }
 
 inline void BuilderState::setFontDescriptionVariantCaps(FontVariantCaps variantCaps)

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -373,6 +373,9 @@ bool RenderBlock::isSelfCollapsingBlock() const
     // (d) have a min-height
     // (e) have specified that one of our margins can't collapse using a CSS extension
 
+    if (isOutOfFlowPositioned())
+        return false;
+
     auto minHeightIsPositive = [&] {
         return WTF::switchOn(style().logicalMinHeight(),
             [](const Style::MinimumSize::Fixed& fixedValue) {
@@ -560,32 +563,25 @@ void RenderBlock::layoutBlock(RelayoutChildren, LayoutUnit)
 
 // Overflow is always relative to the border-box of the element in question.
 // Therefore, if the element has a vertical scrollbar placed on the left, an overflow rect at x=2px would conceptually intersect the scrollbar.
-void RenderBlock::computeOverflow(LayoutUnit oldClientAfterEdge, OptionSet<ComputeOverflowOptions> options)
+void RenderBlock::computeOverflow(LayoutRect contentArea, OptionSet<ComputeOverflowOptions> options)
 {
     clearOverflow();
     addOverflowFromInFlowChildren(options);
     addOverflowFromOutOfFlowBoxes();
 
-    if (hasNonVisibleOverflow()) {
-        auto includePaddingAfter = [&] {
-            // When we have overflow clip, propagate the original spillout since it will include collapsed bottom margins and bottom padding.
-            auto clientRect = flippedClientBoxRect();
-            auto rectToApply = clientRect;
-            // Set the axis we don't care about to be 1, since we want this overflow to always be considered reachable.
-            if (isHorizontalWritingMode()) {
-                rectToApply.setWidth(1);
-                rectToApply.setHeight(std::max(0_lu, oldClientAfterEdge - clientRect.y()));
-            } else {
-                rectToApply.setWidth(std::max(0_lu, oldClientAfterEdge - clientRect.x()));
-                rectToApply.setHeight(1);
-            }
-            addLayoutOverflow(rectToApply);
-        };
-        includePaddingAfter();
-        if (hasRenderOverflow())
-            m_overflow->setLayoutClientAfterEdge(oldClientAfterEdge);
+    if (hasPotentiallyScrollableOverflow()) {
+        if (!flippedContentBoxRect().contains(contentArea))
+            ensureOverflow();
+        if (hasRenderOverflow()) {
+            m_overflow->addContentOverflow(contentArea);
+            auto contentOverflow = m_overflow->contentArea();
+            flipForWritingMode(contentOverflow);
+            contentOverflow.expand(padding());
+            flipForWritingMode(contentOverflow);
+            addLayoutOverflow(contentOverflow);
+        }
     }
-        
+
     // Add visual overflow from box-shadow, border-image-outset and outline.
     addVisualEffectOverflow();
 
@@ -597,14 +593,15 @@ void RenderBlock::clearLayoutOverflow()
 {
     if (!m_overflow)
         return;
-    
+
     if (visualOverflowRect() == borderBoxRect()) {
         // FIXME: Implement complete solution for fragments overflow.
         clearOverflow();
         return;
     }
-    
+
     m_overflow->setLayoutOverflow(borderBoxRect());
+    m_overflow->setContentArea(flippedContentBoxRect());
 }
 
 void RenderBlock::addOverflowFromOutOfFlowBoxes()
@@ -733,8 +730,8 @@ bool RenderBlock::simplifiedLayout()
     // lowestPosition on every relayout so it's not a regression.
     // computeOverflow expects the bottom edge before we clamp our height. Since this information isn't available during
     // simplifiedLayout, we cache the value in m_overflow.
-    LayoutUnit oldClientAfterEdge = hasRenderOverflow() ? m_overflow->layoutClientAfterEdge() : clientLogicalBottom();
-    computeOverflow(oldClientAfterEdge, ComputeOverflowOptions::RecomputeFloats);
+    auto contentArea = hasRenderOverflow() ? m_overflow->contentArea() : flippedContentBoxRect();
+    computeOverflow(contentArea, ComputeOverflowOptions::RecomputeFloats);
 
     updateLayerTransform();
 
@@ -780,11 +777,12 @@ LayoutUnit RenderBlock::marginIntrinsicLogicalWidthForChild(RenderBox& child) co
     // Fixed margins can be added in as is.
     auto& marginLeft = child.style().marginStart(writingMode());
     auto& marginRight = child.style().marginEnd(writingMode());
+    const auto& zoomFactor = child.style().usedZoomForLength();
     LayoutUnit margin;
     if (auto fixedMarginLeft = marginLeft.tryFixed(); fixedMarginLeft && !shouldTrimChildMargin(MarginTrimType::InlineStart, child))
-        margin += fixedMarginLeft->resolveZoom(Style::ZoomNeeded { });
+        margin += fixedMarginLeft->resolveZoom(zoomFactor);
     if (auto fixedMarginRight = marginRight.tryFixed(); fixedMarginRight && !shouldTrimChildMargin(MarginTrimType::InlineEnd, child))
-        margin += fixedMarginRight->resolveZoom(Style::ZoomNeeded { });
+        margin += fixedMarginRight->resolveZoom(zoomFactor);
     return margin;
 }
 
@@ -1958,9 +1956,9 @@ bool RenderBlock::isPointInOverflowControl(HitTestResult& result, const LayoutPo
 
 Node* RenderBlock::nodeForHitTest() const
 {
-    if (auto pseudoId = style().pseudoElementType()) {
-        switch (*pseudoId) {
-        case PseudoId::Backdrop:
+    if (auto type = style().pseudoElementType()) {
+        switch (*type) {
+        case PseudoElementType::Backdrop:
             // If we're a ::backdrop pseudo-element, we should hit-test to the element that generated it.
             // This matches the behavior that other browsers have.
             for (auto& element : document().topLayerElements()) {
@@ -1973,9 +1971,9 @@ Node* RenderBlock::nodeForHitTest() const
             ASSERT_NOT_REACHED();
             break;
 
-        case PseudoId::ViewTransition:
-        case PseudoId::ViewTransitionGroup:
-        case PseudoId::ViewTransitionImagePair:
+        case PseudoElementType::ViewTransition:
+        case PseudoElementType::ViewTransitionGroup:
+        case PseudoElementType::ViewTransitionImagePair:
             // The view transition pseudo-elements should hit-test to their originating element (the document element).
             return document().documentElement();
 
@@ -2241,7 +2239,7 @@ void RenderBlock::computePreferredLogicalWidths()
 
     auto& styleToUse = style();
     auto logicalWidth = overridingLogicalWidthForFlexBasisComputation().value_or(styleToUse.logicalWidth());
-    if (auto fixedLogicalWidth = logicalWidth.tryFixed(); !isRenderTableCell() && fixedLogicalWidth && fixedLogicalWidth->isPositiveOrZero() && !(isDeprecatedFlexItem() && !static_cast<int>(fixedLogicalWidth->resolveZoom(Style::ZoomNeeded { })))) {
+    if (auto fixedLogicalWidth = logicalWidth.tryFixed(); !isRenderTableCell() && fixedLogicalWidth && fixedLogicalWidth->isPositiveOrZero() && !(isDeprecatedFlexItem() && !static_cast<int>(fixedLogicalWidth->resolveZoom(style().usedZoomForLength())))) {
         m_minPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
         m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth;
     } else if (logicalWidth.isMaxContent()) {
@@ -2306,10 +2304,11 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
         // Fixed margins can be added in as is.
         LayoutUnit marginStart;
         LayoutUnit marginEnd;
+        const auto& childZoomFactor = childStyle.usedZoomForLength();
         if (auto fixedMarginStart = childStyle.marginStart(writingMode()).tryFixed())
-            marginStart += fixedMarginStart->resolveZoom(Style::ZoomNeeded { });
+            marginStart += fixedMarginStart->resolveZoom(childZoomFactor);
         if (auto fixedMarginEnd = childStyle.marginEnd(writingMode()).tryFixed())
-            marginEnd += fixedMarginEnd->resolveZoom(Style::ZoomNeeded { });
+            marginEnd += fixedMarginEnd->resolveZoom(childZoomFactor);
         auto margin = marginStart + marginEnd;
 
         LayoutUnit childMinPreferredLogicalWidth;
@@ -2383,7 +2382,7 @@ void RenderBlock::computeChildPreferredLogicalWidths(RenderBox& childBox, Layout
                 childBox.verticalBorderAndPaddingExtent(),
                 LayoutUnit { childBoxStyle.logicalAspectRatio() },
                 childBoxStyle.boxSizingForAspectRatio(),
-                LayoutUnit { fixedChildBoxStyleLogicalWidth->resolveZoom(Style::ZoomNeeded { }) },
+                LayoutUnit { fixedChildBoxStyleLogicalWidth->resolveZoom(childBoxStyle.usedZoomForLength()) },
                 style().aspectRatio(),
                 isRenderReplaced()
             );
@@ -2466,7 +2465,7 @@ static inline RenderBlock* findFirstLetterBlock(RenderBlock* start)
 {
     RenderBlock* firstLetterBlock = start;
     while (true) {
-        bool canHaveFirstLetterRenderer = firstLetterBlock->style().hasPseudoStyle(PseudoId::FirstLetter)
+        bool canHaveFirstLetterRenderer = firstLetterBlock->style().hasPseudoStyle(PseudoElementType::FirstLetter)
             && firstLetterBlock->canHaveGeneratedChildren()
             && isRenderBlockFlowOrRenderButton(*firstLetterBlock);
         if (canHaveFirstLetterRenderer)
@@ -2485,7 +2484,7 @@ static inline RenderBlock* findFirstLetterBlock(RenderBlock* start)
 std::pair<RenderObject*, RenderElement*> RenderBlock::firstLetterAndContainer(RenderObject* skipThisAsFirstLetter)
 {
     // Don't recur
-    if (style().pseudoElementType() == PseudoId::FirstLetter)
+    if (style().pseudoElementType() == PseudoElementType::FirstLetter)
         return { };
     
     // FIXME: We need to destroy the first-letter object if it is no longer the first child. Need to find
@@ -2509,7 +2508,7 @@ std::pair<RenderObject*, RenderElement*> RenderBlock::firstLetterAndContainer(Re
         if (is<RenderListMarker>(current))
             firstLetter = current.nextSibling();
         else if (current.isFloatingOrOutOfFlowPositioned()) {
-            if (current.style().pseudoElementType() == PseudoId::FirstLetter) {
+            if (current.style().pseudoElementType() == PseudoElementType::FirstLetter) {
                 firstLetter = current.firstChild();
                 break;
             }
@@ -2518,7 +2517,7 @@ std::pair<RenderObject*, RenderElement*> RenderBlock::firstLetterAndContainer(Re
             break;
         else if (current.isFlexibleBoxIncludingDeprecated() || current.isRenderGrid())
             return { };
-        else if (current.style().hasPseudoStyle(PseudoId::FirstLetter) && current.canHaveGeneratedChildren())  {
+        else if (current.style().hasPseudoStyle(PseudoElementType::FirstLetter) && current.canHaveGeneratedChildren())  {
             // We found a lower-level node with first-letter, which supersedes the higher-level style
             firstLetterContainer = &current;
             firstLetter = current.firstChild();
@@ -2985,8 +2984,8 @@ String RenderBlock::debugDescription() const
         builder.append(renderName(), " 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase));
 
         builder.append(" ::view-transition"_s);
-        if (style().pseudoElementType() != PseudoId::ViewTransition) {
-            builder.append("-"_s, style().pseudoElementType() == PseudoId::ViewTransitionGroup ? "group("_s : "image-pair("_s);
+        if (style().pseudoElementType() != PseudoElementType::ViewTransition) {
+            builder.append("-"_s, style().pseudoElementType() == PseudoElementType::ViewTransitionGroup ? "group("_s : "image-pair("_s);
             builder.append(style().pseudoElementNameArgument(), ')');
         }
         return builder.toString();
@@ -3067,7 +3066,7 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
 
         auto& style = this->style();
         if (auto fixedLogicalHeight = style.logicalHeight().tryFixed()) {
-            auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->resolveZoom(Style::ZoomNeeded { }) });
+            auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->resolveZoom(style.usedZoomForLength()) });
             return std::max(0_lu, constrainContentBoxLogicalHeightByMinMax(contentBoxHeight - scrollbarLogicalHeight(), { }));
         }
 
@@ -3336,13 +3335,14 @@ bool RenderBlock::computePreferredWidthsForExcludedChildren(LayoutUnit& minWidth
     maxWidth -= scrollbarWidth;
     
     const auto& childStyle = legend->style();
+    const auto& childZoomFactor = childStyle.usedZoomForLength();
 
     LayoutUnit marginStart;
     LayoutUnit marginEnd;
     if (auto fixedMarginStart = childStyle.marginStart(writingMode()).tryFixed())
-        marginStart += fixedMarginStart->resolveZoom(Style::ZoomNeeded { });
+        marginStart += fixedMarginStart->resolveZoom(childZoomFactor);
     if (auto fixedMarginEnd = childStyle.marginEnd(writingMode()).tryFixed())
-        marginEnd += fixedMarginEnd->resolveZoom(Style::ZoomNeeded { });
+        marginEnd += fixedMarginEnd->resolveZoom(childZoomFactor);
 
     auto margin = marginStart + marginEnd;
 

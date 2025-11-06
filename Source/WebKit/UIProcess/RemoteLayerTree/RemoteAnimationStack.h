@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#if ENABLE(THREADED_ANIMATIONS)
 
 #include "RemoteAnimation.h"
 #include <WebCore/AcceleratedEffectValues.h>
@@ -43,7 +43,7 @@ namespace WebKit {
 using RemoteAnimations = Vector<Ref<RemoteAnimation>>;
 
 class RemoteAnimationStack final : public RefCounted<RemoteAnimationStack> {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RemoteAnimationStack);
+    WTF_MAKE_TZONE_ALLOCATED(RemoteAnimationStack);
 public:
     static Ref<RemoteAnimationStack> create(RemoteAnimations&&, WebCore::AcceleratedEffectValues&&, WebCore::FloatRect);
 
@@ -89,4 +89,4 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(THREADED_ANIMATION_RESOLUTION)
+#endif // ENABLE(THREADED_ANIMATIONS)

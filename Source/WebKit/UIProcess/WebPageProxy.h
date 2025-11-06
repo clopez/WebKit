@@ -483,6 +483,7 @@ class RemoteLayerTreeNode;
 class RemoteLayerTreeScrollingPerformanceData;
 class RemoteLayerTreeTransaction;
 class RemoteMediaSessionCoordinatorProxy;
+class RemoteMediaSessionManagerProxy;
 class RemotePageProxy;
 class RemoteScrollingCoordinatorProxy;
 class RevealItem;
@@ -569,6 +570,7 @@ struct InteractionInformationRequest;
 struct JSHandleInfo;
 struct KeyEventInterpretationContext;
 struct LoadParameters;
+struct MainFrameData;
 struct ModelIdentifier;
 struct NavigationActionData;
 struct NetworkResourceLoadIdentifierType;
@@ -787,6 +789,7 @@ public:
 
     void getAllFrames(CompletionHandler<void(std::optional<FrameTreeNodeData>&&)>&&);
     void getAllFrameTrees(CompletionHandler<void(Vector<FrameTreeNodeData>&&)>&&);
+    void logFrameTree();
 
 #if ENABLE(REMOTE_INSPECTOR)
     void setIndicating(bool);
@@ -822,6 +825,12 @@ public:
     VideoPresentationManagerProxy* videoPresentationManager();
     RefPtr<VideoPresentationManagerProxy> protectedVideoPresentationManager();
     void setMockVideoPresentationModeEnabled(bool);
+#endif
+
+    WebScreenOrientationManagerProxy* screenOrientationManager() { return m_screenOrientationManager.get(); }
+
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+    void ensureRemoteMediaSessionManagerProxy();
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1032,6 +1041,11 @@ public:
     void setNeedsScrollGeometryUpdates(bool);
 
     void setHasActiveAnimatedScrolls(bool isRunning);
+
+#if ENABLE(MODEL_PROCESS)
+    bool hasModelElement() const { return m_hasModelElement; }
+    void setHasModelElement(bool);
+#endif
 
     void setPrivateClickMeasurement(std::nullopt_t);
     void setPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&);
@@ -1254,7 +1268,8 @@ public:
     void setDataDetectionResult(DataDetectionResult&&);
     void handleClickForDataDetectionResult(const WebCore::DataDetectorElementInfo&, const WebCore::IntPoint&);
 #endif
-    void didCommitLayerTree(const RemoteLayerTreeTransaction&);
+    void didCommitLayerTree(const RemoteLayerTreeTransaction&, const std::optional<MainFrameData>&);
+    void didCommitMainFrameData(const MainFrameData&);
     void layerTreeCommitComplete();
 
     bool updateLayoutViewportParameters(const RemoteLayerTreeTransaction&);
@@ -1365,6 +1380,9 @@ public:
 
     void startDeferringScrollEvents();
     void flushDeferredScrollEvents();
+
+    void startDeferringIntersectionObservations();
+    void flushDeferredIntersectionObservations();
 
     bool isProcessingMouseEvents() const;
     void processNextQueuedMouseEvent();
@@ -1639,7 +1657,6 @@ public:
     void getRenderTreeExternalRepresentation(CompletionHandler<void(const String&)>&&);
     void getSelectionOrContentsAsString(CompletionHandler<void(const String&)>&&);
     void getSourceForFrame(WebFrameProxy*, CompletionHandler<void(const String&)>&&);
-    void getWebArchiveOfFrame(WebFrameProxy*, CompletionHandler<void(API::Data*)>&&);
 #if PLATFORM(COCOA)
     void getWebArchiveData(CompletionHandler<void(API::Data*)>&&);
     void getWebArchiveDataWithFrame(WebFrameProxy&, CompletionHandler<void(API::Data*)>&&);
@@ -1964,7 +1981,8 @@ public:
     void suppressNextAutomaticNavigationSnapshot() { m_shouldSuppressNextAutomaticNavigationSnapshot = true; }
     void recordNavigationSnapshot(WebBackForwardListItem&);
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE && USE(SKIA)))
+    // TODO Replace RefPtr with Expected for error reporting https://webkit.org/b/300271
     RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&);
     RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&, ForceSoftwareCapturingViewportSnapshot);
 #endif
@@ -2160,7 +2178,6 @@ public:
 
 #if ENABLE(DEVICE_ORIENTATION)
     void shouldAllowDeviceOrientationAndMotionAccess(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, bool mayPrompt, CompletionHandler<void(WebCore::DeviceOrientationOrMotionPermissionState)>&&);
-    bool originHasDeviceOrientationAndMotionAccess(const WebCore::SecurityOriginData&);
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -2233,7 +2250,7 @@ public:
     void requestPasswordForQuickLookDocumentInMainFrameShared(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
 #if ENABLE(CONTENT_FILTERING)
-    void contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&&, const WebCore::ContentFilterUnblockHandler&, WebCore::FrameIdentifier);
+    void contentFilterDidBlockLoadForFrameShared(IPC::Connection&, const WebCore::ContentFilterUnblockHandler&, WebCore::FrameIdentifier);
 #endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
@@ -2733,7 +2750,7 @@ public:
 
     void addNowPlayingMetadataObserver(const WebCore::NowPlayingMetadataObserver&);
     void removeNowPlayingMetadataObserver(const WebCore::NowPlayingMetadataObserver&);
-    void setNowPlayingMetadataObserverForTesting(std::unique_ptr<WebCore::NowPlayingMetadataObserver>&&);
+    void setNowPlayingMetadataObserverForTesting(RefPtr<WebCore::NowPlayingMetadataObserver>&&);
     void nowPlayingMetadataChanged(const WebCore::NowPlayingMetadata&);
 
     void didAdjustVisibilityWithSelectors(Vector<String>&&);
@@ -2823,6 +2840,10 @@ public:
     bool toolbarsAreVisible() const { return m_toolbarsAreVisible; }
     void setToolbarsAreVisible(bool);
 
+#if USE(GBM) && (PLATFORM(GTK) || PLATFORM(WPE))
+    Vector<RendererBufferFormat> preferredBufferFormats() const;
+#endif
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -2903,7 +2924,10 @@ private:
     void setNetworkRequestsInProgress(bool);
 
     void didEndNetworkRequestsForPageLoadTimingTimerFired();
-    void generatePageLoadingTimingSoon();
+
+    enum class GeneratePageLoadTimingResult : uint8_t { WaitForPageLoadTimingObject, WaitForFirstVisualLayout, WaitForFirstMeaningfulPaint, WaitForDOMContentLoaded, WaitForLoadEvent, WaitForSubresourcesFinishedLoading, WaitForQuiescence };
+    GeneratePageLoadTimingResult generatePageLoadTimingSoonImpl();
+    void generatePageLoadTimingSoon();
 #if PLATFORM(COCOA)
     void didGeneratePageLoadTiming(const WebPageLoadTiming&);
 #else
@@ -3072,9 +3096,6 @@ private:
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void bindAccessibilityTree(const String&);
     OptionSet<WebCore::PlatformEventModifier> currentStateOfModifierKeys();
-#if USE(GBM)
-    Vector<RendererBufferFormat> preferredBufferFormats() const;
-#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -3674,9 +3695,6 @@ private:
     bool m_paginationBehavesLikeColumns { false };
     double m_pageLength { 0 };
     double m_gapBetweenPages { 0 };
-        
-    // If the process backing the web page is alive and kicking.
-    bool m_hasRunningProcess { false };
 
     // Whether WebPageProxy::close() has been called on this page.
     bool m_isClosed { false };
@@ -3691,6 +3709,10 @@ private:
 
     bool m_hasActiveAnimatedScroll { false };
     bool m_registeredForFullSpeedUpdates { false };
+
+#if ENABLE(MODEL_PROCESS)
+    bool m_hasModelElement { false };
+#endif
 
     bool m_shouldSuppressAppLinksInNextNavigationPolicyDecision { false };
 
@@ -3976,8 +3998,12 @@ private:
     String m_defaultSpatialTrackingLabel;
 #endif
 
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+    RefPtr<RemoteMediaSessionManagerProxy> m_mediaSessionManagerProxy;
+#endif
+
     WeakHashSet<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObservers;
-    std::unique_ptr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserverForTesting;
+    RefPtr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserverForTesting;
 
 #if ENABLE(WRITING_TOOLS)
     bool m_isWritingToolsActive { false };

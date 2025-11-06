@@ -295,7 +295,7 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
             return;
         }
 
-        handlePopoverTargetAction(event.target());
+        handlePopoverTargetAction(event.protectedTarget().get());
     }
 
     if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event)) {
@@ -341,7 +341,8 @@ bool HTMLButtonElement::isSuccessfulSubmitButton() const
 
 bool HTMLButtonElement::matchesDefaultPseudoClass() const
 {
-    return isSuccessfulSubmitButton() && form() && form()->defaultButton() == this;
+    RefPtr form = this->form();
+    return isSuccessfulSubmitButton() && form && form->defaultButton() == this;
 }
 
 bool HTMLButtonElement::isActivatedSubmit() const
