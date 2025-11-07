@@ -68,7 +68,7 @@ void layoutWithFormattingContextForBox(const Layout::ElementBox& box, std::optio
     updater.updateBoxGeometryAfterIntegrationLayout(box, widthConstraint.value_or(renderer.containingBlock()->contentBoxLogicalWidth()));
 }
 
-void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block, Layout::BlockLayoutState& parentBlockLayoutState, Layout::LayoutState& layoutState)
+void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block, LayoutPoint blockLogicalTopLeft, Layout::BlockLayoutState& parentBlockLayoutState, Layout::LayoutState& layoutState)
 {
     auto* renderer = dynamicDowncast<RenderBlockFlow>(*block.rendererForIntegration());
     if (!renderer) {
@@ -77,6 +77,7 @@ void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block
     }
 
     layoutWithFormattingContextForBox(block, { }, { }, layoutState);
+    ASSERT(!renderer->needsLayout());
 
     if (!renderer->containsFloats() || renderer->createsNewFormattingContext())
         return;
@@ -86,10 +87,10 @@ void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block
         if (!floatingObject->isDescendant())
             continue;
 
-        auto& floatRect = floatingObject->frameRect();
+        auto floatRect = floatingObject->frameRect();
 
         auto boxGeometry = Layout::BoxGeometry { };
-        boxGeometry.setTopLeft(floatRect.location());
+        boxGeometry.setTopLeft(blockLogicalTopLeft + floatRect.location());
         boxGeometry.setContentBoxWidth(floatRect.width());
         boxGeometry.setContentBoxHeight(floatRect.height());
         boxGeometry.setBorder({ });
@@ -98,10 +99,10 @@ void layoutWithFormattingContextForBlockInInline(const Layout::ElementBox& block
         boxGeometry.setVerticalMargin({ });
 
         auto shapeOutsideInfo = floatingObject->renderer().shapeOutsideInfo();
-        auto* shape = shapeOutsideInfo ? &shapeOutsideInfo->computedShape() : nullptr;
+        RefPtr shape = shapeOutsideInfo ? &shapeOutsideInfo->computedShape() : nullptr;
 
         auto usedPosition = RenderStyle::usedFloat(floatingObject->renderer()) == UsedFloat::Left ? Layout::PlacedFloats::Item::Position::Start : Layout::PlacedFloats::Item::Position::End;
-        placedFloats.add({ usedPosition, boxGeometry, floatRect.location(), shape });
+        placedFloats.add({ usedPosition, boxGeometry, floatRect.location(), WTFMove(shape) });
     }
 }
 

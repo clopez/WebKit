@@ -1481,6 +1481,29 @@ void WebPageProxy::setBrowsingContextGroup(BrowsingContextGroup& browsingContext
     m_browsingContextGroup = browsingContextGroup;
 }
 
+#if ENABLE(VIDEO)
+void WebPageProxy::showCaptionDisplaySettings(CompletionHandler<void(bool)>&& callback)
+{
+    if (RefPtr pageClient = this->pageClient()) {
+        pageClient->showCaptionDisplaySettings(WTFMove(callback));
+        return;
+    }
+
+    callback(false);
+}
+
+void WebPageProxy::showCaptionDisplaySettingsPreview(const FrameInfoData& frameInfo, WebCore::HTMLMediaElementIdentifier identifier)
+{
+    sendToProcessContainingFrame(frameInfo.frameID, Messages::WebPage::ShowCaptionDisplaySettingsPreview(identifier));
+}
+
+void WebPageProxy::hideCaptionDisplaySettingsPreview(const FrameInfoData& frameInfo, WebCore::HTMLMediaElementIdentifier identifier)
+{
+    sendToProcessContainingFrame(frameInfo.frameID, Messages::WebPage::HideCaptionDisplaySettingsPreview(identifier));
+}
+
+#endif
+
 void WebPageProxy::swapToProvisionalPage(Ref<ProvisionalPageProxy>&& provisionalPage)
 {
     ASSERT(!m_isClosed);
@@ -6819,8 +6842,10 @@ WebPageProxy::GeneratePageLoadTimingResult WebPageProxy::generatePageLoadTimingS
         return WaitForSubresourcesFinishedLoading;
     lastTimestamp = std::max(lastTimestamp, m_pageLoadTiming->allSubresourcesFinishedLoading());
 
-    // Stop waiting for page load to end 100 ms after the last of the timestamps we care about.
-    Seconds interval = std::max(0_ms, lastTimestamp + 100_ms - WallTime::now());
+    // Stop waiting for page load to end N ms after the last of the timestamps we care about, where
+    // N is the quiescence interval passed in by the client.
+    auto quiescenceInterval = m_configuration->processPool().pltResourceDelayInterval();
+    Seconds interval = std::max(0_ms, lastTimestamp + quiescenceInterval - WallTime::now());
     m_generatePageLoadTimingTimer.startOneShot(interval);
     return WaitForQuiescence;
 }
@@ -10268,12 +10293,12 @@ void WebPageProxy::setTextIndicator(const TextIndicatorData& indicatorData, WebC
     notImplemented();
 }
 
-void WebPageProxy::updateTextIndicatorFromFrame(FrameIdentifier frameID, const WebCore::TextIndicatorData& indicatorData)
+void WebPageProxy::updateTextIndicatorFromFrame(FrameIdentifier frameID, const RefPtr<WebCore::TextIndicator>&& textIndicator)
 {
     notImplemented();
 }
 
-void WebPageProxy::updateTextIndicator(const TextIndicatorData& indicatorData)
+void WebPageProxy::updateTextIndicator(RefPtr<WebCore::TextIndicator>&& textIndicator)
 {
     notImplemented();
 }
@@ -12998,12 +13023,11 @@ Ref<MediaKeySystemPermissionRequestManagerProxy> WebPageProxy::protectedMediaKey
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
-void WebPageProxy::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
+void WebPageProxy::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, const FrameInfoData& frameInfo, HTMLMediaElementIdentifier identifier, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->showMediaControlsContextMenu(WTFMove(targetFrame), WTFMove(items), WTFMove(completionHandler));
+        pageClient->showMediaControlsContextMenu(WTFMove(targetFrame), WTFMove(items), frameInfo, identifier, WTFMove(completionHandler));
 }
-
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if ENABLE(NOTIFICATIONS)

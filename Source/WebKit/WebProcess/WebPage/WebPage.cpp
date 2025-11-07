@@ -5702,9 +5702,9 @@ void WebPage::setTextIndicator(const WebCore::TextIndicatorData& indicatorData)
     send(Messages::WebPageProxy::SetTextIndicatorFromFrame(m_mainFrame->frameID(), indicatorData, WebCore::TextIndicatorLifetime::Temporary));
 }
 
-void WebPage::updateTextIndicator(const WebCore::TextIndicatorData& indicatorData)
+void WebPage::updateTextIndicator(RefPtr<WebCore::TextIndicator>&& textIndicator)
 {
-    send(Messages::WebPageProxy::UpdateTextIndicatorFromFrame(m_mainFrame->frameID(), indicatorData));
+    send(Messages::WebPageProxy::UpdateTextIndicatorFromFrame(m_mainFrame->frameID(), WTFMove(textIndicator)));
 }
 
 void WebPage::replaceStringMatchesFromInjectedBundle(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly)
@@ -9069,9 +9069,15 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
 }
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
-void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
+void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, WebCore::HTMLMediaElementIdentifier identifier, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::WebPageProxy::ShowMediaControlsContextMenu(WTFMove(targetFrame), WTFMove(items)), completionHandler);
+    RefPtr frame = m_mainFrame->coreFrame();
+    if (!frame) {
+        completionHandler(MediaControlsContextMenuItem::invalidID);
+        return;
+    }
+
+    sendWithAsyncReply(Messages::WebPageProxy::ShowMediaControlsContextMenu(WTFMove(targetFrame), WTFMove(items), WebFrame::fromCoreFrame(*frame)->info(), identifier), completionHandler);
 }
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
@@ -10266,6 +10272,28 @@ std::unique_ptr<FrameInfoData> WebPage::takeMainFrameNavigationInitiator()
 bool WebPage::hasAccessoryMousePointingDevice() const
 {
     return true;
+}
+#endif
+
+#if ENABLE(VIDEO)
+void WebPage::showCaptionDisplaySettingsPreview(HTMLMediaElementIdentifier identifier)
+{
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    if (RefPtr mediaElement = protectedPlaybackSessionManager()->mediaElementWithContextId(identifier))
+        mediaElement->showCaptionDisplaySettingsPreview();
+#else
+    UNUSED_PARAM(identifier);
+#endif
+}
+
+void WebPage::hideCaptionDisplaySettingsPreview(HTMLMediaElementIdentifier identifier)
+{
+#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    if (RefPtr mediaElement = protectedPlaybackSessionManager()->mediaElementWithContextId(identifier))
+        mediaElement->hideCaptionDisplaySettingsPreview();
+#else
+    UNUSED_PARAM(identifier);
+#endif
 }
 #endif
 

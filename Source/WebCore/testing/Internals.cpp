@@ -4837,6 +4837,16 @@ double Internals::closestTimeToTimeRanges(double time, TimeRanges& ranges)
     return ranges.nearest(time);
 }
 
+void Internals::showCaptionDisplaySettingsPreviewForMediaElement(HTMLMediaElement& element)
+{
+    element.showCaptionDisplaySettingsPreview();
+}
+
+void Internals::hideCaptionDisplaySettingsPreviewForMediaElement(HTMLMediaElement& element)
+{
+    element.hideCaptionDisplaySettingsPreview();
+}
+
 #endif
 
 ExceptionOr<Ref<DOMRect>> Internals::selectionBounds()
@@ -5437,12 +5447,12 @@ ExceptionOr<RefPtr<SpeechSynthesisUtterance>> Internals::speechSynthesisUtteranc
 
 ExceptionOr<RefPtr<VTTCue>> Internals::mediaElementCurrentlySpokenCue(HTMLMediaElement& element)
 {
-    auto cue = element.cueBeingSpoken();
-    ASSERT(is<VTTCue>(cue));
-    if (!is<VTTCue>(cue))
+    RefPtr cue = dynamicDowncast<VTTCue>(element.cueBeingSpoken());
+    ASSERT(cue);
+    if (!cue)
         return Exception { ExceptionCode::InvalidAccessError };
 
-    return downcast<VTTCue>(cue.get());
+    return cue;
 }
 #endif
 

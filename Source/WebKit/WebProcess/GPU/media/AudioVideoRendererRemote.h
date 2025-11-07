@@ -221,7 +221,7 @@ private:
     void updateCacheState(const RemoteAudioVideoRendererState&);
     class ReadyForMoreData {
     public:
-        static constexpr size_t kMaxPendingSample = 10;
+        static constexpr size_t kMaxPendingSample = 20;
         bool isReadyForMoreData() const { return m_pendingSamples < kMaxPendingSample; }
         void reset() { m_pendingSamples = 0; }
         void sampleEnqueued() { m_pendingSamples++; }

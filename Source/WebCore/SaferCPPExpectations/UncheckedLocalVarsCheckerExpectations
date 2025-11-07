@@ -134,10 +134,8 @@ html/FormListedElement.cpp
 html/HTMLDocument.cpp
 html/HTMLFormControlElement.cpp
 html/HTMLFormElement.cpp
-html/HTMLImageElement.cpp
 [ iOS ] html/HTMLImageLoader.cpp
 html/HTMLInputElement.cpp
-html/HTMLMediaElement.cpp
 html/HTMLSlotElement.cpp
 html/HTMLStyleElement.cpp
 html/HTMLTextFormControlElement.cpp
@@ -259,7 +257,6 @@ page/LocalFrame.cpp
 page/LocalFrameView.cpp
 page/LocalFrameViewLayoutContext.cpp
 page/PageColorSampler.cpp
-page/PageOverlay.cpp
 page/PageSerializer.cpp
 page/PerformanceTiming.cpp
 page/PrintContext.cpp

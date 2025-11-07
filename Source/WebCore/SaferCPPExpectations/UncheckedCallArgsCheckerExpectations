@@ -207,17 +207,11 @@ html/HTMLAttachmentElement.cpp
 html/HTMLFormControlElement.cpp
 html/HTMLFormControlsCollection.cpp
 html/HTMLFormElement.cpp
-html/HTMLFrameElementBase.cpp
-html/HTMLFrameSetElement.cpp
-html/HTMLImageElement.cpp
 html/HTMLInputElement.cpp
 html/HTMLLinkElement.cpp
-html/HTMLMarqueeElement.cpp
 html/HTMLMediaElement.cpp
 html/HTMLMetaElement.cpp
 html/HTMLNameCollectionInlines.h
-html/HTMLObjectElement.cpp
-html/HTMLOptionElement.cpp
 html/HTMLOptionsCollection.cpp
 html/HTMLPlugInElement.cpp
 html/HTMLSelectElement.cpp
@@ -398,7 +392,6 @@ page/MemoryRelease.cpp
 page/NavigateEvent.cpp
 [ iOS ] page/Page.cpp
 page/PageColorSampler.cpp
-page/PageOverlay.cpp
 page/PageOverlayController.cpp
 page/PageSerializer.cpp
 page/Performance.cpp
@@ -476,7 +469,6 @@ rendering/GridTrackSizingAlgorithm.cpp
 rendering/HitTestResult.cpp
 rendering/ImageQualityController.cpp
 rendering/InlineBoxPainter.cpp
-rendering/LayerOverlapMap.cpp
 rendering/LayoutRepainter.cpp
 rendering/LegacyInlineBox.cpp
 rendering/LegacyInlineBox.h

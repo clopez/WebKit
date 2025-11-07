@@ -1770,6 +1770,21 @@ CanvasUsesAcceleratedDrawing:
     WebCore:
       default: false
 
+CaptionDisplaySettingsEnabled:
+  type: bool
+  status: unstable
+  category: media
+  humanReadableName: "Caption Display Settings API"
+  humanReadableDescription: "Enable Caption Display Settings API"
+  condition: ENABLE(VIDEO)
+  defaultValue:
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebCore:
+      default: false
+
 CaptureAudioInGPUProcessEnabled:
   type: bool
   status: internal
@@ -9850,6 +9865,22 @@ WindowFocusRestricted:
       default: true
     WebCore:
       default: true
+
+WirelessPlaybackMediaPlayerEnabled:
+  type: bool
+  status: unstable
+  humanReadableName: "Wireless Playback Media Player"
+  humanReadableDescription: "Enable wireless playback via MediaPlayerPrivateWirelessPlayback"
+  condition: ENABLE(REMOTE_PLAYBACK_MEDIA_PLAYER)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
 
 WirelessPlaybackTargetAPIEnabled:
   type: bool

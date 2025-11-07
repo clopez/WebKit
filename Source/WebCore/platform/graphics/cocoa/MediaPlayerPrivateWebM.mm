@@ -207,10 +207,6 @@ void MediaPlayerPrivateWebM::load(const URL& url, const LoadOptions& options)
 
     m_renderer->setPreferences(options.videoRendererPreferences | VideoRendererPreference::PrefersDecompressionSession);
 
-#if ENABLE(LINEAR_MEDIA_PLAYER)
-    m_renderer->setVideoTarget(player->videoTarget());
-#endif
-
     m_renderer->notifyWhenErrorOccurs([weakThis = WeakPtr { *this }](PlatformMediaError error) {
         ensureOnMainThread([weakThis, error] {
             if (RefPtr protectedThis = weakThis.get()) {
@@ -1006,7 +1002,10 @@ void MediaPlayerPrivateWebM::notifyClientWhenReadyForMoreSamples(TrackID trackId
         return;
     m_requestReadyForMoreSamplesSetMap[trackId] = true;
 
-    m_renderer->requestMediaDataWhenReady(trackIdentifierFor(trackId), [weakThis = ThreadSafeWeakPtr { *this }, trackId](AudioVideoRenderer::TrackIdentifier) {
+    auto trackIdentifier = maybeTrackIdentifierFor(trackId);
+    if (!trackIdentifier)
+        return; // track hasn't been enabled yet.
+    m_renderer->requestMediaDataWhenReady(*trackIdentifier, [weakThis = ThreadSafeWeakPtr { *this }, trackId](AudioVideoRenderer::TrackIdentifier) {
         ensureOnMainThread([weakThis, trackId] {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->didBecomeReadyForMoreSamples(trackId);
@@ -1020,7 +1019,8 @@ bool MediaPlayerPrivateWebM::isReadyForMoreSamples(TrackID trackId)
         if (m_layerRequiresFlush)
             return false;
     }
-    return m_renderer->isReadyForMoreSamples(trackIdentifierFor(trackId));
+    auto trackIdentifier = maybeTrackIdentifierFor(trackId);
+    return trackIdentifier && m_renderer->isReadyForMoreSamples(*trackIdentifier);
 }
 
 void MediaPlayerPrivateWebM::didBecomeReadyForMoreSamples(TrackID trackId)
@@ -1178,7 +1178,8 @@ void MediaPlayerPrivateWebM::didParseInitializationData(InitializationSegment&& 
     RefPtr player = m_player.get();
     for (auto videoTrackInfo : segment.videoTracks) {
         if (videoTrackInfo.track) {
-            auto track = static_pointer_cast<VideoTrackPrivateWebM>(videoTrackInfo.track);
+            // FIXME: Use downcast instead.
+            auto track = unsafeRefPtrDowncast<VideoTrackPrivateWebM>(videoTrackInfo.track);
 #if PLATFORM(IOS_FAMILY)
             if (shouldCheckHardwareSupport() && (videoTrackInfo.description->codec() == "vp8"_s || (videoTrackInfo.description->codec() == "vp9"_s && !(canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported(kCMVideoCodecType_VP9))))) {
                 m_errored = true;
@@ -1216,7 +1217,8 @@ void MediaPlayerPrivateWebM::didParseInitializationData(InitializationSegment&& 
 
     for (auto audioTrackInfo : segment.audioTracks) {
         if (audioTrackInfo.track) {
-            auto track = static_pointer_cast<AudioTrackPrivateWebM>(audioTrackInfo.track);
+            // FIXME: Use downcast instead.
+            auto track = unsafeRefPtrDowncast<AudioTrackPrivateWebM>(audioTrackInfo.track);
             addTrackBuffer(track->id(), WTFMove(audioTrackInfo.description));
 
             track->setEnabledChangedCallback([weakThis = ThreadSafeWeakPtr { *this }] (AudioTrackPrivate& track, bool enabled) {
@@ -1539,6 +1541,13 @@ AudioVideoRenderer::TrackIdentifier MediaPlayerPrivateWebM::trackIdentifierFor(T
     auto it = m_trackIdentifiers.find(trackID);
     ASSERT(it != m_trackIdentifiers.end());
     return it->second;
+}
+
+std::optional<AudioVideoRenderer::TrackIdentifier> MediaPlayerPrivateWebM::maybeTrackIdentifierFor(TrackID trackID) const
+{
+    if (auto it = m_trackIdentifiers.find(trackID); it != m_trackIdentifiers.end())
+        return it->second;
+    return { };
 }
 
 void MediaPlayerPrivateWebM::setLayerRequiresFlush()
