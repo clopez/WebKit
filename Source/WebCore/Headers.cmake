@@ -3246,7 +3246,16 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/StyleValueTypes.h
 
+    style/values/align/StyleAlignContent.h
+    style/values/align/StyleAlignItems.h
+    style/values/align/StyleAlignSelf.h
+    style/values/align/StyleBaselineAlignmentPreference.h
     style/values/align/StyleGapGutter.h
+    style/values/align/StyleJustifyContent.h
+    style/values/align/StyleJustifyItems.h
+    style/values/align/StyleJustifySelf.h
+    style/values/align/StyleLegacyPosition.h
+    style/values/align/StyleOverflowPosition.h
 
     style/values/anchor-position/StyleAnchorName.h
 
@@ -3352,7 +3361,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/images/StyleImageWrapper.h
     style/values/images/StyleObjectPosition.h
 
-    style/values/inline/StyleLineBoxContain.h
     style/values/inline/StyleLineFitEdge.h
     style/values/inline/StyleLineHeight.h
     style/values/inline/StyleTextBoxEdge.h
@@ -3389,6 +3397,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/non-standard/StyleWebKitBorderSpacing.h
     style/values/non-standard/StyleWebKitBoxReflect.h
+    style/values/non-standard/StyleWebKitLineBoxContain.h
     style/values/non-standard/StyleWebKitLineClamp.h
     style/values/non-standard/StyleWebKitMarqueeIncrement.h
     style/values/non-standard/StyleWebKitMarqueeRepetition.h

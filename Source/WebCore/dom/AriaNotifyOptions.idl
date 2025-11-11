@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Igalia S.L. All rights reserved.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,33 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include "CSSValue.h"
-
-namespace WebCore {
-
-enum CSSValueID : uint16_t;
-
-class CSSContentDistributionValue final : public CSSValue {
-public:
-    static Ref<CSSContentDistributionValue> create(CSSValueID distribution, CSSValueID position, CSSValueID overflow);
-
-    CSSValueID distribution() const { return m_distribution; }
-    CSSValueID position() const { return m_position; }
-    CSSValueID overflow() const { return m_overflow; }
-
-    String customCSSText(const CSS::SerializationContext&) const;
-    bool equals(const CSSContentDistributionValue&) const;
-
-private:
-    CSSContentDistributionValue(CSSValueID distribution, CSSValueID position, CSSValueID overflow);
-
-    CSSValueID m_distribution;
-    CSSValueID m_position;
-    CSSValueID m_overflow;
+enum AriaNotificationPriority {
+    "normal",
+    "high"
 };
 
-} // namespace WebCore
+enum AriaNotificationInterrupt {
+    "none",
+    "all",
+    "pending"
+};
 
-SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSContentDistributionValue, isContentDistributionValue())
+dictionary AriaNotifyOptions {
+    AriaNotificationPriority priority;
+    AriaNotificationInterrupt interrupt;
+};
