@@ -64,7 +64,9 @@ struct OpenXRCoordinator::RenderState {
     bool passthroughFullyObscured { false };
 #if ENABLE(WEBXR_HIT_TEST)
     PlatformXR::HitTestSource nextHitTestSource { 1 };
+    PlatformXR::TransientInputHitTestSource nextTransientInputHitTestSource { 1 };
     HashSet<PlatformXR::HitTestSource> hitTestSources;
+    HashSet<PlatformXR::TransientInputHitTestSource> transientInputHitTestSources;
 #endif
 };
 
@@ -407,6 +409,60 @@ void OpenXRCoordinator::deleteHitTestSource(WebPageProxy& page, PlatformXR::HitT
 
             active.renderQueue->dispatch([renderState = active.renderState, source]() mutable {
                 bool removed = renderState->hitTestSources.remove(source);
+                ASSERT_UNUSED(removed, removed);
+            });
+        });
+}
+
+void OpenXRCoordinator::requestTransientInputHitTestSource(WebPageProxy& page, const PlatformXR::TransientInputHitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<PlatformXR::TransientInputHitTestSource>)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    WTF::switchOn(m_state,
+        [&](Idle&) {
+            RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a transient input hit test source for an inactive session");
+        },
+        [&](Active& active) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a transient input hit test source for session owned by another page");
+                return;
+            }
+
+            if (active.renderState->terminateRequested.load()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to request a transient input hit test source for a terminating session");
+                return;
+            }
+
+            active.renderQueue->dispatch([renderState = active.renderState, completionHandler = WTFMove(completionHandler)]() mutable {
+                auto addResult = renderState->transientInputHitTestSources.add(renderState->nextTransientInputHitTestSource);
+                ASSERT_UNUSED(addResult.isNewEntry, addResult);
+                callOnMainRunLoop([source = renderState->nextTransientInputHitTestSource, completionHandler = WTFMove(completionHandler)] mutable {
+                    completionHandler(source);
+                });
+                renderState->nextTransientInputHitTestSource++;
+            });
+        });
+}
+
+void OpenXRCoordinator::deleteTransientInputHitTestSource(WebPageProxy& page, PlatformXR::TransientInputHitTestSource source)
+{
+    ASSERT(RunLoop::isMain());
+    WTF::switchOn(m_state,
+        [&](Idle&) {
+            RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a transient input hit test source for an inactive session");
+        },
+        [&](Active& active) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a transient input hit test source for session owned by another page");
+                return;
+            }
+
+            if (active.renderState->terminateRequested.load()) {
+                RELEASE_LOG(XR, "OpenXRCoordinator: trying to delete a transient input hit test source for a terminating session");
+                return;
+            }
+
+            active.renderQueue->dispatch([renderState = active.renderState, source]() mutable {
+                bool removed = renderState->transientInputHitTestSources.remove(source);
                 ASSERT_UNUSED(removed, removed);
             });
         });
@@ -791,6 +847,11 @@ OpenXRCoordinator::PollResult OpenXRCoordinator::pollEvents()
     return PollResult::Continue;
 }
 
+XrEnvironmentBlendMode OpenXRCoordinator::blendModeForSessionMode(Box<RenderState> renderState) const
+{
+    return (m_sessionMode == PlatformXR::SessionMode::ImmersiveAr && !renderState->passthroughFullyObscured) ? m_arBlendMode : m_vrBlendMode;
+}
+
 PlatformXR::FrameData OpenXRCoordinator::populateFrameData(Box<RenderState> renderState)
 {
     ASSERT(!RunLoop::isMain());
@@ -844,7 +905,24 @@ PlatformXR::FrameData OpenXRCoordinator::populateFrameData(Box<RenderState> rend
 #if ENABLE(WEBXR_HIT_TEST)
     for (auto source : renderState->hitTestSources)
         frameData.hitTestResults.add(source, Vector<PlatformXR::FrameData::HitTestResult> { });
+    for (auto source : renderState->transientInputHitTestSources)
+        frameData.transientInputHitTestResults.add(source, Vector<PlatformXR::FrameData::TransientInputHitTestResult> { });
 #endif
+
+    auto toXREnvironmentBlendMode = [](XrEnvironmentBlendMode mode) {
+        switch (mode) {
+        case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
+            return PlatformXR::XREnvironmentBlendMode::Opaque;
+        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+            return PlatformXR::XREnvironmentBlendMode::Additive;
+        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+            return PlatformXR::XREnvironmentBlendMode::AlphaBlend;
+        default:
+            ASSERT_NOT_REACHED();
+            return PlatformXR::XREnvironmentBlendMode::Opaque;
+        }
+    };
+    frameData.environmentBlendMode = toXREnvironmentBlendMode(blendModeForSessionMode(renderState));
 
     return frameData;
 }
@@ -975,7 +1053,7 @@ void OpenXRCoordinator::endFrame(Box<RenderState> renderState, Vector<XRDeviceLa
 
     XrFrameEndInfo frameEndInfo = createOpenXRStruct<XrFrameEndInfo, XR_TYPE_FRAME_END_INFO>();
     frameEndInfo.displayTime = renderState->frameState.predictedDisplayTime;
-    frameEndInfo.environmentBlendMode = (m_sessionMode == PlatformXR::SessionMode::ImmersiveAr && !renderState->passthroughFullyObscured) ? m_arBlendMode : m_vrBlendMode;
+    frameEndInfo.environmentBlendMode = blendModeForSessionMode(renderState);
     frameEndInfo.layerCount = static_cast<uint32_t>(frameEndLayers.size());
     frameEndInfo.layers = frameEndLayers.mutableSpan().data();
     CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));

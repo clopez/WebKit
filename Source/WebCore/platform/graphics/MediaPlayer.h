@@ -173,6 +173,7 @@ enum class MediaPlayerType {
     GStreamer,
     GStreamerMSE,
     HolePunch,
+    WirelessPlayback,
     Remote
 };
 
@@ -893,7 +894,7 @@ public:
     virtual ~MediaPlayerFactory() = default;
 
     virtual MediaPlayerEnums::MediaEngineIdentifier identifier() const  = 0;
-    virtual Ref<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer*) const = 0;
+    virtual Ref<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer&) const = 0;
     virtual void getSupportedTypes(HashSet<String>&) const = 0;
     virtual MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters&) const = 0;
 

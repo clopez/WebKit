@@ -121,9 +121,9 @@ public:
     static bool modelDocumentEnabled() { return singleton().m_modelDocumentEnabled; }
 #endif
 
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    static void setUsesWebContentRestrictionsForFilter(bool uses) { singleton().m_usesWebContentRestrictionsForFilter = uses; }
-    static bool usesWebContentRestrictionsForFilter() { return singleton().m_usesWebContentRestrictionsForFilter; };
+#if ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
+    static void setWirelessPlaybackMediaPlayerEnabled(bool isEnabled) { singleton().m_wirelessPlaybackMediaPlayerEnabled = isEnabled; }
+    static bool isWirelessPlaybackMediaPlayerEnabled() { return singleton().m_wirelessPlaybackMediaPlayerEnabled; }
 #endif
 
 private:
@@ -182,9 +182,10 @@ private:
     bool m_modelDocumentEnabled { false };
 #endif
 
-#if HAVE(WEBCONTENTRESTRICTIONS)
-    bool m_usesWebContentRestrictionsForFilter { false };
+#if ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
+    bool m_wirelessPlaybackMediaPlayerEnabled { false };
 #endif
+
     friend class NeverDestroyed<DeprecatedGlobalSettings>;
 };
 

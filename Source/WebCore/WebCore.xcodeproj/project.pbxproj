@@ -3978,6 +3978,7 @@
 		99C2CC9F2E8DFD890008FCDF /* InspectorResourceUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 99C2CC9C2E8DFD890008FCDF /* InspectorResourceUtilities.h */; };
 		99D1B2D323AC143100811CF0 /* InspectorDebuggableType.h in Headers */ = {isa = PBXBuildFile; fileRef = 99D1B2D123AC143000811CF0 /* InspectorDebuggableType.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9A528E8417D7F52F00AA9518 /* FloatingObjects.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A528E8217D7F52F00AA9518 /* FloatingObjects.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		9A7EB29F2EC20AE500A10F7E /* LibWebRTCVideoFrameUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A7EB29E2EC20AE400A10F7E /* LibWebRTCVideoFrameUtilities.h */; };
 		9A87D9E02A82925400EE7A8A /* AudioSampleFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A87D9DF2A82925400EE7A8A /* AudioSampleFormat.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9A87D9E22A82933500EE7A8A /* PlatformRawAudioData.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A87D9E12A82933500EE7A8A /* PlatformRawAudioData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9A87D9E42A8293E100EE7A8A /* AudioDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A87D9E32A8293E100EE7A8A /* AudioDecoder.h */; };
@@ -4111,6 +4112,7 @@
 		A146D3221F99D0EC00D29196 /* JSMockPaymentAddress.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A146D3201F99CA3E00D29196 /* JSMockPaymentAddress.cpp */; };
 		A146D3231F99D0EF00D29196 /* JSMockPaymentAddress.h in Headers */ = {isa = PBXBuildFile; fileRef = A146D31F1F99CA3D00D29196 /* JSMockPaymentAddress.h */; };
 		A146D3251F99D69800D29196 /* MockPaymentContact.h in Headers */ = {isa = PBXBuildFile; fileRef = A146D3241F99D69800D29196 /* MockPaymentContact.h */; };
+		A148063A2EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.h in Headers */ = {isa = PBXBuildFile; fileRef = A14806382EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.h */; };
 		A14832B0187F618D00DA63A6 /* WAKAppKitStubs.h in Headers */ = {isa = PBXBuildFile; fileRef = A148328C187F508700DA63A6 /* WAKAppKitStubs.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A14832B1187F61E100DA63A6 /* WAKAppKitStubs.mm in Sources */ = {isa = PBXBuildFile; fileRef = A148328D187F508700DA63A6 /* WAKAppKitStubs.mm */; };
 		A14832B2187F61ED00DA63A6 /* WAKClipView.h in Headers */ = {isa = PBXBuildFile; fileRef = A148328E187F508700DA63A6 /* WAKClipView.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -16247,6 +16249,7 @@
 		99D1B2D123AC143000811CF0 /* InspectorDebuggableType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InspectorDebuggableType.h; sourceTree = "<group>"; };
 		9A528E8117D7F52F00AA9518 /* FloatingObjects.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FloatingObjects.cpp; sourceTree = "<group>"; };
 		9A528E8217D7F52F00AA9518 /* FloatingObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FloatingObjects.h; sourceTree = "<group>"; };
+		9A7EB29E2EC20AE400A10F7E /* LibWebRTCVideoFrameUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LibWebRTCVideoFrameUtilities.h; path = libwebrtc/LibWebRTCVideoFrameUtilities.h; sourceTree = "<group>"; };
 		9A87D9DF2A82925400EE7A8A /* AudioSampleFormat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioSampleFormat.h; sourceTree = "<group>"; };
 		9A87D9E12A82933500EE7A8A /* PlatformRawAudioData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformRawAudioData.h; sourceTree = "<group>"; };
 		9A87D9E32A8293E100EE7A8A /* AudioDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioDecoder.h; sourceTree = "<group>"; };
@@ -16506,6 +16509,8 @@
 		A146D31F1F99CA3D00D29196 /* JSMockPaymentAddress.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSMockPaymentAddress.h; sourceTree = "<group>"; };
 		A146D3201F99CA3E00D29196 /* JSMockPaymentAddress.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSMockPaymentAddress.cpp; sourceTree = "<group>"; };
 		A146D3241F99D69800D29196 /* MockPaymentContact.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockPaymentContact.h; sourceTree = "<group>"; };
+		A14806382EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaPlayerPrivateWirelessPlayback.h; sourceTree = "<group>"; };
+		A14806392EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaPlayerPrivateWirelessPlayback.cpp; sourceTree = "<group>"; };
 		A148328C187F508700DA63A6 /* WAKAppKitStubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WAKAppKitStubs.h; sourceTree = "<group>"; };
 		A148328D187F508700DA63A6 /* WAKAppKitStubs.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WAKAppKitStubs.mm; sourceTree = "<group>"; };
 		A148328E187F508700DA63A6 /* WAKClipView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WAKClipView.h; sourceTree = "<group>"; };
@@ -26058,6 +26063,7 @@
 				41B28B361F860BD000FB52AC /* LibWebRTCProviderCocoa.h */,
 				41C6B69C2E20E6BE009E1D19 /* LibWebRTCRefWrappers.h */,
 				410E445F234373AD000173D4 /* LibWebRTCSocketIdentifier.h */,
+				9A7EB29E2EC20AE400A10F7E /* LibWebRTCVideoFrameUtilities.h */,
 				41EB797B27C3E45D001C3E3E /* VideoFrameLibWebRTC.cpp */,
 				41EB797C27C3E45D001C3E3E /* VideoFrameLibWebRTC.h */,
 			);
@@ -35335,6 +35341,8 @@
 				F429261725264D4400007898 /* MediaPlayerIdentifier.h */,
 				CD90C0702992D5D6004C21AD /* MediaPlayerPrivate.cpp */,
 				079F5E4B0F3BEBEA005E0782 /* MediaPlayerPrivate.h */,
+				A14806392EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.cpp */,
+				A14806382EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.h */,
 				518C1C4C2E212AF700083695 /* MediaReorderQueue.h */,
 				512F29252BA2BD6500F1C326 /* MediaResourceSniffer.cpp */,
 				512F29242BA2BD6500F1C326 /* MediaResourceSniffer.h */,
@@ -44971,6 +44979,7 @@
 				4181C5D12555895600AEB0FF /* LibWebRTCRtpTransformBackend.h in Headers */,
 				410E4461234373E9000173D4 /* LibWebRTCSocketIdentifier.h in Headers */,
 				41C14BC726DE858400685BF5 /* LibWebRTCUtils.h in Headers */,
+				9A7EB29F2EC20AE500A10F7E /* LibWebRTCVideoFrameUtilities.h in Headers */,
 				A396B1C829232B4F00469612 /* LibWebRTCVPXVideoDecoder.h in Headers */,
 				A396B1CA29232B4F00469612 /* LibWebRTCVPXVideoEncoder.h in Headers */,
 				84730D911248F0B300D3A9C9 /* LightSource.h in Headers */,
@@ -45136,6 +45145,7 @@
 				CDC8B5A3180463470016E685 /* MediaPlayerPrivateMediaSourceAVFObjC.h in Headers */,
 				150524F41B712FF600696AA9 /* MediaPlayerPrivateMediaStreamAVFObjC.h in Headers */,
 				5A7CBA0C28B01A1B000A23D9 /* MediaPlayerPrivateWebM.h in Headers */,
+				A148063A2EBD276B0034CE8D /* MediaPlayerPrivateWirelessPlayback.h in Headers */,
 				077BA576260FADF60072F19F /* MediaPositionState.h in Headers */,
 				52E2CAFC19FF0207001EEB4F /* MediaProducer.h in Headers */,
 				F45EAC982A950D12009B986E /* MediaProducer.serialization.in in Headers */,

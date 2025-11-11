@@ -112,6 +112,7 @@ using LayerHandle = int;
 
 #if ENABLE(WEBXR)
 using HitTestSource = unsigned;
+using TransientInputHitTestSource = unsigned;
 using InputSourceHandle = int;
 
 // https://immersive-web.github.io/webxr/#enumdef-xrhandedness
@@ -127,6 +128,12 @@ enum class XRTargetRayMode : uint8_t {
     TrackedPointer,
     Screen,
     TransientPointer,
+};
+
+enum class XREnvironmentBlendMode : uint8_t {
+    Opaque,
+    AlphaBlend,
+    Additive
 };
 
 // https://immersive-web.github.io/webxr/#feature-descriptor
@@ -287,6 +294,11 @@ struct HitTestOptions {
     Vector<WebCore::XRHitTestTrackableType> entityTypes;
     Ray offsetRay;
 };
+struct TransientInputHitTestOptions {
+    String profile;
+    Vector<WebCore::XRHitTestTrackableType> entityTypes;
+    Ray offsetRay;
+};
 #endif // ENABLE(WEBXR_HIT_TEST)
 
 struct FrameData {
@@ -410,6 +422,10 @@ struct FrameData {
     struct HitTestResult {
         Pose pose;
     };
+    struct TransientInputHitTestResult {
+        InputSourceHandle inputSource;
+        Vector<HitTestResult> results;
+    };
 #endif
 
     bool isTrackingValid { false };
@@ -424,8 +440,10 @@ struct FrameData {
     HashMap<LayerHandle, UniqueRef<LayerData>> layers;
 #if ENABLE(WEBXR_HIT_TEST)
     HashMap<HitTestSource, Vector<HitTestResult>> hitTestResults;
+    HashMap<TransientInputHitTestSource, Vector<TransientInputHitTestResult>> transientInputHitTestResults;
 #endif
     Vector<InputSource> inputSources;
+    XREnvironmentBlendMode environmentBlendMode { XREnvironmentBlendMode::Opaque };
 
     FrameData copy() const;
 };
@@ -473,6 +491,8 @@ public:
 #if ENABLE(WEBXR_HIT_TEST)
     virtual void requestHitTestSource(const HitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<HitTestSource>)>&&) = 0;
     virtual void deleteHitTestSource(HitTestSource) = 0;
+    virtual void requestTransientInputHitTestSource(const TransientInputHitTestOptions&, CompletionHandler<void(WebCore::ExceptionOr<TransientInputHitTestSource>)>&&) = 0;
+    virtual void deleteTransientInputHitTestSource(TransientInputHitTestSource) = 0;
 #endif
 
     struct LayerView {
@@ -542,6 +562,7 @@ inline FrameData FrameData::copy() const
     frameData.stageParameters = stageParameters;
     frameData.views = views;
     frameData.inputSources = inputSources;
+    frameData.environmentBlendMode = environmentBlendMode;
     return frameData;
 }
 

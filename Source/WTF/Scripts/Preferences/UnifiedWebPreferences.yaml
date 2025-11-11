@@ -3434,17 +3434,17 @@ GraphicsContextFiltersEnabled:
 
 GridFormattingContextIntegrationEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: dom
   humanReadableName: "Next-generation grid layout integration (GFC)"
   humanReadableDescription: "Enable next-generation grid layout integration (GFC)"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 HTMLEnhancedSelectParsingEnabled:
    type: bool
@@ -8654,22 +8654,6 @@ UsesSingleWebProcess:
       default: false
   sharedPreferenceForWebProcess: true
 
-UsesWebContentRestrictionsForFilter:
-  type: bool
-  status: internal
-  condition: HAVE(WEBCONTENTRESTRICTIONS)
-  defaultsOverridable: true
-  humanReadableName: "Uses WebContentRestriction framework for content filter"
-  webcoreBinding: DeprecatedGlobalSettings
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-  sharedPreferenceForWebProcess: true
-
 VP9DecoderEnabled:
   type: bool
   status: embedder
@@ -9898,8 +9882,10 @@ WindowFocusRestricted:
 WirelessPlaybackMediaPlayerEnabled:
   type: bool
   status: unstable
+  category: media
   humanReadableName: "Wireless Playback Media Player"
   humanReadableDescription: "Enable wireless playback via MediaPlayerPrivateWirelessPlayback"
+  webcoreBinding: DeprecatedGlobalSettings
   condition: ENABLE(REMOTE_PLAYBACK_MEDIA_PLAYER)
   defaultValue:
     WebCore:
@@ -9909,7 +9895,6 @@ WirelessPlaybackMediaPlayerEnabled:
     WebKitLegacy:
       default: false
   disableInLockdownMode: true
-  sharedPreferenceForWebProcess: true
 
 WirelessPlaybackTargetAPIEnabled:
   type: bool

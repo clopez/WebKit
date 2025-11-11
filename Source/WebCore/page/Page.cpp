@@ -3133,9 +3133,7 @@ RefPtr<HTMLMediaElement> Page::bestMediaElementForRemoteControls(MediaElementSes
 
 void Page::playbackControlsManagerUpdateTimerFired()
 {
-    WeakPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
-    if (auto bestMediaElement = bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose::ControlsManager, document.get()))
+    if (auto bestMediaElement = bestMediaElementForRemoteControls(MediaElementSession::PlaybackControlsPurpose::ControlsManager, nullptr))
         chrome().client().setUpPlaybackControlsManager(*bestMediaElement);
     else
         chrome().client().clearPlaybackControlsManager();
@@ -3368,7 +3366,7 @@ void Page::setActivityState(OptionSet<ActivityState> activityState)
         observer->activityStateDidChange(oldActivityState, m_activityState);
 
     if (wasVisibleAndActive != isVisibleAndActive()) {
-        if (RefPtr manager = mediaSessionManager())
+        if (RefPtr manager = mediaSessionManagerIfExists())
             manager->updateNowPlayingInfoIfNecessary();
         stopKeyboardScrollAnimation();
     }
@@ -6009,6 +6007,10 @@ RefPtr<MediaSessionManagerInterface> Page::mediaSessionManager()
         }
 
         m_mediaSessionManager = m_mediaSessionManagerFactory.value()(*m_identifier);
+
+#if USE(AUDIO_SESSION)
+        Ref { *m_mediaSessionManager }->setShouldDeactivateAudioSession(true);
+#endif
 
         MediaEngineConfigurationFactory::setMediaSessionManagerProvider([] (PageIdentifier identifier) {
             return Page::mediaSessionManagerForPageIdentifier(identifier);
