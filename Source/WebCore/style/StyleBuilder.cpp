@@ -325,6 +325,9 @@ bool Builder::applyRollbackCascadeCustomProperty(const PropertyCascade& rollback
 
         SetForScope levelScope(m_state->m_currentProperty, &rollbackProperty);
         auto resolvedValue = resolveCustomPropertyValue(customPropertyValue);
+        if (!resolvedValue)
+            resolvedValue = CustomProperty::createForGuaranteedInvalid(name);
+
         applyCustomProperty(name, WTFMove(*resolvedValue));
     }
     return true;
@@ -753,7 +756,8 @@ const PropertyCascade* Builder::ensureRollbackCascadeForRevertLayer()
 
 auto Builder::makeRollbackCascadeKey(PropertyCascade::Origin cascadeOrigin, ScopeOrdinal scopeOrdinal, CascadeLayerPriority cascadeLayerPriority) -> RollbackCascadeKey
 {
-    return { static_cast<unsigned>(cascadeOrigin), static_cast<unsigned>(scopeOrdinal), static_cast<unsigned>(cascadeLayerPriority) };
+    static constexpr auto isNonEmptyValue = true;
+    return { static_cast<unsigned>(cascadeOrigin), static_cast<unsigned>(scopeOrdinal), static_cast<unsigned>(cascadeLayerPriority), isNonEmptyValue };
 }
 
 }

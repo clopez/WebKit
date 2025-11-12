@@ -1785,6 +1785,8 @@ fast/events/scale-and-scroll-body.html [ Failure ]
 fast/events/show-modal-dialog-onblur-onfocus.html [ Failure ]
 fast/events/tabindex-focus-blur-all.html [ Failure ]
 
+webkit.org/b/271781 fast/harness/show-modal-dialog.html [ Pass ]
+
 # Ref-test imported from W3C that is failing because type=image input elements have rounded corners on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/image01.html [ ImageOnlyFailure ]
 
@@ -8362,4 +8364,6 @@ imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-006.x
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-007.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-022.xht [ ImageOnlyFailure ]
 
-webkit.org/b/302331 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ Pass Failure ]
+# webkit.org/b/302331 REGRESSION(302097@main): [macOS iOS] 2x imported/w3c/web-platform-tests/css/css-viewport tests are flaky failure
+imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-viewport/zoom/zoom-iframe-dynamic.html [ Failure ]

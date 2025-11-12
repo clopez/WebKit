@@ -5190,6 +5190,7 @@
 		BC6D44ED0C07F2ED0072D2C9 /* JSHTMLEmbedElement.h in Headers */ = {isa = PBXBuildFile; fileRef = BC6D44EB0C07F2ED0072D2C9 /* JSHTMLEmbedElement.h */; };
 		BC6D6E2609AF943500F59759 /* ScrollView.h in Headers */ = {isa = PBXBuildFile; fileRef = BC6D6E2509AF943500F59759 /* ScrollView.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC6F79712EBE86FE0049BA02 /* StyleWebKitLineBoxContain.h in Headers */ = {isa = PBXBuildFile; fileRef = BC6F796F2EBE7EBD0049BA02 /* StyleWebKitLineBoxContain.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC6F799B2EC251D40049BA02 /* StylePositionVisibility.h in Headers */ = {isa = PBXBuildFile; fileRef = BC6F799A2EC251390049BA02 /* StylePositionVisibility.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC709DE0266323CF00B9A21C /* CSSCalcSymbolTable.h in Headers */ = {isa = PBXBuildFile; fileRef = BC709DDE266323CE00B9A21C /* CSSCalcSymbolTable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC731E752E636D8700A6584F /* StyleImageOrNone.h in Headers */ = {isa = PBXBuildFile; fileRef = BC731E742E636D8700A6584F /* StyleImageOrNone.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC731EA72E64CCBD00A6584F /* StyleWebKitInitialLetter.h in Headers */ = {isa = PBXBuildFile; fileRef = BC731EA62E64CCBD00A6584F /* StyleWebKitInitialLetter.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -18975,6 +18976,7 @@
 		BC6EF49B2C813A77000E007D /* CSSPropertyParserConsumer+Easing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CSSPropertyParserConsumer+Easing.h"; sourceTree = "<group>"; };
 		BC6EF49C2C813A77000E007D /* CSSPropertyParserConsumer+Easing.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "CSSPropertyParserConsumer+Easing.cpp"; sourceTree = "<group>"; };
 		BC6F796F2EBE7EBD0049BA02 /* StyleWebKitLineBoxContain.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleWebKitLineBoxContain.h; sourceTree = "<group>"; };
+		BC6F799A2EC251390049BA02 /* StylePositionVisibility.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StylePositionVisibility.h; sourceTree = "<group>"; };
 		BC709DDE266323CE00B9A21C /* CSSCalcSymbolTable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSCalcSymbolTable.h; sourceTree = "<group>"; };
 		BC709DDF266323CE00B9A21C /* CSSCalcSymbolTable.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSSCalcSymbolTable.cpp; sourceTree = "<group>"; };
 		BC731E742E636D8700A6584F /* StyleImageOrNone.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleImageOrNone.h; sourceTree = "<group>"; };
@@ -36041,6 +36043,7 @@
 			isa = PBXGroup;
 			children = (
 				BC2A0EF72E1214CD003CBA0E /* StyleAnchorName.h */,
+				BC6F799A2EC251390049BA02 /* StylePositionVisibility.h */,
 			);
 			path = "anchor-position";
 			sourceTree = "<group>";
@@ -46747,6 +46750,7 @@
 				BC4F32B82E89C4DA00F6AEC1 /* StylePerspectiveTransformFunction.h in Headers */,
 				BCB2720E2CC1F1DB00265123 /* StylePolygonFunction.h in Headers */,
 				BCB272212CC20CAC00265123 /* StylePosition.h in Headers */,
+				BC6F799B2EC251D40049BA02 /* StylePositionVisibility.h in Headers */,
 				BC675B6E2DEE8BB700AD4D79 /* StylePreferredSize.h in Headers */,
 				BC2A0D342E05D43F003CBA0E /* StylePrimitiveKeyword+CSSValueCreation.h in Headers */,
 				BCB02AEE2E9177D4008A0B68 /* StylePrimitiveKeyword+ValueRepresentationNeeded.h in Headers */,

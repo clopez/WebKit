@@ -759,9 +759,12 @@ void LineLayout::preparePlacedFloats()
     auto placedFloatsIsLeftToRight = placedFloatsWritingMode.isLogicalLeftInlineStart();
     auto isHorizontalWritingMode = placedFloatsWritingMode.isHorizontal();
     for (auto& floatingObject : *flow().floatingObjectSet()) {
+        if (!floatingObject->renderer())
+            continue;
+
         auto& visualRect = floatingObject->frameRect();
 
-        auto usedPosition = RenderStyle::usedFloat(floatingObject->renderer());
+        auto usedPosition = RenderStyle::usedFloat(*floatingObject->renderer());
         auto logicalPosition = (usedPosition == UsedFloat::Left) == placedFloatsIsLeftToRight ? Layout::PlacedFloats::Item::Position::Start : Layout::PlacedFloats::Item::Position::End;
 
         auto boxGeometry = Layout::BoxGeometry { };
@@ -786,7 +789,7 @@ void LineLayout::preparePlacedFloats()
         boxGeometry.setHorizontalMargin({ });
         boxGeometry.setVerticalMargin({ });
 
-        auto shapeOutsideInfo = floatingObject->renderer().shapeOutsideInfo();
+        auto shapeOutsideInfo = floatingObject->renderer()->shapeOutsideInfo();
         RefPtr shape = shapeOutsideInfo ? &shapeOutsideInfo->computedShape() : nullptr;
 
         placedFloats.add({ logicalPosition, boxGeometry, logicalRect.location(), WTFMove(shape) });
@@ -1079,7 +1082,9 @@ LayoutRect LineLayout::inkOverflowBoundingBoxRectFor(const RenderInline& renderI
     m_inlineContent->traverseNonRootInlineBoxes(layoutBox, [&](auto& inlineBox) {
         result.unite(Layout::toLayoutRect(inlineBox.inkOverflow()));
     });
-
+    m_inlineContent->traverseDescendantBlockLevelBoxes(layoutBox, [&](auto& inlineBox) {
+        result.unite(Layout::toLayoutRect(inlineBox.inkOverflow()));
+    });
     return result;
 }
 
@@ -1094,7 +1099,11 @@ Vector<FloatRect> LineLayout::collectInlineBoxRects(const RenderInline& renderIn
     m_inlineContent->traverseNonRootInlineBoxes(layoutBox, [&](auto& inlineBox) {
         result.append(inlineBox.visualRectIgnoringBlockDirection());
     });
-
+    m_inlineContent->traverseDescendantBlockLevelBoxes(layoutBox, [&](auto& inlineBox) {
+        auto rect = inlineBox.visualRectIgnoringBlockDirection();
+        if (!rect.isEmpty())
+            result.append(rect);
+    });
     return result;
 }
 
