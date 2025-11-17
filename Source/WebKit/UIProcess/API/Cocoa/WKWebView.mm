@@ -6597,6 +6597,10 @@ static HashMap<String, String> extractReplacementStrings(_WKTextExtractionConfig
         WebKit::TextExtractionFilter::singleton().prewarm();
 #endif
 
+    std::optional<WebKit::TextExtractionVersion> version;
+    if (RetainPtr overrideVersion = dynamic_objc_cast<NSNumber>([[NSUserDefaults standardUserDefaults] objectForKey:@"WebKit2TextExtractionOutputVersion"]))
+        version = [overrideVersion unsignedIntValue];
+
     std::optional<uint64_t> maxWordsPerParagraph;
     if (configuration.maxWordsPerParagraph < NSUIntegerMax)
         maxWordsPerParagraph = { static_cast<uint64_t>(configuration.maxWordsPerParagraph) };
@@ -6610,6 +6614,7 @@ static HashMap<String, String> extractReplacementStrings(_WKTextExtractionConfig
         includeRects = configuration.includeRects,
         onlyIncludeText = configuration.onlyIncludeVisibleText,
         maxWordsPerParagraph = WTFMove(maxWordsPerParagraph),
+        version,
         replacementStrings = extractReplacementStrings(configuration)
     ](auto&& item) mutable {
         RetainPtr strongSelf = weakSelf.get();
@@ -6715,7 +6720,13 @@ static HashMap<String, String> extractReplacementStrings(_WKTextExtractionConfig
             optionFlags.add(IncludeRects);
         if (onlyIncludeText)
             optionFlags.add(OnlyIncludeText);
-        WebKit::TextExtractionOptions options { WTFMove(filterCallbacks), [strongSelf _activeNativeMenuItemTitles], WTFMove(replacementStrings), optionFlags };
+        WebKit::TextExtractionOptions options {
+            WTFMove(filterCallbacks),
+            [strongSelf _activeNativeMenuItemTitles],
+            WTFMove(replacementStrings),
+            version,
+            optionFlags
+        };
         WebKit::convertToText(WTFMove(*item), WTFMove(options), [completionHandler = WTFMove(completionHandler)](auto&& string) {
             completionHandler(string.createNSString().get());
         });
@@ -6888,7 +6899,17 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
 
     auto rectInWebView = configuration.targetRect;
     bool mergeParagraphs = configuration.mergeParagraphs;
-    bool includeNodeIdentifiers = configuration.includeNodeIdentifiers;
+    auto nodeIdentifierInclusion = [&] {
+        switch (configuration.nodeIdentifierInclusion) {
+        case _WKTextExtractionNodeIdentifierInclusionNone:
+            return WebCore::TextExtraction::NodeIdentifierInclusion::None;
+        case _WKTextExtractionNodeIdentifierInclusionEditableOnly:
+            return WebCore::TextExtraction::NodeIdentifierInclusion::EditableOnly;
+        case _WKTextExtractionNodeIdentifierInclusionInteractive:
+            return WebCore::TextExtraction::NodeIdentifierInclusion::Interactive;
+        }
+        return WebCore::TextExtraction::NodeIdentifierInclusion::None;
+    }();
     bool skipNearlyTransparentContent = configuration.skipNearlyTransparentContent;
     auto rectInRootView = [&] -> std::optional<WebCore::FloatRect> {
         if (CGRectIsNull(rectInWebView))
@@ -6907,7 +6928,7 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
         .targetNodeHandleIdentifier = mainFrameJSHandleIdentifier(configuration.targetNode),
         .mergeParagraphs = mergeParagraphs,
         .skipNearlyTransparentContent = skipNearlyTransparentContent,
-        .includeNodeIdentifiers = includeNodeIdentifiers,
+        .nodeIdentifierInclusion = nodeIdentifierInclusion,
         .includeEventListeners = !!configuration.includeEventListeners,
         .includeAccessibilityAttributes = !!configuration.includeAccessibilityAttributes,
         .includeTextInAutoFilledControls = !!configuration.includeTextInAutoFilledControls,

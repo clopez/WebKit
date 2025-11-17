@@ -1126,6 +1126,14 @@ imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-004.x
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-005.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-006.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-007.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/block-in-inline-001.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/block-in-inline-002.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/box-generation-001.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/box-generation-002.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-008.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-009.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-012.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-013.xht [ ImageOnlyFailure ]
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-001.html [ ImageOnlyFailure ]
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-002.html [ ImageOnlyFailure ]
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-003.html [ ImageOnlyFailure ]
@@ -2139,6 +2147,7 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-canvas-eleme
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/adopt-from-image-document.html [ Pass ImageOnlyFailure ]
 
 fast/mediastream/camera-powerEfficient-track.html [ Failure ]
+fast/mediastream/multi-microphone.html [ Skip ]
 
 webkit.org/b/208182 fast/repaint/backgroundSizeRepaint.html [ ImageOnlyFailure Pass ]
 

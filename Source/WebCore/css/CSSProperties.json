@@ -460,8 +460,8 @@
                 "inline-flex",
                 "grid",
                 "inline-grid",
-                "masonry",
-                "inline-masonry",
+                "grid-lanes",
+                "inline-grid-lanes",
                 {
                     "value": "ruby",
                     "status": "unimplemented"
@@ -591,10 +591,8 @@
                 }
             ],
             "codegen-properties": {
-                "animation-wrapper": "FontFamilyWrapper",
-                "animation-wrapper-requires-override-parameters": [],
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "style-builder-custom": "All",
                 "high-priority": true,
                 "parser-function": "consumeFontFamily",
                 "parser-grammar-unused": "[ <family-name> | <generic-family> | <-webkit-generic-family> ]#",
@@ -2730,6 +2728,7 @@
                 "animation-wrapper": "StyleTypeWrapper",
                 "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
                 "parser-grammar": "<line-width>"
             },
@@ -3261,6 +3260,7 @@
                 "animation-wrapper": "StyleTypeWrapper",
                 "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
                 "parser-grammar": "<line-width>"
             },
@@ -3368,6 +3368,7 @@
                 "animation-wrapper": "StyleTypeWrapper",
                 "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
                 "parser-grammar": "<line-width>"
             },
@@ -3574,6 +3575,7 @@
                 "animation-wrapper": "StyleTypeWrapper",
                 "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
                 "parser-grammar": "<line-width>"
             },
@@ -4821,6 +4823,23 @@
                 "url": "https://www.w3.org/TR/css-logical/#inset-properties"
             }
         },
+        "item-tolerance": {
+            "animation-type": "by computed value",
+            "initial": "normal",
+            "values": [
+                "normal",
+                "infinite"
+            ],
+            "codegen-properties": {
+                "animation-wrapper": "StyleTypeWrapper",
+                "style-converter": "StyleType<ItemTolerance>",
+                "parser-grammar": "normal | <length-percentage> | infinite"
+            },
+            "specification": {
+                "category": "css-grid",
+                "url": "https://drafts.csswg.org/css-grid-3/#item-tolerance"
+            }
+        },
         "left": {
             "animation-type": "by computed value",
             "initial": "auto",
@@ -5339,7 +5358,7 @@
                 "inline-end"
             ],
             "codegen-properties": {
-                "style-converter": "MarginTrim",
+                "style-converter": "StyleType<MarginTrim>",
                 "parser-function": "consumeMarginTrim",
                 "parser-grammar-unused": "none | [ block || inline ] | [ block-start || inline-start || block-end || inline-end ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
@@ -6624,6 +6643,7 @@
             "codegen-properties": {
                 "animation-wrapper": "StyleTypeWrapper",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -7866,6 +7886,7 @@
             "inherited": true,
             "initial": "none",
             "values": [
+                "none",
                 "capitalize",
                 "uppercase",
                 "lowercase",
@@ -7873,15 +7894,15 @@
                 "full-width",
                 {
                     "value": "math-auto",
-                    "settings-flag": "cssTextTransformMathAutoEnabled"
-                },
-                "none"
+                    "settings-flag": "cssTextTransformMathAutoEnabled",
+                    "url": "https://w3c.github.io/mathml-core/#math-auto-transform"
+                }
             ],
             "codegen-properties": {
                 "aliases": [
                     "-epub-text-transform"
                 ],
-                "style-converter": "TextTransform",
+                "style-converter": "StyleType<TextTransform>",
                 "parser-grammar": "none | [ [ capitalize | uppercase | lowercase ] || full-width || full-size-kana ]@(no-single-item-opt) | math-auto@(settings-flag=cssTextTransformMathAutoEnabled)"
             },
             "specification": {
@@ -8616,8 +8637,7 @@
             "animation-type": "not animatable",
             "initial": "none",
             "codegen-properties": {
-                "style-converter": "Contain",
-                "render-style-initial": "initialContainment",
+                "style-converter": "StyleType<Contain>",
                 "parser-grammar": "none | strict | content | [ [size | inline-size] || layout || style || paint ]@(no-single-item-opt)"
             },
             "specification": {
@@ -9215,6 +9235,7 @@
                 ],
                 "animation-wrapper": "StyleTypeWrapper",
                 "style-converter": "StyleType<LineWidth>",
+                "style-builder-custom": "Initial",
                 "parser-grammar": "<line-width>"
             },
             "specification":  {
@@ -12259,11 +12280,13 @@
                     "status": "unimplemented",
                     "url": "https://w3c.github.io/pointerevents/#the-touch-action-css-property"
                 },
-                "pinch-zoom"
+                {
+                    "value": "pinch-zoom",
+                    "status": "non-standard"
+                }
             ],
             "codegen-properties": {
-                "render-style-name-for-methods": "TouchActions",
-                "style-converter": "TouchAction",
+                "style-converter": "StyleType<TouchAction>",
                 "parser-grammar": "auto | none | [ pan-x || pan-y || pinch-zoom ]@(no-single-item-opt) | manipulation",
                 "parser-grammar-comment": "Current spec grammar is 'auto | none | [ [ pan-x | pan-left | pan-right ] || [ pan-y | pan-up | pan-down ] ] | manipulation'"
             },
@@ -14012,7 +14035,7 @@
             }
         },
         "<display-inside>": {
-            "grammar": "flow | flow-root | table | flex | grid | masonry | ruby",
+            "grammar": "flow | flow-root | table | flex | grid | grid-lanes | ruby",
             "specification": {
                 "category": "css-display",
                 "url": "https://www.w3.org/TR/css-display-3/#typedef-display-inside"
@@ -14040,7 +14063,7 @@
             }
         },
         "<display-legacy>": {
-            "grammar": "inline-block | inline-table | inline-flex | inline-grid | inline-masonry",
+            "grammar": "inline-block | inline-table | inline-flex | inline-grid | inline-grid-lanes",
             "specification": {
                 "category": "css-display",
                 "url": "https://www.w3.org/TR/css-display-3/#typedef-display-legacy"

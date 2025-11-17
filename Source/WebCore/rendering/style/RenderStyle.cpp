@@ -55,6 +55,8 @@
 #include "StyleResolver.h"
 #include "StyleScaleTransformFunction.h"
 #include "StyleSelfAlignmentData.h"
+#include "StyleTextDecorationLine.h"
+#include "StyleTextTransform.h"
 #include "StyleTreeResolver.h"
 #include "TransformOperationData.h"
 #include <algorithm>
@@ -82,7 +84,6 @@ namespace WebCore {
 struct SameSizeAsBorderValue {
     Style::Color m_color;
     float m_width;
-    bool m_isKeyword;
     int m_restBits;
 };
 
@@ -109,7 +110,7 @@ static_assert(sizeof(RenderStyle) == sizeof(SameSizeAsRenderStyle), "RenderStyle
 
 static_assert(PublicPseudoIDBits == allPublicPseudoElementTypes.size());
 
-static_assert(!(static_cast<unsigned>(maxTextTransformValue) >> TextTransformBits));
+static_assert(!(static_cast<unsigned>(Style::maxTextTransformValue) >> TextTransformBits));
 
 // Value zero is used to indicate no pseudo-element.
 static_assert(!((enumToUnderlyingType(PseudoElementType::HighestEnumValue) + 1) >> PseudoElementTypeBits));
@@ -811,12 +812,12 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.inputSecurity != second.inputSecurity)
         return true;
 
-    if (first.usedContain().contains(Containment::Size) != second.usedContain().contains(Containment::Size)
-        || first.usedContain().contains(Containment::InlineSize) != second.usedContain().contains(Containment::InlineSize)
-        || first.usedContain().contains(Containment::Layout) != second.usedContain().contains(Containment::Layout))
+    if (first.usedContain().contains(Style::ContainValue::Size) != second.usedContain().contains(Style::ContainValue::Size)
+        || first.usedContain().contains(Style::ContainValue::InlineSize) != second.usedContain().contains(Style::ContainValue::InlineSize)
+        || first.usedContain().contains(Style::ContainValue::Layout) != second.usedContain().contains(Style::ContainValue::Layout))
         return true;
 
-    // content-visibiliy:hidden turns on contain:size which requires relayout.
+    // content-visibility:hidden turns on contain:size which requires relayout.
     if ((static_cast<ContentVisibility>(first.contentVisibility) == ContentVisibility::Hidden) != (static_cast<ContentVisibility>(second.contentVisibility) == ContentVisibility::Hidden))
         return true;
 
@@ -1879,7 +1880,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyOffsetRotate);
         if (first.textDecorationThickness != second.textDecorationThickness)
             changingProperties.m_properties.set(CSSPropertyTextDecorationThickness);
-        if (first.touchActions != second.touchActions)
+        if (first.touchAction != second.touchAction)
             changingProperties.m_properties.set(CSSPropertyTouchAction);
         if (first.marginTrim != second.marginTrim)
             changingProperties.m_properties.set(CSSPropertyMarginTrim);
@@ -2120,7 +2121,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // textSizeAdjust
         // userSelect
         // isInSubtreeWithBlendMode
-        // usedTouchActions
+        // usedTouchAction
         // eventListenerRegionTypes
         // effectiveInert
         // usedContentVisibility
@@ -2535,6 +2536,13 @@ void RenderStyle::setFontOpticalSizing(FontOpticalSizing opticalSizing)
 {
     auto description = fontDescription();
     description.setOpticalSizing(opticalSizing);
+    setFontDescription(WTFMove(description));
+}
+
+void RenderStyle::setFontFamily(Style::FontFamilies&& families)
+{
+    auto description = fontDescription();
+    description.setFamilies(families.takePlatform());
     setFontDescription(WTFMove(description));
 }
 
@@ -3606,7 +3614,7 @@ void RenderStyle::NonInheritedFlags::dumpDifferences(TextStream& ts, const NonIn
     LOG_IF_DIFFERENT(usesContainerUnits);
     LOG_IF_DIFFERENT(useTreeCountingFunctions);
 
-    LOG_IF_DIFFERENT_WITH_CAST(Style::TextDecorationLine, textDecorationLine);
+    LOG_IF_DIFFERENT_WITH_FROM_RAW(Style::TextDecorationLine, textDecorationLine);
 
     LOG_IF_DIFFERENT(hasExplicitlyInheritedProperties);
     LOG_IF_DIFFERENT(disallowsFastPathInheritance);
@@ -3632,8 +3640,8 @@ void RenderStyle::InheritedFlags::dumpDifferences(TextStream& ts, const Inherite
     LOG_IF_DIFFERENT_WITH_CAST(TextAlignMode, textAlign);
     LOG_IF_DIFFERENT_WITH_CAST(TextWrapStyle, textWrapStyle);
 
-    LOG_IF_DIFFERENT_WITH_FROM_RAW(OptionSet<TextTransform>, textTransform);
-    LOG_IF_DIFFERENT_WITH_CAST(Style::TextDecorationLine, textDecorationLineInEffect);
+    LOG_IF_DIFFERENT_WITH_FROM_RAW(Style::TextTransform, textTransform);
+    LOG_IF_DIFFERENT_WITH_FROM_RAW(Style::TextDecorationLine, textDecorationLineInEffect);
 
     LOG_IF_DIFFERENT_WITH_CAST(PointerEvents, pointerEvents);
     LOG_IF_DIFFERENT_WITH_CAST(Visibility, visibility);

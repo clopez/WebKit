@@ -10323,6 +10323,10 @@ void Document::updateIntersectionObservations()
 
 void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>& intersectionObservers)
 {
+    RefPtr frame = this->frame();
+    if (!frame)
+        return;
+
     RefPtr frameView = view();
     if (!frameView)
         return;
@@ -10347,7 +10351,7 @@ void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionO
         if (!observer)
             continue;
 
-        auto needNotify = observer->updateObservations(*this);
+        auto needNotify = observer->updateObservations(*frame);
         if (needNotify == IntersectionObserver::NeedNotify::Yes)
             intersectionObserversWithPendingNotifications.append(observer);
     }
@@ -12120,6 +12124,27 @@ void Document::ariaNotify(const String& announcement, const AriaNotifyOptions& o
 
     if (CheckedPtr cache = axObjectCache())
         cache->postARIANotifyNotification(*this, announcement, options);
+}
+
+void Document::invalidateCachedSetInnerHTML()
+{
+    auto& cache = cachedSetInnerHTML();
+    if (cache.cachedContainer)
+        cache.cachedContainer->setDidMutateSubtreeAfterSetInnerHTML();
+    cache.source = String();
+}
+
+void Document::updateCachedSetInnerHTML(const String& sourceString, ContainerNode& container, Element& contextElement)
+{
+    auto& cache = cachedSetInnerHTML();
+
+    if (sourceString.length() < cache.source.length() || sourceString.length() > maxCachedSetInnerHTMLStringSize())
+        return;
+
+    cache.source = sourceString;
+    cache.cachedContainer = &container;
+    cache.contextElementName = contextElement.elementName();
+    container.clearDidMutateSubtreeAfterSetInnerHTML();
 }
 
 } // namespace WebCore

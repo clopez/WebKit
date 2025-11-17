@@ -29,7 +29,6 @@
 #include <WebCore/BoxExtents.h>
 #include <WebCore/PseudoElementIdentifier.h>
 #include <WebCore/StylePrimitiveNumeric+Forward.h>
-#include <WebCore/StyleTextDecorationLine.h>
 #include <WebCore/WritingMode.h>
 #include <unicode/utypes.h>
 #include <wtf/CheckedRef.h>
@@ -106,7 +105,6 @@ enum class ColumnProgression : bool;
 enum class ColumnSpan : bool;
 enum class CompositeOperator : uint8_t;
 enum class ContainerType : uint8_t;
-enum class Containment : uint8_t;
 enum class ContentDistribution : uint8_t;
 enum class ContentPosition : uint8_t;
 enum class ContentVisibility : uint8_t;
@@ -115,7 +113,7 @@ enum class CursorVisibility : bool;
 enum class DisplayType : uint8_t;
 enum class DominantBaseline : uint8_t;
 enum class EmptyCell : bool;
-enum class EventListenerRegionType : uint32_t;
+enum class EventListenerRegionType : uint64_t;
 enum class FieldSizing : bool;
 enum class FillAttachment : uint8_t;
 enum class FillBox : uint8_t;
@@ -144,7 +142,6 @@ enum class LineCap : uint8_t;
 enum class LineJoin : uint8_t;
 enum class LineSnap : uint8_t;
 enum class ListStylePosition : bool;
-enum class MarginTrimType : uint8_t;
 enum class MarqueeBehavior : uint8_t;
 enum class MarqueeDirection : uint8_t;
 enum class MaskType : uint8_t;
@@ -196,7 +193,6 @@ enum class TextUnderlinePosition : uint8_t;
 enum class TextWrapMode : bool;
 enum class TextWrapStyle : uint8_t;
 enum class TextZoom : bool;
-enum class TouchAction : uint8_t;
 enum class TransformBox : uint8_t;
 enum class TransformStyle3D : uint8_t;
 enum class UnicodeBidi : uint8_t;
@@ -256,6 +252,7 @@ struct Color;
 struct ColorScheme;
 struct ColumnCount;
 struct ColumnWidth;
+struct Contain;
 struct ContainIntrinsicSize;
 struct ContainerNames;
 struct Content;
@@ -264,6 +261,8 @@ struct Cursor;
 struct DynamicRangeLimit;
 struct Filter;
 struct FlexBasis;
+struct FontFamilies;
+struct FontFamiliesView;
 struct FontFeatureSettings;
 struct FontPalette;
 struct FontSizeAdjust;
@@ -286,6 +285,7 @@ struct HyphenateLimitEdge;
 struct HyphenateLimitLines;
 struct ImageOrNone;
 struct InsetEdge;
+struct ItemTolerance;
 struct JustifyContent;
 struct JustifyItems;
 struct JustifySelf;
@@ -295,6 +295,7 @@ struct LineWidth;
 struct LineFitEdge;
 struct ListStyleType;
 struct MarginEdge;
+struct MarginTrim;
 struct MaskBorder;
 struct MaskBorderOutset;
 struct MaskBorderRepeat;
@@ -356,12 +357,15 @@ struct TabSize;
 struct TextAutospace;
 struct TextBoxEdge;
 struct TextDecorationThickness;
+struct TextDecorationLine;
 struct TextEmphasisStyle;
 struct TextIndent;
 struct TextShadow;
 struct TextSizeAdjust;
 struct TextSpacingTrim;
+struct TextTransform;
 struct TextUnderlineOffset;
+struct TouchAction;
 struct Transform;
 struct TransformOrigin;
 struct Transition;
@@ -728,6 +732,7 @@ public:
     float computedFontSize() const;
     std::pair<FontOrientation, NonCJKGlyphOrientation> fontAndGlyphOrientation();
 
+    inline Style::FontFamilies fontFamily() const;
     inline FontOpticalSizing fontOpticalSizing() const;
     inline Style::FontFeatureSettings fontFeatureSettings() const;
     inline Style::FontVariationSettings fontVariationSettings() const;
@@ -756,7 +761,7 @@ public:
     inline TextAlignMode textAlign() const { return static_cast<TextAlignMode>(m_inheritedFlags.textAlign); }
     inline TextAlignLast textAlignLast() const;
     inline TextGroupAlign textGroupAlign() const;
-    inline OptionSet<TextTransform> textTransform() const;
+    inline Style::TextTransform textTransform() const;
     inline Style::TextDecorationLine textDecorationLineInEffect() const;
     inline Style::TextDecorationLine textDecorationLine() const;
     inline TextDecorationStyle textDecorationStyle() const;
@@ -771,7 +776,7 @@ public:
     inline Style::TextBoxEdge textBoxEdge() const;
     inline Style::LineFitEdge lineFitEdge() const;
 
-    inline OptionSet<MarginTrimType> marginTrim() const;
+    inline Style::MarginTrim marginTrim() const;
 
     inline const Style::LetterSpacing& computedLetterSpacing() const;
     inline const Style::WordSpacing& computedWordSpacing() const;
@@ -904,15 +909,8 @@ public:
     inline double logicalAspectRatio() const;
     inline bool hasAspectRatio() const;
 
-    inline OptionSet<Containment> contain() const;
-    inline OptionSet<Containment> usedContain() const;
-    inline bool containsLayout() const;
-    inline bool containsSize() const;
-    inline bool containsInlineSize() const;
-    inline bool containsSizeOrInlineSize() const;
-    inline bool containsStyle() const;
-    inline bool containsPaint() const;
-    inline bool containsLayoutOrPaint() const;
+    inline Style::Contain contain() const;
+    inline Style::Contain usedContain() const;
     inline ContainerType containerType() const;
     inline const Style::ContainerNames& containerNames() const;
     inline bool containerTypeAndNamesEqual(const RenderStyle&) const;
@@ -1022,6 +1020,7 @@ public:
     inline const Style::GapGutter& columnGap() const;
     inline const Style::GapGutter& rowGap() const;
     inline const Style::GapGutter& gap(Style::GridTrackSizingDirection) const;
+    inline const Style::ItemTolerance& itemTolerance() const;
 
     inline const Style::Transform& transform() const;
     inline bool hasTransform() const;
@@ -1162,9 +1161,9 @@ public:
     inline OverflowContinue overflowContinue() const;
     inline const Style::WebkitInitialLetter& initialLetter() const;
 
-    inline OptionSet<TouchAction> touchActions() const;
+    inline Style::TouchAction touchAction() const;
     // 'touch-action' behavior depends on values in ancestors. We use an additional inherited property to implement that.
-    inline OptionSet<TouchAction> usedTouchActions() const;
+    inline Style::TouchAction usedTouchAction() const;
     inline OptionSet<EventListenerRegionType> eventListenerRegionTypes() const;
 
     inline bool effectiveInert() const;
@@ -1377,6 +1376,7 @@ public:
     // Only used for blending font sizes when animating, for MathML anonymous blocks, and for text autosizing.
     void setFontSize(float);
     void setFontOpticalSizing(FontOpticalSizing);
+    void setFontFamily(Style::FontFamilies&&);
     void setFontFeatureSettings(Style::FontFeatureSettings&&);
     void setFontVariationSettings(Style::FontVariationSettings&&);
     void setFontPalette(Style::FontPalette&&);
@@ -1413,7 +1413,7 @@ public:
     inline void setTextIndent(Style::TextIndent&&);
     inline void setTextUnderlinePosition(OptionSet<TextUnderlinePosition>);
     inline void setTextUnderlineOffset(Style::TextUnderlineOffset&&);
-    inline void setTextTransform(OptionSet<TextTransform>);
+    inline void setTextTransform(Style::TextTransform);
     bool setZoom(float);
     inline bool setUsedZoom(float);
     inline void setTextZoom(TextZoom);
@@ -1424,7 +1424,7 @@ public:
     inline void setTextBoxEdge(Style::TextBoxEdge);
     inline void setLineFitEdge(Style::LineFitEdge);
 
-    inline void setMarginTrim(OptionSet<MarginTrimType>);
+    inline void setMarginTrim(Style::MarginTrim);
 
     void setLineHeight(Style::LineHeight&&);
 #if ENABLE(TEXT_AUTOSIZING)
@@ -1459,7 +1459,7 @@ public:
 
     inline void setAspectRatio(Style::AspectRatio&&);
 
-    inline void setContain(OptionSet<Containment>);
+    inline void setContain(Style::Contain);
     inline void setContainerType(ContainerType);
     inline void setContainerNames(Style::ContainerNames&&);
 
@@ -1600,6 +1600,7 @@ public:
     inline void setColumnFill(ColumnFill);
     inline void setColumnGap(Style::GapGutter&&);
     inline void setRowGap(Style::GapGutter&&);
+    inline void setItemTolerance(Style::ItemTolerance&&);
     inline void setColumnRuleColor(Style::Color&&);
     inline void setColumnRuleStyle(BorderStyle);
     inline void setColumnRuleWidth(Style::LineWidth);
@@ -1688,8 +1689,8 @@ public:
 
     inline void setInitialLetter(Style::WebkitInitialLetter&&);
 
-    inline void setTouchActions(OptionSet<TouchAction>);
-    inline void setUsedTouchActions(OptionSet<TouchAction>);
+    inline void setTouchAction(Style::TouchAction);
+    inline void setUsedTouchAction(Style::TouchAction);
     inline void setEventListenerRegionTypes(OptionSet<EventListenerRegionType>);
 
     inline void setEffectiveInert(bool);
@@ -2039,7 +2040,7 @@ public:
     static constexpr EmptyCell initialEmptyCells();
     static constexpr ListStylePosition initialListStylePosition();
     static inline Style::ListStyleType initialListStyleType();
-    static constexpr OptionSet<TextTransform> initialTextTransform();
+    static constexpr Style::TextTransform initialTextTransform();
     static inline Style::ViewTransitionClasses initialViewTransitionClasses();
     static inline Style::ViewTransitionName initialViewTransitionName();
     static constexpr Visibility initialVisibility();
@@ -2072,7 +2073,7 @@ public:
     static inline Style::SVGRadiusComponent initialRx();
     static inline Style::SVGRadiusComponent initialRy();
     static inline Style::MarginEdge initialMargin();
-    static constexpr OptionSet<MarginTrimType> initialMarginTrim();
+    static constexpr Style::MarginTrim initialMarginTrim();
     static inline Style::PaddingEdge initialPadding();
     static inline Style::PageSize initialPageSize();
     static inline Style::TextIndent initialTextIndent();
@@ -2085,8 +2086,8 @@ public:
     static constexpr TextAlignMode initialTextAlign();
     static constexpr TextAlignLast initialTextAlignLast();
     static constexpr TextGroupAlign initialTextGroupAlign();
-    static inline Style::TextDecorationLine initialTextDecorationLine();
-    static inline Style::TextDecorationLine initialTextDecorationLineInEffect();
+    static constexpr Style::TextDecorationLine initialTextDecorationLine();
+    static constexpr Style::TextDecorationLine initialTextDecorationLineInEffect();
     static constexpr TextDecorationStyle initialTextDecorationStyle();
     static constexpr TextDecorationSkipInk initialTextDecorationSkipInk();
     static constexpr OptionSet<TextUnderlinePosition> initialTextUnderlinePosition();
@@ -2145,9 +2146,7 @@ public:
     static constexpr Resize initialResize();
     static constexpr StyleAppearance initialAppearance();
     static inline Style::AspectRatio initialAspectRatio();
-    static constexpr OptionSet<Containment> initialContainment();
-    static constexpr OptionSet<Containment> strictContainment();
-    static constexpr OptionSet<Containment> contentContainment();
+    static constexpr Style::Contain initialContain();
     static constexpr ContainerType initialContainerType();
     static Style::ContainerNames initialContainerNames();
     static inline Style::Content initialContent();
@@ -2164,6 +2163,7 @@ public:
     static inline Style::GapGutter initialColumnGap();
     static constexpr Style::ColumnWidth initialColumnWidth();
     static inline Style::GapGutter initialRowGap();
+    static inline Style::ItemTolerance initialItemTolerance();
     static inline Style::Transform initialTransform();
     static inline Style::TransformOrigin initialTransformOrigin();
     static inline Style::TransformOriginX initialTransformOriginX();
@@ -2219,7 +2219,7 @@ public:
 
     static inline Style::WillChange initialWillChange();
 
-    static constexpr TouchAction initialTouchActions();
+    static constexpr Style::TouchAction initialTouchAction();
 
     static constexpr FieldSizing initialFieldSizing();
 
@@ -2529,7 +2529,7 @@ private:
         PREFERRED_TYPE(bool) unsigned isLink : 1;
         PREFERRED_TYPE(PseudoElementType) unsigned pseudoElementType : PseudoElementTypeBits;
         unsigned pseudoBits : PublicPseudoIDBits;
-        PREFERRED_TYPE(Style::TextDecorationLine) unsigned textDecorationLine : TextDecorationLineBits; // Text decorations defined *only* by this element.
+        unsigned textDecorationLine : TextDecorationLineBits; // Text decorations defined *only* by this element. PREFERRED_TYPE elided to avoid header inclusion.
 
         // If you add more style bits here, you will also need to update RenderStyle::NonInheritedFlags::copyNonInheritedFrom().
     };
@@ -2549,9 +2549,9 @@ private:
         PREFERRED_TYPE(TextWrapMode) unsigned char textWrapMode : 1;
         PREFERRED_TYPE(TextAlignMode) unsigned char textAlign : 4;
         PREFERRED_TYPE(TextWrapStyle) unsigned char textWrapStyle : 2;
-        PREFERRED_TYPE(OptionSet<TextTransform>) unsigned char textTransform : TextTransformBits;
+        unsigned char textTransform : TextTransformBits; // PREFERRED_TYPE elided to avoid header inclusion.
         unsigned char : 1; // byte alignment
-        PREFERRED_TYPE(Style::TextDecorationLine) unsigned char textDecorationLineInEffect : TextDecorationLineBits;
+        unsigned char textDecorationLineInEffect : TextDecorationLineBits; // PREFERRED_TYPE elided to avoid header inclusion.
 
         // Cursors and Visibility = 13 bits aligned onto 4 bits + 1 byte + 1 bit
         PREFERRED_TYPE(PointerEvents) unsigned char pointerEvents : 4;

@@ -68,13 +68,9 @@ public:
 
     // MARK: Shared serializations
 
-    static void serializeMarginTrim(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<MarginTrimType>);
-    static void serializeContain(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<Containment>);
     static void serializeSmoothScrolling(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, bool);
     static void serializePositionTryFallbacks(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const FixedVector<PositionTryFallback>&);
     static void serializeTabSize(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const TabSize&);
-    static void serializeTouchAction(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TouchAction>);
-    static void serializeTextTransform(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TextTransform>);
     static void serializeTextUnderlinePosition(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TextUnderlinePosition>);
     static void serializeTextEmphasisPosition(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<TextEmphasisPosition>);
     static void serializeSpeakAs(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, OptionSet<SpeakAs>);
@@ -89,11 +85,6 @@ public:
     static void serializeSingleWebkitMaskComposite(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, CompositeOperator);
     static void serializeSingleMaskMode(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, MaskMode);
     static void serializeSingleWebkitMaskSourceType(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, MaskMode);
-
-    // MARK: Font serializations
-
-    static void serializeFontFamily(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const AtomString&);
-
 };
 
 // MARK: - Strong value serializations
@@ -200,75 +191,6 @@ inline void ExtractorSerializer::serializeTransformationMatrix(const RenderStyle
 
 // MARK: - Shared serializations
 
-inline void ExtractorSerializer::serializeMarginTrim(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<MarginTrimType> marginTrim)
-{
-    if (marginTrim.isEmpty()) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-
-    // Try to serialize into one of the "block" or "inline" shorthands
-    if (marginTrim.containsAll({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd }) && !marginTrim.containsAny({ MarginTrimType::InlineStart, MarginTrimType::InlineEnd })) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Block { });
-        return;
-    }
-    if (marginTrim.containsAll({ MarginTrimType::InlineStart, MarginTrimType::InlineEnd }) && !marginTrim.containsAny({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd })) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Inline { });
-        return;
-    }
-    if (marginTrim.containsAll({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd, MarginTrimType::InlineStart, MarginTrimType::InlineEnd })) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Block { });
-        builder.append(' ');
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Inline { });
-        return;
-    }
-
-    bool listEmpty = true;
-    auto appendOption = [&](MarginTrimType test, CSSValueID value) {
-        if (marginTrim.contains(test)) {
-            if (!listEmpty)
-                builder.append(' ');
-            builder.append(nameLiteralForSerialization(value));
-            listEmpty = false;
-        }
-    };
-    appendOption(MarginTrimType::BlockStart, CSSValueBlockStart);
-    appendOption(MarginTrimType::InlineStart, CSSValueInlineStart);
-    appendOption(MarginTrimType::BlockEnd, CSSValueBlockEnd);
-    appendOption(MarginTrimType::InlineEnd, CSSValueInlineEnd);
-}
-
-inline void ExtractorSerializer::serializeContain(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<Containment> containment)
-{
-    if (!containment) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-    if (containment == RenderStyle::strictContainment()) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Strict { });
-        return;
-    }
-    if (containment == RenderStyle::contentContainment()) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Content { });
-        return;
-    }
-
-    bool listEmpty = true;
-    auto appendOption = [&](Containment test, CSSValueID value) {
-        if (containment & test) {
-            if (!listEmpty)
-                builder.append(' ');
-            builder.append(nameLiteralForSerialization(value));
-            listEmpty = false;
-        }
-    };
-    appendOption(Containment::Size, CSSValueSize);
-    appendOption(Containment::InlineSize, CSSValueInlineSize);
-    appendOption(Containment::Layout, CSSValueLayout);
-    appendOption(Containment::Style, CSSValueStyle);
-    appendOption(Containment::Paint, CSSValuePaint);
-}
-
 inline void ExtractorSerializer::serializePositionTryFallbacks(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const FixedVector<PositionTryFallback>& fallbacks)
 {
     if (fallbacks.isEmpty()) {
@@ -294,75 +216,6 @@ inline void ExtractorSerializer::serializePositionTryFallbacks(ExtractorState& s
     }
 
     builder.append(CSSValueList::createCommaSeparated(WTFMove(list))->cssText(context));
-}
-
-inline void ExtractorSerializer::serializeTouchAction(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<TouchAction> touchActions)
-{
-    if (touchActions & TouchAction::Auto) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Auto { });
-        return;
-    }
-    if (touchActions & TouchAction::None) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
-        return;
-    }
-    if (touchActions & TouchAction::Manipulation) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Manipulation { });
-        return;
-    }
-
-    bool listEmpty = true;
-    auto appendOption = [&](TouchAction test, CSSValueID value) {
-        if (touchActions & test) {
-            if (!listEmpty)
-                builder.append(' ');
-            builder.append(nameLiteralForSerialization(value));
-            listEmpty = false;
-        }
-    };
-    appendOption(TouchAction::PanX, CSSValuePanX);
-    appendOption(TouchAction::PanY, CSSValuePanY);
-    appendOption(TouchAction::PinchZoom, CSSValuePinchZoom);
-
-    if (listEmpty)
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Auto { });
-}
-
-inline void ExtractorSerializer::serializeTextTransform(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<TextTransform> textTransform)
-{
-    bool listEmpty = true;
-
-    if (textTransform.contains(TextTransform::Capitalize)) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Capitalize { });
-        listEmpty = false;
-    } else if (textTransform.contains(TextTransform::Uppercase)) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Uppercase { });
-        listEmpty = false;
-    } else if (textTransform.contains(TextTransform::Lowercase)) {
-        serializationForCSS(builder, context, state.style, CSS::Keyword::Lowercase { });
-        listEmpty = false;
-    }
-
-    auto appendOption = [&](TextTransform test, CSSValueID value) {
-        if (textTransform.contains(test)) {
-            if (!listEmpty)
-                builder.append(' ');
-            builder.append(nameLiteralForSerialization(value));
-            listEmpty = false;
-        }
-    };
-    appendOption(TextTransform::FullWidth, CSSValueFullWidth);
-    appendOption(TextTransform::FullSizeKana, CSSValueFullSizeKana);
-
-    if (textTransform.contains(TextTransform::MathAuto)) {
-        // math-auto can't be used in combination with other values, the parser already makes sure that is the case.
-        ASSERT(listEmpty);
-        serializationForCSS(builder, context, state.style, CSS::Keyword::MathAuto { });
-        listEmpty = false;
-    }
-
-    if (listEmpty)
-        serializationForCSS(builder, context, state.style, CSS::Keyword::None { });
 }
 
 inline void ExtractorSerializer::serializeTextUnderlinePosition(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, OptionSet<TextUnderlinePosition> textUnderlinePosition)
@@ -542,36 +395,6 @@ inline void ExtractorSerializer::serializeSingleWebkitMaskSourceType(ExtractorSt
         return;
     }
     RELEASE_ASSERT_NOT_REACHED();
-}
-
-// MARK: - Font serializations
-
-inline void ExtractorSerializer::serializeFontFamily(ExtractorState&, StringBuilder& builder, const CSS::SerializationContext&, const AtomString& family)
-{
-    auto identifierForFamily = [](const auto& family) {
-        if (family == cursiveFamily)
-            return CSSValueCursive;
-        if (family == fantasyFamily)
-            return CSSValueFantasy;
-        if (family == monospaceFamily)
-            return CSSValueMonospace;
-        if (family == mathFamily)
-            return CSSValueMath;
-        if (family == pictographFamily)
-            return CSSValueWebkitPictograph;
-        if (family == sansSerifFamily)
-            return CSSValueSansSerif;
-        if (family == serifFamily)
-            return CSSValueSerif;
-        if (family == systemUiFamily)
-            return CSSValueSystemUi;
-        return CSSValueInvalid;
-    };
-
-    if (auto familyIdentifier = identifierForFamily(family))
-        builder.append(nameLiteralForSerialization(familyIdentifier));
-    else
-        builder.append(WebCore::serializeFontFamily(family));
 }
 
 } // namespace Style

@@ -133,11 +133,7 @@ public:
 
     // MARK: Shared conversions
 
-    static Ref<CSSValue> convertMarginTrim(ExtractorState&, OptionSet<MarginTrimType>);
-    static Ref<CSSValue> convertContain(ExtractorState&, OptionSet<Containment>);
     static Ref<CSSValue> convertPositionTryFallbacks(ExtractorState&, const FixedVector<PositionTryFallback>&);
-    static Ref<CSSValue> convertTouchAction(ExtractorState&, OptionSet<TouchAction>);
-    static Ref<CSSValue> convertTextTransform(ExtractorState&, OptionSet<TextTransform>);
     static Ref<CSSValue> convertTextUnderlinePosition(ExtractorState&, OptionSet<TextUnderlinePosition>);
     static Ref<CSSValue> convertTextEmphasisPosition(ExtractorState&, OptionSet<TextEmphasisPosition>);
     static Ref<CSSValue> convertSpeakAs(ExtractorState&, OptionSet<SpeakAs>);
@@ -153,10 +149,6 @@ public:
     static Ref<CSSValue> convertSingleWebkitMaskComposite(ExtractorState&, CompositeOperator);
     static Ref<CSSValue> convertSingleMaskMode(ExtractorState&, MaskMode);
     static Ref<CSSValue> convertSingleWebkitMaskSourceType(ExtractorState&, MaskMode);
-
-    // MARK: Font conversions
-
-    static Ref<CSSValue> convertFontFamily(ExtractorState&, const AtomString&);
 };
 
 // MARK: - Strong value conversions
@@ -255,53 +247,6 @@ inline Ref<CSSValue> ExtractorConverter::convertTransformationMatrix(const Rende
 
 // MARK: - Shared conversions
 
-inline Ref<CSSValue> ExtractorConverter::convertMarginTrim(ExtractorState&, OptionSet<MarginTrimType> marginTrim)
-{
-    if (marginTrim.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
-
-    // Try to serialize into one of the "block" or "inline" shorthands
-    if (marginTrim.containsAll({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd }) && !marginTrim.containsAny({ MarginTrimType::InlineStart, MarginTrimType::InlineEnd }))
-        return CSSPrimitiveValue::create(CSSValueBlock);
-    if (marginTrim.containsAll({ MarginTrimType::InlineStart, MarginTrimType::InlineEnd }) && !marginTrim.containsAny({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd }))
-        return CSSPrimitiveValue::create(CSSValueInline);
-    if (marginTrim.containsAll({ MarginTrimType::BlockStart, MarginTrimType::BlockEnd, MarginTrimType::InlineStart, MarginTrimType::InlineEnd }))
-        return CSSValueList::createSpaceSeparated(CSSPrimitiveValue::create(CSSValueBlock), CSSPrimitiveValue::create(CSSValueInline));
-
-    CSSValueListBuilder list;
-    if (marginTrim.contains(MarginTrimType::BlockStart))
-        list.append(CSSPrimitiveValue::create(CSSValueBlockStart));
-    if (marginTrim.contains(MarginTrimType::InlineStart))
-        list.append(CSSPrimitiveValue::create(CSSValueInlineStart));
-    if (marginTrim.contains(MarginTrimType::BlockEnd))
-        list.append(CSSPrimitiveValue::create(CSSValueBlockEnd));
-    if (marginTrim.contains(MarginTrimType::InlineEnd))
-        list.append(CSSPrimitiveValue::create(CSSValueInlineEnd));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertContain(ExtractorState&, OptionSet<Containment> containment)
-{
-    if (!containment)
-        return CSSPrimitiveValue::create(CSSValueNone);
-    if (containment == RenderStyle::strictContainment())
-        return CSSPrimitiveValue::create(CSSValueStrict);
-    if (containment == RenderStyle::contentContainment())
-        return CSSPrimitiveValue::create(CSSValueContent);
-    CSSValueListBuilder list;
-    if (containment & Containment::Size)
-        list.append(CSSPrimitiveValue::create(CSSValueSize));
-    if (containment & Containment::InlineSize)
-        list.append(CSSPrimitiveValue::create(CSSValueInlineSize));
-    if (containment & Containment::Layout)
-        list.append(CSSPrimitiveValue::create(CSSValueLayout));
-    if (containment & Containment::Style)
-        list.append(CSSPrimitiveValue::create(CSSValueStyle));
-    if (containment & Containment::Paint)
-        list.append(CSSPrimitiveValue::create(CSSValuePaint));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
 inline Ref<CSSValue> ExtractorConverter::convertPositionTryFallbacks(ExtractorState& state, const FixedVector<PositionTryFallback>& fallbacks)
 {
     if (fallbacks.isEmpty())
@@ -325,53 +270,6 @@ inline Ref<CSSValue> ExtractorConverter::convertPositionTryFallbacks(ExtractorSt
     }
 
     return CSSValueList::createCommaSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertTouchAction(ExtractorState&, OptionSet<TouchAction> touchActions)
-{
-    if (touchActions & TouchAction::Auto)
-        return CSSPrimitiveValue::create(CSSValueAuto);
-    if (touchActions & TouchAction::None)
-        return CSSPrimitiveValue::create(CSSValueNone);
-    if (touchActions & TouchAction::Manipulation)
-        return CSSPrimitiveValue::create(CSSValueManipulation);
-
-    CSSValueListBuilder list;
-    if (touchActions & TouchAction::PanX)
-        list.append(CSSPrimitiveValue::create(CSSValuePanX));
-    if (touchActions & TouchAction::PanY)
-        list.append(CSSPrimitiveValue::create(CSSValuePanY));
-    if (touchActions & TouchAction::PinchZoom)
-        list.append(CSSPrimitiveValue::create(CSSValuePinchZoom));
-    if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueAuto);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertTextTransform(ExtractorState&, OptionSet<TextTransform> textTransform)
-{
-    CSSValueListBuilder list;
-    if (textTransform.contains(TextTransform::Capitalize))
-        list.append(CSSPrimitiveValue::create(CSSValueCapitalize));
-    else if (textTransform.contains(TextTransform::Uppercase))
-        list.append(CSSPrimitiveValue::create(CSSValueUppercase));
-    else if (textTransform.contains(TextTransform::Lowercase))
-        list.append(CSSPrimitiveValue::create(CSSValueLowercase));
-
-    if (textTransform.contains(TextTransform::FullWidth))
-        list.append(CSSPrimitiveValue::create(CSSValueFullWidth));
-
-    if (textTransform.contains(TextTransform::FullSizeKana))
-        list.append(CSSPrimitiveValue::create(CSSValueFullSizeKana));
-
-    if (textTransform.contains(TextTransform::MathAuto)) {
-        ASSERT(list.isEmpty());
-        list.append(CSSPrimitiveValue::create(CSSValueMathAuto));
-    }
-
-    if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
 inline Ref<CSSValue> ExtractorConverter::convertTextUnderlinePosition(ExtractorState&, OptionSet<TextUnderlinePosition> textUnderlinePosition)
@@ -657,35 +555,6 @@ inline Ref<CSSValue> ExtractorConverter::convertSingleWebkitMaskSourceType(Extra
     }
     ASSERT_NOT_REACHED();
     return CSSPrimitiveValue::create(CSSValueAlpha);
-}
-
-// MARK: - Font conversions
-
-inline Ref<CSSValue> ExtractorConverter::convertFontFamily(ExtractorState& state, const AtomString& family)
-{
-    auto identifierForFamily = [](const auto& family) {
-        if (family == cursiveFamily)
-            return CSSValueCursive;
-        if (family == fantasyFamily)
-            return CSSValueFantasy;
-        if (family == monospaceFamily)
-            return CSSValueMonospace;
-        if (family == mathFamily)
-            return CSSValueMath;
-        if (family == pictographFamily)
-            return CSSValueWebkitPictograph;
-        if (family == sansSerifFamily)
-            return CSSValueSansSerif;
-        if (family == serifFamily)
-            return CSSValueSerif;
-        if (family == systemUiFamily)
-            return CSSValueSystemUi;
-        return CSSValueInvalid;
-    };
-
-    if (auto familyIdentifier = identifierForFamily(family))
-        return CSSPrimitiveValue::create(familyIdentifier);
-    return state.pool.createFontFamilyValue(family);
 }
 
 } // namespace Style

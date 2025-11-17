@@ -51,6 +51,7 @@
 #import "SampleMap.h"
 #import "SecurityOrigin.h"
 #import "TrackBuffer.h"
+#import "VP9UtilitiesCocoa.h"
 #import "VideoFrameCV.h"
 #import "VideoTrackPrivateWebM.h"
 #import "WebMResourceClient.h"
@@ -446,7 +447,11 @@ bool MediaPlayerPrivateWebM::performTaskAtTime(Function<void(const MediaTime&)>&
 {
     ALWAYS_LOG(LOGIDENTIFIER, time);
 
-    m_renderer->performTaskAtTime(time, WTFMove(task));
+    m_renderer->performTaskAtTime(time, [task = WTFMove(task)](const MediaTime& time) mutable {
+        ensureOnMainThread([time, task = WTFMove(task)] {
+            task(time);
+        });
+    });
     return true;
 }
 
@@ -833,8 +838,12 @@ void MediaPlayerPrivateWebM::setReadyState(MediaPlayer::ReadyState state)
     if (state == m_readyState)
         return;
 
-    ALWAYS_LOG(LOGIDENTIFIER, state);
     m_readyState = state;
+    bool waitingOnAvailableFrame = m_readyState >= MediaPlayer::ReadyState::HaveCurrentData && hasVideo() && !m_hasAvailableVideoFrame;
+    ALWAYS_LOG(LOGIDENTIFIER, state, " waitingOnAvailableVideoFrame: ", waitingOnAvailableFrame);
+
+    if (waitingOnAvailableFrame)
+        return;
 
     if (RefPtr player = m_player.get())
         player->readyStateChanged();
@@ -1181,7 +1190,7 @@ void MediaPlayerPrivateWebM::didParseInitializationData(InitializationSegment&& 
             // FIXME: Use downcast instead.
             auto track = unsafeRefPtrDowncast<VideoTrackPrivateWebM>(videoTrackInfo.track);
 #if PLATFORM(IOS_FAMILY)
-            if (shouldCheckHardwareSupport() && (videoTrackInfo.description->codec() == "vp8"_s || (videoTrackInfo.description->codec() == "vp9"_s && !(canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported(kCMVideoCodecType_VP9))))) {
+            if (shouldCheckHardwareSupport() && (videoTrackInfo.description->codec() == "vp8"_s || (videoTrackInfo.description->codec() == "vp9"_s && !vp9HardwareDecoderAvailable()))) {
                 m_errored = true;
                 return;
             }

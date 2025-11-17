@@ -232,6 +232,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/style/values/non-standard"
     "${WEBCORE_DIR}/style/values/overflow"
     "${WEBCORE_DIR}/style/values/page"
+    "${WEBCORE_DIR}/style/values/pointerevents"
     "${WEBCORE_DIR}/style/values/position"
     "${WEBCORE_DIR}/style/values/primitives"
     "${WEBCORE_DIR}/style/values/rhythm"
@@ -728,7 +729,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/streams/ReadableStreamDefaultController.idl
     Modules/streams/ReadableStreamDefaultReader.idl
     Modules/streams/ReadableStreamReadResult.idl
-    Modules/streams/ReadableStreamSink.idl
     Modules/streams/ReadableStreamSource.idl
     Modules/streams/ReadableStreamType.idl
     Modules/streams/StreamPipeOptions.idl

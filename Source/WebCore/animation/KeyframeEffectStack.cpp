@@ -110,13 +110,6 @@ bool KeyframeEffectStack::requiresPseudoElement() const
     });
 }
 
-bool KeyframeEffectStack::hasEffectWithImplicitKeyframes() const
-{
-    return hasMatchingEffect([] (const KeyframeEffect& effect) {
-        return effect.hasImplicitKeyframes();
-    });
-}
-
 bool KeyframeEffectStack::isCurrentlyAffectingProperty(CSSPropertyID property) const
 {
     return hasMatchingEffect([property] (const KeyframeEffect& effect) {
@@ -124,23 +117,17 @@ bool KeyframeEffectStack::isCurrentlyAffectingProperty(CSSPropertyID property) c
     });
 }
 
-Vector<WeakPtr<KeyframeEffect>> KeyframeEffectStack::sortedEffects()
+const Vector<WeakPtr<KeyframeEffect>>& KeyframeEffectStack::sortedEffects()
 {
-    ensureEffectsAreSorted();
+    if (!m_isSorted && m_effects.size() > 1) {
+        std::ranges::stable_sort(m_effects, compareAnimationsByCompositeOrder, [](auto& weakEffect) -> WebAnimation& {
+            RELEASE_ASSERT(weakEffect->animation());
+            return *weakEffect->animation();
+        });
+        m_isSorted = true;
+    }
+
     return m_effects;
-}
-
-void KeyframeEffectStack::ensureEffectsAreSorted()
-{
-    if (m_isSorted || m_effects.size() < 2)
-        return;
-
-    std::ranges::stable_sort(m_effects, compareAnimationsByCompositeOrder, [](auto& weakEffect) -> WebAnimation& {
-        RELEASE_ASSERT(weakEffect->animation());
-        return *weakEffect->animation();
-    });
-
-    m_isSorted = true;
 }
 
 void KeyframeEffectStack::setCSSAnimationList(std::optional<Style::Animations>&& cssAnimationList)
@@ -165,7 +152,8 @@ OptionSet<AnimationImpact> KeyframeEffectStack::applyKeyframeEffects(RenderStyle
 
     auto unanimatedStyle = RenderStyle::clone(targetStyle);
 
-    for (const auto& effect : sortedEffects()) {
+    // We iterate over a snapshot of the effect list as it may mutate during application.
+    for (const auto& effect : copyToVector(sortedEffects())) {
         auto keyframeRecomputationReason = effect->recomputeKeyframesIfNecessary(previousLastStyleChangeEventStyle, unanimatedStyle, resolutionContext);
 
         Ref animation = *effect->animation();
@@ -319,11 +307,9 @@ bool KeyframeEffectStack::hasAcceleratedEffects(const Settings& settings) const
 #else
     UNUSED_PARAM(settings);
 #endif
-    for (auto& effect : m_effects) {
-        if (effect->isRunningAccelerated())
-            return true;
-    }
-    return false;
+    return hasMatchingEffect([](const auto& effect) {
+        return effect.isRunningAccelerated();
+    });
 }
 
 } // namespace WebCore

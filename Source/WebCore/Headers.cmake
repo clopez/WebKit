@@ -738,8 +738,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/storage/StorageProvider.h
     Modules/storage/WorkerStorageConnection.h
 
-    Modules/streams/ReadableStreamSink.h
     Modules/streams/ReadableStreamSource.h
+    Modules/streams/ReadableStreamToSharedBufferSink.h
     Modules/streams/WritableStream.h
     Modules/streams/WritableStreamSink.h
 
@@ -3289,6 +3289,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/borders/StyleShadow.h
 
     style/values/box/StyleMargin.h
+    style/values/box/StyleMarginTrim.h
     style/values/box/StylePadding.h
 
     style/values/break/StyleOrphans.h
@@ -3304,6 +3305,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/color/StyleOpacity.h
     style/values/color/StyleResolvedColor.h
 
+    style/values/contain/StyleContain.h
     style/values/contain/StyleContainerName.h
 
     style/values/content/StyleContent.h
@@ -3330,6 +3332,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/flexbox/StyleWebKitBoxFlexGroup.h
     style/values/flexbox/StyleWebKitBoxOrdinalGroup.h
 
+    style/values/fonts/StyleFontFamily.h
+    style/values/fonts/StyleFontFamilyName.h
     style/values/fonts/StyleFontFeatureSettings.h
     style/values/fonts/StyleFontPalette.h
     style/values/fonts/StyleFontSizeAdjust.h
@@ -3343,6 +3347,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/fonts/StyleFontWidth.h
 
     style/values/grid/StyleGridAutoFlow.h
+    style/values/grid/StyleItemTolerance.h
     style/values/grid/StyleGridNamedAreaMap.h
     style/values/grid/StyleGridNamedLinesMap.h
     style/values/grid/StyleGridOrderedNamedLinesMap.h
@@ -3413,6 +3418,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/overflow/StyleScrollbarGutter.h
 
     style/values/page/StylePageSize.h
+
+    style/values/pointerevents/StyleTouchAction.h
 
     style/values/position/StyleInset.h
 
@@ -3503,6 +3510,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/text/StyleTextAutospace.h
     style/values/text/StyleTextIndent.h
     style/values/text/StyleTextSpacingTrim.h
+    style/values/text/StyleTextTransform.h
     style/values/text/StyleWordSpacing.h
 
     style/values/text-decoration/StyleTextDecorationLine.h

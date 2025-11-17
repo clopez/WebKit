@@ -259,6 +259,19 @@ AllowMultiElementImplicitSubmission:
     WebCore:
       default: false
 
+AllowMultipleCommitLayerTreePending:
+  type: bool
+  status: internal
+  humanReadableName: "Allow requesting CommitLayerTree before the previous has completed"
+  humanReadableDescription: "Allow requesting CommitLayerTree before the previous has completed"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: defaultAllowMultipleCommitLayerTreePending()
+    WebCore:
+      default: false
+
 AllowPrivacySensitiveOperationsInNonPersistentDataStores:
   type: bool
   status: embedder
@@ -3187,18 +3200,18 @@ FullScreenEnabled:
 
 FullScreenKeyboardLock:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "Fullscreen API based Keyboard Lock"
   humanReadableDescription: "Fullscreen API based Keyboard Lock"
   condition: ENABLE(FULLSCREEN_API)
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 FullscreenRequirementForScreenOrientationLockingEnabled:
   type: bool
@@ -3445,6 +3458,20 @@ GridFormattingContextIntegrationEnabled:
       default: true
     WebCore:
       default: true
+
+GridLanesEnabled:
+  type: bool
+  status: preview
+  category: css
+  humanReadableName: "CSS display: grid-lanes"
+  humanReadableDescription: "Enable CSS display: grid-lanes"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 HTMLEnhancedSelectParsingEnabled:
    type: bool
@@ -4263,20 +4290,6 @@ IsThirdPartyCookieBlockingDisabled:
   category: privacy
   humanReadableName: "Disable Full 3rd-Party Cookie Blocking (ITP)"
   humanReadableDescription: "Disable full third-party cookie blocking when Intelligent Tracking Prevention is enabled"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-ItemPackCollapseDisplayGridEnabled:
-  type: bool
-  status: preview
-  category: css
-  humanReadableName: "CSS Item Pack Collapse (display: grid)"
-  humanReadableDescription: "Enable CSS Item Pack Collapse for CSS Grid"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -6405,6 +6418,20 @@ ReadableByteStreamAPIEnabled:
     WebKit:
       default: false
 
+ReadableByteStreamFetchSourceEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "ReadableByteStream for fetch API"
+  humanReadableDescription: "Enable Readable Byte Streams for fetch API"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
 RemoteMediaSessionManagerEnabled:
   type: bool
   status: unstable
@@ -8370,6 +8397,20 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
       default: false
   sharedPreferenceForWebProcess: true
 
+UseAppKitGestures:
+  type: bool
+  status: internal
+  humanReadableName: "AppKit Gestures"
+  humanReadableDescription: "Use AppKit Gestures"
+  condition: PLATFORM(MAC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 UseAsyncUIKitInteractions:
   type: bool
   status: internal
@@ -9347,7 +9388,7 @@ WebLocksAPIEnabled:
 
 WebMUseRemoteAudioVideoRenderer:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "WebM player uses GPU renderer"
   humanReadableDescription: "WebM player uses GPU renderer"
@@ -9356,9 +9397,9 @@ WebMUseRemoteAudioVideoRenderer:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 WebPageSpatialBackdropEnabled:

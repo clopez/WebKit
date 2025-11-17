@@ -318,7 +318,7 @@ InlineLayoutResult InlineFormattingContext::lineLayout(AbstractLineBuilder& line
         auto lineBox = LineBoxBuilder { *this, lineLayoutResult }.build(lineIndex);
         auto lineLogicalRect = createDisplayContentForInlineContent(lineBox, lineLayoutResult, constraints, layoutResult.displayContent, numberOfContentfulLines);
         updateBoxGeometryForPlacedFloats(lineLayoutResult.floatContent.placedFloats);
-        updateInlineLayoutStateWithLineLayoutResult(lineLayoutResult, lineLogicalRect, floatingContext);
+        updateLayoutStateWithLineLayoutResult(lineLayoutResult, lineLogicalRect, floatingContext);
 
         auto lineContentEnd = lineLayoutResult.inlineItemRange.end;
         leadingInlineItemPosition = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineContentEnd, previousLineEnd, !lineLayoutResult.floatContent.hasIntrusiveFloat.isEmpty() || !lineLayoutResult.floatContent.placedFloats.isEmpty(), needsLayoutRange.end);
@@ -342,7 +342,7 @@ InlineLayoutResult InlineFormattingContext::lineLayout(AbstractLineBuilder& line
 
         previousLine = PreviousLine { lineIndex, lineLayoutResult.contentGeometry.trailingOverflowingContentWidth, lineLayoutResult.endsWithLineBreak(), lineLayoutResult.directionality.inlineBaseDirection, WTFMove(lineLayoutResult.floatContent.suspendedFloats) };
         previousLineEnd = lineContentEnd;
-        isFirstFormattedLineCandidate &= !lineLayoutResult.hasInlineContent();
+        isFirstFormattedLineCandidate &= !lineLayoutResult.hasInflowContent();
         lineLogicalTop = formattingUtils().logicalTopForNextLine(lineLayoutResult, lineLogicalRect, floatingContext);
     }
     InlineDisplayLineBuilder::addLegacyLineClampTrailingLinkBoxIfApplicable(*this, layoutState(), layoutResult.displayContent);
@@ -379,7 +379,7 @@ void InlineFormattingContext::layoutFloatContentOnly(const ConstraintsForInlineC
     }
 }
 
-void InlineFormattingContext::updateInlineLayoutStateWithLineLayoutResult(const LineLayoutResult& lineLayoutResult, const InlineRect& lineLogicalRect, const FloatingContext& floatingContext)
+void InlineFormattingContext::updateLayoutStateWithLineLayoutResult(const LineLayoutResult& lineLayoutResult, const InlineRect& lineLogicalRect, const FloatingContext& floatingContext)
 {
     auto& layoutState = this->layoutState();
     if (auto firstLineGap = lineLayoutResult.lineGeometry.initialLetterClearGap) {
@@ -392,6 +392,13 @@ void InlineFormattingContext::updateInlineLayoutStateWithLineLayoutResult(const 
 
     lineLayoutResult.endsWithHyphen() ? layoutState.incrementSuccessiveHyphenatedLineCount() : layoutState.resetSuccessiveHyphenatedLineCount();
     layoutState.setFirstLineStartTrimForInitialLetter(lineLayoutResult.firstLineStartTrim);
+
+    auto updateBlockBeforeMargin = [&] {
+        auto& marginState = layoutState.parentBlockLayoutState().marginState();
+        if (marginState.atBeforeSideOfBlock && lineLayoutResult.hasInflowContent())
+            marginState.resetBeforeSideOfBlock();
+    };
+    updateBlockBeforeMargin();
 }
 
 void InlineFormattingContext::updateBoxGeometryForPlacedFloats(const LineLayoutResult::PlacedFloatList& placedFloats)
@@ -423,9 +430,8 @@ InlineRect InlineFormattingContext::createDisplayContentForInlineContent(const L
     displayLine.setBoxCount(boxes.size());
 
     // Non-contentful lines are produced by certain trailing content like <div>contentful line<br><span></span></div> where <span></span> creates a display line with nothing but the root inline box.
-    auto isCurrentLineContentful = boxes.size() > 1;
-    numberOfPreviousLContentfulLines += (isCurrentLineContentful ? 1 : 0);
-    auto truncationPolicy = InlineFormattingUtils::lineEndingTruncationPolicy(root().style(), numberOfPreviousLContentfulLines, numberOfVisibleLinesAllowed, isCurrentLineContentful);
+    numberOfPreviousLContentfulLines += (lineBox.hasContent() ? 1 : 0);
+    auto truncationPolicy = InlineFormattingUtils::lineEndingTruncationPolicy(root().style(), numberOfPreviousLContentfulLines, numberOfVisibleLinesAllowed, lineBox.hasContent());
     InlineDisplayLineBuilder::applyEllipsisIfNeeded(truncationPolicy, displayLine, boxes, isLegacyLineClamp);
     auto lineHasLegacyLineClamp = isLegacyLineClamp && displayLine.hasEllipsis() && truncationPolicy == LineEndingTruncationPolicy::WhenContentOverflowsInBlockDirection;
     if (lineHasLegacyLineClamp)

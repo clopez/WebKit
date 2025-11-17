@@ -62,15 +62,29 @@ LineBox LineBoxBuilder::build(size_t lineIndex)
     };
     auto lineBox = LineBox { rootBox(), lineLayoutResult.contentGeometry.logicalLeft, contentLogicalWidth(), lineIndex, isFirstFormattedLine(), lineLayoutResult.nonSpanningInlineLevelBoxCount };
     auto& runs = lineLayoutResult.runs;
-    if (!runs.isEmpty() && runs[0].isBlock()) {
+    if (lineLayoutResult.hasBlockContent()) {
         // Since we don't need to position and align block content inside the line, we don't need to create any boxes for this block content.
-        auto lineBoxLogicalHeight = formattingContext().geometryForBox(runs[0].layoutBox()).marginBoxHeight();
-        lineBox.setLogicalRect({ lineLayoutResult.lineGeometry.logicalTopLeft, lineLayoutResult.lineGeometry.logicalWidth, lineBoxLogicalHeight });
+        auto marginBoxHeight = formattingContext().geometryForBox(runs[0].layoutBox()).marginBoxHeight();
+        lineBox.setLogicalRect({ lineLayoutResult.lineGeometry.logicalTopLeft, lineLayoutResult.lineGeometry.logicalWidth, marginBoxHeight });
         setVerticalPropertiesForInlineLevelBox(lineBox, lineBox.rootInlineBox());
+        lineBox.setHasContent(!!marginBoxHeight);
     } else {
         constructInlineLevelBoxes(lineBox);
-        adjustIdeographicBaselineIfApplicable(lineBox);
-        adjustInlineBoxHeightsForLineBoxContainIfApplicable(lineBox);
+        if (lineBox.hasContent()) {
+            adjustIdeographicBaselineIfApplicable(lineBox);
+            adjustInlineBoxHeightsForLineBoxContainIfApplicable(lineBox);
+        } else {
+            // Collapse all inline boxes (they are supposed to be empty as well).
+            for (auto& inlineBox : lineBox.nonRootInlineLevelBoxes()) {
+                if (!inlineBox.isInlineBox()) {
+                    ASSERT(inlineBox.layoutBox().isWordBreakOpportunity());
+                    ASSERT(!inlineBox.logicalHeight());
+                    continue;
+                }
+                ASSERT(!inlineBox.hasContent());
+                inlineBox.setLogicalHeight({ });
+            }
+        }
         if (m_lineHasNonLineSpanningRubyContent)
             RubyFormattingContext::applyAnnotationContributionToLayoutBounds(lineBox, formattingContext());
         computeLineBoxGeometry(lineBox);

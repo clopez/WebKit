@@ -28,13 +28,20 @@
 
 #include <WebCore/HTMLNames.h>
 #include <WebCore/TextExtractionTypes.h>
+#include <wtf/EnumSet.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+enum class TextExtractionVersionBehavior : uint8_t {
+    TagNameForTextFormControls,
+};
+using TextExtractionVersionBehaviors = EnumSet<TextExtractionVersionBehavior>;
+static constexpr auto currentTextExtractionOutputVersion = 2;
 
 static String commaSeparatedString(const Vector<String>& parts)
 {
@@ -76,11 +83,14 @@ public:
         : m_options(WTFMove(options))
         , m_completion(WTFMove(completion))
     {
+        if (version() >= 2)
+            m_versionBehaviors.add(TextExtractionVersionBehavior::TagNameForTextFormControls);
     }
 
     ~TextExtractionAggregator()
     {
         addLineForNativeMenuItemsIfNeeded();
+        addLineForVersionNumberIfNeeded();
 
         m_completion(makeStringByJoining(WTFMove(m_lines), "\n"_s));
     }
@@ -125,6 +135,11 @@ public:
         auto index = m_nextLineIndex++;
         m_lines.resize(m_nextLineIndex);
         return index;
+    }
+
+    bool useTagNameForTextFormControls() const
+    {
+        return m_versionBehaviors.contains(TextExtractionVersionBehavior::TagNameForTextFormControls);
     }
 
     bool includeRects() const
@@ -193,10 +208,22 @@ private:
         addResult({ advanceToNextLine(), 0 }, { "nativePopupMenu"_s, WTFMove(itemsDescription) });
     }
 
+    void addLineForVersionNumberIfNeeded()
+    {
+        if (!onlyIncludeText())
+            addResult({ advanceToNextLine(), 0 }, { makeString("version="_s, version()) });
+    }
+
+    uint32_t version() const
+    {
+        return m_options.version.value_or(currentTextExtractionOutputVersion);
+    }
+
     const TextExtractionOptions m_options;
     Vector<String> m_lines;
     unsigned m_nextLineIndex { 0 };
     CompletionHandler<void(String&&)> m_completion;
+    TextExtractionVersionBehaviors m_versionBehaviors;
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TextExtractionAggregator);
@@ -269,12 +296,8 @@ static void addPartsForText(const TextExtraction::TextItemData& textItem, Vector
                 return;
             }
 
-            auto isNewline = [](UChar character) {
-                return character == '\n' || character == '\r';
-            };
-
             auto startIndex = filteredText.find([&](auto character) {
-                return !isNewline(character);
+                return !isASCIIWhitespace(character);
             });
 
             if (startIndex == notFound) {
@@ -283,7 +306,7 @@ static void addPartsForText(const TextExtraction::TextItemData& textItem, Vector
             } else {
                 size_t endIndex = filteredText.length() - 1;
                 for (size_t i = filteredText.length(); i > 0; --i) {
-                    if (!isNewline(filteredText.characterAt(i - 1))) {
+                    if (!isASCIIWhitespace(filteredText.characterAt(i - 1))) {
                         endIndex = i - 1;
                         break;
                     }
@@ -363,6 +386,12 @@ static void addPartsForItem(const TextExtraction::Item& item, std::optional<Node
             case TextExtraction::ContainerType::Canvas:
                 containerString = "canvas"_s;
                 break;
+            case TextExtraction::ContainerType::Subscript:
+                containerString = "subscript"_s;
+                break;
+            case TextExtraction::ContainerType::Superscript:
+                containerString = "superscript"_s;
+                break;
             case TextExtraction::ContainerType::Generic:
                 break;
             }
@@ -389,7 +418,7 @@ static void addPartsForItem(const TextExtraction::Item& item, std::optional<Node
             aggregator.addResult(line, WTFMove(parts));
         },
         [&](const TextExtraction::TextFormControlData& controlData) {
-            parts.append(item.nodeName.convertToASCIILowercase());
+            parts.append(aggregator.useTagNameForTextFormControls() ? item.nodeName.convertToASCIILowercase() : String { "textFormControl"_s });
             parts.appendVector(partsForItem(item, aggregator));
 
             if (!controlData.controlType.isEmpty() && !equalIgnoringASCIICase(controlData.controlType, item.nodeName))

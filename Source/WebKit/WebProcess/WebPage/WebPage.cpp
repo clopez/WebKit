@@ -702,7 +702,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if PLATFORM(IOS_FAMILY)
     , m_updateLayoutViewportHeightExpansionTimer(*this, &WebPage::updateLayoutViewportHeightExpansionTimerFired, updateLayoutViewportHeightExpansionTimerInterval)
 #endif
-    , m_overrideReferrerForAllRequests(parameters.overrideReferrerForAllRequests)
 #if ENABLE(IPC_TESTING_API)
     , m_visitedLinkTableID(parameters.visitedLinkTableID)
 #endif
@@ -1049,7 +1048,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     page->setUserInterfaceLayoutDirection(m_userInterfaceLayoutDirection);
 #if PLATFORM(IOS_FAMILY)
     // Set hardware keyboard attached status
-    page->setHardwareKeyboardAttached(m_keyboardIsAttached);
+    page->didUpdateHardwareKeyboardAttachment(m_keyboardIsAttached);
+
     page->setTextAutosizingWidth(parameters.textAutosizingWidth);
     setOverrideViewportArguments(parameters.overrideViewportArguments);
 #endif

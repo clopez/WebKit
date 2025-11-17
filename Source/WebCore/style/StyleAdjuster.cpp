@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -137,7 +137,7 @@ static DisplayType equivalentBlockDisplay(const RenderStyle& style)
     case DisplayType::Box:
     case DisplayType::Flex:
     case DisplayType::Grid:
-    case DisplayType::Masonry:
+    case DisplayType::GridLanes:
     case DisplayType::FlowRoot:
     case DisplayType::ListItem:
     case DisplayType::RubyBlock:
@@ -150,8 +150,8 @@ static DisplayType equivalentBlockDisplay(const RenderStyle& style)
         return DisplayType::Flex;
     case DisplayType::InlineGrid:
         return DisplayType::Grid;
-    case DisplayType::InlineMasonry:
-        return DisplayType::Masonry;
+    case DisplayType::InlineGridLanes:
+        return DisplayType::GridLanes;
     case DisplayType::Ruby:
         return DisplayType::RubyBlock;
 
@@ -194,8 +194,8 @@ static DisplayType equivalentInlineDisplay(const RenderStyle& style)
         return DisplayType::InlineFlex;
     case DisplayType::Grid:
         return DisplayType::InlineGrid;
-    case DisplayType::Masonry:
-        return DisplayType::InlineMasonry;
+    case DisplayType::GridLanes:
+        return DisplayType::InlineGridLanes;
     case DisplayType::RubyBlock:
         return DisplayType::Ruby;
 
@@ -205,7 +205,7 @@ static DisplayType equivalentInlineDisplay(const RenderStyle& style)
     case DisplayType::InlineBox:
     case DisplayType::InlineFlex:
     case DisplayType::InlineGrid:
-    case DisplayType::InlineMasonry:
+    case DisplayType::InlineGridLanes:
     case DisplayType::Ruby:
     case DisplayType::RubyBase:
     case DisplayType::RubyAnnotation:
@@ -264,7 +264,7 @@ static bool shouldInheritTextDecorationsInEffect(const RenderStyle& style, const
     case DisplayType::InlineTable:
     case DisplayType::InlineBlock:
     case DisplayType::InlineGrid:
-    case DisplayType::InlineMasonry:
+    case DisplayType::InlineGridLanes:
     case DisplayType::InlineFlex:
     case DisplayType::InlineBox:
         return false;
@@ -280,7 +280,7 @@ static bool isScrollableOverflow(Overflow overflow)
     return overflow == Overflow::Scroll || overflow == Overflow::Auto;
 }
 
-static OptionSet<TouchAction> computeUsedTouchActions(const RenderStyle& style, OptionSet<TouchAction> usedTouchActions)
+static Style::TouchAction computeUsedTouchAction(const RenderStyle& style, Style::TouchAction usedTouchAction)
 {
     // https://w3c.github.io/pointerevents/#determining-supported-touch-behavior
     // "A touch behavior is supported if it conforms to the touch-action property of each element between
@@ -289,24 +289,26 @@ static OptionSet<TouchAction> computeUsedTouchActions(const RenderStyle& style, 
 
     bool hasDefaultTouchBehavior = isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY());
     if (hasDefaultTouchBehavior)
-        usedTouchActions = RenderStyle::initialTouchActions();
+        usedTouchAction = RenderStyle::initialTouchAction();
 
-    auto touchActions = style.touchActions();
-    if (touchActions == RenderStyle::initialTouchActions())
-        return usedTouchActions;
+    auto touchAction = style.touchAction();
+    if (touchAction == RenderStyle::initialTouchAction())
+        return usedTouchAction;
 
-    if (usedTouchActions.contains(TouchAction::None))
-        return { TouchAction::None };
+    if (usedTouchAction.isNone() || touchAction.isNone())
+        return CSS::Keyword::None { };
 
-    if (usedTouchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation }))
-        return touchActions;
+    auto usedTouchActionEnumSet = usedTouchAction.tryEnumSet();
+    if (!usedTouchActionEnumSet)
+        return touchAction;
 
-    if (touchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation }))
-        return usedTouchActions;
+    auto touchActionEnumSet = touchAction.tryEnumSet();
+    if (!touchActionEnumSet)
+        return usedTouchAction;
 
-    auto sharedTouchActions = usedTouchActions & touchActions;
+    auto sharedTouchActions = *usedTouchActionEnumSet & *touchActionEnumSet;
     if (sharedTouchActions.isEmpty())
-        return { TouchAction::None };
+        return CSS::Keyword::None { };
 
     return sharedTouchActions;
 }
@@ -371,6 +373,10 @@ OptionSet<EventListenerRegionType> Adjuster::computeEventListenerRegionTypes(con
             findListeners(eventNames().mouseupEvent, EventListenerRegionType::MouseUp, EventListenerRegionType::NonPassiveMouseUp);
             findListeners(eventNames().mousemoveEvent, EventListenerRegionType::MouseMove, EventListenerRegionType::NonPassiveMouseMove);
         }
+
+        findListeners(eventNames().gesturechangeEvent, EventListenerRegionType::GestureChange, EventListenerRegionType::NonPassiveGestureChange);
+        findListeners(eventNames().gestureendEvent, EventListenerRegionType::GestureEnd, EventListenerRegionType::NonPassiveGestureEnd);
+        findListeners(eventNames().gesturestartEvent, EventListenerRegionType::GestureStart, EventListenerRegionType::NonPassiveGestureStart);
     }
 #endif
 
@@ -787,7 +793,7 @@ void Adjuster::adjust(RenderStyle& style) const
         style.setUsedAppleVisualEffectForSubtree(m_parentStyle.usedAppleVisualEffectForSubtree());
 #endif
 
-    style.setUsedTouchActions(computeUsedTouchActions(style, m_parentStyle.usedTouchActions()));
+    style.setUsedTouchAction(computeUsedTouchAction(style, m_parentStyle.usedTouchAction()));
 
     // Counterpart in Element::addToTopLayer/removeFromTopLayer!
     auto hasInertAttribute = [] (const Element* element) -> bool {
@@ -977,7 +983,7 @@ void Adjuster::adjustThemeStyle(RenderStyle& style, const RenderStyle& parentSty
 
     RenderTheme::singleton().adjustStyle(style, parentStyle, m_element.get());
 
-    if (style.containsSize()) {
+    if (style.usedContain().contains(Style::ContainValue::Size)) {
         if (!style.containIntrinsicWidth().isNone()) {
             if (isOldWidthAuto)
                 style.setWidth(CSS::Keyword::Auto { });
@@ -998,30 +1004,52 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
     if (!m_element)
         return;
 
-    if (is<HTMLBodyElement>(*m_element) && m_document->quirks().needsBodyScrollbarWidthNoneDisabledQuirk()) {
+    const auto& documentQuirks = m_document->quirks();
+
+    if (!documentQuirks.hasRelevantQuirks())
+        return;
+
+    if (documentQuirks.needsBodyScrollbarWidthNoneDisabledQuirk() && is<HTMLBodyElement>(*m_element)) {
         if (style.scrollbarWidth().isNone())
             style.setScrollbarWidth(CSS::Keyword::Auto { });
     }
 
-    if (m_document->quirks().needsGMailOverflowScrollQuirk()) {
-        // This turns sidebar scrollable without mouse move event.
-        static MainThreadNeverDestroyed<const AtomString> roleValue("navigation"_s);
-        if (style.overflowY() == Overflow::Hidden && m_element->attributeWithoutSynchronization(roleAttr) == roleValue)
-            style.setOverflowY(Overflow::Auto);
-    }
-    if (m_document->quirks().needsYouTubeOverflowScrollQuirk()) {
+    if (documentQuirks.needsYouTubeOverflowScrollQuirk()) {
         // This turns sidebar scrollable without hover.
         static MainThreadNeverDestroyed<const AtomString> idValue("guide-inner-content"_s);
         if (style.overflowY() == Overflow::Hidden && m_element->idForStyleResolution() == idValue)
             style.setOverflowY(Overflow::Auto);
     }
-    if (m_document->quirks().needsPrimeVideoUserSelectNoneQuirk()) {
+    if (documentQuirks.needsGMailOverflowScrollQuirk()) {
+        // This turns sidebar scrollable without mouse move event.
+        static MainThreadNeverDestroyed<const AtomString> roleValue("navigation"_s);
+        if (style.overflowY() == Overflow::Hidden && m_element->attributeWithoutSynchronization(roleAttr) == roleValue)
+            style.setOverflowY(Overflow::Auto);
+    }
+
+#if PLATFORM(IOS_FAMILY)
+    if (documentQuirks.needsGoogleMapsScrollingQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
+        if (is<HTMLBodyElement>(*m_element) && m_element->hasClassName(className))
+            style.setUsedTouchAction(CSS::Keyword::Auto { });
+    }
+    if (documentQuirks.needsFacebookStoriesCreationFormQuirk(*m_element, style))
+        style.setEffectiveDisplay(DisplayType::Flex);
+#endif // PLATFORM(IOS_FAMILY)
+
+    if (documentQuirks.needsFacebookRemoveNotSupportedQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> className("xnw9j1v"_s);
+        if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className))
+            style.setEffectiveDisplay(DisplayType::None);
+    }
+
+    if (documentQuirks.needsPrimeVideoUserSelectNoneQuirk()) {
         static MainThreadNeverDestroyed<const AtomString> className("webPlayerSDKUiContainer"_s);
         if (m_element->hasClassName(className))
             style.setUserSelect(UserSelect::None);
     }
 
-    if (auto tikTokOverflowingContentQuery = m_document->quirks().needsTikTokOverflowingContentQuirk(*m_element, m_parentStyle)) {
+    if (auto tikTokOverflowingContentQuery = documentQuirks.needsTikTokOverflowingContentQuirk(*m_element, m_parentStyle)) {
         if (*tikTokOverflowingContentQuery == Quirks::TikTokOverflowingContentQuirkType::CommentsSectionQuirk)  {
             style.setFlexShrink({ 1 });
             style.setMinWidth(0_css_px);
@@ -1031,28 +1059,8 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         }
     }
 
-#if PLATFORM(MAC)
-    if (m_document->quirks().needsZomatoEmailLoginLabelQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> class1("eNjKGZ"_s);
-        if (is<HTMLLabelElement>(*m_element)
-            && m_element->hasClassName(class1)
-            && style.backgroundColor() == Color { WebCore::Color::white })
-            style.setBackgroundColor({ WebCore::Color::transparentBlack });
-    }
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    if (m_document->quirks().needsGoogleMapsScrollingQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
-        if (is<HTMLBodyElement>(*m_element) && m_element->hasClassName(className))
-            style.setUsedTouchActions({ TouchAction::Auto });
-    }
-    if (m_document->quirks().needsFacebookStoriesCreationFormQuirk(*m_element, style))
-        style.setEffectiveDisplay(DisplayType::Flex);
-#endif // PLATFORM(IOS_FAMILY)
-
 #if ENABLE(VIDEO)
-    if (m_document->quirks().needsFullscreenDisplayNoneQuirk()) {
+    if (documentQuirks.needsFullscreenDisplayNoneQuirk()) {
         if (is<HTMLDivElement>(*m_element) && style.display() == DisplayType::None) {
             static MainThreadNeverDestroyed<const AtomString> instreamNativeVideoDivClass("instream-native-video--mobile"_s);
             static MainThreadNeverDestroyed<const AtomString> videoElementID("vjs_video_3_html5_api"_s);
@@ -1065,7 +1073,7 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         }
     }
 #if ENABLE(FULLSCREEN_API)
-    if (RefPtr documentFullscreen = m_document->fullscreenIfExists(); documentFullscreen && m_document->quirks().needsFullscreenObjectFitQuirk()) {
+    if (RefPtr documentFullscreen = m_document->fullscreenIfExists(); documentFullscreen && documentQuirks.needsFullscreenObjectFitQuirk()) {
         static MainThreadNeverDestroyed<const AtomString> playerClassName("top-player-video-element"_s);
         bool isFullscreen = documentFullscreen->isFullscreen();
         if (is<HTMLVideoElement>(*m_element) && isFullscreen && m_element->hasClassName(playerClassName) && style.objectFit() == ObjectFit::Fill)
@@ -1074,7 +1082,7 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
 #endif
 #endif
 
-    if (m_document->quirks().needsHotelsAnimationQuirk(*m_element, style)) {
+    if (documentQuirks.needsHotelsAnimationQuirk(*m_element, style)) {
         // We need to reset animation styles that are mistakenly overridden:
         //     animation-delay: 0s, 0.06s;
         //     animation-duration: 0.18s, 0.06s;
@@ -1093,15 +1101,19 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         animations.append(WTFMove(menuFadeInAnimation));
     }
 
-    if (m_document->quirks().needsFacebookRemoveNotSupportedQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("xnw9j1v"_s);
-        if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className))
-            style.setEffectiveDisplay(DisplayType::None);
-    }
-
 #if PLATFORM(IOS_FAMILY)
-    if (m_document->quirks().needsClaudeSidebarViewportUnitQuirk(*m_element, style))
+    if (documentQuirks.needsClaudeSidebarViewportUnitQuirk(*m_element, style))
         style.setHeight(Style::PreferredSize::Fixed { m_document->renderView()->sizeForCSSDynamicViewportUnits().height() });
+#endif
+
+#if PLATFORM(MAC)
+    if (documentQuirks.needsZomatoEmailLoginLabelQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> class1("eNjKGZ"_s);
+        if (is<HTMLLabelElement>(*m_element)
+            && m_element->hasClassName(class1)
+            && style.backgroundColor() == Color { WebCore::Color::white })
+            style.setBackgroundColor({ WebCore::Color::transparentBlack });
+    }
 #endif
 }
 
@@ -1118,9 +1130,9 @@ void Adjuster::propagateToDocumentElementAndInitialContainingBlock(Update& updat
     // "Additionally, when any containments are active on either the HTML html or body elements, propagation of
     // properties from the body element to the initial containing block, the viewport, or the canvas background, is disabled."
     auto shouldPropagateFromBody = [&] {
-        if (bodyStyle && !bodyStyle->usedContain().isEmpty())
+        if (bodyStyle && !bodyStyle->usedContain().isNone())
             return false;
-        return documentElementStyle->usedContain().isEmpty();
+        return documentElementStyle->usedContain().isNone();
     }();
 
     auto writingMode = [&] {

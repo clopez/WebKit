@@ -3922,10 +3922,6 @@ void SpeculativeJIT::compile(Node* node)
         compileIsEmptyStorage(node);
         break;
 
-    case MapStorage:
-        compileMapStorage(node);
-        break;
-
     case MapStorageOrSentinel:
         compileMapStorageOrSentinel(node);
         break;
@@ -4484,6 +4480,7 @@ void SpeculativeJIT::compile(Node* node)
     case InByValMegamorphic:
     case MultiGetByVal:
     case MultiPutByVal:
+    case MapStorage:
         DFG_CRASH(m_graph, node, "unexpected node in DFG backend");
         break;
     }
@@ -5469,6 +5466,25 @@ void SpeculativeJIT::cachedPutById(Node* node, CodeOrigin codeOrigin, GPRReg bas
 void SpeculativeJIT::speculateInt32(Edge edge, JSValueRegs regs)
 {
     speculationCheck(BadType, regs, edge, branchIfNotInt32(regs.tagGPR()));
+}
+
+void SpeculativeJIT::compileMapIteratorNext(Node* node)
+{
+    SpeculateCellOperand mapIterator(this, node->child1());
+    GPRReg mapIteratorGPR = mapIterator.gpr();
+
+    if (node->child1().useKind() == MapIteratorObjectUse)
+        speculateMapIteratorObject(node->child1(), mapIteratorGPR);
+    else if (node->child1().useKind() == SetIteratorObjectUse)
+        speculateSetIteratorObject(node->child1(), mapIteratorGPR);
+    else
+        RELEASE_ASSERT_NOT_REACHED();
+
+    flushRegisters();
+    JSValueRegsFlushedCallResult result(this);
+    JSValueRegs resultRegs = result.regs();
+    callOperationWithoutExceptionCheck(node->child1().useKind() == MapIteratorObjectUse ? operationMapIteratorNext : operationSetIteratorNext, resultRegs, TrustedImmPtr(&vm()), mapIteratorGPR);
+    jsValueResult(resultRegs, node);
 }
 
 #endif

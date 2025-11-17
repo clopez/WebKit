@@ -196,7 +196,7 @@ bool Styleable::computeAnimationExtent(LayoutRect& bounds) const
     RefPtr<KeyframeEffect> matchingEffect = nullptr;
     for (const auto& animation : *animations) {
         if (RefPtr keyframeEffect = animation->keyframeEffect()) {
-            if (keyframeEffect->blendingKeyframes().containsProperty(CSSPropertyTransform))
+            if (animatablePropertiesContainTransformRelatedProperty(keyframeEffect->blendingKeyframes().properties()))
                 matchingEffect = keyframeEffect;
         }
     }
@@ -220,29 +220,23 @@ bool Styleable::mayHaveNonZeroOpacity() const
         return true;
 
     auto* effectStack = keyframeEffectStack();
-    if (!effectStack || !effectStack->hasEffects())
-        return false;
-
-    for (const auto& effect : effectStack->sortedEffects()) {
-        if (effect->animatesProperty(CSSPropertyOpacity))
-            return true;
-    }
-
-    return false;
+    return effectStack && effectStack->containsProperty(CSSPropertyOpacity);
 }
 
 bool Styleable::isRunningAcceleratedAnimationOfProperty(CSSPropertyID property) const
 {
     auto* effectStack = keyframeEffectStack();
-    if (!effectStack)
-        return false;
+    return effectStack && effectStack->hasMatchingEffect([property](auto& effect) {
+        return effect.isCurrentlyAffectingProperty(property, KeyframeEffect::Accelerated::Yes);
+    });
+}
 
-    for (const auto& effect : effectStack->sortedEffects()) {
-        if (effect->isCurrentlyAffectingProperty(property, KeyframeEffect::Accelerated::Yes))
-            return true;
-    }
-
-    return false;
+bool Styleable::isRunningAcceleratedTransformRelatedAnimation() const
+{
+    auto* effectStack = keyframeEffectStack();
+    return effectStack && effectStack->hasMatchingEffect([](auto& effect) {
+        return effect.isRunningAcceleratedTransformRelatedAnimation();
+    });
 }
 
 bool Styleable::hasRunningAcceleratedAnimations() const
@@ -463,7 +457,7 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
 static KeyframeEffect* keyframeEffectForElementAndProperty(const Styleable& styleable, const AnimatableCSSProperty& property)
 {
     if (auto* keyframeEffectStack = styleable.keyframeEffectStack()) {
-        auto effects = keyframeEffectStack->sortedEffects();
+        auto& effects = keyframeEffectStack->sortedEffects();
         for (const auto& effect : effects | std::views::reverse) {
             if (effect->animatesProperty(property))
                 return effect.get();

@@ -237,7 +237,7 @@ bool Box::isBlockLevelBox() const
         || display == DisplayType::Table
         || display == DisplayType::Flex
         || display == DisplayType::Grid
-        || display == DisplayType::Masonry
+        || display == DisplayType::GridLanes
         || display == DisplayType::FlowRoot;
 }
 
@@ -255,7 +255,7 @@ bool Box::isInlineLevelBox() const
         || display == DisplayType::InlineBox
         || display == DisplayType::InlineFlex
         || display == DisplayType::InlineGrid
-        || display == DisplayType::InlineMasonry
+        || display == DisplayType::InlineGridLanes
         || display == DisplayType::Ruby
         || display == DisplayType::RubyBase
         || display == DisplayType::RubyAnnotation
@@ -315,7 +315,7 @@ bool Box::isLayoutContainmentBox() const
             return isAtomicInlineBox();
         return true;
     };
-    return m_style.usedContain().contains(Containment::Layout) && supportsLayoutContainment();
+    return m_style.usedContain().contains(Style::ContainValue::Layout) && supportsLayoutContainment();
 }
 
 bool Box::isRubyAnnotationBox() const
@@ -347,7 +347,7 @@ bool Box::isSizeContainmentBox() const
             return isAtomicInlineBox();
         return true;
     };
-    return m_style.usedContain().contains(Containment::Size) && supportsSizeContainment();
+    return m_style.usedContain().contains(Style::ContainValue::Size) && supportsSizeContainment();
 }
 
 bool Box::isInternalTableBox() const

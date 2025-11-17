@@ -2603,7 +2603,7 @@ void Page::prioritizeVisibleResources()
         return;
 
     auto resourceLoaders = toPrioritize.map([](auto& resource) {
-        return resource->loader();
+        return RefPtr { resource->loader() };
     });
 
     platformStrategies()->loaderStrategy()->prioritizeResourceLoads(resourceLoaders);
@@ -6086,5 +6086,30 @@ void Page::updateControlTints()
             view->updateControlTints();
     });
 }
+
+#if PLATFORM(IOS_FAMILY)
+void Page::addHardwareKeyboardAttachmentObserver(HardwareKeyboardAttachmentObserver&& observer)
+{
+    m_hardwareKeyboardAttachmentObservers.append(WTFMove(observer));
+}
+
+void Page::flushHardwareKeyboardAttachmentObservers()
+{
+    bool attached = m_hardwareKeyboardAttached;
+    std::ranges::for_each(m_hardwareKeyboardAttachmentObservers, [attached](auto& observer) {
+        observer(attached);
+    });
+    m_hardwareKeyboardAttachmentObservers.clear();
+}
+
+void Page::didUpdateHardwareKeyboardAttachment(bool attached)
+{
+    if (m_hardwareKeyboardAttached == attached)
+        return;
+
+    m_hardwareKeyboardAttached = attached;
+    flushHardwareKeyboardAttachmentObservers();
+}
+#endif
 
 } // namespace WebCore

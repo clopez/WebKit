@@ -233,8 +233,8 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
         return createRenderer<RenderFlexibleBox>(RenderObject::Type::FlexibleBox, element, WTFMove(style));
     case DisplayType::Grid:
     case DisplayType::InlineGrid:
-    case DisplayType::Masonry:
-    case DisplayType::InlineMasonry:
+    case DisplayType::GridLanes:
+    case DisplayType::InlineGridLanes:
         return createRenderer<RenderGrid>(element, WTFMove(style));
     case DisplayType::Box:
     case DisplayType::InlineBox:
@@ -339,7 +339,10 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
         else
             diff = std::max(diff, StyleDifference::RecompositeLayer);
     }
-    
+
+    if (isHTMLMarquee())
+        diff = std::max(diff, StyleDifference::Layout);
+
     // The answer to requiresLayer() for plugins, iframes, and canvas can change without the actual
     // style changing, since it depends on whether we decide to composite these elements. When the
     // layer status of one of these elements changes, we need to force a layout.
@@ -964,7 +967,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             if (m_style.usedPointerEvents() != newStyle.usedPointerEvents())
                 return true;
 #if ENABLE(TOUCH_ACTION_REGIONS)
-            if (m_style.usedTouchActions() != newStyle.usedTouchActions())
+            if (m_style.usedTouchAction() != newStyle.usedTouchAction())
                 return true;
 #endif
             if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
@@ -2362,8 +2365,8 @@ void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded(con
 #if HAVE(CORE_MATERIAL)
         || oldStyle.hasAppleVisualEffectRequiringBackdropFilter() != newStyle.hasAppleVisualEffectRequiringBackdropFilter()
 #endif
-        || oldStyle.containsLayout() != newStyle.containsLayout()
-        || oldStyle.containsSize() != newStyle.containsSize();
+        || oldStyle.usedContain().contains(Style::ContainValue::Layout) != newStyle.usedContain().contains(Style::ContainValue::Layout)
+        || oldStyle.usedContain().contains(Style::ContainValue::Size) != newStyle.usedContain().contains(Style::ContainValue::Size);
     if (!mayNotBeContainingBlockForDescendantsAnymore)
         return;
 

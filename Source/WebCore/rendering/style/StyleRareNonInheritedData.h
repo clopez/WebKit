@@ -37,9 +37,12 @@
 #include <WebCore/StyleClip.h>
 #include <WebCore/StyleClipPath.h>
 #include <WebCore/StyleColor.h>
+#include <WebCore/StyleContain.h>
 #include <WebCore/StyleContainIntrinsicSize.h>
 #include <WebCore/StyleContainerName.h>
 #include <WebCore/StyleGapGutter.h>
+#include <WebCore/StyleItemTolerance.h>
+#include <WebCore/StyleMarginTrim.h>
 #include <WebCore/StyleMaskBorder.h>
 #include <WebCore/StyleMaximumLines.h>
 #include <WebCore/StyleOffsetAnchor.h>
@@ -68,6 +71,7 @@
 #include <WebCore/StyleShapeMargin.h>
 #include <WebCore/StyleShapeOutside.h>
 #include <WebCore/StyleTextDecorationThickness.h>
+#include <WebCore/StyleTouchAction.h>
 #include <WebCore/StyleTranslate.h>
 #include <WebCore/StyleViewTimelineInsets.h>
 #include <WebCore/StyleViewTimelines.h>
@@ -77,7 +81,6 @@
 #include <WebCore/StyleWebKitInitialLetter.h>
 #include <WebCore/StyleWebKitLineClamp.h>
 #include <WebCore/StyleWillChange.h>
-#include <WebCore/TouchAction.h>
 #include <memory>
 #include <wtf/DataRef.h>
 #include <wtf/Markable.h>
@@ -129,7 +132,7 @@ public:
     bool hasScrollTimelines() const { return !scrollTimelines.isEmpty() || !scrollTimelineNames.isNone(); }
     bool hasViewTimelines() const { return !viewTimelines.isEmpty() || !viewTimelineNames.isNone(); }
 
-    OptionSet<Containment> usedContain() const;
+    Style::Contain usedContain() const;
 
     Style::ContainIntrinsicSize containIntrinsicWidth;
     Style::ContainIntrinsicSize containIntrinsicHeight;
@@ -142,9 +145,7 @@ public:
 
     OverflowContinue overflowContinue { OverflowContinue::Auto };
 
-    OptionSet<TouchAction> touchActions;
-    OptionSet<MarginTrimType> marginTrim;
-    OptionSet<Containment> contain;
+    Style::TouchAction touchAction;
 
     Style::WebkitInitialLetter initialLetter;
 
@@ -193,6 +194,8 @@ public:
 
     Style::GapGutter columnGap;
     Style::GapGutter rowGap;
+
+    Style::ItemTolerance itemTolerance;
 
     Style::OffsetPath offsetPath;
     Style::OffsetDistance offsetDistance;
@@ -271,6 +274,8 @@ public:
     PREFERRED_TYPE(bool) unsigned usesTreeCountingFunctions : 1;
     PREFERRED_TYPE(bool) unsigned isPopoverInvoker : 1;
     PREFERRED_TYPE(bool) unsigned useSVGZoomRulesForLength : 1;
+    PREFERRED_TYPE(Style::MarginTrim) unsigned marginTrim : 4;
+    PREFERRED_TYPE(Style::Contain) unsigned contain : 5;
 
 private:
     StyleRareNonInheritedData();

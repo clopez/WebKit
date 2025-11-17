@@ -45,17 +45,20 @@
 #include "SVGRenderStyleDefs.h"
 #include "ScrollAxis.h"
 #include "ScrollTypes.h"
+#include "StyleContain.h"
 #include "StyleImageOrientation.h"
+#include "StyleMarginTrim.h"
 #include "StylePositionVisibility.h"
 #include "StyleScrollBehavior.h"
 #include "StyleTextDecorationLine.h"
+#include "StyleTextTransform.h"
+#include "StyleTouchAction.h"
 #include "StyleWebKitLineBoxContain.h"
 #include "StyleWebKitOverflowScrolling.h"
 #include "StyleWebKitTouchCallout.h"
 #include "TextFlags.h"
 #include "TextSpacing.h"
 #include "ThemeTypes.h"
-#include "TouchAction.h"
 #include "UnicodeBidi.h"
 #include "WritingMode.h"
 #include <wtf/MathExtras.h>
@@ -776,10 +779,10 @@ constexpr CSSValueID toCSSValueID(DisplayType e)
         return CSSValueGrid;
     case DisplayType::InlineGrid:
         return CSSValueInlineGrid;
-    case DisplayType::Masonry:
-        return CSSValueMasonry;
-    case DisplayType::InlineMasonry:
-        return CSSValueInlineMasonry;
+    case DisplayType::GridLanes:
+        return CSSValueGridLanes;
+    case DisplayType::InlineGridLanes:
+        return CSSValueInlineGridLanes;
     case DisplayType::None:
         return CSSValueNone;
     case DisplayType::Contents:
@@ -842,10 +845,10 @@ template<> constexpr DisplayType fromCSSValueID(CSSValueID valueID)
         return DisplayType::Grid;
     case CSSValueInlineGrid:
         return DisplayType::InlineGrid;
-    case CSSValueMasonry:
-        return DisplayType::Masonry;
-    case CSSValueInlineMasonry:
-        return DisplayType::InlineMasonry;
+    case CSSValueGridLanes:
+        return DisplayType::GridLanes;
+    case CSSValueInlineGridLanes:
+        return DisplayType::InlineGridLanes;
     case CSSValueNone:
         return DisplayType::None;
     case CSSValueContents:
@@ -1277,8 +1280,8 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-#define TYPE TextTransform
-#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(FullSizeKana) CASE(FullWidth) CASE(MathAuto)
+#define TYPE Style::TextTransformValue
+#define FOR_EACH(CASE) CASE(Capitalize) CASE(Uppercase) CASE(Lowercase) CASE(FullWidth) CASE(FullSizeKana) CASE(MathAuto)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -2235,8 +2238,8 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-#define TYPE TouchAction
-#define FOR_EACH(CASE) CASE(Auto) CASE(Manipulation) CASE(None) CASE(PanX) CASE(PanY) CASE(PinchZoom)
+#define TYPE Style::TouchActionValue
+#define FOR_EACH(CASE) CASE(PanX) CASE(PanY) CASE(PinchZoom)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -2606,8 +2609,20 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
+#define TYPE Style::MarginTrimSide
+#define FOR_EACH(CASE) CASE(BlockStart) CASE(InlineStart) CASE(BlockEnd) CASE(InlineEnd)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
 #define TYPE Style::WebkitLineBoxContainValue
 #define FOR_EACH(CASE) CASE(Block) CASE(Inline) CASE(Font) CASE(Glyphs) CASE(Replaced) CASE(InlineBox) CASE(InitialLetter)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Style::ContainValue
+#define FOR_EACH(CASE) CASE(Size) CASE(InlineSize) CASE(Layout) CASE(Style) CASE(Paint)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

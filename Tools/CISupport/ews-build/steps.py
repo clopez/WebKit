@@ -685,7 +685,7 @@ class ConfigureBuild(buildstep.BuildStep, AddToLogMixin):
             self.setProperty('configuration', self.configuration, 'config.json')
         if self.architecture:
             self.setProperty('architecture', self.architecture, 'config.json')
-        self.setProperty('archForUpload', '-'.join(self.getProperty('architecture').split(' ')))
+        self.setProperty('archForUpload', '-'.join(self.getProperty('architecture', '').split(' ')))
         if self.buildOnly:
             self.setProperty('buildOnly', self.buildOnly, 'config.json')
         if self.triggers and not self.getProperty('triggers'):
@@ -2636,7 +2636,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
     flunkOnFailure = False
     haltOnFailure = False
     EMBEDDED_CHECKS = ['ios', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
-    MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'mac-wk1', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc', 'jsc-arm64']
+    MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'api-mac-debug', 'mac-wk1', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc', 'jsc-arm64']
     LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'wpe-cairo', 'wpe-wk2', 'api-wpe']
     WINDOWS_CHECKS = ['win']
     EWS_WEBKIT_FAILED = 0
@@ -7036,7 +7036,8 @@ class UpdatePullRequest(shell.ShellCommand, GitHubMixin, AddToLogMixin):
     @classmethod
     def is_test_gardening(cls, lines):
         for line in lines:
-            if line.lstrip().lower().startswith('unreviewed test gardening'):
+            line_lower = line.lstrip().lower()
+            if line_lower.startswith('unreviewed test gardening') or line_lower.startswith('unreviewed gardening'):
                 return True
         return False
 

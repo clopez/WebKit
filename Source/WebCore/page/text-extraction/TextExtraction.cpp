@@ -90,6 +90,19 @@
 namespace WebCore {
 namespace TextExtraction {
 
+static String normalizeText(const String& string, unsigned maxDescriptionLength = 512)
+{
+    auto result = foldQuoteMarks(string);
+    result = makeStringByReplacingAll(result, '"', "'"_s);
+    result = makeStringByReplacingAll(result, '\r', ""_s);
+    result = makeStringByReplacingAll(result, '\n', " "_s);
+    result = result.trim(isASCIIWhitespace<char16_t>);
+    if (result.length() <= maxDescriptionLength)
+        return result;
+
+    return makeString(result.left(maxDescriptionLength / 2 - 2), "..."_s, result.right(maxDescriptionLength / 2 - 1));
+}
+
 static constexpr auto minOpacityToConsiderVisible = 0.05;
 
 enum class IncludeTextInAutoFilledControls : bool { No, Yes };
@@ -168,7 +181,7 @@ struct TraversalContext {
     unsigned onlyCollectTextAndLinksCount { 0 };
     bool mergeParagraphs { false };
     bool skipNearlyTransparentContent { false };
-    bool includeNodeIdentifiers { false };
+    NodeIdentifierInclusion nodeIdentifierInclusion { NodeIdentifierInclusion::None };
     bool includeEventListeners { false };
     bool includeAccessibilityAttributes { false };
 
@@ -482,6 +495,12 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (element->hasTagName(HTMLNames::navTag))
         return { ItemData { ContainerType::Nav } };
 
+    if (element->hasTagName(HTMLNames::supTag))
+        return { ItemData { ContainerType::Superscript } };
+
+    if (element->hasTagName(HTMLNames::subTag))
+        return { ItemData { ContainerType::Subscript } };
+
     if (CheckedPtr renderElement = dynamicDowncast<RenderBox>(*renderer); renderElement && renderElement->style().hasViewportConstrainedPosition())
         return { ItemData { ContainerType::ViewportConstrained } };
 
@@ -495,20 +514,29 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     return { SkipExtraction::Self };
 }
 
-static inline bool shouldIncludeNodeIdentifier(OptionSet<EventListenerCategory> eventListeners, AccessibilityRole role, const ItemData& data)
+static inline bool shouldIncludeNodeIdentifier(NodeIdentifierInclusion inclusion, OptionSet<EventListenerCategory> eventListeners, AccessibilityRole role, const ItemData& data)
 {
+    using enum NodeIdentifierInclusion;
+    if (inclusion == None)
+        return false;
+
     return WTF::switchOn(data,
-        [eventListeners, role](ContainerType type) {
+        [inclusion, eventListeners, role](ContainerType type) {
+            if (inclusion != Interactive)
+                return false;
+
             switch (type) {
             case ContainerType::Root:
-            case ContainerType::Article:
                 return false;
+            case ContainerType::Article:
             case ContainerType::ViewportConstrained:
             case ContainerType::List:
             case ContainerType::ListItem:
             case ContainerType::BlockQuote:
             case ContainerType::Section:
             case ContainerType::Nav:
+            case ContainerType::Subscript:
+            case ContainerType::Superscript:
             case ContainerType::Generic:
                 return eventListeners || AccessibilityObject::isARIAControl(role);
             case ContainerType::Button:
@@ -521,8 +549,17 @@ static inline bool shouldIncludeNodeIdentifier(OptionSet<EventListenerCategory> 
         [](const TextItemData&) {
             return false;
         },
-        [](auto&) {
+        [](const TextFormControlData&) {
             return true;
+        },
+        [](const ContentEditableData&) {
+            return true;
+        },
+        [](const SelectData&) {
+            return true;
+        },
+        [inclusion](auto&) {
+            return inclusion == Interactive;
         });
 }
 
@@ -585,6 +622,20 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
                 ariaAttributes.set(attributeName.toString(), WTFMove(value));
         }
         role = element->attributeWithoutSynchronization(HTMLNames::roleAttr);
+
+        auto elementAttributesToExtract = std::array { HTMLNames::aria_labeledbyAttr.get(), HTMLNames::aria_labelledbyAttr.get(), HTMLNames::aria_describedbyAttr.get() };
+        for (auto& attributeName : elementAttributesToExtract) {
+            RefPtr elementForAttribute = element->elementForAttributeInternal(attributeName);
+            if (!elementForAttribute)
+                continue;
+
+            static constexpr auto maximumLengthForAttributeText = 32;
+            auto elementText = normalizeText(plainText(makeRangeSelectingNodeContents(*elementForAttribute)).trim(isASCIIWhitespace<char16_t>), maximumLengthForAttributeText);
+            if (elementText.isEmpty())
+                continue;
+
+            ariaAttributes.set(attributeName.toString(), WTFMove(elementText));
+        }
     }
 
     auto policy = [&] {
@@ -627,7 +678,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
                 return;
 
             std::optional<NodeIdentifier> nodeIdentifier;
-            if (context.includeNodeIdentifiers && shouldIncludeNodeIdentifier(eventListeners, AccessibilityObject::ariaRoleToWebCoreRole(role), result))
+            if (shouldIncludeNodeIdentifier(context.nodeIdentifierInclusion, eventListeners, AccessibilityObject::ariaRoleToWebCoreRole(role), result))
                 nodeIdentifier = node.nodeIdentifier();
 
             item = { {
@@ -810,7 +861,7 @@ Item extractItem(Request&& request, Page& page)
             .onlyCollectTextAndLinksCount = 0,
             .mergeParagraphs = request.mergeParagraphs,
             .skipNearlyTransparentContent = request.skipNearlyTransparentContent,
-            .includeNodeIdentifiers = request.includeNodeIdentifiers,
+            .nodeIdentifierInclusion = request.nodeIdentifierInclusion,
             .includeEventListeners = request.includeEventListeners,
             .includeAccessibilityAttributes = request.includeAccessibilityAttributes,
         };
@@ -1430,21 +1481,6 @@ void handleInteraction(Interaction&& interaction, Page& page, CompletionHandler<
         break;
     }
     completion(false, "Invalid action"_s);
-}
-
-static constexpr auto maxDescriptionLength = 512;
-
-static String normalizeText(const String& string)
-{
-    auto result = foldQuoteMarks(string);
-    result = makeStringByReplacingAll(result, '"', "'"_s);
-    result = makeStringByReplacingAll(result, '\r', ""_s);
-    result = makeStringByReplacingAll(result, '\n', " "_s);
-    result = result.trim(isASCIIWhitespace<char16_t>);
-    if (result.length() <= maxDescriptionLength)
-        return result;
-
-    return makeString(result.left(maxDescriptionLength / 2 - 2), "..."_s, result.right(maxDescriptionLength / 2 - 1));
 }
 
 static String normalizedLabelText(const Element& element)

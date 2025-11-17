@@ -112,15 +112,24 @@ void MediaSourcePrivate::seekToTime(const MediaTime& seekTime)
 
 void MediaSourcePrivate::removeSourceBuffer(SourceBufferPrivate& sourceBuffer)
 {
-    assertIsCurrent(m_dispatcher);
+    assertIsCurrent(m_dispatcher.get());
 
-    ASSERT(m_sourceBuffers.contains(&sourceBuffer));
+    if (auto it = m_bufferedRanges.find(&sourceBuffer); it != m_bufferedRanges.end()) {
+        m_bufferedRanges.remove(it);
+        updateBufferedRanges();
+    }
 
     size_t pos = m_activeSourceBuffers.find(&sourceBuffer);
     if (pos != notFound) {
         m_activeSourceBuffers.removeAt(pos);
         notifyActiveSourceBuffersChanged();
     }
+
+    m_tracksTypes.remove(&sourceBuffer);
+    updateTracksType();
+
+    // sourceBuffer will be deleted here, reference will be stale.
+    ASSERT(m_sourceBuffers.contains(&sourceBuffer));
     m_sourceBuffers.removeFirst(&sourceBuffer);
 }
 
@@ -144,20 +153,30 @@ void MediaSourcePrivate::sourceBufferPrivateDidChangeActiveState(SourceBufferPri
 
 bool MediaSourcePrivate::hasAudio() const
 {
-    ASSERT(m_dispatcher->isCurrent() || Thread::mayBeGCThread());
-
-    return std::ranges::any_of(m_activeSourceBuffers, [](auto* sourceBuffer) {
-        return sourceBuffer->hasAudio();
-    });
+    return m_tracksCombinedTypes.load().contains(TrackInfoTrackType::Audio);
 }
 
 bool MediaSourcePrivate::hasVideo() const
 {
-    assertIsCurrent(m_dispatcher);
+    return m_tracksCombinedTypes.load().contains(TrackInfoTrackType::Video);
+}
 
-    return std::ranges::any_of(m_activeSourceBuffers, [](auto* sourceBuffer) {
-        return sourceBuffer->hasVideo();
-    });
+void MediaSourcePrivate::tracksTypeChanged(SourceBufferPrivate& sourceBuffer, TracksType type)
+{
+    assertIsCurrent(m_dispatcher.get());
+
+    m_tracksTypes.set(&sourceBuffer, type);
+    updateTracksType();
+}
+
+void MediaSourcePrivate::updateTracksType()
+{
+    assertIsCurrent(m_dispatcher.get());
+
+    TracksType tracksCombinedTypes;
+    for (auto type : m_tracksTypes.values())
+        tracksCombinedTypes |= type;
+    m_tracksCombinedTypes = tracksCombinedTypes;
 }
 
 void MediaSourcePrivate::durationChanged(const MediaTime& duration)
@@ -179,8 +198,28 @@ void MediaSourcePrivate::bufferedChanged(const PlatformTimeRanges& buffered)
     m_buffered = buffered;
 }
 
-void MediaSourcePrivate::trackBufferedChanged(SourceBufferPrivate&, Vector<PlatformTimeRanges>&&)
+void MediaSourcePrivate::trackBufferedChanged(SourceBufferPrivate& sourceBuffer, Vector<PlatformTimeRanges>&& ranges)
 {
+    assertIsCurrent(m_dispatcher);
+
+    auto it = m_bufferedRanges.find(&sourceBuffer);
+    if (it == m_bufferedRanges.end())
+        m_bufferedRanges.add(&sourceBuffer, WTFMove(ranges));
+    else
+        it->value = WTFMove(ranges);
+    updateBufferedRanges();
+}
+
+void MediaSourcePrivate::updateBufferedRanges()
+{
+    assertIsCurrent(m_dispatcher);
+
+    PlatformTimeRanges intersectionRange { MediaTime::zeroTime(), MediaTime::positiveInfiniteTime() };
+    for (auto& ranges : m_bufferedRanges.values()) {
+        for (auto& range : ranges)
+            intersectionRange.intersectWith(range);
+    }
+    bufferedChanged(intersectionRange);
 }
 
 PlatformTimeRanges MediaSourcePrivate::buffered() const

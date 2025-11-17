@@ -69,7 +69,6 @@ interpreter/Interpreter.cpp
 interpreter/StackVisitor.cpp
 jit/JITOpcodes.cpp
 jit/JITOperations.cpp
-jit/JITSafepoint.cpp
 jit/JITWorklist.cpp
 jsc.cpp
 llint/LLIntEntrypoint.cpp
@@ -125,7 +124,6 @@ wasm/WasmOMGPlan.cpp
 wasm/WasmOSREntryPlan.cpp
 wasm/WasmOperations.cpp
 wasm/WasmOperationsInlines.h
-wasm/WasmParser.h
 wasm/WasmSectionParser.cpp
 wasm/WasmStreamingCompiler.cpp
 wasm/WasmTypeDefinition.cpp

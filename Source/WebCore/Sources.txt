@@ -384,7 +384,7 @@ Modules/streams/ReadableStreamBYOBReader.cpp
 Modules/streams/ReadableStreamBYOBRequest.cpp
 Modules/streams/ReadableStreamDefaultReader.cpp
 Modules/streams/ReadableStreamReadRequest.cpp
-Modules/streams/ReadableStreamSink.cpp
+Modules/streams/ReadableStreamToSharedBufferSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/StreamPipeToUtilities.cpp @no-unify
 Modules/streams/StreamTeeUtilities.cpp
@@ -3191,6 +3191,7 @@ style/values/borders/StyleBorderRadius.cpp
 style/values/borders/StyleBoxShadow.cpp
 style/values/borders/StyleCornerShapeValue.cpp
 style/values/box/StyleMargin.cpp
+style/values/box/StyleMarginTrim.cpp
 style/values/break/StyleOrphans.cpp
 style/values/break/StyleWidows.cpp
 style/values/color-adjust/StyleColorScheme.cpp
@@ -3207,6 +3208,7 @@ style/values/color/StyleKeywordColor.cpp
 style/values/color/StyleLightDarkColor.cpp
 style/values/color/StyleOpacity.cpp
 style/values/color/StyleResolvedColor.cpp
+style/values/contain/StyleContain.cpp
 style/values/content/StyleContent.cpp
 style/values/content/StyleQuotes.cpp
 style/values/counter-styles/StyleCounterStyle.cpp
@@ -3232,6 +3234,8 @@ style/values/filter-effects/StyleOpacityFunction.cpp
 style/values/filter-effects/StyleSaturateFunction.cpp
 style/values/filter-effects/StyleSepiaFunction.cpp
 style/values/flexbox/StyleFlexBasis.cpp
+style/values/fonts/StyleFontFamily.cpp
+style/values/fonts/StyleFontFamilyName.cpp
 style/values/fonts/StyleFontFeatureSettings.cpp
 style/values/fonts/StyleFontPalette.cpp
 style/values/fonts/StyleFontSizeAdjust.cpp
@@ -3252,6 +3256,7 @@ style/values/grid/StyleGridTemplateList.cpp
 style/values/grid/StyleGridTrackBreadth.cpp
 style/values/grid/StyleGridTrackSize.cpp
 style/values/grid/StyleGridTrackSizes.cpp
+style/values/grid/StyleItemTolerance.cpp
 style/values/images/StyleGradient.cpp
 style/values/images/StyleImageOrNone.cpp
 style/values/images/StyleImageOrientation.cpp
@@ -3285,6 +3290,7 @@ style/values/non-standard/StyleWebKitTouchCallout.cpp
 style/values/overflow/StyleBlockEllipsis.cpp
 style/values/overflow/StyleScrollbarGutter.cpp
 style/values/page/StylePageSize.cpp
+style/values/pointerevents/StyleTouchAction.cpp
 style/values/primitives/StyleLengthResolution.cpp
 style/values/primitives/StyleLengthWrapper+DeprecatedCSSValueConversion.cpp
 style/values/primitives/StyleLengthWrapperData.cpp
@@ -3336,6 +3342,7 @@ style/values/text/StyleLetterSpacing.cpp
 style/values/text/StyleTabSize.cpp
 style/values/text/StyleTextAutospace.cpp
 style/values/text/StyleTextIndent.cpp
+style/values/text/StyleTextTransform.cpp
 style/values/text/StyleWordSpacing.cpp
 style/values/transforms/functions/StyleMatrix3DTransformFunction.cpp
 style/values/transforms/functions/StyleMatrixTransformFunction.cpp
@@ -4694,7 +4701,6 @@ JSReadableStream.cpp
 JSReadableStreamDefaultController.cpp
 JSReadableStreamDefaultReader.cpp
 JSReadableStreamReadResult.cpp
-JSReadableStreamSink.cpp
 JSReadableStreamSource.cpp
 JSReadableStreamType.cpp
 JSRedEyeReduction.cpp

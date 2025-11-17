@@ -483,8 +483,8 @@ TextStream& operator<<(TextStream& ts, DisplayType display)
     case DisplayType::Contents: ts << "contents"_s; break;
     case DisplayType::Grid: ts << "grid"_s; break;
     case DisplayType::InlineGrid: ts << "inline-grid"_s; break;
-    case DisplayType::Masonry: ts << "masonry"_s; break;
-    case DisplayType::InlineMasonry: ts << "inline-masonry"_s; break;
+    case DisplayType::GridLanes: ts << "grid-lanes"_s; break;
+    case DisplayType::InlineGridLanes: ts << "inline-grid-lanes"_s; break;
     case DisplayType::FlowRoot: ts << "flow-root"_s; break;
     case DisplayType::Ruby: ts << "ruby"_s; break;
     case DisplayType::RubyBlock: ts << "block ruby"_s; break;
@@ -549,6 +549,12 @@ TextStream& operator<<(TextStream& ts, EventListenerRegionType listenerType)
     case EventListenerRegionType::NonPassiveMouseUp: ts << "active mouse up"_s; break;
     case EventListenerRegionType::MouseMove: ts << "mouse down"_s; break;
     case EventListenerRegionType::NonPassiveMouseMove: ts << "active mouse move"_s; break;
+    case EventListenerRegionType::GestureChange: ts << "gesture change"_s; break;
+    case EventListenerRegionType::NonPassiveGestureChange: ts << "active gesture change"_s; break;
+    case EventListenerRegionType::GestureEnd: ts << "gesture end"_s; break;
+    case EventListenerRegionType::NonPassiveGestureEnd: ts << "active gesture end"_s; break;
+    case EventListenerRegionType::GestureStart: ts << "gesture start"_s; break;
+    case EventListenerRegionType::NonPassiveGestureStart: ts << "active gesture start"_s; break;
     }
     return ts;
 }
@@ -772,17 +778,6 @@ TextStream& operator<<(TextStream& ts, ListStylePosition position)
     switch (position) {
     case ListStylePosition::Outside: ts << "outside"_s; break;
     case ListStylePosition::Inside: ts << "inside"_s; break;
-    }
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, MarginTrimType marginTrimType)
-{
-    switch (marginTrimType) {
-    case MarginTrimType::BlockStart: ts << "block-start"_s; break;
-    case MarginTrimType::BlockEnd: ts << "block-end"_s; break;
-    case MarginTrimType::InlineStart: ts << "inline-start"_s; break;
-    case MarginTrimType::InlineEnd: ts << "inline-end"_s; break;
     }
     return ts;
 }
@@ -1278,19 +1273,6 @@ TextStream& operator<<(TextStream& ts, TextSecurity textSecurity)
     case TextSecurity::Disc: ts << "disc"_s; break;
     case TextSecurity::Circle: ts << "circle"_s; break;
     case TextSecurity::Square: ts << "square"_s; break;
-    }
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, TextTransform textTransform)
-{
-    switch (textTransform) {
-    case TextTransform::Capitalize: ts << "capitalize"_s; break;
-    case TextTransform::Uppercase: ts << "uppercase"_s; break;
-    case TextTransform::Lowercase: ts << "lowercase"_s; break;
-    case TextTransform::FullSizeKana: ts << "full-size-kana"_s; break;
-    case TextTransform::FullWidth: ts << "full-width"_s; break;
-    case TextTransform::MathAuto: ts << "math-auto"_s; break;
     }
     return ts;
 }

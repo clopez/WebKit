@@ -609,16 +609,6 @@ enum class TextAlignMode : uint8_t {
     End,
 };
 
-enum class TextTransform : uint8_t {
-    Capitalize    = 1 << 0,
-    Uppercase     = 1 << 1,
-    Lowercase     = 1 << 2,
-    FullSizeKana  = 1 << 3,
-    FullWidth     = 1 << 4,
-    MathAuto      = 1 << 5,
-};
-constexpr auto maxTextTransformValue = TextTransform::FullWidth;
-
 enum class TextDecorationStyle : uint8_t {
     Solid,
     Double,
@@ -664,13 +654,6 @@ enum class TextBoxTrim : uint8_t {
     TrimStart,
     TrimEnd,
     TrimBoth
-};
-
-enum class MarginTrimType : uint8_t {
-    BlockStart = 1 << 0,
-    BlockEnd = 1 << 1,
-    InlineStart = 1 << 2,
-    InlineEnd = 1 << 3
 };
 
 enum class TextEdgeOver : uint8_t {
@@ -815,8 +798,8 @@ enum class DisplayType : uint8_t {
     Contents,
     Grid,
     InlineGrid,
-    Masonry,
-    InlineMasonry,
+    GridLanes,
+    InlineGridLanes,
     FlowRoot,
     Ruby,
     RubyBlock,
@@ -1054,38 +1037,44 @@ enum class FontLoadingBehavior : uint8_t {
     Optional
 };
 
-enum class EventListenerRegionType : uint32_t {
-    Wheel                  = 1 << 0,
-    NonPassiveWheel        = 1 << 1,
-    MouseClick             = 1 << 2,
-    TouchStart             = 1 << 3,
-    NonPassiveTouchStart   = 1 << 4,
-    TouchEnd               = 1 << 5,
-    NonPassiveTouchEnd     = 1 << 6,
-    TouchCancel            = 1 << 7,
-    NonPassiveTouchCancel  = 1 << 8,
-    TouchMove              = 1 << 9,
-    NonPassiveTouchMove    = 1 << 10,
-    PointerDown            = 1 << 11,
-    NonPassivePointerDown  = 1 << 12,
-    PointerEnter           = 1 << 13,
-    NonPassivePointerEnter = 1 << 14,
-    PointerLeave           = 1 << 15,
-    NonPassivePointerLeave = 1 << 16,
-    PointerMove            = 1 << 17,
-    NonPassivePointerMove  = 1 << 18,
-    PointerOut             = 1 << 19,
-    NonPassivePointerOut   = 1 << 20,
-    PointerOver            = 1 << 21,
-    NonPassivePointerOver  = 1 << 22,
-    PointerUp              = 1 << 23,
-    NonPassivePointerUp    = 1 << 24,
-    MouseDown              = 1 << 25,
-    NonPassiveMouseDown    = 1 << 26,
-    MouseUp                = 1 << 27,
-    NonPassiveMouseUp      = 1 << 28,
-    MouseMove              = 1 << 29,
-    NonPassiveMouseMove    = 1 << 30,
+enum class EventListenerRegionType : uint64_t {
+    Wheel                  = 1LLU << 0,
+    NonPassiveWheel        = 1LLU << 1,
+    MouseClick             = 1LLU << 2,
+    TouchStart             = 1LLU << 3,
+    NonPassiveTouchStart   = 1LLU << 4,
+    TouchEnd               = 1LLU << 5,
+    NonPassiveTouchEnd     = 1LLU << 6,
+    TouchCancel            = 1LLU << 7,
+    NonPassiveTouchCancel  = 1LLU << 8,
+    TouchMove              = 1LLU << 9,
+    NonPassiveTouchMove    = 1LLU << 10,
+    PointerDown            = 1LLU << 11,
+    NonPassivePointerDown  = 1LLU << 12,
+    PointerEnter           = 1LLU << 13,
+    NonPassivePointerEnter = 1LLU << 14,
+    PointerLeave           = 1LLU << 15,
+    NonPassivePointerLeave = 1LLU << 16,
+    PointerMove            = 1LLU << 17,
+    NonPassivePointerMove  = 1LLU << 18,
+    PointerOut             = 1LLU << 19,
+    NonPassivePointerOut   = 1LLU << 20,
+    PointerOver            = 1LLU << 21,
+    NonPassivePointerOver  = 1LLU << 22,
+    PointerUp              = 1LLU << 23,
+    NonPassivePointerUp    = 1LLU << 24,
+    MouseDown              = 1LLU << 25,
+    NonPassiveMouseDown    = 1LLU << 26,
+    MouseUp                = 1LLU << 27,
+    NonPassiveMouseUp      = 1LLU << 28,
+    MouseMove              = 1LLU << 29,
+    NonPassiveMouseMove    = 1LLU << 30,
+    GestureChange          = 1LLU << 31,
+    NonPassiveGestureChange= 1LLU << 32,
+    GestureEnd             = 1LLU << 33,
+    NonPassiveGestureEnd   = 1LLU << 34,
+    GestureStart           = 1LLU << 35,
+    NonPassiveGestureStart = 1LLU << 36,
 };
 
 enum class MathShift : bool {
@@ -1096,14 +1085,6 @@ enum class MathShift : bool {
 enum class MathStyle : bool {
     Normal,
     Compact,
-};
-
-enum class Containment : uint8_t {
-    Layout      = 1 << 0,
-    Paint       = 1 << 1,
-    Size        = 1 << 2,
-    InlineSize  = 1 << 3,
-    Style       = 1 << 4,
 };
 
 enum class ContainerType : uint8_t {
@@ -1313,7 +1294,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, LineAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, LineBreak);
 WTF::TextStream& operator<<(WTF::TextStream&, LineSnap);
 WTF::TextStream& operator<<(WTF::TextStream&, ListStylePosition);
-WTF::TextStream& operator<<(WTF::TextStream&, MarginTrimType);
 WTF::TextStream& operator<<(WTF::TextStream&, MarqueeBehavior);
 WTF::TextStream& operator<<(WTF::TextStream&, MarqueeDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, MaskMode);
@@ -1356,7 +1336,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextGroupAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
-WTF::TextStream& operator<<(WTF::TextStream&, TextTransform);
 WTF::TextStream& operator<<(WTF::TextStream&, TextUnderlinePosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextWrapMode);
 WTF::TextStream& operator<<(WTF::TextStream&, TextWrapStyle);

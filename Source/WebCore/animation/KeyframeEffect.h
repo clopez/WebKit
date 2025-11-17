@@ -164,9 +164,8 @@ public:
     const HashSet<AnimatableCSSProperty>& acceleratedProperties() const { return m_acceleratedProperties; }
     const HashSet<AnimatableCSSProperty>& acceleratedPropertiesWithImplicitKeyframe() const { return m_acceleratedPropertiesWithImplicitKeyframe; }
 
+    bool animatesMotionPath() const;
     bool computeExtentOfTransformAnimation(LayoutRect&) const;
-    bool computeTransformedExtentViaTransformList(const FloatRect&, const RenderStyle&, LayoutRect&) const;
-    bool computeTransformedExtentViaMatrix(const FloatRect&, const RenderStyle&, LayoutRect&) const;
     bool forceLayoutIfNeeded();
 
     enum class Accelerated : bool { No, Yes };
@@ -175,7 +174,6 @@ public:
     bool isRunningAcceleratedTransformRelatedAnimation() const;
 
     bool requiresPseudoElement() const;
-    bool hasImplicitKeyframes() const;
 
     void customPropertyRegistrationDidChange(const AtomString&);
 

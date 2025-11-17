@@ -8356,6 +8356,9 @@ fast/forms/ios/zoom-after-input-tap.html [ Failure ]
 
 webkit.org/b/302104 fast/scrolling/ios/bounding-client-rect-on-fixed.html [ Pass Failure ]
 
+# List buttons do not have tint color on iOS.
+fast/css/accent-color/datalist.html [ Skip ]
+
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-002.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-003.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-004.xht [ ImageOnlyFailure ]
@@ -8367,3 +8370,14 @@ imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-022.x
 # webkit.org/b/302331 REGRESSION(302097@main): [macOS iOS] 2x imported/w3c/web-platform-tests/css/css-viewport tests are flaky failure
 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/zoom-iframe-dynamic.html [ Failure ]
+
+imported/w3c/web-platform-tests/css/CSS2/box-display/block-in-inline-001.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/block-in-inline-002.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/box-generation-001.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/box-generation-002.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-008.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-009.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-012.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/CSS2/box-display/display-013.xht [ ImageOnlyFailure ]
+
+webkit.org/b/302486 [ Release ] http/tests/site-isolation/history/add-iframes-and-navigate-mainframe.html [ Skip ]
