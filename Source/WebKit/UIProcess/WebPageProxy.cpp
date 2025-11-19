@@ -81,6 +81,7 @@
 #include "DrawingAreaProxyMessages.h"
 #include "EventDispatcherMessages.h"
 #include "FindStringCallbackAggregator.h"
+#include "FindTextMatchesCallbackAggregator.h"
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
 #include "FrameProcess.h"
@@ -1332,8 +1333,8 @@ void WebPageProxy::handleSynchronousMessage(IPC::Connection& connection, const S
 
 bool WebPageProxy::hasSameGPUAndNetworkProcessPreferencesAs(const API::PageConfiguration& configuration) const
 {
-    auto sharedPreferences = WebKit::sharedPreferencesForWebProcess(preferences().store());
-    return !updateSharedPreferencesForWebProcess(sharedPreferences, configuration.preferences().store());
+    auto sharedPreferences = WebKit::sharedPreferencesForWebProcess(preferences().store(), shouldEnableLockdownMode());
+    return !updateSharedPreferencesForWebProcess(sharedPreferences, configuration.preferences().store(), shouldEnableLockdownMode());
 }
 
 bool WebPageProxy::hasSameGPUAndNetworkProcessPreferencesAs(const WebPageProxy& page) const
@@ -3866,7 +3867,7 @@ void WebPageProxy::performDragControllerAction(DragControllerAction action, Drag
             didPerformDragControllerAction(dragOperation, dragHandlingMethod, mouseIsOverFileInput, numberOfItemsToBeAccepted, insertionRect, editableElementRect);
             return;
         }
-        dragData.setClientPosition(remoteUserInputEventData->transformedPoint);
+        dragData.setClientPosition(roundedIntPoint(remoteUserInputEventData->transformedPoint));
         performDragControllerAction(action, dragData, remoteUserInputEventData->targetFrameID);
     };
 #if PLATFORM(GTK)
@@ -3928,7 +3929,7 @@ void WebPageProxy::dragEnded(const IntPoint& clientPosition, const IntPoint& glo
             resetCurrentDragInformation();
             return;
         }
-        dragEnded(remoteUserInputEventData->transformedPoint, globalPosition, dragOperationMask, remoteUserInputEventData->targetFrameID);
+        dragEnded(roundedIntPoint(remoteUserInputEventData->transformedPoint), globalPosition, dragOperationMask, remoteUserInputEventData->targetFrameID);
     };
 
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::DragEnded(frameID, clientPosition, globalPosition, dragOperationMask), WTFMove(completionHandler));
@@ -3998,9 +3999,11 @@ void WebPageProxy::stageModeSessionDidEnd(std::optional<NodeIdentifier> nodeID)
 }
 #endif
 
-static std::optional<NativeWebMouseEvent> removeOldRedundantEvent(Deque<NativeWebMouseEvent>& queue, WebEventType incomingEventType)
+template <typename T>
+requires std::derived_from<T, WebEvent>
+static std::optional<T> removeOldRedundantEvent(Deque<T>& queue, WebEventType incomingEventType, OptionSet<WebEventType> eventFilter)
 {
-    if (incomingEventType != WebEventType::MouseMove && incomingEventType != WebEventType::MouseForceChanged)
+    if (!eventFilter.contains(incomingEventType))
         return std::nullopt;
 
     auto it = queue.rbegin();
@@ -4017,7 +4020,7 @@ static std::optional<NativeWebMouseEvent> removeOldRedundantEvent(Deque<NativeWe
             queue.remove(--it.base());
             return event;
         }
-        if (type != WebEventType::MouseMove && type != WebEventType::MouseForceChanged)
+        if (!eventFilter.contains(type))
             break;
     }
     return std::nullopt;
@@ -4054,7 +4057,7 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
     // If we receive multiple mousemove or mouseforcechanged events and the most recent mousemove or mouseforcechanged event
     // (respectively) has not yet been sent to WebProcess for processing, remove the pending mouse event and insert the new
     // event in the queue.
-    auto removedEvent = removeOldRedundantEvent(internals().mouseEventQueue, event.type());
+    auto removedEvent = removeOldRedundantEvent(internals().mouseEventQueue, event.type(), { WebEventType::MouseMove, WebEventType::MouseForceChanged });
     if (removedEvent && removedEvent->type() == WebEventType::MouseMove)
         internals().coalescedMouseEvents.append(CheckedRef { *removedEvent }.get());
 
@@ -4134,6 +4137,31 @@ void WebPageProxy::processNextQueuedMouseEvent()
 
     internals().coalescedMouseEvents.clear();
 }
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+void WebPageProxy::processNextQueuedGestureEvent()
+{
+    if (!hasRunningProcess())
+        return;
+
+    if (!m_mainFrame)
+        return;
+
+    ASSERT(!internals().gestureEventQueue.isEmpty());
+    m_deferredGestureEvents = 0;
+
+    const CheckedRef event = internals().gestureEventQueue.first();
+    const auto eventType = event->type();
+
+    protectedLegacyMainFrameProcess()->startResponsivenessTimer((eventType == WebEventType::GestureStart || eventType == WebEventType::GestureChange) ? WebProcessProxy::UseLazyStop::Yes : WebProcessProxy::UseLazyStop::No);
+
+    LOG_WITH_STREAM(GestureHandling, stream << "UIProcess: sent gesture event " << eventType << " (queue size " << internals().gestureEventQueue.size() << ", dropped gestures since last gesture event processed: " << internals().droppedGestureEventCount << ")");
+
+    sendGestureEvent(m_mainFrame->frameID(), event);
+
+    internals().droppedGestureEventCount = 0;
+}
+#endif
 
 void WebPageProxy::doAfterProcessingAllPendingMouseEvents(WTF::Function<void ()>&& action)
 {
@@ -4277,7 +4305,7 @@ void WebPageProxy::sendWheelEvent(WebCore::FrameIdentifier frameID, const WebWhe
                 return;
 
             if (remoteWheelEventData) {
-                wheelEvent.setPosition(remoteWheelEventData->transformedPoint);
+                wheelEvent.setPosition(roundedIntPoint(remoteWheelEventData->transformedPoint));
                 protectedThis->sendWheelEvent(remoteWheelEventData->targetFrameID, wheelEvent, processingSteps, rubberBandableEdges, willStartSwipe, wasHandledForScrolling);
                 return;
             }
@@ -4580,11 +4608,15 @@ void WebPageProxy::handleGestureEvent(const NativeWebGestureEvent& event)
     if (!m_mainFrame)
         return;
 
-    internals().gestureEventQueue.append(event);
-    // FIXME: Consider doing some coalescing here.
+    if (removeOldRedundantEvent(internals().gestureEventQueue, event.type(), { WebEventType::GestureChange }))
+        internals().droppedGestureEventCount++;
 
-    protectedLegacyMainFrameProcess()->startResponsivenessTimer((event.type() == WebEventType::GestureStart || event.type() == WebEventType::GestureChange) ? WebProcessProxy::UseLazyStop::Yes : WebProcessProxy::UseLazyStop::No);
-    sendGestureEvent(m_mainFrame->frameID(), event);
+    internals().gestureEventQueue.append(event);
+
+    if (internals().gestureEventQueue.size() == 1) // Otherwise, called from DidReceiveEvent message handler.
+        processNextQueuedGestureEvent();
+    else if (++m_deferredGestureEvents >= 20)
+        WEBPAGEPROXY_RELEASE_LOG(GestureHandling, "handleGestureEvent: skipped called processNextQueuedGestureEvent 20 times, possibly stuck?");
 }
 #endif
 
@@ -6317,7 +6349,18 @@ void WebPageProxy::findString(const String& string, OptionSet<FindOptions> optio
 
 void WebPageProxy::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& callbackFunction)
 {
-    sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
+    if (!hasRunningProcess()) {
+        callbackFunction({ });
+        return;
+    }
+
+    Ref aggregator = FindTextMatchCallbackAggregator::create(WTFMove(callbackFunction));
+
+    forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+        webProcess.sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), [aggregator](Vector<WebFoundTextRange>&& vector) {
+            aggregator->foundMatches(WTFMove(vector));
+        }, pageID);
+    });
 }
 
 void WebPageProxy::replaceFoundTextRangeWithString(const WebFoundTextRange& range, const String& string)
@@ -11120,6 +11163,28 @@ void WebPageProxy::mouseEventHandlingCompleted(std::optional<WebEventType> event
     }
 }
 
+#if ENABLE(MAC_GESTURE_EVENTS)
+void WebPageProxy::gestureEventHandlingCompleted(std::optional<WebEventType> eventType, bool handled, std::optional<RemoteUserInputEventData> remoteUserInputEventData)
+{
+    if (remoteUserInputEventData) {
+        sendGestureEvent(remoteUserInputEventData->targetFrameID, internals().gestureEventQueue.first());
+        return;
+    }
+
+    // Retire the last sent event now that WebProcess is done handling it.
+    MESSAGE_CHECK(m_legacyMainFrameProcess, !internals().gestureEventQueue.isEmpty());
+    auto event = internals().gestureEventQueue.takeFirst();
+    if (eventType)
+        MESSAGE_CHECK(m_legacyMainFrameProcess, *eventType == event.type());
+
+    if (RefPtr pageClient = this->pageClient(); !handled && pageClient)
+        pageClient->gestureEventWasNotHandledByWebCore(event);
+
+    if (!internals().gestureEventQueue.isEmpty())
+        processNextQueuedGestureEvent();
+}
+#endif
+
 void WebPageProxy::keyEventHandlingCompleted(std::optional<WebEventType> eventType, bool handled)
 {
     MESSAGE_CHECK(m_legacyMainFrameProcess, !internals().keyEventQueue.isEmpty());
@@ -11224,17 +11289,8 @@ void WebPageProxy::didReceiveEvent(IPC::Connection* connection, WebEventType eve
     case WebEventType::GestureStart:
     case WebEventType::GestureChange:
     case WebEventType::GestureEnd: {
-        if (remoteUserInputEventData) {
-            sendGestureEvent(remoteUserInputEventData->targetFrameID, internals().gestureEventQueue.first());
-            return;
-        }
-
-        MESSAGE_CHECK_BASE(!internals().gestureEventQueue.isEmpty(), connection);
-        auto event = internals().gestureEventQueue.takeFirst();
-        MESSAGE_CHECK_BASE(eventType == event.type(), connection);
-
-        if (RefPtr pageClient = this->pageClient(); !handled && pageClient)
-            pageClient->gestureEventWasNotHandledByWebCore(event);
+        LOG_WITH_STREAM(GestureHandling, stream << "WebPageProxy::didReceiveEvent: " << eventType << " (queue empty " << internals().gestureEventQueue.isEmpty() << ")");
+        gestureEventHandlingCompleted(eventType, handled, remoteUserInputEventData);
         break;
     }
 #endif
@@ -11886,6 +11942,11 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
     resetState(resetStateReason);
 
     m_pendingLearnOrIgnoreWordMessageCount = 0;
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+    internals().droppedGestureEventCount = 0;
+    internals().gestureEventQueue.clear();
+#endif
 
     internals().mouseEventQueue.clear();
     internals().coalescedMouseEvents.clear();
@@ -14446,7 +14507,7 @@ void WebPageProxy::didPerformImmediateActionHitTest(IPC::Connection& connection,
 {
     if (protectedPreferences()->siteIsolationEnabled()) {
         if (result.remoteUserInputEventData) {
-            performImmediateActionHitTestAtLocation(result.remoteUserInputEventData->targetFrameID, result.remoteUserInputEventData->transformedPoint);
+            performImmediateActionHitTestAtLocation(result.remoteUserInputEventData->targetFrameID, FloatPoint(result.remoteUserInputEventData->transformedPoint));
             return;
         }
         if (auto parentFrameID = result.frameInfo->parentFrameID) {

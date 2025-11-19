@@ -5733,6 +5733,7 @@ struct WebCore::PlatformVideoTrackConfiguration : WebCore::PlatformTrackConfigur
     uint64_t bitrate;
     std::optional<WebCore::SpatialVideoMetadata> spatialVideoMetadata;
     std::optional<WebCore::VideoProjectionMetadata> videoProjectionMetadata;
+    bool isProtected;
 };
 
 #endif
@@ -6714,7 +6715,8 @@ header: <WebCore/TextExtractionTypes.h>
     SelectMenuItem,
     TextInput,
     KeyPress,
-    HighlightText
+    HighlightText,
+    ScrollBy
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -6730,6 +6732,7 @@ header: <WebCore/TextExtractionTypes.h>
     String text;
     std::optional<WebCore::FloatPoint> locationInRootView;
     std::optional<WebCore::NodeIdentifier> nodeIdentifier;
+    WebCore::FloatSize scrollDelta;
     bool replaceAll;
     bool scrollToVisible;
 };
@@ -7275,7 +7278,7 @@ struct WebCore::PrewarmInformation {
 
 struct WebCore::RemoteUserInputEventData {
     WebCore::FrameIdentifier targetFrameID;
-    WebCore::IntPoint transformedPoint;
+    WebCore::DoublePoint transformedPoint;
 };
 
 struct WebCore::LinkDecorationFilteringData {
@@ -8001,7 +8004,8 @@ header: <WebCore/MediaSourcePrivate.h>
 enum class WebCore::MediaSourcePrivateAddStatus : uint8_t {
     Ok,
     NotSupported,
-    ReachedIdLimit
+    ReachedIdLimit,
+    InvalidState
 };
 
 header: <WebCore/MediaSourcePrivate.h>
@@ -8840,8 +8844,7 @@ header: <WebCore/TrackInfo.h>
     WebCore::FloatSize displaySize;
     uint8_t bitDepth;
     WebCore::PlatformVideoColorSpace colorSpace;
-    WebCore::FourCC boxType;
-    RefPtr<WebCore::SharedBuffer> atomData;
+    Vector<std::pair<WebCore::FourCC, Ref<WebCore::SharedBuffer>>> extensionAtoms
 };
 
 [RefCounted, CreateUsing=fromVariant] struct WebCore::TrackInfo {

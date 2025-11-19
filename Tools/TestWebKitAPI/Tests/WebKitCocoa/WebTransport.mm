@@ -48,6 +48,9 @@
 SOFT_LINK_FRAMEWORK(Network)
 SOFT_LINK_MAY_FAIL(Network, nw_webtransport_options_set_allow_joining_before_ready, void, (nw_protocol_options_t options, bool allow), (options, allow))
 
+// FIXME: Replace this soft linking with a HAVE macro once rdar://164514830 is available on all tested OS builds.
+SOFT_LINK_MAY_FAIL(Network, nw_webtransport_metadata_get_session_closed, bool, (nw_protocol_metadata_t metadata), (metadata))
+
 namespace TestWebKitAPI {
 
 static void enableWebTransport(WKWebViewConfiguration *configuration)
@@ -168,21 +171,23 @@ TEST(WebTransport, Datagram)
         "  "
         "  try {"
         "    let t = new WebTransport('https://127.0.0.1:%d/');"
+        "    let g = t.createSendGroup();"
         "    await t.ready;"
-        "    let w = t.datagrams.writable.getWriter();"
+        "    let w = t.datagrams.createWritable({ sendGroup : g }).getWriter();"
         "    await w.write(new TextEncoder().encode(s));"
-        "    await w.close();"
         "    let r = t.datagrams.readable.getReader();"
         "    const { value, done } = await r.read();"
         "    await r.cancel();"
+        "    const groupStats = await g.getStats();"
         "    t.close();"
-        "    alert('successfully read ' + new TextDecoder().decode(value));"
+        "    await w.closed;"
+        "    alert('successfully read ' + new TextDecoder().decode(value) + ', group sent ' + groupStats.bytesWritten + ' bytes');"
         "  } catch (e) { alert('caught ' + e); }"
         "}; test();"
         "</script>",
         port];
     [webView loadHTMLString:html baseURL:[NSURL URLWithString:@"https://webkit.org/"]];
-    EXPECT_WK_STREQ([webView _test_waitForAlert], "successfully read abc");
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "successfully read abc, group sent 3 bytes");
     EXPECT_TRUE(challenged);
 }
 
@@ -377,7 +382,7 @@ TEST(WebTransport, NetworkProcessCrash)
         "  return;"
         "};"
         "async function writeDatagram() {"
-        "  let writer = session.datagrams.writable.getWriter();"
+        "  let writer = session.datagrams.createWritable().getWriter();"
         "  await writer.write(data);"
         "  writer.releaseLock();"
         "  return;"
@@ -583,7 +588,7 @@ TEST(WebTransport, CreateStreamsBeforeReady)
     "async function test() {"
     "  try {"
     "    const w = new WebTransport('https://127.0.0.1:%d/');"
-    "    const writer = w.datagrams.writable.getWriter();"
+    "    const writer = w.datagrams.createWritable().getWriter();"
     "    const reader = w.datagrams.readable.getReader();"
     "    await writer.write(new TextEncoder().encode('abc'));"
     "    const { value, done } = await reader.read();"
@@ -756,13 +761,13 @@ TEST(WebTransport, ServerConnectionTermination)
         "    let c = await t.createUnidirectionalStream();"
         "    let w = c.getWriter();"
         "    await w.write(new TextEncoder().encode('abc'));"
-        "    await t.closed;"
-        "    alert('closed should have thrown');"
+        "    let closeInfo = await t.closed;"
+        "    alert('successfully read closeInfo (' + closeInfo.closeCode + ', ' + closeInfo.reason + ')');"
         "  } catch (e) { alert('caught ' + e); }"
         "}; test();"
         "</script>", echoServer.port()];
     [webView loadHTMLString:html baseURL:[NSURL URLWithString:@"https://webkit.org/"]];
-    EXPECT_WK_STREQ([webView _test_waitForAlert], "caught AbortError: The operation was aborted.");
+    EXPECT_WK_STREQ([webView _test_waitForAlert], canLoadnw_webtransport_metadata_get_session_closed() ? "successfully read closeInfo (0, )" : "caught WebTransportError");
 }
 
 } // namespace TestWebKitAPI

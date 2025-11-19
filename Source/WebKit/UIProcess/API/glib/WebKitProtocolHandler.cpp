@@ -373,13 +373,11 @@ static String threadedRenderingInfo(const RenderProcessInfo& info)
     if (!info.cpuPaintingThreadsCount && !info.gpuPaintingThreadsCount)
         return "Disabled"_s;
 
-    if (!info.gpuPaintingThreadsCount)
+    if (info.cpuPaintingThreadsCount)
         return makeString("CPU ("_s, info.cpuPaintingThreadsCount, " threads)"_s);
 
-    if (!info.cpuPaintingThreadsCount)
-        return makeString("GPU ("_s, info.gpuPaintingThreadsCount, " threads)"_s);
-
-    return makeString("GPU ("_s, info.gpuPaintingThreadsCount, " threads), CPU ("_s, info.cpuPaintingThreadsCount, " threads)"_s);
+    ASSERT(info.gpuPaintingThreadsCount);
+    return makeString("GPU ("_s, info.gpuPaintingThreadsCount, " threads)"_s);
 }
 #endif
 
@@ -680,7 +678,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request, RenderPro
     addTableRow(displayObject, "Device scale"_s, String::number(page->deviceScaleFactor()));
     addTableRow(displayObject, "Depth"_s, String::number(screenDepth(nullptr)));
     addTableRow(displayObject, "Bits per color component"_s, String::number(screenDepthPerComponent(nullptr)));
-    addTableRow(displayObject, "Font Scaling DPI"_s, String::number(fontDPI()));
+    addTableRow(displayObject, "Font Scaling DPI"_s, String::number(WebCore::fontDPI()));
 #if PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
     addTableRow(displayObject, "Screen DPI"_s, String::number(screenDPI(displayID.value_or(primaryScreenDisplayID()))));
 #endif

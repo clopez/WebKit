@@ -353,6 +353,7 @@ static JSC_DECLARE_HOST_FUNCTION(resolvePromiseWithFirstResolvingFunctionCallChe
 static JSC_DECLARE_HOST_FUNCTION(rejectPromiseWithFirstResolvingFunctionCallCheck);
 static JSC_DECLARE_HOST_FUNCTION(fulfillPromiseWithFirstResolvingFunctionCallCheck);
 static JSC_DECLARE_HOST_FUNCTION(resolveWithoutPromiseForAsyncAwait);
+static JSC_DECLARE_HOST_FUNCTION(driveAsyncFunction);
 static JSC_DECLARE_HOST_FUNCTION(awaitValue);
 static JSC_DECLARE_HOST_FUNCTION(newHandledRejectedPromise);
 static JSC_DECLARE_HOST_FUNCTION(promiseOnRejectedWithContext);
@@ -805,6 +806,14 @@ JSC_DEFINE_HOST_FUNCTION(resolveWithoutPromiseForAsyncAwait, (JSGlobalObject* gl
     JSValue onRejected = callFrame->uncheckedArgument(2);
     JSValue context = callFrame->uncheckedArgument(3);
     JSPromise::resolveWithoutPromiseForAsyncAwait(globalObject, resolution, onFulfilled, onRejected, context);
+    return encodedJSUndefined();
+}
+
+JSC_DEFINE_HOST_FUNCTION(driveAsyncFunction, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    JSValue resolution = callFrame->uncheckedArgument(0);
+    JSValue context = callFrame->uncheckedArgument(1);
+    JSPromise::resolveWithInternalMicrotaskForAsyncAwait(globalObject, resolution, InternalMicrotask::AsyncFunctionResume, context);
     return encodedJSUndefined();
 }
 
@@ -1918,6 +1927,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolveWithoutPromiseForAsyncAwait)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "resolveWithoutPromiseForAsyncAwait"_s, resolveWithoutPromiseForAsyncAwait, ImplementationVisibility::Private));
         });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::driveAsyncFunction)].initLater([] (const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "driveAsyncFunction"_s, driveAsyncFunction, ImplementationVisibility::Private));
+        });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::awaitValue)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "awaitValue"_s, awaitValue, ImplementationVisibility::Private));
         });
@@ -2209,7 +2221,6 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, jsSetPrototype(), vm.propertyNames->keys), m_setPrimordialPropertiesWatchpointSet);
 
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, promisePrototype(), vm.propertyNames->then), m_promiseThenWatchpointSet);
-    installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_promiseConstructor.get(), vm.propertyNames->resolve), m_promiseResolveWatchpointSet);
 
     // Detect property absence.
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->replaceSymbol, objectPrototype()), m_stringSymbolReplaceWatchpointSet);

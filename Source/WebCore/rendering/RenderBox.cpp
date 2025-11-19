@@ -417,7 +417,7 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     // Changing the position from/to absolute can potentially create/remove flex/grid items, as absolutely positioned
     // children of a flex/grid box are out-of-flow, and thus, not flex/grid items. This means that we need to clear
     // any override content size set by our container, because it would likely be incorrect after the style change.
-    if (isOutOfFlowPositioned() && parent() && parent()->style().isDisplayFlexibleBoxIncludingDeprecatedOrGridBox())
+    if (isOutOfFlowPositioned() && parent() && parent()->style().isDisplayFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox())
         clearOverridingSize();
 
     if (oldStyle && oldStyle->hasOutOfFlowPosition() != style().hasOutOfFlowPosition()) {
@@ -3518,7 +3518,7 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
         auto visibleHeight = view().pageOrViewLogicalHeight();
         if (isDocumentElementRenderer())
             computedValues.m_extent = std::max(computedValues.m_extent, visibleHeight - margins);
-        else {
+        else if (parentBox()) {
             auto marginsBordersPadding = margins + parentBox()->marginBefore() + parentBox()->marginAfter() + parentBox()->borderAndPaddingLogicalHeight();
             computedValues.m_extent = std::max(computedValues.m_extent, visibleHeight - marginsBordersPadding);
         }
@@ -4603,17 +4603,47 @@ void RenderBox::addOverflowWithRendererOffset(const RenderBox& renderer, LayoutS
     childLayoutOverflowRect.move(offsetFromThis);
     addLayoutOverflow(childLayoutOverflowRect);
 
-    // Some in-flow boxes (e.g. flex items) extend the content edge.
-    if (hasPotentiallyScrollableOverflow()
-        && (options.contains(ComputeOverflowOptions::MarginsExtendLayoutOverflow) || options.contains(ComputeOverflowOptions::MarginsExtendContentArea))) {
-        auto childMarginRect = renderer.marginBoxRect();
-        childMarginRect.move(offsetFromThis);
-        if (options.contains(ComputeOverflowOptions::MarginsExtendContentArea) && !flippedContentBoxRect().contains(childMarginRect)) {
-            ensureOverflow().addContentOverflow(childMarginRect);
+    auto ensurePaddingEndIsIncluded = [&] {
+        if (!hasNonVisibleOverflow())
+            return;
+
+        // As per https://github.com/w3c/csswg-drafts/issues/3653 padding should contribute to the scrollable overflow area.
+        if (!paddingEnd())
+            return;
+
+        // FIXME: Expand it to non-grid/flex cases when applicable.
+        if (!is<RenderGrid>(*this) && !is<RenderFlexibleBox>(*this))
+            return;
+
+        if (renderer.isOutOfFlowPositioned())
+            return;
+
+        // Note that we can't use childLayoutOverflowRect here as it already includes propagated overflow from descendents.
+        auto isMainAxisFlipped = [&] {
+            auto isInlineFlipped = writingMode().isInlineFlipped();
+            if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(*this)) {
+                auto isColumnOrRowReverseSameAsWrapReverse = flexContainer->isColumnOrRowReverse() == flexContainer->isWrapReverse();
+                return isInlineFlipped == isColumnOrRowReverseSameAsWrapReverse;
+            }
+            return isInlineFlipped;
+        }();
+        auto childLogicalRight = [&] {
+            if (!isMainAxisFlipped)
+                return (isHorizontalWritingMode() ? offsetFromThis.width() + renderer.width() : offsetFromThis.height() + renderer.height()) + renderer.marginEnd(writingMode());
+            return (isHorizontalWritingMode() ? offsetFromThis.width() : offsetFromThis.height()) - renderer.marginEnd(writingMode());
+        };
+
+        auto layoutOverflowRect = this->layoutOverflowRect();
+        if (!isMainAxisFlipped) {
+            auto layoutOverflowLogicalRightIncludingPaddingEnd = childLogicalRight() + paddingEnd();
+            isHorizontalWritingMode() ? layoutOverflowRect.shiftMaxXEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd) : layoutOverflowRect.shiftMaxYEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd);
+        } else {
+            auto layoutOverflowLogicalRightIncludingPaddingEnd = childLogicalRight() - paddingEnd();
+            isHorizontalWritingMode() ? layoutOverflowRect.shiftXEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd) : layoutOverflowRect.shiftYEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd);
         }
-        if (options.contains(ComputeOverflowOptions::MarginsExtendLayoutOverflow))
-            addLayoutOverflow(childMarginRect);
-    }
+        addLayoutOverflow(layoutOverflowRect);
+    };
+    ensurePaddingEndIsIncluded();
 
     if (paintContainmentApplies())
         return;
@@ -4717,7 +4747,7 @@ void RenderBox::clearOverflow()
 RenderOverflow& RenderBox::ensureOverflow()
 {
     if (!m_overflow)
-        m_overflow = makeUnique<RenderOverflow>(flippedClientBoxRect(), borderBoxRect(), flippedContentBoxRect());
+        m_overflow = makeUnique<RenderOverflow>(flippedClientBoxRect(), borderBoxRect());
 
     return *m_overflow;
 }

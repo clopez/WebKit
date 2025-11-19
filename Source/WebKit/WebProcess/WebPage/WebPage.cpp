@@ -256,7 +256,6 @@
 #include <WebCore/HitTestResult.h>
 #include <WebCore/ImageAnalysisQueue.h>
 #include <WebCore/ImageOverlay.h>
-#include <WebCore/InspectorController.h>
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSNode.h>
 #include <WebCore/KeyboardEvent.h>
@@ -275,6 +274,7 @@
 #include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageConfiguration.h>
+#include <WebCore/PageInspectorController.h>
 #include <WebCore/PingLoader.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMediaSessionManager.h>
@@ -4914,7 +4914,7 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         pluginView->didChangeSettings();
 #endif
 
-    WebProcess::singleton().updateSharedPreferencesForWebProcess(WebKit::sharedPreferencesForWebProcess(store));
+    WebProcess::singleton().updateSharedPreferencesForWebProcess(WebKit::sharedPreferencesForWebProcess(store, WebProcess::singleton().isLockdownModeEnabled()));
 
     protectedCorePage()->settingsDidChange();
 }

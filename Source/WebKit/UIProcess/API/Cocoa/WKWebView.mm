@@ -641,6 +641,7 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
     _findInteractionEnabled = NO;
     _needsToPresentLockdownModeMessage = YES;
     _allowsMagnification = YES;
+    _avoidsUnsafeArea = YES;
 
     auto fastClickingEnabled = []() {
         if (NSNumber *enabledValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitFastClickingDisabled"])
@@ -6346,32 +6347,32 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
 #if USE(UICONTEXTMENU)
 - (void)_targetedPreviewForElementWithID:(NSString *)elementID completionHandler:(void (^)(UITargetedPreview *))completionHandler
 {
-    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& textIndicatorData) {
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKWebView>(self)](RefPtr<WebCore::TextIndicator>&& textIndicator) {
         auto strongSelf = weakSelf.get();
         if (!strongSelf) {
             completionHandler(nil);
             return;
         }
 
-        if (!textIndicatorData) {
+        if (!textIndicator) {
             completionHandler(nil);
             return;
         }
 
-        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:WebCore::TextIndicator::create(*textIndicatorData) previewContainer:strongSelf.get()];
+        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:WTFMove(textIndicator) previewContainer:strongSelf.get()];
         completionHandler(preview.get());
     });
 }
 #elif PLATFORM(MAC)
 - (void)_textPreviewsForElementWithID:(NSString *)elementID completionHandler:(void (^)(NSArray<_WKTextPreview *> *))completionHandler
 {
-    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler)](auto&& textIndicatorData) {
-        if (!textIndicatorData) {
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler)](RefPtr<WebCore::TextIndicator>&& textIndicator) {
+        if (!textIndicator) {
             completionHandler(@[ ]);
             return;
         }
 
-        RefPtr contentImage = textIndicatorData->contentImage;
+        RefPtr contentImage = textIndicator->contentImage();
         if (!contentImage) {
             ASSERT_NOT_REACHED();
             completionHandler(@[ ]);
@@ -6387,9 +6388,9 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
 
         RetainPtr platformImage = nativeImage->platformImage();
 
-        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
-        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
-        auto contentImageScaleFactor = textIndicatorData->contentImageScaleFactor;
+        auto textBoundingRectInRootViewCoordinates = textIndicator->textBoundingRectInRootViewCoordinates();
+        auto textRectsInBoundingRectCoordinates = textIndicator->textRectsInBoundingRectCoordinates();
+        auto contentImageScaleFactor = textIndicator->contentImageScaleFactor();
 
         RetainPtr previews = createNSArray(textRectsInBoundingRectCoordinates, [platformImage, textBoundingRectInRootViewCoordinates, contentImageScaleFactor](auto textRectInBoundingRectCoordinates) -> _WKTextPreview * {
             auto croppedTextRectInImageCoordinates = textRectInBoundingRectCoordinates;
@@ -6758,6 +6759,8 @@ static inline std::optional<WebCore::NodeIdentifier> toNodeIdentifier(const Stri
             return WebCore::TextExtraction::Action::KeyPress;
         case _WKTextExtractionActionHighlightText:
             return WebCore::TextExtraction::Action::HighlightText;
+        case _WKTextExtractionActionScrollBy:
+            return WebCore::TextExtraction::Action::ScrollBy;
         default:
             ASSERT_NOT_REACHED();
             return WebCore::TextExtraction::Action::Click;
@@ -6775,6 +6778,7 @@ static inline std::optional<WebCore::NodeIdentifier> toNodeIdentifier(const Stri
     interaction.text = wkInteraction.text;
     interaction.replaceAll = wkInteraction.replaceAll;
     interaction.scrollToVisible = wkInteraction.scrollToVisible;
+    interaction.scrollDelta = WebCore::FloatSize { wkInteraction.scrollDelta };
     return interaction;
 }
 

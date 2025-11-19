@@ -26,10 +26,12 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "WebTransportCongestionControl.h"
 #include "WebTransportReliabilityMode.h"
 #include "WebTransportSessionClient.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WeakHashSet.h>
 
 namespace JSC {
 class JSGlobalObject;
@@ -51,8 +53,10 @@ class ScriptExecutionContext;
 class SocketProvider;
 class WebTransportBidirectionalStreamSource;
 class WebTransportDatagramDuplexStream;
+class WebTransportDatagramsWritable;
 class WebTransportError;
 class WebTransportReceiveStreamSource;
+class WebTransportSendGroup;
 class WebTransportSendStreamSink;
 class WebTransportSession;
 class WorkerWebTransportSession;
@@ -86,8 +90,11 @@ public:
     ReadableStream& incomingBidirectionalStreams();
     void createUnidirectionalStream(ScriptExecutionContext&, WebTransportSendStreamOptions&&, Ref<DeferredPromise>&&);
     ReadableStream& incomingUnidirectionalStreams();
+    Ref<WebTransportSendGroup> createSendGroup();
 
     RefPtr<WebTransportSession> session();
+
+    void datagramsWritableCreated(WebTransportDatagramsWritable&);
 
 private:
     WebTransport(ScriptExecutionContext&, JSDOMGlobalObject&, Ref<ReadableStream>&&, Ref<ReadableStream>&&, WebTransportCongestionControl, Ref<WebTransportDatagramDuplexStream>&&, Ref<DatagramSource>&&, Ref<WebTransportReceiveStreamSource>&&, Ref<WebTransportBidirectionalStreamSource>&&);
@@ -103,7 +110,7 @@ private:
     void receiveIncomingUnidirectionalStream(WebTransportStreamIdentifier) final;
     void receiveBidirectionalStream(Ref<WebTransportSendStreamSink>&&) final;
     void streamReceiveBytes(WebTransportStreamIdentifier, std::span<const uint8_t>, bool, std::optional<Exception>&&) final;
-    void didFail() final;
+    void didFail(std::optional<unsigned>&&, String&&) final;
 
     RefPtr<WebTransportSession> protectedSession();
 
@@ -125,7 +132,7 @@ private:
     using PromiseAndWrapper = const std::pair<const Ref<DOMPromise>, const Ref<DeferredPromise>>;
     const PromiseAndWrapper m_ready;
     WebTransportReliabilityMode m_reliability { WebTransportReliabilityMode::Pending };
-    WebTransportCongestionControl m_congestionControl;
+    WebTransportCongestionControl m_congestionControl { WebTransportCongestionControl::Default };
     const PromiseAndWrapper m_closed;
     const PromiseAndWrapper m_draining;
     const Ref<WebTransportDatagramDuplexStream> m_datagrams;
@@ -134,6 +141,7 @@ private:
     const Ref<WebTransportReceiveStreamSource> m_receiveStreamSource;
     const Ref<WebTransportBidirectionalStreamSource> m_bidirectionalStreamSource;
     HashMap<WebTransportStreamIdentifier, Ref<WebTransportReceiveStreamSource>> m_readStreamSources;
+    WeakHashSet<WebTransportDatagramsWritable> m_datagramsWritables;
 };
 
 }

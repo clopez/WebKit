@@ -529,9 +529,11 @@ Modules/webtransport/WebTransport.cpp
 Modules/webtransport/WebTransportBidirectionalStream.cpp
 Modules/webtransport/WebTransportBidirectionalStreamSource.cpp
 Modules/webtransport/WebTransportDatagramDuplexStream.cpp
+Modules/webtransport/WebTransportDatagramsWritable.cpp
 Modules/webtransport/WebTransportError.cpp
 Modules/webtransport/WebTransportReceiveStream.cpp
 Modules/webtransport/WebTransportReceiveStreamSource.cpp
+Modules/webtransport/WebTransportSendGroup.cpp
 Modules/webtransport/WebTransportSendStream.cpp
 Modules/webtransport/WebTransportSendStreamSink.cpp
 Modules/webtransport/WebTransportSession.cpp
@@ -1841,7 +1843,6 @@ inspector/InspectorAuditResourcesObject.cpp
 inspector/InspectorCanvas.cpp
 inspector/InspectorCanvasArguments.cpp
 inspector/InspectorCanvasCallTracer.cpp
-inspector/InspectorController.cpp
 inspector/InspectorFrontendAPIDispatcher.cpp
 inspector/InspectorFrontendClientLocal.cpp
 inspector/InspectorFrontendHost.cpp
@@ -1860,6 +1861,7 @@ inspector/InspectorThreadableLoaderClient.cpp
 inspector/InstrumentingAgents.cpp
 inspector/NetworkResourcesData.cpp
 inspector/PageDebugger.cpp
+inspector/PageInspectorController.cpp
 inspector/TimelineRecordFactory.cpp
 inspector/UserGestureEmulationScope.cpp
 inspector/WebInjectedScriptHost.cpp
@@ -3335,9 +3337,12 @@ style/values/svg/StyleSVGStrokeDasharray.cpp
 style/values/svg/StyleSVGStrokeDashoffset.cpp
 style/values/text-decoration/StyleTextDecorationLine.cpp
 style/values/text-decoration/StyleTextDecorationThickness.cpp
+style/values/text-decoration/StyleTextEmphasisPosition.cpp
 style/values/text-decoration/StyleTextEmphasisStyle.cpp
 style/values/text-decoration/StyleTextShadow.cpp
 style/values/text-decoration/StyleTextUnderlineOffset.cpp
+style/values/text-decoration/StyleTextUnderlinePosition.cpp
+style/values/text/StyleHangingPunctuation.cpp
 style/values/text/StyleLetterSpacing.cpp
 style/values/text/StyleTabSize.cpp
 style/values/text/StyleTextAutospace.cpp
@@ -5112,6 +5117,7 @@ JSWebTransportCongestionControl.cpp
 JSWebTransportConnectionStats.cpp
 JSWebTransportDatagramDuplexStream.cpp
 JSWebTransportDatagramStats.cpp
+JSWebTransportDatagramsWritable.cpp
 JSWebTransportError.cpp
 JSWebTransportErrorOptions.cpp
 JSWebTransportErrorSource.cpp
@@ -5120,6 +5126,8 @@ JSWebTransportOptions.cpp
 JSWebTransportReceiveStream.cpp
 JSWebTransportReceiveStreamStats.cpp
 JSWebTransportReliabilityMode.cpp
+JSWebTransportSendGroup.cpp
+JSWebTransportSendOptions.cpp
 JSWebTransportSendStream.cpp
 JSWebTransportSendStreamOptions.cpp
 JSWebTransportSendStreamStats.cpp

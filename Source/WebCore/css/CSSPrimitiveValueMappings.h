@@ -46,12 +46,15 @@
 #include "ScrollAxis.h"
 #include "ScrollTypes.h"
 #include "StyleContain.h"
+#include "StyleHangingPunctuation.h"
 #include "StyleImageOrientation.h"
 #include "StyleMarginTrim.h"
 #include "StylePositionVisibility.h"
 #include "StyleScrollBehavior.h"
 #include "StyleTextDecorationLine.h"
+#include "StyleTextEmphasisPosition.h"
 #include "StyleTextTransform.h"
+#include "StyleTextUnderlinePosition.h"
 #include "StyleTouchAction.h"
 #include "StyleWebKitLineBoxContain.h"
 #include "StyleWebKitOverflowScrolling.h"
@@ -924,8 +927,8 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-#define TYPE HangingPunctuation
-#define FOR_EACH(CASE) CASE(First) CASE(Last) CASE(AllowEnd) CASE(ForceEnd)
+#define TYPE Style::HangingPunctuationValue
+#define FOR_EACH(CASE) CASE(First) CASE(ForceEnd) CASE(AllowEnd) CASE(Last)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1264,6 +1267,18 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 #define TYPE TextDecorationStyle
 #define FOR_EACH(CASE) CASE(Solid) CASE(Double) CASE(Dotted) CASE(Dashed) CASE(Wavy)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Style::TextEmphasisPositionValue
+#define FOR_EACH(CASE) CASE(Over) CASE(Under) CASE(Left) CASE(Right)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Style::TextUnderlinePositionValue
+#define FOR_EACH(CASE) CASE(FromFont) CASE(Under) CASE(Left) CASE(Right)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

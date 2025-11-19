@@ -1524,10 +1524,6 @@ static ALWAYS_INLINE Ref<HTMLElement> createUpgradeCandidateElement(Document& do
     }
 
     Ref element = HTMLMaybeFormAssociatedCustomElement::create(name, document);
-
-    if (!registry && document.usesNullCustomElementRegistry())
-        element->setUsesNullCustomElementRegistry();
-
     element->setIsCustomElementUpgradeCandidate();
 
     return element;
@@ -1597,12 +1593,14 @@ ExceptionOr<Ref<Element>> Document::createElementForBindings(const AtomString& n
 
     if (result.hasException())
         return result;
+    Ref element = result.releaseReturnValue();
     if (registry && registry->isScoped()) [[unlikely]] {
-        Ref element = result.releaseReturnValue();
         CustomElementRegistry::addToScopedCustomElementRegistryMap(element, *registry);
         return element;
     }
-    return result;
+    if (!registry && usesNullCustomElementRegistry())
+        element->setUsesNullCustomElementRegistry();
+    return element;
 }
 
 ExceptionOr<Ref<Element>> Document::createElementForBindings(const AtomString& name)
@@ -2035,12 +2033,14 @@ ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceU
 
     if (result.hasException())
         return result;
+    Ref element = result.releaseReturnValue();
     if (registry && registry->isScoped()) [[unlikely]] {
-        Ref element = result.releaseReturnValue();
         CustomElementRegistry::addToScopedCustomElementRegistryMap(element, *registry);
         return element;
     }
-    return result;
+    if (!registry && usesNullCustomElementRegistry())
+        element->setUsesNullCustomElementRegistry();
+    return element;
 }
 
 ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName)
@@ -5521,10 +5521,10 @@ void Document::processApplicationManifest(const ApplicationManifest& application
 
 #endif // ENABLE(APPLICATION_MANIFEST)
 
-MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& request, const LayoutPoint& documentPoint, const PlatformMouseEvent& event)
+MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& request, const DoublePoint& documentPoint, const PlatformMouseEvent& event)
 {
     if (!hasLivingRenderTree())
-        return MouseEventWithHitTestResults(event, HitTestResult(LayoutPoint()));
+        return MouseEventWithHitTestResults(event, HitTestResult(DoublePoint()));
 
     HitTestResult result(documentPoint);
     hitTest(request, result);

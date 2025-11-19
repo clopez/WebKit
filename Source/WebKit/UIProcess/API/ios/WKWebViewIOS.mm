@@ -2542,6 +2542,11 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
     _shouldUpdateNeedsTopScrollPocketDueToVisibleContentInset = YES;
 #endif
+
+#if !PLATFORM(WATCHOS)
+    if (!self._shouldDeferGeometryUpdates && !_overriddenLayoutParameters)
+        [self _dispatchSetViewLayoutSize:[self activeViewLayoutSize:self.bounds]];
+#endif
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
@@ -3617,10 +3622,10 @@ static WebCore::IntDegrees activeOrientation(WKWebView *webView)
 
 - (void)_setAvoidsUnsafeArea:(BOOL)avoidsUnsafeArea
 {
-    if (_perProcessState.avoidsUnsafeArea == avoidsUnsafeArea)
+    if (_avoidsUnsafeArea == avoidsUnsafeArea)
         return;
 
-    _perProcessState.avoidsUnsafeArea = avoidsUnsafeArea;
+    _avoidsUnsafeArea = avoidsUnsafeArea;
 
     if ([self _updateScrollViewContentInsetsIfNecessary] && !self._shouldDeferGeometryUpdates && !_overriddenLayoutParameters)
         [self _dispatchSetViewLayoutSize:[self activeViewLayoutSize:self.bounds]];
@@ -4377,7 +4382,7 @@ static bool isLockdownModeWarningNeeded()
 {
     if (![self usesStandardContentView])
         return NO;
-    return _perProcessState.avoidsUnsafeArea;
+    return _avoidsUnsafeArea;
 }
 
 - (UIView *)_enclosingViewForExposedRectComputation

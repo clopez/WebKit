@@ -479,7 +479,7 @@ enum class TextInteractionSource : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class VisitedLinkTableIdentifierType;
 enum class WebEventModifier : uint8_t;
-enum class WebEventType : uint8_t;
+enum class WebEventType : uint32_t;
 
 struct ContentWorldData;
 struct ContentWorldIdentifierType;
@@ -2034,7 +2034,7 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
-    void createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
+    void createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&&);
 #endif
 
     void startObservingNowPlayingMetadata();

@@ -90,7 +90,6 @@
 #include "HTTPParsers.h"
 #include "HistoryController.h"
 #include "HistoryItem.h"
-#include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "IntegrityPolicy.h"
 #include "LinkLoader.h"
@@ -110,6 +109,7 @@
 #include "Node.h"
 #include "OriginAccessPatterns.h"
 #include "Page.h"
+#include "PageInspectorController.h"
 #include "PageTransitionEvent.h"
 #include "Performance.h"
 #include "PerformanceLogging.h"
@@ -4125,7 +4125,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         return;
     }
 
-    if (auto pendingDispatchNavigateEvent = m_policyDocumentLoader->triggeringAction().takePendingDispatchNavigateEvent()) {
+    if (auto pendingDispatchNavigateEvent = m_policyDocumentLoader ? m_policyDocumentLoader->triggeringAction().takePendingDispatchNavigateEvent() : std::function<bool()> { }) {
         if (!pendingDispatchNavigateEvent())
             return;
     }

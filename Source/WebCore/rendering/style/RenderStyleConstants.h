@@ -697,13 +697,6 @@ enum class BreakInside : uint8_t {
     AvoidPage
 };
 
-enum class HangingPunctuation : uint8_t {
-    First     = 1 << 0,
-    Last      = 1 << 1,
-    AllowEnd  = 1 << 2,
-    ForceEnd  = 1 << 3
-};
-
 enum class EmptyCell : bool {
     Show,
     Hide
@@ -878,20 +871,6 @@ enum class TextEmphasisMark : uint8_t {
     DoubleCircle,
     Triangle,
     Sesame
-};
-
-enum class TextEmphasisPosition : uint8_t {
-    Over  = 1 << 0,
-    Under = 1 << 1,
-    Left  = 1 << 2,
-    Right = 1 << 3
-};
-
-enum class TextUnderlinePosition : uint8_t {
-    Under    = 1 << 0,
-    FromFont = 1 << 1,
-    Left     = 1 << 2,
-    Right    = 1 << 3
 };
 
 enum class TextOverflow : bool {
@@ -1283,7 +1262,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, FlexDirection);
 WTF::TextStream& operator<<(WTF::TextStream&, FlexWrap);
 WTF::TextStream& operator<<(WTF::TextStream&, Float);
 WTF::TextStream& operator<<(WTF::TextStream&, UsedFloat);
-WTF::TextStream& operator<<(WTF::TextStream&, HangingPunctuation);
 WTF::TextStream& operator<<(WTF::TextStream&, Hyphens);
 WTF::TextStream& operator<<(WTF::TextStream&, ImageRendering);
 WTF::TextStream& operator<<(WTF::TextStream&, InsideLink);
@@ -1331,12 +1309,10 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationSkipInk);
 WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisFill);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);
-WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisPosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextGroupAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
-WTF::TextStream& operator<<(WTF::TextStream&, TextUnderlinePosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextWrapMode);
 WTF::TextStream& operator<<(WTF::TextStream&, TextWrapStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, TextBoxTrim);

@@ -134,10 +134,7 @@ public:
     // MARK: Shared conversions
 
     static Ref<CSSValue> convertPositionTryFallbacks(ExtractorState&, const FixedVector<PositionTryFallback>&);
-    static Ref<CSSValue> convertTextUnderlinePosition(ExtractorState&, OptionSet<TextUnderlinePosition>);
-    static Ref<CSSValue> convertTextEmphasisPosition(ExtractorState&, OptionSet<TextEmphasisPosition>);
     static Ref<CSSValue> convertSpeakAs(ExtractorState&, OptionSet<SpeakAs>);
-    static Ref<CSSValue> convertHangingPunctuation(ExtractorState&, OptionSet<HangingPunctuation>);
     static Ref<CSSValue> convertPositionAnchor(ExtractorState&, const std::optional<ScopedName>&);
     static Ref<CSSValue> convertPositionArea(ExtractorState&, const PositionArea&);
     static Ref<CSSValue> convertPositionArea(ExtractorState&, const std::optional<PositionArea>&);
@@ -272,43 +269,6 @@ inline Ref<CSSValue> ExtractorConverter::convertPositionTryFallbacks(ExtractorSt
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
-inline Ref<CSSValue> ExtractorConverter::convertTextUnderlinePosition(ExtractorState&, OptionSet<TextUnderlinePosition> textUnderlinePosition)
-{
-    ASSERT(!((textUnderlinePosition & TextUnderlinePosition::FromFont) && (textUnderlinePosition & TextUnderlinePosition::Under)));
-    ASSERT(!((textUnderlinePosition & TextUnderlinePosition::Left) && (textUnderlinePosition & TextUnderlinePosition::Right)));
-
-    if (textUnderlinePosition.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueAuto);
-    bool isFromFont = textUnderlinePosition.contains(TextUnderlinePosition::FromFont);
-    bool isUnder = textUnderlinePosition.contains(TextUnderlinePosition::Under);
-    bool isLeft = textUnderlinePosition.contains(TextUnderlinePosition::Left);
-    bool isRight = textUnderlinePosition.contains(TextUnderlinePosition::Right);
-
-    auto metric = isUnder ? CSSValueUnder : CSSValueFromFont;
-    auto side = isLeft ? CSSValueLeft : CSSValueRight;
-    if (!isFromFont && !isUnder)
-        return CSSPrimitiveValue::create(side);
-    if (!isLeft && !isRight)
-        return CSSPrimitiveValue::create(metric);
-    return CSSValuePair::create(CSSPrimitiveValue::create(metric), CSSPrimitiveValue::create(side));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertTextEmphasisPosition(ExtractorState&, OptionSet<TextEmphasisPosition> textEmphasisPosition)
-{
-    ASSERT(!((textEmphasisPosition & TextEmphasisPosition::Over) && (textEmphasisPosition & TextEmphasisPosition::Under)));
-    ASSERT(!((textEmphasisPosition & TextEmphasisPosition::Left) && (textEmphasisPosition & TextEmphasisPosition::Right)));
-    ASSERT((textEmphasisPosition & TextEmphasisPosition::Over) || (textEmphasisPosition & TextEmphasisPosition::Under));
-
-    CSSValueListBuilder list;
-    if (textEmphasisPosition & TextEmphasisPosition::Over)
-        list.append(CSSPrimitiveValue::create(CSSValueOver));
-    if (textEmphasisPosition & TextEmphasisPosition::Under)
-        list.append(CSSPrimitiveValue::create(CSSValueUnder));
-    if (textEmphasisPosition & TextEmphasisPosition::Left)
-        list.append(CSSPrimitiveValue::create(CSSValueLeft));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
 inline Ref<CSSValue> ExtractorConverter::convertSpeakAs(ExtractorState&, OptionSet<SpeakAs> speakAs)
 {
     CSSValueListBuilder list;
@@ -322,22 +282,6 @@ inline Ref<CSSValue> ExtractorConverter::convertSpeakAs(ExtractorState&, OptionS
         list.append(CSSPrimitiveValue::create(CSSValueNoPunctuation));
     if (list.isEmpty())
         return CSSPrimitiveValue::create(CSSValueNormal);
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-inline Ref<CSSValue> ExtractorConverter::convertHangingPunctuation(ExtractorState&, OptionSet<HangingPunctuation> hangingPunctuation)
-{
-    CSSValueListBuilder list;
-    if (hangingPunctuation & HangingPunctuation::First)
-        list.append(CSSPrimitiveValue::create(CSSValueFirst));
-    if (hangingPunctuation & HangingPunctuation::AllowEnd)
-        list.append(CSSPrimitiveValue::create(CSSValueAllowEnd));
-    if (hangingPunctuation & HangingPunctuation::ForceEnd)
-        list.append(CSSPrimitiveValue::create(CSSValueForceEnd));
-    if (hangingPunctuation & HangingPunctuation::Last)
-        list.append(CSSPrimitiveValue::create(CSSValueLast));
-    if (list.isEmpty())
-        return CSSPrimitiveValue::create(CSSValueNone);
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 

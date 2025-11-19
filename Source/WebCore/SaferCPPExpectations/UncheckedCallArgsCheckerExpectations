@@ -233,7 +233,6 @@ html/parser/HTMLTreeBuilder.cpp
 html/shadow/DateTimeNumericFieldElement.cpp
 html/shadow/DateTimeSymbolicFieldElement.cpp
 html/shadow/SliderThumbElement.cpp
-html/track/InbandGenericTextTrack.cpp
 html/track/InbandWebVTTTextTrack.cpp
 html/track/LoadableTextTrack.cpp
 html/track/TextTrackCue.cpp
@@ -241,7 +240,6 @@ inspector/DOMEditor.cpp
 inspector/DOMPatchSupport.cpp
 inspector/InspectorAuditAccessibilityObject.cpp
 inspector/InspectorCanvas.cpp
-inspector/InspectorController.cpp
 inspector/InspectorFrontendAPIDispatcher.cpp
 inspector/InspectorFrontendHost.cpp
 inspector/InspectorInstrumentation.cpp
@@ -252,6 +250,7 @@ inspector/InspectorOverlayLabel.cpp
 inspector/InspectorResourceUtilities.cpp
 inspector/InspectorStyleSheet.cpp
 inspector/PageDebugger.cpp
+inspector/PageInspectorController.cpp
 inspector/WorkerDebugger.cpp
 inspector/agents/InspectorCSSAgent.cpp
 inspector/agents/InspectorCanvasAgent.cpp

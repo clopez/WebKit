@@ -853,6 +853,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webtransport/WebTransportHash.h
     Modules/webtransport/WebTransportOptions.h
     Modules/webtransport/WebTransportReceiveStreamStats.h
+    Modules/webtransport/WebTransportSendGroup.h
     Modules/webtransport/WebTransportSendStreamSink.h
     Modules/webtransport/WebTransportSendStreamStats.h
     Modules/webtransport/WebTransportSession.h
@@ -1778,7 +1779,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     inspector/FrameInspectorController.h
     inspector/InspectorBackendClient.h
-    inspector/InspectorController.h
     inspector/InspectorDebuggableType.h
     inspector/InspectorFrontendAPIDispatcher.h
     inspector/InspectorFrontendClient.h
@@ -1792,6 +1792,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/InspectorWebAgentBase.h
     inspector/LegacyWebSocketInspectorInstrumentation.h
     inspector/PageDebugger.h
+    inspector/PageInspectorController.h
 
     inspector/agents/InspectorPageAgent.h
 
@@ -3502,6 +3503,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/svg/StyleSVGStrokeDasharray.h
     style/values/svg/StyleSVGStrokeDashoffset.h
 
+    style/values/text/StyleHangingPunctuation.h
     style/values/text/StyleHyphenateCharacter.h
     style/values/text/StyleHyphenateLimitEdge.h
     style/values/text/StyleHyphenateLimitLines.h
@@ -3515,9 +3517,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/text-decoration/StyleTextDecorationLine.h
     style/values/text-decoration/StyleTextDecorationThickness.h
+    style/values/text-decoration/StyleTextEmphasisPosition.h
     style/values/text-decoration/StyleTextEmphasisStyle.h
     style/values/text-decoration/StyleTextShadow.h
     style/values/text-decoration/StyleTextUnderlineOffset.h
+    style/values/text-decoration/StyleTextUnderlinePosition.h
 
     style/values/transforms/functions/StyleTransformFunctionWrapper.h
     style/values/transforms/functions/StyleMatrix3DTransformFunction.h

@@ -264,7 +264,7 @@ inline const Style::GridPosition& RenderStyle::gridItemStart(Style::GridTrackSiz
 inline const Style::GridTemplateList& RenderStyle::gridTemplateRows() const { return m_nonInheritedData->rareData->grid->m_gridTemplateRows; }
 inline const Style::GridTemplateList& RenderStyle::gridTemplateList(Style::GridTrackSizingDirection direction) const { return direction == Style::GridTrackSizingDirection::Columns ? gridTemplateColumns() : gridTemplateRows(); }
 inline const Style::GridTemplateAreas& RenderStyle::gridTemplateAreas() const { return m_nonInheritedData->rareData->grid->m_gridTemplateAreas; }
-inline OptionSet<HangingPunctuation> RenderStyle::hangingPunctuation() const { return OptionSet<HangingPunctuation>::fromRaw(m_rareInheritedData->hangingPunctuation); }
+inline Style::HangingPunctuation RenderStyle::hangingPunctuation() const { return Style::HangingPunctuation::fromRaw(m_rareInheritedData->hangingPunctuation); }
 inline bool RenderStyle::hasAnimations() const { return !animations().isInitial(); }
 inline bool RenderStyle::hasAnimationsOrTransitions() const { return hasAnimations() || hasTransitions(); }
 inline bool RenderStyle::hasAnyPublicPseudoStyles() const { return m_nonInheritedFlags.hasAnyPublicPseudoStyles(); }
@@ -452,7 +452,7 @@ inline Style::GridPosition RenderStyle::initialGridItemRowStart() { return CSS::
 inline Style::GridTemplateList RenderStyle::initialGridTemplateColumns() { return CSS::Keyword::None { }; }
 inline Style::GridTemplateList RenderStyle::initialGridTemplateRows() { return CSS::Keyword::None { }; }
 inline Style::GridTemplateAreas RenderStyle::initialGridTemplateAreas() { return CSS::Keyword::None { }; }
-constexpr OptionSet<HangingPunctuation> RenderStyle::initialHangingPunctuation() { return { }; }
+constexpr Style::HangingPunctuation RenderStyle::initialHangingPunctuation() { return CSS::Keyword::None { }; }
 constexpr Style::HyphenateLimitEdge RenderStyle::initialHyphenateLimitAfter() { return CSS::Keyword::Auto { }; }
 constexpr Style::HyphenateLimitEdge RenderStyle::initialHyphenateLimitBefore() { return CSS::Keyword::Auto { }; }
 constexpr Style::HyphenateLimitLines RenderStyle::initialHyphenateLimitLines() { return CSS::Keyword::NoLimit { }; }
@@ -575,7 +575,7 @@ constexpr TextDecorationStyle RenderStyle::initialTextDecorationStyle() { return
 inline Style::TextDecorationThickness RenderStyle::initialTextDecorationThickness() { return CSS::Keyword::Auto { }; }
 inline Style::Color RenderStyle::initialTextEmphasisColor() { return CSS::Keyword::Currentcolor { }; }
 inline Style::TextEmphasisStyle RenderStyle::initialTextEmphasisStyle() { return CSS::Keyword::None { }; }
-constexpr OptionSet<TextEmphasisPosition> RenderStyle::initialTextEmphasisPosition() { return { TextEmphasisPosition::Over, TextEmphasisPosition::Right }; }
+constexpr Style::TextEmphasisPosition RenderStyle::initialTextEmphasisPosition() { return { Style::TextEmphasisPositionValue::Over, Style::TextEmphasisPositionValue::Right }; }
 inline Style::Color RenderStyle::initialTextFillColor() { return CSS::Keyword::Currentcolor { }; }
 inline bool RenderStyle::hasExplicitlySetColor() const { return m_inheritedFlags.hasExplicitlySetColor; }
 constexpr TextGroupAlign RenderStyle::initialTextGroupAlign() { return TextGroupAlign::None; }
@@ -589,7 +589,7 @@ inline Style::Color RenderStyle::initialTextStrokeColor() { return CSS::Keyword:
 constexpr Style::WebkitTextStrokeWidth RenderStyle::initialTextStrokeWidth() { return 0_css_px; }
 constexpr Style::TextTransform RenderStyle::initialTextTransform() { return CSS::Keyword::None { }; }
 inline Style::TextUnderlineOffset RenderStyle::initialTextUnderlineOffset() { return CSS::Keyword::Auto { }; }
-constexpr OptionSet<TextUnderlinePosition> RenderStyle::initialTextUnderlinePosition() { return { }; }
+constexpr Style::TextUnderlinePosition RenderStyle::initialTextUnderlinePosition() { return CSS::Keyword::Auto { }; }
 constexpr TextWrapMode RenderStyle::initialTextWrapMode() { return TextWrapMode::Wrap; }
 constexpr TextWrapStyle RenderStyle::initialTextWrapStyle() { return TextWrapStyle::Auto; }
 constexpr TextZoom RenderStyle::initialTextZoom() { return TextZoom::Normal; }
@@ -631,10 +631,12 @@ constexpr bool RenderStyle::isDisplayBlockLevel() const { return isDisplayBlockT
 constexpr bool RenderStyle::isDisplayDeprecatedFlexibleBox(DisplayType display) { return display == DisplayType::Box || display == DisplayType::InlineBox; }
 constexpr bool RenderStyle::isDisplayFlexibleBox(DisplayType display) { return display == DisplayType::Flex || display == DisplayType::InlineFlex; }
 constexpr bool RenderStyle::isDisplayDeprecatedFlexibleBox() const { return isDisplayDeprecatedFlexibleBox(display()); }
-constexpr bool RenderStyle::isDisplayFlexibleBoxIncludingDeprecatedOrGridBox() const { return isDisplayFlexibleOrGridBox() || isDisplayDeprecatedFlexibleBox(); }
-constexpr bool RenderStyle::isDisplayFlexibleOrGridBox() const { return isDisplayFlexibleOrGridBox(display()); }
-constexpr bool RenderStyle::isDisplayFlexibleOrGridBox(DisplayType display) { return isDisplayFlexibleBox(display) || isDisplayGridBox(display); }
-constexpr bool RenderStyle::isDisplayGridBox(DisplayType display) { return display == DisplayType::Grid || display == DisplayType::InlineGrid || display == DisplayType::GridLanes || display == DisplayType::InlineGridLanes; }
+constexpr bool RenderStyle::isDisplayFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox() const { return isDisplayFlexibleOrGridFormattingContextBox() || isDisplayDeprecatedFlexibleBox(); }
+constexpr bool RenderStyle::isDisplayFlexibleOrGridFormattingContextBox() const { return isDisplayFlexibleOrGridFormattingContextBox(display()); }
+constexpr bool RenderStyle::isDisplayFlexibleOrGridFormattingContextBox(DisplayType display) { return isDisplayFlexibleBox(display) || isDisplayGridFormattingContextBox(display); }
+constexpr bool RenderStyle::isDisplayGridFormattingContextBox(DisplayType display) { return isDisplayGridBox(display) || isDisplayGridLanesBox(display); }
+constexpr bool RenderStyle::isDisplayGridBox(DisplayType display) { return display == DisplayType::Grid || display == DisplayType::InlineGrid; }
+constexpr bool RenderStyle::isDisplayGridLanesBox(DisplayType display) { return display == DisplayType::GridLanes || display == DisplayType::InlineGridLanes; }
 constexpr bool RenderStyle::isDisplayInlineType() const { return isDisplayInlineType(display()); }
 constexpr bool RenderStyle::isDisplayListItemType(DisplayType display) { return display == DisplayType::ListItem; }
 constexpr bool RenderStyle::isDisplayTableOrTablePart() const { return isDisplayTableOrTablePart(display()); }
@@ -819,7 +821,7 @@ inline const Style::TextDecorationThickness& RenderStyle::textDecorationThicknes
 inline Style::TextDecorationLine RenderStyle::textDecorationLineInEffect() const { return Style::TextDecorationLine::fromRaw(m_inheritedFlags.textDecorationLineInEffect); }
 inline const Style::Color& RenderStyle::textEmphasisColor() const { return m_rareInheritedData->textEmphasisColor; }
 inline const Style::TextEmphasisStyle& RenderStyle::textEmphasisStyle() const { return m_rareInheritedData->textEmphasisStyle; }
-inline OptionSet<TextEmphasisPosition> RenderStyle::textEmphasisPosition() const { return OptionSet<TextEmphasisPosition>::fromRaw(m_rareInheritedData->textEmphasisPosition); }
+inline Style::TextEmphasisPosition RenderStyle::textEmphasisPosition() const { return Style::TextEmphasisPosition::fromRaw(m_rareInheritedData->textEmphasisPosition); }
 inline const Style::Color& RenderStyle::textFillColor() const { return m_rareInheritedData->textFillColor; }
 inline TextGroupAlign RenderStyle::textGroupAlign() const { return static_cast<TextGroupAlign>(m_nonInheritedData->rareData->textGroupAlign); }
 inline const Style::TextIndent& RenderStyle::textIndent() const { return m_rareInheritedData->textIndent; }
@@ -833,7 +835,7 @@ inline const Style::Color& RenderStyle::textStrokeColor() const { return m_rareI
 inline Style::WebkitTextStrokeWidth RenderStyle::textStrokeWidth() const { return m_rareInheritedData->textStrokeWidth; }
 inline Style::TextTransform RenderStyle::textTransform() const { return Style::TextTransform::fromRaw(m_inheritedFlags.textTransform); }
 inline const Style::TextUnderlineOffset& RenderStyle::textUnderlineOffset() const { return m_rareInheritedData->textUnderlineOffset; }
-inline OptionSet<TextUnderlinePosition> RenderStyle::textUnderlinePosition() const { return OptionSet<TextUnderlinePosition>::fromRaw(m_rareInheritedData->textUnderlinePosition); }
+inline Style::TextUnderlinePosition RenderStyle::textUnderlinePosition() const { return Style::TextUnderlinePosition::fromRaw(m_rareInheritedData->textUnderlinePosition); }
 inline TextZoom RenderStyle::textZoom() const { return static_cast<TextZoom>(m_rareInheritedData->textZoom); }
 inline const Style::InsetEdge& RenderStyle::top() const { return m_nonInheritedData->surroundData->inset.top(); }
 inline Style::TouchAction RenderStyle::touchAction() const { return m_nonInheritedData->rareData->touchAction; }

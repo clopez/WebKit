@@ -86,20 +86,24 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const C
 {
     DEBUG_LOG(LOGIDENTIFIER, contentType);
 
+    RefPtr player = platformPlayer();
+    if (!player)
+        return AddStatus::InvalidState;
+
     MediaEngineSupportParameters parameters;
     parameters.isMediaSource = true;
     parameters.type = contentType;
     if (MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported)
         return AddStatus::NotSupported;
 
-    auto parser = SourceBufferParser::create(contentType, configuration);
+    RefPtr parser = SourceBufferParser::create(contentType, configuration);
     if (!parser)
         return AddStatus::NotSupported;
 #if !RELEASE_LOG_DISABLED
     parser->setLogger(m_logger, m_logIdentifier);
 #endif
 
-    auto newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, parser.releaseNonNull(), platformPlayer()->audioVideoRenderer());
+    Ref newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, parser.releaseNonNull(), player->audioVideoRenderer());
     newSourceBuffer->setResourceOwner(m_resourceOwner);
     outPrivate = newSourceBuffer.copyRef();
     newSourceBuffer->setMediaSourceDuration(duration());
@@ -223,6 +227,7 @@ void MediaSourcePrivateAVFObjC::failedToCreateRenderer(RendererType type)
 
 bool MediaSourcePrivateAVFObjC::needsVideoLayer() const
 {
+    assertIsMainThread();
     return std::ranges::any_of(m_sourceBuffers, [](auto& sourceBuffer) {
         return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->needsVideoLayer();
     });

@@ -8077,8 +8077,6 @@ webkit.org/b/295653 css3/filters/backdrop-filter-page-scale.html [ Pass ImageOnl
 
 webkit.org/b/295665 fast/dom/Range/scale-page-client-rects.html [ Pass Failure ]
 
-webkit.org/b/295674 [ Debug ] svg/as-image/image-respects-pageScaleFactor.html [ Pass Failure ]
-
 webkit.org/b/295728 [ Debug ] imported/w3c/web-platform-tests/workers/WorkerGlobalScope_ErrorEvent_filename.htm [ Pass Failure ]
 
 webkit.org/b/295743 [ Release ] media/video-display-aspect-ratio.html [ Pass Failure ]
@@ -8380,4 +8378,4 @@ imported/w3c/web-platform-tests/css/CSS2/box-display/display-009.xht [ ImageOnly
 imported/w3c/web-platform-tests/css/CSS2/box-display/display-012.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/box-display/display-013.xht [ ImageOnlyFailure ]
 
-webkit.org/b/302486 [ Release ] http/tests/site-isolation/history/add-iframes-and-navigate-mainframe.html [ Skip ]
+webkit.org/b/302741 imported/w3c/web-platform-tests/html/semantics/popovers/popover-attribute-basic.html [ Failure ]
