@@ -25,38 +25,33 @@
 
 #pragma once
 
-#include <WebCore/GridTypeAliases.h>
-#include <wtf/Forward.h>
-#include <wtf/Vector.h>
+#import "_WKCaptionStyleMenuController.h"
 
-namespace WebCore {
+#import <wtf/RetainPtr.h>
+#import <wtf/Vector.h>
+#import <wtf/text/WTFString.h>
 
-namespace Layout {
+#if !TARGET_OS_OSX && !TARGET_OS_WATCH
+@class UIContextMenuInteraction;
+@class UIAction;
+#endif
 
-enum class GridLayoutAlgorithm : uint8_t;
-struct GridAutoFlowOptions;
+NS_ASSUME_NONNULL_BEGIN
 
-// https://drafts.csswg.org/css-grid-1/#implicit-grids
-class ImplicitGrid {
-public:
-    ImplicitGrid(size_t totalColumnsCount, size_t totalRowsCount);
+@interface WKCaptionStyleMenuController ()
+{
+    WTF::RetainPtr<PlatformMenu> _menu;
+#if !TARGET_OS_OSX && !TARGET_OS_WATCH
+    WTF::RetainPtr<UIContextMenuInteraction> _interaction;
+#endif
+}
 
-    size_t rowsCount() const { return m_gridMatrix.size(); }
-    size_t columnsCount() const { return rowsCount() ? m_gridMatrix[0].size() : 0; }
+@property (nonatomic, copy, nullable) NSString *savedActiveProfileID;
+@property (nonatomic, strong) PlatformMenu *menu;
+#if !TARGET_OS_OSX && !TARGET_OS_WATCH
+@property (nonatomic, strong) UIContextMenuInteraction *interaction;
+#endif
 
-    void insertUnplacedGridItem(const UnplacedGridItem&);
-    void insertDefiniteRowItem(const UnplacedGridItem&, GridAutoFlowOptions, HashMap<size_t, size_t, DefaultHash<size_t>, WTF::UnsignedWithZeroKeyHashTraits<size_t>>*);
+@end
 
-    GridAreas gridAreas() const;
-
-private:
-    std::optional<size_t> findFirstAvailableColumnPosition(size_t rowStart, size_t rowEnd, size_t columnSpan, size_t startSearchColumn) const;
-    bool isCellRangeEmpty(size_t columnStart, size_t columnEnd, size_t rowStart, size_t rowEnd) const;
-    void insertItemInArea(const UnplacedGridItem&, size_t columnStart, size_t columnEnd, size_t rowStart, size_t rowEnd);
-
-    GridMatrix m_gridMatrix;
-};
-
-} // namespace Layout
-
-} // namespace WebCore
+NS_ASSUME_NONNULL_END
