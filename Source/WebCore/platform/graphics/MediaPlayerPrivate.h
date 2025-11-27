@@ -63,6 +63,7 @@ public:
 
 #if ENABLE(MEDIA_SOURCE)
     virtual void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) = 0;
+    virtual void readyStateFromMediaSourceChanged() { }
 #endif
 #if ENABLE(MEDIA_STREAM)
     virtual void load(MediaStreamPrivate&) = 0;
@@ -129,6 +130,7 @@ public:
 
     virtual MediaTime duration() const { return MediaTime::zeroTime(); }
 
+    // Methods need to be thread-safe should MSE be enabled in a worker.
     WEBCORE_EXPORT virtual MediaTime currentOrPendingSeekTime() const;
     virtual MediaTime currentTime() const { return MediaTime::zeroTime(); }
     virtual bool timeIsProgressing() const { return !paused(); }

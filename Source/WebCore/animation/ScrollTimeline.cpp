@@ -28,6 +28,7 @@
 
 #include "AnimationTimelinesController.h"
 #include "ContainerNodeInlines.h"
+#include "Document.h"
 #include "Element.h"
 #include "KeyframeEffect.h"
 #include "RenderElementInlines.h"
@@ -40,6 +41,10 @@
 #include "StylableInlines.h"
 #include "StyleSingleAnimationRange.h"
 #include "WebAnimation.h"
+
+#ifndef NDEBUG
+#include "Settings.h"
+#endif
 
 namespace WebCore {
 
@@ -386,9 +391,22 @@ void ScrollTimeline::animationTimingDidChange(WebAnimation& animation)
 }
 
 #if ENABLE(THREADED_ANIMATIONS)
-Ref<AcceleratedTimeline> ScrollTimeline::createAcceleratedRepresentation()
+bool ScrollTimeline::computeCanBeAccelerated() const
+{
+    RefPtr source = this->source();
+    if (!source)
+        return false;
+
+    ASSERT(source->document().settings().threadedScrollDrivenAnimationsEnabled());
+
+    CheckedPtr sourceScrollableArea = scrollableAreaForSourceRenderer(source->renderer(), source->document());
+    return sourceScrollableArea && !!sourceScrollableArea->scrollingNodeID();
+}
+
+Ref<AcceleratedTimeline> ScrollTimeline::createAcceleratedRepresentation() const
 {
     ASSERT(this->source());
+    ASSERT(this->source()->document().settings().threadedScrollDrivenAnimationsEnabled());
     Ref source = *this->source();
     CheckedPtr sourceScrollableArea = scrollableAreaForSourceRenderer(source->renderer(), source->document());
     ASSERT(sourceScrollableArea);

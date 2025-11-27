@@ -69,8 +69,6 @@ GST_DEBUG_CATEGORY(webkit_webrtc_endpoint_debug);
 
 namespace WebCore {
 
-IGNORE_CLANG_WARNINGS_BEGIN("unsafe-buffer-usage-in-libc-call")
-
 GStreamerMediaEndpoint::GStreamerMediaEndpoint(GStreamerPeerConnectionBackend& peerConnection)
     : m_peerConnectionBackend(WeakPtr { &peerConnection })
     , m_statsCollector(GStreamerStatsCollector::create())
@@ -901,8 +899,8 @@ void GStreamerMediaEndpoint::doSetRemoteDescription(const RTCSessionDescription&
         if (!peerConnectionBackend)
             return;
         processSDPMessage(&message, [this](unsigned, StringView mid, const auto* media) {
-            const char* mediaType = gst_sdp_media_get_media(media);
-            m_mediaForMid.set(mid.toString(), g_str_equal(mediaType, "audio") ? RealtimeMediaSource::Type::Audio : RealtimeMediaSource::Type::Video);
+            auto mediaType = CStringView::unsafeFromUTF8(gst_sdp_media_get_media(media));
+            m_mediaForMid.set(mid.toString(), mediaType == "audio"_s ? RealtimeMediaSource::Type::Audio : RealtimeMediaSource::Type::Video);
 
             // https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad/-/merge_requests/1907
             if (sdpMediaHasAttributeKey(media, "ice-lite")) {
@@ -1072,8 +1070,8 @@ void GStreamerMediaEndpoint::processSDPMessage(const GstSDPMessage* message, Fun
     unsigned totalMedias = gst_sdp_message_medias_len(message);
     for (unsigned mediaIndex = 0; mediaIndex < totalMedias; mediaIndex++) {
         const auto* media = gst_sdp_message_get_media(message, mediaIndex);
-        const char* mediaType = gst_sdp_media_get_media(media);
-        if (!g_str_equal(mediaType, "audio") && !g_str_equal(mediaType, "video"))
+        auto mediaType = CStringView::unsafeFromUTF8(gst_sdp_media_get_media(media));
+        if (mediaType != "audio"_s && mediaType != "video"_s)
             continue;
 
 #ifndef GST_DISABLE_GST_DEBUG
@@ -1460,7 +1458,7 @@ void GStreamerMediaEndpoint::connectIncomingTrack(WebRTCTrackData& data)
     // NOTE: Here ideally we should match WebKit-side transceivers with data.transceiver but we
     // cannot because in some situations (simulcast, mostly), we can end-up with multiple webrtcbin
     // src pads associated to the same transceiver.
-    auto transceiver = peerConnectionBackend->existingTransceiver([&](auto& backend) -> bool {
+    RefPtr<RTCRtpTransceiver> transceiver = peerConnectionBackend->existingTransceiver([&](auto& backend) -> bool {
         GUniqueOutPtr<char> mid;
         g_object_get(backend.rtcTransceiver(), "mid", &mid.outPtr(), nullptr);
         GST_DEBUG_OBJECT(m_pipeline.get(), "Checking if transceiver with mid %s matches the track mid", mid.get());
@@ -2062,6 +2060,8 @@ void GStreamerMediaEndpoint::prepareForClose()
     if (!m_pipeline || GST_STATE(m_pipeline.get()) <= GST_STATE_READY)
         return;
     gst_element_call_async(m_pipeline.get(), reinterpret_cast<GstElementCallAsyncFunc>(+[](GstElement* element, gpointer) {
+        if (GST_STATE(element) <= GST_STATE_READY)
+            return;
         gst_element_set_state(element, GST_STATE_READY);
     }), nullptr, nullptr);
 }
@@ -2303,7 +2303,7 @@ void GStreamerMediaEndpoint::collectTransceivers()
 
     GST_DEBUG_OBJECT(m_pipeline.get(), "Collecting transceivers");
     forEachTransceiver(m_webrtcBin, [&](auto&& transceiver) -> bool {
-        auto* existingTransceiver = peerConnectionBackend->existingTransceiver([&](auto& transceiverBackend) {
+        RefPtr existingTransceiver = peerConnectionBackend->existingTransceiver([&](auto& transceiverBackend) {
             return transceiver.get() == transceiverBackend.rtcTransceiver();
         });
         if (existingTransceiver)
@@ -2321,7 +2321,7 @@ void GStreamerMediaEndpoint::collectTransceivers()
             return false;
         }
 
-        peerConnectionBackend->newRemoteTransceiver(WTF::makeUnique<GStreamerRtpTransceiverBackend>(WTFMove(transceiver)), m_mediaForMid.get(String::fromUTF8(mid.get())), trackIdFromSDPMedia(*media));
+        existingTransceiver = peerConnectionBackend->newRemoteTransceiver(WTF::makeUnique<GStreamerRtpTransceiverBackend>(WTFMove(transceiver)), m_mediaForMid.get(String::fromUTF8(mid.get())), trackIdFromSDPMedia(*media));
         return false;
     });
 }
@@ -2704,10 +2704,10 @@ void GStreamerMediaEndpoint::updatePtDemuxSrcPadCaps(GstElement* ptDemux, GstPad
     auto s = gst_caps_get_structure(caps.get(), 0);
     auto s2 = gst_caps_get_structure(currentCaps.get(), 0);
     for (int j = 0; j < gst_structure_n_fields(s2); j++) {
-        const char* name = gst_structure_nth_field_name(s2, j);
-        if (!g_str_equal(name, "media") && !g_str_equal(name, "payload") && !g_str_equal(name, "clock-rate") && !g_str_equal(name, "encoding-name"))
+        auto name = CStringView::unsafeFromUTF8(gst_structure_nth_field_name(s2, j));
+        if (name != "media"_s && name != "payload"_s && name != "clock-rate"_s && name != "encoding-name"_s)
             continue;
-        gst_structure_set_value(s, name, gst_structure_get_value(s2, name));
+        gst_structure_set_value(s, name.utf8(), gst_structure_get_value(s2, name.utf8()));
     }
 
     // Remove "ssrc-*" attributes matching other SSRCs.
@@ -2776,8 +2776,6 @@ GUniquePtr<GstSDPMessage> GStreamerMediaEndpoint::completeSDPAnswer(const String
 
     return GUniquePtr<GstSDPMessage>(message.release());
 }
-
-IGNORE_CLANG_WARNINGS_END
 
 } // namespace WebCore
 

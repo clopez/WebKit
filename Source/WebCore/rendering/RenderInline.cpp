@@ -25,7 +25,6 @@
 #include "config.h"
 #include "RenderInline.h"
 
-#include "BorderPainter.h"
 #include "Chrome.h"
 #include "FloatQuad.h"
 #include "FrameSelection.h"
@@ -36,6 +35,7 @@
 #include "InlineIteratorLineBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineTextBox.h"
+#include "OutlinePainter.h"
 #include "RenderBlock.h"
 #include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
@@ -863,11 +863,11 @@ LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child)
     // should locate itself as though it is a normal flow box in relation to its containing block.
     LayoutSize logicalOffset;
     if (!child->style().hasStaticInlinePosition(writingMode().isHorizontal())
-        || child->style().positionArea() || child->style().justifySelf().isAnchorCenter())
+        || !child->style().positionArea().isNone() || child->style().justifySelf().isAnchorCenter())
         logicalOffset.setWidth(inlinePosition);
 
     if (!child->style().hasStaticBlockPosition(writingMode().isHorizontal())
-        || child->style().positionArea() || child->style().alignSelf().isAnchorCenter())
+        || !child->style().positionArea().isNone() || child->style().alignSelf().isAnchorCenter())
         logicalOffset.setHeight(blockPosition);
 
     return writingMode().isHorizontal() ? logicalOffset : logicalOffset.transposedSize();
@@ -974,7 +974,7 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
         rects.append(LayoutRect { enclosingVisualRect });
     }
-    BorderPainter { *this, paintInfo }.paintOutline(paintOffset, rects);
+    OutlinePainter { *this, paintInfo }.paintOutline(paintOffset, rects);
 }
 
 bool isEmptyInline(const RenderInline& renderer)

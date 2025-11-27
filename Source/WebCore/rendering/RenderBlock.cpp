@@ -2739,23 +2739,27 @@ void RenderBlock::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint
     if (!hasNonVisibleOverflow() && !hasControlClip()) {
         if (childrenInline())
             addFocusRingRectsForInlineChildren(rects, additionalOffset, paintContainer);
-    
-        for (auto& box : childrenOfType<RenderBox>(*this)) {
-            if (is<RenderListMarker>(box) || box.isOutOfFlowPositioned())
-                continue;
 
-            FloatPoint pos;
-            // FIXME: This doesn't work correctly with transforms.
-            if (box.layer())
-                pos = box.localToContainerPoint(FloatPoint(), paintContainer);
-            else
-                pos = FloatPoint(additionalOffset.x() + box.x(), additionalOffset.y() + box.y());
-            box.addFocusRingRects(rects, flooredLayoutPoint(pos), paintContainer);
-        }
+        for (auto& box : childrenOfType<RenderBox>(*this))
+            addFocusRingRectsForBlockChild(box, rects, additionalOffset, paintContainer);
     }
 
     if (inlineContinuation)
         inlineContinuation->addFocusRingRects(rects, flooredLayoutPoint(LayoutPoint(additionalOffset + inlineContinuation->containingBlock()->location() - location())), paintContainer);
+}
+
+void RenderBlock::addFocusRingRectsForBlockChild(const RenderBox& box, Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer) const
+{
+    if (is<RenderListMarker>(box) || box.isOutOfFlowPositioned())
+        return;
+
+    FloatPoint pos;
+    // FIXME: This doesn't work correctly with transforms.
+    if (box.layer())
+        pos = box.localToContainerPoint(FloatPoint(), paintContainer);
+    else
+        pos = FloatPoint(additionalOffset.x() + box.x(), additionalOffset.y() + box.y());
+    box.addFocusRingRects(rects, flooredLayoutPoint(pos), paintContainer);
 }
 
 LayoutUnit RenderBlock::offsetFromLogicalTopOfFirstPage() const
@@ -3159,10 +3163,10 @@ void RenderBlock::layoutExcludedChildren(RelayoutChildren relayoutChildren)
     LayoutUnit logicalLeft;
     if (writingMode().isBidiLTR()) {
         switch (legend.style().textAlign()) {
-        case TextAlignMode::Center:
+        case Style::TextAlign::Center:
             logicalLeft = (logicalWidth() - logicalWidthForChild(legend)) / 2;
             break;
-        case TextAlignMode::Right:
+        case Style::TextAlign::Right:
             logicalLeft = logicalWidth() - borderAndPaddingEnd() - logicalWidthForChild(legend);
             break;
         default:
@@ -3171,10 +3175,10 @@ void RenderBlock::layoutExcludedChildren(RelayoutChildren relayoutChildren)
         }
     } else {
         switch (legend.style().textAlign()) {
-        case TextAlignMode::Left:
+        case Style::TextAlign::Left:
             logicalLeft = borderAndPaddingStart();
             break;
-        case TextAlignMode::Center: {
+        case Style::TextAlign::Center: {
             // Make sure that the extra pixel goes to the end side in RTL (since it went to the end side
             // in LTR).
             LayoutUnit centeredWidth = logicalWidth() - logicalWidthForChild(legend);

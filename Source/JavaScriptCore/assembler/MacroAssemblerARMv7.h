@@ -34,6 +34,7 @@
 #include <JavaScriptCore/ARMv7Assembler.h>
 #include <JavaScriptCore/AbstractMacroAssembler.h>
 #include <initializer_list>
+#include <optional>
 
 namespace JSC {
 
@@ -405,6 +406,343 @@ public:
         }
     }
 
+    void rotateLeft64(RegisterID srcHi, RegisterID srcLo, RegisterID shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        // Test/swap bit 5
+        // leftShift = amount & 31
+        // rightShift = 32 - leftShift
+        // resultLo = (srcLo << leftShift) | (srcHi >> rightShift)
+        // resultHi = (srcHi << leftShift) | (srcLo >> rightShift)
+
+        // Test if bit 5 is set
+        m_assembler.tst(shiftAmount, ARMThumbImmediate::makeEncodedImm(32));
+        m_assembler.mov(scratch0, srcLo);
+        m_assembler.mov(scratch1, srcHi);
+
+        // If bit 5 is set, swap them
+        m_assembler.it(ARMv7Assembler::ConditionNE, true);
+        m_assembler.mov(scratch0, srcHi);
+        m_assembler.mov(scratch1, srcLo);
+
+        // leftShift = shiftAmount & 31
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+        m_assembler.ARM_and(dataTemp, shiftAmount, ARMThumbImmediate::makeEncodedImm(31));
+
+        // rightShift = 32 - leftShift
+        sub32(TrustedImm32(32), dataTemp, destLo);
+
+        m_assembler.lsl(destHi, scratch0, dataTemp); // A = scratch0 << leftShift
+        m_assembler.lsl(dataTemp, scratch1, dataTemp); // C = scratch1 << leftShift
+        m_assembler.lsr(scratch1, scratch1, destLo); // B = scratch1 >> rightShift
+        m_assembler.lsr(scratch0, scratch0, destLo); // D = scratch0 >> rightShift
+
+        m_assembler.orr(destLo, destHi, scratch1); // resultLo = A | B
+        m_assembler.orr(destHi, dataTemp, scratch0); // resultHi = C | D
+    }
+
+    void rotateLeft64(RegisterID srcHi, RegisterID srcLo, TrustedImm32 shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        ASSERT(shiftAmount.m_value > 0 && shiftAmount.m_value <= 63);
+
+        // Special case: rotation by 32 is just a swap
+        if (shiftAmount.m_value == 32) {
+            m_assembler.mov(destLo, srcHi);
+            m_assembler.mov(destHi, srcLo);
+            return;
+        }
+
+        int32_t leftShift = shiftAmount.m_value & 31;
+        int32_t rightShift = 32 - leftShift;
+
+        bool needSwap = shiftAmount.m_value & 32;
+        if (needSwap) {
+            m_assembler.mov(scratch0, srcHi);
+            m_assembler.mov(scratch1, srcLo);
+        } else {
+            m_assembler.mov(scratch0, srcLo);
+            m_assembler.mov(scratch1, srcHi);
+        }
+
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+
+        m_assembler.lsl(destHi, scratch0, leftShift); // A = scratch0 << leftShift
+        m_assembler.lsl(dataTemp, scratch1, leftShift); // C = scratch1 << leftShift
+        m_assembler.lsr(scratch1, scratch1, rightShift); // B = scratch1 >> rightShift
+        m_assembler.lsr(scratch0, scratch0, rightShift); // D = scratch0 >> rightShift
+
+        m_assembler.orr(destLo, destHi, scratch1); // resultLo = A | B
+        m_assembler.orr(destHi, dataTemp, scratch0); // resultHi = C | D
+    }
+
+    void rotateRight64(RegisterID srcHi, RegisterID srcLo, RegisterID shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        // Test/swap bit 5
+        // rightShift = amount & 31
+        // leftShift = 32 - rightShift
+        // resultLo = (srcLo >> rightShift) | (srcHi << leftShift)
+        // resultHi = (srcHi >> rightShift) | (srcLo << leftShift)
+
+        // Test if bit 5 is set
+        m_assembler.tst(shiftAmount, ARMThumbImmediate::makeEncodedImm(32));
+        m_assembler.mov(scratch0, srcLo);
+        m_assembler.mov(scratch1, srcHi);
+
+        // If bit 5 is set, swap them
+        m_assembler.it(ARMv7Assembler::ConditionNE, true);
+        m_assembler.mov(scratch0, srcHi);
+        m_assembler.mov(scratch1, srcLo);
+
+        // rightShift = shiftAmount & 31
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+        m_assembler.ARM_and(dataTemp, shiftAmount, ARMThumbImmediate::makeEncodedImm(31));
+
+        // leftShift = 32 - rightShift
+        sub32(TrustedImm32(32), dataTemp, destLo);
+
+        m_assembler.lsr(destHi, scratch0, dataTemp); // A = scratch0 >> rightShift
+        m_assembler.lsr(dataTemp, scratch1, dataTemp); // C = scratch1 >> rightShift
+        m_assembler.lsl(scratch1, scratch1, destLo); // B = scratch1 << leftShift
+        m_assembler.lsl(scratch0, scratch0, destLo); // D = scratch0 << leftShift
+
+        m_assembler.orr(destLo, destHi, scratch1); // resultLo = A | B
+        m_assembler.orr(destHi, dataTemp, scratch0); // resultHi = C | D
+    }
+
+    void rotateRight64(RegisterID srcHi, RegisterID srcLo, TrustedImm32 shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        ASSERT(shiftAmount.m_value > 0 && shiftAmount.m_value <= 63);
+
+        // Special case: rotation by 32 is just a swap
+        if (shiftAmount.m_value == 32) {
+            m_assembler.mov(destLo, srcHi);
+            m_assembler.mov(destHi, srcLo);
+            return;
+        }
+
+        int32_t rightShift = shiftAmount.m_value & 31;
+        int32_t leftShift = 32 - rightShift;
+
+        bool needSwap = shiftAmount.m_value & 32;
+        if (needSwap) {
+            m_assembler.mov(scratch0, srcHi);
+            m_assembler.mov(scratch1, srcLo);
+        } else {
+            m_assembler.mov(scratch0, srcLo);
+            m_assembler.mov(scratch1, srcHi);
+        }
+
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+
+        m_assembler.lsr(destHi, scratch0, rightShift); // A = scratch0 >> rightShift
+        m_assembler.lsr(dataTemp, scratch1, rightShift); // C = scratch1 >> rightShift
+        m_assembler.lsl(scratch1, scratch1, leftShift); // B = scratch1 << leftShift
+        m_assembler.lsl(scratch0, scratch0, leftShift); // D = scratch0 << leftShift
+
+        m_assembler.orr(destLo, destHi, scratch1); // resultLo = A | B
+        m_assembler.orr(destHi, dataTemp, scratch0); // resultHi = C | D
+    }
+
+    void lshift64(RegisterID srcHi, RegisterID srcLo, RegisterID shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        // shift = amount & 63
+        // resultHi = (srcHi << shift) | (srcLo >> (32 - shift)) | (srcLo << (shift - 32))
+        // resultLo = srcLo << shift
+
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+
+        // shift = shiftAmount & 63
+        m_assembler.ARM_and(dataTemp, shiftAmount, ARMThumbImmediate::makeEncodedImm(63));
+
+        // 32 - shift
+        sub32(TrustedImm32(32), dataTemp, scratch0);
+
+        // resultHi = (srcHi << shift) | (srcLo >> (32 - shift))
+        m_assembler.lsl(destHi, srcHi, dataTemp);
+        m_assembler.lsr(scratch1, srcLo, scratch0);
+        m_assembler.orr(destHi, destHi, scratch1);
+
+        // shift - 32
+        m_assembler.sub(scratch0, dataTemp, ARMThumbImmediate::makeEncodedImm(32));
+
+        // resultHi |= (srcLo << (shift - 32))
+        m_assembler.lsl(scratch1, srcLo, scratch0);
+        m_assembler.orr(destHi, destHi, scratch1);
+
+        // resultLo = srcLo << shift
+        m_assembler.lsl(destLo, srcLo, dataTemp);
+    }
+
+    void lshift64(RegisterID srcHi, RegisterID srcLo, TrustedImm32 shiftAmount, RegisterID destHi, RegisterID destLo)
+    {
+        ASSERT(shiftAmount.m_value >= 0 && shiftAmount.m_value <= 63);
+
+        int32_t shift = shiftAmount.m_value;
+        if (!shift) {
+            m_assembler.mov(destLo, srcLo);
+            m_assembler.mov(destHi, srcHi);
+            return;
+        }
+
+        if (shift < 32) {
+            // resultHi = (srcHi << shift) | (srcLo >> (32 - shift))
+            // resultLo = srcLo << shift
+            RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+            m_assembler.lsl(destHi, srcHi, shift);
+            m_assembler.lsr(scratch, srcLo, 32 - shift);
+            m_assembler.orr(destHi, destHi, scratch);
+            m_assembler.lsl(destLo, srcLo, shift);
+            return;
+        }
+
+        if (shift == 32) {
+            // resultHi = srcLo
+            // resultLo = 0
+            m_assembler.mov(destHi, srcLo);
+            m_assembler.mov(destLo, ARMThumbImmediate::makeEncodedImm(0));
+            return;
+        }
+
+        // resultHi = srcLo << (shift - 32)
+        // resultLo = 0
+        m_assembler.lsl(destHi, srcLo, shift - 32);
+        m_assembler.mov(destLo, ARMThumbImmediate::makeEncodedImm(0));
+    }
+
+    void urshift64(RegisterID srcHi, RegisterID srcLo, RegisterID shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        // shift = amount & 63
+        // resultLo = (srcLo >> shift) | (srcHi << (32 - shift)) | (srcHi >> (shift - 32))
+        // resultHi = srcHi >> shift
+
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+
+        // shift = shiftAmount & 63
+        m_assembler.ARM_and(dataTemp, shiftAmount, ARMThumbImmediate::makeEncodedImm(63));
+
+        // 32 - shift
+        sub32(TrustedImm32(32), dataTemp, scratch0);
+
+        // resultLo = (srcLo >> shift) | (srcHi << (32 - shift))
+        m_assembler.lsr(destLo, srcLo, dataTemp);
+        m_assembler.lsl(scratch1, srcHi, scratch0);
+        m_assembler.orr(destLo, destLo, scratch1);
+
+        // shift - 32
+        m_assembler.sub(scratch0, dataTemp, ARMThumbImmediate::makeEncodedImm(32));
+
+        // resultLo |= (srcHi >> (shift - 32))
+        m_assembler.lsr(scratch1, srcHi, scratch0);
+        m_assembler.orr(destLo, destLo, scratch1);
+
+        // resultHi = srcHi >> shift
+        m_assembler.lsr(destHi, srcHi, dataTemp);
+    }
+
+    void urshift64(RegisterID srcHi, RegisterID srcLo, TrustedImm32 shiftAmount, RegisterID destHi, RegisterID destLo)
+    {
+        ASSERT(shiftAmount.m_value >= 0 && shiftAmount.m_value <= 63);
+
+        int32_t shift = shiftAmount.m_value;
+        if (!shift) {
+            m_assembler.mov(destLo, srcLo);
+            m_assembler.mov(destHi, srcHi);
+            return;
+        }
+
+        if (shift < 32) {
+            // resultLo = (srcLo >> shift) | (srcHi << (32 - shift))
+            // resultHi = srcHi >> shift
+            RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+            m_assembler.lsr(destLo, srcLo, shift);
+            m_assembler.lsl(scratch, srcHi, 32 - shift);
+            m_assembler.orr(destLo, destLo, scratch);
+            m_assembler.lsr(destHi, srcHi, shift);
+            return;
+        }
+
+        if (shift == 32) {
+            // resultLo = srcHi
+            // resultHi = 0
+            m_assembler.mov(destLo, srcHi);
+            m_assembler.mov(destHi, ARMThumbImmediate::makeEncodedImm(0));
+            return;
+        }
+
+        // resultLo = srcHi >> (shift - 32)
+        // resultHi = 0
+        m_assembler.lsr(destLo, srcHi, shift - 32);
+        m_assembler.mov(destHi, ARMThumbImmediate::makeEncodedImm(0));
+    }
+
+    void rshift64(RegisterID srcHi, RegisterID srcLo, RegisterID shiftAmount, RegisterID destHi, RegisterID destLo, RegisterID scratch0, RegisterID scratch1)
+    {
+        // shift = amount & 63
+        // resultLo = (srcLo >> shift) | (srcHi << (32 - shift)) | (srcHi >> (shift - 32))
+        // resultHi = srcHi >> shift (arithmetic)
+
+        RegisterID dataTemp = getCachedDataTempRegisterIDAndInvalidate();
+
+        // shift = shiftAmount & 63
+        m_assembler.ARM_and(dataTemp, shiftAmount, ARMThumbImmediate::makeEncodedImm(63));
+
+        // 32 - shift
+        sub32(TrustedImm32(32), dataTemp, scratch0);
+
+        // resultLo = (srcLo >> shift) | (srcHi << (32 - shift))
+        m_assembler.lsr(destLo, srcLo, dataTemp);
+        m_assembler.lsl(scratch1, srcHi, scratch0);
+        m_assembler.orr(destLo, destLo, scratch1);
+
+        // shift - 32
+        m_assembler.sub(scratch0, dataTemp, ARMThumbImmediate::makeEncodedImm(32));
+
+        // (srcHi >> (shift - 32)) for the shift >= 32 case
+        m_assembler.asr(scratch1, srcHi, scratch0);
+
+        // if (shift >= 32) use scratch1, else keep destLo
+        m_assembler.orr(scratch1, destLo, scratch1);
+        moveConditionally32(RelationalCondition::AboveOrEqual, dataTemp, TrustedImm32(32), scratch1, destLo, destLo);
+
+        // resultHi = srcHi >> shift (arithmetic)
+        m_assembler.asr(destHi, srcHi, dataTemp);
+    }
+
+    void rshift64(RegisterID srcHi, RegisterID srcLo, TrustedImm32 shiftAmount, RegisterID destHi, RegisterID destLo)
+    {
+        ASSERT(shiftAmount.m_value >= 0 && shiftAmount.m_value <= 63);
+
+        int32_t shift = shiftAmount.m_value;
+        if (!shift) {
+            m_assembler.mov(destLo, srcLo);
+            m_assembler.mov(destHi, srcHi);
+            return;
+        }
+
+        if (shift < 32) {
+            // resultLo = (srcLo >> shift) | (srcHi << (32 - shift))
+            // resultHi = srcHi >> shift (arithmetic)
+            RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+            m_assembler.lsr(destLo, srcLo, shift);
+            m_assembler.lsl(scratch, srcHi, 32 - shift);
+            m_assembler.orr(destLo, destLo, scratch);
+            m_assembler.asr(destHi, srcHi, shift);
+            return;
+        }
+
+        if (shift == 32) {
+            // resultLo = srcHi
+            // resultHi = srcHi >> 31 (sign extend)
+            m_assembler.mov(destLo, srcHi);
+            m_assembler.asr(destHi, srcHi, 31);
+            return;
+        }
+
+        // resultLo = srcHi >> (shift - 32) (arithmetic)
+        // resultHi = srcHi >> 31 (sign extend)
+        m_assembler.asr(destLo, srcHi, shift - 32);
+        m_assembler.asr(destHi, srcHi, 31);
+    }
+
     void and16(Address src, RegisterID dest)
     {
         load16(src, dataTempRegister);
@@ -576,11 +914,6 @@ public:
             done.link(this);
             move(scratch, dest);
         }
-    }
-
-    void lshiftUnchecked(RegisterID src, RegisterID shiftAmount, RegisterID dest)
-    {
-        m_assembler.lsl(dest, src, shiftAmount);
     }
 
     void lshift32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
@@ -802,11 +1135,6 @@ public:
         m_assembler.ror(dest, src, scratch);
     }
 
-    void rshiftUnchecked(RegisterID src, RegisterID shiftAmount, RegisterID dest)
-    {
-        m_assembler.asr(dest, src, shiftAmount);
-    }
-
     void rshift32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
     {
         RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
@@ -842,11 +1170,6 @@ public:
         m_assembler.ARM_and(dest, shiftAmount, ARMThumbImmediate::makeEncodedImm(0x1f));
         move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.asr(dest, dataTempRegister, dest);
-    }
-
-    void urshiftUnchecked(RegisterID src, RegisterID shiftAmount, RegisterID dest)
-    {
-        m_assembler.lsr(dest, src, shiftAmount);
     }
 
     void urshift32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
@@ -1948,14 +2271,6 @@ public:
         move64ToDouble(scratch2, scratch1, dest);
     }
 
-    void moveDoubleOrNop(FPRegisterID src, FPRegisterID dest)
-    {
-        if (src != dest)
-            m_assembler.vmov(dest, src);
-        else
-            nop();
-    }
-
     void moveZeroToFloat(FPRegisterID reg)
     {
         static double zeroConstant = 0.;
@@ -2684,18 +2999,6 @@ public:
             invalidateCachedAddressTempRegister();
     }
 
-    // For use in IT blocks, where we need to generate an instruction even if
-    // src == dest. This should be pretty uncommon, so it's simpler to generate
-    // a nop.
-    void moveOrNop(RegisterID src, RegisterID dest)
-    {
-        if (src == dest) {
-            nop();
-            return;
-        }
-        move(src, dest);
-    }
-
     void move(TrustedImmPtr imm, RegisterID dest)
     {
         move(TrustedImm32(imm), dest);
@@ -2756,6 +3059,27 @@ public:
     static RelationalCondition invert(RelationalCondition cond)
     {
         return static_cast<RelationalCondition>(cond ^ 1);
+    }
+
+    static ResultCondition invert(ResultCondition cond)
+    {
+        return static_cast<ResultCondition>(cond ^ 1);
+    }
+
+    static std::optional<ResultCondition> commuteCompareToZeroIntoTest(RelationalCondition cond)
+    {
+        switch (cond) {
+        case Equal:
+            return Zero;
+        case NotEqual:
+            return NonZero;
+        case LessThan:
+            return Signed;
+        case GreaterThanOrEqual:
+            return PositiveOrZero;
+        default:
+            return std::nullopt;
+        }
     }
 
     void nop()
@@ -2958,6 +3282,11 @@ public:
 
     Jump branch32(RelationalCondition cond, RegisterID left, TrustedImm32 right)
     {
+        if (!right.m_value) {
+            if (auto resultCondition = commuteCompareToZeroIntoTest(cond))
+                return branchTest32(*resultCondition, left, left);
+        }
+
         compare32AndSetFlags(left, right);
         return Jump(makeBranch(cond));
     }
@@ -3540,6 +3869,13 @@ public:
 
     void compare32(RelationalCondition cond, RegisterID left, TrustedImm32 right, RegisterID dest)
     {
+        if (!right.m_value) {
+            if (auto resultCondition = commuteCompareToZeroIntoTest(cond)) {
+                test32(*resultCondition, left, left, dest);
+                return;
+            }
+        }
+
         compare32AndSetFlags(left, right);
         m_assembler.it(armV7Condition(cond), false);
         m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
@@ -3588,31 +3924,143 @@ public:
 
     void test32(ResultCondition cond, RegisterID op1, RegisterID op2, RegisterID dest)
     {
-        m_assembler.tst(op1, op2);
-        m_assembler.it(armV7Condition(cond), false);
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));
+        switch (cond) {
+        case Zero:
+            if (op1 == op2) {
+                m_assembler.clz(dest, op1);
+                m_assembler.lsr(dest, dest, 5);
+            } else {
+                m_assembler.eor(dest, op1, op2);
+                m_assembler.clz(dest, dest);
+                m_assembler.lsr(dest, dest, 5);
+            }
+            return;
+
+        case NonZero:
+            if (op1 == op2) {
+                m_assembler.clz(dest, op1);
+                m_assembler.lsr(dest, dest, 5);
+                m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            } else {
+                m_assembler.eor(dest, op1, op2);
+                m_assembler.clz(dest, dest);
+                m_assembler.lsr(dest, dest, 5);
+                m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            }
+            return;
+
+        case Signed:
+            if (op1 == op2)
+                m_assembler.lsr(dest, op1, 31);
+            else {
+                m_assembler.ARM_and(dest, op1, op2);
+                m_assembler.lsr(dest, dest, 31);
+            }
+            return;
+
+        case PositiveOrZero:
+            if (op1 == op2) {
+                m_assembler.lsr(dest, op1, 31);
+                m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            } else {
+                m_assembler.ARM_and(dest, op1, op2);
+                m_assembler.lsr(dest, dest, 31);
+                m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            }
+            return;
+
+        default:
+            // tst instruction doesn't set Carry or Overflow flags
+            RELEASE_ASSERT_NOT_REACHED();
+            break;
+        }
     }
 
     void test32(ResultCondition cond, RegisterID op1, TrustedImm32 mask, RegisterID dest)
     {
-        test32(op1, mask);
-        m_assembler.it(armV7Condition(cond), false);
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));
+        // Special case: mask == -1 is equivalent to testing register against itself
+        if (mask.m_value == -1) {
+            test32(cond, op1, op1, dest);
+            return;
+        }
+
+        // Special case: mask == 0x80000000 is sign bit testing
+        if (mask.m_value == static_cast<int32_t>(0x80000000)) {
+            switch (cond) {
+            case NonZero:
+            case Signed:
+                m_assembler.lsr(dest, op1, 31);
+                return;
+            case Zero:
+            case PositiveOrZero:
+                m_assembler.lsr(dest, op1, 31);
+                m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+                return;
+            default:
+                // tst instruction doesn't set Carry or Overflow flag
+                RELEASE_ASSERT_NOT_REACHED();
+            }
+        }
+
+        switch (cond) {
+        case Zero: {
+            ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(mask.m_value);
+            if (armImm.isValid())
+                m_assembler.ARM_and(dest, op1, armImm);
+            else {
+                move(mask, dest);
+                m_assembler.ARM_and(dest, op1, dest);
+            }
+            m_assembler.clz(dest, dest);
+            m_assembler.lsr(dest, dest, 5);
+            return;
+        }
+        case NonZero: {
+            ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(mask.m_value);
+            if (armImm.isValid())
+                m_assembler.ARM_and(dest, op1, armImm);
+            else {
+                move(mask, dest);
+                m_assembler.ARM_and(dest, op1, dest);
+            }
+            m_assembler.clz(dest, dest);
+            m_assembler.lsr(dest, dest, 5);
+            m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            return;
+        }
+        case Signed: {
+            ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(mask.m_value);
+            if (armImm.isValid())
+                m_assembler.ARM_and(dest, op1, armImm);
+            else {
+                move(mask, dest);
+                m_assembler.ARM_and(dest, op1, dest);
+            }
+            m_assembler.lsr(dest, dest, 31);
+            return;
+        }
+        case PositiveOrZero: {
+            ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(mask.m_value);
+            if (armImm.isValid())
+                m_assembler.ARM_and(dest, op1, armImm);
+            else {
+                move(mask, dest);
+                m_assembler.ARM_and(dest, op1, dest);
+            }
+            m_assembler.lsr(dest, dest, 31);
+            m_assembler.eor(dest, dest, ARMThumbImmediate::makeEncodedImm(1));
+            return;
+        }
+        default:
+            // tst instruction doesn't set Carry or Overflow flag
+            RELEASE_ASSERT_NOT_REACHED();
+        }
     }
 
-    // FIXME:
-    // The mask should be optional... paerhaps the argument order should be
-    // dest-src, operations always have a dest? ... possibly not true, considering
-    // asm ops like test, or pseudo ops like pop().
     void test32(ResultCondition cond, Address address, TrustedImm32 mask, RegisterID dest)
     {
         load32(address, addressTempRegister);
-        test32(addressTempRegister, mask);
-        m_assembler.it(armV7Condition(cond), false);
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
-        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));
+        test32(cond, addressTempRegister, mask, dest);
     }
 
     void test8(ResultCondition cond, Address address, TrustedImm32 mask, RegisterID dest)
@@ -3628,25 +4076,61 @@ public:
 
     void moveConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID src, RegisterID dest)
     {
+        if (src == dest)
+            return;
+
         m_assembler.cmp(left, right);
         m_assembler.it(armV7Condition(cond));
-        moveOrNop(src, dest);
+        move(src, dest);
     }
 
     void moveConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID thenCase, RegisterID elseCase, RegisterID dest)
     {
+        if (thenCase == elseCase) {
+            move(thenCase, dest);
+            return;
+        }
+
         m_assembler.cmp(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveOrNop(thenCase, dest);
-        moveOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            move(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            move(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            move(thenCase, dest);
+            move(elseCase, dest);
+        }
     }
 
     void moveConditionally32(RelationalCondition cond, RegisterID left, TrustedImm32 right, RegisterID thenCase, RegisterID elseCase, RegisterID dest)
     {
+        if (thenCase == elseCase) {
+            move(thenCase, dest);
+            return;
+        }
+
+        if (!right.m_value) {
+            if (auto resultCondition = commuteCompareToZeroIntoTest(cond)) {
+                moveConditionallyTest32(*resultCondition, left, left, thenCase, elseCase, dest);
+                return;
+            }
+        }
+
         compare32AndSetFlags(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveOrNop(thenCase, dest);
-        moveOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            move(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            move(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            move(thenCase, dest);
+            move(elseCase, dest);
+        }
     }
 
     void moveConditionallyTest32(ResultCondition cond, RegisterID testReg, RegisterID mask, RegisterID src, RegisterID dest)
@@ -3660,18 +4144,14 @@ public:
 
     void moveConditionallyTest32(ResultCondition cond, RegisterID left, RegisterID right, RegisterID thenCase, RegisterID elseCase, RegisterID dest)
     {
-        // These are all correctness checks. We use an IT block, so we need to
-        // generate a specific number of instructions. Specifically, move(x, x)
-        // would not generate an instruction, so the IT block would apply to
-        // some later, unrelated instruction.
         if (thenCase == elseCase) {
             move(thenCase, dest);
             return;
         }
+
         m_assembler.tst(left, right);
         if (thenCase == dest) {
-            m_assembler.it(armV7Condition(cond), false);
-            nop();
+            m_assembler.it(armV7Condition(invert(cond)));
             move(elseCase, dest);
         } else if (elseCase == dest) {
             m_assembler.it(armV7Condition(cond));
@@ -3685,42 +4165,115 @@ public:
 
     void moveConditionallyTest32(ResultCondition cond, RegisterID left, TrustedImm32 right, RegisterID thenCase, RegisterID elseCase, RegisterID dest)
     {
+        // easy case: both assignments are the same, so we just ignore the condition
+        if (thenCase == elseCase) {
+            move(thenCase, dest);
+            return;
+        }
+
         test32(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveOrNop(thenCase, dest);
-        moveOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            move(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            move(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            move(thenCase, dest);
+            move(elseCase, dest);
+        }
     }
 
     void moveDoubleConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
     {
+        if (thenCase == elseCase) {
+            moveDouble(thenCase, dest);
+            return;
+        }
+
         m_assembler.cmp(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveDoubleOrNop(thenCase, dest);
-        moveDoubleOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            moveDouble(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            moveDouble(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            moveDouble(thenCase, dest);
+            moveDouble(elseCase, dest);
+        }
     }
 
     void moveDoubleConditionally32(RelationalCondition cond, RegisterID left, TrustedImm32 right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
     {
+        if (thenCase == elseCase) {
+            moveDouble(thenCase, dest);
+            return;
+        }
+
+        if (!right.m_value) {
+            if (auto resultCondition = commuteCompareToZeroIntoTest(cond)) {
+                moveDoubleConditionallyTest32(*resultCondition, left, left, thenCase, elseCase, dest);
+                return;
+            }
+        }
+
         compare32AndSetFlags(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveDoubleOrNop(thenCase, dest);
-        moveDoubleOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            moveDouble(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            moveDouble(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            moveDouble(thenCase, dest);
+            moveDouble(elseCase, dest);
+        }
     }
 
     void moveDoubleConditionallyTest32(ResultCondition cond, RegisterID left, RegisterID right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
     {
+        if (thenCase == elseCase) {
+            moveDouble(thenCase, dest);
+            return;
+        }
+
         m_assembler.tst(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveDoubleOrNop(thenCase, dest);
-        moveDoubleOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            moveDouble(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            moveDouble(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            moveDouble(thenCase, dest);
+            moveDouble(elseCase, dest);
+        }
     }
 
     void moveDoubleConditionallyTest32(ResultCondition cond, RegisterID left, TrustedImm32 right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
     {
+        if (thenCase == elseCase) {
+            moveDouble(thenCase, dest);
+            return;
+        }
+
         test32(left, right);
-        m_assembler.it(armV7Condition(cond), false);
-        moveDoubleOrNop(thenCase, dest);
-        moveDoubleOrNop(elseCase, dest);
+        if (thenCase == dest) {
+            m_assembler.it(armV7Condition(invert(cond)));
+            moveDouble(elseCase, dest);
+        } else if (elseCase == dest) {
+            m_assembler.it(armV7Condition(cond));
+            moveDouble(thenCase, dest);
+        } else {
+            m_assembler.it(armV7Condition(cond), false);
+            moveDouble(thenCase, dest);
+            moveDouble(elseCase, dest);
+        }
     }
 
     ALWAYS_INLINE DataLabel32 moveWithPatch(TrustedImm32 imm, RegisterID dst)

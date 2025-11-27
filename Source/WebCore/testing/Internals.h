@@ -116,6 +116,7 @@ class MediaStreamTrack;
 class MemoryInfo;
 class MessagePort;
 class MockCDMFactory;
+class MockCaptionDisplaySettingsClientCallback;
 class MockContentFilterSettings;
 class MockPageOverlay;
 class MockPaymentCoordinator;
@@ -195,7 +196,7 @@ struct MockWebAuthenticationConfiguration;
 
 class Internals final
     : public RefCounted<Internals>
-    , private ContextDestructionObserver
+    , public ContextDestructionObserver
 #if ENABLE(MEDIA_STREAM)
     , public CanMakeCheckedPtr<Internals>
     , public RealtimeMediaSourceObserver
@@ -210,6 +211,11 @@ class Internals final
 public:
     static Ref<Internals> create(Document&);
     virtual ~Internals();
+
+    // ContextDestructionObserver.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+    USING_CAN_MAKE_WEAKPTR(ContextDestructionObserver);
 
     static void resetToConsistentState(Page&);
 
@@ -321,6 +327,7 @@ public:
     struct AcceleratedAnimation {
         String property;
         double speed;
+        bool isThreaded;
     };
     Vector<AcceleratedAnimation> acceleratedAnimationsForElement(Element&);
     unsigned numberOfAnimationTimelineInvalidations() const;
@@ -840,6 +847,8 @@ public:
     void showCaptionDisplaySettingsPreviewForMediaElement(HTMLMediaElement&);
     void hideCaptionDisplaySettingsPreviewForMediaElement(HTMLMediaElement&);
 
+    void setMockCaptionDisplaySettingsClientCallback(RefPtr<MockCaptionDisplaySettingsClientCallback>&&);
+    MockCaptionDisplaySettingsClientCallback* mockCaptionDisplaySettingsClientCallback() const;
 #endif
 
     ExceptionOr<Ref<DOMRect>> selectionBounds();
@@ -1714,6 +1723,7 @@ private:
 #endif
 #if ENABLE(VIDEO)
     std::unique_ptr<CaptionUserPreferencesTestingModeToken> m_testingModeToken;
+    RefPtr<MockCaptionDisplaySettingsClientCallback> m_mockCaptionDisplaySettingsClientCallback;
 #endif
 };
 

@@ -310,14 +310,20 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
 {
     {
         ProcessState& state = processStateForConnection(connection);
-        LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree transaction: " << bundle.transactions.first().first.transactionID() << " old state: " << state.commitLayerTreeMessageState);
+        LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree old state: " << state.commitLayerTreeMessageState);
+        LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree page data: " << bundle.pageData.description());
+        if (bundle.mainFrameData)
+            LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree main frame data: " << bundle.mainFrameData->description());
+        LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree bundle data: " << bundle.description());
         MESSAGE_CHECK_BASE(std::holds_alternative<CommitLayerTreePending>(state.commitLayerTreeMessageState), connection);
         MESSAGE_CHECK_BASE(std::get<CommitLayerTreePending>(state.commitLayerTreeMessageState).requestedCommitLayerTree, connection);
         MESSAGE_CHECK_BASE(state.pendingLayerTreeTransactionID, connection);
-        // FIXME: transactionID() should be a property of the bundle.
-        MESSAGE_CHECK_BASE(bundle.transactions.first().first.transactionID().lessThanOrEqualSameProcess(*state.pendingLayerTreeTransactionID), connection);
-        MESSAGE_CHECK_BASE(!state.committedLayerTreeTransactionID || bundle.transactions.first().first.transactionID() == state.committedLayerTreeTransactionID->next(), connection);
+        MESSAGE_CHECK_BASE(bundle.transactionID.lessThanOrEqualSameProcess(*state.pendingLayerTreeTransactionID), connection);
+        MESSAGE_CHECK_BASE(!state.committedLayerTreeTransactionID || bundle.transactionID == state.committedLayerTreeTransactionID->next(), connection);
     }
+
+    if (bundle.mainFrameData)
+        MESSAGE_CHECK_BASE(webProcessProxy().hasConnection(connection), connection);
 
     // The `sendRights` vector must have __block scope to be captured by
     // the commit handler block below without the need to copy it.
@@ -340,6 +346,10 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
         }
     }
 
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
     if (bundle.mainFrameData) {
         m_activityStateChangeID = bundle.mainFrameData->activityStateChangeID;
 
@@ -348,9 +358,6 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
             m_activityStateChangeForUnhidingContent = std::nullopt;
         }
 
-        RefPtr page = this->page();
-        if (!page)
-            return;
         // FIXME(site-isolation): Editor state should be updated for subframes.
         if (bundle.mainFrameData->editorState && page->updateEditorState(EditorState { *bundle.mainFrameData->editorState }, WebPageProxy::ShouldMergeVisualEditorState::Yes))
             page->dispatchDidUpdateEditorState();
@@ -365,7 +372,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
             }
         }
 
-        page->didCommitMainFrameData(*bundle.mainFrameData);
+        page->didCommitMainFrameData(*bundle.mainFrameData, bundle.transactionID);
 
         if (auto milestones = bundle.mainFrameData->newlyReachedPaintingMilestones)
             page->didReachLayoutMilestone(milestones, WallTime::now());
@@ -373,13 +380,13 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
 
     {
         ProcessState& state = processStateForConnection(connection);
-        state.committedLayerTreeTransactionID = bundle.transactions.first().first.transactionID();
+        state.committedLayerTreeTransactionID = bundle.transactionID;
     }
 
     WeakPtr weakThis { *this };
 
     for (auto& transaction : bundle.transactions) {
-        commitLayerTreeTransaction(connection, CheckedRef { transaction.first }.get(), transaction.second, bundle.mainFrameData);
+        commitLayerTreeTransaction(connection, CheckedRef { transaction.first }.get(), transaction.second, bundle.mainFrameData, bundle.pageData, bundle.transactionID);
         if (!weakThis)
             return;
     }
@@ -431,7 +438,7 @@ WebCore::TrackingType RemoteLayerTreeDrawingAreaProxy::eventTrackingTypeForPoint
 }
 #endif
 
-void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction, const std::optional<MainFrameData>& mainFrameData)
+void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction, const std::optional<MainFrameData>& mainFrameData, const PageData& pageData, const TransactionID& transactionID)
 {
     TraceScope tracingScope(CommitLayerTreeStart, CommitLayerTreeEnd);
 
@@ -469,8 +476,8 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
         commitLayerAndScrollingTrees();
         scrollingCoordinatorProxy->didCommitLayerAndScrollingTrees();
 
-        page->didCommitLayerTree(layerTreeTransaction, mainFrameData);
-        didCommitLayerTree(connection, layerTreeTransaction, scrollingTreeTransaction, mainFrameData);
+        page->didCommitLayerTree(layerTreeTransaction, mainFrameData, pageData, transactionID);
+        didCommitLayerTree(connection, layerTreeTransaction, scrollingTreeTransaction, mainFrameData, transactionID);
 
 #if ENABLE(ASYNC_SCROLLING)
         scrollingCoordinatorProxy->applyScrollingTreeLayerPositionsAfterCommit();
@@ -492,7 +499,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
         }
 #endif // ENABLE(ASYNC_SCROLLING)
 
-        if (m_debugIndicatorLayerTreeHost && layerTreeTransaction.isMainFrameProcessTransaction()) {
+        if (m_debugIndicatorLayerTreeHost && mainFrameData) {
             float scale = indicatorScale(layerTreeTransaction.contentsSize());
             scrollingCoordinatorProxy->willCommitLayerAndScrollingTrees();
             bool rootLayerChanged = m_debugIndicatorLayerTreeHost->updateLayerTree(connection, layerTreeTransaction, mainFrameData, scale);

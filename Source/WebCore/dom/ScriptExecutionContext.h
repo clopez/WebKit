@@ -35,6 +35,7 @@
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/ObjectIdentifier.h>
+#include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -101,6 +102,7 @@ class ServiceWorkerContainer;
 class SocketProvider;
 class WeakPtrImplWithEventTargetData;
 class WebCoreOpaqueRoot;
+class WebTransport;
 enum class AdvancedPrivacyProtections : uint16_t;
 enum class CrossOriginMode : bool;
 enum class LoadedFromOpaqueSource : bool;
@@ -385,6 +387,8 @@ public:
 
     bool isAlwaysOnLoggingAllowed() const;
 
+    void createdWebTransport(WebTransport&);
+
 protected:
     class AddConsoleMessageTask : public Task {
     public:
@@ -422,8 +426,8 @@ private:
     WEBCORE_EXPORT GuaranteedSerialFunctionDispatcher& nativePromiseDispatcher();
 
     WeakHashSet<MessagePort, WeakPtrImplWithEventTargetData> m_messagePorts;
-    HashSet<ContextDestructionObserver*> m_destructionObservers;
-    HashSet<ActiveDOMObject*> m_activeDOMObjects;
+    WeakHashSet<ContextDestructionObserver> m_destructionObservers;
+    WeakHashSet<ActiveDOMObject> m_activeDOMObjects;
 
     HashMap<int, RefPtr<DOMTimer>> m_timeouts;
 
@@ -465,6 +469,7 @@ private:
 
     RefPtr<GuaranteedSerialFunctionDispatcher> m_nativePromiseDispatcher;
     WeakHashSet<NativePromiseRequest> m_nativePromiseRequests;
+    ThreadSafeWeakHashSet<WebTransport> m_activeWebTransports;
 };
 
 WebCoreOpaqueRoot root(ScriptExecutionContext*);

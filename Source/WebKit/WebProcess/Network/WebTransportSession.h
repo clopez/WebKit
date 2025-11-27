@@ -43,10 +43,11 @@ class Exception;
 class WebTransportSession;
 class WebTransportSessionClient;
 struct ClientOrigin;
+struct WebTransportConnectionInfo;
 struct WebTransportOptions;
 struct WebTransportStreamIdentifierType;
 using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifierType>;
-using WebTransportSessionPromise = GenericPromise;
+using WebTransportSessionPromise = NativePromise<WebTransportConnectionInfo, void>;
 using WebTransportSendPromise = NativePromise<std::optional<Exception>, void>;
 using WebTransportSessionErrorCode = uint32_t;
 using WebTransportStreamErrorCode = uint64_t;
@@ -72,6 +73,7 @@ public:
     void receiveBidirectionalStream(WebCore::WebTransportStreamIdentifier);
     void streamReceiveBytes(WebCore::WebTransportStreamIdentifier, std::span<const uint8_t>, bool, std::optional<WebCore::Exception>&&);
     void didFail(std::optional<unsigned>&&, String&&);
+    void didDrain();
 
     WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 

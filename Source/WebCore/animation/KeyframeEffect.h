@@ -194,8 +194,10 @@ public:
     WebAnimationType animationType() const { return m_animationType; }
 
 #if ENABLE(THREADED_ANIMATIONS)
+    bool canHaveAcceleratedRepresentation() const;
     const AcceleratedEffect* acceleratedRepresentation() const { return m_acceleratedRepresentation.get(); }
     void setAcceleratedRepresentation(const AcceleratedEffect* acceleratedRepresentation) { m_acceleratedRepresentation = acceleratedRepresentation; }
+    void timelineAccelerationAbilityDidChange();
 #endif
 
 private:
@@ -265,7 +267,6 @@ private:
         std::optional<Style::PseudoElementIdentifier> m_originalPseudoElementIdentifier;
     };
 
-    bool threadedAnimationsEnabled() const;
     void scheduleAssociatedAcceleratedEffectStackUpdate(const std::optional<const Styleable>& = std::nullopt);
 #endif
 

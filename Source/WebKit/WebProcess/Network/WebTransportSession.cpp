@@ -32,6 +32,7 @@
 #include "NetworkTransportSessionMessages.h"
 #include "WebProcess.h"
 #include <WebCore/Exception.h>
+#include <WebCore/WebTransportConnectionInfo.h>
 #include <WebCore/WebTransportConnectionStats.h>
 #include <WebCore/WebTransportOptions.h>
 #include <WebCore/WebTransportReceiveStreamStats.h>
@@ -50,7 +51,7 @@ std::pair<Ref<WebTransportSession>, Ref<WebCore::WebTransportSessionPromise>> We
         adoptRef(*new WebTransportSession(connection.copyRef(), WTFMove(client), identifier)),
         connection->sendWithPromisedReply(Messages::NetworkConnectionToWebProcess::InitializeWebTransportSession(identifier, url, options, pageID, clientOrigin))->whenSettled(RunLoop::mainSingleton(), [] (auto&& result) {
             if (result && *result)
-                return WebCore::WebTransportSessionPromise::createAndResolve();
+                return WebCore::WebTransportSessionPromise::createAndResolve(WTFMove(**result));
             return WebCore::WebTransportSessionPromise::createAndReject();
         })
     };
@@ -122,6 +123,15 @@ void WebTransportSession::didFail(std::optional<unsigned>&& code, String&& messa
     ASSERT(RunLoop::isMain());
     if (RefPtr strongClient = m_client.get())
         strongClient->didFail(WTFMove(code), WTFMove(message));
+    else
+        ASSERT_NOT_REACHED();
+}
+
+void WebTransportSession::didDrain()
+{
+    ASSERT(RunLoop::isMain());
+    if (RefPtr strongClient = m_client.get())
+        strongClient->didDrain();
     else
         ASSERT_NOT_REACHED();
 }

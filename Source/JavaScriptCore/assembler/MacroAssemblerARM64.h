@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1408,6 +1408,25 @@ public:
         m_assembler.ror<32>(dest, src, shiftAmmount);
     }
 
+    void rotateLeft32(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        if (!imm.m_value) [[unlikely]]
+            return move(src, dest);
+        rotateRight32(src, TrustedImm32(-(imm.m_value & 31)), dest);
+    }
+
+    void rotateLeft32(TrustedImm32 imm, RegisterID srcDst)
+    {
+        rotateLeft32(srcDst, imm, srcDst);
+    }
+
+    void rotateLeft32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
+    {
+        RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+        neg32(shiftAmount, scratch);
+        rotateRight32(src, scratch, dest);
+    }
+
     void rotateRight64(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
         if (!imm.m_value) [[unlikely]]
@@ -1423,6 +1442,25 @@ public:
     void rotateRight64(RegisterID src, RegisterID shiftAmmount, RegisterID dest)
     {
         m_assembler.ror<64>(dest, src, shiftAmmount);
+    }
+
+    void rotateLeft64(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        if (!imm.m_value) [[unlikely]]
+            return move(src, dest);
+        rotateRight64(src, TrustedImm32(-(imm.m_value & 63)), dest);
+    }
+
+    void rotateLeft64(TrustedImm32 imm, RegisterID srcDst)
+    {
+        rotateLeft64(srcDst, imm, srcDst);
+    }
+
+    void rotateLeft64(RegisterID src, RegisterID shiftAmount, RegisterID dest)
+    {
+        RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+        neg64(shiftAmount, scratch);
+        rotateRight64(src, scratch, dest);
     }
 
     void rshift32(RegisterID src, RegisterID shiftAmount, RegisterID dest)
@@ -2108,6 +2146,68 @@ public:
             cachedMemoryTempRegister().invalidate();
     }
 
+    void load16SignedExtendTo64(Address address, RegisterID dest)
+    {
+        if (tryLoadSignedWithOffset<64, 16>(dest, address.base, address.offset))
+            return;
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.ldrsh<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load16SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        if (address.scale == TimesOne || address.scale == TimesTwo) {
+            if (auto baseGPR = tryFoldBaseAndOffsetPart(address)) {
+                m_assembler.ldrsh<64>(dest, baseGPR.value(), address.index, indexExtendType(address), address.scale);
+                return;
+            }
+        }
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, indexExtendType(address), address.scale);
+        m_assembler.ldrsh<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load16SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        moveToCachedReg(TrustedImmPtr(address), cachedMemoryTempRegister());
+        m_assembler.ldrsh<64>(dest, memoryTempRegister, ARM64Registers::zr);
+        if (dest == memoryTempRegister)
+            cachedMemoryTempRegister().invalidate();
+    }
+
+    void load32SignedExtendTo64(Address address, RegisterID dest)
+    {
+        if (tryLoadSignedWithOffset<64, 32>(dest, address.base, address.offset))
+            return;
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.ldrsw<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load32SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        if (address.scale == TimesOne || address.scale == TimesFour) {
+            if (auto baseGPR = tryFoldBaseAndOffsetPart(address)) {
+                m_assembler.ldrsw<64>(dest, baseGPR.value(), address.index, indexExtendType(address), address.scale);
+                return;
+            }
+        }
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, indexExtendType(address), address.scale);
+        m_assembler.ldrsw<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load32SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        moveToCachedReg(TrustedImmPtr(address), cachedMemoryTempRegister());
+        m_assembler.ldrsw<64>(dest, memoryTempRegister, ARM64Registers::zr);
+        if (dest == memoryTempRegister)
+            cachedMemoryTempRegister().invalidate();
+    }
+
     void zeroExtend16To32(RegisterID src, RegisterID dest)
     {
         and32(TrustedImm32(0xffff), src, dest);
@@ -2191,6 +2291,37 @@ public:
     {
         moveToCachedReg(TrustedImmPtr(address), cachedMemoryTempRegister());
         m_assembler.ldrsb<32>(dest, memoryTempRegister, ARM64Registers::zr);
+        if (dest == memoryTempRegister)
+            cachedMemoryTempRegister().invalidate();
+    }
+
+    void load8SignedExtendTo64(Address address, RegisterID dest)
+    {
+        if (tryLoadSignedWithOffset<64, 8>(dest, address.base, address.offset))
+            return;
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.ldrsb<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load8SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        if (address.scale == TimesOne) {
+            if (auto baseGPR = tryFoldBaseAndOffsetPart(address)) {
+                m_assembler.ldrsb<64>(dest, baseGPR.value(), address.index, indexExtendType(address), address.scale);
+                return;
+            }
+        }
+
+        signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
+        m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, indexExtendType(address), address.scale);
+        m_assembler.ldrsb<64>(dest, address.base, memoryTempRegister);
+    }
+
+    void load8SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        moveToCachedReg(TrustedImmPtr(address), cachedMemoryTempRegister());
+        m_assembler.ldrsb<64>(dest, memoryTempRegister, ARM64Registers::zr);
         if (dest == memoryTempRegister)
             cachedMemoryTempRegister().invalidate();
     }
@@ -5262,13 +5393,19 @@ public:
     {
         m_assembler.dmbISH();
     }
-    
+
     void loadAcq8SignedExtendTo32(Address address, RegisterID dest)
     {
         loadAcq8(address, dest);
         signExtend8To32(dest, dest);
     }
-    
+
+    void loadAcq8SignedExtendTo64(Address address, RegisterID dest)
+    {
+        loadAcq8(address, dest);
+        signExtend8To64(dest, dest);
+    }
+
     void loadAcq8(Address address, RegisterID dest)
     {
         m_assembler.ldar<8>(dest, extractSimpleAddress(address));
@@ -5278,13 +5415,19 @@ public:
     {
         m_assembler.stlr<8>(src, extractSimpleAddress(address));
     }
-    
+
     void loadAcq16SignedExtendTo32(Address address, RegisterID dest)
     {
         loadAcq16(address, dest);
         signExtend16To32(dest, dest);
     }
-    
+
+    void loadAcq16SignedExtendTo64(Address address, RegisterID dest)
+    {
+        loadAcq16(address, dest);
+        signExtend16To64(dest, dest);
+    }
+
     void loadAcq16(Address address, RegisterID dest)
     {
         m_assembler.ldar<16>(dest, extractSimpleAddress(address));
@@ -5299,7 +5442,13 @@ public:
     {
         m_assembler.ldar<32>(dest, extractSimpleAddress(address));
     }
-    
+
+    void loadAcq32SignedExtendTo64(Address address, RegisterID dest)
+    {
+        loadAcq32(address, dest);
+        signExtend32To64(dest, dest);
+    }
+
     void loadAcq64(Address address, RegisterID dest)
     {
         m_assembler.ldar<64>(dest, extractSimpleAddress(address));

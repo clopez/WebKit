@@ -87,6 +87,9 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
     if (box.isInlineBox()) {
         if (!box.isVisible() || !hasDamage(box))
             return;
+        // Don't paint inline boxes wrapping block-in-inline.
+        if (m_inlineContent.isInlineBoxWrapperForBlockLevelBox(box))
+            return;
 
         auto canSkipInlineBoxPainting = [&]() {
             if (m_paintInfo.phase != PaintPhase::Foreground)

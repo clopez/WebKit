@@ -51,6 +51,7 @@
 #import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "SafeBrowsingSPI.h"
+#import "SafeBrowsingSoftLink.h"
 #import "SharedBufferReference.h"
 #import "SynapseSPI.h"
 #import "VideoPresentationManagerProxy.h"
@@ -179,40 +180,41 @@ static bool exceedsRenderTreeSizeSizeThreshold(uint64_t thresholdSize, uint64_t 
     return committedSize > thresholdSize * thesholdSizeFraction;
 }
 
-void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction, const std::optional<MainFrameData>& mainFrameData)
+void WebPageProxy::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction, const std::optional<MainFrameData>& mainFrameData, const PageData& pageData, const TransactionID& transactionID)
 {
-    if (layerTreeTransaction.isMainFrameProcessTransaction()) {
-        if (!m_hasUpdatedRenderingAfterDidCommitLoad
-            && (internals().firstLayerTreeTransactionIdAfterDidCommitLoad && layerTreeTransaction.transactionID().greaterThanOrEqualSameProcess(*internals().firstLayerTreeTransactionIdAfterDidCommitLoad))) {
-            m_hasUpdatedRenderingAfterDidCommitLoad = true;
-#if ENABLE(SCREEN_TIME)
-            if (RefPtr pageClient = this->pageClient())
-                pageClient->didChangeScreenTimeWebpageControllerURL();
-#endif
-            stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
-            internals().lastVisibleContentRectUpdate = { };
-        }
-
-        if (std::exchange(internals().needsFixedContainerEdgesUpdateAfterNextCommit, false))
-            protectedLegacyMainFrameProcess()->send(Messages::WebPage::SetNeedsFixedContainerEdgesUpdate(), webPageIDInMainFrameProcess());
-    }
-
     if (RefPtr pageClient = this->pageClient())
-        pageClient->didCommitLayerTree(layerTreeTransaction, mainFrameData);
+        pageClient->didCommitLayerTree(layerTreeTransaction, mainFrameData, pageData, transactionID);
 
     // FIXME: Remove this special mechanism and fold it into the transaction's layout milestones.
     if (internals().observedLayoutMilestones.contains(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold) && !m_hitRenderTreeSizeThreshold
-        && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, layerTreeTransaction.renderTreeSize())) {
+        && exceedsRenderTreeSizeSizeThreshold(m_sessionRestorationRenderTreeSize, pageData.renderTreeSize)) {
         m_hitRenderTreeSizeThreshold = true;
         didReachLayoutMilestone(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold, WallTime::now());
     }
 }
 
-void WebPageProxy::didCommitMainFrameData(const MainFrameData& mainFrameData)
+void WebPageProxy::didCommitMainFrameData(const MainFrameData& mainFrameData, const TransactionID& transactionID)
 {
     themeColorChanged(mainFrameData.themeColor);
     pageExtendedBackgroundColorDidChange(mainFrameData.pageExtendedBackgroundColor);
     sampledPageTopColorChanged(mainFrameData.sampledPageTopColor);
+
+    if (!m_hasUpdatedRenderingAfterDidCommitLoad
+        && (internals().firstLayerTreeTransactionIdAfterDidCommitLoad && transactionID.greaterThanOrEqualSameProcess(*internals().firstLayerTreeTransactionIdAfterDidCommitLoad))) {
+        m_hasUpdatedRenderingAfterDidCommitLoad = true;
+#if ENABLE(SCREEN_TIME)
+        if (RefPtr pageClient = this->pageClient())
+            pageClient->didChangeScreenTimeWebpageControllerURL();
+#endif
+        stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
+        internals().lastVisibleContentRectUpdate = { };
+    }
+
+    if (std::exchange(internals().needsFixedContainerEdgesUpdateAfterNextCommit, false))
+        protectedLegacyMainFrameProcess()->send(Messages::WebPage::SetNeedsFixedContainerEdgesUpdate(), webPageIDInMainFrameProcess());
+
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->didCommitMainFrameData(mainFrameData);
 }
 
 void WebPageProxy::layerTreeCommitComplete()
@@ -266,7 +268,7 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::grantAccessToCurrentPasteboardDat
 void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navigation, bool forMainFrameNavigation)
 {
 #if HAVE(SAFE_BROWSING)
-    RetainPtr context = [SSBLookupContext sharedLookupContext];
+    RetainPtr context = [getSSBLookupContextClassSingleton() sharedLookupContext];
     if (!url.isValid() || !context)
         return;
     size_t redirectChainIndex = navigation.redirectChainIndex(url);

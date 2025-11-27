@@ -87,12 +87,9 @@ rendering/RenderLayerBacking.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderTableCellInlines.h
 rendering/RenderTextLineBoxes.h
-rendering/TableLayout.h
 rendering/style/StyleCachedImage.cpp
 rendering/svg/SVGRenderingContext.h
 style/StyleExtractorState.h
 style/StyleScope.h
-style/values/will-change/StyleWillChange.cpp
 testing/Internals.cpp
-xml/XSLStyleSheetLibxslt.cpp
 xml/parser/XMLDocumentParserLibxml2.cpp

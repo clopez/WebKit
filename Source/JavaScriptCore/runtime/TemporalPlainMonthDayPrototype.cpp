@@ -40,6 +40,8 @@ namespace JSC {
 static JSC_DECLARE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToString);
 static JSC_DECLARE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToJSON);
 static JSC_DECLARE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToLocaleString);
+static JSC_DECLARE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncWith);
+static JSC_DECLARE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncEquals);
 static JSC_DECLARE_CUSTOM_GETTER(temporalPlainMonthDayPrototypeGetterCalendarId);
 static JSC_DECLARE_CUSTOM_GETTER(temporalPlainMonthDayPrototypeGetterDay);
 static JSC_DECLARE_CUSTOM_GETTER(temporalPlainMonthDayPrototypeGetterMonthCode);
@@ -57,6 +59,8 @@ const ClassInfo TemporalPlainMonthDayPrototype::s_info = { "Temporal.PlainMonthD
   toString         temporalPlainMonthDayPrototypeFuncToString           DontEnum|Function 0
   toJSON           temporalPlainMonthDayPrototypeFuncToJSON             DontEnum|Function 0
   toLocaleString   temporalPlainMonthDayPrototypeFuncToLocaleString     DontEnum|Function 0
+  with             temporalPlainMonthDayPrototypeFuncWith               DontEnum|Function 1
+  equals           temporalPlainMonthDayPrototypeFuncEquals             DontEnum|Function 1
   calendarId       temporalPlainMonthDayPrototypeGetterCalendarId       DontEnum|ReadOnly|CustomAccessor
   day              temporalPlainMonthDayPrototypeGetterDay              DontEnum|ReadOnly|CustomAccessor
   monthCode        temporalPlainMonthDayPrototypeGetterMonthCode        DontEnum|ReadOnly|CustomAccessor
@@ -126,6 +130,47 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToLocaleString, (JSGl
     return JSValue::encode(jsString(vm, monthDay->toString()));
 }
 
+// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.with
+JSC_DEFINE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncWith, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto* monthDay = jsDynamicCast<TemporalPlainMonthDay*>(callFrame->thisValue());
+    if (!monthDay) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "Temporal.PlainMonthDay.prototype.with called on value that's not a PlainMonthDay"_s);
+
+    JSValue temporalMonthDayLike  = callFrame->argument(0);
+    if (!temporalMonthDayLike.isObject()) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "First argument to Temporal.PlainMonthDay.prototype.with must be an object"_s);
+
+    auto result = monthDay->with(globalObject, asObject(temporalMonthDayLike), callFrame->argument(1));
+    RETURN_IF_EXCEPTION(scope, { });
+
+    RELEASE_AND_RETURN(scope, JSValue::encode(
+        TemporalPlainMonthDay::tryCreateIfValid(
+            globalObject, globalObject->plainMonthDayStructure(), WTFMove(result))));
+}
+
+// https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.equals
+JSC_DEFINE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncEquals, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto* monthDay = jsDynamicCast<TemporalPlainMonthDay*>(callFrame->thisValue());
+    if (!monthDay) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "Temporal.PlainMonthDay.prototype.equals called on value that's not a PlainMonthDay"_s);
+
+    auto* other = TemporalPlainMonthDay::from(globalObject, callFrame->argument(0), std::nullopt);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (monthDay->plainMonthDay() != other->plainMonthDay())
+        return JSValue::encode(jsBoolean(false));
+
+    return JSValue::encode(jsBoolean(true));
+}
+
 // https://tc39.es/proposal-temporal/#sec-get-temporal.plainmonthday.prototype.calendarid
 JSC_DEFINE_CUSTOM_GETTER(temporalPlainMonthDayPrototypeGetterCalendarId, (JSGlobalObject* globalObject, EncodedJSValue thisValue, PropertyName))
 {
@@ -136,7 +181,7 @@ JSC_DEFINE_CUSTOM_GETTER(temporalPlainMonthDayPrototypeGetterCalendarId, (JSGlob
     if (!monthDay)
         return throwVMTypeError(globalObject, scope, "Temporal.PlainMonthDay.prototype.calendar called on value that's not a PlainMonthDay"_s);
 
-    // TODO: when calendars are supported, get the string ID of the calendar
+    // FIXME: when calendars are supported, get the string ID of the calendar
     return JSValue::encode(jsString(vm, String::fromLatin1("iso8601")));
 }
 
