@@ -1256,8 +1256,10 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
             // in the same layer. 
             if (!inlineEnclosedInSelfPaintingLayer && !hasLayer())
                 containingBlock->addContinuationWithOutline(inlineRenderer);
-            else if (!InlineIterator::lineLeftmostInlineBoxFor(*inlineRenderer) || (!inlineEnclosedInSelfPaintingLayer && hasLayer()))
-                inlineRenderer->paintOutline(paintInfo, paintOffset - locationOffset() + inlineRenderer->containingBlock()->location());
+            else if (!InlineIterator::lineLeftmostInlineBoxFor(*inlineRenderer) || (!inlineEnclosedInSelfPaintingLayer && hasLayer())) {
+                auto outlineOffset = paintOffset - locationOffset() + inlineRenderer->containingBlock()->location();
+                OutlinePainter { paintInfo }.paintOutline(*inlineRenderer, outlineOffset);
+            }
         }
         paintContinuationOutlines(paintInfo, paintOffset);
     }
@@ -1378,13 +1380,14 @@ void RenderBlock::paintContinuationOutlines(PaintInfo& info, const LayoutPoint& 
 
     LayoutPoint accumulatedPaintOffset = paintOffset;
     // Paint each continuation outline.
+    OutlinePainter outlinePainter { info };
     for (auto& renderInline : *continuations) {
         // Need to add in the coordinates of the intervening blocks.
         auto* block = renderInline.containingBlock();
         for ( ; block && block != this; block = block->containingBlock())
             accumulatedPaintOffset.moveBy(block->location());
         ASSERT(block);
-        renderInline.paintOutline(info, accumulatedPaintOffset);
+        outlinePainter.paintOutline(renderInline, accumulatedPaintOffset);
     }
 }
 
@@ -2709,57 +2712,6 @@ void RenderBlock::updateHitTestResult(HitTestResult& result, const LayoutPoint& 
         result.setPseudoElementIdentifier(style().pseudoElementIdentifier());
         result.setLocalPoint(point);
     }
-}
-
-void RenderBlock::addFocusRingRectsForInlineChildren(Vector<LayoutRect>&, const LayoutPoint&, const RenderLayerModelObject*) const
-{
-    ASSERT_NOT_REACHED();
-}
-
-void RenderBlock::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer) const
-{
-    // For blocks inside inlines, we include margins so that we run right up to the inline boxes
-    // above and below us (thus getting merged with them to form a single irregular shape).
-    auto* inlineContinuation = this->inlineContinuation();
-    if (inlineContinuation) {
-        // FIXME: This check really isn't accurate. 
-        bool nextInlineHasLineBox = inlineContinuation->firstLegacyInlineBox();
-        // FIXME: This is wrong. The principal renderer may not be the continuation preceding this block.
-        // FIXME: This is wrong for block-flows that are horizontal.
-        // https://bugs.webkit.org/show_bug.cgi?id=46781
-        bool prevInlineHasLineBox = downcast<RenderInline>(*inlineContinuation->element()->renderer()).firstLegacyInlineBox();
-        auto topMargin = prevInlineHasLineBox ? collapsedMarginBefore() : 0_lu;
-        auto bottomMargin = nextInlineHasLineBox ? collapsedMarginAfter() : 0_lu;
-        LayoutRect rect(additionalOffset.x(), additionalOffset.y() - topMargin, width(), height() + topMargin + bottomMargin);
-        if (!rect.isEmpty())
-            rects.append(rect);
-    } else if (width() && height())
-        rects.append(LayoutRect(additionalOffset, size()));
-
-    if (!hasNonVisibleOverflow() && !hasControlClip()) {
-        if (childrenInline())
-            addFocusRingRectsForInlineChildren(rects, additionalOffset, paintContainer);
-
-        for (auto& box : childrenOfType<RenderBox>(*this))
-            addFocusRingRectsForBlockChild(box, rects, additionalOffset, paintContainer);
-    }
-
-    if (inlineContinuation)
-        inlineContinuation->addFocusRingRects(rects, flooredLayoutPoint(LayoutPoint(additionalOffset + inlineContinuation->containingBlock()->location() - location())), paintContainer);
-}
-
-void RenderBlock::addFocusRingRectsForBlockChild(const RenderBox& box, Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer) const
-{
-    if (is<RenderListMarker>(box) || box.isOutOfFlowPositioned())
-        return;
-
-    FloatPoint pos;
-    // FIXME: This doesn't work correctly with transforms.
-    if (box.layer())
-        pos = box.localToContainerPoint(FloatPoint(), paintContainer);
-    else
-        pos = FloatPoint(additionalOffset.x() + box.x(), additionalOffset.y() + box.y());
-    box.addFocusRingRects(rects, flooredLayoutPoint(pos), paintContainer);
 }
 
 LayoutUnit RenderBlock::offsetFromLogicalTopOfFirstPage() const
