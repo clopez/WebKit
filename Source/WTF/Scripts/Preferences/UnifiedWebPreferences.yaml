@@ -1252,6 +1252,20 @@ CSSInputSecurityEnabled:
     WebCore:
       default: false
 
+CSSInternalAutoBaseParsingEnabled:
+  type: bool
+  status: internal
+  category: css
+  humanReadableName: "CSS -internal-auto-base() in author sheet"
+  humanReadableDescription: "Enable parsing -internal-auto-base() in author sheet"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSLineClampEnabled:
   type: bool
   status: preview
@@ -1562,20 +1576,6 @@ CSSTextTransformMathAutoEnabled:
       default: false
     WebCore:
       default: false
-
-CSSTextUnderlinePositionLeftRightEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "CSS text-underline-position: left right"
-  humanReadableDescription: "Enable the property text-underline-position left and right value support"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 CSSTextWrapPrettyEnabled:
    type: bool
@@ -5546,13 +5546,13 @@ ModelElementEnabled:
   condition: ENABLE(MODEL_ELEMENT)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(VISION) && ENABLE(MODEL_ELEMENT)": true
+      "(PLATFORM(VISION) || ENABLE(GPU_PROCESS_MODEL)) && ENABLE(MODEL_ELEMENT)": true
       default: false
     WebKit:
-      "PLATFORM(VISION) && ENABLE(MODEL_ELEMENT)": true
+      "(PLATFORM(VISION) || ENABLE(GPU_PROCESS_MODEL)) && ENABLE(MODEL_ELEMENT)": true
       default: false
     WebCore:
-      "PLATFORM(VISION) && ENABLE(MODEL_ELEMENT)": true
+      "(PLATFORM(VISION) || ENABLE(GPU_PROCESS_MODEL)) && ENABLE(MODEL_ELEMENT)": true
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
@@ -6468,6 +6468,20 @@ ReadableByteStreamFetchSourceEnabled:
   category: dom
   humanReadableName: "ReadableByteStream for fetch API"
   humanReadableDescription: "Enable Readable Byte Streams for fetch API"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
+ReadableStreamIterableEnabled:
+  type: bool
+  status: preview
+  category: dom
+  humanReadableName: "ReadableStream async iterable"
+  humanReadableDescription: "Enable ReadableStream async iterable"
   defaultValue:
     WebCore:
       default: false
@@ -8897,34 +8911,6 @@ ViewGestureDebuggingEnabled:
   defaultValue:
     WebKit:
       default: false
-
-ViewTransitionClassesEnabled:
-  type: bool
-  category: animation
-  status: stable
-  humanReadableName: "View Transition Classes"
-  humanReadableDescription: "Support specifying classes for view transitions"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-ViewTransitionTypesEnabled:
-  type: bool
-  category: animation
-  status: stable
-  humanReadableName: "View Transition Types"
-  humanReadableDescription: "Support specifying types for view transitions"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 ViewTransitionsEnabled:
   type: bool

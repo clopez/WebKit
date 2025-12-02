@@ -1729,19 +1729,19 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         }
 
         if (first.visitedLinkColor.ptr() != second.visitedLinkColor.ptr()) {
-            if (first.visitedLinkColor->background != second.visitedLinkColor->background)
+            if (first.visitedLinkColor->visitedLinkBackgroundColor != second.visitedLinkColor->visitedLinkBackgroundColor)
                 changingProperties.m_properties.set(CSSPropertyBackgroundColor);
-            if (first.visitedLinkColor->borderLeft != second.visitedLinkColor->borderLeft)
+            if (first.visitedLinkColor->visitedLinkBorderColors.left() != second.visitedLinkColor->visitedLinkBorderColors.left())
                 changingProperties.m_properties.set(CSSPropertyBorderLeftColor);
-            if (first.visitedLinkColor->borderRight != second.visitedLinkColor->borderRight)
+            if (first.visitedLinkColor->visitedLinkBorderColors.right() != second.visitedLinkColor->visitedLinkBorderColors.right())
                 changingProperties.m_properties.set(CSSPropertyBorderRightColor);
-            if (first.visitedLinkColor->borderTop != second.visitedLinkColor->borderTop)
+            if (first.visitedLinkColor->visitedLinkBorderColors.top() != second.visitedLinkColor->visitedLinkBorderColors.top())
                 changingProperties.m_properties.set(CSSPropertyBorderTopColor);
-            if (first.visitedLinkColor->borderBottom != second.visitedLinkColor->borderBottom)
+            if (first.visitedLinkColor->visitedLinkBorderColors.bottom() != second.visitedLinkColor->visitedLinkBorderColors.bottom())
                 changingProperties.m_properties.set(CSSPropertyBorderBottomColor);
-            if (first.visitedLinkColor->textDecoration != second.visitedLinkColor->textDecoration)
+            if (first.visitedLinkColor->visitedLinkTextDecorationColor != second.visitedLinkColor->visitedLinkTextDecorationColor)
                 changingProperties.m_properties.set(CSSPropertyTextDecorationColor);
-            if (first.visitedLinkColor->outline != second.visitedLinkColor->outline)
+            if (first.visitedLinkColor->visitedLinkOutlineColor != second.visitedLinkColor->visitedLinkOutlineColor)
                 changingProperties.m_properties.set(CSSPropertyOutlineColor);
         }
 
@@ -3137,76 +3137,6 @@ std::pair<FontOrientation, NonCJKGlyphOrientation> RenderStyle::fontAndGlyphOrie
     }
 }
 
-void RenderStyle::setBorderImageSource(Style::BorderImageSource&& source)
-{
-    if (m_nonInheritedData->surroundData->border.m_image.source() == source)
-        return;
-    m_nonInheritedData.access().surroundData.access().border.m_image.setSource(WTFMove(source));
-}
-
-void RenderStyle::setBorderImageSlice(Style::BorderImageSlice&& slice)
-{
-    if (m_nonInheritedData->surroundData->border.m_image.slice() == slice)
-        return;
-    m_nonInheritedData.access().surroundData.access().border.m_image.setSlice(WTFMove(slice));
-}
-
-void RenderStyle::setBorderImageWidth(Style::BorderImageWidth&& width)
-{
-    if (m_nonInheritedData->surroundData->border.m_image.width() == width)
-        return;
-    m_nonInheritedData.access().surroundData.access().border.m_image.setWidth(WTFMove(width));
-}
-
-void RenderStyle::setBorderImageOutset(Style::BorderImageOutset&& outset)
-{
-    if (m_nonInheritedData->surroundData->border.m_image.outset() == outset)
-        return;
-    m_nonInheritedData.access().surroundData.access().border.m_image.setOutset(WTFMove(outset));
-}
-
-void RenderStyle::setBorderImageRepeat(Style::BorderImageRepeat&& repeat)
-{
-    if (m_nonInheritedData->surroundData->border.m_image.repeat() == repeat)
-        return;
-    m_nonInheritedData.access().surroundData.access().border.m_image.setRepeat(WTFMove(repeat));
-}
-
-void RenderStyle::setMaskBorderSource(Style::MaskBorderSource&& source)
-{
-    if (m_nonInheritedData.access().rareData.access().maskBorder.source() == source)
-        return;
-    m_nonInheritedData.access().rareData.access().maskBorder.setSource(WTFMove(source));
-}
-
-void RenderStyle::setMaskBorderSlice(Style::MaskBorderSlice&& slice)
-{
-    if (m_nonInheritedData->rareData->maskBorder.slice() == slice)
-        return;
-    m_nonInheritedData.access().rareData.access().maskBorder.setSlice(WTFMove(slice));
-}
-
-void RenderStyle::setMaskBorderWidth(Style::MaskBorderWidth&& width)
-{
-    if (m_nonInheritedData->rareData->maskBorder.width() == width)
-        return;
-    m_nonInheritedData.access().rareData.access().maskBorder.setWidth(WTFMove(width));
-}
-
-void RenderStyle::setMaskBorderOutset(Style::MaskBorderOutset&& outset)
-{
-    if (m_nonInheritedData->rareData->maskBorder.outset() == outset)
-        return;
-    m_nonInheritedData.access().rareData.access().maskBorder.setOutset(WTFMove(outset));
-}
-
-void RenderStyle::setMaskBorderRepeat(Style::MaskBorderRepeat&& repeat)
-{
-    if (m_nonInheritedData->rareData->maskBorder.repeat() == repeat)
-        return;
-    m_nonInheritedData.access().rareData.access().maskBorder.setRepeat(WTFMove(repeat));
-}
-
 void RenderStyle::setColumnStylesFromPaginationMode(PaginationMode paginationMode)
 {
     if (paginationMode == Pagination::Mode::Unpaginated)
@@ -3302,96 +3232,6 @@ bool RenderStyle::customPropertiesEqual(const RenderStyle& other) const
 {
     return m_nonInheritedData->rareData->customProperties == other.m_nonInheritedData->rareData->customProperties
         && m_rareInheritedData->customProperties == other.m_rareInheritedData->customProperties;
-}
-
-const Style::ScrollMarginBox& RenderStyle::scrollMarginBox() const
-{
-    return m_nonInheritedData->rareData->scrollMargin;
-}
-
-const Style::ScrollMarginEdge& RenderStyle::scrollMarginTop() const
-{
-    return scrollMarginBox().top();
-}
-
-const Style::ScrollMarginEdge& RenderStyle::scrollMarginBottom() const
-{
-    return scrollMarginBox().bottom();
-}
-
-const Style::ScrollMarginEdge& RenderStyle::scrollMarginLeft() const
-{
-    return scrollMarginBox().left();
-}
-
-const Style::ScrollMarginEdge& RenderStyle::scrollMarginRight() const
-{
-    return scrollMarginBox().right();
-}
-
-void RenderStyle::setScrollMarginTop(Style::ScrollMarginEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollMargin.top(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollMarginBottom(Style::ScrollMarginEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollMargin.bottom(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollMarginLeft(Style::ScrollMarginEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollMargin.left(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollMarginRight(Style::ScrollMarginEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollMargin.right(), WTFMove(edge));
-}
-
-const Style::ScrollPaddingBox& RenderStyle::scrollPaddingBox() const
-{
-    return m_nonInheritedData->rareData->scrollPadding;
-}
-
-const Style::ScrollPaddingEdge& RenderStyle::scrollPaddingTop() const
-{
-    return scrollPaddingBox().top();
-}
-
-const Style::ScrollPaddingEdge& RenderStyle::scrollPaddingBottom() const
-{
-    return scrollPaddingBox().bottom();
-}
-
-const Style::ScrollPaddingEdge& RenderStyle::scrollPaddingLeft() const
-{
-    return scrollPaddingBox().left();
-}
-
-const Style::ScrollPaddingEdge& RenderStyle::scrollPaddingRight() const
-{
-    return scrollPaddingBox().right();
-}
-
-void RenderStyle::setScrollPaddingTop(Style::ScrollPaddingEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollPadding.top(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollPaddingBottom(Style::ScrollPaddingEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollPadding.bottom(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollPaddingLeft(Style::ScrollPaddingEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollPadding.left(), WTFMove(edge));
-}
-
-void RenderStyle::setScrollPaddingRight(Style::ScrollPaddingEdge&& edge)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollPadding.right(), WTFMove(edge));
 }
 
 bool RenderStyle::scrollSnapDataEquivalent(const RenderStyle& other) const

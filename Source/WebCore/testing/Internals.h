@@ -89,6 +89,7 @@ class EventListener;
 class ExtendableEvent;
 class FetchRequest;
 class FetchResponse;
+class FileSystemHandle;
 class File;
 class GCObservation;
 class HTMLAnchorElement;
@@ -1650,6 +1651,8 @@ public:
 
     bool hasMediaSessionManager() const;
 
+    size_t fileConnectionHandleCount(const FileSystemHandle&) const;
+
 private:
     explicit Internals(Document&);
 
@@ -1701,7 +1704,7 @@ private:
     int m_trackVideoRotation { 0 };
 #endif
 #if ENABLE(MEDIA_SESSION) && ENABLE(WEB_CODECS)
-    std::unique_ptr<ArtworkImageLoader> m_artworkLoader;
+    RefPtr<ArtworkImageLoader> m_artworkLoader;
     std::unique_ptr<ArtworkImagePromise> m_artworkImagePromise;
 #endif
     std::unique_ptr<InspectorStubFrontend> m_inspectorFrontend;

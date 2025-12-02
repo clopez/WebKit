@@ -43,6 +43,11 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerFontLoadRequest);
 
+Ref<WorkerFontLoadRequest> WorkerFontLoadRequest::create(URL&& url, LoadedFromOpaqueSource loadedFromOpaqueSource)
+{
+    return adoptRef(*new WorkerFontLoadRequest(WTFMove(url), loadedFromOpaqueSource));
+}
+
 WorkerFontLoadRequest::WorkerFontLoadRequest(URL&& url, LoadedFromOpaqueSource loadedFromOpaqueSource)
     : m_url(WTFMove(url))
     , m_loadedFromOpaqueSource(loadedFromOpaqueSource)
@@ -85,7 +90,7 @@ bool WorkerFontLoadRequest::ensureCustomFontData()
         convertWOFFToSfntIfNecessary(contiguousData);
         if (contiguousData) {
             RefPtr fontCustomPlatformData = FontCustomPlatformData::create(*contiguousData, m_url.fragmentIdentifier().toString());
-            m_data = WTFMove(contiguousData);
+            m_data.append(*contiguousData);
             if (!fontCustomPlatformData) {
                 m_errorOccurred = true;
                 return false;

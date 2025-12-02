@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ContextDestructionObserver.h"
+#include "ExceptionOr.h"
 #include "InternalReadableStream.h"
 #include "JSValueInWrappedObject.h"
 #include "ReadableByteStreamController.h"
@@ -64,6 +65,9 @@ public:
     struct WritablePair {
         RefPtr<ReadableStream> readable;
         RefPtr<WritableStream> writable;
+    };
+    struct IteratorOptions {
+        bool preventCancel { false };
     };
 
     static ExceptionOr<Ref<ReadableStream>> create(JSDOMGlobalObject&, std::optional<JSC::Strong<JSC::JSObject>>&&, std::optional<JSC::Strong<JSC::JSObject>>&&);
@@ -146,6 +150,23 @@ public:
     virtual Type type() const { return Type::Default; }
 
     JSDOMGlobalObject* globalObject();
+
+    class Iterator : public RefCounted<Iterator> {
+    public:
+        static Ref<Iterator> create(Ref<ReadableStreamDefaultReader>&&, bool preventCancel);
+        ~Iterator();
+
+        using Result = std::optional<JSC::JSValue>;
+        using Callback = CompletionHandler<void(ExceptionOr<Result>&&)>;
+        void next(Callback&&);
+
+    private:
+        Iterator(Ref<ReadableStreamDefaultReader>&&, bool preventCancel);
+
+        const Ref<ReadableStreamDefaultReader> m_reader;
+    };
+
+    ExceptionOr<Ref<Iterator>> createIterator(ScriptExecutionContext*, IteratorOptions&&);
 
 protected:
     static ExceptionOr<Ref<ReadableStream>> createFromJSValues(JSC::JSGlobalObject&, JSC::JSValue, JSC::JSValue);

@@ -798,9 +798,9 @@ static HashMap<WebPageProxyIdentifier, WeakPtr<WebPageProxy>>& webPageProxyMap()
     return map.get();
 }
 
-RefPtr<WebPageProxy> WebPageProxy::fromIdentifier(std::optional<WebPageProxyIdentifier> identifier)
+WebPageProxy* WebPageProxy::fromIdentifier(std::optional<WebPageProxyIdentifier> identifier)
 {
-    return identifier ? webPageProxyMap().get(*identifier).get() : nullptr;
+    return identifier ? webPageProxyMap().get(*identifier) : nullptr;
 }
 
 static bool windowFeature(auto getter, const API::PageConfiguration& configuration)
@@ -3298,7 +3298,7 @@ void WebPageProxy::dispatchActivityStateChange()
 #endif
 
     if (isNowInWindow)
-        protectedDrawingArea()->hideContentUntilDidUpdateActivityState(activityStateChangeID);
+        protectedDrawingArea()->hideContentUntilPendingUpdate();
 
     updateBackingStoreDiscardableState();
 
@@ -16924,6 +16924,16 @@ void WebPageProxy::describeTextExtractionInteraction(TextExtraction::Interaction
     }
 
     sendWithAsyncReply(Messages::WebPage::DescribeTextExtractionInteraction(WTFMove(interaction)), WTFMove(completion));
+}
+
+void WebPageProxy::updateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData>&& rules)
+{
+    send(Messages::WebPage::UpdateTextExtractionFilterRules(WTFMove(rules)));
+}
+
+void WebPageProxy::applyTextExtractionFilter(const String& input, std::optional<NodeIdentifier>&& containerNodeID, CompletionHandler<void(String&&)>&& completion)
+{
+    sendWithAsyncReply(Messages::WebPage::ApplyTextExtractionFilter(input, WTFMove(containerNodeID)), WTFMove(completion));
 }
 
 void WebPageProxy::addConsoleMessage(FrameIdentifier frameID, MessageSource messageSource, MessageLevel messageLevel, const String& message, std::optional<ResourceLoaderIdentifier> coreIdentifier)

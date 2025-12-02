@@ -1643,6 +1643,10 @@
                 }
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "AlignmentBaseline",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -2100,6 +2104,7 @@
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor"],
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -2657,6 +2662,12 @@
                 "visited-link-color-support": true,
                 "color-property": true,
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.colors()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor", "visitedLinkBorderColors"],
+                "render-style-visited-link-storage-container": "physical-group",
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -2678,6 +2689,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderRadiusValue>",
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderRadiusValue",
                 "parser-grammar": "<length-percentage [0,inf]>{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -2699,6 +2714,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderRadiusValue>",
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderRadiusValue",
                 "parser-grammar": "<length-percentage [0,inf]>{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -2722,12 +2741,16 @@
                 "double"
             ],
             "codegen-properties": {
-                "render-style-initial": "initialBorderStyle",
-                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "bottom"
                 },
+                "disables-native-appearance": true,
+                "render-style-initial": "initialBorderStyle",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.styles()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BorderStyle",
                 "parser-grammar": "<line-style>"
             },
             "specification": {
@@ -2749,10 +2772,16 @@
                     "resolver": "bottom"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
+                "render-style-initial": "initialBorderWidth",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.bottom()"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -2853,6 +2882,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderImageOutset>",
                 "disables-native-appearance": true,
+                "render-style-storage-name": "outset",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderImageOutset",
                 "parser-grammar": "[ <number [0,inf]> | <length [0,inf]> ]{1,4}@(type=CSSQuadValue no-single-item-opt)",
                 "parser-exported": true
             },
@@ -2874,8 +2907,12 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderImageRepeat>",
                 "disables-native-appearance": true,
-                "parser-exported": true,
-                "parser-grammar": "[ stretch | repeat | round | space ]{1,2}@(type=CSSValuePair default=previous)"
+                "render-style-storage-name": "repeat",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderImageRepeat",
+                "parser-grammar": "[ stretch | repeat | round | space ]{1,2}@(type=CSSValuePair default=previous)",
+                "parser-exported": true
             },
             "specification": {
                 "category": "css-backgrounds",
@@ -2892,6 +2929,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderImageSlice>",
                 "disables-native-appearance": true,
+                "render-style-storage-name": "slice",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderImageSlice",
                 "parser-function": "consumeBorderImageSlice",
                 "parser-function-allows-number-or-integer-input": true,
                 "parser-grammar-unused": "[ <number [0,inf]> | <percentage [0,inf]> ]{1,4} && fill?",
@@ -2912,6 +2953,10 @@
             "codegen-properties": {
                 "style-converter": "StyleType<BorderImageSource>",
                 "disables-native-appearance": true,
+                "render-style-storage-name": "source",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderImageSource",
                 "parser-grammar": "none | <image>"
             },
             "specification": {
@@ -2929,6 +2974,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-custom": true,
                 "disables-native-appearance": true,
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderImageWidth",
                 "parser-function": "consumeBorderImageWidth",
                 "parser-function-allows-number-or-integer-input": true,
                 "parser-grammar-unused": "[ <length-percentage [0,inf]> | <number [0,inf]> | auto ]{1,4}",
@@ -3225,6 +3274,12 @@
                 "visited-link-color-support": true,
                 "color-property": true,
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.colors()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor", "visitedLinkBorderColors"],
+                "render-style-visited-link-storage-container": "physical-group",
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -3248,12 +3303,16 @@
                 "double"
             ],
             "codegen-properties": {
-                "render-style-initial": "initialBorderStyle",
-                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "left"
                 },
+                "disables-native-appearance": true,
+                "render-style-initial": "initialBorderStyle",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.styles()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BorderStyle",
                 "parser-grammar": "<line-style>"
             },
             "specification": {
@@ -3275,10 +3334,16 @@
                     "resolver": "left"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
+                "render-style-initial": "initialBorderWidth",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.left()"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -3331,6 +3396,12 @@
                 "visited-link-color-support": true,
                 "color-property": true,
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.colors()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor", "visitedLinkBorderColors"],
+                "render-style-visited-link-storage-container": "physical-group",
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -3354,12 +3425,16 @@
                 "double"
             ],
             "codegen-properties": {
-                "render-style-initial": "initialBorderStyle",
-                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "right"
                 },
+                "disables-native-appearance": true,
+                "render-style-initial": "initialBorderStyle",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.styles()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BorderStyle",
                 "parser-grammar": "<line-style>"
             },
             "specification": {
@@ -3381,10 +3456,16 @@
                     "resolver": "right"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
+                "render-style-initial": "initialBorderWidth",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.right()"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -3492,6 +3573,12 @@
                 "visited-link-color-support": true,
                 "color-property": true,
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.colors()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor", "visitedLinkBorderColors"],
+                "render-style-visited-link-storage-container": "physical-group",
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -3513,6 +3600,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderRadiusValue>",
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderRadiusValue",
                 "parser-grammar": "<length-percentage [0,inf]>{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -3534,6 +3625,10 @@
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<BorderRadiusValue>",
                 "disables-native-appearance": true,
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::BorderRadiusValue",
                 "parser-grammar": "<length-percentage [0,inf]>{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -3557,12 +3652,16 @@
                 "double"
             ],
             "codegen-properties": {
-                "render-style-initial": "initialBorderStyle",
-                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "top"
                 },
+                "disables-native-appearance": true,
+                "render-style-initial": "initialBorderStyle",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.styles()"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BorderStyle",
                 "parser-grammar": "<line-style>"
             },
             "specification": {
@@ -3584,10 +3683,16 @@
                     "resolver": "top"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialBorderWidth",
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
                 "disables-native-appearance": true,
+                "render-style-initial": "initialBorderWidth",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.top()"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -3625,9 +3730,13 @@
                     "resolver": "bottom"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialInset",
                 "style-builder-converter": "StyleType<InsetEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialInset",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "inset"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::InsetEdge",
                 "parser-grammar": "auto | <length-percentage anchor=allowed anchor-size=allowed>"
             },
             "specification": {
@@ -3784,6 +3893,10 @@
                 "static"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BufferedRendering",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -3905,6 +4018,10 @@
                 "evenodd"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "WindRule",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -3924,6 +4041,10 @@
                 "linearRGB"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "ColorInterpolation",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -3941,6 +4062,10 @@
                 "linearRGB"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "ColorInterpolation",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -3997,11 +4122,15 @@
                     "name": "corner-shape",
                     "resolver": "top-left"
                 },
+                "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
-                "parser-grammar": "<corner-shape-value>",
-                "render-style-initial": "initialCornerShapeValue",
                 "style-converter": "StyleType<CornerShapeValue>",
-                "settings-flag": "cssCornerShapeEnabled"
+                "render-style-initial": "initialCornerShapeValue",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::CornerShapeValue",
+                "parser-grammar": "<corner-shape-value>"
             },
             "specification": {
                 "category": "css-borders",
@@ -4016,11 +4145,15 @@
                     "name": "corner-shape",
                     "resolver": "top-right"
                 },
+                "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
-                "parser-grammar": "<corner-shape-value>",
-                "render-style-initial": "initialCornerShapeValue",
                 "style-converter": "StyleType<CornerShapeValue>",
-                "settings-flag": "cssCornerShapeEnabled"
+                "render-style-initial": "initialCornerShapeValue",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::CornerShapeValue",
+                "parser-grammar": "<corner-shape-value>"
             },
             "specification": {
                 "category": "css-borders",
@@ -4035,11 +4168,15 @@
                     "name": "corner-shape",
                     "resolver": "bottom-left"
                 },
+                "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
-                "parser-grammar": "<corner-shape-value>",
-                "render-style-initial": "initialCornerShapeValue",
                 "style-converter": "StyleType<CornerShapeValue>",
-                "settings-flag": "cssCornerShapeEnabled"
+                "render-style-initial": "initialCornerShapeValue",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::CornerShapeValue",
+                "parser-grammar": "<corner-shape-value>"
             },
             "specification": {
                 "category": "css-borders",
@@ -4054,11 +4191,15 @@
                     "name": "corner-shape",
                     "resolver": "bottom-right"
                 },
+                "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
-                "parser-grammar": "<corner-shape-value>",
-                "render-style-initial": "initialCornerShapeValue",
                 "style-converter": "StyleType<CornerShapeValue>",
-                "settings-flag": "cssCornerShapeEnabled"
+                "render-style-initial": "initialCornerShapeValue",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::CornerShapeValue",
+                "parser-grammar": "<corner-shape-value>"
             },
             "specification": {
                 "category": "css-borders",
@@ -4349,6 +4490,10 @@
                 "text-after-edge"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "DominantBaseline",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -4420,6 +4565,7 @@
                 "render-style-storage-path": ["m_svgStyle", "fillData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::SVGPaint",
+                "render-style-visited-link-storage-path": ["m_svgStyle", "fillData"],
                 "color-property": true,
                 "parser-grammar": "none | <color> | [ <url> [ none | <color> ]? ]",
                 "parser-grammar-comment": "Current spec grammar is 'none | <color> | [ <url> [ none | <color> ]? ] | context-fill | context-stroke'",
@@ -4455,6 +4601,10 @@
                 "evenodd"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "WindRule",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -4525,6 +4675,10 @@
             "codegen-properties": {
                 "accepts-quirky-angle": true,
                 "style-converter": "StyleType<SVGGlyphOrientationHorizontal>",
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "Style::SVGGlyphOrientationHorizontal",
                 "parser-grammar": "<angle unitless-zero=allowed>"
             },
             "specification": {
@@ -4542,6 +4696,10 @@
             "codegen-properties": {
                 "accepts-quirky-angle": true,
                 "style-converter": "StyleType<SVGGlyphOrientationVertical>",
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "Style::SVGGlyphOrientationVertical",
                 "parser-grammar": "auto | <angle unitless-zero=allowed>"
             },
             "specification": {
@@ -4562,6 +4720,9 @@
             ],
             "codegen-properties": {
                 "style-converter": "StyleType<HangingPunctuation>",
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::HangingPunctuation",
                 "parser-grammar": "none | [ first || [ force-end | allow-end ] || last ]@(preserve-order no-single-item-opt)"
             },
             "specification": {
@@ -4909,9 +5070,13 @@
                     "resolver": "left"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialInset",
                 "style-builder-converter": "StyleType<InsetEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialInset",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "inset"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::InsetEdge",
                 "parser-grammar": "auto | <length-percentage anchor=allowed anchor-size=allowed>"
             },
             "specification": {
@@ -5269,9 +5434,13 @@
                     "resolver": "bottom"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialMargin",
                 "style-builder-converter": "StyleType<MarginEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "margin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MarginEdge",
                 "parser-grammar": "<length-percentage anchor-size=allowed> | auto"
             },
             "specification": {
@@ -5350,9 +5519,13 @@
                     "resolver": "left"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialMargin",
                 "style-builder-converter": "StyleType<MarginEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "margin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MarginEdge",
                 "parser-grammar": "<length-percentage anchor-size=allowed> | auto"
             },
             "specification": {
@@ -5372,9 +5545,13 @@
                     "resolver": "right"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialMargin",
                 "style-builder-converter": "StyleType<MarginEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "margin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MarginEdge",
                 "parser-grammar": "<length-percentage anchor-size=allowed> | auto"
             },
             "specification": {
@@ -5394,9 +5571,13 @@
                     "resolver": "top"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialMargin",
                 "style-builder-converter": "StyleType<MarginEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "margin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MarginEdge",
                 "parser-grammar": "<length-percentage anchor-size=allowed> | auto"
             },
             "specification": {
@@ -5418,6 +5599,9 @@
             ],
             "codegen-properties": {
                 "style-converter": "StyleType<MarginTrim>",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::MarginTrim",
                 "parser-function": "consumeMarginTrim",
                 "parser-grammar-unused": "none | [ block || inline ] | [ block-start || inline-start || block-end || inline-end ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
@@ -5555,6 +5739,10 @@
                 ],
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<MaskBorderOutset>",
+                "render-style-storage-name": "outset",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MaskBorderOutset",
                 "parser-grammar": "[ <number [0,inf]> | <length [0,inf]> ]{1,4}@(type=CSSQuadValue no-single-item-opt)"
 
             },
@@ -5578,6 +5766,10 @@
                 ],
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<MaskBorderRepeat>",
+                "render-style-storage-name": "repeat",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MaskBorderRepeat",
                 "parser-grammar": "[ stretch | repeat | round | space ]{1,2}@(type=CSSValuePair default=previous)"
             },
             "specification": {
@@ -5597,6 +5789,10 @@
                 ],
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<MaskBorderSlice>",
+                "render-style-storage-name": "slice",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MaskBorderSlice",
                 "parser-function": "consumeBorderImageSlice",
                 "parser-grammar-unused": "[ <number [0,inf]> | <percentage [0,inf]> ]{1,4} && fill?",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -5618,6 +5814,10 @@
                     "-webkit-mask-box-image-source"
                 ],
                 "style-converter": "StyleType<MaskBorderSource>",
+                "render-style-storage-name": "source",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MaskBorderSource",
                 "parser-grammar": "none | <image>"
             },
             "specification": {
@@ -5637,6 +5837,10 @@
                 ],
                 "style-builder-custom": "All",
                 "style-extractor-converter": "StyleType<MaskBorderWidth>",
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::MaskBorderWidth",
                 "parser-function": "consumeBorderImageWidth",
                 "parser-grammar-unused": "[ <length-percentage [0,inf]> | <number [0,inf]> | auto ]{1,4}",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -5907,6 +6111,10 @@
                 "alpha"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "MaskType",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -6678,6 +6886,12 @@
             "codegen-properties": {
                 "visited-link-color-support": true,
                 "color-property": true,
+                "render-style-storage-name": "m_color",
+                "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor"],
                 "parser-grammar": "-webkit-focus-ring-color | <color>",
                 "parser-grammar-comment": "Current spec grammar is 'auto | <color> | <image-1D>'"
             },
@@ -6691,6 +6905,12 @@
             "initial": "0",
             "codegen-properties": {
                 "style-converter": "StyleType<Length<>>",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_offset",
+                "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::Length<>",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -6715,6 +6935,11 @@
                 "double"
             ],
             "codegen-properties": {
+                "render-style-storage-name": "m_style",
+                "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "OutlineStyle",
                 "parser-grammar": "auto | <outline-line-style>"
             },
             "specification": {
@@ -6733,6 +6958,12 @@
             "codegen-properties": {
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification": {
@@ -7095,10 +7326,14 @@
                     "resolver": "bottom"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialPadding",
                 "style-builder-converter": "StyleType<PaddingEdge>",
                 "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PaddingEdge",
                 "parser-grammar": "<length-percentage [0,inf]>"
             },
             "specification": {
@@ -7168,10 +7403,14 @@
                     "resolver": "left"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialPadding",
                 "style-builder-converter": "StyleType<PaddingEdge>",
                 "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PaddingEdge",
                 "parser-grammar": "<length-percentage [0,inf]>"
             },
             "specification": {
@@ -7188,10 +7427,14 @@
                     "resolver": "right"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialPadding",
                 "style-builder-converter": "StyleType<PaddingEdge>",
                 "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PaddingEdge",
                 "parser-grammar": "<length-percentage [0,inf]>"
             },
             "specification": {
@@ -7208,10 +7451,14 @@
                     "resolver": "top"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialPadding",
                 "style-builder-converter": "StyleType<PaddingEdge>",
                 "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PaddingEdge",
                 "parser-grammar": "<length-percentage [0,inf]>"
             },
             "specification": {
@@ -7296,6 +7543,9 @@
             ],
             "codegen-properties": {
                 "style-converter": "StyleType<SVGPaintOrder>",
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::SVGPaintOrder",
                 "parser-function": "consumePaintOrder",
                 "parser-grammar-unused": "normal | [ fill || stroke || markers ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
@@ -7432,9 +7682,13 @@
                     "resolver": "right"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialInset",
                 "style-builder-converter": "StyleType<InsetEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialInset",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "inset"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::InsetEdge",
                 "parser-grammar": "auto | <length-percentage anchor=allowed anchor-size=allowed>"
             },
             "specification": {
@@ -7535,6 +7789,10 @@
                 "geometricPrecision"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "ShapeRendering",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -7595,6 +7853,7 @@
                 "render-style-storage-path": ["m_svgStyle", "strokeData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::SVGPaint",
+                "render-style-visited-link-storage-path": ["m_svgStyle", "strokeData"],
                 "color-property": true,
                 "parser-grammar": "none | <color> | [ <url> [ none | <color> ]? ]",
                 "parser-grammar-comment": "Current spec grammar is 'none | <color> | [ <url> [ none | <color> ]? ] | context-fill | context-stroke'",
@@ -7745,6 +8004,7 @@
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_rareInheritedData"],
                 "visited-link-color-support": true,
                 "color-property": true,
                 "parser-grammar": "<color>"
@@ -7792,6 +8052,9 @@
             ],
             "codegen-properties": {
                 "style-converter": "StyleType<SpeakAs>",
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::SpeakAs",
                 "parser-grammar": "none | [ [ normal | spell-out ] || digits || [ literal-punctuation | no-punctuation ] ]@(no-single-item-opt)",
                 "parser-grammar-comment": "Current spec grammar is 'normal | [ spell-out || digits || [ literal-punctuation | no-punctuation ] ]'."
             },
@@ -7920,6 +8183,10 @@
                 "end"
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "TextAnchor",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -8064,6 +8331,10 @@
                     "-epub-text-transform"
                 ],
                 "style-converter": "StyleType<TextTransform>",
+                "render-style-storage-path": ["m_inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::TextTransform",
                 "parser-grammar": "none | [ [ capitalize | uppercase | lowercase ] || full-width || full-size-kana ]@(no-single-item-opt) | math-auto@(settings-flag=cssTextTransformMathAutoEnabled)"
             },
             "specification": {
@@ -8143,9 +8414,13 @@
                     "resolver": "top"
                 },
                 "accepts-quirky-length": true,
-                "render-style-initial": "initialInset",
                 "style-builder-converter": "StyleType<InsetEdge>",
                 "style-extractor-custom": true,
+                "render-style-initial": "initialInset",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "inset"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::InsetEdge",
                 "parser-grammar": "auto | <length-percentage anchor=allowed anchor-size=allowed>"
             },
             "specification": {
@@ -8327,6 +8602,10 @@
                 }
             ],
             "codegen-properties": {
+                "render-style-storage-path": ["m_svgStyle", "nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "VectorEffect",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -8818,6 +9097,9 @@
             "initial": "none",
             "codegen-properties": {
                 "style-converter": "StyleType<Contain>",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::Contain",
                 "parser-grammar": "none | strict | content | [ [size | inline-size] || layout || style || paint ]@(no-single-item-opt)"
             },
             "specification": {
@@ -9420,6 +9702,12 @@
                 ],
                 "visited-link-color-support": true,
                 "color-property": true,
+                "render-style-storage-name": "m_color",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "multiCol"],
                 "parser-grammar": "<color>"
             },
             "specification":  {
@@ -9447,6 +9735,11 @@
                     "-webkit-column-rule-style"
                 ],
                 "render-style-initial": "initialBorderStyle",
+                "render-style-storage-name": "m_style",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "enum",
+                "render-style-type": "BorderStyle",
                 "parser-grammar": "<line-style>"
             },
             "specification":  {
@@ -9468,6 +9761,12 @@
                 ],
                 "style-converter": "StyleType<LineWidth>",
                 "style-builder-custom": "Initial",
+                "render-style-getter-custom": true,
+                "render-style-storage-name": "m_width",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "value",
+                "render-style-type": "Style::LineWidth",
                 "parser-grammar": "<line-width>"
             },
             "specification":  {
@@ -10368,12 +10667,13 @@
             "animation-type": "discrete",
             "initial": "row",
             "codegen-properties": {
+                "style-extractor-custom": true,
                 "style-converter": "StyleType<GridAutoFlow>",
                 "render-style-storage-path": ["m_nonInheritedData", "rareData", "grid"],
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::GridAutoFlow",
                 "parser-function": "consumeGridAutoFlow",
-                "parser-grammar-unused": "[ row | column ] || dense",
+                "parser-grammar-unused": "normal | [ [ row | column ] || dense ]",
                 "parser-grammar-unused-reason": "Needs support for transforming parsed input to minimal form."
             },
             "specification": {
@@ -10519,6 +10819,9 @@
             ],
             "codegen-properties": {
                 "style-converter": "StyleType<WebkitLineBoxContain>",
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::WebkitLineBoxContain",
                 "parser-grammar": "none | [ block || inline || font || glyphs || replaced || inline-box || initial-letter ]"
             },
             "status": {
@@ -10968,6 +11271,11 @@
                 ],
                 "skip-style-extractor": true,
                 "style-builder-converter": "StyleType<PerspectiveOriginX>",
+                "render-style-storage-name": "x",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "perspectiveOrigin"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PerspectiveOriginX",
                 "parser-grammar": "<position-x>"
             },
             "specification": {
@@ -10984,6 +11292,11 @@
                 ],
                 "skip-style-extractor": true,
                 "style-builder-converter": "StyleType<PerspectiveOriginY>",
+                "render-style-storage-name": "y",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "perspectiveOrigin"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::PerspectiveOriginY",
                 "parser-grammar": "<position-y>"
             },
             "specification": {
@@ -11107,10 +11420,14 @@
                 "grammar-error"
             ],
             "codegen-properties": {
-                "style-converter": "StyleType<TextDecorationLine>",
                 "aliases": [
                     "-webkit-text-decoration-line"
                 ],
+                "style-converter": "StyleType<TextDecorationLine>",
+                "render-style-storage-path": ["m_nonInheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::TextDecorationLine",
                 "parser-grammar": "none | [ underline || overline || line-through || blink ]@(no-single-item-opt) | spelling-error@(settings-flag=cssTextDecorationLineErrorValues) | grammar-error@(settings-flag=cssTextDecorationLineErrorValues)",
                 "parser-exported": true
             },
@@ -11155,6 +11472,7 @@
                 "render-style-storage-path": ["m_nonInheritedData", "rareData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor"],
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -11216,7 +11534,10 @@
                     "-webkit-text-underline-position"
                 ],
                 "style-converter": "StyleType<TextUnderlinePosition>",
-                "parser-grammar": "auto | [ [ under | from-font ] || [ left | right ]@(settings-flag=cssTextUnderlinePositionLeftRightEnabled) ]@(no-single-item-opt)"
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::TextUnderlinePosition",
+                "parser-grammar": "auto | [ [ under | from-font ] || [ left | right ] ]@(no-single-item-opt)"
             },
             "specification": {
                 "category": "css-text-decor",
@@ -11265,6 +11586,10 @@
                 "skip-style-builder": true,
                 "style-extractor-converter": "StyleType<TextDecorationLine>",
                 "render-style-name-for-methods": "TextDecorationLineInEffect",
+                "render-style-storage-path": ["m_inheritedFlags"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::TextDecorationLine",
                 "parser-grammar": "none | [ underline || overline || line-through || blink ]@(no-single-item-opt) | spelling-error@(settings-flag=cssTextDecorationLineErrorValues)",
                 "comment": "FIXME: Should this be an alias of text-decoration-line?"
             },
@@ -11315,6 +11640,7 @@
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_rareInheritedData"],
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -11331,6 +11657,9 @@
                     "-webkit-text-emphasis-position"
                 ],
                 "style-converter": "StyleType<TextEmphasisPosition>",
+                "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::TextEmphasisPosition",
                 "parser-grammar": "[ [ over | under ] && [ right | left ]? ]@(no-single-item-opt)"
             },
             "specification": {
@@ -11368,6 +11697,7 @@
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_rareInheritedData"],
                 "parser-grammar": "<color>"
             },
             "status": {
@@ -11418,6 +11748,7 @@
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-visited-link-storage-path": ["m_rareInheritedData"],
                 "parser-grammar": "<color>"
             },
             "status": {
@@ -11516,6 +11847,11 @@
                 ],
                 "skip-style-extractor": true,
                 "style-builder-converter": "StyleType<TransformOriginX>",
+                "render-style-storage-name": "x",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "transform", "origin"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::TransformOriginX",
                 "parser-grammar": "<position-x>"
             },
             "specification": {
@@ -11532,6 +11868,11 @@
                 ],
                 "skip-style-extractor": true,
                 "style-builder-converter": "StyleType<TransformOriginY>",
+                "render-style-storage-name": "y",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "transform", "origin"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::TransformOriginY",
                 "parser-grammar": "<position-y>"
             },
             "specification": {
@@ -11548,6 +11889,11 @@
                 ],
                 "skip-style-extractor": true,
                 "style-builder-converter": "StyleType<TransformOriginZ>",
+                "render-style-storage-name": "z",
+                "render-style-storage-path": ["m_nonInheritedData", "miscData", "transform", "origin"],
+                "render-style-storage-container": "struct",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::TransformOriginZ",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -11767,8 +12113,12 @@
                     "name": "scroll-margin",
                     "resolver": "bottom"
                 },
-                "render-style-initial": "initialScrollMargin",
                 "style-converter": "StyleType<ScrollMarginEdge>",
+                "render-style-initial": "initialScrollMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollMargin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollMarginEdge",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -11788,8 +12138,12 @@
                     "name": "scroll-margin",
                     "resolver": "left"
                 },
-                "render-style-initial": "initialScrollMargin",
                 "style-converter": "StyleType<ScrollMarginEdge>",
+                "render-style-initial": "initialScrollMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollMargin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollMarginEdge",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -11809,8 +12163,12 @@
                     "name": "scroll-margin",
                     "resolver": "right"
                 },
-                "render-style-initial": "initialScrollMargin",
                 "style-converter": "StyleType<ScrollMarginEdge>",
+                "render-style-initial": "initialScrollMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollMargin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollMarginEdge",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -11830,8 +12188,12 @@
                     "name": "scroll-margin",
                     "resolver": "top"
                 },
-                "render-style-initial": "initialScrollMargin",
                 "style-converter": "StyleType<ScrollMarginEdge>",
+                "render-style-initial": "initialScrollMargin",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollMargin"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollMarginEdge",
                 "parser-grammar": "<length>"
             },
             "specification": {
@@ -11966,8 +12328,12 @@
                     "name": "scroll-padding",
                     "resolver": "bottom"
                 },
-                "render-style-initial": "initialScrollPadding",
                 "style-converter": "StyleType<ScrollPaddingEdge>",
+                "render-style-initial": "initialScrollPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollPadding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollPaddingEdge",
                 "parser-grammar": "auto | <length-percentage [0,inf]>"
             },
             "specification": {
@@ -11987,8 +12353,12 @@
                     "name": "scroll-padding",
                     "resolver": "left"
                 },
-                "render-style-initial": "initialScrollPadding",
                 "style-converter": "StyleType<ScrollPaddingEdge>",
+                "render-style-initial": "initialScrollPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollPadding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollPaddingEdge",
                 "parser-grammar": "auto | <length-percentage [0,inf]>"
             },
             "specification": {
@@ -12008,8 +12378,12 @@
                     "name": "scroll-padding",
                     "resolver": "right"
                 },
-                "render-style-initial": "initialScrollPadding",
                 "style-converter": "StyleType<ScrollPaddingEdge>",
+                "render-style-initial": "initialScrollPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollPadding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollPaddingEdge",
                 "parser-grammar": "auto | <length-percentage [0,inf]>"
             },
             "specification": {
@@ -12029,8 +12403,12 @@
                     "name": "scroll-padding",
                     "resolver": "top"
                 },
-                "render-style-initial": "initialScrollPadding",
                 "style-converter": "StyleType<ScrollPaddingEdge>",
+                "render-style-initial": "initialScrollPadding",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "scrollPadding"],
+                "render-style-storage-container": "physical-group",
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::ScrollPaddingEdge",
                 "parser-grammar": "auto | <length-percentage [0,inf]>"
             },
             "specification": {
@@ -12516,7 +12894,7 @@
                 "none"
             ],
             "codegen-properties": {
-                "settings-flag": "viewTransitionClassesEnabled",
+                "settings-flag": "viewTransitionsEnabled",
                 "style-converter": "StyleType<ViewTransitionClasses>",
                 "render-style-name-for-methods": "ViewTransitionClasses",
                 "render-style-storage-path": ["m_nonInheritedData", "rareData"],
@@ -12698,6 +13076,9 @@
             "codegen-properties": {
                 "settings-flag": "cssAnchorPositioningEnabled",
                 "style-converter": "StyleType<PositionVisibility>",
+                "render-style-storage-path": ["m_nonInheritedData", "rareData"],
+                "render-style-storage-kind": "raw",
+                "render-style-type": "Style::PositionVisibility",
                 "parser-grammar": "always | [ anchors-valid || anchors-visible || no-overflow ]@(no-single-item-opt)"
             },
             "specification": {

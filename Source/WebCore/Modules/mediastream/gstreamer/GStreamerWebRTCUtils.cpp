@@ -296,7 +296,7 @@ std::optional<RTCIceCandidate::Fields> parseIceCandidateSDP(const String& sdp)
 {
     ensureDebugCategoryInitialized();
     GST_TRACE("Parsing ICE Candidate: %s", sdp.utf8().data());
-    if (!sdp.startsWith("candidate:"_s)) {
+    if (!sdp.startsWith("candidate:"_s) && !sdp.startsWith("a=candidate:"_s)) {
         GST_WARNING("Invalid SDP ICE candidate format, must start with candidate: prefix");
         return { };
     }
@@ -313,7 +313,7 @@ std::optional<RTCIceCandidate::Fields> parseIceCandidateSDP(const String& sdp)
     guint16 relatedPort = 0;
     String usernameFragment;
     String lowercasedSDP = sdp.convertToASCIILowercase();
-    StringView view = StringView(lowercasedSDP).substring(10);
+    StringView view = StringView(lowercasedSDP).substring(sdp.startsWith("candidate:"_s) ? 10 : 12);
     unsigned i = 0;
     NextSDPField nextSdpField { NextSDPField::None };
 
@@ -601,7 +601,7 @@ std::optional<int> payloadTypeForEncodingName(const String& encodingName)
     return { };
 }
 
-GRefPtr<GstCaps> capsFromRtpCapabilities(const RTCRtpCapabilities& capabilities, Function<void(GstStructure*)> supplementCapsCallback)
+GRefPtr<GstCaps> capsFromRtpCapabilities(const RTPHeaderExtensionMapping& extensionMapping, const RTCRtpCapabilities& capabilities, Function<void(GstStructure*)> supplementCapsCallback)
 {
     auto caps = adoptGRef(gst_caps_new_empty());
     for (unsigned index = 0; auto& codec : capabilities.codecs) {
@@ -627,8 +627,10 @@ GRefPtr<GstCaps> capsFromRtpCapabilities(const RTCRtpCapabilities& capabilities,
         supplementCapsCallback(codecStructure);
 
         if (!index) {
-            for (unsigned i = 1; auto& extension : capabilities.headerExtensions)
-                gst_structure_set(codecStructure, makeString("extmap-"_s, i++).ascii().data(), G_TYPE_STRING, extension.uri.ascii().data(), nullptr);
+            for (auto& extension : capabilities.headerExtensions) {
+                auto identifier = extensionMapping.get(extension.uri);
+                gst_structure_set(codecStructure, makeString("extmap-"_s, identifier).ascii().data(), G_TYPE_STRING, extension.uri.ascii().data(), nullptr);
+            }
         }
         gst_caps_append_structure(caps.get(), codecStructure);
         index++;

@@ -1388,7 +1388,7 @@ WebViewImpl::WebViewImpl(WKWebView *view, WebProcessPool& processPool, Ref<API::
     m_textInputNotifications = subscribeToTextInputNotifications(this);
 #endif
 
-    configurePanGestureRecognizerIfNeeded();
+    m_panGestureController = adoptNS([[WKPanGestureController alloc] initWithPage:m_page viewImpl:*this]);
 
     WebProcessPool::statistics().wkViewCount++;
 }
@@ -1703,20 +1703,20 @@ void WebViewImpl::viewDidEndLiveResize()
 void WebViewImpl::createPDFHUD(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID, const WebCore::IntRect& rect)
 {
     removePDFHUD(identifier);
-    auto hud = adoptNS([[WKPDFHUDView alloc] initWithFrame:rect pluginIdentifier:identifier frameIdentifier:frameID page:m_page.get()]);
+    RetainPtr hud = adoptNS([[WKPDFHUDView alloc] initWithFrame:rect pluginIdentifier:identifier frameIdentifier:frameID page:m_page.get()]);
     [m_view.get() addSubview:hud.get()];
     _pdfHUDViews.add(identifier, WTFMove(hud));
 }
 
 void WebViewImpl::updatePDFHUDLocation(PDFPluginIdentifier identifier, const WebCore::IntRect& rect)
 {
-    if (auto hud = _pdfHUDViews.get(identifier))
+    if (RetainPtr hud = _pdfHUDViews.get(identifier))
         [hud setFrame:rect];
 }
 
 void WebViewImpl::removePDFHUD(PDFPluginIdentifier identifier)
 {
-    if (auto hud = _pdfHUDViews.take(identifier))
+    if (RetainPtr hud = _pdfHUDViews.take(identifier))
         [hud removeFromSuperview];
 }
 
@@ -3557,7 +3557,7 @@ void WebViewImpl::handleAcceptedCandidate(NSTextCheckingResult *acceptedCandidat
     });
 }
 
-void WebViewImpl::preferencesDidChange()
+void WebViewImpl::updateNeedsViewFrameInWindowCoordinatesIfNeeded()
 {
     BOOL needsViewFrameInWindowCoordinates = false;
 
@@ -3567,6 +3567,14 @@ void WebViewImpl::preferencesDidChange()
     m_needsViewFrameInWindowCoordinates = needsViewFrameInWindowCoordinates;
     if ([m_view.get() window])
         updateWindowAndViewFrames();
+}
+
+void WebViewImpl::preferencesDidChange()
+{
+    updateNeedsViewFrameInWindowCoordinatesIfNeeded();
+
+    if (RetainPtr panGestureController = m_panGestureController)
+        [panGestureController enablePanGestureIfNeeded];
 }
 
 CALayer* WebViewImpl::textIndicatorInstallationLayer()
@@ -5574,13 +5582,7 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
         highlights.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), backgroundHighlightColor, foregroundHighlightColor });
     }];
 
-    std::ranges::sort(highlights, [](auto& a, auto& b) {
-        if (a.startOffset < b.startOffset)
-            return true;
-        if (a.startOffset > b.startOffset)
-            return false;
-        return a.endOffset < b.endOffset;
-    });
+    std::ranges::sort(highlights);
 
     Vector<WebCore::CompositionHighlight> mergedHighlights;
     mergedHighlights.reserveInitialCapacity(highlights.size());
@@ -5618,13 +5620,7 @@ static Vector<WebCore::CompositionUnderline> compositionUnderlines(NSAttributedS
             underlines.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), WebCore::CompositionUnderlineColor::GivenColor, WebCore::Color::black, style.get().intValue > 1 });
     }];
 
-    std::ranges::sort(underlines, [](auto& a, auto& b) {
-        if (a.startOffset < b.startOffset)
-            return true;
-        if (a.startOffset > b.startOffset)
-            return false;
-        return a.endOffset < b.endOffset;
-    });
+    std::ranges::sort(underlines);
 
     if (!underlines.isEmpty())
         mergedUnderlines.append({ underlines.first().startOffset, underlines.last().endOffset, WebCore::CompositionUnderlineColor::GivenColor, WebCore::Color::black, false });
@@ -7345,14 +7341,6 @@ void WebViewImpl::showCaptionDisplaySettings(HTMLMediaElementIdentifier, const W
     completionHandler({ });
 }
 #endif
-
-void WebViewImpl::configurePanGestureRecognizerIfNeeded()
-{
-    Ref page = m_page.get();
-    if (!page->protectedPreferences()->useAppKitGestures())
-        return;
-    m_panGestureController = adoptNS([[WKPanGestureController alloc] initWithPage:page viewImpl:*this]);
-}
 
 } // namespace WebKit
 

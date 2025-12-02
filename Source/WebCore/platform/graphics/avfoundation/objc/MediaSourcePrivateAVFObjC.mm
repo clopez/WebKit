@@ -134,7 +134,7 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const C
     parser->setLogger(m_logger, m_logIdentifier);
 #endif
 
-    Ref newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, parser.releaseNonNull(), *renderer);
+    Ref newSourceBuffer = SourceBufferPrivateAVFObjC::create(*this, configuration, parser.releaseNonNull(), *renderer);
     newSourceBuffer->setResourceOwner(m_resourceOwner);
     outPrivate = newSourceBuffer.copyRef();
     newSourceBuffer->setMediaSourceDuration(duration());
@@ -172,16 +172,6 @@ void MediaSourcePrivateAVFObjC::durationChanged(const MediaTime& duration)
     callOnMainThreadWithPlayer([](auto& player) {
         player.durationChanged();
     });
-}
-
-void MediaSourcePrivateAVFObjC::markEndOfStream(EndOfStreamStatus status)
-{
-    if (status != EndOfStreamStatus::NoError)
-        return;
-    callOnMainThreadWithPlayer([](auto& player) {
-        player.setNetworkState(MediaPlayer::NetworkState::Loaded);
-    });
-    MediaSourcePrivate::markEndOfStream(status);
 }
 
 FloatSize MediaSourcePrivateAVFObjC::naturalSize() const
