@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  * Copyright (C) 2014-2021 Google Inc. All rights reserved.
  * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
@@ -87,6 +87,20 @@ inline void RenderStyle::setPseudoElementIdentifier(std::optional<Style::PseudoE
         SET_NESTED(m_nonInheritedData, rareData, pseudoElementNameArgument, nullAtom());
     }
 }
+
+inline void RenderStyle::setEffectiveDisplay(DisplayType effectiveDisplay)
+{
+    m_nonInheritedFlags.effectiveDisplay = static_cast<unsigned>(effectiveDisplay);
+}
+
+#if ENABLE(TEXT_AUTOSIZING)
+
+inline void RenderStyle::setSpecifiedLineHeight(Style::LineHeight&& lineHeight)
+{
+    SET(m_inheritedData, specifiedLineHeight, WTFMove(lineHeight));
+}
+
+#endif
 
 // MARK: - Style adjustment utilities
 
@@ -261,7 +275,11 @@ inline bool RenderStyle::setWritingMode(StyleWritingMode mode)
 
 inline bool RenderStyle::setZoom(float zoomLevel)
 {
-    setUsedZoom(clampTo<float>(usedZoom() * zoomLevel, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::max()));
+    // Clamp the effective zoom value to avoid overflow in derived computations.
+    // This matches other engines values for compatbility.
+    constexpr float minEffectiveZoom = 1e-6f;
+    constexpr float maxEffectiveZoom = 1e6f;
+    setUsedZoom(clampTo<float>(usedZoom() * zoomLevel, minEffectiveZoom, maxEffectiveZoom));
     if (compareEqual(m_nonInheritedData->rareData->zoom, zoomLevel))
         return false;
     m_nonInheritedData.access().rareData.access().zoom = zoomLevel;
@@ -276,6 +294,12 @@ inline void RenderStyle::setBlendMode(BlendMode mode)
     SET(m_rareInheritedData, isInSubtreeWithBlendMode, mode != BlendMode::Normal);
 }
 
+inline void RenderStyle::setDisplay(DisplayType value)
+{
+    m_nonInheritedFlags.originalDisplay = static_cast<unsigned>(value);
+    m_nonInheritedFlags.effectiveDisplay = m_nonInheritedFlags.originalDisplay;
+}
+
 // FIXME: Add a type that encapsulates both caretColor() and hasAutoCaretColor().
 inline void RenderStyle::setCaretColor(Style::Color&& color) { SET_PAIR(m_rareInheritedData, caretColor, WTFMove(color), hasAutoCaretColor, false); }
 inline void RenderStyle::setHasAutoCaretColor() { SET_PAIR(m_rareInheritedData, hasAutoCaretColor, true, caretColor, Style::Color::currentColor()); }
@@ -288,29 +312,6 @@ inline void RenderStyle::setCursor(Style::Cursor&& cursor) { m_inheritedFlags.cu
 
 // FIXME: Support descriptors
 inline void RenderStyle::setPageSize(Style::PageSize&& pageSize) { SET_NESTED(m_nonInheritedData, rareData, pageSize, WTFMove(pageSize)); }
-
-// FIXME: Support generating getter and setter with different names (or rename computedLetterSpacing() to letterSpacing() and computedWordSpacing() to wordSpacing())
-inline void RenderStyle::setWordSpacing(Style::WordSpacing&& wordSpacing) { SET_NESTED(m_inheritedData, fontData, wordSpacing, WTFMove(wordSpacing)); }
-inline void RenderStyle::setLetterSpacing(Style::LetterSpacing&& letterSpacing) { SET_NESTED(m_inheritedData, fontData, letterSpacing, WTFMove(letterSpacing)); }
-
-// FIXME: Support generating "ExplicitlySet" setters
-inline void RenderStyle::setHasExplicitlySetBorderBottomLeftRadius(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetBorderBottomLeftRadius, value); }
-inline void RenderStyle::setHasExplicitlySetBorderBottomRightRadius(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetBorderBottomRightRadius, value); }
-inline void RenderStyle::setHasExplicitlySetBorderTopLeftRadius(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetBorderTopLeftRadius, value); }
-inline void RenderStyle::setHasExplicitlySetBorderTopRightRadius(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetBorderTopRightRadius, value); }
-inline void RenderStyle::setHasExplicitlySetColor(bool value) { m_inheritedFlags.hasExplicitlySetColor = value; }
-inline void RenderStyle::setHasExplicitlySetDirection() { SET_NESTED(m_nonInheritedData, miscData, hasExplicitlySetDirection, true); }
-inline void RenderStyle::setHasExplicitlySetPaddingBottom(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetPaddingBottom, value); }
-inline void RenderStyle::setHasExplicitlySetPaddingLeft(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetPaddingLeft, value); }
-inline void RenderStyle::setHasExplicitlySetPaddingRight(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetPaddingRight, value); }
-inline void RenderStyle::setHasExplicitlySetPaddingTop(bool value) { SET_NESTED(m_nonInheritedData, surroundData, hasExplicitlySetPaddingTop, value); }
-inline void RenderStyle::setHasExplicitlySetStrokeColor(bool value) { SET(m_rareInheritedData, hasSetStrokeColor, static_cast<unsigned>(value)); }
-inline void RenderStyle::setHasExplicitlySetStrokeWidth(bool value) { SET(m_rareInheritedData, hasSetStrokeWidth, static_cast<unsigned>(value)); }
-inline void RenderStyle::setHasExplicitlySetWritingMode() { SET_NESTED(m_nonInheritedData, miscData, hasExplicitlySetWritingMode, true); }
-#if ENABLE(DARK_MODE_CSS)
-inline void RenderStyle::setHasExplicitlySetColorScheme() { SET_NESTED(m_nonInheritedData, miscData, hasExplicitlySetColorScheme, true); }
-#endif
-
 
 #undef SET
 #undef SET_DOUBLY_NESTED

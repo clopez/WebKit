@@ -55,6 +55,24 @@ inline int mapFontWidthVariantToCTFeatureSelector(FontWidthVariant variant)
     return kProportionalTextSelector;
 }
 
+std::optional<FontPlatformSerializedAttributes> FontPlatformDataAttributes::serializableAttributes() const
+{
+    return FontPlatformSerializedAttributes::fromCF(m_attributes.get());
+}
+
+FontPlatformDataAttributes::FontPlatformDataAttributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique, std::optional<FontPlatformSerializedAttributes> attributes, CTFontDescriptorOptions options, RetainPtr<CFStringRef> url, RetainPtr<CFStringRef> psName)
+    : m_size(size)
+    , m_orientation(orientation)
+    , m_widthVariant(widthVariant)
+    , m_textRenderingMode(textRenderingMode)
+    , m_syntheticBold(syntheticBold)
+    , m_syntheticOblique(syntheticOblique)
+    , m_attributes(attributes ? attributes->toCFDictionary() : nullptr)
+    , m_options(options)
+    , m_url(url)
+    , m_psName(psName)
+    { }
+
 FontPlatformData::FontPlatformData(RetainPtr<CTFontRef>&& font, float size, bool syntheticBold, bool syntheticOblique, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, const FontCustomPlatformData* customPlatformData)
     : FontPlatformData(size, syntheticBold, syntheticOblique, orientation, widthVariant, textRenderingMode, customPlatformData)
 {
@@ -406,7 +424,7 @@ std::optional<FontPlatformSerializedAttributes> FontPlatformSerializedAttributes
 
 #define INJECT_CF_VALUE(key, value) { \
     if (value)\
-        CFDictionaryAddValue(result.get(), key, value->get());\
+        CFDictionaryAddValue(result.get(), key, value.get());\
     }
 
 #define PAIR_VECTOR_TO_DICTIONARY(key, vector) \
@@ -447,13 +465,13 @@ RetainPtr<CFDictionaryRef> FontPlatformSerializedAttributes::toCFDictionary() co
         for (const FontPlatformFeatureSetting& setting : *featureSettings) {
             RetainPtr destinationSetting = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
             if (setting.type)
-                CFDictionaryAddValue(destinationSetting.get(), kCTFontFeatureTypeIdentifierKey, setting.type->get());
+                CFDictionaryAddValue(destinationSetting.get(), kCTFontFeatureTypeIdentifierKey, setting.type.get());
             if (setting.selector)
-                CFDictionaryAddValue(destinationSetting.get(), kCTFontFeatureSelectorIdentifierKey, setting.selector->get());
+                CFDictionaryAddValue(destinationSetting.get(), kCTFontFeatureSelectorIdentifierKey, setting.selector.get());
             if (setting.tag)
-                CFDictionaryAddValue(destinationSetting.get(), kCTFontOpenTypeFeatureTag, setting.tag->get());
+                CFDictionaryAddValue(destinationSetting.get(), kCTFontOpenTypeFeatureTag, setting.tag.get());
             if (setting.value)
-                CFDictionaryAddValue(destinationSetting.get(), kCTFontOpenTypeFeatureValue, setting.value->get());
+                CFDictionaryAddValue(destinationSetting.get(), kCTFontOpenTypeFeatureValue, setting.value.get());
             CFArrayAppendValue(settingsArray.get(), destinationSetting.get());
         }
         CFDictionaryAddValue(result.get(), kCTFontFeatureSettingsAttribute, settingsArray.get());

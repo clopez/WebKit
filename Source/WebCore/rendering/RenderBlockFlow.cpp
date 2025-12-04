@@ -1000,11 +1000,14 @@ void RenderBlockFlow::simplifiedNormalFlowLayout()
     bool shouldUpdateOverflow = false;
     for (InlineWalker walker(*this); !walker.atEnd(); walker.advance()) {
         RenderObject& renderer = *walker.current();
-        if (!renderer.isOutOfFlowPositioned() && (renderer.isBlockLevelReplacedOrAtomicInline() || renderer.isFloating())) {
-            RenderBox& box = downcast<RenderBox>(renderer);
-            box.layoutIfNeeded();
-            shouldUpdateOverflow = true;
-        } else if (is<RenderText>(renderer) || is<RenderInline>(renderer))
+        if (auto* box = dynamicDowncast<RenderBox>(renderer)) {
+            if (!box->isOutOfFlowPositioned() && box->needsLayout()) {
+                box->layout();
+                shouldUpdateOverflow = true;
+            }
+            continue;
+        }
+        if (is<RenderText>(renderer) || is<RenderInline>(renderer))
             renderer.clearNeedsLayout();
     }
 
@@ -3758,6 +3761,10 @@ PositionWithAffinity RenderBlockFlow::positionForPointWithInlineChildren(const L
 
     if (lastLineBoxWithChildren) {
         // We hit this case for Mac behavior when the Y coordinate is below the last box.
+        if (auto blockBox = lastLineBoxWithChildren->blockLevelBox()) {
+            auto& childBlockRenderer = const_cast<RenderBox&>(downcast<RenderBox>(blockBox->renderer()));
+            return positionForPointRespectingEditingBoundaries(*this, childBlockRenderer, pointInLogicalContents, source);
+        }
         ASSERT(moveCaretToBoundary);
         InlineIterator::LineLogicalOrderCache orderCache;
         if (auto logicallyLastBox = InlineIterator::lastLeafOnLineInLogicalOrderWithNode(lastLineBoxWithChildren, orderCache))
@@ -3837,6 +3844,12 @@ bool RenderBlockFlow::relayoutForPagination()
 bool RenderBlockFlow::hasLines() const
 {
     return childrenInline() ? lineCount() : false;
+}
+
+bool RenderBlockFlow::hasBlocksInInlineLayout() const
+{
+    auto* inlineLayout = this->inlineLayout();
+    return inlineLayout && inlineLayout->hasBlocks();
 }
 
 void RenderBlockFlow::invalidateLineLayout(InvalidationReason invalidationReason)

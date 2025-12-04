@@ -571,8 +571,8 @@ constexpr double fasterTapSignificantZoomThreshold = 0.8;
 
 @interface WKFoundTextRange : UITextRange
 
-@property (nonatomic, copy) NSString *frameIdentifier;
 @property (nonatomic) NSUInteger order;
+@property (nonatomic, copy) NSArray *pathToFrame;
 
 + (WKFoundTextRange *)foundTextRangeWithWebFoundTextRange:(WebKit::WebFoundTextRange)range;
 
@@ -12817,12 +12817,12 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (CGImageRef)copySubjectResultForImageContextMenu
 {
-    return valueOrDefault(_imageAnalysisContextMenuActionData).copySubjectResult.unsafeGet();
+    return valueOrDefault(_imageAnalysisContextMenuActionData).copySubjectResult.getAutoreleased();
 }
 
 - (UIMenu *)machineReadableCodeSubMenuForImageContextMenu
 {
-    return valueOrDefault(_imageAnalysisContextMenuActionData).machineReadableCodeMenu.unsafeGet();
+    return valueOrDefault(_imageAnalysisContextMenuActionData).machineReadableCodeMenu.getAutoreleased();
 }
 
 #if USE(QUICK_LOOK)
@@ -14258,7 +14258,7 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
             if (enclosingView != selectedView && ![enclosingView _wk_isAncestorOf:selectedView])
                 return self;
         }
-        return enclosingView.unsafeGet();
+        return enclosingView.autorelease();
     }();
 
     ASSERT(_cachedSelectionContainerView);
@@ -15948,14 +15948,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         }
     );
 
-    [range setFrameIdentifier:webRange.frameIdentifier.createNSString().get()];
+    [range setPathToFrame:createNSArray(webRange.pathToFrame, [](size_t index) {
+        return @(index);
+    }).get()];
     [range setOrder:webRange.order];
     return range.autorelease();
 }
 
 - (void)dealloc
 {
-    [_frameIdentifier release];
     [super dealloc];
 }
 
@@ -15991,7 +15992,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (WebKit::WebFoundTextRange)webFoundTextRange
 {
     WebKit::WebFoundTextRange::DOMData data { self.location, self.length };
-    return { data, self.frameIdentifier, self.order };
+    auto pathToFrameVector = makeVector(self.pathToFrame, [](id number) -> std::optional<size_t> {
+        return [number unsignedLongValue];
+    });
+    return { data, WTFMove(pathToFrameVector), self.order };
 }
 
 @end
@@ -16025,7 +16029,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (WebKit::WebFoundTextRange)webFoundTextRange
 {
     WebKit::WebFoundTextRange::PDFData data { self.startPage, self.startPageOffset, self.endPage, self.endPageOffset };
-    return { data, self.frameIdentifier, self.order };
+    auto pathToFrameVector = makeVector(self.pathToFrame, [](id number) -> std::optional<size_t> {
+        return [number unsignedLongValue];
+    });
+    return { data, WTFMove(pathToFrameVector), self.order };
 }
 
 @end

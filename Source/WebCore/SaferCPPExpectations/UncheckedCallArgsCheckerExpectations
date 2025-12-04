@@ -456,7 +456,6 @@ rendering/ImageQualityController.cpp
 rendering/InlineBoxPainter.cpp
 rendering/LayoutRepainter.cpp
 rendering/LegacyInlineBox.cpp
-rendering/LegacyInlineBox.h
 rendering/LegacyInlineFlowBox.cpp
 rendering/LegacyInlineFlowBox.h
 rendering/LegacyInlineIterator.h
@@ -664,9 +663,7 @@ style/StyleBuilderState.cpp
 style/StyleBuilderStateInlines.h
 style/StyleCustomPropertyRegistry.cpp
 style/StyleExtractor.cpp
-style/StyleExtractorConverter.h
 style/StyleExtractorCustom.h
-style/StyleExtractorSerializer.h
 style/StyleInterpolation.cpp
 style/StyleInvalidationFunctions.h
 style/StyleInvalidator.cpp
