@@ -298,13 +298,14 @@ InlineLayoutResult InlineFormattingContext::lineLayout(AbstractLineBuilder& line
     ASSERT(!needsLayoutRange.isEmpty());
     auto layoutResult = InlineLayoutResult { };
     auto& inlineLayoutState = layoutState();
+    auto& marginState = inlineLayoutState.parentBlockLayoutState().marginState();
 
     auto isPartialLayout = InlineInvalidation::mayOnlyNeedPartialLayout(lineDamage);
     ASSERT(isPartialLayout || !previousLine);
 
     if (!isPartialLayout && (createDisplayContentForLineFromCachedContent(constraints, layoutResult) || createDisplayContentForEmptyInlineContent(constraints, inlineItemList, layoutResult))) {
         layoutResult.range = InlineLayoutResult::Range::Full;
-        handleAfterSideMargin(inlineLayoutState.parentBlockLayoutState().marginState(), layoutResult.displayContent);
+        handleAfterSideMargin(marginState, layoutResult.displayContent);
         return layoutResult;
     }
 
@@ -351,11 +352,12 @@ InlineLayoutResult InlineFormattingContext::lineLayout(AbstractLineBuilder& line
 
         previousLine = PreviousLine { lineIndex, lineLayoutResult.contentGeometry.trailingOverflowingContentWidth, lineLayoutResult.endsWithLineBreak(), lineLayoutResult.directionality.inlineBaseDirection, WTFMove(lineLayoutResult.floatContent.suspendedFloats) };
         previousLineEnd = lineContentEnd;
-        isFirstFormattedLineCandidate &= !lineLayoutResult.hasInflowContent();
-        lineLogicalTop = formattingUtils().logicalTopForNextLine(lineLayoutResult, lineLogicalRect, floatingContext);
+        isFirstFormattedLineCandidate &= !lineLayoutResult.hasContentfulInFlowContent();
+        lineLogicalTop = formattingUtils().logicalTopForNextLine(lineLayoutResult, lineLogicalRect, floatingContext, marginState);
+        marginState.contentOffsetAfterSelfCollapsingBlock = { };
     }
     InlineDisplayLineBuilder::addLegacyLineClampTrailingLinkBoxIfApplicable(*this, inlineLayoutState, layoutResult.displayContent);
-    handleAfterSideMargin(inlineLayoutState.parentBlockLayoutState().marginState(), layoutResult.displayContent);
+    handleAfterSideMargin(marginState, layoutResult.displayContent);
 
     return layoutResult;
 }
@@ -398,8 +400,10 @@ void InlineFormattingContext::updateLayoutStateWithLineLayoutResult(const LineLa
         layoutState.setClearGapBeforeFirstLine(*firstLineGap);
     }
 
-    if (lineLayoutResult.isFirstLast.isLastLineWithInlineContent)
-        layoutState.setClearGapAfterLastLine(formattingUtils().logicalTopForNextLine(lineLayoutResult, lineLogicalRect, floatingContext) - lineLogicalRect.bottom());
+    if (lineLayoutResult.isFirstLast.isLastLineWithInlineContent) {
+        auto logicalTopCandidate = formattingUtils().logicalTopForNextLine(lineLayoutResult, lineLogicalRect, floatingContext, layoutState.parentBlockLayoutState().marginState());
+        layoutState.setClearGapAfterLastLine(std::max(0.f, logicalTopCandidate - lineLogicalRect.bottom()));
+    }
 
     lineLayoutResult.endsWithHyphen() ? layoutState.incrementSuccessiveHyphenatedLineCount() : layoutState.resetSuccessiveHyphenatedLineCount();
     layoutState.setFirstLineStartTrimForInitialLetter(lineLayoutResult.firstLineStartTrim);
@@ -426,7 +430,7 @@ InlineRect InlineFormattingContext::createDisplayContentForInlineContent(const L
     auto& inlineLayoutState = layoutState();
     auto lineClamp = inlineLayoutState.parentBlockLayoutState().lineClamp();
     // Eligible lines from nested block containers are already included (see layoutWithFormattingContextForBlockInInline).
-    auto numberOfLinesWithInlineContent = inlineLayoutState.lineCountWithInlineContentIncludingNestedBlocks() + (lineLayoutResult.hasInlineContent() ? 1 : 0);
+    auto numberOfLinesWithInlineContent = inlineLayoutState.lineCountWithInlineContentIncludingNestedBlocks() + (lineLayoutResult.hasContentfulInlineContent() ? 1 : 0);
     auto numberOfVisibleLinesAllowed = lineClamp ? std::make_optional(lineClamp->maximumLines) : std::nullopt;
 
     auto lineIsFullyTruncatedInBlockDirection = numberOfVisibleLinesAllowed ? numberOfLinesWithInlineContent > *numberOfVisibleLinesAllowed : false;
@@ -435,7 +439,7 @@ InlineRect InlineFormattingContext::createDisplayContentForInlineContent(const L
     displayLine.setBoxCount(boxes.size());
 
     auto addTrailingEllipsisIfApplicable = [&] {
-        if (lineLayoutResult.hasBlockContent()) {
+        if (lineLayoutResult.isBlockContent()) {
             // When a block line is clamped, its content gets clamped and not this line itself.
             return;
         }

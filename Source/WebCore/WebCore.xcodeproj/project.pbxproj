@@ -1862,6 +1862,7 @@
 		4822970E29C8EBC00033A126 /* RegionContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822970C29C8EBC00033A126 /* RegionContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4822FD1D2E2A7FA1004CAFF9 /* EventCounts.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822FD1B2E2A7FA1004CAFF9 /* EventCounts.h */; };
 		4822FD232E2A8058004CAFF9 /* PerformanceEventTiming.h in Headers */ = {isa = PBXBuildFile; fileRef = 4822FD212E2A8058004CAFF9 /* PerformanceEventTiming.h */; };
+		482476B92EE0BC4B006EFFEE /* AXStitchGroup.h in Headers */ = {isa = PBXBuildFile; fileRef = 482476B72EE0BC4B006EFFEE /* AXStitchGroup.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4869472D2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h in Headers */ = {isa = PBXBuildFile; fileRef = 4869472C2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		486B8DC72A043C0600E00E73 /* AXGeometryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 486B8DC62A043C0600E00E73 /* AXGeometryManager.h */; };
 		48B0242A2B2A65AA0083D122 /* AXTextRun.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B024282B2A65AA0083D122 /* AXTextRun.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -11667,6 +11668,7 @@
 		4822FD212E2A8058004CAFF9 /* PerformanceEventTiming.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PerformanceEventTiming.h; sourceTree = "<group>"; };
 		4822FD222E2A8058004CAFF9 /* PerformanceEventTiming.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PerformanceEventTiming.cpp; sourceTree = "<group>"; };
 		4822FD252E2A8082004CAFF9 /* PerformanceEventTiming.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = PerformanceEventTiming.idl; sourceTree = "<group>"; };
+		482476B72EE0BC4B006EFFEE /* AXStitchGroup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXStitchGroup.h; sourceTree = "<group>"; };
 		484F5FBD2CEFA23700E7B1B1 /* AXCoreObjectCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AXCoreObjectCocoa.mm; sourceTree = "<group>"; };
 		4869472C2E54CE1800C708D8 /* PerformanceEventTimingCandidate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PerformanceEventTimingCandidate.h; sourceTree = "<group>"; };
 		486B8DC62A043C0600E00E73 /* AXGeometryManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXGeometryManager.h; sourceTree = "<group>"; };
@@ -25709,6 +25711,7 @@
 				2955CF112B230AE60001BF82 /* AXRemoteFrame.h */,
 				C0CEA8722C46A30900A32129 /* AXSearchManager.cpp */,
 				C0CEA8732C46A30900A32129 /* AXSearchManager.h */,
+				482476B72EE0BC4B006EFFEE /* AXStitchGroup.h */,
 				48ED5FE02ED105670065A629 /* AXStitchUtilities.cpp */,
 				48ED5FDF2ED105670065A629 /* AXStitchUtilities.h */,
 				48B187752E54CC65009B57A9 /* AXTableHelpers.cpp */,
@@ -42357,6 +42360,7 @@
 				48B187772E54CC8D009B57A9 /* AXObjectRareData.h in Headers */,
 				80E3FD062E4B905B00742026 /* AXRemoteTokenIOS.h in Headers */,
 				C0CEA8752C46A30900A32129 /* AXSearchManager.h in Headers */,
+				482476B92EE0BC4B006EFFEE /* AXStitchGroup.h in Headers */,
 				48ED5FE22ED105670065A629 /* AXStitchUtilities.h in Headers */,
 				48B187782E54CC95009B57A9 /* AXTableHelpers.h in Headers */,
 				C0E208A229379C6F00C0D2D3 /* AXTextMarker.h in Headers */,

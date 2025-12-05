@@ -30,13 +30,16 @@
 #include "EnhancedSecurity.h"
 
 #include <WebCore/RegistrableDomain.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Seconds.h>
 
 namespace WebKit {
 
-class EnhancedSecurityTracking final {
+class EnhancedSecurityTracking final : public CanMakeWeakPtr<EnhancedSecurityTracking> {
 public:
+    void initializeWithWebsiteDataStore(WebsiteDataStore&);
+
     void trackNavigation(const API::Navigation&);
 
     bool isEnhancedSecurityEnabled() const { return isEnhancedSecurityEnabledForState(enhancedSecurityState()); }

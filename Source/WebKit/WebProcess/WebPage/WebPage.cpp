@@ -5750,7 +5750,7 @@ void WebPage::findStringMatches(const String& string, OptionSet<FindOptions> opt
     findController().findStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
 }
 
-void WebPage::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& completionHandler)
+void WebPage::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Vector<WebFoundTextRange>>&&)>&& completionHandler)
 {
     foundTextRangeController().findTextRangesForStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
 }
@@ -7896,10 +7896,20 @@ void WebPage::spatialBackdropSourceChanged()
 #endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-void WebPage::canEnterImmersiveElement(const Element& element, CompletionHandler<void(bool)>&& completion)
+void WebPage::allowImmersiveElement(const Element& element, CompletionHandler<void(bool)>&& completion)
 {
     auto url = element.document().url();
-    sendWithAsyncReply(Messages::WebPageProxy::CanEnterImmersiveElementFromURL(url), WTFMove(completion));
+    sendWithAsyncReply(Messages::WebPageProxy::AllowImmersiveElementFromURL(url), WTFMove(completion));
+}
+
+void WebPage::presentImmersiveElement(const Element&, const LayerHostingContextIdentifier contextID, CompletionHandler<void(bool)>&& completion)
+{
+    sendWithAsyncReply(Messages::WebPageProxy::PresentImmersiveElement(contextID), WTFMove(completion));
+}
+
+void WebPage::dismissImmersiveElement(const Element&, CompletionHandler<void()>&& completion)
+{
+    sendWithAsyncReply(Messages::WebPageProxy::DismissImmersiveElement(), WTFMove(completion));
 }
 #endif
 

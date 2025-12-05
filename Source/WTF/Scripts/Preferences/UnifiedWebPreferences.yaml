@@ -971,16 +971,17 @@ BlockWebInspectorInWebContentSandbox:
 
 BlocksInInlineLayoutEnabled:
   type: bool
-  status: unstable
+  status: stable
+  category: css
   humanReadableName: "Blocks in inline layout (disable continuations)"
   humanReadableDescription: "Enable blocks in inline layout (disable continuations)"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
 BroadcastChannelEnabled:
@@ -1800,6 +1801,7 @@ CanvasUsesAcceleratedDrawing:
 CaptionDisplaySettingsEnabled:
   type: bool
   status: internal
+  defaultsOverridable: true
   category: media
   humanReadableName: "Caption Display Settings API"
   humanReadableDescription: "Enable Caption Display Settings API"
@@ -3489,17 +3491,17 @@ GridFormattingContextIntegrationEnabled:
 
 GridLanesEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS display: grid-lanes"
   humanReadableDescription: "Enable CSS display: grid-lanes"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 HTMLEnhancedSelectParsingEnabled:
    type: bool
@@ -6478,17 +6480,17 @@ ReadableByteStreamAPIEnabled:
 
 ReadableByteStreamFetchSourceEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "ReadableByteStream for fetch API"
   humanReadableDescription: "Enable Readable Byte Streams for fetch API"
   defaultValue:
     WebCore:
-      default: false
+      default: true
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
 
 ReadableStreamIterableEnabled:
   type: bool
@@ -8212,7 +8214,7 @@ TextTracksInMSEEnabled:
 
 ThreadedScrollDrivenAnimationsEnabled:
   type: bool
-  status: testable
+  status: preview
   category: animation
   humanReadableName: "Threaded Scroll-driven Animations"
   humanReadableDescription: "Run qualifying scroll-driven animations on a separate thread"

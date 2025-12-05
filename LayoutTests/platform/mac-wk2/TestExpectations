@@ -2410,10 +2410,6 @@ webkit.org/b/302174 [ Tahoe Debug arm64 ] platform/mac/media/encrypted-media/fps
 
 webkit.org/b/302935 [ Sonoma ] media/media-source/media-source-allowed-codecs.html [ Failure ]
 
-# webkit.org/b/303325 REGRESSION(303533@main): Caused webrtc/vp9-profile2.html to time out
-webrtc/vp9-profile2.html [ Pass Timeout ]
-fast/mediastream/captureStream/canvas3d.html [ Pass Crash ]
-
 # scroll-animations WPT tests after enabling ThreadedScrollDrivenAnimationsEnabled, only happens with CSSScrollAnchoringEnabled
 webkit.org/b/303401 [ Sequoia+ ] imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/animation-with-root-scroller.html [ ImageOnlyFailure ]
 webkit.org/b/303464 [ Sequoia+ ] imported/w3c/web-platform-tests/scroll-animations/css/scroll-timeline-default-quirks-mode.html [ ImageOnlyFailure Pass ]
@@ -2423,3 +2419,12 @@ webkit.org/b/303464 [ Sequoia+ ] imported/w3c/web-platform-tests/scroll-animatio
 webkit.org/b/303464 [ Sequoia+ ] imported/w3c/web-platform-tests/scroll-animations/css/scroll-timeline-inline-orientation.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/302725 [ Sequoia Sonoma ] fast/css/accent-color/datalist.html [ Pass ]
+
+webkit.org/b/303507 [ Sonoma+ Debug ] http/tests/xmlhttprequest/origin-exact-matching.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/animation/nameChanged.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/audit/basic-error.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/canvas/console-record-offscreen-webgl.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/dom/customElementState.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/injected-script/observable.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/network/intercept-aborted-request.html [ Timeout ]
+webkit.org/b/303507 [ Sonoma+ Debug ] inspector/page/filter-cookies-for-domain.html [ Timeout ]

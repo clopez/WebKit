@@ -454,7 +454,7 @@
 #include "ModelPresentationManagerProxy.h"
 #endif
 
-#if ENABLE(SWIFT_DEMO_URI_SCHEME)
+#if ENABLE(SWIFT_DEMO_URI_SCHEME) || ENABLE(IPC_TESTING_SWIFT)
 #include "WebKit-Swift.h"
 #endif
 
@@ -973,6 +973,9 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
 #endif
     if (protectedPreferences()->siteIsolationEnabled())
         IPC::Connection::setShouldCrashOnMessageCheckFailure(true);
+
+    if (protectedPreferences()->enhancedSecurityHeuristicsEnabled())
+        internals().enhancedSecurityTracker.initializeWithWebsiteDataStore(protectedWebsiteDataStore());
 }
 
 WebPageProxy::~WebPageProxy()
@@ -5122,6 +5125,9 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
 
     auto enhancedSecurity = currentEnhancedSecurityState(websitePolicies.get());
 
+    if (protectedPreferences()->enhancedSecurityHeuristicsEnabled())
+        protectedWebsiteDataStore()->trackEnhancedSecurityForDomain(RegistrableDomain { navigation.currentRequest().url() }, enhancedSecurity);
+
     Ref browsingContextGroup = m_browsingContextGroup;
     bool usesSameWebsiteDataStore = websiteDataStore.ptr() == &this->websiteDataStore();
     bool mainFrameSiteChanges = !m_mainFrame || Site { m_mainFrame->url() } != Site { navigation.currentRequest().url() };
@@ -6397,11 +6403,11 @@ void WebPageProxy::findTextRangesForStringMatches(const String& string, OptionSe
         return;
     }
 
-    Ref aggregator = FindTextMatchCallbackAggregator::create(WTFMove(callbackFunction));
+    Ref aggregator = FindTextMatchCallbackAggregator::create(*this, WTFMove(callbackFunction));
 
     forEachWebContentProcess([&](auto& webProcess, auto pageID) {
-        webProcess.sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), [aggregator](Vector<WebFoundTextRange>&& vector) {
-            aggregator->foundMatches(WTFMove(vector));
+        webProcess.sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), [aggregator](HashMap<WebCore::FrameIdentifier, Vector<WebFoundTextRange>>&& frameMatches) {
+            aggregator->foundMatches(WTFMove(frameMatches));
         }, pageID);
     });
 }
@@ -8423,6 +8429,10 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     if (!protectedPreferences()->safeBrowsingEnabled())
         shouldExpectSafeBrowsingResult = ShouldExpectSafeBrowsingResult::No;
 
+    ShouldWaitForSiteHasStorageCheck shouldWaitForSiteHasStorageCheck = ShouldWaitForSiteHasStorageCheck::Yes;
+    if (!frame.isMainFrame() || !protectedPreferences()->enhancedSecurityHeuristicsEnabled())
+        shouldWaitForSiteHasStorageCheck = ShouldWaitForSiteHasStorageCheck::No;
+
     ShouldExpectAppBoundDomainResult shouldExpectAppBoundDomainResult = ShouldExpectAppBoundDomainResult::No;
 #if ENABLE(APP_BOUND_DOMAINS)
     shouldExpectAppBoundDomainResult = ShouldExpectAppBoundDomainResult::Yes;
@@ -8549,11 +8559,13 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
         }
         completionHandlerWrapper(policyAction);
 
-    }, ShouldExpectSafeBrowsingResult::No, shouldExpectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData);
+    }, ShouldExpectSafeBrowsingResult::No, shouldExpectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData, shouldWaitForSiteHasStorageCheck);
     if (shouldExpectSafeBrowsingResult == ShouldExpectSafeBrowsingResult::Yes)
         beginSafeBrowsingCheck(request.url(), *navigation, frame.isMainFrame());
     if (shouldWaitForInitialLinkDecorationFilteringData == ShouldWaitForInitialLinkDecorationFilteringData::Yes)
         waitForInitialLinkDecorationFilteringData(listener);
+    if (shouldWaitForSiteHasStorageCheck == ShouldWaitForSiteHasStorageCheck::Yes)
+        beginSiteHasStorageCheck(request.url(), *navigation, listener);
 #if ENABLE(APP_BOUND_DOMAINS)
     bool shouldSendSecurityOriginData = !frame.isMainFrame() && shouldTreatURLProtocolAsAppBound(request.url(), websiteDataStore().configuration().enableInAppBrowserPrivacyForTesting());
     auto host = shouldSendSecurityOriginData ? frameInfo.securityOrigin.host() : request.url().host();
@@ -8718,7 +8730,7 @@ void WebPageProxy::decidePolicyForNewWindowAction(IPC::Connection& connection, N
         RELEASE_ASSERT(processSwapRequestedByClient == ProcessSwapRequestedByClient::No);
 
         receivedPolicyDecision(policyAction, nullptr, std::nullopt, WTFMove(navigationAction), WillContinueLoadInNewProcess::No, std::nullopt, std::nullopt, WTFMove(completionHandler));
-    }, ShouldExpectSafeBrowsingResult::No, ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No);
+    }, ShouldExpectSafeBrowsingResult::No, ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No, ShouldWaitForSiteHasStorageCheck::No);
 
     if (m_policyClient)
         m_policyClient->decidePolicyForNewWindowAction(*this, *frame, navigationAction.get(), request, frameName, WTFMove(listener));
@@ -8853,7 +8865,7 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
         }
 #endif
         completionHandlerWrapper(policyAction);
-    }, expectSafeBrowsing , ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No);
+    }, expectSafeBrowsing , ShouldExpectAppBoundDomainResult::No, ShouldWaitForInitialLinkDecorationFilteringData::No, ShouldWaitForSiteHasStorageCheck::No);
     if (expectSafeBrowsing == ShouldExpectSafeBrowsingResult::Yes && navigation) {
         Seconds timeout = (MonotonicTime::now() - requestStart) * 1.5 + 0.25_s;
         RunLoop::mainSingleton().dispatchAfter(timeout, [listener, navigation] mutable {
@@ -13499,12 +13511,28 @@ void WebPageProxy::spatialBackdropSourceChanged(std::optional<WebCore::SpatialBa
 #endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-void WebPageProxy::canEnterImmersiveElementFromURL(const URL& url, CompletionHandler<void(bool)>&& completion)
+void WebPageProxy::allowImmersiveElementFromURL(const URL& url, CompletionHandler<void(bool)>&& completion) const
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->canEnterImmersiveElementFromURL(url, WTFMove(completion));
+        pageClient->allowImmersiveElementFromURL(url, WTFMove(completion));
     else
         completion(false);
+}
+
+void WebPageProxy::presentImmersiveElement(const WebCore::LayerHostingContextIdentifier contextID, CompletionHandler<void(bool)>&& completion) const
+{
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->presentImmersiveElement(contextID, WTFMove(completion));
+    else
+        completion(false);
+}
+
+void WebPageProxy::dismissImmersiveElement(CompletionHandler<void()>&& completion) const
+{
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->dismissImmersiveElement(WTFMove(completion));
+    else
+        completion();
 }
 #endif
 
@@ -16521,6 +16549,14 @@ void WebPageProxy::waitForInitialLinkDecorationFilteringData(WebFramePolicyListe
 #else
     listener.didReceiveInitialLinkDecorationFilteringData();
 #endif
+}
+
+void WebPageProxy::beginSiteHasStorageCheck(const URL& url, API::Navigation& navigation, WebFramePolicyListenerProxy& listener)
+{
+    protectedWebsiteDataStore()->hasLocalStorageOrCookies(url, [navigation = Ref { navigation }, url, listener = Ref { listener }] (bool hasStorage) mutable {
+        navigation->setHasStorageForCurrentSite(url, hasStorage);
+        listener->didReceiveSiteHasStorageResults();
+    });
 }
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)

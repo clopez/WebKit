@@ -29,6 +29,7 @@
 // Use forward declarations and WebPageProxyInternals.h instead.
 #include "APIObject.h"
 #include "MessageReceiver.h"
+#include <WebCore/LayerHostingContextIdentifier.h>
 #include <wtf/ApproximateTime.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
@@ -3066,7 +3067,9 @@ private:
 #endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-    void canEnterImmersiveElementFromURL(const URL&, CompletionHandler<void(bool)>&&);
+    void allowImmersiveElementFromURL(const URL&, CompletionHandler<void(bool)>&&) const;
+    void presentImmersiveElement(const WebCore::LayerHostingContextIdentifier, CompletionHandler<void(bool)>&&) const;
+    void dismissImmersiveElement(CompletionHandler<void()>&&) const;
 #endif
 
     WebCore::Color platformUnderPageBackgroundColor() const;
@@ -3530,6 +3533,8 @@ private:
     using DataStoreUpdateResult = std::pair<RefPtr<WebsiteDataStore>, LoadedWebArchive>;
     Expected<DataStoreUpdateResult, WebCore::ResourceError> updateDataStoreForWebArchiveLoad(WebFrameProxy&, WebCore::PolicyAction, WebCore::NavigationType, API::Navigation&);
 #endif
+
+    void beginSiteHasStorageCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
 
     const UniqueRef<Internals> m_internals;
     Identifier m_identifier;
