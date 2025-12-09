@@ -30,6 +30,7 @@
 #include "Document.h"
 #include "FontTaggedSettings.h"
 #include "PropertyCascade.h"
+#include "RenderStyle.h"
 #include "RuleSet.h"
 #include "SelectorChecker.h"
 #include "StyleForVisitedLink.h"
@@ -68,6 +69,7 @@ struct FontWidth;
 struct TextAutospace;
 struct TextSpacingTrim;
 struct WebkitLocale;
+struct Zoom;
 
 enum class PositionTryFallbackTactic : uint8_t;
 
@@ -108,6 +110,7 @@ public:
 
     RenderStyle& style() { return m_style; }
     const RenderStyle& style() const { return m_style; }
+    CheckedRef<const RenderStyle> checkedStyle() const { return style(); }
 
     const RenderStyle& parentStyle() const { return *m_context.parentStyle; }
     const RenderStyle* rootElementStyle() const { return m_context.rootElementStyle; }
@@ -116,7 +119,7 @@ public:
     Ref<const Document> protectedDocument() const { return *m_context.document; }
     const Element* element() const { return m_context.element.get(); }
 
-    inline void setZoom(float);
+    inline void setZoom(Zoom);
     inline void setUsedZoom(float);
     inline void setWritingMode(StyleWritingMode);
     inline void setTextOrientation(TextOrientation);

@@ -118,6 +118,15 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 
 #endif
 
+/*! @abstract Type used to describe the string encoding when a _WKJSBuffer holds the string data.
+ */
+typedef NS_ENUM(NSInteger, _WKJSBufferStringEncoding) {
+    _WKJSBufferStringEncodingLatin1,
+    _WKJSBufferStringEncodingUniChar
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+#define HAVE_WK_JS_BUFFER_STRING_ENCODING 1
+
 @class UIEventAttribution;
 @class UITextInputTraits;
 @class WKBrowsingContextHandle;
@@ -134,6 +143,7 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 @class _WKHitTestResult;
 @class _WKInspector;
 @class _WKJSHandle;
+@class _WKJSBuffer;
 @class _WKRemoteObjectRegistry;
 @class _WKSafeBrowsingWarning;
 @class _WKSerializedNode;
@@ -280,6 +290,7 @@ for this property.
 - (void)_evaluateJavaScript:(NSString *)javaScriptString inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError * error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_evaluateJavaScript:(NSString *)javaScriptString withSourceURL:(NSURL *)sourceURL inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError * error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_evaluateJavaScript:(NSString *)javaScriptString withSourceURL:(NSURL *)url inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld withUserGesture:(BOOL)withUserGesture completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+- (void)_evaluateJavaScriptFromBuffer:(_WKJSBuffer *)javaScriptString withEncoding:(_WKJSBufferStringEncoding) bufferStringEncoding withSourceURL:(NSURL *)url inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld withUserGesture:(BOOL)withUserGesture completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 - (void)_callAsyncJavaScript:(NSString *)functionBody arguments:(NSDictionary<NSString *, id> *)arguments inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
 - (BOOL)_allMediaPresentationsClosed WK_API_AVAILABLE(macos(12.0), ios(15.0));
@@ -306,6 +317,7 @@ for this property.
 - (void)_launchInitialProcessIfNecessary WK_API_AVAILABLE(macos(14.0), ios(17.0));
 - (void)_clearBackForwardCache WK_API_AVAILABLE(macos(14.0), ios(17.0));
 
+- (void)_simulateDeviceMotionChangeWithXAcceleration:(double)xAcceleration yAcceleration:(double)yAcceleration zAcceleration:(double)zAcceleration xAccelerationIncludingGravity:(double)xAccelerationIncludingGravity yAccelerationIncludingGravity:(double)yAccelerationIncludingGravity zAccelerationIncludingGravity:(double)zAccelerationIncludingGravity xRotationRate:(double)xRotationRate yRotationRate:(double)yRotationRate zRotationRate:(double)zRotationRate WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (void)_simulateDeviceOrientationChangeWithAlpha:(double)alpha beta:(double)beta gamma:(double)gamma WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 
 + (BOOL)_willUpgradeToHTTPS:(NSURL *)url WK_API_AVAILABLE(macos(12.0), ios(15.0));

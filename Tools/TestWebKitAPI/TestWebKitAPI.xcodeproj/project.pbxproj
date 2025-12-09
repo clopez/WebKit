@@ -276,6 +276,8 @@
 		53FCDE6B229EFFB900598ECF /* IsoHeap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 53FCDE6A229EFFB900598ECF /* IsoHeap.cpp */; };
 		5597F8361D9596C80066BC21 /* SynchronizedFixedQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5597F8341D9596C80066BC21 /* SynchronizedFixedQueue.cpp */; };
 		55F9D2E52205031800A9AB38 /* AdditionalSupportedImageTypes.mm in Sources */ = {isa = PBXBuildFile; fileRef = 55F9D2E42205031800A9AB38 /* AdditionalSupportedImageTypes.mm */; };
+		562C003E2E82F4AC009D428B /* SafeFontParser-Worker.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 562C00362E82F4A7009D428B /* SafeFontParser-Worker.html */; };
+		56DBCC7E2E82A8A800F30138 /* SafeFontParser-Invalid.ttf in Copy Resources */ = {isa = PBXBuildFile; fileRef = 56DBCC7D2E82A8A800F30138 /* SafeFontParser-Invalid.ttf */; };
 		56EEE4782D8D6B85003D4FB1 /* coreipc.js in Copy Resources */ = {isa = PBXBuildFile; fileRef = 56EEE4772D8D6B85003D4FB1 /* coreipc.js */; };
 		56EEE4832D8D706F003D4FB1 /* RemoteObjectRegistry-BadReplyBlock.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 56EEE4822D8D706F003D4FB1 /* RemoteObjectRegistry-BadReplyBlock.html */; };
 		56EEE48F2D8DB402003D4FB1 /* coreipc-helpers.js in Copy Resources */ = {isa = PBXBuildFile; fileRef = 56EEE48E2D8DB402003D4FB1 /* coreipc-helpers.js */; };
@@ -1196,6 +1198,7 @@
 		A17C48122C98E5C20023F3C7 /* try-text-select-with-disabled-text-interaction.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 4952BE5C2578113900B0AEF1 /* try-text-select-with-disabled-text-interaction.html */; };
 		A17C48132C98E5C20023F3C7 /* two-paragraph-contenteditable.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = F4451C751EB8FD7C0020C5DA /* two-paragraph-contenteditable.html */; };
 		A17C48142C98E5C20023F3C7 /* UnitBox.usdz in Copy Resources */ = {isa = PBXBuildFile; fileRef = 31727A5229F733D300A7FB0F /* UnitBox.usdz */; };
+		A17C48141C98E5C20023F3C9 /* hab.reality in Copy Resources */ = {isa = PBXBuildFile; fileRef = 31727A5329F733D300A7FB2F /* hab.reality */; };
 		A17C48152C98E5C20023F3C7 /* video-with-audio-and-web-audio.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = CD57779B211CE6CE001B371E /* video-with-audio-and-web-audio.html */; };
 		A17C48162C98E5C20023F3C7 /* web-audio-only.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = CD577798211CDE8F001B371E /* web-audio-only.html */; };
 		A17C48172C98E5C20023F3C7 /* web-authentication-get-assertion-hid-cancel.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 57663DF22357E45D00E85E09 /* web-authentication-get-assertion-hid-cancel.html */; };
@@ -2035,6 +2038,7 @@
 				A17C46C02C98E54B0023F3C7 /* getUserMediaPermission.html in Copy Resources */,
 				A17C47772C98E5C20023F3C7 /* gif-and-file-input.html in Copy Resources */,
 				A17C47782C98E5C20023F3C7 /* green-400x400.webp in Copy Resources */,
+				A17C48141C98E5C20023F3C9 /* hab.reality in Copy Resources */,
 				A17C46762C98E4D20023F3C7 /* helloworld.webarchive in Copy Resources */,
 				A17C47792C98E5C20023F3C7 /* Helvetica_light.svg in Copy Resources */,
 				A17C46772C98E4D20023F3C7 /* HTMLCollectionNamedItem.html in Copy Resources */,
@@ -2242,6 +2246,8 @@
 				F470A9772D41DAB200F2A137 /* rtl-bidi-text.html in Copy Resources */,
 				07C02FD22D6D6FBC0004ED97 /* rtl-sideways-scrolling.html in Copy Resources */,
 				F40A0AF42E9F3E4600DDAA54 /* safe-area-env.html in Copy Resources */,
+				56DBCC7E2E82A8A800F30138 /* SafeFontParser-Invalid.ttf in Copy Resources */,
+				562C003E2E82F4AC009D428B /* SafeFontParser-Worker.html in Copy Resources */,
 				A17C46E62C98E54B0023F3C7 /* scroll-to-anchor.html in Copy Resources */,
 				A17C46652C98E4BB0023F3C7 /* scrollable-page.html in Copy Resources */,
 				A17C47F42C98E5C20023F3C7 /* selected-text-and-textarea.html in Copy Resources */,
@@ -2748,6 +2754,7 @@
 		313C3A0121E5677A00DBA86E /* SystemPreviewBlobNaming.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = SystemPreviewBlobNaming.html; sourceTree = "<group>"; };
 		31727A4A29F7338C00A7FB0F /* system-preview.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "system-preview.html"; sourceTree = "<group>"; };
 		31727A5229F733D300A7FB0F /* UnitBox.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; path = UnitBox.usdz; sourceTree = "<group>"; };
+		31727A5329F733D300A7FB2F /* hab.reality */ = {isa = PBXFileReference; lastKnownFileType = file; path = hab.reality; sourceTree = "<group>"; };
 		318210CD2C59AEFF00C334B4 /* CSSTokenizerTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSTokenizerTests.cpp; sourceTree = "<group>"; };
 		31903C902764FE1400363472 /* color-scheme.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "color-scheme.html"; sourceTree = "<group>"; };
 		31B76E4223298E2B007FED2C /* SystemPreview.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SystemPreview.mm; sourceTree = "<group>"; };
@@ -3099,6 +3106,8 @@
 		55A817FE218101DF0004A39A /* 100x100-red.tga */ = {isa = PBXFileReference; lastKnownFileType = file; path = "100x100-red.tga"; sourceTree = "<group>"; };
 		55F9D2E42205031800A9AB38 /* AdditionalSupportedImageTypes.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = AdditionalSupportedImageTypes.mm; sourceTree = "<group>"; };
 		562C00702E86DDC2009D428B /* EnhancedSecurityPolicies.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = EnhancedSecurityPolicies.mm; sourceTree = "<group>"; };
+		562C00362E82F4A7009D428B /* SafeFontParser-Worker.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "SafeFontParser-Worker.html"; sourceTree = "<group>"; };
+		56DBCC7D2E82A8A800F30138 /* SafeFontParser-Invalid.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SafeFontParser-Invalid.ttf"; sourceTree = "<group>"; };
 		56EEE4772D8D6B85003D4FB1 /* coreipc.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = coreipc.js; sourceTree = "<group>"; };
 		56EEE4822D8D706F003D4FB1 /* RemoteObjectRegistry-BadReplyBlock.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "RemoteObjectRegistry-BadReplyBlock.html"; sourceTree = "<group>"; };
 		56EEE48E2D8DB402003D4FB1 /* coreipc-helpers.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "coreipc-helpers.js"; sourceTree = "<group>"; };
@@ -5866,6 +5875,7 @@
 				467C565121B5ECDF0057516D /* GetSessionCookie.html */,
 				F47D30ED1ED28A6C000482E1 /* gif-and-file-input.html */,
 				F45C63FF28178AC40090DFAB /* green-400x400.webp */,
+				31727A5329F733D300A7FB2F /* hab.reality */,
 				1CC4C74C28890CE100A3B23D /* Helvetica_light.svg */,
 				EB230D3D245E722E00C66AD1 /* IDBCheckpointWAL.html */,
 				510477761D298E57009747EB /* IDBDeleteRecovery.html */,
@@ -6004,6 +6014,8 @@
 				2E92B8F6216490C3005B64F0 /* rich-text-attributes.html */,
 				07C02FD12D6D6FBC0004ED97 /* rtl-sideways-scrolling.html */,
 				F40A0AF32E9F3E4600DDAA54 /* safe-area-env.html */,
+				56DBCC7D2E82A8A800F30138 /* SafeFontParser-Invalid.ttf */,
+				562C00362E82F4A7009D428B /* SafeFontParser-Worker.html */,
 				F4E0A295211FC5A300AF7C7F /* selected-text-and-textarea.html */,
 				F4D65DA71F5E46C0009D8C27 /* selected-text-image-link-and-editable.html */,
 				467C565221B5ECDF0057516D /* SetSessionCookie.html */,

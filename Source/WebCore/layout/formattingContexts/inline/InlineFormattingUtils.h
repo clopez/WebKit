@@ -76,6 +76,16 @@ public:
 
     bool shouldDiscardRemainingContentInBlockDirection() const;
 
+    enum class SnapDirection : uint8_t { Floor, Ceil, Round };
+    static InlineLayoutUnit snapToInt(InlineLayoutUnit, const InlineLevelBox&, SnapDirection = SnapDirection::Round);
+    static InlineLayoutUnit snapToInt(InlineLayoutUnit, const Box&, SnapDirection = SnapDirection::Round);
+
+    static InlineLayoutUnit ascent(const FontMetrics&, FontBaseline, const InlineLevelBox&);
+    static InlineLayoutUnit descent(const FontMetrics&, FontBaseline, const InlineLevelBox&);
+
+    static InlineLayoutUnit ascent(const FontMetrics&, FontBaseline, const Box&);
+    static InlineLayoutUnit descent(const FontMetrics&, FontBaseline, const Box&);
+
 private:
     InlineLayoutUnit contentLeftAfterLastLine(const ConstraintsForInFlowContent&, std::optional<InlineLayoutUnit> lastLineLogicalBottom, const FloatingContext&) const;
     bool isAtSoftWrapOpportunity(const InlineItem& previous, const InlineItem& next) const;

@@ -1736,6 +1736,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/MediaEncryptedEventInit.h
     html/MediaError.h
     html/OffscreenCanvas.h
+    html/Origin.h
     html/OwnerPermissionsPolicyData.h
     html/PDFDocument.h
     html/PermissionsPolicy.h
@@ -3468,7 +3469,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StyleRatio.h
     style/values/primitives/StyleURL.h
     style/values/primitives/StyleUnevaluatedCalculation.h
-    style/values/primitives/StyleZoomPrimitives.h
 
     style/values/rhythm/StyleBlockStepSize.h
 
@@ -3585,6 +3585,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/view-transitions/StyleViewTransitionClass.h
     style/values/view-transitions/StyleViewTransitionName.h
+
+    style/values/viewport/StyleZoom.h
+    style/values/viewport/StyleZoomPrimitives.h
 
     style/values/will-change/StyleWillChange.h
 

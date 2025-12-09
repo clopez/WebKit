@@ -384,8 +384,10 @@
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)
+#include "DeviceMotionData.h"
 #include "DeviceMotionEvent.h"
 #include "DeviceOrientationAndMotionAccessController.h"
+#include "DeviceOrientationData.h"
 #include "DeviceOrientationEvent.h"
 #endif
 
@@ -2434,14 +2436,14 @@ bool Document::isBodyPotentiallyScrollable(HTMLBodyElement& body)
         && !body.computedStyle()->isOverflowVisible();
 }
 
-Element* Document::scrollingElementForAPI()
+RefPtr<Element> Document::scrollingElementForAPI()
 {
     if (inQuirksMode())
         updateLayoutIgnorePendingStylesheets();
     return scrollingElement();
 }
 
-Element* Document::scrollingElement()
+RefPtr<Element> Document::scrollingElement()
 {
     // See https://drafts.csswg.org/cssom-view/#dom-document-scrollingelement.
     // The scrollingElement attribute, on getting, must run these steps:
@@ -2450,7 +2452,7 @@ Element* Document::scrollingElement()
         // 1. If the HTML body element exists, and it is not potentially scrollable, return the
         // HTML body element and abort these steps.
         if (RefPtr firstBody = body(); firstBody && !isBodyPotentiallyScrollable(*firstBody))
-            return firstBody.unsafeGet();
+            return firstBody;
 
         // 2. Return null and abort these steps.
         return nullptr;
@@ -8849,7 +8851,7 @@ WindowEventLoop& Document::windowEventLoop()
 {
     ASSERT(isMainThread());
     if (!m_eventLoop) [[unlikely]] {
-        m_eventLoop = WindowEventLoop::eventLoopForSecurityOrigin(contextDocument().securityOrigin());
+        m_eventLoop = WindowEventLoop::eventLoopForSecurityOrigin(securityOrigin());
         m_eventLoop->addAssociatedContext(*this);
     }
     return *m_eventLoop;
@@ -9213,6 +9215,13 @@ DeviceMotionController& Document::deviceMotionController() const
     return *m_deviceMotionController;
 }
 
+void Document::simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate)
+{
+    Ref motion = DeviceMotionData::create(DeviceMotionData::Acceleration::create(xAcceleration, yAcceleration, zAcceleration), DeviceMotionData::Acceleration::create(xAccelerationIncludingGravity, yAccelerationIncludingGravity, zAccelerationIncludingGravity), DeviceMotionData::RotationRate::create(xRotationRate, yRotationRate, zRotationRate), std::nullopt);
+
+    deviceMotionController().didChangeDeviceMotion(motion.ptr());
+}
+
 DeviceOrientationController& Document::deviceOrientationController() const
 {
     return *m_deviceOrientationController;
@@ -9220,7 +9229,7 @@ DeviceOrientationController& Document::deviceOrientationController() const
 
 void Document::simulateDeviceOrientationChange(double alpha, double beta, double gamma)
 {
-    auto orientation = DeviceOrientationData::create(alpha, beta, gamma, std::nullopt, std::nullopt);
+    Ref orientation = DeviceOrientationData::create(alpha, beta, gamma, std::nullopt, std::nullopt);
     deviceOrientationController().didChangeDeviceOrientation(orientation.ptr());
 }
 
@@ -11546,7 +11555,7 @@ void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemP
     if (&node->document() != this)
         return;
 
-    auto event = MessageEvent::create(message, securityOrigin().toString());
+    auto event = MessageEvent::create(message, securityOrigin());
     UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, this);
     node->dispatchEvent(event);
 }

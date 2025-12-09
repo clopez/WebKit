@@ -19,13 +19,11 @@ Modules/webcodecs/WebCodecsVideoEncoder.cpp
 Modules/webdatabase/DatabaseThread.cpp
 [ Mac ] accessibility/isolatedtree/AXIsolatedObject.cpp
 [ Mac ] accessibility/isolatedtree/AXIsolatedObject.h
-[ Mac ] accessibility/isolatedtree/mac/AXIsolatedObjectMac.mm
 animation/KeyframeEffect.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 contentextensions/ContentExtensionsBackend.cpp
 crypto/SubtleCrypto.cpp
 css/CSSValue.cpp
-css/CSSVariableReferenceValue.cpp
 dom/ContentVisibilityDocumentState.cpp
 dom/CustomElementDefaultARIA.cpp
 dom/RejectedPromiseTracker.cpp
@@ -44,7 +42,6 @@ page/writing-tools/WritingToolsController.mm
 [ iOS ] platform/PreviewConverter.cpp
 platform/ScrollableArea.cpp
 platform/cocoa/NetworkExtensionContentFilter.mm
-platform/encryptedmedia/CDMProxy.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp
 platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
@@ -80,7 +77,6 @@ style/StyleCustomProperty.cpp
 style/Styleable.cpp
 style/values/StyleValueTypes.h
 style/values/backgrounds/StyleFillLayers.h
-style/values/fonts/StyleFontVariationSettings.cpp
 style/values/images/StyleGradient.cpp
 style/values/primitives/StylePrimitiveKeyword+CSSValueCreation.h
 style/values/primitives/StylePrimitiveKeyword+Serialization.h

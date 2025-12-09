@@ -384,8 +384,6 @@ public:
     WriteBarrierStructureID m_mapIteratorStructure;
     WriteBarrierStructureID m_setIteratorStructure;
     WriteBarrierStructureID m_wrapForValidIteratorStructure;
-    WriteBarrierStructureID m_promiseAllContextStructure;
-    WriteBarrierStructureID m_promiseAllGlobalContextStructure;
     WriteBarrierStructureID m_regExpMatchesArrayStructure;
     WriteBarrierStructureID m_regExpMatchesArrayWithIndicesStructure;
     WriteBarrierStructureID m_regExpMatchesIndicesArrayStructure;
@@ -399,6 +397,8 @@ public:
     WriteBarrier<AsyncFunctionPrototype> m_asyncFunctionPrototype;
     WriteBarrier<AsyncGeneratorFunctionPrototype> m_asyncGeneratorFunctionPrototype;
     LazyProperty<JSGlobalObject, Structure> m_iteratorResultObjectStructure;
+    LazyProperty<JSGlobalObject, Structure> m_promiseAllSettledFulfilledResultStructure;
+    LazyProperty<JSGlobalObject, Structure> m_promiseAllSettledRejectedResultStructure;
     LazyProperty<JSGlobalObject, Structure> m_dataPropertyDescriptorObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_accessorPropertyDescriptorObjectStructure;
     LazyProperty<JSGlobalObject, Structure> m_promiseCapabilityObjectStructure;
@@ -922,14 +922,14 @@ public:
     Structure* mapIteratorStructure() const { return m_mapIteratorStructure.get(); }
     Structure* setIteratorStructure() const { return m_setIteratorStructure.get(); }
     Structure* wrapForValidIteratorStructure() const { return m_wrapForValidIteratorStructure.get(); }
-    Structure* promiseAllContextStructure() const { return m_promiseAllContextStructure.get(); }
-    Structure* promiseAllGlobalContextStructure() const { return m_promiseAllGlobalContextStructure.get(); }
     Structure* stringObjectStructure() const { return m_stringObjectStructure.get(); }
     Structure* symbolObjectStructure() const { return m_symbolObjectStructure.get(); }
     Structure* iteratorResultObjectStructure() const { return m_iteratorResultObjectStructure.get(this); }
     Structure* dataPropertyDescriptorObjectStructure() const { return m_dataPropertyDescriptorObjectStructure.get(this); }
     Structure* accessorPropertyDescriptorObjectStructure() const { return m_accessorPropertyDescriptorObjectStructure.get(this); }
     Structure* promiseCapabilityObjectStructure() const { return m_promiseCapabilityObjectStructure.get(this); }
+    Structure* promiseAllSettledFulfilledResultStructure() const { return m_promiseAllSettledFulfilledResultStructure.get(this); }
+    Structure* promiseAllSettledRejectedResultStructure() const { return m_promiseAllSettledRejectedResultStructure.get(this); }
     Structure* regExpMatchesArrayStructure() const { return m_regExpMatchesArrayStructure.get(); }
     Structure* regExpMatchesArrayWithIndicesStructure() const { return m_regExpMatchesArrayWithIndicesStructure.get(); }
     Structure* regExpMatchesIndicesArrayStructure() const { return m_regExpMatchesIndicesArrayStructure.get(); }

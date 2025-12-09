@@ -267,20 +267,25 @@ void MediaElementSession::clientWillBeginAutoplaying()
     updateClientDataBuffering();
 }
 
-bool MediaElementSession::clientWillBeginPlayback()
+void MediaElementSession::clientWillBeginPlayback(CompletionHandler<void(bool)>&& completionHandler)
 {
-    if (!PlatformMediaSession::clientWillBeginPlayback())
-        return false;
+    PlatformMediaSession::clientWillBeginPlayback([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](bool willBegin) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !willBegin) {
+            completionHandler(false);
+            return;
+        }
 
-    m_elementIsHiddenBecauseItWasRemovedFromDOM = false;
-    updateClientDataBuffering();
+        protectedThis->m_elementIsHiddenBecauseItWasRemovedFromDOM = false;
+        protectedThis->updateClientDataBuffering();
 
 #if ENABLE(MEDIA_SESSION)
-    if (auto* session = mediaSession())
-        session->willBeginPlayback();
+        if (auto* session = protectedThis->mediaSession())
+            session->willBeginPlayback();
 #endif
 
-    return true;
+        completionHandler(true);
+    });
 }
 
 bool MediaElementSession::clientWillPausePlayback()
@@ -1002,7 +1007,15 @@ void MediaElementSession::mediaStateDidChange(MediaProducerMediaStateFlags state
     if (RefPtr element = m_element.get())
         element->document().playbackTargetPickerClientStateDidChange(*this, state);
 }
-#endif
+
+MediaPlaybackTargetType MediaElementSession::playbackTargetType() const
+{
+    if (RefPtr playbackTarget = m_playbackTarget)
+        return playbackTarget->targetType();
+    return MediaPlaybackTargetType::None;
+}
+
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 MediaPlayer::Preload MediaElementSession::effectivePreloadForElement() const
 {

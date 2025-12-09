@@ -841,7 +841,8 @@ public:
     WebScreenOrientationManagerProxy* screenOrientationManager() { return m_screenOrientationManager.get(); }
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    void ensureRemoteMediaSessionManagerProxy();
+    void addRemoteMediaSessionManager(WebCore::PageIdentifier);
+    void removeRemoteMediaSessionManager(WebCore::PageIdentifier);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -965,6 +966,7 @@ public:
     void decodeImageData(Ref<WebCore::SharedBuffer>&&, std::optional<WebCore::FloatSize>, CompletionHandler<void(RefPtr<WebCore::ShareableBitmap>&&)>&&);
 #endif
 
+    void simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate);
     void simulateDeviceOrientationChange(double alpha, double beta, double gamma);
 
     void stopLoading();
@@ -2875,6 +2877,8 @@ public:
     void dropNetworkActivity();
     bool hasValidNetworkActivity() const;
 
+    void takeActivitiesOnRemotePage(RemotePageProxy&);
+
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     RefPtr<WebDeviceOrientationUpdateProviderProxy> webDeviceOrientationUpdateProviderProxy();
 #endif
@@ -2972,7 +2976,7 @@ private:
     void resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier, WebCore::IntPoint, CompletionHandler<void(String)>&&);
     void updateSandboxFlags(IPC::Connection&, WebCore::FrameIdentifier, WebCore::SandboxFlags);
     void updateReferrerPolicy(IPC::Connection&, WebCore::FrameIdentifier, WebCore::ReferrerPolicy);
-    void updateOpener(IPC::Connection&, WebCore::FrameIdentifier, WebCore::FrameIdentifier);
+    void updateOpener(IPC::Connection&, WebCore::FrameIdentifier, std::optional<WebCore::FrameIdentifier>);
     void updateScrollingMode(IPC::Connection&, WebCore::FrameIdentifier, WebCore::ScrollbarMode);
     void setFramePrinting(IPC::Connection&, WebCore::FrameIdentifier, bool printing, const WebCore::FloatSize& pageSize, const WebCore::FloatSize& originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSize shouldAdjustViewSize);
 
@@ -3472,7 +3476,7 @@ private:
     void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, std::optional<WebCore::FrameIdentifier>&&);
 
     void focusRemoteFrame(IPC::Connection&, WebCore::FrameIdentifier);
-    void postMessageToRemote(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts&);
+    void postMessageToRemote(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts&);
     void renderTreeAsTextForTesting(WebCore::FrameIdentifier, uint64_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
     void layerTreeAsTextForTesting(WebCore::FrameIdentifier, uint64_t baseIndent, OptionSet<WebCore::LayerTreeAsTextOptions>, CompletionHandler<void(String&&)>&&);
     void addMessageToConsoleForTesting(String&&);

@@ -85,7 +85,7 @@ void WebRemoteFrameClient::paintContents(GraphicsContext& context, const IntRect
     page->paintRemoteFrameContents(m_frame->frameID(), rect, context);
 }
 
-void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const String& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
+void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const SecurityOriginData& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
 {
     if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::PostMessageToRemote(source, sourceOrigin, target, targetOrigin, message));
@@ -204,7 +204,7 @@ void WebRemoteFrameClient::updateSandboxFlags(WebCore::SandboxFlags sandboxFlags
     WebFrameLoaderClient::updateSandboxFlags(sandboxFlags);
 }
 
-void WebRemoteFrameClient::updateOpener(const WebCore::Frame& newOpener)
+void WebRemoteFrameClient::updateOpener(std::optional<WebCore::FrameIdentifier> newOpener)
 {
     WebFrameLoaderClient::updateOpener(newOpener);
 }

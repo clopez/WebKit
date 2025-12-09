@@ -2069,7 +2069,7 @@ public:
 
     void setObscuredContentInsets(const WebCore::FloatBoxExtent&);
 
-    void updateOpener(WebCore::FrameIdentifier, WebCore::FrameIdentifier);
+    void updateOpener(WebCore::FrameIdentifier, std::optional<WebCore::FrameIdentifier>);
     void setFramePrinting(WebCore::FrameIdentifier, bool printing, WebCore::FloatSize pageSize, WebCore::FloatSize originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSize shouldAdjustViewSize);
 
     WebHistoryItemClient& historyItemClient() const { return m_historyItemClient.get(); }
@@ -2536,6 +2536,7 @@ private:
 
     void setUserInterfaceLayoutDirection(uint32_t);
 
+    void simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate);
     void simulateDeviceOrientationChange(double alpha, double beta, double gamma);
 
 #if USE(SYSTEM_PREVIEW)
@@ -2639,7 +2640,7 @@ private:
     void intelligenceTextAnimationsDidComplete();
 #endif
 
-    void remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
+    void remotePostMessage(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
     void renderTreeAsTextForTesting(WebCore::FrameIdentifier, uint64_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
     void layerTreeAsTextForTesting(WebCore::FrameIdentifier, uint64_t baseIndent, OptionSet<WebCore::LayerTreeAsTextOptions>, CompletionHandler<void(String&&)>&&);
     void frameTextForTesting(WebCore::FrameIdentifier, CompletionHandler<void(String&&)>&&);

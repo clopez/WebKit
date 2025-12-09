@@ -916,7 +916,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     }
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    if (parameters.store.getBoolValueForKey(WebPreferencesKey::remoteMediaSessionManagerEnabledKey())) {
+    if (parameters.store.getBoolValueForKey(WebPreferencesKey::remoteMediaSessionManagerEnabledKey()) || parameters.store.getBoolValueForKey(WebPreferencesKey::siteIsolationSharedProcessEnabledKey())) {
         pageConfiguration.mediaSessionManagerFactory = [weakThis = WeakPtr { *this }](PageIdentifier) -> RefPtr<MediaSessionManagerInterface> {
 
             RefPtr protectedThis = weakThis.get();
@@ -8469,6 +8469,20 @@ WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(DOMPasteAccessCat
     return response;
 }
 
+void WebPage::simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate)
+{
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
+    for (RefPtr frame = mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
+        if (!localFrame)
+            continue;
+
+        if (RefPtr document = localFrame->document())
+            document->simulateDeviceMotionChange(xAcceleration, yAcceleration, zAcceleration, xAccelerationIncludingGravity, yAccelerationIncludingGravity, zAccelerationIncludingGravity, xRotationRate, yRotationRate, zRotationRate);
+    }
+#endif
+}
+
 void WebPage::simulateDeviceOrientationChange(double alpha, double beta, double gamma)
 {
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
@@ -9615,7 +9629,7 @@ void WebPage::frameWasFocusedInAnotherProcess(std::optional<WebCore::FrameIdenti
     protectedCorePage()->focusController().setFocusedFrame(coreFrame.get(), WebCore::BroadcastFocusedFrame::No);
 }
 
-void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts& message)
+void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts& message)
 {
     RefPtr targetFrame = WebProcess::singleton().webFrame(target);
     if (!targetFrame)
@@ -10223,7 +10237,7 @@ RefPtr<DrawingArea> WebPage::protectedDrawingArea() const
     return m_drawingArea;
 }
 
-void WebPage::updateOpener(WebCore::FrameIdentifier frameID, WebCore::FrameIdentifier newOpenerIdentifier)
+void WebPage::updateOpener(WebCore::FrameIdentifier frameID, std::optional<WebCore::FrameIdentifier> newOpenerIdentifier)
 {
     RefPtr frame = WebProcess::singleton().webFrame(frameID);
     if (!frame)
@@ -10231,6 +10245,13 @@ void WebPage::updateOpener(WebCore::FrameIdentifier frameID, WebCore::FrameIdent
     RefPtr coreFrame = frame->coreFrame();
     if (!coreFrame)
         return;
+
+    if (!newOpenerIdentifier) {
+        coreFrame->disownOpener(WebCore::Frame::NotifyUIProcess::No);
+        if (RefPtr provisionalFrame = frame->provisionalFrame())
+            provisionalFrame->disownOpener(WebCore::Frame::NotifyUIProcess::No);
+        return;
+    }
 
     RefPtr newOpener = WebProcess::singleton().webFrame(newOpenerIdentifier);
     if (!newOpener)

@@ -232,7 +232,7 @@ public:
     RefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node*, const WebKitPoint*) const;
 
     ExceptionOr<void> postMessage(JSC::JSGlobalObject&, LocalDOMWindow& incumbentWindow, JSC::JSValue message, WindowPostMessageOptions&&);
-    WEBCORE_EXPORT void postMessageFromRemoteFrame(JSC::JSGlobalObject&, RefPtr<WindowProxy>&& source, const String& sourceOrigin, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
+    WEBCORE_EXPORT void postMessageFromRemoteFrame(JSC::JSGlobalObject&, RefPtr<WindowProxy>&& source, const SecurityOriginData& sourceOrigin, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
 
     void languagesChanged();
 
@@ -418,7 +418,7 @@ private:
     void decrementGamepadEventListenerCount();
 #endif
 
-    void processPostMessage(JSC::JSGlobalObject&, const String& origin, const MessageWithMessagePorts&, RefPtr<WindowProxy>&&, RefPtr<SecurityOrigin>&&);
+    void processPostMessage(JSC::JSGlobalObject&, Ref<SecurityOrigin>&&, const MessageWithMessagePorts&, RefPtr<WindowProxy>&&, RefPtr<SecurityOrigin>&&);
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     bool isActive() const final { return true; }
@@ -530,5 +530,5 @@ inline String LocalDOMWindow::status() const
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::LocalDOMWindow)
     static bool isType(const WebCore::DOMWindow& window) { return window.isLocalDOMWindow(); }
-    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::EventTargetInterfaceType::DOMWindow; }
+    static bool isType(const WebCore::EventTarget& target) { return is<WebCore::DOMWindow>(target) && is<WebCore::LocalDOMWindow>(downcast<WebCore::DOMWindow>(target)); }
 SPECIALIZE_TYPE_TRAITS_END()

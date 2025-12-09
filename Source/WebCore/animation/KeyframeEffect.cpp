@@ -1497,9 +1497,9 @@ void KeyframeEffect::updateIsAssociatedWithProgressBasedTimeline()
         updateAcceleratedAnimationIfNecessary();
 }
 
-void KeyframeEffect::animationTimelineDidChange(const AnimationTimeline* timeline)
+void KeyframeEffect::animationTimelineDidChange()
 {
-    AnimationEffect::animationTimelineDidChange(timeline);
+    AnimationEffect::animationTimelineDidChange();
 
     updateIsAssociatedWithProgressBasedTimeline();
 
@@ -3112,14 +3112,13 @@ void KeyframeEffect::timelineAccelerationAbilityDidChange()
     scheduleAssociatedAcceleratedEffectStackUpdate();
 }
 
-RefPtr<AcceleratedEffect> KeyframeEffect::updatedAcceleratedRepresentation(const TimelineIdentifier& timelineIdentifier, const IntRect& borderBoxRect, const AcceleratedEffectValues& baseValues, OptionSet<AcceleratedEffectProperty>& disallowedProperties)
+Ref<AcceleratedEffect> KeyframeEffect::acceleratedRepresentation(const IntRect& borderBoxRect, const AcceleratedEffectValues& baseValues, OptionSet<AcceleratedEffectProperty>& disallowedProperties)
 {
     updateComputedKeyframeOffsetsIfNeeded();
-    RefPtr acceleratedEffect = AcceleratedEffect::create(*this, timelineIdentifier, borderBoxRect, baseValues, disallowedProperties);
-    m_acceleratedRepresentation = acceleratedEffect.get();
+    Ref acceleratedEffect = AcceleratedEffect::create(*this, borderBoxRect, baseValues, disallowedProperties);
+    m_acceleratedRepresentation = acceleratedEffect.ptr();
     return acceleratedEffect;
 }
-
 #endif
 
 const KeyframeInterpolation::Keyframe& KeyframeEffect::keyframeAtIndex(size_t index) const
@@ -3164,10 +3163,6 @@ void KeyframeEffect::animationProgressBasedTimelineSourceDidChangeMetrics(const 
 {
     AnimationEffect::animationProgressBasedTimelineSourceDidChangeMetrics(animationAttachmentRange);
     m_needsComputedKeyframeOffsetsUpdate = true;
-#if ENABLE(THREADED_ANIMATIONS)
-    if (canHaveAcceleratedRepresentation())
-        updateAcceleratedAnimationIfNecessary();
-#endif
 }
 
 void KeyframeEffect::updateComputedKeyframeOffsetsIfNeeded()

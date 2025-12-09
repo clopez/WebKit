@@ -386,6 +386,7 @@ struct Widows;
 struct WillChange;
 struct WordSpacing;
 struct ZIndex;
+struct Zoom;
 struct ZoomFactor;
 
 enum class Change : uint8_t;
@@ -436,7 +437,7 @@ using WebkitBoxFlexGroup = Integer<CSS::Nonnegative>;
 using WebkitBoxOrdinalGroup = Integer<CSS::Positive>;
 }
 
-constexpr auto PublicPseudoIDBits = 17;
+constexpr auto PublicPseudoIDBits = 18;
 constexpr auto TextDecorationLineBits = 5;
 constexpr auto TextTransformBits = 6;
 constexpr auto PseudoElementTypeBits = 5;
@@ -545,7 +546,7 @@ public:
 #endif
 
     // No setter. Set via `RenderStyleProperties::setDisplay()`.
-    inline DisplayType originalDisplay() const;
+    inline constexpr DisplayType originalDisplay() const;
 
     // `effectiveDisplay()` getter is an alias of `RenderStyleProperties::display()`.
     inline DisplayType effectiveDisplay() const;

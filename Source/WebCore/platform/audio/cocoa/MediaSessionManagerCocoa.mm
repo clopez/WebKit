@@ -79,7 +79,12 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaSessionManagerCocoa);
 #if PLATFORM(MAC)
 RefPtr<PlatformMediaSessionManager> PlatformMediaSessionManager::create(PageIdentifier pageIdentifier)
 {
-    return adoptRef(new MediaSessionManagerCocoa(pageIdentifier));
+    return MediaSessionManagerCocoa::create(pageIdentifier);
+}
+
+Ref<MediaSessionManagerCocoa> MediaSessionManagerCocoa::create(PageIdentifier pageIdentifier)
+{
+    return adoptRef(*new MediaSessionManagerCocoa(pageIdentifier));
 }
 #endif // !PLATFORM(MAC)
 
@@ -259,13 +264,18 @@ void MediaSessionManagerCocoa::scheduleSessionStatusUpdate()
     });
 }
 
-bool MediaSessionManagerCocoa::sessionWillBeginPlayback(PlatformMediaSessionInterface& session)
+void MediaSessionManagerCocoa::sessionWillBeginPlayback(PlatformMediaSessionInterface& session, CompletionHandler<void(bool)>&& completionHandler)
 {
-    if (!PlatformMediaSessionManager::sessionWillBeginPlayback(session))
-        return false;
+    PlatformMediaSessionManager::sessionWillBeginPlayback(session, [weakThis = ThreadSafeWeakPtr { *this }, completionHandler = WTFMove(completionHandler)](bool willBegin) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !willBegin) {
+            completionHandler(false);
+            return;
+        }
 
-    scheduleSessionStatusUpdate();
-    return true;
+        protectedThis->scheduleSessionStatusUpdate();
+        completionHandler(true);
+    });
 }
 
 void MediaSessionManagerCocoa::sessionDidEndRemoteScrubbing(PlatformMediaSessionInterface&)

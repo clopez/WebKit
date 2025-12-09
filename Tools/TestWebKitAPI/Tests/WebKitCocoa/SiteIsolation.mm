@@ -3019,6 +3019,32 @@ TEST(SiteIsolation, NavigateOpenerWindowCrossSite)
     EXPECT_WK_STREQ([opened.uiDelegate waitForAlert], "true");
 }
 
+TEST(SiteIsolation, NavigateOpenedWindowCrossSiteAfterDisowningOpener)
+{
+    HTTPServer server({
+        { "/example"_s, { "<script>w = window.open('https://example.com/text')</script>"_s } },
+        { "/text"_s, { "hi"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example");
+    [opened.webView evaluateJavaScript:@"alert(!!window.opener)" completionHandler:nil];
+    EXPECT_WK_STREQ([opened.uiDelegate waitForAlert], "true");
+
+    // Opened window disowns opener.
+    [opened.webView evaluateJavaScript:@"window.opener = null; alert(!!window.opener)" completionHandler:nil];
+    EXPECT_WK_STREQ([opened.uiDelegate waitForAlert], "false");
+
+    [opener.webView evaluateJavaScript:@"alert(!!w.opener)" completionHandler:nil];
+    EXPECT_WK_STREQ([opener.uiDelegate waitForAlert], "false");
+
+    // Opened window performs cross-site navigation.
+    [opened.webView evaluateJavaScript:@"window.location = 'https://webkit.org/text'" completionHandler:nil];
+    [opened.navigationDelegate waitForDidFinishNavigation];
+
+    [opened.webView evaluateJavaScript:@"alert(!!window.opener)" completionHandler:nil];
+    EXPECT_WK_STREQ([opened.uiDelegate waitForAlert], "false");
+}
+
 TEST(SiteIsolation, NavigateOpenerToProvisionalNavigationFailure)
 {
     HTTPServer server({
@@ -7654,6 +7680,56 @@ TEST(SiteIsolation, CrossSiteIFrameCanReceiveDeviceOrientationEvents)
 
     [webView _simulateDeviceOrientationChangeWithAlpha:45.0 beta:90.0 gamma:180.0];
     EXPECT_WK_STREQ([uiDelegate waitForAlert], "deviceOrientationEvent received");
+}
+
+TEST(SiteIsolation, CrossSiteIFrameCanReceiveDeviceMotionEvents)
+{
+    auto mainframeHTML = "<iframe src='https://examplesubframe.com/subframe' allow='accelerometer;gyroscope;magnetometer'></iframe>"_s;
+
+    auto subframeHTML = "<script>"
+        "    window.addEventListener('devicemotion', function(event) {"
+        "        alert('deviceMotionEvent received');"
+        "    });"
+        "    "
+        "    window.addEventListener('message', function(event) {"
+        "        if (event.data === 'requestPermission') {"
+        "            DeviceMotionEvent.requestPermission().then(function(result) {"
+        "                alert('permission granted');"
+        "            }).catch(function(error) {"
+        "                alert('error getting permission');"
+        "            });"
+        "        }"
+        "    });"
+        "    "
+        "    "
+        "    alert('iframe loaded');"
+        "</script>"_s;
+
+    HTTPServer server({
+        { "/mainframe"_s, { mainframeHTML } },
+        { "/subframe"_s, { subframeHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    __block bool askedClientForPermission = false;
+
+    RetainPtr uiDelegate = adoptNS([TestUIDelegate new]);
+    [uiDelegate setRequestDeviceOrientationAndMotionPermissionForOrigin:^(WKSecurityOrigin *, WKFrameInfo *, void (^completion)(WKPermissionDecision)) {
+        askedClientForPermission = true;
+        completion(WKPermissionDecisionGrant);
+    }];
+    [webView setUIDelegate:uiDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://examplemainframe.com/mainframe"]]];
+    EXPECT_WK_STREQ([uiDelegate waitForAlert], "iframe loaded");
+
+    [webView evaluateJavaScript:@"DeviceMotionEvent.requestPermission()" inFrame:[webView firstChildFrame] completionHandler:nil];
+    TestWebKitAPI::Util::run(&askedClientForPermission);
+    askedClientForPermission = false;
+
+    [webView _simulateDeviceMotionChangeWithXAcceleration:1.0 yAcceleration:2.0 zAcceleration:3.0 xAccelerationIncludingGravity:1.0 yAccelerationIncludingGravity:2.0 zAccelerationIncludingGravity:3.0 xRotationRate:1.0 yRotationRate:2.0 zRotationRate:3.0];
+    EXPECT_WK_STREQ([uiDelegate waitForAlert], "deviceMotionEvent received");
 }
 
 #endif // ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)

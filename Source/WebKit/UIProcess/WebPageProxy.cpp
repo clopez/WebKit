@@ -7092,7 +7092,7 @@ void WebPageProxy::updateSandboxFlags(IPC::Connection& connection, WebCore::Fram
     }
 }
 
-void WebPageProxy::updateOpener(IPC::Connection& connection, WebCore::FrameIdentifier frameID, WebCore::FrameIdentifier newOpener)
+void WebPageProxy::updateOpener(IPC::Connection& connection, WebCore::FrameIdentifier frameID, std::optional<WebCore::FrameIdentifier> newOpener)
 {
     if (RefPtr frame = WebFrameProxy::webFrame(frameID))
         frame->updateOpener(newOpener);
@@ -10352,11 +10352,20 @@ void WebPageProxy::setMockVideoPresentationModeEnabled(bool enabled)
 #endif
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-void WebPageProxy::ensureRemoteMediaSessionManagerProxy()
+void WebPageProxy::addRemoteMediaSessionManager(WebCore::PageIdentifier localPageIdentifier)
 {
     if (!m_mediaSessionManagerProxy)
         m_mediaSessionManagerProxy = RemoteMediaSessionManagerProxy::create(webPageIDInMainFrameProcess(), Ref { siteIsolatedProcess() });
+
+    Ref { *m_mediaSessionManagerProxy }->addRemoteMediaSessionManager(localPageIdentifier);
 }
+
+void WebPageProxy::removeRemoteMediaSessionManager(WebCore::PageIdentifier pageIdentifier)
+{
+    if (m_mediaSessionManagerProxy)
+        Ref { *m_mediaSessionManagerProxy }->removeRemoteMediaSessionManager(pageIdentifier);
+}
+
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -15618,6 +15627,13 @@ void WebPageProxy::willAcquireUniversalFileReadSandboxExtension(WebProcessProxy&
     process.willAcquireUniversalFileReadSandboxExtension();
 }
 
+void WebPageProxy::simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate)
+{
+    forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+        webProcess.send(Messages::WebPage::SimulateDeviceMotionChange(xAcceleration, yAcceleration, zAcceleration, xAccelerationIncludingGravity, yAccelerationIncludingGravity, zAccelerationIncludingGravity, xRotationRate, yRotationRate, zRotationRate), pageID);
+    });
+}
+
 void WebPageProxy::simulateDeviceOrientationChange(double alpha, double beta, double gamma)
 {
     forEachWebContentProcess([&](auto& webProcess, auto pageID) {
@@ -15742,7 +15758,7 @@ void WebPageProxy::speechSynthesisSetFinishedCallback(CompletionHandler<void()>&
 void WebPageProxy::speechSynthesisSpeak(const String& text, const String& lang, float volume, float rate, float pitch, MonotonicTime, const String& voiceURI, const String& voiceName, const String& voiceLang, bool localService, bool defaultVoice, CompletionHandler<void()>&& completionHandler)
 {
     auto voice = WebCore::PlatformSpeechSynthesisVoice::create(voiceURI, voiceName, voiceLang, localService, defaultVoice);
-    auto utterance = WebCore::PlatformSpeechSynthesisUtterance::create(internals());
+    auto utterance = WebCore::PlatformSpeechSynthesisUtterance::create(nullptr);
     utterance->setText(text);
     utterance->setLang(lang);
     utterance->setVolume(volume);
@@ -16985,7 +17001,7 @@ void WebPageProxy::focusRemoteFrame(IPC::Connection& connection, WebCore::FrameI
     setFocus(true);
 }
 
-void WebPageProxy::postMessageToRemote(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts& message)
+void WebPageProxy::postMessageToRemote(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts& message)
 {
     sendToProcessContainingFrame(target, Messages::WebPage::RemotePostMessage(source, sourceOrigin, target, targetOrigin, message));
 }
@@ -17414,6 +17430,24 @@ void WebPageProxy::networkRequestsInProgressDidChange()
     Ref pageLoadState = internals().pageLoadState;
     auto transaction = pageLoadState->transaction();
     pageLoadState->setNetworkRequestsInProgress(transaction, hasNetworkRequestsInProgress);
+}
+
+void WebPageProxy::takeActivitiesOnRemotePage(RemotePageProxy& remotePage)
+{
+    if (hasValidVisibleActivity())
+        remotePage.processActivityState().takeVisibleActivity();
+
+    if (hasValidAudibleActivity())
+        remotePage.processActivityState().takeAudibleActivity();
+
+    if (hasValidCapturingActivity())
+        remotePage.processActivityState().takeCapturingActivity();
+
+    if (hasValidMutedCaptureAssertion())
+        remotePage.processActivityState().takeMutedCaptureAssertion();
+
+    if (hasValidNetworkActivity())
+        remotePage.processActivityState().takeNetworkActivity();
 }
 
 // See SwiftDemoLogo.swift for the rationale here

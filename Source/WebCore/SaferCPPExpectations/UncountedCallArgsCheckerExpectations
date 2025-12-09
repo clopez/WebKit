@@ -53,7 +53,6 @@ Modules/webaudio/AudioSummingJunction.cpp
 Modules/webaudio/AudioWorkletGlobalScope.cpp
 Modules/webaudio/AudioWorkletMessagingProxy.cpp
 Modules/webaudio/AudioWorkletNode.cpp
-Modules/webaudio/BiquadFilterNode.cpp
 [ iOS ] Modules/webaudio/ChannelMergerNode.cpp
 Modules/webaudio/ConvolverNode.cpp
 Modules/webaudio/DefaultAudioDestinationNode.cpp
@@ -432,7 +431,6 @@ html/MediaElementSession.cpp
 html/ModelDocument.cpp
 html/OffscreenCanvas.cpp
 html/PluginDocument.cpp
-html/RadioNodeList.cpp
 [ iOS ] html/TextFieldInputType.cpp
 html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
@@ -507,7 +505,6 @@ layout/integration/inline/LayoutIntegrationLineLayout.cpp
 loader/ApplicationManifestLoader.cpp
 loader/CrossOriginPreflightChecker.cpp
 loader/DocumentThreadableLoader.cpp
-loader/DocumentWriter.cpp
 loader/FrameLoadRequest.cpp
 [ iOS ] loader/FrameLoader.cpp
 loader/MediaResourceLoader.cpp
@@ -602,7 +599,6 @@ page/text-extraction/TextExtraction.cpp
 page/writing-tools/WritingToolsController.mm
 platform/DragImage.cpp
 platform/ScrollAnimationSmooth.cpp
-platform/ScrollAnimator.cpp
 platform/ScrollView.cpp
 platform/ScrollableArea.cpp
 platform/Widget.cpp
@@ -612,7 +608,6 @@ platform/audio/cocoa/AudioFileReaderCocoa.cpp
 [ Mac ] platform/cocoa/DragImageCocoa.mm
 platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/cocoa/VideoPresentationModelVideoElement.mm
-platform/encryptedmedia/CDMProxy.cpp
 platform/encryptedmedia/CDMProxy.h
 platform/graphics/BitmapImage.cpp
 platform/graphics/BitmapImage.h

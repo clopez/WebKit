@@ -1,8 +1,6 @@
 # This file should contain entries for expectations that are specific
 # to the Apple Mac port running WebKit1 (DumpRenderTree)
 
-webkitlegacy [ Pass ]
-
 #//////////////////////////////////////////////////////////////////////////////////////////
 # Platform-specific tests. Skipped globally, then re-enabled here.
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -679,6 +677,9 @@ imported/w3c/web-platform-tests/fetch/security/1xx-response.any.worker.html [ Sk
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.worker.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/origin/api/origin-from-extendablemessageevent.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/origin/api/origin-from-global.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/origin/api/origin-from-global.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content/cross-domain-iframe-in-multicol.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/broadcastchannel-success-and-failure.https.html [ Skip ]
@@ -3115,6 +3116,7 @@ imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-
 
 # webkit.org/b/279712 Clipboard API not supported on WK1
 imported/w3c/web-platform-tests/clipboard-apis/clipboard-item.https.html [ Skip ]
+http/tests/pasteboard/copy-image-from-context-menu.html [ Skip ]
 
 webkit.org/b/281594 imported/w3c/web-platform-tests/html/semantics/document-metadata/the-link-element/link-load-error-events.html [ Pass Failure ]
 
@@ -3332,3 +3334,5 @@ fast/css/accent-color/datalist.html [ Skip ]
 
 # Flaky test on WK1
 css3/images/cross-fade-svg-fragments.html [ Skip ]
+
+imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/img-represents-image-size-before-partially-available.html [ Skip ]

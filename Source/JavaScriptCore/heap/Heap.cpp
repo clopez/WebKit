@@ -53,8 +53,8 @@
 #include "JSFinalizationRegistry.h"
 #include "JSFunctionWithFields.h"
 #include "JSIterator.h"
-#include "JSPromiseAllContext.h"
-#include "JSPromiseAllGlobalContext.h"
+#include "JSPromiseCombinatorsContext.h"
+#include "JSPromiseCombinatorsGlobalContext.h"
 #include "JSPromiseReaction.h"
 #include "JSRawJSONObject.h"
 #include "JSRemoteFunction.h"
@@ -1220,8 +1220,6 @@ void Heap::addToRememberedSet(const JSCell* constCell)
 
 void Heap::sweepSynchronously()
 {
-    RELEASE_ASSERT(vm().currentThreadIsHoldingAPILock());
-
     if (!Options::useGC()) [[unlikely]]
         return;
 

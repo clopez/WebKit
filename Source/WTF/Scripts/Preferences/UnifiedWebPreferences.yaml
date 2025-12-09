@@ -971,17 +971,17 @@ BlockWebInspectorInWebContentSandbox:
 
 BlocksInInlineLayoutEnabled:
   type: bool
-  status: stable
+  status: preview
   category: css
   humanReadableName: "Blocks in inline layout (disable continuations)"
   humanReadableDescription: "Enable blocks in inline layout (disable continuations)"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 # We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
 BroadcastChannelEnabled:
@@ -5924,6 +5924,20 @@ OptInPartitionedCookiesEnabled:
     WebCore:
       default: true
 
+OriginAPIEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Origin API"
+  humanReadableDescription: "Enable the Origin API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 OverlappingBackingStoreProvidersEnabled:
   type: bool
   status: stable
@@ -7918,6 +7932,20 @@ StorageBlockingPolicy:
     WebCore:
       default: StorageBlockingPolicy::AllowAll
 
+SubpixelInlineLayoutEnabled:
+  type: bool
+  status: unstable
+  category: css
+  humanReadableName: "Subpixels in inline layout (in block direction)"
+  humanReadableDescription: "Subpixels in line layout (in block direction)"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 SupportHDRCompositorTonemappingEnabled:
   type: bool
   status: testable
@@ -8214,7 +8242,7 @@ TextTracksInMSEEnabled:
 
 ThreadedScrollDrivenAnimationsEnabled:
   type: bool
-  status: preview
+  status: stable
   category: animation
   humanReadableName: "Threaded Scroll-driven Animations"
   humanReadableDescription: "Run qualifying scroll-driven animations on a separate thread"
@@ -8223,9 +8251,9 @@ ThreadedScrollDrivenAnimationsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ThreadedScrollingEnabled:
   type: bool
@@ -8432,6 +8460,21 @@ UnifyDamagedRegions:
        default: false
      WebCore:
        default: false
+       
+UpdateSceneGeometryEnabled:
+  type: bool
+  status: internal
+  condition: ENABLE(SCENE_GEOMETRY_UPDATE)
+  humanReadableName: "Enable Update Scene Geometry"
+  humanReadableDescription: "Allows for changes to scene geometry"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  sharedPreferenceForWebProcess: true
 
 UpgradeKnownHostsToHTTPSEnabled:
   type: bool

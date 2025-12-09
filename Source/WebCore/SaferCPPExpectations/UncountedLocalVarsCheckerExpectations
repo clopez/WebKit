@@ -109,7 +109,6 @@ css/CSSStyleSheetObservableArray.cpp
 css/CSSValue.cpp
 css/CSSValueList.cpp
 css/CSSValueList.h
-css/CSSVariableReferenceValue.cpp
 css/DeprecatedCSSOMPrimitiveValue.cpp
 css/FontFaceSet.cpp
 css/ImmutableStyleProperties.cpp
@@ -253,7 +252,6 @@ mathml/MathMLSelectElement.cpp
 page/CaptionUserPreferences.cpp
 [ iOS ] page/Chrome.cpp
 [ Mac ] page/ContextMenuController.cpp
-page/DebugPageOverlays.cpp
 page/ElementTargetingController.cpp
 page/EventHandler.cpp
 page/FocusController.cpp
@@ -308,7 +306,6 @@ page/scrolling/ScrollingTreeStickyNode.cpp
 page/text-extraction/TextExtraction.cpp
 platform/DictationCaretAnimator.cpp
 platform/KeyboardScrollingAnimator.cpp
-platform/ScrollAnimator.cpp
 platform/ScrollView.cpp
 platform/ScrollableArea.cpp
 platform/ScrollbarsController.cpp
@@ -421,7 +418,6 @@ rendering/updating/RenderTreeUpdaterGeneratedContent.cpp
 style/AttributeChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
 style/ElementRuleCollector.cpp
-style/HasSelectorFilter.cpp
 style/IdChangeInvalidation.cpp
 style/InspectorCSSOMWrappers.cpp
 style/MatchResultCache.cpp

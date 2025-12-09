@@ -30,15 +30,6 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
-struct RenderBlockFlowRareData;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::RenderBlockFlowRareData> : std::true_type { };
-}
-
-namespace WebCore {
 
 class FloatingObjects;
 class LineBreaker;
@@ -355,7 +346,8 @@ public:
 
     void setChildrenInline(bool) final;
 
-    bool hasLines() const;
+    bool hasContentfulInlineOrBlockLine() const;
+    bool hasContentfulInlineLine() const;
     bool hasBlocksInInlineLayout() const;
 
     enum InvalidationReason : uint8_t {

@@ -577,8 +577,8 @@ public:
     std::optional<BoundaryPoint> caretPositionFromPoint(const LayoutPoint& clientPoint, HitTestSource);
     RefPtr<CaretPosition> caretPositionFromPoint(double x, double y, CaretPositionFromPointOptions);
 
-    WEBCORE_EXPORT Element* scrollingElementForAPI();
-    WEBCORE_EXPORT Element* scrollingElement();
+    WEBCORE_EXPORT RefPtr<Element> scrollingElementForAPI();
+    WEBCORE_EXPORT RefPtr<Element> scrollingElement();
 
     enum class ReadyState : uint8_t { Loading, Interactive, Complete };
     ReadyState readyState() const { return m_readyState; }
@@ -1512,6 +1512,8 @@ public:
 
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
     DeviceMotionController& deviceMotionController() const;
+    WEBCORE_EXPORT void simulateDeviceMotionChange(double xAcceleration, double yAcceleration, double zAcceleration, double xAccelerationIncludingGravity, double yAccelerationIncludingGravity, double zAccelerationIncludingGravity, double xRotationRate, double yRotationRate, double zRotationRate);
+
     DeviceOrientationController& deviceOrientationController() const;
     WEBCORE_EXPORT void simulateDeviceOrientationChange(double alpha, double beta, double gamma);
 #endif

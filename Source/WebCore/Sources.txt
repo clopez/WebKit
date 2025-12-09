@@ -1650,6 +1650,7 @@ html/MonthInputType.cpp
 html/NavigatorUserActivation.cpp
 html/NumberInputType.cpp
 html/OffscreenCanvas.cpp
+html/Origin.cpp
 html/PDFDocument.cpp
 html/PasswordInputType.cpp
 html/PermissionsPolicy.cpp
@@ -2566,6 +2567,7 @@ platform/graphics/LayoutRoundedRect.cpp
 platform/graphics/LayoutSize.cpp
 platform/graphics/MIMESniffer.cpp
 platform/graphics/MIMETypeCache.cpp
+platform/graphics/MediaPlaybackTargetWirelessPlayback.cpp
 platform/graphics/MediaPlayer.cpp
 platform/graphics/MediaPlayerPrivate.cpp
 platform/graphics/MediaPlayerPrivateWirelessPlayback.cpp
@@ -4547,6 +4549,7 @@ JSOffscreenCanvasRenderingContext2D.cpp
 JSOpenID4VPRequest.cpp
 JSOptionalEffectTiming.cpp
 JSOpusEncoderConfig.cpp
+JSOrigin.cpp
 JSOscillatorNode.cpp
 JSOscillatorOptions.cpp
 JSOscillatorType.cpp

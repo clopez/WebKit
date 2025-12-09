@@ -92,7 +92,7 @@ public:
     Ref<Frame> protectedMainFrame() { return mainFrame(); }
     Ref<const Frame> protectedMainFrame() const { return mainFrame(); }
     bool isMainFrame() const { return this == m_mainFrame.get(); }
-    WEBCORE_EXPORT void disownOpener();
+    WEBCORE_EXPORT void disownOpener(NotifyUIProcess = NotifyUIProcess::No);
     WEBCORE_EXPORT void updateOpener(Frame&, NotifyUIProcess = NotifyUIProcess::Yes);
     WEBCORE_EXPORT void setOpenerForWebKitLegacy(Frame*);
     const Frame* opener() const { return m_opener.get(); }
@@ -153,7 +153,7 @@ public:
     virtual bool frameCanCreatePaymentSession() const;
     FrameTreeSyncData& frameTreeSyncData() const { return m_frameTreeSyncData.get(); }
     Ref<FrameTreeSyncData> protectedFrameTreeSyncData() const { return m_frameTreeSyncData.get(); }
-    WEBCORE_EXPORT virtual RefPtr<SecurityOrigin> frameDocumentSecurityOrigin() const = 0;
+    WEBCORE_EXPORT virtual SecurityOrigin* frameDocumentSecurityOrigin() const = 0;
     WEBCORE_EXPORT virtual String frameURLProtocol() const = 0;
 
     WEBCORE_EXPORT virtual void setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize, NotifyUIProcess = NotifyUIProcess::Yes);
