@@ -378,23 +378,24 @@ void RealtimeOutgoingMediaSourceGStreamer::codecPreferencesChanged()
     m_isStopped = false;
 }
 
-void RealtimeOutgoingMediaSourceGStreamer::replaceTrack(RefPtr<MediaStreamTrack>&& newTrack)
+void RealtimeOutgoingMediaSourceGStreamer::replaceTrack(const RefPtr<MediaStreamTrack>& newTrack)
 {
-    if (!m_track)
-        return;
+    if (m_track)
+        m_track->removeObserver(*this);
 
-    m_track->removeObserver(*this);
     RefPtr<MediaStreamTrackPrivate> trackPrivate;
     if (newTrack)
         trackPrivate = newTrack->privateTrack();
 
     webkitMediaStreamSrcReplaceTrack(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()), RefPtr(trackPrivate));
-    if (!newTrack)
+    if (!newTrack) {
+        m_isStopped = true;
+        m_track = nullptr;
         return;
+    }
 
     m_track = WTFMove(trackPrivate);
-    if (m_track)
-        m_track->addObserver(*this);
+    start();
 }
 
 void RealtimeOutgoingMediaSourceGStreamer::setInitialParameters(GUniquePtr<GstStructure>&& parameters)
@@ -637,6 +638,31 @@ GUniquePtr<GstStructure> RealtimeOutgoingMediaSourceGStreamer::stats()
         auto ssrcString = makeString(ssrc);
         gst_structure_set(stats.get(), ssrcString.ascii().data(), GST_TYPE_STRUCTURE, structure, nullptr);
     }
+    return stats;
+}
+
+GUniquePtr<GstStructure> RealtimeOutgoingMediaSourceGStreamer::mediaCaptureStats()
+{
+    GUniquePtr<GstStructure> stats(gst_structure_new_empty("media-capture-stats"));
+
+    if (!m_outgoingSource)
+        return stats;
+
+    auto type = makeString(m_type == Type::Audio ? "audio"_s : "video"_s, "-source-stats"_s);
+    auto id = makeString("track-"_s, m_trackId, "-stats"_s);
+    auto timestamp = MonotonicTime::now().secondsSinceEpoch().microsecondsAs<int64_t>();
+    gst_structure_set(stats.get(), "webkit-stats-type", G_TYPE_STRING, type.ascii().data(),
+        "id", G_TYPE_STRING, id.utf8().data(), "timestamp", G_TYPE_DOUBLE, static_cast<double>(timestamp),
+        "kind", G_TYPE_STRING, m_type == Type::Audio ? "audio" : "video", "track-identifier", G_TYPE_STRING, m_trackId.utf8().data(), nullptr);
+    auto query = adoptGRef(gst_query_new_custom(GST_QUERY_CUSTOM, gst_structure_new_empty("webkit-media-source-stats")));
+    auto srcPad = outgoingSourcePad();
+    if (gst_pad_query(srcPad.get(), query.get())) {
+        gstStructureForeach(gst_query_get_structure(query.get()), [&](auto id, const auto* value) -> bool {
+            gstStructureIdSetValue(stats.get(), id, value);
+            return true;
+        });
+    }
+
     return stats;
 }
 

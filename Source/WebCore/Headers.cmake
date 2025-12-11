@@ -3190,6 +3190,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/RenderStyleConstants.h
     rendering/style/RenderStyleInlines.h
     rendering/style/RenderStylePropertiesGettersCustom.h
+    rendering/style/RenderStylePropertiesInitialCustom.h
     rendering/style/RenderStyleSetters.h
     rendering/style/SVGRenderStyle.h
     rendering/style/SVGRenderStyleDefs.h
@@ -3245,6 +3246,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/ScopedName.h
     style/StyleChange.h
     style/StyleCustomProperty.h
+    style/StyleDifference.h
     style/StyleForVisitedLink.h
     style/StyleInterpolationClient.h
     style/StyleInterpolationContext.h
@@ -3799,6 +3801,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/RenderStyleProperties.h
     ${WebCore_DERIVED_SOURCES_DIR}/RenderStylePropertiesGettersInlines.h
+    ${WebCore_DERIVED_SOURCES_DIR}/RenderStylePropertiesInitialInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/SVGNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
     ${WebCore_DERIVED_SOURCES_DIR}/StreamInternalsBuiltins.h

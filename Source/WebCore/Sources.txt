@@ -2989,6 +2989,7 @@ rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleBase.cpp
 rendering/style/RenderStyleConstants.cpp
 rendering/style/RenderStylePropertiesGettersCustom.cpp
+rendering/style/RenderStylePropertiesInitialCustom.cpp
 rendering/style/SVGRenderStyle.cpp
 rendering/style/SVGRenderStyleDefs.cpp
 rendering/style/StyleAppleColorFilterData.cpp
@@ -3154,6 +3155,7 @@ style/StyleBuilderState.cpp
 style/StyleChange.cpp
 style/StyleCustomProperty.cpp
 style/StyleCustomPropertyRegistry.cpp
+style/StyleDifference.cpp
 style/StyleExtractor.cpp
 style/StyleFontSizeFunctions.cpp
 style/StyleInterpolation.cpp

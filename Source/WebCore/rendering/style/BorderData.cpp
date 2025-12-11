@@ -42,22 +42,6 @@ bool BorderData::containsCurrentColor() const
     });
 }
 
-bool BorderData::isEquivalentForPainting(const BorderData& other, bool currentColorDiffers) const
-{
-    if (this == &other) {
-        ASSERT(currentColorDiffers);
-        return !containsCurrentColor();
-    }
-
-    if (*this != other)
-        return false;
-
-    if (!currentColorDiffers)
-        return true;
-
-    return !containsCurrentColor();
-}
-
 void BorderData::dump(TextStream& ts, DumpStyleValues behavior) const
 {
     if (behavior == DumpStyleValues::All || left() != BorderValue())
@@ -69,13 +53,13 @@ void BorderData::dump(TextStream& ts, DumpStyleValues behavior) const
     if (behavior == DumpStyleValues::All || bottom() != BorderValue())
         ts.dumpProperty("bottom"_s, bottom());
 
-    if (behavior == DumpStyleValues::All || topLeftCornerShape() != Style::CornerShapeValue::round())
+    if (behavior == DumpStyleValues::All || topLeftCornerShape() != Style::CornerShapeValue(CSS::Keyword::Round { }))
         ts.dumpProperty("top-left corner shape"_s, topLeftCornerShape());
-    if (behavior == DumpStyleValues::All || topRightCornerShape() != Style::CornerShapeValue::round())
+    if (behavior == DumpStyleValues::All || topRightCornerShape() != Style::CornerShapeValue(CSS::Keyword::Round { }))
         ts.dumpProperty("top-right corner shape"_s, topRightCornerShape());
-    if (behavior == DumpStyleValues::All || bottomLeftCornerShape() != Style::CornerShapeValue::round())
+    if (behavior == DumpStyleValues::All || bottomLeftCornerShape() != Style::CornerShapeValue(CSS::Keyword::Round { }))
         ts.dumpProperty("bottom-left corner shape"_s, bottomLeftCornerShape());
-    if (behavior == DumpStyleValues::All || bottomRightCornerShape() != Style::CornerShapeValue::round())
+    if (behavior == DumpStyleValues::All || bottomRightCornerShape() != Style::CornerShapeValue(CSS::Keyword::Round { }))
         ts.dumpProperty("bottom-right corner shape"_s, bottomRightCornerShape());
 
     ts.dumpProperty("image"_s, image());

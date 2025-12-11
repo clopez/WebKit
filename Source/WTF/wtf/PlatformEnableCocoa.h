@@ -1087,7 +1087,7 @@
 #endif
 
 #if !defined(ENABLE_TOUCH_EVENT_REGIONS) && PLATFORM(IOS_FAMILY) && USE(APPLE_INTERNAL_SDK)
-#define ENABLE_TOUCH_EVENT_REGIONS 1
+#define ENABLE_TOUCH_EVENT_REGIONS 0
 #endif
 
 #if !defined(ENABLE_WIRELESS_PLAYBACK_TARGET)
@@ -1214,4 +1214,8 @@
 // <os/signpost.h> doesn't work from Swift since some of its macros are guarded by #ifndef __swift__.
 #if !defined(ENABLE_CORE_IPC_SIGNPOSTS) && !defined(__swift__)
 #define ENABLE_CORE_IPC_SIGNPOSTS 1
+#endif
+
+#if !defined(ENABLE_INHERITANCE_OF_NETWORK_ACCESS_FROM_UI_PROCESS) && PLATFORM(IOS_FAMILY)
+#define ENABLE_INHERITANCE_OF_NETWORK_ACCESS_FROM_UI_PROCESS 1
 #endif

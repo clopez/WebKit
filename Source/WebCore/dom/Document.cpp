@@ -4890,17 +4890,19 @@ void Document::processSpeculationRules()
 
     HashMap<URL, PrefetchCandidate> urlGroups;
 
-    for (const auto& rule : speculationRules()->prefetchRules()) {
-        for (const auto& url : rule.urls) {
-            auto& group = urlGroups.ensure(url, [] {
-                return PrefetchCandidate { };
-            }).iterator->value;
+    for (auto [node, rules] : speculationRules()->prefetchRules()) {
+        for (const auto& rule : rules) {
+            for (const auto& url : rule.urls) {
+                auto& group = urlGroups.ensure(url, [] {
+                    return PrefetchCandidate { };
+                }).iterator->value;
 
-            group.tagSets.append(rule.tags);
+                group.tagSets.append(rule.tags);
 
-            // Use the first referrer policy encountered for each URL
-            if (!group.referrerPolicy)
-                group.referrerPolicy = rule.referrerPolicy;
+                // Use the first referrer policy encountered for each URL
+                if (!group.referrerPolicy)
+                    group.referrerPolicy = rule.referrerPolicy;
+            }
         }
     }
 
@@ -8171,6 +8173,13 @@ RefPtr<Document> Document::sameOriginTopLevelTraversable() const
         return nullptr;
 
     return document->protectedSecurityOrigin()->isSameOriginDomain(protectedSecurityOrigin()) ? document : nullptr;
+}
+
+bool Document::printing() const
+{
+    if (RefPtr frame = m_frame.get())
+        return frame->isPrinting();
+    return false;
 }
 
 RefPtr<LocalFrame> Document::localMainFrame() const

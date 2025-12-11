@@ -30,6 +30,7 @@
 #include <wtf/KeyValuePair.h>
 #include <wtf/OptionSetHash.h>
 #include <wtf/Packed.h>
+#include <wtf/RangeAdaptors.h>
 
 namespace WTF {
 
@@ -93,6 +94,20 @@ public:
 
 public:
     HashMap() = default;
+
+    template<typename Range>
+        requires std::ranges::input_range<Range> && std::convertible_to<std::ranges::range_value_t<Range>, KeyValuePairType>
+    explicit HashMap(FromRange, Range&& range)
+    {
+        if constexpr (std::ranges::sized_range<Range>)
+            reserveInitialCapacity(std::ranges::size(range));
+        for (auto&& keyValuePair : range) {
+            if constexpr (std::is_rvalue_reference_v<Range&&>)
+                add(WTFMove(keyValuePair.key), WTFMove(keyValuePair.value));
+            else
+                add(keyValuePair.key, keyValuePair.value);
+        }
+    }
 
     HashMap(std::initializer_list<KeyValuePairType> initializerList)
     {
@@ -168,6 +183,7 @@ public:
     bool remove(iterator);
     // FIXME: This feels like it should be Invocable<bool(const KeyValuePairType&)>
     bool removeIf(NOESCAPE const Invocable<bool(KeyValuePairType&)> auto&);
+    void removeWeakNullEntries();
     void clear();
 
     MappedTakeType take(const KeyType&); // efficient combination of get with remove
@@ -562,6 +578,12 @@ template<typename T, typename U, typename V, typename W, typename X, typename Y,
 inline bool HashMap<T, U, V, W, X, Y, shouldValidateKey, M>::remove(const KeyType& key)
 {
     return remove(find(key));
+}
+
+template<typename T, typename U, typename V, typename W, typename X, typename Y, ShouldValidateKey shouldValidateKey, typename M>
+inline void HashMap<T, U, V, W, X, Y, shouldValidateKey, M>::removeWeakNullEntries()
+{
+    m_impl.removeWeakNullEntries();
 }
 
 template<typename T, typename U, typename V, typename W, typename X, typename Y, ShouldValidateKey shouldValidateKey, typename M>

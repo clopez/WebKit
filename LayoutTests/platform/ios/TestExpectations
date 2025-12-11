@@ -3768,6 +3768,8 @@ imported/w3c/web-platform-tests/html/user-activation/no-activation-thru-escape-k
 
 webkit.org/b/240670 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-move-into-script-disabled-iframe.html [ Pass Crash ]
 
+webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
+
 webkit.org/b/240918 [ Debug ] fast/loader/create-frame-in-DOMContentLoaded.html [ Pass Failure ]
 webkit.org/b/240918 [ Debug ] fast/loader/user-style-sheet-resource-load-callbacks.html [ Pass Failure ]
 
@@ -5051,7 +5053,6 @@ http/tests/uri/css-href.py [ Failure ]
 
 # HTTP tests that assert:
 http/tests/security/inactive-document-with-empty-security-origin.html
-http/tests/security/mixedContent/insecure-audio-video-in-main-frame.html
 http/tests/security/popup-blocked-from-fake-event.html
 http/tests/security/popup-blocked-from-window-open.html
 http/tests/xmlhttprequest/cross-origin-no-authorization.html
@@ -8457,4 +8458,4 @@ fast/forms/ios/scroll-to-reveal-focused-select.html [ Pass ]
 fast/events/ios/should-be-able-to-dismiss-form-accessory-after-tapping-outside-iframe-with-focused-field.html [ Pass ]
 http/tests/site-isolation/remote-frame-loaded-while-hidden.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/303421 webaudio/audioworket-out-of-memory.html [ Skip ]
+webkit.org/b/303876 [ Debug ] ipc/serialized-type-info.html [ Failure ]

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "SpeculationRules.h"
 
+#include "Node.h"
 #include "ReferrerPolicy.h"
 #include <algorithm>
 #include <wtf/HashSet.h>
@@ -41,11 +42,6 @@ namespace WebCore {
 Ref<SpeculationRules> SpeculationRules::create()
 {
     return adoptRef(*new SpeculationRules);
-}
-
-const Vector<SpeculationRules::Rule>& SpeculationRules::prefetchRules() const
-{
-    return m_prefetchRules;
 }
 
 SpeculationRules::DocumentPredicate::DocumentPredicate(PredicateVariant&& value)
@@ -91,7 +87,7 @@ static std::optional<Vector<String>> parseStringOrStringList(JSON::Object& objec
 
 static std::optional<SpeculationRules::DocumentPredicate> parseDocumentPredicate(JSON::Object&);
 
-// https://wicg.github.io/nav-speculation/speculation-rules.html#parsing-a-document-rule-predicate-from-a-map
+// https://html.spec.whatwg.org/C#document-rule-predicate
 static std::optional<SpeculationRules::DocumentPredicate> parseDocumentPredicate(JSON::Object& object)
 {
     auto andValue = object.getValue("and"_s);
@@ -171,7 +167,7 @@ static std::optional<SpeculationRules::DocumentPredicate> parseDocumentPredicate
     return std::nullopt;
 }
 
-// https://html.spec.whatwg.org/multipage/speculative-loading.html#parse-a-speculation-rule
+// https://html.spec.whatwg.org/C#parse-a-speculation-rule
 static std::optional<SpeculationRules::Rule> parseSingleRule(const JSON::Object& input, const String& rulesetLevelTag, const URL& rulesetBaseURL, const URL& documentBaseURL)
 {
     const HashSet<String> allowedKeys = {
@@ -302,9 +298,11 @@ static std::optional<SpeculationRules::Rule> parseSingleRule(const JSON::Object&
 
     // 18. If input["tag"] exists:
     auto tagValue = input.getValue("tag"_s);
-    if (tagValue && tagValue->type() == JSON::Value::Type::String) {
-        String ruleTag = tagValue->asString();
+    if (tagValue) {
         // 18.1. If input["tag"] is not a speculation rule tag... return null.
+        if (tagValue->type() != JSON::Value::Type::String)
+            return std::nullopt;
+        String ruleTag = tagValue->asString();
         if (!ruleTag.containsOnlyASCII() || !ruleTag.containsOnly<isASCIIPrintable>())
             return std::nullopt;
         StringBuilder ruleTagBuilder;
@@ -322,7 +320,7 @@ static std::optional<SpeculationRules::Rule> parseSingleRule(const JSON::Object&
     return rule;
 }
 
-// https://html.spec.whatwg.org/multipage/speculative-loading.html#parse-a-speculation-rule-set-string step 8
+// https://html.spec.whatwg.org/C#parse-a-speculation-rule-set-string step 8
 static std::optional<Vector<SpeculationRules::Rule>> parseRules(const JSON::Object& object, const String& key, const String& rulesetLevelTag, const URL& rulesetBaseURL, const URL& documentBaseURL)
 {
     auto value = object.getValue(key);
@@ -347,8 +345,8 @@ static std::optional<Vector<SpeculationRules::Rule>> parseRules(const JSON::Obje
     return rules;
 }
 
-// https://html.spec.whatwg.org/multipage/speculative-loading.html#parse-a-speculation-rule-set-string
-bool SpeculationRules::parseSpeculationRules(const StringView& text, const URL& rulesetBaseURL, const URL& documentBaseURL)
+// https://html.spec.whatwg.org/C#parse-a-speculation-rule-set-string
+bool SpeculationRules::parseSpeculationRules(Node& sourceNode, const StringView& text, const URL& rulesetBaseURL, const URL& documentBaseURL)
 {
     // 1. Let parsed be the result of parsing a JSON string to an Infra value given input.
     auto jsonValue = JSON::Value::parseJSON(text);
@@ -362,22 +360,43 @@ bool SpeculationRules::parseSpeculationRules(const StringView& text, const URL& 
 
     String rulesetLevelTag;
     auto tagValue = jsonObject->getValue("tag"_s);
-    // 4. If parsed["tag"] exists:
-    if (tagValue && tagValue->type() == JSON::Value::Type::String) {
+    // 5. If parsed["tag"] exists:
+    if (tagValue) {
+        // 5.1. If parsed["tag"] is not a speculation rule tag, then throw a TypeError indicating that the speculation rule tag is invalid.
+        if (tagValue->type() != JSON::Value::Type::String)
+            return false;
         String candidateTag = tagValue->asString();
-        // 4.1. If parsed["tag"] is not a speculation rule tag, then throw a TypeError indicating that the speculation rule tag is invalid.
         if (!candidateTag.containsOnlyASCII() || !candidateTag.containsOnly<isASCIIPrintable>())
             return false;
         StringBuilder ruleTagBuilder;
         ruleTagBuilder.appendQuotedJSONString(candidateTag);
-        // 4.2. Set tag to parsed["tag"].
+        // 5.2. Set tag to parsed["tag"].
         rulesetLevelTag = ruleTagBuilder.toString();
     }
 
     auto prefetch = parseRules(*jsonObject, "prefetch"_s, rulesetLevelTag, rulesetBaseURL, documentBaseURL);
-    if (prefetch)
-        m_prefetchRules.appendVector(WTFMove(*prefetch));
+    if (prefetch) {
+        auto& nodeRules = m_prefetchRulesByNode.ensure(sourceNode, [] {
+            return Vector<Rule>();
+        }).iterator->value;
+        nodeRules.appendVector(WTFMove(*prefetch));
+    }
     return true;
+}
+
+// https://html.spec.whatwg.org/C#unregister-speculation-rules
+Vector<URL> SpeculationRules::unregisterSpeculationRules(Node& sourceNode)
+{
+    Vector<URL> removedURLs;
+    auto it = m_prefetchRulesByNode.find(sourceNode);
+    if (it != m_prefetchRulesByNode.end()) {
+        for (const auto& rule : it->value) {
+            for (const auto& url : rule.urls)
+                removedURLs.append(url);
+        }
+        m_prefetchRulesByNode.remove(it);
+    }
+    return removedURLs;
 }
 
 } // namespace WebCore
