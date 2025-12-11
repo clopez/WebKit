@@ -4109,8 +4109,6 @@ webgl/2.0.y/conformance/textures/misc/texture-corner-case-videos.html [ Skip ] #
 [ Debug ] imported/blink/fast/hidpi/border-background-align.html [ ImageOnlyFailure Pass ]
 [ Debug ] imported/blink/svg/zoom/text/lowdpi-zoom-text.html [ Crash ]
 
-webkit.org/b/303928 http/tests/pasteboard/copy-image-from-context-menu.html [ Crash ]
-
 # Test causes OOM in the EWS release bots
 webkit.org/b/283558 fast/css-custom-paint/out-of-memory-while-adding-worklet-module.html [ Skip ]
 
@@ -4849,6 +4847,15 @@ webkit.org/b/303857 imported/w3c/web-platform-tests/mathml/relations/css-styling
 webkit.org/b/303863 imported/w3c/web-platform-tests/css/css-view-transitions/transformed-element-scroll-transform.html [ Pass ImageOnlyFailure ]
 webkit.org/b/303865 imported/w3c/web-platform-tests/css/css-overflow/scrollbar-gutter-fixedpos-003.html [ Pass ImageOnlyFailure ]
 webkit.org/b/303873 imported/w3c/web-platform-tests/trusted-types/navigate-to-javascript-url-csp-headers.html [ Pass Failure ]
+
+# No USE(AUDIO_SESSION) support:
+media/volume-activate-audio-session.html [ Skip ]
+
+# Does not work on glib platforms
+http/tests/performance/performance-resource-timing-cross-origin-media-with-cors.html [ Skip ]
+http/tests/performance/performance-resource-timing-cross-origin-media.html [ Skip ] 
+http/tests/performance/performance-resource-timing-redirection-cross-origin-media-with-cors.html [ Skip ] 
+http/tests/performance/performance-resource-timing-redirection-cross-origin-media.html [ Skip ]
 
 # End: Common failures between GTK and WPE.
 

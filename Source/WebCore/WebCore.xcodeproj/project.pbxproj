@@ -2845,6 +2845,7 @@
 		71537A01146BD9D7008BD615 /* SVGPathData.h in Headers */ = {isa = PBXBuildFile; fileRef = 715379FF146BD9D6008BD615 /* SVGPathData.h */; };
 		71556CB41F9F09BA00E78D08 /* KeyframeEffect.h in Headers */ = {isa = PBXBuildFile; fileRef = 71556CAA1F9F099B00E78D08 /* KeyframeEffect.h */; };
 		71556CBE1F9F0A4900E78D08 /* JSKeyframeEffect.h in Headers */ = {isa = PBXBuildFile; fileRef = 71556CB71F9F09FC00E78D08 /* JSKeyframeEffect.h */; };
+		715667F22EEA1433003165E1 /* AcceleratedTimelinesUpdater.h in Headers */ = {isa = PBXBuildFile; fileRef = 715667F02EEA1420003165E1 /* AcceleratedTimelinesUpdater.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7156BCA121CA350F00534397 /* BasicEffectTiming.h in Headers */ = {isa = PBXBuildFile; fileRef = 7156BC9F21CA350600534397 /* BasicEffectTiming.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		715AD7202050513200D592DC /* StyleOriginatedAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = 715AD71D2050512400D592DC /* StyleOriginatedAnimation.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		715AD7212050513F00D592DC /* CSSTransition.h in Headers */ = {isa = PBXBuildFile; fileRef = 7123C186204739BA00789392 /* CSSTransition.h */; };
@@ -4102,6 +4103,17 @@
 		A12C59FD20360B3E0012236B /* JSApplePayShippingContactUpdate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1ADFDFE81E71DCA0008F5D34 /* JSApplePayShippingContactUpdate.h */; };
 		A12C59FE20360B4A0012236B /* JSApplePayShippingMethodUpdate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1ADFDFEA1E71DCA0008F5D34 /* JSApplePayShippingMethodUpdate.h */; };
 		A136A00D1134DBD200CC8D50 /* XMLHttpRequestProgressEventThrottle.h in Headers */ = {isa = PBXBuildFile; fileRef = A136A00B1134DBD200CC8D50 /* XMLHttpRequestProgressEventThrottle.h */; };
+		A13AB05D2EE51E24003C1ED5 /* MockMediaDeviceRouteController.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB05B2EE51E24003C1ED5 /* MockMediaDeviceRouteController.h */; };
+		A13AB0672EE55333003C1ED5 /* MockMediaDeviceRouteController.mm in Sources */ = {isa = PBXBuildFile; fileRef = A13AB0662EE55333003C1ED5 /* MockMediaDeviceRouteController.mm */; };
+		A13AB0682EE55333003C1ED5 /* MockMediaDeviceRouteController.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB0652EE55333003C1ED5 /* MockMediaDeviceRouteController.h */; };
+		A13AB06B2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB0692EE55781003C1ED5 /* JSMockMediaDeviceRouteController.h */; };
+		A13AB06C2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A13AB06A2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.cpp */; };
+		A13AB0722EE784B7003C1ED5 /* MockMediaDeviceRoute.mm in Sources */ = {isa = PBXBuildFile; fileRef = A13AB0702EE784A2003C1ED5 /* MockMediaDeviceRoute.mm */; };
+		A13AB0732EE784BE003C1ED5 /* MockMediaDeviceRoute.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB06F2EE784A2003C1ED5 /* MockMediaDeviceRoute.h */; };
+		A13AB07A2EE788C0003C1ED5 /* JSMockMediaDeviceRoute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A13AB0792EE788C0003C1ED5 /* JSMockMediaDeviceRoute.cpp */; };
+		A13AB07B2EE788C0003C1ED5 /* JSMockMediaDeviceRoute.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB0782EE788C0003C1ED5 /* JSMockMediaDeviceRoute.h */; };
+		A13AB0802EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.h in Headers */ = {isa = PBXBuildFile; fileRef = A13AB07E2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.h */; };
+		A13AB0812EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.mm in Sources */ = {isa = PBXBuildFile; fileRef = A13AB07F2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.mm */; };
 		A13B616B2475E04800BBE6DE /* ApplePayInstallmentRetailChannel.h in Headers */ = {isa = PBXBuildFile; fileRef = A13B61672475DFC500BBE6DE /* ApplePayInstallmentRetailChannel.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A13B61742475E34200BBE6DE /* JSApplePayInstallmentConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = A13B61722475E31500BBE6DE /* JSApplePayInstallmentConfiguration.h */; };
 		A13B61752475E35F00BBE6DE /* JSApplePayInstallmentItem.h in Headers */ = {isa = PBXBuildFile; fileRef = A13B61712475E31400BBE6DE /* JSApplePayInstallmentItem.h */; };
@@ -4147,7 +4159,7 @@
 		A15D75161E68F7C800A35FBC /* BlobCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = A15D75131E68F7B100A35FBC /* BlobCallback.h */; };
 		A15D751B1E68F8A300A35FBC /* JSBlobCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = A15D75181E68F83600A35FBC /* JSBlobCallback.h */; };
 		A15E31F41E0CB0B5004B371C /* QuickLook.h in Headers */ = {isa = PBXBuildFile; fileRef = A15E31F11E0CB0AA004B371C /* QuickLook.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		A15E66162EDA8E8D007FB56F /* MediaDeviceRouteController.h in Headers */ = {isa = PBXBuildFile; fileRef = A15E66142EDA8E8D007FB56F /* MediaDeviceRouteController.h */; };
+		A15E66162EDA8E8D007FB56F /* MediaDeviceRouteController.h in Headers */ = {isa = PBXBuildFile; fileRef = A15E66142EDA8E8D007FB56F /* MediaDeviceRouteController.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A15E66272EDBB930007FB56F /* MediaPlaybackTargetWirelessPlayback.h in Headers */ = {isa = PBXBuildFile; fileRef = A15E66252EDBB930007FB56F /* MediaPlaybackTargetWirelessPlayback.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A15E6BF11E212A6A0080AF34 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A15E6BF01E212A6A0080AF34 /* Foundation.framework */; };
 		A164A2472134BC7100509156 /* PaymentMethodChangeEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = A164A2442134BC7100509156 /* PaymentMethodChangeEvent.h */; };
@@ -13693,6 +13705,8 @@
 		71556CAB1F9F099C00E78D08 /* KeyframeEffect.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = KeyframeEffect.idl; sourceTree = "<group>"; };
 		71556CB61F9F09FC00E78D08 /* JSKeyframeEffect.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSKeyframeEffect.cpp; sourceTree = "<group>"; };
 		71556CB71F9F09FC00E78D08 /* JSKeyframeEffect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSKeyframeEffect.h; sourceTree = "<group>"; };
+		715667F02EEA1420003165E1 /* AcceleratedTimelinesUpdater.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedTimelinesUpdater.h; sourceTree = "<group>"; };
+		715667F12EEA1420003165E1 /* AcceleratedTimelinesUpdater.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedTimelinesUpdater.cpp; sourceTree = "<group>"; };
 		7156BC9F21CA350600534397 /* BasicEffectTiming.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BasicEffectTiming.h; sourceTree = "<group>"; };
 		7157E3D11DC1EE4B0094550E /* scrubbing-support.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "scrubbing-support.js"; sourceTree = "<group>"; };
 		715AD71D2050512400D592DC /* StyleOriginatedAnimation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StyleOriginatedAnimation.h; sourceTree = "<group>"; };
@@ -16549,6 +16563,20 @@
 		A12A104E166444DC008FA311 /* StyleGridTrackSize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StyleGridTrackSize.h; sourceTree = "<group>"; };
 		A136A00A1134DBD200CC8D50 /* XMLHttpRequestProgressEventThrottle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = XMLHttpRequestProgressEventThrottle.cpp; sourceTree = "<group>"; };
 		A136A00B1134DBD200CC8D50 /* XMLHttpRequestProgressEventThrottle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XMLHttpRequestProgressEventThrottle.h; sourceTree = "<group>"; };
+		A13AB05B2EE51E24003C1ED5 /* MockMediaDeviceRouteController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockMediaDeviceRouteController.h; sourceTree = "<group>"; };
+		A13AB05C2EE51E24003C1ED5 /* MockMediaDeviceRouteController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MockMediaDeviceRouteController.cpp; sourceTree = "<group>"; };
+		A13AB0602EE54E52003C1ED5 /* MockMediaDeviceRouteController.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = MockMediaDeviceRouteController.idl; sourceTree = "<group>"; };
+		A13AB0652EE55333003C1ED5 /* MockMediaDeviceRouteController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockMediaDeviceRouteController.h; sourceTree = "<group>"; };
+		A13AB0662EE55333003C1ED5 /* MockMediaDeviceRouteController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MockMediaDeviceRouteController.mm; sourceTree = "<group>"; };
+		A13AB0692EE55781003C1ED5 /* JSMockMediaDeviceRouteController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSMockMediaDeviceRouteController.h; sourceTree = "<group>"; };
+		A13AB06A2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSMockMediaDeviceRouteController.cpp; sourceTree = "<group>"; };
+		A13AB06F2EE784A2003C1ED5 /* MockMediaDeviceRoute.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockMediaDeviceRoute.h; sourceTree = "<group>"; };
+		A13AB0702EE784A2003C1ED5 /* MockMediaDeviceRoute.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MockMediaDeviceRoute.mm; sourceTree = "<group>"; };
+		A13AB0712EE784A2003C1ED5 /* MockMediaDeviceRoute.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = MockMediaDeviceRoute.idl; sourceTree = "<group>"; };
+		A13AB0782EE788C0003C1ED5 /* JSMockMediaDeviceRoute.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSMockMediaDeviceRoute.h; sourceTree = "<group>"; };
+		A13AB0792EE788C0003C1ED5 /* JSMockMediaDeviceRoute.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSMockMediaDeviceRoute.cpp; sourceTree = "<group>"; };
+		A13AB07E2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebMockMediaDeviceRoute.h; sourceTree = "<group>"; };
+		A13AB07F2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebMockMediaDeviceRoute.mm; sourceTree = "<group>"; };
 		A13B61672475DFC500BBE6DE /* ApplePayInstallmentRetailChannel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePayInstallmentRetailChannel.h; sourceTree = "<group>"; };
 		A13B61692475DFC500BBE6DE /* ApplePayInstallmentRetailChannel.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = ApplePayInstallmentRetailChannel.idl; sourceTree = "<group>"; };
 		A13B616C2475E31000BBE6DE /* JSApplePayInstallmentRetailChannel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSApplePayInstallmentRetailChannel.cpp; sourceTree = "<group>"; };
@@ -26377,6 +26405,12 @@
 				51058ADA1D679257009A538C /* MockGamepadProvider.h */,
 				4157EBF91E3AB06800AC9FE9 /* MockLibWebRTCPeerConnection.cpp */,
 				4157EBF81E3AB06800AC9FE9 /* MockLibWebRTCPeerConnection.h */,
+				A13AB06F2EE784A2003C1ED5 /* MockMediaDeviceRoute.h */,
+				A13AB0712EE784A2003C1ED5 /* MockMediaDeviceRoute.idl */,
+				A13AB0702EE784A2003C1ED5 /* MockMediaDeviceRoute.mm */,
+				A13AB0652EE55333003C1ED5 /* MockMediaDeviceRouteController.h */,
+				A13AB0602EE54E52003C1ED5 /* MockMediaDeviceRouteController.idl */,
+				A13AB0662EE55333003C1ED5 /* MockMediaDeviceRouteController.mm */,
 				0740B14325DE31A900E38DBA /* MockMediaSessionCoordinator.cpp */,
 				0740B14125DE31A800E38DBA /* MockMediaSessionCoordinator.h */,
 				2D6F3E8A1C1ECB1C0061DBD4 /* MockPageOverlay.cpp */,
@@ -26450,6 +26484,10 @@
 				CDF4B72E1E03CA4A00E235A2 /* JSMockCDMFactory.h */,
 				A19AEA1D1AAA806E00B52B25 /* JSMockContentFilterSettings.cpp */,
 				A19AEA1E1AAA806E00B52B25 /* JSMockContentFilterSettings.h */,
+				A13AB0792EE788C0003C1ED5 /* JSMockMediaDeviceRoute.cpp */,
+				A13AB0782EE788C0003C1ED5 /* JSMockMediaDeviceRoute.h */,
+				A13AB06A2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.cpp */,
+				A13AB0692EE55781003C1ED5 /* JSMockMediaDeviceRouteController.h */,
 				2D6F3E921C1F85550061DBD4 /* JSMockPageOverlay.cpp */,
 				2D6F3E931C1F85550061DBD4 /* JSMockPageOverlay.h */,
 				A146D3201F99CA3E00D29196 /* JSMockPaymentAddress.cpp */,
@@ -30407,6 +30445,8 @@
 			children = (
 				715FCD1529B09B08002CE6A7 /* AcceleratedEffectStackUpdater.cpp */,
 				715FCD1629B09B09002CE6A7 /* AcceleratedEffectStackUpdater.h */,
+				715667F12EEA1420003165E1 /* AcceleratedTimelinesUpdater.cpp */,
+				715667F02EEA1420003165E1 /* AcceleratedTimelinesUpdater.h */,
 				71C5BB1B1FB611EA0007A2AE /* Animatable.idl */,
 				71EFCEDA202B388F00D7C411 /* AnimationEffect.cpp */,
 				71EFCED7202B388D00D7C411 /* AnimationEffect.h */,
@@ -32913,6 +32953,8 @@
 				F44423D329FAC3C800124DB5 /* CocoaColorSerialization.mm */,
 				A1763F3D1E205234001D58DE /* WebArchiveDumpSupport.h */,
 				A1763F3C1E205234001D58DE /* WebArchiveDumpSupport.mm */,
+				A13AB07E2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.h */,
+				A13AB07F2EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.mm */,
 				2D7DA0EF2435EB1700F048D1 /* WebViewVisualIdentificationOverlay.h */,
 				2D7DA0F12435EB1800F048D1 /* WebViewVisualIdentificationOverlay.mm */,
 			);
@@ -38167,6 +38209,8 @@
 				CD875A752411B79800B09F58 /* MediaSessionHelperIOS.mm */,
 				07638A971884487200E15A1B /* MediaSessionManagerIOS.h */,
 				07638A981884487200E15A1B /* MediaSessionManagerIOS.mm */,
+				A13AB05C2EE51E24003C1ED5 /* MockMediaDeviceRouteController.cpp */,
+				A13AB05B2EE51E24003C1ED5 /* MockMediaDeviceRouteController.h */,
 			);
 			path = ios;
 			sourceTree = "<group>";
@@ -42077,6 +42121,8 @@
 				CD14C24E2ECBCDB900F9C56D /* JSMockCaptionDisplaySettingsClientCallback.h in Headers */,
 				538EC9331F99B9F7004D22A8 /* JSMockCDMFactory.h in Headers */,
 				A19AEA211AAA808600B52B25 /* JSMockContentFilterSettings.h in Headers */,
+				A13AB07B2EE788C0003C1ED5 /* JSMockMediaDeviceRoute.h in Headers */,
+				A13AB06B2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.h in Headers */,
 				538EC9341F99B9F7004D22A8 /* JSMockPageOverlay.h in Headers */,
 				A146D3231F99D0EF00D29196 /* JSMockPaymentAddress.h in Headers */,
 				A104EC5E220A3E4E00CBF67A /* JSMockPaymentContactFields.h in Headers */,
@@ -42087,6 +42133,8 @@
 				EBF5121D1696496C0056BD25 /* JSTypeConversions.h in Headers */,
 				CDC26B41160A8CCE0026757B /* LegacyMockCDM.h in Headers */,
 				4157EBFB1E3AB67F00AC9FE9 /* MockLibWebRTCPeerConnection.h in Headers */,
+				A13AB0732EE784BE003C1ED5 /* MockMediaDeviceRoute.h in Headers */,
+				A13AB0682EE55333003C1ED5 /* MockMediaDeviceRouteController.h in Headers */,
 				2D6F3E911C1ECB2F0061DBD4 /* MockPageOverlay.h in Headers */,
 				2D97F04819DD4140001EE9C3 /* MockPageOverlayClient.h in Headers */,
 				A14BB0A01F9813B800605A35 /* MockPayment.h in Headers */,
@@ -42100,6 +42148,7 @@
 				AA5F3B8D16CC33D100455EB0 /* PlatformSpeechSynthesizerMock.h in Headers */,
 				A1763F3F1E205234001D58DE /* WebArchiveDumpSupport.h in Headers */,
 				41815C1F138319830057AAA4 /* WebCoreTestSupport.h in Headers */,
+				A13AB0802EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -42130,6 +42179,7 @@
 				BCB02A972E8ED877008A0B68 /* AcceleratedEffectTransformOrigin.h in Headers */,
 				7164D2CF29AFA0F6000AC8DA /* AcceleratedEffectValues.h in Headers */,
 				71F0B1DB2CCBEA660030E30B /* AcceleratedTimeline.h in Headers */,
+				715667F22EEA1433003165E1 /* AcceleratedTimelinesUpdater.h in Headers */,
 				29A812420FBB9C1D00510293 /* AccessibilityListBoxOption.h in Headers */,
 				07B0ABCF1032242200FBDC33 /* AccessibilityMathMLElement.h in Headers */,
 				76CDD2F31103DA6600680521 /* AccessibilityMenuList.h in Headers */,
@@ -45572,6 +45622,7 @@
 				51058AE01D67C229009A538C /* MockGamepad.h in Headers */,
 				51058AE21D67C229009A538C /* MockGamepadProvider.h in Headers */,
 				413CCD4A20DE034F0065A21A /* MockMediaDevice.h in Headers */,
+				A13AB05D2EE51E24003C1ED5 /* MockMediaDeviceRouteController.h in Headers */,
 				CDF2B0131820540600F2B424 /* MockMediaPlayerMediaSource.h in Headers */,
 				CDF2B0151820540600F2B424 /* MockMediaSourcePrivate.h in Headers */,
 				A1BB85A92159B02C0067E07D /* MockPaymentError.h in Headers */,
@@ -48784,6 +48835,8 @@
 				CD14C24C2ECBCDB900F9C56D /* JSMockCaptionDisplaySettingsClientCallback.cpp in Sources */,
 				CDF4B7321E03D06000E235A2 /* JSMockCDMFactory.cpp in Sources */,
 				A19AEA221AAA808A00B52B25 /* JSMockContentFilterSettings.cpp in Sources */,
+				A13AB07A2EE788C0003C1ED5 /* JSMockMediaDeviceRoute.cpp in Sources */,
+				A13AB06C2EE55781003C1ED5 /* JSMockMediaDeviceRouteController.cpp in Sources */,
 				2D4150DE1C1F868C000A3BA2 /* JSMockPageOverlay.cpp in Sources */,
 				A146D3221F99D0EC00D29196 /* JSMockPaymentAddress.cpp in Sources */,
 				A104EC5D220A3E4B00CBF67A /* JSMockPaymentContactFields.cpp in Sources */,
@@ -48803,6 +48856,8 @@
 				51058ADB1D6792C1009A538C /* MockGamepad.cpp in Sources */,
 				51058ADD1D6792C1009A538C /* MockGamepadProvider.cpp in Sources */,
 				4157EBFA1E3AB67900AC9FE9 /* MockLibWebRTCPeerConnection.cpp in Sources */,
+				A13AB0722EE784B7003C1ED5 /* MockMediaDeviceRoute.mm in Sources */,
+				A13AB0672EE55333003C1ED5 /* MockMediaDeviceRouteController.mm in Sources */,
 				0740B14425DE31F800E38DBA /* MockMediaSessionCoordinator.cpp in Sources */,
 				2D6F3E901C1ECB270061DBD4 /* MockPageOverlay.cpp in Sources */,
 				2D97F04719DD413C001EE9C3 /* MockPageOverlayClient.cpp in Sources */,
@@ -48814,6 +48869,7 @@
 				41815C1E138319830057AAA4 /* WebCoreTestSupport.cpp in Sources */,
 				5273CC9025637F6700850007 /* WebFakeXRDevice.cpp in Sources */,
 				5273CC9125637F7500850007 /* WebFakeXRInputController.cpp in Sources */,
+				A13AB0812EE7AF53003C1ED5 /* WebMockMediaDeviceRoute.mm in Sources */,
 				5273CC8E25637EB500850007 /* WebXRTest.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

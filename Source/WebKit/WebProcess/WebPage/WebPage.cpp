@@ -204,6 +204,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/DocumentFragment.h>
 #include <WebCore/DocumentFullscreen.h>
+#include <WebCore/DocumentImmersive.h>
 #include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/DocumentMarkerController.h>
@@ -7614,6 +7615,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_internals->lastTransactionIDWithScaleChange = firstTransactionIDAfterDidCommitLoad;
     m_scaleWasSetByUIProcess = false;
     m_userHasChangedPageScaleFactor = false;
+    m_previousViewportConfigurationMinimumScale = { };
     m_estimatedLatency = Seconds(1.0 / 60);
     m_shouldRevealCurrentSelectionAfterInsertion = true;
     m_internals->lastLayerTreeTransactionIdAndPageScaleBeforeScalingPage = std::nullopt;
@@ -7910,6 +7912,12 @@ void WebPage::presentImmersiveElement(const Element&, const LayerHostingContextI
 void WebPage::dismissImmersiveElement(const Element&, CompletionHandler<void()>&& completion)
 {
     sendWithAsyncReply(Messages::WebPageProxy::DismissImmersiveElement(), WTFMove(completion));
+}
+
+void WebPage::exitImmersive() const
+{
+    if (RefPtr localTopDocument = this->localTopDocument(); RefPtr protectedImmersive = localTopDocument->immersiveIfExists())
+        protectedImmersive->exitImmersive();
 }
 #endif
 
