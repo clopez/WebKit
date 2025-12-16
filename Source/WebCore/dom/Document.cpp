@@ -3339,7 +3339,10 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
                 break;
             }
 
-            // Require the entire container chain to be boxes or SVG.
+            // Require the entire container chain to be boxes or SVG or inline box in block-inline-inline case.
+            if (is<RenderInline>(*currentRenderer) && currentBox && currentBox->isBlockLevelBox())
+                continue;
+
             if (!currentRenderer->isSVGRenderer()) {
                 CheckedPtr currentRendererBox = dynamicDowncast<RenderBox>(*currentRenderer);
                 if (!currentRendererBox) {
@@ -4884,7 +4887,7 @@ void Document::processSpeculationRules()
     for (RefPtr element = iterator.next(); element; element = iterator.next()) {
         if (RefPtr anchorElement = dynamicDowncast<HTMLAnchorElement>(element.get())) {
             if (auto prefetchRule = SpeculationRulesMatcher::hasMatchingRule(*this, *anchorElement))
-                anchorElement->setShouldBePrefetched(prefetchRule->conservative, WTFMove(prefetchRule->tags), WTFMove(prefetchRule->referrerPolicy));
+                anchorElement->setShouldBePrefetched(prefetchRule->eagerness, WTFMove(prefetchRule->tags), WTFMove(prefetchRule->referrerPolicy));
         }
     }
     // Prefetch all the URL lists that need to be prefetched immediately

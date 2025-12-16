@@ -344,7 +344,7 @@ void RemoteInspector::setupXPCConnectionIfNeeded()
         return;
     }
 
-    Ref relayConnection = RemoteInspectorXPCConnection::create(connection.get(), m_xpcQueue.get(), this);
+    Ref relayConnection = adoptRef(*new RemoteInspectorXPCConnection(connection.get(), m_xpcQueue.get(), this));
     m_relayConnection = relayConnection.copyRef();
     relayConnection->sendMessage(@"syn", nil); // Send a simple message to initialize the XPC connection.
 
@@ -514,6 +514,7 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
         [listing setObject:WIRTypeServiceWorker forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::WebPage:
+    case RemoteInspectionTarget::Type::LegacyWebPage:
         [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
         [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
         [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];

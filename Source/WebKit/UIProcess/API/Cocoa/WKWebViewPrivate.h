@@ -118,15 +118,6 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 
 #endif
 
-/*! @abstract Type used to describe the string encoding when a _WKJSBuffer holds the string data.
- */
-typedef NS_ENUM(NSInteger, _WKJSBufferStringEncoding) {
-    _WKJSBufferStringEncodingLatin1,
-    _WKJSBufferStringEncodingUniChar
-} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
-
-#define HAVE_WK_JS_BUFFER_STRING_ENCODING 1
-
 @class UIEventAttribution;
 @class UITextInputTraits;
 @class WKBrowsingContextHandle;
@@ -143,7 +134,6 @@ typedef NS_ENUM(NSInteger, _WKJSBufferStringEncoding) {
 @class _WKHitTestResult;
 @class _WKInspector;
 @class _WKJSHandle;
-@class _WKJSBuffer;
 @class _WKRemoteObjectRegistry;
 @class _WKSafeBrowsingWarning;
 @class _WKSerializedNode;
@@ -290,7 +280,6 @@ for this property.
 - (void)_evaluateJavaScript:(NSString *)javaScriptString inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError * error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_evaluateJavaScript:(NSString *)javaScriptString withSourceURL:(NSURL *)sourceURL inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError * error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_evaluateJavaScript:(NSString *)javaScriptString withSourceURL:(NSURL *)url inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld withUserGesture:(BOOL)withUserGesture completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-- (void)_evaluateJavaScriptFromBuffer:(_WKJSBuffer *)javaScriptString withEncoding:(_WKJSBufferStringEncoding) bufferStringEncoding withSourceURL:(NSURL *)url inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld withUserGesture:(BOOL)withUserGesture completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 - (void)_callAsyncJavaScript:(NSString *)functionBody arguments:(NSDictionary<NSString *, id> *)arguments inFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(id, NSError *error))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
 - (BOOL)_allMediaPresentationsClosed WK_API_AVAILABLE(macos(12.0), ios(15.0));
@@ -719,6 +708,10 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 @property (nonatomic, setter=_setUnobscuredSafeAreaInsets:) UIEdgeInsets _unobscuredSafeAreaInsets WK_API_AVAILABLE(ios(11.0));
 @property (nonatomic, readonly) BOOL _safeAreaShouldAffectObscuredInsets WK_API_AVAILABLE(ios(11.0));
 @property (nonatomic, setter=_setObscuredInsetEdgesAffectedBySafeArea:) UIRectEdge _obscuredInsetEdgesAffectedBySafeArea WK_API_AVAILABLE(ios(11.0));
+
+// Indicates if the page uses touch-action to disallow panning.
+// Whether or not a pan will actually occur depends on many other factors.
+- (BOOL)_allowsTouchPanningAtPoint:(CGPoint)point WK_API_AVAILABLE(ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 // An ancestor view whose bounds will be intersected with those of this WKWebView to determine the visible region of content to render.
 @property (nonatomic, readonly) UIView *_enclosingViewForExposedRectComputation WK_API_AVAILABLE(ios(11.0));

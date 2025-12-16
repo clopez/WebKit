@@ -1891,9 +1891,9 @@ inspector/agents/InspectorWorkerAgent.cpp
 inspector/agents/WebConsoleAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
+inspector/agents/frame/FrameConsoleAgent.cpp
 inspector/agents/page/PageAuditAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp
-inspector/agents/page/PageConsoleAgent.cpp
 inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageHeapAgent.cpp
@@ -2996,6 +2996,7 @@ rendering/style/SVGRenderStyleDefs.cpp
 rendering/style/StyleAppleColorFilterData.cpp
 rendering/style/StyleBackdropFilterData.cpp
 rendering/style/StyleBackgroundData.cpp
+rendering/style/StyleBorderImageData.cpp
 rendering/style/StyleBoxData.cpp
 rendering/style/StyleCachedImage.cpp
 rendering/style/StyleCanvasImage.cpp
@@ -3016,6 +3017,7 @@ rendering/style/StyleImageSet.cpp
 rendering/style/StyleInheritedData.cpp
 rendering/style/StyleInvalidImage.cpp
 rendering/style/StyleMarqueeData.cpp
+rendering/style/StyleMaskBorderData.cpp
 rendering/style/StyleMiscNonInheritedData.cpp
 rendering/style/StyleMultiColData.cpp
 rendering/style/StyleMultiImage.cpp
@@ -3154,6 +3156,7 @@ style/StyleAdjuster.cpp
 style/StyleBuilder.cpp
 style/StyleBuilderState.cpp
 style/StyleChange.cpp
+style/StyleChangedAnimatableProperties.cpp
 style/StyleCustomProperty.cpp
 style/StyleCustomPropertyRegistry.cpp
 style/StyleDifference.cpp
@@ -4431,6 +4434,7 @@ JSMediaCapabilitiesDecodingInfo.cpp
 JSMediaCapabilitiesEncodingInfo.cpp
 JSMediaCapabilitiesInfo.cpp
 JSMediaController.cpp
+JSMediaControlsContextMenuItem.cpp
 JSMediaControlsHost.cpp
 JSMediaControlsUtils.cpp
 JSMediaDecodingConfiguration.cpp

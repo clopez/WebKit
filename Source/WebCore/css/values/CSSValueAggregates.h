@@ -1473,8 +1473,8 @@ template<typename T> struct MinimallySerializingSpaceSeparatedSize {
 
     constexpr bool operator==(const MinimallySerializingSpaceSeparatedSize<T>&) const = default;
 
-    const T& width() const { return get<0>(value); }
-    const T& height() const { return get<1>(value); }
+    constexpr const T& width() const { return get<0>(value); }
+    constexpr const T& height() const { return get<1>(value); }
 
     SpaceSeparatedPair<T> value;
 };
@@ -1784,7 +1784,6 @@ template<typename T> WTF::TextStream& operator<<(WTF::TextStream& ts, const Spac
     logForCSSOnTupleLike(ts, value, SerializationSeparatorString<SpaceSeparatedSize<T>>);
     return ts;
 }
-
 
 template<typename T> TextStream& operator<<(TextStream& ts, const MinimallySerializingSpaceSeparatedPoint<T>& value)
 {

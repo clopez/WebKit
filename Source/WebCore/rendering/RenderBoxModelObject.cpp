@@ -624,6 +624,28 @@ void RenderBoxModelObject::computeStickyPositionConstraints(StickyPositionViewpo
         constraints.setBottomOffset(Style::evaluate<float>(style().bottom(), constrainingRect.height(), style().usedZoomForLength()));
         constraints.addAnchorEdge(ViewportConstraints::AnchorEdgeBottom);
     }
+
+    if (constraints.hasAnchorEdge(ViewportConstraints::AnchorEdgeRight) && constraints.hasAnchorEdge(ViewportConstraints::AnchorEdgeLeft)) {
+        float availableSpace = constrainingRect.width() - constraints.leftOffset() - constraints.rightOffset();
+        if (constraints.stickyBoxRect().width() > availableSpace) {
+            float delta = constraints.stickyBoxRect().width() - availableSpace;
+            if (writingMode().isAnyLeftToRight())
+                constraints.setRightOffset(constraints.rightOffset() - delta);
+            else
+                constraints.setLeftOffset(constraints.leftOffset() - delta);
+        }
+    }
+
+    if (constraints.hasAnchorEdge(ViewportConstraints::AnchorEdgeBottom) && constraints.hasAnchorEdge(ViewportConstraints::AnchorEdgeTop)) {
+        float availableSpace = constrainingRect.height() - constraints.topOffset() - constraints.bottomOffset();
+        if (constraints.stickyBoxRect().height() > availableSpace) {
+            float delta = constraints.stickyBoxRect().height() - availableSpace;
+            if (writingMode().isAnyTopToBottom())
+                constraints.setBottomOffset(constraints.bottomOffset() - delta);
+            else
+                constraints.setTopOffset(constraints.topOffset() - delta);
+        }
+    }
 }
 
 FloatRect RenderBoxModelObject::constrainingRectForStickyPosition() const
@@ -839,7 +861,7 @@ bool RenderBoxModelObject::borderObscuresBackground() const
         return false;
 
     // Bail if we have any border-image for now. We could look at the image alpha to improve this.
-    if (!style().borderImage().source().isNone())
+    if (!style().borderImageSource().isNone())
         return false;
 
     auto edges = borderEdges(style(), document().deviceScaleFactor());

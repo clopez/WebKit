@@ -637,13 +637,16 @@ std::optional<Vector<LayoutUnit>> InlineContentConstrainer::prettifyRange(Inline
                 return { };
             }
 
-            auto newEntry = layoutSingleLineForPretty({ breakOpportunities[lastValidStateIndex.value()], range.endIndex() }, idealLineWidth, state[lastValidStateIndex.value()], lastValidStateIndex.value());
+            auto newEntry = layoutSingleLineForPretty({ breakOpportunities[state[lastValidStateIndex.value()].lineEnd.index], range.endIndex() }, idealLineWidth, state[lastValidStateIndex.value()], lastValidStateIndex.value());
             auto it = std::ranges::find(breakOpportunities, newEntry.lineEnd.index);
             // If hyphenation does not create a valid solution, we should return early.
             if (it == breakOpportunities.end())
                 return { };
             lastValidStateIndex = std::distance(breakOpportunities.begin(), it);
             state[lastValidStateIndex.value()] = newEntry;
+            // If hyphenation does not create a valid solution, we should return early.
+            if (lastValidStateIndex.value() == state[lastValidStateIndex.value()].previousBreakIndex)
+                return { };
         }
 
         // Evaluate all possible lines that break before m_inlineItemList[end]

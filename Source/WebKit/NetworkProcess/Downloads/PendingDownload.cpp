@@ -51,9 +51,13 @@ PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, Netwo
 {
     relaxAdoptionRequirement();
 
+#if ENABLE(CONTENT_FILTERING)
+    NetworkProcess::setSharedParentalControlsURLFilterIfNecessary();
+#endif
+
 #if HAVE(WEBCONTENTRESTRICTIONS)
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-    m_urlFilter = ParentalControlsURLFilter::filterWithConfigurationPath();
+    m_urlFilter = ParentalControlsURLFilter::filterWithConfigurationPath(networkSession.webContentRestrictionsConfigurationFile());
 #else
     m_urlFilter = ParentalControlsURLFilter::singleton();
 #endif // HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
@@ -205,9 +209,11 @@ uint64_t PendingDownload::messageSenderDestinationID() const
 #if HAVE(WEBCONTENTRESTRICTIONS)
 void PendingDownload::blockDueToContentFilter(const WebCore::ResourceResponse& response, CompletionHandler<void()>&& postBlockHandler)
 {
-    if (m_wasBlockedDueToContentFilter)
+    if (m_wasBlockedDueToContentFilter) {
+        postBlockHandler();
         return;
-
+    }
+    
     m_wasBlockedDueToContentFilter = true;
 
     auto currentRequest = m_networkLoad->currentRequest();

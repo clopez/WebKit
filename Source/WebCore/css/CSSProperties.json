@@ -383,7 +383,7 @@
         "color": {
             "animation-type": "by computed value",
             "inherited": true,
-            "initial": "CanvasText",
+            "initial": "Canvastext",
             "codegen-properties": {
                 "accepts-quirky-color": true,
                 "animation-wrapper": "VisitedAffectedColorWrapper",
@@ -445,7 +445,6 @@
             "codegen-properties": {
                 "style-builder-custom": "Value",
                 "style-extractor-custom": true,
-                "render-style-initial-custom": true,
                 "render-style-getter": "computedDirection",
                 "render-style-getter-custom": true,
                 "render-style-setter-custom": true,
@@ -905,7 +904,6 @@
                 "font-description-name-for-methods": "TextRenderingMode",
                 "font-property": true,
                 "high-priority": true,
-                "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
                 "render-style-setter-custom": true,
                 "render-style-storage-kind": "enum",
@@ -1023,7 +1021,6 @@
             "codegen-properties": {
                 "font-property": true,
                 "high-priority": true,
-                "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
                 "render-style-setter-custom": true,
                 "render-style-storage-kind": "enum",
@@ -1329,7 +1326,6 @@
                 "font-property": true,
                 "high-priority": true,
                 "style-builder-needs-system-font-shorthand-check": true,
-                "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
                 "render-style-setter-custom": true,
                 "render-style-storage-kind": "enum",
@@ -1724,6 +1720,7 @@
         "-webkit-ruby-position": {
             "animation-type": "not animatable (legacy)",
             "inherited": true,
+            "initial": "before",
             "values": [
                 {
                     "value": "before",
@@ -2841,7 +2838,7 @@
                 "style-builder-custom": "All",
                 "disables-native-appearance": true,
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderRadiusValue",
@@ -2866,7 +2863,7 @@
                 "style-builder-custom": "All",
                 "disables-native-appearance": true,
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderRadiusValue",
@@ -2928,8 +2925,8 @@
                 "render-style-initial-constexpr": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
-                "render-style-storage-name": "m_width",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.bottom()"],
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.edges.bottom()"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::LineWidth",
@@ -3034,11 +3031,9 @@
             "animation-type": "by computed value",
             "initial": "0",
             "codegen-properties": {
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "outset",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.borderImage", "borderImage"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderImageOutset",
                 "parser-grammar": "[ <number [0,inf]> | <length [0,inf]> ]{1,4}@(type=CSSQuadValue no-single-item-opt)",
@@ -3059,11 +3054,9 @@
                 "space"
             ],
             "codegen-properties": {
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "repeat",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.borderImage", "borderImage"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderImageRepeat",
                 "parser-grammar": "[ stretch | repeat | round | space ]{1,2}@(type=CSSValuePair default=previous)",
@@ -3081,11 +3074,9 @@
                 "fill"
             ],
             "codegen-properties": {
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "slice",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.borderImage", "borderImage"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderImageSlice",
                 "parser-function": "consumeBorderImageSlice",
@@ -3107,8 +3098,8 @@
             ],
             "codegen-properties": {
                 "disables-native-appearance": true,
-                "render-style-storage-name": "source",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.borderImage", "borderImage"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderImageSource",
                 "parser-grammar": "none | <image>"
@@ -3125,12 +3116,10 @@
                 "auto"
             ],
             "codegen-properties": {
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
                 "disables-native-appearance": true,
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "width",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_image.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.borderImage", "borderImage"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderImageWidth",
                 "parser-function": "consumeBorderImageWidth",
@@ -3493,8 +3482,8 @@
                 "render-style-initial-constexpr": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
-                "render-style-storage-name": "m_width",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.left()"],
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.edges.left()"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::LineWidth",
@@ -3614,8 +3603,8 @@
                 "render-style-initial-constexpr": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
-                "render-style-storage-name": "m_width",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.right()"],
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.edges.right()"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::LineWidth",
@@ -3753,7 +3742,7 @@
                 "style-builder-custom": "All",
                 "disables-native-appearance": true,
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderRadiusValue",
@@ -3778,7 +3767,7 @@
                 "style-builder-custom": "All",
                 "disables-native-appearance": true,
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_radii"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::BorderRadiusValue",
@@ -3840,8 +3829,8 @@
                 "render-style-initial-constexpr": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
-                "render-style-storage-name": "m_width",
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_edges.top()"],
+                "render-style-storage-name": "width",
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.edges.top()"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::LineWidth",
@@ -4170,7 +4159,6 @@
                 "evenodd"
             ],
             "codegen-properties": {
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "enum",
@@ -4277,7 +4265,7 @@
                 "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
                 "render-style-initial-constexpr": true,
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.cornerShapes"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::CornerShapeValue",
@@ -4299,7 +4287,7 @@
                 "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
                 "render-style-initial-constexpr": true,
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.cornerShapes"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::CornerShapeValue",
@@ -4321,7 +4309,7 @@
                 "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
                 "render-style-initial-constexpr": true,
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.cornerShapes"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::CornerShapeValue",
@@ -4343,7 +4331,7 @@
                 "settings-flag": "cssCornerShapeEnabled",
                 "disables-native-appearance": true,
                 "render-style-initial-constexpr": true,
-                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.m_cornerShapes"],
+                "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.cornerShapes"],
                 "render-style-storage-container": "physical-group",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::CornerShapeValue",
@@ -4718,7 +4706,6 @@
                 "animation-wrapper": "VisitedAffectedStyleTypeWrapper<SVGPaint>",
                 "animation-wrapper-requires-override-parameters": ["CSSPropertyID::CSSPropertyFill", "&RenderStyle::fill", "&RenderStyle::setFill", "&RenderStyle::visitedLinkFill", "&RenderStyle::setVisitedLinkFill"],
                 "style-builder-custom": "All",
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_svgStyle", "fillData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::SVGPaint",
@@ -4758,7 +4745,6 @@
                 "evenodd"
             ],
             "codegen-properties": {
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_svgStyle", "inheritedFlags"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "enum",
@@ -5890,10 +5876,8 @@
                 "aliases": [
                     "-webkit-mask-box-image-outset"
                 ],
-                "style-builder-custom": "All",
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "outset",
-                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder", "maskBorder"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::MaskBorderOutset",
                 "parser-grammar": "[ <number [0,inf]> | <length [0,inf]> ]{1,4}@(type=CSSQuadValue no-single-item-opt)"
@@ -5917,10 +5901,8 @@
                 "aliases": [
                     "-webkit-mask-box-image-repeat"
                 ],
-                "style-builder-custom": "All",
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "repeat",
-                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder", "maskBorder"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::MaskBorderRepeat",
                 "parser-grammar": "[ stretch | repeat | round | space ]{1,2}@(type=CSSValuePair default=previous)"
@@ -5940,10 +5922,8 @@
                 "aliases": [
                     "-webkit-mask-box-image-slice"
                 ],
-                "style-builder-custom": "All",
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "slice",
-                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder", "maskBorder"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::MaskBorderSlice",
                 "parser-function": "consumeBorderImageSlice",
@@ -5966,8 +5946,8 @@
                 "aliases": [
                     "-webkit-mask-box-image-source"
                 ],
-                "render-style-storage-name": "source",
-                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder", "maskBorder"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::MaskBorderSource",
                 "parser-grammar": "none | <image>"
@@ -5987,10 +5967,8 @@
                 "aliases": [
                     "-webkit-mask-box-image-width"
                 ],
-                "style-builder-custom": "All",
-                "render-style-initial-custom": true,
-                "render-style-storage-name": "width",
-                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder.m_data"],
+                "render-style-storage-path": ["m_nonInheritedData", "rareData", "maskBorder", "maskBorder"],
+                "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::MaskBorderWidth",
                 "parser-function": "consumeBorderImageWidth",
@@ -6289,7 +6267,6 @@
                 "top-priority": true,
                 "top-priority-reason": "This is top priority since it affects 'font-size', which is 'high-priority'",
                 "render-style-initial-constexpr": true,
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::MathDepth",
@@ -7030,7 +7007,6 @@
             "codegen-properties": {
                 "visited-link-color-support": true,
                 "color-property": true,
-                "render-style-storage-name": "m_color",
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
@@ -7051,7 +7027,6 @@
                 "render-style-initial-constexpr": true,
                 "render-style-getter-custom": true,
                 "render-style-getter-inline": false,
-                "render-style-storage-name": "m_offset",
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
@@ -7080,7 +7055,6 @@
                 "double"
             ],
             "codegen-properties": {
-                "render-style-storage-name": "m_style",
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "enum",
@@ -7106,7 +7080,6 @@
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
                 "render-style-getter-inline": false,
-                "render-style-storage-name": "m_width",
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData", "outline"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
@@ -9374,6 +9347,7 @@
         },
         "-webkit-background-clip": {
             "animation-type": "not animatable (legacy)",
+            "initial": "border-box",
             "codegen-properties": {
                 "cascade-alias": "background-clip",
                 "skip-style-builder": true,
@@ -9385,6 +9359,7 @@
         },
         "-webkit-background-origin": {
             "animation-type": "not animatable (legacy)",
+            "initial": "padding-box",
             "codegen-properties": {
                 "cascade-alias": "background-origin",
                 "skip-style-builder": true,
@@ -9531,7 +9506,6 @@
             "initial": "1",
             "codegen-properties": {
                 "render-style-initial-constexpr": true,
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "deprecatedFlexibleBox"],
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::WebkitBoxFlexGroup",
@@ -9567,7 +9541,6 @@
             "initial": "1",
             "codegen-properties": {
                 "render-style-initial-constexpr": true,
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "deprecatedFlexibleBox"],
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::WebkitBoxOrdinalGroup",
@@ -9637,6 +9610,7 @@
         },
         "-webkit-box-shadow": {
             "animation-type": "see prose",
+            "initial": "none",
             "codegen-properties": {
                 "cascade-alias": "box-shadow",
                 "skip-style-builder": true,
@@ -9870,7 +9844,7 @@
                 ],
                 "visited-link-color-support": true,
                 "color-property": true,
-                "render-style-storage-name": "m_color",
+                "render-style-storage-name": "color",
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "reference",
@@ -9902,7 +9876,7 @@
                 "aliases": [
                     "-webkit-column-rule-style"
                 ],
-                "render-style-storage-name": "m_style",
+                "render-style-storage-name": "style",
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "enum",
@@ -9930,7 +9904,7 @@
                 "render-style-initial-constexpr": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
-                "render-style-storage-name": "m_width",
+                "render-style-storage-name": "width",
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "multiCol", "columnRule"],
                 "render-style-storage-container": "struct",
                 "render-style-storage-kind": "value",
@@ -10401,7 +10375,6 @@
                 "aliases": [
                     "-webkit-flex-wrap"
                 ],
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_nonInheritedData", "miscData", "flexibleBox"],
                 "render-style-storage-kind": "enum",
                 "render-style-type": "FlexWrap",
@@ -10451,6 +10424,7 @@
         },
         "-webkit-backdrop-filter": {
             "animation-type": "see prose",
+            "initial": "none",
             "codegen-properties": {
                 "cascade-alias": "backdrop-filter",
                 "skip-style-builder": true,
@@ -11244,6 +11218,7 @@
         },
         "-webkit-mask-clip": {
             "animation-type": "not animatable (legacy)",
+            "initial": "border-box",
             "codegen-properties": {
                 "cascade-alias": "mask-clip",
                 "skip-style-builder": true,
@@ -11262,6 +11237,7 @@
         },
         "-webkit-mask-composite": {
             "animation-type": "not animatable (legacy)",
+            "initial": "source-over",
             "codegen-properties": {
                 "cascade-alias": "mask-composite",
                 "skip-style-builder": true,
@@ -11280,6 +11256,7 @@
         },
         "-webkit-mask-source-type": {
             "animation-type": "not animatable (legacy)",
+            "initial": "auto",
             "codegen-properties": {
                 "cascade-alias": "mask-mode",
                 "skip-style-builder": true,
@@ -11357,7 +11334,6 @@
                     "-webkit-order"
                 ],
                 "render-style-initial-constexpr": true,
-                "render-style-initial-custom": true,
                 "render-style-storage-path": ["m_nonInheritedData", "miscData"],
                 "render-style-storage-kind": "value",
                 "render-style-type": "Style::Order",
@@ -11508,6 +11484,7 @@
         "-webkit-text-combine": {
             "animation-type": "not animatable (legacy)",
             "inherited": true,
+            "initial": "none",
             "values": [
                 "none",
                 "horizontal"

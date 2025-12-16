@@ -192,10 +192,13 @@ AccessibilityTextStitchingEnabled:
   webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
+      "ENABLE(ACCESSIBILITY_TEXT_STITCHING)": true
       default: false
     WebKit:
+      "ENABLE(ACCESSIBILITY_TEXT_STITCHING)": true
       default: false
     WebCore:
+      "ENABLE(ACCESSIBILITY_TEXT_STITCHING)": true
       default: false
 
 AccessibilityThreadTextApisEnabled:
@@ -282,7 +285,7 @@ AllowMultipleCommitLayerTreePending:
     WebKitLegacy:
       default: false
     WebKit:
-      default: defaultAllowMultipleCommitLayerTreePending()
+      default: false
     WebCore:
       default: false
 
@@ -971,17 +974,17 @@ BlockWebInspectorInWebContentSandbox:
 
 BlocksInInlineLayoutEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "Blocks in inline layout (disable continuations)"
   humanReadableDescription: "Enable blocks in inline layout (disable continuations)"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
 BroadcastChannelEnabled:
@@ -4240,15 +4243,18 @@ InvisibleAutoplayNotPermitted:
 
 IsARIANotifyEnabled:
   type: bool
-  status: unstable
+  status: internal
   humanReadableName: "ariaNotify()"
   humanReadableDescription: "Enable ariaNotify support"
   defaultValue:
     WebKitLegacy:
+      "ENABLE(ARIA_NOTIFY)": true
       default: false
     WebKit:
+      "ENABLE(ARIA_NOTIFY)": true
       default: false
     WebCore:
+      "ENABLE(ARIA_NOTIFY)": true
       default: false
 
 IsAccessibilityIsolatedTreeEnabled:
@@ -4274,10 +4280,13 @@ IsAriaLiveRegionManagementEnabled:
   humanReadableDescription: "Turn on ARIA live-region management within WebKit"
   defaultValue:
     WebKitLegacy:
+      "ENABLE(WEBKIT_MANAGED_LIVE_REGIONS)": true
       default: false
     WebKit:
+      "ENABLE(WEBKIT_MANAGED_LIVE_REGIONS)": true
       default: false
     WebCore:
+      "ENABLE(WEBKIT_MANAGED_LIVE_REGIONS)": true
       default: false
 
 # FIXME: The 'Is' prefix is inconsistent with most other preferences and should be removed.

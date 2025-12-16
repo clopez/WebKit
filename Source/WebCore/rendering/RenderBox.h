@@ -507,12 +507,8 @@ public:
     void removeFloatingAndInvalidateForLayout();
     void removeFloatingOrOutOfFlowChildFromBlockLists();
     
-    RenderLayer* enclosingFloatPaintingLayer() const;
-    
     virtual std::optional<LayoutUnit> firstLineBaseline() const { return { }; }
     virtual std::optional<LayoutUnit> lastLineBaseline() const { return { }; }
-    virtual std::optional<LayoutUnit> inlineBlockBaseline() const { return { }; } // Returns empty if we should skip this box when computing the baseline of an inline-block.
-    LayoutUnit synthesizeBaseline(FontBaseline baselineType, BaselineSynthesisEdge) const;
 
     bool shrinkToAvoidFloats() const;
     bool avoidsFloats() const;

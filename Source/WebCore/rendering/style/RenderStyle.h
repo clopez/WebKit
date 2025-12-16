@@ -38,7 +38,7 @@ public:
     explicit RenderStyle(CreateDefaultStyleTag);
     RenderStyle(const RenderStyle&, CloneTag);
 
-    RenderStyle replace(RenderStyle&&) WARN_UNUSED_RETURN;
+    WARN_UNUSED_RETURN RenderStyle replace(RenderStyle&&);
 
     static RenderStyle& defaultStyleSingleton();
 
@@ -68,8 +68,6 @@ public:
     // MARK: - Comparisons
 
     bool operator==(const RenderStyle&) const;
-
-    void conservativelyCollectChangedAnimatableProperties(const RenderStyle&, CSSPropertiesBitSet&) const;
 
     bool scrollAnchoringSuppressionStyleDidChange(const RenderStyle*) const;
     bool outOfFlowPositionStyleDidChange(const RenderStyle*) const;
@@ -107,16 +105,9 @@ public:
     inline void resetBorderRight();
     inline void resetBorderBottom();
     inline void resetBorderLeft();
-    inline void resetBorderImage();
     inline void resetBorderRadius();
-    inline void resetBorderTopLeftRadius();
-    inline void resetBorderTopRightRadius();
-    inline void resetBorderBottomLeftRadius();
-    inline void resetBorderBottomRightRadius();
     inline void resetMargin();
     inline void resetPadding();
-    inline void resetColumnRule();
-    inline void resetPageSize();
 
     // MARK: - Pseudo element/style
 
@@ -478,14 +469,6 @@ public:
 
     // MARK: - Non-property initial values.
 
-    static inline Style::PerspectiveOrigin initialPerspectiveOrigin();
-    static inline Style::TransformOrigin initialTransformOrigin();
-    static inline Style::Animations initialAnimations();
-    static inline Style::Transitions initialTransitions();
-    static inline Style::BackgroundLayers initialBackgroundLayers();
-    static inline Style::MaskLayers initialMaskLayers();
-    static inline Style::BorderImage initialBorderImage();
-    static inline Style::MaskBorder initialMaskBorder();
     static inline Style::PageSize initialPageSize();
     static constexpr Style::ZIndex initialUsedZIndex();
 #if ENABLE(TEXT_AUTOSIZING)

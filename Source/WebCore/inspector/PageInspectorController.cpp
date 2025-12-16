@@ -58,7 +58,6 @@
 #include "Page.h"
 #include "PageAuditAgent.h"
 #include "PageCanvasAgent.h"
-#include "PageConsoleAgent.h"
 #include "PageDOMDebuggerAgent.h"
 #include "PageDebugger.h"
 #include "PageDebuggerAgent.h"
@@ -97,7 +96,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(PageInspectorController);
 PageInspectorController::PageInspectorController(Page& page, std::unique_ptr<InspectorBackendClient>&& inspectorBackendClient)
     : m_page(page)
     , m_instrumentingAgents(InstrumentingAgents::create(*this))
-    , m_injectedScriptManager(makeUniqueRef<WebInjectedScriptManager>(*this, WebInjectedScriptHost::create()))
+    , m_injectedScriptManager(WebInjectedScriptManager::create(*this, WebInjectedScriptHost::create()))
     , m_frontendRouter(FrontendRouter::create())
     , m_backendDispatcher(BackendDispatcher::create(m_frontendRouter.copyRef()))
     , m_overlay(makeUniqueRefWithoutRefCountedCheck<InspectorOverlay>(*this, inspectorBackendClient.get()))
@@ -105,12 +104,6 @@ PageInspectorController::PageInspectorController(Page& page, std::unique_ptr<Ins
     , m_inspectorBackendClient(WTFMove(inspectorBackendClient))
 {
     ASSERT_ARG(inspectorBackendClient, m_inspectorBackendClient);
-
-    auto pageContext = pageAgentContext();
-
-    auto consoleAgent = makeUniqueRef<PageConsoleAgent>(pageContext);
-    m_instrumentingAgents->setWebConsoleAgent(consoleAgent.ptr());
-    m_agents.append(WTFMove(consoleAgent));
 }
 
 PageInspectorController::~PageInspectorController()
@@ -513,7 +506,7 @@ void PageInspectorController::frontendInitialized()
     if (m_pauseAfterInitialization) {
         m_pauseAfterInitialization = false;
         if (auto* debuggerAgent = m_instrumentingAgents->enabledPageDebuggerAgent())
-            debuggerAgent->pause();
+            std::ignore = debuggerAgent->pause();
     }
 
 #if ENABLE(REMOTE_INSPECTOR)

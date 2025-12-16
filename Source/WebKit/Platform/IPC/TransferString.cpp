@@ -37,11 +37,13 @@ namespace IPC {
 #if USE(CF)
 std::optional<TransferString> TransferString::create(CFStringRef string)
 {
-    // The transferAsMappingSize checks are inside the `if`s because we want to make sure
-    // that the getter will return the data. We need that during ::toIPCData.
+    if (!string)
+        return TransferString { String { } };
     CFIndex size = CFStringGetLength(string);
     if (!size)
-        return TransferString { };
+        return TransferString { ""_s };
+    // The transferAsMappingSize checks are inside the `if`s because we want to make sure
+    // that the getter will return the data. We need that during ::toIPCData.
     if (auto span8 = CFStringGetLatin1CStringSpan(string); !span8.empty()) {
         if (span8.size_bytes() < transferAsMappingSize)
             return TransferString { string };
@@ -52,7 +54,12 @@ std::optional<TransferString> TransferString::create(CFStringRef string)
             return TransferString { string };
         return createCopy(span16);
     }
-    RefPtr buffer = WebCore::SharedMemory::allocate(size * sizeof(char16_t));
+    // Not native Latin1 or UTF-16 string, needs a copy from the CFString
+    // to get UTF-16. Copy small ones to be held and sent as String.
+    auto dataSize = static_cast<size_t>(size) * sizeof(char16_t);
+    if (dataSize < transferAsMappingSize)
+        return TransferString { String { string } };
+    RefPtr buffer = WebCore::SharedMemory::allocate(dataSize);
     if (!buffer)
         return std::nullopt;
     auto bufferSpan = spanReinterpretCast<char16_t>(buffer->mutableSpan());
@@ -67,7 +74,6 @@ TransferString::TransferString(CFStringRef string)
     : m_storage(RetainPtr { string })
 {
 }
-
 #endif
 
 std::optional<TransferString> TransferString::createCopy(std::span<const Latin1Character> span8)
@@ -116,16 +122,18 @@ std::optional<String> TransferString::release(size_t maxCopySizeInBytes) && // N
                 return std::optional<String> { std::in_place, String { WTFMove(impl) } };
             }
             return std::optional<String> { std::in_place, String { spanReinterpretCast<const char16_t>(memory->span()) } };
-
-        });
+        }
+    );
 }
 
 TransferString::IPCData TransferString::toIPCData() const
 {
     return WTF::switchOn(m_storage,
         [](const String& string) {
-            if (auto span8 = string.span8(); !span8.empty())
-                return IPCData { span8 };
+            if (string.isNull())
+                return IPCData { std::monostate { } };
+            if (string.is8Bit())
+                return IPCData { string.span8() };
             return IPCData { string.span16() };
         },
 #if USE(CF)
@@ -140,7 +148,8 @@ TransferString::IPCData TransferString::toIPCData() const
         },
         [](const SharedSpan16& handle) -> IPCData {
             return IPCData { SharedSpan16 { WebCore::SharedMemoryHandle { handle.dataHandle } } };
-        });
+        }
+    );
 }
 
 }

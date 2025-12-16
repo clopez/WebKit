@@ -102,11 +102,11 @@ webkit.org/b/303375 inspector/debugger/async-stack-trace-truncate.html [ Crash T
 # Crash on EWS bot.
 webrtc/vp8-then-h264-gpu-process-crash.html [ Skip ]
 
-webkit.org/b/303366 webrtc/datachannel/multiple-connections.html [ Crash Pass ]
-
 webkit.org/b/303924 webrtc/peer-connection-audio-mute2.html [ Failure ]
 webkit.org/b/303925 webrtc/audio-replace-track.html [ Failure ]
-webkit.org/b/303924 webrtc/ephemeral-certificates-and-cnames.html [ Timeout ]
+
+# Skia-related
+webkit.org/b/304134 imported/w3c/web-platform-tests/webrtc-stats/outbound-rtp.https.html [ Pass Crash ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End of Triaged Expectations
@@ -704,6 +704,8 @@ imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Range-isPointInRa
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-getComposedRanges-range-update.html [ Skip ]
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-getComposedRanges.html [ Skip ]
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-isCollapsed.html [ Skip ]
+
+webkit.org/b/304101 imported/w3c/web-platform-tests/selection/crashtests/selection-modify-per-word-in-table-header-group.html [ Crash ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Crashing tests
@@ -1583,11 +1585,6 @@ webkit.org/b/213782 svg/custom/object-sizing-explicit-width.xhtml [ Failure Pass
 
 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-escape-scroller-004.html [ ImageOnlyFailure ]
 
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/different-initiators.sub.https.html?cross-site-1 [ Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/initiators-a-element.sub.https.html?cross-site [ DumpJSConsoleLogInStdErr Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/initiators-window-open.sub.https.html?cross-site [ DumpJSConsoleLogInStdErr Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/redirect-url.https.html?origin=cross-site-initial [ DumpJSConsoleLogInStdErr Failure ]
-
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
 
 http/tests/css/css-masking/mask-external-svg-fragment.html [ ImageOnlyFailure ]
@@ -1614,3 +1611,5 @@ webkit.org/b/299944 http/wpt/mediarecorder/record-96KHz-long-mp4.html [ Skip ]
 
 webkit.org/b/303884 accessibility/gtk/object-attributes.html [ Failure ]
 webkit.org/b/303884 accessibility/gtk/spans-paragraphs-and-divs.html [ Failure ]
+
+fast/images/async-image-body-background-image.html [ Timeout Pass ]

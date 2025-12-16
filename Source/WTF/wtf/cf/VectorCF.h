@@ -175,7 +175,7 @@ inline std::span<const char16_t> CFStringGetCharactersSpan(CFStringRef string)
 inline void CFStringCopyCharactersSpan(CFStringRef string, std::span<char16_t> span)
 {
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    CFStringGetCharacters(string, CFRangeMake(0, span.size()), reinterpret_cast<UniChar*>(span.data()));
+    CFStringGetCharacters(string, CFRangeMake(0, std::min<CFIndex>(span.size(), CFStringGetLength(string))), reinterpret_cast<UniChar*>(span.data()));
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 

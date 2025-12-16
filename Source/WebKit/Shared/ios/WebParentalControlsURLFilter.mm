@@ -61,7 +61,7 @@ bool WebParentalControlsURLFilter::isEnabledImpl() const
     return [BEWebContentFilter shouldEvaluateURLs];
 }
 
-void WebParentalControlsURLFilter::isURLAllowedImpl(const URL& url, CompletionHandler<void(bool, NSData *)>&& completionHandler
+void WebParentalControlsURLFilter::isURLAllowedImpl(const URL& url, CompletionHandler<void(bool, NSData *)>&& completionHandler)
 {
     workQueueSingleton().dispatch([this, protectedThis = Ref { *this }, currentIsEnabled = isEnabled(), url = crossThreadCopy(url), completionHandler = WTFMove(completionHandler)]() mutable {
         if (!currentIsEnabled) {

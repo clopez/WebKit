@@ -32,6 +32,7 @@
 
 #include <WebCore/CDMInstance.h>
 #include <WebCore/CDMInstanceSession.h>
+#include <WebCore/CDMKeyID.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/BoxPtr.h>
 #include <wtf/CheckedPtr.h>
@@ -70,7 +71,7 @@ public:
 
     virtual ~KeyHandle() { }
 
-    Ref<SharedBuffer> idAsSharedBuffer() const { return SharedBuffer::create(m_id.span()); }
+    CDMKeyID idAsSharedBuffer() const { return SharedBuffer::create(m_id.span()); }
 
     bool takeValueIfDifferent(KeyHandleValueVariant&&);
 
@@ -282,7 +283,7 @@ public:
 
     WEBCORE_EXPORT static void registerFactory(CDMProxyFactory&);
     WEBCORE_EXPORT static void unregisterFactory(CDMProxyFactory&);
-    WEBCORE_EXPORT static WARN_UNUSED_RETURN RefPtr<CDMProxy> createCDMProxyForKeySystem(const String&);
+    WARN_UNUSED_RETURN WEBCORE_EXPORT static RefPtr<CDMProxy> createCDMProxyForKeySystem(const String&);
 
 protected:
     virtual RefPtr<CDMProxy> createCDMProxy(const String&) = 0;
@@ -345,7 +346,7 @@ private:
     std::atomic<int> m_numDecryptorsWaitingForKey { 0 };
 };
 
-class CDMProxyDecryptionClient : public CanMakeWeakPtr<CDMProxyDecryptionClient, WeakPtrFactoryInitialization::Eager>, public CanMakeCheckedPtr<CDMProxyDecryptionClient> {
+class CDMProxyDecryptionClient : public CanMakeWeakPtr<CDMProxyDecryptionClient, WeakPtrFactoryInitialization::Eager>, public CanMakeThreadSafeCheckedPtr<CDMProxyDecryptionClient> {
     WTF_MAKE_TZONE_ALLOCATED(CDMProxyDecryptionClient);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CDMProxyDecryptionClient);
 public:

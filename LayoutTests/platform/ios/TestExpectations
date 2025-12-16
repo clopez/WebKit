@@ -153,6 +153,8 @@ http/tests/media/modern-media-controls/overflow-support [ Pass ]
 # media/modern-media-controls/overflow-support [ Pass ]
 # media/modern-media-controls/tracks-support [ Pass ]
 
+media/media-webm-av1.html [ Skip ]
+
 media/media-source/media-managedmse-airplay.html [ Pass ]
 media/media-source/media-managedmse-airplay-withsrc.html [ Pass ]
 media/media-source/media-managedmse-idl.html [ Pass ]
@@ -184,7 +186,6 @@ imported/w3c/web-platform-tests/payment-request/payment-is-showing.https.html [ 
 # Timeouts
 imported/w3c/web-platform-tests/payment-request/payment-request-canmakepayment-method.https.html [ Skip ]
 imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method.tentative.https.html [ Skip ]
-imported/w3c/web-platform-tests/digital-credentials/allow-attribute-with-create.https.html [ Skip ]
 
 # skip in favor of tests in http/tests/paymentrequest
 imported/w3c/web-platform-tests/payment-request/payment-request-abort-method.https.html [ WontFix ]
@@ -296,6 +297,9 @@ webaudio/codec-tests/vorbis [ Skip ]
 # vorbis decoder not available on simulator.
 webaudio/decode-audio-data-webm-vorbis.html [ Failure ]
 media/track/audio-track-configuration-webm.html
+
+# ogg not available in simulator
+http/wpt/media/blob-and-ogg.html [ Skip ]
 
 # No wheel events on iOS
 fast/events/wheel [ Skip ]
@@ -709,6 +713,7 @@ fast/events/mouse-cursor-update-during-raf.html [ Skip ]
 fast/events/mouse-cursor.html [ Skip ]
 fast/events/mouse-cursor-pseudo-elements.html [ Skip ]
 fast/events/mouse-cursor-hidden-when-out-of-bounds.html [ Skip ]
+fast/events/mouse-event-buttons.html [ Skip ]
 fast/events/cancel-mousedown-and-drag-from-frame-to-other-frame.html [ Skip ]
 fast/events/cancel-mousedown-and-drag-to-frame.html [ Skip ]
 fast/events/mouse-focus-imagemap.html [ Skip ]
@@ -2426,6 +2431,7 @@ accessibility/table-display-flex.html [ Pass ]
 accessibility/table-display-grid.html [ Pass ]
 accessibility/table-display-inline-block.html [ Pass ]
 accessibility/text-input-hit-test.html [ Pass ]
+accessibility/text-stitching-inside-links.html [ Pass ]
 accessibility/tree-update-with-dirty-layout.html [ Pass ]
 accessibility/tree-update-with-dynamically-ignored-inline-child-div.html [ Pass ]
 accessibility/tree-update-with-dynamically-ignored-tabindex-div.html [ Pass ]
@@ -8140,9 +8146,7 @@ http/tests/websocket/tests/hybi/websocket-allowed-setting-cookie-as-third-party-
 http/tests/workers/service/basic-install-event-sw-fetch-third-party.html [ Failure ]
 http/wpt/webcodecs/videoFrame-negative-timestamp.html [ Failure ]
 imported/w3c/web-platform-tests/css/selectors/invalidation/has-with-nesting-parent-containing-hover.html [ Failure ]
-imported/w3c/web-platform-tests/digital-credentials/allow-attribute-with-get.https.html [ Failure ]
 imported/w3c/web-platform-tests/digital-credentials/get.tentative.https.html [ Failure ]
-imported/w3c/web-platform-tests/digital-credentials/user-activation.https.html [ Failure ]
 imported/w3c/web-platform-tests/shadow-dom/reference-target/tentative/interesttarget.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/uievents/mouse/mousemove_after_mouseover_target_removed.html [ Failure ]
 platform/ipad/fast/viewport/viewport-overriden-by-minimum-effective-width-if-ignore-meta-viewport.html [ Failure ]
@@ -8251,8 +8255,6 @@ imported/w3c/web-platform-tests/css/css-break/block-in-inline-012.html [ ImageOn
 
 webkit.org/b/300905 imported/w3c/web-platform-tests/css/css-scroll-anchoring/shadow-dom-subscroller.html [ Pass Failure ]
 
-webkit.org/b/298256 [ Debug ] fast/dom/document-all.html [ Timeout ]
-
 webkit.org/b/298269 [ Release ] imported/w3c/web-platform-tests/html/anonymous-iframe/session-storage.tentative.https.window.html [ Pass Failure ]
 
 webkit.org/b/298278 imported/w3c/web-platform-tests/html/anonymous-iframe/local-storage.tentative.https.window.html [ Pass Failure ]
@@ -8266,7 +8268,6 @@ webkit.org/b/298557 [ Debug ] imported/w3c/web-platform-tests/scroll-to-text-fra
 
 webkit.org/b/298560 [ Debug ] editing/selection/ios/clear-selection-after-tapping-on-element-with-click-handler.html [ Pass Failure ]
 
-webkit.org/b/298608 imported/w3c/web-platform-tests/digital-credentials/create.tentative.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc/protocol/h265-loopback.https.html [ Skip ]
 imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-track-settings.tentative.html [ Failure Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-worker-GC.html [ Failure Pass ]
@@ -8399,8 +8400,6 @@ webkit.org/b/302893 imported/w3c/web-platform-tests/html/interaction/focus/focus
 
 webkit.org/b/302899 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-details-element/details-toggle-source.html [ Failure ]
 
-webkit.org/b/302901 imported/w3c/web-platform-tests/fetch/security/dangling-markup-mitigation-data-url.tentative.sub.html [ Pass Failure ]
-
 imported/w3c/web-platform-tests/css/CSS2/normal-flow/block-formatting-contexts-004.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/normal-flow/max-width-014.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/normal-flow/min-width-014.xht [ ImageOnlyFailure ]
@@ -8461,3 +8460,26 @@ webkit.org/b/303876 [ Debug ] ipc/serialized-type-info.html [ Failure ]
 
 # from fast/ tests that are flaky: adding timeout 
 webkit.org/b/304027 fast/block/basic/001.html [ Pass Failure Timeout ]
+
+webkit.org/b/304079 [ Debug ] http/tests/ipc/ipc-fetch-task-message-crash.html [ Timeout ]
+
+webkit.org/b/304192 fast/mediastream/granted-denied-request-management1.html [ Skip ]
+
+webkit.org/b/303650 fast/lists/marker-before-empty-inline.html [ ImageOnlyFailure ]
+
+# webkit.org/b/304268 REBASELINE [ iOS] multiple css tests are failing with image diff after update to C
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-1b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-1c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-3.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-4.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-5.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-rounded-image-clip-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/gradients-with-border.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-linear.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/gradient/gradient-analogous-missing-components-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-round-zero-size.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-inline-sliced-1.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-003.html [ ImageOnlyFailure ]

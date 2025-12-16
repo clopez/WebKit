@@ -468,7 +468,7 @@
 
 [Legacy] StructureParam WebCore::DDModel::DDUpdateMeshDescriptor.vertexData Vector<Vector<uint8_t>>
 
-[UnsafeWrapper] AliasParam IPC::TransferString::IPCData Variant<std::span<const uint8_t>, std::span<const char16_t>, IPC::TransferString::SharedSpan8, IPC::TransferString::SharedSpan16>
+[UnsafeWrapper] AliasParam IPC::TransferString::IPCData Variant<std::monostate, std::span<const uint8_t>, std::span<const char16_t>, IPC::TransferString::SharedSpan8, IPC::TransferString::SharedSpan16>
 
 # GTK Specific
 [Legacy] StructureParam sk_sp<SkColorSpace>.dataReference() std::span<const uint8_t>

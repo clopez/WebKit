@@ -45,7 +45,7 @@ public:
     struct SharedSpan16 {
         WebCore::SharedMemoryHandle dataHandle;
     };
-    using IPCData = Variant<std::span<const Latin1Character>, std::span<const char16_t>, SharedSpan8, SharedSpan16>;
+    using IPCData = Variant<std::monostate, std::span<const Latin1Character>, std::span<const char16_t>, SharedSpan8, SharedSpan16>;
 
     static std::optional<TransferString> create(const String&);
     static std::optional<TransferString> create(StringView);
@@ -97,20 +97,22 @@ private:
 
 inline std::optional<TransferString> TransferString::create(const String& string)
 {
-    if (string.sizeInBytes() < transferAsMappingSize)
-        return TransferString { String { string } };
-    if (auto span8 = string.span8(); !span8.empty())
-        return createCopy(span8);
-    return createCopy(string.span16());
+    if (string.sizeInBytes() >= transferAsMappingSize) {
+        if (string.is8Bit())
+            return createCopy(string.span8());
+        return createCopy(string.span16());
+    }
+    return TransferString { String { string } };
 }
 
 inline std::optional<TransferString> TransferString::create(StringView string)
 {
-    if (string.sizeInBytes() < transferAsMappingSize)
-        return TransferString { string.toString() };
-    if (auto span8 = string.span8(); !span8.empty())
-        return createCopy(span8);
-    return createCopy(string.span16());
+    if (string.sizeInBytes() >= transferAsMappingSize) {
+        if (string.is8Bit())
+            return createCopy(string.span8());
+        return createCopy(string.span16());
+    }
+    return TransferString { string.toString() };
 }
 
 inline TransferString::TransferString(String&& string)
@@ -138,6 +140,9 @@ inline TransferString::TransferString(SharedSpan16&& handle)
 inline TransferString::TransferString(IPCData&& data)
 {
     WTF::switchOn(WTFMove(data),
+        [&](std::monostate) {
+            m_storage = String { };
+        },
         [&](std::span<const Latin1Character> characters) {
             m_storage = String { characters };
         },
@@ -149,7 +154,8 @@ inline TransferString::TransferString(IPCData&& data)
         },
         [&](SharedSpan16 handle) {
             m_storage = WTFMove(handle);
-        });
+        }
+    );
 }
 
 }

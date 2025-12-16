@@ -461,6 +461,7 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<WebTextIndicatorLayer> _textIndicatorLayer;
 
 #if USE(UICONTEXTMENU)
+    BOOL _isPreparingToDisplayContextMenu;
     BOOL _isDisplayingContextMenuWithAnimation;
     RetainPtr<UITargetedPreview> _contextMenuInteractionTargetedPreview;
 #endif
@@ -955,6 +956,8 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 @property (nonatomic, readonly) BOOL _shouldUseLegacySelectPopoverDismissalBehavior;
 @property (nonatomic, readonly) BOOL _shouldAvoidSecurityHeuristicScoreUpdates;
 @property (nonatomic, readonly) BOOL _canStartNavigationSwipeAtLastInteractionLocation;
+
+- (BOOL)allowsTouchPanningAtPoint:(CGPoint)point;
 
 - (void)_didChangeLinkPreviewAvailability;
 - (void)setContinuousSpellCheckingEnabled:(BOOL)enabled;

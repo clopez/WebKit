@@ -1507,6 +1507,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _isBlurringFocusedElement = NO;
 #if USE(UICONTEXTMENU)
     _isDisplayingContextMenuWithAnimation = NO;
+    _isPreparingToDisplayContextMenu = NO;
 #endif
     _isUpdatingAccessoryView = NO;
 
@@ -10319,6 +10320,8 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 {
     if (!_contextMenuHintContainerView) {
         _contextMenuHintContainerView = [self _createPreviewContainerWithLayerName:@"Context Menu Hint Preview Container"];
+        RELEASE_LOG(ViewState, "%p - [pageProxyID=%" PRIu64 "] Created container for context menu hint previews: %p"
+            , self, _page ? _page->identifier().toUInt64() : 0, _contextMenuHintContainerView.get());
 
         RetainPtr<UIView> containerView;
 
@@ -10342,6 +10345,8 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
     if (!_contextMenuHintContainerView)
         return;
 
+    RELEASE_LOG(ViewState, "%p - [pageProxyID=%" PRIu64 "] Removing container for context menu hint previews: %p"
+        , self, _page ? _page->identifier().toUInt64() : 0, _contextMenuHintContainerView.get());
     [std::exchange(_contextMenuHintContainerView, nil) removeFromSuperview];
 
     _scrollViewForTargetedPreview = nil;
@@ -11082,14 +11087,14 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
     RELEASE_LOG(DragAndDrop, "Inserting dropped image placeholders for session: %p", session);
 
-    _page->insertDroppedImagePlaceholders(imagePlaceholderSizes, [protectedSelf = retainPtr(self), dragItems = retainPtr(session.items)] (auto& placeholderRects, auto data) {
+    _page->insertDroppedImagePlaceholders(imagePlaceholderSizes, [protectedSelf = retainPtr(self), dragItems = retainPtr(session.items)] (auto& placeholderRects, auto&& textIndicator) {
         auto& state = protectedSelf->_dragDropInteractionState;
-        if (!data || !protectedSelf->_dropAnimationCount) {
+        if (!textIndicator || !protectedSelf->_dropAnimationCount) {
             RELEASE_LOG(DragAndDrop, "Failed to animate image placeholders: missing text indicator data.");
             return;
         }
 
-        auto snapshotWithoutSelection = data->contentImageWithoutSelection;
+        auto snapshotWithoutSelection = textIndicator->contentImageWithoutSelection();
         if (!snapshotWithoutSelection) {
             RELEASE_LOG(DragAndDrop, "Failed to animate image placeholders: missing unselected content image.");
             return;
@@ -11103,7 +11108,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
         auto unselectedContentImageForEditDrag = adoptNS([[UIImage alloc] initWithCGImage:unselectedSnapshotImage->platformImage().get() scale:protectedSelf->_page->deviceScaleFactor() orientation:UIImageOrientationUp]);
         auto snapshotView = adoptNS([[UIImageView alloc] initWithImage:unselectedContentImageForEditDrag.get()]);
-        [snapshotView setFrame:data->contentImageWithoutSelectionRectInRootViewCoordinates];
+        [snapshotView setFrame:textIndicator->contentImageWithoutSelectionRectInRootViewCoordinates()];
         [protectedSelf addSubview:snapshotView.get()];
         protectedSelf->_unselectedContentSnapshot = WTFMove(snapshotView);
         state.deliverDelayedDropPreview(protectedSelf.get(), [protectedSelf unobscuredContentRect], dragItems.get(), placeholderRects);
@@ -11828,6 +11833,10 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
 #endif
     if (_isDisplayingContextMenuWithAnimation)
         return;
+
+    if (_isPreparingToDisplayContextMenu)
+        return;
+
 #if ENABLE(DATA_DETECTION)
     // We are also using this container for the action sheet assistant...
     if ([_actionSheetAssistant hasContextMenuInteraction])
@@ -14356,6 +14365,13 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
     return touchActions.containsAny({ Auto, PanX, Manipulation });
 }
 
+- (BOOL)allowsTouchPanningAtPoint:(CGPoint)point
+{
+    using enum WebCore::TouchAction;
+    auto touchActions = WebKit::touchActionsForPoint(self, WebCore::roundedIntPoint(point));
+    return touchActions.containsAny({ Auto, PanX, PanY, Manipulation });
+}
+
 #if ENABLE(MODEL_PROCESS)
 - (void)_willInvalidateDraggedModelWithContainerView:(UIView *)containerView
 {
@@ -15299,6 +15315,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     [self _startSuppressingSelectionAssistantForReason:WebKit::InteractionIsHappening];
     [self _cancelTouchEventGestureRecognizer];
+    _isPreparingToDisplayContextMenu = YES;
     return [self _createTargetedContextMenuHintPreviewIfPossible];
 }
 
@@ -15308,6 +15325,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
 
     _page->willBeginContextMenuInteraction();
+    _isPreparingToDisplayContextMenu = NO;
     _isDisplayingContextMenuWithAnimation = YES;
     [animator addCompletion:[weakSelf = WeakObjCPtr<WKContentView>(self)] {
         if (auto strongSelf = weakSelf.get()) {

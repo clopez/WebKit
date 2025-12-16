@@ -127,7 +127,6 @@ imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-elem
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-element/select-button-min-height-001.html [ Pass ]
 imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-zero-size.html [ Pass ]
 imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-add-label-quirks.html [ Pass ]
-imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.sharedworker.html [ Failure ]
 imported/w3c/web-platform-tests/svg/animations/stop-animation-01.html [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/fill-fallback-currentcolor-1.svg [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/fill-fallback-none-1.svg [ Pass ]
@@ -798,6 +797,7 @@ accessibility/password-notifications-timing.html [ Skip ]
 accessibility/aria-owns-text-stitching.html [ Skip ]
 accessibility/dynamic-text-stitching.html [ Skip ]
 accessibility/list-marker-text-stitching.html [ Skip ]
+accessibility/text-stitching-inside-links.html [ Skip ]
 
 # Timed out since it was introduced.
 accessibility/css-content-alt-text.html [ Skip ]
@@ -1274,7 +1274,6 @@ imported/w3c/web-platform-tests/content-security-policy/generic/src-trailing-dot
 imported/w3c/web-platform-tests/fetch/h1-parsing/lone-cr.window.html [ Failure ]
 imported/w3c/web-platform-tests/html/anonymous-iframe/cookie-store.tentative.https.window.html [ Failure ]
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/cookie-store.tentative.https.window.html [ Failure ]
-imported/w3c/web-platform-tests/streams/readable-byte-streams/non-transferable-buffers.any.sharedworker.html [ Failure ]
 
 webkit.org/b/237502 fast/dom/Range/getClientRects.html [ Failure ]
 
@@ -1355,6 +1354,7 @@ webkit.org/b/179605 editing/execCommand/underline-selection-containing-image.htm
 webkit.org/b/286128 [ Release ] editing/inserting/insert-list-user-select-none-crash.html [ Crash Pass ]
 
 webkit.org/b/179261 editing/selection/drag-to-contenteditable-iframe.html [ Timeout ]
+[ Debug ] editing/execCommand/delete-non-editable-range-crash.html [ Timeout ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Editing-related bugs
@@ -1616,8 +1616,6 @@ webkit.org/b/254514 media/media-source/media-source-seek-unbuffered.html [ Failu
 
 # MSE failures
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/URL-createObjectURL-revoke.html [ Failure ]
-
-webkit.org/b/297905 media/media-source/media-managedmse-append.html [ Timeout ]
 
 # Need changes in the demuxers and AppendPipeline to enable aborts not followed by an initialization segment:
 
@@ -1910,8 +1908,7 @@ webkit.org/b/245334 [ Debug ] imported/w3c/web-platform-tests/html/canvas/offscr
 webkit.org/b/245334 [ Debug ] imported/w3c/web-platform-tests/html/canvas/offscreen/text/ [ Pass Crash ]
 
 # This failure is related with (incomplete?) webgl support for OffscreenCanvas.
-webkit.org/b/245952 [ Debug ] imported/w3c/web-platform-tests/webcodecs/videoFrame-texImage.any.worker.html [ Failure Crash ]
-webgl/1.0.x/conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Failure Timeout Pass ]
+webgl/1.0.x/conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Timeout ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of OffscreenCanvas-related bugs
@@ -2404,7 +2401,6 @@ webkit.org/b/226807 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-a
 webkit.org/b/218010 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletnode-output-channel-count.https.html [ Failure Pass ]
 webkit.org/b/218010 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/suspended-context-messageport.https.html [ Failure Pass ]
 
-
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebAudio-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -2861,10 +2857,6 @@ webkit.org/b/215912 http/tests/websocket/tests/hybi/handshake-fail-by-no-cr.html
 
 webkit.org/b/208988 http/tests/webxr/webxr-third-party-iframe-requestsession-denied-by-insufficient-feature-policy.html [ Timeout ]
 
-webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xrViewport_valid.https.html [ Failure ]
-webkit.org/b/299387 [ Debug ] imported/w3c/web-platform-tests/webxr/xrWebGLLayer_viewports.https.html [ Failure Crash ]
-webkit.org/b/208988 [ Release ] imported/w3c/web-platform-tests/webxr/xrWebGLLayer_viewports.https.html [ Failure ]
-
 webkit.org/b/296681 imported/w3c/web-platform-tests/webxr/ar-module/xrDevice_isSessionSupported_immersive-ar.https.html [ Pass ]
 webkit.org/b/296681 imported/w3c/web-platform-tests/webxr/ar-module/idlharness.https.window.html [ Pass ]
 webkit.org/b/296681 imported/w3c/web-platform-tests/webxr/ar-module/xrDevice_requestSession_immersive-ar.https.html [ Pass ]
@@ -2882,8 +2874,6 @@ webkit.org/b/227086 imported/w3c/web-platform-tests/webxr/xrWebGLLayer_construct
 webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xr_viewport_scale.https.html [ Pass ]
 
 imported/w3c/web-platform-tests/webxr/exclusive_requestFrame_nolayer.https.html [ Pass ]
-
-imported/w3c/web-platform-tests/webxr/webGLCanvasContext_create_xrcompatible.https.html [ Failure ]
 
 imported/w3c/web-platform-tests/webxr/hand-input/ [ Pass ]
 
@@ -2937,7 +2927,6 @@ webkit.org/b/212217 imported/w3c/web-platform-tests/fetch/api/redirect/redirect-
 webkit.org/b/212217 imported/w3c/web-platform-tests/fetch/api/redirect/redirect-location-escape.tentative.any.worker.html [ Failure ]
 webkit.org/b/212807 imported/w3c/web-platform-tests/fetch/api/basic/header-value-null-byte.any.html [ Failure Pass ]
 webkit.org/b/212807 imported/w3c/web-platform-tests/fetch/api/basic/header-value-null-byte.any.worker.html [ Failure Pass ]
-webkit.org/b/212807 imported/w3c/web-platform-tests/xhr/headers-normalize-response.htm [ Failure ]
 
 # As of r263626, the imported baseline based on Mojave fails for glib. Added custom baseline for it.
 webkit.org/b/213709 imported/w3c/web-platform-tests/cors/credentials-flag.htm [ Crash Pass ]
@@ -3121,7 +3110,6 @@ webkit.org/b/162647 http/tests/xmlhttprequest/onabort-response-getters.html [ Pa
 # TestExpectations doesn't seem to support test names containing space characters, so skip the whole
 # xhr test suite for now. See also webkit.org/b/264596.
 webkit.org/b/264596 imported/w3c/web-platform-tests/xhr/ [ Skip ]
-# webkit.org/b/189343 imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.html [ Failure ]
 
 webkit.org/b/189994 fast/files/xhr-response-blob.html [ Failure ]
 
@@ -3620,6 +3608,8 @@ webkit.org/b/79203 fast/mediastream/MediaStream-video-element-video-tracks-disab
 
 webkit.org/b/84692 fast/events/attempt-scroll-with-no-scrollbars.html [ Failure ]
 
+[ Debug ] fast/events/document-destruction-during-event-firing-crash.html [ Slow ]
+
 # Started failing after it was added in r116473.
 webkit.org/b/85969 http/tests/loading/post-in-iframe-with-back-navigation.html [ Failure ]
 
@@ -3897,12 +3887,6 @@ webkit.org/b/211940 fast/text/multiple-codeunit-vertical-upright.html [ ImageOnl
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-sequencemode-append-buffer.html [ Failure ]
 webkit.org/b/197711 imported/w3c/web-platform-tests/media-source/mediasource-correct-frames.html [ Failure ]
 webkit.org/b/214349 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-negative.html [ Crash Failure Timeout Pass ]
-
-webkit.org/b/223965 http/tests/contentextensions/block-cookies-in-csp-report.py [ Crash ]
-webkit.org/b/223965 http/tests/contentextensions/block-csp-report.py [ Crash ]
-webkit.org/b/223965 http/tests/contentextensions/block-everything-unless-domain-redirect.py [ Crash ]
-webkit.org/b/223965 http/tests/contentextensions/hide-on-csp-report.py [ Crash ]
-webkit.org/b/223965 http/tests/contentextensions/main-resource-redirect-blocked.py [ Crash ]
 
 webkit.org/b/207978 imported/w3c/web-platform-tests/service-workers/service-worker/resource-timing.sub.https.html [ Failure Pass ]
 
@@ -4811,6 +4795,9 @@ webkit.org/b/299092 [ Debug ] accessibility/display-contents/tree-and-treeitems.
 webkit.org/b/299092 [ Debug ] accessibility/node-only-object-aria-owns-hang.html [ Skip ]
 webkit.org/b/299092 [ Debug ] accessibility/node-only-object-element-rect.html [ Skip ]
 webkit.org/b/299092 [ Debug ] accessibility/url-test.html [ Skip ]
+webkit.org/b/299092 [ Debug ] accessibility/non-data-table-cell-title-ui-element.html [ Crash ]
+webkit.org/b/299092 [ Debug ] imported/w3c/web-platform-tests/css/css-display/parsing/display-computed.html [ Crash Pass ]
+
 
 # Depends on 'UIScriptController::singleTapAtPointWithModifiers', which is not implemented yet for GLIB.
 webkit.org/b/278719 fast/events/touch/touch-fractional-coordinates.html [ Skip ]
@@ -4856,6 +4843,11 @@ http/tests/performance/performance-resource-timing-cross-origin-media-with-cors.
 http/tests/performance/performance-resource-timing-cross-origin-media.html [ Skip ] 
 http/tests/performance/performance-resource-timing-redirection-cross-origin-media-with-cors.html [ Skip ] 
 http/tests/performance/performance-resource-timing-redirection-cross-origin-media.html [ Skip ]
+
+webkit.org/b/304053 imported/w3c/web-platform-tests/trusted-types/SharedWorker-eval.html [ Pass Crash ]
+
+webkit.org/b/304054 webgl/1.0.x/conformance/textures/image_data/tex-2d-alpha-alpha-unsigned_byte.html [ Pass Crash ]
+webkit.org/b/304180 media/modern-media-controls/tracks-support/on-off-text-track.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

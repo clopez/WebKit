@@ -664,28 +664,35 @@ TEST(ProcessSwap, NoProcessSwappingWithinSameNonHTTPFamilyProtocol)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    EXPECT_EQ(pid1, [webView _webProcessIdentifier]);
+    auto pid2 = [webView _webProcessIdentifier];
+    bool processSwapped = pid1 != pid2;
+    // custom://abc and custom://def are different sites, so process will be swapped under site isolation.
+    EXPECT_EQ(processSwapped, isSiteIsolationEnabled(webView.get()));
 
     request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"custom://ghi/main3.html"]];
     [webView loadRequest:request];
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    EXPECT_EQ(pid1, [webView _webProcessIdentifier]);
+    auto pid3 = [webView _webProcessIdentifier];
+    processSwapped = pid2 != pid3;
+    // custom://def and custom://ghi are different sites, so process will be swapped under site isolation.
+    EXPECT_EQ(processSwapped, isSiteIsolationEnabled(webView.get()));
 
     // Switch to the file protocol.
     [webView loadRequest:[NSURLRequest requestWithURL:[NSBundle.test_resourcesBundle URLForResource:@"simple" withExtension:@"html"]]];
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    auto pid2 = [webView _webProcessIdentifier];
-    EXPECT_NE(pid1, pid2);
+    // Process will be swapped for protocol change.
+    auto pid4 = [webView _webProcessIdentifier];
+    EXPECT_NE(pid3, pid4);
 
     [webView loadRequest:[NSURLRequest requestWithURL:[NSBundle.test_resourcesBundle URLForResource:@"simple2" withExtension:@"html"]]];
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    EXPECT_EQ(pid2, [webView _webProcessIdentifier]);
+    EXPECT_EQ(pid4, [webView _webProcessIdentifier]);
 }
 
 TEST(ProcessSwap, LoadAfterPolicyDecision)
@@ -6487,8 +6494,9 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpener)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    EXPECT_EQ([webView _webProcessIdentifier], [createdWebView _webProcessIdentifier]);
-    auto webkitPID = [webView _webProcessIdentifier];
+    auto webViewPID = [webView _webProcessIdentifier];
+    auto createdWebViewPID = [createdWebView _webProcessIdentifier];
+    EXPECT_EQ(webViewPID, createdWebViewPID);
 
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main1.html", [[webView URL] absoluteString]);
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main2.html", [[createdWebView URL] absoluteString]);
@@ -6535,8 +6543,10 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpener)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    // We should not have process-swapped since the auxiliary window has an opener.
-    EXPECT_EQ(webkitPID, [createdWebView _webProcessIdentifier]);
+    auto createdWebViewPID2 = [createdWebView _webProcessIdentifier];
+    bool processSwapped = createdWebViewPID != createdWebViewPID2;
+    // PSON does not swap procss when the window has opener, but Site Isolation does.
+    EXPECT_EQ(processSwapped, isSiteIsolationEnabled(createdWebView.get()));
 
     // Have the openee disown its opener.
     [createdWebView evaluateJavaScript:@"window.opener = null" completionHandler: [&] (id, NSError *error) {
@@ -6567,8 +6577,11 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpener)
     done = false;
 
     EXPECT_WK_STREQ(@"pson://www.google.com/main.html", [[createdWebView URL] absoluteString]);
-    // We still should not have process-swapped since the auxiliary window's opener still has a handle to its openee.
-    EXPECT_EQ(webkitPID, [createdWebView _webProcessIdentifier]);
+
+    auto createdWebViewPID3 = [createdWebView _webProcessIdentifier];
+    processSwapped = createdWebViewPID2 != createdWebViewPID3;
+    // PSON does not swap procss when the window's opener has handle to the window, but Site Isolation does.
+    EXPECT_EQ(processSwapped, isSiteIsolationEnabled(createdWebView.get()));
 
     [webView evaluateJavaScript:@"openee.closed ? 'true' : 'false'" completionHandler: [&] (id openeeIsClosed, NSError *error) {
         EXPECT_WK_STREQ(@"false", openeeIsClosed);
@@ -6614,8 +6627,9 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpenerViaClientInitiatedNavigation)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    EXPECT_EQ([webView _webProcessIdentifier], [createdWebView _webProcessIdentifier]);
-    auto webkitPID = [webView _webProcessIdentifier];
+    auto webViewPID = [webView _webProcessIdentifier];
+    auto createdWebViewPID1 = [createdWebView _webProcessIdentifier];
+    EXPECT_EQ(webViewPID, createdWebViewPID1);
 
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main1.html", [[webView URL] absoluteString]);
     EXPECT_WK_STREQ(@"pson://www.webkit.org/main2.html", [[createdWebView URL] absoluteString]);
@@ -6662,8 +6676,10 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpenerViaClientInitiatedNavigation)
     TestWebKitAPI::Util::run(&done);
     done = false;
 
-    // We should not have process-swapped since the auxiliary window has an opener.
-    EXPECT_EQ(webkitPID, [createdWebView _webProcessIdentifier]);
+    auto createdWebViewPID2 = [createdWebView _webProcessIdentifier];
+    bool processSwapped = createdWebViewPID1 != createdWebViewPID2;
+    // PSON does not swap procss when the window has opener, but Site Isolation does.
+    EXPECT_EQ(processSwapped, isSiteIsolationEnabled(createdWebView.get()));
 
     // Navigate cross-origin via a client-initiated navigation (like a user typing into address bar). This should sever the opener.
     [createdWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.google.com/main.html"]]];
@@ -6679,8 +6695,9 @@ TEST(ProcessSwap, NavigateCrossOriginWithOpenerViaClientInitiatedNavigation)
     done = false;
 
     EXPECT_WK_STREQ(@"pson://www.google.com/main.html", [[createdWebView URL] absoluteString]);
+    auto createdWebViewPID3 = [createdWebView _webProcessIdentifier];
     // We should have process-swapped due to the client-initiated navigation.
-    EXPECT_NE(webkitPID, [createdWebView _webProcessIdentifier]);
+    EXPECT_NE(createdWebViewPID2, createdWebViewPID3);
 
     [webView evaluateJavaScript:@"openee.closed ? 'true' : 'false'" completionHandler: [&] (id openeeIsClosed, NSError *error) {
         EXPECT_WK_STREQ(@"true", openeeIsClosed);

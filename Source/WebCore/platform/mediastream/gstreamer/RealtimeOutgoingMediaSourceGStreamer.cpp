@@ -31,8 +31,8 @@
 #undef GST_USE_UNSTABLE_API
 
 #include <wtf/UUID.h>
+#include <wtf/glib/GMallocString.h>
 #include <wtf/glib/WTFGType.h>
-#include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_outgoing_media_debug);
@@ -82,7 +82,8 @@ void RealtimeOutgoingMediaSourceGStreamer::initialize()
     });
 
     m_bin = gst_bin_new(nullptr);
-
+    m_inputSelector = gst_element_factory_make("input-selector", nullptr);
+    g_object_set(m_inputSelector.get(), "sync-streams", FALSE, nullptr);
     m_tee = gst_element_factory_make("tee", nullptr);
 
     m_rtpFunnel = gst_element_factory_make("rtpfunnel", nullptr);
@@ -90,7 +91,7 @@ void RealtimeOutgoingMediaSourceGStreamer::initialize()
         g_object_set(m_rtpFunnel.get(), "forward-unknown-ssrc", TRUE, nullptr);
 
     m_rtpCapsfilter = gst_element_factory_make("capsfilter", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_tee.get(), m_rtpFunnel.get(), m_rtpCapsfilter.get(), nullptr);
+    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_inputSelector.get(), m_tee.get(), m_rtpFunnel.get(), m_rtpCapsfilter.get(), nullptr);
     gst_element_link(m_rtpFunnel.get(), m_rtpCapsfilter.get());
 
     auto srcPad = adoptGRef(gst_element_get_static_pad(m_rtpCapsfilter.get(), "src"));
@@ -165,7 +166,7 @@ void RealtimeOutgoingMediaSourceGStreamer::stopOutgoingSource(StoppedCallback&& 
 {
     GST_DEBUG_OBJECT(m_bin.get(), "Stopping outgoing source %" GST_PTR_FORMAT, m_outgoingSource.get());
 
-    if (!m_outgoingSource) {
+    if (!m_outgoingSource && !m_fallbackSource) {
         callback();
         return;
     }
@@ -173,8 +174,9 @@ void RealtimeOutgoingMediaSourceGStreamer::stopOutgoingSource(StoppedCallback&& 
     auto data = createProbeData();
     data->source = this;
     data->callback = WTFMove(callback);
-    auto pad = adoptGRef(gst_element_get_static_pad(m_tee.get(), "sink"));
-    auto probeId = gst_pad_add_probe(pad.get(), GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, reinterpret_cast<GstPadProbeCallback>(+[](GstPad*, GstPadProbeInfo* info, gpointer userData) -> GstPadProbeReturn {
+
+    auto pad = adoptGRef(gst_element_get_static_pad(m_inputSelector.get(), "src"));
+    gst_pad_add_probe(pad.get(), GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, reinterpret_cast<GstPadProbeCallback>(+[](GstPad*, GstPadProbeInfo* info, gpointer userData) -> GstPadProbeReturn {
         auto event = GST_PAD_PROBE_INFO_EVENT(info);
         if (GST_EVENT_TYPE(event) != GST_EVENT_EOS)
             return GST_PAD_PROBE_OK;
@@ -186,40 +188,35 @@ void RealtimeOutgoingMediaSourceGStreamer::stopOutgoingSource(StoppedCallback&& 
             return GST_PAD_PROBE_REMOVE;
         }
 
-        auto callData = createProbeData();
-        callData->source = self;
-        callData->callback = std::exchange(data->callback, nullptr);
-
-        gst_element_call_async(self->m_bin.get(), reinterpret_cast<GstElementCallAsyncFunc>(+[](GstElement*, gpointer userData) {
-            auto data = reinterpret_cast<ProbeData*>(userData);
-            auto self = data->source.get();
+        callOnMainThread([weakSelf = WTFMove(self), callback = WTFMove(data->callback)] {
+            auto self = weakSelf.get();
             if (!self) {
-                data->callback();
+                callback();
                 return;
             }
             self->removeOutgoingSource();
-            data->callback();
-        }), callData, reinterpret_cast<GDestroyNotify>(destroyProbeData));
-        return GST_PAD_PROBE_OK;
+            callback();
+        });
+        return GST_PAD_PROBE_REMOVE;
     }), data, reinterpret_cast<GDestroyNotify>(destroyProbeData));
 
-    if (WEBKIT_IS_MEDIA_STREAM_SRC(m_outgoingSource.get())) {
-        if (!webkitMediaStreamSrcSignalEndOfStream(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()))) {
-            auto callback = std::exchange(data->callback, nullptr);
-            gst_pad_remove_probe(pad.get(), probeId);
-            removeOutgoingSource();
-            if (m_track)
-                m_track->removeObserver(*this);
-            callback();
-        }
-    } else
-        gst_element_send_event(m_outgoingSource.get(), gst_event_new_eos());
+    if (WEBKIT_IS_MEDIA_STREAM_SRC(m_outgoingSource.get()))
+        webkitMediaStreamSrcSignalEndOfStream(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()));
+
+    if (m_fallbackSource)
+        gst_element_send_event(m_fallbackSource.get(), gst_event_new_eos());
 }
 
 void RealtimeOutgoingMediaSourceGStreamer::removeOutgoingSource()
 {
+    if (m_track)
+        m_track->removeObserver(*this);
+
+    if (!m_outgoingSource)
+        return;
+
     gstElementLockAndSetState(m_outgoingSource.get(), GST_STATE_NULL);
-    gst_element_unlink(m_outgoingSource.get(), m_tee.get());
+    gst_element_unlink(m_outgoingSource.get(), m_inputSelector.get());
     gst_bin_remove(GST_BIN_CAST(m_bin.get()), m_outgoingSource.get());
     m_outgoingSource.clear();
 }
@@ -286,16 +283,16 @@ void RealtimeOutgoingMediaSourceGStreamer::setSinkPad(GRefPtr<GstPad>&& pad)
 
 void RealtimeOutgoingMediaSourceGStreamer::checkMid()
 {
-    GUniqueOutPtr<char> mid;
-    g_object_get(m_transceiver.get(), "mid", &mid.outPtr(), nullptr);
+    GUniqueOutPtr<char> midChars;
+    g_object_get(m_transceiver.get(), "mid", &midChars.outPtr(), nullptr);
+    auto mid = GMallocString::unsafeAdoptFromUTF8(WTFMove(midChars));
     if (!mid)
         return;
 
-    auto newMid = makeString(unsafeSpan(mid.get()));
-    if (newMid == m_mid)
+    if (equal(m_mid, mid.span()))
         return;
 
-    m_mid = WTFMove(newMid);
+    m_mid = mid.span();
     for (auto& packetizer : m_packetizers)
         packetizer->ensureMidExtension(m_mid);
 
@@ -387,7 +384,20 @@ void RealtimeOutgoingMediaSourceGStreamer::replaceTrack(const RefPtr<MediaStream
     if (newTrack)
         trackPrivate = newTrack->privateTrack();
 
-    webkitMediaStreamSrcReplaceTrack(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()), RefPtr(trackPrivate));
+    if (m_outgoingSource)
+        webkitMediaStreamSrcReplaceTrack(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()), RefPtr(trackPrivate));
+    else {
+        if (trackPrivate) {
+            m_outgoingSource = webkitMediaStreamSrcNew();
+            gst_bin_add(GST_BIN_CAST(m_bin.get()), m_outgoingSource.get());
+            webkitMediaStreamSrcAddTrack(WEBKIT_MEDIA_STREAM_SRC_CAST(m_outgoingSource.get()), trackPrivate.get());
+            gst_element_link(m_outgoingSource.get(), m_inputSelector.get());
+            gst_element_sync_state_with_parent(m_outgoingSource.get());
+        }
+        auto srcPad = outgoingSourcePad();
+        auto activePad = adoptGRef(gst_pad_get_peer(srcPad.get()));
+        g_object_set(m_inputSelector.get(), "active-pad", activePad.get(), nullptr);
+    }
     if (!newTrack) {
         m_isStopped = true;
         m_track = nullptr;
@@ -471,11 +481,18 @@ bool RealtimeOutgoingMediaSourceGStreamer::configurePacketizers(GRefPtr<GstCaps>
     if (gst_caps_is_empty(codecPreferences.get()) || gst_caps_is_any(codecPreferences.get())) [[unlikely]]
         return false;
 
+    auto inputSelectorSrcPad = adoptGRef(gst_element_get_static_pad(m_inputSelector.get(), "src"));
+    if (!gst_pad_is_linked(inputSelectorSrcPad.get()) && !gst_element_link(m_inputSelector.get(), m_tee.get()))
+        return false;
+
+    auto srcPad = outgoingSourcePad();
     if (m_outgoingSource) {
-        auto srcPad = outgoingSourcePad();
-        if (!gst_pad_is_linked(srcPad.get()) && !gst_element_link(m_outgoingSource.get(), m_tee.get()))
+        if (!gst_pad_is_linked(srcPad.get()) && !gst_element_link(m_outgoingSource.get(), m_inputSelector.get()))
             return false;
+
     }
+    auto activePad = adoptGRef(gst_pad_get_peer(srcPad.get()));
+    g_object_set(m_inputSelector.get(), "active-pad", activePad.get(), nullptr);
 
     auto rtpCaps = adoptGRef(gst_caps_new_empty());
     unsigned totalCodecs = gst_caps_get_size(codecPreferences.get());
@@ -706,6 +723,7 @@ void RealtimeOutgoingMediaSourceGStreamer::teardown()
         m_packetizers.clear();
 
         m_bin.clear();
+        m_inputSelector.clear();
         m_tee.clear();
         m_rtpFunnel.clear();
         m_allowedCaps.clear();

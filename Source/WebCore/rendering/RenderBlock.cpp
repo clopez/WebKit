@@ -2012,10 +2012,6 @@ Node* RenderBlock::nodeForHitTest() const
     // that was split. Use the appropriate inner node.
     if (auto* continuation = this->continuation())
         return continuation->element();
-    if (auto inlineBox = dynamicDowncast<RenderInline>(parent()); inlineBox && isAnonymousBlock()) {
-        ASSERT(settings().blocksInInlineLayoutEnabled());
-        return inlineBox->element();
-    }
     return element();
 }
 
@@ -2455,13 +2451,16 @@ std::optional<LayoutUnit> RenderBlock::firstLineBaseline() const
     if (isWritingModeRoot() && !isFlexItem())
         return { };
 
-    for (RenderBox* child = firstInFlowChildBox(); child; child = child->nextInFlowSiblingBox()) {
-        if (child->isLegend() && child->isExcludedFromNormalLayout())
-            continue;
-        if (auto baseline = child->firstLineBaseline())
-            return LayoutUnit { floorToInt(child->logicalTop() + baseline.value()) };
-    }
-    return { };
+    auto firstInFlowBaseline = [&] -> std::optional<LayoutUnit> {
+        for (CheckedPtr child = firstInFlowChildBox(); child; child = child->nextInFlowSiblingBox()) {
+            if (child->isLegend() && child->isExcludedFromNormalLayout())
+                continue;
+            if (auto baseline = child->firstLineBaseline())
+                return child->logicalTop().toInt() + *baseline;
+        }
+        return { };
+    };
+    return firstInFlowBaseline();
 }
 
 std::optional<LayoutUnit> RenderBlock::lastLineBaseline() const
@@ -2469,16 +2468,19 @@ std::optional<LayoutUnit> RenderBlock::lastLineBaseline() const
     if (shouldApplyLayoutContainment())
         return { };
 
-    if (isWritingModeRoot())
+    if (isWritingModeRoot() && !isFlexItem())
         return { };
 
-    for (RenderBox* child = lastInFlowChildBox(); child; child = child->previousInFlowSiblingBox()) {
-        if (child->isLegend() && child->isExcludedFromNormalLayout())
-            continue;
-        if (auto baseline = child->lastLineBaseline())
-            return LayoutUnit { floorToInt(child->logicalTop() + baseline.value()) };
-    } 
-    return { };
+    auto lastInFlowBaseline = [&] -> std::optional<LayoutUnit> {
+        for (CheckedPtr child = lastInFlowChildBox(); child; child = child->previousInFlowSiblingBox()) {
+            if (child->isLegend() && child->isExcludedFromNormalLayout())
+                continue;
+            if (auto baseline = child->lastLineBaseline())
+                return child->logicalTop().toInt() + *baseline;
+        }
+        return { };
+    };
+    return lastInFlowBaseline();
 }
 
 static inline bool isRenderBlockFlowOrRenderButton(RenderElement& renderElement)

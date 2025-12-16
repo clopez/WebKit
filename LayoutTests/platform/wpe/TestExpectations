@@ -1138,11 +1138,6 @@ imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-character.html [ Im
 imported/w3c/web-platform-tests/mathml/relations/css-styling/color-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/color-004.tentative.html [ ImageOnlyFailure ]
 
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/different-initiators.sub.https.html?cross-site-1 [ Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/initiators-a-element.sub.https.html?cross-site [ DumpJSConsoleLogInStdErr Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/initiators-window-open.sub.https.html?cross-site [ DumpJSConsoleLogInStdErr Failure ]
-webkit.org/b/298386 imported/w3c/web-platform-tests/speculation-rules/prefetch/redirect-url.https.html?origin=cross-site-initial [ DumpJSConsoleLogInStdErr Failure ]
-
 # Failures that happen with WEBKIT_SKIA_ENABLE_CPU_RENDERING=1 (which is enabled on the bots)
 webkit.org/b/287572 compositing/clipping/border-radius-async-overflow-stacking.html [ ImageOnlyFailure ]
 webkit.org/b/287572 compositing/overlap-blending/reflection-opacity-huge.html [ ImageOnlyFailure ]
@@ -1305,6 +1300,12 @@ webkit.org/b/299944 http/wpt/mediarecorder/record-96KHz-long-mp4.html [ Skip ]
 
 webkit.org/b/303551 media/media-vp8-webm-seek-to-start.html [ Pass Timeout ]
 
+webkit.org/b/304265 fast/events/mouse-click-events.html [ Failure ]
+webkit.org/b/304265 fast/events/mouse-event-buttons.html [ Failure ]
+
 webkit.org/b/303859 imported/w3c/web-platform-tests/html/canvas/element/manual/text/canvas.2d.disconnected.html [ Pass ImageOnlyFailure ]
 webkit.org/b/303861 imported/w3c/web-platform-tests/svg/path/property/mpath.svg [ Pass ImageOnlyFailure ]
 webkit.org/b/303866 imported/w3c/web-platform-tests/css/css-anchor-position/scroll-to-anchored-fixed-004.html [ Pass ImageOnlyFailure ]
+
+# Flaky soup_session_get_feature crash
+webkit.org/b/303677 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy/fetch-in-iframe.html [ Pass Crash ]

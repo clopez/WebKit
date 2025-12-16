@@ -28,6 +28,7 @@
 #include <WebCore/HTMLNames.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/SharedStringHash.h>
+#include <WebCore/SpeculationRules.h>
 #include <WebCore/URLDecomposition.h>
 #include <wtf/OptionSet.h>
 
@@ -82,10 +83,11 @@ public:
     ReferrerPolicy referrerPolicy() const;
 
     Node::InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode& parentOfInsertedTree) override;
+    void didFinishInsertingNode() override;
 
     AtomString target() const override;
 
-    void setShouldBePrefetched(bool conservative, Vector<String>&& tags, std::optional<ReferrerPolicy>&&);
+    void setShouldBePrefetched(SpeculationRules::Eagerness, Vector<String>&& tags, std::optional<ReferrerPolicy>&&);
 
 protected:
     HTMLAnchorElement(const QualifiedName&, Document&);

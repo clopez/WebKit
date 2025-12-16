@@ -63,6 +63,7 @@ imported/w3c/web-platform-tests/pointerevents [ Pass ]
 
 imported/w3c/web-platform-tests/speech-api [ Pass ]
 
+media/media-webm-av1.html [ Skip ]
 media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
 media/media-source/remoteplayback-from-source-element.html [ Pass ]
@@ -1924,6 +1925,7 @@ imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disal
 webkit.org/b/245092 webaudio/offlineaudiocontext-gc.html [ Pass Failure ]
 
 webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.worker.html [ Pass Failure ]
+webkit.org/b/304202 imported/w3c/web-platform-tests/streams/readable-byte-streams/tee.any.html [ Skip ]
 
 # SVG tests that are broken in the legacy SVG engine, but pass using LBSE.
 svg/transforms/layout-tiny-elements-in-scaled-group.svg [ ImageOnlyFailure ]
@@ -2396,8 +2398,6 @@ imported/w3c/web-platform-tests/css/css-ui/button-author-level-padding-applies.h
 # Tests which do not pass with form control refresh enabled due to differences in appearance
 fast/forms/datalist/input-appearance-range-with-datalist-rtl.html [ Skip ]
 
-webkit.org/b/295810 [ Debug ] fast/dynamic/disappearing-content-on-size-change-crash.html [ Timeout ]
-
 webkit.org/b/296010 fast/frames/frame-append-body-child-crash.html [ Pass Failure ]
 
 webkit.org/b/296138 compositing/transforms/transformed-replaced-with-shadow-children.html [ Pass ImageOnlyFailure ]
@@ -2537,3 +2537,5 @@ webkit.org/b/301013 http/tests/workers/service/registerServiceWorkerClient-after
 # webkit.org/b/301655 Internals animation toggle causes the Image global preference to change, unpausing animations in tests
 fast/images/page-wide-animation-toggle.html [ Pass Timeout ]
 fast/images/individual-animation-toggle.html [ Pass Timeout ]
+
+webkit.org/b/304192 fast/mediastream/granted-denied-request-management1.html [ Skip ]
