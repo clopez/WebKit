@@ -353,6 +353,17 @@ RetainPtr<CMFormatDescriptionRef> createFormatDescriptionFromTrackInfo(const Tra
     }
 #endif
 
+#if PLATFORM(VISION)
+    if (videoInfo.immersiveVideoMetadata) {
+        if (RetainPtr dictionary = formatDescriptionDictionaryFromImmersiveVideoMetadata(*videoInfo.immersiveVideoMetadata)) {
+            CFDictionaryApplyFunction(dictionary.get(), [](CFTypeRef key, CFTypeRef value, void* context) {
+                CFMutableDictionaryRef dict = static_cast<CFMutableDictionaryRef>(context);
+                CFDictionarySetValue(dict, key, value);
+            }, extensions.get());
+        }
+    }
+#endif
+
     CMVideoFormatDescriptionRef formatDescription = nullptr;
     auto error = PAL::CMVideoFormatDescriptionCreate(kCFAllocatorDefault, videoInfo.codecName.value, videoInfo.size.width(), videoInfo.size.height(), extensions.get(), &formatDescription);
     if (error != noErr) {
@@ -432,6 +443,10 @@ RefPtr<VideoInfo> createVideoInfoFromFormatDescription(CMFormatDescriptionRef de
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     setEncryptionInfo(videoInfo, description);
+#endif
+
+#if PLATFORM(VISION)
+    videoInfo->immersiveVideoMetadata = immersiveVideoMetadataFromFormatDescription(description);
 #endif
 
     return videoInfo;
@@ -545,7 +560,6 @@ UniqueRef<MediaSamplesBlock> samplesBlockFromCMSampleBuffer(CMSampleBufferRef cm
     ASSERT(cmSample);
     RefPtr info = trackInfo;
     if (!trackInfo) {
-        // While this path is currently unused; we only support creating a TrackInfo from an Audio CMFormatDescription
         if (RetainPtr description = PAL::CMSampleBufferGetFormatDescription(cmSample)) {
             if (PAL::CMFormatDescriptionGetMediaType(description.get()) == kCMMediaType_Audio)
                 info = createAudioInfoFromFormatDescription(description.get());

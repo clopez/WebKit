@@ -66,7 +66,7 @@ public:
     int maxTextureSize() const { return m_maxTextureSize; }
 
     void backgroundColorDidChange();
-#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM) && (USE(GBM) || OS(ANDROID))
     void preferredBufferFormatsDidChange();
 #endif
     void pendingTilesDidChange();
@@ -97,6 +97,10 @@ public:
 
 private:
     explicit ThreadedCompositor(LayerTreeHost&);
+
+    void startRenderTimer();
+    void stopRenderTimer();
+    bool isOnlyRenderingUpdatePendingAndWaitingForTiles() const;
 
     void scheduleUpdateLocked();
     void flushCompositingState(const OptionSet<WebCore::CompositionReason>&);
@@ -132,6 +136,7 @@ private:
     struct {
         mutable Lock lock;
         State state WTF_GUARDED_BY_LOCK(lock) { State::Idle };
+        bool isRenderTimerActive WTF_GUARDED_BY_LOCK(lock) { false };
         bool isWaitingForTiles WTF_GUARDED_BY_LOCK(lock) { false };
         OptionSet<WebCore::CompositionReason> reasons WTF_GUARDED_BY_LOCK(lock);
         Function<void()> didCompositeRenderingUpdateFunction WTF_GUARDED_BY_LOCK(lock);

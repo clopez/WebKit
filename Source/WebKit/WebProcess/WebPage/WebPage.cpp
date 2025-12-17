@@ -691,7 +691,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     , m_overriddenMediaType { WTFMove(parameters.overriddenMediaType) }
     , m_processDisplayName { WTFMove(parameters.processDisplayName) }
 #if PLATFORM(GTK) || PLATFORM(WPE)
-#if USE(GBM)
+#if USE(GBM) || OS(ANDROID)
     , m_preferredBufferFormats(WTFMove(parameters.preferredBufferFormats))
 #endif
 #endif
@@ -9778,6 +9778,11 @@ void WebPage::describeTextExtractionInteraction(TextExtraction::Interaction&& in
 void WebPage::handleTextExtractionInteraction(TextExtraction::Interaction&& interaction, CompletionHandler<void(bool, String&&)>&& completion)
 {
     TextExtraction::handleInteraction(WTFMove(interaction), Ref { *corePage() }, WTFMove(completion));
+}
+
+void WebPage::hasTextExtractionFilterRules(CompletionHandler<void(bool)>&& completion)
+{
+    completion(!m_textExtractionFilterRules.isEmpty());
 }
 
 void WebPage::updateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData>&& ruleData)

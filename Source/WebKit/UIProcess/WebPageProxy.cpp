@@ -12554,7 +12554,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
         parameters.machBootstrapHandle = SandboxExtension::createHandleForMachBootstrapExtension();
 #endif
 
-#if USE(GBM) && (PLATFORM(GTK) || PLATFORM(WPE))
+#if (PLATFORM(GTK) || PLATFORM(WPE)) && (USE(GBM) || OS(ANDROID))
     parameters.preferredBufferFormats = preferredBufferFormats();
 #endif
 
@@ -17128,6 +17128,11 @@ void WebPageProxy::describeTextExtractionInteraction(TextExtraction::Interaction
     }
 
     sendWithAsyncReply(Messages::WebPage::DescribeTextExtractionInteraction(WTFMove(interaction)), WTFMove(completion));
+}
+
+void WebPageProxy::hasTextExtractionFilterRules(CompletionHandler<void(bool)>&& completion)
+{
+    sendWithAsyncReply(Messages::WebPage::HasTextExtractionFilterRules(), WTFMove(completion));
 }
 
 void WebPageProxy::updateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData>&& rules)
