@@ -924,6 +924,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
             if (!protectedThis)
                 return nullptr;
 
+            // FIXME: This is often null with site isolation enabled. It seems like this is not what was intended.
             RefPtr topDocument = protectedThis->localTopDocument();
             if (!topDocument)
                 return nullptr;
@@ -1737,7 +1738,7 @@ std::pair<URL, WebCore::DidFilterLinkDecoration> WebPage::applyLinkDecorationFil
     return { url, WebCore::DidFilterLinkDecoration::No };
 }
 
-void WebPage::bindRemoteAccessibilityFrames(int, WebCore::FrameIdentifier, Vector<uint8_t>, CompletionHandler<void(Vector<uint8_t>, int)>&& completionHandler)
+void WebPage::bindRemoteAccessibilityFrames(int, WebCore::FrameIdentifier, WebCore::AccessibilityRemoteToken, CompletionHandler<void(WebCore::AccessibilityRemoteToken, int)>&& completionHandler)
 {
     completionHandler({ }, { });
 }

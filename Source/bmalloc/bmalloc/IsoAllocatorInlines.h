@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -108,3 +110,5 @@ void IsoAllocator<Config>::scavenge(IsoHeapImpl<Config>& heap)
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

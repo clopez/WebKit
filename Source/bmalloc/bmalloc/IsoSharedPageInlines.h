@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -79,3 +81,5 @@ inline void IsoSharedPage::stopAllocating(const LockHolder&)
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

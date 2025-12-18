@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -61,3 +63,5 @@ struct EligibilityResult {
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

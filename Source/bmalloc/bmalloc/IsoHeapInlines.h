@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -181,3 +183,5 @@ using __makeBisoMallocedInlineMacroSemicolonifier BUNUSED_TYPE_ALIAS = int
 } } // namespace bmalloc::api
 
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

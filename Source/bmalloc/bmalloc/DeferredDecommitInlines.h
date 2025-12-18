@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -48,3 +50,5 @@ inline DeferredDecommit::DeferredDecommit(IsoDirectoryBaseBase* directory, IsoPa
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

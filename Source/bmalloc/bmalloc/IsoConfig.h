@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -41,3 +43,5 @@ struct IsoConfig {
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

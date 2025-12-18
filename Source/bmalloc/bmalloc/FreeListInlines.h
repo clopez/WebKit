@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -74,3 +76,5 @@ void FreeList::forEach(const Func& func) const
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

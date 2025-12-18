@@ -25,6 +25,8 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include "BPlatform.h"
 
 #if !BUSE(TZONE)
@@ -52,3 +54,5 @@ EligibilityResult<Config>::EligibilityResult(IsoPage<Config>* page)
 
 #endif
 #endif // !BUSE(TZONE)
+
+#endif // __cplusplus

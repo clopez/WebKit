@@ -206,6 +206,7 @@
 #include "WebWheelEventCoalescer.h"
 #include "WebsiteDataStore.h"
 #include <JavaScriptCore/ConsoleTypes.h>
+#include <WebCore/AXObjectCache.h>
 #include <WebCore/AlternativeTextClient.h>
 #include <WebCore/AppHighlight.h>
 #include <WebCore/ArchiveError.h>
@@ -12813,6 +12814,48 @@ void WebPageProxy::revokeGeolocationAuthorizationToken(const String& authorizati
     internals().protectedGeolocationPermissionRequestManager()->revokeAuthorizationToken(authorizationToken);
 }
 
+#if ENABLE(WEB_ARCHIVE)
+bool WebPageProxy::shouldAlwaysPromptForPermission(PermissionName permissionName) const
+{
+    if (!didLoadWebArchive())
+        return false;
+
+    switch (permissionName) {
+    // All cached permissions that are supported by platforms that support
+    // WEB_ARCHIVE should always prompt.
+    case PermissionName::Camera:
+    case PermissionName::Geolocation:
+    case PermissionName::Microphone:
+        break;
+
+    // Notifications are not available in ephemeral sessions.
+    case PermissionName::Notifications:
+    case PermissionName::Push:
+
+    // Orientation and motion data are not emitted.
+    case PermissionName::Accelerometer:
+    case PermissionName::Gyroscope:
+    case PermissionName::Magnetometer:
+
+    // These are not persistent permissions.
+    case PermissionName::BackgroundFetch:
+    case PermissionName::DisplayCapture:
+    case PermissionName::ScreenWakeLock:
+    case PermissionName::SpeakerSelection:
+    case PermissionName::StorageAccess:
+
+    // Not supported.
+    case PermissionName::Bluetooth:
+    case PermissionName::Midi:
+    case PermissionName::Nfc:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    return true;
+}
+#endif
+
 void WebPageProxy::queryPermission(const ClientOrigin& clientOrigin, const PermissionDescriptor& descriptor, CompletionHandler<void(std::optional<PermissionState>)>&& completionHandler)
 {
     bool canAPISucceed = true;
@@ -12821,8 +12864,8 @@ void WebPageProxy::queryPermission(const ClientOrigin& clientOrigin, const Permi
     String name;
 
 #if ENABLE(WEB_ARCHIVE)
-    if (didLoadWebArchive()) {
-        completionHandler(PermissionState::Denied);
+    if (shouldAlwaysPromptForPermission(descriptor.name)) {
+        completionHandler(PermissionState::Prompt);
         return;
     }
 #endif
@@ -17163,9 +17206,9 @@ void WebPageProxy::sendScrollUpdateForNode(std::optional<WebCore::FrameIdentifie
 }
 #endif
 
-void WebPageProxy::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, Vector<uint8_t>&& dataToken, CompletionHandler<void(Vector<uint8_t>, int)>&& completionHandler)
+void WebPageProxy::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, WebCore::AccessibilityRemoteToken dataToken, CompletionHandler<void(WebCore::AccessibilityRemoteToken, int)>&& completionHandler)
 {
-    auto sendResult = sendSyncToProcessContainingFrame(frameID, Messages::WebPage::BindRemoteAccessibilityFrames(processIdentifier, frameID, WTFMove(dataToken)));
+    auto sendResult = sendSyncToProcessContainingFrame(frameID, Messages::WebPage::BindRemoteAccessibilityFrames(processIdentifier, frameID, dataToken));
     if (!sendResult.succeeded())
         return completionHandler({ }, 0);
 
