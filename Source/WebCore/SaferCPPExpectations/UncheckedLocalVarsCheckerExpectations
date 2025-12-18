@@ -65,7 +65,6 @@ css/query/ContainerQueryFeatures.cpp
 css/typedom/ComputedStylePropertyMapReadOnly.cpp
 css/typedom/HashMapStylePropertyMapReadOnly.cpp
 css/typedom/MainThreadStylePropertyMapReadOnly.cpp
-dom/ActiveDOMObject.cpp
 dom/CollectionIndexCacheInlines.h
 dom/ComposedTreeAncestorIterator.h
 dom/ComposedTreeIterator.cpp
@@ -82,7 +81,6 @@ dom/ElementTraversal.h
 dom/EventLoop.cpp
 dom/EventPath.cpp
 dom/InlineStyleSheetOwner.cpp
-dom/Microtasks.cpp
 dom/MouseRelatedEvent.cpp
 dom/Node.cpp
 dom/NodeTraversal.cpp
@@ -98,7 +96,6 @@ dom/StaticRange.cpp
 dom/TreeScope.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
-[ Mac ] dom/mac/ImageControlsMac.cpp
 [ Mac ] editing/AlternativeTextController.cpp
 editing/ApplyBlockElementCommand.cpp
 editing/ApplyStyleCommand.cpp
@@ -127,8 +124,6 @@ editing/markup.cpp
 history/CachedFrame.cpp
 html/CachedHTMLCollectionInlines.h
 html/CollectionTraversalInlines.h
-html/FormAssociatedCustomElement.cpp
-html/FormListedElement.cpp
 [ iOS ] html/HTMLAnchorElement.cpp
 html/HTMLDocument.cpp
 html/HTMLFormElement.cpp
@@ -162,7 +157,6 @@ inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
 inspector/agents/InspectorDOMDebuggerAgent.cpp
 inspector/agents/InspectorDOMStorageAgent.cpp
-inspector/agents/InspectorLayerTreeAgent.cpp
 inspector/agents/InspectorNetworkAgent.cpp
 inspector/agents/InspectorPageAgent.cpp
 inspector/agents/InspectorTimelineAgent.cpp
@@ -226,7 +220,6 @@ layout/integration/inline/LineSelection.h
 layout/layouttree/LayoutBox.cpp
 layout/layouttree/LayoutElementBox.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
-loader/DocumentLoader.cpp
 loader/EmptyClients.cpp
 loader/FrameLoader.cpp
 loader/archive/cf/LegacyWebArchive.cpp

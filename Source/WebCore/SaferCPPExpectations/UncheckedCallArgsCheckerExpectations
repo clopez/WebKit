@@ -1,4 +1,3 @@
-Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
@@ -123,7 +122,6 @@ dom/LiveNodeListInlines.h
 dom/MouseRelatedEvent.cpp
 dom/MutationObserver.cpp
 dom/MutationObserverRegistration.cpp
-dom/MutationRecord.cpp
 dom/NamedNodeMap.cpp
 dom/Node.cpp
 dom/NodeIterator.cpp
@@ -135,7 +133,6 @@ dom/PositionIterator.cpp
 dom/Range.cpp
 dom/RangeBoundaryPoint.h
 dom/ScriptElement.cpp
-dom/ScriptRunner.cpp
 dom/SelectorQuery.cpp
 dom/ShadowRoot.cpp
 dom/SimpleRange.cpp
@@ -145,7 +142,6 @@ dom/TreeScope.cpp
 dom/TreeScopeOrderedMap.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
-[ Mac ] dom/mac/ImageControlsMac.cpp
 editing/AlternativeTextController.cpp
 editing/ApplyBlockElementCommand.cpp
 editing/ApplyStyleCommand.cpp
@@ -193,7 +189,6 @@ html/CachedHTMLCollectionInlines.h
 html/CollectionTraversalInlines.h
 [ iOS ] html/ColorInputType.cpp
 html/FTPDirectoryDocument.cpp
-html/FormAssociatedCustomElement.cpp
 html/FormAssociatedElement.cpp
 [ iOS ] html/HTMLAnchorElement.cpp
 html/HTMLFormElement.cpp
@@ -208,7 +203,6 @@ html/ImageBitmap.cpp
 html/ImageDocument.cpp
 html/LazyLoadFrameObserver.cpp
 html/LazyLoadImageObserver.cpp
-html/MediaDocument.cpp
 html/MediaElementSession.cpp
 html/ModelDocument.cpp
 html/PluginDocument.cpp
@@ -326,8 +320,6 @@ layout/layouttree/LayoutContainingBlockChainIterator.h
 layout/layouttree/LayoutTreeBuilder.cpp
 loader/ApplicationManifestLoader.cpp
 loader/CrossOriginPreflightChecker.cpp
-loader/DocumentLoader.cpp
-loader/DocumentThreadableLoader.cpp
 loader/FrameLoadRequest.cpp
 loader/FrameLoader.cpp
 loader/ImageLoader.cpp

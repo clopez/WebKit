@@ -1,4 +1,3 @@
-Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/mediacapabilities/MediaCapabilities.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
 Modules/mediarecorder/MediaRecorder.cpp
@@ -151,7 +150,6 @@ dom/ElementTextDirection.cpp
 dom/ElementTraversal.h
 dom/EventPath.cpp
 dom/InlineStyleSheetOwner.cpp
-dom/KeyboardEvent.cpp
 dom/MouseRelatedEvent.cpp
 dom/Node.cpp
 dom/NodeTraversal.cpp
@@ -167,7 +165,6 @@ dom/SlotAssignment.cpp
 dom/SpaceSplitString.cpp
 dom/StaticRange.cpp
 dom/StyledElement.cpp
-dom/Subscriber.cpp
 dom/TreeScope.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/UIEventWithKeyState.cpp
@@ -190,8 +187,6 @@ history/CachedFrame.cpp
 history/CachedPage.cpp
 html/CachedHTMLCollectionInlines.h
 html/CollectionTraversalInlines.h
-html/FormAssociatedCustomElement.cpp
-html/FormListedElement.cpp
 [ iOS ] html/HTMLAnchorElement.cpp
 html/HTMLDocument.cpp
 html/HTMLFormElement.cpp
@@ -233,7 +228,6 @@ inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
 inspector/agents/InspectorDOMDebuggerAgent.cpp
 inspector/agents/InspectorDOMStorageAgent.cpp
-inspector/agents/InspectorLayerTreeAgent.cpp
 inspector/agents/InspectorNetworkAgent.cpp
 inspector/agents/InspectorPageAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp

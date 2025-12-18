@@ -1,4 +1,3 @@
-Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/cache/DOMCache.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/entriesapi/FileSystemDirectoryEntry.cpp
@@ -79,6 +78,7 @@ Modules/webdatabase/SQLStatement.cpp
 Modules/webdatabase/SQLTransaction.cpp
 Modules/webdatabase/SQLTransactionBackend.cpp
 Modules/webtransport/WebTransport.cpp
+StyleChangedAnimatablePropertiesGenerated.cpp
 accessibility/AXLogger.cpp
 accessibility/AXObjectCache.cpp
 accessibility/AXObjectCache.h
@@ -299,7 +299,6 @@ dom/ContentVisibilityDocumentState.cpp
 dom/CurrentScriptIncrementer.h
 dom/CustomElementDefaultARIA.cpp
 dom/CustomElementRegistry.cpp
-dom/DOMImplementation.cpp
 dom/DataTransfer.cpp
 dom/DataTransferItemList.cpp
 dom/Document.cpp
@@ -316,12 +315,10 @@ dom/GCReachableRef.h
 dom/IdleCallbackController.cpp
 dom/ImageOverlay.cpp
 dom/InlineStyleSheetOwner.cpp
-dom/KeyboardEvent.cpp
 dom/LiveNodeListInlines.h
 dom/MouseRelatedEvent.cpp
 dom/MutationObserver.cpp
 dom/MutationObserverRegistration.cpp
-dom/MutationRecord.cpp
 dom/NamedNodeMap.cpp
 dom/Node.cpp
 dom/NodeIterator.cpp
@@ -333,8 +330,6 @@ dom/PositionIterator.cpp
 dom/ProcessingInstruction.cpp
 dom/Range.cpp
 dom/RangeBoundaryPoint.h
-dom/ScriptExecutionContextInlines.h
-dom/ScriptRunner.cpp
 dom/SelectorQuery.cpp
 dom/ShadowRoot.cpp
 dom/ShadowRoot.h
@@ -343,13 +338,10 @@ dom/SimulatedClick.cpp
 dom/SpaceSplitString.h
 dom/StaticRange.cpp
 dom/StyledElement.cpp
-dom/Subscriber.cpp
 dom/TreeScope.cpp
 dom/TreeScopeOrderedMap.cpp
 dom/TypedElementDescendantIteratorInlines.h
-dom/VisitedLinkState.cpp
 dom/WindowOrWorkerGlobalScopeTrustedTypes.cpp
-[ Mac ] dom/mac/ImageControlsMac.cpp
 editing/AlternativeTextController.cpp
 editing/ApplyBlockElementCommand.cpp
 editing/ApplyStyleCommand.cpp
@@ -398,9 +390,7 @@ html/CollectionTraversalInlines.h
 html/CustomPaintCanvas.cpp
 html/DirectoryFileListCreator.cpp
 html/FTPDirectoryDocument.cpp
-html/FormAssociatedCustomElement.cpp
 html/FormAssociatedElement.cpp
-html/FormListedElement.cpp
 [ iOS ] html/HTMLAnchorElement.cpp
 html/HTMLAttachmentElement.cpp
 html/HTMLCanvasElement.cpp
@@ -418,12 +408,10 @@ html/HTMLPlugInElement.cpp
 html/HTMLTextFormControlElement.cpp
 html/HTMLVideoElement.cpp
 html/ImageBitmap.cpp
-html/ImageDocument.cpp
 html/LazyLoadFrameObserver.cpp
 html/LazyLoadImageObserver.cpp
 html/LinkIconCollector.cpp
 html/MediaController.cpp
-html/MediaDocument.cpp
 html/MediaElementSession.cpp
 html/ModelDocument.cpp
 html/OffscreenCanvas.cpp
@@ -469,7 +457,6 @@ inspector/InspectorOverlay.cpp
 inspector/InspectorResourceUtilities.cpp
 inspector/InspectorShaderProgram.cpp
 inspector/InspectorStyleSheet.cpp
-inspector/InspectorThreadableLoaderClient.cpp
 inspector/NetworkResourcesData.cpp
 inspector/PageDebugger.cpp
 inspector/PageInspectorController.cpp
@@ -500,7 +487,6 @@ layout/integration/inline/LayoutIntegrationInlineContentBuilder.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 loader/ApplicationManifestLoader.cpp
 loader/CrossOriginPreflightChecker.cpp
-loader/DocumentThreadableLoader.cpp
 loader/FrameLoadRequest.cpp
 [ iOS ] loader/FrameLoader.cpp
 loader/MediaResourceLoader.cpp
@@ -830,7 +816,6 @@ style/StyleAdjuster.cpp
 style/StyleBuilder.cpp
 style/StyleBuilderCustom.h
 style/StyleBuilderState.cpp
-style/StyleChangedAnimatableProperties.cpp
 style/StyleDifference.cpp
 style/StyleExtractor.cpp
 style/StyleExtractorCustom.h
