@@ -45,7 +45,7 @@
 #include "RenderIterator.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "StyleResolver.h"
 #include <wtf/HexNumber.h>
@@ -53,16 +53,16 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderFragmentContainer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderFragmentContainer);
 
 RenderFragmentContainer::RenderFragmentContainer(Type type, Element& element, RenderStyle&& style, RenderFragmentedFlow* fragmentedFlow)
-    : RenderBlockFlow(type, element, WTFMove(style), BlockFlowFlag::IsFragmentContainer)
+    : RenderBlockFlow(type, element, WTF::move(style), BlockFlowFlag::IsFragmentContainer)
     , m_fragmentedFlow(fragmentedFlow)
 {
 }
 
 RenderFragmentContainer::RenderFragmentContainer(Type type, Document& document, RenderStyle&& style, RenderFragmentedFlow* fragmentedFlow)
-    : RenderBlockFlow(type, document, WTFMove(style), BlockFlowFlag::IsFragmentContainer)
+    : RenderBlockFlow(type, document, WTF::move(style), BlockFlowFlag::IsFragmentContainer)
     , m_fragmentedFlow(fragmentedFlow)
 {
 }

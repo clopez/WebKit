@@ -34,8 +34,9 @@
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutShape.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RubyFormattingContext.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StyleWebKitLineBoxContain.h"
 #include "TextUtil.h"
 #include "UnicodeBidi.h"
@@ -84,7 +85,7 @@ static inline StringBuilder toString(const Line::RunList& runs)
         if (!run.isText())
             continue;
         auto& textContent = run.textContent();
-        lineContentBuilder.append(StringView(downcast<InlineTextBox>(run.layoutBox()).content()).substring(textContent->start, textContent->length));
+        lineContentBuilder.append(StringView(downcast<InlineTextBox>(run.layoutBox()).content()).substring(textContent.start, textContent.length));
     }
     return lineContentBuilder;
 }
@@ -306,7 +307,7 @@ inline void LineCandidate::reset()
 LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, HorizontalConstraints rootHorizontalConstraints, const InlineItemList& inlineItemList, TextSpacingContext textSpacingContext)
     : AbstractLineBuilder(inlineFormattingContext, inlineFormattingContext.root(), rootHorizontalConstraints, inlineItemList)
     , m_floatingContext(inlineFormattingContext.floatingContext())
-    , m_textSpacingContext(WTFMove(textSpacingContext))
+    , m_textSpacingContext(WTF::move(textSpacingContext))
 {
 }
 
@@ -319,8 +320,8 @@ LineLayoutResult LineBuilder::layoutInlineContent(const LineInput& lineInput, co
 
     if (isInIntrinsicWidthMode()) {
         return { lineContent->range
-            , WTFMove(result.runs)
-            , { WTFMove(m_placedFloats), WTFMove(m_suspendedFloats), { } }
+            , WTF::move(result.runs)
+            , { WTF::move(m_placedFloats), WTF::move(m_suspendedFloats), { } }
             , { { }, result.contentLogicalWidth, { }, lineContent->overflowLogicalWidth }
             , { m_lineLogicalRect.topLeft() }
             , { }
@@ -349,14 +350,14 @@ LineLayoutResult LineBuilder::layoutInlineContent(const LineInput& lineInput, co
         computedVisualOrder(result.runs, visualOrderList);
 
     return { lineContent->range
-        , WTFMove(result.runs)
-        , { WTFMove(m_placedFloats), WTFMove(m_suspendedFloats), m_lineIsConstrainedByFloat }
+        , WTF::move(result.runs)
+        , { WTF::move(m_placedFloats), WTF::move(m_suspendedFloats), m_lineIsConstrainedByFloat }
         , { contentLogicalLeft, result.contentLogicalWidth, contentLogicalLeft + result.contentLogicalRight, lineContent->overflowLogicalWidth }
         , { m_lineLogicalRect.topLeft(), m_lineLogicalRect.width(), m_lineInitialLogicalRect.left(), m_initialIntrusiveFloatsWidth, m_initialLetterClearGap }
         , { !result.isHangingTrailingContentWhitespace, result.hangingTrailingContentWidth, result.hangablePunctuationStartWidth }
-        , { WTFMove(visualOrderList), inlineBaseDirection }
+        , { WTF::move(visualOrderList), inlineBaseDirection }
         , { isFirstFormattedLineCandidate && inlineContentEnding.has_value() ? IsFirstFormattedLine::Yes : IsFirstFormattedLine::No, isLastInlineContent }
-        , { WTFMove(lineContent->rubyBaseAlignmentOffsetList), lineContent->rubyAnnotationOffset }
+        , { WTF::move(lineContent->rubyBaseAlignmentOffsetList), lineContent->rubyAnnotationOffset }
         , inlineContentEnding
         , result.nonSpanningInlineLevelBoxCount
         , { }
@@ -647,7 +648,7 @@ UniqueRef<LineContent> LineBuilder::placeInlineAndFloatContent(const InlineItemR
                     return;
 
                 auto spaceToDistribute = horizontalAvailableSpace - m_line.contentLogicalWidth() + (m_line.isHangingTrailingContentWhitespace() ? m_line.hangingTrailingContentWidth() : 0.f);
-                if (root().isRubyAnnotationBox() && rootStyle.textAlign() == RenderStyle::initialTextAlign()) {
+                if (root().isRubyAnnotationBox() && rootStyle.textAlign() == Style::ComputedStyle::initialTextAlign()) {
                     lineContent->rubyAnnotationOffset = RubyFormattingContext::applyRubyAlignOnAnnotationBox(m_line, spaceToDistribute, formattingContext());
                     m_line.inflateContentLogicalWidth(spaceToDistribute);
                     m_line.adjustContentRightWithRubyAlign(2 * lineContent->rubyAnnotationOffset);
@@ -1369,12 +1370,17 @@ void LineBuilder::handleBlockContent(const InlineItem& blockItem)
     ASSERT(blockItem.isBlock());
     // Blocks are always the only content on the line.
     ASSERT(!m_line.hasContentOrListMarker());
-    if (!isInIntrinsicWidthMode())
-        formattingContext().integrationUtils().layoutWithFormattingContextForBlockInInline(downcast<ElementBox>(blockItem.layoutBox()), LayoutPoint { m_lineLogicalRect.topLeft() }, layoutState());
-    auto marginBoxLogicalWidth = formattingContext().formattingUtils().inlineItemWidth(blockItem, { }, false);
-    m_line.appendBlock(blockItem, marginBoxLogicalWidth);
+    if (isInIntrinsicWidthMode())
+        return m_line.appendBlock(blockItem, formattingContext().formattingUtils().inlineItemWidth(blockItem, { }, false));
+
     if (rootStyle().writingMode().isBidiRTL())
         m_line.setContentNeedsBidiReordering();
+
+    formattingContext().integrationUtils().layoutWithFormattingContextForBlockInInline(downcast<ElementBox>(blockItem.layoutBox()), LayoutPoint { m_lineLogicalRect.topLeft() }, layoutState());
+    auto contentWidth = InlineLayoutUnit { };
+    if (formattingContext().geometryForBox(blockItem.layoutBox()).borderBoxHeight())
+        contentWidth = formattingContext().formattingUtils().inlineItemWidth(blockItem, { }, false);
+    m_line.appendBlock(blockItem, contentWidth);
 }
 
 LineBuilder::Result LineBuilder::handleInlineContent(const InlineItemRange& layoutRange, LineCandidate& lineCandidate)
@@ -1651,7 +1657,7 @@ void LineBuilder::commitCandidateContent(LineCandidate& lineCandidate, std::opti
                 }
 
                 if (shapingBoundaryStart)
-                    return { Line::ShapingBoundary::Middle };
+                    return { Line::ShapingBoundary::Inside };
 
                 return { };
             };

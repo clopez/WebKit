@@ -28,7 +28,7 @@
 
 #include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGResourceFilter.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGFEDiffuseLightingElement.h"
 #include "SVGFEDropShadowElement.h"
@@ -40,10 +40,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGResourceFilterPrimitive);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGResourceFilterPrimitive);
 
 RenderSVGResourceFilterPrimitive::RenderSVGResourceFilterPrimitive(SVGFilterPrimitiveStandardAttributes& element, RenderStyle&& style)
-    : RenderSVGHiddenContainer(Type::SVGResourceFilterPrimitive, element, WTFMove(style))
+    : RenderSVGHiddenContainer(Type::SVGResourceFilterPrimitive, element, WTF::move(style))
 {
     ASSERT(isRenderSVGResourceFilterPrimitive());
 }

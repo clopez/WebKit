@@ -29,7 +29,7 @@
 #include "AnimationUtilities.h"
 
 #include "CSSPropertyParserConsumer+Font.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "StyleBuilderChecking.h"
 #include "StyleLengthWrapper+Blending.h"
 #include "StyleLengthWrapper+CSSValueConversion.h"
@@ -64,8 +64,8 @@ auto CSSValueConversion<LineHeight>::operator()(BuilderState& state, const CSSPr
     // since EvaluationTimeZoom will set the appropriate value.
     auto zoomFactor = [&] {
         if (!state.style().evaluationTimeZoomEnabled())
-            return Style::ZoomFactor { 1.0f, state.style().deviceScaleFactor() };
-        return Style::ZoomFactor { conversionData.zoom(), state.style().deviceScaleFactor() };
+            return Style::ZoomFactor { 1.0f };
+        return Style::ZoomFactor { conversionData.zoom() };
     };
 
     if (primitiveValue.isLength() || primitiveValue.isCalculatedPercentageWithLength()) {

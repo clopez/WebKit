@@ -53,13 +53,13 @@
 #include "RenderLayer.h"
 #include "RenderLayoutState.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyleInlines.h"
-#include "RenderStyleSetters.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTheme.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
 #include "Settings.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "VisiblePosition.h"
 #include <wtf/StackStats.h>
@@ -68,13 +68,13 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderReplaced);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderReplaced);
 
 const int cDefaultWidth = 300;
 const int cDefaultHeight = 150;
 
 RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style, OptionSet<ReplacedFlag> flags)
-    : RenderBox(type, element, WTFMove(style), { }, flags)
+    : RenderBox(type, element, WTF::move(style), { }, flags)
     , m_intrinsicSize(cDefaultWidth, cDefaultHeight)
 {
     ASSERT(element.isReplaced(&this->style()) || type == Type::Image);
@@ -83,7 +83,7 @@ RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style,
 }
 
 RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style, const LayoutSize& intrinsicSize, OptionSet<ReplacedFlag> flags)
-    : RenderBox(type, element, WTFMove(style), { }, flags)
+    : RenderBox(type, element, WTF::move(style), { }, flags)
     , m_intrinsicSize(intrinsicSize)
 {
     ASSERT(element.isReplaced(&this->style()) || type == Type::Image);
@@ -92,7 +92,7 @@ RenderReplaced::RenderReplaced(Type type, Element& element, RenderStyle&& style,
 }
 
 RenderReplaced::RenderReplaced(Type type, Document& document, RenderStyle&& style, const LayoutSize& intrinsicSize, OptionSet<ReplacedFlag> flags)
-    : RenderBox(type, document, WTFMove(style), { }, flags)
+    : RenderBox(type, document, WTF::move(style), { }, flags)
     , m_intrinsicSize(intrinsicSize)
 {
     setBlockLevelReplacedOrAtomicInline(true);
@@ -120,7 +120,7 @@ void RenderReplaced::willBeDestroyed()
 void RenderReplaced::styleDidChange(Style::Difference diff, const RenderStyle* oldStyle)
 {
     RenderBox::styleDidChange(diff, oldStyle);
-    auto previousUsedZoom = oldStyle ? oldStyle->usedZoom() : Style::evaluate<float>(RenderStyle::initialZoom());
+    auto previousUsedZoom = oldStyle ? oldStyle->usedZoom() : Style::evaluate<float>(Style::ComputedStyle::initialZoom());
     if (previousUsedZoom != style().usedZoom())
         intrinsicSizeChanged();
 }
@@ -226,7 +226,7 @@ Color RenderReplaced::calculateHighlightColor() const
                     continue;
 
                 if (auto highlightStyle = getCachedPseudoStyle({ PseudoElementType::Highlight, highlight.key }, &style()))
-                    return highlightStyle->colorResolvingCurrentColor(highlightStyle->backgroundColor());
+                    return highlightStyle->backgroundColorResolvingCurrentColor();
             }
         }
     }
@@ -312,7 +312,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
     LayoutRect paintRect = LayoutRect(adjustedPaintOffset, size());
     if (paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) {
-        if (style().outlineWidth())
+        if (style().usedOutlineWidth())
             paintOutline(paintInfo, paintRect);
         return;
     }
@@ -1145,12 +1145,12 @@ bool RenderReplaced::replacedMinMaxLogicalHeightComputesAsNone(const auto& logic
 
 bool RenderReplaced::replacedMinLogicalHeightComputesAsNone() const
 {
-    return replacedMinMaxLogicalHeightComputesAsNone(style().logicalMinHeight(), RenderStyle::initialMinHeight());
+    return replacedMinMaxLogicalHeightComputesAsNone(style().logicalMinHeight(), Style::ComputedStyle::initialMinHeight());
 }
 
 bool RenderReplaced::replacedMaxLogicalHeightComputesAsNone() const
 {
-    return replacedMinMaxLogicalHeightComputesAsNone(style().logicalMaxHeight(), RenderStyle::initialMaxHeight());
+    return replacedMinMaxLogicalHeightComputesAsNone(style().logicalMaxHeight(), Style::ComputedStyle::initialMaxHeight());
 }
 
 LayoutUnit RenderReplaced::computeReplacedLogicalHeightRespectingMinMaxHeight(LayoutUnit logicalHeight) const

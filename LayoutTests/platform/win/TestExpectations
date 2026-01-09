@@ -99,6 +99,7 @@ fast/shadow-dom/pointerlockelement-in-slot.html [ Skip ]
 pointer-lock [ Skip ]
 
 # WEB_AUTHN is disabled
+http/tests/digital-credentials/ [ Skip ]
 http/wpt/identity/ [ Skip ]
 imported/w3c/web-platform-tests/digital-credentials/ [ Skip ]
 
@@ -1857,6 +1858,7 @@ webkit.org/b/277235 fast/dynamic/content-visibility-crash-with-continuation-and-
 fast/editing/apply-relative-font-style-change-crash-004.html [ Failure ]
 
 webkit.org/b/238644 fast/events/mouse-click-events.html [ Skip ]
+webkit.org/b/238644 fast/events/mouse-event-buttons.html [ Skip ]
 
 # Makes a subsequent test an assertion failure crash
 webkit.org/b/277121 [ Debug ] fast/events/event-handler-detached-document.html
@@ -1959,6 +1961,10 @@ webkit.org/b/261308 imported/w3c/web-platform-tests/cookies/path/default.html [ 
 # Makes a subsequent performance resource timing test flaky with --order=random
 webkit.org/b/226299 http/tests/performance/performance-resource-timing-resourcetimingbufferfull-shrinking-buffer-crash.html [ Skip ]
 webkit.org/b/226299 http/tests/performance/performance-resource-timing-resourcetimingbufferfull-queue-resource-entry.html [ Skip ]
+http/tests/performance/performance-resource-timing-cross-origin-media-with-cors.html [ Skip ]
+http/tests/performance/performance-resource-timing-cross-origin-media.html [ Skip ]
+http/tests/performance/performance-resource-timing-redirection-cross-origin-media-with-cors.html [ Skip ]
+http/tests/performance/performance-resource-timing-redirection-cross-origin-media.html [ Skip ]
 
 webkit.org/b/222563 http/tests/loading/basic-auth-load-URL-with-consecutive-slashes.html [ Pass Failure ]
 
@@ -3614,6 +3620,7 @@ fast/gradients/generated-gradients.html [ Skip ]
 fast/gradients/list-item-gradient.html [ Skip ]
 fast/gradients/radial-centered.html [ Skip ]
 fast/gradients/simple-gradients.html [ Skip ]
+fast/html/crash-marquee-fullscreen.html [ Skip ] # Timeout
 fast/html/details-add-child-1.html [ Skip ]
 fast/html/details-add-child-2.html [ Skip ]
 fast/html/details-add-details-child-1.html [ Skip ]
@@ -3992,12 +3999,7 @@ transforms/3d/general/perspective-units.html [ Skip ]
 transforms/3d/hit-testing/backface-hit-test.html [ Skip ]
 transforms/3d/hit-testing/backface-no-transform-hit-test.html [ Skip ]
 transforms/3d/point-mapping/3d-point-mapping-2.html [ Skip ]
-transforms/3d/point-mapping/3d-point-mapping-3.html [ Skip ]
-transforms/3d/point-mapping/3d-point-mapping-4.html [ Skip ]
-transforms/3d/point-mapping/3d-point-mapping-coplanar.html [ Skip ]
 transforms/3d/point-mapping/3d-point-mapping-deep.html [ Skip ]
-transforms/3d/point-mapping/3d-point-mapping-origins.html [ Skip ]
-transforms/3d/point-mapping/3d-point-mapping-overlapping.html [ Skip ]
 transforms/3d/point-mapping/3d-point-mapping-preserve-3d.html [ Skip ]
 transforms/3d/point-mapping/3d-point-mapping.html [ Skip ]
 transforms/svg-vs-css.xhtml [ Skip ]
@@ -4360,8 +4362,6 @@ fast/html/body-color-legacy-parsing-3.html [ Pass ImageOnlyFailure ]
 # Fails on Buildbot
 fast/picture/viewport-resize.html [ Pass Failure ]
 
-imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ ImageOnlyFailure Pass ]
-
 fast/text/backslash-to-yen-sign.html [ Pass Failure ]
 
 fast/text/all-small-caps-whitespace.html [ ImageOnlyFailure ]
@@ -4614,3 +4614,8 @@ imported/w3c/web-platform-tests/css/CSS2/box-display/display-008.xht [ ImageOnly
 imported/w3c/web-platform-tests/css/CSS2/box-display/display-009.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/box-display/display-012.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/box-display/display-013.xht [ ImageOnlyFailure ]
+
+# webkit.org/b/304535 ui-serif, ui-sans-serif, ui-monospace, ui-rounded generic families not implemented on Windows
+imported/w3c/web-platform-tests/css/css-fonts/generic-family-lang-attr-cascade.html [ ImageOnlyFailure ]
+
+http/tests/security/offscreen-canvas-remote-read-remote-image.html [ Skip ]

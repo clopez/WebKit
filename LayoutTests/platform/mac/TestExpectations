@@ -1521,8 +1521,6 @@ webkit.org/b/212215 media/video-isplayingtoautomotiveheadunit.html [ Pass Failur
 
 webkit.org/b/212219 media/track/track-cue-missing.html [ Pass Failure ]
 
-webkit.org/b/212226 imported/w3c/web-platform-tests/css/css-grid/alignment/self-baseline/grid-self-baseline-changes-grid-area-size-008.html [ ImageOnlyFailure ]
-
 fast/text/text-styles/-apple-system [ Pass ]
 
 webkit.org/b/214155 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/blob.https.html [ Pass Failure ]
@@ -1923,7 +1921,6 @@ imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disal
 webkit.org/b/245092 webaudio/offlineaudiocontext-gc.html [ Pass Failure ]
 
 webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-streams/construct-byob-request.any.worker.html [ Pass Failure ]
-webkit.org/b/304202 imported/w3c/web-platform-tests/streams/readable-byte-streams/tee.any.html [ Skip ]
 
 # SVG tests that are broken in the legacy SVG engine, but pass using LBSE.
 svg/transforms/layout-tiny-elements-in-scaled-group.svg [ ImageOnlyFailure ]
@@ -2434,8 +2431,6 @@ webkit.org/b/297609 compositing/backing/backing-store-attachment-empty-keyframe.
 
 webkit.org/b/297691 fast/canvas/webgl/tex-image-and-sub-image-2d-with-video.html [ Pass Failure ]
 
-webkit.org/b/298042 http/tests/security/clipboard/copy-paste-html-cross-origin-iframe-across-origin.html [ Pass Failure ]
-
 webkit.org/b/298402 inspector/worker/dom-debugger-event-after-terminate-crash.html [ Pass Crash ]
 
 webkit.org/b/298476 gamepad/gamepad-visibility-1.html [ Crash ]
@@ -2473,7 +2468,6 @@ fast/forms/select/mac-wk2/inactive-appearance.html [ Pass Failure ImageOnlyFailu
 workers/btoa-oom.html [ Pass Timeout ]
 fast/canvas/offscreen-giant.html [ Pass ImageOnlyFailure ]
 fast/images/pagewide-play-pause-offscreen-animations.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/cross-origin-top-navigation-with-user-activation-in-parent.window.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-in-scroller-horizontal-far.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-cues-enter-exit.html [ Pass Failure ]
 fast/forms/number/number-min-max-spinbutton-appearance-none-percentage-width.html [ Pass Failure ]
@@ -2526,8 +2520,6 @@ fast/css/accent-color/datalist.html [ Skip ]
 
 webkit.org/b/302273 accessibility/mac/focus-setting-selection-syncronizing-not-clearing.html [ Pass Timeout ]
 
-webkit.org/b/302331 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ Pass Failure ]
-
 webkit.org/b/302364 http/tests/site-isolation/window-open-with-name-cross-site.html [ Pass Crash ]
 
 webkit.org/b/301013 http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Pass Failure ]
@@ -2535,3 +2527,5 @@ webkit.org/b/301013 http/tests/workers/service/registerServiceWorkerClient-after
 # webkit.org/b/301655 Internals animation toggle causes the Image global preference to change, unpausing animations in tests
 fast/images/page-wide-animation-toggle.html [ Pass Timeout ]
 fast/images/individual-animation-toggle.html [ Pass Timeout ]
+
+webkit.org/b/304523 inspector/unit-tests/iterableweakset.html [ Pass Failure ]

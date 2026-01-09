@@ -57,7 +57,7 @@ struct Content;
 }
 
 class RenderElement : public RenderObject {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderElement);
+    WTF_MAKE_TZONE_ALLOCATED(RenderElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderElement);
 public:
     virtual ~RenderElement();
@@ -125,7 +125,6 @@ public:
 
     bool hasEligibleContainmentForSizeQuery() const;
 
-    Color selectionColor(CSSPropertyID) const;
     std::unique_ptr<RenderStyle> selectionPseudoStyle() const;
 
     // Obtains the selection colors that should be used when painting a selection.
@@ -173,7 +172,7 @@ public:
 
     // Updates only the local style ptr of the object. Does not update the state of the object,
     // and so only should be called when the style is known not to have changed (or from setStyle).
-    void setStyleInternal(RenderStyle&& style) { m_style = WTFMove(style); }
+    void setStyleInternal(RenderStyle&& style) { m_style = WTF::move(style); }
 
     // Repaint only if our old bounds and new bounds are different. The caller may pass in newBounds and newOutlineBox if they are known.
     bool repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderLayerModelObject>&& repaintContainer, RequiresFullRepaint, const RepaintRects& oldRects, const RepaintRects& newRects);
@@ -443,6 +442,8 @@ private:
     void clearReferencedSVGResources();
 
     const RenderStyle* textSegmentPseudoStyle(PseudoElementType) const;
+
+    template<typename> Color selectionColor() const;
 
     SingleThreadPackedWeakPtr<RenderObject> m_firstChild;
     unsigned m_hasInitializedStyle : 1;

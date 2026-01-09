@@ -51,7 +51,7 @@ void SVGResourcesCache::addResourcesFromRenderer(RenderElement& renderer, const 
         return;
 
     // Put object in cache.
-    SVGResources& resources = *m_cache.add(renderer, WTFMove(newResources)).iterator->value;
+    SVGResources& resources = *m_cache.add(renderer, WTF::move(newResources)).iterator->value;
     renderer.setHasCachedSVGResource(true);
 
     // Run cycle-detection _afterwards_, so self-references can be caught as well.
@@ -186,6 +186,15 @@ void SVGResourcesCache::clientStyleChanged(RenderElement& renderer, Style::Diffe
             return true;
 
         if (oldStyle->stroke().urlDisregardingType() != newStyle.stroke().urlDisregardingType())
+            return true;
+
+        if (oldStyle->markerStart() != newStyle.markerStart())
+            return true;
+
+        if (oldStyle->markerMid() != newStyle.markerMid())
+            return true;
+
+        if (oldStyle->markerEnd() != newStyle.markerEnd())
             return true;
 
         return false;

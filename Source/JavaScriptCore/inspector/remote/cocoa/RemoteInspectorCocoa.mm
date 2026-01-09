@@ -500,12 +500,6 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
         [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeJavaScript forKey:WIRTypeKey];
         break;
-    case RemoteInspectionTarget::Type::Page:
-        [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
-        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
-        [listing setObject:WIRTypePage forKey:WIRTypeKey];
-        break;
     case RemoteInspectionTarget::Type::ServiceWorker:
         [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
         [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
@@ -664,13 +658,13 @@ void RemoteInspector::receivedSetupMessage(NSDictionary *userInfo)
             connectionToTarget->close();
             return;
         }
-        m_targetConnectionMap.set(targetIdentifier, WTFMove(connectionToTarget));
+        m_targetConnectionMap.set(targetIdentifier, WTF::move(connectionToTarget));
     } else if (is<RemoteAutomationTarget>(target)) {
         if (!connectionToTarget->setup()) {
             connectionToTarget->close();
             return;
         }
-        m_targetConnectionMap.set(targetIdentifier, WTFMove(connectionToTarget));
+        m_targetConnectionMap.set(targetIdentifier, WTF::move(connectionToTarget));
     } else
         ASSERT_NOT_REACHED();
 
@@ -757,7 +751,7 @@ void RemoteInspector::receivedIndicateMessage(NSDictionary *userInfo)
 
             target = findResult->value;
         }
-        if (RefPtr inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(WTFMove(target)))
+        if (RefPtr inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(WTF::move(target)))
             inspectionTarget->setIndicating(indicateEnabled);
     });
 }

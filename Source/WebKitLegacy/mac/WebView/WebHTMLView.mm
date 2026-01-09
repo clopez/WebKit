@@ -123,7 +123,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
-#import <WebCore/RenderStyleInlines.h>
+#import <WebCore/RenderStyle+GettersInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/SharedBuffer.h>
@@ -5185,7 +5185,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_applyEditingStyleToSelection:(Ref<WebCore::EditingStyle>&&)editingStyle withUndoAction:(WebCore::EditAction)undoAction
 {
     if (auto* coreFrame = core([self _frame]))
-        coreFrame->editor().applyStyleToSelection(WTFMove(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
+        coreFrame->editor().applyStyleToSelection(WTF::move(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
 }
 
 #if PLATFORM(MAC)

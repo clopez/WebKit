@@ -28,8 +28,8 @@
 
 #include "CSSBorderImage.h"
 #include "CSSValueList.h"
-#include "RenderStyleInlines.h"
 #include "StyleBuilderChecking.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StylePrimitiveKeyword+CSSValueCreation.h"
 #include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveKeyword+Serialization.h"
@@ -40,20 +40,20 @@ namespace WebCore {
 namespace Style {
 
 BorderImage::BorderImage()
-    : borderImageSource { RenderStyle::initialBorderImageSource() }
-    , borderImageSlice { RenderStyle::initialBorderImageSlice() }
-    , borderImageWidth { RenderStyle::initialBorderImageWidth() }
-    , borderImageOutset { RenderStyle::initialBorderImageOutset() }
-    , borderImageRepeat { RenderStyle::initialBorderImageRepeat() }
+    : borderImageSource { Style::ComputedStyle::initialBorderImageSource() }
+    , borderImageSlice { Style::ComputedStyle::initialBorderImageSlice() }
+    , borderImageWidth { Style::ComputedStyle::initialBorderImageWidth() }
+    , borderImageOutset { Style::ComputedStyle::initialBorderImageOutset() }
+    , borderImageRepeat { Style::ComputedStyle::initialBorderImageRepeat() }
 {
 }
 
 BorderImage::BorderImage(BorderImageSource&& source, BorderImageSlice&& slice, BorderImageWidth&& width, BorderImageOutset&& outset, BorderImageRepeat&& repeat)
-    : borderImageSource { WTFMove(source) }
-    , borderImageSlice { WTFMove(slice) }
-    , borderImageWidth { WTFMove(width) }
-    , borderImageOutset { WTFMove(outset) }
-    , borderImageRepeat { WTFMove(repeat) }
+    : borderImageSource { WTF::move(source) }
+    , borderImageSlice { WTF::move(slice) }
+    , borderImageWidth { WTF::move(width) }
+    , borderImageOutset { WTF::move(outset) }
+    , borderImageRepeat { WTF::move(repeat) }
 {
 }
 

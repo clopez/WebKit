@@ -51,16 +51,24 @@ typedef void (*VTDecompressionOutputCallback)(void * decompressionOutputRefCon, 
 
 static RetainPtr<CMVideoFormatDescriptionRef> computeAV1InputFormat(std::span<const uint8_t> data, int32_t width, int32_t height)
 {
+#if ENABLE(AV1)
     RefPtr videoInfo = createVideoInfoFromAV1Stream(data);
     if (!videoInfo)
         return { };
 
-    if (width && videoInfo->size.width() != width)
+    if (width && videoInfo->size().width() != width)
         return { };
-    if (height && videoInfo->size.height() != height)
+    if (height && videoInfo->size().height() != height)
         return { };
 
     return createFormatDescriptionFromTrackInfo(*videoInfo);
+#else
+    UNUSED_PARAM(data);
+    UNUSED_PARAM(width);
+    UNUSED_PARAM(height);
+    ASSERT_NOT_REACHED();
+    return { };
+#endif
 }
 
 struct RTCFrameDecodeParams {
@@ -147,7 +155,7 @@ static void av1DecompressionOutputCallback(void* decoderRef, void* params, OSSta
 
     if (auto inputFormat = computeAV1InputFormat(data, _width, _height)) {
         if (!PAL::CMFormatDescriptionEqual(inputFormat.get(), _videoFormat.get())) {
-            _videoFormat = WTFMove(inputFormat);
+            _videoFormat = WTF::move(inputFormat);
             if (int error = [self resetDecompressionSession]; error != WEBRTC_VIDEO_CODEC_OK) {
                 _videoFormat = nullptr;
                 return error;

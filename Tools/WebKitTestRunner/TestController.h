@@ -46,7 +46,7 @@
 #include "InstanceMethodSwizzler.h"
 #if !ENABLE(DNS_SERVER_FOR_TESTING_IN_NETWORKING_PROCESS)
 #include <pal/spi/cocoa/NetworkSPI.h>
-#include <wtf/OSObjectPtr.h>
+#include <wtf/darwin/NetworkOSObject.h>
 #endif // !ENABLE(DNS_SERVER_FOR_TESTING_IN_NETWORKING_PROCESS)
 #endif // PLATFORM(COCOA)
 
@@ -70,7 +70,7 @@ struct TestCommand;
 class AsyncTask {
 public:
     AsyncTask(WTF::Function<void ()>&& task, WTF::Seconds timeout)
-        : m_task(WTFMove(task))
+        : m_task(WTF::move(task))
         , m_timeout(timeout)
     {
         ASSERT(!currentTask());

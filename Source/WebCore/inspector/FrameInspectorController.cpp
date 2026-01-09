@@ -70,7 +70,7 @@ FrameInspectorController::FrameInspectorController(LocalFrame& frame, PageInspec
     auto agentContext = frameAgentContext();
     UniqueRef consoleAgent = makeUniqueRef<FrameConsoleAgent>(agentContext);
     m_instrumentingAgents->setWebConsoleAgent(consoleAgent.ptr());
-    m_agents.append(WTFMove(consoleAgent));
+    m_agents.append(WTF::move(consoleAgent));
 }
 
 FrameInspectorController::~FrameInspectorController()
@@ -130,6 +130,7 @@ void FrameInspectorController::connectFrontend(Inspector::FrontendChannel& front
 
     if (connectedFirstFrontend) {
         m_agents.didCreateFrontendAndBackend();
+        m_injectedScriptManager->addClient();
         InspectorInstrumentation::registerInstrumentingAgents(m_instrumentingAgents.get());
     }
 }
@@ -142,6 +143,7 @@ void FrameInspectorController::disconnectFrontend(Inspector::FrontendChannel& fr
     bool disconnectedLastFrontend = !m_frontendRouter->hasFrontends();
     if (disconnectedLastFrontend) {
         InspectorInstrumentation::unregisterInstrumentingAgents(m_instrumentingAgents.get());
+        m_injectedScriptManager->removeClient();
         m_agents.willDestroyFrontendAndBackend(DisconnectReason::InspectorDestroyed);
     }
 }
@@ -157,6 +159,7 @@ void FrameInspectorController::inspectedFrameDestroyed()
     InspectorInstrumentation::unregisterInstrumentingAgents(m_instrumentingAgents.get());
     m_agents.willDestroyFrontendAndBackend(DisconnectReason::InspectedTargetDestroyed);
 
+    m_injectedScriptManager->removeClient();
     m_frontendRouter->disconnectAllFrontends();
 
     m_agents.discardValues();

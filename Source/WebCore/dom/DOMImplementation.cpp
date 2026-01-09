@@ -69,7 +69,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DOMImplementation);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DOMImplementation);
 
 Ref<Document> DOMImplementation::protectedDocument()
 {
@@ -145,7 +145,7 @@ Ref<HTMLDocument> DOMImplementation::createHTMLDocument(String&& title)
     document->write(nullptr, FixedVector<String> { "<!doctype html><html><head></head><body></body></html>"_s });
     if (!title.isNull()) {
         auto titleElement = HTMLTitleElement::create(titleTag, document);
-        titleElement->appendChild(document->createTextNode(WTFMove(title)));
+        titleElement->appendChild(document->createTextNode(WTF::move(title)));
         ASSERT(document->head());
         document->protectedHead()->appendChild(titleElement);
     }

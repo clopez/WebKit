@@ -84,6 +84,7 @@
 #include "RenderMultiColumnFlow.h"
 #include "RenderObjectInlines.h"
 #include "RenderSVGResourceClipper.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTableCellInlines.h"
 #include "RenderTableCell.h"
 #include "RenderTheme.h"
@@ -96,7 +97,9 @@
 #include "ScrollbarsController.h"
 #include "Settings.h"
 #include "StyleBoxShadow.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
+#include "StyleTransformResolver.h"
 #include "TransformOperationData.h"
 #include "TransformState.h"
 #include <algorithm>
@@ -108,7 +111,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderBox);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBox);
 
 struct SameSizeAsRenderBox : public RenderBoxModelObject {
     virtual ~SameSizeAsRenderBox() = default;
@@ -143,13 +146,13 @@ static const unsigned backgroundObscurationTestMaxDepth = 4;
 bool RenderBox::s_hadNonVisibleOverflow = false;
 
 RenderBox::RenderBox(Type type, Element& element, RenderStyle&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
-    : RenderBoxModelObject(type, element, WTFMove(style), flags | TypeFlag::IsBox, typeSpecificFlags)
+    : RenderBoxModelObject(type, element, WTF::move(style), flags | TypeFlag::IsBox, typeSpecificFlags)
 {
     ASSERT(isRenderBox());
 }
 
 RenderBox::RenderBox(Type type, Document& document, RenderStyle&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
-    : RenderBoxModelObject(type, document, WTFMove(style), flags | TypeFlag::IsBox, typeSpecificFlags)
+    : RenderBoxModelObject(type, document, WTF::move(style), flags | TypeFlag::IsBox, typeSpecificFlags)
 {
     ASSERT(isRenderBox());
 }
@@ -378,9 +381,10 @@ void RenderBox::styleDidChange(Style::Difference diff, const RenderStyle* oldSty
         std::optional<ScrollbarColor> scrollbarColor;
 
         if (auto value = newStyle.scrollbarColor().tryValue()) {
+            Style::ColorResolver colorResolver { newStyle };
             scrollbarColor = ScrollbarColor {
-                .thumbColor = newStyle.colorResolvingCurrentColor(value->thumb),
-                .trackColor = newStyle.colorResolvingCurrentColor(value->track)
+                .thumbColor = colorResolver.colorResolvingCurrentColor(value->thumb),
+                .trackColor = colorResolver.colorResolvingCurrentColor(value->track)
             };
         }
 
@@ -411,7 +415,7 @@ void RenderBox::styleDidChange(Style::Difference diff, const RenderStyle* oldSty
     }
 
     if ((oldStyle && !oldStyle->shapeOutside().isNone()) || !style().shapeOutside().isNone())
-        updateShapeOutsideInfoAfterStyleChange(style(), oldStyle);
+        updateShapeOutsideInfoAfterStyleChange(style(), oldStyle, diff);
     updateGridPositionAfterStyleChange(style(), oldStyle);
 
     // Changing the position from/to absolute can potentially create/remove flex/grid items, as absolutely positioned
@@ -470,19 +474,15 @@ void RenderBox::updateGridPositionAfterStyleChange(const RenderStyle& style, con
     parentGrid->setNeedsItemPlacement();
 }
 
-void RenderBox::updateShapeOutsideInfoAfterStyleChange(const RenderStyle& style, const RenderStyle* oldStyle)
+void RenderBox::updateShapeOutsideInfoAfterStyleChange(const RenderStyle& style, const RenderStyle* oldStyle, Style::Difference diff)
 {
     Style::ShapeOutside shapeOutside = style.shapeOutside();
-    Style::ShapeOutside oldShapeOutside = oldStyle ? oldStyle->shapeOutside() : RenderStyle::initialShapeOutside();
+    Style::ShapeOutside oldShapeOutside = oldStyle ? oldStyle->shapeOutside() : Style::ComputedStyle::initialShapeOutside();
 
     Style::ShapeMargin shapeMargin = style.shapeMargin();
-    Style::ShapeMargin oldShapeMargin = oldStyle ? oldStyle->shapeMargin() : RenderStyle::initialShapeMargin();
+    Style::ShapeMargin oldShapeMargin = oldStyle ? oldStyle->shapeMargin() : Style::ComputedStyle::initialShapeMargin();
 
-    Style::ShapeImageThreshold shapeImageThreshold = style.shapeImageThreshold();
-    Style::ShapeImageThreshold oldShapeImageThreshold = oldStyle ? oldStyle->shapeImageThreshold() : RenderStyle::initialShapeImageThreshold();
-
-    // FIXME: A future optimization would do a deep comparison for equality. (bug 100811)
-    if (shapeOutside == oldShapeOutside && shapeMargin == oldShapeMargin && shapeImageThreshold == oldShapeImageThreshold)
+    if (diff <= Style::DifferenceResult::RecompositeLayer)
         return;
 
     if (shapeOutside.isNone())
@@ -701,9 +701,9 @@ void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
     quads.append(localToAbsoluteQuad(localRect, UseTransforms, wasFixed));
 }
 
-void RenderBox::applyTransform(TransformationMatrix& t, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
+void RenderBox::applyTransform(TransformationMatrix& t, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<Style::TransformResolverOption> options) const
 {
-    style.applyTransform(t, TransformOperationData(boundingBox, this), options);
+    Style::TransformResolver::applyTransform(t, style, TransformOperationData(boundingBox, this), options);
 }
 
 void RenderBox::constrainLogicalMinMaxSizesByAspectRatio(LayoutUnit& computedMinSize, LayoutUnit& computedMaxSize, LayoutUnit computedSize, MinimumSizeIsAutomaticContentBased minimumSizeType, ConstrainDimension dimension) const
@@ -1825,7 +1825,7 @@ bool RenderBox::getBackgroundPaintedExtent(const LayoutPoint& paintOffset, Layou
     ASSERT(hasBackground());
     LayoutRect backgroundRect = snappedIntRect(borderBoxRect());
 
-    Color backgroundColor = style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+    Color backgroundColor = style().visitedDependentBackgroundColorApplyingColorFilter();
     if (backgroundColor.isVisible()) {
         paintedExtent = backgroundRect;
         return true;
@@ -1847,7 +1847,7 @@ bool RenderBox::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect) c
     if (!BackgroundPainter::paintsOwnBackground(*this))
         return false;
 
-    Color backgroundColor = style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+    Color backgroundColor = style().visitedDependentBackgroundColorApplyingColorFilter();
     if (!backgroundColor.isOpaque())
         return false;
 
@@ -1978,7 +1978,7 @@ bool RenderBox::backgroundHasOpaqueTopLayer() const
 
     // If there is only one layer and no image, check whether the background color is opaque.
     if (style().backgroundLayers().usedLength() == 1 && !topLayer.hasImage()) {
-        Color bgColor = style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        Color bgColor = style().visitedDependentBackgroundColorApplyingColorFilter();
         if (bgColor.isOpaque())
             return true;
     }
@@ -3007,90 +3007,15 @@ LayoutUnit RenderBox::computeLogicalWidthUsing(const Style::FlexBasis& logicalWi
     return computeLogicalWidthUsingGeneric(logicalWidth, availableLogicalWidth, containingBlock);
 }
 
-bool RenderBox::columnFlexItemHasStretchAlignment() const
-{
-    // auto margins mean we don't stretch. Note that this function will only be
-    // used for widths, so we don't have to check marginBefore/marginAfter.
-    const auto& parentStyle = parent()->style();
-    ASSERT(parentStyle.isColumnFlexDirection());
-    if (style().marginStart().isAuto() || style().marginEnd().isAuto())
-        return false;
-
-    auto normalBehavior = containingBlock()->selfAlignmentNormalBehavior();
-
-    if (!style().alignSelf().isAuto())
-        return style().alignSelf().resolve(normalBehavior).position() == ItemPosition::Stretch;
-    return parentStyle.alignItems().resolve(normalBehavior).position() == ItemPosition::Stretch;
-}
-
 bool RenderBox::isStretchingColumnFlexItem() const
 {
     if (parent()->isRenderDeprecatedFlexibleBox() && parent()->style().boxOrient() == BoxOrient::Vertical && parent()->style().boxAlign() == BoxAlignment::Stretch)
         return true;
 
     // We don't stretch multiline flexboxes because they need to apply line spacing (align-content) first.
-    if (is<RenderFlexibleBox>(*parent()) && parent()->style().flexWrap() == FlexWrap::NoWrap && parent()->style().isColumnFlexDirection() && columnFlexItemHasStretchAlignment())
+    if (is<RenderFlexibleBox>(*parent()) && parent()->style().flexWrap() == FlexWrap::NoWrap && parent()->style().isColumnFlexDirection() && hasStretchedLogicalWidth())
         return true;
     return false;
-}
-
-// FIXME: Can/Should we move this inside specific layout classes (flex. grid)? Can we refactor columnFlexItemHasStretchAlignment logic?
-bool RenderBox::hasStretchedLogicalHeight() const
-{
-    auto& style = this->style();
-    if (!style.logicalHeight().isAuto() || style.marginBefore().isAuto() || style.marginAfter().isAuto())
-        return false;
-    RenderBlock* containingBlock = this->containingBlock();
-    if (!containingBlock) {
-        // We are evaluating align-self/justify-self, which default to 'normal' for the root element.
-        // The 'normal' value behaves like 'start' except for Flexbox Items, which obviously should have a container.
-        return false;
-    }
-    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Columns))
-            return true;
-
-        auto normalBehavior = containingBlock->selfAlignmentNormalBehavior(this);
-        if (!style.justifySelf().isAuto())
-            return style.justifySelf().resolve(normalBehavior).position() == ItemPosition::Stretch;
-        return containingBlock->style().justifyItems().resolve(normalBehavior).position() == ItemPosition::Stretch;
-    }
-    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Rows))
-        return true;
-
-    auto normalBehavior = containingBlock->selfAlignmentNormalBehavior(this);
-    if (!style.alignSelf().isAuto())
-        return style.alignSelf().resolve(normalBehavior).position() == ItemPosition::Stretch;
-    return containingBlock->style().alignItems().resolve(normalBehavior).position() == ItemPosition::Stretch;
-}
-
-// FIXME: Can/Should we move this inside specific layout classes (flex. grid)? Can we refactor columnFlexItemHasStretchAlignment logic?
-bool RenderBox::hasStretchedLogicalWidth(StretchingMode stretchingMode) const
-{
-    auto& style = this->style();
-    if (!style.logicalWidth().isAuto() || style.marginStart().isAuto() || style.marginEnd().isAuto())
-        return false;
-    RenderBlock* containingBlock = this->containingBlock();
-    if (!containingBlock) {
-        // We are evaluating align-self/justify-self, which default to 'normal' for the root element.
-        // The 'normal' value behaves like 'start' except for Flexbox Items, which obviously should have a container.
-        return false;
-    }
-    auto normalItemPosition = stretchingMode == StretchingMode::Any ? containingBlock->selfAlignmentNormalBehavior(this) : ItemPosition::Normal;
-    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
-        if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Rows))
-            return true;
-
-        if (!style.alignSelf().isAuto())
-            return style.alignSelf().resolve(normalItemPosition).position() == ItemPosition::Stretch;
-        return containingBlock->style().alignItems().resolve(normalItemPosition).position() == ItemPosition::Stretch;
-    }
-    if (auto* grid = dynamicDowncast<RenderGrid>(*this); grid && grid->isSubgridInParentDirection(Style::GridTrackSizingDirection::Columns))
-        return true;
-
-    if (!style.justifySelf().isAuto())
-        return style.justifySelf().resolve(normalItemPosition).position() == ItemPosition::Stretch;
-    return containingBlock->style().justifyItems().resolve(normalItemPosition).position() == ItemPosition::Stretch;
 }
 
 bool RenderBox::sizesPreferredLogicalWidthToFitContent() const
@@ -3100,12 +3025,8 @@ bool RenderBox::sizesPreferredLogicalWidthToFitContent() const
     if (isFloating() || (isNonReplacedAtomicInlineLevelBox() && !isHTMLMarquee()))
         return true;
 
-    if (isGridItem()) {
-        // FIXME: The masonry logic should not be living in RenderBox; it should ideally live in RenderGrid.
-        // This is a temporary solution to prevent regressions.
-        auto* renderGrid = downcast<RenderGrid>(parent());
-        return (renderGrid->areMasonryColumns() && !GridLayoutFunctions::isOrthogonalGridItem(*renderGrid, *this)) || !hasStretchedLogicalWidth();
-    }
+    if (isGridItem())
+        return !hasStretchedLogicalWidth();
 
     // This code may look a bit strange.  Basically width:intrinsic should clamp the size when testing both
     // min-width and width.  max-width is only clamped if it is also intrinsic.
@@ -3137,7 +3058,7 @@ bool RenderBox::sizesPreferredLogicalWidthToFitContent() const
         // For multiline columns, we need to apply align-content first, so we can't stretch now.
         if (!parent()->style().isColumnFlexDirection() || parent()->style().flexWrap() != FlexWrap::NoWrap)
             return true;
-        if (!columnFlexItemHasStretchAlignment())
+        if (!hasStretchedLogicalWidth())
             return true;
     }
 
@@ -3196,7 +3117,7 @@ void RenderBox::computeInlineDirectionMargins(const RenderBlock& containingBlock
         marginStart = computeOrTrimInlineMargin(containingBlock, Style::MarginTrimSide::InlineStart, [&] {
             return Style::evaluateMinimum<LayoutUnit>(marginStartLength, containerWidth, zoomFactor);
         });
-        marginEnd = computeOrTrimInlineMargin(containingBlock, Style::MarginTrimSide::InlineStart, [&] {
+        marginEnd = computeOrTrimInlineMargin(containingBlock, Style::MarginTrimSide::InlineEnd, [&] {
             return Style::evaluateMinimum<LayoutUnit>(marginEndLength, containerWidth, zoomFactor);
         });
         return;
@@ -3999,11 +3920,28 @@ void RenderBox::computeBlockDirectionMargins(const RenderBlock& containingBlock,
     ASSERT(!isRenderTableSection());
     ASSERT(!isRenderTableCol());
 
-    // Margins are calculated with respect to the logical width of
-    // the containing block (8.3)
-    LayoutUnit cw = containingBlockLogicalWidthForContent();
-    marginBefore = constrainBlockMarginInAvailableSpaceOrTrim(containingBlock, cw, Style::MarginTrimSide::BlockStart);
-    marginAfter = constrainBlockMarginInAvailableSpaceOrTrim(containingBlock, cw, Style::MarginTrimSide::BlockEnd);
+    // Margins are calculated with respect to the logical width of the containing block (8.3)
+    auto constrainBlockMarginInAvailableSpaceOrTrim = [&](auto marginSideInBlockDirection) {
+        ASSERT(marginSideInBlockDirection == Style::MarginTrimSide::BlockStart || marginSideInBlockDirection == Style::MarginTrimSide::BlockEnd);
+        if (containingBlock.shouldTrimChildMargin(marginSideInBlockDirection, *this)) {
+            // FIXME(255434): This should be set when the margin is being trimmed
+            // within the context of its layout system (block, flex, grid) and should not
+            // be done at this level within RenderBox. We should be able to leave the
+            // trimming responsibility to each of those contexts and not need to
+            // do any of it here (trimming the margin and setting the rare data bit)
+            if (isGridItem())
+                const_cast<RenderBox&>(*this).markMarginAsTrimmed(marginSideInBlockDirection);
+            return 0_lu;
+        }
+
+        auto availableSpace = containingBlockLogicalWidthForContent();
+        return marginSideInBlockDirection == Style::MarginTrimSide::BlockStart
+            ? Style::evaluateMinimum<LayoutUnit>(style().marginBefore(containingBlock.writingMode()), availableSpace, style().usedZoomForLength())
+            : Style::evaluateMinimum<LayoutUnit>(style().marginAfter(containingBlock.writingMode()), availableSpace, style().usedZoomForLength());
+    };
+
+    marginBefore = constrainBlockMarginInAvailableSpaceOrTrim(Style::MarginTrimSide::BlockStart);
+    marginAfter = constrainBlockMarginInAvailableSpaceOrTrim(Style::MarginTrimSide::BlockEnd);
 }
 
 void RenderBox::computeAndSetBlockDirectionMargins(const RenderBlock& containingBlock)
@@ -4013,26 +3951,6 @@ void RenderBox::computeAndSetBlockDirectionMargins(const RenderBlock& containing
     computeBlockDirectionMargins(containingBlock, marginBefore, marginAfter);
     containingBlock.setMarginBeforeForChild(*this, marginBefore);
     containingBlock.setMarginAfterForChild(*this, marginAfter);
-}
-
-LayoutUnit RenderBox::constrainBlockMarginInAvailableSpaceOrTrim(const RenderBox& containingBlock, LayoutUnit availableSpace, Style::MarginTrimSide marginSide) const
-{
-    
-    ASSERT(marginSide == Style::MarginTrimSide::BlockStart || marginSide == Style::MarginTrimSide::BlockEnd);
-    if (containingBlock.shouldTrimChildMargin(marginSide, *this)) {
-        // FIXME(255434): This should be set when the margin is being trimmed
-        // within the context of its layout system (block, flex, grid) and should not 
-        // be done at this level within RenderBox. We should be able to leave the 
-        // trimming responsibility to each of those contexts and not need to
-        // do any of it here (trimming the margin and setting the rare data bit)
-        if (isGridItem())
-            const_cast<RenderBox&>(*this).markMarginAsTrimmed(marginSide);
-        return 0_lu;
-    }
-    
-    return marginSide == Style::MarginTrimSide::BlockStart
-        ? Style::evaluateMinimum<LayoutUnit>(style().marginBefore(containingBlock.writingMode()), availableSpace, style().usedZoomForLength())
-        : Style::evaluateMinimum<LayoutUnit>(style().marginAfter(containingBlock.writingMode()), availableSpace, style().usedZoomForLength());
 }
 
 // MARK: - Positioned Layout
@@ -4545,7 +4463,7 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox) con
     }
 
     if (outlineStyleForRepaint().hasOutlineInVisualOverflow()) {
-        LayoutUnit outlineSize { outlineStyleForRepaint().outlineSize() };
+        LayoutUnit outlineSize { outlineStyleForRepaint().usedOutlineSize() };
         overflowMinX = std::min(overflowMinX, borderBox.x() - outlineSize);
         overflowMaxX = std::max(overflowMaxX, borderBox.maxX() + outlineSize);
         overflowMinY = std::min(overflowMinY, borderBox.y() - outlineSize);
@@ -4599,47 +4517,17 @@ void RenderBox::addOverflowWithRendererOffset(const RenderBox& renderer, LayoutS
     childLayoutOverflowRect.move(offsetFromThis);
     addLayoutOverflow(childLayoutOverflowRect);
 
-    auto ensurePaddingEndIsIncluded = [&] {
-        if (!hasNonVisibleOverflow())
-            return;
-
-        // As per https://github.com/w3c/csswg-drafts/issues/3653 padding should contribute to the scrollable overflow area.
-        if (!paddingEnd())
-            return;
-
-        // FIXME: Expand it to non-grid/flex cases when applicable.
-        if (!is<RenderGrid>(*this) && !is<RenderFlexibleBox>(*this))
-            return;
-
-        if (renderer.isOutOfFlowPositioned())
-            return;
-
-        // Note that we can't use childLayoutOverflowRect here as it already includes propagated overflow from descendents.
-        auto isMainAxisFlipped = [&] {
-            auto isInlineFlipped = writingMode().isInlineFlipped();
-            if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(*this)) {
-                auto isColumnOrRowReverseSameAsWrapReverse = flexContainer->isColumnOrRowReverse() == flexContainer->isWrapReverse();
-                return isInlineFlipped == isColumnOrRowReverseSameAsWrapReverse;
-            }
-            return isInlineFlipped;
-        }();
-        auto childLogicalRight = [&] {
-            if (!isMainAxisFlipped)
-                return (isHorizontalWritingMode() ? offsetFromThis.width() + renderer.width() : offsetFromThis.height() + renderer.height()) + renderer.marginEnd(writingMode());
-            return (isHorizontalWritingMode() ? offsetFromThis.width() : offsetFromThis.height()) - renderer.marginEnd(writingMode());
-        };
-
-        auto layoutOverflowRect = this->layoutOverflowRect();
-        if (!isMainAxisFlipped) {
-            auto layoutOverflowLogicalRightIncludingPaddingEnd = childLogicalRight() + paddingEnd();
-            isHorizontalWritingMode() ? layoutOverflowRect.shiftMaxXEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd) : layoutOverflowRect.shiftMaxYEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd);
-        } else {
-            auto layoutOverflowLogicalRightIncludingPaddingEnd = childLogicalRight() - paddingEnd();
-            isHorizontalWritingMode() ? layoutOverflowRect.shiftXEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd) : layoutOverflowRect.shiftYEdgeTo(layoutOverflowLogicalRightIncludingPaddingEnd);
+    // Some in-flow boxes (e.g. flex items) extend the content edge.
+    if (hasPotentiallyScrollableOverflow()
+        && (options.contains(ComputeOverflowOptions::MarginsExtendLayoutOverflow) || options.contains(ComputeOverflowOptions::MarginsExtendContentArea))) {
+        auto childMarginRect = renderer.marginBoxRect();
+        childMarginRect.move(offsetFromThis);
+        if (options.contains(ComputeOverflowOptions::MarginsExtendContentArea) && !flippedContentBoxRect().contains(childMarginRect)) {
+            ensureOverflow().addContentOverflow(childMarginRect);
         }
-        addLayoutOverflow(layoutOverflowRect);
-    };
-    ensurePaddingEndIsIncluded();
+        if (options.contains(ComputeOverflowOptions::MarginsExtendLayoutOverflow))
+            addLayoutOverflow(childMarginRect);
+    }
 
     if (paintContainmentApplies())
         return;
@@ -4743,7 +4631,7 @@ void RenderBox::clearOverflow()
 RenderOverflow& RenderBox::ensureOverflow()
 {
     if (!m_overflow)
-        m_overflow = makeUnique<RenderOverflow>(flippedClientBoxRect(), borderBoxRect());
+        m_overflow = makeUnique<RenderOverflow>(flippedClientBoxRect(), borderBoxRect(), flippedContentBoxRect());
 
     return *m_overflow;
 }
@@ -5054,7 +4942,7 @@ bool RenderBox::shouldComputeLogicalHeightFromAspectRatio() const
         return false;
 
     auto h = style().logicalHeight();
-    return h.isAuto() || h.isIntrinsic() || (!isOutOfFlowPositioned() && h.isPercentOrCalculated() && !percentageLogicalHeightIsResolvable());
+    return (h.isAuto() && !hasStretchedLogicalHeight(StretchingMode::Explicit)) || h.isIntrinsic() || (!isOutOfFlowPositioned() && h.isPercentOrCalculated() && !percentageLogicalHeightIsResolvable());
 }
 
 bool RenderBox::shouldComputeLogicalWidthFromAspectRatio() const

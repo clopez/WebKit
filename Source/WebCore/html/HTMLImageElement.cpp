@@ -79,7 +79,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLImageElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLImageElement);
 
 using namespace HTMLNames;
 
@@ -247,7 +247,11 @@ const AtomString& HTMLImageElement::currentSrc()
 void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidate& candidate)
 {
     m_bestFitImageURL = candidate.string.toAtomString();
-    m_currentURL = protectedDocument()->completeURL(imageSourceURL());
+
+    auto& sourceURL = imageSourceURL();
+    // Only complete the URL if it's non-empty to avoid resolving "" to the document base URL.
+    m_currentURL = sourceURL.isEmpty() ? URL() : protectedDocument()->completeURL(sourceURL);
+
     m_currentSrc = { };
     if (candidate.density >= 0)
         m_imageDevicePixelRatio = 1 / candidate.density;
@@ -475,9 +479,9 @@ const AtomString& HTMLImageElement::altText() const
 RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (style.hasContent())
-        return RenderElement::createFor(*this, WTFMove(style));
+        return RenderElement::createFor(*this, WTF::move(style));
 
-    return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTFMove(style), nullptr, m_imageDevicePixelRatio);
+    return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTF::move(style), nullptr, m_imageDevicePixelRatio);
 }
 
 bool HTMLImageElement::isReplaced(const RenderStyle* style) const
@@ -778,7 +782,7 @@ DecodingMode HTMLImageElement::decodingMode() const
     
 void HTMLImageElement::decode(Ref<DeferredPromise>&& promise)
 {
-    return m_imageLoader->decode(WTFMove(promise));
+    return m_imageLoader->decode(WTF::move(promise));
 }
 
 void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
@@ -880,7 +884,7 @@ void HTMLImageElement::setAllowsAnimation(std::optional<bool> allowsAnimation)
 
 void HTMLImageElement::setAttachmentElement(Ref<HTMLAttachmentElement>&& attachment)
 {
-    AttachmentAssociatedElement::setAttachmentElement(WTFMove(attachment));
+    AttachmentAssociatedElement::setAttachmentElement(WTF::move(attachment));
 
 #if ENABLE(SERVICE_CONTROLS)
     bool shouldEnableImageMenu = true;

@@ -470,8 +470,8 @@ localizedStrings["Convert to sRGB"] = "Convert to sRGB";
 localizedStrings["Cookies"] = "Cookies";
 localizedStrings["Copy"] = "Copy";
 localizedStrings["Copy Action"] = "Copy Action";
-localizedStrings["Copy HTTP Request"] = "Copy HTTP Request";
-localizedStrings["Copy HTTP Response"] = "Copy HTTP Response";
+localizedStrings["Copy HTTP Request Headers"] = "Copy HTTP Request Headers";
+localizedStrings["Copy HTTP Response Headers"] = "Copy HTTP Response Headers";
 localizedStrings["Copy Link"] = "Copy Link";
 localizedStrings["Copy Path to Property"] = "Copy Path to Property";
 localizedStrings["Copy Row"] = "Copy Row";
@@ -881,6 +881,7 @@ localizedStrings["HAR Export (%s)"] = "HAR Export (%s)";
 localizedStrings["HAR Import"] = "HAR Import";
 localizedStrings["HAR Import Error: %s"] = "HAR Import Error: %s";
 localizedStrings["HTML"] = "HTML";
+localizedStrings["HTML (Formatted)"] = "HTML (Formatted)";
 localizedStrings["HTML Attributes"] = "HTML Attributes";
 /* Placeholder text in an editable field for the name of a HTTP header */
 localizedStrings["Header @ Local Override Popover New Headers Data Grid Item"] = "Header";
@@ -995,6 +996,7 @@ localizedStrings["Latency"] = "Latency";
 localizedStrings["Layer Count: %d"] = "Layer Count: %d";
 localizedStrings["Layer Info"] = "Layer Info";
 localizedStrings["Layers"] = "Layers";
+localizedStrings["Layers:"] = "Layers:";
 /* Name of Layers Tab */
 localizedStrings["Layers Tab Name"] = "Layers";
 localizedStrings["Layout & Rendering"] = "Layout & Rendering";
@@ -1596,6 +1598,7 @@ localizedStrings["Show hidden tabs\u2026"] = "Show hidden tabs\u2026";
 localizedStrings["Show independent Styles sidebar @ Settings Elements Pane"] = "Show independent Styles sidebar";
 localizedStrings["Show jump to effective property button"] = "Show jump to effective property button";
 localizedStrings["Show jump to variable declaration button"] = "Show jump to variable declaration button";
+localizedStrings["Show layer contents"] = "Show layer contents";
 /* Settings tab checkbox label for whether the details sidebars (on the right in LTR locales) are at the bottom */
 localizedStrings["Show on bottom when narrow @ Settings General Pane"] = "Show on bottom when narrow";
 localizedStrings["Show page rulers and node border lines"] = "Show page rulers and node border lines";

@@ -81,6 +81,7 @@ SCAN_BUILD_OUTPUT_DIR = 'scan-build-output'
 LLVM_DIR = 'llvm-project'
 STATIC_ANALYSIS_ARCHIVE_PATH = '/tmp/static-analysis.zip'
 SHOULD_FILTER_LOGS = load_password('SHOULD_FILTER_LOGS', default=True)
+SHOULD_LOAD_CONTRIBUTORS_FROM_NETWORK = load_password('SHOULD_FILTER_LOGS', default=True)
 
 if CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES:
     CURRENT_HOSTNAME = 'ews-build.webkit.org'
@@ -2078,7 +2079,7 @@ class ValidateUserForQueue(buildstep.BuildStep, AddToLogMixin):
 
     @defer.inlineCallbacks
     def run(self):
-        self.contributors, errors = yield Contributors.load(use_network=True)
+        self.contributors, errors = yield Contributors.load(use_network=SHOULD_LOAD_CONTRIBUTORS_FROM_NETWORK)
         for error in errors:
             yield self._addToLog('stdio', error)
 
@@ -2188,7 +2189,7 @@ class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMix
 
     @defer.inlineCallbacks
     def run(self):
-        self.contributors, errors = yield Contributors.load(use_network=True)
+        self.contributors, errors = yield Contributors.load(use_network=SHOULD_LOAD_CONTRIBUTORS_FROM_NETWORK)
         for error in errors:
             yield self._addToLog('stdio', error)
 
@@ -4307,6 +4308,7 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
     def evaluateCommand(self, cmd):
         rc = self.evaluateResult(cmd)
         previous_build_summary = self.getProperty('build_summary', '')
+        platform = self.getProperty('platform')
         steps_to_add = []
 
         if SHOULD_FILTER_LOGS is True:
@@ -4352,15 +4354,16 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
                     ReRunWebKitTests(),
                 ]
             else:
-                steps_to_add += [
-                    RevertAppliedChanges(),
-                    CleanWorkingDirectory(),
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
-                    CompileWebKitWithoutChange(retry_build_on_failure=True),
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
-                    KillOldProcesses(),
-                    RunWebKitTestsWithoutChange(),
-                ]
+                if platform not in ('win'):
+                    steps_to_add += [
+                        RevertAppliedChanges(),
+                        CleanWorkingDirectory(),
+                        ValidateChange(verifyBugClosed=False, addURLs=False),
+                        CompileWebKitWithoutChange(retry_build_on_failure=True),
+                        ValidateChange(verifyBugClosed=False, addURLs=False),
+                        KillOldProcesses(),
+                        RunWebKitTestsWithoutChange(),
+                    ]
         self.build.addStepsAfterCurrentStep(steps_to_add)
 
         return rc
@@ -4466,6 +4469,7 @@ class ReRunWebKitTests(RunWebKitTests):
         flaky_failures = sorted(list(flaky_failures))[:self.NUM_FAILURES_TO_DISPLAY]
         flaky_failures_string = ', '.join(flaky_failures)
         previous_build_summary = self.getProperty('build_summary', '')
+        platform = self.getProperty('platform')
         steps_to_add = []
 
         if SHOULD_FILTER_LOGS is True:
@@ -4520,19 +4524,23 @@ class ReRunWebKitTests(RunWebKitTests):
                 steps_to_add += [ArchiveTestResults(), UploadTestResults(identifier='rerun'), ExtractTestResults(identifier='rerun')]
                 self.build.addStepsAfterCurrentStep(steps_to_add)
                 return WARNINGS
-            steps_to_add += [
-                ArchiveTestResults(),
-                UploadTestResults(identifier='rerun'),
-                ExtractTestResults(identifier='rerun'),
-                RevertAppliedChanges(),
-                CleanWorkingDirectory(),
-                ValidateChange(verifyBugClosed=False, addURLs=False),
-                CompileWebKitWithoutChange(retry_build_on_failure=True),
-                ValidateChange(verifyBugClosed=False, addURLs=False),
-                KillOldProcesses(),
-                RunWebKitTestsWithoutChange()
-            ]
-            self.build.addStepsAfterCurrentStep(steps_to_add)
+
+            # The significant additional build time isn't worth it on Windows, we'd rather
+            # the worker start on another job in the queue.
+            if platform not in ('win'):
+                steps_to_add += [
+                    ArchiveTestResults(),
+                    UploadTestResults(identifier='rerun'),
+                    ExtractTestResults(identifier='rerun'),
+                    RevertAppliedChanges(),
+                    CleanWorkingDirectory(),
+                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    CompileWebKitWithoutChange(retry_build_on_failure=True),
+                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    KillOldProcesses(),
+                    RunWebKitTestsWithoutChange()
+                ]
+                self.build.addStepsAfterCurrentStep(steps_to_add)
         return rc
 
     @defer.inlineCallbacks
@@ -6116,6 +6124,8 @@ class PrintConfiguration(steps.ShellSequence):
             command_list.extend(self.command_list_apple)
         elif platform in ('gtk', 'wpe', 'jsc-only'):
             command_list.extend(self.command_list_linux)
+            if platform in ('gtk', 'wpe'):
+                command_list.append(['if test -f /etc/build-info; then cat /etc/build-info; else cat /etc/os-release; fi'])
 
         for command in command_list:
             self.commands.append(util.ShellArg(command=command, logname='stdio'))
@@ -6839,7 +6849,7 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
             defer.returnValue(rc)
             return
 
-        self.contributors, errors = yield Contributors.load(use_network=True)
+        self.contributors, errors = yield Contributors.load(use_network=SHOULD_LOAD_CONTRIBUTORS_FROM_NETWORK)
         for error in errors:
             yield self._addToLog('stdio', error)
         yield self._addToLog('stdio', '\n')
@@ -6908,7 +6918,7 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
     @defer.inlineCallbacks
     def run(self):
         self.commands = []
-        self.contributors, errors = yield Contributors.load(use_network=True)
+        self.contributors, errors = yield Contributors.load(use_network=SHOULD_LOAD_CONTRIBUTORS_FROM_NETWORK)
         for error in errors:
             yield self._addToLog('stdio', error)
 

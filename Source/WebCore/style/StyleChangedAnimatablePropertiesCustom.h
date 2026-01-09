@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "RenderStyleInlines.h"
+#include "StyleComputedStyle+GettersInlines.h"
 #include "WebAnimationTypes.h"
 
 namespace WebCore {
@@ -33,27 +33,21 @@ namespace Style {
 
 class ChangedAnimatablePropertiesCustom final {
 public:
-    static void conservativelyCollectChangedAnimatablePropertiesForCursor(const RenderStyle::InheritedFlags&, const RenderStyle::InheritedFlags&, CSSPropertiesBitSet&);
-    static void conservativelyCollectChangedAnimatablePropertiesForZIndex(const StyleBoxData&, const StyleBoxData&, CSSPropertiesBitSet&);
-    static void conservativelyCollectChangedAnimatablePropertiesForCaretColor(const StyleRareInheritedData&, const StyleRareInheritedData&, CSSPropertiesBitSet&);
+    static void conservativelyCollectChangedAnimatablePropertiesForCursor(const ComputedStyle::InheritedFlags&, const ComputedStyle::InheritedFlags&, CSSPropertiesBitSet&);
+    static void conservativelyCollectChangedAnimatablePropertiesForZIndex(const BoxData&, const BoxData&, CSSPropertiesBitSet&);
+    static void conservativelyCollectChangedAnimatablePropertiesForCaretColor(const InheritedRareData&, const InheritedRareData&, CSSPropertiesBitSet&);
 };
 
-inline void ChangedAnimatablePropertiesCustom::conservativelyCollectChangedAnimatablePropertiesForCursor(const RenderStyle::InheritedFlags& a, const RenderStyle::InheritedFlags& b, CSSPropertiesBitSet& changingProperties)
+inline void ChangedAnimatablePropertiesCustom::conservativelyCollectChangedAnimatablePropertiesForCursor(const ComputedStyle::InheritedFlags& a, const ComputedStyle::InheritedFlags& b, CSSPropertiesBitSet& changingProperties)
 {
     if (a.cursorType != b.cursorType)
         changingProperties.m_properties.set(CSSPropertyCursor);
 }
 
-inline void ChangedAnimatablePropertiesCustom::conservativelyCollectChangedAnimatablePropertiesForZIndex(const StyleBoxData& a, const StyleBoxData& b, CSSPropertiesBitSet& changingProperties)
+inline void ChangedAnimatablePropertiesCustom::conservativelyCollectChangedAnimatablePropertiesForZIndex(const BoxData& a, const BoxData& b, CSSPropertiesBitSet& changingProperties)
 {
     if (a.specifiedZIndex() != b.specifiedZIndex())
         changingProperties.m_properties.set(CSSPropertyZIndex);
-}
-
-inline void ChangedAnimatablePropertiesCustom::conservativelyCollectChangedAnimatablePropertiesForCaretColor(const StyleRareInheritedData& a, const StyleRareInheritedData& b, CSSPropertiesBitSet& changingProperties)
-{
-    if (a.caretColor != b.caretColor || a.visitedLinkCaretColor != b.visitedLinkCaretColor || a.hasAutoCaretColor != b.hasAutoCaretColor || a.hasVisitedLinkAutoCaretColor != b.hasVisitedLinkAutoCaretColor)
-        changingProperties.m_properties.set(CSSPropertyCaretColor);
 }
 
 } // namespace Style

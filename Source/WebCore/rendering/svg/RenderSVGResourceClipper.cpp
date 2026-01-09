@@ -45,10 +45,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGResourceClipper);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGResourceClipper);
 
 RenderSVGResourceClipper::RenderSVGResourceClipper(SVGClipPathElement& element, RenderStyle&& style)
-    : RenderSVGResourceContainer(Type::SVGResourceClipper, element, WTFMove(style))
+    : RenderSVGResourceContainer(Type::SVGResourceClipper, element, WTF::move(style))
 {
     ASSERT(isRenderSVGResourceClipper());
 }
@@ -238,7 +238,7 @@ void RenderSVGResourceClipper::updateFromStyle()
     updateHasSVGTransformFlags();
 }
 
-void RenderSVGResourceClipper::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
+void RenderSVGResourceClipper::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<Style::TransformResolverOption> options) const
 {
     ASSERT(document().settings().layerBasedSVGEngineEnabled());
     applySVGTransform(transform, protectedClipPathElement(), style, boundingBox, std::nullopt, std::nullopt, options);

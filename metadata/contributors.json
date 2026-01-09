@@ -655,6 +655,13 @@
    },
    {
       "emails" : [
+         "anand_srinivasan@apple.com"
+      ],
+      "github" : "asworkjsc",
+      "name" : "Anand Srinivasan"
+   },
+   {
+      "emails" : [
          "andersca@apple.com",
          "acarlsson@apple.com"
       ],
@@ -3610,6 +3617,13 @@
       "nicks" : [
          "helder"
       ]
+   },
+   {
+      "emails" : [
+         "helmut@januschka.com"
+      ],
+      "github" : "hjanuschka",
+      "name" : "Helmut Januschka"
    },
    {
       "emails" : [

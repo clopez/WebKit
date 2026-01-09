@@ -45,7 +45,15 @@
 
 // This can't use USE(APPLE_INTERNAL_SDK) because this comes before PlatformUse.h.
 #if PLATFORM(COCOA) && __has_include(<WebKitAdditions/AdditionalPlatformHave.h>)
+/* FIXME: Properly support using WKA in modules. */
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
+#endif
 #include <WebKitAdditions/AdditionalPlatformHave.h>
+#if defined(__clang__) && defined(__has_feature) && __has_feature(modules)
+#pragma clang diagnostic pop
+#endif
 #endif
 
 
@@ -1387,6 +1395,12 @@
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000) \
     || PLATFORM(MACCATALYST) || PLATFORM(IOS) || PLATFORM(VISION)
 #define HAVE_AVASSETWRITER_WITH_OPUS_SUPPORTED 1
+#endif
+
+#if !defined(HAVE_CREDENTIAL_UPDATE_API) \
+    && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 160000) \
+    || ((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 190000))
+#define HAVE_CREDENTIAL_UPDATE_API 1
 #endif
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000) \

@@ -175,7 +175,7 @@ public:
 
     void triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, CompletionHandler<void()>&&) const;
     StorageAccessResult triggerOptionalStorageAccessQuirk(Element&, const PlatformMouseEvent&, const AtomString& eventType, int, Element*, bool isParentProcessAFullWebBrowser, IsSyntheticClick) const;
-    void setSubFrameDomainsForStorageAccessQuirk(Vector<RegistrableDomain>&& domains) { m_subFrameDomainsForStorageAccessQuirk = WTFMove(domains); }
+    void setSubFrameDomainsForStorageAccessQuirk(Vector<RegistrableDomain>&& domains) { m_subFrameDomainsForStorageAccessQuirk = WTF::move(domains); }
     const Vector<RegistrableDomain>& subFrameDomainsForStorageAccessQuirk() const { return m_subFrameDomainsForStorageAccessQuirk; }
 
     bool needsVP9FullRangeFlagQuirk() const;
@@ -193,7 +193,7 @@ public:
 
 #if ENABLE(TOUCH_EVENTS)
     WEBCORE_EXPORT static bool shouldOmitTouchEventDOMAttributesForDesktopWebsite(const URL&);
-    bool shouldDispatchPointerOutAfterHandlingSyntheticClick() const;
+    bool shouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick() const;
 #endif
 
     WEBCORE_EXPORT void setTopDocumentURLForTesting(URL&&);
@@ -268,6 +268,7 @@ public:
     WEBCORE_EXPORT bool shouldHideSoftTopScrollEdgeEffectDuringFocus(const Element&) const;
 
     bool needsClaudeSidebarViewportUnitQuirk(Element&, const RenderStyle&) const;
+    bool needsChromeOSNavigatorUserAgentQuirk(const Document&) const;
 #endif
 
     bool needsMozillaFileTypeForDataTransfer() const;

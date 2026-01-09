@@ -37,7 +37,7 @@ class SharedWorkerThread;
 struct WorkerParameters;
 
 class SharedWorkerGlobalScope final : public WorkerGlobalScope {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SharedWorkerGlobalScope);
+    WTF_MAKE_TZONE_ALLOCATED(SharedWorkerGlobalScope);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SharedWorkerGlobalScope);
 public:
     static Ref<SharedWorkerGlobalScope> create(const String& name, const WorkerParameters&, Ref<SecurityOrigin>&&, SharedWorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, std::unique_ptr<WorkerClient>&&);
@@ -61,7 +61,13 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SharedWorkerGlobalScope)
+static bool isType(const WebCore::EventTarget& context) { return context.eventTargetInterface() == WebCore::EventTargetInterfaceType::SharedWorkerGlobalScope; }
 static bool isType(const WebCore::ScriptExecutionContext& context)
+{
+    auto* global = dynamicDowncast<WebCore::WorkerGlobalScope>(context);
+    return global && global->type() == WebCore::WorkerGlobalScope::Type::SharedWorker;
+}
+static bool isType(const WebCore::WorkerOrWorkletGlobalScope& context)
 {
     auto* global = dynamicDowncast<WebCore::WorkerGlobalScope>(context);
     return global && global->type() == WebCore::WorkerGlobalScope::Type::SharedWorker;

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2026 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -220,7 +221,7 @@ void BoxGeometryUpdater::setListMarkerOffsetForMarkerOutside(const RenderListMar
         // the large negative margin (i.e. this ensures that logical left of the list content stays at the line start)
         listMarkerGeometry.setHorizontalMargin({ listMarkerGeometry.marginStart() + offsetFromParentListItem, listMarkerGeometry.marginEnd() - offsetFromParentListItem });
         if (auto nestedOffset = offsetFromAssociatedListItem - offsetFromParentListItem)
-            m_nestedListMarkerOffsets.set(WTFMove(layoutBox), nestedOffset);
+            m_nestedListMarkerOffsets.set(WTF::move(layoutBox), nestedOffset);
     }
 }
 
@@ -266,7 +267,7 @@ Layout::BoxGeometry::Edges BoxGeometryUpdater::logicalBorder(const RenderBoxMode
 {
     auto& style = renderer.style();
 
-    auto borderWidths = RectEdges<LayoutUnit>::map(style.borderWidth(), [&](auto width) {
+    auto borderWidths = RectEdges<LayoutUnit>::map(style.usedBorderWidths(), [&](auto width) {
         return Style::evaluate<LayoutUnit>(width, Style::ZoomNeeded { });
     });
 

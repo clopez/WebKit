@@ -6340,8 +6340,6 @@ struct WebCore::MockWebAuthenticationConfiguration {
 
 #if HAVE(DIGITAL_CREDENTIALS_UI)
 
-struct WebCore::OpenID4VPRequest {
-};
 
 header: <WebCore/ISO18013.h>
 [Nested] struct WebCore::ISO18013ElementInfo {
@@ -6373,7 +6371,7 @@ struct WebCore::MobileDocumentRequest {
 };
 
 struct WebCore::DigitalCredentialsRequestData {
-    Vector<Variant<WebCore::ValidatedMobileDocumentRequest, WebCore::OpenID4VPRequest>> requests;
+    Vector<WebCore::ValidatedMobileDocumentRequest> requests;
     [Validator='!topOrigin->isNull()'] WebCore::SecurityOriginData topOrigin;
     [Validator='!documentOrigin->isNull()'] WebCore::SecurityOriginData documentOrigin;
 };
@@ -6384,7 +6382,6 @@ struct WebCore::DigitalCredentialsResponseData {
 };
 
 [Nested] enum class WebCore::IdentityCredentialProtocol : uint8_t {
-    Openid4vp,
     OrgIsoMdoc
 };
 
@@ -6785,6 +6782,7 @@ header: <WebCore/TextExtractionTypes.h>
     None,
     EditableOnly,
     Interactive,
+    AllContainers,
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -6848,6 +6846,7 @@ header: <WebCore/TextExtractionTypes.h>
 header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] struct WebCore::TextExtraction::ImageItemData {
     URL completedSource;
+    String shortenedName;
     String altText;
 };
 
@@ -6855,6 +6854,13 @@ header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] struct WebCore::TextExtraction::LinkItemData {
     String target;
     URL completedURL;
+    String shortenedURLString;
+};
+
+header: <WebCore/TextExtractionTypes.h>
+[CustomHeader] struct WebCore::TextExtraction::IFrameData {
+    String origin;
+    WebCore::FrameIdentifier identifier;
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -6864,10 +6870,21 @@ header: <WebCore/TextExtractionTypes.h>
 };
 
 header: <WebCore/TextExtractionTypes.h>
+[CustomHeader] struct WebCore::TextExtraction::FormData {
+    String autocomplete;
+    String name;
+};
+
+header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] struct WebCore::TextExtraction::TextFormControlData {
     WebCore::TextExtraction::Editable editable;
     String controlType;
     String autocomplete;
+    String pattern;
+    String name;
+    std::optional<int> minLength;
+    std::optional<int> maxLength;
+    bool isRequired;
     bool isReadonly;
     bool isDisabled;
     bool isChecked;
@@ -6893,6 +6910,7 @@ header: <WebCore/TextExtractionTypes.h>
     Canvas,
     Subscript,
     Superscript,
+    Strikethrough,
     Generic
 };
 
@@ -6907,7 +6925,7 @@ header: <WebCore/TextExtractionTypes.h>
 
 header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] struct WebCore::TextExtraction::Item {
-    Variant<WebCore::TextExtraction::ContainerType, WebCore::TextExtraction::TextItemData, WebCore::TextExtraction::ScrollableItemData, WebCore::TextExtraction::ImageItemData, WebCore::TextExtraction::SelectData, WebCore::TextExtraction::ContentEditableData, WebCore::TextExtraction::TextFormControlData, WebCore::TextExtraction::LinkItemData> data;
+    Variant<WebCore::TextExtraction::ContainerType, WebCore::TextExtraction::TextItemData, WebCore::TextExtraction::ScrollableItemData, WebCore::TextExtraction::ImageItemData, WebCore::TextExtraction::SelectData, WebCore::TextExtraction::ContentEditableData, WebCore::TextExtraction::TextFormControlData, WebCore::TextExtraction::FormData, WebCore::TextExtraction::LinkItemData, WebCore::TextExtraction::IFrameData> data;
     WebCore::FloatRect rectInRootView;
     Vector<WebCore::TextExtraction::Item> children;
     String nodeName;
@@ -6915,7 +6933,9 @@ header: <WebCore/TextExtractionTypes.h>
     OptionSet<WebCore::TextExtraction::EventListenerCategory> eventListeners;
     HashMap<String, String> ariaAttributes;
     String accessibilityRole;
+    String title;
     HashMap<String, String> clientAttributes;
+    unsigned enclosingBlockNumber;
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -7444,6 +7464,7 @@ class WebCore::NetworkLoadMetrics {
     MonotonicTime responseStart;
     MonotonicTime responseEnd;
     MonotonicTime workerStart;
+    MonotonicTime firstInterimResponseStart;
 
     String protocol;
 
@@ -7651,6 +7672,7 @@ header: <WebCore/Filter.h>
     Vector<Ref<WebCore::FilterFunction>> functions();
     WebCore::FilterGeometry geometry();
     OptionSet<WebCore::FilterRenderingMode> filterRenderingModes();
+    bool isShowingDebugOverlay();
 }
 
 [AdditionalEncoder=StreamConnectionEncoder, RefCounted] class WebCore::SVGFilterRenderer {
@@ -7659,6 +7681,7 @@ header: <WebCore/Filter.h>
     [Validator='WebCore::SVGFilterRenderer::isValidSVGFilterExpression(*expression, *effects)'] Vector<Ref<WebCore::FilterEffect>> effects();
     WebCore::FilterGeometry geometry();
     OptionSet<WebCore::FilterRenderingMode> filterRenderingModes();
+    bool isShowingDebugOverlay();
     std::optional<WebCore::RenderingResourceIdentifier> renderingResourceIdentifierIfExists();
 }
 
@@ -8890,46 +8913,66 @@ enum class WebCore::EncryptionBoxType : uint8_t {
     TransportStreamEncryptionInitData
 };
 
+#if ENABLE(ENCRYPTED_MEDIA)
+using WebCore::TrackInfoEncryptionData = std::pair<WebCore::EncryptionBoxType, Ref<WebCore::SharedBuffer>>;
+using WebCore::TrackInfoEncryptionInitData = WebCore::TrackInfoAtomData;
+
 header: <WebCore/TrackInfo.h>
-[CustomHeader, RefCounted, DisableMissingMemberCheck] struct WebCore::AudioInfo {
+[CustomHeader] struct WebCore::EncryptionDataCollection {
+    WebCore::TrackInfoEncryptionData encryptionData;
+    std::optional<WebCore::FourCC> encryptionOriginalFormat;
+    Vector<WebCore::TrackInfoEncryptionInitData> encryptionInitDatas;
+};
+#endif
+
+header: <WebCore/TrackInfo.h>
+[CustomHeader] struct WebCore::TrackInfoData {
     WebCore::FourCC codecName;
     String codecString;
-    WebCore::TrackID trackID;
+    TrackID trackID;
+
 #if ENABLE(ENCRYPTED_MEDIA)
-    std::optional<std::pair<WebCore::EncryptionBoxType, Ref<WebCore::SharedBuffer>>> encryptionData;
-    std::optional<WebCore::FourCC> encryptionOriginalFormat;
-    Vector<std::pair<WebCore::FourCC, Ref<WebCore::SharedBuffer>>> encryptionInitDatas;
+    std::optional<WebCore::EncryptionDataCollection> encryptionData;
 #endif
-    [NotSerialized] WebCore::TrackInfoTrackType m_type;
+};
+
+header: <WebCore/TrackInfo.h>
+[CustomHeader] struct WebCore::AudioSpecificInfoData {
     uint32_t rate;
     uint32_t channels;
     uint32_t framesPerPacket;
     uint8_t bitDepth;
+
     RefPtr<WebCore::SharedBuffer> cookieData;
+};
+using WebCore::AudioInfoData = std::pair<WebCore::TrackInfoData, WebCore::AudioSpecificInfoData>;
+
+header: <WebCore/TrackInfo.h>
+[CustomHeader, RefCounted] class WebCore::AudioInfo {
+    WebCore::AudioInfoData toAudioInfoData();
 };
 
 header: <WebCore/TrackInfo.h>
-[CustomHeader, RefCounted, DisableMissingMemberCheck] struct WebCore::VideoInfo {
-    WebCore::FourCC codecName;
-    String codecString;
-    WebCore::TrackID trackID;
-#if ENABLE(ENCRYPTED_MEDIA)
-    std::optional<std::pair<WebCore::EncryptionBoxType, Ref<WebCore::SharedBuffer>>> encryptionData;
-    std::optional<WebCore::FourCC> encryptionOriginalFormat;
-    Vector<std::pair<WebCore::FourCC, Ref<WebCore::SharedBuffer>>> encryptionInitDatas;
-#endif
-    [NotSerialized] WebCore::TrackInfoTrackType m_type;
+[CustomHeader] struct WebCore::VideoSpecificInfoData {
     WebCore::FloatSize size;
     WebCore::FloatSize displaySize;
     uint8_t bitDepth;
     WebCore::PlatformVideoColorSpace colorSpace;
+    Vector<std::pair<WebCore::FourCC, Ref<WebCore::SharedBuffer>>> extensionAtoms;
+
 #if PLATFORM(VISION)
     std::optional<WebCore::ImmersiveVideoMetadata> immersiveVideoMetadata;
 #endif
-    Vector<std::pair<WebCore::FourCC, Ref<WebCore::SharedBuffer>>> extensionAtoms;
 };
 
-[RefCounted, CreateUsing=fromVariant] struct WebCore::TrackInfo {
+using WebCore::VideoInfoData = std::pair<WebCore::TrackInfoData, WebCore::VideoSpecificInfoData>;
+
+header: <WebCore/TrackInfo.h>
+[CustomHeader, RefCounted] class WebCore::VideoInfo {
+    WebCore::VideoInfoData toVideoInfoData();
+};
+
+[RefCounted, CreateUsing=fromVariant] class WebCore::TrackInfo {
     Variant<Ref<WebCore::AudioInfo>, Ref<WebCore::VideoInfo>> toVariant();
 };
 

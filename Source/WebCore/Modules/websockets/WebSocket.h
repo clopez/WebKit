@@ -32,6 +32,7 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "WebSocketChannelClient.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/HashSet.h>
@@ -50,7 +51,7 @@ class ThreadableWebSocketChannel;
 template<typename> class ExceptionOr;
 
 class WebSocket final : public RefCounted<WebSocket>, public EventTarget, public ActiveDOMObject, public CanMakeThreadSafeCheckedPtr<WebSocket>, private WebSocketChannelClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebSocket);
+    WTF_MAKE_TZONE_ALLOCATED(WebSocket);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebSocket);
 public:
     static ASCIILiteral subprotocolSeparator();
@@ -149,3 +150,5 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(WebSocket)

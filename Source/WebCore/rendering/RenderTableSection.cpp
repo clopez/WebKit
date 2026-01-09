@@ -46,7 +46,6 @@
 #include "RenderTextControl.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
-#include "StyleInheritedData.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <limits>
 #include <ranges>
@@ -58,7 +57,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTableSection);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTableSection);
 
 // Those 2 variables are used to balance the memory consumption vs the repaint time on big tables.
 static const unsigned gMinTableSizeToUseFastPaintPathWithOverflowingCell = 75 * 75;
@@ -89,14 +88,14 @@ static inline void updateLogicalHeightForCell(RenderTableSection::RowStruct& row
 }
 
 RenderTableSection::RenderTableSection(Element& element, RenderStyle&& style)
-    : RenderBox(Type::TableSection, element, WTFMove(style))
+    : RenderBox(Type::TableSection, element, WTF::move(style))
 {
     setInline(false);
     ASSERT(isRenderTableSection());
 }
 
 RenderTableSection::RenderTableSection(Document& document, RenderStyle&& style)
-    : RenderBox(Type::TableSection, document, WTFMove(style))
+    : RenderBox(Type::TableSection, document, WTF::move(style))
 {
     setInline(false);
     ASSERT(isRenderTableSection());
@@ -1110,6 +1109,23 @@ CellSpan RenderTableSection::spannedColumns(const LayoutRect& flippedRect, Shoul
     return CellSpan(startColumn, endColumn);
 }
 
+Color RenderTableSection::rowGroupBorderColor(CSSPropertyID borderColor) const
+{
+    switch (borderColor) {
+    case CSSPropertyBorderTopColor:
+        return style().visitedDependentBorderTopColorApplyingColorFilter();
+    case CSSPropertyBorderRightColor:
+        return style().visitedDependentBorderRightColorApplyingColorFilter();
+    case CSSPropertyBorderBottomColor:
+        return style().visitedDependentBorderBottomColorApplyingColorFilter();
+    case CSSPropertyBorderLeftColor:
+        return style().visitedDependentBorderLeftColorApplyingColorFilter();
+    default:
+        ASSERT_NOT_REACHED();
+        return Color::black;
+    }
+}
+
 void RenderTableSection::paintRowGroupBorder(const PaintInfo& paintInfo, bool antialias, LayoutRect rect, BoxSide side, CSSPropertyID borderColor, BorderStyle borderStyle, BorderStyle tableBorderStyle)
 {
     if (tableBorderStyle == BorderStyle::Hidden)
@@ -1117,7 +1133,7 @@ void RenderTableSection::paintRowGroupBorder(const PaintInfo& paintInfo, bool an
     rect.intersect(paintInfo.rect);
     if (rect.isEmpty())
         return;
-    BorderPainter::drawLineForBoxSide(paintInfo.context(), document(), rect, side, style().visitedDependentColorWithColorFilter(borderColor), borderStyle, 0, 0, antialias);
+    BorderPainter::drawLineForBoxSide(paintInfo.context(), document(), rect, side, rowGroupBorderColor(borderColor), borderStyle, 0, 0, antialias);
 }
 
 LayoutUnit RenderTableSection::offsetLeftForRowGroupBorder(RenderTableCell* cell, const LayoutRect& rowGroupRect, unsigned row)

@@ -36,7 +36,7 @@
 #include "Logging.h"
 #include "RenderObjectDocument.h"
 #include "RenderSVGText.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "SVGClipPathElement.h"
 #include "SVGElementTypeHelpers.h"
@@ -51,10 +51,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyRenderSVGResourceClipper);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LegacyRenderSVGResourceClipper);
 
 LegacyRenderSVGResourceClipper::LegacyRenderSVGResourceClipper(SVGClipPathElement& element, RenderStyle&& style)
-    : LegacyRenderSVGResourceContainer(Type::LegacySVGResourceClipper, element, WTFMove(style))
+    : LegacyRenderSVGResourceContainer(Type::LegacySVGResourceClipper, element, WTF::move(style))
 {
 }
 
@@ -308,7 +308,6 @@ void LegacyRenderSVGResourceClipper::calculateClipContentRepaintRect(RepaintRect
              continue;
         m_clipBoundaries[repaintRectCalculation].unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates(repaintRectCalculation)));
     }
-    m_clipBoundaries[repaintRectCalculation] = clipPathElement().animatedLocalTransform().mapRect(m_clipBoundaries[repaintRectCalculation]);
 }
 
 bool LegacyRenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundingBox, const FloatPoint& nodeAtPoint)
@@ -325,14 +324,16 @@ bool LegacyRenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectB
     if (!SVGRenderSupport::pointInClippingArea(*this, point))
         return false;
 
+    // The forward transform order is: OBB first, then local transform.
+    // So the inverse order is: inverse local first, then inverse OBB.
+    point = valueOrDefault(clipPathElement().animatedLocalTransform().inverse()).mapPoint(point);
+
     if (clipPathElement().clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         AffineTransform transform;
         transform.translate(objectBoundingBox.location());
         transform.scale(objectBoundingBox.size());
         point = valueOrDefault(transform.inverse()).mapPoint(point);
     }
-
-    point = valueOrDefault(clipPathElement().animatedLocalTransform().inverse()).mapPoint(point);
 
     for (Node* childNode = clipPathElement().firstChild(); childNode; childNode = childNode->nextSibling()) {
         RenderObject* renderer = childNode->renderer();
@@ -360,19 +361,21 @@ FloatRect LegacyRenderSVGResourceClipper::resourceBoundingBox(const RenderObject
         });
         return object.objectBoundingBox();
     }
-    
+
     if (m_clipBoundaries[repaintRectCalculation].isEmpty())
         calculateClipContentRepaintRect(repaintRectCalculation);
+
+    auto clipBoundaries = m_clipBoundaries[repaintRectCalculation];
 
     if (clipPathElement().clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         FloatRect objectBoundingBox = object.objectBoundingBox();
         AffineTransform transform;
         transform.translate(objectBoundingBox.location());
         transform.scale(objectBoundingBox.size());
-        return transform.mapRect(m_clipBoundaries[repaintRectCalculation]);
+        clipBoundaries = transform.mapRect(clipBoundaries);
     }
 
-    return m_clipBoundaries[repaintRectCalculation];
+    return clipPathElement().animatedLocalTransform().mapRect(clipBoundaries);
 }
 
 }

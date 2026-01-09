@@ -209,7 +209,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     }
 #endif
 
-#if PLATFORM(WPE)
+#if PLATFORM(WPE) && USE(WPE_RENDERER)
     parameters.isServiceWorkerProcess = process.isRunningServiceWorkers();
 
     if (!parameters.isServiceWorkerProcess && parameters.rendererBufferTransportMode.isEmpty()) {
@@ -374,7 +374,7 @@ const String& WebProcessPool::accessibilityBusAddress() const
 #if PLATFORM(GTK)
     auto address = Display::singleton().accessibilityBusAddress();
     if (!address.isEmpty()) {
-        m_accessibilityBusAddress = WTFMove(address);
+        m_accessibilityBusAddress = WTF::move(address);
         return m_accessibilityBusAddress.value();
     }
 #endif

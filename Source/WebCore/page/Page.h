@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/Debugger.h>
 #include <WebCore/ActivityState.h>
 #include <WebCore/AnimationFrameRate.h>
 #include <WebCore/BackForwardItemIdentifier.h>
@@ -80,7 +81,6 @@
 #endif
 
 namespace JSC {
-class Debugger;
 class JSGlobalObject;
 }
 
@@ -158,7 +158,6 @@ class MediaSessionCoordinatorPrivate;
 class MediaSessionManagerInterface;
 class ModelPlayerProvider;
 class PageConfiguration;
-class PageDebuggable;
 class PageGroup;
 class PageInspectorController;
 class PageOverlayController;
@@ -461,7 +460,7 @@ public:
     void setOpenedByDOMWithOpener(bool value) { m_openedByDOMWithOpener = value; }
 
     const RegistrableDomain& openedByScriptDomain() const { return m_openedByScriptDomain; }
-    void setOpenedByScriptDomain(RegistrableDomain&& domain) { m_openedByScriptDomain = WTFMove(domain); }
+    void setOpenedByScriptDomain(RegistrableDomain&& domain) { m_openedByScriptDomain = WTF::move(domain); }
 
     WEBCORE_EXPORT void goToItem(LocalFrame& rootFrame, HistoryItem&, FrameLoadType, ShouldTreatAsContinuingLoad, ProcessSwapDisposition processSwapDisposition = ProcessSwapDisposition::None);
     void goToItemForNavigationAPI(LocalFrame& rootFrame, HistoryItem&, FrameLoadType, LocalFrame& triggeringFrame, NavigationAPIMethodTracker*);
@@ -488,14 +487,6 @@ public:
     bool shouldApplyScreenFingerprintingProtections(Document&) const;
 
     OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const;
-
-#if ENABLE(REMOTE_INSPECTOR)
-    WEBCORE_EXPORT bool inspectable() const;
-    WEBCORE_EXPORT void setInspectable(bool);
-    WEBCORE_EXPORT String remoteInspectionNameOverride() const;
-    WEBCORE_EXPORT void setRemoteInspectionNameOverride(const String&);
-    void remoteInspectorInformationDidChange();
-#endif
 
     Chrome& chrome() { return m_chrome.get(); }
     const Chrome& chrome() const { return m_chrome.get(); }
@@ -985,11 +976,6 @@ public:
     bool hasSeenAnyMediaEngine() const;
     void sawMediaEngine(const String& engineName);
     void resetSeenMediaEngines();
-
-#if ENABLE(REMOTE_INSPECTOR)
-    PageDebuggable& inspectorDebuggable() { return m_inspectorDebuggable.get(); }
-    const PageDebuggable& inspectorDebuggable() const { return m_inspectorDebuggable.get(); }
-#endif
 
     void hiddenPageCSSAnimationSuspensionStateChanged();
 
@@ -1641,10 +1627,6 @@ private:
     std::unique_ptr<AlternativeTextClient> m_alternativeTextClient;
 
     bool m_scriptedAnimationsSuspended { false };
-
-#if ENABLE(REMOTE_INSPECTOR)
-    const Ref<PageDebuggable> m_inspectorDebuggable;
-#endif
 
     RefPtr<IDBClient::IDBConnectionToServer> m_idbConnectionToServer;
 

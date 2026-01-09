@@ -42,7 +42,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HIDGamepadProvider);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HIDGamepadProvider);
 
 static const Seconds connectionDelayInterval { 500_ms };
 static const Seconds hidInputNotificationDelay { 1_ms };
@@ -244,7 +244,7 @@ void HIDGamepadProvider::deviceAdded(IOHIDDeviceRef device)
         m_gamepadVector.grow(index + 1);
 
     m_gamepadVector[index] = gamepad.get();
-    m_gamepadMap.set(device, WTFMove(gamepad));
+    m_gamepadMap.set(device, WTF::move(gamepad));
 
     if (!m_initialGamepadsConnected) {
         // This added device is the result of us starting to monitor gamepads.

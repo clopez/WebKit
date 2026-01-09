@@ -47,22 +47,23 @@
 #include "SVGNames.h"
 #include "SVGPathData.h"
 #include "SVGUseElement.h"
+#include "StyleTransformResolver.h"
 #include "TransformState.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGModelObject);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGModelObject);
 
 RenderSVGModelObject::RenderSVGModelObject(Type type, Document& document, RenderStyle&& style, OptionSet<SVGModelObjectFlag> typeFlags)
-    : RenderLayerModelObject(type, document, WTFMove(style), { }, typeFlags)
+    : RenderLayerModelObject(type, document, WTF::move(style), { }, typeFlags)
 {
     ASSERT(!isLegacyRenderSVGModelObject());
     ASSERT(isRenderSVGModelObject());
 }
 
 RenderSVGModelObject::RenderSVGModelObject(Type type, SVGElement& element, RenderStyle&& style, OptionSet<SVGModelObjectFlag> typeFlags)
-    : RenderLayerModelObject(type, element, WTFMove(style), { }, typeFlags)
+    : RenderLayerModelObject(type, element, WTF::move(style), { }, typeFlags)
 {
     ASSERT(!isLegacyRenderSVGModelObject());
     ASSERT(isRenderSVGModelObject());
@@ -276,11 +277,11 @@ bool RenderSVGModelObject::applyCachedClipAndScrollPosition(RepaintRects& rects,
 Path RenderSVGModelObject::computeClipPath(AffineTransform& transform) const
 {
     if (layer()->isTransformed())
-        transform.multiply(layer()->currentTransform(RenderStyle::individualTransformOperations()).toAffineTransform());
+        transform.multiply(layer()->currentTransform(Style::TransformResolver::individualTransformOperations).toAffineTransform());
 
     if (RefPtr useElement = dynamicDowncast<SVGUseElement>(protectedElement())) {
         if (CheckedPtr clipChildRenderer = useElement->rendererClipChild())
-            transform.multiply(downcast<RenderLayerModelObject>(*clipChildRenderer).checkedLayer()->currentTransform(RenderStyle::individualTransformOperations()).toAffineTransform());
+            transform.multiply(downcast<RenderLayerModelObject>(*clipChildRenderer).checkedLayer()->currentTransform(Style::TransformResolver::individualTransformOperations).toAffineTransform());
         if (RefPtr clipChild = useElement->clipChild())
             return pathFromGraphicsElement(*clipChild);
     }

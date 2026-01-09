@@ -370,13 +370,13 @@ void PlaybackSessionModelMediaElement::selectLegibleMediaOption(uint64_t index)
     if (!mediaElement)
         return;
 
-    TextTrack* textTrack;
+    RefPtr<TextTrack> textTrack;
     if (index < m_legibleTracksForMenu.size())
-        textTrack = m_legibleTracksForMenu[static_cast<size_t>(index)].get();
+        textTrack = m_legibleTracksForMenu[static_cast<size_t>(index)].copyRef();
     else
-        textTrack = &TextTrack::captionMenuOffItem();
+        textTrack = TextTrack::captionMenuOffItemSingleton();
 
-    mediaElement->setSelectedTextTrack(textTrack);
+    mediaElement->setSelectedTextTrack(textTrack.get());
 }
 
 void PlaybackSessionModelMediaElement::togglePictureInPicture()
@@ -555,7 +555,7 @@ void PlaybackSessionModelMediaElement::maybeUpdateVideoMetadata()
 
     auto immersiveVideoMetadata = selectedItem ? selectedItem->configuration().immersiveVideoMetadata() : std::nullopt;
     if (immersiveVideoMetadata != m_immersiveVideoMetadata) {
-        m_immersiveVideoMetadata = WTFMove(immersiveVideoMetadata);
+        m_immersiveVideoMetadata = WTF::move(immersiveVideoMetadata);
         ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "immersiveVideoMetadata: ", m_immersiveVideoMetadata);
         for (auto& client : m_clients)
             client->immersiveVideoMetadataChanged(immersiveVideoMetadata);
@@ -748,8 +748,6 @@ uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
         return std::numeric_limits<uint64_t>::max();
 
     AtomString displayMode = host->captionDisplayMode();
-    TextTrack& offItem = TextTrack::captionMenuOffItem();
-    TextTrack& automaticItem = TextTrack::captionMenuAutomaticItem();
 
     std::optional<uint64_t> selectedIndex;
     std::optional<uint64_t> offIndex;
@@ -757,11 +755,11 @@ uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
     for (size_t index = 0; index < m_legibleTracksForMenu.size(); index++) {
         auto& track = m_legibleTracksForMenu[index];
 
-        if (track == &offItem)
+        if (track.ptr() == &TextTrack::captionMenuOffItemSingleton())
             offIndex = index;
 
         if (displayMode == MediaControlsHost::automaticKeyword()) {
-            if (track == &automaticItem)
+            if (track.ptr() == &TextTrack::captionMenuAutomaticItemSingleton())
                 selectedIndex = index;
         } else {
             if (track->mode() == TextTrack::Mode::Showing)

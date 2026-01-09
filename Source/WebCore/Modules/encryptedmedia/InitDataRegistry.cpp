@@ -97,7 +97,7 @@ static std::optional<CDMKeyIDs> extractKeyIDsKeyids(const SharedBuffer& buffer)
         if (keyIDData->size() < kKeyIdsMinKeyIdSizeInBytes || keyIDData->size() > kKeyIdsMaxKeyIdSizeInBytes)
             return std::nullopt;
 
-        keyIDs.append(SharedBuffer::create(WTFMove(*keyIDData)));
+        keyIDs.append(SharedBuffer::create(WTF::move(*keyIDData)));
     }
 
     return keyIDs;
@@ -115,7 +115,7 @@ static RefPtr<SharedBuffer> sanitizeKeyids(const SharedBuffer& buffer)
     auto kidsArray = JSON::Array::create();
     for (auto& buffer : keyIDBuffer.value())
         kidsArray->pushString(base64URLEncodeToString(buffer->span()));
-    object->setArray("kids"_s, WTFMove(kidsArray));
+    object->setArray("kids"_s, WTF::move(kidsArray));
 
     return SharedBuffer::create(object->toJSONString().utf8().span());
 }
@@ -144,7 +144,7 @@ std::optional<Vector<std::unique_ptr<ISOProtectionSystemSpecificHeaderBox>>> Ini
             auto fpsPssh = makeUnique<ISOFairPlayStreamingPsshBox>();
             if (!fpsPssh->read(view, offset))
                 return std::nullopt;
-            psshBoxes.append(WTFMove(fpsPssh));
+            psshBoxes.append(WTF::move(fpsPssh));
             continue;
         }
 #else
@@ -154,7 +154,7 @@ std::optional<Vector<std::unique_ptr<ISOProtectionSystemSpecificHeaderBox>>> Ini
         if (!psshBox->read(view, offset))
             return std::nullopt;
 
-        psshBoxes.append(WTFMove(psshBox));
+        psshBoxes.append(WTF::move(psshBox));
     }
 
     return psshBoxes;
@@ -204,7 +204,9 @@ bool isPlayReadySanitizedInitializationData(const SharedBuffer& buffer)
         return false;
 
     auto xmlPayload = buffer.span().subspan(startTag);
-    xmlDocPtr protectionDataXML = xmlReadMemory(reinterpret_cast<const char*>(xmlPayload.data()), xmlPayload.size_bytes(), "protectionData", "utf-16", 0);
+    if (xmlPayload.size_bytes() > std::numeric_limits<int>::max())
+        return false;
+    xmlDocPtr protectionDataXML = xmlReadMemory(reinterpret_cast<const char*>(xmlPayload.data()), static_cast<int>(xmlPayload.size_bytes()), "protectionData", "utf-16", 0);
     if (!protectionDataXML)
         return false;
 
@@ -323,7 +325,7 @@ std::optional<CDMKeyIDs> InitDataRegistry::extractKeyIDs(const String& initDataT
 void InitDataRegistry::registerInitDataType(const String& initDataType, InitDataTypeCallbacks&& callbacks)
 {
     ASSERT(!m_types.contains(initDataType));
-    m_types.set(initDataType, WTFMove(callbacks));
+    m_types.set(initDataType, WTF::move(callbacks));
 }
 
 const String& InitDataRegistry::cencName()

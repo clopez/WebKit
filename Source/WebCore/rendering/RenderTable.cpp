@@ -59,8 +59,6 @@
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "Settings.h"
-#include "StyleBoxShadow.h"
-#include "StyleInheritedData.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
@@ -70,10 +68,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTable);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTable);
 
 RenderTable::RenderTable(Type type, Element& element, RenderStyle&& style)
-    : RenderBlock(type, element, WTFMove(style), { })
+    : RenderBlock(type, element, WTF::move(style), { })
     , m_columnPos(1, 0)
     , m_currentBorder(nullptr)
     , m_collapsedBordersValid(false)
@@ -93,7 +91,7 @@ RenderTable::RenderTable(Type type, Element& element, RenderStyle&& style)
 }
 
 RenderTable::RenderTable(Type type, Document& document, RenderStyle&& style)
-    : RenderBlock(type, document, WTFMove(style), { })
+    : RenderBlock(type, document, WTF::move(style), { })
     , m_columnPos(1, 0)
     , m_currentBorder(nullptr)
     , m_collapsedBordersValid(false)
@@ -422,7 +420,14 @@ void RenderTable::layoutCaption(RenderTableCaption& caption)
     if (!selfNeedsLayout() && caption.checkForRepaintDuringLayout())
         caption.repaintDuringLayoutIfMoved(captionRect);
 
-    setLogicalHeight(logicalHeight() + caption.logicalHeight() + caption.marginBefore() + caption.marginAfter());
+    // When caption has a different writing mode, we need to use the caption's size in the table's writing mode.
+    LayoutUnit captionLogicalHeightInTableWritingMode;
+    if (caption.writingMode().isOrthogonal(writingMode()))
+        captionLogicalHeightInTableWritingMode = caption.logicalWidth();
+    else
+        captionLogicalHeightInTableWritingMode = caption.logicalHeight();
+
+    setLogicalHeight(logicalHeight() + captionLogicalHeightInTableWritingMode + caption.marginBefore() + caption.marginAfter());
 }
 
 void RenderTable::layoutCaptions(BottomCaptionLayoutPhase bottomCaptionLayoutPhase)
@@ -640,7 +645,7 @@ void RenderTable::layout()
         // The location or height of one or more sections may have changed.
         invalidateCachedColumnOffsets();
 
-        computeOverflow(clientLogicalBottom());
+        computeOverflow(flippedContentBoxRect());
     }
 
     auto* layoutState = view().frameView().layoutContext().layoutState();

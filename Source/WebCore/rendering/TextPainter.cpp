@@ -57,7 +57,9 @@ ShadowApplier::ShadowApplier(const RenderStyle& style, GraphicsContext& context,
     const auto& zoomFactor = style.usedZoomForLength();
     auto shadowOffset = TextBoxPainter::rotateShadowOffset(shadow->location, ignoreWritingMode ? WritingMode() : style.writingMode(), zoomFactor);
     auto shadowRadius = shadow->blur.resolveZoom(zoomFactor);
-    auto shadowColor = style.colorResolvingCurrentColor(shadow->color);
+
+    Style::ColorResolver colorResolver { style };
+    auto shadowColor = colorResolver.colorResolvingCurrentColor(shadow->color);
 
     colorFilter.transformColor(shadowColor);
 
@@ -123,16 +125,16 @@ void TextPainter::paintTextOrEmphasisMarks(const FontCascade& font, const TextRu
         return;
     }
 
-    RefPtr glyphDisplayList = WTFMove(m_glyphDisplayList);
+    RefPtr glyphDisplayList = WTF::move(m_glyphDisplayList);
     if (!emphasisMark.isEmpty())
         m_context.drawEmphasisMarks(font, textRun, emphasisMark, textOrigin + FloatSize(0, emphasisMarkOffset), startOffset, endOffset);
     else if (startOffset || endOffset < textRun.length() || !glyphDisplayList)
         m_context.drawText(font, textRun, textOrigin, startOffset, endOffset);
     else {
         // Replaying back a whole cached glyph run to the GraphicsContext.
+        GraphicsContextStateSaver stateSaver(m_context);
         m_context.translate(textOrigin);
         m_context.drawDisplayList(*glyphDisplayList);
-        m_context.translate(-textOrigin);
     }
 }
 

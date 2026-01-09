@@ -67,6 +67,8 @@ inline static WKTextExtractionContainer containerType(TextExtraction::ContainerT
         return WKTextExtractionContainerSubscript;
     case TextExtraction::ContainerType::Superscript:
         return WKTextExtractionContainerSuperscript;
+    case TextExtraction::ContainerType::Strikethrough:
+        return WKTextExtractionContainerStrikethrough;
     case TextExtraction::ContainerType::Generic:
         return WKTextExtractionContainerGeneric;
     }
@@ -185,6 +187,16 @@ inline static RetainPtr<WKTextExtractionItem> createItemWithChildren(const TextE
                 ariaAttributes:ariaAttributes.get()
                 accessibilityRole:accessibilityRole.get()
                 nodeIdentifier:nodeIdentifier.get()]);
+        }, [&](const TextExtraction::FormData& data) -> RetainPtr<WKTextExtractionItem> {
+            return adoptNS([[WKTextExtractionFormItem alloc]
+                initWithAutocomplete:data.autocomplete.createNSString().get()
+                name:data.name.createNSString().get()
+                rectInWebView:rectInWebView
+                children:children
+                eventListeners:eventListeners
+                ariaAttributes:ariaAttributes.get()
+                accessibilityRole:accessibilityRole.get()
+                nodeIdentifier:nodeIdentifier.get()]);
         }, [&](const TextExtraction::TextFormControlData& data) -> RetainPtr<WKTextExtractionItem> {
             return adoptNS([[WKTextExtractionTextFormControlItem alloc]
                 initWithEditable:createWKEditable(data.editable).get()
@@ -203,6 +215,15 @@ inline static RetainPtr<WKTextExtractionItem> createItemWithChildren(const TextE
             return adoptNS([[WKTextExtractionLinkItem alloc]
                 initWithTarget:data.target.createNSString().get()
                 url:data.completedURL.createNSURL().get()
+                rectInWebView:rectInWebView
+                children:children
+                eventListeners:eventListeners
+                ariaAttributes:ariaAttributes.get()
+                accessibilityRole:accessibilityRole.get()
+                nodeIdentifier:nodeIdentifier.get()]);
+        }, [&](const TextExtraction::IFrameData& data) -> RetainPtr<WKTextExtractionItem> {
+            return adoptNS([[WKTextExtractionIFrameItem alloc]
+                initWithOrigin:data.origin.createNSString().get()
                 rectInWebView:rectInWebView
                 children:children
                 eventListeners:eventListeners
@@ -241,7 +262,7 @@ RetainPtr<WKTextExtractionItem> createItem(const TextExtraction::Item& item, Roo
         return nil;
     }
 
-    return createItemRecursive(item, WTFMove(converter));
+    return createItemRecursive(item, WTF::move(converter));
 }
 
 std::optional<double> computeSimilarity(NSString *stringA, NSString *stringB, unsigned minimumLength)
@@ -291,7 +312,7 @@ void requestTextExtractionFilterRuleData(CompletionHandler<void(Vector<TextExtra
 #if HAVE(SAFE_BROWSING)
     using namespace WebKit::SafeBrowsingUtilities;
 
-    listsForNamespace(namespacedCollectionForTextExtraction(), [completion = WTFMove(completion)](NSDictionary<NSString *, NSArray<NSString *> *> *data, NSError *error) mutable {
+    listsForNamespace(namespacedCollectionForTextExtraction(), [completion = WTF::move(completion)](NSDictionary<NSString *, NSArray<NSString *> *> *data, NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(TextExtraction, "Failed to request filtering rules: %@", error.localizedDescription);
             return completion({ });
@@ -329,8 +350,8 @@ void requestTextExtractionFilterRuleData(CompletionHandler<void(Vector<TextExtra
                         return domainRules.first();
                     }
 
-                    return makeStringByJoining(WTF::map(WTFMove(domainRules), [](auto&& group) {
-                        return makeString('(', WTFMove(group), ')');
+                    return makeStringByJoining(WTF::map(WTF::move(domainRules), [](auto&& group) {
+                        return makeString('(', WTF::move(group), ')');
                     }), "|"_s);
                 }();
                 continue;

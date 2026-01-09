@@ -51,7 +51,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderWidget);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderWidget);
 
 static HashMap<SingleThreadWeakRef<const Widget>, SingleThreadWeakRef<RenderWidget>>& widgetRendererMap()
 {
@@ -101,7 +101,7 @@ static void moveWidgetToParentSoon(Widget& child, LocalFrameView* parent)
 }
 
 RenderWidget::RenderWidget(Type type, HTMLFrameOwnerElement& element, RenderStyle&& style)
-    : RenderReplaced(type, element, WTFMove(style), ReplacedFlag::IsWidget)
+    : RenderReplaced(type, element, WTF::move(style), ReplacedFlag::IsWidget)
 {
     relaxAdoptionRequirement();
     setInline(false);

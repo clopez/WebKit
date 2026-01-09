@@ -64,7 +64,7 @@ class SharedBuffer;
 template<typename IDLType> class DOMPromiseProxy;
 
 class MediaKeySession final : public RefCounted<MediaKeySession>, public EventTarget, public ActiveDOMObject, public CDMInstanceSessionClient {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(MediaKeySession, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(MediaKeySession, WEBCORE_EXPORT);
 public:
     static Ref<MediaKeySession> create(Document&, WeakPtr<MediaKeys>&&, MediaKeySessionType, bool useDistinctiveIdentifier, Ref<CDM>&&, Ref<CDMInstanceSession>&&);
     WEBCORE_EXPORT virtual ~MediaKeySession();
@@ -154,5 +154,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(MediaKeySession)
 
 #endif // ENABLE(ENCRYPTED_MEDIA)

@@ -63,7 +63,7 @@
 #include "PlatformMouseEvent.h"
 #include "QuirksData.h"
 #include "RegistrableDomain.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "ResourceLoadObserver.h"
 #include "ResourceRequest.h"
 #include "SVGElementTypeHelpers.h"
@@ -349,7 +349,7 @@ void Quirks::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain,
     auto& quirks = updatableStorageAccessUserAgentStringQuirks();
     quirks.clear();
     for (auto&& [domain, userAgent] : userAgentStringQuirks)
-        quirks.add(WTFMove(domain), WTFMove(userAgent));
+        quirks.add(WTF::move(domain), WTF::move(userAgent));
 }
 
 String Quirks::storageAccessUserAgentStringQuirkForDomain(const URL& url)
@@ -1026,7 +1026,7 @@ Ref<NodeList> Quirks::applyFacebookFlagQuirk(Document& document, NodeList& nodeL
     auto elements = copyElements(nodeList);
     // Live Streaming flag activation
     elements.append(createFacebookFlagElement(document, "23460"_s));
-    return StaticElementList::create(WTFMove(elements));
+    return StaticElementList::create(WTF::move(elements));
 }
 
 // warbyparker.com rdar://72839707
@@ -1206,13 +1206,13 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
     }
 
     document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, makeString("requestStorageAccess is invoked on behalf of domain \""_s, domainInNeedOfStorageAccess.string(), "\""_s));
-    DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, WTFMove(domainInNeedOfStorageAccess), [firstPartyDomain, domainInNeedOfStorageAccess, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted storageAccessGranted) mutable {
+    DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, WTF::move(domainInNeedOfStorageAccess), [firstPartyDomain, domainInNeedOfStorageAccess, completionHandler = WTF::move(completionHandler)](StorageAccessWasGranted storageAccessGranted) mutable {
         if (storageAccessGranted == StorageAccessWasGranted::No) {
             completionHandler(ShouldDispatchClick::Yes);
             return;
         }
 
-        ResourceLoadObserver::singleton().setDomainsWithCrossPageStorageAccess({ { firstPartyDomain, Vector<RegistrableDomain> { domainInNeedOfStorageAccess } } }, [completionHandler = WTFMove(completionHandler)] () mutable {
+        ResourceLoadObserver::singleton().setDomainsWithCrossPageStorageAccess({ { firstPartyDomain, Vector<RegistrableDomain> { domainInNeedOfStorageAccess } } }, [completionHandler = WTF::move(completionHandler)] () mutable {
             completionHandler(ShouldDispatchClick::Yes);
         });
     });
@@ -1230,13 +1230,13 @@ void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, Comple
         if (document->frame() && !m_document->frame()->isMainFrame()) {
             Ref mainFrame = document->frame()->mainFrame();
             if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame); localMainFrame && localMainFrame->document()) {
-                localMainFrame->protectedDocument()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTFMove(completionHandler));
+                localMainFrame->protectedDocument()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTF::move(completionHandler));
                 return;
             }
         }
         bool isMSOLoginButNotMSTeams = document->url().hasQuery() && document->url().host() == "login.microsoftonline.com"_s && !document->url().query().contains("redirect_uri=https%3A%2F%2Fteams.microsoft.com"_s);
         if (!isMSOLoginButNotMSTeams && subFrameDomainsForStorageAccessQuirk().contains(RegistrableDomain { frameURL })) {
-            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, RegistrableDomain { frameURL }, [completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted) mutable {
+            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, RegistrableDomain { frameURL }, [completionHandler = WTF::move(completionHandler)](StorageAccessWasGranted) mutable {
                 completionHandler();
             });
         }
@@ -1880,12 +1880,13 @@ bool Quirks::shouldOmitTouchEventDOMAttributesForDesktopWebsite(const URL& reque
     return requestURL.host() == "secure.chase.com"_s;
 }
 
-// soylent.*; rdar://113314067
-bool Quirks::shouldDispatchPointerOutAfterHandlingSyntheticClick() const
+// netflix.com: rdar://155498882
+// soylent.*: rdar://113314067
+bool Quirks::shouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick() const
 {
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
-    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldDispatchPointerOutAfterHandlingSyntheticClick);
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick);
 }
 
 #endif // ENABLE(TOUCH_EVENTS)
@@ -1988,6 +1989,22 @@ bool Quirks::shouldIgnoreContentObservationForClick(const Node& targetNode) cons
         if (!parent || accessibilityRole(*parent) != AccessibilityRole::ListItem)
             return false;
     }
+
+    return true;
+}
+
+bool Quirks::needsChromeOSNavigatorUserAgentQuirk(const Document& document) const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    if (!m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsChromeOSNavigatorUserAgentQuirk))
+        return false;
+
+    if (document.url().lastPathComponent() != "wordeditorframe.aspx"_s)
+        return false;
+
+    if (document.currentSourceURL().lastPathComponent() != "wordeditords.js"_s)
+        return false;
 
     return true;
 }
@@ -2340,7 +2357,7 @@ URL Quirks::topDocumentURL() const
 
 void Quirks::setTopDocumentURLForTesting(URL&& url)
 {
-    m_topDocumentURLForTesting = WTFMove(url);
+    m_topDocumentURLForTesting = WTF::move(url);
     determineRelevantQuirks();
 }
 
@@ -2665,7 +2682,7 @@ static void handleYCombinatorQuirks(QuirksData& quirksData, const URL& quirksURL
 static void handleSoylentQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL& /* documentURL */)
 {
     // soylent.*: rdar://113314067
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldDispatchPointerOutAfterHandlingSyntheticClick);
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick);
 }
 #endif
 
@@ -2960,6 +2977,8 @@ static void handleLiveQuirks(QuirksData& quirksData, const URL& quirksURL, const
 #if PLATFORM(IOS_FAMILY)
     // outlook.live.com: rdar://152277211
     quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::MayNeedToIgnoreContentObservation, quirksData.isOutlook);
+    // live.com: rdar://167489768
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsChromeOSNavigatorUserAgentQuirk);
 #endif
     // live.com rdar://52116170
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldAvoidResizingWhenInputViewBoundsChangeQuirk);
@@ -3045,6 +3064,10 @@ static void handleNetflixQuirks(QuirksData& quirksData, const URL& /* quirksURL 
         QuirksData::SiteSpecificQuirk::NeedsSeekingSupportDisabledQuirk,
 #if PLATFORM(VISION)
         QuirksData::SiteSpecificQuirk::NeedsNowPlayingFullscreenSwapQuirk,
+#endif
+#if ENABLE(TOUCH_EVENTS)
+        // netflix.com https://bugs.webkit.org/show_bug.cgi?id=304608
+        QuirksData::SiteSpecificQuirk::ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick
 #endif
     });
 }

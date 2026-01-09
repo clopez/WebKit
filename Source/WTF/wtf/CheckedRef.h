@@ -157,7 +157,7 @@ public:
     CheckedRef& operator=(CheckedRef&& other)
     {
         unpoison(*this);
-        CheckedRef moved { WTFMove(other) };
+        CheckedRef moved { WTF::move(other) };
         PtrTraits::swap(m_ptr, moved.m_ptr);
         return *this;
     }
@@ -165,7 +165,7 @@ public:
     template<typename OtherType, typename OtherPtrTraits> CheckedRef& operator=(CheckedRef<OtherType, OtherPtrTraits>&& other)
     {
         unpoison(*this);
-        CheckedRef moved { WTFMove(other) };
+        CheckedRef moved { WTF::move(other) };
         PtrTraits::swap(m_ptr, moved.m_ptr);
         return *this;
     }
@@ -245,6 +245,24 @@ inline const ExpectedType& downcast(CheckedRef<const ArgType, ArgPtrTraits>& sou
     return downcast<ExpectedType>(source.get());
 }
 
+template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>
+inline CheckedPtr<match_constness_t<ArgType, ExpectedType>> dynamicDowncast(CheckedRef<ArgType, ArgPtrTraits>& source)
+{
+    return dynamicDowncast<ExpectedType>(source.get());
+}
+
+template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>
+inline CheckedPtr<match_constness_t<ArgType, ExpectedType>> dynamicDowncast(const CheckedRef<ArgType, ArgPtrTraits>& source)
+{
+    return dynamicDowncast<ExpectedType>(source.get());
+}
+
+template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>
+inline const CheckedPtr<match_constness_t<ArgType, ExpectedType>> dynamicDowncast(CheckedRef<const ArgType, ArgPtrTraits>& source)
+{
+    return dynamicDowncast<ExpectedType>(source.get());
+}
+
 template<typename P> struct CheckedRefHashTraits : SimpleClassHashTraits<CheckedRef<P>> {
     static constexpr bool emptyValueIsZero = true;
     static CheckedRef<P> emptyValue() { return HashTableEmptyValue; }
@@ -263,7 +281,7 @@ template<typename P> struct CheckedRefHashTraits : SimpleClassHashTraits<Checked
     static PeekType peek(P* value) { return value; }
 
     using TakeType = CheckedPtr<P>;
-    static TakeType take(CheckedRef<P>&& value) { return isEmptyValue(value) ? nullptr : CheckedPtr<P>(WTFMove(value)); }
+    static TakeType take(CheckedRef<P>&& value) { return isEmptyValue(value) ? nullptr : CheckedPtr<P>(WTF::move(value)); }
 };
 
 template<typename P> struct HashTraits<CheckedRef<P>> : CheckedRefHashTraits<P> { };

@@ -36,7 +36,7 @@ public:
     }
 
     bool hasOneRef() const { return m_refCount == 1; }
-    unsigned refCount() const { return m_refCount; }
+    uint32_t refCount() const { return m_refCount; }
 
     // Debug APIs
     void adopted() { m_refCountDebugger.adopted(); }
@@ -58,7 +58,7 @@ protected:
     {
         m_refCountDebugger.willDeref(m_refCount);
 
-        unsigned tempRefCount = m_refCount - 1;
+        auto tempRefCount = m_refCount - 1;
         if (!tempRefCount) {
             m_refCountDebugger.willDelete();
             return true;
@@ -69,8 +69,8 @@ protected:
     }
 
 private:
-    mutable unsigned m_refCount { 1 };
-    [[no_unique_address]] RefCountDebugger m_refCountDebugger;
+    mutable uint32_t m_refCount { 1 };
+    NO_UNIQUE_ADDRESS RefCountDebugger m_refCountDebugger;
 };
 
 template<typename T> class RefCounted : public RefCountedBase {

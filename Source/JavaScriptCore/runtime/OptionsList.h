@@ -475,6 +475,10 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, fireOSRExitFuzzAtOrAfter, 0, Normal, nullptr) \
     v(Bool, verboseOSRExitFuzz, true, Normal, nullptr) \
     \
+    /* LOL options */ \
+    v(Bool, useLOLJIT, false, Normal, "Use LOL instead of Baseline"_s) \
+    v(Bool, verboseLOLAllocation, false, Normal, "Log info about LOL's register allocation state"_s) \
+    \
     v(Unsigned, seedOfVMRandomForFuzzer, 0, Normal, "0 means not fuzzing this; use a cryptographically random seed"_s) \
     v(Bool, useRandomizingFuzzerAgent, false, Normal, nullptr) \
     v(Unsigned, seedOfRandomizingFuzzerAgent, 1, Normal, nullptr) \
@@ -635,6 +639,8 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useArrayAllocationSinking, true, Normal, nullptr) \
     v(Bool, dumpFTLCodeSize, false, Normal, nullptr) \
     v(Bool, dumpOptimizationTracing, false, Normal, nullptr) \
+    v(Bool, dumpIonGraph, false, Normal, nullptr) \
+    v(OptionString, ionGraphDirectory, nullptr, Normal, "Directory to place IonGraph"_s) \
     v(Unsigned, markedBlockDumpInfoCount, 0, Normal, nullptr) /* FIXME: rdar://139998916 */ \
     \
     /* Feature Flags */\
@@ -645,7 +651,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useExplicitResourceManagement, false, Normal, "Enable explicit resource management builtins and syntax."_s) \
     v(Bool, useImportDefer, false, Normal, "Enable deferred module import."_s) \
     v(Bool, useIteratorChunking, false, Normal, "Expose the Iterator.prototype.chunks and Iterator.prototype.windows methods."_s) \
-    v(Bool, useIteratorSequencing, false, Normal, "Expose the Iterator.concat method."_s) \
+    v(Bool, useIteratorSequencing, true, Normal, "Expose the Iterator.concat method."_s) \
     v(Bool, useJSONSourceTextAccess, true, Normal, "Expose JSON source text access feature."_s) \
     v(Bool, useMapGetOrInsert, true, Normal, "Expose the Map.prototype.getOrInsert family of methods."_s) \
     v(Bool, useMathSumPreciseMethod, true, Normal, "Expose the Math.sumPrecise() method."_s) \

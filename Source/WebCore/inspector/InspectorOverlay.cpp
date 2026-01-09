@@ -600,7 +600,7 @@ void InspectorOverlay::hideHighlight()
 void InspectorOverlay::highlightNodeList(RefPtr<NodeList>&& nodes, const InspectorOverlay::Highlight::Config& highlightConfig, const std::optional<Grid::Config>& gridOverlayConfig, const std::optional<Flex::Config>& flexOverlayConfig, bool showRulers)
 {
     m_highlightNode = nullptr;
-    m_highlightNodeList = WTFMove(nodes);
+    m_highlightNodeList = WTF::move(nodes);
     m_nodeHighlightConfig = highlightConfig;
     m_nodeGridOverlayConfig = gridOverlayConfig;
     m_nodeFlexOverlayConfig = flexOverlayConfig;
@@ -625,7 +625,7 @@ void InspectorOverlay::highlightQuad(std::unique_ptr<FloatQuad> quad, const Insp
         *quad -= toIntSize(page().mainFrame().virtualView()->scrollPosition());
 
     m_quadHighlightConfig = highlightConfig;
-    m_highlightQuad = WTFMove(quad);
+    m_highlightQuad = WTF::move(quad);
     update();
 }
 
@@ -996,7 +996,7 @@ void InspectorOverlay::drawRulers(GraphicsContext& context, const InspectorOverl
         fontDescription.setOneFamily(AtomString { page().settings().sansSerifFontFamily() });
         fontDescription.setComputedSize(10);
 
-        FontCascade font(WTFMove(fontDescription));
+        FontCascade font(WTF::move(fontDescription));
         font.update(nullptr);
 
         GraphicsContextStateSaver lineStateSaver(context);
@@ -1086,7 +1086,7 @@ void InspectorOverlay::drawRulers(GraphicsContext& context, const InspectorOverl
         fontDescription.setOneFamily(AtomString { page().settings().sansSerifFontFamily() });
         fontDescription.setComputedSize(12);
 
-        FontCascade font(WTFMove(fontDescription));
+        FontCascade font(WTF::move(fontDescription));
         font.update(nullptr);
 
         auto viewportRect = pageView->visualViewportRect();
@@ -1319,7 +1319,7 @@ Path InspectorOverlay::drawElementTitle(GraphicsContext& context, Node& node, co
     context.setStrokeThickness(1);
     context.setStrokeColor(elementTitleBorderColor);
 
-    InspectorOverlayLabel label = { WTFMove(labelContents), { labelX, labelY }, elementTitleBackgroundColor, { arrowDirection, arrowAlignment } };
+    InspectorOverlayLabel label = { WTF::move(labelContents), { labelX, labelY }, elementTitleBackgroundColor, { arrowDirection, arrowAlignment } };
     return label.draw(context);
 }
 
@@ -1864,6 +1864,111 @@ std::optional<InspectorOverlay::Highlight::GridHighlightOverlay> InspectorOverla
         }
     }
 
+    // For masonry layouts, draw gaps between items in the masonry axis direction.
+    if (renderGrid.isMasonry()) {
+        auto& orderIterator = renderGrid.currentGrid().orderIterator();
+
+        struct ItemInfo {
+            CheckedPtr<RenderBox> item;
+            FloatRect bounds;
+            unsigned trackStart;
+            unsigned trackEnd;
+        };
+
+        Vector<ItemInfo> allItems;
+        for (auto* gridItem = orderIterator.first(); gridItem; gridItem = orderIterator.next()) {
+            if (orderIterator.shouldSkipChild(*gridItem))
+                continue;
+
+            auto gridArea = renderGrid.currentGrid().gridItemArea(*gridItem);
+            auto absoluteRect = FloatRect { gridItem->absoluteBoundingBoxRect(true) };
+            absoluteRect.expand(gridItem->marginBox());
+
+            auto minCorner = localPointToRootPoint(containingView, absoluteRect.minXMinYCorner());
+            auto maxCorner = localPointToRootPoint(containingView, absoluteRect.maxXMaxYCorner());
+            FloatRect rootRect { minCorner, maxCorner - minCorner };
+
+            if (renderGrid.areMasonryRows()) {
+                auto& columnSpan = gridArea.columns;
+                if (!columnSpan.isTranslatedDefinite())
+                    continue;
+                allItems.append({ gridItem, rootRect, columnSpan.startLine(), columnSpan.endLine() });
+            } else {
+                auto& rowSpan = gridArea.rows;
+                if (!rowSpan.isTranslatedDefinite())
+                    continue;
+                allItems.append({ gridItem, rootRect, rowSpan.startLine(), rowSpan.endLine() });
+            }
+        }
+
+        unsigned gridAxisTrackCount = renderGrid.areMasonryRows() ? columnWidths.size() : rowHeights.size();
+
+        for (unsigned trackIndex = 0; trackIndex < gridAxisTrackCount; ++trackIndex) {
+            Vector<ItemInfo*> itemsInTrack;
+            for (auto& itemInfo : allItems) {
+                if (trackIndex >= itemInfo.trackStart && trackIndex < itemInfo.trackEnd)
+                    itemsInTrack.append(&itemInfo);
+            }
+
+            if (itemsInTrack.size() < 2)
+                continue;
+
+            if (renderGrid.areMasonryRows()) {
+                std::sort(itemsInTrack.begin(), itemsInTrack.end(), [](ItemInfo* a, ItemInfo* b) {
+                    return a->bounds.y() < b->bounds.y();
+                });
+            } else {
+                std::sort(itemsInTrack.begin(), itemsInTrack.end(), [](ItemInfo* a, ItemInfo* b) {
+                    return a->bounds.x() < b->bounds.x();
+                });
+            }
+
+            for (size_t i = 1; i < itemsInTrack.size(); ++i) {
+                auto& previousItem = *itemsInTrack[i - 1];
+                auto& currentItem = *itemsInTrack[i];
+
+                FloatQuad gapQuad;
+                if (renderGrid.areMasonryRows()) {
+                    float gapTop = previousItem.bounds.maxY();
+                    float gapBottom = currentItem.bounds.y();
+                    if (gapBottom <= gapTop)
+                        continue;
+
+                    float gapLeft = std::max(previousItem.bounds.x(), currentItem.bounds.x());
+                    float gapRight = std::min(previousItem.bounds.maxX(), currentItem.bounds.maxX());
+                    if (gapRight <= gapLeft)
+                        continue;
+
+                    gapQuad = {
+                        { gapLeft, gapTop },
+                        { gapRight, gapTop },
+                        { gapRight, gapBottom },
+                        { gapLeft, gapBottom },
+                    };
+                } else {
+                    float gapLeft = previousItem.bounds.maxX();
+                    float gapRight = currentItem.bounds.x();
+                    if (gapRight <= gapLeft)
+                        continue;
+
+                    float gapTop = std::max(previousItem.bounds.y(), currentItem.bounds.y());
+                    float gapBottom = std::min(previousItem.bounds.maxY(), currentItem.bounds.maxY());
+                    if (gapBottom <= gapTop)
+                        continue;
+
+                    gapQuad = {
+                        { gapLeft, gapTop },
+                        { gapRight, gapTop },
+                        { gapRight, gapBottom },
+                        { gapLeft, gapBottom },
+                    };
+                }
+
+                gridHighlightOverlay.gaps.append(gapQuad);
+            }
+        }
+    }
+
     if (gridOverlay.config.showOrderNumbers) {
         Vector<RenderBox*> gridItemsInGridOrder;
         Vector<RenderBox*> gridItemsInDOMOrder;
@@ -1938,7 +2043,7 @@ std::optional<InspectorOverlay::Highlight::GridHighlightOverlay> InspectorOverla
             StringBuilder orderNumbers;
 
             if (auto index = gridItemsInDOMOrder.find(gridItem); index != notFound)
-                orderNumbers.append(WEB_UI_FORMAT_STRING("Item #%lu", "Inspector Grid Item DOM order label", static_cast<unsigned long>(index + 1)));
+                orderNumbers.append(WEB_UI_FORMAT_STRING("Item %lu", "Inspector Grid Item DOM order label", static_cast<unsigned long>(index + 1)));
 
             if (auto order = gridItem->style().order(); !order.isZero() || hasCustomOrder)
                 orderNumbers.append(orderNumbers.isEmpty() ? ""_s : "\n"_s, WEB_UI_FORMAT_STRING("order: %d", "Inspector Grid Item CSS order property label", order.value));
@@ -2152,7 +2257,7 @@ std::optional<InspectorOverlay::Highlight::FlexHighlightOverlay> InspectorOverla
                 StringBuilder orderNumbers;
 
                 if (auto index = renderChildrenInDOMOrder.find(renderChild); index != notFound)
-                    orderNumbers.append(WEB_UI_FORMAT_STRING("Item #%lu", "Inspector Flex Item DOM order label", static_cast<unsigned long>(index + 1)));
+                    orderNumbers.append(WEB_UI_FORMAT_STRING("Item %lu", "Inspector Flex Item DOM order label", static_cast<unsigned long>(index + 1)));
 
                 if (auto order = renderChild->style().order(); !order.isZero() || hasCustomOrder)
                     orderNumbers.append(orderNumbers.isEmpty() ? ""_s : "\n"_s, WEB_UI_FORMAT_STRING("order: %d", "Inspector Flex Item CSS order property label", order.value));
@@ -2164,7 +2269,7 @@ std::optional<InspectorOverlay::Highlight::FlexHighlightOverlay> InspectorOverla
             currentLineCrossAxisLeadingEdge = correctedCrossAxisMin(currentLineCrossAxisLeadingEdge, correctedCrossAxisLeadingEdge(childRect));
             currentLineCrossAxisTrailingEdge = correctedCrossAxisMax(currentLineCrossAxisTrailingEdge, correctedCrossAxisTrailingEdge(childRect));
 
-            currentLineChildrenRects.append(WTFMove(childRect));
+            currentLineChildrenRects.append(WTF::move(childRect));
             ++currentChildIndex;
         }
 

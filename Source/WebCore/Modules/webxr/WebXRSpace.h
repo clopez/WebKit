@@ -41,7 +41,7 @@ class ScriptExecutionContext;
 class WebXRRigidTransform;
 
 class WebXRSpace : public EventTarget, public ContextDestructionObserver {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRSpace);
+    WTF_MAKE_TZONE_ALLOCATED(WebXRSpace);
 public:
     virtual ~WebXRSpace();
 
@@ -82,7 +82,7 @@ private:
 // This is a helper class to implement the viewer space owned by a WebXRSession.
 // It avoids a circular reference between the session and the reference space.
 class WebXRViewerSpace : public RefCounted<WebXRViewerSpace>, public WebXRSpace {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRViewerSpace);
+    WTF_MAKE_TZONE_ALLOCATED(WebXRViewerSpace);
 public:
     static Ref< WebXRViewerSpace> create(Document& document, WebXRSession& session)
     {
@@ -107,6 +107,8 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(WebXRSpace)
 
 #define SPECIALIZE_TYPE_TRAITS_WEBXRSPACE(ToValueTypeName, predicate) \
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \

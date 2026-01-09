@@ -108,7 +108,8 @@ JSC_DEFINE_HOST_FUNCTION(internalPromiseConstructorFuncInternalAll, (JSGlobalObj
             return JSValue::encode(promise);
         }
         scope.release();
-        promise->resolve(globalObject, values);
+        // Use fulfill instead of resolve to avoid looking up the then property.
+        promise->fulfill(vm, globalObject, values);
         return JSValue::encode(promise);
     }
 
@@ -128,7 +129,7 @@ JSC_DEFINE_HOST_FUNCTION(internalPromiseConstructorFuncInternalAll, (JSGlobalObj
         ASSERT(nextPromise);
         JSPromiseCombinatorsContext* context = JSPromiseCombinatorsContext::create(vm, globalContext, index);
 
-        nextPromise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::PromiseAllResolveJob, promise, context);
+        nextPromise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::InternalPromiseAllResolveJob, promise, context);
         RETURN_IF_EXCEPTION(scope, { });
     }
 

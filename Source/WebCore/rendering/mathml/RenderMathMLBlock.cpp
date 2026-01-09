@@ -41,24 +41,25 @@
 #include "RenderObjectInlines.h"
 #include "RenderTableInlines.h"
 #include "RenderView.h"
+#include "Settings.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace MathMLNames;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLBlock);
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLTable);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMathMLBlock);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMathMLTable);
 
 RenderMathMLBlock::RenderMathMLBlock(Type type, MathMLPresentationElement& container, RenderStyle&& style)
-    : RenderBlock(type, container, WTFMove(style), { })
+    : RenderBlock(type, container, WTF::move(style), { })
     , m_mathMLStyle(MathMLStyle::create())
 {
     setChildrenInline(false); // All of our children must be block-level.
 }
 
 RenderMathMLBlock::RenderMathMLBlock(Type type, Document& document, RenderStyle&& style)
-    : RenderBlock(type, document, WTFMove(style), { })
+    : RenderBlock(type, document, WTF::move(style), { })
     , m_mathMLStyle(MathMLStyle::create())
 {
     setChildrenInline(false); // All of our children must be block-level.
@@ -138,7 +139,8 @@ std::optional<LayoutUnit> RenderMathMLTable::firstLineBaseline() const
 {
     // By default the vertical center of <mtable> is aligned on the math axis.
     // This is different than RenderTable::firstLineBoxBaseline, which returns the baseline of the first row of a <table>.
-    return LayoutUnit { (logicalHeight() / 2 + axisHeight(style())).toInt() };
+    auto baseline = logicalHeight() / 2 + axisHeight(style());
+    return { settings().subpixelInlineLayoutEnabled() ? baseline : LayoutUnit(baseline.toInt()) };
 }
 
 void RenderMathMLBlock::layoutItems(RelayoutChildren relayoutChildren)

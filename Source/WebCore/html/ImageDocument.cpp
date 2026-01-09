@@ -60,7 +60,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ImageDocument);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ImageDocument);
 
 using namespace HTMLNames;
 
@@ -104,7 +104,7 @@ private:
 };
 
 class ImageDocumentElement final : public HTMLImageElement {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageDocumentElement);
+    WTF_MAKE_TZONE_ALLOCATED(ImageDocumentElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ImageDocumentElement);
 public:
     static Ref<ImageDocumentElement> create(ImageDocument&);
@@ -122,7 +122,7 @@ private:
     WeakPtr<ImageDocument, WeakPtrImplWithEventTargetData> m_imageDocument;
 };
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ImageDocumentElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ImageDocumentElement);
 
 inline Ref<ImageDocumentElement> ImageDocumentElement::create(ImageDocument& document)
 {
@@ -191,7 +191,7 @@ void ImageDocument::finishedParsing()
         // Report the natural image size in the page title, regardless of zoom level.
         // At a zoom level of 1 the image is guaranteed to have an integer size.
         updateStyleIfNeeded();
-        IntSize size = flooredIntSize(cachedImage->imageSizeForRenderer(imageElement->renderer(), 1));
+        IntSize size = flooredIntSize(cachedImage->imageSizeForRenderer(imageElement->checkedRenderer().get(), 1));
         if (size.width()) {
             // Compute the title. We use the decoded filename of the resource, falling
             // back on the hostname if there is no path.
@@ -285,7 +285,7 @@ void ImageDocument::createDocumentStructure()
         processViewport("width=device-width,viewport-fit=cover"_s, ViewportArguments::Type::ImageDocument);
 #else
         Ref listener = ImageEventListener::create(*this);
-        imageElement->addEventListener(eventNames().clickEvent, WTFMove(listener), false);
+        imageElement->addEventListener(eventNames().clickEvent, WTF::move(listener), false);
 #endif
     }
 

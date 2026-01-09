@@ -288,7 +288,7 @@ public:
 
     virtual void textTrackRepresentationBoundsChanged(const IntRect&) { }
 
-    virtual Vector<RefPtr<PlatformTextTrack>> outOfBandTrackSources() { return { }; }
+    virtual Vector<Ref<PlatformTextTrack>> outOfBandTrackSources() { return { }; }
 
 #if PLATFORM(IOS_FAMILY)
     virtual String mediaPlayerNetworkInterfaceName() const { return String(); }
@@ -326,7 +326,7 @@ public:
     virtual String audioOutputDeviceId() const { return { }; }
     virtual String audioOutputDeviceIdOverride() const { return { }; }
 
-    virtual void mediaPlayerQueueTaskOnEventLoop(Function<void()>&& task) { callOnMainThread(WTFMove(task)); }
+    virtual void mediaPlayerQueueTaskOnEventLoop(Function<void()>&& task) { callOnMainThread(WTF::move(task)); }
 
 #if PLATFORM(COCOA)
     virtual void mediaPlayerOnNewVideoFrameMetadata(VideoFrameMetadata&&, RetainPtr<CVPixelBufferRef>&&) { }
@@ -654,7 +654,7 @@ public:
     void tracksChanged();
 
     void notifyTrackModeChanged();
-    Vector<RefPtr<PlatformTextTrack>> outOfBandTrackSources();
+    Vector<Ref<PlatformTextTrack>> outOfBandTrackSources();
 
 #if PLATFORM(IOS_FAMILY)
     String mediaPlayerNetworkInterfaceName() const;

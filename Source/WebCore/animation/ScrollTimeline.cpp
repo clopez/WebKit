@@ -39,6 +39,7 @@
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include "StylableInlines.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StyleSingleAnimationRange.h"
 #include "WebAnimation.h"
 
@@ -211,7 +212,7 @@ ScrollTimeline::ResolvedScrollDirection ScrollTimeline::resolvedScrollDirection(
                 return renderer->style().writingMode();
         }
 
-        return { RenderStyle::initialWritingMode(), RenderStyle::initialDirection(), RenderStyle::initialTextOrientation() };
+        return { Style::ComputedStyle::initialWritingMode(), Style::ComputedStyle::initialDirection(), Style::ComputedStyle::initialTextOrientation() };
     }();
 
     auto isVertical = [&] {

@@ -1300,17 +1300,17 @@ CSSLineFitEdgeEnabled:
 
 CSSMathDepthEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS math-depth"
   humanReadableDescription: "Enable support for math-depth from MathML Core."
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSPaintingAPIEnabled:
   type: bool
@@ -3153,6 +3153,20 @@ FlexFormattingContextIntegrationEnabled:
       default: true
     WebCore:
       default: true
+
+FontFaceSetConstructorEnabled:
+  type: bool
+  status: developer
+  category: dom
+  humanReadableName: "Legacy FontFaceSet Constructor API"
+  humanReadableDescription: "Legacy FontFaceSet Constructor API"
+  defaultValue:
+    WebKitLegacy:
+      default: WebKit::defaultFontFaceSetConstructorEnabled()
+    WebKit:
+      default: WebKit::defaultFontFaceSetConstructorEnabled()
+    WebCore:
+      default: false
 
 ForceAlwaysUserScalable:
   type: bool
@@ -8548,7 +8562,7 @@ UseAppKitGestures:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: defaultUseAppKitGestures()
     WebCore:
       default: false
 
@@ -9501,7 +9515,7 @@ WebLocksAPIEnabled:
 
 WebMUseRemoteAudioVideoRenderer:
   type: bool
-  status: stable
+  status: testable
   category: media
   humanReadableName: "WebM player uses GPU renderer"
   humanReadableDescription: "WebM player uses GPU renderer"
@@ -9510,9 +9524,9 @@ WebMUseRemoteAudioVideoRenderer:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
   sharedPreferenceForWebProcess: true
 
 WebPageSpatialBackdropEnabled:
@@ -10041,8 +10055,7 @@ WirelessPlaybackMediaPlayerEnabled:
   category: media
   humanReadableName: "Wireless Playback Media Player"
   humanReadableDescription: "Enable wireless playback via MediaPlayerPrivateWirelessPlayback"
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(REMOTE_PLAYBACK_MEDIA_PLAYER)
+  condition: ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
   defaultValue:
     WebCore:
       default: false

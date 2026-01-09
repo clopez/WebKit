@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2023 Igalia S.L. All rights reserved.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,11 +39,11 @@
 #include "LocalFrameView.h"
 #include "Navigation.h"
 #include "NavigationNavigationType.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(NavigateEvent);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigateEvent);
 
 NavigateEvent::NavigateEvent(const AtomString& type, const NavigateEvent::Init& init, EventIsTrusted isTrusted, AbortController* abortController)
     : Event(EventInterfaceType::NavigateEvent, type, init, isTrusted)

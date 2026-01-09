@@ -230,7 +230,7 @@ def function_parameter_requires_suppress_forward_decl(type, kind, for_reply=Fals
 
 def arguments_constructor_name(type, name):
     if type in types_that_must_be_moved():
-        return 'WTFMove(%s)' % name
+        return 'WTF::move(%s)' % name
 
     return name
 
@@ -315,7 +315,7 @@ def message_to_struct_declaration(receiver, message):
         if requires_suppress_forward_decl[i]:
             result.append('SUPPRESS_FORWARD_DECL_ARG ')
         if parameter.type in types_that_must_be_moved():
-            result.append('encoder << WTFMove(m_%s);\n' % parameter.name)
+            result.append('encoder << WTF::move(m_%s);\n' % parameter.name)
         else:
             result.append('encoder << m_%s;\n' % parameter.name)
     result.append('    }\n')
@@ -903,7 +903,7 @@ def async_message_statement(receiver, message):
     else:
         target_name = 'this'
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE) and message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
-        dispatch_function_args = ['decoder', 'WTFMove(replyHandler)', target_name, '&%s' % handler_function(receiver, message)]
+        dispatch_function_args = ['decoder', 'WTF::move(replyHandler)', target_name, '&%s' % handler_function(receiver, message)]
     else:
         dispatch_function_args = ['decoder', target_name, '&%s' % handler_function(receiver, message)]
 
@@ -1210,6 +1210,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::GraphicsContextGLSimulatedEventForTesting': ['<WebCore/GraphicsContextGL.h>'],
         'WebCore::GraphicsContextGLSurfaceBuffer': ['<WebCore/GraphicsContextGL.h>'],
         'WebCore::GraphicsDropShadow': ['<WebCore/GraphicsStyle.h>'],
+        'WebCore::GraphicsLayerKeyframeValueList': ['<WebCore/GraphicsLayerKeyframeValueList.h>'],
         'WebCore::HasAvailableTargets': ['<WebCore/MediaSessionHelperIOS.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::HasOrShouldIgnoreUserGesture': ['<WebCore/DocumentStorageAccess.h>'],
@@ -1232,7 +1233,6 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::IsLoggedIn': ['<WebCore/IsLoggedIn.h>'],
         'WebCore::IDBResourceObjectIdentifier': ['<WebCore/IDBResourceIdentifier.h>'],
         'WebCore::ISOWebVTTCue': ['<WebCore/ISOVTTCue.h>'],
-        'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
         'WebCore::LastNavigationWasAppInitiated': ['<WebCore/ServiceWorkerClientData.h>'],
         'WebCore::LegacyCDMSessionClient::MediaKeyErrorCode': ['<WebCore/LegacyCDMSession.h>'],
@@ -1272,6 +1272,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::ModalContainerDecision': ['<WebCore/ModalContainerTypes.h>'],
         'WebCore::MouseEventPolicy': ['<WebCore/DocumentLoader.h>'],
         'WebCore::NetworkTransactionInformation': ['<WebCore/NetworkLoadInformation.h>'],
+        'WebCore::NavigationUpgradeToHTTPSBehavior': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::NowPlayingMetadata': ['<WebCore/NowPlayingInfo.h>'],
         'WebCore::OpaqueOriginIdentifier': ['<WebCore/SecurityOriginData.h>'],
         'WebCore::PasteboardCustomData': ['<WebCore/Pasteboard.h>'],

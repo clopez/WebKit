@@ -115,6 +115,7 @@ fast/element-targeting [ Pass ]
 fast/text-extraction [ Pass ]
 http/tests/app-privacy-report/ [ Pass ]
 http/tests/device-orientation [ Pass ]
+http/tests/text-extraction [ Pass ]
 fast/history/ios [ Pass ]
 fast/scrolling/ios [ Pass ]
 fast/speechrecognition/ios [ Pass ]
@@ -713,6 +714,7 @@ fast/events/mouse-cursor-update-during-raf.html [ Skip ]
 fast/events/mouse-cursor.html [ Skip ]
 fast/events/mouse-cursor-pseudo-elements.html [ Skip ]
 fast/events/mouse-cursor-hidden-when-out-of-bounds.html [ Skip ]
+fast/events/mouse-event-buttons.html [ Skip ]
 fast/events/cancel-mousedown-and-drag-from-frame-to-other-frame.html [ Skip ]
 fast/events/cancel-mousedown-and-drag-to-frame.html [ Skip ]
 fast/events/mouse-focus-imagemap.html [ Skip ]
@@ -1698,10 +1700,6 @@ svg/zoom/page/zoom-svg-float-border-padding.xml [ Failure ]
 svg/zoom/page/zoom-zoom-coords.xhtml [ Failure ]
 svg/zoom/text/zoom-coords-viewattr-01-b.svg [ Failure ]
 svg/zoom/text/zoom-svg-float-border-padding.xml [ Failure ]
-
-# CSS transform tests that fail:
-transforms/3d/point-mapping/3d-point-mapping-3.html [ Failure ]
-transforms/3d/point-mapping/3d-point-mapping-overlapping.html [ Failure ]
 
 # Webarchive tests that fail:
 webarchive/test-css-url-resources-in-stylesheets.html [ Failure ]
@@ -5657,9 +5655,6 @@ fast/visual-viewport/ios/zoomed-focus-in-fixed.html [ Skip ]
 http/tests/navigation/ping-attribute [ Skip ]
 http/tests/site-isolation/mixedContent/anchor-cross-origin-from-https-UpgradeMixedContent.html [ Skip ]
 
-webkit.org/b/153380 webarchive/loading/object.html [ Pass Crash ]
-webkit.org/b/153380 webarchive/loading/missing-data.html [ Pass Crash ]
-
 # Uses WK1 TestRunner.setUseDeferredFramLoading
 webkit.org/b/153050 http/tests/security/cross-frame-access-custom.html [ Pass Failure ]
 
@@ -5957,8 +5952,6 @@ webkit.org/b/207866 imported/w3c/IndexedDB-private-browsing [ Pass Timeout ]
 fast/layoutformattingcontext/ [ Skip ]
 
 webkit.org/b/208018 [ Release ] perf/clone-with-focus.html [ Pass Failure ]
-
-webkit.org/b/208030 http/tests/workers/service/registration-clear-redundant-worker.html [ Pass Timeout ]
 
 webkit.org/b/207038 compositing/webgl/webgl-reflection.html [ Pass Failure ]
 
@@ -8144,7 +8137,6 @@ http/tests/websocket/tests/hybi/websocket-allowed-setting-cookie-as-third-party-
 http/tests/workers/service/basic-install-event-sw-fetch-third-party.html [ Failure ]
 http/wpt/webcodecs/videoFrame-negative-timestamp.html [ Failure ]
 imported/w3c/web-platform-tests/css/selectors/invalidation/has-with-nesting-parent-containing-hover.html [ Failure ]
-imported/w3c/web-platform-tests/digital-credentials/get.tentative.https.html [ Failure ]
 imported/w3c/web-platform-tests/shadow-dom/reference-target/tentative/interesttarget.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/uievents/mouse/mousemove_after_mouseover_target_removed.html [ Failure ]
 platform/ipad/fast/viewport/viewport-overriden-by-minimum-effective-width-if-ignore-meta-viewport.html [ Failure ]
@@ -8187,6 +8179,7 @@ webkit.org/b/296657 fast/scrolling/ios/scroll-anchoring-when-revealing-focused-e
 webkit.org/b/296707 imported/w3c/web-platform-tests/screen-orientation/non-fully-active.html [ Pass Failure ]
 
 webkit.org/b/296709 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/evil/media_height_19.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/line_1_wrapped_cue_grow_downwards.html [ ImageOnlyFailure ]
 
 webkit.org/b/296816 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-012.html [ Pass Failure ]
 
@@ -8207,9 +8200,6 @@ webkit.org/b/297026 [ Release ] http/tests/app-privacy-report/app-attribution-be
 webkit.org/b/297056 http/tests/site-isolation/touch-events/touch-event-coordinates.html [ Timeout ]
 
 webkit.org/b/297067 fast/forms/state-restore-form-associated-custom-elements.html [ Pass Timeout ]
-
-webkit.org/b/297081 http/tests/resourceLoadStatistics/exemptDomains/managed-domains-cookieEnabled.html [ Pass Failure ]
-
 # webkit.org/b/297122 2x imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside (layout-tests) tests are flaky text failures
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-010.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-013.html [ Pass Failure ]
@@ -8247,8 +8237,6 @@ webkit.org/b/297674 [ Release ] http/wpt/mediarecorder/MediaRecorder-matroska-AV
 
 webkit.org/b/295435 compositing/layer-creation/overlap-animation-container.html [ Pass Failure ]
 
-webkit.org/b/298042 [ Release ] http/tests/security/clipboard/copy-paste-html-cross-origin-iframe-across-origin.html [ Pass Failure ]
-
 imported/w3c/web-platform-tests/css/css-break/block-in-inline-012.html [ ImageOnlyFailure ]
 
 webkit.org/b/300905 imported/w3c/web-platform-tests/css/css-scroll-anchoring/shadow-dom-subscroller.html [ Pass Failure ]
@@ -8280,8 +8268,6 @@ webkit.org/b/280234 imported/w3c/web-platform-tests/html/dom/idlharness.https.ht
 webkit.org/b/299567 editing/text-iterator/hidden-textarea-selection-quirk.html [ Timeout ]
 
 webkit.org/b/299501 http/tests/site-isolation/focus-tab-navigation-activeElement.html [ Pass Failure ]
-
-webkit.org/b/299501 http/tests/site-isolation/focus-click-navigation-activeElement.html [ Pass Failure ]
 
 webkit.org/b/300137 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/repeated-imports.any.sharedworker.html [ Pass Failure ]
 
@@ -8341,10 +8327,6 @@ imported/w3c/web-platform-tests/dom/nodes/Document-createEvent.https.html [ Fail
 imported/w3c/web-platform-tests/editing/run/multitest.html?9001-last [ Failure ]
 imported/w3c/web-platform-tests/editing/run/inserttext.html?2001-last [ Failure ]
 
-# webkit.org/b/301546 [iOS26] Two tests in imported/w3c/web-platform-tests/uievents/mouse are constant failures
-imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=16 [ Failure ]
-imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=42 [ Failure ]
-
 webkit.org/b/301548 imported/w3c/web-platform-tests/uievents/mouse/offset_and_page_after_dispatch.tentative.html [ Failure ]
 
 # webkit.org/b/301591 [ iOS 26 ] imported/w3c/web-platform-tests/editing/other/empty-elements-insertion.html is a constant text failure 
@@ -8354,13 +8336,6 @@ imported/w3c/web-platform-tests/editing/other/empty-elements-insertion.html [ Fa
 imported/w3c/web-platform-tests/inert/inert-pseudo-element-hittest.html [ Failure ]
 
 webkit.org/b/301670 imported/w3c/web-platform-tests/css/css-anchor-position/popover-implicit-anchor.html [ Failure ]
-
-# webkit.org/b/301869 [iOS] 5 tests in fast/forms/ios are constant failuring with text diff
-fast/forms/ios/accessory-bar-navigation.html [ Failure ]
-fast/forms/ios/focus-input-via-button.html [ Failure ]
-fast/forms/ios/focus-long-textarea.html [ Failure ]
-fast/forms/ios/zoom-after-input-tap-wide-input.html [ Failure ]
-fast/forms/ios/zoom-after-input-tap.html [ Failure ]
 
 webkit.org/b/302104 fast/scrolling/ios/bounding-client-rect-on-fixed.html [ Pass Failure ]
 
@@ -8376,7 +8351,6 @@ imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-007.x
 imported/w3c/web-platform-tests/css/CSS2/linebox/inline-formatting-context-022.xht [ ImageOnlyFailure ]
 
 # webkit.org/b/302331 REGRESSION(302097@main): [macOS iOS] 2x imported/w3c/web-platform-tests/css/css-viewport tests are flaky failure
-imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/zoom-iframe-dynamic.html [ Failure ]
 
 imported/w3c/web-platform-tests/css/CSS2/box-display/block-in-inline-001.xht [ ImageOnlyFailure ]
@@ -8457,8 +8431,15 @@ http/tests/site-isolation/remote-frame-loaded-while-hidden.html [ Pass ImageOnly
 # from fast/ tests that are flaky: adding timeout 
 webkit.org/b/304027 fast/block/basic/001.html [ Pass Failure Timeout ]
 
-webkit.org/b/304079 [ Debug ] http/tests/ipc/ipc-fetch-task-message-crash.html [ Timeout ]
-
 webkit.org/b/303650 fast/lists/marker-before-empty-inline.html [ ImageOnlyFailure ]
 
 webkit.org/b/304298 accessibility/text-stitching-inside-links.html [ Failure ]
+
+webkit.org/b/304427 fast/html/HTMLPluginElement-renderer-destroyed-crash.html [ Skip ]
+
+# webkit.org/b/304651 REGRESSION(304792@main): [macOS iOS] Flaky crash in site-isolation tests
+[ Release ] http/tests/site-isolation/history/add-iframes-and-navigate-mainframe.html [ Skip ]
+[ Release ] http/tests/site-isolation/focus-click-navigation-activeElement.html [ Skip ]
+[ Release ] http/tests/site-isolation/history/add-iframes-and-go-back.html [ Skip ]
+
+webkit.org/b/304995 [ Release ] imported/w3c/web-platform-tests/largest-contentful-paint/video-poster.html [ Pass Failure ]

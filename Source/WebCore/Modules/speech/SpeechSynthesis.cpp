@@ -47,7 +47,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SpeechSynthesis);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeechSynthesis);
 
 Ref<SpeechSynthesis> SpeechSynthesis::create(ScriptExecutionContext& context)
 {
@@ -187,7 +187,7 @@ void SpeechSynthesis::cancel()
     RefPtr current = protectedCurrentSpeechUtterance();
     // Clear m_utteranceQueue before calling cancel to avoid picking up new utterances
     // on completion callback
-    auto utteranceQueue = WTFMove(m_utteranceQueue);
+    auto utteranceQueue = WTF::move(m_utteranceQueue);
     if (RefPtr speechSynthesisClient = m_speechSynthesisClient.get()) {
         speechSynthesisClient->cancel();
         // If we wait for cancel to callback speakingErrorOccurred, then m_currentSpeechUtterance will be null

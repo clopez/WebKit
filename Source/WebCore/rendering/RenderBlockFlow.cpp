@@ -85,7 +85,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderBlockFlow);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBlockFlow);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBlockFlowRareData);
 
 bool RenderBlock::s_canPropagateFloatIntoSibling = false;
@@ -155,7 +155,7 @@ RenderBlockFlow::MarginInfo::MarginInfo(bool canCollapseWithChildren, bool canCo
 }
 
 RenderBlockFlow::RenderBlockFlow(Type type, Element& element, RenderStyle&& style, OptionSet<BlockFlowFlag> flags)
-    : RenderBlock(type, element, WTFMove(style), { }, flags)
+    : RenderBlock(type, element, WTF::move(style), { }, flags)
 #if ENABLE(TEXT_AUTOSIZING)
     , m_widthForTextAutosizing(-1)
     , m_lineCountForTextAutosizing(NOT_SET)
@@ -166,7 +166,7 @@ RenderBlockFlow::RenderBlockFlow(Type type, Element& element, RenderStyle&& styl
 }
 
 RenderBlockFlow::RenderBlockFlow(Type type, Document& document, RenderStyle&& style, OptionSet<BlockFlowFlag> flags)
-    : RenderBlock(type, document, WTFMove(style), { }, flags)
+    : RenderBlock(type, document, WTF::move(style), { }, flags)
 #if ENABLE(TEXT_AUTOSIZING)
     , m_widthForTextAutosizing(-1)
     , m_lineCountForTextAutosizing(NOT_SET)
@@ -608,12 +608,12 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
 
     // Calculate our new height.
     LayoutUnit oldHeight = logicalHeight();
-    LayoutUnit oldClientAfterEdge = clientLogicalBottom();
+    auto afterPaddingEdge = clientLogicalBottom();
 
     // Before updating the final size of the flow thread make sure a forced break is applied after the content.
     // This ensures the size information is correctly computed for the last auto-height fragment receiving content.
     if (CheckedPtr fragmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this))
-        fragmentedFlow->applyBreakAfterContent(oldClientAfterEdge);
+        fragmentedFlow->applyBreakAfterContent(afterPaddingEdge);
 
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
@@ -630,7 +630,7 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     };
     if (shouldApplyAlignContent()) {
         alignContentShift = shiftForAlignContent(oldHeight, repaintLogicalTop, repaintLogicalBottom);
-        oldClientAfterEdge += alignContentShift;
+        afterPaddingEdge += alignContentShift;
         if (alignContentShift < 0)
             ensureRareBlockFlowData().m_alignContentShift = alignContentShift;
     } else if (hasRareBlockFlowData())
@@ -665,7 +665,12 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     updateDescendantTransformsAfterLayout();
 
     // Add overflow from children (unless we're multi-column, since in that case all our child overflow is clipped anyway).
-    computeOverflow(oldClientAfterEdge);
+    auto contentArea = flippedContentBoxRect();
+    if (writingMode().isHorizontal())
+        contentArea.shiftMaxYEdgeTo(afterPaddingEdge - paddingAfter());
+    else
+        contentArea.shiftMaxXEdgeTo(afterPaddingEdge - paddingAfter());
+    computeOverflow(contentArea);
 
     auto* state = view().frameView().layoutContext().layoutState();
     if (state && state->pageLogicalHeight())
@@ -732,7 +737,7 @@ void RenderBlockFlow::dirtyForLayoutFromPercentageHeightDescendants()
 
         for (CheckedPtr<RenderElement> renderer = &descendant; renderer && renderer != this && !renderer->normalChildNeedsLayout(); renderer = renderer->container()) {
             renderer->setChildNeedsLayout(MarkOnlyThis);
-            if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(renderer.get())) {
+            if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*renderer)) {
                 // If the width of an image is affected by the height of a child (e.g., an image with an aspect ratio),
                 // then we have to dirty preferred widths, since even enclosing blocks can become dirty as a result.
                 // (A horizontal flexbox that contains an inline image wrapped in an anonymous block for example.)
@@ -2508,9 +2513,9 @@ void RenderBlockFlow::addFloatsToNewParent(RenderBlockFlow& toBlockFlow) const
     }
 }
 
-void RenderBlockFlow::computeOverflow(LayoutUnit oldClientAfterEdge, OptionSet<ComputeOverflowOptions> options)
+void RenderBlockFlow::computeOverflow(LayoutRect contentArea, OptionSet<ComputeOverflowOptions> options)
 {
-    RenderBlock::computeOverflow(oldClientAfterEdge, options);
+    RenderBlock::computeOverflow(contentArea, options);
 
     auto addOverflowFromFloatsIfApplicable = [&] {
 

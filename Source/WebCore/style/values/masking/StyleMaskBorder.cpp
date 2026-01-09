@@ -30,8 +30,8 @@
 #include "CSSBorderImageSliceValue.h"
 #include "CSSBorderImageWidthValue.h"
 #include "CSSValueList.h"
-#include "RenderStyleInlines.h"
 #include "StyleBuilderChecking.h"
+#include "StyleComputedStyle+InitialInlines.h"
 #include "StylePrimitiveKeyword+CSSValueCreation.h"
 #include "StylePrimitiveKeyword+Logging.h"
 #include "StylePrimitiveKeyword+Serialization.h"
@@ -42,20 +42,20 @@ namespace WebCore {
 namespace Style {
 
 MaskBorder::MaskBorder()
-    : maskBorderSource { RenderStyle::initialMaskBorderSource() }
-    , maskBorderSlice { RenderStyle::initialMaskBorderSlice() }
-    , maskBorderWidth { RenderStyle::initialMaskBorderWidth() }
-    , maskBorderOutset { RenderStyle::initialMaskBorderOutset() }
-    , maskBorderRepeat { RenderStyle::initialMaskBorderRepeat() }
+    : maskBorderSource { Style::ComputedStyle::initialMaskBorderSource() }
+    , maskBorderSlice { Style::ComputedStyle::initialMaskBorderSlice() }
+    , maskBorderWidth { Style::ComputedStyle::initialMaskBorderWidth() }
+    , maskBorderOutset { Style::ComputedStyle::initialMaskBorderOutset() }
+    , maskBorderRepeat { Style::ComputedStyle::initialMaskBorderRepeat() }
 {
 }
 
 MaskBorder::MaskBorder(MaskBorderSource&& source, MaskBorderSlice&& slice, MaskBorderWidth&& width, MaskBorderOutset&& outset, MaskBorderRepeat&& repeat)
-    : maskBorderSource { WTFMove(source) }
-    , maskBorderSlice { WTFMove(slice) }
-    , maskBorderWidth { WTFMove(width) }
-    , maskBorderOutset { WTFMove(outset) }
-    , maskBorderRepeat { WTFMove(repeat) }
+    : maskBorderSource { WTF::move(source) }
+    , maskBorderSlice { WTF::move(slice) }
+    , maskBorderWidth { WTF::move(width) }
+    , maskBorderOutset { WTF::move(outset) }
+    , maskBorderRepeat { WTF::move(repeat) }
 {
 }
 

@@ -143,8 +143,6 @@ inline bool isPointerTypeAlignmentOkay(Type*)
 
 namespace WTF {
 
-enum CheckMoveParameterTag { CheckMoveParameter };
-
 static constexpr size_t KB = 1024;
 static constexpr size_t MB = 1024 * 1024;
 static constexpr size_t GB = 1024 * 1024 * 1024;
@@ -668,7 +666,7 @@ template<size_t I, typename V> constexpr bool holdsAlternative(const V& v)
     }                                                                                \
     template<typename T> friend T&& get(Self&& self)                                 \
     {                                                                                \
-        return std::get<T>(WTFMove(self.name));                                      \
+        return std::get<T>(WTF::move(self.name));                                      \
     }                                                                                \
     template<typename T> friend const T& get(const Self& self)                       \
     {                                                                                \
@@ -850,22 +848,18 @@ inline void* operator new(size_t, NotNullTag, void* location)
     return location;
 }
 
-namespace std {
-
-template<WTF::CheckMoveParameterTag, typename T>
-ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
-{
-    static_assert(is_lvalue_reference<T>::value, "T is not an lvalue reference; move() is unnecessary.");
-
-    using NonRefQualifiedType = typename remove_reference<T>::type;
-    static_assert(!is_const<NonRefQualifiedType>::value, "T is const qualified.");
-
-    return move(forward<T>(value));
-}
-
-} // namespace std
-
 namespace WTF {
+
+template<typename T>
+[[nodiscard]] ALWAYS_INLINE constexpr std::remove_reference_t<T>&& move(T&& value)
+{
+    static_assert(std::is_lvalue_reference_v<T>, "T is not an lvalue reference; move() is unnecessary.");
+
+    using NonRefQualifiedType = std::remove_reference_t<T>;
+    static_assert(!std::is_const_v<NonRefQualifiedType>, "T is const qualified.");
+
+    return std::move(std::forward<T>(value));
+}
 
 template<class T, class... Args>
 [[nodiscard]] ALWAYS_INLINE decltype(auto) makeUnique(Args&&... args)
@@ -1568,8 +1562,6 @@ static constexpr auto dereferenceView = std::views::transform([](auto&& x) -> de
 }
 
 } // namespace WTF
-
-#define WTFMove(value) std::move<WTF::CheckMoveParameter>(value)
 
 namespace WTF {
 namespace detail {

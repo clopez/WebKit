@@ -43,7 +43,7 @@
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "RenderBox.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderTheme.h"
 #include "SelectionRestorationMode.h"
 #include "Settings.h"
@@ -56,7 +56,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLFormControlElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLFormControlElement);
 
 using namespace HTMLNames;
 
@@ -255,7 +255,7 @@ void HTMLFormControlElement::runFocusingStepsForAutofocus()
 
 void HTMLFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 {
-    HTMLElement::dispatchBlurEvent(WTFMove(newFocusedElement));
+    HTMLElement::dispatchBlurEvent(WTF::move(newFocusedElement));
     hideVisibleValidationMessage();
 }
 

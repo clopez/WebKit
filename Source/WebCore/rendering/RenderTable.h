@@ -44,7 +44,7 @@ enum SkipEmptySectionsValue { DoNotSkipEmptySections, SkipEmptySections };
 enum class TableIntrinsics : uint8_t { ForLayout, ForKeyword };
 
 class RenderTable : public RenderBlock {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderTable);
+    WTF_MAKE_TZONE_ALLOCATED(RenderTable);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTable);
 public:
     RenderTable(Type, Element&, RenderStyle&&);
@@ -69,7 +69,7 @@ public:
     inline LayoutUnit borderTop() const final;
     inline LayoutUnit borderBottom() const final;
 
-    Color bgColor() const { return checkedStyle()->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
+    Color bgColor() const { return checkedStyle()->visitedDependentBackgroundColorApplyingColorFilter(); }
 
     LayoutUnit outerBorderBefore() const;
     LayoutUnit outerBorderAfter() const;

@@ -38,10 +38,10 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGInline);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGInline);
     
 RenderSVGInline::RenderSVGInline(Type type, SVGGraphicsElement& element, RenderStyle&& style)
-    : RenderInline(type, element, WTFMove(style))
+    : RenderInline(type, element, WTF::move(style))
 {
     ASSERT(isRenderSVGInline());
 }
@@ -90,6 +90,14 @@ FloatRect RenderSVGInline::repaintRectInLocalCoordinates(RepaintRectCalculation 
         return textAncestor->repaintRectInLocalCoordinates(repaintRectCalculation);
 
     return FloatRect();
+}
+
+FloatRect RenderSVGInline::decoratedBoundingBox() const
+{
+    if (auto* textAncestor = RenderSVGText::locateRenderSVGTextAncestor(*this))
+        return textAncestor->decoratedBoundingBox();
+
+    return { };
 }
 
 LayoutRect RenderSVGInline::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const

@@ -103,7 +103,7 @@ ASCIILiteral AXObjectCache::notificationPlatformName(AXNotification notification
 void AXObjectCache::relayNotification(String&& notificationName, RetainPtr<NSData>&& notificationData)
 {
     if (RefPtr page = document() ? document()->page() : nullptr)
-        page->chrome().relayAccessibilityNotification(WTFMove(notificationName), WTFMove(notificationData));
+        page->chrome().relayAccessibilityNotification(WTF::move(notificationName), WTF::move(notificationData));
 }
 
 void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNotification notification)
@@ -157,7 +157,7 @@ void AXObjectCache::postPlatformARIANotifyNotification(AccessibilityObject&, con
 static NSString * const UIAccessibilityPriorityLow = @"UIAccessibilityPriorityLow";
 static NSString * const UIAccessibilityPriorityDefault = @"UIAccessibilityPriorityDefault";
 static NSString * const UIAccessibilitySpeechAttributeAnnouncementPriority = @"UIAccessibilitySpeechAttributeAnnouncementPriority";
-static NSString * const UIAccessibilitySpeechAttributeIsLiveRegion = @"UIAccessibilitySpeechAttributeIsLiveRegion";
+static NSString * const UIAccessibilityTokenLiveRegionAnnouncement = @"UIAccessibilityTokenLiveRegionAnnouncement";
 
 void AXObjectCache::postPlatformLiveRegionNotification(AccessibilityObject&, const LiveRegionAnnouncementData& notificationData)
 {
@@ -172,7 +172,7 @@ void AXObjectCache::postPlatformLiveRegionNotification(AccessibilityObject&, con
 
             auto mutableAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithAttributedString:notificationData.message.nsAttributedString().get()]);
             [mutableAttributedString addAttribute:UIAccessibilitySpeechAttributeAnnouncementPriority value:priority.get() range:NSMakeRange(0, [mutableAttributedString length])];
-            [mutableAttributedString addAttribute:UIAccessibilitySpeechAttributeIsLiveRegion value:@(YES) range:NSMakeRange(0, [mutableAttributedString length])];
+            [mutableAttributedString addAttribute:UIAccessibilityTokenLiveRegionAnnouncement value:@(YES) range:NSMakeRange(0, [mutableAttributedString length])];
 
             [root->wrapper() accessibilityPostedNotification:notificationName.get() userInfo:@{ notificationName.get() : mutableAttributedString.get() }];
         }

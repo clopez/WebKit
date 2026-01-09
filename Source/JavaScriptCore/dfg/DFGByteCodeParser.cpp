@@ -1386,7 +1386,7 @@ BasicBlock* ByteCodeParser::allocateTargetableBlock(BytecodeIndex bytecodeIndex)
     if (m_inlineStackTop->m_blockLinkingTargets.size())
         ASSERT(m_inlineStackTop->m_blockLinkingTargets.last()->bytecodeBegin.offset() < bytecodeIndex.offset());
     m_inlineStackTop->m_blockLinkingTargets.append(blockPtr);
-    m_graph.appendBlock(WTFMove(block));
+    m_graph.appendBlock(WTF::move(block));
     return blockPtr;
 }
 
@@ -1394,7 +1394,7 @@ BasicBlock* ByteCodeParser::allocateUntargetableBlock()
 {
     auto block = makeUnique<BasicBlock>(BytecodeIndex(), m_numArguments, m_numLocals, m_numTmps, 1);
     BasicBlock* blockPtr = block.get();
-    m_graph.appendBlock(WTFMove(block));
+    m_graph.appendBlock(WTF::move(block));
     VERBOSE_LOG("Adding new untargetable block: ", blockPtr->index, "\n");
     return blockPtr;
 }
@@ -3055,7 +3055,8 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             return CallOptimizationResult::Inlined;
         }
 
-        case StringPrototypeIndexOfIntrinsic: {
+        case StringPrototypeIndexOfIntrinsic:
+        case StringPrototypeIncludesIntrinsic: {
             if (argumentCountIncludingThis < 2)
                 return CallOptimizationResult::DidNothing;
 
@@ -3072,6 +3073,9 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
                 Node* index = get(virtualRegisterForArgumentIncludingThis(2, registerOffset));
                 result = addToGraph(StringIndexOf, OpInfo(ArrayMode(Array::String, Array::Read).asWord()), thisValue, search, index);
             }
+
+            if (intrinsic == StringPrototypeIncludesIntrinsic)
+                result = addToGraph(LogicalNot, addToGraph(CompareStrictEq, result, jsConstant(jsNumber(-1))));
 
             setResult(result);
             return CallOptimizationResult::Inlined;
@@ -3126,6 +3130,45 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             VirtualRegister thisOperand = virtualRegisterForArgumentIncludingThis(0, registerOffset);
             VirtualRegister indexOperand = virtualRegisterForArgumentIncludingThis(1, registerOffset);
             setResult(addToGraph(StringLocaleCompare, get(thisOperand), get(indexOperand)));
+            return CallOptimizationResult::Inlined;
+        }
+
+        case StringPrototypeConcatIntrinsic: {
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+            Node* thisNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
+            addToGraph(Check, Edge(thisNode, StringUse));
+
+            unsigned numArguments = argumentCountIncludingThis - 1;
+
+            if (!numArguments) {
+                setResult(addToGraph(ToString, thisNode));
+                return CallOptimizationResult::Inlined;
+            }
+
+            constexpr unsigned maxStrCatArguments = 3;
+            Node* operands[AdjacencyList::Size] = { };
+            unsigned indexInOperands = 0;
+
+            operands[indexInOperands++] = thisNode;
+
+            for (unsigned i = 0; i < numArguments; ++i) {
+                if (indexInOperands == maxStrCatArguments) {
+                    operands[0] = addToGraph(StrCat, operands[0], operands[1], operands[2]);
+                    for (unsigned j = 1; j < AdjacencyList::Size; ++j)
+                        operands[j] = nullptr;
+                    indexInOperands = 1;
+                }
+                ASSERT(indexInOperands < AdjacencyList::Size);
+                ASSERT(indexInOperands < maxStrCatArguments);
+                Node* arg = get(virtualRegisterForArgumentIncludingThis(i + 1, registerOffset));
+                addToGraph(Check, Edge(arg, StringUse));
+                operands[indexInOperands++] = arg;
+            }
+
+            setResult(addToGraph(StrCat, operands[0], operands[1], operands[2]));
             return CallOptimizationResult::Inlined;
         }
 
@@ -3455,26 +3498,6 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             insertChecks();
 
             Node* resultNode = addToGraph(intrinsic == StringPrototypeReplaceIntrinsic ? StringReplace : StringReplaceAll, OpInfo(0), OpInfo(prediction), get(virtualRegisterForArgumentIncludingThis(0, registerOffset)), get(virtualRegisterForArgumentIncludingThis(1, registerOffset)), get(virtualRegisterForArgumentIncludingThis(2, registerOffset)));
-            setResult(resultNode);
-            return CallOptimizationResult::Inlined;
-        }
-            
-        case StringPrototypeReplaceRegExpIntrinsic: {
-            if (argumentCountIncludingThis < 3)
-                return CallOptimizationResult::DidNothing;
-            
-            insertChecks();
-            Node* resultNode = addToGraph(StringReplaceRegExp, OpInfo(0), OpInfo(prediction), get(virtualRegisterForArgumentIncludingThis(0, registerOffset)), get(virtualRegisterForArgumentIncludingThis(1, registerOffset)), get(virtualRegisterForArgumentIncludingThis(2, registerOffset)));
-            setResult(resultNode);
-            return CallOptimizationResult::Inlined;
-        }
-
-        case StringPrototypeReplaceStringIntrinsic: {
-            if (argumentCountIncludingThis < 3)
-                return CallOptimizationResult::DidNothing;
-
-            insertChecks();
-            Node* resultNode = addToGraph(StringReplaceString, OpInfo(0), OpInfo(prediction), get(virtualRegisterForArgumentIncludingThis(0, registerOffset)), get(virtualRegisterForArgumentIncludingThis(1, registerOffset)), get(virtualRegisterForArgumentIncludingThis(2, registerOffset)));
             setResult(resultNode);
             return CallOptimizationResult::Inlined;
         }
@@ -5015,7 +5038,7 @@ bool ByteCodeParser::handleDOMJITGetter(Operand result, const GetByVariant& vari
         callDOMGetterData->domJIT = domJIT;
         Ref<DOMJIT::CallDOMGetterSnippet> snippet = domJIT->compiler()();
         callDOMGetterData->snippet = snippet.ptr();
-        m_graph.m_domJITSnippets.append(WTFMove(snippet));
+        m_graph.m_domJITSnippets.append(WTF::move(snippet));
     }
     DOMJIT::CallDOMGetterSnippet* callDOMGetterSnippet = callDOMGetterData->snippet;
     callDOMGetterData->identifierNumber = identifierNumber;
@@ -6427,7 +6450,7 @@ bool ByteCodeParser::handleInByAsMatchStructure(VirtualRegister destination, Nod
             matchVariant.structure = m_graph.registerStructure(structure);
             matchVariant.result = variant.isHit();
 
-            data->variants.append(WTFMove(matchVariant));
+            data->variants.append(WTF::move(matchVariant));
         }
     }
 
@@ -7722,7 +7745,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                                 matchVariant.structure = m_graph.registerStructure(structure);
                                 matchVariant.result = variant.isHit();
 
-                                data->variants.append(WTFMove(matchVariant));
+                                data->variants.append(WTF::move(matchVariant));
                             }
                         }
 

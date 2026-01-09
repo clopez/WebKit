@@ -26,13 +26,14 @@
 #pragma once
 
 #include <wtf/Forward.h>
+#include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class MediaSample;
 class MediaSamplesBlock;
-struct TrackInfo;
+class TrackInfo;
 
 class MediaSampleConverter final {
     WTF_MAKE_TZONE_ALLOCATED(MediaSampleConverter);

@@ -382,7 +382,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/identity/DigitalCredentialRequestOptions.idl \
     $(WebCore)/Modules/identity/IdentityCredentialProtocol.idl \
     $(WebCore)/Modules/identity/protocols/ISO18013/MobileDocumentRequest.idl \
-    $(WebCore)/Modules/identity/protocols/openid/OpenID4VPRequest.idl \
     $(WebCore)/Modules/indexeddb/IDBCursor.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorDirection.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorWithValue.idl \
@@ -1974,9 +1973,8 @@ all : \
     NodeName.cpp \
     NodeName.h \
     RenderStyleProperties.h \
-    RenderStylePropertiesGettersInlines.h \
-    RenderStylePropertiesInitialInlines.h \
-    RenderStylePropertiesSettersInlines.h \
+    RenderStyleProperties+GettersInlines.h \
+    RenderStyleProperties+SettersInlines.h \
     SVGElementFactory.cpp \
     SVGElementFactory.h \
     SVGElementTypeHelpers.h \
@@ -1985,6 +1983,11 @@ all : \
     SelectorPseudoClassAndCompatibilityElementMap.cpp \
     SelectorPseudoElementMap.cpp \
     StyleBuilderGenerated.cpp \
+    StyleComputedStyleProperties.cpp \
+    StyleComputedStyleProperties.h \
+    StyleComputedStyleProperties+GettersInlines.h \
+    StyleComputedStyleProperties+InitialInlines.h \
+    StyleComputedStyleProperties+SettersInlines.h \
     StyleChangedAnimatablePropertiesGenerated.cpp \
     StyleExtractorGenerated.cpp \
     StyleInterpolationWrapperMap.cpp \
@@ -2030,10 +2033,14 @@ CSS_PROPERTY_NAME_FILES = \
     CSSPropertyParsing.h \
     CSSStyleProperties+PropertyNames.idl \
     RenderStyleProperties.h \
-    RenderStylePropertiesGettersInlines.h \
-    RenderStylePropertiesInitialInlines.h \
-    RenderStylePropertiesSettersInlines.h \
+    RenderStyleProperties+GettersInlines.h \
+    RenderStyleProperties+SettersInlines.h \
     StyleBuilderGenerated.cpp \
+    StyleComputedStyleProperties.cpp \
+    StyleComputedStyleProperties.h \
+    StyleComputedStyleProperties+GettersInlines.h \
+    StyleComputedStyleProperties+InitialInlines.h \
+    StyleComputedStyleProperties+SettersInlines.h \
     StyleChangedAnimatablePropertiesGenerated.cpp \
     StyleExtractorGenerated.cpp \
     StyleInterpolationWrapperMap.cpp \
@@ -2208,6 +2215,8 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/htmlSwitchControl.css \
     $(WebCore)/css/mathml.css \
     $(WebCore)/css/mathmlCoreExtras.css \
+    $(WebCore)/css/mathmlFontSizeMath.css \
+    $(WebCore)/css/mathmlLegacyFontSizeMath.css \
     $(WebCore)/css/popover.css \
     $(WebCore)/css/quirks.css \
     $(WebCore)/css/svg.css \

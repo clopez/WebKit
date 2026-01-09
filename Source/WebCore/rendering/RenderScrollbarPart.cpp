@@ -31,17 +31,17 @@
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarTheme.h"
-#include "RenderStyleInlines.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderScrollbarPart);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderScrollbarPart);
 
 RenderScrollbarPart::RenderScrollbarPart(Document& document, RenderStyle&& style, RenderScrollbar* scrollbar, ScrollbarPart part)
-    : RenderBlock(Type::ScrollbarPart, document, WTFMove(style), { })
+    : RenderBlock(Type::ScrollbarPart, document, WTF::move(style), { })
     , m_scrollbar(scrollbar)
     , m_part(part)
 {

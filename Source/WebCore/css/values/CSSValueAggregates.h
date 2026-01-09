@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024-2025 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2024-2026 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -279,7 +279,7 @@ struct SpaceSeparatedEnumSet {
     }
 
     constexpr SpaceSeparatedEnumSet(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -364,7 +364,7 @@ struct CommaSeparatedEnumSet {
     }
 
     constexpr CommaSeparatedEnumSet(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -447,7 +447,7 @@ struct SpaceSeparatedListHashSet {
     }
 
     constexpr SpaceSeparatedListHashSet(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -490,7 +490,7 @@ struct CommaSeparatedListHashSet {
     }
 
     constexpr CommaSeparatedListHashSet(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -533,7 +533,7 @@ template<typename T, size_t inlineCapacity = 0> struct SpaceSeparatedVector {
     }
 
     SpaceSeparatedVector(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -580,7 +580,7 @@ template<typename T, size_t inlineCapacity = 0> struct CommaSeparatedVector {
     }
 
     CommaSeparatedVector(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -627,12 +627,12 @@ template<typename T> struct SpaceSeparatedFixedVector {
     }
 
     SpaceSeparatedFixedVector(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
     SpaceSeparatedFixedVector(T&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -688,12 +688,12 @@ template<typename T> struct CommaSeparatedFixedVector {
     }
 
     CommaSeparatedFixedVector(Container&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
     CommaSeparatedFixedVector(T&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -742,7 +742,7 @@ template<typename T> struct SpaceSeparatedRefCountedFixedVector {
     using value_type = typename Container::value_type;
 
     SpaceSeparatedRefCountedFixedVector(T&& value)
-        : value { Container::create(WTFMove(value)) }
+        : value { Container::create(WTF::move(value)) }
     {
     }
 
@@ -752,7 +752,7 @@ template<typename T> struct SpaceSeparatedRefCountedFixedVector {
     }
 
     SpaceSeparatedRefCountedFixedVector(Ref<Container>&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -800,7 +800,7 @@ template<typename T> struct CommaSeparatedRefCountedFixedVector {
     using value_type = typename Container::value_type;
 
     CommaSeparatedRefCountedFixedVector(T&& value)
-        : value { Container::create(WTFMove(value)) }
+        : value { Container::create(WTF::move(value)) }
     {
     }
 
@@ -810,7 +810,7 @@ template<typename T> struct CommaSeparatedRefCountedFixedVector {
     }
 
     CommaSeparatedRefCountedFixedVector(Ref<Container>&& value)
-        : value { WTFMove(value) }
+        : value { WTF::move(value) }
     {
     }
 
@@ -861,7 +861,7 @@ template<typename T, typename K, typename Traits = MarkableTraits<T>> struct Val
     }
 
     constexpr ValueOrKeyword(Value&& value)
-        : m_value { WTFMove(value) }
+        : m_value { WTF::move(value) }
     {
     }
 
@@ -888,7 +888,7 @@ template<typename T, typename K, typename Traits = MarkableTraits<T>> struct Val
 
 protected:
     constexpr ValueOrKeyword(std::optional<Value>&& value)
-        : m_value { WTFMove(value) }
+        : m_value { WTF::move(value) }
     {
     }
 
@@ -908,7 +908,7 @@ template<typename T> struct ListOrNone {
     using value_type = typename List::value_type;
 
     ListOrNone(List&& list)
-        : m_value { WTFMove(list) }
+        : m_value { WTF::move(list) }
     {
         RELEASE_ASSERT(!m_value.isEmpty());
     }
@@ -1009,14 +1009,14 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     };
 
     ListOrDefault(List&& list, Defaulter&& defaulter = Defaulter())
-        : value { WTFMove(list) }
-        , defaulter { WTFMove(defaulter) }
+        : value { WTF::move(list) }
+        , defaulter { WTF::move(defaulter) }
     {
     }
 
     ListOrDefault(DefaultValueToken, Defaulter&& defaulter = Defaulter())
         : value { }
-        , defaulter { WTFMove(defaulter) }
+        , defaulter { WTF::move(defaulter) }
     {
     }
 
@@ -1059,7 +1059,7 @@ template<typename T> struct ListOrNullopt {
     using value_type = typename List::value_type;
 
     ListOrNullopt(List&& list)
-        : m_value { WTFMove(list) }
+        : m_value { WTF::move(list) }
     {
         RELEASE_ASSERT(!m_value.isEmpty());
     }
@@ -1117,7 +1117,7 @@ template<typename Derived, typename T, typename K> struct EnumSetOrKeywordBase {
     using value_type = typename EnumSet::value_type;
 
     constexpr EnumSetOrKeywordBase(EnumSet&& list)
-        : m_value { WTFMove(list) }
+        : m_value { WTF::move(list) }
     {
         RELEASE_ASSERT(!m_value.isEmpty());
     }
@@ -1194,7 +1194,7 @@ template<typename T, size_t N> struct SpaceSeparatedArray {
     }
 
     constexpr SpaceSeparatedArray(std::array<T, N>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1224,12 +1224,12 @@ template<typename T> struct MinimallySerializingSpaceSeparatedPair {
     using value_type = T;
 
     constexpr MinimallySerializingSpaceSeparatedPair(T p1, T p2)
-        : value { WTFMove(p1), WTFMove(p2) }
+        : value { WTF::move(p1), WTF::move(p2) }
     {
     }
 
     constexpr MinimallySerializingSpaceSeparatedPair(SpaceSeparatedPair<T>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1263,7 +1263,7 @@ template<typename T, size_t N> struct CommaSeparatedArray {
     }
 
     constexpr CommaSeparatedArray(std::array<T, N>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1303,7 +1303,7 @@ template<typename... Ts> struct SpaceSeparatedTuple {
     }
 
     constexpr SpaceSeparatedTuple(std::tuple<Ts...>&& tuple)
-        : value { WTFMove(tuple) }
+        : value { WTF::move(tuple) }
     {
     }
 
@@ -1335,7 +1335,7 @@ template<typename... Ts> struct CommaSeparatedTuple {
     }
 
     constexpr CommaSeparatedTuple(std::tuple<Ts...>&& tuple)
-        : value { WTFMove(tuple) }
+        : value { WTF::move(tuple) }
     {
     }
 
@@ -1358,12 +1358,12 @@ template<typename T> struct SpaceSeparatedPoint {
     using value_type = T;
 
     constexpr SpaceSeparatedPoint(T p1, T p2)
-        : value { WTFMove(p1), WTFMove(p2) }
+        : value { WTF::move(p1), WTF::move(p2) }
     {
     }
 
     constexpr SpaceSeparatedPoint(SpaceSeparatedPair<T>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1389,12 +1389,12 @@ template<typename T> struct SpaceSeparatedSize {
     using value_type = T;
 
     constexpr SpaceSeparatedSize(T p1, T p2)
-        : value { WTFMove(p1), WTFMove(p2) }
+        : value { WTF::move(p1), WTF::move(p2) }
     {
     }
 
     constexpr SpaceSeparatedSize(SpaceSeparatedPair<T>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1425,12 +1425,12 @@ template<typename T> struct MinimallySerializingSpaceSeparatedPoint {
     }
 
     template<typename U> constexpr MinimallySerializingSpaceSeparatedPoint(U p1, U p2)
-        : value { WTFMove(p1), WTFMove(p2) }
+        : value { WTF::move(p1), WTF::move(p2) }
     {
     }
 
     constexpr MinimallySerializingSpaceSeparatedPoint(SpaceSeparatedPair<T>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1462,12 +1462,12 @@ template<typename T> struct MinimallySerializingSpaceSeparatedSize {
     }
 
     template<typename U> constexpr MinimallySerializingSpaceSeparatedSize(U p1, U p2)
-        : value { WTFMove(p1), WTFMove(p2) }
+        : value { WTF::move(p1), WTF::move(p2) }
     {
     }
 
     constexpr MinimallySerializingSpaceSeparatedSize(SpaceSeparatedPair<T>&& array)
-        : value { WTFMove(array) }
+        : value { WTF::move(array) }
     {
     }
 
@@ -1498,12 +1498,12 @@ template<typename T> struct SpaceSeparatedRectEdges : RectEdges<T> {
     }
 
     constexpr SpaceSeparatedRectEdges(T top, T right, T bottom, T left)
-        : RectEdges<T> { WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left) }
+        : RectEdges<T> { WTF::move(top), WTF::move(right), WTF::move(bottom), WTF::move(left) }
     {
     }
 
     constexpr SpaceSeparatedRectEdges(RectEdges<T>&& rectEdges)
-        : RectEdges<T> { WTFMove(rectEdges) }
+        : RectEdges<T> { WTF::move(rectEdges) }
     {
     }
 
@@ -1535,12 +1535,12 @@ template<typename T> struct CommaSeparatedRectEdges : RectEdges<T> {
     }
 
     constexpr CommaSeparatedRectEdges(T top, T right, T bottom, T left)
-        : RectEdges<T> { WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left) }
+        : RectEdges<T> { WTF::move(top), WTF::move(right), WTF::move(bottom), WTF::move(left) }
     {
     }
 
     constexpr CommaSeparatedRectEdges(RectEdges<T>&& rectEdges)
-        : RectEdges<T> { WTFMove(rectEdges) }
+        : RectEdges<T> { WTF::move(rectEdges) }
     {
     }
 
@@ -1583,12 +1583,12 @@ template<typename T> struct MinimallySerializingSpaceSeparatedRectEdges : RectEd
     }
 
     constexpr MinimallySerializingSpaceSeparatedRectEdges(T top, T right, T bottom, T left)
-        : RectEdges<T> { WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left) }
+        : RectEdges<T> { WTF::move(top), WTF::move(right), WTF::move(bottom), WTF::move(left) }
     {
     }
 
     constexpr MinimallySerializingSpaceSeparatedRectEdges(RectEdges<T>&& rectEdges)
-        : RectEdges<T> { WTFMove(rectEdges) }
+        : RectEdges<T> { WTF::move(rectEdges) }
     {
     }
 
@@ -1620,12 +1620,12 @@ template<typename T> struct MinimallySerializingSpaceSeparatedRectCorners : Rect
     }
 
     constexpr MinimallySerializingSpaceSeparatedRectCorners(T topLeft, T topRight, T bottomLeft, T bottomRight)
-        : RectCorners<T> { WTFMove(topLeft), WTFMove(topRight), WTFMove(bottomLeft), WTFMove(bottomRight) }
+        : RectCorners<T> { WTF::move(topLeft), WTF::move(topRight), WTF::move(bottomLeft), WTF::move(bottomRight) }
     {
     }
 
     constexpr MinimallySerializingSpaceSeparatedRectCorners(RectCorners<T>&& rectCorners)
-        : RectCorners<T> { WTFMove(rectCorners) }
+        : RectCorners<T> { WTF::move(rectCorners) }
     {
     }
 
@@ -1647,6 +1647,65 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedRectCorners<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedRectCorners<T>> = SerializationSeparatorType::Space;
 template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedRectCorners<T>> = SerializationCoalescingType::Minimal;
+
+// `RectEdgesView` provides a `RectEdges`-like view of data that is not stored in a `RectEdges`
+// derived data type. Instead, the provided `Accessor` type provides access to the edges via
+// its `get` and `set` delegation functions.
+template<bool isConst, typename Data, template<BoxSide> typename Accessor, typename GetterType, typename SetterType = GetterType>
+struct RectEdgesView {
+    std::conditional_t<isConst, const Data&, Data&> data;
+
+    GetterType top() const { return Accessor<BoxSide::Top>::get(data); }
+    GetterType right() const { return Accessor<BoxSide::Right>::get(data); }
+    GetterType bottom() const { return Accessor<BoxSide::Bottom>::get(data); }
+    GetterType left() const { return Accessor<BoxSide::Left>::get(data); }
+
+    void setTop(SetterType value) requires (!isConst) { Accessor<BoxSide::Top>::set(data, std::forward<SetterType>(value)); }
+    void setRight(SetterType value) requires (!isConst){ Accessor<BoxSide::Right>::set(data, std::forward<SetterType>(value)); }
+    void setBottom(SetterType value) requires (!isConst){ Accessor<BoxSide::Bottom>::set(data, std::forward<SetterType>(value)); }
+    void setLeft(SetterType value) requires (!isConst) { Accessor<BoxSide::Left>::set(data, std::forward<SetterType>(value)); }
+
+    GetterType before(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::BlockStart)); }
+    GetterType after(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::BlockEnd)); }
+    GetterType start(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::InlineStart)); }
+    GetterType end(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::InlineEnd)); }
+    GetterType logicalLeft(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::LogicalLeft)); }
+    GetterType logicalRight(WritingMode writingMode) const { return at(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::LogicalRight)); }
+
+    void setBefore(SetterType before, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::BlockStart), std::forward<SetterType>(before)); }
+    void setAfter(SetterType after, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::BlockEnd), std::forward<SetterType>(after)); }
+    void setStart(SetterType start, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::InlineStart), std::forward<SetterType>(start)); }
+    void setEnd(SetterType end, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::InlineEnd), std::forward<SetterType>(end)); }
+    void setLogicalLeft(SetterType logicalLeft, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::LogicalLeft), std::forward<SetterType>(logicalLeft)); }
+    void setLogicalRight(SetterType logicalRight, WritingMode writingMode) requires (!isConst) { setAt(mapSideLogicalToPhysical(writingMode, LogicalBoxSide::LogicalRight), std::forward<SetterType>(logicalRight)); }
+
+    GetterType at(BoxSide side) const
+    {
+        switch (side) {
+        case BoxSide::Top:    return top();
+        case BoxSide::Right:  return right();
+        case BoxSide::Bottom: return bottom();
+        case BoxSide::Left:   return left();
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    void setAt(BoxSide side, SetterType value) requires (!isConst)
+    {
+        switch (side) {
+        case BoxSide::Top:    setTop(std::forward<SetterType>(value)); return;
+        case BoxSide::Right:  setRight(std::forward<SetterType>(value)); return;
+        case BoxSide::Bottom: setBottom(std::forward<SetterType>(value)); return;
+        case BoxSide::Left:   setLeft(std::forward<SetterType>(value)); return;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    template<typename T> auto to() const -> T
+    {
+        return T { top(), right(), bottom(), left() };
+    }
+};
 
 // MARK: - Logging
 

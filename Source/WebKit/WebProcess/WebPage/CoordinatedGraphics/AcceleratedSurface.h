@@ -56,6 +56,10 @@ typedef struct AHardwareBuffer AHardwareBuffer;
 typedef void *EGLImage;
 #endif
 
+#if USE(SKIA)
+#include <WebCore/GraphicsContextSkia.h>
+#endif
+
 #if USE(WPE_RENDERER)
 struct wpe_renderer_backend_egl_target;
 #endif
@@ -66,6 +70,7 @@ class RunLoop;
 
 namespace WebCore {
 class GLFence;
+class GraphicsContext;
 class ShareableBitmap;
 class ShareableBitmapHandle;
 }
@@ -103,6 +108,8 @@ public:
         return true;
 #endif
     }
+
+    WebCore::GraphicsContext* graphicsContext();
 
     void willDestroyGLContext();
     void willRenderFrame(const WebCore::IntSize&);
@@ -143,6 +150,8 @@ private:
 
         uint64_t id() const { return m_id; }
 
+        virtual WebCore::GraphicsContext* graphicsContext() { RELEASE_ASSERT_NOT_REACHED(); }
+
         virtual void willRenderFrame() { }
         virtual void didRenderFrame(Vector<WebCore::IntRect, 1>&&) { }
 
@@ -150,7 +159,7 @@ private:
         virtual void setReleaseFenceFD(UnixFileDescriptor&&) { }
 
 #if ENABLE(DAMAGE_TRACKING)
-        void setDamage(WebCore::Damage&& damage) { m_damage = WTFMove(damage); }
+        void setDamage(WebCore::Damage&& damage) { m_damage = WTF::move(damage); }
         const std::optional<WebCore::Damage>& damage() { return m_damage; }
         void addDamage(const std::optional<WebCore::Damage>&);
 #endif
@@ -177,6 +186,8 @@ private:
     protected:
         RenderTargetShareableBuffer(uint64_t, const WebCore::IntSize&);
 
+        WebCore::GraphicsContext* graphicsContext() override;
+
         void willRenderFrame() override;
         void didRenderFrame(Vector<WebCore::IntRect, 1>&&) override;
 
@@ -188,6 +199,13 @@ private:
         unsigned m_depthStencilBuffer { 0 };
         UnixFileDescriptor m_renderingFenceFD;
         UnixFileDescriptor m_releaseFenceFD;
+#if USE(SKIA)
+        struct {
+            sk_sp<SkSurface> surface;
+            std::unique_ptr<WebCore::GraphicsContextSkia> context;
+        } m_graphicsContext;
+#endif
+        WebCore::IntSize m_initialSize;
     };
 
 #if USE(GBM) || OS(ANDROID)
@@ -197,15 +215,15 @@ private:
         BufferFormat& operator=(const BufferFormat&) = delete;
         BufferFormat(BufferFormat&& other)
         {
-            *this = WTFMove(other);
+            *this = WTF::move(other);
         }
         BufferFormat& operator=(BufferFormat&& other)
         {
             usage = std::exchange(other.usage, RendererBufferFormat::Usage::Rendering);
             fourcc = std::exchange(other.fourcc, 0);
 #if USE(GBM)
-            modifiers = WTFMove(other.modifiers);
-            gbmDevice = WTFMove(other.gbmDevice);
+            modifiers = WTF::move(other.modifiers);
+            gbmDevice = WTF::move(other.gbmDevice);
 #endif
             return *this;
         }

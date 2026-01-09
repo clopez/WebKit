@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGInlineText);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGInlineText);
 
 static String applySVGWhitespaceRules(const String& string, bool preserveWhiteSpace)
 {
@@ -274,7 +274,7 @@ bool RenderSVGInlineText::computeNewScaledFontForStyle(const RenderObject& rende
     if (fontDescription.orientation() != FontOrientation::Horizontal)
         fontDescription.setOrientation(FontOrientation::Horizontal);
 
-    scaledFont = FontCascade(WTFMove(fontDescription));
+    scaledFont = FontCascade(WTF::move(fontDescription));
     scaledFont.update(renderer.document().protectedFontSelector().ptr());
     return true;
 }

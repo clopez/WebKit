@@ -39,7 +39,7 @@ namespace WebCore {
 
 Ref<Subscriber> Subscriber::create(ScriptExecutionContext& context, Ref<InternalObserver>&& observer, const SubscribeOptions& options)
 {
-    return adoptRef(*new Subscriber(context, WTFMove(observer), options));
+    return adoptRef(*new Subscriber(context, WTF::move(observer), options));
 }
 
 Subscriber::Subscriber(ScriptExecutionContext& context, Ref<InternalObserver>&& observer, const SubscribeOptions& options)
@@ -179,6 +179,6 @@ void Subscriber::visitAdditionalChildren(JSC::AbstractSlotVisitor& visitor)
 
 Subscriber::~Subscriber() = default;
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Subscriber);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Subscriber);
 
 } // namespace WebCore

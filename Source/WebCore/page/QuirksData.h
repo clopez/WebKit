@@ -161,7 +161,7 @@ struct QuirksData {
         ShouldDisableWritingSuggestionsByDefaultQuirk,
         ShouldDispatchPlayPauseEventsOnResume,
 #if ENABLE(TOUCH_EVENTS)
-        ShouldDispatchPointerOutAfterHandlingSyntheticClick,
+        ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick,
 #endif
         ShouldDispatchSyntheticMouseEventsWhenModifyingSelectionQuirk,
         ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
@@ -232,6 +232,9 @@ struct QuirksData {
         ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor,
         ShouldAllowNotificationPermissionWithoutUserGesture,
         NeedsInstagramResizingReelsQuirk,
+#if PLATFORM(IOS_FAMILY)
+        NeedsChromeOSNavigatorUserAgentQuirk,
+#endif
 
         NumberOfQuirks
     };

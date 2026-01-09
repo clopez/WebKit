@@ -26,6 +26,7 @@
 #pragma once
 
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LocalDOMWindowProperty.h"
 #include "NavigateEvent.h"
@@ -58,7 +59,7 @@ struct NavigationAPIMethodTracker : public RefCounted<NavigationAPIMethodTracker
 
     static Ref<NavigationAPIMethodTracker> create(Ref<DeferredPromise>&& committed, Ref<DeferredPromise>&& finished, JSC::JSValue&& info, RefPtr<SerializedScriptValue>&& serializedState)
     {
-        return adoptRef(*new NavigationAPIMethodTracker(WTFMove(committed), WTFMove(finished), WTFMove(info), WTFMove(serializedState)));
+        return adoptRef(*new NavigationAPIMethodTracker(WTF::move(committed), WTF::move(finished), WTF::move(info), WTF::move(serializedState)));
     }
 
     bool operator==(const NavigationAPIMethodTracker& other) const
@@ -79,8 +80,8 @@ private:
     explicit NavigationAPIMethodTracker(Ref<DeferredPromise>&& committed, Ref<DeferredPromise>&& finished, JSC::JSValue&& info, RefPtr<SerializedScriptValue>&& serializedState)
         : info(info)
         , serializedState(serializedState)
-        , committedPromise(WTFMove(committed))
-        , finishedPromise(WTFMove(finished))
+        , committedPromise(WTF::move(committed))
+        , finishedPromise(WTF::move(finished))
         , identifier(NavigationAPIMethodTrackerIdentifier::generate())
     {
     }
@@ -96,7 +97,7 @@ enum class ShouldCopyStateObjectFromCurrentEntry : bool { No, Yes };
 enum class ShouldNotifyCommitted : bool { No, Yes };
 
 class Navigation final : public RefCounted<Navigation>, public EventTarget, public LocalDOMWindowProperty {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Navigation);
+    WTF_MAKE_TZONE_ALLOCATED(Navigation);
 public:
     ~Navigation();
 
@@ -291,3 +292,5 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(Navigation)

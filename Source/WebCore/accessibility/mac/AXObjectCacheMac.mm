@@ -389,7 +389,7 @@ void AXObjectCache::postPlatformAnnouncementNotification(const String& message)
 
     // To simplify monitoring of notifications in tests, repost as a simple NSNotification instead of forcing test infrastucture to setup an IPC client and do all the translation between WebCore types and platform specific IPC types and back.
     if (gShouldRepostNotificationsForTests) [[unlikely]] {
-        if (RefPtr root = getOrCreate(m_document->view()))
+        if (RefPtr root = getOrCreate(m_document->protectedView().get()))
             [root->wrapper() accessibilityPostedNotification:NSAccessibilityAnnouncementRequestedNotification userInfo:userInfo];
     }
 }
@@ -412,7 +412,7 @@ void AXObjectCache::postPlatformARIANotifyNotification(AccessibilityObject& obje
     NSAccessibilityPostNotificationWithUserInfo(object.wrapper(), NSAccessibilityAnnouncementRequestedNotification, userInfo);
 
     if (gShouldRepostNotificationsForTests) [[unlikely]] {
-        if (RefPtr root = getOrCreate(m_document->view()))
+        if (RefPtr root = getOrCreate(m_document->protectedView().get()))
             [root->wrapper() accessibilityPostedNotification:NSAccessibilityAnnouncementRequestedNotification userInfo:userInfo];
     }
 }
@@ -424,27 +424,22 @@ void AXObjectCache::postPlatformLiveRegionNotification(AccessibilityObject& obje
     NSAccessibilityPostNotificationWithUserInfo(object.wrapper(), NSAccessibilityAnnouncementRequestedNotification, userInfo.get());
 
     if (gShouldRepostNotificationsForTests) [[unlikely]] {
-        if (RefPtr root = getOrCreate(m_document->view()))
+        if (RefPtr root = getOrCreate(m_document->protectedView().get()))
             [root->wrapper() accessibilityPostedNotification:NSAccessibilityAnnouncementRequestedNotification userInfo:userInfo.get()];
     }
 }
 
 void AXObjectCache::onDocumentRenderTreeCreation(const Document& document)
 {
-    RefPtr object = getOrCreate(document.renderView());
-    if (!object || !object->isWebArea())
-        return;
-    queueUnsortedObject(object.releaseNonNull(), PreSortedObjectType::WebArea);
+    m_deferredDocumentsWithNewRenderTrees.append(document);
+
+    if (!m_performCacheUpdateTimer.isActive() && !m_performingDeferredCacheUpdate)
+        m_performCacheUpdateTimer.startOneShot(0_s);
 }
 
 void AXObjectCache::deferSortForNewLiveRegion(Ref<AccessibilityObject>&& object)
 {
-#if PLATFORM(COCOA)
-    if (m_liveRegionManager)
-        return;
-#endif
-
-    queueUnsortedObject(WTFMove(object), PreSortedObjectType::LiveRegion);
+    queueUnsortedObject(WTF::move(object), PreSortedObjectType::LiveRegion);
 }
 
 void AXObjectCache::queueUnsortedObject(Ref<AccessibilityObject>&& object, PreSortedObjectType type)
@@ -456,7 +451,7 @@ void AXObjectCache::queueUnsortedObject(Ref<AccessibilityObject>&& object, PreSo
     auto unsortedObjectListIterator = m_deferredUnsortedObjects.ensure(type, [&] {
         return Vector<Ref<AccessibilityObject>>();
     }).iterator;
-    unsortedObjectListIterator->value.appendIfNotContains(WTFMove(object));
+    unsortedObjectListIterator->value.appendIfNotContains(WTF::move(object));
 
     if (!m_performCacheUpdateTimer.isActive() && !m_performingDeferredCacheUpdate)
         m_performCacheUpdateTimer.startOneShot(0_s);
@@ -734,8 +729,14 @@ void AXObjectCache::handleScrolledToAnchor(const Node&)
 
 void AXObjectCache::platformPerformDeferredCacheUpdate()
 {
+    for (const auto& document : m_deferredDocumentsWithNewRenderTrees) {
+        if (RefPtr object = getOrCreate(document ? document->renderView() : nullptr); object && object->isWebArea())
+            queueUnsortedObject(object.releaseNonNull(), PreSortedObjectType::WebArea);
+    }
+    m_deferredDocumentsWithNewRenderTrees.clear();
+
     for (auto& unsortedObjectsEntry : m_deferredUnsortedObjects)
-        addSortedObjects(WTFMove(unsortedObjectsEntry.value), unsortedObjectsEntry.key);
+        addSortedObjects(WTF::move(unsortedObjectsEntry.value), unsortedObjectsEntry.key);
     m_deferredUnsortedObjects.clear();
 }
 
@@ -831,11 +832,6 @@ bool AXObjectCache::shouldSpellCheck()
 
 AXCoreObject::AccessibilityChildrenVector AXObjectCache::sortedLiveRegions()
 {
-#if PLATFORM(COCOA)
-    if (m_liveRegionManager)
-        return { };
-#endif
-
     if (!m_sortedIDListsInitialized)
         initializeSortedIDLists();
     return objectsForIDs(m_sortedLiveRegionIDs);
@@ -926,6 +922,11 @@ void AXObjectCache::removeLiveRegion(AccessibilityObject& object)
     if (!m_sortedIDListsInitialized)
         return;
 
+#if PLATFORM(COCOA)
+    if (m_liveRegionManager)
+        m_liveRegionManager->unregisterLiveRegion(object.objectID());
+#endif
+
     if (m_sortedLiveRegionIDs.removeAll(object.objectID())) {
         if (RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID))
             tree->sortedLiveRegionsDidChange(m_sortedLiveRegionIDs);
@@ -938,15 +939,9 @@ void AXObjectCache::initializeSortedIDLists()
         return;
     m_sortedIDListsInitialized = true;
 
-#if PLATFORM(COCOA)
-    bool includeLiveRegions = !m_liveRegionManager;
-#else
-    bool includeLiveRegions = true;
-#endif
-
     RefPtr current = rootWebArea();
     while ((current = current ? downcast<AccessibilityObject>(current->nextInPreOrder()) : nullptr)) {
-        if (includeLiveRegions && current->supportsLiveRegion()) {
+        if (current->supportsLiveRegion()) {
             // There's no reason to ever add the same object twice, as that means we walked over it twice
             // in our pre-order tree traversal.
             ASSERT(!m_sortedLiveRegionIDs.contains(current->objectID()));

@@ -30,7 +30,7 @@ namespace WebCore {
 class HTMLOListElement;
 
 class RenderListItem final : public RenderBlockFlow {
-    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderListItem);
+    WTF_MAKE_TZONE_ALLOCATED(RenderListItem);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderListItem);
 public:
     RenderListItem(Element&, RenderStyle&&);
@@ -64,7 +64,7 @@ private:
     void computePreferredLogicalWidths() final;
 
     void updateValueNow() const;
-    void counterDirectivesChanged();
+    void usedCounterDirectivesChanged();
 
     SingleThreadWeakPtr<RenderListMarker> m_marker;
     mutable std::optional<int> m_value;

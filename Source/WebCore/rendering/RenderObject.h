@@ -114,7 +114,7 @@ typedef const void* WrappedImagePtr;
 
 // Base class for all rendering tree objects.
 class RenderObject : public CanMakeSingleThreadWeakPtr<RenderObject>, public CanMakeCheckedPtr<RenderObject> {
-    WTF_MAKE_PREFERABLY_COMPACT_TZONE_OR_ISO_ALLOCATED(RenderObject);
+    WTF_MAKE_PREFERABLY_COMPACT_TZONE_ALLOCATED(RenderObject);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
@@ -562,8 +562,8 @@ public:
     bool isRenderSVGViewportContainer() const { return type() == Type::SVGViewportContainer; }
     bool isLegacyRenderSVGViewportContainer() const { return type() == Type::LegacySVGViewportContainer; }
     bool isRenderSVGGradientStop() const { return type() == Type::SVGGradientStop; }
-    bool isLegacyRenderSVGHiddenContainer() const { return type() == Type::LegacySVGHiddenContainer || isLegacyRenderSVGResourceContainer(); }
-    bool isRenderSVGHiddenContainer() const { return type() == Type::SVGHiddenContainer || isRenderSVGResourceContainer() || isRenderSVGResourceFilterPrimitive(); }
+    bool isLegacyRenderSVGHiddenContainer() const { return isLegacyRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsHiddenContainer); }
+    bool isRenderSVGHiddenContainer() const { return isRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsHiddenContainer); }
     bool isLegacyRenderSVGPath() const { return type() == Type::LegacySVGPath; }
     bool isRenderSVGPath() const { return type() == Type::SVGPath; }
     bool isRenderSVGShape() const { return isRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsShape); }
@@ -637,6 +637,11 @@ public:
     // respecting clipping, masking, filters, opacity, stroke-width and markers
     // This returns approximate rectangle for SVG renderers when RepaintRectCalculation::Fast is specified.
     virtual FloatRect repaintRectInLocalCoordinates(RepaintRectCalculation = RepaintRectCalculation::Fast) const;
+
+    // Returns the bounding box including fill, stroke, and markers.
+    // This is the geometric visual extent, used for masks/gradients/clippers.
+    // Unlike repaintRectInLocalCoordinates, this is always accurate.
+    virtual FloatRect decoratedBoundingBox() const;
 
     // This only returns the transform="" value from the element
     // most callsites want localToParentTransform() instead.

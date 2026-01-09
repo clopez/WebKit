@@ -136,13 +136,13 @@ set(WTF_PUBLIC_HEADERS
     IndexSparseSet.h
     IndexedContainerIterator.h
     InlineASM.h
+    InlineWeakPtr.h
+    InlineWeakRef.h
     Insertion.h
     InstanceCounted.h
     Int128.h
     InterferenceGraph.h
     IntervalSet.h
-    IsoMalloc.h
-    IsoMallocInlines.h
     IterationStatus.h
     IteratorRange.h
     JSONValues.h
@@ -268,6 +268,7 @@ set(WTF_PUBLIC_HEADERS
     RefCounted.h
     RefCountedAndCanMakeWeakPtr.h
     RefCountedFixedVector.h
+    RefCountedWithInlineWeakPtr.h
     RefCounter.h
     RefPtr.h
     RefTrackerMixin.h
@@ -304,6 +305,8 @@ set(WTF_PUBLIC_HEADERS
     SingleThreadIntegralWrapper.h
     SinglyLinkedList.h
     SinglyLinkedListWithTail.h
+    UniquelyOwned.h
+    UniquelyOwnedPtr.h
     SixCharacterHash.h
     SmallMap.h
     SmallSet.h
@@ -715,6 +718,9 @@ elseif (APPLE)
         cocoa/TypeCastsCocoa.h
         cocoa/VectorCocoa.h
 
+        darwin/DispatchExtras.h
+        darwin/DispatchOSObject.h
+        darwin/NetworkOSObject.h
         darwin/OSLogPrintStream.h
         darwin/WeakLinking.h
         darwin/XPCExtras.h
@@ -820,6 +826,9 @@ else ()
     set_source_files_properties(
         SIMDUTF.cpp
         text/Base64.cpp
+        text/StringImpl.cpp
+        unicode/UTF8Conversion.cpp
+        text/StringCommon.cpp
         PROPERTIES COMPILE_FLAGS "-Wno-error=undef -Wno-undef")
 endif ()
 
