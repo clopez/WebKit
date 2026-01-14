@@ -230,9 +230,7 @@ void GStreamerPeerConnectionBackend::doStop()
 
 void GStreamerPeerConnectionBackend::doAddIceCandidate(RTCIceCandidate& candidate, AddIceCandidateCallback&& callback)
 {
-    unsigned sdpMLineIndex = candidate.sdpMLineIndex() ? candidate.sdpMLineIndex().value() : 0;
-    auto rtcCandidate = WTF::makeUnique<GStreamerIceCandidate>(*new GStreamerIceCandidate { sdpMLineIndex, candidate.candidate() });
-    m_endpoint->addIceCandidate(*rtcCandidate, WTF::move(callback));
+    m_endpoint->addIceCandidate(candidate, WTF::move(callback));
 }
 
 Ref<RTCRtpReceiver> GStreamerPeerConnectionBackend::createReceiver(std::unique_ptr<GStreamerRtpReceiverBackend>&& backend, const String& trackKind, const String& trackId)
@@ -328,7 +326,7 @@ ExceptionOr<Ref<RTCRtpSender>> GStreamerPeerConnectionBackend::addTrack(MediaStr
         RefPtr<RTCRtpTransceiver> transceiver;
         for (const auto& currentTransceiver : protectedPeerConnection()->currentTransceivers()) {
             if (&currentTransceiver->sender() == sender.get()) {
-                transceiver = currentTransceiver;
+                transceiver = currentTransceiver.ptr();
                 break;
             }
         }
@@ -411,8 +409,8 @@ static inline GStreamerRtpTransceiverBackend& backendFromRTPTransceiver(RTCRtpTr
 RefPtr<RTCRtpTransceiver> GStreamerPeerConnectionBackend::existingTransceiver(WTF::Function<bool(GStreamerRtpTransceiverBackend&)>&& matchingFunction)
 {
     for (auto& transceiver : protectedPeerConnection()->currentTransceivers()) {
-        if (matchingFunction(backendFromRTPTransceiver(*transceiver)))
-            return transceiver;
+        if (matchingFunction(backendFromRTPTransceiver(transceiver)))
+            return transceiver.ptr();
     }
     return nullptr;
 }
@@ -489,7 +487,7 @@ void GStreamerPeerConnectionBackend::tearDown()
         if (auto receiverBackend = receiver.backend())
             static_cast<GStreamerRtpReceiverBackend*>(receiverBackend)->tearDown();
 
-        auto& backend = backendFromRTPTransceiver(*transceiver);
+        auto& backend = backendFromRTPTransceiver(transceiver);
         backend.tearDown();
     }
     connection().clearTransports();

@@ -829,6 +829,7 @@ accessibility/dynamic-selected-radio-button.html [ Skip ]
 accessibility/password-notifications-timing.html [ Skip ]
 
 # AccessibilityTextStitchingEnabled feature is not implemented.
+accessibility/attributed-string-text-stitching.html [ Skip ]
 accessibility/aria-owns-text-stitching.html [ Skip ]
 accessibility/dynamic-text-stitching.html [ Skip ]
 accessibility/hit-test-on-stitched-text.html [ Skip ]
@@ -2082,7 +2083,6 @@ webkit.org/b/273396 css3/masking/clip-path-border-radius-fill-box-001.html [ Ima
 webkit.org/b/273396 css3/masking/clip-path-border-radius-padding-box-001.html [ ImageOnlyFailure ]
 webkit.org/b/273396 css3/masking/clip-path-inset.html [ ImageOnlyFailure ]
 webkit.org/b/273396 css3/masking/mask-repeat-space-padding.html [ ImageOnlyFailure ]
-webkit.org/b/273396 fast/backgrounds/background-clip-text-and-blend-mode.html [ ImageOnlyFailure ]
 webkit.org/b/273396 fast/block/float/floats-offset-image-quirk-lineheight.html [ ImageOnlyFailure ]
 webkit.org/b/273396 fast/block/float/floats-offset-image-quirk.html [ ImageOnlyFailure ]
 webkit.org/b/273396 fast/block/float/floats-offset-image-strict-lineheight.html [ ImageOnlyFailure ]
@@ -2106,7 +2106,6 @@ webkit.org/b/273396 imported/w3c/web-platform-tests/css/compositing/mix-blend-mo
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-paragraph.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-with-text.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-text-flex.html [ ImageOnlyFailure ]
-webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-text-and-blend-mode.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-anchor-positioning-007.html [ Failure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-basic-img-horiz-001.xhtml [ Pass ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-flexbox/flexbox-basic-img-vert-001.xhtml [  Pass ImageOnlyFailure ]
@@ -2195,6 +2194,7 @@ webkit.org/b/296469 imported/w3c/web-platform-tests/service-workers/service-work
 webkit.org/b/215638 http/tests/websocket/tests/hybi/invalid-continuation.html [ Failure ]
 
 webkit.org/b/217267 http/tests/workers/service/postmessage-after-sw-process-crash.https.html [ Timeout Pass ]
+webkit.org/b/305350 http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Timeout Pass Failure ]
 
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.html [ Skip ]
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.worker.html [ Skip ]
@@ -2422,7 +2422,7 @@ webkit.org/b/216071 fast/canvas/webgl/move-canvas-in-document-while-clean.html [
 webkit.org/b/172812 fast/canvas/webgl/lose-context-on-status-failure.html [ Skip ]
 webkit.org/b/172812 webgl/lose-context-after-context-lost.html [ Failure ]
 webkit.org/b/172812 webgl/multiple-context-losses.html [ Failure ]
-webkit.org/b/172812 webgl/max-active-contexts-webglcontextlost-prevent-default.html [ Failure ]
+webkit.org/b/305355 webgl/max-active-contexts-webglcontextlost-prevent-default.html [ Failure ]
 
 webkit.org/b/210239 fast/canvas/webgl/out-of-bounds-simulated-vertexAttrib0-drawArrays.html [ Slow ]
 
@@ -2823,8 +2823,9 @@ imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-par
 webrtc/datachannel/multiple-connections.html [ Slow ]
 
 # Skia crash in GrResourceCache::notifyARefCntReachedZero
-webkit.org/b/286859 webrtc/video-vp8-videorange.html [ Crash Pass ]
 webkit.org/b/286859 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Crash Pass ]
+
+webkit.org/b/305356 webrtc/video-vp8-videorange.html [ Pass Failure ]
 
 # This also crashes with that skia issue, but since 303624@main it started having a text failure:
 webkit.org/b/286859 webrtc/captureCanvas-webrtc-with-video-scaling-adaptation.html [ Failure Crash Pass ]
@@ -2943,10 +2944,10 @@ imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/propagate-t
 webkit.org/b/180931 imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-after-content-change.html [ Failure ]
 
 # GTK/WPE fail newly added WPT `meter` element test cases.
-imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-even-less-good-value-rendering.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-optimum-value-rendering.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-rendering.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-suboptimum-value-rendering.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-even-less-good-value-rendering.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-optimum-value-rendering.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-rendering.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-meter-element/meter-appearance-none-suboptimum-value-rendering.html [ ImageOnlyFailure ]
 
 # Passes for GTK/WPE (but not for Mac/iOS) after WPT update of css-writing-modes tests
 webkit.org/b/214291 imported/w3c/web-platform-tests/css/css-writing-modes/available-size-004.html [ Pass ]
@@ -4850,6 +4851,8 @@ webkit.org/b/304619 http/wpt/service-workers/service-worker-different-process.ht
 webkit.org/b/305168 fast/inline/text-box-trim-with-underline2.html [ ImageOnlyFailure ]
 webkit.org/b/305171 fast/inline/text-box-trim-with-underline3.html [ ImageOnlyFailure ]
 webkit.org/b/305172 fast/rendering/missing-selection-with-sibling-table.html [ ImageOnlyFailure ]
+
+webkit.org/b/305202 http/tests/xmlhttprequest/readystatechange-and-abort.html [ Pass Crash ]
 
 # End: Common failures between GTK and WPE.
 

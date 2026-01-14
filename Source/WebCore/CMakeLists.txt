@@ -451,7 +451,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/highlight/HighlightRegistry.idl
 
     Modules/identity/DigitalCredential.idl
-    Modules/identity/DigitalCredentialRequest.idl
+    Modules/identity/DigitalCredentialGetRequest.idl
     Modules/identity/DigitalCredentialRequestOptions.idl
     Modules/identity/IdentityCredentialProtocol.idl
 
@@ -1086,6 +1086,8 @@ set(WebCore_NON_SVG_IDL_FILES
     css/ElementCSSInlineStyle.idl
     css/FontFace.idl
     css/FontFaceSet.idl
+    css/FontFaceSetLoadEvent.idl
+    css/FontFaceSetLoadEventInit.idl
     css/FontFaceSource.idl
     css/LinkStyle.idl
     css/MediaList.idl

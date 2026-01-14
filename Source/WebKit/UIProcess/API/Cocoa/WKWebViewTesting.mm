@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -289,15 +289,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
-- (void)_requestActiveNowPlayingSessionInfo:(void(^)(BOOL, BOOL, NSString*, double, double, NSInteger))callback
+- (void)_requestActiveNowPlayingSessionInfo:(void(^)(BOOL, BOOL, NSString*, double, double, NSInteger, NSUInteger))callback
 {
     if (!_page) {
-        callback(NO, NO, @"", std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0);
+        callback(NO, NO, @"", std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0, 0);
         return;
     }
 
     _page->requestActiveNowPlayingSessionInfo([handler = makeBlockPtr(callback)] (bool registeredAsNowPlayingApplication, WebCore::NowPlayingInfo&& nowPlayingInfo) {
-        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title.createNSString().get(), nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier ? nowPlayingInfo.uniqueIdentifier->toUInt64() : 0);
+        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title.createNSString().get(), nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier ? nowPlayingInfo.uniqueIdentifier->toUInt64() : 0, nowPlayingInfo.updateTime);
     });
 }
 
@@ -1141,7 +1141,6 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (NSString *)_webContentProcessVariantForFrame:(_WKFrameHandle *)frameHandle
 {
-#if USE(APPLE_INTERNAL_SDK)
     if (!_page)
         return @"standard";
 
@@ -1164,6 +1163,27 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
         return @"standard";
 
     Ref connection = process->connection();
+
+#if HAVE(LIBPROC)
+    // This approach should work on macOS outside of Apple Internal builds.
+    if (auto pid = connection->remoteProcessID()) {
+        char path[PROC_PIDPATHINFO_MAXSIZE] = "\0";
+        int length = proc_pidpath(pid, path, sizeof(path));
+        if (length > 0) {
+            RetainPtr<NSString> processPath = [NSString stringWithUTF8String:path];
+            if ([[processPath lastPathComponent] hasPrefix:@"com.apple.WebKit.WebContent.EnhancedSecurity"])
+                return @"security";
+
+            if ([[processPath lastPathComponent] hasPrefix:@"com.apple.WebKit.WebContent.CaptivePortal"])
+                return @"lockdown";
+
+            if ([[processPath lastPathComponent] hasPrefix:@"com.apple.WebKit.WebContent"])
+                return @"standard";
+        }
+    }
+#endif // HAVE(LIBPROC)
+
+#if USE(APPLE_INTERNAL_SDK)
 
 #if !PLATFORM(IOS_FAMILY)
     bool hasAllowJIT = hasEntitlement(connection->xpcConnection(), "com.apple.security.cs.allow-jit"_s);

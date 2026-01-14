@@ -795,9 +795,20 @@ std::optional<SimpleRange> AccessibilityObject::selectionRange() const
 
 std::optional<SimpleRange> AccessibilityObject::simpleRange() const
 {
-    auto* node = this->node();
+    RefPtr node = this->node();
     if (!node)
         return std::nullopt;
+
+    std::optional stitchGroup = stitchGroupIfRepresentative();
+    if (!stitchGroup)
+        return AXObjectCache::rangeForNodeContents(*node);
+
+    // |this| is a stitching of multiple objects, so we need to include all of their contents in the range.
+    CheckedPtr cache = axObjectCache();
+    if (RefPtr endNode = cache ? lastNode(stitchGroup->members(), *cache) : nullptr) {
+        if (std::optional range = makeSimpleRange(positionBeforeNode(node.get()), positionAfterNode(endNode.get())))
+            return range;
+    }
     return AXObjectCache::rangeForNodeContents(*node);
 }
 
@@ -3527,20 +3538,20 @@ bool AccessibilityObject::isOnScreen() const
 {
     // To figure out if the element is onscreen, we start by building of a stack starting with the
     // element, and then include every scrollable parent in the hierarchy.
-    Vector<RefPtr<const AccessibilityObject>> objects;
+    Vector<Ref<const AccessibilityObject>> objects;
 
-    objects.append(this);
+    objects.append(*this);
     for (RefPtr ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
         if (ancestor->getScrollableAreaIfScrollable())
-            objects.append(ancestor);
+            objects.append(*ancestor);
     }
 
     // Now, go back through that chain and make sure each inner object is within the
     // visible bounds of the outer object.
     size_t levels = objects.size() - 1;
     for (size_t i = levels; i >= 1; i--) {
-        RefPtr outer = objects[i];
-        RefPtr inner = objects[i - 1];
+        Ref outer = objects[i];
+        Ref inner = objects[i - 1];
         // FIXME: unclear if we need LegacyIOSDocumentVisibleRect.
         const IntRect outerRect = i < levels ? snappedIntRect(outer->boundingBoxRect()) : outer->getScrollableAreaIfScrollable()->visibleContentRect(ScrollableArea::LegacyIOSDocumentVisibleRect);
 

@@ -29,6 +29,7 @@
 #include "DeferTermination.h"
 #include "ExecutableBaseInlines.h"
 #include "FunctionPrototype.h"
+#include "JSBoundFunctionInlines.h"
 #include "JSCInlines.h"
 #include "VMTrapsInlines.h"
 
@@ -107,7 +108,7 @@ JSC_DEFINE_HOST_FUNCTION(boundFunctionConstruct, (JSGlobalObject* globalObject, 
     JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(callFrame->jsCallee());
 
     JSObject* targetFunction = boundFunction->targetFunction();
-    auto constructData = JSC::getConstructData(targetFunction);
+    auto constructData = JSC::getConstructDataInline(targetFunction);
     if (constructData.type == CallData::Type::None) [[unlikely]]
         return throwVMError(globalObject, scope, createNotAConstructorError(globalObject, boundFunction));
 

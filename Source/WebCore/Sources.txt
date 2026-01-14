@@ -713,6 +713,7 @@ bindings/js/JSEventTargetCustom.cpp
 bindings/js/JSExecState.cpp
 bindings/js/JSExtendableMessageEventCustom.cpp
 bindings/js/JSFetchEventCustom.cpp
+bindings/js/JSFontFaceSetLoadEventCustom.cpp
 bindings/js/JSHTMLAllCollectionCustom.cpp
 bindings/js/JSHTMLCanvasElementCustom.cpp
 bindings/js/JSHTMLElementCustom.cpp
@@ -919,7 +920,6 @@ css/CSSImageSetOptionValue.cpp
 css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
 css/CSSImportRule.cpp
-css/CSSInternalBaseAppearanceRule.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
 css/CSSLayerBlockRule.cpp
@@ -992,6 +992,7 @@ css/DeprecatedCSSOMValue.cpp
 css/DeprecatedCSSOMValueList.cpp
 css/FontFace.cpp
 css/FontFaceSet.cpp
+css/FontFaceSetLoadEvent.cpp
 css/ImmutableStyleProperties.cpp
 css/MediaList.cpp
 css/MediaQueryList.cpp
@@ -1087,7 +1088,6 @@ css/parser/CSSVariableParser.cpp
 css/parser/MediaQueryBlockWatcher.cpp
 css/parser/MutableCSSSelector.cpp
 css/parser/SizesAttributeParser.cpp
-css/parser/SizesCalcParser.cpp
 css/query/ContainerQuery.cpp
 css/query/ContainerQueryFeatures.cpp
 css/query/ContainerQueryParser.cpp
@@ -2298,6 +2298,7 @@ page/scrolling/ThreadedScrollingCoordinator.cpp
 page/scrolling/ThreadedScrollingTree.cpp
 page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
 page/text-extraction/TextExtraction.cpp
+page/text-extraction/TextExtractionTypes.cpp
 platform/AudioDecoder.cpp
 platform/AudioEncoder.cpp
 platform/BoxExtents.cpp
@@ -2485,6 +2486,7 @@ platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/ContentTypeUtilities.cpp
 platform/graphics/ContentsFormat.cpp
+platform/graphics/CornerRadii.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
 platform/graphics/DestinationColorSpace.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
@@ -4038,7 +4040,7 @@ JSDeviceMotionEvent.cpp
 JSDeviceOrientationEvent.cpp
 JSDeviceOrientationOrMotionPermissionState.cpp
 JSDigitalCredential.cpp
-JSDigitalCredentialRequest.cpp
+JSDigitalCredentialGetRequest.cpp
 JSDigitalCredentialRequestOptions.cpp
 JSDistanceModelType.cpp
 JSDocument.cpp
@@ -4131,6 +4133,8 @@ JSFocusEvent.cpp
 JSFocusOptions.cpp
 JSFontFace.cpp
 JSFontFaceSet.cpp
+JSFontFaceSetLoadEvent.cpp
+JSFontFaceSetLoadEventInit.cpp
 JSFormDataEvent.cpp
 JSFragmentDirective.cpp
 JSFullscreenOptions.cpp

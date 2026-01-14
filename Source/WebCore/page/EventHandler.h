@@ -140,6 +140,7 @@ extern const unsigned InvalidTouchIdentifier;
 
 enum AppendTrailingWhitespace { ShouldAppendTrailingWhitespace, DontAppendTrailingWhitespace };
 enum CheckDragHysteresis { ShouldCheckDragHysteresis, DontCheckDragHysteresis };
+enum class LastKnownMousePositionSource : uint8_t { Mouse, Wheel, Touch };
 
 class EventHandler final : public CanMakeCheckedPtr<EventHandler> {
     WTF_MAKE_TZONE_ALLOCATED(EventHandler);
@@ -242,7 +243,7 @@ public:
     void defaultWheelEventHandler(Node*, WheelEvent&);
     void wheelEventWasProcessedByMainThread(const PlatformWheelEvent&, OptionSet<EventHandling>);
 
-    WEBCORE_EXPORT void setLastKnownMousePosition(DoublePoint position, DoublePoint globalPosition);
+    WEBCORE_EXPORT void setLastKnownMousePosition(const DoublePoint& position, const DoublePoint& globalPosition, std::optional<LastKnownMousePositionSource>&& = std::nullopt);
 
     bool handlePasteGlobalSelection();
 
@@ -613,7 +614,9 @@ private:
     private:
         Expected<std::monostate, InabilityReason> m_state;
     };
+#ifndef __swift__ // FIXME: (rdar://167557269) temporary until SWIFT_COPYABLE_IF is fully supported
     CapturesDragging capturesDragging() const { return m_capturesDragging; }
+#endif
 
 #if PLATFORM(COCOA) && defined(__OBJC__)
     RetainPtr<NSView> mouseDownViewIfStillGood();
@@ -702,6 +705,7 @@ private:
 
     std::optional<DoublePoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
     DoublePoint m_lastKnownMouseGlobalPosition;
+    std::optional<LastKnownMousePositionSource> m_lastKnownMousePositionSource;
     IntPoint m_mouseDownContentsPosition;
     MonotonicTime m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDownEvent;

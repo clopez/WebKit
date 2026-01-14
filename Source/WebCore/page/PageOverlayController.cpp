@@ -78,7 +78,7 @@ void PageOverlayController::installedPageOverlaysChanged()
     else
         detachViewOverlayLayers();
 
-    if (RefPtr localMainFrame = m_page->localMainFrame()) {
+    if (RefPtr localMainFrame = protectedPage()->localMainFrame()) {
         if (RefPtr frameView = localMainFrame->view())
             frameView->setNeedsCompositingConfigurationUpdate();
     }
@@ -201,7 +201,7 @@ void PageOverlayController::installPageOverlay(PageOverlay& overlay, PageOverlay
     if (m_pageOverlays.contains(&overlay))
         return;
 
-    m_pageOverlays.append(&overlay);
+    m_pageOverlays.append(overlay);
 
     auto layerType = (overlay.alwaysTileOverlayLayer() == PageOverlay::AlwaysTileOverlayLayer::Yes) ? GraphicsLayer::Type::TiledBacking : GraphicsLayer::Type::Normal;
     Ref layer = GraphicsLayer::create(protectedPage()->chrome().client().graphicsLayerFactory(), *this, layerType);
@@ -224,7 +224,7 @@ void PageOverlayController::installPageOverlay(PageOverlay& overlay, PageOverlay
 
     overlay.setPage(protectedPage().ptr());
 
-    if (RefPtr localMainFrame = m_page->localMainFrame()) {
+    if (RefPtr localMainFrame = protectedPage()->localMainFrame()) {
         if (RefPtr frameView = localMainFrame->view())
             frameView->enterCompositingMode();
     }
@@ -364,7 +364,7 @@ bool PageOverlayController::handleMouseEvent(const PlatformMouseEvent& mouseEven
         return false;
 
     for (auto it = m_pageOverlays.rbegin(), end = m_pageOverlays.rend(); it != end; ++it) {
-        if (RefPtr { *it }->mouseEvent(mouseEvent))
+        if (Ref { *it }->mouseEvent(mouseEvent))
             return true;
     }
 
@@ -377,7 +377,7 @@ bool PageOverlayController::copyAccessibilityAttributeStringValueForPoint(String
         return false;
 
     for (auto it = m_pageOverlays.rbegin(), end = m_pageOverlays.rend(); it != end; ++it) {
-        if (RefPtr { *it }->copyAccessibilityAttributeStringValueForPoint(attribute, parameter, value))
+        if (Ref { *it }->copyAccessibilityAttributeStringValueForPoint(attribute, parameter, value))
             return true;
     }
 
@@ -390,10 +390,10 @@ bool PageOverlayController::copyAccessibilityAttributeBoolValueForPoint(String a
         return false;
 
     for (auto it = m_pageOverlays.rbegin(), end = m_pageOverlays.rend(); it != end; ++it) {
-        if (RefPtr { *it }->copyAccessibilityAttributeBoolValueForPoint(attribute, parameter, value))
+        if (Ref { *it }->copyAccessibilityAttributeBoolValueForPoint(attribute, parameter, value))
             return true;
     }
-    
+
     return false;
 }
 
@@ -403,7 +403,7 @@ Vector<String> PageOverlayController::copyAccessibilityAttributesNames(bool para
         return { };
 
     for (auto it = m_pageOverlays.rbegin(), end = m_pageOverlays.rend(); it != end; ++it) {
-        Vector<String> names = RefPtr { *it }->copyAccessibilityAttributeNames(parameterizedNames);
+        Vector<String> names = Ref { *it }->copyAccessibilityAttributeNames(parameterizedNames);
         if (!names.isEmpty())
             return names;
     }

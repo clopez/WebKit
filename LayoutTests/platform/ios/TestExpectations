@@ -1260,6 +1260,7 @@ scrollbars/scrolling-by-page-accounting-top-fixed-elements-on-keyboard-spacebar.
 scrollbars/scrolling-by-page-accounting-top-fixed-elements-with-negative-top-on-keyboard-spacebar.html [ Skip ]
 scrollbars/scrolling-by-page-ignoring-hidden-fixed-elements-on-keyboard-spacebar.html [ Skip ]
 scrollbars/scrolling-by-page-ignoring-transparent-fixed-elements-on-keyboard-spacebar.html [ Skip ]
+scrollbars/scrollbar-drag-thumb-composited.html [ Skip ]
 storage/domstorage/sessionstorage/set-item-synchronous-keydown.html [ Skip ]
 svg/custom/display-none-a-does-not-stop-focus-navigation.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard.html [ Skip ]
@@ -2336,6 +2337,7 @@ accessibility/aria-brailleroledescription.html [ Pass ]
 accessibility/aria-checked-mixed-value.html [ Pass ]
 accessibility/aria-controlled-table-row-visibility.html [ Pass ]
 accessibility/aria-describedby-on-input.html [ Pass ]
+accessibility/attributed-string-text-stitching.html [ Pass ]
 accessibility/body-element-aria-hidden.html [ Pass ]
 accessibility/button-in-deep-dom.html [ Pass ]
 accessibility/display-contents/aria-hidden.html [ Pass ]
@@ -2367,6 +2369,7 @@ accessibility/display-none-descendant-of-relation.html [ Pass ]
 accessibility/duplicate-hidden-label-text.html [ Pass ]
 accessibility/dynamic-aria-describedby-subtree.html [ Pass ]
 accessibility/dynamic-aria-describedby-text.html [ Pass ]
+accessibility/dynamic-aria-hidden-inside-button.html [ Pass ]
 accessibility/dynamic-datetime-attribute.html [ Pass ]
 accessibility/dynamic-font-change-dirty-style-and-relations.html [ Pass ]
 accessibility/dynamic-speak-as.html [ Pass ]
@@ -7760,8 +7763,6 @@ imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigati
 # webkit.org/b/284886 [iOS] 2 tests in fast/writing-mode are constantly failing (flaky in EWS)
 fast/writing-mode/vertical-subst-font-vert-no-dflt.html [ ImageOnlyFailure ]
 
-webkit.org/b/286507 compositing/geometry/fixed-position-composited-page-scale-smaller-than-viewport.html [ Pass Failure ]
-
 webkit.org/b/286515 fast/forms/datalist/datalist-show-hide.html [ Timeout ]
 
 webkit.org/b/286594 http/wpt/cache-storage/quota-third-party.https.html [ Pass Failure Slow ]
@@ -8437,9 +8438,8 @@ webkit.org/b/304298 accessibility/text-stitching-inside-links.html [ Failure ]
 
 webkit.org/b/304427 fast/html/HTMLPluginElement-renderer-destroyed-crash.html [ Skip ]
 
-# webkit.org/b/304651 REGRESSION(304792@main): [macOS iOS] Flaky crash in site-isolation tests
-[ Release ] http/tests/site-isolation/history/add-iframes-and-navigate-mainframe.html [ Skip ]
-[ Release ] http/tests/site-isolation/focus-click-navigation-activeElement.html [ Skip ]
-[ Release ] http/tests/site-isolation/history/add-iframes-and-go-back.html [ Skip ]
+webkit.org/b/304851 imported/w3c/web-platform-tests/workers/worker-performance.worker.html [ Pass Failure ]
 
 webkit.org/b/304995 [ Release ] imported/w3c/web-platform-tests/largest-contentful-paint/video-poster.html [ Pass Failure ]
+
+webkit.org/b/305404 imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-auto-001.html [ Pass ImageOnlyFailure ]

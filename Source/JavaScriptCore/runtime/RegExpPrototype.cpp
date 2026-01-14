@@ -1223,8 +1223,7 @@ JSC_DEFINE_HOST_FUNCTION(regExpProtoFuncMatchAll, (JSGlobalObject* globalObject,
         auto* iterator = JSRegExpStringIterator::createWithInitialValues(vm, globalObject->regExpStringIteratorStructure());
         iterator->setRegExp(vm, matcher);
         iterator->setString(vm, string);
-        iterator->setGlobal(vm, jsBoolean(global));
-        iterator->setFullUnicode(vm, jsBoolean(fullUnicode));
+        iterator->setFlags(global, fullUnicode);
 
         return JSValue::encode(iterator);
     }
@@ -1261,8 +1260,7 @@ JSC_DEFINE_HOST_FUNCTION(regExpProtoFuncMatchAll, (JSGlobalObject* globalObject,
     constructorArgs.append(jsString(vm, flags));
     ASSERT(!constructorArgs.hasOverflowed());
 
-    // FIXME: Introduce getConstructDataInline
-    auto constructData = JSC::getConstructData(constructor);
+    auto constructData = JSC::getConstructDataInline(constructor);
     JSObject* matcher = construct(globalObject, constructor, constructData, constructorArgs);
     RETURN_IF_EXCEPTION(scope, { });
 
@@ -1281,8 +1279,7 @@ JSC_DEFINE_HOST_FUNCTION(regExpProtoFuncMatchAll, (JSGlobalObject* globalObject,
 
     regExpStringIterator->setRegExp(vm, matcher);
     regExpStringIterator->setString(vm, string);
-    regExpStringIterator->setGlobal(vm, jsBoolean(global));
-    regExpStringIterator->setFullUnicode(vm, jsBoolean(fullUnicode));
+    regExpStringIterator->setFlags(global, fullUnicode);
 
     return JSValue::encode(regExpStringIterator);
 }
