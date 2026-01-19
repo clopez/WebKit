@@ -295,19 +295,12 @@ public:
     Type& ensureSideData(void* key, const Functor&);
 
     bool hasTerminationRequest() const { return m_hasTerminationRequest; }
-    // While setHasTerminationRequest() needs to be CONCURRENT_SAFE (called for stopping worker
-    // threads), clearHasTerminationRequest() should only be called by the owner mutator thread
-    // after servicing the requests. Hence, it should not be concurrent.
     void clearHasTerminationRequest()
     {
         m_hasTerminationRequest = false;
         clearEntryScopeService(ConcurrentEntryScopeService::ResetTerminationRequest);
     }
-    CONCURRENT_SAFE void setHasTerminationRequest()
-    {
-        m_hasTerminationRequest = true;
-        requestEntryScopeService(ConcurrentEntryScopeService::ResetTerminationRequest);
-    }
+    void setHasTerminationRequest();
 
     bool executionForbidden() const { return m_executionForbidden; }
     void setExecutionForbidden() { m_executionForbidden = true; }
@@ -1092,6 +1085,7 @@ public:
     void logEvent(CodeBlock*, const char* summary, const Func& func);
 
     std::optional<RefPtr<Thread>> ownerThread() const { return m_apiLock->ownerThread(); }
+    std::optional<uint64_t> ownerThreadUID() const { return m_apiLock->ownerThreadUID(); }
 
     ALWAYS_INLINE VMTraps& traps() { return m_threadContext.traps(); }
     ALWAYS_INLINE const VMTraps& traps() const { return m_threadContext.traps(); }
@@ -1100,11 +1094,7 @@ public:
 
     CONCURRENT_SAFE void notifyNeedDebuggerBreak() { traps().fireTrap(VMTraps::NeedDebuggerBreak); }
     CONCURRENT_SAFE void notifyNeedShellTimeoutCheck() { traps().fireTrap(VMTraps::NeedShellTimeoutCheck); }
-    CONCURRENT_SAFE void notifyNeedTermination()
-    {
-        setHasTerminationRequest();
-        traps().fireTrap(VMTraps::NeedTermination);
-    }
+    CONCURRENT_SAFE void notifyNeedTermination() { traps().fireTrap(VMTraps::NeedTermination); }
     CONCURRENT_SAFE void notifyNeedWatchdogCheck() { traps().fireTrap(VMTraps::NeedWatchdogCheck); }
 
     CONCURRENT_SAFE void requestStop()

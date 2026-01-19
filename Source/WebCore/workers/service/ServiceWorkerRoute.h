@@ -45,6 +45,7 @@ struct ServiceWorkerRoutePattern {
 
     using Component = String;
 
+    bool shouldIgnoreCase { false };
     Component protocol;
     Component username;
     Component password;
@@ -83,6 +84,11 @@ struct ServiceWorkerRoute {
 
 std::optional<size_t> countRouterInnerConditions(const ServiceWorkerRouteCondition&, size_t result, size_t depth);
 std::optional<ExceptionData> validateServiceWorkerRoute(ServiceWorkerRoute&);
+
+#if PLATFORM(COCOA)
+bool isRegexpMatching(const String& pattern, StringView value, bool shouldIgnoreCase);
+#endif
+
 bool matchRouterCondition(const ServiceWorkerRouteCondition&, const FetchOptions&, const ResourceRequest&, bool isServiceWorkerRunning);
 
 } // namespace WebCore

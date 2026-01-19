@@ -200,34 +200,34 @@ public:
     static constexpr bool validateFunctionBodySize = true;
 
     struct ControlData {
-        ControlData(Procedure& proc, Origin origin, BlockSignature signature, BlockType type, BasicBlock* continuation, BasicBlock* special = nullptr)
+        ControlData(Procedure& proc, Origin origin, BlockSignature&& signature, BlockType type, BasicBlock* continuation, BasicBlock* special = nullptr)
             : controlBlockType(type)
-            , m_signature(signature)
+            , m_signature(WTF::move(signature))
             , continuation(continuation)
             , special(special)
         {
             ASSERT(type != BlockType::Try && type != BlockType::Catch);
 
             if (type == BlockType::Loop) {
-                for (unsigned i = 0; i < signature.m_signature->argumentCount(); ++i)
-                    phis.append(proc.add<Value>(Phi, toB3Type(signature.m_signature->argumentType(i)), origin));
+                for (unsigned i = 0; i < m_signature.argumentCount(); ++i)
+                    phis.append(proc.add<Value>(Phi, toB3Type(m_signature.argumentType(i)), origin));
             } else {
-                for (unsigned i = 0; i < signature.m_signature->returnCount(); ++i)
-                    phis.append(proc.add<Value>(Phi, toB3Type(signature.m_signature->returnType(i)), origin));
+                for (unsigned i = 0; i < m_signature.returnCount(); ++i)
+                    phis.append(proc.add<Value>(Phi, toB3Type(m_signature.returnType(i)), origin));
             }
         }
 
-        ControlData(Procedure& proc, Origin origin, BlockSignature signature, BlockType type, BasicBlock* continuation, unsigned tryStart, unsigned tryDepth)
+        ControlData(Procedure& proc, Origin origin, BlockSignature&& signature, BlockType type, BasicBlock* continuation, unsigned tryStart, unsigned tryDepth)
             : controlBlockType(type)
-            , m_signature(signature)
+            , m_signature(WTF::move(signature))
             , continuation(continuation)
             , special(nullptr)
             , m_tryStart(tryStart)
             , m_tryCatchDepth(tryDepth)
         {
             ASSERT(type == BlockType::Try || type == BlockType::TryTable);
-            for (unsigned i = 0; i < signature.m_signature->returnCount(); ++i)
-                phis.append(proc.add<Value>(Phi, toB3Type(signature.m_signature->returnType(i)), origin));
+            for (unsigned i = 0; i < m_signature.returnCount(); ++i)
+                phis.append(proc.add<Value>(Phi, toB3Type(m_signature.returnType(i)), origin));
         }
 
         ControlData()
@@ -286,9 +286,9 @@ public:
 
         BlockType blockType() const { return controlBlockType; }
 
-        BlockSignature signature() const { return m_signature; }
+        const BlockSignature& signature() const { return m_signature; }
 
-        bool hasNonVoidresult() const { return m_signature.m_signature->returnsVoid(); }
+        bool hasNonVoidresult() const { return m_signature.returnCount() > 0; }
 
         BasicBlock* targetBlockForBranch()
         {
@@ -344,16 +344,16 @@ public:
         FunctionArgCount branchTargetArity() const
         {
             if (blockType() == BlockType::Loop)
-                return m_signature.m_signature->argumentCount();
-            return m_signature.m_signature->returnCount();
+                return m_signature.argumentCount();
+            return m_signature.returnCount();
         }
 
         Type branchTargetType(unsigned i) const
         {
             ASSERT(i < branchTargetArity());
             if (blockType() == BlockType::Loop)
-                return m_signature.m_signature->argumentType(i);
-            return m_signature.m_signature->returnType(i);
+                return m_signature.argumentType(i);
+            return m_signature.returnType(i);
         }
 
         unsigned tryStart() const
@@ -767,8 +767,8 @@ public:
     [[nodiscard]] PartialResult addArrayInitData(uint32_t, TypedExpression, ExpressionType, uint32_t, ExpressionType, ExpressionType);
     [[nodiscard]] PartialResult addStructNew(uint32_t typeIndex, ArgumentList& args, ExpressionType& result);
     [[nodiscard]] PartialResult addStructNewDefault(uint32_t index, ExpressionType& result);
-    [[nodiscard]] PartialResult addStructGet(ExtGCOpType structGetKind, TypedExpression structReference, const StructType&, uint32_t fieldIndex, ExpressionType& result);
-    [[nodiscard]] PartialResult addStructSet(TypedExpression structReference, const StructType&, uint32_t fieldIndex, ExpressionType value);
+    [[nodiscard]] PartialResult addStructGet(ExtGCOpType structGetKind, TypedExpression structReference, const StructType&, const RTT&, uint32_t fieldIndex, ExpressionType& result);
+    [[nodiscard]] PartialResult addStructSet(TypedExpression structReference, const StructType&, const RTT&, uint32_t fieldIndex, ExpressionType value);
     [[nodiscard]] PartialResult addRefTest(TypedExpression reference, bool allowNull, int32_t heapType, bool shouldNegate, ExpressionType& result);
     [[nodiscard]] PartialResult addRefCast(TypedExpression reference, bool allowNull, int32_t heapType, ExpressionType& result);
     [[nodiscard]] PartialResult addAnyConvertExtern(ExpressionType reference, ExpressionType& result);
@@ -787,15 +787,15 @@ public:
     [[nodiscard]] PartialResult addSelect(ExpressionType condition, ExpressionType nonZero, ExpressionType zero, ExpressionType& result);
 
     // Control flow
-    [[nodiscard]] ControlData addTopLevel(BlockSignature);
-    [[nodiscard]] PartialResult addBlock(BlockSignature, Stack& enclosingStack, ControlType& newBlock, Stack& newStack);
-    [[nodiscard]] PartialResult addLoop(BlockSignature, Stack& enclosingStack, ControlType& block, Stack& newStack, uint32_t loopIndex);
-    [[nodiscard]] PartialResult addIf(ExpressionType condition, BlockSignature, Stack& enclosingStack, ControlType& result, Stack& newStack);
+    [[nodiscard]] ControlData addTopLevel(BlockSignature&&);
+    [[nodiscard]] PartialResult addBlock(BlockSignature&&, Stack& enclosingStack, ControlType& newBlock, Stack& newStack);
+    [[nodiscard]] PartialResult addLoop(BlockSignature&&, Stack& enclosingStack, ControlType& block, Stack& newStack, uint32_t loopIndex);
+    [[nodiscard]] PartialResult addIf(ExpressionType condition, BlockSignature&&, Stack& enclosingStack, ControlType& result, Stack& newStack);
     [[nodiscard]] PartialResult addElse(ControlData&, const Stack&);
     [[nodiscard]] PartialResult addElseToUnreachable(ControlData&);
 
-    [[nodiscard]] PartialResult addTry(BlockSignature, Stack& enclosingStack, ControlType& result, Stack& newStack);
-    [[nodiscard]] PartialResult addTryTable(BlockSignature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack);
+    [[nodiscard]] PartialResult addTry(BlockSignature&&, Stack& enclosingStack, ControlType& result, Stack& newStack);
+    [[nodiscard]] PartialResult addTryTable(BlockSignature&&, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack);
     [[nodiscard]] PartialResult addCatch(unsigned exceptionIndex, const TypeDefinition&, Stack&, ControlType&, ResultList&);
     [[nodiscard]] PartialResult addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition&, ControlType&, ResultList&);
     [[nodiscard]] PartialResult addCatchAll(Stack&, ControlType&);
@@ -816,13 +816,13 @@ public:
     [[nodiscard]] PartialResult endBlock(ControlEntry&, Stack& expressionStack);
     [[nodiscard]] PartialResult addEndToUnreachable(ControlEntry&, const Stack& = { });
 
-    [[nodiscard]] PartialResult endTopLevel(BlockSignature, const Stack&) { return { }; }
+    [[nodiscard]] PartialResult endTopLevel(const Stack&) { return { }; }
 
     // Fused comparison stubs (B3 will do this for us later).
     [[nodiscard]] PartialResult addFusedBranchCompare(OpType, ControlType&, ExpressionType, const Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
     [[nodiscard]] PartialResult addFusedBranchCompare(OpType, ControlType&, ExpressionType, ExpressionType, const Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
-    [[nodiscard]] PartialResult addFusedIfCompare(OpType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
-    [[nodiscard]] PartialResult addFusedIfCompare(OpType, ExpressionType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
+    [[nodiscard]] PartialResult addFusedIfCompare(OpType, ExpressionType, BlockSignature&&, Stack&, ControlType&, Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
+    [[nodiscard]] PartialResult addFusedIfCompare(OpType, ExpressionType, ExpressionType, BlockSignature&&, Stack&, ControlType&, Stack&) { RELEASE_ASSERT_NOT_REACHED(); }
 
     // Calls
     [[nodiscard]] PartialResult addCall(unsigned, FunctionSpaceIndex functionIndexSpace, const TypeDefinition&, ArgumentList& args, ResultList& results, CallType = CallType::Call);
@@ -940,7 +940,7 @@ private:
     void emitArraySetUnchecked(uint32_t, Value*, Value*, Value*);
     bool emitArraySetUncheckedWithoutWriteBarrier(uint32_t, Value*, Value*, Value*);
     // Returns true if a writeBarrier/mutatorFence is needed.
-    [[nodiscard]] bool emitStructSet(bool canTrap, Value*, uint32_t, const StructType&, Value*);
+    [[nodiscard]] bool emitStructSet(bool canTrap, Value*, uint32_t, const StructType&, const RTT&, Value*);
     [[nodiscard]] Value* allocateWasmGCArray(uint32_t typeIndex, Value* initValue, Value* size);
     using ArraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::JSWebAssemblyInstance*, uint32_t, uint32_t, uint32_t, uint32_t);
     [[nodiscard]] ExpressionType pushArrayNewFromSegment(ArraySegmentOperation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType);
@@ -948,6 +948,11 @@ private:
     template <typename Generator>
     void emitCheckOrBranchForCast(CastKind, Value*, const Generator&, BasicBlock*);
     Value* emitLoadRTTFromObject(Value*);
+
+    const B3::AbstractHeap* structFieldHeap(const RTT& rtt, uint32_t fieldIndex)
+    {
+        return &m_heaps.JSWebAssemblyStruct_fields[rtt.fieldHeapKey(fieldIndex)];
+    }
 
     void unify(Value* phi, const ExpressionType& source);
     void unifyValuesWithBlock(const Stack& resultStack, const ControlData& block);
@@ -2935,11 +2940,13 @@ Value* OMGIRGenerator::emitAtomicCompareExchange(ExtAtomicOpType op, Type valueT
     return sanitizeAtomicResult(op, valueType, atomic);
 }
 
-[[nodiscard]] bool OMGIRGenerator::emitStructSet(bool canTrap, Value* structValue, uint32_t fieldIndex, const StructType& structType, Value* argument)
+[[nodiscard]] bool OMGIRGenerator::emitStructSet(bool canTrap, Value* structValue, uint32_t fieldIndex, const StructType& structType, const RTT& rtt, Value* argument)
 {
     structValue = pointerOfWasmRef(structValue);
     auto fieldType = structType.field(fieldIndex).type;
     int32_t fieldOffset = fixupPointerPlusOffset(structValue, JSWebAssemblyStruct::offsetOfData() + structType.offsetOfFieldInPayload(fieldIndex));
+
+    const RTT& definingRTT = rtt.definingRTTForField(fieldIndex);
 
     auto wrapTrapping = [&](auto input) -> B3::Kind {
         if (canTrap)
@@ -2951,12 +2958,12 @@ Value* OMGIRGenerator::emitAtomicCompareExchange(ExtAtomicOpType op, Type valueT
         switch (fieldType.as<PackedType>()) {
         case PackedType::I8: {
             auto* store = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Store8), origin(), argument, structValue, fieldOffset);
-            m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i8[fieldIndex], store);
+            m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), store);
             return false;
         }
         case PackedType::I16: {
             auto* store = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Store16), origin(), argument, structValue, fieldOffset);
-            m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i16[fieldIndex], store);
+            m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), store);
             return false;
         }
         }
@@ -2965,26 +2972,7 @@ Value* OMGIRGenerator::emitAtomicCompareExchange(ExtAtomicOpType op, Type valueT
     ASSERT(fieldType.is<Type>());
     auto resultType = fieldType.unpacked();
     auto* store = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Store), origin(), argument, structValue, fieldOffset);
-    switch (resultType.kind) {
-    case TypeKind::I32:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i32[fieldIndex], store);
-        break;
-    case TypeKind::F32:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_f32[fieldIndex], store);
-        break;
-    case TypeKind::I64:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i64[fieldIndex], store);
-        break;
-    case TypeKind::F64:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_f64[fieldIndex], store);
-        break;
-    case TypeKind::V128:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_v128[fieldIndex], store);
-        break;
-    default:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_ref[fieldIndex], store);
-        break;
-    }
+    m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), store);
 
     // FIXME: We should be able elide this write barrier if we know we're storing jsNull();
     return isRefType(resultType);
@@ -3847,8 +3835,9 @@ auto OMGIRGenerator::addStructNew(uint32_t typeIndex, ArgumentList& args, Expres
 {
     Value* structValue = allocateWasmGCStructUninitialized(typeIndex);
     const auto& structType = *m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
+    const RTT& rtt = m_info.rtts[typeIndex].get();
     for (uint32_t i = 0; i < args.size(); ++i) {
-        bool needsWriteBarrier = emitStructSet(/* canTrap */ false, structValue, i, structType, get(args[i]));
+        bool needsWriteBarrier = emitStructSet(/* canTrap */ false, structValue, i, structType, rtt, get(args[i]));
         UNUSED_VARIABLE(needsWriteBarrier);
     }
     mutatorFence();
@@ -3860,6 +3849,7 @@ auto OMGIRGenerator::addStructNewDefault(uint32_t typeIndex, ExpressionType& res
 {
     Value* structValue = allocateWasmGCStructUninitialized(typeIndex);
     const auto& structType = *m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
+    const RTT& rtt = m_info.rtts[typeIndex].get();
     for (StructFieldCount i = 0; i < structType.fieldCount(); ++i) {
         Value* initValue;
         if (Wasm::isRefType(structType.field(i).type))
@@ -3869,7 +3859,7 @@ auto OMGIRGenerator::addStructNewDefault(uint32_t typeIndex, ExpressionType& res
         else
             initValue = constant(Int64, 0);
         // We know all the values here are not cells so we don't need a writeBarrier.
-        bool needsWriteBarrier = emitStructSet(/* canTrap */ false, structValue, i, structType, initValue);
+        bool needsWriteBarrier = emitStructSet(/* canTrap */ false, structValue, i, structType, rtt, initValue);
         UNUSED_VARIABLE(needsWriteBarrier);
     }
     mutatorFence();
@@ -3877,11 +3867,13 @@ auto OMGIRGenerator::addStructNewDefault(uint32_t typeIndex, ExpressionType& res
     return { };
 }
 
-auto OMGIRGenerator::addStructGet(ExtGCOpType structGetKind, TypedExpression structReference, const StructType& structType, uint32_t fieldIndex, ExpressionType& result) -> PartialResult
+auto OMGIRGenerator::addStructGet(ExtGCOpType structGetKind, TypedExpression structReference, const StructType& structType, const RTT& rtt, uint32_t fieldIndex, ExpressionType& result) -> PartialResult
 {
     auto fieldType = structType.field(fieldIndex).type;
     auto mutability = structType.field(fieldIndex).mutability;
     auto resultType = fieldType.unpacked();
+
+    const RTT& definingRTT = rtt.definingRTTForField(fieldIndex);
 
     Value* structValue = get(structReference);
 
@@ -3901,11 +3893,11 @@ auto OMGIRGenerator::addStructGet(ExtGCOpType structGetKind, TypedExpression str
         switch (fieldType.as<PackedType>()) {
         case PackedType::I8:
             load = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Load8Z), Int32, origin(), structValue, fieldOffset);
-            m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i8[fieldIndex], load);
+            m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), load);
             break;
         case PackedType::I16:
             load = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Load16Z), Int32, origin(), structValue, fieldOffset);
-            m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i16[fieldIndex], load);
+            m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), load);
             break;
         }
         if (mutability == Mutability::Immutable)
@@ -3930,26 +3922,7 @@ auto OMGIRGenerator::addStructGet(ExtGCOpType structGetKind, TypedExpression str
 
     ASSERT(fieldType.is<Type>());
     auto* load = m_currentBlock->appendNew<MemoryValue>(m_proc, wrapTrapping(Load), toB3Type(resultType), origin(), structValue, fieldOffset);
-    switch (resultType.kind) {
-    case TypeKind::I32:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i32[fieldIndex], load);
-        break;
-    case TypeKind::F32:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_f32[fieldIndex], load);
-        break;
-    case TypeKind::I64:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_i64[fieldIndex], load);
-        break;
-    case TypeKind::F64:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_f64[fieldIndex], load);
-        break;
-    case TypeKind::V128:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_v128[fieldIndex], load);
-        break;
-    default:
-        m_heaps.decorateMemory(&m_heaps.JSWebAssemblyStruct_ref[fieldIndex], load);
-        break;
-    }
+    m_heaps.decorateMemory(structFieldHeap(definingRTT, fieldIndex), load);
     if (mutability == Mutability::Immutable)
         load->setReadsMutability(B3::Mutability::Immutable);
     result = push(load);
@@ -3957,7 +3930,7 @@ auto OMGIRGenerator::addStructGet(ExtGCOpType structGetKind, TypedExpression str
     return { };
 }
 
-auto OMGIRGenerator::addStructSet(TypedExpression structReference, const StructType& structType, uint32_t fieldIndex, ExpressionType value) -> PartialResult
+auto OMGIRGenerator::addStructSet(TypedExpression structReference, const StructType& structType, const RTT& rtt, uint32_t fieldIndex, ExpressionType value) -> PartialResult
 {
     Value* structValue = get(structReference);
     Value* valueValue = get(value);
@@ -3967,7 +3940,7 @@ auto OMGIRGenerator::addStructSet(TypedExpression structReference, const StructT
     if (structReference.type().isNullable())
         canTrap = emitNullCheckBeforeAccess(structValue, fieldOffset);
 
-    bool needsWriteBarrier = emitStructSet(canTrap, structValue, fieldIndex, structType, valueValue);
+    bool needsWriteBarrier = emitStructSet(canTrap, structValue, fieldIndex, structType, rtt, valueValue);
     if (needsWriteBarrier)
         emitWriteBarrier(pointerOfWasmRef(structValue), instanceValue());
     return { };
@@ -4827,21 +4800,21 @@ void OMGIRGenerator::connectValuesAtEntrypoint(unsigned& indexInBuffer, Value* p
     }
 };
 
-auto OMGIRGenerator::addLoop(BlockSignature signature, Stack& enclosingStack, ControlType& block, Stack& newStack, uint32_t loopIndex) -> PartialResult
+auto OMGIRGenerator::addLoop(BlockSignature&& signature, Stack& enclosingStack, ControlType& block, Stack& newStack, uint32_t loopIndex) -> PartialResult
 {
-    TRACE_CF("LOOP: entering loop index: ", loopIndex, " signature: ", *signature.m_signature);
+    TRACE_CF("LOOP: entering loop index: ", loopIndex, " signature: ", signature);
     BasicBlock* body = m_proc.addBlock();
     BasicBlock* continuation = m_proc.addBlock();
 
-    block = ControlData(m_proc, origin(), signature, BlockType::Loop, continuation, body);
+    block = ControlData(m_proc, origin(), WTF::move(signature), BlockType::Loop, continuation, body);
 
-    unsigned offset = enclosingStack.size() - signature.m_signature->argumentCount();
-    for (unsigned i = 0; i < signature.m_signature->argumentCount(); ++i) {
+    unsigned offset = enclosingStack.size() - block.signature().argumentCount();
+    for (unsigned i = 0; i < block.signature().argumentCount(); ++i) {
         TypedExpression value = enclosingStack.at(offset + i);
         Value* phi = block.phis[i];
         m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), get(value), phi);
         body->append(phi);
-        newStack.constructAndAppend(signature.m_signature->argumentType(i), phi);
+        newStack.constructAndAppend(block.signature().argumentType(i), phi);
     }
     enclosingStack.shrink(offset);
 
@@ -4891,23 +4864,24 @@ auto OMGIRGenerator::addLoop(BlockSignature signature, Stack& enclosingStack, Co
     return { };
 }
 
-OMGIRGenerator::ControlData OMGIRGenerator::addTopLevel(BlockSignature signature)
+OMGIRGenerator::ControlData OMGIRGenerator::addTopLevel(BlockSignature&& signature)
 {
-    TRACE_CF("TopLevel: ", *signature.m_signature);
-    return ControlData(m_proc, Origin(), signature, BlockType::TopLevel, m_proc.addBlock());
+    TRACE_CF("TopLevel: ", signature);
+    ControlData topLevel = ControlData(m_proc, Origin(), WTF::move(signature), BlockType::TopLevel, m_proc.addBlock());
+    return topLevel;
 }
 
-auto OMGIRGenerator::addBlock(BlockSignature signature, Stack& enclosingStack, ControlType& newBlock, Stack& newStack) -> PartialResult
+auto OMGIRGenerator::addBlock(BlockSignature&& signature, Stack& enclosingStack, ControlType& newBlock, Stack& newStack) -> PartialResult
 {
-    TRACE_CF("Block: ", *signature.m_signature);
+    TRACE_CF("Block: ", signature);
     BasicBlock* continuation = m_proc.addBlock();
 
     splitStack(signature, enclosingStack, newStack);
-    newBlock = ControlData(m_proc, origin(), signature, BlockType::Block, continuation);
+    newBlock = ControlData(m_proc, origin(), WTF::move(signature), BlockType::Block, continuation);
     return { };
 }
 
-auto OMGIRGenerator::addIf(ExpressionType condition, BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack) -> PartialResult
+auto OMGIRGenerator::addIf(ExpressionType condition, BlockSignature&& signature, Stack& enclosingStack, ControlType& result, Stack& newStack) -> PartialResult
 {
     // FIXME: This needs to do some kind of stack passing.
 
@@ -4937,7 +4911,7 @@ auto OMGIRGenerator::addIf(ExpressionType condition, BlockSignature signature, S
     m_currentBlock = taken;
     TRACE_CF("IF");
     splitStack(signature, enclosingStack, newStack);
-    result = ControlData(m_proc, origin(), signature, BlockType::If, continuation, notTaken);
+    result = ControlData(m_proc, origin(), WTF::move(signature), BlockType::If, continuation, notTaken);
     return { };
 }
 
@@ -4957,7 +4931,7 @@ auto OMGIRGenerator::addElseToUnreachable(ControlData& data) -> PartialResult
     return { };
 }
 
-auto OMGIRGenerator::addTry(BlockSignature signature, Stack& enclosingStack, ControlType& result, Stack& newStack) -> PartialResult
+auto OMGIRGenerator::addTry(BlockSignature&& signature, Stack& enclosingStack, ControlType& result, Stack& newStack) -> PartialResult
 {
     ++m_tryCatchDepth;
     TRACE_CF("TRY");
@@ -4965,11 +4939,11 @@ auto OMGIRGenerator::addTry(BlockSignature signature, Stack& enclosingStack, Con
     BasicBlock* continuation = m_proc.addBlock();
     splitStack(signature, enclosingStack, newStack);
     materializeExpressionStackIntoVariables();
-    result = ControlData(m_proc, origin(), signature, BlockType::Try, continuation, advanceCallSiteIndex(), m_tryCatchDepth);
+    result = ControlData(m_proc, origin(), WTF::move(signature), BlockType::Try, continuation, advanceCallSiteIndex(), m_tryCatchDepth);
     return { };
 }
 
-auto OMGIRGenerator::addTryTable(BlockSignature signature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack) -> PartialResult
+auto OMGIRGenerator::addTryTable(BlockSignature&& signature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack) -> PartialResult
 {
     ++m_tryCatchDepth;
     TRACE_CF("TRY");
@@ -4988,7 +4962,7 @@ auto OMGIRGenerator::addTryTable(BlockSignature signature, Stack& enclosingStack
     BasicBlock* continuation = m_proc.addBlock();
     splitStack(signature, enclosingStack, newStack);
     materializeExpressionStackIntoVariables();
-    result = ControlData(m_proc, origin(), signature, BlockType::TryTable, continuation, advanceCallSiteIndex(), m_tryCatchDepth);
+    result = ControlData(m_proc, origin(), WTF::move(signature), BlockType::TryTable, continuation, advanceCallSiteIndex(), m_tryCatchDepth);
     result.setTryTableTargets(WTF::move(targetList));
 
     return { };
@@ -5406,7 +5380,11 @@ auto OMGIRGenerator::addReturn(const ControlData&, const Stack& returnValues) ->
     if (m_returnContinuation)
         return addInlinedReturn(returnValues);
 
-    CallInformation wasmCallInfo = wasmCallingConvention().callInformationFor(m_parser->signature(), CallRole::Callee);
+    // Use the function signature from the parser
+    ASSERT(m_parser);
+    const FunctionSignature& functionSignature = *m_parser->signature().template as<FunctionSignature>();
+
+    CallInformation wasmCallInfo = wasmCallingConvention().callInformationFor(functionSignature, CallRole::Callee);
     PatchpointValue* patch = m_proc.add<PatchpointValue>(B3::Void, origin());
     patch->setGenerator([] (CCallHelpers& jit, const B3::StackmapGenerationParams& params) {
         params.code().emitEpilogue(jit);
@@ -5425,7 +5403,7 @@ auto OMGIRGenerator::addReturn(const ControlData&, const Stack& returnValues) ->
             patch->append(get(returnValues[offset + i]), rep);
         }
 
-        TRACE_VALUE(m_parser->signature().as<FunctionSignature>()->returnType(i), get(returnValues[offset + i]), "put to return value ", i);
+        TRACE_VALUE(functionSignature.returnType(i), get(returnValues[offset + i]), "put to return value ", i);
     }
 
     m_currentBlock->append(patch);
@@ -5511,7 +5489,7 @@ auto OMGIRGenerator::endBlock(ControlEntry& entry, Stack& expressionStack) -> Pa
 {
     ControlData& data = entry.controlData;
 
-    ASSERT(expressionStack.size() == data.signature().m_signature->returnCount());
+    ASSERT(expressionStack.size() == data.signature().returnCount());
     if (data.blockType() != BlockType::Loop)
         unifyValuesWithBlock(expressionStack, data);
 
@@ -5540,19 +5518,19 @@ auto OMGIRGenerator::addEndToUnreachable(ControlEntry& entry, const Stack& expre
         --m_tryCatchDepth;
     }
 
-    auto blockSignature = data.signature();
+    const auto& blockSignature = data.signature();
     if (data.blockType() != BlockType::Loop) {
-        for (unsigned i = 0; i < blockSignature.m_signature->returnCount(); ++i) {
+        for (unsigned i = 0; i < blockSignature.returnCount(); ++i) {
             Value* result = data.phis[i];
             m_currentBlock->append(result);
-            entry.enclosedExpressionStack.constructAndAppend(blockSignature.m_signature->returnType(i), push(result));
+            entry.enclosedExpressionStack.constructAndAppend(blockSignature.returnType(i), push(result));
         }
     } else {
-        for (unsigned i = 0; i < blockSignature.m_signature->returnCount(); ++i) {
+        for (unsigned i = 0; i < blockSignature.returnCount(); ++i) {
             if (i < expressionStack.size()) {
                 entry.enclosedExpressionStack.append(expressionStack[i]);
             } else {
-                Type returnType = blockSignature.m_signature->returnType(i);
+                Type returnType = blockSignature.returnType(i);
                 entry.enclosedExpressionStack.constructAndAppend(returnType, push(constant(toB3Type(returnType), 0xbbadbeef)));
             }
         }
@@ -5560,7 +5538,7 @@ auto OMGIRGenerator::addEndToUnreachable(ControlEntry& entry, const Stack& expre
 
     if constexpr (WasmOMGIRGeneratorInternal::traceStackValues) {
         m_parser->expressionStack().swap(entry.enclosedExpressionStack);
-        TRACE_CF("END: ", *blockSignature.m_signature, " block type ", (int) data.blockType());
+        TRACE_CF("END: ", blockSignature, " block type ", (int) data.blockType());
         m_parser->expressionStack().swap(entry.enclosedExpressionStack);
     }
 

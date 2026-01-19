@@ -308,6 +308,8 @@ fast/scrolling/iframe-scrollable-after-back.html [ Skip ]
 fast/scrolling/overflow-scrollable-after-back.html [ Skip ]
 fast/scrolling/programmatic-scroll-to-zero-zero.html [ Skip ]
 http/tests/site-isolation/wheel-event-coordinates.html [ Skip ]
+http/tests/site-isolation/scrolling/basic-mouse-wheel-scrolling.html [ Skip ]
+http/tests/site-isolation/scrolling/scrolling-after-cross-origin-navigation.html [ Skip ]
 
 # This test requires alpha-channel video support.
 compositing/video/video-background-color.html [ WontFix ]
@@ -8285,8 +8287,6 @@ fast/html/details-replace-text.html [ Pass Failure ]
 # https://bugs.webkit.org/show_bug.cgi?id=301173 [ iOS 26 ] fast/text/international/hindi-spacing.html is a constant text failure
 fast/text/international/hindi-spacing.html [ Pass Failure ]
 
-webkit.org/b/301204 imported/w3c/web-platform-tests/css/css-flexbox/negative-overflow-002.html [ Failure ]
-
 # https://bugs.webkit.org/show_bug.cgi?id=301221 [ iOS 26 ] 3x imported/w3c/web-platform-tests/html tests (layout-tests) are flaky text failures
 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html?touch [ Pass Failure Timeout ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-invoking-attribute.html [ Pass Failure ]
@@ -8445,3 +8445,5 @@ webkit.org/b/304995 [ Release ] imported/w3c/web-platform-tests/largest-contentf
 webkit.org/b/305404 imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-auto-001.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/305508 http/tests/resourceLoadStatistics/log-cross-site-load-with-link-decoration.html [ Pass Failure ]
+
+webkit.org/b/305605 media/volume-sleep-disable.html [ Failure ]

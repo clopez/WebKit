@@ -466,12 +466,9 @@ void JITWorklist::removeMatchingPlansForVM(VM& vm, const MatchFunction& matches)
     bool didCancelPlans = !deadPlanKeys.isEmpty();
     for (JITCompilationKey key : deadPlanKeys)
         m_plans.take(key)->cancel();
-    for (unsigned i = 0; i < m_readyPlans.size(); ++i) {
-        if (m_readyPlans[i]->stage() != JITPlanStage::Canceled)
-            continue;
-        m_readyPlans[i--] = WTF::move(m_readyPlans.last());
-        m_readyPlans.removeLast();
-    }
+    m_readyPlans.removeAllMatching([](auto& plan) {
+        return plan->stage() == JITPlanStage::Canceled;
+    });
     if (didCancelPlans)
         m_planCompiledOrCancelled.notifyAll();
 }

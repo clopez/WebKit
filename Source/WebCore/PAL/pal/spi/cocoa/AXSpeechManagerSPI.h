@@ -41,12 +41,15 @@ DECLARE_SYSTEM_HEADER
 
 #include <AVFoundation/AVFoundation.h>
 
+#endif // USE(APPLE_INTERNAL_SDK)
+
+typedef void (^AVSpeechSynthesisVoiceCallbackBlock)(NSArray<AVSpeechSynthesisVoice *> *);
+
 @interface AVSpeechSynthesisVoice (PrivateAttributes)
 @property (nonatomic, readonly) BOOL isSystemVoice;
 + (nonnull NSArray<AVSpeechSynthesisVoice *> *)speechVoicesIncludingSuperCompact;
++ (void)speechVoicesIncludingSuperCompactWithCompletionHandler:(nonnull AVSpeechSynthesisVoiceCallbackBlock)completion;
 @end
-
-#endif // USE(APPLE_INTERNAL_SDK)
 
 #endif // PLATFORM(COCOA)
 

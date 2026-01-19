@@ -153,11 +153,11 @@ public:
 
         ControlData()
         { }
-        ControlData(BlockSignature signature)
-            : m_signature(signature)
+        ControlData(BlockSignature&& signature)
+            : m_signature(WTF::move(signature))
         { }
 
-        BlockSignature signature() const { return m_signature; }
+        const BlockSignature& signature() const { return m_signature; }
         FunctionArgCount branchTargetArity() const { return 0; }
         Type branchTargetType(unsigned) const { return Types::Void; }
     private:
@@ -419,8 +419,8 @@ public:
         return { };
     }
 
-    [[nodiscard]] PartialResult addStructGet(ExtGCOpType, ExpressionType, const StructType&, uint32_t, ExpressionType&) CONST_EXPR_STUB
-    [[nodiscard]] PartialResult addStructSet(ExpressionType, const StructType&, uint32_t, ExpressionType) CONST_EXPR_STUB
+    [[nodiscard]] PartialResult addStructGet(ExtGCOpType, ExpressionType, const StructType&, const RTT&, uint32_t, ExpressionType&) CONST_EXPR_STUB
+    [[nodiscard]] PartialResult addStructSet(ExpressionType, const StructType&, const RTT&, uint32_t, ExpressionType) CONST_EXPR_STUB
     [[nodiscard]] PartialResult addRefTest(ExpressionType, bool, int32_t, bool, ExpressionType&) CONST_EXPR_STUB
     [[nodiscard]] PartialResult addRefCast(ExpressionType, bool, int32_t, ExpressionType&) CONST_EXPR_STUB
 
@@ -629,9 +629,9 @@ public:
         return { };
     }
 
-    ControlData addTopLevel(BlockSignature signature)
+    ControlData addTopLevel(BlockSignature&& signature)
     {
-        return ControlData(signature);
+        return ControlData(WTF::move(signature));
     }
 
     [[nodiscard]] PartialResult addBlock(BlockSignature, Stack&, ControlType&, Stack&) CONST_EXPR_STUB
@@ -670,7 +670,7 @@ public:
 
     [[nodiscard]] PartialResult addEndToUnreachable(ControlEntry&, Stack&, bool = true) CONST_EXPR_STUB
 
-    [[nodiscard]] PartialResult endTopLevel(BlockSignature, const Stack&)
+    [[nodiscard]] PartialResult endTopLevel(const Stack&)
     {
         // Some opcodes like "nop" are not detectable by an error stub because the context
         // doesn't get called by the parser. This flag is set by didParseOpcode() to signal

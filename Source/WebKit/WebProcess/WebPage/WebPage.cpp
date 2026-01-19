@@ -5611,24 +5611,36 @@ void WebPage::removeWebEditCommand(WebUndoStepID stepID)
         undoStep->didRemoveFromUndoManager();
 }
 
-void WebPage::unapplyEditCommand(WebUndoStepID stepID)
+void WebPage::unapplyEditCommand(uint32_t undoVersion, WebUndoStepID stepID, CompletionHandler<void()>&& completionHandler)
 {
+    if (undoVersion < m_currentUndoVersion)
+        return completionHandler();
+
+    m_currentUndoVersion = undoVersion;
+
     RefPtr step = webUndoStep(stepID);
     if (!step)
-        return;
+        return completionHandler();
 
     step->protectedStep()->unapply();
+    completionHandler();
 }
 
-void WebPage::reapplyEditCommand(WebUndoStepID stepID)
+void WebPage::reapplyEditCommand(uint32_t undoVersion, WebUndoStepID stepID, CompletionHandler<void()>&& completionHandler)
 {
+    if (undoVersion < m_currentUndoVersion)
+        return completionHandler();
+
+    m_currentUndoVersion = undoVersion;
+
     RefPtr step = webUndoStep(stepID);
     if (!step)
-        return;
+        return completionHandler();
 
     setIsInRedo(true);
     step->protectedStep()->reapply();
     setIsInRedo(false);
+    completionHandler();
 }
 
 void WebPage::didRemoveEditCommand(WebUndoStepID commandID)
@@ -8272,7 +8284,7 @@ void WebPage::registerURLSchemeHandler(WebURLSchemeHandlerIdentifier handlerIden
     WebCore::LegacySchemeRegistry::registerURLSchemeAsHandledBySchemeHandler(scheme);
     WebCore::LegacySchemeRegistry::registerURLSchemeAsCORSEnabled(scheme);
     auto schemeResult = m_schemeToURLSchemeHandlerProxyMap.add(scheme, WebURLSchemeHandlerProxy::create(*this, handlerIdentifier));
-    m_identifierToURLSchemeHandlerProxyMap.add(handlerIdentifier, Ref { *schemeResult.iterator->value }.get());
+    m_identifierToURLSchemeHandlerProxyMap.add(handlerIdentifier, Ref { schemeResult.iterator->value }.get());
 }
 
 void WebPage::urlSchemeTaskWillPerformRedirection(WebURLSchemeHandlerIdentifier handlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, ResourceResponse&& response, ResourceRequest&& request, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)

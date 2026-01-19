@@ -5139,7 +5139,7 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
     auto lockdownMode = (websitePolicies ? websitePolicies->lockdownModeEnabled() : shouldEnableLockdownMode()) ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
 
     if (frame.isMainFrame() && protectedPreferences()->enhancedSecurityHeuristicsEnabled())
-        internals().enhancedSecurityTracker.trackNavigation(navigation);
+        internals().enhancedSecurityTracker.trackNavigation(navigation, hasOpenedPage());
 
     auto enhancedSecurity = currentEnhancedSecurityState(websitePolicies.get());
 
@@ -5535,7 +5535,18 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         if (navigation.isInitialFrameSrcLoad())
             frame.setIsPendingInitialHistoryItem(true);
 
-        frame.prepareForProvisionalLoadInProcess(newProcess, navigation, browsingContextGroup, [
+        // about:blank frames should inherit the origin of the which originated navigation.
+        // If the two frames share origins, they should share the same process.
+        //
+        // From HTML Spec: browsing the Web, section 7.4.2.2, Item 23, sub-item 5:
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#beginning-navigation
+        //
+        // If url matches about:blank or is about:srcdoc, then:
+        //     Set documentState's origin to initiatorOriginSnapshot.
+        //     Set documentState's about base URL to initiatorBaseURLSnapshot.
+        std::optional<SecurityOriginData> originator = navigation.currentRequest().url().isAboutBlank() && navigation.originatingFrameInfo() ? std::make_optional(navigation.originatingFrameInfo()->securityOrigin) : std::nullopt;
+
+        frame.prepareForProvisionalLoadInProcess(newProcess, navigation, browsingContextGroup, originator, [
             loadParameters = WTF::move(loadParameters),
             newProcess = newProcess.copyRef(),
             preventProcessShutdownScope = newProcess->shutdownPreventingScope()
@@ -10493,9 +10504,7 @@ void WebPageProxy::compositionWasCanceled()
 
 void WebPageProxy::registerEditCommandForUndo(IPC::Connection& connection, WebUndoStepID commandID, String&& label)
 {
-    Ref commandProxy = WebEditCommandProxy::create(commandID, WTF::move(label), *this);
-    MESSAGE_CHECK_BASE(commandProxy->commandID(), connection);
-    registerEditCommand(WTF::move(commandProxy), UndoOrRedo::Undo);
+    registerEditCommand(WebEditCommandProxy::create(commandID, WTF::move(label), *this), UndoOrRedo::Undo);
 }
 
 void WebPageProxy::registerInsertionUndoGrouping()
@@ -10512,17 +10521,32 @@ void WebPageProxy::canUndoRedo(UndoOrRedo action, CompletionHandler<void(bool)>&
     completionHandler(pageClient && pageClient->canUndoRedo(action));
 }
 
-void WebPageProxy::executeUndoRedo(UndoOrRedo action, CompletionHandler<void()>&& completionHandler)
+void WebPageProxy::executeUndoRedo(UndoOrRedo action, CompletionHandler<void(uint32_t undoVersion, Vector<std::pair<WebUndoStepID, UndoOrRedo>>&&)>&& completionHandler)
 {
     if (RefPtr pageClient = this->pageClient())
         pageClient->executeUndoRedo(action);
-    completionHandler();
+    // FIXME: <rdar://168324268> Fix this for site isolation. We need a separate pending undo/redo stack for each process.
+    ++m_undoVersion;
+    completionHandler(m_undoVersion, WTF::moveToVector(std::exchange(m_pendingUndoRedo, { })));
 }
 
 void WebPageProxy::clearAllEditCommands()
 {
     if (RefPtr pageClient = this->pageClient())
         pageClient->clearAllEditCommands();
+}
+
+void WebPageProxy::addPendingUndoRedo(WebUndoStepID commandID, UndoOrRedo action)
+{
+    ++m_undoVersion;
+    m_pendingUndoRedo.append({ commandID, action });
+}
+
+void WebPageProxy::removePendingUndoRedo(WebUndoStepID commandID)
+{
+    m_pendingUndoRedo.removeFirstMatching([commandID](auto& item) {
+        return item.first == commandID;
+    });
 }
 
 #if USE(APPKIT)
