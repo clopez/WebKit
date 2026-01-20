@@ -4167,6 +4167,7 @@ header: <WebCore/DataDetectorType.h>
     TrackingNumber,
     FlightNumber,
     LookupSuggestion,
+    Money,
 };
 #endif
 
@@ -6165,6 +6166,7 @@ struct WebCore::ServiceWorkerContextData {
     MemoryCompactRobinHoodHashMap<URL, WebCore::ServiceWorkerImportedScript> scriptResourceMap;
     std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier;
     WebCore::NavigationPreloadState navigationPreloadState;
+    Vector<WebCore::ServiceWorkerRoute> routes;
 };
 
 #if HAVE(SCREEN_CAPTURE_KIT)
@@ -6828,6 +6830,9 @@ header: <WebCore/TextExtractionTypes.h>
     bool includeEventListeners;
     bool includeAccessibilityAttributes;
     bool includeTextInAutoFilledControls;
+#if ENABLE(DATA_DETECTION)
+    OptionSet<WebCore::DataDetectorType> dataDetectorTypes;
+#endif
 };
 
 header: <WebCore/TextExtractionTypes.h>

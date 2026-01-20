@@ -168,6 +168,7 @@
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/ContentExtensionsBackend.h>
 #import <WebCore/DOMException.h>
+#import <WebCore/DataDetectorType.h>
 #import <WebCore/ElementContext.h>
 #import <WebCore/ElementTargetingTypes.h>
 #import <WebCore/ExceptionCode.h>
@@ -7161,6 +7162,24 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
     return result;
 }
 
+#if ENABLE(DATA_DETECTION)
+
+static OptionSet<WebCore::DataDetectorType> coreDataDetectorTypes(_WKTextExtractionDataDetectorTypes types)
+{
+    OptionSet<WebCore::DataDetectorType> coreTypes;
+    if (types & _WKTextExtractionDataDetectorMoney)
+        coreTypes.add(WebCore::DataDetectorType::Money);
+    if (types & _WKTextExtractionDataDetectorAddress)
+        coreTypes.add(WebCore::DataDetectorType::Address);
+    if (types & _WKTextExtractionDataDetectorCalendarEvent)
+        coreTypes.add(WebCore::DataDetectorType::CalendarEvent);
+    if (types & _WKTextExtractionDataDetectorTrackingNumber)
+        coreTypes.add(WebCore::DataDetectorType::TrackingNumber);
+    return coreTypes;
+}
+
+#endif // ENABLE(DATA_DETECTION)
+
 #endif // USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))
 
 - (void)_requestTextExtractionInternal:(_WKTextExtractionConfiguration *)configuration completion:(CompletionHandler<void(std::optional<WebCore::TextExtraction::Item>&&)>&&)completion
@@ -7213,6 +7232,9 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
             .includeEventListeners = !!configuration.includeEventListeners,
             .includeAccessibilityAttributes = !!configuration.includeAccessibilityAttributes,
             .includeTextInAutoFilledControls = !!configuration.includeTextInAutoFilledControls,
+#if ENABLE(DATA_DETECTION)
+            .dataDetectorTypes = coreDataDetectorTypes(configuration.dataDetectorTypes),
+#endif
         };
     };
 
