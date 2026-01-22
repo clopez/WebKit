@@ -877,6 +877,7 @@ webkit.org/b/251107 webgl/2.0.y/conformance/context/premultiplyalpha-test.html [
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-render-snorm.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/webgl-clip-cull-distance.html [ Failure ]
+webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Crash Pass ]
 
 # WEBGL2 flakies
 webkit.org/b/251107 webgl/2.0.y/conformance2/rendering/blitframebuffer-test.html [ Pass Failure ]
@@ -1024,9 +1025,6 @@ webkit.org/b/285298 imported/w3c/web-platform-tests/webcodecs/videoFrame-canvasI
 # [WPE] Missing implementation of TestController::setHidden()
 webkit.org/b/268470 fast/mediastream/device-change-event-2.html [ Timeout ]
 
-webkit.org/b/268917 [ Debug ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletprocessor-promises.https.html [ Pass Crash ]
-webkit.org/b/268917 [ Debug ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletglobalscope-sample-rate.https.html [ Pass Crash ]
-
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-focus-2.html [ Failure ]
 
 webkit.org/b/273196 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-combinations.html [ Failure ]
@@ -1113,7 +1111,6 @@ webkit.org/b/279178 fast/scrolling/scroll-into-view-on-composited-scrollable-ove
 webkit.org/b/279179 [ Debug ] imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.sharedworker.html [ Failure Pass ]
 
 fast/hidpi/filters-drop-shadow.html [ ImageOnlyFailure ]
-fast/inline/min-content-width-with-hypens.html [ ImageOnlyFailure ]
 fast/multicol/layers-split-across-columns.html [ ImageOnlyFailure ]
 fast/scrolling/scroll-corner-update-on-direction-change.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/color-003.html [ ImageOnlyFailure ]

@@ -4109,7 +4109,7 @@ RenderBlockFlow::InlineContentStatus RenderBlockFlow::markInlineContentDirtyForL
         if (is<RenderLineBreak>(renderer) || is<RenderInline>(renderer) || is<RenderText>(renderer))
             renderer.clearNeedsLayout();
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE) && ENABLE(AX_THREAD_TEXT_APIS)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (CheckedPtr cache = protectedDocument()->existingAXObjectCache())
             cache->onTextRunsChanged(renderer);
 #endif
@@ -4211,7 +4211,8 @@ void RenderBlockFlow::layoutInlineContent(RelayoutChildren relayoutChildren, Lay
         if (layoutSimpleBlockContentInInline(marginInfo)) {
             setLogicalHeight(previousHeight);
             handleAfterSideOfBlock(marginInfo, previousHeight - (borderAndPaddingLogicalHeight() + scrollbarLogicalHeight()));
-            updateRepaintTopAndBottomAfterLayout(relayoutChildren, { }, oldContentTopAndBottomIncludingInkOverflow, repaintLogicalTop, repaintLogicalBottom);
+            // Pass empty rect as partialRepaintRect because child blocks issue their own repaints if needed.
+            updateRepaintTopAndBottomAfterLayout(relayoutChildren, LayoutRect { }, oldContentTopAndBottomIncludingInkOverflow, repaintLogicalTop, repaintLogicalBottom);
             return;
         }
     }

@@ -60,6 +60,8 @@
 #include "AccessibilityTableHeaderContainer.h"
 #include "AriaNotifyOptions.h"
 #include "CaretRectComputation.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "ContainerNodeInlines.h"
 #include "CustomElementDefaultARIA.h"
 #include "DeprecatedGlobalSettings.h"
@@ -209,10 +211,8 @@ void AccessibilityReplacedText::postTextStateChangeNotification(AXObjectCache* c
 std::atomic<bool> AXObjectCache::gAccessibilityEnabled = false;
 bool AXObjectCache::gAccessibilityEnhancedUserInterfaceEnabled = false;
 std::atomic<bool> AXObjectCache::gForceDeferredSpellChecking = false;
-#if ENABLE(AX_THREAD_TEXT_APIS)
-std::atomic<bool> AXObjectCache::gAccessibilityThreadTextApisEnabled = false;
-#endif
 std::atomic<bool> AXObjectCache::gAccessibilityTextStitchingEnabled = false;
+std::atomic<bool> AXObjectCache::gAccessibilityThreadHitTestingEnabled = false;
 std::atomic<bool> AXObjectCache::gForceInitialFrameCaching = false;
 #if PLATFORM(COCOA)
 std::atomic<bool> AXObjectCache::gAccessibilityDOMIdentifiersEnabled = false;
@@ -233,6 +233,11 @@ void AXObjectCache::setEnhancedUserInterfaceAccessibility(bool flag)
     if (flag)
         enableAccessibility();
 #endif
+}
+
+bool AXObjectCache::isAXThreadHitTestingEnabled()
+{
+    return gAccessibilityThreadHitTestingEnabled;
 }
 
 void AXObjectCache::setForceInitialFrameCaching(bool shouldForce)
@@ -276,10 +281,8 @@ AXObjectCache::AXObjectCache(LocalFrame& localFrame, Document* document)
     setAccessibilityLogChannelEnabled(LOG_CHANNEL(Accessibility).state != logChannelStateOff);
 #endif
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    gAccessibilityThreadTextApisEnabled = DeprecatedGlobalSettings::accessibilityThreadTextApisEnabled();
-#endif
     gAccessibilityTextStitchingEnabled = DeprecatedGlobalSettings::accessibilityTextStitchingEnabled();
+    gAccessibilityThreadHitTestingEnabled = DeprecatedGlobalSettings::accessibilityThreadHitTestingEnabled();
 
 #if PLATFORM(COCOA)
     initializeUserDefaultValues();
@@ -509,12 +512,12 @@ Node* AXObjectCache::modalNode()
 
     // Check the cached current valid aria modal node first.
     // Usually when one dialog sets aria-modal=true, that dialog is the one we want.
-    if (isNodeVisible(m_currentModalElement.get()))
-        return m_currentModalElement.get();
+    if (isNodeVisible(m_currentModalElement))
+        return m_currentModalElement;
 
     // Recompute the valid aria modal node when m_currentModalElement is null or hidden.
     updateCurrentModalNode();
-    return m_currentModalElement.get();
+    return m_currentModalElement;
 }
 
 AccessibilityObject* AXObjectCache::focusedImageMapUIElement(HTMLAreaElement& areaElement)
@@ -617,6 +620,30 @@ void AXObjectCache::setIsolatedTreeFocusedObject(AccessibilityObject* focus)
 }
 #endif
 
+IntPoint AXObjectCache::mapScreenPointToPagePoint(const IntPoint& screenRelativePoint) const
+{
+    RefPtr page = this->page();
+    if (!page) {
+        // We can't do the conversion if we don't have a page.
+        return screenRelativePoint;
+    }
+
+    // FIXME: WebPage::screenToRootView does sync IPC. Can we find a way to convert this point
+    // without sync IPC?
+    auto convertedPoint = page->chrome().client().screenToRootView(WebCore::IntPoint(screenRelativePoint));
+    RefPtr frame = m_document ? m_document->frame() : nullptr;
+    if (RefPtr frameView = frame ? frame->view() : nullptr)
+        convertedPoint.moveBy(frameView->scrollPosition());
+
+    auto obscuredContentInsets = page->obscuredContentInsets();
+    convertedPoint.move(-obscuredContentInsets.left(), -obscuredContentInsets.top());
+    return convertedPoint;
+}
+
+RefPtr<Page> AXObjectCache::page() const
+{
+    return m_document ? m_document->page() : nullptr;
+}
 
 Ref<AccessibilityRenderObject> AXObjectCache::createObjectFromRenderer(RenderObject& renderer)
 {
@@ -1438,7 +1465,7 @@ void AXObjectCache::setDirtyStitchGroups(const RenderBlock& renderBlock)
     }
 }
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 void AXObjectCache::onTextRunsChanged(const RenderObject& renderer)
 {
     if (is<RenderInline>(renderer) || is<RenderListMarker>(renderer)) {
@@ -2235,11 +2262,6 @@ void AXObjectCache::onStyleChange(RenderText& renderText, Style::Difference diff
         return;
 
     bool speakAsChanged = oldStyle->speakAs() != newStyle.speakAs();
-#if !ENABLE(AX_THREAD_TEXT_APIS)
-    // In !ENABLE(AX_THREAD_TEXT_APIS), we don't have anything to do if speak-as hasn't changed.
-    if (!speakAsChanged) [[likely]]
-        return;
-#endif // !ENABLE(AX_THREAD_TEXT_APIS)
 
     bool diffIsEqual = difference == Style::DifferenceResult::Equal;
     // When speak-as changes, style difference will be Style::DifferenceResult::Equal (so "equal"
@@ -2266,7 +2288,6 @@ void AXObjectCache::onStyleChange(RenderText& renderText, Style::Difference diff
     if (diffIsEqual)
         return;
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
     if (oldStyle->visitedDependentBackgroundColor() != newStyle.visitedDependentBackgroundColor())
         tree->queueNodeUpdate(object->objectID(), { AXProperty::BackgroundColor });
 
@@ -2289,7 +2310,6 @@ void AXObjectCache::onStyleChange(RenderText& renderText, Style::Difference diff
 
     if (oldStyle->pointerEvents() != newStyle.pointerEvents())
         postNotification(*object, AXNotification::PointerEventsChanged);
-#endif // ENABLE(AX_THREAD_TEXT_APIS)
 
 #else
     UNUSED_PARAM(renderText);
@@ -4073,7 +4093,7 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(node); input && input->isSecureField())
         return std::nullopt;
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (shouldCreateAXThreadCompatibleMarkers()) {
         // We need to convert the DOM offset (which is offset into pre-whitespace-collapse text) into an offset into
         // the rendered, post-whitespace-collapse text.
@@ -4138,7 +4158,7 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
         unsigned renderedOffset = domOffset - differenceBetweenDomAndRenderedOffsets;
         return createFromRendererAndOffset(const_cast<RenderText&>(*renderText), renderedOffset);
     }
-#endif // ENABLE(AX_THREAD_TEXT_APIS)
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
     // If the visible position has an anchor type referring to a node other than the anchored node, we should
     // set the text marker data with CharacterOffset so that the offset will correspond to the node.

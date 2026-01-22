@@ -112,7 +112,6 @@ CSSParserContext::CSSParserContext(const Settings& settings)
     , colorLayersEnabled { settings.cssColorLayersEnabled() }
     , targetTextPseudoElementEnabled { settings.targetTextPseudoElementEnabled() }
     , htmlEnhancedSelectPseudoElementsEnabled { settings.htmlEnhancedSelectPseudoElementsEnabled() }
-    , cssProgressFunctionEnabled { settings.cssProgressFunctionEnabled() }
     , cssRandomFunctionEnabled { settings.cssRandomFunctionEnabled() }
     , cssTreeCountingFunctionsEnabled { settings.cssTreeCountingFunctionsEnabled() }
     , cssURLModifiersEnabled { settings.cssURLModifiersEnabled() }
@@ -123,6 +122,7 @@ CSSParserContext::CSSParserContext(const Settings& settings)
     , cssTextTransformMathAutoEnabled { settings.cssTextTransformMathAutoEnabled() }
     , cssInternalAutoBaseParsingEnabled { settings.cssInternalAutoBaseParsingEnabled() }
     , cssMathDepthEnabled { settings.cssMathDepthEnabled() }
+    , openPseudoClassEnabled { settings.openPseudoClassEnabled() }
     , propertySettings { CSSPropertySettings { settings } }
 {
 }
@@ -151,7 +151,6 @@ void add(Hasher& hasher, const CSSParserContext& context)
 #endif
         context.colorLayersEnabled,
         context.targetTextPseudoElementEnabled,
-        context.cssProgressFunctionEnabled,
         context.cssRandomFunctionEnabled,
         context.cssTreeCountingFunctionsEnabled,
         context.cssURLModifiersEnabled,
@@ -163,7 +162,8 @@ void add(Hasher& hasher, const CSSParserContext& context)
         context.cssTextTransformMathAutoEnabled,
         context.cssInternalAutoBaseParsingEnabled,
         context.cssMathDepthEnabled,
-        context.htmlEnhancedSelectPseudoElementsEnabled
+        context.htmlEnhancedSelectPseudoElementsEnabled,
+        context.openPseudoClassEnabled
     );
     add(hasher, context.baseURL, context.charset, context.propertySettings, context.mode, bits);
 }

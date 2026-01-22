@@ -1396,7 +1396,7 @@ AccessibilityButtonState AccessibilityNodeObject::checkboxOrRadioValue() const
     return AccessibilityObject::checkboxOrRadioValue();
 }
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 TextEmissionBehavior AccessibilityNodeObject::textEmissionBehavior() const
 {
     RefPtr node = this->node();
@@ -1433,7 +1433,7 @@ TextEmissionBehavior AccessibilityNodeObject::textEmissionBehavior() const
     }
     return TextEmissionBehavior::None;
 }
-#endif // ENABLE(AX_THREAD_TEXT_APIS)
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 Element* AccessibilityNodeObject::anchorElement() const
 {
@@ -4278,6 +4278,22 @@ static String accessibleNameForNode(Node& node, Node* labelledbyNode)
     const AtomString& title = element ? element->attributeWithoutSynchronization(titleAttr) : nullAtom();
     if (!title.isEmpty())
         return title;
+
+    if (element && element->hasDisplayContents()) {
+        // For display:contents elements with shadow roots, the element doesn't have a renderer,
+        // so textUnderElement() won't find any children via the render tree. We need to explicitly
+        // traverse the shadow root content to compute the accessible name.
+        // https://bugs.webkit.org/show_bug.cgi?id=275222
+        if (RefPtr shadowRoot = shadowRootIgnoringUserAgentShadow(node)) {
+            StringBuilder builder;
+            for (RefPtr child = shadowRoot->firstChild(); child; child = child->nextSibling())
+                appendNameToStringBuilder(builder, accessibleNameForNode(*child));
+
+            String shadowText = builder.toString();
+            if (!shadowText.isEmpty())
+                return shadowText;
+        }
+    }
 
     return { };
 }

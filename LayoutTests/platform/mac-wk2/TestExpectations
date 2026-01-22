@@ -1499,8 +1499,6 @@ webkit.org/b/260113 [ arm64 ] http/wpt/webauthn/ctap-hid-failure.https.html [ Pa
 # rdar://108846032 (REGRESSION (263506@main): [ Sonoma wk2 ] fast/layoutformattingcontext/horizontal-sizing-with-trailing-letter-spacing.html: WebCore::Layout::Line::TrimmableTrailingContent::remove)
 [ Sonoma+ ] fast/layoutformattingcontext/horizontal-sizing-with-trailing-letter-spacing.html [ Skip ]
 
-webkit.org/b/239627 [ arm64 ] fast/scrolling/mac/adjust-scroll-snap-during-gesture.html [ Pass Failure ]
-
 # Enable Sonoma only test added in rdar://110488738.
 [ Sonoma+ ] accessibility/mac/attributed-string/attributed-string-has-completion-annotation.html [ Pass ]
 
@@ -2445,3 +2443,9 @@ webkit.org/b/305671 fast/animation/css-animation-throttling.html [ Pass Failure 
 webkit.org/b/305673 [ Debug ] inspector/idl-extensions/CanvasRenderingContext2D/setPath.html [ Timeout ]
 
 webkit.org/b/305675 fast/animation/request-animation-frame-throttle-subframe-zero-size.html [ Pass Failure ]
+
+webkit.org/b/305947 compositing/visibility/frameset-visibility-hidden.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/305958 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Pass Failure ]
+
+webkit.org/b/305959 fast/text/FontFaceSet-status-after-style-update.html [ Pass Failure ]

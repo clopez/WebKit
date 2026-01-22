@@ -76,7 +76,6 @@ struct CSSParserContext {
     bool colorLayersEnabled : 1 { false };
     bool targetTextPseudoElementEnabled : 1 { false };
     bool htmlEnhancedSelectPseudoElementsEnabled : 1 { false };
-    bool cssProgressFunctionEnabled : 1 { false };
     bool cssRandomFunctionEnabled : 1 { false };
     bool cssTreeCountingFunctionsEnabled : 1 { false };
     bool cssURLModifiersEnabled : 1 { false };
@@ -88,6 +87,7 @@ struct CSSParserContext {
     bool cssInternalAutoBaseParsingEnabled : 1 { false };
     bool webkitMediaTextTrackDisplayQuirkEnabled : 1 { false };
     bool cssMathDepthEnabled : 1 { false };
+    bool openPseudoClassEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

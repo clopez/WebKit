@@ -3136,7 +3136,7 @@ bool AccessibilityObject::supportsARIAAttributes() const
         || hasAttribute(aria_relevantAttr);
 }
 
-AccessibilityObject* AccessibilityObject::elementAccessibilityHitTest(const IntPoint& point) const
+RefPtr<AccessibilityObject> AccessibilityObject::elementAccessibilityHitTest(const IntPoint& point) const
 {
     // Send the hit test back into the sub-frame if necessary.
     if (isAttachment()) {
@@ -3146,7 +3146,7 @@ AccessibilityObject* AccessibilityObject::elementAccessibilityHitTest(const IntP
             RefPtr widgetScrollView = dynamicDowncast<ScrollView>(widget);
             if (CheckedPtr cache = widgetScrollView ? axObjectCache() : nullptr) {
                 IntPoint adjustedPoint = IntPoint(point - widget->frameRect().location()) + widgetScrollView->scrollPosition();
-                return cache->getOrCreate(*widget)->accessibilityHitTest(adjustedPoint);
+                return downcast<AccessibilityObject>(cache->getOrCreate(*widget)->accessibilityHitTest(adjustedPoint).get());
             }
         }
 
@@ -3155,7 +3155,7 @@ AccessibilityObject* AccessibilityObject::elementAccessibilityHitTest(const IntP
                 if (RefPtr remoteHostWidget = cache->getOrCreate(*widget)) {
                     remoteHostWidget->updateChildrenIfNecessary();
                     RefPtr scrollView = dynamicDowncast<AccessibilityScrollView>(*remoteHostWidget);
-                    return scrollView ? scrollView->remoteFrame().unsafeGet() : nullptr;
+                    return scrollView ? scrollView->remoteFrame() : nullptr;
                 }
             }
         }
@@ -3974,6 +3974,11 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
                 return AccessibilityObjectInclusion::IgnoreObject;
             // We handle the `isHiddenUntilFound == true` case below.
         }
+    }
+
+    if (CheckedPtr style = this->style()) {
+        if (style->display() == DisplayType::None && !isImageMapLink())
+            return AccessibilityObjectInclusion::IgnoreObject;
     }
 
     bool useParentData = !m_isIgnoredFromParentData.isNull();

@@ -201,13 +201,13 @@ AccessibilityTextStitchingEnabled:
       "ENABLE(ACCESSIBILITY_TEXT_STITCHING)": true
       default: false
 
-AccessibilityThreadTextApisEnabled:
+AccessibilityThreadHitTestingEnabled:
   type: bool
-  status: embedder
-  humanReadableName: "Off Main-Thread Accessibility Text APIs"
-  humanReadableDescription: "Serve accessibility text APIs off the main-thread"
+  status: internal
+  defaultsOverridable: true
+  humanReadableName: "Off Main-Thread Accessibility Hit Testing"
+  humanReadableDescription: "Serve accessibility hit tests off the main-thread"
   webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(AX_THREAD_TEXT_APIS)
   defaultValue:
     WebKitLegacy:
       default: true
@@ -278,17 +278,20 @@ AllowMultiElementImplicitSubmission:
 
 AllowMultipleCommitLayerTreePending:
   type: bool
-  status: testable
+  status: internal
   category: dom
   humanReadableName: "Allow requesting CommitLayerTree before the previous has completed"
   humanReadableDescription: "Allow requesting CommitLayerTree before the previous has completed"
   defaultValue:
     WebKitLegacy:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
     WebKit:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
     WebCore:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
 
 AllowPrivacySensitiveOperationsInNonPersistentDataStores:
   type: bool
@@ -1286,20 +1289,6 @@ CSSPaintingAPIEnabled:
     WebCore:
       default: false
 
-CSSProgressFunctionEnabled:
-  type: bool
-  category: css
-  status: stable
-  humanReadableName: "CSS progress()"
-  humanReadableDescription: "Enable support for CSS Values and Units Module Level 5 progress()"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 CSSRandomFunctionEnabled:
   type: bool
   category: css
@@ -1327,34 +1316,6 @@ CSSRhythmicSizingEnabled:
       default: false
     WebCore:
       default: false
-
-CSSRubyAlignEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "CSS ruby-align property"
-  humanReadableDescription: "Enable ruby-align"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-CSSRubyOverhangEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "CSS ruby-overhang property"
-  humanReadableDescription: "Enable ruby-overhang"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 CSSScrollAnchoringEnabled:
   type: bool
@@ -1419,34 +1380,6 @@ CSSSelectorJITCompilerEnabled:
   humanReadableName: "CSS Selector JIT Compiler"
   humanReadableDescription: "Enable the JIT compiler for CSS selectors"
   condition: ENABLE(CSS_SELECTOR_JIT)
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-CSSTextAutospaceEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "CSS text-autospace property"
-  humanReadableDescription: "Enable the property text-autospace, defined in CSS Text 4"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-CSSTextBoxTrimEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "CSS text-box-trim property"
-  humanReadableDescription: "Enable text-box-trim"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -3375,34 +3308,6 @@ GetBoundingClientRectZoomedEnabled:
       default: false
     WebKit:
       "PLATFORM(IOS_FAMILY)": WebKit::defaultGetBoundingClientRectZoomedEnabled()
-      default: true
-    WebCore:
-      default: true
-
-GetCoalescedEventsEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Pointer Events getCoalescedEvents API"
-  humanReadableDescription: "Enable the `getCoalescedEvents` function of the Pointer Events API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-GetPredictedEventsEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Pointer Events getPredictedEvents API"
-  humanReadableDescription: "Enable the `getPredictedEvents` function of the Pointer Events API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
       default: true
     WebCore:
       default: true
@@ -5863,6 +5768,20 @@ OffscreenCanvasInWorkersEnabled:
       "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
+OpenPseudoClassEnabled:
+  type: bool
+  status: testable
+  humanReadableName: ":open pseudo-class"
+  humanReadableDescription: "Enable the :open CSS pseudo-class"
+  category: css
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 OpenXRDMABufRelaxedForTesting:
   type: bool
   status: internal
@@ -6937,6 +6856,20 @@ ScriptTrackingPrivacyLoggingEnabled:
   status: internal
   humanReadableName: "Script Tracking Privacy Logging"
   humanReadableDescription: "Script tracking privacy logging enabled"
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+ScriptTrackingPrivacyNetworkRequestBlockingEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Script Tracking Privacy Network Requests Blocking"
+  humanReadableDescription: "Block network requests made from tracking scripts"
   exposed: [ WebKit ]
   defaultValue:
     WebKitLegacy:
@@ -8442,7 +8375,7 @@ UnifyDamagedRegions:
        default: false
      WebCore:
        default: false
-       
+
 UpdateSceneGeometryEnabled:
   type: bool
   status: internal
