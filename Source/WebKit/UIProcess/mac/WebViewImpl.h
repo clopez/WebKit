@@ -127,8 +127,11 @@ namespace WebCore {
 class DestinationColorSpace;
 class IntPoint;
 struct DataDetectorElementInfo;
+struct DigitalCredentialsResponseData;
+struct ExceptionData;
 struct ShareDataWithParsedURL;
 struct TextRecognitionResult;
+struct TextAnimationData;
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
