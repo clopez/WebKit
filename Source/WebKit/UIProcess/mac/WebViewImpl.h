@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
+
 #if PLATFORM(MAC)
 
 #include "AppKitSPI.h"
@@ -44,6 +46,7 @@
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebKit/WKDragDestinationAction.h>
 #include <WebKit/_WKOverlayScrollbarStyle.h>
+#include <WebKit/_WKRectEdge.h>
 #include <pal/spi/cocoa/AVKitSPI.h>
 #include <pal/spi/cocoa/WritingToolsSPI.h>
 #include <wtf/BlockPtr.h>
@@ -55,8 +58,6 @@
 #include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/WTFString.h>
-
-using _WKRectEdge = NSUInteger;
 
 OBJC_CLASS NSAccessibilityRemoteUIElement;
 OBJC_CLASS NSImmediateActionGestureRecognizer;
@@ -126,7 +127,9 @@ namespace WebCore {
 class DestinationColorSpace;
 class IntPoint;
 struct DataDetectorElementInfo;
+struct ExceptionData;
 struct ShareDataWithParsedURL;
+struct TextAnimationData;
 struct TextRecognitionResult;
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
@@ -194,6 +197,7 @@ struct ResolvedCaptionDisplaySettingsOptions;
 
 #if ENABLE(WEB_AUTHN)
 struct DigitalCredentialsRequestData;
+struct DigitalCredentialsResponseData;
 #endif
 
 struct FrameIdentifierType;
