@@ -19743,6 +19743,16 @@
 		BCD67C632D2465550079EB9C /* CSSPrimitiveNumericUnits.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSSPrimitiveNumericUnits.cpp; sourceTree = "<group>"; };
 		BCD67C642D2477CA0079EB9C /* StyleLengthResolution.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleLengthResolution.h; sourceTree = "<group>"; };
 		BCD67C652D2477D80079EB9C /* StyleLengthResolution.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleLengthResolution.cpp; sourceTree = "<group>"; };
+		BCD8F9312F1FF43200B42872 /* JSFileSystemDirectoryHandle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSFileSystemDirectoryHandle.h; sourceTree = "<group>"; };
+		BCD8F9322F1FF43200B42872 /* JSFileSystemDirectoryHandle.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFileSystemDirectoryHandle.cpp; sourceTree = "<group>"; };
+		BCD8F93D2F1FF43200B42872 /* JSFileSystemFileHandle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSFileSystemFileHandle.h; sourceTree = "<group>"; };
+		BCD8F93E2F1FF43200B42872 /* JSFileSystemFileHandle.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFileSystemFileHandle.cpp; sourceTree = "<group>"; };
+		BCD8F93F2F1FF43200B42872 /* JSFileSystemHandle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSFileSystemHandle.h; sourceTree = "<group>"; };
+		BCD8F9402F1FF43200B42872 /* JSFileSystemHandle.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFileSystemHandle.cpp; sourceTree = "<group>"; };
+		BCD8F9412F1FF43200B42872 /* JSFileSystemSyncAccessHandle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSFileSystemSyncAccessHandle.h; sourceTree = "<group>"; };
+		BCD8F9422F1FF43200B42872 /* JSFileSystemSyncAccessHandle.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFileSystemSyncAccessHandle.cpp; sourceTree = "<group>"; };
+		BCD8F9432F1FF43200B42872 /* JSFileSystemWritableFileStream.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSFileSystemWritableFileStream.h; sourceTree = "<group>"; };
+		BCD8F9442F1FF43200B42872 /* JSFileSystemWritableFileStream.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFileSystemWritableFileStream.cpp; sourceTree = "<group>"; };
 		BCD9C25E0C17AA67005C90A2 /* JSDOMWindowCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = JSDOMWindowCustom.cpp; sourceTree = "<group>"; };
 		BCD9C2600C17AA67005C90A2 /* JSNodeCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = JSNodeCustom.cpp; sourceTree = "<group>"; };
 		BCD9C2610C17AA67005C90A2 /* JSNodeListCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = JSNodeListCustom.cpp; sourceTree = "<group>"; };
@@ -24353,6 +24363,7 @@
 				A83B79120CCB003F000B0825 /* Events */,
 				42A023FA1A39F13A00F722CF /* FetchAPI */,
 				89878576122CA1DA003AABDA /* FileAPI */,
+				BCD8F92E2F1FF3AE00B42872 /* Filesystem */,
 				518F4FFC194CABE30081BAAE /* Gamepad */,
 				7C330A041DF9F93B00D3395C /* Geolocation */,
 				A83B79080CCAFF2B000B0825 /* HTML */,
@@ -37870,6 +37881,23 @@
 				BCD2C6F32D0F4CE400F77591 /* StyleStepsEasingFunction.h */,
 			);
 			path = easing;
+			sourceTree = "<group>";
+		};
+		BCD8F92E2F1FF3AE00B42872 /* Filesystem */ = {
+			isa = PBXGroup;
+			children = (
+				BCD8F9322F1FF43200B42872 /* JSFileSystemDirectoryHandle.cpp */,
+				BCD8F9312F1FF43200B42872 /* JSFileSystemDirectoryHandle.h */,
+				BCD8F93E2F1FF43200B42872 /* JSFileSystemFileHandle.cpp */,
+				BCD8F93D2F1FF43200B42872 /* JSFileSystemFileHandle.h */,
+				BCD8F9402F1FF43200B42872 /* JSFileSystemHandle.cpp */,
+				BCD8F93F2F1FF43200B42872 /* JSFileSystemHandle.h */,
+				BCD8F9422F1FF43200B42872 /* JSFileSystemSyncAccessHandle.cpp */,
+				BCD8F9412F1FF43200B42872 /* JSFileSystemSyncAccessHandle.h */,
+				BCD8F9442F1FF43200B42872 /* JSFileSystemWritableFileStream.cpp */,
+				BCD8F9432F1FF43200B42872 /* JSFileSystemWritableFileStream.h */,
+			);
+			name = Filesystem;
 			sourceTree = "<group>";
 		};
 		BCD9EFE62E18E56700D1C3DF /* text */ = {
