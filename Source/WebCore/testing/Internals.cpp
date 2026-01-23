@@ -1207,9 +1207,6 @@ bool Internals::isImageAnimating(HTMLImageElement& element)
 void Internals::setImageAnimationEnabled(bool enabled)
 {
     if (auto* page = contextDocument() ? contextDocument()->page() : nullptr) {
-        if (!page->settings().imageAnimationControlEnabled())
-            return;
-
         // We need to set this here to mimic the behavior of the AX preference changing
         Image::setSystemAllowsAnimationControls(!enabled);
         page->setImageAnimationEnabled(enabled);
@@ -2002,6 +1999,10 @@ void Internals::setEnableWebRTCEncryption(bool value)
 #endif
 }
 
+bool Internals::hasPeerConnectionEnabledServiceClass(const RTCPeerConnection& connection)
+{
+    return connection.protectedBackend()->shouldEnableServiceClass();
+}
 #endif // ENABLE(WEB_RTC)
 
 #if ENABLE(MEDIA_STREAM)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,24 +24,14 @@
  */
 
 #include "config.h"
-#include "CatchScope.h"
+#include "B3WasmRefTypeCheckValue.h"
 
-namespace JSC {
-    
-#if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
+#if ENABLE(B3_JIT)
 
-CatchScope::CatchScope(VM& vm, ExceptionEventLocation location)
-    : ExceptionScope(vm, location)
-{
-    m_vm.verifyExceptionCheckNeedIsSatisfied(m_recursionDepth, m_location);
-}
+namespace JSC::B3 {
 
-CatchScope::~CatchScope()
-{
-    RELEASE_ASSERT(m_vm.m_topExceptionScope);
-    m_vm.verifyExceptionCheckNeedIsSatisfied(m_recursionDepth, m_location);
-}
+WasmRefTypeCheckValue::~WasmRefTypeCheckValue() = default;
 
-#endif // ENABLE(EXCEPTION_SCOPE_VERIFICATION)
-    
-} // namespace JSC
+} // namespace JSC::B3
+
+#endif // ENABLE(B3_JIT)

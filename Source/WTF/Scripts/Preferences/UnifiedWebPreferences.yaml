@@ -278,20 +278,17 @@ AllowMultiElementImplicitSubmission:
 
 AllowMultipleCommitLayerTreePending:
   type: bool
-  status: internal
+  status: testable
   category: dom
   humanReadableName: "Allow requesting CommitLayerTree before the previous has completed"
   humanReadableDescription: "Allow requesting CommitLayerTree before the previous has completed"
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": false
-      default: true
+      default: false
     WebKit:
-      "PLATFORM(IOS_FAMILY)": false
-      default: true
+      default: false
     WebCore:
-      "PLATFORM(IOS_FAMILY)": false
-      default: true
+      default: false
 
 AllowPrivacySensitiveOperationsInNonPersistentDataStores:
   type: bool
@@ -3654,21 +3651,6 @@ ImageAnalysisDuringFindInPageEnabled:
       default: false
     WebCore:
       default: false
-
-ImageAnimationControlEnabled:
-  type: bool
-  status: stable
-  category: animation
-  humanReadableName: "Image Animation Control"
-  humanReadableDescription: "Enable controls for image animations"
-  condition: ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 ImageCaptureEnabled:
   type: bool

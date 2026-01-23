@@ -269,6 +269,15 @@ void DDMeshImpl::play(bool play)
     wgpuDDMeshPlay(m_backing.get(), play);
 }
 
+void DDMeshImpl::setEnvironmentMap(const WebCore::DDModel::DDImageAsset& imageAsset)
+{
+#if ENABLE(GPU_PROCESS_MODEL)
+    wgpuDDMeshSetEnvironmentMap(m_backing.get(), convert(imageAsset));
+#else
+    UNUSED_PARAM(imageAsset);
+#endif
+}
+
 #if PLATFORM(COCOA)
 Vector<MachSendRight> DDMeshImpl::ioSurfaceHandles()
 {
@@ -285,7 +294,7 @@ namespace WebCore::WebGPU {
 static Vector<UniqueRef<WebCore::IOSurface>> createIOSurfaces(unsigned width, unsigned height)
 {
     const auto colorFormat = IOSurface::Format::BGRA;
-    const auto colorSpace = DestinationColorSpace::SRGB();
+    const auto colorSpace = DestinationColorSpace::LinearDisplayP3();
 
     Vector<UniqueRef<WebCore::IOSurface>> ioSurfaces;
 

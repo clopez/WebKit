@@ -2628,7 +2628,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
     flunkOnFailure = False
     haltOnFailure = False
     EMBEDDED_CHECKS = ['ios', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
-    MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'api-mac-debug', 'mac-wk1', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc', 'jsc-arm64']
+    MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'api-mac-debug', 'mac-wk1', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc', 'jsc-debug-arm64']
     LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'wpe-cairo-libwebrtc', 'wpe-wk2', 'api-wpe']
     WINDOWS_CHECKS = ['win']
     EWS_WEBKIT_FAILED = 0
@@ -5216,18 +5216,15 @@ class AnalyzeLayoutTestsResultsRedTree(AnalyzeLayoutTestsResults):
         self.setProperty('build_summary', message)
         return SUCCESS
 
-    def report_warning(self, message):
-        self.build.results = WARNINGS
-        self.descriptionDone = message
-        self.setProperty('build_summary', message)
-        return WARNINGS
-
     def report_infrastructure_issue_and_maybe_retry_build(self, message):
         retry_count = int(self.getProperty('retry_count', 0))
         if retry_count >= self.MAX_RETRY:
             message += '\nReached the maximum number of retries ({}). Unable to determine if change is bad or there is a pre-existent infrastructure issue.'.format(self.MAX_RETRY)
             self.send_email_for_infrastructure_issue(message)
-            return self.report_warning(message)
+            self.build.results = FAILURE
+            self.descriptionDone = message
+            self.setProperty('build_summary', message)
+            return FAILURE
         message += "\nRetrying build [retry count is {} of {}]".format(retry_count, self.MAX_RETRY)
         self.setProperty('retry_count', retry_count + 1)
         self.send_email_for_infrastructure_issue(message)
