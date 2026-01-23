@@ -128,15 +128,10 @@ namespace WebCore {
 class DestinationColorSpace;
 class IntPoint;
 struct DataDetectorElementInfo;
-<<<<<<< HEAD
-=======
-struct DigitalCredentialsResponseData;
->>>>>>> 26d2be1265e5 (chore(webkit): bootstrap build #2250)
 struct ExceptionData;
 struct ShareDataWithParsedURL;
 struct TextAnimationData;
 struct TextRecognitionResult;
-struct TextAnimationData;
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
