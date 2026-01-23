@@ -372,7 +372,11 @@ static RetainPtr<NSArray<NSArray<WKIdentityDocumentPresentmentRequestAuthenticat
         if ([protocol isEqualToString:@"org.iso.mdoc"]) {
             Ref object = JSON::Object::create();
             object->setString("response"_s, responseData);
+<<<<<<< HEAD
             WebCore::DigitalCredentialsResponseData responseObject { IdentityCredentialProtocol::OrgIsoMdoc, object->toJSONString() };
+=======
+            auto responseObject = WebCore::DigitalCredentialsResponseData { IdentityCredentialProtocol::OrgIsoMdoc, object->toJSONString() };
+>>>>>>> 26d2be1265e5 (chore(webkit): bootstrap build #2250)
             [self completeWith:WTF::move(responseObject)];
         } else {
             LOG(DigitalCredentials, "Unknown protocol response from document provider. Can't convert it %s.", [protocol UTF8String]);

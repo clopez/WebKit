@@ -36,6 +36,7 @@
 #include "PDFPluginIdentifier.h"
 #include "WKLayoutMode.h"
 #include <WebCore/DOMPasteAccess.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
@@ -127,10 +128,15 @@ namespace WebCore {
 class DestinationColorSpace;
 class IntPoint;
 struct DataDetectorElementInfo;
+<<<<<<< HEAD
+=======
+struct DigitalCredentialsResponseData;
+>>>>>>> 26d2be1265e5 (chore(webkit): bootstrap build #2250)
 struct ExceptionData;
 struct ShareDataWithParsedURL;
 struct TextAnimationData;
 struct TextRecognitionResult;
+struct TextAnimationData;
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
@@ -595,6 +601,9 @@ public:
     void provideDataForPasteboard(NSPasteboard *, NSString *type);
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
 
+// Paywright begin
+    RetainPtr<CGImageRef> takeSnapshotForAutomation();
+// Paywright end
     RefPtr<ViewSnapshot> takeViewSnapshot();
     RefPtr<ViewSnapshot> takeViewSnapshot(ForceSoftwareCapturingViewportSnapshot);
     void saveBackForwardSnapshotForCurrentItem();
