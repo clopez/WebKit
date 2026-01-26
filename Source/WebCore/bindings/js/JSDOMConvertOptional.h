@@ -31,29 +31,6 @@
 
 namespace WebCore {
 
-<<<<<<< HEAD
-=======
-namespace Detail {
-
-template<typename IDL>
-struct OptionalConversionType;
-
-template<typename IDL>
-struct OptionalConversionType {
-    using Type = typename IDLOptional<IDL>::ConversionResultType;
-    static constexpr Type nullValue() { return IDL::nullValue(); }
-};
-
-template<>
-struct OptionalConversionType<IDLObject> {
-    // FIXME: Switch all nullable IDLObjects to using std::optional<JSC::Strong<JSC::JSObject>> and remove this.
-    using Type = std::optional<JSC::Strong<JSC::JSObject>>;
-    static Type nullValue() { return std::nullopt; }
-};
-
-}
-
->>>>>>> e22b1eca4ed5 (chore(webkit): bootstrap build #2251)
 // `IDLOptional` is just like `IDLNullable`, but used in places that where the type is implicitly optional,
 // like optional arguments to functions without default values, or non-required members of dictionaries
 // without default values.
