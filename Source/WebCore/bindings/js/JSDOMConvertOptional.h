@@ -45,7 +45,7 @@ template<>
 struct OptionalConversionType<IDLObject> {
     // FIXME: Switch all nullable IDLObjects to using std::optional<JSC::Strong<JSC::JSObject>> and remove this.
     using Type = std::optional<JSC::Strong<JSC::JSObject>>;
-    static constexpr Type nullValue() { return std::nullopt; }
+    static Type nullValue() { return std::nullopt; }
 };
 
 }
