@@ -1615,11 +1615,7 @@ void WebPageProxy::didAttachToRunningProcess()
 
 #if ENABLE(FULLSCREEN_API)
     ASSERT(!m_fullScreenManager);
-<<<<<<< HEAD
-    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, protect(pageClient())->checkedFullScreenManagerProxyClient().get());
-=======
-    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_fullScreenManagerClientOverride ? *m_fullScreenManagerClientOverride : protectedPageClient()->checkedFullScreenManagerProxyClient().get());
->>>>>>> e22b1eca4ed5 (chore(webkit): bootstrap build #2251)
+    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_fullScreenManagerClientOverride ? *m_fullScreenManagerClientOverride : protect(pageClient())->checkedFullScreenManagerProxyClient().get());
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     ASSERT(!m_playbackSessionManager);
@@ -1787,12 +1783,8 @@ void WebPageProxy::initializeWebPage(const Site& site, WebCore::SandboxFlags eff
     m_mainFrame = WebFrameProxy::create(*this, browsingContextGroup->ensureProcessForSite(effectiveSite, site, process, preferences), generateFrameIdentifier(), effectiveSandboxFlags, effectiveReferrerPolicy, ScrollbarMode::Auto, WebFrameProxy::protectedWebFrame(m_openerFrameIdentifier).get(), IsMainFrame::Yes);
     if (preferences->siteIsolationEnabled())
         browsingContextGroup->addPage(*this);
-<<<<<<< HEAD
     process->send(Messages::WebProcess::CreateWebPage(m_webPageID, creationParameters(process, *protect(drawingArea()), m_mainFrame->frameID(), std::nullopt)), 0);
-=======
-    process->send(Messages::WebProcess::CreateWebPage(m_webPageID, creationParameters(process, *protectedDrawingArea(), m_mainFrame->frameID(), std::nullopt)), 0);
     m_inspectorController->didInitializeWebPage();
->>>>>>> e22b1eca4ed5 (chore(webkit): bootstrap build #2251)
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
     internals().frameLoadStateObserver = WebPageProxyFrameLoadStateObserver::create();
@@ -10698,9 +10690,6 @@ void WebPageProxy::requestDOMPasteAccess(IPC::Connection& connection, DOMPasteAc
         }
     }
 
-<<<<<<< HEAD
-    protect(pageClient())->requestDOMPasteAccess(pasteAccessCategory, requiresInteraction, elementRect, originIdentifier, WTF::move(completionHandler));
-=======
     if (isControlledByAutomation()) {
         DOMPasteAccessResponse response = DOMPasteAccessResponse::DeniedForGesture;
         if (permissionForAutomation(originIdentifier, "clipboard-read"_s).value_or(false)) {
@@ -10712,8 +10701,7 @@ void WebPageProxy::requestDOMPasteAccess(IPC::Connection& connection, DOMPasteAc
         return;
     }
 
-    protectedPageClient()->requestDOMPasteAccess(pasteAccessCategory, requiresInteraction, elementRect, originIdentifier, WTF::move(completionHandler));
->>>>>>> e22b1eca4ed5 (chore(webkit): bootstrap build #2251)
+    protect(pageClient())->requestDOMPasteAccess(pasteAccessCategory, requiresInteraction, elementRect, originIdentifier, WTF::move(completionHandler));
 }
 
 // BackForwardList

@@ -1071,11 +1071,7 @@ public:
     void restoreSelectionInFocusedEditableElement();
 
     PageClient* pageClient() const;
-<<<<<<< HEAD
-=======
-    RefPtr<PageClient> protectedPageClient() const;
     bool hasPageClient() const { return !!m_pageClient; }
->>>>>>> e22b1eca4ed5 (chore(webkit): bootstrap build #2251)
 
     void setViewNeedsDisplay(const WebCore::Region&);
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated);
