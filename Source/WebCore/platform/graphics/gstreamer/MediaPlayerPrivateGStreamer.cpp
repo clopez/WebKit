@@ -89,6 +89,7 @@
 #include <gst/video/gstvideometa.h>
 #include <limits>
 #include <wtf/FileSystem.h>
+#include <wtf/glib/WTFGType.h>
 #include <wtf/MathExtras.h>
 #include <wtf/MediaTime.h>
 #include <wtf/NeverDestroyed.h>
@@ -3594,6 +3595,8 @@ void MediaPlayerPrivateGStreamer::configureVideoDecoder(GstElement* decoder)
         m_videoDecoderPlatform = GstVideoDecoderPlatform::ImxVPU;
     else if (startsWith(name.span(), "omx"_s))
         m_videoDecoderPlatform = GstVideoDecoderPlatform::OpenMAX;
+    else if (startsWith(name.span(), "c2vdec"_s))
+        m_videoDecoderPlatform = GstVideoDecoderPlatform::Qualcomm;
     else if (gstElementMatchesFactoryAndHasProperty(decoder, "avdec*"_s, "max-threads"_s)) {
         // Set the decoder maximum number of threads to a low, fixed value, not depending on the
         // platform. This also helps with processing metrics gathering. When using the default value
@@ -3762,7 +3765,11 @@ void MediaPlayerPrivateGStreamer::pushTextureToCompositor(bool isDuplicateSample
     if (!m_videoInfo)
         m_videoInfo = VideoFrameGStreamer::infoFromCaps(GRefPtr(gst_sample_get_caps(m_sample.get())));
 
-    m_contentsBufferProxy->setDisplayBuffer(CoordinatedPlatformLayerBufferVideo::create(m_sample.get(), &m_videoInfo->info, m_videoInfo->dmaBufFormat, m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_textureMapperFlags));
+    VideoFrameGStreamer::CreateOptions options;
+    options.info = m_videoInfo;
+    auto frame = VideoFrameGStreamer::createWrappedSample(m_sample, options);
+
+    m_contentsBufferProxy->setDisplayBuffer(CoordinatedPlatformLayerBufferVideo::create(WTF::move(frame), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_textureMapperFlags));
 }
 #endif // USE(COORDINATED_GRAPHICS)
 

@@ -494,10 +494,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/identity/CredentialRequestCoordinatorClient.h
     Modules/identity/DigitalCredential.h
     Modules/identity/DigitalCredentialGetRequest.h
+    Modules/identity/DigitalCredentialPresentationProtocol.h
     Modules/identity/DigitalCredentialRequestOptions.h
     Modules/identity/DigitalCredentialsRequestData.h
     Modules/identity/DigitalCredentialsResponseData.h
-    Modules/identity/IdentityCredentialProtocol.h
 
     Modules/identity/dummy/DummyCredentialRequestCoordinatorClient.h
 
@@ -1347,6 +1347,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DeviceOrientationData.h
     dom/DeviceOrientationOrMotionPermissionState.h
     dom/Document.h
+    dom/DocumentSecurityPolicy.h
     dom/DocumentClasses.h
     dom/DocumentEnums.h
     dom/DocumentEventLoop.h
@@ -2298,6 +2299,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/Decimal.h
     platform/DeferrableTask.h
     platform/DragData.h
+    platform/DragEventTargetData.h
     platform/DragImage.h
     platform/DragItem.h
     platform/EventTrackingRegions.h
@@ -2727,6 +2729,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformLayerIdentifier.h
     platform/graphics/PlatformMediaResourceLoader.h
     platform/graphics/PlatformPath.h
+    platform/graphics/PlatformPathImpl.h
     platform/graphics/PlatformPlaybackSessionInterface.h
     platform/graphics/PlatformTextTrack.h
     platform/graphics/PlatformTimeRanges.h

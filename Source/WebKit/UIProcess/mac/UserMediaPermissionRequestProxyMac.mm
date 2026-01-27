@@ -51,7 +51,7 @@ void UserMediaPermissionRequestProxyMac::invalidate()
 {
 #if ENABLE(MEDIA_STREAM)
     if (m_hasPendingGetDisplayMediaPrompt) {
-        if (RefPtr page = protectedManager()->page())
+        if (RefPtr page = protect(manager())->page())
             DisplayCaptureSessionManager::singleton().cancelGetDisplayMediaPrompt(*page);
         m_hasPendingGetDisplayMediaPrompt = false;
     }
@@ -65,7 +65,7 @@ void UserMediaPermissionRequestProxyMac::promptForGetDisplayMedia(UserMediaDispl
     if (!manager())
         return;
 
-    RefPtr page = protectedManager()->page();
+    RefPtr page = protect(manager())->page();
     if (!page)
         return;
 
@@ -95,7 +95,7 @@ bool UserMediaPermissionRequestProxyMac::canRequestDisplayCapturePermission()
     if (!manager)
         return false;
     RefPtr page = manager->page();
-    if (!page || (!overridePreference && page->protectedPreferences()->requireUAGetDisplayMediaPrompt()))
+    if (!page || (!overridePreference && protect(page->preferences())->requireUAGetDisplayMediaPrompt()))
         return false;
 
     return DisplayCaptureSessionManager::singleton().canRequestDisplayCapturePermission();

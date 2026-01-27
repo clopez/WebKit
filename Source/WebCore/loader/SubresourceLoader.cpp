@@ -122,7 +122,6 @@ SubresourceLoader::SubresourceLoader(LocalFrame& frame, CachedResource& resource
 #if ENABLE(CONTENT_EXTENSIONS)
     m_resourceType = ContentExtensions::toResourceType(resource.type(), resource.resourceRequest().requester(), frame.isMainFrame());
 #endif
-    m_canCrossOriginRequestsAskUserForCredentials = resource.type() == CachedResource::Type::MainResource;
 
     m_site = CachedResourceLoader::computeFetchMetadataSite(resource.resourceRequest(), resource.type(), options.mode, frame, frame.isMainFrame() && m_documentLoader && m_documentLoader->isRequestFromClientOrUserInput());
     ASSERT(!resource.resourceRequest().hasHTTPHeaderField(HTTPHeaderName::SecFetchSite) || resource.resourceRequest().httpHeaderField(HTTPHeaderName::SecFetchSite) == convertEnumerationToString(m_site));
@@ -298,7 +297,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
         Ref cachedResourceLoader = documentLoader->cachedResourceLoader();
         m_site = CachedResourceLoader::computeFetchMetadataSiteAfterRedirection(newRequest, m_resource->type(), options().mode, originalOrigin.get(), m_site, frame && frame->isMainFrame() && documentLoader->isRequestFromClientOrUserInput());
 
-        if (!cachedResourceLoader->updateRequestAfterRedirection(resource->type(), newRequest, options(), m_site, originalRequest().url())) {
+        if (!cachedResourceLoader->updateRequestAfterRedirection(resource->type(), newRequest, options(), m_site, originalRequest().url(), redirectResponse.url())) {
             SUBRESOURCELOADER_RELEASE_LOG(SUBRESOURCELOADER_WILLSENDREQUESTINTERNAL_RESOURCE_LOAD_CANCELLED_CANNOT_REQUEST_AFTER_REDIRECTION);
             cancel(ResourceError { String(), 0, request().url(), "Redirect was not allowed"_s, ResourceError::Type::AccessControl });
             return completionHandler(WTF::move(newRequest));

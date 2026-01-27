@@ -660,8 +660,9 @@ void WebLocalFrameLoaderClient::dispatchDidCommitLoad(std::optional<HasInsecureC
 
     frame->commitProvisionalFrame();
 
+    RefPtr<Frame> coreLocalFrame = m_localFrame.ptr();
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), frame->info(), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), certificateInfo, usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), m_localFrame->document()->isPluginDocument(), *hasInsecureContent, documentLoader->mouseEventPolicy(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), frame->info(), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), certificateInfo, usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), m_localFrame->document()->isPluginDocument(), *hasInsecureContent, documentLoader->mouseEventPolicy(), *coreLocalFrame->frameDocumentSecurityPolicy(),  UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
     webPage->didCommitLoad(m_frame.ptr());
 }
 
@@ -1480,9 +1481,14 @@ void WebLocalFrameLoaderClient::prepareForDataSourceReplacement()
     notImplemented();
 }
 
+Ref<DocumentLoader> WebLocalFrameLoaderClient::createDocumentLoader(ResourceRequest&& request, SubstituteData&& substituteData, ResourceRequest&& originalRequest)
+{
+    return m_frame->protectedPage()->createDocumentLoader(protectedLocalFrame(), WTF::move(request), WTF::move(substituteData), WTF::move(originalRequest));
+}
+
 Ref<DocumentLoader> WebLocalFrameLoaderClient::createDocumentLoader(ResourceRequest&& request, SubstituteData&& substituteData)
 {
-    return m_frame->protectedPage()->createDocumentLoader(protectedLocalFrame(), WTF::move(request), WTF::move(substituteData));
+    return createDocumentLoader(WTF::move(request), WTF::move(substituteData), { });
 }
 
 void WebLocalFrameLoaderClient::updateCachedDocumentLoader(WebCore::DocumentLoader& loader)

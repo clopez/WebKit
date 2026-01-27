@@ -210,9 +210,6 @@ bool HTMLSelectElement::valueMissing() const
 bool HTMLSelectElement::usesMenuList() const
 {
 #if !PLATFORM(IOS_FAMILY)
-    if (RenderTheme::singleton().delegatesMenuListRendering())
-        return true;
-
     return !m_multiple && m_size <= 1;
 #else
     return !m_multiple;
@@ -379,12 +376,12 @@ bool HTMLSelectElement::childShouldCreateRenderer(const Node& child) const
 
 Ref<HTMLCollection> HTMLSelectElement::selectedOptions()
 {
-    return ensureRareData().ensureNodeLists().addCachedCollection<GenericCachedHTMLCollection<CollectionTypeTraits<CollectionType::SelectedOptions>::traversalType>>(*this, CollectionType::SelectedOptions);
+    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLSelectedOptionsCollection>(*this);
 }
 
 Ref<HTMLOptionsCollection> HTMLSelectElement::options()
 {
-    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLOptionsCollection>(*this, CollectionType::SelectOptions);
+    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLOptionsCollection>(*this);
 }
 
 void HTMLSelectElement::updateListItemSelectedStates(AllowStyleInvalidation allowStyleInvalidation)

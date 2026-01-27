@@ -105,12 +105,12 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 
 - (WKFrameInfo *)sourceFrame
 {
-    return wrapper(Ref { *_navigationAction }->sourceFrame());
+    return wrapper(protect(*_navigationAction)->sourceFrame());
 }
 
 - (WKFrameInfo *)targetFrame
 {
-    return wrapper(_navigationAction->protectedTargetFrame().get());
+    return wrapper(protect(_navigationAction->targetFrame()).get());
 }
 
 - (WKNavigationType)navigationType
@@ -181,7 +181,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 
 - (NSURL *)_originalURL
 {
-    return Ref { *_navigationAction }->originalURL().createNSURL().autorelease();
+    return protect(*_navigationAction)->originalURL().createNSURL().autorelease();
 }
 
 - (BOOL)_isUserInitiated
@@ -216,7 +216,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 
 - (_WKUserInitiatedAction *)_userInitiatedAction
 {
-    return wrapper(_navigationAction->protectedUserInitiatedAction().get());
+    return wrapper(protect(_navigationAction->userInitiatedAction()).get());
 }
 
 - (BOOL)isContentRuleListRedirect
@@ -236,7 +236,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
 
 - (WKNavigation *)_mainFrameNavigation
 {
-    return wrapper(_navigationAction->protectedMainFrameNavigation().get());
+    return wrapper(protect(_navigationAction->mainFrameNavigation()).get());
 }
 
 
@@ -254,7 +254,7 @@ static WKSyntheticClickType toWKSyntheticClickType(WebKit::WebMouseEventSyntheti
     RefPtr page = sourceFrame->page();
     if (!page)
         return;
-    page->protectedWebsiteDataStore()->storePrivateClickMeasurement(*privateClickMeasurement);
+    protect(page->websiteDataStore())->storePrivateClickMeasurement(*privateClickMeasurement);
 }
 
 - (_WKHitTestResult *)_hitTestResult

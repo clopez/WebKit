@@ -372,12 +372,12 @@ enum AV1ConfigurationRange {
 ] dictionary WebDriverCookieData {
     DOMString name;
     DOMString value;
-    DOMString path;
+    DOMString path = "/";
     DOMString domain;
-    boolean secure;
-    boolean httpOnly;
-    double? expiry;
-    DOMString sameSite;
+    boolean secure = false;
+    boolean httpOnly = false;
+    double expiry;
+    DOMString sameSite = "none";
 };
 
 [
@@ -823,7 +823,9 @@ enum ContentsFormat {
     unsigned long long layerIDForElement(Element element);
     unsigned long long horizontalScrollbarLayerID(optional Node? node = null);
     unsigned long long verticalScrollbarLayerID(optional Node? node = null);
-    
+    DOMRect horizontalScrollbarFrameRect(optional Node? node = null);
+    DOMRect verticalScrollbarFrameRect(optional Node? node = null);
+
     ScrollingNodeID scrollingNodeIDForNode(optional Node? node = null);
 
     // Flags for platformLayerTreeAsText.
@@ -979,6 +981,8 @@ enum ContentsFormat {
     undefined startTrackingRenderingUpdates();
     unsigned long renderingUpdateCount();
 
+    double? timeToNextRenderingUpdate();
+
     attribute CompositingPolicy? compositingPolicyOverride;
 
     undefined updateLayoutAndStyleForAllFrames();
@@ -1052,6 +1056,7 @@ enum ContentsFormat {
     [Conditional=VIDEO] DOMString captionsStyleSheetOverride();
     [Conditional=VIDEO] undefined setCaptionsStyleSheetOverride(DOMString override);
     [Conditional=VIDEO] undefined setPrimaryAudioTrackLanguageOverride(DOMString language);
+    [Conditional=VIDEO] undefined setPreferredAudioCharacteristicsForTesting(sequence<DOMString> characteristics);
     [Conditional=VIDEO] undefined setCaptionDisplayMode(DOMString mode);
     [Conditional=VIDEO] readonly attribute DOMString captionDisplayMode;
     [Conditional=VIDEO] TextTrackCueGeneric? createGenericCue(double startTime, double endTime, DOMString text);

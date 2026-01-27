@@ -63,6 +63,9 @@ imported/w3c/web-platform-tests/pointerevents [ Pass ]
 
 imported/w3c/web-platform-tests/speech-api [ Pass ]
 
+# Uses caLayerTreeAsText
+compositing/background-color/background-color-clamping.html [ Pass ]
+
 media/media-webm-av1.html [ Skip ]
 media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
@@ -2526,3 +2529,5 @@ fast/images/page-wide-animation-toggle.html [ Pass Timeout ]
 fast/images/individual-animation-toggle.html [ Pass Timeout ]
 
 webkit.org/b/304523 inspector/unit-tests/iterableweakset.html [ Pass Failure ]
+
+webkit.org/b/306301 [ x86_64 ] http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy.html [ Failure ]

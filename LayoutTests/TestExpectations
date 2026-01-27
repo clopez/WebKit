@@ -79,6 +79,7 @@ fast/events/mac [ Skip ]
 fast/events/watchos [ Skip ]
 fast/events/pointer/ios [ Skip ]
 fast/events/touch/ios [ Skip ]
+http/tests/fast/events/touch/ios [ Skip ]
 fast/history/ios [ Skip ]
 fast/scrolling/gtk [ Skip ]
 fast/scrolling/ios [ Skip ]
@@ -291,6 +292,9 @@ http/tests/app-privacy-report/ [ Skip ]
 
 # Only partial support on Cocoa platforms.
 imported/w3c/web-platform-tests/speech-api/ [ Skip ]
+
+# Requires caLayerTreeAsText
+compositing/background-color/background-color-clamping.html [ Skip ]
 
 # Support for COEP violation reporting is missing.
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/reporting/access-reporting/
@@ -6774,7 +6778,6 @@ webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/table-as-item
 webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/table-as-item-cell-percentage-004.html [ ImageOnlyFailure ]
 webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/table-intrinsic-size-003.html [ ImageOnlyFailure ]
 webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/table-intrinsic-size-004.html [ ImageOnlyFailure ]
-webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/tentative/padding-percentage.html [ ImageOnlyFailure ]
 webkit.org/b/285971 imported/w3c/web-platform-tests/css/css-tables/visibility-collapse-border-spacing-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-tables/html5-table-formatting-3.html [ Pass Failure ]
 

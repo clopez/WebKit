@@ -45,6 +45,7 @@
 #include "WebPopupMenuProxy.h"
 #include "WebURLSchemeHandlerIdentifier.h"
 #include "WindowKind.h"
+#include <WebCore/CornerRadii.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/RegistrableDomain.h>
@@ -174,7 +175,6 @@ struct SpeechSynthesisData {
     CompletionHandler<void()> speakingPausedCompletionHandler;
     CompletionHandler<void()> speakingResumedCompletionHandler;
 
-    Ref<WebCore::PlatformSpeechSynthesizer> protectedSynthesizer() { return synthesizer; }
 };
 #endif
 
@@ -445,9 +445,11 @@ public:
 
     EnhancedSecurityTracking enhancedSecurityTracker;
 
-    explicit Internals(WebPageProxy&, std::optional<WebCore::SecurityOriginData>);
+#if HAVE(NSVIEW_CORNER_CONFIGURATION)
+    WebCore::CornerRadii scrollbarAvoidanceCornerRadii;
+#endif
 
-    Ref<WebPageProxy> protectedPage() const;
+    explicit Internals(WebPageProxy&, std::optional<WebCore::SecurityOriginData>);
 
 #if ENABLE(SPEECH_SYNTHESIS)
     SpeechSynthesisData& speechSynthesisData();
@@ -513,16 +515,12 @@ public:
     void externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void setShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier) final;
-    bool alwaysOnLoggingAllowed() const final { return protectedPage()->isAlwaysOnLoggingAllowed(); }
+    bool alwaysOnLoggingAllowed() const final { return protect(page)->isAlwaysOnLoggingAllowed(); }
     RetainPtr<CocoaView> platformView() const final;
 #endif
 
-    Ref<PageLoadState> protectedPageLoadState() { return pageLoadState; }
-    Ref<WebNotificationManagerMessageHandler> protectedNotificationManagerMessageHandler() { return notificationManagerMessageHandler; }
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    RefPtr<WebPageProxyFrameLoadStateObserver> protectedFrameLoadStateObserver() { return frameLoadStateObserver; }
 #endif
-    Ref<GeolocationPermissionRequestManagerProxy> protectedGeolocationPermissionRequestManager() { return geolocationPermissionRequestManager; }
 
     std::optional<WebCore::SecurityOriginData> openerOrigin;
 };

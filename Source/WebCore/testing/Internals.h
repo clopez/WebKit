@@ -206,6 +206,8 @@ class Internals final
     , public RealtimeMediaSourceObserver
     , private RealtimeMediaSource::AudioSampleObserver
     , private RealtimeMediaSource::VideoFrameObserver
+#else
+    , public CanMakeWeakPtr<Internals>
 #endif
     {
     WTF_MAKE_TZONE_ALLOCATED(Internals);
@@ -571,6 +573,8 @@ public:
 
     ExceptionOr<uint64_t> horizontalScrollbarLayerID(Node*) const;
     ExceptionOr<uint64_t> verticalScrollbarLayerID(Node*) const;
+    ExceptionOr<Ref<DOMRect>> horizontalScrollbarFrameRect(Node*) const;
+    ExceptionOr<Ref<DOMRect>> verticalScrollbarFrameRect(Node*) const;
 
     ExceptionOr<String> scrollbarsControllerTypeForNode(Node*) const;
 
@@ -734,6 +738,8 @@ public:
     ExceptionOr<void> startTrackingRenderingUpdates();
     ExceptionOr<unsigned> renderingUpdateCount();
 
+    ExceptionOr<std::optional<double>> timeToNextRenderingUpdate();
+
     enum CompositingPolicy { Normal, Conservative };
     ExceptionOr<void> setCompositingPolicyOverride(std::optional<CompositingPolicy>);
     ExceptionOr<std::optional<CompositingPolicy>> compositingPolicyOverride() const;
@@ -851,6 +857,7 @@ public:
     ExceptionOr<String> captionsStyleSheetOverride();
     ExceptionOr<void> setCaptionsStyleSheetOverride(const String&);
     ExceptionOr<void> setPrimaryAudioTrackLanguageOverride(const String&);
+    ExceptionOr<void> setPreferredAudioCharacteristicsForTesting(const Vector<String>&);
     ExceptionOr<void> setCaptionDisplayMode(const String&);
     String captionDisplayMode() const;
 #if ENABLE(VIDEO)

@@ -395,7 +395,6 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include "MediaSessionHelperIOS.h"
-#include "RenderThemeIOS.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -749,9 +748,7 @@ void Internals::resetToConsistentState(Page& page)
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
-#if HAVE(AVROUTING_FRAMEWORK)
     MediaDeviceRouteController::singleton().setClient(nullptr);
-#endif
     setMockMediaDeviceRouteControllerEnabled(false);
 #endif
 }
@@ -3516,6 +3513,30 @@ ExceptionOr<uint64_t> Internals::verticalScrollbarLayerID(Node* node) const
     return getLayerID(areaOrException.returnValue()->layerForVerticalScrollbar());
 }
 
+ExceptionOr<Ref<DOMRect>> Internals::horizontalScrollbarFrameRect(Node* node) const
+{
+    auto areaOrException = scrollableAreaForNode(node);
+    if (areaOrException.hasException())
+        return areaOrException.releaseException();
+
+    if (auto* scrollbar = areaOrException.returnValue()->horizontalScrollbar())
+        return DOMRect::create(scrollbar->frameRect());
+
+    return DOMRect::create();
+}
+
+ExceptionOr<Ref<DOMRect>> Internals::verticalScrollbarFrameRect(Node* node) const
+{
+    auto areaOrException = scrollableAreaForNode(node);
+    if (areaOrException.hasException())
+        return areaOrException.releaseException();
+
+    if (auto* scrollbar = areaOrException.returnValue()->verticalScrollbar())
+        return DOMRect::create(scrollbar->frameRect());
+
+    return DOMRect::create();
+}
+
 ExceptionOr<Internals::ScrollingNodeID> Internals::scrollingNodeIDForNode(Node* node)
 {
     auto areaOrException = scrollableAreaForNode(node);
@@ -4348,6 +4369,18 @@ ExceptionOr<unsigned> Internals::renderingUpdateCount()
     return document->page()->renderingUpdateCount();
 }
 
+ExceptionOr<std::optional<double>> Internals::timeToNextRenderingUpdate()
+{
+    Document* document = contextDocument();
+    if (!document || !document->page())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    if (auto timeToNextUpdate = document->page()->timeToNextRenderingUpdateForTesting())
+        return timeToNextUpdate->milliseconds();
+
+    return { std::nullopt };
+}
+
 ExceptionOr<void> Internals::setCompositingPolicyOverride(std::optional<CompositingPolicy> policyOverride)
 {
     Document* document = contextDocument();
@@ -4828,6 +4861,20 @@ ExceptionOr<void> Internals::setPrimaryAudioTrackLanguageOverride(const String& 
     document->page()->group().ensureCaptionPreferences().setPrimaryAudioTrackLanguageOverride(language);
 #else
     UNUSED_PARAM(language);
+#endif
+    return { };
+}
+
+ExceptionOr<void> Internals::setPreferredAudioCharacteristicsForTesting(const Vector<String>& characteristics)
+{
+    Document* document = contextDocument();
+    if (!document || !document->page())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+#if ENABLE(VIDEO)
+    document->page()->group().ensureCaptionPreferences().setPreferredAudioCharacteristicsForTesting(characteristics);
+#else
+    UNUSED_PARAM(characteristics);
 #endif
     return { };
 }

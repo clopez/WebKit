@@ -619,10 +619,6 @@ public:
     // Requests clients to announce to the user the given message in the way they deem appropriate.
     WEBCORE_EXPORT void announce(const String&);
 
-#ifndef NDEBUG
-    void showIntent(const AXTextStateChangeIntent&);
-#endif
-
     void setTextSelectionIntent(const AXTextStateChangeIntent&);
     void setIsSynchronizingSelection(bool);
 
@@ -649,10 +645,8 @@ public:
     RefPtr<Page> page() const;
     IntPoint mapScreenPointToPagePoint(const IntPoint&) const;
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    inline void objectBecameIgnored(const AccessibilityObject&);
-    inline void objectBecameUnignored(const AccessibilityObject&);
-#endif
+    void objectBecameIgnored(const AccessibilityObject&);
+    void objectBecameUnignored(const AccessibilityObject&);
 
 #if PLATFORM(COCOA)
     static void setShouldRepostNotificationsForTests(bool);

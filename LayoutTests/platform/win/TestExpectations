@@ -1992,6 +1992,9 @@ imported/w3c/web-platform-tests/event-timing/interaction-count-tap.html [ Crash 
 imported/w3c/web-platform-tests/event-timing/interaction-count-click.html [ Skip ]
 imported/w3c/web-platform-tests/event-timing/interaction-count-press-key.html [ Skip ]
 
+# Incorrect whitespace stripping might happen at the network layer?
+imported/w3c/web-platform-tests/x-frame-options/get-decode-split.html [ Skip ]
+
 # Timeout:
 webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/gap-keydown-keyup.html [ Skip ]
 webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/gap-pointerdown-pointerup.html [ Skip ]
@@ -4633,3 +4636,5 @@ http/tests/security/offscreen-canvas-remote-read-remote-image.html [ Skip ]
 imported/w3c/web-platform-tests/largest-contentful-paint/broken-image-icon.html [ Skip ] # Flake
 imported/w3c/web-platform-tests/largest-contentful-paint/transparent-text.html [ Skip ] # Flake or perhaps always fails
 imported/w3c/web-platform-tests/largest-contentful-paint/video-play-after-poster.html [ Failure ] # Harness Error The operation is not supported.
+
+webkit.org/b/306256 editing/selection/modify-up-on-rtl-wrapping-text.html [ Failure ]

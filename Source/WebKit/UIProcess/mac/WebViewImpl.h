@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if !__has_feature(modules) || (defined(WK_SUPPORTS_SWIFT_OBJCXX_INTEROP) && WK_SUPPORTS_SWIFT_OBJCXX_INTEROP)
+
 #include <wtf/Platform.h>
 
 #if PLATFORM(MAC)
@@ -240,12 +242,11 @@ public:
     ~WebViewImpl();
 
     NSWindow *window();
-    RetainPtr<NSWindow> protectedWindow();
+    NSInteger windowNumber();
 
     WebPageProxy& page() { return m_page.get(); }
 
     WKWebView *view() const { return m_view.getAutoreleased(); }
-    RetainPtr<WKWebView> protectedView() const { return m_view.get(); };
 
     void processWillSwap();
     void processDidExit();
@@ -414,7 +415,6 @@ public:
 #if ENABLE(FULLSCREEN_API)
     bool hasFullScreenWindowController() const;
     WKFullScreenWindowController *fullScreenWindowController();
-    RetainPtr<WKFullScreenWindowController> protectedFullScreenWindowController();
     void closeFullScreenWindowController();
 #endif
     NSView *fullScreenPlaceholderView();
@@ -605,8 +605,7 @@ public:
 
     _WKWarningView *warningView() { return m_warningView.get(); }
 
-    ViewGestureController* gestureController() { return m_gestureController.get(); }
-    RefPtr<ViewGestureController> protectedGestureController() const;
+    ViewGestureController* gestureController() const { return m_gestureController.get(); }
     ViewGestureController& ensureGestureController();
     Ref<ViewGestureController> ensureProtectedGestureController();
     void setAllowsBackForwardNavigationGestures(bool);
@@ -672,6 +671,9 @@ public:
     void firstRectForCharacterRange(NSRange, void(^)(NSRect firstRect, NSRange actualRange));
     void characterIndexForPoint(NSPoint, void(^)(NSUInteger));
     void typingAttributesWithCompletionHandler(void(^)(NSDictionary<NSString *, id> *));
+
+    NSRect unionRectInVisibleSelectedRange() const;
+    NSRect documentVisibleRect() const;
 
     bool isContentRichlyEditable() const;
 
@@ -848,6 +850,9 @@ private:
     void fulfillDeferredImageAnalysisOverlayViewHierarchyTask();
 #endif
 
+    bool pageIsScrolledToTop() const { return m_lastPageScrollPosition.y() <= 0; }
+    void pageScrollingHysteresisFired(PAL::HysteresisState);
+
     bool hasContentRelativeChildViews() const;
 
     void suppressContentRelativeChildViews();
@@ -992,6 +997,7 @@ private:
     id m_flagsChangedEventMonitor { nullptr };
 
     const UniqueRef<PAL::HysteresisActivity> m_contentRelativeViewsHysteresis;
+    std::unique_ptr<PAL::HysteresisActivity> m_pageScrollingHysteresis;
 
     RetainPtr<NSColorSpace> m_colorSpace;
 
@@ -1075,7 +1081,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<WKTextAnimationManager> m_textAnimationTypeManager;
 #endif
 
-    bool m_pageIsScrolledToTop { true };
+    WebCore::IntPoint m_lastPageScrollPosition;
     bool m_isRegisteredScrollViewSeparatorTrackingAdapter { false };
     NSRect m_lastScrollViewFrame { NSZeroRect };
 
@@ -1128,3 +1134,5 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 } // namespace WebKit
 
 #endif // PLATFORM(MAC)
+
+#endif // !__has_feature(modules) || (defined(WK_SUPPORTS_SWIFT_OBJCXX_INTEROP) && WK_SUPPORTS_SWIFT_OBJCXX_INTEROP)

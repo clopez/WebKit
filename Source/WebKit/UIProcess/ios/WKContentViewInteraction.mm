@@ -3300,7 +3300,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (![self _hasValidOutstandingPositionInformationRequest:request])
         [self requestAsynchronousPositionInformationUpdate:request];
 
-    bool receivedResponse = process->protectedConnection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->webPageIDInMainFrameProcess(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError;
+    bool receivedResponse = protect(process->connection())->waitForAndDispatchImmediately<Messages::WebPageProxy::DidReceivePositionInformation>(_page->webPageIDInMainFrameProcess(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError;
     _hasValidPositionInformation = receivedResponse && _positionInformation.canBeValid;
     return _hasValidPositionInformation;
 }
@@ -4400,7 +4400,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
         return nil;
     auto& dictationContextsForSelection = _page->editorState().postLayoutData->dictationContextsForSelection;
     return createNSArray(dictationContextsForSelection, [&] (auto& dictationContext) -> NSObject * {
-        RetainPtr alternatives = _page->protectedPageClient()->platformDictationAlternatives(dictationContext);
+        RetainPtr alternatives = protect(_page->pageClient())->platformDictationAlternatives(dictationContext);
 #if USE(BROWSERENGINEKIT)
         if (!self.shouldUseAsyncInteractions)
             return [[alternatives _nsTextAlternative] autorelease];
@@ -5129,7 +5129,7 @@ static UIPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory
     if (auto pasteAccessCategory = std::exchange(_domPasteRequestCategory, std::nullopt)) {
         if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture) {
             if (auto replyID = _page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(*pasteAccessCategory), [] () { }))
-                _page->websiteDataStore().protectedNetworkProcess()->connection().waitForAsyncReplyAndDispatchImmediately<Messages::NetworkProcess::AllowFilesAccessFromWebProcess>(*replyID, 100_ms);
+                protect(_page->websiteDataStore().networkProcess())->connection().waitForAsyncReplyAndDispatchImmediately<Messages::NetworkProcess::AllowFilesAccessFromWebProcess>(*replyID, 100_ms);
         }
     }
 
@@ -7022,7 +7022,7 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
         RefPtr page = strongSelf->_page;
         Vector<WebCore::DictationContext> contextsToRemove;
         for (auto context : contexts) {
-            auto alternatives = page->protectedPageClient()->platformDictationAlternatives(context);
+            auto alternatives = protect(page->pageClient())->platformDictationAlternatives(context);
             if (!alternatives)
                 continue;
 

@@ -35,6 +35,7 @@
 #include "RemoteMediaPlayerProxyConfiguration.h"
 #include "RemoteMediaPlayerState.h"
 #include "RemoteMediaResourceIdentifier.h"
+#include "RemoteMediaResourceLoaderIdentifier.h"
 #include "RemoteVideoFrameProxy.h"
 #include "SandboxExtension.h"
 #include "ScopedRenderingResourcesRequest.h"
@@ -197,6 +198,7 @@ public:
     void setShouldPlayToPlaybackTarget(bool);
     void setWirelessPlaybackTarget(MediaPlaybackTargetContextSerialized&&);
     void mediaPlayerCurrentPlaybackTargetIsWirelessChanged(bool) final;
+    WebCore::MediaPlaybackTargetType playbackTargetType() const final;
 #endif
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
@@ -235,10 +237,6 @@ public:
     void setPreferredDynamicRangeMode(WebCore::DynamicRangeMode);
     void setPlatformDynamicRangeLimit(WebCore::PlatformDynamicRangeLimit);
 
-    RefPtr<WebCore::PlatformMediaResource> requestResource(WebCore::ResourceRequest&&, WebCore::PlatformMediaResourceLoader::LoadOptions);
-    void sendH2Ping(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
-    void removeResource(RemoteMediaResourceIdentifier);
-
     RefPtr<WebCore::MediaPlayer> mediaPlayer() { return m_player; }
 
     void addRemoteAudioTrackProxy(WebCore::AudioTrackPrivate&);
@@ -246,6 +244,8 @@ public:
     void addRemoteTextTrackProxy(WebCore::InbandTextTrackPrivate&);
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+
+    void destroyResourceLoader(RemoteMediaResourceLoaderIdentifier);
 
 private:
     RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy&, WebCore::MediaPlayerIdentifier, WebCore::MediaPlayerClientIdentifier, Ref<IPC::Connection>&&, WebCore::MediaPlayerEnums::MediaEngineIdentifier, RemoteMediaPlayerProxyConfiguration&&, RemoteVideoFrameObjectHeap&, const WebCore::ProcessIdentity&);

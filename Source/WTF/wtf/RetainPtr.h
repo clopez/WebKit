@@ -318,6 +318,30 @@ template<typename T> inline RetainPtr<RetainPtrType<T>> retainPtr(T ptr)
     return ptr;
 }
 
+#if USE(CF)
+template<typename T>
+    requires (std::is_pointer_v<T> && std::is_convertible_v<T, CFTypeRef> && !IsNSType<T>)
+ALWAYS_INLINE CLANG_POINTER_CONVERSION RetainPtr<RetainPtrType<T>> protect(T ptr)
+{
+    return ptr;
+}
+#endif
+
+#ifdef __OBJC__
+template<typename T>
+    requires IsNSType<T>
+ALWAYS_INLINE CLANG_POINTER_CONVERSION RetainPtr<RetainPtrType<T>> protect(T ptr)
+{
+    return ptr;
+}
+#endif
+
+template<typename T>
+ALWAYS_INLINE CLANG_POINTER_CONVERSION RetainPtr<T> protect(const RetainPtr<T>& ptr)
+{
+    return ptr;
+}
+
 template<typename T> struct IsSmartPtr<RetainPtr<T>> {
     static constexpr bool value = true;
     static constexpr bool isNullable = true;
@@ -379,6 +403,7 @@ ALWAYS_INLINE void lazyInitialize(const RetainPtr<T>& ptr, RetainPtr<U>&& obj)
 using WTF::RetainPtr;
 using WTF::adoptCF;
 using WTF::lazyInitialize;
+using WTF::protect;
 using WTF::retainPtr;
 using WTF::safeCFEqual;
 using WTF::safeCFHash;
