@@ -1132,6 +1132,7 @@ private:
 
         case MapHash:
         case MapIterationEntry:
+        case MapOrSetSize:
             setPrediction(SpecInt32Only);
             break;
 
@@ -1184,6 +1185,11 @@ private:
 
         case StringIndexOf: {
             setPrediction(SpecInt32Only);
+            break;
+        }
+
+        case StringStartsWith: {
+            setPrediction(SpecBoolean);
             break;
         }
 

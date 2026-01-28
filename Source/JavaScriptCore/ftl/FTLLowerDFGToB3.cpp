@@ -1364,6 +1364,9 @@ private:
         case StringIndexOf:
             compileStringIndexOf();
             break;
+        case StringStartsWith:
+            compileStringStartsWith();
+            break;
         case GetByOffset:
         case GetGetterSetterByOffset:
             compileGetByOffset();
@@ -1654,6 +1657,9 @@ private:
             break;
         case ExtractValueFromWeakMapGet:
             compileExtractValueFromWeakMapGet();
+            break;
+        case MapOrSetSize:
+            compileMapOrSetSize();
             break;
         case SetAdd:
             compileSetAdd();
@@ -11609,6 +11615,17 @@ IGNORE_CLANG_WARNINGS_END
             setInt32(vmCall(Int32, operationStringIndexOf, weakPointer(globalObject), base, search));
     }
 
+    void compileStringStartsWith()
+    {
+        LValue base = lowString(m_node->child1());
+        LValue search = lowString(m_node->child2());
+        auto* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        if (m_node->child3())
+            setBoolean(vmCall(Int32, operationStringStartsWithWithIndex, weakPointer(globalObject), base, search, lowInt32(m_node->child3())));
+        else
+            setBoolean(vmCall(Int32, operationStringStartsWith, weakPointer(globalObject), base, search));
+    }
+
     void compileGetByOffset()
     {
         StorageAccessData& data = m_node->storageAccessData();
@@ -15780,6 +15797,37 @@ IGNORE_CLANG_WARNINGS_END
         setJSValue(m_out.select(m_out.isZero64(value),
             m_out.constInt64(JSValue::encode(jsUndefined())),
             value));
+    }
+
+    void compileMapOrSetSize()
+    {
+        LValue mapOrSet;
+        if (m_node->child1().useKind() == MapObjectUse)
+            mapOrSet = lowMapObject(m_node->child1());
+        else {
+            ASSERT(m_node->child1().useKind() == SetObjectUse);
+            mapOrSet = lowSetObject(m_node->child1());
+        }
+
+        LValue storage = m_out.loadPtr(mapOrSet,
+            m_node->child1().useKind() == MapObjectUse ? m_heaps.JSMap_storage : m_heaps.JSSet_storage);
+
+        LBasicBlock hasStorage = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        ValueFromBlock noStorageResult = m_out.anchor(m_out.constInt32(0));
+        m_out.branch(m_out.isNull(storage), unsure(continuation), unsure(hasStorage));
+
+        LBasicBlock lastNext = m_out.appendTo(hasStorage, continuation);
+        LValue butterfly = toButterfly(storage);
+        // aliveEntryCountIndex() is the same for both JSSet::Helper and JSMap::Helper.
+        LValue size = m_out.load32(m_out.baseIndex(m_heaps.indexedContiguousProperties, butterfly,
+            m_out.constIntPtr(JSSet::Helper::aliveEntryCountIndex())));
+        ValueFromBlock hasStorageResult = m_out.anchor(size);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setInt32(m_out.phi(Int32, noStorageResult, hasStorageResult));
     }
 
     void compileSetAdd()

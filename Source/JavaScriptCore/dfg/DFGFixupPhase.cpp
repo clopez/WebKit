@@ -1109,6 +1109,14 @@ private:
             break;
         }
 
+        case StringStartsWith: {
+            fixEdge<StringUse>(node->child1());
+            fixEdge<StringUse>(node->child2());
+            if (node->child3())
+                fixEdge<Int32Use>(node->child3());
+            break;
+        }
+
         case StringLocaleCompare: {
             fixEdge<StringUse>(node->child1());
             fixEdge<StringUse>(node->child2());
@@ -3071,6 +3079,16 @@ private:
             else if (node->child2()->shouldSpeculateSymbol())
                 fixEdge<SymbolUse>(node->child2());
             fixEdge<Int32Use>(node->child3());
+            break;
+        }
+
+        case MapOrSetSize: {
+            if (node->child1().useKind() == MapObjectUse)
+                fixEdge<MapObjectUse>(node->child1());
+            else {
+                ASSERT(node->child1().useKind() == SetObjectUse);
+                fixEdge<SetObjectUse>(node->child1());
+            }
             break;
         }
 

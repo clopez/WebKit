@@ -1498,6 +1498,7 @@ public:
     void compileMapIterationEntry(Node*);
     void compileMapIterationEntryKey(Node*);
     void compileMapIterationEntryValue(Node*);
+    void compileMapOrSetSize(Node*);
     void compileSetAdd(Node*);
     void compileMapSet(Node*);
     void compileMapOrSetDelete(Node*);
@@ -1788,6 +1789,7 @@ public:
     void compileStringCodePointAt(Node*);
     void compileStringLocaleCompare(Node*);
     void compileStringIndexOf(Node*);
+    void compileStringStartsWith(Node*);
     void compileDateGet(Node*);
     void compileDateSet(Node*);
     void compileGlobalIsNaN(Node*);

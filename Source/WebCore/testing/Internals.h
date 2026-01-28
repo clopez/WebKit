@@ -1218,6 +1218,7 @@ public:
         bool haveEverRegisteredAsNowPlayingApplication;
     };
     ExceptionOr<NowPlayingState> nowPlayingState() const;
+    ExceptionOr<double> nowPlayingUpdateInterval() const;
     void setNowPlayingUpdateInterval(double);
 
     struct MediaUsageState {
@@ -1682,6 +1683,9 @@ public:
     bool hasMediaSessionManager() const;
 
     size_t fileConnectionHandleCount(const FileSystemHandle&) const;
+
+    using IteratorResultPromise = DOMPromiseDeferred<IDLSequence<IDLAny>>;
+    void testAsyncIterator(JSDOMGlobalObject&, JSC::JSValue, IteratorResultPromise&&);
 
 #if ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
     MockMediaDeviceRouteController& mockMediaDeviceRouteController();

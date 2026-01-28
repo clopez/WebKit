@@ -1414,6 +1414,7 @@
 		4150F9F112B6E0E70008C860 /* SliderThumbElement.h in Headers */ = {isa = PBXBuildFile; fileRef = 4150F9EF12B6E0E70008C860 /* SliderThumbElement.h */; };
 		41514FDB2E92DC40002074EA /* StreamPipeToUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 41E616F92E8427DD00662181 /* StreamPipeToUtilities.cpp */; };
 		41519CB81FD1F02E007F623C /* ServiceWorkerClientQueryOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = 413FC4CD1FD1DD8C00541C4B /* ServiceWorkerClientQueryOptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4151AAE52F22426700E99C91 /* DOMAsyncIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = 4151AAE32F22425B00E99C91 /* DOMAsyncIterator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4151E5BB1FBA4C7A00E47E2D /* SWOriginStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 4151E5B71FBA4C7500E47E2D /* SWOriginStore.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		415747471E3869A400E914D8 /* LibWebRTCMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = 415747431E38699E00E914D8 /* LibWebRTCMacros.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		415747481E3869A700E914D8 /* LibWebRTCProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 415747441E38699E00E914D8 /* LibWebRTCProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -10721,6 +10722,8 @@
 		415080351E3F00AA0051D75D /* LibWebRTCAudioModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LibWebRTCAudioModule.h; path = libwebrtc/LibWebRTCAudioModule.h; sourceTree = "<group>"; };
 		4150F9EF12B6E0E70008C860 /* SliderThumbElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SliderThumbElement.h; sourceTree = "<group>"; };
 		4150F9F012B6E0E70008C860 /* SliderThumbElement.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SliderThumbElement.cpp; sourceTree = "<group>"; };
+		4151AAE32F22425B00E99C91 /* DOMAsyncIterator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DOMAsyncIterator.h; sourceTree = "<group>"; };
+		4151AAE42F22425B00E99C91 /* DOMAsyncIterator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DOMAsyncIterator.cpp; sourceTree = "<group>"; };
 		4151E5B71FBA4C7500E47E2D /* SWOriginStore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SWOriginStore.h; sourceTree = "<group>"; };
 		4151E5B91FBA4C7600E47E2D /* SWOriginStore.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SWOriginStore.cpp; sourceTree = "<group>"; };
 		415747431E38699E00E914D8 /* LibWebRTCMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LibWebRTCMacros.h; path = libwebrtc/LibWebRTCMacros.h; sourceTree = "<group>"; };
@@ -11532,6 +11535,8 @@
 		4650851728E4AA3C00DB9BDF /* RFC7230.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RFC7230.cpp; sourceTree = "<group>"; };
 		4650AD1726FCCA5A0047F7AD /* WorkerThreadMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WorkerThreadMode.h; sourceTree = "<group>"; };
 		465305F72B7EB2BF00BCC812 /* SVGLength.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SVGLength.cpp; sourceTree = "<group>"; };
+		465C37382F2717E90060ED47 /* SVGAnimatedPropertyBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGAnimatedPropertyBase.h; sourceTree = "<group>"; };
+		465C37392F2717E90060ED47 /* SVGAnimatedPropertyBase.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SVGAnimatedPropertyBase.cpp; sourceTree = "<group>"; };
 		465EDD9F222F4EC300B46E16 /* DeviceOrientationOrMotionPermissionState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DeviceOrientationOrMotionPermissionState.h; sourceTree = "<group>"; };
 		465EDDA0222F4EC400B46E16 /* DeviceOrientationOrMotionPermissionState.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = DeviceOrientationOrMotionPermissionState.idl; sourceTree = "<group>"; };
 		4664D1A12964FCD4006FE0C5 /* GamepadHapticActuator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GamepadHapticActuator.h; sourceTree = "<group>"; };
@@ -12800,7 +12805,6 @@
 		55BE025A223B29C20032F08A /* SVGPointerMemberAccessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGPointerMemberAccessor.h; sourceTree = "<group>"; };
 		55BE025B223B29C20032F08A /* SVGAnimationFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGAnimationFunction.h; sourceTree = "<group>"; };
 		55BE025C223B29C30032F08A /* SVGPropertyOwnerRegistry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGPropertyOwnerRegistry.h; sourceTree = "<group>"; };
-		55BE025D223B29C40032F08A /* SVGAnimatedProperty.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SVGAnimatedProperty.cpp; sourceTree = "<group>"; };
 		55BE025E223B29C40032F08A /* SVGAnimatedPropertyPairAccessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGAnimatedPropertyPairAccessor.h; sourceTree = "<group>"; };
 		55BE025F223B29C50032F08A /* SVGAnimationAdditiveFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGAnimationAdditiveFunction.h; sourceTree = "<group>"; };
 		55D408F71A7C631800C78450 /* SVGImageClients.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SVGImageClients.h; sourceTree = "<group>"; };
@@ -23789,12 +23793,13 @@
 			children = (
 				5553592022441A16008F5EC9 /* SVGAnimatedDecoratedProperty.h */,
 				55EE5357223B29F800FBA944 /* SVGAnimatedPrimitiveProperty.h */,
-				55BE025D223B29C40032F08A /* SVGAnimatedProperty.cpp */,
 				55EE5362223B2A2300FBA944 /* SVGAnimatedProperty.h */,
 				55EE5359223B29FA00FBA944 /* SVGAnimatedPropertyAccessor.h */,
 				55EE5358223B29F900FBA944 /* SVGAnimatedPropertyAccessorImpl.h */,
 				55EE535A223B29FB00FBA944 /* SVGAnimatedPropertyAnimator.h */,
 				55EE5356223B29F700FBA944 /* SVGAnimatedPropertyAnimatorImpl.h */,
+				465C37392F2717E90060ED47 /* SVGAnimatedPropertyBase.cpp */,
+				465C37382F2717E90060ED47 /* SVGAnimatedPropertyBase.h */,
 				55EE535C223B2A0D00FBA944 /* SVGAnimatedPropertyImpl.h */,
 				7266F02A2243149B00833975 /* SVGAnimatedPropertyList.h */,
 				55BE025E223B29C40032F08A /* SVGAnimatedPropertyPairAccessor.h */,
@@ -36337,6 +36342,8 @@
 				BCD533630ED6848900887468 /* CachedScriptSourceProvider.h */,
 				0F60F3291DFBB10400416D6C /* CommonVM.cpp */,
 				0F60F32A1DFBB10400416D6C /* CommonVM.h */,
+				4151AAE42F22425B00E99C91 /* DOMAsyncIterator.cpp */,
+				4151AAE32F22425B00E99C91 /* DOMAsyncIterator.h */,
 				0F9DAA0C1FD1C6630079C5B2 /* DOMGCOutputConstraint.cpp */,
 				0F9DAA0E1FD1C6640079C5B2 /* DOMGCOutputConstraint.h */,
 				7C516AD21F3525200034B6BF /* DOMPromiseProxy.h */,
@@ -43766,6 +43773,7 @@
 				CDFFB2122E8A52E20045D9F2 /* DocumentView.h in Headers */,
 				CD6115FC2E8B0E39002A1FBD /* DocumentWindow.h in Headers */,
 				973889A1116EA9DC00ADF313 /* DocumentWriter.h in Headers */,
+				4151AAE52F22426700E99C91 /* DOMAsyncIterator.h in Headers */,
 				412752D2294C7F2B00387637 /* DOMAudioSession.h in Headers */,
 				41380C271F3436AC00155FDA /* DOMCache.h in Headers */,
 				41FABD2D1F4DFE4A006A6C97 /* DOMCacheEngine.h in Headers */,
