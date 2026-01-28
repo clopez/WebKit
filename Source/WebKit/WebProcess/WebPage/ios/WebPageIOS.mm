@@ -364,7 +364,6 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
     if (!result.hasPostLayoutAndVisualData())
         return;
 
-    ASSERT(frame.view());
     auto& postLayoutData = *result.postLayoutData;
     auto& visualData = *result.visualData;
 
@@ -405,8 +404,6 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
         selectedRange = selection.toNormalizedRange();
         String selectedText;
         if (selectedRange) {
-            auto [selectionGeometries, intersectingLayerIDs] = RenderObject::collectSelectionGeometries(*selectedRange);
-            convertContentToRootView(view, selectionGeometries);
             selectedText = plainTextForDisplay(*selectedRange);
             postLayoutData.selectedTextLength = selectedText.length();
             const int maxSelectedTextLength = 200;
@@ -433,9 +430,6 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 
             if (auto imageElement = findSelectedEditableImageElement())
                 postLayoutData.selectedEditableImage = contextForElement(*imageElement);
-
-            visualData.selectionGeometries = WTF::move(selectionGeometries);
-            visualData.intersectingLayerIDs = WTF::move(intersectingLayerIDs);
         }
         // FIXME: We should disallow replace when the string contains only CJ characters.
         postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.containsOnly<isASCIIWhitespace>();
@@ -4991,7 +4985,8 @@ void WebPage::applicationDidEnterBackground(bool isSuspendedUnderLock)
     [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationDidEnterBackgroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
 
     m_isSuspendedUnderLock = isSuspendedUnderLock;
-    freezeLayerTree(LayerTreeFreezeReason::BackgroundApplication);
+    if (!m_backgroundTextExtractionEnabled)
+        freezeLayerTree(LayerTreeFreezeReason::BackgroundApplication);
 
     // FIXME(224775): Move to WebProcess
     if (RefPtr manager = mediaSessionManagerIfExists())
@@ -5011,7 +5006,8 @@ void WebPage::applicationWillEnterForeground(bool isSuspendedUnderLock)
     m_isSuspendedUnderLock = false;
     cancelMarkLayersVolatile();
 
-    unfreezeLayerTree(LayerTreeFreezeReason::BackgroundApplication);
+    if (!m_backgroundTextExtractionEnabled)
+        unfreezeLayerTree(LayerTreeFreezeReason::BackgroundApplication);
 
     [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillEnterForegroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
 
