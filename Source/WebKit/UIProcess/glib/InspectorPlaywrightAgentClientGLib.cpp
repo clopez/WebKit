@@ -43,10 +43,6 @@
 #include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>
 
-#if USE(SKIA)
-#include <WebCore/ImageBufferUtilitiesSkia.h>
-#endif
-
 namespace WebKit {
 
 static WebCore::SoupNetworkProxySettings parseRawProxySettings(const String& proxyServer, const char* const* ignoreHosts)
