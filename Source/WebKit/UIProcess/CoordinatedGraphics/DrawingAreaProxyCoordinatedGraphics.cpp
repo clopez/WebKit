@@ -260,7 +260,7 @@ void DrawingAreaProxyCoordinatedGraphics::captureFrame()
 {
     RefPtr<cairo_surface_t> surface;
     if (isInAcceleratedCompositingMode()) {
-        AcceleratedBackingStore* backingStore = webkitWebViewBaseGetAcceleratedBackingStore(WEBKIT_WEB_VIEW_BASE(protectedPage()->viewWidget()));
+        AcceleratedBackingStore* backingStore = webkitWebViewBaseGetAcceleratedBackingStore(WEBKIT_WEB_VIEW_BASE(protect(page())->viewWidget()));
         if (!backingStore)
             return;
 
@@ -289,7 +289,7 @@ void DrawingAreaProxyCoordinatedGraphics::captureFrame()
     if (!skImage)
         return;
 
-    protectedPage()->inspectorController().didPaint(WTF::move(skImage));
+    protect(page())->inspectorController().didPaint(WTF::move(skImage));
 }
 #endif // PLATFORM(GTK)
 
