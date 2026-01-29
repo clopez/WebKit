@@ -29,12 +29,8 @@
 
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/Frame.h>
-<<<<<<< HEAD
-#include <WebCore/HitTestRequest.h>
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-=======
 #include <WebCore/IntDegrees.h>
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+#include <WebCore/HitTestRequest.h>
 #include <WebCore/ScrollbarMode.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/HashSet.h>
