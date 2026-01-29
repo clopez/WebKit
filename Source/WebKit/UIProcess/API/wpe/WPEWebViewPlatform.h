@@ -63,7 +63,17 @@ public:
     static WebKit::WebPageProxy* platformWebPageProxyForGamepadInput();
 #endif
 
+<<<<<<< HEAD
     Expected<Ref<WebKit::ViewSnapshot>, String> takeViewSnapshot(std::optional<WebCore::IntRect>&&);
+||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+#if USE(SKIA)
+    Expected<Ref<WebKit::ViewSnapshot>, String> takeViewSnapshot(std::optional<WebCore::IntRect>&&);
+#endif
+=======
+#if USE(SKIA)
+    Expected<Ref<WebKit::ViewSnapshot>, String> takeViewSnapshot(std::optional<WebCore::IntRect>&&, bool nominalResolution);
+#endif
+>>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 
     void updateAcceleratedSurface(uint64_t);
     WebKit::RendererBufferDescription renderBufferDescription() const;

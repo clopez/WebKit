@@ -72,7 +72,17 @@ public:
 
     void updateSurfaceID(uint64_t);
 
+<<<<<<< HEAD
     Expected<Ref<ViewSnapshot>, String> takeSnapshot(std::optional<WebCore::IntRect>&&);
+||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+#if USE(SKIA)
+    Expected<Ref<ViewSnapshot>, String> takeSnapshot(std::optional<WebCore::IntRect>&&);
+#endif
+=======
+#if USE(SKIA)
+    Expected<Ref<ViewSnapshot>, String> takeSnapshot(std::optional<WebCore::IntRect>&&, bool nominalResolution);
+#endif
+>>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 
     RendererBufferDescription bufferDescription() const;
 

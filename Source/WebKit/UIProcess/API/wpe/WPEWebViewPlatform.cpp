@@ -637,9 +637,17 @@ void ViewPlatform::callAfterNextPresentationUpdate(CompletionHandler<void()>&& c
     }
 }
 
+<<<<<<< HEAD
 Expected<Ref<ViewSnapshot>, String> ViewPlatform::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect)
+||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+#if USE(SKIA)
+Expected<Ref<ViewSnapshot>, String> ViewPlatform::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect)
+=======
+#if USE(SKIA)
+Expected<Ref<ViewSnapshot>, String> ViewPlatform::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect, bool nominalResolution)
+>>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 {
-    return m_backingStore->takeSnapshot(WTF::move(clipRect));
+    return m_backingStore->takeSnapshot(WTF::move(clipRect), nominalResolution);
 }
 
 } // namespace WKWPE
