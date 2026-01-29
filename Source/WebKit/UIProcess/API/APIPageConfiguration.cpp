@@ -248,6 +248,25 @@ WebPageProxy* PageConfiguration::relatedPage() const
     return m_data.relatedPage.get();
 }
 
+<<<<<<< HEAD
+||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+RefPtr<WebPageProxy> PageConfiguration::protectedRelatedPage() const
+{
+    return relatedPage();
+}
+
+=======
+RefPtr<WebPageProxy> PageConfiguration::protectedRelatedPage() const
+{
+    return relatedPage();
+}
+
+WebKit::WebPageProxy* PageConfiguration::openerPageForInspector() const
+{
+    return m_data.openerPageForInspector.get();
+}
+
+>>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 WebPageProxy* PageConfiguration::pageToCloneSessionStorageFrom() const
 {
     return m_data.pageToCloneSessionStorageFrom.get();

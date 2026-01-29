@@ -193,7 +193,21 @@ private:
 
     WebKitWebResourceLoadManager* webResourceLoadManager() override;
 
+<<<<<<< HEAD
     RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) override;
+||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+#if USE(SKIA)
+    RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) override;
+#endif
+=======
+#if USE(SKIA)
+    RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&, bool nominalResolution) override;
+#endif
+
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    RefPtr<WebDateTimePicker> createDateTimePicker(WebPageProxy&) override;
+#endif
+>>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 
     WKWPE::View& m_view;
     DefaultUndoController m_undoController;
