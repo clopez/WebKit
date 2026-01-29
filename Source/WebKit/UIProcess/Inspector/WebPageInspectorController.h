@@ -156,12 +156,6 @@ public:
     void browserExtensionsDisabled(HashSet<String>&&);
 
 private:
-<<<<<<< HEAD
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-    Ref<WebPageProxy> protectedInspectedPage();
-=======
-    WeakRef<WebPageProxy> protectedInspectedPage();
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     CheckedPtr<Inspector::InspectorTargetAgent> checkedTargetAgent() { return m_targetAgent; }
     WebPageAgentContext webPageAgentContext();
     void createLazyAgents();

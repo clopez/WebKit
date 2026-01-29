@@ -87,20 +87,6 @@ WebPageInspectorController::WebPageInspectorController(WebPageProxy& inspectedPa
 
 WebPageInspectorController::~WebPageInspectorController() = default;
 
-<<<<<<< HEAD
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-Ref<WebPageProxy> WebPageInspectorController::protectedInspectedPage()
-{
-    return m_inspectedPage.get();
-}
-
-=======
-WeakRef<WebPageProxy> WebPageInspectorController::protectedInspectedPage()
-{
-    return m_inspectedPage;
-}
-
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 void WebPageInspectorController::init()
 {
     auto targetAgent = makeUniqueRef<InspectorTargetAgent>(m_frontendRouter.get(), m_backendDispatcher.get());

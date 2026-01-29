@@ -91,14 +91,8 @@ void DownloadProxy::cancel(CompletionHandler<void(API::Data*)>&& completionHandl
 {
     m_downloadIsCancelled = true;
     if (m_dataStore) {
-<<<<<<< HEAD
-        protect(protect(m_dataStore)->networkProcess())->sendWithAsyncReply(Messages::NetworkProcess::CancelDownload(m_downloadID), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler)] (std::span<const uint8_t> resumeData) mutable {
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-        protectedDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::CancelDownload(m_downloadID), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler)] (std::span<const uint8_t> resumeData) mutable {
-=======
         auto* instrumentation = m_dataStore->downloadInstrumentation();
-        protectedDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::CancelDownload(m_downloadID), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler), instrumentation] (std::span<const uint8_t> resumeData) mutable {
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+        protect(protect(m_dataStore)->networkProcess())->sendWithAsyncReply(Messages::NetworkProcess::CancelDownload(m_downloadID), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler), instrumentation] (std::span<const uint8_t> resumeData) mutable {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return completionHandler(nullptr);
@@ -177,11 +171,6 @@ void DownloadProxy::decideDestinationWithSuggestedFilename(const WebCore::Resour
         suggestedFilename = m_suggestedFilename;
     suggestedFilename = MIMETypeRegistry::appendFileExtensionIfNecessary(suggestedFilename, response.mimeType());
 
-<<<<<<< HEAD
-    protect(client())->decideDestinationWithSuggestedFilename(*this, response, ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)] (AllowOverwrite allowOverwrite, String destination) mutable {
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-    protectedClient()->decideDestinationWithSuggestedFilename(*this, response, ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)] (AllowOverwrite allowOverwrite, String destination) mutable {
-=======
     if (auto* instrumentation = m_dataStore->downloadInstrumentation())
       instrumentation->downloadFilenameSuggested(m_uuid, suggestedFilename);
 
@@ -209,8 +198,7 @@ void DownloadProxy::decideDestinationWithSuggestedFilename(const WebCore::Resour
         return;
     }
 
-    protectedClient()->decideDestinationWithSuggestedFilename(*this, response, ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)] (AllowOverwrite allowOverwrite, String destination) mutable {
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
+    protect(client())->decideDestinationWithSuggestedFilename(*this, response, ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)] (AllowOverwrite allowOverwrite, String destination) mutable {
         SandboxExtension::Handle sandboxExtensionHandle;
         if (!destination.isNull()) {
             if (auto handle = SandboxExtension::createHandle(destination, SandboxExtension::Type::ReadWrite))
@@ -289,15 +277,9 @@ void DownloadProxy::didFail(const ResourceError& error, std::span<const uint8_t>
 
     m_legacyResumeData = createData(resumeData);
 
-<<<<<<< HEAD
     protect(client())->didFail(*this, error, m_legacyResumeData.get());
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-    protectedClient()->didFail(*this, error, m_legacyResumeData.get());
-=======
-    protectedClient()->didFail(*this, error, m_legacyResumeData.get());
     if (auto* instrumentation = m_dataStore->downloadInstrumentation())
       instrumentation->downloadFinished(m_uuid, error.localizedDescription());
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 
     // This can cause the DownloadProxy object to be deleted.
     if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
