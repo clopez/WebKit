@@ -594,15 +594,7 @@ void PageClientImpl::callAfterNextPresentationUpdate(CompletionHandler<void()>&&
     m_view.callAfterNextPresentationUpdate(WTF::move(callback));
 }
 
-<<<<<<< HEAD
-RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect)
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-#if USE(SKIA)
-RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect)
-=======
-#if USE(SKIA)
 RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&& clipRect, bool nominalResolution)
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
 {
 #if ENABLE(WPE_PLATFORM)
     if (m_view.wpeView()) {

@@ -175,45 +175,22 @@ void HeadlessViewBackend::updateSnapshot(PlatformBuffer exportedBuffer)
             return;
     }
 
-<<<<<<< HEAD
-    auto info = SkImageInfo::MakeN32Premul(m_width, m_height, SkColorSpace::MakeSRGB());
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-#if defined(USE_CAIRO) && USE_CAIRO
-    uint32_t bufferStride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, m_width);
-#elif defined(USE_SKIA) && USE_SKIA
-    auto info = SkImageInfo::MakeN32Premul(m_width, m_height, SkColorSpace::MakeSRGB());
-=======
-uint32_t width = std::max(0, wl_shm_buffer_get_width(shmBuffer));
-uint32_t height = std::max(0, wl_shm_buffer_get_height(shmBuffer));
-if (!width || !height) {
-    fprintf(stderr, "HeadlessViewBackend::updateSnapshot shmBuffer is empty: %ux%u\n", width, height);
-    return;
-}
+    uint32_t width = std::max(0, wl_shm_buffer_get_width(shmBuffer));
+    uint32_t height = std::max(0, wl_shm_buffer_get_height(shmBuffer));
+    if (!width || !height) {
+        fprintf(stderr, "HeadlessViewBackend::updateSnapshot shmBuffer is empty: %ux%u\n", width, height);
+        return;
+    }
 
-#if defined(USE_CAIRO) && USE_CAIRO
-    uint32_t bufferStride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-#elif defined(USE_SKIA) && USE_SKIA
     auto info = SkImageInfo::MakeN32Premul(width, height, SkColorSpace::MakeSRGB());
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     uint32_t bufferStride = info.minRowBytes();
-<<<<<<< HEAD
-    uint8_t* buffer = new uint8_t[bufferStride * m_height];
-    memset(buffer, 0, bufferStride * m_height);
-
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-#endif
-    uint8_t* buffer = new uint8_t[bufferStride * m_height];
-    memset(buffer, 0, bufferStride * m_height);
-
-=======
-#endif
     uint32_t stride = std::max(0, wl_shm_buffer_get_stride(shmBuffer));
     if (bufferStride != stride) {
         fprintf(stderr, "bufferStride != stride: %u != %u\n", bufferStride, stride);
         return;
     }
+
     uint8_t* buffer = new uint8_t[bufferStride * height];
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     {
         wl_shm_buffer_begin_access(shmBuffer);
         auto* data = static_cast<uint8_t*>(wl_shm_buffer_get_data(shmBuffer));
@@ -222,40 +199,6 @@ if (!width || !height) {
         wl_shm_buffer_end_access(shmBuffer);
     }
 
-<<<<<<< HEAD
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-#if defined(USE_CAIRO) && USE_CAIRO
-    if (m_snapshot)
-        cairo_surface_destroy(m_snapshot);
-
-    m_snapshot = cairo_image_surface_create_for_data(buffer, CAIRO_FORMAT_ARGB32,
-        m_width, m_height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, m_width));
-
-    static cairo_user_data_key_t bufferKey;
-    cairo_surface_set_user_data(m_snapshot, &bufferKey, buffer,
-        [](void* data) {
-            auto* buffer = static_cast<uint8_t*>(data);
-            delete[] buffer;
-        });
-    cairo_surface_mark_dirty(m_snapshot);
-#elif defined(USE_SKIA) && USE_SKIA
-=======
-#if defined(USE_CAIRO) && USE_CAIRO
-    if (m_snapshot)
-        cairo_surface_destroy(m_snapshot);
-
-    m_snapshot = cairo_image_surface_create_for_data(buffer, CAIRO_FORMAT_ARGB32,
-        width, height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width));
-
-    static cairo_user_data_key_t bufferKey;
-    cairo_surface_set_user_data(m_snapshot, &bufferKey, buffer,
-        [](void* data) {
-            auto* buffer = static_cast<uint8_t*>(data);
-            delete[] buffer;
-        });
-    cairo_surface_mark_dirty(m_snapshot);
-#elif defined(USE_SKIA) && USE_SKIA
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     SkPixmap pixmap(info, buffer, bufferStride);
     m_snapshot = SkImages::RasterFromPixmap(pixmap, [](const void*, void* data) {
         auto* buffer = static_cast<uint8_t*>(data);

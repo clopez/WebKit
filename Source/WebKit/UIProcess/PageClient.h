@@ -400,20 +400,15 @@ public:
     virtual void selectionDidChange() = 0;
 #endif
 
-<<<<<<< HEAD
-#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
-=======
 // Paywright begin
 #if PLATFORM(COCOA)
     virtual RetainPtr<CGImageRef> takeSnapshotForAutomation() = 0;
-#elif PLATFORM(GTK) || (PLATFORM(WPE) && USE(SKIA))
+#elif PLATFORM(GTK) || PLATFORM(WPE)
     virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&, bool nominalResolution = false) = 0;
 #endif
 // Paywright end
+
 #if PLATFORM(COCOA)
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) = 0;
 #endif
 
