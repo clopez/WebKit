@@ -14,12 +14,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/skia/FontCascadeSkiaInlines.h
     platform/graphics/skia/GraphicsContextSkia.h
     platform/graphics/skia/ImageBufferSkiaBackend.h
-<<<<<<< HEAD
     platform/graphics/skia/PathSkia.h
-||||||| parent of efe0c0b52d6a (chore(webkit): bootstrap build #2253)
-=======
-    platform/graphics/skia/ImageBufferUtilitiesSkia.h
->>>>>>> efe0c0b52d6a (chore(webkit): bootstrap build #2253)
     platform/graphics/skia/SkiaHarfBuzzFont.h
     platform/graphics/skia/SkiaHarfBuzzFontCache.h
     platform/graphics/skia/SkiaPaintingEngine.h
