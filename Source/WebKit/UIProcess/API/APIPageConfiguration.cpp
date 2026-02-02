@@ -248,7 +248,6 @@ WebPageProxy* PageConfiguration::relatedPage() const
     return m_data.relatedPage.get();
 }
 
-<<<<<<< HEAD
 BrowsingContextGroup* PageConfiguration::preferredBrowsingContextGroup() const
 {
     if (auto opener = openerInfo())
@@ -260,12 +259,11 @@ BrowsingContextGroup* PageConfiguration::preferredBrowsingContextGroup() const
     }
 
     return nullptr;
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-=======
+}
+
 WebKit::WebPageProxy* PageConfiguration::openerPageForInspector() const
 {
     return m_data.openerPageForInspector.get();
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
 }
 
 WebPageProxy* PageConfiguration::pageToCloneSessionStorageFrom() const
