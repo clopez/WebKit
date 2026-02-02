@@ -1318,16 +1318,8 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
     if (hashChange)
-<<<<<<< HEAD
         protect(m_frame)->eventHandler().stopAutoscrollTimer();
     
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-        protectedFrame()->eventHandler().stopAutoscrollTimer();
-    
-=======
-        protectedFrame()->eventHandler().stopAutoscrollTimer();
-
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     // It's important to model this as a load that starts and immediately finishes.
     // Otherwise, the parent frame may think we never finished loading.
     started();
@@ -4198,18 +4190,18 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
             FRAMELOADER_RELEASE_LOG(ResourceLoading, "continueLoadAfterNavigationPolicy (completionHandler): Frame load canceled - no provisional document loader after prepareForLoadStart");
             return;
         }
-
+        
         RefPtr activeDocLoader = activeDocumentLoader();
         if (activeDocLoader && activeDocLoader->isLoadingMainResource()) {
             FRAMELOADER_RELEASE_LOG(ResourceLoading, "continueLoadAfterNavigationPolicy (completionHandler): Main frame already being loaded");
             return;
         }
-
+        
         m_loadingFromCachedPage = false;
 
         protect(m_provisionalDocumentLoader)->startLoadingMainResource();
     };
-
+    
     if (!formSubmission) {
         completionHandler();
         return;
@@ -4709,16 +4701,6 @@ String FrameLoader::referrer() const
 
 void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
 {
-<<<<<<< HEAD
-    if (!protect(m_frame)->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-        return;
-
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    if (!protectedFrame()->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-        return;
-
-=======
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     Vector<Ref<DOMWrapperWorld>> worlds;
     ScriptController::getAllWorlds(worlds);
     for (auto& world : worlds)

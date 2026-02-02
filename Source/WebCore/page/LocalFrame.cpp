@@ -303,25 +303,17 @@ void LocalFrame::setView(RefPtr<LocalFrameView>&& view)
     // notified. If we wait until the view is destroyed, then things won't be hooked up enough for
     // these calls to work.
     if (!view && m_doc && m_doc->backForwardCacheState() != Document::InBackForwardCache)
-<<<<<<< HEAD
         protect(document())->willBeRemovedFromFrame();
     
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-        protectedDocument()->willBeRemovedFromFrame();
-    
-=======
-        protectedDocument()->willBeRemovedFromFrame();
-
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     if (RefPtr view = m_view)
         view->checkedLayoutContext()->unscheduleLayout();
-
+    
     m_eventHandler->clear();
 
     RELEASE_ASSERT(!m_doc || !m_doc->hasLivingRenderTree());
 
     m_view = WTF::move(view);
-
+    
     // Only one form submission is allowed per view of a part.
     // Since this part may be getting reused as a result of being
     // pulled from the back/forward cache, reset this flag.

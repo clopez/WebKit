@@ -1788,17 +1788,9 @@ Vector<Ref<SVGImage>> CachedResourceLoader::allCachedSVGImages() const
 
 ResourceErrorOr<CachedResourceHandle<CachedResource>> CachedResourceLoader::preload(CachedResource::Type type, CachedResourceRequest&& request)
 {
-<<<<<<< HEAD
-    if (InspectorInstrumentation::willIntercept(protect(frame()).get(), request.resourceRequest()))
-        return makeUnexpected(ResourceError { errorDomainWebKitInternal, 0, request.resourceRequest().url(), "Inspector intercept"_s });
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    if (InspectorInstrumentation::willIntercept(protectedFrame().get(), request.resourceRequest()))
-        return makeUnexpected(ResourceError { errorDomainWebKitInternal, 0, request.resourceRequest().url(), "Inspector intercept"_s });
-=======
     // Playwright: <link rel=preload ... /> requests are intercepted (see https://github.com/microsoft/playwright/issues/16745)
-    // if (InspectorInstrumentation::willIntercept(protectedFrame().get(), request.resourceRequest()))
+    // if (InspectorInstrumentation::willIntercept(protect(frame()).get(), request.resourceRequest()))
     //     return makeUnexpected(ResourceError { errorDomainWebKitInternal, 0, request.resourceRequest().url(), "Inspector intercept"_s });
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
 
     RefPtr document = m_document.get();
     ASSERT(document);

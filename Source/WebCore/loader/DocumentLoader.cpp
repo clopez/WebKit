@@ -284,16 +284,8 @@ void DocumentLoader::setMainDocumentError(const ResourceError& error)
     if (!error.isNull())
         DOCUMENTLOADER_RELEASE_LOG("setMainDocumentError: (type=%d, code=%d)", static_cast<int>(error.type()), error.errorCode());
 
-<<<<<<< HEAD
     m_mainDocumentError = error;    
     protect(frameLoader()->client())->setMainDocumentError(this, error);
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    m_mainDocumentError = error;    
-    protectedFrameLoader()->protectedClient()->setMainDocumentError(this, error);
-=======
-    m_mainDocumentError = error;
-    protectedFrameLoader()->protectedClient()->setMainDocumentError(this, error);
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
 }
 
 void DocumentLoader::mainReceivedError(const ResourceError& error, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
@@ -560,16 +552,8 @@ bool DocumentLoader::isPostOrRedirectAfterPost(const ResourceRequest& newRequest
 
 void DocumentLoader::handleSubstituteDataLoadNow()
 {
-<<<<<<< HEAD
     Ref protectedThis { *this };
     
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    Ref<DocumentLoader> protectedThis = Ref { *this };
-    
-=======
-    Ref<DocumentLoader> protectedThis = Ref { *this };
-
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     if (m_substituteData.response().isRedirection()) {
         auto newRequest = m_request.redirectedRequest(m_substituteData.response(), true);
         auto substituteData = std::exchange(m_substituteData, { });
@@ -1443,16 +1427,8 @@ void DocumentLoader::setupForMultipartReplace()
     if (!mainResourceData())
         return;
 
-<<<<<<< HEAD
     protect(frameLoader()->client())->willReplaceMultipartContent();
     
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    protectedFrameLoader()->protectedClient()->willReplaceMultipartContent();
-    
-=======
-    protectedFrameLoader()->protectedClient()->willReplaceMultipartContent();
-
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     maybeFinishLoadingMultipartContent();
     maybeCreateArchive();
     m_writer.end();
