@@ -3329,22 +3329,14 @@ RefPtr<Inspector::Protocol::Runtime::RemoteObject> InspectorDOMAgent::resolveNod
     if (!frame)
         return nullptr;
 
-<<<<<<< HEAD
-    auto& globalObject = mainWorldGlobalObject(*frame);
-    auto injectedScript = m_injectedScriptManager->injectedScriptFor(&globalObject);
-||||||| parent of c88e5b5629f5 (chore(webkit): bootstrap build #2255)
-    auto& globalObject = mainWorldGlobalObject(*frame);
-    auto injectedScript = m_injectedScriptManager.injectedScriptFor(&globalObject);
-=======
     InjectedScript injectedScript;
     if (contextId) {
-        injectedScript = m_injectedScriptManager.injectedScriptForId(*contextId);
+        injectedScript = m_injectedScriptManager->injectedScriptForId(*contextId);
     } else {
         auto& globalObject = mainWorldGlobalObject(*frame);
-        injectedScript = m_injectedScriptManager.injectedScriptFor(&globalObject);
+        injectedScript = m_injectedScriptManager->injectedScriptFor(&globalObject);
     }
 
->>>>>>> c88e5b5629f5 (chore(webkit): bootstrap build #2255)
     if (injectedScript.hasNoValue())
         return nullptr;
 
@@ -3503,7 +3495,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::MediaStats>> In
 }
 
 void InspectorDOMAgent::setInputFiles(const String& objectId, Ref<JSON::Array>&& paths, Ref<SetInputFilesCallback>&& callback) {
-    InjectedScript injectedScript = m_injectedScriptManager.injectedScriptForObjectId(objectId);
+    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptForObjectId(objectId);
     if (injectedScript.hasNoValue()) {
         callback->sendFailure("Can not find element's context for given id"_s);
         return;
