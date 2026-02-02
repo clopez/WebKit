@@ -5259,7 +5259,7 @@ MediaSourcePrefersDecompressionSession:
 
 MediaSourceUseRemoteAudioVideoRenderer:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "MSE player uses GPU renderer"
   humanReadableDescription: "MSE player uses GPU renderer"
@@ -5268,9 +5268,9 @@ MediaSourceUseRemoteAudioVideoRenderer:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 MediaStreamTrackProcessingEnabled:
@@ -6391,6 +6391,20 @@ ReadableByteStreamFetchSourceEnabled:
       default: true
     WebKit:
       default: true
+
+ReadableStreamFromEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "ReadableStream.from"
+  humanReadableDescription: "Enable ReadableStream.from"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
 
 ReadableStreamIterableEnabled:
   type: bool
@@ -7617,7 +7631,7 @@ SourceBufferChangeTypeEnabled:
 
 SpatialImageControlsEnabled:
   type: bool
-  status: testable
+  status: preview
   category: media
   condition: ENABLE(SPATIAL_IMAGE_CONTROLS)
   humanReadableName: "Spatial image controls API"
@@ -7626,8 +7640,10 @@ SpatialImageControlsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "ENABLE(PANORAMA_IMAGE_CONTROLS)": true
       default: false
     WebCore:
+      "ENABLE(PANORAMA_IMAGE_CONTROLS)": true
       default: false
 
 SpatialNavigationEnabled:
@@ -8191,20 +8207,6 @@ ThreadedTimeBasedAnimationsEnabled:
     WebCore:
       default: false
 
-ThumbAndTrackPseudoElementsEnabled:
-  type: bool
-  status: testable
-  category: css
-  humanReadableName: "::thumb and ::track pseudo-elements"
-  humanReadableDescription: "Enable support for CSS ::thumb and ::track pseudo-elements"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
 TiledScrollingIndicatorVisible:
   type: bool
@@ -8572,6 +8574,17 @@ UseGiantTiles:
       default: false
     WebCore:
       default: false
+
+UseHardwareBuffersForFrameRendering:
+  type: bool
+  status: embedder
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 UseIFCForSVGText:
   type: bool
@@ -9065,6 +9078,21 @@ WebArchiveTestingModeEnabled:
     WebCore:
       default: false
 
+WebAssemblyDebuggerEnabled:
+  type: bool
+  status: internal
+  category: javascript
+  humanReadableName: "WebAssembly Debugger"
+  humanReadableDescription: "Enable LLDB debugging support for WebAssembly (requires page reload)"
+  condition: ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 WebAssemblyESMIntegrationEnabled:
   type: bool
   status: testable
@@ -9376,7 +9404,7 @@ WebLocksAPIEnabled:
 
 WebMUseRemoteAudioVideoRenderer:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "WebM player uses GPU renderer"
   humanReadableDescription: "WebM player uses GPU renderer"
@@ -9385,9 +9413,9 @@ WebMUseRemoteAudioVideoRenderer:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 WebPageSpatialBackdropEnabled:

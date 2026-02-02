@@ -351,24 +351,19 @@ void CrossOriginIframeRelinquishToChromeTests::runTest()
     };
     auto checkFocusState = [webView](FrameFocusState mainFrame, FrameFocusState innerFrame) {
         // FIXME: <rdar://161283373> This IPC round trip should not be necessary.
+
         [webView waitForNextPresentationUpdate];
 
         EXPECT_WK_STREQ([webView stringByEvaluatingJavaScript:@"document.activeElement.id"], mainFrame.activeElementID);
+
         EXPECT_EQ([[webView objectByEvaluatingJavaScript:@"document.hasFocus()"] boolValue], mainFrame.hasFocus);
 
         EXPECT_WK_STREQ([webView stringByEvaluatingJavaScript:@"document.activeElement.id" inFrame:[webView firstChildFrame]], innerFrame.activeElementID);
+
         EXPECT_EQ([[webView objectByEvaluatingJavaScript:@"document.hasFocus()" inFrame:[webView firstChildFrame]] boolValue], innerFrame.hasFocus);
     };
 
     checkFocusState({ "mainFrameBody", true }, { "iframeBody", false });
-
-#if PLATFORM(IOS_FAMILY)
-    // FIXME: Make this behavior the same on iOS as macOS.
-    // It may be related to differences in WebPage::elementDidFocus
-    // and WebPage::focusedElementInformation
-    if (siteIsolationEnabled())
-        return;
-#endif
 
     [webView typeCharacter:'\t'];
     Util::run(&didFocusMainFrameInput);

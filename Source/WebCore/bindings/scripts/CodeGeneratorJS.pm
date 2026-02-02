@@ -1928,7 +1928,8 @@ sub GetDictionaryMemberDefaultValueFunctor
 {
     my ($interface, $member) = @_;
 
-    if (!$member->isRequired && defined $member->default && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) {
+    my $effectivelyRequired = $member->isRequired || $member->extendedAttributes->{ImplementationRequired};
+    if (!$effectivelyRequired && defined $member->default && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) {
         my $IDLType = GetIDLType($interface, $member->type);
         my $defaultValue = GenerateDefaultValue($interface, $member, $member->type, $member->default);
         return "[&] -> ConversionResult<${IDLType}> { return ${defaultValue}; }";
@@ -2913,7 +2914,8 @@ sub GenerateDictionaryImplementationMemberConversion
     }
 
     my $defaultValueFunctor = GetDictionaryMemberDefaultValueFunctor($typeScope, $member);
-    my $optional = !$member->isRequired && ((defined($member->default) && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) || !defined($member->default));
+    my $effectivelyRequired = $member->isRequired || $member->extendedAttributes->{ImplementationRequired};
+    my $optional = !$effectivelyRequired && ((defined($member->default) && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) || !defined($member->default));
 
     my $conversion;
     if ($member->extendedAttributes->{PermissiveInvalidValue} && $codeGenerator->IsEnumType($type)) {
@@ -3222,7 +3224,8 @@ sub GenerateConvertDictionaryToJS
                 $indent = "    ";
             }
 
-            if (!$member->isRequired && not defined $member->default) {
+            my $effectivelyRequired = $member->isRequired || $member->extendedAttributes->{ImplementationRequired};
+            if (!$effectivelyRequired && not defined $member->default) {
                 my $IDLType = GetIDLType($typeScope, $member->type);
                 my $conversionExpression = NativeToJSValueUsingReferences($member, $typeScope, "${IDLType}::extractValueFromNullable(${valueExpression})", "globalObject");
 
@@ -3313,7 +3316,8 @@ sub GenerateConvertDictionaryToJSForLegacyNativeDictionaryRequiredInterfaceNulla
                 $indent = "    ";
             }
 
-            if (!$member->isRequired && not defined $member->default) {
+            my $effectivelyRequired = $member->isRequired || $member->extendedAttributes->{ImplementationRequired};
+            if (!$effectivelyRequired && not defined $member->default) {
                 my $IDLType = GetIDLType($typeScope, $member->type);
                 my $conversionExpression = NativeToJSValueUsingReferences($member, $typeScope, "${IDLType}::extractValueFromNullable(${valueExpression})", "globalObject");
 
@@ -3323,7 +3327,7 @@ sub GenerateConvertDictionaryToJSForLegacyNativeDictionaryRequiredInterfaceNulla
                 $result .= "${indent}        result->putDirect(vm, JSC::Identifier::fromString(vm, \"${key}\"_s), ${key}Value);\n";
                 $result .= "${indent}    }\n";
             } else {
-                my $conversionExpression = NativeToJSValueUsingReferencesWrappingInterfacesInNullable($member, $typeScope, $valueExpression, "globalObject");
+                my $conversionExpression = NativeToJSValueUsingReferencesWrappingInterfacesAndBufferSourcesInNullable($member, $typeScope, $valueExpression, "globalObject");
 
                 $result .= "${indent}    auto ${key}Value = ${conversionExpression};\n";
                 $result .= "${indent}    RETURN_IF_EXCEPTION(throwScope, { });\n";
@@ -8135,7 +8139,8 @@ sub GetIDLTypeForDictionaryMember
     my ($interface, $member) = @_;
 
     my $defaultValueFunctor = GetDictionaryMemberDefaultValueFunctor($interface, $member);
-    my $optional = !$member->isRequired && ((defined($member->default) && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) || !defined($member->default));
+    my $effectivelyRequired = $member->isRequired || $member->extendedAttributes->{ImplementationRequired};
+    my $optional = !$effectivelyRequired && ((defined($member->default) && !WillConvertUndefinedToDefaultParameterValue($member->type, $member->default)) || !defined($member->default));
 
     my $IDLType = GetIDLType($interface, $member->type);
     $IDLType = "IDLOptional<" . $IDLType . ">" if $optional && !$defaultValueFunctor;
@@ -8314,9 +8319,19 @@ sub NativeToJSValueDOMConvertNeedsGlobalObject
     return 0;
 }
 
+sub NativeToJSValueDOMConvertNeedsNullableWrapper
+{
+    my ($type) = @_;
+
+    return 0 if $type->isNullable;
+    return 1 if $codeGenerator->IsInterfaceType($type);
+    return 1 if $codeGenerator->IsBufferSourceType($type);
+    return 0;
+}
+
 # FIXME: This is needed to work around dictionaries storing non-nullable interfaces using RefPtr rather than Ref<>.
-# See "Support using Ref for IDLInterfaces in IDL dictionaries (https://bugs.webkit.org/show_bug.cgi?id=305410)".
-sub NativeToJSValueUsingReferencesWrappingInterfacesInNullable
+# See "Support using Ref for interfaces and buffer source types in IDL dictionaries (https://bugs.webkit.org/show_bug.cgi?id=305410)".
+sub NativeToJSValueUsingReferencesWrappingInterfacesAndBufferSourcesInNullable
 {
     my ($context, $interface, $value, $globalObjectReference) = @_;
 
@@ -8353,7 +8368,7 @@ sub NativeToJSValueMayThrow
 
 sub NativeToJSValue
 {
-    my ($context, $interface, $value, $lexicalGlobalObjectReference, $globalObjectReference, $wrapInterfaceInNullable) = @_;
+    my ($context, $interface, $value, $lexicalGlobalObjectReference, $globalObjectReference, $wrapInterfacesAndArrayBufferSourcesInNullable) = @_;
 
     assert("Invalid context type") if !IsValidContextForNativeToJSValue($context);
 
@@ -8378,8 +8393,8 @@ sub NativeToJSValue
 
     my $IDLType = GetIDLType($interface, $type);
 
-    # FIXME: This is a hack used by the dictionary code while storing interfaces via Ref<> is not supported. Once that is supported, this should be removed.
-    if ($wrapInterfaceInNullable and $codeGenerator->IsInterfaceType($type) and !$type->isNullable) {
+    # FIXME: This is a hack used by the dictionary code while storing interfaces and buffer source types via Ref<> is not supported. Once that is supported, this should be removed.
+    if ($wrapInterfacesAndArrayBufferSourcesInNullable and NativeToJSValueDOMConvertNeedsNullableWrapper($type)) {
         $IDLType = "IDLNullable<" . $IDLType . ">";
     }
 
@@ -8666,7 +8681,7 @@ sub WriteData
     }
 
     if ($name eq "AddEventListenerOptions" or $name eq "EventTarget") {
-        push @includes, "\"AddEventListenerOptionsInlines.h\"";
+        push @includes, "\"AbortSignal.h\"";
     }
 
     foreach my $include (sort @includes) {

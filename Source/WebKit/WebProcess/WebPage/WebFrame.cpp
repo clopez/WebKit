@@ -808,7 +808,7 @@ String WebFrame::innerText() const
     if (!localFrame->document()->documentElement())
         return String();
 
-    return localFrame->protectedDocument()->protectedDocumentElement()->innerText();
+    return protect(protect(localFrame->document())->documentElement())->innerText();
 }
 
 RefPtr<WebFrame> WebFrame::parentFrame() const
@@ -894,7 +894,7 @@ JSGlobalContextRef WebFrame::jsContextForWorld(DOMWrapperWorld& world)
 
 JSGlobalContextRef WebFrame::jsContextForWorld(InjectedBundleScriptWorld* world)
 {
-    return jsContextForWorld(world->protectedCoreWorld());
+    return jsContextForWorld(protect(world->coreWorld()));
 }
 
 JSGlobalContextRef WebFrame::jsContextForServiceWorkerWorld(DOMWrapperWorld& world)
@@ -907,7 +907,7 @@ JSGlobalContextRef WebFrame::jsContextForServiceWorkerWorld(DOMWrapperWorld& wor
 
 JSGlobalContextRef WebFrame::jsContextForServiceWorkerWorld(InjectedBundleScriptWorld* world)
 {
-    return jsContextForServiceWorkerWorld(world->protectedCoreWorld());
+    return jsContextForServiceWorkerWorld(protect(world->coreWorld()));
 }
 
 void WebFrame::setAccessibleName(const AtomString& accessibleName)
@@ -1095,7 +1095,7 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleCSSStyleDeclarationHandle* 
     if (!localFrame)
         return nullptr;
 
-    auto* globalObject = localFrame->checkedScript()->globalObject(world->protectedCoreWorld());
+    auto* globalObject = localFrame->checkedScript()->globalObject(protect(world->coreWorld()));
 
     JSLockHolder lock(globalObject);
     return toRef(globalObject, toJS(globalObject, globalObject, cssStyleDeclarationHandle->coreCSSStyleDeclaration()));
@@ -1107,7 +1107,7 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, Inj
     if (!localFrame)
         return nullptr;
 
-    auto* globalObject = localFrame->checkedScript()->globalObject(world->protectedCoreWorld());
+    auto* globalObject = localFrame->checkedScript()->globalObject(protect(world->coreWorld()));
 
     JSLockHolder lock(globalObject);
     RefPtr coreNode = nodeHandle->coreNode();
@@ -1120,7 +1120,7 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleRangeHandle* rangeHandle, I
     if (!localFrame)
         return nullptr;
 
-    auto* globalObject = localFrame->checkedScript()->globalObject(world->protectedCoreWorld());
+    auto* globalObject = localFrame->checkedScript()->globalObject(protect(world->coreWorld()));
 
     JSLockHolder lock(globalObject);
     return toRef(globalObject, toJS(globalObject, globalObject, Ref { rangeHandle->coreRange() }.get()));
@@ -1561,14 +1561,14 @@ std::optional<ResourceResponse> WebFrame::resourceResponseForURL(const URL& url)
     return std::nullopt;
 }
 
-void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection direction, const WebCore::FocusEventData& focusEventData, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
+void WebFrame::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection direction, const WebCore::FocusEventData& focusEventData, WebCore::ShouldFocusElement shouldFocusElement, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
 {
     auto foundElementInRemoteFrame = WebCore::FoundElementInRemoteFrame::No;
 
     if (m_coreFrame) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get())) {
             if (RefPtr page = localFrame->page()) {
-                auto result = page->focusController().findAndFocusElementStartingWithLocalFrame(direction, focusEventData, *localFrame);
+                auto result = page->focusController().findFocusableElementStartingWithLocalFrame(direction, focusEventData, *localFrame, shouldFocusElement);
                 if (result.element)
                     foundElementInRemoteFrame = WebCore::FoundElementInRemoteFrame::Yes;
             }

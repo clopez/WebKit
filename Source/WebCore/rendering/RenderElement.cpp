@@ -566,7 +566,7 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Rende
 
 void RenderElement::initializeStyle()
 {
-    Style::loadPendingResources(m_style, protectedDocument(), protectedElement().get());
+    Style::loadPendingResources(m_style, protect(document()), protectedElement().get());
 
     styleWillChange(Style::DifferenceResult::NewStyle, style());
     m_hasInitializedStyle = true;
@@ -614,7 +614,7 @@ void RenderElement::setStyle(RenderStyle&& style, Style::DifferenceResult minima
     diff.result = std::max(diff.result, minimalStyleDifference);
     diff = adjustStyleDifference(diff);
 
-    Style::loadPendingResources(style, protectedDocument(), protectedElement().get());
+    Style::loadPendingResources(style, protect(document()), protectedElement().get());
 
     auto didRepaint = repaintBeforeStyleChange(diff, m_style, style);
     styleWillChange(diff, style);
@@ -942,7 +942,7 @@ void RenderElement::styleWillChange(Style::Difference diff, const RenderStyle& n
             || m_style.usedZIndex() != newStyle.usedZIndex();
 
         if (visibilityChanged)
-            protectedDocument()->invalidateRenderingDependentRegions();
+            protect(document())->invalidateRenderingDependentRegions();
 
         bool inertChanged = m_style.effectiveInert() != newStyle.effectiveInert();
 
@@ -1129,8 +1129,8 @@ void RenderElement::styleDidChange(Style::Difference diff, const RenderStyle* ol
     }
 
     bool shouldCheckIfInAncestorChain = false;
-    if (frame().settings().cssScrollAnchoringEnabled() && (style().outOfFlowPositionStyleDidChange(oldStyle) || (shouldCheckIfInAncestorChain = style().scrollAnchoringSuppressionStyleDidChange(oldStyle)))) {
-        LOG_WITH_STREAM(ScrollAnchoring, stream << "RenderElement::styleDidChange() found node with style change: " << *this << " from: " << oldStyle->position() <<" to: " << style().position());
+    if (settings().cssScrollAnchoringEnabled() && (style().outOfFlowPositionStyleDidChange(oldStyle) || (shouldCheckIfInAncestorChain = style().scrollAnchoringSuppressionStyleDidChange(oldStyle)))) {
+        LOG_WITH_STREAM(ScrollAnchoring, stream << "RenderElement::styleDidChange() " << diff << " found node with style change: " << *this << " from: " << oldStyle->position() <<" to: " << style().position());
         auto* controller = searchParentChainForScrollAnchoringController(*this);
         if (controller && (!shouldCheckIfInAncestorChain || (shouldCheckIfInAncestorChain && controller->isInScrollAnchoringAncestorChain(*this))))
             controller->notifyChildHadSuppressingStyleChange();
@@ -1838,7 +1838,7 @@ std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const Style::
     if (!resolvedStyle)
         return nullptr;
 
-    Style::loadPendingResources(*resolvedStyle->style, protectedDocument(), element.ptr());
+    Style::loadPendingResources(*resolvedStyle->style, protect(document()), element.ptr());
 
     return WTF::move(resolvedStyle->style);
 }

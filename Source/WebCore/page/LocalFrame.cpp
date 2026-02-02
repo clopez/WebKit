@@ -94,6 +94,7 @@
 #include "ProcessWarming.h"
 #include "RemoteFrame.h"
 #include "RenderLayerCompositor.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyle+GettersInlines.h"
 #include "RenderTableCell.h"
 #include "RenderText.h"
@@ -197,7 +198,7 @@ LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifie
     , m_sandboxFlags(sandboxFlags)
     , m_parentFrameOrOpenerReferrerPolicy(referrerPolicy)
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
-    , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<FrameInspectorController>(*this, page.protectedInspectorController()))
+    , m_inspectorController(makeUniqueRefWithoutRefCountedCheck<FrameInspectorController>(*this))
     , m_consoleClient(makeUniqueRef<FrameConsoleClient>(*this))
 {
     ProcessWarming::initializeNames();
@@ -249,7 +250,7 @@ LocalFrame::~LocalFrame()
     if (!loader->isComplete())
         loader->closeURL();
 
-    loader->clear(protectedDocument(), false);
+    loader->clear(protect(document()), false);
     checkedScript()->updatePlatformScriptObjects();
 
     // FIXME: We should not be doing all this work inside the destructor
@@ -298,7 +299,7 @@ void LocalFrame::setView(RefPtr<LocalFrameView>&& view)
     // notified. If we wait until the view is destroyed, then things won't be hooked up enough for
     // these calls to work.
     if (!view && m_doc && m_doc->backForwardCacheState() != Document::InBackForwardCache)
-        protectedDocument()->willBeRemovedFromFrame();
+        protect(document())->willBeRemovedFromFrame();
     
     if (RefPtr view = m_view)
         view->checkedLayoutContext()->unscheduleLayout();
@@ -437,7 +438,7 @@ void LocalFrame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventReg
         return;
 
     if (RefPtr ownerElement = this->ownerElement())
-        ownerElement->protectedDocument()->invalidateEventRegionsForFrame(*ownerElement);
+        protect(ownerElement->document())->invalidateEventRegionsForFrame(*ownerElement);
 }
 
 #if ENABLE(ORIENTATION_EVENTS)
@@ -877,7 +878,7 @@ void LocalFrame::clearTimers(LocalFrameView *view, Document *document)
 
 void LocalFrame::clearTimers()
 {
-    clearTimers(protectedView().get(), protectedDocument().get());
+    clearTimers(protectedView().get(), protect(document()).get());
 }
 
 CheckedRef<ScriptController> LocalFrame::checkedScript()
@@ -1134,10 +1135,15 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
 
 float LocalFrame::usedZoomForChild(const Frame& child) const
 {
-    if (CheckedPtr ownerRenderer = child.ownerRenderer())
-        return ownerRenderer->style().usedZoom();
+    CheckedPtr childOwnerRenderer = child.ownerRenderer();
+    if (!childOwnerRenderer)
+        return 1.0;
 
-    return 1.0;
+    // Ensure |child| is a child of this frame.
+    ASSERT(child.tree().parent()->frameID() == frameID());
+    ASSERT(childOwnerRenderer->frame().frameID() == frameID());
+
+    return childOwnerRenderer->style().usedZoom();
 }
 
 void LocalFrame::suspendActiveDOMObjectsAndAnimations()
@@ -1345,7 +1351,7 @@ void LocalFrame::frameWasDisconnectedFromOwner() const
     if (RefPtr window = m_doc->window())
         window->willDetachDocumentFromFrame();
 
-    protectedDocument()->detachFromFrame();
+    protect(document())->detachFromFrame();
 }
 
 void LocalFrame::storageAccessExceptionReceivedForDomain(const RegistrableDomain& domain)

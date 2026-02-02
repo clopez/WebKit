@@ -599,9 +599,13 @@ static ErrorType toErrorType(SerializableErrorType value)
 }
 
 enum class PredefinedColorSpaceTag : uint8_t {
-    SRGB = 0
+    SRGB = 0,
 #if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
-    , DisplayP3 = 1
+    DisplayP3 = 1,
+#endif
+    SRGBLinear = 2,
+#if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
+    DisplayP3Linear = 3,
 #endif
 };
 
@@ -614,6 +618,9 @@ enum DestinationColorSpaceTag {
 #if PLATFORM(COCOA)
     DestinationColorSpaceCGColorSpaceNameTag = 3,
     DestinationColorSpaceCGColorSpacePropertyListTag = 4,
+#endif
+#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+    DestinationColorSpaceLinearDisplayP3Tag = 5,
 #endif
 };
 
@@ -933,12 +940,19 @@ static_assert(TerminatorTag > MAX_ARRAY_INDEX);
  * DOMQuadData :-
  *      <p1:DOMPointData> <p2:DOMPointData> <p3:DOMPointData> <p4:DOMPointData>
  *
+ * PredefinedColorSpaceTag :
+ *        PredefinedColorSpaceTag::SRGB
+ *      | PredefinedColorSpaceTag::DisplayP3
+ *      | PredefinedColorSpaceTag::SRGBLinear
+ *      | PredefinedColorSpaceTag::DisplayP3Linear
+ *
  * DestinationColorSpace :-
  *        DestinationColorSpaceSRGBTag
  *      | DestinationColorSpaceLinearSRGBTag
  *      | DestinationColorSpaceDisplayP3Tag
  *      | DestinationColorSpaceCGColorSpaceNameTag <nameDataLength:uint32_t> <nameData:uint8_t>{nameDataLength}
  *      | DestinationColorSpaceCGColorSpacePropertyListTag <propertyListDataLength:uint32_t> <propertyListData:uint8_t>{propertyListDataLength}
+ *      | DestinationColorSpaceLinearDisplayP3Tag
  */
 
 using DeserializationResult = std::pair<JSC::JSValue, SerializationReturnCode>;
@@ -1524,7 +1538,7 @@ private:
         auto& vm = m_lexicalGlobalObject->vm();
         auto* globalObject = m_lexicalGlobalObject;
         if (globalObject->inherits<JSDOMGlobalObject>())
-            return toJS(globalObject, jsCast<JSDOMGlobalObject*>(globalObject), &arrayBuffer);
+            return toJS(globalObject, jsCast<JSDOMGlobalObject*>(globalObject), arrayBuffer);
 
         if (auto* buffer = arrayBuffer.m_wrapper.get())
             return buffer;
@@ -2436,9 +2450,15 @@ private:
         case PredefinedColorSpace::SRGB:
             writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::SRGB));
             break;
+        case PredefinedColorSpace::SRGBLinear:
+            writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::SRGBLinear));
+            break;
 #if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
         case PredefinedColorSpace::DisplayP3:
             writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::DisplayP3));
+            break;
+        case PredefinedColorSpace::DisplayP3Linear:
+            writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::DisplayP3Linear));
             break;
 #endif
         }
@@ -2468,6 +2488,11 @@ private:
 #if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
         if (destinationColorSpace == DestinationColorSpace::DisplayP3()) {
             write(DestinationColorSpaceDisplayP3Tag);
+            return;
+        }
+
+        if (destinationColorSpace == DestinationColorSpace::LinearDisplayP3()) {
+            write(DestinationColorSpaceLinearDisplayP3Tag);
             return;
         }
 #endif
@@ -3834,45 +3859,43 @@ private:
                 return false;
         }
 
-        auto makeArrayBufferView = [&] (auto view) -> bool {
-            if (!view)
-                return false;
-            arrayBufferView = toJS(m_lexicalGlobalObject, m_globalObject, WTF::move(view));
-            if (!arrayBufferView)
-                return false;
-            return true;
-        };
-
         if (!ArrayBufferView::verifySubRangeLength(arrayBuffer->byteLength(), byteOffset, length.value_or(0), 1))
             return false;
 
+        auto makeArrayBufferView = [&](auto&& view) -> bool {
+            if (!view)
+                return false;
+            arrayBufferView = toJS(m_lexicalGlobalObject, jsCast<JSDOMGlobalObject*>(m_globalObject), view.releaseNonNull());
+            return true;
+        };
+
         switch (arrayBufferViewSubtag) {
         case DataViewTag:
-            return makeArrayBufferView(DataView::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(DataView::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Int8ArrayTag:
-            return makeArrayBufferView(Int8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Int8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Uint8ArrayTag:
-            return makeArrayBufferView(Uint8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Uint8Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Uint8ClampedArrayTag:
-            return makeArrayBufferView(Uint8ClampedArray::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Uint8ClampedArray::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Int16ArrayTag:
-            return makeArrayBufferView(Int16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Int16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Uint16ArrayTag:
-            return makeArrayBufferView(Uint16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Uint16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Int32ArrayTag:
-            return makeArrayBufferView(Int32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Int32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Uint32ArrayTag:
-            return makeArrayBufferView(Uint32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Uint32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Float16ArrayTag:
-            return makeArrayBufferView(Float16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Float16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Float32ArrayTag:
-            return makeArrayBufferView(Float32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Float32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case Float64ArrayTag:
-            return makeArrayBufferView(Float64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(Float64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case BigInt64ArrayTag:
-            return makeArrayBufferView(BigInt64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(BigInt64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         case BigUint64ArrayTag:
-            return makeArrayBufferView(BigUint64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+            return makeArrayBufferView(BigUint64Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length));
         default:
             return false;
         }
@@ -3909,9 +3932,15 @@ private:
         case PredefinedColorSpaceTag::SRGB:
             result = PredefinedColorSpace::SRGB;
             return true;
+        case PredefinedColorSpaceTag::SRGBLinear:
+            result = PredefinedColorSpace::SRGBLinear;
+            return true;
 #if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
         case PredefinedColorSpaceTag::DisplayP3:
             result = PredefinedColorSpace::DisplayP3;
+            return true;
+        case PredefinedColorSpaceTag::DisplayP3Linear:
+            result = PredefinedColorSpace::DisplayP3Linear;
             return true;
 #endif
         default:
@@ -3959,6 +3988,9 @@ private:
 #if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
         case DestinationColorSpaceDisplayP3Tag:
             destinationColorSpace = DestinationColorSpace::DisplayP3();
+            return true;
+        case DestinationColorSpaceLinearDisplayP3Tag:
+            destinationColorSpace = DestinationColorSpace::LinearDisplayP3();
             return true;
 #endif
 #if PLATFORM(COCOA)
@@ -5344,8 +5376,7 @@ private:
 
             if (!m_arrayBuffers[index])
                 m_arrayBuffers[index] = ArrayBuffer::create(WTF::move(m_arrayBufferContents->at(index)));
-
-            return getJSValue(m_arrayBuffers[index].get());
+            return getJSValue(*m_arrayBuffers[index]);
         }
         case SharedArrayBufferTag: {
             // https://html.spec.whatwg.org/multipage/structured-data.html#structureddeserialize

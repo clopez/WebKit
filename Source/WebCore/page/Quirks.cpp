@@ -244,7 +244,7 @@ bool Quirks::needsPerDocumentAutoplayBehavior() const
     ASSERT(document->isTopDocument());
     return allowedAutoplayQuirks(document).contains(AutoplayQuirk::PerDocumentAutoplayBehavior);
 #else
-    return m_quirksData.isNetflix;
+    return m_quirksData.isNetflix || m_quirksData.isNBA;
 #endif
 }
 
@@ -1239,7 +1239,7 @@ void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, Comple
         if (document->frame() && !m_document->frame()->isMainFrame()) {
             Ref mainFrame = document->frame()->mainFrame();
             if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame); localMainFrame && localMainFrame->document()) {
-                localMainFrame->protectedDocument()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTF::move(completionHandler));
+                protect(localMainFrame->document())->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTF::move(completionHandler));
                 return;
             }
         }
@@ -3024,6 +3024,8 @@ static void handleNBAQuirks(QuirksData& quirksData, const URL& /* quirksURL */, 
 {
 #if PLATFORM(IOS)
     QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("nba.com"_s);
+
+    quirksData.isNBA = true;
 
     quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::ShouldEnterNativeFullscreenWhenCallingElementRequestFullscreen, PAL::currentUserInterfaceIdiomIsSmallScreen());
 #else

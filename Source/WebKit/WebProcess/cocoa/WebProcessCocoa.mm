@@ -144,7 +144,7 @@
 #if PLATFORM(IOS_FAMILY)
 #import "AccessibilityUtilitiesSPI.h"
 #import "UIKitSPI.h"
-#import <bmalloc/MemoryStatusSPI.h>
+#import <wtf/spi/darwin/MemoryStatusSPI.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -373,6 +373,15 @@ static void setVideoDecoderBehaviors(OptionSet<VideoDecoderBehavior> videoDecode
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
+#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
+    // Set JSC options early, before any VM creation
+    if (parameters.shouldEnableWebAssemblyDebugger) [[unlikely]] {
+        JSC::Options::AllowUnfinalizedAccessScope scope;
+        JSC::Options::enableWasmDebugger() = true;
+        JSC::Options::notifyOptionsChanged();
+    }
+#endif
+
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
     initializeLogForwarding(parameters);
 #endif

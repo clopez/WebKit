@@ -55,6 +55,8 @@
 namespace WebKit {
 using namespace WebCore;
 
+#if !ENABLE(BACK_FORWARD_LIST_SWIFT)
+
 static const unsigned DefaultCapacity = 100;
 
 WebBackForwardList::WebBackForwardList(WebPageProxy& page)
@@ -704,13 +706,24 @@ void WebBackForwardList::backForwardUpdateItem(IPC::Connection& connection, Ref<
             protect(webPageProxy->backForwardCache())->removeEntry(*item);
         }
 
+        auto oldFrameID = frameItem->frameID();
         frameItem->setFrameState(WTF::move(frameState));
+        auto newFrameID = frameItem->frameID();
+
+        if (oldFrameID && newFrameID && oldFrameID != newFrameID)
+            updateAllFrameIDs(*oldFrameID, *newFrameID);
     }
+}
+
+void WebBackForwardList::updateAllFrameIDs(FrameIdentifier oldFrameID, FrameIdentifier newFrameID)
+{
+    for (auto& entry : m_entries)
+        entry->updateFrameID(oldFrameID, newFrameID);
 }
 
 void WebBackForwardList::backForwardGoToItem(BackForwardItemIdentifier itemID, CompletionHandler<void(const WebBackForwardListCounts&)>&& completionHandler)
 {
-    // On process swap, we tell the previous process to ignore the load, which causes it so restore its current back forward item to its previous
+    // On process swap, we tell the previous process to ignore the load, which causes it to restore its current back forward item to its previous
     // value. Since the load is really going on in a new provisional process, we want to ignore such requests from the committed process.
     // Any real new load in the committed process would have cleared m_provisionalPage.
     if (RefPtr webPageProxy = m_page.get()) {
@@ -741,20 +754,13 @@ void WebBackForwardList::backForwardGoToItemShared(BackForwardItemIdentifier ite
 
 void WebBackForwardList::backForwardAllItems(FrameIdentifier frameID, CompletionHandler<void(Vector<Ref<FrameState>>&&)>&& completionHandler)
 {
-    Vector<Ref<FrameState>> allItems;
+    auto frameItems = WTF::compactMap(entries(), [frameID](const auto& item) -> RefPtr<WebBackForwardListFrameItem> {
+        return protect(item->mainFrameItem())->childItemForFrameID(frameID);
+    });
 
-    for (Ref item : this->allItems()) {
-        RefPtr<FrameState> frameState;
-
-        if (RefPtr frameItem = protect(item->mainFrameItem())->childItemForFrameID(frameID))
-            frameState = frameItem->copyFrameStateWithChildren();
-        else
-            frameState = item->mainFrameState();
-
-        allItems.append(frameState.releaseNonNull());
-    }
-
-    completionHandler(WTF::move(allItems));
+    completionHandler(WTF::map(WTF::move(frameItems), [](const auto& frameItem) {
+        return frameItem->copyFrameStateWithChildren();
+    }));
 }
 
 void WebBackForwardList::backForwardItemAtIndex(int32_t index, FrameIdentifier frameID, CompletionHandler<void(RefPtr<FrameState>&&)>&& completionHandler)
@@ -788,5 +794,83 @@ String WebBackForwardList::loggingString()
 
     return builder.toString();
 }
+
+#else // ENABLE(BACK_FORWARD_LIST_SWIFT)
+
+WebBackForwardListWrapper::WebBackForwardListWrapper(WebPageProxy& webPageProxy)
+    : m_impl(WTF::makeUniqueWithoutFastMallocCheck<WebBackForwardList>(WebBackForwardList::init(webPageProxy)))
+{
+}
+
+WebBackForwardListWrapper::~WebBackForwardListWrapper()
+{
+}
+
+WebBackForwardListItem* WebBackForwardListWrapper::currentItem() const
+{
+    return m_impl->currentItem();
+}
+
+WebBackForwardListItem* WebBackForwardListWrapper::backItem() const
+{
+    return m_impl->backItem();
+}
+
+WebBackForwardListItem* WebBackForwardListWrapper::forwardItem() const
+{
+    return m_impl->forwardItem();
+}
+
+WebBackForwardListItem* WebBackForwardListWrapper::itemAtIndex(int index) const
+{
+    return m_impl->itemAtIndex(index);
+}
+
+unsigned WebBackForwardListWrapper::backListCount() const
+{
+    return m_impl->backListCount();
+}
+
+unsigned WebBackForwardListWrapper::forwardListCount() const
+{
+    return m_impl->forwardListCount();
+}
+
+Ref<API::Array> WebBackForwardListWrapper::backList() const
+{
+    return backListAsAPIArrayWithLimit(backListCount());
+}
+
+Ref<API::Array> WebBackForwardListWrapper::forwardList() const
+{
+    return forwardListAsAPIArrayWithLimit(forwardListCount());
+}
+
+Ref<API::Array> WebBackForwardListWrapper::backListAsAPIArrayWithLimit(unsigned limit) const
+{
+    return m_impl->backListAsAPIArrayWithLimit(limit);
+}
+
+Ref<API::Array> WebBackForwardListWrapper::forwardListAsAPIArrayWithLimit(unsigned limit) const
+{
+    return m_impl->forwardListAsAPIArrayWithLimit(limit);
+}
+
+void WebBackForwardListWrapper::removeAllItems()
+{
+    m_impl->removeAllItems();
+}
+
+void WebBackForwardListWrapper::clear()
+{
+    m_impl->clear();
+}
+
+String WebBackForwardListWrapper::loggingString()
+{
+    return String::fromUTF8WithLatin1Fallback(std::string(m_impl->loggingString()));
+}
+
+#endif // ENABLE(BACK_FORWARD_LIST_SWIFT)
 
 } // namespace WebKit

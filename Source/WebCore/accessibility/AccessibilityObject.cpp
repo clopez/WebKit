@@ -95,7 +95,6 @@
 #include "RenderLayerInlines.h"
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
-#include "RenderMenuList.h"
 #include "RenderObjectInlines.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
@@ -4025,8 +4024,8 @@ bool AccessibilityObject::isWithinHiddenWebArea() const
 
 #if ENABLE_ACCESSIBILITY_LOCAL_FRAME
     if (RefPtr parentScrollView = dynamicDowncast<AccessibilityScrollView>(webArea->parentObject())) {
-        if (parentScrollView->isHostingFrameInert()) {
-            // The frame that hosts this web area is inert, so this entire frame should be inert as well.
+        if (parentScrollView->isHostingFrameInert() || parentScrollView->isHostingFrameRenderHidden()) {
+            // The frame that hosts this web area is inert or render-hidden, so this entire frame should be hidden as well.
             return true;
         }
     }

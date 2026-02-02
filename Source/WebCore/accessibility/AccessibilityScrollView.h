@@ -37,25 +37,6 @@ class AccessibilityScrollbar;
 class Scrollbar;
 class ScrollView;
 
-#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
-// Visibility/hidden state from the hosting frame element.
-struct InheritedFrameState {
-    InheritedFrameState()
-        : isAXHidden(false)
-        , isInert(false)
-    { }
-
-    InheritedFrameState(bool isAXHidden, bool isInert)
-        : isAXHidden(isAXHidden)
-        , isInert(isInert)
-    { }
-
-    bool isAXHidden;
-    bool isInert;
-    // FIXME: include visibility state.
-};
-#endif
-
 class AccessibilityScrollView final : public AccessibilityObject {
 public:
     static Ref<AccessibilityScrollView> create(AXID, ScrollView&, AXObjectCache&);
@@ -76,7 +57,7 @@ public:
     AccessibilityObject* crossFrameParentObject() const final;
     AccessibilityObject* crossFrameChildObject() const final;
 
-    void setInheritedFrameState(InheritedFrameState state) { m_inheritedFrameState = state; }
+    void setInheritedFrameState(InheritedFrameState);
     const InheritedFrameState& inheritedFrameState() const { return m_inheritedFrameState; }
     bool isAXHidden() const final;
     bool isARIAHidden() const final;
@@ -86,8 +67,8 @@ public:
     // We can't use isIgnored() because FrameHost scroll views are always ignored (see computeIsIgnored).
     bool isHostingFrameHidden() const { return isAXHidden(); }
     bool isHostingFrameInert() const;
-    bool isIgnoredFromHostingFrame() const { return isHostingFrameHidden() || isHostingFrameInert(); }
-    // FIXME: This should also consider visibility state for full site isolation support.
+    bool isHostingFrameRenderHidden() const;
+    bool isIgnoredFromHostingFrame() const { return isHostingFrameHidden() || isHostingFrameInert() || isHostingFrameRenderHidden(); }
 #endif // ENABLE(ACCESSIBLITY_LOCAL_FRAME)
 
 private:

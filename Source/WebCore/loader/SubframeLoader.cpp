@@ -75,7 +75,7 @@ using namespace HTMLNames;
 static bool canLoadJavaScriptURL(HTMLFrameOwnerElement& ownerElement, const URL& url)
 {
     ASSERT(url.protocolIsJavaScript());
-    if (!ownerElement.protectedDocument()->checkedContentSecurityPolicy()->allowJavaScriptURLs(aboutBlankURL().string(), { }, url.string(), &ownerElement))
+    if (!protect(ownerElement.document())->checkedContentSecurityPolicy()->allowJavaScriptURLs(aboutBlankURL().string(), { }, url.string(), &ownerElement))
         return false;
     if (!ownerElement.canLoadScriptURL(url))
         return false;
@@ -85,11 +85,6 @@ static bool canLoadJavaScriptURL(HTMLFrameOwnerElement& ownerElement, const URL&
 FrameLoader::SubframeLoader::SubframeLoader(LocalFrame& frame)
     : m_frame(frame)
 {
-}
-
-Ref<LocalFrame> FrameLoader::SubframeLoader::protectedFrame() const
-{
-    return m_frame;
 }
 
 void FrameLoader::SubframeLoader::clear()
@@ -115,7 +110,7 @@ void FrameLoader::SubframeLoader::createFrameIfNecessary(HTMLFrameOwnerElement& 
         return;
     if (!canCreateSubFrame())
         return;
-    protectedFrame()->loader().client().createFrame(frameName, ownerElement);
+    protect(m_frame)->loader().client().createFrame(frameName, ownerElement);
     if (!ownerElement.contentFrame())
         return;
 
@@ -157,16 +152,16 @@ bool FrameLoader::SubframeLoader::pluginIsLoadable(const URL& url, const HTMLPlu
 
         Ref securityOrigin = document->securityOrigin();
         if (!securityOrigin->canDisplay(url, OriginAccessPatternsForWebProcess::singleton())) {
-            FrameLoader::reportLocalLoadFailed(protectedFrame().ptr(), url.string());
+            FrameLoader::reportLocalLoadFailed(protect(m_frame).ptr(), url.string());
             return false;
         }
 
         if (!portAllowed(url) || isIPAddressDisallowed(url)) {
-            FrameLoader::reportBlockedLoadFailed(protectedFrame(), url);
+            FrameLoader::reportBlockedLoadFailed(protect(m_frame), url);
             return false;
         }
 
-        if (MixedContentChecker::shouldBlockRequest(protectedFrame(), url))
+        if (MixedContentChecker::shouldBlockRequest(protect(m_frame), url))
             return false;
     }
 
@@ -357,7 +352,7 @@ RefPtr<LocalFrame> FrameLoader::SubframeLoader::loadSubframe(HTMLFrameOwnerEleme
     if ((url.isAboutBlank() || url.isAboutSrcDoc()) && userContentProvider) {
         userContentProvider->userContentExtensionBackend().forEach([&] (const String& identifier, ContentExtensions::ContentExtension& extension) {
             if (RefPtr styleSheetContents = extension.globalDisplayNoneStyleSheet())
-                subFrame->protectedDocument()->extensionStyleSheets().maybeAddContentExtensionSheet(identifier, *styleSheetContents);
+                protect(subFrame->document())->extensionStyleSheets().maybeAddContentExtensionSheet(identifier, *styleSheetContents);
         });
     }
 #endif
@@ -455,7 +450,7 @@ bool FrameLoader::SubframeLoader::loadPlugin(HTMLPlugInElement& pluginElement, c
 URL FrameLoader::SubframeLoader::completeURL(const String& url) const
 {
     ASSERT(m_frame->document());
-    return m_frame->protectedDocument()->completeURL(url);
+    return protect(m_frame->document())->completeURL(url);
 }
 
 bool FrameLoader::SubframeLoader::shouldConvertInvalidURLsToBlank() const

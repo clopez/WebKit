@@ -714,10 +714,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if ENABLE(WRITING_TOOLS)
     , m_textAnimationController(makeUniqueRef<TextAnimationController>(*this))
 #endif
-    , m_statusBarIsVisible(parameters.statusBarIsVisible)
-    , m_menuBarIsVisible(parameters.menuBarIsVisible)
-    , m_toolbarsAreVisible(parameters.toolbarsAreVisible)
     , m_backgroundTextExtractionEnabled(parameters.backgroundTextExtractionEnabled)
+    , m_isPopup(parameters.isPopup)
 {
     WEBPAGE_RELEASE_LOG(Loading, "constructor:");
 
@@ -1219,7 +1217,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     if (parameters.allowPostingLegacySynchronousMessages)
         InjectedBundleScriptWorld::normalWorldSingleton().setAllowPostingLegacySynchronousMessages();
 
+#if PLATFORM(IOS_FAMILY)
     RELEASE_ASSERT_IMPLIES(m_backgroundTextExtractionEnabled, isParentProcessAWebBrowser());
+#endif
 }
 
 void WebPage::updateAfterDrawingAreaCreation(const WebPageCreationParameters& parameters)
@@ -1760,7 +1760,31 @@ void WebPage::resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier, co
 void WebPage::updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint)
 {
 }
+
 #endif
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+void WebPage::updateRemotePageAccessibilityInheritedState(WebCore::FrameIdentifier frameID, const WebCore::InheritedFrameState& state)
+{
+    RefPtr frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame)
+        return;
+
+    RefPtr coreFrame = frame->coreLocalFrame();
+    if (!coreFrame)
+        return;
+
+    RefPtr document = coreFrame->document();
+    if (!document)
+        return;
+
+    WeakPtr cache = document->axObjectCache();
+    if (!cache)
+        return;
+
+    cache->setFrameInheritedState(*coreFrame, state);
+}
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
 
 void WebPage::updateEditorStateAfterLayoutIfEditabilityChanged()
 {
@@ -3359,7 +3383,7 @@ void WebPage::pageStoppedScrolling()
 {
     // Maintain the current history item's scroll position up-to-date.
     if (RefPtr frame = m_mainFrame->coreLocalFrame())
-        frame->loader().history().saveScrollPositionAndViewStateToItem(frame->loader().history().protectedCurrentItem().get());
+        frame->loader().history().saveScrollPositionAndViewStateToItem(protect(frame->loader().history().currentItem()).get());
 }
 
 void WebPage::setHasActiveAnimatedScrolls(bool hasActiveAnimatedScrolls)
@@ -4543,7 +4567,7 @@ void WebPage::runJavaScript(WebFrame* frame, RunJavaScriptParameters&& parameter
     };
 
     JSLockHolder lock(commonVM());
-    protect(frame->coreLocalFrame())->checkedScript()->executeAsynchronousUserAgentScriptInWorld(world->protectedCoreWorld(), WTF::move(coreParameters), WTF::move(resolveFunction));
+    protect(frame->coreLocalFrame())->checkedScript()->executeAsynchronousUserAgentScriptInWorld(protect(world->coreWorld()), WTF::move(coreParameters), WTF::move(resolveFunction));
 }
 
 void WebPage::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& parameters, std::optional<WebCore::FrameIdentifier> frameID, const ContentWorldData& worldData, bool wantsResult, CompletionHandler<void(Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>)>&& completionHandler)
@@ -5626,7 +5650,7 @@ void WebPage::unapplyEditCommand(uint32_t undoVersion, WebUndoStepID stepID, Com
     if (!step)
         return completionHandler();
 
-    step->protectedStep()->unapply();
+    protect(step->step())->unapply();
     completionHandler();
 }
 
@@ -5642,7 +5666,7 @@ void WebPage::reapplyEditCommand(uint32_t undoVersion, WebUndoStepID stepID, Com
         return completionHandler();
 
     setIsInRedo(true);
-    step->protectedStep()->reapply();
+    protect(step->step())->reapply();
     setIsInRedo(false);
     completionHandler();
 }
@@ -5838,6 +5862,7 @@ void WebPage::replaceMatches(const Vector<uint32_t>& matchIndices, const String&
     completionHandler(numberOfReplacements);
 }
 
+#if !PLATFORM(IOS_FAMILY)
 void WebPage::didChangeSelectedIndexForActivePopupMenu(int32_t newIndex)
 {
     changeSelectedIndex(newIndex);
@@ -5849,6 +5874,7 @@ void WebPage::changeSelectedIndex(int32_t index)
     if (RefPtr menu = m_activePopupMenu)
         menu->didChangeSelectedIndex(index);
 }
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>& files, const String& displayString, std::span<const uint8_t> iconData)
@@ -6051,11 +6077,13 @@ void WebPage::capitalizeWord(FrameIdentifier frameID)
 }
 #endif
 
+#if !PLATFORM(COCOA)
 void WebPage::setTextForActivePopupMenu(int32_t index)
 {
     if (RefPtr menu = m_activePopupMenu)
         menu->setTextForIndex(index);
 }
+#endif
 
 #if PLATFORM(GTK)
 void WebPage::failedToShowPopupMenu()
@@ -7760,7 +7788,7 @@ void WebPage::didSameDocumentNavigationForFrame(WebFrame& frame)
 {
     RefPtr<API::Object> userData;
 
-    auto navigationID = frame.coreLocalFrame()->loader().protectedDocumentLoader()->navigationID();
+    auto navigationID = protect(frame.coreLocalFrame()->loader().documentLoader())->navigationID();
 
     if (frame.isMainFrame())
         m_pendingNavigationID = std::nullopt;
@@ -8584,7 +8612,7 @@ void WebPage::insertAttachment(const String& identifier, std::optional<uint64_t>
 void WebPage::updateAttachmentAttributes(const String& identifier, std::optional<uint64_t>&& fileSize, const String& contentType, const String& fileName, const IPC::SharedBufferReference& associatedElementData, CompletionHandler<void()>&& callback)
 {
     if (RefPtr attachment = attachmentElementWithIdentifier(identifier)) {
-        attachment->protectedDocument()->updateLayout();
+        protect(attachment->document())->updateLayout();
         attachment->updateAttributes(WTF::move(fileSize), AtomString { contentType }, AtomString { fileName });
         attachment->updateAssociatedElementWithData(contentType, associatedElementData.isNull() ? WebCore::SharedBuffer::create() : associatedElementData.unsafeBuffer().releaseNonNull());
     }
@@ -9016,64 +9044,79 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
         return;
     }
 
-    auto bitmap = createShareableBitmap(*renderImage, {
-        std::nullopt,
-        AllowAnimatedImages::No,
-        options.allowSnapshots == TextRecognitionOptions::AllowSnapshots::Yes ? UseSnapshotForTransparentImages::Yes : UseSnapshotForTransparentImages::No
-    });
-    if (!bitmap) {
-        if (completion)
-            completion({ });
-        return;
-    }
-
-    auto bitmapHandle = bitmap->createHandle();
-    if (!bitmapHandle) {
-        if (completion)
-            completion({ });
-        return;
-    }
-
     Vector<CompletionHandler<void(RefPtr<Element>&&)>> completionHandlers;
     if (completion)
         completionHandlers.append(WTF::move(completion));
     m_elementsPendingTextRecognition.append({ WeakPtr { element }, WTF::move(completionHandlers) });
 
-    auto cachedImage = renderImage->cachedImage();
-    auto imageURL = cachedImage ? element.protectedDocument()->completeURL(cachedImage->url().string()) : URL { };
-    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTF::move(imageURL), WTF::move(*bitmapHandle), options.sourceLanguageIdentifier, options.targetLanguageIdentifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
+    auto bitmap = createShareableBitmapAsync(*renderImage, {
+        std::nullopt,
+        AllowAnimatedImages::No,
+        options.allowSnapshots == TextRecognitionOptions::AllowSnapshots::Yes ? UseSnapshotForTransparentImages::Yes : UseSnapshotForTransparentImages::No
+    })->whenSettled(RunLoop::mainSingleton(), [webPage = WeakPtr { *this }, weakElement = WeakPtr { *htmlElement }, options = WTF::move(options)](auto&& result) mutable {
         RefPtr protectedPage { webPage.get() };
         if (!protectedPage)
             return;
 
-        protectedPage->m_elementsPendingTextRecognition.removeAllMatching([&] (auto& elementAndCompletionHandlers) {
-            auto& [element, completionHandlers] = elementAndCompletionHandlers;
-            if (element)
-                return false;
+        auto resolveAndRemoveHandlerFollowingError = [&](WeakPtr<WebCore::HTMLElement, WebCore::WeakPtrImplWithEventTargetData>& originalElement) {
+            protectedPage->m_elementsPendingTextRecognition.removeAllMatching([&] (auto& elementAndCompletionHandlers) {
+                auto& [element, completionHandlers] = elementAndCompletionHandlers;
+                if (element.get() && originalElement != element)
+                    return false;
 
-            for (auto& completionHandler : completionHandlers)
-                completionHandler({ });
-            return true;
-        });
+                for (auto& completionHandler : completionHandlers) {
+                    if (completionHandler)
+                        completionHandler({ });
+                }
+                return true;
+            });
+        };
 
-        RefPtr htmlElement = downcast<HTMLElement>(weakElement.get());
-        if (!htmlElement)
+        if (!result || !weakElement) {
+            resolveAndRemoveHandlerFollowingError(weakElement);
             return;
+        }
 
-        ImageOverlay::updateWithTextRecognitionResult(*htmlElement, result);
-
-        auto matchIndex = protectedPage->m_elementsPendingTextRecognition.findIf([&] (auto& elementAndCompletionHandlers) {
-            return elementAndCompletionHandlers.first == htmlElement.get();
-        });
-
-        if (matchIndex == notFound)
+        auto bitmapHandle = (*result)->createHandle();
+        if (!bitmapHandle) {
+            resolveAndRemoveHandlerFollowingError(weakElement);
             return;
+        }
 
-        RefPtr imageOverlayHost = ImageOverlay::hasOverlay(*htmlElement) ? htmlElement.get() : nullptr;
-        for (auto& completionHandler : protectedPage->m_elementsPendingTextRecognition[matchIndex].second)
-            completionHandler(imageOverlayHost.copyRef());
+        CheckedPtr renderImage = dynamicDowncast<RenderImage>(weakElement->renderer());
+        if (!renderImage) {
+            resolveAndRemoveHandlerFollowingError(weakElement);
+            return;
+        }
 
-        protectedPage->m_elementsPendingTextRecognition.removeAt(matchIndex);
+        auto cachedImage = renderImage->cachedImage();
+        auto imageURL = cachedImage ? protect(weakElement->document())->completeURL(cachedImage->url().string()) : URL { };
+        protectedPage->sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTF::move(imageURL), WTF::move(*bitmapHandle), options.sourceLanguageIdentifier, options.targetLanguageIdentifier), [webPage, weakElement, resolveAndRemoveHandlerFollowingError = WTF::move(resolveAndRemoveHandlerFollowingError)] (auto&& result) mutable {
+            RefPtr protectedPage { webPage.get() };
+            if (!protectedPage)
+                return;
+
+            RefPtr htmlElement = weakElement.get();
+            if (!htmlElement) {
+                resolveAndRemoveHandlerFollowingError(weakElement);
+                return;
+            }
+
+            ImageOverlay::updateWithTextRecognitionResult(*htmlElement, result);
+
+            auto matchIndex = protectedPage->m_elementsPendingTextRecognition.findIf([&] (auto& elementAndCompletionHandlers) {
+                return elementAndCompletionHandlers.first == htmlElement.get();
+            });
+
+            if (matchIndex == notFound)
+                return;
+
+            RefPtr imageOverlayHost = ImageOverlay::hasOverlay(*htmlElement) ? htmlElement.get() : nullptr;
+            for (auto& completionHandler : protectedPage->m_elementsPendingTextRecognition[matchIndex].second)
+                completionHandler(imageOverlayHost.copyRef());
+
+            protectedPage->m_elementsPendingTextRecognition.removeAt(matchIndex);
+        });
     });
 }
 
@@ -9409,15 +9452,22 @@ void WebPage::beginTextRecognitionForVideoInElementFullScreen(const HTMLVideoEle
     if (rectInRootView.isEmpty())
         return;
 
-    RefPtr image = element.bitmapImageForCurrentTime();
-    if (!image)
-        return;
-    if (auto handle = image->createHandle())
-        send(Messages::WebPageProxy::BeginTextRecognitionForVideoInElementFullScreen(WTF::move(*handle), rectInRootView));
+    m_isPerformingTextRecognitionInElementFullScreen = true;
+    element.bitmapImageForCurrentTime()->whenSettled(RunLoop::mainSingleton(), [weakThis = WeakPtr { *this }, rectInRootView](auto&& result) {
+        if (!result)
+            return;
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !protectedThis->m_isPerformingTextRecognitionInElementFullScreen)
+            return;
+        if (auto handle = (*result)->createHandle())
+            protectedThis->send(Messages::WebPageProxy::BeginTextRecognitionForVideoInElementFullScreen(WTF::move(*handle), rectInRootView));
+        protectedThis->m_isPerformingTextRecognitionInElementFullScreen = false;
+    });
 }
 
 void WebPage::cancelTextRecognitionForVideoInElementFullScreen()
 {
+    m_isPerformingTextRecognitionInElementFullScreen = false;
     send(Messages::WebPageProxy::CancelTextRecognitionForVideoInElementFullScreen());
 }
 #endif // ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
@@ -10360,6 +10410,15 @@ void WebPage::hideCaptionDisplaySettingsPreview(HTMLMediaElementIdentifier ident
 #endif
 }
 #endif
+
+void WebPage::updateRemoteIntersectionObservers()
+{
+    if (RefPtr page = m_page) {
+        page->forEachDocument([] (Document& document) {
+            document.updateRemoteIntersectionObservers();
+        });
+    }
+}
 
 } // namespace WebKit
 

@@ -1,20 +1,9 @@
 set(WebCore_PRIVATE_FRAMEWORK_HEADERS
-    Modules/Model/Implementation/DDMeshImpl.h
+    Modules/Model/Implementation/MeshImpl.h
 
-    Modules/Model/InternalAPI/DDFloat3.h
-    Modules/Model/InternalAPI/DDFloat4x4.h
-    Modules/Model/InternalAPI/DDImageAsset.h
-    Modules/Model/InternalAPI/DDMaterialDescriptor.h
-    Modules/Model/InternalAPI/DDMesh.h
-    Modules/Model/InternalAPI/DDMeshDescriptor.h
-    Modules/Model/InternalAPI/DDMeshPart.h
-    Modules/Model/InternalAPI/DDModel.serialization.in
-    Modules/Model/InternalAPI/DDUpdateMaterialDescriptor.h
-    Modules/Model/InternalAPI/DDUpdateMeshDescriptor.h
-    Modules/Model/InternalAPI/DDUpdateTextureDescriptor.h
-    Modules/Model/InternalAPI/DDVertexAttributeFormat.h
-    Modules/Model/InternalAPI/DDVertexLayout.h
-    Modules/Model/InternalAPI/ModelObjectDescriptorBase.h
+    Modules/Model/InternalAPI/Mesh.h
+    Modules/Model/InternalAPI/WebModel.h
+    Modules/Model/InternalAPI/WebModel.serialization.in
 
     Modules/ShapeDetection/Interfaces/BarcodeDetectorInterface.h
     Modules/ShapeDetection/Interfaces/BarcodeDetectorOptionsInterface.h
@@ -634,7 +623,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/UserMediaRequest.h
     Modules/mediastream/libwebrtc/LibWebRTCUtils.h
 
-    Modules/model-element/DDModelPlayer.h
+    Modules/model-element/WebModelPlayer.h
     Modules/model-element/HTMLModelElement.h
     Modules/model-element/HTMLModelElementCamera.h
     Modules/model-element/ModelPlayer.h
@@ -1306,7 +1295,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ActiveDOMCallback.h
     dom/ActiveDOMObject.h
     dom/AddEventListenerOptions.h
-    dom/AddEventListenerOptionsInlines.h
     dom/AsyncNodeDeletionQueue.h
     dom/AsyncNodeDeletionQueueInlines.h
     dom/Attr.h
@@ -1841,6 +1829,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/flex/FlexRect.h
     layout/formattingContexts/flex/LogicalFlexItem.h
 
+    layout/formattingContexts/grid/FreeSpaceScenario.h
     layout/formattingContexts/grid/GridAreaLines.h
     layout/formattingContexts/grid/GridFormattingContext.h
     layout/formattingContexts/grid/GridItemRect.h
@@ -2327,9 +2316,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/LowPowerModeNotifier.h
     platform/MIMETypeRegistry.h
     platform/MainThreadSharedTimer.h
-    platform/MediaCapabilitiesDecodingInfo.h
-    platform/MediaCapabilitiesEncodingInfo.h
-    platform/MediaCapabilitiesInfo.h
     platform/MediaDescription.h
     platform/MediaPromiseTypes.h
     platform/MediaSample.h
@@ -2901,17 +2887,20 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/libwebrtc/LibWebRTCVPXVideoDecoder.h
     platform/libwebrtc/LibWebRTCVPXVideoEncoder.h
 
-    platform/mediacapabilities/AudioConfiguration.h
-    platform/mediacapabilities/ColorGamut.h
-    platform/mediacapabilities/HdrMetadataType.h
-    platform/mediacapabilities/MediaConfiguration.h
-    platform/mediacapabilities/MediaDecodingConfiguration.h
-    platform/mediacapabilities/MediaDecodingType.h
-    platform/mediacapabilities/MediaEncodingConfiguration.h
-    platform/mediacapabilities/MediaEncodingType.h
-    platform/mediacapabilities/MediaEngineConfigurationFactory.h
-    platform/mediacapabilities/TransferFunction.h
-    platform/mediacapabilities/VideoConfiguration.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesAudioConfiguration.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesColorGamut.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesDecodingInfo.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesEncodingInfo.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesHdrMetadataType.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesInfo.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesTransferFunction.h
+    platform/mediacapabilities/PlatformMediaCapabilitiesVideoConfiguration.h
+    platform/mediacapabilities/PlatformMediaConfiguration.h
+    platform/mediacapabilities/PlatformMediaDecodingConfiguration.h
+    platform/mediacapabilities/PlatformMediaDecodingType.h
+    platform/mediacapabilities/PlatformMediaEncodingConfiguration.h
+    platform/mediacapabilities/PlatformMediaEncodingType.h
+    platform/mediacapabilities/PlatformMediaEngineConfigurationFactory.h
 
     platform/mediarecorder/MediaRecorderPrivate.h
     platform/mediarecorder/MediaRecorderPrivateAVFImpl.h

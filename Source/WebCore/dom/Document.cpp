@@ -997,10 +997,10 @@ void Document::commonTeardown()
     m_documentFragmentForInnerOuterHTML = nullptr;
     m_frameMemoryMonitor = nullptr;
 
-    auto intersectionObservers = m_intersectionObservers;
-    for (auto& weakIntersectionObserver : intersectionObservers) {
-        if (RefPtr intersectionObserver = weakIntersectionObserver.get())
-            intersectionObserver->disconnect();
+    auto localIntersectionObservers = m_localIntersectionObservers;
+    for (auto& weakLocalIntersectionObserver : localIntersectionObservers) {
+        if (RefPtr localIntersectionObserver = weakLocalIntersectionObserver.get())
+            localIntersectionObserver->disconnect();
     }
 
     auto resizeObservers = m_resizeObservers;
@@ -2536,7 +2536,7 @@ void Document::setTitle(String&& title)
         if (!m_titleElement) {
             Ref titleElement = SVGTitleElement::create(SVGNames::titleTag, *this);
             m_titleElement = titleElement.copyRef();
-            svgElement->insertBefore(titleElement, svgElement->protectedFirstChild());
+            svgElement->insertBefore(titleElement, protect(svgElement->firstChild()));
         }
         // insertBefore above may have ran scripts which removed m_titleElement.
         if (RefPtr titleElement = m_titleElement)
@@ -2751,11 +2751,6 @@ WakeLockManager& Document::wakeLockManager()
     if (!m_wakeLockManager)
         lazyInitialize(m_wakeLockManager, makeUniqueWithoutRefCountedCheck<WakeLockManager>(*this));
     return *m_wakeLockManager;
-}
-
-Ref<WakeLockManager> Document::protectedWakeLockManager()
-{
-    return wakeLockManager();
 }
 
 FormController& Document::formController()
@@ -3119,7 +3114,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
         if (!layoutOptions.contains(LayoutOptions::DoNotLayoutAncestorDocuments)) {
-            if (ownerElement() && ownerElement()->protectedDocument()->updateLayout(layoutOptions, context) == UpdateLayoutResult::ChangesDone)
+            if (ownerElement() && protect(ownerElement()->document())->updateLayout(layoutOptions, context) == UpdateLayoutResult::ChangesDone)
                 result = UpdateLayoutResult::ChangesDone;
         }
 
@@ -3138,37 +3133,37 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
                 if (context && (!context->renderer() || !context->renderer()->style().isSkippedRootOrSkippedContent()))
                     return false;
 
-                CheckedPtr rootForLayout = rootForSkippedLayout(context ? *context->renderer() : *renderView());
-                if (!rootForLayout) {
+                if (CheckedPtr rootForLayout = rootForSkippedLayout(context ? *context->renderer() : *renderView())) {
+
+                    auto markRendererDirtyIfNeeded = [&](auto& renderer) {
+                        auto everhadLayoutAndWasSkippedDuringLast = renderer.wasSkippedDuringLastLayoutDueToContentVisibility();
+                        // Never had layout or was skipped at the last one (or marked dirty since the last layout, but not self needs layout which is required to "refresh" stale content).
+                        if (!everhadLayoutAndWasSkippedDuringLast || *everhadLayoutAndWasSkippedDuringLast || (renderer.needsLayout() && !renderer.selfNeedsLayout()))
+                            renderer.setNeedsLayout();
+                        return renderer.needsLayout();
+                    };
+
+                    auto isSkippedContentStale = markRendererDirtyIfNeeded(*rootForLayout);
+                    if (layoutOptions.contains(LayoutOptions::TreatContentVisibilityHiddenAsVisible)) {
+                        for (CheckedRef descendant : descendantsOfType<RenderObject>(*rootForLayout))
+                            isSkippedContentStale |= markRendererDirtyIfNeeded(descendant.get());
+                    } else if (layoutOptions.contains(LayoutOptions::TreatContentVisibilityAutoAsVisible) || layoutOptions.contains(LayoutOptions::TreatRevealedWhenFoundAsVisible)) {
+                        for (CheckedRef descendant : descendantsOfType<RenderObject>(*rootForLayout)) {
+                            // FIXME: While 'c-v: auto' is used 'hidden' inside 'c-v: hidden' we could entirly skip hidden subtrees here.
+                            auto shouldLayoutSkippedContent = (layoutOptions.contains(LayoutOptions::TreatContentVisibilityAutoAsVisible) && descendant->style().usedContentVisibility() == ContentVisibility::Auto)
+                                || (layoutOptions.contains(LayoutOptions::TreatRevealedWhenFoundAsVisible) && descendant->style().autoRevealsWhenFound());
+
+                            if (shouldLayoutSkippedContent)
+                                isSkippedContentStale |= markRendererDirtyIfNeeded(descendant.get());
+                        }
+                    }
+
+                    if (!isSkippedContentStale)
+                        return false;
+                } else {
                     ASSERT_NOT_REACHED();
                     return false;
                 }
-
-                auto markRendererDirtyIfNeeded = [&](auto& renderer) {
-                    auto everhadLayoutAndWasSkippedDuringLast = renderer.wasSkippedDuringLastLayoutDueToContentVisibility();
-                    // Never had layout or was skipped at the last one (or marked dirty since the last layout, but not self needs layout which is required to "refresh" stale content).
-                    if (!everhadLayoutAndWasSkippedDuringLast || *everhadLayoutAndWasSkippedDuringLast || (renderer.needsLayout() && !renderer.selfNeedsLayout()))
-                        renderer.setNeedsLayout();
-                    return renderer.needsLayout();
-                };
-
-                auto isSkippedContentStale = markRendererDirtyIfNeeded(*rootForLayout);
-                if (layoutOptions.contains(LayoutOptions::TreatContentVisibilityHiddenAsVisible)) {
-                    for (CheckedRef descendant : descendantsOfType<RenderObject>(*rootForLayout))
-                        isSkippedContentStale |= markRendererDirtyIfNeeded(descendant.get());
-                } else if (layoutOptions.contains(LayoutOptions::TreatContentVisibilityAutoAsVisible) || layoutOptions.contains(LayoutOptions::TreatRevealedWhenFoundAsVisible)) {
-                    for (CheckedRef descendant : descendantsOfType<RenderObject>(*rootForLayout)) {
-                        // FIXME: While 'c-v: auto' is used 'hidden' inside 'c-v: hidden' we could entirly skip hidden subtrees here.
-                        auto shouldLayoutSkippedContent = (layoutOptions.contains(LayoutOptions::TreatContentVisibilityAutoAsVisible) && descendant->style().usedContentVisibility() == ContentVisibility::Auto)
-                            || (layoutOptions.contains(LayoutOptions::TreatRevealedWhenFoundAsVisible) && descendant->style().autoRevealsWhenFound());
-
-                        if (shouldLayoutSkippedContent)
-                            isSkippedContentStale |= markRendererDirtyIfNeeded(descendant.get());
-                    }
-                }
-
-                if (!isSkippedContentStale)
-                    return false;
 
                 auto overrideTypes = [&] {
                     auto types = OptionSet<ContentVisibilityOverrideScope::OverrideType> { };
@@ -3204,7 +3199,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
 
     if (layoutOptions.contains(LayoutOptions::IgnorePendingStylesheets)) {
         if (RefPtr frameView = view())
-            frameView->updateScrollAnchoringPositionForScrollableAreas();
+            frameView->adjustScrollAnchoringPositionForScrollableAreas();
     }
 
     m_ignorePendingStylesheets = oldIgnore;
@@ -3270,7 +3265,7 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
     // Mimic the structure of updateLayout(), but at each step, see if we have been forced into doing a full layout.
     if (RefPtr owner = ownerElement()) {
-        if (owner->protectedDocument()->updateLayoutIfDimensionsOutOfDate(*owner)) {
+        if (protect(owner->document())->updateLayoutIfDimensionsOutOfDate(*owner)) {
             updateLayout(layoutOptions, &element);
             return true;
         }
@@ -4172,7 +4167,7 @@ bool Document::isFullyActive() const
     RefPtr parentFrame = dynamicDowncast<LocalFrame>(frame->tree().parent());
     if (!parentFrame)
         return true;
-    return parentFrame->document() && parentFrame->protectedDocument()->isFullyActive();
+    return parentFrame->document() && protect(parentFrame->document())->isFullyActive();
 }
 
 void Document::detachParser()
@@ -4266,8 +4261,8 @@ ExceptionOr<void> Document::setBodyOrFrameset(RefPtr<HTMLElement>&& newBody)
         return Exception { ExceptionCode::HierarchyRequestError };
 
     if (currentBody)
-        return protectedDocumentElement()->replaceChild(*newBody, *currentBody);
-    return protectedDocumentElement()->appendChild(*newBody);
+        return protect(documentElement())->replaceChild(*newBody, *currentBody);
+    return protect(documentElement())->appendChild(*newBody);
 }
 
 Location* Document::location() const
@@ -6009,7 +6004,7 @@ void Document::runScrollSteps()
             protectedPage()->scheduleRenderingUpdate({ RenderingUpdateStep::Scroll });
 
         frameView->updateScrollAnchoringElementsForScrollableAreas();
-        frameView->updateScrollAnchoringPositionForScrollableAreas();
+        frameView->adjustScrollAnchoringPositionForScrollableAreas();
     }
 
     // FIXME: The order of dispatching is not specified: https://github.com/WICG/visual-viewport/issues/66.
@@ -6379,7 +6374,7 @@ void Document::adjustFocusedNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemova
         // FIXME: We should avoid synchronously updating the style inside setFocusedElement.
         // FIXME: Object elements should avoid loading a frame synchronously in a post style recalc callback.
         SubframeLoadingDisabler disabler(dynamicDowncast<ContainerNode>(node));
-        setFocusedElement(nullptr, { { }, { }, FocusRemovalEventsMode::DoNotDispatch, { }, { } });
+        setFocusedElement(nullptr, { { }, { }, { }, { }, FocusRemovalEventsMode::DoNotDispatch, { }, { } });
         // Set the focus navigation starting node to the previous focused element so that
         // we can fallback to the siblings or parent node for the next search.
         // Also we need to call removeFocusNavigationNodeOfSubtree after this function because
@@ -6539,7 +6534,7 @@ void Document::invalidateEventRegionsForFrame(HTMLFrameOwnerElement& element)
             return;
     }
     if (RefPtr ownerElement = this->ownerElement())
-        ownerElement->protectedDocument()->invalidateEventRegionsForFrame(*ownerElement);
+        protect(ownerElement->document())->invalidateEventRegionsForFrame(*ownerElement);
 }
 
 void Document::invalidateEventListenerRegions()
@@ -6556,7 +6551,7 @@ void Document::invalidateEventListenerRegions()
     if (changed)
         scheduleFullStyleRebuild();
     else
-        protectedDocumentElement()->invalidateStyleInternal();
+        protect(documentElement())->invalidateStyleInternal();
 }
 
 void Document::invalidateRenderingDependentRegions()
@@ -8573,7 +8568,7 @@ void Document::initSecurityContext()
     }
 
     CheckedPtr contentSecurityPolicy = this->contentSecurityPolicy();
-    contentSecurityPolicy->copyStateFrom(ownerFrame->protectedDocument()->checkedContentSecurityPolicy().get());
+    contentSecurityPolicy->copyStateFrom(protect(ownerFrame->document())->checkedContentSecurityPolicy().get());
     contentSecurityPolicy->updateSourceSelf(ownerFrame->document()->protectedSecurityOrigin());
 
     setCrossOriginEmbedderPolicy(ownerFrame->document()->crossOriginEmbedderPolicy());
@@ -8612,7 +8607,7 @@ void Document::initContentSecurityPolicy()
         return;
     RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
     if (parentFrame)
-        checkedContentSecurityPolicy()->copyUpgradeInsecureRequestStateFrom(*parentFrame->protectedDocument()->checkedContentSecurityPolicy());
+        checkedContentSecurityPolicy()->copyUpgradeInsecureRequestStateFrom(*protect(parentFrame->document())->checkedContentSecurityPolicy());
 
     // FIXME: Remove this special plugin document logic. We are stricter than the CSP 3 spec. with regards to plugins: we prefer to
     // inherit the full policy unless the plugin document is opened in a new window. The CSP 3 spec. implies that only plugin documents
@@ -8625,9 +8620,9 @@ void Document::initContentSecurityPolicy()
         return;
     setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { m_url }, *this));
     if (openerFrame)
-        checkedContentSecurityPolicy()->createPolicyForPluginDocumentFrom(*openerFrame->protectedDocument()->checkedContentSecurityPolicy());
+        checkedContentSecurityPolicy()->createPolicyForPluginDocumentFrom(*protect(openerFrame->document())->checkedContentSecurityPolicy());
     else
-        checkedContentSecurityPolicy()->copyStateFrom(parentFrame->protectedDocument()->checkedContentSecurityPolicy().get());
+        checkedContentSecurityPolicy()->copyStateFrom(protect(parentFrame->document())->checkedContentSecurityPolicy().get());
 }
 
 void Document::inheritPolicyContainerFrom(const PolicyContainer& policyContainer)
@@ -9669,7 +9664,7 @@ void Document::updateLastHandledUserGestureTimestamp(MonotonicTime time)
     didChangeTimerAlignmentInterval();
 
     if (RefPtr element = ownerElement())
-        element->protectedDocument()->updateLastHandledUserGestureTimestamp(time);
+        protect(element->document())->updateLastHandledUserGestureTimestamp(time);
 }
 
 bool Document::mainFrameDocumentHasHadUserInteraction() const
@@ -9747,11 +9742,6 @@ DocumentLoader* Document::loader() const
         return nullptr;
 
     return loader;
-}
-
-RefPtr<DocumentLoader> Document::protectedLoader() const
-{
-    return loader();
 }
 
 bool Document::allowsContentJavaScript() const
@@ -10079,7 +10069,7 @@ Ref<DocumentFragment> Document::documentFragmentForInnerOuterHTML()
 
 Ref<FontFaceSet> Document::fonts()
 {
-    return protectedFontSelector()->fontFaceSet();
+    return protect(fontSelector())->fontFaceSet();
 }
 
 EditingBehavior Document::editingBehavior() const
@@ -10492,21 +10482,73 @@ void Document::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedS
 
 void Document::addIntersectionObserver(IntersectionObserver& observer)
 {
-    ASSERT(m_intersectionObservers.find(&observer) == notFound);
-    m_intersectionObservers.append(observer);
+    ASSERT(!m_localIntersectionObservers.contains(&observer));
+    ASSERT(!m_remoteIntersectionObservers.contains(&observer));
+
+    switch (observer.type()) {
+    case IntersectionObserver::Type::Local:
+        m_localIntersectionObservers.append(observer);
+        break;
+
+    case IntersectionObserver::Type::Remote:
+        m_remoteIntersectionObservers.append(observer);
+        break;
+    }
 }
 
 void Document::removeIntersectionObserver(IntersectionObserver& observer)
 {
-    m_intersectionObservers.removeFirst(&observer);
+    bool removed = false;
+
+    switch (observer.type()) {
+    case IntersectionObserver::Type::Local:
+        ASSERT(!m_remoteIntersectionObservers.contains(&observer));
+        removed = m_localIntersectionObservers.removeFirst(&observer);
+        break;
+
+    case IntersectionObserver::Type::Remote:
+        ASSERT(!m_localIntersectionObservers.contains(&observer));
+        removed = m_remoteIntersectionObservers.removeFirst(&observer);
+        break;
+    }
+
+    ASSERT_UNUSED(removed, removed);
 }
 
-void Document::updateIntersectionObservations()
+static void updateAndNotifyIntersectionObservers(const Vector<WeakPtr<IntersectionObserver>>& intersectionObservers, const Frame& hostFrame)
 {
-    updateIntersectionObservations(m_intersectionObservers);
+    Vector<WeakPtr<IntersectionObserver>> intersectionObserversWithPendingNotifications;
+
+    for (auto& weakObserver : intersectionObservers) {
+        RefPtr observer = weakObserver.get();
+        if (!observer)
+            continue;
+
+        auto needNotify = observer->updateObservations(hostFrame);
+        if (needNotify == IntersectionObserver::NeedNotify::Yes)
+            intersectionObserversWithPendingNotifications.append(observer);
+    }
+
+    for (auto& weakObserver : intersectionObserversWithPendingNotifications) {
+        if (RefPtr observer = weakObserver.get())
+            observer->notify();
+    }
 }
 
-void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>& intersectionObservers)
+void Document::updateRemoteIntersectionObservers()
+{
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
+    RefPtr mainFrame = this->page()->mainFrame();
+    if (!mainFrame)
+        return;
+
+    updateAndNotifyIntersectionObservers(m_remoteIntersectionObservers, *mainFrame);
+}
+
+void Document::updateIntersectionObservers()
 {
     RefPtr frame = this->frame();
     if (!frame)
@@ -10522,32 +10564,18 @@ void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionO
 
     bool needsLayout = frameView->layoutContext().isLayoutPending() || (renderView() && renderView()->needsLayout());
     if (needsLayout || hasPendingStyleRecalc()) {
-        if (!intersectionObservers.isEmpty()) {
+        if (numberOfIntersectionObservers()) {
             LOG_WITH_STREAM(IntersectionObserver, stream << "Document " << this << " updateIntersectionObservations - needsLayout " << needsLayout << " or has pending style recalc " << hasPendingStyleRecalc() << "; scheduling another update");
             scheduleRenderingUpdate(RenderingUpdateStep::IntersectionObservations);
         }
         return;
     }
 
-    Vector<WeakPtr<IntersectionObserver>> intersectionObserversWithPendingNotifications;
+    updateAndNotifyIntersectionObservers(m_localIntersectionObservers, *frame);
+    updateRemoteIntersectionObservers();
 
-    for (auto& weakObserver : intersectionObservers) {
-        RefPtr observer = weakObserver.get();
-        if (!observer)
-            continue;
-
-        auto needNotify = observer->updateObservations(*frame);
-        if (needNotify == IntersectionObserver::NeedNotify::Yes)
-            intersectionObserversWithPendingNotifications.append(observer);
-    }
-
-    if (intersectionObserversWithPendingNotifications.size())
-        LOG_WITH_STREAM(IntersectionObserver, stream << "Document " << this << " updateIntersectionObservations - notifying observers");
-
-    for (auto& weakObserver : intersectionObserversWithPendingNotifications) {
-        if (RefPtr observer = weakObserver.get())
-            observer->notify();
-    }
+    if (frame->isMainFrame())
+        page->chrome().client().updateRemoteIntersectionObserversInOtherWebProcesses();
 }
 
 void Document::scheduleInitialIntersectionObservationUpdate()
@@ -11036,7 +11064,7 @@ Vector<Ref<WebAnimation>> Document::matchingAnimations(NOESCAPE const Function<b
     // such as updates to CSS Animations and CSS Transitions. This requires updating layout as
     // well since resolving layout-dependent media queries could yield animations.
     if (RefPtr owner = ownerElement())
-        owner->protectedDocument()->updateLayout();
+        protect(owner->document())->updateLayout();
     updateStyleIfNeeded();
 
     Vector<Ref<WebAnimation>> animations;
@@ -12143,13 +12171,6 @@ String Document::mediaKeysStorageDirectory()
 CheckedPtr<RenderView> Document::checkedRenderView() const
 {
     return m_renderView.get();
-}
-
-Ref<CSSFontSelector> Document::protectedFontSelector() const
-{
-    if (!m_fontSelector)
-        return const_cast<Document&>(*this).ensureFontSelector();
-    return *m_fontSelector;
 }
 
 PermissionsPolicy Document::permissionsPolicy() const

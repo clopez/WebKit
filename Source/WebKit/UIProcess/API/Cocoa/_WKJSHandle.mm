@@ -107,6 +107,15 @@
     return YES;
 }
 
+static NSString* const identifierObjectKey = @"a";
+static NSString* const identifierProcessIdentifierKey = @"b";
+static NSString* const worldIdentifierObjectKey = @"c";
+static NSString* const worldIdentifierProcessIdentifierKey = @"d";
+static NSString* const frameIdentifierKey = @"e";
+static NSString* const documentIDProcessIdentifierKey = @"f";
+static NSString* const worldIdentifierHighBitsKey = @"g";
+static NSString* const worldIdentifierLowBitsKey = @"h";
+
 - (id)initWithCoder:(NSCoder *)decoder
 {
     if (!(self = [super init]))
@@ -118,59 +127,56 @@
     RELEASE_ASSERT(WTF::IOSApplication::isMobileSafari() || applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s);
 #endif
     RELEASE_ASSERT(!isInAuxiliaryProcess());
-    RELEASE_ASSERT([decoder isKindOfClass:WKRemoteObjectDecoder.class]);
 
-    RetainPtr identifierObject = dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:@"identifierObject"]);
-    if (!identifierObject) {
-        [self release];
-        return nil;
-    }
-    uint64_t rawIdentifierObject = identifierObject.get().unsignedLongLongValue;
+    uint64_t rawIdentifierObject = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:identifierObjectKey]) unsignedLongLongValue];
     if (!WebCore::WebProcessJSHandleIdentifier::isValidIdentifier(rawIdentifierObject)) {
         [self release];
         return nil;
     }
 
-    RetainPtr identifierProcessIdentifier = dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:@"identifierProcessIdentifier"]);
-    if (!identifierProcessIdentifier) {
-        [self release];
-        return nil;
-    }
-    uint64_t rawIdentifierProcessIdentifier = identifierProcessIdentifier.get().unsignedLongLongValue;
+    uint64_t rawIdentifierProcessIdentifier = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:identifierProcessIdentifierKey]) unsignedLongLongValue];
     if (!WebCore::ProcessIdentifier::isValidIdentifier(rawIdentifierProcessIdentifier)) {
         [self release];
         return nil;
     }
 
-    RetainPtr worldIdentifierObject = dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:@"worldIdentifierObject"]);
-    if (!worldIdentifierObject) {
-        [self release];
-        return nil;
-    }
-    uint64_t rawWorldIdentifierObject = worldIdentifierObject.get().unsignedLongLongValue;
+    uint64_t rawWorldIdentifierObject = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:worldIdentifierObjectKey]) unsignedLongLongValue];
     if (!WebKit::NonProcessQualifiedContentWorldIdentifier::isValidIdentifier(rawWorldIdentifierObject)) {
         [self release];
         return nil;
     }
 
-    RetainPtr worldIdentifierProcessIdentifier = dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:@"worldIdentifierProcessIdentifier"]);
-    if (!worldIdentifierProcessIdentifier) {
-        [self release];
-        return nil;
-    }
-    uint64_t rawWorldIdentifierProcessIdentifier = worldIdentifierProcessIdentifier.get().unsignedLongLongValue;
+    uint64_t rawWorldIdentifierProcessIdentifier = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:worldIdentifierProcessIdentifierKey]) unsignedLongLongValue];
     if (!WebCore::ProcessIdentifier::isValidIdentifier(rawWorldIdentifierProcessIdentifier)) {
         [self release];
         return nil;
     }
 
+    uint64_t frameIdentifier = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:frameIdentifierKey]) unsignedLongLongValue];
+    if (!WebCore::FrameIdentifier::isValidIdentifier(frameIdentifier)) {
+        [self release];
+        return nil;
+    }
+
+    uint64_t documentIDProcessIdentifier = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:documentIDProcessIdentifierKey]) unsignedLongLongValue];
+    uint64_t worldIdentifierHighBits = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:worldIdentifierHighBitsKey]) unsignedLongLongValue];
+    uint64_t worldIdentifierLowBits = [dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:NSNumber.class forKey:worldIdentifierLowBitsKey]) unsignedLongLongValue];
+
+    Markable<WebCore::ScriptExecutionContextIdentifier> documentID;
+    if (WebCore::ProcessIdentifier::isValidIdentifier(documentIDProcessIdentifier) && WTF::UUID::isValid(worldIdentifierHighBits, worldIdentifierLowBits))
+        documentID = WebCore::ScriptExecutionContextIdentifier { WTF::UUID(worldIdentifierHighBits, worldIdentifierLowBits), WebCore::ProcessIdentifier(documentIDProcessIdentifier) };
+
     WebCore::JSHandleIdentifier identifier { WebCore::WebProcessJSHandleIdentifier(rawIdentifierObject), WebCore::ProcessIdentifier(rawIdentifierProcessIdentifier) };
     WebKit::ContentWorldIdentifier worldIdentifier { WebKit::NonProcessQualifiedContentWorldIdentifier(rawWorldIdentifierObject), WebCore::ProcessIdentifier(rawWorldIdentifierProcessIdentifier) };
+
+    auto frameInfo = WebKit::legacyEmptyFrameInfo({ });
+    frameInfo.documentID = documentID;
+    frameInfo.frameID = WebCore::FrameIdentifier(frameIdentifier);
 
     WebKit::JSHandleInfo info {
         identifier,
         worldIdentifier,
-        WebKit::legacyEmptyFrameInfo({ }),
+        WTF::move(frameInfo),
         std::nullopt
     };
 
@@ -187,16 +193,23 @@
     RELEASE_ASSERT(WTF::IOSApplication::isMobileSafari() || applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s);
 #endif
     RELEASE_ASSERT(isInWebProcess());
-    RELEASE_ASSERT([coder isKindOfClass:WKRemoteObjectEncoder.class]);
 
     const auto& info = _ref->info();
     WebCore::WebKitJSHandle::jsHandleSentToAnotherProcess(info.identifier);
 
-    [coder encodeObject:@(info.identifier.object().toUInt64()) forKey:@"identifierObject"];
-    [coder encodeObject:@(info.identifier.processIdentifier().toUInt64()) forKey:@"identifierProcessIdentifier"];
+    [coder encodeObject:@(info.identifier.object().toUInt64()) forKey:identifierObjectKey];
+    [coder encodeObject:@(info.identifier.processIdentifier().toUInt64()) forKey:identifierProcessIdentifierKey];
 
-    [coder encodeObject:@(info.worldIdentifier.object().toUInt64()) forKey:@"worldIdentifierObject"];
-    [coder encodeObject:@(info.worldIdentifier.processIdentifier().toUInt64()) forKey:@"worldIdentifierProcessIdentifier"];
+    [coder encodeObject:@(info.worldIdentifier.object().toUInt64()) forKey:worldIdentifierObjectKey];
+    [coder encodeObject:@(info.worldIdentifier.processIdentifier().toUInt64()) forKey:worldIdentifierProcessIdentifierKey];
+
+    [coder encodeObject:@(info.frameInfo.frameID.toUInt64()) forKey:frameIdentifierKey];
+
+    if (info.frameInfo.documentID) {
+        [coder encodeObject:@(info.frameInfo.documentID->processIdentifier().toUInt64()) forKey:documentIDProcessIdentifierKey];
+        [coder encodeObject:@(info.frameInfo.documentID->object().high()) forKey:worldIdentifierHighBitsKey];
+        [coder encodeObject:@(info.frameInfo.documentID->object().low()) forKey:worldIdentifierLowBitsKey];
+    }
 
     // Remaining information is currently not needed, and this is on its way to being removed so let's not add more here.
     // This also avoids encoding any complex types.

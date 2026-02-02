@@ -304,9 +304,12 @@ static inline TextAndSelectedRangeMap collectText(Node& node, IncludeTextInAutoF
     return result;
 }
 
-static inline bool canMerge(const Item& destinationItem, const Item& sourceItem)
+static inline bool canMerge(const TraversalContext& context, const Item& destinationItem, const Item& sourceItem)
 {
     if (!destinationItem.children.isEmpty() || !sourceItem.children.isEmpty())
+        return false;
+
+    if (!context.mergeParagraphs && destinationItem.enclosingBlockNumber != sourceItem.enclosingBlockNumber)
         return false;
 
     if (!std::holds_alternative<TextItemData>(destinationItem.data) || !std::holds_alternative<TextItemData>(sourceItem.data))
@@ -320,8 +323,6 @@ static inline bool canMerge(const Item& destinationItem, const Item& sourceItem)
 
 static inline void merge(Item& destinationItem, Item&& sourceItem)
 {
-    ASSERT(canMerge(destinationItem, sourceItem));
-
     auto& destination = std::get<TextItemData>(destinationItem.data);
     auto& source = std::get<TextItemData>(sourceItem.data);
 
@@ -430,7 +431,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
     if (element->isLink()) {
         if (auto href = element->attributeWithoutSynchronization(HTMLNames::hrefAttr); !href.isEmpty()) {
-            if (auto url = element->protectedDocument()->completeURL(href); !url.isEmpty()) {
+            if (auto url = protect(element->document())->completeURL(href); !url.isEmpty()) {
                 if (context.mergeParagraphs)
                     return { WTF::move(url) };
 
@@ -475,7 +476,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
         return { ContentEditableData {
             .isPlainTextOnly = !element->hasRichlyEditableStyle(),
-            .isFocused = element->protectedDocument()->activeElement() == element,
+            .isFocused = protect(element->document())->activeElement() == element,
         } };
     }
 
@@ -512,7 +513,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
             labelText(*control),
             input ? input->placeholder() : nullString(),
             shouldTreatAsPasswordField(element.get()),
-            element->protectedDocument()->activeElement() == control
+            protect(element->document())->activeElement() == control
         };
 
         if (context.mergeParagraphs && control->isTextField())
@@ -549,11 +550,11 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 continue;
 
             if (RefPtr option = dynamicDowncast<HTMLOptionElement>(*item)) {
-                if (!option->selected())
-                    continue;
-
-                if (auto optionValue = option->value(); !optionValue.isEmpty())
-                    selectData.selectedValues.append(WTF::move(optionValue));
+                selectData.options.append({
+                    .value = option->value(),
+                    .label = option->label(),
+                    .isSelected = option->selected(),
+                });
             }
         }
         selectData.isMultiple = select->multiple();
@@ -861,7 +862,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
 
         if (RefPtr iframe = dynamicDowncast<HTMLIFrameElement>(node); iframe && item) {
             if (RefPtr frame = dynamicDowncast<LocalFrame>(iframe->contentFrame())) {
-                if (RefPtr document = frame->document(); document && areSameOrigin(*document, node.protectedDocument()))
+                if (RefPtr document = frame->document(); document && areSameOrigin(*document, protect(node.document())))
                     item->children.appendVector(extractItem(Request { context.originalRequest }, *frame).children);
             }
         }
@@ -885,12 +886,12 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
         return;
 
     if (context.mergeParagraphs && parentItem.children.isEmpty()) {
-        if (canMerge(parentItem, *item))
+        if (canMerge(context, parentItem, *item))
             return merge(parentItem, WTF::move(*item));
     }
 
     if (!parentItem.children.isEmpty()) {
-        if (auto& lastChild = parentItem.children.last(); canMerge(lastChild, *item))
+        if (auto& lastChild = parentItem.children.last(); canMerge(context, lastChild, *item))
             return merge(lastChild, WTF::move(*item));
     }
 
@@ -1056,15 +1057,15 @@ Item extractItem(Request&& request, LocalFrame& frame)
 
     {
         ClientNodeAttributesMap clientNodeAttributes;
-        for (auto&& [attribute, values] : request.clientNodeAttributes) {
-            for (auto&& [identifier, value] : WTF::move(values)) {
+        for (auto& [attribute, values] : request.clientNodeAttributes) {
+            for (auto& [identifier, value] : values) {
                 RefPtr node = nodeFromJSHandle(identifier);
                 if (!node)
                     continue;
 
                 clientNodeAttributes.ensure(*node, [] {
                     return HashMap<String, String> { };
-                }).iterator->value.set(attribute, WTF::move(value));
+                }).iterator->value.set(attribute, value);
             }
         }
 
@@ -1445,7 +1446,7 @@ static void dispatchSimulatedClick(Node& targetNode, const String& searchText, C
         return dispatchSimulatedClick(*frame, centerInRootView, WTF::move(completion));
     }
 
-    UserGestureIndicator indicator { IsProcessingUserGesture::Yes, element->protectedDocument().ptr() };
+    UserGestureIndicator indicator { IsProcessingUserGesture::Yes, protect(element->document()).ptr() };
 
     // Fall back to dispatching a programmatic click.
     if (element->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents))
@@ -1585,7 +1586,7 @@ static void simulateKeyPress(LocalFrame& targetFrame, std::optional<NodeIdentifi
         if (!focusTarget)
             return completion(false, makeString(identifier->loggingString()));
 
-        if (focusTarget != focusTarget->protectedDocument()->activeElement())
+        if (focusTarget != protect(focusTarget->document())->activeElement())
             focusTarget->focus();
     }
 

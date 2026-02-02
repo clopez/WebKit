@@ -545,7 +545,6 @@ public:
     
     Element* documentElement() const { return m_documentElement.get(); }
     AsyncNodeDeletionQueue& asyncNodeDeletionQueue() { return m_asyncNodeDeletionQueue; };
-    inline RefPtr<Element> protectedDocumentElement() const; // Defined in DocumentInlines.h.
     static constexpr ptrdiff_t documentElementMemoryOffset() { return OBJECT_OFFSETOF(Document, m_documentElement); }
 
     WEBCORE_EXPORT Element* activeElement();
@@ -655,7 +654,6 @@ public:
     WEBCORE_EXPORT Ref<NodeList> getElementsByName(const AtomString& elementName);
 
     WakeLockManager& wakeLockManager();
-    Ref<WakeLockManager> protectedWakeLockManager();
 
     // Other methods (not part of DOM)
     bool isSynthesized() const { return m_isSynthesized; }
@@ -697,9 +695,7 @@ public:
 
     CSSFontSelector* fontSelectorIfExists() { return m_fontSelector.get(); }
     const CSSFontSelector* fontSelectorIfExists() const { return m_fontSelector.get(); }
-    inline CSSFontSelector& fontSelector();
-    inline const CSSFontSelector& fontSelector() const;
-    Ref<CSSFontSelector> protectedFontSelector() const;
+    inline CSSFontSelector& fontSelector() const; // Defined in DocumentInlines.h.
 
     WEBCORE_EXPORT bool haveStylesheetsLoaded() const;
     bool isIgnoringPendingStylesheets() const { return m_ignorePendingStylesheets; }
@@ -839,7 +835,6 @@ public:
     bool visuallyOrdered() const { return m_visuallyOrdered; }
 
     WEBCORE_EXPORT DocumentLoader* loader() const;
-    WEBCORE_EXPORT RefPtr<DocumentLoader> protectedLoader() const;
 
     WEBCORE_EXPORT ExceptionOr<RefPtr<WindowProxy>> openForBindings(LocalDOMWindow& activeWindow, LocalDOMWindow& firstDOMWindow, const String& url, const AtomString& name, const String& features);
     WEBCORE_EXPORT ExceptionOr<Document&> openForBindings(Document* entryDocument, const String&, const String&);
@@ -1764,9 +1759,16 @@ public:
 
     void addIntersectionObserver(IntersectionObserver&);
     void removeIntersectionObserver(IntersectionObserver&);
-    unsigned numberOfIntersectionObservers() const { return m_intersectionObservers.size(); }
-    void updateIntersectionObservations();
-    void updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>&);
+    unsigned numberOfIntersectionObservers() const { return m_localIntersectionObservers.size() + m_remoteIntersectionObservers.size(); }
+
+    // Update ONLY remote intersection observers registered to this document.
+    // When the main frame updates its rendering, it sends an IPC message to request its child documents
+    // to update their remote observers, which ends up calling this.
+    WEBCORE_EXPORT void updateRemoteIntersectionObservers();
+
+    // Update local and remote intersection observers that are registered to this document.
+    void updateIntersectionObservers();
+
     void scheduleInitialIntersectionObservationUpdate();
     IntersectionObserverData& ensureIntersectionObserverData();
     IntersectionObserverData* intersectionObserverDataIfExists() { return m_intersectionObserverData.get(); }
@@ -2468,7 +2470,15 @@ private:
 
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_dynamicMediaQueryDependentImages;
 
-    Vector<WeakPtr<IntersectionObserver>> m_intersectionObservers;
+    // Intersection observers in which the root is local to this document.
+    Vector<WeakPtr<IntersectionObserver>> m_localIntersectionObservers;
+
+    // Intersection observers in which the root is remote (in a different process)
+    // With the way Intersection Observers is designed, the only possible scenario
+    // is if the observer has the root as the main frame's document, and the main
+    // frame is in another process.
+    Vector<WeakPtr<IntersectionObserver>> m_remoteIntersectionObservers;
+
     Timer m_intersectionObserversInitialUpdateTimer;
     // This is only non-null when this document is an explicit root.
     const std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;

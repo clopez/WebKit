@@ -791,14 +791,14 @@ ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(JSGlobalObject& lexicalG
             keyframeEffect->setIterationComposite(options.iterationComposite);
 
             return OptionalEffectTiming {
-                *convertedDuration,
-                options.iterations,
                 options.delay,
                 options.endDelay,
-                options.iterationStart,
-                options.easing,
                 options.fill,
-                options.direction
+                options.iterationStart,
+                options.iterations,
+                *convertedDuration,
+                options.direction,
+                options.easing
             };
         }
     );
@@ -1304,8 +1304,7 @@ bool KeyframeEffect::forceLayoutIfNeeded()
     if (!m_needsForcedLayout || !m_target)
         return false;
 
-    CheckedPtr renderer = this->renderer();
-    if (!renderer || !renderer->parent())
+    if (CheckedPtr renderer = this->renderer(); !renderer || !renderer->parent())
         return false;
 
     ASSERT(document());
@@ -1522,10 +1521,6 @@ void KeyframeEffect::updateEffectStackMembership()
     auto target = targetStyleable();
     if (!target)
         return;
-
-#if ENABLE(THREADED_ANIMATIONS)
-    StackMembershipMutationScope stackMembershipMutationScope(*this);
-#endif
 
     bool isRelevant = animation() && animation()->isRelevant();
     if (isRelevant && !m_inTargetEffectStack)
@@ -1943,6 +1938,9 @@ bool KeyframeEffect::canBeAccelerated() const
         return false;
 
     if (m_blendingKeyframes.hasDiscreteTransformInterval())
+        return false;
+
+    if (!m_needsComputedKeyframeOffsetsUpdate && m_blendingKeyframes.hasKeyframeWithUnresolvedComputedOffset())
         return false;
 
     if (RefPtr document = this->document()) {

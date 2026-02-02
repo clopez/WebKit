@@ -119,7 +119,6 @@
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/LocalDOMWindow.h>
 #include <WebCore/LocalFrame.h>
-#include <WebCore/MediaEngineConfigurationFactory.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MemoryRelease.h>
 #include <WebCore/MessagePort.h>
@@ -130,6 +129,7 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/PermissionController.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/PlatformMediaEngineConfigurationFactory.h>
 #include <WebCore/PlatformMediaSession.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessWarming.h>
@@ -201,7 +201,7 @@
 #include <JavaScriptCore/RemoteInspector.h>
 #endif
 
-#if ENABLE(WEBASSEMBLY_DEBUGGER)
+#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/WasmDebugServer.h>
 #endif
 
@@ -330,7 +330,7 @@ WebProcess::WebProcess()
     , m_viewUpdateDispatcher(*this)
 #endif
     , m_webInspectorInterruptDispatcher(*this)
-#if ENABLE(WEBASSEMBLY_DEBUGGER)
+#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
     , m_wasmDebuggerDispatcher(*this)
 #endif
     , m_webLoaderStrategy(makeUniqueRefWithoutRefCountedCheck<WebLoaderStrategy>(*this))
@@ -447,7 +447,7 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 #endif // PLATFORM(IOS_FAMILY)
 
     protectedWebInspectorInterruptDispatcher()->initializeConnection(*connection);
-#if ENABLE(WEBASSEMBLY_DEBUGGER)
+#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
     protectedWasmDebuggerDispatcher()->initializeConnection(*connection);
 #endif
 
@@ -715,6 +715,12 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 #if PLATFORM(COCOA)
     if (m_processType == ProcessType::PrewarmedWebContent)
         prewarmGlobally();
+    else {
+        // Prewarm some commonly used caches soon even for non-prewarmed web content.
+        RunLoop::currentSingleton().dispatch([]() {
+            defaultLanguage();
+        });
+    }
 #endif
 
     updateStorageAccessUserAgentStringQuirks(WTF::move(parameters.storageAccessUserAgentStringQuirksData));
@@ -732,7 +738,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
     m_shouldInitializeAccessibility = parameters.shouldInitializeAccessibility;
 #endif
 
-#if ENABLE(WEBASSEMBLY_DEBUGGER)
+#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
     if (JSC::Options::enableWasmDebugger()) [[unlikely]] {
         bool success = JSC::Wasm::DebugServer::singleton().startRWI([](const String& response) {
             return WebKit::WebProcess::singleton().send(Messages::WebProcessProxy::SendWasmDebuggerResponse(response), 0);
@@ -1373,7 +1379,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
         m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::RegisterURLSchemesAsCORSEnabled(WebCore::LegacySchemeRegistry::allURLSchemesRegisteredAsCORSEnabled()), 0);
 
         if (!Document::allDocuments().isEmpty() || SharedWorkerThreadProxy::hasInstances())
-            protectedNetworkProcessConnection()->protectedServiceWorkerConnection()->registerServiceWorkerClients();
+            protect(protectedNetworkProcessConnection()->serviceWorkerConnection())->registerServiceWorkerClients();
 
 #if HAVE(LSDATABASECONTEXT)
         // On Mac, this needs to be called before NSApplication is being initialized.
@@ -2219,11 +2225,11 @@ void WebProcess::establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWo
     switch (workerType) {
     case RemoteWorkerType::ServiceWorker:
         SWContextManager::singleton().setConnection(WebSWContextManagerConnection::create(WTF::move(ipcConnection), WTF::move(site), serviceWorkerPageIdentifier, pageGroupID, webPageProxyID, pageID, store, WTF::move(initializationData)));
-        SWContextManager::singleton().protectedConnection()->establishConnection(WTF::move(completionHandler));
+        protect(SWContextManager::singleton().connection())->establishConnection(WTF::move(completionHandler));
         break;
     case RemoteWorkerType::SharedWorker:
         SharedWorkerContextManager::singleton().setConnection(WebSharedWorkerContextManagerConnection::create(WTF::move(ipcConnection), WTF::move(site), pageGroupID, webPageProxyID, pageID, store, WTF::move(initializationData)));
-        SharedWorkerContextManager::singleton().protectedConnection()->establishConnection(WTF::move(completionHandler));
+        protect(SharedWorkerContextManager::singleton().connection())->establishConnection(WTF::move(completionHandler));
         break;
     }
 }
@@ -2492,7 +2498,7 @@ void WebProcess::setUseGPUProcessForMedia(bool useGPUProcessForMedia)
     if (useGPUProcessForMedia)
         Ref { mediaEngineConfigurationFactory() }->registerFactory();
     else
-        MediaEngineConfigurationFactory::resetFactories();
+        WebCore::PlatformMediaEngineConfigurationFactory::resetFactories();
 
     if (useGPUProcessForMedia) {
         WebCore::AudioHardwareListener::setCreationFunction([] (WebCore::AudioHardwareListener::Client& client) {

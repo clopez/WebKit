@@ -386,6 +386,7 @@ Modules/streams/ReadableStreamToSharedBufferSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/StreamPipeToUtilities.cpp @no-unify
 Modules/streams/StreamTeeUtilities.cpp
+Modules/streams/StreamTransferUtilities.cpp
 Modules/streams/TransformStream.cpp
 Modules/streams/WritableStream.cpp
 Modules/url-pattern/URLPattern.cpp
@@ -1189,6 +1190,7 @@ dom/AbortSignal.cpp
 dom/AbstractRange.cpp
 dom/ActiveDOMCallback.cpp
 dom/ActiveDOMObject.cpp
+dom/AddEventListenerOptions.cpp
 dom/AllDescendantsCollection.cpp
 dom/Attr.cpp
 dom/BeforeTextInsertedEvent.cpp
@@ -1802,6 +1804,7 @@ html/shadow/DateTimeNumericFieldElement.cpp
 html/shadow/DateTimeSymbolicFieldElement.cpp
 html/shadow/MediaControlTextTrackContainerElement.cpp
 html/shadow/ProgressShadowElement.cpp
+html/shadow/SelectFallbackButtonElement.cpp
 html/shadow/SliderThumbElement.cpp
 html/shadow/SpinButtonElement.cpp
 html/shadow/TextControlInnerElements.cpp
@@ -1887,9 +1890,9 @@ inspector/agents/InspectorWorkerAgent.cpp
 inspector/agents/WebConsoleAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
-inspector/agents/frame/FrameConsoleAgent.cpp
 inspector/agents/page/PageAuditAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp
+inspector/agents/page/PageConsoleAgent.cpp
 inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageHeapAgent.cpp
@@ -2710,8 +2713,8 @@ platform/graphics/transforms/TransformOperations.cpp
 platform/graphics/transforms/TransformState.cpp
 platform/graphics/transforms/TransformationMatrix.cpp
 platform/graphics/transforms/TranslateTransformOperation.cpp
-platform/mediacapabilities/MediaCapabilitiesLogging.cpp
-platform/mediacapabilities/MediaEngineConfigurationFactory.cpp
+platform/mediacapabilities/PlatformMediaCapabilitiesLogging.cpp
+platform/mediacapabilities/PlatformMediaEngineConfigurationFactory.cpp
 platform/mediarecorder/MediaRecorderPrivate.cpp
 platform/mediarecorder/MediaRecorderPrivateMock.cpp
 platform/mediastream/AudioMediaStreamTrackRenderer.cpp
@@ -2738,10 +2741,10 @@ platform/mediastream/RealtimeVideoCaptureSource.cpp
 platform/mediastream/WebRTCProvider.cpp
 platform/mock/DeviceOrientationClientMock.cpp
 platform/mock/GeolocationClientMock.cpp
-platform/mock/MediaEngineConfigurationFactoryMock.cpp
 platform/mock/MockRealtimeAudioSource.cpp
 platform/mock/MockRealtimeMediaSourceCenter.cpp
 platform/mock/MockRealtimeVideoSource.cpp
+platform/mock/PlatformMediaEngineConfigurationFactoryMock.cpp
 platform/mock/PlatformSpeechSynthesizerMock.cpp
 platform/mock/RTCDataChannelHandlerMock.cpp
 platform/mock/RTCNotifiersMock.cpp
@@ -2924,6 +2927,7 @@ rendering/RenderScrollbar.cpp
 rendering/RenderScrollbarPart.cpp
 rendering/RenderScrollbarTheme.cpp
 rendering/RenderSearchField.cpp
+rendering/RenderSelectFallbackButton.cpp
 rendering/RenderSelection.cpp
 rendering/RenderSelectionGeometry.cpp
 rendering/RenderSlider.cpp
