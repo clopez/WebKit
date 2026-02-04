@@ -61,7 +61,7 @@
 #include "LayerTreeHostTextureMapper.h"
 #endif
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
 #include "NonCompositedFrameRenderer.h"
 #endif
 
@@ -106,7 +106,7 @@ void DrawingAreaCoordinatedGraphics::setNeedsDisplayInRect(const IntRect& rect)
     if (dirtyRect.isEmpty())
         return;
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     if (m_nonCompositedFrameRenderer) {
         ASSERT(m_dirtyRegion.isEmpty());
         m_nonCompositedFrameRenderer->setNeedsDisplayInRect(dirtyRect);
@@ -127,12 +127,9 @@ void DrawingAreaCoordinatedGraphics::scroll(const IntRect& scrollRect, const Int
         ASSERT(m_dirtyRegion.isEmpty());
         return;
     }
-#if PLATFORM(WPE) || PLATFORM(GTK)
-    else if (m_nonCompositedFrameRenderer) {
-        m_nonCompositedFrameRenderer->setNeedsDisplayInRect(m_webPage->bounds());
-        scheduleDisplay();
+#if PLATFORM(WPE)
+    else if (m_nonCompositedFrameRenderer)
         return;
-    }
 #endif
 
     if (scrollRect.isEmpty())
@@ -182,7 +179,7 @@ void DrawingAreaCoordinatedGraphics::scroll(const IntRect& scrollRect, const Int
 void DrawingAreaCoordinatedGraphics::updateRenderingWithForcedRepaint()
 {
     if (!m_layerTreeHost) {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
         if (m_nonCompositedFrameRenderer) {
             m_nonCompositedFrameRenderer->setNeedsDisplayInRect(m_webPage->bounds());
             display();
@@ -268,7 +265,7 @@ bool DrawingAreaCoordinatedGraphics::enterAcceleratedCompositingModeIfNeeded()
 {
     ASSERT(!m_layerTreeHost);
     if (!m_alwaysUseCompositing) {
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
         m_nonCompositedFrameRenderer = NonCompositedFrameRenderer::create(m_webPage);
 #endif
         return false;
@@ -400,7 +397,7 @@ void DrawingAreaCoordinatedGraphics::updateGeometry(const IntSize& size, Complet
 
     if (m_layerTreeHost)
         m_layerTreeHost->sizeDidChange();
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     else if (m_nonCompositedFrameRenderer) {
         m_nonCompositedFrameRenderer->setNeedsDisplayInRect({ { }, size });
         m_nonCompositedFrameRenderer->display();
@@ -449,10 +446,12 @@ void DrawingAreaCoordinatedGraphics::dispatchAfterEnsuringDrawing(IPC::AsyncRepl
         }
     } else {
         if (!m_isPaintingSuspended) {
+#if PLATFORM(WPE)
             if (m_nonCompositedFrameRenderer)
                 m_nonCompositedFrameRenderer->setNeedsDisplayInRect(m_webPage->bounds());
             else
-                m_dirtyRegion = m_webPage->bounds();
+#endif
+            m_dirtyRegion = m_webPage->bounds();
             scheduleDisplay();
             return;
         }
@@ -699,7 +698,7 @@ void DrawingAreaCoordinatedGraphics::display()
     if (m_isPaintingSuspended)
         return;
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     if (m_nonCompositedFrameRenderer) {
         m_nonCompositedFrameRenderer->display();
         dispatchPendingCallbacksAfterEnsuringDrawing();
@@ -828,7 +827,7 @@ void DrawingAreaCoordinatedGraphics::forceUpdate()
     if (m_isWaitingForDidUpdate || m_layerTreeHost)
         return;
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     if (m_nonCompositedFrameRenderer)
         m_nonCompositedFrameRenderer->setNeedsDisplayInRect(m_webPage->bounds());
     else
@@ -856,7 +855,7 @@ void DrawingAreaCoordinatedGraphics::resetDamageHistoryForTesting()
 {
     if (m_layerTreeHost)
         m_layerTreeHost->resetDamageHistoryForTesting();
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     else if (m_nonCompositedFrameRenderer)
         m_nonCompositedFrameRenderer->resetDamageHistoryForTesting();
 #endif
@@ -866,7 +865,7 @@ void DrawingAreaCoordinatedGraphics::foreachRegionInDamageHistoryForTesting(Func
 {
     if (m_layerTreeHost)
         m_layerTreeHost->foreachRegionInDamageHistoryForTesting(WTF::move(callback));
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if PLATFORM(WPE)
     else if (m_nonCompositedFrameRenderer)
         m_nonCompositedFrameRenderer->foreachRegionInDamageHistoryForTesting(WTF::move(callback));
 #endif

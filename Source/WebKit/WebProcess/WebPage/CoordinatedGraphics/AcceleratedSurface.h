@@ -60,9 +60,7 @@ typedef void *EGLImage;
 #endif
 
 #if USE(SKIA)
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-#include <skia/core/SkSurface.h>
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+#include <WebCore/GraphicsContextSkia.h>
 #endif
 
 #if USE(WPE_RENDERER)
@@ -94,12 +92,7 @@ class AcceleratedSurface final : public ThreadSafeRefCountedAndCanMakeThreadSafe
 {
     WTF_MAKE_TZONE_ALLOCATED(AcceleratedSurface);
 public:
-    enum class RenderingPurpose {
-        Composited,
-        NonComposited,
-    };
-
-    static Ref<AcceleratedSurface> create(WebPage&, Function<void()>&& frameCompleteHandler, RenderingPurpose = RenderingPurpose::Composited);
+    static Ref<AcceleratedSurface> create(WebPage&, Function<void()>&& frameCompleteHandler);
     ~AcceleratedSurface();
 
     using ColorComponents = WebCore::ColorComponents<float, 4>;
@@ -120,9 +113,6 @@ public:
 #endif
     }
 
-#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
-    bool usesGL() const { return m_swapChain.type() != SwapChain::Type::SharedMemoryWithoutGL; }
-#endif
     WebCore::GraphicsContext* graphicsContext();
 
     void willDestroyGLContext();
@@ -147,7 +137,7 @@ public:
     void backgroundColorDidChange();
 
 private:
-    AcceleratedSurface(WebPage&, Function<void()>&& frameCompleteHandler, RenderingPurpose);
+    AcceleratedSurface(WebPage&, Function<void()>&& frameCompleteHandler);
 
 #if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
     // IPC::MessageReceiver.
@@ -184,12 +174,6 @@ private:
 
         uint64_t m_id { 0 };
         uint64_t m_surfaceID { 0 };
-        struct {
-#if USE(SKIA)
-            sk_sp<SkSurface> surface;
-#endif
-            std::unique_ptr<WebCore::GraphicsContext> context;
-        } m_graphicsContext;
 #if ENABLE(DAMAGE_TRACKING)
         std::optional<WebCore::Damage> m_damage;
 #endif
@@ -220,6 +204,12 @@ private:
         unsigned m_depthStencilBuffer { 0 };
         UnixFileDescriptor m_renderingFenceFD;
         UnixFileDescriptor m_releaseFenceFD;
+#if USE(SKIA)
+        struct {
+            sk_sp<SkSurface> surface;
+            std::unique_ptr<WebCore::GraphicsContextSkia> context;
+        } m_graphicsContext;
+#endif
         WebCore::IntSize m_initialSize;
     };
 
@@ -296,21 +286,6 @@ private:
         const Ref<WebCore::ShareableBitmap> m_bitmap;
     };
 
-    class RenderTargetSHMImageWithoutGL final : public RenderTarget {
-    public:
-        static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&);
-        RenderTargetSHMImageWithoutGL(uint64_t, const WebCore::IntSize&, Ref<WebCore::ShareableBitmap>&&, WebCore::ShareableBitmapHandle&&);
-        ~RenderTargetSHMImageWithoutGL();
-
-        WebCore::GraphicsContext* graphicsContext() override;
-
-    private:
-        void didRenderFrame(Vector<WebCore::IntRect, 1>&&) override;
-
-        WebCore::IntSize m_initialSize;
-        const Ref<WebCore::ShareableBitmap> m_bitmap;
-    };
-
     class RenderTargetTexture final : public RenderTargetShareableBuffer {
     public:
         static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&);
@@ -345,7 +320,7 @@ private:
     class SwapChain {
         WTF_MAKE_NONCOPYABLE(SwapChain);
     public:
-        explicit SwapChain(uint64_t, RenderingPurpose, bool useHardwareBuffersForFrameRendering);
+        explicit SwapChain(uint64_t);
 
         enum class Type {
             Invalid,
@@ -354,7 +329,6 @@ private:
             EGLImage,
 #endif
             SharedMemory,
-            SharedMemoryWithoutGL,
             Texture,
 #endif
 #if USE(WPE_RENDERER)

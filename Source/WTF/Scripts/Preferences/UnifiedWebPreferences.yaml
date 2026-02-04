@@ -8576,17 +8576,6 @@ UseGiantTiles:
     WebCore:
       default: false
 
-UseHardwareBuffersForFrameRendering:
-  type: bool
-  status: embedder
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 UseIFCForSVGText:
   type: bool
   status: internal

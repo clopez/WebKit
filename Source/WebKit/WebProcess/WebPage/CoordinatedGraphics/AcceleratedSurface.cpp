@@ -32,10 +32,8 @@
 #include <WebCore/GLContext.h>
 #include <WebCore/GLFence.h>
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/Region.h>
-#include <WebCore/Settings.h>
 #include <WebCore/ShareableBitmap.h>
 #include <array>
 #include <fcntl.h>
@@ -80,7 +78,6 @@
 #endif
 
 #if USE(SKIA)
-#include <WebCore/GraphicsContextSkia.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/gpu/ganesh/GrBackendSurface.h>
 #include <skia/gpu/ganesh/SkSurfaceGanesh.h>
@@ -104,9 +101,9 @@ static uint64_t generateID()
     return ++identifier;
 }
 
-Ref<AcceleratedSurface> AcceleratedSurface::create(WebPage& webPage, Function<void()>&& frameCompleteHandler, RenderingPurpose renderingPurpose)
+Ref<AcceleratedSurface> AcceleratedSurface::create(WebPage& webPage, Function<void()>&& frameCompleteHandler)
 {
-    return adoptRef(*new AcceleratedSurface(webPage, WTF::move(frameCompleteHandler), renderingPurpose));
+    return adoptRef(*new AcceleratedSurface(webPage, WTF::move(frameCompleteHandler)));
 }
 
 static bool useExplicitSync()
@@ -116,11 +113,11 @@ static bool useExplicitSync()
     return extensions.ANDROID_native_fence_sync && (display.eglCheckVersion(1, 5) || extensions.KHR_fence_sync);
 }
 
-AcceleratedSurface::AcceleratedSurface(WebPage& webPage, Function<void()>&& frameCompleteHandler, RenderingPurpose renderingPurpose)
+AcceleratedSurface::AcceleratedSurface(WebPage& webPage, Function<void()>&& frameCompleteHandler)
     : m_webPage(webPage)
     , m_frameCompleteHandler(WTF::move(frameCompleteHandler))
     , m_id(generateID())
-    , m_swapChain(m_id, renderingPurpose, webPage.corePage()->settings().useHardwareBuffersForFrameRendering())
+    , m_swapChain(m_id)
     , m_isVisible(webPage.activityState().contains(ActivityState::IsVisible))
     , m_useExplicitSync(useExplicitSync())
 {
@@ -236,7 +233,7 @@ GraphicsContext* AcceleratedSurface::RenderTargetShareableBuffer::graphicsContex
             return nullptr;
         // Fresh buffer should default to non-opaque white.
         canvas->clear(SK_ColorWHITE);
-        m_graphicsContext.context = makeUnique<GraphicsContextSkia>(*canvas, RenderingMode::Accelerated, WebCore::RenderingPurpose::Unspecified);
+        m_graphicsContext.context = makeUnique<GraphicsContextSkia>(*canvas, RenderingMode::Accelerated, RenderingPurpose::Unspecified);
     }
     return m_graphicsContext.context ? &*m_graphicsContext.context : nullptr;
 #else
@@ -520,48 +517,6 @@ void AcceleratedSurface::RenderTargetSHMImage::didRenderFrame(Vector<IntRect, 1>
     RenderTargetShareableBuffer::didRenderFrame(WTF::move(damageRects));
 }
 
-std::unique_ptr<AcceleratedSurface::RenderTarget> AcceleratedSurface::RenderTargetSHMImageWithoutGL::create(uint64_t surfaceID, const IntSize& size)
-{
-    RefPtr buffer = ShareableBitmap::create({ size });
-    if (!buffer) {
-        LOG_ERROR("Failed to allocate shared memory buffer of size %dx%d", size.width(), size.height());
-        return nullptr;
-    }
-
-    auto bufferHandle = buffer->createReadOnlyHandle();
-    if (!bufferHandle) {
-        LOG_ERROR("Failed to create handle for shared memory buffer");
-        return nullptr;
-    }
-
-    return makeUnique<RenderTargetSHMImageWithoutGL>(surfaceID, size, Ref { *buffer }, WTF::move(*bufferHandle));
-}
-
-AcceleratedSurface::RenderTargetSHMImageWithoutGL::RenderTargetSHMImageWithoutGL(uint64_t surfaceID, const IntSize& size, Ref<ShareableBitmap>&& bitmap, ShareableBitmap::Handle&& bitmapHandle)
-    : RenderTarget(surfaceID)
-    , m_initialSize(size)
-    , m_bitmap(WTF::move(bitmap))
-{
-    WebProcess::singleton().parentProcessConnection()->send(Messages::AcceleratedBackingStore::DidCreateSHMBuffer(m_id, WTF::move(bitmapHandle)), surfaceID);
-}
-
-AcceleratedSurface::RenderTargetSHMImageWithoutGL::~RenderTargetSHMImageWithoutGL()
-{
-    WebProcess::singleton().parentProcessConnection()->send(Messages::AcceleratedBackingStore::DidDestroyBuffer(m_id), m_surfaceID);
-}
-
-GraphicsContext* AcceleratedSurface::RenderTargetSHMImageWithoutGL::graphicsContext()
-{
-    if (!m_graphicsContext.context)
-        m_graphicsContext.context = m_bitmap->createGraphicsContext();
-    return m_graphicsContext.context ? &*m_graphicsContext.context : nullptr;
-}
-
-void AcceleratedSurface::RenderTargetSHMImageWithoutGL::didRenderFrame(Vector<IntRect, 1>&& damageRects)
-{
-    WebProcess::singleton().parentProcessConnection()->send(Messages::AcceleratedBackingStore::Frame(m_id, WTF::move(damageRects), UnixFileDescriptor()), m_surfaceID);
-}
-
 std::unique_ptr<AcceleratedSurface::RenderTarget> AcceleratedSurface::RenderTargetTexture::create(uint64_t surfaceID, const IntSize& size)
 {
     unsigned texture;
@@ -696,7 +651,7 @@ void AcceleratedSurface::RenderTargetWPEBackend::didRenderFrame(Vector<IntRect, 
 }
 #endif
 
-AcceleratedSurface::SwapChain::SwapChain(uint64_t surfaceID, RenderingPurpose renderingPurpose, bool useHardwareBuffersForFrameRendering)
+AcceleratedSurface::SwapChain::SwapChain(uint64_t surfaceID)
     : m_surfaceID(surfaceID)
 {
     auto& display = PlatformDisplay::sharedDisplay();
@@ -710,10 +665,10 @@ AcceleratedSurface::SwapChain::SwapChain(uint64_t surfaceID, RenderingPurpose re
         break;
 #if USE(GBM)
     case PlatformDisplay::Type::GBM:
-        if (useHardwareBuffersForFrameRendering && display.eglExtensions().EXT_image_dma_buf_import)
+        if (display.eglExtensions().EXT_image_dma_buf_import)
             m_type = Type::EGLImage;
         else
-            m_type = renderingPurpose == RenderingPurpose::Composited ? Type::SharedMemory : Type::SharedMemoryWithoutGL;
+            m_type = Type::SharedMemory;
         break;
 #endif
 #if OS(ANDROID)
@@ -841,8 +796,6 @@ std::unique_ptr<AcceleratedSurface::RenderTarget> AcceleratedSurface::SwapChain:
         return RenderTargetTexture::create(m_surfaceID, m_size);
     case Type::SharedMemory:
         return RenderTargetSHMImage::create(m_surfaceID, m_size);
-    case Type::SharedMemoryWithoutGL:
-        return RenderTargetSHMImageWithoutGL::create(m_surfaceID, m_size);
 #endif
 #if USE(WPE_RENDERER)
     case Type::WPEBackend:

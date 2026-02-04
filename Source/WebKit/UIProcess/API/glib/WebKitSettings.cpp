@@ -3910,9 +3910,9 @@ WebKitHardwareAccelerationPolicy webkit_settings_get_hardware_acceleration_polic
 
     WebKitSettingsPrivate* priv = settings->priv;
 #if USE(GTK4)
-    return priv->preferences->useHardwareBuffersForFrameRendering() ? WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS : WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER;
+    return priv->preferences->acceleratedCompositingEnabled() ? WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS : WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER;
 #else
-    if (!priv->preferences->useHardwareBuffersForFrameRendering())
+    if (!priv->preferences->acceleratedCompositingEnabled())
         return WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER;
 
     if (priv->preferences->forceCompositingMode())
@@ -3941,8 +3941,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
     case WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS:
         if (!HardwareAccelerationManager::singleton().canUseHardwareAcceleration())
             return;
-        if (!priv->preferences->useHardwareBuffersForFrameRendering()) {
-            priv->preferences->setUseHardwareBuffersForFrameRendering(true);
+        if (!priv->preferences->acceleratedCompositingEnabled()) {
             priv->preferences->setAcceleratedCompositingEnabled(true);
             changed = true;
         }
@@ -3953,8 +3952,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
         }
         break;
     case WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER:
-        if (priv->preferences->useHardwareBuffersForFrameRendering() || priv->preferences->acceleratedCompositingEnabled()) {
-            priv->preferences->setUseHardwareBuffersForFrameRendering(false);
+        if (priv->preferences->acceleratedCompositingEnabled()) {
             priv->preferences->setAcceleratedCompositingEnabled(false);
             changed = true;
         }
@@ -3967,8 +3965,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
         break;
 #if !USE(GTK4)
     case WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND:
-        if ((!priv->preferences->useHardwareBuffersForFrameRendering() || !priv->preferences->acceleratedCompositingEnabled()) && HardwareAccelerationManager::singleton().canUseHardwareAcceleration()) {
-            priv->preferences->setUseHardwareBuffersForFrameRendering(true);
+        if (!priv->preferences->acceleratedCompositingEnabled() && HardwareAccelerationManager::singleton().canUseHardwareAcceleration()) {
             priv->preferences->setAcceleratedCompositingEnabled(true);
             changed = true;
         }
