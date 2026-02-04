@@ -568,12 +568,12 @@ void WebLocalFrameLoaderClient::dispatchDidStartProvisionalLoad()
 
 #if ENABLE(FULLSCREEN_API)
     RefPtr document = m_localFrame->document();
-    if (document && document->protectedFullscreen()->fullscreenElement()) {
+    if (document && protect(document->fullscreen())->fullscreenElement()) {
         Ref fullScreenManager = webPage->fullScreenManager();
         RefPtr element = fullScreenManager->element();
         fullScreenManager->exitFullScreenForElement(element.get(), [element] {
             if (element)
-                protect(element->document())->protectedFullscreen()->didExitFullscreen([](auto) { });
+                protect(protect(element->document())->fullscreen())->didExitFullscreen([](auto) { });
         });
     }
 #endif
@@ -1428,7 +1428,7 @@ void WebLocalFrameLoaderClient::saveViewStateToItem(HistoryItem& historyItem)
 {
 #if PLATFORM(IOS_FAMILY)
     if (m_frame->isMainFrame())
-        m_frame->page()->savePageState(historyItem);
+        protect(m_frame->page())->savePageState(historyItem);
 #else
     UNUSED_PARAM(historyItem);
 #endif
@@ -1440,7 +1440,7 @@ void WebLocalFrameLoaderClient::restoreViewState()
     auto* currentItem = m_localFrame->loader().history().currentItem();
     if (auto* view =  m_localFrame->view()) {
         if (m_frame->isMainFrame())
-            m_frame->page()->restorePageState(*currentItem);
+            protect(m_frame->page())->restorePageState(*currentItem);
         else if (!view->wasScrolledByUser())
             view->setScrollPosition(currentItem->scrollPosition());
     }

@@ -143,6 +143,7 @@ static inline bool needsDesktopUserAgentInternal(const URL&) { return false; }
 static inline bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscapeInternal(const URL&) { return false; }
 static inline bool shouldNotAutoUpgradeToHTTPSNavigationInternal(const URL&) { return false; }
 static inline bool shouldDisableBlobFileAccessEnforcementInternal() { return false; }
+static inline bool needsConsistentQueryParameterFilteringInternal(const URL&) { return false; }
 #if PLATFORM(COCOA)
 static inline String standardUserAgentWithApplicationNameIncludingCompatOverridesInternal(const String&, const String&, UserAgentType) { return { }; }
 #endif
@@ -219,7 +220,7 @@ bool Quirks::needsAutoplayPlayPauseEvents() const
     if (allowedAutoplayQuirks(document).contains(AutoplayQuirk::SynthesizedPauseEvents))
         return true;
 
-    return allowedAutoplayQuirks(document->protectedMainFrameDocument().get()).contains(AutoplayQuirk::SynthesizedPauseEvents);
+    return allowedAutoplayQuirks(protect(document->mainFrameDocument()).get()).contains(AutoplayQuirk::SynthesizedPauseEvents);
 }
 
 // netflix.com https://bugs.webkit.org/show_bug.cgi?id=173030
@@ -1789,6 +1790,22 @@ bool Quirks::needsLaxSameSiteCookieQuirk(const URL& requestURL) const
 
     auto url = protectedDocument()->url();
     return url.protocolIs("https"_s) && url.host() == "login.microsoftonline.com"_s && requestURL.protocolIs("https"_s) && requestURL.host() == "www.bing.com"_s;
+}
+
+bool Quirks::needsConsistentQueryParameterFilteringQuirk(const URL& url) const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    URL lowercaseURL { url.string().foldCase() };
+    if (!m_document->settings().consistentQueryParameterFilteringQuirkEnabled())
+        return false;
+
+    if (lowercaseURL.host() == "bundle-file"_s || RegistrableDomain { lowercaseURL } == "consistentqueryparameterfiltering.internal"_s)
+        return true;
+
+    if (needsConsistentQueryParameterFilteringInternal(lowercaseURL))
+        return true;
+    return false;
 }
 
 #if PLATFORM(COCOA)

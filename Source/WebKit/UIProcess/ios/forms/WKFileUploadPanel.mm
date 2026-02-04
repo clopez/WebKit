@@ -437,8 +437,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_cancel
 {
-    if (_listener)
-        _listener->cancel();
+    if (RefPtr listener = _listener)
+        listener->cancel();
 
     [self _dispatchDidDismiss];
 }
@@ -487,7 +487,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSData *png = UIImagePNGRepresentation(iconImage);
     RefPtr iconImageDataRef = adoptRef(WebKit::toImpl(WKDataCreate(static_cast<const unsigned char*>([png bytes]), [png length])));
 
-    _listener->chooseFiles(filenames, displayString, iconImageDataRef.get());
+    protect(_listener)->chooseFiles(filenames, displayString, iconImageDataRef.get());
     [self _dispatchDidDismiss];
 }
 
@@ -733,30 +733,30 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction configurationForMenuAtLocation:(CGPoint)location {
 
-    UIContextMenuActionProvider actionMenuProvider = [self, weakSelf = WeakObjCPtr<WKFileUploadPanel>(self)] (NSArray<UIMenuElement *> *) -> UIMenu * {
-        NSArray *actions;
-
+    WeakObjCPtr<WKFileUploadPanel> weakSelf { self };
+    UIContextMenuActionProvider actionMenuProvider = [weakSelf] (NSArray<UIMenuElement *> *) -> UIMenu * {
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return nil;
 
-        self->_isPresentingSubMenu = NO;
+        strongSelf->_isPresentingSubMenu = NO;
         UIAction *chooseAction = [UIAction actionWithTitle:[strongSelf _chooseFilesButtonLabel] image:[UIImage systemImageNamed:@"folder"] identifier:@"choose" handler:^(__kindof UIAction *action) {
-            self->_isPresentingSubMenu = YES;
-            [self showFilePickerMenu];
+            strongSelf->_isPresentingSubMenu = YES;
+            [strongSelf showFilePickerMenu];
         }];
 
         UIAction *photoAction = [UIAction actionWithTitle:[strongSelf _photoLibraryButtonLabel] image:[UIImage systemImageNamed:@"photo.on.rectangle"] identifier:@"photo" handler:^(__kindof UIAction *action) {
-            self->_isPresentingSubMenu = YES;
-            [self _showPhotoPicker];
+            strongSelf->_isPresentingSubMenu = YES;
+            [strongSelf _showPhotoPicker];
         }];
 
+        NSArray *actions;
         if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
             NSString *cameraString = [strongSelf _cameraButtonLabel];
             UIAction *cameraAction = [UIAction actionWithTitle:cameraString image:[UIImage systemImageNamed:@"camera"] identifier:@"camera" handler:^(__kindof UIAction *action) {
-                _usingCamera = YES;
-                self->_isPresentingSubMenu = YES;
-                [self _showCamera];
+                strongSelf->_usingCamera = YES;
+                strongSelf->_isPresentingSubMenu = YES;
+                [strongSelf _showCamera];
             }];
             actions = @[photoAction, cameraAction, chooseAction];
         } else
@@ -960,6 +960,9 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     [self _dismissDisplayAnimated:animated];
 
     _presentationViewController = [_view _wk_viewControllerForFullScreenPresentation];
+#if PLATFORM(VISION)
+    [_view page]->dispatchWillPresentModalUI();
+#endif
     [_presentationViewController presentViewController:viewController animated:animated completion:^{
         if (!_isPresentingSubMenu && [_view isFirstResponder])
             [_view resignFirstResponder];
@@ -1377,9 +1380,10 @@ static RetainPtr<NSString> displayStringForDocumentsAtURLs(NSArray<NSURL *> *url
         RetainPtr filePath = [temporaryDirectory stringByAppendingPathComponent:coordinatedOriginalURL.lastPathComponent];
         RetainPtr destinationFileURL = adoptNS([[NSURL alloc] initFileURLWithPath:filePath.get() isDirectory:NO]);
 
-        if (asCopy)
-            didMoveOrCopy = [fileManager copyItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
-        else
+        if (asCopy) {
+            // This is a safer cpp false positive. Despite having `copy` in its name, this method returns a BOOL.
+            SUPPRESS_RETAINPTR_CTOR_ADOPT didMoveOrCopy = [fileManager copyItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
+        } else
             didMoveOrCopy = [fileManager moveItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
 
         if (!didMoveOrCopy || error) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -440,7 +440,7 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
 {
     ASSERT(isMainThread());
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get(); contentFilter && !contentFilter->continueAfterNotifyFinished(resource))
+    if (RefPtr contentFilter = m_contentFilter; contentFilter && !contentFilter->continueAfterNotifyFinished(resource))
         return;
 #endif
 
@@ -760,7 +760,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
     }
 
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get(); contentFilter && !contentFilter->continueAfterWillSendRequest(newRequest, redirectResponse))
+    if (RefPtr contentFilter = m_contentFilter; contentFilter && !contentFilter->continueAfterWillSendRequest(newRequest, redirectResponse))
         return completionHandler(WTF::move(newRequest));
 #endif
 
@@ -944,7 +944,7 @@ void DocumentLoader::responseReceived(ResourceResponse&& response, CompletionHan
     CompletionHandlerCallingScope completionHandlerCaller(WTF::move(completionHandler));
 
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get(); contentFilter && !contentFilter->continueAfterResponseReceived(response))
+    if (RefPtr contentFilter = m_contentFilter; contentFilter && !contentFilter->continueAfterResponseReceived(response))
         return;
 #endif
 
@@ -1245,7 +1245,7 @@ void DocumentLoader::stopLoadingForPolicyChange(LoadWillContinueInAnotherProcess
 // https://w3c.github.io/ServiceWorker/#control-and-use-window-client
 static inline bool shouldUseActiveServiceWorkerFromParent(const Document& document, const Document& parent)
 {
-    return !document.url().protocolIsInHTTPFamily() && !document.securityOrigin().isOpaque() && parent.protectedSecurityOrigin()->isSameOriginDomain(document.protectedSecurityOrigin());
+    return !document.url().protocolIsInHTTPFamily() && !document.securityOrigin().isOpaque() && protect(parent.securityOrigin())->isSameOriginDomain(protect(document.securityOrigin()));
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -1286,7 +1286,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
             URL url = documentURL();
 
             if (!url.isEmpty() && url.protocolIsInHTTPFamily())
-                document->protectedResourceMonitor()->setDocumentURL(WTF::move(url));
+                protect(document->resourceMonitor())->setDocumentURL(WTF::move(url));
         }
 #endif
 
@@ -1295,7 +1295,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
             // load local resources. See https://bugs.webkit.org/show_bug.cgi?id=16756
             // and https://bugs.webkit.org/show_bug.cgi?id=19760 for further
             // discussion.
-            document->protectedSecurityOrigin()->grantLoadLocalResources();
+            protect(document->securityOrigin())->grantLoadLocalResources();
         }
 
         if (protect(frameLoader())->stateMachine().creatingInitialEmptyDocument())
@@ -1320,7 +1320,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
                     document->createNewIdentifier();
             }
 
-            if (m_frame->document()->activeServiceWorker() || document->url().protocolIsInHTTPFamily() || (document->page() && document->page()->isServiceWorkerPage()) || (document->parentDocument() && shouldUseActiveServiceWorkerFromParent(document, *document->protectedParentDocument())))
+            if (m_frame->document()->activeServiceWorker() || document->url().protocolIsInHTTPFamily() || (document->page() && document->page()->isServiceWorkerPage()) || (document->parentDocument() && shouldUseActiveServiceWorkerFromParent(document, *protect(document->parentDocument()))))
                 document->setServiceWorkerConnection(&ServiceWorkerProvider::singleton().serviceWorkerConnection());
 
             if (m_resultingClientId) {
@@ -1400,7 +1400,7 @@ void DocumentLoader::dataReceived(CachedResource& resource, const SharedBuffer& 
 void DocumentLoader::dataReceived(const SharedBuffer& buffer)
 {
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get(); contentFilter && !contentFilter->continueAfterDataReceived(buffer, ContentFilter::FromDocumentLoader::Yes))
+    if (RefPtr contentFilter = m_contentFilter; contentFilter && !contentFilter->continueAfterDataReceived(buffer, ContentFilter::FromDocumentLoader::Yes))
         return;
 #endif
 
@@ -1452,7 +1452,7 @@ void DocumentLoader::checkLoadComplete()
         return;
 
     ASSERT(this == frameLoader()->activeDocumentLoader());
-    protect(m_frame->document())->protectedWindow()->finishedLoading();
+    protect(protect(m_frame->document())->window())->finishedLoading();
 }
 
 void DocumentLoader::applyPoliciesToSettings()
@@ -1541,7 +1541,7 @@ void DocumentLoader::detachFromFrame(LoadWillContinueInAnotherProcess loadWillCo
     if (m_mainResource && m_mainResource->hasClient(*this))
         m_mainResource->removeClient(*this);
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get())
+    if (RefPtr contentFilter = m_contentFilter)
         contentFilter->stopFilteringMainResource();
 #endif
 
@@ -2167,7 +2167,7 @@ void DocumentLoader::startLoadingMainResource()
 
 #if ENABLE(CONTENT_FILTERING)
     // Always filter in WK1
-    contentFilterInDocumentLoader() = frame && frame->view() && frame->protectedView()->platformWidget();
+    contentFilterInDocumentLoader() = frame && frame->view() && protect(frame->view())->platformWidget();
     if (contentFilterInDocumentLoader())
         m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this) : nullptr;
 #endif
@@ -2397,7 +2397,7 @@ void DocumentLoader::clearMainResource()
     if (m_mainResource && m_mainResource->hasClient(*this))
         m_mainResource->removeClient(*this);
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get())
+    if (RefPtr contentFilter = m_contentFilter)
         contentFilter->stopFilteringMainResource();
 #endif
 
@@ -2528,7 +2528,7 @@ bool DocumentLoader::navigationCanTriggerCrossDocumentViewTransition(Document& o
         return false;
 
     Ref newOrigin = SecurityOrigin::create(documentURL());
-    if (!newOrigin->isSameOriginAs(oldDocument.protectedSecurityOrigin()))
+    if (!newOrigin->isSameOriginAs(protect(oldDocument.securityOrigin())))
         return false;
 
     if (const auto* metrics = response().deprecatedNetworkLoadMetricsOrNull(); metrics && !fromBackForwardCache) {
@@ -2548,7 +2548,7 @@ bool DocumentLoader::navigationCanTriggerCrossDocumentViewTransition(Document& o
 void DocumentLoader::becomeMainResourceClient()
 {
 #if ENABLE(CONTENT_FILTERING)
-    if (CheckedPtr contentFilter = m_contentFilter.get())
+    if (RefPtr contentFilter = m_contentFilter)
         contentFilter->startFilteringMainResource(*m_mainResource);
 #endif
     m_mainResource->addClient(*this);
@@ -2665,7 +2665,7 @@ ResourceError DocumentLoader::handleContentFilterDidBlock(ContentFilterUnblockHa
 
 bool DocumentLoader::contentFilterWillHandleProvisionalLoadFailure(const ResourceError& error)
 {
-    if (CheckedPtr contentFilter = m_contentFilter.get(); contentFilter && contentFilter->willHandleProvisionalLoadFailure(error))
+    if (RefPtr contentFilter = m_contentFilter; contentFilter && contentFilter->willHandleProvisionalLoadFailure(error))
         return true;
     if (contentFilterInDocumentLoader())
         return false;
@@ -2674,7 +2674,7 @@ bool DocumentLoader::contentFilterWillHandleProvisionalLoadFailure(const Resourc
 
 void DocumentLoader::contentFilterHandleProvisionalLoadFailure(const ResourceError& error)
 {
-    if (CheckedPtr contentFilter = m_contentFilter.get())
+    if (RefPtr contentFilter = m_contentFilter)
         contentFilter->handleProvisionalLoadFailure(error);
     if (contentFilterInDocumentLoader())
         return;

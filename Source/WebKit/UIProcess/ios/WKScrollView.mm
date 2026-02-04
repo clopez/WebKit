@@ -36,10 +36,12 @@
 #import "WKDeferringGestureRecognizer.h"
 #import "WKUIScrollEdgeEffect.h"
 #import "WKWebViewIOS.h"
+#import "WKWebViewInternal.h"
 #import "WebPage.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 #if HAVE(PEPPER_UI_CORE)
@@ -72,9 +74,9 @@
     auto externalDelegate = _externalDelegate.get();
     NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
     if (!signature)
-        signature = [(NSObject *)_internalDelegate methodSignatureForSelector:aSelector];
+        signature = [static_cast<NSObject *>(_internalDelegate) methodSignatureForSelector:aSelector];
     if (!signature)
-        signature = [(NSObject *)externalDelegate.get() methodSignatureForSelector:aSelector];
+        signature = [static_cast<NSObject *>(externalDelegate.get()) methodSignatureForSelector:aSelector];
     return signature;
 }
 
@@ -223,16 +225,16 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-    if ([otherGestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
-        return [(WKDeferringGestureRecognizer *)otherGestureRecognizer shouldDeferGestureRecognizer:gestureRecognizer];
+    if (RetainPtr otherDeferringGestureRecognizer = dynamic_objc_cast<WKDeferringGestureRecognizer>(otherGestureRecognizer))
+        return [otherDeferringGestureRecognizer shouldDeferGestureRecognizer:gestureRecognizer];
 
     return NO;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-    if ([gestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
-        return [(WKDeferringGestureRecognizer *)gestureRecognizer shouldDeferGestureRecognizer:otherGestureRecognizer];
+    if (RetainPtr deferringGestureRecognizer = dynamic_objc_cast<WKDeferringGestureRecognizer>(gestureRecognizer))
+        return [deferringGestureRecognizer shouldDeferGestureRecognizer:otherGestureRecognizer];
 
     return NO;
 }
@@ -594,22 +596,22 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 
 - (UIScrollEdgeEffect *)topEdgeEffect
 {
-    return static_cast<UIScrollEdgeEffect *>(self._wk_topEdgeEffect);
+    return checked_objc_cast<UIScrollEdgeEffect>(self._wk_topEdgeEffect);
 }
 
 - (UIScrollEdgeEffect *)leftEdgeEffect
 {
-    return static_cast<UIScrollEdgeEffect *>(self._wk_leftEdgeEffect);
+    return checked_objc_cast<UIScrollEdgeEffect>(self._wk_leftEdgeEffect);
 }
 
 - (UIScrollEdgeEffect *)bottomEdgeEffect
 {
-    return static_cast<UIScrollEdgeEffect *>(self._wk_bottomEdgeEffect);
+    return checked_objc_cast<UIScrollEdgeEffect>(self._wk_bottomEdgeEffect);
 }
 
 - (UIScrollEdgeEffect *)rightEdgeEffect
 {
-    return static_cast<UIScrollEdgeEffect *>(self._wk_rightEdgeEffect);
+    return checked_objc_cast<UIScrollEdgeEffect>(self._wk_rightEdgeEffect);
 }
 
 - (WKUIScrollEdgeEffect *)_wk_topEdgeEffect

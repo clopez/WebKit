@@ -708,6 +708,7 @@ llint/LLIntSlowPaths.cpp
 llint/LLIntThunks.cpp
 
 parser/Lexer.cpp
+parser/LexerUnicodeProperties.cpp
 parser/ModuleAnalyzer.cpp
 parser/Nodes.cpp
 parser/NodesAnalyzeModule.cpp
@@ -877,6 +878,7 @@ runtime/IntlRelativeTimeFormatConstructor.cpp
 runtime/IntlRelativeTimeFormatPrototype.cpp
 runtime/IntlSegmentIterator.cpp
 runtime/IntlSegmentIteratorPrototype.cpp
+runtime/IntlSegmentDataObject.cpp
 runtime/IntlSegmenter.cpp
 runtime/IntlSegmenterConstructor.cpp
 runtime/IntlSegmenterPrototype.cpp

@@ -310,8 +310,8 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateBeforeChildren(const Scro
 
 void ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(UIScrollView *scrollView, const WebCore::OverscrollBehavior horizontalOverscrollBehavior, WebCore::OverscrollBehavior verticalOverscrollBehavior, AllowOverscrollToPreventScrollPropagation allowPropogation)
 {
-    if ([scrollView isKindOfClass:[WKScrollView class]])
-        [(WKScrollView*)scrollView _setBouncesInternal:horizontalOverscrollBehavior != WebCore::OverscrollBehavior::None vertical: verticalOverscrollBehavior != WebCore::OverscrollBehavior::None];
+    if (RetainPtr wkScrollView = dynamic_objc_cast<WKScrollView>(scrollView))
+        [wkScrollView _setBouncesInternal:horizontalOverscrollBehavior != WebCore::OverscrollBehavior::None vertical: verticalOverscrollBehavior != WebCore::OverscrollBehavior::None];
     else {
         scrollView.bouncesHorizontally = horizontalOverscrollBehavior != OverscrollBehavior::None;
         scrollView.bouncesVertically = verticalOverscrollBehavior != OverscrollBehavior::None;
@@ -453,7 +453,7 @@ void ScrollingTreeScrollingNodeDelegateIOS::handleAsynchronousCancelableScrollEv
 {
     auto* scrollingCoordinatorProxy = downcast<WebKit::RemoteScrollingTree>(scrollingTree())->scrollingCoordinatorProxy();
     if (scrollingCoordinatorProxy) {
-        if (RefPtr pageClient = scrollingCoordinatorProxy->webPageProxy().pageClient())
+        if (RefPtr pageClient = protect(scrollingCoordinatorProxy->webPageProxy())->pageClient())
             pageClient->handleAsynchronousCancelableScrollEvent(scrollView, update, completion);
     }
 }
@@ -548,7 +548,7 @@ void ScrollingTreeScrollingNodeDelegateIOS::computeActiveTouchActionsForGestureR
     if (!scrollingCoordinatorProxy)
         return;
 
-    RefPtr pageClient = scrollingCoordinatorProxy->webPageProxy().pageClient();
+    RefPtr pageClient = protect(scrollingCoordinatorProxy->webPageProxy())->pageClient();
     if (!pageClient)
         return;
 
@@ -562,7 +562,7 @@ void ScrollingTreeScrollingNodeDelegateIOS::cancelPointersForGestureRecognizer(U
     if (!scrollingCoordinatorProxy)
         return;
 
-    if (RefPtr pageClient = scrollingCoordinatorProxy->webPageProxy().pageClient())
+    if (RefPtr pageClient = protect(scrollingCoordinatorProxy->webPageProxy())->pageClient())
         pageClient->cancelPointersForGestureRecognizer(gestureRecognizer);
 }
 

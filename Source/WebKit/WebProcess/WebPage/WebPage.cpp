@@ -1233,9 +1233,6 @@ void WebPage::updateAfterDrawingAreaCreation(const WebPageCreationParameters& pa
             protect(drawingArea())->setViewExposedRect(viewExposedRect);
     }
 #endif
-#if USE(COORDINATED_GRAPHICS)
-    protect(drawingArea())->updatePreferences(parameters.store);
-#endif
 }
 
 void WebPage::constructFrameTree(WebFrame& parent, const FrameTreeCreationParameters& treeCreationParameters)
@@ -1432,12 +1429,13 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
         updateAfterDrawingAreaCreation(parameters);
         addRootFramesToNewDrawingArea(m_mainFrame.get(), *drawingArea);
 
+        drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
+        drawingArea->updatePreferences(parameters.store);
+
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
         if (drawingArea->enterAcceleratedCompositingModeIfNeeded() && !parameters.isProcessSwap)
             drawingArea->sendEnterAcceleratedCompositingModeIfNeeded();
 #endif
-        drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
-        drawingArea->updatePreferences(parameters.store);
 
         drawingArea->adoptLayersFromDrawingArea(*oldDrawingArea);
         drawingArea->adoptDisplayRefreshMonitorsFromDrawingArea(*oldDrawingArea);
@@ -5306,12 +5304,12 @@ void WebPage::startPlayingPredominantVideo(CompletionHandler<void(bool)>&& compl
 void WebPage::setSceneIdentifier(String&& sceneIdentifier)
 {
     AudioSession::singleton().setSceneIdentifier(sceneIdentifier);
-    m_page->setSceneIdentifier(WTF::move(sceneIdentifier));
+    protect(m_page)->setSceneIdentifier(WTF::move(sceneIdentifier));
 }
 
 void WebPage::setAllowsMediaDocumentInlinePlayback(bool allows)
 {
-    m_page->setAllowsMediaDocumentInlinePlayback(allows);
+    protect(m_page)->setAllowsMediaDocumentInlinePlayback(allows);
 }
 #endif
 
@@ -5380,7 +5378,7 @@ void WebPage::notifyReportObservers(FrameIdentifier frameID, Ref<WebCore::Report
     if (!coreFrame)
         return;
     if (RefPtr document = coreFrame->document())
-        document->protectedReportingScope()->notifyReportObservers(WTF::move(report));
+        protect(document->reportingScope())->notifyReportObservers(WTF::move(report));
 }
 
 void WebPage::sendReportToEndpoints(FrameIdentifier frameID, URL&& baseURL, const Vector<String>& endpointURIs, const Vector<String>& endpointTokens, IPC::FormDataReference&& reportData, WebCore::ViolationReportType reportType)
@@ -5683,7 +5681,7 @@ void WebPage::closeCurrentTypingCommand()
         return;
 
     if (RefPtr document = frame->document())
-        document->protectedEditor()->closeTyping();
+        protect(document->editor())->closeTyping();
 }
 
 void WebPage::setActivePopupMenu(WebPopupMenu* menu)
@@ -6074,6 +6072,32 @@ void WebPage::capitalizeWord(FrameIdentifier frameID)
 
 
     coreFrame->protectedEditor()->capitalizeWord();
+}
+
+void WebPage::convertToTraditionalChinese(FrameIdentifier frameID)
+{
+    RefPtr frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame)
+        return;
+
+    RefPtr coreFrame = frame->coreLocalFrame();
+    if (!coreFrame)
+        return;
+
+    coreFrame->protectedEditor()->convertToTraditionalChinese();
+}
+
+void WebPage::convertToSimplifiedChinese(FrameIdentifier frameID)
+{
+    RefPtr frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame)
+        return;
+
+    RefPtr coreFrame = frame->coreLocalFrame();
+    if (!coreFrame)
+        return;
+
+    coreFrame->protectedEditor()->convertToSimplifiedChinese();
 }
 #endif
 
@@ -7220,7 +7244,7 @@ static bool isTextFormControlOrEditableContent(const WebCore::Element& element)
 #if PLATFORM(IOS_FAMILY) && ENABLE(FULLSCREEN_API)
 static bool shouldExitFullscreenAfterFocusingElement(const WebCore::Element& element)
 {
-    if (!element.document().fullscreen().isFullscreen())
+    if (!protect(element.document().fullscreen())->isFullscreen())
         return false;
 
     if (RefPtr input = dynamicDowncast<const HTMLInputElement>(element))
@@ -7254,7 +7278,7 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
 
 #if ENABLE(FULLSCREEN_API)
     if (shouldExitFullscreenAfterFocusingElement(element))
-        element.document().fullscreen().fullyExitFullscreen();
+        protect(element.document().fullscreen())->fullyExitFullscreen();
 #endif
         if (isChangingFocusedElement && (m_userIsInteracting || m_keyboardIsAttached))
             m_sendAutocorrectionContextAfterFocusingElement = true;
@@ -7265,7 +7289,7 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
 
         RefPtr<API::Object> userData;
 
-        m_formClient->willBeginInputSession(this, &element, WebFrame::fromCoreFrame(*element.document().frame()).get(), m_userIsInteracting, userData);
+        m_formClient->willBeginInputSession(this, &element, protect(WebFrame::fromCoreFrame(*element.document().frame())).get(), m_userIsInteracting, userData);
 
         if (!userData) {
             auto userInfo = element.userInfo();
@@ -7697,10 +7721,10 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
-    if (m_viewportConfiguration.setContentsSize(coreFrame->view()->contentsSize()))
+    if (m_viewportConfiguration.setContentsSize(protect(coreFrame->view())->contentsSize()))
         viewportChanged = true;
 
-    if (m_viewportConfiguration.setViewportArguments(coreFrame->document()->viewportArguments()))
+    if (m_viewportConfiguration.setViewportArguments(protect(coreFrame->document())->viewportArguments()))
         viewportChanged = true;
 
     if (m_viewportConfiguration.setIsKnownToLayOutWiderThanViewport(false))
@@ -9339,7 +9363,7 @@ void WebPage::createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighli
     if (!selectionRange)
         return;
 
-    document->protectedAppHighlightRegistry()->addAnnotationHighlightWithRange(StaticRange::create(selectionRange.value()));
+    protect(document->appHighlightRegistry())->addAnnotationHighlightWithRange(StaticRange::create(selectionRange.value()));
     document->appHighlightStorage().storeAppHighlight(StaticRange::create(selectionRange.value()), [completionHandler = WTF::move(completionHandler), protectedThis = Ref { *this }, this] (WebCore::AppHighlight&& highlight) mutable {
         highlight.isNewGroup = m_internals->highlightIsNewGroup;
         highlight.requestOriginatedInApp = m_internals->highlightRequestOriginatedInApp;
@@ -9373,7 +9397,7 @@ void WebPage::setAppHighlightsVisibility(WebCore::HighlightVisibility appHighlig
         if (!localFrame)
             continue;
         if (RefPtr document = localFrame->document())
-            document->protectedAppHighlightRegistry()->setHighlightVisibility(appHighlightVisibility);
+            protect(document->appHighlightRegistry())->setHighlightVisibility(appHighlightVisibility);
     }
 }
 
@@ -9533,7 +9557,7 @@ bool WebPage::handlesPageScaleGesture()
 void WebPage::generateTestReport(String&& message, String&& group)
 {
     if (RefPtr localTopDocument = this->localTopDocument())
-        localTopDocument->protectedReportingScope()->generateTestReport(WTF::move(message), WTF::move(group));
+        protect(localTopDocument->reportingScope())->generateTestReport(WTF::move(message), WTF::move(group));
 }
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
@@ -10410,15 +10434,6 @@ void WebPage::hideCaptionDisplaySettingsPreview(HTMLMediaElementIdentifier ident
 #endif
 }
 #endif
-
-void WebPage::updateRemoteIntersectionObservers()
-{
-    if (RefPtr page = m_page) {
-        page->forEachDocument([] (Document& document) {
-            document.updateRemoteIntersectionObservers();
-        });
-    }
-}
 
 } // namespace WebKit
 

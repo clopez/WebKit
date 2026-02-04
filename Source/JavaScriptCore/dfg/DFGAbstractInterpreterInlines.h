@@ -2401,6 +2401,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 || value.isType(SpecBoolean)
                 || value.isType(SpecSymbol)
                 || value.isType(SpecOther)) {
+                bool didFold = false;
                 switch (node->op()) {
                 case CompareLess:
                 case CompareGreater:
@@ -2408,6 +2409,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                     if (value.isType(SpecSymbol))
                         break;
                     setConstant(node, jsBoolean(false));
+                    didFold = true;
                     break;
                 case CompareLessEq:
                 case CompareGreaterEq: {
@@ -2421,12 +2423,14 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 }
                 case CompareEq:
                     setConstant(node, jsBoolean(true));
+                    didFold = true;
                     break;
                 default:
                     DFG_CRASH(m_graph, node, "Unexpected node type");
                     break;
                 }
-                break;
+                if (didFold)
+                    break;
             }
         }
 
@@ -3678,8 +3682,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             break;
         default:
             if (!m_graph.canDoFastSpread(node, forNode(node->child1()))) {
-                // SetObjectUse has no side effects since we iterate directly over internal storage.
-                if (node->child1().useKind() == SetObjectUse)
+                // SetObjectUse and MapIteratorObjectUse have no side effects since we iterate directly over internal storage.
+                if (node->child1().useKind() == SetObjectUse || node->child1().useKind() == MapIteratorObjectUse)
                     didFoldClobberWorld();
                 else
                     clobberWorld();
@@ -3932,8 +3936,6 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
 
-    case NewGenerator:
-    case NewAsyncGenerator:    
     case NewInternalFieldObject:
     case NewObject:
     case MaterializeNewInternalFieldObject:

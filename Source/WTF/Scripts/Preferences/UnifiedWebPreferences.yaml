@@ -681,18 +681,16 @@ AudioControlsScaleWithPageZoom:
 
 AudioDescriptionsEnabled:
   type: bool
-  status: preview
+  status: stable
   category: media
   condition: ENABLE(VIDEO)
   humanReadableName: "Audio descriptions for video - Standard"
   humanReadableDescription: "Enable standard audio descriptions for video"
   defaultValue:
-    WebKitLegacy:
-      default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 AuthorAndUserStylesEnabled:
   type: bool
@@ -1880,6 +1878,20 @@ CompressionStreamEnabled:
     WebCore:
       default: false
 
+ConsistentQueryParameterFilteringQuirkEnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "Consistent Query Parameter Filtering"
+  humanReadableDescription: "Enable consistent query parameter filtering"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 ContactPickerAPIEnabled:
   type: bool
   status: testable
@@ -1950,23 +1962,6 @@ ContextMenuQRCodeDetectionEnabled:
       default: false
     WebCore:
       default: false
-
-CookieConsentAPIEnabled:
-  type: bool
-  status: unstable
-  category: dom
-  humanReadableName: "Cookie Consent API"
-  humanReadableDescription: "Enable cookie consent API"
-  exposed: [ WebKit ]
-  defaultValue:
-    WebCore:
-      default: false
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-  sharedPreferenceForWebProcess: true
-  richJavaScript: true
 
 # FIXME: This is handled via WebView SPI rather than WebPreferences for WebKitLegacy. We should change the SPI to lookup the WebPreferences value instead.
 CookieEnabled:
@@ -2833,21 +2828,18 @@ ExposeSpeakersWithoutMicrophoneEnabled:
     WebCore:
       default: false
 
-# FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 ExtendedAudioDescriptionsEnabled:
   type: bool
-  status: preview
+  status: stable
   category: media
   condition: ENABLE(VIDEO)
   humanReadableName: "Audio descriptions for video - Extended"
   humanReadableDescription: "Enable extended audio descriptions for video"
   defaultValue:
-    WebKitLegacy:
-      default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ExtendedProofreadingEnabled:
   type: bool
@@ -6394,17 +6386,17 @@ ReadableByteStreamFetchSourceEnabled:
 
 ReadableStreamFromEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "ReadableStream.from"
   humanReadableDescription: "Enable ReadableStream.from"
   defaultValue:
     WebCore:
-      default: false
+      default: true
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
 
 ReadableStreamIterableEnabled:
   type: bool
@@ -6419,6 +6411,20 @@ ReadableStreamIterableEnabled:
       default: true
     WebKit:
       default: true
+
+ReadableStreamTransferEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "ReadableStream transfer"
+  humanReadableDescription: "Enable ReadableStream transfer"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
 
 RemoteMediaSessionManagerEnabled:
   type: bool
@@ -8772,13 +8778,13 @@ VerticalFormControlsEnabled:
   humanReadableDescription: "Enable support for form controls in vertical writing mode"
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(COCOA)": true
+      "PLATFORM(COCOA) || USE(THEME_ADWAITA)": true
       default: false
     WebKit:
-      "PLATFORM(COCOA)": true
+      "PLATFORM(COCOA) || USE(THEME_ADWAITA)": true
       default: false
     WebCore:
-      "PLATFORM(COCOA)": true
+      "PLATFORM(COCOA) || USE(THEME_ADWAITA)": true
       default: false
 
 VideoFullsceenPrefersMostVisibleHeuristic:

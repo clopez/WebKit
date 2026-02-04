@@ -62,7 +62,6 @@
 #include <WebCore/FocusEventData.h>
 #include <WebCore/FrameTreeSyncData.h>
 #include <WebCore/Image.h>
-#include <WebCore/LayoutRect.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NavigationScheduler.h>
 #include <WebCore/RemoteFrameLayoutInfo.h>
@@ -130,6 +129,8 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIde
     WebProcessPool::statistics().wkFrameCount++;
 
     page.inspectorController().createWebFrameInspectorTarget(*this, WebFrameInspectorTarget::toTargetID(frameID));
+
+    protect(m_frameProcess)->incrementFrameCount();
 }
 
 WebFrameProxy::~WebFrameProxy()
@@ -147,6 +148,8 @@ WebFrameProxy::~WebFrameProxy()
 
     ASSERT(allFrames().get(m_frameID) == this);
     allFrames().remove(m_frameID);
+
+    protect(m_frameProcess)->decrementFrameCount();
 }
 
 template<typename M, typename C> void WebFrameProxy::sendWithAsyncReply(M&& message, C&& completionHandler)
@@ -540,9 +543,11 @@ void WebFrameProxy::commitProvisionalFrame(IPC::Connection& connection, FrameIde
     ASSERT(m_page);
     if (m_provisionalFrame) {
         protect(process())->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID, m_layerHostingContextIdentifier), *webPageIDInCurrentProcess());
+
         if (RefPtr process = std::exchange(m_provisionalFrame, nullptr)->takeFrameProcess())
-            m_frameProcess = process.releaseNonNull();
+            setProcess(process.releaseNonNull());
     }
+
     protect(page())->didCommitLoadForFrame(connection, frameID, WTF::move(frameInfo), WTF::move(request), navigationID, WTF::move(mimeType), frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, WTF::move(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, WTF::move(documentSecurityPolicy), userData);
 }
 
@@ -623,7 +628,10 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
 void WebFrameProxy::setProcess(FrameProcess& process)
 {
     ASSERT(m_frameProcess.ptr() != &process);
+
+    protect(m_frameProcess)->decrementFrameCount();
     m_frameProcess = process;
+    protect(m_frameProcess)->incrementFrameCount();
 }
 
 void WebFrameProxy::removeChildFrames()

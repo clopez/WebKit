@@ -587,7 +587,7 @@ static bool removingNodeRemovesPosition(Node& node, const Position& position)
         return true;
 
     RefPtr element = dynamicDowncast<Element>(node);
-    return element && element->isShadowIncludingInclusiveAncestorOf(position.protectedAnchorNode().get());
+    return element && element->isShadowIncludingInclusiveAncestorOf(protect(position.anchorNode()).get());
 }
 
 void DragCaretController::nodeWillBeRemoved(Node& node)
@@ -2507,7 +2507,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                document->protectedPage()->focusController().setFocusedElement(target.get(), document->protectedFrame().get(), focusOptions);
+                protect(document->page())->focusController().setFocusedElement(target.get(), document->protectedFrame().get(), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2516,7 +2516,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        document->protectedPage()->focusController().setFocusedElement(nullptr, document->protectedFrame().get());
+        protect(document->page())->focusController().setFocusedElement(nullptr, document->protectedFrame().get());
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const
@@ -3101,8 +3101,8 @@ void FrameSelection::updateFromAssociatedLiveRange()
         disassociateLiveRange();
     else {
         // Don't use VisibleSelection's constructor that takes a SimpleRange, because it uses makeDeprecatedLegacyPosition instead of makeContainerOffsetPosition.
-        auto start = makeContainerOffsetPosition(m_associatedLiveRange->protectedStartContainer(), m_associatedLiveRange->startOffset());
-        auto end = makeContainerOffsetPosition(m_associatedLiveRange->protectedEndContainer(), m_associatedLiveRange->endOffset());
+        auto start = makeContainerOffsetPosition(protect(m_associatedLiveRange->startContainer()), m_associatedLiveRange->startOffset());
+        auto end = makeContainerOffsetPosition(protect(m_associatedLiveRange->endContainer()), m_associatedLiveRange->endOffset());
         setSelection({ start, end }, defaultSetSelectionOptions() | SetSelectionOption::MaintainLiveRange);
     }
 }

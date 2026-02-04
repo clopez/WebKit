@@ -95,17 +95,14 @@ UIScrollView *RemoteScrollingCoordinatorProxyIOS::scrollViewForScrollingNodeID(s
 {
     auto* treeNode = scrollingTree().nodeForID(nodeID);
 
-    // All ScrollingTreeOverflowScrollingNodes are ScrollingTreeOverflowScrollingNodeIOS on iOS.
-    if (RefPtr overflowScrollingNode = dynamicDowncast<ScrollingTreeOverflowScrollingNode>(treeNode))
-        return static_cast<ScrollingTreeOverflowScrollingNodeIOS*>(overflowScrollingNode.get())->scrollView();
+    if (RefPtr overflowScrollingNode = dynamicDowncast<ScrollingTreeOverflowScrollingNodeIOS>(treeNode))
+        return overflowScrollingNode->scrollView();
 
-    // All ScrollingTreeFrameScrollingNodes are ScrollingTreeFrameScrollingNodeRemoteIOS on iOS.
-    if (RefPtr frameScrollingNode = dynamicDowncast<ScrollingTreeFrameScrollingNode>(treeNode))
-        return static_cast<ScrollingTreeFrameScrollingNodeRemoteIOS*>(frameScrollingNode.get())->scrollView();
+    if (RefPtr frameScrollingNode = dynamicDowncast<ScrollingTreeFrameScrollingNodeRemoteIOS>(treeNode))
+        return frameScrollingNode->scrollView();
 
-    // All ScrollingTreePluginScrollingNodes are ScrollingTreePluginScrollingNodeIOS on iOS.
-    if (RefPtr pluginScrollingNode = dynamicDowncast<ScrollingTreePluginScrollingNode>(treeNode))
-        return static_cast<ScrollingTreePluginScrollingNodeIOS*>(pluginScrollingNode.get())->scrollView();
+    if (RefPtr pluginScrollingNode = dynamicDowncast<ScrollingTreePluginScrollingNodeIOS>(treeNode))
+        return pluginScrollingNode->scrollView();
 
     return nil;
 }
@@ -472,7 +469,7 @@ FloatRect RemoteScrollingCoordinatorProxyIOS::currentLayoutViewport() const
 {
     // FIXME: does this give a different value to the last value pushed onto us?
     Ref page = webPageProxy();
-    return page->computeLayoutViewportRect(page->unobscuredContentRect(), page->unobscuredContentRectRespectingInputViewBounds(), webPageProxy().layoutViewportRect(),
+    return page->computeLayoutViewportRect(page->unobscuredContentRect(), page->unobscuredContentRectRespectingInputViewBounds(), protect(webPageProxy())->layoutViewportRect(),
         page->displayedContentScale(), LayoutViewportConstraint::Unconstrained);
 }
 
@@ -599,7 +596,7 @@ std::pair<float, std::optional<unsigned>> RemoteScrollingCoordinatorProxyIOS::cl
     auto* rootNode = scrollingTree().rootNode();
     const auto& snapOffsetsInfo = rootNode->snapOffsetsInfo();
 
-    auto zoomScale = [webPageProxy().cocoaView() scrollView].zoomScale;
+    auto zoomScale = [protect(webPageProxy())->cocoaView() scrollView].zoomScale;
     scrollDestination.scale(1.0 / zoomScale);
     float scaledCurrentScrollOffset = currentScrollOffset / zoomScale;
     auto [rawClosestSnapOffset, newIndex] = snapOffsetsInfo.closestSnapOffset(axis, rootNode->layoutViewport().size(), scrollDestination, velocity, scaledCurrentScrollOffset);
@@ -636,7 +633,7 @@ CGPoint RemoteScrollingCoordinatorProxyIOS::nearestActiveContentInsetAdjustedSna
 
     const auto& horizontal = rootNode->snapOffsetsInfo().horizontalSnapOffsets;
     const auto& vertical = rootNode->snapOffsetsInfo().verticalSnapOffsets;
-    auto zoomScale = [webPageProxy().cocoaView() scrollView].zoomScale;
+    auto zoomScale = [protect(webPageProxy())->cocoaView() scrollView].zoomScale;
 
     // The bounds checking with maxScrollOffsets is to ensure that we won't interfere with rubber-banding when scrolling to the edge of the page.
     if (!horizontal.isEmpty() && m_currentHorizontalSnapPointIndex && *m_currentHorizontalSnapPointIndex < horizontal.size())
@@ -668,7 +665,7 @@ void RemoteScrollingCoordinatorProxyIOS::animationsWereAddedToNode(RemoteLayerTr
 {
     m_animatedNodeLayerIDs.add(node.layerID());
     if (m_monotonicTimelineRegistry && !m_monotonicTimelineRegistry->isEmpty())
-        drawingAreaIOS().scheduleDisplayRefreshCallbacksForMonotonicAnimations();
+        protect(drawingAreaIOS())->scheduleDisplayRefreshCallbacksForMonotonicAnimations();
 }
 
 void RemoteScrollingCoordinatorProxyIOS::progressBasedTimelinesWereUpdatedForNode(const WebCore::ScrollingTreeScrollingNode& node)
@@ -680,7 +677,7 @@ void RemoteScrollingCoordinatorProxyIOS::animationsWereRemovedFromNode(RemoteLay
 {
     m_animatedNodeLayerIDs.remove(node.layerID());
     if (m_animatedNodeLayerIDs.isEmpty() || !m_monotonicTimelineRegistry || m_monotonicTimelineRegistry->isEmpty())
-        drawingAreaIOS().pauseDisplayRefreshCallbacksForMonotonicAnimations();
+        protect(drawingAreaIOS())->pauseDisplayRefreshCallbacksForMonotonicAnimations();
 }
 
 void RemoteScrollingCoordinatorProxyIOS::updateTimelinesRegistration(WebCore::ProcessIdentifier processIdentifier, const WebCore::AcceleratedTimelinesUpdate& timelinesUpdate, MonotonicTime now)

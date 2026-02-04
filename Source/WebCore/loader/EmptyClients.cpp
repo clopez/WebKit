@@ -35,7 +35,6 @@
 #include "CacheStorageProvider.h"
 #include "ColorChooser.h"
 #include "ContextMenuClient.h"
-#include "CookieConsentDecisionResult.h"
 #include "CookieJar.h"
 #include "CredentialRequestCoordinatorClient.h"
 #include "DOMPasteAccess.h"
@@ -362,6 +361,11 @@ private:
     void uppercaseWord() final { }
     void lowercaseWord() final { }
     void capitalizeWord() final { }
+    bool canApplyCaseTransformations(const String&) final { return true; }
+    bool canConvertToTraditionalChinese(const String&) final { return false; }
+    bool canConvertToSimplifiedChinese(const String&) final { return false; }
+    void convertToTraditionalChinese() final { }
+    void convertToSimplifiedChinese() final { }
 #endif
 
 #if USE(AUTOMATIC_TEXT_REPLACEMENT)
@@ -654,11 +658,6 @@ void EmptyChromeClient::runOpenPanel(LocalFrame&, FileChooser&)
     
 void EmptyChromeClient::showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&&)
 {
-}
-
-void EmptyChromeClient::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
-{
-    completion(CookieConsentDecisionResult::NotSupported);
 }
 
 RefPtr<Icon> EmptyChromeClient::createIconForFiles(const Vector<String>& /* filenames */)

@@ -16,6 +16,7 @@ accessibility/ios-simulator [ Skip ]
 accessibility/gtk [ Skip ]
 accessibility/mac [ Skip ]
 accessibility/win [ Skip ]
+http/tests/site-isolation/accessibility/client [ Skip ]
 displaylists [ Skip ]
 editing/mac [ Skip ]
 editing/caret/ios [ Skip ]
@@ -411,7 +412,6 @@ media/video-element-fullscreen-not-in-dom-accelerated-iphone.html [ Skip ]
 # Per specification, if the scripts are identical, we do not install the new script and return the existing registration.
 imported/w3c/web-platform-tests/service-workers/service-worker/import-scripts-redirect.https.html [ Skip ]
 
-imported/w3c/web-platform-tests/service-workers/service-worker/resource-timing-cross-origin.https.html [ Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/svg-target-reftest.https.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/service-workers/service-worker/partitioned-cookies.tentative.https.html [ Pass Failure ]

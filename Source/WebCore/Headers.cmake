@@ -400,8 +400,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/contact-picker/ContactsRequestData.h
     Modules/contact-picker/ContactsSelectOptions.h
 
-    Modules/cookie-consent/CookieConsentDecisionResult.h
-
     Modules/cookie-store/CookieChangeSubscription.h
     Modules/cookie-store/CookieStoreGetOptions.h
     Modules/cookie-store/CookieStoreManager.h
@@ -1034,8 +1032,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/WindowProxy.h
     bindings/js/WorkerScriptFetcher.h
 
-    bridge/IdentifierRep.h
-
     bridge/jsc/BridgeJSC.h
 
     bridge/runtime_method.h
@@ -1078,6 +1074,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     crypto/CryptoAlgorithm.h
     crypto/CryptoAlgorithmIdentifier.h
     crypto/CryptoAlgorithmParameters.h
+    crypto/CryptoAlgorithmParametersInit.h
     crypto/CryptoKey.h
     crypto/CryptoKeyData.h
     crypto/CryptoKeyFormat.h
@@ -1105,6 +1102,37 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     crypto/keys/CryptoRsaKeyAlgorithm.h
 
     crypto/parameters/CryptoAlgorithmAesCbcCfbParams.h
+    crypto/parameters/CryptoAlgorithmAesCbcCfbParamsInit.h
+    crypto/parameters/CryptoAlgorithmAesCtrParams.h
+    crypto/parameters/CryptoAlgorithmAesCtrParamsInit.h
+    crypto/parameters/CryptoAlgorithmAesGcmParams.h
+    crypto/parameters/CryptoAlgorithmAesGcmParamsInit.h
+    crypto/parameters/CryptoAlgorithmAesKeyParams.h
+    crypto/parameters/CryptoAlgorithmAesKeyParamsInit.h
+    crypto/parameters/CryptoAlgorithmEcKeyParams.h
+    crypto/parameters/CryptoAlgorithmEcKeyParamsInit.h
+    crypto/parameters/CryptoAlgorithmEcdhKeyDeriveParams.h
+    crypto/parameters/CryptoAlgorithmEcdhKeyDeriveParamsInit.h
+    crypto/parameters/CryptoAlgorithmEcdsaParams.h
+    crypto/parameters/CryptoAlgorithmEcdsaParamsInit.h
+    crypto/parameters/CryptoAlgorithmHkdfParams.h
+    crypto/parameters/CryptoAlgorithmHkdfParamsInit.h
+    crypto/parameters/CryptoAlgorithmHmacKeyParams.h
+    crypto/parameters/CryptoAlgorithmHmacKeyParamsInit.h
+    crypto/parameters/CryptoAlgorithmPbkdf2Params.h
+    crypto/parameters/CryptoAlgorithmPbkdf2ParamsInit.h
+    crypto/parameters/CryptoAlgorithmRsaHashedImportParams.h
+    crypto/parameters/CryptoAlgorithmRsaHashedImportParamsInit.h
+    crypto/parameters/CryptoAlgorithmRsaHashedKeyGenParams.h
+    crypto/parameters/CryptoAlgorithmRsaHashedKeyGenParamsInit.h
+    crypto/parameters/CryptoAlgorithmRsaKeyGenParams.h
+    crypto/parameters/CryptoAlgorithmRsaKeyGenParamsInit.h
+    crypto/parameters/CryptoAlgorithmRsaOaepParams.h
+    crypto/parameters/CryptoAlgorithmRsaOaepParamsInit.h
+    crypto/parameters/CryptoAlgorithmRsaPssParams.h
+    crypto/parameters/CryptoAlgorithmRsaPssParamsInit.h
+    crypto/parameters/CryptoAlgorithmX25519Params.h
+    crypto/parameters/CryptoAlgorithmX25519ParamsInit.h
 
     css/CSSAttrValue.h
     css/CSSColorValue.h
@@ -3500,6 +3528,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StylePrimitiveNumericOrKeyword.h
     style/values/primitives/StylePrimitiveNumericTypes+Calculation.h
     style/values/primitives/StylePrimitiveNumericTypes+Evaluation.h
+    style/values/primitives/StylePrimitiveNumericTypes+Rounding.h
     style/values/primitives/StylePrimitiveNumericTypes.h
     style/values/primitives/StyleRatio.h
     style/values/primitives/StyleURL.h

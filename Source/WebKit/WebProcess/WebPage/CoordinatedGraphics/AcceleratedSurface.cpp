@@ -31,7 +31,6 @@
 #include "WebProcess.h"
 #include <WebCore/GLContext.h>
 #include <WebCore/GLFence.h>
-#include <WebCore/GraphicsContext.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/Region.h>
@@ -80,8 +79,8 @@
 #endif
 
 #if USE(SKIA)
-#include <WebCore/GraphicsContextSkia.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+#include <skia/core/SkCanvas.h>
 #include <skia/gpu/ganesh/GrBackendSurface.h>
 #include <skia/gpu/ganesh/SkSurfaceGanesh.h>
 #include <skia/gpu/ganesh/gl/GrGLBackendSurface.h>
@@ -122,7 +121,7 @@ AcceleratedSurface::AcceleratedSurface(WebPage& webPage, Function<void()>&& fram
     , m_id(generateID())
     , m_swapChain(m_id, renderingPurpose, webPage.corePage()->settings().useHardwareBuffersForFrameRendering())
     , m_isVisible(webPage.activityState().contains(ActivityState::IsVisible))
-    , m_useExplicitSync(useExplicitSync())
+    , m_useExplicitSync(usesGL() && useExplicitSync())
 {
     auto color = webPage.backgroundColor();
     m_backgroundColor = color ? color->toResolvedColorComponentsInColorSpace(WebCore::ColorSpace::SRGB) : white;
@@ -202,12 +201,17 @@ void AcceleratedSurface::RenderTargetShareableBuffer::didRenderFrame(Vector<IntR
     WebProcess::singleton().parentProcessConnection()->send(Messages::AcceleratedBackingStore::Frame(m_id, WTF::move(damageRects), WTF::move(m_renderingFenceFD)), m_surfaceID);
 }
 
-GraphicsContext* AcceleratedSurface::RenderTargetShareableBuffer::graphicsContext()
-{
 #if USE(SKIA)
-    if (!m_graphicsContext.context) {
+SkSurface* AcceleratedSurface::RenderTargetShareableBuffer::skiaSurface()
+{
+    if (!m_skiaSurface) {
+        auto* skiaGLContext = PlatformDisplay::sharedDisplay().skiaGLContext();
+        if (!skiaGLContext)
+            return nullptr;
+
         int stencilBits;
         glGetIntegerv(GL_STENCIL_BITS, &stencilBits);
+
         const int sampleCount = 0; // 0 == no MSAA.
         GrGLFramebufferInfo fbInfo;
         fbInfo.fFBOID = m_fbo;
@@ -219,9 +223,10 @@ GraphicsContext* AcceleratedSurface::RenderTargetShareableBuffer::graphicsContex
             stencilBits,
             fbInfo
         );
-        if (!PlatformDisplay::sharedDisplay().skiaGLContext() || !PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent())
+        if (!skiaGLContext->makeContextCurrent())
             return nullptr;
-        m_graphicsContext.surface = SkSurfaces::WrapBackendRenderTarget(
+
+        auto skiaSurface = SkSurfaces::WrapBackendRenderTarget(
             PlatformDisplay::sharedDisplay().skiaGrContext(),
             renderTargetSkia,
             GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin,
@@ -229,20 +234,18 @@ GraphicsContext* AcceleratedSurface::RenderTargetShareableBuffer::graphicsContex
             nullptr,
             nullptr
         );
-        if (!m_graphicsContext.surface)
+        if (!skiaSurface)
             return nullptr;
-        SkCanvas* canvas = m_graphicsContext.surface->getCanvas();
-        if (!canvas)
-            return nullptr;
-        // Fresh buffer should default to non-opaque white.
-        canvas->clear(SK_ColorWHITE);
-        m_graphicsContext.context = makeUnique<GraphicsContextSkia>(*canvas, RenderingMode::Accelerated, WebCore::RenderingPurpose::Unspecified);
+
+        if (auto* canvas = skiaSurface->getCanvas()) {
+            // Fresh buffer should default to non-opaque white.
+            canvas->clear(SK_ColorWHITE);
+            m_skiaSurface = WTF::move(skiaSurface);
+        }
     }
-    return m_graphicsContext.context ? &*m_graphicsContext.context : nullptr;
-#else
-    RELEASE_ASSERT_NOT_REACHED();
-#endif
+    return m_skiaSurface.get();
 }
+#endif
 
 void AcceleratedSurface::RenderTargetShareableBuffer::willRenderFrame()
 {
@@ -269,9 +272,9 @@ std::unique_ptr<GLFence> AcceleratedSurface::RenderTargetShareableBuffer::create
 void AcceleratedSurface::RenderTargetShareableBuffer::sync(bool useExplicitSync)
 {
 #if USE(SKIA)
-    if (m_graphicsContext.surface) {
+    if (m_skiaSurface) {
         PlatformDisplay::sharedDisplay().skiaGrContext()->flushAndSubmit(
-            m_graphicsContext.surface.get(),
+            m_skiaSurface.get(),
             GLFence::isSupported(PlatformDisplay::sharedDisplay().glDisplay()) ? GrSyncCpu::kNo : GrSyncCpu::kYes
         );
     }
@@ -460,6 +463,7 @@ AcceleratedSurface::RenderTargetEGLImage::RenderTargetEGLImage(uint64_t surfaceI
 }
 #endif // OS(ANDROID)
 
+#if USE(GBM) || OS(ANDROID)
 void AcceleratedSurface::RenderTargetEGLImage::initializeColorBuffer()
 {
     glGenRenderbuffers(1, &m_colorBuffer);
@@ -468,7 +472,6 @@ void AcceleratedSurface::RenderTargetEGLImage::initializeColorBuffer()
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_colorBuffer);
 }
 
-#if USE(GBM) || OS(ANDROID)
 AcceleratedSurface::RenderTargetEGLImage::~RenderTargetEGLImage()
 {
     if (m_colorBuffer)
@@ -550,12 +553,14 @@ AcceleratedSurface::RenderTargetSHMImageWithoutGL::~RenderTargetSHMImageWithoutG
     WebProcess::singleton().parentProcessConnection()->send(Messages::AcceleratedBackingStore::DidDestroyBuffer(m_id), m_surfaceID);
 }
 
-GraphicsContext* AcceleratedSurface::RenderTargetSHMImageWithoutGL::graphicsContext()
+#if USE(SKIA)
+SkSurface* AcceleratedSurface::RenderTargetSHMImageWithoutGL::skiaSurface()
 {
-    if (!m_graphicsContext.context)
-        m_graphicsContext.context = m_bitmap->createGraphicsContext();
-    return m_graphicsContext.context ? &*m_graphicsContext.context : nullptr;
+    if (!m_skiaSurface)
+        m_skiaSurface = m_bitmap->createSurface();
+    return m_skiaSurface.get();
 }
+#endif
 
 void AcceleratedSurface::RenderTargetSHMImageWithoutGL::didRenderFrame(Vector<IntRect, 1>&& damageRects)
 {
@@ -699,6 +704,13 @@ void AcceleratedSurface::RenderTargetWPEBackend::didRenderFrame(Vector<IntRect, 
 AcceleratedSurface::SwapChain::SwapChain(uint64_t surfaceID, RenderingPurpose renderingPurpose, bool useHardwareBuffersForFrameRendering)
     : m_surfaceID(surfaceID)
 {
+#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
+    if (renderingPurpose == RenderingPurpose::NonComposited && !useHardwareBuffersForFrameRendering) {
+        m_type = Type::SharedMemoryWithoutGL;
+        return;
+    }
+#endif
+
     auto& display = PlatformDisplay::sharedDisplay();
     switch (display.type()) {
 #if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
@@ -731,10 +743,6 @@ AcceleratedSurface::SwapChain::SwapChain(uint64_t surfaceID, RenderingPurpose re
     case PlatformDisplay::Type::Default:
         break;
 #endif // PLATFORM(GTK) || OS(ANDROID)
-#if PLATFORM(PLAYSTATION)
-    case PlatformDisplay::Type::Surfaceless:
-        break;
-#endif // PLATFORM(PLAYSTATION)
     }
 }
 
@@ -1068,10 +1076,14 @@ uint64_t AcceleratedSurface::window() const
     return 0;
 }
 
-GraphicsContext* AcceleratedSurface::graphicsContext()
+#if USE(SKIA)
+SkCanvas* AcceleratedSurface::canvas()
 {
-    return m_target ? m_target->graphicsContext() : nullptr;
+    if (auto* surface = m_target ? m_target->skiaSurface() : nullptr)
+        return surface->getCanvas();
+    return nullptr;
 }
+#endif
 
 void AcceleratedSurface::willRenderFrame(const IntSize& size)
 {

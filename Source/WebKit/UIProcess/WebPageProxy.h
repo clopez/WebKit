@@ -29,7 +29,6 @@
 // Use forward declarations and WebPageProxyInternals.h instead.
 #include "APIObject.h"
 #include "MessageReceiver.h"
-#include <WebCore/LayerHostingContextIdentifier.h>
 #include <wtf/ApproximateTime.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
@@ -182,7 +181,6 @@ enum class AutoplayEvent : uint8_t;
 enum class AutoplayEventFlags : uint8_t;
 enum class BrowsingContextGroupSwitchDecision : uint8_t;
 enum class CaretAnimatorType : uint8_t;
-enum class CookieConsentDecisionResult : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
 enum class CrossOriginOpenerPolicyValue : uint8_t;
 enum class DOMPasteAccessCategory : uint8_t;
@@ -303,6 +301,7 @@ struct ImageBufferParameters;
 struct InheritedFrameState;
 #endif
 struct InspectorOverlayHighlight;
+struct LayerHostingContextIdentifierType;
 struct LinkIcon;
 struct LinkDecorationFilteringData;
 struct LiveRegionAnnouncementData;
@@ -394,6 +393,7 @@ using FloatBoxExtent = RectEdges<float>;
 using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
 using IntDegrees = int32_t;
 using HTMLMediaElementIdentifier = ObjectIdentifier<MediaPlayerClientIdentifierType>;
+using LayerHostingContextIdentifier = ObjectIdentifier<LayerHostingContextIdentifierType>;
 using MediaControlsContextMenuItemID = uint64_t;
 using MediaKeySystemRequestIdentifier = ObjectIdentifier<MediaKeySystemRequestIdentifierType>;
 using MediaPlayerIdentifier = ObjectIdentifier<MediaPlayerIdentifierType>;
@@ -938,6 +938,10 @@ public:
 
     API::UIClient& uiClient() { return *m_uiClient; }
     void setUIClient(std::unique_ptr<API::UIClient>&&);
+
+#if PLATFORM(VISION)
+    void dispatchWillPresentModalUI();
+#endif
 
     API::IconLoadingClient& iconLoadingClient() { return *m_iconLoadingClient; }
     void setIconLoadingClient(std::unique_ptr<API::IconLoadingClient>&&);
@@ -1885,6 +1889,8 @@ public:
     void uppercaseWord();
     void lowercaseWord();
     void capitalizeWord();
+    void convertToTraditionalChinese();
+    void convertToSimplifiedChinese();
 #endif
 
 #if PLATFORM(COCOA)
@@ -2603,8 +2609,6 @@ public:
     void setSystemPreviewCompletionHandlerForLoadTesting(CompletionHandler<void(bool)>&&);
 #endif
 
-    void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&);
-
 #if ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
     void beginTextRecognitionForVideoInElementFullScreen(WebCore::ShareableBitmapHandle&&, WebCore::FloatRect);
     void cancelTextRecognitionForVideoInElementFullScreen();
@@ -2903,8 +2907,6 @@ public:
 
     friend class TextExtractionAssertionScope;
     UniqueRef<TextExtractionAssertionScope> createTextExtractionAssertionScope();
-
-    void updateRemoteIntersectionObserversInOtherWebProcesses(IPC::Connection&);
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);

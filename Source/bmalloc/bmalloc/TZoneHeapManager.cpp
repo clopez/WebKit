@@ -305,6 +305,37 @@ bool TZoneHeapManager::isReady()
 
 #if TZONE_VERBOSE_DEBUG
 
+class TZoneDescriptorDecoder {
+public:
+    TZoneDescriptorDecoder(TZoneDescriptor value)
+        : m_value(value)
+    { }
+
+    inline TZoneDescriptor value() const { return m_value; }
+
+    inline TZoneCategory category() const
+    {
+        return static_cast<TZoneCategory>(m_value >> TZoneSpecification::categoryShift);
+    }
+
+    inline unsigned sizeClass() const
+    {
+        constexpr unsigned sizeClassDividedBy16Mask = (1ull << TZoneSpecification::numSizeClassDividedBy16Bits) - 1;
+        unsigned sizeClassDividedBy16 = (m_value >> TZoneSpecification::sizeClassDividedBy16Shift) & sizeClassDividedBy16Mask;
+        return sizeClassDividedBy16 * 16;
+    }
+
+    inline unsigned alignment() const
+    {
+        constexpr unsigned alignmentLog2Mask = (1ull << TZoneSpecification::numAlignmentLog2Bits) - 1;
+        unsigned alignmentLog2 = (m_value >> TZoneSpecification::alignmentLog2Shift) & alignmentLog2Mask;
+        return 1ull << alignmentLog2;
+    }
+
+private:
+    TZoneDescriptor m_value { 0 };
+};
+
 static char* nameForType(LockHolder&, unsigned typeSize, unsigned alignment, unsigned index)
 {
     for (unsigned i = 0; i < SizeBase64Size; ++i) {
@@ -391,23 +422,19 @@ void TZoneHeapManager::dumpRegisteredTypes()
 
         TZoneDescriptor typeCountHighWatermarkDescriptor = 0;
 
-        TZONE_LOG_DEBUG("TZoneHeap registered descriptors: %zu\n", m_registeredDescriptors.size());
+        TZONE_LOG_DEBUG("TZoneHeap registered descriptors: %zu @ <pid%u>\n", m_registeredDescriptors.size(), getpid());
 
-        TZONE_LOG_DEBUG("      Size  Align  Bckts  Types  Inuse ");
-        for (unsigned i = 0; i < largestBucketCount; i++)
-            TZONE_LOG_DEBUG("  %sBkt%u", i < 10 ? " " : "", i);
+        TZONE_LOG_DEBUG("    Cat    Size  Align  Bckts  Types  Inuse ");
         TZONE_LOG_DEBUG("\n");
 
-        TZONE_LOG_DEBUG("    ------  -----  -----  -----  ----- ");
-        for (unsigned i = 0; i < largestBucketCount; i++)
-            TZONE_LOG_DEBUG("  -----");
+        TZONE_LOG_DEBUG("    ---  ------  -----  -----  -----  ----- ");
         TZONE_LOG_DEBUG("\n");
 
         for (auto iter = m_registeredDescriptors.begin(); iter < registeredDescriptorsEnd; iter++) {
-            TZoneDescriptor descriptor = *iter;
-            unsigned bucketCount = bucketCountForSizeClass(descriptor);
+            TZoneDescriptorDecoder descriptor = *iter;
+            unsigned bucketCount = bucketCountForSizeClass(descriptor.sizeClass());
 
-            Group* group = m_groupByDescriptor.get(descriptor);
+            Group* group = m_groupByDescriptor.get(descriptor.value());
             unsigned typeCount = group->numberOfTypesInGroup;
             totalTypeCount += group->numberOfTypesInGroup;
 
@@ -420,11 +447,11 @@ void TZoneHeapManager::dumpRegisteredTypes()
 
             totalUseBucketCount += usedBuckets;
 
-            TZONE_LOG_DEBUG("    %6u  %5u  %5u  %5u  %5u ", SizeAndAlignment::decodeSize(descriptor), SizeAndAlignment::decodeAlignment(descriptor), bucketCount, typeCount, usedBuckets);
+            TZONE_LOG_DEBUG("    %2uc  %6u  %5u  %5u  %5u  %5u : ", static_cast<unsigned>(descriptor.category()), descriptor.sizeClass(), descriptor.alignment(), bucketCount, typeCount, usedBuckets);
 
             for (unsigned bucket = 0; bucket < group->numberOfBuckets; ++bucket)
                 TZONE_LOG_DEBUG("  %5u", group->bucketUseCounts[bucket]);
-            TZONE_LOG_DEBUG("\n");
+            TZONE_LOG_DEBUG(" descriptor: %" PRIx64 "\n", descriptor.value());
 
             if (bucketCountHistogram.size() <= bucketCount)
                 bucketCountHistogram.resize(bucketCount + 1);
@@ -432,7 +459,7 @@ void TZoneHeapManager::dumpRegisteredTypes()
             bucketCountHistogram[bucketCount] = bucketCountHistogram[bucketCount] + 1;
             if (typeCount > typeCountHighWatermark) {
                 typeCountHighWatermark = typeCount;
-                typeCountHighWatermarkDescriptor = descriptor;
+                typeCountHighWatermarkDescriptor = descriptor.value();
             }
         }
 
@@ -445,8 +472,8 @@ void TZoneHeapManager::dumpRegisteredTypes()
         }
         TZONE_LOG_DEBUG("\n");
 
-        TZoneDescriptor descriptor = typeCountHighWatermarkDescriptor;
-        TZONE_LOG_DEBUG("    Most populated size class:  size: %u alignment %u type count: %u\n", SizeAndAlignment::decodeSize(descriptor), SizeAndAlignment::decodeAlignment(descriptor), typeCountHighWatermark);
+        TZoneDescriptorDecoder descriptor = typeCountHighWatermarkDescriptor;
+        TZONE_LOG_DEBUG("    Most populated size class:  size: %u alignment %u type count: %u\n", descriptor.sizeClass(), descriptor.alignment(), typeCountHighWatermark);
     }
 #endif // TZONE_VERBOSE_DEBUG
 }
@@ -459,9 +486,9 @@ void TZoneHeapManager::ensureSingleton()
     });
 };
 
-BINLINE unsigned TZoneHeapManager::bucketCountForSizeClass(TZoneDescriptor descriptor)
+BINLINE unsigned TZoneHeapManager::bucketCountForSizeClass(unsigned sizeClass)
 {
-    if (SizeAndAlignment::decodeSize(descriptor) > maxSmallSize)
+    if (sizeClass > maxSmallSize)
         return bucketsForLargeSizes;
 
     return bucketsForSmallSizes;
@@ -519,7 +546,7 @@ BINLINE unsigned TZoneHeapManager::bucketForKey(const TZoneSpecification& spec, 
 #endif
 
     if constexpr (verboseBucketSelection) {
-        TZONE_LOG_DEBUG("Choosing Bucket heapRef: %p size: %u align: %u", spec.addressOfHeapRef, spec.size, SizeAndAlignment::decodeAlignment(spec.descriptor));
+        TZONE_LOG_DEBUG("Choosing Bucket heapRef: %p size: %u align: %u", spec.addressOfHeapRef, spec.size, spec.alignment);
         TZONE_LOG_DEBUG(" seed { %llu }\n", m_tzoneKeySeed);
         TZONE_LOG_DEBUG("Result: { %llu }  bucket: %u\n", random, bucket);
     }
@@ -529,13 +556,15 @@ BINLINE unsigned TZoneHeapManager::bucketForKey(const TZoneSpecification& spec, 
 
 BALLOW_UNSAFE_BUFFER_USAGE_END
 
-TZoneHeapManager::Group* TZoneHeapManager::populateGroupBuckets(LockHolder& lock, TZoneDescriptor descriptor)
+TZoneHeapManager::Group* TZoneHeapManager::populateGroupBuckets(LockHolder& lock, const TZoneSpecification& spec)
 {
+    TZoneDescriptor descriptor = spec.descriptor;
+    unsigned sizeClass = spec.sizeClass();
     RELEASE_BASSERT(s_state >= State::Seeded);
     BASSERT(!m_groupByDescriptor.contains(descriptor));
     s_state = State::StartedRegisteringTypes;
 
-    auto bucketCount = bucketCountForSizeClass(descriptor);
+    auto bucketCount = bucketCountForSizeClass(sizeClass);
 
 #if TZONE_VERBOSE_DEBUG
     if constexpr (verbose) {
@@ -557,28 +586,28 @@ TZoneHeapManager::Group* TZoneHeapManager::populateGroupBuckets(LockHolder& lock
     // Fill in non-compact bucket.
 
 #if TZONE_VERBOSE_DEBUG
-    char* typeName = nameForTypeNonCompact(lock, SizeAndAlignment::decodeSize(descriptor), SizeAndAlignment::decodeAlignment(descriptor));
+    char* typeName = nameForTypeNonCompact(lock, sizeClass, spec.alignment);
     memcpy(group->nonCompactBucket.typeName, typeName, typeNameLen);
 #else
     PAS_UNUSED_PARAM(lock);
     setNextTypeName(group->nonCompactBucket.typeName, typeNameLen);
 #endif
-    group->nonCompactBucket.type.size = SizeAndAlignment::decodeSize(descriptor);
-    group->nonCompactBucket.type.alignment = SizeAndAlignment::decodeAlignment(descriptor);
+    group->nonCompactBucket.type.size = sizeClass;
+    group->nonCompactBucket.type.alignment = spec.alignment;
     group->nonCompactBucket.type.name = group->nonCompactBucket.typeName;
     group->nonCompactBucket.heapref.type = (const pas_heap_type*)(&group->nonCompactBucket.type);
     group->nonCompactBucket.heapref.is_non_compact_heap = true;
 
     for (unsigned i = 0; i < bucketCount; ++i) {
 #if TZONE_VERBOSE_DEBUG
-        char* typeName = !i ? nameForType(lock, SizeAndAlignment::decodeSize(descriptor), SizeAndAlignment::decodeAlignment(descriptor), i) : nameForTypeUpdateIndex(lock, i);
+        char* typeName = !i ? nameForType(lock, sizeClass, spec.alignment, i) : nameForTypeUpdateIndex(lock, i);
         memcpy(group->buckets[i].typeName, typeName, typeNameLen);
 #else
         PAS_UNUSED_PARAM(lock);
         setNextTypeName(group->buckets[i].typeName, typeNameLen);
 #endif
-        group->buckets[i].type.size = SizeAndAlignment::decodeSize(descriptor);
-        group->buckets[i].type.alignment = SizeAndAlignment::decodeAlignment(descriptor);
+        group->buckets[i].type.size = sizeClass;
+        group->buckets[i].type.alignment = spec.alignment;
         group->buckets[i].type.name = group->buckets[i].typeName;
 
         group->buckets[i].heapref.type = (const pas_heap_type*)(&group->buckets[i].type);
@@ -596,7 +625,7 @@ BINLINE pas_heap_ref* TZoneHeapManager::heapRefForTZoneType(const TZoneSpecifica
     if (auto cachedGroup = m_groupByDescriptor.getOptional(spec.descriptor))
         group = cachedGroup.value();
     else
-        group = populateGroupBuckets(lock, spec.descriptor);
+        group = populateGroupBuckets(lock, spec);
 
     if (spec.allocationMode == CompactAllocationMode::NonCompact && PAS_USE_COMPACT_ONLY_TZONE_HEAP)
         return &group->nonCompactBucket.heapref;
@@ -634,7 +663,7 @@ pas_heap_ref* TZoneHeapManager::TZoneHeapManager::heapRefForTZoneTypeDifferentSi
     RELEASE_BASSERT(tzoneMallocFallback == TZoneMallocFallback::DoNotFallBack);
 
     unsigned newSizeClass = TZone::sizeClassFor(requestedSize);
-    unsigned alignment = SizeAndAlignment::decodeAlignment(spec.descriptor);
+    unsigned alignment = spec.alignment;
     TZoneTypeKey key(spec.addressOfHeapRef, newSizeClass, alignment);
 
     if (auto bucket = m_differentSizedHeapRefs.getOptional(key))
@@ -642,7 +671,7 @@ pas_heap_ref* TZoneHeapManager::TZoneHeapManager::heapRefForTZoneTypeDifferentSi
 
     TZONE_LOG_DEBUG("Unannotated TZone type with actual: size %zu, expected: size %u alignment %u\n", requestedSize, spec.size, alignment);
 #if BUSE_TZONE_SPEC_NAME_ARG
-    TZONE_LOG_DEBUG("  Super Class: %s\n", spec.name);
+    TZONE_LOG_DEBUG("  Super Class: %s @ %s:%u\n", spec.name, spec.file, spec.line);
 #endif
 
     // We can reuse spec.addressOfHeapRef because it is only used in a hash for
@@ -652,10 +681,18 @@ pas_heap_ref* TZoneHeapManager::TZoneHeapManager::heapRefForTZoneTypeDifferentSi
     TZoneSpecification newSpec = {
         spec.addressOfHeapRef,
         static_cast<unsigned>(requestedSize),
+        spec.alignment,
+        TZoneCategory::SizeAndAlignment,
         spec.allocationMode,
-        SizeAndAlignment::encode(newSizeClass, alignment),
+        TZoneSpecification::encodeDefaultDescriptor(TZoneCategory::SizeAndAlignment, newSizeClass, spec.alignment),
 #if BUSE_TZONE_SPEC_NAME_ARG
+        // These values are only for debugging. We have no curent way to get these
+        // values from the child TZone class that failed to declare itself
+        // TZONE_ALLOCATED. So, just populate them with the parent class' values
+        // just to placate the compiler though they are wrong values.
         spec.name,
+        spec.file,
+        spec.line,
 #endif
     };
     pas_heap_ref* result = heapRefForTZoneType(newSpec);

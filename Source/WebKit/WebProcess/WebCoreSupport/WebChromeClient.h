@@ -35,7 +35,6 @@ class HTMLImageElement;
 class HTMLVideoElement;
 class RegistrableDomain;
 enum class BroadcastFocusedElement : bool;
-enum class CookieConsentDecisionResult : uint8_t;
 enum class DidFilterLinkDecoration : bool;
 enum class IsLoggedIn : uint8_t;
 enum class PointerLockRequestResult : uint8_t;
@@ -518,8 +517,6 @@ private:
     void beginSystemPreview(const URL&, const WebCore::SecurityOriginData& topOrigin, const WebCore::SystemPreviewInfo&, CompletionHandler<void()>&&) final;
 #endif
 
-    void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&) final;
-    
     bool isUsingUISideCompositing() const;
 
     bool isInStableState() const final;
@@ -581,8 +578,6 @@ private:
 #if ENABLE(VIDEO)
     void showCaptionDisplaySettings(WebCore::HTMLMediaElement&, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(WebCore::ExceptionOr<void>)>&&) final;
 #endif
-
-    void updateRemoteIntersectionObserversInOtherWebProcesses() final;
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };

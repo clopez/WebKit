@@ -98,6 +98,7 @@
 #include "SVGLengthContext.h"
 #include "SVGRenderSupport.h"
 #include "SVGSVGElement.h"
+#include "ScrollAnchoringController.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StyleDifference.h"
@@ -1734,7 +1735,7 @@ void RenderElement::notifyFinished(CachedResource& resource, const NetworkLoadMe
     if (auto* cachedImage = dynamicDowncast<CachedImage>(resource))
         imageContentChanged(*cachedImage);
 
-    document().protectedCachedResourceLoader()->notifyFinished(resource);
+    protect(document().cachedResourceLoader())->notifyFinished(resource);
 }
 
 bool RenderElement::allowsAnimation() const

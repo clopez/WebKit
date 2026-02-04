@@ -82,7 +82,6 @@
 #include <WebCore/ColorChooserClient.h>
 #include <WebCore/ContentRuleListMatchedRule.h>
 #include <WebCore/ContentRuleListResults.h>
-#include <WebCore/CookieConsentDecisionResult.h>
 #include <WebCore/DataListSuggestionPicker.h>
 #include <WebCore/DatabaseTracker.h>
 #include <WebCore/DocumentFullscreen.h>
@@ -361,7 +360,7 @@ RefPtr<Page> WebChromeClient::createWindow(LocalFrame& frame, const String& open
 {
 #if ENABLE(FULLSCREEN_API)
     if (RefPtr document = frame.document())
-        document->protectedFullscreen()->fullyExitFullscreen();
+        protect(document->fullscreen())->fullyExitFullscreen();
 #endif
 
     auto& webProcess = WebProcess::singleton();
@@ -2210,14 +2209,6 @@ void WebChromeClient::beginSystemPreview(const URL& url, const SecurityOriginDat
 }
 #endif
 
-void WebChromeClient::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
-{
-    if (RefPtr page = m_page.get())
-        page->sendWithAsyncReply(Messages::WebPageProxy::RequestCookieConsent(), WTF::move(completion));
-    else
-        completion(CookieConsentDecisionResult::NotSupported);
-}
-
 bool WebChromeClient::isUsingUISideCompositing() const
 {
 #if ENABLE(TILED_CA_DRAWING_AREA)
@@ -2416,11 +2407,5 @@ void WebChromeClient::showCaptionDisplaySettings(HTMLMediaElement& element, cons
     });
 }
 #endif
-
-void WebChromeClient::updateRemoteIntersectionObserversInOtherWebProcesses()
-{
-    if (RefPtr page = m_page.get())
-        page->send(Messages::WebPageProxy::UpdateRemoteIntersectionObserversInOtherWebProcesses());
-}
 
 } // namespace WebKit

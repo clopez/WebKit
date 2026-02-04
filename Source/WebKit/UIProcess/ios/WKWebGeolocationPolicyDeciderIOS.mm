@@ -30,12 +30,15 @@
 
 #import "UIKitSPI.h"
 #import "UIKitUtilities.h"
+#import "WKWebViewInternal.h"
 #import "WKWebViewPrivateForTesting.h"
+#import "WebPageProxy.h"
 #import <CoreLocation/CoreLocation.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/SecurityOrigin.h>
 #import <pal/spi/cocoa/NSFileManagerSPI.h>
 #import <wtf/Deque.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cf/NotificationCenterCF.h>
@@ -117,10 +120,10 @@ struct PermissionRequest {
 
 + (instancetype)sharedPolicyDecider
 {
-    static WKWebGeolocationPolicyDecider *policyDecider = nil;
-    if (!policyDecider)
-        policyDecider = [[WKWebGeolocationPolicyDecider alloc] init];
-    return policyDecider;
+    static NeverDestroyed<RetainPtr<WKWebGeolocationPolicyDecider>> policyDecider;
+    if (!policyDecider.get())
+        policyDecider.get() = adoptNS([[WKWebGeolocationPolicyDecider alloc] init]);
+    return policyDecider.get().get();
 }
 
 - (id)init
@@ -199,6 +202,9 @@ struct PermissionRequest {
         [alert addAction:denyAction];
         [alert addAction:allowAction];
 
+#if PLATFORM(VISION)
+        [_activeChallenge->view _page]->dispatchWillPresentModalUI();
+#endif
         [[_activeChallenge->view _wk_viewControllerForFullScreenPresentation] presentViewController:alert.get() animated:YES completion:nil];
     }];
 }

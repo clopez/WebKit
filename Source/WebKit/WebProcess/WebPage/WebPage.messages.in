@@ -437,6 +437,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
     UppercaseWord(WebCore::FrameIdentifier frameID)
     LowercaseWord(WebCore::FrameIdentifier frameID)
     CapitalizeWord(WebCore::FrameIdentifier frameID)
+    ConvertToTraditionalChinese(WebCore::FrameIdentifier frameID)
+    ConvertToSimplifiedChinese(WebCore::FrameIdentifier frameID)
 #endif
 #if PLATFORM(COCOA)
     SetSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
@@ -943,6 +945,4 @@ messages -> WebPage WantsAsyncDispatchMessage {
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
     ExitImmersive()
 #endif
-
-    UpdateRemoteIntersectionObservers();
 }

@@ -190,7 +190,7 @@ Mesh::Mesh(const WebModelCreateMeshDescriptor& descriptor, WebGPU::Instance& ins
     , m_descriptor(descriptor)
 {
     id<MTLDevice> device = instance.device();
-    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:descriptor.width height:descriptor.height mipmapped:NO];
+    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB width:descriptor.width height:descriptor.height mipmapped:NO];
     m_textures = [NSMutableArray array];
     for (RetainPtr ioSurface : descriptor.ioSurfaces)
         [m_textures addObject:[device newTextureWithDescriptor:textureDescriptor iosurface:ioSurface.get() plane:0]];
@@ -289,7 +289,7 @@ void Mesh::updateTexture(WebBridgeUpdateTexture* descriptor)
 void Mesh::updateMaterial(const WebModel::UpdateMaterialDescriptor& originalDescriptor)
 {
 #if ENABLE(GPU_PROCESS_MODEL)
-    WebBridgeUpdateMaterial *descriptor = [[WebBridgeUpdateMaterial alloc] initWithMaterialGraph:WebModel::convert(originalDescriptor.materialGraph) identifier:originalDescriptor.identifier.createNSString().get()];
+    WebBridgeUpdateMaterial *descriptor = [[WebBridgeUpdateMaterial alloc] initWithMaterialGraph:WebModel::convert(originalDescriptor.materialGraph) identifier:originalDescriptor.identifier.createNSString().get() geometryModifierFunctionReference:nil surfaceShaderFunctionReference:nil shaderGraphModule:nil];
     if (!descriptor)
         return;
 

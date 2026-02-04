@@ -85,6 +85,7 @@
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
 #include "SVGRenderSupport.h"
+#include "ScrollAnchoringController.h"
 #include "SelectionGeometry.h"
 #include "Settings.h"
 #include "StyleResolver.h"
@@ -1201,6 +1202,14 @@ void RenderObject::showRenderTreeForThis() const
     TextStream stream(TextStream::LineMode::MultipleLine, TextStream::Formatting::SVGStyleRect);
     outputRenderTreeLegend(stream);
     root->outputRenderSubTreeAndMark(stream, this, 1);
+    WTFLogAlways("%s", stream.release().utf8().data());
+}
+
+void RenderObject::showSubtreeForThis() const
+{
+    TextStream stream(TextStream::LineMode::MultipleLine, TextStream::Formatting::SVGStyleRect);
+    outputRenderTreeLegend(stream);
+    outputRenderSubTreeAndMark(stream, this, 1);
     WTFLogAlways("%s", stream.release().utf8().data());
 }
 
@@ -2329,14 +2338,14 @@ ScrollAnchoringController* RenderObject::searchParentChainForScrollAnchoringCont
     if (renderer.hasLayer()) {
         if (auto* scrollableArea = downcast<RenderLayerModelObject>(renderer).layer()->scrollableArea()) {
             auto* controller = scrollableArea->scrollAnchoringController();
-            if (controller && controller->anchorElement())
+            if (controller && controller->hasAnchorElement())
                 return controller;
         }
     }
     for (CheckedPtr enclosingLayer = renderer.enclosingLayer(); enclosingLayer; enclosingLayer = enclosingLayer->parent()) {
         if (RenderLayerScrollableArea* scrollableArea = enclosingLayer->scrollableArea()) {
             auto* controller = scrollableArea->scrollAnchoringController();
-            if (controller && controller->anchorElement())
+            if (controller && controller->hasAnchorElement())
                 return controller;
         }
     }
@@ -2445,7 +2454,7 @@ static bool usesVisuallyContiguousBidiTextSelection(const SimpleRange& range)
     UNUSED_PARAM(range);
     return false;
 #else
-    return protect(range.protectedStartContainer()->document())->settings().visuallyContiguousBidiTextSelectionEnabled();
+    return protect(range.startContainer().document())->settings().visuallyContiguousBidiTextSelectionEnabled();
 #endif
 }
 

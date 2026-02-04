@@ -71,13 +71,6 @@ enum class WebCore::ContactProperty : uint8_t {
     Tel
 };
 
-header: <WebCore/CookieConsentDecisionResult.h>
-enum class WebCore::CookieConsentDecisionResult : uint8_t {
-    NotSupported,
-    Consent,
-    Dissent,
-};
-
 header: <WebCore/IDBResultData.h>
 enum class WebCore::IDBResultType : uint8_t {
     Error,
@@ -4366,6 +4359,7 @@ struct WebCore::MediaSelectionOption {
     WebCore::MediaSelectionOption::MediaType mediaType;
     String displayName;
     WebCore::MediaSelectionOption::LegibleType legibleType;
+    String languageTag;
 };
 
 [Nested] enum class WebCore::MediaSelectionOption::MediaType : uint8_t {
@@ -4379,6 +4373,7 @@ struct WebCore::MediaSelectionOption {
 [Nested] enum class WebCore::MediaSelectionOption::LegibleType : uint8_t {
     Regular,
     LegibleOff,
+    LegibleOn,
     LegibleAuto,
 };
 
@@ -6391,9 +6386,45 @@ header: <WebCore/ISO18013.h>
     bool isRetaining;
 };
 
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+
+[Nested] struct WebCore::ISO18013Any {
+    Variant<std::monostate, int, bool, String, Vector<Box<WebCore::ISO18013Any>>, HashMap<String, Box<WebCore::ISO18013Any>>> data;
+};
+
+[Nested] struct WebCore::ISO18013ZkSystemSpec {
+    String zkSystemId;
+    String system;
+};
+
+[Nested] struct WebCore::ISO18013ZkRequest {
+    Vector<WebCore::ISO18013ZkSystemSpec> systemSpecs;
+    bool zkRequired;
+};
+
+[Nested] struct WebCore::ISO18013AlternativeDataElementsSet {
+    HashMap<String, String> requestedElement;
+    Vector<Vector<HashMap<String, String>>> alternativeElementSets;
+};
+
+[Nested] struct WebCore::ISO18013DocumentRequestInfo {
+    std::optional<WebCore::ISO18013AlternativeDataElementsSet> alternativeDataElements;
+    std::optional<Vector<String>> issuerIdentifiers;
+    std::optional<bool> uniqueDocSetRequired;
+    std::optional<uint32_t> maximumResponseSize;
+    std::optional<WebCore::ISO18013ZkRequest> zkRequest;
+    std::optional<String> encryptionParameterBytes;
+    HashMap<String, WebCore::ISO18013Any> extension;
+};
+
+#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+
 [Nested] struct WebCore::ISO18013DocumentRequest {
     String documentType;
     Vector<std::pair<String, Vector<std::pair<String, WebCore::ISO18013ElementInfo>>>> namespaces;
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+    std::optional<WebCore::ISO18013DocumentRequestInfo> requestInfo;
+#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
 };
 
 [Nested] struct WebCore::ISO18013DocumentRequestSet {
@@ -6887,6 +6918,9 @@ header: <WebCore/TextExtractionTypes.h>
 header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] struct WebCore::TextExtraction::ScrollableItemData {
     WebCore::FloatSize contentSize;
+    WebCore::IntPoint scrollPosition;
+    bool isRoot;
+    bool hasOverflowItems;
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -6951,7 +6985,6 @@ header: <WebCore/TextExtractionTypes.h>
 
 header: <WebCore/TextExtractionTypes.h>
 [CustomHeader] enum class WebCore::TextExtraction::ContainerType : uint8_t {
-    Root,
     ViewportConstrained,
     List,
     ListItem,
@@ -8018,6 +8051,9 @@ headers: <JavaScriptCore/WasmModule.h> <WebCore/ImageBitmap.h> <WebCore/MessageP
 #if ENABLE(WEB_CODECS)
     Vector<Ref<WebCore::WebCodecsEncodedVideoChunkStorage>> serializedVideoChunks;
     Vector<Ref<WebCore::WebCodecsEncodedAudioChunkStorage>> serializedAudioChunks;
+#endif
+    uint64_t exposedMessagePortCount;
+#if ENABLE(WEB_CODECS)
     [NotSerialized] Vector<WebCore::WebCodecsVideoFrameData> serializedVideoFrames;
     [NotSerialized] Vector<WebCore::WebCodecsAudioInternalData> serializedAudioData;
 #endif
@@ -8874,7 +8910,6 @@ struct WebCore::JsonWebKey {
     String kty;
     String use
     std::optional<Vector<WebCore::CryptoKeyUsage>> key_ops;
-    int usages;
     String alg;
     std::optional<bool> ext;
     String crv;
@@ -8890,6 +8925,7 @@ struct WebCore::JsonWebKey {
     String qi;
     std::optional<Vector<WebCore::RsaOtherPrimesInfo>> oth;
     String k;
+    int usages;
 };
 
 enum class WebCore::CryptoAlgorithmIdentifier : uint8_t {
