@@ -49,61 +49,7 @@
 #endif
 
 namespace WebCore {
-<<<<<<< HEAD
 using namespace WebCore::AdwaitaScrollbarPainter;
-||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
-
-static const unsigned scrollbarSize = 21;
-static const unsigned scrollbarBorderSize = 1;
-static const unsigned thumbBorderSize = 1;
-static const unsigned overlayThumbSize = 3;
-static const unsigned minimumThumbSize = 40;
-static const unsigned horizThumbMargin = 6;
-static const unsigned horizOverlayThumbMargin = 3;
-static const unsigned vertThumbMargin = 7;
-
-static constexpr auto scrollbarBackgroundColorLight = Color::white;
-static constexpr auto scrollbarBorderColorLight = Color::black.colorWithAlphaByte(38);
-static constexpr auto overlayThumbBorderColorLight = Color::white.colorWithAlphaByte(102);
-static constexpr auto overlayTroughColorLight = Color::black.colorWithAlphaByte(25);
-static constexpr auto thumbHoveredColorLight = Color::black.colorWithAlphaByte(102);
-static constexpr auto thumbPressedColorLight = Color::black.colorWithAlphaByte(153);
-static constexpr auto thumbColorLight = Color::black.colorWithAlphaByte(51);
-
-static constexpr auto scrollbarBackgroundColorDark = SRGBA<uint8_t> { 30, 30, 30 };
-static constexpr auto scrollbarBorderColorDark = Color::white.colorWithAlphaByte(38);
-static constexpr auto overlayThumbBorderColorDark = Color::black.colorWithAlphaByte(51);
-static constexpr auto overlayTroughColorDark = Color::white.colorWithAlphaByte(25);
-static constexpr auto thumbHoveredColorDark = Color::white.colorWithAlphaByte(102);
-static constexpr auto thumbPressedColorDark = Color::white.colorWithAlphaByte(153);
-static constexpr auto thumbColorDark = Color::white.colorWithAlphaByte(51);
-=======
-
-static const unsigned scrollbarSize = 0;
-static const unsigned scrollbarBorderSize = 1;
-static const unsigned thumbBorderSize = 1;
-static const unsigned overlayThumbSize = 3;
-static const unsigned minimumThumbSize = 40;
-static const unsigned horizThumbMargin = 6;
-static const unsigned horizOverlayThumbMargin = 3;
-static const unsigned vertThumbMargin = 7;
-
-static constexpr auto scrollbarBackgroundColorLight = Color::white;
-static constexpr auto scrollbarBorderColorLight = Color::black.colorWithAlphaByte(38);
-static constexpr auto overlayThumbBorderColorLight = Color::white.colorWithAlphaByte(102);
-static constexpr auto overlayTroughColorLight = Color::black.colorWithAlphaByte(25);
-static constexpr auto thumbHoveredColorLight = Color::black.colorWithAlphaByte(102);
-static constexpr auto thumbPressedColorLight = Color::black.colorWithAlphaByte(153);
-static constexpr auto thumbColorLight = Color::black.colorWithAlphaByte(51);
-
-static constexpr auto scrollbarBackgroundColorDark = SRGBA<uint8_t> { 30, 30, 30 };
-static constexpr auto scrollbarBorderColorDark = Color::white.colorWithAlphaByte(38);
-static constexpr auto overlayThumbBorderColorDark = Color::black.colorWithAlphaByte(51);
-static constexpr auto overlayTroughColorDark = Color::white.colorWithAlphaByte(25);
-static constexpr auto thumbHoveredColorDark = Color::white.colorWithAlphaByte(102);
-static constexpr auto thumbPressedColorDark = Color::white.colorWithAlphaByte(153);
-static constexpr auto thumbColorDark = Color::white.colorWithAlphaByte(51);
->>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 
 void ScrollbarThemeAdwaita::updateScrollbarOverlayStyle(Scrollbar& scrollbar)
 {
