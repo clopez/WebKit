@@ -685,14 +685,8 @@ static void activate(GApplication* application, gpointer)
     }
 #endif
 
-<<<<<<< HEAD
-    g_autoptr(WebKitUserContentManager) userContentManager = nullptr;
-||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
-    WebKitUserContentManager* userContentManager = nullptr;
-=======
     persistentWebContext = webContext;
-    WebKitUserContentManager* userContentManager = nullptr;
->>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
+    g_autoptr(WebKitUserContentManager) userContentManager = nullptr;
     if (contentFilter) {
         g_autoptr(GFile) contentFilterFile = g_file_new_for_commandline_arg(contentFilter);
 
