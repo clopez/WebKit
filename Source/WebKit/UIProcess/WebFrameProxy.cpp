@@ -127,16 +127,8 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIde
     ASSERT(!allFrames().contains(frameID));
     allFrames().set(frameID, *this);
     WebProcessPool::statistics().wkFrameCount++;
-<<<<<<< HEAD
-
-    page.inspectorController().createWebFrameInspectorTarget(*this, WebFrameInspectorTarget::toTargetID(frameID));
 
     protect(m_frameProcess)->incrementFrameCount();
-||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
-
-    page.inspectorController().createWebFrameInspectorTarget(*this, WebFrameInspectorTarget::toTargetID(frameID));
-=======
->>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 }
 
 WebFrameProxy::~WebFrameProxy()
