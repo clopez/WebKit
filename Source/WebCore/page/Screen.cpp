@@ -125,7 +125,16 @@ int Screen::availLeft() const
     if (shouldApplyScreenFingerprintingProtections(*frame))
         return 0;
 
+<<<<<<< HEAD
     return static_cast<int>(screenAvailableRect(protect(frame->view()).get()).x());
+||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).x());
+=======
+    if (frame->hasScreenSizeOverride())
+        return 0;
+
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).x());
+>>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 }
 
 int Screen::availTop() const
@@ -140,7 +149,16 @@ int Screen::availTop() const
     if (shouldApplyScreenFingerprintingProtections(*frame))
         return 0;
 
+<<<<<<< HEAD
     return static_cast<int>(screenAvailableRect(protect(frame->view()).get()).y());
+||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).y());
+=======
+    if (frame->hasScreenSizeOverride())
+        return 0;
+
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).y());
+>>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 }
 
 int Screen::availHeight() const
@@ -155,7 +173,16 @@ int Screen::availHeight() const
     if (shouldApplyScreenFingerprintingProtections(*frame))
         return static_cast<int>(frame->screenSize().height());
 
+<<<<<<< HEAD
     return static_cast<int>(screenAvailableRect(protect(frame->view()).get()).height());
+||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).height());
+=======
+    if (frame->hasScreenSizeOverride())
+        return static_cast<int>(frame->screenSize().height());
+
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).height());
+>>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 }
 
 int Screen::availWidth() const
@@ -170,7 +197,16 @@ int Screen::availWidth() const
     if (shouldApplyScreenFingerprintingProtections(*frame))
         return static_cast<int>(frame->screenSize().width());
 
+<<<<<<< HEAD
     return static_cast<int>(screenAvailableRect(protect(frame->view()).get()).width());
+||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).width());
+=======
+    if (frame->hasScreenSizeOverride())
+        return static_cast<int>(frame->screenSize().width());
+
+    return static_cast<int>(screenAvailableRect(frame->protectedView().get()).width());
+>>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
 }
 
 ScreenOrientation& Screen::orientation()

@@ -567,7 +567,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     auto taskIdentifier = task.taskIdentifier;
     LOG(NetworkSession, "%zu didReceiveChallenge", taskIdentifier);
-    
+
     // Proxy authentication is handled by CFNetwork internally. We can get here if the user cancels
     // CFNetwork authentication dialog, and we shouldn't ask the client to display another one in that case.
     if (challenge.protectionSpace.isProxy
@@ -894,6 +894,14 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
 
         resourceResponse.setDeprecatedNetworkLoadMetrics(WebCore::copyTimingData(taskMetrics.get(), networkDataTask->networkLoadMetrics()));
         resourceResponse.setProxyName(WTF::move(proxyName));
+
+        __block WebCore::HTTPHeaderMap requestHeaders;
+        NSURLSessionTaskTransactionMetrics *m = dataTask._incompleteTaskMetrics.transactionMetrics.lastObject;
+        [m.request.allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString *name, NSString *value, BOOL *) {
+            requestHeaders.set(String(name), String(value));
+        }];
+        resourceResponse.m_httpRequestHeaderFields = WTF::move(requestHeaders);
+
         networkDataTask->didReceiveResponse(WTF::move(resourceResponse), negotiatedLegacyTLS, privateRelayed, [completionHandler = makeBlockPtr(completionHandler), taskIdentifier](WebCore::PolicyAction policyAction) {
 #if !LOG_DISABLED
             LOG(NetworkSession, "%zu didReceiveResponse completionHandler (%s)", taskIdentifier, toString(policyAction).characters());
@@ -1049,7 +1057,7 @@ NSURLCredentialStorage *NetworkSessionCocoa::nsCredentialStorage() const
 {
     return m_defaultSessionSet->sessionWithCredentialStorage->session.get().configuration.URLCredentialStorage;
 }
-    
+
 const String& NetworkSessionCocoa::boundInterfaceIdentifier() const
 {
     return m_boundInterfaceIdentifier;
@@ -1188,7 +1196,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (parameters.allowsHSTSWithUntrustedRootCertificate && [configuration respondsToSelector:@selector(_allowsHSTSWithUntrustedRootCertificate)])
         configuration.get()._allowsHSTSWithUntrustedRootCertificate = YES;
-    
+
 #if HAVE(APP_SSO) || PLATFORM(MACCATALYST)
     configuration.get()._preventsAppSSO = true;
 #endif
@@ -1403,11 +1411,25 @@ SessionWrapper& NetworkSessionCocoa::sessionWrapperForTask(std::optional<WebPage
 #if ENABLE(APP_BOUND_DOMAINS)
 SessionWrapper& NetworkSessionCocoa::appBoundSession(std::optional<WebPageProxyIdentifier> webPageProxyID, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
 {
+<<<<<<< HEAD
     Ref sessionSet = sessionSetForPage(webPageProxyID);
 
     if (!sessionSet->appBoundSession) {
         sessionSet->appBoundSession = makeUnique<IsolatedSession>();
         sessionSet->appBoundSession->checkedSessionWithCredentialStorage()->initialize(sessionSet->sessionWithCredentialStorage->session.get().configuration, *this, WebCore::StoredCredentialsPolicy::Use, NavigatingToAppBoundDomain::Yes);
+||||||| parent of e8f3897583de (chore(webkit): bootstrap build #2256)
+    auto& sessionSet = sessionSetForPage(webPageProxyID);
+    
+    if (!sessionSet.appBoundSession) {
+        sessionSet.appBoundSession = makeUnique<IsolatedSession>();
+        sessionSet.appBoundSession->checkedSessionWithCredentialStorage()->initialize(sessionSet.sessionWithCredentialStorage->session.get().configuration, *this, WebCore::StoredCredentialsPolicy::Use, NavigatingToAppBoundDomain::Yes);
+=======
+    auto& sessionSet = sessionSetForPage(webPageProxyID);
+
+    if (!sessionSet.appBoundSession) {
+        sessionSet.appBoundSession = makeUnique<IsolatedSession>();
+        sessionSet.appBoundSession->checkedSessionWithCredentialStorage()->initialize(sessionSet.sessionWithCredentialStorage->session.get().configuration, *this, WebCore::StoredCredentialsPolicy::Use, NavigatingToAppBoundDomain::Yes);
+>>>>>>> e8f3897583de (chore(webkit): bootstrap build #2256)
     }
 
     auto& sessionWrapper = [&](auto storedCredentialsPolicy) -> SessionWrapper& {
@@ -1432,7 +1454,7 @@ bool NetworkSessionCocoa::hasAppBoundSession() const
         if (!!sessionSet->appBoundSession)
             return true;
     }
-    
+
     return false;
 }
 
@@ -1497,7 +1519,7 @@ bool NetworkSessionCocoa::hasIsolatedSession(const WebCore::RegistrableDomain& d
         if (sessionSet->isolatedSessions.contains(domain))
             return true;
     }
-    
+
     return false;
 }
 
@@ -1717,7 +1739,7 @@ RefPtr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdent
 
     Ref sessionSet = sessionSetForPage(webPageProxyID);
     RetainPtr task = [sessionSet->sessionWithCredentialStorage->session webSocketTaskWithRequest:nsRequest.get()];
-    
+
     // Although the WebSocket protocol allows full 64-bit lengths, Chrome and Firefox limit the length to 2^63 - 1.
     // Use NSIntegerMax instead of 2^63 - 1 for 32-bit systems.
     task.get().maximumMessageSize = NSIntegerMax;
@@ -2061,7 +2083,7 @@ void NetworkSessionCocoa::forEachSessionWrapper(NOESCAPE const Function<void(Ses
                 function(isolatedSession->checkedSessionWithCredentialStorage());
         }
     };
-    
+
     sessionSetFunction(m_defaultSessionSet.get());
 
     for (auto& set : m_perPageSessionSets.values())
