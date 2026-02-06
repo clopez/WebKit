@@ -1304,10 +1304,10 @@ bool WebFrame::shouldEnableInAppBrowserPrivacyProtections()
 
 std::optional<NavigatingToAppBoundDomain> WebFrame::isTopFrameNavigatingToAppBoundDomain() const
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
+    RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
     if (!localFrame)
         return std::nullopt;
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(localFrame->mainFrame());
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(localFrame->mainFrame());
     if (!localMainFrame)
         return std::nullopt;
     return fromCoreFrame(*localMainFrame)->isNavigatingToAppBoundDomain();
@@ -1630,7 +1630,7 @@ void WebFrame::sendMessageToInspectorTarget(const String& message)
     ensureInspectorTarget()->sendMessageToTargetBackend(message);
 }
 
-void WebFrame::requestTextExtraction(TextExtraction::Request&& request, CompletionHandler<void(TextExtraction::Item&&)>&& completion)
+void WebFrame::requestTextExtraction(TextExtraction::Request&& request, CompletionHandler<void(TextExtraction::Result&&)>&& completion)
 {
     RefPtr frame = coreLocalFrame();
     if (!frame)

@@ -344,8 +344,8 @@ void RemoteGraphicsContextProxy::drawSystemImage(SystemImage& systemImage, const
 {
     appendStateChangeItemIfNecessary();
 #if USE(SYSTEM_PREVIEW)
-    if (auto* badgeSystemImage = dynamicDowncast<ARKitBadgeSystemImage>(systemImage)) {
-        if (auto image = badgeSystemImage->image()) {
+    if (RefPtr badgeSystemImage = dynamicDowncast<ARKitBadgeSystemImage>(systemImage)) {
+        if (RefPtr image = badgeSystemImage->image()) {
             auto nativeImage = image->nativeImage();
             if (!nativeImage)
                 return;

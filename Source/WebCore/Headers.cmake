@@ -586,6 +586,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/MediaDevices.h
     Modules/mediastream/MediaStreamTrack.h
     Modules/mediastream/MediaStreamTrackEvent.h
+    Modules/mediastream/MediaStreamTrackHandle.h
     Modules/mediastream/MediaTrackCapabilities.h
     Modules/mediastream/MediaTrackConstraints.h
     Modules/mediastream/RTCController.h
@@ -1861,6 +1862,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/grid/GridAreaLines.h
     layout/formattingContexts/grid/GridFormattingContext.h
     layout/formattingContexts/grid/GridItemRect.h
+    layout/formattingContexts/grid/GridLayoutState.h
     layout/formattingContexts/grid/GridTypeAliases.h
 
     layout/formattingContexts/inline/AbstractLineBuilder.h
@@ -2540,6 +2542,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/gamepad/SharedGamepadValue.h
     platform/gamepad/ShouldRequireExplicitConsentForGamepadAccess.h
 
+    platform/generic/ScrollbarsControllerGeneric.h
+
     platform/graphics/AV1Utilities.h
     platform/graphics/AlphaPremultiplication.h
     platform/graphics/AnimationFrameRate.h
@@ -3109,7 +3113,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/FloatingObjects.h
     rendering/GapRects.h
     rendering/GlyphDisplayListCacheRemoval.h
-    rendering/GridLayoutState.h
+    rendering/RenderGridLayoutState.h
     rendering/HitTestLocation.h
     rendering/HitTestRequest.h
     rendering/HitTestResult.h
