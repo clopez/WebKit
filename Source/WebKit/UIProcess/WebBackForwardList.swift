@@ -21,7 +21,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-#if compiler(>=6.2)
+#if compiler(>=6.2.3)
 
 #if ENABLE_BACK_FORWARD_LIST_SWIFT
 
@@ -103,6 +103,13 @@ private func messageCheckCompletion(
         return true
     }
     return false
+}
+
+// FIXME(rdar://130765784): We should be able use the built-in ===, but AnyObject currently excludes foreign reference types
+@_expose(!Cxx) // rdar://169474185
+func === (_ lhs: WebKit.WebBackForwardListItem, _ rhs: WebKit.WebBackForwardListItem) -> Bool {
+    // Safety: Swift represents all reference types, including foreign reference types, as raw pointers
+    unsafe unsafeBitCast(lhs, to: UnsafeRawPointer.self) == unsafeBitCast(rhs, to: UnsafeRawPointer.self)
 }
 
 final class WebBackForwardList {
@@ -259,7 +266,7 @@ final class WebBackForwardList {
         assert(contentsMatch(webPageProxy.identifier(), item.pageID()) && contentsMatch(itemID, item.identifier()))
         if let process = WebKit.AuxiliaryProcessProxy.fromConnection(connection) {
             // The downcast in C++ is really just used to assert that the process is a WebProcessProxy
-            assert(downcastToWebProcessProxy(process).__convertToBool())
+            assert(WebKit.downcastToWebProcessProxy(process).__convertToBool())
             let hasBackForwardCacheEntry = item.backForwardCacheEntry() != nil
             if hasBackForwardCacheEntry != frameState.ptr().hasCachedPage {
                 // Safety: accessing suspendedPage pointer just to check nullness, no dereference occurs
@@ -302,8 +309,8 @@ final class WebBackForwardList {
         if let webPageProxy = page.get() {
             if messageCheckCompletion(
                 process: WebKit.RefWebProcessProxy(webPageProxy.legacyMainFrameProcess()),
-                assertion: { !WebKit.isInspectorPage(webPageProxy) },
-                completionHandler: { completionHandler.pointee(consuming: counts()) }
+                completionHandler: { completionHandler.pointee(consuming: counts()) },
+                !WebKit.isInspectorPage(webPageProxy)
             ) {
                 return
             }
@@ -357,4 +364,4 @@ final class WebBackForwardList {
 
 #endif // ENABLE_BACK_FORWARD_LIST_SWIFT
 
-#endif // compiler(>=6.2)
+#endif // compiler(>=6.2.3)

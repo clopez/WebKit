@@ -341,6 +341,9 @@ public:
     virtual IntPoint lastKnownMousePositionInView() const { return IntPoint(); }
     virtual bool isHandlingWheelEvent() const { return false; }
 
+    void willDispatchScrollEvent();
+    void didDispatchScrollEvent();
+
     virtual int headerHeight() const { return 0; }
     virtual int footerHeight() const { return 0; }
 
@@ -441,7 +444,12 @@ public:
         No,
         Yes
     };
-    void updateScrollAnchoringElement(ComputeNewScrollAnchor = ComputeNewScrollAnchor::Yes);
+
+    enum class IncludeAncestors : bool {
+        No,
+        Yes
+    };
+    void clearScrollAnchor(IncludeAncestors = IncludeAncestors::No);
     void adjustScrollAnchoringPosition();
     virtual ScrollAnchoringController* scrollAnchoringController() const { return nullptr; }
 

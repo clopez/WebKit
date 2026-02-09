@@ -3405,7 +3405,7 @@ HTMLEnhancedSelectParsingEnabled:
 
 HTMLEnhancedSelectPseudoElementsEnabled:
    type: bool
-   status: unstable
+   status: testable
    category: css
    humanReadableName: "Enhanced HTML select element pseudo-elements"
    humanReadableDescription: "Enable enhanced HTML select element pseudo-elements"
@@ -6823,8 +6823,7 @@ ScreenCaptureEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(MAC) || USE(GSTREAMER)": true
-      default: false
+      default: WebKit::defaultShouldEnableScreenCapture()
     WebCore:
       default: false
 
@@ -7572,20 +7571,6 @@ ShrinksStandaloneImagesToFit:
   defaultValue:
     WebKitLegacy:
       default: false
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-SidewaysWritingModesEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "Sideways writing modes"
-  humanReadableDescription: "Enable support for sideways writing modes"
-  defaultValue:
-    WebKitLegacy:
-      default: true
     WebKit:
       default: true
     WebCore:
@@ -8348,6 +8333,20 @@ TrustedTypesEnabled:
       default: WebKit::defaultTrustedTypesEnabled()
     WebCore:
       default: true
+
+TwoUpPDFDisplayModeSupportEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Two-Up PDF Display Mode Support"
+  humanReadableDescription: "Enable support for two-up PDF display on iOS"
+  condition: ENABLE(UNIFIED_PDF) && PLATFORM(IOS_FAMILY)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 UAVisualTransitionDetectionEnabled:
   type: bool

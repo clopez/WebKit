@@ -3758,7 +3758,7 @@ PositionWithAffinity RenderBlockFlow::positionForPointWithInlineChildren(const L
         }
     }
 
-    bool moveCaretToBoundary = protect(protectedFrame()->editor())->behavior().shouldMoveCaretToHorizontalBoundaryWhenPastTopOrBottom();
+    bool moveCaretToBoundary = protect(protect(frame())->editor())->behavior().shouldMoveCaretToHorizontalBoundaryWhenPastTopOrBottom();
 
     if (!moveCaretToBoundary && !closestBox && lastLineBoxWithChildren) {
         // y coordinate is below last root line box, pretend we hit it
@@ -3922,7 +3922,7 @@ void RenderBlockFlow::invalidateLineLayout(InvalidationReason invalidationReason
     switch (invalidationReason) {
     case InvalidationReason::InternalMove:
         if (AXObjectCache* cache = protect(document())->existingAXObjectCache())
-            cache->deferRecomputeIsIgnored(protectedElement().get());
+            cache->deferRecomputeIsIgnored(protect(element()).get());
         break;
     case InvalidationReason::ContentChange: {
         // Since we eagerly remove the display content here, repaints issued between this invalidation (triggered by style change/content mutation) and the subsequent layout would produce empty rects.
@@ -3982,8 +3982,18 @@ bool RenderBlockFlow::layoutSimpleBlockContentInInline(MarginInfo& marginInfo)
             return false;
         }
 
-        auto logicalTop = blockRenderer->logicalTop();
-        marginInfo = layoutBlockChildFromInlineLayout(*blockRenderer, logicalTop, marginInfo).marginInfo;
+        auto borderBoxLogicalTop = blockRenderer->logicalTop();
+        auto marginBoxLogicalTop = borderBoxLogicalTop;
+
+        if (!marginInfo.canCollapseWithMarginBefore()) {
+            // Although this box is not expected to change position or size (since no self-layout is set),
+            // we treat layout as starting at the box's top margin to avoid confusion when the container performs layout on it.
+            // This logic is copied from estimateLogicalTopPosition.
+            auto marginValues = marginValuesForChild(*blockRenderer);
+            marginBoxLogicalTop -= std::max(marginInfo.positiveMargin(), marginValues.positiveMarginBefore()) - std::max(marginInfo.negativeMargin(), marginValues.negativeMarginBefore());
+        }
+
+        marginInfo = layoutBlockChildFromInlineLayout(*blockRenderer, marginBoxLogicalTop, marginInfo).marginInfo;
         auto shouldFallbackToNormalInlineLayout = [&] {
             if (logicalHeight != blockRenderer->logicalHeight())
                 return true;
@@ -3993,7 +4003,7 @@ bool RenderBlockFlow::layoutSimpleBlockContentInInline(MarginInfo& marginInfo)
         };
         if (shouldFallbackToNormalInlineLayout())
             return false;
-        blockRenderer->setLogicalTop(logicalTop);
+        blockRenderer->setLogicalTop(borderBoxLogicalTop);
     }
     inlineLayout()->updateOverflow();
     return true;
@@ -4435,7 +4445,7 @@ void RenderBlockFlow::adjustComputedFontSizes(float size, float visibleWidth)
             float candidateNewSize = roundf(std::min(minFontSize, specifiedSize * lineTextMultiplier));
 
             if (candidateNewSize > specifiedSize && candidateNewSize != fontDescription.computedSize() && text.textNode() && oldStyle.textSizeAdjust().isAuto())
-                protect(document())->textAutoSizing().addTextNode(*text.protectedTextNode(), candidateNewSize);
+                protect(document())->textAutoSizing().addTextNode(*protect(text.textNode()), candidateNewSize);
         }
 
         descendant = RenderObjectTraversal::nextSkippingChildren(text, this);

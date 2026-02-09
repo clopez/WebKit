@@ -132,7 +132,25 @@ private:
             fixupArithDivInt32(node, leftChild, rightChild);
             return;
         }
-        
+
+        if (m_graph.divShouldSpeculateInt52(node)) {
+            fixEdge<Int52RepUse>(leftChild);
+            fixEdge<Int52RepUse>(rightChild);
+
+            // We need to be careful about skipping overflow check because div / mod can generate non integer values
+            // from (Int52, Int52) inputs. For now, we always check non-zero divisor.
+            if (((node->op() == ArithDiv || node->op() == ValueDiv) && bytecodeCanTruncateInteger(node->arithNodeFlags()))
+                && bytecodeCanIgnoreNaNAndInfinity(node->arithNodeFlags())
+                && bytecodeCanIgnoreNegativeZero(node->arithNodeFlags()))
+                node->setArithMode(Arith::Unchecked);
+            else if (bytecodeCanIgnoreNegativeZero(node->arithNodeFlags()))
+                node->setArithMode(Arith::CheckOverflow);
+            else
+                node->setArithMode(Arith::CheckOverflowAndNegativeZero);
+            node->setResult(NodeResultInt52);
+            return;
+        }
+
         fixDoubleOrBooleanEdge(leftChild);
         fixDoubleOrBooleanEdge(rightChild);
         node->setResult(NodeResultDouble);
@@ -1109,7 +1127,8 @@ private:
             break;
         }
 
-        case StringStartsWith: {
+        case StringStartsWith:
+        case StringEndsWith: {
             fixEdge<StringUse>(node->child1());
             fixEdge<StringUse>(node->child2());
             if (node->child3())
@@ -3088,6 +3107,11 @@ private:
                 ASSERT(node->child1().useKind() == SetObjectUse);
                 fixEdge<SetObjectUse>(node->child1());
             }
+            break;
+        }
+
+        case GetRegExpFlag: {
+            fixEdge<RegExpObjectUse>(node->child1());
             break;
         }
 

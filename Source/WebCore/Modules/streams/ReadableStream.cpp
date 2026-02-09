@@ -140,12 +140,12 @@ ExceptionOr<Ref<ReadableStream>> ReadableStream::createFromJSValues(JSC::JSGloba
     if (result.hasException())
         return result.releaseException();
 
-    return adoptRef(*new ReadableStream(jsDOMGlobalObject.protectedScriptExecutionContext().get(), result.releaseReturnValue()));
+    return adoptRef(*new ReadableStream(protect(jsDOMGlobalObject.scriptExecutionContext()).get(), result.releaseReturnValue()));
 }
 
 ExceptionOr<Ref<ReadableStream>> ReadableStream::createFromByteUnderlyingSource(JSDOMGlobalObject& globalObject, JSC::JSValue underlyingSource, UnderlyingSource&& underlyingSourceDict, double highWaterMark)
 {
-    Ref readableStream = adoptRef(*new ReadableStream(globalObject.protectedScriptExecutionContext().get()));
+    Ref readableStream = adoptRef(*new ReadableStream(protect(globalObject.scriptExecutionContext()).get()));
 
     auto exception = readableStream->setupReadableByteStreamControllerFromUnderlyingSource(globalObject, underlyingSource, WTF::move(underlyingSourceDict), highWaterMark);
     if (exception.hasException())
@@ -167,7 +167,7 @@ ExceptionOr<Ref<ReadableStream>> ReadableStream::create(JSDOMGlobalObject& globa
 Ref<ReadableStream> ReadableStream::create(Ref<InternalReadableStream>&& internalReadableStream)
 {
     auto* globalObject = internalReadableStream->globalObject();
-    return adoptRef(*new ReadableStream(globalObject->protectedScriptExecutionContext().get(), WTF::move(internalReadableStream)));
+    return adoptRef(*new ReadableStream(protect(globalObject->scriptExecutionContext()).get(), WTF::move(internalReadableStream)));
 }
 
 class AsyncIteratorSource : public ReadableStreamSource, public RefCountedAndCanMakeWeakPtr<AsyncIteratorSource> {
@@ -277,7 +277,7 @@ ExceptionOr<ReadableStreamReader> ReadableStream::getReader(JSDOMGlobalObject& c
         if (readerOrException.hasException())
             return readerOrException.releaseException();
 
-        return ReadableStreamReader { RefPtr { readerOrException.releaseReturnValue() } };
+        return ReadableStreamReader { readerOrException.releaseReturnValue() };
     }
 
     ASSERT(*options.mode == ReaderMode::Byob);
@@ -291,7 +291,7 @@ ExceptionOr<ReadableStreamReader> ReadableStream::getReader(JSDOMGlobalObject& c
     if (readerOrException.hasException())
         return readerOrException.releaseException();
 
-    return ReadableStreamReader { RefPtr { readerOrException.releaseReturnValue() } };
+    return ReadableStreamReader { readerOrException.releaseReturnValue() };
 }
 
 // https://streams.spec.whatwg.org/#rs-tee
@@ -383,7 +383,7 @@ ReadableStreamDefaultReader* ReadableStream::defaultReader()
 // https://streams.spec.whatwg.org/#abstract-opdef-createreadablebytestream
 Ref<ReadableStream> ReadableStream::createReadableByteStream(JSDOMGlobalObject& globalObject, ReadableByteStreamController::PullAlgorithm&& pullAlgorithm, ReadableByteStreamController::CancelAlgorithm&& cancelAlgorithm, ByteStreamOptions&& options)
 {
-    Ref readableStream = adoptRef(*new ReadableStream(globalObject.protectedScriptExecutionContext().get(), { }, WTF::move(options.dependencyToVisit), options.isSourceReachableFromOpaqueRoot));
+    Ref readableStream = adoptRef(*new ReadableStream(protect(globalObject.scriptExecutionContext()).get(), { }, WTF::move(options.dependencyToVisit), options.isSourceReachableFromOpaqueRoot));
     readableStream->setupReadableByteStreamController(globalObject, WTF::move(pullAlgorithm), WTF::move(cancelAlgorithm), options.highwaterMark, options.startSynchronously);
     return readableStream;
 }
@@ -588,23 +588,6 @@ void ReadableStream::addReadRequest(Ref<ReadableStreamReadRequest>&& readRequest
     return defaultReader->addReadRequest(WTF::move(readRequest));
 }
 
-// https://streams.spec.whatwg.org/#readable-stream-pipe-to
-static std::optional<Exception> pipeToInternal(JSDOMGlobalObject& globalObject, ReadableStream& source, WritableStream& destination, StreamPipeOptions&& options, RefPtr<DeferredPromise>&& promise)
-{
-    auto readerOrException = ReadableStreamDefaultReader::create(globalObject, source);
-    if (readerOrException.hasException())
-        return readerOrException.releaseException();
-
-    auto writerOrException = acquireWritableStreamDefaultWriter(globalObject, destination);
-    if (writerOrException.hasException())
-        return writerOrException.releaseException();
-
-    source.markAsDisturbed();
-
-    readableStreamPipeTo(globalObject, source, destination, readerOrException.releaseReturnValue(), writerOrException.releaseReturnValue(), WTF::move(options), WTF::move(promise));
-    return { };
-}
-
 // https://streams.spec.whatwg.org/#rs-pipe-to
 void ReadableStream::pipeTo(JSDOMGlobalObject& globalObject, WritableStream& destination, StreamPipeOptions&& options, Ref<DeferredPromise>&& promise)
 {
@@ -618,7 +601,7 @@ void ReadableStream::pipeTo(JSDOMGlobalObject& globalObject, WritableStream& des
         return;
     }
 
-    pipeToInternal(globalObject, *this, destination, WTF::move(options), WTF::move(promise));
+    readableStreamPipeTo(globalObject, *this, destination, WTF::move(options), WTF::move(promise));
 }
 
 // https://streams.spec.whatwg.org/#rs-pipe-through
@@ -630,7 +613,7 @@ ExceptionOr<Ref<ReadableStream>> ReadableStream::pipeThrough(JSDOMGlobalObject& 
     SUPPRESS_UNCOUNTED_ARG if (transform.writable->locked())
         return Exception { ExceptionCode::TypeError, "transform writable is locked"_s };
 
-    pipeToInternal(globalObject, *this, WTF::move(transform.writable), WTF::move(options), nullptr);
+    readableStreamPipeTo(globalObject, *this, WTF::move(transform.writable), WTF::move(options), nullptr);
 
     return WTF::move(transform.readable);
 }
@@ -840,7 +823,7 @@ ExceptionOr<DetachedReadableStream> ReadableStream::runTransferSteps(JSDOMGlobal
     }
     Ref writable = result.releaseReturnValue();
 
-    if (auto exception = pipeToInternal(globalObject, *this, writable.get(), { }, nullptr)) {
+    if (auto exception = readableStreamPipeTo(globalObject, *this, writable.get(), { }, nullptr)) {
         port2->close();
         return WTF::move(*exception);
     }

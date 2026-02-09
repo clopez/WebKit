@@ -630,6 +630,12 @@ TextStream& operator<<(TextStream& stream, AXNotification notification)
     return stream;
 }
 
+TextStream& operator<<(TextStream& stream, const AXNotificationWithData& notification)
+{
+    stream << notification.debugDescription();
+    return stream;
+}
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 WTF::TextStream& operator<<(WTF::TextStream& stream, const AXPropertyVector& properties)
 {
@@ -731,6 +737,9 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         break;
     case AXProperty::ColumnIndexRange:
         stream << "ColumnIndexRange";
+        break;
+    case AXProperty::IsFocusedWebArea:
+        stream << "IsFocusedWebArea";
         break;
     case AXProperty::CrossFrameChildFrameID:
         stream << "CrossFrameChildFrameID";

@@ -1938,6 +1938,10 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     return nil;
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKWebViewAdditions.mm>
+#endif
+
 #endif // PLATFORM(MAC)
 
 #pragma mark - macOS/iOS internal
@@ -3594,7 +3598,7 @@ static ASCIILiteral descriptionForReason(WebKit::HideScrollPocketReason reason)
 {
     if (insets.top < 0 || insets.left < 0 || insets.right < 0 || insets.bottom < 0) {
 #if PLATFORM(IOS_FAMILY)
-        [NSException raise:NSInvalidArgumentException format:@"-obscuredContentInsets cannot be negative: %@", NSStringFromUIEdgeInsets(insets)];
+        [NSException raise:NSInvalidArgumentException format:@"-obscuredContentInsets cannot be negative: %@", protect(NSStringFromUIEdgeInsets(insets)).get()];
 #else
         [NSException raise:NSInvalidArgumentException format:@"-obscuredContentInsets cannot be negative: { top=%f, left=%f, bottom=%f, right=%f }"
             , insets.top, insets.left, insets.bottom, insets.right];
@@ -3785,6 +3789,15 @@ struct WKWebViewData {
 {
     self._protectedPage->scrollToEdge(toRectEdges(edge), animated ? WebCore::ScrollIsAnimated::Yes : WebCore::ScrollIsAnimated::No);
 }
+
+#if PLATFORM(MAC)
+
+- (WebKit::WebViewImpl *)_impl
+{
+    return _impl.get();
+}
+
+#endif
 
 @end
 
@@ -6708,6 +6721,11 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     return _impl->hasRemoteAccessibilityChild();
 }
 
+- (NSData *)_remoteAccessibilityChildToken
+{
+    return _impl->remoteAccessibilityChildToken();
+}
+
 - (RetainPtr<NSPopUpButtonCell>)_activePopupButtonCell
 {
     RefPtr popupMenu = dynamicDowncast<WebKit::WebPopupMenuProxyMac>(_page->activePopupMenu());
@@ -7525,6 +7543,15 @@ static OptionSet<WebCore::DataDetectorType> coreDataDetectorTypes(_WKTextExtract
         completion(info ? wrapper(API::JSHandle::create(WTF::move(*info))).get() : nil);
     });
 }
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+
+- (CGFloat)_bannerViewOverlayHeight
+{
+    return 0;
+}
+
+#endif
 
 @end
 

@@ -173,7 +173,7 @@ void HTMLSelectElement::optionSelectedByUser(int optionIndex, bool fireOnChangeN
 {
     // User interaction such as mousedown events can cause list box select elements to send change events.
     // This produces that same behavior for changes triggered by other code running on behalf of the user.
-    if (!usesMenuList()) {
+    if (!usesMenuListDeprecated()) {
         updateSelectedState(optionToListIndex(optionIndex), allowMultipleSelection, false);
         updateValidity();
         if (CheckedPtr renderer = this->renderer())
@@ -244,6 +244,15 @@ bool HTMLSelectElement::usesMenuList() const
 #if !PLATFORM(IOS_FAMILY)
     return !m_multiple && m_size <= 1;
 #else
+    return true;
+#endif
+}
+
+bool HTMLSelectElement::usesMenuListDeprecated() const
+{
+#if !PLATFORM(IOS_FAMILY)
+    return !m_multiple && m_size <= 1;
+#else
     return !m_multiple;
 #endif
 }
@@ -268,14 +277,14 @@ ExceptionOr<void> HTMLSelectElement::add(const OptionOrOptGroupElement& element,
     Ref<ContainerNode> parent = *this;
     if (before) {
         beforeElement = WTF::switchOn(before.value(),
-            [](const RefPtr<HTMLElement>& element) -> HTMLElement* { return element.get(); },
-            [this](int index) -> HTMLElement* { return item(index); }
+            [](const Ref<HTMLElement>& element) -> RefPtr<HTMLElement> { return element.ptr(); },
+            [this](int index) -> RefPtr<HTMLElement> { return item(index); }
         );
         if (std::holds_alternative<int>(before.value()) && beforeElement && beforeElement->parentNode())
             parent = *beforeElement->parentNode();
     }
     Ref toInsert = WTF::switchOn(element,
-        [](const auto& htmlElement) -> HTMLElement& { return *htmlElement; }
+        [](const auto& htmlElement) -> HTMLElement& { return htmlElement; }
     );
 
     return parent->insertBefore(toInsert, WTF::move(beforeElement));
@@ -381,18 +390,14 @@ bool HTMLSelectElement::isMouseFocusable() const
 
 bool HTMLSelectElement::canSelectAll() const
 {
-    return !usesMenuList();
+    return m_multiple;
 }
 
 RenderPtr<RenderElement> HTMLSelectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-#if !PLATFORM(IOS_FAMILY)
     if (usesMenuList())
         return createRenderer<RenderMenuList>(*this, WTF::move(style));
     return createRenderer<RenderListBox>(*this, WTF::move(style));
-#else
-    return createRenderer<RenderMenuList>(*this, WTF::move(style));
-#endif
 }
 
 bool HTMLSelectElement::childShouldCreateRenderer(const Node& child) const
@@ -525,7 +530,7 @@ ExceptionOr<void> HTMLSelectElement::setItem(unsigned index, HTMLOptionElement* 
 
     int diff = index - length();
     
-    RefPtr<HTMLOptionElement> before;
+    std::optional<HTMLElementOrInt> before;
     // Out of array bounds? First insert empty dummies.
     if (diff > 0) {
         auto result = setLength(index);
@@ -533,12 +538,13 @@ ExceptionOr<void> HTMLSelectElement::setItem(unsigned index, HTMLOptionElement* 
             return result;
         // Replace an existing entry?
     } else if (diff < 0) {
-        before = item(index + 1);
+        if (RefPtr itemBefore = item(index + 1))
+            before = itemBefore.releaseNonNull();
         remove(index);
     }
 
     // Finally add the new element.
-    auto result = add(option, HTMLElementOrInt { before.get() });
+    auto result = add(*option, before);
     if (result.hasException())
         return result;
 
@@ -560,7 +566,7 @@ ExceptionOr<void> HTMLSelectElement::setLength(unsigned newLength)
 
     if (diff < 0) { // Add dummy elements.
         do {
-            auto result = add(HTMLOptionElement::create(protect(document())).ptr(), std::nullopt);
+            auto result = add(HTMLOptionElement::create(protect(document())), std::nullopt);
             if (result.hasException())
                 return result;
         } while (++diff);
@@ -671,7 +677,7 @@ int HTMLSelectElement::nextSelectableListIndexPageAway(int startIndex, SkipDirec
 
 void HTMLSelectElement::selectAll()
 {
-    ASSERT(!usesMenuList());
+    ASSERT(m_multiple);
     if (!renderer() || !m_multiple)
         return;
 
@@ -692,7 +698,7 @@ void HTMLSelectElement::selectAll()
 
 void HTMLSelectElement::saveLastSelection()
 {
-    if (usesMenuList()) {
+    if (usesMenuListDeprecated()) {
         m_lastOnChangeIndex = selectedIndex();
         return;
     }
@@ -756,7 +762,7 @@ void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
 
 void HTMLSelectElement::listBoxOnChange()
 {
-    ASSERT(!usesMenuList() || m_multiple);
+    ASSERT(!usesMenuListDeprecated() || m_multiple);
 
     auto& items = listItems();
 
@@ -787,7 +793,7 @@ void HTMLSelectElement::listBoxOnChange()
 
 void HTMLSelectElement::dispatchChangeEventForMenuList()
 {
-    ASSERT(usesMenuList());
+    ASSERT(usesMenuListDeprecated());
 
     int selected = selectedIndex();
     if (m_lastOnChangeIndex != selected && m_isProcessingUserDrivenChange) {
@@ -979,7 +985,7 @@ void HTMLSelectElement::optionSelectionStateChanged(HTMLOptionElement& option, b
     ASSERT(option.ownerSelectElement() == this);
     if (optionIsSelected)
         selectOption(option.index());
-    else if (!usesMenuList())
+    else if (!usesMenuListDeprecated())
         selectOption(-1);
     else
         selectOption(nextSelectableListIndex(-1));
@@ -1016,7 +1022,7 @@ void HTMLSelectElement::selectOption(int optionIndex, SelectOptionFlags flags)
 
     scrollToSelection();
 
-    if (usesMenuList()) {
+    if (usesMenuListDeprecated()) {
         m_isProcessingUserDrivenChange = flags & UserDriven;
         if (flags & DispatchChangeEvent)
             dispatchChangeEventForMenuList();
@@ -1063,7 +1069,7 @@ void HTMLSelectElement::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, 
 {
     // Save the selection so it can be compared to the new selection when
     // dispatching change events during blur event dispatch.
-    if (usesMenuList())
+    if (usesMenuListDeprecated())
         saveLastSelection();
     HTMLFormControlElement::dispatchFocusEvent(WTF::move(oldFocusedElement), options);
 }
@@ -1073,7 +1079,7 @@ void HTMLSelectElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
     // We only need to fire change events here for menu lists, because we fire
     // change events for list boxes whenever the selection change is actually made.
     // This matches other browsers' behavior.
-    if (usesMenuList())
+    if (usesMenuListDeprecated())
         dispatchChangeEventForMenuList();
     HTMLFormControlElement::dispatchBlurEvent(WTF::move(newFocusedElement));
 }
@@ -1240,7 +1246,7 @@ bool HTMLSelectElement::platformHandleKeydownEvent(KeyboardEvent* event)
             // Calling focus() may cause us to lose our renderer. Return true so
             // that our caller doesn't process the event further, but don't set
             // the event as handled.
-            if (!is<RenderMenuList>(renderer()))
+            if (!renderer() || !usesMenuList())
                 return true;
 
             // Save the selection so it can be compared to the new selection
@@ -1262,7 +1268,7 @@ bool HTMLSelectElement::platformHandleKeydownEvent(KeyboardEvent* event)
 void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
 {
     ASSERT(renderer());
-    ASSERT(renderer()->isRenderMenuList());
+    ASSERT(usesMenuList());
 
     auto& eventNames = WebCore::eventNames();
     if (event.type() == eventNames.keydownEvent) {
@@ -1338,7 +1344,7 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
                 protect(document())->updateStyleIfNeeded();
 
                 // Calling focus() may remove the renderer or change the renderer type.
-                if (!is<RenderMenuList>(renderer()))
+                if (!renderer() || !usesMenuList())
                     return;
 
                 // Save the selection so it can be compared to the new selection
@@ -1355,7 +1361,7 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
                 protect(document())->updateStyleIfNeeded();
 
                 // Calling focus() may remove the renderer or change the renderer type.
-                if (!is<RenderMenuList>(renderer()))
+                if (!renderer() || !usesMenuList())
                     return;
 
                 // Save the selection so it can be compared to the new selection
@@ -1382,7 +1388,7 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
 #if !PLATFORM(IOS_FAMILY)
         protect(document())->updateStyleIfNeeded();
 
-        if (is<RenderMenuList>(renderer())) {
+        if (renderer() && usesMenuList()) {
             ASSERT(!m_popupIsVisible);
             // Save the selection so it can be compared to the new
             // selection when we call onChange during selectOption,
@@ -1662,7 +1668,7 @@ void HTMLSelectElement::defaultEventHandler(Event& event)
         return;
     }
 
-    if (is<RenderMenuList>(renderer))
+    if (usesMenuList())
         menuListDefaultEventHandler(event);
     else 
         listBoxDefaultEventHandler(event);
@@ -1717,7 +1723,7 @@ void HTMLSelectElement::typeAheadFind(KeyboardEvent& event)
     if (index < 0)
         return;
     selectOption(listToOptionIndex(index), DeselectOtherOptions | DispatchChangeEvent | UserDriven);
-    if (!usesMenuList())
+    if (!usesMenuListDeprecated())
         listBoxOnChange();
 }
 
@@ -1739,7 +1745,7 @@ void HTMLSelectElement::accessKeySetSelectedIndex(int index)
         }
     }
 
-    if (usesMenuList())
+    if (usesMenuListDeprecated())
         dispatchChangeEventForMenuList();
     else
         listBoxOnChange();
@@ -1772,8 +1778,8 @@ void HTMLSelectElement::showPopup()
     if (m_popupIsVisible)
         return;
 
-    CheckedPtr renderer = dynamicDowncast<RenderMenuList>(this->renderer());
-    if (!renderer)
+    CheckedPtr renderer = this->renderer();
+    if (!renderer || !usesMenuList())
         return;
 
     RefPtr frame = document().frame();
@@ -2037,8 +2043,8 @@ FontSelector* HTMLSelectElement::fontSelector() const
 
 HostWindow* HTMLSelectElement::hostWindow() const
 {
-    if (CheckedPtr renderer = dynamicDowncast<RenderMenuList>(this->renderer()))
-        return renderer->hostWindow();
+    if (renderer() && usesMenuList())
+        return renderer()->hostWindow();
     return nullptr;
 }
 #endif

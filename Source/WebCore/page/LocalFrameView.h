@@ -506,6 +506,8 @@ public:
     void maintainScrollPositionAtScrollToTextFragmentRange(SimpleRange&);
     WEBCORE_EXPORT void scrollElementToRect(const Element&, const IntRect&);
 
+    ScrollableArea* scrollableAreaForNode(ContainerNode&);
+
     // Coordinate systems:
     //
     // "View"
@@ -736,9 +738,16 @@ public:
     ScrollbarWidth scrollbarWidthStyle() const final;
     std::optional<ScrollbarColor> scrollbarColorStyle() const final;
 
+    // overflow:hidden scrollable areas can participate in anchoring, so they need their own set.
+    void addScrollableAreaForScrollAnchoring(ScrollableArea&);
+    void removeScrollableAreaForScrollAnchoring(ScrollableArea&);
+    const ScrollableAreaSet* scrollableAreasForScrollAnchoring() const { return m_anchoringScrollableAreas.get(); }
+
     void dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
     void queueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
-    void updateScrollAnchoringElementsForScrollableAreas();
+    void clearScrollAnchorsInScrollableAreas();
+
+    void updateScrollAnchoringBeforeLayoutForScrollableAreas();
     void adjustScrollAnchoringPositionForScrollableAreas();
     ScrollAnchoringController* scrollAnchoringController() const final { return m_scrollAnchoringController.get(); }
 
@@ -1062,6 +1071,7 @@ private:
 
     std::unique_ptr<ScrollableAreaSet> m_scrollableAreas;
     std::unique_ptr<ScrollableAreaSet> m_scrollableAreasForAnimatedScroll;
+    std::unique_ptr<ScrollableAreaSet> m_anchoringScrollableAreas;
     std::unique_ptr<SingleThreadWeakHashSet<RenderLayerModelObject>> m_viewportConstrainedObjects;
     mutable std::optional<bool> m_hasAnchorPositionedViewportConstrainedObjects;
 

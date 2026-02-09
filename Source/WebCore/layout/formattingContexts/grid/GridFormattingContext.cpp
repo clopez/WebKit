@@ -169,7 +169,6 @@ static Style::GridTemplateList gridTemplateListWithPercentagesConvertedToAuto(co
 void GridFormattingContext::layout(GridLayoutConstraints layoutConstraints)
 {
     auto unplacedGridItems = constructUnplacedGridItems();
-
     CheckedRef gridStyle = root().style();
 
     GridAutoFlowOptions autoFlowOptions {
@@ -221,21 +220,13 @@ PlacedGridItems GridFormattingContext::constructPlacedGridItems(const GridAreas&
 {
     PlacedGridItems placedGridItems;
     placedGridItems.reserveInitialCapacity(gridAreas.size());
+    CheckedRef gridContainerStyle = root().style();
     for (auto [ unplacedGridItem, gridAreaLines ] : gridAreas) {
 
         CheckedRef gridItemStyle = unplacedGridItem.m_layoutBox->style();
 
-        auto usedJustifySelf = [&] {
-            if (auto gridItemJustifySelf = gridItemStyle->justifySelf(); !gridItemJustifySelf.isAuto())
-                return gridItemJustifySelf.resolve();
-            return root().style().justifyItems().resolve();
-        };
-
-        auto usedAlignSelf = [&] {
-            if (auto gridItemAlignSelf = gridItemStyle->alignSelf(); !gridItemAlignSelf.isAuto())
-                return gridItemAlignSelf.resolve();
-            return root().style().alignItems().resolve();
-        };
+        auto usedJustifySelf = gridItemStyle->justifySelf().resolve(gridContainerStyle.ptr());
+        auto usedAlignSelf = gridItemStyle->alignSelf().resolve(gridContainerStyle.ptr());
 
         ComputedSizes inlineAxisSizes {
             gridItemStyle->width(),
@@ -253,7 +244,10 @@ PlacedGridItems GridFormattingContext::constructPlacedGridItems(const GridAreas&
             gridItemStyle->marginBottom()
         };
 
-        placedGridItems.constructAndAppend(unplacedGridItem, gridAreaLines, inlineAxisSizes, blockAxisSizes, usedJustifySelf(), usedAlignSelf(), gridItemStyle->usedZoomForLength());
+        auto& boxGeometry = geometryForGridItem(unplacedGridItem.m_layoutBox);
+        placedGridItems.constructAndAppend(unplacedGridItem, gridAreaLines, inlineAxisSizes, blockAxisSizes,
+            boxGeometry.horizontalBorderAndPadding(), boxGeometry.verticalBorderAndPadding(), usedJustifySelf,
+            usedAlignSelf, gridItemStyle->usedZoomForLength());
     }
     return placedGridItems;
 }

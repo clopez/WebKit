@@ -55,6 +55,20 @@ void GridLayout::updateFormattingContextGeometries()
     boxGeometryUpdater.setFormattingContextContentGeometry(CheckedRef { layoutState() }->geometryForBox(gridBox()).contentBoxWidth(), { });
 }
 
+template <typename SizeType>
+static std::optional<LayoutUnit> sizeValue(const SizeType& computedSize, const Style::ZoomFactor& gridContainerZoom)
+{
+    return WTF::switchOn(computedSize,
+        [&gridContainerZoom](const SizeType::Fixed& fixedValue) -> std::optional<LayoutUnit> {
+            return Style::evaluate<LayoutUnit>(fixedValue, gridContainerZoom);
+        },
+        [](const auto&) -> std::optional<LayoutUnit> {
+            ASSERT_NOT_IMPLEMENTED_YET();
+            return { };
+        }
+    );
+}
+
 static inline Layout::GridLayoutConstraints constraintsForGridContent(const Layout::ElementBox& gridContainer)
 {
     CheckedRef gridContainerRenderer = downcast<RenderGrid>(*gridContainer.rendererForIntegration());
@@ -66,10 +80,44 @@ static inline Layout::GridLayoutConstraints constraintsForGridContent(const Layo
     }();
     auto availableBlockSpace = gridContainerRenderer->availableLogicalHeightForContentBox();
 
-    return {
-        .inlineAxisAvailableSpace = availableInlineSpace,
-        .blockAxisAvailableSpace = availableBlockSpace
-    };
+    CheckedRef gridContainerStyle = gridContainerRenderer->style();
+    auto gridContainerZoom = gridContainerStyle->usedZoomForLength();
+
+    auto inlineAxisMinMaxSizes = [&]() -> std::pair<std::optional<LayoutUnit>, std::optional<LayoutUnit>> {
+        return {
+            sizeValue(gridContainerStyle->minWidth(), gridContainerZoom),
+            sizeValue(gridContainerStyle->maxWidth(), gridContainerZoom)
+        };
+    }();
+
+    auto blockAxisMinMaxSizes = [&]() -> std::pair<std::optional<LayoutUnit>, std::optional<LayoutUnit>> {
+        return {
+            sizeValue(gridContainerStyle->minHeight(), gridContainerZoom),
+            sizeValue(gridContainerStyle->maxHeight(), gridContainerZoom)
+        };
+    }();
+
+    auto inlineAxisConstraint = Layout::AxisConstraint::definite(
+        availableInlineSpace,
+        inlineAxisMinMaxSizes.first,
+        inlineAxisMinMaxSizes.second
+    );
+
+    auto blockAxisConstraint = [&]() -> Layout::AxisConstraint {
+        if (availableBlockSpace.has_value()) {
+            return Layout::AxisConstraint::definite(
+                *availableBlockSpace,
+                blockAxisMinMaxSizes.first,
+                blockAxisMinMaxSizes.second
+            );
+        }
+        return Layout::AxisConstraint::maxContent(
+            blockAxisMinMaxSizes.first,
+            blockAxisMinMaxSizes.second
+        );
+    }();
+
+    return { inlineAxisConstraint, blockAxisConstraint };
 }
 
 void GridLayout::updateGridItemRenderers()

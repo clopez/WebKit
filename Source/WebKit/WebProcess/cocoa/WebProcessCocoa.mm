@@ -283,14 +283,14 @@ id WebProcess::accessibilityFocusedUIElement()
         }
 
         RefPtr object = (*isolatedTree)->focusedNode();
-        RetainPtr objectWrapper = object ? object->wrapper() : nil;
-        if (objectWrapper) {
+        RetainPtr platformElement = object ? object->platformElement() : nil;
+        if (platformElement) {
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (RetainPtr associatedParent = [objectWrapper accessibilityAttributeValue:@"_AXAssociatedPluginParent"])
-                objectWrapper = WTF::move(associatedParent);
+            if (RetainPtr associatedParent = [platformElement accessibilityAttributeValue:@"_AXAssociatedPluginParent"])
+                platformElement = WTF::move(associatedParent);
             ALLOW_DEPRECATED_DECLARATIONS_END
         }
-        return objectWrapper.autorelease();
+        return platformElement.autorelease();
     }
 #endif
 
@@ -633,7 +633,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if ENABLE(CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH)
-    xpc_connection_cancel(parentProcessConnection()->xpcConnection());
+    xpc_connection_cancel(protect(parentProcessConnection()->xpcConnection()));
 #endif
 
     if (getenv("WEBKIT_PAUSE_WEB_PROCESS_ON_LAUNCH"))
