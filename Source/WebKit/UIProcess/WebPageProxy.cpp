@@ -9795,26 +9795,14 @@ void WebPageProxy::runJavaScriptAlert(IPC::Connection& connection, FrameIdentifi
             automationSession->willShowJavaScriptDialog(*this, message, std::nullopt);
     }
 
-<<<<<<< HEAD
     auto showModal = [protectedThis = Ref { *this }](RefPtr<WebFrameProxy>&& frame, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void()>&& reply) mutable {
         protectedThis->runModalJavaScriptDialog(WTF::move(frame), WTF::move(frameInfo), WTF::move(message), [reply = WTF::move(reply)](WebPageProxy& page, WebFrameProxy* frame, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void()>&& completion) mutable {
+            if (page.m_inspectorDialogAgent)
+                page.m_inspectorDialogAgent->javascriptDialogOpening("alert"_s, message);
             page.m_uiClient->runJavaScriptAlert(page, WTF::move(message), frame, WTF::move(frameInfo), [reply = WTF::move(reply), completion = WTF::move(completion)]() mutable {
                 reply();
                 completion();
             });
-||||||| parent of 2b7a60d386e7 (chore(webkit): bootstrap build #2257)
-    runModalJavaScriptDialog(WTF::move(frame), WTF::move(frameInfo), WTF::move(message), [reply = WTF::move(reply)](WebPageProxy& page, WebFrameProxy* frame, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void()>&& completion) mutable {
-        page.m_uiClient->runJavaScriptAlert(page, WTF::move(message), frame, WTF::move(frameInfo), [reply = WTF::move(reply), completion = WTF::move(completion)]() mutable {
-            reply();
-            completion();
-=======
-    runModalJavaScriptDialog(WTF::move(frame), WTF::move(frameInfo), WTF::move(message), [reply = WTF::move(reply)](WebPageProxy& page, WebFrameProxy* frame, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void()>&& completion) mutable {
-        if (page.m_inspectorDialogAgent)
-            page.m_inspectorDialogAgent->javascriptDialogOpening("alert"_s, message);
-        page.m_uiClient->runJavaScriptAlert(page, WTF::move(message), frame, WTF::move(frameInfo), [reply = WTF::move(reply), completion = WTF::move(completion)]() mutable {
-            reply();
-            completion();
->>>>>>> 2b7a60d386e7 (chore(webkit): bootstrap build #2257)
         });
     };
 
