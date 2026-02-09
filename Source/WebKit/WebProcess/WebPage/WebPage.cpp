@@ -4116,7 +4116,8 @@ void WebPage::fakeTouchTap(const WebCore::IntPoint& position, uint8_t modifiers,
             modifiers,
             MonotonicTime::now(),
             force,
-            syntheticClickType
+            syntheticClickType,
+            MouseEventInputSource::Hardware
         ));
         localMainFrame->eventHandler().handleMousePressEvent(PlatformMouseEvent(
             adjustedIntPoint,
@@ -4127,7 +4128,8 @@ void WebPage::fakeTouchTap(const WebCore::IntPoint& position, uint8_t modifiers,
             modifiers,
             MonotonicTime::now(),
             force,
-            syntheticClickType
+            syntheticClickType,
+            MouseEventInputSource::Hardware
         ));
         localMainFrame->eventHandler().handleMouseReleaseEvent(PlatformMouseEvent(
             adjustedIntPoint,
@@ -4138,7 +4140,8 @@ void WebPage::fakeTouchTap(const WebCore::IntPoint& position, uint8_t modifiers,
             modifiers,
             MonotonicTime::now(),
             force,
-            syntheticClickType
+            syntheticClickType,
+            MouseEventInputSource::Hardware
         ));
     }
     completionHandler();

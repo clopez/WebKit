@@ -93,7 +93,7 @@ public:
 
 #if PLATFORM(GTK) || USE(LIBWPE) || PLATFORM(WIN)
     NativeWebMouseEvent(WebEventType type, WebMouseEventButton button, unsigned short buttons, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, OptionSet<WebEventModifier> modifiers, MonotonicTime timestamp)
-        : WebMouseEvent({type, modifiers, timestamp}, button, buttons, position, globalPosition, deltaX, deltaY, deltaZ, clickCount) { }
+        : WebMouseEvent({type, modifiers, timestamp}, button, buttons, position, globalPosition, deltaX, deltaY, deltaZ, clickCount, 0, WebMouseEventInputSource::Hardware) { }
 #endif
 
 #if USE(APPKIT)
