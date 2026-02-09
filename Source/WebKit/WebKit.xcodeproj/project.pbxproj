@@ -22037,14 +22037,10 @@
 				078B04A02CF18EAB00B453A6 /* WebPage+NavigationPreferences.swift in Sources */,
 				071467782DFE84E500F77867 /* WebPage+Transferable.swift in Sources */,
 				07CB79962CE9435700199C49 /* WebPage.swift in Sources */,
-<<<<<<< HEAD
-				0715310F2F3037C100B56C0E /* WebPageProxy.swift in Sources */,
-||||||| parent of 2b7a60d386e7 (chore(webkit): bootstrap build #2257)
-=======
 				D79902B1236E9404005D6F7E /* WebPageInspectorEmulationAgentMac.mm in Sources */,
 				D79902B3236E9404005D6F7E /* WebPageInspectorInputAgentMac.mm in Sources */,
 				D79902B2236E9404005D6F7E /* WebPageInspectorTargetProxyMac.mm in Sources */,
->>>>>>> 2b7a60d386e7 (chore(webkit): bootstrap build #2257)
+				0715310F2F3037C100B56C0E /* WebPageProxy.swift in Sources */,
 				7CE9CE101FA0767A000177DE /* WebPageUpdatePreferences.cpp in Sources */,
 				079A4DA12D72CC0D00CA387F /* WebPageWebView.swift in Sources */,
 				7CEB00DD1FA69ABE0065473B /* WebPreferencesFeatures.cpp in Sources */,
