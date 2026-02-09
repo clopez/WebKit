@@ -66,6 +66,20 @@
 #  defaults may override a default value at runtime, using the preference
 #  name prefixed with "WebKitDebug".
 
+ARIAActionsSupportEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "aria-actions"
+  humanReadableDescription: "Enable support for aria-actions"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AVFoundationEnabled:
   type: bool
   status: embedder
@@ -3389,6 +3403,20 @@ GridLanesEnabled:
     WebCore:
       default: true
 
+HTMLEnhancedSelectEnabled:
+   type: bool
+   status: testable
+   category: css
+   humanReadableName: "Enhanced HTML select element"
+   humanReadableDescription: "Enable enhanced HTML select element"
+   defaultValue:
+     WebKitLegacy:
+       default: false
+     WebKit:
+       default: false
+     WebCore:
+       default: false
+
 HTMLEnhancedSelectParsingEnabled:
    type: bool
    status: stable
@@ -3402,34 +3430,6 @@ HTMLEnhancedSelectParsingEnabled:
        default: true
      WebCore:
        default: true
-
-HTMLEnhancedSelectPseudoElementsEnabled:
-   type: bool
-   status: testable
-   category: css
-   humanReadableName: "Enhanced HTML select element pseudo-elements"
-   humanReadableDescription: "Enable enhanced HTML select element pseudo-elements"
-   defaultValue:
-     WebKitLegacy:
-       default: false
-     WebKit:
-       default: false
-     WebCore:
-       default: false
-
-HTMLEnhancedSelectSelectedContentEnabled:
-   type: bool
-   status: unstable
-   category: dom
-   humanReadableName: "Enhanced HTML select: selectedcontent element"
-   humanReadableDescription: "Enable enhanced HTML select: selectedcontent element"
-   defaultValue:
-     WebKitLegacy:
-       default: false
-     WebKit:
-       default: false
-     WebCore:
-       default: false
 
 HTTPEquivEnabled:
   type: bool
@@ -6456,17 +6456,17 @@ ReadableStreamIterableEnabled:
 
 ReadableStreamTransferEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
-  humanReadableName: "ReadableStream transfer"
-  humanReadableDescription: "Enable ReadableStream transfer"
+  humanReadableName: "ReadableStream/WritableStream/TransformStream transfer"
+  humanReadableDescription: "Enable ReadableStream/WritableStream/TransformStream transfer"
   defaultValue:
     WebCore:
-      default: false
+      default: true
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
 
 RemoteMediaSessionManagerEnabled:
   type: bool

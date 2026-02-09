@@ -70,6 +70,8 @@ bool NonCompositedFrameRenderer::initialize()
 
 NonCompositedFrameRenderer::~NonCompositedFrameRenderer()
 {
+    if (m_forcedRepaintAsyncCallback)
+        m_forcedRepaintAsyncCallback();
     if (m_context)
         m_context->makeContextCurrent();
     m_surface->willDestroyGLContext();
@@ -126,6 +128,12 @@ void NonCompositedFrameRenderer::display()
     GraphicsContextSkia graphicsContext(*canvas, m_context ? RenderingMode::Accelerated : RenderingMode::Unaccelerated, RenderingPurpose::DOM);
     graphicsContext.applyDeviceScaleFactor(webPage->deviceScaleFactor());
 
+    if (m_surface->shouldPaintMirrored()) {
+        SkMatrix matrix;
+        matrix.setScaleTranslate(1, -1, 0, webPage->size().height());
+        canvas->concat(matrix);
+    }
+
 #if ENABLE(DAMAGE_TRACKING)
     if (m_frameDamage) {
         {
@@ -158,7 +166,28 @@ void NonCompositedFrameRenderer::display()
     m_canRenderNextFrame = false;
     m_surface->didRenderFrame();
 
+    if (RefPtr drawingArea = webPage->drawingArea())
+        drawingArea->dispatchPendingCallbacksAfterEnsuringDrawing();
+
     webPage->didUpdateRendering();
+
+    if (m_forcedRepaintAsyncCallback) {
+        m_forcedRepaintAsyncCallback();
+        m_forcedRepaintAsyncCallback = nullptr;
+    }
+}
+
+void NonCompositedFrameRenderer::updateRenderingWithForcedRepaint()
+{
+    setNeedsDisplayInRect(m_webPage.get().bounds());
+    display();
+}
+
+void NonCompositedFrameRenderer::updateRenderingWithForcedRepaintAsync(CompletionHandler<void()>&& callback)
+{
+    ASSERT(!m_forcedRepaintAsyncCallback);
+    m_forcedRepaintAsyncCallback = WTF::move(callback);
+    updateRenderingWithForcedRepaint();
 }
 
 #if ENABLE(DAMAGE_TRACKING)
