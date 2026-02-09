@@ -38,6 +38,7 @@
 #include "PDFPluginIdentifier.h"
 #include "WKLayoutMode.h"
 #include <WebCore/DOMPasteAccess.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
@@ -603,6 +604,9 @@ public:
     void provideDataForPasteboard(NSPasteboard *, NSString *type);
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
 
+// Paywright begin
+    RetainPtr<CGImageRef> takeSnapshotForAutomation();
+// Paywright end
     RefPtr<ViewSnapshot> takeViewSnapshot();
     RefPtr<ViewSnapshot> takeViewSnapshot(ForceSoftwareCapturingViewportSnapshot);
     void saveBackForwardSnapshotForCurrentItem();
