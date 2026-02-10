@@ -51,7 +51,7 @@ if (ENABLE_COG)
         set(WPE_COG_REPO "https://github.com/Igalia/cog.git")
     endif ()
     if ("${WPE_COG_TAG}" STREQUAL "")
-        set(WPE_COG_TAG "edafaa079f1c5ebe201bac33ddf3c476479c3f1f")
+        set(WPE_COG_TAG "3d7ca00197ab7ce6757bba280a0e2e8596a33bd9")
     endif ()
     # TODO Use GIT_REMOTE_UPDATE_STRATEGY with 3.18 to allow switching between
     # conflicting branches without having to delete the repo
@@ -94,5 +94,73 @@ if (ENABLE_COG)
     ExternalProject_Add_StepDependencies(cog configure
         "${CMAKE_BINARY_DIR}/cmakeconfig.h"
         "${WPE_PKGCONFIG_FILE}"
+    )
+endif ()
+
+
+if (ENABLE_WPE_PLATFORM_GTK)
+    include(ExternalProject)
+    find_program(MESON_EXE NAMES meson)
+    execute_process(
+        COMMAND "${MESON_EXE}" --version
+        OUTPUT_VARIABLE MESON_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+        ERROR_QUIET
+    )
+    if ("${MESON_VERSION}" VERSION_GREATER 1.1.0)
+        set(MESON_RECONFIGURE flag)
+    else ()
+        set(MESON_RECONFIGURE remove)
+    endif ()
+
+    find_package(GTK 4.0.0 REQUIRED)
+
+    if (DEFINED ENV{PKG_CONFIG_PATH})
+        set(WPE_PLATFORM_GTK_PKG_CONFIG_PATH ${CMAKE_BINARY_DIR}:$ENV{PKG_CONFIG_PATH})
+    else ()
+        set(WPE_PLATFORM_GTK_PKG_CONFIG_PATH ${CMAKE_BINARY_DIR})
+    endif ()
+    if ("${WPE_PLATFORM_GTK_REPO}" STREQUAL "")
+        set(WPE_PLATFORM_GTK_REPO "https://github.com/clopez/wpe-platform-gtk.git")
+    endif ()
+    if ("${WPE_PLATFORM_GTK_TAG}" STREQUAL "")
+        set(WPE_PLATFORM_GTK_TAG "171be7fd9cca8c959ec65dc130d0b0afefeed909")
+    endif ()
+    # TODO Use GIT_REMOTE_UPDATE_STRATEGY with 3.18 to allow switching between
+    # conflicting branches without having to delete the repo
+
+    # Convert a few options to their Meson equivalents
+    string(TOLOWER "${CMAKE_BUILD_TYPE}" COG_MESON_BUILDTYPE)
+    if (WPE_PLATFORM_GTK_MESON_BUILDTYPE STREQUAL "relwithdebinfo")
+        set(WPE_PLATFORM_GTK_MESON_BUILDTYPE debugoptimized)
+    elseif (WPE_PLATFORM_GTK_MESON_BUILDTYPE STREQUAL "minsizerel")
+        set(WPE_PLATFORM_GTK_MESON_BUILDTYPE minsize)
+    elseif (NOT (WPE_PLATFORM_GTK_MESON_BUILDTYPE STREQUAL release OR WPE_PLATFORM_GTK_MESON_BUILDTYPE STREQUAL debug))
+        set(WPE_PLATFORM_GTK_MESON_BUILDTYPE debugoptimized)
+    endif ()
+
+    # FIXMEx
+    set(WPE_PLATFORM_MODULE_DIR ${LIB_INSTALL_DIR}/wpe-platform-${WPE_API_VERSION}/modules)
+
+    ExternalProject_Add(WPEPlatformGTK
+        GIT_REPOSITORY "${WPE_PLATFORM_GTK_REPO}"
+        GIT_TAG "${WPE_PLATFORM_GTK_TAG}"
+        SOURCE_DIR "${CMAKE_SOURCE_DIR}/Tools/wpe/wpe-platform-gtk"
+        BUILD_IN_SOURCE FALSE
+        CONFIGURE_COMMAND
+            ${CMAKE_SOURCE_DIR}/Tools/wpe/meson-wrapper
+            ${MESON_RECONFIGURE}
+            <BINARY_DIR> <SOURCE_DIR>
+            --buildtype ${WPE_PLATFORM_GTK_MESON_BUILDTYPE}
+            --pkg-config-path ${WPE_PLATFORM_GTK_PKG_CONFIG_PATH}
+            -Dwpe_platform_module_dir=${WPE_PLATFORM_MODULE_DIR}
+        BUILD_COMMAND
+            meson compile -C <BINARY_DIR>
+        INSTALL_COMMAND "")
+    ExternalProject_Add_StepDependencies(WPEPlatformGTK build WebKit)
+    ExternalProject_Add_StepDependencies(WPEPlatformGTK configure
+        "${CMAKE_BINARY_DIR}/cmakeconfig.h"
+        "${CMAKE_BINARY_DIR}/wpe-platform-${WPE_API_VERSION}.pc"
     )
 endif ()

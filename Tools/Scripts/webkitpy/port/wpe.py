@@ -135,8 +135,15 @@ class WPEPort(GLibPort):
     def cog_path_to(self, *components):
         return self._build_path('Tools', 'cog-prefix', 'src', 'cog-build', *components)
 
+    def wpe_platform_gtk_path_to(self, *components):
+        return self._build_path('Tools', 'WPEPlatformGTK-prefix', 'src', 'WPEPlatformGTK-build', *components)
+
     def get_browser_path(self, browser_name):
-        return self.cog_path_to('launcher', browser_name) if browser_name == 'cog' else self._build_path('bin', browser_name)
+        if browser_name == 'cog':
+            return self.cog_path_to('launcher', browser_name)
+        if browser_name == 'wpe-gtk-demo':
+            return self.wpe_platform_gtk_path_to('demo', browser_name)
+        return self._build_path('bin', browser_name)
 
     def browser_name(self):
         """Returns the lower case name of the browser to be used (Cog or MiniBrowser)
@@ -144,7 +151,7 @@ class WPEPort(GLibPort):
         Users can select between both with the environment variable WPE_BROWSER
         """
         browser = os.environ.get("WPE_BROWSER", "").lower()
-        if browser in ("cog", "minibrowser"):
+        if browser in ("cog", "minibrowser", "gtk"):
             return browser
 
         if browser:
@@ -181,6 +188,9 @@ class WPEPort(GLibPort):
                 has_platform_arg = any((a == "-P" or a.startswith("--platform=") for a in args)) or "COG_PLATFORM_NAME" in os.environ
                 if not has_platform_arg:
                     args.insert(0, "--platform=gtk4")
+        elif self.browser_name() == "gtk":
+            miniBrowser = self.get_browser_path("wpe-gtk-demo")
+            print("Using wpe-gtk-demo as MiniBrowser")
 
         if not miniBrowser:
             print("Using default MiniBrowser")
