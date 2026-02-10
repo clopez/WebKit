@@ -275,10 +275,22 @@ void DrawingAreaProxyCoordinatedGraphics::captureFrame()
     if (cairo_surface_get_type(surface.get()) != CAIRO_SURFACE_TYPE_IMAGE)
         return;
 
-    unsigned char* data   = cairo_image_surface_get_data(surface.get());
-    int width             = cairo_image_surface_get_width(surface.get());
-    int height            = cairo_image_surface_get_height(surface.get());
-    int stride            = cairo_image_surface_get_stride(surface.get());
+    // The original surface is upside down, so we flip it to match orientation in other accelerated backing stores.
+    auto flippedSurface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, cairo_image_surface_get_width(surface.get()), cairo_image_surface_get_height(surface.get())));
+    {
+        RefPtr<cairo_t> cr = adoptRef(cairo_create(flippedSurface.get()));
+        cairo_matrix_t transform;
+        cairo_matrix_init(&transform, 1, 0, 0, -1, 0, cairo_image_surface_get_height(surface.get()));
+        cairo_transform(cr.get(), &transform);
+        cairo_set_source_surface(cr.get(), surface.get(), 0, 0);
+        cairo_paint(cr.get());
+    }
+    cairo_surface_flush(flippedSurface.get());
+
+    unsigned char* data   = cairo_image_surface_get_data(flippedSurface.get());
+    int width             = cairo_image_surface_get_width(flippedSurface.get());
+    int height            = cairo_image_surface_get_height(flippedSurface.get());
+    int stride            = cairo_image_surface_get_stride(flippedSurface.get());
 
     SkImageInfo info = SkImageInfo::Make(
         width, height,
