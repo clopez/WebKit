@@ -246,40 +246,73 @@ FloatPoint ScrollAnchoringController::computeOffsetFromOwningScroller(RenderObje
     return toFloatPoint(rects.boundsRelativeToScrolledContent.location() - rects.scrollerContentsVisibleRect.location());
 }
 
-void ScrollAnchoringController::notifyChildHadSuppressingStyleChange(RenderElement&)
+void ScrollAnchoringController::notifyChildHadSuppressingStyleChange(RenderElement& renderer)
 {
+    CheckedPtr scrollerBox = scrollableAreaBox();
+
+#if LOG_DISABLED
+    UNUSED_PARAM(renderer);
+#else
+    LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController " << this << " notifyChildHadSuppressingStyleChange() for " << *scrollerBox << " for " << renderer);
+#endif
+
+    scrollerBox->setScrollAnchoringSuppressionStyleChanged(true);
+}
+
+static CheckedPtr<RenderElement> priorityCandidateForElement(Element* element)
+{
+    while (element) {
+        if (CheckedPtr renderer = element->renderer()) {
+            if (!renderer->isAnonymousBlock() && (!renderer->isInline() || renderer->isAtomicInlineLevelBox()))
+                return renderer;
+        }
+        SUPPRESS_UNCOUNTED_LOCAL element = element->parentElement();
+    }
+    return nullptr;
 }
 
 // https://drafts.csswg.org/css-scroll-anchoring/#anchor-priority-candidates
-bool ScrollAnchoringController::findPriorityCandidate(Document&)
+bool ScrollAnchoringController::findPriorityCandidate(Document& document)
 {
-    // FIXME: Implement, without triggering assertion via isEditableNode() for interleaved layouts.
+    CheckedPtr scrollerBox = scrollableAreaBox();
+    if (!scrollerBox)
+        return false;
+
+    RefPtr focusedElement = document.focusedElement();
+    if (focusedElement && isEditableNode(*focusedElement)) {
+        if (CheckedPtr candidate = priorityCandidateForElement(focusedElement)) {
+            auto status = examinePriorityCandidate(*candidate);
+            if (isViableStatus(status)) {
+                m_anchorObject = *candidate;
+                // FIXME: Look inside the candidate?
+            }
+            return true;
+        }
+    }
+
+    // FIXME: Find in page match
+
     return false;
 }
 
-static bool candidateMayMoveWithScroller(RenderObject& candidate, RenderBox& scrollerBox)
+static bool candidateMayMoveWithScroller(RenderElement& renderer, RenderBox& scrollerBox)
 {
-    CheckedPtr renderElement = dynamicDowncast<RenderElement>(candidate);
-    if (!renderElement)
-        return true;
-
-    if (renderElement->isStickilyPositioned() || renderElement->isFixedPositioned())
+    if (renderer.isStickilyPositioned() || renderer.isFixedPositioned())
         return false;
 
     CheckedPtr scrollerBlock = dynamicDowncast<RenderBlock>(scrollerBox);
-    if (!scrollerBlock->isContainingBlockAncestorFor(candidate))
+    if (!scrollerBlock->isContainingBlockAncestorFor(renderer))
         return false;
 
     return true;
 }
 
-AnchorSearchStatus ScrollAnchoringController::examinePriorityCandidate(RenderObject& renderer) const
+AnchorSearchStatus ScrollAnchoringController::examinePriorityCandidate(RenderElement& renderer) const
 {
     CheckedPtr scrollerBox = scrollableAreaBox();
 
-    RenderObject* ancestor = &renderer;
+    RenderElement* ancestor = &renderer;
     while (ancestor && ancestor != scrollerBox.get()) {
-
         if (ancestor->style().overflowAnchor() == OverflowAnchor::None)
             return AnchorSearchStatus::Exclude;
 
@@ -295,6 +328,19 @@ AnchorSearchStatus ScrollAnchoringController::examinePriorityCandidate(RenderObj
     return examineAnchorCandidate(*ancestor);
 }
 
+static bool overflowAnchorProhibitsAnchoring(const RenderElement& object, const RenderBox& scrollingAncestor)
+{
+    for (CheckedPtr renderer = &object; renderer; renderer = renderer->parent()) {
+        if (renderer->style().overflowAnchor() == OverflowAnchor::None)
+            return true;
+
+        if (renderer == &scrollingAncestor)
+            break;
+    }
+
+    return false;
+}
+
 // https://drafts.csswg.org/css-scroll-anchoring/#candidate-examination
 AnchorSearchStatus ScrollAnchoringController::examineAnchorCandidate(RenderObject& candidate) const
 {
@@ -303,31 +349,38 @@ AnchorSearchStatus ScrollAnchoringController::examineAnchorCandidate(RenderObjec
     if (&candidate == scrollerBox.get())
         return AnchorSearchStatus::Continue;
 
-    if (candidate.style().overflowAnchor() == OverflowAnchor::None)
-        return AnchorSearchStatus::Exclude;
+    bool isScrollableWithAnchor = false;
 
-    if (candidate.isBR())
-        return AnchorSearchStatus::Exclude;
+    if (CheckedPtr renderer = dynamicDowncast<RenderElement>(candidate)) {
+        if (overflowAnchorProhibitsAnchoring(*renderer, *scrollerBox))
+            return AnchorSearchStatus::Exclude;
 
-    if (candidate.isAnonymous())
-        return AnchorSearchStatus::Continue;
+        if (candidate.isBR())
+            return AnchorSearchStatus::Exclude;
 
-    if (!candidateMayMoveWithScroller(candidate, *scrollerBox))
-        return AnchorSearchStatus::Exclude;
+        if (candidate.isAnonymous())
+            return AnchorSearchStatus::Continue;
 
-    bool isScrollableWithAnchor = [&]() {
-        CheckedPtr candidateBox = dynamicDowncast<RenderBox>(candidate);
-        if (candidateBox && candidateBox->canBeScrolledAndHasScrollableArea() && candidateBox->hasLayer()) {
-            if (CheckedPtr scrollableArea = downcast<RenderLayerModelObject>(candidate).layer()->scrollableArea()) {
-                CheckedPtr controller = scrollableArea->scrollAnchoringController();
-                if (controller && controller->shouldMaintainScrollAnchor())
-                    return true;
+        if (!candidateMayMoveWithScroller(*renderer, *scrollerBox))
+            return AnchorSearchStatus::Exclude;
+
+        isScrollableWithAnchor = [&]() {
+            CheckedPtr candidateBox = dynamicDowncast<RenderBox>(candidate);
+            if (candidateBox && candidateBox->canBeScrolledAndHasScrollableArea() && candidateBox->hasLayer()) {
+                if (CheckedPtr scrollableArea = downcast<RenderLayerModelObject>(candidate).layer()->scrollableArea()) {
+                    CheckedPtr controller = scrollableArea->scrollAnchoringController();
+                    if (controller && controller->shouldMaintainScrollAnchor())
+                        return true;
+                }
             }
-        }
-        return false;
-    }();
+            return false;
+        }();
+    }
 
     auto shouldDescendIntoObjectWithEmptyLayoutOverflow = [](RenderObject& candidate) {
+        if (!is<RenderElement>(candidate))
+            return false;
+
         if (candidate.isInline())
             return true;
 
@@ -458,6 +511,24 @@ void ScrollAnchoringController::chooseAnchorElement(Document& document)
 // https://drafts.csswg.org/css-scroll-anchoring/#suppression-triggers
 bool ScrollAnchoringController::anchoringSuppressedByStyleChange() const
 {
+    if (!m_anchorObject)
+        return false;
+
+    CheckedPtr scrollerBox = scrollableAreaBox();
+
+    // ...any element in the path from the anchor node to the scrollable element (or document), inclusive of both.
+    // m_anchorObject can be a RenderText, but that will never have scrollAnchoringSuppressionStyleChanged() set.
+    if (CheckedPtr renderer = dynamicDowncast<RenderElement>(*m_anchorObject); renderer && renderer->scrollAnchoringSuppressionStyleChanged())
+        return true;
+
+    for (CheckedPtr renderer = m_anchorObject->parent(); renderer; renderer = renderer->parent()) {
+        if (renderer->scrollAnchoringSuppressionStyleChanged())
+            return true;
+
+        if (renderer == scrollerBox)
+            break;
+    }
+
     return false;
 }
 
@@ -535,6 +606,8 @@ void ScrollAnchoringController::adjustScrollPositionForAnchoring()
 
     auto options = ScrollPositionChangeOptions::createProgrammatic();
     options.originalScrollDelta = adjustment;
+
+    auto revealScope = ScrollbarRevealBehaviorScope(m_owningScrollableArea.get(), ScrollbarRevealBehavior::DontReveal);
 
     auto oldScrollType = m_owningScrollableArea->currentScrollType();
     m_owningScrollableArea->setCurrentScrollType(ScrollType::Programmatic);

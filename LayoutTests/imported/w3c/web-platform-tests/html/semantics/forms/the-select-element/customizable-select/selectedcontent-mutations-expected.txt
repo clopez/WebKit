@@ -1,9 +1,20 @@
 
+      span three
 
 
 
+      option
+      option
 
 
+      two
+
+
+      option
+
+
+
+      one
 
 
 PASS MutationObserver records during parsing of <select> with <selectedcontent>: test1

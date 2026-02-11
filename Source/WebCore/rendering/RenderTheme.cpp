@@ -292,9 +292,6 @@ void RenderTheme::adjustStyle(RenderStyle& style, const RenderStyle& parentStyle
         case StyleAppearance::MenulistButton:
             appearance = widgetMayDevolve ? StyleAppearance::MenulistButton : StyleAppearance::None;
             break;
-#if PLATFORM(IOS_FAMILY)
-        case StyleAppearance::ListButton:
-#endif
         default:
             appearance = StyleAppearance::None;
             break;
@@ -1267,7 +1264,7 @@ bool RenderTheme::isFocused(const RenderElement& renderer) const
 
     Ref document = delegate->document();
     RefPtr frame = document->frame();
-    return delegate == document->focusedElement() && frame && frame->checkedSelection()->isFocusedAndActive();
+    return delegate == document->focusedElement() && frame && protect(frame->selection())->isFocusedAndActive();
 }
 
 bool RenderTheme::isPressed(const RenderElement& renderer) const

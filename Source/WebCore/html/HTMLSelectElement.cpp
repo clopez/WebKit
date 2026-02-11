@@ -44,6 +44,7 @@
 #include "FrameDestructionObserverInlines.h"
 #include "FormController.h"
 #include "GenericCachedHTMLCollection.h"
+#include "HTMLButtonElement.h"
 #include "HTMLDataListElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLHRElement.h"
@@ -60,6 +61,7 @@
 #include "MouseEvent.h"
 #include "NodeName.h"
 #include "NodeRareData.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "RenderListBox.h"
 #include "RenderMenuList.h"
 #include "RenderTheme.h"
@@ -67,6 +69,7 @@
 #include "SelectFallbackButtonElement.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
+#include "SlotAssignment.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -82,6 +85,39 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLSelectElement);
 using namespace WTF::Unicode;
 
 using namespace HTMLNames;
+
+static const AtomString& buttonSlotName()
+{
+    static MainThreadNeverDestroyed<const AtomString> buttonSlot("buttonSlot"_s);
+    return buttonSlot;
+}
+
+class SelectSlotAssignment final : public NamedSlotAssignment {
+private:
+    void hostChildElementDidChange(const Element&, ShadowRoot&) final;
+    const AtomString& slotNameForHostChild(const Node&) const final;
+};
+
+void SelectSlotAssignment::hostChildElementDidChange(const Element& childElement, ShadowRoot& shadowRoot)
+{
+    if (is<HTMLButtonElement>(childElement)) {
+        // Don't check whether this is the first button element
+        // since we don't know the answer when this function is called inside Element::removedFrom.
+        didChangeSlot(buttonSlotName(), shadowRoot);
+    } else
+        didChangeSlot(NamedSlotAssignment::defaultSlotName(), shadowRoot);
+}
+
+const AtomString& SelectSlotAssignment::slotNameForHostChild(const Node& child) const
+{
+    // The first button child gets assigned to the button slot.
+    if (is<HTMLButtonElement>(child)) {
+        Ref select = downcast<HTMLSelectElement>(*child.parentNode());
+        if (&child == childrenOfType<HTMLButtonElement>(select).first())
+            return buttonSlotName();
+    }
+    return NamedSlotAssignment::defaultSlotName();
+}
 
 // https://html.spec.whatwg.org/#dom-htmloptionscollection-length
 static constexpr unsigned maxSelectItems = 100000;
@@ -106,15 +142,13 @@ Ref<HTMLSelectElement> HTMLSelectElement::create(const QualifiedName& tagName, D
 {
     ASSERT(tagName.matches(selectTag));
     Ref select = adoptRef(*new HTMLSelectElement(tagName, document, form));
-    select->ensureUserAgentShadowRoot();
+    select->addShadowRoot(ShadowRoot::create(document, makeUnique<SelectSlotAssignment>()));
     return select;
 }
 
 Ref<HTMLSelectElement> HTMLSelectElement::create(Document& document)
 {
-    Ref select = adoptRef(*new HTMLSelectElement(selectTag, document, nullptr));
-    select->ensureUserAgentShadowRoot();
-    return select;
+    return HTMLSelectElement::create(selectTag, document, nullptr);
 }
 
 HTMLSelectElement::~HTMLSelectElement() = default;
@@ -125,7 +159,7 @@ void HTMLSelectElement::didDetachRenderers()
     if (RefPtr popup = m_popup)
         popup->hide();
     m_popup = nullptr;
-    m_popupIsVisible = false;
+    setPopupIsVisible(false);
 #endif
     HTMLFormControlElement::didDetachRenderers();
 }
@@ -135,7 +169,15 @@ void HTMLSelectElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     Ref document = this->document();
 
     ScriptDisallowedScope::EventAllowedScope rootScope { root };
-    root.appendChild(SelectFallbackButtonElement::create(document));
+
+    Ref buttonSlot = HTMLSlotElement::create(slotTag, document);
+    ScriptDisallowedScope::EventAllowedScope buttonSlotScope { buttonSlot };
+    buttonSlot->setAttributeWithoutSynchronization(inertAttr, emptyAtom());
+    buttonSlot->setAttributeWithoutSynchronization(nameAttr, buttonSlotName());
+    buttonSlot->appendChild(SelectFallbackButtonElement::create(document));
+    root.appendChild(buttonSlot);
+    m_buttonSlot = WTF::move(buttonSlot);
+
     root.appendChild(HTMLSlotElement::create(slotTag, document));
 }
 
@@ -160,6 +202,16 @@ void HTMLSelectElement::didRecalcStyle(OptionSet<Style::Change> styleChange)
     // Even though the options didn't necessarily change, we will call setOptionsChangedOnRenderer for its side effect
     // of recomputing the width of the element. We need to do that if the style change included a change in zoom level.
     setOptionsChangedOnRenderer();
+
+    // When the select's style changes, invalidate the fallback button's style since it depends on
+    // the host's usedAppearance() to compute the padding.
+    if (styleChange.contains(Style::Change::NonInherited)) {
+        if (RefPtr buttonSlot = m_buttonSlot.get()) {
+            if (RefPtr fallbackButton = dynamicDowncast<SelectFallbackButtonElement>(buttonSlot->firstChild()))
+                fallbackButton->invalidateStyle();
+        }
+    }
+
     HTMLFormControlElement::didRecalcStyle(styleChange);
 }
 
@@ -397,10 +449,13 @@ bool HTMLSelectElement::canSelectAll() const
     return m_multiple;
 }
 
-RenderPtr<RenderElement> HTMLSelectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> HTMLSelectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& position)
 {
-    if (usesMenuList())
+    if (usesMenuList()) {
+        if (style.usedAppearance() == StyleAppearance::Base)
+            return HTMLElement::createElementRenderer(WTF::move(style), position);
         return createRenderer<RenderMenuList>(*this, WTF::move(style));
+    }
     return createRenderer<RenderListBox>(*this, WTF::move(style));
 }
 
@@ -414,6 +469,10 @@ bool HTMLSelectElement::childShouldCreateRenderer(const Node& child) const
 #endif
     if (child.isInShadowTree() && child.containingShadowRoot() == userAgentShadowRoot())
         return true;
+    if (usesMenuList() && is<HTMLButtonElement>(child)) {
+        if (&child == childrenOfType<HTMLButtonElement>(*this).first())
+            return true;
+    }
     return validationMessageShadowTreeContains(child);
 }
 
@@ -494,9 +553,9 @@ void HTMLSelectElement::optionElementChildrenChanged()
     updateButtonText();
 }
 
-void HTMLSelectElement::updateButtonText()
+void HTMLSelectElement::updateButtonText(HTMLOptionElement* selectedOption, int optionIndex)
 {
-    protect(downcast<SelectFallbackButtonElement>(*protect(userAgentShadowRoot())->firstChild()))->updateText();
+    protect(downcast<SelectFallbackButtonElement>(*protect(m_buttonSlot)->firstChild()))->updateText(selectedOption, optionIndex);
 }
 
 void HTMLSelectElement::setSize(unsigned size)
@@ -827,7 +886,7 @@ void HTMLSelectElement::setOptionsChangedOnRenderer()
     if (CheckedPtr renderer = this->renderer()) {
         if (auto* renderMenuList = dynamicDowncast<RenderMenuList>(*renderer))
             renderMenuList->setOptionsChanged(true);
-        else
+        else if (!usesMenuList())
             downcast<RenderListBox>(*renderer).setOptionsChanged(true);
     }
 
@@ -1008,12 +1067,14 @@ void HTMLSelectElement::selectOption(int optionIndex, OptionSet<SelectOptionFlag
     if (shouldDeselect)
         deselectItemsWithoutValidation(element.get());
 
+    RefPtr<HTMLOptionElement> selectedOption;
     if (RefPtr option = dynamicDowncast<HTMLOptionElement>(element)) {
         if (m_activeSelectionAnchorIndex < 0 || shouldDeselect)
             setActiveSelectionAnchorIndex(listIndex);
         if (m_activeSelectionEndIndex < 0 || shouldDeselect)
             setActiveSelectionEndIndex(listIndex);
         option->setSelectedState(true);
+        selectedOption = option;
     }
 
     invalidateSelectedItems();
@@ -1021,10 +1082,10 @@ void HTMLSelectElement::selectOption(int optionIndex, OptionSet<SelectOptionFlag
 
     // Update the button text element to display the new selection and ensure it picks up the new
     // selection's direction and unicode-bidi.
-    updateButtonText();
+    updateButtonText(selectedOption.get(), optionIndex);
     if (document().settings().htmlEnhancedSelectEnabled()
         && !document().settings().mutationEventsEnabled())
-        updateSelectedContent();
+        updateSelectedContent(selectedOption.get());
 
     scrollToSelection();
 
@@ -1798,7 +1859,7 @@ void HTMLSelectElement::showPopup()
 
     if (!m_popup)
         m_popup = document().page()->chrome().createPopupMenu(*this);
-    m_popupIsVisible = true;
+    setPopupIsVisible(true);
 
     // Compute the top left taking transforms into account, but use
     // the actual width of the element to size the popup.
@@ -1814,6 +1875,17 @@ void HTMLSelectElement::hidePopup()
         popup->hide();
 }
 #endif
+
+void HTMLSelectElement::setPopupIsVisible(bool visible)
+{
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Open, visible);
+    m_popupIsVisible = visible;
+}
+
+bool HTMLSelectElement::isOpen() const
+{
+    return m_popupIsVisible;
+}
 
 ExceptionOr<void> HTMLSelectElement::showPicker()
 {
@@ -1840,24 +1912,26 @@ ExceptionOr<void> HTMLSelectElement::showPicker()
     return { };
 }
 
-void HTMLSelectElement::updateSelectedContent() const
+void HTMLSelectElement::updateSelectedContent(HTMLOptionElement* selectedOption) const
 {
     ASSERT(document().settings().htmlEnhancedSelectParsingEnabled());
     ASSERT(document().settings().htmlEnhancedSelectEnabled());
     ASSERT(!document().settings().mutationEventsEnabled());
 
-    if (m_multiple)
+    if (m_multiple || !m_selectedContentDescendantCount)
         return;
 
-    RefPtr selectedOption = [&] -> RefPtr<HTMLOptionElement> {
+    RefPtr selectedOptionRef = selectedOption;
+    if (!selectedOptionRef) {
         for (auto& element : listItems()) {
             if (RefPtr option = dynamicDowncast<HTMLOptionElement>(*element)) {
-                if (option->selected())
-                    return option;
+                if (option->selected()) {
+                    selectedOptionRef = option;
+                    break;
+                }
             }
         }
-        return nullptr;
-    }();
+    }
 
     Vector<Ref<HTMLSelectedContentElement>> selectedContentElements;
     for (Ref selectedContent : descendantsOfType<HTMLSelectedContentElement>(*const_cast<HTMLSelectElement*>(this))) {
@@ -1866,11 +1940,22 @@ void HTMLSelectElement::updateSelectedContent() const
     }
 
     for (Ref selectedContent : selectedContentElements) {
-        if (!selectedOption)
+        if (!selectedOptionRef)
             selectedContent->removeChildren();
         else
-            selectedOption->cloneIntoSelectedContent(selectedContent);
+            selectedOptionRef->cloneIntoSelectedContent(selectedContent);
     }
+}
+
+void HTMLSelectElement::registerSelectedContentElement()
+{
+    ++m_selectedContentDescendantCount;
+}
+
+void HTMLSelectElement::unregisterSelectedContentElement()
+{
+    ASSERT(m_selectedContentDescendantCount > 0);
+    --m_selectedContentDescendantCount;
 }
 
 // PopupMenuClient methods
@@ -2020,7 +2105,7 @@ int HTMLSelectElement::listSize() const
 void HTMLSelectElement::popupDidHide()
 {
 #if !PLATFORM(IOS_FAMILY)
-    m_popupIsVisible = false;
+    setPopupIsVisible(false);
 #endif
 }
 
@@ -2048,7 +2133,7 @@ bool HTMLSelectElement::itemIsSelected(unsigned listIndex) const
 #if !PLATFORM(COCOA)
 void HTMLSelectElement::setTextFromItem(unsigned listIndex)
 {
-    downcast<SelectFallbackButtonElement>(*protect(userAgentShadowRoot())->firstChild()).setTextFromOption(listToOptionIndex(listIndex));
+    downcast<SelectFallbackButtonElement>(*protect(m_buttonSlot)->firstChild()).updateText(nullptr, listToOptionIndex(listIndex));
 }
 #endif
 

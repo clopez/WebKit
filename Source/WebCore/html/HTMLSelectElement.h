@@ -115,8 +115,12 @@ public:
     void showPopup();
 #if !PLATFORM(IOS_FAMILY)
     void hidePopup();
-    bool popupIsVisible() const { return m_popupIsVisible; }
 #endif
+
+    bool popupIsVisible() const { return m_popupIsVisible; }
+    WEBCORE_EXPORT void setPopupIsVisible(bool);
+
+    bool isOpen() const;
 
     void didUpdateActiveOption(int optionIndex);
 
@@ -174,7 +178,10 @@ public:
 
     bool isDevolvableWidget() const override { return true; }
 
-    void updateSelectedContent() const;
+    void updateSelectedContent(HTMLOptionElement* = nullptr) const;
+
+    void registerSelectedContentElement();
+    void unregisterSelectedContentElement();
 
 protected:
     HTMLSelectElement(const QualifiedName&, Document&, HTMLFormElement*);
@@ -242,7 +249,7 @@ private:
     bool platformHandleKeydownEvent(KeyboardEvent*);
     void listBoxDefaultEventHandler(Event&);
     void setOptionsChangedOnRenderer();
-    void updateButtonText();
+    void updateButtonText(HTMLOptionElement* = nullptr, int optionIndex = -1);
     size_t searchOptionsForValue(const String&, size_t listIndexStart, size_t listIndexEnd) const;
 
     enum class SkipDirection : bool { Backwards, Forwards };
@@ -278,13 +285,16 @@ private:
     bool m_activeSelectionState;
     bool m_allowsNonContiguousSelection;
     mutable bool m_shouldRecalcListItems;
+    unsigned m_selectedContentDescendantCount { 0 };
 
     std::optional<int> m_lastActiveIndex;
 
+    WeakPtr<HTMLSlotElement, WeakPtrImplWithEventTargetData> m_buttonSlot;
+
 #if !PLATFORM(IOS_FAMILY)
     RefPtr<PopupMenu> m_popup;
-    bool m_popupIsVisible { false };
 #endif
+    bool m_popupIsVisible { false };
 };
 
 } // namespace

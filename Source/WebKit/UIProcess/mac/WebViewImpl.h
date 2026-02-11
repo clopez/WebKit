@@ -37,6 +37,7 @@
 #include "ImageAnalysisUtilities.h"
 #include "PDFPluginIdentifier.h"
 #include "WKLayoutMode.h"
+#include "WebMouseEvent.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
@@ -680,8 +681,8 @@ public:
     void characterIndexForPoint(NSPoint, void(^)(NSUInteger));
     void typingAttributesWithCompletionHandler(void(^)(NSDictionary<NSString *, id> *));
 
-    NSRect unionRectInVisibleSelectedRange() const;
-    NSRect documentVisibleRect() const;
+    NSRect unionRectInVisibleSelectedRangeInScreen() const;
+    NSRect documentVisibleRectInScreen() const;
 
     bool isContentRichlyEditable() const;
 
@@ -694,8 +695,8 @@ public:
     bool hasFlagsChangedEventMonitor();
 
     void mouseMoved(NSEvent *);
-    void mouseDown(NSEvent *);
-    void mouseUp(NSEvent *);
+    void mouseDown(NSEvent *, WebMouseEventInputSource);
+    void mouseUp(NSEvent *, WebMouseEventInputSource);
     void mouseDragged(NSEvent *);
     void mouseEntered(NSEvent *);
     void mouseExited(NSEvent *);
@@ -899,6 +900,8 @@ private:
 #endif // ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 #endif // HAVE(TOUCH_BAR)
 
+    NSRect convertFromViewToScreen(NSRect rectInView) const;
+
     bool supportsArbitraryLayoutModes() const;
     float intrinsicDeviceScaleFactor() const;
 
@@ -914,14 +917,14 @@ private:
     Vector<WebCore::KeypressCommand> collectKeyboardLayoutCommandsForEvent(NSEvent *);
     void interpretKeyEvent(NSEvent *, void(^completionHandler)(BOOL handled, const Vector<WebCore::KeypressCommand>&));
 
-    void nativeMouseEventHandler(NSEvent *);
-    void nativeMouseEventHandlerInternal(NSEvent *);
-    
+    void nativeMouseEventHandler(NSEvent *, WebMouseEventInputSource);
+    void nativeMouseEventHandlerInternal(NSEvent *, WebMouseEventInputSource);
+
     void scheduleMouseDidMoveOverElement(NSEvent *);
 
     void mouseMovedInternal(NSEvent *);
-    void mouseDownInternal(NSEvent *);
-    void mouseUpInternal(NSEvent *);
+    void mouseDownInternal(NSEvent *, WebMouseEventInputSource);
+    void mouseUpInternal(NSEvent *, WebMouseEventInputSource);
     void mouseDraggedInternal(NSEvent *);
 
     void handleProcessSwapOrExit();

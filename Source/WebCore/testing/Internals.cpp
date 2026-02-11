@@ -500,7 +500,7 @@ InspectorStubFrontend::InspectorStubFrontend(Page& inspectedPage, LocalFrame& ma
 
     frontendPage()->inspectorController().setInspectorFrontendClient(this);
     inspectedPage.protectedInspectorController()->connectFrontend(*this);
-    mainFrame.protectedInspectorController()->connectFrontend(*this);
+    protect(mainFrame.inspectorController())->connectFrontend(*this);
 }
 
 InspectorStubFrontend::~InspectorStubFrontend()
@@ -867,7 +867,7 @@ ExceptionOr<bool> Internals::areSVGAnimationsPaused() const
     if (!document->svgExtensionsIfExists())
         return Exception { ExceptionCode::NotFoundError, "No SVG animations"_s };
 
-    return document->checkedSVGExtensions()->areAnimationsPaused();
+    return protect(document->svgExtensions())->areAnimationsPaused();
 }
 
 ExceptionOr<double> Internals::svgAnimationsInterval(SVGSVGElement& element) const

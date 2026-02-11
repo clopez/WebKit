@@ -189,10 +189,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (WebCore::FramesPerSecond)nominalFramesPerSecond
 {
     RefPtr page = _drawingAreaProxy ? protect(*_drawingAreaProxy)->page() : nullptr;
-    if (page && (page->preferences().webAnimationsCustomFrameRateEnabled() || !page->preferences().preferPageRenderingUpdatesNear60FPSEnabled())) {
-        auto minimumRefreshInterval = protect(_displayLink).get().maximumRefreshRate;
-        if (minimumRefreshInterval > 0)
-            return std::round(1.0 / minimumRefreshInterval);
+    if (page) {
+        Ref preferences = page->preferences();
+        if (preferences->webAnimationsCustomFrameRateEnabled() || !preferences->preferPageRenderingUpdatesNear60FPSEnabled()) {
+            auto minimumRefreshInterval = protect(_displayLink).get().maximumRefreshRate;
+            if (minimumRefreshInterval > 0)
+                return std::round(1.0 / minimumRefreshInterval);
+        }
     }
 
     return DisplayLinkFramesPerSecond;
@@ -238,7 +241,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [displayLink setPreferredFrameRateRange:frameRateRange];
 
         RefPtr page = _drawingAreaProxy ? protect(*_drawingAreaProxy)->page() : nullptr;
-        auto preferPageRenderingUpdatesNear60FPSEnabled = !page || page->preferences().preferPageRenderingUpdatesNear60FPSEnabled();
+        auto preferPageRenderingUpdatesNear60FPSEnabled = !page || protect(page->preferences())->preferPageRenderingUpdatesNear60FPSEnabled();
         auto highFrameRateReason = preferPageRenderingUpdatesNear60FPSEnabled ? WebKit::webAnimationHighFrameRateReason :
             WebKit::preferPageRenderingUpdatesNear60FPSDisabledHighFrameRateReason;
         [displayLink setHighFrameRateReason:highFrameRateReason];
@@ -260,7 +263,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (UIScreen *)_screenForDisplayLink
 {
-    RefPtr page = _drawingAreaProxy->page();
+    RefPtr page = protect(_drawingAreaProxy)->page();
     if (!page)
         return nil;
 
@@ -316,7 +319,7 @@ RemoteLayerTreeDrawingAreaProxyIOS::~RemoteLayerTreeDrawingAreaProxyIOS()
 
 std::unique_ptr<RemoteScrollingCoordinatorProxy> RemoteLayerTreeDrawingAreaProxyIOS::createScrollingCoordinatorProxy() const
 {
-    return makeUnique<RemoteScrollingCoordinatorProxyIOS>(*page());
+    return makeUnique<RemoteScrollingCoordinatorProxyIOS>(*protect(page()));
 }
 
 DelegatedScrollingMode RemoteLayerTreeDrawingAreaProxyIOS::delegatedScrollingMode() const
@@ -352,7 +355,7 @@ void RemoteLayerTreeDrawingAreaProxyIOS::didRefreshDisplay()
         if (!page)
             return;
         if (auto displayID = page->displayID())
-            page->scrollingCoordinatorProxy()->displayDidRefresh(*displayID);
+            protect(page->scrollingCoordinatorProxy())->displayDidRefresh(*displayID);
     }
 }
 
@@ -382,12 +385,16 @@ void RemoteLayerTreeDrawingAreaProxyIOS::pauseDisplayRefreshCallbacksForMonotoni
 
 void RemoteLayerTreeDrawingAreaProxyIOS::scheduleDisplayLinkAndSetFrameRate()
 {
-    auto preferPageRenderingUpdatesNear60FPSEnabled = [&] {
-        return !page() || page()->preferences().preferPageRenderingUpdatesNear60FPSEnabled();
+    auto shouldUpdateMonotonicAnimationsAtHighFrameRate = [&] {
+        return page() && protect(page()->preferences())->threadedTimeBasedAnimationsAtHighFrameRateEnabled();
     };
 
-    auto wantsHighFrameRate = m_needsDisplayRefreshCallbacksForMonotonicAnimations
-        || (m_needsDisplayRefreshCallbacksForDrawing && !preferPageRenderingUpdatesNear60FPSEnabled());
+    auto shouldUpdatePageRenderingAtHighFrameRate = [&] {
+        return page() && !protect(page()->preferences())->preferPageRenderingUpdatesNear60FPSEnabled();
+    };
+
+    auto wantsHighFrameRate = (m_needsDisplayRefreshCallbacksForMonotonicAnimations && shouldUpdateMonotonicAnimationsAtHighFrameRate())
+        || (m_needsDisplayRefreshCallbacksForDrawing && shouldUpdatePageRenderingAtHighFrameRate());
     RetainPtr displayLinkHandler = this->displayLinkHandler();
     [displayLinkHandler setWantsHighFrameRate:wantsHighFrameRate];
     [displayLinkHandler schedule];

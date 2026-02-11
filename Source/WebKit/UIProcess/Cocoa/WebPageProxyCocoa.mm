@@ -109,6 +109,10 @@
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+#if !defined(SAFE_BROWSING_RESULT_CHECK_ADDITIONS)
+#define SAFE_BROWSING_RESULT_CHECK_ADDITIONS false
+#endif
+
 #if ENABLE(MEDIA_USAGE)
 #import "MediaUsageManagerCocoa.h"
 #endif
@@ -275,7 +279,8 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::grantAccessToCurrentPasteboardDat
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPageProxyCocoaAdditions.mm>)
 #import <WebKitAdditions/WebPageProxyCocoaAdditions.mm>
 #else
-#define SAFE_BROWSING_LOOKUP_RESULT_ADDITIONS(lookupResult)
+#undef SAFE_BROWSING_LOOKUP_RESULT_ADDITIONS
+#define SAFE_BROWSING_LOOKUP_RESULT_ADDITIONS(lookupResult) (void)lookupResult;
 #endif
 
 void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navigation, bool forMainFrameNavigation)
@@ -313,7 +318,7 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navig
 
             for (SSBServiceLookupResult *lookupResult in [result serviceLookupResults]) {
                 SAFE_BROWSING_LOOKUP_RESULT_ADDITIONS(lookupResult);
-                if (lookupResult.isPhishing || lookupResult.isMalware || lookupResult.isUnwantedSoftware) {
+                if (lookupResult.isPhishing || lookupResult.isMalware || lookupResult.isUnwantedSoftware || SAFE_BROWSING_RESULT_CHECK_ADDITIONS) {
                     navigation->setSafeBrowsingWarning(BrowsingWarning::create(url, forMainFrameNavigation, BrowsingWarning::SafeBrowsingWarningData { lookupResult }));
                     break;
                 }
@@ -1844,6 +1849,17 @@ void WebPageProxy::selectWithGesture(IntPoint point, GestureType gestureType, Ge
         return callback({ }, GestureType::Loupe, GestureRecognizerState::Possible, { });
 
     WTF::protect(legacyMainFrameProcess())->sendWithAsyncReply(Messages::WebPage::SelectWithGesture(point, gestureType, gestureState, isInteractingWithFocusedElement), WTF::move(callback), webPageIDInMainFrameProcess());
+}
+
+void WebPageProxy::didReceivePositionInformation(const InteractionInformationAtPosition& info)
+{
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->positionInformationDidChange(info);
+}
+
+void WebPageProxy::requestPositionInformation(const InteractionInformationRequest& request)
+{
+    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::RequestPositionInformation(request), webPageIDInMainFrameProcess());
 }
 
 } // namespace WebKit

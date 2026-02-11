@@ -539,11 +539,11 @@ void FocusController::setFocusedInternal(bool focused)
     }
 
     if (!focusedFrame())
-        setFocusedFrame(m_page->protectedMainFrame().ptr());
+        setFocusedFrame(protect(m_page->mainFrame()).ptr());
 
     RefPtr focusedFrame = focusedLocalFrame();
     if (focusedFrame && focusedFrame->view()) {
-        focusedFrame->checkedSelection()->setFocused(focused);
+        protect(focusedFrame->selection())->setFocused(focused);
         dispatchEventsOnWindowAndFocusedElement(protect(focusedFrame->document()).get(), focused);
     }
 }

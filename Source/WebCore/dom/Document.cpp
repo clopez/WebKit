@@ -3466,7 +3466,7 @@ void Document::createRenderTree()
 
 void Document::didBecomeCurrentDocumentInFrame()
 {
-    protectedFrame()->checkedScript()->updateDocument();
+    protect(protectedFrame()->script())->updateDocument();
 
     // Many of these functions have event handlers which can detach the frame synchronously, so we must check repeatedly in this function.
     if (!m_frame)
@@ -3541,7 +3541,7 @@ void Document::attachToCachedFrame(CachedFrameBase& cachedFrame)
     ASSERT(cachedFrame.view());
     ASSERT(m_backForwardCacheState == Document::InBackForwardCache);
     if (CheckedPtr localFrameView = dynamicDowncast<LocalFrameView>(cachedFrame.view()))
-        observeFrame(localFrameView->protectedFrame().ptr());
+        observeFrame(protect(localFrameView->frame()).ptr());
 }
 
 void Document::detachFromCachedFrame(CachedFrameBase& cachedFrame)
@@ -3878,11 +3878,6 @@ AXObjectCache* Document::axObjectCache() const
     return m_axObjectCache.get();
 }
 
-CheckedPtr<AXObjectCache> Document::checkedAXObjectCache() const
-{
-    return axObjectCache();
-}
-
 void Document::setVisuallyOrdered()
 {
     m_visuallyOrdered = true;
@@ -4085,7 +4080,7 @@ ExceptionOr<void> Document::open(Document* entryDocument)
             }
         }
 
-        bool isNavigating = frame->loader().policyChecker().delegateIsDecidingNavigationPolicy() || frame->loader().state() == FrameState::Provisional || frame->protectedNavigationScheduler()->hasQueuedNavigation();
+        bool isNavigating = frame->loader().policyChecker().delegateIsDecidingNavigationPolicy() || frame->loader().state() == FrameState::Provisional || protect(frame->navigationScheduler())->hasQueuedNavigation();
         if (frame->loader().policyChecker().delegateIsDecidingNavigationPolicy())
             frame->loader().policyChecker().stopCheck();
         // Null-checking m_frame again as `policyChecker().stopCheck()` may have cleared it.
@@ -4278,7 +4273,7 @@ void Document::explicitClose()
 void Document::implicitClose()
 {
     RELEASE_ASSERT(!m_inStyleRecalc);
-    bool wasLocationChangePending = frame() && frame()->protectedNavigationScheduler()->locationChangePending();
+    bool wasLocationChangePending = frame() && protect(frame()->navigationScheduler())->locationChangePending();
     bool doload = !parsing() && m_parser && !m_processingLoadEvent && !wasLocationChangePending;
 
     if (!doload)
@@ -4953,7 +4948,7 @@ void Document::processBaseElement()
     if (!href.isNull())
         baseElementURL = completeURL(href, fallbackBaseURL());
     if (m_baseElementURL != baseElementURL) {
-        if (!checkedContentSecurityPolicy()->allowBaseURI(baseElementURL))
+        if (!protect(contentSecurityPolicy())->allowBaseURI(baseElementURL))
             m_baseElementURL = { };
         else if (settings().shouldRestrictBaseURLSchemes() && !SecurityPolicy::isBaseURLSchemeAllowed(baseElementURL)) {
             m_baseElementURL = { };
@@ -4979,7 +4974,7 @@ void Document::disableEval(const String& errorMessage)
     if (!frame)
         return;
 
-    frame->checkedScript()->setEvalEnabled(false, errorMessage);
+    protect(frame->script())->setEvalEnabled(false, errorMessage);
 }
 
 void Document::disableWebAssembly(const String& errorMessage)
@@ -4988,7 +4983,7 @@ void Document::disableWebAssembly(const String& errorMessage)
     if (!frame)
         return;
 
-    frame->checkedScript()->setWebAssemblyEnabled(false, errorMessage);
+    protect(frame->script())->setWebAssemblyEnabled(false, errorMessage);
 }
 
 void Document::setTrustedTypesEnforcement(JSC::TrustedTypesEnforcement enforcement)
@@ -5000,7 +4995,7 @@ void Document::setTrustedTypesEnforcement(JSC::TrustedTypesEnforcement enforceme
     if (!frame)
         return;
 
-    frame->checkedScript()->setTrustedTypesEnforcement(enforcement);
+    protect(frame->script())->setTrustedTypesEnforcement(enforcement);
     m_requiresTrustedTypes = enforcement != JSC::TrustedTypesEnforcement::None;
 }
 
@@ -5325,7 +5320,7 @@ void Document::processMetaHttpEquiv(const String& equiv, const AtomString& conte
 
     case HTTPHeaderName::ContentSecurityPolicy:
         if (isInDocumentHead)
-            checkedContentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
+            protect(contentSecurityPolicy())->didReceiveHeader(content, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
         break;
 
     case HTTPHeaderName::ReportingEndpoints:
@@ -8194,11 +8189,6 @@ SVGDocumentExtensions& Document::svgExtensions()
     return *m_svgExtensions;
 }
 
-CheckedRef<SVGDocumentExtensions> Document::checkedSVGExtensions()
-{
-    return svgExtensions();
-}
-
 bool Document::hasSVGRootNode() const
 {
     return documentElement() && documentElement()->hasTagName(SVGNames::svgTag);
@@ -8465,7 +8455,7 @@ void Document::initSecurityContext()
 
     String overrideContentSecurityPolicy = m_frame->loader().client().overrideContentSecurityPolicy();
     if (!overrideContentSecurityPolicy.isNull())
-        checkedContentSecurityPolicy()->didReceiveHeader(overrideContentSecurityPolicy, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::API, referrer(), documentLoader ? documentLoader->response().httpStatusCode() : 0);
+        protect(contentSecurityPolicy())->didReceiveHeader(overrideContentSecurityPolicy, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::API, referrer(), documentLoader ? documentLoader->response().httpStatusCode() : 0);
 
 #if USE(QUICK_LOOK)
     if (shouldEnforceQuickLookSandbox())
@@ -8520,7 +8510,7 @@ void Document::initSecurityContext()
     }
 
     CheckedPtr contentSecurityPolicy = this->contentSecurityPolicy();
-    contentSecurityPolicy->copyStateFrom(protect(ownerFrame->document())->checkedContentSecurityPolicy().get());
+    contentSecurityPolicy->copyStateFrom(protect(protect(ownerFrame->document())->contentSecurityPolicy()).get());
     contentSecurityPolicy->updateSourceSelf(protect(ownerFrame->document()->securityOrigin()));
 
     setCrossOriginEmbedderPolicy(ownerFrame->document()->crossOriginEmbedderPolicy());
@@ -8535,7 +8525,7 @@ void Document::initSecurityContext()
     // ongoing set of upgraded requests. When opening a new browsing context, we need to capture its
     // existing upgrade request. Nested browsing contexts are handled during DocumentWriter::begin.
     if (RefPtr openerDocument = openerFrame ? openerFrame->document() : nullptr)
-        contentSecurityPolicy->inheritInsecureNavigationRequestsToUpgradeFromOpener(*openerDocument->checkedContentSecurityPolicy());
+        contentSecurityPolicy->inheritInsecureNavigationRequestsToUpgradeFromOpener(*protect(openerDocument->contentSecurityPolicy()));
 
     if (isSandboxed(SandboxFlag::Origin)) {
         // If we're supposed to inherit our security origin from our owner,
@@ -8559,7 +8549,7 @@ void Document::initContentSecurityPolicy()
         return;
     RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
     if (parentFrame)
-        checkedContentSecurityPolicy()->copyUpgradeInsecureRequestStateFrom(*protect(parentFrame->document())->checkedContentSecurityPolicy());
+        protect(contentSecurityPolicy())->copyUpgradeInsecureRequestStateFrom(*protect(protect(parentFrame->document())->contentSecurityPolicy()));
 
     // FIXME: Remove this special plugin document logic. We are stricter than the CSP 3 spec. with regards to plugins: we prefer to
     // inherit the full policy unless the plugin document is opened in a new window. The CSP 3 spec. implies that only plugin documents
@@ -8572,9 +8562,9 @@ void Document::initContentSecurityPolicy()
         return;
     setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { m_url }, *this));
     if (openerFrame)
-        checkedContentSecurityPolicy()->createPolicyForPluginDocumentFrom(*protect(openerFrame->document())->checkedContentSecurityPolicy());
+        protect(contentSecurityPolicy())->createPolicyForPluginDocumentFrom(*protect(protect(openerFrame->document())->contentSecurityPolicy()));
     else
-        checkedContentSecurityPolicy()->copyStateFrom(protect(parentFrame->document())->checkedContentSecurityPolicy().get());
+        protect(contentSecurityPolicy())->copyStateFrom(protect(protect(parentFrame->document())->contentSecurityPolicy()).get());
 }
 
 void Document::inheritPolicyContainerFrom(const PolicyContainer& policyContainer)
@@ -8982,7 +8972,7 @@ Variant<Document::SkipTransition, Vector<AtomString>> Document::resolveViewTrans
     if (hidden())
         return SkipTransition { };
 
-    RefPtr rule = styleScope().protectedResolver()->viewTransitionRule();
+    RefPtr rule = protect(styleScope().resolver())->viewTransitionRule();
     if (rule && rule->computedNavigation() == ViewTransitionNavigation::Auto)
         return rule->types();
     return SkipTransition { };
@@ -9021,7 +9011,7 @@ void Document::transferViewTransitionParams(Document& newDocument)
     newDocument.m_inboundViewTransitionParams = std::exchange(m_inboundViewTransitionParams, nullptr);
 }
 
-void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition, RefPtr<NavigationActivation>&& activation)
+void Document::dispatchPageswapEvent(CanTriggerCrossDocumentViewTransition canTriggerCrossDocumentViewTransition, RefPtr<NavigationActivation>&& activation)
 {
     if (!settings().crossDocumentViewTransitionsEnabled())
         return;
@@ -9031,7 +9021,7 @@ void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition,
     auto startTime = MonotonicTime::now();
     PageSwapEvent::Init swapInit;
     swapInit.activation = WTF::move(activation);
-    if (canTriggerCrossDocumentViewTransition && globalObject()) {
+    if (canTriggerCrossDocumentViewTransition == CanTriggerCrossDocumentViewTransition::Yes && globalObject()) {
         oldViewTransition = ViewTransition::setupCrossDocumentViewTransition(*this);
         swapInit.viewTransition = oldViewTransition;
     }
@@ -10333,7 +10323,7 @@ void Document::applyQuickLookSandbox()
     static NeverDestroyed<String> quickLookCSP = makeString("default-src "_s, QLPreviewProtocol, ": 'unsafe-inline'; base-uri 'none'; sandbox allow-same-origin allow-scripts"_s);
     RELEASE_ASSERT(contentSecurityPolicy());
     // The sandbox directive is only allowed if the policy is from an HTTP header.
-    checkedContentSecurityPolicy()->didReceiveHeader(quickLookCSP, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPHeader, referrer());
+    protect(contentSecurityPolicy())->didReceiveHeader(quickLookCSP, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPHeader, referrer());
 
     SandboxFlags sandboxFlagsToDisable { SandboxFlag::Navigation };
     if (isPluginDocument())
@@ -11320,7 +11310,7 @@ void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(
             callback(ScheduleLocationChangeResult::Stopped);
             return;
         }
-        frame->protectedNavigationScheduler()->scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, NavigationHistoryBehavior::Auto, [callback = WTF::move(callback)](auto result) mutable {
+        protect(frame->navigationScheduler())->scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, NavigationHistoryBehavior::Auto, [callback = WTF::move(callback)](auto result) mutable {
             callback(result);
         });
     });
@@ -11437,11 +11427,6 @@ DeviceOrientationAndMotionAccessController& Document::deviceOrientationAndMotion
     if (!m_deviceOrientationAndMotionAccessController)
         m_deviceOrientationAndMotionAccessController = makeUnique<DeviceOrientationAndMotionAccessController>(*this);
     return *m_deviceOrientationAndMotionAccessController;
-}
-
-CheckedRef<DeviceOrientationAndMotionAccessController> Document::checkedDeviceOrientationAndMotionAccessController()
-{
-    return deviceOrientationAndMotionAccessController();
 }
 
 #endif
@@ -11563,11 +11548,6 @@ TextManipulationController& Document::textManipulationController()
     if (!m_textManipulationController)
         m_textManipulationController = makeUnique<TextManipulationController>(*this);
     return *m_textManipulationController;
-}
-
-CheckedRef<TextManipulationController> Document::checkedTextManipulationController()
-{
-    return textManipulationController();
 }
 
 LazyLoadImageObserver& Document::lazyLoadImageObserver()
@@ -11848,7 +11828,7 @@ void Document::resetObservationSizeForContainIntrinsicSize(Element& target)
 OptionSet<NoiseInjectionPolicy> Document::noiseInjectionPolicies() const
 {
     OptionSet<NoiseInjectionPolicy> policies;
-    if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
+    if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections) || quirks().mayBenefitFromFingerprintingProtectionQuirk(topURL()))
         policies.add(NoiseInjectionPolicy::Minimal);
     if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::ScriptTrackingPrivacy))
         policies.add(NoiseInjectionPolicy::Enhanced);
@@ -12046,11 +12026,6 @@ String Document::mediaKeysStorageDirectory()
 {
     RefPtr currentPage = page();
     return currentPage ? currentPage->ensureMediaKeysStorageDirectoryForOrigin(securityOrigin().data()) : emptyString();
-}
-
-CheckedPtr<RenderView> Document::checkedRenderView() const
-{
-    return m_renderView.get();
 }
 
 PermissionsPolicy Document::permissionsPolicy() const

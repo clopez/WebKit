@@ -292,7 +292,8 @@ AllowMultiElementImplicitSubmission:
 
 AllowMultipleCommitLayerTreePending:
   type: bool
-  status: internal
+  status: testable
+  category: dom
   humanReadableName: "Allow requesting CommitLayerTree before the previous has completed"
   humanReadableDescription: "Allow requesting CommitLayerTree before the previous has completed"
   defaultValue:
@@ -1940,9 +1941,8 @@ ContentChangeObserverEnabled:
     WebKitLegacy:
       default: true
     WebKit:
-      default: true
+      default: defaultContentChangeObserverEnabled()
     WebCore:
-      "PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)": true
       default: false
 
 ContentDispositionAttachmentSandboxEnabled:
@@ -5278,7 +5278,7 @@ MediaSourcePrefersDecompressionSession:
 
 MediaSourceUseRemoteAudioVideoRenderer:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "MSE player uses GPU renderer"
   humanReadableDescription: "MSE player uses GPU renderer"
@@ -5287,9 +5287,9 @@ MediaSourceUseRemoteAudioVideoRenderer:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 MediaStreamTrackHandleEnabled:
@@ -5789,17 +5789,17 @@ OffscreenCanvasInWorkersEnabled:
 
 OpenPseudoClassEnabled:
   type: bool
-  status: testable
+  status: stable
   humanReadableName: ":open pseudo-class"
   humanReadableDescription: "Enable the :open CSS pseudo-class"
   category: css
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 OpenXRDMABufRelaxedForTesting:
   type: bool
@@ -8225,9 +8225,24 @@ ThreadedScrollingEnabled:
     WebKit:
       default: true
 
-ThreadedTimeBasedAnimationsEnabled:
+ThreadedTimeBasedAnimationsAtHighFrameRateEnabled:
   type: bool
   status: unstable
+  category: animation
+  humanReadableName: "Threaded Time-based Animations at High Frame Rate"
+  humanReadableDescription: "Run qualifying time-based animations on a separate thread at a high frame rate"
+  condition: ENABLE(THREADED_ANIMATIONS) && PLATFORM(IOS_FAMILY)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+ThreadedTimeBasedAnimationsEnabled:
+  type: bool
+  status: preview
   category: animation
   humanReadableName: "Threaded Time-based Animations"
   humanReadableDescription: "Run qualifying time-based animations on a separate thread"
@@ -9263,6 +9278,25 @@ WebCodecsVideoEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
   mediaPlaybackRelated: true
+
+WebContentRestrictionsTransitiveTrustEnabled:
+  type: bool
+  status: stable
+  category: security
+  defaultsOverridable: true
+  humanReadableName: "Web Content Restrictions Transitive Trust"
+  humanReadableDescription: "Enable Transitive Trust for WebContentRestrictions"
+  webcoreBinding: DeprecatedGlobalSettings
+  condition: HAVE(WEBCONTENTRESTRICTIONS_TRANSITIVE_TRUST)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+  sharedPreferenceForWebProcess: true
+
 
 WebCryptoSafeCurvesEnabled:
   type: bool

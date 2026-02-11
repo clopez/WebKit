@@ -386,36 +386,59 @@ LayoutUnit gridAreaDimensionSize(size_t startLine, size_t endLine, const TrackSi
     return endPosition - startPosition;
 }
 
-LayoutUnit inlineAxisMinContentContribution(const PlacedGridItem& gridItem, const IntegrationUtils& integrationUtils)
+LayoutUnit inlineAxisMinContentContribution(const PlacedGridItem& gridItem, LayoutUnit blockAxisConstraint, const IntegrationUtils& integrationUtils)
 {
+    UNUSED_PARAM(blockAxisConstraint);
     return integrationUtils.preferredMinWidth(gridItem.layoutBox());
 }
 
-LayoutUnit inlineAxisMaxContentContribution(const PlacedGridItem& gridItem, const IntegrationUtils& integrationUtils)
+LayoutUnit inlineAxisMaxContentContribution(const PlacedGridItem& gridItem, LayoutUnit blockAxisConstraint, const IntegrationUtils& integrationUtils)
 {
+    UNUSED_PARAM(blockAxisConstraint);
     return integrationUtils.preferredMaxWidth(gridItem.layoutBox());
 }
 
-GridItemSizingFunctions inlineAxisGridItemSizingFunctions()
+GridItemSizingFunctions inlineAxisGridItemSizingFunctions(const IntegrationUtils& integrationUtils)
 {
-    return { inlineAxisMinContentContribution, inlineAxisMaxContentContribution, usedInlineMinimumSize };
+    return {
+        [&integrationUtils](const PlacedGridItem& gridItem, LayoutUnit blockAxisConstraint) {
+            return inlineAxisMinContentContribution(gridItem, blockAxisConstraint, integrationUtils);
+        },
+        [&integrationUtils](const PlacedGridItem& gridItem, LayoutUnit blockAxisConstraint) {
+            return inlineAxisMaxContentContribution(gridItem, blockAxisConstraint, integrationUtils);
+        },
+        [&integrationUtils](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace) {
+            return usedInlineMinimumSize(gridItem, trackSizingFunctions, borderAndPadding, availableSpace, integrationUtils);
+        }
+    };
+
 }
 
-LayoutUnit blockAxisMinContentContribution(const PlacedGridItem&, const IntegrationUtils&)
+LayoutUnit blockAxisMinContentContribution(const PlacedGridItem& gridItem, LayoutUnit inlineAxisConstraint, const GridFormattingContext& formattingContext)
 {
-    ASSERT_NOT_IMPLEMENTED_YET();
-    return { };
+    formattingContext.integrationUtils().layoutWithFormattingContextForBox(gridItem.layoutBox(), inlineAxisConstraint);
+    return formattingContext.geometryForGridItem(gridItem.layoutBox()).borderBoxHeight();
 }
 
-LayoutUnit blockAxisMaxContentContribution(const PlacedGridItem&, const IntegrationUtils&)
+LayoutUnit blockAxisMaxContentContribution(const PlacedGridItem& gridItem, LayoutUnit inlineAxisConstraint, const GridFormattingContext& formattingContext)
 {
-    ASSERT_NOT_IMPLEMENTED_YET();
-    return { };
+    formattingContext.integrationUtils().layoutWithFormattingContextForBox(gridItem.layoutBox(), inlineAxisConstraint);
+    return formattingContext.geometryForGridItem(gridItem.layoutBox()).borderBoxHeight();
 }
 
-GridItemSizingFunctions blockAxisGridItemSizingFunctions()
+GridItemSizingFunctions blockAxisGridItemSizingFunctions(const GridFormattingContext& formattingContext)
 {
-    return { blockAxisMinContentContribution, blockAxisMaxContentContribution, usedBlockMinimumSize };
+    return {
+        [&formattingContext](const PlacedGridItem& gridItem, LayoutUnit inlineAxisConstraint) {
+            return blockAxisMinContentContribution(gridItem, inlineAxisConstraint, formattingContext);
+        },
+        [&formattingContext](const PlacedGridItem& gridItem, LayoutUnit inlineAxisConstraint) {
+            return blockAxisMaxContentContribution(gridItem, inlineAxisConstraint, formattingContext);
+        },
+        [&formattingContext](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace) {
+            return usedBlockMinimumSize(gridItem, trackSizingFunctions, borderAndPadding, availableSpace, formattingContext.integrationUtils());
+        }
+    };
 }
 
 bool preferredSizeBehavesAsAuto(const Style::PreferredSize& preferredSize)

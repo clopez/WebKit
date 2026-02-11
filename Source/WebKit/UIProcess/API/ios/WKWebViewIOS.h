@@ -27,6 +27,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "UIKitSPI.h"
 #import "WKBaseScrollView.h"
 #import "WKWebViewInternal.h"
 
@@ -37,8 +38,6 @@
 #import <wtf/spi/cocoa/NSObjCRuntimeSPI.h>
 
 #endif // !__has_feature(modules) || WK_SUPPORTS_SWIFT_OBJCXX_INTEROP
-
-#import "UIKitSPI.h"
 
 @class WKBEScrollViewScrollUpdate;
 
@@ -87,7 +86,7 @@ enum class TapHandlingResult : uint8_t;
 
 - (RefPtr<WebKit::ViewSnapshot>)_takeViewSnapshot;
 
-- (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin animated:(BOOL)animated;
+- (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin animated:(BOOL)animated interruptAnimation:(BOOL)interrupt;
 - (BOOL)_scrollToRect:(WebCore::FloatRect)targetRect origin:(WebCore::FloatPoint)origin minimumScrollDistance:(float)minimumScrollDistance;
 
 - (double)_initialScaleFactor;

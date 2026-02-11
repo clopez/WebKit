@@ -76,6 +76,10 @@
 #import "UIWindowScene+Extras.h"
 #endif
 
+#if PLATFORM(VISION)
+#import "WKSurroundingsEffect.h"
+#endif
+
 #import "WebKitSwiftSoftLink.h"
 
 #if !HAVE(URL_FORMATTING)
@@ -166,6 +170,10 @@ enum FullScreenState : NSInteger {
 #else
 static constexpr auto baseScale = 1;
 static constexpr auto baseMinimumEffectiveDeviceWidth = 0;
+
+#if PLATFORM(VISION)
+static void configureElementFullscreenLayer(CALayer *) { }
+#endif
 #endif
 
 struct WKWebViewState {
@@ -358,7 +366,6 @@ static constexpr CGFloat kIncomingWindowFadeDuration = 0.6;
 static constexpr CGFloat kIncomingWindowFadeDelay = 0.2;
 static constexpr CGFloat kIncomingWindowZOffset = -170;
 static constexpr CGFloat kWindowTranslationDuration = 0.6;
-static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScreenDimming";
 #endif
 
 #pragma mark -
@@ -661,7 +668,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 @property (nonatomic, readonly) CGSize sceneMinimumSize;
 @property (nonatomic, readonly) RSSSceneChromeOptions sceneChromeOptions;
 @property (nonatomic, readonly) MRUISceneResizingBehavior sceneResizingBehavior;
-@property (nonatomic, readonly) MRUIDarknessPreference preferredDarkness;
+@property (nonatomic, readonly) WKSurroundingsEffectType preferredSurroundingsEffect;
 @property (nonatomic, assign) BOOL prefersAutoDimming;
 
 @property (nonatomic, readonly) NSMapTable<MRUIPlatterOrnament *, WKMRUIPlatterOrnamentProperties *> *ornamentProperties;
@@ -681,11 +688,9 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
     _transform3D = window.transform3D;
     _windowClass = object_getClass(window);
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    _preferredDarkness = UIApplication.sharedApplication.mrui_activeStage.preferredDarkness;
-ALLOW_DEPRECATED_DECLARATIONS_END
 
     UIWindowScene *windowScene = window.windowScene;
+    _preferredSurroundingsEffect = [WKSurroundingsEffectManager shared].currentEffect;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     _sceneSize = windowScene.coordinateSpace.bounds.size;
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -1009,10 +1014,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)didEnterVideoFullscreen
 {
 #if PLATFORM(VISION)
-    if (self.isFullScreen)
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        UIApplication.sharedApplication.mrui_activeStage.preferredDarkness = MRUIDarknessPreferenceUnspecified;
-ALLOW_DEPRECATED_DECLARATIONS_END
+    if (self.isFullScreen && [WKSurroundingsEffectManager shared].currentEffect != WKSurroundingsEffectTypeNone)
+        [WKSurroundingsEffectManager shared].currentEffect = WKSurroundingsEffectTypeNone;
 #endif
 }
 
@@ -1027,9 +1030,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (RefPtr bestVideo = videoPresentationManager->bestVideoForElementFullscreen())
             prefersAutoDimming = bestVideo->playbackSessionModel()->prefersAutoDimming();
     }
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    UIApplication.sharedApplication.mrui_activeStage.preferredDarkness = prefersAutoDimming ? MRUIDarknessPreferenceDark : MRUIDarknessPreferenceUnspecified;
-ALLOW_DEPRECATED_DECLARATIONS_END
+
+    WKSurroundingsEffectType targetEffect = prefersAutoDimming ? WKSurroundingsEffectTypeDark : WKSurroundingsEffectTypeNone;
+    if ([WKSurroundingsEffectManager shared].currentEffect != targetEffect)
+        [WKSurroundingsEffectManager shared].currentEffect = targetEffect;
 #endif
 }
 
@@ -1083,7 +1087,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _blocksReturnToFullscreenFromPictureInPicture = manager->blocksReturnToFullscreenFromPictureInPicture();
     _originalWindowSize = [webView window].frame.size;
 
+#if PLATFORM(VISION)
+    RetainPtr<WKSurroundingsEffectWindow> surroundingsEffectWindow = adoptNS([[WKSurroundingsEffectWindow alloc] initWithWindowScene:windowScene]);
+    _window = surroundingsEffectWindow;
+#else
     _window = adoptNS([[UIWindow alloc] initWithWindowScene:windowScene]);
+#endif
     [_window setBackgroundColor:[UIColor clearColor]];
     [_window setWindowLevel:UIWindowLevelNormal - 1];
     [_window setHidden:NO];
@@ -1112,6 +1121,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_window setNeedsLayout];
         [_window layoutIfNeeded];
     }
+    WebKit::configureElementFullscreenLayer([_window layer]);
 #endif
 
     _rootViewController = adoptNS([[UIViewController alloc] init]);
@@ -1122,6 +1132,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_rootViewController setTransitioningDelegate:self];
 
     _window.get().rootViewController = _rootViewController.get();
+
+#if PLATFORM(VISION)
+    if (WebKit::useSpatialFullScreenTransition())
+        [surroundingsEffectWindow setupSurroundingsEffectIfNeeded];
+#endif
 
     _fullscreenViewController = adoptNS([[WKFullScreenViewController alloc] initWithWebView:webView.get()]);
     [_fullscreenViewController setModalPresentationStyle:UIModalPresentationCustom];
@@ -2127,16 +2142,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     inWindow.transform3D = CATransform3DTranslate(originalState.transform3D, 0, 0, kIncomingWindowZOffset);
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    MRUIStage *stage = UIApplication.sharedApplication.mrui_activeStage;
-    MRUIDarknessPreference targetDarkness = enter ? (self.prefersSceneDimming ? MRUIDarknessPreferenceDark : originalState.preferredDarkness) : originalState.preferredDarkness;
+    WKSurroundingsEffectType targetDarkness = enter ? (self.prefersSceneDimming ? WKSurroundingsEffectTypeDark : originalState.preferredSurroundingsEffect) : originalState.preferredSurroundingsEffect;
 
-    if (stage.preferredDarkness != targetDarkness) {
+    WKSurroundingsEffectType currentEffect = [WKSurroundingsEffectManager shared].currentEffect;
+    if (currentEffect != targetDarkness) {
         [UIView animateWithDuration:kDarknessAnimationDuration animations:^{
-            stage.preferredDarkness = targetDarkness;
+            [WKSurroundingsEffectManager shared].currentEffect = targetDarkness;
         } completion:nil];
     }
-ALLOW_DEPRECATED_DECLARATIONS_END
 
     [UIView animateWithDuration:kOutgoingWindowFadeDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         if (enter)
@@ -2225,11 +2238,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (self.isFullScreen) {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        MRUIDarknessPreference target = updatedPrefersSceneDimming ? MRUIDarknessPreferenceDark : (_parentWindowState ? [_parentWindowState preferredDarkness] : MRUIDarknessPreferenceUnspecified);
-        MRUIStage *stage = UIApplication.sharedApplication.mrui_activeStage;
-        stage.preferredDarkness = target;
-ALLOW_DEPRECATED_DECLARATIONS_END
+        WKSurroundingsEffectType target = updatedPrefersSceneDimming ? WKSurroundingsEffectTypeDark : (_parentWindowState ? [_parentWindowState preferredSurroundingsEffect] : WKSurroundingsEffectTypeNone);
+        if ([WKSurroundingsEffectManager shared].currentEffect != target)
+            [WKSurroundingsEffectManager shared].currentEffect = target;
     }
 }
 

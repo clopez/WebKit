@@ -359,10 +359,10 @@ typedef NS_ENUM(NSInteger, _WKPrintRenderingCallbackType) {
         return;
 
 #if USE(EXTENSIONKIT)
-    auto& mainFrameProcess = _page->siteIsolatedProcess();
+    Ref mainFrameProcess = _page->siteIsolatedProcess();
     for (WKVisibilityPropagationView *visibilityPropagationView in _visibilityPropagationViews.get())
         [visibilityPropagationView propagateVisibilityToProcess:mainFrameProcess];
-    auto remotePages = mainFrameProcess.remotePages();
+    auto remotePages = mainFrameProcess->remotePages();
     for (auto& remotePage : remotePages) {
         for (WKVisibilityPropagationView *visibilityPropagationView in _visibilityPropagationViews.get())
             [visibilityPropagationView propagateVisibilityToProcess:remotePage->process()];
@@ -443,10 +443,10 @@ typedef NS_ENUM(NSInteger, _WKPrintRenderingCallbackType) {
 {
 #if USE(EXTENSIONKIT)
     if (RefPtr page = _page.get()) {
-        auto& mainFrameProcess = _page->siteIsolatedProcess();
+        Ref mainFrameProcess = _page->siteIsolatedProcess();
         for (WKVisibilityPropagationView *visibilityPropagationView in _visibilityPropagationViews.get())
             [visibilityPropagationView stopPropagatingVisibilityToProcess:mainFrameProcess];
-        auto remotePages = mainFrameProcess.remotePages();
+        auto remotePages = mainFrameProcess->remotePages();
         for (auto& remotePage : remotePages) {
             for (WKVisibilityPropagationView *visibilityPropagationView in _visibilityPropagationViews.get())
                 [visibilityPropagationView stopPropagatingVisibilityToProcess:remotePage->process()];
@@ -1122,7 +1122,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 - (BOOL)_shouldExposeRollAngleAsTwist
 {
-    return protect(_page)->preferences().exposeRollAngleAsTwistEnabled();
+    return protect(protect(_page)->preferences())->exposeRollAngleAsTwistEnabled();
 }
 
 @end
@@ -1320,7 +1320,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         if (!callbackID)
             return;
 
-        protect(_page)->legacyMainFrameProcess().connection().waitForAsyncReplyAndDispatchImmediately<Messages::WebPage::DrawToPDFiOS>(*callbackID, Seconds::infinity());
+        protect(protect(_page)->legacyMainFrameProcess().connection())->waitForAsyncReplyAndDispatchImmediately<Messages::WebPage::DrawToPDFiOS>(*callbackID, Seconds::infinity());
         return;
     }
 
@@ -1364,7 +1364,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         if (!callbackID)
             return;
 
-        protect(_page)->legacyMainFrameProcess().connection().waitForAsyncReplyAndDispatchImmediately<Messages::WebPage::DrawRectToImage>(*callbackID, Seconds::infinity());
+        protect(protect(_page)->legacyMainFrameProcess().connection())->waitForAsyncReplyAndDispatchImmediately<Messages::WebPage::DrawRectToImage>(*callbackID, Seconds::infinity());
         return;
     }
 

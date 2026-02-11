@@ -879,7 +879,6 @@ webkit.org/b/251107 webgl/2.0.y/conformance/textures/video/tex-2d-alpha-alpha-un
 webkit.org/b/251107 webgl/2.0.y/conformance2/reading/read-pixels-from-fbo-test.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance/context/premultiplyalpha-test.html [ Failure ]
-webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-render-snorm.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Failure ]
 webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Crash Pass ]
 
@@ -1329,3 +1328,5 @@ webkit.org/b/307098 imported/w3c/web-platform-tests/html/canvas/offscreen/text/c
 webkit.org/b/307098 imported/w3c/web-platform-tests/html/canvas/offscreen/text/canvas.2d.fontStretch.semi-expanded.html [ ImageOnlyFailure Pass ]
 webkit.org/b/307098 imported/w3c/web-platform-tests/html/canvas/offscreen/text/canvas.2d.fontStretch.ultra-condensed.html [ ImageOnlyFailure Pass ]
 webkit.org/b/307098 imported/w3c/web-platform-tests/html/canvas/offscreen/text/canvas.2d.fontStretch.ultra-expanded.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/307588 streams/blob-and-tee.html [ Crash ]

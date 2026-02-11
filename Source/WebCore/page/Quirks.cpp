@@ -1819,6 +1819,12 @@ bool Quirks::needsConsistentQueryParameterFilteringQuirk(const URL& url) const
     return false;
 }
 
+bool Quirks::mayBenefitFromFingerprintingProtectionQuirk(const URL& url) const
+{
+    // FIXME: Placeholder for now.
+    return needsConsistentQueryParameterFilteringQuirk(url);
+}
+
 #if PLATFORM(COCOA)
 
 #if !PLATFORM(IOS_FAMILY)
@@ -1959,14 +1965,6 @@ bool Quirks::shouldHideSoftTopScrollEdgeEffectDuringFocus(const Element& focused
     return focusedElement.getIdAttribute().contains("crossword"_s);
 }
 
-// store.steampowered.com: rdar://142573562
-bool Quirks::shouldTreatAddingMouseOutEventListenerAsContentChange() const
-{
-    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
-
-    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldTreatAddingMouseOutEventListenerAsContentChange);
-}
-
 // cbssports.com <rdar://139478801>.
 // docs.google.com <rdar://59402637>.
 bool Quirks::shouldSynthesizeTouchEventsAfterNonSyntheticClick(const Element& target) const
@@ -2050,6 +2048,16 @@ bool Quirks::needsChromeOSNavigatorUserAgentQuirk(const Document& document) cons
 }
 
 #endif // PLATFORM(IOS_FAMILY)
+
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+// store.steampowered.com: rdar://142573562
+bool Quirks::shouldTreatAddingMouseOutEventListenerAsContentChange() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldTreatAddingMouseOutEventListenerAsContentChange);
+}
+#endif
 
 // outlook.live.com: rdar://136624720
 bool Quirks::needsMozillaFileTypeForDataTransfer() const
@@ -2451,14 +2459,6 @@ static void handleCBSSportsQuirks(QuirksData& quirksData, const URL& /* quirksUR
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk);
 }
 
-static void handleSteamQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL& /* documentURL */)
-{
-    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("steampowered.com"_s);
-
-    // Remove this once rdar://142573562 is resolved.
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldTreatAddingMouseOutEventListenerAsContentChange);
-}
-
 static void handleCNNQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
 {
     QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("cnn.com"_s);
@@ -2533,6 +2533,16 @@ static void handleScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirksData& qu
         quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk);
     }
 #endif
+}
+#endif
+
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+static void handleSteamQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL& /* documentURL */)
+{
+    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("steampowered.com"_s);
+
+    // Remove this once rdar://142573562 is resolved.
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldTreatAddingMouseOutEventListenerAsContentChange);
 }
 #endif
 
@@ -3424,6 +3434,8 @@ void Quirks::determineRelevantQuirks()
         { "cbssports"_s, &handleCBSSportsQuirks },
         { "cnn"_s, &handleCNNQuirks },
         { "digitaltrends"_s, &handleDigitalTrendsQuirks },
+#endif
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
         { "steampowered"_s, &handleSteamQuirks },
 #endif
         { "crunchyroll"_s, &handleCrunchyRollQuirks },

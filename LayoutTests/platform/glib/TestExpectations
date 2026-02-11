@@ -132,13 +132,6 @@ imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option
 imported/w3c/web-platform-tests/svg/animations/stop-animation-01.html [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/fill-fallback-currentcolor-1.svg [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/fill-fallback-none-1.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-001.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-002.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-003.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-004.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-005.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-bicubic-001.svg [ Pass ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-complex-001.svg [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/radialgradient-fully-overlapping.svg [ Pass ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/stop-color-currentcolor-dynamic-001.svg [ Pass ]
 imported/w3c/web-platform-tests/svg/shapes/rect-03.svg [ Pass ]
@@ -1316,6 +1309,7 @@ webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/perspecti
 webkit.org/b/245716 imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-003.html [ ImageOnlyFailure ]
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/transform3d-sorting-006.html [ ImageOnlyFailure ]
 
+webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-perspective.html [ ImageOnlyFailure ]
 webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate.html [ ImageOnlyFailure ]
 webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/transform-3d-rotateY-stair-above-001.xht [ ImageOnlyFailure ]
 
@@ -1341,7 +1335,6 @@ webkit.org/b/237502 fast/dom/Range/getClientRects.html [ Failure ]
 # Tests that fail on other platforms, but pass on Glib ports. These are probably due to
 # things that work in TextureMapper, but not elsewhere.
 imported/w3c/web-platform-tests/css/css-transforms/3d-rendering-context-and-z-ordering-001.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-skew.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/preserve3d-and-filter-no-perspective.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-scale-004.html [ Pass ]
@@ -1667,10 +1660,9 @@ webkit.org/b/211995 fast/images/animated-image-mp4.html [ Failure Timeout ]
 # Player is often not rendering in image tests, especially in Release
 webkit.org/b/234352 imported/w3c/web-platform-tests/media-source/mediasource-video-is-visible.html [ ImageOnlyFailure Pass ]
 webkit.org/b/234352 media/media-source/media-source-video-renders.html [ ImageOnlyFailure Pass ]
-webkit.org/b/234352 media/track/track-webvtt-no-snap-to-lines-overlap.html [ ImageOnlyFailure Pass ]
-webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-inline-style.html [ ImageOnlyFailure Pass ]
-webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-left-right.html [ ImageOnlyFailure Pass ]
-webkit.org/b/234352 media/video-with-alpha.html [ ImageOnlyFailure Pass ]
+webkit.org/b/234352 media/track/track-webvtt-no-snap-to-lines-overlap.html [ Timeout Pass ]
+webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-inline-style.html [ Timeout Pass ]
+webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-left-right.html [ Timeout Pass ]
 
 media/track/webvtt-ruby.html [ Timeout Pass ]
 
@@ -1839,6 +1831,9 @@ webkit.org/b/306461 media/modern-media-controls/media-controller/media-controlle
 
 # Unimplemented WTR::UIScriptController::singleTapAtPoint
 webkit.org/b/286930 media/modern-media-controls/scrubber-support/scrubber-support-seek-back.html [ Skip ]
+
+# Times out very rarely
+webkit.org/b/307438 media/modern-media-controls/text-tracks/text-tracks-height-with-controls.html [ Timeout Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Media-controls-related bugs
@@ -2529,13 +2524,16 @@ http/tests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-offscr
 webgl/webgl-draft-extensions-flag-default.html [ Skip ]
 webgl/webgl-draft-extensions-flag-on.html [ Skip ]
 
-# WEBGL2 flakies
+# WEBGL2 failures
 webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/context-lost-restored-worker.html [ Failure  ]
 webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/context-lost-worker.html [ Failure ]
-webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/methods-worker.html [ Failure Pass ]
-webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/offscreencanvas-timer-query.html [ Pass Timeout ]
 webkit.org/b/251106 webgl/2.0.y/conformance/offscreencanvas/context-lost-restored-worker.html [ Failure ]
 webkit.org/b/251106 webgl/2.0.y/conformance/offscreencanvas/context-lost-worker.html [ Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-render-snorm.html [ Failure ]
+
+# WEBGL2 flakies
+webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/methods-worker.html [ Failure Pass ]
+webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/offscreencanvas-timer-query.html [ Pass Timeout ]
 webkit.org/b/251106 webgl/2.0.y/conformance/offscreencanvas/methods-worker.html [ Failure Pass ]
 webkit.org/b/251107 webgl/2.0.y/conformance/textures/image_bitmap_from_canvas/tex-2d-luminance-luminance-unsigned_byte.html [ Failure Pass ]
 webkit.org/b/251107 webgl/2.0.y/conformance/textures/image_bitmap_from_image_bitmap/tex-2d-luminance_alpha-luminance_alpha-unsigned_byte.html [ Failure Pass ]
@@ -2938,7 +2936,7 @@ imported/w3c/web-platform-tests/webrtc/RTCSctpTransport-maxChannels.html [ Failu
 imported/w3c/web-platform-tests/webrtc/RTCSctpTransport-maxMessageSize.html [ Failure ]
 imported/w3c/web-platform-tests/webrtc/RTCTrackEvent-constructor.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCTrackEvent-fire.html  [ Skip ] # Timeout
-imported/w3c/web-platform-tests/webrtc/simplecall.https.html [ Pass ]
+webkit.org/b/307440 imported/w3c/web-platform-tests/webrtc/simplecall.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc/toJSON.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/transfer-datachannel.html [ Skip ] # Timeout
 
@@ -3793,19 +3791,10 @@ imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of
 imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-textarea-border-top-right-radius-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/grouped-kind-of-widget-fallback-border-top-left-radius-001.html [ ImageOnlyFailure ]
 
+# Customizable select feature.
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-in-page/customizable-select-in-page-keyboard-behavior.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-in-page/customizable-select-in-page-mouse-behavior.tentative.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup-detailed.optional.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup.optional.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-keyboard-behavior.optional.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-inside-top-layer.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-mouse-behavior.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-exit-animation.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/button-in-popover.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-click-drag-option.optional.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-hover-active-pseudo.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-listbox-touch.optional.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-marker-end-aligned.tentative.html [ Skip ]
 
@@ -4262,7 +4251,7 @@ imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-switch-rtl
 imported/w3c/web-platform-tests/svg/painting/reftests/marker-path-021.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/painting/reftests/marker-path-022.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/painting/reftests/marker-path-023.svg [ ImageOnlyFailure ]
-media/media-vp9-yuv422p10.html [ ImageOnlyFailure Pass ]
+media/media-vp9-yuv422p10.html [ ImageOnlyFailure Pass Timeout ]
 
 webkit.org/b/223830 inspector/debugger/csp-exceptions.html [ Timeout ]
 webkit.org/b/304278 inspector/worker/debugger-pause-subworker.html [ Timeout ]
@@ -4357,7 +4346,7 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.isPoi
 # Flakies Aug2023
 webkit.org/b/261024 imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_Ed25519.https.any.html [ Failure Pass ]
 webkit.org/b/261024 imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_Ed25519.https.any.worker.html [ Failure Pass ]
-webkit.org/b/261024 media/video-playsinline.html [ Failure Pass ]
+webkit.org/b/261024 media/video-playsinline.html [ Failure Timeout Pass ]
 
 # Initial css/compositing test import
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-animation.html [ ImageOnlyFailure ]
@@ -5228,6 +5217,10 @@ webkit.org/b/307294 media/video-seek-past-end-paused.html [ Timeout Pass ]
 webkit.org/b/307294 media/video-zoom.html [ ImageOnlyFailure Timeout ]
 
 webkit.org/b/294295 fullscreen/full-screen-request-removed-with-raf.html [ Pass Timeout ]
+
+webkit.org/b/307368 fast/repaint/iframe-from-display-none-repaint.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/307586 imported/w3c/web-platform-tests/css/css-view-transitions/no-raf-while-render-blocked.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

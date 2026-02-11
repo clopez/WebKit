@@ -110,10 +110,8 @@ public:
     void writeRenderTreeAsText(TextStream&, OptionSet<RenderAsTextFlag>) override;
 
     WEBCORE_EXPORT LocalFrame& frame() const final;
-    Ref<LocalFrame> protectedFrame() const;
 
     WEBCORE_EXPORT RenderView* renderView() const;
-    WEBCORE_EXPORT CheckedPtr<RenderView> checkedRenderView() const;
 
     int mapFromLayoutToCSSUnits(LayoutUnit) const;
     LayoutUnit mapFromCSSToLayoutUnits(int) const;
@@ -130,8 +128,6 @@ public:
 
     const LocalFrameViewLayoutContext& layoutContext() const { return m_layoutContext; }
     LocalFrameViewLayoutContext& layoutContext() { return m_layoutContext; }
-    CheckedRef<const LocalFrameViewLayoutContext> checkedLayoutContext() const;
-    CheckedRef<LocalFrameViewLayoutContext> checkedLayoutContext();
 
     WEBCORE_EXPORT bool didFirstLayout() const;
 
@@ -322,7 +318,6 @@ public:
 
     // These are in document coordinates, unaffected by page scale (but affected by zooming).
     WEBCORE_EXPORT LayoutRect layoutViewportRect() const final;
-    void updateLayoutViewportRect();
     WEBCORE_EXPORT LayoutRect visualViewportRect() const;
 
     LayoutRect layoutViewportRectIncludingObscuredInsets() const;
@@ -551,6 +546,12 @@ public:
     DoublePoint documentToClientPoint(DoublePoint) const;
     WEBCORE_EXPORT FloatRect clientToDocumentRect(FloatRect) const;
     WEBCORE_EXPORT FloatPoint clientToDocumentPoint(FloatPoint) const;
+
+    WEBCORE_EXPORT FloatPoint absoluteToLayoutViewportPoint(FloatPoint) const;
+    FloatPoint layoutViewportToAbsolutePoint(FloatPoint) const;
+
+    WEBCORE_EXPORT FloatRect absoluteToLayoutViewportRect(FloatRect) const;
+    FloatRect layoutViewportToAbsoluteRect(FloatRect) const;
 
     // Unlike client coordinates, layout viewport coordinates are affected by page zoom.
     WEBCORE_EXPORT FloatRect clientToLayoutViewportRect(FloatRect) const;

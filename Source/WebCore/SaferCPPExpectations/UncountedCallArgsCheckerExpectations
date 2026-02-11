@@ -360,7 +360,6 @@ html/HTMLAttachmentElement.cpp
 html/HTMLCanvasElement.cpp
 html/HTMLFormControlsCollection.cpp
 html/HTMLFormElement.cpp
-html/HTMLImageElement.cpp
 html/HTMLInputElement.cpp
 html/HTMLLinkElement.cpp
 html/HTMLMapElement.cpp
@@ -513,7 +512,6 @@ page/cocoa/PageCocoa.mm
 page/cocoa/ResourceUsageOverlayCocoa.mm
 page/cocoa/ResourceUsageThreadCocoa.mm
 page/cocoa/WebTextIndicatorLayer.mm
-[ iOS ] page/ios/ContentChangeObserver.cpp
 [ iOS ] page/ios/EventHandlerIOS.mm
 [ iOS ] page/ios/FrameIOS.mm
 page/mac/DragControllerMac.mm
