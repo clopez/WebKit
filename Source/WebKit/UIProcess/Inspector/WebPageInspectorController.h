@@ -27,12 +27,8 @@
 
 #include "InspectorTargetProxy.h"
 #include "ProvisionalPageProxy.h"
-<<<<<<< HEAD
 #include "UIProcess/WebFrameProxy.h"
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-=======
 #include "ProcessTerminationReason.h"
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 #include <JavaScriptCore/InspectorAgentRegistry.h>
 #include <JavaScriptCore/InspectorTargetAgent.h>
 #include <WebCore/FrameIdentifier.h>

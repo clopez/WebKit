@@ -110,19 +110,13 @@ void WebPageInspectorController::init()
 void WebPageInspectorController::didInitializeWebPage()
 {
     String pageTargetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
-<<<<<<< HEAD
-    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    createWebPageInspectorTarget(pageTargetId, Inspector::InspectorTargetType::Page);
-=======
     // Create target only after attaching to a Web Process first time. Before that
     // we cannot event establish frontend connection.
     if (m_targets.contains(pageTargetId))
         return;
-    createWebPageInspectorTarget(pageTargetId, Inspector::InspectorTargetType::Page);
+    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
     if (m_inspectedPage->mainFrame())
         createWebFrameInspectorTarget(*m_inspectedPage->mainFrame(), WebFrameInspectorTarget::toTargetID(m_inspectedPage->mainFrame()->frameID()));
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 }
 
 void WebPageInspectorController::pageClosed()
@@ -277,28 +271,6 @@ void WebPageInspectorController::setIndicating(bool indicating)
 }
 #endif
 
-<<<<<<< HEAD
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-void WebPageInspectorController::createWebPageInspectorTarget(const String& targetId, Inspector::InspectorTargetType type)
-{
-    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), targetId, type));
-}
-
-void WebPageInspectorController::createWebFrameInspectorTarget(WebFrameProxy& frame, const String& targetId)
-{
-    addTarget(WebFrameInspectorTargetProxy::create(frame, targetId));
-}
-
-void WebPageInspectorController::destroyInspectorTarget(const String& targetId)
-{
-    auto it = m_targets.find(targetId);
-    if (it == m_targets.end())
-        return;
-    checkedTargetAgent()->targetDestroyed(CheckedRef { *it->value });
-    m_targets.remove(it);
-}
-
-=======
 #if USE(SKIA)
 void WebPageInspectorController::didPaint(sk_sp<SkImage>&& surface)
 {
@@ -359,26 +331,6 @@ void WebPageInspectorController::didFailProvisionalLoadForFrame(WebCore::Navigat
         s_observer->didFailProvisionalLoad(m_inspectedPage, navigationID, error.localizedDescription());
 }
 
-void WebPageInspectorController::createWebPageInspectorTarget(const String& targetId, Inspector::InspectorTargetType type)
-{
-    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), targetId, type));
-}
-
-void WebPageInspectorController::createWebFrameInspectorTarget(WebFrameProxy& frame, const String& targetId)
-{
-    addTarget(WebFrameInspectorTargetProxy::create(frame, targetId));
-}
-
-void WebPageInspectorController::destroyInspectorTarget(const String& targetId)
-{
-    auto it = m_targets.find(targetId);
-    if (it == m_targets.end())
-        return;
-    checkedTargetAgent()->targetDestroyed(CheckedRef { *it->value });
-    m_targets.remove(it);
-}
-
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 void WebPageInspectorController::sendMessageToInspectorFrontend(const String& targetId, const String& message)
 {
     protect(m_targetAgent)->sendMessageFromTargetToFrontend(targetId, message);
