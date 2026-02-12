@@ -531,7 +531,7 @@ String LocalFrame::searchForLabelsBeforeElement(const Vector<String>& labels, El
         *resultDistance = notFound;
     if (resultIsInCellAbove)
         *resultIsInCellAbove = false;
-
+    
     // walk backwards in the node tree, until another element, or form, or end of tree
     int unsigned lengthSearched = 0;
     RefPtr<Node> n;
@@ -592,7 +592,7 @@ static String matchLabelsAgainstString(const Vector<String>& labels, const Strin
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
     replace(mutableStringToMatch, JSC::Yarr::RegularExpression("\\d"_s), " "_s);
     mutableStringToMatch = makeStringByReplacingAll(mutableStringToMatch, '_', ' ');
-
+    
     JSC::Yarr::RegularExpression regExp = createRegExpForLabels(labels);
     // Use the largest match we can find in the whole string
     int pos;
@@ -611,12 +611,12 @@ static String matchLabelsAgainstString(const Vector<String>& labels, const Strin
             start = pos + 1;
         }
     } while (pos != -1);
-
+    
     if (bestPos != -1)
         return mutableStringToMatch.substring(bestPos, bestLength);
     return String();
 }
-
+    
 String LocalFrame::matchLabelsAgainstElement(const Vector<String>& labels, Element* element)
 {
     // Match against the name element, then against the id element if no match is found for the name element.
@@ -626,7 +626,7 @@ String LocalFrame::matchLabelsAgainstElement(const Vector<String>& labels, Eleme
     String resultFromNameAttribute = matchLabelsAgainstString(labels, element->getNameAttribute());
     if (!resultFromNameAttribute.isEmpty())
         return resultFromNameAttribute;
-
+    
     return matchLabelsAgainstString(labels, element->attributeWithoutSynchronization(idAttr));
 }
 
@@ -1118,12 +1118,29 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
     }
 }
 
-float LocalFrame::usedZoomForChild(const Frame& child) const
+float LocalFrame::frameScaleFactor() const
 {
-    if (CheckedPtr ownerRenderer = child.ownerRenderer())
-        return ownerRenderer->style().usedZoom();
+    RefPtr page = this->page();
 
-    return 1.0;
+    if (!page)
+        return 1;
+
+    // https://github.com/w3c/csswg-drafts/issues/9644
+    // Check if this frame's owner element (iframe) has CSS zoom applied.
+    if (!isMainFrame()) {
+        auto rootZoom = rootFrame().pageZoomFactor();
+        if (RefPtr ownerElement = this->ownerElement()) {
+            if (auto* ownerRenderer = ownerElement->renderer())
+                return ownerRenderer->style().usedZoom() / rootZoom;
+        }
+        return rootZoom;
+    }
+
+    // Main frame is scaled with respect to the container.
+    if (page->delegatesScaling())
+        return 1;
+
+    return page->pageScaleFactor();
 }
 
 void LocalFrame::suspendActiveDOMObjectsAndAnimations()
@@ -1246,7 +1263,7 @@ String LocalFrame::debugDescription() const
 
     if (RefPtr document = this->document())
         builder.append(' ', document->documentURI());
-
+    
     return builder.toString();
 }
 
@@ -1682,118 +1699,6 @@ String LocalFrame::frameURLProtocol() const
     return ""_s;
 }
 
-#if !PLATFORM(IOS_FAMILY)
-
-
-Node* LocalFrame::deepestNodeAtLocation(const FloatPoint& viewportLocation)
-{
-    IntPoint center;
-    HitTestResult hitTestResult;
-    if (!hitTestResultAtViewportLocation(viewportLocation, hitTestResult, center))
-        return nullptr;
-
-    return hitTestResult.innerNode();
-}
-
-
-Node* LocalFrame::approximateNodeAtViewportLocationLegacy(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation)
-{
-    // This function is only used for UIWebView.
-    auto&& ancestorRespondingToClickEvents = [](const HitTestResult& hitTestResult, Node* terminationNode, IntRect* nodeBounds) -> Node* {
-        bool bodyHasBeenReached = false;
-        bool pointerCursorStillValid = true;
-
-        if (nodeBounds)
-            *nodeBounds = IntRect();
-
-        auto node = hitTestResult.innerNode();
-        if (!node)
-            return nullptr;
-
-        Node* pointerCursorNode = nullptr;
-        for (; node && node != terminationNode; node = node->parentInComposedTree()) {
-            // We only accept pointer nodes before reaching the body tag.
-            if (node->hasTagName(HTMLNames::bodyTag)) {
-                // Make sure we cover the case of an empty editable body.
-                if (!pointerCursorNode && node->isContentEditable())
-                    pointerCursorNode = node;
-                bodyHasBeenReached = true;
-                pointerCursorStillValid = false;
-            }
-
-            // If we already have a pointer, and we reach a table, don't accept it.
-            if (pointerCursorNode && (node->hasTagName(HTMLNames::tableTag) || node->hasTagName(HTMLNames::tbodyTag)))
-                pointerCursorStillValid = false;
-
-            // If we haven't reached the body, and we are still paying attention to pointer cursors, and the node has a pointer cursor.
-            if (pointerCursorStillValid && node->renderStyle() && node->renderStyle()->cursor() == CursorType::Pointer)
-                pointerCursorNode = node;
-            else if (pointerCursorNode) {
-                // We want the lowest unbroken chain of pointer cursors.
-                pointerCursorStillValid = false;
-            }
-
-            if (nodeWillRespondToMouseEvents(*node)) {
-                // If we're at the body or higher, use the pointer cursor node (which may be null).
-                if (bodyHasBeenReached)
-                    node = pointerCursorNode;
-
-                // If we are interested about the frame, use it.
-                if (nodeBounds) {
-                    // This is a check to see whether this node is an area element. The only way this can happen is if this is the first check.
-                    if (node == hitTestResult.innerNode() && node != hitTestResult.innerNonSharedNode() && is<HTMLAreaElement>(*node))
-                        *nodeBounds = snappedIntRect(downcast<HTMLAreaElement>(*node).computeRect(hitTestResult.innerNonSharedNode()->renderer()));
-                    else if (node && node->renderer())
-                        *nodeBounds = node->renderer()->absoluteBoundingBoxRect(true);
-                }
-
-                return node;
-            }
-        }
-
-        return nullptr;
-    };
-
-    return qualifyingNodeAtViewportLocation(viewportLocation, adjustedViewportLocation, WTF::move(ancestorRespondingToClickEvents), ShouldApproximate::Yes);
-}
-
-
-Node* LocalFrame::nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLocation)
-{
-    auto&& ancestorRespondingToScrollWheelEvents = [](const HitTestResult& hitTestResult, Node* terminationNode, IntRect* nodeBounds) -> Node* {
-        if (nodeBounds)
-            *nodeBounds = IntRect();
-
-        Node* scrollingAncestor = nullptr;
-        for (Node* node = hitTestResult.innerNode(); node && node != terminationNode && !node->hasTagName(HTMLNames::bodyTag); node = node->parentNode()) {
-            RenderObject* renderer = node->renderer();
-            if (!renderer)
-                continue;
-
-            if ((renderer->isRenderTextControlSingleLine() || renderer->isRenderTextControlMultiLine()) && downcast<RenderTextControl>(*renderer).canScroll()) {
-                scrollingAncestor = node;
-                continue;
-            }
-
-            auto& style = renderer->style();
-
-            if (renderer->hasNonVisibleOverflow()
-                && (style.overflowY() == Overflow::Auto || style.overflowY() == Overflow::Scroll
-                || style.overflowX() == Overflow::Auto || style.overflowX() == Overflow::Scroll)) {
-                scrollingAncestor = node;
-            }
-        }
-
-        return scrollingAncestor;
-    };
-
-    FloatPoint adjustedViewportLocation;
-    return qualifyingNodeAtViewportLocation(viewportLocation, adjustedViewportLocation, WTF::move(ancestorRespondingToScrollWheelEvents), ShouldApproximate::No);
-}
-
-#endif // !PLATFORM(IOS_FAMILY)
-
-#if PLATFORM(COCOA)
 
 static bool nodeIsMouseFocusable(Node& node)
 {
@@ -1801,7 +1706,7 @@ static bool nodeIsMouseFocusable(Node& node)
     if (!element)
         return false;
 
-    if (element->isMouseFocusable())
+    if approximateNodeAtViewportLocationLegacy(element->isMouseFocusable())
         return true;
 
     if (RefPtr shadowRoot = element->shadowRoot()) {
@@ -1850,7 +1755,7 @@ static inline NodeQualifier ancestorRespondingToClickEventsNodeQualifier(Securit
     };
 }
 
-void LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
+RefPtr<Node> LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node* best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
 {
     IntRect candidateRect;
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
@@ -1859,24 +1764,24 @@ void LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQual
     // Bail if we have no candidate, or the candidate is already equal to our current best node,
     // or our candidate is the avoidedNode and there is a current best node.
     if (!candidate || candidate == best)
-        return;
+        return best;
 
     // The document should never be considered the best alternative.
     if (candidate->isDocumentNode())
-        return;
+        return best;
 
     if (best) {
         IntRect bestIntersect = intersection(testRect, bestRect);
         IntRect candidateIntersect = intersection(testRect, candidateRect);
         // if the candidate intersection is smaller than the current best intersection, bail.
         if (candidateIntersect.width() * candidateIntersect.height() <= bestIntersect.width() * bestIntersect.height())
-            return;
+            return best;
     }
 
     // At this point we either don't have a previous best, or our current candidate has a better intersection.
-    best = candidate;
     bestPoint = testPoint;
     bestRect = candidateRect;
+    return candidate;
 }
 
 RefPtr<Node> LocalFrame::nodeRespondingToInteraction(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation)
@@ -1994,9 +1899,7 @@ RefPtr<Node> LocalFrame::qualifyingNodeAtViewportLocation(const FloatPoint& view
                 if (approximateNode)
                     break;
             }
-            Node* approximateNodePtr = approximateNode.get();
-            betterApproximateNode(testPoint, nodeQualifierFunction, approximateNodePtr, failedNode, bestPoint, bestFrame, testRect);
-            approximateNode = approximateNodePtr;
+            approximateNode = betterApproximateNode(testPoint, nodeQualifierFunction, approximateNode.get(), failedNode, bestPoint, bestFrame, testRect);
         }
     }
 
@@ -2045,7 +1948,6 @@ RefPtr<Node> LocalFrame::nodeRespondingToDoubleClickEvent(const FloatPoint& view
     return qualifyingNodeAtViewportLocation(viewportLocation, adjustedViewportLocation, WTF::move(ancestorRespondingToDoubleClickEvent), ShouldApproximate::Yes);
 }
 
-#endif // PLATFORM(COCOA)
 
 } // namespace WebCore
 

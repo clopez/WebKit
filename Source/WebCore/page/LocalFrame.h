@@ -130,9 +130,7 @@ enum {
 enum OverflowScrollAction { DoNotPerformOverflowScroll, PerformOverflowScroll };
 #endif
 
-#if PLATFORM(COCOA)
-using NodeQualifier = Function<Node* (const HitTestResult&, Node* terminationNode, IntRect* nodeBounds)>;
-#endif
+using NodeQualifier = Function<RefPtr<Node> (const HitTestResult&, Node* terminationNode, IntRect* nodeBounds)>;
 
 class LocalFrame final : public Frame {
 public:
@@ -236,7 +234,6 @@ public:
     WEBCORE_EXPORT DataDetectionResultsStorage& dataDetectionResults();
 #endif
 
-#if PLATFORM(COCOA)
     RefPtr<Node> betterApproximateNode(const IntPoint& testPoint, const NodeQualifier&, Node* best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect);
 
     WEBCORE_EXPORT RefPtr<Node> nodeRespondingToInteraction(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation);
@@ -244,21 +241,20 @@ public:
     enum class ShouldApproximate : bool { No, Yes };
     enum class ShouldFindRootEditableElement : bool { No, Yes };
     RefPtr<Node> qualifyingNodeAtViewportLocation(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, const NodeQualifier&, ShouldApproximate, ShouldFindRootEditableElement = ShouldFindRootEditableElement::Yes);
-
-    static bool nodeWillRespondToMouseEvents(Node&);
-#endif // PLATFORM(COCOA)
-
     bool hitTestResultAtViewportLocation(const FloatPoint& viewportLocation, HitTestResult&, IntPoint& center);
 
     WEBCORE_EXPORT RefPtr<Node> nodeRespondingToClickEvents(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, SecurityOrigin* = nullptr);
     WEBCORE_EXPORT RefPtr<Node> nodeRespondingToDoubleClickEvent(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation);
-    WEBCORE_EXPORT Node* deepestNodeAtLocation(const FloatPoint& viewportLocation);
-    WEBCORE_EXPORT RefPtr<Node> nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLocation);
-    WEBCORE_EXPORT RefPtr<Node> approximateNodeAtViewportLocationLegacy(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation);
+
+    static bool nodeWillRespondToMouseEvents(Node&);
 
 #if PLATFORM(IOS_FAMILY)
     const ViewportArguments& viewportArguments() const;
     WEBCORE_EXPORT void setViewportArguments(const ViewportArguments&);
+
+    WEBCORE_EXPORT Node* deepestNodeAtLocation(const FloatPoint& viewportLocation);
+    WEBCORE_EXPORT RefPtr<Node> nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLocation);
+    WEBCORE_EXPORT RefPtr<Node> approximateNodeAtViewportLocationLegacy(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation);
 
     WEBCORE_EXPORT NSArray *wordsInCurrentParagraph() const;
     WEBCORE_EXPORT CGRect renderRectForPoint(CGPoint, bool* isReplaced, float* fontSize) const;
