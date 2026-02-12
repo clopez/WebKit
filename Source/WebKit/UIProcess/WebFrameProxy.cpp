@@ -513,7 +513,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
         session->didCreateFrame(child);
 #endif
 
-    page.inspectorController().didCreateFrame(*this);
+    page->inspectorController().didCreateFrame(*this);
 }
 
 void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, std::optional<SecurityOriginData> effectiveOrigin, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler)
