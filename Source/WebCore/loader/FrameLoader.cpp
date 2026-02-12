@@ -3290,15 +3290,9 @@ String FrameLoader::userAgent(const URL& url) const
 
 String FrameLoader::navigatorPlatform() const
 {
-<<<<<<< HEAD
-    auto customNavigatorPlatform = protect(m_frame->mainFrame())->customNavigatorPlatform();
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    auto customNavigatorPlatform = m_frame->protectedMainFrame()->customNavigatorPlatform();
-=======
     String platform;
 
-    auto customNavigatorPlatform = m_frame->protectedMainFrame()->customNavigatorPlatform();
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    auto customNavigatorPlatform = protect(m_frame->mainFrame())->customNavigatorPlatform();
     if (!customNavigatorPlatform.isEmpty())
         platform = customNavigatorPlatform;
 
@@ -4710,16 +4704,6 @@ String FrameLoader::referrer() const
 
 void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
 {
-<<<<<<< HEAD
-    if (!protect(m_frame->script())->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-        return;
-
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    if (!protect(m_frame)->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-        return;
-
-=======
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
     Vector<Ref<DOMWrapperWorld>> worlds;
     ScriptController::getAllWorlds(worlds);
     for (auto& world : worlds)
@@ -4729,30 +4713,12 @@ void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
 void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& world)
 {
     Ref frame = m_frame.get();
-<<<<<<< HEAD
-    if (!protect(frame->script())->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript) || !protect(frame->windowProxy())->existingJSWindowProxy(world))
-        return;
-
-    m_client->dispatchDidClearWindowObjectInWorld(world);
-
-    if (RefPtr page = frame->page())
-        page->inspectorController().didClearWindowObjectInWorld(frame, world);
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    if (!frame->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript) || !protect(frame->windowProxy())->existingJSWindowProxy(world))
-        return;
-
-    m_client->dispatchDidClearWindowObjectInWorld(world);
-
-    if (RefPtr page = frame->page())
-        page->inspectorController().didClearWindowObjectInWorld(frame, world);
-=======
     if (frame->windowProxy().existingJSWindowProxy(world)) {
         if (frame->checkedScript()->canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
             m_client->dispatchDidClearWindowObjectInWorld(world);
         if (RefPtr page = frame->page())
             page->inspectorController().didClearWindowObjectInWorld(m_frame, world);
     }
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 
     InspectorInstrumentation::didClearWindowObjectInWorld(frame, world);
 }
