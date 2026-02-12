@@ -1699,7 +1699,6 @@ String LocalFrame::frameURLProtocol() const
     return ""_s;
 }
 
-<<<<<<< HEAD
 #if PLATFORM(COCOA)
 
 static bool nodeIsMouseFocusable(Node& node)
@@ -1951,8 +1950,7 @@ RefPtr<Node> LocalFrame::nodeRespondingToDoubleClickEvent(const FloatPoint& view
 }
 
 #endif // PLATFORM(COCOA)
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-=======
+
 #if !PLATFORM(IOS_FAMILY)
 
 void LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
@@ -2310,7 +2308,6 @@ Node* LocalFrame::nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLo
 }
 
 #endif // !PLATFORM(IOS_FAMILY)
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 
 } // namespace WebCore
 
