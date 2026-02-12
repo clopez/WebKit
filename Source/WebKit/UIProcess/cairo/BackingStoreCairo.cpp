@@ -31,8 +31,13 @@
 #if USE(CAIRO)
 
 #include "UpdateInfo.h"
+<<<<<<< HEAD
 #include <WebCore/CairoUtilities.h>
 #include <WebCore/GraphicsContextCairo.h>
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+=======
+#include "WebPageProxy.h"
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 #include <WebCore/IntRect.h>
 #include <WebCore/ShareableBitmap.h>
 #include <cairo.h>

@@ -36,7 +36,12 @@
 #import "WebFrameProxy.h"
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
+<<<<<<< HEAD
 #import "WebPageProxyIdentifier.h"
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+=======
+#import "WebPageMessages.h"
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 #import "WebPreferences.h"
 #import "WebProcessMessages.h"
 #import "WebProcessProxy.h"
