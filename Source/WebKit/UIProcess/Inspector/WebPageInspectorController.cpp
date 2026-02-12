@@ -116,7 +116,7 @@ void WebPageInspectorController::didInitializeWebPage()
         return;
     addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
     if (m_inspectedPage->mainFrame())
-        createWebFrameInspectorTarget(*m_inspectedPage->mainFrame(), WebFrameInspectorTarget::toTargetID(m_inspectedPage->mainFrame()->frameID()));
+        didCreateFrame(*m_inspectedPage->mainFrame());
 }
 
 void WebPageInspectorController::pageClosed()
@@ -403,7 +403,7 @@ void WebPageInspectorController::didCreateProvisionalPage(ProvisionalPageProxy& 
 {
     addTarget(WebPageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage)));
     if (provisionalPage.mainFrame())
-        createWebFrameInspectorTarget(*provisionalPage.mainFrame(), WebFrameInspectorTarget::toTargetID(provisionalPage.mainFrame()->frameID()));
+        didCreateFrame(*provisionalPage.mainFrame());
 }
 
 void WebPageInspectorController::willDestroyProvisionalPage(const ProvisionalPageProxy& provisionalPage)
