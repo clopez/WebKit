@@ -1756,34 +1756,6 @@ static inline NodeQualifier ancestorRespondingToClickEventsNodeQualifier(Securit
     };
 }
 
-RefPtr<Node> LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node* best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
-{
-    IntRect candidateRect;
-    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
-    RefPtr candidate = nodeQualifierFunction(eventHandler().hitTestResultAtPoint(testPoint, hitType), failedNode, &candidateRect);
-
-    // Bail if we have no candidate, or the candidate is already equal to our current best node,
-    // or our candidate is the avoidedNode and there is a current best node.
-    if (!candidate || candidate == best)
-        return best;
-
-    // The document should never be considered the best alternative.
-    if (candidate->isDocumentNode())
-        return best;
-
-    if (best) {
-        IntRect bestIntersect = intersection(testRect, bestRect);
-        IntRect candidateIntersect = intersection(testRect, candidateRect);
-        // if the candidate intersection is smaller than the current best intersection, bail.
-        if (candidateIntersect.width() * candidateIntersect.height() <= bestIntersect.width() * bestIntersect.height())
-            return best;
-    }
-
-    // At this point we either don't have a previous best, or our current candidate has a better intersection.
-    bestPoint = testPoint;
-    bestRect = candidateRect;
-    return candidate;
-}
 
 RefPtr<Node> LocalFrame::nodeRespondingToInteraction(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation)
 {
@@ -1900,7 +1872,9 @@ RefPtr<Node> LocalFrame::qualifyingNodeAtViewportLocation(const FloatPoint& view
                 if (approximateNode)
                     break;
             }
-            approximateNode = betterApproximateNode(testPoint, nodeQualifierFunction, approximateNode.get(), failedNode, bestPoint, bestFrame, testRect);
+            Node* approximateNodePtr = approximateNode.get();
+            betterApproximateNode(testPoint, nodeQualifierFunction, approximateNodePtr, failedNode, bestPoint, bestFrame, testRect);
+            approximateNode = approximateNodePtr;
         }
     }
 
@@ -1953,33 +1927,33 @@ RefPtr<Node> LocalFrame::nodeRespondingToDoubleClickEvent(const FloatPoint& view
 
 #if !PLATFORM(IOS_FAMILY)
 
-void LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
+RefPtr<Node> LocalFrame::betterApproximateNode(const IntPoint& testPoint, const NodeQualifier& nodeQualifierFunction, Node* best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect)
 {
     IntRect candidateRect;
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
-    auto* candidate = nodeQualifierFunction(eventHandler().hitTestResultAtPoint(testPoint, hitType), failedNode, &candidateRect);
+    RefPtr candidate = nodeQualifierFunction(eventHandler().hitTestResultAtPoint(testPoint, hitType), failedNode, &candidateRect);
 
     // Bail if we have no candidate, or the candidate is already equal to our current best node,
     // or our candidate is the avoidedNode and there is a current best node.
     if (!candidate || candidate == best)
-        return;
+        return best;
 
     // The document should never be considered the best alternative.
     if (candidate->isDocumentNode())
-        return;
+        return best;
 
     if (best) {
         IntRect bestIntersect = intersection(testRect, bestRect);
         IntRect candidateIntersect = intersection(testRect, candidateRect);
         // if the candidate intersection is smaller than the current best intersection, bail.
         if (candidateIntersect.width() * candidateIntersect.height() <= bestIntersect.width() * bestIntersect.height())
-            return;
+            return best;
     }
 
     // At this point we either don't have a previous best, or our current candidate has a better intersection.
-    best = candidate;
     bestPoint = testPoint;
     bestRect = candidateRect;
+    return candidate;
 }
 
 bool LocalFrame::hitTestResultAtViewportLocation(const FloatPoint& viewportLocation, HitTestResult& hitTestResult, IntPoint& center)
@@ -2093,7 +2067,7 @@ Node* LocalFrame::qualifyingNodeAtViewportLocation(const FloatPoint& viewportLoc
                 if (approximateNode)
                     break;
             }
-            betterApproximateNode(testPoint, nodeQualifierFunction, approximateNode, failedNode, bestPoint, bestFrame, testRect);
+            approximateNode = betterApproximateNode(testPoint, nodeQualifierFunction, approximateNode.get(), failedNode, bestPoint, bestFrame, testRect);
         }
     }
 
