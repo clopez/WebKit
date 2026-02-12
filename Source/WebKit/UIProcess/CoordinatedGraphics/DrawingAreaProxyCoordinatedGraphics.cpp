@@ -43,23 +43,14 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 
-<<<<<<< HEAD
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-#if PLATFORM(GTK)
-#include <gtk/gtk.h>
-#endif
-
-=======
 #if PLATFORM(GTK)
 #include "WebKitWebViewBasePrivate.h"
-#include <gtk/gtk.h>
 #include <cairo.h>
 #include <skia/core/SkImage.h>
 #include <skia/core/SkSurface.h>
 #include <skia/core/SkCanvas.h>
 #endif
 
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
 #endif
