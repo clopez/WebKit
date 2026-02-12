@@ -1645,13 +1645,7 @@ void WebPageProxy::didAttachToRunningProcess()
 
 #if ENABLE(FULLSCREEN_API)
     ASSERT(!m_fullScreenManager);
-<<<<<<< HEAD
-    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, protect(protect(pageClient())->fullScreenManagerProxyClient()).get());
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, protect(pageClient())->checkedFullScreenManagerProxyClient().get());
-=======
-    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_fullScreenManagerClientOverride ? *m_fullScreenManagerClientOverride : protect(pageClient())->checkedFullScreenManagerProxyClient().get());
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, m_fullScreenManagerClientOverride ? *m_fullScreenManagerClientOverride : protect(protect(pageClient())->fullScreenManagerProxyClient()).get());
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     ASSERT(!m_playbackSessionManager);
@@ -2858,21 +2852,6 @@ RefPtr<WebAutomationSession> WebPageProxy::activeAutomationSession() const
     return m_configuration->processPool().automationSession();
 }
 
-<<<<<<< HEAD
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-void WebPageProxy::createInspectorTarget(IPC::Connection& connection, const String& targetId, Inspector::InspectorTargetType type)
-{
-    MESSAGE_CHECK_BASE(!targetId.isEmpty(), connection);
-    m_inspectorController->createWebPageInspectorTarget(targetId, type);
-}
-
-void WebPageProxy::destroyInspectorTarget(IPC::Connection& connection, const String& targetId)
-{
-    MESSAGE_CHECK_BASE(!targetId.isEmpty(), connection);
-    m_inspectorController->destroyInspectorTarget(targetId);
-}
-
-=======
 void WebPageProxy::setAuthCredentialsForAutomation(std::optional<WebCore::Credential>&& credentials, std::optional<URL>&& origin)
 {
     m_credentialsForAutomation = WTF::move(credentials);
@@ -2920,19 +2899,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-void WebPageProxy::createInspectorTarget(IPC::Connection& connection, const String& targetId, Inspector::InspectorTargetType type)
-{
-    MESSAGE_CHECK_BASE(!targetId.isEmpty(), connection);
-    m_inspectorController->createWebPageInspectorTarget(targetId, type);
-}
-
-void WebPageProxy::destroyInspectorTarget(IPC::Connection& connection, const String& targetId)
-{
-    MESSAGE_CHECK_BASE(!targetId.isEmpty(), connection);
-    m_inspectorController->destroyInspectorTarget(targetId);
-}
-
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 void WebPageProxy::sendMessageToInspectorFrontend(const String& targetId, const String& message)
 {
     m_inspectorController->sendMessageToInspectorFrontend(targetId, message);
