@@ -112,6 +112,13 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PageClientImpl);
 
+static bool _headless = false;
+
+// static
+void PageClientImpl::setHeadless(bool headless) {
+    _headless = headless;
+}
+
 PageClientImpl::PageClientImpl(NSView *view, WKWebView *webView)
     : PageClientImplCocoa(webView)
     , m_view(view)
@@ -171,6 +178,9 @@ NSWindow *PageClientImpl::activeWindow() const
 
 bool PageClientImpl::isViewWindowActive()
 {
+    if (_headless)
+        return true;
+
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     RetainPtr activeViewWindow = activeWindow();
     return activeViewWindow.get().isKeyWindow || (activeViewWindow && [NSApp keyWindow] == activeViewWindow.get());
@@ -178,6 +188,9 @@ bool PageClientImpl::isViewWindowActive()
 
 bool PageClientImpl::isViewFocused()
 {
+    if (_headless)
+        return true;
+
     // FIXME: This is called from the WebPageProxy constructor before we have a WebViewImpl.
     // Once WebViewImpl and PageClient merge, this won't be a problem.
     if (CheckedPtr impl = m_impl.get())
@@ -190,7 +203,7 @@ void PageClientImpl::assistiveTechnologyMakeFirstResponder()
 {
     [retainPtr([m_view.get() window]) makeFirstResponder:m_view.get().get()];
 }
-    
+
 void PageClientImpl::makeFirstResponder()
 {
     if (m_shouldSuppressFirstResponderChanges)
@@ -198,9 +211,12 @@ void PageClientImpl::makeFirstResponder()
 
     [retainPtr([m_view.get() window]) makeFirstResponder:m_view.get().get()];
 }
-    
+
 bool PageClientImpl::isViewVisible(NSView *view, NSWindow *viewWindow)
 {
+    if (_headless)
+        return true;
+
     auto windowIsOccluded = [&]()->bool {
         return m_impl && m_impl->windowOcclusionDetectionEnabled() && (viewWindow.occlusionState & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible;
     };
@@ -299,7 +315,14 @@ void PageClientImpl::didRelaunchProcess()
 
 void PageClientImpl::preferencesDidChange()
 {
+<<<<<<< HEAD
     protect(m_impl)->preferencesDidChange();
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    checkedImpl()->preferencesDidChange();
+=======
+    if (CheckedPtr impl = m_impl.get())
+        impl->preferencesDidChange();
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 }
 
 void PageClientImpl::toolTipChanged(const String& oldToolTip, const String& newToolTip)
@@ -481,7 +504,7 @@ void PageClientImpl::drawPageBorderForPrinting(WebCore::FloatSize&& size)
 {
     [webView() drawPageBorderWithSize:size];
 }
-    
+
 IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
 {
     RetainPtr view = m_view.get();
@@ -523,7 +546,15 @@ IntRect PageClientImpl::rootViewToAccessibilityScreen(const IntRect& rect)
 
 void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool eventWasHandled)
 {
+<<<<<<< HEAD
     protect(m_impl)->doneWithKeyEvent(RetainPtr { event.nativeEvent() }.get(), eventWasHandled);
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    checkedImpl()->doneWithKeyEvent(RetainPtr { event.nativeEvent() }.get(), eventWasHandled);
+=======
+    if (!event.nativeEvent())
+        return;
+    checkedImpl()->doneWithKeyEvent(RetainPtr { event.nativeEvent() }.get(), eventWasHandled);
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -542,7 +573,15 @@ void PageClientImpl::computeHasVisualSearchResults(const URL& imageURL, Shareabl
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
 {
+<<<<<<< HEAD
     return WebPopupMenuProxyMac::create(m_view.get().get(), protect(page.popupMenuClient()));
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    return WebPopupMenuProxyMac::create(m_view.get().get(), page.checkedPopupMenuClient().get());
+=======
+    if (_headless)
+        return nullptr;
+    return WebPopupMenuProxyMac::create(m_view.get().get(), page.checkedPopupMenuClient().get());
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -617,7 +656,7 @@ void PageClientImpl::accessibilityWebProcessTokenReceived(std::span<const uint8_
 {
     protect(m_impl)->setAccessibilityWebProcessToken(toNSData(data).get(), pid);
 }
-    
+
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
     ASSERT(!layerTreeContext.isEmpty());
@@ -666,6 +705,12 @@ CALayer *PageClientImpl::footerBannerLayer() const
 {
     return m_impl->footerBannerLayer();
 }
+
+// Paywright begin
+RetainPtr<CGImageRef> PageClientImpl::takeSnapshotForAutomation() {
+    return m_impl->takeSnapshotForAutomation();
+}
+// Paywright begin
 
 RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&&)
 {
@@ -884,6 +929,13 @@ void PageClientImpl::beganExitFullScreen(const IntRect& initialFrame, const IntR
 
 #endif // ENABLE(FULLSCREEN_API)
 
+#if ENABLE(TOUCH_EVENTS)
+void PageClientImpl::doneWithTouchEvent(const WebTouchEvent& event, bool wasEventHandled)
+{
+    notImplemented();
+}
+#endif // ENABLE(TOUCH_EVENTS)
+
 void PageClientImpl::navigationGestureDidBegin()
 {
     protect(m_impl)->dismissContentRelativeChildWindowsWithAnimation(true);
@@ -1064,7 +1116,16 @@ void PageClientImpl::requestScrollToRect(const WebCore::FloatRect& targetRect, c
 
 bool PageClientImpl::windowIsFrontWindowUnderMouse(const NativeWebMouseEvent& event)
 {
+<<<<<<< HEAD
     return protect(m_impl)->windowIsFrontWindowUnderMouse(RetainPtr { event.nativeEvent() }.get());
+||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
+    return checkedImpl()->windowIsFrontWindowUnderMouse(RetainPtr { event.nativeEvent() }.get());
+=======
+    // Simulated event.
+    if (!event.nativeEvent())
+        return false;
+    return checkedImpl()->windowIsFrontWindowUnderMouse(RetainPtr { event.nativeEvent() }.get());
+>>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
 }
 
 std::optional<float> PageClientImpl::computeAutomaticTopObscuredInset()
