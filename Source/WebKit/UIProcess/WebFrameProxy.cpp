@@ -127,14 +127,7 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIde
     allFrames().set(frameID, *this);
     WebProcessPool::statistics().wkFrameCount++;
 
-<<<<<<< HEAD
-    page.inspectorController().didCreateFrame(*this);
 
-||||||| parent of 5f78b8928104 (chore(webkit): bootstrap build #2259)
-    page.inspectorController().createWebFrameInspectorTarget(*this, WebFrameInspectorTarget::toTargetID(frameID));
-
-=======
->>>>>>> 5f78b8928104 (chore(webkit): bootstrap build #2259)
     protect(m_frameProcess)->incrementFrameCount();
 }
 
@@ -520,7 +513,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
         session->didCreateFrame(child);
 #endif
 
-    page->inspectorController().createWebFrameInspectorTarget(child, WebFrameInspectorTarget::toTargetID(child->frameID()));
+    page->inspectorController().didCreateFrame(*this);
 }
 
 void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, API::Navigation& navigation, BrowsingContextGroup& group, std::optional<SecurityOriginData> effectiveOrigin, CompletionHandler<void(WebCore::PageIdentifier)>&& completionHandler)
