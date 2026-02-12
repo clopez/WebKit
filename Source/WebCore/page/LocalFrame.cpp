@@ -1706,7 +1706,7 @@ static bool nodeIsMouseFocusable(Node& node)
     if (!element)
         return false;
 
-    if approximateNodeAtViewportLocationLegacy(element->isMouseFocusable())
+    if (element->isMouseFocusable())
         return true;
 
     if (RefPtr shadowRoot = element->shadowRoot()) {
