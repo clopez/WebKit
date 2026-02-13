@@ -122,7 +122,8 @@ void WebPageInspectorController::didInitializeWebPage()
 void WebPageInspectorController::pageClosed()
 {
     String pageTargetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
-    destroyInspectorTarget(pageTargetId);
+    removeTarget(pageTargetId);
+
 
     disconnectAllFrontends();
 
