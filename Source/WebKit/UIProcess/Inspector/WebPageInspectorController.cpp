@@ -422,11 +422,6 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
     newTarget->didCommitProvisionalTarget();
     targetAgent->didCommitProvisionalTarget(oldID, newID);
 
-
-    String newMainFrameTargetID = WebFrameInspectorTarget::toTargetID(m_inspectedPage->mainFrame()->frameID());
-    auto newMainFrameTarget = m_targets.take(newMainFrameTargetID);
-    ASSERT(newMainFrameTarget);
-
     // We've disconnected from the old page and will not receive any message from it, so
     // we destroy everything but the new target here.
     // FIXME: <https://webkit.org/b/202937> do not destroy targets that belong to the committed page.
@@ -434,7 +429,6 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
         targetAgent->targetDestroyed(*target);
     m_targets.clear();
     m_targets.set(newTarget->identifier(), WTF::move(newTarget));
-    m_targets.set(newMainFrameTarget->identifier(), WTF::move(newMainFrameTarget));
 }
 
 void WebPageInspectorController::didCreateFrame(WebFrameProxy& frame)
