@@ -103,7 +103,7 @@ void WebPageInspectorInputAgent::platformDispatchMouseEvent(const String& type, 
         event = [NSEvent eventWithCGEvent:cgEvent];
     }
 
-    NativeWebMouseEvent nativeEvent(event, nil, [window contentView]);
+    NativeWebMouseEvent nativeEvent(event, nil, [window contentView], WebKit::WebMouseEventInputSource::Hardware);
     nativeEvent.playwrightSetButtons(buttons);
     m_page.handleMouseEvent(nativeEvent);
 }
