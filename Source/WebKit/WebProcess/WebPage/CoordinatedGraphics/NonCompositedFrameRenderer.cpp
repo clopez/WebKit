@@ -141,7 +141,8 @@ void NonCompositedFrameRenderer::display()
     m_surface->willRenderFrame(scaledSize);
 
     auto* canvas = m_surface->canvas();
-    RELEASE_ASSERT(canvas);
+    if (!canvas)
+        return;
 
     if (m_context)
         PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
