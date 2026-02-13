@@ -259,8 +259,6 @@ void DrawingAreaProxyCoordinatedGraphics::captureFrame()
             return;
 
         surface = backingStore->surface();
-    } else if (m_backingStore) {
-        surface = m_backingStore->surface();
     }
 
     if (!surface)
