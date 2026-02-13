@@ -4097,7 +4097,7 @@ void WebPage::fakeTouchTap(const WebCore::IntPoint& position, uint8_t modifiers,
         if (!localMainFrame)
             return;
 
-        Node* nodeRespondingToClick = localMainFrame->nodeRespondingToClickEvents(position, adjustedPoint);
+        RefPtr nodeRespondingToClick = localMainFrame->nodeRespondingToClickEvents(position, adjustedPoint);
         Frame* frameRespondingToClick = nodeRespondingToClick ? nodeRespondingToClick->document().frame() : nullptr;
         IntPoint adjustedIntPoint = roundedIntPoint(adjustedPoint);
         if (!frameRespondingToClick) {
