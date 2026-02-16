@@ -39,7 +39,12 @@
 #include "WKLayoutMode.h"
 #include "WebMouseEvent.h"
 #include <WebCore/DOMPasteAccess.h>
+<<<<<<< HEAD
 #include <WebCore/DigitalCredentialsRequestData.h>
+||||||| parent of 93ac0ba2152d (chore(webkit): bootstrap build #2260)
+=======
+#include <WebCore/FrameIdentifier.h>
+>>>>>>> 93ac0ba2152d (chore(webkit): bootstrap build #2260)
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
@@ -607,6 +612,9 @@ public:
     void provideDataForPasteboard(NSPasteboard *, NSString *type);
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
 
+// Paywright begin
+    RetainPtr<CGImageRef> takeSnapshotForAutomation();
+// Paywright end
     RefPtr<ViewSnapshot> takeViewSnapshot();
     RefPtr<ViewSnapshot> takeViewSnapshot(ForceSoftwareCapturingViewportSnapshot);
     void saveBackForwardSnapshotForCurrentItem();
