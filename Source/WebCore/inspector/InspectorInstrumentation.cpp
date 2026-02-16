@@ -727,22 +727,8 @@ void InspectorInstrumentation::didReceiveScriptResponseImpl(InstrumentingAgents&
 
 void InspectorInstrumentation::domContentLoadedEventFiredImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame)
 {
-<<<<<<< HEAD
-    if (!frame.isMainFrame())
-        return;
-
     if (CheckedPtr pageAgent = instrumentingAgents.enabledPageAgent())
-        pageAgent->domContentEventFired();
-||||||| parent of 93ac0ba2152d (chore(webkit): bootstrap build #2260)
-    if (!frame.isMainFrame())
-        return;
-
-    if (auto* pageAgent = instrumentingAgents.enabledPageAgent())
-        pageAgent->domContentEventFired();
-=======
-    if (auto* pageAgent = instrumentingAgents.enabledPageAgent())
         pageAgent->domContentEventFired(frame);
->>>>>>> 93ac0ba2152d (chore(webkit): bootstrap build #2260)
 }
 
 void InspectorInstrumentation::loadEventFiredImpl(InstrumentingAgents& instrumentingAgents, LocalFrame* frame)
@@ -750,16 +736,8 @@ void InspectorInstrumentation::loadEventFiredImpl(InstrumentingAgents& instrumen
     if (!frame)
         return;
 
-<<<<<<< HEAD
     if (CheckedPtr pageAgent = instrumentingAgents.enabledPageAgent())
-        pageAgent->loadEventFired();
-||||||| parent of 93ac0ba2152d (chore(webkit): bootstrap build #2260)
-    if (auto* pageAgent = instrumentingAgents.enabledPageAgent())
-        pageAgent->loadEventFired();
-=======
-    if (auto* pageAgent = instrumentingAgents.enabledPageAgent())
         pageAgent->loadEventFired(*frame);
->>>>>>> 93ac0ba2152d (chore(webkit): bootstrap build #2260)
 }
 
 void InspectorInstrumentation::frameDetachedFromParentImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame)
@@ -839,22 +817,6 @@ void InspectorInstrumentation::frameDocumentUpdatedImpl(InstrumentingAgents& ins
         pageDOMDebuggerAgent->frameDocumentUpdated(frame);
 }
 
-<<<<<<< HEAD
-void InspectorInstrumentation::loaderDetachedFromFrameImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader& loader)
-{
-    if (CheckedPtr inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->loaderDetachedFromFrame(loader);
-}
-
-||||||| parent of 93ac0ba2152d (chore(webkit): bootstrap build #2260)
-void InspectorInstrumentation::loaderDetachedFromFrameImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader& loader)
-{
-    if (auto* inspectorPageAgent = instrumentingAgents.enabledPageAgent())
-        inspectorPageAgent->loaderDetachedFromFrame(loader);
-}
-
-=======
->>>>>>> 93ac0ba2152d (chore(webkit): bootstrap build #2260)
 void InspectorInstrumentation::frameStartedLoadingImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame)
 {
     if (frame.isMainFrame()) {
