@@ -39,12 +39,8 @@
 #include "WKLayoutMode.h"
 #include "WebMouseEvent.h"
 #include <WebCore/DOMPasteAccess.h>
-<<<<<<< HEAD
-#include <WebCore/DigitalCredentialsRequestData.h>
-||||||| parent of 93ac0ba2152d (chore(webkit): bootstrap build #2260)
-=======
 #include <WebCore/FrameIdentifier.h>
->>>>>>> 93ac0ba2152d (chore(webkit): bootstrap build #2260)
+#include <WebCore/DigitalCredentialsRequestData.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
