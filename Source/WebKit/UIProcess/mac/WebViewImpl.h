@@ -39,6 +39,7 @@
 #include "WKLayoutMode.h"
 #include "WebMouseEvent.h"
 #include <WebCore/DOMPasteAccess.h>
+#include <WebCore/DigitalCredentialsRequestData.h>
 #include <WebCore/FocusDirection.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/KeypressCommand.h>
@@ -66,6 +67,7 @@
 #include <WebKitAdditions/AppKitSPIAdditions.h>
 #endif
 
+OBJC_CLASS CAShapeLayer;
 OBJC_CLASS NSAccessibilityRemoteUIElement;
 OBJC_CLASS NSImmediateActionGestureRecognizer;
 OBJC_CLASS NSPanGestureRecognizer;
@@ -204,7 +206,7 @@ struct DragItem;
 struct ResolvedCaptionDisplaySettingsOptions;
 
 #if ENABLE(WEB_AUTHN)
-struct DigitalCredentialsRequestData;
+struct DigitalCredentialsMobileDocumentRequestData;
 struct DigitalCredentialsResponseData;
 #endif
 
@@ -258,6 +260,7 @@ public:
     void processDidExit();
     void pageClosed();
     void didRelaunchProcess();
+    void scrollingCoordinatorWasCreated();
 
     void setDrawsBackground(bool);
     bool drawsBackground() const;
@@ -656,6 +659,7 @@ public:
     void insertText(id string);
     void insertText(id string, NSRange replacementRange);
     NSTextInputContext *inputContext();
+    NSTextInputContext *inputContextIncludingNonEditable();
     void unmarkText();
     void setMarkedText(id string, NSRange selectedRange, NSRange replacementRange);
     NSRange selectedRange();
@@ -840,9 +844,18 @@ public:
 #endif
 
 #if ENABLE(BANNER_VIEW_OVERLAYS)
-void setBannerView(WKBannerView *);
-WKBannerView *bannerView() const { return m_bannerView.get(); }
-void applyBannerViewOverlayHeight(CGFloat, bool);
+    void setBannerView(WKBannerView *);
+    WKBannerView *bannerView() const { return m_bannerView.get(); }
+
+    void applyBannerViewOverlayHeight(CGFloat, bool);
+    CGFloat bannerViewHeight() const;
+    CGFloat bannerViewMaximumHeight() const;
+    void updateBannerViewForWheelEvent(NSEvent *);
+    void updateBannerViewForPanGesture(NSGestureRecognizerState);
+    void updateBannerViewFrame();
+#endif
+#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+    void topScrollStretchDidChange(uint64_t topScrollStretch);
 #endif
 
 #if ENABLE(VIDEO)
@@ -1147,6 +1160,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if ENABLE(BANNER_VIEW_OVERLAYS)
     RetainPtr<WKBannerView> m_bannerView;
+    RetainPtr<CAShapeLayer> m_bannerViewMask;
+    CGFloat m_bannerViewHeight { 0 };
+    bool m_canShowBannerViewOverlay { false };
+#endif
+
+#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+    uint64_t m_cachedTopScrollStretch { 0 };
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)

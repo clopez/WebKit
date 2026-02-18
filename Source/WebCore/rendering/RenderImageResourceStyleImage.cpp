@@ -39,7 +39,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderImageResourceStyleImage);
 
-RenderImageResourceStyleImage::RenderImageResourceStyleImage(StyleImage& styleImage)
+RenderImageResourceStyleImage::RenderImageResourceStyleImage(Style::Image& styleImage)
     : m_styleImage(styleImage)
 {
 }
@@ -53,7 +53,7 @@ void RenderImageResourceStyleImage::initialize(RenderElement& renderer)
 void RenderImageResourceStyleImage::shutdown()
 {
     RenderImageResource::shutdown();
-    if (auto renderer = this->renderer())
+    if (CheckedPtr renderer = this->renderer())
         m_styleImage->removeClient(*renderer);
 }
 
@@ -69,7 +69,7 @@ RefPtr<Image> RenderImageResourceStyleImage::image(const IntSize& size) const
 
 void RenderImageResourceStyleImage::setContainerContext(const IntSize& size, const URL&)
 {
-    if (auto renderer = this->renderer())
+    if (CheckedPtr renderer = this->renderer())
         m_styleImage->setContainerContextForRenderer(*renderer, size, renderer->style().usedZoom());
 }
 

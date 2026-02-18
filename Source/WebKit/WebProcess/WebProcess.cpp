@@ -171,7 +171,7 @@
 #include <unistd.h>
 #endif
 
-#if PLATFORM(COCOA)
+#if ENABLE(MEDIA_STREAM)
 #include "UserMediaCaptureManager.h"
 #endif
 
@@ -324,6 +324,23 @@ WebProcess& WebProcess::singleton()
     return process.get().get();
 }
 
+WebNotificationManager& WebProcess::notificationManager()
+{
+    return *supplement<WebNotificationManager>();
+}
+
+WebGeolocationManager& WebProcess::geolocationManager()
+{
+    return *supplement<WebGeolocationManager>();
+}
+
+#if ENABLE(MEDIA_STREAM)
+UserMediaCaptureManager& WebProcess::userMediaCaptureManager()
+{
+    return *supplement<UserMediaCaptureManager>();
+}
+#endif
+
 WebProcess::WebProcess()
     : m_eventDispatcher(*this)
 #if PLATFORM(IOS_FAMILY)
@@ -446,9 +463,9 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
     Ref { m_viewUpdateDispatcher }->initializeConnection(*connection);
 #endif // PLATFORM(IOS_FAMILY)
 
-    protectedWebInspectorInterruptDispatcher()->initializeConnection(*connection);
+    protect(m_webInspectorInterruptDispatcher)->initializeConnection(*connection);
 #if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
-    protectedWasmDebuggerDispatcher()->initializeConnection(*connection);
+    protect(m_wasmDebuggerDispatcher)->initializeConnection(*connection);
 #endif
 
     for (auto& supplement : m_supplements.values())
@@ -1366,7 +1383,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
         m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::RegisterURLSchemesAsCORSEnabled(WebCore::LegacySchemeRegistry::allURLSchemesRegisteredAsCORSEnabled()), 0);
 
         if (!Document::allDocuments().isEmpty() || SharedWorkerThreadProxy::hasInstances())
-            protect(protectedNetworkProcessConnection()->serviceWorkerConnection())->registerServiceWorkerClients();
+            protect(protect(m_networkProcessConnection.get())->serviceWorkerConnection())->registerServiceWorkerClients();
 
 #if HAVE(LSDATABASECONTEXT)
         // On Mac, this needs to be called before NSApplication is being initialized.
@@ -1393,11 +1410,6 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
 Ref<NetworkProcessConnection> WebProcess::ensureProtectedNetworkProcessConnection()
 {
     return ensureNetworkProcessConnection();
-}
-
-RefPtr<NetworkProcessConnection> WebProcess::protectedNetworkProcessConnection()
-{
-    return existingNetworkProcessConnection();
 }
 
 void WebProcess::logDiagnosticMessageForNetworkProcessCrash()
@@ -2429,6 +2441,14 @@ void WebProcess::updateScriptTrackingPrivacyFilter(ScriptTrackingPrivacyRules&& 
     m_scriptTrackingPrivacyFilter = WTF::makeUnique<ScriptTrackingPrivacyFilter>(WTF::move(rules));
 }
 
+void WebProcess::updateConsistentPrivacyQuirkFilter(ScriptTrackingPrivacyRules&& rules)
+{
+    if (rules.isEmpty())
+        return;
+
+    m_consistentPrivacyQuirkFilter = WTF::makeUnique<ScriptTrackingPrivacyFilter>(WTF::move(rules));
+}
+
 void WebProcess::setChildProcessDebuggabilityEnabled(bool childProcessDebuggabilityEnabled)
 {
     m_childProcessDebuggabilityEnabled = childProcessDebuggabilityEnabled;
@@ -2592,11 +2612,6 @@ RemoteMediaEngineConfigurationFactory& WebProcess::mediaEngineConfigurationFacto
 }
 #endif
 
-Ref<WebNotificationManager> WebProcess::protectedNotificationManager()
-{
-    return *supplement<WebNotificationManager>();
-}
-
 RefPtr<WebTransportSession> WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
 {
     Locker locker { m_webTransportSessionsLock };
@@ -2653,6 +2668,16 @@ bool WebProcess::requiresScriptTrackingPrivacyProtections(const URL& url, const 
 bool WebProcess::shouldAllowScriptAccess(const URL& url, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory category) const
 {
     return m_scriptTrackingPrivacyFilter && m_scriptTrackingPrivacyFilter->shouldAllowAccess(url, topOrigin, category);
+}
+
+bool WebProcess::requiresConsistentPrivacyQuirkForDomain(const URL& url) const
+{
+    return m_consistentPrivacyQuirkFilter && m_consistentPrivacyQuirkFilter->matches(url, SecurityOrigin::create(url));
+}
+
+bool WebProcess::shouldBlockRequest(const URL& url, const WebCore::SecurityOrigin& topOrigin)
+{
+    return m_scriptTrackingPrivacyFilter && m_scriptTrackingPrivacyFilter->shouldBlockRequest(url, topOrigin);
 }
 
 void WebProcess::enableMediaPlayback()

@@ -1296,6 +1296,7 @@ enum class WebCore::ScreenOrientationLockType : uint8_t {
 struct WebCore::ApplicationManifest {
     String rawJSON
     WebCore::ApplicationManifest::Direction dir
+    String lang
     String name
     String shortName
     String description
@@ -4240,7 +4241,6 @@ enum class WebCore::IncludeSecureCookies : bool;
 header: <WebCore/ScrollingStateNode.h>
 [OptionSet] enum class WebCore::ScrollingStateNodeProperty : uint64_t {
     Layer
-    ChildNodes
     ScrollableAreaSize
     TotalContentsSize
     ReachableContentsSize
@@ -4280,6 +4280,9 @@ header: <WebCore/ScrollingStateNode.h>
     FooterLayer
     BehaviorForFixedElements
     ObscuredContentInsets
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    BannerViewHeight
+#endif
     VisualViewportIsSmallerThanLayoutViewport
     AsyncFrameOrOverflowScrollingEnabled
     WheelEventGesturesBecomeNonBlocking
@@ -4296,6 +4299,7 @@ header: <WebCore/ScrollingStateNode.h>
     OverflowScrollingNode
     KeyboardScrollData
     OverlayScrollbarsEnabled
+    ChildNodes
     LayerHostingContextIdentifier
 };
 #endif
@@ -5435,11 +5439,11 @@ header: <WebCore/SecurityPolicyViolationEvent.h>
     uint64_t columnNumber();
 };
 
-class WebCore::SecurityOriginData {
+[AdditionalEncoder=StreamConnectionEncoder] class WebCore::SecurityOriginData {
     Variant<WebCore::SecurityOriginData::Tuple, WebCore::OpaqueOriginIdentifierProcessQualified> data();
 };
 
-[Nested] class WebCore::SecurityOriginData::Tuple {
+[Nested, AdditionalEncoder=StreamConnectionEncoder] class WebCore::SecurityOriginData::Tuple {
     [Validator='!protocol->isHashTableDeletedValue()'] String protocol;
     String host;
     std::optional<uint16_t> port;
@@ -6443,11 +6447,27 @@ struct WebCore::MobileDocumentRequest {
     Vector<WebCore::ISO18013PresentmentRequest> presentmentRequests;
 };
 
-struct WebCore::DigitalCredentialsRequestData {
-    Vector<WebCore::ValidatedMobileDocumentRequest> requests;
+header: <WebCore/DigitalCredentialsRequestData.h>
+[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::DigitalCredentialsSecurityOriginData {
     [Validator='!topOrigin->isNull()'] WebCore::SecurityOriginData topOrigin;
     [Validator='!documentOrigin->isNull()'] WebCore::SecurityOriginData documentOrigin;
+}
+
+struct WebCore::DigitalCredentialsMobileDocumentRequestData : WebCore::DigitalCredentialsSecurityOriginData {
+    Vector<WebCore::ValidatedMobileDocumentRequest> requests;
 };
+
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+[Nested] enum class WebCore::ResponseType : uint8_t {
+    Attestation,
+    Disclosure,
+};
+
+[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::DigitalCredentialsMobileDocumentRequestDataWithRequestInfo : WebCore::DigitalCredentialsSecurityOriginData {
+    WebCore::ResponseType responseType;
+    String matchingHint;
+}
+#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
 
 struct WebCore::DigitalCredentialsResponseData {
     WebCore::DigitalCredentialPresentationProtocol protocol;
@@ -6845,7 +6865,7 @@ header: <WebCore/TextExtractionTypes.h>
     TextInput,
     KeyPress,
     HighlightText,
-    ScrollBy
+    Scroll
 };
 
 header: <WebCore/TextExtractionTypes.h>
@@ -6888,7 +6908,7 @@ header: <WebCore/TextExtractionTypes.h>
     bool mergeParagraphs;
     bool skipNearlyTransparentContent;
     WebCore::TextExtraction::NodeIdentifierInclusion nodeIdentifierInclusion;
-    bool includeEventListeners;
+    OptionSet<WebCore::TextExtraction::EventListenerCategory> eventListenerCategories;
     bool includeAccessibilityAttributes;
     bool includeTextInAutoFilledControls;
     bool includeOffscreenPasswordFields;

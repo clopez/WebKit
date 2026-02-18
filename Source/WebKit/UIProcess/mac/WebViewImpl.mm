@@ -58,6 +58,7 @@
 #import "RemoteLayerTreeDrawingAreaProxyMac.h"
 #import "RemoteObjectRegistry.h"
 #import "RemoteObjectRegistryMessages.h"
+#import "RemoteScrollingCoordinatorProxy.h"
 #import "TextChecker.h"
 #import "TextCheckerState.h"
 #import "TiledCoreAnimationDrawingAreaProxy.h"
@@ -204,8 +205,6 @@ SOFT_LINK_CLASS(AVKit, AVTouchBarScrubber)
 
 static NSString * const WKMediaExitFullScreenItem = @"WKMediaExitFullScreenItem";
 #endif // HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-
-WTF_DECLARE_CF_TYPE_TRAIT(CGImage);
 
 @interface NSApplication ()
 - (BOOL)isSpeaking;
@@ -1271,6 +1270,10 @@ namespace WebKit {
 
 using namespace WebCore;
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebViewImplAdditions.mm>
+#endif
+
 static NSTrackingAreaOptions trackingAreaOptions()
 {
     // Legacy style scrollbars have design details that rely on tracking the mouse all the time.
@@ -1490,6 +1493,16 @@ void WebViewImpl::didRelaunchProcess()
 
     accessibilityRegisterUIProcessTokens();
     windowDidChangeScreen(); // Make sure DisplayID is set.
+}
+
+void WebViewImpl::scrollingCoordinatorWasCreated()
+{
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    if (CheckedPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy()) {
+        scrollingCoordinator->setHasBannerViewOverlay(!!m_bannerView);
+        scrollingCoordinator->setBannerViewMaximumHeight(bannerViewMaximumHeight());
+    }
+#endif
 }
 
 void WebViewImpl::setDrawsBackground(bool drawsBackground)
@@ -1766,6 +1779,10 @@ void WebViewImpl::setFrameSize(CGSize)
 {
     [m_layoutStrategy didChangeFrameSize];
     [m_warningView setFrame:[m_view.get() bounds]];
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    updateBannerViewFrame();
+#endif
 }
 
 void WebViewImpl::disableFrameSizeUpdates()
@@ -1933,6 +1950,10 @@ FloatBoxExtent WebViewImpl::obscuredContentInsets() const
 void WebViewImpl::setObscuredContentInsets(const FloatBoxExtent& insets)
 {
     m_page->setObscuredContentInsetsAsync(insets);
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    updateBannerViewFrame();
+#endif
 }
 
 void WebViewImpl::flushPendingObscuredContentInsetChanges()
@@ -2271,7 +2292,7 @@ bool WebViewImpl::acceptsFirstMouse(NSEvent *event)
         return false;
 
     auto previousEvent = setLastMouseDownEvent(event);
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::Hardware);
+    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::UserDriven);
     bool result = m_page->acceptsFirstMouse(event.eventNumber, mouseEvent);
     setLastMouseDownEvent(previousEvent.get());
     return result;
@@ -2300,7 +2321,7 @@ bool WebViewImpl::shouldDelayWindowOrderingForEvent(NSEvent *event)
     }
 
     auto previousEvent = setLastMouseDownEvent(event);
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::Hardware);
+    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::UserDriven);
     bool result = m_page->shouldDelayWindowOrderingForEvent(mouseEvent);
     setLastMouseDownEvent(previousEvent.get());
     return result;
@@ -2526,7 +2547,7 @@ void WebViewImpl::scheduleMouseDidMoveOverElement(NSEvent *flagsChangedEvent)
     RetainPtr fakeEvent = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:flagsChangedEvent.window.mouseLocationOutsideOfEventStream
         modifierFlags:flagsChangedEvent.modifierFlags timestamp:flagsChangedEvent.timestamp windowNumber:flagsChangedEvent.windowNumber
         context:nullptr eventNumber:0 clickCount:0 pressure:0];
-    NativeWebMouseEvent webEvent(fakeEvent.get(), m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::Hardware);
+    NativeWebMouseEvent webEvent(fakeEvent.get(), m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::UserDriven);
     m_page->dispatchMouseDidMoveOverElementAsynchronously(webEvent);
 }
 
@@ -2728,7 +2749,7 @@ void WebViewImpl::pressureChangeWithEvent(NSEvent *event)
     if (event.phase != NSEventPhaseChanged && event.phase != NSEventPhaseBegan && event.phase != NSEventPhaseEnded)
         return;
 
-    NativeWebMouseEvent webEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::Hardware);
+    NativeWebMouseEvent webEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebMouseEventInputSource::UserDriven);
     m_page->handleMouseEvent(webEvent);
 
     m_lastPressureEvent = event;
@@ -2937,9 +2958,13 @@ void WebViewImpl::selectionDidChange()
 #endif
         if (protect(page->preferences())->textInputClientSelectionUpdatesEnabled()) {
             alreadyNotifiedClient = true;
-            [protect(inputContext()) textInputClientDidUpdateSelection];
+            [protect(inputContextIncludingNonEditable()) textInputClientDidUpdateSelection];
         }
     }
+
+#if HAVE(APPKIT_GESTURES_SUPPORT)
+    [m_textSelectionController selectionDidChange];
+#endif
 
 #if ENABLE(WRITING_TOOLS)
     bool wantsCompleteWritingTools = isEditable() || page->configuration().writingToolsBehavior() == WebCore::WritingTools::Behavior::Complete;
@@ -3046,12 +3071,16 @@ NSRect WebViewImpl::unionRectInVisibleSelectedRangeInScreen() const
         return NSZeroRect;
 
     Ref page = m_page.get();
-    if (!page->editorState().selectionIsRange)
+    auto& editorState = page->editorState();
+    if (editorState.selectionIsNone)
         return NSZeroRect;
 
     auto selectionRect = page->selectionBoundingRectInRootViewCoordinates();
     if (selectionRect.isEmpty())
         return NSZeroRect;
+
+    if (!editorState.selectionIsRange && editorState.isContentEditable)
+        selectionRect.setWidth(0);
 
     return convertFromViewToScreen(selectionRect);
 }
@@ -5166,6 +5195,10 @@ void WebViewImpl::scrollWheel(NSEvent *event)
     if (event.phase == NSEventPhaseBegan)
         dismissContentRelativeChildWindowsWithAnimation(false);
 
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    updateBannerViewForWheelEvent(event);
+#endif
+
     if (m_allowsBackForwardNavigationGestures && ensureProtectedGestureController()->handleScrollWheelEvent(event)) {
         RELEASE_LOG(MouseHandling, "[pageProxyID=%lld] WebViewImpl::scrollWheel: Gesture controller handled wheel event", m_page->identifier().toUInt64());
         return;
@@ -5606,7 +5639,18 @@ NSTextInputContext *WebViewImpl::inputContext()
     if (!m_page->editorState().isContentEditable)
         return nil;
 
-    return [m_view.get() _web_superInputContext];
+    return [protect(m_view) _web_superInputContext];
+}
+
+NSTextInputContext *WebViewImpl::inputContextIncludingNonEditable()
+{
+    if (!protect(m_page->preferences())->textInputClientSelectionUpdatesEnabled())
+        return inputContext();
+
+    if (!m_page->editorState().isContentEditable && !m_page->editorState().selectionIsRange)
+        return nil;
+
+    return [protect(m_view) _web_superInputContext];
 }
 
 void WebViewImpl::unmarkText()
@@ -6153,7 +6197,7 @@ void WebViewImpl::mouseEntered(NSEvent *event)
         return;
     }
 
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::mouseExited(NSEvent *event)
@@ -6166,42 +6210,42 @@ void WebViewImpl::mouseExited(NSEvent *event)
         return;
     }
 
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::otherMouseDown(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::otherMouseDragged(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::otherMouseUp(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::rightMouseDown(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::rightMouseDragged(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::rightMouseUp(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandler(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::mouseMovedInternal(NSEvent *event)
 {
-    nativeMouseEventHandlerInternal(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandlerInternal(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::mouseDownInternal(NSEvent *event, WebMouseEventInputSource inputSource)
@@ -6216,7 +6260,7 @@ void WebViewImpl::mouseUpInternal(NSEvent *event, WebMouseEventInputSource input
 
 void WebViewImpl::mouseDraggedInternal(NSEvent *event)
 {
-    nativeMouseEventHandlerInternal(event, WebMouseEventInputSource::Hardware);
+    nativeMouseEventHandlerInternal(event, WebMouseEventInputSource::UserDriven);
 }
 
 void WebViewImpl::mouseMoved(NSEvent *event)
@@ -7376,25 +7420,6 @@ void WebViewImpl::unregisterViewAboveScrollPocket(NSView *containerView)
 }
 
 #endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-
-#if ENABLE(BANNER_VIEW_OVERLAYS)
-
-void WebViewImpl::setBannerView(WKBannerView *bannerView)
-{
-    if (m_bannerView == bannerView)
-        return;
-
-    [m_bannerView.get() removeFromSuperview];
-    [m_view.get() addSubview:bannerView positioned:NSWindowAbove relativeTo:nil];
-
-    m_bannerView = bannerView;
-}
-
-void WebViewImpl::applyBannerViewOverlayHeight(CGFloat, bool)
-{
-}
-
-#endif // ENABLE(BANNER_VIEW_OVERLAYS)
 
 #if ENABLE(VIDEO)
 void WebViewImpl::showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions& options, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&& completionHandler)

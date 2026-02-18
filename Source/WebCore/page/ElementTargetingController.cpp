@@ -677,8 +677,8 @@ static URL urlForElement(const Element& element)
 #endif
 
     if (CheckedPtr renderer = element.renderer()) {
-        if (auto& style = renderer->style(); style.hasBackgroundImage()) {
-            if (RefPtr image = style.backgroundLayers().usedFirst().image().tryStyleImage())
+        if (auto& backgroundLayers = renderer->style().backgroundLayers(); Style::hasImageInAnyLayer(backgroundLayers)) {
+            if (RefPtr image = backgroundLayers.usedFirst().image().tryStyleImage())
                 return image->url().resolved;
         }
     }
@@ -1367,11 +1367,11 @@ Vector<TargetedElementInfo> ElementTargetingController::extractTargets(Vector<Re
         if (!bodyRenderer)
             return { };
 
-        for (auto& renderer : descendantsOfType<RenderElement>(*bodyRenderer)) {
-            if (!renderer.isOutOfFlowPositioned())
+        for (CheckedRef renderer : descendantsOfType<RenderElement>(*bodyRenderer)) {
+            if (!renderer->isOutOfFlowPositioned())
                 continue;
 
-            RefPtr element = renderer.element();
+            RefPtr element = renderer->element();
             if (!element)
                 continue;
 
@@ -1629,18 +1629,18 @@ void ElementTargetingController::adjustVisibilityInRepeatedlyTargetedRegions(Doc
 
     auto visibleDocumentRect = frameView->windowToContents(frameView->windowClipRect());
     Vector<Ref<Element>> elementsToAdjust;
-    for (auto& renderer : descendantsOfType<RenderElement>(*renderView)) {
-        if (!renderer.isOutOfFlowPositioned())
+    for (CheckedRef renderer : descendantsOfType<RenderElement>(*renderView)) {
+        if (!renderer->isOutOfFlowPositioned())
             continue;
 
-        RefPtr element = renderer.element();
+        RefPtr element = renderer->element();
         if (!element)
             continue;
 
-        if (!renderer.isVisibleInDocumentRect(visibleDocumentRect))
+        if (!renderer->isVisibleInDocumentRect(visibleDocumentRect))
             continue;
 
-        if (!m_repeatedAdjustmentClientRegion.contains(enclosingIntRect(computeClientRect(renderer))))
+        if (!m_repeatedAdjustmentClientRegion.contains(enclosingIntRect(computeClientRect(renderer.get()))))
             continue;
 
         if (!isTargetCandidate(*element, onlyMainElement.get()))
@@ -2093,7 +2093,7 @@ RefPtr<Image> ElementTargetingController::snapshotIgnoringVisibilityAdjustment(N
     if (!renderer)
         return { };
 
-    if (!renderer->isRenderReplaced() && !renderer->firstChild() && !renderer->style().hasBackgroundImage())
+    if (!renderer->isRenderReplaced() && !renderer->firstChild() && !Style::hasImageInAnyLayer(renderer->style().backgroundLayers()))
         return { };
 
     auto backgroundColor = frameView->baseBackgroundColor();

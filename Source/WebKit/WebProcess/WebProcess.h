@@ -155,9 +155,11 @@ class WebCompiledContentRuleListData;
 class WebCookieJar;
 class WebFileSystemStorageConnection;
 class WebFrame;
+class WebGeolocationManager;
 class WebLoaderStrategy;
 class WebNotificationManager;
 class WebPage;
+class UserMediaCaptureManager;
 class WebPageGroupProxy;
 class WebProcessSupplement;
 class WebTransportSession;
@@ -214,12 +216,6 @@ public:
     }
 
     template <typename T>
-    RefPtr<T> protectedSupplement()
-    {
-        return supplement<T>();
-    }
-
-    template <typename T>
     void addSupplement()
     {
         m_supplements.add(T::supplementName(), makeUnique<T>(*this));
@@ -234,6 +230,12 @@ public:
         // to find a better pattern.
         m_supplements.add(T::supplementName(), const_cast<std::unique_ptr<WebProcessSupplement>&&>(makeUniqueWithoutRefCountedCheck<T, WebProcessSupplement>(*this)));
     }
+
+    WebNotificationManager& notificationManager();
+    WebGeolocationManager& geolocationManager();
+#if ENABLE(MEDIA_STREAM)
+    UserMediaCaptureManager& userMediaCaptureManager();
+#endif
 
     // ref() & deref() do nothing since WebProcess is a singleton object.
     // This is for objects owned by the WebProcess to forward their refcounting to their owner.
@@ -283,17 +285,12 @@ public:
     void setTextCheckerState(OptionSet<TextCheckerState>);
 
     EventDispatcher& eventDispatcher() { return m_eventDispatcher; }
-    Ref<WebInspectorInterruptDispatcher> protectedWebInspectorInterruptDispatcher() { return m_webInspectorInterruptDispatcher; }
-#if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
-    Ref<WasmDebuggerDispatcher> protectedWasmDebuggerDispatcher() { return m_wasmDebuggerDispatcher; }
-#endif
 
     NetworkProcessConnection& ensureNetworkProcessConnection();
     Ref<NetworkProcessConnection> ensureProtectedNetworkProcessConnection();
 
     void networkProcessConnectionClosed(NetworkProcessConnection*);
     NetworkProcessConnection* existingNetworkProcessConnection() { return m_networkProcessConnection.get(); }
-    RefPtr<NetworkProcessConnection> protectedNetworkProcessConnection();
     WebLoaderStrategy& webLoaderStrategy();
     WebFileSystemStorageConnection& fileSystemStorageConnection();
 
@@ -418,8 +415,6 @@ public:
     WebCookieJar& cookieJar() { return m_cookieJar.get(); }
     WebSocketChannelManager& webSocketChannelManager() { return m_webSocketChannelManager; }
 
-    Ref<WebNotificationManager> protectedNotificationManager();
-
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     float backlightLevel() const { return m_backlightLevel; }
 #endif
@@ -495,6 +490,8 @@ public:
 
     bool requiresScriptTrackingPrivacyProtections(const URL&, const WebCore::SecurityOrigin& topOrigin) const;
     bool shouldAllowScriptAccess(const URL&, const WebCore::SecurityOrigin& topOrigin, WebCore::ScriptTrackingPrivacyCategory) const;
+    bool requiresConsistentPrivacyQuirkForDomain(const URL&) const;
+    bool shouldBlockRequest(const URL&, const WebCore::SecurityOrigin& topOrigin);
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled.value(); }
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
@@ -701,6 +698,7 @@ private:
     void updateDomainsWithStorageAccessQuirks(HashSet<WebCore::RegistrableDomain>&&);
 
     void updateScriptTrackingPrivacyFilter(ScriptTrackingPrivacyRules&&);
+    void updateConsistentPrivacyQuirkFilter(ScriptTrackingPrivacyRules&&);
 
 #if HAVE(DISPLAY_LINK)
     void displayDidRefresh(uint32_t displayID, const WebCore::DisplayUpdate&);
@@ -972,6 +970,7 @@ private:
 
     HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
     std::unique_ptr<ScriptTrackingPrivacyFilter> m_scriptTrackingPrivacyFilter;
+    std::unique_ptr<ScriptTrackingPrivacyFilter> m_consistentPrivacyQuirkFilter;
     bool m_mediaPlaybackEnabled { false };
 
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;

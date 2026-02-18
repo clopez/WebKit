@@ -92,6 +92,7 @@
 #import "WKIntelligenceReplacementTextEffectCoordinator.h"
 #import "WKIntelligenceSmartReplyTextEffectCoordinator.h"
 #import "WKIntelligenceTextEffectCoordinator.h"
+#import "WKJSHandleInternal.h"
 #import "WKLayoutMode.h"
 #import "WKNSData.h"
 #import "WKNSURLExtras.h"
@@ -146,7 +147,6 @@
 #import "_WKImmersiveEnvironmentDelegate.h"
 #import "_WKInputDelegate.h"
 #import "_WKInspectorInternal.h"
-#import "_WKJSHandleInternal.h"
 #import "_WKPageLoadTimingInternal.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKSessionStateInternal.h"
@@ -3189,6 +3189,13 @@ WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContai
 #endif // ENABLE(SWIFTUI)
 }
 
+#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+- (void)_topScrollStretchDidChange:(NSUInteger)topScrollStretch
+{
+    _impl->topScrollStretchDidChange(topScrollStretch);
+}
+#endif
+
 - (void)_updateFixedContainerEdges:(const WebCore::FixedContainerEdges&)edges
 {
     if (_fixedContainerEdges == edges)
@@ -4014,7 +4021,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 
 - (void)_frames:(void (^)(_WKFrameTreeNode *))completionHandler
 {
-    _page->getAllFrames([completionHandler = makeBlockPtr(completionHandler), page = protect(*_page.get())] (std::optional<WebKit::FrameTreeNodeData>&& data) {
+    _page->getAllFrames([completionHandler = makeBlockPtr(completionHandler), page = protect(*_page)] (std::optional<WebKit::FrameTreeNodeData>&& data) {
         if (!data)
             return completionHandler(nil);
         completionHandler(wrapper(API::FrameTreeNode::create(WTF::move(*data), page.get())).get());
@@ -4023,7 +4030,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 
 - (void)_frameTrees:(void (^)(NSSet<_WKFrameTreeNode *> *))completionHandler
 {
-    _page->getAllFrameTrees([completionHandler = makeBlockPtr(completionHandler), page = protect(*_page.get())] (Vector<WebKit::FrameTreeNodeData>&& vector) {
+    _page->getAllFrameTrees([completionHandler = makeBlockPtr(completionHandler), page = protect(*_page)] (Vector<WebKit::FrameTreeNodeData>&& vector) {
         auto set = adoptNS([[NSMutableSet alloc] initWithCapacity:vector.size()]);
         for (auto& data : vector)
             [set addObject:wrapper(API::FrameTreeNode::create(WTF::move(data), page.get())).get()];
@@ -7089,8 +7096,8 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
             return WebCore::TextExtraction::Action::KeyPress;
         case _WKTextExtractionActionHighlightText:
             return WebCore::TextExtraction::Action::HighlightText;
-        case _WKTextExtractionActionScrollBy:
-            return WebCore::TextExtraction::Action::ScrollBy;
+        case _WKTextExtractionActionScroll:
+            return WebCore::TextExtraction::Action::Scroll;
         default:
             ASSERT_NOT_REACHED();
             return WebCore::TextExtraction::Action::Click;
@@ -7284,6 +7291,22 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
     return result;
 }
 
+static OptionSet<WebCore::TextExtraction::EventListenerCategory> coreEventListenerCategories(_WKTextExtractionEventListenerCategory categories)
+{
+    OptionSet<WebCore::TextExtraction::EventListenerCategory> coreCategories;
+    if (categories & _WKTextExtractionEventListenerCategoryClick)
+        coreCategories.add(WebCore::TextExtraction::EventListenerCategory::Click);
+    if (categories & _WKTextExtractionEventListenerCategoryHover)
+        coreCategories.add(WebCore::TextExtraction::EventListenerCategory::Hover);
+    if (categories & _WKTextExtractionEventListenerCategoryTouch)
+        coreCategories.add(WebCore::TextExtraction::EventListenerCategory::Touch);
+    if (categories & _WKTextExtractionEventListenerCategoryWheel)
+        coreCategories.add(WebCore::TextExtraction::EventListenerCategory::Wheel);
+    if (categories & _WKTextExtractionEventListenerCategoryKeyboard)
+        coreCategories.add(WebCore::TextExtraction::EventListenerCategory::Keyboard);
+    return coreCategories;
+}
+
 #if ENABLE(DATA_DETECTION)
 
 static OptionSet<WebCore::DataDetectorType> coreDataDetectorTypes(_WKTextExtractionDataDetectorTypes types)
@@ -7351,7 +7374,7 @@ static OptionSet<WebCore::DataDetectorType> coreDataDetectorTypes(_WKTextExtract
             .mergeParagraphs = mergeParagraphs,
             .skipNearlyTransparentContent = skipNearlyTransparentContent,
             .nodeIdentifierInclusion = nodeIdentifierInclusion,
-            .includeEventListeners = !!configuration.includeEventListeners,
+            .eventListenerCategories = coreEventListenerCategories(configuration.eventListenerCategories),
             .includeAccessibilityAttributes = !!configuration.includeAccessibilityAttributes,
             .includeTextInAutoFilledControls = !!configuration.includeTextInAutoFilledControls,
             .includeOffscreenPasswordFields = !!configuration.includeOffscreenPasswordFields,
@@ -7578,7 +7601,7 @@ static OptionSet<WebCore::DataDetectorType> coreDataDetectorTypes(_WKTextExtract
 
 - (CGFloat)_bannerViewOverlayHeight
 {
-    return 0;
+    return _impl->bannerViewHeight();
 }
 
 #endif

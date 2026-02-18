@@ -685,6 +685,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         [tempArray addObject:NSAccessibilityInvalidAttribute];
         [tempArray addObject:NSAccessibilityPlaceholderValueAttribute];
         [tempArray addObject:NSAccessibilityValueAutofillAvailableAttribute];
+        [tempArray addObject:NSAccessibilityIntersectionWithSelectionRangeAttribute];
         return tempArray;
     }();
     static NeverDestroyed listAttrs = [] {
@@ -2298,6 +2299,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         [tempArray addObject:(NSString*)kAXRTFForRangeParameterizedAttribute];
         [tempArray addObject:(NSString*)kAXAttributedStringForRangeParameterizedAttribute];
         [tempArray addObject:(NSString*)kAXStyleRangeForIndexParameterizedAttribute];
+        [tempArray addObject:NSAccessibilityIntersectTextMarkerRangesAttribute];
+        return tempArray;
+    }();
+    static NeverDestroyed staticTextParamAttrs = [] {
+        auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:paramAttrs.get().get()]);
+        [tempArray addObject:NSAccessibilityIntersectTextMarkerRangesAttribute];
         return tempArray;
     }();
     static NeverDestroyed tableParamAttrs = [] {
@@ -2329,6 +2336,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 
     if (backingObject->isWebArea())
         return webAreaParamAttrs.get().get();
+
+    if (backingObject->isStaticText())
+        return staticTextParamAttrs.get().get();
 
     // The object that serves up the remote frame also is the one that does the frame conversion.
     if (backingObject->hasRemoteFrameChild())
@@ -3453,6 +3463,18 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         AXTextMarkerRange markerRange { textMarkerRange };
         auto range = markerRange.simpleRange();
         return @(range ? AXObjectCache::lengthForRange(*range) : 0);
+    }
+
+    if ([attribute isEqualToString:NSAccessibilityIntersectTextMarkerRangesAttribute]) {
+        if (array.count < 2
+            || !AXObjectIsTextMarkerRange([array objectAtIndex:0])
+            || !AXObjectIsTextMarkerRange([array objectAtIndex:1]))
+            return nil;
+
+        auto range1 = AXTextMarkerRange { (AXTextMarkerRangeRef)[array objectAtIndex:0] };
+        auto range2 = AXTextMarkerRange { (AXTextMarkerRangeRef)[array objectAtIndex:1] };
+        auto intersection = range1.intersectionWith(range2);
+        return intersection ? (*intersection).platformData().bridgingAutorelease() : nil;
     }
 
     if (backingObject->isExposableTable()) {

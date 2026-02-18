@@ -26,6 +26,7 @@
 #include "config.h"
 #include "StringEntropyHelpers.h"
 
+#include "MIMETypeRegistry.h"
 #include <array>
 #include <wtf/text/MakeString.h>
 
@@ -128,7 +129,7 @@ static double entropyScore(StringView text)
     return totalWeight / textLength;
 }
 
-static bool isProbablyHumanReadable(StringView text, double entropyThreshold = 0)
+bool isProbablyHumanReadable(StringView text)
 {
     static constexpr auto highEntropyThreshold = 40;
     static constexpr auto lowEntropyThreshold = 5;
@@ -139,23 +140,38 @@ static bool isProbablyHumanReadable(StringView text, double entropyThreshold = 0
     if (text.length() <= lowEntropyThreshold)
         return true;
 
-    return entropyScore(text) >= entropyThreshold;
+    return entropyScore(text) >= 0;
 }
 
-String lowEntropyLastPathComponent(const URL& url, const String& fallbackName)
+String lowEntropyLastPathComponent(const URL& url, const String& fallbackName, const String& mimeType)
 {
     if (url.protocolIsData() || url.protocolIsBlob() || url.protocolIsJavaScript())
         return fallbackName;
 
-    auto component = url.lastPathComponent();
-    if (isProbablyHumanReadable(component))
-        return component.toString();
+    auto result = [&url, &fallbackName] -> String {
+        auto component = url.lastPathComponent();
+        if (isProbablyHumanReadable(component))
+            return component.toString();
 
-    auto fullStopIndex = component.reverseFind('.');
-    if (fullStopIndex == notFound)
-        return fallbackName;
+        auto fullStopIndex = component.reverseFind('.');
+        if (fullStopIndex == notFound || fullStopIndex >= component.length() - 1)
+            return fallbackName;
 
-    return makeString(fallbackName, component.right(component.length() - fullStopIndex));
+        auto extensionWithoutFullStop = component.right(component.length() - fullStopIndex - 1);
+        auto firstNonAlphaNumericCharacterIndex = extensionWithoutFullStop.find([](char16_t character) {
+            return !u_isalpha(character) && !u_isdigit(character);
+        });
+
+        if (firstNonAlphaNumericCharacterIndex != notFound)
+            extensionWithoutFullStop = extensionWithoutFullStop.left(firstNonAlphaNumericCharacterIndex);
+
+        if (extensionWithoutFullStop.isEmpty())
+            return fallbackName;
+
+        return makeString(fallbackName, '.', WTF::move(extensionWithoutFullStop));
+    }();
+
+    return MIMETypeRegistry::appendFileExtensionIfNecessary(WTF::move(result), mimeType);
 }
 
 URL removeHighEntropyComponents(const URL& url)

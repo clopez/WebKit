@@ -82,6 +82,7 @@ private:
     bool isActiveViewVisible() override;
     bool isMainViewVisible() override;
     bool canTakeForegroundAssertions() override { return true; };
+    void scrollingCoordinatorWasCreated() override;
     bool isViewVisibleOrOccluded() override;
     bool isViewInWindow() override;
     bool isVisuallyIdle() override;
@@ -205,6 +206,8 @@ private:
     void setEditableElementIsFocused(bool) override;
 
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
+
+    void didCommitMainFrameData(const MainFrameData&) override;
 
     void registerInsertionUndoGrouping() override;
 

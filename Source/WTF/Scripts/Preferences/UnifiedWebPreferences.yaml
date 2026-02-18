@@ -80,6 +80,22 @@ ARIAActionsSupportEnabled:
     WebCore:
       default: false
 
+AVExperienceControllerFullscreenEnabled:
+  type: bool
+  status: unstable
+  category: media
+  getter: isAVExperienceControllerFullscreenEnabled
+  humanReadableName: "AVExperienceController Fullscreen"
+  humanReadableDescription: "Enable fullscreen video via AVExperienceController"
+  condition: HAVE(AVEXPERIENCECONTROLLER)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+
 AVFoundationEnabled:
   type: bool
   status: embedder
@@ -94,21 +110,6 @@ AVFoundationEnabled:
     WebKit:
       "PLATFORM(WATCHOS)": false
       default: true
-
-AVKitContentSourceEnabled:
-  type: bool
-  status: unstable
-  getter: isAVKitContentSourceEnabled
-  humanReadableName: "AVKit Content Source"
-  humanReadableDescription: "Enable AVKit Content Source"
-  condition: HAVE(AVKIT_CONTENT_SOURCE)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
 
 AcceleratedCompositingEnabled:
   type: bool
@@ -292,17 +293,20 @@ AllowMultiElementImplicitSubmission:
 
 AllowMultipleCommitLayerTreePending:
   type: bool
-  status: testable
+  status: internal
   category: dom
   humanReadableName: "Allow requesting CommitLayerTree before the previous has completed"
   humanReadableDescription: "Allow requesting CommitLayerTree before the previous has completed"
   defaultValue:
     WebKitLegacy:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
     WebKit:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
     WebCore:
-      default: false
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
 
 AllowPrivacySensitiveOperationsInNonPersistentDataStores:
   type: bool
@@ -1342,17 +1346,17 @@ CSSRhythmicSizingEnabled:
 
 CSSScrollAnchoringEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS Scroll Anchoring"
   humanReadableDescription: "Enable CSS Scroll Anchoring"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSScrollbarColorEnabled:
   type: bool
@@ -1903,12 +1907,12 @@ CompressionStreamEnabled:
     WebCore:
       default: false
 
-ConsistentQueryParameterFilteringQuirkEnabled:
+ConsistentQueryParameterFilteringInternalQuirkEnabled:
   type: bool
   status: internal
   category: dom
-  humanReadableName: "Consistent Query Parameter Filtering"
-  humanReadableDescription: "Enable consistent query parameter filtering"
+  humanReadableName: "Consistent Query Parameter Filtering Internal"
+  humanReadableDescription: "Enable internal consistent query parameter filtering"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1916,6 +1920,20 @@ ConsistentQueryParameterFilteringQuirkEnabled:
       default: false
     WebCore:
       default: false
+
+ConsistentQueryParameterFilteringQuirkEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "Consistent Query Parameter Filtering"
+  humanReadableDescription: "Enable consistent query parameter filtering"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 ContactPickerAPIEnabled:
   type: bool
@@ -2674,6 +2692,25 @@ EnhancedSecurityHeuristicsEnabled:
       "PLATFORM(COCOA)": true
       default: false
 
+EnhancedSecurityLinksEnabled:
+  type: bool
+  status: stable
+  category: security
+  condition: HAVE(ENHANCED_SECURITY_LINKS)
+  defaultsOverridable: true
+  humanReadableName: "Enhanced Security for links"
+  humanReadableDescription: "Enables additional Enhanced Security support for certain links"
+  defaultValue:
+    WebKitLegacy:
+      "PLATFORM(COCOA)": true
+      default: false
+    WebKit:
+      "PLATFORM(COCOA)": true
+      default: false
+    WebCore:
+      "PLATFORM(COCOA)": true
+      default: false
+
 EnterKeyHintEnabled:
   type: bool
   status: internal
@@ -3405,17 +3442,17 @@ GridLanesEnabled:
 
 HTMLEnhancedSelectEnabled:
    type: bool
-   status: testable
-   category: css
+   status: stable
+   category: dom
    humanReadableName: "Enhanced HTML select element"
    humanReadableDescription: "Enable enhanced HTML select element"
    defaultValue:
      WebKitLegacy:
-       default: false
+       default: true
      WebKit:
-       default: false
+       default: true
      WebCore:
-       default: false
+       default: true
 
 HTMLEnhancedSelectParsingEnabled:
    type: bool
@@ -3430,6 +3467,21 @@ HTMLEnhancedSelectParsingEnabled:
        default: true
      WebCore:
        default: true
+
+HTMLEnhancedSelectParsingQuirkEnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "Enhanced HTML select element parsing quirk"
+  humanReadableDescription: "Enable enhanced HTML select element parsing quirk for specific applications"
+  defaultValue:
+    WebKitLegacy:
+      PLATFORM(MAC): WebKit::defaultHTMLEnhancedSelectParsingQuirkEnabled()
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 HTTPEquivEnabled:
   type: bool
@@ -3806,6 +3858,21 @@ IndexedDBAPIEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+
+IndexedDBSQLiteMemoryBackingStoreEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "IndexedDB SQLite Memory Backing Store"
+  humanReadableDescription: "Use SQLite in-memory database for ephemeral IndexedDB instead of MemoryIDBBackingStore"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+  sharedPreferenceForWebProcess: true
 
 InlineMediaPlaybackRequiresPlaysInlineAttribute:
   type: bool
@@ -5481,17 +5548,20 @@ ModelElementEnabled:
 
 ModelElementImmersiveEnabled:
   type: bool
-  status: testable
+  status: stable
   category: javascript
   condition: ENABLE(MODEL_ELEMENT_IMMERSIVE)
   humanReadableName: "Immersive <model> API"
   humanReadableDescription: "Enable <model> element immersive API"
   defaultValue:
     WebKitLegacy:
+      "ENABLE(MODEL_ELEMENT_IMMERSIVE)": true
       default: false
     WebKit:
+      "ENABLE(MODEL_ELEMENT_IMMERSIVE)": true
       default: false
     WebCore:
+      "ENABLE(MODEL_ELEMENT_IMMERSIVE)": true
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
@@ -6907,11 +6977,25 @@ ScriptTrackingPrivacyNetworkRequestBlockingEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
+
+ScriptTrackingPrivacyNetworkRequestBlockingLatchEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Script Tracking Privacy Network Requests Blocking Latch"
+  humanReadableDescription: "Block multiple network requests made to tracking domains"
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 ScriptTrackingPrivacyProtectionsEnabled:
   type: bool
@@ -7859,17 +7943,17 @@ StorageBlockingPolicy:
 
 SubpixelInlineLayoutEnabled:
   type: bool
-  status: stable
+  status: preview
   category: css
   humanReadableName: "Subpixels in inline layout (in block direction)"
   humanReadableDescription: "Subpixels in line layout (in block direction)"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 SupportHDRCompositorTonemappingEnabled:
   type: bool
@@ -8359,9 +8443,9 @@ TwoUpPDFDisplayModeSupportEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 UAVisualTransitionDetectionEnabled:
   type: bool
@@ -8755,6 +8839,7 @@ UserInterfaceDirectionPolicy:
 UsesBackForwardCache:
   type: bool
   status: embedder
+  defaultsOverridable: true
   webcoreOnChange: usesBackForwardCacheChanged
   webcoreExcludeFromInternalSettings: true
   webKitLegacyPreferenceKey: WebKitUsesPageCachePreferenceKey
@@ -9129,10 +9214,10 @@ WebArchiveTestingModeEnabled:
 
 WebAssemblyDebuggerEnabled:
   type: bool
-  status: internal
+  status: developer
   category: javascript
-  humanReadableName: "WebAssembly Debugger"
-  humanReadableDescription: "Enable LLDB debugging support for WebAssembly (requires page reload)"
+  humanReadableName: "Experimental WebAssembly Debugger (Disables JIT)"
+  humanReadableDescription: "Enable LLDB debugging support for WebAssembly (requires new tab)"
   condition: ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
   defaultValue:
     WebKitLegacy:
@@ -9278,6 +9363,22 @@ WebCodecsVideoEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
   mediaPlaybackRelated: true
+
+WebContentRestrictionsAskToEnabled:
+  type: bool
+  status: unstable
+  defaultsOverridable: true
+  humanReadableName: "Web Content Restrictions Ask To"
+  humanReadableDescription: "Enable Ask To for WebContentRestrictions"
+  condition: HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  sharedPreferenceForWebProcess: true
 
 WebContentRestrictionsTransitiveTrustEnabled:
   type: bool
@@ -10008,7 +10109,7 @@ WindowFocusRestricted:
 
 WirelessPlaybackMediaPlayerEnabled:
   type: bool
-  status: unstable
+  status: internal
   category: media
   humanReadableName: "Wireless Playback Media Player"
   humanReadableDescription: "Enable wireless playback via MediaPlayerPrivateWirelessPlayback"
@@ -10017,7 +10118,7 @@ WirelessPlaybackMediaPlayerEnabled:
     WebCore:
       default: false
     WebKit:
-      default: false
+      default: true
     WebKitLegacy:
       default: false
   disableInLockdownMode: true

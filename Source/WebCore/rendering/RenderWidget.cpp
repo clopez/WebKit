@@ -110,7 +110,7 @@ RenderWidget::RenderWidget(Type type, HTMLFrameOwnerElement& element, RenderStyl
 void RenderWidget::willBeDestroyed()
 {
     if (CheckedPtr cache = document().existingAXObjectCache()) {
-        if (auto* parent = this->parent())
+        if (CheckedPtr parent = this->parent())
             cache->childrenChanged(*parent);
         cache->remove(*this);
     }
@@ -342,7 +342,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (paintInfo.phase != PaintPhase::Foreground && !needsEventRegionContentPaint)
         return;
 
-    if (style().hasBorderRadius()) {
+    if (style().border().hasBorderRadius()) {
         LayoutRect borderRect = LayoutRect(adjustedPaintOffset, size());
 
         if (borderRect.isEmpty())
@@ -356,7 +356,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (m_widget && !isSkippedContentRoot(*this))
         paintContents(paintInfo, paintOffset);
 
-    if (style().hasBorderRadius())
+    if (style().border().hasBorderRadius())
         paintInfo.context().restore();
 
     if (paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::Accessibility)

@@ -484,6 +484,7 @@ def serialized_identifiers():
         'WebCore::WebTransportSendGroupIdentifier',
         'WebCore::WebTransportStreamIdentifier',
         'WebCore::WindowIdentifier',
+        'WebCore::XRHitTestSourceIdentifier',
         'WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier',
         'WebKit::AuthenticationChallengeIdentifier',
         'WebKit::WebModelIdentifier',
@@ -1547,6 +1548,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebKit::TextCheckerRequestID': ['"IdentifierTypes.h"'],
         'WebKit::TextInteractionSource': ['"GestureTypes.h"'],
         'WebKit::WebEventType': ['"WebEvent.h"'],
+        'WebKit::WebMouseEventInputSource': ['"WebMouseEvent.h"'],
         'WebKit::WebExtensionContextInstallReason': ['"WebExtensionContext.h"'],
         'WebKit::WebExtensionCookieFilterParameters': ['"WebExtensionCookieParameters.h"'],
         'WebKit::WebExtensionError': ['"WebExtensionError.h"'],
@@ -2196,7 +2198,7 @@ def generate_message_names_header(receivers):
     result.append('\n')
     result.append('template<> constexpr bool isValidEnum<IPC::MessageName>(std::underlying_type_t<IPC::MessageName> messageName)\n')
     result.append('{\n')
-    result.append('    return messageName <= WTF::enumToUnderlyingType(IPC::MessageName::Last);\n')
+    result.append('    return messageName <= std::to_underlying(IPC::MessageName::Last);\n')
     result.append('}\n')
     result.append('\n')
     result.append('} // namespace WTF\n')

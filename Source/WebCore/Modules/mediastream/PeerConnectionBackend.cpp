@@ -588,6 +588,9 @@ void PeerConnectionBackend::setRemoteDescriptionFailed(Exception&& exception)
 void PeerConnectionBackend::iceGatheringStateChanged(RTCIceGatheringState state)
 {
     ActiveDOMObject::queueTaskKeepingObjectAlive(protectedPeerConnection().get(), TaskSource::Networking, [this, protectedThis = Ref { *this }, state](auto& peerConnection) {
+        if (peerConnection.isClosed())
+            return;
+
         if (state == RTCIceGatheringState::Complete) {
             doneGatheringCandidates();
             return;
@@ -648,7 +651,7 @@ void PeerConnectionBackend::addIceCandidate(RTCIceCandidate* iceCandidate, Funct
                 return;
 
             if (result.hasException()) {
-                RELEASE_LOG_ERROR(WebRTC, "Adding ice candidate failed %hhu", enumToUnderlyingType(result.exception().code()));
+                RELEASE_LOG_ERROR(WebRTC, "Adding ice candidate failed %hhu", std::to_underlying(result.exception().code()));
                 callback(result.releaseException());
                 return;
             }

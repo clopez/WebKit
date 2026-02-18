@@ -54,7 +54,7 @@ public:
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
     void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
-    HTMLSelectElement& selectElement() const;
+    HTMLSelectElement& NODELETE selectElement() const;
 
     void selectionChanged();
 
@@ -77,6 +77,8 @@ public:
     std::optional<FrameIdentifier> rootFrameID() const final;
 
     void scrollDidEnd() final;
+
+    bool isScrollableOrRubberbandable() final;
 
 private:
     bool isVisibleToHitTesting() const final;
@@ -129,7 +131,7 @@ private:
 
     void setScrollOffset(const ScrollOffset&) final;
 
-    ScrollPosition scrollPosition() const final;
+    ScrollPosition NODELETE scrollPosition() const final;
     ScrollPosition minimumScrollPosition() const final;
     ScrollPosition maximumScrollPosition() const final;
 
@@ -152,7 +154,6 @@ private:
     bool forceUpdateScrollbarsOnMainThreadForPerformanceTesting() const final;
 
     ScrollableArea* enclosingScrollableArea() const final;
-    bool isScrollableOrRubberbandable() final;
     bool hasScrollableOrRubberbandableAncestor() final;
     IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
     bool mockScrollbarsControllerEnabled() const final;

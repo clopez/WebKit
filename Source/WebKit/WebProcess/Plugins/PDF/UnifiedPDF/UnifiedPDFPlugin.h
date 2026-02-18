@@ -260,7 +260,6 @@ private:
     void didInvalidateDataDetectorHighlightOverlayRects();
 
     PDFDataDetectorOverlayController& dataDetectorOverlayController() { return *m_dataDetectorOverlayController; }
-    Ref<PDFDataDetectorOverlayController> protectedDataDetectorOverlayController();
 #endif
 
     const PDFDocumentLayout& documentLayout() const { return m_documentLayout; }
@@ -628,19 +627,21 @@ private:
     WebCore::FloatRect pageToRootView(WebCore::FloatRect rectInPage, PDFPage *) const;
     WebCore::FloatRect pageToRootView(WebCore::FloatRect rectInPage, std::optional<PDFDocumentLayout::PageIndex>) const;
 
-#if PLATFORM(IOS_FAMILY)
-    void setSelectionRange(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity) final;
-    void clearSelection() final;
+#if ENABLE(TWO_PHASE_CLICKS)
     std::pair<URL, WebCore::FloatRect> linkURLAndBoundsForAnnotation(PDFAnnotation *) const;
     std::pair<URL, WebCore::FloatRect> linkURLAndBoundsAtPoint(WebCore::FloatPoint pointInRootView) const final;
     std::tuple<URL, WebCore::FloatRect, RefPtr<WebCore::TextIndicator>> linkDataAtPoint(WebCore::FloatPoint pointInRootView) final;
     std::optional<WebCore::FloatRect> highlightRectForTapAtPoint(WebCore::FloatPoint pointInRootView) const final;
-    void handleSyntheticClick(WebCore::PlatformMouseEvent&&) final;
+    CursorContext cursorContext(WebCore::FloatPoint pointInRootView) const final;
+#if PLATFORM(IOS_FAMILY)
+    void setSelectionRange(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity) final;
     SelectionWasFlipped moveSelectionEndpoint(WebCore::FloatPoint pointInRootView, SelectionEndpoint) final;
     SelectionEndpoint extendInitialSelection(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity) final;
     bool platformPopulateEditorStateIfNeeded(EditorState&) const final;
-    CursorContext cursorContext(WebCore::FloatPoint pointInRootView) const final;
     DocumentEditingContext documentEditingContext(DocumentEditingContextRequest&&) const final;
+    void resetInitialSelection();
+#endif
+#endif // ENABLE(TWO_PHASE_CLICKS)
 
 #if HAVE(PDFDOCUMENT_SELECTION_WITH_GRANULARITY)
     PDFSelection *selectionAtPoint(WebCore::FloatPoint pointInPage, PDFPage *, WebCore::TextGranularity) const;
@@ -649,17 +650,15 @@ private:
 
     PageAndPoint selectionCaretPointInPage(PDFSelection *, SelectionEndpoint) const;
     PageAndPoint selectionCaretPointInPage(SelectionEndpoint) const;
-    void resetInitialSelection();
-#endif // PLATFORM(IOS_FAMILY)
+
+#if ENABLE(TWO_PHASE_CLICKS)
+    void handleSyntheticClick(WebCore::PlatformMouseEvent&&) final;
+    void clearSelection() final;
+#endif
 
     bool shouldUseInProcessBackingStore() const;
 
     bool delegatesScrollingToMainFrame() const final;
-
-    RefPtr<PDFPresentationController> protectedPresentationController() const;
-
-    RefPtr<WebCore::GraphicsLayer> protectedScrollContainerLayer() const;
-    RefPtr<WebCore::GraphicsLayer> protectedOverflowControlsContainer() const;
 
     RefPtr<PDFPresentationController> m_presentationController;
 

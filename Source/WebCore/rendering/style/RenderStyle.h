@@ -52,7 +52,7 @@ public:
     static RenderStyle cloneIncludingPseudoElements(const RenderStyle&);
     static std::unique_ptr<RenderStyle> clonePtr(const RenderStyle&);
 
-    static RenderStyle createAnonymousStyleWithDisplay(const RenderStyle& parentStyle, DisplayType);
+    static RenderStyle createAnonymousStyleWithDisplay(const RenderStyle& parentStyle, Style::Display);
     static RenderStyle createStyleInheritingFromPseudoStyle(const RenderStyle& pseudoStyle);
 
     void inheritFrom(const RenderStyle&);
@@ -164,11 +164,10 @@ public:
     inline void setIsEffectivelyTransparent(bool);
 
     // No setter. Set via `RenderStyleProperties::setDisplay()`.
-    inline constexpr DisplayType originalDisplay() const;
+    inline constexpr Style::Display originalDisplay() const;
 
-    // `effectiveDisplay()` getter is an alias of `RenderStyleProperties::display()`.
-    inline DisplayType effectiveDisplay() const;
-    inline void setEffectiveDisplay(DisplayType);
+    // Sets the value of `display`, but leaves the value of `originalDisplay` unchanged.
+    inline void setDisplayMaintainingOriginalDisplay(Style::Display);
 
     inline StyleAppearance usedAppearance() const;
     inline void setUsedAppearance(StyleAppearance);
@@ -297,6 +296,8 @@ public:
     inline Style::BackgroundLayers& ensureBackgroundLayers();
     inline Style::MaskLayers& ensureMaskLayers();
     inline Style::Transitions& ensureTransitions();
+    inline Style::ScrollTimelines& ensureScrollTimelines();
+    inline Style::ViewTimelines& ensureViewTimelines();
 
     inline const BorderData& border() const;
     inline const BorderValue& borderBottom() const;
@@ -453,55 +454,17 @@ public:
 
     // MARK: - has*()
 
-    inline bool hasAnimations() const;
-    inline bool hasAnimationsOrTransitions() const;
-    inline bool hasAspectRatio() const;
-    inline bool hasAutoLengthContainIntrinsicSize() const;
-    inline bool hasBackdropFilter() const;
     inline bool hasBackground() const;
-    inline bool hasBackgroundImage() const;
-    inline bool hasBlendMode() const;
-    inline bool hasBorder() const;
-    inline bool hasBorderImage() const;
-    inline bool hasBorderRadius() const;
-    inline bool hasBoxReflect() const;
-    inline bool hasBoxShadow() const;
-    inline bool hasClip() const;
-    inline bool hasClipPath() const;
-    inline bool hasContent() const;
-    inline bool hasFill() const;
-    inline bool hasFilter() const;
     inline bool hasInlineColumnAxis() const;
-    inline bool hasIsolation() const;
     inline bool hasMarkers() const;
     inline bool hasMask() const;
-    inline bool hasOffsetPath() const;
-    inline bool hasOpacity() const;
     inline bool hasOutline() const;
     inline bool hasOutlineInVisualOverflow() const;
-    inline bool hasPerspective() const;
     inline bool hasPositionedMask() const;
-    inline bool hasRotate() const;
-    inline bool hasScale() const;
-    inline bool hasScrollTimelines() const;
-    inline bool hasSnapPosition() const;
-    inline bool hasStroke() const;
-    inline bool hasTextCombine() const;
-    inline bool hasTextShadow() const;
-    inline bool hasTransform() const;
-    inline bool hasTransitions() const;
-    inline bool hasTranslate() const;
     inline bool hasUsedAppearance() const;
     inline bool hasUsedContentNone() const;
-    inline bool hasViewTimelines() const;
-    inline bool hasVisibleBorder() const;
-    inline bool hasVisibleBorderDecoration() const;
     inline bool hasExplicitlySetBorderRadius() const;
     inline bool hasPositiveStrokeWidth() const;
-#if HAVE(CORE_MATERIAL)
-    inline bool hasAppleVisualEffect() const;
-    inline bool hasAppleVisualEffectRequiringBackdropFilter() const;
-#endif
 
     // Whether or not a positioned element requires normal flow x/y to be computed to determine its position.
     inline bool hasStaticInlinePosition(bool horizontal) const;
@@ -514,26 +477,11 @@ public:
 
     inline bool isColumnFlexDirection() const;
     inline bool isFixedTableLayout() const;
-    inline bool isFloating() const;
     inline bool isInterCharacterRubyPosition() const;
     inline bool isOverflowVisible() const;
     inline bool isReverseFlexDirection() const;
     inline bool isRowFlexDirection() const;
     inline bool isSkippedRootOrSkippedContent() const;
-    constexpr bool isDisplayInlineType() const;
-    constexpr bool isOriginalDisplayInlineType() const;
-    constexpr bool isDisplayFlexibleOrGridFormattingContextBox() const;
-    constexpr bool isDisplayDeprecatedFlexibleBox() const;
-    constexpr bool isDisplayFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox() const;
-    constexpr bool isDisplayRegionType() const;
-    constexpr bool isDisplayBlockLevel() const;
-    constexpr bool isOriginalDisplayBlockType() const;
-    constexpr bool isDisplayTableOrTablePart() const;
-    constexpr bool isInternalTableBox() const;
-    constexpr bool isRubyContainerOrInternalRubyBox() const;
-    constexpr bool isOriginalDisplayListItemType() const;
-
-    constexpr bool doesDisplayGenerateBlockContainer() const;
 
     inline bool specifiesColumns() const;
 
@@ -541,7 +489,6 @@ public:
     inline bool usesLegacyScrollbarStyle() const;
     inline bool shouldPlaceVerticalScrollbarOnLeft() const;
 
-    inline bool autoWrap() const;
     inline bool preserveNewline() const;
     inline bool collapseWhiteSpace() const;
     inline bool isCollapsibleWhiteSpace(char16_t) const;
@@ -554,7 +501,6 @@ public:
     // indicates that we are transforming. The usedTransformStyle3D is not used here because in many cases (such as for deciding
     // whether or not to establish a containing block), the computed value is what matters.
     inline bool hasTransformRelatedProperty() const;
-    inline bool preserves3D() const;
     inline bool affectsTransform() const;
 
     // MARK: - Underlying ComputedStyle
@@ -567,22 +513,6 @@ private:
 
     // This constructor is used to implement the replace operation.
     RenderStyle(RenderStyle&, RenderStyle&&);
-
-    inline bool hasAutoLeftAndRight() const;
-    inline bool hasAutoTopAndBottom() const;
-
-    static constexpr bool isDisplayInlineType(DisplayType);
-    static constexpr bool isDisplayBlockType(DisplayType);
-    static constexpr bool isDisplayFlexibleBox(DisplayType);
-    static constexpr bool isDisplayGridFormattingContextBox(DisplayType);
-    static constexpr bool isDisplayGridBox(DisplayType);
-    static constexpr bool isDisplayGridLanesBox(DisplayType);
-    static constexpr bool isDisplayFlexibleOrGridFormattingContextBox(DisplayType);
-    static constexpr bool isDisplayDeprecatedFlexibleBox(DisplayType);
-    static constexpr bool isDisplayListItemType(DisplayType);
-    static constexpr bool isDisplayTableOrTablePart(DisplayType);
-    static constexpr bool isInternalTableBox(DisplayType);
-    static constexpr bool isRubyContainerOrInternalRubyBox(DisplayType);
 
     const Style::NonInheritedData& nonInheritedData() const { return computedStyle().nonInheritedData(); }
     const Style::ComputedStyle::NonInheritedFlags& nonInheritedFlags() const { return computedStyle().nonInheritedFlags(); }
@@ -604,7 +534,6 @@ inline float applyZoom(float, const RenderStyle&);
 constexpr BorderStyle collapsedBorderStyle(BorderStyle);
 
 inline bool pseudoElementRendererIsNeeded(const RenderStyle*);
-inline bool generatesBox(const RenderStyle&);
 inline bool isNonVisibleOverflow(Overflow);
 
 inline bool isVisibleToHitTesting(const RenderStyle&, const HitTestRequest&);

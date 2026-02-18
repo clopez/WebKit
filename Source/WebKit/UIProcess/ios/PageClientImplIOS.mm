@@ -264,6 +264,16 @@ void PageClientImpl::didRelaunchProcess()
     [webView() _didRelaunchProcess];
 }
 
+void PageClientImpl::didStartUsingProcessForSiteIsolation(WebProcessProxy& webProcessProxy, LayerHostingContextID contextID)
+{
+    [contentView() _didStartUsingProcessForSiteIsolation:webProcessProxy contextID:contextID];
+}
+
+void PageClientImpl::didStopUsingProcessForSiteIsolation(WebProcessProxy& webProcessProxy)
+{
+    [contentView() _didStopUsingProcessForSiteIsolation:webProcessProxy];
+}
+
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
 void PageClientImpl::didCreateContextInWebProcessForVisibilityPropagation(LayerHostingContextID)
 {
@@ -1322,7 +1332,7 @@ WebCore::Color PageClientImpl::contentViewBackgroundColor()
 
 Color PageClientImpl::insertionPointColor()
 {
-    return roundAndClampToSRGBALossy(protect([webView() _insertionPointColor]).get().CGColor);
+    return roundAndClampToSRGBALossy(protect(protect([webView() _insertionPointColor]).get().CGColor));
 }
 
 bool PageClientImpl::isScreenBeingCaptured()
@@ -1429,12 +1439,12 @@ void PageClientImpl::scheduleVisibleContentRectUpdate()
 
 bool PageClientImpl::isPotentialTapInProgress() const
 {
-    return [m_contentView.get() isPotentialTapInProgress];
+    return [protect(m_contentView) isPotentialTapInProgress];
 }
 
 bool PageClientImpl::canStartNavigationSwipeAtLastInteractionLocation() const
 {
-    return [m_contentView.get() _canStartNavigationSwipeAtLastInteractionLocation];
+    return [protect(m_contentView) _canStartNavigationSwipeAtLastInteractionLocation];
 }
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)

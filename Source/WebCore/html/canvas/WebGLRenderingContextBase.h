@@ -193,7 +193,7 @@ public:
     void blendFunc(GCGLenum sfactor, GCGLenum dfactor);
     void blendFuncSeparate(GCGLenum srcRGB, GCGLenum dstRGB, GCGLenum srcAlpha, GCGLenum dstAlpha);
 
-    using BufferDataSource = Variant<RefPtr<ArrayBuffer>, RefPtr<ArrayBufferView>>;
+    using BufferDataSource = Variant<Ref<ArrayBuffer>, Ref<ArrayBufferView>>;
     void bufferData(GCGLenum target, long long size, GCGLenum usage);
     void bufferData(GCGLenum target, std::optional<BufferDataSource>&&, GCGLenum usage);
     void bufferSubData(GCGLenum target, long long offset, BufferDataSource&&);
@@ -337,10 +337,10 @@ public:
     virtual void texSubImage2D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, RefPtr<ArrayBufferView>&&);
     virtual ExceptionOr<void> texSubImage2D(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLenum format, GCGLenum type, std::optional<TexImageSource>&&);
 
-    template <class TypedArray, class DataType>
+    template<typename TypedArray, typename DataType>
     class TypedList {
     public:
-        using VariantType = Variant<RefPtr<TypedArray>, Vector<DataType>>;
+        using VariantType = Variant<Ref<TypedArray>, Vector<DataType>>;
 
         TypedList(VariantType&& variant)
             : m_variant(WTF::move(variant))
@@ -352,16 +352,16 @@ public:
         const DataType* data() const LIFETIME_BOUND
         {
             return WTF::switchOn(m_variant,
-                [] (const RefPtr<TypedArray>& typedArray) -> const DataType* { return typedArray->data(); },
-                [] (const Vector<DataType>& vector) -> const DataType* { return vector.span().data(); }
+                [](const Ref<TypedArray>& typedArray) -> const DataType* { return typedArray->data(); },
+                [](const Vector<DataType>& vector) -> const DataType* { return vector.span().data(); }
             );
         }
 
         GCGLsizei length() const
         {
             return WTF::switchOn(m_variant,
-                [] (const RefPtr<TypedArray>& typedArray) -> GCGLsizei { return typedArray->length(); },
-                [] (const Vector<DataType>& vector) -> GCGLsizei { return vector.size(); }
+                [](const Ref<TypedArray>& typedArray) -> GCGLsizei { return typedArray->length(); },
+                [](const Vector<DataType>& vector) -> GCGLsizei { return vector.size(); }
             );
         }
 
@@ -437,9 +437,10 @@ public:
 
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() override;
 
-    void reshape() override;
+    void didUpdateCanvasSizeProperties(bool) override;
 
     RefPtr<ImageBuffer> surfaceBufferToImageBuffer(SurfaceBuffer) final;
+    bool isSurfaceBufferTransparentBlack(SurfaceBuffer) const final { return false; }
 
     RefPtr<ByteArrayPixelBuffer> drawingBufferToPixelBuffer();
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
@@ -596,6 +597,7 @@ protected:
     virtual void uncacheDeletedBuffer(const AbstractLocker&, WebGLBuffer*);
     bool needsPreparationForDisplay() const final { return true; }
     void updateActiveOrdinal();
+    void updateMemoryCost() const;
 
     struct ContextLostState {
         ContextLostState(LostContextMode mode)
@@ -715,7 +717,8 @@ protected:
     int m_numGLErrorsToConsoleAllowed;
 
     bool m_compositingResultsNeedUpdating { false };
-    std::optional<SurfaceBuffer> m_canvasBufferContents;
+    RefPtr<ImageBuffer> m_readDrawingBuffer;
+    RefPtr<ImageBuffer> m_readDisplayBuffer;
 
     // Enabled extension objects.
     // FIXME: Move some of these to WebGLRenderingContext, the ones not needed for WebGL2

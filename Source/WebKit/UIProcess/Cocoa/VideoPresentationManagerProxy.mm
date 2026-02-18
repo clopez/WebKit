@@ -36,8 +36,10 @@
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "PageClient.h"
+#import "PlaybackSessionInterfaceAVKit.h"
 #import "PlaybackSessionInterfaceLMK.h"
 #import "PlaybackSessionManagerProxy.h"
+#import "VideoPresentationInterfaceAVKit.h"
 #import "VideoPresentationInterfaceLMK.h"
 #import "VideoPresentationManagerMessages.h"
 #import "VideoPresentationManagerProxyMessages.h"
@@ -51,12 +53,10 @@
 #import <WebCore/HTMLMediaElement.h>
 #import <WebCore/MediaPlayerEnums.h>
 #import <WebCore/NullVideoPresentationInterface.h>
-#import <WebCore/PlaybackSessionInterfaceAVKit.h>
 #import <WebCore/PlaybackSessionInterfaceAVKitLegacy.h>
 #import <WebCore/PlaybackSessionInterfaceMac.h>
 #import <WebCore/PlaybackSessionInterfaceTVOS.h>
 #import <WebCore/TimeRanges.h>
-#import <WebCore/VideoPresentationInterfaceAVKit.h>
 #import <WebCore/VideoPresentationInterfaceAVKitLegacy.h>
 #import <WebCore/VideoPresentationInterfaceMac.h>
 #import <WebCore/VideoPresentationInterfaceTVOS.h>
@@ -677,10 +677,10 @@ bool VideoPresentationManagerProxy::mayAutomaticallyShowVideoPictureInPicture() 
 }
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-bool VideoPresentationManagerProxy::isPlayingVideoInEnhancedFullscreen() const
+bool VideoPresentationManagerProxy::isPlayingVideoInPictureInPicture() const
 {
     for (auto& [model, interface] : m_contextMap.values()) {
-        if (interface->isPlayingVideoInEnhancedFullscreen())
+        if (interface->isPlayingVideoInPictureInPicture())
             return true;
     }
 
@@ -715,8 +715,8 @@ void VideoPresentationManagerProxy::requestRouteSharingPolicyAndContextUID(Playb
 
 static Ref<PlatformVideoPresentationInterface> videoPresentationInterface(WebPageProxy& page, PlatformPlaybackSessionInterface& playbackSessionInterface)
 {
-#if HAVE(AVKIT_CONTENT_SOURCE)
-    if (page.preferences().isAVKitContentSourceEnabled())
+#if HAVE(AVEXPERIENCECONTROLLER)
+    if (page.preferences().isAVExperienceControllerFullscreenEnabled())
         return VideoPresentationInterfaceAVKit::create(playbackSessionInterface);
 #endif
 

@@ -293,10 +293,10 @@ RenderBlock::~RenderBlock()
 void RenderBlock::styleWillChange(Style::Difference diff, const RenderStyle& newStyle)
 {
     const RenderStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
-    setBlockLevelReplacedOrAtomicInline(newStyle.isDisplayInlineType());
+    setBlockLevelReplacedOrAtomicInline(newStyle.display().isInlineType());
     if (oldStyle) {
         removeOutOfFlowBoxesIfNeededOnStyleChange(*this, *oldStyle, newStyle);
-        if (isLegend() && !oldStyle->isFloating() && newStyle.isFloating())
+        if (isLegend() && oldStyle->floating() == Float::None && newStyle.floating() != Float::None)
             setIsExcludedFromNormalLayout(false);
     }
     RenderBox::styleWillChange(diff, newStyle);
@@ -565,11 +565,10 @@ void RenderBlock::layoutBlock(RelayoutChildren, LayoutUnit)
 
 // Overflow is always relative to the border-box of the element in question.
 // Therefore, if the element has a vertical scrollbar placed on the left, an overflow rect at x=2px would conceptually intersect the scrollbar.
-void RenderBlock::computeOverflow(LayoutRect contentArea, OptionSet<ComputeOverflowOptions> options)
+void RenderBlock::computeInFlowOverflow(LayoutRect contentArea, OptionSet<ComputeOverflowOptions> options)
 {
     clearOverflow();
     addOverflowFromInFlowChildren(options);
-    addOverflowFromOutOfFlowBoxes();
 
     if (hasPotentiallyScrollableOverflow() || isRenderView()) {
         if (!flippedContentBoxRect().contains(contentArea))
@@ -714,6 +713,11 @@ bool RenderBlock::simplifiedLayout()
     if (CheckedPtr fragmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this))
         fragmentedFlow->applyBreakAfterContent(clientLogicalBottom());
 
+    // Recompute our overflow information.
+    // FIXME: Skip recalculation if we didn't actually relayout our in-flow boxes and don't have cached overflow.
+    auto contentArea = hasRenderOverflow() ? m_overflow->contentArea() : flippedContentBoxRect();
+    computeInFlowOverflow(contentArea, ComputeOverflowOptions::RecomputeFloats);
+
     // Lay out our positioned objects if our positioned child bit is set.
     // Also, if an absolute position element inside a relative positioned container moves, and the absolute element has a fixed position
     // child, neither the fixed element nor its container learn of the movement since outOfFlowChildNeedsLayout() is only marked as far as the
@@ -722,16 +726,7 @@ bool RenderBlock::simplifiedLayout()
     bool canContainFixedPosObjects = canContainFixedPositionObjects();
     if (outOfFlowChildNeedsLayout() || canContainFixedPosObjects)
         layoutOutOfFlowBoxes(RelayoutChildren::No, !outOfFlowChildNeedsLayout() && canContainFixedPosObjects);
-
-    // Recompute our overflow information.
-    // FIXME: We could do better here by computing a temporary overflow object from layoutOutOfFlowBoxes and only
-    // updating our overflow if we either used to have overflow or if the new temporary object has overflow.
-    // For now just always recompute overflow.  This is no worse performance-wise than the old code that called rightmostPosition and
-    // lowestPosition on every relayout so it's not a regression.
-    // computeOverflow expects the bottom edge before we clamp our height. Since this information isn't available during
-    // simplifiedLayout, we cache the value in m_overflow.
-    auto contentArea = hasRenderOverflow() ? m_overflow->contentArea() : flippedContentBoxRect();
-    computeOverflow(contentArea, ComputeOverflowOptions::RecomputeFloats);
+    addOverflowFromOutOfFlowBoxes();
 
     updateLayerTransform();
 
@@ -1307,20 +1302,20 @@ bool RenderBlock::establishesIndependentFormattingContextIgnoringDisplayType(con
     }
 
     auto isBlockBoxWithPotentiallyScrollableOverflow = [&] {
-        return style.isDisplayBlockLevel()
-            && style.doesDisplayGenerateBlockContainer()
+        return style.display().isBlockType()
+            && style.display().doesGenerateBlockContainer()
             && hasNonVisibleOverflow()
             && style.overflowX() != Overflow::Clip
             && style.overflowX() != Overflow::Visible;
     };
 
-    return style.isFloating()
+    return style.floating() != Float::None
         || style.hasOutOfFlowPosition()
         || isBlockBoxWithPotentiallyScrollableOverflow()
         || style.usedContain().contains(Style::ContainValue::Layout)
         || style.containerType() != ContainerType::Normal
         || WebCore::shouldApplyPaintContainment(style, *protect(element()))
-        || (style.isDisplayBlockLevel() && !style.blockStepSize().isNone());
+        || (style.display().isBlockType() && !style.blockStepSize().isNone());
 }
 
 bool RenderBlock::establishesIndependentFormattingContext() const
@@ -1353,7 +1348,7 @@ bool RenderBlock::createsNewFormattingContext() const
     if (isBlockContainer() && !style.alignContent().isNormal())
         return true;
     return isNonReplacedAtomicInlineLevelBox()
-        || style.isDisplayFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox()
+        || style.display().isFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox()
         || isFlexItemIncludingDeprecated()
         || isRenderTable()
         || isRenderTableCell()
@@ -1364,7 +1359,7 @@ bool RenderBlock::createsNewFormattingContext() const
         || isRenderOrLegacyRenderSVGForeignObject()
         || style.specifiesColumns()
         || style.columnSpan() == ColumnSpan::All
-        || style.display() == DisplayType::FlowRoot
+        || style.display() == Style::DisplayType::BlockFlowRoot
         || establishesIndependentFormattingContext();
 }
 
@@ -3440,11 +3435,20 @@ LayoutUnit RenderBlock::layoutOverflowLogicalBottom(const RenderBlock& renderer)
     return std::max(renderer.clientLogicalBottom(), maxChildLogicalBottom + renderer.paddingAfter());
 }
 
-void RenderBlock::updateDescendantTransformsAfterLayout()
+void RenderBlock::updateInFlowDescendantTransformsAfterLayout()
 {
     auto boxes = view().frameView().layoutContext().takeBoxesNeedingTransformUpdateAfterContainerLayout(*this);
     for (auto& box : boxes) {
-        if (box && box->hasLayer())
+        if (box && box->hasLayer() && !box->isOutOfFlowPositioned())
+            box->layer()->updateTransform();
+    }
+}
+
+void RenderBlock::updateOutOfFlowDescendantTransformsAfterLayout()
+{
+    auto boxes = view().frameView().layoutContext().takeBoxesNeedingTransformUpdateAfterContainerLayout(*this);
+    for (auto& box : boxes) {
+        if (box && box->hasLayer() && box->isOutOfFlowPositioned())
             box->layer()->updateTransform();
     }
 }

@@ -40,7 +40,6 @@ class ReferencedSVGResources;
 class RenderBlock;
 class RenderStyle;
 class RenderTreeBuilder;
-class StyleImage;
 struct ImageOrientation;
 
 struct MarginRect {
@@ -53,6 +52,7 @@ class ElementBox;
 }
 
 namespace Style {
+class Image;
 struct Content;
 }
 
@@ -113,12 +113,12 @@ public:
     inline bool canContainAbsolutelyPositionedObjects(const RenderStyle* styleToUse = nullptr) const; // Defined in RenderElementStyleInlines.h.
     bool canEstablishContainingBlockWithTransform() const;
 
-    inline bool shouldApplyLayoutContainment(const RenderStyle* styleToUse = nullptr) const; // Defined in RenderElementStyleInlines.h
+    inline bool shouldApplyLayoutContainment() const; // Defined in RenderElementStyleInlines.h
     inline bool shouldApplySizeContainment() const; // Defined in RenderElementStyleInlines.h
     inline bool shouldApplyInlineSizeContainment() const; // Defined in RenderElementStyleInlines.h.
     inline bool shouldApplySizeOrInlineSizeContainment() const; // Defined in RenderElementStyleInlines.h
     inline bool shouldApplyStyleContainment() const; // Defined in RenderElementStyleInlines.h.
-    inline bool shouldApplyPaintContainment(const RenderStyle* styleToUse = nullptr) const; // Defined in RenderElementStyleInlines.h.
+    inline bool shouldApplyPaintContainment() const; // Defined in RenderElementStyleInlines.h.
     inline bool shouldApplyAnyContainment() const; // Defined in RenderElementStyleInlines.h.
 
     bool hasEligibleContainmentForSizeQuery() const;
@@ -200,14 +200,14 @@ public:
     inline bool hasClipOrNonVisibleOverflow() const; // Defined in RenderElementStyleInlines.h.
     inline bool hasClipPath() const; // Defined in RenderElementStyleInlines.h.
     inline bool hasHiddenBackface() const; // Defined in RenderElementStyleInlines.h.
-    bool hasViewTransitionName() const;
-    bool isViewTransitionRoot() const;
-    bool requiresRenderingConsolidationForViewTransition() const;
+    bool NODELETE hasViewTransitionName() const;
+    bool NODELETE isViewTransitionRoot() const;
+    bool NODELETE requiresRenderingConsolidationForViewTransition() const;
     bool hasOutlineAnnotation() const;
     inline bool hasOutline() const; // Defined in RenderElementStyleInlines.h.
-    bool hasSelfPaintingLayer() const;
+    bool NODELETE hasSelfPaintingLayer() const;
 
-    bool checkForRepaintDuringLayout() const;
+    bool NODELETE checkForRepaintDuringLayout() const;
 
     // absoluteAnchorRect() is conceptually similar to absoluteBoundingBoxRect(), but is intended for scrolling to an
     // anchor. For inline renderers, this gets the logical top left of the first leaf child and the logical bottom
@@ -297,8 +297,8 @@ public:
 
     ReferencedSVGResources& ensureReferencedSVGResources();
 
-    Overflow effectiveOverflowX() const;
-    Overflow effectiveOverflowY() const;
+    Overflow NODELETE effectiveOverflowX() const;
+    Overflow NODELETE effectiveOverflowY() const;
     inline Overflow effectiveOverflowInlineDirection() const;
     inline Overflow effectiveOverflowBlockDirection() const;
     virtual bool overflowChangesMayAffectLayout() const { return false; }
@@ -418,7 +418,7 @@ private:
     bool shouldRepaintForStyleDifference(Style::Difference) const;
 
     template<typename FillLayerType> void updateFillImages(const FillLayerType*, const FillLayerType*);
-    void updateImage(StyleImage*, StyleImage*);
+    void updateImage(Style::Image*, Style::Image*);
     void updateShapeImage(const Style::ShapeOutside*, const Style::ShapeOutside*);
 
     Style::Difference adjustStyleDifference(Style::Difference) const;
@@ -499,9 +499,9 @@ inline bool RenderElement::canEstablishContainingBlockWithTransform() const
 
 inline RenderObject* RenderElement::firstInFlowChild() const
 {
-    if (auto* firstChild = this->firstChild()) {
+    if (CheckedPtr firstChild = this->firstChild()) {
         if (firstChild->isInFlow())
-            return firstChild;
+            return firstChild.unsafeGet();
         return firstChild->nextInFlowSibling();
     }
     return nullptr;
@@ -509,9 +509,9 @@ inline RenderObject* RenderElement::firstInFlowChild() const
 
 inline RenderObject* RenderElement::lastInFlowChild() const
 {
-    if (auto* lastChild = this->lastChild()) {
+    if (CheckedPtr lastChild = this->lastChild()) {
         if (lastChild->isInFlow())
-            return lastChild;
+            return lastChild.unsafeGet();
         return lastChild->previousInFlowSibling();
     }
     return nullptr;

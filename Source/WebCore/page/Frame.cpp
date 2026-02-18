@@ -195,19 +195,13 @@ void Frame::takeWindowProxyAndOpenerFrom(Frame& frame)
     frame.m_openedFrames.clear();
 }
 
-RefPtr<DOMWindow> Frame::protectedWindow() const
-{
-    return window();
-}
-
 std::optional<uint64_t> Frame::indexInFrameTreeSiblings() const
 {
     if (!tree().parent())
         return std::nullopt;
 
-    const auto& parentTree = tree().parent()->tree();
-    for (uint64_t i = 0; i < parentTree.childCount(); i++) {
-        if (this == parentTree.child(i))
+    for (uint64_t i = 0; i < tree().parent()->tree().childCount(); i++) {
+        if (RefPtr child = tree().parent()->tree().child(i); child->frameID() == this->frameID())
             return i;
     }
 
@@ -240,11 +234,6 @@ RenderWidget* Frame::ownerRenderer() const
     // since ownerElement would be nullptr when the load is canceled.
     // https://bugs.webkit.org/show_bug.cgi?id=18585
     return dynamicDowncast<RenderWidget>(ownerElement->renderer());
-}
-
-RefPtr<FrameView> Frame::protectedVirtualView() const
-{
-    return virtualView();
 }
 
 #if ASSERT_ENABLED

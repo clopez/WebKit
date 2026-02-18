@@ -131,7 +131,7 @@ void RenderTreeUpdater::commit(std::unique_ptr<Style::Update> styleUpdate)
     for (auto& root : m_styleUpdate->roots()) {
         if (&root->document() != m_document.ptr())
             continue;
-        RefPtr renderingRoot = findRenderingRoot(*root);
+        RefPtr renderingRoot = findRenderingRoot(root.get());
         if (!renderingRoot)
             continue;
         updateRenderTree(*renderingRoot);
@@ -219,7 +219,7 @@ void RenderTreeUpdater::updateRebuildRoots()
         if (rebuildRoots.isEmpty())
             break;
         for (auto& rebuildRoot : rebuildRoots) {
-            if (RefPtr newRebuildRoot = findNewRebuildRoot(*rebuildRoot))
+            if (RefPtr newRebuildRoot = findNewRebuildRoot(rebuildRoot.get()))
                 addSubtreeForRebuild(*newRebuildRoot);
         }
     }
@@ -454,7 +454,7 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
 
         // display:none cancels animations.
         auto teardownType = [&]() {
-            if (!elementUpdate.style->hasDisplayAffectedByAnimations() && elementUpdate.style->display() == DisplayType::None)
+            if (!elementUpdate.style->hasDisplayAffectedByAnimations() && elementUpdate.style->display() == Style::DisplayType::None)
                 return TeardownType::RendererUpdateCancelingAnimations;
             return TeardownType::RendererUpdate;
         }();
@@ -464,8 +464,8 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
         renderingParent().didCreateOrDestroyChildRenderer = true;
     }
 
-    bool hasDisplayContents = elementUpdate.style->display() == DisplayType::Contents;
-    bool hasDisplayNonePreventingRendererCreation = elementUpdate.style->display() == DisplayType::None && !element.rendererIsNeeded(elementUpdateStyle);
+    bool hasDisplayContents = elementUpdate.style->display() == Style::DisplayType::Contents;
+    bool hasDisplayNonePreventingRendererCreation = elementUpdate.style->display() == Style::DisplayType::None && !element.rendererIsNeeded(elementUpdateStyle);
     bool hasDisplayContentsOrNone = hasDisplayContents || hasDisplayNonePreventingRendererCreation;
     if (hasDisplayContentsOrNone)
         element.storeDisplayContentsOrNoneStyle(makeUnique<RenderStyle>(WTF::move(elementUpdateStyle)));
@@ -482,7 +482,7 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
     auto scopeExit = makeScopeExit([&] {
         if (!hasDisplayContentsOrNone) {
             auto* box = element.renderBox();
-            if (box && box->style().hasAutoLengthContainIntrinsicSize() && !isSkippedContentRoot(*box))
+            if (box && (box->style().containIntrinsicWidth().hasAuto() || box->style().containIntrinsicHeight().hasAuto()) && !isSkippedContentRoot(*box))
                 m_document->observeForContainIntrinsicSize(element);
             else
                 m_document->unobserveForContainIntrinsicSize(element);

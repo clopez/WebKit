@@ -106,7 +106,7 @@ LineLayoutResult TextOnlySimpleLineBuilder::layoutInlineContent(const LineInput&
     }
 
     initialize(lineInput.needsLayoutRange, lineInput.initialLogicalRect, previousLine, isFirstFormattedLineCandidate);
-    auto& rootStyle = this->rootStyle();
+    CheckedRef rootStyle = this->rootStyle();
     auto placedContentEnd = TextUtil::isWrappingAllowed(rootStyle) ? placeInlineTextContent(rootStyle, lineInput.needsLayoutRange) : placeNonWrappingInlineTextContent(rootStyle, lineInput.needsLayoutRange);
     auto result = m_line.close();
 
@@ -508,7 +508,7 @@ bool TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(const
             return false;
         if (style.textIndent() != Style::ComputedStyle::initialTextIndent())
             return false;
-        if (style.textAlignLast() == Style::TextAlignLast::Justify || style.textAlign() == Style::TextAlign::Justify || style.display() == DisplayType::RubyAnnotation)
+        if (style.textAlignLast() == Style::TextAlignLast::Justify || style.textAlign() == Style::TextAlign::Justify || style.display() == Style::DisplayType::RubyText)
             return false;
         if (style.boxDecorationBreak() == BoxDecorationBreak::Clone)
             return false;
@@ -523,9 +523,29 @@ bool TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(const
         return true;
     };
 
-    auto& style = box.style();
-    auto& firstLineStyle = box.firstLineStyle();
-    return isEligibleByStyle(style) && (&style == &firstLineStyle || isEligibleByStyle(firstLineStyle));
+    CheckedRef style = box.style();
+    CheckedRef firstLineStyle = box.firstLineStyle();
+    return isEligibleByStyle(style.get()) && (style.ptr() == firstLineStyle.ptr() || isEligibleByStyle(firstLineStyle.get()));
+}
+
+bool TextOnlySimpleLineBuilder::isEligibleForSimplifiedDisplayBuild(const ElementBox& rootBlockContainer)
+{
+    auto isSingleTextBox = is<InlineTextBox>(rootBlockContainer.firstChild()) && rootBlockContainer.firstChild() == rootBlockContainer.lastChild();
+    if (!isSingleTextBox)
+        return false;
+    if (!downcast<InlineTextBox>(*rootBlockContainer.firstChild()).canUseSimplifiedContentMeasuring())
+        return false;
+
+    auto& rootStyle = rootBlockContainer.style();
+    if (rootStyle.textOverflow() != Style::ComputedStyle::initialTextOverflow())
+        return false;
+    if (!rootStyle.writingMode().isHorizontal())
+        return false;
+    if (rootStyle.textEmphasisStyle() != Style::ComputedStyle::initialTextEmphasisStyle())
+        return false;
+    if (rootStyle.lineBoxContain() != Style::ComputedStyle::initialLineBoxContain())
+        return false;
+    return true;
 }
 
 }

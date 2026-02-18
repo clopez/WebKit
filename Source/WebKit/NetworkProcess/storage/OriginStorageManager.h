@@ -76,10 +76,9 @@ public:
     LocalStorageManager* existingLocalStorageManager();
     SessionStorageManager& sessionStorageManager(StorageAreaRegistry&);
     SessionStorageManager* existingSessionStorageManager();
-    IDBStorageManager& idbStorageManager(IDBStorageRegistry&);
+    IDBStorageManager& idbStorageManager(IDBStorageRegistry&, bool useSQLiteMemoryBackingStore);
     IDBStorageManager* existingIDBStorageManager();
     CacheStorageManager& cacheStorageManager(CacheStorageRegistry&, const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
-    Ref<CacheStorageManager> protectedCacheStorageManager(CacheStorageRegistry&, const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
     CacheStorageManager* existingCacheStorageManager();
     BackgroundFetchStoreManager& backgroundFetchManager(Ref<WTF::WorkQueue>&&);
     ServiceWorkerStorageManager& serviceWorkerStorageManager();

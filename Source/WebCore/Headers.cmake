@@ -477,8 +477,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/identity/DigitalCredentialGetRequest.h
     Modules/identity/DigitalCredentialPresentationProtocol.h
     Modules/identity/DigitalCredentialRequestOptions.h
+    Modules/identity/DigitalCredentialsMobileDocumentRequestData.h
+    Modules/identity/DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h
     Modules/identity/DigitalCredentialsRequestData.h
+    Modules/identity/DigitalCredentialsRequestDataBuilder.h
     Modules/identity/DigitalCredentialsResponseData.h
+    Modules/identity/DigitalCredentialsSecurityOriginData.h
 
     Modules/identity/dummy/DummyCredentialRequestCoordinatorClient.h
 
@@ -529,6 +533,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/server/MemoryBackingStoreTransaction.h
     Modules/indexeddb/server/MemoryIDBBackingStore.h
     Modules/indexeddb/server/SQLiteIDBBackingStore.h
+    Modules/indexeddb/server/SQLiteMemoryIDBBackingStore.h
     Modules/indexeddb/server/SQLiteIDBTransaction.h
     Modules/indexeddb/server/ServerOpenDBRequest.h
     Modules/indexeddb/server/UniqueIDBDatabase.h
@@ -844,8 +849,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/webxr/XRCanvasConfiguration.h
     Modules/webxr/XRGPUProjectionLayerInit.h
-    Modules/webxr/XRLayerBacking.h
     Modules/webxr/XRHitTestTrackableType.h
+    Modules/webxr/XRLayerBacking.h
 
     Scripts/generate-log-declarations.py
 
@@ -1870,6 +1875,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/formattingContexts/grid/GridItemRect.h
     layout/formattingContexts/grid/GridLayoutState.h
     layout/formattingContexts/grid/GridTypeAliases.h
+    layout/formattingContexts/grid/ImplicitGrid.h
 
     layout/formattingContexts/inline/AbstractLineBuilder.h
     layout/formattingContexts/inline/AvailableLineWidthOverride.h
@@ -2413,6 +2419,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ReferrerPolicy.h
     platform/RegistrableDomain.h
     platform/RemoteCommandListener.h
+    platform/RubberbandingState.h
     platform/RunLoopObserver.h
     platform/ScreenOrientationManager.h
     platform/ScreenProperties.h
@@ -3104,6 +3111,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/video-codecs/VideoCodecType.h
 
     platform/xr/PlatformXR.h
+    platform/xr/XRHitTestSourceIdentifier.h
 
     plugins/PluginData.h
     plugins/PluginInfoProvider.h
@@ -3229,10 +3237,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/RenderStyle.h
     rendering/style/RenderStyle+GettersInlines.h
     rendering/style/RenderStyleConstants.h
-    rendering/style/StyleCachedImage.h
     rendering/style/StyleContentAlignmentData.h
-    rendering/style/StyleGeneratedImage.h
-    rendering/style/StyleImage.h
     rendering/style/StyleSelfAlignmentData.h
 
     rendering/svg/RenderSVGInlineText.h
@@ -3397,6 +3402,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/css2/StyleZIndex.h
 
+    style/values/display/StyleDisplay.h
     style/values/display/StyleOrder.h
 
     style/values/easing/StyleEasingFunction.h
@@ -3460,6 +3466,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/images/StyleImageOrientation.h
     style/values/images/StyleImageWrapper.h
     style/values/images/StyleObjectPosition.h
+
+    style/values/images/kinds/StyleCachedImage.h
+    style/values/images/kinds/StyleImage.h
 
     style/values/inline/StyleLineFitEdge.h
     style/values/inline/StyleLineHeight.h
@@ -3545,12 +3554,14 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/rhythm/StyleBlockStepSize.h
 
-    style/values/scroll-animations/StyleProgressTimelineAxes.h
+    style/values/scroll-animations/StyleProgressTimelineAxis.h
     style/values/scroll-animations/StyleProgressTimelineName.h
     style/values/scroll-animations/StyleScrollFunction.h
+    style/values/scroll-animations/StyleScrollTimeline.h
     style/values/scroll-animations/StyleScrollTimelines.h
     style/values/scroll-animations/StyleViewFunction.h
-    style/values/scroll-animations/StyleViewTimelineInsets.h
+    style/values/scroll-animations/StyleViewTimeline.h
+    style/values/scroll-animations/StyleViewTimelineInsetItem.h
     style/values/scroll-animations/StyleViewTimelines.h
 
     style/values/scroll-snap/StyleScrollMargin.h

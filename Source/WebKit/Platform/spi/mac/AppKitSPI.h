@@ -180,6 +180,14 @@ typedef NS_ENUM(NSInteger, NSScrollPocketEdge) {
 @end
 #endif
 
+@protocol NSGestureRecognizerDelegatePrivate <NSGestureRecognizerDelegate>
+
+@optional
+
+- (BOOL)_gestureRecognizer:(NSGestureRecognizer *)preventingGestureRecognizer canPreventGestureRecognizer:(NSGestureRecognizer *)preventedGestureRecognizer;
+
+@end
+
 #endif
 
 @interface NSPopover (IPI)
@@ -211,11 +219,11 @@ typedef void (^NSWindowSnapshotReadinessHandler) (void);
 
 NS_HEADER_AUDIT_BEGIN(nullability, sendability)
 
-@protocol NSTextSelectionManagerDelegateForWebKit <NSObject>
+@protocol NSTextSelectionManagerDelegateForWebKit_Staging <NSObject>
 
 - (BOOL)isTextSelectedAtPoint:(NSPoint)point;
 - (void)moveInsertionCursorToPoint:(NSPoint)point;
-- (void)handleClickAtPoint:(NSPoint)point;
+- (void)handleClickAtPoint:(NSPoint)point clickCount:(NSUInteger)clickCount;
 - (void)showContextMenuAtPoint:(NSPoint)point;
 - (void)dragSelectionWithGesture:(NSGestureRecognizer *)gesture completionHandler:(void(^)(NSDraggingSession*))completionHandler;
 - (void)beginRangeSelectionAtPoint:(NSPoint)point withGranularity:(NSTextSelectionGranularity)granularity;
@@ -225,7 +233,7 @@ NS_HEADER_AUDIT_BEGIN(nullability, sendability)
 @end
 
 @interface NSTextSelectionManager (WebKit_SPI)
-@property (weak) id <NSTextSelectionManagerDelegateForWebKit> _webkitDelegate;
+@property (weak) id <NSTextSelectionManagerDelegateForWebKit_Staging> _webkitDelegate;
 @end
 
 NS_HEADER_AUDIT_END(nullability, sendability)

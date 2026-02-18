@@ -998,7 +998,7 @@ input[type="file"]:disabled {
 input:is([type="button"], [type="submit"], [type="reset"]):disabled,
 input[type="file"]:disabled::file-selector-button,
 button:disabled,
-select:disabled {
+select:-internal-uses-menulist:disabled {
     background-color: -apple-system-opaque-secondary-fill-disabled;
     color: -apple-system-tertiary-label;
     opacity: initial;
@@ -1055,62 +1055,171 @@ input[type="color"]::-webkit-color-swatch {
 select {
     box-sizing: border-box;
     appearance: auto;
+    border: 1px solid;
+    -webkit-rtl-ordering: logical;
+}
+
+/* FIXME: Implement revert-rule CSS keyword so we can de-duplicate some of this. */
+
+select:-internal-uses-menulist {
 #if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
-    letter-spacing: normal;
-    word-spacing: normal;
-    line-height: normal;
-    padding-block: 0;
-    padding-inline: 0.4em;
-    color: -apple-system-blue;
-    font: 11px system-ui;
-    border: 1px solid -webkit-control-background;
-    border-radius: initial;
+    padding-inline: -internal-auto-base(0.4em, 0.5em);
+    color: -internal-auto-base(-apple-system-blue, inherit);
+    font: -internal-auto-base(11px system-ui, inherit);
+    border-color: -internal-auto-base(-webkit-control-background, initial);
+    border-radius: -internal-auto-base(initial, 0.5em);
 #if defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: -internal-auto-base(rgba(0, 0, 0, 0.04), transparent);
 #else
-    background-color: -apple-system-opaque-secondary-fill;
+    background-color: -internal-auto-base(-apple-system-opaque-secondary-fill, transparent);
 #endif /* defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION */
 #else
-    border-radius: 5px;
-    border: 1px solid;
-    color: CanvasText;
+    padding-inline: -internal-auto-base(0, 0.5em);
+    color: -internal-auto-base(CanvasText, inherit);
+    background-color: -internal-auto-base(Canvas, transparent);
+    border-radius: -internal-auto-base(5px, 0.5em);
+    font: -internal-auto-base(-webkit-small-control, inherit);
+#endif /* defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY */
+    padding-block: -internal-auto-base(0, 0.25em);
+    align-items: -internal-auto-base(center, unset);
+    white-space: -internal-auto-base(pre, initial);
+    cursor: -internal-auto-base(default, inherit);
+    gap: -internal-auto-base(initial, 0.5em);
+
+    -webkit-rtl-ordering: -internal-auto-base(logical, inherit);
+    text-shadow: -internal-auto-base(none, inherit);
+    text-transform: -internal-auto-base(none, initial);
+    letter-spacing: -internal-auto-base(normal, inherit);
+    word-spacing: -internal-auto-base(normal, inherit);
+}
+
+select:-internal-uses-menulist:enabled:hover {
+#if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
+#if defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION
+    background-color: -internal-auto-base(rgba(0, 0, 0, 0.04), color-mix(in lab, currentColor 10%, transparent));
+#else
+    background-color: -internal-auto-base(-apple-system-opaque-secondary-fill, color-mix(in lab, currentColor 10%, transparent));
+#endif /* defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION */
+#else
+    background-color: -internal-auto-base(Canvas, color-mix(in lab, currentColor 10%, transparent));
+#endif /* defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY */
+}
+
+select:-internal-uses-menulist:enabled:active {
+#if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
+#if defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION
+    background-color: -internal-auto-base(rgba(0, 0, 0, 0.04), color-mix(in lab, currentColor 20%, transparent));
+#else
+    background-color: -internal-auto-base(-apple-system-opaque-secondary-fill, color-mix(in lab, currentColor 20%, transparent));
+#endif /* defined(WTF_PLATFORM_VISION) && WTF_PLATFORM_VISION */
+#else
+    background-color: -internal-auto-base(Canvas, color-mix(in lab, currentColor 20%, transparent));
+#endif /* defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY */
+}
+
+select:-internal-uses-menulist:disabled {
+#if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
+    background-color: -internal-auto-base(-apple-system-opaque-secondary-fill-disabled, transparent);
+    color: -internal-auto-base(-apple-system-tertiary-label, color-mix(in lab, currentColor 50%, transparent));
+#else
+    color: -internal-auto-base(GrayText, color-mix(in lab, currentColor 50%, transparent));
+#endif
+}
+
+select:-internal-uses-menulist:not([popover]) {
+    display: -internal-auto-base(inline-block, inline-flex);
+}
+
+select:not(:-internal-uses-menulist) {
     background-color: Canvas;
-#endif
-    align-items: center;
-    white-space: pre;
-    -webkit-rtl-ordering: logical;
-    cursor: default;
+    border-style: inset;
+    border-color: gray;
 }
 
-#if !(defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY)
-select:is([size], [multiple]), select[size][multiple] {
-    align-items: normal;
-    cursor: auto;
-    border: 1px inset gray;
-    border-radius: initial;
-    white-space: initial;
+select:not(:-internal-uses-menulist):enabled {
+    color: CanvasText;
 }
-
-select:is([size=""], [size="0"], [size="1"]) {
-    align-items: center;
-    border: 1px solid;
-    border-radius: 5px;
-    white-space: pre;
-}
-#endif
 
 select:not([multiple]):-internal-uses-menulist > button:first-child {
     all: unset;
     /* FIXME: add display: contents; once it works as expected */
 }
 
-optgroup {
+select::picker-icon {
+    /* FIXME: Switch to disclosure-open counter once it works */
+    content: "\25BC" / "";
+    display: block;
+    margin-inline-start: auto;
+}
+
+:-internal-select-popover {
+    box-sizing: border-box;
+    border: -internal-auto-base(none, 1px solid);
+    padding: 0;
+    color: -internal-auto-base(inherit, CanvasText);
+    background-color: -internal-auto-base(transparent, Canvas);
+    margin: 0;
+    inset: auto;
+    min-inline-size: -internal-auto-base(unset, anchor-size(self-inline));
+    min-block-size: 1lh;
+    /* Go to the edge of the viewport, and add scrollbars if needed. */
+    max-block-size: stretch;
+    overflow: auto;
+    /* Below and span-right, by default. */
+    position-area: -internal-auto-base(unset, block-end span-inline-end);
+    position-try-order: -internal-auto-base(unset, most-block-size);
+    position-try-fallbacks: -internal-auto-base(unset,
+        block-start span-inline-end,   /* First try above and span-right. */
+        block-end span-inline-start,   /* Then below but span-left. */
+        block-start span-inline-start); /* Then above and span-left. */
+
+    display: -internal-auto-base(contents, none);
+}
+
+:-internal-select-popover:popover-open {
+    display: block;
+}
+
+select:-internal-uses-menulist option {
+    min-inline-size: 24px;
+    min-block-size: max(24px, 1lh);
+    padding-inline: 0.5em;
+    padding-block-end: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+select option {
+    white-space: nowrap;
+}
+
+select option:enabled:hover {
+    background-color: color-mix(in lab, currentColor 10%, transparent);
+}
+
+select option:enabled:active {
+    background-color: color-mix(in lab, currentColor 20%, transparent);
+}
+
+select option:disabled {
+    color: color-mix(in lab, currentColor 50%, transparent);
+}
+
+select optgroup {
     font-weight: bolder;
 }
 
-option {
+select optgroup option {
     font-weight: normal;
-    white-space: nowrap;
+}
+
+select option::checkmark {
+    content: "\2713" / "";
+}
+
+select option:not(:checked)::checkmark {
+    visibility: hidden;
 }
 
 output {

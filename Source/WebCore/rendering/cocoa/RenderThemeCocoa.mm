@@ -1765,7 +1765,7 @@ bool RenderThemeCocoa::adjustColorWellSwatchOverlayStyleForVectorBasedControls(R
     if (!formControlRefreshEnabled(element))
         return false;
 
-    style.setDisplay(DisplayType::None);
+    style.setDisplay(Style::DisplayType::None);
 
     return true;
 #endif
@@ -2929,13 +2929,13 @@ bool RenderThemeCocoa::paintMeterForVectorBasedControls(const RenderElement& ren
 
     auto colorCSSValueID = CSSValueInvalid;
     switch (element->gaugeRegion()) {
-    case HTMLMeterElement::GaugeRegionOptimum:
+    case HTMLMeterElement::GaugeRegion::Optimum:
         colorCSSValueID = CSSValueAppleSystemGreen;
         break;
-    case HTMLMeterElement::GaugeRegionSuboptimal:
+    case HTMLMeterElement::GaugeRegion::Suboptimal:
         colorCSSValueID = CSSValueAppleSystemYellow;
         break;
-    case HTMLMeterElement::GaugeRegionEvenLessGood:
+    case HTMLMeterElement::GaugeRegion::EvenLessGood:
         colorCSSValueID = CSSValueAppleSystemRed;
         break;
     }
@@ -2966,7 +2966,7 @@ bool RenderThemeCocoa::adjustListButtonStyleForVectorBasedControls(RenderStyle& 
         return false;
 
 #if PLATFORM(IOS_FAMILY)
-    if (style.hasContent() || style.hasUsedContentNone()) {
+    if (style.content().isData() || style.hasUsedContentNone()) {
         style.setLogicalWidth(11_css_px);
         return true;
     }
@@ -3039,7 +3039,7 @@ bool RenderThemeCocoa::paintListButtonForVectorBasedControls(const RenderElement
     CheckedRef style = box.style();
 
 #if PLATFORM(IOS_FAMILY)
-    if (style->hasContent() || style->hasUsedContentNone())
+    if (style->content().isData() || style->hasUsedContentNone())
         return true;
 #endif
 

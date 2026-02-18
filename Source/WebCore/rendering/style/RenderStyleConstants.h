@@ -64,6 +64,7 @@ enum class PseudoElementType : uint8_t {
     SpellingError,
     TargetText,
     Checkmark,
+    PickerIcon,
     ViewTransition,
     ViewTransitionGroup,
     ViewTransitionImagePair,
@@ -96,6 +97,7 @@ constexpr auto allPublicPseudoElementTypes = EnumSet {
     PseudoElementType::SpellingError,
     PseudoElementType::TargetText,
     PseudoElementType::Checkmark,
+    PseudoElementType::PickerIcon,
     PseudoElementType::ViewTransition,
     PseudoElementType::ViewTransitionGroup,
     PseudoElementType::ViewTransitionImagePair,
@@ -701,38 +703,6 @@ enum class CursorVisibility : bool {
 };
 #endif
 
-enum class DisplayType : uint8_t {
-    Inline,
-    Block,
-    ListItem,
-    InlineBlock,
-    Table,
-    InlineTable,
-    TableRowGroup,
-    TableHeaderGroup,
-    TableFooterGroup,
-    TableRow,
-    TableColumnGroup,
-    TableColumn,
-    TableCell,
-    TableCaption,
-    Box,
-    InlineBox,
-    Flex,
-    InlineFlex,
-    Contents,
-    Grid,
-    InlineGrid,
-    GridLanes,
-    InlineGridLanes,
-    FlowRoot,
-    Ruby,
-    RubyBlock,
-    RubyBase,
-    RubyAnnotation,
-    None
-};
-
 enum class InsideLink : uint8_t {
     NotInside,
     InsideUnvisited,
@@ -1176,7 +1146,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, CursorType);
 #if ENABLE(CURSOR_VISIBILITY)
 WTF::TextStream& operator<<(WTF::TextStream&, CursorVisibility);
 #endif
-WTF::TextStream& operator<<(WTF::TextStream&, DisplayType);
 WTF::TextStream& operator<<(WTF::TextStream&, Edge);
 WTF::TextStream& operator<<(WTF::TextStream&, EmptyCell);
 WTF::TextStream& operator<<(WTF::TextStream&, EventListenerRegionType);

@@ -76,8 +76,6 @@ public:
 private:
     NetworkSocketChannel(NetworkConnectionToWebProcess&, NetworkSession*, const WebCore::ResourceRequest&, const String& protocol, WebCore::WebSocketIdentifier, WebPageProxyIdentifier, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, const WebCore::ClientOrigin&, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, WebCore::StoredCredentialsPolicy);
 
-    Ref<NetworkConnectionToWebProcess> protectedConnectionToWebProcess();
-
     void didConnect(const String& subprotocol, const String& extensions);
     void didReceiveText(const String&);
     void didReceiveBinaryData(std::span<const uint8_t>);
@@ -92,8 +90,6 @@ private:
     void sendDelayedError();
 
     NetworkSession* session() const;
-
-    RefPtr<WebSocketTask> protectedSocket();
 
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final { return m_identifier.toUInt64(); }

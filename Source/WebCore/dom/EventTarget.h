@@ -93,7 +93,7 @@ public:
     inline void ref(); // Defined in EventTargetInlines.h.
     inline void deref(); // Defined in EventTargetInlines.h.
 
-    virtual enum EventTargetInterfaceType eventTargetInterface() const = 0;
+    virtual enum EventTargetInterfaceType NODELETE eventTargetInterface() const = 0;
     virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
 
     virtual bool isPaymentRequest() const;
@@ -195,7 +195,7 @@ protected:
 
     virtual void eventListenersDidChange() { }
 
-    bool hasEventTargetFlag(EventTargetFlag flag) const { return weakPtrFactory().bitfield() & enumToUnderlyingType(flag); }
+    bool hasEventTargetFlag(EventTargetFlag flag) const { return weakPtrFactory().bitfield() & std::to_underlying(flag); }
     void setEventTargetFlag(EventTargetFlag, bool = true);
     void clearEventTargetFlag(EventTargetFlag flag) { setEventTargetFlag(flag, false); }
 

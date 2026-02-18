@@ -39,6 +39,7 @@
 #import <WebCore/CocoaWritingToolsTypes.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/CornerRadii.h>
+#import <WebCore/DigitalCredentialsRequestData.h>
 #import <WebCore/FixedContainerEdges.h>
 #import <WebCore/LayerHostingContextIdentifier.h>
 #import <WebCore/TextExtractionTypes.h>
@@ -132,7 +133,6 @@ enum class TextSuggestionState : uint8_t;
 }
 
 #if ENABLE(WEB_AUTHN)
-struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
 #endif
@@ -643,6 +643,10 @@ struct PerWebProcessState {
 
 - (void)_updateFixedContainerEdges:(const WebCore::FixedContainerEdges&)edges;
 - (void)_updateScrollGeometryWithContentOffset:(CGPoint)contentOffset contentSize:(CGSize)contentSize;
+
+#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+- (void)_topScrollStretchDidChange:(NSUInteger)topScrollStretch;
+#endif
 
 - (WKPageRef)_pageForTesting;
 - (NakedPtr<WebKit::WebPageProxy>)_page;

@@ -94,11 +94,6 @@ NetworkLoadChecker::NetworkLoadChecker(NetworkProcess& networkProcess, NetworkRe
 
 NetworkLoadChecker::~NetworkLoadChecker() = default;
 
-RefPtr<NetworkCORSPreflightChecker> NetworkLoadChecker::protectedCORSPreflightChecker() const
-{
-    return m_corsPreflightChecker;
-}
-
 bool NetworkLoadChecker::isSameOrigin(const URL& url, const SecurityOrigin* origin) const
 {
     return url.protocolIsData()
@@ -335,11 +330,44 @@ void NetworkLoadChecker::checkRequest(ResourceRequest&& request, ContentSecurity
             return;
         }
 
+        if (weakThis->shouldBlockForTrackingPolicy(result.value().request)) {
+            handler(weakThis->accessControlErrorForValidationHandler("Blocked by tracking protections"_s));
+            return;
+        }
+
         weakThis->continueCheckingRequestOrDoSyntheticRedirect(WTF::move(originalRequest), WTF::move(result.value().request), WTF::move(handler));
     });
 #else
     this->continueCheckingRequestOrDoSyntheticRedirect(WTF::move(originalRequest), WTF::move(request), WTF::move(handler));
 #endif
+}
+
+bool NetworkLoadChecker::shouldBlockForTrackingPolicy(const ResourceRequest& request)
+{
+    if (!m_webPageProxyID)
+        return false;
+
+    RefPtr networkResourceLoader = m_networkResourceLoader.get();
+    if (!networkResourceLoader)
+        return false;
+
+    auto mayBlock = networkResourceLoader->parameters().mayBlockNetworkRequest;
+    if (!mayBlock)
+        return false;
+
+    if (*mayBlock && networkResourceLoader->parameters().options.destination != FetchOptionsDestination::Script) {
+        LOAD_CHECKER_RELEASE_LOG("shouldBlockForTrackingPolicy - Blocked non-script load by tracking protections");
+        return true;
+    }
+
+    if (CheckedPtr networkSession = m_networkProcess->networkSession(m_sessionID)) {
+        if (networkSession->shouldBlockRequestForTrackingPolicyAndUpdatePolicy(request, *m_webPageProxyID, *mayBlock)) {
+            LOAD_CHECKER_RELEASE_LOG("shouldBlockForTrackingPolicy - Blocked by tracking protections");
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void NetworkLoadChecker::continueCheckingRequestOrDoSyntheticRedirect(ResourceRequest&& originalRequest, ResourceRequest&& currentRequest, ValidationHandler&& handler)
@@ -518,13 +546,13 @@ void NetworkLoadChecker::checkCORSRequestWithPreflight(ResourceRequest&& request
         }
 
         if (protectedThis->m_shouldCaptureExtraNetworkLoadMetrics)
-            protectedThis->m_loadInformation.transactions.append(protectedThis->protectedCORSPreflightChecker()->takeInformation());
+            protectedThis->m_loadInformation.transactions.append(protect(protectedThis->m_corsPreflightChecker)->takeInformation());
 
         auto corsPreflightChecker = std::exchange(protectedThis->m_corsPreflightChecker, nullptr);
         updateRequestForAccessControl(request, *protectedThis->origin(), protectedThis->m_storedCredentialsPolicy);
         handler(WTF::move(request));
     });
-    protectedCORSPreflightChecker()->startPreflight();
+    protect(m_corsPreflightChecker)->startPreflight();
 }
 
 bool NetworkLoadChecker::doesNotNeedCORSCheck(const URL& url) const

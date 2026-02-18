@@ -210,7 +210,7 @@ private:
         Lexer(std::span<const CharType> characters, ParserMode mode)
             : m_mode(mode)
             , m_ptr(characters.data())
-            , m_end(characters.data() + characters.size())
+            , m_end(std::to_address(characters.end()))
             , m_start(characters.data())
         {
         }
@@ -268,6 +268,7 @@ private:
         ALWAYS_INLINE TokenType lexString(LiteralParserToken<CharType>&, CharType terminator);
         TokenType lexStringSlow(LiteralParserToken<CharType>&, const CharType* runStart, CharType terminator);
         ALWAYS_INLINE TokenType lexNumber(LiteralParserToken<CharType>&);
+        TokenType lexNumberError(LiteralParserToken<CharType>&);
 
         String m_lexErrorMessage;
         LiteralParserToken<CharType> m_currentToken;

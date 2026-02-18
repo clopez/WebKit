@@ -128,7 +128,7 @@ static std::optional<Vector<uint8_t>> processFrame(std::span<const uint8_t> data
     if (!result.has_value()) {
         auto errorInformation = WTF::move(result.error());
         errorInformation.message = { };
-        RELEASE_LOG_ERROR(WebRTC, "RTCRtpSFrameTransform failed transforming a frame with error %hhu", enumToUnderlyingType(errorInformation.error));
+        RELEASE_LOG_ERROR(WebRTC, "RTCRtpSFrameTransform failed transforming a frame with error %hhu", std::to_underlying(errorInformation.error));
         // Call the error event handler.
         ScriptExecutionContext::postTaskTo(identifier, [errorInformation, weakTransform](auto&&) {
             RefPtr transform = weakTransform.get();
@@ -247,10 +247,10 @@ ExceptionOr<void> RTCRtpSFrameTransform::createStreams()
             [&](Ref<RTCEncodedVideoFrame>& value) {
                 transformFrame(value, globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
             },
-            [&](RefPtr<ArrayBuffer>& value) {
+            [&](Ref<ArrayBuffer>& value) {
                 transformFrame(value->span(), globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
             },
-            [&](RefPtr<ArrayBufferView>& value) {
+            [&](Ref<ArrayBufferView>& value) {
                 transformFrame(value->span(), globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
             }
         );

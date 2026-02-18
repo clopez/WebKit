@@ -36,6 +36,7 @@
 #include <WebCore/PlatformWheelEvent.h>
 #include <WebCore/RectEdges.h>
 #include <WebCore/Region.h>
+#include <WebCore/RubberbandingState.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ScrollingCoordinatorTypes.h>
 #include <WebCore/ScrollingTreeGestureState.h>
@@ -95,6 +96,11 @@ public:
 
     bool isRubberBandInProgressForNode(std::optional<ScrollingNodeID>);
     WEBCORE_EXPORT virtual void setRubberBandingInProgressForNode(ScrollingNodeID, bool);
+
+#if HAVE(RUBBER_BANDING)
+    void setPendingMainFrameRubberbandingState(std::optional<RubberbandingState>&&) WTF_REQUIRES_LOCK(m_treeLock);
+    std::optional<RubberbandingState> takePendingMainFrameRubberbandingState() WTF_REQUIRES_LOCK(m_treeLock);
+#endif
 
     bool isUserScrollInProgressForNode(std::optional<ScrollingNodeID>);
     void setUserScrollInProgressForNode(ScrollingNodeID, bool);
@@ -238,6 +244,14 @@ public:
 
     WEBCORE_EXPORT FloatBoxExtent mainFrameObscuredContentInsets() const;
 
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    virtual float bannerViewHeight() const { return 0; }
+    virtual float bannerViewMaximumHeight() const { return 0; }
+    virtual bool hasBannerViewOverlay() const { return false; }
+#endif
+
+    virtual void triggerMainFrameRubberBandSnapBack() { }
+
     WEBCORE_EXPORT FloatPoint mainFrameScrollPosition() const;
 
     WEBCORE_EXPORT ScrollbarWidth mainFrameScrollbarWidth() const;
@@ -352,6 +366,10 @@ private:
 
     Lock m_pendingScrollUpdatesLock;
     Vector<ScrollUpdate> m_pendingScrollUpdates WTF_GUARDED_BY_LOCK(m_pendingScrollUpdatesLock);
+
+#if HAVE(RUBBER_BANDING)
+    std::optional<RubberbandingState> m_pendingMainFrameRubberbandingState WTF_GUARDED_BY_LOCK(m_treeLock);
+#endif
 
     Lock m_lastWheelEventTimeLock;
     MonotonicTime m_lastWheelEventTime WTF_GUARDED_BY_LOCK(m_lastWheelEventTimeLock);

@@ -62,6 +62,7 @@
 #include "HandleUserInputEventResult.h"
 #include "HighlightRegistry.h"
 #include "HitTestResult.h"
+#include "Image.h"
 #include "ImageOverlay.h"
 #include "JSNode.h"
 #include "LocalFrame.h"
@@ -71,6 +72,7 @@
 #include "PositionInlines.h"
 #include "RenderBox.h"
 #include "RenderDescendantIterator.h"
+#include "RenderElementInlines.h"
 #include "RenderIFrame.h"
 #include "RenderLayer.h"
 #include "RenderLayerModelObject.h"
@@ -117,7 +119,7 @@ static String normalizeText(const String& string, unsigned maxDescriptionLength 
     result = makeStringByReplacingAll(result, '"', "'"_s);
     result = makeStringByReplacingAll(result, '\r', ""_s);
     result = makeStringByReplacingAll(result, '\n', " "_s);
-    result = result.trim(isASCIIWhitespace<char16_t>);
+    result = result.simplifyWhiteSpace(isASCIIWhitespace);
     if (result.length() <= maxDescriptionLength)
         return result;
 
@@ -193,6 +195,13 @@ static inline TextNodesAndText collectText(const SimpleRange& range, IncludeText
     return nodesAndText;
 }
 
+static String stringOnlyIfHumanReadable(const String& string)
+{
+    if (StringEntropyHelpers::isProbablyHumanReadable(string))
+        return string;
+    return { };
+}
+
 static void addBoxShadowIfNeeded(Node& node, String&& styleValue)
 {
     Ref document = node.document();
@@ -227,7 +236,6 @@ struct TraversalContext {
     bool mergeParagraphs { false };
     bool skipNearlyTransparentContent { false };
     NodeIdentifierInclusion nodeIdentifierInclusion { NodeIdentifierInclusion::None };
-    bool includeEventListeners { false };
     bool includeAccessibilityAttributes { false };
     unsigned visibleTextLength { 0 };
 
@@ -400,9 +408,35 @@ static inline String labelText(HTMLElement& element)
     }
 
     if (firstRenderedLabel)
-        return firstRenderedLabel->textContent();
+        return firstRenderedLabel->textContent().simplifyWhiteSpace(isASCIIWhitespace);
 
     return { };
+}
+
+template<typename T>
+RefPtr<T> shadowHostOrSelfInclusiveParent(Node& node)
+{
+    if (node.isInUserAgentShadowTree())
+        return dynamicDowncast<T>(node.shadowHost());
+
+    if (RefPtr element = dynamicDowncast<T>(node))
+        return element;
+
+    return dynamicDowncast<T>(node.parentElement());
+}
+
+static bool canBeEdited(Node& node)
+{
+    if (RefPtr control = shadowHostOrSelfInclusiveParent<HTMLTextFormControlElement>(node))
+        return !control->isReadOnly();
+
+    return node.isContentEditable() || node.isRootEditableElement();
+}
+
+static bool isInDisabledFormControl(Node& node)
+{
+    RefPtr control = shadowHostOrSelfInclusiveParent<HTMLFormControlElement>(node);
+    return control && control->isDisabledFormControl();
 }
 
 enum class SkipExtraction : bool {
@@ -458,8 +492,19 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
                 auto shortenedURLString = [&] {
                     auto shortenedURL = StringEntropyHelpers::removeHighEntropyComponents(url);
-                    if (shortenedURL.protocolIsFile())
+                    if (shortenedURL.protocolIsFile()) {
+                        String lastComponent;
+                        String secondToLastComponent;
+                        for (auto component : shortenedURL.path().split('/')) {
+                            std::swap(secondToLastComponent, lastComponent);
+                            lastComponent = component.toString();
+                        }
+
+                        if (!secondToLastComponent.isEmpty())
+                            shortenedURL.setPath(makeString(WTF::move(secondToLastComponent), '/', WTF::move(lastComponent)));
+
                         return shortenedURL.path().toString();
+                    }
 
                     auto shortenedString = shortenedURL.string();
                     if (!shortenedURL.protocolIsInHTTPFamily())
@@ -506,9 +551,16 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
     if (RefPtr image = dynamicDowncast<HTMLImageElement>(element)) {
         auto completedSourceURL = image->getURLAttribute(HTMLNames::srcAttr);
+        String mimeType;
+        if (RefPtr underlyingImage = image->image())
+            mimeType = underlyingImage->mimeType();
+
+        if (mimeType.isEmpty())
+            mimeType = "image/png"_s;
+
         return { ImageItemData {
             .completedSource = completedSourceURL,
-            .shortenedName = StringEntropyHelpers::lowEntropyLastPathComponent(completedSourceURL, "image"_s),
+            .shortenedName = StringEntropyHelpers::lowEntropyLastPathComponent(completedSourceURL, "image"_s, mimeType),
             .altText = image->altText(),
         } };
     }
@@ -527,7 +579,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (RefPtr form = dynamicDowncast<HTMLFormElement>(element)) {
         return { FormData {
             .autocomplete = form->autocomplete(),
-            .name = form->name(),
+            .name = stringOnlyIfHumanReadable(form->name()),
         } };
     }
 
@@ -555,7 +607,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 .controlType = control->type(),
                 .autocomplete = control->autocomplete(),
                 .pattern = control->attributeWithoutSynchronization(HTMLNames::patternAttr),
-                .name = input ? input->name() : String { },
+                .name = input ? stringOnlyIfHumanReadable(input->name()) : String { },
                 .minLength = input ? wholeNumberOrNull(input->minLength()) : std::optional<int> { },
                 .maxLength = input ? wholeNumberOrNull(input->maxLength()) : std::optional<int> { },
                 .isRequired = control->isRequired(),
@@ -740,23 +792,24 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
     bool shouldSkipSubtree = false;
 
     OptionSet<EventListenerCategory> eventListeners;
-    if (context.includeEventListeners) {
+    if (auto requestedCategories = context.originalRequest.eventListenerCategories) {
         node.enumerateEventListenerTypes([&](auto& type, unsigned) {
             auto typeInfo = eventNames().typeInfoForEvent(type);
-            if (typeInfo.isInCategory(EventCategory::Wheel))
+            if (typeInfo.isInCategory(EventCategory::Wheel) && requestedCategories.contains(EventListenerCategory::Wheel))
                 eventListeners.add(EventListenerCategory::Wheel);
-            else if (typeInfo.isInCategory(EventCategory::MouseClickRelated))
+            else if (typeInfo.isInCategory(EventCategory::MouseClickRelated) && requestedCategories.contains(EventListenerCategory::Click))
                 eventListeners.add(EventListenerCategory::Click);
-            else if (typeInfo.isInCategory(EventCategory::MouseMoveRelated))
+            else if (typeInfo.isInCategory(EventCategory::MouseMoveRelated) && requestedCategories.contains(EventListenerCategory::Hover))
                 eventListeners.add(EventListenerCategory::Hover);
-            else if (typeInfo.isInCategory(EventCategory::TouchRelated))
+            else if (typeInfo.isInCategory(EventCategory::TouchRelated) && requestedCategories.contains(EventListenerCategory::Touch))
                 eventListeners.add(EventListenerCategory::Touch);
 
             switch (typeInfo.type()) {
             case EventType::keydown:
             case EventType::keypress:
             case EventType::keyup:
-                eventListeners.add(EventListenerCategory::Keyboard);
+                if (requestedCategories.contains(EventListenerCategory::Keyboard))
+                    eventListeners.add(EventListenerCategory::Keyboard);
                 break;
 
             default:
@@ -801,7 +854,8 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
                 continue;
 
             static constexpr auto maximumLengthForAttributeText = 32;
-            auto elementText = normalizeText(plainText(makeRangeSelectingNodeContents(*elementForAttribute)).trim(isASCIIWhitespace<char16_t>), maximumLengthForAttributeText);
+            auto rawText = plainText(makeRangeSelectingNodeContents(*elementForAttribute)).simplifyWhiteSpace(isASCIIWhitespace);
+            auto elementText = normalizeText(WTF::move(rawText), maximumLengthForAttributeText);
             if (elementText.isEmpty())
                 continue;
 
@@ -1020,14 +1074,13 @@ static Node* nodeFromJSHandle(JSHandleIdentifier identifier)
     return nullptr;
 }
 
-static RefPtr<ContainerNode> findLargeContainerAboveNode(Node& node, Node* belowRootNode = nullptr)
+static RefPtr<ContainerNode> findLargeContainerAboveNode(Node& node, FloatSize minimumSize, Node* belowRootNode = nullptr)
 {
-    // FIXME: Consider making this size threshold client-configurable in the future.
-    static constexpr FloatSize minimumSize { 280, 300 };
     for (CheckedPtr renderer = node.renderer(); renderer; renderer = renderer->parent()) {
-        bool wasFixed = false;
-        auto bounds = renderer->absoluteBoundingBoxRect(true, &wasFixed);
-        if ((bounds.width() < minimumSize.width() || bounds.height() < minimumSize.height()) && !wasFixed)
+        auto bounds = renderer->absoluteBoundingBoxRect();
+        CheckedPtr renderElement = dynamicDowncast<RenderElement>(*renderer);
+        bool isFixedOrSticky = renderElement && (renderElement->isFixedPositioned() || renderElement->isStickilyPositioned());
+        if ((bounds.width() < minimumSize.width() || bounds.height() < minimumSize.height()) && !isFixedOrSticky)
             continue;
 
         RefPtr node = renderer->node();
@@ -1073,7 +1126,9 @@ static RefPtr<ContainerNode> findContainerNodeForDataDetectorResults(Node& rootN
     if (!commonAncestor)
         return { };
 
-    return findLargeContainerAboveNode(*commonAncestor, &rootNode);
+    // FIXME: Consider making this size threshold client-configurable in the future.
+    static constexpr FloatSize minimumSize { 280, 300 };
+    return findLargeContainerAboveNode(*commonAncestor, minimumSize, &rootNode);
 }
 
 #endif // ENABLE(DATA_DETECTION)
@@ -1158,7 +1213,8 @@ Result extractItem(Request&& request, LocalFrame& frame)
             }
 
             for (Ref passwordField : passwordFields) {
-                if (RefPtr container = findLargeContainerAboveNode(passwordField)) {
+                static constexpr FloatSize minimumSize { 280, 200 };
+                if (RefPtr container = findLargeContainerAboveNode(passwordField, minimumSize)) {
                     addBoxShadowIfNeeded(*container, "0 0 10px #cb30e0"_s);
                     additionalContainersToCollect.add(container.releaseNonNull());
                 }
@@ -1181,7 +1237,6 @@ Result extractItem(Request&& request, LocalFrame& frame)
             .mergeParagraphs = request.mergeParagraphs,
             .skipNearlyTransparentContent = request.skipNearlyTransparentContent,
             .nodeIdentifierInclusion = request.nodeIdentifierInclusion,
-            .includeEventListeners = request.includeEventListeners,
             .includeAccessibilityAttributes = request.includeAccessibilityAttributes,
         };
         extractRecursive(*extractionRootNode, root, context);
@@ -1260,7 +1315,7 @@ static void extractRenderedTokens(Vector<TokenAndBlockOffset>& tokensAndOffsets,
 
     RefPtr frameView = renderer->view().frameView();
     auto appendReplacedContentOrBackgroundImage = [&](auto& renderer) {
-        if (!renderer.style().hasBackgroundImage() && !is<RenderReplaced>(renderer))
+        if (!Style::hasImageInAnyLayer(renderer.style().backgroundLayers()) && !is<RenderReplaced>(renderer))
             return;
 
         auto absoluteRect = renderer.absoluteBoundingBoxRect();
@@ -1440,6 +1495,7 @@ static std::optional<SimpleRange> searchForText(Node& node, const String& search
     auto foundRange = findPlainText(searchRange, searchText, {
         FindOption::DoNotRevealSelection,
         FindOption::DoNotSetSelection,
+        FindOption::CaseInsensitive,
     });
 
     if (foundRange.collapsed())
@@ -1467,15 +1523,15 @@ static constexpr auto interactedWithSelectElementDescription = "Successfully upd
 static void dispatchSimulatedClick(LocalFrame& frame, IntPoint location, CompletionHandler<void(bool, String&&)>&& completion)
 {
     frame.eventHandler().handleMouseMoveEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Hardware
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
     });
 
     frame.eventHandler().handleMousePressEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Hardware
+        location, location, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
     });
 
     frame.eventHandler().handleMouseReleaseEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Hardware
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
     });
 
     completion(true, { });
@@ -1536,6 +1592,9 @@ static void dispatchSimulatedClick(Node& targetNode, const String& searchText, C
         }
     }
 
+    if (isInDisabledFormControl(*element))
+        return completion(false, "Click target is disabled"_s);
+
     if (!targetRectInRootView)
         targetRectInRootView = rootViewBounds(*element);
 
@@ -1563,22 +1622,30 @@ static void dispatchSimulatedClick(NodeIdentifier identifier, const String& sear
     dispatchSimulatedClick(*foundNode, searchText, WTF::move(completion));
 }
 
-static bool selectOptionByValue(NodeIdentifier identifier, const String& optionText)
+struct SelectOptionResult {
+    bool handled { false };
+    String failureReason;
+};
+
+static SelectOptionResult selectOptionByValue(NodeIdentifier identifier, const String& optionText)
 {
     RefPtr foundNode = Node::fromIdentifier(identifier);
     if (!foundNode)
-        return false;
+        return { };
 
     if (RefPtr select = dynamicDowncast<HTMLSelectElement>(*foundNode)) {
+        if (select->isDisabledFormControl())
+            return { true, "Select is disabled"_s };
+
         if (optionText.isEmpty())
-            return false;
+            return { };
 
         addBoxShadowIfNeeded(*select, "0 0 16px #34c759"_s);
         select->setValue(optionText);
-        return select->selectedIndex() != -1;
+        return { select->selectedIndex() != -1, { } };
     }
 
-    return false;
+    return { };
 }
 
 static HTMLElement* documentBodyElement(const LocalFrame& frame)
@@ -1670,6 +1737,24 @@ static void scrollBy(LocalFrame& frame, std::optional<NodeIdentifier>&& identifi
     completion(true, { });
 }
 
+static void scrollToReveal(LocalFrame& frame, std::optional<NodeIdentifier>&& identifier, String&& searchText, CompletionHandler<void(bool, String&&)>&& completion)
+{
+    RefPtr searchScope = resolveNodeWithBodyAsFallback(frame, identifier);
+    if (!searchScope)
+        return completion(false, invalidNodeIdentifierDescription(WTF::move(identifier)));
+
+    auto foundRange = searchForText(*searchScope, searchText);
+    if (!foundRange)
+        return completion(false, searchTextNotFoundDescription(searchText));
+
+    RefPtr elementToReveal = lineageOfType<Element>(foundRange->startContainer()).first();
+    if (!elementToReveal)
+        return completion(false, searchTextNotFoundDescription(searchText));
+
+    elementToReveal->scrollIntoView();
+    completion(true, { });
+}
+
 static bool simulateKeyPress(LocalFrame& frame, const String& key)
 {
     auto keyDown = PlatformKeyboardEvent::syntheticEventFromText(PlatformEvent::Type::KeyDown, key);
@@ -1727,6 +1812,9 @@ static void focusAndInsertText(NodeIdentifier identifier, String&& text, bool re
     if (!foundNode)
         return completion(false, invalidNodeIdentifierDescription(identifier));
 
+    if (!canBeEdited(*foundNode))
+        return completion(false, "Target is readonly"_s);
+
     RefPtr<Element> elementToFocus;
     if (RefPtr element = dynamicDowncast<Element>(*foundNode); element && element->isTextField())
         elementToFocus = element;
@@ -1778,12 +1866,16 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
         if (RefPtr body = documentBodyElement(frame); body && !interaction.text.isEmpty())
             return dispatchSimulatedClick(*body, WTF::move(interaction.text), WTF::move(completion));
 
-        return completion(false, "Missing location and nodeIdentifier"_s);
+        return completion(false, "Missing nodeIdentifier and/or text"_s);
     }
     case Action::SelectMenuItem: {
         if (auto identifier = interaction.nodeIdentifier) {
-            if (selectOptionByValue(*identifier, interaction.text))
-                return completion(true, interactedWithSelectElementDescription);
+            if (auto [handled, failureReason] = selectOptionByValue(*identifier, interaction.text); handled) {
+                if (failureReason.isEmpty())
+                    return completion(true, interactedWithSelectElementDescription);
+
+                return completion(false, WTF::move(failureReason));
+            }
 
             return dispatchSimulatedClick(*identifier, interaction.text, WTF::move(completion));
         }
@@ -1792,8 +1884,12 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
     }
     case Action::SelectText: {
         if (auto identifier = interaction.nodeIdentifier) {
-            if (selectOptionByValue(WTF::move(*identifier), interaction.text))
-                return completion(true, interactedWithSelectElementDescription);
+            if (auto [handled, failureReason] = selectOptionByValue(WTF::move(*identifier), interaction.text); handled) {
+                if (failureReason.isEmpty())
+                    return completion(true, interactedWithSelectElementDescription);
+
+                return completion(false, WTF::move(failureReason));
+            }
         }
 
         if (interaction.text.isEmpty() && !interaction.nodeIdentifier)
@@ -1815,7 +1911,10 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
 
         return highlightText(frame, WTF::move(interaction.nodeIdentifier), WTF::move(interaction.text), interaction.scrollToVisible, WTF::move(completion));
     }
-    case Action::ScrollBy:
+    case Action::Scroll:
+        if (!interaction.text.isEmpty())
+            return scrollToReveal(frame, WTF::move(interaction.nodeIdentifier), WTF::move(interaction.text), WTF::move(completion));
+
         if (interaction.scrollDelta.isZero())
             return completion(false, "Scroll delta is zero"_s);
 
@@ -1890,6 +1989,46 @@ static String textDescription(const Element& element, Vector<String>& stringsToV
         description.append(makeString(" with placeholder "_s, wrapWithDoubleQuotes(WTF::move(text))));
         stringsToValidate.append(WTF::move(text));
         needsParentContext = false;
+    }
+
+    static constexpr auto maximumNumberOfClasses = 3;
+    static constexpr auto minimumClassOrIdLength = 6;
+    static constexpr auto maximumClassOrIdLength = 20;
+
+    auto isCandidateClassOrId = [](StringView text) {
+        if (text.length() < minimumClassOrIdLength)
+            return false;
+
+        if (text.length() > maximumClassOrIdLength)
+            return false;
+
+        if (!StringEntropyHelpers::isProbablyHumanReadable(text))
+            return false;
+
+        return true;
+    };
+
+    if (auto text = element.attributeWithoutSynchronization(HTMLNames::idAttr); isCandidateClassOrId(text)) {
+        description.append(makeString(" with id "_s, wrapWithDoubleQuotes(text)));
+        needsParentContext = false;
+    }
+
+    if (auto classValue = element.attributeWithoutSynchronization(HTMLNames::classAttr); !classValue.isEmpty()) {
+        Vector<String, maximumNumberOfClasses> humanReadableClassNames;
+        for (auto className : StringView { classValue }.split(' ')) {
+            if (!isCandidateClassOrId(className))
+                continue;
+
+            humanReadableClassNames.append(className.toString());
+            if (humanReadableClassNames.size() >= maximumNumberOfClasses)
+                break;
+        }
+
+        if (!humanReadableClassNames.isEmpty()) {
+            auto classOrClasses = humanReadableClassNames.size() > 1 ? " with classes "_s : " with class "_s;
+            description.append(makeString(classOrClasses, wrapWithDoubleQuotes(makeStringByJoining(humanReadableClassNames, " "_s))));
+            needsParentContext = false;
+        }
     }
 
     auto elementDescription = description.toString();
@@ -2025,7 +2164,7 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
             return "Enter text"_s;
         case Action::HighlightText:
             return "Highlight text"_s;
-        case Action::ScrollBy:
+        case Action::Scroll:
             return "Scroll"_s;
         }
         ASSERT_NOT_REACHED();
@@ -2037,11 +2176,11 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
         case Action::SelectText:
         case Action::Click:
         case Action::HighlightText:
+        case Action::Scroll:
             return true;
         case Action::SelectMenuItem:
         case Action::TextInput:
         case Action::KeyPress:
-        case Action::ScrollBy:
             return false;
         }
         ASSERT_NOT_REACHED();
@@ -2056,7 +2195,7 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
         }
     }
 
-    if (action == Action::ScrollBy) {
+    if (action == Action::Scroll && interaction.text.isEmpty()) {
         auto delta = roundedIntSize(interaction.scrollDelta);
         description.append(makeString(" by ("_s, delta.width(), ", "_s, delta.height(), ')'));
     }
@@ -2066,8 +2205,8 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
         if (elementString.isEmpty())
             return;
 
-        auto elementPrefix = [action] -> String {
-            switch (action) {
+        auto elementPrefix = [&interaction] -> String {
+            switch (interaction.action) {
             case Action::Click:
                 return " on "_s;
             case Action::SelectText:
@@ -2075,8 +2214,9 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
             case Action::SelectMenuItem:
             case Action::KeyPress:
             case Action::HighlightText:
-            case Action::ScrollBy:
                 return " in "_s;
+            case Action::Scroll:
+                return interaction.text.isEmpty() ? " in "_s : " to reveal "_s;
             case Action::TextInput:
                 return " into "_s;
             }

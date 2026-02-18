@@ -110,9 +110,8 @@ public:
     void suspendForBackForwardCache();
     void resumeFromBackForwardCache();
 
-    WEBCORE_EXPORT Frame* frame() const final;
-    WEBCORE_EXPORT LocalFrame* localFrame() const;
-    RefPtr<LocalFrame> protectedFrame() const;
+    WEBCORE_EXPORT Frame* NODELETE frame() const final;
+    WEBCORE_EXPORT LocalFrame* NODELETE localFrame() const;
 
     RefPtr<WebCore::MediaQueryList> matchMedia(const String&);
 
@@ -163,7 +162,6 @@ public:
     DOMSelection* getSelection();
 
     HTMLFrameOwnerElement* frameElement() const;
-    RefPtr<HTMLFrameOwnerElement> protectedFrameElement() const;
 
     WEBCORE_EXPORT void focus(bool allowFocus = false);
     void focus(LocalDOMWindow& incumbentWindow);
@@ -212,8 +210,7 @@ public:
 
     // DOM Level 2 AbstractView Interface
 
-    WEBCORE_EXPORT Document* document() const;
-    WEBCORE_EXPORT RefPtr<Document> protectedDocument() const;
+    WEBCORE_EXPORT Document* NODELETE document() const;
 
     // CSSOM View Module
 
@@ -373,7 +370,6 @@ public:
     bool mayReuseForNavigation() const { return m_mayReuseForNavigation; }
 
     Page* page() const;
-    RefPtr<Page> protectedPage() const;
 
     WEBCORE_EXPORT static void forEachWindowInterestedInStorageEvents(NOESCAPE const Function<void(LocalDOMWindow&)>&);
 

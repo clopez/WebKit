@@ -149,6 +149,7 @@
 #include "HTMLPictureElement.h"
 #include "HTMLPlugInElement.h"
 #include "HTMLScriptElement.h"
+#include "HTMLSelectElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
 #include "HTMLUnknownElement.h"
@@ -288,6 +289,7 @@
 #include "SecurityOriginPolicy.h"
 #include "SecurityPolicy.h"
 #include "SegmentedString.h"
+#include "SelectPopoverElement.h"
 #include "SelectorQuery.h"
 #include "SerializedNode.h"
 #include "ServiceWorkerClientData.h"
@@ -501,7 +503,7 @@ static void CallbackForContainIntrinsicSize(const Vector<Ref<ResizeObserverEntry
                 continue;
             }
             ASSERT(!isSkippedContentRoot(*box));
-            ASSERT(box->style().hasAutoLengthContainIntrinsicSize());
+            ASSERT(box->style().containIntrinsicWidth().hasAuto() || box->style().containIntrinsicHeight().hasAuto());
 
             auto contentBoxSize = entry->contentBoxSize().at(0);
             if (box->style().logicalContainIntrinsicWidth().hasAuto()) {
@@ -2174,7 +2176,7 @@ void Document::removeVisualUpdatePreventedReasons(OptionSet<VisualUpdatesPrevent
             if (frame()->isMainFrame()) {
                 frameView->addPaintPendingMilestones(LayoutMilestone::DidFirstPaintAfterSuppressedIncrementalRendering);
                 if (page->requestedLayoutMilestones() & LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering)
-                    protectedFrame()->loader().didReachLayoutMilestone(LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering);
+                    protect(frame())->loader().didReachLayoutMilestone(LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering);
             }
         }
         m_visualUpdatesAllowedChangeRequiresLayoutMilestones = false;
@@ -3466,7 +3468,7 @@ void Document::createRenderTree()
 
 void Document::didBecomeCurrentDocumentInFrame()
 {
-    protect(protectedFrame()->script())->updateDocument();
+    protect(frame()->script())->updateDocument();
 
     // Many of these functions have event handlers which can detach the frame synchronously, so we must check repeatedly in this function.
     if (!m_frame)
@@ -3532,7 +3534,7 @@ void Document::willDetachPage()
     contentChangeObserver().willDetachPage();
 #endif
     if (window() && frame())
-        InspectorInstrumentation::frameWindowDiscarded(protectedFrame().releaseNonNull(), protect(window()).get());
+        InspectorInstrumentation::frameWindowDiscarded(protect(frame()).releaseNonNull(), protect(window()).get());
 }
 
 void Document::attachToCachedFrame(CachedFrameBase& cachedFrame)
@@ -4085,7 +4087,7 @@ ExceptionOr<void> Document::open(Document* entryDocument)
             frame->loader().policyChecker().stopCheck();
         // Null-checking m_frame again as `policyChecker().stopCheck()` may have cleared it.
         if (isNavigating && m_frame)
-            protectedFrame()->loader().stopAllLoaders();
+            protect(this->frame())->loader().stopAllLoaders();
     }
 
     removeAllEventListeners();
@@ -4384,7 +4386,7 @@ void Document::setParsing(bool b)
     m_bParsing = b;
 
     if (m_bParsing && !m_sharedObjectPool)
-        m_sharedObjectPool = makeUnique<DocumentSharedObjectPool>();
+        m_sharedObjectPool = makeUnique<DocumentSharedObjectPool>(RegistrableDomain { securityOrigin().data() });
 
     if (!m_bParsing && view() && !view()->needsLayout())
         protect(view())->fireLayoutRelatedMilestonesIfNeeded();
@@ -5409,7 +5411,7 @@ void Document::updateViewportArguments()
         return;
 
     page->chrome().dispatchViewportPropertiesDidChange(viewportArguments());
-    page->chrome().didReceiveDocType(protectedFrame().releaseNonNull());
+    page->chrome().didReceiveDocType(protect(frame()).releaseNonNull());
 }
 
 void Document::metaElementThemeColorChanged(HTMLMetaElement& metaElement)
@@ -7909,11 +7911,6 @@ void Document::setShouldCreateRenderers(bool f)
     m_createRenderers = f;
 }
 
-bool Document::shouldCreateRenderers()
-{
-    return m_createRenderers;
-}
-
 // Support for Javascript execCommand, and related methods
 
 static Editor::Command command(Document* document, const String& commandName, bool userInterface = false)
@@ -8059,7 +8056,7 @@ void Document::applyPendingXSLTransformsTimerFired()
         if (!processor->transformToString(*this, resultMIMEType, newSource, resultEncoding))
             continue;
         // FIXME: If the transform failed we should probably report an error (like Mozilla does).
-        processor->createDocumentFromSource(newSource, resultEncoding, resultMIMEType, this, protectedFrame().get());
+        processor->createDocumentFromSource(newSource, resultEncoding, resultMIMEType, this, protect(frame()).get());
     }
 }
 
@@ -8379,11 +8376,6 @@ bool Document::isTelephoneNumberParsingEnabled() const
     return settings().telephoneNumberParsingEnabled() && m_isTelephoneNumberParsingAllowed;
 }
 
-bool Document::isTelephoneNumberParsingAllowed() const
-{
-    return m_isTelephoneNumberParsingAllowed;
-}
-
 #endif
 
 String Document::originIdentifierForPasteboard() const
@@ -8668,7 +8660,7 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
     RefPtr element = getCSSCanvasElement(name);
     if (!element)
         return std::nullopt;
-    element->setCSSCanvasContextSize({ width, height });
+    element->setSizeForControllingContext({ width, height });
     auto context = element->getContext(type);
     if (!context)
         return std::nullopt;
@@ -9627,11 +9619,6 @@ void Document::startTrackingStyleRecalcs()
     m_styleRecalcCount = 0;
 }
 
-unsigned Document::styleRecalcCount() const
-{
-    return m_styleRecalcCount;
-}
-
 #if ENABLE(TOUCH_EVENTS)
 bool Document::hasTouchEventHandlers() const
 {
@@ -9671,7 +9658,7 @@ bool Document::allowsContentJavaScript() const
         return !m_contextDocument || m_contextDocument->allowsContentJavaScript();
     }
 
-    return protectedFrame()->loader().client().allowsContentJavaScriptFromMostRecentNavigation() == AllowsContentJavaScript::Yes;
+    return protect(frame())->loader().client().allowsContentJavaScriptFromMostRecentNavigation() == AllowsContentJavaScript::Yes;
 }
 
 Element* eventTargetElementForDocument(Document* document)
@@ -10101,7 +10088,7 @@ void Document::didAssociateFormControlsTimerFired()
 
     if (RefPtr page = this->page(); page && !controls.isEmpty()) {
         ASSERT(m_frame);
-        page->chrome().client().didAssociateFormControls(controls, protectedFrame().releaseNonNull());
+        page->chrome().client().didAssociateFormControls(controls, protect(frame()).releaseNonNull());
     }
 
     for (Ref control : controls) {
@@ -11113,6 +11100,11 @@ void Document::handlePopoverLightDismiss(const PointerEvent& event, Node& target
                                 invokerPopover = WTF::move(popover);
                             else if (RefPtr popover = button->popoverTargetElement(); popover && isShowingAutoPopover(*popover))
                                 invokerPopover = WTF::move(popover);
+                        } else if (settings().htmlEnhancedSelectEnabled()) {
+                            if (RefPtr select = dynamicDowncast<HTMLSelectElement>(*htmlElement)) {
+                                if (RefPtr popover = select->pickerPopoverElement(); popover && isShowingAutoPopover(*popover))
+                                    invokerPopover = WTF::move(popover);
+                            }
                         }
                     }
                     if (clickedPopover && invokerPopover)
@@ -11928,19 +11920,9 @@ void Document::setActiveViewTransition(RefPtr<ViewTransition>&& viewTransition)
     }
 }
 
-bool Document::hasViewTransitionPseudoElementTree() const
-{
-    return m_hasViewTransitionPseudoElementTree;
-}
-
 void Document::setHasViewTransitionPseudoElementTree(bool value)
 {
     m_hasViewTransitionPseudoElementTree = value;
-}
-
-bool Document::renderingIsSuppressedForViewTransition() const
-{
-    return m_renderingIsSuppressedForViewTransition;
 }
 
 void Document::setRenderingIsSuppressedForViewTransitionAfterUpdateRendering()

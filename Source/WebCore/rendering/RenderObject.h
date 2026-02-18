@@ -292,28 +292,28 @@ public:
         TypeSpecificFlags() = default;
 
         TypeSpecificFlags(OptionSet<BlockFlowFlag> flags)
-            : m_kind(enumToUnderlyingType(Kind::BlockFlow))
+            : m_kind(std::to_underlying(Kind::BlockFlow))
             , m_flags(flags.toRaw())
         {
             ASSERT(blockFlowFlags() == flags);
         }
 
         TypeSpecificFlags(OptionSet<LineBreakFlag> flags)
-            : m_kind(enumToUnderlyingType(Kind::LineBreak))
+            : m_kind(std::to_underlying(Kind::LineBreak))
             , m_flags(flags.toRaw())
         {
             ASSERT(lineBreakFlags() == flags);
         }
 
         TypeSpecificFlags(OptionSet<ReplacedFlag> flags)
-            : m_kind(enumToUnderlyingType(Kind::Replaced))
+            : m_kind(std::to_underlying(Kind::Replaced))
             , m_flags(flags.toRaw())
         {
             ASSERT(replacedFlags() == flags);
         }
 
         TypeSpecificFlags(OptionSet<SVGModelObjectFlag> flags)
-            : m_kind(enumToUnderlyingType(Kind::SVGModelObject))
+            : m_kind(std::to_underlying(Kind::SVGModelObject))
             , m_flags(flags.toRaw())
         {
             ASSERT(svgFlags() == flags);
@@ -333,7 +333,7 @@ public:
             return this->kind() == kind ? m_flags : 0;
         }
 
-        const uint8_t m_kind : 3 { enumToUnderlyingType(Kind::Invalid) }; // Security hardening to store the type.
+        const uint8_t m_kind : 3 { std::to_underlying(Kind::Invalid) }; // Security hardening to store the type.
         const uint8_t m_flags : 6 { 0 };
         // 7 bits free.
     };
@@ -355,7 +355,7 @@ public:
 
     inline RenderElement* parent() const; // Defined in RenderElement.h.
     inline CheckedPtr<RenderElement> checkedParent() const; // Defined in RenderElement.h.
-    bool isDescendantOf(const RenderObject*) const;
+    bool NODELETE isDescendantOf(const RenderObject*) const;
 
     RenderObject* previousSibling() const { return m_previous.get(); }
     RenderObject* nextSibling() const { return m_next.get(); }
@@ -377,7 +377,7 @@ public:
     RenderObject* firstLeafChild() const;
     RenderObject* lastLeafChild() const;
 
-    RenderElement* firstNonAnonymousAncestor() const;
+    RenderElement* NODELETE firstNonAnonymousAncestor() const;
 
 #if ENABLE(TEXT_AUTOSIZING)
     // Minimal distance between the block with fixed height and overflowing content and the text block to apply text autosizing.
@@ -398,8 +398,8 @@ public:
     WEBCORE_EXPORT RenderLayer* enclosingLayer() const;
     WEBCORE_EXPORT CheckedPtr<RenderLayer> checkedEnclosingLayer() const;
 
-    WEBCORE_EXPORT RenderBox& enclosingBox() const;
-    RenderBoxModelObject& enclosingBoxModelObject() const;
+    WEBCORE_EXPORT RenderBox& NODELETE enclosingBox() const;
+    RenderBoxModelObject& NODELETE enclosingBoxModelObject() const;
     RenderBox* enclosingScrollableContainer() const;
 
     // Return our enclosing flow thread if we are contained inside one. Follows the containing block chain.
@@ -447,7 +447,7 @@ public:
 
     bool isRenderDetailsMarker() const { return type() == Type::DetailsMarker; }
     bool isRenderEmbeddedObject() const { return type() == Type::EmbeddedObject; }
-    bool isFieldset() const;
+    bool NODELETE isFieldset() const;
     bool isRenderFileUploadControl() const { return type() == Type::FileUploadControl; }
     bool isRenderFrame() const { return type() == Type::Frame; }
     bool isRenderFrameSet() const { return type() == Type::FrameSet; }
@@ -504,9 +504,9 @@ public:
     inline bool isDocumentElementRenderer() const; // Defined in RenderObjectInlines.h
     inline bool isBody() const; // Defined in RenderObjectNode.h
     inline bool isHR() const; // Defined in RenderObjectNode.h
-    bool isLegend() const;
+    bool NODELETE isLegend() const;
 
-    bool isHTMLMarquee() const;
+    bool NODELETE isHTMLMarquee() const;
 
     bool isTablePart() const { return isRenderTableCell() || isRenderTableCol() || isRenderTableCaption() || isRenderTableRow() || isRenderTableSection(); }
 
@@ -716,7 +716,7 @@ public:
     bool normalChildNeedsLayout() const { return m_stateBitfields.hasFlag(StateFlag::NormalChildNeedsLayout); }
     bool outOfFlowChildNeedsStaticPositionLayout() const { return m_stateBitfields.hasFlag(StateFlag::OutOfFlowChildNeedsStaticPositionLayout); }
 
-    bool isSelectionBorder() const;
+    bool NODELETE isSelectionBorder() const;
 
     bool hasNonVisibleOverflow() const { return m_stateBitfields.hasFlag(StateFlag::HasNonVisibleOverflow); }
 
@@ -738,7 +738,7 @@ public:
     HostWindow* hostWindow() const;
 
     // Returns true if this renderer is rooted.
-    bool isRooted() const;
+    bool NODELETE isRooted() const;
 
     inline Node* node() const; // Defined in RenderObjectNode.h
 
@@ -1094,7 +1094,7 @@ public:
 
     bool isSkippedContent() const;
 
-    PointerEvents usedPointerEvents() const;
+    PointerEvents NODELETE usedPointerEvents() const;
 
 protected:
     //////////////////////////////////////////
@@ -1228,9 +1228,9 @@ private:
     private:
         uint32_t m_flags : 23 { 0 };
         uint32_t m_positionedState : 2 { IsStaticallyPositioned }; // PositionedState
-        uint32_t m_selectionState : 3 { enumToUnderlyingType(HighlightState::None) }; // HighlightState
-        uint32_t m_fragmentedFlowState : 1 { enumToUnderlyingType(FragmentedFlowState::NotInsideFlow) }; // FragmentedFlowState
-        uint32_t m_boxDecorationState : 2 { enumToUnderlyingType(BoxDecorationState::None) }; // BoxDecorationState
+        uint32_t m_selectionState : 3 { std::to_underlying(HighlightState::None) }; // HighlightState
+        uint32_t m_fragmentedFlowState : 1 { std::to_underlying(FragmentedFlowState::NotInsideFlow) }; // FragmentedFlowState
+        uint32_t m_boxDecorationState : 2 { std::to_underlying(BoxDecorationState::None) }; // BoxDecorationState
         // 1 bit free
 
     public:
@@ -1417,18 +1417,18 @@ inline RenderObject::SetLayoutNeededForbiddenScope::SetLayoutNeededForbiddenScop
 
 inline RenderObject* RenderObject::previousInFlowSibling() const
 {
-    auto* previousSibling = this->previousSibling();
+    CheckedPtr previousSibling = this->previousSibling();
     while (previousSibling && !previousSibling->isInFlow())
         previousSibling = previousSibling->previousSibling();
-    return previousSibling;
+    return previousSibling.unsafeGet();
 }
 
 inline RenderObject* RenderObject::nextInFlowSibling() const
 {
-    auto* nextSibling = this->nextSibling();
+    CheckedPtr nextSibling = this->nextSibling();
     while (nextSibling && !nextSibling->isInFlow())
         nextSibling = nextSibling->nextSibling();
-    return nextSibling;
+    return nextSibling.unsafeGet();
 }
 
 #if ENABLE(MATHML)
@@ -1469,7 +1469,7 @@ inline bool RenderObject::isRenderTable() const
 inline bool RenderObject::usesBoundaryCaching() const
 {
     // Use the same bit for UsesBoundaryCaching so that clang collapse two comparisons into one.
-    ASSERT(enumToUnderlyingType(ReplacedFlag::UsesBoundaryCaching) == enumToUnderlyingType(SVGModelObjectFlag::UsesBoundaryCaching));
+    ASSERT(std::to_underlying(ReplacedFlag::UsesBoundaryCaching) == std::to_underlying(SVGModelObjectFlag::UsesBoundaryCaching));
     return (m_typeSpecificFlags.kind() == TypeSpecificFlags::Kind::Replaced && m_typeSpecificFlags.replacedFlags().contains(ReplacedFlag::UsesBoundaryCaching))
         || (m_typeSpecificFlags.kind() == TypeSpecificFlags::Kind::SVGModelObject && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::UsesBoundaryCaching));
 }

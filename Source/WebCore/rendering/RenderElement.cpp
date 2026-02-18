@@ -183,7 +183,7 @@ const Layout::ElementBox* RenderElement::layoutBox() const
     return downcast<Layout::ElementBox>(RenderObject::layoutBox());
 }
 
-static RefPtr<StyleImage> minimallySupportedContentDataImage(const Style::Content& content)
+static RefPtr<Style::Image> minimallySupportedContentDataImage(const Style::Content& content)
 {
     // Minimal support for content properties replacing an entire element.
     // Works only if we have exactly one piece of content and it's a URL.
@@ -216,62 +216,62 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
         }
     }
 
-    switch (style.display()) {
-    case DisplayType::None:
-    case DisplayType::Contents:
+    switch (style.display().value) {
+    case Style::DisplayType::None:
+    case Style::DisplayType::Contents:
         return nullptr;
-    case DisplayType::Inline:
+    case Style::DisplayType::InlineFlow:
         if (rendererTypeOverride.contains(ConstructBlockLevelRendererFor::Inline))
             return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
         return createRenderer<RenderInline>(RenderObject::Type::Inline, element, WTF::move(style));
-    case DisplayType::Block:
-    case DisplayType::FlowRoot:
-    case DisplayType::InlineBlock:
+    case Style::DisplayType::BlockFlow:
+    case Style::DisplayType::BlockFlowRoot:
+    case Style::DisplayType::InlineFlowRoot:
         return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
-    case DisplayType::ListItem:
+    case Style::DisplayType::BlockFlowListItem:
         if (rendererTypeOverride.contains(ConstructBlockLevelRendererFor::ListItem))
             return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
         return createRenderer<RenderListItem>(element, WTF::move(style));
-    case DisplayType::Flex:
-    case DisplayType::InlineFlex:
+    case Style::DisplayType::BlockFlex:
+    case Style::DisplayType::InlineFlex:
         return createRenderer<RenderFlexibleBox>(RenderObject::Type::FlexibleBox, element, WTF::move(style));
-    case DisplayType::Grid:
-    case DisplayType::InlineGrid:
-    case DisplayType::GridLanes:
-    case DisplayType::InlineGridLanes:
+    case Style::DisplayType::BlockGrid:
+    case Style::DisplayType::InlineGrid:
+    case Style::DisplayType::BlockGridLanes:
+    case Style::DisplayType::InlineGridLanes:
         return createRenderer<RenderGrid>(element, WTF::move(style));
-    case DisplayType::Box:
-    case DisplayType::InlineBox:
+    case Style::DisplayType::BlockDeprecatedFlex:
+    case Style::DisplayType::InlineDeprecatedFlex:
         return createRenderer<RenderDeprecatedFlexibleBox>(element, WTF::move(style));
-    case DisplayType::RubyBase:
+    case Style::DisplayType::RubyBase:
         return createRenderer<RenderInline>(RenderObject::Type::Inline, element, WTF::move(style));
-    case DisplayType::RubyAnnotation:
+    case Style::DisplayType::RubyText:
         return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
-    case DisplayType::Ruby:
+    case Style::DisplayType::InlineRuby:
         return createRenderer<RenderInline>(RenderObject::Type::Inline, element, WTF::move(style));
-    case DisplayType::RubyBlock:
+    case Style::DisplayType::BlockRuby:
         return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
 
     default: {
-        if (style.isDisplayTableOrTablePart() && rendererTypeOverride.contains(ConstructBlockLevelRendererFor::TableOrTablePart))
+        if (style.display().isTableOrTablePart() && rendererTypeOverride.contains(ConstructBlockLevelRendererFor::TableOrTablePart))
             return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
 
-        switch (style.display()) {
-        case DisplayType::Table:
-        case DisplayType::InlineTable:
+        switch (style.display().value) {
+        case Style::DisplayType::BlockTable:
+        case Style::DisplayType::InlineTable:
             return createRenderer<RenderTable>(RenderObject::Type::Table, element, WTF::move(style));
-        case DisplayType::TableCell:
+        case Style::DisplayType::TableCell:
             return createRenderer<RenderTableCell>(element, WTF::move(style));
-        case DisplayType::TableCaption:
+        case Style::DisplayType::TableCaption:
             return createRenderer<RenderTableCaption>(element, WTF::move(style));
-        case DisplayType::TableRowGroup:
-        case DisplayType::TableHeaderGroup:
-        case DisplayType::TableFooterGroup:
+        case Style::DisplayType::TableRowGroup:
+        case Style::DisplayType::TableHeaderGroup:
+        case Style::DisplayType::TableFooterGroup:
             return createRenderer<RenderTableSection>(element, WTF::move(style));
-        case DisplayType::TableRow:
+        case Style::DisplayType::TableRow:
             return createRenderer<RenderTableRow>(element, WTF::move(style));
-        case DisplayType::TableColumnGroup:
-        case DisplayType::TableColumn:
+        case Style::DisplayType::TableColumnGroup:
+        case Style::DisplayType::TableColumn:
             return createRenderer<RenderTableCol>(element, WTF::move(style));
         default:
             break;
@@ -450,7 +450,7 @@ template<typename FillLayers> void RenderElement::updateFillImages(const FillLay
     }
 }
 
-void RenderElement::updateImage(StyleImage* oldImage, StyleImage* newImage)
+void RenderElement::updateImage(Style::Image* oldImage, Style::Image* newImage)
 {
     if (oldImage == newImage)
         return;
@@ -484,10 +484,10 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Rende
                 auto layerMayGetDestroyed = oldStyle.position() != newStyle.position()
                     || oldStyle.usedZIndex() != newStyle.usedZIndex()
                     || oldStyle.clip() != newStyle.clip()
-                    || oldStyle.hasClip() != newStyle.hasClip()
-                    || oldStyle.hasOpacity() != newStyle.hasOpacity()
-                    || oldStyle.hasTransform() != newStyle.hasTransform()
-                    || oldStyle.hasFilter() != newStyle.hasFilter();
+                    || oldStyle.clip().isAuto() != newStyle.clip().isAuto()
+                    || oldStyle.opacity().isOpaque() != newStyle.opacity().isOpaque()
+                    || (!oldStyle.transform().isNone() || !oldStyle.offsetPath().isNone()) != (!newStyle.transform().isNone() || !newStyle.offsetPath().isNone())
+                    || oldStyle.filter().isNone() != newStyle.filter().isNone();
                 if (layerMayGetDestroyed)
                     return RequiredRepaint::RendererAndDescendantsRenderersWithLayers;
             }
@@ -502,10 +502,13 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Rende
         if (auto* modelObject = dynamicDowncast<RenderLayerModelObject>(*this)) {
             // If we don't have a layer yet, but we are going to get one because of transform or opacity, then we need to repaint the old position of the object.
             bool hasLayer = modelObject->hasLayer();
-            bool willHaveLayer = newStyle.affectsTransform() || newStyle.hasOpacity() || newStyle.hasFilter() || newStyle.hasBackdropFilter();
+            bool willHaveLayer = newStyle.affectsTransform()
+                || !newStyle.opacity().isOpaque()
 #if HAVE(CORE_MATERIAL)
-            willHaveLayer |= newStyle.hasAppleVisualEffect();
+                || newStyle.appleVisualEffect() != AppleVisualEffect::None
 #endif
+                || !newStyle.filter().isNone()
+                || !newStyle.backdropFilter().isNone();
             if (!hasLayer && willHaveLayer)
                 return RequiredRepaint::RendererOnly;
         }
@@ -869,7 +872,7 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
         if (!elementChild->isAnonymous() || elementChild->style().pseudoElementType() || elementChild->isViewTransitionContainingBlock())
             continue;
 
-        bool isBlockOrRuby = is<RenderBlock>(elementChild.get()) || elementChild->style().display() == DisplayType::Ruby;
+        bool isBlockOrRuby = is<RenderBlock>(elementChild.get()) || elementChild->style().display() == Style::DisplayType::InlineRuby;
         if (propagationType == StylePropagationType::BlockAndRubyChildren && !isBlockOrRuby)
             continue;
 
@@ -879,7 +882,7 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
 
         auto newStyle = [&] {
             auto display = elementChild->style().display();
-            if (display == DisplayType::RubyBase || display == DisplayType::Ruby)
+            if (display == Style::DisplayType::RubyBase || display == Style::DisplayType::InlineRuby)
                 return createAnonymousStyleForRuby(style(), display);
             return RenderStyle::createAnonymousStyleWithDisplay(style(), display);
         }();
@@ -1107,7 +1110,7 @@ void RenderElement::styleDidChange(Style::Difference diff, const RenderStyle* ol
 
     setNeedsLayoutForStyleDifference(diff, oldStyle);
 
-    if (isOutOfFlowPositioned() && oldStyle && oldStyle->isOriginalDisplayBlockType() != style().isOriginalDisplayBlockType()) {
+    if (isOutOfFlowPositioned() && oldStyle && oldStyle->originalDisplay().isBlockType() != style().originalDisplay().isBlockType()) {
         if (CheckedPtr ancestor = RenderObject::containingBlockForPositionType(PositionType::Static, *this)) {
             ancestor->setNeedsLayout();
             ancestor->setOutOfFlowChildNeedsStaticPositionLayout();
@@ -1129,7 +1132,7 @@ void RenderElement::styleDidChange(Style::Difference diff, const RenderStyle* ol
         issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().usedOutlineSize() : oldStyle->usedOutlineSize());
     }
 
-    if (settings().cssScrollAnchoringEnabled() && style().scrollAnchoringSuppressionStyleDidChange(oldStyle)) {
+    if (settings().cssScrollAnchoringEnabled() && (diff >= Style::DifferenceResult::Layout) && style().scrollAnchoringSuppressionStyleDidChange(oldStyle)) {
         auto findNearestScrollAnchoringController = [](const RenderElement& renderer) -> CheckedPtr<ScrollAnchoringController> {
             // At this point we can't find the appropriate enclosing ScrollAnchoringController, because we haven't done layout.
             // We will, however, have created a ScrollAnchoringController for potentially scrollable ancestors, so store
@@ -1418,7 +1421,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
         if (hasMask() && mustRepaintFillLayers(*this, style().maskLayers()))
             return true;
 
-        if (style().hasBorderRadius()) {
+        if (style().border().hasBorderRadius()) {
             // If the border radius changed, repaints at style change time will take care of that.
             // This code is attempting to detect whether border-radius constraining based on box size
             // affects the radii, using the outlineBoundsRect as a proxy for the border box.
@@ -1436,7 +1439,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
             return true;
 
         // Our fill layers are ok. Let's check border.
-        if (style().hasBorder() && borderImageIsLoadedAndCanBeRendered())
+        if (style().border().hasBorder() && borderImageIsLoadedAndCanBeRendered())
             return true;
 
         return false;
@@ -1618,7 +1621,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
 
 bool RenderElement::borderImageIsLoadedAndCanBeRendered() const
 {
-    ASSERT(style().hasBorder());
+    ASSERT(style().border().hasBorder());
 
     RefPtr borderImage = style().borderImageSource().tryStyleImage();
     return borderImage && borderImage->canRender(this, style().usedZoom()) && borderImage->isLoaded(this);
@@ -2335,9 +2338,9 @@ void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded(con
     auto mayNotBeContainingBlockForDescendantsAnymore = oldStyle.position() != m_style.position()
         || oldStyle.hasTransformRelatedProperty() != m_style.hasTransformRelatedProperty()
         || oldStyle.willChange() != newStyle.willChange()
-        || oldStyle.hasBackdropFilter() != newStyle.hasBackdropFilter()
+        || oldStyle.backdropFilter().isNone() != newStyle.backdropFilter().isNone()
 #if HAVE(CORE_MATERIAL)
-        || oldStyle.hasAppleVisualEffectRequiringBackdropFilter() != newStyle.hasAppleVisualEffectRequiringBackdropFilter()
+        || appleVisualEffectNeedsBackdrop(oldStyle.appleVisualEffect()) != appleVisualEffectNeedsBackdrop(newStyle.appleVisualEffect())
 #endif
         || oldStyle.usedContain().contains(Style::ContainValue::Layout) != newStyle.usedContain().contains(Style::ContainValue::Layout)
         || oldStyle.usedContain().contains(Style::ContainValue::Size) != newStyle.usedContain().contains(Style::ContainValue::Size);

@@ -85,6 +85,10 @@
 #include <WebCore/ParentalControlsURLFilterParameters.h>
 #endif
 
+#if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER)
+#include "WebParentalControlsURLFilter.h"
+#endif
+
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
 
 namespace WebKit {
@@ -359,7 +363,7 @@ void WebFrameProxy::didChangeTitle(String&& title)
     m_title = WTF::move(title);
 }
 
-WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionHandler<void(PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, std::optional<NavigatingToAppBoundDomain>, WasNavigationIntercepted)>&& completionHandler, ShouldExpectSafeBrowsingResult expectSafeBrowsingResult, ShouldExpectAppBoundDomainResult expectAppBoundDomainResult, ShouldWaitForInitialLinkDecorationFilteringData shouldWaitForInitialLinkDecorationFilteringData, ShouldWaitForSiteHasStorageCheck shouldWaitForSiteHasStorageCheck)
+WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionHandler<void(PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, std::optional<NavigatingToAppBoundDomain>, WasNavigationIntercepted)>&& completionHandler, ShouldExpectSafeBrowsingResult expectSafeBrowsingResult, ShouldExpectAppBoundDomainResult expectAppBoundDomainResult, ShouldWaitForInitialLinkDecorationFilteringData shouldWaitForInitialLinkDecorationFilteringData, ShouldWaitForSiteHasStorageCheck shouldWaitForSiteHasStorageCheck, ShouldWaitForEnhancedSecurityLinkCheck shouldWaitForEnhancedSecurityLinkCheck)
 {
     if (RefPtr previousListener = m_activeListener)
         previousListener->ignore();
@@ -369,7 +373,7 @@ WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionH
 
         completionHandler(action, policies, processSwapRequestedByClient, isNavigatingToAppBoundDomain, wasNavigationIntercepted);
         m_activeListener = nullptr;
-    }, expectSafeBrowsingResult, expectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData, shouldWaitForSiteHasStorageCheck);
+    }, expectSafeBrowsingResult, expectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData, shouldWaitForSiteHasStorageCheck, shouldWaitForEnhancedSecurityLinkCheck);
     return *m_activeListener;
 }
 
@@ -449,10 +453,20 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
     }
 #endif
 
+    std::optional<URL> unblockRequestURL = std::nullopt;
+#if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER) && !HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
+#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
+    if (page->preferences().webContentRestrictionsAskToEnabled())
+        unblockRequestURL = request.url();
+#endif
+
+    WebParentalControlsURLFilter::setSharedParentalControlsURLFilterIfNecessary();
+#endif
+
     m_contentFilterUnblockHandler.requestUnblockAsync([page](bool unblocked) {
         if (unblocked)
             page->reload({ });
-    });
+    }, unblockRequestURL);
     return true;
 }
 #endif

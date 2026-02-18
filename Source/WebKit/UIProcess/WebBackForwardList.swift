@@ -707,7 +707,7 @@ final class WebBackForwardList {
 
         for (i, entry) in entries.enumerated() {
             let prefix = (currentIndex == i) ? " * " : " - "
-            result += prefix + String(entry.loggingString())
+            result += prefix + String(entry.loggingString().description)
         }
 
         return result
@@ -877,10 +877,9 @@ final class WebBackForwardList {
             assert(WebKit.downcastToWebProcessProxy(process).__convertToBool())
             let hasBackForwardCacheEntry = item.backForwardCacheEntry() != nil
             if hasBackForwardCacheEntry != frameState.ptr().hasCachedPage {
-                // Safety: accessing suspendedPage pointer just to check nullness, no dereference occurs
                 if frameState.ptr().hasCachedPage {
                     webPageProxy.backForwardCache().addEntry(item, process.coreProcessIdentifier())
-                } else if unsafe item.suspendedPage() == nil {
+                } else if item.suspendedPage() == nil {
                     webPageProxy.backForwardCache().removeEntry(item)
                 }
             }

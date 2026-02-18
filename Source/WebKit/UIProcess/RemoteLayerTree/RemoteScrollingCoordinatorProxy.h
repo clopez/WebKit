@@ -159,6 +159,7 @@ public:
     virtual void progressBasedTimelinesWereUpdatedForNode(const WebCore::ScrollingTreeScrollingNode&) { }
     virtual RefPtr<const RemoteAnimationStack> animationStackForNodeWithIDForTesting(WebCore::PlatformLayerIdentifier) const { return nullptr; }
     virtual HashSet<Ref<RemoteProgressBasedTimeline>> timelinesForScrollingNodeIDForTesting(WebCore::ScrollingNodeID) const { return { }; }
+    virtual bool hasHighImpactMonotonicAnimations() const { return false; }
 #endif
 
     String scrollingTreeAsText() const;
@@ -179,6 +180,11 @@ public:
     virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond>) { }
 
     WebCore::FloatBoxExtent obscuredContentInsets() const;
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    void setBannerViewHeight(float);
+    void setBannerViewMaximumHeight(float);
+    void setHasBannerViewOverlay(bool);
+#endif
     WebCore::FloatPoint currentMainFrameScrollPosition() const;
     WebCore::FloatRect computeVisibleContentRect();
     WebCore::IntPoint scrollOrigin() const;

@@ -74,7 +74,7 @@ auto AutosizeStatus::computeStatus(const RenderStyle& style) -> AutosizeStatus
     auto result = style.autosizeStatus().fields();
 
     auto shouldAvoidAutosizingEntireSubtree = [&] {
-        if (style.display() == DisplayType::None)
+        if (style.display() == Style::DisplayType::None)
             return true;
 
         const float maximumDifferenceBetweenFixedLineHeightAndFontSize = 5;
@@ -100,7 +100,7 @@ auto AutosizeStatus::computeStatus(const RenderStyle& style) -> AutosizeStatus
     if (style.overflowX() == Overflow::Hidden)
         result.add(Fields::OverflowXHidden);
 
-    if (style.isFloating())
+    if (style.floating() != Float::None)
         result.add(Fields::Floating);
 
     return AutosizeStatus(result);

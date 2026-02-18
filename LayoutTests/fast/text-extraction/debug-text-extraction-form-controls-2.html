@@ -32,6 +32,12 @@ form {
 h4 {
     margin: auto;
 }
+
+main {
+    position: fixed;
+    inset: 0;
+    overflow-y: scroll;
+}
 </style>
 <script src="../../resources/ui-helper.js"></script>
 </head>
@@ -48,6 +54,10 @@ h4 {
         <div class="tall"></div>
         <form name="signup" autocomplete="on">
             <h4>Sign up for our newsletter</h4>
+            <label>
+                <input type="checkbox" name="4dbbd829694147d79fecb2e70f3109db">
+                Remember me
+            </label>
             <div class="form-container">
                 <input name="username" placeholder="Username" minlength="3" maxlength="20" required />
                 <input name="password" placeholder="Password" minlength="3" maxlength="20" type="password" required />
@@ -69,13 +79,13 @@ h4 {
             <option value="apple">Apple</option>
         </select>
     </section>
+    <footer role="contentinfo">
+        <p>Footer content with <span role="img" aria-label="copyright symbol">©</span> 2024</p>
+    </footer>
+    <div role="dialog" aria-hidden="true" style="display: none;">
+        <p>This dialog is hidden and should not be extracted.</p>
+    </div>
 </main>
-<footer role="contentinfo">
-    <p>Footer content with <span role="img" aria-label="copyright symbol">©</span> 2024</p>
-</footer>
-<div role="dialog" aria-hidden="true" style="display: none;">
-    <p>This dialog is hidden and should not be extracted.</p>
-</div>
 <script>
 addEventListener("load", async () => {
     if (!window.testRunner)

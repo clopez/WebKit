@@ -149,6 +149,7 @@ public:
     bool isSecureField() const { return isPasswordField() || autofilledAndObscured(); }
     bool isCheckbox() const;
     bool isSwitch() const;
+    bool isCheckable() const;
     bool isRangeControl() const;
     WEBCORE_EXPORT bool isColorControl() const;
     // FIXME: It's highly likely that any call site calling this function should instead
@@ -485,8 +486,8 @@ private:
     bool m_isAutoFilled : 1 { false };
     bool m_isAutoFilledAndViewable : 1 { false };
     bool m_isAutoFilledAndObscured : 1 { false };
-    unsigned m_autoFillButtonType : 3 { enumToUnderlyingType(AutoFillButtonType::None) }; // AutoFillButtonType
-    unsigned m_lastAutoFillButtonType : 3 { enumToUnderlyingType(AutoFillButtonType::None) }; // AutoFillButtonType
+    unsigned m_autoFillButtonType : 3 { std::to_underlying(AutoFillButtonType::None) }; // AutoFillButtonType
+    unsigned m_lastAutoFillButtonType : 3 { std::to_underlying(AutoFillButtonType::None) }; // AutoFillButtonType
     bool m_isAutoFillAvailable : 1 { false };
     bool m_hasNonEmptyList : 1 { false };
     bool m_stateRestored : 1 { false };

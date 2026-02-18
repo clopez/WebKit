@@ -358,7 +358,26 @@ struct WrappedCryptoKey;
 
 #if ENABLE(WEB_AUTHN)
 struct MockWebAuthenticationConfiguration;
-struct DigitalCredentialsRequestData;
+struct DigitalCredentialsMobileDocumentRequestData;
+
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+struct DigitalCredentialsMobileDocumentRequestDataWithRequestInfo;
+using RawDigitalCredentialsWithRequestInfo = Vector<String>;
+#endif
+
+struct MobileDocumentRequest;
+using UnvalidatedDigitalCredentialRequest = MobileDocumentRequest;
+using DigitalCredentialsRequestData = Variant<
+    WebCore::DigitalCredentialsMobileDocumentRequestData
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+    , WebCore::DigitalCredentialsMobileDocumentRequestDataWithRequestInfo
+#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+>;
+using DigitalCredentialsRawRequests = Variant<Vector<UnvalidatedDigitalCredentialRequest>
+#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+        , RawDigitalCredentialsWithRequestInfo
+#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
+    >;
 struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
 #endif
@@ -684,6 +703,7 @@ enum class WasNavigationIntercepted : bool;
 enum class WebContentMode : uint8_t;
 enum class WebEventModifier : uint8_t;
 enum class WebEventType : uint32_t;
+enum class WebMouseEventInputSource : uint8_t;
 enum class WindowKind : uint8_t;
 
 template<typename> class MonotonicObjectIdentifier;
@@ -859,9 +879,6 @@ public:
     PlaybackSessionManagerProxy* playbackSessionManager() { return m_playbackSessionManager.get(); }
     VideoPresentationManagerProxy* videoPresentationManager();
     void setMockVideoPresentationModeEnabled(bool);
-#endif
-
-#if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
 #endif
 
     WebScreenOrientationManagerProxy* screenOrientationManager() { return m_screenOrientationManager.get(); }
@@ -1174,8 +1191,14 @@ public:
 
 #if PLATFORM(COCOA)
     void selectWithGesture(WebCore::IntPoint, GestureType, GestureRecognizerState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&&);
+
     void didReceivePositionInformation(const InteractionInformationAtPosition&);
     void requestPositionInformation(const InteractionInformationRequest&);
+
+    void selectPositionAtPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
+    void updateSelectionWithExtentPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
+    void updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, TextInteractionSource, CompletionHandler<void(bool)>&&);
+    void selectTextWithGranularityAtPoint(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1223,13 +1246,9 @@ public:
     void selectWordBackward();
     void extendSelectionForReplacement(CompletionHandler<void()>&&);
     void moveSelectionByOffset(int32_t offset, CompletionHandler<void()>&&);
-    void selectTextWithGranularityAtPoint(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
-    void selectPositionAtPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void selectPositionAtBoundaryWithDirection(WebCore::IntPoint, WebCore::TextGranularity, WebCore::SelectionDirection, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void moveSelectionAtBoundaryWithDirection(WebCore::TextGranularity, WebCore::SelectionDirection, CompletionHandler<void()>&&);
     void beginSelectionInDirection(WebCore::SelectionDirection, CompletionHandler<void(bool)>&&);
-    void updateSelectionWithExtentPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
-    void updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, TextInteractionSource, CompletionHandler<void(bool)>&&);
     void requestAutocorrectionData(const String& textForAutocorrection, CompletionHandler<void(WebAutocorrectionData)>&&);
     void applyAutocorrection(const String& correction, const String& originalText, bool isCandidate, CompletionHandler<void(const String&)>&&);
     bool applyAutocorrection(const String& correction, const String& originalText, bool isCandidate);
@@ -1261,12 +1280,6 @@ public:
     void applicationDidBecomeActive();
     void applicationDidEnterBackgroundForMedia();
     void applicationWillEnterForegroundForMedia();
-    void commitPotentialTapFailed();
-    void didNotHandleTapAsClick(const WebCore::IntPoint&);
-    void didHandleTapAsHover();
-    void didCompleteSyntheticClick();
-    void disableDoubleTapGesturesDuringTapIfNecessary(TapIdentifier);
-    void handleSmartMagnificationInformationForPotentialTap(TapIdentifier, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel, bool nodeIsPluginElement);
     void contentSizeCategoryDidChange(const String& contentSizeCategory);
     void getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
     void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, OptionSet<WebEventModifier>, TapIdentifier requestID);
@@ -1825,16 +1838,23 @@ public:
     WebProcessProxy& ensureRunningProcess();
     Ref<WebProcessProxy> ensureProtectedRunningProcess();
     WebProcessProxy& siteIsolatedProcess() const { return m_legacyMainFrameProcess; }
-    WebProcessProxy& legacyMainFrameProcess() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_legacyMainFrameProcess; }
+    // rdar://168057355
+    WebProcessProxy* WTF_NONNULL legacyMainFrameProcessPtrForSwift() const SWIFT_NAME(legacyMainFrameProcess()) { return &legacyMainFrameProcess(); }
+    WebProcessProxy& legacyMainFrameProcess() const SWIFT_NAME(__legacyMainFrameProcessUnsafe()) { return m_legacyMainFrameProcess; }
+
     ProcessID legacyMainFrameProcessID() const;
 
     ProcessID gpuProcessID() const;
     ProcessID modelProcessID() const;
 
-    WebBackForwardCache& backForwardCache() const SWIFT_RETURNS_INDEPENDENT_VALUE;
+    // rdar://168057355
+    WebBackForwardCache* WTF_NONNULL backForwardCachePtrForSwift() const SWIFT_NAME(backForwardCache()) { return &backForwardCache(); }
+    WebBackForwardCache& backForwardCache() const SWIFT_NAME(__backForwardCacheUnsafe());
 
-    const WebPreferences& preferences() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_preferences; }
-    WebPreferences& preferences() SWIFT_RETURNS_INDEPENDENT_VALUE { return m_preferences; }
+    // rdar://168057355
+    const WebPreferences* WTF_NONNULL preferencesPtrForSwift() const SWIFT_NAME(preferences()) { return &preferences(); }
+    const WebPreferences& preferences() const SWIFT_NAME(__preferencesUnsafe()) { return m_preferences; }
+    WebPreferences& preferences() SWIFT_NAME(__preferencesUnsafe()) { return m_preferences; }
 
     void setPreferences(WebPreferences&);
 
@@ -1966,14 +1986,25 @@ public:
     void setSuppressVisibilityUpdates(bool flag);
     bool suppressVisibilityUpdates() { return m_suppressVisibilityUpdates; }
 
+#if ENABLE(TWO_PHASE_CLICKS)
+    void potentialTapAtPosition(std::optional<WebCore::FrameIdentifier>, const WebCore::FloatPoint&, bool shouldRequestMagnificationInformation, TapIdentifier requestID, WebMouseEventInputSource);
+    void commitPotentialTap(std::optional<WebCore::FrameIdentifier>, OptionSet<WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID);
+    void cancelPotentialTap();
+    void commitPotentialTapFailed();
+    void didNotHandleTapAsClick(const WebCore::IntPoint&);
+    void didHandleTapAsHover();
+    void didCompleteSyntheticClick();
+    void disableDoubleTapGesturesDuringTapIfNecessary(TapIdentifier);
+    void handleSmartMagnificationInformationForPotentialTap(TapIdentifier, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel, bool nodeIsPluginElement);
+    void isPotentialTapInProgress(CompletionHandler<void(bool)>&&);
+    void didGetTapHighlightGeometries(TapIdentifier requestID, const WebCore::Color&, const Vector<WebCore::FloatQuad>& geometries, const WebCore::IntSize& topLeftRadius, const WebCore::IntSize& topRightRadius, const WebCore::IntSize& bottomLeftRadius, const WebCore::IntSize& bottomRightRadius, bool nodeHasBuiltInClickHandling);
+#endif
+
 #if PLATFORM(IOS_FAMILY)
     void willStartUserTriggeredZooming();
     void didEndUserTriggeredZooming();
     bool mainFramePluginHandlesPageScaleGesture() const { return m_mainFramePluginHandlesPageScaleGesture; }
 
-    void potentialTapAtPosition(std::optional<WebCore::FrameIdentifier>, const WebCore::FloatPoint&, bool shouldRequestMagnificationInformation, TapIdentifier requestID);
-    void commitPotentialTap(std::optional<WebCore::FrameIdentifier>, OptionSet<WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID);
-    void cancelPotentialTap();
     void tapHighlightAtPosition(const WebCore::FloatPoint&, TapIdentifier requestID);
     void attemptSyntheticClick(const WebCore::FloatPoint&, OptionSet<WebEventModifier>, TransactionID layerTreeTransactionIdAtLastTouchStart);
     void didRecognizeLongPress();
@@ -2084,7 +2115,7 @@ public:
     bool hasActiveVideoForControlsManager() const;
     void requestControlledElementID() const;
     void handleControlledElementIDResponse(const String&) const;
-    bool isPlayingVideoInEnhancedFullscreen() const;
+    bool isPlayingVideoInPictureInPicture() const;
 
 #if PLATFORM(COCOA)
     void requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, WebCore::NowPlayingInfo&&)>&&);
@@ -2357,7 +2388,7 @@ public:
 
     // Digital Credentials API
     void dismissDigitalCredentialsPicker(IPC::Connection&, CompletionHandler<void(bool)>&&);
-    void fetchRawDigitalCredentialRequests(CompletionHandler<void(Vector<WebCore::MobileDocumentRequest>)>&&);
+    void fetchRawDigitalCredentialRequests(CompletionHandler<void(WebCore::DigitalCredentialsRawRequests)>&&);
     void showDigitalCredentialsPicker(IPC::Connection&, const WebCore::DigitalCredentialsRequestData&, CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&);
 #endif
 
@@ -2699,6 +2730,10 @@ public:
     const MediaCapability* mediaCapability() const;
     void resetMediaCapability();
     void updateMediaCapability();
+
+    const MediaCapability* displayCaptureCapability() const;
+    void resetDisplayCaptureCapability();
+    void updateDisplayCaptureCapability();
 #endif
 
     void requestAllTextAndRects(CompletionHandler<void(Vector<Ref<API::TextRun>>&&)>&&);
@@ -2813,7 +2848,9 @@ public:
 
     void didAdjustVisibilityWithSelectors(Vector<String>&&);
 
-    BrowsingContextGroup& browsingContextGroup() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_browsingContextGroup; }
+    // rdar://168057355
+    BrowsingContextGroup* WTF_NONNULL browsingContextGroupPtrForSwift() const SWIFT_NAME(browsingContextGroup()) { return &browsingContextGroup(); }
+    BrowsingContextGroup& browsingContextGroup() const SWIFT_NAME(__browsingContextGroupUnsafe()) { return m_browsingContextGroup; }
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier() const { return m_openerFrameIdentifier; }
 
     WebPageProxyTesting* pageForTesting() const;
@@ -2844,8 +2881,6 @@ public:
     bool isAlwaysOnLoggingAllowed() const;
 
 #if PLATFORM(IOS_FAMILY)
-    void isPotentialTapInProgress(CompletionHandler<void(bool)>&&);
-
     void didRefreshDisplay();
 #endif
 
@@ -2884,7 +2919,7 @@ public:
 #endif
 
 #if ENABLE(POINTER_LOCK)
-    RefPtr<WebProcessProxy> webContentPointerLockProcess();
+    RefPtr<WebProcessProxy> NODELETE webContentPointerLockProcess();
     void clearWebContentPointerLockProcess();
     void resetPointerLockState(void);
 #endif
@@ -2907,7 +2942,7 @@ public:
     void takeActivitiesOnRemotePage(RemotePageProxy&);
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
-    RefPtr<WebDeviceOrientationUpdateProviderProxy> webDeviceOrientationUpdateProviderProxy();
+    RefPtr<WebDeviceOrientationUpdateProviderProxy> NODELETE webDeviceOrientationUpdateProviderProxy();
 #endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
@@ -3306,8 +3341,6 @@ private:
     void restorePageState(IPC::Connection&, std::optional<WebCore::FloatPoint> scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatBoxExtent& obscuredInsetsOnSave, double scale);
     void restorePageCenterAndScale(IPC::Connection&, std::optional<WebCore::FloatPoint>, double scale);
 
-    void didGetTapHighlightGeometries(TapIdentifier requestID, const WebCore::Color&, const Vector<WebCore::FloatQuad>& geometries, const WebCore::IntSize& topLeftRadius, const WebCore::IntSize& topRightRadius, const WebCore::IntSize& bottomLeftRadius, const WebCore::IntSize& bottomRightRadius, bool nodeHasBuiltInClickHandling);
-
     void elementDidFocus(IPC::Connection&, const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, const UserData&);
     void elementDidBlur();
     void updateInputContextAfterBlurringAndRefocusingElement();
@@ -3500,6 +3533,11 @@ private:
     void deactivateMediaCapability(MediaCapability&);
     bool shouldActivateMediaCapability() const;
     bool shouldDeactivateMediaCapability() const;
+
+    void setDisplayCaptureCapability(RefPtr<MediaCapability>&&);
+    void deactivateDisplayCaptureCapability(MediaCapability&);
+    bool shouldActivateDisplayCaptureCapability() const;
+    bool shouldDeactivateDisplayCaptureCapability() const;
 #endif
 
     // These are intentionally private
@@ -3568,6 +3606,12 @@ private:
     bool hasValidCapturingActivity() const;
     bool hasValidMutedCaptureAssertion() const;
 
+    bool hasValidMainFrameVisibleActivity() const;
+    bool hasValidMainFrameAudibleActivity() const;
+    bool hasValidMainFrameCapturingActivity() const;
+    bool hasValidMainFrameMutedCaptureAssertion() const;
+    bool hasValidMainFrameNetworkActivity() const;
+
 #if PLATFORM(IOS_FAMILY)
     void takeOpeningAppLinkActivity();
     void dropOpeningAppLinkActivity();
@@ -3592,6 +3636,7 @@ private:
 #endif
 
     void beginSiteHasStorageCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
+    void beginEnhancedSecurityLinkCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
 
     const UniqueRef<Internals> m_internals;
     Identifier m_identifier;

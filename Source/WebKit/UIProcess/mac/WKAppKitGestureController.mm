@@ -53,6 +53,10 @@
 #import <wtf/UUID.h>
 #import <wtf/WeakPtr.h>
 
+#if __has_include(<WebKitAdditions/WKAppKitGestureControllerAdditionsBefore.mm>)
+#import <WebKitAdditions/WKAppKitGestureControllerAdditionsBefore.mm>
+#endif
+
 #define WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(pageID, fmt, ...) RELEASE_LOG(ViewGestures, "[pageProxyID=%llu] %s: " fmt, pageID, std::source_location::current().function_name(), ##__VA_ARGS__)
 
 static WebCore::FloatSize translationInView(NSPanGestureRecognizer *gesture, WKWebView *view)
@@ -96,33 +100,25 @@ static WebCore::FloatSize toRawPlatformDelta(WebCore::FloatSize delta)
     return -delta;
 }
 
+@interface WKAppKitGestureController () <NSGestureRecognizerDelegatePrivate>
+@end
+
 @implementation WKAppKitGestureController {
     WeakPtr<WebKit::WebPageProxy> _page;
     WeakPtr<WebKit::WebViewImpl> _viewImpl;
+
     RetainPtr<NSPanGestureRecognizer> _panGestureRecognizer;
     RetainPtr<NSClickGestureRecognizer> _singleClickGestureRecognizer;
     RetainPtr<NSClickGestureRecognizer> _doubleClickGestureRecognizer;
+    RetainPtr<NSPressGestureRecognizer> _secondaryClickGestureRecognizer;
+
     bool _isMomentumActive;
 }
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKAppKitGestureControllerAdditions.mm>)
+#if __has_include(<WebKitAdditions/WKAppKitGestureControllerAdditionsImpl.mm>)
+#import <WebKitAdditions/WKAppKitGestureControllerAdditionsImpl.mm>
+#elif __has_include(<WebKitAdditions/WKAppKitGestureControllerAdditions.mm>)
 #import <WebKitAdditions/WKAppKitGestureControllerAdditions.mm>
-#else
-
-static NSString * const textSelectionClickGestureName = @"";
-
-- (void)configureForScrolling:(NSPanGestureRecognizer *)gesture
-{
-}
-
-- (void)configureForSingleClick:(NSClickGestureRecognizer *)gesture
-{
-}
-
-- (void)configureForDoubleClick:(NSClickGestureRecognizer *)gesture
-{
-}
-
 #endif
 
 - (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)viewImpl
@@ -136,6 +132,7 @@ static NSString * const textSelectionClickGestureName = @"";
     [self setUpPanGestureRecognizer];
     [self setUpSingleClickGestureRecognizer];
     [self setUpDoubleClickGestureRecognizer];
+    [self setUpSecondaryClickGestureRecognizer];
     [self addGesturesToWebView];
     [self enableGesturesIfNeeded];
 
@@ -147,9 +144,7 @@ static NSString * const textSelectionClickGestureName = @"";
     _panGestureRecognizer = adoptNS([[NSPanGestureRecognizer alloc] initWithTarget:self action:@selector(panGestureRecognized:)]);
     [self configureForScrolling:_panGestureRecognizer.get()];
     [_panGestureRecognizer setDelegate:self];
-#if HAVE(NSGESTURERECOGNIZER_NAME)
     [_panGestureRecognizer setName:@"WKPanGesture"];
-#endif
 }
 
 - (void)setUpSingleClickGestureRecognizer
@@ -157,9 +152,7 @@ static NSString * const textSelectionClickGestureName = @"";
     _singleClickGestureRecognizer = adoptNS([[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(singleClickGestureRecognized:)]);
     [self configureForSingleClick:_singleClickGestureRecognizer.get()];
     [_singleClickGestureRecognizer setDelegate:self];
-#if HAVE(NSGESTURERECOGNIZER_NAME)
     [_singleClickGestureRecognizer setName:@"WKSingleClickGesture"];
-#endif
 }
 
 - (void)setUpDoubleClickGestureRecognizer
@@ -167,9 +160,15 @@ static NSString * const textSelectionClickGestureName = @"";
     _doubleClickGestureRecognizer = adoptNS([[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(doubleClickGestureRecognized:)]);
     [self configureForDoubleClick:_doubleClickGestureRecognizer.get()];
     [_doubleClickGestureRecognizer setDelegate:self];
-#if HAVE(NSGESTURERECOGNIZER_NAME)
     [_doubleClickGestureRecognizer setName:@"WKDoubleClickGesture"];
-#endif
+}
+
+- (void)setUpSecondaryClickGestureRecognizer
+{
+    _secondaryClickGestureRecognizer = adoptNS([[NSPressGestureRecognizer alloc] initWithTarget:self action:@selector(secondaryClickGestureRecognized:)]);
+    [self configureForSecondaryClick:_secondaryClickGestureRecognizer.get()];
+    [_secondaryClickGestureRecognizer setDelegate:self];
+    [_secondaryClickGestureRecognizer setName:@"WKSecondaryClickGesture"];
 }
 
 - (void)addGesturesToWebView
@@ -185,6 +184,7 @@ static NSString * const textSelectionClickGestureName = @"";
     [webView addGestureRecognizer:_panGestureRecognizer.get()];
     [webView addGestureRecognizer:_singleClickGestureRecognizer.get()];
     [webView addGestureRecognizer:_doubleClickGestureRecognizer.get()];
+    [webView addGestureRecognizer:_secondaryClickGestureRecognizer.get()];
 }
 
 - (void)enableGesturesIfNeeded
@@ -192,6 +192,7 @@ static NSString * const textSelectionClickGestureName = @"";
     [self enableGestureIfNeeded:_panGestureRecognizer.get()];
     [self enableGestureIfNeeded:_singleClickGestureRecognizer.get()];
     [self enableGestureIfNeeded:_doubleClickGestureRecognizer.get()];
+    [self enableGestureIfNeeded:_secondaryClickGestureRecognizer.get()];
 }
 
 - (void)enableGestureIfNeeded:(NSGestureRecognizer *)gesture
@@ -230,6 +231,10 @@ static NSString * const textSelectionClickGestureName = @"";
     if ([panGesture state] == NSGestureRecognizerStateBegan)
         viewImpl->dismissContentRelativeChildWindowsWithAnimation(false);
 
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    viewImpl->updateBannerViewForPanGesture([panGesture state]);
+#endif
+
     // FIXME: Need to supply a real event here.
     if (viewImpl->allowsBackForwardNavigationGestures() && viewImpl->ensureProtectedGestureController()->handleScrollWheelEvent(nil)) {
         WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(page->logIdentifier(), "View gesture controller handled gesture");
@@ -256,8 +261,7 @@ static NSString * const textSelectionClickGestureName = @"";
 
     WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(page->logIdentifier(), "%@", gesture);
 
-    RetainPtr clickGesture = dynamic_objc_cast<NSClickGestureRecognizer>(gesture);
-    if (!clickGesture || _singleClickGestureRecognizer != clickGesture)
+    if (_singleClickGestureRecognizer != gesture)
         return;
 
     auto timestamp = GetCurrentEventTime();
@@ -297,6 +301,38 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     auto magnificationOrigin = [webView convertPoint:[gesture locationInView:nil] fromView:nil];
     viewImpl->ensureProtectedGestureController()->handleSmartMagnificationGesture(magnificationOrigin);
+}
+
+- (void)secondaryClickGestureRecognized:(NSGestureRecognizer *)gesture
+{
+    CheckedPtr viewImpl = _viewImpl.get();
+    if (!viewImpl)
+        return;
+
+    RetainPtr webView = viewImpl->view();
+    if (!webView)
+        return;
+
+    RefPtr page = _page.get();
+    if (!page)
+        return;
+
+    WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(page->logIdentifier(), "%@", gesture);
+
+    if (_secondaryClickGestureRecognizer != gesture)
+        return;
+
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+    auto modifierFlags = [gesture modifierFlags];
+ALLOW_NEW_API_WITHOUT_GUARDS_END
+    auto location = [gesture locationInView:nil];
+    auto windowNumber = viewImpl->windowNumber();
+
+    RetainPtr mouseDown = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown location:location modifierFlags:modifierFlags timestamp:GetCurrentEventTime() windowNumber:windowNumber context:NULL eventNumber:0 clickCount:1 pressure:1.0];
+    viewImpl->mouseDown(mouseDown.get(), WebKit::WebMouseEventInputSource::UserDriven);
+
+    RetainPtr mouseUp = [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:location modifierFlags:modifierFlags timestamp:GetCurrentEventTime() windowNumber:windowNumber context:NULL eventNumber:0 clickCount:1 pressure:0.0];
+    viewImpl->mouseUp(mouseUp.get(), WebKit::WebMouseEventInputSource::UserDriven);
 }
 
 #pragma mark - Wheel Event Handling
@@ -465,9 +501,43 @@ static inline bool isSamePair(NSGestureRecognizer *a, NSGestureRecognizer *b, NS
     if (isSamePair(gestureRecognizer, otherGestureRecognizer, _singleClickGestureRecognizer.get(), _panGestureRecognizer.get()))
         return YES;
 
-    if ((gestureRecognizer == _singleClickGestureRecognizer.get() && [otherGestureRecognizer.name isEqualToString:textSelectionClickGestureName])
-        || (otherGestureRecognizer == _singleClickGestureRecognizer.get() && [gestureRecognizer.name isEqualToString:textSelectionClickGestureName]))
-        return YES;
+    CheckedPtr viewImpl = _viewImpl.get();
+    if (!viewImpl)
+        return NO;
+
+    RetainPtr webView = viewImpl->view();
+    if (!webView)
+        return NO;
+
+    // Allow the single click GR to be simultaneously recognized with any of those from the text selection manager.
+
+    for (NSGestureRecognizer *gestureForFailureRequirements in [[webView textSelectionManager] gesturesForFailureRequirements]) {
+        if ((gestureRecognizer == _singleClickGestureRecognizer && otherGestureRecognizer == gestureForFailureRequirements)
+            || (otherGestureRecognizer == _singleClickGestureRecognizer && gestureRecognizer == gestureForFailureRequirements))
+            return YES;
+    }
+
+    return NO;
+}
+
+- (BOOL)gestureRecognizer:(NSGestureRecognizer *)gestureRecognizer shouldBeRequiredToFailByGestureRecognizer:(NSGestureRecognizer *)otherGestureRecognizer
+{
+    WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(RefPtr { _page.get() }->logIdentifier(), "Gesture: %@, Other gesture: %@", gestureRecognizer, otherGestureRecognizer);
+
+    CheckedPtr viewImpl = _viewImpl.get();
+    if (!viewImpl)
+        return NO;
+
+    RetainPtr webView = viewImpl->view();
+    if (!webView)
+        return NO;
+
+    // Fail any gestures from the text selection manager if the secondary click GR handles them.
+
+    for (NSGestureRecognizer *gestureForFailureRequirements in [[webView textSelectionManager] gesturesForFailureRequirements]) {
+        if (gestureRecognizer == _secondaryClickGestureRecognizer && otherGestureRecognizer == gestureForFailureRequirements)
+            return YES;
+    }
 
     return NO;
 }
@@ -476,13 +546,30 @@ static inline bool isSamePair(NSGestureRecognizer *a, NSGestureRecognizer *b, NS
 {
     WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(RefPtr { _page.get() }->logIdentifier(), "Gesture: %@", gestureRecognizer);
 
-    if (gestureRecognizer == _doubleClickGestureRecognizer.get()) {
+    if (gestureRecognizer == _doubleClickGestureRecognizer) {
         CheckedPtr viewImpl = _viewImpl.get();
         if (!viewImpl || !viewImpl->allowsMagnification())
             return NO;
     }
 
+    if (gestureRecognizer == _secondaryClickGestureRecognizer) {
+        // FIXME: Implement logic for determining if the clicked node is not text.
+        return NO;
+    }
+
     return YES;
+}
+
+- (BOOL)_isScrollOrZoomGestureRecognizer:(NSGestureRecognizer *)gesture
+{
+    // FIXME: Should we account for any system pan gesture recognizers?
+    return gesture == _panGestureRecognizer || [gesture isKindOfClass:[NSMagnificationGestureRecognizer class]];
+}
+
+- (BOOL)_gestureRecognizer:(NSGestureRecognizer *)preventingGestureRecognizer canPreventGestureRecognizer:(NSGestureRecognizer *)preventedGestureRecognizer
+{
+    bool isOurClickGesture = preventingGestureRecognizer == _singleClickGestureRecognizer || preventingGestureRecognizer == _secondaryClickGestureRecognizer;
+    return !isOurClickGesture || ![self _isScrollOrZoomGestureRecognizer:preventedGestureRecognizer];
 }
 
 @end

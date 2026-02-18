@@ -29,6 +29,7 @@
 #import <WebKit/WKContentRuleList.h>
 #import <WebKit/WKContentRuleListStore.h>
 #import <WebKit/WKContentWorld.h>
+#import <WebKit/WKContentWorldConfiguration.h>
 #import <WebKit/WKContextMenuElementInfo.h>
 #import <WebKit/WKDownload.h>
 #import <WebKit/WKDownloadDelegate.h>
@@ -39,6 +40,9 @@
 #import <WebKit/WKFoundation.h>
 #import <WebKit/WKFrameInfo.h>
 #import <WebKit/WKHTTPCookieStore.h>
+#import <WebKit/WKJSHandle.h>
+#import <WebKit/WKJSScriptingBuffer.h>
+#import <WebKit/WKJSSerializedNode.h>
 #import <WebKit/WKNavigation.h>
 #import <WebKit/WKNavigationAction.h>
 #import <WebKit/WKNavigationDelegate.h>

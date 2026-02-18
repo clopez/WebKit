@@ -768,7 +768,7 @@ WebPageProxy* WebProcessProxy::webPage(PageIdentifier pageID)
 WebPageProxy* WebProcessProxy::audioCapturingWebPage()
 {
     for (WeakRef page : globalPageMap().values()) {
-        if (protect(page.get())->hasActiveAudioStream())
+        if (protect(page)->hasActiveAudioStream())
             return page.ptr();
     }
     return nullptr;
@@ -1978,17 +1978,6 @@ void WebProcessProxy::prepareToDropLastAssertion(CompletionHandler<void()>&& com
 #else
     completionHandler();
 #endif
-}
-
-String WebProcessProxy::environmentIdentifier() const
-{
-    if (m_environmentIdentifier.isEmpty()) {
-        StringBuilder builder;
-        builder.append(clientName());
-        builder.append(processID());
-        m_environmentIdentifier = builder.toString();
-    }
-    return m_environmentIdentifier;
 }
 
 void WebProcessProxy::updateAudibleMediaAssertions()

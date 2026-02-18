@@ -45,6 +45,7 @@
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/MediaKeySystemRequest.h>
+#include <WebCore/MouseEventTypes.h>
 #include <WebCore/NodeIdentifier.h>
 #include <WebCore/NowPlayingMetadataObserver.h>
 #include <WebCore/OwnerPermissionsPolicyData.h>
@@ -137,6 +138,10 @@ OBJC_CLASS PDFSelection;
 OBJC_CLASS WKAccessibilityWebPageObject;
 #endif
 
+#if ENABLE(WEB_AUTHN)
+#include <WebCore/DigitalCredentialsRequestData.h>
+#endif
+
 #define ENABLE_VIEWPORT_RESIZING PLATFORM(IOS_FAMILY)
 
 namespace WTF {
@@ -224,6 +229,7 @@ class FragmentedSharedBuffer;
 class SubstituteData;
 class TextCheckingRequest;
 class VisiblePosition;
+class LayoutRect;
 
 enum class ActivityState : uint16_t;
 enum class AdjustViewSize : bool;
@@ -282,6 +288,7 @@ enum class WheelEventProcessingSteps : uint8_t;
 enum class WheelScrollGestureState : uint8_t;
 enum class WritingDirection : uint8_t;
 enum class PaginationMode : uint8_t;
+enum class PaintBehavior : uint32_t;
 
 struct AXDebugInfo;
 struct AccessibilityRemoteToken;
@@ -348,7 +355,6 @@ struct TranslationContextMenuInfo;
 struct UserMediaRequestIdentifierType;
 struct ViewportArguments;
 
-struct DigitalCredentialsRequestData;
 struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
 
@@ -495,6 +501,7 @@ enum class TextRecognitionUpdateResult : uint8_t;
 enum class VisitedLinkTableIdentifierType;
 enum class WebEventModifier : uint8_t;
 enum class WebEventType : uint32_t;
+enum class WebMouseEventInputSource : uint8_t;
 
 struct ContentWorldData;
 struct ContentWorldIdentifierType;
@@ -1077,7 +1084,28 @@ public:
 
     void requestPositionInformation(const InteractionInformationRequest&);
     InteractionInformationAtPosition positionInformation(const InteractionInformationRequest&);
+
+    std::optional<WebCore::SimpleRange> rangeForGranularityAtPoint(WebCore::LocalFrame&, const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement);
+    void setSelectionRange(WebCore::IntPoint, WebCore::TextGranularity, bool);
+
+    void selectPositionAtPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
+    void updateSelectionWithExtentPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
+    void updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, TextInteractionSource, CompletionHandler<void(bool)>&&);
+    void selectTextWithGranularityAtPoint(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
 #endif // PLATFORM(COCOA)
+
+#if ENABLE(TWO_PHASE_CLICKS)
+    Awaitable<std::optional<WebCore::RemoteUserInputEventData>> potentialTapAtPosition(std::optional<WebCore::FrameIdentifier>, WebKit::TapIdentifier, WebCore::FloatPoint, bool shouldRequestMagnificationInformation, WebKit::WebMouseEventInputSource);
+    Awaitable<std::optional<WebCore::FrameIdentifier>> commitPotentialTap(std::optional<WebCore::FrameIdentifier>, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId, WebCore::PointerID);
+    void cancelPotentialTap();
+    void cancelPotentialTapInFrame(WebFrame&);
+    void commitPotentialTapFailed();
+    void didHandleTapAsHover();
+    void sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier, WebCore::Node*, WebCore::FloatPoint);
+    void handleSyntheticClick(std::optional<WebCore::FrameIdentifier>, WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::PointerID = WebCore::mousePointerID);
+    void completeSyntheticClick(std::optional<WebCore::FrameIdentifier>, WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::SyntheticClickType, WebCore::PointerID = WebCore::mousePointerID);
+    void invokePendingSyntheticClickCallback(WebCore::SyntheticClickResult);
+#endif
 
 #if PLATFORM(IOS_FAMILY)
     void textInputContextsInRect(WebCore::FloatRect, CompletionHandler<void(const Vector<WebCore::ElementContext>&)>&&);
@@ -1105,12 +1133,6 @@ public:
     bool hasStablePageScaleFactor() const { return m_hasStablePageScaleFactor; }
 
     void attemptSyntheticClick(const WebCore::IntPoint&, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId);
-    Awaitable<std::optional<WebCore::RemoteUserInputEventData>> potentialTapAtPosition(std::optional<WebCore::FrameIdentifier>, WebKit::TapIdentifier, WebCore::FloatPoint, bool shouldRequestMagnificationInformation);
-    Awaitable<std::optional<WebCore::FrameIdentifier>> commitPotentialTap(std::optional<WebCore::FrameIdentifier>, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId, WebCore::PointerID);
-    void commitPotentialTapFailed();
-    void didHandleTapAsHover();
-    void cancelPotentialTap();
-    void cancelPotentialTapInFrame(WebFrame&);
     void tapHighlightAtPosition(WebKit::TapIdentifier, const WebCore::FloatPoint&);
     void didRecognizeLongPress();
     void handleDoubleTapForDoubleClickAtPoint(const WebCore::IntPoint&, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId);
@@ -1127,13 +1149,9 @@ public:
     void extendSelectionForReplacement(CompletionHandler<void()>&&);
     void selectWordBackward();
     void moveSelectionByOffset(int32_t offset, CompletionHandler<void()>&&);
-    void selectTextWithGranularityAtPoint(const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void selectPositionAtBoundaryWithDirection(const WebCore::IntPoint&, WebCore::TextGranularity, WebCore::SelectionDirection, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void moveSelectionAtBoundaryWithDirection(WebCore::TextGranularity, WebCore::SelectionDirection, CompletionHandler<void()>&&);
-    void selectPositionAtPoint(const WebCore::IntPoint&, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void beginSelectionInDirection(WebCore::SelectionDirection, CompletionHandler<void(bool)>&&);
-    void updateSelectionWithExtentPoint(const WebCore::IntPoint&, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
-    void updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement, TextInteractionSource, CompletionHandler<void(bool)>&&);
     void didReleaseAllTouchPoints();
     void clearSelectionAfterTappingSelectionHighlightIfNeeded(WebCore::FloatPoint location);
 #if ENABLE(REVEAL)
@@ -1722,6 +1740,7 @@ public:
     void presentImmersiveElement(const WebCore::LayerHostingContextIdentifier, CompletionHandler<void(bool)>&&);
     void dismissImmersiveElement(CompletionHandler<void()>&&);
     void exitImmersive() const;
+    bool allowsImmersiveEnvironments() const;
 #endif
 
     void flushPendingEditorStateUpdate();
@@ -2055,8 +2074,10 @@ public:
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    const String& mediaEnvironment() const { return m_mediaEnvironment; }
-    void setMediaEnvironment(const String&);
+    const String& mediaPlaybackEnvironment() const { return m_mediaPlaybackEnvironment; }
+    void setMediaPlaybackEnvironment(const String&);
+    const String& displayCaptureEnvironment() const { return m_displayCaptureEnvironment; }
+    void setDisplayCaptureEnvironment(const String&);
 #endif
 
 #if ENABLE(WRITING_TOOLS)
@@ -2186,13 +2207,8 @@ private:
 #if PLATFORM(IOS_FAMILY)
     std::optional<FocusedElementInformation> focusedElementInformation();
     void generateSyntheticEditingCommand(SyntheticEditingCommandType);
-    void handleSyntheticClick(std::optional<WebCore::FrameIdentifier>, WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::PointerID = WebCore::mousePointerID);
-    void completeSyntheticClick(std::optional<WebCore::FrameIdentifier>, WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::SyntheticClickType, WebCore::PointerID = WebCore::mousePointerID);
-    void sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier, WebCore::Node*, WebCore::FloatPoint);
-    std::optional<WebCore::SimpleRange> rangeForGranularityAtPoint(WebCore::LocalFrame&, const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement);
     void setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(const WebCore::SimpleRange&, WebCore::Affinity);
     void dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch, const WebCore::IntPoint&);
-    void invokePendingSyntheticClickCallback(WebCore::SyntheticClickResult);
     void resetLastSelectedReplacementRangeIfNeeded();
 
     void sendPositionInformation(InteractionInformationAtPosition&&);
@@ -2382,6 +2398,9 @@ private:
     void getAccessibilityTreeData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void updateRenderingWithForcedRepaint(CompletionHandler<void()>&&);
     void takeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, SnapshotOptions, CompletionHandler<void(std::optional<ImageBufferBackendHandle>&&, WebCore::Headroom)>&&);
+    void takeRemoteSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, SnapshotOptions, RemoteSnapshotIdentifier, CompletionHandler<void(bool)>&&);
+    void postSnapshotTakedown(OptionSet<WebCore::PaintBehavior> originalPaintBehavior, OptionSet<WebCore::PaintBehavior>, std::optional<WebCore::LayoutRect> originalLayoutViewportOverrideRect, WebCore::LocalFrameView&);
+    void preSnapshotSetup(WebCore::IntRect& snapshotRect, WebCore::IntSize& bitmapSize, SnapshotOptions&, OptionSet<WebCore::PaintBehavior>&, WebCore::LocalFrameView&);
 
     void preferencesDidChange(const WebPreferencesStore&, std::optional<uint64_t> sharedPreferencesVersion);
     void preferencesDidChangeDuringDOMPrintOperation(const WebPreferencesStore& store, std::optional<uint64_t> sharedPreferencesVersion) { preferencesDidChange(store, sharedPreferencesVersion); }
@@ -2634,8 +2653,6 @@ private:
 
     Vector<Ref<SandboxExtension>> consumeSandboxExtensions(Vector<SandboxExtensionHandle>&&);
     void revokeSandboxExtensions(Vector<Ref<SandboxExtension>>& sandboxExtensions);
-
-    void setSelectionRange(const WebCore::IntPoint&, WebCore::TextGranularity, bool);
 
     bool hasPendingEditorStateUpdate() const;
     bool shouldAvoidComputingPostLayoutDataForEditorState() const;
@@ -3034,6 +3051,22 @@ private:
 
 #if PLATFORM(COCOA)
     std::optional<WebCore::SimpleRange> m_currentWordRange;
+    std::optional<WebCore::SimpleRange> m_initialSelection;
+#endif
+
+#if ENABLE(TWO_PHASE_CLICKS)
+    RefPtr<WebCore::Node> m_potentialTapNode;
+    WebCore::FloatPoint m_potentialTapLocation;
+    RefPtr<WebCore::SecurityOrigin> m_potentialTapSecurityOrigin;
+    WebCore::MouseEventInputSource m_potentialTapInputSource { WebCore::MouseEventInputSource::UserDriven };
+
+    bool m_completingSyntheticClick { false };
+    bool m_hasHandledSyntheticClick { false };
+    CompletionHandler<void(WebCore::SyntheticClickResult)> m_pendingSyntheticClickCallback;
+    RefPtr<WebCore::Node> m_pendingSyntheticClickNode;
+    WebCore::FloatPoint m_pendingSyntheticClickLocation;
+    OptionSet<WebKit::WebEventModifier> m_pendingSyntheticClickModifiers;
+    WebCore::PointerID m_pendingSyntheticClickPointerId { 0 };
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -3042,8 +3075,6 @@ private:
 
     bool m_isShowingInputViewForFocusedElement { false };
     bool m_wasShowingInputViewForFocusedElementDuringLastPotentialTap { false };
-    bool m_completingSyntheticClick { false };
-    bool m_hasHandledSyntheticClick { false };
 
     enum class SelectionAnchor : bool { Start, End };
     SelectionAnchor m_selectionAnchor { SelectionAnchor::Start };
@@ -3054,11 +3085,6 @@ private:
         FlippingToEnd
     };
     BidiSelectionFlippingState m_bidiSelectionFlippingState { BidiSelectionFlippingState::NotFlipping };
-
-    RefPtr<WebCore::Node> m_potentialTapNode;
-    WebCore::FloatPoint m_potentialTapLocation;
-    RefPtr<WebCore::SecurityOrigin> m_potentialTapSecurityOrigin;
-    CompletionHandler<void(WebCore::SyntheticClickResult)> m_pendingSyntheticClickCallback;
 
     bool m_hasReceivedVisibleContentRectsAfterDidCommitLoad { false };
     bool m_hasRestoredExposedContentRectAfterDidCommitLoad { false };
@@ -3076,16 +3102,11 @@ private:
     WebCore::FloatSize m_overrideScreenSize;
     WebCore::FloatSize m_overrideAvailableScreenSize;
 
-    std::optional<WebCore::SimpleRange> m_initialSelection;
     std::optional<WebCore::WeakSimpleRange> m_lastSelectedReplacementRange;
     WebCore::IntDegrees m_deviceOrientation { 0 };
     bool m_keyboardIsAttached { false };
     bool m_inDynamicSizeUpdate { false };
-    RefPtr<WebCore::Node> m_pendingSyntheticClickNode;
-    WebCore::FloatPoint m_pendingSyntheticClickLocation;
     WebCore::FloatRect m_previousExposedContentRect;
-    OptionSet<WebKit::WebEventModifier> m_pendingSyntheticClickModifiers;
-    WebCore::PointerID m_pendingSyntheticClickPointerId { 0 };
     std::optional<DynamicViewportSizeUpdateID> m_pendingDynamicViewportSizeUpdateID;
     double m_lastTransactionPageScaleFactor { 0 };
 
@@ -3265,7 +3286,8 @@ private:
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    String m_mediaEnvironment;
+    String m_mediaPlaybackEnvironment;
+    String m_displayCaptureEnvironment;
 #endif
 
 #if ENABLE(WRITING_TOOLS)
@@ -3281,6 +3303,10 @@ private:
 
     bool m_backgroundTextExtractionEnabled { false };
     bool m_isPopup { false };
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE)
+    bool m_allowsImmersiveEnvironments { false };
+#endif
 };
 
 #if !PLATFORM(IOS_FAMILY)
