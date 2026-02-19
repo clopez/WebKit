@@ -200,18 +200,9 @@ void NonCompositedFrameRenderer::updateRendering()
         m_context->makeContextCurrent();
     m_surface->willRenderFrame(scaledSize);
 
-<<<<<<< HEAD
     if (auto* canvas = m_surface->canvas()) {
         if (m_context)
             PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
-||||||| parent of 64059557a688 (chore(webkit): bootstrap build #2261)
-    auto* canvas = m_surface->canvas();
-    RELEASE_ASSERT(canvas);
-=======
-    auto* canvas = m_surface->canvas();
-    if (!canvas)
-        return;
->>>>>>> 64059557a688 (chore(webkit): bootstrap build #2261)
 
         canvas->save();
         GraphicsContextSkia graphicsContext(*canvas, m_context ? RenderingMode::Accelerated : RenderingMode::Unaccelerated, RenderingPurpose::DOM);
