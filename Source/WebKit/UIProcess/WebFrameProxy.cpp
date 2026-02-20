@@ -32,6 +32,7 @@
 #include "Connection.h"
 #include "DrawingAreaMessages.h"
 #include "DrawingAreaProxy.h"
+#include "FrameInspectorTarget.h"
 #include "FrameProcess.h"
 #include "FrameTreeCreationParameters.h"
 #include "FrameTreeNodeData.h"
@@ -44,7 +45,6 @@
 #include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
 #include "WebBackForwardListFrameItem.h"
-#include "WebFrameInspectorTarget.h"
 #include "WebFrameMessages.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebNavigationState.h"
@@ -435,17 +435,26 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
     m_contentFilterUnblockHandler.setConfigurationPath(protect(page->websiteDataStore())->configuration().webContentRestrictionsConfigurationFile());
 #endif
 
+    std::optional<URL> unblockRequestURL = std::nullopt;
+#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
+    if (page->preferences().webContentRestrictionsAskToEnabled())
+        unblockRequestURL = request.url();
+#endif
+
 #if HAVE(WEBCONTENTRESTRICTIONS)
     if (m_contentFilterUnblockHandler.needsNetworkProcess()) {
         if (auto evaluatedURL = m_contentFilterUnblockHandler.evaluatedURL()) {
             WebCore::ParentalControlsURLFilterParameters parameters {
                 *evaluatedURL,
 #if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-                m_contentFilterUnblockHandler.configurationPath()
+                m_contentFilterUnblockHandler.configurationPath(),
+#endif
+#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
+                unblockRequestURL,
 #endif
             };
             protect(protect(page->websiteDataStore())->networkProcess())->allowEvaluatedURL(parameters, [page](bool unblocked) {
-                if (unblocked)
+            if (unblocked)
                     page->reload({ });
             });
             return true;
@@ -453,13 +462,7 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
     }
 #endif
 
-    std::optional<URL> unblockRequestURL = std::nullopt;
 #if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER) && !HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
-#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
-    if (page->preferences().webContentRestrictionsAskToEnabled())
-        unblockRequestURL = request.url();
-#endif
-
     WebParentalControlsURLFilter::setSharedParentalControlsURLFilterIfNecessary();
 #endif
 

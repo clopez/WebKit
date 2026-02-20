@@ -28,6 +28,7 @@
 
 #if USE(COORDINATED_GRAPHICS)
 #include "DrawingArea.h"
+#include "RenderProcessInfo.h"
 #include "WebPage.h"
 #include "WebPageInlines.h"
 #include <WebCore/GLContext.h>
@@ -35,6 +36,8 @@
 #include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/Settings.h>
+#include <epoxy/egl.h>
+#include <epoxy/gl.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 
@@ -99,8 +102,7 @@ void NonCompositedFrameRenderer::addDirtyRect(const IntRect& rect)
 
 void NonCompositedFrameRenderer::setNeedsDisplay()
 {
-    Ref webPage = m_webPage.get();
-    auto dirtyRect = webPage->bounds();
+    auto dirtyRect = m_webPage->bounds();
     if (dirtyRect.isEmpty())
         return;
 
@@ -110,9 +112,8 @@ void NonCompositedFrameRenderer::setNeedsDisplay()
 
 void NonCompositedFrameRenderer::setNeedsDisplayInRect(const IntRect& rect)
 {
-    Ref webPage = m_webPage.get();
     auto dirtyRect = rect;
-    dirtyRect.intersect(webPage->bounds());
+    dirtyRect.intersect(m_webPage->bounds());
     if (dirtyRect.isEmpty())
         return;
 
@@ -123,21 +124,20 @@ void NonCompositedFrameRenderer::setNeedsDisplayInRect(const IntRect& rect)
 #if ENABLE(DAMAGE_TRACKING)
 void NonCompositedFrameRenderer::resetFrameDamage()
 {
-    Ref webPage = m_webPage.get();
-    auto scaledRect = webPage->bounds();
-    scaledRect.scale(webPage->deviceScaleFactor());
+    auto scaledRect = m_webPage->bounds();
+    scaledRect.scale(m_webPage->deviceScaleFactor());
     if (!m_context) {
         // For CPU rendering use the damage unconditionally to reduce the amount of pixels to upload to the GPU for the UI process.
         m_frameDamage = std::make_optional<Damage>(scaledRect, Damage::Mode::Rectangles, 4);
         return;
     }
 
-    if (!webPage->corePage()->settings().propagateDamagingInformation()) {
+    if (!m_webPage->corePage()->settings().propagateDamagingInformation()) {
         m_frameDamage = std::nullopt;
         return;
     }
 
-    m_frameDamage = std::make_optional<Damage>(scaledRect, webPage->corePage()->settings().unifyDamagedRegions() ? Damage::Mode::BoundingBox : Damage::Mode::Rectangles, 4);
+    m_frameDamage = std::make_optional<Damage>(scaledRect, m_webPage->corePage()->settings().unifyDamagedRegions() ? Damage::Mode::BoundingBox : Damage::Mode::Rectangles, 4);
 }
 #endif
 
@@ -184,7 +184,7 @@ void NonCompositedFrameRenderer::updateRendering()
 
     WTFBeginSignpost(this, NonCompositedRenderingUpdate);
 
-    Ref webPage = m_webPage.get();
+    Ref webPage = m_webPage;
     webPage->updateRendering();
     webPage->finalizeRenderingUpdate({ });
     webPage->flushPendingEditorStateUpdate();
@@ -320,20 +320,38 @@ void NonCompositedFrameRenderer::foreachRegionInDamageHistoryForTesting(Function
 #if PLATFORM(GTK)
 void NonCompositedFrameRenderer::adjustTransientZoom(double scale, FloatPoint, FloatPoint unscrolledOrigin)
 {
-    Ref webPage = m_webPage.get();
+    Ref webPage = m_webPage;
     webPage->scalePage(scale / webPage->viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
 }
 
 void NonCompositedFrameRenderer::commitTransientZoom(double scale, FloatPoint, FloatPoint unscrolledOrigin)
 {
-    Ref webPage = m_webPage.get();
+    Ref webPage = m_webPage;
     webPage->scalePage(scale / webPage->viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
 }
 #endif
 
 void NonCompositedFrameRenderer::fillGLInformation(RenderProcessInfo&& info, CompletionHandler<void(RenderProcessInfo&&)>&& completionHandler)
 {
-    // FIXME: implement.
+    if (!m_context) {
+        completionHandler(WTF::move(info));
+        return;
+    }
+
+    {
+        GLContext::ScopedGLContextCurrent currentContext(*m_context);
+        info.glRenderer = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+        info.glVendor = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+        info.glVersion = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+        info.glShadingVersion = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+        info.glExtensions = String::fromUTF8(reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS)));
+
+        auto eglDisplay = eglGetCurrentDisplay();
+        info.eglVersion = String::fromUTF8(eglQueryString(eglDisplay, EGL_VERSION));
+        info.eglVendor = String::fromUTF8(eglQueryString(eglDisplay, EGL_VENDOR));
+        info.eglExtensions = makeString(unsafeSpan(eglQueryString(nullptr, EGL_EXTENSIONS)), ' ', unsafeSpan(eglQueryString(eglDisplay, EGL_EXTENSIONS)));
+    }
+
     completionHandler(WTF::move(info));
 }
 

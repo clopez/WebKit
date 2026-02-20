@@ -463,6 +463,7 @@ def serialized_identifiers():
         'WebCore::SWServerConnectionIdentifier',
         'WebCore::SamplesRendererTrackIdentifier',
         'WebCore::ScrollingNodeIdentifier',
+        'WebCore::ScrollRequestIdentifier',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
         'WebCore::ServiceWorkerRegistrationIdentifier',
@@ -1354,6 +1355,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::ScriptTrackingPrivacyFlag': ['<WebCore/ScriptTrackingPrivacyCategory.h>'],
         'WebCore::ScheduleLocationChangeResult': ['<WebCore/NavigationScheduler.h>'],
         'WebCore::ScrollUpdate': ['<WebCore/ScrollingCoordinatorTypes.h>'],
+        'WebCore::ScrollRequestIdentifier': ['<WebCore/ScrollingCoordinatorTypes.h>'],
         'WebCore::ScrollbarMode': ['<WebCore/ScrollTypes.h>'],
         'WebCore::ScrollbarOverlayStyle': ['<WebCore/ScrollTypes.h>'],
         'WebCore::ScrollDirection': ['<WebCore/ScrollTypes.h>'],
@@ -2198,7 +2200,7 @@ def generate_message_names_header(receivers):
     result.append('\n')
     result.append('template<> constexpr bool isValidEnum<IPC::MessageName>(std::underlying_type_t<IPC::MessageName> messageName)\n')
     result.append('{\n')
-    result.append('    return messageName <= std::to_underlying(IPC::MessageName::Last);\n')
+    result.append('    return messageName <= WTF::enumToUnderlyingType(IPC::MessageName::Last);\n')
     result.append('}\n')
     result.append('\n')
     result.append('} // namespace WTF\n')

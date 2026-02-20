@@ -2011,7 +2011,7 @@ class YarrGenerator final : public YarrJITInfo {
         else {
             // For reading Unicode characters, use the standard resultReg so we can call the standard tryReadUnicodeChar()
             // helper instead of emitting an inlined version.
-            readCharacter(op.m_checkedOffset - term->inputPosition, character, patternIndex);
+            readCharacter(0, character, patternIndex);
             m_jit.move(character, patternCharacter);
         }
 #else
@@ -2045,7 +2045,10 @@ class YarrGenerator final : public YarrJITInfo {
 
             MacroAssembler::JumpList charactersMatch;
             charactersMatch.append(m_jit.branch32(MacroAssembler::Equal, character, patternCharacter));
-            MacroAssembler::Jump notASCII = m_jit.branch32(MacroAssembler::GreaterThan, character, MacroAssembler::TrustedImm32(127));
+            // Both character and patternCharacter must be ASCII to use the latin1CanonicalizationTable
+            // (which has only 256 entries). If either is non-ASCII, fall through to the slow path.
+            MacroAssembler::Jump characterNotASCII = m_jit.branch32(MacroAssembler::GreaterThan, character, MacroAssembler::TrustedImm32(127));
+            MacroAssembler::Jump patternCharNotASCII = m_jit.branch32(MacroAssembler::GreaterThan, patternCharacter, MacroAssembler::TrustedImm32(127));
             // The ASCII part of latin1CanonicalizationTable works for UCS2 and Unicode patterns.
             MacroAssembler::ExtendedAddress characterTableEntry(character, reinterpret_cast<intptr_t>(&latin1CanonicalizationTable));
             m_jit.load16(characterTableEntry, character);
@@ -2054,7 +2057,8 @@ class YarrGenerator final : public YarrJITInfo {
             characterMatchFails.append(m_jit.branch32(MacroAssembler::NotEqual, character, patternCharacter));
             charactersMatch.append(m_jit.jump());
 
-            notASCII.link(&m_jit);
+            characterNotASCII.link(&m_jit);
+            patternCharNotASCII.link(&m_jit);
             // We are safe to use the regUnicodeInputAndTrail register as an argument since it
             // is only used when reading unicode characters.
             int32_t canonicalMode = static_cast<int32_t>(m_decodeSurrogatePairs ? CanonicalMode::Unicode : CanonicalMode::UCS2);
@@ -6293,6 +6297,26 @@ class YarrGenerator final : public YarrJITInfo {
 
         // Add to current index
         m_jit.add32(m_regs.regT0, m_regs.index);
+
+        // When baseOffset >= 0, totalOffset = 16 + baseOffset >= 16, and the SIMD loop bound
+        // (index <= length - totalOffset) guarantees index + p <= length - 1 - baseOffset <= length - 1.
+        // But when baseOffset < 0, the SIMD load starts at index + baseOffset (before index),
+        // so the loop bound allows index up to length - 16 - baseOffset = length - 16 + |baseOffset|.
+        // Adding the match offset p (0-15) gives index up to length - 1 + |baseOffset|, which
+        // exceeds length.
+        //
+        // Example: /<([^>]+?)>[\s\S]*?<\/\1>/g
+        //   checkedOffset=6, endIndex=1 baseOffset = -6, totalOffset = 10
+        //   SIMD loop bound: index <= length - 10 (= 185 when length = 195)
+        //   At index=183, SIMD loads input[177..192] and finds '<' at vector offset 14
+        //   index becomes 183 + 14 = 197, but length = 195 => out of bounds
+        //
+        // Falling to the scalar loop is correct here: CTZ/CLZ finds the first (lowest
+        // offset) bitmap match in the vector, so all earlier positions in this window
+        // did not match the bitmap and cannot be candidates. The scalar loop's own
+        // bounds check (index > length) will immediately fail, producing "no match."
+        if (baseOffset < 0)
+            scalarLoop.append(m_jit.branch32(MacroAssembler::Above, m_regs.index, m_regs.length));
 
         // Jump to matched! (index now points to the matching character)
         matched.append(m_jit.jump());
