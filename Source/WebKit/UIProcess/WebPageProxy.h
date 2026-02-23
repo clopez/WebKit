@@ -886,14 +886,8 @@ public:
     bool NODELETE hasSleepDisabler() const;
 
 #if ENABLE(FULLSCREEN_API)
-<<<<<<< HEAD
-    WebFullScreenManagerProxy* NODELETE fullScreenManager();
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-    WebFullScreenManagerProxy* fullScreenManager();
-=======
     void setFullScreenManagerClientOverride(std::unique_ptr<WebFullScreenManagerProxyClient>&&);
-    WebFullScreenManagerProxy* fullScreenManager();
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
+    WebFullScreenManagerProxy* NODELETE fullScreenManager();
     void setFullScreenClientForTesting(std::unique_ptr<WebKit::WebFullScreenManagerProxyClient>&&);
 
     API::FullscreenClient& fullscreenClient() const { return *m_fullscreenClient; }
@@ -1126,14 +1120,8 @@ public:
     void clearSelection(std::optional<WebCore::FrameIdentifier> = std::nullopt);
     void restoreSelectionInFocusedEditableElement();
 
-<<<<<<< HEAD
     PageClient* NODELETE pageClient() const;
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-    PageClient* pageClient() const;
-=======
-    PageClient* pageClient() const;
     bool hasPageClient() const { return !!m_pageClient; }
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 
     void setViewNeedsDisplay(const WebCore::Region&);
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated, WebCore::InterruptScrollAnimation);
