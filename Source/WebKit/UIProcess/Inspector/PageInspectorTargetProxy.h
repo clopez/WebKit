@@ -42,9 +42,20 @@ class PageInspectorTargetProxy final : public InspectorTargetProxy {
     WTF_MAKE_NONCOPYABLE(PageInspectorTargetProxy);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PageInspectorTargetProxy);
 public:
+<<<<<<< HEAD:Source/WebKit/UIProcess/Inspector/PageInspectorTargetProxy.h
     static std::unique_ptr<PageInspectorTargetProxy> create(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
     static std::unique_ptr<PageInspectorTargetProxy> create(ProvisionalPageProxy&, const String& targetId, Inspector::InspectorTargetType);
     PageInspectorTargetProxy(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.h
+    static std::unique_ptr<WebPageInspectorTargetProxy> create(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+    static std::unique_ptr<WebPageInspectorTargetProxy> create(ProvisionalPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+    WebPageInspectorTargetProxy(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+=======
+    static std::unique_ptr<WebPageInspectorTargetProxy> create(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+    static std::unique_ptr<WebPageInspectorTargetProxy> create(ProvisionalPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+    static std::unique_ptr<WebPageInspectorTargetProxy> create(ProvisionalPageProxy&, const String& targetId);
+    WebPageInspectorTargetProxy(WebPageProxy&, const String& targetId, Inspector::InspectorTargetType);
+>>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.h
 
     void didCommitProvisionalTarget() override;
     bool isProvisional() const override;
@@ -52,8 +63,13 @@ public:
     void connect(Inspector::FrontendChannel::ConnectionType) override;
     void disconnect() override;
     void sendMessageToTargetBackend(const String&) override;
+    void activate(String& error) override;
+    void close(String& error, bool runBeforeUnload) override;
 
 private:
+    void willResume() override;
+    void platformActivate(String& error) const;
+
     WeakRef<WebPageProxy> m_page;
     WeakPtr<ProvisionalPageProxy> m_provisionalPage;
 };
