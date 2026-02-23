@@ -19003,18 +19003,8 @@
 				939EF87029D112EE00F23AEE /* WebPageInlines.h in Headers */,
 				9197940823DBC4CB00257892 /* WebPageInspectorAgentBase.h in Headers */,
 				A513F5402154A5D700662841 /* WebPageInspectorController.h in Headers */,
-<<<<<<< HEAD
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-				A543E30C215C8A8D00279CD9 /* WebPageInspectorTarget.h in Headers */,
-				A543E307215AD13700279CD9 /* WebPageInspectorTargetFrontendChannel.h in Headers */,
-				F30EE4712E72226700935B60 /* WebPageInspectorTargetProxy.h in Headers */,
-=======
 				D71A94422371F67E002C4D9E /* WebPageInspectorEmulationAgent.h in Headers */,
 				D71A94432371F67E002C4D9E /* WebPageInspectorInputAgent.h in Headers */,
-				A543E30C215C8A8D00279CD9 /* WebPageInspectorTarget.h in Headers */,
-				A543E307215AD13700279CD9 /* WebPageInspectorTargetFrontendChannel.h in Headers */,
-				F30EE4712E72226700935B60 /* WebPageInspectorTargetProxy.h in Headers */,
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 				C0CE72A11247E71D00BC0EC4 /* WebPageMessages.h in Headers */,
 				2D5C9D0619C81D8F00B3C5C1 /* WebPageOverlay.h in Headers */,
 				939EF86F29D0C17300F23AEE /* WebPageProxy.h in Headers */,

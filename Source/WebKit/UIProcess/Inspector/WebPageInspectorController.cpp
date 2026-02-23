@@ -29,36 +29,18 @@
 #include "APINavigation.h"
 #include "APIPageConfiguration.h"
 #include "APIUIClient.h"
+#include "FrameInspectorTarget.h"
 #include "FrameInspectorTargetProxy.h"
 #include "InspectorBrowserAgent.h"
-<<<<<<< HEAD
-#include "PageInspectorTarget.h"
-#include "PageInspectorTargetProxy.h"
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-=======
 #include "InspectorDialogAgent.h"
 #include "InspectorScreencastAgent.h"
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
+#include "PageInspectorTarget.h"
+#include "PageInspectorTargetProxy.h"
 #include "ProvisionalPageProxy.h"
-<<<<<<< HEAD
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-#include "WebFrameInspectorTargetProxy.h"
-=======
-#include "WebFrameInspectorTarget.h"
-#include "WebFrameInspectorTargetProxy.h"
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 #include "WebFrameProxy.h"
 #include "WebPageInspectorAgentBase.h"
-<<<<<<< HEAD
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-#include "WebPageInspectorTarget.h"
-#include "WebPageInspectorTargetProxy.h"
-=======
 #include "WebPageInspectorEmulationAgent.h"
 #include "WebPageInspectorInputAgent.h"
-#include "WebPageInspectorTarget.h"
-#include "WebPageInspectorTargetProxy.h"
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 #include "WebPageProxy.h"
 #include "WebProcess/Inspector/FrameInspectorTarget.h"
 #include "WebsiteDataStore.h"
@@ -108,13 +90,6 @@ WebPageInspectorController::~WebPageInspectorController() = default;
 
 void WebPageInspectorController::init()
 {
-<<<<<<< HEAD
-    String pageTargetId = PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
-    addTarget(PageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-    String pageTargetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
-    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
-=======
     auto targetAgent = makeUniqueRef<InspectorTargetAgent>(m_frontendRouter.get(), m_backendDispatcher.get());
     m_targetAgent = targetAgent.ptr();
     m_agents.append(WTF::move(targetAgent));
@@ -134,20 +109,19 @@ void WebPageInspectorController::init()
 
 void WebPageInspectorController::didInitializeWebPage()
 {
-    String pageTargetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
+    String pageTargetId = PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
     // Create target only after attaching to a Web Process first time. Before that
     // we cannot event establish frontend connection.
     if (m_targets.contains(pageTargetId))
         return;
-    addTarget(WebPageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
+    addTarget(PageInspectorTargetProxy::create(protect(m_inspectedPage), pageTargetId, Inspector::InspectorTargetType::Page));
     if (m_inspectedPage->mainFrame())
         didCreateFrame(*m_inspectedPage->mainFrame());
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 }
 
 void WebPageInspectorController::pageClosed()
 {
-    String pageTargetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
+    String pageTargetId = PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
     removeTarget(pageTargetId);
 
 
@@ -163,7 +137,7 @@ bool WebPageInspectorController::pageCrashed(ProcessTerminationReason reason)
 {
     if (reason != ProcessTerminationReason::Crash)
         return false;
-    String targetId = WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
+    String targetId = PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess());
     auto it = m_targets.find(targetId);
     if (it == m_targets.end())
         return false;
@@ -377,7 +351,7 @@ bool WebPageInspectorController::shouldPauseLoadRequest() const
     if (!m_inspectedPage->isPageOpenedByDOMShowingInitialEmptyDocument())
         return false;
 
-    auto* target = m_targets.get(WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess()));
+    auto* target = m_targets.get(PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess()));
     // The method is expeted to be called only when the WebPage has already been
     // initilized, so the target must exist.
     ASSERT(target);
@@ -404,7 +378,7 @@ bool WebPageInspectorController::shouldPauseInInspectorWhenShown() const
 
 void WebPageInspectorController::setContinueLoadingCallback(WTF::Function<void()>&& callback)
 {
-    auto* target = m_targets.get(WebPageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess()));
+    auto* target = m_targets.get(PageInspectorTarget::toTargetID(m_inspectedPage->webPageIDInMainFrameProcess()));
     ASSERT(target);
     target->setResumeCallback(WTF::move(callback));
 }
@@ -428,15 +402,9 @@ void WebPageInspectorController::setContinueLoadingCallback(const ProvisionalPag
 
 void WebPageInspectorController::didCreateProvisionalPage(ProvisionalPageProxy& provisionalPage)
 {
-<<<<<<< HEAD
-    addTarget(PageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage), Inspector::InspectorTargetType::Page));
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262)
-    addTarget(WebPageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage), Inspector::InspectorTargetType::Page));
-=======
-    addTarget(WebPageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage)));
+    addTarget(PageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage)));
     if (provisionalPage.mainFrame())
         didCreateFrame(*provisionalPage.mainFrame());
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262)
 }
 
 void WebPageInspectorController::willDestroyProvisionalPage(const ProvisionalPageProxy& provisionalPage)

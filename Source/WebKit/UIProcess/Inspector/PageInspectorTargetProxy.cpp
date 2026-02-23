@@ -59,18 +59,12 @@ std::unique_ptr<PageInspectorTargetProxy> PageInspectorTargetProxy::create(Provi
     return target;
 }
 
-<<<<<<< HEAD:Source/WebKit/UIProcess/Inspector/PageInspectorTargetProxy.cpp
-PageInspectorTargetProxy::PageInspectorTargetProxy(WebPageProxy& page, const String& targetId, Inspector::InspectorTargetType type)
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.cpp
-WebPageInspectorTargetProxy::WebPageInspectorTargetProxy(WebPageProxy& page, const String& targetId, Inspector::InspectorTargetType type)
-=======
-std::unique_ptr<WebPageInspectorTargetProxy> WebPageInspectorTargetProxy::create(ProvisionalPageProxy& provisionalPage, const String& targetId)
+std::unique_ptr<PageInspectorTargetProxy> PageInspectorTargetProxy::create(ProvisionalPageProxy& provisionalPage, const String& targetId)
 {
-    return WebPageInspectorTargetProxy::create(provisionalPage, targetId, Inspector::InspectorTargetType::Page);
+    return PageInspectorTargetProxy::create(provisionalPage, targetId, Inspector::InspectorTargetType::Page);
 }
 
-WebPageInspectorTargetProxy::WebPageInspectorTargetProxy(WebPageProxy& page, const String& targetId, Inspector::InspectorTargetType type)
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.cpp
+PageInspectorTargetProxy::PageInspectorTargetProxy(WebPageProxy& page, const String& targetId, Inspector::InspectorTargetType type)
     : InspectorTargetProxy(targetId, type)
     , m_page(page)
 {
@@ -120,18 +114,13 @@ void PageInspectorTargetProxy::didCommitProvisionalTarget()
     m_provisionalPage = nullptr;
 }
 
-<<<<<<< HEAD:Source/WebKit/UIProcess/Inspector/PageInspectorTargetProxy.cpp
-bool PageInspectorTargetProxy::isProvisional() const
-||||||| parent of 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.cpp
-bool WebPageInspectorTargetProxy::isProvisional() const
-=======
-void WebPageInspectorTargetProxy::willResume()
+void PageInspectorTargetProxy::willResume()
 {
     if (m_page->hasRunningProcess())
         m_page->legacyMainFrameProcess().send(Messages::WebPage::ResumeInspectorIfPausedInNewWindow(), m_page->webPageIDInMainFrameProcess());
 }
 
-void WebPageInspectorTargetProxy::activate(String& error)
+void PageInspectorTargetProxy::activate(String& error)
 {
     if (type() != Inspector::InspectorTargetType::Page)
         return InspectorTarget::activate(error);
@@ -139,7 +128,7 @@ void WebPageInspectorTargetProxy::activate(String& error)
     platformActivate(error);
 }
 
-void WebPageInspectorTargetProxy::close(String& error, bool runBeforeUnload)
+void PageInspectorTargetProxy::close(String& error, bool runBeforeUnload)
 {
     if (type() != Inspector::InspectorTargetType::Page)
         return InspectorTarget::close(error, runBeforeUnload);
@@ -150,8 +139,7 @@ void WebPageInspectorTargetProxy::close(String& error, bool runBeforeUnload)
         m_page->closePage();
 }
 
-bool WebPageInspectorTargetProxy::isProvisional() const
->>>>>>> 826ac4281a59 (chore(webkit): bootstrap build #2262):Source/WebKit/UIProcess/Inspector/WebPageInspectorTargetProxy.cpp
+bool PageInspectorTargetProxy::isProvisional() const
 {
     return !!m_provisionalPage;
 }
