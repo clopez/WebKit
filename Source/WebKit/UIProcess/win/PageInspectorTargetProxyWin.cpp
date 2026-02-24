@@ -24,12 +24,12 @@
  */
 
 #include "config.h"
-#include "WebPageInspectorTargetProxy.h"
+#include "PageInspectorTargetProxy.h"
 #include "WebPageProxy.h"
 
 namespace WebKit {
 
-void WebPageInspectorTargetProxy::platformActivate(String& error) const
+void PageInspectorTargetProxy::platformActivate(String& error) const
 {
 }
 

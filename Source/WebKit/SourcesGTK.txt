@@ -292,6 +292,7 @@ UIProcess/gtk/GRefPtrGtk.cpp @no-unify
 UIProcess/gtk/GtkUtilities.cpp @no-unify
 UIProcess/gtk/HardwareAccelerationManager.cpp
 UIProcess/gtk/KeyBindingTranslator.cpp
+UIProcess/gtk/PageInspectorTargetProxyGtk.cpp
 UIProcess/gtk/PointerLockManager.cpp @no-unify
 UIProcess/gtk/PointerLockManagerWayland.cpp @no-unify
 UIProcess/gtk/PointerLockManagerX11.cpp @no-unify
@@ -308,7 +309,6 @@ UIProcess/gtk/WebDataListSuggestionsDropdownGtk.cpp
 UIProcess/gtk/WebDateTimePickerGtk.cpp
 UIProcess/gtk/WebPageInspectorEmulationAgentGtk.cpp
 UIProcess/gtk/WebPageInspectorInputAgentGtk.cpp
-UIProcess/gtk/WebPageInspectorTargetProxyGtk.cpp
 UIProcess/gtk/WebPageProxyGtk.cpp @no-unify
 UIProcess/gtk/WebPasteboardProxyGtk.cpp
 UIProcess/gtk/WebPopupMenuProxyGtk.cpp

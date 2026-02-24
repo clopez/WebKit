@@ -24,14 +24,14 @@
  */
 
 #import "config.h"
-#import "WebPageInspectorTargetProxy.h"
+#import "PageInspectorTargetProxy.h"
 #import "WebPageProxy.h"
 
 #if PLATFORM(MAC)
 
 namespace WebKit {
 
-void WebPageInspectorTargetProxy::platformActivate(String& error) const
+void PageInspectorTargetProxy::platformActivate(String& error) const
 {
     NSWindow* window = m_page->platformWindow();
     [window makeKeyAndOrderFront:nil];

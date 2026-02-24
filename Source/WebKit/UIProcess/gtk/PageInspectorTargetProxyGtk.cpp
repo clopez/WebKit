@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "WebPageInspectorTargetProxy.h"
+#include "PageInspectorTargetProxy.h"
 
 #include "WebPageProxy.h"
 #include "GtkUtilities.h"
@@ -32,7 +32,7 @@
 
 namespace WebKit {
 
-void WebPageInspectorTargetProxy::platformActivate(String& error) const
+void PageInspectorTargetProxy::platformActivate(String& error) const
 {
     GtkWidget* parent = GTK_WIDGET(gtk_widget_get_root(m_page->viewWidget()));
     if (widgetIsOnscreenToplevelWindow(parent))

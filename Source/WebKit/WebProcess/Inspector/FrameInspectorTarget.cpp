@@ -88,7 +88,7 @@ String FrameInspectorTarget::toTargetID(WebCore::FrameIdentifier frameID)
     return makeString("frame-"_s, frameID.toUInt64());
 }
 
-void WebFrameInspectorTarget::didCreateSubframe(WebFrame& frame)
+void FrameInspectorTarget::didCreateSubframe(WebFrame& frame)
 {
     if (!m_channel)
         return;
