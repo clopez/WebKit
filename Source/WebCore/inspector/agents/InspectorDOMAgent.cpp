@@ -204,14 +204,14 @@ class RevalidateStyleAttributeTask final : public CanMakeCheckedPtr<RevalidateSt
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RevalidateStyleAttributeTask);
 public:
     RevalidateStyleAttributeTask(InspectorDOMAgent*);
-    void scheduleFor(Element*);
+    void scheduleFor(Element&);
     void reset() { m_timer.stop(); }
     void timerFired();
 
 private:
     const CheckedPtr<InspectorDOMAgent> m_domAgent;
     Timer m_timer;
-    HashSet<RefPtr<Element>> m_elements;
+    HashSet<Ref<Element>> m_elements;
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RevalidateStyleAttributeTask);
@@ -222,7 +222,7 @@ RevalidateStyleAttributeTask::RevalidateStyleAttributeTask(InspectorDOMAgent* do
 {
 }
 
-void RevalidateStyleAttributeTask::scheduleFor(Element* element)
+void RevalidateStyleAttributeTask::scheduleFor(Element& element)
 {
     m_elements.add(element);
     if (!m_timer.isActive())
@@ -234,7 +234,7 @@ void RevalidateStyleAttributeTask::timerFired()
     // The timer is stopped on m_domAgent destruction, so this method will never be called after m_domAgent has been destroyed.
     Vector<Element*> elements;
     for (auto& element : m_elements)
-        elements.append(element.get());
+        elements.append(element.ptr());
     m_domAgent->styleAttributeInvalidated(elements);
 
     m_elements.clear();
@@ -285,7 +285,7 @@ public:
             data->setBoolean("enabled"_s, !!node->document().fullscreen().fullscreenElement());
 #endif // ENABLE(FULLSCREEN_API)
 
-        auto timestamp = domAgent->checkedEnvironment()->executionStopwatch().elapsedTime().seconds();
+        auto timestamp = protect(domAgent->environment())->executionStopwatch().elapsedTime().seconds();
         domAgent->m_frontendDispatcher->didFireEvent(nodeId, event.type(), timestamp, data->size() ? WTF::move(data) : nullptr);
     }
 
@@ -324,11 +324,6 @@ InspectorDOMAgent::InspectorDOMAgent(PageAgentContext& context, InspectorOverlay
 }
 
 InspectorDOMAgent::~InspectorDOMAgent() = default;
-
-Ref<InspectorOverlay> InspectorDOMAgent::protectedOverlay() const
-{
-    return m_overlay.get();
-}
 
 void InspectorDOMAgent::didCreateFrontendAndBackend()
 {
@@ -1263,7 +1258,7 @@ bool InspectorDOMAgent::handleMousePress()
     if (!m_searchingForNode)
         return false;
 
-    if (RefPtr node = protectedOverlay()->highlightedNode()) {
+    if (RefPtr node = protect(overlay())->highlightedNode()) {
         inspect(node.get());
         return true;
     }
@@ -1276,7 +1271,7 @@ bool InspectorDOMAgent::handleTouchEvent(Node& node)
         return false;
 
     if (m_inspectModeHighlightConfig) {
-        protectedOverlay()->highlightNode(&node, *m_inspectModeHighlightConfig, m_inspectModeGridOverlayConfig, m_inspectModeFlexOverlayConfig, m_inspectModeShowRulers);
+        protect(overlay())->highlightNode(&node, *m_inspectModeHighlightConfig, m_inspectModeGridOverlayConfig, m_inspectModeFlexOverlayConfig, m_inspectModeShowRulers);
         inspect(&node);
         return true;
     }
@@ -1339,7 +1334,7 @@ void InspectorDOMAgent::highlightMousedOverNode()
         return;
 
     if (m_inspectModeHighlightConfig)
-        protectedOverlay()->highlightNode(node.get(), *m_inspectModeHighlightConfig, m_inspectModeGridOverlayConfig, m_inspectModeFlexOverlayConfig, m_inspectModeShowRulers);
+        protect(overlay())->highlightNode(node.get(), *m_inspectModeHighlightConfig, m_inspectModeGridOverlayConfig, m_inspectModeFlexOverlayConfig, m_inspectModeShowRulers);
 }
 
 void InspectorDOMAgent::setSearchingForNode(Inspector::Protocol::ErrorString& errorString, bool enabled, RefPtr<JSON::Object>&& highlightInspectorObject, RefPtr<JSON::Object>&& gridOverlayInspectorObject, RefPtr<JSON::Object>&& flexOverlayInspectorObject, bool showRulers)
@@ -1370,7 +1365,7 @@ void InspectorDOMAgent::setSearchingForNode(Inspector::Protocol::ErrorString& er
     } else
         std::ignore = hideHighlight();
 
-    protectedOverlay()->didSetSearchingForNode(m_searchingForNode);
+    protect(overlay())->didSetSearchingForNode(m_searchingForNode);
 
     if (InspectorBackendClient* client = m_inspectedPage->inspectorController().inspectorBackendClient())
         client->elementSelectionChanged(m_searchingForNode);
@@ -1482,7 +1477,7 @@ void InspectorDOMAgent::innerHighlightQuad(std::unique_ptr<FloatQuad> quad, RefP
     highlightConfig->content = parseColor(WTF::move(color)).value_or(Color::transparentBlack);
     highlightConfig->contentOutline = parseColor(WTF::move(outlineColor)).value_or(Color::transparentBlack);
     highlightConfig->usePageCoordinates = usePageCoordinates ? *usePageCoordinates : false;
-    protectedOverlay()->highlightQuad(WTF::move(quad), *highlightConfig);
+    protect(overlay())->highlightQuad(WTF::move(quad), *highlightConfig);
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1588,7 +1583,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightSelector(co
         }
     }
 
-    protectedOverlay()->highlightNodeList(StaticNodeList::create(WTF::move(nodeList)), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
+    protect(overlay())->highlightNodeList(StaticNodeList::create(WTF::move(nodeList)), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
 
     return { };
 }
@@ -1632,7 +1627,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightNode(std::o
     if (providedFlexOverlayConfig && !flexOverlayConfig)
         return makeUnexpected(errorString);
 
-    protectedOverlay()->highlightNode(node.get(), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
+    protect(overlay())->highlightNode(node.get(), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
 
     return { };
 }
@@ -1682,7 +1677,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightNodeList(Re
     if (providedFlexOverlayConfig && !flexOverlayConfig)
         return makeUnexpected(errorString);
 
-    protectedOverlay()->highlightNodeList(StaticNodeList::create(WTF::move(nodes)), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
+    protect(overlay())->highlightNodeList(StaticNodeList::create(WTF::move(nodes)), *highlightConfig, WTF::move(gridOverlayConfig), WTF::move(flexOverlayConfig), showRulers && *showRulers);
 
     return { };
 }
@@ -1705,7 +1700,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightFrame(const
         highlightConfig->showInfo = true; // Always show tooltips for frames.
         highlightConfig->content = parseColor(WTF::move(color)).value_or(Color::transparentBlack);
         highlightConfig->contentOutline = parseColor(WTF::move(outlineColor)).value_or(Color::transparentBlack);
-        protectedOverlay()->highlightNode(ownerElement.get(), *highlightConfig);
+        protect(overlay())->highlightNode(ownerElement.get(), *highlightConfig);
     }
 
     return { };
@@ -1713,7 +1708,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightFrame(const
 
 Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::hideHighlight()
 {
-    protectedOverlay()->hideHighlight();
+    protect(overlay())->hideHighlight();
 
     return { };
 }
@@ -1729,7 +1724,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::showGridOverlay(Insp
     if (!config)
         return makeUnexpected(errorString);
 
-    std::ignore = protectedOverlay()->setGridOverlayForNode(*node, *config);
+    std::ignore = protect(overlay())->setGridOverlayForNode(*node, *config);
 
     return { };
 }
@@ -1742,10 +1737,10 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::hideGridOverlay(std:
         if (!node)
             return makeUnexpected(errorString);
 
-        return protectedOverlay()->clearGridOverlayForNode(*node);
+        return protect(overlay())->clearGridOverlayForNode(*node);
 }
 
-    protectedOverlay()->clearAllGridOverlays();
+    protect(overlay())->clearAllGridOverlays();
 
     return { };
 }
@@ -1761,7 +1756,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::showFlexOverlay(Insp
     if (!config)
         return makeUnexpected(errorString);
 
-    std::ignore = protectedOverlay()->setFlexOverlayForNode(*node, *config);
+    std::ignore = protect(overlay())->setFlexOverlayForNode(*node, *config);
 
     return { };
 }
@@ -1774,10 +1769,10 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::hideFlexOverlay(std:
         if (!node)
             return makeUnexpected(errorString);
 
-        return protectedOverlay()->clearFlexOverlayForNode(*node);
+        return protect(overlay())->clearFlexOverlayForNode(*node);
     }
 
-    protectedOverlay()->clearAllFlexOverlays();
+    protect(overlay())->clearAllFlexOverlays();
 
     return { };
 }
@@ -2009,7 +2004,7 @@ Ref<Inspector::Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* 
 
     auto value = Inspector::Protocol::DOM::Node::create()
         .setNodeId(id)
-        .setNodeType(enumToUnderlyingType(node->nodeType()))
+        .setNodeType(std::to_underlying(node->nodeType()))
         .setNodeName(nodeName)
         .setLocalName(localName)
         .setNodeValue(nodeValue)
@@ -2862,7 +2857,7 @@ void InspectorDOMAgent::didInvalidateStyleAttr(Element& element)
 
     if (!m_revalidateStyleAttrTask)
         m_revalidateStyleAttrTask = makeUnique<RevalidateStyleAttributeTask>(this);
-    m_revalidateStyleAttrTask->scheduleFor(&element);
+    m_revalidateStyleAttrTask->scheduleFor(element);
 }
 
 void InspectorDOMAgent::didPushShadowRoot(Element& host, ShadowRoot& root)
@@ -3070,7 +3065,7 @@ void InspectorDOMAgent::mediaMetricsTimerFired()
             iterator->value.isPowerEfficient = isPowerEfficient;
 
             if (auto nodeId = pushNodePathToFrontend(mediaElement.ptr())) {
-                auto timestamp = checkedEnvironment()->executionStopwatch().elapsedTime().seconds();
+                auto timestamp = protect(environment())->executionStopwatch().elapsedTime().seconds();
                 m_frontendDispatcher->powerEfficientPlaybackStateChanged(nodeId, timestamp, iterator->value.isPowerEfficient);
             }
         }

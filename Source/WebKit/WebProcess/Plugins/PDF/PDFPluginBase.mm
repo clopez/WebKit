@@ -310,8 +310,8 @@ RefPtr<FragmentedSharedBuffer> PDFPluginBase::liveResourceData() const
 NSData *PDFPluginBase::liveData() const
 {
 #if PLATFORM(MAC)
-    if (m_activeAnnotation)
-        m_activeAnnotation->commit();
+    if (RefPtr activeAnnotation = m_activeAnnotation)
+        activeAnnotation->commit();
 #endif
     // Save data straight from the resource instead of PDFKit if the document is
     // untouched by the user, so that PDFs which PDFKit can't display will still be downloadable.
@@ -1429,8 +1429,7 @@ bool PDFPluginBase::populateEditorStateIfNeeded(EditorState& state) const
     if (selectionString().isNull())
         return false;
 
-    state.selectionIsNone = false;
-    state.selectionIsRange = true;
+    state.selectionType = WebCore::SelectionType::Range;
     state.isInPlugin = true;
     return true;
 }

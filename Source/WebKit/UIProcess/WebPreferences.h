@@ -93,10 +93,10 @@ public:
     void setStringValueForKey(const String&, const String& value, bool ephemeral);
     void forceUpdate() { update(); }
 
-    void startBatchingUpdates();
+    void NODELETE startBatchingUpdates();
     void endBatchingUpdates();
 
-    static void forceSiteIsolationAlwaysOnForTesting();
+    static void NODELETE forceSiteIsolationAlwaysOnForTesting();
 
 private:
     void platformInitializeStore();
@@ -152,7 +152,7 @@ private:
     bool m_needUpdateAfterBatch { false };
 
     FOR_EACH_WEBKIT_PREFERENCE_WITH_INSPECTOR_OVERRIDE(DECLARE_INSPECTOR_OVERRIDE_STORE)
-} SWIFT_SHARED_REFERENCE(refPrefs, derefPrefs);
+} SWIFT_SHARED_REFERENCE(refPrefs, derefPrefs) SWIFT_RETURNED_AS_UNRETAINED_BY_DEFAULT;
 
 } // namespace WebKit
 

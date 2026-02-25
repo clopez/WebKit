@@ -63,7 +63,7 @@ public:
     ~HTMLSelectElement();
 
     enum class ExcludeOptGroup : bool { No, Yes };
-    static HTMLSelectElement* findOwnerSelect(ContainerNode*, ExcludeOptGroup);
+    static HTMLSelectElement* NODELETE findOwnerSelect(ContainerNode*, ExcludeOptGroup);
 
     WEBCORE_EXPORT int selectedIndex() const;
     WEBCORE_EXPORT void setSelectedIndex(int);
@@ -78,10 +78,10 @@ public:
     unsigned size() const { return m_size; }
     bool multiple() const { return m_multiple; }
 
-    bool usesMenuList() const;
+    bool NODELETE usesMenuList() const;
 
     // This method is deprecated because the return value doesn't match the rendering on iOS for multiple selects.
-    bool usesMenuListDeprecated() const;
+    bool NODELETE usesMenuListDeprecated() const;
 
     using OptionOrOptGroupElement = Variant<Ref<HTMLOptionElement>, Ref<HTMLOptGroupElement>>;
     using HTMLElementOrInt = Variant<Ref<HTMLElement>, int>;
@@ -121,7 +121,7 @@ public:
     bool popupIsVisible() const { return m_popupIsVisible; }
     WEBCORE_EXPORT void setPopupIsVisible(bool);
 
-    bool isOpen() const;
+    bool NODELETE isOpen() const;
 
     void didUpdateActiveOption(int optionIndex);
 
@@ -165,7 +165,7 @@ public:
     int activeSelectionStartListIndex() const;
     int activeSelectionEndListIndex() const;
     void setActiveSelectionAnchorIndex(int);
-    void setActiveSelectionEndIndex(int);
+    void NODELETE setActiveSelectionEndIndex(int);
     void updateListBoxSelection(bool deselectOtherOptions);
 
     // For use in the implementation of HTMLOptionElement.
@@ -181,12 +181,21 @@ public:
 
     void updateSelectedContent(HTMLOptionElement* = nullptr) const;
 
-    void registerSelectedContentElement();
-    void unregisterSelectedContentElement();
+    void NODELETE registerSelectedContentElement();
+    void NODELETE unregisterSelectedContentElement();
 
     WEBCORE_EXPORT bool usesBaseAppearancePicker() const;
-    SelectPopoverElement* pickerPopoverElement() const;
+    SelectPopoverElement* NODELETE pickerPopoverElement() const;
     void hidePickerPopoverElement();
+
+    struct NavigationKeyIdentifiers {
+        ASCIILiteral next;
+        ASCIILiteral previous;
+    };
+    NavigationKeyIdentifiers pickerNavigationKeyIdentifiers() const;
+    int computeNavigationIndex(const String& keyIdentifier, int currentListIndex, NavigationKeyIdentifiers) const;
+    void focusOptionAtIndex(int listIndex);
+    int typeAheadMatchIndex(KeyboardEvent&);
 
 protected:
     HTMLSelectElement(const QualifiedName&, Document&, HTMLFormElement*);
@@ -197,14 +206,14 @@ private:
     int defaultTabIndex() const final;
     bool isKeyboardFocusable(const FocusEventData&) const final;
     bool isMouseFocusable() const final;
-    bool hasCustomFocusLogic() const final { return true; }
+    bool NODELETE hasCustomFocusLogic() const final { return true; }
 
     void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions&) final;
     void dispatchBlurEvent(RefPtr<Element>&& newFocusedElement) final;
     
     bool canStartSelection() const final { return false; }
 
-    bool isEnumeratable() const final { return true; }
+    bool NODELETE isEnumeratable() const final { return true; }
     bool isLabelable() const final { return true; }
 
     bool isInteractiveContent() const final { return true; }
@@ -235,8 +244,8 @@ private:
     void typeAheadFind(KeyboardEvent&);
     void saveLastSelection();
 
-    bool isOptionalFormControl() const final { return !isRequiredFormControl(); }
-    bool isRequiredFormControl() const final;
+    bool NODELETE isOptionalFormControl() const final { return !isRequiredFormControl(); }
+    bool NODELETE isRequiredFormControl() const final;
 
     bool hasPlaceholderLabelOption() const;
 
@@ -272,6 +281,7 @@ private:
     void didAddUserAgentShadowRoot(ShadowRoot&) final;
 
     void showPickerInternal();
+    void openPickerForUserInteraction();
 
     // TypeAheadDataSource functions.
     int indexOfSelectedOption() const final;

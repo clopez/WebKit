@@ -67,7 +67,7 @@ public:
     bool standalone() const;
 #endif
 
-    int maxTouchPoints() const;
+    int NODELETE maxTouchPoints() const;
 
     WEBCORE_EXPORT GPU* gpu();
 

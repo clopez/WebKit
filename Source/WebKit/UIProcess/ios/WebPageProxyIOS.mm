@@ -200,6 +200,11 @@ void WebPageProxy::updateVisibleContentRects(const VisibleContentRectUpdateInfo&
     protect(m_legacyMainFrameProcess)->send(Messages::ViewUpdateDispatcher::VisibleContentRectUpdate(webPageIDInMainFrameProcess(), visibleContentRectUpdate), 0);
 }
 
+void WebPageProxy::updateVisibleContentRectsLocally(const VisibleContentRectUpdateInfo& visibleContentRectUpdate)
+{
+    internals().lastVisibleContentRectUpdate = visibleContentRectUpdate;
+}
+
 void WebPageProxy::resendLastVisibleContentRects()
 {
     if (internals().lastVisibleContentRectUpdate)
@@ -1142,10 +1147,10 @@ void WebPageProxy::generateSyntheticEditingCommand(WebKit::SyntheticEditingComma
 
 void WebPageProxy::didUpdateEditorState(const EditorState& oldEditorState, const EditorState& newEditorState)
 {
-    bool couldChangeSecureInputState = newEditorState.isInPasswordField != oldEditorState.isInPasswordField || oldEditorState.selectionIsNone;
-    
+    bool couldChangeSecureInputState = newEditorState.isInPasswordField != oldEditorState.isInPasswordField || oldEditorState.selectionType == WebCore::SelectionType::None;
+
     // Selection being none is a temporary state when editing. Flipping secure input state too quickly was causing trouble (not fully understood).
-    if (couldChangeSecureInputState && !newEditorState.selectionIsNone) {
+    if (couldChangeSecureInputState && newEditorState.selectionType != WebCore::SelectionType::None) {
         if (RefPtr pageClient = this->pageClient())
             pageClient->updateSecureInputState();
     }
@@ -1234,7 +1239,7 @@ void WebPageProxy::updateSelectionWithDelta(int64_t locationDelta, int64_t lengt
 
 WebCore::FloatRect WebPageProxy::selectionBoundingRectInRootViewCoordinates() const
 {
-    if (editorState().selectionIsNone)
+    if (editorState().selectionType == WebCore::SelectionType::None)
         return { };
 
     if (!editorState().hasVisualData())
@@ -1242,7 +1247,7 @@ WebCore::FloatRect WebPageProxy::selectionBoundingRectInRootViewCoordinates() co
 
     WebCore::FloatRect bounds;
     auto& visualData = *editorState().visualData;
-    if (editorState().selectionIsRange) {
+    if (editorState().selectionType == WebCore::SelectionType::Range) {
         for (auto& geometry : visualData.selectionGeometries)
             bounds.unite(geometry.rect());
     } else

@@ -62,7 +62,7 @@ public:
     explicit RenderMarquee(RenderLayer*);
     ~RenderMarquee();
 
-    bool NODELETE isHorizontal() const;
+    bool isHorizontal() const;
 
     void start();
     void suspend();
@@ -83,7 +83,7 @@ private:
 
     void timerFired();
 
-    CheckedRef<RenderLayer> protectedLayer() { return m_layer.get(); }
+    RenderLayer& layer() { return m_layer.get(); }
 
     InlineWeakRef<RenderLayer> m_layer;
     Timer m_timer;

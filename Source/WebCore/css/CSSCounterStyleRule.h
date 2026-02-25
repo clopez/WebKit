@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include <WebCore/CSSCounterStyle.h>
-#include <WebCore/CSSRule.h>
-#include <WebCore/StyleProperties.h>
-#include <WebCore/StyleRule.h>
+#include "CSSCounterStyle.h"
+#include "CSSRule.h"
+#include "StyleProperties.h"
+#include "StyleRule.h"
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
@@ -71,7 +71,7 @@ public:
     virtual ~CSSCounterStyleRule();
 
     String cssText() const final;
-    void reattach(StyleRuleBase&) final;
+    void NODELETE reattach(StyleRuleBase&) final;
     StyleRuleType styleRuleType() const final { return StyleRuleType::CounterStyle; }
 
     String name() const { return m_counterStyleRule->name(); }
@@ -96,7 +96,7 @@ public:
     void setFallback(const String&);
     void setSymbols(const String&);
     void setAdditiveSymbols(const String&);
-    void setSpeakAs(const String&);
+    void NODELETE setSpeakAs(const String&);
 
 private:
     CSSCounterStyleRule(StyleRuleCounterStyle&, CSSStyleSheet* parent);
@@ -109,7 +109,7 @@ private:
     Ref<StyleRuleCounterStyle> m_counterStyleRule;
 };
 
-CSSCounterStyleDescriptors::System toCounterStyleSystemEnum(const CSSValue*);
+CSSCounterStyleDescriptors::System NODELETE toCounterStyleSystemEnum(const CSSValue*);
 
 } // namespace WebCore
 

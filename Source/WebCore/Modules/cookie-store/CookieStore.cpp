@@ -88,7 +88,6 @@ private:
     void ensureOnMainThread(Function<void(ScriptExecutionContext&)>&&);
     void ensureOnContextThread(Function<void(CookieStore&)>&&);
 
-    RefPtr<CookieStore> protectedCookieStore() const { return m_cookieStore; }
     WeakPtr<CookieStore, WeakPtrImplWithEventTargetData> m_cookieStore;
     Markable<ScriptExecutionContextIdentifier> m_contextIdentifier;
 };
@@ -103,7 +102,7 @@ void CookieStore::MainThreadBridge::ensureOnMainThread(Function<void(ScriptExecu
 {
     ASSERT(m_cookieStore);
 
-    RefPtr context = protectedCookieStore()->scriptExecutionContext();
+    RefPtr context = protect(m_cookieStore)->scriptExecutionContext();
     if (!context)
         return;
     ASSERT(context->isContextThread());
@@ -113,7 +112,7 @@ void CookieStore::MainThreadBridge::ensureOnMainThread(Function<void(ScriptExecu
         return;
     }
 
-    downcast<WorkerGlobalScope>(*context).thread()->checkedWorkerLoaderProxy()->postTaskToLoader(WTF::move(task));
+    protect(downcast<WorkerGlobalScope>(*context).thread()->workerLoaderProxy())->postTaskToLoader(WTF::move(task));
 }
 
 void CookieStore::MainThreadBridge::ensureOnContextThread(Function<void(CookieStore&)>&& task)

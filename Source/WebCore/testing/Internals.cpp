@@ -499,7 +499,7 @@ InspectorStubFrontend::InspectorStubFrontend(Page& inspectedPage, LocalFrame& ma
     ASSERT_ARG(frontendWindow, frontendWindow);
 
     frontendPage()->inspectorController().setInspectorFrontendClient(this);
-    inspectedPage.protectedInspectorController()->connectFrontend(*this);
+    protect(inspectedPage.inspectorController())->connectFrontend(*this);
     protect(mainFrame.inspectorController())->connectFrontend(*this);
 }
 
@@ -517,7 +517,7 @@ void InspectorStubFrontend::closeWindow()
     if (RefPtr controller = m_mainFrameInspectorController.get())
         controller->disconnectFrontend(*this);
     if (RefPtr page = inspectedPage())
-        page->protectedInspectorController()->disconnectFrontend(*this);
+        protect(page->inspectorController())->disconnectFrontend(*this);
 
     m_frontendWindow->close();
     m_frontendWindow = nullptr;
@@ -2001,7 +2001,7 @@ void Internals::setEnableWebRTCEncryption(bool value)
 
 bool Internals::hasPeerConnectionEnabledServiceClass(const RTCPeerConnection& connection)
 {
-    return connection.protectedBackend()->shouldEnableServiceClass();
+    return protect(connection.backend())->shouldEnableServiceClass();
 }
 #endif // ENABLE(WEB_RTC)
 

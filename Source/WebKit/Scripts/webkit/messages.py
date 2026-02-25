@@ -2200,7 +2200,7 @@ def generate_message_names_header(receivers):
     result.append('\n')
     result.append('template<> constexpr bool isValidEnum<IPC::MessageName>(std::underlying_type_t<IPC::MessageName> messageName)\n')
     result.append('{\n')
-    result.append('    return messageName <= WTF::enumToUnderlyingType(IPC::MessageName::Last);\n')
+    result.append('    return messageName <= std::to_underlying(IPC::MessageName::Last);\n')
     result.append('}\n')
     result.append('\n')
     result.append('} // namespace WTF\n')
@@ -2412,4 +2412,23 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
     result.append('')
     result.append('#endif // ENABLE(IPC_TESTING_API) || !LOG_DISABLED')
     result.append('')
+    return '\n'.join(result)
+
+
+def generate_modulemap(receiver_headers: list[str]) -> str:
+    result = []
+
+    result.append('module WebKit_DerivedSources {')
+
+    all_headers = receiver_headers + ['MessageNames.h', 'GeneratedSerializers.h', 'GeneratedWebKitSecureCoding.h']
+    for header in all_headers:
+        module_name = header[:-2] if header.endswith('.h') else header
+        result.append('  explicit module %s {' % module_name)
+        result.append('    header "%s"' % header)
+        result.append('    export *')
+        result.append('  }')
+
+    result.append('}')
+    result.append('')
+
     return '\n'.join(result)

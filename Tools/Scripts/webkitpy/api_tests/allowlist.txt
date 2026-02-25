@@ -365,7 +365,6 @@ TestWebKitAPI.PAL
 TestWebKitAPI.PDFSnapshot
 TestWebKitAPI.ParsedContentType
 TestWebKitAPI.Path
-TestWebKitAPI.PermissionsAPI
 TestWebKitAPI.PlatformCAAnimation
 TestWebKitAPI.PlatformDynamicRangeLimit
 TestWebKitAPI.PreferredContentMode
@@ -390,7 +389,6 @@ TestWebKitAPI.SOAuthorizationPopUp
 TestWebKitAPI.STUNMessageParsing
 TestWebKitAPI.SVGImageCasts
 TestWebKitAPI.SampleMapTest
-TestWebKitAPI.ScrollbarTests
 TestWebKitAPI.ScrollbarWidthCrash
 TestWebKitAPI.ScrollingCoordinatorTests
 TestWebKitAPI.SecurityOriginTest

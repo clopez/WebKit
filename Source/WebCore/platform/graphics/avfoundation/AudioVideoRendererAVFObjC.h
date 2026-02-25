@@ -71,7 +71,7 @@ public:
     void setHasProtectedVideoContent(bool) final;
 
     // TracksRendererInterface
-    TrackIdentifier addTrack(TrackType) final;
+    std::optional<TrackIdentifier> addTrack(TrackType) final;
     void removeTrack(TrackIdentifier) final;
 
     void enqueueSample(TrackIdentifier, Ref<MediaSample>&&, std::optional<MediaTime>) final;
@@ -226,7 +226,6 @@ private:
     void cancelSeekingPromiseIfNeeded();
     void cancelPerformTaskAtTimeObserverIfNeeded();
 
-    RefPtr<VideoMediaSampleRenderer> protectedVideoRenderer() const;
     bool canUseDecompressionSession() const;
     bool isUsingDecompressionSession() const;
     bool willUseDecompressionSessionIfNeeded() const;
@@ -242,7 +241,6 @@ private:
 
     // Logger
     const Logger& logger() const final { return m_logger.get(); }
-    Ref<const Logger> protectedLogger() const { return logger(); }
     ASCIILiteral logClassName() const final { return "AudioVideoRendererAVFObjC"_s; }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;

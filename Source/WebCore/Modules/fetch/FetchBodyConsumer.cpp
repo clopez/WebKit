@@ -53,7 +53,7 @@ static inline Ref<Blob> blobFromData(ScriptExecutionContext* context, Vector<uin
 }
 
 // https://mimesniff.spec.whatwg.org/#http-quoted-string-token-code-point
-static bool isHTTPQuotedStringTokenCodePoint(char16_t c)
+static bool NODELETE isHTTPQuotedStringTokenCodePoint(char16_t c)
 {
     return c == 0x09
         || (c >= 0x20 && c <= 0x7E)
@@ -304,7 +304,7 @@ void FetchBodyConsumer::resolveWithFormData(Ref<DeferredPromise>&& promise, cons
         builder.append(value);
         return true;
     });
-    protectedFormDataConsumer()->start();
+    protect(m_formDataConsumer)->start();
 }
 
 void FetchBodyConsumer::consumeFormDataAsStream(const FormData& formData, FetchBodySource& source, ScriptExecutionContext* context)
@@ -333,14 +333,14 @@ void FetchBodyConsumer::consumeFormDataAsStream(const FormData& formData, FetchB
 
         return source->enqueue(ArrayBuffer::tryCreate(value));
     });
-    protectedFormDataConsumer()->start();
+    protect(m_formDataConsumer)->start();
 }
 
 void FetchBodyConsumer::extract(ReadableStream& stream, ReadableStreamToSharedBufferSink::Callback&& callback)
 {
     ASSERT(!m_sink);
     m_sink = ReadableStreamToSharedBufferSink::create(WTF::move(callback));
-    protectedSink()->pipeFrom(stream);
+    protect(m_sink)->pipeFrom(stream);
 }
 
 void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& contentType, FetchBodyOwner* owner, ReadableStream* stream)
@@ -364,7 +364,7 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
                 protectedPromise->reject(WTF::move(error));
             });
         });
-        protectedSink()->pipeFrom(*stream);
+        protect(m_sink)->pipeFrom(*stream);
         return;
     }
 

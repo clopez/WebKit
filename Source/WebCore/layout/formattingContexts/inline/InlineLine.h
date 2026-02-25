@@ -64,6 +64,8 @@ public:
 
     enum class IncludeInsideListMarker : bool { No, Yes };
     bool hasContent(IncludeInsideListMarker = IncludeInsideListMarker::No) const;
+    bool hasContentOrDecoration(IncludeInsideListMarker = IncludeInsideListMarker::No) const;
+    bool hasLineSpanningInlineBoxOnly() const;
     bool hasRubyContent() const { return m_hasRubyContent; }
 
     InlineLayoutUnit contentLogicalWidth() const { return m_contentLogicalWidth; }
@@ -149,7 +151,7 @@ public:
             bool isEmpty() const { return !top && !bottom; }
 
             uint8_t top : 5 { 0 };
-            uint8_t bottom: 3 { 0 };
+            uint8_t bottom : 3 { 0 };
         };
         GlyphOverflow glyphOverflow() const { return m_glyphOverflow; }
 
@@ -345,6 +347,17 @@ inline bool Line::hasContent(IncludeInsideListMarker includeInsideListMarker) co
             return true;
     }
     return false;
+}
+
+inline bool Line::hasLineSpanningInlineBoxOnly() const
+{
+    if (m_runs.isEmpty())
+        return false;
+    for (auto& run : m_runs | std::views::reverse) {
+        if (!run.isLineSpanningInlineBoxStart() && !run.isInlineBoxEnd())
+            return false;
+    }
+    return true;
 }
 
 inline void Line::TrimmableTrailingContent::reset()

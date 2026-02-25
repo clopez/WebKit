@@ -63,7 +63,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> setInnerText(String&&);
     WEBCORE_EXPORT ExceptionOr<void> setOuterText(String&&);
 
-    virtual bool hasCustomFocusLogic() const;
+    virtual bool NODELETE hasCustomFocusLogic() const;
     bool supportsFocus() const override;
 
     WEBCORE_EXPORT String contentEditable() const;
@@ -106,7 +106,7 @@ public:
     virtual bool isLabelable() const { return false; }
     WEBCORE_EXPORT RefPtr<NodeList> labels();
 
-    virtual FormAssociatedElement* asFormAssociatedElement();
+    virtual FormAssociatedElement* NODELETE asFormAssociatedElement();
 
     virtual bool isInteractiveContent() const { return false; }
 
@@ -158,7 +158,7 @@ public:
     ExceptionOr<void> hidePopoverInternal(FocusPreviousElement, FireEvents, HTMLElement* = nullptr);
     ExceptionOr<bool> togglePopover(Variant<WebCore::HTMLElement::TogglePopoverOptions, bool>);
 
-    const AtomString& popover() const;
+    const AtomString& NODELETE popover() const;
     void setPopover(const AtomString& value);
     void popoverAttributeChanged(const AtomString& value);
 

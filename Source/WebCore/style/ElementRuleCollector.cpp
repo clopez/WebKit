@@ -210,6 +210,9 @@ void ElementRuleCollector::collectMatchingRules(DeclarationOrigin origin)
         if (isFirstMatchModeAndHasMatchedAnyRules())
             return;
         matchPartPseudoElementRules(origin);
+        if (isFirstMatchModeAndHasMatchedAnyRules())
+            return;
+        matchSlottedPseudoElementRulesInUserAgentShadowTree(origin);
     }
 }
 
@@ -245,8 +248,12 @@ void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest
             collectMatchingRulesForList(rules, matchRequest);
     }
 
-    if (m_pseudoElementRequest && m_pseudoElementRequest->nameArgument() != nullAtom())
-        collectMatchingRulesForList(ruleSet.namedPseudoElementRules(m_pseudoElementRequest->nameArgument()), matchRequest);
+    if (m_pseudoElementRequest) {
+        if (m_pseudoElementRequest->type() == PseudoElementType::UserAgentPartFallback)
+            collectMatchingRulesForList(ruleSet.userAgentPartRules(m_pseudoElementRequest->nameOrPart()), matchRequest);
+        else if (!m_pseudoElementRequest->nameOrPart().isNull())
+            collectMatchingRulesForList(ruleSet.namedPseudoElementRules(m_pseudoElementRequest->nameOrPart()), matchRequest);
+    }
 
     if (element.isLink())
         collectMatchingRulesForList(ruleSet.linkPseudoClassRules(), matchRequest);
@@ -447,6 +454,37 @@ void ElementRuleCollector::matchPartPseudoElementRulesForScope(const Element& pa
     }
 }
 
+void ElementRuleCollector::matchSlottedPseudoElementRulesInUserAgentShadowTree(DeclarationOrigin origin)
+{
+    ASSERT(element().isInShadowTree());
+    auto* shadowRoot = element().containingShadowRoot();
+    if (!shadowRoot || shadowRoot->mode() != ShadowRootMode::UserAgent)
+        return;
+
+    auto* host = shadowRoot->host();
+    if (!host)
+        return;
+
+    auto* slot = host->assignedSlot();
+    auto styleScopeOrdinal = ScopeOrdinal::FirstSlot;
+
+    for (; slot; slot = slot->assignedSlot(), ++styleScopeOrdinal) {
+        auto& styleScope = Scope::forNode(*slot);
+        if (!styleScope.resolver().ruleSets().isAuthorStyleDefined())
+            continue;
+
+        auto* scopeRules = styleScope.resolver().ruleSets().styleForDeclarationOrigin(origin);
+        if (!scopeRules)
+            continue;
+
+        MatchRequest scopeMatchRequest(*scopeRules, styleScopeOrdinal);
+        collectMatchingRulesForList(&scopeRules->slottedPseudoElementRules(), scopeMatchRequest);
+
+        if (styleScopeOrdinal == ScopeOrdinal::SlotLimit)
+            break;
+    }
+}
+
 void ElementRuleCollector::collectMatchingUserAgentPartRules(const MatchRequest& matchRequest)
 {
     ASSERT(element().isInUserAgentShadowTree());
@@ -567,7 +605,7 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
         context.setRequestedPseudoElement(pseudoElementIdentifier);
         context.scrollbarState = m_pseudoElementRequest->scrollbarState();
         if (isNamedViewTransitionPseudoElement(pseudoElementIdentifier))
-            context.classList = classListForNamedViewTransitionPseudoElement(element().document(), pseudoElementIdentifier.nameArgument);
+            context.classList = classListForNamedViewTransitionPseudoElement(element().document(), pseudoElementIdentifier.nameOrPart);
     }
     context.styleScopeOrdinal = styleScopeOrdinal;
     context.selectorMatchingState = m_selectorMatchingState;

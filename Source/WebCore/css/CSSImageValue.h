@@ -20,11 +20,11 @@
 
 #pragma once
 
-#include <WebCore/CSSURL.h>
-#include <WebCore/CSSValue.h>
-#include <WebCore/CachedImage.h>
-#include <WebCore/CachedResourceHandle.h>
-#include <WebCore/ResourceLoaderOptions.h>
+#include "CSSURL.h"
+#include "CSSValue.h"
+#include "CachedImage.h"
+#include "CachedResourceHandle.h"
+#include "ResourceLoaderOptions.h"
 #include <wtf/Function.h>
 #include <wtf/Ref.h>
 
@@ -46,11 +46,12 @@ public:
     static Ref<CSSImageValue> create();
     static Ref<CSSImageValue> create(CSS::URL, AtomString initiatorType = { });
     static Ref<CSSImageValue> create(WTF::URL, AtomString initiatorType = { });
+    static Ref<CSSImageValue> create(CachedImage&);
     ~CSSImageValue();
 
     Ref<CSSImageValue> copyForComputedStyle(const CSS::URL& resolvedURL) const;
 
-    bool isPending() const;
+    bool NODELETE isPending() const;
     CachedImage* loadImage(CachedResourceLoader&, const ResourceLoaderOptions&);
     CachedImage* cachedImage() const { return m_cachedImage ? m_cachedImage.value().get() : nullptr; }
 
@@ -70,7 +71,7 @@ public:
 
     RefPtr<Style::Image> createStyleImage(const Style::BuilderState&) const;
 
-    bool isLoadedFromOpaqueSource() const;
+    bool NODELETE isLoadedFromOpaqueSource() const;
 
     IterationStatus customVisitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>& func) const
     {
@@ -84,10 +85,11 @@ public:
 private:
     CSSImageValue();
     CSSImageValue(CSS::URL&&, AtomString&&);
+    explicit CSSImageValue(CachedImage&);
 
     CSS::URL m_location;
-    std::optional<CachedResourceHandle<CachedImage>> m_cachedImage;
     AtomString m_initiatorType;
+    std::optional<CachedResourceHandle<CachedImage>> m_cachedImage;
     RefPtr<CSSImageValue> m_unresolvedValue;
     bool m_isInvalid { false };
 };

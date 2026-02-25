@@ -26,10 +26,48 @@
 #pragma once
 
 #include <JavaScriptCore/Debugger.h>
+#include <JavaScriptCore/JSCellInlines.h>
+#include <JavaScriptCore/JSMicrotaskDispatcher.h>
 #include <JavaScriptCore/MicrotaskQueue.h>
 #include <JavaScriptCore/TopExceptionScope.h>
 
 namespace JSC {
+
+inline JSCell* QueuedTask::dispatcher() const
+{
+    return std::bit_cast<JSCell*>(std::bit_cast<uintptr_t>(m_dispatcher.pointer()) & ~isJSMicrotaskDispatcherFlag);
+}
+
+inline JSGlobalObject* QueuedTask::globalObject() const
+{
+    if (isJSMicrotaskDispatcher()) [[unlikely]]
+        return jsCast<JSMicrotaskDispatcher*>(dispatcher())->globalObject();
+    return jsCast<JSGlobalObject*>(dispatcher());
+}
+
+inline JSMicrotaskDispatcher* QueuedTask::jsMicrotaskDispatcher() const
+{
+    if (isJSMicrotaskDispatcher()) [[unlikely]]
+        return jsCast<JSMicrotaskDispatcher*>(dispatcher());
+    return nullptr;
+}
+
+inline std::optional<MicrotaskIdentifier> QueuedTask::identifier() const
+{
+    auto* dispatcher = jsMicrotaskDispatcher();
+    if (!dispatcher)
+        return std::nullopt;
+    return MicrotaskIdentifier { std::bit_cast<uintptr_t>(dispatcher) };
+}
+
+inline void MicrotaskQueue::enqueue(QueuedTask&& task)
+{
+    if (task.isJSMicrotaskDispatcher()) [[unlikely]] {
+        enqueueSlow(WTF::move(task));
+        return;
+    }
+    m_queue.enqueue(WTF::move(task));
+}
 
 template<bool useCallOnEachMicrotask>
 inline void MicrotaskQueue::performMicrotaskCheckpoint(VM& vm, NOESCAPE const Invocable<QueuedTask::Result(QueuedTask&)> auto& functor)

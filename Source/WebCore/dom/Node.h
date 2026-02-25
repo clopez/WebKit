@@ -152,7 +152,7 @@ public:
         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20,
     };
 
-    static void dumpStatistics();
+    static void NODELETE dumpStatistics();
 
     virtual ~Node();
     void willBeDeletedFrom(Document&);
@@ -278,24 +278,21 @@ public:
     bool hasShadowRootContainingSlots() const { return hasEventTargetFlag(EventTargetFlag::HasShadowRootContainingSlots); }
     void setHasShadowRootContainingSlots(bool flag) { setEventTargetFlag(EventTargetFlag::HasShadowRootContainingSlots, flag); }
 
-    bool hasShadowRoot() const { return hasStateFlag(StateFlag::HasShadowRoot); }
-    void setHasShadowRoot(bool flag) { setStateFlag(StateFlag::HasShadowRoot, flag); }
-
     bool needsSVGRendererUpdate() const { return hasStateFlag(StateFlag::NeedsSVGRendererUpdate); }
     void setNeedsSVGRendererUpdate(bool flag) { setStateFlag(StateFlag::NeedsSVGRendererUpdate, flag); }
 
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* NODELETE shadowHost() const;
     ShadowRoot* NODELETE containingShadowRoot() const;
-    inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
+    inline ShadowRoot* shadowRoot() const; // Defined in Element.h.
     bool isClosedShadowHidden(const Node&) const;
 
     HTMLSlotElement* assignedSlot() const;
     HTMLSlotElement* assignedSlotForBindings() const;
-    HTMLSlotElement* manuallyAssignedSlot() const;
+    HTMLSlotElement* NODELETE manuallyAssignedSlot() const;
     void setManuallyAssignedSlot(HTMLSlotElement*);
 
-    bool hasEverPaintedImages() const;
+    bool NODELETE hasEverPaintedImages() const;
     void setHasEverPaintedImages(bool);
 
     bool isUncustomizedCustomElement() const { return customElementState() == CustomElementState::Uncustomized; }
@@ -345,7 +342,7 @@ public:
     // Use when it's guaranteed to that shadowHost is null.
     inline ContainerNode* parentNodeGuaranteedHostFree() const;
     // Returns the parent node, but null if the parent node is a ShadowRoot.
-    ContainerNode* nonShadowBoundaryParentNode() const;
+    ContainerNode* NODELETE nonShadowBoundaryParentNode() const;
 
     bool selfOrPrecedingNodesAffectDirAuto() const { return hasStateFlag(StateFlag::SelfOrPrecedingNodesAffectDirAuto); }
     void setSelfOrPrecedingNodesAffectDirAuto(bool flag) { setStateFlag(StateFlag::SelfOrPrecedingNodesAffectDirAuto, flag); }
@@ -393,7 +390,7 @@ public:
     bool hasDidMutateSubtreeAfterSetInnerHTML() const { return hasStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
     void setDidMutateSubtreeAfterSetInnerHTML() { setStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
     void clearDidMutateSubtreeAfterSetInnerHTML() { clearStateFlag(StateFlag::DidMutateSubtreeAfterSetInnerHTML); }
-    void setDidMutateSubtreeAfterSetInnerHTMLOnAncestors();
+    void NODELETE setDidMutateSubtreeAfterSetInnerHTMLOnAncestors();
 
     bool hasWasParsedWithFastPath() const { return hasStateFlag(StateFlag::WasParsedWithFastPath); }
     void setWasParsedWithFastPath() { setStateFlag(StateFlag::WasParsedWithFastPath); }
@@ -460,9 +457,9 @@ public:
     bool isInDocumentTree() const { return isConnected() && !isInShadowTree(); }
 
     bool isDocumentTypeNode() const { return nodeType() == DOCUMENT_TYPE_NODE; }
-    virtual bool childTypeAllowed(NodeType) const { return false; }
-    inline unsigned countChildNodes() const;
-    inline unsigned length() const;
+    virtual bool NODELETE childTypeAllowed(NodeType) const { return false; }
+    inline unsigned NODELETE countChildNodes() const;
+    inline unsigned NODELETE length() const;
     inline Node* traverseToChildAt(unsigned) const;
 
     ExceptionOr<void> checkSetPrefix(const AtomString& prefix);
@@ -614,12 +611,12 @@ public:
 #else
     static uint32_t rareDataPointerMask() { return -1; }
 #endif
-    static auto flagIsText() { return enumToUnderlyingType(TypeFlag::IsText); }
-    static auto flagIsContainer() { return enumToUnderlyingType(TypeFlag::IsContainerNode); }
-    static auto flagIsElement() { return enumToUnderlyingType(TypeFlag::IsElement); }
-    static auto flagIsHTML() { return enumToUnderlyingType(TypeFlag::IsHTMLElement); }
-    static auto flagIsLink() { return enumToUnderlyingType(StateFlag::IsLink); }
-    static auto flagIsParsingChildren() { return enumToUnderlyingType(StateFlag::IsParsingChildren); }
+    static auto flagIsText() { return std::to_underlying(TypeFlag::IsText); }
+    static auto flagIsContainer() { return std::to_underlying(TypeFlag::IsContainerNode); }
+    static auto flagIsElement() { return std::to_underlying(TypeFlag::IsElement); }
+    static auto flagIsHTML() { return std::to_underlying(TypeFlag::IsHTMLElement); }
+    static auto flagIsLink() { return std::to_underlying(StateFlag::IsLink); }
+    static auto flagIsParsingChildren() { return std::to_underlying(StateFlag::IsParsingChildren); }
 #endif // ENABLE(JIT)
 
 #if ASSERT_ENABLED
@@ -680,8 +677,7 @@ protected:
         InLargestContentfulPaintTextContentSet = 1 << 20,
         DidMutateSubtreeAfterSetInnerHTML = 1 << 21,
         WasParsedWithFastPath = 1 << 22,
-        HasShadowRoot = 1 << 23,
-        // 8 bits free.
+        // 9 bits free.
     };
 
     enum class TabIndexState : uint8_t {
@@ -753,7 +749,7 @@ protected:
         uint16_t toRaw() const { return std::bit_cast<uint16_t>(*this); }
 
         Style::Validity styleValidity() const { return static_cast<Style::Validity>(m_styleValidity); }
-        void setStyleValidity(Style::Validity validity) { m_styleValidity = enumToUnderlyingType(validity); }
+        void setStyleValidity(Style::Validity validity) { m_styleValidity = std::to_underlying(validity); }
 
         OptionSet<NodeStyleFlag> flags() const { return OptionSet<NodeStyleFlag>::fromRaw(m_flags); }
         void setFlag(NodeStyleFlag flag) { m_flags = (flags() | flag).toRaw(); }
@@ -805,7 +801,7 @@ private:
     bool checkIsInUserAgentShadowTree(bool value) const { return value; }
 #endif
 
-    void trackForDebugging();
+    void NODELETE trackForDebugging();
     void materializeRareData();
 
     Vector<Ref<MutationObserverRegistration>>* NODELETE mutationObserverRegistry();
@@ -851,7 +847,7 @@ template<TreeType = Tree> std::partial_ordering treeOrder(const Node&, const Nod
 
 WEBCORE_EXPORT std::partial_ordering treeOrderForTesting(TreeType, const Node&, const Node&);
 
-bool isTouchRelatedEventType(const EventTypeInfo&, const EventTarget&);
+bool NODELETE isTouchRelatedEventType(const EventTypeInfo&, const EventTarget&);
 
 #if ASSERT_ENABLED
 

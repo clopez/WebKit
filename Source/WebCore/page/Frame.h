@@ -36,6 +36,10 @@
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class DOMWindow;
@@ -93,7 +97,7 @@ public:
     WEBCORE_EXPORT void setOpenerForWebKitLegacy(Frame*);
     const Frame* opener() const { return m_opener.get(); }
     Frame* opener() { return m_opener.get(); }
-    bool hasOpenedFrames() const;
+    bool NODELETE hasOpenedFrames() const;
     WEBCORE_EXPORT void detachFromAllOpenedFrames();
     virtual bool isRootFrame() const = 0;
 #if ASSERT_ENABLED
@@ -142,7 +146,7 @@ public:
 
     void stopForBackForwardCache();
 
-    WEBCORE_EXPORT void updateFrameTreeSyncData(Ref<FrameTreeSyncData>&&);
+    WEBCORE_EXPORT void NODELETE updateFrameTreeSyncData(Ref<FrameTreeSyncData>&&);
     WEBCORE_EXPORT void updateFrameTreeSyncData(const FrameTreeSyncSerializationData&);
 
     virtual bool frameCanCreatePaymentSession() const;
@@ -152,7 +156,9 @@ public:
     WEBCORE_EXPORT virtual String frameURLProtocol() const = 0;
 
     WEBCORE_EXPORT virtual void setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize, NotifyUIProcess = NotifyUIProcess::Yes);
-    WEBCORE_EXPORT bool isPrinting() const;
+
+    WEBCORE_EXPORT bool NODELETE isPrinting() const;
+    WEBCORE_EXPORT RefPtr<Frame> parent() const;
 
 protected:
     Frame(Page&, FrameIdentifier, FrameType, HTMLFrameOwnerElement*, Frame* parent, Frame* opener, Ref<FrameTreeSyncData>&&, AddToFrameTree = AddToFrameTree::Yes);
@@ -180,5 +186,7 @@ private:
 
     Ref<FrameTreeSyncData> m_frameTreeSyncData;
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, const Frame&);
 
 } // namespace WebCore

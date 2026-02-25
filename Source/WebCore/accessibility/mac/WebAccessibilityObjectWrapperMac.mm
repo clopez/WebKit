@@ -945,7 +945,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         objectAttributes = popupOrToggleButtonAttrs.get().get();
     else if (backingObject->isButton())
         objectAttributes = buttonAttrs.get().get();
-    else if (backingObject->isControl())
+    // Spinbuttons have their own attributes, so check before the generic isControl().
+    else if (backingObject->isSpinButton()) {
+        if (backingObject->spinButtonType() == SpinButtonType::Composite)
+            objectAttributes = compositeSpinButtonAttributes.get().get();
+        else
+            objectAttributes = spinButtonCommonAttributes.get().get();
+    } else if (backingObject->isControl())
         objectAttributes = controlAttrs.get().get();
 
     else if (backingObject->isGroup() || backingObject->isListItem() || backingObject->role() == AccessibilityRole::Figure)
@@ -954,12 +960,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
         objectAttributes = tabListAttrs.get().get();
     else if (backingObject->isScrollArea())
         objectAttributes = scrollViewAttrs.get().get();
-    else if (backingObject->isSpinButton()) {
-        if (backingObject->spinButtonType() == SpinButtonType::Composite)
-            objectAttributes = compositeSpinButtonAttributes.get().get();
-        else
-            objectAttributes = spinButtonCommonAttributes.get().get();
-    } else if (backingObject->isMenu())
+    else if (backingObject->isMenu())
         objectAttributes = menuAttrs.get().get();
     else if (backingObject->isMenuBar())
         objectAttributes = menuBarAttrs.get().get();
@@ -3745,8 +3746,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     RetainPtr<NSMutableArray<NSAccessibilityCustomAction *>> actions = adoptNS([[NSMutableArray alloc] init]);
     for (auto& actionData : actionsData) {
+        auto treeID = actionData.treeID;
+        auto targetID = actionData.targetID;
         auto action = adoptNS([[NSAccessibilityCustomAction alloc] initWithName:actionData.name.createNSString().autorelease() handler:^BOOL {
-            return Accessibility::performCustomActionPress(actionData.treeID, actionData.targetID);
+            return Accessibility::performCustomActionPress(treeID, targetID);
         }]);
         [actions addObject:action.get()];
     }

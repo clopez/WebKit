@@ -27,10 +27,10 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include <WebCore/ActiveDOMObject.h>
-#include <WebCore/DigitalCredentialsProtocols.h>
-#include <WebCore/JSDOMPromiseDeferred.h>
-#include <WebCore/UnvalidatedDigitalCredentialRequest.h>
+#include "ActiveDOMObject.h"
+#include "DigitalCredentialsProtocols.h"
+#include "JSDOMPromiseDeferred.h"
+#include "UnvalidatedDigitalCredentialRequest.h"
 #include <optional>
 #include <wtf/CanMakeWeakPtr.h>
 #include <wtf/Noncopyable.h>
@@ -91,12 +91,12 @@ private:
         Aborting
     }; // enum class PickerState
 
-    bool canTransitionTo(PickerState) const;
-    PickerState currentState() const;
-    void setState(PickerState);
+    bool NODELETE canTransitionTo(PickerState) const;
+    PickerState NODELETE currentState() const;
+    void NODELETE setState(PickerState);
     bool hasCurrentPromise() const { return m_currentPromise.has_value(); }
     void setCurrentPromise(CredentialPromise&&);
-    CredentialPromise* currentPromise();
+    CredentialPromise* NODELETE currentPromise();
 
     ExceptionOr<JSC::JSObject*> parseDigitalCredentialsResponseData(const String&) const;
     void handleDigitalCredentialsPickerResult(Expected<DigitalCredentialsResponseData, ExceptionData>&& responseOrException, RefPtr<AbortSignal>);

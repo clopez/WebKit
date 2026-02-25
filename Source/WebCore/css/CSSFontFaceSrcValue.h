@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include <WebCore/CSSURL.h>
-#include <WebCore/CSSValue.h>
-#include <WebCore/CachedResourceHandle.h>
-#include <WebCore/ResourceLoaderOptions.h>
+#include "CSSURL.h"
+#include "CSSValue.h"
+#include "CachedResourceHandle.h"
+#include "ResourceLoaderOptions.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -51,7 +51,7 @@ public:
     void setSVGFontFaceElement(SVGFontFaceElement&);
 
     String customCSSText(const CSS::SerializationContext&) const;
-    bool equals(const CSSFontFaceSrcLocalValue&) const;
+    bool NODELETE equals(const CSSFontFaceSrcLocalValue&) const;
 
 private:
     explicit CSSFontFaceSrcLocalValue(AtomString&&);

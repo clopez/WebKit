@@ -129,7 +129,7 @@ public:
     bool overlayScrollbarsEnabled() const { return m_overlayScrollbarsEnabled; }
     WEBCORE_EXPORT void setOverlayScrollbarsEnabled(bool);
 
-    WEBCORE_EXPORT bool isMainFrame() const;
+    WEBCORE_EXPORT bool NODELETE isMainFrame() const;
     
     void dumpProperties(WTF::TextStream&, OptionSet<ScrollingStateTreeAsTextBehavior>) const override;
 
@@ -149,7 +149,7 @@ private:
 #if ENABLE(SCROLLING_THREAD)
         OptionSet<SynchronousScrollingReason> synchronousScrollingReasons,
 #endif
-        RequestedScrollData&&,
+        ScrollRequestData&&,
         FloatScrollSnapOffsetsInfo&&,
         std::optional<unsigned> currentHorizontalSnapPointIndex,
         std::optional<unsigned> currentVerticalSnapPointIndex,

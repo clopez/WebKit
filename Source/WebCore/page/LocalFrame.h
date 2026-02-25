@@ -150,7 +150,7 @@ public:
 
     WEBCORE_EXPORT ~LocalFrame();
 
-    WEBCORE_EXPORT LocalDOMWindow* window() const;
+    WEBCORE_EXPORT LocalDOMWindow* NODELETE window() const;
 
     void addDestructionObserver(FrameDestructionObserver&);
     void removeDestructionObserver(FrameDestructionObserver&);
@@ -159,7 +159,7 @@ public:
 
     inline Document* document() const; // Defined in LocalFrameInlines.h
     inline LocalFrameView* view() const; // Defined in DocumentView.h
-    WEBCORE_EXPORT RefPtr<const LocalFrame> localMainFrame() const;
+    WEBCORE_EXPORT RefPtr<const LocalFrame> NODELETE localMainFrame() const;
     WEBCORE_EXPORT RefPtr<LocalFrame> localMainFrame();
 
     inline Editor& editor(); // Defined in LocalFrameInlines.h
@@ -326,7 +326,7 @@ public:
     WEBCORE_EXPORT FloatSize screenSize() const;
     void setOverrideScreenSize(FloatSize&&);
 
-    void selfOnlyRef();
+    void NODELETE selfOnlyRef();
     void selfOnlyDeref();
 
     void documentURLOrOriginDidChange();
@@ -349,7 +349,7 @@ public:
     SandboxFlags sandboxFlagsFromSandboxAttributeNotCSP() { return m_sandboxFlags; }
     WEBCORE_EXPORT void updateSandboxFlags(SandboxFlags, NotifyUIProcess) final;
 
-    WEBCORE_EXPORT ReferrerPolicy effectiveReferrerPolicy() const;
+    WEBCORE_EXPORT ReferrerPolicy NODELETE effectiveReferrerPolicy() const;
     WEBCORE_EXPORT void updateReferrerPolicy(ReferrerPolicy) final;
 
     ScrollbarMode scrollingMode() const { return m_scrollingMode; }
@@ -390,9 +390,9 @@ private:
     String frameURLProtocol() const final;
 
     void disconnectView() final;
-    DOMWindow* virtualWindow() const final;
+    DOMWindow* NODELETE virtualWindow() const final;
     void reinitializeDocumentSecurityContext() final;
-    FrameLoaderClient& loaderClient() final;
+    FrameLoaderClient& NODELETE loaderClient() final;
     void documentURLForConsoleLog(CompletionHandler<void(const URL&)>&&) final;
 
     WeakHashSet<FrameDestructionObserver> m_destructionObservers;

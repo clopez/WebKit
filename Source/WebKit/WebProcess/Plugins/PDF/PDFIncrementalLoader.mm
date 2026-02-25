@@ -66,7 +66,7 @@ public:
     {
     }
 
-    NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader; }
+    NetscapePlugInStreamLoader* NODELETE streamLoader() { return m_streamLoader; }
     void setStreamLoader(NetscapePlugInStreamLoader& loader) { m_streamLoader = loader; }
     void clearStreamLoader();
     void addData(std::span<const uint8_t> data) { m_accumulatedData.append(data); }
@@ -76,10 +76,10 @@ public:
     bool completeIfPossible(PDFIncrementalLoader&);
     void completeUnconditionally(PDFIncrementalLoader&);
 
-    uint64_t position() const { return m_position; }
-    size_t count() const { return m_count; }
+    uint64_t NODELETE position() const { return m_position; }
+    size_t NODELETE count() const { return m_count; }
 
-    const Vector<uint8_t>& accumulatedData() const { return m_accumulatedData; };
+    const Vector<uint8_t>& NODELETE accumulatedData() const { return m_accumulatedData; };
 
 private:
     uint64_t m_position { 0 };
@@ -769,7 +769,7 @@ void PDFIncrementalLoader::transitionToMainThreadDocument()
     }
 }
 
-void PDFIncrementalLoader::threadEntry(Ref<PDFIncrementalLoader>&& protectedLoader)
+void PDFIncrementalLoader::threadEntry(Ref<PDFIncrementalLoader>&& loader)
 {
     CGDataProviderDirectAccessRangesCallbacks dataProviderCallbacks {
         0,
@@ -778,10 +778,10 @@ void PDFIncrementalLoader::threadEntry(Ref<PDFIncrementalLoader>&& protectedLoad
         dataProviderReleaseInfoCallback,
     };
 
-    auto scopeExit = makeScopeExit([protectedLoader = WTF::move(protectedLoader)] mutable {
+    auto scopeExit = makeScopeExit([loader = WTF::move(loader)] mutable {
         // Keep the PDFPlugin alive until the end of this function and the end
         // of the last main thread task submitted by this function.
-        callOnMainRunLoop([protectedLoader = WTF::move(protectedLoader)] { });
+        callOnMainRunLoop([loader = WTF::move(loader)] { });
     });
 
     RefPtr plugin = m_plugin.get();

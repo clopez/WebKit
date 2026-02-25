@@ -55,7 +55,7 @@ public:
         : m_box(parent)
         , m_largestOrdinal(1)
     {
-        if (m_box->style().boxOrient() == BoxOrient::Horizontal && !m_box->style().isLeftToRightDirection())
+        if (m_box->style().boxOrient() == BoxOrient::Horizontal && !m_box->style().writingMode().deprecatedIsLeftToRightDirection())
             m_forward = m_box->style().boxDirection() != BoxDirection::Normal;
         else
             m_forward = m_box->style().boxDirection() == BoxDirection::Normal;
@@ -72,7 +72,7 @@ public:
         reset();
     }
 
-    void reset()
+    void NODELETE reset()
     {
         m_currentChild = nullptr;
         m_ordinalIteration = std::numeric_limits<unsigned>::max();
@@ -155,7 +155,7 @@ static LayoutUnit marginWidthForChild(RenderBox* child)
     return margin;
 }
 
-static bool childDoesNotAffectWidthOrFlexing(RenderObject* child)
+static bool NODELETE childDoesNotAffectWidthOrFlexing(RenderObject* child)
 {
     // Positioned children don't affect the min/max width.
     return child->isOutOfFlowPositioned();
@@ -317,7 +317,7 @@ bool RenderDeprecatedFlexibleBox::hasClampingAndNoFlexing() const
         return false;
     if (style.overflowX() != Overflow::Hidden || style.overflowY() != Overflow::Hidden)
         return false;
-    if (style.boxAlign() != Style::ComputedStyle::initialBoxAlign() || !style.isLeftToRightDirection())
+    if (style.boxAlign() != Style::ComputedStyle::initialBoxAlign() || !style.writingMode().deprecatedIsLeftToRightDirection())
         return false;
     return true;
 }
@@ -669,8 +669,8 @@ void RenderDeprecatedFlexibleBox::layoutHorizontalBox(RelayoutChildren relayoutC
 
     endAndCommitUpdateScrollInfoAfterLayoutTransaction();
 
-    if (remainingSpace > 0 && ((style().isLeftToRightDirection() && style().boxPack() != BoxPack::Start)
-        || (!style().isLeftToRightDirection() && style().boxPack() != BoxPack::End))) {
+    if (remainingSpace > 0 && ((style().writingMode().deprecatedIsLeftToRightDirection() && style().boxPack() != BoxPack::Start)
+        || (!style().writingMode().deprecatedIsLeftToRightDirection() && style().boxPack() != BoxPack::End))) {
         // Children must be repositioned.
         LayoutUnit offset;
         if (style().boxPack() == BoxPack::Justify) {
@@ -831,13 +831,13 @@ void RenderDeprecatedFlexibleBox::layoutVerticalBox(RelayoutChildren relayoutChi
                 childX += child->marginLeft() + std::max<LayoutUnit>(0, (contentBoxWidth() - (child->width() + child->horizontalMarginExtent())) / 2);
                 break;
             case BoxAlignment::End:
-                if (!style().isLeftToRightDirection())
+                if (!style().writingMode().deprecatedIsLeftToRightDirection())
                     childX += child->marginLeft();
                 else
                     childX += contentBoxWidth() - child->marginRight() - child->width();
                 break;
             default: // BoxAlignment::Start/BoxAlignment::Stretch
-                if (style().isLeftToRightDirection())
+                if (style().writingMode().deprecatedIsLeftToRightDirection())
                     childX += child->marginLeft();
                 else
                     childX += contentBoxWidth() - child->marginRight() - child->width();

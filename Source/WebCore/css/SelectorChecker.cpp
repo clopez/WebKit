@@ -128,17 +128,17 @@ static inline void addStyleRelation(SelectorChecker::CheckingContext& checkingCo
     checkingContext.styleRelations.append({ element, type, value });
 }
 
-static inline bool isFirstChildElement(const Element& element)
+static inline bool NODELETE isFirstChildElement(const Element& element)
 {
     return !ElementTraversal::previousSibling(element);
 }
 
-static inline bool isLastChildElement(const Element& element)
+static inline bool NODELETE isLastChildElement(const Element& element)
 {
     return !ElementTraversal::nextSibling(element);
 }
 
-static inline bool isFirstOfType(const Element& element, const QualifiedName& type)
+static inline bool NODELETE isFirstOfType(const Element& element, const QualifiedName& type)
 {
     for (const Element* sibling = ElementTraversal::previousSibling(element); sibling; sibling = ElementTraversal::previousSibling(*sibling)) {
         if (sibling->hasTagName(type))
@@ -147,7 +147,7 @@ static inline bool isFirstOfType(const Element& element, const QualifiedName& ty
     return true;
 }
 
-static inline bool isLastOfType(const Element& element, const QualifiedName& type)
+static inline bool NODELETE isLastOfType(const Element& element, const QualifiedName& type)
 {
     for (const Element* sibling = ElementTraversal::nextSibling(element); sibling; sibling = ElementTraversal::nextSibling(*sibling)) {
         if (sibling->hasTagName(type))
@@ -156,7 +156,7 @@ static inline bool isLastOfType(const Element& element, const QualifiedName& typ
     return true;
 }
 
-static inline int countElementsBefore(const Element& element)
+static inline int NODELETE countElementsBefore(const Element& element)
 {
     int count = 0;
     for (CheckedPtr<const Element> sibling = ElementTraversal::previousSibling(element); sibling; sibling = ElementTraversal::previousSibling(*sibling)) {
@@ -170,7 +170,7 @@ static inline int countElementsBefore(const Element& element)
     return count;
 }
 
-static inline int countElementsOfTypeBefore(const Element& element, const QualifiedName& type)
+static inline int NODELETE countElementsOfTypeBefore(const Element& element, const QualifiedName& type)
 {
     int count = 0;
     for (const Element* sibling = ElementTraversal::previousSibling(element); sibling; sibling = ElementTraversal::previousSibling(*sibling)) {
@@ -180,7 +180,7 @@ static inline int countElementsOfTypeBefore(const Element& element, const Qualif
     return count;
 }
 
-static inline int countElementsAfter(const Element& element)
+static inline int NODELETE countElementsAfter(const Element& element)
 {
     int count = 0;
     for (const Element* sibling = ElementTraversal::nextSibling(element); sibling; sibling = ElementTraversal::nextSibling(*sibling))
@@ -188,7 +188,7 @@ static inline int countElementsAfter(const Element& element)
     return count;
 }
 
-static inline int countElementsOfTypeAfter(const Element& element, const QualifiedName& type)
+static inline int NODELETE countElementsOfTypeAfter(const Element& element, const QualifiedName& type)
 {
     int count = 0;
     for (const Element* sibling = ElementTraversal::nextSibling(element); sibling; sibling = ElementTraversal::nextSibling(*sibling)) {
@@ -202,7 +202,7 @@ void SelectorChecker::CheckingContext::setRequestedPseudoElement(Style::PseudoEl
 {
     hasRequestedPseudoElement = true;
     pseudoElementType = pseudoElementIdentifier.type;
-    pseudoElementNameArgument = pseudoElementIdentifier.nameArgument;
+    pseudoElementNameArgument = pseudoElementIdentifier.nameOrPart;
 }
 
 std::optional<Style::PseudoElementIdentifier> SelectorChecker::CheckingContext::requestedPseudoElement() const
@@ -295,7 +295,7 @@ inline static bool hasScrollbarPseudoElement(EnumSet<PseudoElementType> collecte
     return collectedPseudoElements.contains(PseudoElementType::WebKitResizer);
 }
 
-static SelectorChecker::LocalContext localContextForParent(const SelectorChecker::LocalContext& context)
+static SelectorChecker::LocalContext NODELETE localContextForParent(const SelectorChecker::LocalContext& context)
 {
     SelectorChecker::LocalContext updatedContext(context);
     // Disable :visited matching when we see the first link.
@@ -342,6 +342,13 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
             // In functional pseudo-classes like :is()/where(), pseudo-elements are always disabled.
             if (context.inFunctionalPseudoClass)
                 return MatchResult::fails(Match::SelectorFailsCompletely);
+            if (context.requestedPseudoElement && context.requestedPseudoElement->type == PseudoElementType::UserAgentPartFallback) {
+                if (context.selector->value() != context.requestedPseudoElement->nameOrPart)
+                    return MatchResult::fails(Match::SelectorFailsLocally);
+                collectedPseudoElements.add(PseudoElementType::UserAgentPartFallback);
+                matchType = MatchType::VirtualPseudoElementOnly;
+                break;
+            }
             if (CheckedPtr root = context.element->containingShadowRoot()) {
                 if (root->mode() != ShadowRootMode::UserAgent)
                     return MatchResult::fails(Match::SelectorFailsLocally);
@@ -356,14 +363,20 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
             // In functional pseudo-classes like :is()/where(), pseudo-elements are always disabled.
             if (context.inFunctionalPseudoClass)
                 return MatchResult::fails(Match::SelectorFailsCompletely);
+            auto* stringList = context.selector->stringList();
+            ASSERT(stringList && !stringList->isEmpty());
+            auto part = makeString("picker("_s, stringList->at(0), ')');
+            if (context.requestedPseudoElement && context.requestedPseudoElement->type == PseudoElementType::UserAgentPartFallback) {
+                if (part != context.requestedPseudoElement->nameOrPart)
+                    return MatchResult::fails(Match::SelectorFailsLocally);
+                collectedPseudoElements.add(PseudoElementType::UserAgentPartFallback);
+                matchType = MatchType::VirtualPseudoElementOnly;
+                break;
+            }
             CheckedPtr root = context.element->containingShadowRoot();
             if (!root || root->mode() != ShadowRootMode::UserAgent)
                 return MatchResult::fails(Match::SelectorFailsLocally);
 
-            auto* stringList = context.selector->stringList();
-            ASSERT(stringList && !stringList->isEmpty());
-
-            auto part = makeString("picker("_s, stringList->at(0), ')');
             if (context.element->userAgentPart() != part)
                 return MatchResult::fails(Match::SelectorFailsLocally);
 
@@ -504,11 +517,15 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
             return MatchResult::updateWithMatchType(result, matchType);
         }
     case CSSSelector::Relation::ShadowDescendant:  {
-        CheckedPtr host = context.element->shadowHost();
-        if (!host)
-            return MatchResult::fails(Match::SelectorFailsCompletely);
-
-        nextContext.element = host.get();
+        // When matching a user-agent-part pseudo-element via style resolution (no backing
+        // element found), the element is the originating element itself. Skip the shadow host
+        // traversal and match the rest of the selector against it directly.
+        if (!collectedPseudoElements.contains(PseudoElementType::UserAgentPartFallback)) {
+            CheckedPtr host = context.element->shadowHost();
+            if (!host)
+                return MatchResult::fails(Match::SelectorFailsCompletely);
+            nextContext.element = host.get();
+        }
         nextContext.firstSelectorOfTheFragment = nextContext.selector;
         nextContext.isSubjectOrAdjacentElement = false;
         EnumSet<PseudoElementType> ignoredPseudoElements;
@@ -1356,7 +1373,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
                 return true;
             if (requestedPseudoElement->type != PseudoElementType::Highlight || !selector.stringList())
                 return false;
-            return selector.stringList()->first() == requestedPseudoElement->nameArgument;
+            return selector.stringList()->first() == requestedPseudoElement->nameOrPart;
 
         case CSSSelector::PseudoElement::ViewTransitionGroup:
         case CSSSelector::PseudoElement::ViewTransitionImagePair:
@@ -1370,7 +1387,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
 
             auto& list = *selector.stringList();
             auto& name = list.first();
-            if (name != starAtom() && name != requestedPseudoElement->nameArgument)
+            if (name != starAtom() && name != requestedPseudoElement->nameOrPart)
                 return false;
 
             if (list.size() == 1)
@@ -1674,7 +1691,7 @@ bool SelectorChecker::checkViewTransitionPseudoClass(const CheckingContext& chec
         return false;
     case PseudoElementType::ViewTransitionGroup: {
         if (RefPtr activeViewTransition = element.document().activeViewTransition()) {
-            if (activeViewTransition->namedElements().find(pseudoIdentifier->nameArgument))
+            if (activeViewTransition->namedElements().find(pseudoIdentifier->nameOrPart))
                 return activeViewTransition->namedElements().size() == 1;
         }
         return false;
@@ -1683,14 +1700,14 @@ bool SelectorChecker::checkViewTransitionPseudoClass(const CheckingContext& chec
         return true;
     case PseudoElementType::ViewTransitionOld: {
         if (RefPtr activeViewTransition = element.document().activeViewTransition()) {
-            if (auto* capturedElement = activeViewTransition->namedElements().find(pseudoIdentifier->nameArgument))
+            if (auto* capturedElement = activeViewTransition->namedElements().find(pseudoIdentifier->nameOrPart))
                 return !capturedElement->newElement;
         }
         return false;
     }
     case PseudoElementType::ViewTransitionNew: {
         if (RefPtr activeViewTransition = element.document().activeViewTransition()) {
-            if (auto* capturedElement = activeViewTransition->namedElements().find(pseudoIdentifier->nameArgument))
+            if (auto* capturedElement = activeViewTransition->namedElements().find(pseudoIdentifier->nameOrPart))
                 return !capturedElement->oldImage;
         }
         return false;

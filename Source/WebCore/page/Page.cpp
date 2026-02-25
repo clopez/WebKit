@@ -267,7 +267,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Page);
 
-static HashSet<WeakRef<Page>>& allPages()
+static HashSet<WeakRef<Page>>& NODELETE allPages()
 {
     static NeverDestroyed<HashSet<WeakRef<Page>>> set;
     return set;
@@ -280,7 +280,7 @@ static inline bool isUtilityPageChromeClient(ChromeClient& chromeClient)
     return chromeClient.isEmptyChromeClient() || chromeClient.isSVGImageChromeClient();
 }
 
-unsigned Page::nonUtilityPageCount()
+unsigned NODELETE Page::nonUtilityPageCount()
 {
     return gNonUtilityPageCount;
 }
@@ -492,7 +492,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
     protect(pluginInfoProvider())->addPage(*this);
     Ref { m_userContentProvider }->addPage(*this);
-    protectedVisitedLinkStore()->addPage(*this);
+    protect(m_visitedLinkStore)->addPage(*this);
 
     static bool firstTimeInitializationRan = false;
     if (!firstTimeInitializationRan) {
@@ -573,7 +573,7 @@ Page::~Page()
 
     protect(pluginInfoProvider())->removePage(*this);
     Ref { m_userContentProvider }->removePage(*this);
-    protectedVisitedLinkStore()->removePage(*this);
+    protect(m_visitedLinkStore)->removePage(*this);
 }
 
 
@@ -776,7 +776,7 @@ void Page::setConsoleMessageListenerForTesting(RefPtr<StringCallback>&& listener
     m_consoleMessageListenerForTesting = listener;
 }
 
-RefPtr<StringCallback> Page::consoleMessageListenerForTesting() const
+RefPtr<StringCallback> NODELETE Page::consoleMessageListenerForTesting() const
 {
     return m_consoleMessageListenerForTesting;
 }
@@ -961,7 +961,7 @@ void Page::updateTopDocumentSyncData(const DocumentSyncSerializationData& data)
 #if ENABLE(DOM_AUDIO_SESSION)
     case DocumentSyncDataType::AudioSessionType:
 #endif
-        protectedTopDocumentSyncData()->update(data);
+        protect(m_topDocumentSyncData)->update(data);
         break;
     }
 }
@@ -1010,7 +1010,7 @@ bool Page::openedByDOM() const
     return m_openedByDOM;
 }
 
-void Page::setOpenedByDOM()
+void NODELETE Page::setOpenedByDOM()
 {
     m_openedByDOM = true;
 }
@@ -1118,11 +1118,6 @@ PluginData& Page::pluginData()
     return *m_pluginData;
 }
 
-Ref<PluginData> Page::protectedPluginData()
-{
-    return pluginData();
-}
-
 void Page::clearPluginData()
 {
     m_pluginData = nullptr;
@@ -1166,7 +1161,7 @@ void Page::setCanStartMedia(bool canStartMedia)
     }
 }
 
-static Frame* incrementFrame(Frame* current, bool forward, CanWrap canWrap, DidWrap* didWrap = nullptr)
+static Frame* NODELETE incrementFrame(Frame* current, bool forward, CanWrap canWrap, DidWrap* didWrap = nullptr)
 {
     return forward
         ? current->tree().traverseNext(canWrap, didWrap)
@@ -1585,12 +1580,12 @@ void Page::clearUndoRedoOperations()
     m_editorClient->clearUndoRedoOperations();
 }
 
-bool Page::inLowQualityImageInterpolationMode() const
+bool NODELETE Page::inLowQualityImageInterpolationMode() const
 {
     return m_inLowQualityInterpolationMode;
 }
 
-void Page::setInLowQualityImageInterpolationMode(bool mode)
+void NODELETE Page::setInLowQualityImageInterpolationMode(bool mode)
 {
     m_inLowQualityInterpolationMode = mode;
 }
@@ -1696,7 +1691,7 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
 #endif
 }
 
-void Page::setDelegatesScaling(bool delegatesScaling)
+void NODELETE Page::setDelegatesScaling(bool delegatesScaling)
 {
     m_delegatesScaling = delegatesScaling;
 }
@@ -2140,13 +2135,13 @@ void Page::triggerRenderingUpdateForTesting()
     chrome().client().triggerRenderingUpdate();
 }
 
-void Page::startTrackingRenderingUpdates()
+void NODELETE Page::startTrackingRenderingUpdates()
 {
     m_isTrackingRenderingUpdates = true;
     m_renderingUpdateCount = 0;
 }
 
-unsigned Page::renderingUpdateCount() const
+unsigned NODELETE Page::renderingUpdateCount() const
 {
     return m_renderingUpdateCount;
 }
@@ -2267,7 +2262,7 @@ void Page::updateRendering()
 
     // https://drafts.csswg.org/scroll-animations-1/#event-loop
     forEachDocument([] (Document& document) {
-        document.runPostRenderingUpdateAnimationTasks();
+        document.updateStaleScrollTimelines();
     });
 
     runProcessingStep(RenderingUpdateStep::FocusFixup, [&] (Document& document) {
@@ -2286,7 +2281,7 @@ void Page::updateRendering()
     });
 
     runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
-        document.updateIntersectionObservations();
+        document.updateIntersectionObservers();
     });
 
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
@@ -2362,6 +2357,12 @@ void Page::doAfterUpdateRendering()
     forEachRenderableDocument([] (Document& document) {
         document.updateHighlightPositions();
     });
+
+#if ENABLE(THREADED_ANIMATIONS)
+    forEachDocument([] (Document& document) {
+        document.runPostRenderingUpdateAnimationTasks();
+    });
+#endif
 
 #if ENABLE(APP_HIGHLIGHTS)
     forEachRenderableDocument([timestamp = m_lastRenderingUpdateTimestamp] (Document& document) {
@@ -3367,12 +3368,7 @@ void Page::stopKeyboardScrollAnimation()
     }
 }
 
-Ref<DocumentSyncData> Page::protectedTopDocumentSyncData() const
-{
-    return m_topDocumentSyncData;
-}
-
-bool Page::isVisibleAndActive() const
+bool NODELETE Page::isVisibleAndActive() const
 {
     return m_activityState.contains(ActivityState::IsVisible) && m_activityState.contains(ActivityState::WindowIsActive);
 }
@@ -3472,7 +3468,7 @@ void Page::setIsPrerender()
     updateDOMTimerAlignmentInterval();
 }
 
-VisibilityState Page::visibilityState() const
+VisibilityState NODELETE Page::visibilityState() const
 {
     if (isVisible())
         return VisibilityState::Visible;
@@ -3540,13 +3536,13 @@ OptionSet<AdvancedPrivacyProtections> Page::advancedPrivacyProtections() const
     return protect(mainFrame())->advancedPrivacyProtections();
 }
 
-void Page::addLayoutMilestones(OptionSet<LayoutMilestone> milestones)
+void NODELETE Page::addLayoutMilestones(OptionSet<LayoutMilestone> milestones)
 {
     // In the future, we may want a function that replaces m_layoutMilestones instead of just adding to it.
     m_requestedLayoutMilestones.add(milestones);
 }
 
-void Page::removeLayoutMilestones(OptionSet<LayoutMilestone> milestones)
+void NODELETE Page::removeLayoutMilestones(OptionSet<LayoutMilestone> milestones)
 {
     m_requestedLayoutMilestones.remove(milestones);
 }
@@ -3607,12 +3603,12 @@ void Page::clearSampledPageTopColor()
 }
 
 #if HAVE(APP_ACCENT_COLORS) && PLATFORM(MAC)
-void Page::setAppUsesCustomAccentColor(bool appUsesCustomAccentColor)
+void NODELETE Page::setAppUsesCustomAccentColor(bool appUsesCustomAccentColor)
 {
     m_appUsesCustomAccentColor = appUsesCustomAccentColor;
 }
 
-bool Page::appUsesCustomAccentColor() const
+bool NODELETE Page::appUsesCustomAccentColor() const
 {
     return m_appUsesCustomAccentColor;
 }
@@ -3632,7 +3628,7 @@ void Page::setUnderPageBackgroundColorOverride(Color&& underPageBackgroundColorO
     if (RefPtr frameView = localMainFrame ? localMainFrame->view() : nullptr) {
         if (CheckedPtr renderView = frameView->renderView()) {
             if (renderView->usesCompositing())
-                renderView->checkedCompositor()->updateLayerForOverhangAreasBackgroundColor();
+                protect(renderView->compositor())->updateLayerForOverhangAreasBackgroundColor();
         }
     }
 #endif // HAVE(RUBBER_BANDING)
@@ -3696,7 +3692,7 @@ void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRe
     if (&object.frame() != &mainFrame())
         return;
 
-    LayoutRect relevantRect = relevantViewRect(object.checkedView().ptr());
+    LayoutRect relevantRect = relevantViewRect(protect(object.view()).ptr());
 
     // The objects are only relevant if they are being painted within the viewRect().
     if (!objectPaintRect.intersects(snappedIntRect(relevantRect)))
@@ -3754,7 +3750,7 @@ void Page::addRelevantUnpaintedObject(const RenderObject& object, const LayoutRe
         return;
 
     // The objects are only relevant if they are being painted within the relevantViewRect().
-    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(object.checkedView().ptr()))))
+    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(protect(object.view()).ptr()))))
         return;
 
     m_relevantUnpaintedRenderObjects.add(object);
@@ -3779,7 +3775,7 @@ void Page::resumeActiveDOMObjectsAndAnimations()
     resumeAnimatingImages();
 }
 
-bool Page::hasSeenAnyPlugin() const
+bool NODELETE Page::hasSeenAnyPlugin() const
 {
     return !m_seenPlugins.isEmpty();
 }
@@ -3937,11 +3933,6 @@ PluginInfoProvider& Page::pluginInfoProvider()
     return m_pluginInfoProvider;
 }
 
-Ref<UserContentProvider> Page::protectedUserContentProviderForFrame()
-{
-    return m_userContentProvider;
-}
-
 void Page::setUserContentProviderForWebKitLegacy(Ref<UserContentProvider>&& userContentProvider)
 {
     Ref { m_userContentProvider }->removePage(*this);
@@ -3956,16 +3947,11 @@ VisitedLinkStore& Page::visitedLinkStore()
     return m_visitedLinkStore;
 }
 
-Ref<VisitedLinkStore> Page::protectedVisitedLinkStore()
-{
-    return m_visitedLinkStore;
-}
-
 void Page::setVisitedLinkStore(Ref<VisitedLinkStore>&& visitedLinkStore)
 {
-    protectedVisitedLinkStore()->removePage(*this);
+    protect(m_visitedLinkStore)->removePage(*this);
     m_visitedLinkStore = WTF::move(visitedLinkStore);
-    protectedVisitedLinkStore()->addPage(*this);
+    protect(m_visitedLinkStore)->addPage(*this);
 
     invalidateStylesForAllLinks();
 }
@@ -3980,7 +3966,7 @@ std::optional<uint64_t> Page::noiseInjectionHashSaltForDomain(const RegistrableD
     }).iterator->value;
 }
 
-PAL::SessionID Page::sessionID() const
+PAL::SessionID NODELETE Page::sessionID() const
 {
     return m_sessionID;
 }
@@ -4089,7 +4075,7 @@ void Page::playbackTargetPickerWasDismissed(PlaybackTargetClientContextIdentifie
 
 #endif
 
-RefPtr<WheelEventTestMonitor> Page::wheelEventTestMonitor() const
+RefPtr<WheelEventTestMonitor> NODELETE Page::wheelEventTestMonitor() const
 {
     return m_wheelEventTestMonitor;
 }
@@ -4102,7 +4088,7 @@ void Page::clearWheelEventTestMonitor()
     m_wheelEventTestMonitor = nullptr;
 }
 
-bool Page::isMonitoringWheelEvents() const
+bool NODELETE Page::isMonitoringWheelEvents() const
 {
     return !!m_wheelEventTestMonitor;
 }
@@ -4113,7 +4099,7 @@ void Page::startMonitoringWheelEvents(bool clearLatchingState)
 
 #if ENABLE(WHEEL_EVENT_LATCHING)
     if (clearLatchingState)
-        protectedScrollLatchingController()->clear();
+        protect(scrollLatchingController())->clear();
 #endif
 
     RefPtr localMainFrame = this->localMainFrame();
@@ -4429,7 +4415,7 @@ void Page::didChangeMainDocument(Document* newDocument)
     m_topDocumentSyncData = newDocument ? newDocument->syncData() : DocumentSyncData::create();
 
     if (settings().siteIsolationEnabled())
-        documentSyncClient().broadcastAllDocumentSyncDataToOtherProcesses(protectedTopDocumentSyncData().get());
+        documentSyncClient().broadcastAllDocumentSyncDataToOtherProcesses(protect(m_topDocumentSyncData).get());
 
 #if ENABLE(WEB_RTC)
     m_rtcController->reset(m_shouldEnableICECandidateFilteringByDefault);
@@ -4587,7 +4573,7 @@ void Page::applicationWillResignActive()
 #endif
 }
 
-void Page::applicationDidEnterBackground()
+void NODELETE Page::applicationDidEnterBackground()
 {
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
@@ -4595,7 +4581,7 @@ void Page::applicationDidEnterBackground()
 #endif
 }
 
-void Page::applicationWillEnterForeground()
+void NODELETE Page::applicationWillEnterForeground()
 {
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
@@ -4621,10 +4607,6 @@ ScrollLatchingController& Page::scrollLatchingController()
     return *m_scrollLatchingController;
 }
 
-Ref<ScrollLatchingController> Page::protectedScrollLatchingController()
-{
-    return scrollLatchingController();
-}
 #endif // ENABLE(WHEEL_EVENT_LATCHING)
 
 enum class DispatchedOnDocumentEventLoop : bool { No, Yes };
@@ -4982,11 +4964,6 @@ ImageOverlayController& Page::imageOverlayController()
     return *m_imageOverlayController;
 }
 
-Ref<ImageOverlayController> Page::protectedImageOverlayController()
-{
-    return imageOverlayController();
-}
-
 Page* Page::serviceWorkerPage(ScriptExecutionContextIdentifier serviceWorkerPageIdentifier)
 {
     RefPtr serviceWorkerPageDocument = Document::allDocumentsMap().get(serviceWorkerPageIdentifier);
@@ -5000,11 +4977,6 @@ ImageAnalysisQueue& Page::imageAnalysisQueue()
     if (!m_imageAnalysisQueue)
         m_imageAnalysisQueue = ImageAnalysisQueue::create(*this);
     return *m_imageAnalysisQueue;
-}
-
-Ref<ImageAnalysisQueue> Page::protectedImageAnalysisQueue()
-{
-    return imageAnalysisQueue();
 }
 
 void Page::resetImageAnalysisQueue()
@@ -5047,7 +5019,7 @@ void Page::updateElementsWithTextRecognitionResults()
     }
 }
 
-bool Page::hasCachedTextRecognitionResult(const HTMLElement& element) const
+bool NODELETE Page::hasCachedTextRecognitionResult(const HTMLElement& element) const
 {
     return m_textRecognitionResults.contains(element);
 }
@@ -5414,7 +5386,7 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
     if (RefPtr layer = frameView->setWantsLayerForTopOverhangColorExtension(topOverhangColor.isVisible())) {
         layer->setBackgroundColor(WTF::move(topOverhangColor));
         if (CheckedPtr renderView = frameView->renderView())
-            renderView->checkedCompositor()->updateSizeAndPositionForTopOverhangColorExtensionLayer();
+            protect(renderView->compositor())->updateSizeAndPositionForTopOverhangColorExtensionLayer();
     }
 #endif
 }
@@ -5424,7 +5396,7 @@ Element* Page::lastFixedContainer(BoxSide side) const
     return m_fixedContainerEdgesAndElements.second.at(side).get();
 }
 
-void Page::setPortsForUpgradingInsecureSchemeForTesting(uint16_t upgradeFromInsecurePort, uint16_t upgradeToSecurePort)
+void NODELETE Page::setPortsForUpgradingInsecureSchemeForTesting(uint16_t upgradeFromInsecurePort, uint16_t upgradeToSecurePort)
 {
     m_portsForUpgradingInsecureSchemeForTesting = { upgradeFromInsecurePort, upgradeToSecurePort };
 }
@@ -5707,13 +5679,13 @@ void Page::setLastAuthentication(LoginStatus::AuthenticationType authType)
 }
 
 #if ENABLE(FULLSCREEN_API)
-bool Page::isDocumentFullscreenEnabled() const
+bool NODELETE Page::isDocumentFullscreenEnabled() const
 {
     return m_settings->fullScreenEnabled() || m_settings->videoFullscreenRequiresElementFullscreen();
 }
 #endif
 
-void Page::startDeferringResizeEvents()
+void NODELETE Page::startDeferringResizeEvents()
 {
     m_shouldDeferResizeEvents = true;
 }
@@ -5726,7 +5698,7 @@ void Page::flushDeferredResizeEvents()
     });
 }
 
-void Page::startDeferringScrollEvents()
+void NODELETE Page::startDeferringScrollEvents()
 {
     m_shouldDeferScrollEvents = true;
 }
@@ -5739,7 +5711,7 @@ void Page::flushDeferredScrollEvents()
     });
 }
 
-void Page::startDeferringIntersectionObservations()
+void NODELETE Page::startDeferringIntersectionObservations()
 {
     m_shouldDeferIntersectionObservations = true;
 }
@@ -5833,22 +5805,10 @@ void Page::applyWindowFeatures(const WindowFeatures& features)
 #endif
 }
 
-bool Page::isAlwaysOnLoggingAllowed() const
+bool NODELETE Page::isAlwaysOnLoggingAllowed() const
 {
     return m_sessionID.isAlwaysOnLoggingAllowed() || settings().allowPrivacySensitiveOperationsInNonPersistentDataStores();
 }
-
-Ref<PageInspectorController> Page::protectedInspectorController()
-{
-    return m_inspectorController.get();
-}
-
-#if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
-Ref<ServicesOverlayController> Page::protectedServicesOverlayController()
-{
-    return m_servicesOverlayController.get();
-}
-#endif
 
 ProcessID Page::presentingApplicationPID() const
 {
@@ -5866,7 +5826,7 @@ const std::optional<audit_token_t>& Page::presentingApplicationAuditToken() cons
     return m_presentingApplicationAuditToken;
 }
 
-void Page::setPresentingApplicationAuditToken(std::optional<audit_token_t> presentingApplicationAuditToken)
+void NODELETE Page::setPresentingApplicationAuditToken(std::optional<audit_token_t> presentingApplicationAuditToken)
 {
     m_presentingApplicationAuditToken = WTF::move(presentingApplicationAuditToken);
 }
@@ -5888,7 +5848,7 @@ bool Page::requiresUserGestureForVideoPlayback() const
     return m_settings->requiresUserGestureForVideoPlayback();
 }
 
-static RefPtr<PlatformMediaSessionManager>& mediaSessionManagerSingleton()
+static RefPtr<PlatformMediaSessionManager>& NODELETE mediaSessionManagerSingleton()
 {
     static NeverDestroyed<RefPtr<PlatformMediaSessionManager>> manager;
     return manager.get();

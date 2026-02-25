@@ -96,7 +96,6 @@ private:
     }
 
     ImageDocument& document() const;
-    Ref<ImageDocument> protectedDocument() const;
 
     void appendBytes(DocumentWriter&, std::span<const uint8_t>) override;
     void finish() override;
@@ -206,26 +205,21 @@ void ImageDocument::finishedParsing()
     HTMLDocument::finishedParsing();
 }
 
-inline ImageDocument& ImageDocumentParser::document() const
+inline ImageDocument& NODELETE ImageDocumentParser::document() const
 {
     // Only used during parsing, so document is guaranteed to be non-null.
     ASSERT(RawDataDocumentParser::document());
     return downcast<ImageDocument>(*RawDataDocumentParser::document());
 }
 
-inline Ref<ImageDocument> ImageDocumentParser::protectedDocument() const
-{
-    return document();
-}
-
 void ImageDocumentParser::appendBytes(DocumentWriter&, std::span<const uint8_t>)
 {
-    protectedDocument()->updateDuringParsing();
+    protect(document())->updateDuringParsing();
 }
 
 void ImageDocumentParser::finish()
 {
-    protectedDocument()->finishedParsing();
+    protect(document())->finishedParsing();
 }
 
 ImageDocument::ImageDocument(LocalFrame& frame, const URL& url)

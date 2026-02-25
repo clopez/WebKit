@@ -363,11 +363,6 @@ EditorClient* Editor::client() const
     return m_client.get();
 }
 
-CheckedPtr<EditorClient> Editor::checkedClient() const
-{
-    return client();
-}
-
 TextCheckerClient* Editor::textChecker() const
 {
     if (CheckedPtr owner = client())
@@ -662,7 +657,7 @@ void Editor::deleteSelectionWithSmartDelete(bool smartDelete, EditAction editing
 
 void Editor::clearText()
 {
-    ClearTextCommand::CreateAndApply(protectedDocument());
+    ClearTextCommand::CreateAndApply(protect(document()));
 }
 
 void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
@@ -872,7 +867,7 @@ bool Editor::hasBidiSelection() const
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
     if (CheckedPtr renderBlockFlow = ancestorsOfType<RenderBlockFlow>(*startNode->renderer()).first())
-        return !renderBlockFlow->style().isLeftToRightDirection() || renderBlockFlow->containsNonZeroBidiLevel();
+        return !renderBlockFlow->style().writingMode().deprecatedIsLeftToRightDirection() || renderBlockFlow->containsNonZeroBidiLevel();
     return false;
 }
 
@@ -913,7 +908,7 @@ RefPtr<Node> Editor::insertOrderedList()
     if (!canEditRichly())
         return nullptr;
         
-    auto newList = InsertListCommand::insertList(protectedDocument(), InsertListCommand::Type::OrderedList);
+    auto newList = InsertListCommand::insertList(protect(document()), InsertListCommand::Type::OrderedList);
     revealSelectionAfterEditingOperation();
     return newList;
 }
@@ -923,7 +918,7 @@ RefPtr<Node> Editor::insertUnorderedList()
     if (!canEditRichly())
         return nullptr;
         
-    auto newList = InsertListCommand::insertList(protectedDocument(), InsertListCommand::Type::UnorderedList);
+    auto newList = InsertListCommand::insertList(protect(document()), InsertListCommand::Type::UnorderedList);
     revealSelectionAfterEditingOperation();
     return newList;
 }
@@ -983,7 +978,7 @@ void Editor::decreaseSelectionListLevel()
 
 void Editor::removeFormattingAndStyle()
 {
-    RemoveFormatCommand::create(protectedDocument())->apply();
+    RemoveFormatCommand::create(protect(document()))->apply();
 }
 
 void Editor::clearLastEditCommand() 
@@ -1308,13 +1303,13 @@ void Editor::appliedEditing(CompositeEditCommand& command)
 
 bool Editor::willUnapplyEditing(const EditCommandComposition& composition) const
 {
-    TypingCommand::closeTyping(protectedDocument());
+    TypingCommand::closeTyping(protect(document()));
     return dispatchBeforeInputEvents(composition.startingRootEditableElement(), composition.endingRootEditableElement(), "historyUndo"_s, IsInputMethodComposing::No);
 }
 
 void Editor::unappliedEditing(EditCommandComposition& composition)
 {
-    protectedDocument()->updateLayout();
+    protect(document())->updateLayout();
 
     notifyTextFromControls(composition.startingRootEditableElement(), composition.endingRootEditableElement());
 
@@ -1343,7 +1338,7 @@ bool Editor::willReapplyEditing(const EditCommandComposition& composition) const
 
 void Editor::reappliedEditing(EditCommandComposition& composition)
 {
-    protectedDocument()->updateLayout();
+    protect(document())->updateLayout();
 
     notifyTextFromControls(composition.startingRootEditableElement(), composition.endingRootEditableElement());
 
@@ -1395,7 +1390,7 @@ void Editor::clear()
     if (m_compositionNode) {
         m_compositionNode = nullptr;
         if (CheckedPtr client = this->client())
-            client->discardedComposition(protectedDocument());
+            client->discardedComposition(protect(document()));
     }
     m_customCompositionUnderlines.clear();
     m_customCompositionHighlights.clear();
@@ -1534,7 +1529,7 @@ bool Editor::insertParagraphSeparator()
 bool Editor::insertParagraphSeparatorInQuotedContent()
 {
     // FIXME: Why is this missing calls to canEdit, canEditRichly, etc.?
-    TypingCommand::insertParagraphSeparatorInQuotedContent(protectedDocument());
+    TypingCommand::insertParagraphSeparatorInQuotedContent(protect(document()));
     revealSelectionAfterEditingOperation();
     return true;
 }
@@ -1766,7 +1761,7 @@ void Editor::simplifyMarkup(Node* startNode, Node* endNode)
         pastEndNode = NodeTraversal::next(*endNode);
     }
     
-    SimplifyMarkupCommand::create(protectedDocument(), startNode, pastEndNode.get())->apply();
+    SimplifyMarkupCommand::create(protect(document()), startNode, pastEndNode.get())->apply();
 }
 
 void Editor::copyURL(const URL& url, const String& title)
@@ -2351,7 +2346,7 @@ String Editor::compositionText() const
     if (!m_compositionNode)
         return { };
 
-    return protectedCompositionNode()->data().substring(m_compositionStart, m_compositionEnd - m_compositionStart);
+    return protect(compositionNode())->data().substring(m_compositionStart, m_compositionEnd - m_compositionStart);
 }
 
 bool Editor::hasDeadKeyComposition() const
@@ -3894,7 +3889,7 @@ RefPtr<TextPlaceholderElement> Editor::insertTextPlaceholder(const IntSize& size
 #if ENABLE(WRITING_TOOLS)
     // For Writing Tools, we need the snapshot of the last inserted placeholder.
     if (auto placeholderRange = makeRangeSelectingNode(placeholder.get()))
-        protectedDocument()->page()->chrome().client().saveSnapshotOfTextPlaceholderForAnimation(*placeholderRange);
+        document->page()->chrome().client().saveSnapshotOfTextPlaceholderForAnimation(*placeholderRange);
 #endif
 
     return placeholder;
@@ -4314,7 +4309,7 @@ void Editor::scanSelectionForTelephoneNumbers()
     
     auto notifyController = makeScopeExit([&] {
         if (RefPtr page = document().page())
-            page->protectedServicesOverlayController()->selectedTelephoneNumberRangesChanged();
+            protect(page->servicesOverlayController())->selectedTelephoneNumberRangesChanged();
     });
 
     auto selection = document().selection().selection();
@@ -4724,12 +4719,12 @@ FontAttributes Editor::fontAttributesAtSelectionStart()
         break;
     case Style::TextAlign::Start:
         if (style->hasExplicitlySetDirection())
-            attributes.horizontalAlignment = style->isLeftToRightDirection() ? FontAttributes::HorizontalAlignment::Left : FontAttributes::HorizontalAlignment::Right;
+            attributes.horizontalAlignment = style->writingMode().deprecatedIsLeftToRightDirection() ? FontAttributes::HorizontalAlignment::Left : FontAttributes::HorizontalAlignment::Right;
         else
             attributes.horizontalAlignment = FontAttributes::HorizontalAlignment::Natural;
         break;
     case Style::TextAlign::End:
-        attributes.horizontalAlignment = style->isLeftToRightDirection() ? FontAttributes::HorizontalAlignment::Right : FontAttributes::HorizontalAlignment::Left;
+        attributes.horizontalAlignment = style->writingMode().deprecatedIsLeftToRightDirection() ? FontAttributes::HorizontalAlignment::Right : FontAttributes::HorizontalAlignment::Left;
         break;
     }
 

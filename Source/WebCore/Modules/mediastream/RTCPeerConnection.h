@@ -137,7 +137,7 @@ public:
     RTCPeerConnectionState connectionState() const { return m_connectionState; }
     std::optional<bool> canTrickleIceCandidates() const;
 
-    void restartIce() { protectedBackend()->restartIce(); }
+    void restartIce() { protect(*m_backend)->restartIce(); }
     const RTCConfiguration& getConfiguration() const { return m_configuration; }
     ExceptionOr<void> setConfiguration(RTCConfiguration&&);
     void close();
@@ -170,7 +170,7 @@ public:
 
     // EventTarget
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::RTCPeerConnection; }
-    ScriptExecutionContext* scriptExecutionContext() const final;
+    ScriptExecutionContext* NODELETE scriptExecutionContext() const final;
 
     // API used by PeerConnectionBackend and relatives
     void updateIceGatheringState(RTCIceGatheringState);
@@ -181,13 +181,12 @@ public:
 
     void scheduleEvent(Ref<Event>&&);
 
-    void disableICECandidateFiltering() { protectedBackend()->disableICECandidateFiltering(); }
-    void enableICECandidateFiltering() { protectedBackend()->enableICECandidateFiltering(); }
+    void disableICECandidateFiltering() { protect(*m_backend)->disableICECandidateFiltering(); }
+    void enableICECandidateFiltering() { protect(*m_backend)->enableICECandidateFiltering(); }
 
     void clearController() { m_controller = nullptr; }
 
     Document* document();
-    RefPtr<Document> protectedDocument();
 
     void updateDescriptions(PeerConnectionBackend::DescriptionStates&&);
     void updateTransceiversAfterSuccessfulLocalDescription();
@@ -227,7 +226,7 @@ private:
     void unregisterFromController();
 
     friend class Internals;
-    void applyRotationForOutgoingVideoSources() { protectedBackend()->applyRotationForOutgoingVideoSources(); }
+    void applyRotationForOutgoingVideoSources() { protect(*m_backend)->applyRotationForOutgoingVideoSources(); }
 
     // EventTarget implementation.
     void refEventTarget() final { ref(); }
@@ -237,7 +236,7 @@ private:
     WEBCORE_EXPORT void stop() final;
     void suspend(ReasonForSuspension) final;
     void resume() final;
-    bool virtualHasPendingActivity() const final;
+    bool NODELETE virtualHasPendingActivity() const final;
 
     bool updateIceConnectionStateFromIceTransports();
     RTCIceConnectionState computeIceConnectionStateFromIceTransports();
@@ -246,7 +245,7 @@ private:
     bool doClose();
     void doStop();
 
-    void getStats(RTCRtpSender& sender, Ref<DeferredPromise>&& promise) { protectedBackend()->getStats(sender, WTF::move(promise)); }
+    void getStats(RTCRtpSender& sender, Ref<DeferredPromise>&& promise) { protect(*m_backend)->getStats(sender, WTF::move(promise)); }
 
     ExceptionOr<Vector<MediaEndpointConfiguration::CertificatePEM>> certificatesFromConfiguration(const RTCConfiguration&);
     void chainOperation(Ref<DeferredPromise>&&, Function<void(Ref<DeferredPromise>&&)>&&);
@@ -260,7 +259,7 @@ private:
 
     void setSignalingState(RTCSignalingState);
 
-    WEBCORE_EXPORT RefPtr<PeerConnectionBackend> protectedBackend() const;
+    PeerConnectionBackend* backend() const { return m_backend.get(); }
 
     bool m_isStopped { false };
     RTCSignalingState m_signalingState { RTCSignalingState::Stable };

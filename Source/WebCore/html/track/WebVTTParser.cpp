@@ -332,7 +332,7 @@ bool WebVTTParser::checkAndCreateRegion(StringView line)
     // zero or more U+0020 SPACE characters or U+0009 CHARACTER TABULATION
     // (tab) characters expected other than these characters it is invalid.
     if (line.startsWith("REGION"_s) && line.substring(regionIdentifierLength).containsOnly<isASCIIWhitespace>()) {
-        m_currentRegion = VTTRegion::create(protectedDocument().get());
+        m_currentRegion = VTTRegion::create(protect(m_document).get());
         return true;
     }
     return false;
@@ -419,11 +419,6 @@ bool WebVTTParser::checkAndStoreStyleSheet(StringView line)
         m_styleSheets.append(sanitizedStyleSheetBuilder.toString());
 
     return true;
-}
-
-Ref<Document> WebVTTParser::protectedDocument() const
-{
-    return m_document.get();
 }
 
 WebVTTParser::ParseState WebVTTParser::collectCueId(const String& line)
@@ -519,7 +514,7 @@ public:
 private:
     void constructTreeFromToken(Document&);
 
-    WebVTTNodeType currentType() const { return m_typeStack.isEmpty() ? WebVTTNodeType::None : m_typeStack.last(); }
+    WebVTTNodeType NODELETE currentType() const { return m_typeStack.isEmpty() ? WebVTTNodeType::None : m_typeStack.last(); }
 
     WebVTTToken m_token;
     Vector<WebVTTNodeType> m_typeStack;
@@ -632,7 +627,7 @@ bool WebVTTParser::collectTimeStamp(VTTScanner& input, MediaTime& timeStamp)
     return true;
 }
 
-static WebVTTNodeType tokenToNodeType(WebVTTToken& token)
+static WebVTTNodeType NODELETE tokenToNodeType(WebVTTToken& token)
 {
     switch (token.name().length()) {
     case 1:

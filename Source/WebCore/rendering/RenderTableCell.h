@@ -47,6 +47,7 @@ public:
     
     unsigned colSpan() const;
     unsigned rowSpan() const;
+    bool hasRowSpanZero() const;
 
     // Called from HTMLTableCellElement.
     void colSpanOrRowSpanChanged();
@@ -60,7 +61,6 @@ public:
     RenderTableRow* row() const { return downcast<RenderTableRow>(parent()); }
     RenderTableSection* section() const;
     RenderTable* table() const;
-    CheckedPtr<RenderTable> checkedTable() const;
     unsigned rowIndex() const;
     inline std::pair<Style::PreferredSize, Style::ZoomFactor> styleOrColLogicalWidth() const;
     LayoutUnit logicalHeightForRowSizing() const;
@@ -178,7 +178,7 @@ private:
     void setIntrinsicPaddingAfter(LayoutUnit p) { m_intrinsicPaddingAfter = p; }
     void setIntrinsicPadding(LayoutUnit before, LayoutUnit after) { setIntrinsicPaddingBefore(before); setIntrinsicPaddingAfter(after); }
 
-    bool hasStartBorderAdjoiningTable() const;
+    bool NODELETE hasStartBorderAdjoiningTable() const;
     bool hasEndBorderAdjoiningTable() const;
 
     CollapsedBorderValue collapsedStartBorder(IncludeBorderColorOrNot = IncludeBorderColor) const;
@@ -204,7 +204,7 @@ private:
 
     unsigned parseRowSpanFromDOM() const;
     unsigned parseColSpanFromDOM() const;
-    unsigned calculateRowSpanForRowspanZero() const;
+    unsigned calculateRowSpanForRowSpanZero() const;
 
     void nextSibling() const = delete;
     void previousSibling() const = delete;
@@ -253,9 +253,14 @@ inline unsigned RenderTableCell::rowSpan() const
     // Handle rowspan="0" which means "span all remaining rows in the row group"
     // Per HTML spec: https://html.spec.whatwg.org/multipage/tables.html#attr-tdth-rowspan
     if (!span)
-        span = calculateRowSpanForRowspanZero();
+        span = calculateRowSpanForRowSpanZero();
 
     return std::min(span, maxRowIndex);
+}
+
+inline bool RenderTableCell::hasRowSpanZero() const
+{
+    return m_hasRowSpan && !parseRowSpanFromDOM();
 }
 
 inline void RenderTableCell::setCol(unsigned column)
@@ -285,11 +290,6 @@ inline RenderTable* RenderTableCell::table() const
     if (!section)
         return nullptr;
     return downcast<RenderTable>(section->parent());
-}
-
-inline CheckedPtr<RenderTable> RenderTableCell::checkedTable() const
-{
-    return table();
 }
 
 inline unsigned RenderTableCell::rowIndex() const

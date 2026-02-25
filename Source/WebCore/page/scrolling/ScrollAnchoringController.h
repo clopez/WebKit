@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include <WebCore/FloatRect.h>
-#include <WebCore/ScrollTypes.h>
+#include "FloatRect.h"
+#include "ScrollTypes.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
@@ -68,16 +68,16 @@ public:
     void updateBeforeLayout();
     void adjustScrollPositionForAnchoring();
 
-    void willDispatchScrollEvent();
-    void didDispatchScrollEvent();
+    void NODELETE willDispatchScrollEvent();
+    void NODELETE didDispatchScrollEvent();
 
     void notifyChildHadSuppressingStyleChange(RenderElement&);
 
     bool hasAnchorElement() const { return !!m_anchorObject; }
 
     // These nest.
-    void startSuppressingScrollAnchoring();
-    void stopSuppressingScrollAnchoring();
+    void NODELETE startSuppressingScrollAnchoring();
+    void NODELETE stopSuppressingScrollAnchoring();
 
 private:
     static bool isViableStatus(AnchorSearchStatus status)

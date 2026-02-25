@@ -66,6 +66,7 @@
 #include "ImageOverlay.h"
 #include "JSNode.h"
 #include "LocalFrame.h"
+#include "NodeList.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
@@ -270,7 +271,7 @@ struct TraversalContext {
         return enclosingBlockNumberMap.get(*enclosingBlocks.last());
     }
 
-    void popEnclosingBlock()
+    void NODELETE popEnclosingBlock()
     {
         enclosingBlocks.removeLast();
     }
@@ -482,7 +483,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
         return { SkipExtraction::Self };
 
     if (RefPtr textNode = dynamicDowncast<Text>(node)) {
-        if (shouldTreatAsPasswordField(textNode->shadowHost()))
+        if (shouldTreatAsPasswordField(protect(textNode->shadowHost())))
             return { SkipExtraction::Self };
 
         if (auto iterator = context.visibleText.find(*textNode); iterator != context.visibleText.end()) {
@@ -1498,6 +1499,69 @@ Vector<std::pair<String, FloatRect>> extractAllTextAndRects(Page& page)
     return extractAllTextAndRectsRecursive(*document);
 }
 
+static std::optional<SimpleRange> searchForClickTarget(Node& container, const String& searchText)
+{
+    if (searchText.isEmpty())
+        return std::nullopt;
+
+    Vector<SimpleRange> candidateRanges;
+    auto remainingRange = makeRangeSelectingNodeContents(container);
+    while (is_lt(treeOrder(remainingRange.start, remainingRange.end))) {
+        auto foundRange = findPlainText(remainingRange, searchText, {
+            FindOption::DoNotRevealSelection,
+            FindOption::DoNotSetSelection,
+            FindOption::CaseInsensitive,
+        });
+
+        if (foundRange.collapsed())
+            break;
+
+        remainingRange.start = foundRange.end;
+        candidateRanges.append(WTF::move(foundRange));
+
+        if (remainingRange.collapsed())
+            break;
+    }
+
+    if (candidateRanges.isEmpty())
+        return std::nullopt;
+
+    if (candidateRanges.size() == 1)
+        return candidateRanges.first();
+
+    bool bestRangeIsExactMatch = false;
+    bool bestRangeIsClickable = false;
+    std::optional<SimpleRange> bestRange;
+
+    for (auto& range : candidateRanges) {
+        RefPtr ancestor = commonInclusiveAncestor<ComposedTree>(range);
+        if (!ancestor)
+            continue;
+
+        RefPtr target = lineageOfType<Element>(*ancestor).first();
+        if (!target)
+            continue;
+
+        bool isClickable = target->willRespondToMouseClickEvents() || target->isLink() || target->isFormListedElement();
+        bool isExactMatch = normalizeText(plainText(makeRangeSelectingNodeContents(*ancestor))) == searchText;
+
+        if (!bestRangeIsClickable && isClickable) {
+            bestRangeIsClickable = true;
+            bestRangeIsExactMatch = isExactMatch;
+            bestRange = range;
+        } else if (!bestRangeIsExactMatch && isExactMatch) {
+            bestRangeIsExactMatch = true;
+            bestRangeIsClickable = isClickable;
+            bestRange = range;
+        }
+
+        if (isExactMatch && isClickable)
+            break;
+    }
+
+    return bestRange;
+}
+
 static std::optional<SimpleRange> searchForText(Node& node, const String& searchText)
 {
     if (searchText.isEmpty())
@@ -1591,7 +1655,7 @@ static void dispatchSimulatedClick(Node& targetNode, const String& searchText, C
 
     std::optional<FloatRect> targetRectInRootView;
     if (!searchText.isEmpty()) {
-        auto foundRange = searchForText(*element, searchText);
+        auto foundRange = searchForClickTarget(*element, searchText);
         if (!foundRange) {
             // Err on the side of failing, if the text has changed since the interaction was triggered.
             return completion(false, searchTextNotFoundDescription(searchText));
@@ -2112,7 +2176,7 @@ static String textDescription(std::optional<NodeIdentifier> identifier, Vector<S
     return textDescription(RefPtr { Node::fromIdentifier(*identifier) }.get(), stringsToValidate);
 }
 
-static String textDescription(LocalFrame& frame, std::optional<NodeIdentifier> identifier, const String& searchText, Vector<String>& stringsToValidate)
+static String textDescription(LocalFrame& frame, std::optional<NodeIdentifier> identifier, const String& searchText, Action action, Vector<String>& stringsToValidate)
 {
     if (!identifier && searchText.isEmpty())
         return { };
@@ -2120,7 +2184,7 @@ static String textDescription(LocalFrame& frame, std::optional<NodeIdentifier> i
     RefPtr target = resolveNodeWithBodyAsFallback(frame, identifier);
     auto searchTextPrefix = emptyString();
     if (!searchText.isEmpty()) {
-        auto range = searchForText(*target, searchText);
+        auto range = action == Action::Click ? searchForClickTarget(*target, searchText) : searchForText(*target, searchText);
         if (!range)
             return { };
 
@@ -2244,7 +2308,7 @@ InteractionDescription interactionDescription(const Interaction& interaction, Lo
         description.append(" at coordinates ("_s, roundedLocation.x(), ", "_s, roundedLocation.y(), ')');
         appendElementString(frame, *location, stringsToValidate);
     } else if (usesSearchText)
-        appendElementString(frame, interaction.nodeIdentifier, interaction.text, stringsToValidate);
+        appendElementString(frame, interaction.nodeIdentifier, interaction.text, interaction.action, stringsToValidate);
     else
         appendElementString(interaction.nodeIdentifier, stringsToValidate);
 

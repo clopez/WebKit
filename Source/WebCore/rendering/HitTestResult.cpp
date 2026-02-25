@@ -152,7 +152,7 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     return *this;
 }
 
-static Node* moveOutOfUserAgentShadowTree(Node& node)
+static Node* NODELETE moveOutOfUserAgentShadowTree(Node& node)
 {
     if (node.isInShadowTree()) {
         if (ShadowRoot* root = node.containingShadowRoot()) {
@@ -218,6 +218,7 @@ std::optional<Style::PseudoElementIdentifier> HitTestResult::pseudoElementIdenti
 
 void HitTestResult::setPseudoElementIdentifier(std::optional<Style::PseudoElementIdentifier> pseudoElementIdentifier)
 {
+    ASSERT(!pseudoElementIdentifier || pseudoElementIdentifier->type != PseudoElementType::UserAgentPartFallback);
     m_pseudoElementIdentifier = pseudoElementIdentifier;
 }
 

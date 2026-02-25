@@ -677,7 +677,7 @@ void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
 {
     RefPtr mainFrame = dynamicDowncast<WebCore::LocalFrame>(this->mainFrame());
     RefPtr document = mainFrame ? mainFrame->document() : nullptr;
-    [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
+    [m_mockAccessibilityElement setHasMainFramePlugin:document && document->isPluginDocument()];
 }
 
 void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completionHandler)
@@ -827,7 +827,7 @@ void WebPage::getPlatformEditorStateCommon(LocalFrame& frame, EditorState& resul
 #if PLATFORM(IOS_FAMILY)
         result.visualData->editableRootBounds = rootViewInteractionBounds(Ref { *editableRootOrFormControl });
 #endif
-    } else if (result.selectionIsRange)
+    } else if (result.selectionType == WebCore::SelectionType::Range)
         postLayoutData.selectionIsTransparentOrFullyClipped = selectionIsTransparentOrFullyClipped(selection);
 
 #if PLATFORM(IOS_FAMILY)

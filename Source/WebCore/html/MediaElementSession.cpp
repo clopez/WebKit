@@ -149,7 +149,7 @@ public:
         m_mediaSession->removeObserver(*this);
     }
 
-    void ref() const final { RefCounted::ref(); }
+    void NODELETE ref() const final { RefCounted::ref(); }
     void deref() const final { RefCounted::deref(); }
 
     void metadataChanged(const RefPtr<MediaMetadata>& metadata) final
@@ -1650,7 +1650,7 @@ MediaSession* MediaElementSession::mediaSession() const
     RefPtr window = element->document().window();
     if (!window)
         return nullptr;
-    return &NavigatorMediaSession::mediaSession(window->protectedNavigator());
+    return &NavigatorMediaSession::mediaSession(protect(window->navigator()));
 #else
     return nullptr;
 #endif

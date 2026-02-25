@@ -101,7 +101,7 @@ bool Navigation::canGoForward() const
 }
 
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#getting-the-navigation-api-entry-index
-static std::optional<size_t> getEntryIndexOfHistoryItem(const Vector<Ref<NavigationHistoryEntry>>& entries, const HistoryItem& item)
+static std::optional<size_t> NODELETE getEntryIndexOfHistoryItem(const Vector<Ref<NavigationHistoryEntry>>& entries, const HistoryItem& item)
 {
     // FIXME: We could have a more efficient solution than iterating through a list.
     for (size_t index = 0; index < entries.size(); index++) {
@@ -651,7 +651,7 @@ void Navigation::updateNavigationEntry(Ref<HistoryItem>&& item, ShouldCopyStateO
             if (!window)
                 continue;
 
-            window->protectedNavigation()->updateNavigationEntry(childItem.releaseNonNull(), shouldCopyStateObjectFromCurrentEntry);
+            protect(window->navigation())->updateNavigationEntry(childItem.releaseNonNull(), shouldCopyStateObjectFromCurrentEntry);
         }
     }
 }
@@ -666,7 +666,7 @@ void Navigation::disposeOfForwardEntriesInParents(BackForwardItemIdentifier item
     if (!localMainFrameWindow)
         return;
 
-    localMainFrameWindow->protectedNavigation()->recursivelyDisposeOfForwardEntriesInParents(itemID, protect(frame()).get());
+    protect(localMainFrameWindow->navigation())->recursivelyDisposeOfForwardEntriesInParents(itemID, protect(frame()).get());
 }
 
 void Navigation::recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIdentifier itemID, LocalFrame* navigatedFrame)
@@ -700,7 +700,7 @@ void Navigation::recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIden
         if (!window)
             continue;
 
-        window->protectedNavigation()->recursivelyDisposeOfForwardEntriesInParents(itemID, navigatedFrame);
+        protect(window->navigation())->recursivelyDisposeOfForwardEntriesInParents(itemID, navigatedFrame);
     }
 }
 

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <WebCore/WritableStreamSink.h>
+#include "WritableStreamSink.h"
 
 namespace WebCore {
 
@@ -42,7 +42,7 @@ public:
 
     WebTransportStreamIdentifier identifier() const { return m_identifier; }
     void setStream(WritableStream& stream) { m_stream = stream; }
-    RefPtr<WritableStream> stream() const;
+    RefPtr<WritableStream> NODELETE stream() const;
     void sendError(JSDOMGlobalObject&, JSC::JSValue error);
 
 private:

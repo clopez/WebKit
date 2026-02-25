@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include <WebCore/SWServer.h>
-#include <WebCore/ServiceWorkerJobData.h>
-#include <WebCore/Timer.h>
-#include <WebCore/WorkerFetchResult.h>
+#include "SWServer.h"
+#include "ServiceWorkerJobData.h"
+#include "Timer.h"
+#include "WorkerFetchResult.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Deque.h>
 #include <wtf/TZoneMalloc.h>
@@ -80,7 +80,7 @@ private:
     void removeAllJobsMatching(NOESCAPE const Function<bool(ServiceWorkerJobData&)>&);
     void scriptAndImportedScriptsFetchFinished(const ServiceWorkerJobData&, SWServerRegistration&);
 
-    Ref<SWServer> protectedServer() const { return m_server.get(); }
+    SWServer& server() const { return m_server.get(); }
 
     Deque<ServiceWorkerJobData> m_jobQueue;
 

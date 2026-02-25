@@ -62,7 +62,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLTextAreaElement);
 
 using namespace HTMLNames;
 
-static inline unsigned computeLengthForAPIValue(StringView text)
+static inline unsigned NODELETE computeLengthForAPIValue(StringView text)
 {
     unsigned length = text.length();
     unsigned crlfCount = 0;
@@ -536,14 +536,9 @@ void HTMLTextAreaElement::updatePlaceholderText()
     }
     if (!m_placeholder) {
         m_placeholder = TextControlPlaceholderElement::create(protect(document()));
-        protect(userAgentShadowRoot())->insertBefore(*protectedPlaceholderElement(), protect(innerTextElement()->nextSibling()));
+        protect(userAgentShadowRoot())->insertBefore(*protect(m_placeholder), protect(innerTextElement()->nextSibling()));
     }
-    protectedPlaceholderElement()->setInnerText(String { placeholderText });
-}
-
-RefPtr<HTMLElement> HTMLTextAreaElement::protectedPlaceholderElement() const
-{
-    return m_placeholder;
+    protect(m_placeholder)->setInnerText(String { placeholderText });
 }
 
 RenderStyle HTMLTextAreaElement::createInnerTextStyle(const RenderStyle& style)

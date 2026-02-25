@@ -66,6 +66,7 @@ class AXRemoteFrame;
 class AccessibilityNodeObject;
 class AccessibilityObject;
 class AccessibilityRenderObject;
+class AccessibilitySpinButton;
 class Document;
 class HTMLAreaElement;
 class HTMLDetailsElement;
@@ -84,6 +85,7 @@ class RenderText;
 class RenderWidget;
 class Scrollbar;
 class ScrollView;
+class SpinButtonElement;
 class VisiblePosition;
 class Widget;
 
@@ -375,6 +377,7 @@ public:
 
     // used for objects without backing elements
     AccessibilityObject* create(AccessibilityRole);
+    Ref<AccessibilitySpinButton> createSpinButton(SpinButtonElement&);
 
     // Will only return the AccessibilityObject if it already exists.
     inline AccessibilityObject* get(RenderObject* renderer) const
@@ -449,6 +452,10 @@ public:
             // We only need to handle DOM changes for things that don't have renderers.
             // If something does have a renderer, we would already get children-changed notifications
             // from the render tree.
+            childrenChanged(RefPtr { get(node) }.get());
+        } else if (node.renderer()->isRenderHTMLCanvas()) {
+            // Canvas fallback content (its DOM children) is not rendered, so we won't receive
+            // children-changed notifications from the render tree when those children change.
             childrenChanged(RefPtr { get(node) }.get());
         }
     }

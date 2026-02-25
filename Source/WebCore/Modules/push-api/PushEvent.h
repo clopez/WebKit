@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include <WebCore/ExtendableEvent.h>
-#include <WebCore/Notification.h>
-#include <WebCore/NotificationData.h>
-#include <WebCore/PushEventInit.h>
+#include "ExtendableEvent.h"
+#include "Notification.h"
+#include "NotificationData.h"
+#include "PushEventInit.h"
 
 namespace WebCore {
 
@@ -46,8 +46,8 @@ public:
 #if ENABLE(DECLARATIVE_WEB_PUSH) && ENABLE(NOTIFICATIONS)
     static Ref<PushEvent> create(const AtomString&, ExtendableEventInit&&, Ref<Notification>, std::optional<uint64_t> appBadge, IsTrusted);
 
-    Notification* notification();
-    std::optional<uint64_t> appBadge();
+    Notification* NODELETE notification();
+    std::optional<uint64_t> NODELETE appBadge();
 
     Notification* proposedNotification() const { return m_proposedNotification.get(); }
     std::optional<uint64_t> proposedAppBadge() const { return m_proposedAppBadge; }

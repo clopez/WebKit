@@ -38,7 +38,7 @@ public:
     explicit RenderStyle(CreateDefaultStyleTag);
     RenderStyle(const RenderStyle&, CloneTag);
 
-    [[nodiscard]] RenderStyle replace(RenderStyle&&);
+    [[nodiscard]] RenderStyle NODELETE replace(RenderStyle&&);
 
     static RenderStyle& defaultStyleSingleton();
 
@@ -48,7 +48,7 @@ public:
     static std::unique_ptr<RenderStyle> createPtr();
     static std::unique_ptr<RenderStyle> createPtrWithRegisteredInitialValues(const Style::CustomPropertyRegistry&);
 
-    static RenderStyle clone(const RenderStyle&);
+    static RenderStyle NODELETE clone(const RenderStyle&);
     static RenderStyle cloneIncludingPseudoElements(const RenderStyle&);
     static std::unique_ptr<RenderStyle> clonePtr(const RenderStyle&);
 
@@ -68,7 +68,7 @@ public:
     // MARK: - Specific style change queries
 
     bool scrollAnchoringSuppressionStyleDidChange(const RenderStyle*) const;
-    bool outOfFlowPositionStyleDidChange(const RenderStyle*) const;
+    bool NODELETE outOfFlowPositionStyleDidChange(const RenderStyle*) const;
 
     // MARK: - Comparisons
 
@@ -248,7 +248,6 @@ public:
     // MARK: - Fonts
 
     inline const FontCascade& fontCascade() const;
-    inline CheckedRef<const FontCascade> checkedFontCascade() const;
     inline FontCascade& mutableFontCascadeWithoutUpdate();
     inline void setFontCascade(FontCascade&&);
 
@@ -286,9 +285,6 @@ public:
     // FIXME: Rename to something that doesn't conflict with a property name.
     // Aggregates `writing-mode`, `direction` and `text-orientation`.
     WritingMode writingMode() const { return m_computedStyle.writingMode(); }
-
-    // FIXME: *Deprecated* Deprecated due to confusion between physical inline directions and bidi / line-relative directions.
-    bool isLeftToRightDirection() const { return writingMode().isBidiLTR(); }
 
     // MARK: - Aggregates
 
@@ -357,16 +353,6 @@ public:
     inline void resetMargin();
     inline void resetPadding();
 
-#if ENABLE(TEXT_AUTOSIZING)
-    // MARK: - Text autosizing
-
-    uint32_t hashForTextAutosizing() const;
-    bool equalForTextAutosizing(const RenderStyle&) const;
-
-    bool isIdempotentTextAutosizingCandidate() const;
-    bool isIdempotentTextAutosizingCandidate(AutosizeStatus overrideStatus) const;
-#endif
-
     // MARK: - Logical Values
 
     // Logical Inset aliases
@@ -376,10 +362,10 @@ public:
     inline const Style::InsetEdge& logicalBottom() const;
 
     // Logical Border (aggregate)
-    const BorderValue& borderBefore(const WritingMode) const;
-    const BorderValue& borderAfter(const WritingMode) const;
-    const BorderValue& borderStart(const WritingMode) const;
-    const BorderValue& borderEnd(const WritingMode) const;
+    const BorderValue& NODELETE borderBefore(const WritingMode) const;
+    const BorderValue& NODELETE borderAfter(const WritingMode) const;
+    const BorderValue& NODELETE borderStart(const WritingMode) const;
+    const BorderValue& NODELETE borderEnd(const WritingMode) const;
     inline const BorderValue& borderBefore() const;
     inline const BorderValue& borderAfter() const;
     inline const BorderValue& borderStart() const;
@@ -410,7 +396,6 @@ public:
 
     // MARK: - Used Values
 
-    String altFromContent() const;
     const AtomString& hyphenString() const;
     float usedStrokeWidth(const IntSize& viewportSize) const;
     Color usedStrokeColor() const;
@@ -418,7 +403,7 @@ public:
     inline PointerEvents usedPointerEvents() const;
     inline Visibility usedVisibility() const;
     inline UserModify usedUserModify() const;
-    WEBCORE_EXPORT UserSelect usedUserSelect() const;
+    WEBCORE_EXPORT UserSelect NODELETE usedUserSelect() const;
     Style::Contain usedContain() const;
     inline TransformStyle3D usedTransformStyle3D() const;
     inline float usedPerspective() const;
@@ -522,43 +507,11 @@ private:
     const Style::SVGData& svgData() const { return computedStyle().svgData(); }
 };
 
-// Map from computed style values (which take zoom into account) to web-exposed values, which are zoom-independent.
-inline int adjustForAbsoluteZoom(int, const RenderStyle&);
-inline float adjustFloatForAbsoluteZoom(float, const RenderStyle&);
-inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit, const RenderStyle&);
-inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize, const RenderStyle&);
-
-// Map from zoom-independent style values to computed style values (which take zoom into account).
-inline float applyZoom(float, const RenderStyle&);
-
 constexpr BorderStyle collapsedBorderStyle(BorderStyle);
 
 inline bool pseudoElementRendererIsNeeded(const RenderStyle*);
 inline bool isNonVisibleOverflow(Overflow);
 
 inline bool isVisibleToHitTesting(const RenderStyle&, const HitTestRequest&);
-
-inline bool shouldApplyLayoutContainment(const RenderStyle&, const Element&);
-inline bool shouldApplySizeContainment(const RenderStyle&, const Element&);
-inline bool shouldApplyInlineSizeContainment(const RenderStyle&, const Element&);
-inline bool shouldApplyStyleContainment(const RenderStyle&, const Element&);
-inline bool shouldApplyPaintContainment(const RenderStyle&, const Element&);
-inline bool isSkippedContentRoot(const RenderStyle&, const Element&);
-
-#if ENABLE(TEXT_AUTOSIZING)
-
-// MARK: - Text autosizing
-
-inline unsigned RenderStyle::hashForTextAutosizing() const
-{
-    return m_computedStyle.hashForTextAutosizing();
-}
-
-inline bool RenderStyle::equalForTextAutosizing(const RenderStyle& other) const
-{
-    return m_computedStyle.equalForTextAutosizing(other.m_computedStyle);
-}
-
-#endif // ENABLE(TEXT_AUTOSIZING)
 
 } // namespace WebCore

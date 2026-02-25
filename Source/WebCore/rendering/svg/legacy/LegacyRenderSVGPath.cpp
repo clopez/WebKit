@@ -205,14 +205,14 @@ void LegacyRenderSVGPath::strokeZeroLengthSubpaths(GraphicsContext& context) con
     }
 }
 
-static inline LegacyRenderSVGResourceMarker* markerForType(SVGMarkerType type, LegacyRenderSVGResourceMarker* markerStart, LegacyRenderSVGResourceMarker* markerMid, LegacyRenderSVGResourceMarker* markerEnd)
+static inline LegacyRenderSVGResourceMarker* NODELETE markerForType(SVGMarkerType type, LegacyRenderSVGResourceMarker* markerStart, LegacyRenderSVGResourceMarker* markerMid, LegacyRenderSVGResourceMarker* markerEnd)
 {
     switch (type) {
-    case StartMarker:
+    case SVGMarkerType::Start:
         return markerStart;
-    case MidMarker:
+    case SVGMarkerType::Middle:
         return markerMid;
-    case EndMarker:
+    case SVGMarkerType::End:
         return markerEnd;
     }
 

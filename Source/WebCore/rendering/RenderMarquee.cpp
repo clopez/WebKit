@@ -84,7 +84,7 @@ int RenderMarquee::marqueeSpeed() const
     return result;
 }
 
-static MarqueeDirection reverseDirection(MarqueeDirection direction)
+static MarqueeDirection NODELETE reverseDirection(MarqueeDirection direction)
 {
     switch (direction) {
     case MarqueeDirection::Auto:
@@ -135,11 +135,11 @@ bool RenderMarquee::isHorizontal() const
 
 int RenderMarquee::computePosition(MarqueeDirection dir, bool stopAtContentEdge)
 {
-    CheckedPtr box = protectedLayer()->renderBox();
+    CheckedPtr box = protect(layer())->renderBox();
     ASSERT(box);
     CheckedRef boxStyle = box->style();
     if (isHorizontal()) {
-        bool ltr = boxStyle->isLeftToRightDirection();
+        bool ltr = boxStyle->writingMode().deprecatedIsLeftToRightDirection();
         LayoutUnit clientWidth = box->clientWidth();
         LayoutUnit contentWidth = ltr ? box->maxPreferredLogicalWidth() : box->minPreferredLogicalWidth();
         if (ltr)
@@ -216,7 +216,7 @@ void RenderMarquee::updateMarqueePosition()
 {
     bool activate = (m_totalLoops <= 0 || m_currentLoop < m_totalLoops);
     if (activate) {
-        MarqueeBehavior behavior = protectedLayer()->renderer().style().marqueeBehavior();
+        MarqueeBehavior behavior = protect(layer())->renderer().style().marqueeBehavior();
         m_start = computePosition(direction(), behavior == MarqueeBehavior::Alternate);
         m_end = computePosition(reverseDirection(direction()), behavior == MarqueeBehavior::Alternate || behavior == MarqueeBehavior::Slide);
         if (!m_stopped)

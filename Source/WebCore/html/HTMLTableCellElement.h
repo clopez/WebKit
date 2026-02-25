@@ -45,7 +45,7 @@ public:
 
     static Ref<HTMLTableCellElement> create(const QualifiedName&, Document&);
 
-    WEBCORE_EXPORT int cellIndex() const;
+    WEBCORE_EXPORT int NODELETE cellIndex() const;
     WEBCORE_EXPORT unsigned colSpan() const;
     unsigned rowSpan() const;
     WEBCORE_EXPORT unsigned rowSpanForBindings() const;
@@ -60,7 +60,6 @@ public:
     WEBCORE_EXPORT const AtomString& scope() const;
 
     WEBCORE_EXPORT HTMLTableCellElement* cellAbove() const;
-    WEBCORE_EXPORT RefPtr<HTMLTableCellElement> protectedCellAbove() const;
 
 private:
     HTMLTableCellElement(const QualifiedName&, Document&);
@@ -70,7 +69,7 @@ private:
     void collectPresentationalHintsForAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) override;
     const MutableStyleProperties* additionalPresentationalHintStyle() const override;
 
-    bool isURLAttribute(const Attribute&) const override;
+    bool NODELETE isURLAttribute(const Attribute&) const override;
 
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
 };

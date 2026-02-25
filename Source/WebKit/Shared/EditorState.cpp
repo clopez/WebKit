@@ -35,10 +35,8 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
 {
     if (editorState.shouldIgnoreSelectionChanges)
         ts.dumpProperty("shouldIgnoreSelectionChanges"_s, editorState.shouldIgnoreSelectionChanges);
-    if (!editorState.selectionIsNone)
-        ts.dumpProperty("selectionIsNone"_s, editorState.selectionIsNone);
-    if (editorState.selectionIsRange)
-        ts.dumpProperty("selectionIsRange"_s, editorState.selectionIsRange);
+    if (editorState.selectionType != WebCore::SelectionType::None)
+        ts.dumpProperty("selectionType"_s, editorState.selectionType);
     if (editorState.isContentEditable)
         ts.dumpProperty("isContentEditable"_s, editorState.isContentEditable);
     if (editorState.isContentRichlyEditable)
@@ -67,11 +65,11 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
         if (editorState.postLayoutData->selectedTextLength)
             ts.dumpProperty("selectedTextLength"_s, editorState.postLayoutData->selectedTextLength);
         if (editorState.postLayoutData->textAlignment != TextAlignment::Natural)
-            ts.dumpProperty("textAlignment"_s, enumToUnderlyingType(editorState.postLayoutData->textAlignment));
+            ts.dumpProperty("textAlignment"_s, std::to_underlying(editorState.postLayoutData->textAlignment));
         if (editorState.postLayoutData->textColor.isValid())
             ts.dumpProperty("textColor"_s, editorState.postLayoutData->textColor);
         if (editorState.postLayoutData->enclosingListType != ListType::None)
-            ts.dumpProperty("enclosingListType"_s, enumToUnderlyingType(editorState.postLayoutData->enclosingListType));
+            ts.dumpProperty("enclosingListType"_s, std::to_underlying(editorState.postLayoutData->enclosingListType));
         if (editorState.postLayoutData->baseWritingDirection != WebCore::WritingDirection::Natural)
             ts.dumpProperty("baseWritingDirection"_s, static_cast<uint8_t>(editorState.postLayoutData->baseWritingDirection));
         if (editorState.postLayoutData->canEnableWritingSuggestions)

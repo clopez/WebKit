@@ -1300,6 +1300,20 @@ CSSMathDepthEnabled:
       default: true
     WebCore:
       default: true
+      
+CSSOverflowClipMarginEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS overflow-clip-margin"
+  humanReadableDescription: "Enable CSS overflow-clip-margin"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSPaintingAPIEnabled:
   type: bool
@@ -1315,6 +1329,23 @@ CSSPaintingAPIEnabled:
       default: false
     WebCore:
       default: false
+
+CSSPickerPseudoElementEnabled:
+  type: bool
+  status: internal
+  category: css
+  humanReadableName: "CSS ::picker() pseudo-element"
+  humanReadableDescription: "Enable the CSS ::picker() pseudo-element"
+  defaultValue:
+    WebKitLegacy:
+      "PLATFORM(WATCHOS)": false
+      default: true
+    WebKit:
+      "PLATFORM(WATCHOS)": false
+      default: true
+    WebCore:
+      "PLATFORM(WATCHOS)": false
+      default: true
 
 CSSRandomFunctionEnabled:
   type: bool
@@ -1336,6 +1367,20 @@ CSSRhythmicSizingEnabled:
   category: css
   humanReadableName: "CSS Rhythmic Sizing"
   humanReadableDescription: "Enable CSS Rhythmic Sizing properties"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CSSRubyDisplayTypesInAuthorStylesEnabled:
+  type: bool
+  status: unstable
+  category: css
+  humanReadableName: "CSS Ruby Display Types in Author Styles"
+  humanReadableDescription: "Enable CSS Ruby Display types in author styles"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -6154,8 +6199,12 @@ PerElementSpeakerSelectionEnabled:
   defaultValue:
     WebKit:
       "PLATFORM(COCOA)": true
+      "PLATFORM(WPE)": true
+      "PLATFORM(GTK)": true
       default: false
     WebCore:
+      "PLATFORM(WPE)": true
+      "PLATFORM(GTK)": true
       default: false
 
 PermissionsAPIEnabled:
@@ -8787,6 +8836,20 @@ UseSystemAppearance:
   type: bool
   status: embedder
   webcoreOnChange: useSystemAppearanceChanged
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+UseUIProcessForBackForwardItemLoading:
+  type: bool
+  status: unstable
+  exposed: [ WebKit ]
+  humanReadableName: "Use UIProcess for Back/Forward Item Loading"
+  humanReadableDescription: "Enable UIProcess-side BackForwardListFrameItem lookup for child frames during Back/Forward navigation"
   defaultValue:
     WebKitLegacy:
       default: false

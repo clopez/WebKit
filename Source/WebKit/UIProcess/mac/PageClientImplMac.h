@@ -65,7 +65,7 @@ public:
     virtual ~PageClientImpl();
 
     // FIXME: Eventually WebViewImpl should become the PageClient.
-    void setImpl(WebViewImpl&);
+    void NODELETE setImpl(WebViewImpl&);
 
     void viewWillMoveToAnotherWindow();
 
@@ -334,8 +334,6 @@ private:
 #endif
 
     void positionInformationDidChange(const InteractionInformationAtPosition&) override;
-
-    CheckedPtr<WebViewImpl> checkedImpl() const { return m_impl.get(); }
 
     bool isViewVisible(NSView *, NSWindow *);
 

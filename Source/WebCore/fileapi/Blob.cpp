@@ -241,7 +241,7 @@ Blob::~Blob()
 {
     ThreadableBlobRegistry::unregisterBlobURL(m_internalURL, std::nullopt);
     while (!m_blobLoaders.isEmpty())
-        RefPtr { (*m_blobLoaders.begin()).get() }->cancel();
+        protect(*m_blobLoaders.begin())->cancel();
 }
 
 Ref<Blob> Blob::slice(long long start, long long end, const String& contentType) const
@@ -435,7 +435,7 @@ ExceptionOr<Ref<ReadableStream>> Blob::stream()
                 return;
 
             RefPtr controller = m_controller.get();
-            auto* globalObject = controller->protectedStream()->globalObject();
+            auto* globalObject = protect(controller->stream())->globalObject();
             if (!globalObject)
                 return;
 
@@ -470,7 +470,7 @@ ExceptionOr<Ref<ReadableStream>> Blob::stream()
             });
 
             if (!globalObject) {
-                globalObject = controller.protectedStream()->globalObject();
+                globalObject = protect(controller.stream())->globalObject();
                 if (!globalObject)
                     return;
             }

@@ -28,9 +28,9 @@
 
 #if ENABLE(VIDEO)
 
+#include "SerializedPlatformDataCue.h"
+#include "TextTrackCue.h"
 #include <JavaScriptCore/Strong.h>
-#include <WebCore/SerializedPlatformDataCue.h>
-#include <WebCore/TextTrackCue.h>
 #include <wtf/MediaTime.h>
 #include <wtf/TypeCasts.h>
 
@@ -70,7 +70,7 @@ private:
     DataCue(Document&, const MediaTime& start, const MediaTime& end, Ref<SerializedPlatformDataCue>&&, const String&);
     DataCue(Document&, const MediaTime& start, const MediaTime& end, JSC::JSValue, const String&);
 
-    JSC::JSValue valueOrNull() const;
+    JSC::JSValue NODELETE valueOrNull() const;
     CueType cueType() const final { return Data; }
     bool cueContentsMatch(const TextTrackCue&) const final;
     void toJSON(JSON::Object&) const final;

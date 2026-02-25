@@ -193,10 +193,6 @@ static void updateMainFrameLayoutIfNeeded(Document& document)
         mainFrameView->updateLayoutAndStyleIfNeededRecursive();
 }
 
-Ref<Document> DocumentMarkerController::protectedDocument() const
-{
-    return m_document.get();
-}
 
 void DocumentMarkerController::updateRectsForInvalidatedMarkersOfType(DocumentMarkerType type)
 {
@@ -210,7 +206,7 @@ void DocumentMarkerController::updateRectsForInvalidatedMarkersOfType(DocumentMa
             if (marker.type() != type || marker.isValid())
                 continue;
             if (!updatedLayout) {
-                updateMainFrameLayoutIfNeeded(protectedDocument());
+                updateMainFrameLayoutIfNeeded(protect(m_document));
                 updatedLayout = true;
             }
             updateRenderedRectsForMarker(marker, nodeMarkers.key);
@@ -946,7 +942,7 @@ void DocumentMarkerController::showMarkers() const
     for (auto& nodeMarkers : m_markers) {
         fprintf(stderr, "%p", nodeMarkers.key.ptr());
         for (auto& marker : *nodeMarkers.value)
-            fprintf(stderr, " %u:[%d:%d]", enumToUnderlyingType(marker.type()), marker.startOffset(), marker.endOffset());
+            fprintf(stderr, " %u:[%d:%d]", std::to_underlying(marker.type()), marker.startOffset(), marker.endOffset());
         fputc('\n', stderr);
     }
 }

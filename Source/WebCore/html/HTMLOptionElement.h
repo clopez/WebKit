@@ -55,7 +55,7 @@ public:
     WEBCORE_EXPORT bool selected(AllowStyleInvalidation = AllowStyleInvalidation::Yes) const;
     WEBCORE_EXPORT void setSelected(bool);
 
-    WEBCORE_EXPORT HTMLSelectElement* ownerSelectElement() const;
+    WEBCORE_EXPORT HTMLSelectElement* NODELETE ownerSelectElement() const;
 
     WEBCORE_EXPORT String label() const;
     WEBCORE_EXPORT String displayLabel() const;
@@ -77,6 +77,7 @@ private:
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
     void removedFromAncestor(RemovalType, ContainerNode& oldParentOfRemovedTree) final;
 
+    bool supportsFocus() const final;
     bool isFocusable() const final;
     bool rendererIsNeeded(const RenderStyle&) final;
     bool matchesDefaultPseudoClass() const final { return m_isDefault; }

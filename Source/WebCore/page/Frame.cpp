@@ -360,6 +360,11 @@ bool Frame::isPrinting() const
     return m_isPrinting;
 }
 
+RefPtr<Frame> Frame::parent() const
+{
+    return tree().parent();
+}
+
 void Frame::setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize shouldAdjustViewSize, NotifyUIProcess notifyUIProcess)
 {
     m_isPrinting = printing;
@@ -373,6 +378,12 @@ SecurityOrigin& Frame::topOrigin() const
         return page->mainFrameOrigin();
 
     return SecurityOrigin::opaqueOrigin();
+}
+
+TextStream& operator<<(TextStream& ts, const Frame& frame)
+{
+    ts << frame.debugDescription();
+    return ts;
 }
 
 } // namespace WebCore

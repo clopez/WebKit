@@ -56,8 +56,8 @@ public:
     };
 
     std::optional<BoxSizes> elementSizeChanged() const;
-    void updateObservationSize(const BoxSizes&);
-    void resetObservationSize();
+    void NODELETE updateObservationSize(const BoxSizes&);
+    void NODELETE resetObservationSize();
 
     FloatRect computeContentRect() const;
     FloatSize borderBoxSize() const;

@@ -34,6 +34,7 @@
 #include "ContainerNodeInlines.h"
 #include "FontCascade.h"
 #include "HTMLFrameOwnerElement.h"
+#include "KeyframeEffectStack.h"
 #include "NodeRenderStyle.h"
 #include "PseudoElementIdentifier.h"
 #include "RenderBoxInlines.h"
@@ -49,6 +50,7 @@
 #include "StylePropertyShorthand.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
+#include "StyleZoomPrimitivesInlines.h"
 #include "Styleable.h"
 
 namespace WebCore {

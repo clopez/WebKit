@@ -44,8 +44,8 @@ public:
 
     const AtomString& specifiedName() const { return m_specifiedName; }
     WEBCORE_EXPORT AtomString uniqueName() const;
-    WEBCORE_EXPORT void NODELETE setSpecifiedName(const AtomString&);
-    WEBCORE_EXPORT void NODELETE clearName();
+    WEBCORE_EXPORT void setSpecifiedName(const AtomString&);
+    WEBCORE_EXPORT void clearName();
     WEBCORE_EXPORT Frame* NODELETE parent() const;
 
     Frame* nextSibling() const { return m_nextSibling.get(); }
@@ -91,9 +91,9 @@ public:
     unsigned scopedChildCount() const;
 
 private:
-    Frame* deepFirstChild() const;
-    Frame* deepLastChild() const;
-    Frame* nextAncestorSibling(const Frame* stayWithin) const;
+    Frame* NODELETE deepFirstChild() const;
+    Frame* NODELETE deepLastChild() const;
+    Frame* NODELETE nextAncestorSibling(const Frame* stayWithin) const;
 
     RefPtr<Frame> scopedChild(unsigned index, TreeScope*) const;
     RefPtr<Frame> scopedChild(NOESCAPE const Function<bool(const FrameTree&)>& isMatch, TreeScope*) const;

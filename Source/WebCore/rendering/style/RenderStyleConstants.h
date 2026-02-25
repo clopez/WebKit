@@ -71,6 +71,11 @@ enum class PseudoElementType : uint8_t {
     ViewTransitionOld,
     ViewTransitionNew,
 
+    // Special: This is only used for getComputedStyle(), and primarily in the event there's no
+    // concrete backing element and we have to look up the matching style rules. It is also limited
+    // to non-prefixed parts.
+    UserAgentPartFallback,
+
     // Internal:
     WebKitScrollbarThumb,
     WebKitScrollbarButton,
@@ -622,7 +627,7 @@ enum class BreakBetween : uint8_t {
     RectoPage,
     VersoPage
 };
-bool alwaysPageBreak(BreakBetween);
+bool NODELETE alwaysPageBreak(BreakBetween);
     
 enum class BreakInside : uint8_t {
     Auto,
@@ -878,6 +883,12 @@ enum class CSSBoxType : uint8_t {
     ViewBox
 };
 
+enum class VisualBox : uint8_t {
+    BorderBox,
+    ContentBox,
+    PaddingBox
+};
+
 enum class ScrollSnapStrictness : bool {
     Proximity,
     Mandatory
@@ -1102,7 +1113,7 @@ enum class MaskType : uint8_t {
     Alpha
 };
 
-CSSBoxType transformBoxToCSSBoxType(TransformBox);
+CSSBoxType NODELETE transformBoxToCSSBoxType(TransformBox);
 
 constexpr float defaultMiterLimit = 4;
 
@@ -1232,5 +1243,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, MaskType);
 WTF::TextStream& operator<<(WTF::TextStream&, ShapeRendering);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAnchor);
 WTF::TextStream& operator<<(WTF::TextStream&, VectorEffect);
+WTF::TextStream& operator<<(WTF::TextStream&, VisualBox);
 
 } // namespace WebCore

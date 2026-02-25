@@ -95,12 +95,11 @@ protected:
     inline const CollectionNamedElementCache& namedItemCaches() const;
 
     inline Document& document() const;
-    inline Ref<Document> protectedDocument() const;
 
     void invalidateNamedElementCache(Document&) const;
 
     enum class RootType : bool { AtNode, AtTreeScope };
-    static RootType rootTypeFromCollectionType(CollectionType);
+    static RootType NODELETE rootTypeFromCollectionType(CollectionType);
 
     mutable Lock m_namedElementCacheAssignmentLock;
 

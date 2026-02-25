@@ -28,8 +28,8 @@
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
 
-#include <WebCore/PictureInPictureObserver.h>
-#include <WebCore/Supplementable.h>
+#include "PictureInPictureObserver.h"
+#include "Supplementable.h"
 #include <wtf/LoggerHelper.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
@@ -51,7 +51,6 @@ class HTMLVideoElementPictureInPicture
 public:
     HTMLVideoElementPictureInPicture(HTMLVideoElement&);
     static HTMLVideoElementPictureInPicture& from(HTMLVideoElement&);
-    static Ref<HTMLVideoElementPictureInPicture> protectedFrom(HTMLVideoElement&);
     static void providePictureInPictureTo(HTMLVideoElement&);
     virtual ~HTMLVideoElementPictureInPicture();
 
@@ -71,11 +70,11 @@ public:
     const Logger& logger() const final { return m_logger.get(); }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     ASCIILiteral logClassName() const final { return "HTMLVideoElementPictureInPicture"_s; }
-    WTFLogChannel& logChannel() const final;
+    WTFLogChannel& NODELETE logChannel() const final;
 #endif
 
     // PictureInPictureObserver.
-    void ref() const final;
+    void NODELETE ref() const final;
     void deref() const final;
 
 private:

@@ -124,7 +124,7 @@ public:
     FrameConsoleClient* console() const;
 
     WindowProxy* opener() const;
-    WEBCORE_EXPORT Document* documentIfLocal();
+    WEBCORE_EXPORT Document* NODELETE documentIfLocal();
 
     WindowProxy* top() const;
     WindowProxy* parent() const;
@@ -247,7 +247,7 @@ private:
     const DOMWindowType m_type;
 };
 
-WebCoreOpaqueRoot root(DOMWindow*);
+WebCoreOpaqueRoot NODELETE root(DOMWindow*);
 
 } // namespace WebCore
 

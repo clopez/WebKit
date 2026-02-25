@@ -69,7 +69,7 @@ public:
 
     bool willRespondToMouseClickEventsWithEditability(Editability) const final;
 
-    bool hasRel(Relation) const;
+    bool NODELETE hasRel(Relation) const;
     
     inline SharedStringHash visitedLinkHash() const;
 
@@ -100,7 +100,7 @@ private:
     bool isKeyboardFocusable(const FocusEventData&) const override;
     void defaultEventHandler(Event&) final;
     void setActive(bool active, Style::InvalidationScope) final;
-    bool isURLAttribute(const Attribute&) const final;
+    bool NODELETE isURLAttribute(const Attribute&) const final;
     bool canStartSelection() const final;
     int defaultTabIndex() const final;
     bool draggable() const final;
@@ -123,7 +123,7 @@ private:
         MouseEventWithShiftKey,
         NonMouseEvent,
     };
-    static EventType eventType(Event&);
+    static EventType NODELETE eventType(Event&);
     bool treatLinkAsLiveForEventType(EventType) const;
 
     Element* rootEditableElementForSelectionOnMouseDown() const;

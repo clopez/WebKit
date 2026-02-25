@@ -31,8 +31,6 @@
 #include <WebCore/RenderStyleProperties+GettersInlines.h>
 #undef RENDER_STYLE_PROPERTIES_GETTERS_INLINES_INCLUDE_TRAP
 
-#include <WebCore/StylePrimitiveNumericTypes+Rounding.h>
-
 namespace WebCore {
 
 // MARK: - Comparisons
@@ -370,11 +368,6 @@ inline Style::ZoomFactor RenderStyle::usedZoomForLength() const
 inline const FontCascade& RenderStyle::fontCascade() const
 {
     return m_computedStyle.fontCascade();
-}
-
-inline CheckedRef<const FontCascade> RenderStyle::checkedFontCascade() const
-{
-    return m_computedStyle.checkedFontCascade();
 }
 
 inline FontCascade& RenderStyle::mutableFontCascadeWithoutUpdate()
@@ -824,43 +817,6 @@ constexpr bool RenderStyle::preserveNewline(WhiteSpaceCollapse mode)
     return mode == WhiteSpaceCollapse::Preserve || mode == WhiteSpaceCollapse::PreserveBreaks || mode == WhiteSpaceCollapse::BreakSpaces;
 }
 
-inline float adjustFloatForAbsoluteZoom(float value, const RenderStyle& style)
-{
-    return value / style.usedZoom();
-}
-
-inline int adjustForAbsoluteZoom(int value, const RenderStyle& style)
-{
-    double zoomFactor = style.usedZoom();
-    if (zoomFactor == 1)
-        return value;
-    // Needed because resolveAsLength<int> truncates (rather than rounds) when scaling up.
-    if (zoomFactor > 1) {
-        if (value < 0)
-            value--;
-        else
-            value++;
-    }
-
-    return Style::roundForImpreciseConversion<int>(value / zoomFactor);
-}
-
-inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize size, const RenderStyle& style)
-{
-    auto zoom = style.usedZoom();
-    return { size.width() / zoom, size.height() / zoom };
-}
-
-inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit value, const RenderStyle& style)
-{
-    return LayoutUnit(value / style.usedZoom());
-}
-
-inline float applyZoom(float value, const RenderStyle& style)
-{
-    return value * style.usedZoom();
-}
-
 constexpr BorderStyle collapsedBorderStyle(BorderStyle style)
 {
     if (style == BorderStyle::Outset)
@@ -889,125 +845,6 @@ inline bool pseudoElementRendererIsNeeded(const RenderStyle* style)
 inline bool isVisibleToHitTesting(const RenderStyle& style, const HitTestRequest& request)
 {
     return (request.userTriggered() ? style.usedVisibility() : style.visibility()) == Visibility::Visible;
-}
-
-inline bool shouldApplyLayoutContainment(const RenderStyle& style, const Element& element)
-{
-    // content-visibility hidden and auto turns on layout containment.
-    auto hasContainment = style.usedContain().contains(Style::ContainValue::Layout)
-        || style.contentVisibility() == ContentVisibility::Hidden
-        || style.contentVisibility() == ContentVisibility::Auto;
-    if (!hasContainment)
-        return false;
-
-    // Giving an element layout containment has no effect if any of the following are true:
-    //   if the element does not generate a principal box (as is the case with display: contents or display: none)
-    //   if its principal box is an internal table box other than table-cell
-    //   if its principal box is an internal ruby box or a non-atomic inline-level box
-
-    if (!style.display().doesGenerateBox())
-        return false;
-    if (style.display().isInternalTableBox() && style.display() != Style::DisplayType::TableCell)
-        return false;
-    if (style.display().isRubyContainerOrInternalRubyBox() || (style.display() == Style::DisplayType::InlineFlow && !element.isReplaced(&style)))
-        return false;
-    return true;
-}
-
-inline bool shouldApplySizeContainment(const RenderStyle& style, const Element& element)
-{
-    auto hasContainment = style.usedContain().contains(Style::ContainValue::Size)
-        || style.contentVisibility() == ContentVisibility::Hidden
-        || (style.contentVisibility() == ContentVisibility::Auto && !element.isRelevantToUser());
-    if (!hasContainment)
-        return false;
-
-    // Giving an element size containment has no effect if any of the following are true:
-    //   if the element does not generate a principal box (as is the case with display: contents or display: none)
-    //   if its inner display type is table
-    //   if its principal box is an internal table box
-    //   if its principal box is an internal ruby box or a non-atomic inline-level box
-
-    if (!style.display().doesGenerateBox())
-        return false;
-    if (style.display().isTableBox())
-        return false;
-    if (style.display().isInternalTableBox())
-        return false;
-    if (style.display().isRubyContainerOrInternalRubyBox() || (style.display() == Style::DisplayType::InlineFlow && !element.isReplaced(&style)))
-        return false;
-    return true;
-}
-
-inline bool shouldApplyInlineSizeContainment(const RenderStyle& style, const Element& element)
-{
-    if (!style.usedContain().contains(Style::ContainValue::InlineSize))
-        return false;
-
-    // Giving an element inline-size containment has no effect if any of the following are true:
-    //   if the element does not generate a principal box (as is the case with display: contents or display: none)
-    //   if its inner display type is table
-    //   if its principal box is an internal table box
-    //   if its principal box is an internal ruby box or a non-atomic inline-level box
-
-    if (!style.display().doesGenerateBox())
-        return false;
-    if (style.display().isTableBox())
-        return false;
-    if (style.display().isInternalTableBox())
-        return false;
-    if (style.display().isRubyContainerOrInternalRubyBox() || (style.display() == Style::DisplayType::InlineFlow && !element.isReplaced(&style)))
-        return false;
-    return true;
-}
-
-inline bool shouldApplyStyleContainment(const RenderStyle& style, const Element&)
-{
-    // content-visibility hidden and auto turns on style containment.
-    return style.usedContain().contains(Style::ContainValue::Style)
-        || style.contentVisibility() == ContentVisibility::Hidden
-        || style.contentVisibility() == ContentVisibility::Auto;
-}
-
-inline bool shouldApplyPaintContainment(const RenderStyle& style, const Element& element)
-{
-    // content-visibility hidden and auto turns on paint containment.
-    auto hasContainment = style.usedContain().contains(Style::ContainValue::Paint)
-        || style.contentVisibility() == ContentVisibility::Hidden
-        || style.contentVisibility() == ContentVisibility::Auto;
-    if (!hasContainment)
-        return false;
-
-    // Giving an element paint containment has no effect if any of the following are true:
-    //   if the element does not generate a principal box (as is the case with display: contents or display: none)
-    //   if its principal box is an internal table box other than table-cell
-    //   if its principal box is an internal ruby box or a non-atomic inline-level box
-
-    if (!style.display().doesGenerateBox())
-        return false;
-    if (style.display().isInternalTableBox() && style.display() != Style::DisplayType::TableCell)
-        return false;
-    if (style.display().isRubyContainerOrInternalRubyBox() || (style.display() == Style::DisplayType::InlineFlow && !element.isReplaced(&style)))
-        return false;
-    return true;
-}
-
-inline bool isSkippedContentRoot(const RenderStyle& style, const Element& element)
-{
-    if (!shouldApplySizeContainment(style, element))
-        return false;
-
-    switch (style.contentVisibility()) {
-    case ContentVisibility::Visible:
-        return false;
-    case ContentVisibility::Hidden:
-        return true;
-    case ContentVisibility::Auto:
-        return !element.isRelevantToUser();
-    default:
-        ASSERT_NOT_REACHED();
-        return false;
-    }
 }
 
 // MARK: has*() functions

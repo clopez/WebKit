@@ -115,7 +115,6 @@ public:
 
     bool hasByteStreamController() { return !!m_controller; }
     ReadableByteStreamController* controller() { return m_controller.get(); }
-    RefPtr<ReadableByteStreamController> protectedController() { return m_controller.get(); }
 
     void setByobReader(ReadableStreamBYOBReader*);
     ReadableStreamBYOBReader* NODELETE byobReader();
@@ -174,7 +173,7 @@ public:
         ~Iterator();
 
         Ref<DOMPromise> next(JSDOMGlobalObject&);
-        bool isFinished() const;
+        bool NODELETE isFinished() const;
         Ref<DOMPromise> returnSteps(JSDOMGlobalObject&, JSC::JSValue);
 
     private:
@@ -195,7 +194,7 @@ private:
     ExceptionOr<void> setupReadableByteStreamControllerFromUnderlyingSource(JSDOMGlobalObject&, JSC::JSValue, UnderlyingSource&&, double);
     void setupReadableByteStreamController(JSDOMGlobalObject&, ReadableByteStreamController::PullAlgorithm&&, ReadableByteStreamController::CancelAlgorithm&&, double, StartSynchronously);
 
-    bool isPulling() const;
+    bool NODELETE isPulling() const;
     void teedBranchIsDestroyed(ReadableStream&);
 
     const bool m_isSourceReachableFromOpaqueRoot { false };
@@ -214,6 +213,6 @@ private:
     WeakPtr<ReadableStream> m_sourceTeedStream;
 };
 
-WebCoreOpaqueRoot root(ReadableStream*);
+WebCoreOpaqueRoot NODELETE root(ReadableStream*);
 
 } // namespace WebCore

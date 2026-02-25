@@ -128,7 +128,7 @@ void RenderInline::updateFromStyle()
     setHasReflection(false);    
 }
 
-static RenderElement* inFlowPositionedInlineAncestor(RenderElement* p)
+static RenderElement* NODELETE inFlowPositionedInlineAncestor(RenderElement* p)
 {
     while (p && p->isRenderInline()) {
         if (p->isInFlowPositioned())
@@ -243,8 +243,19 @@ void RenderInline::generateLineBoxRects(GeneratorContext& context) const
             context.addRect({ });
             return;
         }
-        for (auto inlineBoxRect : inlineBoxRects)
-            context.addRect(inlineBoxRect);
+        if (inlineBoxRects.size() == 1) {
+            context.addRect(inlineBoxRects.first());
+            return;
+        }
+        context.addRect(inlineBoxRects.first());
+        for (size_t index = 1; index < inlineBoxRects.size() - 1; ++index) {
+            if (!inlineBoxRects[index].size().isZero()) {
+                // Empty inline boxes may show up for cases where the inline box is fragmented and (usually) in-between line(s)
+                // can't accommodate any content (e.g. due to floats). Let's not report such empty rectangles to functions like getClientRects.
+                context.addRect(inlineBoxRects[index]);
+            }
+        }
+        context.addRect(inlineBoxRects.last());
         return;
     }
     if (auto* curr = firstLegacyInlineBox()) {

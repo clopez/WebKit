@@ -218,12 +218,12 @@ static constexpr auto logicalSwitchHeight = 18.f;
 static constexpr FloatSize idealRefreshedSwitchSize = { 64, 28 };
 static constexpr auto logicalRefreshedSwitchWidth = logicalSwitchHeight * (idealRefreshedSwitchSize.width() / idealRefreshedSwitchSize.height());
 
-static bool renderThemePaintSwitchThumb(OptionSet<ControlStyle::State>, const RenderElement&, const PaintInfo&, const FloatRect&, const Color&)
+static bool NODELETE renderThemePaintSwitchThumb(OptionSet<ControlStyle::State>, const RenderElement&, const PaintInfo&, const FloatRect&, const Color&)
 {
     return true;
 }
 
-static bool renderThemePaintSwitchTrack(OptionSet<ControlStyle::State>, const RenderElement&, const PaintInfo&, const FloatRect&)
+static bool NODELETE renderThemePaintSwitchTrack(OptionSet<ControlStyle::State>, const RenderElement&, const PaintInfo&, const FloatRect&)
 {
     return true;
 }
@@ -245,7 +245,7 @@ constexpr int kThumbnailBorderCornerRadius = 1;
 constexpr int kVisibleBackgroundImageWidth = 1;
 constexpr int kMultipleThumbnailShrinkSize = 2;
 
-static inline bool canShowCapsLockIndicator()
+static inline bool NODELETE canShowCapsLockIndicator()
 {
 #if HAVE(ACCELERATED_TEXT_INPUT)
     if (redesignedTextCursorEnabled())
@@ -294,7 +294,7 @@ void RenderThemeCocoa::paintFileUploadIconDecorations(const RenderElement&, cons
         thumbnailRect.contract(kMultipleThumbnailShrinkSize, kMultipleThumbnailShrinkSize);
 
         // Background picture frame and simple background icon with a gradient matching the button.
-        auto backgroundImageColor = buttonRenderer.checkedStyle()->visitedDependentBackgroundColor();
+        auto backgroundImageColor = protect(buttonRenderer.style())->visitedDependentBackgroundColor();
         paintInfo.context().fillRoundedRect(FloatRoundedRect(thumbnailPictureFrameRect, cornerSize, cornerSize, cornerSize, cornerSize), pictureFrameColor);
         paintInfo.context().fillRect(thumbnailRect, backgroundImageColor);
 
@@ -329,7 +329,7 @@ void RenderThemeCocoa::adjustApplePayButtonStyle(RenderStyle& style, const Eleme
     style.setMinHeight(Style::MinimumSize::Fixed { applePayButtonMinimumHeight });
 
     if (!style.hasExplicitlySetBorderRadius()) {
-        auto radius = Style::LengthPercentage<CSS::Nonnegative>::Dimension { static_cast<float>(PKApplePayButtonDefaultCornerRadius) };
+        auto radius = Style::LengthPercentage<CSS::NonnegativeUnzoomed>::Dimension { static_cast<float>(PKApplePayButtonDefaultCornerRadius) };
         style.setBorderRadius({ radius, radius });
     }
 }
@@ -565,6 +565,10 @@ static const String& macOSFullscreenMediaControlsStyleSheet()
         "    position: relative !important;"
         "    left: auto !important;"
         "}"
+        ".media-controls.mac.fullscreen:not(.uses-ltr-user-interface-layout-direction) .buttons-container.left .mute.bar{"
+        "    position: relative !important;"
+        "    left: auto !important;"
+        "}"
         ".media-controls.mac.fullscreen .buttons-container.left {"
         "    top: 22.4px;"
         "    height: 16px;"
@@ -572,6 +576,9 @@ static const String& macOSFullscreenMediaControlsStyleSheet()
         "    display: flex;"
         "    gap: 0.5em;"
         "    left: 15.5px"
+        "}"
+        ".media-controls.mac.fullscreen:not(.uses-ltr-user-interface-layout-direction) .buttons-container.left {"
+        "    left: 15.5px !important;"
         "}"
         ".media-controls.mac.fullscreen .buttons-container.center {"
         "    left: 50%;"

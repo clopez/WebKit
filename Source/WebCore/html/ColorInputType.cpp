@@ -34,6 +34,7 @@
 
 #include "AXObjectCache.h"
 #include "CSSPropertyParserConsumer+ColorInlines.h"
+#include "CSSSelector.h"
 #include "Chrome.h"
 #include "Color.h"
 #include "ColorSerialization.h"
@@ -47,6 +48,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLOptionElement.h"
 #include "InputTypeNames.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "ScopedEventQueue.h"
@@ -64,7 +66,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ColorInputType);
 using namespace HTMLNames;
 
 // https://html.spec.whatwg.org/multipage/infrastructure.html#valid-simple-colour
-static bool isValidSimpleColor(StringView string)
+static bool NODELETE isValidSimpleColor(StringView string)
 {
     if (string.length() != 7)
         return false;
@@ -78,7 +80,7 @@ static bool isValidSimpleColor(StringView string)
 }
 
 // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#rules-for-parsing-simple-colour-values
-static std::optional<SRGBA<uint8_t>> parseSimpleColorValue(StringView string)
+static std::optional<SRGBA<uint8_t>> NODELETE parseSimpleColorValue(StringView string)
 {
     if (!isValidSimpleColor(string))
         return std::nullopt;
@@ -147,25 +149,23 @@ bool ColorInputType::isKeyboardFocusable(const FocusEventData&) const
 {
     ASSERT(element());
 #if PLATFORM(IOS_FAMILY)
-    return element()->isTextFormControlFocusable();
+    return protect(element())->isTextFormControlFocusable();
 #else
     return false;
 #endif
 }
 
-bool ColorInputType::isPresentingAttachedView() const
+void ColorInputType::setPopupIsVisible(bool visible)
 {
-    return !!m_chooser;
+    if (m_popupIsVisible == visible || !element())
+        return;
+    Style::PseudoClassChangeInvalidation styleInvalidation(*protect(element()), CSSSelector::PseudoClass::Open, visible);
+    m_popupIsVisible = visible;
 }
 
 const AtomString& ColorInputType::formControlType() const
 {
     return InputTypeNames::color();
-}
-
-bool ColorInputType::supportsRequired() const
-{
-    return false;
 }
 
 ValueOrReference<String> ColorInputType::fallbackValue() const
@@ -261,17 +261,17 @@ void ColorInputType::handleDOMActivateEvent(Event& event)
 
 void ColorInputType::showPicker()
 {
-    if (Chrome* chrome = this->chrome()) {
-        if (RefPtr chooser = m_chooser)
-            chooser->reattachColorChooser(valueAsColor());
-        else
-            m_chooser = chrome->createColorChooser(*this, valueAsColor());
-    }
-}
+    auto* chrome = this->chrome();
+    if (!chrome)
+        return;
 
-bool ColorInputType::allowsShowPickerAcrossFrames()
-{
-    return true;
+    setPopupIsVisible(true);
+
+    if (RefPtr chooser = m_chooser)
+        chooser->reattachColorChooser(valueAsColor());
+    else
+        m_chooser = chrome->createColorChooser(*this, valueAsColor());
+
 }
 
 void ColorInputType::detach()
@@ -282,16 +282,6 @@ void ColorInputType::detach()
 void ColorInputType::elementDidBlur()
 {
     endColorChooser();
-}
-
-bool ColorInputType::shouldRespectListAttribute()
-{
-    return true;
-}
-
-bool ColorInputType::shouldResetOnDocumentActivation()
-{
-    return true;
 }
 
 void ColorInputType::didChooseColor(const Color& color)
@@ -318,7 +308,8 @@ void ColorInputType::didChooseColor(const Color& color)
 void ColorInputType::didEndChooser()
 {
     m_chooser = nullptr;
-    if (CheckedPtr renderer = protect(element())->renderer())
+    setPopupIsVisible(false);
+    if (CheckedPtr renderer = element()->renderer())
         renderer->repaint();
 }
 
@@ -326,6 +317,7 @@ void ColorInputType::endColorChooser()
 {
     if (RefPtr chooser = m_chooser)
         chooser->endChooser();
+    setPopupIsVisible(false);
 }
 
 void ColorInputType::updateColorSwatch()

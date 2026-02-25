@@ -95,6 +95,7 @@
 #include "ProcessWarming.h"
 #include "RemoteFrame.h"
 #include "RenderLayerCompositor.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyle+GettersInlines.h"
 #include "RenderTableCell.h"
 #include "RenderText.h"
@@ -158,7 +159,7 @@ struct OverrideScreenSize {
     FloatSize size;
 };
 
-static inline float parentPageZoomFactor(LocalFrame* frame)
+static inline float NODELETE parentPageZoomFactor(LocalFrame* frame)
 {
     SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
     if (!parent)
@@ -166,7 +167,7 @@ static inline float parentPageZoomFactor(LocalFrame* frame)
     return parent->pageZoomFactor();
 }
 
-static inline float parentTextZoomFactor(LocalFrame* frame)
+static inline float NODELETE parentTextZoomFactor(LocalFrame* frame)
 {
     SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
     if (!parent)
@@ -174,7 +175,7 @@ static inline float parentTextZoomFactor(LocalFrame* frame)
     return parent->textZoomFactor();
 }
 
-static const LocalFrame& rootFrame(const LocalFrame& frame, Frame* parent)
+static const LocalFrame& NODELETE rootFrame(const LocalFrame& frame, Frame* parent)
 {
     SUPPRESS_UNCOUNTED_LOCAL auto* localParent = dynamicDowncast<LocalFrame>(parent);
     if (localParent)
@@ -845,7 +846,7 @@ void LocalFrame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserS
     WTFEndSignpost(this, UserScript);
 }
 
-RenderView* LocalFrame::contentRenderer() const
+RenderView* NODELETE LocalFrame::contentRenderer() const
 {
     return document() ? document()->renderView() : nullptr;
 }

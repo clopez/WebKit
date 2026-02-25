@@ -95,7 +95,7 @@ RefPtr<ImageBuffer> CanvasBase::makeRenderingResultsAvailable(ShouldApplyPostPro
     return ImageBuffer::create(size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
 }
 
-static inline size_t maxCanvasArea()
+static inline size_t NODELETE maxCanvasArea()
 {
     if (maxCanvasAreaForTesting)
         return *maxCanvasAreaForTesting;
@@ -336,16 +336,6 @@ RefPtr<ImageBuffer> CanvasBase::createImageForNoiseInjection() const
 WebCoreOpaqueRoot root(CanvasBase* canvas)
 {
     return WebCoreOpaqueRoot { canvas };
-}
-
-RefPtr<ScriptExecutionContext> CanvasBase::protectedCanvasBaseScriptExecutionContext() const
-{
-    return canvasBaseScriptExecutionContext();
-}
-
-RefPtr<ScriptExecutionContext> CanvasBase::protectedScriptExecutionContext() const
-{
-    return scriptExecutionContext();
 }
 
 } // namespace WebCore

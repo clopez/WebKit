@@ -226,7 +226,7 @@ public:
     virtual void setScrollbarOpacity(ScrollableArea&) { }
 #endif
 
-    FrameIdentifier mainFrameIdentifier() const;
+    FrameIdentifier NODELETE mainFrameIdentifier() const;
 
 protected:
     explicit ScrollingCoordinator(Page*);

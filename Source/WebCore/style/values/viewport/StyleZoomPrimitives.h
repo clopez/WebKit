@@ -25,6 +25,12 @@
 #pragma once
 
 namespace WebCore {
+
+class LayoutSize;
+class LayoutUnit;
+class RenderElement;
+class RenderStyle;
+
 namespace Style {
 
 // Token passed around to indicate that the evaluation will need zoom passed in the future.
@@ -33,8 +39,24 @@ struct ZoomNeeded { };
 struct ZoomFactor {
     float value;
 
-    constexpr explicit ZoomFactor(float v) : value(v) { }
+    constexpr explicit ZoomFactor(float v) : value { v } { }
+
+    // Special zoom factor to use when zoom has already been applied to a value.
+    static constexpr ZoomFactor none() { return ZoomFactor { 1 }; }
 };
+
+// Map from computed style values (which take zoom into account) to web-exposed values, which are zoom-independent.
+inline int adjustForAbsoluteZoom(int, const RenderStyle&);
+inline int adjustForAbsoluteZoom(int, const RenderElement&);
+inline float adjustFloatForAbsoluteZoom(float, const RenderStyle&);
+inline float adjustFloatForAbsoluteZoom(float, const RenderElement&);
+inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit, const RenderStyle&);
+inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit, const RenderElement&);
+inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize, const RenderStyle&);
+inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize, const RenderElement&);
+
+// Map from zoom-independent style values to computed style values (which take zoom into account).
+inline float applyZoom(float, const RenderStyle&);
 
 } // namespace Style
 } // namespace WebCore

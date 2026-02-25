@@ -419,7 +419,7 @@ bool InjectedBundleNodeHandle::isSelectElement() const
 bool InjectedBundleNodeHandle::isSelectableTextNode() const
 {
     if (CheckedPtr renderText = dynamicDowncast<RenderText>(m_node->renderer()))
-        return renderText->checkedStyle()->usedUserSelect() != UserSelect::None;
+        return protect(renderText->style())->usedUserSelect() != UserSelect::None;
     return false;
 }
 
@@ -429,7 +429,7 @@ RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::htmlTableCellElementC
     if (!tableCell)
         return nullptr;
 
-    return getOrCreate(tableCell->protectedCellAbove().get());
+    return getOrCreate(protect(tableCell->cellAbove()).get());
 }
 
 RefPtr<WebFrame> InjectedBundleNodeHandle::documentFrame()

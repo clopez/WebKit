@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include <WebCore/GCReachableRef.h>
-#include <WebCore/MutationObserverOptions.h>
+#include "GCReachableRef.h"
+#include "MutationObserverOptions.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>
@@ -103,7 +103,7 @@ private:
     explicit MutationObserver(Ref<MutationCallback>&&);
     void deliver();
 
-    static bool validateOptions(MutationObserverOptions);
+    static bool NODELETE validateOptions(MutationObserverOptions);
 
     const Ref<MutationCallback> m_callback;
     Vector<Ref<MutationRecord>> m_records;

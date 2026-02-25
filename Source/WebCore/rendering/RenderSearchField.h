@@ -41,7 +41,7 @@ public:
     bool popupIsVisible() const { return m_searchPopupIsVisible; }
     void showPopup();
     void hidePopup();
-    void popupDidHide();
+    void NODELETE popupDidHide();
     WEBCORE_EXPORT std::span<const RecentSearch> recentSearches();
 
     void updatePopup(const AtomString& name, const Vector<WebCore::RecentSearch>& searchItems);
@@ -61,7 +61,7 @@ private:
     Visibility visibilityForCancelButton() const;
     const AtomString& autosaveName() const;
 
-    RefPtr<SearchPopupMenu> protectedSearchPopup() const { return m_searchPopup; };
+    SearchPopupMenu* searchPopup() const { return m_searchPopup.get(); }
 
     HTMLElement* resultsButtonElement() const;
     HTMLElement* cancelButtonElement() const;

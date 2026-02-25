@@ -308,6 +308,7 @@ struct OffsetPosition;
 struct OffsetRotate;
 struct Opacity;
 struct Orphans;
+struct OverflowClipMargin;
 struct PaddingEdge;
 struct PageSize;
 struct Perspective;
@@ -408,7 +409,7 @@ template<typename> struct Shadows;
 
 using Animations = CoordinatedValueList<Animation>;
 using BackgroundLayers = CoordinatedValueList<BackgroundLayer>;
-using BorderRadiusValue = MinimallySerializingSpaceSeparatedSize<LengthPercentage<CSS::Nonnegative>>;
+using BorderRadiusValue = MinimallySerializingSpaceSeparatedSize<LengthPercentage<CSS::NonnegativeUnzoomed>>;
 using BoxShadows = Shadows<BoxShadow>;
 using FlexGrow = Number<CSS::Nonnegative, float>;
 using FlexShrink = Number<CSS::Nonnegative, float>;
@@ -623,7 +624,6 @@ public:
     // MARK: - Fonts
 
     inline const FontCascade& fontCascade() const;
-    CheckedRef<const FontCascade> checkedFontCascade() const;
     WEBCORE_EXPORT FontCascade& mutableFontCascadeWithoutUpdate();
     void setFontCascade(FontCascade&&);
 
@@ -666,12 +666,6 @@ public:
     WritingMode writingMode() const
     {
         return m_inheritedFlags.writingMode;
-    }
-
-    // FIXME: *Deprecated* Deprecated due to confusion between physical inline directions and bidi / line-relative directions.
-    bool isLeftToRightDirection() const
-    {
-        return writingMode().isBidiLTR();
     }
 
     // MARK: - Aggregates

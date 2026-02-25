@@ -244,14 +244,14 @@ bool JSDOMWindow::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* le
         if (is<LocalFrame>(frame)) {
             if (index < frame->tree().scopedChildCount()) {
                 if (RefPtr scopedChild = frame->tree().scopedChild(index)) {
-                    slot.setValue(thisObject, enumToUnderlyingType(JSC::PropertyAttribute::ReadOnly), toJS(lexicalGlobalObject, protect(scopedChild->window())));
+                    slot.setValue(thisObject, std::to_underlying(JSC::PropertyAttribute::ReadOnly), toJS(lexicalGlobalObject, protect(scopedChild->window())));
                     return true;
                 }
             }
         } else {
             if (index < frame->tree().childCount()) {
                 if (RefPtr child = frame->tree().child(index)) {
-                    slot.setValue(thisObject, enumToUnderlyingType(JSC::PropertyAttribute::ReadOnly), toJS(lexicalGlobalObject, protect(child->window())));
+                    slot.setValue(thisObject, std::to_underlying(JSC::PropertyAttribute::ReadOnly), toJS(lexicalGlobalObject, protect(child->window())));
                     return true;
                 }
             }
@@ -498,7 +498,7 @@ inline void DialogHandler::dialogCreated(DOMWindow& dialog)
     if (!localDOMWindow)
         return;
     VM& vm = m_globalObject.vm();
-    m_frame = localDOMWindow->localFrame();
+    m_frame = localDOMWindow->frame();
     RefPtr frame = m_frame.get();
 
     // FIXME: This looks like a leak between the normal world and an isolated

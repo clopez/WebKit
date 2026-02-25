@@ -190,14 +190,14 @@ void RenderSVGPath::strokeZeroLengthSubpaths(GraphicsContext& context) const
     }
 }
 
-static inline RenderSVGResourceMarker* markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
+static inline RenderSVGResourceMarker* NODELETE markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
 {
     switch (type) {
-    case StartMarker:
+    case SVGMarkerType::Start:
         return markerStart;
-    case MidMarker:
+    case SVGMarkerType::Middle:
         return markerMid;
-    case EndMarker:
+    case SVGMarkerType::End:
         return markerEnd;
     }
 
@@ -239,7 +239,7 @@ void RenderSVGPath::drawMarkers(PaintInfo& paintInfo)
 
             context.setLineDash(DashArray(), 0);
             auto contentTransform = marker->markerTransformation(markerPosition.origin, markerPosition.angle, strokeWidth);
-            marker->checkedLayer()->paintSVGResourceLayer(context, contentTransform);
+            protect(marker->layer())->paintSVGResourceLayer(context, contentTransform);
         }
     }
 }

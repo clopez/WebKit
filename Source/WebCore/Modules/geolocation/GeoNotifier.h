@@ -28,8 +28,8 @@
 
 #if ENABLE(GEOLOCATION)
 
-#include <WebCore/PositionOptions.h>
-#include <WebCore/Timer.h>
+#include "PositionOptions.h"
+#include "Timer.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 
@@ -60,7 +60,7 @@ public:
     void startTimerIfNeeded();
     void stopTimer();
     void timerFired();
-    bool hasZeroTimeout() const;
+    bool NODELETE hasZeroTimeout() const;
 
 private:
     GeoNotifier(Geolocation&, Ref<PositionCallback>&&, RefPtr<PositionErrorCallback>&&, PositionOptions&&);

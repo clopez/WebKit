@@ -77,6 +77,10 @@
 #include "WebAnimationUtilities.h"
 #include <ranges>
 
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
+
 namespace WebCore {
 
 namespace Style {
@@ -450,6 +454,8 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
 
 std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element, const PseudoElementIdentifier& pseudoElementIdentifier, const ElementUpdate& elementUpdate, IsInDisplayNoneTree isInDisplayNoneTree, const RenderStyle* existingStyle)
 {
+    ASSERT(pseudoElementIdentifier.type != PseudoElementType::UserAgentPartFallback);
+
     if (elementUpdate.style->display() == DisplayType::None)
         return { };
 
@@ -715,7 +721,7 @@ ResolutionContext TreeResolver::makeResolutionContextForPseudoElement(const Elem
 {
     auto parentStyle = [&]() -> const RenderStyle* {
         if (auto parentPseudoId = parentPseudoElement(pseudoElementIdentifier.type)) {
-            if (auto* parentPseudoStyle = elementUpdate.style->getCachedPseudoStyle({ *parentPseudoId, (*parentPseudoId == PseudoElementType::ViewTransitionGroup || *parentPseudoId == PseudoElementType::ViewTransitionImagePair) ? pseudoElementIdentifier.nameArgument : nullAtom() }))
+            if (auto* parentPseudoStyle = elementUpdate.style->getCachedPseudoStyle({ *parentPseudoId, (*parentPseudoId == PseudoElementType::ViewTransitionGroup || *parentPseudoId == PseudoElementType::ViewTransitionImagePair) ? pseudoElementIdentifier.nameOrPart : nullAtom() }))
                 return parentPseudoStyle;
         }
         return elementUpdate.style.get();
@@ -1288,7 +1294,7 @@ void TreeResolver::resolveComposedTree()
 
         Ref element = Ref { downcast<Element>(node.get()) };
 
-        if (it.depth() > Settings::defaultMaximumRenderTreeDepth) {
+        if (it.depth() > maximumRenderTreeDepth()) {
             resetStyleForNonRenderedDescendants(element.get());
             it.traverseNextSkippingChildren();
             continue;
@@ -1955,6 +1961,20 @@ void TreeResolver::collectChangedAnchorNames(const RenderStyle& newStyle, const 
         addChanged(*currentStyle);
         addChanged(newStyle);
     }
+}
+
+unsigned TreeResolver::maximumRenderTreeDepth()
+{
+    static unsigned maximum = [] {
+#if PLATFORM(IOS)
+        if (WTF::IOSApplication::isMaild()) {
+            static const unsigned maximumMaildRenderTreeDepth = 200;
+            return maximumMaildRenderTreeDepth;
+        }
+#endif
+        return Settings::defaultMaximumRenderTreeDepth;
+    }();
+    return maximum;
 }
 
 static Vector<Function<void ()>>& postResolutionCallbackQueue()
