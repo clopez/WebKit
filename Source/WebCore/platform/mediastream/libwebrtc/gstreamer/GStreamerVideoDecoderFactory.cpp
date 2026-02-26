@@ -35,13 +35,7 @@
 #include <gst/video/video.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GUniquePtr.h>
-<<<<<<< HEAD
-||||||| parent of 2018a6947059 (chore(webkit): bootstrap build #2263)
-#include <wtf/glib/RunLoopSourcePriority.h>
-=======
-#include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/text/ASCIILiteral.h>
->>>>>>> 2018a6947059 (chore(webkit): bootstrap build #2263)
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 
