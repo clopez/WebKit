@@ -423,7 +423,7 @@ Ref<PointerEvent> PointerEvent::create(const AtomString& type, const PlatformTou
 
 PointerEvent::PointerEvent(const AtomString& type, const PlatformTouchEvent& event, const Vector<Ref<PointerEvent>>& coalescedEvents, const Vector<Ref<PointerEvent>>& predictedEvents, CanBubble canBubble, IsCancelable isCancelable, unsigned touchIndex, bool isPrimary, Ref<WindowProxy>&& view, const DoublePoint& touchDelta)
     : MouseEvent(EventInterfaceType::PointerEvent, type, canBubble, isCancelable, typeIsComposed(type), event.timestamp().approximateMonotonicTime(), WTF::move(view), 0,
-        event.touchPoints().at(touchIndex).pos(), event.touchPoints().at(touchIndex).pos(), touchDelta.x(), touchDelta.y(), event.modifiers(), buttonForType(type), buttonsForType(type), nullptr, 0, SyntheticClickType::NoTap, { }, { }, IsSimulated::No, IsTrusted::Yes)
+        event.touchPoints().at(touchIndex).pos(), event.touchPoints().at(touchIndex).pos(), touchDelta.x(), touchDelta.y(), event.modifiers(), buttonForType(type), buttonsForType(type), nullptr, 0, SyntheticClickType::NoTap, { }, { }, std::nullopt, IsSimulated::No, IsTrusted::Yes)
     , m_pointerId(event.touchPoints().at(touchIndex).id())
     , m_width(2 * event.touchPoints().at(touchIndex).radius().width())
     , m_height(2 * event.touchPoints().at(touchIndex).radius().height())
