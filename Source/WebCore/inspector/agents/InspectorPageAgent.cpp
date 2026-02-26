@@ -120,18 +120,12 @@ using namespace Inspector;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorPageAgent);
 
-<<<<<<< HEAD
-InspectorOverlay& InspectorPageAgent::overlay() const
-||||||| parent of 2018a6947059 (chore(webkit): bootstrap build #2263)
-Ref<InspectorOverlay> InspectorPageAgent::protectedOverlay() const
-=======
 static UncheckedKeyHashMap<String, Ref<DOMWrapperWorld>>& createdUserWorlds() {
     static NeverDestroyed<UncheckedKeyHashMap<String, Ref<DOMWrapperWorld>>> nameToWorld;
     return nameToWorld;
 }
 
-Ref<InspectorOverlay> InspectorPageAgent::protectedOverlay() const
->>>>>>> 2018a6947059 (chore(webkit): bootstrap build #2263)
+InspectorOverlay& InspectorPageAgent::overlay() const
 {
     return m_overlay.get();
 }
