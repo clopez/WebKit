@@ -806,7 +806,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
 
     OptionSet<EventListenerCategory> eventListeners;
     if (auto requestedCategories = context.originalRequest.eventListenerCategories) {
-        node.enumerateEventListenerTypes([&](auto& type, unsigned) {
+        node.enumerateEventListenerTypes([&](auto& type, uint16_t, uint16_t) {
             auto typeInfo = eventNames().typeInfoForEvent(type);
             if (typeInfo.isInCategory(EventCategory::Wheel) && requestedCategories.contains(EventListenerCategory::Wheel))
                 eventListeners.add(EventListenerCategory::Wheel);
@@ -1684,9 +1684,9 @@ static void dispatchSimulatedClick(Node& targetNode, const String& searchText, C
 
     // Fall back to dispatching a programmatic click.
     if (element->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents))
-        completion(false, "Failed to click (tried falling back to dispatching programmatic click since target could not be hit-tested)"_s);
-    else
         completion(true, { });
+    else
+        completion(false, "Failed to click (tried falling back to dispatching programmatic click since target could not be hit-tested)"_s);
 }
 
 static void dispatchSimulatedClick(NodeIdentifier identifier, const String& searchText, CompletionHandler<void(bool, String&&)>&& completion)

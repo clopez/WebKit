@@ -2271,22 +2271,6 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 }
 #endif // PLATFORM(MAC)
 
-#if ENABLE(SCREEN_TIME)
-- (STWebpageController *)_screenTimeWebpageController
-{
-    return _screenTimeWebpageController.get();
-}
-
-#if PLATFORM(MAC)
-- (NSVisualEffectView *) _screenTimeBlurredSnapshot
-#else
-- (UIVisualEffectView *) _screenTimeBlurredSnapshot
-#endif
-{
-    return _screenTimeBlurredSnapshot.get();
-}
-#endif
-
 - (std::optional<BOOL>)_resolutionForShareSheetImmediateCompletionForTesting
 {
     return _resolutionForShareSheetImmediateCompletionForTesting;
@@ -3716,7 +3700,7 @@ struct WKWebViewData {
     });
 
     if (dataTypes & WKWebViewDataTypeSessionStorage) {
-        RefPtr page = [self _protectedPage];
+        RefPtr page = _page;
         page->fetchSessionStorage([callbackAggregator, protectedPage = page, data](auto&& sessionStorage) {
             data->sessionStorage = WTF::move(sessionStorage);
         });
@@ -3770,7 +3754,7 @@ struct WKWebViewData {
             }
 
             if (!sessionStorage->isEmpty()) {
-                RefPtr page = [self _protectedPage];
+                RefPtr page = _page;
                 page->restoreSessionStorage(WTF::move(*sessionStorage), [callbackAggregator, error](bool restoreSucceeded) {
                     if (!restoreSucceeded) {
                         NSDictionary *userInfo = @{ NSLocalizedDescriptionKey : @"Unknown error occurred while restoring data.", };
@@ -3827,7 +3811,7 @@ struct WKWebViewData {
 
 - (void)_scrollToEdge:(_WKRectEdge)edge animated:(BOOL)animated
 {
-    self._protectedPage->scrollToEdge(toRectEdges(edge), animated ? WebCore::ScrollIsAnimated::Yes : WebCore::ScrollIsAnimated::No);
+    protect(_page)->scrollToEdge(toRectEdges(edge), animated ? WebCore::ScrollIsAnimated::Yes : WebCore::ScrollIsAnimated::No);
 }
 
 @end
@@ -6661,12 +6645,12 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
 
 - (audit_token_t)presentingApplicationAuditToken
 {
-    return self._protectedPage->presentingApplicationAuditToken().value_or(audit_token_t { });
+    return protect(_page)->presentingApplicationAuditToken().value_or(audit_token_t { });
 }
 
 - (void)setPresentingApplicationAuditToken:(audit_token_t)presentingApplicationAuditToken
 {
-    self._protectedPage->setPresentingApplicationAuditToken(presentingApplicationAuditToken);
+    protect(_page)->setPresentingApplicationAuditToken(presentingApplicationAuditToken);
 }
 
 - (BOOL)_useSystemAppearance
@@ -6836,6 +6820,32 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
 
 - (void)_extractDebugTextWithConfiguration:(_WKTextExtractionConfiguration *)configuration completionHandler:(void(^)(_WKTextExtractionResult *))completionHandler
 {
+    bool shouldAvoidExtractingText = [&] {
+#if HAVE(SAFE_BROWSING)
+        if (_page->pageLoadState().committedHadSafeBrowsingWarning())
+            return YES;
+
+        if (_page->hasShownSafeBrowsingWarningAfterLastLoadCommit())
+            return YES;
+#endif
+#if HAVE(SAFE_BROWSING) && PLATFORM(IOS_FAMILY)
+        if (_warningView)
+            return YES;
+#endif
+#if HAVE(SAFE_BROWSING) && PLATFORM(MAC)
+        if (_impl->warningView())
+            return YES;
+#endif
+#if ENABLE(SCREEN_TIME)
+        if (_isBlockedByScreenTime)
+            return YES;
+#endif
+        return NO;
+    }();
+
+    if (shouldAvoidExtractingText)
+        return completionHandler(createEmptyTextExtractionResult().get());
+
     UniqueRef assertionScope = _page->createTextExtractionAssertionScope();
 #if USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))
     if (protect(_page->preferences())->textExtractionFilterEnabled() && (configuration.filterOptions & _WKTextExtractionFilterRules)) {
@@ -6909,6 +6919,7 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
         filterUsingRules,
         includeURLs = configuration.includeURLs,
         includeRects = configuration.includeRects,
+        includeSelectOptions = configuration.includeSelectOptions,
         onlyIncludeText = configuration.onlyIncludeVisibleText,
         applyDiscretionaryWordLimit = configuration.maxWordsPerParagraphPolicy == _WKTextExtractionWordLimitPolicyDiscretionary,
         shortenURLs = configuration.shortenURLs,
@@ -7040,6 +7051,8 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
             optionFlags.add(OnlyIncludeText);
         if (shortenURLs)
             optionFlags.add(ShortenURLs);
+        if (includeSelectOptions)
+            optionFlags.add(IncludeSelectOptions);
         RefPtr urlCache = strongSelf->_textExtractionURLCache;
         WebKit::TextExtractionOptions options {
             WTF::move(mainFrameIdentifier),

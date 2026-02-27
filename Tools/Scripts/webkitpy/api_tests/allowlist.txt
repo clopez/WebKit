@@ -242,7 +242,6 @@ TestWebKitAPI.CSSParser
 TestWebKitAPI.CSSParserFastPaths
 TestWebKitAPI.CSSPropertyParser
 TestWebKitAPI.CSSTokenizerTest
-TestWebKitAPI.CSSViewportUnits
 TestWebKitAPI.CTAPRequestTest
 TestWebKitAPI.CTAPResponseTest
 TestWebKitAPI.CancelLoading
@@ -313,7 +312,6 @@ TestWebKitAPI.GridPositionTest
 TestWebKitAPI.HTTPHeaderField
 TestWebKitAPI.HTTPHeaderMap
 TestWebKitAPI.HTTPParsers
-TestWebKitAPI.HistoryDelegate
 TestWebKitAPI.HysteresisActivity
 TestWebKitAPI.IOSurfacePoolTest
 TestWebKitAPI.IOSurfaceTest

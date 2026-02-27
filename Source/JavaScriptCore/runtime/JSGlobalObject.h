@@ -1030,7 +1030,6 @@ public:
     // FIXME: <http://webkit.org/b/246237> Local inspection should be controlled by `inspectable` API.
     Inspector::JSGlobalObjectInspectorController& inspectorController() const;
     JSGlobalObjectDebuggable& inspectorDebuggable() { return *m_inspectorDebuggable; }
-    Ref<JSGlobalObjectDebuggable> protectedInspectorDebuggable();
 #endif
 
     void bumpGlobalLexicalBindingEpoch(VM&);
@@ -1239,7 +1238,7 @@ protected:
     void tryInstallSpeciesWatchpoint(JSObject* prototype, JSObject* constructor, std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& constructorWatchpoint, std::unique_ptr<SpeciesWatchpoint>&, InlineWatchpointSet&, HasSpeciesProperty, GetterSetter*);
 
     struct GlobalPropertyInfo;
-    JS_EXPORT_PRIVATE void addStaticGlobals(GlobalPropertyInfo*, int count);
+    JS_EXPORT_PRIVATE void addStaticGlobals(std::span<GlobalPropertyInfo>);
 
     void setNeedsSiteSpecificQuirks(bool needQuirks) { m_needsSiteSpecificQuirks = needQuirks; }
 

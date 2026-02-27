@@ -619,7 +619,6 @@ public:
 
     ViewGestureController* gestureController() const { return m_gestureController.get(); }
     ViewGestureController& ensureGestureController();
-    Ref<ViewGestureController> ensureProtectedGestureController();
 #if HAVE(APPKIT_GESTURES_SUPPORT)
     WKAppKitGestureController *appKitGestureController() const { return m_appKitGestureController.get(); }
 #endif
@@ -662,7 +661,7 @@ public:
     void insertText(id string);
     void insertText(id string, NSRange replacementRange);
     NSTextInputContext *inputContext();
-    NSTextInputContext *inputContextIncludingNonEditable();
+    NSTextInputContext *inputContextForSelectionUpdates();
     void unmarkText();
     void setMarkedText(id string, NSRange selectedRange, NSRange replacementRange);
     NSRange NODELETE selectedRange();
@@ -971,7 +970,6 @@ private:
 
 #if ENABLE(IMAGE_ANALYSIS)
     CocoaImageAnalyzer* ensureImageAnalyzer();
-    RetainPtr<CocoaImageAnalyzer> ensureProtectedImageAnalyzer();
     int32_t processImageAnalyzerRequest(CocoaImageAnalyzerRequest *, CompletionHandler<void(RetainPtr<CocoaImageAnalysis>&&, NSError *)>&&);
 #endif
 
@@ -1175,6 +1173,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if HAVE(INLINE_PREDICTIONS)
     bool m_inlinePredictionsEnabled { false };
 #endif
+
+    bool m_lastEditorStateWasEditableOrRanged { false };
 
     // FIXME: Perhaps merge these types at some point?
 #if HAVE(APPKIT_GESTURES_SUPPORT)

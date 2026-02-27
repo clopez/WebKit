@@ -325,9 +325,10 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navig
                 }
             }
 
-            if (!navigation->safeBrowsingCheckOngoing() && navigation->safeBrowsingWarning() && navigation->safeBrowsingCheckTimedOut())
+            if (!navigation->safeBrowsingCheckOngoing() && navigation->safeBrowsingWarning() && navigation->safeBrowsingCheckTimedOut()) {
+                protectedThis->setHasShownSafeBrowsingWarningAfterLastLoadCommit();
                 protectedThis->showBrowsingWarning(navigation->safeBrowsingWarning());
-            else if (!navigation->safeBrowsingWarning())
+            } else if (!navigation->safeBrowsingWarning())
                 protectedThis->completeSafeBrowsingCheckForModals(true);
         });
     };
@@ -1763,7 +1764,7 @@ void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, Completio
     if (isClosed())
         return completionHandler(makeUnexpected(WebCore::ImageDecodingError::Internal));
 
-    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::GetInformationFromImageData(WTF::move(data)), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto result) mutable {
+    protect(ensureRunningProcess())->sendWithAsyncReply(Messages::WebPage::GetInformationFromImageData(WTF::move(data)), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto result) mutable {
         completionHandler(WTF::move(result));
     }, webPageIDInMainFrameProcess());
 }
@@ -1777,7 +1778,7 @@ void WebPageProxy::createIconDataFromImageData(Ref<WebCore::SharedBuffer>&& buff
     constexpr std::array<unsigned, 5> availableLengths { { 16, 32, 48, 128, 256 } };
     auto targetLengths = lengths.isEmpty() ? std::span { availableLengths } : lengths;
 
-    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::CreateBitmapsFromImageData(WTF::move(buffer), targetLengths), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto bitmaps) mutable {
+    protect(ensureRunningProcess())->sendWithAsyncReply(Messages::WebPage::CreateBitmapsFromImageData(WTF::move(buffer), targetLengths), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto bitmaps) mutable {
         if (bitmaps.isEmpty())
             return completionHandler(nullptr);
 
@@ -1790,7 +1791,7 @@ void WebPageProxy::decodeImageData(Ref<WebCore::SharedBuffer>&& buffer, std::opt
     if (isClosed())
         return completionHandler(nullptr);
 
-    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::DecodeImageData(WTF::move(buffer), preferredSize), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto result) mutable {
+    protect(ensureRunningProcess())->sendWithAsyncReply(Messages::WebPage::DecodeImageData(WTF::move(buffer), preferredSize), [preventProcessShutdownScope = protect(legacyMainFrameProcess())->shutdownPreventingScope(), completionHandler = WTF::move(completionHandler)] (auto result) mutable {
         completionHandler(WTF::move(result));
     }, webPageIDInMainFrameProcess());
 }

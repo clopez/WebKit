@@ -1839,7 +1839,6 @@ public:
 #endif
 
     WebProcessProxy& ensureRunningProcess();
-    Ref<WebProcessProxy> ensureProtectedRunningProcess();
     WebProcessProxy& siteIsolatedProcess() const { return m_legacyMainFrameProcess; }
     // rdar://168057355
     WebProcessProxy* WTF_NONNULL legacyMainFrameProcessPtrForSwift() const SWIFT_NAME(legacyMainFrameProcess()) { return &legacyMainFrameProcess(); }
@@ -2957,6 +2956,11 @@ public:
 
     void updateRemoteIntersectionObserversInOtherWebProcesses(IPC::Connection&);
 
+#if HAVE(SAFE_BROWSING)
+    void setHasShownSafeBrowsingWarningAfterLastLoadCommit() { m_hasShownSafeBrowsingWarningAfterLastLoadCommit = true; }
+    bool hasShownSafeBrowsingWarningAfterLastLoadCommit() const { return m_hasShownSafeBrowsingWarningAfterLastLoadCommit; }
+#endif
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -3643,6 +3647,8 @@ private:
     void beginSiteHasStorageCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
     void beginEnhancedSecurityLinkCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
 
+    Ref<BrowsingContextGroup> browsingContextGroupForNavigation(WebFrameProxy&, API::Navigation&, WebsiteDataStore&, ProcessSwapRequestedByClient);
+
     const UniqueRef<Internals> m_internals;
     Identifier m_identifier;
     WebCore::PageIdentifier m_webPageID;
@@ -4128,6 +4134,7 @@ private:
 #if HAVE(SAFE_BROWSING)
     Vector<CompletionHandler<void(bool)>> m_deferredModalHandlers;
     bool m_isSafeBrowsingCheckInProgress { false };
+    bool m_hasShownSafeBrowsingWarningAfterLastLoadCommit { false };
 #endif
     bool m_isLockdownModeExplicitlySet { false };
 

@@ -3674,7 +3674,6 @@ webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrolle
 webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-after-snap.html [ Skip ]
 webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto [ Skip ]
 webkit.org/b/296195 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth [ Skip ]
-webkit.org/b/307555 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-smooth [ Failure ]
 
 webkit.org/b/231337 imported/w3c/web-platform-tests/xhr/send-timeout-events.htm [ Pass Failure ]
 
@@ -4640,9 +4639,6 @@ fast/forms/ios/show-file-upload-context-menu-above-keyboard.html [ Pass ]
 # rdar://110034620 (REGRESSION ( iOS17 ): [ iOS17 ] compositing/clipping/nested-overflow-with-border-radius.html is a consistent image failure)
 compositing/clipping/nested-overflow-with-border-radius.html [ ImageOnlyFailure ]
 
-# rdar://104451028 (REGRESSION (iOS17 ): [ iOS17 ] fast/scrolling/keyboard-scrolling-distance-pageDown.html is a consistent timeout)
-fast/scrolling/keyboard-scrolling-distance-pageDown.html [ Timeout ]
-
 # rdar://104460194 (REGRESSION (iOS17 Sonoma23A177 ): [ iOS17 Sonoma ] fast/box-shadow/inset-box-shadow-fractional-radius.html is a consistent image failure)
 fast/box-shadow/inset-box-shadow-fractional-radius.html [ ImageOnlyFailure ]
 
@@ -4699,7 +4695,6 @@ fast/borders/hidpi-border-painting-groove.html [ ImageOnlyFailure ]
 fast/borders/hidpi-border-painting-ridge.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/white-space/textarea-pre-wrap-013.html [ ImageOnlyFailure ]
 editing/spelling/editing-word-with-marker-1.html [ Failure ]
-fast/scrolling/ios/body-overflow-hidden-height-100-percent-keyboard.html [ Failure ]
 http/wpt/webcodecs/videoFrame-colorSpace.html [ Failure ]
 http/wpt/webcodecs/webcodecs-gc.html [ Failure ]
 http/wpt/webrtc/video-script-transform-keyframe-only.html [ Failure ]
@@ -5745,8 +5740,6 @@ webkit.org/b/161359 imported/w3c/web-platform-tests/html/browsers/browsing-the-w
 webkit.org/b/161631 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/scroll-to-fragid/scroll-to-id-top.html [ Pass Failure ]
 
 # Enhanced <select> tests.
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-in-page/customizable-select-in-page-keyboard-behavior.tentative.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-in-page/customizable-select-in-page-mouse-behavior.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/appearance-base-and-base-select.tentative.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-fallback-bottom-left-scroller.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-fallback-bottom-left.html [ Skip ]
@@ -5776,6 +5769,7 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customiz
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-iterate-before-beginning.optional.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-option.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-span.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-hr-listbox.html [ ImageOnlyFailure ]
 
 # Newly imported WPT tests that are timing out on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-activate-keyup-prevented.html [ Skip ]
@@ -8485,8 +8479,6 @@ webkit.org/b/307882 webgl/lose-context-after-context-lost.html [ Failure ]
 
 webkit.org/b/307889 http/tests/multipart/multipart-async-image.html [ Pass Failure ]
 
-webkit.org/b/308084 [ Release ] imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-boundary.html [  Pass ImageOnlyFailure ]
-
 imported/w3c/web-platform-tests/css/cssom-view/smooth-scrollIntoView-with-unrelated-gesture-scroll.html [ Skip ]
 
 webkit.org/b/308243 [ Release ] http/tests/site-isolation/mixedContent/redirect-https-to-http-iframe-in-main-frame.html [ Pass Failure ]
@@ -8496,3 +8488,7 @@ imported/w3c/web-platform-tests/css/css-highlight-api/highlight-text-across-elem
 # webkit.org/b/308506 UnifiedPDFPlugin on iOS should receive full annotations support
 pdf/annotations [ Skip ]
 pdf/pdf-in-iframe-with-text-annotation.html [ Skip ]
+
+webkit.org/b/308658 compositing/geometry/fixed-position-composited-page-scale-smaller-than-viewport.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/308667 webanimations/threaded-animations/scroll-timeline-root-scroller.html [ Pass Failure ]

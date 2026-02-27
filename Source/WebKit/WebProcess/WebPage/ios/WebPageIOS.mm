@@ -3788,8 +3788,11 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
         auto scrollUpdate = ScrollUpdate {
             .nodeID = *mainFrameScrollingNodeID,
             .scrollPosition = scrollPosition,
-            .layoutViewportOrigin = visibleContentRectUpdateInfo.layoutViewportRect().location(),
-            .updateLayerPositionAction = layerAction,
+            .data = ScrollUpdateData {
+                .updateType = ScrollUpdateType::PositionUpdate,
+                .updateLayerPositionAction = layerAction,
+                .layoutViewportOrigin = visibleContentRectUpdateInfo.layoutViewportRect().location()
+            }
         };
 
         // We don't actually know that these are user scrolls; we get here for all kinds of state changes.
@@ -3799,8 +3802,9 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
             auto scrollUpdate = ScrollUpdate {
                 .nodeID = *frameView->scrollingNodeID(),
                 .scrollPosition = { },
-                .layoutViewportOrigin = { },
-                .updateType = ScrollUpdateType::WheelEventScrollDidEnd,
+                .data = ScrollUpdateData {
+                    .updateType = ScrollUpdateType::WheelEventScrollDidEnd,
+                }
             };
             scrollingCoordinator->applyScrollUpdate(WTF::move(scrollUpdate), ScrollType::User);
         }
@@ -3922,15 +3926,23 @@ void WebPage::dispatchAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEv
 {
     for (auto& touchEventData : queue.get()) {
         auto handleTouchEventResult = dispatchTouchEvent(touchEventData.frameID, touchEventData.event);
-        if (auto& completionHandler = touchEventData.completionHandler)
-            completionHandler(handleTouchEventResult.value_or(false), transformEventIfNecessary(handleTouchEventResult, WTF::move(touchEventData.event)));
+        bool handled = handleTouchEventResult.value_or(false);
+
+        // Invoke coalesced-away completion handlers first. These events were never
+        // dispatched to JS, but their handlers must still be invoked so that state
+        // transitions they carry (e.g. m_touchMovePreventionState) are resolved.
+        for (auto&& completionHandler : touchEventData.completionHandlers | std::views::take(touchEventData.completionHandlers.size() - 1))
+            completionHandler(handled, std::nullopt);
+
+        // The last handler corresponds to the event that was actually dispatched.
+        touchEventData.completionHandlers.last()(handled, transformEventIfNecessary(handleTouchEventResult, WTF::move(touchEventData.event)));
     }
 }
 
 void WebPage::cancelAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEventQueue>&& queue)
 {
     for (auto& touchEventData : queue.get()) {
-        if (auto& completionHandler = touchEventData.completionHandler)
+        for (auto& completionHandler : touchEventData.completionHandlers)
             completionHandler(true, std::nullopt);
     }
 }

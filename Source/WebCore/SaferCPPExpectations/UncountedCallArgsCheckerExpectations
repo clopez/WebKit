@@ -166,11 +166,7 @@ bridge/objc/objc_runtime.mm
 bridge/runtime_method.cpp
 bridge/runtime_object.cpp
 bridge/runtime_root.cpp
-contentextensions/ContentExtension.cpp
-contentextensions/ContentExtensionStyleSheet.cpp
-contentextensions/ContentExtensionsBackend.cpp
 crypto/parameters/CryptoAlgorithmRsaKeyGenParams.h
-css/CSSCounterStyle.cpp
 css/CSSCounterStyleDescriptors.cpp
 css/CSSCounterStyleRule.h
 css/CSSCounterValue.cpp
@@ -181,10 +177,7 @@ css/CSSFontValue.cpp
 css/CSSGridLineValue.cpp
 css/CSSGroupingRule.cpp
 css/CSSImageSetOptionValue.cpp
-css/CSSImageSetValue.cpp
-css/CSSImageValue.cpp
 css/CSSImageValue.h
-css/CSSImportRule.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
 css/CSSNestedDeclarations.cpp
@@ -373,8 +366,6 @@ html/parser/HTMLConstructionSite.cpp
 html/parser/HTMLParserScheduler.cpp
 html/parser/HTMLScriptRunner.cpp
 html/parser/HTMLTreeBuilder.cpp
-html/shadow/MediaControlTextTrackContainerElement.cpp
-[ Mac ] html/shadow/TextControlInnerElements.cpp
 [ Mac ] html/track/VTTCue.cpp
 inspector/DOMEditor.cpp
 inspector/InspectorAuditAccessibilityObject.cpp
