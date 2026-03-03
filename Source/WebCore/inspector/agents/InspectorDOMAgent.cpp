@@ -3502,7 +3502,7 @@ void InspectorDOMAgent::setInputFiles(const String& objectId, Ref<JSON::Array>&&
         return;
     }
 
-    if (node->nodeType() != Node::ELEMENT_NODE || node->nodeName() != "INPUT"_s) {
+    if (node->nodeType() != NodeType::Element || node->nodeName() != "INPUT"_s) {
         callback->sendFailure("Not an input node"_s);
         return;
     }
