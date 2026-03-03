@@ -29,6 +29,7 @@
 
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
+#include <wtf/Function.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMalloc.h>
@@ -59,7 +60,17 @@ public:
 #endif
 
     bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
+<<<<<<< HEAD
     const LayerTreeContext& layerTreeContext() const LIFETIME_BOUND { return m_layerTreeContext; }
+||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
+    const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
+=======
+    const LayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }
+    void waitForSizeUpdate(Function<void (const DrawingAreaProxyCoordinatedGraphics&)>&&);
+#if !PLATFORM(WPE)
+    void captureFrame();
+#endif
+>>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
 
     void dispatchAfterEnsuringDrawing(CompletionHandler<void()>&&);
 
@@ -131,6 +142,7 @@ private:
     // The last size we sent to the web process.
     WebCore::IntSize m_lastSentSize;
 
+    Vector<Function<void (const DrawingAreaProxyCoordinatedGraphics&)>> m_callbacks;
 
 #if !PLATFORM(WPE) && !PLATFORM(GTK)
     bool m_isBackingStoreDiscardable { true };
