@@ -852,15 +852,9 @@ public:
 
     RefPtr<WebAutomationSession> activeAutomationSession() const;
 
-<<<<<<< HEAD
-    WebPageInspectorController& inspectorController() LIFETIME_BOUND { return m_inspectorController.get(); }
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-    WebPageInspectorController& inspectorController() { return m_inspectorController.get(); }
-=======
-    WebPageInspectorController& inspectorController() { return m_inspectorController.get(); }
     InspectorDialogAgent* inspectorDialogAgent() { return m_inspectorDialogAgent; }
     void setInspectorDialogAgent(InspectorDialogAgent * dialogAgent) { m_inspectorDialogAgent = dialogAgent; }
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
+    WebPageInspectorController& inspectorController() LIFETIME_BOUND { return m_inspectorController.get(); }
 
 #if PLATFORM(IOS_FAMILY)
     void showInspectorIndication();
