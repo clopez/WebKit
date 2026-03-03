@@ -262,12 +262,8 @@
 #include <WebCore/HitTestResult.h>
 #include <WebCore/ImageAnalysisQueue.h>
 #include <WebCore/ImageOverlay.h>
-<<<<<<< HEAD
 #include <WebCore/ImageUtilities.h>
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-=======
 #include <WebCore/InspectorInstrumentationWebKit.h>
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSNode.h>
 #include <WebCore/KeyboardEvent.h>
