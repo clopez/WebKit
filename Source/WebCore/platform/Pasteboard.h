@@ -321,14 +321,8 @@ public:
 #if PLATFORM(WIN)
     COMPtr<IDataObject> dataObject() const { return m_dataObject; }
     WEBCORE_EXPORT void setExternalDataObject(IDataObject*);
-<<<<<<< HEAD
     const DragDataMap& dragDataMap() const LIFETIME_BOUND { return m_dragDataMap; }
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-    const DragDataMap& dragDataMap() const { return m_dragDataMap; }
-=======
-    const DragDataMap& dragDataMap() const { return m_dragDataMap; }
     WEBCORE_EXPORT DragDataMap createDragDataMap();
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
     void writeURLToWritableDataObject(const URL&, const String&);
     COMPtr<WCDataObject> writableDataObject() const { return m_writableDataObject; }
     void writeImageToDataObject(Element&, const URL&); // FIXME: Layering violation.
