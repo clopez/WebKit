@@ -2170,19 +2170,6 @@ WebProcessProxy& WebPageProxy::ensureRunningProcess()
     return m_legacyMainFrameProcess;
 }
 
-<<<<<<< HEAD
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-Ref<WebProcessProxy> WebPageProxy::ensureProtectedRunningProcess()
-{
-    return ensureRunningProcess();
-}
-
-=======
-Ref<WebProcessProxy> WebPageProxy::ensureProtectedRunningProcess()
-{
-    return ensureRunningProcess();
-}
-
 RefPtr<API::Navigation> WebPageProxy::loadRequestForInspector(WebCore::ResourceRequest&& request, WebFrameProxy* frame)
 {
     if (!frame || frame == mainFrame())
@@ -2198,7 +2185,6 @@ RefPtr<API::Navigation> WebPageProxy::loadRequestForInspector(WebCore::ResourceR
     return navigation;
 }
 
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
 RefPtr<API::Navigation> WebPageProxy::loadRequest(WebCore::ResourceRequest&& request, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, NavigationUpgradeToHTTPSBehavior navigationUpgradeToHTTPSBehavior, std::unique_ptr<NavigationActionData>&& lastNavigationAction, API::Object* userData, bool isRequestFromClientOrUserInput)
 {
     if (m_isClosed)
@@ -4181,11 +4167,6 @@ void WebPageProxy::dragEnded(const IntPoint& clientPosition, const IntPoint& glo
     setDragCaretRect({ });
 }
 
-<<<<<<< HEAD
-void WebPageProxy::didStartDrag(const std::optional<FrameIdentifier>& targetFrameID)
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-void WebPageProxy::didStartDrag()
-=======
 bool WebPageProxy::cancelDragIfNeeded() {
     if (!m_dragSelectionData)
         return false;
@@ -4204,21 +4185,14 @@ void WebPageProxy::setInterceptDrags(bool shouldIntercept) {
 }
 #endif
 
-void WebPageProxy::didStartDrag()
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
+void WebPageProxy::didStartDrag(const std::optional<FrameIdentifier>& targetFrameID)
 {
     if (!hasRunningProcess())
         return;
 
     discardQueuedMouseEvents();
-<<<<<<< HEAD
 
     sendToProcessContainingFrame(targetFrameID, Messages::WebPage::DidStartDrag(targetFrameID));
-||||||| parent of 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
-    send(Messages::WebPage::DidStartDrag());
-=======
-    send(Messages::WebPage::DidStartDrag());
-
     if (m_interceptDrags) {
         {
 #if PLATFORM(WIN) || PLATFORM(COCOA)
@@ -4238,7 +4212,6 @@ void WebPageProxy::didStartDrag()
             dragUpdated(dragData);
         }
     }
->>>>>>> 4ff3e0b39d07 (chore(webkit): bootstrap build #2265)
 }
 
 void WebPageProxy::dragCancelled()
