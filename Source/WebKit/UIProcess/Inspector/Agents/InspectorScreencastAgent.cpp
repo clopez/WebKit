@@ -51,7 +51,7 @@
 #endif
 
 #if PLATFORM(MAC)
-#include <WebCore/ImageBufferUtilitiesCG.h>
+#include <WebCore/ImageUtilities.h>
 #endif
 
 #if PLATFORM(WIN)

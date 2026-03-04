@@ -35,7 +35,7 @@
 #import "WKWebsiteDataStoreInternal.h"
 #import "WKWebView.h"
 #import "WKWebViewInternal.h"
-#import <WebCore/ImageBufferUtilitiesCG.h>
+#import <WebCore/ImageUtilities.h>
 #import <wtf/RefPtr.h>
 #import <wtf/text/WTFString.h>
 
@@ -89,7 +89,7 @@ void InspectorPlaywrightAgentClientMac::takePageScreenshot(WebPageProxy& page, W
 
         clipRect.move(0, toolbarHeight);
         RetainPtr<CGImageRef> transformedImageRef = adoptCF(CGImageCreateWithImageInRect(imageRef.get(), clipRect));
-        completionHandler(emptyString(), WebCore::dataURL(transformedImageRef.get(), "image/png"_s, std::nullopt));
+        completionHandler(emptyString(), WebCore::encodeDataURL(transformedImageRef.get(), "image/png"_s, std::nullopt));
     });
 }
 
