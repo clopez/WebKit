@@ -503,10 +503,10 @@ StyleAppearance RenderTheme::autoAppearanceForElement(RenderStyle& style, const 
         if (part == UserAgentParts::webkitColorSwatchWrapper())
             return StyleAppearance::ColorWellSwatchWrapper;
 
-        if (part == UserAgentParts::thumb())
+        if (part == UserAgentParts::sliderThumb())
             return StyleAppearance::SwitchThumb;
 
-        if (part == UserAgentParts::track())
+        if (part == UserAgentParts::sliderTrack())
             return StyleAppearance::SwitchTrack;
     }
 
@@ -595,14 +595,15 @@ static void updateSliderTrackPartForRenderer(SliderTrackPart& sliderTrackPart, c
         thumbPosition = (input->valueAsNumber() - minimum) / (maximum - minimum);
 
     Vector<double> tickRatios;
-    if (auto dataList = input->dataList()) {
-
-        for (Ref optionElement : dataList->suggestions()) {
-            auto optionValue = input->listOptionValueAsDouble(optionElement.get());
-            if (!optionValue)
-                continue;
-            double tickRatio = (*optionValue - minimum) / (maximum - minimum);
-            tickRatios.append(tickRatio);
+    if (maximum > minimum) {
+        if (auto dataList = input->dataList()) {
+            for (Ref optionElement : dataList->suggestions()) {
+                auto optionValue = input->listOptionValueAsDouble(optionElement.get());
+                if (!optionValue)
+                    continue;
+                double tickRatio = (*optionValue - minimum) / (maximum - minimum);
+                tickRatios.append(tickRatio);
+            }
         }
     }
 

@@ -563,6 +563,40 @@ FloatRect AccessibilityObject::convertFrameToSpace(const FloatRect& frameRect, A
     RefPtr parentScrollView = parentAccessibilityScrollView ? parentAccessibilityScrollView->scrollView() : nullptr;
 
     auto snappedFrameRect = snappedIntRect(IntRect(frameRect));
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    if (conversionSpace == AccessibilityConversionSpace::Screen) {
+        // For screen space, use contentsToView() to adjust for scroll *within* this frame,
+        // then apply the frame's screen transform and position (which account for iframe offsets and viewport scale).
+        if (parentScrollView)
+            snappedFrameRect = parentScrollView->contentsToView(snappedFrameRect);
+
+        RefPtr rootScrollView = dynamicDowncast<AccessibilityScrollView>(ancestorAccessibilityScrollView(true /* includeSelf */));
+        if (!rootScrollView)
+            return snappedFrameRect;
+
+        auto geometry = rootScrollView->frameGeometry();
+
+        auto scaledRect = geometry.screenTransform.mapRect(FloatRect(snappedFrameRect));
+
+        // macOS uses bottom-left origin, non-macOS assumes top-left origin.
+        FloatPoint position = {
+            geometry.screenPosition.x() + scaledRect.x(),
+#if PLATFORM(MAC)
+            geometry.screenPosition.y() - scaledRect.maxY()
+#else
+            geometry.screenPosition.y() + scaledRect.y()
+#endif
+        };
+        return { position, scaledRect.size() };
+    }
+
+    // FIXME: ENABLE(ACCESSIBILITY_LOCAL_FRAME) doesn't support page-relative frame, but this is used for old tests. Remove this once all tests are updated.
+    if (parentScrollView)
+        snappedFrameRect = parentScrollView->contentsToRootView(snappedFrameRect);
+#else
+    // Legacy behavior: contentsToRootView walks up through all frames for local frames.
+    // For remote frames, the caller (e.g., relativeFrame()) adds remoteFrameOffset().
     if (parentScrollView)
         snappedFrameRect = parentScrollView->contentsToRootView(snappedFrameRect);
 
@@ -578,6 +612,7 @@ FloatRect AccessibilityObject::convertFrameToSpace(const FloatRect& frameRect, A
 
         snappedFrameRect = page->chrome().rootViewToAccessibilityScreen(snappedFrameRect);
     }
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
 
     return snappedFrameRect;
 }
@@ -585,7 +620,9 @@ FloatRect AccessibilityObject::convertFrameToSpace(const FloatRect& frameRect, A
 FloatRect AccessibilityObject::relativeFrame() const
 {
     auto rect = elementRect();
+#if !ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     rect.moveBy(remoteFrameOffset());
+#endif
     return convertFrameToSpace(rect, AccessibilityConversionSpace::Page);
 }
 
@@ -884,14 +921,14 @@ std::optional<BoundaryPoint> AccessibilityObject::lastBoundaryPointContainedInRe
     return lastBoundaryPointContainedInRect(boundaryPoints, startBoundary, rect, midIndex + 1, rightIndex, isFlippedWritingMode);
 }
 
-static IntPoint textStartPoint(const IntRect& rect, bool isFlippedWritingMode)
+static IntPoint NODELETE textStartPoint(const IntRect& rect, bool isFlippedWritingMode)
 {
     if (!isFlippedWritingMode)
         return rect.minXMinYCorner();
     return rect.maxXMinYCorner();
 }
 
-static IntPoint textEndPoint(const IntRect& rect, bool isFlippedWritingMode)
+static IntPoint NODELETE textEndPoint(const IntRect& rect, bool isFlippedWritingMode)
 {
     if (!isFlippedWritingMode)
         return rect.maxXMaxYCorner();
@@ -1889,7 +1926,7 @@ ModelPlayerAccessibilityChildren AccessibilityObject::modelElementChildren()
 #endif
 
 // Finds a RenderListItem parent given a node.
-static RenderListItem* renderListItemContainer(Node* node)
+static RenderListItem* NODELETE renderListItemContainer(Node* node)
 {
     for (; node; node = node->parentNode()) {
         if (auto* listItem = dynamicDowncast<RenderListItem>(node->renderer()))

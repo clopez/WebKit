@@ -224,6 +224,11 @@ void RemoteAudioVideoRendererProxyManager::addTrack(RemoteAudioVideoRendererIden
         return;
     }
     if (auto trackIdentifier = renderer->addTrack(type)) {
+        renderer->notifyTrackNeedsReenqueuing(*trackIdentifier, [weakThis = WeakPtr { *this }, identifier](TrackIdentifier trackIdentifier, const MediaTime& time) {
+            if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_renderers.contains(identifier))
+                protectedThis->m_gpuConnectionToWebProcess.get()->connection().send(Messages::AudioVideoRendererRemoteMessageReceiver::TrackNeedsReenqueuing(trackIdentifier, time, protectedThis->stateFor(identifier)), identifier);
+        });
+
         completionHandler(*trackIdentifier);
         return;
     }
@@ -584,6 +589,16 @@ void RemoteAudioVideoRendererProxyManager::rendereringModeChanged(RemoteAudioVid
 }
 
 #if PLATFORM(COCOA)
+void RemoteAudioVideoRendererProxyManager::setVideoLayerSize(RemoteAudioVideoRendererIdentifier identifier, const WebCore::FloatSize& size)
+{
+    ALWAYS_LOG(LOGIDENTIFIER, identifier.loggingString(), ", size: ", size.width(), "x", size.height());
+
+    MESSAGE_CHECK(m_renderers.contains(identifier));
+
+    auto& context = contextFor(identifier);
+    context.layerHostingContextManager.setVideoLayerSize(size);
+}
+
 void RemoteAudioVideoRendererProxyManager::setVideoLayerSizeFenced(RemoteAudioVideoRendererIdentifier identifier, const WebCore::FloatSize& size, WTF::MachSendRightAnnotated&& sendRightAnnotated)
 {
     ALWAYS_LOG(LOGIDENTIFIER, identifier.loggingString(), size.width(), "x", size.height());

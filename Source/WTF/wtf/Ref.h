@@ -172,8 +172,9 @@ public:
 
     template<typename X, typename Y, typename Z> [[nodiscard]] Ref<T, PtrTraits, RefDerefTraits> replace(Ref<X, Y, Z>&&);
 
-    // The following function is deprecated.
+    // copyRef() on a r-value reference is never needed.
     Ref copyRef() && = delete;
+
     [[nodiscard]] Ref copyRef() const & { return Ref(*m_ptr); }
 
     [[nodiscard]] T& leakRef()
@@ -367,6 +368,12 @@ template<typename T, typename PtrTraits, typename RefDerefTraits>
 ALWAYS_INLINE CLANG_POINTER_CONVERSION Ref<T, PtrTraits, RefDerefTraits> protect(const Ref<T, PtrTraits, RefDerefTraits>& reference)
 {
     return reference.copyRef();
+}
+
+template<typename T, typename PtrTraits, typename RefDerefTraits>
+Ref<T, PtrTraits, RefDerefTraits> protect(Ref<T, PtrTraits, RefDerefTraits>&&)
+{
+    static_assert(WTF::unreachableForType<T>, "Calling protect() on an rvalue is unnecessary; the caller already owns the value.");
 }
 
 template<typename ExpectedType, typename ArgType, typename PtrTraits, typename RefDerefTraits>

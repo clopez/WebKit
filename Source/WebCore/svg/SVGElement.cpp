@@ -440,17 +440,6 @@ void SVGElement::sendLoadEventIfPossible()
     dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
-void SVGElement::loadEventTimerFired()
-{
-    sendLoadEventIfPossible();
-}
-
-Timer* SVGElement::loadEventTimer()
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
 void SVGElement::finishParsingChildren()
 {
     StyledElement::finishParsingChildren();
@@ -463,7 +452,7 @@ void SVGElement::finishParsingChildren()
     invalidateInstances();
 }
 
-static inline bool isSVGLayerAwareElement(const SVGElement& element)
+static inline bool NODELETE isSVGLayerAwareElement(const SVGElement& element)
 {
     using namespace ElementNames;
 

@@ -98,7 +98,7 @@ GLenum depthBufferFormat()
 BitmapTexture::BitmapTexture(const IntSize& size, OptionSet<Flags> flags)
     : m_flags(flags)
     , m_size(size)
-    , m_pixelFormat(PixelFormat::RGBA8)
+    , m_pixelFormat(flags.contains(Flags::UseBGRALayout) ? PixelFormat::BGRA8 : PixelFormat::RGBA8)
 {
     determineRenderTargetAndBinding();
 #if USE(GBM)
@@ -154,6 +154,16 @@ void BitmapTexture::allocateTexture()
 {
     createTexture();
     glTexImage2D(m_renderTarget, 0, GL_RGBA, m_size.width(), m_size.height(), 0, textureFormat(), s_pixelDataType, nullptr);
+}
+
+size_t BitmapTexture::sizeInBytes() const
+{
+    auto size = allocatedSize();
+    if (size.isEmpty())
+        return 0;
+
+    const auto bytesPerRow = CheckedUint32(size.width()) * 4;
+    return CheckedUint32(size.height()) * bytesPerRow;
 }
 
 #if USE(GBM)
@@ -223,7 +233,7 @@ void BitmapTexture::reset(const IntSize& size, OptionSet<Flags> flags)
 
     m_flags = flags;
     m_shouldClear = true;
-    m_pixelFormat = PixelFormat::RGBA8;
+    m_pixelFormat = flags.contains(Flags::UseBGRALayout) ? PixelFormat::BGRA8 : PixelFormat::RGBA8;
     m_filterOperation = nullptr;
 
     if (!flags.contains(Flags::DepthBuffer)) {

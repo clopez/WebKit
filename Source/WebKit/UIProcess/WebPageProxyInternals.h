@@ -137,7 +137,7 @@ public:
             didVisitDomain(WebCore::RegistrableDomain(url));
     }
 
-    const ListHashSet<WebCore::RegistrableDomain>& visitedDomains() const
+    const ListHashSet<WebCore::RegistrableDomain>& visitedDomains() const LIFETIME_BOUND
     {
         return m_visitedDomains;
     }
@@ -302,6 +302,9 @@ public:
     WebCore::IntSize sizeToContentAutoSizeMaximumSize;
     WebCore::Color themeColor;
     WebCore::FloatBoxExtent obscuredContentInsets;
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    bool hasBannerViewOverlay { false };
+#endif
 #if PLATFORM(MAC)
     std::optional<WebCore::FloatBoxExtent> pendingObscuredContentInsets;
 #endif
@@ -458,7 +461,7 @@ public:
     explicit Internals(WebPageProxy&, std::optional<WebCore::SecurityOriginData>);
 
 #if ENABLE(SPEECH_SYNTHESIS)
-    SpeechSynthesisData& speechSynthesisData();
+    SpeechSynthesisData& speechSynthesisData() LIFETIME_BOUND;
 #endif
 
     // WebPopupMenuProxy::Client

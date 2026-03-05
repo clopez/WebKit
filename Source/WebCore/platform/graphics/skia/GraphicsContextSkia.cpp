@@ -283,8 +283,8 @@ void GraphicsContextSkia::drawNativeImage(const NativeImage& nativeImage, const 
         return;
 
     // Collect raster images for atlas batching during recording.
-    if (m_contextMode == ContextMode::RecordingMode && !image->isTextureBacked() && m_atlasLayoutBuilder) {
-        // FIXME: Remove m_atlasLayoutBuilder check and turn into ASSERT(m_atlasLayoutBuilder), once atlas mode is activated.
+    if (m_contextMode == ContextMode::RecordingMode && m_renderingMode == RenderingMode::Accelerated && !image->isTextureBacked()) {
+        ASSERT(m_atlasLayoutBuilder);
         m_atlasLayoutBuilder->collectRasterImage(image);
     }
 
@@ -1154,7 +1154,7 @@ static sk_sp<SkSurface> createAcceleratedSurface(const IntSize& size)
     RELEASE_ASSERT(grContext);
 
     auto imageInfo = SkImageInfo::Make(size.width(), size.height(), kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
-    SkSurfaceProps properties { 0, FontRenderOptions::singleton().subpixelOrder() };
+    SkSurfaceProps properties = FontRenderOptions::singleton().createSurfaceProps();
     auto surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kNo, imageInfo, PlatformDisplay::sharedDisplay().msaaSampleCount(), kTopLeft_GrSurfaceOrigin, &properties);
     if (!surface || !surface->getCanvas())
         return nullptr;
@@ -1236,8 +1236,11 @@ void GraphicsContextSkia::beginRecording()
 {
     ASSERT(m_contextMode == ContextMode::PaintingMode);
     m_contextMode = ContextMode::RecordingMode;
-    // FIXME: Enable atlas mode, once upstreaming completed.
-    // m_atlasLayoutBuilder = makeUnique<SkiaImageAtlasLayoutBuilder>();
+
+    if (m_renderingMode == RenderingMode::Accelerated)
+        m_atlasLayoutBuilder = makeUnique<SkiaImageAtlasLayoutBuilder>();
+    else
+        ASSERT(!m_atlasLayoutBuilder);
 }
 
 SkiaRecordingData GraphicsContextSkia::endRecording()
@@ -1245,14 +1248,15 @@ SkiaRecordingData GraphicsContextSkia::endRecording()
     ASSERT(m_contextMode == ContextMode::RecordingMode);
     m_contextMode = ContextMode::PaintingMode;
 
-    // FIXME: Remove m_atlasLayoutBuilder check and turn into ASSERT(m_atlasLayoutBuilder), once atlas mode is activated.
     Vector<Ref<SkiaImageAtlasLayout>> atlasLayouts;
+    unsigned imageSetFingerprint = 0;
     if (m_atlasLayoutBuilder) {
         atlasLayouts = m_atlasLayoutBuilder->finalize();
+        imageSetFingerprint = m_atlasLayoutBuilder->imageSetFingerprint();
         m_atlasLayoutBuilder = nullptr;
     }
 
-    return { WTF::move(m_imageToFenceMap), WTF::move(atlasLayouts) };
+    return { WTF::move(m_imageToFenceMap), WTF::move(atlasLayouts), imageSetFingerprint };
 }
 
 void GraphicsContextSkia::enableStateReplayTracking()

@@ -321,6 +321,7 @@ class HTMLAttachmentElement;
 class HandleUserInputEventResult;
 #endif
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+struct FrameGeometry;
 struct InheritedFrameState;
 #endif
 struct InteractionRegion;
@@ -628,7 +629,7 @@ public:
     bool usesEphemeralSession() const;
 
     void setSize(const WebCore::IntSize&);
-    const WebCore::IntSize& size() const { return m_viewSize; }
+    const WebCore::IntSize& size() const LIFETIME_BOUND { return m_viewSize; }
     inline WebCore::IntRect bounds() const;
 
     DrawingArea* drawingArea() const { return m_drawingArea.get(); }
@@ -638,7 +639,7 @@ public:
 #endif
 
 #if HAVE(NSVIEW_CORNER_CONFIGURATION)
-    const WebCore::CornerRadii& scrollbarAvoidanceCornerRadii() const { return m_scrollbarAvoidanceCornerRadii; }
+    const WebCore::CornerRadii& scrollbarAvoidanceCornerRadii() const LIFETIME_BOUND { return m_scrollbarAvoidanceCornerRadii; }
 #endif
 
     WebPageGroupProxy* pageGroup() const { return m_pageGroup.get(); }
@@ -773,7 +774,7 @@ public:
 
     void animationDidFinishForElement(const WebCore::Element&);
 
-    const String& overrideContentSecurityPolicy() const { return m_overrideContentSecurityPolicy; }
+    const String& overrideContentSecurityPolicy() const LIFETIME_BOUND { return m_overrideContentSecurityPolicy; }
 
     WebUndoStep* webUndoStep(WebUndoStepID);
     void addWebUndoStep(WebUndoStepID, Ref<WebUndoStep>&&);
@@ -819,13 +820,13 @@ public:
     void setInjectedBundleUIClient(std::unique_ptr<API::InjectedBundle::PageUIClient>&&);
 
 #if ENABLE(CONTEXT_MENUS)
-    API::InjectedBundle::PageContextMenuClient& injectedBundleContextMenuClient() { return *m_contextMenuClient; }
+    API::InjectedBundle::PageContextMenuClient& injectedBundleContextMenuClient() LIFETIME_BOUND { return *m_contextMenuClient; }
 #endif
-    API::InjectedBundle::EditorClient& injectedBundleEditorClient() { return *m_editorClient; }
-    API::InjectedBundle::FormClient& injectedBundleFormClient() { return *m_formClient; }
-    API::InjectedBundle::PageLoaderClient& injectedBundleLoaderClient() { return *m_loaderClient; }
-    API::InjectedBundle::ResourceLoadClient& injectedBundleResourceLoadClient() { return *m_resourceLoadClient; }
-    API::InjectedBundle::PageUIClient& injectedBundleUIClient() { return *m_uiClient; }
+    API::InjectedBundle::EditorClient& injectedBundleEditorClient() LIFETIME_BOUND { return *m_editorClient; }
+    API::InjectedBundle::FormClient& injectedBundleFormClient() LIFETIME_BOUND { return *m_formClient; }
+    API::InjectedBundle::PageLoaderClient& injectedBundleLoaderClient() LIFETIME_BOUND { return *m_loaderClient; }
+    API::InjectedBundle::ResourceLoadClient& injectedBundleResourceLoadClient() LIFETIME_BOUND { return *m_resourceLoadClient; }
+    API::InjectedBundle::PageUIClient& injectedBundleUIClient() LIFETIME_BOUND { return *m_uiClient; }
 
     void replaceStringMatchesFromInjectedBundle(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly);
 
@@ -963,8 +964,8 @@ public:
 
 #if PLATFORM(COCOA)
     void updatePluginsActiveAndFocusedState();
-    const WebCore::FloatRect& windowFrameInUnflippedScreenCoordinates() const { return m_windowFrameInUnflippedScreenCoordinates; }
-    const WebCore::FloatRect& viewFrameInWindowCoordinates() const { return m_viewFrameInWindowCoordinates; }
+    const WebCore::FloatRect& windowFrameInUnflippedScreenCoordinates() const LIFETIME_BOUND { return m_windowFrameInUnflippedScreenCoordinates; }
+    const WebCore::FloatRect& viewFrameInWindowCoordinates() const LIFETIME_BOUND { return m_viewFrameInWindowCoordinates; }
 
     bool hasCachedWindowFrame() const { return m_hasCachedWindowFrame; }
 
@@ -1020,6 +1021,10 @@ public:
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&);
     WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&);
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&);
+    // Allows remote web processes to request an asynchronous update to their screen position, computed in the UI process.
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    void requestFrameScreenPosition(WebCore::FrameIdentifier);
+#endif
 #if PLATFORM(IOS_FAMILY)
     void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&);
     void relayAriaNotifyNotification(WebCore::AriaNotifyData&&);
@@ -1030,11 +1035,11 @@ public:
 
     static const WebEvent* NODELETE currentEvent();
 
-    FindController& findController() { return m_findController.get(); }
-    WebFoundTextRangeController& foundTextRangeController() { return m_foundTextRangeController.get(); }
+    FindController& findController() LIFETIME_BOUND { return m_findController.get(); }
+    WebFoundTextRangeController& foundTextRangeController() LIFETIME_BOUND { return m_foundTextRangeController.get(); }
 
 #if ENABLE(GEOLOCATION)
-    GeolocationPermissionRequestManager& geolocationPermissionRequestManager() { return m_geolocationPermissionRequestManager.get(); }
+    GeolocationPermissionRequestManager& geolocationPermissionRequestManager() LIFETIME_BOUND { return m_geolocationPermissionRequestManager.get(); }
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1043,14 +1048,14 @@ public:
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-    UserMediaPermissionRequestManager& userMediaPermissionRequestManager() { return m_userMediaPermissionRequestManager; }
+    UserMediaPermissionRequestManager& userMediaPermissionRequestManager() LIFETIME_BOUND { return m_userMediaPermissionRequestManager; }
     void captureDevicesChanged();
     void updateCaptureState(const WebCore::Document&, bool isActive, WebCore::MediaProducerMediaCaptureKind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&&);
     void voiceActivityDetected();
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
-    MediaKeySystemPermissionRequestManager& mediaKeySystemPermissionRequestManager() { return m_mediaKeySystemPermissionRequestManager; }
+    MediaKeySystemPermissionRequestManager& mediaKeySystemPermissionRequestManager() LIFETIME_BOUND { return m_mediaKeySystemPermissionRequestManager; }
 #endif
 
     void copyLinkWithHighlight();
@@ -1078,7 +1083,7 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
-    bool shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection);
+    bool shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection, WebCore::MouseEventInputSource);
     void selectWithGesture(const WebCore::IntPoint&, GestureType, GestureRecognizerState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&&);
     void updateFocusBeforeSelectingTextAtLocation(const WebCore::IntPoint&);
     WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::LocalFrame&, const WebCore::IntPoint&, bool isInteractingWithFocusedElement);
@@ -1279,7 +1284,7 @@ public:
         RefPtr<SandboxExtension> m_committedSandboxExtension;
     };
 
-    SandboxExtensionTracker& sandboxExtensionTracker() { return m_sandboxExtensionTracker; }
+    SandboxExtensionTracker& sandboxExtensionTracker() LIFETIME_BOUND { return m_sandboxExtensionTracker; }
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void cancelComposition(const String& text);
@@ -1318,7 +1323,7 @@ public:
 #endif
     NSObject *accessibilityObjectForMainFramePlugin();
     bool shouldFallbackToWebContentAXObjectForMainFramePlugin() const;
-    const WebCore::FloatPoint& accessibilityPosition() const { return m_accessibilityPosition; }
+    const WebCore::FloatPoint& accessibilityPosition() const LIFETIME_BOUND { return m_accessibilityPosition; }
 
     void setTextAsync(const String&);
     void insertTextAsync(const String& text, const EditingRange& replacementRange, InsertTextOptions&&);
@@ -1403,7 +1408,7 @@ public:
     void mayPerformUploadDragDestinationAction();
 
     void willStartDrag() { ASSERT(!m_isStartingDrag); m_isStartingDrag = true; }
-    void didStartDrag();
+    void didStartDrag(std::optional<WebCore::FrameIdentifier>);
     void dragCancelled();
     OptionSet<WebCore::DragSourceAction> allowedDragSourceActions() const { return m_allowedDragSourceActions; }
 #if ENABLE(MODEL_PROCESS)
@@ -1552,7 +1557,7 @@ public:
 #if ENABLE(META_VIEWPORT)
     void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double layoutSizeScaleFactorFromClient, double minimumEffectiveDeviceWidth);
     void setOverrideViewportArguments(const std::optional<WebCore::ViewportArguments>&);
-    const WebCore::ViewportConfiguration& viewportConfiguration() const { return m_viewportConfiguration; }
+    const WebCore::ViewportConfiguration& viewportConfiguration() const LIFETIME_BOUND { return m_viewportConfiguration; }
 
     void setUseTestingViewportConfiguration(bool useTestingViewport) { m_useTestingViewportConfiguration = useTestingViewport; }
     bool isUsingTestingViewportConfiguration() const { return m_useTestingViewportConfiguration; }
@@ -1820,7 +1825,7 @@ public:
     WebCore::DOMPasteAccessResponse requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::FrameIdentifier, const String& originIdentifier);
     WebCore::IntRect rectForElementAtInteractionLocation() const;
 
-    const std::optional<WebCore::Color>& backgroundColor() const { return m_backgroundColor; }
+    const std::optional<WebCore::Color>& backgroundColor() const LIFETIME_BOUND { return m_backgroundColor; }
 
     void suspendAllMediaBuffering();
     void resumeAllMediaBuffering();
@@ -1838,7 +1843,7 @@ public:
 #endif
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
-    TextCheckingControllerProxy& textCheckingController() { return m_textCheckingControllerProxy.get(); }
+    TextCheckingControllerProxy& textCheckingController() LIFETIME_BOUND { return m_textCheckingControllerProxy.get(); }
 #endif
 
 #if PLATFORM(COCOA)
@@ -1884,7 +1889,7 @@ public:
     void requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
 
-    const AtomString& overriddenMediaType() const { return m_overriddenMediaType; }
+    const AtomString& overriddenMediaType() const LIFETIME_BOUND { return m_overriddenMediaType; }
     void setOverriddenMediaType(const String&);
 
     void updateCORSDisablingPatterns(Vector<String>&&);
@@ -1994,7 +1999,7 @@ public:
 #endif
 
 #if ENABLE(WEBXR)
-    PlatformXRSystemProxy& NODELETE xrSystemProxy();
+    PlatformXRSystemProxy& NODELETE xrSystemProxy() LIFETIME_BOUND;
 #endif
 
     void prepareToRunModalJavaScriptDialog();
@@ -2070,13 +2075,13 @@ public:
     uint64_t NODELETE logIdentifier() const;
 
 #if (PLATFORM(GTK) || PLATFORM(WPE)) && (USE(GBM) || OS(ANDROID))
-    const Vector<RendererBufferFormat>& preferredBufferFormats() const { return m_preferredBufferFormats; }
+    const Vector<RendererBufferFormat>& preferredBufferFormats() const LIFETIME_BOUND { return m_preferredBufferFormats; }
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    const String& mediaPlaybackEnvironment() const { return m_mediaPlaybackEnvironment; }
+    const String& mediaPlaybackEnvironment() const LIFETIME_BOUND { return m_mediaPlaybackEnvironment; }
     void setMediaPlaybackEnvironment(const String&);
-    const String& displayCaptureEnvironment() const { return m_displayCaptureEnvironment; }
+    const String& displayCaptureEnvironment() const LIFETIME_BOUND { return m_displayCaptureEnvironment; }
     void setDisplayCaptureEnvironment(const String&);
 #endif
 
@@ -2122,6 +2127,10 @@ public:
     void loadRequest(LoadParameters&&);
 
     void setObscuredContentInsets(const WebCore::FloatBoxExtent&);
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    void setHasBannerViewOverlay(bool);
+#endif
 
     void updateOpener(WebCore::FrameIdentifier, std::optional<WebCore::FrameIdentifier>);
     void setFramePrinting(WebCore::FrameIdentifier, bool printing, WebCore::FloatSize pageSize, WebCore::FloatSize originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSize shouldAdjustViewSize);
@@ -2170,6 +2179,7 @@ public:
     void paintRemoteFrameContents(WebCore::FrameIdentifier, const WebCore::IntRect&, WebCore::GraphicsContext&);
 
 #if ENABLE(VIDEO)
+    void setCaptionDisplaySettingsPreviewProfileID(const String&);
     void showCaptionDisplaySettingsPreview(WebCore::HTMLMediaElementIdentifier);
     void hideCaptionDisplaySettingsPreview(WebCore::HTMLMediaElementIdentifier);
 #endif
@@ -2704,6 +2714,7 @@ private:
     void updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint);
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     void updateRemotePageAccessibilityInheritedState(WebCore::FrameIdentifier, const WebCore::InheritedFrameState&);
+    void updateRemotePageAccessibilityScreenPosition(WebCore::FrameIdentifier, const WebCore::FrameGeometry&);
 #endif
     void resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier, const WebCore::IntPoint&, CompletionHandler<void(String)>&&);
 #if PLATFORM(MAC)
@@ -3274,7 +3285,7 @@ private:
 
 #if ENABLE(IMAGE_ANALYSIS)
     Vector<std::pair<WeakPtr<WebCore::HTMLElement, WebCore::WeakPtrImplWithEventTargetData>, Vector<CompletionHandler<void(RefPtr<WebCore::Element>&&)>>>> m_elementsPendingTextRecognition;
-    bool m_isPerformingTextRecognitionInElementFullScreen { false };
+    std::optional<WebCore::HTMLMediaElementIdentifier> m_elementIsPerformingTextRecognitionInElementFullScreen;
 #endif
 
 #if ENABLE(WEBXR)

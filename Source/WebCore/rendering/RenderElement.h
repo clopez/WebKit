@@ -40,6 +40,7 @@ class ReferencedSVGResources;
 class RenderBlock;
 class RenderStyle;
 class RenderTreeBuilder;
+class SVGElement;
 struct ImageOrientation;
 
 struct MarginRect {
@@ -181,7 +182,7 @@ public:
     bool isVisibleIgnoringGeometry() const;
     bool mayCauseRepaintInsideViewport(const IntRect* visibleRect = nullptr) const;
     bool isVisibleInDocumentRect(const IntRect& documentRect) const;
-    bool isInsideEntirelyHiddenLayer() const;
+    virtual bool isInsideEntirelyHiddenLayer() const;
 
     // Returns true if this renderer requires a new stacking context.
     static bool createsGroupForStyle(const RenderStyle&); // Defined in RenderElementStyleInlines.h.
@@ -290,11 +291,8 @@ public:
     virtual void suspendAnimations(MonotonicTime = MonotonicTime()) { }
     std::unique_ptr<RenderStyle> animatedStyle();
 
-    SingleThreadWeakPtr<RenderBlockFlow> backdropRenderer() const;
-    void setBackdropRenderer(RenderBlockFlow&);
-
-    SingleThreadWeakPtr<RenderBlockFlow> pickerIconRenderer() const;
-    void setPickerIconRenderer(RenderBlockFlow&);
+    SingleThreadWeakPtr<RenderBlockFlow> pseudoElementRenderer(PseudoElementType) const;
+    void setPseudoElementRenderer(PseudoElementType, RenderBlockFlow&);
 
     ReferencedSVGResources& ensureReferencedSVGResources();
 
@@ -347,6 +345,8 @@ public:
     static bool isBeforeOrAfterContent(const RenderElement*);
 
     WritingMode writingMode() const { return style().writingMode(); }
+
+    bool addReferencedSVGResourceIfNeeded(SVGElement&, const AtomString&);
 
 protected:
     RenderElement(Type, Element&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);

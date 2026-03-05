@@ -114,7 +114,7 @@ public:
 #endif
 
 #if ENABLE(MEDIA_SESSION_PLAYLIST)
-    const Vector<Ref<MediaMetadata>>& playlist() const { return m_playlist; }
+    const Vector<Ref<MediaMetadata>>& playlist() const LIFETIME_BOUND { return m_playlist; }
     ExceptionOr<void> setPlaylist(ScriptExecutionContext&, Vector<Ref<MediaMetadata>>&&);
 #endif
 
@@ -186,7 +186,7 @@ private:
     std::optional<MediaSessionGroupIdentifier> mediaSessionGroupIdentifier() const final;
 
     WeakPtr<Navigator> m_navigator;
-    Ref<PlatformMediaSession> m_platformSession;
+    const Ref<PlatformMediaSession> m_platformSession;
     RefPtr<MediaMetadata> m_metadata;
     RefPtr<MediaMetadata> m_defaultMetadata;
     MediaSessionPlaybackState m_playbackState { MediaSessionPlaybackState::None };

@@ -1837,7 +1837,7 @@ bool RenderBox::getBackgroundPaintedExtent(const LayoutPoint& paintOffset, Layou
         return true;
     }
 
-    auto geometry = BackgroundPainter::calculateFillLayerImageGeometry(*this, nullptr, layers.usedFirst(), paintOffset, backgroundRect);
+    auto geometry = BackgroundPainter::calculateFillLayerImageGeometry(*this, nullptr, layers.usedFirst(), style().usedZoomForLength(), paintOffset, backgroundRect);
     paintedExtent = geometry.destinationRect;
     return !geometry.hasNonLocalGeometry;
 }
@@ -2036,7 +2036,7 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
     }
 
     if (allMaskImagesLoaded) {
-        BackgroundPainter { *this, paintInfo }.paintFillLayers(Color(), style().maskLayers(), paintRect, BleedAvoidance::None, compositeOp);
+        BackgroundPainter { *this, paintInfo }.paintFillLayers(Color(), style().maskLayers(), style().usedZoomForLength(), paintRect, BleedAvoidance::None, compositeOp);
         BorderPainter { *this, paintInfo }.paintNinePieceImage(paintRect, style(), style().maskBorder(), compositeOp);
     }
     
@@ -2054,13 +2054,15 @@ LayoutRect RenderBox::maskClipRect(const LayoutPoint& paintOffset)
         borderImageRect.expand(style().maskBorderOutsets());
         return borderImageRect;
     }
-    
+
+    auto zoom = style().usedZoomForLength();
+
     LayoutRect result;
     LayoutRect borderBox = borderBoxRect();
     for (auto& maskLayer : style().maskLayers().usedValues()) {
         if (maskLayer.hasImage()) {
             // Masks should never have fixed attachment, so it's OK for paintContainer to be null.
-            result.unite(BackgroundPainter::calculateFillLayerImageGeometry(*this, nullptr, maskLayer, paintOffset, borderBox).destinationRect);
+            result.unite(BackgroundPainter::calculateFillLayerImageGeometry(*this, nullptr, maskLayer, zoom, paintOffset, borderBox).destinationRect);
         }
     }
     return result;
@@ -2094,9 +2096,9 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
             return;
 
         if (!didFullRepaint)
-            didFullRepaint = repaintLayerRectsForImage(image, style.backgroundLayers(), true);
+            didFullRepaint = repaintLayerRectsForImage(image, style.backgroundLayers(), style.usedZoomForLength(), true);
         if (!didFullRepaint)
-            didFullRepaint = repaintLayerRectsForImage(image, style.maskLayers(), false);
+            didFullRepaint = repaintLayerRectsForImage(image, style.maskLayers(), style.usedZoomForLength(), false);
     };
 
     repaintForBackgroundAndMask(style());
@@ -2132,7 +2134,7 @@ void RenderBox::incrementVisuallyNonEmptyPixelCountIfNeeded(const IntSize& size)
 }
 
 template<typename Layers>
-bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& layers, bool drawingBackground)
+bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& layers, Style::ZoomFactor zoom, bool drawingBackground)
 {
     LayoutRect rendererRect;
     RenderBox* layerRenderer = nullptr;
@@ -2167,7 +2169,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& l
                 }
             }
             // FIXME: Figure out how to pass absolute position to calculateFillLayerImageGeometry (for pixel snapping)
-            auto geometry = BackgroundPainter::calculateFillLayerImageGeometry(*layerRenderer, nullptr, layer, LayoutPoint(), rendererRect);
+            auto geometry = BackgroundPainter::calculateFillLayerImageGeometry(*layerRenderer, nullptr, layer, zoom, LayoutPoint(), rendererRect);
             if (geometry.hasNonLocalGeometry) {
                 // Rather than incur the costs of computing the paintContainer for renderers with fixed backgrounds
                 // in order to get the right destRect, just repaint the entire renderer.
@@ -3689,7 +3691,7 @@ static bool NODELETE tableCellShouldHaveZeroInitialSize(const RenderTableCell& t
     // preferable to the alternative (sizing intrinsically and making the row end up too big).
     if (!scrollsOverflowY)
         return false;
-    if (tableCell.style().logicalHeight().isAuto() && tableCell.table()->style().logicalHeight().isAuto())
+    if (tableCell.table()->style().logicalHeight().isAuto() && (tableCell.style().logicalHeight().isAuto() || tableCell.style().logicalHeight().isPercentOrCalculated()))
         return false;
     if (child.isBlockLevelReplacedOrAtomicInline())
         return false;
@@ -3738,7 +3740,11 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computePercenta
         // Table cells violate what the CSS spec says to do with heights. Basically we
         // don't care if the cell specified a height or not. We just always make ourselves
         // be a percentage of the cell's current content height.
-        auto tableCellLogicalHeight = tableCell->overridingBorderBoxLogicalHeight();
+        // However, when the cell has an unresolvable percentage height (percentage
+        // height on the cell with an auto-height table), we should not use the
+        // overriding height from row layout to resolve children's percentage heights.
+        bool cellHasUnresolvablePercentageHeight = tableCell->style().logicalHeight().isPercentOrCalculated() && tableCell->table()->style().logicalHeight().isAuto();
+        auto tableCellLogicalHeight = cellHasUnresolvablePercentageHeight ? std::nullopt : tableCell->overridingBorderBoxLogicalHeight();
         if (!tableCellLogicalHeight)
             return tableCellShouldHaveZeroInitialSize(*tableCell, *this, scrollsOverflowY()) ? std::make_optional(0_lu) : std::nullopt;
         // Note: can't use contentBoxLogicalHeight here on table cells due to intrinsic padding.

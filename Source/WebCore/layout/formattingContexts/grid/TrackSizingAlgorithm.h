@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "FreeSpaceScenario.h"
+#include "AxisConstraint.h"
 #include "GridTypeAliases.h"
 #include "LayoutUnit.h"
 
@@ -54,7 +54,8 @@ public:
     static TrackSizes sizeTracks(const PlacedGridItems&, const ComputedSizesList&, const UsedBorderAndPaddingList&,
         const PlacedGridItemSpanList&, const TrackSizingFunctionsList&, std::optional<LayoutUnit> availableGridSpace,
         const TrackSizingGridItemConstraintList& oppositeAxisConstraints, const GridItemSizingFunctions&,
-        const FreeSpaceScenario&, const LayoutUnit& gapSize, const StyleContentAlignmentData& usedContentAlignment);
+        const AxisConstraint::FreeSpaceScenario&, const LayoutUnit gapSize, const StyleContentAlignmentData& usedContentAlignment,
+        std::optional<LayoutUnit> containerMinimumSize);
 
 private:
 
@@ -67,9 +68,9 @@ private:
     static LayoutUnit findSizeOfFr(const UnsizedTracks&, const LayoutUnit& availableSpace, const LayoutUnit& gapSize);
 
     // Expand Flexible Tracks (spec section 11.7)
-    static void expandFlexibleTracks(UnsizedTracks&, const FreeSpaceScenario&, std::optional<LayoutUnit> availableGridSpace, const LayoutUnit& gapSize,
+    static void expandFlexibleTracks(UnsizedTracks&, const AxisConstraint::FreeSpaceScenario&, std::optional<LayoutUnit> availableGridSpace, const LayoutUnit& gapSize,
         const PlacedGridItems&, const PlacedGridItemSpanList&, const TrackSizingGridItemConstraintList&, const GridItemSizingFunctions&);
-    static void expandFlexibleTracksForMinContent(UnsizedTracks&);
+    static void NODELETE expandFlexibleTracksForMinContent(UnsizedTracks&);
     static void expandFlexibleTracksForMaxContent(UnsizedTracks&, const FlexTracks&, const LayoutUnit& gapSize,
         const PlacedGridItems&, const PlacedGridItemSpanList&, const TrackSizingGridItemConstraintList&, const GridItemSizingFunctions&);
     static void expandFlexibleTracksForDefiniteLength(UnsizedTracks&, const FlexTracks&, std::optional<LayoutUnit> availableGridSpace, const LayoutUnit& gapSize);

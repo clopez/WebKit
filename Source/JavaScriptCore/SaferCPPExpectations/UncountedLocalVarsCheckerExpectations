@@ -75,7 +75,7 @@ parser/Parser.h
 parser/SourceProviderCacheItem.h
 parser/SourceTaintedOrigin.cpp
 profiler/ProfilerDatabase.cpp
-runtime/BrandedStructure.h
+[ iOS ] runtime/BrandedStructure.h
 runtime/CachedTypes.cpp
 runtime/DeferredWorkTimer.cpp
 runtime/FileBasedFuzzerAgent.cpp
@@ -84,7 +84,6 @@ runtime/HashMapHelper.h
 runtime/InferredValue.h
 runtime/JSArrayBufferView.cpp
 runtime/JSCJSValue.cpp
-runtime/JSCJSValueInlines.h
 runtime/JSFinalizationRegistry.cpp
 runtime/JSGlobalObject.cpp
 runtime/JSObject.cpp
@@ -103,12 +102,12 @@ runtime/StructureInlines.h
 runtime/SymbolTable.h
 runtime/TypeSet.cpp
 runtime/VMTraps.cpp
+[ macOS ] runtime/WaiterListManager.h
 tools/JSDollarVM.cpp
 wasm/WasmBBQJIT.cpp
 wasm/WasmBBQJIT64.cpp
 wasm/WasmBBQPlan.cpp
 wasm/WasmCallee.cpp
-wasm/WasmConstExprGenerator.cpp
 wasm/WasmFaultSignalHandler.cpp
 [ iOS ] wasm/WasmFormat.h
 wasm/WasmFunctionParser.h

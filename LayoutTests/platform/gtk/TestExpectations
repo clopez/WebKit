@@ -134,6 +134,7 @@ webkit.org/b/306021 webrtc/peer-connection-audio-unmute.html [ Pass Failure ]
 webkit.org/b/235885 webrtc/audio-peer-connection-webaudio.html [ Pass Failure ]
 webkit.org/b/308372 webrtc/video-vp8-videorange.html [ Pass Timeout ]
 webkit.org/b/308373 webrtc/encoded-streams-quirks.html [ Pass Timeout ]
+webkit.org/b/308362 [ Debug ] webrtc/processIceTransportStateChange-gc.html [ Pass Crash ]
 
 webkit.org/b/305553 fast/selectors/selection-window-inactive-stroke-color.html [ ImageOnlyFailure ]
 
@@ -372,9 +373,6 @@ Bug(GTK) compositing/visible-rect [ Skip ]
 webkit.org/b/85211 ietestcenter/css3/flexbox/flexbox-align-stretch-001.htm [ ImageOnlyFailure ]
 webkit.org/b/85212 ietestcenter/css3/flexbox/flexbox-layout-002.htm [ ImageOnlyFailure ]
 
-# Skip the perf/ tests in debug builds
-Bug(GTK) [ Debug ] perf [ Skip ]
-
 # No concept of secure text input
 Bug(GTK) editing/secure-input [ Failure ]
 
@@ -585,10 +583,13 @@ webkit.org/b/120839 animations/cross-fade-background-image.html [ ImageOnlyFailu
 
 # Tests crashing due to failing assertions
 
-webkit.org/b/286132 inspector/debugger/breakpoints/resolved-dump-all-inline-script-pause-locations.html [ Crash ]
+webkit.org/b/286132 [ Debug ] inspector/debugger/breakpoints/resolved-dump-all-inline-script-pause-locations.html [ Crash ]
+webkit.org/b/286132 [ Release ] inspector/debugger/breakpoints/resolved-dump-all-inline-script-pause-locations.html [ Pass Crash ]
+
 webkit.org/b/299482 inspector/dom-debugger/event-animation-frame-breakpoints.html [ Pass Crash ]
-webkit.org/b/304644 inspector/unit-tests/editing-support.html [ Crash ]
-webkit.org/b/308130 platform/glib/non-compositing/simple-dom.html [ Pass Crash ]
+
+webkit.org/b/304644 [ Debug ] inspector/unit-tests/editing-support.html [ Crash Timeout ]
+webkit.org/b/304644 [ Release ] inspector/unit-tests/editing-support.html [ Pass Crash Timeout ]
 
 imported/w3c/web-platform-tests/selection/shadow-dom/cross-shadow-boundary-6.html [ Skip ]
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Range-isPointInRange.html [ Skip ]
@@ -596,7 +597,10 @@ imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-getComp
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-getComposedRanges.html [ Skip ]
 imported/w3c/web-platform-tests/selection/shadow-dom/tentative/Selection-isCollapsed.html [ Skip ]
 
-webkit.org/b/304101 imported/w3c/web-platform-tests/selection/crashtests/selection-modify-per-word-in-table-header-group.html [ Crash ]
+webkit.org/b/304101 [ Debug ] imported/w3c/web-platform-tests/selection/crashtests/selection-modify-per-word-in-table-header-group.html [ Crash ]
+webkit.org/b/304101 [ Release ] imported/w3c/web-platform-tests/selection/crashtests/selection-modify-per-word-in-table-header-group.html [ Pass Crash ]
+
+webkit.org/b/309201 fast/css/getComputedStyle-font-variant-shorthand-crash.html [ Pass Crash ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Crashing tests
@@ -620,8 +624,6 @@ webkit.org/b/306687 fast/dynamic/window-scrollbars-test.html [ Failure Pass ]
 webkit.org/b/306688 fast/events/monotonic-event-time.html [ Failure Pass ]
 
 webkit.org/b/114735 svg/filters/filter-hidden-content.svg [ Failure Pass ]
-
-webkit.org/b/116961 perf/show-hide-table-rows.html [ Failure Pass ]
 
 webkit.org/b/129758 js/dom/create-lots-of-workers.html [ Crash Pass ]
 
@@ -832,7 +834,7 @@ webkit.org/b/308032 fast/events/popup-allowed-from-gesture-initiated-event.html 
 
 webkit.org/b/308100 fast/dom/Window/window-property-invalid-characters-ignored.html [ Failure Pass ]
 
-webkit.org/b/308632 svg/repaint/non-scaling-stroke-transform-animation.html [ Failure Pass ]
+webkit.org/b/308632 svg/repaint/non-scaling-stroke-transform-animation.html [ ImageOnlyFailure Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Flaky tests
@@ -958,6 +960,7 @@ http/tests/xmlhttprequest/response-access-on-error.html [ DumpJSConsoleLogInStdE
 
 webkit.org/b/277166 fast/dom/Window/window-focus-self.html [ Failure ]
 webkit.org/b/277166 fast/dom/Window/window-resize-and-move-arguments.html [ Failure ]
+webkit.org/b/277166 fast/dom/Window/window-resize-contents.html [ Pass Timeout ]
 webkit.org/b/277166 fast/dom/Window/window-resize.html [ Failure ]
 webkit.org/b/277166 imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-non-integer-left.html [ Failure ]
 webkit.org/b/277166 imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-non-integer-screenx.html [ Failure ]
@@ -1502,13 +1505,6 @@ webkit.org/b/286063 [ Debug ] media/audio-only-video-intrinsic-size.html [ Crash
 webkit.org/b/286063 [ Debug ] storage/indexeddb/cursor-properties.html [ Crash Pass ]
 webkit.org/b/286063 [ Debug ] storage/indexeddb/modern/idbobjectstore-delete-failures-private.html [ Crash Pass ]
 
-webkit.org/b/304272 [ Debug ] imported/w3c/web-platform-tests/html/anonymous-iframe/local-storage.tentative.https.window.html [ Crash Failure Pass ]
-
-webkit.org/b/304275 [ Debug ] imported/w3c/web-platform-tests/html/canvas/offscreen/shadows/2d.shadow.image.alpha.html [ Crash Pass Timeout ]
-
-webkit.org/b/304053 [ Debug ] imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/local-storage.tentative.https.window.html [ Crash Pass ]
-webkit.org/b/304053 [ Debug ] imported/w3c/web-platform-tests/speculation-rules/speculation-tags/cross-site-to-same-site-redirection-prefetch.https.html [ Crash Pass ]
-
 webkit.org/b/304278 [ Debug ] inspector/worker/debugger-pause-subworker.html [ Crash Timeout ]
 
 # webkit.org/b/304535 ui-serif, ui-sans-serif, ui-monospace, ui-rounded generic families not implemented on GTK
@@ -1528,6 +1524,10 @@ webkit.org/b/305509 imported/w3c/web-platform-tests/css/css-pseudo/marker-animat
 webkit.org/b/305509 imported/w3c/web-platform-tests/css/css-view-transitions/start-view-transtion-skips-active.html [ Failure Pass ]
 webkit.org/b/305509 imported/w3c/web-platform-tests/event-timing/interactionid-orphan-pointerup.html [ Failure Pass ]
 
+# [GTK] Some SVG tests sometimes fail with a very differently sized layer
+webkit.org/b/308976 svg/filters/feMerge.svg [ Pass Failure ImageOnlyFailure ]
+webkit.org/b/308976 svg/filters/filter-on-filter-for-text.svg [ Pass Failure ImageOnlyFailure ]
+
 # AVFoundation-specific audio description functionality not available on GStreamer platforms
 http/tests/media/hls/hls-audio-description-track-kind.html [ Skip ]
 
@@ -1538,4 +1538,11 @@ webkit.org/b/306384 fast/table/row-background-image.html [ ImageOnlyFailure ]
 webkit.org/b/306384 imported/w3c/web-platform-tests/quirks/line-height-in-list-item.html [ ImageOnlyFailure ]
 webkit.org/b/306384 scrollbars/corner-resizer-window-inactive.html [ ImageOnlyFailure ]
 
-webkit.org/b/307945 [ Debug ] platform/glib/damage/basic-propagation-002.html [ Pass Crash ]
+webkit.org/b/309260 webrtc/video-clone-track.html [ Pass Failure Timeout ]
+webkit.org/b/309261 platform/gtk/fast/forms/menulist-typeahead-find.html [ Pass Failure ]
+webkit.org/b/309262 webaudio/base-audio-context-wrapper-gc.html [ Pass Failure ]
+webkit.org/b/309263 http/tests/inspector/network/resource-sizes-memory-cache.html [ Pass Failure ]
+webkit.org/b/309264 http/tests/xmlhttprequest/redirect-cross-origin-post.html [ Pass Failure ]
+webkit.org/b/309265 fast/reflections/abs-position-in-reflection.html [ Pass Failure ImageOnlyFailure ]
+webkit.org/b/309266 css3/scroll-snap/scroll-snap-drag-scrollbar-thumb.html [ Pass Failure ]
+webkit.org/b/309267 inspector/unit-tests/array-utilities.html [ Pass Failure ]

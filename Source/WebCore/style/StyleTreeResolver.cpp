@@ -465,8 +465,8 @@ std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element
         return { };
 
     if (pseudoElementIdentifier.type == PseudoElementType::Checkmark) {
-        // Option elements need to check against the picker for their appearance value.
         if (RefPtr option = dynamicDowncast<HTMLOptionElement>(element)) {
+            // Option elements need to check against the picker for their appearance value.
             RefPtr select = option->ownerSelectElement();
             if (!select)
                 return { };
@@ -476,11 +476,12 @@ std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element
             CheckedPtr pickerStyle = m_update->elementStyle(*pickerElement);
             if (!pickerStyle || pickerStyle->usedAppearance() != StyleAppearance::Base)
                 return { };
-        } else if (elementUpdate.style->usedAppearance() != StyleAppearance::Base)
-            return { };
-
-        if (RefPtr input = dynamicDowncast<HTMLInputElement>(element); !input || !input->isCheckable())
-            return { };
+        } else {
+            if (elementUpdate.style->usedAppearance() != StyleAppearance::Base)
+                return { };
+            if (RefPtr input = dynamicDowncast<HTMLInputElement>(element); !input || !input->isCheckable())
+                return { };
+        }
     }
 
     if (pseudoElementIdentifier.type == PseudoElementType::PickerIcon) {
@@ -1195,7 +1196,7 @@ auto TreeResolver::determineResolutionType(const Element& element, const RenderS
     return { };
 }
 
-static void clearNeedsStyleResolution(Element& element)
+static void NODELETE clearNeedsStyleResolution(Element& element)
 {
     element.setHasValidStyle();
     if (auto* before = element.beforePseudoElement())
@@ -1977,13 +1978,13 @@ unsigned TreeResolver::maximumRenderTreeDepth()
     return maximum;
 }
 
-static Vector<Function<void ()>>& postResolutionCallbackQueue()
+static Vector<Function<void ()>>& NODELETE postResolutionCallbackQueue()
 {
     static NeverDestroyed<Vector<Function<void ()>>> vector;
     return vector;
 }
 
-static Vector<Ref<Frame>>& memoryCacheClientCallsResumeQueue()
+static Vector<Ref<Frame>>& NODELETE memoryCacheClientCallsResumeQueue()
 {
     static NeverDestroyed<Vector<Ref<Frame>>> vector;
     return vector;

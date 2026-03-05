@@ -51,10 +51,10 @@ public:
 
     SVGGraphicsElement* visibleTargetGraphicsElement() const;
 
-    const SVGLengthValue& x() const { return m_x->currentValue(); }
-    const SVGLengthValue& y() const { return m_y->currentValue(); }
-    const SVGLengthValue& width() const { return m_width->currentValue(); }
-    const SVGLengthValue& height() const { return m_height->currentValue(); }
+    const SVGLengthValue& x() const LIFETIME_BOUND { return m_x->currentValue(); }
+    const SVGLengthValue& y() const LIFETIME_BOUND { return m_y->currentValue(); }
+    const SVGLengthValue& width() const LIFETIME_BOUND { return m_width->currentValue(); }
+    const SVGLengthValue& height() const LIFETIME_BOUND { return m_height->currentValue(); }
 
     SVGAnimatedLength& xAnimated() { return m_x; }
     SVGAnimatedLength& yAnimated() { return m_y; }
@@ -79,7 +79,7 @@ private:
     bool selfHasRelativeLengths() const override;
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&, LoadWillContinueInAnotherProcess) final;
 
-    Document* externalDocument() const;
+    Document* NODELETE externalDocument() const;
     void updateExternalDocument();
 
     FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) override;
@@ -102,20 +102,18 @@ private:
     bool haveFiredLoadEvent() const override { return m_haveFiredLoadEvent; }
     void setErrorOccurred(bool errorOccurred) override { m_errorOccurred = errorOccurred; }
     bool errorOccurred() const override { return m_errorOccurred; }
-    Timer* loadEventTimer() override { return &m_loadEventTimer; }
 
     bool isValid() const override { return SVGTests::isValid(); }
 
-    Ref<SVGAnimatedLength> m_x { SVGAnimatedLength::create(this, SVGLengthMode::Width) };
-    Ref<SVGAnimatedLength> m_y { SVGAnimatedLength::create(this, SVGLengthMode::Height) };
-    Ref<SVGAnimatedLength> m_width { SVGAnimatedLength::create(this, SVGLengthMode::Width) };
-    Ref<SVGAnimatedLength> m_height { SVGAnimatedLength::create(this, SVGLengthMode::Height) };
+    const Ref<SVGAnimatedLength> m_x { SVGAnimatedLength::create(this, SVGLengthMode::Width) };
+    const Ref<SVGAnimatedLength> m_y { SVGAnimatedLength::create(this, SVGLengthMode::Height) };
+    const Ref<SVGAnimatedLength> m_width { SVGAnimatedLength::create(this, SVGLengthMode::Width) };
+    const Ref<SVGAnimatedLength> m_height { SVGAnimatedLength::create(this, SVGLengthMode::Height) };
 
     bool m_haveFiredLoadEvent { false };
     bool m_errorOccurred { false };
     bool m_shadowTreeNeedsUpdate { true };
     CachedResourceHandle<CachedSVGDocument> m_externalDocument;
-    Timer m_loadEventTimer;
 };
 
 }

@@ -431,7 +431,7 @@ using TextShadows = Shadows<TextShadow>;
 using TransformOriginX = PositionX;
 using TransformOriginXY = Position;
 using TransformOriginY = PositionY;
-using TransformOriginZ = Length<>;
+using TransformOriginZ = Length<CSS::AllUnzoomed>;
 using Transitions = CoordinatedValueList<Transition>;
 using ViewTimelines = CoordinatedValueList<ViewTimeline>;
 using WebkitBorderSpacing = Length<CSS::NonnegativeUnzoomed>;
@@ -568,8 +568,8 @@ public:
 #if ENABLE(TEXT_AUTOSIZING)
     // MARK: - Text Autosizing
 
-    AutosizeStatus autosizeStatus() const;
-    void setAutosizeStatus(AutosizeStatus);
+    AutosizeStatus NODELETE autosizeStatus() const;
+    void NODELETE setAutosizeStatus(AutosizeStatus);
 
 #endif
 
@@ -578,7 +578,7 @@ public:
     inline std::optional<PseudoElementType> pseudoElementType() const;
     const AtomString& pseudoElementNameArgument() const;
 
-    std::optional<PseudoElementIdentifier> pseudoElementIdentifier() const;
+    std::optional<PseudoElementIdentifier> NODELETE pseudoElementIdentifier() const;
     void setPseudoElementIdentifier(std::optional<PseudoElementIdentifier>&&);
 
     inline bool hasAnyPublicPseudoStyles() const;
@@ -610,9 +610,6 @@ public:
     inline bool evaluationTimeZoomEnabled() const;
     inline void setEvaluationTimeZoomEnabled(bool);
 
-    inline float deviceScaleFactor() const;
-    inline void setDeviceScaleFactor(float);
-
     inline bool useSVGZoomRulesForLength() const;
     inline void setUseSVGZoomRulesForLength(bool);
 
@@ -627,16 +624,16 @@ public:
     WEBCORE_EXPORT FontCascade& mutableFontCascadeWithoutUpdate();
     void setFontCascade(FontCascade&&);
 
-    WEBCORE_EXPORT const FontCascadeDescription& fontDescription() const;
+    WEBCORE_EXPORT const FontCascadeDescription& NODELETE fontDescription() const;
     WEBCORE_EXPORT FontCascadeDescription& mutableFontDescriptionWithoutUpdate();
     WEBCORE_EXPORT void setFontDescription(FontCascadeDescription&&);
     bool setFontDescriptionWithoutUpdate(FontCascadeDescription&&);
 
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const;
-    std::pair<FontOrientation, NonCJKGlyphOrientation> fontAndGlyphOrientation();
-    float computedFontSize() const;
+    std::pair<FontOrientation, NonCJKGlyphOrientation> NODELETE fontAndGlyphOrientation();
+    float NODELETE computedFontSize() const;
     inline WebkitLocale computedLocale() const;
-    const LineHeight& specifiedLineHeight() const;
+    const LineHeight& NODELETE specifiedLineHeight() const;
 #if ENABLE(TEXT_AUTOSIZING)
     void setSpecifiedLineHeight(LineHeight&&);
 #endif
@@ -654,7 +651,7 @@ public:
 
     // MARK: - Used Counter Directives
 
-    const CounterDirectiveMap& usedCounterDirectives() const;
+    const CounterDirectiveMap& NODELETE usedCounterDirectives() const;
     void updateUsedCounterIncrementDirectives();
     void updateUsedCounterResetDirectives();
     void updateUsedCounterSetDirectives();

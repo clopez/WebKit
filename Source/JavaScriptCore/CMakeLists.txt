@@ -1065,6 +1065,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ConstructData.h
     runtime/ConstructorKind.h
     runtime/ControlFlowProfiler.h
+    runtime/CrossTaskToken.h
     runtime/CustomGetterSetter.h
     runtime/DOMAnnotation.h
     runtime/DataView.h
@@ -1267,6 +1268,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/LeafExecutable.h
     runtime/Lookup.h
     runtime/MachineContext.h
+    runtime/MarkedVector.h
     runtime/MatchResult.h
     runtime/MathCommon.h
     runtime/MathObject.h
@@ -1423,6 +1425,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     tools/LLVMProfiling.h
     tools/SourceProfiler.h
 
+    wasm/WasmAddressType.h
     wasm/WasmBaselineData.h
     wasm/WasmBranchHints.h
     wasm/WasmCallProfile.h
@@ -1488,6 +1491,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/js/WebAssemblySuspending.h
     wasm/js/JSWebAssemblyTable.h
     wasm/js/WebAssemblyBuiltin.h
+    wasm/js/WebAssemblyCompileOptions.h
     wasm/js/WebAssemblyFunction.h
     wasm/js/WebAssemblyFunctionBase.h
     wasm/js/WebAssemblyGCStructure.h

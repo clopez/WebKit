@@ -227,7 +227,7 @@ SkSurface* AcceleratedSurface::RenderTargetShareableBuffer::skiaSurface()
         if (!skiaGLContext->makeContextCurrent())
             return nullptr;
 
-        SkSurfaceProps properties { 0, FontRenderOptions::singleton().subpixelOrder() };
+        SkSurfaceProps properties = FontRenderOptions::singleton().createSurfaceProps();
         auto skiaSurface = SkSurfaces::WrapBackendRenderTarget(
             display.skiaGrContext(),
             renderTargetSkia,
@@ -1166,10 +1166,7 @@ void AcceleratedSurface::sendFrame()
 #if ENABLE(DAMAGE_TRACKING)
 void AcceleratedSurface::setFrameDamage(Damage&& damage)
 {
-    if (!damage.isEmpty())
-        m_frameDamage = WTF::move(damage);
-    else
-        m_frameDamage = std::nullopt;
+    m_frameDamage = WTF::move(damage);
 }
 
 const std::optional<Damage>& AcceleratedSurface::renderTargetDamage()

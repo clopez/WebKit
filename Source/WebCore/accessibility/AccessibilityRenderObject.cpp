@@ -77,6 +77,7 @@
 #include "HTMLSummaryElement.h"
 #include "HTMLTableElement.h"
 #include "HTMLTextAreaElement.h"
+#include "HTMLVideoElement.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
@@ -152,7 +153,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static Node* nodeForRenderer(RenderObject& renderer)
+static Node* NODELETE nodeForRenderer(RenderObject& renderer)
 {
     if (!renderer.isRenderView()) [[likely]]
         return renderer.node();
@@ -2347,9 +2348,11 @@ RefPtr<AXCoreObject> AccessibilityRenderObject::accessibilityHitTest(const IntPo
     if (!m_renderer || !m_renderer->hasLayer())
         return nullptr;
 
-    // Adjust point for the remoteFrameOffset
     IntPoint adjustedPoint = point;
+#if !ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    // Adjust point for the remoteFrameOffset.
     adjustedPoint.moveBy(-remoteFrameOffset());
+#endif
 
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AccessibilityHitTest };
     HitTestResult hitTestResult { adjustedPoint };
@@ -3267,7 +3270,7 @@ bool AccessibilityRenderObject::isAutoplayEnabled() const
 
 void AccessibilityRenderObject::enterFullscreen() const
 {
-    AccessibilityMediaHelpers::enterFullscreen(videoElement());
+    AccessibilityMediaHelpers::enterFullscreen(protect(videoElement()));
 }
 #endif // PLATFORM(IOS_FAMILY)
 

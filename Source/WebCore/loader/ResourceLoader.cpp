@@ -290,10 +290,9 @@ void ResourceLoader::setDefersLoading(bool defers)
 
 FrameLoader* ResourceLoader::frameLoader() const
 {
-    RefPtr frame = m_frame.get();
-    if (!frame)
-        return nullptr;
-    return &frame->loader();
+    if (m_frame)
+        return &m_frame->loader();
+    return nullptr;
 }
 
 void ResourceLoader::loadDataURL()
@@ -409,8 +408,9 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     RefPtr documentLoader = m_documentLoader;
     if (!redirectResponse.isNull() && frameLoader && page && userContentProvider && documentLoader) {
         auto results = userContentProvider->processContentRuleListsForLoad(*page, request.url(), m_resourceType, *documentLoader, redirectResponse.url());
+        bool shouldBlock = results.shouldBlock();
         ContentExtensions::applyResultsToRequest(WTF::move(results), page.get(), request);
-        if (results.shouldBlock()) {
+        if (shouldBlock) {
             RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: resource load canceled because of content blocker");
             didFail(blockedByContentBlockerError());
             completionHandler({ });

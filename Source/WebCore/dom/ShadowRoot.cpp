@@ -69,7 +69,7 @@ struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
 };
 
 static_assert(sizeof(ShadowRoot) == sizeof(SameSizeAsShadowRoot), "shadowroot should stay small");
-#if !ASSERT_ENABLED
+#if !ASSERT_ENABLED && ASSERT_WITH_SECURITY_IMPLICATION_DISABLED
 static_assert(sizeof(WeakPtr<Element, WeakPtrImplWithEventTargetData>) == sizeof(void*), "WeakPtr should be same size as raw pointer");
 #endif
 
@@ -318,13 +318,6 @@ void ShadowRoot::removeAllEventListeners()
     DocumentFragment::removeAllEventListeners();
     for (RefPtr node = firstChild(); node; node = NodeTraversal::next(*node))
         node->removeAllEventListeners();
-}
-
-
-HTMLSlotElement* ShadowRoot::findAssignedSlot(const Node& node)
-{
-    ASSERT(node.parentNode() == host());
-    return m_slotAssignment ? m_slotAssignment->findAssignedSlot(node) : nullptr;
 }
 
 void ShadowRoot::renameSlotElement(HTMLSlotElement& slot, const AtomString& oldName, const AtomString& newName)

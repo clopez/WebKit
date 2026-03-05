@@ -85,9 +85,9 @@ protected:
     void dispatchLoadEvent();
 
 private:
-    SVGElement& contextElement() const;
+    SVGElement& NODELETE contextElement() const;
 
-    Ref<SVGAnimatedString> m_href;
+    const Ref<SVGAnimatedString> m_href;
 };
 
 } // namespace WebCore

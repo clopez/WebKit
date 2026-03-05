@@ -47,9 +47,6 @@ public:
     Ref<SVGMatrix> getScreenCTMForBindings();
     AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate) override;
 
-    SVGElement* nearestViewportElement() const override;
-    SVGElement* farthestViewportElement() const override;
-
     AffineTransform localCoordinateSpaceTransform(CTMScope mode) const override { return SVGTransformable::localCoordinateSpaceTransform(mode); }
     AffineTransform animatedLocalTransform() const override;
     AffineTransform* ensureSupplementalTransform() override;
@@ -71,7 +68,7 @@ public:
 
     using PropertyRegistry = SVGPropertyOwnerRegistry<SVGGraphicsElement, SVGElement, SVGTests>;
 
-    const SVGTransformList& transform() const { return m_transform->currentValue(); }
+    const SVGTransformList& transform() const LIFETIME_BOUND { return m_transform->currentValue(); }
     SVGAnimatedTransformList& transformAnimated() { return m_transform; }
 
 protected:
@@ -92,7 +89,7 @@ private:
     // Used to isolate blend operations caused by masking.
     bool m_shouldIsolateBlending { false };
 
-    Ref<SVGAnimatedTransformList> m_transform;
+    const Ref<SVGAnimatedTransformList> m_transform;
 };
 
 } // namespace WebCore

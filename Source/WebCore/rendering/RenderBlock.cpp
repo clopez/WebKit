@@ -1920,7 +1920,7 @@ LayoutUnit RenderBlock::adjustLogicalLeftOffsetForLine(LayoutUnit offsetFromFloa
         return left;
 
     // FIXME: Should letter-spacing apply? This is complicated since it doesn't apply at the edge?
-    float maxCharWidth = lineGrid->style().fontCascade().primaryFont()->maxCharWidth();
+    float maxCharWidth = lineGrid->style().fontCascade().primaryFont().maxCharWidth();
     if (!maxCharWidth)
         return left;
 
@@ -1957,7 +1957,7 @@ LayoutUnit RenderBlock::adjustLogicalRightOffsetForLine(LayoutUnit offsetFromFlo
         return right;
 
     // FIXME: Should letter-spacing apply? This is complicated since it doesn't apply at the edge?
-    float maxCharWidth = lineGrid->style().fontCascade().primaryFont()->maxCharWidth();
+    float maxCharWidth = lineGrid->style().fontCascade().primaryFont().maxCharWidth();
     if (!maxCharWidth)
         return right;
 
@@ -1996,8 +1996,8 @@ Node* RenderBlock::nodeForHitTest() const
             for (auto& element : document().topLayerElements()) {
                 if (!element->renderer())
                     continue;
-                ASSERT(element->renderer()->backdropRenderer());
-                if (element->renderer()->backdropRenderer() == this)
+                ASSERT(element->renderer()->pseudoElementRenderer(PseudoElementType::Backdrop));
+                if (element->renderer()->pseudoElementRenderer(PseudoElementType::Backdrop) == this)
                     return element.ptr();
             }
             ASSERT_NOT_REACHED();

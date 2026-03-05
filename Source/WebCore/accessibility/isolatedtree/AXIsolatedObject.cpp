@@ -255,7 +255,7 @@ void AXIsolatedObject::detachRemoteParts(AccessibilityDetachmentType)
 
     for (const auto& childID : m_unresolvedChildrenIDs) {
         // Also loop through unresolved IDs in case they have become resolved.
-        if (RefPtr child = tree()->objectForID(childID))
+        if (RefPtr child = tree().objectForID(childID))
             child->detachFromParent();
     }
     m_unresolvedChildrenIDs.clear();
@@ -294,7 +294,7 @@ const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool
         unsigned index = 0;
         Vector<AXID> unresolvedIDs;
         m_children = WTF::compactMap(m_unresolvedChildrenIDs, [&] (auto& childID) -> std::optional<Ref<AXCoreObject>> {
-            if (RefPtr child = tree()->objectForID(childID)) {
+            if (RefPtr child = tree().objectForID(childID)) {
                 if (setChildIndexInParent(*child, index))
                     ++index;
                 return child.releaseNonNull();
@@ -305,7 +305,7 @@ const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool
         m_childrenDirty = false;
         m_unresolvedChildrenIDs = WTF::move(unresolvedIDs);
         // Having any unresolved children IDs at this point means we should've had a child / children, but they didn't
-        // exist in tree()->objectForID(), so we were never able to hydrate it into an object.
+        // exist in tree().objectForID(), so we were never able to hydrate it into an object.
         AX_BROKEN_ASSERT(m_unresolvedChildrenIDs.isEmpty());
 
 #ifndef NDEBUG
@@ -355,7 +355,7 @@ AXIsolatedObject* AXIsolatedObject::cellForColumnAndRow(unsigned columnIndex, un
         },
         [] (auto&) -> std::optional<AXID> { return std::nullopt; }
     );
-    return tree()->objectForID(cellID);
+    return tree().objectForID(cellID);
 }
 
 void AXIsolatedObject::accessibilityText(Vector<AccessibilityText>& texts) const
@@ -391,9 +391,9 @@ void AXIsolatedObject::insertMathPairs(Vector<std::pair<Markable<AXID>, Markable
 {
     for (const auto& pair : isolatedPairs) {
         AccessibilityMathMultiscriptPair prescriptPair;
-        if (RefPtr object = tree()->objectForID(pair.first))
+        if (RefPtr object = tree().objectForID(pair.first))
             prescriptPair.first = object.get();
-        if (RefPtr object = tree()->objectForID(pair.second))
+        if (RefPtr object = tree().objectForID(pair.second))
             prescriptPair.second = object.get();
         pairs.append(prescriptPair);
     }
@@ -586,9 +586,9 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
         return approximateHitTest(point);
 
     // Check if we have a cached result for this point.
-    RefPtr geometryManager = tree()->geometryManager();
+    RefPtr geometryManager = tree().geometryManager();
     if (auto cachedID = geometryManager ? geometryManager->cachedHitTestResult(point) : std::nullopt)
-        return tree()->objectForID(*cachedID);
+        return tree().objectForID(*cachedID);
 
     struct HitTestResult {
         AXID resultID;
@@ -630,7 +630,7 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
                     geometryManager->expandHitTestCacheAroundPoint(point, *treeID());
                 }
             }
-            return tree()->objectForID(result.resultID);
+            return tree().objectForID(result.resultID);
         }
         return nullptr;
     }
@@ -656,7 +656,9 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
     }
 
     IntPoint adjustedPoint = point;
+#if !ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     adjustedPoint.moveBy(-remoteFrameOffset());
+#endif
 
     if (!bounds.contains(adjustedPoint) && !bounds.isEmpty()) {
         // If our bounds are empty, we cannot possibly contain the hit-point. However, this may happen
@@ -700,7 +702,7 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
 
     if (result) {
         if (std::optional stitchedIntoID = result->stitchedIntoID()) {
-            if (RefPtr stitchRepresentative = tree()->objectForID(*stitchedIntoID))
+            if (RefPtr stitchRepresentative = tree().objectForID(*stitchedIntoID))
                 return stitchRepresentative;
         }
     }
@@ -737,7 +739,7 @@ AXIsolatedObject* AXIsolatedObject::objectAttributeValue(AXProperty property) co
     if (index == notFound)
         return nullptr;
 
-    return tree()->objectForID(WTF::switchOn(m_properties[index].second,
+    return tree().objectForID(WTF::switchOn(m_properties[index].second,
         [] (const Markable<AXID>& typedValue) -> std::optional<AXID> { return typedValue; },
         [] (auto&) { return std::optional<AXID> { }; }
     ));
@@ -1053,7 +1055,7 @@ void AXIsolatedObject::fillChildrenVectorForProperty(AXProperty property, Access
     Vector<AXID> childIDs = vectorAttributeValue<AXID>(property);
     children.reserveCapacity(childIDs.size());
     for (const auto& childID : childIDs) {
-        if (RefPtr object = tree()->objectForID(childID))
+        if (RefPtr object = tree().objectForID(childID))
             children.append(object.releaseNonNull());
     }
 }
@@ -1062,10 +1064,16 @@ void AXIsolatedObject::updateBackingStore()
 {
     AX_ASSERT(!isMainThread());
 
+    if (AXIsolatedTree::anyTreeNeedsTearDown()) [[unlikely]] {
+        AXTreeStore<AXIsolatedTree>::applyPendingChangesForAllIsolatedTrees();
+        // Lean on the assumption that applyPendingChangesForAllIsolatedTrees() clears this
+        // flag (as it should) so we aren't constantly re-entering this branch for no reason.
+        AX_ASSERT(!AXIsolatedTree::anyTreeNeedsTearDown());
+        return;
+    }
+
     if (RefPtr tree = this->tree())
         tree->applyPendingChanges();
-    // AXIsolatedTree::applyPendingChanges can cause this object and / or the AXIsolatedTree to be destroyed.
-    // Make sure to protect `this` with a Ref before adding more logic to this function.
 }
 
 std::optional<SimpleRange> AXIsolatedObject::rangeForCharacterRange(const CharacterRange& axRange) const
@@ -1078,7 +1086,7 @@ std::optional<SimpleRange> AXIsolatedObject::rangeForCharacterRange(const Charac
 #if PLATFORM(MAC)
 AXTextMarkerRange AXIsolatedObject::selectedTextMarkerRange() const
 {
-    return tree()->selectedTextMarkerRange();
+    return tree().selectedTextMarkerRange();
 }
 #endif // PLATFORM(MAC)
 
@@ -1170,7 +1178,7 @@ LayoutRect AXIsolatedObject::elementRect() const
 
 IntPoint AXIsolatedObject::remoteFrameOffset() const
 {
-    RefPtr root = tree()->rootNode();
+    RefPtr root = tree().rootNode();
     return root ? root->propertyValue<IntPoint>(AXProperty::RemoteFrameOffset) : IntPoint();
 }
 
@@ -1187,6 +1195,18 @@ FloatRect AXIsolatedObject::screenRelativeRect() const
         return { *point, size() };
     return convertFrameToSpace(relativeFrame(), AccessibilityConversionSpace::Screen);
 }
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+IntPoint AXIsolatedObject::frameScreenPosition() const
+{
+    return tree().frameGeometry().screenPosition;
+}
+
+AffineTransform AXIsolatedObject::frameScreenTransform() const
+{
+    return tree().frameGeometry().screenTransform;
+}
+#endif
 
 static Seconds relativeFrameTimeout(bool shouldServeInitialFrame)
 {
@@ -1332,13 +1352,31 @@ FloatRect AXIsolatedObject::relativeFrameFromChildren() const
 FloatRect AXIsolatedObject::convertFrameToSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
 {
     if (space == AccessibilityConversionSpace::Screen) {
-        if (RefPtr rootNode = tree()->rootNode()) {
+#if !PLATFORM(MAC)
+        // This function assumes we are in macOS coordinate space (bottom-left origin).
+        // If this code ever runs on iOS, it will be wrong and need to be fixed.
+        AX_ASSERT_NOT_REACHED();
+#endif
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+        auto screenPosition = frameScreenPosition();
+        auto screenTransform = frameScreenTransform();
+        auto scaledRect = screenTransform.mapRect(rect);
+
+        // Screen coordinates use bottom-left origin (on macOS).
+        FloatPoint position = {
+            screenPosition.x() + scaledRect.x(),
+            screenPosition.y() - scaledRect.maxY()
+        };
+        return { position, scaledRect.size() };
+#else
+        if (RefPtr rootNode = tree().rootNode()) {
             auto rootPoint = rootNode->propertyValue<FloatPoint>(AXProperty::ScreenRelativePosition);
             auto rootRelativeFrame = rootNode->relativeFrame();
             // Relative frames are top-left origin, but screen relative positions are bottom-left origin.
             FloatPoint position = { rootPoint.x() + rect.x(), rootPoint.y() + (rootRelativeFrame.maxY() - rect.maxY()) };
             return { WTF::move(position), rect.size() };
         }
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     }
 
     return Accessibility::retrieveValueFromMainThreadWithTimeoutAndDefault([&rect, &space, context = mainThreadContext()] () -> FloatRect {
@@ -1649,7 +1687,7 @@ bool AXIsolatedObject::isFocused() const
         // the corresponding document's frame selection is focused and active.
         return boolAttributeValue(AXProperty::IsFocusedWebArea);
     }
-    return tree()->focusedNodeID() == objectID();
+    return tree().focusedNodeID() == objectID();
 }
 
 bool AXIsolatedObject::isSelectedOptionActive() const
@@ -1730,7 +1768,7 @@ AXTextMarkerRange AXIsolatedObject::textInputMarkedTextMarkerRange() const
         [&] (const std::unique_ptr<AXIDAndCharacterRange>& typedValue) -> AXTextMarkerRange {
             auto start = static_cast<unsigned>(typedValue->second.location);
             auto end = start + static_cast<unsigned>(typedValue->second.length);
-            return { tree()->treeID(), typedValue->first, start, end };
+            return { tree().treeID(), typedValue->first, start, end };
         },
         [] (auto&) -> AXTextMarkerRange { return { }; }
     );
@@ -1784,18 +1822,12 @@ AXIsolatedObject* AXIsolatedObject::crossFrameChildObject() const
         return nullptr;
 
     auto frameID = optionalAttributeValue<FrameIdentifier>(AXProperty::CrossFrameChildFrameID);
-    if (!frameID)
-        return nullptr;
-
-    RefPtr<AXIsolatedTree> childTree;
     // FIXME: We don't actually hold the lock here.
-    childTree = AXIsolatedTree::treeForFrameIDAlreadyLocked(*frameID);
-    if (!childTree)
-        return nullptr;
-
-    childTree->applyPendingChanges();
-
-    return childTree->rootNode();
+    if (RefPtr childTree = frameID ? AXIsolatedTree::treeForFrameIDAlreadyLocked(*frameID) : nullptr) {
+        childTree->applyPendingChanges();
+        return childTree->rootNode();
+    }
+    return nullptr;
 }
 
 #endif // ENABLE_ACCESSIBILITY_LOCAL_FRAME
@@ -1948,7 +1980,7 @@ unsigned AXIsolatedObject::textLength() const
 AXObjectCache* AXIsolatedObject::axObjectCache() const
 {
     AX_ASSERT(isMainThread());
-    return tree()->axObjectCache();
+    return tree().axObjectCache();
 }
 
 Element* AXIsolatedObject::actionElement() const
@@ -2013,8 +2045,8 @@ LocalFrameView* AXIsolatedObject::documentFrameView() const
 
 AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::relatedObjects(AXRelation relation) const
 {
-    if (auto relatedObjectIDs = tree()->relatedObjectIDsFor(*this, relation))
-        return tree()->objectsForIDs(*relatedObjectIDs);
+    if (auto relatedObjectIDs = tree().relatedObjectIDsFor(*this, relation))
+        return tree().objectsForIDs(*relatedObjectIDs);
     return { };
 }
 

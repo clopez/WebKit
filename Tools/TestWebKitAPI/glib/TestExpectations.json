@@ -205,24 +205,13 @@
         }
     },
     "TestInspector": {
-        "subtests": {
-           "/webkit/WebKitWebInspector/custom-container-destroyed": {
-              "expected": {"gtk": {"status": ["TIMEOUT"], "bug": "webkit.org/b/299598"}}
-           },
-           "/webkit/WebKitWebInspector/manual-attach-detach": {
-              "expected": {"gtk": {"status": ["TIMEOUT"], "bug": "webkit.org/b/299598"}}
-           }
-        },
         "expected": {"all": {"slow": true}}
     },
     "TestInspectorServer": {
         "subtests": {
            "/webkit/WebKitWebInspectorServer/test-page-list": {
               "expected": {"gtk": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/216646"}}
-           },
-           "/webkit/WebKitWebInspectorServer/http-test-page-list": {
-            "expected": {"gtk": {"status": ["PASS", "TIMEOUT"], "bug": "webkit.org/b/269586"}}
-          }
+           }
         },
         "expected": {"all": {"slow": true}}
     },

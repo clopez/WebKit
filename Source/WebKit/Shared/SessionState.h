@@ -147,8 +147,18 @@ private:
     Vector<AtomString> m_documentState;
 } SWIFT_SHARED_REFERENCE(refFrameState, derefFrameState);
 
+// FIXME(rdar://171785683): see if this SWIFT_ESCAPABLE can be avoided
+struct BackForwardListItemState {
+    Ref<FrameState> frameState;
+    std::optional<WebCore::FrameIdentifier> navigatedFrameID;
+
+    bool isEqualForTesting(const BackForwardListItemState&) const;
+} SWIFT_ESCAPABLE;
+
+using VectorBackForwardListItemState = Vector<BackForwardListItemState>;
+
 struct BackForwardListState {
-    Vector<Ref<FrameState>> items;
+    Vector<BackForwardListItemState> items;
     std::optional<uint32_t> currentIndex;
 
     bool isEqualForTesting(const BackForwardListState&) const;

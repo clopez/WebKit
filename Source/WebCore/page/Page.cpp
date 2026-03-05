@@ -153,6 +153,7 @@
 #include "RTCController.h"
 #include "Range.h"
 #include "RemoteFrame.h"
+#include "RemoteFrameLayoutInfo.h"
 #include "RenderDescendantIterator.h"
 #include "RenderElementInlines.h"
 #include "RenderImage.h"
@@ -1841,6 +1842,7 @@ void Page::didCommitLoad()
 
     m_hasEverSetVisibilityAdjustment = false;
     m_userHasInteractedSinceLastPageLoad = false;
+    m_userHasInteractedSinceLastPageLoadExcludingForcedUserGestures = false;
 
     m_mainFrameURLFragment = { };
 
@@ -1945,6 +1947,20 @@ void Page::setShouldSuppressScrollbarAnimations(bool suppressAnimations)
     lockAllOverlayScrollbarsToHidden(suppressAnimations);
     m_suppressScrollbarAnimations = suppressAnimations;
 }
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+void Page::setHasBannerViewOverlay(bool hasBannerViewOverlay)
+{
+    if (m_hasBannerViewOverlay == hasBannerViewOverlay)
+        return;
+
+    m_hasBannerViewOverlay = hasBannerViewOverlay;
+
+    RefPtr localMainFrame = this->localMainFrame();
+    if (RefPtr view = localMainFrame ? localMainFrame->view() : nullptr)
+        view->updateExtendBackgroundIfNecessary();
+}
+#endif
 
 void Page::lockAllOverlayScrollbarsToHidden(bool lockOverlayScrollbars)
 {
@@ -2144,6 +2160,31 @@ void NODELETE Page::startTrackingRenderingUpdates()
 unsigned NODELETE Page::renderingUpdateCount() const
 {
     return m_renderingUpdateCount;
+}
+
+void Page::syncLocalFrameInfoToRemote()
+{
+    forEachLocalFrame([] (LocalFrame& frame) {
+        CheckedPtr frameView = frame.view();
+
+        frameView->updateLayoutViewportRect();
+
+        {
+            HashMap<FrameIdentifier, RemoteFrameLayoutInfo> childrenFrameLayoutInfo;
+
+            for (RefPtr child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
+                auto visibleRect = frameView->visibleRectOfChild(*child.get());
+
+                float usedZoom = 1.0;
+                if (CheckedPtr ownerRenderer = child->ownerRenderer())
+                    usedZoom = ownerRenderer->style().usedZoom();
+
+                childrenFrameLayoutInfo.add(child->frameID(), RemoteFrameLayoutInfo { .visibleRectInParent = visibleRect, .usedZoom = usedZoom });
+            }
+
+            frame.loader().client().broadcastChildrenFrameLayoutInfoToOtherProcesses(childrenFrameLayoutInfo);
+        }
+    });
 }
 
 // https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering
@@ -2436,6 +2477,9 @@ void Page::doAfterUpdateRendering()
     }
 
     computeSampledPageTopColorIfNecessary();
+
+    if (settings().siteIsolationEnabled())
+        syncLocalFrameInfoToRemote();
 }
 
 void Page::finalizeRenderingUpdate(OptionSet<FinalizeRenderingUpdateFlags> flags)
@@ -5336,7 +5380,7 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
         auto maximumOffset = frameView->maximumScrollOffset();
 
         bool canSampleTopEdge = settings().topContentInsetBackgroundCanChangeAfterScrolling()
-            || (!frameView->wasEverScrolledExplicitlyByUser() && !m_userHasInteractedSinceLastPageLoad)
+            || (!frameView->wasEverScrolledExplicitlyByUser() && !m_userHasInteractedSinceLastPageLoadExcludingForcedUserGestures)
             || document->parsing();
 
         if (scrollOffset.y() < minimumOffset.y() || !canSampleTopEdge)

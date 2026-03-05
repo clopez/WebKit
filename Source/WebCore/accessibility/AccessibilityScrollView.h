@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/AXObjectCache.h>
 #include <WebCore/AXRemoteFrame.h>
 #include <WebCore/AccessibilityObject.h>
 #include <WebCore/ScrollView.h>
@@ -57,6 +58,13 @@ public:
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     AccessibilityObject* crossFrameParentObject() const final;
     AccessibilityObject* crossFrameChildObject() const final;
+
+    // Returns the screen position and transform for this frame.
+    // Reads from the AXObjectCache's cached value, populated asynchronously via IPC.
+    // On first access when cache is empty, fires an async requestFrameScreenPosition.
+    FrameGeometry frameGeometry() const;
+    IntPoint frameScreenPosition() const final { return frameGeometry().screenPosition; }
+    AffineTransform frameScreenTransform() const final { return frameGeometry().screenTransform; }
 
     void setInheritedFrameState(InheritedFrameState);
     const InheritedFrameState& inheritedFrameState() const { return m_inheritedFrameState; }
@@ -98,8 +106,9 @@ private:
     void setFocused(bool) final;
     bool canSetFocusAttribute() const final;
     bool isFocused() const final;
-    void addLocalFrameChild();
+    void NODELETE addLocalFrameChild();
     void addRemoteFrameChild();
+    const AccessibilityScrollView* frameRootScrollView() const;
 
     Document* document() const final;
     LocalFrameView* documentFrameView() const final;

@@ -253,9 +253,9 @@ public:
 // error state
     WEBCORE_EXPORT MediaError* NODELETE error() const;
 
-    const URL& currentSrc() const { return m_currentSrc; }
+    const URL& currentSrc() const LIFETIME_BOUND { return m_currentSrc; }
 
-    const std::optional<MediaProvider>& srcObject() const { return m_mediaProvider; }
+    const std::optional<MediaProvider>& srcObject() const LIFETIME_BOUND { return m_mediaProvider; }
     void setSrcObject(std::optional<MediaProvider>&&);
 
     WEBCORE_EXPORT String crossOrigin() const;
@@ -514,7 +514,7 @@ public:
     bool taintsOrigin(const SecurityOrigin&) const;
     
     WEBCORE_EXPORT bool isFullscreen() const override;
-    bool isInFullscreenOrPictureInPicture() const;
+    WEBCORE_EXPORT bool isInFullscreenOrPictureInPicture() const;
     bool isStandardFullscreen() const;
     void toggleStandardFullscreenState();
 
@@ -883,7 +883,7 @@ private:
     CachedResourceLoader* mediaPlayerCachedResourceLoader() const override;
     Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() override;
     bool mediaPlayerShouldUsePersistentCache() const override;
-    const String& mediaPlayerMediaCacheDirectory() const override;
+    String mediaPlayerMediaCacheDirectory() const override;
 
     void mediaPlayerActiveSourceBuffersChanged() override;
 
@@ -1154,7 +1154,7 @@ private:
     void updatePlayerDynamicRangeLimit() const;
 
     bool NODELETE shouldLogWatchtimeEvent() const;
-    bool isWatchtimeTimerActive() const;
+    bool NODELETE isWatchtimeTimerActive() const;
     void startWatchtimeTimer();
     void pauseWatchtimeTimer();
     void fireAndRestartWatchtimeTimer();

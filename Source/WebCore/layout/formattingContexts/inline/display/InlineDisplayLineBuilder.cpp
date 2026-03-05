@@ -141,7 +141,7 @@ InlineDisplay::Line InlineDisplayLineBuilder::build(const LineLayoutResult& line
         if (lineLayoutResult.hasContentfulInFlowContent())
             return true;
         for (auto& run : lineLayoutResult.runs) {
-            if (!run.isOpaque())
+            if (!run.isOutOfFlow())
                 return true;
         }
         return false;
@@ -350,7 +350,7 @@ static std::optional<FloatRect> trailingEllipsisVisualRectAfterTruncation(LineEn
     return FloatRect { rootInlineBox.left(), ellipsisStart, rootInlineBox.width(), ellipsisWidth };
 }
 
-static inline bool isEligibleForLinkBoxLineClamp(auto& displayBoxes)
+static inline bool NODELETE isEligibleForLinkBoxLineClamp(auto& displayBoxes)
 {
     if (displayBoxes.size() < 3) {
         // We need at least 3 display boxes to generate content with link ([root inline box][inline box][content])

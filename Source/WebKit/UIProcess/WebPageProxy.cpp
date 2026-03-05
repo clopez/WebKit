@@ -464,9 +464,7 @@
 #endif
 
 // FIXME: https://bugs.webkit.org/show_bug.cgi?id=306415
-#if ENABLE(SWIFT_DEMO_URI_SCHEME) || ENABLE(IPC_TESTING_SWIFT) || ENABLE(BACK_FORWARD_LIST_SWIFT)
 #include "WebKit-Swift.h"
-#endif
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 #include "RemoteAudioSessionConfiguration.h"
@@ -1540,6 +1538,11 @@ void WebPageProxy::showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifie
     }
 
     completionHandler(makeUnexpected<WebCore::ExceptionData>({ ExceptionCode::NotSupportedError, "Caption Display Settings are not supported."_s }));
+}
+
+void WebPageProxy::setCaptionDisplaySettingsPreviewProfileID(const FrameInfoData& frameInfo, const String& profileID)
+{
+    sendToProcessContainingFrame(frameInfo.frameID, Messages::WebPage::SetCaptionDisplaySettingsPreviewProfileID(profileID));
 }
 
 void WebPageProxy::showCaptionDisplaySettingsPreview(const FrameInfoData& frameInfo, WebCore::HTMLMediaElementIdentifier identifier)
@@ -2912,6 +2915,21 @@ const WebCore::FloatBoxExtent& WebPageProxy::obscuredContentInsets() const
     return m_internals->obscuredContentInsets;
 }
 
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+void WebPageProxy::setHasBannerViewOverlay(bool hasBannerViewOverlay)
+{
+    if (m_internals->hasBannerViewOverlay == hasBannerViewOverlay)
+        return;
+
+    m_internals->hasBannerViewOverlay = hasBannerViewOverlay;
+
+    if (!hasRunningProcess())
+        return;
+
+    send(Messages::WebPage::SetHasBannerViewOverlay(hasBannerViewOverlay));
+}
+#endif
+
 Color WebPageProxy::underlayColor() const
 {
     return internals().underlayColor;
@@ -4009,13 +4027,14 @@ void WebPageProxy::dragEnded(const IntPoint& clientPosition, const IntPoint& glo
     setDragCaretRect({ });
 }
 
-void WebPageProxy::didStartDrag()
+void WebPageProxy::didStartDrag(const std::optional<FrameIdentifier>& targetFrameID)
 {
     if (!hasRunningProcess())
         return;
 
     discardQueuedMouseEvents();
-    send(Messages::WebPage::DidStartDrag());
+
+    sendToProcessContainingFrame(targetFrameID, Messages::WebPage::DidStartDrag(targetFrameID));
 }
 
 void WebPageProxy::dragCancelled()
@@ -4119,6 +4138,10 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
 
     if (!m_mainFrame)
         return;
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    WTFBeginSignpost(event.signpostIdentifier(), HandleMouseEvent, "id: %" PRIuPTR ", type: %s", event.signpostIdentifier(), toString(event.type()).characters());
+#endif
 
 #if ENABLE(CONTEXT_MENU_EVENT)
     if (event.button() == WebMouseEventButton::Right && event.type() == WebEventType::MouseDown) {
@@ -5624,8 +5647,9 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
             loadParameters = WTF::move(loadParameters),
             newProcess = newProcess.copyRef(),
             preventProcessShutdownScope = newProcess->shutdownPreventingScope()
-        ] (PageIdentifier pageID) mutable {
-            newProcess->send(Messages::WebPage::LoadRequest(WTF::move(loadParameters)), pageID);
+        ](std::optional<PageIdentifier> pageID) mutable {
+            if (pageID)
+                newProcess->send(Messages::WebPage::LoadRequest(WTF::move(loadParameters)), *pageID);
         });
         return;
     }
@@ -7980,8 +8004,12 @@ void WebPageProxy::broadcastFrameTreeSyncData(IPC::Connection& connection, Frame
 
     // FIXME: This could instead be an option in FrameTreeSyncData.in to allow
     // certain properties to be mutable from non-frame-owning processes.
-    if (frameTreePropertyIsRestrictedToFrameOwningProcess(data.type))
-        MESSAGE_CHECK(process, &webFrameProxy->process() == &process.get());
+    if (frameTreePropertyIsRestrictedToFrameOwningProcess(data.type)) {
+        if (&webFrameProxy->process() != &process.get()) {
+            // FIXME: make this a MESSAGE_CHECK.
+            return;
+        }
+    }
 
     if (data.type == WebCore::FrameTreeSyncDataType::FrameRect)
         webFrameProxy->setRemoteFrameRect(std::get<IntRect>(data.value));
@@ -8468,8 +8496,37 @@ static bool NODELETE frameSandboxAllowsOpeningExternalCustomProtocols(SandboxFla
 }
 #endif
 
-void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& process, WebFrameProxy& frame, NavigationActionData&& navigationActionData, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
+RefPtr<FrameState> WebPageProxy::frameStateForBackForwardChildFrame(WebFrameProxy& frame, WebCore::BackForwardItemIdentifier targetBackForwardItemIdentifier)
 {
+    auto index = frame.indexInFrameTreeSiblings();
+    if (!index)
+        return nullptr;
+
+    return backForwardList().findFrameStateInItem(targetBackForwardItemIdentifier, frame.parentFrame()->frameID(), *index);
+}
+
+void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& process, WebFrameProxy& frame, NavigationActionData&& navigationActionData, CompletionHandler<void(PolicyDecision&&)>&& originalCompletionHandler)
+{
+    RefPtr<FrameState> frameStateForBackForwardNavigation;
+    if (protect(preferences())->useUIProcessForBackForwardItemLoading() && navigationActionData.navigationType == WebCore::NavigationType::BackForward && navigationActionData.targetBackForwardItemIdentifier) {
+        if (RefPtr frameState = frameStateForBackForwardChildFrame(frame, *navigationActionData.targetBackForwardItemIdentifier)) {
+            WEBPAGEPROXY_RELEASE_LOG(Loading, "frameStateForBackForwardChildFrame: Back/Forward child frame, rewriting URL to %" SENSITIVE_LOG_STRING, frameState->urlString.utf8().data());
+            navigationActionData.request.setURL(URL { frameState->urlString });
+
+            frameStateForBackForwardNavigation = WTF::move(frameState);
+        }
+    }
+
+    // Wrap completionHandler to include FrameState in response.
+    auto completionHandler = [
+        originalCompletionHandler = WTF::move(originalCompletionHandler),
+        frameStateForBackForwardNavigation = WTF::move(frameStateForBackForwardNavigation)
+    ](PolicyDecision&& policyDecision) mutable {
+        if (frameStateForBackForwardNavigation && (policyDecision.policyAction == PolicyAction::Use))
+            policyDecision.backForwardFrameState = WTF::move(frameStateForBackForwardNavigation);
+        originalCompletionHandler(WTF::move(policyDecision));
+    };
+
     auto frameInfo = navigationActionData.frameInfo;
     auto navigationID = navigationActionData.navigationID;
     auto originatingFrameInfoData = navigationActionData.originatingFrameInfoData;
@@ -9812,6 +9869,36 @@ void WebPageProxy::rootViewToAccessibilityScreen(const IntRect& viewRect, Comple
         return completionHandler({ });
     completionHandler(pageClient->rootViewToAccessibilityScreen(viewRect));
 }
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+void WebPageProxy::requestFrameScreenPosition(FrameIdentifier frameID)
+{
+    static constexpr float unitRectSize = 1000;
+    convertRectToMainFrameCoordinates(FloatRect(0, 0, unitRectSize, unitRectSize), frameID, [weakThis = WeakPtr { *this }, frameID](std::optional<FloatRect> finalRect) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !finalRect)
+            return;
+
+        RefPtr pageClient = protectedThis->pageClient();
+        if (!pageClient)
+            return;
+
+        auto screenRect = pageClient->rootViewToAccessibilityScreen(enclosingIntRect(*finalRect));
+
+        FrameGeometry geometry;
+#if PLATFORM(MAC)
+        // On macOS, NSRect origin is the bottom-left corner, so screenRect.location()
+        // is offset downward by the rect's height. Add it back to get the content origin.
+        geometry.screenPosition = { screenRect.x(), screenRect.y() + screenRect.height() };
+#else
+        geometry.screenPosition = screenRect.location();
+#endif
+        geometry.screenTransform = AffineTransform::makeScale({ screenRect.width() / unitRectSize, screenRect.height() / unitRectSize });
+
+        protectedThis->sendToProcessContainingFrame(frameID, Messages::WebPage::UpdateRemotePageAccessibilityScreenPosition(frameID, geometry));
+    });
+}
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
 
 void WebPageProxy::runBeforeUnloadConfirmPanel(IPC::Connection& connection, FrameIdentifier frameID, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void(bool)>&& reply)
 {
@@ -11590,6 +11677,15 @@ void WebPageProxy::mouseEventHandlingCompleted(std::optional<WebEventType> event
 #endif
     }
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    WTFEndSignpost(event.signpostIdentifier(), HandleMouseEvent);
+    for (auto& coalescedEvent : event.coalescedEvents()) {
+        if (coalescedEvent.signpostIdentifier() == event.signpostIdentifier())
+            continue;
+        WTFEndSignpost(coalescedEvent.signpostIdentifier(), HandleMouseEvent);
+    }
+#endif
+
     if (!internals().mouseEventQueue.isEmpty()) {
         LOG(MouseHandling, " UIProcess: handling a queued mouse event from mouseEventHandlingCompleted");
         processNextQueuedMouseEvent();
@@ -12577,6 +12673,9 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.textZoomFactor = m_textZoomFactor;
     parameters.pageZoomFactor = m_pageZoomFactor;
     parameters.obscuredContentInsets = m_internals->obscuredContentInsets;
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    parameters.hasBannerViewOverlay = m_internals->hasBannerViewOverlay;
+#endif
     parameters.mediaVolume = m_mediaVolume;
     parameters.muted = internals().mutedState;
     parameters.openedByDOM = m_openedByDOM;
@@ -12820,6 +12919,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.textManipulationParameters = m_internals->textManipulationParameters;
 
     parameters.accessibilityEnabled = m_accessibilityEnabled;
+    parameters.shouldForceSiteIsolationAlwaysOnForTesting = WebPreferences::forcedSiteIsolationAlwaysOnForTesting();
 
     return parameters;
 }
@@ -16792,11 +16892,24 @@ void WebPageProxy::clearAppPrivacyReportTestingData(CompletionHandler<void()>&& 
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
-void WebPageProxy::beginTextRecognitionForVideoInElementFullScreen(ShareableBitmap::Handle&& bitmapHandle, FloatRect bounds)
+void WebPageProxy::beginTextRecognitionForVideoInElementFullScreen(PlaybackSessionContextIdentifier identifier, ShareableBitmap::Handle&& bitmapHandle, FloatRect bounds)
 {
     RefPtr pageClient = this->pageClient();
     if (!pageClient || !pageClient->isTextRecognitionInFullscreenVideoEnabled())
         return;
+
+#if PLATFORM(IOS_FAMILY)
+    if (internals().currentFullscreenVideoSessionIdentifier == identifier && m_videoPresentationManager) {
+        RefPtr presentationManager = m_videoPresentationManager;
+        // Suppress forward declaration warning. see webkit.org/b/308991
+        SUPPRESS_FORWARD_DECL_ARG RetainPtr controller = presentationManager->playerViewController(identifier);
+        if (controller) {
+            if (RefPtr pageClient = this->pageClient())
+                SUPPRESS_FORWARD_DECL_ARG pageClient->beginTextRecognitionForFullscreenVideo(WTF::move(bitmapHandle), controller.get());
+            return;
+        }
+    }
+#endif
 
     pageClient->beginTextRecognitionForVideoInElementFullscreen(WTF::move(bitmapHandle), bounds);
 }
@@ -16806,6 +16919,16 @@ void WebPageProxy::cancelTextRecognitionForVideoInElementFullScreen()
     RefPtr pageClient = this->pageClient();
     if (!pageClient || !pageClient->isTextRecognitionInFullscreenVideoEnabled())
         return;
+
+#if PLATFORM(IOS_FAMILY)
+    if (internals().currentFullscreenVideoSessionIdentifier && m_videoPresentationManager) {
+        RefPtr presentationManager = m_videoPresentationManager;
+        // Suppress forward declaration warning. see webkit.org/b/308991
+        SUPPRESS_FORWARD_DECL_ARG RetainPtr controller = presentationManager->playerViewController(*internals().currentFullscreenVideoSessionIdentifier);
+        if (controller)
+            SUPPRESS_FORWARD_DECL_ARG pageClient->cancelTextRecognitionForFullscreenVideo(controller.get());
+    }
+#endif
 
     pageClient->cancelTextRecognitionForVideoInElementFullscreen();
 }

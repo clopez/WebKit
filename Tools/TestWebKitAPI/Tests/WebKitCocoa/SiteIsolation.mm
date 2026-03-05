@@ -3863,7 +3863,9 @@ TEST(SiteIsolation, RestoreSessionFromAnotherWebView)
     EXPECT_WK_STREQ([webView2 _test_waitForAlert], "done");
 }
 
-static void testNavigateIframeBackForward(NSString *navigationURL, bool restoreSessionState)
+enum class SessionRestoreMethod : uint8_t { None, InPlace, NewWebView };
+
+static void testNavigateIframeBackForward(NSString *navigationURL, SessionRestoreMethod restoreMethod)
 {
     HTTPServer server({
         { "/example"_s, { "<iframe src='https://webkit.org/source'></iframe>"_s } },
@@ -3878,8 +3880,24 @@ static void testNavigateIframeBackForward(NSString *navigationURL, bool restoreS
     [webView evaluateJavaScript:[NSString stringWithFormat:@"location.href = '%@'", navigationURL] inFrame:childFrame.get() completionHandler:nil];
     EXPECT_WK_STREQ([webView _test_waitForAlert], "destination");
 
-    if (restoreSessionState)
+    switch (restoreMethod) {
+    case SessionRestoreMethod::None:
+        break;
+    case SessionRestoreMethod::InPlace:
         [webView _restoreSessionState:[webView _sessionState] andNavigate:NO];
+        break;
+    case SessionRestoreMethod::NewWebView: {
+        RetainPtr sessionState = [webView _sessionState];
+        auto [newWebView, newNavigationDelegate] = siteIsolatedViewAndDelegate(server);
+        [newWebView _restoreSessionState:sessionState.get() andNavigate:YES];
+        EXPECT_WK_STREQ([newWebView _test_waitForAlert], "destination");
+        webView = WTF::move(newWebView);
+        navigationDelegate = WTF::move(newNavigationDelegate);
+        break;
+    }
+    }
+
+    childFrame = [webView firstChildFrame];
 
     [webView goBack];
     EXPECT_WK_STREQ("source", [webView _test_waitForAlert]);
@@ -3896,22 +3914,32 @@ static void testNavigateIframeBackForward(NSString *navigationURL, bool restoreS
 
 TEST(SiteIsolation, NavigateIframeSameOriginBackForward)
 {
-    testNavigateIframeBackForward(@"https://webkit.org/destination", false);
+    testNavigateIframeBackForward(@"https://webkit.org/destination", SessionRestoreMethod::None);
 }
 
-TEST(SiteIsolation, DISABLED_NavigateIframeSameOriginBackForwardAfterSessionRestore)
+TEST(SiteIsolation, NavigateIframeSameOriginBackForwardAfterSessionRestore)
 {
-    testNavigateIframeBackForward(@"https://webkit.org/destination", true);
+    testNavigateIframeBackForward(@"https://webkit.org/destination", SessionRestoreMethod::InPlace);
+}
+
+TEST(SiteIsolation, NavigateIframeSameOriginBackForwardAfterSessionRestoreToNewWebView)
+{
+    testNavigateIframeBackForward(@"https://webkit.org/destination", SessionRestoreMethod::NewWebView);
 }
 
 TEST(SiteIsolation, NavigateIframeCrossOriginBackForward)
 {
-    testNavigateIframeBackForward(@"https://apple.com/destination", false);
+    testNavigateIframeBackForward(@"https://apple.com/destination", SessionRestoreMethod::None);
 }
 
-TEST(SiteIsolation, DISABLED_NavigateIframeCrossOriginBackForwardAfterSessionRestore)
+TEST(SiteIsolation, NavigateIframeCrossOriginBackForwardAfterSessionRestore)
 {
-    testNavigateIframeBackForward(@"https://apple.com/destination", true);
+    testNavigateIframeBackForward(@"https://apple.com/destination", SessionRestoreMethod::InPlace);
+}
+
+TEST(SiteIsolation, NavigateIframeCrossOriginBackForwardAfterSessionRestoreToNewWebView)
+{
+    testNavigateIframeBackForward(@"https://apple.com/destination", SessionRestoreMethod::NewWebView);
 }
 
 TEST(SiteIsolation, ValidateSessionRestoreWithoutNavigating)
@@ -7211,6 +7239,82 @@ TEST(SiteIsolation, DragSourceEndedAtCoordinateTransformation)
     }
 }
 
+TEST(SiteIsolation, DragSourceEndedAtCoordinateTransformationNested)
+{
+    static constexpr ASCIILiteral mainframeHTML =
+    "<iframe width='500' height='500' style='position: absolute; top: 50px; left: 50px; border: 2px solid red;' src='https://domain2.com/subframe'></iframe>"_s;
+
+    static constexpr ASCIILiteral subframeHTML = "<script>"
+    "    window.events = [];"
+    "    addEventListener('message', function(event) {"
+    "        window.events.push(event.data);"
+    "    });"
+    "</script>"
+    "<iframe width='500' height='500' style='position: absolute; top: 50px; left: 50px; border: 2px solid blue;' src='https://domain3.com/nestedSubframe'></iframe>"_s;
+
+    static constexpr ASCIILiteral nestedSubframeHTML = "<body style='margin: 0; padding: 0; width: 100%; height: 100vh; background-color: lightblue;'>"
+    "<div id='draggable' draggable='true' style='width: 100px; height: 100px; background-color: yellow; position: absolute; top: 50px; left: 50px;'>Drag me</div>"
+    "<script>"
+    "    const draggable = document.getElementById('draggable');"
+    "    draggable.addEventListener('dragstart', (event) => {"
+    "        parent.postMessage('dragstart:' + event.clientX + ',' + event.clientY, '*');"
+    "    });"
+    "    draggable.addEventListener('dragend', (event) => {"
+    "        parent.postMessage('dragend:' + event.clientX + ',' + event.clientY, '*');"
+    "    });"
+    "</script>"
+    "</body>"_s;
+
+    HTTPServer server({
+        { "/mainframe"_s, { mainframeHTML } },
+        { "/subframe"_s, { subframeHTML } },
+        { "/nestedSubframe"_s, { nestedSubframeHTML } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration);
+    RetainPtr simulator = adoptNS([[DragAndDropSimulator alloc] initWithWebViewFrame:NSMakeRect(0, 0, 800, 800) configuration:configuration.get()]);
+    RetainPtr webView = [simulator webView];
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+    [simulator runFrom:CGPointMake(204, 204) to:CGPointMake(300, 300)];
+
+    RetainPtr<NSArray<NSString *>> events = [webView objectByEvaluatingJavaScript:@"window.events" inFrame:[webView firstChildFrame]];
+    EXPECT_GT([events count], 0U);
+
+    bool foundDragStart = false;
+    bool foundDragEnd = false;
+    NSString *dragEndEvent = nil;
+
+    for (NSString *event in events.get()) {
+        if ([event hasPrefix:@"dragstart:"]) {
+            foundDragStart = true;
+        } else if ([event hasPrefix:@"dragend:"]) {
+            foundDragEnd = true;
+            dragEndEvent = event;
+        }
+    }
+
+    EXPECT_TRUE(foundDragStart) << "Should have received dragstart event in remote frame";
+    EXPECT_TRUE(foundDragEnd) << "Should have received dragend event in remote frame";
+
+    if (dragEndEvent) {
+        RetainPtr coords = [dragEndEvent substringFromIndex:[@"dragend:" length]];
+        RetainPtr components = [coords componentsSeparatedByString:@","];
+        if ([components count] == 2) {
+            int x = [components[0] intValue];
+            int y = [components[1] intValue];
+            EXPECT_TRUE(x >= 190 && x <= 200) << "Expected dragend x coordinate around 196, got " << x;
+            EXPECT_TRUE(y >= 190 && y <= 200) << "Expected dragend y coordinate around 196, got " << y;
+        }
+    }
+}
+
 TEST(SiteIsolation, DragImageLocation)
 {
     static constexpr ASCIILiteral mainframeHTML = "<iframe width='300' height='300' style='position: absolute; top: 200px; left: 200px; border: 2px solid red;' src='https://domain2.com/subframe'></iframe>"_s;
@@ -7244,6 +7348,128 @@ TEST(SiteIsolation, DragImageLocation)
     [simulator runFrom:CGPointMake(300, 300) to:CGPointMake(350, 350)];
 
     EXPECT_EQ([simulator initialDragImageLocationInView], NSMakePoint(252, 352));
+}
+
+TEST(SiteIsolation, MouseClickAfterIncompleteDragging)
+{
+    static constexpr ASCIILiteral mainframeHTML = "<body><iframe id='testFrame' width='300' height='300' style='position: absolute; top: 100px; left: 100px;' src='https://domain2.com/subframe'></iframe></body>"_s;
+
+    static constexpr ASCIILiteral subframeHTML = "<body style='margin: 0; padding: 20px;'>"
+    "<div id='draggable' draggable='true' style='width: 100px; height: 100px; background-color: blue;'></div>"
+    "<script>"
+    "    let clickCount = 0;"
+    "    document.addEventListener('click', () => {"
+    "        clickCount++;"
+    "    });"
+    "</script>"
+    "</body>"_s;
+
+    HTTPServer server({
+        { "/mainframe"_s, { mainframeHTML } },
+        { "/subframe"_s, { subframeHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration.get());
+    RetainPtr simulator = adoptNS([[DragAndDropSimulator alloc] initWithWebViewFrame:NSMakeRect(0, 0, 600, 600) configuration:configuration.get()]);
+    RetainPtr webView = [simulator webView];
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    // To simulate drag without finishing via mouse up, don't use simulator's runTo function.
+    [webView mouseDownAtPoint:NSMakePoint(170, 430) simulatePressure:NO];
+    [webView setEventTimestampOffset:0.25];
+    [webView mouseDragToPoint:NSMakePoint(200, 450)];
+    [webView waitForPendingMouseEvents];
+
+    // Wait for drag states to update and settle.
+    [webView waitForNextPresentationUpdate];
+
+    [webView sendClickAtPoint:NSMakePoint(250, 350)];
+    [webView waitForPendingMouseEvents];
+    [webView waitForNextPresentationUpdate];
+
+    [webView waitForNextPresentationUpdate];
+    RetainPtr clickCount = [webView objectByEvaluatingJavaScript:@"clickCount" inFrame:[webView firstChildFrame]];
+
+    EXPECT_EQ([clickCount intValue], 1);
+}
+
+TEST(SiteIsolation, DragOverStateInfo)
+{
+    static constexpr ASCIILiteral mainframeHTML = "<body>"
+    "<div draggable='true' id='item1'>Item 1</div>"
+    "<iframe id='testFrame' width='300' height='300' src='https://domain2.com/subframe'></iframe>"
+    "<script>"
+    "   window.dragStarted = false;"
+    "   let dragElement = document.getElementById('item1');"
+    "   dragElement.addEventListener('dragstart', function(e) {"
+    "       window.dragStarted = true;"
+    "       e.dataTransfer.setData('text/plain', this.textContent);"
+    "   });"
+    "</script>"
+    "</body>"_s;
+
+    static constexpr ASCIILiteral subframeHTML = "<body style='margin: 0; padding: 20px;'>"
+    "<div id='iframe-dropzone' style='width: 100px; height: 100px; background-color: blue;'></div>"
+    "<script>"
+    "   let dragOverData = '';"
+    "   const dropzone = document.getElementById('iframe-dropzone');"
+    "   dropzone.addEventListener('dragenter', function(e) {"
+    "       e.preventDefault();"
+    "   });"
+    "   dropzone.addEventListener('dragover', function(e) {"
+    "       e.preventDefault();"
+    "       const data = e.dataTransfer.getData('text/plain');"
+    "       dragOverData = data;"
+    "   });"
+    "   dropzone.addEventListener('drop', function(e) {"
+    "       e.preventDefault();"
+    "   });"
+    "</script>"
+    "</body>"_s;
+
+    HTTPServer server({
+        { "/mainframe"_s, { mainframeHTML } },
+        { "/subframe"_s, { subframeHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration.get());
+    RetainPtr simulator = adoptNS([[DragAndDropSimulator alloc] initWithWebViewFrame:NSMakeRect(0, 0, 600, 600) configuration:configuration.get()]);
+    RetainPtr webView = [simulator webView];
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    [simulator runFrom:CGPointMake(300, 17) to:CGPointMake(78, 96)];
+
+    [webView waitForNextPresentationUpdate];
+
+    bool dragStarted = [webView objectByEvaluatingJavaScript:@"window.dragStarted"];
+
+    __block NSString *dragOverData;
+    __block bool done = false;
+
+    [webView evaluateJavaScript:@"dragOverData" inFrame:[webView firstChildFrame] completionHandler:^(id resultValue, NSError *error) {
+        EXPECT_NULL(error);
+        done = true;
+        dragOverData = resultValue;
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+
+    EXPECT_WK_STREQ(dragOverData, "");
+    EXPECT_TRUE(dragStarted);
 }
 
 #endif // ENABLE(DRAG_SUPPORT) && PLATFORM(MAC)
@@ -7361,7 +7587,7 @@ TEST(SiteIsolation, CrossSiteIframeOpenWindowWithBlobURL)
 
     pid_t openedMainFramePID = [opened.webView mainFrame].info._processIdentifier;
     EXPECT_NE([opener.webView mainFrame].info._processIdentifier, openedMainFramePID);
-    EXPECT_NE([opener.webView firstChildFrame]._processIdentifier, openedMainFramePID);
+    EXPECT_EQ([opener.webView firstChildFrame]._processIdentifier, openedMainFramePID);
 }
 
 #if PLATFORM(MAC)

@@ -4439,7 +4439,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             GetByStatus status = GetByStatus::computeFor(m_graph.globalObjectFor(node->origin.semantic), value.m_structure.toStructureSet(), identifier);
             if (status.isSimple()) {
                 if (status.numVariants() == 1) {
-                    auto variant = status[0];
+                    auto& variant = status[0];
                     if (!variant.conditionSet().isEmpty()) {
                         ASSERT(variant.structureSet().size() == 1);
                         auto attempToFold = [&] {
@@ -5877,6 +5877,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setTypeForNode(node, SpecObject);
         break;
     }
+
+    case PerformPromiseThen:
+        clobberWorld();
+        break;
 
     case Unreachable:
         // It may be that during a previous run of AI we proved that something was unreachable, but

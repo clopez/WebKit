@@ -312,12 +312,6 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
         idOfFrameContainingString = frameID;
         foundRange = range;
         found = idOfFrameContainingString.has_value();
-
-        RefPtr selectedFrame = frameWithSelection(protect(webPage->corePage()).get());
-        if (foundRange && selectedFrame) {
-            m_lastFoundRange = foundRange;
-            m_lastSelection = protect(selectedFrame->selection())->selection().toNormalizedRange();
-        }
     }
 
     if (found && !options.contains(FindOptions::DoNotSetSelection)) {
@@ -368,7 +362,7 @@ void FindController::getImageForFindMatch(uint32_t matchIndex)
     auto oldSelection = frameSelection->selection();
     frameSelection->setSelection(m_findMatches[matchIndex]);
 
-    auto selectionSnapshot = WebFrame::fromCoreFrame(*frame)->createSelectionSnapshot();
+    auto selectionSnapshot = protect(WebFrame::fromCoreFrame(*frame))->createSelectionSnapshot();
 
     frameSelection->setSelection(oldSelection);
 
@@ -422,9 +416,6 @@ void FindController::hideFindUI()
     hideFindIndicator();
     resetMatchIndex();
 
-    m_lastFoundRange = std::nullopt;
-    m_lastSelection = std::nullopt;
-
 #if ENABLE(IMAGE_ANALYSIS)
     if (RefPtr imageAnalysisQueue = m_webPage->corePage()->imageAnalysisQueueIfExists())
         imageAnalysisQueue->clearDidBecomeEmptyCallback();
@@ -446,13 +437,16 @@ bool FindController::updateFindIndicator(bool isShowingOverlay, bool shouldAnima
 #endif
         if (RefPtr selectedFrame = frameWithSelection(protect(webPage->corePage()).get())) {
             auto selectedRange = protect(selectedFrame->selection())->selection().toNormalizedRange();
-            if (selectedRange && ImageOverlay::isInsideOverlay(*selectedRange))
+            if (!selectedRange)
+                return { };
+
+            if (ImageOverlay::isInsideOverlay(*selectedRange))
                 textIndicatorOptions.add({ TextIndicatorOption::PaintAllContent, TextIndicatorOption::PaintBackgrounds });
 
-            if (selectedRange && selectedRange->collapsed() && selectedRange == m_lastSelection)
-                return { selectedFrame, TextIndicator::createWithRange(*m_lastFoundRange, textIndicatorOptions, presentationTransition) };
+            if (selectedRange->collapsed())
+                selectedRange = protect(selectedFrame->selection())->selection().range();
 
-            return { selectedFrame, TextIndicator::createWithSelectionInFrame(*selectedFrame, textIndicatorOptions, presentationTransition) };
+            return { selectedFrame, TextIndicator::createWithRange(*selectedRange, textIndicatorOptions, presentationTransition) };
         }
 
         return { };

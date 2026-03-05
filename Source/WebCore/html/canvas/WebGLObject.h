@@ -100,8 +100,8 @@ class WebGLObject : public RefCounted<WebGLObject> {
 public:
     virtual ~WebGLObject();
 
-    RefPtr<WebGLRenderingContextBase> NODELETE context() const;
-    RefPtr<GraphicsContextGL> graphicsContextGL() const;
+    WebGLRenderingContextBase* NODELETE context() const;
+    GraphicsContextGL* graphicsContextGL() const;
 
     PlatformGLObject object() const { return m_object; }
 
@@ -127,6 +127,7 @@ public:
 
 protected:
     WebGLObject(WebGLRenderingContextBase&, PlatformGLObject);
+    WebGLObject() = default;
 
     void runDestructor();
 

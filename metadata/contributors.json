@@ -4144,6 +4144,18 @@
    },
    {
       "emails" : [
+         "m.jason.liu@outlook.com",
+         "m.jason.liu@gmail.com",
+         "cgqaq@chromium.org"
+      ],
+      "github" : "cgqaq",
+      "name" : "Jason Leo",
+      "nicks" : [
+         "cgqaq"
+      ]
+   },
+   {
+      "emails" : [
          "jasonliuwebkit@gmail.com"
       ],
       "name" : "Jason Liu",
@@ -4450,6 +4462,18 @@
       "name" : "Joanmarie Diggs",
       "nicks" : [
          "joanie"
+      ]
+   },
+   {
+      "emails" : [
+         "joanne_pan2@apple.com",
+         "jpan0917@gmail.com"
+      ],
+      "github" : "j0pan",
+      "name" : "Joanne Pan",
+      "nicks" : [
+         "jopan",
+         "j0pan"
       ]
    },
    {

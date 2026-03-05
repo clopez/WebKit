@@ -122,18 +122,23 @@ static bool entryHasObject(const WebGLFramebuffer::AttachmentEntry& entry)
         });
 }
 
-RefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContextBase& context)
+Ref<WebGLFramebuffer> WebGLFramebuffer::createLost()
 {
-    auto object = context.graphicsContextGL()->createFramebuffer();
+    return adoptRef(*new WebGLFramebuffer { });
+}
+
+Ref<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContextBase& context)
+{
+    auto object = protect(context.graphicsContextGL())->createFramebuffer();
     if (!object)
-        return nullptr;
+        return createLost();
     return adoptRef(*new WebGLFramebuffer { context, object, Type::Plain });
 }
 
 #if ENABLE(WEBXR)
 RefPtr<WebGLFramebuffer> WebGLFramebuffer::createOpaque(WebGLRenderingContextBase& context)
 {
-    auto object = context.graphicsContextGL()->createFramebuffer();
+    auto object = protect(context.graphicsContextGL())->createFramebuffer();
     if (!object)
         return nullptr;
     return adoptRef(*new WebGLFramebuffer { context, object, Type::Opaque });
@@ -147,6 +152,13 @@ WebGLFramebuffer::WebGLFramebuffer(WebGLRenderingContextBase& context, PlatformG
 #endif
 {
     UNUSED_PARAM(type);
+}
+
+WebGLFramebuffer::WebGLFramebuffer()
+#if ENABLE(WEBXR)
+    : m_isOpaque(false)
+#endif
+{
 }
 
 WebGLFramebuffer::~WebGLFramebuffer()
@@ -224,9 +236,9 @@ void WebGLFramebuffer::drawBuffers(const Vector<GCGLenum>& bufs)
     // so we pass the user-specified buffers directly.
     RefPtr context = this->context();
     if (context->isWebGL2())
-        context->graphicsContextGL()->drawBuffers(m_drawBuffers);
+        protect(context->graphicsContextGL())->drawBuffers(m_drawBuffers);
     else if (context->m_webglDrawBuffers)
-        context->graphicsContextGL()->drawBuffersEXT(m_drawBuffers);
+        protect(context->graphicsContextGL())->drawBuffersEXT(m_drawBuffers);
 }
 
 GCGLenum WebGLFramebuffer::getDrawBuffer(GCGLenum drawBuffer)

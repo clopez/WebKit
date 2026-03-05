@@ -2280,6 +2280,11 @@ void CodeBlock::jettison(Profiler::JettisonReason reason, ReoptimizationMode mod
         didDFGJettison(reason);
 #endif
 
+#if ENABLE(FTL_JIT)
+    if (jitType() == JITType::FTLJIT)
+        didFTLJettison(reason);
+#endif
+
     CodeBlock* codeBlock = this; // Placate GCC for use in CODEBLOCK_LOG_EVENT  (does not like this).
     CODEBLOCK_LOG_EVENT(codeBlock, "jettison", ("due to ", reason, ", counting = ", mode == CountReoptimization, ", detail = ", pointerDump(detail)));
 
@@ -2857,6 +2862,31 @@ void CodeBlock::didFailDFGCompilation()
     unlinkedCodeBlock()->setQuickDFGTierUp(TriState::False);
 }
 
+#if ENABLE(FTL_JIT)
+void CodeBlock::didInstallFTLCode()
+{
+    if (!unlinkedCodeBlock()->hasQuickFTLTierUpUpdated() && unlinkedCodeBlock()->isQuickDFGTierUp())
+        unlinkedCodeBlock()->setQuickFTLTierUp(WTF::TriState::True);
+}
+
+void CodeBlock::didFTLJettison(Profiler::JettisonReason reason)
+{
+    if (!Profiler::isSpeculationFailure(reason))
+        return;
+
+    // Only mark as failed if code was already installed and ran (flag = True).
+    // If jettison happens during compilation (flag = Indeterminate), leave it
+    // unchanged - this was environmental (OOM, GC pressure), not a code quality issue.
+    if (unlinkedCodeBlock()->hasQuickFTLTierUpUpdated())
+        unlinkedCodeBlock()->setQuickFTLTierUp(WTF::TriState::False);
+}
+
+void CodeBlock::didFailFTLCompilation()
+{
+    unlinkedCodeBlock()->setQuickFTLTierUp(WTF::TriState::False);
+}
+#endif
+
 #endif
 
 ArrayProfile* CodeBlock::getArrayProfile(const ConcurrentJSLocker&, BytecodeIndex bytecodeIndex)
@@ -3103,7 +3133,15 @@ bool CodeBlock::shouldOptimizeNowFromBaseline()
             numberOfSamplesInProfiles, ValueProfile::numberOfBuckets * numberOfNonArgumentValueProfiles());
     }
 
-    if (livenessRate >= Options::desiredProfileLivenessRate() && fullnessRate >= Options::desiredProfileFullnessRate() && static_cast<unsigned>(m_optimizationDelayCounter) + 1 >= Options::minimumOptimizationDelay())
+    double requiredLivenessRate = Options::desiredProfileLivenessRate();
+    double requiredFullnessRate = Options::desiredProfileFullnessRate();
+
+    if (unlinkedCodeBlock()->isQuickDFGTierUp()) {
+        requiredLivenessRate *= Options::relaxedProfileCoverageFactorForQuickDFGTierUp();
+        requiredFullnessRate *= Options::relaxedProfileCoverageFactorForQuickDFGTierUp();
+    }
+
+    if (livenessRate >= requiredLivenessRate && fullnessRate >= requiredFullnessRate && static_cast<unsigned>(m_optimizationDelayCounter) + 1 >= Options::minimumOptimizationDelay())
         return true;
 
 #if ENABLE(DFG_JIT)

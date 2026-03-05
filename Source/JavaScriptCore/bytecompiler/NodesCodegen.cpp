@@ -3879,6 +3879,27 @@ RegisterID* ConditionalNode::emitBytecode(BytecodeGenerator& generator, Register
     return newDst.unsafeGet();
 }
 
+void ConditionalNode::emitBytecodeInConditionContext(BytecodeGenerator& generator, Label& trueTarget, Label& falseTarget, FallThroughMode fallThroughMode)
+{
+    if (needsDebugHook()) [[unlikely]]
+        generator.emitDebugHook(this);
+
+    Ref<Label> beforeThen = generator.newLabel();
+    Ref<Label> beforeElse = generator.newLabel();
+    Ref<Label> end = generator.newLabel();
+
+    generator.emitNodeInConditionContext(m_logical, beforeThen.get(), beforeElse.get(), FallThroughMeansTrue);
+    generator.emitLabel(beforeThen.get());
+
+    generator.emitNodeInConditionContext(m_expr1, trueTarget, falseTarget, fallThroughMode);
+    generator.emitJump(end.get());
+
+    generator.emitLabel(beforeElse.get());
+    generator.emitNodeInConditionContext(m_expr2, trueTarget, falseTarget, fallThroughMode);
+
+    generator.emitLabel(end.get());
+}
+
 // ------------------------------ ReadModifyResolveNode -----------------------------------
 
 // FIXME: should this be moved to be a method on BytecodeGenerator?
@@ -6563,6 +6584,11 @@ void RestParameterNode::bindValue(BytecodeGenerator&, RegisterID*) const
 
 void RestParameterNode::emit(BytecodeGenerator& generator)
 {
+    if (RegisterID* directBinding = m_pattern->writableDirectBindingIfPossible(generator)) {
+        generator.emitRestParameter(directBinding, m_numParametersToSkip);
+        m_pattern->finishDirectBindingAssignment(generator);
+        return;
+    }
     RefPtr<RegisterID> temp = generator.newTemporary();
     generator.emitRestParameter(temp.get(), m_numParametersToSkip);
     m_pattern->bindValue(generator, temp.get());

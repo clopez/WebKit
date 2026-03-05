@@ -246,9 +246,6 @@ Ref<LocalFrameView> LocalFrameView::create(LocalFrame& frame, const IntSize& ini
 
 LocalFrameView::~LocalFrameView()
 {
-    if (m_frame->contentRenderer())
-        WTFReportBacktraceWithPrefix("LocalFrameView::~LocalFrameView - ContentRendererObservation");
-
     removeFromAXObjectCache();
     resetScrollbars();
 
@@ -447,9 +444,7 @@ void LocalFrameView::setFrameRect(const IntRect& newRect)
         return;
 
     // Every scroll that happens as the result of frame size change is programmatic.
-    auto oldScrollType = currentScrollType();
-    setCurrentScrollType(ScrollType::Programmatic);
-
+    auto scrollTypeScope = ScrollTypeScope(*this, ScrollType::Programmatic);
     ScrollView::setFrameRect(newRect);
 
     updateScrollableAreaSet();
@@ -466,7 +461,6 @@ void LocalFrameView::setFrameRect(const IntRect& newRect)
         document->didChangeViewSize();
 
     viewportContentsChanged();
-    setCurrentScrollType(oldScrollType);
 }
 
 void LocalFrameView::setCanHaveScrollbars(bool canHaveScrollbars)
@@ -1110,18 +1104,18 @@ void LocalFrameView::obscuredContentInsetsDidChange(const FloatBoxExtent& newObs
     
     renderView->setNeedsLayout();
     layoutContext().layout();
-    // Every scroll that happens as the result of content inset change is programmatic.
-    auto oldScrollType = currentScrollType();
-    setCurrentScrollType(ScrollType::Programmatic);
 
-    updateScrollbars(scrollPosition());
-    if (renderView->usesCompositing())
-        renderView->compositor().frameViewDidChangeSize();
+    {
+        // Every scroll that happens as the result of content inset change is programmatic.
+        auto scrollTypeScope = ScrollTypeScope(*this, ScrollType::Programmatic);
 
-    if (TiledBacking* tiledBacking = this->tiledBacking())
-        tiledBacking->setObscuredContentInsets(newObscuredContentInsets);
+        updateScrollbars(scrollPosition());
+        if (renderView->usesCompositing())
+            renderView->compositor().frameViewDidChangeSize();
 
-    setCurrentScrollType(oldScrollType);
+        if (CheckedPtr tiledBacking = this->tiledBacking())
+            tiledBacking->setObscuredContentInsets(newObscuredContentInsets);
+    }
 
     if (RefPtr page = m_frame->page())
         page->chrome().client().setNeedsFixedContainerEdgesUpdate();
@@ -2043,6 +2037,11 @@ LayoutRect LocalFrameView::layoutViewportRect() const
     return LayoutRect(m_layoutViewportOrigin, baseLayoutViewportSize());
 }
 
+void LocalFrameView::updateLayoutViewportRect()
+{
+    m_frame->loader().client().broadcastFrameLayoutViewportRectToOtherProcesses(layoutViewportRect());
+}
+
 // visibleContentRect is in the bounds of the scroll view content. That consists of an
 // optional header, the document, and an optional footer. Only the document is scaled,
 // so we have to compute the visible part of the document in unscaled document coordinates.
@@ -2438,7 +2437,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
             if (!elementRenderer)
                 return std::nullopt;
 
-            auto backdropRenderer = elementRenderer->backdropRenderer();
+            auto backdropRenderer = elementRenderer->pseudoElementRenderer(PseudoElementType::Backdrop);
             if (!backdropRenderer)
                 return std::nullopt;
 
@@ -3220,8 +3219,7 @@ void LocalFrameView::setScrollOffsetWithOptions(const ScrollOffset& scrollOffset
 {
     LOG_WITH_STREAM(Scrolling, stream << "LocalFrameView::setScrollOffset " << scrollOffset << " animated " << (options.animated == ScrollIsAnimated::Yes) << ", clearing anchor");
 
-    auto oldScrollType = currentScrollType();
-    setCurrentScrollType(options.type);
+    auto scrollTypeScope = ScrollTypeScope(*this, options.type);
 
     m_maintainScrollPositionAnchor = nullptr;
     cancelScheduledScrolls();
@@ -3237,8 +3235,6 @@ void LocalFrameView::setScrollOffsetWithOptions(const ScrollOffset& scrollOffset
         scrollToPositionWithAnimation(snappedPosition, options);
     else
         ScrollView::setScrollPosition(snappedPosition, options);
-
-    setCurrentScrollType(oldScrollType);
 }
 
 void LocalFrameView::scrollToEdgeWithOptions(RectEdges<bool> edges, const ScrollPositionChangeOptions& options)
@@ -4315,8 +4311,8 @@ bool LocalFrameView::hasExtendedBackgroundRectForPainting() const
 
 void LocalFrameView::updateExtendBackgroundIfNecessary()
 {
-    ExtendedBackgroundMode mode = calculateExtendedBackgroundMode();
-    if (mode == ExtendedBackgroundModeNone)
+    const auto mode = calculateExtendedBackgroundMode();
+    if (mode.isEmpty())
         return;
 
     updateTilesForExtendedBackgroundMode(mode);
@@ -4326,10 +4322,10 @@ LocalFrameView::ExtendedBackgroundMode LocalFrameView::calculateExtendedBackgrou
 {
 #if PLATFORM(IOS_FAMILY)
     // <rdar://problem/16201373>
-    return ExtendedBackgroundModeNone;
+    return { };
 #else
     if (!m_frame->settings().backgroundShouldExtendBeyondPage())
-        return ExtendedBackgroundModeNone;
+        return { };
 
     // Just because Settings::backgroundShouldExtendBeyondPage() is true does not necessarily mean
     // that the background rect needs to be extended for painting. Simple backgrounds can be extended
@@ -4338,29 +4334,40 @@ LocalFrameView::ExtendedBackgroundMode LocalFrameView::calculateExtendedBackgrou
     // region. This function finds out if it is necessary to extend the background rect for painting.
 
     if (!m_frame->isMainFrame())
-        return ExtendedBackgroundModeNone;
+        return { };
 
     RefPtr document = m_frame->document();
     if (!document)
-        return ExtendedBackgroundModeNone;
+        return { };
 
     if (!renderView())
-        return ExtendedBackgroundModeNone;
-    
+        return { };
+
     auto* rootBackgroundRenderer = renderView()->rendererForRootBackground();
     if (!rootBackgroundRenderer)
-        return ExtendedBackgroundModeNone;
+        return { };
 
     auto& backgroundLayers = rootBackgroundRenderer->style().backgroundLayers();
     if (!Style::hasImageInAnyLayer(backgroundLayers))
-        return ExtendedBackgroundModeNone;
+        return { };
 
-    ExtendedBackgroundMode mode = ExtendedBackgroundModeNone;
+    BoxSideSet mode;
     auto backgroundRepeat = backgroundLayers.usedFirst().repeat();
-    if (backgroundRepeat.x() == FillRepeat::Repeat)
-        mode |= ExtendedBackgroundModeHorizontal;
-    if (backgroundRepeat.y() == FillRepeat::Repeat)
-        mode |= ExtendedBackgroundModeVertical;
+    if (backgroundRepeat.x() == FillRepeat::Repeat) {
+        mode.add(BoxSide::Left);
+        mode.add(BoxSide::Right);
+    }
+    if (backgroundRepeat.y() == FillRepeat::Repeat) {
+        mode.add(BoxSide::Top);
+        mode.add(BoxSide::Bottom);
+    }
+
+#if ENABLE(BANNER_VIEW_OVERLAYS)
+    if (mode.contains(BoxSide::Top)) {
+        if (RefPtr page = m_frame->page(); page && page->hasBannerViewOverlay())
+            mode.remove(BoxSide::Top);
+    }
+#endif
 
     return mode;
 #endif
@@ -4380,16 +4387,20 @@ void LocalFrameView::updateTilesForExtendedBackgroundMode(ExtendedBackgroundMode
     if (!tiledBacking)
         return;
 
-    ExtendedBackgroundMode existingMode = ExtendedBackgroundModeNone;
-    if (tiledBacking->hasVerticalMargins())
-        existingMode |= ExtendedBackgroundModeVertical;
-    if (tiledBacking->hasHorizontalMargins())
-        existingMode |= ExtendedBackgroundModeHorizontal;
+    BoxSideSet existingMode;
+    if (tiledBacking->topMarginHeight() > 0)
+        existingMode.add(BoxSide::Top);
+    if (tiledBacking->bottomMarginHeight() > 0)
+        existingMode.add(BoxSide::Bottom);
+    if (tiledBacking->leftMarginWidth() > 0)
+        existingMode.add(BoxSide::Left);
+    if (tiledBacking->rightMarginWidth() > 0)
+        existingMode.add(BoxSide::Right);
 
     if (existingMode == mode)
         return;
 
-    backing->setTiledBackingHasMargins(mode & ExtendedBackgroundModeHorizontal, mode & ExtendedBackgroundModeVertical);
+    backing->setTiledBackingHasMargins(mode);
 }
 
 IntRect LocalFrameView::extendedBackgroundRectForPainting() const
@@ -5444,7 +5455,7 @@ Color LocalFrameView::documentBackgroundColor() const
 
         auto fullscreenElementColor = fullscreenRenderer->style().visitedDependentBackgroundColorApplyingColorFilter();
 
-        WeakPtr backdropRenderer = fullscreenRenderer->backdropRenderer();
+        WeakPtr backdropRenderer = fullscreenRenderer->pseudoElementRenderer(PseudoElementType::Backdrop);
         if (!backdropRenderer)
             return fullscreenElementColor;
 
@@ -6229,37 +6240,6 @@ FloatPoint LocalFrameView::clientToDocumentPoint(FloatPoint point) const
 {
     point.move(-documentToClientOffset());
     return point;
-}
-
-FloatPoint LocalFrameView::absoluteToLayoutViewportPoint(FloatPoint p) const
-{
-    ASSERT(m_frame->settings().visualViewportEnabled());
-    p.scale(1 / m_frame->frameScaleFactor());
-    p.moveBy(-layoutViewportRect().location());
-    return p;
-}
-
-FloatPoint LocalFrameView::layoutViewportToAbsolutePoint(FloatPoint p) const
-{
-    ASSERT(m_frame->settings().visualViewportEnabled());
-    p.moveBy(layoutViewportRect().location());
-    return p.scaled(m_frame->frameScaleFactor());
-}
-
-FloatRect LocalFrameView::layoutViewportToAbsoluteRect(FloatRect rect) const
-{
-    ASSERT(m_frame->settings().visualViewportEnabled());
-    rect.moveBy(layoutViewportRect().location());
-    rect.scale(m_frame->frameScaleFactor());
-    return rect;
-}
-
-FloatRect LocalFrameView::absoluteToLayoutViewportRect(FloatRect rect) const
-{
-    ASSERT(m_frame->settings().visualViewportEnabled());
-    rect.scale(1 / m_frame->frameScaleFactor());
-    rect.moveBy(-layoutViewportRect().location());
-    return rect;
 }
 
 FloatRect LocalFrameView::clientToLayoutViewportRect(FloatRect rect) const

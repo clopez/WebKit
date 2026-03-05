@@ -52,16 +52,33 @@ extension WebKit.BackForwardListItemVector: CxxRefVector {
     typealias Element = WebKit.RefWebBackForwardListItem
 }
 
+extension WebKit.VectorBackForwardListItemState: CxxVector {
+    typealias Element = WebKit.BackForwardListItemState
+}
+
 extension WebKit.WebBackForwardListItem {
     private borrowing func getUrlCopy() -> WTF.String {
         // Safety: we immediately make a copy of the string before
-        // it could be freed or mutated. FIXME(rdar://162695942): remove
+        // it could be freed or mutated. FIXME(rdar://145054011): remove
         // this.
         unsafe __urlUnsafe().pointee
     }
 
     var url: WTF.String {
         getUrlCopy()
+    }
+}
+
+extension WebKit.WebBackForwardListFrameItem {
+    private borrowing func getFrameState() -> WebKit.FrameState {
+        // Safety: FrameState is a SWIFT_SHARED_REFERENCE so this will
+        // result in a reference count increment and no lifetime risk.
+        // FIXME(rdar://168057355): remove this.
+        unsafe __frameStateUnsafe()
+    }
+
+    var frameState: WebKit.FrameState {
+        getFrameState()
     }
 }
 
@@ -74,29 +91,11 @@ extension WebKit.WebBackForwardListItem {
 private func backForwardLog(_ msgCreator: @autoclosure () -> String) {
     // rdar://133777029 likely will allow us to avoid the performance penalty
     // of creating the string if logging is disabled.
-    let msg = msgCreator()
-
-    let span = msg.utf8CString.span
-    // Safety: the buffer pointer is guaranteed to be
-    // valid and null-terminated during the call to
-    // doLog
-    unsafe span.withUnsafeBufferPointer { ptr in
-        // swift-format-ignore: NeverForceUnwrap
-        unsafe doLog(ptr.baseAddress!)
-    }
+    doLog(WTF.String(msgCreator()))
 }
 
 private func loadingReleaseLog(_ msgCreator: @autoclosure () -> String) {
-    let msg = msgCreator()
-
-    let span = msg.utf8CString.span
-    // Safety: the buffer pointer is guaranteed to be
-    // valid and null-terminated during the call to
-    // doLoadingReleaseLog
-    unsafe span.withUnsafeBufferPointer { ptr in
-        // swift-format-ignore: NeverForceUnwrap
-        unsafe doLoadingReleaseLog(ptr.baseAddress!)
-    }
+    doLoadingReleaseLog(WTF.String(msgCreator()))
 }
 
 // Temporary partial MESSAGE_CHECK_BASE support from Swift
@@ -558,7 +557,9 @@ final class WebBackForwardList {
                 }
                 continue
             }
-            backForwardListState.items.append(consuming: entry.mainFrameState())
+            backForwardListState.items.append(
+                consuming: WebKit.BackForwardListItemState(frameState: entry.mainFrameState(), navigatedFrameID: entry.navigatedFrameID())
+            )
         }
 
         if backForwardListState.items.isEmpty() {
@@ -574,16 +575,9 @@ final class WebBackForwardList {
     private func setBackForwardItemIdentifiers(frameState: WebKit.FrameState, itemID: WebCore.BackForwardItemIdentifier) {
         frameState.itemID = WebCore.MarkableBackForwardItemIdentifier(itemID)
         frameState.frameItemID = WebCore.MarkableBackForwardFrameItemIdentifier(generateBackForwardFrameItemIdentifier())
-        for child in CxxRefVectorIterator(vec: frameState.children) {
+        for child in CxxVectorIterator(vec: frameState.children) {
             setBackForwardItemIdentifiers(frameState: child.ptr(), itemID: itemID)
         }
-    }
-
-    private func createWebBackForwardListItem(
-        state: WebKit.RefFrameState,
-        pageIdentifier: WebKit.WebPageProxyIdentifier
-    ) -> WebKit.RefWebBackForwardListItem {
-        WebKit.WebBackForwardListItem.create(consuming: state, pageIdentifier, state.ptr().frameID)
     }
 
     func restoreFromState(backForwardListState: WebKit.BackForwardListState) {
@@ -594,11 +588,10 @@ final class WebBackForwardList {
         // FIXME: Enable restoring resourceDirectoryURL.
         entries.removeAll()
         entries.reserveCapacity(backForwardListState.items.size())
-        for item in CxxRefVectorIterator(vec: backForwardListState.items) {
-            let stateCopy = item.ptr().copy()
+        for itemState in CxxVectorIterator(vec: backForwardListState.items) {
+            let stateCopy = itemState.frameState.ptr().copy()
             setBackForwardItemIdentifiers(frameState: stateCopy.ptr(), itemID: generateBackForwardItemIdentifier())
-            // FIXME: navigatedFrameID will always be the main frame ID, causing the restored session state to be sent to an incorrect process when going back or forward with site isolation enabled.
-            let item = createWebBackForwardListItem(state: stateCopy, pageIdentifier: page.identifier())
+            let item = WebKit.WebBackForwardListItem.create(consuming: stateCopy, page.identifier(), itemState.navigatedFrameID)
             entries.append(item.ptr())
         }
 
@@ -711,6 +704,23 @@ final class WebBackForwardList {
         return WebKit.RefPtrWebBackForwardListItem(item)
     }
 
+    func findFrameStateInItem(
+        itemID: WebCore.BackForwardItemIdentifier,
+        parentFrameID: WebCore.FrameIdentifier,
+        childFrameIndex: UInt64
+    ) -> WebKit.FrameState? {
+        guard let targetItem = itemForID(identifier: itemID) else {
+            return nil
+        }
+        guard let parentFrameItem = targetItem.mainFrameItem().childItemForFrameID(parentFrameID) else {
+            return nil
+        }
+        guard let childFrameItem = parentFrameItem.childItemAtIndex(childFrameIndex) else {
+            return nil
+        }
+        return childFrameItem.frameState
+    }
+
     func loggingString() -> Swift.String {
         var result =
             "\nWebBackForwardList \(ObjectIdentifier(self)) - \(entries.count) entries, has current index \(currentIndex != nil ? "YES" : "NO") (\(currentIndex ?? 0))\n"
@@ -735,7 +745,7 @@ final class WebBackForwardList {
 
     func setBackForwardItemIdentifier(frameState: WebKit.FrameState, itemID: WebCore.BackForwardItemIdentifier) {
         frameState.itemID = WebCore.MarkableBackForwardItemIdentifier(itemID)
-        for child in CxxRefVectorIterator(vec: frameState.children) {
+        for child in CxxVectorIterator(vec: frameState.children) {
             setBackForwardItemIdentifier(frameState: child.ptr(), itemID: itemID)
         }
     }

@@ -481,6 +481,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     return count;
 }
 
+- (NSUInteger)_prewarmedProcessCountLimit
+{
+    return protect(*_processPool)->prewarmedProcessCountLimit();
+}
+
 - (size_t)_webPageContentProcessCount
 {
     auto result = _processPool->processes().size();
@@ -545,6 +550,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 + (void)_crashOnMessageCheckFailureForTesting
 {
     IPC::Connection::setShouldCrashOnMessageCheckFailure(true);
+}
+
++ (void)_forceUseSharedMemoryForSendingForTesting:(BOOL)force
+{
+    IPC::Connection::setForceUseSharedMemoryForSendingForTesting(force);
 }
 
 + (void)_setLinkedOnOrAfterEverything

@@ -303,7 +303,7 @@ Ref<Element> Element::create(const QualifiedName& tagName, Document& document)
 }
 
 Element::Element(const QualifiedName& tagName, Document& document, OptionSet<TypeFlag> typeFlags)
-    : ContainerNode(document, ELEMENT_NODE, typeFlags | TypeFlag::IsElement)
+    : ContainerNode(document, NodeType::Element, typeFlags | TypeFlag::IsElement)
     , m_tagName(tagName)
 {
 }
@@ -3627,11 +3627,11 @@ CustomElementDefaultARIA* Element::customElementDefaultARIAIfExists() const
 bool Element::childTypeAllowed(NodeType type) const
 {
     switch (type) {
-    case ELEMENT_NODE:
-    case TEXT_NODE:
-    case COMMENT_NODE:
-    case PROCESSING_INSTRUCTION_NODE:
-    case CDATA_SECTION_NODE:
+    case NodeType::Element:
+    case NodeType::Text:
+    case NodeType::Comment:
+    case NodeType::ProcessingInstruction:
+    case NodeType::CDATASection:
         return true;
     default:
         break;
@@ -4322,6 +4322,15 @@ void Element::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
         page->chrome().client().elementDidBlur(*this);
 }
 
+void Element::enqueueFocusedElementDisconnectedEvent()
+{
+    document().eventLoop().queueTask(TaskSource::DOMManipulation, [element = GCReachableRef { *this }] {
+        Ref event = FocusEvent::create(eventNames().webkitfocusedelementdisconnectedEvent, Event::CanBubble::No, Event::IsCancelable::No, element->document().windowProxy(), 0, nullptr);
+        event->setIsAutofillEvent();
+        element->dispatchEvent(event);
+    });
+}
+
 void Element::dispatchWebKitImageReadyEventForTesting()
 {
     if (document().settings().webkitImageReadyEventEnabled())
@@ -4579,7 +4588,7 @@ void Element::removeFromTopLayer()
     // Document::topLayerElements(), since Styleable::fromRenderer() relies on this to
     // find the backdrop's associated element.
     if (CheckedPtr renderer = this->renderer()) {
-        if (CheckedPtr backdrop = renderer->backdropRenderer().get()) {
+        if (CheckedPtr backdrop = renderer->pseudoElementRenderer(PseudoElementType::Backdrop).get()) {
             if (auto styleable = Styleable::fromRenderer(*backdrop))
                 styleable->cancelStyleOriginatedAnimations();
         }
@@ -4603,7 +4612,7 @@ void Element::removeFromTopLayer()
     });
 }
 
-static PseudoElement* beforeOrAfterPseudoElement(const Element& host, PseudoElementType pseudoElementSpecifier)
+static PseudoElement* NODELETE beforeOrAfterPseudoElement(const Element& host, PseudoElementType pseudoElementSpecifier)
 {
     switch (pseudoElementSpecifier) {
     case PseudoElementType::Before:
@@ -5651,6 +5660,16 @@ void Element::updateIdForDocument(HTMLDocument& document, const AtomString& oldI
     }
 }
 
+bool Element::shouldNotifyTextManipulationControllerIfDisplayed() const
+{
+    return hasStateFlag(StateFlag::ShouldNotifyTextManipulationControllerIfDisplayed);
+}
+
+void Element::clearShouldNotifyTextManipulationControllerIfDisplayed()
+{
+    clearStateFlag(StateFlag::ShouldNotifyTextManipulationControllerIfDisplayed);
+}
+
 void Element::willModifyAttribute(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue)
 {
     if (name == HTMLNames::idAttr)
@@ -5662,7 +5681,8 @@ void Element::willModifyAttribute(const QualifiedName& name, const AtomString& o
             if (treeScope().shouldCacheLabelsByForAttribute())
                 label->updateLabel(treeScope(), oldValue, newValue);
         }
-    }
+    } else if (name == HTMLNames::hiddenAttr)
+        setStateFlag(StateFlag::ShouldNotifyTextManipulationControllerIfDisplayed);
 
     if (auto recipients = MutationObserverInterestGroup::createForAttributesMutation(*this, name))
         recipients->enqueueMutationRecord(MutationRecord::createAttributes(*this, name, oldValue));

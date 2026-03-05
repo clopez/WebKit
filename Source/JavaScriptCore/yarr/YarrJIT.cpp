@@ -2044,9 +2044,14 @@ class YarrGenerator final : public YarrJITInfo {
             RELEASE_ASSERT(m_regs.regUnicodeInputAndTrail == areCanonicallyEquivalentCanonicalModeArgReg);
             ASSERT(m_decode16BitForBackreferencesWithCalls);
 
-            // Fail matching for dangling surrogates.
-            characterMatchFails.append(m_jit.branch32(MacroAssembler::Equal, character, MacroAssembler::TrustedImm32(errorCodePoint)));
-            characterMatchFails.append(m_jit.branch32(MacroAssembler::Equal, patternCharacter, MacroAssembler::TrustedImm32(errorCodePoint)));
+            // When !m_decodeSurrogatePairs, readCharacter() emits load8/load16
+            // (zero-extended), so the result is always in [0, 0xFFFF] and can
+            // never equal errorCodePoint (-1). Only tryReadUnicodeChar() —
+            // reached when m_decodeSurrogatePairs — can produce errorCodePoint.
+            if (m_decodeSurrogatePairs) {
+                characterMatchFails.append(m_jit.branch32(MacroAssembler::Equal, character, MacroAssembler::TrustedImm32(errorCodePoint)));
+                characterMatchFails.append(m_jit.branch32(MacroAssembler::Equal, patternCharacter, MacroAssembler::TrustedImm32(errorCodePoint)));
+            }
 
             MacroAssembler::JumpList charactersMatch;
             charactersMatch.append(m_jit.branch32(MacroAssembler::Equal, character, patternCharacter));
@@ -3497,20 +3502,30 @@ class YarrGenerator final : public YarrJITInfo {
                     if (simdResult) {
                         m_usesSIMD = true;
                         op.m_reentry = simdResult->backtrackTarget;
+
+                        // Scalar loop fell through (out of input). Do not enter the
+                        // body; index would be past length and the body would OOB.
+                        if (!m_pattern.m_body->m_hasFixedSize) {
+                            if (alternative->m_minimumSize) {
+                                m_jit.sub32(m_regs.index, MacroAssembler::Imm32(alternative->m_minimumSize), m_regs.regT0);
+                                setMatchStart(m_regs.regT0);
+                            } else
+                                setMatchStart(m_regs.index);
+                        }
+                        op.m_jumps.append(m_jit.jump());
+
+                        matched.link(&m_jit);
+                        if (!m_pattern.m_body->m_hasFixedSize) {
+                            if (alternative->m_minimumSize) {
+                                m_jit.sub32(m_regs.index, MacroAssembler::Imm32(alternative->m_minimumSize), m_regs.regT0);
+                                setMatchStart(m_regs.regT0);
+                            } else
+                                setMatchStart(m_regs.index);
+                        }
+                        break;
                     }
 
-                    // When SIMD can't run (not enough chars), fall through to pattern matching.
-                    // When SIMD finds a potential match, also continue to pattern matching.
-                    matched.link(&m_jit);
-
-                    // If the pattern size is not fixed, store the start index for use if we match.
-                    if (!m_pattern.m_body->m_hasFixedSize) {
-                        if (alternative->m_minimumSize) {
-                            m_jit.sub32(m_regs.index, MacroAssembler::Imm32(alternative->m_minimumSize), m_regs.regT0);
-                            setMatchStart(m_regs.regT0);
-                        } else
-                            setMatchStart(m_regs.index);
-                    }
+                    ASSERT(matched.empty());
                     break;
                 }
 #endif
@@ -3970,6 +3985,11 @@ class YarrGenerator final : public YarrJITInfo {
 
                 PatternTerm* term = op.m_term;
                 unsigned parenthesesFrameLocation = term->frameLocation;
+
+                // Save the initial index so we can restore it on backtrack.
+                // The beginIndex slot is reused per-iteration for empty match detection,
+                // so we use returnAddressIndex (unused in this single-alt, non-ParenContext path).
+                storeToFrame(m_regs.index, parenthesesFrameLocation + BackTrackInfoParentheses::returnAddressIndex());
 
                 // Initialize the match count to 0.
                 storeToFrame(MacroAssembler::TrustedImm32(0), parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex());
@@ -4793,13 +4813,27 @@ class YarrGenerator final : public YarrJITInfo {
             // For non-capturing FixedCount parentheses, any failure means the entire
             // pattern fails. There's no partial backtracking - we either match
             // exactly N times or we fail completely.
-            case YarrOpCode::ParenthesesSubpatternFixedCountBegin:
+            case YarrOpCode::ParenthesesSubpatternFixedCountBegin: {
                 // Any backtrack to Begin means we failed to match the required count.
-                // First link any pending backtrack state from the content inside,
+                // Link any pending backtrack state from the content inside, restore
+                // the index to the position when we entered the group (since one or
+                // more iterations may have advanced it), clear any nested captures,
                 // then propagate the failure upward.
+                PatternTerm* term = op.m_term;
+                unsigned parenthesesFrameLocation = term->frameLocation;
+
                 m_backtrackingState.link(*this, op);
+
+                loadFromFrame(parenthesesFrameLocation + BackTrackInfoParentheses::returnAddressIndex(), m_regs.index);
+
+                if (shouldRecordSubpatterns() && term->containsAnyCaptures()) {
+                    for (unsigned subpattern = term->parentheses.subpatternId; subpattern <= term->parentheses.lastSubpatternId; subpattern++)
+                        clearSubpattern(subpattern);
+                }
+
                 m_backtrackingState.fallthrough();
                 break;
+            }
             case YarrOpCode::ParenthesesSubpatternFixedCountEnd:
                 // Backtracking into the End means something after the parentheses failed.
                 // For FixedCount, we don't try alternative counts, so just fail.
@@ -5150,6 +5184,16 @@ class YarrGenerator final : public YarrJITInfo {
             }
             case YarrOpCode::ParentheticalAssertionEnd: {
                 // Never backtrack into an assertion; later failures bail to before the begin.
+                // For positive assertions with captures, we must clear the captures before
+                // propagating the backtrack. The assertion matched and set captures, but
+                // something after it failed, so those captures must be reset to undefined.
+                PatternTerm* term = op.m_term;
+                if (!term->invert() && shouldRecordSubpatterns() && term->containsAnyCaptures()) {
+                    m_backtrackingState.link(*this, op);
+                    for (unsigned subpattern = term->parentheses.subpatternId; subpattern <= term->parentheses.lastSubpatternId; subpattern++)
+                        clearSubpattern(subpattern);
+                    m_backtrackingState.fallthrough();
+                }
                 m_backtrackingState.takeBacktracksToJumpList(op.m_jumps, &m_jit);
                 break;
             }
@@ -6046,16 +6090,12 @@ class YarrGenerator final : public YarrJITInfo {
         auto scalarLoopHead = m_jit.label();
         MacroAssembler::JumpList failed;
 
-        // Bounds check: need at least (minPatternLength - 1) more characters after current position
-        // Since we load 4 bytes, we need index + baseOffset + 4 <= length (upper bound)
-        // AND index >= -baseOffset (lower bound) when baseOffset is negative
-        int32_t scalarBoundsOffset = 4 + baseOffset;
-        m_jit.add32(MacroAssembler::TrustedImm32(scalarBoundsOffset), m_regs.index, m_regs.regT0);
-        failed.append(m_jit.branch32(MacroAssembler::Above, m_regs.regT0, m_regs.length));
-
-        // Also check lower bound when baseOffset is negative
-        if (baseOffset < 0)
-            failed.append(m_jit.branch32(MacroAssembler::Below, m_regs.index, MacroAssembler::TrustedImm32(-baseOffset)));
+        // Bounds: index <= length keeps the body in range, and also covers
+        // the 4-byte load below since MaskedAlternativeInfo::create guarantees
+        // checkedOffset >= 4. baseOffset (= -checkedOffset) is therefore < 0.
+        ASSERT(baseOffset < 0);
+        failed.append(m_jit.branch32(MacroAssembler::Above, m_regs.index, m_regs.length));
+        failed.append(m_jit.branch32(MacroAssembler::Below, m_regs.index, MacroAssembler::TrustedImm32(-baseOffset)));
 
         // Calculate load address: input + index
         // We incorporate baseOffset into the load address below to save an instruction.
@@ -6084,7 +6124,7 @@ class YarrGenerator final : public YarrJITInfo {
         m_jit.add32(MacroAssembler::TrustedImm32(1), m_regs.index);
         m_jit.jump().linkTo(scalarLoopHead, &m_jit);
 
-        // Not enough characters for scalar pre-filter - fall through to standard regex matching
+        // Scalar loop exhausted. Caller routes this to op.m_jumps.
         failed.link(&m_jit);
 
         // Return both labels:

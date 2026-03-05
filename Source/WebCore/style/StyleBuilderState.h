@@ -231,7 +231,7 @@ private:
     BuilderState(RenderStyle&);
     BuilderState(RenderStyle&, BuilderContext&&);
 
-    void adjustStyleForInterCharacterRuby();
+    void NODELETE adjustStyleForInterCharacterRuby();
 
     void updateFont();
 #if ENABLE(TEXT_AUTOSIZING)
@@ -255,6 +255,7 @@ private:
 
     const PropertyCascade::Property* m_currentProperty { nullptr };
     SelectorChecker::LinkMatchMask m_linkMatch { };
+    const PropertyCascade* m_currentRollbackCascade { nullptr };
 
     bool m_fontDirty { false };
     Vector<AtomString> m_registeredContentAttributes;

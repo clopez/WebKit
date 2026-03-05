@@ -34,6 +34,7 @@ SkiaRecordingResult::SkiaRecordingResult(sk_sp<SkPicture>&& picture, SkiaRecordi
     : m_picture(WTF::move(picture))
     , m_imageToFenceMap(WTF::move(recordingData.imageToFenceMap))
     , m_atlasLayouts(WTF::move(recordingData.atlasLayouts))
+    , m_imageSetFingerprint(recordingData.imageSetFingerprint)
     , m_recordRect(recordRect)
     , m_renderingMode(renderingMode)
     , m_contentsOpaque(contentsOpaque)
@@ -59,6 +60,19 @@ void SkiaRecordingResult::waitForFenceIfNeeded(const SkImage& image)
     Locker locker { m_imageToFenceMapLock };
     if (auto fence = m_imageToFenceMap.get(&image))
         fence->serverWait();
+}
+
+void SkiaRecordingResult::waitForUploadFence()
+{
+    if (m_uploadFence)
+        m_uploadFence->serverWait();
+}
+
+
+void SkiaRecordingResult::waitForUploadCondition()
+{
+    if (m_uploadCondition)
+        m_uploadCondition->wait();
 }
 
 } // namespace WebCore
