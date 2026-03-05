@@ -35,6 +35,8 @@
 #include "InspectorPageAgent.h"
 #include "InspectorWebAgentBase.h"
 #include "NetworkResourcesData.h"
+#include "ResourceError.h"
+#include "SharedBuffer.h"
 #include "WebSocket.h"
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/InspectorBackendDispatchers.h>
@@ -105,6 +107,7 @@ public:
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
     Inspector::Protocol::ErrorStringOr<void> setEmulatedConditions(std::optional<int>&& bytesPerSecondLimit) final;
 #endif
+    Inspector::Protocol::ErrorStringOr<void> setEmulateOfflineState(bool offline) final;
 
     // InspectorInstrumentation
     void willRecalculateStyle();
@@ -136,6 +139,7 @@ public:
     bool shouldInterceptResponse(const ResourceResponse&);
     void interceptResponse(const ResourceResponse&, ResourceLoaderIdentifier, CompletionHandler<void(const ResourceResponse&, RefPtr<FragmentedSharedBuffer>)>&&);
     void interceptRequest(ResourceLoader&, Function<void(const ResourceRequest&)>&&);
+    void setStoppingLoadingDueToProcessSwap(bool);
 
     void searchOtherRequests(const JSC::Yarr::RegularExpression&, Ref<JSON::ArrayOf<Inspector::Protocol::Page::SearchResult>>&);
     void searchInRequest(Inspector::Protocol::ErrorString&, const Inspector::Protocol::Network::RequestId&, const String& query, bool caseSensitive, bool isRegex, RefPtr<JSON::ArrayOf<Inspector::Protocol::GenericTypes::SearchMatch>>&);
@@ -191,7 +195,12 @@ private:
     bool m_enabled { false };
     bool m_loadingXHRSynchronously { false };
     bool m_interceptionEnabled { false };
+<<<<<<< HEAD
     bool m_clearResourceDataOnNavigate { true };
+||||||| parent of 65aaabd192c1 (chore(webkit): bootstrap build #2266)
+=======
+    bool m_stoppingLoadingDueToProcessSwap { false };
+>>>>>>> 65aaabd192c1 (chore(webkit): bootstrap build #2266)
 };
 
 } // namespace WebCore
