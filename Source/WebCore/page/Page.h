@@ -494,20 +494,12 @@ public:
     DragCaretController& dragCaretController() LIFETIME_BOUND { return m_dragCaretController.get(); }
     const DragCaretController& dragCaretController() const LIFETIME_BOUND { return m_dragCaretController.get(); }
 #if ENABLE(DRAG_SUPPORT)
-<<<<<<< HEAD
     DragController& dragController() LIFETIME_BOUND { return m_dragController.get(); }
     const DragController& dragController() const LIFETIME_BOUND { return m_dragController.get(); }
-||||||| parent of 65aaabd192c1 (chore(webkit): bootstrap build #2266)
-    DragController& dragController() { return m_dragController.get(); }
-    const DragController& dragController() const { return m_dragController.get(); }
-=======
-    DragController& dragController() { return m_dragController.get(); }
-    const DragController& dragController() const { return m_dragController.get(); }
 #if PLATFORM(MAC)
     void setDragPasteboardName(const String& pasteboardName) { m_overrideDragPasteboardName = pasteboardName; }
     const String& overrideDragPasteboardName() { return m_overrideDragPasteboardName; }
 #endif
->>>>>>> 65aaabd192c1 (chore(webkit): bootstrap build #2266)
 #endif
     FocusController& focusController() const { return m_focusController; }
 #if ENABLE(CONTEXT_MENUS)
