@@ -195,12 +195,8 @@ private:
     bool m_enabled { false };
     bool m_loadingXHRSynchronously { false };
     bool m_interceptionEnabled { false };
-<<<<<<< HEAD
     bool m_clearResourceDataOnNavigate { true };
-||||||| parent of 65aaabd192c1 (chore(webkit): bootstrap build #2266)
-=======
     bool m_stoppingLoadingDueToProcessSwap { false };
->>>>>>> 65aaabd192c1 (chore(webkit): bootstrap build #2266)
 };
 
 } // namespace WebCore
