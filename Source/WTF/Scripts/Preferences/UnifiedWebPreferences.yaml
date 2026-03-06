@@ -85,6 +85,7 @@ AVExperienceControllerFullscreenEnabled:
   status: unstable
   category: media
   getter: isAVExperienceControllerFullscreenEnabled
+  webcoreGetter: isAVExperienceControllerFullscreenEnabled
   humanReadableName: "AVExperienceController Fullscreen"
   humanReadableDescription: "Enable fullscreen video via AVExperienceController"
   condition: HAVE(AVEXPERIENCECONTROLLER)
@@ -1391,17 +1392,17 @@ CSSRubyDisplayTypesInAuthorStylesEnabled:
 
 CSSScrollAnchoringEnabled:
   type: bool
-  status: stable
+  status: preview
   category: css
   humanReadableName: "CSS Scroll Anchoring"
   humanReadableDescription: "Enable CSS Scroll Anchoring"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 CSSScrollbarColorEnabled:
   type: bool

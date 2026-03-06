@@ -1055,6 +1055,7 @@ void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomStr
     case AttributeNames::autoplayAttr:
         if (processingUserGestureForMedia())
             removeBehaviorRestrictionsAfterFirstUserGesture();
+        maybeUpdatePlayerPreload();
         return;
     case AttributeNames::titleAttr:
         if (RefPtr mediaSession = m_mediaSession)
@@ -1847,7 +1848,12 @@ void HTMLMediaElement::loadNextSourceChild()
 
 void HTMLMediaElement::maybeUpdatePlayerPreload() const
 {
-    if (RefPtr player = m_player; player && !m_havePreparedToPlay && !autoplay())
+    RefPtr player = m_player;
+    if (!player || m_havePreparedToPlay)
+        return;
+    if (autoplay())
+        player->setPreload(MediaPlayer::Preload::Auto);
+    else
         player->setPreload(protect(mediaSession())->effectivePreloadForElement());
 }
 
@@ -2614,6 +2620,17 @@ void HTMLMediaElement::textTrackModeChanged(TextTrack& track)
 
     // Mark this track as "configured" so configureTextTracks won't change the mode again.
     track.setHasBeenConfigured(true);
+
+    // If the track's mode changed from disabled to showing / hidden, and the ready state
+    // hasn't already advanced past HAVE_CURRENT_DATA, add it to the pending text tracks
+    // list so textTracksAreReady() blocks ready state advancement until this track
+    // finishes loading. Don't do this if the ready state has already advanced, as that
+    // would cause a readyState regression and re-fire canplaythrough.
+    if (track.mode() != TextTrack::Mode::Disabled && !m_textTracksWhenResourceSelectionBegan.contains(&track) && m_readyState < HAVE_FUTURE_DATA) {
+        m_textTracksWhenResourceSelectionBegan.append(track);
+        if (RefPtr player = m_player)
+            setReadyState(player->readyState());
+    }
 
     if (track.mode() != TextTrack::Mode::Disabled && trackIsLoaded)
         textTrackAddCues(track, *protect(track.cues()));
@@ -7446,6 +7463,11 @@ bool HTMLMediaElement::videoUsesElementFullscreen() const
         if (RefPtr player = m_player; player && player->supportsLinearMediaPlayer())
             return false;
     }
+#endif
+
+#if HAVE(AVEXPERIENCECONTROLLER)
+    if (document().settings().isAVExperienceControllerFullscreenEnabled())
+        return false;
 #endif
 
 #if PLATFORM(IOS_FAMILY)

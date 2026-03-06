@@ -50,7 +50,7 @@
 #include "DocumentSyncClient.h"
 #include "DocumentType.h"
 #include "DocumentView.h"
-#include "Editing.h"
+#include "EditingInlines.h"
 #include "Editor.h"
 #include "EditorClient.h"
 #include "ElementInlines.h"
@@ -1356,7 +1356,7 @@ void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty prope
     if (m_accessedWindowProxyPropertiesViaOpener.contains(property))
         return;
 
-    auto origin = SecurityOriginData::fromFrame(this);
+    auto origin = SecurityOriginData::fromLocalFrame(this);
     if (origin.isNull() || origin.isOpaque())
         return;
 

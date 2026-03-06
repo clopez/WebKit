@@ -186,17 +186,12 @@ http/tests/paymentrequest/paymentrequest-isDelegatedRequest.https.html [ Skip ]
 http/tests/paymentrequest [ Pass ]
 imported/w3c/web-platform-tests/payment-request [ Pass ]
 
-# This test is failing due to lack of user activation.
-imported/w3c/web-platform-tests/payment-request/payment-is-showing.https.html [ Skip ]
+# hasEnrolledInstrument is not implemented
+webkit.org/b/197386 imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method.tentative.https.html [ Skip ]
+webkit.org/b/197386 imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method-protection.tentative.https.html [ Skip ]
 
-# Timeouts
-imported/w3c/web-platform-tests/payment-request/payment-request-canmakepayment-method.https.html [ Skip ]
-imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method.tentative.https.html [ Skip ]
-
-# skip in favor of tests in http/tests/paymentrequest
-imported/w3c/web-platform-tests/payment-request/payment-request-abort-method.https.html [ WontFix ]
-imported/w3c/web-platform-tests/payment-request/payment-request-show-method.https.html [ WontFix ]
-imported/w3c/web-platform-tests/payment-request/rejects_if_not_active.https.html [ WontFix ]
+# test_driver.minimize_window() times out in WebKit test infrastructure
+imported/w3c/web-platform-tests/payment-request/payment-request-disallowed-when-hidden.https.html [ Skip ]
 
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/form-controls/text-transform.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/phrasing-content-0/br-wbr-content/content-property.tentative.html [ ImageOnlyFailure ]
@@ -1069,6 +1064,9 @@ imported/w3c/web-platform-tests/shadow-dom/focus/focus-pseudo-matches-on-shadow-
 # Navigation API
 imported/w3c/web-platform-tests/navigation-api/focus-reset/basic.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-api/focus-reset/multiple-intercept.html [ Failure ]
+# These tests fail with "This test requires user interaction"
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-history-traversal-during-onnavigate-should-reject.html [ Failure ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-history-traversal-during-onnavigate.html [ Failure ]
 
 # This test needs to be rewritten to use runUIScript to work on iOS
 webkit.org/b/152993 http/tests/contentdispositionattachmentsandbox/form-submission-disabled.html [ Skip ]
@@ -5663,7 +5661,6 @@ fast/visual-viewport/ios/bottom-bar-with-keyboard.html [ Skip ]
 fast/visual-viewport/ios/fixed-element-on-bottom-with-keyboard.html [ Skip ]
 fast/visual-viewport/ios/zoomed-focus-in-fixed.html [ Skip ]
 http/tests/navigation/ping-attribute [ Skip ]
-http/tests/site-isolation/mixedContent/anchor-cross-origin-from-https-UpgradeMixedContent.html [ Skip ]
 
 # Uses WK1 TestRunner.setUseDeferredFramLoading
 webkit.org/b/153050 http/tests/security/cross-frame-access-custom.html [ Pass Failure ]
@@ -8442,6 +8439,8 @@ webkit.org/b/305404 imported/w3c/web-platform-tests/css/css-text-decor/text-emph
 
 webkit.org/b/305508 http/tests/resourceLoadStatistics/log-cross-site-load-with-link-decoration.html [ Pass Failure ]
 
+webkit.org/b/309370 fast/css/vertical-text-overflow-ellipsis-text-align-center.html [ Failure Pass ]
+
 webkit.org/b/305605 media/volume-sleep-disable.html [ Failure ]
 
 imported/w3c/web-platform-tests/uievents/mouse/layer-coords-transform.html [ Skip ]
@@ -8478,8 +8477,6 @@ webkit.org/b/307582 compositing/overflow/rtl-scrollbar-layer-positioning.html [ 
 webkit.org/b/307889 http/tests/multipart/multipart-async-image.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/cssom-view/smooth-scrollIntoView-with-unrelated-gesture-scroll.html [ Skip ]
-
-webkit.org/b/308243 [ Release ] http/tests/site-isolation/mixedContent/redirect-https-to-http-iframe-in-main-frame.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/css-highlight-api/highlight-text-across-elements.html [ ImageOnlyFailure ]
 

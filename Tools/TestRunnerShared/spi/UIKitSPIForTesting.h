@@ -556,7 +556,10 @@ typedef NS_ENUM(NSUInteger, _UIClickInteractionShouldBeginResult) {
 - (UITextInputArrowKeyHistory *)_moveToStartOfParagraph:(BOOL)extending withHistory:(UITextInputArrowKeyHistory *)history;
 @end
 
-#if __has_include(<UIFoundation/NSTextTable.h>)
+#if __has_include(<UIKit/NSTextTable.h>)
+#import <UIKit/NSTextTable.h>
+#import <UIKit/NSParagraphStyle.h>
+#elif __has_include(<UIFoundation/NSTextTable.h>)
 #import <UIFoundation/NSTextTable.h>
 #else
 

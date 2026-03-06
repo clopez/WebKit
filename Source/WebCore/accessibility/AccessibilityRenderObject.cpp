@@ -240,7 +240,7 @@ static inline CheckedPtr<RenderObject> firstChildConsideringContinuation(RenderO
 
 static inline RenderObject* lastChildConsideringContinuation(RenderObject& renderer)
 {
-    if (!is<RenderInline>(renderer) && !is<RenderBlock>(renderer))
+    if (!isAnyOf<RenderInline, RenderBlock>(renderer))
         return &renderer;
 
     auto& boxModelObject = uncheckedDowncast<RenderBoxModelObject>(renderer);
@@ -308,7 +308,7 @@ static inline RenderInline* startOfContinuations(RenderObject& renderer)
 
 static inline CheckedPtr<RenderObject> endOfContinuations(RenderObject& renderer)
 {
-    if (!is<RenderInline>(renderer) && !is<RenderBlock>(renderer))
+    if (!isAnyOf<RenderInline, RenderBlock>(renderer))
         return &renderer;
 
     CheckedPtr previous = uncheckedDowncast<RenderBoxModelObject>(&renderer);
@@ -402,7 +402,7 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
     if (!m_renderer)
         return AccessibilityNodeObject::nextSibling();
 
-    if (is<RenderView>(m_renderer))
+    if (is<RenderView>(*m_renderer))
         return nullptr;
 
     CheckedPtr<RenderObject> nextSibling;
@@ -718,8 +718,12 @@ String AccessibilityRenderObject::textUnderElement(TextUnderElementMode mode) co
                 // We define the start and end positions for the range as the ones right before and after
                 // the first and the last nodes in the DOM tree that is wrapped inside the anonymous block.
                 auto& firstNodeInBlock = *firstChildRenderer->node();
+                auto& lastNodeInBlock = *lastChildRenderer->node();
                 nodeDocument = firstNodeInBlock.document();
-                textRange = makeSimpleRange(positionInParentBeforeNode(&firstNodeInBlock), positionInParentAfterNode(lastChildRenderer->node()));
+                textRange = makeSimpleRange(
+                    positionInParentBeforeNode(firstNodeInBlock),
+                    positionInParentAfterNode(lastNodeInBlock)
+                );
             }
         }
 #endif // USE(ATSPI)
@@ -908,7 +912,7 @@ LayoutRect AccessibilityRenderObject::boundingBoxRect() const
             CheckedPtr cache = axObjectCache();
             RefPtr endNode = cache ? lastNode(stitchGroup->members(), *cache) : nullptr;
             if (endNode) {
-                if (std::optional range = makeSimpleRange(positionBeforeNode(node.get()), positionAfterNode(endNode.get()))) {
+                if (std::optional range = makeSimpleRange(positionBeforeNode(*node), positionAfterNode(*endNode))) {
                     quads = RenderObject::absoluteTextQuads(*range);
 
                     for (AXID axID : stitchGroup->members()) {
@@ -1647,14 +1651,15 @@ AXTextRuns AccessibilityRenderObject::textRuns()
         if (text.isEmpty())
             return;
 
-        if (textBox->style().textTransform().contains(Style::TextTransformValue::FullSizeKana)) {
+        CheckedRef textBoxStyle = textBox->style();
+        if (textBoxStyle->textTransform().contains(Style::TextTransformValue::FullSizeKana)) {
             // We don't want to serve transformed kana text to AT since it is a visual affordance.
             // Using the original text from the renderer provides the untransformed string.
             text = textBox->renderer().originalText().substring(textBox->start(), textBox->length());
         }
 
-        bool collapseTabs = textBox->style().collapseWhiteSpace();
-        bool collapseNewlines = !textBox->style().preserveNewline();
+        bool collapseTabs = textBoxStyle->collapseWhiteSpace();
+        bool collapseNewlines = !textBoxStyle->preserveNewline();
 
         auto textRun = textBox->textRun(InlineIterator::TextRunMode::Editing);
         auto lineBox = textBox->lineBox();

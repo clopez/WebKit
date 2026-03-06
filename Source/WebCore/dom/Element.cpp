@@ -53,7 +53,7 @@
 #include "DocumentQuirks.h"
 #include "DocumentSharedObjectPool.h"
 #include "DocumentView.h"
-#include "Editing.h"
+#include "EditingInlines.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementAnimationRareData.h"
 #include "ElementChildIteratorInlines.h"
@@ -379,8 +379,7 @@ bool Element::isNonceable() const
     if (hasDuplicateAttribute())
         return false;
 
-    if (hasAttributes()
-        && (is<HTMLScriptElement>(*this) || is<SVGScriptElement>(*this))) {
+    if (hasAttributes() && isAnyOf<HTMLScriptElement, SVGScriptElement>(*this)) {
         static constexpr auto scriptString = "<script"_s;
         static constexpr auto styleString = "<style"_s;
 
@@ -1720,6 +1719,8 @@ int Element::scrollTop()
 
 void Element::setScrollLeft(int newLeft)
 {
+    LOG_WITH_STREAM(Scrolling, stream << "Element " << *this << " setScrollLeft " << newLeft);
+
     Ref document = this->document();
     document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible }, this);
 
@@ -1746,6 +1747,8 @@ void Element::setScrollLeft(int newLeft)
 
 void Element::setScrollTop(int newTop)
 {
+    LOG_WITH_STREAM(Scrolling, stream << "Element " << *this << " setScrollTop " << newTop);
+
     Ref document = this->document();
     document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible }, this);
 
@@ -2344,7 +2347,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
         elementData()->setHasNameAttribute(!newValue.isNull());
         break;
     case AttributeNames::nonceAttr:
-        if (is<HTMLElement>(*this) || is<SVGElement>(*this))
+        if (isAnyOf<HTMLElement, SVGElement>(*this))
             setNonce(newValue.isNull() ? emptyAtom() : newValue);
         break;
     case AttributeNames::useragentpartAttr:
