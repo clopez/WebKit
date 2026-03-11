@@ -76,12 +76,12 @@ static guint defaultWindowHeightLegacyAPI = 720;
 static GHashTable* openViews;
 static gboolean windowMaximized;
 static gboolean windowFullscreen;
+static const char* configFile;
 #if ENABLE_WPE_PLATFORM
 #if defined(USE_LIBWPE) && USE_LIBWPE
 static gboolean useLegacyAPI;
 #endif
 static const char* defaultWindowTitle = "WPEWebKit MiniBrowser";
-static const char* configFile;
 #endif
 
 static gboolean parseWindowSize(const char*, const char* value, gpointer, GError** error)
