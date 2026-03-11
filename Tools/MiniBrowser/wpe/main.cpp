@@ -831,7 +831,6 @@ static void activate(GApplication* application, gpointer)
     }
 #endif
 
-<<<<<<< HEAD
     if (configFile) {
 #if ENABLE_WPE_PLATFORM
         auto* wpeView = webkit_web_view_get_wpe_view(webView);
@@ -841,13 +840,6 @@ static void activate(GApplication* application, gpointer)
 #endif
     }
 
-    openViews = g_hash_table_new_full(nullptr, nullptr, g_object_unref, nullptr);
-
-||||||| parent of 473b90d76ce9 (chore(webkit): bootstrap build #2267)
-    openViews = g_hash_table_new_full(nullptr, nullptr, g_object_unref, nullptr);
-
-=======
->>>>>>> 473b90d76ce9 (chore(webkit): bootstrap build #2267)
     g_signal_connect(webContext, "automation-started", G_CALLBACK(automationStartedCallback), webView);
     g_signal_connect(webView, "permission-request", G_CALLBACK(decidePermissionRequest), nullptr);
     g_signal_connect(webView, "create", G_CALLBACK(createWebView), application);
