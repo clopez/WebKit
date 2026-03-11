@@ -420,16 +420,14 @@ void NetworkProcess::createNetworkConnectionToWebProcess(ProcessIdentifier ident
         connection->connection().setIgnoreInvalidMessageForTesting();
 #endif
 
-    for (auto pageID : parameters.pagesWithRelaxedThirdPartyCookieBlocking)
-        m_pagesWithRelaxedThirdPartyCookieBlocking.add(pageID);
+    m_pagesWithRelaxedThirdPartyCookieBlocking.addAll(parameters.pagesWithRelaxedThirdPartyCookieBlocking);
 
     if (CheckedPtr session = networkSession(sessionID)) {
         Vector<WebCore::RegistrableDomain> allowedSites;
         auto iter = m_allowedFirstPartiesForCookies.find(identifier);
-        if (iter != m_allowedFirstPartiesForCookies.end()) {
-            for (auto& site : iter->value.second)
-                allowedSites.append(site);
-        }
+        if (iter != m_allowedFirstPartiesForCookies.end())
+            allowedSites = copyToVector(iter->value.second);
+
         session->storageManager().startReceivingMessageFromConnection(connection->connection(), allowedSites, connection->sharedPreferencesForWebProcessValue());
     }
 }
@@ -1762,6 +1760,19 @@ void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websit
         auto shouldComputeSize = fetchOptions.contains(WebsiteDataFetchOption::ComputeSizes) ? NetworkStorageManager::ShouldComputeSize::Yes : NetworkStorageManager::ShouldComputeSize::No;
         session->storageManager().fetchData(websiteDataTypes, shouldComputeSize, [callbackAggregator](auto entries) mutable {
             callbackAggregator->m_websiteData.entries.appendVector(WTF::move(entries));
+        });
+    }
+
+    if (websiteDataTypes.contains(WebsiteDataType::PrivateClickMeasurements) && session) {
+        session->privateClickMeasurement().fetchRegistrableDomains([callbackAggregator](auto&& domains) mutable {
+            for (auto& domain : domains) {
+                WebsiteData::Entry entry {
+                    WebCore::SecurityOriginData::fromURL(URL { makeString("https://"_s, domain.string()) }),
+                    WebsiteDataType::PrivateClickMeasurements,
+                    0
+                };
+                callbackAggregator->m_websiteData.entries.append(WTF::move(entry));
+            }
         });
     }
 }

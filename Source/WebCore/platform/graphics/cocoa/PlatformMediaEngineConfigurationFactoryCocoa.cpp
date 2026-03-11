@@ -32,11 +32,10 @@
 #include "AV1UtilitiesCocoa.h"
 #include "HEVCUtilitiesCocoa.h"
 #include "MediaPlayer.h"
-#include "MediaSessionHelperIOS.h"
 #include "PlatformMediaCapabilitiesDecodingInfo.h"
 #include "PlatformMediaDecodingConfiguration.h"
 #include "PlatformMediaEngineConfigurationFactory.h"
-#include "PlatformMediaSessionManager.h"
+#include "SpatialAudioPlaybackHelper.h"
 #include "VP9UtilitiesCocoa.h"
 #include <pal/avfoundation/OutputContext.h>
 #include <pal/avfoundation/OutputDevice.h>
@@ -66,24 +65,18 @@ static std::optional<PlatformMediaCapabilitiesInfo> computeMediaCapabilitiesInfo
     PlatformMediaCapabilitiesInfo info;
 
     if (configuration.video) {
-        auto& videoConfiguration = configuration.video.value();
-        MediaEngineSupportParameters parameters { };
-        parameters.allowedMediaContainerTypes = configuration.allowedMediaContainerTypes;
-        parameters.allowedMediaCodecTypes = configuration.allowedMediaCodecTypes;
-
-        switch (configuration.type) {
-        case PlatformMediaDecodingType::File:
-            parameters.isMediaSource = false;
-            break;
-        case PlatformMediaDecodingType::MediaSource:
-            parameters.isMediaSource = true;
-            break;
-        case PlatformMediaDecodingType::WebRTC:
+        if (configuration.type == PlatformMediaDecodingType::MediaStream) {
             ASSERT_NOT_REACHED();
             return std::nullopt;
         }
+        auto& videoConfiguration = configuration.video.value();
+        MediaEngineSupportParameters parameters {
+            .platformType = configuration.type,
+            .type = ContentType(videoConfiguration.contentType),
+            .allowedMediaContainerTypes = configuration.allowedMediaContainerTypes,
+            .allowedMediaCodecTypes = configuration.allowedMediaCodecTypes
+        };
 
-        parameters.type = ContentType(videoConfiguration.contentType);
         if (MediaPlayer::supportsType(parameters) != MediaPlayer::SupportsType::IsSupported)
             return std::nullopt;
 
@@ -164,11 +157,12 @@ static std::optional<PlatformMediaCapabilitiesInfo> computeMediaCapabilitiesInfo
     if (!configuration.audio)
         return info;
 
-    MediaEngineSupportParameters parameters { };
-    parameters.type = ContentType(configuration.audio.value().contentType);
-    parameters.isMediaSource = configuration.type == PlatformMediaDecodingType::MediaSource;
-    parameters.allowedMediaContainerTypes = configuration.allowedMediaContainerTypes;
-    parameters.allowedMediaCodecTypes = configuration.allowedMediaCodecTypes;
+    MediaEngineSupportParameters parameters {
+        .platformType = configuration.type,
+        .type = ContentType(configuration.audio.value().contentType),
+        .allowedMediaContainerTypes = configuration.allowedMediaContainerTypes,
+        .allowedMediaCodecTypes = configuration.allowedMediaCodecTypes,
+    };
 
     if (MediaPlayer::supportsType(parameters) != MediaPlayer::SupportsType::IsSupported)
         return std::nullopt;
@@ -177,15 +171,7 @@ static std::optional<PlatformMediaCapabilitiesInfo> computeMediaCapabilitiesInfo
     if (!configuration.audio->spatialRendering.value_or(false))
         return info;
 
-    RefPtr manager = configuration.pageIdentifier ? PlatformMediaEngineConfigurationFactory::mediaSessionManagerForPageIdentifier(configuration.pageIdentifier.value()) : nullptr;
-    if (!manager)
-        return std::nullopt;
-
-    auto supportsSpatialPlayback = manager->supportsSpatialAudioPlaybackForConfiguration(configuration);
-    if (!supportsSpatialPlayback.has_value())
-        return std::nullopt;
-
-    info.supported = supportsSpatialPlayback.value();
+    info.supported = SpatialAudioPlaybackHelper::supportsSpatialAudioPlaybackForConfiguration(configuration);
 
     return info;
 }

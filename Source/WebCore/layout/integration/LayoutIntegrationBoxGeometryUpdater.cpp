@@ -31,11 +31,12 @@
 #include "InlineWalker.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyRenderSVGRoot.h"
+#include "LegacyRootInlineBox.h"
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
 #include "MultiRepresentationHEICMetrics.h"
 #endif
 #include "RenderAttachment.h"
-#include "RenderBlockFlow.h"
+#include "RenderBlockFlowInlines.h"
 #include "RenderBoxInlines.h"
 #include "RenderButton.h"
 #include "RenderDeprecatedFlexibleBox.h"
@@ -447,7 +448,7 @@ static std::optional<LayoutUnit> baselineForBox(const RenderBox& renderBox)
     if (CheckedPtr rendererAttachment = dynamicDowncast<RenderAttachment>(renderBox)) {
         // Subtract margin top to preserve legacy behavior.
         auto marginBefore = renderBox.writingMode().isHorizontal() ? renderBox.marginTop() : renderBox.marginRight();
-        if (CheckedPtr baselineElement = CheckedRef { rendererAttachment->attachmentElement() }->wideLayoutImageElement()) {
+        if (CheckedPtr baselineElement = rendererAttachment->attachmentElement().wideLayoutImageElement()) {
             if (auto* baselineElementRenderBox = baselineElement->renderBox()) {
                 // This is the bottom of the image assuming it is vertically centered.
                 return (borderBoxBottom + baselineElementRenderBox->height()) / 2 - marginBefore;
@@ -666,7 +667,7 @@ static inline void setIntegrationBaseline(const RenderBox& renderBox)
                 return marginBefore + snapToInt(contentBoxBottom, renderBox);
             }
 
-            return snapToInt(marginBoxLogicalHeight, renderBox);
+            return snapToInt(rootWritingMode.prefersCentralBaseline() && !isWritingModeRoot ? marginBoxLogicalHeight / 2: marginBoxLogicalHeight, renderBox);
         };
         const_cast<Layout::ElementBox&>(*renderBox.layoutBox()).setBaselineForIntegration(baselinePosition());
     }

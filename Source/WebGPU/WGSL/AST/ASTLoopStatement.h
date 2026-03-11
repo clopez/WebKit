@@ -39,12 +39,15 @@ class LoopStatement final : public Statement {
     WGSL_AST_BUILDER_NODE(LoopStatement);
 public:
     NodeKind kind() const override;
-    Attribute::List& attributes() { return m_attributes; }
-    Statement::List& body() { return m_body; }
-    std::optional<Continuing>& continuing() { return m_continuing; }
+    Attribute::List& attributes() LIFETIME_BOUND { return m_attributes; }
+    Statement::List& body() LIFETIME_BOUND { return m_body; }
+    std::optional<Continuing>& continuing() LIFETIME_BOUND { return m_continuing; }
 
     void setContainsSwitch() { m_containsSwitch = true; }
     bool containsSwitch() const { return m_containsSwitch; }
+
+    Behaviors bodyBehaviors() const { return m_bodyBehaviors; }
+    void setBodyBehaviors(Behaviors behaviors) { m_bodyBehaviors = behaviors; }
 
 private:
     LoopStatement(SourceSpan span, Attribute::List&& attributes, Statement::List&& body, std::optional<Continuing>&& continuing)
@@ -59,6 +62,7 @@ private:
     std::optional<Continuing> m_continuing;
 
     bool m_containsSwitch { false };
+    Behaviors m_bodyBehaviors;
 };
 
 } // namespace WGSL::AST

@@ -37,6 +37,7 @@
 #include "EventHandler.h"
 #include "FloatQuad.h"
 #include "FloatRoundedRect.h"
+#include "FloatingObjects.h"
 #include "FontBaseline.h"
 #include "GraphicsContext.h"
 #include "HTMLBodyElement.h"
@@ -106,6 +107,7 @@
 #include <math.h>
 #include <wtf/Assertions.h>
 #include <wtf/RuntimeApplicationChecks.h>
+#include <wtf/Scope.h>
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -1936,6 +1938,8 @@ bool RenderBox::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, u
             continue;
         if (childBox.backgroundIsKnownToBeOpaqueInRect(childLocalRect))
             return true;
+        if (isSkippedContentRoot(childBox))
+            continue;
         if (childBox.foregroundIsKnownToBeOpaqueInRect(childLocalRect, maxDepthToTest - 1))
             return true;
     }
@@ -1944,6 +1948,7 @@ bool RenderBox::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, u
 
 bool RenderBox::computeBackgroundIsKnownToBeObscured(const LayoutPoint& paintOffset)
 {
+    ASSERT(!isSkippedContentRoot(*this));
     // Test to see if the children trivially obscure the background.
     // FIXME: This test can be much more comprehensive.
     if (!hasBackground())
@@ -5077,6 +5082,13 @@ std::pair<LayoutUnit, LayoutUnit> RenderBox::computeMinMaxLogicalHeightFromAspec
 {
     LayoutUnit transferredMinSize = LayoutUnit();
     LayoutUnit transferredMaxSize = LayoutUnit::max();
+
+#if ASSERT_ENABLED
+    auto checkMinMaxSizes = makeScopeExit([&transferredMinSize, &transferredMaxSize] {
+        ASSERT(transferredMaxSize >= transferredMinSize);
+    });
+#endif
+
     std::optional<double> aspectRatio = resolveAspectRatio();
     if (!aspectRatio)
         return { transferredMinSize, transferredMaxSize };

@@ -115,7 +115,7 @@ public:
     
     void setForNode(Node* node)
     {
-        if (Options::useIRDump()) [[unlikely]]
+        if (Options::useIRDump() || Options::useSourceCodeDump()) [[unlikely]]
             m_irDumpLabels.append({ labelIgnoringWatchpoints(), node });
         if (!m_disassembler) [[likely]]
             return;
@@ -281,9 +281,9 @@ public:
 
     RefPtr<DFG::JITCode> jitCode() { return m_jitCode; }
     
-    Vector<Label>& blockHeads() { return m_blockHeads; }
+    Vector<Label>& blockHeads() LIFETIME_BOUND { return m_blockHeads; }
 
-    PCToCodeOriginMapBuilder& pcToCodeOriginMapBuilder() { return m_pcToCodeOriginMapBuilder; }
+    PCToCodeOriginMapBuilder& pcToCodeOriginMapBuilder() LIFETIME_BOUND { return m_pcToCodeOriginMapBuilder; }
 
     VM& vm() { return m_graph.m_vm; }
 
@@ -349,7 +349,7 @@ public:
     };
 
     void loadConstant(LinkerIR::Constant, GPRReg);
-    void loadStructureStubInfo(StructureStubInfoIndex, GPRReg);
+    void loadPropertyInlineCache(PropertyInlineCacheIndex, GPRReg);
     void loadLinkableConstant(LinkableConstant, GPRReg);
     void storeLinkableConstant(LinkableConstant, Address);
 
@@ -371,7 +371,7 @@ public:
         return CCallHelpers::branchPtr(cond, left, CCallHelpers::TrustedImmPtr(constant.pointer()));
     }
 
-    std::tuple<CompileTimeStructureStubInfo, StructureStubInfoIndex> addStructureStubInfo();
+    std::tuple<CompileTimePropertyInlineCache, PropertyInlineCacheIndex> addPropertyInlineCache();
     std::tuple<CompileTimeCallLinkInfo, LinkableConstant> addCallLinkInfo(CodeOrigin);
     LinkerIR::Constant addToConstantPool(LinkerIR::Type, void*);
 
@@ -388,6 +388,7 @@ protected:
     void linkOSRExits();
     void disassemble(LinkBuffer&);
     void collectIRDumpDebugInfo(LinkBuffer&);
+    void collectSourceCodeDumpDebugInfo(LinkBuffer&);
 
     void makeCatchOSREntryBuffer();
 
@@ -434,7 +435,7 @@ protected:
     Vector<DFG::OSREntryData> m_osrEntry;
     Vector<DFG::OSRExit> m_osrExit;
     Vector<DFG::SpeculationRecovery> m_speculationRecovery;
-    SegmentedVector<DFG::UnlinkedStructureStubInfo> m_unlinkedStubInfos;
+    SegmentedVector<DFG::UnlinkedPropertyInlineCache> m_unlinkedPropertyInlineCaches;
     SegmentedVector<DFG::UnlinkedCallLinkInfo> m_unlinkedCallLinkInfos;
     
     struct ExceptionHandlingOSRExitInfo {

@@ -773,7 +773,7 @@ LayoutUnit RenderBlockFlow::shiftForAlignContent(LayoutUnit intrinsicLogicalHeig
 
     // Now shift all our content.
     if (CheckedPtr inlineLayout = this->inlineLayout())
-        inlineLayout->shiftLinesBy(space);
+        inlineLayout->shiftLinesByInBlockDirection(space);
     else if (auto* svgTextLayout = this->svgTextLayout()) {
         if (isHorizontalWritingMode())
             svgTextLayout->shiftLineBy(0, space);
@@ -2380,6 +2380,11 @@ void RenderBlockFlow::adjustSizeContainmentChildForPagination(RenderBox& child, 
         fragmentedFlow->updateSpaceShortageForSizeContainment(this, offsetFromLogicalTopOfFirstPage() + offset, spaceShortage);
 }
 
+bool RenderBlockFlow::containsFloats() const
+{
+    return m_floatingObjects && !m_floatingObjects->set().isEmpty();
+}
+
 bool RenderBlockFlow::containsFloat(const RenderBox& renderer) const
 {
     return m_floatingObjects && m_floatingObjects->set().contains<FloatingObjectHashTranslator>(renderer);
@@ -2559,6 +2564,12 @@ void RenderBlockFlow::repaintOverhangingFloats(bool paintAllDescendants)
             renderer.repaintOverhangingFloats(false);
         }
     }
+}
+
+void RenderBlockFlow::dirtyLineFromChangedChild()
+{
+    if (svgTextLayout() && svgTextLayout()->legacyRootBox())
+        svgTextLayout()->legacyRootBox()->markDirty();
 }
 
 void RenderBlockFlow::paintColumnRules(PaintInfo& paintInfo, const LayoutPoint& point)
@@ -2969,6 +2980,11 @@ LayoutUnit RenderBlockFlow::nextFloatLogicalBottomBelowForBlock(LayoutUnit logic
         return logicalHeight;
 
     return m_floatingObjects->findNextFloatLogicalBottomBelowForBlock(logicalHeight);
+}
+
+LayoutUnit RenderBlockFlow::lowestFloatLogicalBottom() const
+{
+    return lowestFloatLogicalBottom(FloatLeftRight);
 }
 
 LayoutUnit RenderBlockFlow::lowestFloatLogicalBottom(FloatingObject::Type floatType) const
@@ -4034,7 +4050,7 @@ static void setFullRepaintOnParentInlineBoxLayerIfNeeded(const RenderText& rende
     }
     if (!parent->isInline() || !parent->hasLayer())
         return;
-    protect(downcast<RenderLayerModelObject>(*parent).layer())->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
+    downcast<RenderLayerModelObject>(*parent).layer()->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
 }
 
 std::pair<float, float> RenderBlockFlow::inlineContentTopAndBottomIncludingInkOverflow() const

@@ -28,6 +28,7 @@
 #include "LocalFrameView.h"
 
 #include "AXObjectCache.h"
+#include "AccessibilityRegionContext.h"
 #include "AnchorPositionEvaluator.h"
 #include "BackForwardCache.h"
 #include "BackForwardController.h"
@@ -130,6 +131,7 @@
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
+#include "SimpleRange.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "TextIndicator.h"
@@ -269,6 +271,7 @@ void LocalFrameView::reset()
     m_updateEmbeddedObjectsTimer.stop();
     m_lastUserScrollType = std::nullopt;
     m_wasEverScrolledExplicitlyByUser = false;
+    m_wasEverScrolledExplicitlyByUserBelowTopEdge = false;
     m_delayedScrollEventTimer.stop();
     m_shouldScrollToFocusedElement = false;
     m_delayedScrollToFocusedElementTimer.stop();
@@ -1268,7 +1271,7 @@ void LocalFrameView::adjustScrollbarsForLayout(bool isFirstLayout)
 
 void LocalFrameView::willDoLayout(SingleThreadWeakPtr<RenderElement> layoutRoot)
 {
-    if (!m_frame->document()->isInStyleInterleavedLayout())
+    if (!m_frame->document()->isInStyleInterleavedLayout() && !layoutContext().isLayoutNested())
         updateScrollAnchoringBeforeLayoutForScrollableAreas();
 
     bool subtreeLayout = !is<RenderView>(*layoutRoot);
@@ -2136,6 +2139,19 @@ std::optional<LayoutRect> LocalFrameView::visibleRectOfChild(const Frame& child)
     );
 
     return rects.transform([] (const auto& repaintRects) { return repaintRects.clippedOverflowRect; });
+}
+
+bool LocalFrameView::ownerElementOfChildFrameUsesDarkAppearance(const Frame& child) const
+{
+    RefPtr childOwnerRenderer = child.ownerRenderer();
+    if (!childOwnerRenderer)
+        return false;
+
+    // Ensure |child| is a child of this frame.
+    ASSERT(child.tree().parent()->frameID() == m_frame->frameID());
+    ASSERT(childOwnerRenderer->frame().frameID() == m_frame->frameID());
+
+    return childOwnerRenderer->useDarkAppearance();
 }
 
 LayoutRect LocalFrameView::rectForFixedPositionLayout() const
@@ -4607,9 +4623,9 @@ void LocalFrameView::scrollToPendingTextFragmentRange()
                 return;
         }
         if (m_haveCreatedTextIndicator)
-            protect(document->page())->chrome().client().updateTextIndicator(WTF::move(textIndicator));
+            document->page()->chrome().client().updateTextIndicator(WTF::move(textIndicator));
         else {
-            protect(document->page())->chrome().client().setTextIndicator(WTF::move(textIndicator));
+            document->page()->chrome().client().setTextIndicator(WTF::move(textIndicator));
             m_haveCreatedTextIndicator = true;
         }
     }
@@ -4722,7 +4738,8 @@ void LocalFrameView::performPostLayoutTasks()
     updateLayoutViewport();
     viewportContentsChanged();
 
-    adjustScrollAnchoringPositionForScrollableAreas();
+    if (!layoutContext().isLayoutNested())
+        adjustScrollAnchoringPositionForScrollableAreas();
 
     resnapAfterLayout();
 
@@ -5590,14 +5607,17 @@ void LocalFrameView::setLastUserScrollType(std::optional<UserScrollType> userScr
     if (userScrollType && document)
         document->setGotoAnchorNeededAfterStylesheetsLoad(false);
 
+    if (userScrollType == UserScrollType::Explicit) {
+        m_wasEverScrolledExplicitlyByUser = true;
+        if (scrollOffset().y() > minimumScrollOffset().y())
+            m_wasEverScrolledExplicitlyByUserBelowTopEdge = true;
+    }
+
     m_maintainScrollPositionAnchor = nullptr;
     if (m_lastUserScrollType == userScrollType)
         return;
     m_lastUserScrollType = userScrollType;
     adjustTiledBackingCoverage();
-
-    if (userScrollType == UserScrollType::Explicit)
-        m_wasEverScrolledExplicitlyByUser = true;
 }
 
 void LocalFrameView::willPaintContents(GraphicsContext& context, const IntRect&, PaintingState& paintingState, RegionContext* regionContext)

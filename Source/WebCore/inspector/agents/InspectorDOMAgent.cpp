@@ -368,6 +368,9 @@ void InspectorDOMAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReaso
 
 Vector<Document*> InspectorDOMAgent::documents()
 {
+    if (!m_document)
+        return { };
+
     Vector<Document*> result;
     for (RefPtr<Frame> frame = m_document->frame(); frame; frame = frame->tree().traverseNext()) {
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
@@ -1258,7 +1261,7 @@ bool InspectorDOMAgent::handleMousePress()
     if (!m_searchingForNode)
         return false;
 
-    if (RefPtr node = protect(overlay())->highlightedNode()) {
+    if (RefPtr node = overlay().highlightedNode()) {
         inspect(node.get());
         return true;
     }

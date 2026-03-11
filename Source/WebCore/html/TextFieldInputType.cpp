@@ -922,7 +922,18 @@ IntRect TextFieldInputType::elementRectInRootViewCoordinates() const
     if (!element()->renderer())
         return IntRect();
     Ref element = *this->element();
-    return protect(protect(element->document())->view())->contentsToRootView(protect(element->renderer())->absoluteBoundingBoxRect());
+    return protect(element->document().view())->contentsToRootView(protect(element->renderer())->absoluteBoundingBoxRect());
+}
+
+std::optional<FrameIdentifier> TextFieldInputType::rootFrameID() const
+{
+    RefPtr element = this->element();
+    if (!element)
+        return std::nullopt;
+    RefPtr view = element->document().view();
+    if (!view)
+        return std::nullopt;
+    return view->rootFrameID();
 }
 
 Vector<DataListSuggestion> TextFieldInputType::suggestions()

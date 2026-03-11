@@ -61,7 +61,6 @@
 #include "ElementTextDirection.h"
 #include "EventDispatcher.h"
 #include "EventHandler.h"
-#include "EventLoop.h"
 #include "EventNames.h"
 #include "FocusController.h"
 #include "FocusEvent.h"
@@ -107,6 +106,7 @@
 #include "Logging.h"
 #include "MutationObserverInterestGroup.h"
 #include "MutationRecord.h"
+#include "NameValidation.h"
 #include "NodeInlines.h"
 #include "NodeName.h"
 #include "NodeRenderStyle.h"
@@ -419,7 +419,7 @@ void Element::hideNonceSlow()
     ASSERT(isConnected());
     ASSERT(hasAttributeWithoutSynchronization(nonceAttr));
 
-    if (!protect(protect(document())->contentSecurityPolicy())->isHeaderDelivered())
+    if (!document().contentSecurityPolicy()->isHeaderDelivered())
         return;
 
     // Retain previous IDL nonce.
@@ -928,37 +928,37 @@ bool Element::isFocusable() const
 bool Element::isUserActionElementInActiveChain() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().isInActiveChain(*this);
+    return document().userActionElements().isInActiveChain(*this);
 }
 
 bool Element::isUserActionElementActive() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().isActive(*this);
+    return document().userActionElements().isActive(*this);
 }
 
 bool Element::isUserActionElementFocused() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().isFocused(*this);
+    return document().userActionElements().isFocused(*this);
 }
 
 bool Element::isUserActionElementHovered() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().isHovered(*this);
+    return document().userActionElements().isHovered(*this);
 }
 
 bool Element::isUserActionElementDragged() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().isBeingDragged(*this);
+    return document().userActionElements().isBeingDragged(*this);
 }
 
 bool Element::isUserActionElementHasFocusVisible() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().hasFocusVisible(*this);
+    return document().userActionElements().hasFocusVisible(*this);
 }
 
 FormListedElement* Element::asFormListedElement()
@@ -981,7 +981,7 @@ AttachmentAssociatedElement* Element::asAttachmentAssociatedElement()
 bool Element::isUserActionElementHasFocusWithin() const
 {
     ASSERT(isUserActionElement());
-    return protect(document())->userActionElements().hasFocusWithin(*this);
+    return document().userActionElements().hasFocusWithin(*this);
 }
 
 void Element::setActive(bool value, Style::InvalidationScope invalidationScope)
@@ -1012,7 +1012,7 @@ void Element::setFocus(bool value, FocusVisibility visibility)
         return;
     
     Style::PseudoClassChangeInvalidation focusStyleInvalidation(*this, { { CSSSelector::PseudoClass::Focus, value }, { CSSSelector::PseudoClass::FocusVisible, value } });
-    protect(document())->userActionElements().setFocused(*this, value);
+    document().userActionElements().setFocused(*this, value);
 
     // Shadow host with a slot that contain focused element is not considered focused.
     for (RefPtr root = containingShadowRoot(); root; root = root->host()->containingShadowRoot()) {
@@ -1046,7 +1046,7 @@ void Element::setHasFocusWithin(bool value)
         return;
     {
         Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::FocusWithin, value);
-        protect(document())->userActionElements().setHasFocusWithin(*this, value);
+        document().userActionElements().setHasFocusWithin(*this, value);
     }
 }
 
@@ -1055,7 +1055,7 @@ void Element::setHasTentativeFocus(bool value)
     // Tentative focus is used when trying to set the focus on a new element.
     for (Ref ancestor : composedTreeAncestors(*this)) {
         ASSERT(ancestor->hasFocusWithin() != value);
-        protect(document())->userActionElements().setHasFocusWithin(ancestor, value);
+        document().userActionElements().setHasFocusWithin(ancestor, value);
     }
 }
 
@@ -1065,7 +1065,7 @@ void Element::setHovered(bool value, Style::InvalidationScope invalidationScope,
         return;
     {
         Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Hover, value, invalidationScope);
-        protect(document())->userActionElements().setHovered(*this, value);
+        document().userActionElements().setHovered(*this, value);
     }
 
     if (CheckedPtr style = renderStyle(); style && style->hasUsedAppearance()) {
@@ -1080,7 +1080,7 @@ void Element::setBeingDragged(bool value)
         return;
 
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::WebKitDrag, value);
-    protect(document())->userActionElements().setBeingDragged(*this, value);
+    document().userActionElements().setBeingDragged(*this, value);
 }
 
 inline ScrollAlignment NODELETE toScrollAlignmentForInlineDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode)
@@ -1855,7 +1855,7 @@ IntRect Element::boundsInRootViewSpace()
 IntRect Element::boundingBoxInRootViewCoordinates() const
 {
     if (CheckedPtr renderer = this->renderer())
-        return protect(document())->view()->contentsToRootView(renderer->absoluteBoundingBoxRect());
+        return document().view()->contentsToRootView(renderer->absoluteBoundingBoxRect());
     return IntRect();
 }
 
@@ -1872,7 +1872,7 @@ static bool layoutOverflowRectContainsAllDescendants(const RenderBox& renderBox)
         for (CheckedRef viewPositionedOutOfFlowBox : *viewPositionedOutOfFlowBoxes) {
             if (viewPositionedOutOfFlowBox.ptr() == &renderBox)
                 continue;
-            if (viewPositionedOutOfFlowBox->isFixedPositioned() && renderBox.element()->contains(protect(viewPositionedOutOfFlowBox->element()).get()))
+            if (viewPositionedOutOfFlowBox->isFixedPositioned() && renderBox.element()->contains(viewPositionedOutOfFlowBox->element()))
                 return false;
         }
     }
@@ -1888,7 +1888,7 @@ static bool layoutOverflowRectContainsAllDescendants(const RenderBox& renderBox)
             for (CheckedRef outOfFlowBox : *outOfFlowBoxes) {
                 if (outOfFlowBox.ptr() == &renderBox)
                     continue;
-                if (protect(renderBox.element())->contains(protect(outOfFlowBox->element()).get()))
+                if (renderBox.element()->contains(outOfFlowBox->element()))
                     return false;
             }
         }
@@ -2119,8 +2119,8 @@ ALWAYS_INLINE unsigned Element::validateAttributeIndex(unsigned index, const Qua
 // https://dom.spec.whatwg.org/#dom-element-toggleattribute
 ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std::optional<bool> force)
 {
-    if (!Document::isValidName(qualifiedName))
-        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid qualified name: '"_s, qualifiedName, '\'') };
+    if (!NameValidation::isValidAttributeName(qualifiedName))
+        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid attribute name: '"_s, qualifiedName, '\'') };
 
     synchronizeAttribute(qualifiedName);
 
@@ -2148,8 +2148,8 @@ ExceptionOr<void> Element::setAttribute(const AtomString& qualifiedName, const A
 
 ExceptionOr<void> Element::setAttribute(const AtomString& qualifiedName, const TrustedTypeOrString& value)
 {
-    if (!Document::isValidName(qualifiedName))
-        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid qualified name: '"_s, qualifiedName, '\'') };
+    if (!NameValidation::isValidAttributeName(qualifiedName))
+        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid attribute name: '"_s, qualifiedName, '\'') };
 
     synchronizeAttribute(qualifiedName);
     auto caseAdjustedQualifiedName = shouldIgnoreAttributeCase(*this) ? qualifiedName.convertToASCIILowercase() : qualifiedName;
@@ -2370,7 +2370,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
         }
         break;
     case AttributeNames::accesskeyAttr:
-        protect(document())->invalidateAccessKeyCache();
+        document().invalidateAccessKeyCache();
         break;
     case AttributeNames::dirAttr:
         dirAttributeChanged(newValue);
@@ -3899,17 +3899,6 @@ ExceptionOr<Ref<Attr>> Element::removeAttributeNode(Attr& attr)
     return oldAttrNode;
 }
 
-ExceptionOr<QualifiedName> Element::parseAttributeName(const AtomString& namespaceURI, const AtomString& qualifiedName)
-{
-    auto parseResult = Document::parseQualifiedName(namespaceURI, qualifiedName);
-    if (parseResult.hasException())
-        return parseResult.releaseException();
-    QualifiedName parsedAttributeName { parseResult.releaseReturnValue() };
-    if (!Document::hasValidNamespaceForAttributes(parsedAttributeName))
-        return Exception { ExceptionCode::NamespaceError };
-    return parsedAttributeName;
-}
-
 ExceptionOr<void> Element::setAttributeNS(const AtomString& namespaceURI, const AtomString& qualifiedName, const AtomString& value)
 {
     return setAttributeNS(namespaceURI, qualifiedName, TrustedTypeOrString { value });
@@ -3917,13 +3906,15 @@ ExceptionOr<void> Element::setAttributeNS(const AtomString& namespaceURI, const 
 
 ExceptionOr<void> Element::setAttributeNS(const AtomString& namespaceURI, const AtomString& qualifiedName, const TrustedTypeOrString& value)
 {
-    auto result = parseAttributeName(namespaceURI, qualifiedName);
-    if (result.hasException())
-        return result.releaseException();
+    auto parseResult = NameValidation::parseQualifiedAttributeName(namespaceURI, qualifiedName);
+    if (parseResult.hasException())
+        return parseResult.releaseException();
+    QualifiedName parsedAttributeName { parseResult.releaseReturnValue() };
+    if (!NameValidation::hasValidNamespaceForAttributes(parsedAttributeName))
+        return Exception { ExceptionCode::NamespaceError };
     if (!document().settings().trustedTypesEnabled())
-        setAttribute(result.releaseReturnValue(), std::get<AtomString>(value));
+        setAttribute(parsedAttributeName, std::get<AtomString>(value));
     else {
-        QualifiedName parsedAttributeName = result.returnValue();
         AttributeTypeAndSink type;
         if (document().contextDocument().requiresTrustedTypes())
             type = trustedTypeForAttribute(nodeName(), parsedAttributeName.localName(), this->namespaceURI(), parsedAttributeName.namespaceURI());
@@ -3932,7 +3923,7 @@ ExceptionOr<void> Element::setAttributeNS(const AtomString& namespaceURI, const 
         if (compliantValue.hasException())
             return compliantValue.releaseException();
 
-        setAttribute(result.releaseReturnValue(), compliantValue.releaseReturnValue());
+        setAttribute(parsedAttributeName, compliantValue.releaseReturnValue());
     }
 
     return { };
@@ -4261,7 +4252,7 @@ void Element::blur()
 {
     if (treeScope().focusedElementInScope() == this) {
         if (RefPtr frame = document().frame())
-            protect(frame->page())->focusController().setFocusedElement(nullptr, frame.get());
+            frame->page()->focusController().setFocusedElement(nullptr, frame.get());
         else
             protect(document())->setFocusedElement(nullptr);
     }
@@ -4327,10 +4318,10 @@ void Element::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 
 void Element::enqueueFocusedElementDisconnectedEvent()
 {
-    document().eventLoop().queueTask(TaskSource::DOMManipulation, [element = GCReachableRef { *this }] {
-        Ref event = FocusEvent::create(eventNames().webkitfocusedelementdisconnectedEvent, Event::CanBubble::No, Event::IsCancelable::No, element->document().windowProxy(), 0, nullptr);
+    queueTaskKeepingNodeAlive(*this, TaskSource::DOMManipulation, [](auto& element) {
+        Ref event = FocusEvent::create(eventNames().webkitfocusedelementdisconnectedEvent, Event::CanBubble::No, Event::IsCancelable::No, element.document().windowProxy(), 0, nullptr);
         event->setIsAutofillEvent();
-        element->dispatchEvent(event);
+        element.dispatchEvent(event);
     });
 }
 
@@ -4362,11 +4353,11 @@ bool Element::dispatchMouseForceWillBegin()
 
 void Element::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&& eventInit)
 {
-    document().eventLoop().queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }, event = SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTF::move(eventInit), Event::IsTrusted::Yes)] {
-        if (!isConnected())
-            protect(document())->dispatchEvent(event);
+    queueTaskKeepingNodeAlive(*this, TaskSource::DOMManipulation, [event = SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTF::move(eventInit), Event::IsTrusted::Yes)](auto& element) {
+        if (!element.isConnected())
+            protect(element.document())->dispatchEvent(event);
         else
-            dispatchEvent(event);
+            element.dispatchEvent(event);
     });
 }
 

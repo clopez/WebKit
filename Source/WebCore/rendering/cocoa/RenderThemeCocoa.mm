@@ -399,6 +399,12 @@ static const String& macOSInlineMediaControlsStyleSheet()
         "    border-radius: var(--inline-controls-border-radius);"
         "    transform: translateY(calc(var(--inline-controls-inside-margin) + 2));"
         "}"
+        ".media-controls.mac.inline:not(.audio)"
+        ":not(.uses-ltr-user-interface-layout-direction) .volume-slider-container {"
+        "    left: calc(var(--inline-controls-inside-margin) * 1);"
+        "    right: auto;"
+        "    flex-direction: row-reverse;"
+        "}"
         ".media-controls.mac.inline:not(.audio) .volume-slider-container > .background-tint {"
         "    top: 0;"
         "    left: var(--inline-controls-inside-margin);"
@@ -419,11 +425,21 @@ static const String& macOSInlineMediaControlsStyleSheet()
         ".media-controls.mac.inline:not(.audio) .volume-slider-container > .slider {"
         "    width: 135px;"
         "}"
+        ".media-controls.mac.inline:not(.audio)"
+        ":not(.uses-ltr-user-interface-layout-direction) .volume-slider-container > .slider {"
+        "    transform: scaleX(-1);"
+        "}"
         ".media-controls.mac.inline:not(.audio) .volume-slider-container button[class*=\"mute\"],"
         ".media-controls.mac.inline:not(.audio) .volume-slider-container .button.mute {"
         "    position: relative !important;"
         "    transform: scale(0.8);"
         "    margin-left: 2px"
+        "}"
+        ".media-controls.mac.inline:not(.audio)"
+        ":not(.uses-ltr-user-interface-layout-direction) .volume-slider-container button[class*=\"mute\"],"
+        ".media-controls.mac.inline:not(.audio)"
+        ":not(.uses-ltr-user-interface-layout-direction) .volume-slider-container .button.mute {"
+        "    margin-left: 0;"
         "}"
         ":host(video.media-document.audio) .media-controls.mac.inline,"
         ".media-controls.mac.inline:not(.audio) * {"
@@ -3878,6 +3894,17 @@ bool RenderThemeCocoa::paintSearchFieldResultsButtonForVectorBasedControls(const
     return paintSearchFieldDecorationPartForVectorBasedControls(box, paintInfo, rect);
 }
 
+static void setLogicalWidthForSwitch(RenderStyle& style, float usedZoom)
+{
+#if ENABLE(AX_ZOOM_ADJUSTMENTS)
+    setLogicalWidthForSwitchWithZoomAdjustments(style, logicalRefreshedSwitchWidth, usedZoom);
+#elif PLATFORM(VISION)
+    style.setLogicalWidth(Style::PreferredSize::Fixed { logicalSwitchWidth * usedZoom });
+#else
+    style.setLogicalWidth(Style::PreferredSize::Fixed { logicalRefreshedSwitchWidth * usedZoom });
+#endif
+}
+
 bool RenderThemeCocoa::adjustSwitchStyleForVectorBasedControls(RenderStyle& style, const Element* element) const
 {
     if (!formControlRefreshEnabled(element))
@@ -3886,11 +3913,7 @@ bool RenderThemeCocoa::adjustSwitchStyleForVectorBasedControls(RenderStyle& styl
     // FIXME: Deduplicate sizing with the generic code somehow.
     if (style.width().isIntrinsicOrLegacyIntrinsicOrAuto() || style.height().isIntrinsicOrLegacyIntrinsicOrAuto()) {
         auto usedZoom = usedZoomForComputedStyle(style);
-#if PLATFORM(VISION)
-        style.setLogicalWidth(Style::PreferredSize::Fixed { logicalSwitchWidth * usedZoom });
-#else
-        style.setLogicalWidth(Style::PreferredSize::Fixed { logicalRefreshedSwitchWidth * usedZoom });
-#endif
+        setLogicalWidthForSwitch(style, usedZoom);
         style.setLogicalHeight(Style::PreferredSize::Fixed { logicalSwitchHeight * usedZoom });
     }
 

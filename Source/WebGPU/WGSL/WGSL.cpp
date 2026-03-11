@@ -27,6 +27,7 @@
 #include "WGSL.h"
 
 #include "AST.h"
+#include "AliasAnalysis.h"
 #include "AttributeValidator.h"
 #include "BoundsCheck.h"
 #include "CallGraph.h"
@@ -39,6 +40,7 @@
 #include "PhaseTimer.h"
 #include "PointerRewriter.h"
 #include "TypeCheck.h"
+#include "UniformityAnalysis.h"
 #include "VisibilityValidator.h"
 #include "WGSLShaderModule.h"
 
@@ -80,6 +82,9 @@ Variant<SuccessfulCheck, FailedCheck> staticCheck(const String& wgsl, const std:
     CHECK_PASS(validateIO, shaderModule);
     CHECK_PASS(validateVisibility, shaderModule);
     RUN_PASS(mangleNames, shaderModule);
+    RUN_PASS(rewritePointers, shaderModule);
+    CHECK_PASS(aliasAnalysis, shaderModule);
+    CHECK_PASS(uniformityAnalysis, shaderModule);
 
     Vector<Warning> warnings { };
     return Variant<SuccessfulCheck, FailedCheck>(WTF::InPlaceType<SuccessfulCheck>, WTF::move(warnings), WTF::move(shaderModule));
@@ -106,7 +111,6 @@ inline Variant<PrepareResult, Error> prepareImpl(ShaderModule& shaderModule, con
         HashMap<String, Reflection::EntryPointInformation> entryPoints;
 
         RUN_PASS(insertBoundsChecks, shaderModule);
-        RUN_PASS(rewritePointers, shaderModule);
         RUN_PASS(rewriteEntryPoints, shaderModule, pipelineLayouts);
         CHECK_PASS(rewriteGlobalVariables, shaderModule, pipelineLayouts, entryPoints);
 

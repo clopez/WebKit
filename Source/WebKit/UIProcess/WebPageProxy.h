@@ -1118,7 +1118,7 @@ public:
     void setHasModelElement(bool);
 #endif
 
-    void NODELETE setPrivateClickMeasurement(std::nullopt_t);
+    void setPrivateClickMeasurement(std::nullopt_t);
     void setPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&);
     void setPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&, String sourceDescription, String purchaser);
     void setPrivateClickMeasurementImmediately(WebCore::PrivateClickMeasurement&&);
@@ -1383,6 +1383,8 @@ public:
     void addDictationAlternative(WebCore::TextAlternativeWithRange&&);
     void dictationAlternativesAtSelection(CompletionHandler<void(Vector<WebCore::DictationContext>&&)>&&);
     void clearDictationAlternatives(Vector<WebCore::DictationContext>&&);
+    void setDictationStreamingOpacity(const String& hypothesisText, WebCore::CharacterRange streamingRangeInHypothesis, float opacity);
+    void clearDictationStreamingOpacity();
 
     void hasMarkedText(CompletionHandler<void(bool)>&&);
     void getMarkedRangeAsync(CompletionHandler<void(const EditingRange&)>&&);
@@ -1395,7 +1397,7 @@ public:
 
     void setScrollPerformanceDataCollectionEnabled(bool);
     bool scrollPerformanceDataCollectionEnabled() const { return m_scrollPerformanceDataCollectionEnabled; }
-    RemoteLayerTreeScrollingPerformanceData* scrollingPerformanceData() { return m_scrollingPerformanceData.get(); }
+    RemoteLayerTreeScrollingPerformanceData* scrollingPerformanceData() LIFETIME_BOUND { return m_scrollingPerformanceData.get(); }
 
     void addActivityStateUpdateCompletionHandler(CompletionHandler<void()>&&);
 #endif // PLATFORM(COCOA)
@@ -1463,6 +1465,10 @@ public:
     void doAfterProcessingAllPendingMouseEvents(Function<void()>&&);
     void didFinishProcessingAllPendingMouseEvents();
     void flushPendingMouseEventCallbacks();
+
+    void doAfterProcessingAllPendingKeyEvents(Function<void()>&&);
+    void didFinishProcessingAllPendingKeyEvents();
+    void flushPendingKeyEventCallbacks();
 
     bool NODELETE isProcessingWheelEvents() const;
     void handleNativeWheelEvent(const NativeWebWheelEvent&);
@@ -2309,8 +2315,8 @@ public:
 
     WebCore::IntRect syncRootViewToScreen(const WebCore::IntRect& viewRect);
 
-    void didSelectOption(const String&);
-    void didCloseSuggestions();
+    void didSelectOption(const String&, std::optional<WebCore::FrameIdentifier>);
+    void didCloseSuggestions(std::optional<WebCore::FrameIdentifier>);
 
     void didChooseDate(StringView);
     void didEndDateTimePicker();

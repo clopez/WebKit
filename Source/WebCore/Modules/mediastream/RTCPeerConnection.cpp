@@ -164,10 +164,8 @@ ExceptionOr<void> RTCPeerConnection::removeTrack(RTCRtpSender& sender)
         return Exception { ExceptionCode::InvalidAccessError, "RTCPeerConnection did not create the given sender"_s };
 
     bool shouldAbort = true;
-    RTCRtpTransceiver* senderTransceiver = nullptr;
     for (auto& transceiver : m_transceiverSet.list()) {
         if (&sender == &transceiver->sender()) {
-            senderTransceiver = transceiver.ptr();
             shouldAbort = sender.isStopped() || !sender.track();
             break;
         }
@@ -176,7 +174,6 @@ ExceptionOr<void> RTCPeerConnection::removeTrack(RTCRtpSender& sender)
         return { };
 
     sender.setTrackToNull();
-    senderTransceiver->disableSendingDirection();
     protect(*m_backend)->removeTrack(sender);
     return { };
 }
@@ -807,6 +804,11 @@ void RTCPeerConnection::addInternalTransceiver(Ref<RTCRtpTransceiver>&& transcei
     m_transceiverSet.append(WTF::move(transceiver));
 }
 
+void RTCPeerConnection::removeTransceiver(const RTCRtpTransceiver& transceiver)
+{
+    m_transceiverSet.remove(transceiver);
+}
+
 void RTCPeerConnection::setSignalingState(RTCSignalingState newState)
 {
     if (m_signalingState == newState)
@@ -1194,27 +1196,25 @@ void RTCPeerConnection::updateDescriptions(PeerConnectionBackend::DescriptionSta
 void RTCPeerConnection::updateTransceiverTransports()
 {
     for (auto& transceiver : m_transceiverSet.list()) {
-        auto& sender = transceiver->sender();
-        if (RefPtr senderBackend = sender.backend())
-            sender.setTransport(getOrCreateDtlsTransport(senderBackend->dtlsTransportBackend()));
+        Ref sender = transceiver->sender();
+        sender->setTransport(getOrCreateDtlsTransport(sender->dtlsTransportBackend()));
 
-        auto& receiver = transceiver->receiver();
-        if (auto* receiverBackend = receiver.backend())
-            receiver.setTransport(getOrCreateDtlsTransport(receiverBackend->dtlsTransportBackend()));
+        Ref receiver = transceiver->receiver();
+        receiver->setTransport(getOrCreateDtlsTransport(receiver->dtlsTransportBackend()));
     }
 }
 
 // https://w3c.github.io/webrtc-pc/#set-description step 4.9.1
 void RTCPeerConnection::updateTransceiversAfterSuccessfulLocalDescription()
 {
-    protect(*m_backend)->collectTransceivers();
+    protect(*m_backend)->collectTransceivers(Vector { m_transceiverSet.list() });
     updateTransceiverTransports();
 }
 
 // https://w3c.github.io/webrtc-pc/#set-description step 4.9.2
 void RTCPeerConnection::updateTransceiversAfterSuccessfulRemoteDescription()
 {
-    protect(*m_backend)->collectTransceivers();
+    protect(*m_backend)->collectTransceivers(Vector { m_transceiverSet.list() });
     updateTransceiverTransports();
 }
 

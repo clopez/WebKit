@@ -44,11 +44,9 @@
 #include "ElementTraversal.h"
 #include "EventDispatcher.h"
 #include "EventHandler.h"
-#include "EventLoop.h"
 #include "EventNames.h"
 #include "EventTargetInlines.h"
 #include "FrameInlines.h"
-#include "GCReachableRef.h"
 #include "HTMLAreaElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDialogElement.h"
@@ -65,6 +63,7 @@
 #include "Logging.h"
 #include "MouseEventTypes.h"
 #include "MutationEvent.h"
+#include "NameValidation.h"
 #include "NodeName.h"
 #include "NodeRareDataInlines.h"
 #include "NodeRenderStyle.h"
@@ -1145,7 +1144,7 @@ ExceptionOr<void> Node::checkSetPrefix(const AtomString& prefix)
     // Perform error checking as required by spec for setting Node.prefix. Used by
     // Element::setPrefix() and Attr::setPrefix()
 
-    if (!prefix.isEmpty() && !Document::isValidName(prefix))
+    if (!prefix.isEmpty() && !NameValidation::isValidNamespacePrefix(prefix))
         return Exception { ExceptionCode::InvalidCharacterError };
 
     // FIXME: Raise NamespaceError if prefix is malformed per the Namespaces in XML specification.
@@ -1480,17 +1479,10 @@ Node& Node::getRootNode(const GetRootNodeOptions& options) const
     return options.composed ? shadowIncludingRoot() : rootNode();
 }
 
-void Node::queueTaskKeepingThisNodeAlive(TaskSource source, Function<void ()>&& task)
-{
-    document().eventLoop().queueTask(source, [protectedThis = GCReachableRef(*this), task = WTF::move(task)] () {
-        task();
-    });
-}
-
 void Node::queueTaskToDispatchEvent(TaskSource source, Ref<Event>&& event)
 {
-    queueTaskKeepingThisNodeAlive(source, [protectedThis = Ref { *this }, event = WTF::move(event)]() {
-        protectedThis->dispatchEvent(event);
+    queueTaskKeepingNodeAlive(*this, source, [event = WTF::move(event)](Node& node) {
+        node.dispatchEvent(event);
     });
 }
 

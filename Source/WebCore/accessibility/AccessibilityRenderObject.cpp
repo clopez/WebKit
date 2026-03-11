@@ -37,6 +37,7 @@
 #include "AXObjectCacheInlines.h"
 #include "AXUtilities.h"
 #include "AccessibilityMediaHelpers.h"
+#include "AccessibilityNodeObjectInlines.h"
 #include "AccessibilityObjectInlines.h"
 #include "AccessibilitySVGObject.h"
 #include "AccessibilitySpinButton.h"
@@ -84,6 +85,7 @@
 #include "InlineIteratorBoxInlines.h"
 #include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBoxInlines.h"
+#include "LegacyLineLayout.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShape.h"
 #include "LineSelection.h"
@@ -97,6 +99,7 @@
 #include "PositionInlines.h"
 #include "ProgressTracker.h"
 #include "Range.h"
+#include "RenderBlockFlowInlines.h"
 #include "RenderButton.h"
 #include "RenderElementInlines.h"
 #include "RenderFileUploadControl.h"
@@ -1103,7 +1106,7 @@ AccessibilityObject* AccessibilityRenderObject::titleUIElement() const
 
         // Table cells that are th cannot have title ui elements, since by definition
         // they are title ui elements
-        if (WebCore::elementName(protect(node()).get()) == ElementName::HTML_th)
+        if (WebCore::elementName(node()) == ElementName::HTML_th)
             return nullptr;
 
         CheckedRef renderCell = downcast<RenderTableCell>(*m_renderer);

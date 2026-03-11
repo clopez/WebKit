@@ -587,7 +587,7 @@ static bool removingNodeRemovesPosition(Node& node, const Position& position)
         return true;
 
     RefPtr element = dynamicDowncast<Element>(node);
-    return element && element->isShadowIncludingInclusiveAncestorOf(protect(position.anchorNode()).get());
+    return element && element->isShadowIncludingInclusiveAncestorOf(position.anchorNode());
 }
 
 void DragCaretController::nodeWillBeRemoved(Node& node)
@@ -1801,22 +1801,22 @@ void FrameSelection::setEnd(const VisiblePosition& position, UserTriggered trigg
 
 void FrameSelection::setBase(const VisiblePosition& position, UserTriggered userTriggered)
 {
-    setSelection(VisibleSelection(position.deepEquivalent(), m_selection.extent(), position.affinity(), Directionality::Strong), defaultSetSelectionOptions(userTriggered));
+    setSelection(VisibleSelection(position.deepEquivalent(), m_selection.focus(), position.affinity(), Directionality::Strong), defaultSetSelectionOptions(userTriggered));
 }
 
 void FrameSelection::setExtent(const VisiblePosition& position, UserTriggered userTriggered)
 {
-    setSelection(VisibleSelection(m_selection.base(), position.deepEquivalent(), position.affinity(), Directionality::Strong), defaultSetSelectionOptions(userTriggered));
+    setSelection(VisibleSelection(m_selection.anchor(), position.deepEquivalent(), position.affinity(), Directionality::Strong), defaultSetSelectionOptions(userTriggered));
 }
 
 void FrameSelection::setBase(const Position& position, Affinity affinity, UserTriggered userTriggered)
 {
-    setSelection(VisibleSelection(position, m_selection.extent(), affinity, Directionality::Strong), defaultSetSelectionOptions(userTriggered));
+    setSelection(VisibleSelection(position, m_selection.focus(), affinity, Directionality::Strong), defaultSetSelectionOptions(userTriggered));
 }
 
 void FrameSelection::setExtent(const Position& position, Affinity affinity, UserTriggered userTriggered)
 {
-    setSelection(VisibleSelection(m_selection.base(), position, affinity, Directionality::Strong), defaultSetSelectionOptions(userTriggered));
+    setSelection(VisibleSelection(m_selection.anchor(), position, affinity, Directionality::Strong), defaultSetSelectionOptions(userTriggered));
 }
 
 void CaretBase::clearCaretRect()
@@ -2510,7 +2510,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                protect(document->page())->focusController().setFocusedElement(target.get(), protect(document->frame()).get(), focusOptions);
+                document->page()->focusController().setFocusedElement(target.get(), document->frame(), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2519,7 +2519,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        protect(document->page())->focusController().setFocusedElement(nullptr, protect(document->frame()).get());
+        document->page()->focusController().setFocusedElement(nullptr, document->frame());
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const

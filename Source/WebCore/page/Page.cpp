@@ -213,6 +213,7 @@
 #include "Widget.h"
 #include "WindowEventLoop.h"
 #include "WindowFeatures.h"
+#include "WorkerGlobalScope.h"
 #include "WorkerOrWorkletScriptController.h"
 #include <JavaScriptCore/VM.h>
 #include <ranges>
@@ -509,7 +510,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
         MemoryPressureHandler::setPageCount(gNonUtilityPageCount);
     }
 
-    protect(storageNamespaceProvider())->setSessionStorageQuota(m_settings->sessionStorageQuota());
+    storageNamespaceProvider().setSessionStorageQuota(m_settings->sessionStorageQuota());
 
 #if PLATFORM(COCOA)
     platformInitialize();
@@ -1106,7 +1107,7 @@ void Page::refreshPlugins(bool reload)
     WeakHashSet<PluginInfoProvider> pluginInfoProviders;
 
     for (auto& page : allPages())
-        pluginInfoProviders.add(protect(Ref { page.get() }->pluginInfoProvider()));
+        pluginInfoProviders.add(protect(page.get().pluginInfoProvider()));
 
     for (Ref pluginInfoProvider : pluginInfoProviders)
         pluginInfoProvider->refresh(reload);
@@ -2179,7 +2180,9 @@ void Page::syncLocalFrameInfoToRemote()
                 if (CheckedPtr ownerRenderer = child->ownerRenderer())
                     usedZoom = ownerRenderer->style().usedZoom();
 
-                childrenFrameLayoutInfo.add(child->frameID(), RemoteFrameLayoutInfo { .visibleRectInParent = visibleRect, .usedZoom = usedZoom });
+                auto useDarkAppearance = frameView->useDarkAppearance();
+
+                childrenFrameLayoutInfo.add(child->frameID(), RemoteFrameLayoutInfo { .visibleRectInParent = visibleRect, .usedZoom = usedZoom, .useDarkAppearance = useDarkAppearance });
             }
 
             frame.loader().client().broadcastChildrenFrameLayoutInfoToOtherProcesses(childrenFrameLayoutInfo);
@@ -2308,8 +2311,10 @@ void Page::updateRendering()
 
     runProcessingStep(RenderingUpdateStep::FocusFixup, [&] (Document& document) {
         if (RefPtr focusedElement = document.focusedElement()) {
-            if (!focusedElement->isFocusable())
+            if (!focusedElement->isFocusable()) {
                 document.setFocusedElement(nullptr);
+                document.setFocusNavigationStartingNode(focusedElement.get());
+            }
         }
     });
 
@@ -2343,7 +2348,7 @@ void Page::updateRendering()
 
     for (auto& document : initialDocuments) {
         if (document && document->window())
-            protect(document->window())->unfreezeNowTimestamp();
+            document->window()->unfreezeNowTimestamp();
     }
 
     m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::WheelEventMonitorCallbacks);
@@ -4196,6 +4201,19 @@ void Page::clearIDBConnection()
     m_idbConnectionToServer = nullptr;
 }
 
+void Page::clearIDBConnectionOnAllDocuments()
+{
+    clearIDBConnection();
+    forEachDocument([](Document& document) {
+        document.clearIDBConnectionProxy();
+    });
+}
+
+void Page::refreshIDBConnectionForWorkers()
+{
+    WorkerGlobalScope::replaceIDBConnectionProxyOnAllWorkers(idbConnection().proxy());
+}
+
 #if ENABLE(RESOURCE_USAGE)
 void Page::setResourceUsageOverlayVisible(bool visible)
 {
@@ -4463,7 +4481,7 @@ void Page::didChangeMainDocument(Document* newDocument)
 
     clearSampledPageTopColor();
 
-    protect(m_elementTargetingController)->didChangeMainDocument(newDocument);
+    m_elementTargetingController->didChangeMainDocument(newDocument);
 
     updateActiveNowPlayingSessionNow();
 }
@@ -5380,7 +5398,7 @@ void Page::updateFixedContainerEdges(BoxSideSet sides)
         auto maximumOffset = frameView->maximumScrollOffset();
 
         bool canSampleTopEdge = settings().topContentInsetBackgroundCanChangeAfterScrolling()
-            || (!frameView->wasEverScrolledExplicitlyByUser() && !m_userHasInteractedSinceLastPageLoadExcludingForcedUserGestures)
+            || (!frameView->wasEverScrolledExplicitlyByUserBelowTopEdge() && !m_userHasInteractedSinceLastPageLoadExcludingForcedUserGestures)
             || document->parsing();
 
         if (scrollOffset.y() < minimumOffset.y() || !canSampleTopEdge)

@@ -449,8 +449,8 @@ AXCoreObject::AccessibilityChildrenVector AXCoreObject::crossFrameUnignoredChild
             result.append(*crossFrameChild);
     } else {
         for (size_t i = 0; i < result.size(); i++) {
-            if (auto* crossFrameChild = result[i]->crossFrameChildObject())
-                result[i] = *crossFrameChild;
+            if (RefPtr crossFrameChild = protect(result[i])->crossFrameChildObject())
+                result[i] = crossFrameChild.releaseNonNull();
         }
     }
 #endif
@@ -472,13 +472,12 @@ AXCoreObject::AccessibilityChildrenVector AXCoreObject::crossFrameChildrenInclud
 {
     AXCoreObject::AccessibilityChildrenVector result = childrenIncludingIgnored(updateChildrenIfNeeded);
 
-#if ENABLE_ACCESSIBILITY_LOCAL_FRAME
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     if (result.isEmpty()) {
-        AXCoreObject* crossFrameChild = crossFrameChildObject();
-        if (crossFrameChild)
-            result.append(*crossFrameChild);
+        if (RefPtr crossFrameChild = crossFrameChildObject())
+            result.append(crossFrameChild.releaseNonNull());
     }
-#endif
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
 
     return result;
 }
@@ -625,7 +624,7 @@ AXCoreObject* AXCoreObject::nextSiblingIncludingIgnored(bool updateChildrenIfNee
     return indexOfThis + 1 < siblings.size() ? siblings[indexOfThis + 1].unsafePtr() : nullptr;
 }
 
-AXCoreObject* AXCoreObject::previousSiblingIncludingIgnored(bool updateChildrenIfNeeded)
+RefPtr<AXCoreObject> AXCoreObject::previousSiblingIncludingIgnored(bool updateChildrenIfNeeded)
 {
     RefPtr parent = parentObject();
     if (!parent)
@@ -633,10 +632,10 @@ AXCoreObject* AXCoreObject::previousSiblingIncludingIgnored(bool updateChildrenI
 
     const auto& siblings = parent->childrenIncludingIgnored(updateChildrenIfNeeded);
     size_t indexOfThis = indexInSiblings(siblings);
-    if (indexOfThis == notFound)
+    if (indexOfThis == notFound || indexOfThis < 1)
         return nullptr;
 
-    return indexOfThis >= 1 ? siblings[indexOfThis - 1].ptr() : nullptr;
+    return siblings[indexOfThis - 1].copyRef();
 }
 
 AXCoreObject* AXCoreObject::nextUnignoredSibling(bool updateChildrenIfNeeded, AXCoreObject* unignoredParent) const
