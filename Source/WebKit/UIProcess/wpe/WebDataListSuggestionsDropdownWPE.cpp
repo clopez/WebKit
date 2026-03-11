@@ -40,7 +40,7 @@ WebDataListSuggestionsDropdownWPE::~WebDataListSuggestionsDropdownWPE()
 {
 }
 
-void WebDataListSuggestionsDropdownWPE::show(WebCore::DataListSuggestionInformation&& information)
+void WebDataListSuggestionsDropdownWPE::platformShow(WebCore::DataListSuggestionInformation&& information)
 {
 }
 
