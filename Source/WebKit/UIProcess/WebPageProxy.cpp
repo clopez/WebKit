@@ -12074,12 +12074,8 @@ void WebPageProxy::keyEventHandlingCompleted(std::optional<WebEventType> eventTy
     if (!canProcessMoreKeyEvents) {
         if (RefPtr automationSession = configuration().processPool().automationSession())
             automationSession->keyboardEventsFlushedForPage(*this);
-<<<<<<< HEAD
         didFinishProcessingAllPendingKeyEvents();
-||||||| parent of 473b90d76ce9 (chore(webkit): bootstrap build #2267)
-=======
         m_inspectorController->didProcessAllPendingKeyboardEvents();
->>>>>>> 473b90d76ce9 (chore(webkit): bootstrap build #2267)
     }
 }
 
