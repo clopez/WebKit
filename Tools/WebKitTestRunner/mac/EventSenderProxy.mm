@@ -1029,4 +1029,77 @@ void EventSenderProxy::scaleGestureEnd(double scale)
 
 #endif // ENABLE(MAC_GESTURE_EVENTS)
 
+<<<<<<< HEAD
+||||||| parent of 61cebd086367 (chore(webkit): bootstrap build #2267)
+void EventSenderProxy::waitForPendingMouseEvents()
+{
+    if (RetainPtr targetView = std::exchange(m_targetView, nullptr)) {
+        __block bool doneProcessingMouseEvents = false;
+        [checked_objc_cast<WKWebView>(targetView.get()) _doAfterProcessingAllPendingMouseEvents:^{
+            doneProcessingMouseEvents = true;
+        }];
+        m_testController->runUntil(doneProcessingMouseEvents, 100_ms);
+    }
+}
+
+=======
+void EventSenderProxy::waitForPendingMouseEvents()
+{
+    if (RetainPtr targetView = std::exchange(m_targetView, nullptr)) {
+        __block bool doneProcessingMouseEvents = false;
+        [checked_objc_cast<WKWebView>(targetView.get()) _doAfterProcessingAllPendingMouseEvents:^{
+            doneProcessingMouseEvents = true;
+        }];
+        m_testController->runUntil(doneProcessingMouseEvents, 100_ms);
+    }
+}
+
+#if ENABLE(TOUCH_EVENTS)
+void EventSenderProxy::addTouchPoint(int, int)
+{
+}
+
+void EventSenderProxy::updateTouchPoint(int, int, int)
+{
+}
+
+void EventSenderProxy::touchStart()
+{
+}
+
+void EventSenderProxy::touchMove()
+{
+}
+
+void EventSenderProxy::touchEnd()
+{
+}
+
+void EventSenderProxy::touchCancel()
+{
+}
+
+void EventSenderProxy::clearTouchPoints()
+{
+}
+
+void EventSenderProxy::releaseTouchPoint(int)
+{
+}
+
+void EventSenderProxy::cancelTouchPoint(int)
+{
+}
+
+void EventSenderProxy::setTouchPointRadius(int, int)
+{
+}
+
+void EventSenderProxy::setTouchModifier(WKEventModifiers, bool)
+{
+}
+#endif // ENABLE(TOUCH_EVENTS)
+
+
+>>>>>>> 61cebd086367 (chore(webkit): bootstrap build #2267)
 } // namespace WTR
