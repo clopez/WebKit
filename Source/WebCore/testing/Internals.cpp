@@ -696,6 +696,9 @@ void Internals::resetToConsistentState(Page& page)
 
     printContextForTesting() = nullptr;
 
+    MemoryPressureHandler::singleton().endSimulatedMemoryWarning();
+    MemoryPressureHandler::singleton().endSimulatedMemoryPressure();
+
 #if ENABLE(WEB_RTC)
     auto& rtcProvider = page.webRTCProvider();
 #if USE(LIBWEBRTC)
@@ -3547,6 +3550,15 @@ ExceptionOr<Ref<DOMRect>> Internals::verticalScrollbarFrameRect(Node* node) cons
         return DOMRect::create(scrollbar->frameRect());
 
     return DOMRect::create();
+}
+
+ExceptionOr<Ref<DOMRect>> Internals::scrollCornerRect(Node* node) const
+{
+    auto areaOrException = scrollableAreaForNode(node);
+    if (areaOrException.hasException())
+        return areaOrException.releaseException();
+
+    return DOMRect::create(areaOrException.returnValue()->scrollCornerRect());
 }
 
 ExceptionOr<Internals::ScrollingNodeID> Internals::scrollingNodeIDForNode(Node* node)

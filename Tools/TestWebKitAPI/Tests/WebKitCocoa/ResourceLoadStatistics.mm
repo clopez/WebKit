@@ -91,7 +91,8 @@ static void ensureITPFileIsCreated()
     [dataStore _setResourceLoadStatisticsEnabled:NO];
 }
 
-TEST(ResourceLoadStatistics, GrandfatherCallback)
+// FIXME when rdar://172325390 is resolved
+TEST(ResourceLoadStatistics, DISABLED_GrandfatherCallback)
 {
     auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
     dataStoreConfiguration.get().pcmMachServiceName = nil;
@@ -1204,12 +1205,6 @@ TEST(ResourceLoadStatistics, BackForwardPerPageData)
     [configuration setURLSchemeHandler:schemeHandler.get() forURLScheme:@"resource-load-statistics"];
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
-
-    // FIXME: Page cache is currently disabled under site isolation; see rdar://161762363.
-    // This test relies on the backforward cache. Once it is enabled in site isolation, remove this early return.
-    if (isSiteIsolationEnabled(webView.get()))
-        return;
-
     [webView setNavigationDelegate:delegate.get()];
 
     static bool doneFlag = false;

@@ -418,6 +418,26 @@ AXCoreObject* AXCoreObject::blockFlowAncestor() const
     });
 }
 
+// ARIA component of hidden definition.
+// https://www.w3.org/TR/wai-aria/#dfn-hidden
+bool AXCoreObject::isAXHidden() const
+{
+    if (isFocused())
+        return false;
+
+    if (std::optional cachedIsIgnored = this->cachedIsIgnored()) {
+        if (!*cachedIsIgnored) {
+            // aria-hidden="true" makes itself and all descendants ignored, so try to early-exit
+            // before the ancestry traversal if we can cheaply determine we aren't ignored.
+            return false;
+        }
+    }
+
+    return Accessibility::findAncestor<AXCoreObject>(*this, /* includeSelf */ true, [] (const auto& object) {
+        return object.isARIAHidden();
+    }) != nullptr;
+}
+
 std::optional<AXStitchGroup> AXCoreObject::stitchGroupFromGroups(const Vector<AXStitchGroup>* groups, IncludeGroupMembers includeGroupMembers) const
 {
     if (!groups)
@@ -503,6 +523,62 @@ AXCoreObject* AXCoreObject::parentObjectIncludingCrossFrame() const
 #else
     return nullptr;
 #endif
+}
+
+AXCoreObject* AXCoreObject::nextSiblingUnignored() const
+{
+    RefPtr parent = parentObjectIncludingCrossFrame();
+    if (!parent)
+        return nullptr;
+
+    const auto& siblings = parent->children();
+    size_t index = siblings.findIf([this](const Ref<AXCoreObject>& child) {
+        return child.ptr() == this;
+    });
+    if (index == notFound)
+        return nullptr;
+
+    for (size_t i = index + 1; i < siblings.size(); ++i) {
+        auto& sibling = siblings[i];
+        if (sibling->isIgnored())
+            continue;
+        // Skip children that have been stitched into another object,
+        // as they don't appear in the exposed accessibility tree.
+        if (sibling->hasStitchableRole()) {
+            if (auto stitchedInto = sibling->stitchedIntoID(); stitchedInto && *stitchedInto != sibling->objectID())
+                continue;
+        }
+        return sibling.unsafePtr();
+    }
+    return nullptr;
+}
+
+AXCoreObject* AXCoreObject::previousSiblingUnignored() const
+{
+    RefPtr parent = parentObjectIncludingCrossFrame();
+    if (!parent)
+        return nullptr;
+
+    const auto& siblings = parent->children();
+    size_t index = siblings.findIf([this](const Ref<AXCoreObject>& child) {
+        return child.ptr() == this;
+    });
+    if (index == notFound || !index)
+        return nullptr;
+
+    for (size_t i = index; i > 0; --i) {
+        auto& sibling = siblings[i - 1];
+        if (sibling->isIgnored())
+            continue;
+        // Skip children that have been stitched into another object,
+        // as they don't appear in the exposed accessibility tree.
+        if (sibling->hasStitchableRole()) {
+            if (auto stitchedInto = sibling->stitchedIntoID(); stitchedInto && *stitchedInto != sibling->objectID())
+                continue;
+        }
+        return sibling.unsafePtr();
+    }
+    return nullptr;
 }
 
 #ifndef NDEBUG

@@ -4416,7 +4416,7 @@ private:
         patchpoint->append(m_notCellMask, ValueRep::lateReg(GPRInfo::notCellMaskRegister));
         patchpoint->append(m_numberTag, ValueRep::lateReg(GPRInfo::numberTagRegister));
         patchpoint->clobber(RegisterSet::macroClobberedGPRs());
-        patchpoint->numGPScratchRegisters = 3;
+        patchpoint->numGPScratchRegisters = 4;
 
         RefPtr<PatchpointExceptionHandle> exceptionHandle = preparePatchpointForExceptions(patchpoint);
 
@@ -4443,8 +4443,13 @@ private:
             GPRReg scratch1GPR = params.gpScratch(0);
             GPRReg scratch2GPR = params.gpScratch(1);
             GPRReg scratch3GPR = params.gpScratch(2);
+            GPRReg scratch4GPR = params.gpScratch(3);
 
-            CCallHelpers::JumpList slowCases = jit.loadMegamorphicProperty(state->vm(), baseGPR, InvalidGPRReg, uid, resultGPR, scratch1GPR, scratch2GPR, scratch3GPR);
+            jit.move(baseGPR, scratch4GPR);
+            auto notString = jit.branchIfNotString(scratch4GPR);
+            jit.move(CCallHelpers::TrustedImmPtr(globalObject->stringPrototype()), scratch4GPR);
+            notString.link(jit);
+            CCallHelpers::JumpList slowCases = jit.loadMegamorphicProperty(state->vm(), scratch4GPR, InvalidGPRReg, uid, resultGPR, scratch1GPR, scratch2GPR, scratch3GPR);
             CCallHelpers::Label doneForSlow = jit.label();
 
             params.addLatePath([=](CCallHelpers& jit) {
@@ -12435,8 +12440,7 @@ IGNORE_CLANG_WARNINGS_END
 
             LBasicBlock lastNext = m_out.appendTo(notTriviallyEqualCase, continuation);
 
-            ValueFromBlock slowResult = m_out.anchor(m_out.notZero64(
-                m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntEq, left, right)));
+            ValueFromBlock slowResult = m_out.anchor(m_out.notZero64(vmCall(Int64, operationCompareHeapBigIntEq, left, right)));
             m_out.jump(continuation);
 
             m_out.appendTo(continuation, lastNext);
@@ -19380,19 +19384,19 @@ IGNORE_CLANG_WARNINGS_END
             LValue result;
             switch (m_node->op()) {
             case CompareLess:
-                result = m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntLess, left, right);
+                result = vmCall(Int64, operationCompareHeapBigIntLess, left, right);
                 break;
             case CompareLessEq:
-                result = m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntLessEq, left, right);
+                result = vmCall(Int64, operationCompareHeapBigIntLessEq, left, right);
                 break;
             case CompareGreater:
-                result = m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntGreater, left, right);
+                result = vmCall(Int64, operationCompareHeapBigIntGreater, left, right);
                 break;
             case CompareGreaterEq:
-                result = m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntGreaterEq, left, right);
+                result = vmCall(Int64, operationCompareHeapBigIntGreaterEq, left, right);
                 break;
             case CompareEq:
-                result = m_out.callWithoutSideEffects(Int64, operationCompareHeapBigIntEq, left, right);
+                result = vmCall(Int64, operationCompareHeapBigIntEq, left, right);
                 break;
             default:
                 RELEASE_ASSERT_NOT_REACHED();

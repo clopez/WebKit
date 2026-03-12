@@ -223,6 +223,7 @@
 #include <WebCore/CrossSiteNavigationDataTransfer.h>
 #include <WebCore/CryptoKey.h>
 #include <WebCore/DOMPasteAccess.h>
+#include <WebCore/DateTimeChooserParameters.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
@@ -2782,6 +2783,23 @@ void WebPageProxy::shouldGoToBackForwardListItem(BackForwardItemIdentifier itemI
 void WebPageProxy::shouldGoToBackForwardListItemSync(BackForwardItemIdentifier itemID, CompletionHandler<void(WebCore::ShouldGoToHistoryItem)>&& completionHandler)
 {
     shouldGoToBackForwardListItem(itemID, false, WTF::move(completionHandler));
+}
+
+void WebPageProxy::goToBackForwardItemAtIndex(int32_t steps, FrameLoadType frameLoadType)
+{
+    WEBPAGEPROXY_RELEASE_LOG(Loading, "goToBackForwardItemAtIndex: steps=%d", steps);
+
+    RefPtr item = backForwardList().itemAtIndex(steps);
+    if (!item)
+        return;
+
+    Ref frameItem = item->mainFrameItem();
+    if (RefPtr currentItem = backForwardList().currentItem()) {
+        if (RefPtr childItem = currentItem->navigatedFrameID() ? frameItem->childItemForFrameID(*currentItem->navigatedFrameID()) : nullptr)
+            frameItem = childItem.releaseNonNull();
+    }
+
+    goToBackForwardItem(frameItem, frameLoadType);
 }
 
 bool WebPageProxy::shouldKeepCurrentBackForwardListItemInList(WebBackForwardListItem& item)
@@ -5661,11 +5679,6 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         // send GoToBackForwardItem so the new process performs a proper history navigation using
         // the FrameState stored on the Navigation object.
         if (RefPtr frameState = navigation.backForwardFrameState()) {
-            // The FrameState from the BackForwardList may contain an old frameID from a
-            // previous incarnation of this child frame. Update it to the current frameID
-            // so the new process can find the correct frame to navigate.
-            frameState->frameID = frame.frameID();
-
             WEBPAGEPROXY_RELEASE_LOG(Loading, "continueNavigationInNewProcess: Sending GoToBackForwardItem for child frame to new process, URL=%" SENSITIVE_LOG_STRING, frameState->urlString.utf8().data());
             auto publicSuffix = WebCore::PublicSuffixStore::singleton().publicSuffix(navigation.currentRequest().url());
             frame.prepareForProvisionalLoadInProcess(newProcess, navigation, browsingContextGroup, originator, [
@@ -8587,7 +8600,14 @@ RefPtr<FrameState> WebPageProxy::frameStateForBackForwardChildFrame(WebFrameProx
     if (!index)
         return nullptr;
 
-    return backForwardList().findFrameStateInItem(targetBackForwardItemIdentifier, frame.parentFrame()->frameID(), *index);
+    RefPtr frameState = backForwardList().findFrameStateInItem(targetBackForwardItemIdentifier, frame.parentFrame()->frameID(), *index);
+    if (!frameState)
+        return nullptr;
+
+    if (auto currentFrameID = frameState->frameID; currentFrameID && *currentFrameID != frame.frameID())
+        backForwardList().updateFrameIdentifier(*currentFrameID, frame.frameID());
+
+    return frameState;
 }
 
 void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& process, WebFrameProxy& frame, NavigationActionData&& navigationActionData, CompletionHandler<void(PolicyDecision&&)>&& originalCompletionHandler)
@@ -8666,7 +8686,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
 
     // Store frameState on navigation for Site Isolation process swap.
     if (frameStateForBackForwardNavigation && navigation)
-        navigation->setBackForwardFrameState(frameStateForBackForwardNavigation->copy());
+        navigation->setBackForwardFrameState(WTF::move(frameStateForBackForwardNavigation));
 
     if (!checkURLReceivedFromCurrentOrPreviousWebProcess(process, request.url())) {
         WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "Ignoring request to load this main resource because it is outside the sandbox");
@@ -10536,7 +10556,17 @@ void WebPageProxy::showDataListSuggestions(WebCore::DataListSuggestionInformatio
     if (!internals().dataListSuggestionsDropdown)
         return;
 
-    protect(*internals().dataListSuggestionsDropdown)->show(WTF::move(info));
+    convertRectToMainFrameCoordinates(info.elementRect, info.rootFrameID, [weakThis = WeakPtr { *this }, info = WTF::move(info)](std::optional<FloatRect> convertedRect) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !convertedRect)
+            return;
+
+        if (!protectedThis->internals().dataListSuggestionsDropdown)
+            return;
+
+        info.elementRect = IntRect(*convertedRect);
+        protect(*protectedThis->internals().dataListSuggestionsDropdown)->show(WTF::move(info));
+    });
 }
 
 void WebPageProxy::handleKeydownInDataList(const String& key)
@@ -10580,7 +10610,17 @@ void WebPageProxy::showDateTimePicker(WebCore::DateTimeChooserParameters&& param
     if (!m_dateTimePicker)
         return;
 
-    protect(*m_dateTimePicker)->showDateTimePicker(WTF::move(params));
+    convertRectToMainFrameCoordinates(params.anchorRectInRootView, params.rootFrameID, [weakThis = WeakPtr { *this }, params = WTF::move(params)](std::optional<FloatRect> convertedRect) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !convertedRect)
+            return;
+
+        if (!protectedThis->m_dateTimePicker)
+            return;
+
+        params.anchorRectInRootView = IntRect(*convertedRect);
+        protect(*protectedThis->m_dateTimePicker)->showDateTimePicker(WTF::move(params));
+    });
 }
 
 void WebPageProxy::endDateTimePicker()
@@ -10596,18 +10636,18 @@ void WebPageProxy::didChooseDate(StringView date)
     if (!hasRunningProcess())
         return;
 
-    auto targetFrameID = focusedOrMainFrame() ? std::optional(focusedOrMainFrame()->frameID()) : std::nullopt;
-    sendToProcessContainingFrame(targetFrameID, Messages::WebPage::DidChooseDate(date.toString()));
+    auto frameID = m_dateTimePicker ? m_dateTimePicker->frameID() : std::nullopt;
+    sendToProcessContainingFrame(frameID, Messages::WebPage::DidChooseDate(date.toString()));
 }
 
 void WebPageProxy::didEndDateTimePicker()
 {
+    auto frameID = m_dateTimePicker ? m_dateTimePicker->frameID() : std::nullopt;
     m_dateTimePicker = nullptr;
     if (!hasRunningProcess())
         return;
 
-    auto targetFrameID = focusedOrMainFrame() ? std::optional(focusedOrMainFrame()->frameID()) : std::nullopt;
-    sendToProcessContainingFrame(targetFrameID, Messages::WebPage::DidEndDateTimePicker());
+    sendToProcessContainingFrame(frameID, Messages::WebPage::DidEndDateTimePicker());
 }
 
 WebInspectorUIProxy* WebPageProxy::inspector() const
