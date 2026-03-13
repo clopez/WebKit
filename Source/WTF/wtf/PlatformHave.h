@@ -1063,19 +1063,6 @@
 #define HAVE_POWERLOG_TASK_MODE_QUERY 1
 #endif
 
-<<<<<<< HEAD
-||||||| parent of 18883ec2b696 (chore(webkit): bootstrap build #2269)
-#if PLATFORM(MAC)
-#define HAVE_GPU_AVAILABILITY_CHECK 1
-#endif
-
-=======
-#if PLATFORM(MAC)
-// Playwright: disable the check to make WebGL always work.
-#define HAVE_GPU_AVAILABILITY_CHECK 0
-#endif
-
->>>>>>> 18883ec2b696 (chore(webkit): bootstrap build #2269)
 #if !defined(HAVE_LOCKDOWN_MODE_PDF_ADDITIONS) && \
     (PLATFORM(MAC) || (PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)))
 #define HAVE_LOCKDOWN_MODE_PDF_ADDITIONS 1
