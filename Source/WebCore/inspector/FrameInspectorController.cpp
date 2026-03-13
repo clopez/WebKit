@@ -163,19 +163,13 @@ void FrameInspectorController::connectFrontend(Inspector::FrontendChannel& front
     UNUSED_PARAM(isAutomaticInspection);
     UNUSED_PARAM(immediatelyPause);
 
-<<<<<<< HEAD
-    if (auto* page = m_frame->page())
-||||||| parent of 18883ec2b696 (chore(webkit): bootstrap build #2269)
-    if (RefPtr page = m_frame->page())
-=======
     // Playwright begin
     // Child frames copy parent's frontend connection.
     if (!m_frame->isMainFrame() && m_frontendRouter->hasFrontends())
         return;
     // Playwright end
 
-    if (RefPtr page = m_frame->page())
->>>>>>> 18883ec2b696 (chore(webkit): bootstrap build #2269)
+    if (auto* page = m_frame->page())
         page->settings().setDeveloperExtrasEnabled(true);
 
     bool connectedFirstFrontend = !m_frontendRouter->hasFrontends();
