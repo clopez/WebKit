@@ -1664,7 +1664,7 @@ void WebPageProxy::didAttachToRunningProcess()
     m_playbackSessionManager = PlaybackSessionManagerProxy::create(*this);
     ASSERT(!m_videoPresentationManager);
     m_videoPresentationManager = VideoPresentationManagerProxy::create(*this, *protect(playbackSessionManager()));
-    if (RefPtr videoPresentationManager = m_videoPresentationManager)
+    if (auto* videoPresentationManager = m_videoPresentationManager.get())
         videoPresentationManager->setMockVideoPresentationModeEnabled(m_mockVideoPresentationModeEnabled);
 #endif
 
@@ -1743,7 +1743,7 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     auto publicSuffix = WebCore::PublicSuffixStore::singleton().publicSuffix(URL(currentItem->url()));
 
     // We allow stale content when reloading a WebProcess that's been killed or crashed.
-    send(Messages::WebPage::GoToBackForwardItem({ navigation->navigationID(), currentItem->mainFrameState(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, std::nullopt, publicSuffix, { }, WebCore::ProcessSwapDisposition::None }));
+    send(Messages::WebPage::GoToBackForwardItem({ navigation->navigationID(), currentItem->copyMainFrameStateWithChildren(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, std::nullopt, publicSuffix, { }, WebCore::ProcessSwapDisposition::None }));
 
     Ref legacyMainFrameProcess = m_legacyMainFrameProcess;
     legacyMainFrameProcess->startResponsivenessTimer();
@@ -2724,7 +2724,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
 
     process->markProcessAsRecentlyUsed();
 
-    Ref frameState = item->mainFrameState();
+    Ref frameState = item->copyMainFrameStateWithChildren();
     if (protect(preferences())->siteIsolationEnabled()) {
         if (RefPtr frame = WebFrameProxy::webFrame(frameItem.frameID()); frame && frame->page() == this) {
             process = frame->process();
@@ -5754,7 +5754,7 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         if (currentItem && (navigation->lockBackForwardList() == LockBackForwardList::Yes || navigation->lockHistory() == LockHistory::Yes)) {
             // If WebCore is supposed to lock the history for this load, then the new process needs to know about the current history item so it can update
             // it instead of creating a new one.
-            provisionalPage->send(Messages::WebPage::SetCurrentHistoryItemForReattach(currentItem->mainFrameState()));
+            provisionalPage->send(Messages::WebPage::SetCurrentHistoryItemForReattach(currentItem->copyMainFrameStateWithChildren()));
         }
 
         // FIXME: Work out timing of responding with the last policy delegate, etc
@@ -6525,7 +6525,7 @@ void WebPageProxy::setGapBetweenPages(double gap)
     send(Messages::WebPage::SetGapBetweenPages(gap));
 }
 
-static bool scaleFactorIsValid(double scaleFactor)
+static bool NODELETE scaleFactorIsValid(double scaleFactor)
 {
     return scaleFactor > 0 && scaleFactor <= 100;
 }
@@ -7612,7 +7612,7 @@ void WebPageProxy::didFailProvisionalLoadForFrame(IPC::Connection& connection, F
 
     Ref process = WebProcessProxy::fromConnection(connection);
     if (protect(preferences())->siteIsolationEnabled() && process != frame->process()) {
-        RefPtr provisionalFrame = frame->provisionalFrame();
+        auto* provisionalFrame = frame->provisionalFrame();
         if (!provisionalFrame || provisionalFrame->process() != process)
             return;
     }
@@ -8704,7 +8704,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     navigationID = navigation->navigationID();
 
     // Make sure the provisional page always has the latest navigationID.
-    if (RefPtr provisionalPage = m_provisionalPage; provisionalPage && &provisionalPage->process() == process.ptr())
+    if (auto* provisionalPage = m_provisionalPage.get(); provisionalPage && &provisionalPage->process() == process.ptr())
         provisionalPage->setNavigation(*navigation);
 
     navigation->setCurrentRequest(ResourceRequest(request), process->coreProcessIdentifier());
@@ -9636,7 +9636,7 @@ bool WebPageProxy::hasPageOpenedByMainFrame() const
     ASSERT(mainFrame());
 
     for (Ref page : internals().m_openedPages) {
-        RefPtr openedFrame = page->mainFrame();
+        auto* openedFrame = page->mainFrame();
         if (!openedFrame)
             continue;
         if (openedFrame->opener() == mainFrame())
@@ -9673,7 +9673,7 @@ void WebPageProxy::fullscreenMayReturnToInline()
 
 bool WebPageProxy::canEnterFullscreen()
 {
-    if (RefPtr playbackSessionManager = m_playbackSessionManager)
+    if (auto* playbackSessionManager = m_playbackSessionManager.get())
         return playbackSessionManager->canEnterVideoFullscreen();
     return false;
 }
@@ -10751,7 +10751,7 @@ VideoPresentationManagerProxy* WebPageProxy::videoPresentationManager()
 void WebPageProxy::setMockVideoPresentationModeEnabled(bool enabled)
 {
     m_mockVideoPresentationModeEnabled = enabled;
-    if (RefPtr videoPresentationManager = m_videoPresentationManager)
+    if (auto* videoPresentationManager = m_videoPresentationManager.get())
         videoPresentationManager->setMockVideoPresentationModeEnabled(enabled);
 }
 
@@ -12251,7 +12251,7 @@ URL WebPageProxy::currentResourceDirectoryURL() const
     auto resourceDirectoryURL = internals().pageLoadState.resourceDirectoryURL();
     if (!resourceDirectoryURL.isEmpty())
         return resourceDirectoryURL;
-    if (RefPtr item = backForwardList().currentItem())
+    if (auto* item = backForwardList().currentItem())
         return item->resourceDirectoryURL();
     return { };
 }
@@ -13532,7 +13532,7 @@ void WebPageProxy::beginMonitoringCaptureDevices()
     UserMediaProcessManager::singleton().beginMonitoringCaptureDevices();
 }
 
-static WebCore::MediaStreamRequest toUserMediaRequest(WebCore::MediaProducerMediaCaptureKind kind, WebCore::PageIdentifier pageIdentifier)
+static WebCore::MediaStreamRequest NODELETE toUserMediaRequest(WebCore::MediaProducerMediaCaptureKind kind, WebCore::PageIdentifier pageIdentifier)
 {
     switch (kind) {
     case WebCore::MediaProducerMediaCaptureKind::Microphone:
@@ -17107,7 +17107,7 @@ bool WebPageProxy::shouldAvoidSynchronouslyWaitingToPreventDeadlock() const
 
 #if ENABLE(GPU_PROCESS)
     if (useGPUProcessForDOMRenderingEnabled()) {
-        RefPtr gpuProcess = GPUProcessProxy::singletonIfCreated();
+        auto* gpuProcess = GPUProcessProxy::singletonIfCreated();
         if (!gpuProcess || !gpuProcess->hasConnection()) {
             // It's possible that the GPU process hasn't been initialized yet; in this case, we might end up in a deadlock
             // if a message comes in from the web process to initialize the GPU process while we're synchronously waiting.
@@ -17496,6 +17496,11 @@ INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::UserMediaAccessWasDenied);
 #endif
 #if PLATFORM(GTK)
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::CollapseSelectionInFrame);
+#endif
+#if PLATFORM(IOS_FAMILY)
+INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetFocusedElementValue);
+INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetFocusedElementSelectedIndex);
+INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetSelectElementIsOpen);
 #endif
 #undef INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME
 
@@ -17945,7 +17950,7 @@ bool WebPageProxy::canStartNavigationSwipeAtLastInteractionLocation() const
 
 bool WebPageProxy::isRemoteFrameNavigation(Ref<WebProcessProxy> process)
 {
-    RefPtr provisionalPage = m_provisionalPage;
+    auto* provisionalPage = m_provisionalPage.get();
     return m_legacyMainFrameProcess != process && (!provisionalPage || provisionalPage->process() != process);
 }
 

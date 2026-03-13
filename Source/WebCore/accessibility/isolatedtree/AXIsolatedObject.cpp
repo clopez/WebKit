@@ -391,10 +391,10 @@ void AXIsolatedObject::insertMathPairs(Vector<std::pair<Markable<AXID>, Markable
 {
     for (const auto& pair : isolatedPairs) {
         AccessibilityMathMultiscriptPair prescriptPair;
-        if (RefPtr object = tree().objectForID(pair.first))
-            prescriptPair.first = object.get();
-        if (RefPtr object = tree().objectForID(pair.second))
-            prescriptPair.second = object.get();
+        if (auto* object = tree().objectForID(pair.first))
+            prescriptPair.first = object;
+        if (auto* object = tree().objectForID(pair.second))
+            prescriptPair.second = object;
         pairs.append(prescriptPair);
     }
 }
@@ -1208,7 +1208,7 @@ AffineTransform AXIsolatedObject::frameScreenTransform() const
 }
 #endif
 
-static Seconds relativeFrameTimeout(bool shouldServeInitialFrame)
+static Seconds NODELETE relativeFrameTimeout(bool shouldServeInitialFrame)
 {
     // If the request demands that we don't serve the (probably somewhat inaccurate) initial frame, use a much
     // longer timeout (5 seconds). In practice, at the time of writing, this should only be true for tests.

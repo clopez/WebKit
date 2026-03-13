@@ -2132,7 +2132,7 @@ RenderObject::RenderObjectRareData::~RenderObjectRareData() = default;
 bool RenderObject::hasEmptyVisibleRectRespectingParentFrames() const
 {
     auto enclosingFrameRenderer = [] (const RenderObject& renderer) {
-        RefPtr ownerElement = renderer.document().ownerElement();
+        auto* ownerElement = renderer.document().ownerElement();
         return ownerElement ? ownerElement->renderer() : nullptr;
     };
 
@@ -2585,7 +2585,7 @@ static void adjustTextDirectionForCoalescedGeometries(const SelectionEndpointDir
     }
 }
 
-static bool shouldRenderSelectionOnSeparateLine(const RenderObject* currentRenderer)
+static bool NODELETE shouldRenderSelectionOnSeparateLine(const RenderObject* currentRenderer)
 {
     if (!currentRenderer)
         return false;

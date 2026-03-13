@@ -99,7 +99,7 @@ float SVGLengthContext::resolveLength(const SVGElement* context, SVGUnitTypes::S
     return x.valueAsPercentage();
 }
 
-static inline float dimensionForLengthMode(SVGLengthMode mode, FloatSize viewportSize)
+static inline float NODELETE dimensionForLengthMode(SVGLengthMode mode, FloatSize viewportSize)
 {
     switch (mode) {
     case SVGLengthMode::Width:
@@ -225,7 +225,7 @@ float SVGLengthContext::computeNonCalcLength(float inputValue, CSS::LengthUnit u
 
 float SVGLengthContext::removeZoomFromFontOrRootFontRelativeLength(float value, CSS::LengthUnit unit) const
 {
-    RefPtr svgElement = m_context->isOutermostSVGSVGElement()
+    auto* svgElement = m_context->isOutermostSVGSVGElement()
         ? downcast<SVGSVGElement>(m_context.get())
         : dynamicDowncast<SVGSVGElement>(m_context->viewportElement());
 
@@ -346,7 +346,7 @@ static inline const RenderStyle* rootRenderStyleForLengthResolving(const SVGElem
     if (!svgElement)
         return nullptr;
 
-    RefPtr rootElement = svgElement->document().documentElement();
+    auto* rootElement = svgElement->document().documentElement();
     if (!rootElement || !rootElement->renderer())
         return nullptr;
 

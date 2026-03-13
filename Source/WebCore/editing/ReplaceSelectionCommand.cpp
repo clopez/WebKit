@@ -104,15 +104,15 @@ class ReplacementFragment {
 public:
     ReplacementFragment(RefPtr<DocumentFragment>&&, const VisibleSelection&);
 
-    DocumentFragment* fragment() { return m_fragment.get(); }
+    DocumentFragment* NODELETE fragment() { return m_fragment.get(); }
 
     Node* firstChild() const;
     Node* lastChild() const;
 
     bool isEmpty() const;
     
-    bool hasInterchangeNewlineAtStart() const { return m_hasInterchangeNewlineAtStart; }
-    bool hasInterchangeNewlineAtEnd() const { return m_hasInterchangeNewlineAtEnd; }
+    bool NODELETE hasInterchangeNewlineAtStart() const { return m_hasInterchangeNewlineAtStart; }
+    bool NODELETE hasInterchangeNewlineAtEnd() const { return m_hasInterchangeNewlineAtEnd; }
     
     void removeNode(Node&);
     void removeNodePreservingChildren(Node&);
@@ -135,13 +135,13 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ReplacementFragment);
 
 static bool isInterchangeNewlineNode(const Node& node)
 {
-    RefPtr br = dynamicDowncast<HTMLBRElement>(node);
+    auto* br = dynamicDowncast<HTMLBRElement>(node);
     return br && br->attributeWithoutSynchronization(classAttr) == AppleInterchangeNewline;
 }
 
 static bool isInterchangeConvertedSpaceSpan(const Node& node)
 {
-    RefPtr element = dynamicDowncast<HTMLElement>(node);
+    auto* element = dynamicDowncast<HTMLElement>(node);
     return element && element->attributeWithoutSynchronization(classAttr) == AppleConvertedSpace;
 }
 
@@ -535,7 +535,7 @@ bool ReplaceSelectionCommand::shouldMergeEnd(bool selectionEndWasEndOfParagraph)
         && shouldMerge(endOfInsertedContent, next);
 }
 
-static bool isMailPasteAsQuotationNode(const Node& node)
+static bool NODELETE isMailPasteAsQuotationNode(const Node& node)
 {
     return node.hasTagName(blockquoteTag) && downcast<Element>(node).attributeWithoutSynchronization(classAttr) == ApplePasteAsQuotation;
 }
@@ -628,7 +628,7 @@ static bool fragmentNeedsColorTransformed(ReplacementFragment& fragment, const P
     {
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
-        CheckedPtr editableRootRenderer = editableRoot->renderer();
+        auto* editableRootRenderer = editableRoot->renderer();
         if (!editableRootRenderer || editableRootRenderer->style().appleColorFilter().isNone())
             return false;
 
@@ -762,7 +762,7 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
     }
 }
 
-static bool isProhibitedParagraphChild(const QualifiedName& name)
+static bool NODELETE isProhibitedParagraphChild(const QualifiedName& name)
 {
     using namespace ElementNames;
 

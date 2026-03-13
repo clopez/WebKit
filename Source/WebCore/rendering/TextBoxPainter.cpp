@@ -260,7 +260,7 @@ void TextBoxPainter::paint()
 #endif
             if (m_containsComposition && !m_compositionWithCustomUnderlines)
                 return true;
-            if (CheckedPtr markers = m_document->markersIfExists(); markers && markers->hasMarkers())
+            if (auto* markers = m_document->markersIfExists(); markers && markers->hasMarkers())
                 return true;
             if (m_document->hasHighlight())
                 return true;
@@ -403,7 +403,7 @@ void TextBoxPainter::paintForegroundAndDecorations()
             return true;
         if (shouldPaintSelectionForeground)
             return true;
-        if (CheckedPtr markers = m_document->markersIfExists(); markers && markers->hasMarkers())
+        if (auto* markers = m_document->markersIfExists(); markers && markers->hasMarkers())
             return true;
         if (m_document->hasHighlight())
             return true;
@@ -981,7 +981,7 @@ enum class TrimSide : bool {
     Right,
 };
 
-static CornerRadii trimRadii(const CornerRadii& radii, TrimSide trimSide)
+static CornerRadii NODELETE trimRadii(const CornerRadii& radii, TrimSide trimSide)
 {
     switch (trimSide) {
     case TrimSide::Left:
@@ -1012,7 +1012,7 @@ static FloatRect snapRectToDevicePixelsInDirection(const FloatRect& rect, float 
 }
 
 enum class TextBoxFragmentLocationWithinLayoutBox : uint8_t { First = 1 << 0, Last = 1 << 1 };
-static OptionSet<TextBoxFragmentLocationWithinLayoutBox> textBoxFragmentLocationWithinLayoutBox(const InlineIterator::BoxModernPath& textBox)
+static OptionSet<TextBoxFragmentLocationWithinLayoutBox> NODELETE textBoxFragmentLocationWithinLayoutBox(const InlineIterator::BoxModernPath& textBox)
 {
     OptionSet<TextBoxFragmentLocationWithinLayoutBox> location;
     if (textBox.box().isFirstForLayoutBox())
@@ -1159,7 +1159,7 @@ void TextBoxPainter::paintCompositionUnderlines()
     }
 }
 
-static inline void mirrorRTLSegment(float logicalWidth, TextDirection direction, float& start, float width)
+static inline void NODELETE mirrorRTLSegment(float logicalWidth, TextDirection direction, float& start, float width)
 {
     if (direction == TextDirection::LTR)
         return;
@@ -1223,14 +1223,14 @@ static void removeMarkersPaintedByTextDecorationPainter(const RenderText& render
     }
 }
 
-static std::optional<MarkedText> markedTextForTextDecorationLineSpellingError(const RenderText& renderer)
+static std::optional<MarkedText> NODELETE markedTextForTextDecorationLineSpellingError(const RenderText& renderer)
 {
     if (!renderer.style().textDecorationLineInEffect().isSpellingError())
         return std::nullopt;
     return std::make_optional<MarkedText>({ 0, static_cast<unsigned>(renderer.length()), MarkedText::Type::SpellingError });
 }
 
-static std::optional<MarkedText> markedTextForTextDecorationLineGrammarError(const RenderText& renderer)
+static std::optional<MarkedText> NODELETE markedTextForTextDecorationLineGrammarError(const RenderText& renderer)
 {
     if (!renderer.style().textDecorationLineInEffect().isGrammarError())
         return std::nullopt;

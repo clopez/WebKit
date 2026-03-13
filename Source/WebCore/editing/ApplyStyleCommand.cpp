@@ -757,7 +757,7 @@ struct InlineRunToApplyStyle {
         ASSERT(start->parentNode() == end->parentNode());
     }
 
-    bool startAndEndAreStillInDocument()
+    bool NODELETE startAndEndAreStillInDocument()
     {
         return start && end && start->isConnected() && end->isConnected();
     }
@@ -1034,7 +1034,7 @@ void ApplyStyleCommand::applyInlineStyleToPushDown(Node& node, EditingStyle* sty
 
         if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(*node.renderer()); textRenderer && textRenderer->containsOnlyCollapsibleWhitespace())
             return;
-        if (CheckedPtr linebreak = dynamicDowncast<RenderLineBreak>(*node.renderer()); linebreak && !linebreak->style().preserveNewline())
+        if (auto* linebreak = dynamicDowncast<RenderLineBreak>(*node.renderer()); linebreak && !linebreak->style().preserveNewline())
             return;
     }
 

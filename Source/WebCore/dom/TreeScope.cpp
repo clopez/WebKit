@@ -550,12 +550,12 @@ Element* TreeScope::pointerLockElement() const
     RefPtr element = page->pointerLockController().element();
     if (!element || &element->document() != document.ptr())
         return nullptr;
-    return ancestorElementInThisScope(element.get());
+    return ancestorElementInThisScope(element);
 }
 
 #endif
 
-static ALWAYS_INLINE Node* host(TreeScope& treeScope)
+static ALWAYS_INLINE Node* NODELETE host(TreeScope& treeScope)
 {
     if (auto* shadowRoot = dynamicDowncast<ShadowRoot>(treeScope.rootNode()))
         return shadowRoot->host();

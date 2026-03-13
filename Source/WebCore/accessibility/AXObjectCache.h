@@ -395,7 +395,7 @@ public:
     }
     inline std::optional<AXID> getAXID(RenderObject& renderer) const
     {
-        if (RefPtr node = renderer.node())
+        if (auto* node = renderer.node())
             return m_nodeIdMapping.getOptional(*node);
         return m_renderObjectIdMapping.getOptional(const_cast<RenderObject&>(renderer));
     }
@@ -849,7 +849,7 @@ private:
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void selectedTextRangeTimerFired();
-    Seconds platformSelectedTextRangeDebounceInterval() const;
+    Seconds NODELETE platformSelectedTextRangeDebounceInterval() const;
     void updateTreeSnapshotTimerFired();
     void processQueuedIsolatedNodeUpdates();
 

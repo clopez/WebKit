@@ -35,12 +35,12 @@
 namespace WebCore {
 namespace Layout {
 
-static inline InlineLayoutUnit halfOfAFullWidthCharacter(const Box& annotationBox)
+static inline InlineLayoutUnit NODELETE halfOfAFullWidthCharacter(const Box& annotationBox)
 {
     return annotationBox.style().computedFontSize() / 2.f;
 }
 
-static inline size_t baseContentIndex(size_t rubyBaseStart, std::span<InlineDisplay::Box> boxes)
+static inline size_t NODELETE baseContentIndex(size_t rubyBaseStart, std::span<InlineDisplay::Box> boxes)
 {
     auto baseContentIndex = rubyBaseStart + 1;
     if (boxes[baseContentIndex].layoutBox().isRubyAnnotationBox())
@@ -148,9 +148,9 @@ size_t RubyFormattingContext::applyRubyAlignOnBaseContent(size_t rubyBaseStart, 
     }
     CheckedRef rubyBaseLayoutBox = runs[rubyBaseStart].layoutBox();
     auto rubyBaseEnd = [&]() -> std::optional<size_t> {
-        CheckedRef rubyBox = rubyBaseLayoutBox->parent();
+        auto& rubyBox = rubyBaseLayoutBox->parent();
         for (auto index = rubyBaseStart + 1; index < runs.size(); ++index) {
-            if (&runs[index].layoutBox().parent() == rubyBox.ptr())
+            if (&runs[index].layoutBox().parent() == &rubyBox)
                 return index;
         }
         // We somehow managed to break content inside the base.

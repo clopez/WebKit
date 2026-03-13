@@ -167,7 +167,7 @@ void WebLoaderStrategy::schedulePluginStreamLoad(LocalFrame& frame, NetscapePlug
     });
 }
 
-static Seconds maximumBufferingTime(CachedResource* resource)
+static Seconds NODELETE maximumBufferingTime(CachedResource* resource)
 {
     if (!resource)
         return 0_s;
@@ -225,7 +225,7 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     std::optional<WebPageProxyIdentifier> webPageProxyID;
     if (RefPtr webFrameLoaderClient = dynamicDowncast<WebLocalFrameLoaderClient>(frameLoaderClient))
         webPageProxyID = webFrameLoaderClient->webPageProxyID();
-    else if (RefPtr workerFrameLoaderClient = dynamicDowncast<RemoteWorkerFrameLoaderClient>(frameLoaderClient))
+    else if (auto* workerFrameLoaderClient = dynamicDowncast<RemoteWorkerFrameLoaderClient>(frameLoaderClient))
         webPageProxyID = workerFrameLoaderClient->webPageProxyID();
 
     auto trackingParameters = webPageProxyID && pageID ? std::optional(WebResourceLoader::TrackingParameters {
@@ -410,7 +410,7 @@ static void addParametersShared(const LocalFrame* frame, NetworkResourceLoadPara
 
         if (RefPtr webPage = WebPage::fromCorePage(*page)) {
 #if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
-            if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
+            if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
                 parameters.pageHasLoadedWebExtensions = extensionControllerProxy->hasLoadedContexts();
 #endif
         }

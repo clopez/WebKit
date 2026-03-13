@@ -609,7 +609,7 @@ CompletionHandlerCallingScope HTMLSelectElement::optionToSelectFromChildChangeSc
         if (auto* option = dynamicDowncast<HTMLOptionElement>(*change.siblingChanged)) {
             if (option->selectedWithoutUpdate())
                 optionToSelect = option;
-        } else if (RefPtr optGroup = dynamicDowncast<HTMLOptGroupElement>(change.siblingChanged); !parentOptGroup && optGroup)
+        } else if (auto* optGroup = dynamicDowncast<HTMLOptGroupElement>(change.siblingChanged); !parentOptGroup && optGroup)
             optionToSelect = getLastSelectedOption(*optGroup);
     } else if (parentOptGroup && change.type == ContainerNode::ChildChange::Type::AllChildrenReplaced)
         optionToSelect = getLastSelectedOption(*parentOptGroup);
@@ -987,7 +987,7 @@ void HTMLSelectElement::scrollToSelection()
 
 void HTMLSelectElement::setOptionsChangedOnRenderer()
 {
-    if (CheckedPtr renderer = this->renderer()) {
+    if (auto* renderer = this->renderer()) {
         if (auto* renderMenuList = dynamicDowncast<RenderMenuList>(*renderer))
             renderMenuList->setOptionsChanged(true);
         else if (!usesMenuList())
@@ -1433,6 +1433,9 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event& event)
 {
     ASSERT(renderer());
     ASSERT(usesMenuList());
+
+    if (!event.isTrusted())
+        return;
 
     auto& eventNames = WebCore::eventNames();
 

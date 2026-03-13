@@ -554,7 +554,7 @@ static void updateMeterPartForRenderer(MeterPart& meterPart, const RenderMeter& 
     meterPart.setMaximum(element->max());
 }
 
-static void updateProgressBarPartForRenderer(ProgressBarPart& progressBarPart, const RenderProgress& renderProgress)
+static void NODELETE updateProgressBarPartForRenderer(ProgressBarPart& progressBarPart, const RenderProgress& renderProgress)
 {
     progressBarPart.setPosition(renderProgress.position());
     progressBarPart.setAnimationStartTime(renderProgress.animationStartTime().secondsSinceEpoch());
@@ -829,8 +829,8 @@ static const RenderElement* effectiveRendererForAppearance(const RenderObject& r
     if (type == StyleAppearance::SearchFieldCancelButton
         || type == StyleAppearance::SwitchTrack
         || type == StyleAppearance::SwitchThumb) {
-        RefPtr element = renderer->element();
-        RefPtr<Node> input = element->shadowHost();
+        auto* element = renderer->element();
+        auto* input = element->shadowHost();
         if (!input)
             input = element;
 
@@ -1235,7 +1235,7 @@ bool RenderTheme::isWindowActive(const RenderElement& renderer) const
 
 bool RenderTheme::isChecked(const RenderElement& renderer) const
 {
-    RefPtr element = dynamicDowncast<HTMLInputElement>(renderer.element());
+    auto* element = dynamicDowncast<HTMLInputElement>(renderer.element());
     return element && element->matchesCheckedPseudoClass();
 }
 
@@ -1300,7 +1300,7 @@ bool RenderTheme::isHovered(const RenderElement& renderer) const
 
 bool RenderTheme::isSpinUpButtonPartHovered(const RenderElement& renderer) const
 {
-    if (RefPtr spinButton = dynamicDowncast<SpinButtonElement>(renderer.element()))
+    if (auto* spinButton = dynamicDowncast<SpinButtonElement>(renderer.element()))
         return spinButton->upDownState() == SpinButtonElement::Up;
     return false;
 }

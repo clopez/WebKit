@@ -57,7 +57,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static bool isTableRow(const Node& node)
+static bool NODELETE isTableRow(const Node& node)
 {
     return node.hasTagName(trTag);
 }
@@ -81,7 +81,7 @@ static bool isTableRowEmpty(const Node& row)
     return true;
 }
 
-static bool isSpecialHTMLElement(const Node& node)
+static bool NODELETE isSpecialHTMLElement(const Node& node)
 {
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
@@ -92,7 +92,7 @@ static bool isSpecialHTMLElement(const Node& node)
     if (htmlElement->isLink())
         return true;
 
-    CheckedPtr renderer = htmlElement->renderer();
+    auto* renderer = htmlElement->renderer();
     if (!renderer)
         return false;
 
@@ -741,7 +741,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
                 } else if (!(startNodeWasDescendantOfEndNode && !m_upstreamStart.anchorNode()->isConnected())) {
                     unsigned offset = 0;
                     if (m_upstreamStart.deprecatedNode()->isDescendantOf(m_downstreamEnd.deprecatedNode())) {
-                        RefPtr n = m_upstreamStart.deprecatedNode();
+                        auto* n = m_upstreamStart.deprecatedNode();
                         while (n && n->parentNode() != m_downstreamEnd.deprecatedNode())
                             n = n->parentNode();
                         if (n)

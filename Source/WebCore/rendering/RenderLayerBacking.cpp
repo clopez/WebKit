@@ -1011,7 +1011,7 @@ bool RenderLayerBacking::shouldClipCompositedBounds() const
     return true;
 }
 
-static bool hasNonZeroTransformOrigin(const RenderLayerModelObject& renderer)
+static bool NODELETE hasNonZeroTransformOrigin(const RenderLayerModelObject& renderer)
 {
     auto& style = renderer.style();
     auto fixedTransformOriginX = style.transformOriginX().tryFixed();
@@ -2617,7 +2617,7 @@ void RenderLayerBacking::positionOverflowControlsLayers()
     }
 }
 
-static bool ancestorLayerWillCombineTransform(const RenderLayer* compositingAncestor)
+static bool NODELETE ancestorLayerWillCombineTransform(const RenderLayer* compositingAncestor)
 {
     if (!compositingAncestor)
         return false;
@@ -2928,7 +2928,7 @@ float RenderLayerBacking::compositingOpacity(float rendererOpacity) const
 {
     float finalOpacity = rendererOpacity;
 
-    for (CheckedPtr curr = m_owningLayer.stackingContext(); curr; curr = curr->stackingContext()) {
+    for (auto* curr = m_owningLayer.stackingContext(); curr; curr = curr->stackingContext()) {
         // If we found a compositing layer, we want to compute opacity
         // relative to it. So we can break here.
         if (curr->isComposited())
@@ -3000,7 +3000,7 @@ static bool hasPaintedBoxDecorationsOrBackgroundImage(const RenderElement& rende
     return !canDirectlyCompositeBackgroundBackgroundImage(renderer);
 }
 
-static inline bool hasPerspectiveOrPreserves3D(const RenderStyle& style)
+static inline bool NODELETE hasPerspectiveOrPreserves3D(const RenderStyle& style)
 {
     return !style.perspective().isNone() || style.usedTransformStyle3D() == TransformStyle3D::Preserve3D;
 }

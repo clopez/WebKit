@@ -152,7 +152,7 @@ struct RenderLayerCompositor::CompositingState {
     {
     }
     
-    CompositingState stateForPaintOrderChildren(RenderLayer& layer) const
+    CompositingState NODELETE stateForPaintOrderChildren(RenderLayer& layer) const
     {
         UNUSED_PARAM(layer);
         CompositingState childState(compositingAncestor);
@@ -2012,7 +2012,7 @@ void RenderLayerCompositor::adjustOverflowScrollbarContainerLayers(RenderLayer& 
         std::optional<size_t> lastDescendantLayerIndex;
         std::optional<size_t> scrollerLayerIndex;
         for (size_t i = 0; i < layerChildren.size(); ++i) {
-            const RefPtr graphicsLayer = layerChildren[i].ptr();
+            const auto* graphicsLayer = layerChildren[i].ptr();
             if (graphicsLayer == lastDescendantGraphicsLayer)
                 lastDescendantLayerIndex = i;
             else if (graphicsLayer == overflowScrollerGraphicsLayer)
@@ -2127,7 +2127,7 @@ void RenderLayerCompositor::logLayerInfo(const RenderLayer& layer, ASCIILiteral 
 }
 #endif
 
-static bool clippingChanged(const RenderStyle& oldStyle, const RenderStyle& newStyle)
+static bool NODELETE clippingChanged(const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
     return oldStyle.overflowX() != newStyle.overflowX()
         || oldStyle.overflowY() != newStyle.overflowY()
@@ -2165,7 +2165,7 @@ static bool recompositeChangeRequiresGeometryUpdate(const RenderStyle& oldStyle,
         || oldStyle.overscrollBehaviorY() != newStyle.overscrollBehaviorY();
 }
 
-static bool recompositeChangeRequiresChildrenGeometryUpdate(const RenderStyle& oldStyle, const RenderStyle& newStyle)
+static bool NODELETE recompositeChangeRequiresChildrenGeometryUpdate(const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
     return oldStyle.perspective().isNone() != newStyle.perspective().isNone()
         || oldStyle.usedTransformStyle3D() != newStyle.usedTransformStyle3D();
@@ -2589,18 +2589,6 @@ void RenderLayerCompositor::computeExtent(const LayerOverlapMap& overlapMap, con
         extent.extentComputed = true;
     });
 
-    RenderLayerModelObject& renderer = layer.renderer();
-    if (renderer.isStickilyPositioned()) {
-        // Use rectangle that represents union of all possible sticky element positions,
-        // because it could be moved around without re-computing overlap.
-        auto const& box = downcast<RenderBoxModelObject>(renderer);
-        StickyPositionViewportConstraints constraints;
-        auto constrainingRectForStickyPosition = box.constrainingRectForStickyPosition();
-        box.computeStickyPositionConstraints(constraints, constrainingRectForStickyPosition);
-        extent.bounds = LayoutRect(constraints.computeStickyExtent());
-        return;
-    }
-
     LayoutRect layerBounds;
     if (extent.hasTransformAnimation)
         extent.animationCausesExtentUncertainty = !layer.getOverlapBoundsIncludingChildrenAccountingForTransformAnimations(layerBounds);
@@ -2615,7 +2603,19 @@ void RenderLayerCompositor::computeExtent(const LayerOverlapMap& overlapMap, con
     if (extent.bounds.isEmpty())
         extent.bounds.setSize(LayoutSize(1, 1));
 
-    if (renderer.isFixedPositioned() && renderer.container() == &m_renderView) {
+    auto& renderer = layer.renderer();
+    if (renderer.isStickilyPositioned()) {
+        // Use rectangle that represents union of all possible sticky element positions,
+        // because it could be moved around without re-computing overlap.
+        auto scrollInflated = m_renderView.frameView().fixedScrollableAreaBoundsInflatedForScrolling(extent.bounds);
+        auto& box = downcast<RenderBoxModelObject>(renderer);
+        StickyPositionViewportConstraints constraints;
+        auto constrainingRect = box.constrainingRectForStickyPosition();
+        box.computeStickyPositionConstraints(constraints, constrainingRect);
+        auto stickyBounds = LayoutRect(constraints.computeStickyExtent());
+        scrollInflated.intersect(stickyBounds);
+        extent.bounds = scrollInflated;
+    } else if (renderer.isFixedPositioned() && renderer.container() == &m_renderView) {
         // Because fixed elements get moved around without re-computing overlap, we have to compute an overlap
         // rect that covers all the locations that the fixed element could move to.
         extent.bounds = m_renderView.frameView().fixedScrollableAreaBoundsInflatedForScrolling(extent.bounds);

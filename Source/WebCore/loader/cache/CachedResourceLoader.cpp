@@ -954,7 +954,7 @@ void CachedResourceLoader::prepareFetch(CachedResource::Type type, CachedResourc
         if (!request.origin())
             request.setOrigin(document->securityOrigin());
         request.setClientIdentifierIfNeeded(document->identifier());
-        if (RefPtr activeServiceWorker = document->activeServiceWorker())
+        if (auto* activeServiceWorker = document->activeServiceWorker())
             request.setSelectedServiceWorkerRegistrationIdentifierIfNeeded(activeServiceWorker->registrationIdentifier());
     }
 
@@ -1419,7 +1419,7 @@ CachedResourceHandle<CachedResource> CachedResourceLoader::loadResource(CachedRe
     return resource;
 }
 
-static inline bool mustReloadFromServiceWorkerOptions(const ResourceLoaderOptions& options, const ResourceLoaderOptions& cachedOptions)
+static inline bool NODELETE mustReloadFromServiceWorkerOptions(const ResourceLoaderOptions& options, const ResourceLoaderOptions& cachedOptions)
 {
     if (cachedOptions.cachingPolicy == CachingPolicy::AllowCachingMainResourcePrefetch)
         return false;
@@ -1678,7 +1678,7 @@ CachePolicy CachedResourceLoader::cachePolicy(CachedResource::Type type, const U
     if (type != CachedResource::Type::MainResource)
         return frame->loader().subresourceCachePolicy(url);
 
-    if (RefPtr page = frame->page()) {
+    if (auto* page = frame->page()) {
         if (page->isResourceCachingDisabledByWebInspector())
             return CachePolicy::Reload;
     }

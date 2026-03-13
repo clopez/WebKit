@@ -468,10 +468,13 @@ LayoutRect AccessibilityScrollView::elementRect() const
     auto rect = scrollView->frameRectShrunkByInset();
 
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
-    // For the root scroll view of a subframe (local or remote), the frameRect includes
-    // the iframe's position in the parent page. We want to zero it out.
-    if (isRoot() && !rect.location().isZero())
-        rect.setLocation(IntPoint());
+    // The scrollView's frameRect may include the iframe's position in the parent
+    // page (non-zero for subframes, zero for main frames). Remove that offset
+    // but preserve any inset offset applied by frameRectShrunkByInset().
+    if (isRoot()) {
+        auto frameOrigin = scrollView->frameRect().location();
+        rect.move(-frameOrigin.x(), -frameOrigin.y());
+    }
 #else
     auto offset = remoteFrameOffset();
     if (isRoot() && !offset.isZero())
@@ -483,7 +486,7 @@ LayoutRect AccessibilityScrollView::elementRect() const
 
 Document* AccessibilityScrollView::document() const
 {
-    if (RefPtr frameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
+    if (auto* frameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
         return frameView->frame().document();
 
     // For the RemoteFrameView case, we need to return the document of our hosting parent so axObjectCache() resolves correctly.
@@ -500,7 +503,7 @@ LocalFrameView* AccessibilityScrollView::documentFrameView() const
     if (auto* localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
         return localFrameView;
 
-    RefPtr element = m_frameOwnerElement.get();
+    auto* element = m_frameOwnerElement.get();
     if (element && element->contentDocument())
         return element->contentDocument()->view();
     return nullptr;
@@ -615,7 +618,7 @@ bool AccessibilityScrollView::isHostingFrameInert() const
         return m_inheritedFrameState.isInert;
 
     RefPtr frameOwner = frameOwnerElement();
-    if (CheckedPtr renderer = frameOwner ? frameOwner->renderer() : nullptr)
+    if (auto* renderer = frameOwner ? frameOwner->renderer() : nullptr)
         return renderer->style().effectiveInert();
 
     return false;
@@ -627,7 +630,7 @@ bool AccessibilityScrollView::isHostingFrameRenderHidden() const
         return m_inheritedFrameState.isRenderHidden;
 
     RefPtr frameOwner = frameOwnerElement();
-    if (CheckedPtr renderer = frameOwner ? frameOwner->renderer() : nullptr)
+    if (auto* renderer = frameOwner ? frameOwner->renderer() : nullptr)
         return WebCore::isRenderHidden(protect(renderer->style()).get());
 
     return false;

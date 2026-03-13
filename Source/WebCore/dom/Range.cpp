@@ -285,7 +285,7 @@ static inline Node* NODELETE highestAncestorUnderCommonRoot(Node* node, Node* co
     return node;
 }
 
-static inline Node* childOfCommonRootBeforeOffset(Node* container, unsigned offset, Node* commonRoot)
+static inline Node* NODELETE childOfCommonRootBeforeOffset(Node* container, unsigned offset, Node* commonRoot)
 {
     ASSERT(container);
     ASSERT(commonRoot);
@@ -697,7 +697,7 @@ ExceptionOr<void> Range::insertNode(Ref<Node>&& node)
         return removeResult.releaseException();
 
     unsigned newOffset = referenceNode ? referenceNode->computeNodeIndex() : parent->countChildNodes();
-    if (RefPtr fragment = dynamicDowncast<DocumentFragment>(node.get()))
+    if (auto* fragment = dynamicDowncast<DocumentFragment>(node.get()))
         newOffset += fragment->countChildNodes();
     else
         ++newOffset;
@@ -896,7 +896,7 @@ String Range::debugDescription() const
 }
 #endif
 
-static inline void boundaryNodeChildrenChanged(RangeBoundaryPoint& boundary, ContainerNode& container)
+static inline void NODELETE boundaryNodeChildrenChanged(RangeBoundaryPoint& boundary, ContainerNode& container)
 {
     if (boundary.childBefore() && &boundary.container() == &container)
         boundary.invalidateOffset();

@@ -587,15 +587,15 @@ void InspectorDOMAgent::discardBindings()
 
 static RefPtr<Element> elementToPushForStyleable(const Styleable& styleable)
 {
-    Ref element = styleable.element;
+    auto& element = styleable.element;
     // FIXME: We want to get rid of PseudoElement.
     if (styleable.pseudoElementIdentifier) {
         if (styleable.pseudoElementIdentifier->type == PseudoElementType::Before)
-            return element->beforePseudoElement();
+            return element.beforePseudoElement();
         if (styleable.pseudoElementIdentifier->type == PseudoElementType::After)
-            return element->afterPseudoElement();
+            return element.afterPseudoElement();
     }
-    return element;
+    return &element;
 }
 
 Inspector::Protocol::DOM::NodeId InspectorDOMAgent::pushStyleableElementToFrontend(const Styleable& styleable)
@@ -1921,7 +1921,7 @@ static String documentBaseURLString(Document* document)
     return document->completeURL(emptyString()).string();
 }
 
-static bool pseudoElementType(PseudoElementType pseudoElementType, Inspector::Protocol::DOM::PseudoType* type)
+static bool NODELETE pseudoElementType(PseudoElementType pseudoElementType, Inspector::Protocol::DOM::PseudoType* type)
 {
     switch (pseudoElementType) {
     case PseudoElementType::Before:
@@ -1935,7 +1935,7 @@ static bool pseudoElementType(PseudoElementType pseudoElementType, Inspector::Pr
     }
 }
 
-static Inspector::Protocol::DOM::ShadowRootType shadowRootType(ShadowRootMode mode)
+static Inspector::Protocol::DOM::ShadowRootType NODELETE shadowRootType(ShadowRootMode mode)
 {
     switch (mode) {
     case ShadowRootMode::UserAgent:
@@ -1950,7 +1950,7 @@ static Inspector::Protocol::DOM::ShadowRootType shadowRootType(ShadowRootMode mo
     return Inspector::Protocol::DOM::ShadowRootType::UserAgent;
 }
 
-static Inspector::Protocol::DOM::CustomElementState customElementState(const Element& element)
+static Inspector::Protocol::DOM::CustomElementState NODELETE customElementState(const Element& element)
 {
     if (element.isDefinedCustomElement())
         return Inspector::Protocol::DOM::CustomElementState::Custom;
@@ -2615,9 +2615,9 @@ unsigned InspectorDOMAgent::innerChildNodeCount(Node* node)
 Node* InspectorDOMAgent::innerParentNode(Node* node)
 {
     ASSERT(node);
-    if (RefPtr document = dynamicDowncast<Document>(*node))
+    if (auto* document = dynamicDowncast<Document>(*node))
         return document->ownerElement();
-    if (RefPtr shadowRoot = dynamicDowncast<ShadowRoot>(*node))
+    if (auto* shadowRoot = dynamicDowncast<ShadowRoot>(*node))
         return shadowRoot->host();
     return node->parentNode();
 }
@@ -3185,7 +3185,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::setAllowEditingUserA
 }
 
 #if ENABLE(VIDEO)
-static Inspector::Protocol::DOM::VideoProjectionMetadataKind videoProjectionMetadataKind(VideoProjectionMetadataKind kind)
+static Inspector::Protocol::DOM::VideoProjectionMetadataKind NODELETE videoProjectionMetadataKind(VideoProjectionMetadataKind kind)
 {
     switch (kind) {
     case VideoProjectionMetadataKind::Unknown:

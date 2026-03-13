@@ -905,7 +905,7 @@ void InspectorInstrumentation::interceptResponseImpl(InstrumentingAgents& instru
 }
 
 // JavaScriptCore InspectorDebuggerAgent should know Console MessageTypes.
-static bool isConsoleAssertMessage(MessageSource source, MessageType type)
+static bool NODELETE isConsoleAssertMessage(MessageSource source, MessageType type)
 {
     return source == MessageSource::ConsoleAPI && type == MessageType::Assert;
 }
@@ -1377,7 +1377,7 @@ InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(ScriptExecuti
     // Using RefPtr makes us hit the m_inRemovedLastRefFunction assert.
     if (WeakPtr document = dynamicDowncast<Document>(context))
         return instrumentingAgents(document->page());
-    if (RefPtr workerOrWorkletGlobal = dynamicDowncast<WorkerOrWorkletGlobalScope>(context))
+    if (auto* workerOrWorkletGlobal = dynamicDowncast<WorkerOrWorkletGlobalScope>(context))
         return &instrumentingAgents(*workerOrWorkletGlobal);
     return nullptr;
 }

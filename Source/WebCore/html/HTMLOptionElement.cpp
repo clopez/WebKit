@@ -272,6 +272,9 @@ bool HTMLOptionElement::accessKeyAction(bool)
 
 void HTMLOptionElement::defaultEventHandler(Event& event)
 {
+    if (!event.isTrusted())
+        return HTMLElement::defaultEventHandler(event);
+
     RefPtr select = ownerSelectElement();
     if (!select || !select->document().settings().htmlEnhancedSelectEnabled() || !select->usesBaseAppearancePicker())
         return HTMLElement::defaultEventHandler(event);
@@ -328,7 +331,7 @@ void HTMLOptionElement::defaultEventHandler(Event& event)
 
 HTMLFormElement* HTMLOptionElement::form() const
 {
-    if (RefPtr selectElement = ownerSelectElement())
+    if (auto* selectElement = ownerSelectElement())
         return selectElement->form();
     return nullptr;
 }
