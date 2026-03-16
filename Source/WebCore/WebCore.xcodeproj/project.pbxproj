@@ -352,6 +352,7 @@
 		0BE030A20F3112FB003C1A46 /* RenderLineBoxList.h in Headers */ = {isa = PBXBuildFile; fileRef = 0BE030A10F3112FB003C1A46 /* RenderLineBoxList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0C3F1F5B10C8871200D72CE1 /* WebGLUniformLocation.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C3F1F5810C8871200D72CE1 /* WebGLUniformLocation.h */; };
 		0C45342810CDBBFA00869157 /* JSWebGLUniformLocation.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C45342610CDBBFA00869157 /* JSWebGLUniformLocation.h */; };
+		0C6B52D0EB74C9FC2A56BF0A /* FontInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 59763CF0AFE56B2B76896F18 /* FontInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0D0215492EF77E2400A9D950 /* modelDefaultSpecularData in Resources */ = {isa = PBXBuildFile; fileRef = 0D0215482EF77E2400A9D950 /* modelDefaultSpecularData */; };
 		0D02154A2EF77E2400A9D950 /* modelDefaultDiffuseData in Resources */ = {isa = PBXBuildFile; fileRef = 0D0215472EF77E2400A9D950 /* modelDefaultDiffuseData */; };
 		0D0B4DA32EBD20E30053FB12 /* UnifiedSource1-ARC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0D0B4DA22EBD20E30053FB12 /* UnifiedSource1-ARC.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -2996,7 +2997,7 @@
 		7A22732120C9FAFE00DB1DEF /* WebKitNSImageExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A22731F20C9F9DA00DB1DEF /* WebKitNSImageExtras.h */; };
 		7A293F5229945A430033D744 /* FontCustomPlatformData.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A293F5129945A100033D744 /* FontCustomPlatformData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7A29F57218C69514004D0F81 /* OutOfBandTextTrackPrivateAVF.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A29F57118C69514004D0F81 /* OutOfBandTextTrackPrivateAVF.h */; };
-		7A4279002D8CC19000A60073 /* FontCascadeCocoaInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A4278FF2D8CC06500A60073 /* FontCascadeCocoaInlines.h */; };
+		7A4279002D8CC19000A60073 /* FontCascadeCocoaInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A4278FF2D8CC06500A60073 /* FontCascadeCocoaInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7A45033018DB717200377B34 /* BufferedLineReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A45032E18DB717200377B34 /* BufferedLineReader.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7A54858014E02D51006AE05A /* InspectorHistory.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A54857E14E02D51006AE05A /* InspectorHistory.h */; };
 		7A54881714E432A1006AE05A /* DOMPatchSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A54881514E432A1006AE05A /* DOMPatchSupport.h */; };
@@ -4646,7 +4647,6 @@
 		B222799C0D00BF220071B782 /* SVGCircleElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278060D00BF1F0071B782 /* SVGCircleElement.h */; };
 		B222799F0D00BF220071B782 /* SVGClipPathElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278090D00BF1F0071B782 /* SVGClipPathElement.h */; };
 		B22279A50D00BF220071B782 /* SVGComponentTransferFunctionElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B222780F0D00BF1F0071B782 /* SVGComponentTransferFunctionElement.h */; };
-		B22279A80D00BF220071B782 /* SVGCursorElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278120D00BF1F0071B782 /* SVGCursorElement.h */; };
 		B22279AE0D00BF220071B782 /* SVGDefsElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278180D00BF1F0071B782 /* SVGDefsElement.h */; };
 		B22279B10D00BF220071B782 /* SVGDescElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B222781B0D00BF1F0071B782 /* SVGDescElement.h */; };
 		B22279B40D00BF220071B782 /* SVGDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = B222781E0D00BF1F0071B782 /* SVGDocument.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5755,6 +5755,7 @@
 		CD24B86A2982DCCA000A53FE /* HTMLMediaElementIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = CD24B8692982DCCA000A53FE /* HTMLMediaElementIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD27AE5022A9868700947FF9 /* ImageRotationSessionVT.h in Headers */ = {isa = PBXBuildFile; fileRef = CD27AE4E22A9868700947FF9 /* ImageRotationSessionVT.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD27AE5122A9868700947FF9 /* ImageRotationSessionVT.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD27AE4F22A9868700947FF9 /* ImageRotationSessionVT.mm */; };
+		CD28D6EA2F5F47DA008D8F59 /* FontCascadeInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = CD28D6E92F5F47DA008D8F59 /* FontCascadeInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD2F4A2418D89F700063746D /* AudioHardwareListener.h in Headers */ = {isa = PBXBuildFile; fileRef = CD2F4A2218D89F700063746D /* AudioHardwareListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD2F4A2818D8A3490063746D /* AudioHardwareListenerMac.h in Headers */ = {isa = PBXBuildFile; fileRef = CD2F4A2618D8A3490063746D /* AudioHardwareListenerMac.h */; };
 		CD3184152E89FBFA00606263 /* DocumentPage.h in Headers */ = {isa = PBXBuildFile; fileRef = CD3184142E89F7B300606263 /* DocumentPage.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5824,6 +5825,7 @@
 		CD671C9C2F5C175F00B387A2 /* LegacyInlineBoxInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = CD671C9B2F5C175F00B387A2 /* LegacyInlineBoxInlines.h */; };
 		CD671C9E2F5D083000B387A2 /* AccessibilityNodeObjectInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = CD671C9D2F5D083000B387A2 /* AccessibilityNodeObjectInlines.h */; };
 		CD671CA02F5D0A7F00B387A2 /* StyleTreeResolverInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = CD671C9F2F5D0A7F00B387A2 /* StyleTreeResolverInlines.h */; };
+		CD671CA42F5E144F00B387A2 /* FontCascadeEnums.h in Headers */ = {isa = PBXBuildFile; fileRef = CD671CA32F5E144F00B387A2 /* FontCascadeEnums.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD6A1F0D297A1A8F00F7B9FA /* CanvasObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = CD6A1F0C297A1A8F00F7B9FA /* CanvasObserver.h */; };
 		CD7122632CDD80220045FB4D /* VideoPresentationLayerProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = CD7122612CDD6B530045FB4D /* VideoPresentationLayerProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CD720B4F2268B51300047FDE /* ISOFairPlayStreamingPsshBox.h in Headers */ = {isa = PBXBuildFile; fileRef = CD720B4922682C7F00047FDE /* ISOFairPlayStreamingPsshBox.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -12866,7 +12868,7 @@
 		55FA7FFA2110ECD7005AEFE7 /* SVGZoomAndPanType.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGZoomAndPanType.h; sourceTree = "<group>"; };
 		55FD9FBF27B20D520045DA1F /* WebAssemblyScriptSourceCode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebAssemblyScriptSourceCode.h; sourceTree = "<group>"; };
 		560A7F202DB83BDE00B69AF8 /* SVGFilterEffectGraph.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGFilterEffectGraph.h; sourceTree = "<group>"; };
-		570440571E53851600356601 /* CryptoAlgorithmAESCFBMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCFBMac.cpp; sourceTree = "<group>"; };
+		570440571E53851600356601 /* CryptoAlgorithmAESCFBCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCFBCocoa.cpp; sourceTree = "<group>"; };
 		570440591E53936200356601 /* JSAesCbcCfbParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSAesCbcCfbParams.h; sourceTree = "<group>"; };
 		5704405B1E53937900356601 /* JSAesCbcCfbParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSAesCbcCfbParams.cpp; sourceTree = "<group>"; };
 		5706A6941DDE5BF800A03B14 /* RsaOaepParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = RsaOaepParams.idl; sourceTree = "<group>"; };
@@ -12891,7 +12893,7 @@
 		571F21881DA57C54005C9EFD /* JSSubtleCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSSubtleCrypto.h; sourceTree = "<group>"; };
 		571F218A1DA57C7A005C9EFD /* JSSubtleCrypto.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSubtleCrypto.cpp; sourceTree = "<group>"; };
 		572093D11DDCEA4B00310AB0 /* AesCbcCfbParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = AesCbcCfbParams.idl; sourceTree = "<group>"; };
-		5721A9831ECE4FB90081295A /* CryptoAlgorithmRSA_PSSMac.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_PSSMac.cpp; sourceTree = "<group>"; };
+		5721A9831ECE4FB90081295A /* CryptoAlgorithmRSA_PSSCocoa.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_PSSCocoa.cpp; sourceTree = "<group>"; };
 		5721A9861ECE53B10081295A /* CryptoDigestAlgorithm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CryptoDigestAlgorithm.h; sourceTree = "<group>"; };
 		5721A98A1ECE57040081295A /* RsaPssParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = RsaPssParams.idl; sourceTree = "<group>"; };
 		572A7F201C6E5719009C6149 /* SimulatedClick.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SimulatedClick.h; sourceTree = "<group>"; };
@@ -12955,7 +12957,7 @@
 		574F55E2204F3CBF002948C6 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
 		5750A9721E68D00000705C4A /* CryptoKeyEC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyEC.cpp; sourceTree = "<group>"; };
 		5750A9731E68D00000705C4A /* CryptoKeyEC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyEC.h; sourceTree = "<group>"; };
-		5750A97A1E69161600705C4A /* CryptoKeyECMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyECMac.cpp; sourceTree = "<group>"; };
+		5750A97A1E69161600705C4A /* CryptoKeyECCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyECCocoa.cpp; sourceTree = "<group>"; };
 		5750A97C1E6A12B400705C4A /* EcKeyParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = EcKeyParams.idl; sourceTree = "<group>"; };
 		5750A97F1E6A150800705C4A /* JSEcKeyParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSEcKeyParams.cpp; sourceTree = "<group>"; };
 		5750A9801E6A150800705C4A /* JSEcKeyParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSEcKeyParams.h; sourceTree = "<group>"; };
@@ -12974,7 +12976,7 @@
 		5758597923A1FCF200C74572 /* Pin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Pin.h; sourceTree = "<group>"; };
 		576082702021513F00116678 /* AuthenticatorCoordinatorClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AuthenticatorCoordinatorClient.h; sourceTree = "<group>"; };
 		576814281E6F98AD00E77754 /* EcdhKeyDeriveParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = EcdhKeyDeriveParams.idl; sourceTree = "<group>"; };
-		576814341E6FE3E800E77754 /* CryptoAlgorithmECDHMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmECDHMac.cpp; sourceTree = "<group>"; };
+		576814341E6FE3E800E77754 /* CryptoAlgorithmECDHCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmECDHCocoa.cpp; sourceTree = "<group>"; };
 		5768143D1E709C3600E77754 /* JSEcdhKeyDeriveParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSEcdhKeyDeriveParams.cpp; sourceTree = "<group>"; };
 		5768143E1E709C3600E77754 /* JSEcdhKeyDeriveParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSEcdhKeyDeriveParams.h; sourceTree = "<group>"; };
 		576814421E70CB1000E77754 /* JSAesKeyParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSAesKeyParams.cpp; sourceTree = "<group>"; };
@@ -12998,7 +13000,7 @@
 		5790996C1ECD23DA00FC0768 /* CryptoAlgorithmRSA_PSS.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_PSS.cpp; sourceTree = "<group>"; };
 		57957CA61E971DE0008072AB /* CryptoAlgorithmHKDF.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmHKDF.cpp; sourceTree = "<group>"; };
 		57957CA71E971DE0008072AB /* CryptoAlgorithmHKDF.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmHKDF.h; sourceTree = "<group>"; };
-		57957CAA1E97247B008072AB /* CryptoAlgorithmHKDFMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmHKDFMac.cpp; sourceTree = "<group>"; };
+		57957CAA1E97247B008072AB /* CryptoAlgorithmHKDFCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmHKDFCocoa.cpp; sourceTree = "<group>"; };
 		57957CB01E972645008072AB /* HkdfParams.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = HkdfParams.idl; sourceTree = "<group>"; };
 		57957CB41E972C78008072AB /* JSHkdfParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSHkdfParams.cpp; sourceTree = "<group>"; };
 		57957CB51E972C78008072AB /* JSHkdfParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSHkdfParams.h; sourceTree = "<group>"; };
@@ -13044,7 +13046,7 @@
 		57E1E5A91E8DCF7400EE37C9 /* AesCtrParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = AesCtrParams.idl; sourceTree = "<group>"; };
 		57E1E5AA1E8DD09B00EE37C9 /* JSAesCtrParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSAesCtrParams.cpp; sourceTree = "<group>"; };
 		57E1E5AB1E8DD09B00EE37C9 /* JSAesCtrParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSAesCtrParams.h; sourceTree = "<group>"; };
-		57E1E5AF1E8DD3A100EE37C9 /* CryptoAlgorithmAESCTRMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCTRMac.cpp; sourceTree = "<group>"; };
+		57E1E5AF1E8DD3A100EE37C9 /* CryptoAlgorithmAESCTRCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCTRCocoa.cpp; sourceTree = "<group>"; };
 		57E233571DC7D24800F28D01 /* JsonWebKey.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = JsonWebKey.idl; sourceTree = "<group>"; };
 		57E233591DC7D37200F28D01 /* RsaOtherPrimesInfo.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RsaOtherPrimesInfo.idl; sourceTree = "<group>"; };
 		57E2335A1DC7D5E500F28D01 /* JSJsonWebKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSJsonWebKey.h; sourceTree = "<group>"; };
@@ -13059,14 +13061,14 @@
 		57E2336C1DCD437000F28D01 /* RsaHashedImportParams.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = RsaHashedImportParams.idl; sourceTree = "<group>"; };
 		57E233701DCD468F00F28D01 /* JSRsaHashedImportParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSRsaHashedImportParams.h; sourceTree = "<group>"; };
 		57E233721DCD46B600F28D01 /* JSRsaHashedImportParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSRsaHashedImportParams.cpp; sourceTree = "<group>"; };
-		57E657E81E714D1A00F941CA /* CryptoAlgorithmPBKDF2Mac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmPBKDF2Mac.cpp; sourceTree = "<group>"; };
+		57E657E81E714D1A00F941CA /* CryptoAlgorithmPBKDF2Cocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmPBKDF2Cocoa.cpp; sourceTree = "<group>"; };
 		57E657EA1E715F0500F941CA /* Pbkdf2Params.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = Pbkdf2Params.idl; sourceTree = "<group>"; };
 		57E657ED1E71665400F941CA /* JSPbkdf2Params.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSPbkdf2Params.cpp; sourceTree = "<group>"; };
 		57E657EE1E71665400F941CA /* JSPbkdf2Params.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSPbkdf2Params.h; sourceTree = "<group>"; };
 		57E664FB1E73703300765536 /* CommonCryptoDERUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCryptoDERUtilities.h; sourceTree = "<group>"; };
 		57EEAA441E9ED2DD00701124 /* CryptoAlgorithmECDSA.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmECDSA.cpp; sourceTree = "<group>"; };
 		57EEAA451E9ED2DD00701124 /* CryptoAlgorithmECDSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmECDSA.h; sourceTree = "<group>"; };
-		57EEAA481E9F2D3200701124 /* CryptoAlgorithmECDSAMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmECDSAMac.cpp; sourceTree = "<group>"; };
+		57EEAA481E9F2D3200701124 /* CryptoAlgorithmECDSACocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmECDSACocoa.cpp; sourceTree = "<group>"; };
 		57EEAA4E1E9FFBFC00701124 /* EcdsaParams.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = EcdsaParams.idl; sourceTree = "<group>"; };
 		57EEAA521EA001B100701124 /* JSEcdsaParams.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSEcdsaParams.cpp; sourceTree = "<group>"; };
 		57EEAA531EA001B100701124 /* JSEcdsaParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSEcdsaParams.h; sourceTree = "<group>"; };
@@ -13114,6 +13116,7 @@
 		59309A1211F4AE6A00250603 /* DeviceOrientationClientMock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DeviceOrientationClientMock.h; sourceTree = "<group>"; };
 		5958F1CB1343917C0080B31F /* XMLViewer.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = XMLViewer.css; sourceTree = "<group>"; };
 		5958F1CC1343917C0080B31F /* XMLViewer.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = XMLViewer.js; sourceTree = "<group>"; };
+		59763CF0AFE56B2B76896F18 /* FontInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FontInlines.h; sourceTree = "<group>"; };
 		59780849D41E6F65D81198BC /* MathMLSelectElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MathMLSelectElement.h; sourceTree = "<group>"; };
 		598365DC1355F53C001B185D /* JSPositionCallback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSPositionCallback.h; sourceTree = "<group>"; };
 		598365DE1355F562001B185D /* JSPositionErrorCallback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSPositionErrorCallback.h; sourceTree = "<group>"; };
@@ -16063,7 +16066,7 @@
 		94E839501DFB29A4007BC6A7 /* CSSNamespaceRule.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CSSNamespaceRule.idl; sourceTree = "<group>"; };
 		94E839531DFB2BA6007BC6A7 /* JSCSSNamespaceRule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSCSSNamespaceRule.cpp; sourceTree = "<group>"; };
 		94E839541DFB2BA6007BC6A7 /* JSCSSNamespaceRule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSCSSNamespaceRule.h; sourceTree = "<group>"; };
-		94F575B42B598CBE003DF3F8 /* CryptoAlgorithmAESGCMMac.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CryptoAlgorithmAESGCMMac.cpp; sourceTree = "<group>"; };
+		94F575B42B598CBE003DF3F8 /* CryptoAlgorithmAESGCMCocoa.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CryptoAlgorithmAESGCMCocoa.cpp; sourceTree = "<group>"; };
 		950183C925D633D800D4340F /* ApplePayDetailsUpdateBase.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ApplePayDetailsUpdateBase.idl; sourceTree = "<group>"; };
 		950183CB25D633D800D4340F /* ApplePayDetailsUpdateBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ApplePayDetailsUpdateBase.h; sourceTree = "<group>"; };
 		950C484925D6774200AB3D9C /* overflow-support.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "overflow-support.js"; sourceTree = "<group>"; };
@@ -17859,8 +17862,6 @@
 		B222780E0D00BF1F0071B782 /* SVGComponentTransferFunctionElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGComponentTransferFunctionElement.cpp; sourceTree = "<group>"; };
 		B222780F0D00BF1F0071B782 /* SVGComponentTransferFunctionElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGComponentTransferFunctionElement.h; sourceTree = "<group>"; };
 		B22278100D00BF1F0071B782 /* SVGComponentTransferFunctionElement.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGComponentTransferFunctionElement.idl; sourceTree = "<group>"; };
-		B22278110D00BF1F0071B782 /* SVGCursorElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGCursorElement.cpp; sourceTree = "<group>"; };
-		B22278120D00BF1F0071B782 /* SVGCursorElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGCursorElement.h; sourceTree = "<group>"; };
 		B22278170D00BF1F0071B782 /* SVGDefsElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGDefsElement.cpp; sourceTree = "<group>"; };
 		B22278180D00BF1F0071B782 /* SVGDefsElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGDefsElement.h; sourceTree = "<group>"; };
 		B22278190D00BF1F0071B782 /* SVGDefsElement.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGDefsElement.idl; sourceTree = "<group>"; };
@@ -20436,6 +20437,7 @@
 		CD225C091C46FBF400140761 /* WebCoreNSURLSession.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebCoreNSURLSession.mm; sourceTree = "<group>"; };
 		CD225C0A1C46FBF400140761 /* WebCoreNSURLSession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebCoreNSURLSession.h; sourceTree = "<group>"; };
 		CD24B8692982DCCA000A53FE /* HTMLMediaElementIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HTMLMediaElementIdentifier.h; sourceTree = "<group>"; };
+		CD25AE222F654B2200EDB3D6 /* JSDOMConvertBoolean.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSDOMConvertBoolean.cpp; sourceTree = "<group>"; };
 		CD27AE4E22A9868700947FF9 /* ImageRotationSessionVT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageRotationSessionVT.h; sourceTree = "<group>"; };
 		CD27AE4F22A9868700947FF9 /* ImageRotationSessionVT.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ImageRotationSessionVT.mm; sourceTree = "<group>"; };
 		CD27F6E014575C1B0078207D /* MediaController.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = MediaController.idl; sourceTree = "<group>"; };
@@ -20443,6 +20445,8 @@
 		CD27F6E3145767580078207D /* JSMediaController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSMediaController.h; sourceTree = "<group>"; };
 		CD27F6E4145767870078207D /* MediaController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MediaController.h; sourceTree = "<group>"; };
 		CD27F6E6145770D30078207D /* MediaController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MediaController.cpp; sourceTree = "<group>"; };
+		CD28D6E92F5F47DA008D8F59 /* FontCascadeInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FontCascadeInlines.h; sourceTree = "<group>"; };
+		CD28D6F82F5FC222008D8F59 /* SimpleFontDataCoreText.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SimpleFontDataCoreText.h; sourceTree = "<group>"; };
 		CD2F4A2118D89F700063746D /* AudioHardwareListener.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AudioHardwareListener.cpp; sourceTree = "<group>"; };
 		CD2F4A2218D89F700063746D /* AudioHardwareListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioHardwareListener.h; sourceTree = "<group>"; };
 		CD2F4A2518D8A3490063746D /* AudioHardwareListenerMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AudioHardwareListenerMac.cpp; sourceTree = "<group>"; };
@@ -20559,6 +20563,7 @@
 		CD671C9B2F5C175F00B387A2 /* LegacyInlineBoxInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LegacyInlineBoxInlines.h; sourceTree = "<group>"; };
 		CD671C9D2F5D083000B387A2 /* AccessibilityNodeObjectInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AccessibilityNodeObjectInlines.h; sourceTree = "<group>"; };
 		CD671C9F2F5D0A7F00B387A2 /* StyleTreeResolverInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleTreeResolverInlines.h; sourceTree = "<group>"; };
+		CD671CA32F5E144F00B387A2 /* FontCascadeEnums.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FontCascadeEnums.h; sourceTree = "<group>"; };
 		CD6A1F0C297A1A8F00F7B9FA /* CanvasObserver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CanvasObserver.h; sourceTree = "<group>"; };
 		CD6FE5B724BCE645009FCDA4 /* VP9UtilitiesCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VP9UtilitiesCocoa.h; sourceTree = "<group>"; };
 		CD6FE5B824BCE645009FCDA4 /* VP9UtilitiesCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = VP9UtilitiesCocoa.mm; sourceTree = "<group>"; };
@@ -21671,10 +21676,10 @@
 		E125F8301822F11B00D84CD9 /* CryptoAlgorithmHMAC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmHMAC.h; sourceTree = "<group>"; };
 		E125F8331822F18A00D84CD9 /* CryptoKeyHMAC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyHMAC.cpp; sourceTree = "<group>"; };
 		E125F8341822F18A00D84CD9 /* CryptoKeyHMAC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyHMAC.h; sourceTree = "<group>"; };
-		E125F8371822F1EB00D84CD9 /* CryptoAlgorithmHMACMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmHMACMac.cpp; sourceTree = "<group>"; };
+		E125F8371822F1EB00D84CD9 /* CryptoAlgorithmHMACCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmHMACCocoa.cpp; sourceTree = "<group>"; };
 		E125F83F1824253A00D84CD9 /* CryptoAlgorithmAESCBC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCBC.cpp; sourceTree = "<group>"; };
 		E125F8401824253A00D84CD9 /* CryptoAlgorithmAESCBC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmAESCBC.h; sourceTree = "<group>"; };
-		E125F843182425C900D84CD9 /* CryptoAlgorithmAESCBCMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCBCMac.cpp; sourceTree = "<group>"; };
+		E125F843182425C900D84CD9 /* CryptoAlgorithmAESCBCCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCBCCocoa.cpp; sourceTree = "<group>"; };
 		E125F84B1824289D00D84CD9 /* CryptoKeyAES.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyAES.cpp; sourceTree = "<group>"; };
 		E125F84C1824289D00D84CD9 /* CryptoKeyAES.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyAES.h; sourceTree = "<group>"; };
 		E12719C60EEEC16800F61213 /* NavigatorBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NavigatorBase.h; sourceTree = "<group>"; };
@@ -21722,7 +21727,7 @@
 		E164A2E7191AC5BB0010737D /* FileCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FileCocoa.mm; sourceTree = "<group>"; };
 		E164A2EB191AE6350010737D /* BlobDataFileReferenceMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = BlobDataFileReferenceMac.mm; sourceTree = "<group>"; };
 		E164FAA218315BF400DB4E61 /* CryptoKeyRSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyRSA.h; sourceTree = "<group>"; };
-		E164FAA418315E1A00DB4E61 /* CryptoKeyRSAMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyRSAMac.cpp; sourceTree = "<group>"; };
+		E164FAA418315E1A00DB4E61 /* CryptoKeyRSACocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyRSACocoa.cpp; sourceTree = "<group>"; };
 		E16982541134629D00894115 /* ObjCRuntimeObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjCRuntimeObject.h; sourceTree = "<group>"; };
 		E169825F1134636A00894115 /* ObjCRuntimeObject.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ObjCRuntimeObject.mm; sourceTree = "<group>"; };
 		E16A84F714C85CCC002977DF /* CSSBorderImage.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSBorderImage.cpp; sourceTree = "<group>"; };
@@ -21771,7 +21776,7 @@
 		E18D83EF243F71D7009247D6 /* FakeXRBoundsPoint.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = FakeXRBoundsPoint.idl; sourceTree = "<group>"; };
 		E18D83F0243F71D8009247D6 /* XRSimulateUserActivationFunction.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = XRSimulateUserActivationFunction.idl; sourceTree = "<group>"; };
 		E18DF33418AAF12C00773E59 /* SerializedCryptoKeyWrap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SerializedCryptoKeyWrap.h; sourceTree = "<group>"; };
-		E18DF33618AAF14D00773E59 /* SerializedCryptoKeyWrapMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SerializedCryptoKeyWrapMac.mm; sourceTree = "<group>"; };
+		E18DF33618AAF14D00773E59 /* SerializedCryptoKeyWrapCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SerializedCryptoKeyWrapCocoa.mm; sourceTree = "<group>"; };
 		E19490862434F15800416A99 /* WebXRView.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = WebXRView.idl; sourceTree = "<group>"; };
 		E19490872434F15900416A99 /* WebXRViewport.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = WebXRViewport.idl; sourceTree = "<group>"; };
 		E19490882434F15900416A99 /* WebXRFrame.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = WebXRFrame.idl; sourceTree = "<group>"; };
@@ -21795,7 +21800,7 @@
 		E19AC3EB1824DC7900349426 /* CryptoAlgorithmSHA384.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmSHA384.h; sourceTree = "<group>"; };
 		E19AC3EC1824DC7900349426 /* CryptoAlgorithmSHA512.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmSHA512.cpp; sourceTree = "<group>"; };
 		E19AC3ED1824DC7900349426 /* CryptoAlgorithmSHA512.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmSHA512.h; sourceTree = "<group>"; };
-		E19AC3F8182566F700349426 /* CryptoKeyMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyMac.cpp; sourceTree = "<group>"; };
+		E19AC3F8182566F700349426 /* CryptoKeyCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyCocoa.cpp; sourceTree = "<group>"; };
 		E1A1470711102B1500EEC0F3 /* ContainerNodeAlgorithms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ContainerNodeAlgorithms.h; sourceTree = "<group>"; };
 		E1A5F99A0E7EAA2500AF85EA /* JSMessageChannelCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSMessageChannelCustom.cpp; sourceTree = "<group>"; };
 		E1AB1EA814E9E27D00449E13 /* FileList.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = FileList.idl; sourceTree = "<group>"; };
@@ -21816,12 +21821,12 @@
 		E1B533461717D0A000F205F9 /* CachedSVGDocumentReference.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CachedSVGDocumentReference.cpp; sourceTree = "<group>"; };
 		E1B533481717DEE300F205F9 /* CachedRawResourceClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CachedRawResourceClient.h; sourceTree = "<group>"; };
 		E1BA003016FB92AC00BA7A35 /* ResourceHandleClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ResourceHandleClient.cpp; sourceTree = "<group>"; };
-		E1BB84AC1822CA7400525043 /* CryptoAlgorithmRegistryMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRegistryMac.cpp; sourceTree = "<group>"; };
+		E1BB84AC1822CA7400525043 /* CryptoAlgorithmRegistryCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRegistryCocoa.cpp; sourceTree = "<group>"; };
 		E1BD3317182D8DDD00C05D9F /* CryptoAlgorithmRSASSA_PKCS1_v1_5.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSASSA_PKCS1_v1_5.cpp; sourceTree = "<group>"; };
 		E1BD3318182D8DDD00C05D9F /* CryptoAlgorithmRSASSA_PKCS1_v1_5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmRSASSA_PKCS1_v1_5.h; sourceTree = "<group>"; };
 		E1BE512B0CF6C512002EA959 /* XSLTUnicodeSort.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = XSLTUnicodeSort.cpp; sourceTree = "<group>"; };
 		E1BE512C0CF6C512002EA959 /* XSLTUnicodeSort.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XSLTUnicodeSort.h; sourceTree = "<group>"; };
-		E1C266D618317AB4003F8B33 /* CryptoAlgorithmRSASSA_PKCS1_v1_5Mac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSASSA_PKCS1_v1_5Mac.cpp; sourceTree = "<group>"; };
+		E1C266D618317AB4003F8B33 /* CryptoAlgorithmRSASSA_PKCS1_v1_5Cocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSASSA_PKCS1_v1_5Cocoa.cpp; sourceTree = "<group>"; };
 		E1C266DC18319F31003F8B33 /* CryptoKeyRSAComponents.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyRSAComponents.cpp; sourceTree = "<group>"; };
 		E1C266DD18319F31003F8B33 /* CryptoKeyRSAComponents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyRSAComponents.h; sourceTree = "<group>"; };
 		E1C362ED0EAF2AA9007410BC /* JSWorkerLocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSWorkerLocation.h; sourceTree = "<group>"; };
@@ -21927,12 +21932,12 @@
 		E1F80B8C183172B5007885C3 /* JSCryptoKeyPair.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSCryptoKeyPair.h; sourceTree = "<group>"; };
 		E1FE1368183FE1AB00892F13 /* CryptoAlgorithmRSA_OAEP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_OAEP.cpp; sourceTree = "<group>"; };
 		E1FE1369183FE1AB00892F13 /* CryptoAlgorithmRSA_OAEP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmRSA_OAEP.h; sourceTree = "<group>"; };
-		E1FE136E183FECF000892F13 /* CryptoAlgorithmRSA_OAEPMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_OAEPMac.cpp; sourceTree = "<group>"; };
+		E1FE136E183FECF000892F13 /* CryptoAlgorithmRSA_OAEPCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRSA_OAEPCocoa.cpp; sourceTree = "<group>"; };
 		E1FE137218402A6700892F13 /* CommonCryptoUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommonCryptoUtilities.cpp; sourceTree = "<group>"; };
 		E1FE137318402A6700892F13 /* CommonCryptoUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCryptoUtilities.h; sourceTree = "<group>"; };
 		E1FE1378184D21BB00892F13 /* CryptoAlgorithmAESKW.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESKW.cpp; sourceTree = "<group>"; };
 		E1FE1379184D21BB00892F13 /* CryptoAlgorithmAESKW.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoAlgorithmAESKW.h; sourceTree = "<group>"; };
-		E1FE137C184D270200892F13 /* CryptoAlgorithmAESKWMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESKWMac.cpp; sourceTree = "<group>"; };
+		E1FE137C184D270200892F13 /* CryptoAlgorithmAESKWCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESKWCocoa.cpp; sourceTree = "<group>"; };
 		E1FF57A20F01255B00891EBB /* ThreadGlobalData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ThreadGlobalData.h; sourceTree = "<group>"; };
 		E1FF57A50F01256B00891EBB /* ThreadGlobalData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadGlobalData.cpp; sourceTree = "<group>"; };
 		E1FF8F6A180DB5BE00132674 /* CryptoAlgorithmRegistry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmRegistry.cpp; sourceTree = "<group>"; };
@@ -21970,6 +21975,7 @@
 		E35B907C23F60677000011FF /* LocalizedDeviceModel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LocalizedDeviceModel.h; sourceTree = "<group>"; };
 		E35B907E23F60677000011FF /* LocalizedDeviceModel.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = LocalizedDeviceModel.mm; sourceTree = "<group>"; };
 		E364321A25D37A6600F90E2A /* ModuleScriptLoader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ModuleScriptLoader.h; sourceTree = "<group>"; };
+		E364321B25D37A6600F90E2A /* ModuleScriptLoader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ModuleScriptLoader.cpp; sourceTree = "<group>"; };
 		E36D701B27B70B23006531B7 /* AttachmentElementClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AttachmentElementClient.h; sourceTree = "<group>"; };
 		E36D701E27B71F04006531B7 /* EmptyAttachmentElementClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EmptyAttachmentElementClient.h; sourceTree = "<group>"; };
 		E37C864F1EB63E2D0087C6CA /* JSDOMPromise.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSDOMPromise.h; sourceTree = "<group>"; };
@@ -25484,6 +25490,7 @@
 				1C6FD8AC250A294D00D6E920 /* FontPlatformDataCoreText.cpp */,
 				1C6FD8AD250A2E5300D6E920 /* GlyphPageCoreText.cpp */,
 				7AFD16CD2C63F3AF00B51D1A /* SimpleFontDataCoreText.cpp */,
+				CD28D6F82F5FC222008D8F59 /* SimpleFontDataCoreText.h */,
 			);
 			path = coretext;
 			sourceTree = "<group>";
@@ -31612,6 +31619,7 @@
 				930841331CDDB15500B0958C /* JSDOMConvert.h */,
 				7C8E34921E4A338E0054CE23 /* JSDOMConvertAny.h */,
 				7C8E34931E4A338E0054CE23 /* JSDOMConvertBase.h */,
+				CD25AE222F654B2200EDB3D6 /* JSDOMConvertBoolean.cpp */,
 				7C8E34941E4A338E0054CE23 /* JSDOMConvertBoolean.h */,
 				7C8E34951E4A338E0054CE23 /* JSDOMConvertBufferSource.h */,
 				7C8E34961E4A338E0054CE23 /* JSDOMConvertCallbacks.h */,
@@ -35189,8 +35197,6 @@
 				B222780E0D00BF1F0071B782 /* SVGComponentTransferFunctionElement.cpp */,
 				B222780F0D00BF1F0071B782 /* SVGComponentTransferFunctionElement.h */,
 				B22278100D00BF1F0071B782 /* SVGComponentTransferFunctionElement.idl */,
-				B22278110D00BF1F0071B782 /* SVGCursorElement.cpp */,
-				B22278120D00BF1F0071B782 /* SVGCursorElement.h */,
 				B22278170D00BF1F0071B782 /* SVGDefsElement.cpp */,
 				B22278180D00BF1F0071B782 /* SVGDefsElement.h */,
 				B22278190D00BF1F0071B782 /* SVGDefsElement.idl */,
@@ -35789,8 +35795,10 @@
 				32EAFB8B274C5EA500650557 /* FontCascadeCache.h */,
 				E4E8B4F0216B8B5F00B8834D /* FontCascadeDescription.cpp */,
 				E4E8B4F2216B8B6000B8834D /* FontCascadeDescription.h */,
+				CD671CA32F5E144F00B387A2 /* FontCascadeEnums.h */,
 				B2C3DA560D006CD600EF6F26 /* FontCascadeFonts.cpp */,
 				B2C3DA570D006CD600EF6F26 /* FontCascadeFonts.h */,
+				CD28D6E92F5F47DA008D8F59 /* FontCascadeInlines.h */,
 				1C26671926FA7F2E00117073 /* FontCreationContext.h */,
 				7A293F5129945A100033D744 /* FontCustomPlatformData.h */,
 				37ACCE620DA2AA960089E602 /* FontDescription.cpp */,
@@ -35800,6 +35808,7 @@
 				BE4662C128F853D10050A5D3 /* FontFeatureValues.h */,
 				E44EE3A617576E5500EEE8CF /* FontGenericFamilies.cpp */,
 				E44EE3A717576E5500EEE8CF /* FontGenericFamilies.h */,
+				59763CF0AFE56B2B76896F18 /* FontInlines.h */,
 				0845680712B90DA600960A9F /* FontMetrics.h */,
 				1C4674FD26F4843600B61273 /* FontPalette.h */,
 				1C5E1DA626F949B900E07AF1 /* FontPaletteValues.h */,
@@ -36543,6 +36552,7 @@
 				4BDEA32D218034050052DFCD /* JSWorkletGlobalScopeBase.cpp */,
 				4BDEA32B218033EB0052DFCD /* JSWorkletGlobalScopeBase.h */,
 				709A01FD1E3D0BCC006B0D4C /* ModuleFetchFailureKind.h */,
+				E364321B25D37A6600F90E2A /* ModuleScriptLoader.cpp */,
 				E364321A25D37A6600F90E2A /* ModuleScriptLoader.h */,
 				E35188B325D387CF00A77AF3 /* ModuleScriptLoaderClient.h */,
 				418C395E1C8F0AAB0051C8A3 /* ReadableStreamDefaultController.cpp */,
@@ -39493,30 +39503,30 @@
 			children = (
 				57EEAA571EA0AFBB00701124 /* CommonCryptoDERUtilities.cpp */,
 				57E664FB1E73703300765536 /* CommonCryptoDERUtilities.h */,
-				E125F843182425C900D84CD9 /* CryptoAlgorithmAESCBCMac.cpp */,
-				570440571E53851600356601 /* CryptoAlgorithmAESCFBMac.cpp */,
-				57E1E5AF1E8DD3A100EE37C9 /* CryptoAlgorithmAESCTRMac.cpp */,
-				94F575B42B598CBE003DF3F8 /* CryptoAlgorithmAESGCMMac.cpp */,
-				E1FE137C184D270200892F13 /* CryptoAlgorithmAESKWMac.cpp */,
-				576814341E6FE3E800E77754 /* CryptoAlgorithmECDHMac.cpp */,
-				57EEAA481E9F2D3200701124 /* CryptoAlgorithmECDSAMac.cpp */,
+				E125F843182425C900D84CD9 /* CryptoAlgorithmAESCBCCocoa.cpp */,
+				570440571E53851600356601 /* CryptoAlgorithmAESCFBCocoa.cpp */,
+				57E1E5AF1E8DD3A100EE37C9 /* CryptoAlgorithmAESCTRCocoa.cpp */,
+				94F575B42B598CBE003DF3F8 /* CryptoAlgorithmAESGCMCocoa.cpp */,
+				E1FE137C184D270200892F13 /* CryptoAlgorithmAESKWCocoa.cpp */,
+				576814341E6FE3E800E77754 /* CryptoAlgorithmECDHCocoa.cpp */,
+				57EEAA481E9F2D3200701124 /* CryptoAlgorithmECDSACocoa.cpp */,
 				4177B3E1296CC73F009711F0 /* CryptoAlgorithmEd25519Cocoa.cpp */,
-				57957CAA1E97247B008072AB /* CryptoAlgorithmHKDFMac.cpp */,
-				E125F8371822F1EB00D84CD9 /* CryptoAlgorithmHMACMac.cpp */,
-				57E657E81E714D1A00F941CA /* CryptoAlgorithmPBKDF2Mac.cpp */,
-				E1BB84AC1822CA7400525043 /* CryptoAlgorithmRegistryMac.cpp */,
-				E1FE136E183FECF000892F13 /* CryptoAlgorithmRSA_OAEPMac.cpp */,
-				5721A9831ECE4FB90081295A /* CryptoAlgorithmRSA_PSSMac.cpp */,
-				E1C266D618317AB4003F8B33 /* CryptoAlgorithmRSASSA_PKCS1_v1_5Mac.cpp */,
+				57957CAA1E97247B008072AB /* CryptoAlgorithmHKDFCocoa.cpp */,
+				E125F8371822F1EB00D84CD9 /* CryptoAlgorithmHMACCocoa.cpp */,
+				57E657E81E714D1A00F941CA /* CryptoAlgorithmPBKDF2Cocoa.cpp */,
+				E1BB84AC1822CA7400525043 /* CryptoAlgorithmRegistryCocoa.cpp */,
+				E1FE136E183FECF000892F13 /* CryptoAlgorithmRSA_OAEPCocoa.cpp */,
+				5721A9831ECE4FB90081295A /* CryptoAlgorithmRSA_PSSCocoa.cpp */,
+				E1C266D618317AB4003F8B33 /* CryptoAlgorithmRSASSA_PKCS1_v1_5Cocoa.cpp */,
 				2D77ED552A9F563A000D0803 /* CryptoAlgorithmX25519Cocoa.cpp */,
 				5721A9861ECE53B10081295A /* CryptoDigestAlgorithm.h */,
-				5750A97A1E69161600705C4A /* CryptoKeyECMac.cpp */,
-				E19AC3F8182566F700349426 /* CryptoKeyMac.cpp */,
+				E19AC3F8182566F700349426 /* CryptoKeyCocoa.cpp */,
+				5750A97A1E69161600705C4A /* CryptoKeyECCocoa.cpp */,
 				4177B3D8296C9C97009711F0 /* CryptoKeyOKPCocoa.cpp */,
-				E164FAA418315E1A00DB4E61 /* CryptoKeyRSAMac.cpp */,
+				E164FAA418315E1A00DB4E61 /* CryptoKeyRSACocoa.cpp */,
 				419D9307255E842800DA1984 /* CryptoUtilitiesCocoa.cpp */,
 				419D9305255E842700DA1984 /* CryptoUtilitiesCocoa.h */,
-				E18DF33618AAF14D00773E59 /* SerializedCryptoKeyWrapMac.mm */,
+				E18DF33618AAF14D00773E59 /* SerializedCryptoKeyWrapCocoa.mm */,
 			);
 			path = cocoa;
 			sourceTree = "<group>";
@@ -44280,7 +44290,9 @@
 				32EAFB8D274C5EA600650557 /* FontCascadeCache.h in Headers */,
 				7A4279002D8CC19000A60073 /* FontCascadeCocoaInlines.h in Headers */,
 				E4E8B4F5216B956500B8834D /* FontCascadeDescription.h in Headers */,
+				CD671CA42F5E144F00B387A2 /* FontCascadeEnums.h in Headers */,
 				B2C3DA680D006CD600EF6F26 /* FontCascadeFonts.h in Headers */,
+				CD28D6EA2F5F47DA008D8F59 /* FontCascadeInlines.h in Headers */,
 				F4A064C8277E48C900B06A17 /* FontCocoa.h in Headers */,
 				1C26671B26FA932F00117073 /* FontCreationContext.h in Headers */,
 				7A293F5229945A430033D744 /* FontCustomPlatformData.h in Headers */,
@@ -44292,6 +44304,7 @@
 				3294ECFA274EFA57006BE8C8 /* FontFamilySpecificationCoreTextCache.h in Headers */,
 				BE88176C28FF5C3E001AF304 /* FontFeatureValues.h in Headers */,
 				E42EE3A717576E5500EEE8CF /* FontGenericFamilies.h in Headers */,
+				0C6B52D0EB74C9FC2A56BF0A /* FontInlines.h in Headers */,
 				658436860AE01B7400E53743 /* FontLoadRequest.h in Headers */,
 				BC4A532F256057CD0028C592 /* FontLoadTimingOverride.h in Headers */,
 				0845680812B90DA600960A9F /* FontMetrics.h in Headers */,
@@ -47959,7 +47972,6 @@
 				B222799F0D00BF220071B782 /* SVGClipPathElement.h in Headers */,
 				B22279A50D00BF220071B782 /* SVGComponentTransferFunctionElement.h in Headers */,
 				0844B01D1255B5A610B8AFD1 /* SVGContainerLayout.h in Headers */,
-				B22279A80D00BF220071B782 /* SVGCursorElement.h in Headers */,
 				B22279AE0D00BF220071B782 /* SVGDefsElement.h in Headers */,
 				B22279B10D00BF220071B782 /* SVGDescElement.h in Headers */,
 				B22279B40D00BF220071B782 /* SVGDocument.h in Headers */,

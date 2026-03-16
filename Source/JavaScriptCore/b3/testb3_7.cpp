@@ -3162,7 +3162,7 @@ void testTruncSShrAddUnalignedConstant()
 }
 
 // Test XOR-and-rotate-right pattern matching for XAR instruction (SHA3).
-// Pattern: VectorOr(VectorShiftByVector(VectorXor(a, b), shlAmount), VectorShiftByVector(VectorXor(a, b), shrAmount))
+// Pattern: VectorOr(VectorShl(VectorXor(a, b), shlConst), VectorShr(VectorXor(a, b), shrConst))
 // Should be folded into a single XAR instruction on ARM64 with SHA3 support.
 void testVectorXorRotateRight64()
 {
@@ -3221,6 +3221,122 @@ void testVectorXorRotateRight64()
 
         CHECK(vectors[2].u64x2[0] == expected0);
         CHECK(vectors[2].u64x2[1] == expected1);
+    }
+}
+
+// Test dot(v, splat(1)) → extadd_pairwise strength reduction.
+// i32x4.dot_i16x8_s(v, {1,1,...}) = i32x4.extadd_pairwise_i16x8_s(v)
+void testVectorDotProductSplatOne()
+{
+    alignas(16) v128_t vectors[3];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* input = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+
+    // Create splat(1) as i16x8
+    v128_t splatOne;
+    splatOne.u64x2[0] = 0x0001000100010001ULL;
+    splatOne.u64x2[1] = 0x0001000100010001ULL;
+    Value* ones = root->appendNew<Const128Value>(proc, Origin(), splatOne);
+
+    // dot_i16x8_s(input, splat(1)) should become extadd_pairwise
+    Value* result = root->appendNew<SIMDValue>(proc, Origin(), VectorDotProduct, B3::V128, SIMDLane::i32x4, SIMDSignMode::Signed, input, ones);
+    root->appendNew<MemoryValue>(proc, Store, Origin(), result, address, static_cast<int32_t>(sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+
+    // Test: input = {3, -2, 5, -7, 100, -100, 0, 1} as i16x8
+    vectors[0].u16x8[0] = 3; vectors[0].u16x8[1] = static_cast<uint16_t>(-2);
+    vectors[0].u16x8[2] = 5; vectors[0].u16x8[3] = static_cast<uint16_t>(-7);
+    vectors[0].u16x8[4] = 100; vectors[0].u16x8[5] = static_cast<uint16_t>(-100);
+    vectors[0].u16x8[6] = 0; vectors[0].u16x8[7] = 1;
+    invoke<void>(*code, vectors);
+
+    // Expected: pairwise sum of adjacent i16 pairs → i32
+    // {3 + (-2), 5 + (-7), 100 + (-100), 0 + 1} = {1, -2, 0, 1}
+    CHECK(vectors[1].u32x4[0] == static_cast<uint32_t>(1));
+    CHECK(vectors[1].u32x4[1] == static_cast<uint32_t>(-2));
+    CHECK(vectors[1].u32x4[2] == static_cast<uint32_t>(0));
+    CHECK(vectors[1].u32x4[3] == static_cast<uint32_t>(1));
+
+    // Also test commuted form: dot(splat(1), v)
+    {
+        Procedure proc2;
+        BasicBlock* root2 = proc2.addBlock();
+        auto args2 = cCallArgumentValues<void*>(proc2, root2);
+        Value* addr = args2[0];
+        Value* inp = root2->appendNew<MemoryValue>(proc2, Load, V128, Origin(), addr);
+        Value* onesVal = root2->appendNew<Const128Value>(proc2, Origin(), splatOne);
+        Value* res = root2->appendNew<SIMDValue>(proc2, Origin(), VectorDotProduct, B3::V128, SIMDLane::i32x4, SIMDSignMode::Signed, onesVal, inp);
+        root2->appendNew<MemoryValue>(proc2, Store, Origin(), res, addr, static_cast<int32_t>(sizeof(v128_t)));
+        root2->appendNewControlValue(proc2, Return, Origin());
+
+        auto code2 = compileProc(proc2);
+        invoke<void>(*code2, vectors);
+        CHECK(vectors[1].u32x4[0] == static_cast<uint32_t>(1));
+        CHECK(vectors[1].u32x4[1] == static_cast<uint32_t>(-2));
+        CHECK(vectors[1].u32x4[2] == static_cast<uint32_t>(0));
+        CHECK(vectors[1].u32x4[3] == static_cast<uint32_t>(1));
+    }
+}
+
+// Test EOR3 (3-way XOR) pattern matching: VectorXor(VectorXor(a, b), c) → EOR3(a, b, c)
+void testVectorXor3()
+{
+    if constexpr (!isARM64())
+        return;
+    if (!isARM64_SHA3())
+        return;
+
+    alignas(16) v128_t vectors[4];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* a = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+    Value* b = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address, static_cast<int32_t>(sizeof(v128_t)));
+    Value* c = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address, static_cast<int32_t>(2 * sizeof(v128_t)));
+
+    // a ^ b ^ c
+    Value* xorAB = root->appendNew<SIMDValue>(proc, Origin(), VectorXor, B3::V128, SIMDLane::v128, SIMDSignMode::None, a, b);
+    Value* xorABC = root->appendNew<SIMDValue>(proc, Origin(), VectorXor, B3::V128, SIMDLane::v128, SIMDSignMode::None, xorAB, c);
+    root->appendNew<MemoryValue>(proc, Store, Origin(), xorABC, address, static_cast<int32_t>(3 * sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+
+    vectors[0].u64x2[0] = 0x0123456789ABCDEFULL;
+    vectors[0].u64x2[1] = 0xFEDCBA9876543210ULL;
+    vectors[1].u64x2[0] = 0xFF00FF00FF00FF00ULL;
+    vectors[1].u64x2[1] = 0x00FF00FF00FF00FFULL;
+    vectors[2].u64x2[0] = 0xAAAAAAAAAAAAAAAAULL;
+    vectors[2].u64x2[1] = 0x5555555555555555ULL;
+    invoke<void>(*code, vectors);
+
+    CHECK(vectors[3].u64x2[0] == (vectors[0].u64x2[0] ^ vectors[1].u64x2[0] ^ vectors[2].u64x2[0]));
+    CHECK(vectors[3].u64x2[1] == (vectors[0].u64x2[1] ^ vectors[1].u64x2[1] ^ vectors[2].u64x2[1]));
+
+    // Also test commuted form: VectorXor(c, VectorXor(a, b))
+    {
+        Procedure proc2;
+        BasicBlock* root2 = proc2.addBlock();
+        auto args2 = cCallArgumentValues<void*>(proc2, root2);
+        Value* addr = args2[0];
+        Value* va = root2->appendNew<MemoryValue>(proc2, Load, V128, Origin(), addr);
+        Value* vb = root2->appendNew<MemoryValue>(proc2, Load, V128, Origin(), addr, static_cast<int32_t>(sizeof(v128_t)));
+        Value* vc = root2->appendNew<MemoryValue>(proc2, Load, V128, Origin(), addr, static_cast<int32_t>(2 * sizeof(v128_t)));
+        Value* xorAB2 = root2->appendNew<SIMDValue>(proc2, Origin(), VectorXor, B3::V128, SIMDLane::v128, SIMDSignMode::None, va, vb);
+        Value* result = root2->appendNew<SIMDValue>(proc2, Origin(), VectorXor, B3::V128, SIMDLane::v128, SIMDSignMode::None, vc, xorAB2);
+        root2->appendNew<MemoryValue>(proc2, Store, Origin(), result, addr, static_cast<int32_t>(3 * sizeof(v128_t)));
+        root2->appendNewControlValue(proc2, Return, Origin());
+
+        auto code2 = compileProc(proc2);
+        invoke<void>(*code2, vectors);
+        CHECK(vectors[3].u64x2[0] == (vectors[0].u64x2[0] ^ vectors[1].u64x2[0] ^ vectors[2].u64x2[0]));
+        CHECK(vectors[3].u64x2[1] == (vectors[0].u64x2[1] ^ vectors[1].u64x2[1] ^ vectors[2].u64x2[1]));
     }
 }
 
@@ -3399,8 +3515,8 @@ void testVectorReverse()
     CHECK(vectors[1].u32x4[3] == 0xCC);
 }
 
-// Test that VectorShiftByVector(x, splat(1)) is strength-reduced to VectorAdd(x, x).
-void testVectorShiftByVectorShlByOne()
+// Test that VectorShl(x, 1) is strength-reduced to VectorAdd(x, x).
+void testVectorShlByOne()
 {
     alignas(16) v128_t vectors[2];
     Procedure proc;
@@ -3409,8 +3525,7 @@ void testVectorShiftByVectorShlByOne()
     Value* address = arguments[0];
     Value* input = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
 
-    // Build VectorShl(input, 1) — will become VectorShiftByVector after LowerMacros,
-    // then VectorAdd(input, input) after ReduceStrength.
+    // Build VectorShl(input, 1) — will become VectorAdd(input, input) after ReduceStrength.
     Value* shiftAmount = root->appendNew<Const32Value>(proc, Origin(), 1);
     Value* result = root->appendNew<SIMDValue>(proc, Origin(), VectorShl, B3::V128, SIMDLane::i64x2, SIMDSignMode::Unsigned, input, shiftAmount);
 
@@ -3433,6 +3548,143 @@ void testVectorShiftByVectorShlByOne()
     CHECK(vectors[1].u64x2[1] == 2);
 }
 
+template<typename T>
+static void testVectorShlImmediateForLane(SIMDLane lane, unsigned shift, T inputVal)
+{
+    if constexpr (!isARM64())
+        return;
+
+    alignas(16) v128_t vectors[2];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* input = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+    Value* shiftAmount = root->appendNew<Const32Value>(proc, Origin(), shift);
+    Value* result = root->appendNew<SIMDValue>(proc, Origin(), VectorShl, B3::V128, lane, SIMDSignMode::Unsigned, input, shiftAmount);
+    root->appendNew<MemoryValue>(proc, Store, Origin(), result, address, static_cast<int32_t>(sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+
+    constexpr unsigned numLanes = sizeof(v128_t) / sizeof(T);
+    for (unsigned i = 0; i < numLanes; ++i)
+        reinterpret_cast<T*>(&vectors[0])[i] = inputVal;
+    invoke<void>(*code, vectors);
+
+    unsigned bitWidth = sizeof(T) * 8;
+    unsigned maskedShift = shift & (bitWidth - 1);
+    for (unsigned i = 0; i < numLanes; ++i) {
+        T expected = static_cast<T>(inputVal << maskedShift);
+        CHECK(reinterpret_cast<T*>(&vectors[1])[i] == expected);
+    }
+}
+
+void testVectorShlImmediate()
+{
+    if constexpr (!isARM64())
+        return;
+
+    // i8x16
+    testVectorShlImmediateForLane<uint8_t>(SIMDLane::i8x16, 1, static_cast<uint8_t>(0xAB));
+    testVectorShlImmediateForLane<uint8_t>(SIMDLane::i8x16, 4, static_cast<uint8_t>(0x0F));
+    testVectorShlImmediateForLane<uint8_t>(SIMDLane::i8x16, 7, static_cast<uint8_t>(0x01));
+
+    // i16x8
+    testVectorShlImmediateForLane<uint16_t>(SIMDLane::i16x8, 1, static_cast<uint16_t>(0xABCD));
+    testVectorShlImmediateForLane<uint16_t>(SIMDLane::i16x8, 8, static_cast<uint16_t>(0x00FF));
+    testVectorShlImmediateForLane<uint16_t>(SIMDLane::i16x8, 15, static_cast<uint16_t>(0x0001));
+
+    // i32x4
+    testVectorShlImmediateForLane<uint32_t>(SIMDLane::i32x4, 1, 0xDEADBEEFu);
+    testVectorShlImmediateForLane<uint32_t>(SIMDLane::i32x4, 16, 0x0000FFFFu);
+    testVectorShlImmediateForLane<uint32_t>(SIMDLane::i32x4, 31, 0x00000001u);
+
+    // i64x2
+    testVectorShlImmediateForLane<uint64_t>(SIMDLane::i64x2, 1, 0x0123456789ABCDEFull);
+    testVectorShlImmediateForLane<uint64_t>(SIMDLane::i64x2, 32, 0x00000000FFFFFFFFull);
+    testVectorShlImmediateForLane<uint64_t>(SIMDLane::i64x2, 63, 0x0000000000000001ull);
+}
+
+template<typename T, typename SignedT>
+static void testVectorShrImmediateForLane(SIMDLane lane, SIMDSignMode signMode, unsigned shift, T inputVal)
+{
+    if constexpr (!isARM64())
+        return;
+
+    alignas(16) v128_t vectors[2];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* input = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+    Value* shiftAmount = root->appendNew<Const32Value>(proc, Origin(), shift);
+    Value* result = root->appendNew<SIMDValue>(proc, Origin(), VectorShr, B3::V128, lane, signMode, input, shiftAmount);
+    root->appendNew<MemoryValue>(proc, Store, Origin(), result, address, static_cast<int32_t>(sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+
+    constexpr unsigned numLanes = sizeof(v128_t) / sizeof(T);
+    for (unsigned i = 0; i < numLanes; ++i)
+        reinterpret_cast<T*>(&vectors[0])[i] = inputVal;
+    invoke<void>(*code, vectors);
+
+    unsigned bitWidth = sizeof(T) * 8;
+    unsigned maskedShift = shift & (bitWidth - 1);
+    for (unsigned i = 0; i < numLanes; ++i) {
+        T expected;
+        if (signMode == SIMDSignMode::Signed)
+            expected = static_cast<T>(static_cast<SignedT>(inputVal) >> maskedShift);
+        else
+            expected = static_cast<T>(inputVal >> maskedShift);
+        CHECK(reinterpret_cast<T*>(&vectors[1])[i] == expected);
+    }
+}
+
+void testVectorShrImmediate()
+{
+    if constexpr (!isARM64())
+        return;
+
+    // i8x16 unsigned
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Unsigned, 1, static_cast<uint8_t>(0xAB));
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Unsigned, 4, static_cast<uint8_t>(0xFF));
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Unsigned, 7, static_cast<uint8_t>(0x80));
+
+    // i8x16 signed
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Signed, 1, static_cast<uint8_t>(0xAB));
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Signed, 4, static_cast<uint8_t>(0xFF));
+    testVectorShrImmediateForLane<uint8_t, int8_t>(SIMDLane::i8x16, SIMDSignMode::Signed, 7, static_cast<uint8_t>(0x80));
+
+    // i16x8 unsigned
+    testVectorShrImmediateForLane<uint16_t, int16_t>(SIMDLane::i16x8, SIMDSignMode::Unsigned, 1, static_cast<uint16_t>(0xABCD));
+    testVectorShrImmediateForLane<uint16_t, int16_t>(SIMDLane::i16x8, SIMDSignMode::Unsigned, 8, static_cast<uint16_t>(0xFF00));
+    testVectorShrImmediateForLane<uint16_t, int16_t>(SIMDLane::i16x8, SIMDSignMode::Unsigned, 15, static_cast<uint16_t>(0x8000));
+
+    // i16x8 signed
+    testVectorShrImmediateForLane<uint16_t, int16_t>(SIMDLane::i16x8, SIMDSignMode::Signed, 1, static_cast<uint16_t>(0xABCD));
+    testVectorShrImmediateForLane<uint16_t, int16_t>(SIMDLane::i16x8, SIMDSignMode::Signed, 8, static_cast<uint16_t>(0xFF00));
+
+    // i32x4 unsigned
+    testVectorShrImmediateForLane<uint32_t, int32_t>(SIMDLane::i32x4, SIMDSignMode::Unsigned, 1, 0xDEADBEEFu);
+    testVectorShrImmediateForLane<uint32_t, int32_t>(SIMDLane::i32x4, SIMDSignMode::Unsigned, 16, 0xFFFF0000u);
+    testVectorShrImmediateForLane<uint32_t, int32_t>(SIMDLane::i32x4, SIMDSignMode::Unsigned, 31, 0x80000000u);
+
+    // i32x4 signed
+    testVectorShrImmediateForLane<uint32_t, int32_t>(SIMDLane::i32x4, SIMDSignMode::Signed, 1, 0xDEADBEEFu);
+    testVectorShrImmediateForLane<uint32_t, int32_t>(SIMDLane::i32x4, SIMDSignMode::Signed, 16, 0xFFFF0000u);
+
+    // i64x2 unsigned
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Unsigned, 1, 0x0123456789ABCDEFull);
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Unsigned, 32, 0xFFFFFFFF00000000ull);
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Unsigned, 63, 0x8000000000000000ull);
+
+    // i64x2 signed
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Signed, 1, 0x8000000000000000ull);
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Signed, 32, 0xFFFFFFFF00000000ull);
+    testVectorShrImmediateForLane<uint64_t, int64_t>(SIMDLane::i64x2, SIMDSignMode::Signed, 63, 0x8000000000000000ull);
+}
 // Helper: build a 3-child (binary) VectorSwizzle with the given byte pattern, verify result.
 static void testBinarySwizzlePattern(const char*, const uint8_t pattern[16], v128_t inputA, v128_t inputB, v128_t expected)
 {
@@ -3687,16 +3939,18 @@ void testVectorSwizzleUnaryToEXT()
     if constexpr (!isARM64())
         return;
 
-    // S64x2 reverse = swap 64-bit halves = EXT #8 with same register
-    // Pattern: {8,9,10,11,12,13,14,15, 0,1,2,3,4,5,6,7}
     v128_t v;
     for (unsigned i = 0; i < 16; ++i) v.u8x16[i] = i;
-    {
-        const uint8_t pat[] = { 8,9,10,11,12,13,14,15, 0,1,2,3,4,5,6,7 };
+
+    // Test all 15 rotation offsets (EXT #1 through #15).
+    for (unsigned offset = 1; offset <= 15; ++offset) {
+        uint8_t pat[16];
         v128_t exp;
-        for (unsigned i = 0; i < 8; ++i) exp.u8x16[i] = 8 + i;
-        for (unsigned i = 0; i < 8; ++i) exp.u8x16[8 + i] = i;
-        testUnarySwizzlePattern("S64x2Reverse → EXT #8", pat, v, exp);
+        for (unsigned i = 0; i < 16; ++i) {
+            pat[i] = (offset + i) % 16;
+            exp.u8x16[i] = (offset + i) % 16;
+        }
+        testUnarySwizzlePattern("Unary EXT", pat, v, exp);
     }
 }
 
@@ -4208,6 +4462,125 @@ void testVectorSwizzleComposition()
     CHECK(vectors[2].u8x16[13] == 6);
     CHECK(vectors[2].u8x16[14] == 5);
     CHECK(vectors[2].u8x16[15] == 4);
+}
+
+void testVectorSwizzleUnaryComposition()
+{
+    if constexpr (!isARM64())
+        return;
+
+    // Compose two chained unary rotations: EXT4(EXT4(x)) = EXT8(x).
+    // inner = VectorSwizzle(input, rotate4Pattern)
+    // outer = VectorSwizzle(inner, rotate4Pattern)
+    // After composition, this should be a single rotation by 8.
+
+    alignas(16) v128_t vectors[2];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* input = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+
+    // Rotate by 4: {4,5,...,15,0,1,2,3}
+    v128_t rotate4;
+    for (unsigned i = 0; i < 16; ++i)
+        rotate4.u8x16[i] = (4 + i) % 16;
+    Value* rotate4Const = root->appendNew<Const128Value>(proc, Origin(), rotate4);
+
+    Value* inner = root->appendNew<SIMDValue>(proc, Origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, input, rotate4Const);
+    Value* rotate4Const2 = root->appendNew<Const128Value>(proc, Origin(), rotate4);
+    Value* outer = root->appendNew<SIMDValue>(proc, Origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, inner, rotate4Const2);
+
+    root->appendNew<MemoryValue>(proc, Store, Origin(), outer, address, static_cast<int32_t>(sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+    for (unsigned i = 0; i < 16; ++i) vectors[0].u8x16[i] = i;
+    invoke<void>(*code, vectors);
+
+    // Expected: rotation by 8 → {8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7}
+    for (unsigned i = 0; i < 16; ++i)
+        CHECK(vectors[1].u8x16[i] == ((8 + i) % 16));
+}
+
+void testVectorSwizzleCompositionMultiUse()
+{
+    if constexpr (!isARM64())
+        return;
+
+    // Test that composition works when inner has multiple consumers.
+    // inner = VectorSwizzle(src, rev32Pattern)  (used by both outer shuffles)
+    // outer1 = VectorSwizzle(other, inner, concatPattern)
+    // outer2 = VectorSwizzle(inner, other, concatPattern2)
+
+    alignas(16) v128_t vectors[4];
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<void*>(proc, root);
+    Value* address = arguments[0];
+    Value* src = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address);
+    Value* other = root->appendNew<MemoryValue>(proc, Load, V128, Origin(), address, static_cast<int32_t>(sizeof(v128_t)));
+
+    // Inner: reverse bytes within 32-bit groups
+    v128_t innerPat;
+    for (unsigned i = 0; i < 16; i += 4) {
+        innerPat.u8x16[i] = i + 3;
+        innerPat.u8x16[i + 1] = i + 2;
+        innerPat.u8x16[i + 2] = i + 1;
+        innerPat.u8x16[i + 3] = i;
+    }
+    Value* innerPatConst = root->appendNew<Const128Value>(proc, Origin(), innerPat);
+    Value* inner = root->appendNew<SIMDValue>(proc, Origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, src, innerPatConst);
+
+    // outer1 = binary shuffle(other, inner): take lo64 from other, hi64 from inner
+    // Pattern: {0..7 from child0, 24..31 from child1}
+    v128_t outerPat1;
+    for (unsigned i = 0; i < 8; ++i) outerPat1.u8x16[i] = i;         // child0[0..7]
+    for (unsigned i = 0; i < 8; ++i) outerPat1.u8x16[8 + i] = 24 + i; // child1[8..15]
+    Value* outerPatConst1 = root->appendNew<Const128Value>(proc, Origin(), outerPat1);
+    Value* outer1 = root->appendNew<SIMDValue>(proc, Origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, other, inner, outerPatConst1);
+
+    // outer2 = binary shuffle(inner, other): take lo64 from inner, hi64 from other
+    v128_t outerPat2;
+    for (unsigned i = 0; i < 8; ++i) outerPat2.u8x16[i] = i;           // child0[0..7] = inner[0..7]
+    for (unsigned i = 0; i < 8; ++i) outerPat2.u8x16[8 + i] = 24 + i;  // child1[8..15] = other[8..15]
+    Value* outerPatConst2 = root->appendNew<Const128Value>(proc, Origin(), outerPat2);
+    Value* outer2 = root->appendNew<SIMDValue>(proc, Origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, inner, other, outerPatConst2);
+
+    root->appendNew<MemoryValue>(proc, Store, Origin(), outer1, address, static_cast<int32_t>(2 * sizeof(v128_t)));
+    root->appendNew<MemoryValue>(proc, Store, Origin(), outer2, address, static_cast<int32_t>(3 * sizeof(v128_t)));
+    root->appendNewControlValue(proc, Return, Origin());
+
+    auto code = compileProc(proc);
+    for (unsigned i = 0; i < 16; ++i) vectors[0].u8x16[i] = i;        // src
+    for (unsigned i = 0; i < 16; ++i) vectors[1].u8x16[i] = 0x80 + i;  // other
+    invoke<void>(*code, vectors);
+
+    // outer1: {other[0..7], rev32(src)[8..15]}
+    for (unsigned i = 0; i < 8; ++i)
+        CHECK(vectors[2].u8x16[i] == 0x80 + i);
+    // rev32(src)[8..15] = {11,10,9,8, 15,14,13,12}
+    CHECK(vectors[2].u8x16[8] == 11);
+    CHECK(vectors[2].u8x16[9] == 10);
+    CHECK(vectors[2].u8x16[10] == 9);
+    CHECK(vectors[2].u8x16[11] == 8);
+    CHECK(vectors[2].u8x16[12] == 15);
+    CHECK(vectors[2].u8x16[13] == 14);
+    CHECK(vectors[2].u8x16[14] == 13);
+    CHECK(vectors[2].u8x16[15] == 12);
+
+    // outer2: {rev32(src)[0..7], other[8..15]}
+    // rev32(src)[0..7] = {3,2,1,0, 7,6,5,4}
+    CHECK(vectors[3].u8x16[0] == 3);
+    CHECK(vectors[3].u8x16[1] == 2);
+    CHECK(vectors[3].u8x16[2] == 1);
+    CHECK(vectors[3].u8x16[3] == 0);
+    CHECK(vectors[3].u8x16[4] == 7);
+    CHECK(vectors[3].u8x16[5] == 6);
+    CHECK(vectors[3].u8x16[6] == 5);
+    CHECK(vectors[3].u8x16[7] == 4);
+    for (unsigned i = 8; i < 16; ++i)
+        CHECK(vectors[3].u8x16[i] == 0x80 + i);
 }
 
 #endif // ENABLE(B3_JIT)

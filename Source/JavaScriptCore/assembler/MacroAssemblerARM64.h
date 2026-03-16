@@ -6720,6 +6720,12 @@ public:
         m_assembler.xar(dest, a, b, static_cast<uint8_t>(rotate.m_value));
     }
 
+    void vectorXor3(FPRegisterID a, FPRegisterID b, FPRegisterID c, FPRegisterID dest)
+    {
+        ASSERT(supportsSHA3());
+        m_assembler.eor3(dest, a, b, c);
+    }
+
     void moveZeroToVector(FPRegisterID dest)
     {
         m_assembler.movi<128, 8>(dest, 0);
@@ -6879,6 +6885,18 @@ public:
     {
         ASSERT(scalarTypeIsIntegral(simdInfo.lane));
         m_assembler.sshr_vi(dest, input, shift.m_value, simdInfo.lane);
+    }
+
+    void vectorUshr8(SIMDInfo simdInfo, FPRegisterID input, TrustedImm32 shift, FPRegisterID dest)
+    {
+        ASSERT(scalarTypeIsIntegral(simdInfo.lane));
+        m_assembler.ushr_vi(dest, input, shift.m_value, simdInfo.lane);
+    }
+
+    void vectorShl8(SIMDInfo simdInfo, FPRegisterID input, TrustedImm32 shift, FPRegisterID dest)
+    {
+        ASSERT(scalarTypeIsIntegral(simdInfo.lane));
+        m_assembler.shl_vi(dest, input, shift.m_value, simdInfo.lane);
     }
 
     void vectorHorizontalAdd(SIMDInfo simdInfo, FPRegisterID input, FPRegisterID dest)

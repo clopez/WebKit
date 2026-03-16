@@ -32,7 +32,7 @@
 #include "ContainerQueryEvaluator.h"
 #include "Document.h"
 #include "Element.h"
-#include "FontCascade.h"
+#include "FontCascadeInlines.h"
 #include "FontCascadeDescription.h"
 #include "FontMetrics.h"
 #include "NodeRenderStyle.h"
@@ -57,7 +57,7 @@ static double adjustValueForPageZoom(double dimension, const CSSToLengthConversi
     if (!renderView || !style || !evaluationTimeZoomEnabled(*style))
         return dimension;
 
-    return dimension / renderView->zoomFactor();
+    return dimension / renderView->pageZoomFactor();
 }
 
 static double NODELETE lengthOfViewportPhysicalAxisForLogicalAxis(LogicalBoxAxis logicalAxis, const FloatSize& size, const RenderStyle* style)

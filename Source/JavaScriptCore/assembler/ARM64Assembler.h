@@ -2104,6 +2104,17 @@ public:
         insn(0b011'011110'0000'000'000001'00000'00000 | (immh << 19) | (immb << 16) | (vn << 5) | vd);
     }
 
+    ALWAYS_INLINE void shl_vi(FPRegisterID vd, FPRegisterID vn, uint8_t shift, SIMDLane lane)
+    {
+        uint8_t maxShift = elementByteSize(lane) * 8;
+        ASSERT_UNUSED(maxShift, shift < maxShift);
+        unsigned immh = elementByteSize(lane) | ((shift & 0b0111000) >> 3);
+        unsigned immb = shift & 0b0111;
+        ASSERT(immh);
+        ASSERT(!(immh & (~0b1111)));
+        insn(0b010'011110'0000'000'010101'00000'00000 | (immh << 19) | (immb << 16) | (vn << 5) | vd);
+    }
+
     template<SIMDLane narrowedLane>
     ALWAYS_INLINE void shrn(FPRegisterID vd, FPRegisterID vn, uint8_t shift)
     {
@@ -2197,6 +2208,12 @@ public:
     {
         ASSERT(imm6 < 64);
         insn(0b11001110100'00000'000000'00000'00000 | (static_cast<uint32_t>(vm) << 16) | (static_cast<uint32_t>(imm6) << 10) | (static_cast<uint32_t>(vn) << 5) | static_cast<uint32_t>(vd));
+    }
+
+    ALWAYS_INLINE void eor3(FPRegisterID vd, FPRegisterID vn, FPRegisterID vm, FPRegisterID va)
+    {
+        // Three-way exclusive OR. Requires SHA3 (FEAT_SHA3) extension.
+        insn(0b110011100'00'00000'0'00000'00000'00000 | (static_cast<uint32_t>(vm) << 16) | (static_cast<uint32_t>(va) << 10) | (static_cast<uint32_t>(vn) << 5) | static_cast<uint32_t>(vd));
     }
 
     ALWAYS_INLINE void tbl(FPRegisterID vd, FPRegisterID vn, FPRegisterID vm)

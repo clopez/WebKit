@@ -1503,6 +1503,8 @@ void testFCCmpNegatedAndDouble(double, double, double, double);
 
 // SIMD XOR+rotate pattern matching
 void testVectorXorRotateRight64();
+void testVectorXor3();
+void testVectorDotProductSplatOne();
 
 // SIMD VectorUnzip/Zip/Transpose/Reverse B3 opcodes
 void testVectorUnzipEven();
@@ -1514,7 +1516,11 @@ void testVectorTransposeOdd();
 void testVectorReverse();
 
 // SIMD strength reduction: shift-by-1 → add
-void testVectorShiftByVectorShlByOne();
+void testVectorShlByOne();
+
+// SIMD vector shift by immediate
+void testVectorShlImmediate();
+void testVectorShrImmediate();
 
 // SIMD shuffle → canonical instruction strength reduction
 void testVectorSwizzleToUnzipEven();
@@ -1527,5 +1533,7 @@ void testVectorSwizzleUnaryToEXT();
 void testVectorCanonicalSameInputFolding();
 void testVectorSwizzleToDupElement();
 void testVectorSwizzleComposition();
+void testVectorSwizzleUnaryComposition();
+void testVectorSwizzleCompositionMultiUse();
 
 #endif // ENABLE(B3_JIT)
