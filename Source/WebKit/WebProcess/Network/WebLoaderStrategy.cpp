@@ -299,32 +299,16 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     }
 
     if (InspectorInstrumentationWebKit::shouldInterceptRequest(resourceLoader)) {
-<<<<<<< HEAD
-        InspectorInstrumentationWebKit::interceptRequest(resourceLoader, [this, protectedThis = Ref { *this }, protectedResourceLoader = Ref { resourceLoader }, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, resource = RefPtr { resource }](const ResourceRequest& request) {
-            auto& resourceLoader = protectedResourceLoader.get();
-            WEBLOADERSTRATEGY_RELEASE_LOG("scheduleLoad: intercepted URL will be scheduled with the NetworkProcess");
-            scheduleLoadFromNetworkProcess(resourceLoader, request, *trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
-        });
-        return;
-||||||| parent of 3b26dc1a611b (chore(webkit): bootstrap build #2270)
-        InspectorInstrumentationWebKit::interceptRequest(resourceLoader, [this, protectedThis = Ref { *this }, protectedResourceLoader = Ref { resourceLoader }, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, resource](const ResourceRequest& request) {
-            auto& resourceLoader = protectedResourceLoader.get();
-            WEBLOADERSTRATEGY_RELEASE_LOG("scheduleLoad: intercepted URL will be scheduled with the NetworkProcess");
-            scheduleLoadFromNetworkProcess(resourceLoader, request, *trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
-        });
-        return;
-=======
         bool isMainFrameNavigation = resourceLoader.frame() && resourceLoader.frame()->isMainFrame() && resourceLoader.options().mode == FetchOptions::Mode::Navigate;
         // Do not intercept navigation request which could already have been intercepted and resumed.
         if (!(isMainFrameNavigation && m_existingNetworkResourceLoadIdentifierToResume)) {
-            InspectorInstrumentationWebKit::interceptRequest(resourceLoader, [this, protectedThis = Ref { *this }, protectedResourceLoader = Ref { resourceLoader }, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, resource](const ResourceRequest& request) {
+            InspectorInstrumentationWebKit::interceptRequest(resourceLoader, [this, protectedThis = Ref { *this }, protectedResourceLoader = Ref { resourceLoader }, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, resource = RefPtr { resource }](const ResourceRequest& request) {
                 auto& resourceLoader = protectedResourceLoader.get();
                 WEBLOADERSTRATEGY_RELEASE_LOG("scheduleLoad: intercepted URL will be scheduled with the NetworkProcess");
                 scheduleLoadFromNetworkProcess(resourceLoader, request, *trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
             });
             return;
         }
->>>>>>> 3b26dc1a611b (chore(webkit): bootstrap build #2270)
     }
 
     WEBLOADERSTRATEGY_RELEASE_LOG_FORWARDABLE(WEBLOADERSTRATEGY_SCHEDULELOAD);
@@ -515,7 +499,7 @@ bool WebLoaderStrategy::fillParametersForNetworkProcessLoad(ResourceLoader& reso
 
     if (resourceLoader.options().crossOriginEmbedderPolicy)
         loadParameters.crossOriginEmbedderPolicy = *resourceLoader.options().crossOriginEmbedderPolicy;
-
+    
     auto* webFrameLoaderClient = frame ? dynamicDowncast<WebLocalFrameLoaderClient>(frame->loader().client()) : nullptr;
     RefPtr webFrame = webFrameLoaderClient ? &webFrameLoaderClient->webFrame() : nullptr;
 
