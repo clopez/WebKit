@@ -39,14 +39,14 @@ namespace WebKit {
 
 class WebColorPickerWPE : public WebColorPicker {
 public:
-    static Ref<WebColorPickerWPE> create(WebPageProxy&, const WebCore::Color&, const WebCore::IntRect&);
+    static Ref<WebColorPickerWPE> create(WebPageProxy&, const WebCore::Color&, const WebCore::IntRect&, std::optional<WebCore::FrameIdentifier> = std::nullopt);
     virtual ~WebColorPickerWPE();
 
     void endPicker() override;
     void showColorPicker(const WebCore::Color&) override;
 
 protected:
-    WebColorPickerWPE(WebPageProxy&, const WebCore::Color&, const WebCore::IntRect&);
+    WebColorPickerWPE(WebPageProxy&, const WebCore::Color&, const WebCore::IntRect&, std::optional<WebCore::FrameIdentifier> = std::nullopt);
 };
 
 } // namespace WebKit

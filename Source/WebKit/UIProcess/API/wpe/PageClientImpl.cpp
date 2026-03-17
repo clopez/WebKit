@@ -327,15 +327,9 @@ Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& pa
 }
 #endif
 
-<<<<<<< HEAD
-RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy&, const WebCore::Color& intialColor, const WebCore::IntRect&, ColorControlSupportsAlpha supportsAlpha, Vector<WebCore::Color>&&, std::optional<WebCore::FrameIdentifier>)
-||||||| parent of 3b26dc1a611b (chore(webkit): bootstrap build #2270)
-RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy&, const WebCore::Color& intialColor, const WebCore::IntRect&, ColorControlSupportsAlpha supportsAlpha, Vector<WebCore::Color>&&)
-=======
-RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy& page, const WebCore::Color& intialColor, const WebCore::IntRect& rect, ColorControlSupportsAlpha supportsAlpha, Vector<WebCore::Color>&&)
->>>>>>> 3b26dc1a611b (chore(webkit): bootstrap build #2270)
+RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy& page, const WebCore::Color& intialColor, const WebCore::IntRect& rect, ColorControlSupportsAlpha supportsAlpha, Vector<WebCore::Color>&&, std::optional<WebCore::FrameIdentifier> frameID)
 {
-    return WebColorPickerWPE::create(page, intialColor, rect);
+    return WebColorPickerWPE::create(page, intialColor, rect, frameID);
 }
 
 RefPtr<WebKit::WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestionsDropdown(WebKit::WebPageProxy& page)

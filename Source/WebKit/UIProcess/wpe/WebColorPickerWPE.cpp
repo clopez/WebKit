@@ -31,13 +31,13 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<WebColorPickerWPE> WebColorPickerWPE::create(WebPageProxy& page, const Color& initialColor, const IntRect& rect)
+Ref<WebColorPickerWPE> WebColorPickerWPE::create(WebPageProxy& page, const Color& initialColor, const IntRect& rect, std::optional<WebCore::FrameIdentifier> frameID)
 {
-    return adoptRef(*new WebColorPickerWPE(page, initialColor, rect));
+    return adoptRef(*new WebColorPickerWPE(page, initialColor, rect, frameID));
 }
 
-WebColorPickerWPE::WebColorPickerWPE(WebPageProxy& page, const Color& initialColor, const IntRect&)
-    : WebColorPicker(&page.colorPickerClient())
+WebColorPickerWPE::WebColorPickerWPE(WebPageProxy& page, const Color& initialColor, const IntRect&, std::optional<WebCore::FrameIdentifier> frameID)
+    : WebColorPicker(&page.colorPickerClient(), frameID)
 {
 }
 
