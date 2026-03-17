@@ -1930,14 +1930,8 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     const String& httpMethod = loader->request().httpMethod();
 
-<<<<<<< HEAD
     if (shouldPerformFragmentNavigation(isFormSubmission, httpMethod, policyChecker().loadType(), newURL) && !loader->substituteData().isValid()) {
-||||||| parent of 3b26dc1a611b (chore(webkit): bootstrap build #2270)
-    if (shouldPerformFragmentNavigation(isFormSubmission, httpMethod, policyChecker().loadType(), newURL)) {
-=======
-    if (shouldPerformFragmentNavigation(isFormSubmission, httpMethod, policyChecker().loadType(), newURL)) {
         loader->replacedByFragmentNavigation(m_frame);
->>>>>>> 3b26dc1a611b (chore(webkit): bootstrap build #2270)
 
         RefPtr oldDocumentLoader = m_documentLoader;
         NavigationAction action { protect(frame->document()).releaseNonNull(), loader->request(), InitiatedByMainFrame::Unknown, loader->isRequestFromClientOrUserInput(), policyChecker().loadType(), isFormSubmission };
