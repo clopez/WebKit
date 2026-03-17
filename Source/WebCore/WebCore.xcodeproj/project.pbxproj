@@ -2633,6 +2633,7 @@
 		5EBB89331C77782900C65D41 /* IceCandidate.h in Headers */ = {isa = PBXBuildFile; fileRef = 5EBB89301C7777E100C65D41 /* IceCandidate.h */; };
 		5EBB89391C77C39900C65D41 /* PeerMediaDescription.h in Headers */ = {isa = PBXBuildFile; fileRef = 5EBB89381C77BDA400C65D41 /* PeerMediaDescription.h */; };
 		5FA904CA178E61F5004C8A2D /* CertificateInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F2DBBE8178E336900141486 /* CertificateInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5FA904CB178E61F5004C8A2E /* X509SubjectKeyIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F2DBBE9178E336900141487 /* X509SubjectKeyIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5FC7DC26CFE2563200B85AE4 /* JSEventTarget.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FC7DC26CFE2563200B85AE5 /* JSEventTarget.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5FE1D292178FD1F3001AA3C3 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FE1D291178FD1F3001AA3C3 /* Security.framework */; };
 		623C21972F529B6F00B6094B /* StyleVisualBox.h in Headers */ = {isa = PBXBuildFile; fileRef = 623C21962F529B1800B6094B /* StyleVisualBox.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4690,7 +4691,6 @@
 		B2227A360D00BF220071B782 /* SVGLengthList.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278A00D00BF200071B782 /* SVGLengthList.h */; };
 		B2227A390D00BF220071B782 /* SVGLinearGradientElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278A30D00BF200071B782 /* SVGLinearGradientElement.h */; };
 		B2227A3C0D00BF220071B782 /* SVGLineElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278A60D00BF200071B782 /* SVGLineElement.h */; };
-		B2227A410D00BF220071B782 /* SVGLocatable.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278AB0D00BF200071B782 /* SVGLocatable.h */; };
 		B2227A440D00BF220071B782 /* SVGMarkerElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278AE0D00BF200071B782 /* SVGMarkerElement.h */; };
 		B2227A470D00BF220071B782 /* SVGMaskElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278B10D00BF200071B782 /* SVGMaskElement.h */; };
 		B2227A4B0D00BF220071B782 /* SVGMetadataElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B22278B50D00BF200071B782 /* SVGMetadataElement.h */; };
@@ -4724,7 +4724,6 @@
 		B2227AD10D00BF220071B782 /* SVGTextPositioningElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B222793B0D00BF210071B782 /* SVGTextPositioningElement.h */; };
 		B2227AD40D00BF220071B782 /* SVGTitleElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B222793E0D00BF210071B782 /* SVGTitleElement.h */; };
 		B2227AD70D00BF220071B782 /* SVGTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = B22279410D00BF210071B782 /* SVGTransform.h */; };
-		B2227ADA0D00BF220071B782 /* SVGTransformable.h in Headers */ = {isa = PBXBuildFile; fileRef = B22279440D00BF210071B782 /* SVGTransformable.h */; };
 		B2227ADD0D00BF220071B782 /* SVGTransformDistance.h in Headers */ = {isa = PBXBuildFile; fileRef = B22279470D00BF210071B782 /* SVGTransformDistance.h */; };
 		B2227ADF0D00BF220071B782 /* SVGTransformList.h in Headers */ = {isa = PBXBuildFile; fileRef = B22279490D00BF210071B782 /* SVGTransformList.h */; };
 		B2227AE20D00BF220071B782 /* SVGTRefElement.h in Headers */ = {isa = PBXBuildFile; fileRef = B222794C0D00BF210071B782 /* SVGTRefElement.h */; };
@@ -13353,6 +13352,7 @@
 		5EBB89381C77BDA400C65D41 /* PeerMediaDescription.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PeerMediaDescription.h; sourceTree = "<group>"; };
 		5F2DBBE7178E332D00141486 /* CertificateInfoCFNet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CertificateInfoCFNet.cpp; sourceTree = "<group>"; };
 		5F2DBBE8178E336900141486 /* CertificateInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CertificateInfo.h; sourceTree = "<group>"; };
+		5F2DBBE9178E336900141487 /* X509SubjectKeyIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = X509SubjectKeyIdentifier.h; sourceTree = "<group>"; };
 		5FC7DC26CFE2563200B85AE5 /* JSEventTarget.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = JSEventTarget.h; sourceTree = "<group>"; };
 		5FE1D291178FD1F3001AA3C3 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		623C21962F529B1800B6094B /* StyleVisualBox.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleVisualBox.h; sourceTree = "<group>"; };
@@ -17985,8 +17985,6 @@
 		B22278A50D00BF200071B782 /* SVGLineElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGLineElement.cpp; sourceTree = "<group>"; };
 		B22278A60D00BF200071B782 /* SVGLineElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGLineElement.h; sourceTree = "<group>"; };
 		B22278A70D00BF200071B782 /* SVGLineElement.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGLineElement.idl; sourceTree = "<group>"; };
-		B22278AA0D00BF200071B782 /* SVGLocatable.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGLocatable.cpp; sourceTree = "<group>"; };
-		B22278AB0D00BF200071B782 /* SVGLocatable.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGLocatable.h; sourceTree = "<group>"; };
 		B22278AD0D00BF200071B782 /* SVGMarkerElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGMarkerElement.cpp; sourceTree = "<group>"; };
 		B22278AE0D00BF200071B782 /* SVGMarkerElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGMarkerElement.h; sourceTree = "<group>"; };
 		B22278AF0D00BF200071B782 /* SVGMarkerElement.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGMarkerElement.idl; sourceTree = "<group>"; };
@@ -18099,8 +18097,6 @@
 		B222793F0D00BF210071B782 /* SVGTitleElement.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGTitleElement.idl; sourceTree = "<group>"; };
 		B22279410D00BF210071B782 /* SVGTransform.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGTransform.h; sourceTree = "<group>"; };
 		B22279420D00BF210071B782 /* SVGTransform.idl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = SVGTransform.idl; sourceTree = "<group>"; };
-		B22279430D00BF210071B782 /* SVGTransformable.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGTransformable.cpp; sourceTree = "<group>"; };
-		B22279440D00BF210071B782 /* SVGTransformable.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGTransformable.h; sourceTree = "<group>"; };
 		B22279460D00BF210071B782 /* SVGTransformDistance.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SVGTransformDistance.cpp; sourceTree = "<group>"; };
 		B22279470D00BF210071B782 /* SVGTransformDistance.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGTransformDistance.h; sourceTree = "<group>"; };
 		B22279490D00BF210071B782 /* SVGTransformList.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SVGTransformList.h; sourceTree = "<group>"; };
@@ -35355,8 +35351,6 @@
 				B22278A50D00BF200071B782 /* SVGLineElement.cpp */,
 				B22278A60D00BF200071B782 /* SVGLineElement.h */,
 				B22278A70D00BF200071B782 /* SVGLineElement.idl */,
-				B22278AA0D00BF200071B782 /* SVGLocatable.cpp */,
-				B22278AB0D00BF200071B782 /* SVGLocatable.h */,
 				B22278AD0D00BF200071B782 /* SVGMarkerElement.cpp */,
 				B22278AE0D00BF200071B782 /* SVGMarkerElement.h */,
 				B22278AF0D00BF200071B782 /* SVGMarkerElement.idl */,
@@ -35513,8 +35507,6 @@
 				1CCDF5BC1990332400BCEBAD /* SVGToOTFFontConversion.h */,
 				B22279410D00BF210071B782 /* SVGTransform.h */,
 				B22279420D00BF210071B782 /* SVGTransform.idl */,
-				B22279430D00BF210071B782 /* SVGTransformable.cpp */,
-				B22279440D00BF210071B782 /* SVGTransformable.h */,
 				B22279460D00BF210071B782 /* SVGTransformDistance.cpp */,
 				B22279470D00BF210071B782 /* SVGTransformDistance.h */,
 				7CD70C4624A28CD700E61040 /* SVGTransformList.cpp */,
@@ -39997,6 +39989,7 @@
 				5778BD811DA4802C009E3009 /* SubtleCrypto.h */,
 				5778BD801DA4733E009E3009 /* SubtleCrypto.idl */,
 				9478A8EB2C180D7A00808739 /* WrappedCryptoKey.h */,
+				5F2DBBE9178E336900141487 /* X509SubjectKeyIdentifier.h */,
 			);
 			path = crypto;
 			sourceTree = "<group>";
@@ -48043,7 +48036,6 @@
 				B2227A390D00BF220071B782 /* SVGLinearGradientElement.h in Headers */,
 				B2227A3C0D00BF220071B782 /* SVGLineElement.h in Headers */,
 				55DCC52922407B2A00C26E32 /* SVGList.h in Headers */,
-				B2227A410D00BF220071B782 /* SVGLocatable.h in Headers */,
 				436708EE12D9CA4B00044234 /* SVGMarkerData.h in Headers */,
 				B2227A440D00BF220071B782 /* SVGMarkerElement.h in Headers */,
 				B2227A470D00BF220071B782 /* SVGMaskElement.h in Headers */,
@@ -48127,7 +48119,6 @@
 				B2227AD40D00BF220071B782 /* SVGTitleElement.h in Headers */,
 				1CCDF5BE1990332400BCEBAD /* SVGToOTFFontConversion.h in Headers */,
 				B2227AD70D00BF220071B782 /* SVGTransform.h in Headers */,
-				B2227ADA0D00BF220071B782 /* SVGTransformable.h in Headers */,
 				B2227ADD0D00BF220071B782 /* SVGTransformDistance.h in Headers */,
 				B2227ADF0D00BF220071B782 /* SVGTransformList.h in Headers */,
 				7CE58D581DD7D96D00128552 /* SVGTransformValue.h in Headers */,
@@ -48960,6 +48951,7 @@
 				07CCECF22C25FBC9001FF552 /* WritingToolsCompositionCommand.h in Headers */,
 				07E2C0772C13A9D100BE6743 /* WritingToolsController.h in Headers */,
 				07E2C0732C1396FE00BE6743 /* WritingToolsTypes.h in Headers */,
+				5FA904CB178E61F5004C8A2E /* X509SubjectKeyIdentifier.h in Headers */,
 				6565820209D1508D000E61D7 /* XLinkNames.h in Headers */,
 				830784B21C52EE2C00104D1D /* XMLDocument.h in Headers */,
 				00B9318813BA8DBA0035A948 /* XMLDocumentParser.h in Headers */,

@@ -2559,18 +2559,26 @@ start:
             goto returnError;
         }
 
-        record8('0');
         if (strictMode && isASCIIDigit(m_current)) [[unlikely]] {
             m_lexErrorMessage = "Decimal integer literals with a leading zero are forbidden in strict mode"_s;
             token = UNTERMINATED_OCTAL_NUMBER_ERRORTOK;
             goto returnError;
         }
+
         if (isASCIIOctalDigit(m_current)) {
+            record8('0');
             auto parseNumberResult = parseOctal();
             if (parseNumberResult && std::holds_alternative<double>(*parseNumberResult)) {
                 tokenData->doubleValue = std::get<double>(*parseNumberResult);
                 token = tokenTypeForIntegerLikeToken(tokenData->doubleValue);
             }
+        } else {
+            if (!isASCIIDigit(m_current) && m_current != '.' && cannotBeIdentStart(m_current)) {
+                tokenData->doubleValue = 0;
+                token = INTEGER;
+                break;
+            }
+            record8('0');
         }
         [[fallthrough]];
     }
@@ -2585,6 +2593,28 @@ start:
     case  56 /* 56 = 8 CharacterNumber */:
     case  57 /* 57 = 9 CharacterNumber */: {
         if (token != INTEGER && token != DOUBLE) [[likely]] {
+            if (m_buffer8.isEmpty()) [[likely]] {
+                auto start = m_code;
+                auto ptr = m_code + 1;
+                while (ptr < m_codeEnd && isASCIIDigit(*ptr))
+                    ++ptr;
+
+                // The limit is 1 << (52 - 1) = 2251799813685248
+                const int numberOfDigitsForSafeInt52 = 15;
+                if (ptr < m_codeEnd && (*ptr != '.' && cannotBeIdentStart(*ptr)) && (ptr - start) <= numberOfDigitsForSafeInt52) {
+                    int64_t result = 0;
+                    auto cursor = start;
+                    do {
+                        result = result * 10 + (*cursor++) - '0';
+                    } while (cursor < ptr);
+                    tokenData->doubleValue = result;
+                    token = INTEGER;
+                    m_code = ptr;
+                    m_current = *ptr;
+                    break;
+                }
+            }
+
             auto parseNumberResult = parseDecimal();
             if (parseNumberResult) {
                 if (std::holds_alternative<double>(*parseNumberResult)) {

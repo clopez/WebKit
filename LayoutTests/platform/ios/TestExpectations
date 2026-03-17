@@ -8472,10 +8472,14 @@ webkit.org/b/309283 imported/w3c/web-platform-tests/html/semantics/forms/the-sel
 
 webkit.org/b/307091 inspector/network/intercept-aborted-request.html [ Skip ]
 
+webkit.org/b/310132 imported/w3c/web-platform-tests/intersection-observer/target-in-different-window.html [ Pass Failure ]
+
 # Requires mousedown
 media/caption-display-settings/caption-display-settings-default-anchorBounds.html [ Skip ]
 
 webkit.org/b/299830 imported/w3c/web-platform-tests/storage-access-api/hasStorageAccess-insecure.sub.window.html [ Pass Failure ]
+
+webkit.org/b/310111 [ Debug ] http/wpt/navigation-api/scroll-behavior/manual-scroll-reload.html [ Pass Failure ]
 
 webkit.org/b/307582 compositing/overflow/rtl-scrollbar-layer-positioning.html [ Failure ]
 

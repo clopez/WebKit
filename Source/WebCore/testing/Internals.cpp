@@ -27,6 +27,7 @@
 #include "config.h"
 #include "Internals.h"
 
+#include "AXCrossProcessSearch.h"
 #include "AXObjectCacheInlines.h"
 #include "AnimationTimeline.h"
 #include "AnimationTimelinesController.h"
@@ -668,6 +669,7 @@ void Internals::resetToConsistentState(Page& page)
 #endif
     AXObjectCache::setEnhancedUserInterfaceAccessibility(false);
     AXObjectCache::disableAccessibility();
+    WebCore::setShouldMockParentSearchResultsForTesting(false);
 
     MockPageOverlayClient::singleton().uninstallAllOverlays();
 
@@ -4597,6 +4599,11 @@ void Internals::forceAXObjectCacheUpdate() const
     }
 }
 
+void Internals::setShouldMockParentSearchResultsForTesting(bool enabled)
+{
+    WebCore::setShouldMockParentSearchResultsForTesting(enabled);
+}
+
 void Internals::forceReload(bool endToEnd)
 {
     OptionSet<ReloadOption> reloadOptions;
@@ -6506,7 +6513,7 @@ void Internals::setAsRunningUserScripts(Document& document)
 }
 
 #if ENABLE(WEBGL)
-void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, WebGLRenderingContext& context)
+void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, WebGLRenderingContextBase& context)
 {
     WebGLRenderingContext::SimulatedEventForTesting contextEvent;
     switch (event) {
@@ -6523,7 +6530,7 @@ void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, W
     context.simulateEventForTesting(contextEvent);
 }
 
-Internals::RequestedGPU Internals::requestedGPU(WebGLRenderingContext& context)
+Internals::RequestedGPU Internals::requestedGPU(WebGLRenderingContextBase& context)
 {
     switch (context.creationAttributes().powerPreference) {
     case WebGLPowerPreference::Default:

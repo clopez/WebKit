@@ -173,6 +173,8 @@ public:
 
     const String& title() const LIFETIME_BOUND { return m_title; }
 
+    void setSpecifiedName(const String& name) { m_frameName = name; }
+
     const WebCore::CertificateInfo& certificateInfo() const LIFETIME_BOUND { return m_certificateInfo; }
 
     bool canProvideSource() const;
@@ -359,12 +361,12 @@ private:
 
 inline void refWebFrameProxy(WebKit::WebFrameProxy* WTF_NONNULL obj)
 {
-    WTF::ref(obj);
+    obj->ref();
 }
 
 inline void derefWebFrameProxy(WebKit::WebFrameProxy* WTF_NONNULL obj)
 {
-    WTF::deref(obj);
+    obj->deref();
 }
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebFrameProxy)

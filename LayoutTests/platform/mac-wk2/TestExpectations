@@ -2381,8 +2381,6 @@ webkit.org/b/304995 [ Release ] imported/w3c/web-platform-tests/largest-contentf
 
 webkit.org/b/305086 [ arm64 ] imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-without-codecs-parameter.html [ Pass Failure ]
 
-webkit.org/b/310045 [ arm64 ] inspector/animation/lifecycle-css-transition.html [ Pass Failure Timeout ]
-
 webkit.org/b/305403 [ Sequoia ] http/tests/performance/performance-resource-timing-redirection-cross-origin-media.html [ Failure ]
 
 # webkit.org/b/296008 [macOS Debug] http/tests/media/hls and platform/mac/media/encrypted-media tests are timing out on some EWS bots
@@ -2400,6 +2398,8 @@ webkit.org/b/305508 http/tests/resourceLoadStatistics/log-cross-site-load-with-l
 webkit.org/b/305581 http/tests/workers/service/shownotification-allowed.html [ Pass Failure ]
 
 webkit.org/b/303348 http/tests/site-isolation/remote-frame-loaded-while-hidden.html [ ImageOnlyFailure ]
+
+webkit.org/b/310052 [ Tahoe Debug arm64 ] inspector/unit-tests/array-utilities.html [ Slow ]
 
 webkit.org/b/305660 [ Debug ] http/tests/cache-storage/cache-clearing-all.https.html [ Pass Failure ]
 
