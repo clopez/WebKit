@@ -443,6 +443,13 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
     newTarget->didCommitProvisionalTarget();
     targetAgent->didCommitProvisionalTarget(oldID, newID);
 
+    std::unique_ptr<InspectorTargetProxy> newMainFrameTarget;
+    if (shouldManageFrameTargets()) {
+        String newMainFrameTargetID = FrameInspectorTarget::toTargetID(m_inspectedPage->mainFrame()->frameID(), m_inspectedPage->mainFrame()->process().coreProcessIdentifier());
+        newMainFrameTarget = m_targets.take(newMainFrameTargetID);
+        ASSERT(newMainFrameTarget);
+    }
+
     // Update target list to only include targets from the committed page.
     for (auto& target : m_targets.values())
         targetAgent->targetDestroyed(*target);
@@ -450,6 +457,8 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
     m_targets.set(newTarget->identifier(), WTF::move(newTarget));
 
     if (shouldManageFrameTargets()) {
+        if (newMainFrameTarget)
+            m_targets.set(newMainFrameTarget->identifier(), WTF::move(newMainFrameTarget));
         // WebFrameProxies are structurally preserved across page navigation rather than destroyed and recreated,
         // so no didCreateFrame/willDestroyFrame callbacks fire for them. Recreate the frame targets here.
         //
