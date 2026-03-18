@@ -382,6 +382,7 @@ loader/cache/CachedSVGFont.cpp
 mathml/MathMLElement.cpp
 mathml/MathMLSelectElement.cpp
 page/AutoscrollController.cpp
+[ macOS ] page/ContextMenuController.cpp
 [ iOS ] page/DOMTimer.cpp
 page/DOMWindow.cpp
 page/DragController.cpp
@@ -530,8 +531,8 @@ platform/mediastream/mac/MediaStreamTrackAudioSourceProviderCocoa.cpp
 platform/mediastream/mac/RealtimeOutgoingAudioSourceCocoa.cpp
 platform/mediastream/mac/WebAudioSourceProviderCocoa.mm
 platform/mock/MockRealtimeVideoSource.cpp
-platform/network/mac/ResourceHandleMac.mm
-platform/network/mac/WebCoreResourceHandleAsOperationQueueDelegate.mm
+platform/network/cocoa/ResourceHandleCocoa.mm
+platform/network/cocoa/WebCoreResourceHandleAsOperationQueueDelegate.mm
 plugins/PluginData.cpp
 rendering/AccessibilityRegionContext.cpp
 rendering/AttachmentLayout.mm
@@ -593,7 +594,7 @@ rendering/RenderView.cpp
 rendering/RenderViewTransitionCapture.cpp
 rendering/RenderWidget.cpp
 rendering/TextBoxPainter.cpp
-[ iOS ] rendering/cocoa/RenderThemeCocoa.mm
+rendering/cocoa/RenderThemeCocoa.mm
 [ iOS ] rendering/ios/RenderThemeIOS.mm
 rendering/mathml/MathOperator.cpp
 rendering/mathml/RenderMathMLFraction.cpp

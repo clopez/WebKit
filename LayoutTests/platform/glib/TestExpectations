@@ -1950,12 +1950,37 @@ http/tests/images/mp4-partial-load.html [ Failure Pass ]
 
 # Failure since import.
 webkit.org/b/243614 imported/w3c/web-platform-tests/IndexedDB/idb-partitioned-coverage.sub.html [ Failure ]
-webkit.org/b/243614 imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.html [ Failure ]
-webkit.org/b/243614 imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.html [ Failure ]
-webkit.org/b/243614 imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.html [ Failure ]
-webkit.org/b/243614 imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large.html [ Failure ]
 
 webkit.org/b/216298 imported/w3c/web-platform-tests/IndexedDB/blob-valid-after-deletion.any.html [ Pass Failure ]
+
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll-options.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll-options.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll-options.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll-options.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllRecords.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllRecords.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllRecords.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllRecords.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll-options.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll-options.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll-options.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll-options.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllRecords.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllRecords.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllRecords.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllRecords.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large.any.worker.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of IndexedDB-related bugs
@@ -2668,6 +2693,14 @@ webkit.org/b/264803 fast/mediastream/mediastreamtrack-video-resize-event.html [ 
 http/tests/media/video-play-stall-seek.html [ Timeout Pass ]
 
 webkit.org/b/265865 imported/w3c/web-platform-tests/webrtc-stats/rtp-stats-creation.html [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/bundle.https.html?interop-2026 [ Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/bundle.https.html?rest [ Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/candidate-exchange.https.html?interop-2026 [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/h264-profile-levels.https.html?rest [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/rtp-payloadtypes.html?interop-2026 [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/rtp-payloadtypes.html?rest [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/simulcast/negotiation-encodings.https.html?interop-2026 [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/simulcast/negotiation-encodings.https.html?rest [ Pass Failure ]
 
 # Missing support for RTP header encryption support:
 # https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/4625
@@ -2865,7 +2898,6 @@ imported/w3c/web-platform-tests/webrtc/RTCDataChannel-bufferedAmount.html [ Skip
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-close.html [ Skip ] # Timeout
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-iceRestart.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-id.html [ Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCDataChannel-local-close.html [ Failure ]
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-send-blob-order.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-send-close-array-buffer-negotiated.window.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCDataChannel-send-close-array-buffer.window.html [ Pass ]

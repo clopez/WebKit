@@ -2060,8 +2060,8 @@
 		5145B10A1BC48E2E00E86219 /* IDBResourceIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 5145B1081BC4890B00E86219 /* IDBResourceIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5148453F1BB9D07E006A72ED /* IDBError.h in Headers */ = {isa = PBXBuildFile; fileRef = 5148453D1BB9D076006A72ED /* IDBError.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5148997F2AB4E7F400943741 /* NotificationOptionsPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = 5148997E2AB4E7F400943741 /* NotificationOptionsPayload.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		514C764C0CE9234E007EF3CD /* AuthenticationMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76420CE9234E007EF3CD /* AuthenticationMac.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		514C764E0CE9234E007EF3CD /* FormDataStreamMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76440CE9234E007EF3CD /* FormDataStreamMac.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		514C764C0CE9234E007EF3CD /* AuthenticationCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76420CE9234E007EF3CD /* AuthenticationCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		514C764E0CE9234E007EF3CD /* FormDataStreamCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76440CE9234E007EF3CD /* FormDataStreamCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C766E0CE923A1007EF3CD /* Credential.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76590CE923A1007EF3CD /* Credential.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C76700CE923A1007EF3CD /* FormData.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C765B0CE923A1007EF3CD /* FormData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C76710CE923A1007EF3CD /* HTTPHeaderMap.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C765C0CE923A1007EF3CD /* HTTPHeaderMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2072,7 +2072,7 @@
 		514C767B0CE923A1007EF3CD /* ResourceHandleInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76660CE923A1007EF3CD /* ResourceHandleInternal.h */; };
 		514C767D0CE923A1007EF3CD /* ResourceRequestBase.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76680CE923A1007EF3CD /* ResourceRequestBase.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C767F0CE923A1007EF3CD /* ResourceResponseBase.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C766A0CE923A1007EF3CD /* ResourceResponseBase.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		5150B5DD27CDF2E0004FC81E /* CMUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 5150B5DC27CDF2E0004FC81E /* CMUtilities.h */; };
+		5150B5DD27CDF2E0004FC81E /* CMUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 5150B5DC27CDF2E0004FC81E /* CMUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5150B5DF27CDF499004FC81E /* CMUtilities.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5150B5DE27CDF499004FC81E /* CMUtilities.mm */; };
 		515138AF2AB2A6E400EA5817 /* NotificationPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = 515138A32AB21AF800EA5817 /* NotificationPayload.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5151F07E2615435A00FDB2B4 /* MediaUniqueIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 5151F07B2615363F00FDB2B4 /* MediaUniqueIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -12240,12 +12240,12 @@
 		514BEB772D149B25004D7BE7 /* WindowPush.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = WindowPush.idl; sourceTree = "<group>"; };
 		514C76350CE9225E007EF3CD /* JSSQLError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSQLError.cpp; sourceTree = "<group>"; };
 		514C76360CE9225E007EF3CD /* JSSQLTransaction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSQLTransaction.cpp; sourceTree = "<group>"; };
-		514C76420CE9234E007EF3CD /* AuthenticationMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuthenticationMac.h; sourceTree = "<group>"; };
-		514C76430CE9234E007EF3CD /* AuthenticationMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AuthenticationMac.mm; sourceTree = "<group>"; };
-		514C76440CE9234E007EF3CD /* FormDataStreamMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FormDataStreamMac.h; sourceTree = "<group>"; };
-		514C76450CE9234E007EF3CD /* FormDataStreamMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FormDataStreamMac.mm; sourceTree = "<group>"; };
-		514C76460CE9234E007EF3CD /* ResourceErrorMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ResourceErrorMac.mm; sourceTree = "<group>"; };
-		514C76470CE9234E007EF3CD /* ResourceHandleMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ResourceHandleMac.mm; sourceTree = "<group>"; };
+		514C76420CE9234E007EF3CD /* AuthenticationCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuthenticationCocoa.h; sourceTree = "<group>"; };
+		514C76430CE9234E007EF3CD /* AuthenticationCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AuthenticationCocoa.mm; sourceTree = "<group>"; };
+		514C76440CE9234E007EF3CD /* FormDataStreamCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FormDataStreamCocoa.h; sourceTree = "<group>"; };
+		514C76450CE9234E007EF3CD /* FormDataStreamCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FormDataStreamCocoa.mm; sourceTree = "<group>"; };
+		514C76460CE9234E007EF3CD /* ResourceErrorCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ResourceErrorCocoa.mm; sourceTree = "<group>"; };
+		514C76470CE9234E007EF3CD /* ResourceHandleCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ResourceHandleCocoa.mm; sourceTree = "<group>"; };
 		514C76580CE923A1007EF3CD /* CredentialBase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CredentialBase.cpp; sourceTree = "<group>"; };
 		514C76590CE923A1007EF3CD /* Credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Credential.h; sourceTree = "<group>"; };
 		514C765A0CE923A1007EF3CD /* FormData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FormData.cpp; sourceTree = "<group>"; };
@@ -21705,7 +21705,7 @@
 		E13EF3421684ECF40034C83F /* NetworkStorageSession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkStorageSession.h; sourceTree = "<group>"; };
 		E13EF34716850C470034C83F /* NetworkStorageSessionCFNet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NetworkStorageSessionCFNet.cpp; sourceTree = "<group>"; };
 		E13F01EA1270E10D00DFBA71 /* CookieStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CookieStorage.h; sourceTree = "<group>"; };
-		E13F01F01270E19000DFBA71 /* CookieStorageMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = CookieStorageMac.mm; sourceTree = "<group>"; };
+		E13F01F01270E19000DFBA71 /* CookieStorageCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = CookieStorageCocoa.mm; sourceTree = "<group>"; };
 		E1424C91164B52C800F32D40 /* CookieJar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CookieJar.cpp; sourceTree = "<group>"; };
 		E1424C92164B52C800F32D40 /* CookieJar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CookieJar.h; sourceTree = "<group>"; };
 		E14A94D616DFDF950068DE82 /* BlobRegistry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BlobRegistry.cpp; sourceTree = "<group>"; };
@@ -21721,7 +21721,7 @@
 		E15A36D81104572700B7B639 /* XMLNSNames.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = XMLNSNames.cpp; sourceTree = "<group>"; };
 		E15FF7D418C9553800FE4C87 /* KeypressCommand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KeypressCommand.h; sourceTree = "<group>"; };
 		E164A2E7191AC5BB0010737D /* FileCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FileCocoa.mm; sourceTree = "<group>"; };
-		E164A2EB191AE6350010737D /* BlobDataFileReferenceMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = BlobDataFileReferenceMac.mm; sourceTree = "<group>"; };
+		E164A2EB191AE6350010737D /* BlobDataFileReferenceCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = BlobDataFileReferenceCocoa.mm; sourceTree = "<group>"; };
 		E164FAA218315BF400DB4E61 /* CryptoKeyRSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKeyRSA.h; sourceTree = "<group>"; };
 		E164FAA418315E1A00DB4E61 /* CryptoKeyRSACocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoKeyRSACocoa.cpp; sourceTree = "<group>"; };
 		E16982541134629D00894115 /* ObjCRuntimeObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjCRuntimeObject.h; sourceTree = "<group>"; };
@@ -21813,7 +21813,7 @@
 		E1ADEDD90E76BD93004A1A5E /* JSMessagePort.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSMessagePort.cpp; sourceTree = "<group>"; };
 		E1B25104152A0BAF0069B779 /* StylePropertyShorthand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StylePropertyShorthand.cpp; sourceTree = "<group>"; };
 		E1B25105152A0BAF0069B779 /* StylePropertyShorthand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StylePropertyShorthand.h; sourceTree = "<group>"; };
-		E1B4CD2410B322E200BFFD7E /* CredentialStorageMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = CredentialStorageMac.mm; sourceTree = "<group>"; };
+		E1B4CD2410B322E200BFFD7E /* CredentialStorageCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = CredentialStorageCocoa.mm; sourceTree = "<group>"; };
 		E1B533461717D0A000F205F9 /* CachedSVGDocumentReference.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CachedSVGDocumentReference.cpp; sourceTree = "<group>"; };
 		E1B533481717DEE300F205F9 /* CachedRawResourceClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CachedRawResourceClient.h; sourceTree = "<group>"; };
 		E1BA003016FB92AC00BA7A35 /* ResourceHandleClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ResourceHandleClient.cpp; sourceTree = "<group>"; };
@@ -30063,23 +30063,7 @@
 		656B84E70AEA1DAE00A095B4 /* mac */ = {
 			isa = PBXGroup;
 			children = (
-				514C76420CE9234E007EF3CD /* AuthenticationMac.h */,
-				514C76430CE9234E007EF3CD /* AuthenticationMac.mm */,
-				E164A2EB191AE6350010737D /* BlobDataFileReferenceMac.mm */,
-				E13F01F01270E19000DFBA71 /* CookieStorageMac.mm */,
-				E1B4CD2410B322E200BFFD7E /* CredentialStorageMac.mm */,
-				514C76440CE9234E007EF3CD /* FormDataStreamMac.h */,
-				514C76450CE9234E007EF3CD /* FormDataStreamMac.mm */,
 				1A7FA6470DDA3CBA0028F8A5 /* NetworkStateNotifierMac.cpp */,
-				514C76460CE9234E007EF3CD /* ResourceErrorMac.mm */,
-				514C76470CE9234E007EF3CD /* ResourceHandleMac.mm */,
-				E180811416FCF9CB00B80D07 /* SynchronousLoaderClient.mm */,
-				1FAFBF1615A5FA5200083A20 /* UTIUtilities.h */,
-				1FAFBF1715A5FA5200083A20 /* UTIUtilities.mm */,
-				E152551316FD234F003D7ADB /* WebCoreResourceHandleAsOperationQueueDelegate.h */,
-				E152551416FD234F003D7ADB /* WebCoreResourceHandleAsOperationQueueDelegate.mm */,
-				37F818FB0D657606005E1F05 /* WebCoreURLResponse.h */,
-				37F818FC0D657606005E1F05 /* WebCoreURLResponse.mm */,
 			);
 			path = mac;
 			sourceTree = "<group>";
@@ -31686,12 +31670,19 @@
 		7E7DE1FE195CEF2D0035363B /* cocoa */ = {
 			isa = PBXGroup;
 			children = (
+				514C76420CE9234E007EF3CD /* AuthenticationCocoa.h */,
+				514C76430CE9234E007EF3CD /* AuthenticationCocoa.mm */,
+				E164A2EB191AE6350010737D /* BlobDataFileReferenceCocoa.mm */,
 				5C4A0FD625C342DB00D9EE97 /* CertificateInfoCocoa.mm */,
 				51D1248C1E736456002B2820 /* CookieCocoa.mm */,
+				E13F01F01270E19000DFBA71 /* CookieStorageCocoa.mm */,
 				5120BBAD1F1CE77000EFEBF1 /* CookieStorageObserver.h */,
 				5120BBAC1F1CE77000EFEBF1 /* CookieStorageObserver.mm */,
 				3792917C1987678F00F4B661 /* CredentialCocoa.h */,
 				3792917B1987678F00F4B661 /* CredentialCocoa.mm */,
+				E1B4CD2410B322E200BFFD7E /* CredentialStorageCocoa.mm */,
+				514C76440CE9234E007EF3CD /* FormDataStreamCocoa.h */,
+				514C76450CE9234E007EF3CD /* FormDataStreamCocoa.mm */,
 				46E139F623D8B8E70075848E /* HTTPCookieAcceptPolicyCocoa.h */,
 				5C9B860B1C21E3C600110F36 /* NetworkLoadMetrics.mm */,
 				51D1248A1E73625C002B2820 /* NetworkStorageSessionCocoa.mm */,
@@ -31699,10 +31690,19 @@
 				372ADA39197F687600FC501E /* ProtectionSpaceCocoa.mm */,
 				5C4A0FD525C342C800D9EE97 /* RangeResponseGenerator.h */,
 				5C4A0FD325C342C700D9EE97 /* RangeResponseGenerator.mm */,
+				514C76460CE9234E007EF3CD /* ResourceErrorCocoa.mm */,
+				514C76470CE9234E007EF3CD /* ResourceHandleCocoa.mm */,
 				7E7DE1FC195CEF260035363B /* ResourceRequestCocoa.mm */,
 				A1F78D0B1C25422C00245446 /* ResourceResponseCocoa.mm */,
+				E180811416FCF9CB00B80D07 /* SynchronousLoaderClient.mm */,
+				1FAFBF1615A5FA5200083A20 /* UTIUtilities.h */,
+				1FAFBF1715A5FA5200083A20 /* UTIUtilities.mm */,
 				CD225C0A1C46FBF400140761 /* WebCoreNSURLSession.h */,
 				CD225C091C46FBF400140761 /* WebCoreNSURLSession.mm */,
+				E152551316FD234F003D7ADB /* WebCoreResourceHandleAsOperationQueueDelegate.h */,
+				E152551416FD234F003D7ADB /* WebCoreResourceHandleAsOperationQueueDelegate.mm */,
+				37F818FB0D657606005E1F05 /* WebCoreURLResponse.h */,
+				37F818FC0D657606005E1F05 /* WebCoreURLResponse.mm */,
 			);
 			path = cocoa;
 			sourceTree = "<group>";
@@ -42984,11 +42984,11 @@
 				7EE6846112D26E3800E79415 /* AuthenticationChallenge.h in Headers */,
 				934F713A0D5A6F1000018D69 /* AuthenticationChallengeBase.h in Headers */,
 				E124748410AA161D00B79493 /* AuthenticationClient.h in Headers */,
+				514C764C0CE9234E007EF3CD /* AuthenticationCocoa.h in Headers */,
 				57DA47B0224034E4002A4612 /* AuthenticationExtensionsClientInputs.h in Headers */,
 				AED243592C90355600E8649D /* AuthenticationExtensionsClientInputsJSON.h in Headers */,
 				5758596C239F321C00C74572 /* AuthenticationExtensionsClientOutputs.h in Headers */,
 				AED2435B2C90367C00E8649D /* AuthenticationExtensionsClientOutputsJSON.h in Headers */,
-				514C764C0CE9234E007EF3CD /* AuthenticationMac.h in Headers */,
 				AED243692C939A6800E8649D /* AuthenticationResponseJSON.h in Headers */,
 				57303C2C2009B4A800355965 /* AuthenticatorAssertionResponse.h in Headers */,
 				57FE687126052E3100BF45E4 /* AuthenticatorAttachment.h in Headers */,
@@ -44328,7 +44328,7 @@
 				514C76700CE923A1007EF3CD /* FormData.h in Headers */,
 				085B92BB0EFDE73D00E6123C /* FormDataBuilder.h in Headers */,
 				7EE6846712D26E3800E79415 /* FormDataStreamCFNet.h in Headers */,
-				514C764E0CE9234E007EF3CD /* FormDataStreamMac.h in Headers */,
+				514C764E0CE9234E007EF3CD /* FormDataStreamCocoa.h in Headers */,
 				4A0DA2FF129B241900AB61E1 /* FormListedElement.h in Headers */,
 				656D373A0ADBA5DE00A4554D /* FormState.h in Headers */,
 				41885B9311B6FDA6003383BB /* FormSubmission.h in Headers */,

@@ -329,6 +329,13 @@ webrtc/peerConnection-rvfc.html [ Skip ]
 # not implemented.
 imported/w3c/web-platform-tests/webrtc/legacy/munge-dont.html [ Failure ]
 
+imported/w3c/web-platform-tests/webrtc/RTCIceTransport.html?rest [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/RTCRtpParameters-codec.html?rest [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/h264-profile-levels.https.html?interop-2026 [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/protocol/h264-profile-levels.https.html?rest [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/simulcast/negotiation-encodings.https.html?interop-2026 [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/simulcast/negotiation-encodings.https.html?rest [ Pass Failure ]
+
 # The addstream event is not supported anymore.
 imported/w3c/web-platform-tests/webrtc/legacy/onaddstream.https.html [ Skip ]
 
@@ -638,10 +645,6 @@ webkit.org/b/241102 imported/w3c/web-platform-tests/html/semantics/forms/the-sel
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html [ Skip ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-element/customizable-select/min-size-empty-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-element/customizable-select/min-size-empty-002.html [ ImageOnlyFailure ]
-
-# <option> focus outline causes test to fail.
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-option.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-span.html [ ImageOnlyFailure ]
 
 # Picker fallback positioning failures (potentially related to the max-block-size).
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-fallback-bottom-left-scroller.html [ ImageOnlyFailure ]
@@ -3748,7 +3751,6 @@ webkit.org/b/181100 inspector/worker/worker-recover-if-inspector-close.html [ Pa
 
 webkit.org/b/246005 workers/many-nested-workers-no-crash.html [ Skip ]
 
-[ Debug ] imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.html [ Pass Failure ]
 webkit.org/b/186574 media/video-buffering-allowed.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/css-display/display-math-on-pseudo-elements-002.html [ ImageOnlyFailure ]
@@ -3997,6 +3999,26 @@ imported/w3c/web-platform-tests/css/css-overflow/scroll-markers [ Skip ]
 
 webkit.org/b/210731 imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html [ Skip ]
 webkit.org/b/210731 imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html [ Skip ]
+
+imported/w3c/web-platform-tests/IndexedDB/idb-partitioned-coverage.sub.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAll.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllKeys.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllKeys.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllKeys.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_getAllKeys.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_get.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_get.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAll.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllKeys.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_getAllKeys.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.any.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-large.any.worker.html [ Failure ]
 
 webkit.org/b/179176 svg/wicd/test-rightsizing-a.xhtml [ Pass Failure ]
 
@@ -6324,11 +6346,6 @@ fast/text/accessibility-bold-system-font [ Pass Failure ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/streams/transferable/gc-crash.html [ Skip ]
 
-# height: fill-available failures
-webkit.org/b/241104 fast/block/fill-available-with-no-specified-containing-block-height.html [ ImageOnlyFailure ]
-webkit.org/b/241104 fast/block/fill-available-with-absolute-position.html [ ImageOnlyFailure ]
-webkit.org/b/241104 fast/css/fill-available-with-percent-height-no-quirk.html [ ImageOnlyFailure ]
-
 # scroll anchoring failures
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/anchor-inside-textarea.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/multicol-fragmented-anchor.html [ Failure ]
@@ -7873,7 +7890,6 @@ imported/w3c/web-platform-tests/css/CSS2/floats/floats-rule3-outside-right-002.x
 imported/w3c/web-platform-tests/css/CSS2/floats/floats-rule7-outside-left-001.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/floats/floats-rule7-outside-right-001.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/CSS2/floats/floats-wrap-bfc-006.xht [ ImageOnlyFailure ]
-webkit.org/b/239976 imported/w3c/web-platform-tests/css/CSS2/floats/floats-wrap-bfc-with-margin-001a.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/239976 imported/w3c/web-platform-tests/css/CSS2/floats/floats-wrap-bfc-with-margin-002.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/239976 imported/w3c/web-platform-tests/css/CSS2/floats/floats-wrap-bfc-with-margin-003.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/239976 imported/w3c/web-platform-tests/css/CSS2/floats/floats-wrap-bfc-with-margin-004.html [ ImageOnlyFailure ]
