@@ -6559,6 +6559,12 @@ void WebPageProxy::pageScaleFactorDidChange(IPC::Connection& connection, double 
             return;
         process.send(Messages::WebPage::DidScalePage(scaleFactor, { }), pageID);
     });
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    // If the page's scale factor changes, the UI process needs to send an updated AffineTransform to each frame.
+    for (RefPtr frame = m_mainFrame; frame; frame = frame->traverseNext().frame)
+        requestFrameScreenPosition(frame->frameID());
+#endif
 }
 
 void WebPageProxy::viewScaleFactorDidChange(IPC::Connection& connection, double scaleFactor)
@@ -11824,11 +11830,11 @@ void WebPageProxy::mouseEventHandlingCompleted(std::optional<WebEventType> event
     }
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    WTFEndSignpost(event.signpostIdentifier(), HandleMouseEvent);
+    WTFEndSignpost(event.signpostIdentifier(), HandleMouseEvent, "handled: %s", handled ? "yes" : "no");
     for (auto& coalescedEvent : event.coalescedEvents()) {
         if (coalescedEvent.signpostIdentifier() == event.signpostIdentifier())
             continue;
-        WTFEndSignpost(coalescedEvent.signpostIdentifier(), HandleMouseEvent);
+        WTFEndSignpost(coalescedEvent.signpostIdentifier(), HandleMouseEvent, "coalesced with: %" PRIuPTR, event.signpostIdentifier());
     }
 #endif
 
