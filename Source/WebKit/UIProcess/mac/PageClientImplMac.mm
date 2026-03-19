@@ -200,7 +200,7 @@ void PageClientImpl::makeFirstResponder()
     [retainPtr([m_view.get() window]) makeFirstResponder:m_view.get().get()];
 }
     
-bool PageClientImpl::isViewVisible(NSView *view, NSWindow *viewWindow)
+bool PageClientImpl::isViewVisible(NSView *view, NSWindow *viewWindow) const
 {
     auto windowIsOccluded = [&]()->bool {
         return m_impl && m_impl->windowOcclusionDetectionEnabled() && (viewWindow.occlusionState & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible;
@@ -411,6 +411,11 @@ void PageClientImpl::removePDFHUD(PDFPluginIdentifier identifier)
 void PageClientImpl::removeAllPDFHUDs()
 {
     protect(m_impl)->removeAllPDFHUDs();
+}
+
+void PageClientImpl::showPDFHUD(PDFPluginIdentifier identifier)
+{
+    protect(m_impl)->showPDFHUD(identifier);
 }
 
 void PageClientImpl::clearAllEditCommands()
@@ -806,13 +811,12 @@ void PageClientImpl::scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID)
     protect(m_impl)->suppressContentRelativeChildViews(WebViewImpl::ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
 }
 
-void PageClientImpl::didCommitMainFrameData(const MainFrameData& mainFrameData)
-{
-    PageClientImplCocoa::didCommitMainFrameData(mainFrameData);
 #if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
-    [webView() _topScrollStretchDidChange:mainFrameData.topScrollStretch];
-#endif
+void PageClientImpl::topScrollStretchDidChange(CGFloat topScrollStretch)
+{
+    [webView() _topScrollStretchDidChange:topScrollStretch];
 }
+#endif
 
 void PageClientImpl::willBeginViewGesture()
 {
@@ -1207,7 +1211,7 @@ void PageClientImpl::cancelTextRecognitionForVideoInElementFullscreen()
 void PageClientImpl::didChangeLocalInspectorAttachment()
 {
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    m_impl->updateScrollPocket();
+    protect(m_impl)->updateScrollPocket();
 #endif
 }
 

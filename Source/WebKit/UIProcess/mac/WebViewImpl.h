@@ -282,7 +282,12 @@ public:
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&);
     void removePDFHUD(PDFPluginIdentifier);
     void removeAllPDFHUDs();
+    void showPDFHUD(PDFPluginIdentifier);
     RetainPtr<NSSet> pdfHUDs();
+    bool isPointOnPDFHUD(WebCore::FloatPoint locationInView);
+    RetainPtr<NSView> hitTestPDFHUD(WebCore::FloatPoint locationInView);
+
+    bool isViewVisible(NSView *);
 
     void renewGState();
     void setFrameSize(CGSize);
@@ -351,7 +356,7 @@ public:
     void windowDidChangeOcclusionState();
     void windowWillClose();
     void NODELETE windowWillEnterOrExitFullScreen();
-    void NODELETE windowDidEnterOrExitFullScreen();
+    void windowDidEnterOrExitFullScreen();
     void screenDidChangeColorSpace();
     bool shouldDelayWindowOrderingForEvent(NSEvent *);
     bool windowResizeMouseLocationIsInVisibleScrollerThumb(CGPoint);
@@ -857,7 +862,7 @@ public:
     void updateBannerViewFrame();
 #endif
 #if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
-    void topScrollStretchDidChange(uint64_t topScrollStretch);
+    void topScrollStretchDidChange(CGFloat topScrollStretch);
 #endif
 
 #if ENABLE(VIDEO)
@@ -1167,7 +1172,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
-    uint64_t m_cachedTopScrollStretch { 0 };
+    CGFloat m_cachedTopScrollStretch { 0 };
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)

@@ -518,6 +518,7 @@ class PageLoadState;
 class PageLoadStateObserverBase;
 class PlatformXRSystem;
 class PlaybackSessionManagerProxy;
+class ProcessActivityGroupContext;
 class ProcessAssertion;
 class ProcessThrottlerActivity;
 class ProcessThrottlerTimedActivity;
@@ -684,6 +685,7 @@ enum class PDFDisplayMode : uint8_t;
 enum class PasteboardAccessIntent : bool;
 enum class ProcessSwapRequestedByClient : bool;
 enum class ProcessTerminationReason : uint8_t;
+enum class ProcessThrottlerActivityType : bool;
 enum class QuickLookPreviewActivity : uint8_t;
 enum class RespectSelectionAnchor : bool;
 enum class SOAuthorizationLoadPolicy : bool;
@@ -2520,6 +2522,7 @@ public:
     void createPDFHUD(PDFPluginIdentifier, WebCore::FrameIdentifier, const WebCore::IntRect&);
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&);
     void removePDFHUD(PDFPluginIdentifier);
+    void showPDFHUD(PDFPluginIdentifier);
 #endif
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)
@@ -2888,6 +2891,8 @@ public:
 
     WebProcessActivityState& processActivityState() LIFETIME_BOUND { return m_mainFrameProcessActivityState; }
 
+    ProcessActivityGroupContext& activityGroupContext();
+
 #if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
     void updateWebProcessSuspensionDelay();
 #endif
@@ -2955,6 +2960,9 @@ public:
     bool hasValidNetworkActivity() const;
 
     void takeActivitiesOnRemotePage(RemotePageProxy&);
+
+    void didCreateRemotePage(RemotePageProxy&);
+    void willDestroyRemotePage(RemotePageProxy&);
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     RefPtr<WebDeviceOrientationUpdateProviderProxy> NODELETE webDeviceOrientationUpdateProviderProxy();
@@ -3673,6 +3681,8 @@ private:
 
     WebProcessProxy& processForTheFrameItem(WebBackForwardListFrameItem&) const;
     Ref<FrameState> copyFrameStateForBackForwardNavigation(WebBackForwardListFrameItem&) const;
+
+    void setClientNavigationActivity(API::Navigation&);
 
     const UniqueRef<Internals> m_internals;
     Identifier m_identifier;

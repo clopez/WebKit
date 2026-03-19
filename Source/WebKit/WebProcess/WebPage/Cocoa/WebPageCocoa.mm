@@ -34,6 +34,7 @@
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
 #import "PDFPlugin.h"
+#import "PDFPluginBase.h"
 #import "PluginView.h"
 #import "PositionInformationForWebPage.h"
 #import "PrintInfo.h"
@@ -2293,12 +2294,6 @@ void WebPage::willCommitMainFrameData(MainFrameData& data, const TransactionID& 
         m_pendingEditorStateUpdateStatus = PendingEditorStateUpdateStatus::NotScheduled;
         m_needsEditorStateVisualDataUpdate = false;
     }
-
-#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
-    auto scrollOrigin = mainFrameView->scrollOrigin();
-    auto scrollPosition = mainFrameView->scrollPosition();
-    data.topScrollStretch = static_cast<uint64_t>(std::max(0, -scrollOrigin.y() - scrollPosition.y()));
-#endif
 }
 
 void WebPage::didFlushLayerTreeAtTime(MonotonicTime timestamp, bool flushSucceeded)

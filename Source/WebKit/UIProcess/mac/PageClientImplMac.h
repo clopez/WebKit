@@ -207,7 +207,9 @@ private:
 
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
 
-    void didCommitMainFrameData(const MainFrameData&) override;
+#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+    void topScrollStretchDidChange(CGFloat) override;
+#endif
 
     void registerInsertionUndoGrouping() override;
 
@@ -215,6 +217,7 @@ private:
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) override;
     void removePDFHUD(PDFPluginIdentifier) override;
     void removeAllPDFHUDs() override;
+    void showPDFHUD(PDFPluginIdentifier) final;
 
 #if ENABLE(FULLSCREEN_API)
     WebFullScreenManagerProxyClient& NODELETE fullScreenManagerProxyClient() final;
@@ -335,7 +338,7 @@ private:
 
     void positionInformationDidChange(const InteractionInformationAtPosition&) override;
 
-    bool isViewVisible(NSView *, NSWindow *);
+    bool isViewVisible(NSView *, NSWindow *) const final;
 
     WeakObjCPtr<NSView> m_view;
     WeakPtr<WebViewImpl> m_impl;

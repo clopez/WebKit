@@ -296,7 +296,7 @@
 		07E9E12E18F5E2760011A3A4 /* InbandMetadataTextTrackPrivateAVF.h in Headers */ = {isa = PBXBuildFile; fileRef = 07E9E12D18F5E2760011A3A4 /* InbandMetadataTextTrackPrivateAVF.h */; };
 		07ED19382762769400AF1EC5 /* DisplayCaptureManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 07ED19372762769400AF1EC5 /* DisplayCaptureManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07EE76EC1BE96DB000F89133 /* MockRealtimeVideoSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 07EE76EA1BE96DB000F89133 /* MockRealtimeVideoSource.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		07EE76EF1BEA619800F89133 /* MockRealtimeVideoSourceMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceMac.h */; };
+		07EE76EF1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.h */; };
 		07F4E93320B3587F002E3803 /* AVAssetMIMETypeCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 07C8AD121D073D630087C5CE /* AVAssetMIMETypeCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07F5CFF52582A51D00662EF5 /* WebMAudioUtilitiesCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 07F5CFF42582A4F800662EF5 /* WebMAudioUtilitiesCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07F5CFF62582A52900662EF5 /* WebMAudioUtilitiesCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 07F5CFF22582A4F800662EF5 /* WebMAudioUtilitiesCocoa.mm */; };
@@ -7781,8 +7781,8 @@
 		07ED19372762769400AF1EC5 /* DisplayCaptureManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DisplayCaptureManager.h; sourceTree = "<group>"; };
 		07EE76E91BE96DB000F89133 /* MockRealtimeVideoSource.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MockRealtimeVideoSource.cpp; sourceTree = "<group>"; };
 		07EE76EA1BE96DB000F89133 /* MockRealtimeVideoSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MockRealtimeVideoSource.h; sourceTree = "<group>"; };
-		07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MockRealtimeVideoSourceMac.h; sourceTree = "<group>"; };
-		07EE76EE1BEA619800F89133 /* MockRealtimeVideoSourceMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MockRealtimeVideoSourceMac.mm; sourceTree = "<group>"; };
+		07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MockRealtimeVideoSourceCocoa.h; sourceTree = "<group>"; };
+		07EE76EE1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MockRealtimeVideoSourceCocoa.mm; sourceTree = "<group>"; };
 		07F5CFF22582A4F800662EF5 /* WebMAudioUtilitiesCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebMAudioUtilitiesCocoa.mm; sourceTree = "<group>"; };
 		07F5CFF42582A4F800662EF5 /* WebMAudioUtilitiesCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebMAudioUtilitiesCocoa.h; sourceTree = "<group>"; };
 		07FDA6B32E16CA53008482F8 /* MediaSessionManagerInterface.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaSessionManagerInterface.cpp; sourceTree = "<group>"; };
@@ -10781,7 +10781,7 @@
 		416A069623CCAA9F00347109 /* AudioMediaStreamTrackRenderer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioMediaStreamTrackRenderer.h; sourceTree = "<group>"; };
 		416A3A802B7D1CA200B855CF /* RTCLogsCallback.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RTCLogsCallback.h; sourceTree = "<group>"; };
 		416A3A812B7D1CA300B855CF /* RTCLogsCallback.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = RTCLogsCallback.idl; sourceTree = "<group>"; };
-		416CE4A4229DF12E00A8A686 /* RealtimeMediaSourceCenterMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RealtimeMediaSourceCenterMac.mm; sourceTree = "<group>"; };
+		416CE4A4229DF12E00A8A686 /* RealtimeMediaSourceCenterCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RealtimeMediaSourceCenterCocoa.mm; sourceTree = "<group>"; };
 		416D759F20C6441300D02D2C /* NetworkLoadInformation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkLoadInformation.h; sourceTree = "<group>"; };
 		416E0B37209BC3C2004A95D9 /* FetchIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FetchIdentifier.h; sourceTree = "<group>"; };
 		416E29A5102FA962007FC14E /* WorkerReportingProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WorkerReportingProxy.h; sourceTree = "<group>"; };
@@ -11971,7 +11971,7 @@
 		4A0FFA9C1AAF5E6C0062803B /* MockRealtimeMediaSourceCenter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MockRealtimeMediaSourceCenter.h; sourceTree = "<group>"; };
 		4A0FFA9F1AAF5EA20062803B /* RealtimeMediaSourceCenter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RealtimeMediaSourceCenter.cpp; sourceTree = "<group>"; };
 		4A0FFAA01AAF5EA20062803B /* RealtimeMediaSourceCenter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RealtimeMediaSourceCenter.h; sourceTree = "<group>"; };
-		4A0FFAA31AAF5EF60062803B /* RealtimeMediaSourceCenterMac.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RealtimeMediaSourceCenterMac.cpp; sourceTree = "<group>"; };
+		4A0FFAA31AAF5EF60062803B /* RealtimeMediaSourceCenterCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RealtimeMediaSourceCenterCocoa.cpp; sourceTree = "<group>"; };
 		4A38BF4E14FE1C0900612512 /* WebSocketDeflateFramer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebSocketDeflateFramer.cpp; sourceTree = "<group>"; };
 		4A38BF4F14FE1C0900612512 /* WebSocketDeflateFramer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebSocketDeflateFramer.h; sourceTree = "<group>"; };
 		4A4F48A716B0DFC000EDBB29 /* StyleScopeRuleSets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StyleScopeRuleSets.cpp; sourceTree = "<group>"; };
@@ -23589,7 +23589,6 @@
 				41C3B89A2649B18E004ED4DE /* cocoa */,
 				CDC6751F1EAEA99600727C84 /* ios */,
 				415747421E38698000E914D8 /* libwebrtc */,
-				0729B14D17CFCCA0004F1D60 /* mac */,
 				416A069523CCAA9E00347109 /* AudioMediaStreamTrackRenderer.cpp */,
 				416A069623CCAA9F00347109 /* AudioMediaStreamTrackRenderer.h */,
 				416A069423CCAA9E00347109 /* AudioTrackPrivateMediaStream.cpp */,
@@ -23683,54 +23682,6 @@
 				9A9FA6EF2896E9EB0055A13B /* WebRTCProvider.h */,
 			);
 			path = mediastream;
-			sourceTree = "<group>";
-		};
-		0729B14D17CFCCA0004F1D60 /* mac */ = {
-			isa = PBXGroup;
-			children = (
-				070363DA181A1CDC00C074A5 /* AVCaptureDeviceManager.h */,
-				070363DB181A1CDC00C074A5 /* AVCaptureDeviceManager.mm */,
-				070363DE181A1CDC00C074A5 /* AVVideoCaptureSource.h */,
-				070363DF181A1CDC00C074A5 /* AVVideoCaptureSource.mm */,
-				4177F51C2382544000C04486 /* BaseAudioCaptureUnit.cpp */,
-				4177F51E2382545E00C04486 /* BaseAudioCaptureUnit.h */,
-				3F8020311E9E381D00DEC61D /* CoreAudioCaptureDevice.cpp */,
-				3F8020321E9E381D00DEC61D /* CoreAudioCaptureDevice.h */,
-				3F8020331E9E381D00DEC61D /* CoreAudioCaptureDeviceManager.cpp */,
-				3F8020341E9E381D00DEC61D /* CoreAudioCaptureDeviceManager.h */,
-				41B8826A2C87050600DD614D /* CoreAudioCaptureInternalUnit.h */,
-				3F3BB5821E709EE400C701F2 /* CoreAudioCaptureSource.cpp */,
-				3F3BB5831E709EE400C701F2 /* CoreAudioCaptureSource.h */,
-				410AD2DF2822BBF6009C93C8 /* CoreAudioCaptureUnit.cpp */,
-				410AD2DE2822BBF6009C93C8 /* CoreAudioCaptureUnit.h */,
-				418BC5DF2C5CBDB600152089 /* CoreAudioCaptureUnit.mm */,
-				07A6D8481FEB700B006441DE /* DisplayCaptureManagerCocoa.cpp */,
-				07A6D8491FEB700C006441DE /* DisplayCaptureManagerCocoa.h */,
-				4174E9202535DCDD00FE4202 /* MediaStreamTrackAudioSourceProviderCocoa.cpp */,
-				4174E91E2535DCD600FE4202 /* MediaStreamTrackAudioSourceProviderCocoa.h */,
-				0744ECEB1E0C4AE5000D0944 /* MockAudioCaptureUnit.h */,
-				0744ECEC1E0C4AE5000D0944 /* MockAudioCaptureUnit.mm */,
-				07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceMac.h */,
-				07EE76EE1BEA619800F89133 /* MockRealtimeVideoSourceMac.mm */,
-				41103AAA1E39790A00769F14 /* RealtimeIncomingAudioSourceCocoa.cpp */,
-				41103AA91E39790A00769F14 /* RealtimeIncomingAudioSourceCocoa.h */,
-				41CB840025CAB7B00010E2B1 /* RealtimeIncomingVideoSourceCocoa.h */,
-				5CDD83391E4324BB00621E83 /* RealtimeIncomingVideoSourceCocoa.mm */,
-				4A0FFAA31AAF5EF60062803B /* RealtimeMediaSourceCenterMac.cpp */,
-				416CE4A4229DF12E00A8A686 /* RealtimeMediaSourceCenterMac.mm */,
-				41103AA71E39790A00769F14 /* RealtimeOutgoingAudioSourceCocoa.cpp */,
-				41103AA81E39790A00769F14 /* RealtimeOutgoingAudioSourceCocoa.h */,
-				5CDD833B1E4324BB00621B83 /* RealtimeOutgoingVideoSourceCocoa.cpp */,
-				5CDD833C1E4324BB00621B83 /* RealtimeOutgoingVideoSourceCocoa.h */,
-				41D1938F2152C561006F14CA /* RealtimeVideoUtilities.h */,
-				070BED97273F415600583926 /* ScreenCaptureKitCaptureSource.h */,
-				070BED96273F415600583926 /* ScreenCaptureKitCaptureSource.mm */,
-				07035D3227A9B60B00FB03E4 /* ScreenCaptureKitSharingSessionManager.h */,
-				07035D3427A9B61100FB03E4 /* ScreenCaptureKitSharingSessionManager.mm */,
-				07D6373E1BB0B11300256CE9 /* WebAudioSourceProviderCocoa.h */,
-				07D6373F1BB0B11300256CE9 /* WebAudioSourceProviderCocoa.mm */,
-			);
-			path = mac;
 			sourceTree = "<group>";
 		};
 		072AE1DE183C0513000A5988 /* plugins */ = {
@@ -27116,11 +27067,52 @@
 				41C3B89F2649B1B7004ED4DE /* AudioMediaStreamTrackRendererInternalUnit.h */,
 				41C3B8A02649B1B7004ED4DE /* AudioMediaStreamTrackRendererUnit.cpp */,
 				41C3B89B2649B1B6004ED4DE /* AudioMediaStreamTrackRendererUnit.h */,
+				070363DA181A1CDC00C074A5 /* AVCaptureDeviceManager.h */,
+				070363DB181A1CDC00C074A5 /* AVCaptureDeviceManager.mm */,
+				070363DE181A1CDC00C074A5 /* AVVideoCaptureSource.h */,
+				070363DF181A1CDC00C074A5 /* AVVideoCaptureSource.mm */,
+				4177F51C2382544000C04486 /* BaseAudioCaptureUnit.cpp */,
+				4177F51E2382545E00C04486 /* BaseAudioCaptureUnit.h */,
 				41878FA827282055002E1EDD /* BaseAudioMediaStreamTrackRendererUnit.h */,
+				3F8020311E9E381D00DEC61D /* CoreAudioCaptureDevice.cpp */,
+				3F8020321E9E381D00DEC61D /* CoreAudioCaptureDevice.h */,
+				3F8020331E9E381D00DEC61D /* CoreAudioCaptureDeviceManager.cpp */,
+				3F8020341E9E381D00DEC61D /* CoreAudioCaptureDeviceManager.h */,
+				41B8826A2C87050600DD614D /* CoreAudioCaptureInternalUnit.h */,
+				3F3BB5821E709EE400C701F2 /* CoreAudioCaptureSource.cpp */,
+				3F3BB5831E709EE400C701F2 /* CoreAudioCaptureSource.h */,
+				410AD2DF2822BBF6009C93C8 /* CoreAudioCaptureUnit.cpp */,
+				410AD2DE2822BBF6009C93C8 /* CoreAudioCaptureUnit.h */,
+				418BC5DF2C5CBDB600152089 /* CoreAudioCaptureUnit.mm */,
+				07A6D8481FEB700B006441DE /* DisplayCaptureManagerCocoa.cpp */,
+				07A6D8491FEB700C006441DE /* DisplayCaptureManagerCocoa.h */,
 				07BB1E6E27176CCA001DF289 /* DisplayCaptureSourceCocoa.cpp */,
 				07BB1E6F27176CCA001DF289 /* DisplayCaptureSourceCocoa.h */,
 				41878FAB272934E6002E1EDD /* IncomingAudioMediaStreamTrackRendererUnit.cpp */,
 				41878FAA27282057002E1EDD /* IncomingAudioMediaStreamTrackRendererUnit.h */,
+				4174E9202535DCDD00FE4202 /* MediaStreamTrackAudioSourceProviderCocoa.cpp */,
+				4174E91E2535DCD600FE4202 /* MediaStreamTrackAudioSourceProviderCocoa.h */,
+				0744ECEB1E0C4AE5000D0944 /* MockAudioCaptureUnit.h */,
+				0744ECEC1E0C4AE5000D0944 /* MockAudioCaptureUnit.mm */,
+				07EE76ED1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.h */,
+				07EE76EE1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.mm */,
+				41103AAA1E39790A00769F14 /* RealtimeIncomingAudioSourceCocoa.cpp */,
+				41103AA91E39790A00769F14 /* RealtimeIncomingAudioSourceCocoa.h */,
+				41CB840025CAB7B00010E2B1 /* RealtimeIncomingVideoSourceCocoa.h */,
+				5CDD83391E4324BB00621E83 /* RealtimeIncomingVideoSourceCocoa.mm */,
+				4A0FFAA31AAF5EF60062803B /* RealtimeMediaSourceCenterCocoa.cpp */,
+				416CE4A4229DF12E00A8A686 /* RealtimeMediaSourceCenterCocoa.mm */,
+				41103AA71E39790A00769F14 /* RealtimeOutgoingAudioSourceCocoa.cpp */,
+				41103AA81E39790A00769F14 /* RealtimeOutgoingAudioSourceCocoa.h */,
+				5CDD833B1E4324BB00621B83 /* RealtimeOutgoingVideoSourceCocoa.cpp */,
+				5CDD833C1E4324BB00621B83 /* RealtimeOutgoingVideoSourceCocoa.h */,
+				41D1938F2152C561006F14CA /* RealtimeVideoUtilities.h */,
+				070BED97273F415600583926 /* ScreenCaptureKitCaptureSource.h */,
+				070BED96273F415600583926 /* ScreenCaptureKitCaptureSource.mm */,
+				07035D3227A9B60B00FB03E4 /* ScreenCaptureKitSharingSessionManager.h */,
+				07035D3427A9B61100FB03E4 /* ScreenCaptureKitSharingSessionManager.mm */,
+				07D6373E1BB0B11300256CE9 /* WebAudioSourceProviderCocoa.h */,
+				07D6373F1BB0B11300256CE9 /* WebAudioSourceProviderCocoa.mm */,
 			);
 			path = cocoa;
 			sourceTree = "<group>";
@@ -46233,7 +46225,7 @@
 				07D6A4F41BED5F8800174146 /* MockRealtimeAudioSource.h in Headers */,
 				4A0FFA9E1AAF5E7E0062803B /* MockRealtimeMediaSourceCenter.h in Headers */,
 				07EE76EC1BE96DB000F89133 /* MockRealtimeVideoSource.h in Headers */,
-				07EE76EF1BEA619800F89133 /* MockRealtimeVideoSourceMac.h in Headers */,
+				07EE76EF1BEA619800F89133 /* MockRealtimeVideoSourceCocoa.h in Headers */,
 				CDF2B0171820540700F2B424 /* MockSourceBufferPrivate.h in Headers */,
 				CDF2B0191820540700F2B424 /* MockTracks.h in Headers */,
 				5715610C234C1CA1008FC7AB /* MockWebAuthenticationConfiguration.h in Headers */,
