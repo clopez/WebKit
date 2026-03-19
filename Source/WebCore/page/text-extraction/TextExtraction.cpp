@@ -62,6 +62,7 @@
 #include "HandleUserInputEventResult.h"
 #include "HighlightRegistry.h"
 #include "HitTestResult.h"
+#include "ICUSearcher.h"
 #include "Image.h"
 #include "ImageOverlay.h"
 #include "JSNode.h"
@@ -500,6 +501,13 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
     if (!element)
         return { SkipExtraction::Self };
+
+    if (element->isInUserAgentShadowTree()) {
+        if (RefPtr input = dynamicDowncast<HTMLInputElement>(element->shadowHost())) {
+            if (element == input->autoFillButtonElement())
+                return { SkipExtraction::SelfAndSubtree };
+        }
+    }
 
     if (element->isLink()) {
         if (auto href = element->attributeWithoutSynchronization(HTMLNames::hrefAttr); !href.isEmpty()) {
