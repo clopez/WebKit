@@ -2529,17 +2529,15 @@ void WebsiteDataStore::originDirectoryForTesting(WebCore::ClientOrigin&& origin,
     protect(networkProcess())->websiteDataOriginDirectoryForTesting(m_sessionID, WTF::move(origin), type, WTF::move(completionHandler));
 }
 
-<<<<<<< HEAD
 void WebsiteDataStore::lastPageLoadNetworkActivityCompletionCodeForTesting(WebCore::PageIdentifier pageID, CompletionHandler<void(std::optional<NetworkActivityTracker::CompletionCode>)>&& completionHandler)
 {
     protect(networkProcess())->lastPageLoadNetworkActivityCompletionCodeForTesting(m_sessionID, pageID, WTF::move(completionHandler));
-||||||| parent of 108ba3a45527 (chore(webkit): bootstrap build #2271)
-=======
+}
+
 void WebsiteDataStore::setDownloadForAutomation(std::optional<bool> allow, const String& downloadPath)
 {
     m_allowDownloadForAutomation = allow;
     m_downloadPathForAutomation = downloadPath;
->>>>>>> 108ba3a45527 (chore(webkit): bootstrap build #2271)
 }
 
 #if ENABLE(APP_BOUND_DOMAINS)
