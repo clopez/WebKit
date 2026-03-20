@@ -424,12 +424,8 @@ UIProcess/ModelElementController.cpp
 UIProcess/OverrideLanguages.cpp
 UIProcess/PageClient.cpp
 UIProcess/PageLoadState.cpp
-<<<<<<< HEAD
-UIProcess/ProcessActivityGroup.cpp
-||||||| parent of 108ba3a45527 (chore(webkit): bootstrap build #2271)
-=======
 UIProcess/PlaywrightFullScreenManagerProxyClient.cpp
->>>>>>> 108ba3a45527 (chore(webkit): bootstrap build #2271)
+UIProcess/ProcessActivityGroup.cpp
 UIProcess/ProcessAssertion.cpp
 UIProcess/ProcessThrottler.cpp
 UIProcess/ProvisionalFrameProxy.cpp
