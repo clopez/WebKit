@@ -5533,8 +5533,9 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
         RefPtr<EventTarget> pointerTarget = touchTarget;
 
         if (pointState != PlatformTouchPoint::TouchPressed) {
+#if PLATFORM(WPE) || PLATFORM(GTK)
             pointerTarget = protect(document->page())->pointerCaptureController().pointerCaptureElement(document.ptr(), PointerEvent::pointerIdForTouchPoint(point));
-
+#endif
             if (!pointerTarget) {
                 HitTestResult result = hitTestResultAtPoint(pagePoint, hitType | HitTestRequest::Type::AllowChildFrameContent);
                 pointerTarget = result.targetElement();
