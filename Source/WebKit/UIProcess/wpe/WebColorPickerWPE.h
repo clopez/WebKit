@@ -43,7 +43,7 @@ public:
     virtual ~WebColorPickerWPE();
 
     void endPicker() override;
-    void showColorPicker(const WebCore::Color&) override;
+    void showColorPicker(const WebCore::Color&, const WebCore::IntRect&) override;
 
 protected:
     WebColorPickerWPE(WebPageProxy&, const WebCore::Color&, const WebCore::IntRect&, std::optional<WebCore::FrameIdentifier> = std::nullopt);

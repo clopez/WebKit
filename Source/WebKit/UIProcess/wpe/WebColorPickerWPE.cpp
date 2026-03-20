@@ -50,7 +50,7 @@ void WebColorPickerWPE::endPicker()
 {
 }
 
-void WebColorPickerWPE::showColorPicker(const Color& color)
+void WebColorPickerWPE::showColorPicker(const Color& color, const IntRect&)
 {
 }
 
