@@ -20,7 +20,7 @@
 #ifndef PlatformTouchPoint_h
 #define PlatformTouchPoint_h
 
-#include "DoublePoint.h"
+#include <WebCore/DoublePoint.h>
 
 #if ENABLE(TOUCH_EVENTS)
 
@@ -47,6 +47,34 @@ public:
     {
     }
 
+<<<<<<< HEAD
+||||||| parent of f70c3808cd59 (chore(webkit): bootstrap build #2271)
+#if PLATFORM(WPE)
+    // FIXME: since WPE currently does not send touch stationary events, we need to be able to
+    // create a PlatformTouchPoint of type TouchCancelled artificially
+    PlatformTouchPoint(unsigned id, State state, DoublePoint screenPos, DoublePoint pos)
+        : m_id(id)
+        , m_state(state)
+        , m_screenPos(screenPos)
+        , m_pos(pos)
+    {
+    }
+#endif
+
+=======
+#if !ENABLE(IOS_TOUCH_EVENTS)
+    // FIXME: since WPE currently does not send touch stationary events, we need to be able to
+    // create a PlatformTouchPoint of type TouchCancelled artificially
+    PlatformTouchPoint(unsigned id, State state, DoublePoint screenPos, DoublePoint pos)
+        : m_id(id)
+        , m_state(state)
+        , m_screenPos(screenPos)
+        , m_pos(pos)
+    {
+    }
+#endif
+
+>>>>>>> f70c3808cd59 (chore(webkit): bootstrap build #2271)
     unsigned id() const { return m_id; }
     State state() const { return m_state; }
     DoublePoint screenPos() const { return m_screenPos; }
