@@ -5473,16 +5473,6 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
 
         // Increment the platform touch id by 1 to avoid storing a key of 0 in the hashmap.
         unsigned touchPointTargetKey = point.id() + 1;
-<<<<<<< HEAD
-||||||| parent of 108ba3a45527 (chore(webkit): bootstrap build #2271)
-#if PLATFORM(WPE)
-        bool pointerCancelled = false;
-#endif
-=======
-#if !ENABLE(IOS_TOUCH_EVENTS)
-        bool pointerCancelled = false;
-#endif
->>>>>>> 108ba3a45527 (chore(webkit): bootstrap build #2271)
         RefPtr<EventTarget> touchTarget;
         if (pointState == PlatformTouchPoint::TouchPressed) {
             HitTestResult result;
@@ -5524,22 +5514,6 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
             // The target should be the original target for this touch, so get it from the hashmap. As it's a release or cancel
             // we also remove it from the map.
             touchTarget = m_originatingTouchPointTargets.take(touchPointTargetKey);
-<<<<<<< HEAD
-||||||| parent of 108ba3a45527 (chore(webkit): bootstrap build #2271)
-
-#if PLATFORM(WPE)
-            HitTestResult result = hitTestResultAtPoint(pagePoint, hitType | HitTestRequest::Type::AllowChildFrameContent);
-            pointerTarget = result.targetElement();
-            pointerCancelled = (pointerTarget != touchTarget);
-#endif
-=======
-
-#if !ENABLE(IOS_TOUCH_EVENTS)
-            HitTestResult result = hitTestResultAtPoint(pagePoint, hitType | HitTestRequest::Type::AllowChildFrameContent);
-            pointerTarget = result.targetElement();
-            pointerCancelled = (pointerTarget != touchTarget);
-#endif
->>>>>>> 108ba3a45527 (chore(webkit): bootstrap build #2271)
         } else {
             // No hittest is performed on move or stationary, since the target is not allowed to change anyway.
             touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey);
@@ -5555,8 +5529,7 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
         if (!targetFrame)
             continue;
 
-<<<<<<< HEAD
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if !ENABLE(IOS_TOUCH_EVENTS)
         RefPtr<EventTarget> pointerTarget = touchTarget;
 
         if (pointState != PlatformTouchPoint::TouchPressed) {
@@ -5571,39 +5544,6 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
             }
         }
 
-||||||| parent of 108ba3a45527 (chore(webkit): bootstrap build #2271)
-#if PLATFORM(WPE)
-        // FIXME: WPE currently does not send touch stationary events, so create a naive TouchReleased PlatformTouchPoint
-        // on release if the hit test result changed since the previous TouchPressed or TouchMoved
-        if (pointState == PlatformTouchPoint::TouchReleased && pointerCancelled) {
-            PlatformTouchEvent cancelEvent = event;
-            Vector<PlatformTouchPoint> cancelEventPoints = event.touchPoints();
-            cancelEventPoints.at(index) = PlatformTouchPoint(
-                point.id(), PlatformTouchPoint::State::TouchCancelled, point.screenPos(), point.pos());
-            cancelEvent.setTouchPoints(cancelEventPoints);
-            protect(document->page())->pointerCaptureController().dispatchEventForTouchAtIndex(
-                *touchTarget, cancelEvent, index, !index, *document->windowProxy(), { 0, 0 });
-        }
-#endif
-
-#if PLATFORM(WPE) || PLATFORM(GTK)
-=======
-#if !ENABLE(IOS_TOUCH_EVENTS)
-        // FIXME: WPE currently does not send touch stationary events, so create a naive TouchReleased PlatformTouchPoint
-        // on release if the hit test result changed since the previous TouchPressed or TouchMoved
-        if (pointState == PlatformTouchPoint::TouchReleased && pointerCancelled) {
-            PlatformTouchEvent cancelEvent = event;
-            Vector<PlatformTouchPoint> cancelEventPoints = event.touchPoints();
-            cancelEventPoints.at(index) = PlatformTouchPoint(
-                point.id(), PlatformTouchPoint::State::TouchCancelled, point.screenPos(), point.pos());
-            cancelEvent.setTouchPoints(cancelEventPoints);
-            protect(document->page())->pointerCaptureController().dispatchEventForTouchAtIndex(
-                *touchTarget, cancelEvent, index, !index, *document->windowProxy(), { 0, 0 });
-        }
-#endif
-
-#if !ENABLE(IOS_TOUCH_EVENTS)
->>>>>>> 108ba3a45527 (chore(webkit): bootstrap build #2271)
         // FIXME: Pass the touch delta for pointermove events by remembering the position per pointerID similar to
         // Apple's m_touchLastGlobalPositionAndDeltaMap
         protect(document->page())->pointerCaptureController().dispatchEventForTouchAtIndex(
