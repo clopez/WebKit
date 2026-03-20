@@ -1064,6 +1064,20 @@ CSSAppearanceBaseEnabled:
     WebCore:
       default: false
 
+CSSAttrSubstitutionFunctionEnabled:
+  type: bool
+  category: css
+  status: testable
+  humanReadableName: "CSS attr() substitution function"
+  humanReadableDescription: "Enable CSS Values 5 attr() arbitrary substitution function"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSAxisRelativePositionKeywordsEnabled:
   type: bool
   category: css
@@ -1842,6 +1856,20 @@ CloseWatcherEnabled:
   category: html
   humanReadableName: "Close Watcher API"
   humanReadableDescription: "Enable Close Watcher API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+ClosedbyAttributeEnabled:
+  type: bool
+  status: testable
+  category: html
+  humanReadableName: "HTML closedby attribute"
+  humanReadableDescription: "Enable HTML closedby attribute support"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -8369,7 +8397,7 @@ ThreadedTimeBasedAnimationsAtHighFrameRateEnabled:
 
 ThreadedTimeBasedAnimationsEnabled:
   type: bool
-  status: stable
+  status: preview
   category: animation
   humanReadableName: "Threaded Time-based Animations"
   humanReadableDescription: "Run qualifying time-based animations on a separate thread"
@@ -8378,9 +8406,9 @@ ThreadedTimeBasedAnimationsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
 TiledScrollingIndicatorVisible:
