@@ -3154,6 +3154,7 @@ style/StyleResolver.cpp
 style/StyleScope.cpp
 style/StyleScopeRuleSets.cpp
 style/StyleSheetContentsCache.cpp
+style/StyleSubstitutionResolver.cpp
 style/StyleTransformResolver.cpp
 style/StyleTreeResolver.cpp
 style/StyleUpdate.cpp
@@ -4738,7 +4739,7 @@ JSRTCPeerConnectionState.cpp
 JSRTCPriorityType.cpp
 JSRTCRtcpParameters.cpp
 JSRTCRtpCapabilities.cpp
-JSRTCRtpCodecCapability.cpp
+JSRTCRtpCodec.cpp
 JSRTCRtpCodecParameters.cpp
 JSRTCRtpContributingSource.cpp
 JSRTCRtpEncodingParameters.cpp

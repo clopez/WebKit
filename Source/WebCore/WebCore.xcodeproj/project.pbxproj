@@ -1330,6 +1330,7 @@
 		410B7F032EF587B9001217C2 /* MediaStreamTrackHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = 410B7F002EF57D27001217C2 /* MediaStreamTrackHandle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		410BCF5626F0CD8C0040B124 /* RTCLocalSessionDescriptionInit.h in Headers */ = {isa = PBXBuildFile; fileRef = 410BCF5326F0CD8B0040B124 /* RTCLocalSessionDescriptionInit.h */; };
 		410C48A7280420F80084D104 /* WorkerInitializationData.h in Headers */ = {isa = PBXBuildFile; fileRef = 410C48A6280420F20084D104 /* WorkerInitializationData.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		410E1FC12F698AB40042D68E /* RTCRtpCodec.h in Headers */ = {isa = PBXBuildFile; fileRef = 410E1FBE2F6984850042D68E /* RTCRtpCodec.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		410E4461234373E9000173D4 /* LibWebRTCSocketIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 410E445F234373AD000173D4 /* LibWebRTCSocketIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		41100C8023F74583001BC33B /* WebSocketChannelInspector.h in Headers */ = {isa = PBXBuildFile; fileRef = 41100C7E23F73982001BC33B /* WebSocketChannelInspector.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		41103AAC1E39791000769F03 /* RealtimeOutgoingAudioSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 41103AA81E39790A00769F03 /* RealtimeOutgoingAudioSource.h */; };
@@ -1478,7 +1479,6 @@
 		418F88050FF957AF0080F045 /* JSAbstractWorker.h in Headers */ = {isa = PBXBuildFile; fileRef = 418F88030FF957AE0080F045 /* JSAbstractWorker.h */; };
 		418FCBC12706E4FB00F96ECA /* PushEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 418FCBBD2706E4F700F96ECA /* PushEvent.h */; };
 		418FCBC22706E50100F96ECA /* PushEventInit.h in Headers */ = {isa = PBXBuildFile; fileRef = 418FCBBF2706E4F800F96ECA /* PushEventInit.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		418FCBE72715A28F00F96ECA /* RTCRtpCodecCapability.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E0A7DC23BB63DB00561060 /* RTCRtpCodecCapability.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4190F3A524A0B4EE00531C57 /* FrameRateMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 4190F3A3249D152800531C57 /* FrameRateMonitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4191981829950767007576C8 /* FetchHeadersGuard.h in Headers */ = {isa = PBXBuildFile; fileRef = 4191981729950763007576C8 /* FetchHeadersGuard.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4192BB1327CF638600F29A46 /* PageIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 4192BB1227CF638300F29A46 /* PageIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -10544,6 +10544,8 @@
 		410BCF5326F0CD8B0040B124 /* RTCLocalSessionDescriptionInit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RTCLocalSessionDescriptionInit.h; sourceTree = "<group>"; };
 		410BCF5526F0CD8C0040B124 /* RTCLocalSessionDescriptionInit.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RTCLocalSessionDescriptionInit.idl; sourceTree = "<group>"; };
 		410C48A6280420F20084D104 /* WorkerInitializationData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WorkerInitializationData.h; sourceTree = "<group>"; };
+		410E1FBE2F6984850042D68E /* RTCRtpCodec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RTCRtpCodec.h; sourceTree = "<group>"; };
+		410E1FBF2F6984850042D68E /* RTCRtpCodec.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = RTCRtpCodec.idl; sourceTree = "<group>"; };
 		410E445F234373AD000173D4 /* LibWebRTCSocketIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LibWebRTCSocketIdentifier.h; path = libwebrtc/LibWebRTCSocketIdentifier.h; sourceTree = "<group>"; };
 		410F565524FCF70500A2E50C /* RTCSessionDescriptionInit.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RTCSessionDescriptionInit.idl; sourceTree = "<group>"; };
 		410F565724FCF7C700A2E50C /* RTCIceCandidateInit.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RTCIceCandidateInit.idl; sourceTree = "<group>"; };
@@ -11138,8 +11140,6 @@
 		41DEFCB41E56C1B9000D9E5F /* JSDOMMapLike.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSDOMMapLike.h; sourceTree = "<group>"; };
 		41E0311A28AE1B4900DA9D63 /* RTCIceCandidateFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RTCIceCandidateFields.h; sourceTree = "<group>"; };
 		41E0313028AF825B00DA9D63 /* RTCIceCandidateFields.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RTCIceCandidateFields.cpp; sourceTree = "<group>"; };
-		41E0A7D923BB590100561060 /* RTCRtpCodecCapability.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RTCRtpCodecCapability.idl; sourceTree = "<group>"; };
-		41E0A7DC23BB63DB00561060 /* RTCRtpCodecCapability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RTCRtpCodecCapability.h; sourceTree = "<group>"; };
 		41E12E9D24FE74E20093FFB4 /* WebSocketIdentifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebSocketIdentifier.h; sourceTree = "<group>"; };
 		41E1B1CA0FF5986900576B3B /* AbstractWorker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AbstractWorker.cpp; sourceTree = "<group>"; };
 		41E1B1CB0FF5986900576B3B /* AbstractWorker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AbstractWorker.h; sourceTree = "<group>"; };
@@ -22147,6 +22147,8 @@
 		E46B41F81CB24E70008F11DE /* ScriptDisallowedScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptDisallowedScope.h; sourceTree = "<group>"; };
 		E46B724E2B61141D00A1F9B5 /* StyleSheetContentsCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StyleSheetContentsCache.cpp; sourceTree = "<group>"; };
 		E46B724F2B61141D00A1F9B5 /* StyleSheetContentsCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StyleSheetContentsCache.h; sourceTree = "<group>"; };
+		8C9554043E0200000087F79C /* StyleSubstitutionResolver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleSubstitutionResolver.cpp; sourceTree = "<group>"; };
+		F658DC7BD08000000087F79C /* StyleSubstitutionResolver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleSubstitutionResolver.h; sourceTree = "<group>"; };
 		E476EF4727E07A020056AC6E /* CSSContainerRule.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = CSSContainerRule.idl; sourceTree = "<group>"; };
 		E476EF4827E07A1A0056AC6E /* CSSContainerRule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSContainerRule.h; sourceTree = "<group>"; };
 		E476EF4927E07A280056AC6E /* CSSContainerRule.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSSContainerRule.cpp; sourceTree = "<group>"; };
@@ -23490,7 +23492,8 @@
 				4114FE2F25BEBD18009D9F20 /* RTCRtcpParameters.h */,
 				4114FE3125BEBD18009D9F20 /* RTCRtcpParameters.idl */,
 				41369E55218C76E300792E29 /* RTCRtpCapabilities.idl */,
-				41E0A7D923BB590100561060 /* RTCRtpCodecCapability.idl */,
+				410E1FBE2F6984850042D68E /* RTCRtpCodec.h */,
+				410E1FBF2F6984850042D68E /* RTCRtpCodec.idl */,
 				41FCB75F214866FF0038ADC6 /* RTCRtpCodecParameters.h */,
 				41FCB759214865D30038ADC6 /* RTCRtpCodecParameters.idl */,
 				414AD3FF21498D3000521676 /* RTCRtpCodingParameters.h */,
@@ -23668,7 +23671,6 @@
 				412BA5FE218C651800365474 /* RTCPMuxPolicy.h */,
 				413CC11C25E7D98D00D59C4B /* RTCPriorityType.h */,
 				412DE4B6219285BF0075F3A7 /* RTCRtpCapabilities.h */,
-				41E0A7DC23BB63DB00561060 /* RTCRtpCodecCapability.h */,
 				31EB54DD1E7DC74400C1623B /* RTCRtpTransceiverDirection.h */,
 				313591041E7DDC6000F30630 /* RTCSdpType.h */,
 				07221BAB17CF0AD400848E51 /* RTCSessionDescriptionDescriptor.cpp */,
@@ -40225,6 +40227,8 @@
 				4989734A2B663C6600720679 /* StyleScrollbarState.h */,
 				E46B724E2B61141D00A1F9B5 /* StyleSheetContentsCache.cpp */,
 				E46B724F2B61141D00A1F9B5 /* StyleSheetContentsCache.h */,
+				8C9554043E0200000087F79C /* StyleSubstitutionResolver.cpp */,
+				F658DC7BD08000000087F79C /* StyleSubstitutionResolver.h */,
 				BCAA38192EFB27DF00AA7F6E /* StyleTransformResolver.cpp */,
 				BCAA38182EFB27DF00AA7F6E /* StyleTransformResolver.h */,
 				E4DEAA1517A93DC3000E0430 /* StyleTreeResolver.cpp */,
@@ -47127,7 +47131,7 @@
 				413CC11D25E7D98E00D59C4B /* RTCPriorityType.h in Headers */,
 				4114FE3225BEBD19009D9F20 /* RTCRtcpParameters.h in Headers */,
 				412DE4B8219285C00075F3A7 /* RTCRtpCapabilities.h in Headers */,
-				418FCBE72715A28F00F96ECA /* RTCRtpCodecCapability.h in Headers */,
+				410E1FC12F698AB40042D68E /* RTCRtpCodec.h in Headers */,
 				5E2C43631BCEE32B0001E2BC /* RTCRtpReceiver.h in Headers */,
 				413C8B352552F27D00E65055 /* RTCRtpReceiverWithTransform.h in Headers */,
 				41EDD0EE2DB12B970038E76F /* RTCRtpScriptTransformer.h in Headers */,
