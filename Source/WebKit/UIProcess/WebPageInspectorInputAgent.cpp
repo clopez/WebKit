@@ -31,6 +31,7 @@
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
 #include "WebPageProxy.h"
+#include "WebProcessProxy.h"
 #include "WebTouchEvent.h"
 #include "WebWheelEvent.h"
 #include <wtf/MathExtras.h>
