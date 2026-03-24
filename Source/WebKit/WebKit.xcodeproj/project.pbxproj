@@ -16911,14 +16911,8 @@
 				B878B613133428DC006888E9 /* CorrectionPanel.h */,
 				B878B614133428DC006888E9 /* CorrectionPanel.mm */,
 				7AFA6F682A9F57C50055322A /* DisplayLinkMac.cpp */,
-<<<<<<< HEAD
-||||||| parent of f721d5ed927b (chore(webkit): bootstrap build #2272)
-				1AFDE65B1954E8D500C48FFA /* LegacySessionStateCoding.cpp */,
-=======
 				D71A94302370E025002C4D9E /* InspectorPlaywrightAgentClientMac.h */,
 				D7EB04E62372A73B00F744CE /* InspectorPlaywrightAgentClientMac.mm */,
-				1AFDE65B1954E8D500C48FFA /* LegacySessionStateCoding.cpp */,
->>>>>>> f721d5ed927b (chore(webkit): bootstrap build #2272)
 				0FCB4E5818BBE3D9000FCFC9 /* PageClientImplMac.h */,
 				0FCB4E5918BBE3D9000FCFC9 /* PageClientImplMac.mm */,
 				D79902AF236E9404005D6F7E /* PageInspectorTargetProxyMac.mm */,
