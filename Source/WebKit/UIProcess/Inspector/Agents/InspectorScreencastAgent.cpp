@@ -115,7 +115,7 @@ void InspectorScreencastAgent::didPaint(sk_sp<SkImage>&& surface)
         }
         // Do not send the same frame over and over.
         size_t len = pixmap.computeByteSize();
-        auto cryptoDigest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_1);
+        auto cryptoDigest = PAL::Crypto::CryptoDigest::create(PAL::Crypto::CryptoDigest::Algorithm::SHA_1);
         cryptoDigest->addBytes(std::span(reinterpret_cast<const unsigned char*>(pixmap.addr()), len));
         auto digest = cryptoDigest->computeHash();
         if (m_lastFrameDigest == digest)
@@ -254,7 +254,7 @@ void InspectorScreencastAgent::encodeFrame()
         auto data = WebCore::encodeData(imagePtr, "image/jpeg"_s, m_screencastQuality * 0.1);
 
         // Do not send the same frame over and over.
-        auto cryptoDigest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_1);
+        auto cryptoDigest = PAL::Crypto::CryptoDigest::create(PAL::Crypto::CryptoDigest::Algorithm::SHA_1);
         cryptoDigest->addBytes(std::span(data.mutableSpan().data(), data.size()));
         auto digest = cryptoDigest->computeHash();
         if (m_lastFrameDigest != digest) {
