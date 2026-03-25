@@ -2497,6 +2497,24 @@ static _WKSelectionAttributes NODELETE selectionAttributes(const WebKit::EditorS
     _page->setNeedsScrollGeometryUpdates(needsScrollGeometryUpdates);
 }
 
+#if (USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))) || ENABLE(WRITING_TOOLS)
+
+static std::optional<WebCore::JSHandleIdentifier> jsHandleIdentifierInFrame(const WebKit::WebFrameProxy& frame, _WKJSHandle *nodeHandle)
+{
+    if (!nodeHandle)
+        return std::nullopt;
+
+    auto handleInfo = nodeHandle->_ref->info();
+    if (RefPtr handleFrame = WebKit::WebFrameProxy::webFrame(handleInfo.frameInfo.frameID)) {
+        if (handleFrame->process().coreProcessIdentifier() == frame.process().coreProcessIdentifier())
+            return handleInfo.identifier;
+    }
+
+    return std::nullopt;
+}
+
+#endif // (USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))) || ENABLE(WRITING_TOOLS)
+
 #if ENABLE(WRITING_TOOLS)
 
 #pragma mark - Writing Tools API
@@ -2531,20 +2549,6 @@ static _WKSelectionAttributes NODELETE selectionAttributes(const WebKit::EditorS
 - (CocoaWritingToolsBehavior)writingToolsBehavior
 {
     return WebKit::convertToCocoaWritingToolsBehavior(_page->writingToolsBehavior());
-}
-
-static std::optional<WebCore::JSHandleIdentifier> jsHandleIdentifierInFrame(const WebKit::WebFrameProxy& frame, _WKJSHandle *nodeHandle)
-{
-    if (!nodeHandle)
-        return std::nullopt;
-
-    auto handleInfo = nodeHandle->_ref->info();
-    if (RefPtr handleFrame = WebKit::WebFrameProxy::webFrame(handleInfo.frameInfo.frameID)) {
-        if (handleFrame->process().coreProcessIdentifier() == frame.process().coreProcessIdentifier())
-            return handleInfo.identifier;
-    }
-
-    return std::nullopt;
 }
 
 - (void)willBeginWritingToolsSession:(WTSession *)session forProofreadingReview:(BOOL)proofreadingReview requestContexts:(void (^)(NSArray<WTContext *> *))completion
@@ -3074,6 +3078,26 @@ static std::optional<WebCore::JSHandleIdentifier> jsHandleIdentifierInFrame(cons
 #endif
 }
 
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+- (void)_addTextEffectForID:(NSUUID *)nsUUID withData:(const WebCore::TextEffectData&)data
+{
+#if PLATFORM(IOS_FAMILY)
+    [_contentView addTextEffectForID:nsUUID withData:data];
+#else
+    _impl->addTextEffectForID(nsUUID, data);
+#endif
+}
+
+- (void)_removeTextEffectForID:(NSUUID *)nsUUID
+{
+#if PLATFORM(IOS_FAMILY)
+    [_contentView removeTextEffectForID:nsUUID];
+#else
+    _impl->removeTextEffectForID(nsUUID);
+#endif
+}
+#endif // ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -3237,8 +3261,12 @@ WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::FixedContai
     UNUSED_VARIABLE(isTopFixedEdgeChanging);
 #endif
 
-    if (isTopColorChanging)
+    if (isTopColorChanging) {
         [self didChangeValueForKey:RetainPtr { NSStringFromSelector(@selector(_sampledTopFixedPositionContentColor)) }.get()];
+#if ENABLE(MANAGED_UIREFRESHCONTROL_APPEARANCE)
+        [self _updateRefreshControlAppearance];
+#endif
+    }
 }
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)
@@ -7735,6 +7763,28 @@ static OptionSet<WebCore::DataDetectorType> NODELETE coreDataDetectorTypes(_WKTe
         return completion(nil);
 
     targetFrame->requestContainerJSHandleForExtractedText({ searchText, WTF::move(nodeIdentifier) }, [completion = makeBlockPtr(completion)](auto&& info) {
+        completion(info ? wrapper(API::JSHandle::create(WTF::move(*info))).get() : nil);
+    });
+}
+
+- (void)_requestContainerJSHandleForSearchTexts:(NSArray<NSString *> *)texts nodeIdentifier:(NSString *)nodeIdentifierString completionHandler:(void (^)(_WKJSHandle *))completion
+{
+    if (!texts.count && !nodeIdentifierString.length)
+        return completion(nil);
+
+    RefPtr targetFrame = _page->mainFrame();
+    std::optional<WebCore::NodeIdentifier> targetNodeIdentifier;
+    if (auto identifiers = WebKit::parseFrameAndNodeIdentifiers(String { nodeIdentifierString })) {
+        targetNodeIdentifier = identifiers->nodeIdentifier;
+        if (identifiers->frameIdentifier)
+            targetFrame = WebKit::WebFrameProxy::webFrame(identifiers->frameIdentifier);
+    }
+
+    if (!targetFrame)
+        return completion(nil);
+
+    auto searchTexts = makeVector<String>(texts);
+    targetFrame->requestContainerJSHandleForSearchTexts(WTF::move(searchTexts), WTF::move(targetNodeIdentifier), [completion = makeBlockPtr(completion)](auto&& info) {
         completion(info ? wrapper(API::JSHandle::create(WTF::move(*info))).get() : nil);
     });
 }

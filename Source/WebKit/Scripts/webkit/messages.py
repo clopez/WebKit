@@ -185,6 +185,7 @@ def types_that_must_be_moved():
         'WebKit::AdditionalFonts',
         'WebCore::ShareableBitmapHandle',
         'WebCore::ShareableResourceHandle',
+        'WebCore::ShareableSpatialImage',
         'WebCore::SharedMemory::Handle',
         'WebKit::SharedVideoFrame',
         'WebKit::SharedVideoFrame::Buffer',
@@ -577,6 +578,7 @@ def types_that_cannot_be_forward_declared():
         'Inspector::ExtensionTabID',
         'MachSendRight',
         'MediaTime',
+        'PlatformXR::DeviceLayer',
         'PlatformXR::ReferenceSpaceType',
         'PlatformXR::HitTestOptions',
         'PlatformXR::HitTestSource',
@@ -1114,6 +1116,7 @@ def headers_for_type(type, for_implementation_file=False):
         'MonotonicTime': ['<wtf/MonotonicTime.h>'],
         'PAL::SessionID': ['<pal/SessionID.h>'],
         'PAL::UserInterfaceIdiom': ['<pal/system/ios/UserInterfaceIdiom.h>'],
+        'PlatformXR::DeviceLayer': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::FrameData': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::HitTestOptions': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::HitTestSource': ['<WebCore/PlatformXR.h>'],
@@ -1412,6 +1415,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextCheckingType': ['<WebCore/TextChecking.h>'],
         'WebCore::TextDrawingModeFlags': ['<WebCore/GraphicsTypes.h>'],
+        'WebCore::TextEffectData': ['<WebCore/TextAnimationTypes.h>'],
         'WebCore::TextExtraction::Item': ['<WebCore/TextExtractionTypes.h>'],
         'WebCore::TextExtraction::Result': ['<WebCore/TextExtractionTypes.h>'],
         'WebCore::TextIndicatorData': ['<WebCore/TextIndicator.h>'],
@@ -2090,17 +2094,9 @@ def generate_swift_message_handler(receiver):
         result.append('#endif\n')
     result.append('\n')
 
-    # Workaround for absence of https://github.com/swiftlang/swift/pull/74415
-    # - we repeat everything for older compilers
-    result.append('#if compiler(>=6.2)\n')
     result.append('\n')
     result.extend(generate_swift_message_handler_internals(receiver, 'unsafe '))
     result.append('\n')
-    result.append('#else\n')
-    result.append('\n')
-    result.extend(generate_swift_message_handler_internals(receiver, ''))
-    result.append('\n')
-    result.append('#endif\n')
 
     return ''.join(result)
 

@@ -37,7 +37,7 @@
 
 #define MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(formatString, ...) \
 if (willLog(WTFLogLevel::Always)) { \
-    RELEASE_LOG_FORWARDABLE(Media, MEDIASESSIONMANAGERINTERFACE_##formatString, ##__VA_ARGS__); \
+    RELEASE_LOG_FORWARDABLE(Media, MediaSessionManagerInterface##formatString, ##__VA_ARGS__); \
 } \
 
 namespace WebCore {
@@ -487,7 +487,7 @@ void MediaSessionManagerInterface::sessionWillBeginPlayback(PlatformMediaSession
 void MediaSessionManagerInterface::sessionWillEndPlayback(PlatformMediaSessionInterface& pausingSession, DelayCallingUpdateNowPlaying)
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(SESSIONWILLENDPLAYBACK, pausingSession.logIdentifier());
+    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(SessionWillEndPlayback, pausingSession.logIdentifier());
 #endif
 
     auto sessions = this->sessions();
@@ -528,7 +528,7 @@ void MediaSessionManagerInterface::sessionStateChanged(PlatformMediaSessionInter
 
 void MediaSessionManagerInterface::sessionCanProduceAudioChanged()
 {
-    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(SESSIONCANPRODUCEAUDIOCHANGED);
+    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(SessionCanProduceAudioChanged);
 
     if (m_alreadyScheduledSessionStatedUpdate)
         return;
@@ -636,12 +636,14 @@ void MediaSessionManagerInterface::addSession(PlatformMediaSessionInterface& ses
 {
 #if !RELEASE_LOG_DISABLED && (ENABLE(VIDEO) || ENABLE(WEB_AUDIO))
     m_logger->addLogger(protect(session.logger()));
-    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(ADDSESSION, session.logIdentifier());
+    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(AddSession, session.logIdentifier());
 #endif
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     if (m_currentInterruption)
         session.beginInterruption(*m_currentInterruption);
+#else
+    UNUSED_PARAM(session);
 #endif
 
     scheduleUpdateSessionState();
@@ -652,7 +654,7 @@ void MediaSessionManagerInterface::removeSession(PlatformMediaSessionInterface& 
     UNUSED_PARAM(session);
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(REMOVESESSION, session.logIdentifier());
+    MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(RemoveSession, session.logIdentifier());
 #endif
 
     if (hasNoSession() && !activeAudioSessionRequired())
@@ -694,7 +696,7 @@ bool MediaSessionManagerInterface::maybeActivateAudioSession()
 {
 #if USE(AUDIO_SESSION)
     if (!activeAudioSessionRequired()) {
-        MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(MAYBEACTIVATEAUDIOSESSION_ACTIVE_SESSION_NOT_REQUIRED);
+        MEDIASESSIONMANAGERINTERFACE_RELEASE_LOG(MaybeActivateAudioSessionActiveSessionNotRequired);
         return true;
     }
 

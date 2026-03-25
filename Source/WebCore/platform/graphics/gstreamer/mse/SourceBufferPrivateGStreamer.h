@@ -56,7 +56,11 @@ typedef MediaSourcePrivateGStreamer::RegisteredTrack RegisteredTrack;
 class AppendPipeline;
 class MediaSourcePrivateGStreamer;
 
-class SourceBufferPrivateGStreamer final : public SourceBufferPrivate, public CanMakeWeakPtr<SourceBufferPrivateGStreamer> {
+class SourceBufferPrivateGStreamer final : public SourceBufferPrivate, public CanMakeWeakPtr<SourceBufferPrivateGStreamer>
+#if !RELEASE_LOG_DISABLED && !defined(GST_DISABLE_GST_DEBUG)
+    , public Logger::MessageHandlerObserver
+#endif
+{
 public:
     static bool isContentTypeSupported(const ContentType&);
     static Ref<SourceBufferPrivateGStreamer> create(MediaSourcePrivateGStreamer&, const ContentType&);
@@ -96,6 +100,9 @@ public:
     WTFLogChannel& logChannel() const final;
     const Logger& sourceBufferLogger() const final { return m_logger; }
     uint64_t sourceBufferLogIdentifier() final { return logIdentifier(); }
+#ifndef GST_DISABLE_GST_DEBUG
+    void handleLogMessage(const WTFLogChannel&, WTFLogLevel, std::optional<WTFLogLocation>, Vector<JSONLogValue>&&) final;
+#endif
 #endif
 
     size_t platformMaximumBufferSize() const override;

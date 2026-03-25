@@ -1020,8 +1020,11 @@ void Element::setFocus(bool value, FocusVisibility visibility)
         root->host()->invalidateStyle();
     }
 
-    for (RefPtr element = this; element; element = element->parentElementInComposedTree())
+    for (Ref element : composedTreeLineage(*this)) {
         element->setHasFocusWithin(value);
+        if (element->isInTopLayer())
+            break;
+    }
 
     setHasFocusVisible(value && (visibility == FocusVisibility::Visible || (visibility == FocusVisibility::Invisible && shouldAlwaysHaveFocusVisibleWhenFocused(*this))));
 }
@@ -1053,9 +1056,13 @@ void Element::setHasFocusWithin(bool value)
 void Element::setHasTentativeFocus(bool value)
 {
     // Tentative focus is used when trying to set the focus on a new element.
+    if (isInTopLayer())
+        return;
     for (Ref ancestor : composedTreeAncestors(*this)) {
         ASSERT(ancestor->hasFocusWithin() != value);
         document().userActionElements().setHasFocusWithin(ancestor, value);
+        if (ancestor->isInTopLayer())
+            break;
     }
 }
 
@@ -4556,6 +4563,22 @@ static void forEachRenderLayer(Element& element, const std::function<void(Render
     });
 }
 
+static void propagateUserActionPseudoClassesToAncestors(Element& element, bool value, bool hover, bool active, bool focusWithin)
+{
+    for (Ref ancestor : composedTreeAncestors(element)) {
+        if (hover)
+            ancestor->setHovered(value);
+        if (active) {
+            ancestor->setActive(value);
+            element.document().userActionElements().setInActiveChain(ancestor, value);
+        }
+        if (focusWithin)
+            ancestor->setHasFocusWithin(value);
+        if (value && ancestor->isInTopLayer())
+            break;
+    }
+}
+
 void Element::addToTopLayer()
 {
     RELEASE_ASSERT(!isInTopLayer());
@@ -4569,6 +4592,13 @@ void Element::addToTopLayer()
     Ref document = this->document();
     document->addTopLayerElement(*this);
     setEventTargetFlag(EventTargetFlag::IsInTopLayer);
+
+    // User-action pseudo-classes should not propagate past top layer boundaries.
+    bool clearHover = document->hoveredElement() && contains(document->hoveredElement());
+    bool clearActive = document->activatedElement() && contains(document->activatedElement());
+    bool clearFocusWithin = hasFocusWithin();
+    if (clearHover || clearActive || clearFocusWithin)
+        propagateUserActionPseudoClassesToAncestors(*this, false, clearHover, clearActive, clearFocusWithin);
 
     document->scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
 
@@ -4604,6 +4634,14 @@ void Element::removeFromTopLayer()
     // Unable to protect the document as it may have started destruction.
     document().removeTopLayerElement(*this);
     clearEventTargetFlag(EventTargetFlag::IsInTopLayer);
+
+    // User-action pseudo-classes should now propagate past this element since it is
+    // no longer a top layer boundary.
+    bool setHover = document().hoveredElement() && contains(document().hoveredElement());
+    bool setActive = document().activatedElement() && contains(document().activatedElement());
+    bool setFocusWithin = hasFocusWithin();
+    if (setHover || setActive || setFocusWithin)
+        propagateUserActionPseudoClassesToAncestors(*this, true, setHover, setActive, setFocusWithin);
 
     document().scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
 
@@ -4689,14 +4727,14 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
 
         RefPtr<const Element> rootmost;
 
-        for (RefPtr element = this; element; element = element->parentElementInComposedTree()) {
+        for (Ref element : composedTreeLineage(*this)) {
             if (element->hasStateFlag(StateFlag::IsComputedStyleInvalidFlag)) {
-                rootmost = element;
+                rootmost = element.ptr();
                 continue;
             }
             CheckedPtr existing = element->existingComputedStyle();
             if (!existing) {
-                rootmost = element;
+                rootmost = element.ptr();
                 continue;
             }
             if (mode == ResolveComputedStyleMode::RenderedOnly && existing->display() == Style::DisplayType::None) {
@@ -5529,7 +5567,7 @@ bool Element::isWritingSuggestionsEnabled() const
     // not in the `default` state and the nearest such ancestor's `writingsuggestions` content attribute
     // is in the `false` state, then return `false`.
 
-    for (RefPtr ancestor = this; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
+    for (Ref ancestor : composedTreeLineage(*this)) {
         auto& value = ancestor->attributeWithoutSynchronization(HTMLNames::writingsuggestionsAttr);
 
         if (value.isNull())
@@ -6336,7 +6374,7 @@ bool Element::checkVisibility(const CheckVisibilityOptions& options)
     if (options.contentVisibilityAuto && isSkippedContentWithReason(ContentVisibility::Auto))
         return false;
 
-    for (RefPtr ancestor = this; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
+    for (Ref ancestor : composedTreeLineage(*this)) {
         CheckedPtr ancestorStyle = ancestor->computedStyle();
         if (ancestorStyle->display() == Style::DisplayType::None)
             return false;
@@ -6454,8 +6492,8 @@ RefPtr<HTMLElement> Element::topmostPopoverAncestor(TopLayerElementType topLayer
 
         // https://html.spec.whatwg.org/#nearest-inclusive-open-popover
         auto nearestInclusiveOpenPopover = [](Element& candidate) -> HTMLElement* {
-            for (auto* element = &candidate; element; element = element->parentElementInComposedTree()) {
-                if (auto* htmlElement = dynamicDowncast<HTMLElement>(element)) {
+            for (Ref element : composedTreeLineage(candidate)) {
+                if (auto* htmlElement = dynamicDowncast<HTMLElement>(element.get())) {
                     if (htmlElement->popoverState() == PopoverState::Auto && htmlElement->popoverData()->visibilityState() == PopoverVisibilityState::Showing)
                         return htmlElement;
                 }

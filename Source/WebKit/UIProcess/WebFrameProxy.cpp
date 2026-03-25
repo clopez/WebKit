@@ -336,6 +336,8 @@ void WebFrameProxy::didFailProvisionalLoad()
 void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument, DocumentSecurityPolicy&& documentSecurityPolicy)
 {
     m_frameLoadState.didCommitLoad();
+    if (m_isShowingInitialAboutBlank && !url().isAboutBlank())
+        m_isShowingInitialAboutBlank = false;
 
     m_title = String();
     m_MIMEType = contentType;
@@ -1013,6 +1015,14 @@ void WebFrameProxy::requestContainerJSHandleForExtractedText(TextExtraction::Ext
         return completion({ });
 
     sendWithAsyncReply(Messages::WebFrame::RequestContainerJSHandleForExtractedText(WTF::move(extractedText)), WTF::move(completion));
+}
+
+void WebFrameProxy::requestContainerJSHandleForSearchTexts(Vector<String>&& searchTexts, std::optional<NodeIdentifier>&& targetNodeIdentifier, CompletionHandler<void(std::optional<JSHandleInfo>&&)>&& completion)
+{
+    if (RefPtr page = m_page.get(); !page || !page->hasRunningProcess())
+        return completion({ });
+
+    sendWithAsyncReply(Messages::WebFrame::RequestContainerJSHandleForSearchTexts(WTF::move(searchTexts), WTF::move(targetNodeIdentifier)), WTF::move(completion));
 }
 
 void WebFrameProxy::getSelectorPathsForNode(JSHandleInfo&& handle, CompletionHandler<void(Vector<HashSet<String>>&&)>&& completion)

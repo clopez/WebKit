@@ -1976,7 +1976,6 @@ webkit.org/b/280019 [ Sonoma+ Release ] fast/canvas/offscreen-giant.html [ Pass 
 # webkit.org/b/287679 REGRESSION(289499@main):[macOS Debug ] imported/w3c/web-platform-tests/css/selectors/invalidation/modal-pseudo-class-in-has.html is flaky (failure in EWS)
 imported/w3c/web-platform-tests/css/selectors/invalidation/modal-pseudo-class-in-has.html [ Pass Failure ]
 imported/w3c/web-platform-tests/screen-orientation/fullscreen-interactions.html [ Pass Failure ]
-imported/w3c/web-platform-tests/screen-orientation/lock-basic.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/selectors/invalidation/fullscreen-pseudo-class-in-has.html [ Pass Failure ]
 imported/w3c/web-platform-tests/screen-orientation/orientation-reading.html [ Pass Failure ]
 
@@ -2332,6 +2331,8 @@ webkit.org/b/299826 [ Release x86_64 ] media/modern-media-controls/media-control
 
 webkit.org/b/301153 [ Debug ] fast/parser/entity-comment-in-textarea.html [ Pass Timeout ]
 
+webkit.org/b/310384 [ Debug ] inspector/timeline/timeline-event-EventDispatch.html [ Pass Timeout Crash ]
+
 webkit.org/b/301566 [ Debug ] imported/w3c/web-platform-tests/custom-elements/registries/Element-innerHTML.html [ Skip ]
 
 # webkit.org/b/301384 REGRESSION(301931@main): [macOS x86_64] two tests in imported/w3c/web-platform-tests/css/css-backgrounds are constant image only failure 
@@ -2413,6 +2414,8 @@ webkit.org/b/305958 imported/w3c/web-platform-tests/media-source/mediasource-cha
 
 webkit.org/b/305959 fast/text/FontFaceSet-status-after-style-update.html [ Pass Failure ]
 
+webkit.org/b/310683 [ Tahoe Debug ] editing/execCommand/apply-inline-style-to-element-with-no-renderer-crash.html [ Pass Failure ]
+
 webkit.org/b/306047 accessibility/mac/replaced-element-text-selection.html [ Pass Failure ]
 
 webkit.org/b/306278 [ arm64 ] media/media-source/media-managedmse-resume-after-remove.html [ Pass Failure ]
@@ -2424,6 +2427,8 @@ webkit.org/b/309917 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe
 webkit.org/b/306570 [ Tahoe arm64 ] http/tests/webcodecs/video-decoder-callbacks-do-not-leak.html [ Pass Failure ]
 
 webkit.org/b/306629 [ Release arm64 ] imported/w3c/web-platform-tests/media-source/mediasource-config-change-webm-av-video-bitrate.html [ Pass Failure ]
+
+webkit.org/b/310569 imported/w3c/web-platform-tests/webrtc/transfer-datachannel.html [ Pass Failure ]
 
 webkit.org/b/306301 [ x86_64 ] http/tests/webgpu/webgpu/api/validation/state/device_lost/destroy.html [ Failure ]
 
@@ -2477,12 +2482,18 @@ webkit.org/b/307886 [ Release arm64 ] js/dom/promise-stack-overflow.html [ Pass 
 
 webkit.org/b/309621 [ Debug ] imported/w3c/web-platform-tests/css/cssom-view/interrupt-hidden-smooth-scroll.html [ Pass Failure ]
 
-webkit.org/b/309525 [ Release ] media/video-webkit-playsinline.html [ Pass Failure ]
-
 webkit.org/b/307889 http/tests/multipart/multipart-async-image.html [ Pass Failure ]
 
 webkit.org/b/310302 imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_on_image_map.html [ Pass Failure ]
 
+webkit.org/b/298909 http/tests/site-isolation/inspector/debugger/scriptParsed-frame-target.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/debugger/pause-in-cross-origin-iframe.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/debugger/setBreakpoint-cross-origin-iframe.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/console/message-from-iframe.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/console/message-from-worker.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/target/target-cross-origin-page-navigation.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/target/target.html [ Skip ]
+webkit.org/b/298909 http/tests/site-isolation/inspector/unit-tests/target-manager.html [ Skip ]
 webkit.org/b/308240 http/tests/site-isolation/inspector/runtime/evaluate-in-cross-origin-iframe.html [ Failure ]
 webkit.org/b/308240 http/tests/site-isolation/inspector/runtime/execution-context-from-frame-target.html [ Failure ]
 webkit.org/b/308240 http/tests/site-isolation/inspector/runtime/executionContextCreated-frame-target.html [ Failure ]

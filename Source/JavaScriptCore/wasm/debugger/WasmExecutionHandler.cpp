@@ -882,25 +882,13 @@ String ExecutionHandler::callStackStringFor(uint64_t threadId)
         auto& stopData = *state->stopData;
         RELEASE_ASSERT(stopData.callFrame);
 
-        Vector<VirtualAddress> frameAddresses;
-        frameAddresses.append(stopData.address);
-        CallFrame* currentFrame = stopData.callFrame;
-        uint8_t* returnPC = nullptr;
-        VirtualAddress virtualReturnPC;
-        unsigned frameIndex = 0;
-
-        // FIXME: Only supports consecutive wasm->wasm calls. Need to support interleaved wasm<->js calls.
-        while (getWasmReturnPC(currentFrame, returnPC, virtualReturnPC) && frameIndex < 100) {
-            frameAddresses.append(virtualReturnPC);
-            currentFrame = currentFrame->callerFrame();
-            frameIndex++;
-        }
+        Vector<FrameInfo> frames = collectCallStack(stopData.address, stopData.callFrame, *targetVM);
 
         StringBuilder result;
-        for (VirtualAddress address : frameAddresses)
-            result.append(toNativeEndianHex(address));
+        for (const auto& frame : frames)
+            result.append(toNativeEndianHex(frame.address));
 
-        dataLogLnIf(Options::verboseWasmDebugger(), "[ExecutionHandler] callStackStringFor: collected ", frameAddresses.size(), " frames");
+        dataLogLnIf(Options::verboseWasmDebugger(), "[ExecutionHandler] callStackStringFor: collected ", frames.size(), " frames");
         return result.toString();
     }
 

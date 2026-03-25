@@ -247,6 +247,10 @@
 #include "AccessibilityRootAtspi.h"
 #endif
 
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+#include "TextEffectController.h"
+#endif
+
 #if ENABLE(WRITING_TOOLS)
 #include "WritingToolsController.h"
 #endif
@@ -479,6 +483,9 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #endif
 #if ENABLE(WRITING_TOOLS)
     , m_writingToolsController(makeUniqueRef<WritingToolsController>(*this))
+#endif
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+    , m_textEffectController(makeUniqueRef<TextEffectController>(*this))
 #endif
     , m_activeNowPlayingSessionUpdateTimer(*this, &Page::updateActiveNowPlayingSessionNow)
     , m_topDocumentSyncData(DocumentSyncData::create())
@@ -4874,7 +4881,7 @@ OptionSet<FilterRenderingMode> Page::preferredFilterRenderingModes(const Graphic
 #if !HAVE(FIX_FOR_RADAR_104392017)
     if (context.renderingMode() == RenderingMode::Accelerated || !context.knownToHaveFloatBasedBacking()) {
 #endif
-        if (settings().graphicsContextFiltersEnabled())
+        if (!context.hasDropShadow() && settings().graphicsContextFiltersEnabled())
             modes.add(FilterRenderingMode::GraphicsContext);
 #if !HAVE(FIX_FOR_RADAR_104392017)
     }

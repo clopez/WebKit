@@ -147,6 +147,8 @@ public:
 
     bool NODELETE needsPreloadAutoQuirk() const;
 
+    bool needsPauseBeforeFullscreenExitQuirk() const;
+
     bool shouldBypassBackForwardCache() const;
     bool shouldBypassAsyncScriptDeferring() const;
 
@@ -257,7 +259,7 @@ public:
     bool mayBenefitFromFingerprintingProtectionQuirk(const URL&) const;
     static String standardUserAgentWithApplicationNameIncludingCompatOverrides(const String&, const String&, UserAgentType);
 
-    String NODELETE scriptToEvaluateBeforeRunningScriptFromURL(const URL&);
+    String scriptToEvaluateBeforeRunningScriptFromURL(const URL&);
 
     bool NODELETE shouldHideCoarsePointerCharacteristics() const;
 

@@ -210,7 +210,7 @@ PeerConnectionBackend::~PeerConnectionBackend()
 }
 
 #if !RELEASE_LOG_DISABLED && (PLATFORM(WPE) || PLATFORM(GTK))
-void PeerConnectionBackend::handleLogMessage(const WTFLogChannel& channel, WTFLogLevel, Vector<JSONLogValue>&& values)
+void PeerConnectionBackend::handleLogMessage(const WTFLogChannel& channel, WTFLogLevel, std::optional<WTFLogLocation>, Vector<JSONLogValue>&& values)
 {
     auto name = StringView::fromLatin1(channel.name);
     if (name != "WebRTC"_s)
@@ -269,8 +269,8 @@ void PeerConnectionBackend::createOfferSucceeded(String&& sdp)
     ASSERT(isMainThread());
 
 #if !RELEASE_LOG_DISABLED
-    logger().toObservers(LogWebRTC, WTFLogLevel::Always, LOGIDENTIFIER, "SDP offer created:\n", sdp);
-    RELEASE_LOG_FORWARDABLE(WebRTC, PEERCONNECTIONBACKEND_CREATEOFFERSUCCEEDED, logIdentifier(), sdp.utf8());
+    logger().toObservers(LogWebRTC, WTFLogLevel::Always, { }, LOGIDENTIFIER, "SDP offer created:\n", sdp);
+    RELEASE_LOG_FORWARDABLE(WebRTC, PeerConnectionBackendCreateOfferSucceeded, logIdentifier(), sdp.utf8());
 #endif
 
     ASSERT(m_offerAnswerCallback);
@@ -305,8 +305,8 @@ void PeerConnectionBackend::createAnswerSucceeded(String&& sdp)
     ASSERT(isMainThread());
 
 #if !RELEASE_LOG_DISABLED
-    logger().toObservers(LogWebRTC, WTFLogLevel::Always, LOGIDENTIFIER, "SDP answer created:\n", sdp);
-    RELEASE_LOG_FORWARDABLE(WebRTC, PEERCONNECTIONBACKEND_CREATEANSWERSUCCEEDED, logIdentifier(), sdp.utf8());
+    logger().toObservers(LogWebRTC, WTFLogLevel::Always, { }, LOGIDENTIFIER, "SDP answer created:\n", sdp);
+    RELEASE_LOG_FORWARDABLE(WebRTC, PeerConnectionBackendCreateAnswerSucceeded, logIdentifier(), sdp.utf8());
 #endif
 
     ASSERT(m_offerAnswerCallback);

@@ -40,6 +40,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <wtf/HexNumber.h>
 #include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringView.h>
 
@@ -246,6 +247,18 @@ uint32_t parseDecimal(StringView, uint32_t defaultValue = 0);
 Vector<StringView> splitWithDelimiters(StringView packet, StringView delimiters);
 
 bool getWasmReturnPC(CallFrame* currentFrame, uint8_t*& returnPC, VirtualAddress& virtualReturnPC);
+
+struct FrameInfo {
+    VirtualAddress address;
+    CallFrame* wasmCallFrame { nullptr };
+    RefPtr<IPIntCallee> wasmCallee;
+
+    bool isWasmFrame() const { return !!wasmCallee; }
+};
+
+Vector<FrameInfo> collectCallStack(VirtualAddress stopAddress, CallFrame* startFrame, VM&, unsigned maxFrames = 100);
+
+IPInt::IPIntLocal* localsFromFrame(CallFrame*, const IPIntCallee*);
 
 inline StringView getErrorReply(ProtocolError error)
 {

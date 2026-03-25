@@ -3369,6 +3369,7 @@ webkit.org/b/209250 imported/w3c/web-platform-tests/css/css-text/line-break/line
 
 webkit.org/b/207858 fast/canvas/webgl/simulated-vertexAttrib0-invalid-indicies.html [ Skip ]
 
+imported/w3c/web-platform-tests/css/selectors/active-toplayer-001.html [ Skip ]
 webkit.org/b/209734 imported/w3c/web-platform-tests/css/selectors/focus-visible-001.html [ Skip ]
 webkit.org/b/209734 imported/w3c/web-platform-tests/css/selectors/focus-visible-005.html [ Skip ]
 webkit.org/b/209734 imported/w3c/web-platform-tests/css/selectors/focus-visible-006.html [ Skip ]
@@ -3398,6 +3399,7 @@ webkit.org/b/250767 imported/w3c/web-platform-tests/html/user-activation/activat
 
 # :hover simulation not working on iOS
 imported/w3c/web-platform-tests/css/selectors/hover-002.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/hover-toplayer-001.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-text-decor/invalidation/text-decoration-thickness.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/hit-test-unrelated-element.html [ Skip ]
 
@@ -4058,6 +4060,8 @@ imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of
 webkit.org/b/274832 imported/w3c/web-platform-tests/close-watcher/esc-key [ Skip ]
 webkit.org/b/274832 imported/w3c/web-platform-tests/close-watcher/user-activation [ Skip ]
 webkit.org/b/274832 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-closedby-show-stacked.html [ Skip ]
+webkit.org/b/274832 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-closedby-corner-cases.html [ Skip ]
+webkit.org/b/274832 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-closedby-start-open.html [ Skip ]
 
 # iOS user agent styles are preventing these from passing for <input type=search>
 webkit.org/b/241095 imported/w3c/web-platform-tests/css/css-ui/appearance-textfield-001.html [ ImageOnlyFailure ]
@@ -5639,6 +5643,8 @@ fast/block/positioning/vertical-rl/fixed-positioning.html [ Failure ]
 fast/forms/indeterminate-progress-inline-height.html [ Failure ]
 fast/forms/input-appearance-spinbutton.html [ Failure ]
 accessibility/ios-simulator/press-fires-touch-events.html [ Skip ]
+# Requires ENABLE(ACCESSIBILITY_LOCAL_FRAME) for FrameGeometry support.
+accessibility/ios-simulator/frame-geometry-update-after-uiscroll.html [ Skip ]
 
 fast/text/combining-character-sequence-vertical.html [ ImageOnlyFailure ]
 fast/text/vertical-quotation-marks.html [ ImageOnlyFailure ]
@@ -7623,7 +7629,6 @@ imported/w3c/web-platform-tests/css/css-scroll-anchoring/after-scrollable-range-
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/contenteditable-insert-line-at-top.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/dirty-contents-reselect-anchor.tentative.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/history-restore-anchors.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-scroll-anchoring/ignore-adjustments-while-scrolling-to-anchor.tentative.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/shadow-dom-subscroller.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/zero-scroll-offset-001.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/zero-scroll-offset-002.html [ Failure ]
@@ -8174,6 +8179,10 @@ editing/selection/ios/select-text-using-tap-and-half.html [ Skip ]
 
 webkit.org/b/296338 http/tests/site-isolation/fullscreen.html [ Pass Failure ]
 
+webkit.org/b/310677 [ Release ] imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-mixed-srl-016.xht [ Pass ImageOnlyFailure ]
+
+webkit.org/b/310677 [ Release ] compositing/iframes/overlapped-nested-iframes.html [ Pass Failure ]
+
 # webkit.org/b/296017 7x imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image (layout-tests) are flakey image failures
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-006.html [ Pass ImageOnlyFailure ]
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-022.html [ Pass ImageOnlyFailure ]
@@ -8184,8 +8193,6 @@ webkit.org/b/296338 http/tests/site-isolation/fullscreen.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-003.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/296389 [ Release ] http/tests/dom/noreferrer-window-not-targetable.html [ Pass Failure ]
-
-webkit.org/b/296566 [ Release ] imported/w3c/web-platform-tests/screen-orientation/lock-basic.html [ Pass Failure ]
 
 # webkit.org/b/295803 2x http/tests/webcodecs/ (layout-tests) tests flakey text failures
 [ Release ] http/tests/webcodecs/video-encoder-callbacks-do-not-leak.html [ Pass Failure ]
@@ -8374,6 +8381,8 @@ imported/w3c/web-platform-tests/css/CSS2/box-display/display-013.xht [ ImageOnly
 fast/images/page-wide-animation-toggle.html [ Pass Timeout ]
 fast/images/individual-animation-toggle.html [ Pass Timeout ]
 
+webkit.org/b/310569 imported/w3c/web-platform-tests/webrtc/transfer-datachannel.html [ Pass Failure ]
+
 webkit.org/b/301175 editing/selection/ios/become-first-responder-after-relinquishing-focus.html [ Pass Timeout ]
 
 webkit.org/b/302893 imported/w3c/web-platform-tests/html/interaction/focus/focus-input-type-switch.html [ Failure ]
@@ -8427,6 +8436,8 @@ http/tests/site-isolation/remote-frame-loaded-while-hidden.html [ Pass ImageOnly
 
 # from fast/ tests that are flaky: adding timeout 
 webkit.org/b/304027 fast/block/basic/001.html [ Pass Failure Timeout ]
+
+webkit.org/b/310557 [ Release ] webanimations/transform-animation-with-delay-yields-accelerated-animation.html [ Pass Failure ]
 
 webkit.org/b/303650 fast/lists/marker-before-empty-inline.html [ ImageOnlyFailure ]
 

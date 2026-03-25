@@ -59,6 +59,7 @@
 #include "Comment.h"
 #include "CommonAtomStrings.h"
 #include "CommonVM.h"
+#include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
 #include "CompositionEvent.h"
 #include "ConstantPropertyMap.h"
@@ -9603,7 +9604,7 @@ DocumentParserYieldToken::~DocumentParserYieldToken()
         parser->didEndYieldingParser();
 }
 
-static Element* findNearestCommonComposedAncestor(Element* elementA, Element* elementB)
+static Element* findNearestCommonComposedAncestorForHover(Element* elementA, Element* elementB)
 {
     if (!elementA || !elementB)
         return nullptr;
@@ -9612,12 +9613,17 @@ static Element* findNearestCommonComposedAncestor(Element* elementA, Element* el
         return elementA;
 
     HashSet<Ref<Element>> ancestorChain;
-    for (SUPPRESS_UNCHECKED_LOCAL auto* element = elementA; element; element = element->parentElementInComposedTree())
+    for (SUPPRESS_UNCHECKED_LOCAL auto* element = elementA; element; element = element->parentElementInComposedTree()) {
         ancestorChain.add(*element);
+        if (element->isInTopLayer())
+            break;
+    }
 
     for (SUPPRESS_UNCHECKED_LOCAL auto* element = elementB; element; element = element->parentElementInComposedTree()) {
         if (ancestorChain.contains(*element))
             return element;
+        if (element->isInTopLayer())
+            break;
     }
     return nullptr;
 }
@@ -9640,9 +9646,11 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     RefPtr oldActiveElement = m_activeElement.get();
     if (oldActiveElement && !request.active()) {
         // We are clearing the :active chain because the mouse has been released.
-        for (RefPtr currentElement = oldActiveElement; currentElement; currentElement = currentElement->parentElementInComposedTree()) {
-            elementsToClearActive.append(*currentElement);
-            m_userActionElements.setInActiveChain(*currentElement, false);
+        for (Ref currentElement : composedTreeLineage(*oldActiveElement)) {
+            elementsToClearActive.append(currentElement);
+            m_userActionElements.setInActiveChain(currentElement, false);
+            if (currentElement->isInTopLayer())
+                break;
         }
         m_activeElement = nullptr;
     } else {
@@ -9655,6 +9663,8 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
                 if (!element || curr->isRenderTextOrLineBreak())
                     continue;
                 m_userActionElements.setInActiveChain(*element, true);
+                if (element->isInTopLayer())
+                    break;
             }
 
             m_activeElement = newActiveElement;
@@ -9684,7 +9694,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
 
     m_hoveredElement = newHoveredElement;
 
-    RefPtr commonAncestor = findNearestCommonComposedAncestor(oldHoveredElement.get(), newHoveredElement.get());
+    RefPtr commonAncestor = findNearestCommonComposedAncestorForHover(oldHoveredElement.get(), newHoveredElement.get());
 
     if (oldHoveredElement != newHoveredElement) {
         for (CheckedPtr element = oldHoveredElement.get(); element; element = element->parentElementInComposedTree()) {
@@ -9693,6 +9703,8 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
             if (mustBeInActiveChain && !element->isInActiveChain())
                 continue;
             elementsToClearHover.append(*element);
+            if (element->isInTopLayer())
+                break;
         }
         // Unset hovered nodes in sub frame documents if the old hovered node was a frame owner.
         if (auto* frameOwnerElement = dynamicDowncast<HTMLFrameOwnerElement>(oldHoveredElement.get())) {
@@ -9703,14 +9715,20 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
 
     bool sawCommonAncestor = false;
     for (RefPtr element = newHoveredElement; element; element = element->parentElementInComposedTree()) {
-        if (mustBeInActiveChain && !element->isInActiveChain())
+        bool atTopLayerBoundary = element->isInTopLayer();
+        if (mustBeInActiveChain && !element->isInActiveChain()) {
+            if (atTopLayerBoundary)
+                break;
             continue;
+        }
         if (allowActiveChanges)
             elementsToSetActive.append(*element);
         if (element == commonAncestor)
             sawCommonAncestor = true;
         if (!sawCommonAncestor)
             elementsToSetHover.append(*element);
+        if (atTopLayerBoundary)
+            break;
     }
 
     auto changeState = [](auto& elements, auto pseudoClass, auto value, auto&& setter) {
@@ -10886,6 +10904,16 @@ HTMLDialogElement* Document::activeModalDialog() const
     return nullptr;
 }
 
+HTMLDialogElement* Document::activeCloseableDialog() const
+{
+    for (auto& dialog : m_openDialogsList | std::views::reverse) {
+        if (dialog->computedClosedByState() != ClosedByState::None)
+            return &dialog.get();
+    }
+
+    return nullptr;
+}
+
 HTMLElement* Document::topmostAutoPopover() const
 {
     if (m_autoPopoverList.isEmpty())
@@ -11155,12 +11183,12 @@ static inline Vector<JSONLogValue> crossThreadCopy(Vector<JSONLogValue>&& source
     return values;
 }
 
-void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, Vector<JSONLogValue>&& logMessages)
+void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, std::optional<WTFLogLocation> location, Vector<JSONLogValue>&& logMessages)
 {
     if (!isMainThread()) {
-        postTask([weakThis = WeakPtr<Document, WeakPtrImplWithEventTargetData> { *this }, channel, level, logMessages = crossThreadCopy(WTF::move(logMessages))](auto&) mutable {
+        postTask([weakThis = WeakPtr<Document, WeakPtrImplWithEventTargetData> { *this }, channel, level, location, logMessages = crossThreadCopy(WTF::move(logMessages))](auto&) mutable {
             if (RefPtr document = weakThis.get())
-                document->didLogMessage(channel, level, WTF::move(logMessages));
+                document->didLogMessage(channel, level, location, WTF::move(logMessages));
         });
         return;
     }

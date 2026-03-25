@@ -126,6 +126,10 @@ public:
         ASSERT(get());
     }
 
+    template<typename X, typename Y, typename Z> CheckedPtr(const WeakPtr<X, Y, Z>& o) requires std::is_convertible_v<X*, T*>
+        : CheckedPtr(o.get())
+    { }
+
     CheckedPtr(HashTableDeletedValueType)
         : m_ptr(PtrTraits::hashTableDeletedValue())
     { }
@@ -215,6 +219,9 @@ private:
     typename PtrTraits::StorageType m_ptr;
 };
 
+template<typename X, typename Y, typename Z> CheckedPtr(WeakPtr<X, Y, Z>&) -> CheckedPtr<X>;
+template<typename X, typename Y, typename Z> CheckedPtr(const WeakPtr<X, Y, Z>&) -> CheckedPtr<X>;
+
 template <typename T, typename PtrTraits>
 struct GetPtrHelper<CheckedPtr<T, PtrTraits>> {
     using PtrType = T*;
@@ -225,7 +232,7 @@ struct GetPtrHelper<CheckedPtr<T, PtrTraits>> {
 template <typename T, typename U>
 struct IsSmartPtr<CheckedPtr<T, U>> {
     static constexpr bool value = true;
-    static constexpr bool isNullable = false;
+    static constexpr bool isNullable = true;
 };
 
 template<typename T, typename PtrTraits = RawPtrTraits<T>>

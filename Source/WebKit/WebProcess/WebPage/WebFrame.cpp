@@ -705,7 +705,11 @@ void WebFrame::addConsoleMessage(MessageSource messageSource, MessageLevel messa
 {
     RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
     if (!localFrame)
+        localFrame = m_provisionalFrame.get();
+
+    if (!localFrame)
         return;
+
     if (RefPtr document = localFrame->document())
         document->addConsoleMessage(messageSource, messageLevel, message, requestID);
 }
@@ -1758,6 +1762,20 @@ void WebFrame::requestContainerJSHandleForExtractedText(TextExtraction::Extracte
         return completion({ });
 
     RefPtr element = TextExtraction::containerElementForExtractedText(*frame, WTF::move(extractedText));
+    if (!element)
+        return completion({ });
+
+    auto [handle, info] = createAndPrepareToSendJSHandle(*element);
+    completion({ WTF::move(info) });
+}
+
+void WebFrame::requestContainerJSHandleForSearchTexts(Vector<String>&& searchTexts, std::optional<NodeIdentifier>&& targetNodeIdentifier, CompletionHandler<void(std::optional<JSHandleInfo>&&)>&& completion)
+{
+    RefPtr frame = coreLocalFrame();
+    if (!frame)
+        return completion({ });
+
+    RefPtr element = TextExtraction::containerElementForSearchTexts(*frame, WTF::move(searchTexts), WTF::move(targetNodeIdentifier));
     if (!element)
         return completion({ });
 

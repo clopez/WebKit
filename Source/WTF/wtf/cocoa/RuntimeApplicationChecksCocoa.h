@@ -138,7 +138,7 @@ enum class SDKAlignedBehavior {
     DataURLForPastedImages,
     SuppressKeypressForModifierShortcuts,
     ScrollColorExtensionGrowsDuringRubberBanding,
-    DocumentBackgroundColorFromCanvas,
+    ManagedRefreshControlAppearance,
 
     NumberOfBehaviors
 };

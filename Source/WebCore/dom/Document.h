@@ -1018,6 +1018,9 @@ public:
     void hoveredElementDidDetach(Element&);
     void elementInActiveChainDidDetach(Element&);
 
+    Element* hoveredElement() const { return m_hoveredElement.get(); }
+    Element* activatedElement() const { return m_activeElement.get(); }
+
     enum class CaptureChange : bool { No, Yes };
     void updateHoverActiveState(const HitTestRequest&, Element*, CaptureChange = CaptureChange::No);
 
@@ -1875,6 +1878,7 @@ public:
     ListHashSet<Ref<HTMLDialogElement>>& openDialogsList() { return m_openDialogsList; }
 
     HTMLDialogElement* activeModalDialog() const;
+    HTMLDialogElement* activeCloseableDialog() const;
     HTMLElement* NODELETE topmostAutoPopover() const;
     RefPtr<HTMLDialogElement> nearestClickedDialog(const PointerEvent&, Node&) const;
 
@@ -2229,7 +2233,7 @@ private:
 
     bool isBodyPotentiallyScrollable(HTMLBodyElement&);
 
-    void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) final;
+    void didLogMessage(const WTFLogChannel&, WTFLogLevel, std::optional<WTFLogLocation>, Vector<JSONLogValue>&&) final;
     static void configureSharedLogger();
 
     void addToDocumentsMap();

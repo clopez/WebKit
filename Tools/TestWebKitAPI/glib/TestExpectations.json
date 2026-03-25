@@ -143,7 +143,7 @@
     "TestWebKitFaviconDatabase": {
         "subtests": {
             "/webkit/WebKitFaviconDatabase/get-favicon": {
-                "expected": {"gtk": {"status": ["FAIL", "TIMEOUT", "PASS"], "bug": "webkit.org/b/205381"}}
+                "expected": {"gtk": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/310428"}}
             }
         }
     },

@@ -63,6 +63,7 @@ public:
     ~HTMLSelectElement();
 
     enum class ExcludeOptGroup : bool { No, Yes };
+    enum class PickerScrollMode : uint8_t { Nearest, AlignTop, AlignBottom };
     static HTMLSelectElement* NODELETE findOwnerSelect(ContainerNode*, ExcludeOptGroup);
 
     WEBCORE_EXPORT int selectedIndex() const;
@@ -187,14 +188,16 @@ public:
     WEBCORE_EXPORT bool usesBaseAppearancePicker() const;
     SelectPopoverElement* NODELETE pickerPopoverElement() const;
     void hidePickerPopoverElement();
+    void queuePickerCloseForAppearanceChange();
 
     struct NavigationKeyIdentifiers {
         ASCIILiteral next;
         ASCIILiteral previous;
+        WritingMode writingMode { };
     };
     NavigationKeyIdentifiers pickerNavigationKeyIdentifiers() const;
     int computeNavigationIndex(const String& keyIdentifier, int currentListIndex, NavigationKeyIdentifiers) const;
-    void focusOptionAtIndex(int listIndex, std::optional<bool> focusVisible = std::nullopt);
+    void focusOptionAtIndex(int listIndex, std::optional<bool> focusVisible = std::nullopt, PickerScrollMode = PickerScrollMode::Nearest);
     int typeAheadMatchIndex(KeyboardEvent&);
 
 protected:
@@ -273,6 +276,7 @@ private:
     int firstSelectableListIndex() const;
     int lastSelectableListIndex() const;
     int nextSelectableListIndexPageAway(int startIndex, SkipDirection) const;
+    int nextSelectableListIndexForPickerPageMove(int startIndex, SkipDirection, WritingMode) const;
 
     void childrenChanged(const ChildChange&) final;
 
@@ -313,6 +317,7 @@ private:
     RefPtr<PopupMenu> m_popup;
 #endif
     bool m_popupIsVisible { false };
+    bool m_wasBaseAppearance { false };
 };
 
 } // namespace

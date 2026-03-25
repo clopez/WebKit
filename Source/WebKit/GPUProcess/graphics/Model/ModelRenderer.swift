@@ -21,7 +21,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE_GPU_PROCESS_MODEL && canImport(RealityCoreRenderer, _version: 11) && compiler(>=6.2)
+#if ENABLE_GPU_PROCESS_MODEL && canImport(RealityCoreRenderer, _version: 11)
 
 import QuartzCore
 @_weakLinked import USDKit
@@ -98,7 +98,7 @@ class Renderer {
 
         let aspect = Float(texture.width) / Float(texture.height)
         let projection = _Proto_LowLevelRenderer_v1.Camera.Projection.perspective(
-            fovYRadians: 90 * .pi / 180,
+            fovYRadians: 60 * .pi / 180,
             aspectRatio: aspect,
             nearZ: modelDistance * 0.01,
             farZ: modelDistance * 100,

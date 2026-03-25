@@ -804,7 +804,7 @@ void WebPageProxy::updateWebProcessSuspensionDelay()
 
 #endif
 
-WebPageProxy::Internals::Internals(WebPageProxy& page, std::optional<SecurityOriginData> openerOrigin)
+WebPageProxy::Internals::Internals(WebPageProxy& page, bool processInheritedFromOpener)
     : page(page)
     , audibleActivityTimer(RunLoop::mainSingleton(), "WebPageProxy::Internals::AudibleActivityTimer"_s, &page, &WebPageProxy::clearAudibleActivity)
     , geolocationPermissionRequestManager(page)
@@ -830,7 +830,7 @@ WebPageProxy::Internals::Internals(WebPageProxy& page, std::optional<SecurityOri
 #if PLATFORM(GTK) || PLATFORM(WPE)
     , activityStateChangeTimer(RunLoop::mainSingleton(), "WebPageProxy::Internals::activityStateChangeTimer"_s, &page, &WebPageProxy::dispatchActivityStateChange)
 #endif
-    , openerOrigin(openerOrigin)
+    , processInheritedFromOpener(processInheritedFromOpener)
 {
 #if PLATFORM(GTK) || PLATFORM(WPE)
     // Give the events causing activity state changes more priority than the change timer.
@@ -881,7 +881,7 @@ static Ref<BrowsingContextGroup> getOrCreateBrowsingContextGroup(const API::Page
 }
 
 WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref<API::PageConfiguration>&& configuration)
-    : m_internals(makeUniqueRefWithoutRefCountedCheck<Internals>(*this, configuration->openerInfo().transform([](API::PageConfiguration::OpenerInfo info) { return info.securityOrigin; } )))
+    : m_internals(makeUniqueRefWithoutRefCountedCheck<Internals>(*this, configuration->processInheritedFromOpener()))
     , m_identifier(Identifier::generate())
     , m_webPageID(PageIdentifier::generate())
     , m_pageClient(pageClient)
@@ -1820,13 +1820,19 @@ void WebPageProxy::initializeWebPage(const Site& site, WebCore::SandboxFlags eff
     Ref process = m_legacyMainFrameProcess;
     Ref browsingContextGroup = m_browsingContextGroup;
     Ref preferences = m_preferences;
+    RefPtr openerFrame = WebFrameProxy::webFrame(m_openerFrameIdentifier);
 
+    Ref frameProcess = [&]() {
+        if (!internals().processInheritedFromOpener)
+            return browsingContextGroup->ensureProcessForSite(site, site, process, preferences);
 
-    // If an empty site openes a new page, this new page should be in the same process
-    // as the opener. To do so, we can pass the opener's origin to BrowsingContextGroup::ensureProcessForSite.
-    Site effectiveSite = site.isEmpty() && internals().openerOrigin ? Site { *internals().openerOrigin } : site;
+        ASSERT(openerFrame);
+        Ref openerFrameProcess = openerFrame->frameProcess();
+        ASSERT(openerFrameProcess->process() == m_legacyMainFrameProcess.get());
+        return openerFrameProcess;
+    }();
 
-    m_mainFrame = WebFrameProxy::create(*this, browsingContextGroup->ensureProcessForSite(effectiveSite, site, process, preferences), generateFrameIdentifier(), effectiveSandboxFlags, effectiveReferrerPolicy, ScrollbarMode::Auto, protect(WebFrameProxy::webFrame(m_openerFrameIdentifier)), nullptr, IsMainFrame::Yes, std::nullopt);
+    m_mainFrame = WebFrameProxy::create(*this, frameProcess, generateFrameIdentifier(), effectiveSandboxFlags, effectiveReferrerPolicy, ScrollbarMode::Auto, protect(openerFrame.get()), nullptr, IsMainFrame::Yes, std::nullopt);
     if (preferences->siteIsolationEnabled())
         browsingContextGroup->addPage(*this);
     process->send(Messages::WebProcess::CreateWebPage(m_webPageID, creationParameters(process, *protect(drawingArea()), m_mainFrame->frameID(), std::nullopt)), 0);
@@ -5734,14 +5740,15 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         loadParameters.navigationID = navigation.navigationID();
         loadParameters.effectiveSandboxFlags = frame.effectiveSandboxFlags();
         loadParameters.effectiveReferrerPolicy = frame.effectiveReferrerPolicy();
-        loadParameters.lockBackForwardList = !!navigation.backForwardFrameLoadType() ? LockBackForwardList::Yes : LockBackForwardList::No;
+        bool isPendingInitialHistoryItem = navigation.isInitialFrameSrcLoad() || frame.isShowingInitialAboutBlank();
+        loadParameters.lockBackForwardList = isPendingInitialHistoryItem ? LockBackForwardList::No : navigation.lockBackForwardList();
         loadParameters.ownerPermissionsPolicy = navigation.ownerPermissionsPolicy();
         loadParameters.navigationUpgradeToHTTPSBehavior = navigationUpgradeToHTTPSBehavior;
         loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(loadParameters.request.url());
         if (auto& action = navigation.lastNavigationAction())
             loadParameters.requester = action->requester;
 
-        if (navigation.isInitialFrameSrcLoad())
+        if (isPendingInitialHistoryItem)
             frame.setIsPendingInitialHistoryItem(true);
 
         frame.prepareForProvisionalLoadInProcess(newProcess, navigation, browsingContextGroup, originator, [
@@ -6574,8 +6581,7 @@ void WebPageProxy::pageScaleFactorDidChange(IPC::Connection& connection, double 
 
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     // If the page's scale factor changes, the UI process needs to send an updated AffineTransform to each frame.
-    for (RefPtr frame = m_mainFrame; frame; frame = frame->traverseNext().frame)
-        requestFrameScreenPosition(frame->frameID());
+    updateAccessibilityFrameGeometry();
 #endif
 }
 
@@ -10041,6 +10047,12 @@ void WebPageProxy::requestFrameScreenPosition(FrameIdentifier frameID)
         protectedThis->sendToProcessContainingFrame(frameID, Messages::WebPage::UpdateRemotePageAccessibilityScreenPosition(frameID, geometry));
     });
 }
+
+void WebPageProxy::updateAccessibilityFrameGeometry()
+{
+    for (RefPtr frame = m_mainFrame; frame; frame = frame->traverseNext().frame)
+        requestFrameScreenPosition(frame->frameID());
+}
 #endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
 
 void WebPageProxy::runBeforeUnloadConfirmPanel(IPC::Connection& connection, FrameIdentifier frameID, FrameInfoData&& frameInfo, String&& message, CompletionHandler<void(bool)>&& reply)
@@ -12424,6 +12436,8 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
     m_allowedImmersiveElementFrameURL = std::nullopt;
+    if (m_immersive)
+        dismissImmersiveElement([] { });
 #endif
 
 #if PLATFORM(COCOA)
@@ -12649,12 +12663,14 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
     if (terminationReason != ProcessTerminationReason::NavigationSwap)
         m_provisionalPage = nullptr;
 
-    if (terminationReason == ProcessTerminationReason::NavigationSwap)
-        protectedPageClient->processWillSwap();
-    else
-        protectedPageClient->processDidExit();
+    if (protectedPageClient) {
+        if (terminationReason == ProcessTerminationReason::NavigationSwap)
+            protectedPageClient->processWillSwap();
+        else
+            protectedPageClient->processDidExit();
 
-    protectedPageClient->clearAllEditCommands();
+        protectedPageClient->clearAllEditCommands();
+    }
 
 #if PLATFORM(COCOA)
     WebPasteboardProxy::singleton().revokeAccess(m_legacyMainFrameProcess.get());
@@ -13614,7 +13630,7 @@ private:
 
 void WebPageProxy::validateCaptureStateUpdate(WebCore::UserMediaRequestIdentifier requestIdentifier, WebCore::ClientOrigin&& clientOrigin, FrameInfoData&& frameInfo, bool isActive, WebCore::MediaProducerMediaCaptureKind kind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
 {
-    WEBPAGEPROXY_RELEASE_LOG(WebRTC, "validateCaptureStateUpdate: isActive=%d kind=%hhu", isActive, kind);
+    WEBPAGEPROXY_RELEASE_LOG(WebRTC, "validateCaptureStateUpdate: isActive=%d kind=%hhu", isActive, static_cast<unsigned char>(kind));
     RefPtr webFrame = WebFrameProxy::webFrame(frameInfo.frameID);
     if (!webFrame) {
         completionHandler(WebCore::Exception { ExceptionCode::InvalidStateError, "no frame available"_s });

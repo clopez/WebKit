@@ -24,24 +24,25 @@
 public import CryptoKit
 public import Foundation
 
-public import pal.Core.PALSwift
-public import pal.Core.crypto.CryptoDigestHashFunction
+public import pal.Core.crypto.CryptoTypes
+
+// FIXME: (rdar://164560176) resolve the many 'unsafe' statements here
 
 // FIXME: PALSwift should have no public symbols.
 // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-public typealias CryptoOperationReturnValue = Cpp.CryptoOperationReturnValue
+public typealias CryptoOperationReturnValue = PAL.Crypto.CryptoOperationReturnValue
 
 // FIXME: PALSwift should have no public symbols.
 // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-public typealias ErrorCodes = Cpp.ErrorCodes
+public typealias ErrorCodes = PAL.Crypto.Error
 
 // FIXME: PALSwift should have no public symbols.
 // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-public typealias VectorUInt8 = Cpp.VectorUInt8
+public typealias VectorUInt8 = PAL.Crypto.VectorUInt8
 
 // FIXME: PALSwift should have no public symbols.
 // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
-public typealias SpanConstUInt8 = Cpp.SpanConstUInt8
+public typealias SpanConstUInt8 = PAL.Crypto.SpanConstUInt8
 
 private enum LocalErrors: Error {
     case invalidArgument
@@ -200,7 +201,7 @@ public class Digest {
         unsafe Self.digest(data, t).copyToVectorUInt8()
     }
 
-    fileprivate static func digest(_ data: SpanConstUInt8, hashFunction: PAL.CryptoDigestHashFunction) -> any CryptoKit.Digest {
+    fileprivate static func digest(_ data: SpanConstUInt8, hashFunction: PAL.Crypto.CryptoDigestHashFunction) -> any CryptoKit.Digest {
         switch hashFunction {
         case .SHA_256:
             return unsafe digest(data, SHA256.self)
@@ -213,7 +214,7 @@ public class Digest {
         case .DEPRECATED_SHA_224:
             fatalError("DEPRECATED_SHA_224 is not supported")
         @unknown default:
-            fatalError("Unknown PAL.CryptoDigestHashFunction enum case value: \(hashFunction.rawValue)")
+            fatalError("Unknown PAL.Crypto.CryptoDigestHashFunction enum case value: \(hashFunction.rawValue)")
         }
     }
 }
@@ -406,17 +407,12 @@ public struct ECKey {
         return returnValue
     }
 
-    // FIXME: `hashFunction` should not be a raw value, but compilers < 6.0 do not understand C++ enums as parameters.
     // FIXME: PALSwift should have no public symbols.
     // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
     public func sign(
         message: SpanConstUInt8,
-        hashFunction hashFunctionRawValue: PAL.CryptoDigestHashFunction.RawValue
+        hashFunction: PAL.Crypto.CryptoDigestHashFunction
     ) -> CryptoOperationReturnValue {
-        // FIXME: This is safe because all callers use the enum type itself, and this is only temporary.
-        // swift-format-ignore: NeverForceUnwrap
-        let hashFunction = PAL.CryptoDigestHashFunction(rawValue: hashFunctionRawValue)!
-
         var returnValue = CryptoOperationReturnValue()
         do {
             switch try getInternalPrivate() {
@@ -445,12 +441,8 @@ public struct ECKey {
     public func verify(
         message: SpanConstUInt8,
         signature: SpanConstUInt8,
-        hashFunction hashFunctionRawValue: PAL.CryptoDigestHashFunction.RawValue
+        hashFunction: PAL.Crypto.CryptoDigestHashFunction
     ) -> CryptoOperationReturnValue {
-        // FIXME: This is safe because all callers use the enum type itself, and this is only temporary.
-        // swift-format-ignore: NeverForceUnwrap
-        let hashFunction = PAL.CryptoDigestHashFunction(rawValue: hashFunctionRawValue)!
-
         var returnValue = CryptoOperationReturnValue()
         do {
             let internalPublic = try getInternalPublic()
@@ -772,12 +764,8 @@ public class HMAC {
     public static func sign(
         key: SpanConstUInt8,
         data: SpanConstUInt8,
-        hashFunction hashFunctionRawValue: PAL.CryptoDigestHashFunction.RawValue
+        hashFunction: PAL.Crypto.CryptoDigestHashFunction
     ) -> VectorUInt8 {
-        // FIXME: This is safe because all callers use the enum type itself, and this is only temporary.
-        // swift-format-ignore: NeverForceUnwrap
-        let hashFunction = PAL.CryptoDigestHashFunction(rawValue: hashFunctionRawValue)!
-
         switch hashFunction {
         case .SHA_1:
             return unsafe CryptoKit.HMAC<Insecure.SHA1>.authenticationCode(data: data, key: key)
@@ -790,7 +778,7 @@ public class HMAC {
         case .DEPRECATED_SHA_224:
             fatalError("DEPRECATED_SHA_224 is not supported")
         @unknown default:
-            fatalError("Unknown PAL.CryptoDigestHashFunction enum case value: \(hashFunction.rawValue)")
+            fatalError("Unknown PAL.Crypto.CryptoDigestHashFunction enum case value: \(hashFunction.rawValue)")
         }
     }
 
@@ -800,12 +788,8 @@ public class HMAC {
         mac: SpanConstUInt8,
         key: SpanConstUInt8,
         data: SpanConstUInt8,
-        hashFunction hashFunctionRawValue: PAL.CryptoDigestHashFunction.RawValue
+        hashFunction: PAL.Crypto.CryptoDigestHashFunction
     ) -> Bool {
-        // FIXME: This is safe because all callers use the enum type itself, and this is only temporary.
-        // swift-format-ignore: NeverForceUnwrap
-        let hashFunction = PAL.CryptoDigestHashFunction(rawValue: hashFunctionRawValue)!
-
         switch hashFunction {
         case .SHA_1:
             return unsafe CryptoKit.HMAC<Insecure.SHA1>
@@ -844,12 +828,8 @@ public class HKDF {
         salt: SpanConstUInt8,
         info: SpanConstUInt8,
         outputBitCount: Int,
-        hashFunction hashFunctionRawValue: PAL.CryptoDigestHashFunction.RawValue
+        hashFunction: PAL.Crypto.CryptoDigestHashFunction
     ) -> CryptoOperationReturnValue {
-        // FIXME: This is safe because all callers use the enum type itself, and this is only temporary.
-        // swift-format-ignore: NeverForceUnwrap
-        let hashFunction = PAL.CryptoDigestHashFunction(rawValue: hashFunctionRawValue)!
-
         var returnValue = CryptoOperationReturnValue()
         if outputBitCount <= 0 || outputBitCount % 8 != 0 {
             returnValue.errorCode = .InvalidArgument

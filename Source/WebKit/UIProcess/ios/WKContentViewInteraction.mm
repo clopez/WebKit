@@ -213,6 +213,7 @@
 
 #if ENABLE(WRITING_TOOLS)
 #import "WKTextAnimationManagerIOS.h"
+#import "WKTextEffectManager.h"
 #endif
 
 #if ENABLE(MODEL_PROCESS) || ENABLE(WRITING_TOOLS)
@@ -10114,6 +10115,13 @@ static String fallbackLabelTextForUnlabeledInputFieldInZoomedFormControls(WebCor
 }
 #endif
 
+- (NSURL *)currentPageURLForActionSheetAssistant:(WKActionSheetAssistant *)assistant
+{
+    if (!_page)
+        return nil;
+    return URL { protect(_page)->currentURL() }.createNSURL().autorelease();
+}
+
 - (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant showCustomSheetForElement:(_WKActivatedElementInfo *)element
 {
     RetainPtr uiDelegate = static_cast<id <WKUIDelegatePrivate>>([_webView.get() UIDelegate]);
@@ -14319,6 +14327,33 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
 
     [_textAnimationManager removeTextAnimationForAnimationID:uuid];
 }
+
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+- (void)addTextEffectForID:(NSUUID *)uuid withData:(const WebCore::TextEffectData&)data
+{
+    if (!protect(_page->preferences())->textEffectsEnabled())
+        return;
+
+    if (!_textEffectManager)
+        _textEffectManager = adoptNS([[WKTextEffectManager alloc] initWithWebView:self.webView]);
+
+    [_textEffectManager addTextEffectForID:uuid withData:data];
+}
+
+- (void)removeTextEffectForID:(NSUUID *)uuid
+{
+    if (!uuid)
+        return;
+
+    if (!protect(_page->preferences())->textEffectsEnabled())
+        return;
+
+    if (!_textEffectManager)
+        return;
+
+    [_textEffectManager removeTextEffectForID:uuid];
+}
+#endif // ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
 
 #endif
 

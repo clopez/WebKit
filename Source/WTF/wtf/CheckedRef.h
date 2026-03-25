@@ -78,18 +78,16 @@ public:
     }
 
     ALWAYS_INLINE CheckedRef(const CheckedRef& other)
-        : m_ptr { PtrTraits::unwrap(other.m_ptr) }
+        : m_ptr { other.m_ptr }
     {
-        auto* ptr = PtrTraits::unwrap(m_ptr);
-        ptr->incrementCheckedPtrCount();
+        PtrTraits::unwrap(m_ptr)->incrementCheckedPtrCount();
     }
 
     template<typename OtherType, typename OtherPtrTraits>
     CheckedRef(const CheckedRef<OtherType, OtherPtrTraits>& other)
-        : m_ptr { PtrTraits::unwrap(other.m_ptr) }
+        : m_ptr { OtherPtrTraits::unwrap(other.m_ptr) }
     {
-        auto* ptr = PtrTraits::unwrap(m_ptr);
-        ptr->incrementCheckedPtrCount();
+        PtrTraits::unwrap(m_ptr)->incrementCheckedPtrCount();
     }
 
     ALWAYS_INLINE CheckedRef(CheckedRef&& other)
@@ -104,6 +102,11 @@ public:
     {
         ASSERT(m_ptr);
     }
+
+    template<typename X, typename WeakPtrImplType>
+    CheckedRef(const WeakRef<X, WeakPtrImplType>& other) requires std::is_convertible_v<X*, T*>
+        : CheckedRef(other.get())
+    { }
 
     CheckedRef(HashTableDeletedValueType) : m_ptr(PtrTraits::hashTableDeletedValue()) { }
     bool isHashTableDeletedValue() const { return PtrTraits::isHashTableDeletedValue(m_ptr); }
@@ -211,6 +214,9 @@ private:
     typename PtrTraits::StorageType m_ptr;
 };
 
+template<typename X, typename WeakPtrImplType> CheckedRef(WeakRef<X, WeakPtrImplType>&) -> CheckedRef<X>;
+template<typename X, typename WeakPtrImplType> CheckedRef(const WeakRef<X, WeakPtrImplType>&) -> CheckedRef<X>;
+
 template <typename T, typename PtrTraits>
 struct GetPtrHelper<CheckedRef<T, PtrTraits>> {
     using PtrType = T*;
@@ -221,7 +227,7 @@ struct GetPtrHelper<CheckedRef<T, PtrTraits>> {
 template <typename T, typename U>
 struct IsSmartPtr<CheckedRef<T, U>> {
     static constexpr bool value = true;
-    static constexpr bool isNullable = true;
+    static constexpr bool isNullable = false;
 };
 
 template<typename ExpectedType, typename ArgType, typename ArgPtrTraits>

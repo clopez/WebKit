@@ -179,6 +179,10 @@
 #include "WebExtensionControllerProxy.h"
 #endif
 
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+#import <WebCore/TextEffectController.h>
+#endif
+
 #import "PDFKitSoftLink.h"
 
 #define WEBPAGE_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webPageID=%" PRIu64 "] WebPage::" fmt, this, m_identifier.toUInt64(), ##__VA_ARGS__)
@@ -1353,6 +1357,18 @@ void WebPage::removeTextAnimationForAnimationID(const WTF::UUID& uuid)
     send(Messages::WebPageProxy::RemoveTextAnimationForAnimationID(uuid));
 }
 
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+void WebPage::addTextEffectForID(const WTF::UUID& uuid, WebCore::TextEffectData&& data, RefPtr<WebCore::TextIndicator>&& textIndicator, RefPtr<WebCore::TextIndicator>&& decorationIndicator)
+{
+    send(Messages::WebPageProxy::AddTextEffectForID(uuid, WTF::move(data), WTF::move(textIndicator), WTF::move(decorationIndicator)));
+}
+
+void WebPage::removeTextEffectForID(const WTF::UUID& uuid)
+{
+    send(Messages::WebPageProxy::RemoveTextEffectForID(uuid));
+}
+#endif // ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+
 void WebPage::removeInitialTextAnimationForActiveWritingToolsSession()
 {
     m_textAnimationController->removeInitialTextAnimationForActiveWritingToolsSession();
@@ -1392,6 +1408,18 @@ void WebPage::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& 
 {
     m_textAnimationController->updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible, WTF::move(completionHandler));
 }
+
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+void WebPage::updateUnderlyingTextVisibilityForTextEffectID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
+{
+    protect(corePage())->textEffectController().updateUnderlyingTextVisibilityForTextEffectID(uuid, visible, WTF::move(completionHandler));
+}
+
+void WebPage::createTextIndicatorForTextEffectID(const WTF::UUID& uuid, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&& completionHandler)
+{
+    protect(corePage())->textEffectController().createTextIndicatorForTextEffectID(uuid, WTF::move(completionHandler));
+}
+#endif // ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
 
 void WebPage::proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const WebCore::CharacterRange& enclosingRangeRelativeToSessionRange, CompletionHandler<void(Vector<FloatRect>&&)>&& completionHandler) const
 {
@@ -3282,7 +3310,8 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
     // FIXME: Pass caps lock state.
     auto platformModifiers = platform(modifiers);
 
-    bool handledPress = localRootFrame->eventHandler().handleMousePressEvent(PlatformMouseEvent(roundedAdjustedPoint, roundedAdjustedPoint, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, platformModifiers, MonotonicTime::now(), WebCore::ForceAtClick, syntheticClickType, m_potentialTapInputSource, pointerId)).wasHandled();
+    auto pressEvent = PlatformMouseEvent { roundedAdjustedPoint, roundedAdjustedPoint, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, platformModifiers, MonotonicTime::now(), WebCore::ForceAtClick, syntheticClickType, m_potentialTapInputSource, pointerId };
+    bool handledPress = localRootFrame->eventHandler().handleMousePressEvent(pressEvent).wasHandled();
     if (m_isClosed)
         return;
 
@@ -3319,8 +3348,10 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
 
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr pluginElement = dynamicDowncast<HTMLPlugInElement>(nodeRespondingToClick)) {
-        if (RefPtr pluginWidget = downcast<PluginView>(pluginElement->pluginWidget()))
+        if (RefPtr pluginWidget = downcast<PluginView>(pluginElement->pluginWidget())) {
+            pluginWidget->handleSyntheticClick(WTF::move(pressEvent));
             pluginWidget->handleSyntheticClick(WTF::move(releaseEvent));
+        }
     }
 #endif
 

@@ -30,7 +30,7 @@
 #include "ExceptionOr.h"
 #include "JsonWebKey.h"
 #include "Logging.h"
-#include <pal/PALSwift.h>
+#include <pal/crypto/CryptoTypes.h>
 #include <pal/spi/cocoa/CoreCryptoSPI.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/Base64.h>
@@ -44,7 +44,6 @@ bool CryptoKeyOKP::supportsNamedCurve()
 
 std::optional<CryptoKeyPair> CryptoKeyOKP::platformGeneratePair(CryptoAlgorithmIdentifier identifier, NamedCurve namedCurve, bool extractable, CryptoKeyUsageBitmap usages)
 {
-#if !defined(CLANG_WEBKIT_BRANCH)
     if (!supportsNamedCurve())
         return { };
 
@@ -53,7 +52,7 @@ std::optional<CryptoKeyPair> CryptoKeyOKP::platformGeneratePair(CryptoAlgorithmI
         auto privateKeyPlatform = pal::EdKey::generatePrivateKey(pal::EdSigningAlgorithm::ed25519());
         RELEASE_ASSERT(privateKeyPlatform.size() == 32);
         auto publicKeyPlatformRv = pal::EdKey::privateToPublic(pal::EdSigningAlgorithm::ed25519(), privateKeyPlatform.span());
-        if (publicKeyPlatformRv.errorCode != Cpp::ErrorCodes::Success)
+        if (publicKeyPlatformRv.errorCode != PAL::Crypto::Error::Success)
             return std::nullopt;
         bool isPublicKeyExtractable = true;
         auto publicKey = CryptoKeyOKP::create(identifier, namedCurve, CryptoKeyType::Public, WTF::move(publicKeyPlatformRv.result), isPublicKeyExtractable, usages);
@@ -66,7 +65,7 @@ std::optional<CryptoKeyPair> CryptoKeyOKP::platformGeneratePair(CryptoAlgorithmI
         auto privateKeyPlatform = pal::EdKey::generatePrivateKeyKeyAgreement(pal::EdKeyAgreementAlgorithm::x25519());
         RELEASE_ASSERT(privateKeyPlatform.size() == 32);
         auto publicKeyPlatformRv = pal::EdKey::privateToPublicKeyAgreement(pal::EdKeyAgreementAlgorithm::x25519(), privateKeyPlatform.span());
-        if (publicKeyPlatformRv.errorCode != Cpp::ErrorCodes::Success)
+        if (publicKeyPlatformRv.errorCode != PAL::Crypto::Error::Success)
             return std::nullopt;
         bool isPublicKeyExtractable = true;
         auto publicKey = CryptoKeyOKP::create(identifier, namedCurve, CryptoKeyType::Public, WTF::move(publicKeyPlatformRv.result), isPublicKeyExtractable, usages);
@@ -79,18 +78,10 @@ std::optional<CryptoKeyPair> CryptoKeyOKP::platformGeneratePair(CryptoAlgorithmI
         RELEASE_ASSERT_NOT_REACHED();
         return std::nullopt;
     }
-#else
-    UNUSED_PARAM(identifier);
-    UNUSED_PARAM(namedCurve);
-    UNUSED_PARAM(extractable);
-    UNUSED_PARAM(usages);
-    RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("CLANG_WEBKIT_BRANCH");
-#endif
 }
 
 bool CryptoKeyOKP::platformCheckPairedKeys(CryptoAlgorithmIdentifier identifier, NamedCurve, const Vector<uint8_t>& privateKey, const Vector<uint8_t>& publicKey)
 {
-#if !defined(CLANG_WEBKIT_BRANCH)
     if (!supportsNamedCurve())
         return false;
 
@@ -106,12 +97,6 @@ bool CryptoKeyOKP::platformCheckPairedKeys(CryptoAlgorithmIdentifier identifier,
         RELEASE_ASSERT_NOT_REACHED();
         return false;
     }
-#else
-    UNUSED_PARAM(identifier);
-    UNUSED_PARAM(privateKey);
-    UNUSED_PARAM(publicKey);
-    RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("CLANG_WEBKIT_BRANCH");
-#endif
 }
 
 // Per https://www.ietf.org/rfc/rfc5280.txt
@@ -365,7 +350,6 @@ String CryptoKeyOKP::generateJwkD() const
 
 String CryptoKeyOKP::generateJwkX() const
 {
-#if !defined(CLANG_WEBKIT_BRANCH)
     if (type() == CryptoKeyType::Public)
         return base64URLEncodeToString(m_data);
 
@@ -373,21 +357,18 @@ String CryptoKeyOKP::generateJwkX() const
     switch (namedCurve()) {
     case NamedCurve::Ed25519: {
         auto publicKeyPlatformRv = pal::EdKey::privateToPublic(pal::EdSigningAlgorithm::ed25519(), platformKey().span());
-        RELEASE_ASSERT(publicKeyPlatformRv.errorCode == Cpp::ErrorCodes::Success);
+        RELEASE_ASSERT(publicKeyPlatformRv.errorCode == PAL::Crypto::Error::Success);
         return base64URLEncodeToString(publicKeyPlatformRv.result.span());
     }
     case NamedCurve::X25519: {
         auto publicKeyPlatformRv = pal::EdKey::privateToPublicKeyAgreement(pal::EdKeyAgreementAlgorithm::x25519(), platformKey().span());
-        RELEASE_ASSERT(publicKeyPlatformRv.errorCode == Cpp::ErrorCodes::Success);
+        RELEASE_ASSERT(publicKeyPlatformRv.errorCode == PAL::Crypto::Error::Success);
         return base64URLEncodeToString(publicKeyPlatformRv.result.span());
     }
     default:
         RELEASE_ASSERT_NOT_REACHED();
         return String(""_s);
     }
-#else
-    RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("CLANG_WEBKIT_BRANCH");
-#endif
 }
 
 Vector<uint8_t> CryptoKeyOKP::platformExportRaw() const

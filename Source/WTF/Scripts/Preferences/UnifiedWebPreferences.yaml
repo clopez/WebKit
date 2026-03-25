@@ -82,7 +82,7 @@ ARIAActionsSupportEnabled:
 
 AVExperienceControllerFullscreenEnabled:
   type: bool
-  status: unstable
+  status: internal
   category: media
   getter: isAVExperienceControllerFullscreenEnabled
   webcoreGetter: isAVExperienceControllerFullscreenEnabled
@@ -94,7 +94,7 @@ AVExperienceControllerFullscreenEnabled:
     WebCore:
       default: false
     WebKit:
-      default: false
+      default: true
     WebKitLegacy:
       default: false
 
@@ -3911,6 +3911,22 @@ IndexedDBAPIEnabled:
     WebCore:
       default: true
   disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
+  richJavaScript: true
+
+IndexedDBGetAllRecordsEnabled:
+  type: bool
+  category: dom
+  status: testable
+  humanReadableName: "IndexedDB getAllRecords() API"
+  humanReadableDescription: "Enable getAllRecords() on IDBIndex"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
@@ -8247,6 +8263,20 @@ TextAutosizingUsesIdempotentMode:
       default: false
     WebCore:
       default: false
+
+TextEffectsEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Text Effects"
+  humanReadableDescription: "Text Effects"
+  condition: ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 TextExtractionDebugUIEnabled:
   type: bool

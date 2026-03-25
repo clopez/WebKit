@@ -870,6 +870,10 @@ bool Quirks::shouldTranscodeHeicImagesForURL(const URL& url)
     if (quirksDomain.string() == "canva.com"_s)
         return true;
 
+    // uhc.com rdar://173206598
+    if (quirksDomain.string() == "uhc.com"_s)
+        return true;
+
     return false;
 }
 
@@ -946,6 +950,18 @@ bool Quirks::needsPreloadAutoQuirk() const
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsPreloadAutoQuirk);
+#else
+    return false;
+#endif
+}
+
+// espn.com rdar://154903596
+bool Quirks::needsPauseBeforeFullscreenExitQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsPauseBeforeFullscreenExitQuirk);
 #else
     return false;
 #endif
@@ -1925,19 +1941,26 @@ std::optional<TargetedElementSelectors> Quirks::defaultVisibilityAdjustmentSelec
 
 String Quirks::scriptToEvaluateBeforeRunningScriptFromURL(const URL& scriptURL)
 {
-#if PLATFORM(IOS_FAMILY)
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE({ });
 
     if (!m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk))
         return { };
 
+    if (scriptURL.isEmpty())
+        return { };
+
+    // iheart.com rdar://171198911
+    if (m_quirksData.isIHeart)
+        return "document.cookie = 'app=listen:60; path=/; domain=.iheart.com';"_s;
+
+#if PLATFORM(IOS_FAMILY)
     // player.anyclip.com rdar://138789765
-    if (m_quirksData.isThesaurus && scriptURL.lastPathComponent().endsWith("lre.js"_s)) [[unlikely]] {
+    if ((m_quirksData.isDictionary || m_quirksData.isThesaurus) && scriptURL.lastPathComponent().endsWith("lre.js"_s)) [[unlikely]] {
         if (scriptURL.host() == "player.anyclip.com"_s)
             return chromeUserAgentScript;
     }
 
-    if (m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsGoogleTranslateScrollingQuirk) && !scriptURL.isEmpty()) [[unlikely]]
+    if (m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsGoogleTranslateScrollingQuirk)) [[unlikely]]
         return chromeUserAgentScript;
 
     // nba.com rdar://147429596
@@ -1948,8 +1971,6 @@ String Quirks::scriptToEvaluateBeforeRunningScriptFromURL(const URL& scriptURL)
     if (m_quirksData.isWebEx && scriptURL.lastPathComponent().startsWith("pushdownload."_s)) [[unlikely]]
         return "Object.defineProperty(window, 'Touch', { get: () => undefined });"_s;
 #endif
-#else
-    UNUSED_PARAM(scriptURL);
 #endif
 
     return { };
@@ -2367,6 +2388,7 @@ bool Quirks::needsInstagramResizingReelsQuirk(const Element& element, const Rend
 {
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
+#if ENABLE(VIDEO)
     if (!m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsInstagramResizingReelsQuirk))
         return false;
 
@@ -2386,6 +2408,12 @@ bool Quirks::needsInstagramResizingReelsQuirk(const Element& element, const Rend
         return false;
 
     return descendantsOfType<HTMLVideoElement>(element).first();
+#else
+    UNUSED_PARAM(element);
+    UNUSED_PARAM(elementStyle);
+    UNUSED_PARAM(parentStyle);
+    return false;
+#endif // ENABLE(VIDEO)
 }
 
 bool Quirks::needsWebKitMediaTextTrackDisplayQuirk() const
@@ -2598,6 +2626,11 @@ static void handleSlackQuirks(QuirksData& quirksData, const URL&, const String& 
 
 static void handleScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirksData& quirksData, const URL& /* quirksURL */, const String& topDomain, const URL& /* documentURL */)
 {
+    if (topDomain == "dictionary.com"_s) {
+        quirksData.isDictionary = true;
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk);
+    }
+
     if (topDomain == "thesaurus.com"_s) {
         quirksData.isThesaurus = true;
         quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk);
@@ -2932,6 +2965,10 @@ static void handleESPNQuirks(QuirksData& quirksData, const URL& /* quirksURL */,
     quirksData.isESPN = true;
 
     quirksData.enableQuirks({
+#if PLATFORM(IOS)
+        // espn.com rdar://154903596
+        QuirksData::SiteSpecificQuirk::NeedsPauseBeforeFullscreenExitQuirk,
+#endif
 #if PLATFORM(IOS) || PLATFORM(VISION)
         // espn.com rdar://problem/95651814
         QuirksData::SiteSpecificQuirk::AllowLayeredFullscreenVideos,
@@ -3064,6 +3101,14 @@ static void handleHuluQuirks(QuirksData& quirksData, const URL& /* quirksURL */,
         // hulu.com rdar://126096361
         QuirksData::SiteSpecificQuirk::ImplicitMuteWhenVolumeSetToZero
     });
+}
+
+static void handleIHeartQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL& /* documentURL */)
+{
+    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("iheart.com"_s);
+
+    quirksData.isIHeart = true;
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk);
 }
 
 static void handleIMDBQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
@@ -3560,6 +3605,7 @@ void Quirks::determineRelevantQuirks()
         { "t-mobile"_s, &handleTMobileQuirks },
         { "descript"_s, &handleDescriptQuirks },
 #if PLATFORM(IOS_FAMILY)
+        { "dictionary"_s, &handleScriptToEvaluateBeforeRunningScriptFromURLQuirk },
         { "disneyplus"_s, &handleDisneyPlusQuirks },
 #endif
         { "ea"_s, &handleEAQuirks },
@@ -3579,6 +3625,7 @@ void Quirks::determineRelevantQuirks()
 #if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
         { "icloud"_s, &handleICloudQuirks },
 #endif
+        { "iheart"_s, &handleIHeartQuirks },
         { "imdb"_s, &handleIMDBQuirks },
         { "instagram"_s, &handleInstagramQuirks },
         { "live"_s, &handleLiveQuirks },

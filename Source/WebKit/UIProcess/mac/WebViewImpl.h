@@ -96,6 +96,7 @@ OBJC_CLASS WKTextSelectionController;
 OBJC_CLASS WKViewLayoutStrategy;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWindowVisibilityObserver;
+OBJC_CLASS WKTextEffectManager;
 OBJC_CLASS _WKRemoteObjectRegistry;
 OBJC_CLASS _WKThumbnailView;
 
@@ -832,6 +833,11 @@ public:
     void removeTextAnimationForAnimationID(WTF::UUID);
 
     void hideTextAnimationView();
+
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+    void addTextEffectForID(NSUUID *, const WebCore::TextEffectData&);
+    void removeTextEffectForID(NSUUID *);
+#endif
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)
@@ -1119,6 +1125,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if ENABLE(WRITING_TOOLS)
     RetainPtr<WKTextAnimationManager> m_textAnimationTypeManager;
+#if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
+    RetainPtr<WKTextEffectManager> m_textEffectManager;
+#endif
 #endif
 
     WebCore::IntPoint m_lastPageScrollPosition;
@@ -1186,9 +1195,21 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<WKAppKitGestureController> m_appKitGestureController;
     RetainPtr<WKTextSelectionController> m_textSelectionController;
 #endif
-} SWIFT_SHARED_REFERENCE(.incrementCheckedPtrCount, .decrementCheckedPtrCount);
+} SWIFT_SHARED_REFERENCE(incrementCheckedPtrCountOnWebViewImpl, decrementCheckedPtrCountOnWebViewImpl);
 
 } // namespace WebKit
+
+// FIXME: (rdar://173210238) Use `SWIFT_SHARED_REFERENCE(.incrementCheckedPtrCount, .decrementCheckedPtrCount)` when possible.
+
+inline void incrementCheckedPtrCountOnWebViewImpl(WebKit::WebViewImpl* obj)
+{
+    obj->incrementCheckedPtrCount();
+}
+
+inline void decrementCheckedPtrCountOnWebViewImpl(WebKit::WebViewImpl* obj)
+{
+    obj->decrementCheckedPtrCount();
+}
 
 #endif // PLATFORM(MAC)
 
