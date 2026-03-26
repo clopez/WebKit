@@ -267,15 +267,8 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
     if (paintInfo.phase == PaintPhase::EventRegion) {
         auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-<<<<<<< HEAD
         bool svgRootHasChildrenOrFilters = isRenderOrLegacyRenderSVGRoot() && (firstChild() || (resources && resources->filter()) || svgFilterResourceFromStyle());
         if (svgRootHasChildrenOrFilters && !isSkippedContentRoot(*this))
-||||||| parent of c5c4324813e4 (chore(webkit): bootstrap build #2273)
-        if (isRenderOrLegacyRenderSVGRoot() && !isSkippedContentRoot(*this))
-=======
-        bool svgRootHasChildrenOrFilters = firstChild() || (resources && resources->filter());
-        if (svgRootHasChildrenOrFilters && isRenderOrLegacyRenderSVGRoot() && !isSkippedContentRoot(*this))
->>>>>>> c5c4324813e4 (chore(webkit): bootstrap build #2273)
             paintReplaced(paintInfo, adjustedPaintOffset);
         else if (visibleToHitTesting()) {
             auto borderRect = LayoutRect(adjustedPaintOffset, size());
