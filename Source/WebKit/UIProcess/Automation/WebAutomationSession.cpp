@@ -406,6 +406,13 @@ Expected<PageAndFrameHandle, AutomationCommandError> WebAutomationSession::extra
     return makeUnexpected(AUTOMATION_COMMAND_ERROR_WITH_NAME(FrameNotFound));
 }
 
+#if ENABLE(WEBDRIVER_BIDI)
+bool WebAutomationSession::isValidUserContext(const String& userContextID) const
+{
+    return m_bidiProcessor->browserAgent().isValidUserContext(userContextID);
+}
+#endif
+
 // Platform-independent Commands.
 
 void WebAutomationSession::getNextContext(Vector<Ref<WebPageProxy>>&& pages, Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>> contexts, CommandCallback<Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>>>&& callback)
@@ -1237,6 +1244,29 @@ void WebAutomationSession::contextDestroyedForFrame(const WebFrameProxy& frame)
     m_bidiProcessor->browsingContextDomainNotifier().contextDestroyed(contextHandle, url, "null"_s, parentHandle, JSON::ArrayOf<Inspector::Protocol::BidiBrowsingContext::Info>::create(), clientWindow, userContext);
 
     // Note: Frame handle cleanup is done by didDestroyFrame(), so we don't duplicate that here
+}
+
+void WebAutomationSession::setViewportForPage(WebPageProxy& page, std::optional<int> width, std::optional<int> height, std::optional<double> devicePixelRatio, CommandCallback<void>&& callback)
+{
+    auto setDevicePixelRatioAndComplete = [protectedPage = Ref { page }, devicePixelRatio, callback = WTF::move(callback)]() mutable {
+        if (devicePixelRatio) {
+            protectedPage->setCustomDeviceScaleFactor(*devicePixelRatio, [callback = WTF::move(callback)]() mutable {
+                callback({ });
+            });
+            return;
+        }
+        callback({ });
+    };
+
+    if (width && height) {
+        page.getWindowFrameWithCallback([protectedPage = Ref { page }, width, height, setDevicePixelRatioAndComplete = WTF::move(setDevicePixelRatioAndComplete)](WebCore::FloatRect originalFrame) mutable {
+            WebCore::FloatRect newFrame = WebCore::FloatRect(originalFrame.location(), WebCore::FloatSize(*width, *height));
+            if (newFrame != originalFrame)
+                protectedPage->setWindowFrame(newFrame);
+            setDevicePixelRatioAndComplete();
+        });
+    } else
+        setDevicePixelRatioAndComplete();
 }
 
 #endif

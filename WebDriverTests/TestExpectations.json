@@ -2264,17 +2264,8 @@
             "test_params_type_invalid_value[foo]": {
                 "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/286790"}}
             },
-            "test_params_user_context_invalid_value[]": {
-                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/286790"}}
-            },
-            "test_params_user_context_invalid_value[unknown]": {
-                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/286790"}}
-            },
-            "test_params_user_context_invalid_value_with_ref_context": {
-                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/286790"}}
-            },
             "test_params_user_context_removed_context": {
-                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/286790"}}
+                "expected": { "all": { "status": ["SKIP"], "note": "Test passes but fixture teardown fails trying to remove already-removed user context"}}
             }
         }
     },
@@ -2724,7 +2715,18 @@
         "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}
     },
     "imported/w3c/webdriver/tests/bidi/browsing_context/set_viewport/invalid.py": {
-        "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}
+        "expected": { "all": { "status": ["PASS"], "bug": "webkit.org/b/288333"}},
+        "subtests": {
+            "test_params_context_iframe": {
+                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}
+            },
+            "test_params_user_contexts_entry_invalid_value[]": {
+                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}
+            },
+            "test_params_user_contexts_entry_invalid_value[somestring]": {
+                "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}
+            }
+        }
     },
     "imported/w3c/webdriver/tests/bidi/browsing_context/set_viewport/viewport.py": {
         "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288333"}}

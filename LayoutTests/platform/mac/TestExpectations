@@ -126,6 +126,7 @@ webkit.org/b/306558 accessibility/mac/style-range.html [ Failure ]
 # Skip accessibility tests that use the accessibility client API on most builders;
 # requires an extra permission for WKTR
 accessibility/mac/client [ Skip ]
+accessibility/mac/client/button.html [ Pass ]
 
 # Skip glib-only combobox accessibility tests.
 accessibility/combobox/gtk [ Skip ]
@@ -784,7 +785,6 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 # webkit.org/b/261038 localhost alias
 imported/w3c/web-platform-tests/scroll-to-text-fragment/iframe-scroll.sub.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-to-text-fragment/iframes.sub.html [ Skip ]
-imported/w3c/web-platform-tests/scroll-to-text-fragment/scroll-to-text-fragment-security.sub.html [ Skip ]
 
 imported/w3c/web-platform-tests/scroll-to-text-fragment/sequential-focus.html [ Failure ]
 
@@ -2465,6 +2465,11 @@ webkit.org/b/300994 fast/animation/request-animation-frame-throttling-aggressive
 [ Tahoe ] fast/forms/switch/click-animation.html [ ImageOnlyFailure ]
 [ Tahoe ] fast/forms/switch/click-animation-redundant-disabled.html [ ImageOnlyFailure ]
 [ Tahoe ] fast/forms/switch/click-animation-redundant-checked.html  [ ImageOnlyFailure ]
+# thumbHeightForLogicalTrackHeight uses non-linear interpolation on macOS, making zoom and transform produce different thumb sizes.
+[ Tahoe ] fast/forms/switch/zoom-approximates-transform.html [ Skip ]
+[ Tahoe ] fast/forms/switch/zoom-approximates-transform-rtl.html [ Skip ]
+[ Tahoe ] fast/forms/switch/zoom-approximates-transform-vertical-lr.html [ Skip ]
+[ Tahoe ] fast/forms/switch/zoom-approximates-transform-vertical-rl.html [ Skip ]
 
 # https://bugs.webkit.org/show_bug.cgi?id=301002 [ macOS Tahoe ] fast/css/apple-system-control-colors.html is a constant text failure
 [ Tahoe Debug ] fast/css/apple-system-control-colors.html [ Failure ]

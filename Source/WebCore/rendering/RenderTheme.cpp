@@ -1307,7 +1307,7 @@ bool RenderTheme::isSpinUpButtonPartHovered(const RenderElement& renderer) const
 
 bool RenderTheme::isPresenting(const RenderElement& renderer) const
 {
-    RefPtr input = dynamicDowncast<HTMLInputElement>(renderer.element());
+    auto* input = dynamicDowncast<HTMLInputElement>(renderer.element());
     return input && input->isPresentingAttachedView();
 }
 
@@ -1373,9 +1373,9 @@ Style::MinimumSizePair RenderTheme::minimumControlSize(StyleAppearance appearanc
 
     // Other StyleAppearance types are composed controls with shadow subtree.
     if (appearance == StyleAppearance::Radio || appearance == StyleAppearance::Checkbox) {
-        if (minSize.width().isSizingKeywordOrAuto())
+        if (minSize.width().isSizingKeywordOrAuto() && preferredSize.width().tryFixed())
             resultWidth = preferredSize.width().asMinimumSize();
-        if (minSize.height().isSizingKeywordOrAuto())
+        if (minSize.height().isSizingKeywordOrAuto() && preferredSize.height().tryFixed())
             resultHeight = preferredSize.height().asMinimumSize();
     }
 

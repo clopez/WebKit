@@ -262,11 +262,13 @@
 #include "UserMediaController.h"
 #include "VideoConfiguration.h"
 #include "ViewportArguments.h"
+#include "ViewportConfiguration.h"
 #include "VoidCallback.h"
 #include "WebAnimation.h"
 #include "WebAnimationUtilities.h"
 #include "WebCodecsVideoDecoder.h"
 #include "WebCoreJSClientData.h"
+#include "WebCoreTestSupport.h"
 #include "WebRTCProvider.h"
 #include "WindowProxy.h"
 #include "WorkerThread.h"
@@ -668,9 +670,12 @@ void Internals::resetToConsistentState(Page& page)
     sessionManager->setIsPlayingToAutomotiveHeadUnit(false);
 #endif
     AXObjectCache::setEnhancedUserInterfaceAccessibility(false);
-    AXObjectCache::disableAccessibility();
+    AXObjectCache::disableAccessibilityForTesting();
     WebCore::setShouldMockParentSearchResultsForTesting(false);
     WebCore::setShouldMockChildFrameSearchResultsForTesting(false);
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    WebCoreTestSupport::notifyAccessibilityTestTeardown();
+#endif
 
     MockPageOverlayClient::singleton().uninstallAllOverlays();
 
@@ -3812,6 +3817,11 @@ ExceptionOr<Ref<DOMRectList>> Internals::nonFastScrollableRects() const
         return DOMRectList::create();
 
     return page->nonFastScrollableRectsForTesting();
+}
+
+double Internals::minimumShrinkToFitWidthWhenPreferringHorizontalScrolling() const
+{
+    return ViewportConfiguration::minimumShrinkToFitWidthWhenPreferringHorizontalScrolling;
 }
 
 ExceptionOr<void> Internals::setElementUsesDisplayListDrawing(Element& element, bool usesDisplayListDrawing)

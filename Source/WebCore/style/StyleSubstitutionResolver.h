@@ -53,10 +53,17 @@ public:
 
 private:
     std::optional<Vector<CSSParserToken>> substituteTokenRange(CSSParserTokenRange, const CSSParserContext&);
+
     bool substituteVariableFunction(CSSParserTokenRange, CSSValueID, Vector<CSSParserToken>&, const CSSParserContext&);
     bool substituteDashedFunction(StringView functionName, CSSParserTokenRange, Vector<CSSParserToken>&);
     bool substituteAttrFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
     bool substituteInternalAutoBaseFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
+
+    struct AttrArgumentGrammarSubstitution {
+        Vector<CSSParserToken> firstArg;
+        std::optional<CSSParserTokenRange> fallbackRange;
+    };
+    std::optional<AttrArgumentGrammarSubstitution> substituteAttrArgumentGrammar(CSSParserTokenRange, const CSSParserContext&);
 
     enum class FallbackResult : uint8_t { None, Valid, Invalid };
     std::pair<FallbackResult, Vector<CSSParserToken>> substituteVariableFallback(const AtomString& variableName, CSSParserTokenRange, CSSValueID functionId, const CSSParserContext&);
@@ -67,6 +74,8 @@ private:
 
     Builder& m_styleBuilder;
     Vector<String> m_intermediateTokenStrings;
+
+    bool m_isInAttrTypeSyntax { false };
 };
 
 } // namespace Style

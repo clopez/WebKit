@@ -134,7 +134,7 @@ void BitVector::mergeSlow(const BitVector& other)
     
     auto a = outOfLineBits()->wordsSpan();
     auto b = other.outOfLineBits()->wordsSpan();
-    for (size_t i = 0; i < a.size(); ++i)
+    for (size_t i = 0; i < b.size(); ++i)
         a[i] |= b[i];
 }
 
@@ -193,7 +193,7 @@ size_t BitVector::bitCountSlow() const
     const OutOfLineBits* bits = outOfLineBits();
     size_t result = 0;
     for (auto word : bits->wordsSpan())
-        result += bitCount(word);
+        result += std::popcount(word);
     return result;
 }
 

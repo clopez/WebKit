@@ -207,19 +207,6 @@ inline std::span<const std::byte> alignedBytes(std::span<const std::byte> buffer
     return buffer.subspan(alignedBytesCorrection(buffer, alignment));
 }
 
-// Returns a count of the number of bits set in 'bits'.
-inline size_t bitCount(unsigned bits)
-{
-    bits = bits - ((bits >> 1) & 0x55555555);
-    bits = (bits & 0x33333333) + ((bits >> 2) & 0x33333333);
-    return (((bits + (bits >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
-}
-
-inline size_t bitCount(uint64_t bits)
-{
-    return bitCount(static_cast<unsigned>(bits)) + bitCount(static_cast<unsigned>(bits >> 32));
-}
-
 template<typename T> constexpr T mask(T value, uintptr_t mask)
 {
     static_assert(sizeof(T) == sizeof(uintptr_t), "sizeof(T) must be equal to sizeof(uintptr_t).");
@@ -631,7 +618,7 @@ template<typename... Ts> struct HoldsAlternative<Variant<Ts...>> {
     }
     template<size_t I> static constexpr bool holdsAlternative(const Variant<Ts...>& v)
     {
-        return std::holds_alternative<I>(v);
+        return v.index() == I;
     }
 };
 
@@ -662,7 +649,7 @@ template<size_t I, typename V> constexpr bool holdsAlternative(const V& v)
     }                                                                                \
     template<typename T> bool holdsAlternative() const                               \
     {                                                                                \
-        return WTF::holdsAlternative<T>(value);                                      \
+        return WTF::holdsAlternative<T>(name);                                       \
     }                                                                                \
     template<typename T> friend T& get(Self& self)                                   \
     {                                                                                \
@@ -761,7 +748,7 @@ template<class F, class Tuple> ALWAYS_INLINE constexpr decltype(auto) visitTuple
     );
 }
 
-template<typename Tuple, typename... F> ALWAYS_INLINE constexpr auto switchOnTupleAtIndex(size_t index, Tuple&& tuple, F&&... f) -> decltype(visitTupleElementAtIndex(index, WTF::makeVisitor(std::forward<F>(f)...), std::forward<Tuple>(tuple)))
+template<typename Tuple, typename... F> ALWAYS_INLINE constexpr auto switchOnTupleAtIndex(size_t index, Tuple&& tuple, F&&... f) -> decltype(visitTupleElementAtIndex(WTF::makeVisitor(std::forward<F>(f)...), index, std::forward<Tuple>(tuple)))
 {
     return visitTupleElementAtIndex(WTF::makeVisitor(std::forward<F>(f)...), index, std::forward<Tuple>(tuple));
 }
@@ -1100,7 +1087,7 @@ size_t find(std::span<T, TExtent> haystack, std::span<U, UExtent> needle)
 
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
     requires(TriviallyComparableOneByteCodeUnits<T, U>)
-size_t contains(std::span<T, TExtent> haystack, std::span<U, UExtent> needle)
+bool contains(std::span<T, TExtent> haystack, std::span<U, UExtent> needle)
 {
     return find(haystack, needle) != notFound;
 }

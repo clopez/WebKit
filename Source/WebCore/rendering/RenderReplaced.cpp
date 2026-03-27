@@ -59,6 +59,8 @@
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
+#include "SVGResources.h"
+#include "SVGResourcesCache.h"
 #include "Settings.h"
 #include "StyleComputedStyle+InitialInlines.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
@@ -264,7 +266,9 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     LayoutPoint adjustedPaintOffset = paintOffset + location();
 
     if (paintInfo.phase == PaintPhase::EventRegion) {
-        if (isRenderOrLegacyRenderSVGRoot() && !isSkippedContentRoot(*this))
+        auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
+        bool svgRootHasChildrenOrFilters = isRenderOrLegacyRenderSVGRoot() && (firstChild() || (resources && resources->filter()) || svgFilterResourceFromStyle());
+        if (svgRootHasChildrenOrFilters && !isSkippedContentRoot(*this))
             paintReplaced(paintInfo, adjustedPaintOffset);
         else if (visibleToHitTesting()) {
             auto borderRect = LayoutRect(adjustedPaintOffset, size());
@@ -672,26 +676,14 @@ void RenderReplaced::computeAspectRatioAdjustedIntrinsicLogicalWidths(LayoutUnit
     auto computedAspectRatio = computeIntrinsicAspectRatio();
     auto computedIntrinsicLogicalWidth = minLogicalWidth;
 
-    auto resolveHeightForAspectRatio = [&](auto& length, bool canResolvePercentage) -> std::optional<LayoutUnit> {
-        if (auto fixedHeight = length.tryFixed())
-            return LayoutUnit { fixedHeight->resolveZoom(style.usedZoomForLength()) };
+    if (auto fixedLogicalHeight = style.logicalHeight().tryFixed())
+        computedIntrinsicLogicalWidth = fixedLogicalHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio;
 
-        if (length.isPercentOrCalculated() && canResolvePercentage)
-            return computePercentageLogicalHeight(length, UpdatePercentageHeightDescendants::No);
-        return std::nullopt;
-    };
+    if (auto fixedLogicalMaxHeight = style.logicalMaxHeight().tryFixed())
+        computedIntrinsicLogicalWidth = std::min(computedIntrinsicLogicalWidth, LayoutUnit { fixedLogicalMaxHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio });
 
-    // Resolve height and apply aspect ratio if available
-    if (auto resolvedLogicalHeight = resolveHeightForAspectRatio(style.logicalHeight(), hasReplacedLogicalHeight()))
-        computedIntrinsicLogicalWidth = *resolvedLogicalHeight * computedAspectRatio;
-
-    // Apply max-height constraint
-    if (auto resolvedLogicalMaxHeight = resolveHeightForAspectRatio(style.logicalMaxHeight(), !replacedMaxLogicalHeightComputesAsNone()))
-        computedIntrinsicLogicalWidth = std::min(computedIntrinsicLogicalWidth, LayoutUnit { *resolvedLogicalMaxHeight * computedAspectRatio });
-
-    // Apply min-height constraint
-    if (auto resolvedLogicalMinHeight = resolveHeightForAspectRatio(style.logicalMinHeight(), !replacedMinLogicalHeightComputesAsNone()))
-        computedIntrinsicLogicalWidth = std::max(computedIntrinsicLogicalWidth, LayoutUnit { *resolvedLogicalMinHeight * computedAspectRatio });
+    if (auto fixedLogicalMinHeight = style.logicalMinHeight().tryFixed())
+        computedIntrinsicLogicalWidth = std::max(computedIntrinsicLogicalWidth, LayoutUnit { fixedLogicalMinHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio });
 
     minLogicalWidth = computedIntrinsicLogicalWidth;
     maxLogicalWidth = minLogicalWidth;

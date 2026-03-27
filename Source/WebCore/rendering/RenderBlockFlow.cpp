@@ -268,7 +268,6 @@ void RenderBlockFlow::rebuildFloatingObjectSetFromIntrudingFloats()
         if (auto* blockFlowParent = dynamicDowncast<RenderBlockFlow>(parent()))
             return blockFlowParent;
         if (auto* inlineBoxParent = dynamicDowncast<RenderInline>(parent())) {
-            ASSERT(settings().blocksInInlineLayoutEnabled());
             return dynamicDowncast<RenderBlockFlow>(inlineBoxParent->containingBlock());
         }
         // We should not process floats if the parent node is not a RenderBlock. Otherwise, we will add
@@ -3953,6 +3952,9 @@ void RenderBlockFlow::invalidateLineLayout(InvalidationReason invalidationReason
         break;
     }
     case InvalidationReason::InsertionOrRemoval:
+        // Since we eagerly remove the display content below, issue a repaint now to cover the previously painted inline content area.
+        // FIXME: Alternatively we should be able to "detach" the display content but keep it around for subsequent repaints.
+        repaint();
         setLineLayoutPath(UndeterminedPath);
         issueNeedsLayoutIfApplicable();
         break;
@@ -4043,7 +4045,7 @@ static void setFullRepaintOnParentInlineBoxLayerIfNeeded(const RenderText& rende
     // Here we mark the parent inline box's layer dirty to trigger repaint at (#2).
     if (!renderer.needsLayout())
         return;
-    CheckedPtr parent = renderer.parent();
+    auto* parent = renderer.parent();
     if (!parent) {
         ASSERT_NOT_REACHED();
         return;
@@ -4687,7 +4689,6 @@ RenderObject* InlineMinMaxIterator::next()
             break;
 
         if (candidate->style().display().isBlockType()) {
-            ASSERT(candidate->settings().blocksInInlineLayoutEnabled());
             break;
         }
 
@@ -4919,7 +4920,6 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
         }
 
         if (child->style().display().isBlockType() && !child->isFloating() && is<RenderBox>(*child)) {
-            ASSERT(settings().blocksInInlineLayoutEnabled());
 
             resetLineForForcedLineBreak();
 

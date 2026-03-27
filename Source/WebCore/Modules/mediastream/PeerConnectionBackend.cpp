@@ -180,7 +180,7 @@ PeerConnectionBackend::PeerConnectionBackend(RTCPeerConnection& peerConnection)
 {
 #if USE(LIBWEBRTC)
     RefPtr document = peerConnection.document();
-    if (RefPtr page = document ? document->page() : nullptr)
+    if (auto* page = document ? document->page() : nullptr)
         m_shouldFilterICECandidates = page->webRTCProvider().isSupportingMDNS();
 #endif
 
@@ -210,7 +210,7 @@ PeerConnectionBackend::~PeerConnectionBackend()
 }
 
 #if !RELEASE_LOG_DISABLED && (PLATFORM(WPE) || PLATFORM(GTK))
-void PeerConnectionBackend::handleLogMessage(const WTFLogChannel& channel, WTFLogLevel, std::optional<WTFLogLocation>, Vector<JSONLogValue>&& values)
+void PeerConnectionBackend::handleLogMessage(const WTFLogChannel& channel, WTFLogLevel, std::optional<WTFLogLocation>, const Vector<JSONLogValue>& values)
 {
     auto name = StringView::fromLatin1(channel.name);
     if (name != "WebRTC"_s)
@@ -565,8 +565,6 @@ void PeerConnectionBackend::setRemoteDescriptionSucceeded(std::optional<Descript
                     DEBUG_LOG(LOGIDENTIFIER, "PeerConnection closed while dispatching track events");
                     return;
                 }
-
-                protect(track->source())->setMuted(false);
             }
         }
 

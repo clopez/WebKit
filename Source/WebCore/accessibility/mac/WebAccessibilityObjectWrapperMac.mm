@@ -2452,6 +2452,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 {
     AXTRACE(makeString("WebAccessibilityObjectWrapper accessibilityAttributeValue:"_s, String(attributeName)));
 
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (AXObjectCache::accessibilityMode() != AccessibilityMode::AXThread) {
+        // A non-ITM client may have enabled accessibility, but a subsequent request
+        // could come from an ITM-capable client (e.g., VoiceOver). Check and transition.
+        ensureOnMainThread([] {
+            std::ignore = AXObjectCache::transitionToAXThreadModeIfNeeded();
+        });
+    }
+#endif
+
     RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
     if (!backingObject) {
         AXLOG(makeString("No backingObject for wrapper "_s, hex(reinterpret_cast<uintptr_t>(self))));
@@ -3598,6 +3608,11 @@ static id handleUIElementForTextMarkerAttribute(WebAccessibilityObjectWrapper*, 
     RefPtr object = marker.object();
     if (!object)
         return nil;
+
+    if (std::optional<AXID> representativeID = object->stitchedIntoID(); representativeID && *representativeID != object->objectID()) {
+        if (RefPtr representative = AXTextMarker { object->treeID(), *representativeID, 0 }.object())
+            object = WTF::move(representative);
+    }
 
     RetainPtr wrapper = object->wrapper();
     if (!wrapper)

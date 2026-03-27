@@ -59,7 +59,7 @@
 #include "RenderView.h"
 #include "SVGElement.h"
 #include "Settings.h"
-#include "StylableInlines.h"
+#include "StyleableInlines.h"
 #include "StyleResolver.h"
 #include "StyleTreeResolver.h"
 #include "TextManipulationController.h"
@@ -152,7 +152,6 @@ void RenderTreeUpdater::updateRebuildRoots()
         if (!renderingAncestor)
             return nullptr;
         auto* rootRenderer = root.renderer();
-        auto isInsideContinuation = rootRenderer && rootRenderer->parent()->isContinuation();
         auto isInsideAnonymousFlexItemWithSiblings = [&] {
             if (!is<RenderFlexibleBox>(renderingAncestor->renderer()))
                 return false;
@@ -168,7 +167,7 @@ void RenderTreeUpdater::updateRebuildRoots()
                 return false;
             return rootRenderer && rootRenderer->isInFlow() && !rootRenderer->isInline();
         };
-        if (isInsideContinuation || isInsideAnonymousFlexItemWithSiblings() || isBlockInInline() || RenderTreeBuilder::isRebuildRootForChildren(*renderingAncestor->renderer()))
+        if (isInsideAnonymousFlexItemWithSiblings() || isBlockInInline() || RenderTreeBuilder::isRebuildRootForChildren(*renderingAncestor->renderer()))
             return renderingAncestor;
         return nullptr;
     };

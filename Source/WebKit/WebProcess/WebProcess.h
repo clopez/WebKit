@@ -426,6 +426,9 @@ public:
 #endif
     void unblockServicesRequiredByAccessibility(Vector<SandboxExtension::Handle>&&);
     static id accessibilityFocusedUIElement();
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    static void setAllowAXAuthenticationForTesting(bool);
+#endif
     void powerSourceDidChange(bool);
 #endif
 
@@ -614,7 +617,7 @@ private:
 
     void NODELETE platformSetCacheModel(CacheModel);
 
-    void NODELETE setEnhancedAccessibility(bool);
+    void setEnhancedAccessibility(bool);
     void bindAccessibilityFrameWithData(WebCore::FrameIdentifier, std::span<const uint8_t>);
 
     void startMemorySampler(SandboxExtension::Handle&&, const String&, const double);

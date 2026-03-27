@@ -2928,6 +2928,15 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             return CallOptimizationResult::Inlined;
         }
 
+        case ErrorIsErrorIntrinsic: {
+            if (argumentCountIncludingThis < 2)
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+            setResult(addToGraph(IsCellWithType, OpInfo(ErrorInstanceType), get(virtualRegisterForArgumentIncludingThis(1, registerOffset))));
+            return CallOptimizationResult::Inlined;
+        }
+
         case AtomicsAddIntrinsic:
         case AtomicsAndIntrinsic:
         case AtomicsCompareExchangeIntrinsic:
@@ -4902,6 +4911,8 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
 
         NodeType op = mayBeLargeArrayBuffer ? DataViewGetByteLengthAsInt52 : DataViewGetByteLength;
         Node* lengthNode = addToGraph(op, OpInfo(mayBeResizableOrGrowableSharedArrayBuffer), Edge(thisNode, DataViewObjectUse));
+        if (mayBeResizableOrGrowableSharedArrayBuffer)
+            lengthNode->mergeFlags(NodeMustGenerate);
         m_exitOK = true;
         addToGraph(ExitOK);
 
@@ -9167,7 +9178,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             auto& metadata = bytecode.metadata(codeBlock);
             uint32_t seenModes = metadata.m_iterationMetadata.seenModes;
 
-            unsigned numberOfRemainingModes = WTF::bitCount(seenModes);
+            unsigned numberOfRemainingModes = std::popcount(seenModes);
             ASSERT(numberOfRemainingModes <= numberOfIterationModes);
             bool generatedCase = false;
 
@@ -9326,7 +9337,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             auto& metadata = bytecode.metadata(codeBlock);
             uint32_t seenModes = metadata.m_iterationMetadata.seenModes;
 
-            unsigned numberOfRemainingModes = WTF::bitCount(seenModes);
+            unsigned numberOfRemainingModes = std::popcount(seenModes);
             ASSERT(numberOfRemainingModes <= numberOfIterationModes);
             bool generatedCase = false;
 

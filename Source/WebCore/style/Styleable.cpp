@@ -48,7 +48,7 @@
 #include "RenderStyle+GettersInlines.h"
 #include "RenderView.h"
 #include "StyleAnimations.h"
-#include "StylableInlines.h"
+#include "StyleableInlines.h"
 #include "StyleChangedAnimatableProperties.h"
 #include "StyleCustomPropertyData.h"
 #include "StyleInterpolation.h"
@@ -954,6 +954,25 @@ void Styleable::queryContainerDidChange() const
                 keyframeEffect->recomputeKeyframesAtNextOpportunity();
         }
     }
+}
+
+bool Styleable::viewportSizeDidChange() const
+{
+    auto* animations = this->animations();
+    if (!animations)
+        return false;
+    bool changed = false;
+    for (auto& animation : *animations) {
+        RefPtr keyframeEffect = animation->keyframeEffect();
+        if (keyframeEffect && keyframeEffect->blendingKeyframes().usesViewportUnits()) {
+            if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(animation))
+                cssAnimation->keyframesRuleDidChange();
+            else
+                keyframeEffect->recomputeKeyframesAtNextOpportunity();
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 bool Styleable::capturedInViewTransition() const

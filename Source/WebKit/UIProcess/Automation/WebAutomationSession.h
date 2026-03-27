@@ -182,6 +182,7 @@ public:
     void contextCreatedForFrame(const WebFrameProxy&);
     void contextDestroyedForPage(const WebPageProxy&);
     void contextDestroyedForFrame(const WebFrameProxy&);
+    void setViewportForPage(WebPageProxy&, std::optional<int> width, std::optional<int> height, std::optional<double> devicePixelRatio, Inspector::CommandCallback<void>&&);
 #endif
     void willClosePage(const WebPageProxy&);
     void handleRunOpenPanel(const WebPageProxy&, const WebFrameProxy&, const API::OpenPanelParameters&, WebOpenPanelResultListenerProxy&);
@@ -316,6 +317,10 @@ public:
     String handleForWebPageProxy(const WebPageProxy&);
 
     Expected<PageAndFrameHandle, AutomationCommandError> extractBrowsingContextHandles(const String&);
+
+#if ENABLE(WEBDRIVER_BIDI)
+    bool isValidUserContext(const String& userContextID) const;
+#endif
 
 private:
     Ref<Inspector::Protocol::Automation::BrowsingContext> buildBrowsingContextForPage(WebPageProxy&, WebCore::FloatRect windowFrame);
