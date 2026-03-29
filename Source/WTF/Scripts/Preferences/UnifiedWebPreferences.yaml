@@ -1366,17 +1366,17 @@ CSSRubyDisplayTypesInAuthorStylesEnabled:
 
 CSSScrollAnchoringEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS Scroll Anchoring"
   humanReadableDescription: "Enable CSS Scroll Anchoring"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSScrollbarColorEnabled:
   type: bool
@@ -8535,34 +8535,6 @@ TwoUpPDFDisplayModeSupportEnabled:
     WebCore:
       default: true
 
-UAVisualTransitionDetectionEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Detect UA visual transitions"
-  humanReadableDescription: "Enable detection of UA visual transitions"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-URLPatternAPIEnabled:
-  type: bool
-  category: dom
-  status: stable
-  humanReadableName: "URL Pattern API"
-  humanReadableDescription: "Enable URL Pattern API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
   type: bool
@@ -10136,8 +10108,10 @@ WebXRLayersAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "ENABLE(WEBXR_LAYERS)": true
       default: false
     WebCore:
+      "ENABLE(WEBXR_LAYERS)": true
       default: false
 
 WebXRWebGPUBindingsEnabled:

@@ -2000,10 +2000,10 @@
     "imported/w3c/web-platform-tests/css/selectors/focus-visible-018-2.html": [
         "slow"
     ],
-    "imported/w3c/web-platform-tests/css/selectors/invalidation/media-loading-pseudo-classes-in-has.html": [
+    "imported/w3c/web-platform-tests/css/selectors/invalidation/media-loading-pseudo-classes-in-has.sub.html": [
         "slow"
     ],
-    "imported/w3c/web-platform-tests/css/selectors/media/media-loading-state.html": [
+    "imported/w3c/web-platform-tests/css/selectors/media/media-loading-state.sub.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/custom-elements/ElementInternals-role.html": [
@@ -2955,30 +2955,6 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/eventsource/shared-worker/eventsource-constructor-non-same-origin.htm": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-all.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-self.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-some-override.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-some.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-disallowed-for-all.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-nested-header-policy-allowed-for-all.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-nested-header-policy-allowed-for-self.https.sub.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/feature-policy/feature-policy-nested-header-policy-disallowed-for-all.https.sub.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/fetch/api/request/request-keepalive-quota.html": [
@@ -5319,6 +5295,30 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/payment-request/payment-request-constructor-thcrash.https.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-allowed-for-all.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-allowed-for-self.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-allowed-for-some-override.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-allowed-for-some.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-disallowed-for-all.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-allowed-for-all.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-allowed-for-self.https.sub.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-disallowed-for-all.https.sub.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/picture-in-picture/leave-picture-in-picture.html": [

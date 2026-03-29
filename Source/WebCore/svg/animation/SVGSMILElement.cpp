@@ -113,7 +113,7 @@ bool ConditionEventListener::operator==(const EventListener& listener) const
 void ConditionEventListener::handleEvent(ScriptExecutionContext&, Event&)
 {
     if (RefPtr animation = m_animation.get())
-        animation->addInstanceTime(m_condition->m_beginOrEnd, m_animation->elapsed() + m_condition->m_offset);
+        animation->addInstanceTime(m_condition->m_beginOrEnd, animation->elapsed() + m_condition->m_offset);
 }
 
 SVGSMILElement::Condition::Condition(Type type, BeginOrEnd beginOrEnd, const String& baseID, const AtomString& name, SMILTime offset, int repeats)
@@ -350,12 +350,14 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
     if (doublePointOne == 2 && doublePointTwo == 5 && parse.length() >= 8) {
         auto hour = parseInteger<uint8_t>(parse.left(2));
         auto minute = parseInteger<uint8_t>(parse.substring(3, 2));
-        if (!hour || !minute)
+        auto seconds = parseInteger<uint8_t>(parse.substring(6, 2));
+        if (!hour || !minute || *minute > 59 || !seconds || *seconds > 59)
             return SMILTime::unresolved();
         result = *hour * 60 * 60 + *minute * 60 + parse.substring(6).toDouble(ok);
-    } else if (doublePointOne == 2 && doublePointTwo == notFound && parse.length() >= 5) { 
+    } else if (doublePointOne == 2 && doublePointTwo == notFound && parse.length() >= 5) {
         auto minute = parseInteger<uint8_t>(parse.left(2));
-        if (!minute)
+        auto seconds = parseInteger<uint8_t>(parse.substring(3, 2));
+        if (!minute || *minute > 59 || !seconds || *seconds > 59)
             return SMILTime::unresolved();
         result = *minute * 60 + parse.substring(3).toDouble(ok);
     } else

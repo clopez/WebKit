@@ -2956,9 +2956,8 @@
 		72C37B9E29650466007E8F52 /* SearchFieldCancelButtonPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37B9C29650466007E8F52 /* SearchFieldCancelButtonPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C37BEC29665FC9007E8F52 /* ButtonPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37BEB29665FC9007E8F52 /* ButtonPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C37C1D2967747E007E8F52 /* SliderTrackPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1A2967747D007E8F52 /* SliderTrackPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		72C37C1D2967747E007E8F53 /* SwitchTrackPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1A2967747D007E8F53 /* SwitchTrackPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72C37C1D2967747E007E8F53 /* SwitchPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1A2967747D007E8F53 /* SwitchPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C37C1F2967747E007E8F52 /* SliderThumbPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1C2967747E007E8F52 /* SliderThumbPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		72C37C1F2967747E007E8F53 /* SwitchThumbPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1C2967747E007E8F53 /* SwitchThumbPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72D3F66D2A37FE9700F3A82B /* RotationDirection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D3F66C2A37F48E00F3A82B /* RotationDirection.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72D73644278461A000398663 /* FilterResults.h in Headers */ = {isa = PBXBuildFile; fileRef = 7211B5D6276536820076FEF8 /* FilterResults.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72E5023129B669EE00E5B8E7 /* RenderingResource.h in Headers */ = {isa = PBXBuildFile; fileRef = 72E5023029B669ED00E5B8E7 /* RenderingResource.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -9910,10 +9909,8 @@
 		2ACB4D2726DC4AB200BEB753 /* CSSNumericFactory.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSNumericFactory.h; sourceTree = "<group>"; };
 		2ACB4D2926DC4AB300BEB753 /* CSSNumericFactory.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSSNumericFactory.cpp; sourceTree = "<group>"; };
 		2ACB4D2C26DDAB8E00BEB753 /* DOMCSSNamespace+CSSNumericFactory.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "DOMCSSNamespace+CSSNumericFactory.idl"; sourceTree = "<group>"; };
-		2ACE96782A8ABC3A00ED6C38 /* SwitchThumbMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SwitchThumbMac.mm; sourceTree = "<group>"; };
-		2ACE96792A8ABC3A00ED6C38 /* SwitchThumbMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwitchThumbMac.h; sourceTree = "<group>"; };
-		2ACE967A2A8ABC9300ED6C38 /* SwitchTrackMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SwitchTrackMac.mm; sourceTree = "<group>"; };
-		2ACE967B2A8ABC9300ED6C38 /* SwitchTrackMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwitchTrackMac.h; sourceTree = "<group>"; };
+		2ACE96782A8ABC3A00ED6C38 /* SwitchMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SwitchMac.mm; sourceTree = "<group>"; };
+		2ACE96792A8ABC3A00ED6C38 /* SwitchMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwitchMac.h; sourceTree = "<group>"; };
 		2AEF6FBC26E716EE00326D02 /* CSSMathProduct.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = CSSMathProduct.idl; sourceTree = "<group>"; };
 		2AEF6FBD26E716EE00326D02 /* CSSMathMax.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSMathMax.h; sourceTree = "<group>"; };
 		2AEF6FBE26E716EE00326D02 /* CSSMathValue.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = CSSMathValue.idl; sourceTree = "<group>"; };
@@ -14218,10 +14215,9 @@
 		72C37C1829677449007E8F52 /* SliderThumbMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SliderThumbMac.h; sourceTree = "<group>"; };
 		72C37C1929677449007E8F52 /* SliderTrackMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SliderTrackMac.mm; sourceTree = "<group>"; };
 		72C37C1A2967747D007E8F52 /* SliderTrackPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SliderTrackPart.h; sourceTree = "<group>"; };
-		72C37C1A2967747D007E8F53 /* SwitchTrackPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwitchTrackPart.h; sourceTree = "<group>"; };
+		72C37C1A2967747D007E8F53 /* SwitchPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwitchPart.h; sourceTree = "<group>"; };
 		72C37C1B2967747E007E8F52 /* SliderTrackPart.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SliderTrackPart.cpp; sourceTree = "<group>"; };
 		72C37C1C2967747E007E8F52 /* SliderThumbPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SliderThumbPart.h; sourceTree = "<group>"; };
-		72C37C1C2967747E007E8F53 /* SwitchThumbPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwitchThumbPart.h; sourceTree = "<group>"; };
 		72CE4EA32970FF8800A2AD95 /* ImageControlsButtonMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ImageControlsButtonMac.mm; sourceTree = "<group>"; };
 		72CE4EA42970FF8800A2AD95 /* ImageControlsButtonMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageControlsButtonMac.h; sourceTree = "<group>"; };
 		72CE4EA5297102B800A2AD95 /* ImageControlsButtonPart.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageControlsButtonPart.h; sourceTree = "<group>"; };
@@ -14542,6 +14538,7 @@
 		7BF6E7062A94207D0096DAF8 /* ExtendableCookieChangeEvent.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = ExtendableCookieChangeEvent.idl; sourceTree = "<group>"; };
 		7BFD3B2E2F721DA4003DAADD /* IDBGetAllOptions.idl */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IDBGetAllOptions.idl; sourceTree = "<group>"; };
 		7BFD3B322F72231A003DAADD /* IDBGetAllOptions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IDBGetAllOptions.h; sourceTree = "<group>"; };
+		7BFD3B5F2F766BAB003DAADD /* IDBGetAllOptions.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IDBGetAllOptions.cpp; sourceTree = "<group>"; };
 		7C011F3D24FAD360005BEF10 /* Settings.cpp.erb */ = {isa = PBXFileReference; lastKnownFileType = text; path = Settings.cpp.erb; sourceTree = "<group>"; };
 		7C011F3E24FAD360005BEF10 /* InternalSettingsGenerated.cpp.erb */ = {isa = PBXFileReference; lastKnownFileType = text; path = InternalSettingsGenerated.cpp.erb; sourceTree = "<group>"; };
 		7C011F3F24FAD360005BEF10 /* InternalSettingsGenerated.idl.erb */ = {isa = PBXFileReference; lastKnownFileType = text; path = InternalSettingsGenerated.idl.erb; sourceTree = "<group>"; };
@@ -31239,12 +31236,10 @@
 				72C37C1629677448007E8F52 /* SliderThumbMac.mm */,
 				72C37C1729677448007E8F52 /* SliderTrackMac.h */,
 				72C37C1929677449007E8F52 /* SliderTrackMac.mm */,
+				2ACE96792A8ABC3A00ED6C38 /* SwitchMac.h */,
+				2ACE96782A8ABC3A00ED6C38 /* SwitchMac.mm */,
 				D20E878C2AF44B5E004579F3 /* SwitchMacUtilities.h */,
 				D20E878E2AF44BD8004579F3 /* SwitchMacUtilities.mm */,
-				2ACE96792A8ABC3A00ED6C38 /* SwitchThumbMac.h */,
-				2ACE96782A8ABC3A00ED6C38 /* SwitchThumbMac.mm */,
-				2ACE967B2A8ABC9300ED6C38 /* SwitchTrackMac.h */,
-				2ACE967A2A8ABC9300ED6C38 /* SwitchTrackMac.mm */,
 				72B221482950FFEB002B5609 /* TextAreaMac.h */,
 				72B221472950FFEB002B5609 /* TextAreaMac.mm */,
 				72B22130295015D5002B5609 /* TextFieldMac.h */,
@@ -31287,8 +31282,7 @@
 				72C37C1C2967747E007E8F52 /* SliderThumbPart.h */,
 				72C37C1B2967747E007E8F52 /* SliderTrackPart.cpp */,
 				72C37C1A2967747D007E8F52 /* SliderTrackPart.h */,
-				72C37C1C2967747E007E8F53 /* SwitchThumbPart.h */,
-				72C37C1A2967747D007E8F53 /* SwitchTrackPart.h */,
+				72C37C1A2967747D007E8F53 /* SwitchPart.h */,
 				72963B6C29510287004FF6FB /* TextAreaPart.h */,
 				72B2212E295015BB002B5609 /* TextFieldPart.h */,
 				72BB9E86295257F800842DBB /* ToggleButtonPart.h */,
@@ -33030,6 +33024,7 @@
 				51645B461B9F889B00F789CE /* IDBFactory.cpp */,
 				51645B471B9F889B00F789CE /* IDBFactory.h */,
 				51D7198A181106DF0016DC51 /* IDBFactory.idl */,
+				7BFD3B5F2F766BAB003DAADD /* IDBGetAllOptions.cpp */,
 				7BFD3B322F72231A003DAADD /* IDBGetAllOptions.h */,
 				7BFD3B2E2F721DA4003DAADD /* IDBGetAllOptions.idl */,
 				519DBC701DC10D3300329BF5 /* IDBGetAllResult.cpp */,
@@ -48197,8 +48192,7 @@
 				46ECB6381FD0A3C80088E5AD /* SWClientConnection.h in Headers */,
 				46658DC91FA24B8700F7DD54 /* SWContextManager.h in Headers */,
 				D20E878D2AF44B5E004579F3 /* SwitchMacUtilities.h in Headers */,
-				72C37C1F2967747E007E8F53 /* SwitchThumbPart.h in Headers */,
-				72C37C1D2967747E007E8F53 /* SwitchTrackPart.h in Headers */,
+				72C37C1D2967747E007E8F53 /* SwitchPart.h in Headers */,
 				A5AFB350115151A700B045CC /* SwitchTrigger.h in Headers */,
 				4151E5BB1FBA4C7A00E47E2D /* SWOriginStore.h in Headers */,
 				3A7D62DA29D49EC900D57DAC /* SWRegistrationDatabase.h in Headers */,

@@ -162,7 +162,7 @@ namespace JSC::B3 {
     macro(StringImpl_length, StringImpl::lengthMemoryOffset(), Mutability::Immutable) \
     macro(Structure_bitField, Structure::bitFieldOffset(), Mutability::Mutable) \
     macro(Structure_classInfo, Structure::classInfoOffset(), Mutability::Immutable) \
-    macro(Structure_globalObject, Structure::globalObjectOffset(), Mutability::Immutable) \
+    macro(Structure_realm, Structure::realmOffset(), Mutability::Immutable) \
     macro(Structure_indexingModeIncludingHistory, Structure::indexingModeIncludingHistoryOffset(), Mutability::Immutable) \
     macro(Structure_inlineCapacity, Structure::inlineCapacityOffset(), Mutability::Immutable) \
     macro(Structure_outOfLineTypeFlags, Structure::outOfLineTypeFlagsOffset(), Mutability::Immutable) \
@@ -204,7 +204,6 @@ namespace JSC::B3 {
     macro(WebAssemblyFunctionBase_entrypointLoadLocation, WebAssemblyFunctionBase::offsetOfEntrypointLoadLocation(), Mutability::Immutable) \
     macro(WebAssemblyFunctionBase_rtt, WebAssemblyFunctionBase::offsetOfRTT(), Mutability::Immutable) \
     macro(WebAssemblyFunctionBase_targetInstance, WebAssemblyFunctionBase::offsetOfTargetInstance(), Mutability::Immutable) \
-    macro(WebAssemblyGCObjectBase_rtt, WebAssemblyGCObjectBase::offsetOfRTT(), Mutability::Immutable) \
     macro(WebAssemblyGCStructure_rtt, WebAssemblyGCStructure::offsetOfRTT(), Mutability::Immutable) \
     macro(WebAssemblyModuleRecord_exportsObject, WebAssemblyModuleRecord::offsetOfExportsObject(), Mutability::Mutable) \
     macro(Symbol_symbolImpl, Symbol::offsetOfSymbolImpl(), Mutability::Immutable) \
@@ -230,6 +229,7 @@ namespace JSC::B3 {
     macro(HasOwnPropertyCache, 0, sizeof(HasOwnPropertyCache::Entry)) \
     macro(SmallIntCache, 0, sizeof(NumericStrings::StringWithJSString)) \
     macro(WasmRTT_data, Wasm::RTT::offsetOfData(), sizeof(RefPtr<const Wasm::RTT>)) \
+    macro(WebAssemblyGCStructure_inlinedDisplay, WebAssemblyGCStructure::offsetOfInlinedDisplay(), sizeof(WriteBarrierStructureID)) \
 
 #define FOR_EACH_NUMBERED_ABSTRACT_HEAP(macro) \
     macro(properties) \

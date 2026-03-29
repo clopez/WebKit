@@ -1331,6 +1331,8 @@ webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/animation
 webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate.html [ ImageOnlyFailure ]
 webkit.org/b/264579 imported/w3c/web-platform-tests/css/css-transforms/transform-3d-rotateY-stair-above-001.xht [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-transforms/animation/rotate-explicit-and-implicit-keyframes.html [ ImageOnlyFailure ]
+
 imported/w3c/web-platform-tests/css/css-images/gradient/conic-gradient-001.html [ ImageOnlyFailure ]
 
 webkit.org/b/215799 imported/w3c/web-platform-tests/css/css-content/quotes-018.html [ ImageOnlyFailure ]
@@ -3189,7 +3191,7 @@ imported/w3c/web-platform-tests/webxr/hand-input/ [ Pass ]
 
 imported/w3c/web-platform-tests/webxr/hit-test [ Pass ]
 
-imported/w3c/web-platform-tests/webxr/layers/xrSession_updateRenderState.https.html [ Pass ]
+imported/w3c/web-platform-tests/webxr/layers [ Pass ]
 
 http/wpt/webxr [ Pass ]
 webxr [ Pass ]
@@ -5380,11 +5382,6 @@ webkit.org/b/309469 imported/w3c/web-platform-tests/svg/shapes/reftests/pathleng
 
 webkit.org/b/299322 imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_reappending_last_over_target.tentative.html [ Pass Failure ]
 
-webkit.org/b/309570 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-disabled-by-feature-policy.https.sub.html [ Pass Failure ]
-
-webkit.org/b/246356 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-allowed-by-feature-policy.https.sub.html [ Pass Failure ]
-webkit.org/b/246356 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-default-feature-policy.https.sub.html [ Pass Failure ]
-
 webkit.org/b/309893 http/tests/images/heic-as-heif.html [ Pass Timeout ImageOnlyFailure ]
 
 webkit.org/b/310178 css3/font-variant-font-face-override.html [ ImageOnlyFailure ]
@@ -5402,9 +5399,7 @@ webkit.org/b/310274 media/media-controller-time.html [ Pass Timeout ]
 
 webkit.org/b/310278 media/video-pause-play-resolve.html [ Pass Timeout ]
 
-webkit.org/b/310543 fast/css/outline-auto-zoom.html [ ImageOnlyFailure ]
 webkit.org/b/310543 fast/css/outline-auto-zoom-canvas.html [ Failure ]
-webkit.org/b/310543 fast/css/outline-auto-zoom-canvas-rotated-scale.html [ Failure ]
 webkit.org/b/310543 fast/images/imagemap-focus-ring-zoom-style.html [ ImageOnlyFailure ]
 webkit.org/b/310543 fast/images/image-map-outline-with-scale-transform.html [ ImageOnlyFailure ]
 webkit.org/b/310543 fast/images/image-map-outline-with-paint-root-offset.html [ ImageOnlyFailure ]
@@ -5417,10 +5412,25 @@ webkit.org/b/310543 fast/repaint/outline-with1px-auto-repaint-rect.html [ Failur
 webkit.org/b/310543 fast/repaint/outline-with2px-auto-repaint-rect.html [ Failure ]
 webkit.org/b/310543 fast/repaint/outline-with3px-auto-repaint-rect.html [ Failure ]
 webkit.org/b/310543 imported/w3c/web-platform-tests/css/css-ui/outline-028.html [ Pass ImageOnlyFailure ]
+webkit.org/b/310543 css3/color-filters/color-filter-caret-color.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color-fallback-to-color.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color-inherit.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color-span-inside-editable-parent.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color-with-inherited-color-property.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/css/caret-color-with-initial-color-property.html [ ImageOnlyFailure ]
+webkit.org/b/310543 fast/repaint/body-innerhtml-quirks-mode.html [ ImageOnlyFailure ]
+webkit.org/b/310543 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-082.html [ ImageOnlyFailure ]
+webkit.org/b/310543 imported/w3c/web-platform-tests/css/css-contain/content-visibility/scrollIntoView-with-focus-target-with-contents-hidden.html [ ImageOnlyFailure ]
 
 webkit.org/b/310742 imported/w3c/web-platform-tests/IndexedDB/blob-valid-before-commit.any.html [ Pass Failure ]
 webkit.org/b/90980 fast/forms/textarea/textarea-state-restore.html [ Pass Timeout Failure ]
 imported/w3c/web-platform-tests/editing/other/fire-selection-change-on-deleting-empty-element.html [ Pass ]
+
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/vertical-scroll-disabled-scrollbar-tentative.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/vertical-scroll-scrollintoview.tentative.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/xr-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/xr-reporting.https.html [ Skip ]
 
 # End: Common failures between GTK and WPE.
 

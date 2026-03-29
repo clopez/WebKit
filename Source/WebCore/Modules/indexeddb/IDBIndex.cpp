@@ -30,6 +30,7 @@
 #include "ExceptionOr.h"
 #include "IDBBindingUtilities.h"
 #include "IDBCursor.h"
+#include "IDBCursorDirection.h"
 #include "IDBDatabase.h"
 #include "IDBGetAllOptions.h"
 #include "IDBKeyRangeData.h"
@@ -37,6 +38,7 @@
 #include "IDBRequest.h"
 #include "IDBTransaction.h"
 #include "Logging.h"
+#include "Settings.h"
 #include "WebCoreOpaqueRoot.h"
 #include <JavaScriptCore/HeapInlines.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -345,79 +347,88 @@ ExceptionOr<Ref<IDBRequest>> IDBIndex::doGetKey(ExceptionOr<IDBKeyRangeData> ran
     return transaction->requestGetKey(*this, keyRange);
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBIndex::doGetAll(std::optional<uint32_t> count, Function<ExceptionOr<RefPtr<IDBKeyRange>>()>&& function)
+// https://w3c.github.io/IndexedDB/#create-a-request-to-retrieve-multiple-items
+ExceptionOr<Ref<IDBRequest>> IDBIndex::doGetAllShared(IndexedDB::GetAllType getAllType, std::optional<uint32_t> count, Function<ExceptionOr<ParsedGetAllQueryOrOptions>()>&& function)
 {
-    LOG(IndexedDB, "IDBIndex::getAll");
+    String callingFunctionExceptionMessagePrefix;
+    switch (getAllType) {
+    case IndexedDB::GetAllType::Values:
+        callingFunctionExceptionMessagePrefix = "Failed to execute 'getAll' on IDBIdex': "_s;
+        break;
+    case IndexedDB::GetAllType::Keys:
+        callingFunctionExceptionMessagePrefix = "Failed to execute 'getAllValues' on IDBIdex': "_s;
+        break;
+    }
+
     Ref transaction = m_objectStore->transaction();
     ASSERT(canCurrentThreadAccessThreadLocalData(transaction->database().originThread()));
 
     if (m_deleted || m_objectStore->isDeleted())
-        return Exception { ExceptionCode::InvalidStateError, "Failed to execute 'getAll' on 'IDBIndex': The index or its object store has been deleted."_s };
+        return Exception { ExceptionCode::InvalidStateError, makeString(callingFunctionExceptionMessagePrefix, "The index or its object store has been deleted."_s) };
 
     if (!transaction->isActive())
-        return Exception { ExceptionCode::TransactionInactiveError, "Failed to execute 'getAll' on 'IDBIndex': The transaction is inactive or finished."_s };
+        return Exception { ExceptionCode::TransactionInactiveError, makeString(callingFunctionExceptionMessagePrefix, "The transaction is inactive or finished."_s) };
 
-    auto keyRange = function();
-    if (keyRange.hasException())
-        return keyRange.releaseException();
+    auto exceptionOrParsedGetAllQueryOrOptions = function();
+    if (exceptionOrParsedGetAllQueryOrOptions.hasException()) {
+        auto exception = exceptionOrParsedGetAllQueryOrOptions.releaseException();
+        return Exception { exception.code(), makeString(callingFunctionExceptionMessagePrefix, exception.releaseMessage()) };
+    }
 
-    RefPtr keyRangePointer = keyRange.returnValue().get();
-    return transaction->requestGetAllIndexRecords(*this, keyRangePointer.get(), IndexedDB::GetAllType::Values, count);
+    auto parsedGetAllQueryOrOptions = exceptionOrParsedGetAllQueryOrOptions.releaseReturnValue();
+    if (parsedGetAllQueryOrOptions.count)
+        count = parsedGetAllQueryOrOptions.count;
+
+    return transaction->requestGetAllIndexRecords(*this, parsedGetAllQueryOrOptions.keyRange.get(), getAllType, count, parsedGetAllQueryOrOptions.cursorDirection);
 }
 
 ExceptionOr<Ref<IDBRequest>> IDBIndex::getAll(RefPtr<IDBKeyRange>&& range, std::optional<uint32_t> count)
 {
-    return doGetAll(count, [range = WTF::move(range)]() {
-        return range;
+    LOG(IndexedDB, "IDBIndex::getAll");
+
+    return doGetAllShared(IndexedDB::GetAllType::Values, count, [range = WTF::move(range)]() {
+        return ParsedGetAllQueryOrOptions { range };
     });
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBIndex::getAll(JSGlobalObject& execState, JSValue key, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBIndex::getAll(JSGlobalObject& execState, JSValue keyOrOptions, std::optional<uint32_t> count)
 {
-    return doGetAll(count, [state = &execState, key]() {
-        auto onlyResult = IDBKeyRange::only(*state, key);
-        if (onlyResult.hasException())
-            return ExceptionOr<RefPtr<IDBKeyRange>> { Exception(ExceptionCode::DataError, "Failed to execute 'getAll' on 'IDBIndex': The parameter is not a valid key."_s) };
+    LOG(IndexedDB, "IDBIndex::getAll");
 
-        return ExceptionOr<RefPtr<IDBKeyRange>> { onlyResult.releaseReturnValue() };
+    return doGetAllShared(IndexedDB::GetAllType::Values, count, [context = RefPtr { scriptExecutionContext() }, execState = &execState, keyOrOptions, count]() -> ExceptionOr<ParsedGetAllQueryOrOptions> {
+        auto onlyResult = IDBKeyRange::only(*execState, keyOrOptions);
+        if (!onlyResult.hasException())
+            return ParsedGetAllQueryOrOptions { onlyResult.releaseReturnValue(), count };
+
+        if (!context || !context->settingsValues().indexedDBGetAllRecordsEnabled)
+            return Exception(ExceptionCode::DataError, "Failed to execute 'getAll' on 'IDBIndex': The parameter is not a valid key."_s);
+
+        return parseGetAllOptions(*execState, keyOrOptions);
     });
-}
-
-ExceptionOr<Ref<IDBRequest>> IDBIndex::doGetAllKeys(std::optional<uint32_t> count, Function<ExceptionOr<RefPtr<IDBKeyRange>>()>&& function)
-{
-    LOG(IndexedDB, "IDBIndex::getAllKeys");
-    Ref transaction = m_objectStore->transaction();
-    ASSERT(canCurrentThreadAccessThreadLocalData(transaction->database().originThread()));
-
-    if (m_deleted || m_objectStore->isDeleted())
-        return Exception { ExceptionCode::InvalidStateError, "Failed to execute 'getAllKeys' on 'IDBIndex': The index or its object store has been deleted."_s };
-
-    if (!transaction->isActive())
-        return Exception { ExceptionCode::TransactionInactiveError, "Failed to execute 'getAllKeys' on 'IDBIndex': The transaction is inactive or finished."_s };
-
-    auto keyRange = function();
-    if (keyRange.hasException())
-        return keyRange.releaseException();
-
-    RefPtr keyRangePointer = keyRange.returnValue().get();
-    return transaction->requestGetAllIndexRecords(*this, keyRangePointer.get(), IndexedDB::GetAllType::Keys, count);
 }
 
 ExceptionOr<Ref<IDBRequest>> IDBIndex::getAllKeys(RefPtr<IDBKeyRange>&& range, std::optional<uint32_t> count)
 {
-    return doGetAllKeys(count, [range = WTF::move(range)]() {
-        return range;
+    LOG(IndexedDB, "IDBIndex::getAllKeys");
+
+    return doGetAllShared(IndexedDB::GetAllType::Keys, count, [range = WTF::move(range)]() {
+        return ParsedGetAllQueryOrOptions { range };
     });
 }
 
-ExceptionOr<Ref<IDBRequest>> IDBIndex::getAllKeys(JSGlobalObject& execState, JSValue key, std::optional<uint32_t> count)
+ExceptionOr<Ref<IDBRequest>> IDBIndex::getAllKeys(JSGlobalObject& execState, JSValue keyOrOptions, std::optional<uint32_t> count)
 {
-    return doGetAllKeys(count, [state = &execState, key]() {
-        auto onlyResult = IDBKeyRange::only(*state, key);
-        if (onlyResult.hasException())
-            return ExceptionOr<RefPtr<IDBKeyRange>> { Exception(ExceptionCode::DataError, "Failed to execute 'getAllKeys' on 'IDBIndex': The parameter is not a valid key."_s) };
+    LOG(IndexedDB, "IDBIndex::getAllKeys");
 
-        return ExceptionOr<RefPtr<IDBKeyRange>> { onlyResult.releaseReturnValue() };
+    return doGetAllShared(IndexedDB::GetAllType::Keys, count, [context = RefPtr { scriptExecutionContext() }, execState = &execState, keyOrOptions, count]() -> ExceptionOr<ParsedGetAllQueryOrOptions> {
+        auto onlyResult = IDBKeyRange::only(*execState, keyOrOptions);
+        if (!onlyResult.hasException())
+            return ParsedGetAllQueryOrOptions { onlyResult.releaseReturnValue(), count };
+
+        if (!context || !context->settingsValues().indexedDBGetAllRecordsEnabled)
+            return Exception(ExceptionCode::DataError, "Failed to execute 'getAllKeys' on 'IDBIndex': The parameter is not a valid key."_s);
+
+        return parseGetAllOptions(*execState, keyOrOptions);
     });
 }
 

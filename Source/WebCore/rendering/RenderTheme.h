@@ -203,7 +203,6 @@ public:
 
     // On iOS, this matches [UIFocusRingStyle borderThickness] and on macOS this matches AppKit.
     virtual float platformFocusRingWidth() const { return 3; }
-    float platformFocusRingWidthOffset(float outlineWidth) const { return std::max<float>(outlineWidth - platformFocusRingWidth(), 0); }
 
 #if ENABLE(CSS_TAP_HIGHLIGHT_COLOR)
     static Color tapHighlightColor();
@@ -407,11 +406,8 @@ protected:
     virtual void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const { }
     virtual bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const FloatRect&) { return true; }
 
-    void NODELETE adjustSwitchStyleDisplay(RenderStyle&) const;
     virtual void adjustSwitchStyle(RenderStyle&, const Element*) const;
-    void adjustSwitchThumbOrSwitchTrackStyle(RenderStyle&) const;
-    virtual bool paintSwitchThumb(const RenderElement&, const PaintInfo&, const FloatRect&) { return true; }
-    virtual bool paintSwitchTrack(const RenderElement&, const PaintInfo&, const FloatRect&) { return true; }
+    virtual bool paintSwitch(const RenderElement&, const PaintInfo&, const FloatRect&) { return true; }
 
     // The font description result should have a zoomed font size.
     virtual std::optional<FontCascadeDescription> controlFont(StyleAppearance, const FontCascade&, float) const;

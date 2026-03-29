@@ -34,19 +34,17 @@
 
 namespace JSC {
 
-class WebAssemblyGCObjectBase : public JSNonFinalObject {
+class WebAssemblyGCObjectBase : public JSObject {
 public:
-    using Base = JSNonFinalObject;
-    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetOwnPropertyNames | OverridesGetPrototype | OverridesPut | OverridesIsExtensible | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero;
+    using Base = JSObject;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetOwnPropertyNames | OverridesGetPrototype | OverridesPut | OverridesIsExtensible | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | ProhibitsPropertyCaching;
 
     DECLARE_INFO;
 
     DECLARE_VISIT_CHILDREN;
 
     const WebAssemblyGCStructure* gcStructure() const { return uncheckedDowncast<WebAssemblyGCStructure>(structure()); }
-    Ref<const Wasm::RTT> rtt() const { return *m_rtt; }
-
-    static constexpr ptrdiff_t offsetOfRTT() { return OBJECT_OFFSETOF(WebAssemblyGCObjectBase, m_rtt); }
+    const Wasm::RTT& rtt() const { return gcStructure()->rtt(); }
 
 protected:
     WebAssemblyGCObjectBase(VM&, WebAssemblyGCStructure*);
@@ -66,8 +64,6 @@ protected:
     JS_EXPORT_PRIVATE static bool isExtensible(JSObject*, JSGlobalObject*);
     JS_EXPORT_PRIVATE static bool preventExtensions(JSObject*, JSGlobalObject*);
 
-    // It is held by structure. Keeping Wasm GC object trivially destructible is critical for performance.
-    SUPPRESS_UNCOUNTED_MEMBER const Wasm::RTT* m_rtt;
 };
 
 } // namespace JSC

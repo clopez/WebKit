@@ -17,6 +17,7 @@ class CWasmTestCase(BaseTestCase):
                 self.inspectionTest()
                 self.stepTest()
                 self.memoryTest()
+                self.memoryReadWriteTest()
                 self.detachTest()
                 self.quitTest()
 
@@ -249,6 +250,17 @@ class CWasmTestCase(BaseTestCase):
             patterns=["[0x0000000000000000-0x0000000001010000) rw- wasm_memory_0_0"],
         )
 
+    def memoryReadWriteTest(self):
+        self.send_lldb_command_or_raise("memory write 0x1000 0x42 0x43 0x44 0x45", patterns=[])
+        self.send_lldb_command_or_raise("memory read -c 4 0x1000", patterns=["0x00001000: 42 43 44 45"])
+
+        self.send_lldb_command_or_raise("memory write 0x0000000001000000 0x46", patterns=[])
+        self.send_lldb_command_or_raise("memory read -c 1 0x0000000001000000", patterns=["0x01000000: 46"])
+
+        self.send_lldb_command_or_raise("memory write 0x0000000001010000 0x00", patterns=["error:"])
+        self.send_lldb_command_or_raise("memory write 0x4000000000000000 0x00", patterns=["error:"])
+        self.send_lldb_command_or_raise("memory write 0x40000000000014e0 0x00", patterns=["error:"])
+
     def detachTest(self):
         self.send_lldb_command_or_raise(
             "detach",
@@ -276,6 +288,7 @@ class SwiftWasmTestCase(BaseTestCase):
                 self.inspectionTest()
                 self.stepTest()
                 self.memoryTest()
+                self.memoryReadWriteTest()
                 self.variableTest()
 
         except Exception as e:
@@ -497,6 +510,17 @@ class SwiftWasmTestCase(BaseTestCase):
             "mem reg 0x0000000000000000",
             patterns=["[0x0000000000000000-0x0000000000130000) rw- wasm_memory_0_0"],
         )
+
+    def memoryReadWriteTest(self):
+        self.send_lldb_command_or_raise("memory write 0x1000 0xde 0xad 0xbe 0xef", patterns=[])
+        self.send_lldb_command_or_raise("memory read -c 4 0x1000", patterns=["0x00001000: de ad be ef"])
+
+        self.send_lldb_command_or_raise("memory write 0x0000000000120000 0xab", patterns=[])
+        self.send_lldb_command_or_raise("memory read -c 1 0x0000000000120000", patterns=["0x00120000: ab"])
+
+        self.send_lldb_command_or_raise("memory write 0x0000000000130000 0x00", patterns=["error:"])
+        self.send_lldb_command_or_raise("memory write 0x4000000000000000 0x00", patterns=["error:"])
+        self.send_lldb_command_or_raise("memory write 0x40000000006b1239 0x00", patterns=["error:"])
 
     def variableTest(self):
         self.send_lldb_command_or_raise("b isEven")
@@ -1765,4 +1789,65 @@ class WasmJsWasmJsWasmCallStackTestCase(BaseTestCase):
                 "frame #4: 0x4000000000000064",  # test_outer return PC (after call mid_outer at 0x62, from WasmToJSIPIntReturnPCSlot)
                 "frame #5: 0xc000000000000000",  # JS main loop
             ],
+        )
+
+
+class SwiftWasmCrashTestCase(BaseTestCase):
+
+    def __init__(self, build_config: str = None, port: int = None):
+        super().__init__(build_config, port)
+
+    def execute(self):
+        self.setup_debugging_session_or_raise("resources/swift-wasm/crash-test/main.js")
+
+        try:
+            for _ in range(1):
+                self.faultTest()
+
+        except Exception as e:
+            raise Exception(f"Test failed: {e}")
+
+    def faultTest(self):
+        for _ in range(10):
+            self.send_lldb_command_or_raise("c", patterns=["Process 1 stopped"])
+            self.send_lldb_command_or_raise("dis", patterns=["->  0x4000000000010a43 <+1>: unreachable"]);
+
+        self.send_lldb_command_or_raise(
+            "bt",
+            patterns=[
+                "frame #0: 0x4000000000010a43",
+                "frame #1: 0x4000000000010a43",
+                "frame #2: 0x4000000000010a6a",
+                "frame #3: 0x4000000000010a46",
+                "frame #4: 0xc000000000000000",
+            ]
+        )
+
+
+class WasmUnreachableFaultTestCase(BaseTestCase):
+
+    def __init__(self, build_config: str = None, port: int = None):
+        super().__init__(build_config, port)
+
+    def execute(self):
+        self.setup_debugging_session_or_raise("resources/wasm/unreachable.js")
+
+        try:
+            for _ in range(1):
+                self.faultTest()
+
+        except Exception as e:
+            raise Exception(f"Test failed: {e}")
+
+    def faultTest(self):
+        for _ in range(10):
+            self.send_lldb_command_or_raise("c", patterns=["Process 1 stopped"])
+            self.send_lldb_command_or_raise("dis", patterns=["->  0x4000000000000024: unreachable"]);
+
+        self.send_lldb_command_or_raise(
+            "bt",
+            patterns=[
+                "frame #0: 0x4000000000000024",
+                "frame #1: 0xc000000000000000",
+            ]
         )

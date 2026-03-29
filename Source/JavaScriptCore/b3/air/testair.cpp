@@ -2712,7 +2712,6 @@ void testEarlyClobberInterference()
     }
 }
 
-#if USE(JSVALUE64)
 void testMoveDoubleZeroConstant()
 {
     B3::Procedure proc;
@@ -2885,7 +2884,6 @@ void testMulDoubleZeroWithOther()
 
     CHECK(std::bit_cast<double>(compileAndRun<uint64_t>(proc)) == 0.0);
 }
-#endif
 
 #if CPU(ARM64)
 void testStorePair()
@@ -3109,7 +3107,10 @@ void run(const char* filter)
                                 return;
                             task = tasks.takeFirst();
                         }
-
+#if USE(PROTECTED_JIT)
+                        // Must be constructed before we allocate anything using SequesteredArenaMalloc
+                        ArenaLifetime arenaLifetime;
+#endif
                         task->run();
                     }
                 }));

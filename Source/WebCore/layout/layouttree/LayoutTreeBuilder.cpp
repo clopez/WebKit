@@ -88,7 +88,7 @@ static bool canUseSimplifiedTextMeasuringForCharacters(std::span<const Character
 {
     Ref primaryFont = fontCascade.primaryFont();
     for (auto character : characters) {
-        if (!fontCascade.canUseSimplifiedTextMeasuring(character, AutoVariant, whitespaceIsCollapsed, primaryFont))
+        if (!fontCascade.canUseSimplifiedTextMeasuring(character, FontVariant::Auto, whitespaceIsCollapsed, primaryFont))
             return false;
     }
     return true;
@@ -121,9 +121,7 @@ std::unique_ptr<Layout::LayoutTree> TreeBuilder::buildLayoutTree(const RenderVie
     return makeUnique<LayoutTree>(WTF::move(rootLayoutBox));
 }
 
-TreeBuilder::TreeBuilder()
-{
-}
+TreeBuilder::TreeBuilder() = default;
 
 std::unique_ptr<Box> TreeBuilder::createReplacedBox(Box::ElementAttributes elementAttributes, ElementBox::ReplacedAttributes&& replacedAttributes, RenderStyle&& style)
 {

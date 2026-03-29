@@ -170,6 +170,17 @@ struct VectorTypeOperations
         }
     }
 
+    template<typename U, std::size_t Extent>
+    static void uninitializedMove(std::span<U, Extent> source, std::span<T> destination)
+    {
+        if constexpr (std::same_as<T, U> && std::is_trivially_copyable_v<T>)
+            memcpySpan(destination, source);
+        else {
+            for (size_t i = 0; i < source.size(); ++i)
+                new (NotNull, std::addressof(destination[i])) T(WTF::move(source[i]));
+        }
+    }
+
     static void uninitializedFill(T* dst, T* dstEnd, const T& val)
     {
         if constexpr (VectorTraits<T>::canFillWithMemset) {
@@ -1158,6 +1169,10 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirs
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
 void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::fill(const T& val, size_t newSize)
 {
+    // Copy val before mutating the vector, since val may reference an element
+    // within this vector that could be invalidated by shrink/clear/reallocation.
+    T valCopy(val);
+
     if (size() > newSize)
         shrink(newSize);
     else if (newSize > capacity()) {
@@ -1168,8 +1183,8 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::fill(const
 
     asanBufferSizeWillChangeTo(newSize);
 
-    std::ranges::fill(*this, val);
-    TypeOperations::uninitializedFill(end(), begin() + newSize, val);
+    std::ranges::fill(*this, valCopy);
+    TypeOperations::uninitializedFill(end(), begin() + newSize, valCopy);
     m_size = newSize;
 }
 
@@ -1564,20 +1579,23 @@ ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
 template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>& val)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>& other)
 {
-    append(val.span());
+    append(other.span());
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
 template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&& val)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&& other)
 {
-    size_t newSize = m_size + val.size();
+    if (other.isEmpty())
+        return;
+    size_t newSize = m_size + other.size();
     if (newSize > capacity())
         expandCapacity<FailureAction::Crash>(newSize);
-    for (auto& item : val)
-        unsafeAppendWithoutCapacityCheck(WTF::move(item));
+    asanBufferSizeWillChangeTo(newSize);
+    TypeOperations::uninitializedMove(other.mutableSpan(), unsafeMakeSpan(end(), other.size()));
+    m_size = newSize;
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
@@ -1619,6 +1637,11 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::ins
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
 void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insertFill(size_t position, const T& data, size_t dataSize)
 {
+    // Copy data before mutating the vector, since data may reference an element
+    // within this vector that could be invalidated by reallocation or the
+    // moveOverlapping shift.
+    T dataCopy(data);
+
     size_t newSize = m_size + dataSize;
     if (newSize > capacity()) {
         expandCapacity<FailureAction::Crash>(newSize);
@@ -1629,7 +1652,7 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insertFill
     asanBufferSizeWillChangeTo(newSize);
     T* spot = mutableSpan().subspan(position).data();
     TypeOperations::moveOverlapping(spot, end(), spot + dataSize);
-    TypeOperations::uninitializedFill(spot, spot + dataSize, data);
+    TypeOperations::uninitializedFill(spot, spot + dataSize, dataCopy);
     m_size = newSize;
 }
 

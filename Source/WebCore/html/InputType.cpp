@@ -111,9 +111,7 @@ template<typename DowncastedType>
 ALWAYS_INLINE bool isInvalidInputType(const DowncastedType& inputType, const String& value)
 {
     return inputType.typeMismatch()
-        || inputType.stepMismatch(value)
-        || inputType.rangeUnderflow(value)
-        || inputType.rangeOverflow(value)
+        || inputType.hasStepRangeViolation(value)
         || inputType.patternMismatch(value)
         || inputType.valueMissing(value)
         || inputType.hasBadInput();
@@ -194,9 +192,7 @@ template<typename T> static bool validateInputType(const T& inputType, const Str
 {
     ASSERT(inputType.canSetStringValue());
     return !inputType.typeMismatchFor(value)
-        && !inputType.stepMismatch(value)
-        && !inputType.rangeUnderflow(value)
-        && !inputType.rangeOverflow(value)
+        && !inputType.hasStepRangeViolation(value)
         && !inputType.patternMismatch(value)
         && !inputType.valueMissing(value);
 }
@@ -328,16 +324,23 @@ bool InputType::supportsRequired() const
     return supportsValidation();
 }
 
-bool InputType::rangeUnderflow(const String& value) const
+std::optional<std::pair<Decimal, StepRange>> InputType::parsedValueAndStepRange(const String& value) const
 {
     if (!isSteppable())
-        return false;
-
-    const Decimal numericValue = parseToNumberOrNaN(value);
+        return std::nullopt;
+    auto numericValue = parseToNumberOrNaN(value);
     if (!numericValue.isFinite())
+        return std::nullopt;
+    return { { numericValue, createStepRange(AnyStepHandling::Reject) } };
+}
+
+bool InputType::rangeUnderflow(const String& value) const
+{
+    auto parsed = parsedValueAndStepRange(value);
+    if (!parsed)
         return false;
 
-    auto range = createStepRange(AnyStepHandling::Reject);
+    auto& [numericValue, range] = *parsed;
 
     if (range.isReversible() && range.maximum() < range.minimum())
         return numericValue > range.maximum() && numericValue < range.minimum();
@@ -347,14 +350,11 @@ bool InputType::rangeUnderflow(const String& value) const
 
 bool InputType::rangeOverflow(const String& value) const
 {
-    if (!isSteppable())
+    auto parsed = parsedValueAndStepRange(value);
+    if (!parsed)
         return false;
 
-    const Decimal numericValue = parseToNumberOrNaN(value);
-    if (!numericValue.isFinite())
-        return false;
-
-    auto range = createStepRange(AnyStepHandling::Reject);
+    auto& [numericValue, range] = *parsed;
 
     if (range.isReversible() && range.maximum() < range.minimum())
         return numericValue > range.maximum() && numericValue < range.minimum();
@@ -450,11 +450,14 @@ bool InputType::isInRange(const String& value) const
     if (!stepRange.hasRangeLimitations())
         return false;
 
-    // This function should return true if both of validity.rangeUnderflow and
+    // This function should return true if both validity.rangeUnderflow and
     // validity.rangeOverflow are false. If the INPUT has no value, they are false.
     const Decimal numericValue = parseToNumberOrNaN(value);
     if (!numericValue.isFinite())
         return true;
+
+    if (stepRange.isReversible() && stepRange.maximum() < stepRange.minimum())
+        return numericValue >= stepRange.minimum() || numericValue <= stepRange.maximum();
 
     return numericValue >= stepRange.minimum() && numericValue <= stepRange.maximum();
 }
@@ -468,25 +471,45 @@ bool InputType::isOutOfRange(const String& value) const
     if (!stepRange.hasRangeLimitations())
         return false;
 
-    // This function should return true if both of validity.rangeUnderflow and
-    // validity.rangeOverflow are true. If the INPUT has no value, they are false.
+    // This function should return true if either validity.rangeUnderflow or
+    // validity.rangeOverflow is true. If the INPUT has no value, they are false.
     const Decimal numericValue = parseToNumberOrNaN(value);
     if (!numericValue.isFinite())
         return false;
+
+    if (stepRange.isReversible() && stepRange.maximum() < stepRange.minimum())
+        return numericValue > stepRange.maximum() && numericValue < stepRange.minimum();
 
     return numericValue < stepRange.minimum() || numericValue > stepRange.maximum();
 }
 
 bool InputType::stepMismatch(const String& value) const
 {
-    if (!isSteppable())
+    auto parsed = parsedValueAndStepRange(value);
+    if (!parsed)
         return false;
 
-    const Decimal numericValue = parseToNumberOrNaN(value);
-    if (!numericValue.isFinite())
+    auto& [numericValue, range] = *parsed;
+    return range.stepMismatch(numericValue);
+}
+
+bool InputType::hasStepRangeViolation(const String& value) const
+{
+    auto parsed = parsedValueAndStepRange(value);
+    if (!parsed)
         return false;
 
-    return createStepRange(AnyStepHandling::Reject).stepMismatch(numericValue);
+    auto& [numericValue, range] = *parsed;
+
+    if (range.isReversible() && range.maximum() < range.minimum()) {
+        if (numericValue > range.maximum() && numericValue < range.minimum())
+            return true;
+    } else {
+        if (numericValue < range.minimum() || numericValue > range.maximum())
+            return true;
+    }
+
+    return range.stepMismatch(numericValue);
 }
 
 String InputType::badInputText() const

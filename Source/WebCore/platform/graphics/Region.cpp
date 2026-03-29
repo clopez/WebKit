@@ -44,9 +44,7 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Region);
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Region::Shape);
 
-Region::Region()
-{
-}
+Region::Region() = default;
 
 Region::Region(const IntRect& rect)
     : m_bounds(rect)
@@ -65,9 +63,7 @@ Region::Region(Region&& other)
 {
 }
 
-Region::~Region()
-{
-}
+Region::~Region() = default;
 
 Region& Region::operator=(const Region& other)
 {

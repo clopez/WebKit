@@ -431,7 +431,6 @@ imported/w3c/web-platform-tests/service-workers/service-worker/partitioned-cooki
 imported/w3c/web-platform-tests/service-workers/service-worker/clients-matchall-frozen.https.html [ Skip ]
 
 # These tests rely on subdomains and can't work currently with local webserver.
-imported/w3c/web-platform-tests/gamepad/gamepad-default-feature-policy.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/referrer-policy/origin [ Skip ]
 imported/w3c/web-platform-tests/referrer-policy/strict-origin-when-cross-origin [ Skip ]
 imported/w3c/web-platform-tests/referrer-policy/no-referrer [ Skip ]
@@ -737,8 +736,6 @@ imported/w3c/web-platform-tests/eventsource/eventsource-request-cancellation.any
 imported/w3c/web-platform-tests/eventsource/request-cache-control.any.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/request-cache-control.any.worker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/request-credentials.any.window.html [ Skip ]
-# Feature Policy API is obsolete and replaced by Permissions Policy. Skip the entire directory.
-imported/w3c/web-platform-tests/feature-policy [ Skip ]
 # Tests that depend on obsolete feature-policy/resources/featurepolicy.js
 imported/w3c/web-platform-tests/mediacapture-streams/MediaStream-default-feature-policy.https.html [ Skip ]
 imported/w3c/web-platform-tests/clipboard-apis/feature-policy/clipboard-write/clipboard-write-enabled-on-self-origin-by-feature-policy.tentative.https.sub.html [ Skip ]
@@ -1260,6 +1257,47 @@ webkit.org/b/253126 imported/w3c/web-platform-tests/screen-wake-lock/wakelock-en
 webkit.org/b/253126 imported/w3c/web-platform-tests/screen-wake-lock/wakelock-supported-by-permissions-policy.html [ Skip ]
 webkit.org/b/253126 imported/w3c/web-platform-tests/permissions-policy/payment-extension-allowed-by-permissions-policy-attribute.https.sub.html [ Skip ]
 webkit.org/b/253126 imported/w3c/web-platform-tests/permissions-policy/payment-supported-by-permissions-policy.tentative.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-allowed-by-permissions-policy-attribute-redirect-on-load.https.sub.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-allowed-by-permissions-policy-attribute.https.sub.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-allowed-by-permissions-policy.https.sub.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-default-permissions-policy.https.sub.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-disabled-by-permissions-policy.https.sub.html [ Skip ]
+webkit.org/b/202617 imported/w3c/web-platform-tests/permissions-policy/picture-in-picture-supported-by-permissions-policy.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/gamepad/gamepad-default-permissions-policy.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/focus-without-user-activation-default-permissions-policy.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/unload-allowed-embed.tentative.window.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/unload-allowed-object.tentative.window.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/unload-disallowed-embed.tentative.window.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/experimental-features/unload-disallowed-object.tentative.window.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-frame-policy-timing-iframe-camera.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-allowed-for-all.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-allowed-for-malformed-wildcard.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-allowed-for-self.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-allowed-for-some.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-allowed-for-wildcard.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-declined.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-header-policy-disallowed-for-all.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-allowed-for-all.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-allowed-for-self.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/permissions-policy-nested-header-policy-disallowed-for-all.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/policy-extends-to-sandbox.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/camera-potential-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/camera-potential-reporting.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/camera-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/encrypted-media-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/fullscreen-report-only.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/fullscreen-reporting.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/geolocation-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/geolocation-reporting.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/microphone-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/midi-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/payment-report-only.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/payment-reporting.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/picture-in-picture-report-only.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/picture-in-picture-reporting.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/report-only-single-endpoint.https.sub.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/screen-wake-lock-reporting.https.html [ Skip ]
+webkit.org/b/309872 imported/w3c/web-platform-tests/permissions-policy/reporting/sync-xhr-report-only.html [ Skip ]
 
 webkit.org/b/182292 imported/w3c/web-platform-tests/css/cssom-view/scrollingElement-quirks-dynamic-001.html [ ImageOnlyFailure ]
 webkit.org/b/182292 imported/w3c/web-platform-tests/css/cssom-view/scrollingElement-quirks-dynamic-002.html [ ImageOnlyFailure ]
@@ -2315,8 +2353,6 @@ imported/w3c/web-platform-tests/svg/animations/repeat-iteration-event-004.svg [ 
 imported/w3c/web-platform-tests/svg/animations/slider-switch.html [ Skip ]
 imported/w3c/web-platform-tests/svg/animations/cyclic-syncbase-2.html [ Skip ]
 imported/w3c/web-platform-tests/svg/animations/eventbase-non-svg-element.html [ Skip ]
-imported/w3c/web-platform-tests/svg/animations/first-interval-in-the-past-contribute.html [ Skip ]
-imported/w3c/web-platform-tests/svg/animations/first-interval-in-the-past-dont-contribute.html [ Skip ]
 imported/w3c/web-platform-tests/svg/animations/cyclic-syncbase-events.html [ Skip ]
 imported/w3c/web-platform-tests/svg/painting/marker-orient-001.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/painting/mask-containing-image-with-clip-path.svg [ ImageOnlyFailure ]
@@ -2591,7 +2627,6 @@ imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-f
 imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-function-1.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-function-2.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/animations/scripted/syncbase-after-removal.html [ Skip ]
-imported/w3c/web-platform-tests/svg/animations/scripted/eventbase-after-removal.html [ Skip ]
 imported/w3c/web-platform-tests/svg/animations/media-fragment-override-animation.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/interact/use-instance-hover.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/linking/reftests/media-fragment-override-multiple.html [ ImageOnlyFailure ]
@@ -5391,7 +5426,6 @@ webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/resize-child-will-change-transform.html [ ImageOnlyFailure ]
 
 webkit.org/b/279302 imported/w3c/web-platform-tests/css/css-ui/negative-outline-offset.html [ ImageOnlyFailure ]
-webkit.org/b/279302 imported/w3c/web-platform-tests/css/css-ui/outline-auto-width-001.html [ ImageOnlyFailure ]
 webkit.org/b/279302 imported/w3c/web-platform-tests/css/css-ui/text-overflow-028.html [ ImageOnlyFailure ]
 
 webkit.org/b/214387 imported/w3c/web-platform-tests/svg/animations/seeking-events-4.html [ Pass Failure ]
@@ -5743,8 +5777,6 @@ media/media-session/mock-coordinator.html [ Skip ]
 media/track/track-description-cue.html [ Skip ]
 media/track/track-extended-descriptions.html [ Skip ]
 fast/canvas/canvas-drawImage-hdr-video.html [ Skip ]
-
-# Soon Cocoa-only (currently only macOS)
 fast/forms/switch/ [ Skip ]
 
 # These tests rely on webkit-test-runner flags that aren't implemented for DumpRenderTree, so they will fail under legacy WebKit.
@@ -7724,7 +7756,6 @@ webkit.org/b/282024 fast/text/text-box-edge-with-margin-padding-border-simple.ht
 
 # general failures
 
-webkit.org/b/306831 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-fixed-pos-descendant.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-012.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-015.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/transform-001.html [ ImageOnlyFailure ]
@@ -7896,7 +7927,6 @@ imported/w3c/web-platform-tests/svg/styling/use-element-transitions.tentative.ht
 imported/w3c/web-platform-tests/svg/styling/use-element-web-animations.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/nested-svg-sizing.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/nested-svg-sizing-with-use.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/struct/reftests/currentScale.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/use-encoding.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/use-external-resource-target-pseudo-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/use-inheritance-001.svg [ ImageOnlyFailure ]
@@ -8317,3 +8347,10 @@ imported/w3c/web-platform-tests/css/css-text/line-breaking/segment-break-transfo
 imported/w3c/web-platform-tests/css/css-text/line-breaking/segment-break-transformation-punctuation-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/line-breaking/segment-break-transformation-punctuation-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/line-breaking/segment-break-transformation-punctuation-003.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/html/semantics/document-metadata/the-style-element/tentative/style-element-csp-allowed.html [ Skip ] # timeout
+imported/w3c/web-platform-tests/html/semantics/document-metadata/the-style-element/tentative/style-element-csp-blocked.html [ Skip ] # timeout - two subtests pass
+
+imported/w3c/web-platform-tests/css/selectors/media/media-loading-state.sub.html [ Skip ] # timeout, passes first subtest
+imported/w3c/web-platform-tests/css/selectors/media/media-loading-state-timing.sub.html [ Skip ] # timeout
+imported/w3c/web-platform-tests/css/selectors/invalidation/media-loading-pseudo-classes-in-has.sub.html [ Skip ] # timeout
