@@ -391,7 +391,7 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
 // If a mouse event handler changes the input element type to one that has a widget associated,
 // we'd like to EventHandler::handleMousePressEvent to pass the event to the widget and thus the
 // event target node can't still be the shadow node.
-static inline bool shouldRefetchEventTarget(const MouseEventWithHitTestResults& mouseEvent)
+static inline bool NODELETE shouldRefetchEventTarget(const MouseEventWithHitTestResults& mouseEvent)
 {
     auto* targetNode = mouseEvent.targetNode();
     ASSERT(targetNode);
@@ -1553,7 +1553,7 @@ RefPtr<Frame> EventHandler::subframeForTargetNode(Node* node)
     return &frameView->frame();
 }
 
-static bool isSubmitImage(Node* node)
+static bool NODELETE isSubmitImage(Node* node)
 {
     auto* input = dynamicDowncast<HTMLInputElement>(node);
     return input && input->isImageButton();
@@ -1719,6 +1719,27 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
             float scale = styleImage->imageScaleFactor();
             // Get hotspot and convert from logical pixels to physical pixels.
             auto hotSpot = styleCursorImage.hotSpot;
+
+            CheckedPtr renderElement = dynamicDowncast<RenderElement>(renderer);
+            if (!renderElement && renderer && renderer->parent())
+                renderElement = renderer->parent();
+
+            if (renderElement) {
+                RefPtr image = cachedImage->image();
+                if (image && image->drawsSVGImage()) {
+                    // For SVG cursors, scale the image size with device resolution so
+                    // on high-DPI displays SVG images get crisp rendering.
+                    RefPtr page = frame->page();
+                    float deviceScale = page ? page->deviceScaleFactor() : 1.0f;
+
+                    FloatSize scaledSize = image->size() * deviceScale;
+                    styleImage->setContainerContextForRenderer(*renderElement, scaledSize, deviceScale);
+
+                    renderer = renderElement;
+                    scale *= deviceScale;
+                }
+            }
+
             FloatSize size = cachedImage->imageForRenderer(renderer)->size();
             if (cachedImage->errorOccurred())
                 continue;
@@ -2712,7 +2733,7 @@ bool EventHandler::canDropCurrentlyDraggedImageAsFile() const
     return !sourceOrigin || protect(protect(m_frame->document())->securityOrigin())->canReceiveDragData(*sourceOrigin);
 }
 
-static std::pair<bool, RefPtr<Frame>> contentFrameForNode(Node* target)
+static std::pair<bool, RefPtr<Frame>> NODELETE contentFrameForNode(Node* target)
 {
     auto* frameElement = dynamicDowncast<HTMLFrameElementBase>(target);
     if (!frameElement)
@@ -2962,7 +2983,7 @@ MouseEventWithHitTestResults EventHandler::prepareMouseEvent(const HitTestReques
     return protect(frame->document())->prepareMouseEvent(request, documentPointForWindowPoint(frame, mouseEvent.position()), mouseEvent);
 }
 
-static bool hierarchyHasCapturingEventListeners(Element* element, const AtomString& pointerEventName, const AtomString& compatibilityMouseEventName)
+static bool NODELETE hierarchyHasCapturingEventListeners(Element* element, const AtomString& pointerEventName, const AtomString& compatibilityMouseEventName)
 {
     for (ContainerNode* curr = element; curr; curr = curr->parentInComposedTree()) {
         if (curr->hasCapturingEventListeners(pointerEventName) || curr->hasCapturingEventListeners(compatibilityMouseEventName))

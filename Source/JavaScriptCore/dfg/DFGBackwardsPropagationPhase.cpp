@@ -228,12 +228,12 @@ private:
         return isWithinPowerOfTwo<power>(edge.node());
     }
 
-    static bool mergeFlags(NodeFlags& flagsRef, NodeFlags newFlags)
+    static bool NODELETE mergeFlags(NodeFlags& flagsRef, NodeFlags newFlags)
     {
         return checkAndSet(flagsRef, flagsRef | newFlags);
     }
 
-    bool mergeDefaultFlags(Node* node)
+    bool NODELETE mergeDefaultFlags(Node* node)
     {
         bool changed = false;
         if (node->flags() & NodeHasVarArgs) {
@@ -257,7 +257,7 @@ private:
         return changed;
     }
     
-    static constexpr NodeFlags VariableIsUsed = 1 << (1 + WTF::getMSBSetConstexpr(NodeBytecodeBackPropMask));
+    static constexpr NodeFlags VariableIsUsed = 1 << (1 + WTF::getMSBSet(NodeBytecodeBackPropMask));
     static_assert(!(VariableIsUsed & NodeBytecodeBackPropMask));
     static_assert(VariableIsUsed > NodeBytecodeBackPropMask, "Verify the above doesn't overflow");
     

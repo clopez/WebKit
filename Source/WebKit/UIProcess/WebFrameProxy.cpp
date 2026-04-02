@@ -91,6 +91,9 @@
 
 #if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER)
 #include "WebParentalControlsURLFilter.h"
+#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
+#include <WebCore/CocoaView.h>
+#endif
 #endif
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
@@ -134,8 +137,6 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIde
     ASSERT(!allFrames().contains(frameID));
     allFrames().set(frameID, *this);
     WebProcessPool::statistics().wkFrameCount++;
-
-    page.inspectorController().didCreateFrame(*this);
 
     m_frameProcess->incrementFrameCount();
 
@@ -451,8 +452,12 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
 
     std::optional<URL> unblockRequestURL = std::nullopt;
 #if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
-    if (page->preferences().webContentRestrictionsAskToEnabled())
+    bool webContentRestrictionsAskToEnabled = page->preferences().webContentRestrictionsAskToEnabled();
+    if (webContentRestrictionsAskToEnabled)
         unblockRequestURL = request.url();
+#if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER)
+    RetainPtr<CocoaView> presentingView = webContentRestrictionsAskToEnabled ? reinterpret_cast<CocoaView *>(page->cocoaView().get()) : nullptr;
+#endif
 #endif
 
 #if HAVE(WEBCONTENTRESTRICTIONS)
@@ -480,10 +485,14 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
     WebParentalControlsURLFilter::setSharedParentalControlsURLFilterIfNecessary();
 #endif
 
-    m_contentFilterUnblockHandler.requestUnblockAsync([page](bool unblocked) {
+    SUPPRESS_FORWARD_DECL_ARG m_contentFilterUnblockHandler.requestUnblockAsync([page](bool unblocked) {
         if (unblocked)
             page->reload({ });
-    }, unblockRequestURL);
+    }, unblockRequestURL
+#if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO) && HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER)
+    , presentingView
+#endif
+    );
     return true;
 }
 #endif
@@ -537,6 +546,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, String&&
     Ref child = WebFrameProxy::create(*page, m_frameProcess, frameID, effectiveSandboxFlags, effectiveReferrerPolicy, scrollingMode, nullptr, this, IsMainFrame::No, std::nullopt);
     child->m_parentFrame = *this;
     child->m_frameName = WTF::move(frameName);
+    page->inspectorController().didCreateFrame(child);
     page->observeAndCreateRemoteSubframesInOtherProcesses(child, child->m_frameName);
     m_childFrames.add(child.copyRef());
 
@@ -626,7 +636,7 @@ void WebFrameProxy::getFrameTree(CompletionHandler<void(std::optional<FrameTreeN
     private:
         FrameInfoCallbackAggregator(CompletionHandler<void(std::optional<FrameTreeNodeData>&&)>&& completionHandler, size_t childCount)
             : m_completionHandler(WTF::move(completionHandler))
-            , m_childFrameData(childCount, { }) { }
+            , m_childFrameData(FillWith { }, childCount, { }) { }
 
         CompletionHandler<void(std::optional<FrameTreeNodeData>&&)> m_completionHandler;
         std::optional<FrameInfoData> m_currentFrameData;

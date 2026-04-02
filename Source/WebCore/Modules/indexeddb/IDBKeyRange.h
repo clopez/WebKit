@@ -53,6 +53,8 @@ public:
     bool lowerOpen() const { return m_isLowerOpen; }
     bool upperOpen() const { return m_isUpperOpen; }
 
+    static bool isPotentiallyValidKeyRange(JSC::JSGlobalObject& execState, JSC::JSValue value);
+
     static ExceptionOr<Ref<IDBKeyRange>> only(RefPtr<IDBKey>&& value);
     static ExceptionOr<Ref<IDBKeyRange>> only(JSC::JSGlobalObject&, JSC::JSValue key);
 
@@ -62,8 +64,6 @@ public:
     static ExceptionOr<Ref<IDBKeyRange>> bound(JSC::JSGlobalObject&, JSC::JSValue lower, JSC::JSValue upper, bool lowerOpen, bool upperOpen);
 
     ExceptionOr<bool> includes(JSC::JSGlobalObject&, JSC::JSValue key);
-
-    WEBCORE_EXPORT bool isOnlyKey() const;
 
 private:
     IDBKeyRange(RefPtr<IDBKey>&& lower, RefPtr<IDBKey>&& upper, bool isLowerOpen, bool isUpperOpen);

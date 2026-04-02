@@ -633,7 +633,7 @@ public:
     
     RenderLayer* enclosingLayerInContainingBlockOrder() const;
     WEBCORE_EXPORT RenderLayer* enclosingContainingBlockLayer(CrossFrameBoundaries) const;
-    RenderLayer* enclosingFrameRenderLayer() const;
+    RenderLayer* NODELETE enclosingFrameRenderLayer() const;
 
     // The layer relative to which clipping rects for this layer are computed.
     RenderLayer* clippingRootForPainting() const;
@@ -964,7 +964,7 @@ public:
     WEBCORE_EXPORT void purgeBackBufferForTesting();
     WEBCORE_EXPORT void markFrontBufferVolatileForTesting();
 
-    WEBCORE_EXPORT bool isTransparentRespectingParentFrames() const;
+    WEBCORE_EXPORT bool NODELETE isTransparentRespectingParentFrames() const;
 
     // Invalidation can fail if there is no enclosing compositing layer (e.g. nested iframe)
     // or the layer does not maintain an event region.
@@ -980,6 +980,27 @@ public:
     void paintSVGResourceLayer(GraphicsContext&, const AffineTransform& contentTransform);
 
     bool ancestorLayerIsDOMParent(const RenderLayer* ancestor) const;
+
+    struct LayerPaintingInfo {
+        LayerPaintingInfo(RenderLayer* inRootLayer, const LayoutRect& inDirtyRect, OptionSet<PaintBehavior> inPaintBehavior, const LayoutSize& inSubpixelOffset, RenderObject* inSubtreePaintRoot = nullptr, OverlapTestRequestMap* inOverlapTestRequests = nullptr, bool inRequireSecurityOriginAccessForWidgets = false)
+            : rootLayer(inRootLayer)
+            , subtreePaintRoot(inSubtreePaintRoot)
+            , paintDirtyRect(inDirtyRect)
+            , subpixelOffset(inSubpixelOffset)
+            , overlapTestRequests(inOverlapTestRequests)
+            , paintBehavior(inPaintBehavior)
+            , requireSecurityOriginAccessForWidgets(inRequireSecurityOriginAccessForWidgets)
+        { }
+
+        RenderLayer* rootLayer { nullptr };
+        RenderObject* subtreePaintRoot { nullptr }; // Only paint descendants of this object.
+        LayoutRect paintDirtyRect; // Relative to rootLayer;
+        LayoutSize subpixelOffset;
+        OverlapTestRequestMap* overlapTestRequests { nullptr }; // May be null.
+        OptionSet<PaintBehavior> paintBehavior;
+        bool requireSecurityOriginAccessForWidgets { false };
+        CheckedPtr<RegionContext> regionContext;
+    };
 
 private:
 
@@ -1013,27 +1034,6 @@ private:
     void clearZOrderLists();
 
     void updateNormalFlowList();
-
-    struct LayerPaintingInfo {
-        LayerPaintingInfo(RenderLayer* inRootLayer, const LayoutRect& inDirtyRect, OptionSet<PaintBehavior> inPaintBehavior, const LayoutSize& inSubpixelOffset, RenderObject* inSubtreePaintRoot = nullptr, OverlapTestRequestMap* inOverlapTestRequests = nullptr, bool inRequireSecurityOriginAccessForWidgets = false)
-            : rootLayer(inRootLayer)
-            , subtreePaintRoot(inSubtreePaintRoot)
-            , paintDirtyRect(inDirtyRect)
-            , subpixelOffset(inSubpixelOffset)
-            , overlapTestRequests(inOverlapTestRequests)
-            , paintBehavior(inPaintBehavior)
-            , requireSecurityOriginAccessForWidgets(inRequireSecurityOriginAccessForWidgets)
-        { }
-
-        RenderLayer* rootLayer;
-        RenderObject* subtreePaintRoot; // Only paint descendants of this object.
-        LayoutRect paintDirtyRect; // Relative to rootLayer;
-        LayoutSize subpixelOffset;
-        OverlapTestRequestMap* overlapTestRequests; // May be null.
-        OptionSet<PaintBehavior> paintBehavior;
-        bool requireSecurityOriginAccessForWidgets;
-        RegionContext* regionContext { nullptr };
-    };
 
     LayoutPoint paintOffsetForRenderer(const LayerFragment& fragment, const LayerPaintingInfo& paintingInfo) const
     {
@@ -1256,8 +1256,8 @@ private:
     bool has3DTransformedDescendant() const { ASSERT(!m_3DTransformedDescendantStatusDirty); return m_has3DTransformedDescendant; }
     bool has3DTransformedAncestor() const { return m_has3DTransformedAncestor; }
 
-    void setAncestorChainHasViewportConstrainedDescendant();
-    void dirtyAncestorChainHasViewportConstrainedDescendantStatus();
+    void NODELETE setAncestorChainHasViewportConstrainedDescendant();
+    void NODELETE dirtyAncestorChainHasViewportConstrainedDescendantStatus();
 
     bool hasFixedAncestor() const { return m_hasFixedAncestor; }
     bool hasPaginatedAncestor() const { return m_hasPaginatedAncestor; }
@@ -1548,7 +1548,7 @@ private:
 };
 #endif // ASSERT_ENABLED
 
-void makeMatrixRenderable(TransformationMatrix&, bool has3DRendering);
+void NODELETE makeMatrixRenderable(TransformationMatrix&, bool has3DRendering);
 
 bool NODELETE compositedWithOwnBackingStore(const RenderLayer&);
 

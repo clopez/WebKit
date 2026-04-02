@@ -3189,6 +3189,7 @@ private:
             break;
         }
 
+        case ToUpperCase:
         case ToLowerCase: {
             // We currently only support StringUse since that will ensure that
             // ToLowerCase is a pure operation. If we decide to update this with
@@ -4678,7 +4679,7 @@ private:
         return std::tuple { arrayModes, flags };
     }
 
-    static std::optional<ArrayModes> refineArrayModesForMultiPutByVal(Node*, ArrayModes arrayModes)
+    static std::optional<ArrayModes> NODELETE refineArrayModesForMultiPutByVal(Node*, ArrayModes arrayModes)
     {
         constexpr ArrayModes supportedArrays = 0
             | asArrayModesIgnoringTypedArrays(ArrayWithInt32)
@@ -4716,7 +4717,7 @@ private:
         return arrayModes;
     }
 
-    bool alwaysUnboxSimplePrimitives()
+    bool NODELETE alwaysUnboxSimplePrimitives()
     {
 #if USE(JSVALUE64)
         return false;
@@ -4728,19 +4729,19 @@ private:
     }
 
     template<UseKind useKind>
-    void observeUseKindOnNode(Node* node)
+    void NODELETE observeUseKindOnNode(Node* node)
     {
         if (useKind == UntypedUse)
             return;
         observeUseKindOnNode(node, useKind);
     }
 
-    void observeUseKindOnEdge(Edge edge)
+    void NODELETE observeUseKindOnEdge(Edge edge)
     {
         observeUseKindOnNode(edge.node(), edge.useKind());
     }
 
-    void observeUseKindOnNode(Node* node, UseKind useKind)
+    void NODELETE observeUseKindOnNode(Node* node, UseKind useKind)
     {
         if (node->op() != GetLocal)
             return;
@@ -4795,13 +4796,13 @@ private:
     }
     
     template<UseKind useKind>
-    void fixEdge(Edge& edge)
+    void NODELETE fixEdge(Edge& edge)
     {
         observeUseKindOnNode<useKind>(edge.node());
         edge.setUseKind(useKind);
     }
     
-    unsigned indexForChecks()
+    unsigned NODELETE indexForChecks()
     {
         unsigned index = m_indexInBlock;
         while (!m_block->at(index)->origin.exitOK)
@@ -4809,7 +4810,7 @@ private:
         return index;
     }
     
-    NodeOrigin originForCheck(unsigned index)
+    NodeOrigin NODELETE originForCheck(unsigned index)
     {
         return m_block->at(index)->origin.withSemantic(m_currentNode->origin.semantic);
     }
@@ -5200,7 +5201,7 @@ private:
         return false;
     }
 
-    void fixupCheckJSCast(Node* node)
+    void NODELETE fixupCheckJSCast(Node* node)
     {
         fixEdge<CellUse>(node->child1());
     }

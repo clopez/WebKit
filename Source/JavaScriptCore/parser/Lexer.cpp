@@ -509,7 +509,7 @@ Lexer<T>::Lexer(VM& vm, JSParserBuiltinMode builtinMode, JSParserScriptMode scri
 {
 }
 
-static inline JSTokenType tokenTypeForIntegerLikeToken(double doubleValue)
+static inline JSTokenType NODELETE tokenTypeForIntegerLikeToken(double doubleValue)
 {
     if ((doubleValue || !std::signbit(doubleValue)) && static_cast<int64_t>(doubleValue) == doubleValue)
         return INTEGER;
@@ -1043,15 +1043,12 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<Latin1Cha
     if ((remaining < maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) [[unlikely]] {
         if (!isBuiltinName) {
             ASSERT(shouldCreateIdentifier);
-            if (remaining < maxTokenLength) {
-                const HashTableValue* entry = JSC::mainTable.entry(*ident);
-                ASSERT((remaining < maxTokenLength) || !entry);
-                if (!entry)
-                    return identType;
-                JSTokenType token = static_cast<JSTokenType>(entry->lexerValue());
-                return (token != RESERVED_IF_STRICT) || strictMode ? token : identType;
-            }
-            return identType;
+            const HashTableValue* entry = JSC::mainTable.entry(*ident);
+            ASSERT((remaining < maxTokenLength) || !entry);
+            if (!entry)
+                return identType;
+            JSTokenType token = static_cast<JSTokenType>(entry->lexerValue());
+            return (token != RESERVED_IF_STRICT) || strictMode ? token : identType;
         }
     }
 
@@ -1135,15 +1132,12 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<char16_t>
 
     if ((remaining < maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) [[unlikely]] {
         ASSERT(shouldCreateIdentifier);
-        if (remaining < maxTokenLength) {
-            const HashTableValue* entry = JSC::mainTable.entry(*ident);
-            ASSERT((remaining < maxTokenLength) || !entry);
-            if (!entry)
-                return IDENT;
-            JSTokenType token = static_cast<JSTokenType>(entry->lexerValue());
-            return (token != RESERVED_IF_STRICT) || strictMode ? token : IDENT;
-        }
-        return IDENT;
+        const HashTableValue* entry = JSC::mainTable.entry(*ident);
+        ASSERT((remaining < maxTokenLength) || !entry);
+        if (!entry)
+            return IDENT;
+        JSTokenType token = static_cast<JSTokenType>(entry->lexerValue());
+        return (token != RESERVED_IF_STRICT) || strictMode ? token : IDENT;
     }
 
     return IDENT;
@@ -1250,7 +1244,7 @@ static ALWAYS_INLINE bool characterRequiresParseStringSlowCase(Latin1Character c
     return character < 0xE;
 }
 
-static ALWAYS_INLINE bool characterRequiresParseStringSlowCase(char16_t character)
+static ALWAYS_INLINE bool NODELETE characterRequiresParseStringSlowCase(char16_t character)
 {
     return character < 0xE || !isLatin1(character);
 }
@@ -1310,7 +1304,7 @@ template <bool shouldBuildStrings> ALWAYS_INLINE typename Lexer<T>::StringParseR
     m_current = *found;
     if (m_current == stringQuoteCharacter) [[likely]] {
         if constexpr (shouldBuildStrings)
-            tokenData->ident = makeIdentifier(std::span { stringStart, found });
+            tokenData->ident = makeLatin1Identifier(std::span { stringStart, found });
         else
             tokenData->ident = nullptr;
         return StringParsedSuccessfully;
@@ -2484,8 +2478,6 @@ start:
         }
         size_t parsedLength;
         tokenData->doubleValue = parseDouble(m_buffer8, parsedLength);
-        if (token == INTEGER)
-            token = tokenTypeForIntegerLikeToken(tokenData->doubleValue);
 
         if (cannotBeIdentStart(m_current)) [[likely]] {
             m_buffer8.shrink(0);
@@ -3140,7 +3132,7 @@ template <>
 inline void orCharacter<Latin1Character>(char16_t&, char16_t) { }
 
 template <>
-inline void orCharacter<char16_t>(char16_t& orAccumulator, char16_t character)
+inline void NODELETE orCharacter<char16_t>(char16_t& orAccumulator, char16_t character)
 {
     orAccumulator |= character;
 }

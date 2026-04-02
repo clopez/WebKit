@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024 Apple Inc. All rights reserved.
+# Copyright (c) 2020-2026 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -1054,7 +1054,7 @@ CSSAppearanceBaseEnabled:
 CSSAttrSubstitutionFunctionEnabled:
   type: bool
   category: css
-  status: testable
+  status: preview
   humanReadableName: "CSS attr() substitution function"
   humanReadableDescription: "Enable CSS Values 5 attr() arbitrary substitution function"
   defaultValue:
@@ -1176,6 +1176,20 @@ CSSFieldSizingEnabled:
       default: true
     WebCore:
       default: true
+
+CSSFontSynthesisStyleObliqueOnlyEnabled:
+  type: bool
+  status: preview
+  category: css
+  humanReadableName: "CSS font-synthesis-style: oblique-only"
+  humanReadableDescription: "Enable the oblique-only value for the font-synthesis-style CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSFontVariantEmojiEnabled:
   type: bool
@@ -2100,20 +2114,6 @@ CoreMathMLEnabled:
       default: false
     WebCore:
       default: false
-
-CrossDocumentViewTransitionsEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "Cross document view-transitions"
-  humanReadableDescription: "Enable support for view-transitions cross-document"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 CrossOriginEmbedderPolicyEnabled:
   type: bool
@@ -3901,12 +3901,12 @@ IndexedDBAPIEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
-IndexedDBGetAllRecordsEnabled:
+IndexedDBGetAllRecordsAndGetAllOptionsEnabled:
   type: bool
   category: dom
-  status: testable
-  humanReadableName: "IndexedDB getAllRecords() API"
-  humanReadableDescription: "Enable getAllRecords() on IDBIndex"
+  status: preview
+  humanReadableName: "IndexedDB getAllRecords() API and IDBGetAllOptions"
+  humanReadableDescription: "Enable the getAllRecords() API on IDBObjectStore/IDBIndex and enable getAll()/getAllKeys() to accept IDBGetAllOptions and support direction"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3914,8 +3914,6 @@ IndexedDBGetAllRecordsEnabled:
       default: false
     WebCore:
       default: false
-  sharedPreferenceForWebProcess: true
-  richJavaScript: true
 
 IndexedDBSQLiteMemoryBackingStoreEnabled:
   type: bool
@@ -4647,20 +4645,6 @@ LinearMediaPlayerEnabled:
       default: WebKit::defaultLinearMediaPlayerEnabled()
     WebCore:
       default: false
-
-LinkDNSPrefetchEnabled:
-  type: bool
-  status: stable
-  category: networking
-  humanReadableName: "<link rel=dns-prefetch>"
-  humanReadableDescription: "Enable <link rel=dns-prefetch>"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 LinkPreconnect:
   type: bool
@@ -5684,6 +5668,20 @@ MouseEventsSimulationEnabled:
     WebCore:
       default: false
 
+MultiProcessBackForwardCacheEnabled:
+  type: bool
+  status: unstable
+  category: security
+  humanReadableName: "Multi-Process Back/Forward Cache"
+  humanReadableDescription: "Enable back/forward cache when site isolation is active"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 MutationEventsEnabled:
   type: bool
   status: testable
@@ -5986,20 +5984,6 @@ OriginAPIEnabled:
     WebCore:
       default: true
 
-OverlappingBackingStoreProvidersEnabled:
-  type: bool
-  status: stable
-  humanReadableName: "Overlapping backing stores"
-  humanReadableDescription: "Enable overlapping backing stores compositor optimization"
-  category: css
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 OverlayRegionsEnabled:
   type: bool
   status: testable
@@ -6084,20 +6068,6 @@ PDFPluginPageNumberIndicatorEnabled:
       default: true
     WebCore:
       default: false
-
-PageAtRuleMarginDescriptorsEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "@page CSS at-rule margin descriptors"
-  humanReadableDescription: "Enable support for @page margin descriptors"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 PageVisibilityBasedProcessSuppressionEnabled:
   type: bool
@@ -6326,21 +6296,6 @@ PointerLockEnabled:
       default: true
     WebCore:
       default: false
-
-PointerLockOptionsEnabled:
-  type: bool
-  status: stable
-  category: dom
-  condition: ENABLE(POINTER_LOCK)
-  humanReadableName: "Pointer Lock Options"
-  humanReadableDescription: "Element.requestPointerLock(options) and promise support."
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 PopoverAttributeEnabled:
   type: bool
@@ -9101,20 +9056,6 @@ ViewGestureDebuggingEnabled:
     WebKit:
       default: false
 
-ViewTransitionsEnabled:
-  type: bool
-  category: animation
-  status: stable
-  humanReadableName: "View Transitions"
-  humanReadableDescription: "Enable the View Transitions API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 VisibleDebugOverlayRegions:
   type: uint32_t
   status: embedder
@@ -9468,35 +9409,6 @@ WebContentRestrictionsTransitiveTrustEnabled:
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
-
-
-WebCryptoSafeCurvesEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Web Crypto Safe Curves"
-  humanReadableDescription: "Enable Web Crypto Safe Curves"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-WebCryptoX25519Enabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Web Crypto X25519 algorithm"
-  humanReadableDescription: "Enable Web Crypto X25519 algorithm"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 WebExtensionBookmarksEnabled:
   type: bool
@@ -10217,21 +10129,6 @@ WriteRichTextDataWhenCopyingOrDragging:
       default: true
     WebKit:
       "PLATFORM(IOS_FAMILY)": WebKit::defaultWriteRichTextDataWhenCopyingOrDragging()
-      default: true
-    WebCore:
-      default: true
-
-WritingSuggestionsAttributeEnabled:
-  type: bool
-  status: stable
-  category: dom
-  humanReadableName: "Writing Suggestions"
-  humanReadableDescription: "Enable the writingsuggestions attribute"
-  condition: ENABLE(WRITING_SUGGESTIONS)
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
       default: true
     WebCore:
       default: true

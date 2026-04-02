@@ -43,6 +43,7 @@
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
+#import <WebKit/WKWebpagePreferences.h>
 #import <WebKit/_WKContentWorldConfiguration.h>
 #import <WebKit/_WKFeature.h>
 #import <WebKit/_WKFrameTreeNode.h>
@@ -50,6 +51,7 @@
 #import <WebKit/_WKRemoteObjectInterface.h>
 #import <WebKit/_WKRemoteObjectRegistry.h>
 #import <WebKit/_WKTextExtraction.h>
+#import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <pal/cocoa/ScreenTimeSoftLink.h>
 #import <pal/spi/cocoa/NSKeyedUnarchiverSPI.h>
 #import <wtf/SoftLinking.h>
@@ -1194,6 +1196,39 @@ TEST(TextExtractionTests, DelayedSafeBrowsingWarningBlocksTextExtraction)
     EXPECT_FALSE([debugTextAfterWarning containsString:@"test"]);
 }
 
+TEST(TextExtractionTests, BackgroundTextExtractionBlocksUserMediatedHTTPFallback)
+{
+    using namespace TestWebKitAPI;
+    HTTPServer httpsServer({
+        { "/secure"_s, { { }, "hi"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+    [storeConfiguration setProxyConfiguration:@{
+        (NSString *)kCFStreamPropertyHTTPSProxyHost: @"127.0.0.1",
+        (NSString *)kCFStreamPropertyHTTPSProxyPort: @(httpsServer.port())
+    }];
+    RetainPtr dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]);
+    RetainPtr configuration = adoptNS([WKWebViewConfiguration new]);
+    [configuration setWebsiteDataStore:dataStore.get()];
+    [configuration _setBackgroundTextExtractionEnabled:YES];
+    [configuration defaultWebpagePreferences].preferredHTTPSNavigationPolicy = WKWebpagePreferencesUpgradeToHTTPSPolicyUserMediatedFallbackToHTTP;
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero configuration:configuration.get()]);
+
+    __block bool failedNavigation { false };
+    RetainPtr delegate = adoptNS([TestNavigationDelegate new]);
+    [delegate setDidFailProvisionalNavigation:^(WKWebView *, WKNavigation *, NSError *error) {
+        EXPECT_NOT_NULL(error);
+        failedNavigation = true;
+    }];
+    [webView setNavigationDelegate:delegate.get()];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://site.example/secure"]]];
+
+    Util::run(&failedNavigation);
+
+    EXPECT_NULL([webView _safeBrowsingWarning]);
+}
+
 #endif // HAVE(SAFE_BROWSING)
 
 TEST(TextExtractionTests, InvalidURLsAreSkipped)
@@ -1332,6 +1367,34 @@ TEST(TextExtractionTests, ClickInteractionWithExtractionContext)
     [webView synchronouslyPerformInteraction:click.get()];
 
     EXPECT_WK_STREQ("original", [webView stringByEvaluatingJavaScript:@"document.getElementById('result').textContent"]);
+}
+
+TEST(TextExtractionTests, ShortenURLsWithTopHostName)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+
+    RetainPtr markup = @"<!DOCTYPE html>"
+        "<html><body>"
+        "    <a href=\"https://webkit.org/blog/post\">Same-host link</a>"
+        "    <a href=\"https://webkit.org\">Root link</a>"
+        "    <a href=\"https://example.com/other\">Cross-host link</a>"
+        "</body></html>";
+    [webView synchronouslyLoadHTMLString:markup.get() baseURL:[NSURL URLWithString:@"http://webkit.org"]];
+
+    RetainPtr debugText = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setIncludeURLs:YES];
+        [configuration setShortenURLs:YES];
+        return configuration.autorelease();
+    }()];
+
+    EXPECT_TRUE([debugText containsString:@"url='/blog/post'"]);
+    EXPECT_TRUE([debugText containsString:@"url='/'"]);
+    EXPECT_TRUE([debugText containsString:@"example.com/other"]);
 }
 
 } // namespace TestWebKitAPI

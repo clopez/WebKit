@@ -138,7 +138,7 @@ static constexpr auto nbaSeekBarFixScript = R"js(if (!window.__nbaSeekFix) {
 })js"_s;
 #endif
 
-static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document& document)
+static inline OptionSet<AutoplayQuirk> NODELETE allowedAutoplayQuirks(Document& document)
 {
     auto* loader = document.loader();
     if (!loader)
@@ -147,7 +147,7 @@ static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document& document)
     return loader->allowedAutoplayQuirks();
 }
 
-static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document* document)
+static inline OptionSet<AutoplayQuirk> NODELETE allowedAutoplayQuirks(Document* document)
 {
     if (!document)
         return { };
@@ -1762,6 +1762,30 @@ bool Quirks::needsIPhoneUserAgent(const URL& url)
     if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
         return true;
     if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
+        return true;
+#else
+    UNUSED_PARAM(url);
+#endif
+    return false;
+}
+
+bool Quirks::needsChromeForAndroidUserAgent(const URL& url)
+{
+#if PLATFORM(IOS_FAMILY)
+    // nfl.com rdar://171113872
+    if (url.host() == "www.nfl.com"_s && PAL::currentUserInterfaceIdiomIsSmallScreen())
+        return true;
+#else
+    UNUSED_PARAM(url);
+#endif
+    return false;
+}
+
+bool Quirks::needsMediaSourceEnabled(const URL& url)
+{
+#if PLATFORM(IOS_FAMILY)
+    // nfl.com rdar://171113872
+    if (url.host() == "www.nfl.com"_s && PAL::currentUserInterfaceIdiomIsSmallScreen())
         return true;
 #else
     UNUSED_PARAM(url);

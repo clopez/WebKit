@@ -596,8 +596,8 @@ struct CharacterToGlyphMapping {
     Vector<float> advanceWidths;
 
     CharacterToGlyphMapping(unsigned length)
-        : characterIndexToGlyphIndexRange(length, std::nullopt)
-        , advanceWidths(length, 0)
+        : characterIndexToGlyphIndexRange(FillWith { }, length, std::nullopt)
+        , advanceWidths(FillWith { }, length, 0)
     {
     }
 };
@@ -619,7 +619,7 @@ static CharacterToGlyphMapping buildCharacterToGlyphMapping(const GlyphBuffer& g
     return mapping;
 }
 
-static void applyHorizontalGlyphStretch(GlyphBuffer& glyphBuffer, unsigned glyphBufferStartIndex, const TextRun& run)
+static void NODELETE applyHorizontalGlyphStretch(GlyphBuffer& glyphBuffer, unsigned glyphBufferStartIndex, const TextRun& run)
 {
     if (run.horizontalGlyphStretch() == 1)
         return;
@@ -744,8 +744,6 @@ bool WidthIterator::characterCanUseSimplifiedTextMeasuring(char32_t codePoint, b
 void WidthIterator::applyCSSVisibilityRules(GlyphBuffer& glyphBuffer, unsigned glyphBufferStartIndex)
 {
     // This function needs to be kept in sync with characterCanUseSimplifiedTextMeasuring().
-
-    Vector<unsigned> glyphsIndicesToBeDeleted;
 
     float yPosition = height(glyphBuffer.initialAdvance());
 

@@ -1216,7 +1216,7 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
 
 // Atomics
 
-[[nodiscard]] PartialResult BBQJIT::atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex)
 {
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(loadOp))) [[unlikely]] {
         // FIXME: Same issue as in AirIRGenerator::load(): https://bugs.webkit.org/show_bug.cgi?id=166435
@@ -1224,14 +1224,14 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
         consume(pointer);
         result = valueType.isI64() ? Value::fromI64(0) : Value::fromI32(0);
     } else
-        result = emitAtomicLoadOp(loadOp, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(loadOp)), uoffset);
+        result = emitAtomicLoadOp(loadOp, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(loadOp), memoryIndex), uoffset);
 
     LOG_INSTRUCTION(makeString(loadOp), pointer, uoffset, RESULT(result));
 
     return { };
 }
 
-[[nodiscard]] PartialResult BBQJIT::atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint32_t uoffset, uint8_t memoryIndex)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(storeOp))) [[unlikely]] {
@@ -1240,14 +1240,14 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
         consume(pointer);
         consume(value);
     } else
-        emitAtomicStoreOp(storeOp, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(storeOp)), value, uoffset);
+        emitAtomicStoreOp(storeOp, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(storeOp), memoryIndex), value, uoffset);
 
     LOG_INSTRUCTION(makeString(storeOp), pointer, uoffset, value, valueLocation);
 
     return { };
 }
 
-[[nodiscard]] PartialResult BBQJIT::atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(op))) [[unlikely]] {
@@ -1258,14 +1258,14 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
         consume(value);
         result = valueType.isI64() ? Value::fromI64(0) : Value::fromI32(0);
     } else
-        result = emitAtomicBinaryRMWOp(op, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(op)), value, uoffset);
+        result = emitAtomicBinaryRMWOp(op, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(op), memoryIndex), value, uoffset);
 
     LOG_INSTRUCTION(makeString(op), pointer, uoffset, value, valueLocation, RESULT(result));
 
     return { };
 }
 
-[[nodiscard]] PartialResult BBQJIT::atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex)
 {
     Location valueLocation = locationOf(value);
     if (sumOverflows<uint32_t>(uoffset, sizeOfAtomicOpMemoryAccess(op))) [[unlikely]] {
@@ -1277,21 +1277,22 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
         consume(value);
         result = valueType.isI64() ? Value::fromI64(0) : Value::fromI32(0);
     } else
-        result = emitAtomicCompareExchange(op, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(op)), expected, value, uoffset);
+        result = emitAtomicCompareExchange(op, valueType, emitCheckAndPreparePointer(pointer, uoffset, sizeOfAtomicOpMemoryAccess(op), memoryIndex), expected, value, uoffset);
 
     LOG_INSTRUCTION(makeString(op), pointer, expected, value, valueLocation, uoffset, RESULT(result));
 
     return { };
 }
 
-[[nodiscard]] PartialResult BBQJIT::atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
         pointer,
         Value::fromI32(uoffset),
         value,
-        timeout
+        timeout,
+        Value::fromI32(memoryIndex)
     };
 
     result = topValue(TypeKind::I32);
@@ -1307,13 +1308,14 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
     return { };
 }
 
-[[nodiscard]] PartialResult BBQJIT::atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint32_t uoffset)
+[[nodiscard]] PartialResult BBQJIT::atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
         pointer,
         Value::fromI32(uoffset),
-        count
+        count,
+        Value::fromI32(memoryIndex)
     };
     result = topValue(TypeKind::I32);
     emitCCall(&operationMemoryAtomicNotify, arguments, result);
@@ -5484,7 +5486,7 @@ void BBQJIT::emitShuffle(Vector<Value, N, OverflowHandler>& srcVector, Vector<Lo
 
     // For multi-value return, a parallel move might be necessary. This is comparatively complex
     // and slow, so we limit it to this slow path.
-    Vector<ShuffleStatus, N, OverflowHandler> statusVector(srcVector.size(), ShuffleStatus::ToMove);
+    Vector<ShuffleStatus, N, OverflowHandler> statusVector(FillWith { }, srcVector.size(), ShuffleStatus::ToMove);
     for (unsigned i = 0; i < srcVector.size(); i ++) {
         if (statusVector[i] == ShuffleStatus::ToMove)
             emitShuffleMove(srcVector, dstVector, statusVector, i);
@@ -5721,14 +5723,15 @@ Location BBQJIT::allocateStack(Value value)
 void BBQJIT::emitArrayGetPayload(StorageType type, GPRReg arrayGPR, GPRReg payloadGPR)
 {
     ASSERT(arrayGPR != payloadGPR);
-    if (!JSWebAssemblyArray::needsAlignmentCheck(type)) {
-        m_jit.addPtr(MacroAssembler::TrustedImm32(JSWebAssemblyArray::offsetOfData()), arrayGPR, payloadGPR);
+    if (JSWebAssemblyArray::needsV128AlignmentMask(type)) {
+        // V128 needs runtime masking: PreciseAllocation only guarantees 8-byte alignment.
+        m_jit.addPtr(MacroAssembler::TrustedImm32(JSWebAssemblyArray::offsetOfData() + 15), arrayGPR, payloadGPR);
+        m_jit.andPtr(MacroAssembler::TrustedImm32(-16), payloadGPR);
         return;
     }
-
-    // Round-up to 16x for PreciseAllocation + V128 array data handling.
-    m_jit.addPtr(MacroAssembler::TrustedImm32(JSWebAssemblyArray::offsetOfData() + 15), arrayGPR, payloadGPR);
-    m_jit.andPtr(MacroAssembler::TrustedImm32(-16), payloadGPR);
+    // For all other types, alignment shift is a compile-time constant
+    // since JSCell always has >=8-byte alignment.
+    m_jit.addPtr(MacroAssembler::TrustedImm32(JSWebAssemblyArray::alignedOffsetOfData(type.elementSize())), arrayGPR, payloadGPR);
 }
 
 } // namespace JSC::Wasm::BBQJITImpl

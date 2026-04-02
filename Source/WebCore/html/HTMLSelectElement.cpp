@@ -216,7 +216,7 @@ HTMLSelectElement* HTMLSelectElement::findOwnerSelect(ContainerNode* startNode, 
     return findOwnerSelect(startNode->parentNode(), excludeOptGroup);
 }
 
-static bool hasBaseAppearance(const RenderStyle* style)
+static bool NODELETE hasBaseAppearance(const RenderStyle* style)
 {
     return style && style->usedAppearance() == StyleAppearance::Base;
 }
@@ -1236,6 +1236,12 @@ int HTMLSelectElement::selectedIndex() const
     }
 
     return -1;
+}
+
+HTMLOptionElement* HTMLSelectElement::selectedOption()
+{
+    int index = selectedIndex();
+    return index >= 0 ? item(index) : nullptr;
 }
 
 void HTMLSelectElement::setSelectedIndex(int index)

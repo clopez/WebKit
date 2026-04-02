@@ -286,9 +286,9 @@ public:
     const ClassInfo* classInfoOrNull() const;
 
     // Non-inline versions of above for use in header ASSERT macros:
-    JS_EXPORT_PRIVATE bool isGetterSetterSlow() const;
-    JS_EXPORT_PRIVATE bool isCustomGetterSetterSlow() const;
-    JS_EXPORT_PRIVATE bool isStringSlow() const;
+    JS_EXPORT_PRIVATE bool NODELETE isGetterSetterSlow() const;
+    JS_EXPORT_PRIVATE bool NODELETE isCustomGetterSetterSlow() const;
+    JS_EXPORT_PRIVATE bool NODELETE isStringSlow() const;
 
     // Extracting the value.
     inline bool getString(JSGlobalObject*, WTF::String&) const; // Defined in JSCJSValueCellInlines.h
@@ -312,7 +312,7 @@ public:
     JSBigInt* asHeapBigInt() const;
 
     // toNumber conversion if it can be done without side effects.
-    std::optional<double> toNumberFromPrimitive() const;
+    std::optional<double> NODELETE toNumberFromPrimitive() const;
 
     inline JSString* toString(JSGlobalObject*) const; // On exception, this returns the empty string. Defined in JSCJSValueInlines.h
     inline JSString* toStringOrNull(JSGlobalObject*) const; // On exception, this returns null, to make exception checks faster. Defined in JSCJSValueInlines.h
@@ -1118,7 +1118,7 @@ inline double JSValue::toIntegerWithTruncation(JSGlobalObject* globalObject) con
 {
     if (isInt32())
         return asInt32();
-    return trunc(toNumber(globalObject) + 0.0);
+    return std::trunc(toNumber(globalObject) + 0.0);
 }
 
 // https://tc39.es/ecma262/#sec-tointegerorinfinity
@@ -1127,7 +1127,7 @@ inline double JSValue::toIntegerOrInfinity(JSGlobalObject* globalObject) const
     if (isInt32())
         return asInt32();
     double d = toNumber(globalObject);
-    return isnan(d) ? 0.0 : trunc(d) + 0.0;
+    return std::isnan(d) ? 0.0 : std::trunc(d) + 0.0;
 }
 
 inline bool JSValue::isUInt32() const

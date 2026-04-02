@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -229,7 +229,7 @@ bool FontCache::isSystemFontForbiddenForEditing(const String& fontFamily)
     return isSystemFont(fontFamily);
 }
 
-static CTFontSymbolicTraits computeTraits(const FontDescription& fontDescription)
+static CTFontSymbolicTraits NODELETE computeTraits(const FontDescription& fontDescription)
 {
     CTFontSymbolicTraits traits = 0;
     if (fontDescription.fontStyleSlope())
@@ -249,8 +249,7 @@ SynthesisPair computeNecessarySynthesis(CTFontRef font, const FontDescription& f
 
     bool needsSyntheticBold = fontDescription.hasAutoFontSynthesisWeight()
         && !synthesisOptions.contains(FontLookupOptions::DisallowBoldSynthesis);
-    bool needsSyntheticOblique = fontDescription.hasAutoFontSynthesisStyle()
-        && !synthesisOptions.contains(FontLookupOptions::DisallowObliqueSynthesis);
+    bool needsSyntheticOblique = fontDescription.allowsItalicOrObliqueFontSynthesisStyle() && !synthesisOptions.contains(FontLookupOptions::DisallowObliqueSynthesis);
 
     if (!needsSyntheticBold && !needsSyntheticOblique)
         return SynthesisPair(false, false);

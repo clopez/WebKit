@@ -44,7 +44,7 @@ static constexpr OperandKind lastOperandKind = OperandKind::Tmp;
 
 class Operand {
 public:
-    static constexpr unsigned kindBits = WTF::getMSBSetConstexpr(static_cast<std::underlying_type_t<OperandKind>>(lastOperandKind)) + 1;
+    static constexpr unsigned kindBits = WTF::getMSBSet(static_cast<std::underlying_type_t<OperandKind>>(lastOperandKind)) + 1;
     static constexpr unsigned maxBits = 32 + kindBits;
     static_assert(maxBits == 34);
 
@@ -158,15 +158,15 @@ public:
     }
 
     explicit Operands(size_t numArguments, size_t numLocals, size_t numTmps, const T& initialValue)
-        : m_values(numArguments + numLocals + numTmps, initialValue)
+        : m_values(FillWith { }, numArguments + numLocals + numTmps, initialValue)
         , m_numArguments(numArguments)
         , m_numLocals(numLocals)
     {
     }
-    
+
     template<typename U, typename V>
     explicit Operands(OperandsLikeTag, const Operands<U, V>& other, const T& initialValue = T())
-        : m_values(other.size(), initialValue)
+        : m_values(FillWith { }, other.size(), initialValue)
         , m_numArguments(other.numberOfArguments())
         , m_numLocals(other.numberOfLocals())
     {

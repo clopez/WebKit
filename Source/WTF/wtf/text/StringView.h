@@ -47,6 +47,7 @@ OBJC_CLASS NSString;
 namespace WTF {
 
 class AdaptiveStringSearcherTables;
+template<typename T> class ValueOrReference;
 
 // StringView is a non-owning reference to a string, similar to the proposed std::string_view.
 
@@ -58,12 +59,13 @@ public:
     ~StringView();
     StringView(StringView&&);
     StringView(const StringView&);
-    StringView& operator=(StringView&&);
+    StringView& NODELETE operator=(StringView&&);
     StringView& operator=(const StringView&);
 #endif
 
     StringView(const AtomString& string LIFETIME_BOUND);
     StringView(const String& string LIFETIME_BOUND);
+    StringView(const ValueOrReference<String>& string LIFETIME_BOUND);
     StringView(const StringImpl& string LIFETIME_BOUND);
     StringView(const StringImpl* string LIFETIME_BOUND);
     StringView(std::span<const Latin1Character> span LIFETIME_BOUND);
@@ -287,6 +289,7 @@ inline StringView emptyStringView() { return ""_span; }
 
 } // namespace WTF
 
+#include <wtf/ValueOrReference.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/WTFString.h>
 
@@ -470,6 +473,11 @@ inline StringView::StringView(const String& string LIFETIME_BOUND)
 
 inline StringView::StringView(const AtomString& atomString LIFETIME_BOUND)
     : StringView(atomString.string())
+{
+}
+
+inline StringView::StringView(const ValueOrReference<String>& string LIFETIME_BOUND)
+    : StringView(string.get())
 {
 }
 

@@ -116,8 +116,7 @@ public:
 
     void setPort(uint64_t port) { m_port = port; }
 
-    JS_EXPORT_PRIVATE bool isConnected() const;
-    bool shouldHandleUnreachable() const;
+    JS_EXPORT_PRIVATE bool NODELETE isConnected() const;
 
     JS_EXPORT_PRIVATE void handlePacket(StringView packet);
 
@@ -137,7 +136,7 @@ private:
     void reset();
 
     void setState(State);
-    JS_EXPORT_PRIVATE bool isState(State) const;
+    JS_EXPORT_PRIVATE bool NODELETE isState(State) const;
 
     bool createAndBindServerSocket();
     void startAcceptThread();

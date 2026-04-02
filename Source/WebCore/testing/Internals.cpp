@@ -5507,7 +5507,7 @@ void Internals::setAudioContextRestrictions(AudioContext& context, StringView re
 
 Vector<float> Internals::waveShaperProcessCurveWithData(Vector<float> source, Vector<float> curve)
 {
-    Vector<float> destination(source.size(), 0.0f);
+    Vector<float> destination(FillWith { }, source.size(), 0.0f);
     WaveShaperDSPKernel::processCurveWithData(std::span { source }, std::span { destination }, std::span { curve });
     return destination;
 }
@@ -7028,7 +7028,7 @@ Internals::ImageOverlayDataDetector::~ImageOverlayDataDetector() = default;
 #if ENABLE(IMAGE_ANALYSIS)
 
 template<typename T>
-static FloatQuad getQuad(const T& overlayTextOrLine)
+static FloatQuad NODELETE getQuad(const T& overlayTextOrLine)
 {
     return {
         FloatPoint(overlayTextOrLine.topLeft->x(), overlayTextOrLine.topLeft->y()),
@@ -7921,6 +7921,8 @@ constexpr TreeType NODELETE convertType(Internals::TreeType type)
         return ShadowIncludingTree;
     case Internals::ComposedTree:
         return ComposedTree;
+    case Internals::ComposedTreeIncludingPseudoElements:
+        return ComposedTreeIncludingPseudoElements;
     }
     ASSERT_NOT_REACHED();
     return Tree;

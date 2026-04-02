@@ -405,9 +405,14 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
     WeakPtr weakThis { *this };
 
     for (auto& transaction : bundle.transactions) {
-        commitLayerTreeTransaction(connection, CheckedRef { transaction.first }.get(), transaction.second, bundle.mainFrameData, bundle.pageData, bundle.transactionID);
+        commitLayerTreeTransaction(connection, CheckedRef { transaction.first }.get(), transaction.second,  transaction.first.remoteContextHostedIdentifier() ? std::nullopt : bundle.mainFrameData, bundle.pageData, bundle.transactionID);
         if (!weakThis)
             return;
+    }
+
+    {
+        CheckedRef scrollingCoordinatorProxy = *page->scrollingCoordinatorProxy();
+        scrollingCoordinatorProxy->establishLayerTreeScrollingRelations(connection);
     }
 
     for (auto& callbackID : bundle.pageData.callbackIDs) {
@@ -451,9 +456,9 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
 WebCore::TrackingType RemoteLayerTreeDrawingAreaProxy::eventTrackingTypeForPoint(WebCore::EventTrackingRegions::EventType eventType, IntPoint location)
 {
     FloatPoint localLocation = location;
-    if (auto* eventRegion = eventRegionForPoint(remoteLayerTreeHost().rootLayer(), localLocation))
-        return eventRegion->eventTrackingTypeForPoint(eventType, roundedIntPoint(localLocation));
-    return WebCore::TrackingType::NotTracking;
+    return eventRegionForPoint(remoteLayerTreeHost().rootLayer(), localLocation).transform([eventType, &localLocation](const WebCore::EventRegion& eventRegion) {
+        return eventRegion.eventTrackingTypeForPoint(eventType, roundedIntPoint(localLocation));
+    }).value_or(WebCore::TrackingType::NotTracking);
 }
 #endif
 

@@ -30,8 +30,13 @@
 #include "IDBBindingUtilities.h"
 #include "IDBKey.h"
 #include "IDBKeyData.h"
+#include "JSIDBKeyRange.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptWrappableInlines.h"
+#include <JavaScriptCore/DateInstance.h>
+#include <JavaScriptCore/JSArray.h>
+#include <JavaScriptCore/JSArrayBuffer.h>
+#include <JavaScriptCore/JSArrayBufferView.h>
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -126,11 +131,6 @@ ExceptionOr<Ref<IDBKeyRange>> IDBKeyRange::bound(JSGlobalObject& state, JSValue 
     return create(WTF::move(lower), WTF::move(upper), lowerOpen, upperOpen);
 }
 
-bool IDBKeyRange::isOnlyKey() const
-{
-    return m_lower && m_upper && !m_isLowerOpen && !m_isUpperOpen && m_lower->isEqual(*m_upper);
-}
-
 ExceptionOr<bool> IDBKeyRange::includes(JSC::JSGlobalObject& state, JSC::JSValue keyValue)
 {
     VM& vm = state.vm();
@@ -160,6 +160,28 @@ ExceptionOr<bool> IDBKeyRange::includes(JSC::JSGlobalObject& state, JSC::JSValue
     }
 
     return true;
+}
+
+// https://w3c.github.io/IndexedDB/#is-a-potentially-valid-key-range
+bool IDBKeyRange::isPotentiallyValidKeyRange(JSC::JSGlobalObject& execState, JSC::JSValue value)
+{
+    if (JSIDBKeyRange::toWrapped(execState.vm(), value))
+        return true;
+    if (value.isNumber())
+        return true;
+    if (value.isString())
+        return true;
+    if (!value.isObject())
+        return false;
+    if (value.inherits<JSC::DateInstance>())
+        return true;
+    if (JSC::jsDynamicCast<JSC::JSArray*>(value))
+        return true;
+    if (JSC::jsDynamicCast<JSC::JSArrayBuffer*>(value))
+        return true;
+    if (JSC::jsDynamicCast<JSC::JSArrayBufferView*>(value))
+        return true;
+    return false;
 }
 
 } // namespace WebCore

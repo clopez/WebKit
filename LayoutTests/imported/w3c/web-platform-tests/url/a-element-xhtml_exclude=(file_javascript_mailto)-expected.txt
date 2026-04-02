@@ -80,6 +80,7 @@ PASS Parsing: <http://[::127.0.0.1.]> against <http://example.org/foo/bar>
 PASS Parsing: <http://[0:0:0:0:0:0:13.1.68.3]> against <http://example.org/foo/bar>
 PASS Parsing: <http://[2001::1]:80> against <http://example.org/foo/bar>
 PASS Parsing: <http:/example.com/> against <http://example.org/foo/bar>
+PASS Parsing: <http:/> against <http://example.com/>
 PASS Parsing: <ftp:/example.com/> against <http://example.org/foo/bar>
 PASS Parsing: <https:/example.com/> against <http://example.org/foo/bar>
 PASS Parsing: <madeupscheme:/example.com/> against <http://example.org/foo/bar>
@@ -724,6 +725,9 @@ PASS Parsing: <non-special:\/opaque> against <about:blank>
 PASS Parsing: <non-special:/\path> against <about:blank>
 PASS Parsing: <non-special://host\a> against <about:blank>
 PASS Parsing: <non-special://host/a\b> against <about:blank>
+PASS Parsing: <\a> against <foo://foo/a>
+PASS Parsing: <\/a> against <foo://foo/a>
+PASS Parsing: <\\a> against <foo://foo/a>
 PASS Parsing: <data:text/plain,test#<foo> <bar>> against <about:blank>
 PASS Parsing: <about:blank#<foo> <bar>> against <about:blank>
 PASS Parsing: <data:text/plain,test#\0	

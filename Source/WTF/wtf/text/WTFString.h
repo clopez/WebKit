@@ -201,6 +201,7 @@ public:
     [[nodiscard]] WTF_EXPORT_PRIVATE String convertToLowercaseWithoutLocale() const;
     [[nodiscard]] WTF_EXPORT_PRIVATE String convertToLowercaseWithoutLocaleStartingAtFailingIndex8Bit(unsigned) const;
     [[nodiscard]] WTF_EXPORT_PRIVATE String convertToUppercaseWithoutLocale() const;
+    [[nodiscard]] WTF_EXPORT_PRIVATE String convertToUppercaseWithoutLocaleStartingAtFailingIndex8Bit(unsigned failingIndex) const;
     [[nodiscard]] WTF_EXPORT_PRIVATE String convertToLowercaseWithLocale(const AtomString& localeIdentifier) const;
     [[nodiscard]] WTF_EXPORT_PRIVATE String convertToUppercaseWithLocale(const AtomString& localeIdentifier) const;
 
@@ -354,7 +355,7 @@ RetainPtr<NSString> nsStringNilIfNull(const String&);
 
 #endif
 
-WTF_EXPORT_PRIVATE std::strong_ordering codePointCompare(const String&, const String&);
+WTF_EXPORT_PRIVATE std::strong_ordering NODELETE codePointCompare(const String&, const String&);
 bool codePointCompareLessThan(const String&, const String&);
 
 // Shared global empty and null string.

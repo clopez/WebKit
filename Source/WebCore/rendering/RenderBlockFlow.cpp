@@ -543,6 +543,13 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
 
     LayoutRepainter repainter(*this);
 
+    // Before computing our logical width, dirty the preferred widths of any percent-height
+    // descendants with intrinsic aspect ratios. Our height may have changed, and those
+    // descendants' preferred widths depend on our height transitively (via height: % and
+    // aspect ratio). This must happen before recomputeLogicalWidthAndColumnWidth() so that
+    // a shrink-to-fit width (e.g., a float) picks up the updated preferred widths.
+    dirtyForLayoutFromPercentageHeightDescendants();
+
     if (recomputeLogicalWidthAndColumnWidth())
         relayoutChildren = RelayoutChildren::Yes;
 
@@ -744,6 +751,12 @@ void RenderBlockFlow::dirtyForLayoutFromPercentageHeightDescendants()
                 // (A horizontal flexbox that contains an inline image wrapped in an anonymous block for example.)
                 if (renderBox->hasIntrinsicAspectRatio() || renderBox->style().aspectRatio().hasRatio())
                     renderBox->setNeedsPreferredWidthsUpdate();
+                // Also propagate into nested percent-height descendants: a block whose percent-height
+                // children themselves have percent-height replaced elements with aspect ratios (e.g.
+                // #target -> div[height:100%] -> canvas[height:100%]) needs its own descendants dirtied
+                // so that the preferred widths cascade correctly up the tree.
+                if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*renderBox))
+                    blockFlow->dirtyForLayoutFromPercentageHeightDescendants();
             }
         }
     }
@@ -4041,7 +4054,7 @@ static bool NODELETE hasSimpleStaticPositionForInlineLevelOutOfFlowChildrenBySty
     return true;
 }
 
-static void setFullRepaintOnParentInlineBoxLayerIfNeeded(const RenderText& renderer)
+static void NODELETE setFullRepaintOnParentInlineBoxLayerIfNeeded(const RenderText& renderer)
 {
     // Repaints (on self) are normally issued either during layout using LayoutRepainter inside ::layout() functions (#1)
     // or after layout, while recursing the layer tree (#2).
@@ -4374,7 +4387,7 @@ static inline bool isVisibleRenderText(const RenderObject& renderer)
     return !renderText->linesBoundingBox().isEmpty() && !renderText->text().containsOnly<isASCIIWhitespace>();
 }
 
-static inline bool resizeTextPermitted(const RenderObject& renderer)
+static inline bool NODELETE resizeTextPermitted(const RenderObject& renderer)
 {
     // We disallow resizing for text input fields and textarea to address <rdar://problem/5792987> and <rdar://problem/8021123>
     for (auto* ancestor = renderer.parent(); ancestor; ancestor = ancestor->parent()) {

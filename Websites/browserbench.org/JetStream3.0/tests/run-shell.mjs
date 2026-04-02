@@ -48,13 +48,6 @@ const TESTS = [
         },
     },
     {
-        name: "CLI Help",
-        tags: ["all", "main", "help"],
-        run(shell_binary) {
-            return runCLITest("Cli Help", shell_binary, "--help");
-        },
-    },
-    {
         name: "Single Suite",
         tags: ["all", "main", "single"],
         run(shell_binary) {

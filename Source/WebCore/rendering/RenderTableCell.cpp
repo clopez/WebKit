@@ -245,17 +245,15 @@ void RenderTableCell::computePreferredLogicalWidths()
     if (overridingLogicalHeight)
         setOverridingBorderBoxLogicalHeight(*overridingLogicalHeight);
 
-    if (!element() || style().textWrapMode() == TextWrapMode::NoWrap || !element()->hasAttributeWithoutSynchronization(nowrapAttr))
+    if (!element() || !document().inQuirksMode() || !element()->hasAttributeWithoutSynchronization(nowrapAttr))
         return;
 
     auto [ logicalWidth, usedZoom ] = styleOrColLogicalWidth();
     if (auto fixedLogicalWidth = logicalWidth.tryFixed()) {
-        // Nowrap is set, but we didn't actually use it because of the
-        // fixed width set on the cell. Even so, it is a WinIE/Moz trait
-        // to make the minwidth of the cell into the fixed width. They do this
-        // even in strict mode, so do not make this a quirk. Affected the top
+        // In quirks mode, when nowrap is set on a cell that also has an explicit fixed width,
+        // WinIE/Moz treat the fixed width as the minimum width of the cell. Affected the top
         // of hiptop.com.
-        m_minPreferredLogicalWidth = std::max(LayoutUnit(fixedLogicalWidth->resolveZoom(usedZoom)), m_minPreferredLogicalWidth);
+        m_minPreferredLogicalWidth = std::max(adjustBorderBoxLogicalWidthForBoxSizing(LayoutUnit(fixedLogicalWidth->resolveZoom(usedZoom))), m_minPreferredLogicalWidth);
     }
 }
 
@@ -703,7 +701,7 @@ void RenderTableCell::styleDidChange(Style::Difference diff, const RenderStyle* 
 // (4) If border styles differ only in color, then a style set on a cell wins over one on a row, 
 // which wins over a row group, column, column group and, lastly, table. It is undefined which color 
 // is used when two elements of the same type disagree.
-static bool compareBorders(const CollapsedBorderValue& border1, const CollapsedBorderValue& border2)
+static bool NODELETE compareBorders(const CollapsedBorderValue& border1, const CollapsedBorderValue& border2)
 {
     // Sanity check the values passed in. The null border have lowest priority.
     if (!border2.exists())
@@ -735,7 +733,7 @@ static bool compareBorders(const CollapsedBorderValue& border1, const CollapsedB
     return border1.precedence() < border2.precedence();
 }
 
-static CollapsedBorderValue chooseBorder(const CollapsedBorderValue& border1, const CollapsedBorderValue& border2)
+static CollapsedBorderValue NODELETE chooseBorder(const CollapsedBorderValue& border1, const CollapsedBorderValue& border2)
 {
     const CollapsedBorderValue& border = compareBorders(border1, border2) ? border2 : border1;
     return border.style() == BorderStyle::Hidden ? CollapsedBorderValue() : border;
@@ -1030,7 +1028,7 @@ CollapsedBorderValue RenderTableCell::computeCollapsedBeforeBorder(IncludeBorder
     RenderTableCell* previousCell = table->cellAbove(this);
     if (previousCell) {
         // (2) A before cell's after border.
-        result = chooseBorder(CollapsedBorderValue(previousCell->style().borderAfter(), includeColor ? resolvedBorderColor(previousCell->style(), afterColorProperty) : Color(), BorderPrecedence::Cell, previousCell->style().usedZoomForLength()), result);
+        result = chooseBorder(CollapsedBorderValue(previousCell->style().borderAfter(tableWritingMode()), includeColor ? resolvedBorderColor(previousCell->style(), afterColorProperty) : Color(), BorderPrecedence::Cell, previousCell->style().usedZoomForLength()), result);
         if (!result.exists())
             return result;
     }
@@ -1049,7 +1047,7 @@ CollapsedBorderValue RenderTableCell::computeCollapsedBeforeBorder(IncludeBorder
             previousRow = previousCell->section()->lastRow();
     
         if (previousRow) {
-            result = chooseBorder(CollapsedBorderValue(previousRow->style().borderAfter(), includeColor ? resolvedBorderColor(previousRow->style(), afterColorProperty) : Color(), BorderPrecedence::Row, previousRow->style().usedZoomForLength()), result);
+            result = chooseBorder(CollapsedBorderValue(previousRow->style().borderAfter(tableWritingMode()), includeColor ? resolvedBorderColor(previousRow->style(), afterColorProperty) : Color(), BorderPrecedence::Row, previousRow->style().usedZoomForLength()), result);
             if (!result.exists())
                 return result;
         }
@@ -1066,7 +1064,7 @@ CollapsedBorderValue RenderTableCell::computeCollapsedBeforeBorder(IncludeBorder
         // (6) Previous row group's after border.
         currSection = table->sectionAbove(currSection, SkipEmptySections);
         if (currSection) {
-            result = chooseBorder(CollapsedBorderValue(currSection->style().borderAfter(), includeColor ? resolvedBorderColor(currSection->style(), afterColorProperty) : Color(), BorderPrecedence::RowGroup, currSection->style().usedZoomForLength()), result);
+            result = chooseBorder(CollapsedBorderValue(currSection->style().borderAfter(tableWritingMode()), includeColor ? resolvedBorderColor(currSection->style(), afterColorProperty) : Color(), BorderPrecedence::RowGroup, currSection->style().usedZoomForLength()), result);
             if (!result.exists())
                 return result;
         }
@@ -1137,7 +1135,7 @@ CollapsedBorderValue RenderTableCell::computeCollapsedAfterBorder(IncludeBorderC
     // of the last row in the span, not the first row.
     size_t lastRowIndex = rowIndex() + rowSpan() - 1;
     if (CheckedPtr lastRowInSpan = section()->rowRendererAt(lastRowIndex)) {
-        result = chooseBorder(result, CollapsedBorderValue(lastRowInSpan->style().borderAfter(), includeColor ? resolvedBorderColor(lastRowInSpan->style(), afterColorProperty) : Color(), BorderPrecedence::Row, lastRowInSpan->style().usedZoomForLength()));
+        result = chooseBorder(result, CollapsedBorderValue(lastRowInSpan->style().borderAfter(tableWritingMode()), includeColor ? resolvedBorderColor(lastRowInSpan->style(), afterColorProperty) : Color(), BorderPrecedence::Row, lastRowInSpan->style().usedZoomForLength()));
         if (!result.exists())
             return result;
     }

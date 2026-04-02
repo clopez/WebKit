@@ -215,7 +215,7 @@ bool EventTarget::setAttributeEventListener(const AtomString& eventType, RefPtr<
         listener->checkValidityForEventTarget(*this);
 #endif
 
-        eventTargetData()->eventListenerMap.replace(eventType, *existingListener, *listener, { });
+        eventTargetData()->eventListenerMap.replacePreservingOptions(eventType, *existingListener, *listener);
 
         InspectorInstrumentation::didAddEventListener(*this, eventType, *listener, false);
 
@@ -430,7 +430,7 @@ void EventTarget::removeAllEventListeners()
     threadData->setIsInRemoveAllEventListeners(false);
 }
 
-bool EventTarget::hasAnyEventListeners(Vector<AtomString> eventTypes) const
+bool EventTarget::hasAnyEventListeners(std::span<const AtomString> eventTypes) const
 {
     if (auto* data = eventTargetData()) {
         for (const auto& eventType : eventTypes) {

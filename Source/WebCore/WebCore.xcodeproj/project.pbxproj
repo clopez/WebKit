@@ -266,7 +266,6 @@
 		07B7116D1D899E63009F0FFB /* CaptureDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 07B7116A1D899E63009F0FFB /* CaptureDevice.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07B7116F1D899E63009F0FFB /* CaptureDeviceManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 07B7116C1D899E63009F0FFB /* CaptureDeviceManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07B93FFC23B94EC70036F8EA /* MIMETypeCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 07B93FF923B92AAA0036F8EA /* MIMETypeCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		5149E5DC2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 5149E5DD2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07BB1E7027176CD9001DF289 /* DisplayCaptureSourceCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 07BB1E6F27176CCA001DF289 /* DisplayCaptureSourceCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07BD443C2E281E7900F37729 /* NodeHTMLConverter.h in Headers */ = {isa = PBXBuildFile; fileRef = 07BD443A2E2818B800F37729 /* NodeHTMLConverter.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07BD443D2E281E8300F37729 /* EditingHTMLConverter.h in Headers */ = {isa = PBXBuildFile; fileRef = 07BD443B2E28190000F37729 /* EditingHTMLConverter.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2064,6 +2063,7 @@
 		5145B10A1BC48E2E00E86219 /* IDBResourceIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 5145B1081BC4890B00E86219 /* IDBResourceIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5148453F1BB9D07E006A72ED /* IDBError.h in Headers */ = {isa = PBXBuildFile; fileRef = 5148453D1BB9D076006A72ED /* IDBError.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5148997F2AB4E7F400943741 /* NotificationOptionsPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = 5148997E2AB4E7F400943741 /* NotificationOptionsPayload.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5149E5DC2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 5149E5DD2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C764C0CE9234E007EF3CD /* AuthenticationCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76420CE9234E007EF3CD /* AuthenticationCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C764E0CE9234E007EF3CD /* FormDataStreamCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76440CE9234E007EF3CD /* FormDataStreamCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		514C766E0CE923A1007EF3CD /* Credential.h in Headers */ = {isa = PBXBuildFile; fileRef = 514C76590CE923A1007EF3CD /* Credential.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2970,6 +2970,7 @@
 		72FD88D1295E3C40006FACDC /* MenuListPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72FD88D0295D56E2006FACDC /* MenuListPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7410760E2D6BDCA9000EC9C0 /* PlatformDynamicRangeLimitCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 7410760D2D6BDB77000EC9C0 /* PlatformDynamicRangeLimitCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		74C2F53E29AC9B0B006C5F97 /* ApplePayDeferredPaymentRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 74C2F53D29AC9B0A006C5F97 /* ApplePayDeferredPaymentRequest.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		74FAB9C02F7B956700DBDF82 /* TextShapingResultAndDisplayList.h in Headers */ = {isa = PBXBuildFile; fileRef = 74FAB9BF2F7B956700DBDF82 /* TextShapingResultAndDisplayList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7553CFE8108F473F00EA281E /* TimelineRecordFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = 7553CFE6108F473F00EA281E /* TimelineRecordFactory.h */; };
 		75793E840D0CE0B3007FC0AC /* MessageEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 75793E810D0CE0B3007FC0AC /* MessageEvent.h */; };
 		75793EC90D0CE72D007FC0AC /* JSMessageEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 75793EC70D0CE72D007FC0AC /* JSMessageEvent.h */; };
@@ -3052,6 +3053,7 @@
 		7B0E6DCA2AB463E4005189E8 /* NullImageBufferBackend.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B0E6DC82AB463E4005189E8 /* NullImageBufferBackend.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7B10339E2549721700C8C1AC /* GraphicsContextGLCV.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B10339D2549720100C8C1AC /* GraphicsContextGLCV.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7B10339F2549721E00C8C1AC /* GraphicsContextGLCVCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B10339C2549720100C8C1AC /* GraphicsContextGLCVCocoa.h */; };
+		7B18F7FF2F7BB625005DE99F /* IDBRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B18F7FC2F7BAA42005DE99F /* IDBRecord.h */; };
 		7B3A5D572A7856B30045F1CB /* CookieChangeListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B3A5D562A7856B30045F1CB /* CookieChangeListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7B3ED2FF2A4CDB400042B08A /* CookieStoreGetOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B3ED2FD2A4CDB400042B08A /* CookieStoreGetOptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7B3ED3022A4CDB970042B08A /* CookieListItem.h in Headers */ = {isa = PBXBuildFile; fileRef = 7B3ED2FB2A4CDA620042B08A /* CookieListItem.h */; };
@@ -3800,6 +3802,7 @@
 		9418278F1D8CAF9200492764 /* CSSShorthandSubstitutionValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 9418278D1D8CAE9500492764 /* CSSShorthandSubstitutionValue.h */; };
 		9444CBE81D8861C20073A074 /* CSSVariableData.h in Headers */ = {isa = PBXBuildFile; fileRef = 9444CBDD1D8861580073A074 /* CSSVariableData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9444CBEA1D8861CA0073A074 /* CSSSubstitutionValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 9444CBDB1D8861580073A074 /* CSSSubstitutionValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A1B2C3D426040201DEADBEEF /* CSSNamespacePrefixMap.h in Headers */ = {isa = PBXBuildFile; fileRef = A1B2C3D426040200DEADBEEF /* CSSNamespacePrefixMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		946D374A1D6D06280077084F /* CSSMarkup.h in Headers */ = {isa = PBXBuildFile; fileRef = 946D37481D6D060C0077084F /* CSSMarkup.h */; };
 		9478A8EC2C180DF400808739 /* WrappedCryptoKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 9478A8EB2C180D7A00808739 /* WrappedCryptoKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		947949251E0308AF00018D85 /* DeprecatedCSSOMValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 947949231E02F90B00018D85 /* DeprecatedCSSOMValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5013,6 +5016,7 @@
 		BC2A0D342E05D43F003CBA0E /* StylePrimitiveKeyword+CSSValueCreation.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0D332E05D43F003CBA0E /* StylePrimitiveKeyword+CSSValueCreation.h */; };
 		BC2A0D902E088492003CBA0E /* StyleTextUnderlineOffset.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0D702E086B9A003CBA0E /* StyleTextUnderlineOffset.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC2A0D912E089160003CBA0E /* StyleGapGutter.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0D6D2E08687E003CBA0E /* StyleGapGutter.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		06E8D41D99A712513E21EC9D /* StyleOutlineOffset.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D4C867EF1213EBE219805C /* StyleOutlineOffset.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC2A0DAF2E08DFFD003CBA0E /* StyleBuilderChecking.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0DAE2E08DFFD003CBA0E /* StyleBuilderChecking.h */; };
 		BC2A0E332E0B6642003CBA0E /* StylePrimitiveNumeric+Forward.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0E322E0B6642003CBA0E /* StylePrimitiveNumeric+Forward.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC2A0EF22E120B93003CBA0E /* StyleContainerName.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2A0EEA2E11CFD5003CBA0E /* StyleContainerName.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5302,6 +5306,20 @@
 		BC7826272E82152A00FB0C7E /* StyleLineHeight.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7826252E820D8800FB0C7E /* StyleLineHeight.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC7826762E845D6000FB0C7E /* StyleFontPalette.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7826732E845D5400FB0C7E /* StyleFontPalette.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC7CEF5F2EC3C643008664ED /* StyleMarginTrim.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7CEF5D2EC3C2EF008664ED /* StyleMarginTrim.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7032F744D2B00E243F0 /* AcceleratedEffectOffsetPath.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7012F744CC400E243F0 /* AcceleratedEffectOffsetPath.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7162F74611500E243F0 /* AcceleratedEffectShapeFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB70B2F745F4C00E243F0 /* AcceleratedEffectShapeFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7172F74611500E243F0 /* AcceleratedEffectBasicShape.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB70A2F745F4C00E243F0 /* AcceleratedEffectBasicShape.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7182F74611500E243F0 /* AcceleratedEffectRayFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB70F2F745FFF00E243F0 /* AcceleratedEffectRayFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB72B2F74C2BB00E243F0 /* AcceleratedEffectCircleFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB71A2F74618600E243F0 /* AcceleratedEffectCircleFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB72D2F75992200E243F0 /* AcceleratedEffectEllipseFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB71C2F74618600E243F0 /* AcceleratedEffectEllipseFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB72E2F75997600E243F0 /* AcceleratedEffectInsetFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB71E2F74618600E243F0 /* AcceleratedEffectInsetFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB72F2F75998900E243F0 /* AcceleratedEffectPathFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7202F74618600E243F0 /* AcceleratedEffectPathFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7302F75998900E243F0 /* AcceleratedEffectPolygonFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7222F74618600E243F0 /* AcceleratedEffectPolygonFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7362F75ABA100E243F0 /* AcceleratedEffectBasicShapePath.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7312F75AB8200E243F0 /* AcceleratedEffectBasicShapePath.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7372F75ABA100E243F0 /* AcceleratedEffectRayPath.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7332F75AB8200E243F0 /* AcceleratedEffectRayPath.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7392F75ACB000E243F0 /* AcceleratedEffectCoordBox.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB7382F75ACA700E243F0 /* AcceleratedEffectCoordBox.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB73B2F75AE5A00E243F0 /* AcceleratedEffectBoxPath.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB73A2F75ADF500E243F0 /* AcceleratedEffectBoxPath.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC7EB7522F784F4B00E243F0 /* AcceleratedEffectReferencePath.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7EB74F2F784D1300E243F0 /* AcceleratedEffectReferencePath.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC7F44A80B9E324E00A9D081 /* ImageObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7F44A70B9E324E00A9D081 /* ImageObserver.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC7FA6210D1F0CBD00DB22A9 /* LiveNodeList.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7FA61F0D1F0CBD00DB22A9 /* LiveNodeList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC7FA62D0D1F0EFF00DB22A9 /* StaticNodeList.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7FA62B0D1F0EFF00DB22A9 /* StaticNodeList.h */; };
@@ -7748,8 +7766,6 @@
 		07B93ECC2BF6FEBE0072078C /* CharacterRange.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CharacterRange.cpp; sourceTree = "<group>"; };
 		07B93FF923B92AAA0036F8EA /* MIMETypeCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MIMETypeCache.h; sourceTree = "<group>"; };
 		07B93FFB23B92AAB0036F8EA /* MIMETypeCache.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MIMETypeCache.cpp; sourceTree = "<group>"; };
-		5149E5DD2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaSourceTypeSupportedCache.h; sourceTree = "<group>"; };
-		5149E5DE2F725A000019F7C3 /* MediaSourceTypeSupportedCache.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaSourceTypeSupportedCache.cpp; sourceTree = "<group>"; };
 		07BB1E6E27176CCA001DF289 /* DisplayCaptureSourceCocoa.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DisplayCaptureSourceCocoa.cpp; sourceTree = "<group>"; };
 		07BB1E6F27176CCA001DF289 /* DisplayCaptureSourceCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DisplayCaptureSourceCocoa.h; sourceTree = "<group>"; };
 		07BD443A2E2818B800F37729 /* NodeHTMLConverter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NodeHTMLConverter.h; sourceTree = "<group>"; };
@@ -10483,6 +10499,7 @@
 		3A25C5192CF99B4700DB9C39 /* FileSystemWriteCommandType.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileSystemWriteCommandType.h; sourceTree = "<group>"; };
 		3A2A9AB32E4BAF48009E5497 /* ParentalControlsURLFilterParameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ParentalControlsURLFilterParameters.h; sourceTree = "<group>"; };
 		3A2FE8CE2978CC7800BA1D92 /* GCGLSpan.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GCGLSpan.h; sourceTree = "<group>"; };
+		3A3189A22F79EACB0098092F /* SampledGradientBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SampledGradientBuilder.h; sourceTree = "<group>"; };
 		3A3A057F2B04971B00017309 /* PlatformXRPose.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PlatformXRPose.cpp; sourceTree = "<group>"; };
 		3A3A05802B04971B00017309 /* PlatformXRPose.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformXRPose.h; sourceTree = "<group>"; };
 		3A3A9BCA2D0C071700B99148 /* CryptoKeyData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CryptoKeyData.h; sourceTree = "<group>"; };
@@ -12256,6 +12273,8 @@
 		5148453C1BB9D076006A72ED /* IDBError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IDBError.cpp; sourceTree = "<group>"; };
 		5148453D1BB9D076006A72ED /* IDBError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IDBError.h; sourceTree = "<group>"; };
 		5148997E2AB4E7F400943741 /* NotificationOptionsPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NotificationOptionsPayload.h; sourceTree = "<group>"; };
+		5149E5DD2F725A000019F7C3 /* MediaSourceTypeSupportedCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaSourceTypeSupportedCache.h; sourceTree = "<group>"; };
+		5149E5DE2F725A000019F7C3 /* MediaSourceTypeSupportedCache.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaSourceTypeSupportedCache.cpp; sourceTree = "<group>"; };
 		514BEB772D149B25004D7BE7 /* WindowPush.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = WindowPush.idl; sourceTree = "<group>"; };
 		514C76350CE9225E007EF3CD /* JSSQLError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSQLError.cpp; sourceTree = "<group>"; };
 		514C76360CE9225E007EF3CD /* JSSQLTransaction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSQLTransaction.cpp; sourceTree = "<group>"; };
@@ -14274,6 +14293,7 @@
 		74C2F53D29AC9B0A006C5F97 /* ApplePayDeferredPaymentRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ApplePayDeferredPaymentRequest.h; sourceTree = "<group>"; };
 		74C2F53F29AC9B1C006C5F97 /* ApplePayDeferredPaymentRequest.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ApplePayDeferredPaymentRequest.idl; sourceTree = "<group>"; };
 		74CE9900299503A200096552 /* attachmentElementShadow.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = attachmentElementShadow.css; sourceTree = "<group>"; };
+		74FAB9BF2F7B956700DBDF82 /* TextShapingResultAndDisplayList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TextShapingResultAndDisplayList.h; sourceTree = "<group>"; };
 		7553CFE6108F473F00EA281E /* TimelineRecordFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TimelineRecordFactory.h; sourceTree = "<group>"; };
 		7553CFE7108F473F00EA281E /* TimelineRecordFactory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TimelineRecordFactory.cpp; sourceTree = "<group>"; };
 		75793E800D0CE0B3007FC0AC /* MessageEvent.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MessageEvent.cpp; sourceTree = "<group>"; };
@@ -14466,6 +14486,10 @@
 		7B10339C2549720100C8C1AC /* GraphicsContextGLCVCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GraphicsContextGLCVCocoa.h; sourceTree = "<group>"; };
 		7B10339D2549720100C8C1AC /* GraphicsContextGLCV.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GraphicsContextGLCV.h; sourceTree = "<group>"; };
 		7B187BC92AC6FB34009E7993 /* CGUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CGUtilities.h; sourceTree = "<group>"; };
+		7B18F7FB2F7BA94A005DE99F /* IDBRecord.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = IDBRecord.idl; sourceTree = "<group>"; };
+		7B18F7FC2F7BAA42005DE99F /* IDBRecord.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IDBRecord.h; sourceTree = "<group>"; };
+		7B18F7FD2F7BACF0005DE99F /* JSIDBRecordCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSIDBRecordCustom.cpp; sourceTree = "<group>"; };
+		7B18F7FE2F7BB616005DE99F /* IDBRecord.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IDBRecord.cpp; sourceTree = "<group>"; };
 		7B2DDD5F27CCF3A70060ABAB /* ChromeClient.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ChromeClient.cpp; sourceTree = "<group>"; };
 		7B2EEF232C92ADB7005F674E /* DOMWindow+CookieStore.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "DOMWindow+CookieStore.idl"; sourceTree = "<group>"; };
 		7B3A5D562A7856B30045F1CB /* CookieChangeListener.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CookieChangeListener.h; sourceTree = "<group>"; };
@@ -16056,6 +16080,7 @@
 		94077C6F2B92B0570012E357 /* CryptoClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoClient.h; sourceTree = "<group>"; };
 		9418278D1D8CAE9500492764 /* CSSShorthandSubstitutionValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSSShorthandSubstitutionValue.h; sourceTree = "<group>"; };
 		9444CBDB1D8861580073A074 /* CSSSubstitutionValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSSSubstitutionValue.h; sourceTree = "<group>"; };
+		A1B2C3D426040200DEADBEEF /* CSSNamespacePrefixMap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSNamespacePrefixMap.h; sourceTree = "<group>"; };
 		9444CBDC1D8861580073A074 /* CSSSubstitutionValue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSSubstitutionValue.cpp; sourceTree = "<group>"; };
 		9444CBDD1D8861580073A074 /* CSSVariableData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSSVariableData.h; sourceTree = "<group>"; };
 		9444CBDE1D8861580073A074 /* CSSVariableData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSVariableData.cpp; sourceTree = "<group>"; };
@@ -18747,6 +18772,7 @@
 		BC2A0D332E05D43F003CBA0E /* StylePrimitiveKeyword+CSSValueCreation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StylePrimitiveKeyword+CSSValueCreation.h"; sourceTree = "<group>"; };
 		BC2A0D592E0791C7003CBA0E /* StyleLengthWrapperData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleLengthWrapperData.h; sourceTree = "<group>"; };
 		BC2A0D6D2E08687E003CBA0E /* StyleGapGutter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleGapGutter.h; sourceTree = "<group>"; };
+		52D4C867EF1213EBE219805C /* StyleOutlineOffset.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleOutlineOffset.h; sourceTree = "<group>"; };
 		BC2A0D702E086B9A003CBA0E /* StyleTextUnderlineOffset.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleTextUnderlineOffset.h; sourceTree = "<group>"; };
 		BC2A0D712E086B9A003CBA0E /* StyleTextUnderlineOffset.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleTextUnderlineOffset.cpp; sourceTree = "<group>"; };
 		BC2A0DAE2E08DFFD003CBA0E /* StyleBuilderChecking.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleBuilderChecking.h; sourceTree = "<group>"; };
@@ -19443,6 +19469,34 @@
 		BC7C5EA02BE2BF4400AE645C /* CSSPropertyParserConsumer+SymbolDefinitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CSSPropertyParserConsumer+SymbolDefinitions.h"; sourceTree = "<group>"; };
 		BC7CEF5D2EC3C2EF008664ED /* StyleMarginTrim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleMarginTrim.h; sourceTree = "<group>"; };
 		BC7CEF5E2EC3C2EF008664ED /* StyleMarginTrim.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleMarginTrim.cpp; sourceTree = "<group>"; };
+		BC7EB7012F744CC400E243F0 /* AcceleratedEffectOffsetPath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectOffsetPath.h; sourceTree = "<group>"; };
+		BC7EB7022F744D0300E243F0 /* AcceleratedEffectOffsetPath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectOffsetPath.cpp; sourceTree = "<group>"; };
+		BC7EB70A2F745F4C00E243F0 /* AcceleratedEffectBasicShape.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectBasicShape.h; sourceTree = "<group>"; };
+		BC7EB70B2F745F4C00E243F0 /* AcceleratedEffectShapeFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectShapeFunction.h; sourceTree = "<group>"; };
+		BC7EB70C2F745F4C00E243F0 /* AcceleratedEffectShapeFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectShapeFunction.cpp; sourceTree = "<group>"; };
+		BC7EB70E2F745F6600E243F0 /* AcceleratedEffectBasicShape.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectBasicShape.cpp; sourceTree = "<group>"; };
+		BC7EB70F2F745FFF00E243F0 /* AcceleratedEffectRayFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectRayFunction.h; sourceTree = "<group>"; };
+		BC7EB7122F74609F00E243F0 /* AcceleratedEffectRayFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectRayFunction.cpp; sourceTree = "<group>"; };
+		BC7EB71A2F74618600E243F0 /* AcceleratedEffectCircleFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectCircleFunction.h; sourceTree = "<group>"; };
+		BC7EB71B2F74618600E243F0 /* AcceleratedEffectCircleFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectCircleFunction.cpp; sourceTree = "<group>"; };
+		BC7EB71C2F74618600E243F0 /* AcceleratedEffectEllipseFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectEllipseFunction.h; sourceTree = "<group>"; };
+		BC7EB71D2F74618600E243F0 /* AcceleratedEffectEllipseFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectEllipseFunction.cpp; sourceTree = "<group>"; };
+		BC7EB71E2F74618600E243F0 /* AcceleratedEffectInsetFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectInsetFunction.h; sourceTree = "<group>"; };
+		BC7EB71F2F74618600E243F0 /* AcceleratedEffectInsetFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectInsetFunction.cpp; sourceTree = "<group>"; };
+		BC7EB7202F74618600E243F0 /* AcceleratedEffectPathFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectPathFunction.h; sourceTree = "<group>"; };
+		BC7EB7212F74618600E243F0 /* AcceleratedEffectPathFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectPathFunction.cpp; sourceTree = "<group>"; };
+		BC7EB7222F74618600E243F0 /* AcceleratedEffectPolygonFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectPolygonFunction.h; sourceTree = "<group>"; };
+		BC7EB7232F74618600E243F0 /* AcceleratedEffectPolygonFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectPolygonFunction.cpp; sourceTree = "<group>"; };
+		BC7EB72C2F7597A500E243F0 /* AcceleratedEffectAnimationUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectAnimationUtilities.h; sourceTree = "<group>"; };
+		BC7EB7312F75AB8200E243F0 /* AcceleratedEffectBasicShapePath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectBasicShapePath.h; sourceTree = "<group>"; };
+		BC7EB7322F75AB8200E243F0 /* AcceleratedEffectBasicShapePath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectBasicShapePath.cpp; sourceTree = "<group>"; };
+		BC7EB7332F75AB8200E243F0 /* AcceleratedEffectRayPath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectRayPath.h; sourceTree = "<group>"; };
+		BC7EB7342F75AB8200E243F0 /* AcceleratedEffectRayPath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectRayPath.cpp; sourceTree = "<group>"; };
+		BC7EB7382F75ACA700E243F0 /* AcceleratedEffectCoordBox.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectCoordBox.h; sourceTree = "<group>"; };
+		BC7EB73A2F75ADF500E243F0 /* AcceleratedEffectBoxPath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectBoxPath.h; sourceTree = "<group>"; };
+		BC7EB74F2F784D1300E243F0 /* AcceleratedEffectReferencePath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectReferencePath.h; sourceTree = "<group>"; };
+		BC7EB7502F784D1300E243F0 /* AcceleratedEffectReferencePath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectReferencePath.cpp; sourceTree = "<group>"; };
+		BC7EB7532F78509B00E243F0 /* AcceleratedEffectBoxPath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectBoxPath.cpp; sourceTree = "<group>"; };
 		BC7F44A70B9E324E00A9D081 /* ImageObserver.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ImageObserver.h; sourceTree = "<group>"; };
 		BC7FA61E0D1F0CBD00DB22A9 /* LiveNodeList.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LiveNodeList.cpp; sourceTree = "<group>"; };
 		BC7FA61F0D1F0CBD00DB22A9 /* LiveNodeList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LiveNodeList.h; sourceTree = "<group>"; };
@@ -25645,21 +25699,6 @@
 				1CDDA49D29E123C100DC5FB1 /* TextDetector.idl */,
 			);
 			path = ShapeDetection;
-			sourceTree = "<group>";
-		};
-		1CE3497826B33B5D008306BD /* gpu */ = {
-			isa = PBXGroup;
-			children = (
-				1CE3497B26B33B8C008306BD /* cocoa */,
-			);
-			path = gpu;
-			sourceTree = "<group>";
-		};
-		1CE3497B26B33B8C008306BD /* cocoa */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = cocoa;
 			sourceTree = "<group>";
 		};
 		1CFAE1092A4D78AB0004AE37 /* InternalAPI */ = {
@@ -33053,6 +33092,9 @@
 				51645B4C1B9F889B00F789CE /* IDBOpenDBRequest.cpp */,
 				51645B4D1B9F889B00F789CE /* IDBOpenDBRequest.h */,
 				51D7199E181106E00016DC51 /* IDBOpenDBRequest.idl */,
+				7B18F7FE2F7BB616005DE99F /* IDBRecord.cpp */,
+				7B18F7FC2F7BAA42005DE99F /* IDBRecord.h */,
+				7B18F7FB2F7BA94A005DE99F /* IDBRecord.idl */,
 				51645B4E1B9F889B00F789CE /* IDBRequest.cpp */,
 				51645B4F1B9F889B00F789CE /* IDBRequest.h */,
 				51D719A3181106E00016DC51 /* IDBRequest.idl */,
@@ -35709,7 +35751,6 @@
 				CD9D827C1C7BB2ED006FF066 /* cv */,
 				0FE5FBC91C3DD5060007A2CA /* displaylists */,
 				A75E8B7F0E1DE2B0007F2481 /* filters */,
-				1CE3497826B33B5D008306BD /* gpu */,
 				441AF0A70EBA7BBF0044ED4B /* ios */,
 				CD892F5A1FB52ACF009333D2 /* iso */,
 				B27535490B053814002CE64F /* mac */,
@@ -36090,6 +36131,7 @@
 				729D052E25313E2600422098 /* RenderingResourceIdentifier.h */,
 				7225E8062A3E298C00947EBF /* RotationDirection.cpp */,
 				72D3F66C2A37F48E00F3A82B /* RotationDirection.h */,
+				3A3189A22F79EACB0098092F /* SampledGradientBuilder.h */,
 				0E9C1155291BF3CC00A2C2F2 /* ScreenDataOverrides.h */,
 				0F3DD44D12F5EA1B000D9190 /* ShadowBlur.cpp */,
 				0F3DD44E12F5EA1B000D9190 /* ShadowBlur.h */,
@@ -36121,6 +36163,7 @@
 				A824B4640E2EF2EA0081A7B7 /* TextRun.h */,
 				321111B6283AE4400067D300 /* TextRunHash.h */,
 				722AF2E327E1CF110078D997 /* TextRunIterator.h */,
+				74FAB9BF2F7B956700DBDF82 /* TextShapingResultAndDisplayList.h */,
 				CD1E7346167BC78E009A885D /* TextTrackRepresentation.cpp */,
 				CDD1E525167BA56400CE820B /* TextTrackRepresentation.h */,
 				BE0787A729B2279D0067473E /* TextTransform.h */,
@@ -36359,6 +36402,14 @@
 			path = "non-standard";
 			sourceTree = "<group>";
 		};
+		74A67DA5B4E1E1FC14532479 /* outline */ = {
+			isa = PBXGroup;
+			children = (
+				52D4C867EF1213EBE219805C /* StyleOutlineOffset.h */,
+			);
+			path = outline;
+			sourceTree = "<group>";
+		};
 		BC0929B82E2AB817002ACB2C /* content */ = {
 			isa = PBXGroup;
 			children = (
@@ -36566,6 +36617,7 @@
 				8F934D841189F1EE00508D5D /* JSExecState.cpp */,
 				8F934D831189F1EE00508D5D /* JSExecState.h */,
 				B56576E417DA599F00A56BDC /* JSExecStateInstrumentation.h */,
+				7B18F7FD2F7BACF0005DE99F /* JSIDBRecordCustom.cpp */,
 				93849C1624BE12E500448D5A /* JSIDBSerializationGlobalObject.cpp */,
 				93849C2124BEDD8800448D5A /* JSIDBSerializationGlobalObject.h */,
 				460C70FC28E662D5005F4D74 /* JSObservableArray.cpp */,
@@ -37284,6 +37336,45 @@
 			path = fonts;
 			sourceTree = "<group>";
 		};
+		BC7EB70D2F745F4C00E243F0 /* shapes */ = {
+			isa = PBXGroup;
+			children = (
+				BC7EB70E2F745F6600E243F0 /* AcceleratedEffectBasicShape.cpp */,
+				BC7EB70A2F745F4C00E243F0 /* AcceleratedEffectBasicShape.h */,
+				BC7EB71B2F74618600E243F0 /* AcceleratedEffectCircleFunction.cpp */,
+				BC7EB71A2F74618600E243F0 /* AcceleratedEffectCircleFunction.h */,
+				BC7EB71D2F74618600E243F0 /* AcceleratedEffectEllipseFunction.cpp */,
+				BC7EB71C2F74618600E243F0 /* AcceleratedEffectEllipseFunction.h */,
+				BC7EB71F2F74618600E243F0 /* AcceleratedEffectInsetFunction.cpp */,
+				BC7EB71E2F74618600E243F0 /* AcceleratedEffectInsetFunction.h */,
+				BC7EB7212F74618600E243F0 /* AcceleratedEffectPathFunction.cpp */,
+				BC7EB7202F74618600E243F0 /* AcceleratedEffectPathFunction.h */,
+				BC7EB7232F74618600E243F0 /* AcceleratedEffectPolygonFunction.cpp */,
+				BC7EB7222F74618600E243F0 /* AcceleratedEffectPolygonFunction.h */,
+				BC7EB7122F74609F00E243F0 /* AcceleratedEffectRayFunction.cpp */,
+				BC7EB70F2F745FFF00E243F0 /* AcceleratedEffectRayFunction.h */,
+				BC7EB70C2F745F4C00E243F0 /* AcceleratedEffectShapeFunction.cpp */,
+				BC7EB70B2F745F4C00E243F0 /* AcceleratedEffectShapeFunction.h */,
+			);
+			path = shapes;
+			sourceTree = "<group>";
+		};
+		BC7EB7352F75AB8200E243F0 /* paths */ = {
+			isa = PBXGroup;
+			children = (
+				BC7EB7322F75AB8200E243F0 /* AcceleratedEffectBasicShapePath.cpp */,
+				BC7EB7312F75AB8200E243F0 /* AcceleratedEffectBasicShapePath.h */,
+				BC7EB7532F78509B00E243F0 /* AcceleratedEffectBoxPath.cpp */,
+				BC7EB73A2F75ADF500E243F0 /* AcceleratedEffectBoxPath.h */,
+				BC7EB7382F75ACA700E243F0 /* AcceleratedEffectCoordBox.h */,
+				BC7EB7342F75AB8200E243F0 /* AcceleratedEffectRayPath.cpp */,
+				BC7EB7332F75AB8200E243F0 /* AcceleratedEffectRayPath.h */,
+				BC7EB7502F784D1300E243F0 /* AcceleratedEffectReferencePath.cpp */,
+				BC7EB74F2F784D1300E243F0 /* AcceleratedEffectReferencePath.h */,
+			);
+			path = paths;
+			sourceTree = "<group>";
+		};
 		BC8C1BDC2EF46FA200A2FD9B /* computed */ = {
 			isa = PBXGroup;
 			children = (
@@ -37588,6 +37679,7 @@
 				BCEA07322CC5EBBA000AC148 /* motion */,
 				BC22AB112E394447009AC0C3 /* multicol */,
 				BC0929AE2E2AA595002ACB2C /* non-standard */,
+				74A67DA5B4E1E1FC14532479 /* outline */,
 				BC966B362E274F530028A7AF /* overflow */,
 				BC731F5B2E6B8DE100A6584F /* page */,
 				BC611FFD2EC7ADC500904592 /* pointerevents */,
@@ -37619,10 +37711,15 @@
 		BCB02A942E8ED867008A0B68 /* values */ = {
 			isa = PBXGroup;
 			children = (
+				BC7EB7352F75AB8200E243F0 /* paths */,
+				BC7EB70D2F745F4C00E243F0 /* shapes */,
+				BC7EB72C2F7597A500E243F0 /* AcceleratedEffectAnimationUtilities.h */,
 				BCB02A9E2E8EF7CB008A0B68 /* AcceleratedEffectOffsetAnchor.cpp */,
 				BCB02A8F2E8ED867008A0B68 /* AcceleratedEffectOffsetAnchor.h */,
 				BCB02A9F2E8EF7CB008A0B68 /* AcceleratedEffectOffsetDistance.cpp */,
 				BCB02A902E8ED867008A0B68 /* AcceleratedEffectOffsetDistance.h */,
+				BC7EB7022F744D0300E243F0 /* AcceleratedEffectOffsetPath.cpp */,
+				BC7EB7012F744CC400E243F0 /* AcceleratedEffectOffsetPath.h */,
 				BCB02AA02E8EF7CB008A0B68 /* AcceleratedEffectOffsetPosition.cpp */,
 				BCB02A912E8ED867008A0B68 /* AcceleratedEffectOffsetPosition.h */,
 				BCB02AA12E8EF7CB008A0B68 /* AcceleratedEffectOffsetRotate.cpp */,
@@ -40693,6 +40790,7 @@
 				85C56CA20AA89C1000D95755 /* CSSMediaRule.idl */,
 				314BE3A21B30F6D100141982 /* CSSNamedImageValue.cpp */,
 				314BE3A01B30F6B700141982 /* CSSNamedImageValue.h */,
+				A1B2C3D426040200DEADBEEF /* CSSNamespacePrefixMap.h */,
 				94E8394E1DFB2700007BC6A7 /* CSSNamespaceRule.cpp */,
 				94E8394F1DFB2700007BC6A7 /* CSSNamespaceRule.h */,
 				94E839501DFB29A4007BC6A7 /* CSSNamespaceRule.idl */,
@@ -42781,11 +42879,25 @@
 				93D05032253A149A002A3072 /* AbstractRange.h in Headers */,
 				41E1B1D10FF5986900576B3B /* AbstractWorker.h in Headers */,
 				7164D2D129AFA0F6000AC8DA /* AcceleratedEffect.h in Headers */,
+				BC7EB7172F74611500E243F0 /* AcceleratedEffectBasicShape.h in Headers */,
+				BC7EB7362F75ABA100E243F0 /* AcceleratedEffectBasicShapePath.h in Headers */,
+				BC7EB73B2F75AE5A00E243F0 /* AcceleratedEffectBoxPath.h in Headers */,
+				BC7EB72B2F74C2BB00E243F0 /* AcceleratedEffectCircleFunction.h in Headers */,
+				BC7EB7392F75ACB000E243F0 /* AcceleratedEffectCoordBox.h in Headers */,
+				BC7EB72D2F75992200E243F0 /* AcceleratedEffectEllipseFunction.h in Headers */,
+				BC7EB72E2F75997600E243F0 /* AcceleratedEffectInsetFunction.h in Headers */,
 				BCB02A962E8ED877008A0B68 /* AcceleratedEffectOffsetAnchor.h in Headers */,
 				BCB02A992E8ED877008A0B68 /* AcceleratedEffectOffsetDistance.h in Headers */,
+				BC7EB7032F744D2B00E243F0 /* AcceleratedEffectOffsetPath.h in Headers */,
 				BCB02A982E8ED877008A0B68 /* AcceleratedEffectOffsetPosition.h in Headers */,
 				BCB02A952E8ED877008A0B68 /* AcceleratedEffectOffsetRotate.h in Headers */,
 				BCB02A9D2E8EDECD008A0B68 /* AcceleratedEffectOpacity.h in Headers */,
+				BC7EB72F2F75998900E243F0 /* AcceleratedEffectPathFunction.h in Headers */,
+				BC7EB7302F75998900E243F0 /* AcceleratedEffectPolygonFunction.h in Headers */,
+				BC7EB7182F74611500E243F0 /* AcceleratedEffectRayFunction.h in Headers */,
+				BC7EB7372F75ABA100E243F0 /* AcceleratedEffectRayPath.h in Headers */,
+				BC7EB7522F784F4B00E243F0 /* AcceleratedEffectReferencePath.h in Headers */,
+				BC7EB7162F74611500E243F0 /* AcceleratedEffectShapeFunction.h in Headers */,
 				71BF4C3529B098A8008344FC /* AcceleratedEffectStack.h in Headers */,
 				715FCD1729B09B0E002CE6A7 /* AcceleratedEffectStackUpdater.h in Headers */,
 				BCB02A9B2E8ED8C2008A0B68 /* AcceleratedEffectTransformBox.h in Headers */,
@@ -43680,6 +43792,7 @@
 				2A538A2626F0103600965FC8 /* CSSMatrixComponentOptions.h in Headers */,
 				A80E6D030A1989CA007FB8C5 /* CSSMediaRule.h in Headers */,
 				314BE3A11B30F6B700141982 /* CSSNamedImageValue.h in Headers */,
+				A1B2C3D426040201DEADBEEF /* CSSNamespacePrefixMap.h in Headers */,
 				94E839511DFB2A0E007BC6A7 /* CSSNamespaceRule.h in Headers */,
 				BEAA24022C34A9E600C37BBE /* CSSNestedDeclarations.h in Headers */,
 				BC89E31C2D11ECD10016DF06 /* CSSNoConversionDataRequiredToken.h in Headers */,
@@ -44740,6 +44853,7 @@
 				5160712F1BD8307800DBC4F2 /* IDBObjectStoreInfo.h in Headers */,
 				5185FCA41BB4C4E80012898F /* IDBOpenDBRequest.h in Headers */,
 				3ACCFD112B8958AA00B9CC69 /* IDBOpenRequestData.h in Headers */,
+				7B18F7FF2F7BB625005DE99F /* IDBRecord.h in Headers */,
 				5185FCA91BB4C4E80012898F /* IDBRequest.h in Headers */,
 				514129991C6976900059E714 /* IDBRequestCompletionEvent.h in Headers */,
 				510A58FA1BACC7F200C19282 /* IDBRequestData.h in Headers */,
@@ -47799,6 +47913,7 @@
 				717CE23A29335E9C001463BC /* StyleOriginatedAnimationEvent.h in Headers */,
 				71D195762D61E2AB0085EB01 /* StyleOriginatedTimelinesController.h in Headers */,
 				BC34D2C42E3BF0AB001EAD95 /* StyleOrphans.h in Headers */,
+				06E8D41D99A712513E21EC9D /* StyleOutlineOffset.h in Headers */,
 				62D1605F2F35A2FA0044D953 /* StyleOverflowClipMargin.h in Headers */,
 				BC76ADB92EB9410900331BEC /* StyleOverflowPosition.h in Headers */,
 				BC9ABA1B2DED228B00F7E52D /* StylePadding.h in Headers */,
@@ -48289,6 +48404,7 @@
 				A824B4650E2EF2EA0081A7B7 /* TextRun.h in Headers */,
 				321111B7283AE4410067D300 /* TextRunHash.h in Headers */,
 				722AF2E427E1CF130078D997 /* TextRunIterator.h in Headers */,
+				74FAB9C02F7B956700DBDF82 /* TextShapingResultAndDisplayList.h in Headers */,
 				4C05BAE1297AD12E004FE77D /* TextSpacing.h in Headers */,
 				9759E94014EF1CF80026A2DD /* TextTrack.h in Headers */,
 				CD1F9B212702565E00617EB6 /* TextTrackClient.h in Headers */,

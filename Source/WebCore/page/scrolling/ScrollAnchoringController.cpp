@@ -62,7 +62,7 @@ ScrollAnchoringController::~ScrollAnchoringController()
     invalidate();
 }
 
-static bool hasScrolledFromOriginInBlockDirection(ScrollPosition scrollPosition, WritingMode writingMode)
+static bool NODELETE hasScrolledFromOriginInBlockDirection(ScrollPosition scrollPosition, WritingMode writingMode)
 {
     if (writingMode.isVertical())
         return !!scrollPosition.x();
@@ -70,7 +70,7 @@ static bool hasScrolledFromOriginInBlockDirection(ScrollPosition scrollPosition,
     return !!scrollPosition.y();
 }
 
-static IntSize constrainedToBlockDirection(IntSize scrollDelta, WritingMode writingMode)
+static IntSize NODELETE constrainedToBlockDirection(IntSize scrollDelta, WritingMode writingMode)
 {
     if (writingMode.isVertical())
         return { scrollDelta.width(), 0 };
@@ -78,7 +78,7 @@ static IntSize constrainedToBlockDirection(IntSize scrollDelta, WritingMode writ
     return { 0, scrollDelta.height() };
 }
 
-static FloatPoint inlineAndBlockStartCorner(FloatRect box, WritingMode writingMode)
+static FloatPoint NODELETE inlineAndBlockStartCorner(FloatRect box, WritingMode writingMode)
 {
     switch (writingMode.blockDirection()) {
     case FlowDirection::TopToBottom:
@@ -139,7 +139,7 @@ void ScrollAnchoringController::updateScrollableAreaRegistration()
 
 LocalFrameView& ScrollAnchoringController::frameView() const
 {
-    if (CheckedPtr renderLayerScrollableArea = dynamicDowncast<RenderLayerScrollableArea>(m_owningScrollableArea.get()))
+    if (auto* renderLayerScrollableArea = dynamicDowncast<RenderLayerScrollableArea>(m_owningScrollableArea.get()))
         return renderLayerScrollableArea->layer().renderer().view().frameView();
 
     return downcast<LocalFrameView>(downcast<ScrollView>(m_owningScrollableArea));
@@ -282,7 +282,7 @@ FloatPoint ScrollAnchoringController::computeOffsetFromOwningScroller(RenderObje
 
 void ScrollAnchoringController::notifyChildHadSuppressingStyleChange(RenderElement& renderer)
 {
-    CheckedPtr scrollerBox = scrollableAreaBox();
+    auto* scrollerBox = scrollableAreaBox();
 
 #if LOG_DISABLED
     UNUSED_PARAM(renderer);
@@ -364,7 +364,7 @@ AnchorSearchStatus ScrollAnchoringController::examinePriorityCandidate(RenderEle
 
 static bool NODELETE overflowAnchorProhibitsAnchoring(const RenderElement& object, const RenderBox& scrollingAncestor)
 {
-    for (CheckedPtr renderer = &object; renderer; renderer = renderer->parent()) {
+    for (auto* renderer = &object; renderer; renderer = renderer->parent()) {
         if (renderer->style().overflowAnchor() == OverflowAnchor::None)
             return true;
 
@@ -548,14 +548,14 @@ bool ScrollAnchoringController::anchoringSuppressedByStyleChange() const
     if (!m_anchorObject)
         return false;
 
-    CheckedPtr scrollerBox = scrollableAreaBox();
+    auto* scrollerBox = scrollableAreaBox();
 
     // ...any element in the path from the anchor node to the scrollable element (or document), inclusive of both.
     // m_anchorObject can be a RenderText, but that will never have scrollAnchoringSuppressionStyleChanged() set.
-    if (CheckedPtr renderer = dynamicDowncast<RenderElement>(*m_anchorObject); renderer && renderer->scrollAnchoringSuppressionStyleChanged())
+    if (auto* renderer = dynamicDowncast<RenderElement>(*m_anchorObject); renderer && renderer->scrollAnchoringSuppressionStyleChanged())
         return true;
 
-    for (CheckedPtr renderer = m_anchorObject->parent(); renderer; renderer = renderer->parent()) {
+    for (auto* renderer = m_anchorObject->parent(); renderer; renderer = renderer->parent()) {
         if (renderer->scrollAnchoringSuppressionStyleChanged())
             return true;
 

@@ -174,7 +174,7 @@ inline bool canUseMegamorphicPutById(VM& vm, UniquedStringImpl* uid)
     return !parseIndex(*uid) && uid != vm.propertyNames->underscoreProto;
 }
 
-bool canBeViaGlobalProxy(AccessCase::AccessType);
+bool NODELETE canBeViaGlobalProxy(AccessCase::AccessType);
 
 inline AccessGenerationResult::AccessGenerationResult(Kind kind, Ref<InlineCacheHandler>&& handler)
     : m_kind(kind)
@@ -223,12 +223,12 @@ public:
 
     const ScalarRegisterSet& liveRegistersForCall();
 
-    DisposableCallSiteIndex callSiteIndexForExceptionHandling();
+    DisposableCallSiteIndex NODELETE callSiteIndexForExceptionHandling();
 
     const HandlerInfo& originalExceptionHandler();
 
     bool needsToRestoreRegistersIfException() const { return m_needsToRestoreRegistersIfException; }
-    CallSiteIndex originalCallSiteIndex() const;
+    CallSiteIndex NODELETE originalCallSiteIndex() const;
 
     void emitExplicitExceptionHandler();
 
@@ -275,15 +275,15 @@ public:
     static MacroAssemblerCodeRef<JITThunkPtrTag> generateSlowPathCode(VM&, AccessType);
     static Ref<InlineCacheHandler> generateSlowPathHandler(VM&, AccessType);
 
-    static void emitDataICPrologue(CCallHelpers&);
-    static void emitDataICEpilogue(CCallHelpers&);
+    static void NODELETE emitDataICPrologue(CCallHelpers&);
+    static void NODELETE emitDataICEpilogue(CCallHelpers&);
     static void emitDataICPrepareForCall(CCallHelpers&);
     static void emitDataICRestoreAfterCall(CCallHelpers&);
     static CCallHelpers::Jump emitDataICCheckStructure(CCallHelpers&, GPRReg baseGPR, GPRReg scratchGPR);
     static CCallHelpers::JumpList emitDataICCheckUid(CCallHelpers&, bool isSymbol, JSValueRegs, GPRReg scratchGPR);
     static void emitDataICJumpNextHandler(CCallHelpers&);
 
-    bool useHandlerIC() const;
+    bool NODELETE useHandlerIC() const;
 
 private:
     CallSiteIndex callSiteIndexForExceptionHandlingOrOriginal();
@@ -365,6 +365,18 @@ MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolMissHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolCustomAccessorHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolCustomValueHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolGetterHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithUndefinedKeyLoadOwnPropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithUndefinedKeyLoadPrototypePropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithUndefinedKeyMissHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithNullKeyLoadOwnPropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithNullKeyLoadPrototypePropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithNullKeyMissHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithTrueKeyLoadOwnPropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithTrueKeyLoadPrototypePropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithTrueKeyMissHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithFalseKeyLoadOwnPropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithFalseKeyLoadPrototypePropertyHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithFalseKeyMissHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringReplaceHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionNonAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionNewlyAllocatingHandler(VM&);
@@ -383,6 +395,26 @@ MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolCustomAccessorHandler(VM
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolCustomValueHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolStrictSetterHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolSloppySetterHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithUndefinedKeyReplaceHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithUndefinedKeyTransitionNonAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithUndefinedKeyTransitionNewlyAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithUndefinedKeyTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithUndefinedKeyTransitionReallocatingOutOfLineHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithNullKeyReplaceHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithNullKeyTransitionNonAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithNullKeyTransitionNewlyAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithNullKeyTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithNullKeyTransitionReallocatingOutOfLineHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithTrueKeyReplaceHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithTrueKeyTransitionNonAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithTrueKeyTransitionNewlyAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithTrueKeyTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithTrueKeyTransitionReallocatingOutOfLineHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithFalseKeyReplaceHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithFalseKeyTransitionNonAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithFalseKeyTransitionNewlyAllocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithFalseKeyTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithFalseKeyTransitionReallocatingOutOfLineHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithStringHitHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithStringMissHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithSymbolHitHandler(VM&);

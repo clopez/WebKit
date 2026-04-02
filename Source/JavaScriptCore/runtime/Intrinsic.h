@@ -132,6 +132,7 @@ namespace JSC {
     macro(StringPrototypeSliceIntrinsic) \
     macro(StringPrototypeSubstringIntrinsic) \
     macro(StringPrototypeToLowerCaseIntrinsic) \
+    macro(StringPrototypeToUpperCaseIntrinsic) \
     macro(NumberPrototypeToStringIntrinsic) \
     macro(NumberIsFiniteIntrinsic) \
     macro(NumberIsNaNIntrinsic) \
@@ -277,7 +278,7 @@ enum Intrinsic : uint8_t {
 #undef JSC_DEFINE_INTRINSIC
 };
 
-std::optional<IterationKind> iterationKindForIntrinsic(Intrinsic);
+std::optional<IterationKind> NODELETE iterationKindForIntrinsic(Intrinsic);
 
 ASCIILiteral intrinsicName(Intrinsic);
 

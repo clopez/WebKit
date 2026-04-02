@@ -165,6 +165,8 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform"
     "${WEBCORE_DIR}/platform/animation"
     "${WEBCORE_DIR}/platform/animation/values"
+    "${WEBCORE_DIR}/platform/animation/values/paths"
+    "${WEBCORE_DIR}/platform/animation/values/shapes"
     "${WEBCORE_DIR}/platform/audio"
     "${WEBCORE_DIR}/platform/encryptedmedia"
     "${WEBCORE_DIR}/platform/gamepad"
@@ -465,6 +467,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/indexeddb/IDBKeyRange.idl
     Modules/indexeddb/IDBObjectStore.idl
     Modules/indexeddb/IDBOpenDBRequest.idl
+    Modules/indexeddb/IDBRecord.idl
     Modules/indexeddb/IDBRequest.idl
     Modules/indexeddb/IDBTransaction.idl
     Modules/indexeddb/IDBTransactionDurability.idl
@@ -1874,6 +1877,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/WebXRRenderState.idl
     Modules/webxr/WebXRRigidTransform.idl
     Modules/webxr/WebXRSession+AR.idl
+    Modules/webxr/WebXRSession+Layers.idl
     Modules/webxr/WebXRSession+HitTest.idl
     Modules/webxr/WebXRSession.idl
     Modules/webxr/WebXRSpace.idl
@@ -2030,7 +2034,6 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUPipelineLayout.idl
     Modules/WebGPU/GPUPipelineLayoutDescriptor.idl
     Modules/WebGPU/GPUPowerPreference.idl
-    Modules/WebGPU/GPUPredefinedColorSpace.idl
     Modules/WebGPU/GPUPrimitiveState.idl
     Modules/WebGPU/GPUPrimitiveTopology.idl
     Modules/WebGPU/GPUProgrammablePassEncoder.idl
@@ -2132,7 +2135,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
 set(WebCore_LIBRARIES
     ICU::uc
     LibXml2::LibXml2
-    SQLite::SQLite3
+    SQLite3::SQLite3
     ZLIB::ZLIB
 )
 set(WebCore_FRAMEWORKS
@@ -3114,6 +3117,11 @@ endif ()
 string(TOLOWER ${CMAKE_HOST_SYSTEM_PROCESSOR} LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR)
 if (CMAKE_COMPILER_IS_GNUCXX AND "${LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR}" MATCHES "(i[3-6]86|x86)$")
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebCore -fno-tree-sra)
+endif ()
+# These files are very large and exhaust virtual memory on 32-bit ARM.
+if (WTF_CPU_ARM AND NOT CMAKE_CROSSCOMPILING)
+    set(DerivedSources_COMPILE_OPTIONS -O0 -DRELEASE_WITHOUT_OPTIMIZATIONS=ON)
+    set_source_files_properties(${WebCore_DERIVED_SOURCES_DIR}/JSDOMWindow.cpp PROPERTIES COMPILE_OPTIONS "${DerivedSources_COMPILE_OPTIONS}")
 endif ()
 
 target_precompile_headers(WebCoreTestSupport PRIVATE testing/js/WebCoreTestSupportPrefix.h)

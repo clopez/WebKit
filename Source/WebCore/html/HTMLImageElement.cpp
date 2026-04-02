@@ -232,7 +232,7 @@ void HTMLImageElement::collectExtraStyleForPresentationalHints(MutableStylePrope
         addPropertyToPresentationalHintStyle(style, CSSPropertyAspectRatio, CSSValueAuto);
 }
 
-const AtomString& HTMLImageElement::imageSourceURL() const
+String HTMLImageElement::imageSourceURL() const
 {
     return m_bestFitImageURL.isEmpty() ? attributeWithoutSynchronization(srcAttr) : m_bestFitImageURL;
 }
@@ -250,7 +250,7 @@ void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidat
 {
     m_bestFitImageURL = candidate.string.toAtomString();
 
-    auto& sourceURL = imageSourceURL();
+    auto sourceURL = imageSourceURL();
     // Only complete the URL if it's non-empty to avoid resolving "" to the document base URL.
     m_currentURL = sourceURL.isEmpty() ? URL() : protect(document())->completeURL(sourceURL);
 
@@ -314,14 +314,11 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 
         m_dynamicMediaQueryResults.appendVector(sizesParser.dynamicMediaQueryResults());
 
-        float sourceSize;
+        auto sourceSize = sizesParser.effectiveSize();
         if (sizesParser.isAuto() && isLazyLoadable()) {
             if (auto layoutWidth = autoSizesLayoutWidth())
-                sourceSize = *layoutWidth;
-            else
-                sourceSize = sizesParser.effectiveSize();
-        } else
-            sourceSize = sizesParser.effectiveSize();
+                sourceSize = std::optional<float>(*layoutWidth);
+        }
 
         candidate = bestFitSourceForImageAttributes(document->deviceScaleFactor(), nullAtom(), srcset, sourceSize, [&](auto& candidate) {
             return m_imageLoader->shouldIgnoreCandidateWhenLoadingFromArchive(candidate);
@@ -382,14 +379,11 @@ void HTMLImageElement::selectImageSource(RelevantMutation relevantMutation)
             // If we don't have a <picture> or didn't find a source, then we use our own attributes.
             SizesAttributeParser sizesParser(attributeWithoutSynchronization(sizesAttr).string(), document.get());
             m_dynamicMediaQueryResults.appendVector(sizesParser.dynamicMediaQueryResults());
-            float sourceSize;
+            auto sourceSize = sizesParser.effectiveSize();
             if (sizesParser.isAuto() && isLazyLoadable()) {
                 if (auto layoutWidth = autoSizesLayoutWidth())
-                    sourceSize = *layoutWidth;
-                else
-                    sourceSize = sizesParser.effectiveSize();
-            } else
-                sourceSize = sizesParser.effectiveSize();
+                    sourceSize = std::optional<float>(*layoutWidth);
+            }
             candidate = bestFitSourceForImageAttributes(document->deviceScaleFactor(), srcAttribute, srcsetAttribute, sourceSize, [&](auto& candidate) {
                 return m_imageLoader->shouldIgnoreCandidateWhenLoadingFromArchive(candidate);
             });

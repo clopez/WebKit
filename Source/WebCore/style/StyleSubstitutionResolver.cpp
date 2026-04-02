@@ -33,6 +33,8 @@
 #include "CSSPropertyParser.h"
 #include "CSSPropertyParserConsumer+Primitives.h"
 #include "CSSRegisteredCustomProperty.h"
+#include "CSSSelectorParser.h"
+#include "CSSSerializationContext.h"
 #include "CSSShorthandSubstitutionValue.h"
 #include "CSSSubstitutionValue.h"
 #include "CSSTokenizer.h"
@@ -55,6 +57,26 @@
 
 namespace WebCore {
 namespace Style {
+
+static bool containsURLTokens(std::span<const CSSParserToken> tokens)
+{
+    for (auto& token : tokens) {
+        if (token.type() == UrlToken)
+            return true;
+        if (token.type() == FunctionToken && (token.functionId() == CSSValueUrl || token.functionId() == CSSValueImageSet))
+            return true;
+    }
+    return false;
+}
+
+void SubstitutionResolver::propagateAttrTaint(IsAttrTainted isAttrTainted, std::span<const CSSParserToken> tokens)
+{
+    if (isAttrTainted != IsAttrTainted::Yes)
+        return;
+    m_isAttrTainted = true;
+    if (isInURLContext() || containsURLTokens(tokens))
+        m_hasTaintedURL = true;
+}
 
 SubstitutionResolver::SubstitutionResolver(Builder& builder)
     : m_styleBuilder(builder)
@@ -136,6 +158,10 @@ bool SubstitutionResolver::substituteVariableFunction(CSSParserTokenRange range,
     if (property->tokens().size() > maxSubstitutionTokens)
         return false;
 
+    // https://drafts.csswg.org/css-values-5/#attr-security
+    // Propagate attr()-taint through var() references.
+    propagateAttrTaint(property->isAttrTainted(), property->tokens());
+
     tokens.appendVector(property->tokens());
     return true;
 }
@@ -207,11 +233,13 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
     // attr() = attr( <attr-name> <attr-type>? , <declaration-value>?)
     auto range = CSSParserTokenRange { attrArgs->firstArg };
 
-    if (range.peek().type() != IdentToken)
+    // Consume <attr-name> = <wq-name> = [ <ident> | * ]? '|' <ident>  or  <ident>
+    auto parsedName = consumeQualifiedName(range);
+    if (!parsedName)
         return false;
+    range.consumeWhitespace();
 
-    // Consume <attr-name>
-    auto attributeName = range.consumeIncludingWhitespace().value().toAtomString();
+    auto attributeName = parsedName->name;
 
     // Consume optional <attr-type>.
     // https://drafts.csswg.org/css-values-5/#typedef-attr-type
@@ -273,7 +301,13 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
     if (!element)
         return false;
 
-    auto& attributeValue = element->getAttribute(QualifiedName { nullAtom(), attributeName, nullAtom() });
+    // Resolve namespace prefix to URI.
+    auto namespaceURI = [&]() -> AtomString {
+        auto& prefix = parsedName->namespacePrefix;
+        if (prefix.isEmpty())
+            return nullAtom();
+        return m_substitutionValue->m_namespacePrefixMap.get(prefix);
+    }();
 
     // Check if this attribute is already being substituted (cycle detection).
     auto isInCycle = !m_styleBuilder.state().m_inProgressAttrAttributes.add(attributeName).isNewEntry;
@@ -305,6 +339,10 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
         return true;
     };
 
+    // If a non-empty prefix was given but couldn't be resolved, trigger fallback.
+    if (!parsedName->namespacePrefix.isEmpty() && namespaceURI.isNull())
+        return substituteFailure();
+
     if (isInCycle) {
         // Mark as in-cycle within attr() type() context for transitive detection.
         if (m_isInAttrTypeSyntax)
@@ -313,6 +351,8 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
             return false;
         return substituteFailure();
     }
+
+    auto& attributeValue = element->getAttribute(QualifiedName { nullAtom(), attributeName, namespaceURI });
 
     if (attributeValue.isNull())
         return substituteFailure();
@@ -383,13 +423,24 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
         if (m_styleBuilder.state().m_inCycleAttrAttributes.contains(attributeName))
             return substituteFailure();
 
-        if (!parsedAttrType->syntax.isUniversal()) {
-            CSSParserTokenRange substitutedRange(*substitutedTokens);
-            if (!CSSPropertyParser::isValidCustomPropertyValueForSyntax(parsedAttrType->syntax, substitutedRange, context))
-                return substituteFailure();
+        if (parsedAttrType->syntax.isUniversal()) {
+            tokens.appendVector(*substitutedTokens);
+            return true;
         }
 
-        tokens.appendVector(*substitutedTokens);
+        // Parse against the syntax and re-tokenize from the normalized serialization.
+        CSSParserTokenRange substitutedRange(*substitutedTokens);
+        auto parsedValue = CSSPropertyParser::parseWithSyntax(parsedAttrType->syntax, substitutedRange, context);
+        if (!parsedValue)
+            return substituteFailure();
+
+        auto serialized = parsedValue->cssText(CSS::defaultSerializationContext());
+        CSSTokenizer resultTokenizer(serialized);
+        m_intermediateTokenStrings.appendVector(resultTokenizer.escapedStringsForAdoption());
+        m_intermediateTokenStrings.append(WTF::move(serialized));
+
+        tokens.append(resultTokenizer.tokenRange().span());
+
         return true;
     }
     }
@@ -429,6 +480,7 @@ std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange
 {
     Vector<CSSParserToken> tokens;
     bool success = true;
+
     while (!range.atEnd()) {
         auto token = range.peek();
         if (token.type() == FunctionToken) {
@@ -439,7 +491,10 @@ std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange
                 continue;
             }
             if (functionId == CSSValueAttr) {
-                if (!substituteAttrFunction(range.consumeBlock(), tokens, context))
+                auto startIndex = tokens.size();
+                if (substituteAttrFunction(range.consumeBlock(), tokens, context))
+                    propagateAttrTaint(IsAttrTainted::Yes, std::span(tokens).subspan(startIndex));
+                else
                     success = false;
                 continue;
             }
@@ -455,12 +510,28 @@ std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange
                 continue;
             }
         }
+
+        updateURLContext(token);
+
         tokens.append(range.consume());
     }
     if (!success)
         return { };
 
     return tokens;
+}
+
+void SubstitutionResolver::updateURLContext(const CSSParserToken& token)
+{
+    if (token.getBlockType() == CSSParserToken::BlockStart) {
+        if (m_urlContextDepth)
+            ++m_urlContextDepth;
+        else if (token.type() == FunctionToken && (token.functionId() == CSSValueUrl || token.functionId() == CSSValueImageSet))
+            m_urlContextDepth = 1;
+        return;
+    }
+    if (token.getBlockType() == CSSParserToken::BlockEnd && m_urlContextDepth)
+        --m_urlContextDepth;
 }
 
 RefPtr<CSSVariableData> SubstitutionResolver::trySimpleSubstitution(const CSSSubstitutionValue& value)
@@ -494,8 +565,14 @@ bool SubstitutionResolver::isBaseAppearance()
 
 RefPtr<CSSVariableData> SubstitutionResolver::substitute(const CSSSubstitutionValue& value)
 {
-    if (auto data = trySimpleSubstitution(value))
+    m_isAttrTainted = false;
+    m_hasTaintedURL = false;
+    m_substitutionValue = &value;
+
+    if (auto data = trySimpleSubstitution(value)) {
+        propagateAttrTaint(data->isAttrTainted(), data->tokens());
         return data;
+    }
 
     auto& context = value.context();
     auto substitutedTokens = substituteTokenRange(value.m_data->tokenRange(), context);
@@ -504,7 +581,7 @@ RefPtr<CSSVariableData> SubstitutionResolver::substitute(const CSSSubstitutionVa
         return nullptr;
     }
 
-    auto data = CSSVariableData::create(*substitutedTokens, context);
+    auto data = CSSVariableData::create(*substitutedTokens, m_isAttrTainted ? IsAttrTainted::Yes : IsAttrTainted::No, context);
     m_intermediateTokenStrings.clear();
     return data;
 }
@@ -513,6 +590,11 @@ RefPtr<CSSValue> SubstitutionResolver::substituteAndParse(const CSSSubstitutionV
 {
     auto data = substitute(substitutionValue);
     if (!data)
+        return nullptr;
+
+    // https://drafts.csswg.org/css-values-5/#attr-security
+    // Using an attr()-tainted value as or in a <url> makes a declaration invalid at computed-value time.
+    if (propertyID != CSSPropertyCustom && m_hasTaintedURL)
         return nullptr;
 
     if (!arePointingToEqualData(substitutionValue.m_cache.dependencyData, data) || substitutionValue.m_cache.propertyID != propertyID) {
@@ -535,6 +617,9 @@ RefPtr<CSSValue> SubstitutionResolver::substituteAndParseShorthand(const CSSShor
 
     auto data = substitute(substitutionValue);
     if (!data)
+        return nullptr;
+
+    if (m_hasTaintedURL)
         return nullptr;
 
     if (!arePointingToEqualData(substitutionValue.m_cache.dependencyData, data)) {

@@ -83,6 +83,45 @@ TEST(WKBackForwardList, RemoveCurrentItem)
     EXPECT_STREQ([[newList.currentItem URL] absoluteString].UTF8String, loadableURL2.UTF8String);
 }
 
+TEST(WKBackForwardList, RemoveCurrentItemWithNeighbors)
+{
+    // Regression test: when the current item is filtered out, the currentIndex should
+    // be decremented (so the predecessor becomes current), not left unchanged (which
+    // would make the successor current).
+    auto webView = adoptNS([[WKWebView alloc] init]);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:loadableURL1]]];
+    [webView _test_waitForDidFinishNavigation];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:loadableURL2]]];
+    [webView _test_waitForDidFinishNavigation];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:loadableURL3]]];
+    [webView _test_waitForDidFinishNavigation];
+
+    [webView goBack];
+    [webView _test_waitForDidFinishNavigation];
+
+    // entries = [A, B(current), C], currentIndex = 1
+    WKBackForwardList *list = [webView backForwardList];
+    EXPECT_EQ((NSUInteger)1, list.backList.count);
+    EXPECT_EQ((NSUInteger)1, list.forwardList.count);
+    EXPECT_STREQ([[list.currentItem URL] absoluteString].UTF8String, loadableURL2.UTF8String);
+
+    // Filter out B (the current item), keeping A and C.
+    _WKSessionState *sessionState = [webView _sessionStateWithFilter:^BOOL(WKBackForwardListItem *item) {
+        return ![item.URL isEqual:[NSURL URLWithString:loadableURL2]];
+    }];
+
+    [webView _restoreSessionState:sessionState andNavigate:NO];
+
+    // Restored list should be [A, C] with A as current (predecessor), not C (successor).
+    WKBackForwardList *newList = [webView backForwardList];
+    EXPECT_EQ((NSUInteger)0, newList.backList.count);
+    EXPECT_EQ((NSUInteger)1, newList.forwardList.count);
+    EXPECT_STREQ([[newList.currentItem URL] absoluteString].UTF8String, loadableURL1.UTF8String);
+}
+
 TEST(WKBackForwardList, CanNotGoBackAfterRestoringEmptySessionState)
 {
     auto webView = adoptNS([[WKWebView alloc] init]);
@@ -322,6 +361,35 @@ TEST(WKBackForwardList, InteractionStateRestorationInvalid)
     EXPECT_STREQ([[list.currentItem URL] absoluteString].UTF8String, url3.absoluteString.UTF8String);
 }
 
+// Restoring state with multiple items causes the Swift restoreFromState loop to iterate more than
+// once, which can trigger an ASAN false positive if Swift reuses a stack slot that C++ poisoned
+// via leakRef in the previous iteration.
+TEST(WKBackForwardList, InteractionStateRestorationMultipleItems)
+{
+    RetainPtr webView = adoptNS([[WKWebView alloc] init]);
+
+    RetainPtr url1 = [NSBundle.test_resourcesBundle URLForResource:@"simple" withExtension:@"html"];
+    RetainPtr url2 = [NSBundle.test_resourcesBundle URLForResource:@"simple2" withExtension:@"html"];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:url1]];
+    [webView _test_waitForDidFinishNavigation];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:url2]];
+    [webView _test_waitForDidFinishNavigation];
+
+    id interactionState = [webView interactionState];
+
+    webView = adoptNS([[WKWebView alloc] init]);
+    [webView setInteractionState:interactionState];
+    [webView _test_waitForDidFinishNavigation];
+
+    RetainPtr list = [webView backForwardList];
+    EXPECT_EQ((NSUInteger)1, list.get().backList.count);
+    EXPECT_EQ((NSUInteger)0, list.get().forwardList.count);
+    EXPECT_STREQ([[list.get().currentItem URL] absoluteString].UTF8String, url2.get().absoluteString.UTF8String);
+    EXPECT_STREQ([[list.get().backList.firstObject URL] absoluteString].UTF8String, url1.get().absoluteString.UTF8String);
+}
+
 @interface WKBackForwardNavigationDelegate : NSObject <WKNavigationDelegatePrivate>
 - (void)waitForDidFinishNavigationOrDidSameDocumentNavigation;
 @end
@@ -373,9 +441,6 @@ static RetainPtr<WKNavigation> lastNavigation;
 }
 
 @end
-
-// _beginBackSwipeForTesting / _completeBackSwipeForTesting are not implemented on macOS.
-#if !PLATFORM(MAC)
 
 TEST(WKBackForwardList, BackSwipeNavigationSkipsItemsWithoutUserGesture)
 {
@@ -454,8 +519,6 @@ TEST(WKBackForwardList, BackSwipeNavigationDoesNotSkipItemsWithUserGesture)
     EXPECT_EQ([webView backForwardList].backList.count, 1U);
     EXPECT_EQ([webView backForwardList].forwardList.count, 1U);
 }
-
-#endif
 
 static void runBackForwardNavigationSkipsItemsWithoutUserGestureTest(Function<void(WKWebView *, ASCIILiteral destination)>&& navigate)
 {

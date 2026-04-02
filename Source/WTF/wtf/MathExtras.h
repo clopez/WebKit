@@ -456,7 +456,7 @@ inline void doubleToInteger(double d, unsigned long long& value)
 
 namespace WTF {
 
-constexpr uint32_t roundUpToPowerOfTwo(auto v)
+constexpr auto roundUpToPowerOfTwo(auto v)
 {
     return std::bit_ceil(v);
 }
@@ -600,92 +600,30 @@ constexpr void shuffleVector(VectorType& vector, const RandomFunc& randomFunc)
 }
 
 template<typename T>
-constexpr unsigned clzConstexpr(T value)
+constexpr unsigned clz(T value)
 {
-    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-
-    auto uValue = unsignedCast(value);
-
-    unsigned zeroCount = 0;
-    for (int i = bitSize - 1; i >= 0; i--) {
-        if (uValue >> i)
-            break;
-        zeroCount++;
-    }
-    return zeroCount;
+    return std::countl_zero(unsignedCast(value));
 }
 
 template<typename T>
-inline unsigned clz(T value)
+constexpr unsigned ctz(T value)
 {
-    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-
-    auto uValue = unsignedCast(value);
-
-    constexpr unsigned bitSize64 = sizeof(uint64_t) * CHAR_BIT;
-    if (uValue)
-        return __builtin_clzll(uValue) - (bitSize64 - bitSize);
-    return bitSize;
+    return std::countr_zero(unsignedCast(value));
 }
 
 template<typename T>
-constexpr unsigned ctzConstexpr(T value)
+constexpr unsigned getLSBSet(T t)
 {
-    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-
-    auto uValue = unsignedCast(value);
-
-    unsigned zeroCount = 0;
-    for (unsigned i = 0; i < bitSize; i++) {
-        if (uValue & 1)
-            break;
-
-        zeroCount++;
-        uValue >>= 1;
-    }
-    return zeroCount;
-}
-
-template<typename T>
-inline unsigned ctz(T value)
-{
-    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-
-    auto uValue = unsignedCast(value);
-
-    if (uValue)
-        return __builtin_ctzll(uValue);
-    return bitSize;
-}
-
-template<typename T>
-inline unsigned getLSBSet(T t)
-{
-    ASSERT(t);
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
     return ctz(t);
 }
 
 template<typename T>
-constexpr unsigned getLSBSetConstexpr(T t)
-{
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
-    return ctzConstexpr(t);
-}
-
-template<typename T>
-inline unsigned getMSBSet(T t)
+constexpr unsigned getMSBSet(T t)
 {
     constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-    ASSERT(t);
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
     return bitSize - 1 - clz(t);
-}
-
-template<typename T>
-constexpr unsigned getMSBSetConstexpr(T t)
-{
-    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
-    return bitSize - 1 - clzConstexpr(t);
 }
 
 inline uint32_t reverseBits32(uint32_t value)
@@ -882,7 +820,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE int32_t NODELETE truncateDoubleToInt32(double nu
 #else
     if (WTF_PROVEN_TRUE(number > -2147483649.0 && number < 2147483648.0))
         return static_cast<int32_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number > 0) {
         if (number >= static_cast<double>(INT32_MAX) + 1.0)
@@ -904,7 +842,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE int64_t NODELETE truncateDoubleToInt64(double nu
 #else
     if (WTF_PROVEN_TRUE(number >= -9223372036854775808.0 && number < 9223372036854775808.0))
         return static_cast<int64_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number > 0) {
         if (number >= static_cast<double>(INT64_MAX) + 1.0)
@@ -931,7 +869,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE uint32_t NODELETE truncateDoubleToUint32(double 
 #else
     if (WTF_PROVEN_TRUE(number >= 0.0 && number < 4294967296.0))
         return static_cast<uint32_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     // Mimic x86_64: cvttsd2si into int64, take low 32 bits.
     int64_t wide = truncateDoubleToInt64(number);
@@ -957,7 +895,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE uint64_t NODELETE truncateDoubleToUint64(double 
 #else
     if (WTF_PROVEN_TRUE(number >= 0.0 && number < 18446744073709551616.0))
         return static_cast<uint64_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number < 0.0)
         return 0;
@@ -984,7 +922,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE int32_t NODELETE truncateFloatToInt32(float numb
 #else
     if (WTF_PROVEN_TRUE(number > -2147483649.0f && number < 2147483648.0f))
         return static_cast<int32_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number > 0) {
         if (number >= static_cast<float>(INT32_MAX) + 1.0f)
@@ -1011,7 +949,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE int64_t NODELETE truncateFloatToInt64(float numb
 #else
     if (WTF_PROVEN_TRUE(number >= -9223372036854775808.0f && number < 9223372036854775808.0f))
         return static_cast<int64_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number > 0) {
         if (number >= static_cast<float>(INT64_MAX) + 1.0f)
@@ -1033,7 +971,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE uint32_t NODELETE truncateFloatToUint32(float nu
 #else
     if (WTF_PROVEN_TRUE(number >= 0.0f && number < 4294967296.0f))
         return static_cast<uint32_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     int64_t wide = truncateFloatToInt64(number);
     return static_cast<uint32_t>(wide);
@@ -1060,7 +998,7 @@ SUPPRESS_NODELETE ALWAYS_INLINE uint64_t NODELETE truncateFloatToUint64(float nu
 #else
     if (WTF_PROVEN_TRUE(number >= 0.0f && number < 18446744073709551616.0f))
         return static_cast<uint64_t>(number);
-    if (std::isnan(number) || !std::isfinite(number))
+    if (!std::isfinite(number))
         return 0;
     if (number < 0.0f)
         return 0;

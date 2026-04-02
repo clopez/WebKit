@@ -31,6 +31,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #if ENABLE(WEBASSEMBLY)
 
 #include "BytecodeStructs.h"
+#include "CallFrame.h"
 #include "FrameTracers.h"
 #include "JITExceptions.h"
 #include "JSWebAssemblyArrayInlines.h"
@@ -1189,7 +1190,8 @@ WASM_IPINT_EXTERN_CPP_DECL(get_global_64, unsigned index)
 WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_wait32, uint64_t pointerWithOffset, uint32_t value, uint64_t timeout)
 {
 #if CPU(ARM64) || CPU(X86_64)
-    int32_t result = Wasm::memoryAtomicWait32(instance, pointerWithOffset, value, timeout);
+    uint8_t memoryIndex = 0; // FIXME(wasm-multimemory)
+    int32_t result = Wasm::memoryAtomicWait32(instance, pointerWithOffset, value, timeout, memoryIndex);
     WASM_RETURN_TWO(std::bit_cast<void*>(static_cast<intptr_t>(result)), nullptr);
 #else
     UNUSED_PARAM(instance);
@@ -1203,7 +1205,8 @@ WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_wait32, uint64_t pointerWithOffset, uin
 WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_wait64, uint64_t pointerWithOffset, uint64_t value, uint64_t timeout)
 {
 #if CPU(ARM64) || CPU(X86_64)
-    int32_t result = Wasm::memoryAtomicWait64(instance, pointerWithOffset, value, timeout);
+    uint8_t memoryIndex = 0; // FIXME(wasm-multimemory)
+    int32_t result = Wasm::memoryAtomicWait64(instance, pointerWithOffset, value, timeout, memoryIndex);
     WASM_RETURN_TWO(std::bit_cast<void*>(static_cast<intptr_t>(result)), nullptr);
 #else
     UNUSED_PARAM(instance);
@@ -1217,7 +1220,8 @@ WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_wait64, uint64_t pointerWithOffset, uin
 WASM_IPINT_EXTERN_CPP_DECL(memory_atomic_notify, unsigned base, unsigned offset, int32_t count)
 {
 #if CPU(ARM64) || CPU(X86_64)
-    int32_t result = Wasm::memoryAtomicNotify(instance, base, offset, count);
+    uint8_t memoryIndex = 0; // FIXME(wasm-multimemory)
+    int32_t result = Wasm::memoryAtomicNotify(instance, base, offset, count, memoryIndex);
     WASM_RETURN_TWO(std::bit_cast<void*>(static_cast<intptr_t>(result)), nullptr);
 #else
     UNUSED_PARAM(instance);
@@ -1274,15 +1278,16 @@ extern "C" UGPRPair SYSV_ABI slow_path_wasm_popcountll(const void* pc, uint64_t 
     WASM_RETURN_TWO(pc, result);
 }
 
-WASM_IPINT_EXTERN_CPP_DECL(check_stack_and_vm_traps, void* candidateNewStackPointer, Wasm::IPIntCallee* callee)
+WASM_IPINT_EXTERN_CPP_DECL(check_stack_and_vm_traps, void* candidateNewStackPointer, Wasm::IPIntCallee* callee, CallFrame* callFrame)
 {
     VM& vm = instance->vm();
 
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     if (Options::enableWasmDebugger()) [[unlikely]]
-        vm.debugState()->setPrologueStopData(instance, callee);
+        vm.debugState()->setPrologueStopData(instance, callee, callFrame);
 #else
     UNUSED_PARAM(callee);
+    UNUSED_PARAM(callFrame);
 #endif
 
     if (vm.traps().handleTrapsIfNeeded()) {
@@ -1327,23 +1332,26 @@ static UNUSED_FUNCTION void displayWasmDebugState(JSWebAssemblyInstance* instanc
 }
 #endif
 
-WASM_IPINT_EXTERN_CPP_DECL(unreachable_handler, CallFrame* callFrame, Register* sp)
+WASM_IPINT_EXTERN_CPP_DECL(handle_debugger_trap_if_needed, CallFrame* callFrame, Register* sp)
 {
-    bool breakpointHandled = false;
+    // By default, the trap is a fatal Wasm trap and must propagate (shouldThrow = true).
+    // If the debugger is connected and determines this was solely a debugger trap (e.g. a
+    // breakpoint on unreachable), it sets shouldThrow = false and execution resumes.
+    bool shouldThrow = true;
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     if (Options::enableWasmDebugger()) [[unlikely]] {
         Wasm::DebugServer& debugServer = Wasm::DebugServer::singleton();
-        if (debugServer.shouldHandleUnreachable()) {
+        if (debugServer.isConnected()) {
             uint8_t* pc = static_cast<uint8_t*>(sp[2].pointer());
             uint8_t* mc = static_cast<uint8_t*>(sp[3].pointer());
             IPIntLocal* pl = static_cast<IPIntLocal*>(sp[0].pointer());
-            Wasm::IPIntCallee* callee = static_cast<Wasm::IPIntCallee*>(sp[1].pointer());
-
-            IPIntStackEntry* stackPointer = std::bit_cast<IPIntStackEntry*>(sp + 4);
-            if (Options::verboseWasmDebugger())
-                displayWasmDebugState(instance, callee, stackPointer, pl);
-
-            breakpointHandled = debugServer.execution().handleUnreachable(callFrame, instance, callee, pc, mc, pl, stackPointer);
+            auto* callee = static_cast<Wasm::IPIntCallee*>(sp[1].pointer());
+            auto* stack = std::bit_cast<IPIntStackEntry*>(sp + 4);
+            auto exceptionType = static_cast<Wasm::ExceptionType>(callFrame->argumentCountIncludingThis());
+            if (Options::verboseWasmDebugger() && exceptionType == Wasm::ExceptionType::Unreachable)
+                displayWasmDebugState(instance, callee, stack, pl);
+            auto trapStatus = debugServer.execution().handleDebuggerTrapIfNeeded(callFrame, instance, callee, pc, mc, pl, stack, exceptionType);
+            shouldThrow = trapStatus == Wasm::DebuggerTrapStatus::NotResolvedByDebugger;
         }
     }
 #else
@@ -1351,7 +1359,7 @@ WASM_IPINT_EXTERN_CPP_DECL(unreachable_handler, CallFrame* callFrame, Register* 
     UNUSED_PARAM(callFrame);
     UNUSED_PARAM(sp);
 #endif
-    IPINT_RETURN(static_cast<EncodedJSValue>(static_cast<int32_t>(breakpointHandled)));
+    IPINT_RETURN(static_cast<EncodedJSValue>(static_cast<int32_t>(shouldThrow)));
 }
 
 } } // namespace JSC::IPInt

@@ -31,22 +31,26 @@
 
 #import "Mesh.h"
 #import "ModelInlineConverters.h"
+#import "ModelProcessModelPlayerTransformState.h"
 #import "ModelTypes.h"
 #import "RemoteGPUProxy.h"
 #import "WKStageModeOrbitSimulator.h"
-#import "WebKitSwiftSoftLink.h"
 #import <WebCore/Document.h>
 #import <WebCore/FloatPoint3D.h>
 #import <WebCore/GPU.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/GraphicsLayerContentsDisplayDelegate.h>
 #import <WebCore/HTMLModelElement.h>
+#import <WebCore/ModelPlayerAnimationState.h>
 #import <WebCore/ModelPlayerGraphicsLayerConfiguration.h>
+#import <WebCore/ModelPlayerTransformState.h>
 #import <WebCore/Navigator.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformCALayer.h>
 #import <WebCore/PlatformCALayerDelegatedContents.h>
 #import <wtf/RetainPtr.h>
+
+#import "WebKitSwiftSoftLink.h"
 
 #if PLATFORM(COCOA)
 #import <Metal/Metal.h>
@@ -262,6 +266,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
     if (!gpu)
         return;
 
+    auto cssSize = size;
     size.scale(document->deviceScaleFactor());
     m_currentPixelSize = WebCore::IntSize(size.width().toUnsigned(), size.height().toUnsigned());
 
@@ -296,7 +301,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
         if (surfaceHandles.size())
             protectedThis->m_displayBuffers = WTF::move(surfaceHandles);
     });
-    m_currentModel->setViewportSize(size.width().toFloat(), size.height().toFloat());
+    m_currentModel->setViewportSize(cssSize.width().toFloat(), cssSize.height().toFloat());
 
     m_modelLoader = adoptNS([allocWKBridgeModelLoaderInstance() init]);
     Ref protectedThis = Ref { *this };
@@ -310,6 +315,9 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
 
             [protectedThis->m_modelLoader requestCompleted:updateRequest];
 
+            if (!model)
+                return;
+
             if (RefPtr client = protectedThis->m_client.get(); client && !protectedThis->m_didFinishLoading) {
                 protectedThis->m_didFinishLoading = true;
                 [protectedThis->m_modelLoader setLoop:protectedThis->m_isLooping];
@@ -320,7 +328,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
                 protectedThis->notifyEntityTransformUpdated();
 
                 auto environmentMap = protectedThis->m_environmentMap;
-                if (model && environmentMap) {
+                if (environmentMap) {
                     if (auto environmentMapImage = loadIBL(WTF::move(*environmentMap))) {
                         model->setEnvironmentMap(*environmentMapImage);
                         protectedThis->m_environmentMap = std::nullopt;
@@ -355,12 +363,7 @@ void WebModelPlayer::notifyEntityTransformUpdated()
     if (!model || !client || !model->entityTransform())
         return;
 
-    auto scaledTransform = *model->entityTransform();
-    auto scale = m_currentScale;
-    scaledTransform.column0 *= scale;
-    scaledTransform.column1 *= scale;
-    scaledTransform.column2 *= scale;
-    client->didUpdateEntityTransform(*this, WebCore::TransformationMatrix(static_cast<simd_float4x4>(scaledTransform)));
+    client->didUpdateEntityTransform(*this, WebCore::TransformationMatrix(static_cast<simd_float4x4>(*model->entityTransform())));
 }
 
 void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
@@ -376,6 +379,7 @@ void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
     if (!document)
         return;
 
+    auto cssSize = size;
     size.scale(document->deviceScaleFactor());
     auto newPixelSize = WebCore::IntSize(size.width().toUnsigned(), size.height().toUnsigned());
     if (newPixelSize == m_currentPixelSize)
@@ -393,9 +397,8 @@ void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
             RefPtr { protectedThis->m_contentsDisplayDelegate }->setDisplayBuffer(*protectedThis->displayBuffer());
     });
 
-    m_currentScale = static_cast<float>(size.minDimension());
     if (RefPtr model = m_currentModel)
-        model->setViewportSize(size.width().toFloat(), size.height().toFloat());
+        model->setViewportSize(cssSize.width().toFloat(), cssSize.height().toFloat());
     notifyEntityTransformUpdated();
 }
 
@@ -426,8 +429,10 @@ void WebModelPlayer::handleMouseMove(const WebCore::LayoutPoint& currentPoint, M
         return;
 
     [orbitSimulator gestureDidUpdateWithDeltaX:totalDeltaX deltaY:totalDeltaY];
-    if (RefPtr model = m_currentModel)
+    if (RefPtr model = m_currentModel) {
         model->setRotation([orbitSimulator currentYaw], [orbitSimulator currentPitch]);
+        notifyEntityTransformUpdated();
+    }
 }
 
 bool WebModelPlayer::supportsMouseInteraction()
@@ -508,6 +513,11 @@ WebCore::ModelPlayerIdentifier WebModelPlayer::identifier() const
     return m_id;
 }
 
+bool WebModelPlayer::isPlaceholder() const
+{
+    return !m_currentModel;
+}
+
 void WebModelPlayer::configureGraphicsLayer(WebCore::GraphicsLayer& graphicsLayer, WebCore::ModelPlayerGraphicsLayerConfiguration&& configuration)
 {
     graphicsLayer.setContentsDisplayDelegate(contentsDisplayDelegate(), WebCore::GraphicsLayer::ContentsLayerPurpose::Canvas);
@@ -531,10 +541,10 @@ const MachSendRight* WebModelPlayer::displayBuffer() const
 
 WebCore::GraphicsLayerContentsDisplayDelegate* WebModelPlayer::contentsDisplayDelegate()
 {
-    if (!m_contentsDisplayDelegate) {
+    if (auto buffer = displayBuffer(); !m_contentsDisplayDelegate && buffer) {
         RefPtr modelDisplayDelegate = ModelDisplayBufferDisplayDelegate::create(*this);
         m_contentsDisplayDelegate = modelDisplayDelegate;
-        modelDisplayDelegate->setDisplayBuffer(*displayBuffer());
+        modelDisplayDelegate->setDisplayBuffer(*buffer);
     }
 
     return m_contentsDisplayDelegate.get();
@@ -549,8 +559,10 @@ void WebModelPlayer::simulate(float elapsedTime)
     RetainPtr orbitSimulator = m_orbitSimulator;
     if (!orbitSimulator)
         return;
-    if ([orbitSimulator stepWithElapsedTime:elapsedTime])
+    if ([orbitSimulator stepWithElapsedTime:elapsedTime]) {
         model->setRotation([orbitSimulator currentYaw], [orbitSimulator currentPitch]);
+        notifyEntityTransformUpdated();
+    }
 }
 
 void WebModelPlayer::setPlaybackRate(double newRate, CompletionHandler<void(double effectivePlaybackRate)>&& completion)
@@ -693,6 +705,76 @@ void WebModelPlayer::setEnvironmentMap(Ref<WebCore::SharedBuffer>&& data)
 
     if (RefPtr client = m_client.get())
         client->didFinishEnvironmentMapLoading(*this, success);
+}
+
+void WebModelPlayer::visibilityStateDidChange()
+{
+    // When the model becomes invisible, release memory-intensive resources.
+    // When it becomes visible again, HTMLModelElement will trigger a reload through startLoadModelTimer().
+    RefPtr client = m_client.get();
+    if (!client)
+        return;
+
+    if (!client->isVisible()) {
+        m_cachedAnimationState = currentAnimationState();
+        m_cachedTransformState = currentTransformState();
+
+        // Model is no longer visible - release resources to save memory
+        m_currentModel = nullptr;
+        m_retainedData = nil;
+        m_didFinishLoading = false;
+        m_modelLoader = nil;
+        m_displayBuffers.clear();
+        m_environmentMap = std::nullopt;
+    }
+}
+
+void WebModelPlayer::reload(WebCore::Model& modelSource, WebCore::LayoutSize size, WebCore::ModelPlayerAnimationState& animationState, std::unique_ptr<WebCore::ModelPlayerTransformState>&& transformState)
+{
+    load(modelSource, size);
+    if (transformState) {
+        if (auto entityTransform = transformState->entityTransform())
+            setEntityTransform(*entityTransform);
+    }
+
+    setAutoplay(animationState.autoplay());
+    setLoop(animationState.loop());
+    setPaused(animationState.paused(), [] (bool) { });
+    if (auto playbackRate = animationState.effectivePlaybackRate())
+        setPlaybackRate(*playbackRate, [] (double) { });
+    setCurrentTime(animationState.currentTime(), [] { });
+}
+
+std::optional<WebCore::ModelPlayerAnimationState> WebModelPlayer::currentAnimationState() const
+{
+    if (!m_currentModel)
+        return m_cachedAnimationState;
+
+    bool paused = m_pauseState != PauseState::Playing;
+    bool autoplay = !paused;
+    Seconds animationDuration { duration() };
+    std::optional<double> effectivePlaybackRate = m_playbackRate;
+    std::optional<Seconds> lastCachedCurrentTime = currentTime();
+    std::optional<MonotonicTime> lastCachedClockTimestamp = MonotonicTime::now();
+
+    return WebCore::ModelPlayerAnimationState(autoplay, m_isLooping, paused, animationDuration, effectivePlaybackRate, lastCachedCurrentTime, lastCachedClockTimestamp);
+}
+
+std::optional<std::unique_ptr<WebCore::ModelPlayerTransformState>> WebModelPlayer::currentTransformState() const
+{
+    if (!m_currentModel) {
+        if (m_cachedTransformState)
+            return (*m_cachedTransformState)->clone();
+        return std::nullopt;
+    }
+
+    std::optional<WebCore::TransformationMatrix> transform = entityTransform();
+
+    auto [simdCenter, simdExtents] = m_currentModel->getCenterAndExtents();
+    std::optional<WebCore::FloatPoint3D> center = WebCore::FloatPoint3D(simdCenter.x, simdCenter.y, simdCenter.z);
+    std::optional<WebCore::FloatPoint3D> extents = WebCore::FloatPoint3D(simdExtents.x, simdExtents.y, simdExtents.z);
+
+    return ModelProcessModelPlayerTransformState::create(transform, center, extents, false, m_stageMode);
 }
 
 }
