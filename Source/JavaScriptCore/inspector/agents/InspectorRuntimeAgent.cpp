@@ -197,20 +197,11 @@ void InspectorRuntimeAgent::callFunctionOn(const Protocol::Runtime::RemoteObject
 void InspectorRuntimeAgent::callFunctionOn(InjectedScript& injectedScript, const Protocol::Runtime::RemoteObjectId& objectId, const String& functionDeclaration, RefPtr<JSON::Array>&& arguments, std::optional<bool>&& doNotPauseOnExceptionsAndMuteConsole, std::optional<bool>&& returnByValue, std::optional<bool>&& generatePreview, std::optional<bool>&& /* emulateUserGesture */, std::optional<bool>&& awaitPromise, Ref<CallFunctionOnCallback>&& callback)
 {
     ASSERT(!injectedScript.hasNoValue());
-<<<<<<< HEAD
 
     std::optional<JSC::Debugger::TemporarilyDisableExceptionBreakpoints> temporarilyDisableExceptionBreakpoints;
     if (m_debugger)
         temporarilyDisableExceptionBreakpoints.emplace(*m_debugger);
 
-||||||| parent of 9efc69f31bfb (chore(webkit): bootstrap build #2275)
-
-    JSC::Debugger::TemporarilyDisableExceptionBreakpoints temporarilyDisableExceptionBreakpoints(m_debugger);
-
-=======
-    JSC::Debugger::TemporarilyDisableExceptionBreakpoints temporarilyDisableExceptionBreakpoints(m_debugger);
-    
->>>>>>> 9efc69f31bfb (chore(webkit): bootstrap build #2275)
     bool pauseAndMute = doNotPauseOnExceptionsAndMuteConsole.value_or(false);
     if (pauseAndMute) {
         if (temporarilyDisableExceptionBreakpoints)
