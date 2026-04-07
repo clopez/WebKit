@@ -51,6 +51,24 @@ WebKeyboardEvent::WebKeyboardEvent(WebEvent&& event, const String& text, const S
     ASSERT(isKeyboardEventType(type()));
 }
 
+WebKeyboardEvent::WebKeyboardEvent(WebEventType type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<WebEventModifier> modifiers, MonotonicTime timestamp, Vector<WebCore::KeypressCommand>&& commands)
+    : WebEvent(type, modifiers, timestamp)
+    , m_text(text)
+    , m_unmodifiedText(text)
+    , m_key(key)
+    , m_code(code)
+    , m_keyIdentifier(keyIdentifier)
+    , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
+    , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
+    , m_macCharCode(0)
+    , m_commands(WTF::move(commands))
+    , m_isAutoRepeat(isAutoRepeat)
+    , m_isKeypad(isKeypad)
+    , m_isSystemKey(isSystemKey)
+{
+    ASSERT(isKeyboardEventType(type));
+}
+
 #elif PLATFORM(GTK)
 
 WebKeyboardEvent::WebKeyboardEvent(WebEvent&& event, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, std::optional<Vector<WebCore::CompositionUnderline>>&& preeditUnderlines, std::optional<EditingRange>&& preeditSelectionRange, Vector<String>&& commands, bool isAutoRepeat, bool isKeypad)
@@ -72,6 +90,24 @@ WebKeyboardEvent::WebKeyboardEvent(WebEvent&& event, const String& text, const S
     , m_isSystemKey(false)
 {
     ASSERT(isKeyboardEventType(type()));
+}
+
+WebKeyboardEvent::WebKeyboardEvent(WebEventType type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<WebEventModifier> modifiers, MonotonicTime timestamp, Vector<String>&& commands)
+    : WebEvent(type, modifiers, timestamp)
+    , m_text(text)
+    , m_unmodifiedText(text)
+    , m_key(key)
+    , m_code(code)
+    , m_keyIdentifier(keyIdentifier)
+    , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
+    , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
+    , m_macCharCode(0)
+    , m_commands(WTF::move(commands))
+    , m_isAutoRepeat(isAutoRepeat)
+    , m_isKeypad(isKeypad)
+    , m_isSystemKey(isSystemKey)
+{
+    ASSERT(isKeyboardEventType(type));
 }
 
 #elif PLATFORM(IOS_FAMILY)
@@ -137,7 +173,38 @@ WebKeyboardEvent::WebKeyboardEvent(WebEvent&& event, const String& text, const S
 
 #endif
 
+<<<<<<< HEAD
 WebKeyboardEvent::~WebKeyboardEvent() = default;
+||||||| parent of a788b1c28fd1 (chore(webkit): bootstrap build #2277)
+WebKeyboardEvent::~WebKeyboardEvent()
+{
+}
+=======
+#if PLATFORM(WIN) || USE(LIBWPE)
+
+WebKeyboardEvent::WebKeyboardEvent(WebEventType type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<WebEventModifier> modifiers, MonotonicTime timestamp)
+    : WebEvent(type, modifiers, timestamp)
+    , m_text(text)
+    , m_unmodifiedText(text)
+    , m_key(key)
+    , m_code(code)
+    , m_keyIdentifier(keyIdentifier)
+    , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
+    , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
+    , m_macCharCode(0)
+    , m_isAutoRepeat(isAutoRepeat)
+    , m_isKeypad(isKeypad)
+    , m_isSystemKey(isSystemKey)
+{
+    ASSERT(isKeyboardEventType(type));
+}
+
+#endif
+
+WebKeyboardEvent::~WebKeyboardEvent()
+{
+}
+>>>>>>> a788b1c28fd1 (chore(webkit): bootstrap build #2277)
 
 bool WebKeyboardEvent::isKeyboardEventType(WebEventType type)
 {
