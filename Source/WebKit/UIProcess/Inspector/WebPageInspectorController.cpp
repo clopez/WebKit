@@ -423,59 +423,7 @@ void WebPageInspectorController::setContinueLoadingCallback(const ProvisionalPag
 
 void WebPageInspectorController::didCreateProvisionalPage(ProvisionalPageProxy& provisionalPage, WebCore::FrameIdentifier mainFrameID, WebProcessProxy& mainFrameProcess)
 {
-<<<<<<< HEAD
-    addTarget(PageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage), Inspector::InspectorTargetType::Page));
-||||||| parent of a788b1c28fd1 (chore(webkit): bootstrap build #2277)
-    addTarget(PageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage), Inspector::InspectorTargetType::Page));
-}
-
-void WebPageInspectorController::willDestroyProvisionalPage(const ProvisionalPageProxy& provisionalPage)
-{
-    removeTarget(getTargetID(provisionalPage));
-}
-
-void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifier oldWebPageID, WebCore::PageIdentifier newWebPageID)
-{
-    String oldID = PageInspectorTarget::toTargetID(oldWebPageID);
-    String newID = PageInspectorTarget::toTargetID(newWebPageID);
-    auto newTarget = m_targets.take(newID);
-    CheckedPtr targetAgent = m_targetAgent;
-    ASSERT(newTarget);
-    newTarget->didCommitProvisionalTarget();
-    targetAgent->didCommitProvisionalTarget(oldID, newID);
-
-    // Update target list to only include targets from the committed page.
-    for (auto& target : m_targets.values())
-        targetAgent->targetDestroyed(*target);
-    m_targets.clear();
-    m_targets.set(newTarget->identifier(), WTF::move(newTarget));
-=======
     addTarget(PageInspectorTargetProxy::create(provisionalPage, getTargetID(provisionalPage)));
-    if (provisionalPage.mainFrame())
-        didCreateFrame(*provisionalPage.mainFrame());
-}
-
-void WebPageInspectorController::willDestroyProvisionalPage(const ProvisionalPageProxy& provisionalPage)
-{
-    removeTarget(getTargetID(provisionalPage));
-}
-
-void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifier oldWebPageID, WebCore::PageIdentifier newWebPageID)
-{
-    String oldID = PageInspectorTarget::toTargetID(oldWebPageID);
-    String newID = PageInspectorTarget::toTargetID(newWebPageID);
-    auto newTarget = m_targets.take(newID);
-    CheckedPtr targetAgent = m_targetAgent;
-    ASSERT(newTarget);
-    newTarget->didCommitProvisionalTarget();
-    targetAgent->didCommitProvisionalTarget(oldID, newID);
-
-    // Update target list to only include targets from the committed page.
-    for (auto& target : m_targets.values())
-        targetAgent->targetDestroyed(*target);
-    m_targets.clear();
-    m_targets.set(newTarget->identifier(), WTF::move(newTarget));
->>>>>>> a788b1c28fd1 (chore(webkit): bootstrap build #2277)
 
     if (shouldManageFrameTargets()) {
         constexpr bool isProvisional = true;
