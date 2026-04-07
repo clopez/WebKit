@@ -173,13 +173,6 @@ WebKeyboardEvent::WebKeyboardEvent(WebEvent&& event, const String& text, const S
 
 #endif
 
-<<<<<<< HEAD
-WebKeyboardEvent::~WebKeyboardEvent() = default;
-||||||| parent of a788b1c28fd1 (chore(webkit): bootstrap build #2277)
-WebKeyboardEvent::~WebKeyboardEvent()
-{
-}
-=======
 #if PLATFORM(WIN) || USE(LIBWPE)
 
 WebKeyboardEvent::WebKeyboardEvent(WebEventType type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<WebEventModifier> modifiers, MonotonicTime timestamp)
@@ -201,10 +194,7 @@ WebKeyboardEvent::WebKeyboardEvent(WebEventType type, const String& text, const 
 
 #endif
 
-WebKeyboardEvent::~WebKeyboardEvent()
-{
-}
->>>>>>> a788b1c28fd1 (chore(webkit): bootstrap build #2277)
+WebKeyboardEvent::~WebKeyboardEvent() = default;
 
 bool WebKeyboardEvent::isKeyboardEventType(WebEventType type)
 {
