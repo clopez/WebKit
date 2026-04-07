@@ -127,7 +127,7 @@ void WebPageInspectorInputAgent::willDestroyFrontendAndBackend(Inspector::Discon
 static String keyIdentifierForKey(const String& key)
 {
     if (key.length() == 1)
-        return makeString("U+"_s, hex(toASCIIUpper(key.characterAt(0)), 4));
+        return makeString("U+"_s, hex(toASCIIUpper(key.codeUnitAt(0)), 4));
     if (key == "Delete"_s)
         return "U+007F"_s;
     if (key == "Backspace"_s)
