@@ -225,7 +225,6 @@ http/tests/security/XFrameOptions/x-frame-options-multiple-headers-sameorigin-de
 http/tests/security/XFrameOptions/x-frame-options-parent-same-origin-deny.html [ Failure ]
 http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html [ Failure ]
 http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html [ Failure ]
-http/tests/security/block-top-level-navigations-by-sandboxed-iframe-with-propagated-user-gesture.html [ Failure ]
 http/tests/security/block-top-level-navigations-by-third-party-sandboxed-iframe.html [ Failure ]
 http/tests/security/contentSecurityPolicy/1.1/frame-ancestors/frame-ancestors-nested-cross-in-same-none-block.html [ Failure ]
 http/tests/security/contentSecurityPolicy/1.1/frame-ancestors/frame-ancestors-nested-cross-in-same-self-block.html [ Failure ]
@@ -235,15 +234,8 @@ http/tests/security/contentSecurityPolicy/1.1/frame-ancestors/frame-ancestors-ur
 http/tests/security/contentSecurityPolicy/embed-redirect-allowed.html [ Failure ]
 http/tests/security/contentSecurityPolicy/embed-redirect-allowed2.html [ Failure ]
 http/tests/security/contentSecurityPolicy/frame-src-cross-origin-load.html [ Failure ]
-http/tests/security/contentSecurityPolicy/iframe-redirect-allowed-by-child-src.html [ Failure ]
-http/tests/security/contentSecurityPolicy/iframe-redirect-allowed-by-child-src2.html [ Failure ]
-http/tests/security/contentSecurityPolicy/iframe-redirect-allowed-by-frame-src.html [ Failure ]
-http/tests/security/contentSecurityPolicy/iframe-redirect-allowed-by-frame-src2.html [ Failure ]
-http/tests/security/contentSecurityPolicy/object-redirect-allowed.html [ Failure ]
-http/tests/security/contentSecurityPolicy/object-redirect-allowed2.html [ Failure ]
 http/tests/security/contentSecurityPolicy/upgrade-insecure-requests/proper-nested-upgrades.html [ Failure ]
 http/tests/security/cross-origin-local-storage.html [ Failure ]
-http/tests/security/file-system-access-via-dataTransfer.html [ Failure ]
 http/tests/security/video-poster-cross-origin-crash2.html [ Failure ]
 http/tests/security/window-events-clear-domain.html [ Failure ]
 http/tests/security/xss-DENIED-iframe-src-alias.html [ Failure ]
@@ -281,7 +273,6 @@ http/wpt/webcodecs/audioData-serialization.html [ Failure ]
 http/wpt/webcodecs/videoFrame-serialization.html [ Failure ]
 http/wpt/webrtc/third-party-frame-ice-candidate-filtering.html [ Failure ]
 imported/w3c/web-platform-tests/clear-site-data/executionContexts.sub.html [ Failure ]
-imported/w3c/web-platform-tests/content-security-policy/inheritance/blob-url-inherits-from-initiator.sub.html [ Failure ]
 imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/crashtests/top-layer-crash.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-font-loading/idlharness.https.html [ Failure ]
@@ -442,10 +433,11 @@ fast/block/float/independent-align-positioning.html [ Missing ]
 ####################################
 # Tests with intentional text fail #
 ####################################
-# The following two tests have a different console log with Site Isolation enabled
+# The following tests have a different console log with Site Isolation enabled
 # vs disabled. The difference is that with Site Isolation enabled, the error message
 # only includes the protocol and origin of a RemoteFrame when with Site Isolation
 # is disabled the other frame is a LocalFrame which we log the URL with the
 # full path.
 http/tests/security/block-top-level-navigation-to-different-scheme-by-third-party-iframes.html [ Failure ]
+http/tests/security/block-top-level-navigations-by-sandboxed-iframe-with-propagated-user-gesture.html [ Failure ]
 http/tests/security/block-top-level-navigations-by-third-party-iframes.html [ Failure ]

@@ -2881,7 +2881,7 @@ sub GenerateDictionaryImplementationMemberConversion
     if ($needsRuntimeCheck) {
         my $runtimeEnableConditionalString = GenerateRuntimeEnableConditionalString($dictionary, $member, "&lexicalGlobalObject");
 
-        $memberConversion .= "    auto ${implementedAsKey}ConversionResult = [&]() -> ConversionResult<${adjustedIDLType}> {\n";
+        $memberConversion .= "    auto ${implementedAsKey}ConversionResult = [&] -> ConversionResult<${adjustedIDLType}> {\n";
         $memberConversion .= "        if (${runtimeEnableConditionalString}) {\n";
         $indent = "        ";
     }
@@ -2922,7 +2922,7 @@ sub GenerateDictionaryImplementationMemberConversion
 
         AddToImplIncludes("JSDOMConvertOptional.h", $conditional) if $optional;
 
-        $conversion = "[&]() -> ConversionResult<${adjustedIDLType}> {\n";
+        $conversion = "[&] -> ConversionResult<${adjustedIDLType}> {\n";
         $conversion .= "        if (${key}Value.isUndefined())\n";
         $conversion .= "            return ${defaultValue};\n";
         $conversion .= "        auto parseResult = parseEnumeration<${enumClassName}>(lexicalGlobalObject, ${key}Value);\n";
@@ -3656,20 +3656,7 @@ sub GenerateHeader
     }
 
     # Structure ID
-    push(@headerContent, "    static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)\n");
-    push(@headerContent, "    {\n");
-    my $indexingModeIncludingHistory = InstanceOverridesGetOwnPropertySlot($interface) ? "JSC::MayHaveIndexedAccessors" : "JSC::NonArray";
-    if (IsDOMGlobalObject($interface)) {
-        push(@headerContent, "        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::GlobalObjectType, StructureFlags), info(), $indexingModeIncludingHistory);\n");
-    } elsif ($codeGenerator->InheritsInterface($interface, "Node")) {
-        my $type = GetJSTypeForNode($interface);
-        push(@headerContent, "        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType($type), StructureFlags), info(), $indexingModeIncludingHistory);\n");
-    } elsif ($codeGenerator->InheritsInterface($interface, "Event")) {
-        push(@headerContent, "        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType(JSEventType), StructureFlags), info(), $indexingModeIncludingHistory);\n");
-    } else {
-        push(@headerContent, "        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info(), $indexingModeIncludingHistory);\n");
-    }
-    push(@headerContent, "    }\n\n");
+    push(@headerContent, "    static JSC::Structure* createStructure(JSC::VM&, JSC::JSGlobalObject*, JSC::JSValue);\n");
 
     if ($codeGenerator->InheritsInterface($interface, "HTMLElement")) {
         push(@headerContent, "    JSC::JSScope* pushEventHandlerScope(JSC::JSGlobalObject*, JSC::JSScope*) const;\n\n");
@@ -5521,6 +5508,22 @@ sub GenerateImplementation
         push(@implContent, "\n");
     }
 
+    AddToImplIncludes("<JavaScriptCore/StructureInlines.h>");
+    push(@implContent, "JSC::Structure* ${className}::createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)\n");
+    push(@implContent, "{\n");
+    my $indexingModeIncludingHistory = InstanceOverridesGetOwnPropertySlot($interface) ? "JSC::MayHaveIndexedAccessors" : "JSC::NonArray";
+    if (IsDOMGlobalObject($interface)) {
+        push(@implContent, "    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::GlobalObjectType, StructureFlags), info(), $indexingModeIncludingHistory);\n");
+    } elsif ($codeGenerator->InheritsInterface($interface, "Node")) {
+        my $type = GetJSTypeForNode($interface);
+        push(@implContent, "    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType($type), StructureFlags), info(), $indexingModeIncludingHistory);\n");
+    } elsif ($codeGenerator->InheritsInterface($interface, "Event")) {
+        push(@implContent, "    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType(JSEventType), StructureFlags), info(), $indexingModeIncludingHistory);\n");
+    } else {
+        push(@implContent, "    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info(), $indexingModeIncludingHistory);\n");
+    }
+    push(@implContent, "}\n\n");
+
     unless (ShouldUseGlobalObjectPrototype($interface) || ShouldUseOrdinaryObjectPrototype($interface)) {
         push(@implContent, "JSObject* ${className}::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)\n");
         push(@implContent, "{\n");
@@ -5890,6 +5893,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 END
 
+        AddToImplIncludes("JSDOMWrapperCache.h");
         push(@implContent, "JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, Ref<$implType>&& impl)\n");
         push(@implContent, "{\n");
         if ($implType =~ /Document$/) {
@@ -5930,6 +5934,7 @@ END
     verifyVTable<$implType>(impl.ptr());
 #endif
 END
+        AddToImplIncludes("JSDOMWrapperCache.h");
         push(@implContent, "    return createWrapper<${implType}>(globalObject, WTF::move(impl));\n");
         push(@implContent, "}\n\n");
 
@@ -7496,6 +7501,8 @@ sub GenerateCallbackImplementationOperationBody
     push(@$contentRef, "    auto& lexicalGlobalObject = globalObject;\n");
 
     push(@$contentRef, "    JSValue thisValue = ${thisValue};\n");
+
+    $includesRef->{"<JavaScriptCore/MarkedVector.h>"} = 1;
     push(@$contentRef, "    MarkedArgumentBuffer args;\n");
 
     foreach my $argument (@{$operation->arguments}) {
@@ -7569,8 +7576,10 @@ sub GenerateCallbackImplementationContent
     my $visibleName = $codeGenerator->GetVisibleInterfaceName($interfaceOrCallback);
     my $className = "JS${name}";
 
-    $includesRef->{"ScriptExecutionContext.h"} = 1;
     $includesRef->{"ContextDestructionObserverInlines.h"} = 1;
+    $includesRef->{"JSDOMGlobalObject.h"} = 1;
+    $includesRef->{"ScriptExecutionContext.h"} = 1;
+    $includesRef->{"<JavaScriptCore/JSCellInlines.h>"} = 1;
 
     # We already validated GenerateIsReachable when generating the header file.
     my $ownerObject = $generateIsReachable ? "globalObject->scriptExecutionContext()" : "this";
@@ -8385,6 +8394,10 @@ sub NativeToJSValue
         AddToImplIncludes("JSDOMBindingSecurity.h", $conditional);
         $value = "BindingSecurity::checkSecurityForNodeWithFrameOwner($lexicalGlobalObjectReference, $value, impl)";
     }
+    if ($context->extendedAttributes->{CheckSecurityForNodeWithDOMWindow}) {
+        AddToImplIncludes("JSDOMBindingSecurity.h", $conditional);
+        $value = "BindingSecurity::checkSecurityForNodeWithDOMWindow($lexicalGlobalObjectReference, $value, impl)";
+    }
 
     my $IDLType = GetIDLType($interface, $type);
 
@@ -8402,7 +8415,7 @@ sub NativeToJSValue
     push(@conversionArguments, $globalObjectReference) if NativeToJSValueDOMConvertNeedsGlobalObject($type);
     push(@conversionArguments, "throwScope") if $mayThrowException;
     if ($needsFunctorWrapping) {
-        push(@conversionArguments, "[&]() -> decltype(auto) { return $value; }");
+        push(@conversionArguments, "[&] -> decltype(auto) { return $value; }");
     } else {
         push(@conversionArguments, "$value");
     }

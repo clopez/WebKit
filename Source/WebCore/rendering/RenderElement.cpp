@@ -1132,7 +1132,25 @@ void RenderElement::styleDidChange(Style::Difference diff, const RenderStyle* ol
         issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().usedOutlineSize() : oldStyle->usedOutlineSize());
     }
 
-    if (settings().cssScrollAnchoringEnabled() && (diff >= Style::DifferenceResult::Layout) && style().scrollAnchoringSuppressionStyleDidChange(oldStyle)) {
+    auto isLayoutDiff = [](Style::DifferenceResult diff) {
+        switch (diff) {
+        case Style::DifferenceResult::Equal:
+        case Style::DifferenceResult::RecompositeLayer:
+        case Style::DifferenceResult::Repaint:
+        case Style::DifferenceResult::RepaintIfText:
+        case Style::DifferenceResult::RepaintLayer:
+        case Style::DifferenceResult::Overflow:
+        case Style::DifferenceResult::NewStyle:
+            return false;
+        case Style::DifferenceResult::LayoutOutOfFlowMovementOnly:
+        case Style::DifferenceResult::OverflowAndOutOfFlowMovement:
+        case Style::DifferenceResult::Layout:
+            return true;
+        }
+        return false;
+    };
+
+    if (settings().cssScrollAnchoringEnabled() && isLayoutDiff(diff.result) && style().scrollAnchoringSuppressionStyleDidChange(oldStyle)) {
         auto findNearestScrollAnchoringController = [](const RenderElement& renderer) -> CheckedPtr<ScrollAnchoringController> {
             // At this point we can't find the appropriate enclosing ScrollAnchoringController, because we haven't done layout.
             // We will, however, have created a ScrollAnchoringController for potentially scrollable ancestors, so store
@@ -2531,8 +2549,8 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
     // (nesting depth is greater than some const) inside of a parent block
     // which has fixed height but its content overflows intentionally.
     for (CheckedPtr descendant = traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth); descendant; descendant = descendant->traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth)) {
-        while (depthStack.size() > 0 && currentDepth <= depthStack[depthStack.size() - 1])
-            depthStack.removeAt(depthStack.size() - 1);
+        while (!depthStack.isEmpty() && currentDepth <= depthStack.last())
+            depthStack.removeLast();
         if (newFixedDepth)
             depthStack.append(newFixedDepth);
 
@@ -2561,8 +2579,8 @@ void RenderElement::resetTextAutosizing()
     int newFixedDepth = 0;
 
     for (CheckedPtr descendant = traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth); descendant; descendant = descendant->traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth)) {
-        while (depthStack.size() > 0 && currentDepth <= depthStack[depthStack.size() - 1])
-            depthStack.removeAt(depthStack.size() - 1);
+        while (!depthStack.isEmpty() && currentDepth <= depthStack.last())
+            depthStack.removeLast();
         if (newFixedDepth)
             depthStack.append(newFixedDepth);
 

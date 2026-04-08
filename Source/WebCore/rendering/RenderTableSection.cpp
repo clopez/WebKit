@@ -1044,7 +1044,7 @@ CellSpan RenderTableSection::dirtiedRows(const LayoutRect& damageRect) const
     CellSpan coveredRows = spannedRows(damageRect, IncludeAllIntersectingCells);
 
     // To repaint the border we might need to repaint first or last row even if they are not spanned themselves.
-    if (coveredRows.start >= m_rowPos.size() - 1 && m_rowPos[m_rowPos.size() - 1] + table()->outerBorderAfter() >= damageRect.y())
+    if (coveredRows.start >= m_rowPos.size() - 1 && m_rowPos.last() + table()->outerBorderAfter() >= damageRect.y())
         --coveredRows.start;
 
     if (!coveredRows.end && m_rowPos[0] - table()->outerBorderBefore() <= damageRect.maxY())
@@ -1062,7 +1062,7 @@ CellSpan RenderTableSection::dirtiedColumns(const LayoutRect& damageRect) const
 
     const Vector<LayoutUnit>& columnPos = table()->columnPositions();
     // To repaint the border we might need to repaint first or last column even if they are not spanned themselves.
-    if (coveredColumns.start >= columnPos.size() - 1 && columnPos[columnPos.size() - 1] + table()->outerBorderEnd() >= damageRect.x())
+    if (coveredColumns.start >= columnPos.size() - 1 && columnPos.last() + table()->outerBorderEnd() >= damageRect.x())
         --coveredColumns.start;
 
     if (!coveredColumns.end && columnPos[0] - table()->outerBorderStart() <= damageRect.maxX())
@@ -1346,9 +1346,19 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, const LayoutPoint& pa
             row->paintOutlineForRowIfNeeded(paintInfo, paintOffset);
     };
 
+    auto paintRowShadow = [&](unsigned rowIndex, PaintPhase phase) {
+        if (phase != PaintPhase::BlockBackground && phase != PaintPhase::ChildBlockBackground)
+            return;
+
+        auto* row = m_grid[rowIndex].rowRenderer;
+        if (row && !row->hasSelfPaintingLayer() && !row->style().boxShadow().isNone())
+            row->paintShadowForRowIfNeeded(paintInfo, paintOffset);
+    };
+
     auto paintContiguousCells = [&]() {
         // Draw the dirty cells in the order that they appear.
         for (unsigned r = dirtiedRows.start; r < dirtiedRows.end; r++) {
+            paintRowShadow(r , paintInfo.phase);
             paintRowOutline(r, paintInfo.phase);
 
             for (unsigned c = dirtiedColumns.start; c < dirtiedColumns.end; c++) {

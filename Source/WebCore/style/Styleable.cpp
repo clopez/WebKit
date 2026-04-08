@@ -389,8 +389,11 @@ void Styleable::updateCSSAnimations(const RenderStyle* currentStyle, const Rende
 {
     auto& keyframeEffectStack = ensureKeyframeEffectStack();
 
-    // In case this element is newly getting a "display: none" we need to cancel all of its animations and disregard new ones.
-    if ((!currentStyle || currentStyle->display() != Style::DisplayType::None) && newStyle.display() == Style::DisplayType::None) {
+    // Cancel all animations and disregard new ones when this element is newly getting
+    // "display: none", or when it is in a display:none subtree due to an ancestor (so
+    // that animations restart when the subtree becomes visible again).
+    if (((!currentStyle || currentStyle->display() != Style::DisplayType::None) && newStyle.display() == Style::DisplayType::None)
+        || isInDisplayNoneTree == Style::IsInDisplayNoneTree::Yes) {
         for (auto& cssAnimation : animationsCreatedByMarkup())
             cssAnimation->cancelFromStyle();
         keyframeEffectStack.setCSSAnimationList(std::nullopt);
@@ -772,7 +775,7 @@ void Styleable::updateCSSTransitions(const RenderStyle& currentStyle, const Rend
 
     // In case this element is newly getting a "display: none" we need to cancel all of its transitions and disregard new ones,
     // unless it will transition the "display" property itself.
-    if (!currentStyle.transitions().isInitial() && currentStyle.display() != Style::DisplayType::None && newStyle.display() == Style::DisplayType::None && !styleHasDisplayTransition(newStyle)) {
+    if (!currentStyle.transitions().isInitial() && currentStyle.display() != Style::DisplayType::None && newStyle.display() == Style::DisplayType::None && !styleHasDisplayTransition(newStyle, element)) {
         if (hasRunningTransitions()) {
             auto runningTransitions = ensureRunningTransitionsByProperty();
             for (const auto& cssTransitionsByAnimatableCSSPropertyMapItem : runningTransitions)

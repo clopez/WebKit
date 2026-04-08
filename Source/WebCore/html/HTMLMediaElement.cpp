@@ -83,6 +83,7 @@
 #include "JSDOMPromiseDeferred.h"
 #include "JSHTMLMediaElement.h"
 #include "JSMediaControlsHost.h"
+#include "JSValueInWrappedObjectInlines.h"
 #include "LoadableTextTrack.h"
 #include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
@@ -6086,12 +6087,6 @@ void HTMLMediaElement::mediaPlayerRateChanged()
         pauseWatchtimeTimer();
 
     updateSleepDisabling();
-
-#if ENABLE(WEB_AUDIO)
-    // Notify the audio source node if playback rate changed
-    if (RefPtr audioSourceNode = m_audioSourceNode)
-        audioSourceNode->setPlaybackRate(m_reportedPlaybackRate);
-#endif
 
     endProcessingMediaPlayerCallback();
 }

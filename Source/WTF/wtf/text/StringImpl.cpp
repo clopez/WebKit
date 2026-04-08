@@ -382,7 +382,7 @@ Ref<StringImpl> StringImpl::substring(unsigned start, unsigned length)
     return create(span16().subspan(start, length));
 }
 
-char32_t NODELETE StringImpl::characterStartingAt(unsigned i)
+char32_t NODELETE StringImpl::codePointAt(unsigned i)
 {
     if (is8Bit())
         return span8()[i];
@@ -391,7 +391,7 @@ char32_t NODELETE StringImpl::characterStartingAt(unsigned i)
         return span[i];
     if (i + 1 < m_length && U16_IS_LEAD(span[i]) && U16_IS_TRAIL(span[i + 1]))
         return U16_GET_SUPPLEMENTARY(span[i], span[i + 1]);
-    return 0;
+    return span[i];
 }
 
 Ref<StringImpl> StringImpl::convertToLowercaseWithoutLocale()

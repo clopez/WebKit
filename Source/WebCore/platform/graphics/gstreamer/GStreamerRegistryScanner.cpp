@@ -470,7 +470,29 @@ void GStreamerRegistryScanner::initializeDecoders(const GStreamerRegistryScanner
         m_decoderMimeTypeSet.add("audio/mpeg"_s);
         m_decoderMimeTypeSet.add("audio/x-mpeg"_s);
         m_decoderCodecMap.add("mpeg"_s, result);
-        m_decoderCodecMap.add("mp4a*"_s, result);
+        // AAC has accumulated lots of extensions over the years.
+        // Unfortunately, decoders don't generally provide an API for querying support level, and support is not necessarily
+        // binary as features may be incomplete.
+        // We'll assume support for the extensions that as of 2026 are somewhat mainstream to avoid websites serving
+        // audio incompatible with the user decoder, which would cause errors or quality degradation depending on signalling.
+        //
+        // RFC 6381 3.3. ISO Base Media File Format Name Space
+        // Syntax: "mp4a." oti [ "." aud-oti ]
+        // oti is the ObjectTypeIndication from MPEG-4 Systems (ISO 14996-1).
+        // For oti=40 (MPEG-4 Audio), aud-oti represents the AOT.
+        m_decoderCodecMap.add("mp4a.67"_s, result); // MPEG-2 AAC LC
+        m_decoderCodecMap.add("mp4a.40.2"_s, result); // MPEG-4 AAC LC
+        m_decoderCodecMap.add("mp4a.40.02"_s, result); // MPEG-4 AAC LC
+        m_decoderCodecMap.add("mp4a.40.5"_s, result); // MPEG-4 HE-AAC v1 (AAC LC + SBR)
+        m_decoderCodecMap.add("mp4a.40.05"_s, result); // MPEG-4 HE-AAC v1 (AAC LC + SBR)
+        m_decoderCodecMap.add("mp4a.40.29"_s, result); // MPEG-4 HE-AAC v2 (AAC LC + SBR + PS)
+        // As of writing, support for Extended HE-AAC (MPEG-D USAC) and xHE-AAC (MPEG-D USAC + MPEG-D DRC) -- which uses the
+        // USAC AOT, is not yet widely available enough to be enabled by default.
+        auto value = CStringView::unsafeFromUTF8(g_getenv("WEBKIT_GST_CAN_PLAY_USAC"));
+        bool canPlayUsac = value.isEmpty() ? false : (WTF::equalLettersIgnoringASCIICase(value.span(), "true"_s)
+            || WTF::equalLettersIgnoringASCIICase(value.span(), "1"_s));
+        if (canPlayUsac)
+            m_decoderCodecMap.add("mp4a.40.42"_s, result); // MPEG-4 Extended HE-AAC and xHE-AAC (USAC AOT)
     }
 
     auto opusSupported = factories.hasElementForMediaType(ElementFactories::Type::AudioDecoder, "audio/x-opus"_s);
@@ -1241,7 +1263,8 @@ void GStreamerRegistryScanner::fillVideoRtpCapabilities(Configuration configurat
             element = gst_element_factory_make("webkitvideoencoder", nullptr);
 
         if (element) {
-            static constexpr std::array<std::pair<ASCIILiteral, unsigned>, 4> profiles = { {
+            static constexpr std::array<std::pair<ASCIILiteral, unsigned>, 5> profiles = { {
+                { "42c01f"_s, 0x42c01f },
                 { "42e01f"_s, 0x42e01f },
                 { "640c1f"_s, 0x640c1f },
                 { "42001f"_s, 0x42001f },

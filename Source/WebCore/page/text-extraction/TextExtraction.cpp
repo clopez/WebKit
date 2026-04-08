@@ -32,6 +32,7 @@
 #include "CommonVM.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
+#include "DOMWrapperWorld.h"
 #include "DocumentPage.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
@@ -1243,15 +1244,22 @@ Result extractItem(Request&& request, LocalFrame& frame)
         WeakHashSet<Node, WeakPtrImplWithEventTargetData> additionalContainersToCollect;
         RefPtr extractionRoot = dynamicDowncast<ContainerNode>(*extractionRootNode);
         if (extractionRoot && request.includeOffscreenPasswordFields && request.collectionRectInRootView) {
-            Vector<Ref<HTMLInputElement>> passwordFields;
+            ListHashSet<Ref<HTMLElement>> targetedElements;
             for (Ref input : descendantsOfType<HTMLInputElement>(*extractionRoot)) {
-                if (input->isPasswordField())
-                    passwordFields.append(input);
+                if (!input->isPasswordField())
+                    continue;
+
+                RefPtr form = input->form();
+                if (!form || !input->isShadowIncludingDescendantOf(*form))
+                    targetedElements.add(input);
+
+                if (form)
+                    targetedElements.add(form.releaseNonNull());
             }
 
-            for (Ref passwordField : passwordFields) {
+            for (Ref element : targetedElements) {
                 static constexpr FloatSize minimumSize { 280, 200 };
-                if (RefPtr container = findLargeContainerAboveNode(passwordField, minimumSize)) {
+                if (RefPtr container = findLargeContainerAboveNode(element, minimumSize)) {
                     addBoxShadowIfNeeded(*container, "#cb30e0"_s);
                     additionalContainersToCollect.add(container.releaseNonNull());
                 }

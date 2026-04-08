@@ -1322,6 +1322,7 @@ public:
     WKAccessibilityWebPageObject* NODELETE accessibilityRemoteObject();
     WebCore::IntPoint accessibilityRemoteFrameOffset();
     void createMockAccessibilityElement(pid_t);
+    void sendAccessibilityTokenIfNeeded();
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void cacheAXPosition(const WebCore::FloatPoint&);
     void cacheAXSize(const WebCore::IntSize&);
@@ -2012,18 +2013,6 @@ public:
 #endif
 
     void prepareToRunModalJavaScriptDialog();
-
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-    bool useARKitForModel() const { return m_useARKitForModel; };
-#endif
-#if HAVE(SCENEKIT)
-    bool useSceneKitForModel() const { return m_useSceneKitForModel; };
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    void modelInlinePreviewDidLoad(WebCore::PlatformLayerIdentifier);
-    void modelInlinePreviewDidFailToLoad(WebCore::PlatformLayerIdentifier, const WebCore::ResourceError&);
-#endif
 
 #if ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
     void beginTextRecognitionForVideoInElementFullScreen(const WebCore::HTMLVideoElement&);
@@ -2862,6 +2851,7 @@ private:
     WebCore::FloatPoint m_accessibilityPosition;
 
     RetainPtr<WKAccessibilityWebPageObject> m_mockAccessibilityElement;
+    bool m_needsAccessibilityTokenTransfer { false };
 #endif
 
 #if HAVE(NSVIEW_CORNER_CONFIGURATION)
@@ -3264,13 +3254,6 @@ private:
     bool m_didUpdateRenderingAfterCommittingLoad { false };
     bool m_isStoppingLoadingDueToProcessSwap { false };
     bool m_skipDecidePolicyForResponseIfPossible { false };
-
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-    bool m_useARKitForModel { false };
-#endif
-#if HAVE(SCENEKIT)
-    bool m_useSceneKitForModel { false };
-#endif
 
 #if HAVE(APP_ACCENT_COLORS)
     bool m_appUsesCustomAccentColor { false };

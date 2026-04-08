@@ -33,6 +33,7 @@
 #include <concepts>
 #include <cstring>
 #include <errno.h>
+#include <expected>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -855,7 +856,7 @@ template<typename T>
 template<class T, class... Args>
 [[nodiscard]] ALWAYS_INLINE decltype(auto) makeUnique(Args&&... args)
 {
-    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use FastMalloc (WTF_DEPRECATED_MAKE_FAST_ALLOCATED)");
+    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use TZoneMalloc (WTF_MAKE_TZONE_ALLOCATED or one of its variants)");
     static_assert(!HasRefPtrMemberFunctions<T>::value, "T should not be RefCounted");
     return std::make_unique<T>(std::forward<Args>(args)...);
 }
@@ -867,7 +868,7 @@ template<class T, class... Args>
 template<class T, class U = T, class... Args>
 [[nodiscard]] ALWAYS_INLINE const std::unique_ptr<U> makeUniqueWithoutRefCountedCheck(Args&&... args)
 {
-    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use FastMalloc (WTF_DEPRECATED_MAKE_FAST_ALLOCATED)");
+    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use TZoneMalloc (WTF_MAKE_TZONE_ALLOCATED or one of its variants)");
     return std::unique_ptr<U>(std::make_unique<T>(std::forward<Args>(args)...));
 }
 
@@ -1573,6 +1574,8 @@ static constexpr auto dereferenceView = std::views::transform([](auto&& x) -> de
 
 }
 
+template<class E> constexpr std::unexpected<std::decay_t<E>> makeUnexpected(E&& v) { return std::unexpected<typename std::decay<E>::type>(std::forward<E>(v)); }
+
 } // namespace WTF
 
 namespace WTF {
@@ -1616,6 +1619,7 @@ using WTF::isCompilationThread;
 using WTF::isPointerAligned;
 using WTF::isStatelessLambda;
 using WTF::lazyInitialize;
+using WTF::makeUnexpected;
 using WTF::makeUnique;
 using WTF::makeUniqueWithoutFastMallocCheck;
 using WTF::makeUniqueWithoutRefCountedCheck;

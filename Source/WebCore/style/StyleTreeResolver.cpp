@@ -260,18 +260,8 @@ void TreeResolver::resetStyleForNonRenderedDescendants(Element& subtreeRoot)
             it.traverseNextSkippingChildren();
     }
 
-    auto nonRenderedElementsWithPositionOptions = [&] () {
-        Vector<RefPtr<const Element>> result;
-        for (auto& styleable : m_positionOptions.keys()) {
-            if (styleable.first->isComposedTreeDescendantOf(subtreeRoot))
-                result.append(styleable.first);
-        }
-
-        return result;
-    }();
-
-    m_positionOptions.removeIf([&nonRenderedElementsWithPositionOptions] (const auto& kv) {
-        return nonRenderedElementsWithPositionOptions.contains(kv.key.first);
+    m_positionOptions.removeIf([&subtreeRoot] (const auto& kv) {
+        return kv.key.first->isComposedTreeDescendantOf(subtreeRoot);
     });
 
     subtreeRoot.clearChildNeedsStyleRecalc();
@@ -864,7 +854,7 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
             // to the old value. To remedy this, we manually patch display to be the old value if:
             // 1. the old style's display is not none, and
             // 2. the new style has display: none and specifies a transition on display.
-            if (oldStyle && !oldStyle->transitions().isInitial() && oldStyle->display() != DisplayType::None && styleHasDisplayTransition(*newStyle) && newStyle->display() == DisplayType::None)
+            if (oldStyle && !oldStyle->transitions().isInitial() && oldStyle->display() != DisplayType::None && styleHasDisplayTransition(*newStyle, element) && newStyle->display() == DisplayType::None)
                 newStyle->setDisplay(oldStyle->display());
             return { WTF::move(newStyle), OptionSet<AnimationImpact> { } };
         }
@@ -1541,11 +1531,8 @@ std::unique_ptr<Update> TreeResolver::resolve()
                 // reset the resolution stage to FindAnchor. This re-runs anchor resolution to
                 // pick up new anchor name changes.
                 AnchorPositionedKey anchorPositionedKey { anchorPositionedElement.ptr(), anchors.pseudoElementIdentifier };
-                auto stateIt = m_treeResolutionState.anchorPositionedStates.find(anchorPositionedKey);
-                if (stateIt != m_treeResolutionState.anchorPositionedStates.end()) {
-                    ASSERT(stateIt->value);
-                    stateIt->value->stage = AnchorPositionResolutionStage::FindAnchors;
-                }
+                if (auto* state = m_treeResolutionState.anchorPositionedStates.get(anchorPositionedKey))
+                    state->stage = AnchorPositionResolutionStage::FindAnchors;
             }
         }
 
@@ -1596,7 +1583,7 @@ static std::optional<LayoutSize> scrollContainerSizeForPositionOptions(const Sty
     CheckedRef containingBlock = *anchoredRenderer->containingBlock();
     if (containingBlock->canUseOverlayScrollbars())
         return { };
-    bool isOverflowScroller = containingBlock->isScrollContainerY() || containingBlock->isScrollContainerY();
+    bool isOverflowScroller = containingBlock->isScrollContainerX() || containingBlock->isScrollContainerY();
     if (!containingBlock->isRenderView() && !isOverflowScroller)
         return { };
     return containingBlock->contentBoxSize();

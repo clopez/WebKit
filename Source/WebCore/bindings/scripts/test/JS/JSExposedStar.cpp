@@ -41,6 +41,7 @@
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #include <JavaScriptCore/SlotVisitorMacros.h>
+#include <JavaScriptCore/StructureInlines.h>
 #include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
@@ -154,6 +155,11 @@ JSExposedStar::JSExposedStar(Structure* structure, JSDOMGlobalObject& globalObje
 
 static_assert(!std::is_base_of<ActiveDOMObject, ExposedStar>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
+JSC::Structure* JSExposedStar::createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
+{
+    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info(), JSC::NonArray);
+}
+
 JSObject* JSExposedStar::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
     auto* structure = JSExposedStarPrototype::createStructure(vm, &globalObject, JSEventTarget::prototype(vm, globalObject));
@@ -188,7 +194,7 @@ static inline JSC::EncodedJSValue jsExposedStarPrototypeFunction_operationForAll
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.operationForAllContexts(); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&] -> decltype(auto) { return impl.operationForAllContexts(); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsExposedStarPrototypeFunction_operationForAllContexts, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -203,7 +209,7 @@ static inline JSC::EncodedJSValue jsExposedStarPrototypeFunction_operationJustFo
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.operationJustForWindowContexts(); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&] -> decltype(auto) { return impl.operationJustForWindowContexts(); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsExposedStarPrototypeFunction_operationJustForWindowContexts, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
@@ -218,7 +224,7 @@ static inline JSC::EncodedJSValue jsExposedStarPrototypeFunction_operationJustFo
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.operationJustForWorkerContexts(); })));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&] -> decltype(auto) { return impl.operationJustForWorkerContexts(); })));
 }
 
 JSC_DEFINE_HOST_FUNCTION(jsExposedStarPrototypeFunction_operationJustForWorkerContexts, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))

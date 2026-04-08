@@ -24,6 +24,7 @@
 #include "ActiveDOMObject.h"
 #include "ContextDestructionObserverInlines.h"
 #include "DOMPromiseProxy.h"
+#include "DOMWrapperWorld.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -44,6 +45,7 @@
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #include <JavaScriptCore/SlotVisitorMacros.h>
+#include <JavaScriptCore/StructureInlines.h>
 #include <JavaScriptCore/SubspaceInlines.h>
 #include <type_traits>
 #include <wtf/GetPtr.h>
@@ -106,6 +108,22 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
     auto composedConversionResult = convert<IDLBoolean>(lexicalGlobalObject, composedValue);
     if (composedConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
+    auto trustedForBindingsOnlyConversionResult = [&] -> ConversionResult<IDLBoolean> {
+        if (worldForDOMObject(*&lexicalGlobalObject).allowAutofill()) {
+            JSValue trustedValue;
+            if (isNullOrUndefined)
+                trustedValue = jsUndefined();
+            else {
+                trustedValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "trusted"_s));
+                RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+            }
+            return convert<IDLBoolean>(lexicalGlobalObject, trustedValue);
+        } else {
+            return ConversionResult<IDLBoolean> { Converter<IDLBoolean>::ReturnType { } };
+        }
+    }();
+    if (trustedForBindingsOnlyConversionResult.hasException(throwScope)) [[unlikely]]
+        return ConversionResultException { };
     JSValue promiseValue;
     if (isNullOrUndefined)
         promiseValue = jsUndefined();
@@ -135,6 +153,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
             bubblesConversionResult.releaseReturnValue(),
             cancelableConversionResult.releaseReturnValue(),
             composedConversionResult.releaseReturnValue(),
+            trustedForBindingsOnlyConversionResult.releaseReturnValue(),
         },
         promiseConversionResult.releaseReturnValue(),
         reasonConversionResult.releaseReturnValue(),
@@ -252,6 +271,11 @@ JSTestPromiseRejectionEvent::JSTestPromiseRejectionEvent(Structure* structure, J
 
 static_assert(!std::is_base_of<ActiveDOMObject, TestPromiseRejectionEvent>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
+JSC::Structure* JSTestPromiseRejectionEvent::createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
+{
+    return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType(JSEventType), StructureFlags), info(), JSC::NonArray);
+}
+
 JSObject* JSTestPromiseRejectionEvent::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
 {
     auto* structure = JSTestPromiseRejectionEventPrototype::createStructure(vm, &globalObject, JSEvent::prototype(vm, globalObject));
@@ -284,7 +308,7 @@ static inline JSValue jsTestPromiseRejectionEvent_promiseGetter(JSGlobalObject& 
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
-    RELEASE_AND_RETURN(throwScope, (toJS<IDLPromise<IDLAny>>(lexicalGlobalObject, *thisObject.realm(), throwScope, [&]() -> decltype(auto) { return impl.promise(); })));
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLPromise<IDLAny>>(lexicalGlobalObject, *thisObject.realm(), throwScope, [&] -> decltype(auto) { return impl.promise(); })));
 }
 
 JSC_DEFINE_CUSTOM_GETTER(jsTestPromiseRejectionEvent_promise, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName attributeName))

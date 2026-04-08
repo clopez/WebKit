@@ -1885,7 +1885,7 @@ public:
     void hideAllPopoversUntil(HTMLElement*, FocusPreviousElement, FireEvents);
     void handlePopoverLightDismiss(const PointerEvent&, Node&);
     void handleDialogLightDismiss(const PointerEvent&, Node&);
-    bool needsPointerEventHandlingForPopover() const { return !m_autoPopoverList.isEmpty(); }
+    bool needsPointerEventHandlingForPopoverOrDialog() const { return !m_autoPopoverList.isEmpty() || !m_openDialogsList.isEmpty(); }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     void registerAttachmentIdentifier(const String&, const AttachmentAssociatedElement&);
@@ -1977,12 +1977,6 @@ public:
     LazyLoadImageObserver& lazyLoadImageObserver();
 #if ENABLE(MODEL_ELEMENT)
     LazyLoadModelObserver& lazyLoadModelObserver();
-#endif
-
-#if ENABLE(MODEL_PROCESS)
-    void incrementModelElementCount();
-    void decrementModelElementCount();
-    bool hasModelElement() const { return m_modelElementCount > 0; }
 #endif
 
     ContentVisibilityDocumentState& contentVisibilityDocumentState();
@@ -2359,10 +2353,6 @@ private:
     std::unique_ptr<LazyLoadImageObserver> m_lazyLoadImageObserver;
 #if ENABLE(MODEL_ELEMENT)
     std::unique_ptr<LazyLoadModelObserver> m_lazyLoadModelObserver;
-#endif
-
-#if ENABLE(MODEL_PROCESS)
-    unsigned m_modelElementCount { 0 };
 #endif
 
     std::unique_ptr<ContentVisibilityDocumentState> m_contentVisibilityDocumentState;

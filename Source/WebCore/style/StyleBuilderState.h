@@ -34,6 +34,7 @@
 #include "RuleSet.h"
 #include "SelectorChecker.h"
 #include "StyleForVisitedLink.h"
+#include "StyleSubstitutionContext.h"
 #include "TextFlags.h"
 #include "TreeResolutionState.h"
 #include <wtf/BitSet.h>
@@ -150,6 +151,8 @@ public:
 
     const CSSToLengthConversionData& cssToLengthConversionData() const LIFETIME_BOUND { return m_cssToLengthConversionData; }
 
+    GuardedSubstitutionContexts::Guard guardSubstitutionContext(SubstitutionContext&& context) { return m_guardedSubstitutionContexts.guard(WTF::move(context)); }
+
     void setIsBuildingKeyframeStyle() { m_isBuildingKeyframeStyle = true; }
     bool hasRevertRuleOrLayerInKeyframeStyle() const { return m_hasRevertRuleOrLayerInKeyframeStyle; }
 
@@ -166,7 +169,7 @@ public:
     void NODELETE setUsesViewportUnits();
     void NODELETE setUsesContainerUnits();
 
-    double lookupCSSRandomBaseValue(const CSSCalc::RandomCachingKey&, std::optional<CSS::Keyword::ElementShared>) const;
+    double lookupCSSRandomBaseValue(const CSSCalc::RandomCachingKey&, std::optional<CSS::Keyword::ElementScoped>) const;
 
     // Accessors for sibling information used by the sibling-count() and sibling-index() CSS functions.
     unsigned NODELETE siblingCount();
@@ -250,10 +253,7 @@ private:
     const CSSToLengthConversionData m_cssToLengthConversionData;
 
     HashSet<AtomString> m_appliedCustomProperties;
-    HashSet<AtomString> m_inProgressCustomProperties;
-    HashSet<AtomString> m_inCycleCustomProperties;
-    HashSet<AtomString> m_inProgressAttrAttributes;
-    HashSet<AtomString> m_inCycleAttrAttributes;
+    GuardedSubstitutionContexts m_guardedSubstitutionContexts;
     WTF::BitSet<cssPropertyIDEnumValueCount> m_inProgressProperties;
     WTF::BitSet<cssPropertyIDEnumValueCount> m_invalidAtComputedValueTimeProperties;
 

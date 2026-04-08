@@ -2970,8 +2970,11 @@ class YarrGenerator final : public YarrJITInfo {
 
         MacroAssembler::JumpList done;
 
-        if (m_decodeSurrogatePairs)
+        if (m_decodeSurrogatePairs) {
+            if (!term->isFixedWidthCharacterClass())
+                storeToFrame(m_regs.index, term->frameLocation + BackTrackInfoCharacterClass::beginIndex());
             op.m_jumps.append(jumpIfNoAvailableInput());
+        }
 
         Checked<unsigned> scaledMaxCount = term->quantityMaxCount;
 #if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS)
@@ -3020,6 +3023,19 @@ class YarrGenerator final : public YarrJITInfo {
 
     void backtrackCharacterClassFixed(size_t opIndex)
     {
+#if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS)
+        if (m_decodeSurrogatePairs) {
+            YarrOp& op = m_ops[opIndex];
+            PatternTerm* term = op.m_term;
+            if (!term->isFixedWidthCharacterClass()) {
+                m_backtrackingState.link(*this, op);
+                op.m_jumps.link(&m_jit);
+                loadFromFrame(term->frameLocation + BackTrackInfoCharacterClass::beginIndex(), m_regs.index);
+                m_backtrackingState.fallthrough();
+                return;
+            }
+        }
+#endif
         backtrackTermDefault(opIndex);
     }
 
@@ -3655,6 +3671,13 @@ class YarrGenerator final : public YarrJITInfo {
                     // PRIOR alteranative, and we will only check input availability if we
                     // need to progress it forwards.
                     defineReentryLabel(op);
+#if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
+                    // Reset on reentry: a prior alternative may have read a non-BMP codepoint
+                    // and left this register set to 1. The next alternative starts a fresh
+                    // first-character read.
+                    if (m_useFirstNonBMPCharacterOptimization)
+                        m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.firstCharacterAdditionalReadSize);
+#endif
                     if (shouldRecordSubpatterns() && priorAlternative->needToCleanupCaptures()) {
                         for (unsigned subpattern = priorAlternative->firstCleanupSubpatternId(); subpattern <= priorAlternative->m_lastSubpatternId; subpattern++)
                             clearSubpattern(subpattern);
@@ -3668,6 +3691,11 @@ class YarrGenerator final : public YarrJITInfo {
                     // This is the reentry point for the End of 'once through' alternatives,
                     // jumped to when the last alternative fails to match.
                     defineReentryLabel(op);
+#if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
+                    // Reset on reentry: see BodyAlternativeNext above.
+                    if (m_useFirstNonBMPCharacterOptimization)
+                        m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.firstCharacterAdditionalReadSize);
+#endif
                     m_jit.sub32(MacroAssembler::Imm32(priorAlternative->m_minimumSize), m_regs.index);
                 }
                 break;
@@ -5052,6 +5080,10 @@ class YarrGenerator final : public YarrJITInfo {
 
                     // No context available - propagate failure
                     noContext.link(&m_jit);
+                    if (shouldRecordSubpatterns() && term->containsAnyCaptures()) {
+                        for (unsigned subpattern = term->parentheses.subpatternId; subpattern <= term->parentheses.lastSubpatternId; subpattern++)
+                            clearSubpattern(subpattern);
+                    }
                     storeToFrame(MacroAssembler::TrustedImm32(-1), parenthesesFrameLocation + BackTrackInfoParentheses::beginIndex());
                     m_backtrackingState.fallthrough();
                     break;
@@ -5198,8 +5230,13 @@ class YarrGenerator final : public YarrJITInfo {
                     // is treated as a successful match - jump to the end of the
                     // subpattern. We already have adjusted the input position
                     // back to that before the assertion, which is correct.
-                    if (term->invert())
+                    if (term->invert()) {
+                        if (shouldRecordSubpatterns() && term->containsAnyCaptures()) {
+                            for (unsigned subpattern = term->parentheses.subpatternId; subpattern <= term->parentheses.lastSubpatternId; subpattern++)
+                                clearSubpattern(subpattern);
+                        }
                         m_jit.jump(endOp.m_reentry);
+                    }
 
                     m_backtrackingState.fallthrough();
                 }

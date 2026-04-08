@@ -486,6 +486,9 @@ editing/selection/selection-across-shadow-boundaries-mixed-editability-3.html [ 
 editing/selection/selection-across-shadow-boundaries-mixed-editability-4.html [ Skip ]
 editing/selection/selection-across-shadow-boundaries-mixed-editability-5.html [ Skip ]
 editing/selection/selection-across-shadow-boundaries-user-select-all-1.html [ Skip ]
+# Cursor details not available on this platform.
+editing/selection/first-letter-click-caret.html [ Skip ]
+
 fast/events/bogus-dropEffect-effectAllowed.html [ Skip ]
 fast/events/clear-drag-state.html [ Skip ]
 fast/events/clear-edit-drag-state.html [ Skip ]
@@ -870,6 +873,7 @@ fast/forms/select-empty-list.html [ Skip ]
 fast/forms/select/listbox-focusable-items.html [ Skip ]
 fast/forms/select-listbox-focus-displaynone.html [ Skip ]
 fast/forms/select-listbox-multiple-no-focusring.html [ Skip ]
+fast/forms/select-listbox-onchange-fired-on-mouseup-outside.html [ Skip ]
 fast/forms/select-multiple-elements-with-mouse-drag-with-options-less-than-size.html [ Skip ]
 fast/forms/select-multiple-elements-with-mouse-drag.html [ Skip ]
 fast/forms/select/listbox-click-on-scrollbar.html [ Skip ]
@@ -2780,9 +2784,6 @@ webkit.org/b/245610 http/tests/security/xss-DENIED-xsl-external-entity.xml [ Fai
 
 # Form validation popover does not obey minimum font size setting on iOS but Dynamic Type instead.
 fast/forms/validation-message-minimum-font-size.html [ Skip ]
-
-# New Encrypted Media API not enabled on iOS
-media/encrypted-media/mock-navigator-requestMediaKeySystemAccess.html [ Skip ]
 
 webkit.org/b/166736 fast/scrolling/page-cache-back-overflow-scroll-restore.html [ Skip ]
 
@@ -4750,9 +4751,6 @@ imported/w3c/web-platform-tests/html/semantics/popovers/popover-change-type.html
 imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-fillStyle-opacity.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-globalAlpha.html [ ImageOnlyFailure ]
 
-webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode.html [ Failure ]
-webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode-and-rtl-direction.html [ Failure ]
-
 #webkit.org/b/260490 [iOS] 2 imported/w3c/web-platform-tests/cssts/* tests are constant failures
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients-dynamic.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients.html [ Skip ]
@@ -4834,9 +4832,6 @@ imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-sc
 imported/w3c/web-platform-tests/uievents/order-of-events/mouse-events/wheel-scrolling.html [ Skip ]
 
 webkit.org/b/267688 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Failure ]
-
-#rdar://118015813 ([ iOS ]imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html is a flaky text failure (264281))
-imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Pass Failure ]
 
 # Failing word-break: auto-phrase tests.
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html [ ImageOnlyFailure ]
@@ -5792,6 +5787,7 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customiz
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-starting-style.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-pseudo-target-text.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-hr-listbox.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-option-animation-reopens.html [ Skip ]
 
 # Newly imported WPT tests that are timing out on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-activate-keyup-prevented.html [ Skip ]
@@ -7643,10 +7639,13 @@ imported/w3c/web-platform-tests/css/css-scroll-anchoring/zero-scroll-offset-002.
 webkit.org/b/309421 imported/w3c/web-platform-tests/css/css-scroll-anchoring/vertical-rl-viewport-size-change-000.html [ ImageOnlyFailure ]
 webkit.org/b/309421 imported/w3c/web-platform-tests/css/css-scroll-anchoring/vertical-rl-viewport-size-change-001.html [ ImageOnlyFailure ]
 
+webkit.org/b/311235 fast/scrolling/scroll-anchoring/heuristic-disabled-above-threshold.html [ Pass Failure ]
+webkit.org/b/311235 fast/scrolling/scroll-anchoring/heuristic-renabled-after-delay.html [ Failure ]
+
 # Requires user interaction.
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/fullscreen-crash.html [ Skip ]
 
-webkit.org/b/307861 fast/scrolling/scroll-anchoring-with-page-scale.html [ Failure ]
+webkit.org/b/307861 fast/scrolling/scroll-anchoring/scroll-anchoring-with-page-scale.html [ Failure ]
 
 # rdar://124971386 (css-box/margin-trim/computed-margin-values layout tests failing in recursive cases)
 imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-child-with-border.html [ Pass Failure ]
@@ -7700,9 +7699,6 @@ fast/inline/text-box-trim-with-underline3.html [ ImageOnlyFailure ]
 
 # webkit.org/b/278352 [ iOS MacOS ] imported/w3c/web-platform-tests/css/css-view-transitions/capture-with-opacity-zero-child.html is a flaky image failure
 imported/w3c/web-platform-tests/css/css-view-transitions/capture-with-opacity-zero-child.html [ Pass ImageOnlyFailure ]
-
-# webkit.org/b/278934 [ macOS iOS wk2 ] imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html is a flaky failure.
-imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html [ Failure Pass ]
 
 webkit.org/b/279295 fast/inline/list-marker-inside-container-with-margin.html [ ImageOnlyFailure ]
 
@@ -8183,8 +8179,6 @@ editing/selection/ios/select-text-using-tap-and-half.html [ Skip ]
 
 webkit.org/b/296338 http/tests/site-isolation/fullscreen.html [ Pass Failure ]
 
-webkit.org/b/310677 [ Release ] imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-mixed-srl-016.xht [ Pass ImageOnlyFailure ]
-
 webkit.org/b/310677 [ Release ] compositing/iframes/overlapped-nested-iframes.html [ Pass Failure ]
 
 # webkit.org/b/296017 7x imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image (layout-tests) are flakey image failures
@@ -8475,6 +8469,12 @@ webkit.org/b/306785 imported/w3c/web-platform-tests/storage-access-api/requestSt
 webkit.org/b/306785 imported/w3c/web-platform-tests/storage-access-api/storage-access-permission.sub.https.window.html [ Pass Failure ]
 
 webkit.org/b/309621 [ Debug ] imported/w3c/web-platform-tests/css/cssom-view/interrupt-hidden-smooth-scroll.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/cssom-view/overflow-hidden-smooth-scroll-crash.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-smooth-navigation.html [ Failure ]
+imported/w3c/web-platform-tests/css/cssom-view/smooth-scrollIntoView-with-unrelated-gesture-scroll.html [ Skip ]
+imported/w3c/web-platform-tests/css/cssom-view/window-scrollBy-display-change.html [ ImageOnlyFailure ]
+webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode.html [ Failure ]
+webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode-and-rtl-direction.html [ Failure ]
 
 webkit.org/b/306998 [ Debug ] inspector/animation/nameChanged.html [ Skip ]
 webkit.org/b/306998 [ Debug ] inspector/audit/basic-error.html [ Skip ]
@@ -8494,13 +8494,9 @@ media/caption-display-settings/caption-display-settings-default-anchorBounds.htm
 
 webkit.org/b/299830 imported/w3c/web-platform-tests/storage-access-api/hasStorageAccess-insecure.sub.window.html [ Pass Failure ]
 
-webkit.org/b/310111 [ Debug ] http/wpt/navigation-api/scroll-behavior/manual-scroll-reload.html [ Pass Failure ]
-
 webkit.org/b/307582 compositing/overflow/rtl-scrollbar-layer-positioning.html [ Failure ]
 
 webkit.org/b/307889 http/tests/multipart/multipart-async-image.html [ Pass Failure ]
-
-imported/w3c/web-platform-tests/css/cssom-view/smooth-scrollIntoView-with-unrelated-gesture-scroll.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-highlight-api/highlight-text-across-elements.html [ ImageOnlyFailure ]
 
@@ -8616,3 +8612,5 @@ webkit.org/b/311222 [ Release ] imported/w3c/web-platform-tests/navigation-api/n
 
 # rdar://173890240 ([iOS] imported/w3c/web-platform-tests/css/css-images/gradient/gradient-analogous-missing-components-003.html has 2 component pixel difference)
 imported/w3c/web-platform-tests/css/css-images/gradient/gradient-analogous-missing-components-003.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/311378 http/wpt/mediarecorder/MediaRecorder-audio-samplingrate-change.html [ Pass Failure ]

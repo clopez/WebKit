@@ -481,9 +481,6 @@ void RenderBox::updateShapeOutsideInfoAfterStyleChange(const RenderStyle& style,
     Style::ShapeOutside shapeOutside = style.shapeOutside();
     Style::ShapeOutside oldShapeOutside = oldStyle ? oldStyle->shapeOutside() : Style::ComputedStyle::initialShapeOutside();
 
-    Style::ShapeMargin shapeMargin = style.shapeMargin();
-    Style::ShapeMargin oldShapeMargin = oldStyle ? oldStyle->shapeMargin() : Style::ComputedStyle::initialShapeMargin();
-
     if (diff <= Style::DifferenceResult::RecompositeLayer)
         return;
 
@@ -4445,7 +4442,7 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
         LayoutUnit left = renderer.borderLeft() + renderer.paddingLeft() + (is<RenderTableRow>(*this) ? 0_lu : renderer.x());
         LayoutUnit right = left + renderer.contentBoxWidth();
         
-        if (point.x() <= right && point.x() >= left && point.y() <= top && point.y() >= bottom) {
+        if (point.x() <= right && point.x() >= left && point.y() >= top && point.y() <= bottom) {
             if (is<RenderTableRow>(renderer))
                 return renderer.positionForPoint(point + adjustedPoint - renderer.locationOffset(), source, fragment);
             return renderer.positionForPoint(point - renderer.locationOffset(), source, fragment);
@@ -5200,12 +5197,13 @@ std::pair<LayoutUnit, LayoutUnit> RenderBox::computeMinMaxLogicalHeightFromAspec
 
 bool RenderBox::hasRelativeDimensions() const
 {
-    return style().height().isPercentOrCalculated() || style().width().isPercentOrCalculated()
-        || style().maxHeight().isPercentOrCalculated() || style().maxWidth().isPercentOrCalculated()
-        || style().minHeight().isPercentOrCalculated() || style().minWidth().isPercentOrCalculated()
-        || style().height().isStretch() || style().width().isStretch()
-        || style().maxHeight().isStretch() || style().maxWidth().isStretch()
-        || style().minHeight().isStretch() || style().minWidth().isStretch();
+    auto& style = this->style();
+    return style.height().isPercentOrCalculated() || style.width().isPercentOrCalculated()
+        || style.maxHeight().isPercentOrCalculated() || style.maxWidth().isPercentOrCalculated()
+        || style.minHeight().isPercentOrCalculated() || style.minWidth().isPercentOrCalculated()
+        || style.height().isStretch() || style.width().isStretch()
+        || style.maxHeight().isStretch() || style.maxWidth().isStretch()
+        || style.minHeight().isStretch() || style.minWidth().isStretch();
 }
 
 bool RenderBox::hasRelativeLogicalHeight() const

@@ -3514,15 +3514,6 @@ void Document::destroyRenderTree()
     ASSERT(frame()->document() == this);
     ASSERT(page());
 
-#if ENABLE(MODEL_PROCESS)
-    if (m_modelElementCount) {
-        if (RefPtr page = this->page()) {
-            page->decrementModelElementCount(m_modelElementCount);
-            m_modelElementCount = 0;
-        }
-    }
-#endif
-
     // Prevent Widget tree changes from committing until the RenderView is dead and gone.
     WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
 
@@ -4058,7 +4049,6 @@ ExceptionOr<void> Document::open(Document* entryDocument)
         if (entryDocument != this)
             newCookieURL.removeFragmentIdentifier();
         setCookieURL(newCookieURL);
-        setSecurityOriginPolicy(entryDocument->securityOriginPolicy());
     }
 
     implicitOpen();
@@ -5138,15 +5128,16 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
     if (m_frame->hasHadUserInteraction())
         return false;
 
-    // Only prevent navigations by unsandboxed iframes. Such navigations by sandboxed iframes would have already been blocked unless
-    // "allow-top-navigation" / "allow-top-navigation-by-user-activation" was explicitly specified.
-    // We also want to guard against bypassing this block via an iframe-provided CSP sandbox.
-    RefPtr ownerElement = m_frame->ownerElement();
-    if ((!ownerElement || ownerElement->sandboxFlags() == sandboxFlags()) && !sandboxFlags().isEmpty()) {
-        // Navigation is only allowed if the parent of the sandboxed iframe is first-party.
-        RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
-        RefPtr parentDocument = parentFrame ? parentFrame->document() : nullptr;
-        if (parentDocument && canAccessAncestor(parentDocument->securityOrigin(), &targetFrame))
+    // Only prevent navigations by unsandboxed iframes. Sandboxed iframes would have already been blocked
+    // unless "allow-top-navigation" was explicitly set via the element's sandbox attribute (not CSP).
+    // Also require the parent that set the sandbox to be same-origin with the target.
+    bool sandboxIsFromElementAttribute = !sandboxFlags().isEmpty() && m_frame->sandboxFlagsFromSandboxAttributeNotCSP() == sandboxFlags();
+    if (sandboxIsFromElementAttribute) {
+        RefPtr parentFrame = m_frame->tree().parent();
+        RefPtr parentOrigin = parentFrame ? parentFrame->frameDocumentSecurityOrigin() : nullptr;
+        RefPtr targetOrigin = targetFrame.frameDocumentSecurityOrigin();
+        bool parentIsFirstParty = parentOrigin && targetOrigin && parentOrigin->isSameOriginDomain(*targetOrigin);
+        if (parentIsFirstParty)
             return false;
     }
 
@@ -6470,7 +6461,7 @@ void Document::invalidateEventListenerRegions()
 
 void Document::invalidateRenderingDependentRegions()
 {
-#if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
+#if ENABLE(IOS_TOUCH_EVENTS)
     setTouchEventRegionsNeedUpdate();
 #endif
 
@@ -10854,11 +10845,11 @@ void Document::addTopLayerElement(Element& element)
         CheckedPtr dialogElement = dynamicDowncast<HTMLDialogElement>(*candidatePopover);
         if (dialogElement && dialogElement->isModal())
             return;
-#if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
-        bool neededEventHandling = needsPointerEventHandlingForPopover();
+#if ENABLE(IOS_TOUCH_EVENTS)
+        bool neededEventHandling = needsPointerEventHandlingForPopoverOrDialog();
 #endif
         auto result = m_autoPopoverList.add(*candidatePopover);
-#if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
+#if ENABLE(IOS_TOUCH_EVENTS)
         if (!neededEventHandling) {
             invalidateRenderingDependentRegions();
             invalidateEventListenerRegions();
@@ -10875,8 +10866,8 @@ void Document::removeTopLayerElement(Element& element)
     RELEASE_ASSERT(didRemove);
     if (auto* candidatePopover = dynamicDowncast<HTMLElement>(element); candidatePopover && candidatePopover->isPopoverShowing() && candidatePopover->popoverState() == PopoverState::Auto) {
         m_autoPopoverList.remove(*candidatePopover);
-#if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
-        if (!needsPointerEventHandlingForPopover()) {
+#if ENABLE(IOS_TOUCH_EVENTS)
+        if (!needsPointerEventHandlingForPopoverOrDialog()) {
             invalidateRenderingDependentRegions();
             invalidateEventListenerRegions();
         }
@@ -11495,35 +11486,6 @@ LazyLoadModelObserver& Document::lazyLoadModelObserver()
         m_lazyLoadModelObserver = makeUnique<LazyLoadModelObserver>();
     return *m_lazyLoadModelObserver;
 }
-#endif
-
-#if ENABLE(MODEL_PROCESS)
-
-void Document::incrementModelElementCount()
-{
-    RefPtr page = this->page();
-    if (!page)
-        return;
-
-    m_modelElementCount++;
-    page->incrementModelElementCount();
-}
-
-void Document::decrementModelElementCount()
-{
-    RefPtr page = this->page();
-    if (!page)
-        return;
-
-    if (!m_modelElementCount) [[unlikely]] {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    page->decrementModelElementCount(1);
-    m_modelElementCount--;
-}
-
 #endif
 
 CrossOriginOpenerPolicy Document::crossOriginOpenerPolicy() const

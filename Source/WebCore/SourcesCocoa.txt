@@ -121,11 +121,6 @@ Modules/async-clipboard/mac/ClipboardImageReaderMac.mm @nonARC
 Modules/compression/cocoa/CompressionStreamEncoderCocoa.mm @nonARC
 Modules/compression/cocoa/DecompressionStreamDecoderCocoa.mm @nonARC
 Modules/mediastream/RTCRtpSFrameTransformerCocoa.cpp
-Modules/model-element/scenekit/SceneKitModel.mm @nonARC
-Modules/model-element/scenekit/SceneKitModelLoader.mm @nonARC
-Modules/model-element/scenekit/SceneKitModelLoaderClient.mm @nonARC
-Modules/model-element/scenekit/SceneKitModelLoaderUSD.mm @nonARC
-Modules/model-element/scenekit/SceneKitModelPlayer.mm @nonARC
 Modules/notifications/NotificationDataCocoa.mm @nonARC
 Modules/notifications/NotificationOptionsPayloadCocoa.mm @nonARC
 Modules/notifications/NotificationPayloadCocoa.mm @nonARC
@@ -283,6 +278,7 @@ platform/audio/cocoa/CARingBuffer.cpp
 platform/audio/cocoa/FFTFrameCocoa.cpp
 platform/audio/cocoa/MediaSessionManagerCocoa.mm @nonARC
 platform/audio/cocoa/PlatformRawAudioDataCocoa.cpp
+platform/audio/cocoa/PitchShiftAudioUnit.mm @nonARC
 platform/audio/cocoa/SpatialAudioExperienceHelper.mm @nonARC
 platform/audio/cocoa/WebAudioBufferList.cpp
 platform/audio/ios/AudioOutputUnitAdaptorIOS.cpp @no-unify

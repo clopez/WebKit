@@ -309,12 +309,8 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
         return m_substitutionValue->m_namespacePrefixMap.get(prefix);
     }();
 
-    // Check if this attribute is already being substituted (cycle detection).
-    auto isInCycle = !m_styleBuilder.state().m_inProgressAttrAttributes.add(attributeName).isNewEntry;
-    auto removeOnExit = makeScopeExit([&] {
-        if (!isInCycle)
-            m_styleBuilder.state().m_inProgressAttrAttributes.remove(attributeName);
-    });
+    // https://drafts.csswg.org/css-values-5/#guarded
+    auto guard = m_styleBuilder.state().guardSubstitutionContext({ SubstitutionContext::Type::Attribute, attributeName });
 
     // Resolve fallback lazily to avoid var() cycle detection side effects during primary resolution.
     auto resolveFallback = [&]() -> std::optional<Vector<CSSParserToken>> {
@@ -343,10 +339,7 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
     if (!parsedName->namespacePrefix.isEmpty() && namespaceURI.isNull())
         return substituteFailure();
 
-    if (isInCycle) {
-        // Mark as in-cycle within attr() type() context for transitive detection.
-        if (m_isInAttrTypeSyntax)
-            m_styleBuilder.state().m_inCycleAttrAttributes.add(attributeName);
+    if (guard.isCyclicContext()) {
         if (parsedAttrType)
             return false;
         return substituteFailure();
@@ -412,15 +405,12 @@ bool SubstitutionResolver::substituteAttrFunction(CSSParserTokenRange argumentsR
         CSSTokenizer tokenizer(attributeValue.string());
         m_intermediateTokenStrings.appendVector(tokenizer.escapedStringsForAdoption());
 
-        SetForScope isInAttrTypeSyntax(m_isInAttrTypeSyntax, true);
-
         auto substitutedTokens = substituteTokenRange(tokenizer.tokenRange(), context);
         if (!substitutedTokens)
             return substituteFailure();
 
-        // If this attribute was found to be in a cycle during substitution,
-        // the attr value transitively references itself.
-        if (m_styleBuilder.state().m_inCycleAttrAttributes.contains(attributeName))
+        // If the context became cyclic during substitution, the value is invalid.
+        if (guard.isCyclicContext())
             return substituteFailure();
 
         if (parsedAttrType->syntax.isUniversal()) {

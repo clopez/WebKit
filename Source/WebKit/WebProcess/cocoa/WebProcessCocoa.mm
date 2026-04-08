@@ -671,9 +671,6 @@ void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParame
 #endif
     SandboxExtension::consumePermanently(parameters.mediaKeyStorageDirectoryExtensionHandle);
     SandboxExtension::consumePermanently(parameters.javaScriptConfigurationDirectoryExtensionHandle);
-#if ENABLE(ARKIT_INLINE_PREVIEW) && !PLATFORM(IOS_FAMILY)
-    SandboxExtension::consumePermanently(parameters.modelElementCacheDirectoryExtensionHandle);
-#endif
 #endif
 #if PLATFORM(IOS_FAMILY)
 #if !USE(EXTENSIONKIT)
@@ -1741,6 +1738,11 @@ void WebProcess::initializeAccessibility(Vector<SandboxExtension::Handle>&& hand
     });
 
     [NSApplication _accessibilityInitialize];
+
+    // Now that the accessibility server is registered, send any deferred
+    // remote tokens so the UI process can resolve the remote elements.
+    for (auto& webPage : m_pageMap.values())
+        webPage->sendAccessibilityTokenIfNeeded();
 
     for (auto& extension : extensions)
         extension->revoke();

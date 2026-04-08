@@ -137,22 +137,23 @@ static void clearSelectionIfNeeded(LocalFrame* oldFocusedFrame, LocalFrame* newF
         return;
 
     if (newFocusedNode) {
-        auto* selectionStartNode = selection.start().deprecatedNode();
+        RefPtr selectionStartNode = selection.start().deprecatedNode();
         if (newFocusedNode->contains(selectionStartNode) || selectionStartNode->shadowHost() == newFocusedNode)
             return;
     }
 
     if (RefPtr mousePressNode = newFocusedFrame ? newFocusedFrame->eventHandler().mousePressNode() : nullptr) {
-        if (!mousePressNode->canStartSelection()) {
+        RefPtr root = selection.rootEditableElement();
+        if (root) {
             // Don't clear the selection for contentEditable elements, but do clear it for input and textarea. See bug 38696.
-            RefPtr root = selection.rootEditableElement();
-            if (!root)
-                return;
+
             RefPtr host = root->shadowHost();
             // FIXME: Seems likely we can just do the check on "host" here instead of "rootOrHost".
             RefPtr rootOrHost = host ? host : root;
             if (!is<HTMLInputElement>(*rootOrHost) && !is<HTMLTextAreaElement>(*rootOrHost))
                 return;
+        } else if (!mousePressNode->canStartSelection()) {
+            return;
         }
     }
 
@@ -812,6 +813,8 @@ FocusableElementSearchResult FocusController::findFocusableElementAcrossFocusSco
     }
 
     auto candidateInCurrentScope = findFocusableElementWithinScope(direction, scope, currentNode, focusEventData, shouldFocusElement);
+    if (candidateInCurrentScope.continuedSearchInRemoteFrame == ContinuedSearchInRemoteFrame::Yes)
+        return candidateInCurrentScope;
     if (candidateInCurrentScope.element) {
         if (direction == FocusDirection::Backward) {
             // Skip through invokers if they have popovers with focusable contents, and navigate through those contents instead.
@@ -860,15 +863,19 @@ FocusableElementSearchResult FocusController::findFocusableElementAcrossFocusSco
             },
             [&](const RefPtr<Frame>& frame) -> FocusableElementSearchResult {
                 switch (frame->frameType()) {
-                case Frame::FrameType::Remote:
-
+                case Frame::FrameType::Remote: {
+                    if (!currentNode)
+                        return { };
+                    RefPtr currentFrame = currentNode->document().frame();
+                    if (!currentFrame)
+                        return { };
                     if (shouldFocusElement == ShouldFocusElement::Yes) {
-                        RefPtr currentFrame = currentNode->document().frame();
                         clearSelectionIfNeeded(currentFrame.get(), nullptr, nullptr);
                         currentNode->document().setFocusedElement(nullptr);
                     }
-                    downcast<RemoteFrame>(*frame).client().findFocusableElementContinuingFromFrame(direction, currentNode->document().frame()->frameID(), focusEventData, shouldFocusElement);
+                    downcast<RemoteFrame>(*frame).client().findFocusableElementContinuingFromFrame(direction, currentFrame->frameID(), focusEventData, shouldFocusElement);
                     return { nullptr, ContinuedSearchInRemoteFrame::Yes };
+                }
                 case Frame::FrameType::Local:
                     if (RefPtr ownerElement = frame->ownerElement())
                         return handleElementOwner(*ownerElement);

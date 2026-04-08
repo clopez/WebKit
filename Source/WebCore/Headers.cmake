@@ -613,9 +613,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/model-element/dummy/DummyModelPlayerProvider.h
 
-    Modules/model-element/scenekit/SceneKitModelLoaderClient.h
-    Modules/model-element/scenekit/SceneKitModelPlayer.h
-
     Modules/notifications/Notification.h
     Modules/notifications/NotificationClient.h
     Modules/notifications/NotificationController.h
@@ -960,6 +957,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSShadowRealmGlobalScopeBase.h
     bindings/js/JSStyleSheetCustom.h
     bindings/js/JSValueInWrappedObject.h
+    bindings/js/JSValueInWrappedObjectInlines.h
     bindings/js/JSWindowProxy.h
     bindings/js/ModuleScriptLoader.h
     bindings/js/ReadableStreamDefaultController.h

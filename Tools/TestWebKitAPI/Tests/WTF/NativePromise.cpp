@@ -33,8 +33,8 @@
 #include "config.h"
 #include <wtf/NativePromise.h>
 
-#include "Test.h"
-#include "Utilities.h"
+#include "Helpers/Test.h"
+#include "Helpers/Utilities.h"
 #include <wtf/Atomics.h>
 #include <wtf/Lock.h>
 #include <wtf/Locker.h>
@@ -1245,7 +1245,7 @@ TEST(NativePromise, ExpectedWithString)
             EXPECT_TRUE(val.value().value().isSafeToSendToAnotherThread());
         });
 
-    Expected<String, String> error = Unexpected<String>("error"_s);
+    Expected<String, String> error = std::unexpected<String>("error"_s);
     MyPromise::createAndResolve(WTF::move(error))->whenSettled(queue,
         [queue](MyPromise::Result&& val) {
             EXPECT_TRUE(val.has_value());

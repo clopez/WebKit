@@ -1749,10 +1749,10 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
             if (size.width() > maximumCursorSize || size.height() > maximumCursorSize)
                 continue;
 
-            RefPtr localMainFrame = dynamicDowncast<LocalFrame>(frame->mainFrame());
-            if (!localMainFrame)
+            RefPtr frameView = frame->view();
+            if (!frameView)
                 continue;
-            IntRect visibleContentRect = localMainFrame->view()->visibleContentRect();
+            IntRect visibleContentRect = frameView->visibleContentRect();
             IntRect cursorRect = { roundedIntPoint(result.pointInMainFrame()), expandedIntSize(size) };
             cursorRect.moveBy(-hotSpot);
 
@@ -4363,7 +4363,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     // webkit.org/b/305666: Emojis appear as Chinese characters in Google Docs
     auto shouldAvoidDispatchingKeyPressEvent = [&] {
         auto text = keyPressEvent.text();
-        if (!text.isEmpty() && !U_IS_BMP(text.characterStartingAt(0)))
+        if (!text.isEmpty() && !U_IS_BMP(text.codePointAt(0)))
             return true;
 
         // Suppress keypress for command shortcuts (Cmd+key, Ctrl+key).

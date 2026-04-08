@@ -646,7 +646,7 @@ public:
     virtual bool matchesIndeterminatePseudoClass() const;
     virtual bool matchesDefaultPseudoClass() const;
     WEBCORE_EXPORT ExceptionOr<bool> matches(const String& selectors);
-    WEBCORE_EXPORT ExceptionOr<Element*> closest(const String& selectors);
+    WEBCORE_EXPORT ExceptionOr<RefPtr<Element>> closest(const String& selectors);
 
     WEBCORE_EXPORT DOMTokenList& classList();
 
@@ -786,7 +786,6 @@ public:
 
     virtual void willRecalcStyle(OptionSet<Style::Change>);
     virtual void didRecalcStyle(OptionSet<Style::Change>);
-    virtual void willResetComputedStyle();
     virtual void willAttachRenderers();
     virtual void didAttachRenderers();
     virtual void willDetachRenderers();

@@ -200,6 +200,7 @@
 #include <WebCore/CrossOriginEmbedderPolicy.h>
 #include <WebCore/CrossOriginOpenerPolicy.h>
 #include <WebCore/DOMPasteAccess.h>
+#include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/DataTransfer.h>
 #include <WebCore/DatabaseManager.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
@@ -460,9 +461,6 @@
 #include <WebCore/NavigatorMediaSession.h>
 #endif
 
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-#include "ARKitInlinePreviewModelPlayerIOS.h"
-#endif
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
 #include "WebPreferencesDefaultValuesIOS.h"
@@ -732,9 +730,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if PLATFORM(COCOA)
 #if HAVE(SANDBOX_STATE_FLAGS)
     auto auditToken = WebProcess::singleton().auditTokenForSelf();
-    auto shouldBlockWebInspector = parameters.store.getBoolValueForKey(WebPreferencesKey::blockWebInspectorInWebContentSandboxKey());
-    if (shouldBlockWebInspector)
-        sandbox_enable_state_flag("BlockWebInspectorInWebContentSandbox", *auditToken);
     auto shouldBlockMobileAsset = parameters.store.getBoolValueForKey(WebPreferencesKey::blockMobileAssetInWebContentSandboxKey());
     if (shouldBlockMobileAsset)
         sandbox_enable_state_flag("BlockMobileAssetInWebContentSandbox", *auditToken);
@@ -4053,7 +4048,16 @@ static Expected<bool, WebCore::RemoteFrameGeometryTransformer> handleTouchEvent(
     if (!localFrame || !localFrame->view())
         return false;
 
-    return localFrame->eventHandler().handleTouchEvent(platform(touchEvent));
+    WeakPtr weakPage = page;
+    if (weakPage)
+        weakPage->pointerCaptureController().resetPointerDownDefaultPrevention();
+
+    auto result = localFrame->eventHandler().handleTouchEvent(platform(touchEvent));
+
+    if (weakPage && !result.value_or(false) && weakPage->pointerCaptureController().wasPointerDownDefaultPrevented())
+        return true;
+
+    return result;
 }
 #endif
 
@@ -5083,13 +5087,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         adjustSettingsForLockdownMode(settings, &store);
     if (settings.forceLockdownFontParserEnabled())
         settings.setDownloadableBinaryFontTrustedTypes(DownloadableBinaryFontTrustedTypes::SafeFontParser);
-
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-    m_useARKitForModel = store.getBoolValueForKey(WebPreferencesKey::useARKitForModelKey());
-#endif
-#if HAVE(SCENEKIT)
-    m_useSceneKitForModel = store.getBoolValueForKey(WebPreferencesKey::useSceneKitForModelKey());
-#endif
 
     if (settings.developerExtrasEnabled()) {
         settings.setShowMediaStatsContextMenuItemEnabled(true);
@@ -9640,17 +9637,6 @@ void WebPage::cancelTextRecognitionForVideoInElementFullScreen()
 }
 #endif // ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
 
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-void WebPage::modelInlinePreviewDidLoad(WebCore::PlatformLayerIdentifier layerID)
-{
-    ARKitInlinePreviewModelPlayerIOS::pageLoadedModelInlinePreview(*this, layerID);
-}
-
-void WebPage::modelInlinePreviewDidFailToLoad(WebCore::PlatformLayerIdentifier layerID, const WebCore::ResourceError& error)
-{
-    ARKitInlinePreviewModelPlayerIOS::pageFailedToLoadModelInlinePreview(*this, layerID, error);
-}
-#endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
