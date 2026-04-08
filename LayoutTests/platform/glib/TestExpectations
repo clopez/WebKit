@@ -214,8 +214,10 @@ fast/forms/switch/zoom-approximates-transform.html [ Pass ]
 fast/forms/switch/zoom-computed-style.html [ Pass ]
 
 # Vertical <select> support needs some further changes.
+fast/forms/vertical-writing-mode/select-menulist-rtl.html [ Skip ]
 fast/forms/vertical-writing-mode/select-menulist-sideways-lr.html [ Skip ]
 fast/forms/vertical-writing-mode/select-menulist.html [ Skip ]
+fast/forms/vertical-writing-mode/select-menulist-vertical-variants.html [ Skip ]
 
 # Some Apple ports don't support RTL scrollbars.
 fast/scrolling/rtl-scrollbars-alternate-body-dir-attr-does-not-update-scrollbar-placement.html [ Pass ]
@@ -1657,7 +1659,6 @@ webkit.org/b/254521 imported/w3c/web-platform-tests/media-source/mediasource-get
 webkit.org/b/311462 imported/w3c/web-platform-tests/media-source/mediasource-config-change-mp4-av-framesize.html [ Pass Failure Timeout Crash ]
 webkit.org/b/308601 [ Release ] imported/w3c/web-platform-tests/media-source/SourceBuffer-abort-updating.html [ Failure Pass ]
 webkit.org/b/254522 media/video-volume.html [ Pass Failure ]
-webkit.org/b/254525 http/tests/media/video-throttled-load-metadata.html [ Pass Failure ]
 media/video-seek-to-current-time.html [ Pass Failure ]
 webkit.org/b/264680 media/video-seek-past-end-playing.html [ Timeout Pass ]
 webkit.org/b/285595 media/video-seek-after-end-play.html [ Skip ]
@@ -2219,9 +2220,12 @@ webkit.org/b/305509 http/tests/security/webaudio-render-remote-audio-blocked-no-
 webkit.org/b/273486 svg/filters/svg-gaussianblur-edgeMode-duplicate.svg [ ImageOnlyFailure ]
 
 # Canvas tests that fail only with skia-gpu.
-webkit.org/b/272582 fast/canvas/canvas-strokePath-gradient-shadow.html [ Failure ]
-webkit.org/b/272582 fast/canvas/canvas-strokeRect-alpha-shadow.html [ Failure ]
-webkit.org/b/272582 fast/canvas/canvas-strokeRect-gradient-shadow.html [ Failure ]
+webkit.org/b/272582 [ x86_64 ] fast/canvas/canvas-strokePath-gradient-shadow.html [ Failure ]
+webkit.org/b/272582 [ x86_64 ] fast/canvas/canvas-strokeRect-alpha-shadow.html [ Failure ]
+webkit.org/b/272582 [ x86_64 ] fast/canvas/canvas-strokeRect-gradient-shadow.html [ Failure ]
+webkit.org/b/272582 [ arm64 ] fast/canvas/canvas-strokePath-gradient-shadow.html [ Pass ]
+webkit.org/b/272582 [ arm64 ] fast/canvas/canvas-strokeRect-alpha-shadow.html [ Pass ]
+webkit.org/b/272582 [ arm64 ] fast/canvas/canvas-strokeRect-gradient-shadow.html [ Pass ]
 webkit.org/b/274513 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-canvas.html [ ImageOnlyFailure ]
 
 webkit.org/b/273766 fast/canvas/canvas-scale-shadowBlur.html [ Failure ]
@@ -2735,7 +2739,8 @@ webkit.org/b/251107 webgl/2.0.y/conformance2/reading/read-pixels-from-fbo-test.h
 webkit.org/b/251107 webgl/2.0.y/conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance/context/premultiplyalpha-test.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Failure ]
-webkit.org/b/308025 webgl/2.0.y/conformance2/query/occlusion-query-scissor.html [ Failure ]
+webkit.org/b/308025 [ x86_64 ] webgl/2.0.y/conformance2/query/occlusion-query-scissor.html [ Failure ]
+webkit.org/b/308025 [ arm64 ] webgl/2.0.y/conformance2/query/occlusion-query-scissor.html [ Pass ]
 webkit.org/b/251107 fast/canvas/webgl/webgl2-texture-upload-enums.html [ Failure ]
 
 
@@ -3948,7 +3953,8 @@ webkit.org/b/49179 animations/stop-animation-on-suspend.html [ Failure Pass ]
 webkit.org/b/133151 js/cached-window-properties.html [ Skip ] # Timeout.
 
 # Fails when built with GCC but passes with Clang
-webkit.org/b/218220 editing/execCommand/switch-list-type-with-orphaned-li.html [ Failure ]
+webkit.org/b/218220 [ x86_64 ] editing/execCommand/switch-list-type-with-orphaned-li.html [ Failure ]
+webkit.org/b/218220 [ arm64 ] editing/execCommand/switch-list-type-with-orphaned-li.html [ Pass ]
 
 # ENABLE(DRAGGABLE_REGION) is disabled
 Bug(GLIB) fast/css/draggable-region-parser.html [ Failure ]
