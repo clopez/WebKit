@@ -290,6 +290,7 @@ private:
     void setStorageSiteValidationEnabledInternal(bool);
     void updateAllowedSitesForConnectionInternal(IPC::Connection::UniqueID, std::optional<HashSet<WebCore::RegistrableDomain>>&&);
     bool isSiteAllowedForConnection(IPC::Connection::UniqueID, const WebCore::RegistrableDomain&) const;
+    bool canConnectionAccessSiteForWebStorage(IPC::Connection&, const WebCore::RegistrableDomain&) const;
 
     WeakPtr<NetworkProcess> m_process;
     PAL::SessionID m_sessionID;
@@ -319,7 +320,7 @@ private:
     std::optional<uint64_t> m_totalQuota;
     bool m_isEvictionScheduled { false };
     UnifiedOriginStorageLevel m_unifiedOriginStorageLevel;
-    Markable<IPC::Connection::UniqueID> m_parentConnection;
+    const Markable<IPC::Connection::UniqueID> m_parentConnection;
     HashMap<IPC::Connection::UniqueID, HashSet<String>> m_temporaryBlobPathsByConnection WTF_GUARDED_BY_CAPABILITY(workQueue());
     using OriginPersistCompletionHandler = std::pair<WebCore::ClientOrigin, CompletionHandler<void(bool)>>;
     Vector<OriginPersistCompletionHandler> m_persistCompletionHandlers WTF_GUARDED_BY_CAPABILITY(workQueue());

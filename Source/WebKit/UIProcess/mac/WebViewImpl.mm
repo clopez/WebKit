@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -562,14 +562,14 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 #if HAVE(SUPPORT_HDR_DISPLAY_APIS)
 - (void)_applicationShouldBeginSuppressingHDR:(NSNotification *)notification
 {
-    if (_impl)
-        _impl->applicationShouldSuppressHDR(true);
+    if (CheckedPtr impl = _impl.get())
+        impl->applicationShouldSuppressHDR(true);
 }
 
 - (void)_applicationShouldEndSuppressingHDR:(NSNotification *)notification
 {
-    if (_impl)
-        _impl->applicationShouldSuppressHDR(false);
+    if (CheckedPtr impl = _impl.get())
+        impl->applicationShouldSuppressHDR(false);
 }
 #endif // HAVE(SUPPORT_HDR_DISPLAY_APIS)
 
@@ -4691,7 +4691,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
     RetainPtr dragCGImage = dragImageAsBitmap->createPlatformImage(DontCopyBackingStore);
     auto dragNSImage = adoptNS([[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImageAsBitmap->size()]);
 
-    WebCore::IntSize size([dragNSImage size]);
+    WebCore::FloatSize size { [dragNSImage size] };
     size.scale(1.0 / m_page->deviceScaleFactor());
     [dragNSImage setSize:size];
 
@@ -4793,6 +4793,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
                     if (page->sessionID().isEphemeral())
                         [pasteboard _setExpirationDate:[NSDate dateWithTimeIntervalSinceNow:pasteboardExpirationDelay.seconds()]];
                 }
+                [pasteboard setString:@"" forType:PasteboardTypes::WebDummyPboardType];
                 page->didStartDrag(frameID);
             }
         });
@@ -5565,7 +5566,8 @@ void WebViewImpl::interpretKeyEvent(NSEvent *event, void(^completionHandler)(BOO
         }
 
         auto additionalCommands = checkedThis->collectKeyboardLayoutCommandsForEvent(capturedEvent.get());
-        commands.appendVector(additionalCommands);
+        if (!hasInsertText)
+            commands.appendVector(additionalCommands);
         capturedBlock(NO, commands);
 #if PLATFORM(MAC)
         ASSERT(checkedThis->m_page->editorState().inputMethodUsesCorrectKeyEventOrder || checkedThis->m_interpretKeyEventHoldingTank.isEmpty());

@@ -56,6 +56,7 @@
 #include <WebCore/IDBRequestData.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/ServiceWorkerContextData.h>
+#include <WebCore/StorageBlockingPolicy.h>
 #include <WebCore/StorageEstimate.h>
 #include <WebCore/StorageUtilities.h>
 #include <WebCore/UniqueIDBDatabaseConnection.h>
@@ -554,7 +555,7 @@ void NetworkStorageManager::performEviction(HashMap<WebCore::SecurityOriginData,
         return a.second.lastAccessTime > b.second.lastAccessTime;
     });
 
-    uint64_t deletedOriginCount = 0;
+    Vector<WebCore::RegistrableDomain> deletedDomains;
     while (!sortedOriginRecords.isEmpty() && *m_totalUsage > *m_totalQuota) {
         auto [topOrigin, record] = sortedOriginRecords.takeLast();
         if (record.isActive || valueOrDefault(record.isPersisted))
@@ -567,11 +568,13 @@ void NetworkStorageManager::performEviction(HashMap<WebCore::SecurityOriginData,
         }
 
         m_totalUsage = *m_totalUsage - record.usage;
-        ++deletedOriginCount;
+        deletedDomains.append(WebCore::RegistrableDomain { topOrigin });
     }
 
-    UNUSED_PARAM(deletedOriginCount);
-    RELEASE_LOG(Storage, "%p - NetworkStorageManager::performEviction evicts %" PRIu64 " origins, current usage %" PRIu64 ", total quota %" PRIu64, this, deletedOriginCount, valueOrDefault(m_totalUsage), *m_totalQuota);
+    RELEASE_LOG(Storage, "%p - NetworkStorageManager::performEviction evicts %" PRIu64 " origins, current usage %" PRIu64 ", total quota %" PRIu64, this, static_cast<uint64_t>(deletedDomains.size()), valueOrDefault(m_totalUsage), *m_totalQuota);
+
+    if (!deletedDomains.isEmpty() && m_parentConnection)
+        IPC::Connection::send(*m_parentConnection, Messages::NetworkProcessProxy::DidPerformEvictionForDomains(m_sessionID, WTF::move(deletedDomains)), 0);
 }
 
 OriginQuotaManager::Parameters NetworkStorageManager::originQuotaManagerParameters(const WebCore::ClientOrigin& origin)
@@ -1593,10 +1596,28 @@ bool NetworkStorageManager::isSiteAllowedForConnection(IPC::Connection::UniqueID
     });
 }
 
+bool NetworkStorageManager::canConnectionAccessSiteForWebStorage(IPC::Connection& connection, const WebCore::RegistrableDomain& site) const
+{
+    assertIsCurrent(workQueue());
+
+    // When storage blocking policy is AllowAll, third-party context will use non-partitioned storage,
+    // but currently m_allowedSitesForConnections only tracks first-party sites, so we skip the check.
+    auto isStorageBlockingPolicyAllowAll = [&]() {
+        if (auto preferences = sharedPreferencesForWebProcess(connection))
+            return preferences->storageBlockingPolicy == static_cast<uint32_t>(WebCore::StorageBlockingPolicy::AllowAll);
+        return true;
+    };
+
+    if (isStorageBlockingPolicyAllowAll())
+        return true;
+
+    return isSiteAllowedForConnection(connection.uniqueID(), site);
+}
+
 void NetworkStorageManager::connectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, StorageAreaMapIdentifier sourceIdentifier, std::optional<StorageNamespaceIdentifier> namespaceIdentifier, const WebCore::ClientOrigin& origin, CompletionHandler<void(std::optional<StorageAreaIdentifier>, HashMap<String, String>, uint64_t)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), connection, completionHandler(std::nullopt, { }, StorageAreaBase::nextMessageIdentifier()));
+    MESSAGE_CHECK_COMPLETION(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { origin.topOrigin }), connection, completionHandler(std::nullopt, { }, StorageAreaBase::nextMessageIdentifier()));
 
     MESSAGE_CHECK_COMPLETION(isStorageTypeEnabled(connection, type), connection, completionHandler(std::nullopt, { }, StorageAreaBase::nextMessageIdentifier()));
 
@@ -1637,7 +1658,7 @@ void NetworkStorageManager::connectToStorageAreaSync(IPC::Connection& connection
 void NetworkStorageManager::cancelConnectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, std::optional<StorageNamespaceIdentifier> namespaceIdentifier, const WebCore::ClientOrigin& origin)
 {
     assertIsCurrent(workQueue());
-    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), connection);
+    MESSAGE_CHECK(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { origin.topOrigin }), connection);
 
     auto iterator = m_originStorageManagers.find(origin);
     if (iterator == m_originStorageManagers.end())
@@ -1672,7 +1693,7 @@ void NetworkStorageManager::disconnectFromStorageArea(IPC::Connection& connectio
     if (!storageArea)
         return;
 
-    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection);
+    MESSAGE_CHECK(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection);
 
     CheckedRef originStorageManager = this->originStorageManager(storageArea->origin());
     if (storageArea->storageType() == StorageAreaBase::StorageType::Local)
@@ -1691,7 +1712,7 @@ void NetworkStorageManager::setItem(IPC::Connection& connection, StorageAreaIden
     if (!storageArea)
         return completionHandler(hasError, WTF::move(allItems));
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTF::move(allItems)));
+    MESSAGE_CHECK_COMPLETION(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTF::move(allItems)));
 
     MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler(true, HashMap<String, String> { }));
 
@@ -1714,7 +1735,7 @@ void NetworkStorageManager::removeItem(IPC::Connection& connection, StorageAreaI
     if (!storageArea)
         return completionHandler(hasError, WTF::move(allItems));
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTF::move(allItems)));
+    MESSAGE_CHECK_COMPLETION(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTF::move(allItems)));
 
     MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler(true, HashMap<String, String> { }));
 
@@ -1735,7 +1756,7 @@ void NetworkStorageManager::clear(IPC::Connection& connection, StorageAreaIdenti
     if (!storageArea)
         return completionHandler();
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler());
+    MESSAGE_CHECK_COMPLETION(canConnectionAccessSiteForWebStorage(connection, WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler());
 
     MESSAGE_CHECK_COMPLETION(isStorageAreaTypeEnabled(connection, storageArea->storageType()), connection, completionHandler());
 

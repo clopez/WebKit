@@ -4780,12 +4780,17 @@ void Document::processSpeculationRules()
     RefPtr frame = this->frame();
     ASSERT(frame);
 
-    auto anchors = links();
-    auto iterator = anchors->createIterator(this);
-    for (RefPtr element = iterator.next(); element; element = iterator.next()) {
-        if (RefPtr anchorElement = dynamicDowncast<HTMLAnchorElement>(element.get())) {
-            if (auto prefetchRule = SpeculationRulesMatcher::hasMatchingRule(*this, *anchorElement))
-                anchorElement->setShouldBePrefetched(prefetchRule->eagerness, WTF::move(prefetchRule->tags), WTF::move(prefetchRule->referrerPolicy));
+    // Only scan all anchors if there are rules requiring eager matching
+    // (Immediate/Eager/Moderate). Conservative rules are matched lazily
+    // on user interaction in HTMLAnchorElement::defaultEventHandler().
+    if (speculationRules().hasNonConservativePrefetchRules()) {
+        auto anchors = links();
+        auto iterator = anchors->createIterator(this);
+        for (RefPtr element = iterator.next(); element; element = iterator.next()) {
+            if (RefPtr anchorElement = dynamicDowncast<HTMLAnchorElement>(element.get())) {
+                if (auto prefetchRule = SpeculationRulesMatcher::hasMatchingRule(*this, *anchorElement))
+                    anchorElement->setShouldBePrefetched(prefetchRule->eagerness, WTF::move(prefetchRule->tags), WTF::move(prefetchRule->referrerPolicy));
+            }
         }
     }
     // Prefetch all the URL lists that need to be prefetched immediately
@@ -9204,9 +9209,9 @@ static bool removeHandlerFromSet(EventTargetSet& handlerSet, Node& node, EventHa
     return false;
 }
 
-void Document::didRemoveWheelEventHandler(Node& node, EventHandlerRemoval removal)
+void Document::didRemoveWheelEventHandler(Node& node, EventHandlerRemoval removalMode)
 {
-    if (!removeHandlerFromSet(m_wheelEventTargets, node, removal))
+    if (!removeHandlerFromSet(m_wheelEventTargets, node, removalMode))
         return;
 
     wheelEventHandlersChanged(&node);
@@ -9243,13 +9248,13 @@ void Document::didAddTouchEventHandler(Node& handler)
 #endif
 }
 
-void Document::didRemoveTouchEventHandler(Node& handler, EventHandlerRemoval removal)
+void Document::didRemoveTouchEventHandler(Node& handler, EventHandlerRemoval removalMode)
 {
 #if ENABLE(TOUCH_EVENTS)
-    removeHandlerFromSet(m_touchEventTargets, handler, removal);
+    removeHandlerFromSet(m_touchEventTargets, handler, removalMode);
 
     if (auto* parent = parentDocument())
-        parent->didRemoveTouchEventHandler(*this, removal);
+        parent->didRemoveTouchEventHandler(*this, removalMode);
 
 #if ENABLE(TOUCH_EVENT_REGIONS)
     wheelOrTouchEventHandlersChanged(&handler);
@@ -9257,7 +9262,7 @@ void Document::didRemoveTouchEventHandler(Node& handler, EventHandlerRemoval rem
 
 #else
     UNUSED_PARAM(handler);
-    UNUSED_PARAM(removal);
+    UNUSED_PARAM(removalMode);
 #endif
 }
 
