@@ -159,6 +159,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
+#include "FrameDestructionObserverInlines.h"
 
 #if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
 #include "Archive.h"
@@ -3972,7 +3973,7 @@ static bool NODELETE shouldAskForNavigationConfirmation(Document& document, cons
         return false;
 
     auto* page = document.page();
-    bool userDidInteractWithPage = page ? page->userDidInteractWithPage() : false;
+    bool userDidInteractWithPage = page && page->userDidInteractWithPage();
 
     // Web pages can request we ask for confirmation before navigating by:
     // - Cancelling the BeforeUnloadEvent (modern way)

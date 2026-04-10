@@ -22,6 +22,7 @@
 #include "FrameTree.h"
 
 #include "Document.h"
+#include "DocumentPage.h"
 #include "FrameLoader.h"
 #include "HTMLFrameOwnerElement.h"
 #include "LocalFrame.h"
@@ -645,7 +646,7 @@ static void printFrames(const WebCore::Frame& frame, const WebCore::Frame* targe
         printIndent(indent);
         printf("  ownerElement=%p\n", localFrame->ownerElement());
         printIndent(indent);
-        printf("  frameView=%p (needs layout %d)\n", view, view ? view->needsLayout() : false);
+        printf("  frameView=%p (needs layout %d)\n", view, view && view->needsLayout());
         printIndent(indent);
         printf("  renderView=%p\n", view ? view->renderView() : nullptr);
         printIndent(indent);

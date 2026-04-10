@@ -96,6 +96,7 @@
 #include "KeyboardEvent.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
 #include "MathMLElement.h"
@@ -4649,7 +4650,7 @@ bool AccessibilityNodeObject::canSetValueAttribute() const
 
     String readOnly = readOnlyValue();
     if (!readOnly.isEmpty())
-        return readOnly == "true"_s ? false : true;
+        return readOnly != "true"_s;
 
     if (isNonNativeTextControl())
         return true;

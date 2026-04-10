@@ -2922,6 +2922,15 @@ void WebPageProxy::remoteInspectorInformationDidChange()
 {
     if (RefPtr inspectorDebuggable = m_inspectorDebuggable)
         inspectorDebuggable->update();
+
+#if ENABLE(WEBASSEMBLY_DEBUGGER)
+    // Refresh the WASM debugger listing for all processes associated with this page
+    // so LLDB's platform process list reflects the latest URL after process attach
+    // or same-process navigation (URL commit, title change).
+    forEachWebContentProcess([](auto& process, auto) {
+        process.updateWasmDebuggerTarget();
+    });
+#endif
 }
 #endif
 
@@ -4366,13 +4375,33 @@ void WebPageProxy::flushPendingKeyEventCallbacks()
 }
 
 #if PLATFORM(IOS_FAMILY)
-void WebPageProxy::dispatchWheelEventWithoutScrolling(const WebWheelEvent& event, CompletionHandler<void(bool)>&& completionHandler)
+void WebPageProxy::handleWheelEventWithoutScrolling(const WebWheelEvent& event, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (!m_mainFrame) {
         completionHandler(false);
         return;
     }
-    sendWithAsyncReply(Messages::WebPage::DispatchWheelEventWithoutScrolling(m_mainFrame->frameID(), event), WTF::move(completionHandler));
+    sendWheelEventWithoutScrolling(m_mainFrame->frameID(), event, WTF::move(completionHandler));
+}
+
+void WebPageProxy::sendWheelEventWithoutScrolling(WebCore::FrameIdentifier frameID, const WebWheelEvent& event, CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::DispatchWheelEventWithoutScrolling(frameID, event), [weakThis = WeakPtr { *this }, event, completionHandler = WTF::move(completionHandler)](bool defaultPrevented, std::optional<RemoteUserInputEventData> remoteWheelEventData) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis) {
+            completionHandler(false);
+            return;
+        }
+
+        if (remoteWheelEventData) {
+            auto transformedEvent = event;
+            transformedEvent.setPosition(roundedIntPoint(remoteWheelEventData->transformedPoint));
+            protectedThis->sendWheelEventWithoutScrolling(remoteWheelEventData->targetFrameID, transformedEvent, WTF::move(completionHandler));
+            return;
+        }
+
+        completionHandler(defaultPrevented);
+    });
 }
 #endif
 

@@ -42,6 +42,7 @@
 #include "DNS.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "DocumentParser.h"
 #include "DocumentPrefetcher.h"
 #include "DocumentQuirks.h"
@@ -55,6 +56,7 @@
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
 #include "FormSubmission.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameInlines.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
@@ -141,7 +143,7 @@
 
 #define PAGE_ID (m_frame && m_frame->pageID() ? m_frame->pageID()->toUInt64() : 0)
 #define FRAME_ID (m_frame ? m_frame->frameID().toUInt64() : 0)
-#define IS_MAIN_FRAME (m_frame ? m_frame->isMainFrame() : false)
+#define IS_MAIN_FRAME (m_frame && m_frame->isMainFrame())
 #define DOCUMENTLOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] DocumentLoader::" fmt, this, PAGE_ID, FRAME_ID, IS_MAIN_FRAME, ##__VA_ARGS__)
 #define DOCUMENTLOADER_RELEASE_LOG_FORWARDABLE(fmt, ...) RELEASE_LOG_FORWARDABLE(Network, fmt, PAGE_ID, FRAME_ID, IS_MAIN_FRAME, ##__VA_ARGS__)
 

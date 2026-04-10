@@ -23,40 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "config.h"
+#include "PlatformControl.h"
 
-#if ENABLE(B3_JIT)
+#include "ControlPart.h"
 
-#include "B3WasmArrayElementValue.h"
+namespace WebCore {
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+PlatformControl::PlatformControl(ControlPart& owningPart)
+    : m_owningPart(owningPart)
+{
+}
 
-namespace JSC::B3 {
-
-class WasmArraySetValue final : public WasmArrayElementValue {
-public:
-    static bool accepts(Kind kind) { return kind.opcode() == WasmArraySet; }
-
-    ~WasmArraySetValue() final;
-
-    // Child 0 is the array pointer
-    // Child 1 is the index (Int32)
-    // Child 2 is the value to store
-    B3_SPECIALIZE_VALUE_FOR_FIXED_CHILDREN(3)
-    B3_SPECIALIZE_VALUE_FOR_FINAL_SIZE_FIXED_CHILDREN
-
-private:
-    void dumpMeta(CommaPrinter&, PrintStream&) const final;
-
-    friend class Procedure;
-    friend class Value;
-
-    static Opcode opcodeFromConstructor(Kind, Origin, Value*, Value*, Value*, Ref<const Wasm::RTT>, const Wasm::ArrayType*) { return WasmArraySet; }
-    JS_EXPORT_PRIVATE WasmArraySetValue(Kind, Origin, Value* arrayPtr, Value* index, Value*, Ref<const Wasm::RTT>, const Wasm::ArrayType*);
-};
-
-} // namespace JSC::B3
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
-
-#endif // ENABLE(B3_JIT)
+} // namespace WebCore
