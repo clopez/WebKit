@@ -1321,6 +1321,12 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     auto enhancedSecurity = (protect(pageConfiguration->preferences())->forceEnhancedSecurity() || pageConfiguration->isEnhancedSecurityEnabled() || useEnhancedSecurityFallback) ? EnhancedSecurity::EnabledPolicy : EnhancedSecurity::Disabled;
 
     RefPtr relatedPage = pageConfiguration->relatedPage();
+
+    // Fix WPE/GTK crashes after 310806@main. upstream-status (pending). See issue https://github.com/microsoft/playwright-browsers/issues/2171
+    // Ensure popups inherit the StorageBlockingPolicy of the parent so they stay compatible for same-process popup creation.
+    if (relatedPage)
+        pageConfiguration->preferences().setStorageBlockingPolicy(relatedPage->preferences().storageBlockingPolicy());
+
     bool siteIsolationEnabled = protect(pageConfiguration->preferences())->siteIsolationEnabled();
     if (siteIsolationEnabled)
         protect(pageConfiguration->preferences())->setUseUIProcessForBackForwardItemLoading(true);
