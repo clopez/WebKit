@@ -506,9 +506,9 @@ void WPEQtView::runJavaScript(const QString& script, const QJSValue& callback)
 void WPEQtView::mousePressEvent(QMouseEvent* event)
 {
     Q_D(WPEQtView);
-    forceActiveFocus();
     if (!d->m_webView)
         return;
+    forceActiveFocus();
     auto* wpeView = webkit_web_view_get_wpe_view(d->m_webView.get());
     wpe_view_dispatch_mouse_press_event(WPE_VIEW_QTQUICK(wpeView), event);
 }
@@ -590,8 +590,27 @@ void WPEQtView::touchEvent(QTouchEvent* event)
     Q_D(WPEQtView);
     if (!d->m_webView)
         return;
+    forceActiveFocus();
     auto* wpeView = webkit_web_view_get_wpe_view(d->m_webView.get());
     wpe_view_dispatch_touch_event(WPE_VIEW_QTQUICK(wpeView), event);
+}
+
+void WPEQtView::focusInEvent(QFocusEvent*)
+{
+    Q_D(WPEQtView);
+    if (!d->m_webView)
+        return;
+    auto* wpeView = webkit_web_view_get_wpe_view(d->m_webView.get());
+    wpe_view_focus_in(WPE_VIEW(wpeView));
+}
+
+void WPEQtView::focusOutEvent(QFocusEvent*)
+{
+    Q_D(WPEQtView);
+    if (!d->m_webView)
+        return;
+    auto* wpeView = webkit_web_view_get_wpe_view(d->m_webView.get());
+    wpe_view_focus_out(WPE_VIEW(wpeView));
 }
 
 void WPEQtView::invalidateSceneGraph()
