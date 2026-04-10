@@ -105,8 +105,12 @@ public:
     static Ref<PointerEvent> create(const AtomString& type, const PlatformTouchEvent&, const Vector<Ref<PointerEvent>>& coalescedEvents, const Vector<Ref<PointerEvent>>& predictedEvents, unsigned touchIndex, bool isPrimary, Ref<WindowProxy>&&, const DoublePoint& touchDelta = { });
 #endif
 
-#if ENABLE(TOUCH_EVENTS) && (PLATFORM(WPE) || PLATFORM(GTK))
+#if ENABLE(TOUCH_EVENTS)
+#if PLATFORM(WPE) || PLATFORM(GTK)
     static unsigned pointerIdForTouchPoint(const PlatformTouchPoint&);
+#elif !ENABLE(IOS_TOUCH_EVENTS)
+    static unsigned pointerIdForTouchPoint(const PlatformTouchPoint& point) { return point.id();  }
+#endif
 #endif
 
     virtual ~PointerEvent();
