@@ -480,6 +480,7 @@ void TextIterator::advance()
     m_positionNode = nullptr;
     m_copyableText.reset();
     m_text = StringView();
+    m_isBlockNewline = false;
 
     // handle remembered node that needed a newline after the text node's newline
     if (RefPtr nodeForAdditionalNewline = std::exchange(m_nodeForAdditionalNewline, nullptr).get()) {
@@ -491,6 +492,7 @@ void TextIterator::advance()
         // iteration, instead of using m_needsAnotherNewline.
         RefPtr parentNode = nodeForAdditionalNewline->parentNode();
         emitCharacter('\n', WTF::move(parentNode), WTF::move(nodeForAdditionalNewline), 1, 1);
+        m_isBlockNewline = true;
         return;
     }
 
@@ -940,6 +942,11 @@ bool shouldEmitNewlinesBeforeAndAfterNode(Node& node)
     if (shouldEmitReplacementInsteadOfNode(node))
         return false;
 
+    // Table rows are RenderBlocks but have their own newline logic above
+    // that accounts for inline tables.
+    if (is<RenderTableRow>(*renderer))
+        return false;
+
     return !renderer->isInline()
         && is<RenderBlock>(*renderer)
         && !renderer->isFloatingOrOutOfFlowPositioned()
@@ -968,18 +975,20 @@ static bool NODELETE shouldEmitNewlineBeforeNode(Node& node)
     return shouldEmitNewlinesBeforeAndAfterNode(node); 
 }
 
-static bool shouldEmitExtraNewlineForNode(Node& node)
+static bool shouldEmitExtraNewlineForNode(Node& node, bool emitsNewlinesPerInnerTextSpec)
 {
-    // When there is a significant collapsed bottom margin, emit an extra
-    // newline for a more realistic result. We end up getting the right
-    // result even without margin collapsing. For example: <div><p>text</p></div>
-    // will work right even if both the <div> and the <p> have bottom margins.
-
     CheckedPtr renderBox = dynamicDowncast<RenderBox>(node.renderer());
     if (!renderBox || !renderBox->height())
         return false;
 
-    // NOTE: We only do this for a select set of nodes, and WinIE appears not to do this at all.
+    // Per the WHATWG spec, <p> elements get a required line break count of 2,
+    // meaning a blank line (two newlines) before and after, unconditionally.
+    // Heading elements (<h1>-<h6>) do NOT get this treatment.
+    if (emitsNewlinesPerInnerTextSpec)
+        return is<HTMLParagraphElement>(node);
+
+    // For non-innerText uses (accessibility, selection, etc.), use the original
+    // margin-based heuristic for both <p> and heading elements.
     RefPtr element = dynamicDowncast<HTMLElement>(node);
     if (!element || !isAnyOf<HTMLHeadingElement, HTMLParagraphElement>(*element))
         return false;
@@ -1092,9 +1101,24 @@ void TextIterator::representNodeOffsetZero()
             emitCharacter('\t', WTF::move(parentNode), WTF::move(currentNode), 0, 0);
         }
     } else if (shouldEmitNewlineBeforeNode(*currentNode)) {
+        bool emitsNewlinesPerInnerTextSpec = m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec);
         if (shouldRepresentNodeOffsetZero()) {
             RefPtr parentNode = currentNode->parentNode();
             emitCharacter('\n', WTF::move(parentNode), WTF::move(currentNode), 0, 0);
+            // Per the spec, <p> elements require a blank line (2 newlines) before them.
+            if (emitsNewlinesPerInnerTextSpec && is<HTMLParagraphElement>(*m_currentNode))
+                m_nodeForAdditionalNewline = m_currentNode.get();
+        } else if (emitsNewlinesPerInnerTextSpec && is<HTMLParagraphElement>(*currentNode) && m_hasEmitted && m_consecutiveNewlineCount < 2) {
+            // shouldRepresentNodeOffsetZero() returned false because m_lastCharacter == '\n',
+            // but <p> requires a blank line. Emit one more newline if we don't have enough.
+            RefPtr parentNode = currentNode->parentNode();
+            emitCharacter('\n', WTF::move(parentNode), WTF::move(currentNode), 0, 0);
+            // If the preceding '\n' was a content newline (e.g. from <pre> text) rather
+            // than a block-boundary newline, m_consecutiveNewlineCount was reset to 0 by
+            // emitText and the single emitCharacter above only brings it to 1. Schedule
+            // one more so <p> gets its full required line break count of 2.
+            if (m_consecutiveNewlineCount < 2)
+                m_nodeForAdditionalNewline = m_currentNode.get();
         }
     } else if (shouldEmitSpaceBeforeAndAfterNode(*currentNode)) {
         if (shouldRepresentNodeOffsetZero()) {
@@ -1143,20 +1167,23 @@ void TextIterator::exitNode(Node* exitedNode)
     // See <rdar://problem/5428427> for an example of how this mismatch will cause problems.
     if (m_lastTextNode && shouldEmitNewlineAfterNode(*protect(m_currentNode), m_behaviors.contains(TextIteratorBehavior::EmitsCharactersBetweenAllVisiblePositions))) {
         // use extra newline to represent margin bottom, as needed
-        bool addNewline = shouldEmitExtraNewlineForNode(*protect(m_currentNode));
-        
+        bool addNewline = shouldEmitExtraNewlineForNode(*protect(m_currentNode), m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec));
+
         // FIXME: We need to emit a '\n' as we leave an empty block(s) that
         // contain a VisiblePosition when doing selection preservation.
         if (m_lastCharacter != '\n') {
             // insert a newline with a position following this block's contents.
             emitCharacter('\n', protect(baseNode->parentNode()), baseNode.copyRef(), 1, 1);
+            m_isBlockNewline = true;
             // remember whether to later add a newline for the current node
             ASSERT(!m_nodeForAdditionalNewline);
             if (addNewline)
                 m_nodeForAdditionalNewline = baseNode.get();
-        } else if (addNewline)
+        } else if (addNewline) {
             // insert a newline with a position following this block's contents.
             emitCharacter('\n', protect(baseNode->parentNode()), baseNode.copyRef(), 1, 1);
+            m_isBlockNewline = true;
+        }
     }
     
     // If nothing was emitted, see if we need to emit a space.
@@ -1180,6 +1207,10 @@ void TextIterator::emitCharacter(char16_t character, RefPtr<Node>&& characterNod
     m_copyableText.set(character);
     m_text = m_copyableText.text();
     m_lastCharacter = character;
+    if (character == '\n')
+        ++m_consecutiveNewlineCount;
+    else
+        m_consecutiveNewlineCount = 0;
     m_lastTextNodeEndedWithCollapsedSpace = false;
 }
 
@@ -1205,6 +1236,10 @@ void TextIterator::emitText(Text& textNode, RenderText& renderer, int textStartO
     m_positionEndOffset = textEndOffset;
 
     m_lastCharacter = string[textEndOffset - 1];
+    // Reset to 0 even if the text ends with '\n', because content newlines
+    // (e.g. inside <pre>) are distinct from block-boundary newlines and should
+    // not suppress the extra newline required before <p> elements.
+    m_consecutiveNewlineCount = 0;
     m_copyableText.set(WTF::move(string), textStartOffset, textEndOffset - textStartOffset);
     m_text = m_copyableText.text();
 
@@ -1707,6 +1742,7 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
     , m_atBreak(true)
     , m_needsMoreContext(options.contains(FindOption::AtWordStarts))
     , m_targetRequiresKanaWorkaround(containsKanaLetters(m_target))
+    , m_ICUSearcher(m_target, m_options)
 {
     ASSERT(!m_target.isEmpty());
 
@@ -1714,42 +1750,9 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
     m_buffer.reserveInitialCapacity(std::max(targetLength * 8, minimumSearchBufferSize));
     m_overlap = m_buffer.capacity() / 4;
 
-    if (m_options.contains(FindOption::AtWordStarts) && targetLength) {
-        char32_t targetFirstCharacter;
-        U16_GET(m_target, 0, 0u, targetLength, targetFirstCharacter);
-        // Characters in the separator category never really occur at the beginning of a word,
-        // so if the target begins with such a character, we just ignore the AtWordStart option.
-        if (isSeparator(targetFirstCharacter)) {
-            m_options.remove(FindOption::AtWordStarts);
-            m_needsMoreContext = false;
-        }
-    }
+    m_needsMoreContext = m_options.contains(FindOption::AtWordStarts);
 
-    SUPPRESS_FORWARD_DECL_ARG UStringSearch* searcher = m_ICUSearcher.searcher();
-    SUPPRESS_FORWARD_DECL_ARG UCollator* collator = usearch_getCollator(searcher);
-
-    UCollationStrength strength;
-    USearchAttributeValue comparator;
-    if (m_options.contains(FindOption::CaseInsensitive)) {
-        // Without loss of generality, have 'e' match {'e', 'E', 'é', 'É'} and 'é' match {'é', 'É'}.
-        strength = UCOL_SECONDARY;
-        comparator = USEARCH_PATTERN_BASE_WEIGHT_IS_WILDCARD;
-    } else {
-        // Without loss of generality, have 'e' match {'e'} and 'é' match {'é'}.
-        strength = UCOL_TERTIARY;
-        comparator = USEARCH_STANDARD_ELEMENT_COMPARISON;
-    }
-    if (ucol_getStrength(collator) != strength) {
-        ucol_setStrength(collator, strength);
-        SUPPRESS_FORWARD_DECL_ARG usearch_reset(searcher);
-    }
-
-    UErrorCode status = U_ZERO_ERROR;
-    SUPPRESS_FORWARD_DECL_ARG usearch_setAttribute(searcher, USEARCH_ELEMENT_COMPARISON, comparator, &status);
-    ASSERT(U_SUCCESS(status));
-
-    SUPPRESS_FORWARD_DECL_ARG usearch_setPattern(searcher, m_targetCharacters, targetLength, &status);
-    ASSERT(U_SUCCESS(status));
+    m_ICUSearcher.setPattern(m_targetCharacters.span());
 
     // The kana workaround requires a normalized copy of the target string.
     if (m_targetRequiresKanaWorkaround)
@@ -1829,33 +1832,23 @@ inline size_t SearchBuffer::search(size_t& start)
             return 0;
     }
 
-    SUPPRESS_FORWARD_DECL_ARG UStringSearch* searcher = m_ICUSearcher.searcher();
-
-    UErrorCode status = U_ZERO_ERROR;
-    SUPPRESS_FORWARD_DECL_ARG usearch_setText(searcher, m_buffer.span().data(), size, &status);
-    ASSERT(U_SUCCESS(status));
-
-    SUPPRESS_FORWARD_DECL_ARG usearch_setOffset(searcher, m_prefixLength, &status);
-    ASSERT(U_SUCCESS(status));
-
-    SUPPRESS_FORWARD_DECL_ARG int matchStart = usearch_next(searcher, &status);
-    ASSERT(U_SUCCESS(status));
+    m_ICUSearcher.setText(m_buffer.span().first(size));
+    m_ICUSearcher.setOffset(m_prefixLength);
+    std::optional matchStart = m_ICUSearcher.next();
 
 nextMatch:
-    if (!(matchStart >= 0 && static_cast<size_t>(matchStart) < size)) {
-        ASSERT(matchStart == USEARCH_DONE);
+    if (!matchStart || *matchStart >= size)
         return 0;
-    }
 
     // Matches that start in the overlap area are only tentative.
     // The same match may appear later, matching more characters,
     // possibly including a combining character that's not yet in the buffer.
-    if (!m_atBreak && static_cast<size_t>(matchStart) >= size - m_overlap) {
+    if (!m_atBreak && *matchStart >= size - m_overlap) {
         size_t overlap = m_overlap;
         if (m_options.contains(FindOption::AtWordStarts)) {
             // Ensure that there is sufficient context before matchStart the next time around for
             // determining if it is at a word boundary.
-            unsigned wordBoundaryContextStart = matchStart;
+            size_t wordBoundaryContextStart = *matchStart;
             U16_BACK_1(m_buffer.span(), 0, wordBoundaryContextStart);
             wordBoundaryContextStart = startOfLastWordBoundaryContext(m_buffer.subspan(0, wordBoundaryContextStart));
             overlap = std::min(size - 1, std::max(overlap, size - wordBoundaryContextStart));
@@ -1866,24 +1859,23 @@ nextMatch:
         return 0;
     }
 
-    SUPPRESS_FORWARD_DECL_ARG size_t matchedLength = usearch_getMatchedLength(searcher);
-    ASSERT_WITH_SECURITY_IMPLICATION(matchStart + matchedLength <= size);
+    size_t matchedLength = m_ICUSearcher.matchedLength();
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(*matchStart + matchedLength <= size);
 
     // If this match is "bad", move on to the next match.
-    if ((m_targetRequiresKanaWorkaround && isBadMatch(m_buffer.subspan(matchStart, matchedLength), m_normalizedTarget.span(), m_normalizedMatch))
-        || (m_options.contains(FindOption::AtWordStarts) && !isWordStartMatch(m_buffer, matchStart, matchedLength, m_options))
-        || (m_options.contains(FindOption::AtWordEnds) && !isWordEndMatch(m_buffer, matchStart, matchedLength, m_options))) {
-        SUPPRESS_FORWARD_DECL_ARG matchStart = usearch_next(searcher, &status);
-        ASSERT(U_SUCCESS(status));
+    if ((m_targetRequiresKanaWorkaround && isBadMatch(m_buffer.subspan(*matchStart, matchedLength), m_normalizedTarget.span(), m_normalizedMatch))
+        || (m_options.contains(FindOption::AtWordStarts) && !isWordStartMatch(m_buffer, *matchStart, matchedLength, m_options))
+        || (m_options.contains(FindOption::AtWordEnds) && !isWordEndMatch(m_buffer, *matchStart, matchedLength, m_options))) {
+        matchStart = m_ICUSearcher.next();
         goto nextMatch;
     }
 
-    size_t newSize = size - (matchStart + 1);
-    memmoveSpan(m_buffer.mutableSpan(), m_buffer.subspan(matchStart + 1, newSize));
-    m_prefixLength -= std::min<size_t>(m_prefixLength, matchStart + 1);
+    size_t newSize = size - (*matchStart + 1);
+    memmoveSpan(m_buffer.mutableSpan(), m_buffer.subspan(*matchStart + 1, newSize));
+    m_prefixLength -= std::min<size_t>(m_prefixLength, *matchStart + 1);
     m_buffer.shrink(newSize);
 
-    start = size - matchStart;
+    start = size - *matchStart;
     return matchedLength;
 }
 
@@ -2105,12 +2097,23 @@ String plainText(const SimpleRange& range, TextIteratorBehaviors defaultBehavior
     if (it.atEnd())
         return emptyString();
 
+    bool stripsTrailingBlockNewlines = behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec);
     StringBuilder builder;
     builder.reserveCapacity(initialCapacity);
+    unsigned trailingBlockNewlines = 0;
 
     for (; !it.atEnd(); it.advance()) {
         it.appendTextToStringBuilder(builder);
+        if (stripsTrailingBlockNewlines) {
+            if (it.isBlockNewline())
+                ++trailingBlockNewlines;
+            else
+                trailingBlockNewlines = 0;
+        }
     }
+
+    if (trailingBlockNewlines)
+        builder.shrink(builder.length() - trailingBlockNewlines);
 
     if (builder.isEmpty())
         return emptyString();

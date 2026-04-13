@@ -39,7 +39,7 @@ namespace TestWebKitAPI {
 
 TEST(AsyncFunction, Basic)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
     NSError *error;
 
     // Function with no return value.
@@ -86,7 +86,7 @@ TEST(AsyncFunction, Basic)
 
 TEST(AsyncFunction, InvalidArguments)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
     NSError *error;
 
     // Values can only be NSString, NSNumber, NSDate, NSNull, NS(Mutable)Array, NS(Mutable)Dictionary, NSNull, and may only contain those 6 types.
@@ -106,7 +106,7 @@ TEST(AsyncFunction, InvalidArguments)
 
 TEST(AsyncFunction, RoundTrip)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
     NSError *error;
 
     // Tests round tripping a whole bunch of argument inputs and verifying the result.
@@ -140,8 +140,9 @@ TEST(AsyncFunction, RoundTrip)
     result = [webView objectByCallingAsyncFunction:@"return a" withArguments:arguments error:&error];
     EXPECT_NULL(error);
     EXPECT_TRUE([value isEqual:result]);
+    
+    RetainPtr mutableArray = adoptNS([[NSMutableArray alloc] init]);
 
-    auto mutableArray = adoptNS([[NSMutableArray alloc] init]);
     [mutableArray addObject:value];
     arguments = @{ @"a" : mutableArray.get() };
     result = [webView objectByCallingAsyncFunction:@"return a" withArguments:arguments error:&error];
@@ -160,7 +161,7 @@ TEST(AsyncFunction, RoundTrip)
     EXPECT_NULL(error);
     EXPECT_TRUE([value isEqual:result]);
 
-    auto mutableDictionary = adoptNS((NSMutableDictionary<NSString *, id> *)[[NSMutableDictionary alloc] init]);
+    RetainPtr mutableDictionary = adoptNS((NSMutableDictionary<NSString *, id> *)[[NSMutableDictionary alloc] init]);
     mutableDictionary.get()[@"foo"] = value;
     arguments = @{ @"a" : mutableDictionary.get() };
     result = [webView objectByCallingAsyncFunction:@"return a" withArguments:arguments error:&error];
@@ -182,7 +183,7 @@ TEST(AsyncFunction, RoundTrip)
 
 TEST(AsyncFunction, Promise)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
 
     [webView callAsyncJavaScript:@"shouldn't crash" arguments:@{ @"invalidparameter" : webView.get() } inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:nil];
 
@@ -285,8 +286,8 @@ TEST(AsyncFunction, Promise)
 
 TEST(AsyncFunction, PromiseDetachedFrame)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
-    auto uiDelegate = adoptNS([[TestUIDelegate alloc] init]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    RetainPtr uiDelegate = adoptNS([[TestUIDelegate alloc] init]);
     [webView setUIDelegate:uiDelegate.get()];
 
     __block RetainPtr<WKFrameInfo> subframe;
@@ -321,10 +322,50 @@ TEST(AsyncFunction, PromiseDetachedFrame)
     EXPECT_EQ([webView _webProcessIdentifier], pid);
 }
 
+TEST(AsyncFunction, CircularArgumentReference)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    NSError *error;
+
+    // Test circular references in dictionaries and arrays.
+    // Before cycle detection, these would blow out the stack and crash.
+    RetainPtr circularDictionary = adoptNS([[NSMutableDictionary alloc] init]);
+    [circularDictionary setObject:@"value" forKey:@"key"];
+    [circularDictionary setObject:circularDictionary.get() forKey:@"self"];
+
+    id result = [webView objectByCallingAsyncFunction:@"return a.key" withArguments:@{ @"a" : circularDictionary.get() } error:&error];
+    EXPECT_NULL(error);
+    EXPECT_TRUE([result isEqualToString:@"value"]);
+
+    RetainPtr circularArray = adoptNS([[NSMutableArray alloc] init]);
+    [circularArray addObject:@"value"];
+    [circularArray addObject:circularArray.get()];
+
+    result = [webView objectByCallingAsyncFunction:@"return a[0]" withArguments:@{ @"a" : circularArray.get() } error:&error];
+    EXPECT_NULL(error);
+    EXPECT_TRUE([result isEqualToString:@"value"]);
+}
+
+TEST(AsyncFunction, StructuralSharingPerformance)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600)]);
+    NSError *error;
+
+    // Build an object graph with 51 unique objects but 2^50 paths through the tree.
+    // Before de-duping logic this would hang "indefinitely"
+    id shared = @"baz";
+    for (int i = 0; i < 50; i++)
+        shared = @{ @"foo" : shared, @"bar" : shared };
+
+    id result = [webView objectByCallingAsyncFunction:@"return 'ok'" withArguments:@{ @"a" : shared } error:&error];
+    EXPECT_NULL(error);
+    EXPECT_TRUE([result isEqualToString:@"ok"]);
+}
+
 TEST(AsyncFunction, TransientActivation)
 {
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration addToWindow:NO]);
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration addToWindow:NO]);
 
     [webView synchronouslyLoadHTMLString:@"Hello"];
 

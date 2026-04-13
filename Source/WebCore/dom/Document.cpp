@@ -385,6 +385,7 @@
 #include <wtf/UUID.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuffer.h>
+#include <wtf/text/TextPosition.h>
 #include <wtf/text/TextStream.h>
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -2152,14 +2153,6 @@ void Document::removeVisualUpdatePreventedReasons(OptionSet<VisualUpdatesPrevent
 void Document::visualUpdatesSuppressionTimerFired()
 {
     removeVisualUpdatePreventedReasons(visualUpdatePreventReasonsClearedByTimer());
-}
-
-void Document::setVisualUpdatesAllowedByClient(bool visualUpdatesAllowedByClient)
-{
-    if (visualUpdatesAllowedByClient)
-        addVisualUpdatePreventedReason(VisualUpdatesPreventedReason::Client);
-    else
-        removeVisualUpdatePreventedReasons(VisualUpdatesPreventedReason::Client);
 }
 
 ASCIILiteral Document::characterSetWithUTF8Fallback() const
@@ -11589,7 +11582,6 @@ TextStream& operator<<(TextStream& ts, const Document& document)
 TextStream& operator<<(TextStream& ts, const Document::VisualUpdatesPreventedReason& reason)
 {
     switch (reason) {
-    case Document::VisualUpdatesPreventedReason::Client: ts << "Client"_s; break;
     case Document::VisualUpdatesPreventedReason::ReadyState: ts << "ReadyState"_s; break;
     case Document::VisualUpdatesPreventedReason::Suspension: ts << "Suspension"_s; break;
     case Document::VisualUpdatesPreventedReason::RenderBlocking: ts << "RenderBlocking"_s; break;
@@ -12084,6 +12076,14 @@ void Document::updateCachedSetInnerHTML(const String& sourceString, ContainerNod
     cache.cachedContainer = &container;
     cache.contextElementName = contextElement.elementName();
     container.clearDidMutateSubtreeAfterSetInnerHTML();
+}
+
+std::optional<TextPosition> Document::currentParserSourcePosition() const
+{
+    if (scriptableDocumentParser() && !isInDocumentWrite())
+        return { scriptableDocumentParser()->textPosition() };
+
+    return { };
 }
 
 } // namespace WebCore

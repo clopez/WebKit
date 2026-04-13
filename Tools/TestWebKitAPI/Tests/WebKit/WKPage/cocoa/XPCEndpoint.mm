@@ -38,7 +38,12 @@ static constexpr auto testMessageFromEndpoint = "test-message-from-endpoint"_s;
 static constexpr auto testMessageFromClient = "test-message-from-client"_s;
 
 class XPCEndpoint final : public WebKit::XPCEndpoint {
+public:
+    static Ref<XPCEndpoint> create() { return adoptRef(*new XPCEndpoint); }
+
 private:
+    XPCEndpoint() = default;
+
     ASCIILiteral xpcEndpointMessageNameKey() const final
     {
         return { };
@@ -58,7 +63,7 @@ private:
             endpointReceivedMessageFromClient = true;
 
             // FIXME: This is a false positive. <rdar://164843889>
-            SUPPRESS_RETAINPTR_CTOR_ADOPT auto message = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+            SUPPRESS_RETAINPTR_CTOR_ADOPT OSObjectPtr message = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
             xpc_dictionary_set_string(message.get(), XPCEndpoint::xpcMessageNameKey, testMessageFromEndpoint);
             xpc_connection_send_message(connection, message.get());
         }
@@ -76,7 +81,7 @@ private:
     void didConnect() final
     {
         // FIXME: This is a false positive. <rdar://164843889>
-        SUPPRESS_RETAINPTR_CTOR_ADOPT auto message = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+        SUPPRESS_RETAINPTR_CTOR_ADOPT OSObjectPtr message = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
         xpc_dictionary_set_string(message.get(), XPCEndpoint::xpcMessageNameKey, testMessageFromClient);
         xpc_connection_send_message(connection().get(), message.get());
 
@@ -86,10 +91,10 @@ private:
 
 TEST(WebKit, XPCEndpoint)
 {
-    XPCEndpoint xpcEndpoint;
+    Ref xpcEndpoint = XPCEndpoint::create();
     XPCEndpointClient xpcEndpointClient;
 
-    xpcEndpointClient.setEndpoint(xpcEndpoint.endpoint().get());
+    xpcEndpointClient.setEndpoint(xpcEndpoint->endpoint().get());
 
     TestWebKitAPI::Util::run(&clientConnectedToEndpoint);
     TestWebKitAPI::Util::run(&endpointReceivedMessageFromClient);

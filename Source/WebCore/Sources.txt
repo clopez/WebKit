@@ -955,6 +955,7 @@ css/CSSPositionTryRule.cpp
 css/CSSPositionValue.cpp
 css/CSSPrimitiveValue.cpp
 css/CSSProperty.cpp
+css/CSSPropertyIdentifierValue.cpp
 css/CSSPropertyInitialValues.cpp
 css/CSSPropertyRule.cpp
 css/CSSPropertySourceData.cpp
@@ -1159,7 +1160,6 @@ css/typedom/transform/CSSTransformComponent.cpp
 css/typedom/transform/CSSTransformValue.cpp
 css/typedom/transform/CSSTranslate.cpp
 css/values/CSSSerializationContext.cpp
-css/values/CSSValueAggregates.cpp
 css/values/CSSValueTypes.cpp
 css/values/borders/CSSBorderRadius.cpp
 css/values/color-adjust/CSSColorScheme.cpp
@@ -1187,6 +1187,7 @@ css/values/primitives/CSSPrimitiveNumericTypes+ComputedStyleDependencies.cpp
 css/values/primitives/CSSPrimitiveNumericTypes+Serialization.cpp
 css/values/primitives/CSSPrimitiveNumericTypes+SymbolReplacement.cpp
 css/values/primitives/CSSPrimitiveNumericUnits.cpp
+css/values/primitives/CSSPropertyIdentifier.cpp
 css/values/primitives/CSSRatio.cpp
 css/values/primitives/CSSSymbol.cpp
 css/values/primitives/CSSURL.cpp
@@ -1442,6 +1443,7 @@ editing/AppendNodeCommand.cpp
 editing/ApplyBlockElementCommand.cpp
 editing/ApplyStyleCommand.cpp
 editing/BreakBlockquoteCommand.cpp
+editing/CachedMatchFinder.cpp
 editing/ChangeListTypeCommand.cpp
 editing/CharacterRange.cpp
 editing/CompositeEditCommand.cpp
@@ -1461,6 +1463,7 @@ editing/FontShadow.cpp
 editing/FormatBlockCommand.cpp
 editing/FrameSelection.cpp
 editing/HTMLInterchange.cpp
+editing/ICUSearcher.cpp
 editing/IndentOutdentCommand.cpp
 editing/InsertIntoTextNodeCommand.cpp
 editing/InsertLineBreakCommand.cpp
@@ -1469,7 +1472,6 @@ editing/InsertNestedListCommand.cpp
 editing/InsertNodeBeforeCommand.cpp
 editing/InsertParagraphSeparatorCommand.cpp
 editing/InsertTextCommand.cpp
-editing/ICUSearcher.cpp
 editing/MarkupAccumulator.cpp
 editing/MergeIdenticalElementsCommand.cpp
 editing/ModifySelectionListLevel.cpp
@@ -2985,6 +2987,7 @@ rendering/RenderTextFragment.cpp
 rendering/RenderTextLineBoxes.cpp
 rendering/RenderTheme.cpp
 rendering/RenderTreeAsText.cpp
+rendering/RenderTreeOrder.cpp
 rendering/RenderTreeMutationDisallowedScope.cpp
 rendering/RenderVTTCue.cpp
 rendering/RenderVideo.cpp
@@ -3172,6 +3175,7 @@ style/StyleExtractor.cpp
 style/StyleFontSizeFunctions.cpp
 style/StyleInterpolation.cpp
 style/StyleInvalidator.cpp
+style/StyleLocalPropertyRegistry.cpp
 style/StyleNameScope.cpp
 style/StylePendingResources.cpp
 style/StyleRelations.cpp
@@ -3381,6 +3385,7 @@ style/values/primitives/StyleLengthWrapper+DeprecatedCSSValueConversion.cpp
 style/values/primitives/StyleLengthWrapperData.cpp
 style/values/primitives/StylePosition.cpp
 style/values/primitives/StylePrimitiveNumericTypes+Conversions.cpp
+style/values/primitives/StylePropertyIdentifier.cpp
 style/values/primitives/StyleRatio.cpp
 style/values/primitives/StyleURL.cpp
 style/values/primitives/StyleUnevaluatedCalculation.cpp

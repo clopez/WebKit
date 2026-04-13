@@ -907,6 +907,7 @@ imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/input-type-
 imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-checked-styling.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-zero-size.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/input-number-text-size.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/the-details-element/details-content-pseudo-attr.html [ ImageOnlyFailure ]
 
 #[ iOS MacOS ] imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-add-label-quirks.html(layout-tests) is a constant IMAGE failure
 imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-add-label-quirks.html [ Failure ImageOnlyFailure ]
@@ -1162,6 +1163,9 @@ imported/w3c/web-platform-tests/css/css-ui/caret-color-020.html [ Skip ]
 # FIXME: Skip Content Security Policy tests that are dumping the render tree instead of text:
 imported/w3c/web-platform-tests/content-security-policy/svg/scripted.svg [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/svg/including.sub.svg [ Skip ]
+
+# FIXME (304193): CSP violation reporting from workers is not yet supported.
+imported/w3c/web-platform-tests/content-security-policy/reporting-api/dedicated-worker-correct-url-in-report.html [ Skip ]
 
 # Skip Content Security Policy tests that time out
 imported/w3c/web-platform-tests/content-security-policy/child-src/child-src-cross-origin-load.sub.html [ Skip ]
@@ -2151,6 +2155,7 @@ imported/w3c/web-platform-tests/mathml/presentation-markup/operators/op-dict-9.h
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/painting-stretchy-operator-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/scripts/underover-stretchy-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/display-with-overflow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/overflow/computed-value-001.html [ Failure ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/floats/floating-inside-mathml-with-block-display.html [ ImageOnlyFailure ]
 mathml/non-core/mathvariant/mathvariant-basic-transforms-with-default-font.html [ ImageOnlyFailure ]
 mathml/non-core/mathvariant/mathvariant-double-struck-font-style-font-weight.html [ ImageOnlyFailure ]
@@ -4709,10 +4714,6 @@ webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-re
 webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-thead-left.html [ ImageOnlyFailure ]
 webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-thead-top-absolute-child.html [ ImageOnlyFailure ]
 webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-thead-top.html [ ImageOnlyFailure ]
-webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-tr-left-absolute-child.html [ ImageOnlyFailure ]
-webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-tr-left.html [ ImageOnlyFailure ]
-webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-tr-top-absolute-child.html [ ImageOnlyFailure ]
-webkit.org/b/203449 imported/w3c/web-platform-tests/css/css-position/position-relative-table-tr-top.html [ ImageOnlyFailure ]
 webkit.org/b/228993 imported/w3c/web-platform-tests/css/css-position/multicol/vlr-ltr-rtl-in-multicols.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/228993 imported/w3c/web-platform-tests/css/css-position/multicol/vlr-rtl-ltr-in-multicols.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/228993 imported/w3c/web-platform-tests/css/css-position/multicol/vrl-ltr-rtl-in-multicols.tentative.html [ ImageOnlyFailure ]
@@ -5083,7 +5084,6 @@ imported/w3c/web-platform-tests/css/css-backgrounds/border-radius-clip-002.htm [
 webkit.org/b/207262 imported/w3c/web-platform-tests/web-animations/timing-model/animations/sync-start-times.html [ Pass ImageOnlyFailure ]
 webkit.org/b/266149 imported/w3c/web-platform-tests/web-animations/responsive/toggle-animated-iframe-visibility.html [ ImageOnlyFailure ]
 
-webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/transform-transformed-tr-percent-height-child.html [ ImageOnlyFailure ]
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/3d-scene-with-iframe-001.html [ ImageOnlyFailure ]
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/3dtransform-and-position-sticky-001.html [ ImageOnlyFailure Pass ]
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/animation/rotate-transform-equivalent.html [ ImageOnlyFailure Pass ]
@@ -5198,7 +5198,6 @@ imported/w3c/web-platform-tests/css/css-writing-modes/orthogonal-root-resize-icb
 imported/w3c/web-platform-tests/css/css-writing-modes/orthogonal-root-resize-icb-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/orthogonal-root-resize-icb-006.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/orthogonal-root-resize-icb-007.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-writing-modes/table-cell-align-006.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/text-combine-upright-rtl-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/test-plan/req-tcu-font.html [ Skip ]
 

@@ -935,7 +935,14 @@ void Scope::pendingUpdateTimerFired()
 const Vector<Ref<StyleSheet>>& Scope::styleSheetsForStyleSheetList()
 {
     // FIXME: StyleSheetList content should be updated separately from style resolver updates.
-    flushPendingUpdate();
+    if (m_document->hasLivingRenderTree())
+        flushPendingUpdate();
+    else if (m_pendingUpdate) {
+        // Documents without a living render tree (e.g. created by DOMParser) can't do full
+        // style updates but should still have an accessible styleSheets collection per spec.
+        m_pendingUpdate = { };
+        m_styleSheetsForStyleSheetList = collectActiveStyleSheets().styleSheetsForStyleSheetList;
+    }
     return m_styleSheetsForStyleSheetList;
 }
 
@@ -1141,19 +1148,17 @@ void Scope::updateAnchorPositioningStateAfterStyleResolution()
 
 std::optional<size_t> Scope::lastSuccessfulPositionOptionIndexFor(const Styleable& styleable)
 {
-    AnchorPositionedKey key { styleable.element, styleable.pseudoElementIdentifier };
-    return m_lastSuccessfulPositionOptionIndexes.getOptional(key);
+    return m_lastSuccessfulPositionOptionIndexes.getOptional(styleable);
 }
 
-void Scope::setLastSuccessfulPositionOptionIndexMap(HashMap<AnchorPositionedKey, size_t>&& map)
+void Scope::setLastSuccessfulPositionOptionIndexMap(HashMap<WeakStyleable, size_t>&& map)
 {
     m_lastSuccessfulPositionOptionIndexes = WTF::move(map);
 }
 
 void Scope::forgetLastSuccessfulPositionOptionIndex(const Styleable& styleable)
 {
-    AnchorPositionedKey key { styleable.element, styleable.pseudoElementIdentifier };
-    m_lastSuccessfulPositionOptionIndexes.remove(key);
+    m_lastSuccessfulPositionOptionIndexes.remove(styleable);
 }
 
 }

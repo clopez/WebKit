@@ -27,10 +27,8 @@
 #include "config.h"
 #include <wtf/URL.h>
 
-#include <ranges>
 #include <stdio.h>
 #include <unicode/uidna.h>
-#include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -39,7 +37,6 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/URLParser.h>
 #include <wtf/UUID.h>
-#include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
@@ -978,14 +975,14 @@ bool protocolIsInHTTPFamily(StringView url)
 
 
 static StaticStringImpl aboutBlankString { "about:blank" };
-const URL& aboutBlankURL()
+SUPPRESS_NODELETE const URL& aboutBlankURL()
 {
     static NeverDestroyed<URL> staticBlankURL { &aboutBlankString };
     return staticBlankURL;
 }
 
 static StaticStringImpl aboutSrcDocString { "about:srcdoc" };
-const URL& aboutSrcDocURL()
+SUPPRESS_NODELETE const URL& aboutSrcDocURL()
 {
     static NeverDestroyed<URL> staticSrcDocURL { &aboutSrcDocString };
     return staticSrcDocURL;
