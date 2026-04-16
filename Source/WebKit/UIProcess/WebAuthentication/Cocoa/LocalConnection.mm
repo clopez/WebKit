@@ -38,14 +38,7 @@
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
-<<<<<<< HEAD
 #import "AuthenticationServicesCoreSoftLink.h"
-||||||| parent of 36fb25f45374 (chore(webkit): bootstrap build #2282)
-=======
-#if ENABLE(SYNCED_CREDENTIALS)
-#import "AuthenticationServicesCoreSoftLink.h"
-#endif
->>>>>>> 36fb25f45374 (chore(webkit): bootstrap build #2282)
 #import "LocalAuthenticationSoftLink.h"
 
 namespace WebKit {
