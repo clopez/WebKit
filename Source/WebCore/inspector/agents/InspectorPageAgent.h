@@ -55,13 +55,7 @@ namespace WebCore {
 class DOMWrapperWorld;
 class DocumentLoader;
 class Frame;
-<<<<<<< HEAD
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-class InspectorBackendClient;
-=======
 class HTMLInputElement;
-class InspectorBackendClient;
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 class InspectorOverlay;
 class LocalFrame;
 class Page;
@@ -178,15 +172,6 @@ private:
     InspectorBackendClient* m_client { nullptr };
     WeakRef<InspectorOverlay> m_overlay;
 
-<<<<<<< HEAD
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-    WeakHashMap<Frame, String> m_frameToIdentifier;
-    MemoryCompactRobinHoodHashMap<String, WeakPtr<Frame>> m_identifierToFrame;
-    HashMap<DocumentLoader*, String> m_loaderToIdentifier;
-=======
-    MemoryCompactRobinHoodHashMap<String, WeakPtr<Frame>> m_identifierToFrame;
-    HashMap<DocumentLoader*, String> m_loaderToIdentifier;
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
     String m_userAgentOverride;
     String m_platformOverride;
     AtomString m_emulatedMedia;

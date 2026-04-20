@@ -35,14 +35,8 @@
 #include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "FrameConsoleClient.h"
-<<<<<<< HEAD
-#include "InspectorIdentifierRegistry.h"
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-#include "InspectorPageAgent.h"
-=======
 #include "FrameLoader.h"
-#include "InspectorPageAgent.h"
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
+#include "InspectorIdentifierRegistry.h"
 #include "InstrumentingAgents.h"
 #include "JSDOMWindowCustom.h"
 #include "JSExecState.h"
@@ -174,11 +168,6 @@ void PageRuntimeAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapper
     if (frameId.isEmpty())
         return;
 
-<<<<<<< HEAD
-    notifyContextCreated(frameId, frame.script().globalObject(world), world);
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-    notifyContextCreated(pageAgent->frameId(&frame), frame.script().globalObject(world), world);
-=======
     if (pageAgent->ignoreDidClearWindowObject())
         return;
 
@@ -188,7 +177,7 @@ void PageRuntimeAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapper
     }
 
     pageAgent->setIgnoreDidClearWindowObject(true);
-    notifyContextCreated(pageAgent->frameId(&frame), frame.script().globalObject(world), world);
+    notifyContextCreated(frameId, frame.script().globalObject(world), world);
     pageAgent->setIgnoreDidClearWindowObject(false);
 }
 
@@ -199,7 +188,6 @@ void PageRuntimeAgent::didReceiveMainResourceError(LocalFrame& frame)
         // it usable in case loading failed.
         mainWorldGlobalObject(frame);
     }
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 }
 
 InjectedScript PageRuntimeAgent::injectedScriptForEval(Inspector::Protocol::ErrorString& errorString, std::optional<Inspector::Protocol::Runtime::ExecutionContextId>&& executionContextId)
@@ -236,19 +224,7 @@ void PageRuntimeAgent::reportExecutionContextCreation()
     Ref identifierRegistry = m_inspectedPage->inspectorController().identifierRegistry();
 
     m_inspectedPage->forEachLocalFrame([&](LocalFrame& frame) {
-<<<<<<< HEAD
-        if (!frame.script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-            return;
-
         auto frameId = identifierRegistry->frameId(&frame);
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-        if (!frame.script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
-            return;
-
-        auto frameId = pageAgent->frameId(&frame);
-=======
-        auto frameId = pageAgent->frameId(&frame);
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 
         // Always send the main world first.
         auto& mainGlobalObject = mainWorldGlobalObject(frame);

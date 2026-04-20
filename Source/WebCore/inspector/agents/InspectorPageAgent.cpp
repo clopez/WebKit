@@ -69,13 +69,9 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "Page.h"
-<<<<<<< HEAD
 #include "PageInspectorController.h"
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-=======
 #include "PageRuntimeAgent.h"
 #include "PlatformScreen.h"
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 #include "RenderObjectInlines.h"
 #include "RenderTheme.h"
 #include "DeprecatedGlobalSettings.h"
@@ -812,16 +808,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 void InspectorPageAgent::frameDetached(LocalFrame& frame)
 {
-<<<<<<< HEAD
-    auto identifier = m_inspectedPage->inspectorController().identifierRegistry().takeFrame(frame);
-    if (identifier.isNull())
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-    auto identifier = m_frameToIdentifier.take(frame);
-    if (identifier.isNull())
-=======
     String identifier = serializeFrameID(frame.frameID());
     if (!m_identifierToFrame.take(identifier))
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
         return;
 
     m_frontendDispatcher->frameDetached(identifier);
@@ -834,45 +822,22 @@ Frame* InspectorPageAgent::frameForId(const Inspector::Protocol::Network::FrameI
 
 String InspectorPageAgent::frameId(Frame* frame)
 {
-<<<<<<< HEAD
-    return m_inspectedPage->inspectorController().identifierRegistry().frameId(frame);
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-    if (!frame)
-        return emptyString();
-    return m_frameToIdentifier.ensure(*frame, [this, frame] {
-        auto identifier = IdentifiersFactory::createIdentifier();
-        m_identifierToFrame.set(identifier, frame);
-        return identifier;
-    }).iterator->value;
-=======
     if (!frame)
         return emptyString();
     String identifier = serializeFrameID(frame->frameID());
     m_identifierToFrame.set(identifier, frame);
     return identifier;
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 }
 
 String InspectorPageAgent::loaderId(DocumentLoader* loader)
 {
-<<<<<<< HEAD
-    return m_inspectedPage->inspectorController().identifierRegistry().loaderId(loader);
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-    if (!loader)
+    if (!frame)
         return emptyString();
-    return m_loaderToIdentifier.ensure(loader, [] {
-        return IdentifiersFactory::createIdentifier();
-    }).iterator->value;
-=======
-    if (!loader)
-        return emptyString();
-
     auto navigationID = loader->navigationID();
     if (!navigationID)
         return emptyString();
 
     return String::number(navigationID->toUInt64());
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
 }
 
 LocalFrame* InspectorPageAgent::assertFrame(Inspector::Protocol::ErrorString& errorString, const Inspector::Protocol::Network::FrameId& frameId)
