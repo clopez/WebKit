@@ -254,8 +254,11 @@ void WebDataListSuggestionsDropdownIOS::didSelectOption(const String& selectedOp
 
 - (void)updateWithInformation:(WebCore::DataListSuggestionInformation&&)information
 {
+    auto activationType = information.activationType;
+
     [super updateWithInformation:WTF::move(information)];
-    if (information.activationType != WebCore::DataListSuggestionActivationType::IndicatorClicked) {
+
+    if (activationType != WebCore::DataListSuggestionActivationType::IndicatorClicked) {
         self.view.dataListTextSuggestionsInputView = nil;
         self.view.dataListTextSuggestions = self.textSuggestions;
         return;
@@ -598,7 +601,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return [UIMenu menuWithTitle:@"" children:strongSelf->_suggestionsMenuElements.get()];
     };
 
-    return [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil actionProvider:actionMenuProvider];
+    RetainPtr configuration = [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil actionProvider:actionMenuProvider];
+#if HAVE(UICONTEXTMENUCONFIGURATION_ALLOWTYPESELECT_SUPPORT)
+    if ([configuration respondsToSelector:@selector(setAllowsTypeSelect:)])
+        [configuration setAllowsTypeSelect:NO];
+#endif
+    return configuration.autorelease();
 }
 
 - (void)contextMenuInteraction:(UIContextMenuInteraction *)interaction willDisplayMenuForConfiguration:(UIContextMenuConfiguration *)configuration animator:(id <UIContextMenuInteractionAnimating>)animator

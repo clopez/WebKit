@@ -1347,6 +1347,8 @@ RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElementIOS::lineTextMarkerRa
 {
     id startTextMarker = [m_element lineStartMarkerForMarker:textMarker->platformTextMarker()];
     id endTextMarker = [m_element lineEndMarkerForMarker:textMarker->platformTextMarker()];
+    if (!startTextMarker || !endTextMarker)
+        return nullptr;
     NSArray *textMarkers = @[startTextMarker, endTextMarker];
 
     id textMarkerRange = [m_element textMarkerRangeForMarkers:textMarkers];
@@ -1614,6 +1616,16 @@ JSRetainPtr<JSStringRef> AccessibilityUIElementIOS::pathDescription() const
     CGPathApply(pathRef, result, _CGPathEnumerationIteration);
 
     return [result createJSStringRef];
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElementIOS::pathAsBounds() const
+{
+    CGPathRef pathRef = [m_element _accessibilityPath];
+    if (!pathRef)
+        return nullptr;
+
+    CGRect bounds = CGPathGetBoundingBox(pathRef);
+    return [[NSString stringWithFormat:@"{{%f, %f}, {%f, %f}}", bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height] createJSStringRef];
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElementIOS::supportedActions() const

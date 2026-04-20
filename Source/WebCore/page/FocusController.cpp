@@ -902,37 +902,45 @@ FocusableElementSearchResult FocusController::findFocusableElementWithinScope(Fo
 
 FocusableElementSearchResult FocusController::nextFocusableElementWithinScope(const FocusNavigationScope& scope, Node* start, const FocusEventData& focusEventData)
 {
-    RefPtr found = nextFocusableElementOrScopeOwner(scope, start, focusEventData);
-    if (!found)
-        return { nullptr };
-    if (isNonFocusableScopeOwner(*found, focusEventData)) {
-        auto foundInInnerFocusScope = nextFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
-        if (foundInInnerFocusScope.element)
-            return foundInInnerFocusScope;
-        return nextFocusableElementWithinScope(scope, found.get(), focusEventData);
+    RefPtr<Node> current = start;
+    while (true) {
+        RefPtr found = nextFocusableElementOrScopeOwner(scope, current.get(), focusEventData);
+        if (!found)
+            return { nullptr };
+        if (isNonFocusableScopeOwner(*found, focusEventData)) {
+            auto foundInInnerFocusScope = nextFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
+            if (foundInInnerFocusScope.element)
+                return foundInInnerFocusScope;
+            current = found;
+            continue;
+        }
+        return { found };
     }
-    return { found };
 }
 
 FocusableElementSearchResult FocusController::previousFocusableElementWithinScope(const FocusNavigationScope& scope, Node* start, const FocusEventData& focusEventData)
 {
-    RefPtr found = previousFocusableElementOrScopeOwner(scope, start, focusEventData);
-    if (!found)
-        return { nullptr };
-    if (isFocusableScopeOwner(*found, focusEventData)) {
-        // Search an inner focusable element in the shadow tree from the end.
-        auto foundInInnerFocusScope = previousFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
-        if (foundInInnerFocusScope.element)
-            return foundInInnerFocusScope;
+    RefPtr<Node> current = start;
+    while (true) {
+        RefPtr found = previousFocusableElementOrScopeOwner(scope, current.get(), focusEventData);
+        if (!found)
+            return { nullptr };
+        if (isFocusableScopeOwner(*found, focusEventData)) {
+            // Search an inner focusable element in the shadow tree from the end.
+            auto foundInInnerFocusScope = previousFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
+            if (foundInInnerFocusScope.element)
+                return foundInInnerFocusScope;
+            return { found };
+        }
+        if (isNonFocusableScopeOwner(*found, focusEventData)) {
+            auto foundInInnerFocusScope = previousFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
+            if (foundInInnerFocusScope.element)
+                return foundInInnerFocusScope;
+            current = found;
+            continue;
+        }
         return { found };
     }
-    if (isNonFocusableScopeOwner(*found, focusEventData)) {
-        auto foundInInnerFocusScope = previousFocusableElementWithinScope(FocusNavigationScope::scopeOwnedByScopeOwner(*found), 0, focusEventData);
-        if (foundInInnerFocusScope.element)
-            return foundInInnerFocusScope;
-        return previousFocusableElementWithinScope(scope, found.get(), focusEventData);
-    }
-    return { found };
 }
 
 Element* FocusController::findFocusableElementOrScopeOwner(FocusDirection direction, const FocusNavigationScope& scope, Node* node, const FocusEventData& focusEventData)
@@ -1136,8 +1144,15 @@ bool FocusController::setFocusedElement(Element* element, Frame* newFocusedFrame
     RefPtr oldFocusedElement = oldDocument ? oldDocument->focusedElement() : nullptr;
     Ref page = m_page.get();
     if (oldFocusedElement == element) {
-        if (element)
+        if (element) {
             page->chrome().client().elementDidRefocus(*element, options);
+            return true;
+        }
+        if (newFocusedLocalFrame) {
+            RefPtr newFocusedDocument = newFocusedLocalFrame->document();
+            if (newFocusedDocument && newFocusedDocument != oldDocument)
+                newFocusedDocument->setFocusedElement(nullptr, broadcast);
+        }
         return true;
     }
 
@@ -1151,6 +1166,11 @@ bool FocusController::setFocusedElement(Element* element, Frame* newFocusedFrame
     if (!element) {
         if (oldDocument)
             oldDocument->setFocusedElement(nullptr, broadcast);
+        if (newFocusedLocalFrame) {
+            RefPtr newFocusedDocument = newFocusedLocalFrame->document();
+            if (newFocusedDocument && newFocusedDocument != oldDocument)
+                newFocusedDocument->setFocusedElement(nullptr, broadcast);
+        }
         page->editorClient().setInputMethodState(nullptr);
         return true;
     }

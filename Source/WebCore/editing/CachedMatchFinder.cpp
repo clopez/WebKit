@@ -38,6 +38,12 @@
 
 namespace WebCore {
 
+static inline FindOptions matchAffectingOptions(FindOptions options)
+{
+    static constexpr OptionSet matchAffectingFlags { FindOption::CaseInsensitive, FindOption::AtWordStarts, FindOption::TreatMedialCapitalAsWordStart, FindOption::AtWordEnds, FindOption::DoNotTraverseFlatTree };
+    return options & matchAffectingFlags;
+}
+
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CachedMatchFinder);
 
 CachedMatchFinder::CachedMatchFinder(Document& document)
@@ -69,8 +75,6 @@ void CachedMatchFinder::performSearch(StringView buffer, unsigned startOffset, c
 
     bool backwards = options.contains(FindOption::Backwards);
 
-    icuSearcher.setOffset(backwards ? 0 : startOffset);
-
     Vector<char16_t> scratchBuffer;
 
     auto isMatch = [&](int matchStart, size_t matchLength) -> bool {
@@ -84,6 +88,20 @@ void CachedMatchFinder::performSearch(StringView buffer, unsigned startOffset, c
     };
 
     if (backwards) {
+#if !PLATFORM(PLAYSTATION)
+        icuSearcher.setOffset(startOffset);
+        while (true) {
+            std::optional<size_t> matchStartCandidate = icuSearcher.previous();
+            if (!matchStartCandidate)
+                break;
+            size_t matchLength = static_cast<size_t>(icuSearcher.matchedLength());
+            if (!isMatch(*matchStartCandidate, matchLength))
+                continue;
+            if (callback(*matchStartCandidate, *matchStartCandidate + matchLength) == SearchShouldContinue::No)
+                break;
+        }
+#else
+        icuSearcher.setOffset(0);
         Vector<std::pair<size_t, size_t>> matches;
         while (true) {
             std::optional<size_t> matchStartCandidate = icuSearcher.next();
@@ -98,7 +116,9 @@ void CachedMatchFinder::performSearch(StringView buffer, unsigned startOffset, c
             if (callback(start, end) == SearchShouldContinue::No)
                 break;
         }
+#endif
     } else {
+        icuSearcher.setOffset(startOffset);
         while (true) {
             std::optional<size_t> matchStartCandidate = icuSearcher.next();
             if (!matchStartCandidate)
@@ -219,7 +239,7 @@ Vector<SimpleRange> CachedMatchFinder::findMatches(const std::optional<SimpleRan
     m_countCache = results.size();
     m_searchResultCacheKeys.targetString = target;
     m_searchResultCacheKeys.limit = limit;
-    m_searchResultCacheKeys.options = options;
+    m_searchResultCacheKeys.options = matchAffectingOptions(options);
     return results;
 }
 
@@ -243,7 +263,7 @@ unsigned CachedMatchFinder::countMatches(const std::optional<SimpleRange>& searc
     m_countCache = count;
     m_searchResultCacheKeys.targetString = target;
     m_searchResultCacheKeys.limit = limit;
-    m_searchResultCacheKeys.options = options;
+    m_searchResultCacheKeys.options = matchAffectingOptions(options);
     return count;
 }
 
@@ -333,6 +353,7 @@ CachedMatchFinder::TextRunCache& CachedMatchFinder::bufferForOptions(FindOptions
 }
 
 auto CachedMatchFinder::textForScope(ContainerNode& scope, FindOptions options) -> std::pair<String, Vector<TextRun>> {
+    protect(scope.document())->updateLayoutIgnorePendingStylesheets({ LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::TreatRevealedWhenFoundAsVisible });
     SimpleRange range = makeRangeSelectingNodeContents(scope);
     TextIterator it(range, findIteratorOptions(options));
 
@@ -389,7 +410,7 @@ bool CachedMatchFinder::isSearchResultCacheValid(const String& target, FindOptio
     return m_searchResultCacheKeys.targetString
         && target == *m_searchResultCacheKeys.targetString
         && m_searchResultCacheKeys.limit == limit
-        && m_searchResultCacheKeys.options == options;
+        && m_searchResultCacheKeys.options == matchAffectingOptions(options);
 }
 
 } // namespace WebCore

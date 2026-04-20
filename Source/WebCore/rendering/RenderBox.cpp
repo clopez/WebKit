@@ -2872,7 +2872,7 @@ template<typename Keyword> void RenderBox::computeIntrinsicKeywordLogicalWidths(
     else {
         if (shouldComputeLogicalWidthFromAspectRatio()) {
             minLogicalWidth = maxLogicalWidth = computeLogicalWidthFromAspectRatioInternal() - borderAndPadding;
-            if (firstChild()) {
+            if (firstChild() && style().logicalMinWidth().isAuto()) {
                 LayoutUnit minChildrenLogicalWidth;
                 LayoutUnit maxChildrenLogicalWidth;
                 computeIntrinsicKeywordLogicalWidths(minChildrenLogicalWidth, maxChildrenLogicalWidth);
@@ -2930,7 +2930,9 @@ LayoutUnit RenderBox::computeSizingKeywordLogicalWidthUsing(CSS::Keyword::Stretc
         logicalWidthResult += (marginStart + marginEnd) - adjustedMargin;
     }
 
-    if (containingBlock->containsFloats() && avoidsFloats())
+    // Floats resolve stretch against the containing block (CSS Sizing 4, 6.1), not the space remaining after other floats.
+    auto isNonFloatingBlockThatAvoidsFloats = !isFloating() && avoidsFloats();
+    if (isNonFloatingBlockThatAvoidsFloats && containingBlock->containsFloats())
         logicalWidthResult = std::min(logicalWidthResult, shrinkLogicalWidthToAvoidFloats(marginStart, marginEnd, containingBlock));
 
     return std::max(borderAndPadding, logicalWidthResult);
@@ -3611,6 +3613,18 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeSizingKe
                     BoxSizing::ContentBox
                 );
             }
+            auto heightFromCrossAxisOverrideAndAspectRatio = [&]() -> std::optional<LayoutUnit> {
+                // When the width comes from a flex cross-axis override (e.g. stretch in a
+                // column flex container), use it to compute the min-content height through
+                // the aspect ratio.
+                if (!isFlexItem() || downcast<RenderFlexibleBox>(parent())->isHorizontalFlow())
+                    return { };
+                if (auto overridingWidth = overridingBorderBoxLogicalWidth(); overridingWidth && !renderImage->intrinsicRatio().isEmpty())
+                    return resolveHeightForRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), contentBoxLogicalWidth(*overridingWidth), renderImage->intrinsicRatio().transposedSize().aspectRatio(), BoxSizing::ContentBox);
+                return { };
+            };
+            if (auto height = heightFromCrossAxisOverrideAndAspectRatio())
+                return height;
         }
         return intrinsic();
     };
@@ -3853,9 +3867,22 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computePercenta
 
     auto availableHeight = !overridingAvailableSize ? (!isOrthogonal ? containingBlock->availableLogicalHeightForPercentageComputation() : containingBlockChild->containingBlockLogicalWidthForContent()) : overridingAvailableSize;
 
+    auto availableHeightForQuirksPercentageResolution = [&]() -> std::optional<LayoutUnit> {
+        // Quirks spec §3.5 step 4: the walk stops at flex containers because they
+        // are not block containers. The flex container may have auto height, making
+        // availableLogicalHeightForPercentageComputation return nullopt, but during
+        // cross-axis stretch layout its used content height is known.
+        if (availableHeight || !skippedAutoHeightContainingBlock)
+            return availableHeight;
+        CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(*containingBlock);
+        if (!flexContainer || !flexContainer->isInCrossAxisStretchLayout())
+            return { };
+        return containingBlock->contentBoxLogicalHeight();
+    };
+    availableHeight = availableHeightForQuirksPercentageResolution();
+
     if (!availableHeight)
         return { };
-
 
     auto result = [&] {
         if constexpr (Style::IsPercentage<SizeType>)
@@ -4275,8 +4302,10 @@ template<typename SizeType> LayoutUnit RenderBox::computeOutOfFlowPositionedLogi
                 }
                 return 0_lu;
             } else {
-                if (shouldComputeLogicalWidthFromAspectRatio())
-                    return computeLogicalWidthFromAspectRatio();
+                if (shouldComputeLogicalWidthFromAspectRatio()) {
+                    auto logicalWidth = computeLogicalWidthFromAspectRatio();
+                    return style().boxSizingForAspectRatio() == BoxSizing::BorderBox ? logicalWidth : logicalWidth - inlineConstraints.bordersPlusPadding();
+                }
                 return fallback();
             }
         },

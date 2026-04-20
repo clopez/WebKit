@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if HAVE(WEBGPU_IMPLEMENTATION)
+#if HAVE(WEBGPU_IMPLEMENTATION) && ENABLE(WEBGPU)
 
 #include "WebGPUPtr.h"
 #include "WebGPUXRProjectionLayer.h"
@@ -66,6 +66,8 @@ private:
     uint32_t NODELETE colorTextureHeight() const final;
     uint32_t NODELETE colorTextureArrayLength() const final;
 
+    bool allColorTexturesAreBound() const final;
+
     bool NODELETE ignoreDepthValues() const final;
     std::optional<float> NODELETE fixedFoveation() const final;
     void NODELETE setFixedFoveation(std::optional<float>) final;
@@ -91,4 +93,4 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::WebGPU::XRProjectionLayerImpl)
     static bool isType(const WebCore::WebGPU::XRProjectionLayer& xrProjectionLayer) { return xrProjectionLayer.isXRProjectionLayerImpl(); }
 SPECIALIZE_TYPE_TRAITS_END()
 
-#endif // HAVE(WEBGPU_IMPLEMENTATION)
+#endif // HAVE(WEBGPU_IMPLEMENTATION) && ENABLE(WEBGPU)

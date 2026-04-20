@@ -226,11 +226,21 @@ void RemoteMeshProxy::play(bool playing)
 #endif
 }
 
-void RemoteMeshProxy::setEnvironmentMap(const WebModel::ImageAsset& imageAsset)
+void RemoteMeshProxy::setEnvironmentMap(const WebModel::UpdateTextureDescriptor& imageAsset)
 {
 #if ENABLE(GPU_PROCESS_MODEL)
     auto sendResult = send(Messages::RemoteMesh::SetEnvironmentMap(imageAsset));
     UNUSED_PARAM(sendResult);
+#endif
+}
+
+void RemoteMeshProxy::updateContentsHeadroom(float headroom)
+{
+#if ENABLE(GPU_PROCESS_MODEL)
+    auto sendResult = send(Messages::RemoteMesh::UpdateContentsHeadroom(headroom));
+    UNUSED_PARAM(sendResult);
+#else
+    UNUSED_PARAM(headroom);
 #endif
 }
 
@@ -252,10 +262,6 @@ std::optional<WebModel::Float4x4> RemoteMeshProxy::entityTransform() const
     return m_computedTransform;
 }
 #endif
-
-static constexpr float kCSSPixelsPerMeter = 96 / 2.54 * 100;
-// Fixed camera distance matching the ModelRenderer
-static constexpr float kCameraDistance = 0.5;
 
 void RemoteMeshProxy::setFOV(float fovY)
 {
@@ -348,6 +354,10 @@ void RemoteMeshProxy::setStageMode(WebCore::StageModeOperation stageMode)
 #if ENABLE(GPU_PROCESS_MODEL)
 void RemoteMeshProxy::computeTransform()
 {
+    static constexpr float kCSSPixelsPerMeter = 96 / 2.54 * 100;
+    // Fixed camera distance matching the ModelRenderer
+    static constexpr float kCameraDistance = 0.5;
+
     auto [center, extents] = getCenterAndExtents();
 
     float viewportWidth = m_viewportWidth / kCSSPixelsPerMeter;

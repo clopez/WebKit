@@ -44,15 +44,14 @@
 #include "JSAsyncFromSyncIterator.h"
 #include "JSAsyncGenerator.h"
 #include "JSGenerator.h"
-#include "JSInternalPromise.h"
 #include "JSIteratorHelper.h"
 #include "JSMapIterator.h"
+#include "JSPromise.h"
 #include "JSPromiseReaction.h"
 #include "JSRegExpStringIterator.h"
 #include "JSSetIterator.h"
 #include "JSStringIterator.h"
 #include "JSWrapForValidIterator.h"
-#include "StructureInlines.h"
 #include <wtf/StdList.h>
 
 namespace JSC { namespace DFG {
@@ -1155,12 +1154,8 @@ private:
                 target = handleInternalFieldClass<JSAsyncGenerator>(node, writes);
                 break;
             case JSPromiseType:
-                if (node->structure()->classInfoForCells() == JSInternalPromise::info())
-                    target = handleInternalFieldClass<JSInternalPromise>(node, writes);
-                else {
-                    ASSERT(node->structure()->classInfoForCells() == JSPromise::info());
-                    target = handleInternalFieldClass<JSPromise>(node, writes);
-                }
+                ASSERT(node->structure()->classInfoForCells() == JSPromise::info());
+                target = handleInternalFieldClass<JSPromise>(node, writes);
                 break;
             default:
                 DFG_CRASH(m_graph, node, "Bad structure");

@@ -78,25 +78,25 @@ WebMouseEventButton kit(WebCore::MouseButton button)
     }
 }
 
-WebCore::MouseEventInputSource platform(WebMouseEventInputSource source)
+WebCore::MouseEventInputSource platform(WebEventInputSource source)
 {
     switch (source) {
-    case WebMouseEventInputSource::UserDriven:
+    case WebEventInputSource::UserDriven:
         return WebCore::MouseEventInputSource::UserDriven;
-    case WebMouseEventInputSource::Automation:
+    case WebEventInputSource::Automation:
         return WebCore::MouseEventInputSource::Automation;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }
 }
 
-WebMouseEventInputSource kit(WebCore::MouseEventInputSource source)
+WebEventInputSource kit(WebCore::MouseEventInputSource source)
 {
     switch (source) {
     case WebCore::MouseEventInputSource::UserDriven:
-        return WebMouseEventInputSource::UserDriven;
+        return WebEventInputSource::UserDriven;
     case WebCore::MouseEventInputSource::Automation:
-        return WebMouseEventInputSource::Automation;
+        return WebEventInputSource::Automation;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -296,6 +296,7 @@ public:
             return platform(event);
         });
         m_inputSource = platform(webEvent.inputSource());
+        m_canInitiateDrag = webEvent.canInitiateDrag();
 
 #if PLATFORM(MAC)
         m_eventNumber = webEvent.eventNumber();

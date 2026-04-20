@@ -441,14 +441,15 @@ public:
 
     // Retrieve the tree for the frame ID of any LocalFrame
     WEBCORE_EXPORT static RefPtr<AXIsolatedTree> treeForFrameID(FrameIdentifier);
-    static RefPtr<AXIsolatedTree> treeForFrameIDAlreadyLocked(FrameIdentifier);
     AXObjectCache* axObjectCache() const;
     constexpr AXGeometryManager* geometryManager() const { return m_geometryManager.get(); }
 
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     AXFrameGeometry frameGeometry() const { return m_frameGeometry; }
+    IntPoint frameScrollPosition() const { return m_frameScrollPosition; }
     bool isFrameGeometryInitialized() const { return m_hasReceivedFrameGeometry; }
-    void setFrameGeometry(AXFrameGeometry&&);
+    void setFrameGeometry(AXFrameGeometry&&, IntPoint scrollPosition);
+    void updateFrameGeometryAndScrollPositionIfNeeded(AXObjectCache&);
 #endif
 
     AXIsolatedObject* rootNode() { AX_ASSERT(!isMainThread()); return m_rootNode.get(); }
@@ -547,9 +548,7 @@ public:
     constexpr AXTreeID treeID() const { return m_id; }
     constexpr ProcessID processID() const { return m_processID; }
     void setPageActivityState(OptionSet<ActivityState>);
-    OptionSet<ActivityState> pageActivityState() const;
-    // Use only if the s_storeLock is already held like in findAXTree.
-    WEBCORE_EXPORT OptionSet<ActivityState> NODELETE lockedPageActivityState() const;
+    WEBCORE_EXPORT OptionSet<ActivityState> pageActivityState() const;
 
     AXTextMarkerRange selectedTextMarkerRange() { return m_selectedTextMarkerRange; }
     void setSelectedTextMarkerRange(AXTextMarkerRange&&);
@@ -689,6 +688,7 @@ private:
     std::optional<AXTextMarkerRange> m_pendingSelectedTextMarkerRange WTF_GUARDED_BY_LOCK(m_changeLogLock);
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     std::optional<AXFrameGeometry> m_pendingFrameGeometry WTF_GUARDED_BY_LOCK(m_changeLogLock);
+    std::optional<IntPoint> m_pendingFrameScrollPosition WTF_GUARDED_BY_LOCK(m_changeLogLock);
 #endif
     Markable<AXID> m_focusedNodeID;
     std::atomic<double> m_loadingProgress { 0 };
@@ -701,6 +701,7 @@ private:
     HashMap<AXID, AXRelations> m_relations;
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     AXFrameGeometry m_frameGeometry;
+    IntPoint m_frameScrollPosition;
     bool m_hasReceivedFrameGeometry { false };
 #endif
 

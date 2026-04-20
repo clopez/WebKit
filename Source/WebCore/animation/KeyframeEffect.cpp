@@ -2111,6 +2111,13 @@ void KeyframeEffect::animationDidTick()
     invalidate();
     updateAcceleratedActions();
 
+#if ENABLE(THREADED_ANIMATIONS)
+    if (canHaveAcceleratedRepresentation() && isAboutToRunAccelerated()) {
+        if (getBasicTiming().phase == AnimationEffectPhase::Active)
+            updateAcceleratedAnimationIfNecessary();
+    }
+#endif
+
     if (RefPtr viewTimeline = activeViewTimeline())
         computeMissingKeyframeOffsets(m_parsedKeyframes, viewTimeline.get(), animation());
 }
@@ -3185,7 +3192,10 @@ void KeyframeEffect::scheduleAssociatedAcceleratedEffectStackUpdate(const std::o
         return;
 
     CheckedPtr timelinesController = document()->timelinesController();
-    ASSERT(timelinesController);
+    // The timelines controller may not exist if the effect's document never had a
+    // DocumentTimeline created, which can happen when elements move between documents.
+    if (!timelinesController)
+        return;
     if (previousTarget)
         timelinesController->scheduleAcceleratedEffectStackUpdateForTarget(*previousTarget);
     if (auto currentTarget = targetStyleable())

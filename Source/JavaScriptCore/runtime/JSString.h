@@ -282,6 +282,7 @@ public:
 
     ALWAYS_INLINE JSString* tryReplaceOneChar(JSGlobalObject*, char16_t, JSString* replacement);
     inline std::optional<size_t> tryFindOneChar(JSGlobalObject*, char16_t character, unsigned& startPosition) const;
+    ALWAYS_INLINE std::optional<char16_t> tryGetCharAt(JSGlobalObject*, unsigned index) const;
 
     bool isSubstring() const;
 protected:
@@ -795,7 +796,7 @@ inline StringImpl* JSString::tryGetValueImpl() const
 inline JSString* asString(JSValue value)
 {
     ASSERT(value.isStringSlow());
-    return jsCast<JSString*>(value.asCell());
+    return uncheckedDowncast<JSString>(value.asCell());
 }
 
 // This MUST NOT GC.

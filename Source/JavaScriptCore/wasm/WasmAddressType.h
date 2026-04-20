@@ -26,7 +26,13 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-namespace JSC { namespace Wasm {
+namespace JSC {
+namespace B3 {
+class Type;
+enum TypeKind : uint32_t;
+}
+
+namespace Wasm {
 enum class TypeKind : int8_t;
 
 class AddressType {
@@ -39,10 +45,14 @@ public:
     AddressType() = default;
     AddressType(TypeKind);
     AddressType(AddressType::Kind);
+#if !PLATFORM(PLAYSTATION)
+    AddressType(B3::Type);
+#endif
     explicit AddressType(bool is64bit);
 
     AddressType::Kind type() const { return m_type; }
-    TypeKind NODELETE asTypeKind() const;
+    TypeKind NODELETE asWasmTypeKind() const;
+    B3::TypeKind NODELETE asB3TypeKind() const;
 
     friend bool NODELETE operator==(const AddressType& lhs, const AddressType& rhs);
     friend bool operator!=(const AddressType& lhs, const AddressType& rhs);

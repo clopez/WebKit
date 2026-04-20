@@ -53,6 +53,8 @@ scrollbars/custom-scrollbar-scroller-style-change.html [ Pass ]
 
 http/tests/gzip-content-encoding [ Pass ]
 
+http/tests/security/registerBlobURL.html [ Pass ]
+
 http/tests/xmlhttprequest/gzip-content-type-no-content-encoding.html [ Pass ]
 
 fast/text/mac [ Pass ]
@@ -1944,6 +1946,8 @@ imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/
 # they've been re-baselined to pass on arm64, so we expect failure on x86_64
 [ x86_64 ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Failure ]
 [ x86_64 ] svg/custom/use-on-symbol-inside-pattern.svg [ Failure ]
+
+[ x86_64 ] imported/w3c/web-platform-tests/shadow-dom/reference-target/tentative/form.html [ Pass Failure ]
 
 webkit.org/b/256108 media/video-audio-session-mode.html [ Failure ]
 

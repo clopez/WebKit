@@ -1338,7 +1338,7 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
             history().updateBackForwardListForFragmentScroll();
 
         if (!document->hasRecentUserInteractionForNavigationFromJS() && !documentLoader()->triggeringAction().isRequestFromClientOrUserInput()) {
-            if (auto* currentItem = history().currentItem())
+            if (RefPtr currentItem = history().currentItem())
                 currentItem->setWasCreatedByJSWithoutUserInteraction(true);
         }
     }
@@ -2367,8 +2367,10 @@ void FrameLoader::clearProvisionalLoad()
 void FrameLoader::provisionalLoadFailedInAnotherProcess()
 {
     m_provisionalLoadHappeningInAnotherProcess = false;
+    m_isComplete = true;
+
     if (RefPtr localParent = dynamicDowncast<LocalFrame>(m_frame->tree().parent()))
-        localParent->loader().checkLoadComplete();
+        localParent->loader().checkCompleted();
 }
 
 void FrameLoader::commitProvisionalLoad()

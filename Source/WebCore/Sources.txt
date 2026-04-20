@@ -583,6 +583,7 @@ Modules/webxr/XRSessionEvent.cpp
 Modules/webxr/XRSubImage.cpp
 Modules/webxr/XRWebGLLayerBacking.cpp
 Modules/webxr/XRWebGLProjectionLayerBacking.cpp
+Modules/webxr/XRWebGLQuadLayerBacking.cpp
 Modules/webxr/WebXRTransientInputHitTestResult.cpp
 Modules/webxr/WebXRTransientInputHitTestSource.cpp
 Modules/webxr/XRWebGLBinding.cpp
@@ -912,6 +913,7 @@ css/CSSFontFaceRule.cpp
 css/CSSFontFaceSet.cpp
 css/CSSFontFaceSource.cpp
 css/CSSFontFaceSrcValue.cpp
+css/CSSFontFamilyNameValue.cpp
 css/CSSFontFeatureValue.cpp
 css/CSSFontFeatureValuesRule.cpp
 css/CSSFontPaletteValuesRule.cpp
@@ -974,6 +976,7 @@ css/CSSSegmentedFontFace.cpp
 css/CSSSelector.cpp
 css/CSSSelectorList.cpp
 css/CSSStartingStyleRule.cpp
+css/CSSStringValue.cpp
 css/CSSStyleDeclaration.cpp
 css/CSSStyleProperties.cpp
 css/CSSStyleRule.cpp
@@ -1176,6 +1179,7 @@ css/values/color/CSSKeywordColor.cpp
 css/values/color/CSSLightDarkColor.cpp
 css/values/color/CSSPlatformColorResolutionState.cpp
 css/values/color/CSSResolvedColor.cpp
+css/values/fonts/CSSFontFamilyName.cpp
 css/values/grid/CSSGridNamedAreaMap.cpp
 css/values/images/CSSGradient.cpp
 css/values/motion/CSSRayFunction.cpp
@@ -1189,6 +1193,7 @@ css/values/primitives/CSSPrimitiveNumericTypes+SymbolReplacement.cpp
 css/values/primitives/CSSPrimitiveNumericUnits.cpp
 css/values/primitives/CSSPropertyIdentifier.cpp
 css/values/primitives/CSSRatio.cpp
+css/values/primitives/CSSString.cpp
 css/values/primitives/CSSSymbol.cpp
 css/values/primitives/CSSURL.cpp
 css/values/primitives/CSSURLModifiers.cpp
@@ -1659,6 +1664,7 @@ html/InputTypeNames.cpp
 html/LabelsNodeList.cpp
 html/LazyLoadFrameObserver.cpp
 html/LazyLoadImageObserver.cpp
+html/LazyLoadVideoObserver.cpp
 html/LinkIconCollector.cpp
 html/LinkRelAttribute.cpp
 html/MediaController.cpp
@@ -1873,6 +1879,7 @@ inspector/InspectorFrontendAPIDispatcher.cpp
 inspector/InspectorFrontendClientLocal.cpp
 inspector/InspectorFrontendHost.cpp
 inspector/InspectorHistory.cpp
+inspector/InspectorIdentifierRegistry.cpp
 inspector/InspectorInstrumentation.cpp
 inspector/InspectorInstrumentationPublic.cpp
 inspector/InspectorInstrumentationWebKit.cpp
@@ -1914,6 +1921,7 @@ inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
 inspector/agents/frame/FrameConsoleAgent.cpp
 inspector/agents/frame/FrameDebuggerAgent.cpp
+inspector/agents/frame/FrameWorkerAgent.cpp
 inspector/agents/page/PageAuditAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp
 inspector/agents/page/PageConsoleAgent.cpp
@@ -2895,6 +2903,8 @@ rendering/InlineBoxPainter.cpp
 rendering/LayerAncestorClippingStack.cpp
 rendering/LayerOverlapMap.cpp
 rendering/LayoutScope.cpp
+rendering/RelayoutScopeForScrollbarChange.cpp
+rendering/ScrollbarUpdateScope.cpp
 rendering/LayoutDisallowedScope.cpp
 rendering/LayoutRepainter.cpp
 rendering/LegacyInlineBox.cpp
@@ -2945,6 +2955,7 @@ rendering/RenderLayerBacking.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerFilters.cpp
 rendering/RenderLayerModelObject.cpp
+rendering/RenderLayerSVGAdditions.cpp
 rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
 rendering/RenderLineBoxList.cpp
@@ -3387,6 +3398,7 @@ style/values/primitives/StylePosition.cpp
 style/values/primitives/StylePrimitiveNumericTypes+Conversions.cpp
 style/values/primitives/StylePropertyIdentifier.cpp
 style/values/primitives/StyleRatio.cpp
+style/values/primitives/StyleString.cpp
 style/values/primitives/StyleURL.cpp
 style/values/primitives/StyleUnevaluatedCalculation.cpp
 style/values/rhythm/StyleBlockStepSize.cpp
@@ -4540,6 +4552,7 @@ JSMediaSession.cpp
 JSMediaSessionAction.cpp
 JSMediaSessionActionDetails.cpp
 JSMediaSessionActionHandler.cpp
+JSMediaSessionCaptionTrack.cpp
 JSMediaSessionCoordinator.cpp
 JSMediaSessionCoordinatorState.cpp
 JSMediaSessionPlaybackState.cpp

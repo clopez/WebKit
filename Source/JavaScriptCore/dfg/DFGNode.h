@@ -1017,7 +1017,7 @@ public:
     {
         if (!isCellConstant())
             return nullptr;
-        return jsDynamicCast<T>(asCell());
+        return dynamicDowncast<std::remove_pointer_t<T>>(asCell());
     }
     
     bool hasLazyJSValue()
@@ -1543,17 +1543,6 @@ public:
     {
         ASSERT(hasInlineCapacity());
         return m_opInfo.as<unsigned>();
-    }
-
-    bool hasIsInternalPromise()
-    {
-        return op() == CreatePromise;
-    }
-
-    bool isInternalPromise()
-    {
-        ASSERT(hasIsInternalPromise());
-        return m_opInfo2.as<bool>();
     }
 
     void setIndexingType(IndexingType indexingType)

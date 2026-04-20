@@ -54,6 +54,7 @@
 #include "PaintInfo.h"
 #include "PaintInfoInlines.h"
 #include "PositionedLayoutConstraints.h"
+#include "RelayoutScopeForScrollbarChange.h"
 #include "RenderBlockFlow.h"
 #include "RenderBlockInlines.h"
 #include "RenderBoxFragmentInfo.h"
@@ -81,6 +82,7 @@
 #include "RenderTreeBuilder.h"
 #include "RenderTreePosition.h"
 #include "RenderView.h"
+#include "ScrollbarUpdateScope.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "ShapeOutsideInfo.h"
@@ -477,7 +479,7 @@ void RenderBlock::endAndCommitUpdateScrollInfoAfterLayoutTransaction()
         if (block->hasControlClip() && block->hasRenderOverflow())
             block->clearLayoutOverflow();
         if (block->hasNonVisibleOverflow())
-            block->layer()->updateScrollInfoAfterLayout();
+            RelayoutScopeForScrollbarChange relayoutScope { *block, InOverflowRelayout::No };
     }
 }
 
@@ -491,7 +493,7 @@ static inline bool NODELETE isDelayingUpdateScrollInfoAfterLayout(const RenderBl
     return transaction && transaction->nestedCount && !renderer.writingMode().isBlockFlipped();
 };
 
-void RenderBlock::updateScrollInfoAfterLayout()
+std::optional<ScrollbarUpdateScope> RenderBlock::updateScrollInfoAfterLayout()
 {
     auto hasNonVisibleOverflow = this->hasNonVisibleOverflow();
 
@@ -499,12 +501,14 @@ void RenderBlock::updateScrollInfoAfterLayout()
         auto shouldUpdate = hasNonVisibleOverflow || hasControlClip();
         if (shouldUpdate) {
             view().frameView().layoutContext().updateScrollInfoAfterLayoutTransactionIfExists()->blocks.add(*this);
-            return;
+            return { };
         }
     }
 
     if (hasNonVisibleOverflow && layer())
-        layer()->updateScrollInfoAfterLayout();
+        return layer()->updateScrollInfoAfterLayout();
+
+    return { };
 }
 
 void RenderBlock::layout()
@@ -735,8 +739,9 @@ bool RenderBlock::simplifiedLayout()
 
     updateLayerTransform();
 
-    updateScrollInfoAfterLayout();
-
+    {
+        RelayoutScopeForScrollbarChange relayoutScope { *this, InOverflowRelayout::No };
+    }
     clearNeedsLayout();
     return true;
 }
@@ -2941,8 +2946,23 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
 
         auto& style = this->style();
         if (auto fixedLogicalHeight = style.logicalHeight().tryFixed()) {
-            auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->resolveZoom(style.usedZoomForLength()) });
-            return std::max(0_lu, constrainContentBoxLogicalHeightByMinMax(contentBoxHeight - scrollbarLogicalHeight(), { }));
+            auto flexBasisOverridesHeight = [&] {
+                if (!isFlexItem())
+                    return false;
+                // When flex-basis is anything other than 'auto', it overrides the
+                // specified main axis size. The logical height should not be
+                // definite for percentage children when it IS the main axis,
+                // because the flex algorithm will use flex-basis, not the CSS
+                // height. logicalHeight is the item's block axis (vertical for
+                // horizontal WM, horizontal for vertical WM). It aligns with the
+                // main axis when they point in different physical directions.
+                auto& flexContainer = downcast<RenderFlexibleBox>(*parent());
+                return !style.flexBasis().isAuto() && flexContainer.isHorizontalFlow() != isHorizontalWritingMode();
+            };
+            if (!flexBasisOverridesHeight()) {
+                auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->resolveZoom(style.usedZoomForLength()) });
+                return std::max(0_lu, constrainContentBoxLogicalHeightByMinMax(contentBoxHeight - scrollbarLogicalHeight(), { }));
+            }
         }
 
         if (shouldComputeLogicalHeightFromAspectRatio()) {
@@ -2960,11 +2980,20 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
             );
         }
 
-        // A positioned element that specified both top/bottom or that specifies
-        // height should be treated as though it has a height explicitly specified
-        // that can be used for any percentage computations.
-        auto isOutOfFlowPositionedWithSpecifiedHeight = isOutOfFlowPositioned() && (!style.logicalHeight().isAuto() || (!style.logicalTop().isAuto() && !style.logicalBottom().isAuto()));
-        if (isOutOfFlowPositionedWithSpecifiedHeight) {
+        auto isOutOfFlowPositionedWithDefiniteHeight = [&] {
+            if (!isOutOfFlowPositioned())
+                return false;
+            // Explicit lengths/percentages are definite (CSS Sizing 3, 3.2.1).
+            if (style.logicalHeight().isSpecified())
+                return true;
+            // Both insets + height:auto -> the constraint equation (CSS2 10.6.4) solves for
+            // height from known values (containing block, insets, margins, borders, padding).
+            // height:auto is the only non-specified case where this works.
+            // Content-dependent values (fit-content, etc.) can't be resolved here - the child is asking for
+            // the containig block's height to size itself, but the containing blokc needs the child's size first.
+            return !style.logicalTop().isAuto() && !style.logicalBottom().isAuto() && style.logicalHeight().isAuto();
+        };
+        if (isOutOfFlowPositionedWithDefiniteHeight()) {
             // Don't allow this to affect the block' size() member variable, since this
             // can get called while the block is still laying out its kids.
             return std::max(0_lu, computeLogicalHeight(logicalHeight(), 0_lu).extent - borderAndPaddingLogicalHeight() - scrollbarLogicalHeight());

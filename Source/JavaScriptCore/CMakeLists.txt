@@ -90,7 +90,6 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/IntlSegmentsPrototype.cpp
     runtime/JSDataViewPrototype.cpp
     runtime/JSGlobalObject.cpp
-    runtime/JSInternalPromiseConstructor.cpp
     runtime/JSIterator.cpp
     runtime/JSIteratorConstructor.cpp
     runtime/JSIteratorHelperPrototype.cpp
@@ -356,7 +355,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/MapConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
-    ${JAVASCRIPTCORE_DIR}/builtins/ModuleLoader.js
     ${JAVASCRIPTCORE_DIR}/builtins/ObjectConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseOperations.js
@@ -1071,6 +1069,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ControlFlowProfiler.h
     runtime/CrossTaskToken.h
     runtime/CustomGetterSetter.h
+    runtime/CyclicModuleRecord.h
     runtime/DOMAnnotation.h
     runtime/DataView.h
     runtime/DateInstance.h
@@ -1088,6 +1087,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/DOMAttributeGetterSetter.h
     runtime/DumpContext.h
     runtime/ECMAMode.h
+    runtime/EmbedderArrayLike.h
     runtime/EnsureStillAliveHere.h
     runtime/EnumerationMode.h
     runtime/Error.h
@@ -1172,11 +1172,15 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSCellInlines.h
     runtime/JSCInlines.h
     runtime/JSCJSValue.h
-    runtime/JSCJSValueCellInlines.h
+    runtime/JSCJSValueBigInt.h
+    runtime/JSCJSValueCell.h
+    runtime/JSCJSValueStructure.h
     runtime/JSCJSValueInlines.h
+    runtime/JSCJSValuePropertyInlines.h
     runtime/JSPIContext.h
     runtime/JSPIContextInlines.h
     runtime/JSCPtrTag.h
+    runtime/JSCTimeZone.h
     runtime/JSCustomGetterFunction.h
     runtime/JSCustomSetterFunction.h
     runtime/JSDataView.h
@@ -1184,6 +1188,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSDateMath.h
     runtime/JSDestructibleObject.h
     runtime/JSDestructibleObjectHeapCellType.h
+    runtime/JSEmbedderArrayLike.h
     runtime/JSHeapDouble.h
     runtime/JSHeapInt32.h
     runtime/JSExportMacros.h
@@ -1210,8 +1215,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSInt32Array.h
     runtime/JSInt8Array.h
     runtime/JSInternalFieldObjectImpl.h
-    runtime/JSInternalPromise.h
-    runtime/JSInternalPromiseConstructor.h
     runtime/JSIteratorPrototype.h
     runtime/JSLexicalEnvironment.h
     runtime/JSLock.h
@@ -1236,9 +1239,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSRemoteFunction.h
     runtime/JSRunLoopTimer.h
     runtime/JSScope.h
-    runtime/JSScriptFetchParameters.h
-    runtime/JSScriptFetcher.h
-    runtime/JSScriptFetchParametersInlines.h
     runtime/JSSegmentedVariableObject.h
     runtime/JSSet.h
     runtime/JSSetInlines.h
@@ -1284,7 +1284,12 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/Microtask.h
     runtime/MicrotaskQueue.h
     runtime/MicrotaskQueueInlines.h
+    runtime/ModuleGraphLoadingState.h
+    runtime/ModuleLoaderPayload.h
+    runtime/ModuleLoadingContext.h
+    runtime/ModuleMap.h
     runtime/ModuleProgramExecutable.h
+    runtime/ModuleRegistryEntry.h
     runtime/NativeCallee.h
     runtime/NativeCalleeRegistry.h
     runtime/NativeExecutable.h
@@ -1299,6 +1304,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ObjectInitializationScope.h
     runtime/ObjectPrototype.h
     runtime/Operations.h
+    runtime/OperationsInlines.h
     runtime/Options.h
     runtime/OptionsList.h
     runtime/OrderedHashTable.h
@@ -1368,8 +1374,10 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/StringReplaceCache.h
     runtime/StringSplitCache.h
     runtime/Structure.h
+    runtime/StructureArrayStorageInlines.h
     runtime/StructureCache.h
     runtime/StructureChain.h
+    runtime/StructureCreateInlines.h
     runtime/StructureID.h
     runtime/StructureInlines.h
     runtime/StructureRareData.h
@@ -1756,7 +1764,7 @@ endif ()
 WEBKIT_COMPUTE_SOURCES(JavaScriptCore)
 WEBKIT_FRAMEWORK(JavaScriptCore)
 
-target_precompile_headers(JavaScriptCore PRIVATE JavaScriptCorePrefix.h)
+ADD_WEBKIT_PREFIX_HEADERS(JavaScriptCore JavaScriptCorePrefix.h)
 
 if (NOT "${PORT}" STREQUAL "Mac")
     if (${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")

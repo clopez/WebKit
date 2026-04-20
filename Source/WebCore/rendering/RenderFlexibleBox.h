@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <WebCore/BaselineAlignment.h>
 #include <WebCore/OrderIterator.h>
 #include <WebCore/RenderBlock.h>
 #include <wtf/WeakHashSet.h>
@@ -104,6 +105,7 @@ public:
     bool hasModernLayout() const { return m_hasFlexFormattingContextLayout && *m_hasFlexFormattingContextLayout; }
 
     bool shouldResetFlexItemLogicalHeightBeforeLayout() const { return m_shouldResetFlexItemLogicalHeightBeforeLayout; }
+    bool isInCrossAxisStretchLayout() const { return m_inLayout && m_afterCrossAxisItemSizing; }
 
     bool NODELETE isColumnOrRowReverse() const;
     bool NODELETE isWrapReverse() const;
@@ -197,12 +199,13 @@ private:
     bool flexItemHasComputableAspectRatioAndCrossSizeIsConsideredDefinite(const RenderBox&);
 
     bool crossAxisIsLogicalWidth() const;
-    bool flexItemCrossSizeShouldUseContainerCrossSize(const RenderBox& flexItem) const;
+    void clearFlexItemOverridingSizes();
+    bool hasDefiniteCrossSizeForFlexItem(const RenderBox& flexItem) const;
     LayoutUnit computeCrossSizeForFlexItemUsingContainerCrossSize(const RenderBox& flexItem) const;
     void computeChildIntrinsicLogicalWidths(RenderBox&, LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
     template<typename SizeType> LayoutUnit computeMainSizeFromAspectRatioUsing(const RenderBox& flexItem, const SizeType& crossSizeLength) const;
     void NODELETE setFlowAwareLocationForFlexItem(RenderBox& flexItem, const LayoutPoint&);
-    LayoutUnit computeFlexBaseSizeForFlexItem(RenderBox& flexItem, LayoutUnit mainAxisBorderAndPadding, RelayoutChildren);
+    LayoutUnit computeFlexBaseSizeForFlexItem(RenderBox& flexItem, RelayoutChildren);
     void maybeCacheFlexItemMainIntrinsicSize(RenderBox& flexItem, RelayoutChildren);
     void NODELETE adjustAlignmentForFlexItem(RenderBox& flexItem, LayoutUnit);
     ItemPosition alignmentForFlexItem(const RenderBox& flexItem) const;
@@ -249,6 +252,8 @@ private:
 
     bool NODELETE hasAutoMarginsInCrossAxis(const RenderBox& flexItem) const;
     bool NODELETE updateAutoMarginsInCrossAxis(RenderBox& flexItem, LayoutUnit availableAlignmentSpace);
+    LayoutUnit resolveFlexibleLengthsForLineItems(FlexLayoutItems&, LayoutUnit containerMainInnerSize, LayoutUnit gapBetweenItems);
+    void distributeMainAxisFreeSpaceForMultilineColumnIfNeeded(FlexLineStates&, LayoutUnit gapBetweenItems);
     void repositionLogicalHeightDependentFlexItems(FlexLineStates&, LayoutUnit gapBetweenLines);
     
     LayoutUnit availableAlignmentSpaceForFlexItem(LayoutUnit lineCrossAxisExtent, const RenderBox& flexItem);
@@ -267,7 +272,13 @@ private:
     void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
     void setOverridingMainSizeForFlexItem(RenderBox&, LayoutUnit);
     void prepareFlexItemForPositionedLayout(RenderBox& flexItem);
-    void layoutAndPlaceFlexItems(LayoutUnit& crossAxisOffset, FlexLayoutItems&, LayoutUnit availableFreeSpace, RelayoutChildren, FlexLineStates&, LayoutUnit gapBetweenItems);
+
+    struct FlexLineResult {
+        LayoutUnit crossAxisOffsetForNextLine;
+        LayoutUnit crossAxisExtent;
+        std::optional<BaselineAlignmentState> baselineAlignmentState;
+    };
+    FlexLineResult layoutAndPlaceFlexItems(LayoutUnit crossAxisOffset, FlexLayoutItems&, LayoutUnit availableFreeSpace, RelayoutChildren, LayoutUnit gapBetweenItems);
     void layoutColumnReverse(const FlexLayoutItems&, LayoutUnit crossAxisOffset, LayoutUnit availableFreeSpace, LayoutUnit gapBetweenItems);
     void alignFlexLines(FlexLineStates&, LayoutUnit gapBetweenLines);
     void alignFlexItems(FlexLineStates&);
@@ -281,6 +292,7 @@ private:
     void repaintFlexItemsDuringLayoutIfMoved(const FlexItemFrameRects&);
 
     bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
+    void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox&);
 
     void resetHasDefiniteHeight() { m_hasDefiniteHeight = SizeDefiniteness::Unknown; }
     const RenderBox* flexItemForFirstBaseline() const;

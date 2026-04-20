@@ -77,13 +77,6 @@ class DebugServer {
     WTF_MAKE_TZONE_ALLOCATED(DebugServer);
 
 public:
-    enum class State : uint8_t {
-        Stopped, // Initial state, server is not running
-        Starting, // Transitional state during startup
-        Running, // Server is fully operational and accepting connections
-        Stopping, // Transitional state during shutdown
-    };
-
     JS_EXPORT_PRIVATE static DebugServer& singleton();
 
 #if OS(WINDOWS)
@@ -100,14 +93,13 @@ public:
     ~DebugServer() = default;
 
     JS_EXPORT_PRIVATE bool start();
-    JS_EXPORT_PRIVATE void stop();
 
 #if ENABLE(REMOTE_INSPECTOR)
     // DebugServer supports two modes:
     // 1. Direct TCP socket mode (JSC shell debugging)
     // 2. Remote Web Inspector integration mode (WebKit debugging)
     bool isRWIMode() const { return !!m_rwiResponseHandler; }
-    JS_EXPORT_PRIVATE bool startRWI(Function<bool(const String&)>&& rwiResponseHandler);
+    JS_EXPORT_PRIVATE void startRWI(Function<bool(const String&)>&& rwiResponseHandler);
 #endif
 
     void trackInstance(JSWebAssemblyInstance*);
@@ -144,16 +136,16 @@ public:
 
     JS_EXPORT_PRIVATE ModuleManager& moduleManager() const;
 
-private:
-    void reset();
+    JS_EXPORT_PRIVATE void reset();
 
-    void setState(State);
-    JS_EXPORT_PRIVATE bool NODELETE isState(State) const;
+private:
+
+    bool isInService() const { return m_isInService.load(std::memory_order_acquire); }
+    void setIsInService() { m_isInService.store(true, std::memory_order_release); }
 
     bool createAndBindServerSocket();
     void startAcceptThread();
     void acceptClientConnections();
-    void resetAll();
     void closeSocket(SocketType&);
 
     void handleClient();
@@ -179,7 +171,8 @@ private:
     friend class RegisterHandler;
     friend class ExecutionHandler;
 
-    std::atomic<State> m_state { State::Stopped };
+    // Set once on start()/startRWI() and never cleared — DebugServer is a process-lifetime singleton.
+    std::atomic<bool> m_isInService { false };
     std::atomic<bool> m_hasContinued { false };
     std::atomic<bool> m_isDebuggerReady { false };
     uint16_t m_port { defaultPort };

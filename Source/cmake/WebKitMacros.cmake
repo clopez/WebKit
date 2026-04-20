@@ -51,6 +51,11 @@ macro(WEBKIT_COMPUTE_SOURCES _framework)
                 list(APPEND ${_framework}_C_SOURCES ${_file})
             else ()
                 list(APPEND ${_framework}_SOURCES ${_file})
+                # generate-unified-source-bundles.rb emits *-ARC.mm and *-nonARC.mm bundles based
+                # on @no-arc annotations in Sources*.txt. Xcode uses per-file CLANG_ENABLE_OBJC_ARC.
+                if (_file MATCHES "-ARC\\.mm$")
+                    set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+                endif ()
             endif ()
         endforeach ()
 
@@ -100,6 +105,45 @@ macro(WEBKIT_ADD_SOURCE_DEPENDENCIES _source _deps)
     unset(_tmp)
 endmacro()
 
+# Wrapper around target_precompile_headers() with two workarounds:
+#
+# 1. OBJCXX is excluded from the PCH because WebKit targets mix ARC and
+#    non-ARC .mm sources in the same target. CMake generates one PCH per
+#    language per target, so ARC sources would get a non-ARC PCH (or vice
+#    versa), producing:
+#      "ARC was disabled in precompiled file ... but is currently enabled"
+#    OBJCXX sources still get the prefix header via a plain -include flag.
+#
+# 2. Targets with Swift sources fall back to -include for ALL languages.
+#    CMake's Swift linker rule includes the .pch in the link inputs,
+#    producing "unexpected input file: ...pch". Using -include avoids
+#    generating a .pch file entirely.
+#
+# On ports where OBJC/OBJCXX are not enabled languages the OBJC/OBJCXX
+# clauses are no-ops.
+# FIXME: We should refactor this so that sources differentiate by language
+# so we use PCHs consistently rather than just prefix headers.
+macro(ADD_WEBKIT_PREFIX_HEADERS _target _header)
+    get_target_property(_sources ${_target} SOURCES)
+    set(_has_swift FALSE)
+    foreach (_src IN LISTS _sources)
+        if (_src MATCHES "\\.swift$")
+            set(_has_swift TRUE)
+            break ()
+        endif ()
+    endforeach ()
+
+    if (_has_swift)
+        target_compile_options(${_target} PRIVATE
+            "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:-include;${CMAKE_CURRENT_SOURCE_DIR}/${_header}>")
+    else ()
+        target_precompile_headers(${_target} PRIVATE
+            "$<$<COMPILE_LANGUAGE:C,CXX,OBJC>:${CMAKE_CURRENT_SOURCE_DIR}/${_header}>")
+        target_compile_options(${_target} PRIVATE
+            "$<$<COMPILE_LANGUAGE:OBJCXX>:-include;${CMAKE_CURRENT_SOURCE_DIR}/${_header}>")
+    endif ()
+endmacro()
+
 macro(WEBKIT_FRAMEWORK_DECLARE _target)
     # add_library() without any source files triggers CMake warning
     # Addition of dummy "source" file does not result in any changes in generated build.ninja file
@@ -112,9 +156,9 @@ macro(WEBKIT_LIBRARY_DECLARE _target)
     add_library(${_target} ${${_target}_LIBRARY_TYPE} "${CMAKE_BINARY_DIR}/cmakeconfig.h")
 
     if (${_target}_LIBRARY_TYPE STREQUAL "OBJECT")
-        list(APPEND ${_target}_INTERFACE_LIBRARIES $<TARGET_OBJECTS:${_target}>)
+        list(APPEND ${_target}_INTERFACE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${_target}>,EXCLUDE,\\.(g|p)ch$>")
         if (TARGET ${_target}_c)
-            list(APPEND ${_target}_INTERFACE_LIBRARIES $<TARGET_OBJECTS:${_target}_c>)
+            list(APPEND ${_target}_INTERFACE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${_target}_c>,EXCLUDE,\\.(g|p)ch$>")
         endif ()
     endif ()
 endmacro()
@@ -289,9 +333,9 @@ macro(_WEBKIT_FRAMEWORK_LINK_FRAMEWORK _target_name)
             )
             list(APPEND ${_target_name}_PRIVATE_LIBRARIES WebKit::${framework})
             if (${framework}_LIBRARY_TYPE STREQUAL "OBJECT")
-                list(APPEND ${_target_name}_PRIVATE_LIBRARIES $<TARGET_OBJECTS:${framework}>)
+                list(APPEND ${_target_name}_PRIVATE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${framework}>,EXCLUDE,\\.(g|p)ch$>")
                 if (TARGET ${framework}_c)
-                    list(APPEND ${_target_name}_PRIVATE_LIBRARIES $<TARGET_OBJECTS:${framework}_c>)
+                    list(APPEND ${_target_name}_PRIVATE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${framework}_c>,EXCLUDE,\\.(g|p)ch$>")
                 endif ()
             endif ()
         else ()
@@ -314,9 +358,9 @@ macro(_WEBKIT_TARGET_LINK_FRAMEWORK _target)
             # The WebKit:: alias targets do not propagate OBJECT libraries so the
             # underyling library's objects are explicitly added to link properly
             if (TARGET ${framework} AND ${framework}_LIBRARY_TYPE STREQUAL "OBJECT")
-                list(APPEND ${_target}_PRIVATE_LIBRARIES $<TARGET_OBJECTS:${framework}>)
+                list(APPEND ${_target}_PRIVATE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${framework}>,EXCLUDE,\\.(g|p)ch$>")
                 if (TARGET ${framework}_c)
-                    list(APPEND ${_target}_PRIVATE_LIBRARIES $<TARGET_OBJECTS:${framework}_c>)
+                    list(APPEND ${_target}_PRIVATE_LIBRARIES "$<FILTER:$<TARGET_OBJECTS:${framework}_c>,EXCLUDE,\\.(g|p)ch$>")
                 endif ()
             endif ()
         endif ()
@@ -412,7 +456,7 @@ macro(WEBKIT_EXECUTABLE _target)
 endmacro()
 
 function(WEBKIT_COPY_FILES target_name)
-    set(options FLATTENED)
+    set(options FLATTENED NO_SYMLINK)
     set(oneValueArgs DESTINATION)
     set(multiValueArgs FILES)
     cmake_parse_arguments(opt "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -432,11 +476,22 @@ function(WEBKIT_COPY_FILES target_name)
             file(MAKE_DIRECTORY ${opt_DESTINATION}/${file_dir})
             set(dst_file ${opt_DESTINATION}/${file})
         endif ()
-        add_custom_command(OUTPUT ${dst_file}
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src_file} ${dst_file}
-            MAIN_DEPENDENCY ${file}
-            VERBATIM
-        )
+        # On macOS, symlink instead of copy so #import deduplicates headers reachable
+        # via both forwarded (<WebKit/X.h>) and source-tree paths.
+        # NO_SYMLINK for destinations post-processed in-place (e.g. ANGLE headers).
+        if (APPLE AND NOT opt_NO_SYMLINK)
+            add_custom_command(OUTPUT ${dst_file}
+                COMMAND ${CMAKE_COMMAND} -E create_symlink ${src_file} ${dst_file}
+                MAIN_DEPENDENCY ${file}
+                VERBATIM
+            )
+        else ()
+            add_custom_command(OUTPUT ${dst_file}
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src_file} ${dst_file}
+                MAIN_DEPENDENCY ${file}
+                VERBATIM
+            )
+        endif ()
         list(APPEND dst_files ${dst_file})
     endforeach ()
     add_custom_target(${target_name} ALL DEPENDS ${dst_files})
@@ -546,7 +601,7 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # Other options needed by Swift for C++ interop, including the location
         # of the modulemap and hader for WebKit's internal "APIs" which we
         # make available from C++ to Swift.
-        list(APPEND _swift_options "-cxx-interoperability-mode=default" "-Xcc" "-std=c++2b" "-I${_interop_module_path}")
+        list(APPEND _swift_options "-cxx-interoperability-mode=default" "-Xcc" "-std=c++2b" "-explicit-module-build" "-enable-upcoming-feature" "InternalImportsByDefault" "-Xcc" "-I${_interop_module_path}")
         # We'll use these options both for mainstream cmake invocations of swiftc (here)
         # and for our own invocation to output an interoperability .h file (later)
         list(TRANSFORM _swift_options PREPEND "$<$<COMPILE_LANGUAGE:Swift>:" OUTPUT_VARIABLE _swift_only_options)
@@ -576,6 +631,22 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         cmake_path(APPEND _header_base_path ${_output_header} OUTPUT_VARIABLE _header_path)
         cmake_path(APPEND CMAKE_CURRENT_BINARY_DIR "${_target}.emit-module.d" OUTPUT_VARIABLE _depfile_path)
 
+        # Allow targets to override include directories for Swift (e.g. to exclude
+        # directories containing conflicting module.modulemap files).
+        if (DEFINED ${_target}_SWIFT_INCLUDE_DIRECTORIES AND NOT "${${_target}_SWIFT_INCLUDE_DIRECTORIES}" STREQUAL "")
+            list(TRANSFORM ${_target}_SWIFT_INCLUDE_DIRECTORIES PREPEND "-I" OUTPUT_VARIABLE _swift_include_dirs)
+        elseif (NOT DEFINED ${_target}_SWIFT_INCLUDE_DIRECTORIES)
+            set(_swift_include_dirs $<LIST:TRANSFORM,$<TARGET_PROPERTY:${_target},INCLUDE_DIRECTORIES>,PREPEND,-I>)
+        else ()
+            set(_swift_include_dirs "")
+        endif ()
+
+        set(_swift_sdk_flag "")
+        if (APPLE AND CMAKE_OSX_SYSROOT)
+            set(_swift_sdk_flag -sdk ${CMAKE_OSX_SYSROOT})
+        endif ()
+
+        set(_header_tmp_path "${_header_path}.tmp")
         add_custom_command(
             OUTPUT ${_header_path}
             DEPENDS ${_swift_sources}
@@ -583,11 +654,17 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
             COMMAND
                 ${ORIGINAL_Swift_COMPILER} -typecheck
                 ${_swift_options}
-                $<LIST:TRANSFORM,$<TARGET_PROPERTY:${_target},INCLUDE_DIRECTORIES>,PREPEND,-I>
+                ${${_target}_SWIFT_EXTRA_OPTIONS}
+                ${_swift_sdk_flag}
+                ${_swift_include_dirs}
                 ${_swift_sources}
-                -module-name WebKit
-                -emit-clang-header-path ${_header_path}
+                -module-name ${_module_name}
+                -emit-clang-header-path ${_header_tmp_path}
                 -emit-dependencies
+            COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different ${_header_tmp_path} ${_header_path}
+            COMMAND
+                ${CMAKE_COMMAND} -E rm -f ${_header_tmp_path}
             DEPFILE ${_depfile_path}
             COMMENT
                 "Generating ${_target} C++ bindings to Swift at '${_header_path}'"

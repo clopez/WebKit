@@ -23,7 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H && defined(BUILDING_WITH_CMAKE)
+#include "cmakeconfig.h"
+#endif
+
 #include <wtf/Platform.h>
+
+#ifdef __cplusplus
 
 #if defined(__APPLE__) && __APPLE__
 #ifdef __OBJC__
@@ -60,3 +66,5 @@
 #if USE(OS_LOG)
 #include <os/log.h>
 #endif
+
+#endif // __cplusplus

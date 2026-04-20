@@ -45,6 +45,7 @@
 #include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
 #include "FrameInlines.h"
+#include "DocumentPrefetcher.h"
 #include "DocumentQuirks.h"
 #include "DocumentResourceLoader.h"
 #include "DocumentSecurityPolicy.h"
@@ -88,6 +89,7 @@
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
 #include "Logging.h"
+#include "MixedContentChecker.h"
 #include "Navigator.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
@@ -248,7 +250,11 @@ LocalFrame::~LocalFrame()
 
     m_inspectorController->inspectedFrameDestroyed();
 
+    // Clear prefetched resources before the FrameLoader is torn down. In-flight
+    // prefetch loads trigger a cancel chain (allClientsRemoved -> cancelLoad ->
+    // activeDocumentLoader) that requires a fully valid FrameLoader.
     Ref loader = this->loader();
+    loader->documentPrefetcher().clear();
     if (!loader->isComplete())
         loader->closeURL();
 
@@ -1263,9 +1269,9 @@ void LocalFrame::resetScript()
 LocalFrame* LocalFrame::fromJSContext(JSContextRef context)
 {
     JSC::JSGlobalObject* globalObjectObj = toJS(context);
-    if (auto* window = JSC::jsDynamicCast<JSDOMWindow*>(globalObjectObj))
+    if (auto* window = dynamicDowncast<JSDOMWindow>(globalObjectObj))
         return dynamicDowncast<LocalFrame>(window->wrapped().frame());
-    if (auto* serviceWorkerGlobalScope = JSC::jsDynamicCast<JSServiceWorkerGlobalScope*>(globalObjectObj))
+    if (auto* serviceWorkerGlobalScope = dynamicDowncast<JSServiceWorkerGlobalScope>(globalObjectObj))
         return serviceWorkerGlobalScope->wrapped().serviceWorkerPage() ? dynamicDowncast<LocalFrame>(serviceWorkerGlobalScope->wrapped().serviceWorkerPage()->mainFrame()) : nullptr;
     return nullptr;
 }
@@ -1281,7 +1287,7 @@ LocalFrame* LocalFrame::contentFrameFromWindowOrFrameElement(JSContextRef contex
     if (RefPtr window = JSDOMWindow::toWrapped(globalObject->vm(), value))
         return dynamicDowncast<LocalFrame>(window->frame());
 
-    auto* jsNode = JSC::jsDynamicCast<JSNode*>(value);
+    auto* jsNode = dynamicDowncast<JSNode>(value);
     if (!jsNode)
         return nullptr;
 
@@ -1467,16 +1473,7 @@ void LocalFrame::reportMixedContentViolation(bool blocked, const URL& target) co
     if (!document)
         return;
 
-    auto isUpgradingLocalhostDisabled = !document->settings().iPAddressAndLocalhostMixedContentUpgradeTestingEnabled() && shouldTreatAsPotentiallyTrustworthy(target);
-    ASCIILiteral errorString = [&] {
-        if (blocked)
-            return "blocked and must"_s;
-        if (isUpgradingLocalhostDisabled)
-            return "not upgraded to HTTPS and must be served from the local host."_s;
-        return "automatically upgraded and should"_s;
-    }();
-
-    auto message = makeString((!blocked ? ""_s : "[blocked] "_s), "The page at "_s, document->url().stringCenterEllipsizedToLength(), " requested insecure content from "_s, target.stringCenterEllipsizedToLength(), ". This content was "_s, errorString, !isUpgradingLocalhostDisabled ? " be served over HTTPS.\n"_s : "\n"_s);
+    auto message = MixedContentChecker::mixedContentViolationMessage(document->settings().iPAddressAndLocalhostMixedContentUpgradeTestingEnabled(), blocked, document->url(), target);
 
     document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, message);
 }

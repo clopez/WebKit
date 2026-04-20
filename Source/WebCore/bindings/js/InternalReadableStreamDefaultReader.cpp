@@ -29,6 +29,10 @@
 #include "JSDOMPromise.h"
 #include "JSReadableStream.h"
 #include "WebCoreJSClientData.h"
+#include <JavaScriptCore/CallData.h>
+#include <JavaScriptCore/JSObjectInlines.h>
+#include <JavaScriptCore/MarkedVector.h>
+#include <JavaScriptCore/TopExceptionScope.h>
 
 namespace WebCore {
 
@@ -154,7 +158,7 @@ void InternalReadableStreamDefaultReader::onClosedPromiseRejection(Function<void
     if (result.hasException())
         return;
 
-    auto* promise = jsCast<JSC::JSPromise*>(result.returnValue());
+    auto* promise = uncheckedDowncast<JSC::JSPromise>(result.returnValue());
     if (!promise)
         return;
 
@@ -184,7 +188,7 @@ void InternalReadableStreamDefaultReader::onClosedPromiseResolution(Function<voi
     if (result.hasException())
         return;
 
-    auto* promise = jsCast<JSC::JSPromise*>(result.returnValue());
+    auto* promise = uncheckedDowncast<JSC::JSPromise>(result.returnValue());
     if (!promise)
         return;
 

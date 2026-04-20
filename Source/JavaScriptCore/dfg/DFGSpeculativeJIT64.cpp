@@ -696,7 +696,7 @@ void SpeculativeJIT::emitCall(Node* node)
     FunctionExecutable* functionExecutable = nullptr;
     if (isDirect) {
         executable = node->castOperand<ExecutableBase*>();
-        functionExecutable = jsDynamicCast<FunctionExecutable*>(executable);
+        functionExecutable = dynamicDowncast<FunctionExecutable>(executable);
     }
     
     unsigned numPassedArgs = 0;
@@ -999,7 +999,7 @@ void SpeculativeJIT::emitCall(Node* node)
         Edge calleeEdge = m_graph.child(node, 0);
         JSGlobalObject* calleeScope = nullptr;
         if (JSValue calleeValue = m_state.forNode(calleeEdge).value()) {
-            if (auto* callee = jsDynamicCast<JSFunction*>(calleeValue)) {
+            if (auto* callee = dynamicDowncast<JSFunction>(calleeValue)) {
                 m_graph.freeze(callee);
                 calleeScope = callee->realm();
             }
@@ -1007,9 +1007,9 @@ void SpeculativeJIT::emitCall(Node* node)
         TaggedNativeFunction nativeFunction;
         if (executable->isHostFunction() && executable->intrinsic() == NoIntrinsic) {
             if (isConstruct)
-                nativeFunction = jsCast<NativeExecutable*>(executable)->constructor();
+                nativeFunction = uncheckedDowncast<NativeExecutable>(executable)->constructor();
             else
-                nativeFunction = jsCast<NativeExecutable*>(executable)->function();
+                nativeFunction = uncheckedDowncast<NativeExecutable>(executable)->function();
         }
 
         if (nativeFunction && !vm().isDebuggerHookInjected()) {
@@ -3000,7 +3000,7 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
 #if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
 void SpeculativeJIT::compileRegExpTestInline(Node* node)
 {
-    RegExp* regExp = jsCast<RegExp*>(node->cellOperand2()->value());
+    RegExp* regExp = uncheckedDowncast<RegExp>(node->cellOperand2()->value());
 
     auto jitCodeBlock = regExp->getRegExpJITCodeBlock();
     ASSERT(jitCodeBlock);
@@ -5293,15 +5293,7 @@ void SpeculativeJIT::compile(Node* node)
 
         // We're a double here.
         unboxDouble(valueRegs.gpr(), resultGPR, tempFPR1);
-        urshift64(TrustedImm32(52), resultGPR);
-        and32(TrustedImm32(0x7ff), resultGPR);
-        auto notNanNorInfinity = branch32(NotEqual, TrustedImm32(0x7ff), resultGPR);
-        move(TrustedImm32(JSValue::ValueFalse), resultGPR);
-        done.append(jump());
-
-        notNanNorInfinity.link(this);
-        roundTowardZeroDouble(tempFPR1, tempFPR2);
-        compareDouble(DoubleEqualAndOrdered, tempFPR1, tempFPR2, resultGPR);
+        isDoubleInteger(tempFPR1, tempFPR2, tempFPR1, resultGPR);
         or32(TrustedImm32(JSValue::ValueFalse), resultGPR);
         done.append(jump());
 

@@ -44,6 +44,7 @@
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorFrontendClient.h"
+#include "InspectorIdentifierRegistry.h"
 #include "InspectorIndexedDBAgent.h"
 #include "InspectorInstrumentation.h"
 #include "InspectorLayerTreeAgent.h"
@@ -99,6 +100,7 @@ PageInspectorController::PageInspectorController(Page& page, std::unique_ptr<Ins
     , m_overlay(makeUniqueRefWithoutRefCountedCheck<InspectorOverlay>(*this, inspectorBackendClient.get()))
     , m_executionStopwatch(Stopwatch::create())
     , m_inspectorBackendClient(WTF::move(inspectorBackendClient))
+    , m_identifierRegistry(Inspector::LegacyIdentifierRegistry::create())
 {
     ASSERT_ARG(inspectorBackendClient, m_inspectorBackendClient);
 
@@ -469,7 +471,7 @@ bool PageInspectorController::canAccessInspectedScriptState(JSC::JSGlobalObject*
 {
     JSLockHolder lock(lexicalGlobalObject);
 
-    auto* inspectedWindow = jsDynamicCast<JSDOMWindow*>(lexicalGlobalObject);
+    auto* inspectedWindow = dynamicDowncast<JSDOMWindow>(lexicalGlobalObject);
     if (!inspectedWindow)
         return false;
 

@@ -256,6 +256,7 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MediaDeviceHashSalts.h>
 #include <WebCore/MediaStreamRequest.h>
+#include <WebCore/MixedContentChecker.h>
 #include <WebCore/ModalContainerTypes.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/OrganizationStorageAccessPromptQuirk.h>
@@ -2257,8 +2258,10 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
     loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(url);
     loadParameters.requiredCookiesVersion = websiteDataStore().cookiesVersion();
     loadParameters.originatingFrame = navigation.lastNavigationAction() ? std::optional(navigation.lastNavigationAction()->originatingFrameInfoData) : std::nullopt;
-    if (auto& action = navigation.lastNavigationAction())
+    if (auto& action = navigation.lastNavigationAction()) {
+        loadParameters.hadUserGesture = action->userGestureTokenIdentifier.has_value();
         loadParameters.requester = action->requester;
+    }
     if (shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterNavigationPolicyDecision)
         loadParameters.originalRequest = navigation.originalRequest();
 
@@ -2786,6 +2789,11 @@ void WebPageProxy::didChangeBackForwardList(WebBackForwardListItem* added, Vecto
     if (!m_navigationClient->didChangeBackForwardList(*this, added, removed) && m_loaderClient)
         m_loaderClient->didChangeBackForwardList(*this, added, WTF::move(removed));
 
+    updateCanGoBackAndForward();
+}
+
+void WebPageProxy::updateCanGoBackAndForward()
+{
     Ref pageLoadState = internals().pageLoadState;
     auto transaction = pageLoadState->transaction();
 
@@ -2818,7 +2826,7 @@ void WebPageProxy::goToBackForwardItemAtIndex(int32_t steps, FrameLoadType frame
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "goToBackForwardItemAtIndex: steps=%d", steps);
 
-    RefPtr item = backForwardListWrapper().itemAtDeltaFromCurrentIndex(steps);
+    RefPtr item = backForwardListWrapper().itemAtDeltaFromCurrentIndex(steps, AllowSkippingBackForwardItems::No);
     if (!item)
         return;
 
@@ -5452,6 +5460,7 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
             loadParameters.shouldTreatAsContinuingLoad = navigation->currentRequestIsRedirect() ? ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted : ShouldTreatAsContinuingLoad::YesAfterNavigationPolicyDecision;
             loadParameters.frameIdentifier = frame->frameID();
             loadParameters.isRequestFromClientOrUserInput = navigationAction->data().isRequestFromClientOrUserInput;
+            loadParameters.hadUserGesture = navigationAction->data().userGestureTokenIdentifier.has_value();
             loadParameters.navigationID = navigation->navigationID();
             loadParameters.ownerPermissionsPolicy = navigation->ownerPermissionsPolicy();
             loadParameters.navigationUpgradeToHTTPSBehavior = navigationAction->data().navigationUpgradeToHTTPSBehavior;
@@ -5786,8 +5795,10 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         loadParameters.ownerPermissionsPolicy = navigation.ownerPermissionsPolicy();
         loadParameters.navigationUpgradeToHTTPSBehavior = navigationUpgradeToHTTPSBehavior;
         loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(loadParameters.request.url());
-        if (auto& action = navigation.lastNavigationAction())
+        if (auto& action = navigation.lastNavigationAction()) {
             loadParameters.requester = action->requester;
+            loadParameters.hadUserGesture = action->userGestureTokenIdentifier.has_value();
+        }
 
         if (isPendingInitialHistoryItem)
             frame.setIsPendingInitialHistoryItem(true);
@@ -6272,11 +6283,23 @@ void WebPageProxy::accessibilitySettingsDidChange()
 void WebPageProxy::setAccessibilityMode(WebCore::AccessibilityMode mode)
 {
     if (std::optional resolvedMode = WebCore::resolveAccessibilityModeTransition(m_accessibilityMode, mode)) {
+        bool modeWasOff = WebCore::isAccessibilityModeOff(m_accessibilityMode);
         m_accessibilityMode = *resolvedMode;
+        bool modeIsOn = !WebCore::isAccessibilityModeOff(m_accessibilityMode);
 
         forEachWebContentProcess([&](auto& webProcess, auto pageID) {
             webProcess.send(Messages::WebPage::InheritAccessibilityMode(m_accessibilityMode), pageID);
         });
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+        // When transitioning from off to any on state, eagerly compute frame
+        // geometry so it's available as soon as accessibility clients need it.
+        if (modeWasOff && modeIsOn)
+            scheduleAccessibilityFrameGeometryUpdate();
+#else
+        UNUSED_VARIABLE(modeWasOff);
+        UNUSED_VARIABLE(modeIsOn);
+#endif
     }
 }
 
@@ -7343,22 +7366,70 @@ void WebPageProxy::setFramePrinting(IPC::Connection& connection, WebCore::FrameI
     });
 }
 
-void WebPageProxy::resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier frameID, WebCore::IntPoint point, CompletionHandler<void(String)>&& callback)
+void WebPageProxy::resolveAccessibilityHitTestForTesting(IPC::Connection& connection, WebCore::FrameIdentifier frameID, WebCore::IntPoint point, CompletionHandler<void(String)>&& callback)
 {
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame) {
+        callback({ });
+        return;
+    }
+
+    Ref process = WebProcessProxy::fromConnection(connection);
+    RefPtr parentFrame = frame->parentFrame();
+    // The sending process is hit-testing a remote child frame (|frame|), so the parent frame
+    // of |frame| must be associated with the sending process (the parent). This protects against
+    // compromised processes sending IPC to processes they shouldn't be talking to.
+    MESSAGE_CHECK_COMPLETION(process, parentFrame && &parentFrame->process() == process.ptr(), callback({ }));
+
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::ResolveAccessibilityHitTestForTesting(frameID, point), WTF::move(callback));
 }
 
 #if PLATFORM(MAC)
-void WebPageProxy::performAccessibilitySearchInRemoteFrame(WebCore::FrameIdentifier frameID, WebCore::AccessibilitySearchCriteriaIPC criteria, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&& callback)
+void WebPageProxy::performAccessibilitySearchInRemoteFrame(IPC::Connection& connection, WebCore::FrameIdentifier frameID, WebCore::AccessibilitySearchCriteriaIPC criteria, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&& callback)
 {
+    if (criteria.searchText.length() > AccessibilitySearchCriteriaIPC::maxSearchTextLength) {
+        callback({ });
+        return;
+    }
+
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame) {
+        callback({ });
+        return;
+    }
+
+    Ref process = WebProcessProxy::fromConnection(connection);
+    RefPtr parentFrame = frame->parentFrame();
+    // The sending process is searching a remote child frame (|frame|), so the parent frame
+    // of |frame| must be associated with the sending process (the parent). This protects against
+    // compromised processes sending IPC to processes they shouldn't be talking to.
+    MESSAGE_CHECK_COMPLETION(process, parentFrame && &parentFrame->process() == process.ptr(), callback({ }));
+
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::PerformAccessibilitySearchInRemoteFrame(frameID, criteria), WTF::move(callback));
 }
 
-void WebPageProxy::continueAccessibilitySearchFromChildFrame(WebCore::FrameIdentifier childFrameID, WebCore::AccessibilitySearchCriteriaIPC criteria, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&& callback)
+void WebPageProxy::continueAccessibilitySearchFromChildFrame(IPC::Connection& connection, WebCore::FrameIdentifier childFrameID, WebCore::AccessibilitySearchCriteriaIPC criteria, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&& callback)
 {
+    if (criteria.searchText.length() > AccessibilitySearchCriteriaIPC::maxSearchTextLength) {
+        callback({ });
+        return;
+    }
+
     // Find the child frame and get its parent frame to continue the search.
     RefPtr childFrame = WebFrameProxy::webFrame(childFrameID);
-    RefPtr parentFrame = childFrame ? childFrame->parentFrame() : nullptr;
+    if (!childFrame) {
+        callback({ });
+        return;
+    }
+
+    Ref process = WebProcessProxy::fromConnection(connection);
+    // The sending process just finished searching a remote child frame (|childFrame|), so the
+    // parent frame of |childFrame| must be associated with the sending process (the parent).
+    // This protects against compromised processes sending IPC to processes they shouldn't be
+    // talking to.
+    MESSAGE_CHECK_COMPLETION(process, &childFrame->process() == process.ptr(), callback({ }));
+
+    RefPtr parentFrame = childFrame->parentFrame();
     if (!parentFrame) {
         callback({ });
         return;
@@ -7711,9 +7782,6 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
 
     MESSAGE_CHECK_URL(process, provisionalURL);
     MESSAGE_CHECK_URL(process, error.failingURL());
-#if PLATFORM(COCOA) && USE(NSURL_ERROR_FAILING_URL_STRING_KEY)
-    MESSAGE_CHECK(process, error.hasMatchingFailingURLKeys());
-#endif
 
     RefPtr protectedPageClient { pageClient() };
 
@@ -12553,7 +12621,7 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     m_lastSuspendedPage = nullptr;
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-    m_allowedImmersiveElementFrameURL = std::nullopt;
+    m_allowedImmersiveElementFrameInfo = nullptr;
     if (m_immersive)
         dismissImmersiveElement([] { });
 #endif
@@ -14254,39 +14322,56 @@ void WebPageProxy::allowImmersiveElement(CompletionHandler<void(bool)>&& complet
 {
     if (!m_mainFrame)
         return completion(false);
-    auto url = m_mainFrame->url();
 
-    if (RefPtr pageClient = this->pageClient()) {
-        pageClient->allowImmersiveElementFromURL(url, [weakThis = WeakPtr { *this }, url, completion = WTF::move(completion)](bool allow) mutable {
-            if (weakThis && allow)
-                weakThis.get()->m_allowedImmersiveElementFrameURL = url;
-            completion(allow);
-        });
-    } else
-        completion(false);
+    m_mainFrame->getFrameInfo([weakThis = WeakPtr { *this }, completion = WTF::move(completion)](std::optional<FrameInfoData>&& frameInfoData) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !frameInfoData)
+            return completion(false);
+
+        auto frameInfo = API::FrameInfo::create(WTF::move(*frameInfoData));
+
+        if (RefPtr pageClient = protectedThis->pageClient()) {
+            pageClient->allowImmersiveElement(frameInfo.copyRef(), [weakThis, frameInfo = WTF::move(frameInfo), completion = WTF::move(completion)](bool allow) mutable {
+                RefPtr protectedThis = weakThis.get();
+                if (protectedThis && allow)
+                    protectedThis->m_allowedImmersiveElementFrameInfo = WTF::move(frameInfo);
+                completion(allow);
+            });
+        } else
+            completion(false);
+    });
 }
 
 void WebPageProxy::presentImmersiveElement(const WebCore::LayerHostingContextIdentifier contextID, CompletionHandler<void(bool)>&& completion)
 {
-    if (!m_mainFrame)
+    if (!m_mainFrame || !m_allowedImmersiveElementFrameInfo)
         return completion(false);
-    auto currentURL = m_mainFrame->url();
 
-    if (!m_allowedImmersiveElementFrameURL || m_allowedImmersiveElementFrameURL.value() != currentURL) {
-        WEBPAGEPROXY_RELEASE_LOG_ERROR(ModelElement, "presentImmersiveElement: Rejecting request - URL mismatch or no prior permission.");
-        completion(false);
-        return;
-    }
-    m_allowedImmersiveElementFrameURL = std::nullopt;
+    m_mainFrame->getFrameInfo([weakThis = WeakPtr { *this }, contextID, completion = WTF::move(completion)](std::optional<FrameInfoData>&& frameInfoData) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !frameInfoData)
+            return completion(false);
 
-    if (RefPtr pageClient = this->pageClient()) {
-        pageClient->presentImmersiveElement(contextID, [weakThis = WeakPtr { *this }, completion = WTF::move(completion)](bool success) mutable {
-            if (success && weakThis)
-                weakThis.get()->m_immersive = true;
-            completion(success);
-        });
-    } else
-        completion(false);
+        RefPtr allowedFrameInfo = std::exchange(protectedThis->m_allowedImmersiveElementFrameInfo, nullptr);
+        if (!allowedFrameInfo
+            || allowedFrameInfo->request().url() != frameInfoData->request.url()
+            || allowedFrameInfo->securityOrigin() != frameInfoData->securityOrigin) {
+            RELEASE_LOG_ERROR(ModelElement, "%p - WebPageProxy::presentImmersiveElement: Rejecting request - frame info mismatch with previously allowed frame.", protectedThis.get());
+            return completion(false);
+        }
+
+        auto frameInfo = API::FrameInfo::create(WTF::move(*frameInfoData));
+
+        if (RefPtr pageClient = protectedThis->pageClient()) {
+            pageClient->presentImmersiveElement(contextID, WTF::move(frameInfo), [weakThis, completion = WTF::move(completion)](bool success) mutable {
+                RefPtr protectedThis = weakThis.get();
+                if (protectedThis && success)
+                    protectedThis->m_immersive = true;
+                completion(success);
+            });
+        } else
+            completion(false);
+    });
 }
 
 void WebPageProxy::dismissImmersiveElement(CompletionHandler<void()>&& completion)
@@ -14299,9 +14384,9 @@ void WebPageProxy::dismissImmersiveElement(CompletionHandler<void()>&& completio
         completion();
 }
 
-void WebPageProxy::exitImmersive()
+void WebPageProxy::exitImmersive(CompletionHandler<void()>&& completion)
 {
-    send(Messages::WebPage::ExitImmersive());
+    sendWithAsyncReply(Messages::WebPage::ExitImmersive(), WTF::move(completion));
 }
 #endif
 
@@ -14366,6 +14451,24 @@ void WebPageProxy::convertRectToMainFrameCoordinates(WebCore::FloatRect rect, st
         if (!protectedThis)
             return completionHandler(std::nullopt);
         protectedThis->convertRectToMainFrameCoordinates(convertedRect, nextFrameID, WTF::move(completionHandler));
+    });
+}
+
+void WebPageProxy::convertRectsToMainFrameCoordinates(Vector<WebCore::FloatRect> rects, std::optional<WebCore::FrameIdentifier> frameID, CompletionHandler<void(std::optional<Vector<WebCore::FloatRect>>)>&& completionHandler)
+{
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame)
+        return completionHandler(std::nullopt);
+
+    RefPtr parent = frame->parentFrame();
+    if (!parent)
+        return completionHandler(WTF::move(rects));
+
+    sendWithAsyncReplyToProcessContainingFrame(parent->frameID(), Messages::WebPage::ContentsToRootViewRects(frame->frameID(), WTF::move(rects)), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler), nextFrameID = parent->rootFrame()->frameID()](Vector<FloatRect> convertedRects) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return completionHandler(std::nullopt);
+        protectedThis->convertRectsToMainFrameCoordinates(WTF::move(convertedRects), nextFrameID, WTF::move(completionHandler));
     });
 }
 
@@ -17549,6 +17652,7 @@ INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::CollapseSelectionInFrame);
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetFocusedElementValue);
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetFocusedElementSelectedIndex);
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetSelectElementIsOpen);
+INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetIsShowingInputViewForFocusedElement);
 #endif
 #undef INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME
 
@@ -17775,16 +17879,8 @@ void WebPageProxy::reportMixedContentViolation(FrameIdentifier frameID, bool blo
     if (!frame)
         return;
 
-    auto isUpgradingLocalhostDisabled = !protect(preferences())->iPAddressAndLocalhostMixedContentUpgradeTestingEnabled() && shouldTreatAsPotentiallyTrustworthy(target);
-    ASCIILiteral errorString = [&] {
-        if (blocked)
-            return "blocked and must"_s;
-        if (isUpgradingLocalhostDisabled)
-            return "not upgraded to HTTPS and must be served from the local host."_s;
-        return "automatically upgraded and should"_s;
-    }();
+    auto message = MixedContentChecker::mixedContentViolationMessage(protect(preferences())->iPAddressAndLocalhostMixedContentUpgradeTestingEnabled(), blocked, frame->url(), target);
 
-    auto message = makeString((!blocked ? ""_s : "[blocked] "_s), "The page at "_s, frame->url().stringCenterEllipsizedToLength(), " requested insecure content from "_s, target.stringCenterEllipsizedToLength(), ". This content was "_s, errorString, !isUpgradingLocalhostDisabled ? " be served over HTTPS.\n"_s : "\n"_s);
     addConsoleMessage(frameID, MessageSource::Security, MessageLevel::Warning, message);
 }
 

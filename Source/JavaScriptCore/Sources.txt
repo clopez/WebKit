@@ -799,6 +799,7 @@ runtime/ConstructData.cpp
 runtime/ControlFlowProfiler.cpp
 runtime/CrossTaskToken.cpp
 runtime/CustomGetterSetter.cpp
+runtime/CyclicModuleRecord.cpp
 runtime/DOMAttributeGetterSetter.cpp
 runtime/DataView.cpp
 runtime/DateConstructor.cpp
@@ -937,9 +938,6 @@ runtime/JSGlobalObjectFunctions.cpp
 runtime/JSGlobalProxy.cpp
 runtime/JSCellButterfly.cpp
 runtime/JSHeapInt32.cpp
-runtime/JSInternalPromise.cpp
-runtime/JSInternalPromiseConstructor.cpp
-runtime/JSInternalPromisePrototype.cpp
 runtime/JSIterator.cpp
 runtime/JSIteratorConstructor.cpp
 runtime/JSIteratorHelper.cpp
@@ -971,8 +969,6 @@ runtime/JSRegExpStringIterator.cpp
 runtime/JSRemoteFunction.cpp
 runtime/JSRunLoopTimer.cpp
 runtime/JSScope.cpp
-runtime/JSScriptFetcher.cpp
-runtime/JSScriptFetchParameters.cpp
 runtime/JSSegmentedVariableObject.cpp
 runtime/JSSet.cpp
 runtime/JSSetIterator.cpp
@@ -1009,7 +1005,11 @@ runtime/MegamorphicCache.cpp
 runtime/MemoryMode.cpp
 runtime/MemoryStatistics.cpp
 runtime/MicrotaskQueue.cpp
+runtime/ModuleGraphLoadingState.cpp
+runtime/ModuleLoadingContext.cpp
+runtime/ModuleLoaderPayload.cpp
 runtime/ModuleProgramExecutable.cpp
+runtime/ModuleRegistryEntry.cpp
 runtime/NarrowingNumberPredictionFuzzerAgent.cpp
 runtime/NativeCallee.cpp
 runtime/NativeCalleeRegistry.cpp

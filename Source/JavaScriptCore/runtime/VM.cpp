@@ -78,14 +78,13 @@
 #include "JSMap.h"
 #include "JSMicrotask.h"
 #include "JSMicrotaskDispatcher.h"
+#include "JSModuleLoaderInlines.h"
 #include "JSPromise.h"
 #include "JSPromiseCombinatorsContextInlines.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
 #include "JSPromiseConstructor.h"
 #include "JSPromiseReaction.h"
 #include "JSPropertyNameEnumeratorInlines.h"
-#include "JSScriptFetchParametersInlines.h"
-#include "JSScriptFetcherInlines.h"
 #include "JSSet.h"
 #include "JSSourceCodeInlines.h"
 #include "JSTemplateObjectDescriptorInlines.h"
@@ -96,8 +95,12 @@
 #include "MegamorphicCache.h"
 #include "MicrotaskQueueInlines.h"
 #include "MinimumReservedZoneSize.h"
+#include "ModuleGraphLoadingStateInlines.h"
+#include "ModuleLoadingContextInlines.h"
+#include "ModuleLoaderPayloadInlines.h"
 #include "ModuleProgramCodeBlockInlines.h"
 #include "ModuleProgramExecutableInlines.h"
+#include "ModuleRegistryEntryInlines.h"
 #include "NarrowingNumberPredictionFuzzerAgent.h"
 #include "NativeExecutable.h"
 #include "NumberObject.h"
@@ -329,6 +332,11 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     moduleProgramExecutableStructure.setWithoutWriteBarrier(ModuleProgramExecutable::createStructure(*this, nullptr, jsNull()));
     promiseReactionStructure.setWithoutWriteBarrier(JSPromiseReaction::createStructure(*this, nullptr, jsNull()));
     jsMicrotaskDispatcherStructure.setWithoutWriteBarrier(JSMicrotaskDispatcher::createStructure(*this, nullptr, jsNull()));
+    moduleLoaderStructure.setWithoutWriteBarrier(JSModuleLoader::createStructure(*this, nullptr, jsNull()));
+    moduleRegistryEntryStructure.setWithoutWriteBarrier(ModuleRegistryEntry::createStructure(*this, nullptr, jsNull()));
+    moduleLoadingContextStructure.setWithoutWriteBarrier(ModuleLoadingContext::createStructure(*this, nullptr, jsNull()));
+    moduleLoaderPayloadStructure.setWithoutWriteBarrier(ModuleLoaderPayload::createStructure(*this, nullptr, jsNull()));
+    moduleGraphLoadingStateStructure.setWithoutWriteBarrier(ModuleGraphLoadingState::createStructure(*this, nullptr, jsNull()));
     promiseCombinatorsContextStructure.setWithoutWriteBarrier(JSPromiseCombinatorsContext::createStructure(*this, nullptr, jsNull()));
     promiseCombinatorsGlobalContextStructure.setWithoutWriteBarrier(JSPromiseCombinatorsGlobalContext::createStructure(*this, nullptr, jsNull()));
     regExpStructure.setWithoutWriteBarrier(RegExp::createStructure(*this, nullptr, jsNull()));
@@ -346,8 +354,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     cellButterflyOnlyAtomStringsStructure.setWithoutWriteBarrier(JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous));
 
     sourceCodeStructure.setWithoutWriteBarrier(JSSourceCode::createStructure(*this, nullptr, jsNull()));
-    scriptFetcherStructure.setWithoutWriteBarrier(JSScriptFetcher::createStructure(*this, nullptr, jsNull()));
-    scriptFetchParametersStructure.setWithoutWriteBarrier(JSScriptFetchParameters::createStructure(*this, nullptr, jsNull()));
     structureChainStructure.setWithoutWriteBarrier(StructureChain::createStructure(*this, nullptr, jsNull()));
     sparseArrayValueMapStructure.setWithoutWriteBarrier(SparseArrayValueMap::createStructure(*this, nullptr, jsNull()));
     templateObjectDescriptorStructure.setWithoutWriteBarrier(JSTemplateObjectDescriptor::createStructure(*this, nullptr, jsNull()));
@@ -1068,7 +1074,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
 
 Exception* VM::throwException(JSGlobalObject* globalObject, JSValue thrownValue)
 {
-    Exception* exception = jsDynamicCast<Exception*>(thrownValue);
+    Exception* exception = dynamicDowncast<Exception>(thrownValue);
     if (!exception)
         exception = Exception::create(*this, thrownValue);
 
@@ -1865,6 +1871,11 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(moduleProgramExecutableStructure);
     visitor.append(promiseReactionStructure);
     visitor.append(jsMicrotaskDispatcherStructure);
+    visitor.append(moduleLoaderStructure);
+    visitor.append(moduleRegistryEntryStructure);
+    visitor.append(moduleLoadingContextStructure);
+    visitor.append(moduleLoaderPayloadStructure);
+    visitor.append(moduleGraphLoadingStateStructure);
     visitor.append(promiseCombinatorsContextStructure);
     visitor.append(promiseCombinatorsGlobalContextStructure);
     visitor.append(regExpStructure);
@@ -1874,8 +1885,6 @@ void VM::visitAggregateImpl(Visitor& visitor)
         visitor.append(structure);
     visitor.append(cellButterflyOnlyAtomStringsStructure);
     visitor.append(sourceCodeStructure);
-    visitor.append(scriptFetcherStructure);
-    visitor.append(scriptFetchParametersStructure);
     visitor.append(structureChainStructure);
     visitor.append(sparseArrayValueMapStructure);
     visitor.append(templateObjectDescriptorStructure);

@@ -154,23 +154,17 @@ function webcontent_sandbox_entitlements()
     plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string EnableQuickLookSandboxResources
     plistbuddy Add :com.apple.private.security.mutable-state-flags:4 string ParentProcessCanEnableQuickLookStateFlag
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string BlockOpenDirectoryInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:6 string BlockMobileAssetInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:7 string BlockIconServicesInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:8 string UnifiedPDFEnabled
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:9 string WebProcessDidNotInjectStoreBundle
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:10 string BlockUserInstalledFonts
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:5 string UnifiedPDFEnabled
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:6 string WebProcessDidNotInjectStoreBundle
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:7 string BlockUserInstalledFonts
     plistbuddy Add :com.apple.private.security.enable-state-flags array
     plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:1 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags:3 string ParentProcessCanEnableQuickLookStateFlag
-    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string BlockOpenDirectoryInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:5 string BlockMobileAssetInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:6 string BlockIconServicesInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:7 string UnifiedPDFEnabled
-    plistbuddy Add :com.apple.private.security.enable-state-flags:8 string WebProcessDidNotInjectStoreBundle
-    plistbuddy Add :com.apple.private.security.enable-state-flags:9 string BlockUserInstalledFonts
+    plistbuddy Add :com.apple.private.security.enable-state-flags:4 string UnifiedPDFEnabled
+    plistbuddy Add :com.apple.private.security.enable-state-flags:5 string WebProcessDidNotInjectStoreBundle
+    plistbuddy Add :com.apple.private.security.enable-state-flags:6 string BlockUserInstalledFonts
 }
 
 function extract_notification_names() {
@@ -258,10 +252,7 @@ function mac_process_webcontent_shared_entitlements()
         plistbuddy Add :com.apple.security.cs.disable-library-validation bool YES
     fi
 
-    if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" > 140000 ))
-    then
-        notify_entitlements
-    fi
+    notify_entitlements
 
     if [[ "${WK_USE_FATAL_EXCEPTIONS}" == YES ]]
     then
@@ -327,10 +318,7 @@ function maccatalyst_process_webcontent_shared_entitlements()
         fi
     fi
 
-    if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" > 150000 ))
-    then
-        plistbuddy Add :com.apple.private.disable-log-mach-ports bool YES
-    fi
+    plistbuddy Add :com.apple.private.disable-log-mach-ports bool YES
 }
 
 function maccatalyst_process_webcontent_entitlements()

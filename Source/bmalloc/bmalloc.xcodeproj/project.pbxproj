@@ -97,6 +97,7 @@
 		DD4BEC2B29CBA49700398E35 /* pas_deallocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FC409982451496100876DA0 /* pas_deallocate.c */; };
 		DD4BEC2C29CBA49700398E35 /* pas_root.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F87005325AF8A1A000E1ABF /* pas_root.c */; };
 		DD4BEC2D29CBA49700398E35 /* bmalloc_heap_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 0F8A811D25F83E2400790B4A /* bmalloc_heap_config.c */; };
+		9BD23B2D38074FF37E33F56F /* pas_large_map_variant.h in Headers */ = {isa = PBXBuildFile; fileRef = F045C7C0BD60E90C54518962 /* pas_large_map_variant.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD4BEC2E29CBA49700398E35 /* pas_heap_config_kind.def in Headers */ = {isa = PBXBuildFile; fileRef = 0FC40A8D2451498C00876DA0 /* pas_heap_config_kind.def */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD4BEC2F29CBA49700398E35 /* pas_epoch.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC409B12451496200876DA0 /* pas_epoch.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD4BEC3029CBA49700398E35 /* pas_enumerator_region.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F87002125AF89C8000E1ABF /* pas_enumerator_region.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -602,9 +603,6 @@
 		DD4BEE2429CBA49700398E35 /* pas_compact_large_utility_free_heap.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FABDDCD248AB08300A840B3 /* pas_compact_large_utility_free_heap.c */; };
 		DD4BEE2529CBA49700398E35 /* pas_compact_atomic_segregated_heap_page_sharing_pools_ptr.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FC409862451496000876DA0 /* pas_compact_atomic_segregated_heap_page_sharing_pools_ptr.h */; };
 		DD4BEE2629CBA49700398E35 /* pas_thread_suspend_lock.h in Headers */ = {isa = PBXBuildFile; fileRef = E35B7BC827ADB44E00C3498F /* pas_thread_suspend_lock.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD4BEE2929CBA4E300398E35 /* valgrind.h in Headers */ = {isa = PBXBuildFile; fileRef = 1417F64F18B7280C0076FA99 /* valgrind.h */; };
-		DD4BEE2A29CBA4E300398E35 /* ScopeExit.h in Headers */ = {isa = PBXBuildFile; fileRef = 148EFAE61D6B953B008E721E /* ScopeExit.h */; };
-		DD4BEE2E29CBA4E300398E35 /* ProcessCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = AD14AD27202529A600890E3B /* ProcessCheck.h */; };
 		DE8B13B321CC5D9F00A63FCD /* BVMTags.h in Headers */ = {isa = PBXBuildFile; fileRef = DE8B13B221CC5D9F00A63FCD /* BVMTags.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E31E74802238CA5C005D084A /* StaticPerProcess.h in Headers */ = {isa = PBXBuildFile; fileRef = E31E747F2238CA5B005D084A /* StaticPerProcess.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E39ECE2D2A82360400BF878E /* pas_allocation_result.c in Sources */ = {isa = PBXBuildFile; fileRef = E39ECE2C2A82360400BF878E /* pas_allocation_result.c */; };
@@ -846,6 +844,7 @@
 		0F8A811D25F83E2400790B4A /* bmalloc_heap_config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bmalloc_heap_config.c; path = libpas/src/libpas/bmalloc_heap_config.c; sourceTree = "<group>"; };
 		0F8A811E25F83E2400790B4A /* hotbit_heap_config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hotbit_heap_config.c; path = libpas/src/libpas/hotbit_heap_config.c; sourceTree = "<group>"; };
 		0F8A811F25F83E2400790B4A /* bmalloc_heap_innards.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bmalloc_heap_innards.h; path = libpas/src/libpas/bmalloc_heap_innards.h; sourceTree = "<group>"; };
+		F045C7C0BD60E90C54518962 /* pas_large_map_variant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pas_large_map_variant.h; path = libpas/src/libpas/pas_large_map_variant.h; sourceTree = "<group>"; };
 		0F8A812025F83E2400790B4A /* hotbit_heap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hotbit_heap.c; path = libpas/src/libpas/hotbit_heap.c; sourceTree = "<group>"; };
 		0F8A812125F83E2400790B4A /* hotbit_heap_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hotbit_heap_config.h; path = libpas/src/libpas/hotbit_heap_config.h; sourceTree = "<group>"; };
 		0F8A812225F83E2400790B4A /* hotbit_heap_innards.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hotbit_heap_innards.h; path = libpas/src/libpas/hotbit_heap_innards.h; sourceTree = "<group>"; };
@@ -1623,6 +1622,7 @@
 				0FC40AF42451499400876DA0 /* pas_large_map.c */,
 				0FC40A362451498600876DA0 /* pas_large_map.h */,
 				0FC40AD42451499100876DA0 /* pas_large_map_entry.h */,
+				F045C7C0BD60E90C54518962 /* pas_large_map_variant.h */,
 				0FC40A4B2451498800876DA0 /* pas_large_sharing_pool.c */,
 				0FC40A1D2451498400876DA0 /* pas_large_sharing_pool.h */,
 				0FC40ABD2451499000876DA0 /* pas_large_sharing_pool_epoch_update_mode.h */,
@@ -2227,6 +2227,7 @@
 				DD4BECAE29CBA49700398E35 /* pas_large_heap_physical_page_sharing_cache.h in Headers */,
 				DD4BED6829CBA49700398E35 /* pas_large_map.h in Headers */,
 				DD4BECF729CBA49700398E35 /* pas_large_map_entry.h in Headers */,
+				9BD23B2D38074FF37E33F56F /* pas_large_map_variant.h in Headers */,
 				DD4BEDFD29CBA49700398E35 /* pas_large_sharing_pool.h in Headers */,
 				DD4BECC029CBA49700398E35 /* pas_large_sharing_pool_epoch_update_mode.h in Headers */,
 				DD4BED1529CBA49700398E35 /* pas_large_utility_free_heap.h in Headers */,
@@ -2397,9 +2398,7 @@
 				0100000D37BABA0A0A991999 /* pas_zero_memory.h in Headers */,
 				DD4BED6429CBA49700398E35 /* pas_zero_mode.h in Headers */,
 				AD14AD29202529C400890E3B /* ProcessCheck.h in Headers */,
-				DD4BEE2E29CBA4E300398E35 /* ProcessCheck.h in Headers */,
 				148EFAE81D6B953B008E721E /* ScopeExit.h in Headers */,
-				DD4BEE2A29CBA4E300398E35 /* ScopeExit.h in Headers */,
 				14DD789018F48CEB00950702 /* Sizes.h in Headers */,
 				E31E74802238CA5C005D084A /* StaticPerProcess.h in Headers */,
 				142B44371E2839E7001DA6E9 /* SystemHeap.h in Headers */,
@@ -2411,7 +2410,6 @@
 				65FE739D2B79E09800C5CDAF /* TZoneHeapManager.h in Headers */,
 				652E16982C4869D000C377D7 /* TZoneLog.h in Headers */,
 				14DD78CE18F48D7500950799 /* valgrind.h in Headers */,
-				DD4BEE2929CBA4E300398E35 /* valgrind.h in Headers */,
 				14DD78CF18F48D7500950702 /* Vector.h in Headers */,
 				14DD78D018F48D7500950702 /* VMAllocate.h in Headers */,
 			);
@@ -2498,6 +2496,7 @@
 		0705994C2EE64A5600BF2459 /* Verify Module */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
+			dependencyFile = "$(DERIVED_FILES_DIR)/verify-module.d";
 			files = (
 			);
 			inputFileListPaths = (
@@ -2505,16 +2504,16 @@
 			inputPaths = (
 				"$(SRCROOT)/../WTF/Scripts/modules-verifier/library-modules-verifier.py",
 				"$(BUILT_PRODUCTS_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/bmalloc.json",
-				"$(DSTROOT)/$(PRIVATE_HEADERS_FOLDER_PATH)/bmalloc.json",
 			);
 			name = "Verify Module";
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(DERIVED_FILE_DIR)/verify-module.timestamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" ]; then\n    exit 0;\nfi\n\nif [ ${DEPLOYMENT_LOCATION} != YES ]; then\n    \"${SCRIPT_INPUT_FILE_0}\" --relative-to=\"${BUILT_PRODUCTS_DIR}${BMALLOC_INSTALL_PATH_PREFIX}${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${SCRIPT_INPUT_FILE_1}\"\nelse\n    \"${SCRIPT_INPUT_FILE_0}\" --relative-to=\"<SDKROOT>${WK_LIBRARY_HEADERS_FOLDER_PATH}\"  \"${SCRIPT_INPUT_FILE_2}\"\nfi\n";
+			shellScript = "depfile=\"${SCRIPT_OUTPUT_FILE_0/%.timestamp/.d}\"\n\nif [ \"${ACTION}\" = \"installhdrs\" ]; then\n    echo \"dependencies: \" > \"${depfile}\"\n    touch \"${SCRIPT_OUTPUT_FILE_0}\"\n    exit 0;\nfi\n\nif [ ${DEPLOYMENT_LOCATION} != YES ]; then\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"${BUILT_PRODUCTS_DIR}${BMALLOC_INSTALL_PATH_PREFIX}${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${SCRIPT_INPUT_FILE_1}\"\nelse\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"<SDKROOT>${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}/bmalloc.json\"\nfi\n\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
 		DDA35E4829CA6FEB006C1018 /* Generate TAPI filelist */ = {
 			isa = PBXShellScriptBuildPhase;

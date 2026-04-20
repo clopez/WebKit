@@ -28,9 +28,11 @@
 
 #include "EventLoop.h"
 #include "JSDOMExceptionHandling.h"
+#include "JSDOMGlobalObject.h"
 #include "RejectedPromiseTracker.h"
 #include "ScriptExecutionContext.h"
 #include "WorkerGlobalScope.h"
+#include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/MicrotaskQueue.h>
 #include <JavaScriptCore/ScriptProfilingScope.h>
 #include <JavaScriptCore/VMEntryScopeInlines.h>
@@ -60,7 +62,7 @@ ScriptExecutionContext* executionContext(JSC::JSGlobalObject* globalObject)
 {
     if (!globalObject || !globalObject->inherits<JSDOMGlobalObject>())
         return nullptr;
-    return JSC::jsCast<JSDOMGlobalObject*>(globalObject)->scriptExecutionContext();
+    return uncheckedDowncast<JSDOMGlobalObject>(globalObject)->scriptExecutionContext();
 }
 
 } // namespace WebCore

@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WebGPUXRProjectionLayerImpl.h"
 
-#if HAVE(WEBGPU_IMPLEMENTATION)
+#if HAVE(WEBGPU_IMPLEMENTATION) && ENABLE(WEBGPU)
 
 #include "PlatformXR.h"
 #include "WebGPUConvertToBackingContext.h"
@@ -64,6 +64,11 @@ uint32_t XRProjectionLayerImpl::colorTextureArrayLength() const
 #else
     return 2;
 #endif
+}
+
+bool XRProjectionLayerImpl::allColorTexturesAreBound() const
+{
+    return false;
 }
 
 bool XRProjectionLayerImpl::ignoreDepthValues() const
@@ -121,4 +126,4 @@ void XRProjectionLayerImpl::endFrame()
 
 } // namespace WebCore::WebGPU
 
-#endif // HAVE(WEBGPU_IMPLEMENTATION)
+#endif // HAVE(WEBGPU_IMPLEMENTATION) && ENABLE(WEBGPU)

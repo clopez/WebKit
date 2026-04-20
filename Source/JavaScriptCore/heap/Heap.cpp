@@ -54,6 +54,7 @@
 #include "JSFunctionWithFields.h"
 #include "JSIterator.h"
 #include "JSMicrotaskDispatcher.h"
+#include "JSModuleLoader.h"
 #include "JSPromiseCombinatorsContext.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
 #include "JSPromiseReaction.h"
@@ -68,6 +69,8 @@
 #include "MarkedSpaceInlines.h"
 #include "MarkingConstraintSet.h"
 #include "MegamorphicCache.h"
+#include "ModuleLoadingContext.h"
+#include "ModuleRegistryEntry.h"
 #include "NumberObject.h"
 #include "PinballCompletion.h"
 #include "PreventCollectionScope.h"
@@ -2296,6 +2299,7 @@ void Heap::finalize()
     }
     vm().keyAtomStringCache.clear();
     vm().stringSplitCache.clear();
+    vm().jsonAtomStringCache.clearJSStrings();
 
     m_possiblyAccessedStringsFromConcurrentThreads.clear();
 

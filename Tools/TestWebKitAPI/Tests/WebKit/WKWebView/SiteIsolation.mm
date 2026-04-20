@@ -24,20 +24,22 @@
  */
 
 #import "config.h"
+#import "FrameTreeChecks.h"
+#import "Helpers/PlatformUtilities.h"
+#import "Helpers/Utilities.h"
 #import "Helpers/cocoa/DragAndDropSimulator.h"
 #import "Helpers/cocoa/FindInPageUtilities.h"
-#import "FrameTreeChecks.h"
 #import "Helpers/cocoa/HTTPServer.h"
-#import "Helpers/PlatformUtilities.h"
 #import "Helpers/cocoa/TestCocoa.h"
 #import "Helpers/cocoa/TestNavigationDelegate.h"
 #import "Helpers/cocoa/TestScriptMessageHandler.h"
 #import "Helpers/cocoa/TestUIDelegate.h"
-#import "TestURLSchemeHandler.h"
 #import "Helpers/cocoa/TestWKWebView.h"
 #import "Helpers/cocoa/UserMediaCaptureUIDelegate.h"
-#import "Helpers/Utilities.h"
 #import "Helpers/cocoa/WKWebViewConfigurationExtras.h"
+#import "InstanceMethodSwizzler.h"
+#import "TestInputDelegate.h"
+#import "TestURLSchemeHandler.h"
 #import "WKWebViewFindStringFindDelegate.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebCore/SQLiteDatabase.h>
@@ -68,15 +70,15 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/text/MakeString.h>
 
+#if PLATFORM(IOS_FAMILY)
+#import "UIKitSPIForTesting.h"
+#import <MobileCoreServices/MobileCoreServices.h>
+#endif
+
 #if ENABLE(IMAGE_ANALYSIS)
 #import "Helpers/cocoa/ImageAnalysisTestingUtilities.h"
 #import <pal/spi/cocoa/VisionKitCoreSPI.h>
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-#import "UIKitSPIForTesting.h"
-#import <MobileCoreServices/MobileCoreServices.h>
 #endif
 
 @interface WKWebView ()
@@ -7711,6 +7713,53 @@ TEST(SiteIsolation, ColorInputPickerLocation)
 
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+
+TEST(SiteIsolation, SelectMultiplePickerLocationInCrossOriginIframe)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0'><iframe style='margin: 100px; width: 400px; height: 300px; border: none;' src='https://webkit.org/iframe'></iframe></body>"_s } },
+        { "/iframe"_s, { "<!DOCTYPE html><body style='margin: 0'><select multiple style='margin: 50px; width: 100px; height: 50px; appearance: none; border: none; padding: 0;'><option>A</option><option>B</option></select></body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    __block bool pickerPresented = false;
+
+    InstanceMethodSwizzler swizzler {
+        UIViewController.class,
+        @selector(presentViewController:animated:completion:),
+        imp_implementationWithBlock(^(UIViewController *, UIViewController *, BOOL, id) {
+            pickerPresented = true;
+        })
+    };
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 800, 600));
+
+    RetainPtr hostViewController = adoptNS([[UIViewController alloc] init]);
+    [[webView window] setRootViewController:hostViewController.get()];
+    [[hostViewController view] addSubview:webView.get()];
+
+    RetainPtr inputDelegate = adoptNS([[TestInputDelegate alloc] init]);
+    [inputDelegate setFocusStartsInputSessionPolicyHandler:[](WKWebView *, id<_WKFocusedElementInfo>) {
+        return _WKFocusStartsInputSessionPolicyAllow;
+    }];
+    [webView _setInputDelegate:inputDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    [webView evaluateJavaScript:@"document.querySelector('select').focus()" inFrame:[webView firstChildFrame] completionHandler:nil];
+
+    Util::run(&pickerPresented);
+
+    // The select element is at (50, 50) in iframe coordinates with size (100, 50).
+    // The iframe is at (100, 100) in main frame coordinates (margin: 100px, border: none).
+    // After conversion, the focused element's interaction rect should be (150, 150, 100, 50) in main frame coordinates.
+    EXPECT_EQ([webView _focusedElementInteractionRect], CGRectMake(150, 150, 100, 50));
+}
+
+#endif // PLATFORM(IOS_FAMILY)
+
 #if ENABLE(IMAGE_ANALYSIS)
 
 static RetainPtr<WKWebViewConfiguration> createWebViewConfigurationWithTextRecognitionEnhancements()
@@ -8500,5 +8549,53 @@ TEST(SiteIsolation, OpenEmptySiteFromProcessWithNonEmptySite)
     [webView evaluateJavaScript:@"window.open()" completionHandler:nil];
     Util::run(&openedFinishedLoading);
 }
+
+#if PLATFORM(IOS_FAMILY)
+TEST(SiteIsolation, NoRedundantFocusPolicyCallbackAfterBlurAndRefocusInCrossOriginIframe)
+{
+    auto mainHTML = "<iframe src='https://webkit.org/iframe' style='width: 300px; height: 300px;'></iframe>"_s;
+    auto iframeHTML = "<input id='input' type='text' style='width: 200px; font-size: 20px;'>"_s;
+
+    HTTPServer server({
+        { "/example"_s, { mainHTML } },
+        { "/iframe"_s, { { { "Content-Type"_s, "text/html"_s } }, iframeHTML } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 320, 500));
+
+    RetainPtr inputDelegate = adoptNS([TestInputDelegate new]);
+    int focusPolicyCallCount = 0;
+    bool didFocusPolicy = false;
+    [inputDelegate setFocusStartsInputSessionPolicyHandler:[&](WKWebView *, id<_WKFocusedElementInfo>) {
+        focusPolicyCallCount++;
+        didFocusPolicy = true;
+        return _WKFocusStartsInputSessionPolicyAllow;
+    }];
+    [webView _setInputDelegate:inputDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    // Wait for the cross-origin iframe's content to load.
+    EXPECT_TRUE(Util::waitFor([&] {
+        auto frame = [webView firstChildFrame];
+        return frame && [[webView objectByEvaluatingJavaScript:@"!!document.getElementById('input')" inFrame:frame] boolValue];
+    }));
+
+    // Focus the input in the cross-origin iframe. Use WithUserGesture because Element::focus()
+    // is a no-op for cross-origin non-main-frame iframes without a user gesture.
+    [webView objectByEvaluatingJavaScriptWithUserGesture:@"document.getElementById('input').focus()" inFrame:[webView firstChildFrame]];
+    Util::run(&didFocusPolicy);
+    EXPECT_EQ(1, focusPolicyCallCount);
+
+    // Blur and immediately refocus the same element. The focus policy handler should not be
+    // called again because the refocus of the same element should be suppressed.
+    [webView objectByEvaluatingJavaScriptWithUserGesture:@"var i = document.getElementById('input'); i.blur(); i.focus();" inFrame:[webView firstChildFrame]];
+    [webView waitForNextPresentationUpdate];
+    [webView waitForNextPresentationUpdate];
+
+    EXPECT_EQ(1, focusPolicyCallCount);
+}
+#endif
 
 }

@@ -159,8 +159,14 @@ void RemoteRenderingBackend::workQueueUninitialize()
     assertIsCurrent(workQueue());
     m_remoteImageBuffers.clear();
     m_remoteImageBufferSets.clear();
+    m_remoteDisplayListRecorders.clear();
+    m_remoteSnapshotRecorders.clear();
     // Make sure we destroy the ResourceCache on the WorkQueue since it gets populated on the WorkQueue.
     m_remoteResourceCache.releaseAllResources();
+
+    if (m_imageBufferForSelfCopyTimer)
+        m_imageBufferForSelfCopyTimer->stop();
+    m_imageBufferForSelfCopyTimer = nullptr;
 
     Ref streamConnection = m_streamConnection;
     streamConnection->stopReceivingMessages(Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
@@ -318,6 +324,41 @@ void RemoteRenderingBackend::createImageBuffer(const FloatSize& logicalSize, Ren
     MESSAGE_CHECK(result.isNewEntry, "Duplicate ImageBuffers");
 }
 
+RefPtr<ImageBuffer> RemoteRenderingBackend::createImageBufferForSelfCopy(ImageBuffer* source)
+{
+    assertIsCurrent(workQueue());
+    RefPtr imageBuffer = std::exchange(m_imageBufferForSelfCopy, nullptr);
+    if (m_imageBufferForSelfCopyTimer)
+        m_imageBufferForSelfCopyTimer->stop();
+
+    if (imageBuffer
+        && imageBuffer->logicalSize().width() >= source->logicalSize().width()
+        && imageBuffer->logicalSize().height() >= source->logicalSize().height()
+        && imageBuffer->renderingMode() == source->renderingMode()
+        && imageBuffer->renderingPurpose() == source->renderingPurpose()
+        && imageBuffer->resolutionScale() == source->resolutionScale()
+        && imageBuffer->colorSpace() == source->colorSpace()
+        && imageBuffer->pixelFormat() == source->pixelFormat())
+        return imageBuffer;
+
+    return allocateImageBuffer(source->logicalSize(), source->renderingMode(), source->renderingPurpose(), source->resolutionScale(), source->colorSpace(), { source->pixelFormat() }, { });
+}
+
+void RemoteRenderingBackend::returnImageBufferForSelfCopy(RefPtr<ImageBuffer>&& buffer)
+{
+    assertIsCurrent(workQueue());
+    m_imageBufferForSelfCopy = WTF::move(buffer);
+    if (!m_imageBufferForSelfCopyTimer)
+        m_imageBufferForSelfCopyTimer = makeUnique<Timer>(*this, &RemoteRenderingBackend::cleanupImageBufferForSelfCopy);
+    m_imageBufferForSelfCopyTimer->startOneShot(200_ms);
+}
+
+void RemoteRenderingBackend::cleanupImageBufferForSelfCopy()
+{
+    assertIsCurrent(workQueue());
+    m_imageBufferForSelfCopy = nullptr;
+}
+
 void RemoteRenderingBackend::releaseImageBuffer(RenderingResourceIdentifier identifier)
 {
     assertIsCurrent(workQueue());
@@ -377,7 +418,7 @@ void RemoteRenderingBackend::nativeImageBitmap(RenderingResourceIdentifier image
 
 void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, RenderingResourceIdentifier imageIdentifier)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     auto bitmap = ShareableBitmap::create(WTF::move(handle));
     if (!bitmap)
@@ -409,7 +450,7 @@ void RemoteRenderingBackend::releaseNativeImage(RenderingResourceIdentifier iden
 
 void RemoteRenderingBackend::cacheFont(const Font::Attributes& fontAttributes, FontPlatformDataAttributes platformData, std::optional<RenderingResourceIdentifier> fontCustomPlatformDataIdentifier)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     RefPtr<FontCustomPlatformData> customPlatformData = nullptr;
     if (fontCustomPlatformDataIdentifier) {
@@ -421,7 +462,8 @@ void RemoteRenderingBackend::cacheFont(const Font::Attributes& fontAttributes, F
 
     Ref<Font> font = Font::create(platform, fontAttributes.origin, fontAttributes.isInterstitial, fontAttributes.visibility, fontAttributes.isTextOrientationFallback, fontAttributes.renderingResourceIdentifier);
 
-    m_remoteResourceCache.cacheFont(WTF::move(font));
+    bool success = m_remoteResourceCache.cacheFont(WTF::move(font));
+    MESSAGE_CHECK(success, "Font already cached.");
 }
 
 void RemoteRenderingBackend::releaseFont(WebCore::RenderingResourceIdentifier identifier)
@@ -433,12 +475,13 @@ void RemoteRenderingBackend::releaseFont(WebCore::RenderingResourceIdentifier id
 
 void RemoteRenderingBackend::cacheFontCustomPlatformData(WebCore::FontCustomPlatformSerializedData&& fontCustomPlatformSerializedData)
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
 
     auto customPlatformData = FontCustomPlatformData::tryMakeFromSerializationData(WTF::move(fontCustomPlatformSerializedData), shouldUseLockdownFontParser());
     MESSAGE_CHECK(customPlatformData.has_value(), "cacheFontCustomPlatformData couldn't deserialize FontCustomPlatformData");
 
-    m_remoteResourceCache.cacheFontCustomPlatformData(WTF::move(customPlatformData.value()));
+    bool success = m_remoteResourceCache.cacheFontCustomPlatformData(WTF::move(customPlatformData.value()));
+    MESSAGE_CHECK(success, "FontCustomPlatformData already cached.");
 }
 
 void RemoteRenderingBackend::releaseFontCustomPlatformData(WebCore::RenderingResourceIdentifier identifier)
@@ -518,7 +561,7 @@ void RemoteRenderingBackend::releaseDisplayList(RemoteDisplayListIdentifier iden
 
 void RemoteRenderingBackend::releaseMemory()
 {
-    ASSERT(!RunLoop::isMain());
+    assertIsCurrent(workQueue());
     m_remoteResourceCache.releaseMemory();
 }
 

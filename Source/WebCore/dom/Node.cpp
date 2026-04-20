@@ -109,6 +109,8 @@
 #include "ContentChangeObserver.h"
 #endif
 
+template class mpark::variant<WTF::Ref<WebCore::Node>, WTF::String>;
+
 namespace WebCore {
 
 WTF_MAKE_PREFERABLY_COMPACT_TZONE_ALLOCATED_IMPL(Node);
@@ -268,9 +270,7 @@ void Node::dumpStatistics()
 
             // Tag stats
             Element& element = uncheckedDowncast<Element>(node);
-            HashMap<String, size_t>::AddResult result = perTagCount.add(element.tagName(), 1);
-            if (!result.isNewEntry)
-                result.iterator->value++;
+            perTagCount.add(element.tagName(), 0).iterator->value++;
 
             if (const ElementData* elementData = element.elementData()) {
                 unsigned length = elementData->length();

@@ -27,6 +27,7 @@
 
 #include <JavaScriptCore/CallLinkInfoBase.h>
 #include <JavaScriptCore/ExceptionHelpers.h>
+#include <JavaScriptCore/FunctionExecutable.h>
 #include <JavaScriptCore/JSFunction.h>
 #include <wtf/ForbidHeapAllocation.h>
 
@@ -64,7 +65,7 @@ public:
         auto* cell = functionObject.asCell();
         if (cell->type() != JSFunctionType) [[unlikely]]
             return false;
-        return m_functionExecutable == jsCast<JSFunction*>(cell)->executable();
+        return m_functionExecutable == uncheckedDowncast<JSFunction>(cell)->executable();
     }
 
     bool isInitializedFor(FunctionExecutable* executable) const

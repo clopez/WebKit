@@ -866,6 +866,7 @@ void RenderThemeCocoa::purgeCaches()
     m_mediaControlsLocalizedStringsScript.clearImplIfNotShared();
     m_mediaControlsScript.clearImplIfNotShared();
     m_mediaControlsStyleSheet.clearImplIfNotShared();
+    m_youTubeCaptionQuirkScript.clearImplIfNotShared();
 #endif // ENABLE(VIDEO)
 
     RenderTheme::purgeCaches();
@@ -954,14 +955,13 @@ static const String& glassMaterialMediaControlsStyleSheet()
         "        --primary-glyph-color: white;"
         "        --secondary-glyph-color: white;"
         "    }"
-        "    .media-controls.inline.mac:not(.audio, .narrowviewer) {"
-        "        background-color: rgba(0, 0, 0, 0.4);"
-        "    }"
-        "    .media-controls.inline.mac:not(.audio):is(:empty, .faded) {"
-        "        background-color: transparent;"
-        "    }"
         "    .media-controls.mac:not(.audio) .background-tint > .blur {"
         "        display: none;"
+        "    }"
+        "    .media-controls.inline.mac:not(.audio, .narrowviewer) .background-tint > .blur {"
+        "        display: revert;"
+        "        background-color: rgba(0, 0, 0, 0.3);"
+        "        -webkit-backdrop-filter: unset;"
         "    }"
         "    .media-controls.mac.inline.audio .background-tint > .blur {"
         "        background-color: rgba(0, 0, 0, 0.4);"
@@ -997,11 +997,13 @@ static const String& macOSInlineMediaControlsStyleSheet()
         "    position: absolute;"
         "    top: var(--inline-controls-inside-margin);"
         "    right: calc(var(--inline-controls-inside-margin) * 1);"
-        "    width: 180px;"
+        "    width: 196px;"
         "    height: 46px;"
         "    display: flex;"
         "    align-items: center;"
         "    justify-content: center;"
+        "    padding-inline: 8px;"
+        "    box-sizing: border-box;"
         "    border-radius: var(--inline-controls-border-radius);"
         "    transform: translateY(calc(var(--inline-controls-inside-margin) + 2));"
         "}"
@@ -1334,6 +1336,14 @@ String RenderThemeCocoa::mediaControlsFormattedStringForDuration(const double du
     }
     return [m_durationFormatter stringFromTimeInterval:durationInSeconds];
     END_BLOCK_OBJC_EXCEPTIONS
+}
+
+String RenderThemeCocoa::youTubeQuirkScript()
+{
+    if (!m_youTubeCaptionQuirkScript)
+        m_youTubeCaptionQuirkScript = StringImpl::createWithoutCopying(YouTubeCaptionQuirkJavaScript);
+
+    return m_youTubeCaptionQuirkScript;
 }
 
 #endif // ENABLE(VIDEO)

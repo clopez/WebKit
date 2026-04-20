@@ -29,7 +29,6 @@
 
 #include "AuxiliaryBarrierInlines.h"
 #include "SlotVisitorInlines.h"
-#include "StructureInlines.h"
 #include "WeakMapImplInlines.h"
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -46,7 +45,7 @@ template<typename WeakMapBucket>
 template<typename Visitor>
 void WeakMapImpl<WeakMapBucket>::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 {
-    WeakMapImpl* thisObject = jsCast<WeakMapImpl*>(cell);
+    WeakMapImpl* thisObject = uncheckedDowncast<WeakMapImpl>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
     visitor.reportExtraMemoryVisited(thisObject->m_capacity * sizeof(WeakMapBucket));
@@ -81,7 +80,7 @@ ALWAYS_INLINE void WeakMapImpl<BucketType>::visitOutputConstraints(JSCell* cell,
 {
     static_assert(std::is_same<BucketType, WeakMapBucket<WeakMapBucketDataKeyValue>>::value);
 
-    auto* thisObject = jsCast<WeakMapImpl*>(cell);
+    auto* thisObject = uncheckedDowncast<WeakMapImpl>(cell);
     auto* buffer = thisObject->buffer();
     for (uint32_t index = 0; index < thisObject->m_capacity; ++index) {
         auto* bucket = buffer + index;

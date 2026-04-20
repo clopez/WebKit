@@ -893,20 +893,6 @@ BlockIOKitInWebContentSandbox:
     WebKit:
       default: true
 
-BlockIconServicesInWebContentSandbox:
-  type: bool
-  status: internal
-  category: networking
-  humanReadableName: "Block Icon services in the WebContent sandbox"
-  humanReadableDescription: "Block Icon services in the WebContent sandbox"
-  webcoreBinding: none
-  condition: HAVE(SANDBOX_STATE_FLAGS) && PLATFORM(MAC)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
-      default: false
-
 BlockMediaLayerRehostingInWebContentProcess:
   type: bool
   status: internal
@@ -920,34 +906,6 @@ BlockMediaLayerRehostingInWebContentProcess:
     WebKit:
       default: true
     WebCore:
-      default: false
-
-BlockMobileAssetInWebContentSandbox:
-  type: bool
-  status: internal
-  category: networking
-  humanReadableName: "Block MobileAsset service in the WebContent sandbox"
-  humanReadableDescription: "Block MobileAsset service in the WebContent sandbox"
-  webcoreBinding: none
-  condition: HAVE(SANDBOX_STATE_FLAGS)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
-      default: false
-
-BlockOpenDirectoryInWebContentSandbox:
-  type: bool
-  status: internal
-  category: networking
-  humanReadableName: "Block OpenDirectory service in the WebContent sandbox"
-  humanReadableDescription: "Block OpenDirectory service in the WebContent sandbox"
-  webcoreBinding: none
-  condition: HAVE(SANDBOX_STATE_FLAGS) && PLATFORM(MAC)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
       default: false
 
 # We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
@@ -4958,6 +4916,20 @@ MathFontFamily:
     WebCore:
       default: '""_str'
 
+MathMLDisableHrefOnNonAnchorElement:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Disable href attribute on MathML elements"
+  humanReadableDescription: "The only MathML element on which href is allowed is <a>."
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 MathMLEnabled:
   type: bool
   status: embedder
@@ -5646,6 +5618,19 @@ MouseEventsSimulationEnabled:
   humanReadableName: "Mouse events simulation"
   humanReadableDescription: "Enable mouse events dispatch along with touch events on iOS"
   condition: ENABLE(TOUCH_EVENTS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+MoveBeforeEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "DOM moveBefore()"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -7807,17 +7792,17 @@ SpeakerSelectionRequiresUserGesture:
 
 SpeculationRulesPrefetchEnabled:
   type: bool
-  status: stable
+  status: preview
   category: html
   humanReadableName: "SpeculationRules prefetch"
   humanReadableDescription: "SpeculationRules prefetch"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
@@ -8752,6 +8737,20 @@ UsePreHTML5ParserQuirks:
   defaultValue:
     WebKitLegacy:
       PLATFORM(MAC): WebKit::defaultUsePreHTML5ParserQuirks()
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+UseSkiaForComposition:
+  type: bool
+  status: internal
+  humanReadableName: "Use Skia for composition"
+  humanReadableDescription: "Use Skia instead of TextureMapper for layer composition"
+  condition: PLATFORM(GTK) || PLATFORM(WPE)
+  defaultValue:
+    WebKitLegacy:
       default: false
     WebKit:
       default: false
@@ -9983,10 +9982,10 @@ WebXRLayersAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(WEBXR_LAYERS)": true
+      "ENABLE(WEBXR_LAYERS) && USE(OPENXR)": true
       default: false
     WebCore:
-      "ENABLE(WEBXR_LAYERS)": true
+      "ENABLE(WEBXR_LAYERS) && USE(OPENXR)": true
       default: false
 
 WebXRWebGPUBindingsEnabled:

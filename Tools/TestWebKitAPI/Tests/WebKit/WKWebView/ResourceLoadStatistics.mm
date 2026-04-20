@@ -1169,7 +1169,9 @@ TEST(ResourceLoadStatistics, DataSummaryWithCachedProcess)
         [delegate waitForDidFinishNavigation];
 
         EXPECT_EQ(i + 1, [processPool _webProcessCount]);
-        EXPECT_EQ(i + 1, [processPool _webProcessCountIgnoringPrewarmedAndCached]);
+        // FIXME: Remove once the back-forward cache is enabled for site isolation: rdar://161762363.
+        if (isUsingBackForwardCache(webView))
+            EXPECT_EQ(i + 1, [processPool _webProcessCountIgnoringPrewarmedAndCached]);
         EXPECT_FALSE([processPool _hasPrewarmedWebProcess]);
     }
     
@@ -1388,7 +1390,7 @@ TEST(ResourceLoadStatistics, DatabaseSchemeUpdate)
 }
 
 // rdar://136525714
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
+#if PLATFORM(MAC)
 TEST(ResourceLoadStatistics, DISABLED_ClientEvaluatedJavaScriptDoesNotLogUserInteraction)
 #else
 TEST(ResourceLoadStatistics, ClientEvaluatedJavaScriptDoesNotLogUserInteraction)
@@ -1423,7 +1425,7 @@ TEST(ResourceLoadStatistics, ClientEvaluatedJavaScriptDoesNotLogUserInteraction)
 }
 
 // rdar://136525714
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
+#if PLATFORM(MAC)
 TEST(ResourceLoadStatistics, DISABLED_UserGestureLogsUserInteraction)
 #else
 TEST(ResourceLoadStatistics, UserGestureLogsUserInteraction)
@@ -1723,7 +1725,7 @@ TEST(ResourceLoadStatistics, StorageAccessOnRedirectSitesWithOutQuirk)
 }
 
 // rdar://136524076
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
+#if PLATFORM(MAC)
 TEST(ResourceLoadStatistics, DISABLED_StorageAccessOnRedirectSitesWithQuirk)
 #else
 TEST(ResourceLoadStatistics, StorageAccessOnRedirectSitesWithQuirk)
@@ -2217,7 +2219,7 @@ TEST(ResourceLoadStatistics, StorageAccessSupportMultipleSubFrameDomains)
 }
 
 // rdar://136524076
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
+#if PLATFORM(MAC)
 TEST(ResourceLoadStatistics, DISABLED_StorageAccessGrantMultipleSubFrameDomains)
 #else
 TEST(ResourceLoadStatistics, StorageAccessGrantMultipleSubFrameDomains)

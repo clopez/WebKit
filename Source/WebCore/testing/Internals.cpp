@@ -285,6 +285,7 @@
 #include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSCellInlines.h>
 #include <JavaScriptCore/MarkedSpaceInlines.h>
 #include <wtf/FileHandle.h>
 #include <wtf/FileSystem.h>
@@ -732,6 +733,10 @@ void Internals::resetToConsistentState(Page& page)
     page.setFullscreenInsets({ });
 
     PlatformMediaEngineConfigurationFactory::disableMock();
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    MockCDMFactory::unregisterAllMockFactories();
+#endif
 
 #if ENABLE(MEDIA_STREAM)
     page.settings().setInterruptAudioOnPageVisibilityChangeEnabled(false);
@@ -1949,6 +1954,16 @@ void Internals::clearPeerConnectionFactory()
         page->webRTCProvider().clearFactory();
 }
 
+void Internals::clearWebRTCCodecsConnection()
+{
+#if USE(LIBWEBRTC)
+    if (auto* page = contextDocument()->page()) {
+        auto& rtcProvider = downcast<LibWebRTCProvider>(page->webRTCProvider());
+        rtcProvider.clearCodecsConnectionForTesting();
+    }
+#endif
+}
+
 void Internals::applyRotationForOutgoingVideoSources(RTCPeerConnection& connection)
 {
     connection.applyRotationForOutgoingVideoSources();
@@ -2965,7 +2980,7 @@ String Internals::parserMetaData(JSC::JSValue code)
         StackVisitor::visit(callFrame, vm, iter);
         executable = iter.codeBlock()->ownerExecutable();
     } else if (code.isCallable())
-        executable = JSC::jsCast<JSFunction*>(code.toObject(globalObject))->jsExecutable();
+        executable = uncheckedDowncast<JSFunction>(code.toObject(globalObject))->jsExecutable();
     else
         return String();
 
@@ -2973,7 +2988,7 @@ String Internals::parserMetaData(JSC::JSValue code)
     String functionName;
     ASCIILiteral suffix = ""_s;
 
-    if (auto* functionExecutable = jsDynamicCast<FunctionExecutable*>(executable)) {
+    if (auto* functionExecutable = dynamicDowncast<FunctionExecutable>(executable)) {
         prefix = "function \""_s;
         functionName = functionExecutable->ecmaName().string();
         suffix = "\""_s;
@@ -3034,6 +3049,14 @@ bool Internals::hasSpellingMarker(int from, int length)
 bool Internals::hasGrammarMarker(int from, int length)
 {
     return hasMarkerFor(DocumentMarkerType::Grammar, from, length);
+}
+
+bool Internals::isAlternativeTextUIActive() const
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->frame())
+        return false;
+    return document->frame()->editor().isAlternativeTextUIActive();
 }
 
 bool Internals::hasAutocorrectedMarker(int from, int length)
@@ -5416,7 +5439,7 @@ bool Internals::elementIsBlockingDisplaySleep(const HTMLMediaElement& element) c
 bool Internals::isPlayerVisibleInViewport(const HTMLMediaElement& element) const
 {
     auto* player = element.player();
-    return player && player->isVisibleInViewport();
+    return player && player->viewportVisibility() == HTMLMediaElement::ViewportVisibility::VisibleInViewport;
 }
 
 bool Internals::isPlayerMuted(const HTMLMediaElement& element) const
@@ -7367,6 +7390,37 @@ auto Internals::getCookies() const -> Vector<CookieData>
     });
 }
 
+static Internals::WebDriverCookieData createWebDriverCookieData(Cookie cookie)
+{
+    Internals::WebDriverCookieData data;
+    data.name = cookie.name;
+    data.value = cookie.value;
+    data.path = cookie.path;
+    data.domain = cookie.domain;
+    data.secure = cookie.secure;
+    data.httpOnly = cookie.httpOnly;
+    data.expiry = cookie.expires ? std::make_optional(*cookie.expires / 1000) : std::nullopt;
+
+    // Due to how CFNetwork handles host-only cookies, we may need to prepend a '.' to the domain when
+    // setting a cookie (see CookieStore::set). So we must strip this '.' when returning the cookie.
+    if (data.domain.startsWith('.'))
+        data.domain = data.domain.substring(1, data.domain.length() - 1);
+
+    switch (cookie.sameSite) {
+    case Cookie::SameSitePolicy::Strict:
+        data.sameSite = "Strict"_s;
+        break;
+    case Cookie::SameSitePolicy::Lax:
+        data.sameSite = "Lax"_s;
+        break;
+    case Cookie::SameSitePolicy::None:
+        data.sameSite = "None"_s;
+        break;
+    }
+
+    return data;
+}
+
 auto Internals::webDriverGetCookies(Document& document) const -> Vector<WebDriverCookieData>
 {
     auto* page = document.page();
@@ -7376,7 +7430,7 @@ auto Internals::webDriverGetCookies(Document& document) const -> Vector<WebDrive
     Vector<Cookie> cookies;
     page->cookieJar().getRawCookies(document, document.cookieURL(), cookies);
     return WTF::map(cookies, [](auto& cookie) {
-        return WebDriverCookieData { cookie };
+        return createWebDriverCookieData(cookie);
     });
 }
 
@@ -7459,21 +7513,15 @@ String Internals::highlightPseudoElementColor(const AtomString& highlightName, E
 
     return serializationForCSS(resolvedStyle->style->color());
 }
-    
-Internals::TextIndicatorInfo::TextIndicatorInfo() = default;
-
-Internals::TextIndicatorInfo::TextIndicatorInfo(const WebCore::TextIndicatorData& data)
-    : textBoundingRectInRootViewCoordinates(DOMRect::create(data.textBoundingRectInRootViewCoordinates))
-    , textRectsInBoundingRectCoordinates(DOMRectList::create(data.textRectsInBoundingRectCoordinates))
-{
-}
-    
-Internals::TextIndicatorInfo::~TextIndicatorInfo() = default;
 
 Internals::TextIndicatorInfo Internals::textIndicatorForRange(const Range& range, TextIndicatorOptions options)
 {
     auto indicator = TextIndicator::createWithRange(makeSimpleRange(range), options.coreOptions(), TextIndicatorPresentationTransition::None);
-    return indicator->data();
+    auto data = indicator->data();
+    return {
+        DOMRect::create(data.textBoundingRectInRootViewCoordinates),
+        DOMRectList::create(data.textRectsInBoundingRectCoordinates)
+    };
 }
 
 void Internals::addPrefetchLoadEventListener(HTMLLinkElement& link, RefPtr<EventListener>&& listener)
@@ -7732,6 +7780,11 @@ bool Internals::supportsPictureInPicture()
 String Internals::focusRingColor()
 {
     return serializationForCSS(RenderTheme::singleton().focusRingColor(StyleColorOptions::UseSystemAppearance));
+}
+
+double Internals::switchAnimationVisuallyOnDuration() const
+{
+    return RenderTheme::singleton().switchAnimationVisuallyOnDuration().seconds();
 }
 
 ExceptionOr<unsigned> Internals::createSleepDisabler(const String& reason, bool display)
@@ -8083,7 +8136,7 @@ JSC::JSValue Internals::dumpJSNodeStatistics()
         vm.heap.objectSpace().forEachLiveCell(iterationScope, [&](JSC::HeapCell* heapCell, JSC::HeapCell::Kind kind) {
             if (!isJSCellKind(kind))
                 return IterationStatus::Continue;
-            SUPPRESS_MEMORY_UNSAFE_CAST auto* jsNode = JSC::jsDynamicCast<JSNode*>(static_cast<JSC::JSCell*>(heapCell));
+            SUPPRESS_MEMORY_UNSAFE_CAST auto* jsNode = dynamicDowncast<JSNode>(static_cast<JSC::JSCell*>(heapCell));
             if (!jsNode)
                 return IterationStatus::Continue;
 

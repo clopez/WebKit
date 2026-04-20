@@ -49,6 +49,7 @@
 #include "ErrorEvent.h"
 #include "EventNames.h"
 #include "JSAudioWorkletNodeOptions.h"
+#include "JSDOMGlobalObject.h"
 #include "MessageChannel.h"
 #include "MessagePort.h"
 #include "SerializedScriptValue.h"
@@ -97,7 +98,7 @@ ExceptionOr<Ref<AudioWorkletNode>> AudioWorkletNode::create(JSC::JSGlobalObject&
     RefPtr<SerializedScriptValue> serializedOptions;
     {
         auto lock = JSC::JSLockHolder { &globalObject };
-        auto* jsOptions = convertDictionaryToJS(globalObject, *JSC::jsCast<JSDOMGlobalObject*>(&globalObject), options);
+        auto* jsOptions = convertDictionaryToJS(globalObject, uncheckedDowncast<JSDOMGlobalObject>(globalObject), options);
         serializedOptions = SerializedScriptValue::create(globalObject, jsOptions, SerializationForStorage::No, SerializationErrorMode::NonThrowing, SerializationContext::WorkerPostMessage);
         if (!serializedOptions)
             serializedOptions = SerializedScriptValue::nullValue();

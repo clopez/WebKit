@@ -32,6 +32,7 @@
 #include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Editing.h"
+#include "ElementChildIteratorInlines.h"
 #include "ElementInlines.h"
 #include "ElementRareData.h"
 #include "FontCascade.h"
@@ -47,6 +48,7 @@
 #include "HTMLNames.h"
 #include "HTMLParagraphElement.h"
 #include "HTMLProgressElement.h"
+#include "HTMLSelectElement.h"
 #include "HTMLSlotElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HTMLTextFormControlElement.h"
@@ -61,6 +63,7 @@
 #include "RenderImage.h"
 #include "RenderIterator.h"
 #include "RenderObjectInlines.h"
+#include "RenderReplaced.h"
 #include "RenderTableCell.h"
 #include "RenderTableRow.h"
 #include "RenderTextControl.h"
@@ -527,7 +530,7 @@ void TextIterator::advance()
                     m_handledChildren = true;
                 else if (renderer->isRenderText() && m_currentNode->isTextNode())
                     m_handledNode = handleTextNode();
-                else if (isRendererReplacedElement(renderer.get(), m_behaviors))
+                else if (isRendererReplacedElement(renderer.get(), m_behaviors) && (renderer->isInline() || !m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec)))
                     m_handledNode = handleReplacedElement();
                 else
                     m_handledNode = handleNonTextNode();
@@ -609,6 +612,7 @@ bool TextIterator::handleTextNode()
     CheckedRef renderer = *textNode->renderer();
     m_lastTextNode = textNode.ptr();
     auto rendererText = rendererTextForBehavior(renderer.get());
+    CheckedPtr textFragmentWithRemainingTextAfterFirstLetter = dynamicDowncast<RenderTextFragment>(renderer.get());
 
     // handle pre-formatted text
     if (!renderer->style().collapseWhiteSpace()) {
@@ -617,8 +621,8 @@ bool TextIterator::handleTextNode()
             emitCharacter(' ', WTF::move(textNode), nullptr, runStart, runStart);
             return false;
         }
-        if (CheckedPtr renderTextFragment = dynamicDowncast<RenderTextFragment>(renderer); renderTextFragment && !m_handledFirstLetter && !m_offset) {
-            handleTextNodeFirstLetter(*renderTextFragment);
+        if (textFragmentWithRemainingTextAfterFirstLetter && !m_handledFirstLetter && !m_offset) {
+            handleTextNodeFirstLetter(*textFragmentWithRemainingTextAfterFirstLetter);
             if (m_firstLetterText) {
                 String firstLetter = m_firstLetterText->text();
                 emitText(textNode, *protect(m_firstLetterText), m_offset, m_offset + firstLetter.length());
@@ -631,6 +635,10 @@ bool TextIterator::handleTextNode()
             return false;
         int rendererTextLength = rendererText.length();
         int end = (textNode.ptr() == m_endContainer) ? m_endOffset : INT_MAX;
+        if (textFragmentWithRemainingTextAfterFirstLetter && textFragmentWithRemainingTextAfterFirstLetter->firstLetter()) {
+            runStart = convertNodeOffsetToOffsetInTextFragment(*textFragmentWithRemainingTextAfterFirstLetter, std::max(0, runStart));
+            end = end == INT_MAX ? INT_MAX : static_cast<int>(convertNodeOffsetToOffsetInTextFragment(*textFragmentWithRemainingTextAfterFirstLetter, end));
+        }
         int runEnd = std::min(rendererTextLength, end);
 
         if (runStart >= runEnd)
@@ -642,8 +650,8 @@ bool TextIterator::handleTextNode()
 
     std::tie(m_textRun, m_textRunLogicalOrderCache) = InlineIterator::firstTextBoxInLogicalOrderFor(renderer.get());
 
-    if (CheckedPtr renderTextFragment = dynamicDowncast<RenderTextFragment>(renderer); renderTextFragment && !m_handledFirstLetter && !m_offset)
-        handleTextNodeFirstLetter(*renderTextFragment);
+    if (textFragmentWithRemainingTextAfterFirstLetter && !m_handledFirstLetter && !m_offset)
+        handleTextNodeFirstLetter(*textFragmentWithRemainingTextAfterFirstLetter);
     else if (!m_textRun && rendererText.length()) {
         if (renderer->style().visibility() != Visibility::Visible && !m_behaviors.contains(TextIteratorBehavior::IgnoresStyleVisibility))
             return false;
@@ -667,12 +675,21 @@ void TextIterator::handleTextRun()
 
     auto [firstTextRun, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(renderer);
 
-    auto rendererText = rendererTextForBehavior(renderer.get());
-    unsigned rangeStart = m_offset;
-    auto rangeEnd = std::optional<unsigned> { };
-    if (textNode.ptr() == m_endContainer)
-        rangeEnd = m_endOffset;
+    // For remaining text fragments after a first-letter split, text box offsets are fragment-local but m_offset/m_endOffset are DOM offsets.
+    unsigned remainingFragmentStart = 0;
+    if (auto* renderText = dynamicDowncast<RenderTextFragment>(renderer.get()); renderText && renderText->firstLetter())
+        remainingFragmentStart = renderText->start();
 
+    auto toFragmentLocal = [&](unsigned nodeOffset) {
+        return nodeOffset > remainingFragmentStart ? nodeOffset - remainingFragmentStart : 0;
+    };
+    auto toNodeOffset = [&](unsigned localOffset) {
+        return localOffset + remainingFragmentStart;
+    };
+
+    auto rendererText = rendererTextForBehavior(renderer.get());
+    auto rangeStart = toFragmentLocal(m_offset);
+    auto rangeEnd = textNode.ptr() == m_endContainer ? std::make_optional(toFragmentLocal(m_endOffset)) : std::nullopt;
     while (m_textRun) {
         auto textRunStart = m_textRun->start();
         auto textRunEnd = textRunStart + m_textRun->length();
@@ -698,19 +715,21 @@ void TextIterator::handleTextRun()
         // Determine what the next text run will be, but don't advance yet
         auto nextTextRun = InlineIterator::nextTextBoxInLogicalOrder(m_textRun, m_textRunLogicalOrderCache);
         if (runStart < runEnd) {
-            auto isNewlineOrTab = [&](char16_t character) {
-                return character == '\n' || character == '\t';
+            bool shouldPreserveNewline = renderer->style().preserveNewline();
+            auto isCollapsibleNewlineOrTab = [&](char16_t character) {
+                return character == '\t' || (character == '\n' && !shouldPreserveNewline);
             };
-            // Handle either a single newline or tab character (which becomes a space),
-            // or a run of characters that does not include newlines or tabs.
-            // This effectively translates newlines and tabs to spaces without copying the text.
-            if (isNewlineOrTab(rendererText[runStart])) {
+            // Handle either a single collapsible newline or tab character (which becomes a space),
+            // or a run of characters that does not include such characters.
+            // This effectively translates collapsible newlines and tabs to spaces without copying the text.
+            // For white-space:pre-line, newlines are preserved rather than collapsed to spaces.
+            if (isCollapsibleNewlineOrTab(rendererText[runStart])) {
                 emitCharacter(' ', textNode.copyRef(), nullptr, runStart, runStart + 1);
-                m_offset = runStart + 1;
+                m_offset = toNodeOffset(runStart + 1);
             } else {
                 auto subrunEnd = runStart + 1;
                 for (; subrunEnd < runEnd; ++subrunEnd) {
-                    if (isNewlineOrTab(rendererText[subrunEnd]))
+                    if (isCollapsibleNewlineOrTab(rendererText[subrunEnd]))
                         break;
                 }
                 if (subrunEnd == runEnd && m_behaviors.contains(TextIteratorBehavior::BehavesAsIfNodesFollowing)) {
@@ -718,13 +737,13 @@ void TextIterator::handleTextRun()
                     if (lastSpaceCollapsedByNextNonTextRun)
                         ++subrunEnd; // runEnd stopped before last space. Increment by one to restore the space.
                 }
-                m_offset = subrunEnd;
+                m_offset = toNodeOffset(subrunEnd);
                 emitText(textNode, renderer, runStart, subrunEnd);
             }
 
             // If we are doing a subrun that doesn't go to the end of the text box,
             // come back again to finish handling this text box; don't advance to the next one.
-            if (static_cast<unsigned>(m_positionEndOffset) < textRunEnd)
+            if (static_cast<unsigned>(m_positionEndOffset) < toNodeOffset(textRunEnd))
                 return;
 
             // Advance and return
@@ -819,7 +838,13 @@ bool TextIterator::handleReplacedElement()
         ASSERT_NOT_REACHED();
     }
 
-    m_hasEmitted = true;
+    // In innerText mode, replaced elements that produce no visible text (e.g.
+    // <input>) should not count as having emitted content. This prevents
+    // spurious block-boundary newlines when the only thing before a block
+    // element is a replaced element with no text output. For other modes,
+    // preserve the existing behavior to avoid changing test expectations.
+    if (!m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec))
+        m_hasEmitted = true;
 
     auto shouldEmitObjectReplacementCharacter = [&] {
         if (m_behaviors.contains(TextIteratorBehavior::EmitsObjectReplacementCharacters))
@@ -860,10 +885,24 @@ bool TextIterator::handleReplacedElement()
     if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(*renderer); renderImage && m_behaviors.contains(TextIteratorBehavior::EmitsImageAltText)) {
         auto altText = renderImage->altText();
         if (unsigned length = altText.length()) {
+            m_hasEmitted = true;
             m_lastCharacter = altText[length - 1];
             m_copyableText.set(WTF::move(altText));
             m_text = m_copyableText.text();
             return true;
+        }
+    }
+
+    if (m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec)) {
+        if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(m_currentNode)) {
+            m_handledChildren = true;
+            if (String selectText = selectElement->collectOptionInnerText(); !selectText.isEmpty()) {
+                m_hasEmitted = true;
+                m_lastCharacter = selectText[selectText.length() - 1];
+                m_copyableText.set(WTF::move(selectText));
+                m_text = m_copyableText.text();
+                return true;
+            }
         }
     }
 
@@ -899,6 +938,13 @@ static bool NODELETE shouldEmitReplacementInsteadOfNode(const Node& node)
     // Placeholders should eventually disappear, so treating them as a line break doesn't make sense
     // as when they are removed the text after it is combined with the text before it.
     return is<TextPlaceholderElement>(node);
+}
+
+static bool isBlockLevelReplacedElement(Node& node)
+{
+    auto* renderer = node.renderer();
+    return renderer && !renderer->isInline() && is<RenderReplaced>(*renderer)
+        && !renderer->isFloatingOrOutOfFlowPositioned();
 }
 
 bool shouldEmitNewlinesBeforeAndAfterNode(Node& node)
@@ -1095,13 +1141,13 @@ void TextIterator::representNodeOffsetZero()
     // on m_currentNode to see if it necessitates emitting a character first and will early return
     // before encountering shouldRepresentNodeOffsetZero()s worse case behavior.
     RefPtr currentNode = m_currentNode;
+    bool emitsNewlinesPerInnerTextSpec = m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec);
     if (shouldEmitTabBeforeNode(*currentNode)) {
         if (shouldRepresentNodeOffsetZero()) {
             RefPtr parentNode = currentNode->parentNode();
             emitCharacter('\t', WTF::move(parentNode), WTF::move(currentNode), 0, 0);
         }
-    } else if (shouldEmitNewlineBeforeNode(*currentNode)) {
-        bool emitsNewlinesPerInnerTextSpec = m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec);
+    } else if (shouldEmitNewlineBeforeNode(*currentNode) || (emitsNewlinesPerInnerTextSpec && isBlockLevelReplacedElement(*currentNode))) {
         if (shouldRepresentNodeOffsetZero()) {
             RefPtr parentNode = currentNode->parentNode();
             emitCharacter('\n', WTF::move(parentNode), WTF::move(currentNode), 0, 0);
@@ -1129,6 +1175,18 @@ void TextIterator::representNodeOffsetZero()
         if (shouldRepresentNodeOffsetZero()) {
             RefPtr parentNode = currentNode->parentNode();
             emitCharacter(objectReplacementCharacter, WTF::move(parentNode), WTF::move(currentNode), 0, 0);
+        }
+    }
+
+    // When entering an inline-level block formatting context (e.g. inline-block),
+    // suppress leading collapsed whitespace. For normal blocks, the '\n' emitted
+    // above achieves this because '\n' is collapsible whitespace, preventing
+    // shouldEmitWhitespace from firing. Inline-blocks don't emit '\n', so mimic
+    // the same effect without emitting a visible character.
+    if (emitsNewlinesPerInnerTextSpec) {
+        if (CheckedPtr renderer = dynamicDowncast<RenderBlock>(m_currentNode->renderer()); renderer && renderer->isInline() && !renderer->isRenderTable()) {
+            m_lastTextNodeEndedWithCollapsedSpace = false;
+            m_lastCharacter = '\n';
         }
     }
 }
@@ -1165,7 +1223,7 @@ void TextIterator::exitNode(Node* exitedNode)
     // the logic in _web_attributedStringFromRange match. We'll get that for free when we switch to use
     // TextIterator in _web_attributedStringFromRange.
     // See <rdar://problem/5428427> for an example of how this mismatch will cause problems.
-    if (m_lastTextNode && shouldEmitNewlineAfterNode(*protect(m_currentNode), m_behaviors.contains(TextIteratorBehavior::EmitsCharactersBetweenAllVisiblePositions))) {
+    if (m_lastTextNode && (shouldEmitNewlineAfterNode(*protect(m_currentNode), m_behaviors.contains(TextIteratorBehavior::EmitsCharactersBetweenAllVisiblePositions)) || (m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec) && isBlockLevelReplacedElement(*protect(m_currentNode))))) {
         // use extra newline to represent margin bottom, as needed
         bool addNewline = shouldEmitExtraNewlineForNode(*protect(m_currentNode), m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec));
 
@@ -1191,6 +1249,13 @@ void TextIterator::exitNode(Node* exitedNode)
         RefPtr parentNode = baseNode->parentNode();
         emitCharacter(' ', WTF::move(parentNode), WTF::move(baseNode), 1, 1);
     }
+
+    // Trailing collapsed whitespace inside a block formatting context (e.g. inline-block)
+    // should not leak into the outer flow. For block-level elements, emitCharacter('\n')
+    // above already resets this flag, but for inline-level elements that establish a BFC
+    // (like inline-block), no newline is emitted, so we must reset it explicitly.
+    if (m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec) && is<RenderBlock>(exitedNode->renderer()))
+        m_lastTextNodeEndedWithCollapsedSpace = false;
 }
 
 void TextIterator::emitCharacter(char16_t character, RefPtr<Node>&& characterNode, RefPtr<Node>&& offsetBaseNode, int textStartOffset, int textEndOffset)
@@ -1220,20 +1285,36 @@ void TextIterator::emitText(Text& textNode, RenderText& renderer, int textStartO
     ASSERT(textEndOffset >= 0);
     ASSERT(textStartOffset <= textEndOffset);
 
-    bool shouldIgnoreFullSizeKana = m_behaviors.contains(TextIteratorBehavior::IgnoresFullSizeKana) && renderer.style().textTransform().contains(Style::TextTransformValue::FullSizeKana);
+    bool shouldEmitOriginalText = m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText)
+        || (m_behaviors.contains(TextIteratorBehavior::IgnoresFullSizeKana) && renderer.style().textTransform().contains(Style::TextTransformValue::FullSizeKana));
 
     // FIXME: This probably yields the wrong offsets when text-transform: lowercase turns a single character into two characters.
-    String string = m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText) || shouldIgnoreFullSizeKana ? renderer.originalText()
-        : (m_behaviors.contains(TextIteratorBehavior::EmitsTextsWithoutTranscoding) ? renderer.textWithoutConvertingBackslashToYenSymbol() : renderer.text());
+    String string = [&]() -> String {
+        if (shouldEmitOriginalText)
+            return renderer.originalText();
+        // If this text is on the first line and ::first-line has a different text-transform
+        // than the base style, apply text-transform using the first-line style.
+        if (m_textRun && !m_textRun->lineIndex()) {
+            CheckedRef firstLineStyle = renderer.firstLineStyle();
+            if (firstLineStyle->textTransform() != renderer.style().textTransform())
+                return applyTextTransform(firstLineStyle, renderer.originalText());
+        }
+        if (m_behaviors.contains(TextIteratorBehavior::EmitsTextsWithoutTranscoding))
+            return renderer.textWithoutConvertingBackslashToYenSymbol();
+        return renderer.text();
+    }();
 
-    ASSERT(m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText) || string.length() >= static_cast<unsigned>(textEndOffset));
+    ASSERT(shouldEmitOriginalText || string.length() >= static_cast<unsigned>(textEndOffset));
 
     textEndOffset = std::min(string.length(), static_cast<unsigned>(textEndOffset));
 
     m_positionNode = textNode;
     m_positionOffsetBaseNode = nullptr;
-    m_positionStartOffset = textStartOffset;
-    m_positionEndOffset = textEndOffset;
+    // For remaining text fragments after a first-letter split, the text offsets are
+    // fragment-local but position offsets need to be DOM-relative for range() to
+    // return correct boundary points (used by word/sentence boundary detection).
+    m_positionStartOffset = convertOffsetInTextFragmentToNodeOffset(renderer, textStartOffset);
+    m_positionEndOffset = convertOffsetInTextFragmentToNodeOffset(renderer, textEndOffset);
 
     m_lastCharacter = string[textEndOffset - 1];
     // Reset to 0 even if the text ends with '\n', because content newlines
@@ -1337,7 +1418,7 @@ void SimplifiedBackwardsTextIterator::advance()
             if (CheckedPtr renderText = dynamicDowncast<RenderText>(renderer.get())) {
                 if (renderText->style().visibility() == Visibility::Visible && m_offset > 0)
                     m_handledNode = handleTextNode();
-            } else if (isRendererReplacedElement(renderer.get(), m_behaviors)) {
+            } else if (isRendererReplacedElement(renderer.get(), m_behaviors) && (renderer->isInline() || !m_behaviors.contains(TextIteratorBehavior::EmitsNewlinesPerInnerTextSpec))) {
                 if (downcast<RenderElement>(*renderer).style().visibility() == Visibility::Visible && m_offset > 0)
                     m_handledNode = handleReplacedElement();
             } else
@@ -1455,6 +1536,8 @@ CheckedPtr<RenderText> SimplifiedBackwardsTextIterator::handleFirstLetter(int& s
     m_shouldHandleFirstLetter = false;
     offsetInNode = 0;
     CheckedPtr firstLetterRenderer = firstRenderTextInFirstLetter(protect(fragment->firstLetter()));
+    if (!firstLetterRenderer)
+        return nullptr;
 
     m_offset = firstLetterRenderer->caretMaxOffset();
     m_offset += collapsedSpaceLength(*firstLetterRenderer, m_offset);

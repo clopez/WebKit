@@ -35,11 +35,11 @@
 #include <JavaScriptCore/InspectorFrontendDispatchers.h>
 #include <JavaScriptCore/InspectorProtocolObjects.h>
 #include <WebCore/CachedResource.h>
+#include <WebCore/InspectorBackendClient.h>
 #include <WebCore/InspectorWebAgentBase.h>
 #include <WebCore/LayoutRect.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Platform.h>
-#include <wtf/RobinHoodHashMap.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
@@ -54,7 +54,6 @@ namespace WebCore {
 class DOMWrapperWorld;
 class DocumentLoader;
 class Frame;
-class InspectorBackendClient;
 class InspectorOverlay;
 class LocalFrame;
 class Page;
@@ -145,9 +144,6 @@ private:
     InspectorBackendClient* m_client { nullptr };
     WeakRef<InspectorOverlay> m_overlay;
 
-    WeakHashMap<Frame, String> m_frameToIdentifier;
-    MemoryCompactRobinHoodHashMap<String, WeakPtr<Frame>> m_identifierToFrame;
-    HashMap<DocumentLoader*, String> m_loaderToIdentifier;
     String m_userAgentOverride;
     AtomString m_emulatedMedia;
     String m_bootstrapScript;

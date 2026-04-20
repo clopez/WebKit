@@ -87,6 +87,7 @@
 #include "WasmTypeDefinitionInlines.h"
 #include "WebAssemblyFunctionBase.h"
 #include <limits>
+#include <wtf/CheckedArithmetic.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -733,8 +734,8 @@ public:
     [[nodiscard]] PartialResult setGlobal(uint32_t index, ExpressionType value);
 
     // Memory
-    [[nodiscard]] PartialResult load(LoadOpType, ExpressionType pointer, ExpressionType& result, uint32_t offset, uint8_t memoryIndex);
-    [[nodiscard]] PartialResult store(StoreOpType, ExpressionType pointer, ExpressionType value, uint32_t offset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult load(LoadOpType, ExpressionType pointer, ExpressionType& result, uint64_t offset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult store(StoreOpType, ExpressionType pointer, ExpressionType value, uint64_t offset, uint8_t memoryIndex);
     [[nodiscard]] PartialResult addGrowMemory(ExpressionType delta, ExpressionType& result, uint8_t memoryIndex);
     [[nodiscard]] PartialResult addCurrentMemory(ExpressionType& result, uint8_t memoryIndex);
     [[nodiscard]] PartialResult addMemoryFill(ExpressionType dstAddress, ExpressionType targetValue, ExpressionType count, uint8_t memoryIndex);
@@ -754,6 +755,13 @@ public:
 
     // Saturated truncation.
     [[nodiscard]] PartialResult truncSaturated(Ext1OpType, ExpressionType operand, ExpressionType& result, Type returnType, Type operandType);
+
+    // Wide arithmetic.
+    [[nodiscard]] PartialResult addI64Add128(ExpressionType lhsLo, ExpressionType lhsHi, ExpressionType rhsLo, ExpressionType rhsHi, ExpressionType& resultLo, ExpressionType& resultHi);
+    [[nodiscard]] PartialResult addI64Sub128(ExpressionType lhsLo, ExpressionType lhsHi, ExpressionType rhsLo, ExpressionType rhsHi, ExpressionType& resultLo, ExpressionType& resultHi);
+    [[nodiscard]] PartialResult addI64MulWideS(ExpressionType lhs, ExpressionType rhs, ExpressionType& resultLo, ExpressionType& resultHi);
+    [[nodiscard]] PartialResult addI64MulWideU(ExpressionType lhs, ExpressionType rhs, ExpressionType& resultLo, ExpressionType& resultHi);
+    B3::Type int64PairTupleType();
 
     // GC
     [[nodiscard]] PartialResult addRefI31(ExpressionType value, ExpressionType& result);
@@ -917,7 +925,7 @@ private:
 
     void emitWriteBarrierForJSWrapper();
     void emitWriteBarrier(Value* cell);
-    Value* emitCheckAndPreparePointer(Value* pointer, uint32_t offset, uint32_t sizeOfOp, uint8_t memoryIndex);
+    Value* emitCheckAndPreparePointer(Value* pointer, uint64_t offset, uint32_t sizeOfOp, uint8_t memoryIndex);
     B3::Kind memoryKind(B3::Opcode memoryOp);
     Value* emitLoadOp(LoadOpType, Value* pointer, uint32_t offset);
     void emitStoreOp(StoreOpType, Value* pointer, Value*, uint32_t offset);
@@ -1117,6 +1125,7 @@ private:
     unsigned* m_osrEntryScratchBufferSize;
     UncheckedKeyHashMap<ValueKey, Value*> m_constantPool;
     UncheckedKeyHashMap<const TypeDefinition*, B3::Type> m_tupleMap;
+    B3::Type m_int64PairTupleType { };
     InsertionSet m_constantInsertionValues;
     Value* m_framePointer { nullptr };
     bool m_makesCalls { false };
@@ -1549,6 +1558,13 @@ B3::Type OMGIRGenerator::toB3ResultType(const TypeDefinition* returnType)
         return m_proc.addTuple(WTF::move(result));
     });
     return result.iterator->value;
+}
+
+B3::Type OMGIRGenerator::int64PairTupleType()
+{
+    if (m_int64PairTupleType == B3::Void)
+        m_int64PairTupleType = m_proc.addTuple({ B3::Int64, B3::Int64 });
+    return m_int64PairTupleType;
 }
 
 auto OMGIRGenerator::addLocal(Type type, uint32_t count) -> PartialResult
@@ -2026,7 +2042,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
 
 auto OMGIRGenerator::addGrowMemory(ExpressionType delta, ExpressionType& result, uint8_t memoryIndex) -> PartialResult
 {
-    result = push(callWasmOperation(m_currentBlock, Int32, operationGrowMemory,
+    result = push(callWasmOperation(m_currentBlock, m_info.memory(memoryIndex).addressType().asB3TypeKind(), operationGrowMemory,
         instanceValue(), get(delta), constant(Int32, memoryIndex)));
 
     restoreWebAssemblyGlobalState(m_info.memories, instanceValue(), m_currentBlock);
@@ -2046,9 +2062,12 @@ auto OMGIRGenerator::addCurrentMemory(ExpressionType& result, uint8_t memoryInde
         static_assert(PageCount::pageSize == 1ull << shiftValue, "This must hold for the code below to be correct.");
         Value* numPages = m_currentBlock->appendNew<Value>(m_proc, ZShr, origin(), size, constant(Int32, shiftValue));
 
-        result = push(int32OfPointer(numPages));
+        if (m_info.memory(memoryIndex).isMemory64())
+            result = push(numPages);
+        else
+            result = push(int32OfPointer(numPages));
     } else {
-        Value* resultValue = callWasmOperation(m_currentBlock, toB3Type(Types::I32), operationWasmMemorySizeInPages,
+        Value* resultValue = callWasmOperation(m_currentBlock, m_info.memory(memoryIndex).addressType().asB3TypeKind(), operationWasmMemorySizeInPages,
             instanceValue(), constant(Int32, memoryIndex));
         result = push(resultValue);
     }
@@ -2425,7 +2444,7 @@ inline void OMGIRGenerator::emitWriteBarrier(Value* cell)
     m_currentBlock = continuation;
 }
 
-inline Value* OMGIRGenerator::emitCheckAndPreparePointer(Value* pointer, uint32_t offset, uint32_t sizeOfOperation, uint8_t memoryIndex)
+inline Value* OMGIRGenerator::emitCheckAndPreparePointer(Value* pointer, uint64_t offset, uint32_t sizeOfOperation, uint8_t memoryIndex)
 {
     static_assert(GPRInfo::wasmBaseMemoryPointer != InvalidGPRReg);
 
@@ -2436,13 +2455,21 @@ inline Value* OMGIRGenerator::emitCheckAndPreparePointer(Value* pointer, uint32_
             // We're not using signal handling only when the memory is not shared.
             // Regardless of signaling, we must check that no memory access exceeds the current memory size.
             static_assert(GPRInfo::wasmBoundsCheckingSizeRegister != InvalidGPRReg);
-            uint64_t lastLoadedOffset = static_cast<uint64_t>(offset);
+            if (WTF::sumOverflows<uint64_t>(offset, sizeOfOperation)) {
+                B3::PatchpointValue* throwException = m_currentBlock->appendNew<B3::PatchpointValue>(m_proc, B3::Void, origin());
+                throwException->setGenerator([this, origin = this->origin()](CCallHelpers& jit, const B3::StackmapGenerationParams&) {
+                    this->emitExceptionCheck(jit, origin, ExceptionType::OutOfBoundsMemoryAccess);
+                });
+                break;
+            }
+            uint64_t lastLoadedOffset = offset;
             lastLoadedOffset += static_cast<uint64_t>(sizeOfOperation - 1);
             m_currentBlock->appendNew<WasmBoundsCheckValue>(m_proc, origin(), GPRInfo::wasmBoundsCheckingSizeRegister, pointer, lastLoadedOffset);
             break;
         }
 
         case MemoryMode::Signaling: {
+            RELEASE_ASSERT(!m_info.memory(memoryIndex).isMemory64());
             // We've virtually mapped 4GiB+redzone for this memory. Only the user-allocated pages are addressable, contiguously in range [0, current],
             // and everything above is mapped PROT_NONE. We don't need to perform any explicit bounds check in the 4GiB range because WebAssembly register
             // memory accesses are 32-bit. However WebAssembly register + offset accesses perform the addition in 64-bit which can push an access above
@@ -2463,13 +2490,18 @@ inline Value* OMGIRGenerator::emitCheckAndPreparePointer(Value* pointer, uint32_
         }
         }
 
-        pointer = m_currentBlock->appendNew<Value>(m_proc, ZExt32, origin(), pointer);
+        if (!m_info.memory(memoryIndex).isMemory64())
+            pointer = m_currentBlock->appendNew<Value>(m_proc, ZExt32, origin(), pointer);
         return m_currentBlock->appendNew<WasmAddressValue>(m_proc, origin(), pointer, GPRInfo::wasmBaseMemoryPointer);
     }
 
     // if memoryIndex != 0, force bounds checking
 
-    if (sumOverflows<uint32_t>(offset, sizeOfOperation)) {
+    bool offsetAndSizeOverflows = m_info.memory(memoryIndex).isMemory64()
+        ? sumOverflows<uint64_t>(offset, sizeOfOperation)
+        : sumOverflows<uint32_t>(offset, sizeOfOperation);
+
+    if (offsetAndSizeOverflows) [[unlikely]] {
         B3::PatchpointValue* throwException = m_currentBlock->appendNew<B3::PatchpointValue>(m_proc, B3::Void, origin());
         throwException->setGenerator([this, origin = this->origin()](CCallHelpers& jit, const B3::StackmapGenerationParams&) {
             this->emitExceptionCheck(jit, origin, ExceptionType::OutOfBoundsMemoryAccess);
@@ -2485,9 +2517,22 @@ inline Value* OMGIRGenerator::emitCheckAndPreparePointer(Value* pointer, uint32_
     uint64_t lastLoadedOffset = static_cast<uint64_t>(offset);
     lastLoadedOffset += static_cast<uint64_t>(sizeOfOperation - 1);
     auto boundsCheckOffset = constant(Int64, lastLoadedOffset);
-    pointer = m_currentBlock->appendNew<Value>(m_proc, ZExt32, origin(), pointer);
-    Value* outOfBounds = m_currentBlock->appendNew<Value>(m_proc, AboveEqual, origin(), m_currentBlock->appendNew<Value>(m_proc, Add, origin(), pointer, boundsCheckOffset), memorySize);
-    // FIXME: this should probably use a CheckAdd once memory64 is supported
+    if (!m_info.memory(memoryIndex).isMemory64())
+        pointer = m_currentBlock->appendNew<Value>(m_proc, ZExt32, origin(), pointer);
+
+    Value* sum;
+    if (m_info.memory(memoryIndex).isMemory64() && lastLoadedOffset) {
+        // FIXME: We should have an optional ResultCondition for CheckAdd (and friends)
+        sum = m_currentBlock->appendNew<Value>(m_proc, Add, origin(), pointer, boundsCheckOffset);
+        Value* overflowed = m_currentBlock->appendNew<Value>(m_proc, Below, origin(), sum, pointer);
+        CheckValue* overflowCheck = m_currentBlock->appendNew<CheckValue>(m_proc, Check, origin(), overflowed);
+        overflowCheck->setGenerator([=, this, origin = this->origin()](CCallHelpers& jit, const B3::StackmapGenerationParams&) {
+            this->emitExceptionCheck(jit, origin, ExceptionType::OutOfBoundsMemoryAccess);
+        });
+    } else
+        sum = m_currentBlock->appendNew<Value>(m_proc, Add, origin(), pointer, boundsCheckOffset);
+
+    Value* outOfBounds = m_currentBlock->appendNew<Value>(m_proc, AboveEqual, origin(), sum, memorySize);
     CheckValue* check = m_currentBlock->appendNew<CheckValue>(m_proc, Check, origin(), outOfBounds);
     check->setGenerator([=, this, origin = this->origin()](CCallHelpers& jit, const B3::StackmapGenerationParams&) {
         this->emitExceptionCheck(jit, origin, ExceptionType::OutOfBoundsMemoryAccess);
@@ -2623,12 +2668,15 @@ inline Value* OMGIRGenerator::emitLoadOp(LoadOpType op, Value* pointer, uint32_t
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-auto OMGIRGenerator::load(LoadOpType op, ExpressionType pointerVar, ExpressionType& result, uint32_t offset, uint8_t memoryIndex) -> PartialResult
+auto OMGIRGenerator::load(LoadOpType op, ExpressionType pointerVar, ExpressionType& result, uint64_t offset, uint8_t memoryIndex) -> PartialResult
 {
     Value* pointer = get(pointerVar);
-    ASSERT(pointer->type() == Int32);
 
-    if (sumOverflows<uint32_t>(offset, sizeOfLoadOp(op))) [[unlikely]] {
+    bool offsetAndSizeOverflows = m_info.memory(memoryIndex).isMemory64()
+        ? sumOverflows<uint64_t>(offset, sizeOfLoadOp(op))
+        : sumOverflows<uint32_t>(offset, sizeOfLoadOp(op));
+
+    if (offsetAndSizeOverflows) [[unlikely]] {
         // FIXME: Even though this is provably out of bounds, it's not a validation error, so we have to handle it
         // as a runtime exception. However, this may change: https://bugs.webkit.org/show_bug.cgi?id=166435
         B3::PatchpointValue* throwException = m_currentBlock->appendNew<B3::PatchpointValue>(m_proc, B3::Void, origin());
@@ -2729,13 +2777,16 @@ inline void OMGIRGenerator::emitStoreOp(StoreOpType op, Value* pointer, Value* v
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-auto OMGIRGenerator::store(StoreOpType op, ExpressionType pointerVar, ExpressionType valueVar, uint32_t offset, uint8_t memoryIndex) -> PartialResult
+auto OMGIRGenerator::store(StoreOpType op, ExpressionType pointerVar, ExpressionType valueVar, uint64_t offset, uint8_t memoryIndex) -> PartialResult
 {
     Value* pointer = get(pointerVar);
     Value* value = get(valueVar);
-    ASSERT(pointer->type() == Int32);
+    ASSERT(pointer->type() == m_info.memory(memoryIndex).addressType());
+    bool offsetAndSizeOverflows = m_info.memory(memoryIndex).isMemory64()
+        ? sumOverflows<uint64_t>(offset, sizeOfStoreOp(op))
+        : sumOverflows<uint32_t>(offset, sizeOfStoreOp(op));
 
-    if (sumOverflows<uint32_t>(offset, sizeOfStoreOp(op))) [[unlikely]] {
+    if (offsetAndSizeOverflows) [[unlikely]] {
         // FIXME: Even though this is provably out of bounds, it's not a validation error, so we have to handle it
         // as a runtime exception. However, this may change: https://bugs.webkit.org/show_bug.cgi?id=166435
         B3::PatchpointValue* throwException = m_currentBlock->appendNew<B3::PatchpointValue>(m_proc, B3::Void, origin());
@@ -3349,6 +3400,140 @@ auto OMGIRGenerator::truncSaturated(Ext1OpType op, ExpressionType argVar, Expres
             m_currentBlock->appendNew<Value>(m_proc, LessThan, origin(), arg, maxFloat),
             patchpoint, maxResult),
         requiresNaNCheck ? m_currentBlock->appendNew<Value>(m_proc, B3::Select, origin(), m_currentBlock->appendNew<Value>(m_proc, Equal, origin(), arg, arg), minResult, zero) : minResult));
+
+    return { };
+}
+
+// Wide arithmetic
+
+auto OMGIRGenerator::addI64Add128(ExpressionType lhsLoVar, ExpressionType lhsHiVar, ExpressionType rhsLoVar, ExpressionType rhsHiVar, ExpressionType& resultLo, ExpressionType& resultHi) -> PartialResult
+{
+    Value* lhsLo = get(lhsLoVar);
+    Value* lhsHi = get(lhsHiVar);
+    Value* rhsLo = get(rhsLoVar);
+    Value* rhsHi = get(rhsHiVar);
+
+    B3::Type tupleType = int64PairTupleType();
+    PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, tupleType, origin());
+    patchpoint->append(lhsLo, ValueRep::SomeRegister);
+    patchpoint->append(lhsHi, ValueRep::SomeRegister);
+    patchpoint->append(rhsLo, ValueRep::SomeRegister);
+    patchpoint->append(rhsHi, ValueRep::SomeRegister);
+    patchpoint->resultConstraints = { ValueRep::SomeEarlyRegister, isX86() ? ValueRep::SomeEarlyRegister : ValueRep::SomeRegister };
+    patchpoint->setGenerator([=](CCallHelpers& jit, const StackmapGenerationParams& params) {
+        GPRReg resLo = params[0].gpr();
+        GPRReg resHi = params[1].gpr();
+        GPRReg aLo = params[2].gpr();
+        GPRReg aHi = params[3].gpr();
+        GPRReg bLo = params[4].gpr();
+        GPRReg bHi = params[5].gpr();
+#if CPU(ARM64)
+        jit.add64AndSetFlags(aLo, bLo, resLo);
+        jit.addCarry64(aHi, bHi, resHi);
+#elif CPU(X86_64)
+        jit.move(aLo, resLo);
+        jit.add64(bLo, resLo);
+        jit.move(aHi, resHi);
+        jit.addCarry64(bHi, resHi);
+#endif
+    });
+    patchpoint->effects = Effects::none();
+
+    resultLo = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 0));
+    resultHi = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 1));
+    return { };
+}
+
+auto OMGIRGenerator::addI64Sub128(ExpressionType lhsLoVar, ExpressionType lhsHiVar, ExpressionType rhsLoVar, ExpressionType rhsHiVar, ExpressionType& resultLo, ExpressionType& resultHi) -> PartialResult
+{
+    Value* lhsLo = get(lhsLoVar);
+    Value* lhsHi = get(lhsHiVar);
+    Value* rhsLo = get(rhsLoVar);
+    Value* rhsHi = get(rhsHiVar);
+
+    B3::Type tupleType = int64PairTupleType();
+    PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, tupleType, origin());
+    patchpoint->append(lhsLo, ValueRep::SomeRegister);
+    patchpoint->append(lhsHi, ValueRep::SomeRegister);
+    patchpoint->append(rhsLo, ValueRep::SomeRegister);
+    patchpoint->append(rhsHi, ValueRep::SomeRegister);
+    patchpoint->resultConstraints = { ValueRep::SomeEarlyRegister, isX86() ? ValueRep::SomeEarlyRegister : ValueRep::SomeRegister };
+    patchpoint->setGenerator([=](CCallHelpers& jit, const StackmapGenerationParams& params) {
+        GPRReg resLo = params[0].gpr();
+        GPRReg resHi = params[1].gpr();
+        GPRReg aLo = params[2].gpr();
+        GPRReg aHi = params[3].gpr();
+        GPRReg bLo = params[4].gpr();
+        GPRReg bHi = params[5].gpr();
+#if CPU(ARM64)
+        jit.sub64AndSetFlags(aLo, bLo, resLo);
+        jit.subBorrow64(aHi, bHi, resHi);
+#elif CPU(X86_64)
+        jit.move(aLo, resLo);
+        jit.sub64(bLo, resLo);
+        jit.move(aHi, resHi);
+        jit.subBorrow64(bHi, resHi);
+#endif
+    });
+    patchpoint->effects = Effects::none();
+
+    resultLo = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 0));
+    resultHi = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 1));
+    return { };
+}
+
+auto OMGIRGenerator::addI64MulWideU(ExpressionType lhsVar, ExpressionType rhsVar, ExpressionType& resultLo, ExpressionType& resultHi) -> PartialResult
+{
+    Value* lhs = get(lhsVar);
+    Value* rhs = get(rhsVar);
+
+#if CPU(ARM64)
+    resultLo = push(m_currentBlock->appendNew<Value>(m_proc, Mul, origin(), lhs, rhs));
+    resultHi = push(m_currentBlock->appendNew<Value>(m_proc, UMulHigh, origin(), lhs, rhs));
+
+#elif CPU(X86_64)
+    // FIXME: We should get B3 on X86 to lower this to one instruction without a patchpoint.
+    B3::Type tupleType = int64PairTupleType();
+    PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, tupleType, origin());
+    patchpoint->append(lhs, ValueRep::reg(X86Registers::eax));
+    patchpoint->append(rhs, ValueRep::SomeRegister);
+    patchpoint->resultConstraints = { ValueRep::reg(X86Registers::eax), ValueRep::reg(X86Registers::edx) };
+    patchpoint->effects = Effects::none();
+    patchpoint->setGenerator([=](CCallHelpers& jit, const StackmapGenerationParams& params) {
+        jit.x86UMulHigh64(params[3].gpr(), params[0].gpr(), params[1].gpr());
+    });
+
+    resultLo = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 0));
+    resultHi = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 1));
+#endif
+
+    return { };
+}
+
+auto OMGIRGenerator::addI64MulWideS(ExpressionType lhsVar, ExpressionType rhsVar, ExpressionType& resultLo, ExpressionType& resultHi) -> PartialResult
+{
+    Value* lhs = get(lhsVar);
+    Value* rhs = get(rhsVar);
+
+#if CPU(ARM64)
+    resultLo = push(m_currentBlock->appendNew<Value>(m_proc, Mul, origin(), lhs, rhs));
+    resultHi = push(m_currentBlock->appendNew<Value>(m_proc, MulHigh, origin(), lhs, rhs));
+
+#elif CPU(X86_64)
+    // FIXME: We should get B3 on X86 to lower this to one instruction without a patchpoint.
+    B3::Type tupleType = int64PairTupleType();
+    PatchpointValue* patchpoint = m_currentBlock->appendNew<PatchpointValue>(m_proc, tupleType, origin());
+    patchpoint->append(lhs, ValueRep::reg(X86Registers::eax));
+    patchpoint->append(rhs, ValueRep::SomeRegister);
+    patchpoint->resultConstraints = { ValueRep::reg(X86Registers::eax), ValueRep::reg(X86Registers::edx) };
+    patchpoint->effects = Effects::none();
+    patchpoint->setGenerator([=](CCallHelpers& jit, const StackmapGenerationParams& params) {
+        jit.x86MulHigh64(params[3].gpr(), params[0].gpr(), params[1].gpr());
+    });
+
+    resultLo = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 0));
+    resultHi = push(m_currentBlock->appendNew<ExtractValue>(m_proc, origin(), B3::Int64, patchpoint, 1));
+#endif
 
     return { };
 }
@@ -6312,6 +6497,7 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileOMG(Compilati
     compilationContext.procedure = makeUniqueWithoutFastMallocCheck<Procedure>(info.usesSIMD(functionIndex));
 
     Procedure& procedure = *compilationContext.procedure;
+    procedure.setName(callee.nameWithHash());
     if (shouldDumpIRFor(functionIndex + info.importFunctionCount()))
         procedure.setShouldDumpIR();
 

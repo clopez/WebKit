@@ -51,7 +51,7 @@ RemoteMesh::RemoteMesh(GPUConnectionToWebProcess& gpuConnectionToWebProcess, Rem
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_gpu(gpu)
 {
-    Ref { m_streamConnection }->startReceivingMessages(*this, Messages::RemoteMesh::messageReceiverName(), m_identifier.toUInt64());
+    protect(m_streamConnection)->startReceivingMessages(*this, Messages::RemoteMesh::messageReceiverName(), m_identifier.toUInt64());
 }
 
 RemoteMesh::~RemoteMesh() = default;
@@ -66,7 +66,7 @@ RefPtr<IPC::Connection> RemoteMesh::connection() const
 
 void RemoteMesh::stopListeningForIPC()
 {
-    Ref { m_streamConnection }->stopReceivingMessages(Messages::RemoteMesh::messageReceiverName(), m_identifier.toUInt64());
+    protect(m_streamConnection)->stopReceivingMessages(Messages::RemoteMesh::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteMesh::destruct()
@@ -127,9 +127,18 @@ void RemoteMesh::play(bool playing)
     m_backing->play(playing);
 }
 
-void RemoteMesh::setEnvironmentMap(const WebModel::ImageAsset& imageAsset)
+void RemoteMesh::setEnvironmentMap(const WebModel::UpdateTextureDescriptor& imageAsset)
 {
     m_backing->setEnvironmentMap(imageAsset);
+}
+
+void RemoteMesh::updateContentsHeadroom(float headroom)
+{
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    m_backing->updateContentsHeadroom(headroom);
+#else
+    UNUSED_PARAM(headroom);
+#endif
 }
 
 void RemoteMesh::updateRenderBuffers(unsigned width, unsigned height, CompletionHandler<void(Vector<MachSendRight>&&)>&& completionHandler)

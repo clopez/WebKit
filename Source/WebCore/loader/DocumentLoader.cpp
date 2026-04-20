@@ -477,6 +477,27 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
 
 void DocumentLoader::finishedLoading()
 {
+    // If the prefetch response was not successful, remove the failed prefetch from the memory cache and retry the navigation as a continuing load.
+    if (m_prefetchResponseFailed) {
+        RefPtr frame = m_frame;
+        if (!frame)
+            return;
+        auto request = m_request;
+        request.setCachePolicy(ResourceRequestCachePolicy::DoNotUseAnyCache);
+        request.removeHTTPHeaderField(HTTPHeaderName::SecPurpose);
+        request.removeHTTPHeaderField(HTTPHeaderName::SecSpeculationTags);
+        if (RefPtr page = frame->page()) {
+            if (RefPtr resource = MemoryCache::singleton().resourceForRequest(ResourceRequest { URL { request.url() } }, page->sessionID()))
+                MemoryCache::singleton().remove(*resource);
+        }
+        Ref document = *frame->document();
+        FrameLoadRequest frameLoadRequest { document.copyRef(), document->securityOrigin(), WTF::move(request), { }, InitiatedByMainFrame::Unknown };
+        frameLoadRequest.setIsRequestFromClientOrUserInput();
+        frameLoadRequest.setShouldTreatAsContinuingLoad(ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted);
+        frame->loader().load(WTF::move(frameLoadRequest));
+        return;
+    }
+
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
 #if !USE(CF)
@@ -877,6 +898,15 @@ void DocumentLoader::responseReceived(const CachedResource& resource, const Reso
 {
     ASSERT_UNUSED(resource, m_mainResource == &resource);
 
+    // If we joined an in-flight prefetch and the response is not successful,
+    // set a flag to suppress committing the error response. The retry will be
+    // scheduled in finishedLoading via the NavigationScheduler.
+    if (m_mainResource
+        && m_mainResource->options().cachingPolicy == CachingPolicy::AllowCachingMainResourcePrefetch
+        && !response.isSuccessful()
+        && response.httpStatusCode() > 0)
+        m_prefetchResponseFailed = true;
+
     RefPtr frame = m_frame.get();
     if (shouldClearContentSecurityPolicyForResponse(response))
         m_contentSecurityPolicy = nullptr;
@@ -1202,6 +1232,11 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
 
 void DocumentLoader::commitLoad(const SharedBuffer& data)
 {
+    // Don't commit error responses from failed prefetches. The navigation will
+    // be retried with a fresh request in finishedLoading.
+    if (m_prefetchResponseFailed)
+        return;
+
     // Both unloading the old page and parsing the new page may execute JavaScript which destroys the datasource
     // by starting a new load, so retain temporarily.
     RefPtr protectedFrame { m_frame.get() };
@@ -2059,9 +2094,12 @@ void DocumentLoader::addPlugInStreamLoader(ResourceLoader& loader)
 void DocumentLoader::removePlugInStreamLoader(ResourceLoader& loader)
 {
     ASSERT(m_plugInStreamLoaders.contains(&loader));
-
     m_plugInStreamLoaders.remove(&loader);
-    checkLoadComplete();
+    if (m_frame && m_frame->document()) {
+        protect(m_frame->document())->eventLoop().queueTask(TaskSource::Networking, [protectedThis = Ref { *this }]() {
+            protectedThis->checkLoadComplete();
+        });
+    }
 }
 
 bool DocumentLoader::isMultipartReplacingLoad() const
@@ -2167,7 +2205,7 @@ void DocumentLoader::startLoadingMainResource()
     // Always filter in WK1
     contentFilterInDocumentLoader() = frame && frame->view() && frame->view()->platformWidget();
     if (contentFilterInDocumentLoader())
-        m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this) : nullptr;
+        m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this, IS_MAIN_FRAME) : nullptr;
 #endif
 
     auto url = m_request.url();

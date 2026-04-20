@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,7 @@
 #include <wtf/EnumTraits.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/WTFString.h>
 
@@ -235,11 +236,11 @@ void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data, Complet
     });
 }
 
-void SWServer::loadWorkerScripts(const SWServerWorker& worker, CompletionHandler<void()>&& callback)
+void SWServer::loadWorkerScripts(const SWServerWorker& worker, CompletionHandler<void(bool)>&& callback)
 {
     RefPtr store = m_registrationStore;
     if (!store) {
-        callback();
+        callback(false);
         return;
     }
 
@@ -247,15 +248,29 @@ void SWServer::loadWorkerScripts(const SWServerWorker& worker, CompletionHandler
         [weakThis = WeakPtr { *this }, workerIdentifier = worker.identifier(), callback = WTF::move(callback)](auto&& result) mutable {
             RefPtr protectedThis = weakThis;
             if (!protectedThis)
-                return callback();
+                return callback(false);
 
-            if (RefPtr worker = protectedThis->workerByID(workerIdentifier)) {
-                if (result)
-                    worker->setWorkerScripts(WTF::move(result->mainScript), WTF::move(result->importedScripts));
-                else
-                    worker->didFailToLoadWorkerScripts();
+            bool success = !!result;
+            auto scope = makeScopeExit([&] {
+                callback(success);
+            });
+
+            RefPtr worker = protectedThis->workerByID(workerIdentifier);
+            if (!worker)
+                return;
+
+            if (!success) {
+                if (RefPtr registration = worker->registration()) {
+                    RELEASE_LOG_ERROR(ServiceWorker, "Unregistering registration %" PRIu64 " due to worker script retrieval failure", registration->identifier().toUInt64());
+                    auto contextIdentifier = ServiceWorkerIdentifier::generate();
+                    ServiceWorkerJobDataIdentifier jobIdentifier { Process::identifier(), ServiceWorkerJobIdentifier::generate() };
+                    protectedThis->scheduleUnregisterJob(jobIdentifier, *registration, contextIdentifier, registration->scriptURL());
+                }
+                worker->didFailToLoadWorkerScripts();
+                return;
             }
-            callback();
+
+            worker->setWorkerScripts(WTF::move(result->mainScript), WTF::move(result->importedScripts));
         });
 }
 
@@ -1086,9 +1101,9 @@ void SWServer::runServiceWorkerIfNecessary(SWServerWorker& worker, RunServiceWor
     }
 
     if (worker.needsScriptLoading()) {
-        loadWorkerScripts(worker, [weakThis = WeakPtr { *this }, identifier = worker.identifier(), callback = WTF::move(callback)]() mutable {
+        loadWorkerScripts(worker, [weakThis = WeakPtr { *this }, identifier = worker.identifier(), callback = WTF::move(callback)](bool success) mutable {
             RefPtr protectedThis = weakThis;
-            if (!protectedThis)
+            if (!protectedThis || !success)
                 return callback(nullptr);
             protectedThis->runServiceWorkerIfNecessary(identifier, WTF::move(callback));
         });
@@ -1356,10 +1371,12 @@ void SWServer::unregisterServiceWorkerClientInternal(const ClientOrigin& clientO
 
     auto clientsByRegistrableDomainIterator = m_clientsByRegistrableDomain.find(clientRegistrableDomain);
     ASSERT(clientsByRegistrableDomainIterator != m_clientsByRegistrableDomain.end());
-    auto& clientsForRegistrableDomain = clientsByRegistrableDomainIterator->value;
-    clientsForRegistrableDomain.remove(clientIdentifier);
-    if (clientsForRegistrableDomain.isEmpty())
-        m_clientsByRegistrableDomain.remove(clientsByRegistrableDomainIterator);
+    if (clientsByRegistrableDomainIterator != m_clientsByRegistrableDomain.end()) {
+        auto& clientsForRegistrableDomain = clientsByRegistrableDomainIterator->value;
+        clientsForRegistrableDomain.remove(clientIdentifier);
+        if (clientsForRegistrableDomain.isEmpty())
+            m_clientsByRegistrableDomain.remove(clientsByRegistrableDomainIterator);
+    }
 
     bool didUnregister = false;
     if (shouldUpdateRegistrations == ShouldUpdateRegistrations::Yes) {
@@ -1400,7 +1417,8 @@ void SWServer::unregisterServiceWorkerClientInternal(const ClientOrigin& clientO
                 if (protectedThis->removeContextConnectionIfPossible(clientRegistrableDomain) == ShouldDelayRemoval::Yes) {
                     auto iterator = protectedThis->m_clientIdentifiersPerOrigin.find(clientOrigin);
                     ASSERT(iterator != protectedThis->m_clientIdentifiersPerOrigin.end());
-                    iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
+                    if (iterator != protectedThis->m_clientIdentifiersPerOrigin.end())
+                        iterator->value.terminateServiceWorkersTimer->startOneShot(protectedThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
                     return;
                 }
 
@@ -1442,6 +1460,7 @@ void SWServer::unregisterServiceWorkerClient(const ClientOrigin& clientOrigin, S
     if (clientIterator != m_clientsById.end() && clientIterator->value->identifier.processIdentifier() != clientIdentifier.processIdentifier())
         return;
 
+    // Also unregister unknown clientIdentifier in case Service Worker maps get out-of-sync.
     unregisterServiceWorkerClientInternal(clientOrigin, clientIdentifier, ShouldUpdateRegistrations::Yes);
 }
 

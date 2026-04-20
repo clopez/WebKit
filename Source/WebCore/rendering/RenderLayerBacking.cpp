@@ -2782,12 +2782,31 @@ bool RenderLayerBacking::updateMaskingLayer(bool hasMask, bool hasClipPath)
         OptionSet<GraphicsLayerPaintingPhase> maskPhases;
         if (hasMask)
             maskPhases = GraphicsLayerPaintingPhase::Mask;
-        
-        if (hasClipPath) {
+
+        auto shouldAddClipPathPaintingPhase = [&] {
+            if (!hasClipPath)
+                return false;
+
             // If we have a mask, we need to paint the combined clip-path and mask into the mask layer.
-            if (hasMask || WTF::holdsAlternative<Style::ReferencePath>(renderer().style().clipPath()) || !GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape))
-                maskPhases.add(GraphicsLayerPaintingPhase::ClipPath);
-        }
+            if (hasMask)
+                return true;
+
+            if (WTF::holdsAlternative<Style::ReferencePath>(renderer().style().clipPath()))
+                return true;
+
+            if (!GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape))
+                return true;
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+            Ref settings = renderer().settings();
+            if (!settings->useSkiaForComposition())
+                return true;
+#endif
+
+            return false;
+        };
+        if (shouldAddClipPathPaintingPhase())
+            maskPhases.add(GraphicsLayerPaintingPhase::ClipPath);
 
         bool paintsContent = !maskPhases.isEmpty();
         GraphicsLayer::Type requiredLayerType = paintsContent ? GraphicsLayer::Type::Normal : GraphicsLayer::Type::Shape;
@@ -3233,6 +3252,11 @@ void RenderLayerBacking::determinePaintsContent(RenderLayer::PaintedContentReque
 bool RenderLayerBacking::isSimpleContainerCompositingLayer(PaintedContentsInfo& contentsInfo) const
 {
     if (m_owningLayer.isRenderViewLayer())
+        return false;
+
+    // Scroll containers intentionally use the bitmap path for their background
+    // in updateDrawsContent(), so they are not simple containers.
+    if (m_scrollContainerLayer)
         return false;
 
     if (hasBackingSharingLayers())
@@ -4557,8 +4581,9 @@ void RenderLayerBacking::updateAcceleratedEffectsAndBaseValues(HashSet<Ref<Accel
     bool hasEffectAffectingBackdropFilter = false;
     auto borderBoxRect = snappedIntRect(m_owningLayer.rendererBorderBoxRect());
 
+    auto* style = target->lastStyleChangeEventStyle();
     auto baseValues = [&]() -> AcceleratedEffectValues {
-        if (auto* style = target->lastStyleChangeEventStyle())
+        if (style)
             return { *style, borderBoxRect, &renderer };
         return { };
     }();
@@ -4580,17 +4605,30 @@ void RenderLayerBacking::updateAcceleratedEffectsAndBaseValues(HashSet<Ref<Accel
     AcceleratedEffects acceleratedEffects;
     HashSet<Ref<AcceleratedTimeline>> effectTimelines;
     if (auto* effectStack = target->keyframeEffectStack()) {
-        WeakListHashSet<AcceleratedEffect> weakAcceleratedEffects;
         if (effectStack->allowsAcceleration()) {
             auto animatesWidth = effectStack->containsProperty(CSSPropertyWidth);
             auto animatesHeight = effectStack->containsProperty(CSSPropertyHeight);
+            auto animatesOffsetPath = effectStack->containsProperty(CSSPropertyOffsetPath);
+
+            // If offset-distance is a percentage or is calculated, we won't have the necessary
+            // information in the remote layer tree to recompute it based on an animated offset-path.
+            if (animatesOffsetPath && style->offsetDistance().isPercentOrCalculated())
+                disallowedAcceleratedProperties.add(transformRelatedAcceleratedProperties);
+
             for (const auto& effect : effectStack->sortedEffects() | std::views::reverse) {
                 if (!effect || !effect->canHaveAcceleratedRepresentation() || !effect->canBeAccelerated())
                     continue;
-                if (animatesWidth || animatesHeight) {
-                    auto& blendingKeyframes = effect->blendingKeyframes();
-                    if ((animatesWidth && blendingKeyframes.hasWidthDependentTransform()) || (animatesHeight && blendingKeyframes.hasHeightDependentTransform()))
-                        disallowedAcceleratedProperties.add(transformRelatedAcceleratedProperties);
+                if (!disallowedAcceleratedProperties.containsAll(transformRelatedAcceleratedProperties)) {
+                    if (animatesWidth || animatesHeight) {
+                        auto& blendingKeyframes = effect->blendingKeyframes();
+                        if ((animatesWidth && blendingKeyframes.hasWidthDependentTransform()) || (animatesHeight && blendingKeyframes.hasHeightDependentTransform()))
+                            disallowedAcceleratedProperties.add(transformRelatedAcceleratedProperties);
+                    }
+                    if (animatesOffsetPath) {
+                        auto& blendingKeyframes = effect->blendingKeyframes();
+                        if (blendingKeyframes.animatesOffsetDistanceToPercentOrCalculated())
+                            disallowedAcceleratedProperties.add(transformRelatedAcceleratedProperties);
+                    }
                 }
                 Ref acceleratedEffect = effect->acceleratedRepresentation(borderBoxRect, baseValues, disallowedAcceleratedProperties);
                 // FIXME: it feels like we should be able to assert here, or perhaps we could just fold this into the logic
@@ -4607,23 +4645,30 @@ void RenderLayerBacking::updateAcceleratedEffectsAndBaseValues(HashSet<Ref<Accel
                 allAcceleratedProperties.add(acceleratedProperties);
                 if (effect->isRunningAccelerated())
                     interpolatingProperties.add(acceleratedProperties);
-                if (!hasEffectAffectingFilter && acceleratedProperties.contains(AcceleratedEffectProperty::Filter))
+                // We can only handle one effect in the stack targeting the filter and backdrop-filter properties
+                // because of the complexities involved with possibly blending across multiple filter types. Since
+                // this is bound to be rare, it's a lot easier to simply disallow acceleration in this case.
+                if (acceleratedProperties.contains(AcceleratedEffectProperty::Filter)) {
+                    if (hasEffectAffectingFilter && !replacedAcceleratedProperties.contains(AcceleratedEffectProperty::Filter))
+                        disallowedAcceleratedProperties.add(AcceleratedEffectProperty::Filter);
                     hasEffectAffectingFilter = true;
-                if (!hasEffectAffectingBackdropFilter && acceleratedProperties.contains(AcceleratedEffectProperty::BackdropFilter))
+                }
+                if (acceleratedProperties.contains(AcceleratedEffectProperty::BackdropFilter)) {
+                    if (hasEffectAffectingBackdropFilter && !replacedAcceleratedProperties.contains(AcceleratedEffectProperty::BackdropFilter))
+                        disallowedAcceleratedProperties.add(AcceleratedEffectProperty::BackdropFilter);
                     hasEffectAffectingBackdropFilter = true;
+                }
                 effectTimelines.add(Ref { *acceleratedEffect->timeline() });
-                weakAcceleratedEffects.add(acceleratedEffect.ptr());
                 acceleratedEffects.append(WTF::move(acceleratedEffect));
             }
         }
-        effectStack->setAcceleratedEffects(WTF::move(weakAcceleratedEffects));
     }
 
     // Effects were added in reverse, so we need to reverse the accelerated effects.
     acceleratedEffects.reverse();
 
     // Now let's prune any effect that only animates a non-interpolating property.
-    auto nonInterpolatingProperties = allAcceleratedProperties ^ interpolatingProperties;
+    auto nonInterpolatingProperties = allAcceleratedProperties ^ interpolatingProperties ^ disallowedAcceleratedProperties;
     if (!nonInterpolatingProperties.isEmpty()) {
         // Make a copy of our current list of effects and clear the the original list as well
         // as the set of timelines. We'll re-populate both without effects that are only animating

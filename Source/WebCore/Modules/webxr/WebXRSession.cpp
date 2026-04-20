@@ -137,6 +137,11 @@ const Vector<String> WebXRSession::enabledFeatures() const
     return enabledFeatureArray;
 }
 
+bool WebXRSession::supportsFeature(PlatformXR::SessionFeature feature) const
+{
+    return m_requestedFeatures.contains(feature);
+}
+
 // https://immersive-web.github.io/webxr/#dom-xrsession-updaterenderstate
 ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newState)
 {
@@ -844,7 +849,7 @@ void WebXRSession::requestHitTestSource(const XRHitTestOptionsInit& init, Reques
             promise.reject(exceptionOrSource.releaseException());
             return;
         }
-        Ref<WebXRHitTestSource> source =  WebXRHitTestSource::create(protectedThis, exceptionOrSource.releaseReturnValue(), *space);
+        Ref source = WebXRHitTestSource::create(protectedThis, exceptionOrSource.releaseReturnValue(), space);
         ASSERT(source->handle());
         protectedThis->m_activeHitTestSources.add(source->handle().value(), source.get());
         promise.resolve(source);

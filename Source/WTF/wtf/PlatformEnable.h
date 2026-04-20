@@ -301,8 +301,10 @@
 #endif
 
 #if !defined(ENABLE_IPC_TESTING_API)
-/* Enable IPC testing on all ASAN builds and debug builds. */
-#if (ASAN_ENABLED || !defined(NDEBUG)) && PLATFORM(COCOA)
+/* Enable IPC testing on all ASAN builds and debug builds. Enable it in GLib ports when assertions are enabled. */
+/* In GLib ports, only enable for GCC builds, as this is what we currently test in EWS and clang-18 is significantly */
+/* slow to build when IPC testing is enabled. */
+#if ((ASAN_ENABLED || !defined(NDEBUG)) && PLATFORM(COCOA)) || (ASSERT_ENABLED && (PLATFORM(GTK) || PLATFORM(WPE)) && COMPILER(GCC))
 #define ENABLE_IPC_TESTING_API 1
 #endif
 #endif
@@ -629,7 +631,7 @@
 #define ENABLE_WEBGPU PLATFORM(COCOA)
 #endif
 
-#if !defined(ENABLE_WEBGPU_BY_DEFAULT) && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) || (PLATFORM(IOS)) || (PLATFORM(VISION)))
+#if !defined(ENABLE_WEBGPU_BY_DEFAULT) && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) || PLATFORM(IOS) || PLATFORM(VISION))
 #define ENABLE_WEBGPU_BY_DEFAULT 1
 #endif
 
@@ -638,7 +640,7 @@
 #endif
 
 #if !defined(ENABLE_WEBXR_LAYERS)
-#define ENABLE_WEBXR_LAYERS (PLATFORM(VISION) && __VISION_OS_VERSION_MIN_REQUIRED >= 20200)
+#define ENABLE_WEBXR_LAYERS PLATFORM(VISION)
 #endif
 
 #if !defined(ENABLE_WHEEL_EVENT_LATCHING)
@@ -875,13 +877,7 @@
 #define ENABLE_COMPUTED_GOTO_OPCODES 1
 #endif
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000) \
-    || (PLATFORM(MACCATALYST) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) \
-    || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) \
-    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MAX_ALLOWED >= 180000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED >= 110000) \
-    || (PLATFORM(VISION) && __VISION_OS_VERSION_MAX_ALLOWED >= 20000)
-// Linkers from older SDKs causes wrong linking. ref: rdar://96556827
+#if PLATFORM(COCOA)
 #define ENABLE_OFFLINE_ASM_ALT_ENTRY 1
 #endif
 
@@ -1067,8 +1063,7 @@
 #define ENABLE_WEBPROCESS_CACHE 0
 #endif
 
-#if !defined(ENABLE_FEATURE_DEFAULT_VALIDATION) \
-    && (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000)
+#if !defined(ENABLE_FEATURE_DEFAULT_VALIDATION) && PLATFORM(MAC)
 // FIXME: Check feature flag default values on other platforms once it's
 // possible to make feature status conditional.
 #define ENABLE_FEATURE_DEFAULT_VALIDATION 1
@@ -1107,10 +1102,8 @@
 
 #if !defined(ENABLE_TLS_1_2_DEFAULT_MINIMUM) \
     && ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) \
-    || ((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 260000) \
-    || (PLATFORM(VISION) && __VISION_OS_VERSION_MIN_REQUIRED >= 260000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 260000) \
-    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED >= 260000))
+    || PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION) \
+    || PLATFORM(WATCHOS) || PLATFORM(APPLETV))
 #define ENABLE_TLS_1_2_DEFAULT_MINIMUM 1
 #endif
 

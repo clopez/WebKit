@@ -1515,8 +1515,6 @@ enum class WebCore::WebLockMode : bool;
 
 using WebCore::AuthenticatorResponseDataSerializableForm = Variant<std::nullptr_t, WebCore::AuthenticatorResponseBaseData, WebCore::AuthenticatorAttestationResponseData, WebCore::AuthenticatorAssertionResponseData>;
 
-using WebCore::PointerID = uint32_t;
-
 struct WebCore::AuthenticatorResponseData {
     WebCore::AuthenticatorResponseDataSerializableForm getSerializableForm();
 };
@@ -4283,6 +4281,12 @@ enum class WebCore::MediaPlayerSoundStageSize : uint8_t {
     Large,
 };
 
+enum class WebCore::MediaPlayerViewportVisibility : uint8_t {
+    NotVisible,
+    IntersectingViewport,
+    VisibleInViewport,
+};
+
 class WebCore::GeolocationPositionData {
     double timestamp;
     double latitude;
@@ -6013,7 +6017,8 @@ header: <WebCore/ISOVTTCue.h>
     NoTags,
     WrongTagType,
     NoConnections,
-    MaliciousPayload
+    MaliciousPayload,
+    HardwareBusy
 };
 
 [Nested] struct WebCore::MockWebAuthenticationConfiguration::NfcConfiguration {
@@ -7921,6 +7926,14 @@ header: <WebCore/WebCodecsEncodedVideoChunk.h>
 header: <WebCore/WebCodecsEncodedAudioChunk.h>
 [CustomHeader, RefCounted] class WebCore::WebCodecsEncodedAudioChunkStorage {
     WebCore::WebCodecsEncodedAudioChunkData data();
+};
+#endif
+
+#if USE(LIBRICE)
+header: <WebCore/RiceGatherResult.h>
+[CustomHeader] struct WebCore::RiceGatherResult {
+    HashMap<WebCore::RiceSocket, String> addresses;
+    Vector<WebCore::RiceSocket> turnAddresses;
 };
 #endif
 

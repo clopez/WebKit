@@ -32,6 +32,8 @@
 #include "JSDOMPromise.h"
 #include "JSDOMPromiseDeferred.h"
 #include "ReadableByteStreamController.h"
+#include <JavaScriptCore/GenericTypedArrayViewInlines.h>
+#include <JavaScriptCore/JSArrayBufferViewInlines.h>
 #include <wtf/Scope.h>
 
 namespace WebCore {
@@ -92,7 +94,7 @@ Ref<DOMPromise> FetchBodySource::cancel(JSDOMGlobalObject& globalObject, Readabl
 static JSDOMGlobalObject* globalObjectFromBodyOwner(RefPtr<FetchBodyOwner>&& bodyOwner)
 {
     RefPtr context = bodyOwner ? bodyOwner->scriptExecutionContext() : nullptr;
-    return JSC::jsCast<JSDOMGlobalObject*>(context->globalObject());
+    return uncheckedDowncast<JSDOMGlobalObject>(context->globalObject());
 }
 
 // FIXME: We should be able to take a FragmentedSharedBuffer

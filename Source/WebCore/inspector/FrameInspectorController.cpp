@@ -37,6 +37,7 @@
 #include "FrameDebuggerAgent.h"
 #include "FrameInlines.h"
 #include "FrameRuntimeAgent.h"
+#include "FrameWorkerAgent.h"
 #include "InspectorInstrumentation.h"
 #include "InspectorWebAgentBase.h"
 #include "InstrumentingAgents.h"
@@ -160,6 +161,8 @@ void FrameInspectorController::createLazyAgents()
     m_agents.append(makeUniqueRef<FrameDebuggerAgent>(context));
 
     createRuntimeAgent();
+
+    m_agents.append(makeUniqueRef<FrameWorkerAgent>(context));
 }
 
 void FrameInspectorController::connectFrontend(Inspector::FrontendChannel& frontendChannel, bool isAutomaticInspection, bool immediatelyPause)
@@ -228,7 +231,7 @@ bool FrameInspectorController::canAccessInspectedScriptState(JSC::JSGlobalObject
 {
     JSLockHolder lock(lexicalGlobalObject);
 
-    auto* inspectedWindow = jsDynamicCast<JSDOMWindow*>(lexicalGlobalObject);
+    auto* inspectedWindow = dynamicDowncast<JSDOMWindow>(lexicalGlobalObject);
     if (!inspectedWindow)
         return false;
 

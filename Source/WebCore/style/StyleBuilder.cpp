@@ -406,7 +406,7 @@ void Builder::applyProperty(CSSPropertyID id, CSSValue& value, SelectorChecker::
         style.setHasExplicitlyInheritedProperties();
 
     if (auto* paintImageValue = dynamicDowncast<CSSPaintImageValue>(valueToApply.get())) {
-        auto& name = paintImageValue->name();
+        auto& name = paintImageValue->name().value;
         if (auto* paintWorklet = const_cast<Document&>(m_state->document()).paintWorkletGlobalScopeForName(name)) {
             Locker locker { paintWorklet->paintDefinitionLock() };
             if (auto* registration = paintWorklet->paintDefinitionMap().get(name)) {
@@ -640,6 +640,8 @@ RefPtr<const CustomProperty> Builder::resolveCustomPropertyForContainerQueries(c
 
 RefPtr<const CustomProperty> Builder::resolveFunctionResult(const CSSCustomPropertyValue& value)
 {
+    SetForScope resultScope(m_state->m_currentProperty, &m_cascade.functionResultProperty());
+
     auto resolvedValue = resolveCustomPropertyValue(const_cast<CSSCustomPropertyValue&>(value));
     if (!resolvedValue)
         return nullptr;

@@ -98,9 +98,19 @@ void MeshImpl::play(bool play)
     m_backing->play(play);
 }
 
-void MeshImpl::setEnvironmentMap(const WebModel::ImageAsset& imageAsset)
+void MeshImpl::setEnvironmentMap(const WebModel::UpdateTextureDescriptor& imageAsset)
 {
     m_backing->setEnvironmentMap(imageAsset);
+}
+
+void MeshImpl::updateContentsHeadroom(float headroom)
+{
+#if HAVE(SUPPORT_HDR_DISPLAY) && PLATFORM(COCOA)
+    for (auto& renderBuffer : m_renderBuffers)
+        renderBuffer->setContentEDRHeadroom(headroom);
+#else
+    UNUSED_PARAM(headroom);
+#endif
 }
 
 #if PLATFORM(COCOA)

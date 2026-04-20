@@ -731,9 +731,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #if PLATFORM(COCOA)
 #if HAVE(SANDBOX_STATE_FLAGS)
     auto auditToken = WebProcess::singleton().auditTokenForSelf();
-    auto shouldBlockMobileAsset = parameters.store.getBoolValueForKey(WebPreferencesKey::blockMobileAssetInWebContentSandboxKey());
-    if (shouldBlockMobileAsset)
-        sandbox_enable_state_flag("BlockMobileAssetInWebContentSandbox", *auditToken);
     auto unifiedPDFEnabled = parameters.store.getBoolValueForKey(WebPreferencesKey::unifiedPDFEnabledKey());
     if (unifiedPDFEnabled)
         sandbox_enable_state_flag("UnifiedPDFEnabled", *auditToken);
@@ -741,12 +738,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     auto shouldAllowInstalledFonts = parameters.store.getBoolValueForKey(WebPreferencesKey::shouldAllowUserInstalledFontsKey());
     if (!shouldAllowInstalledFonts || !WTF::MacApplication::isAppleMail())
         sandbox_enable_state_flag("BlockUserInstalledFonts", *auditToken);
-    auto shouldBlockIconServices = parameters.store.getBoolValueForKey(WebPreferencesKey::blockIconServicesInWebContentSandboxKey());
-    if (shouldBlockIconServices)
-        sandbox_enable_state_flag("BlockIconServicesInWebContentSandbox", *auditToken);
-    auto shouldBlockOpenDirectory = parameters.store.getBoolValueForKey(WebPreferencesKey::blockOpenDirectoryInWebContentSandboxKey());
-    if (shouldBlockOpenDirectory)
-        sandbox_enable_state_flag("BlockOpenDirectoryInWebContentSandbox", *auditToken);
 #endif // PLATFORM(MAC)
 #endif // HAVE(SANDBOX_STATE_FLAGS)
     auto shouldBlockIOKit = parameters.store.getBoolValueForKey(WebPreferencesKey::blockIOKitInWebContentSandboxKey())
@@ -2292,6 +2283,11 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
 
     localFrame->loader().setNavigationUpgradeToHTTPSBehavior(loadParameters.navigationUpgradeToHTTPSBehavior);
     localFrame->loader().setRequiredCookiesVersion(loadParameters.requiredCookiesVersion);
+
+    std::optional<UserGestureIndicator> userGestureIndicator;
+    if (loadParameters.hadUserGesture && loadParameters.shouldTreatAsContinuingLoad != ShouldTreatAsContinuingLoad::No)
+        userGestureIndicator.emplace(IsProcessingUserGesture::Yes);
+
     localFrame->loader().load(WTF::move(frameLoadRequest), WTF::move(loadParameters.requester));
 
     ASSERT(!m_pendingNavigationID);
@@ -4056,7 +4052,16 @@ static Expected<bool, WebCore::RemoteFrameGeometryTransformer> handleTouchEvent(
 
     auto result = localFrame->eventHandler().handleTouchEvent(platform(touchEvent));
 
-    if (weakPage && !result.value_or(false) && weakPage->pointerCaptureController().wasPointerDownDefaultPrevented())
+#if ENABLE(IOS_TOUCH_EVENTS)
+    bool canPreventNativeGestures = touchEvent.canPreventNativeGestures();
+#else
+    bool canPreventNativeGestures = false;
+#endif
+
+    // If a page has active (non-passive) touch listeners and calls pointerdown.preventDefault()
+    // but not touchstart.preventDefault(), scrolling will no longer be suppressed on the
+    // preventable path.
+    if (!canPreventNativeGestures && weakPage && !result.value_or(false) && weakPage->pointerCaptureController().wasPointerDownDefaultPrevented())
         return true;
 
     return result;
@@ -7751,6 +7756,14 @@ static void setCanIgnoreViewportArgumentsToAvoidEnlargedViewIfNeeded(ViewportCon
     if (RefPtr document = frame ? frame->document() : nullptr; document && document->quirks().shouldIgnoreViewportArgumentsToAvoidEnlargedView())
         configuration.setCanIgnoreViewportArgumentsToAvoidEnlargedView(true);
 }
+
+static void setUseDynamicViewportUnitsAsDefaultIfNeeded(LocalFrame* frame)
+{
+    if (RefPtr document = frame ? frame->document() : nullptr; document && document->quirks().shouldUseDynamicViewportUnitsAsDefault()) {
+        if (RefPtr view = frame->view())
+            view->setShouldUseDynamicViewportUnitsAsDefault(true);
+    }
+}
 #endif
 
 void WebPage::didCommitLoad(WebFrame* frame)
@@ -7851,6 +7864,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
 
     setCanIgnoreViewportArgumentsToAvoidExcessiveZoomIfNeeded(m_viewportConfiguration, coreFrame.get(), shouldIgnoreMetaViewport());
     setCanIgnoreViewportArgumentsToAvoidEnlargedViewIfNeeded(m_viewportConfiguration, coreFrame.get());
+    setUseDynamicViewportUnitsAsDefaultIfNeeded(coreFrame.get());
 
     m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
@@ -7913,7 +7927,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     flushDeferredDidReceiveMouseEvent();
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-    exitImmersive();
+    exitImmersive([] { });
 #endif
 
     if (frame && frame->isMainFrame())
@@ -8126,10 +8140,12 @@ void WebPage::dismissImmersiveElement(CompletionHandler<void()>&& completion)
     sendWithAsyncReply(Messages::WebPageProxy::DismissImmersiveElement(), WTF::move(completion));
 }
 
-void WebPage::exitImmersive() const
+void WebPage::exitImmersive(CompletionHandler<void()>&& completion)
 {
     if (RefPtr localTopDocument = this->localTopDocument(); RefPtr protectedImmersive = localTopDocument->immersiveIfExists())
-        protectedImmersive->exitImmersiveIfNeeded();
+        protectedImmersive->exitImmersiveIfNeeded(WTF::move(completion));
+    else
+        completion();
 }
 
 bool WebPage::allowsImmersiveEnvironments() const
@@ -10029,6 +10045,13 @@ template<typename T> T WebPage::rootViewToContents(WebCore::FrameIdentifier fram
 void WebPage::contentsToRootViewRect(FrameIdentifier frameID, FloatRect rect, CompletionHandler<void(FloatRect)>&& completionHandler)
 {
     completionHandler(contentsToRootView(frameID, rect));
+}
+
+void WebPage::contentsToRootViewRects(FrameIdentifier frameID, Vector<FloatRect> rects, CompletionHandler<void(Vector<FloatRect>)>&& completionHandler)
+{
+    for (auto& rect : rects)
+        rect = contentsToRootView(frameID, rect);
+    completionHandler(WTF::move(rects));
 }
 
 void WebPage::contentsToRootViewPoint(FrameIdentifier frameID, FloatPoint point, CompletionHandler<void(FloatPoint)>&& completionHandler)

@@ -49,6 +49,8 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformCALayer.h>
 #import <WebCore/PlatformCALayerDelegatedContents.h>
+#import <WebCore/PlatformScreen.h>
+#import <WebCore/ScreenProperties.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/threads/BinarySemaphore.h>
 
@@ -144,7 +146,7 @@ WebModelPlayer::~WebModelPlayer() = default;
 
 void WebModelPlayer::ensureOnMainThreadWithProtectedThis(Function<void(Ref<WebModelPlayer>)>&& task)
 {
-    ensureOnMainThread([protectedThis = Ref { *this }, task = WTF::move(task)]() mutable {
+    ensureOnMainThread([protectedThis = protect(*this), task = WTF::move(task)]() mutable {
         task(protectedThis);
     });
 }
@@ -160,88 +162,6 @@ static Vector<uint8_t> loadData(RetainPtr<CFStringRef> filename)
     RetainPtr<NSURL> nsFileURL = [myBundle URLForResource:(__bridge NSString *)filename.get() withExtension:@""];
     RetainPtr<NSData> data = [NSData dataWithContentsOfURL:nsFileURL.get() options:0 error:nil];
     return makeVector(data.get());
-}
-
-static MTLPixelFormat computePixelFormat(size_t bytesPerComponent, size_t channelCount)
-{
-    switch (bytesPerComponent) {
-    default:
-    case 1:
-        switch (channelCount) {
-        case 1:
-            return MTLPixelFormatR8Unorm;
-        case 2:
-            return MTLPixelFormatRG8Unorm;
-        case 4:
-        default:
-            return MTLPixelFormatRGBA8Unorm;
-        }
-    case 2:
-        switch (channelCount) {
-        case 1:
-            return MTLPixelFormatR16Float;
-        case 2:
-            return MTLPixelFormatRG16Float;
-        case 4:
-        default:
-            return MTLPixelFormatRGBA16Float;
-        }
-    case 4:
-        switch (channelCount) {
-        case 1:
-            return MTLPixelFormatR32Float;
-        case 2:
-            return MTLPixelFormatRG32Float;
-        case 4:
-        default:
-            return MTLPixelFormatRGBA32Float;
-        }
-    }
-}
-
-static std::optional<WebModel::ImageAsset> loadIBL(Ref<WebCore::SharedBuffer>&& data)
-{
-    RetainPtr imageAssetData = data->createNSData();
-    RetainPtr imageSource = adoptCF(CGImageSourceCreateWithData((CFDataRef)imageAssetData.get(), nullptr));
-    if (!imageSource) {
-        ASSERT_NOT_REACHED();
-        return std::nullopt;
-    }
-
-    RetainPtr platformImage = adoptCF(CGImageSourceCreateImageAtIndex(imageSource.get(), 0, nullptr));
-    if (!platformImage) {
-        ASSERT_NOT_REACHED();
-        return std::nullopt;
-    }
-
-    RetainPtr pixelDataCfData = adoptCF(CGDataProviderCopyData(CGImageGetDataProvider(platformImage.get())));
-    auto byteSpan = span(pixelDataCfData.get());
-
-    auto width = CGImageGetWidth(platformImage.get());
-    auto height = CGImageGetHeight(platformImage.get());
-    auto bytesPerPixel = static_cast<size_t>(byteSpan.size() / (width * height));
-    auto bytesPerComponent = CGImageGetBitsPerComponent(platformImage.get()) / 8;
-
-    MTLPixelFormat pixelFormat = computePixelFormat(bytesPerComponent, bytesPerPixel / bytesPerComponent);
-
-    return WebModel::ImageAsset {
-        .data = Vector<uint8_t> { byteSpan },
-        .width = static_cast<long>(width),
-        .height = static_cast<long>(height),
-        .depth = 1,
-        .bytesPerPixel = static_cast<long>(bytesPerPixel),
-        .textureType = WebCore::WebGPU::TextureViewDimension::_2d,
-        .pixelFormat = toTextureFormat(pixelFormat),
-        .mipmapLevelCount = 1,
-        .arrayLength = 1,
-        .textureUsage = WebCore::WebGPU::TextureUsage::TextureBinding,
-        .swizzle = WebModel::ImageAssetSwizzle {
-            .red = MTLTextureSwizzleRed,
-            .green = MTLTextureSwizzleGreen,
-            .blue = MTLTextureSwizzleBlue,
-            .alpha = MTLTextureSwizzleAlpha
-        }
-    };
 }
 
 // MARK: - ModelPlayer overrides.
@@ -297,20 +217,20 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
         .swizzle = { }
     };
 
-    m_currentModel = static_cast<RemoteGPUProxy&>(gpu->backing()).createModelBacking(m_currentPixelSize.width(), m_currentPixelSize.height(), diffuseTexture, specularTexture, [protectedThis = Ref { *this }] (Vector<MachSendRight>&& surfaceHandles) {
+    m_currentModel = static_cast<RemoteGPUProxy&>(gpu->backing()).createModelBacking(m_currentPixelSize.width(), m_currentPixelSize.height(), diffuseTexture, specularTexture, [protectedThis = protect(*this)] (Vector<MachSendRight>&& surfaceHandles) {
         if (surfaceHandles.size())
             protectedThis->m_displayBuffers = WTF::move(surfaceHandles);
     });
     m_currentModel->setViewportSize(cssSize.width().toFloat(), cssSize.height().toFloat());
 
     m_modelLoader = adoptNS([allocWKBridgeModelLoaderInstance() init]);
-    Ref protectedThis = Ref { *this };
+    Ref protectedThis { *this };
     [m_modelLoader setCallbacksWithModelUpdatedCallback:^(NSArray<WKBridgeUpdateMesh *> *updateRequest) {
         ensureOnMainThreadWithProtectedThis([updateRequest] (Ref<WebModelPlayer> protectedThis) {
             RefPtr model = protectedThis->m_currentModel;
             if (model) {
                 model->update(makeVector(updateRequest, [](WKBridgeUpdateMesh *update) {
-                    return std::optional { toCpp(update) };
+                    return std::optional { convert(update) };
                 }));
                 protectedThis->setStageMode(protectedThis->m_stageMode);
             }
@@ -329,13 +249,8 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
                 client->didUpdateBoundingBox(protectedThis.get(), WebCore::FloatPoint3D(simdCenter.x, simdCenter.y, simdCenter.z), WebCore::FloatPoint3D(simdExtents.x, simdExtents.y, simdExtents.z));
                 protectedThis->notifyEntityTransformUpdated();
 
-                auto environmentMap = protectedThis->m_environmentMap;
-                if (environmentMap) {
-                    if (auto environmentMapImage = loadIBL(WTF::move(*environmentMap))) {
-                        model->setEnvironmentMap(*environmentMapImage);
-                        protectedThis->m_environmentMap = std::nullopt;
-                    }
-                }
+                if (auto environmentMap = protectedThis->m_environmentMap)
+                    protectedThis->setEnvironmentMap(WTF::move(*environmentMap));
             }
             protectedThis->startUpdateLoopIfNeeded();
         });
@@ -343,7 +258,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
         ensureOnMainThreadWithProtectedThis([updateTexture] (Ref<WebModelPlayer> protectedThis) {
             if (protectedThis->m_currentModel)
                 protectedThis->m_currentModel->updateTexture(makeVector(updateTexture, [](WKBridgeUpdateTexture *update) {
-                    return std::optional { toCpp(update) };
+                    return std::optional { convert(update) };
                 }));
 
             [protectedThis->m_modelLoader requestCompleted:updateTexture];
@@ -353,7 +268,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size)
         ensureOnMainThreadWithProtectedThis([updateMaterial] (Ref<WebModelPlayer> protectedThis) {
             if (protectedThis->m_currentModel)
                 protectedThis->m_currentModel->updateMaterial(makeVector(updateMaterial, [](WKBridgeUpdateMaterial *update) {
-                    return std::optional { toCpp(update) };
+                    return std::optional { convert(update) };
                 }));
 
             [protectedThis->m_modelLoader requestCompleted:updateMaterial];
@@ -397,7 +312,7 @@ void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
 
     m_currentPixelSize = newPixelSize;
 
-    currentModel->sizeDidChange(newPixelSize.width(), newPixelSize.height(), [protectedThis = Ref { *this }](Vector<MachSendRight>&& newBuffers) {
+    currentModel->sizeDidChange(newPixelSize.width(), newPixelSize.height(), [protectedThis = protect(*this)](Vector<MachSendRight>&& newBuffers) {
         if (newBuffers.isEmpty())
             return;
 
@@ -405,7 +320,7 @@ void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
         protectedThis->m_renderTextureIndex = 0;
         protectedThis->m_displayTextureIndex = 0;
         if (protectedThis->m_contentsDisplayDelegate)
-            RefPtr { protectedThis->m_contentsDisplayDelegate }->setDisplayBuffer(*protectedThis->displayBuffer());
+            protect(protectedThis->m_contentsDisplayDelegate)->setDisplayBuffer(*protectedThis->displayBuffer());
         protectedThis->startUpdateLoopIfNeeded();
     });
 
@@ -616,7 +531,7 @@ void WebModelPlayer::scheduleUpdateIfNeeded()
         return;
 
     m_isUpdateScheduled = true;
-    document->eventLoop().queueTask(WebCore::TaskSource::ModelElement, [protectedThis = Ref { *this }] {
+    document->eventLoop().queueTask(WebCore::TaskSource::ModelElement, [protectedThis = protect(*this)] {
         protectedThis->m_isUpdateScheduled = false;
         protectedThis->update();
     });
@@ -674,7 +589,7 @@ bool WebModelPlayer::render()
     if (++m_renderTextureIndex >= m_displayBuffers.size())
         m_renderTextureIndex = 0;
 
-    currentModel->render(textureIndex, [protectedThis = Ref { *this }, textureIndex] (bool result) mutable {
+    currentModel->render(textureIndex, [protectedThis = protect(*this), textureIndex] (bool result) mutable {
         protectedThis->ensureOnMainThreadWithProtectedThis([result, textureIndex] (Ref<WebModelPlayer> protectedThis) {
             protectedThis->m_isUpdating = false;
             if (!result)
@@ -682,7 +597,7 @@ bool WebModelPlayer::render()
 
             protectedThis->m_displayTextureIndex = textureIndex;
             if (auto* machSendRight = protectedThis->displayBuffer(); machSendRight && protectedThis->contentsDisplayDelegate())
-                RefPtr { protectedThis->m_contentsDisplayDelegate }->setDisplayBuffer(*machSendRight);
+                protect(protectedThis->m_contentsDisplayDelegate)->setDisplayBuffer(*machSendRight);
 
             protectedThis->scheduleDisplayUpdate();
         });
@@ -796,9 +711,9 @@ void WebModelPlayer::setEntityTransform(WebCore::TransformationMatrix matrix)
 void WebModelPlayer::setEnvironmentMap(Ref<WebCore::SharedBuffer>&& data)
 {
     bool success = false;
-    if (RefPtr currentModel = m_currentModel; currentModel && m_didFinishLoading) {
-        if (auto environmentMap = loadIBL(WTF::move(data))) {
-            currentModel->setEnvironmentMap(*environmentMap);
+    if (RefPtr currentModel = m_currentModel; currentModel && m_didFinishLoading && m_modelLoader) {
+        if (auto environmentMap = [m_modelLoader loadEnvironmentMap:data->createNSData().get()]) {
+            currentModel->setEnvironmentMap(convert(environmentMap));
             m_environmentMap = std::nullopt;
         }
         success = true;
@@ -883,6 +798,72 @@ std::optional<std::unique_ptr<WebCore::ModelPlayerTransformState>> WebModelPlaye
 
     return ModelProcessModelPlayerTransformState::create(transform, center, extents, false, m_stageMode);
 }
+
+#if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
+static float interpolateHeadroom(float headroomForLow, float headroomForHigh, float limit, float limitLow, float limitHigh)
+{
+    if (headroomForHigh <= headroomForLow || limitHigh <= limitLow)
+        return headroomForHigh;
+    return std::lerp(headroomForLow, headroomForHigh, (limit - limitLow) / (limitHigh - limitLow));
+}
+
+float WebModelPlayer::computeContentsHeadroom()
+{
+    if (m_currentEDRHeadroom <= 1.f)
+        return m_currentEDRHeadroom;
+
+    if (m_dynamicRangeLimit == WebCore::PlatformDynamicRangeLimit::noLimit())
+        return m_currentEDRHeadroom;
+
+    constexpr auto forcedStandardHeadroom = 1.0000001f;
+
+    if (m_dynamicRangeLimit == WebCore::PlatformDynamicRangeLimit::standard())
+        return forcedStandardHeadroom;
+
+    auto limitValue = m_dynamicRangeLimit.value();
+
+    if (m_suppressEDR) {
+        if (limitValue >= WebCore::PlatformDynamicRangeLimit::constrained().value())
+            return m_currentEDRHeadroom;
+        return interpolateHeadroom(forcedStandardHeadroom, m_currentEDRHeadroom, limitValue, WebCore::PlatformDynamicRangeLimit::standard().value(), WebCore::PlatformDynamicRangeLimit::constrained().value());
+    }
+
+    constexpr auto maxConstrainedHeadroom = 1.6f;
+    auto suppressedHeadroom = std::min(maxConstrainedHeadroom, m_currentEDRHeadroom);
+    if (limitValue <= WebCore::PlatformDynamicRangeLimit::constrained().value())
+        return interpolateHeadroom(forcedStandardHeadroom, suppressedHeadroom, limitValue, WebCore::PlatformDynamicRangeLimit::standard().value(), WebCore::PlatformDynamicRangeLimit::constrained().value());
+    return interpolateHeadroom(suppressedHeadroom, m_currentEDRHeadroom, limitValue, WebCore::PlatformDynamicRangeLimit::constrained().value(), WebCore::PlatformDynamicRangeLimit::noLimit().value());
+}
+
+void WebModelPlayer::updateContentsHeadroom()
+{
+    auto headroom = computeContentsHeadroom();
+    if (RefPtr model = m_currentModel)
+        model->updateContentsHeadroom(headroom);
+}
+
+void WebModelPlayer::setDynamicRangeLimit(WebCore::PlatformDynamicRangeLimit dynamicRangeLimit, float currentEDRHeadroom, bool suppressEDR)
+{
+    bool limitChanged = m_dynamicRangeLimit != dynamicRangeLimit;
+    bool headroomChanged = m_suppressEDR != suppressEDR || m_currentEDRHeadroom != currentEDRHeadroom;
+
+    if (!limitChanged && !headroomChanged)
+        return;
+
+    m_dynamicRangeLimit = dynamicRangeLimit;
+    m_currentEDRHeadroom = currentEDRHeadroom;
+    m_suppressEDR = suppressEDR;
+
+    updateContentsHeadroom();
+}
+
+std::optional<double> WebModelPlayer::getEffectiveDynamicRangeLimitValue() const
+{
+    auto limitValue = m_dynamicRangeLimit.value();
+    auto suppressValue = m_suppressEDR ? WebCore::PlatformDynamicRangeLimit::constrained().value() : WebCore::PlatformDynamicRangeLimit::noLimit().value();
+    return std::min(limitValue, suppressValue);
+}
+#endif
 
 }
 

@@ -157,6 +157,7 @@ class MediaPlaybackTarget;
 class MediaSessionCoordinatorPrivate;
 class MediaSessionManagerInterface;
 class ModelPlayerProvider;
+class NavigationAPIMethodTracker;
 class PageConfiguration;
 class PageGroup;
 class PageInspectorController;
@@ -237,7 +238,6 @@ struct CharacterRange;
 struct ClientOrigin;
 struct DocumentSyncSerializationData;
 struct FixedContainerEdges;
-struct NavigationAPIMethodTracker;
 struct ResolvedCaptionDisplaySettingsOptions;
 struct SpatialBackdropSource;
 struct SystemPreviewInfo;
@@ -1336,6 +1336,9 @@ public:
     WEBCORE_EXPORT void NODELETE startDeferringIntersectionObservations();
     WEBCORE_EXPORT void flushDeferredIntersectionObservations();
 
+    void recordResizeForIntersectionObserverQuirk() { m_lastResizeTimeForIOQuirk = MonotonicTime::now(); }
+    bool isWithinResizeDebounceWindow() const { return MonotonicTime::now() - m_lastResizeTimeForIOQuirk < 700_ms; }
+
     bool reportScriptTrackingPrivacy(const URL&, ScriptTrackingPrivacyCategory);
     bool shouldAllowScriptAccess(const URL&, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory) const;
     bool requiresScriptTrackingPrivacyProtections(const URL&) const;
@@ -1846,6 +1849,7 @@ private:
     bool m_shouldDeferResizeEvents { false };
     bool m_shouldDeferScrollEvents { false };
     bool m_shouldDeferIntersectionObservations { false };
+    MonotonicTime m_lastResizeTimeForIOQuirk;
 
     Ref<DocumentSyncData> m_topDocumentSyncData;
 

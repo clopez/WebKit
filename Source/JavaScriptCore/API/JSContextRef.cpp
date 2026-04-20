@@ -38,7 +38,6 @@
 #include "JSObjectInlines.h"
 #include "StackVisitor.h"
 #include "StrongInlines.h"
-#include "StructureInlines.h"
 #include "Watchdog.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -195,7 +194,7 @@ JSObjectRef JSContextGetGlobalObject(JSContextRef ctx)
     VM& vm = globalObject->vm();
     JSLockHolder locker(vm);
 
-    return toRef(jsCast<JSObject*>(JSValue(globalObject).toThis(globalObject, ECMAMode::sloppy())));
+    return toRef(uncheckedDowncast<JSObject>(JSValue(globalObject).toThis(globalObject, ECMAMode::sloppy())));
 }
 
 JSContextGroupRef JSContextGetGroup(JSContextRef ctx)

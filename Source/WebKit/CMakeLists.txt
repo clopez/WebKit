@@ -143,6 +143,7 @@ list(APPEND WebKit_UNIFIED_SOURCE_LIST_FILES
 set(WebKit_BINDINGS_IN_FILES
     WebProcess/Extensions/Interfaces/WebExtensionAPIAction
     WebProcess/Extensions/Interfaces/WebExtensionAPIAlarms
+    WebProcess/Extensions/Interfaces/WebExtensionAPIBookmarks
     WebProcess/Extensions/Interfaces/WebExtensionAPICommands
     WebProcess/Extensions/Interfaces/WebExtensionAPICookies
     WebProcess/Extensions/Interfaces/WebExtensionAPIDOM
@@ -497,6 +498,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/GPUProcessConnectionParameters.serialization.in
     Shared/GPUProcessMediaCodecCapabilities.serialization.in
     Shared/GoToBackForwardItemParameters.serialization.in
+    Shared/IPCTester.serialization.in
     Shared/ImageOptions.serialization.in
     Shared/InspectorExtensionTypes.serialization.in
     Shared/JavaScriptCore.serialization.in
@@ -796,14 +798,6 @@ if (ATOMICS_REQUIRE_LIBATOMIC)
     list(APPEND WebKit_PRIVATE_LIBRARIES atomic)
 endif ()
 
-macro(ADD_WEBKIT_PREFIX_HEADER _target)
-    if (WebKit_USE_PREFIX_HEADER)
-        target_compile_options(${_target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:-include>" "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:${WEBKIT_DIR}/WebKit2Prefix.h>")
-    else ()
-        target_precompile_headers(${_target} PRIVATE WebKit2Prefix.h)
-    endif ()
-endmacro()
-
 set(WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS)
 
 set(WebKit_INTERFACE_LIBRARIES WebKit)
@@ -826,11 +820,14 @@ endif ()
 
 set(WebKit_GENERATED_SERIALIZERS_SUFFIX cpp)
 
+# Default Swift interop module path; platform files may override this.
+set(WebKit_SWIFT_INTEROP_MODULE_PATH "${WEBKIT_DIR}/Modules/Internal")
+
 WEBKIT_FRAMEWORK_DECLARE(WebKit)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
 WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER(WebKit WebKit
-    "${WEBKIT_DIR}/Modules/Internal"
+    "${WebKit_SWIFT_INTEROP_MODULE_PATH}"
     "${WebKit_DERIVED_SOURCES_DIR}/WebKit-Swift-CPP.h")
 
 if (PORT STREQUAL GTK OR PORT STREQUAL WPE)
@@ -867,7 +864,14 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
     unset(_outputs)
     foreach (_file IN ITEMS ${_inputs})
         get_filename_component(_name ${_file} NAME_WE)
-        list(APPEND _input_files ${WEBKIT_DIR}/${_file}.messages.in)
+        # Derived .messages.in (LogStream: two-stage gen from LogMessages.in) lives in
+        # DerivedSources, not ${WEBKIT_DIR}. The script searches cwd first so finds either;
+        # DEPENDS needs the actual path. Check source tree first, then derived.
+        if (EXISTS ${WEBKIT_DIR}/${_file}.messages.in)
+            list(APPEND _input_files ${WEBKIT_DIR}/${_file}.messages.in)
+        else ()
+            list(APPEND _input_files ${WebKit_DERIVED_SOURCES_DIR}/${_name}.messages.in)
+        endif ()
         list(APPEND _outputs
             ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp
             ${WebKit_DERIVED_SOURCES_DIR}/${_name}Messages.h
@@ -958,6 +962,8 @@ add_custom_command(
     OUTPUT
         ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
         ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.h
+        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
         ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
         ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
     MAIN_DEPENDENCY ${WEBKIT_DIR}/Scripts/generate-serializers.py
@@ -1118,20 +1124,20 @@ list(APPEND WebKit_SOURCES ${WebKit_DERIVED_SOURCES})
 
 WEBKIT_COMPUTE_SOURCES(WebKit)
 WEBKIT_FRAMEWORK(WebKit)
-ADD_WEBKIT_PREFIX_HEADER(WebKit)
+ADD_WEBKIT_PREFIX_HEADERS(WebKit WebKit2Prefix.h)
 
 list(APPEND WebProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
 WEBKIT_EXECUTABLE(WebProcess)
-ADD_WEBKIT_PREFIX_HEADER(WebProcess)
+ADD_WEBKIT_PREFIX_HEADERS(WebProcess WebKit2Prefix.h)
 
 list(APPEND NetworkProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
 WEBKIT_EXECUTABLE(NetworkProcess)
-ADD_WEBKIT_PREFIX_HEADER(NetworkProcess)
+ADD_WEBKIT_PREFIX_HEADERS(NetworkProcess WebKit2Prefix.h)
 
 if (ENABLE_GPU_PROCESS)
     list(APPEND GPUProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
     WEBKIT_EXECUTABLE(GPUProcess)
-    ADD_WEBKIT_PREFIX_HEADER(GPUProcess)
+    ADD_WEBKIT_PREFIX_HEADERS(GPUProcess WebKit2Prefix.h)
 endif ()
 
 if (COMPILER_IS_GCC_OR_CLANG)

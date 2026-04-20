@@ -73,12 +73,14 @@
 #include "NodeInlines.h"
 #include "Page.h"
 #include "PlaceholderModelPlayer.h"
+#include "PlatformScreen.h"
 #include "RenderBoxInlines.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 #include "RenderLayerModelObject.h"
 #include "RenderModel.h"
 #include "RenderReplaced.h"
+#include "ScreenProperties.h"
 #include "ScriptController.h"
 #include "Settings.h"
 #include <JavaScriptCore/ConsoleTypes.h>
@@ -138,7 +140,20 @@ HTMLModelElement::HTMLModelElement(const QualifiedName& tagName, Document& docum
 #if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
     , m_environmentMapReadyPromise(makeUniqueRef<EnvironmentMapPromise>())
 #endif
+#if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
+    , m_screenPropertiesChangedObserver(ScreenPropertiesChangedObserver::create([weakThis = WeakPtr { *this }](PlatformDisplayID displayID) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        if (auto* screenData = WebCore::screenData(displayID))
+            protectedThis->updateScreenHeadroom(screenData->currentEDRHeadroom, screenData->suppressEDR);
+    }))
+#endif
 {
+#if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
+    if (RefPtr screenPropertiesChangedObserver = m_screenPropertiesChangedObserver)
+        document.addScreenPropertiesChangedObserver(*screenPropertiesChangedObserver);
+#endif
 }
 
 HTMLModelElement::~HTMLModelElement()
@@ -583,6 +598,10 @@ void HTMLModelElement::createModelPlayer()
     modelPlayer->setStageMode(stageMode());
 #endif
 
+#if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
+    modelPlayer->setDynamicRangeLimit(m_dynamicRangeLimit, m_currentEDRHeadroom, m_suppressEDR);
+#endif
+
     // FIXME: We need to tell the player if the size changes as well, so passing this
     // in with load probably doesn't make sense.
     modelPlayer->load(*model, contentSize());
@@ -599,7 +618,7 @@ void HTMLModelElement::createModelPlayer()
 
 void HTMLModelElement::deleteModelPlayer()
 {
-    auto deleteModelPlayerBlock = [weakThis = WeakPtr { *this }, modelPlayerProvider = RefPtr { m_modelPlayerProvider.get() }, modelPlayer = RefPtr { m_modelPlayer }] {
+    auto deleteModelPlayerBlock = [weakThis = WeakPtr { *this }, modelPlayerProvider = protect(m_modelPlayerProvider), modelPlayer = protect(m_modelPlayer)] {
         if (modelPlayerProvider && modelPlayer)
             modelPlayerProvider->deleteModelPlayer(*modelPlayer);
 
@@ -1597,7 +1616,7 @@ void HTMLModelElement::ensureModelPlayer(CompletionHandler<void(ExceptionOr<RefP
         reloadModelPlayer();
 
     if (modelPlayer && !modelPlayer->isPlaceholder())
-        return completion(RefPtr { modelPlayer });
+        return completion(protect(modelPlayer));
 
     RELEASE_LOG_INFO(ModelElement, "%p - HTMLModelElement: Model Player creation request: STARTED", this);
     m_modelPlayerCreationCallbacks.append(WTF::move(completion));
@@ -1859,6 +1878,38 @@ String HTMLModelElement::modelElementStateForTesting() const
     ASSERT_NOT_REACHED();
     return "Unknown"_s;
 }
+
+#if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
+void HTMLModelElement::dynamicRangeLimitDidChange(PlatformDynamicRangeLimit dynamicRangeLimit)
+{
+    if (m_dynamicRangeLimit == dynamicRangeLimit)
+        return;
+
+    m_dynamicRangeLimit = dynamicRangeLimit;
+    if (RefPtr modelPlayer = m_modelPlayer)
+        modelPlayer->setDynamicRangeLimit(m_dynamicRangeLimit, m_currentEDRHeadroom, m_suppressEDR);
+}
+
+void HTMLModelElement::updateScreenHeadroom(float currentEDRHeadroom, bool suppressEDR)
+{
+    if (m_suppressEDR == suppressEDR && m_currentEDRHeadroom == currentEDRHeadroom)
+        return;
+
+    m_currentEDRHeadroom = currentEDRHeadroom;
+    m_suppressEDR = suppressEDR;
+
+    if (RefPtr modelPlayer = m_modelPlayer)
+        modelPlayer->setDynamicRangeLimit(m_dynamicRangeLimit, m_currentEDRHeadroom, m_suppressEDR);
+}
+
+std::optional<double> HTMLModelElement::getEffectiveDynamicRangeLimitValue() const
+{
+    if (RefPtr modelPlayer = m_modelPlayer)
+        return modelPlayer->getEffectiveDynamicRangeLimitValue();
+
+    return std::nullopt;
+}
+#endif // HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
 
 } // namespace WebCore
 

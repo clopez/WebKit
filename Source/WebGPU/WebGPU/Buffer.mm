@@ -379,7 +379,7 @@ void Buffer::mapAsync(WGPUMapModeFlags mode, size_t offset, size_t size, Complet
 
     m_mapMode = mode;
 
-    device->getQueue()->onSubmittedWorkDone([protectedThis = Ref { *this }, offset, rangeSize, callback = WTF::move(callback)](WGPUQueueWorkDoneStatus status) mutable {
+    device->getQueue()->onSubmittedWorkDone([protectedThis = protect(*this), offset, rangeSize, callback = WTF::move(callback)](WGPUQueueWorkDoneStatus status) mutable {
         if (protectedThis->m_state == State::MappingPending) {
             protectedThis->setState(State::Mapped);
 
@@ -449,6 +449,11 @@ void Buffer::unmap()
 void Buffer::setLabel(String&& label)
 {
     m_buffer.label = label.createNSString().get();
+}
+
+void Buffer::generateAValidationError(String&& message)
+{
+    m_device->generateAValidationError(WTF::move(message));
 }
 
 uint64_t Buffer::initialSize() const
@@ -530,7 +535,7 @@ void Buffer::takeSlowIndexValidationPath(CommandBuffer& commandBuffer, uint32_t 
         if (m_buffer.storageMode == MTLStorageModeManaged)
             [m_buffer didModifyRange:NSMakeRange(0, m_buffer.length)];
 #endif
-        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = Ref { *this }](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
+        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = protect(*this)](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
             [mtlCommandBuffer waitUntilCompleted];
             queue->writeBuffer(*protectedThis.ptr(), 0, priorData.mutableSpan());
         });
@@ -566,7 +571,7 @@ void Buffer::takeSlowIndirectIndexValidationPath(CommandBuffer& commandBuffer, B
         if (m_buffer.storageMode == MTLStorageModeManaged)
             [m_buffer didModifyRange:NSMakeRange(0, m_buffer.length)];
 #endif
-        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = Ref { *this }](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
+        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = protect(*this)](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
             [mtlCommandBuffer waitUntilCompleted];
 
             queue->writeBuffer(*protectedThis.ptr(), 0, priorData.mutableSpan());
@@ -610,7 +615,7 @@ void Buffer::takeSlowIndirectValidationPath(CommandBuffer& commandBuffer, uint64
         if (m_buffer.storageMode == MTLStorageModeManaged)
             [m_buffer didModifyRange:NSMakeRange(0, m_buffer.length)];
 #endif
-        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = Ref { *this }](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
+        commandBuffer.addPostCommitHandler([queue, priorData = WTF::move(priorData), protectedThis = protect(*this)](id<MTLCommandBuffer> mtlCommandBuffer) mutable {
             [mtlCommandBuffer waitUntilCompleted];
 
             queue->writeBuffer(*protectedThis.ptr(), 0, priorData.mutableSpan());
@@ -631,7 +636,7 @@ void Buffer::skippedDrawIndirectIndexedValidation(CommandEncoder& commandEncoder
         return;
 
     CommandEncoder::trackEncoder(commandEncoder, m_skippedValidationCommandEncoders);
-    commandEncoder.addOnCommitHandler([weakThis = ThreadSafeWeakPtr { *this }, apiIndexBuffer = RefPtr { apiIndexBuffer }, indexType, indexBufferOffsetInBytes, indirectOffset, minVertexCount, primitiveType](CommandBuffer& commandBuffer, CommandEncoder& commandEncoder) {
+    commandEncoder.addOnCommitHandler([weakThis = ThreadSafeWeakPtr { *this }, apiIndexBuffer = protect(apiIndexBuffer), indexType, indexBufferOffsetInBytes, indirectOffset, minVertexCount, primitiveType](CommandBuffer& commandBuffer, CommandEncoder& commandEncoder) {
         if (!weakThis.get())
             return true;
 
@@ -838,6 +843,11 @@ void wgpuBufferMapAsyncWithBlock(WGPUBuffer buffer, WGPUMapModeFlags mode, size_
 void wgpuBufferUnmap(WGPUBuffer buffer)
 {
     protect(WebGPU::fromAPI(buffer))->unmap();
+}
+
+void wgpuBufferGenerateAValidationError(WGPUBuffer buffer)
+{
+    protect(WebGPU::fromAPI(buffer))->generateAValidationError("Buffer state was not unmapped"_s);
 }
 
 void wgpuBufferSetLabel(WGPUBuffer buffer, const char* label)

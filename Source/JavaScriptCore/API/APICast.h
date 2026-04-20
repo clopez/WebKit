@@ -33,7 +33,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <JavaScriptCore/Integrity.h>
 #include <JavaScriptCore/JSAPIValueWrapper.h>
 #include <JavaScriptCore/JSCJSValue.h>
-#include <JavaScriptCore/JSCJSValueInlines.h>
+#include <JavaScriptCore/JSGlobalObject.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
@@ -80,7 +80,7 @@ inline JSC::JSValue toJS(JSC::JSGlobalObject* globalObject, JSValueRef v)
         return JSC::jsNull();
     JSC::JSValue result;
     if (jsCell->isAPIValueWrapper())
-        result = JSC::jsCast<JSC::JSAPIValueWrapper*>(jsCell)->value();
+        result = uncheckedDowncast<JSC::JSAPIValueWrapper>(jsCell)->value();
     else
         result = jsCell;
 #else

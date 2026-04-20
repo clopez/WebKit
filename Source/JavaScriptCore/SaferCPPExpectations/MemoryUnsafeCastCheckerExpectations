@@ -82,6 +82,7 @@ runtime/IntlSegmentIterator.h
 runtime/IntlSegmenter.h
 runtime/IntlSegments.h
 runtime/JSArrayBufferView.cpp
+runtime/JSBigInt.h
 runtime/JSCJSValueInlines.h
 runtime/JSCell.h
 runtime/JSCustomGetterFunction.cpp
@@ -96,8 +97,6 @@ runtime/JSModuleNamespaceObject.cpp
 runtime/JSModuleRecord.cpp
 runtime/JSNativeStdFunction.h
 runtime/JSRemoteFunction.cpp
-runtime/JSScriptFetchParameters.cpp
-runtime/JSScriptFetcher.cpp
 runtime/JSSourceCode.cpp
 runtime/JSString.cpp
 runtime/JSString.h

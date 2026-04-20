@@ -30,7 +30,6 @@
 #include "CallData.h"
 #include "JSCInlines.h"
 #include "JSFunctionWithFields.h"
-#include "JSInternalPromise.h"
 #include "JSPromise.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
 
@@ -95,16 +94,10 @@ bool promiseSpeciesWatchpointIsValid(VM& vm, JSPromise* thisObject)
 {
     auto* structure = thisObject->structure();
     JSGlobalObject* globalObject = structure->realm();
-    if (globalObject->promiseSpeciesWatchpointSet().state() != IsWatched) [[unlikely]] {
-        if (structure->classInfoForCells() == JSInternalPromise::info())
-            return true;
+    if (globalObject->promiseSpeciesWatchpointSet().state() != IsWatched) [[unlikely]]
         return false;
-    }
 
     if (structure == globalObject->promiseStructure())
-        return true;
-
-    if (structure->classInfoForCells() == JSInternalPromise::info())
         return true;
 
     ASSERT(globalObject->promiseSpeciesWatchpointSet().state() != ClearWatchpoint);
@@ -128,7 +121,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseProtoFuncThen, (JSGlobalObject* globalObject, Ca
     JSValue onFulfilled = callFrame->argument(0);
     JSValue onRejected = callFrame->argument(1);
 
-    auto* promise = jsDynamicCast<JSPromise*>(thisValue);
+    auto* promise = dynamicDowncast<JSPromise>(thisValue);
     if (!promise) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "|this| is not a Promise");
 
@@ -143,7 +136,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseProtoFuncCatch, (JSGlobalObject* globalObject, C
     JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
     JSValue onRejected = callFrame->argument(0);
 
-    if (auto* promise = jsDynamicCast<JSPromise*>(thisValue); promise && promise->isThenFastAndNonObservable()) [[likely]]
+    if (auto* promise = dynamicDowncast<JSPromise>(thisValue); promise && promise->isThenFastAndNonObservable()) [[likely]]
         RELEASE_AND_RETURN(scope, JSValue::encode(promise->then(globalObject, jsUndefined(), onRejected)));
 
     JSValue then = thisValue.get(globalObject, vm.propertyNames->then);
@@ -161,7 +154,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseProtoFuncCatch, (JSGlobalObject* globalObject, C
 
 JSC_DEFINE_HOST_FUNCTION(promiseFinallyValueThunkFunc, (JSGlobalObject*, CallFrame* callFrame))
 {
-    auto* callee = jsCast<JSFunctionWithFields*>(callFrame->jsCallee());
+    auto* callee = uncheckedDowncast<JSFunctionWithFields>(callFrame->jsCallee());
     JSValue value = callee->getField(JSFunctionWithFields::Field::ResolvingPromise);
     return JSValue::encode(value);
 }
@@ -170,7 +163,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseFinallyThrowerFunc, (JSGlobalObject* globalObjec
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    auto* callee = jsCast<JSFunctionWithFields*>(callFrame->jsCallee());
+    auto* callee = uncheckedDowncast<JSFunctionWithFields>(callFrame->jsCallee());
     JSValue reason = callee->getField(JSFunctionWithFields::Field::ResolvingPromise);
     return throwVMError(globalObject, scope, reason);
 }
@@ -180,9 +173,9 @@ JSC_DEFINE_HOST_FUNCTION(promiseFinallyThenFinallyFunc, (JSGlobalObject* globalO
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto* callee = jsCast<JSFunctionWithFields*>(callFrame->jsCallee());
+    auto* callee = uncheckedDowncast<JSFunctionWithFields>(callFrame->jsCallee());
     JSValue onFinally = callee->getField(JSFunctionWithFields::Field::ResolvingPromise);
-    JSObject* constructor = jsCast<JSObject*>(callee->getField(JSFunctionWithFields::Field::ResolvingOther));
+    JSObject* constructor = uncheckedDowncast<JSObject>(callee->getField(JSFunctionWithFields::Field::ResolvingOther));
     JSValue value = callFrame->argument(0);
 
     JSValue result = call(globalObject, onFinally, jsUndefined(), ArgList { }, "onFinally is not a function"_s);
@@ -212,9 +205,9 @@ JSC_DEFINE_HOST_FUNCTION(promiseFinallyCatchFinallyFunc, (JSGlobalObject* global
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto* callee = jsCast<JSFunctionWithFields*>(callFrame->jsCallee());
+    auto* callee = uncheckedDowncast<JSFunctionWithFields>(callFrame->jsCallee());
     JSValue onFinally = callee->getField(JSFunctionWithFields::Field::ResolvingPromise);
-    JSObject* constructor = jsCast<JSObject*>(callee->getField(JSFunctionWithFields::Field::ResolvingOther));
+    JSObject* constructor = uncheckedDowncast<JSObject>(callee->getField(JSFunctionWithFields::Field::ResolvingOther));
     JSValue reason = callFrame->argument(0);
 
     JSValue result = call(globalObject, onFinally, jsUndefined(), ArgList { }, "onFinally is not a function"_s);
@@ -251,7 +244,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseProtoFuncFinally, (JSGlobalObject* globalObject,
     JSValue onFinally = callFrame->argument(0);
 
     if (!onFinally.isCallable()) {
-        if (auto* promise = jsDynamicCast<JSPromise*>(thisValue); promise && promise->isThenFastAndNonObservable()) [[likely]]
+        if (auto* promise = dynamicDowncast<JSPromise>(thisValue); promise && promise->isThenFastAndNonObservable()) [[likely]]
             RELEASE_AND_RETURN(scope, JSValue::encode(promise->then(globalObject, onFinally, onFinally)));
 
         JSValue then = thisValue.get(globalObject, vm.propertyNames->then);
@@ -267,7 +260,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseProtoFuncFinally, (JSGlobalObject* globalObject,
         RELEASE_AND_RETURN(scope, JSValue::encode(call(globalObject, then, thenCallData, thisValue, thenArguments)));
     }
 
-    auto* promise = jsDynamicCast<JSPromise*>(thisValue);
+    auto* promise = dynamicDowncast<JSPromise>(thisValue);
     if (promise && promise->isThenFastAndNonObservable() && promiseSpeciesWatchpointIsValid(vm, promise)) [[likely]] {
         JSPromise* resultPromise = JSPromise::create(vm, globalObject->promiseStructure());
         auto* context = JSPromiseCombinatorsGlobalContext::create(vm, resultPromise, onFinally, jsUndefined());

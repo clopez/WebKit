@@ -1060,7 +1060,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     crypto/parameters/CryptoAlgorithmRsaPssParamsInit.h
     crypto/parameters/CryptoAlgorithmX25519ParamsInit.h
 
-    css/CSSAttrValue.h
     css/CSSColorValue.h
     css/CSSComputedStyleDeclaration.h
     css/CSSConditionRule.h
@@ -1202,6 +1201,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/values/primitives/CSSPrimitiveNumericTypes.h
     css/values/primitives/CSSPrimitiveNumericUnits.h
     css/values/primitives/CSSRatio.h
+    css/values/primitives/CSSString.h
     css/values/primitives/CSSSymbol.h
     css/values/primitives/CSSURL.h
     css/values/primitives/CSSURLModifiers.h
@@ -1692,11 +1692,14 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/InspectorFrontendClient.h
     inspector/InspectorFrontendClientLocal.h
     inspector/InspectorFrontendHost.h
+    inspector/InspectorIdentifierRegistry.h
     inspector/InspectorInstrumentationPublic.h
     inspector/InspectorInstrumentationWebKit.h
     inspector/InstrumentingAgents.h
     inspector/InspectorOverlay.h
     inspector/InspectorOverlayLabel.h
+    inspector/InspectorResourceType.h
+    inspector/InspectorResourceUtilities.h
     inspector/InspectorWebAgentBase.h
     inspector/LegacyWebSocketInspectorInstrumentation.h
     inspector/PageInspectorController.h
@@ -2536,6 +2539,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageObserver.h
     platform/graphics/ImageOrientation.h
     platform/graphics/ImagePaintingOptions.h
+    platform/graphics/ImageResolution.h
     platform/graphics/ImageSource.h
     platform/graphics/ImageTypes.h
     platform/graphics/ImageUtilities.h
@@ -2654,9 +2658,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/angle/ANGLEHeaders.h
     platform/graphics/angle/ANGLEUtilities.h
     platform/graphics/angle/GraphicsContextGLANGLE.h
-
-    platform/graphics/cg/ShareableSpatialImage.h
-    platform/graphics/cg/SpatialImageTypes.h
 
     platform/graphics/controls/ApplePayButtonPart.h
     platform/graphics/controls/ButtonPart.h
@@ -2945,6 +2946,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     plugins/PluginViewBase.h
 
     rendering/AccessibilityRegionContext.h
+    rendering/BaselineAlignment.h
     rendering/BreakablePositions.h
     rendering/CSSFilterRenderer.h
     rendering/CSSValueKey.h
@@ -2978,6 +2980,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/PaintPhase.h
     rendering/PathOperation.h
     rendering/RegionContext.h
+    rendering/RelayoutScopeForScrollbarChange
     rendering/RenderAttachment.h
     rendering/RenderBlock.h
     rendering/RenderBlockFlow.h
@@ -2998,6 +3001,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/RenderImageResource.h
     rendering/RenderInline.h
     rendering/RenderLayer.h
+    rendering/ScrollbarUpdateScope.h
     rendering/RenderLayerBacking.h
     rendering/RenderLayerCompositor.h
     rendering/RenderLayerModelObject.h
@@ -3365,6 +3369,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StylePrimitiveNumericTypes.h
     style/values/primitives/StylePropertyIdentifier.h
     style/values/primitives/StyleRatio.h
+    style/values/primitives/StyleString.h
     style/values/primitives/StyleURL.h
     style/values/primitives/StyleUnevaluatedCalculation.h
 
@@ -3693,4 +3698,5 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions.h
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreVirtualLogFunctions.h
     ${WebCore_DERIVED_SOURCES_DIR}/WebKitFontFamilyNames.h
+    ${WebCore_DERIVED_SOURCES_DIR}/XMLNSNames.h
 )

@@ -36,7 +36,8 @@
 #include "JSGenericTypedArrayViewConstructor.h"
 #include "JSGlobalObject.h"
 #include "JSTypedArrays.h"
-#include "StructureInlines.h"
+#include "StructureCreateInlines.h"
+#include <wtf/text/ASCIILiteral.h>
 
 namespace JSC {
 
@@ -111,6 +112,8 @@ inline JSObject* constructGenericTypedArrayViewFromIterator(JSGlobalObject* glob
     return result;
 }
 
+constinit const ASCIILiteral typedArrayErrorMessageBufferIsAlreadyDetached = "Buffer is already detached"_s;
+
 template<typename ViewClass>
 inline JSObject* constructGenericTypedArrayViewWithArguments(JSGlobalObject* globalObject, Structure* structure, JSValue firstValue, size_t offset, std::optional<size_t> lengthOpt)
 {
@@ -118,10 +121,10 @@ inline JSObject* constructGenericTypedArrayViewWithArguments(JSGlobalObject* glo
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     // https://tc39.es/proposal-resizablearraybuffer/#sec-initializetypedarrayfromarraybuffer
-    if (JSArrayBuffer* jsBuffer = jsDynamicCast<JSArrayBuffer*>(firstValue)) {
+    if (JSArrayBuffer* jsBuffer = dynamicDowncast<JSArrayBuffer>(firstValue)) {
         RefPtr<ArrayBuffer> buffer = jsBuffer->impl();
         if (buffer->isDetached()) {
-            throwTypeError(globalObject, scope, "Buffer is already detached"_s);
+            throwTypeError(globalObject, scope, typedArrayErrorMessageBufferIsAlreadyDetached);
             return nullptr;
         }
 
@@ -157,12 +160,12 @@ inline JSObject* constructGenericTypedArrayViewWithArguments(JSGlobalObject* glo
     // - Another array. This creates a copy of the of that array.
     // - A primitive. This creates a new typed array of that length and zero-initializes it.
 
-    if (JSObject* object = jsDynamicCast<JSObject*>(firstValue)) {
+    if (JSObject* object = dynamicDowncast<JSObject>(firstValue)) {
         size_t length;
 
         // https://tc39.es/proposal-resizablearraybuffer/#sec-initializetypedarrayfromtypedarray
         if (isTypedView(object->type())) {
-            auto* view = jsCast<JSArrayBufferView*>(object);
+            auto* view = uncheckedDowncast<JSArrayBufferView>(object);
 
             length = view->length();
 
@@ -190,7 +193,7 @@ inline JSObject* constructGenericTypedArrayViewWithArguments(JSGlobalObject* glo
 
         // This getPropertySlot operation should not be observed by the Proxy.
         // So we use VMInquiry. And purge the opaque object cases (proxy and namespace object) by isTaintedByOpaqueObject() guard.
-        if (JSArray* array = jsDynamicCast<JSArray*>(object); array && isJSArray(array) && array->isIteratorProtocolFastAndNonObservable()) [[likely]]
+        if (JSArray* array = dynamicDowncast<JSArray>(object); array && isJSArray(array) && array->isIteratorProtocolFastAndNonObservable()) [[likely]]
             length = array->length();
         else {
             PropertySlot lengthSlot(object, PropertySlot::InternalMethodType::VMInquiry, &vm);
@@ -268,13 +271,18 @@ ALWAYS_INLINE EncodedJSValue constructGenericTypedArrayViewImpl(JSGlobalObject* 
     JSValue firstValue = callFrame->uncheckedArgument(0);
     size_t offset = 0;
     std::optional<size_t> length;
-    if (auto* arrayBuffer = jsDynamicCast<JSArrayBuffer*>(firstValue)) {
+    if (auto* arrayBuffer = dynamicDowncast<JSArrayBuffer>(firstValue)) {
         if (argCount > 1) {
             offset = callFrame->uncheckedArgument(1).toIndex(globalObject, "byteOffset"_s);
             RETURN_IF_EXCEPTION(scope, { });
 
             if constexpr (ViewClass::TypedArrayStorageType == TypeDataView) {
                 RefPtr<ArrayBuffer> buffer = arrayBuffer->impl();
+                if (buffer->isDetached()) [[unlikely]] {
+                    throwVMTypeError(globalObject, scope, typedArrayErrorMessageBufferIsAlreadyDetached);
+                    RETURN_IF_EXCEPTION(scope, { });
+                }
+
                 if (offset > buffer->byteLength()) [[unlikely]] {
                     throwRangeError(globalObject, scope, "byteOffset exceeds source ArrayBuffer byteLength"_s);
                     RETURN_IF_EXCEPTION(scope, { });

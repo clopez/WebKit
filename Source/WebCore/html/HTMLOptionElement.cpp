@@ -280,11 +280,15 @@ void HTMLOptionElement::setText(String&& text)
 bool HTMLOptionElement::accessKeyAction(bool)
 {
     RefPtr select = ownerSelectElement();
-    if (select) {
+    if (!select)
+        return false;
+
+    if (select->usesBaseAppearancePicker()) {
+        select->optionSelectedByUser(index(), true);
+        select->hidePickerPopoverElement();
+    } else
         select->accessKeySetSelectedIndex(index());
-        return true;
-    }
-    return false;
+    return true;
 }
 
 void HTMLOptionElement::defaultEventHandler(Event& event)
@@ -304,6 +308,12 @@ void HTMLOptionElement::defaultEventHandler(Event& event)
             return HTMLElement::defaultEventHandler(event);
 
         const String& keyIdentifier = keyboardEvent->keyIdentifier();
+
+        // [Shift+]Tab closes the picker; fall through to move focus.
+        if (keyIdentifier == "U+0009"_s) {
+            select->hidePickerPopoverElement();
+            return HTMLElement::defaultEventHandler(event);
+        }
 
         int currentIndex = select->optionToListIndex(index());
         int listIndex = select->computeNavigationIndex(keyIdentifier, currentIndex, select->pickerNavigationKeyIdentifiers());
@@ -508,29 +518,30 @@ String HTMLOptionElement::label() const
     return collectOptionInnerTextCollapsingWhitespace();
 }
 
-// Same as label() but ignores the label content attribute in quirks mode for compatibility with other browsers.
 String HTMLOptionElement::displayLabel() const
 {
-    if (document().inQuirksMode())
+    String label = attributeWithoutSynchronization(labelAttr);
+    if (label.isEmpty())
         return collectOptionInnerTextCollapsingWhitespace();
-    return label();
+    return label;
 }
 
 String HTMLOptionElement::textIndentedToRespectGroupLabel() const
 {
     if (!document().settings().htmlEnhancedSelectParsingEnabled()) {
         if (is<HTMLOptGroupElement>(parentNode()))
-            return makeString("    "_s, label());
-        return label();
+            return makeString("    "_s, displayLabel());
+        return displayLabel();
     }
 
     for (Ref ancestor : ancestorsOfType<HTMLElement>(*this)) {
         if (is<HTMLOptGroupElement>(ancestor))
-            return makeString("    "_s, label());
+            return makeString("    "_s, displayLabel());
+
         if (isAnyOf<HTMLDataListElement, HTMLSelectElement, HTMLOptionElement, HTMLHRElement>(ancestor))
-            return label();
+            return displayLabel();
     }
-    return label();
+    return displayLabel();
 }
 
 bool HTMLOptionElement::isDisabledFormControl() const

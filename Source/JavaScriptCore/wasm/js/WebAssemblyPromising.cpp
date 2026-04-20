@@ -48,9 +48,9 @@ JSC_DEFINE_HOST_FUNCTION(runWebAssemblyPromisingFunction, (JSGlobalObject* globa
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSObject* callee = callFrame->jsCallee();
-    JSFunctionWithFields* thisFunction = jsCast<JSFunctionWithFields*>(callee);
+    JSFunctionWithFields* thisFunction = uncheckedDowncast<JSFunctionWithFields>(callee);
     ASSERT(thisFunction);
-    JSFunction* wrappedFunction = jsCast<JSFunction*>(thisFunction->getField(JSFunctionWithFields::Field::WebAssemblyPromisingWrappedFunction));
+    JSFunction* wrappedFunction = uncheckedDowncast<JSFunction>(thisFunction->getField(JSFunctionWithFields::Field::WebAssemblyPromisingWrappedFunction));
 
     MarkedArgumentBuffer args;
     for (unsigned i = 0; i < callFrame->argumentCount(); ++i)
@@ -91,7 +91,7 @@ JSC_DEFINE_HOST_FUNCTION(runWebAssemblyPromisingFunction, (JSGlobalObject* globa
 JSFunctionWithFields* createWebAssemblyPromisingFunction(VM& vm, JSGlobalObject* globalObject, JSFunction* wrappedFunction)
 {
     const String name = "WebAssembly.promising"_s;
-    NativeExecutable* executable = vm.getHostFunction(runWebAssemblyPromisingFunction, ImplementationVisibility::Public, NoIntrinsic, callHostFunctionAsConstructor, nullptr, name);
+    NativeExecutable* executable = vm.getHostFunction(runWebAssemblyPromisingFunction, ImplementationVisibility::Private, NoIntrinsic, callHostFunctionAsConstructor, nullptr, name);
     constexpr unsigned length = 1;
     JSFunctionWithFields* function = JSFunctionWithFields::create(vm, globalObject, executable, length, name);
     function->setField(vm, JSFunctionWithFields::Field::WebAssemblyPromisingWrappedFunction, wrappedFunction);

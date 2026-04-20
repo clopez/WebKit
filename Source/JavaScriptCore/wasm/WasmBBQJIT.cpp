@@ -1031,9 +1031,9 @@ PartialResult BBQJIT::addLocal(Type type, uint32_t numberOfLocals)
 
 // Globals
 
-Value BBQJIT::topValue(TypeKind type)
+Value BBQJIT::topValue(TypeKind type, unsigned offset)
 {
-    return Value::fromTemp(type, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size());
+    return Value::fromTemp(type, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size() + offset);
 }
 
 Value BBQJIT::exception(const ControlData& control)
@@ -1102,7 +1102,7 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
 [[nodiscard]] PartialResult BBQJIT::addGrowMemory(Value delta, Value& result, uint8_t memoryIndex)
 {
     Vector<Value, 8> arguments = { instanceValue(), delta, Value::fromI32(memoryIndex) };
-    result = topValue(m_info.memory(memoryIndex).addressType().asTypeKind());
+    result = topValue(m_info.memory(memoryIndex).addressType().asWasmTypeKind());
     emitCCall(&operationGrowMemory, arguments, result);
     restoreWebAssemblyGlobalState();
 
@@ -1113,14 +1113,15 @@ Address BBQJIT::materializePointer(Location pointerLocation, uint32_t uoffset)
 
 [[nodiscard]] PartialResult BBQJIT::addCurrentMemory(Value& result, uint8_t memoryIndex)
 {
-    result = topValue(m_info.memory(memoryIndex).addressType().asTypeKind());
+    result = topValue(m_info.memory(memoryIndex).addressType().asWasmTypeKind());
     if (!memoryIndex) {
         Location resultLocation = allocate(result);
-        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedMemory0Size()), wasmScratchGPR);
         constexpr uint32_t shiftValue = 16;
         static_assert(PageCount::pageSize == 1ull << shiftValue, "This must hold for the code below to be correct.");
-        m_jit.urshiftPtr(Imm32(shiftValue), wasmScratchGPR);
-        m_jit.zeroExtend32ToWord(wasmScratchGPR, resultLocation.asGPR());
+        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfCachedMemory0Size()), resultLocation.asGPR());
+        m_jit.urshiftPtr(TrustedImm32(shiftValue), resultLocation.asGPR());
+        if (!m_info.memory(memoryIndex).isMemory64())
+            m_jit.zeroExtend32ToWord(resultLocation.asGPR(), resultLocation.asGPR());
     } else {
         Vector<Value, 8> arguments = { instanceValue(), Value::fromI32(memoryIndex) };
         emitCCall(&operationWasmMemorySizeInPages, arguments, result);
@@ -4330,7 +4331,7 @@ template<size_t N>
 void BBQJIT::returnValuesFromCall(Vector<Value, N>& results, const FunctionSignature& functionType, const CallInformation& callInfo)
 {
     for (size_t i = 0; i < callInfo.results.size(); i ++) {
-        Value result = Value::fromTemp(functionType.returnType(i).kind, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + m_parser->expressionStack().size() + i);
+        Value result = topValue(functionType.returnType(i).kind, i);
         Location returnLocation = Location::fromArgumentLocation(callInfo.results[i], result.type());
         if (returnLocation.isRegister()) {
             RegisterBinding currentBinding;

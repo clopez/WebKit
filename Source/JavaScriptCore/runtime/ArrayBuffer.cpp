@@ -31,7 +31,7 @@
 #include "JSWebAssemblyInstance.h"
 #include "WaiterListManager.h"
 #include "WeakInlines.h"
-#include <wtf/Gigacage.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/MathExtras.h>
 #include <wtf/OSAllocator.h>
 #include <wtf/PageBlock.h>
@@ -476,7 +476,7 @@ void ArrayBuffer::notifyDetaching(VM& vm)
 {
     for (size_t i = numberOfIncomingReferences(); i--;) {
         JSCell* cell = incomingReferenceAt(i);
-        if (JSArrayBufferView* view = jsDynamicCast<JSArrayBufferView*>(cell))
+        if (JSArrayBufferView* view = dynamicDowncast<JSArrayBufferView>(cell))
             view->detachFromArrayBuffer();
     }
     m_detachingWatchpointSet.fireAll(vm, "Array buffer was detached");

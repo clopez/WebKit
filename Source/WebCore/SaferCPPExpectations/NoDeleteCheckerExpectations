@@ -6,10 +6,11 @@ Modules/webauthn/cbor/CBORValue.cpp
 Modules/websockets/WebSocketChannelInspector.cpp
 Modules/webtransport/WebTransportDatagramsWritable.cpp
 css/CSSComputedStyleDeclaration.cpp
-css/DOMMatrixReadOnly.cpp
+css/CSSPrimitiveValue.cpp
+css/CSSPropertyInitialValues.cpp
 css/PropertySetCSSDescriptors.cpp
 css/StyleSheetList.cpp
-dom/ChildNodeList.cpp
+css/parser/CSSPropertyParserConsumer+String.cpp
 dom/Document.cpp
 dom/Node.cpp
 [ macOS ] inspector/InspectorFrontendHost.cpp
