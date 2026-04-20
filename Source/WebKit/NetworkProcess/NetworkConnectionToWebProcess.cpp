@@ -99,14 +99,10 @@
 
 #if PLATFORM(COCOA)
 #include <wtf/FileSystem.h>
-#include <wtf/OSObjectPtr.h>
-<<<<<<< HEAD
-#include <wtf/spi/darwin/SandboxSPI.h>
-||||||| parent of b6e0552b7caa (chore(webkit): bootstrap build #2283)
-=======
 #include "NetworkDataTaskCocoa.h"
 #include "NetworkSessionCocoa.h"
->>>>>>> b6e0552b7caa (chore(webkit): bootstrap build #2283)
+#include <wtf/OSObjectPtr.h>
+#include <wtf/spi/darwin/SandboxSPI.h>
 #endif
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
