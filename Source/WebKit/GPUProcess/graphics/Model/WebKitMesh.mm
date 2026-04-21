@@ -793,11 +793,6 @@ static WKBridgeImageAsset* convert(const ImageAsset& imageAsset)
     return [WebKit::allocWKBridgeImageAssetInstance() initWithData:convert(imageAsset.data) width:imageAsset.width height:imageAsset.height depth:imageAsset.depth bytesPerPixel:imageAsset.bytesPerPixel ?: texelBlockSize(mtlPixelFormat) textureType:toMetal(imageAsset.textureType) pixelFormat:mtlPixelFormat mipmapLevelCount:imageAsset.mipmapLevelCount arrayLength:imageAsset.arrayLength textureUsage:toMetal(imageAsset.textureUsage) swizzle:convert(imageAsset.swizzle)];
 }
 
-static WKBridgeTextureLevelInfo* convert(const TextureLevelInfo& textureLevelInfo)
-{
-    return [WebKit::allocWKBridgeTextureLevelInfoInstance() initWithDataOffset:textureLevelInfo.dataOffset byteCountPerRow:textureLevelInfo.byteCountPerRow byteCountPerImage:textureLevelInfo.byteCountPerImage];
-}
-
 static WKBridgeDataType convert(DataType type)
 {
     switch (type) {
@@ -1088,9 +1083,7 @@ void WebMesh::processUpdates() const
 #if ENABLE(GPU_PROCESS_MODEL)
 static WKBridgeUpdateTexture *convert(const WebModel::UpdateTextureDescriptor& input)
 {
-    return [WebKit::allocWKBridgeUpdateTextureInstance() initWithImageAsset:WebModel::convert(input.imageAsset) identifier:convert(input.identifier) hashString:input.hashString.createNSString().get() layout:createNSArray(input.layout, [](const WebModel::TextureLevelInfo& desc) {
-        return WebModel::convert(desc);
-    })];
+    return [WebKit::allocWKBridgeUpdateTextureInstance() initWithImageAsset:WebModel::convert(input.imageAsset) identifier:convert(input.identifier) hashString:input.hashString.createNSString().get()];
 }
 #endif
 
@@ -1157,10 +1150,10 @@ void WebMesh::setBackgroundColor(const simd_float3& color)
 #endif
 }
 
-void WebMesh::setEnvironmentMap(const WebModel::UpdateTextureDescriptor& imageAsset)
+void WebMesh::setEnvironmentMap(const WebModel::ImageAsset& imageAsset)
 {
 #if ENABLE(GPU_PROCESS_MODEL)
-    [m_receiver setEnvironmentMap:convert(imageAsset)];
+    [m_receiver setEnvironmentMap:WebModel::convert(imageAsset)];
 #else
     UNUSED_PARAM(imageAsset);
 #endif

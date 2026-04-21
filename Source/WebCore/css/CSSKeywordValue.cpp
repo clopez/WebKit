@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2026 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,28 +22,44 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "config.h"
+#include "CSSKeywordValue.h"
 
-#include "CSSPrimitiveValueMappings.h"
-#include "StylePrimitiveKeyword+ValueRepresentationNeeded.h"
-#include "StyleValueTypes.h"
+#include "CSSValueKeywords.h"
 
 namespace WebCore {
-namespace Style {
 
-template<EnumWithoutValueRepresentation T> struct Serialize<T> {
-    void operator()(StringBuilder& builder, const CSS::SerializationContext&, const RenderStyle&, T value)
-    {
-        builder.append(nameLiteralForSerialization(toCSSValueID(value)));
-    }
-};
+CSSKeywordValue::CSSKeywordValue(StaticCSSValueTag, CSS::Keyword keyword)
+    : CSSValue(ClassType::Keyword)
+    , m_keyword(keyword)
+{
+    makeStatic();
+}
 
-template<EnumWithValueRepresentation T> struct Serialize<T> {
-    void operator()(StringBuilder& builder, const CSS::SerializationContext& context, const RenderStyle& style, const T& value)
-    {
-        return valueRepresentation(value, [&](const auto& alternative) { serializationForCSS(builder, context, style, alternative); });
-    }
-};
+CSSKeywordValue::CSSKeywordValue(StaticCSSValueTag, ImplicitInitialValueTag)
+    : CSSKeywordValue(StaticCSSValue, CSS::Keyword { CSSValueInitial })
+{
+    m_isImplicitInitialValue = true;
+}
 
-} // namespace Style
+String CSSKeywordValue::customCSSText(const CSS::SerializationContext& context) const
+{
+    return CSS::serializationForCSS(context, m_keyword);
+}
+
+bool CSSKeywordValue::equals(const CSSKeywordValue& other) const
+{
+    return m_keyword == other.m_keyword;
+}
+
+IterationStatus CSSKeywordValue::customVisitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>& func) const
+{
+    return CSS::visitCSSValueChildren(func, m_keyword);
+}
+
+String CSSKeywordValue::stringValue() const
+{
+    return nameStringForSerialization(m_keyword.value);
+}
+
 } // namespace WebCore

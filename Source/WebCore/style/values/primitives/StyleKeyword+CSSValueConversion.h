@@ -24,24 +24,25 @@
 
 #pragma once
 
-#include "CSSValuePool.h"
-#include "StylePrimitiveKeyword+ValueRepresentationNeeded.h"
+#include "CSSKeywordValue.h"
+#include "StyleBuilderChecking.h"
+#include "StyleKeyword+Mappings.h"
 #include "StyleValueTypes.h"
 
 namespace WebCore {
 namespace Style {
 
-template<EnumWithoutValueRepresentation T> struct CSSValueCreation<T> {
-    Ref<CSSValue> operator()(CSSValuePool&, const RenderStyle&, T value)
+template<typename T> requires std::is_enum_v<T> struct CSSValueConversion<T> {
+    T operator()(BuilderState&, const CSSKeywordValue& value)
     {
-        return CSSPrimitiveValue::create(toCSSValueID(value));
+        return fromCSSValueID<T>(value.valueID());
     }
-};
-
-template<EnumWithValueRepresentation T> struct CSSValueCreation<T> {
-    Ref<CSSValue> operator()(CSSValuePool& pool, const RenderStyle& style, T value)
+    T operator()(BuilderState& state, const CSSValue& value)
     {
-        return valueRepresentation(value, [&](const auto& alternative) -> Ref<CSSValue> { return createCSSValue(pool, style, alternative); });
+        RefPtr keywordValue = requiredDowncast<CSSKeywordValue>(state, value);
+        if (!keywordValue)
+            return static_cast<T>(0);
+        return fromCSSValueID<T>(keywordValue->valueID());
     }
 };
 

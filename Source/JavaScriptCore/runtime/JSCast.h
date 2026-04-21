@@ -30,34 +30,6 @@
 
 namespace JSC {
 
-template<typename To, typename From>
-inline To jsCast(From* from)
-{
-    static_assert(std::is_base_of<JSCell, typename std::remove_pointer<To>::type>::value && std::is_base_of<JSCell, typename std::remove_pointer<From>::type>::value, "JS casting expects that the types you are casting to/from are subclasses of JSCell");
-#if (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)) && CPU(X86_64)
-    if (from && !from->JSCell::inherits(std::remove_pointer<To>::type::info()))
-        reportZappedCellAndCrash(from);
-#else
-    ASSERT_WITH_SECURITY_IMPLICATION(!from || from->JSCell::inherits(std::remove_pointer<To>::type::info()));
-#endif
-    return static_cast<To>(from);
-}
-
-template<typename To>
-inline To jsCast(JSValue from)
-{
-    static_assert(std::is_base_of<JSCell, typename std::remove_pointer<To>::type>::value, "JS casting expects that the types you are casting to is a subclass of JSCell");
-#if (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)) && CPU(X86_64)
-    ASSERT_WITH_SECURITY_IMPLICATION(from.isCell());
-    JSCell* cell = from.asCell();
-    if (!cell->JSCell::inherits(std::remove_pointer<To>::type::info()))
-        reportZappedCellAndCrash(cell);
-#else
-    ASSERT_WITH_SECURITY_IMPLICATION(from.isCell() && from.asCell()->JSCell::inherits(std::remove_pointer<To>::type::info()));
-#endif
-    return static_cast<To>(from.asCell());
-}
-
 // The first and last JSType are inclusive
 struct JSTypeRange {
     bool contains(JSType type) const { return first <= type && type <= last; }
@@ -293,34 +265,6 @@ struct TypeCastTraits<To, From, false> {
         return JSC::JSCastingHelpers::InheritsTraits<std::remove_const_t<To>>::inherits(&source);
     }
 };
-
-template<typename To, typename From>
-    requires (IsJSCellType<To> && (IsJSCellType<From> || std::is_same_v<From, JSC::JSCell>))
-inline match_constness_t<From, To>& uncheckedDowncast(From& source)
-{
-    static_assert(!std::same_as<From, To>, "Unnecessary cast to same type");
-#if (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)) && CPU(X86_64)
-    if (!is<To>(source)) [[unlikely]]
-        JSC::reportZappedCellAndCrash(&source);
-#else
-    ASSERT_WITH_SECURITY_IMPLICATION(is<To>(source));
-#endif
-    SUPPRESS_MEMORY_UNSAFE_CAST return static_cast<match_constness_t<From, To>&>(source);
-}
-
-template<typename To, typename From>
-    requires (IsJSCellType<To> && (IsJSCellType<From> || std::is_same_v<From, JSC::JSCell>))
-inline match_constness_t<From, To>* uncheckedDowncast(From* source)
-{
-    static_assert(!std::same_as<From, To>, "Unnecessary cast to same type");
-#if (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)) && CPU(X86_64)
-    if (source && !is<To>(*source)) [[unlikely]]
-        JSC::reportZappedCellAndCrash(source);
-#else
-    ASSERT_WITH_SECURITY_IMPLICATION(!source || is<To>(*source));
-#endif
-    SUPPRESS_MEMORY_UNSAFE_CAST return static_cast<match_constness_t<From, To>*>(source);
-}
 
 // JSValue overloads for is, dynamicDowncast, downcast, and uncheckedDowncast.
 // Uses explicit JSC::JSValue& parameter type which is more specialized than the

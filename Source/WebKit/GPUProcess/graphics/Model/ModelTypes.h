@@ -428,26 +428,14 @@ NS_SWIFT_SENDABLE
 
 @end
 
-@interface WKBridgeTextureLevelInfo : NSObject
-
-@property (nonatomic, readonly) long dataOffset;
-@property (nonatomic, readonly) long byteCountPerRow;
-@property (nonatomic, readonly) long byteCountPerImage;
-
-- (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithDataOffset:(long)dataOffset byteCountPerRow:(long)byteCountPerRow byteCountPerImage:(long)byteCountPerImage NS_DESIGNATED_INITIALIZER;
-
-@end
-
 @interface WKBridgeUpdateTexture : NSObject
 
-@property (nonatomic, readonly, strong) WKBridgeImageAsset *imageAsset;
+@property (nonatomic, readonly, strong, nullable) WKBridgeImageAsset *imageAsset;
 @property (nonatomic, readonly, strong) WKBridgeTypedResourceId *identifier;
 @property (nonatomic, readonly, strong) NSString *hashString;
-@property (nonatomic, readonly, strong) NSArray<WKBridgeTextureLevelInfo *> *layout;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithImageAsset:(WKBridgeImageAsset *)imageAsset identifier:(WKBridgeTypedResourceId *)identifier hashString:(NSString *)hashString layout:(NSArray<WKBridgeTextureLevelInfo *> *)layout NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithImageAsset:(nullable WKBridgeImageAsset *)imageAsset identifier:(WKBridgeTypedResourceId *)identifier hashString:(NSString *)hashString NS_DESIGNATED_INITIALIZER;
 
 @end
 
@@ -471,7 +459,7 @@ NS_SWIFT_SENDABLE
 - (void)setFOV:(float)fovY;
 - (void)setBackgroundColor:(simd_float3)color;
 - (void)setPlaying:(BOOL)play;
-- (void)setEnvironmentMap:(WKBridgeUpdateTexture *)imageAsset;
+- (void)setEnvironmentMap:(WKBridgeImageAsset *)imageAsset;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (nullable instancetype)initWithConfiguration:(WKBridgeUSDConfiguration *)configuration diffuseAsset:(WKBridgeImageAsset *)diffuseAsset specularAsset:(WKBridgeImageAsset *)specularAsset error:(NSError **)error NS_DESIGNATED_INITIALIZER;
@@ -487,7 +475,6 @@ NS_SWIFT_SENDABLE
 - (double)duration;
 - (void)loadModelFrom:(NSURL *)url;
 - (void)loadModel:(NSData *)data;
-- (nullable WKBridgeUpdateTexture *)loadEnvironmentMap:(NSData *)data;
 - (void)update:(double)deltaTime completionHandler:(void (^)(void))completionHandler;
 - (void)setLoop:(BOOL)loop;
 - (void)requestCompleted:(NSObject *)request;
@@ -724,17 +711,10 @@ struct UpdateMaterialDescriptor {
     TypedResourceId identifier;
 };
 
-struct TextureLevelInfo {
-    long dataOffset;
-    long byteCountPerRow;
-    long byteCountPerImage;
-};
-
 struct UpdateTextureDescriptor {
     ImageAsset imageAsset;
     TypedResourceId identifier;
     String hashString;
-    Vector<TextureLevelInfo> layout;
 };
 
 struct SkinningData {
