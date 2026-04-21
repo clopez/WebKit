@@ -37,6 +37,7 @@
 #include "FrameConsoleClient.h"
 #include "FrameLoader.h"
 #include "InspectorIdentifierRegistry.h"
+#include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "JSDOMWindowCustom.h"
 #include "JSExecState.h"
@@ -116,7 +117,7 @@ JSC_DEFINE_HOST_FUNCTION(bindingCallback, (JSC::JSGlobalObject * globalObject, J
     if (!callFrame->jsCallee())
         return result;
     String bindingName;
-    if (auto* function = JSC::jsDynamicCast<JSC::JSFunction*>(callFrame->jsCallee()))
+    if (auto* function = dynamicDowncast<JSC::JSFunction>(callFrame->jsCallee()))
         bindingName = function->name(globalObject->vm());
     auto client = globalObject->consoleClient();
     if (!client)
@@ -168,7 +169,8 @@ void PageRuntimeAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapper
     if (frameId.isEmpty())
         return;
 
-    if (pageAgent->ignoreDidClearWindowObject())
+    auto* pageAgent = Ref { m_instrumentingAgents.get() }->enabledPageAgent();
+    if (pageAgent && pageAgent->ignoreDidClearWindowObject())
         return;
 
     if (world.isNormal()) {
@@ -176,9 +178,11 @@ void PageRuntimeAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapper
             addBindingToFrame(frame, name);
     }
 
-    pageAgent->setIgnoreDidClearWindowObject(true);
+    if (pageAgent)
+        pageAgent->setIgnoreDidClearWindowObject(true);
     notifyContextCreated(frameId, frame.script().globalObject(world), world);
-    pageAgent->setIgnoreDidClearWindowObject(false);
+    if (pageAgent)
+        pageAgent->setIgnoreDidClearWindowObject(false);
 }
 
 void PageRuntimeAgent::didReceiveMainResourceError(LocalFrame& frame)

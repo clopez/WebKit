@@ -36,7 +36,6 @@
 #include "CachedResource.h"
 #include "Cookie.h"
 #include "CookieJar.h"
-#include "CustomHeaderFields.h"
 #include "DOMWrapperWorld.h"
 #include "DocumentLoader.h"
 #include "DocumentResourceLoader.h"
@@ -49,7 +48,6 @@
 #include "FrameInlines.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClient.h"
 #include "FrameSnapshotting.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLInputElement.h"
@@ -70,12 +68,9 @@
 #include "MemoryCache.h"
 #include "Page.h"
 #include "PageInspectorController.h"
-#include "PageRuntimeAgent.h"
 #include "PlatformScreen.h"
 #include "RenderObjectInlines.h"
 #include "RenderTheme.h"
-#include "DeprecatedGlobalSettings.h"
-#include "SimpleRange.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScrollingCoordinator.h"
@@ -84,9 +79,8 @@
 #include "ShouldPartitionCookie.h"
 #include "StyleScope.h"
 #include "Theme.h"
-#include <pal/text/TextEncoding.h>
-#include "TextIterator.h"
 #include "TypingCommand.h"
+#include <pal/text/TextEncoding.h>
 #include "UserGestureIndicator.h"
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/IdentifiersFactory.h>
@@ -95,9 +89,6 @@
 #include <wtf/DateMath.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/ObjectIdentifier.h>
-#include <wtf/Ref.h>
-#include <wtf/RefPtr.h>
 #include <wtf/Stopwatch.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/Base64.h>
@@ -808,10 +799,9 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 void InspectorPageAgent::frameDetached(LocalFrame& frame)
 {
-    String identifier = serializeFrameID(frame.frameID());
-    if (!m_identifierToFrame.take(identifier))
+    auto identifier = m_inspectedPage->inspectorController().identifierRegistry().takeFrame(frame);
+    if (identifier.isNull())
         return;
-
     m_frontendDispatcher->frameDetached(identifier);
 }
 
@@ -822,22 +812,12 @@ Frame* InspectorPageAgent::frameForId(const Inspector::Protocol::Network::FrameI
 
 String InspectorPageAgent::frameId(Frame* frame)
 {
-    if (!frame)
-        return emptyString();
-    String identifier = serializeFrameID(frame->frameID());
-    m_identifierToFrame.set(identifier, frame);
-    return identifier;
+    return m_inspectedPage->inspectorController().identifierRegistry().frameId(frame);
 }
 
 String InspectorPageAgent::loaderId(DocumentLoader* loader)
 {
-    if (!frame)
-        return emptyString();
-    auto navigationID = loader->navigationID();
-    if (!navigationID)
-        return emptyString();
-
-    return String::number(navigationID->toUInt64());
+    return m_inspectedPage->inspectorController().identifierRegistry().loaderId(loader);
 }
 
 LocalFrame* InspectorPageAgent::assertFrame(Inspector::Protocol::ErrorString& errorString, const Inspector::Protocol::Network::FrameId& frameId)
@@ -1271,6 +1251,8 @@ void InspectorPageAgent::ensureUserWorldsExistInAllFrames(const Vector<DOMWrappe
 {
     for (Frame* frame = &m_inspectedPage->mainFrame(); frame; frame = frame->tree().traverseNext()) {
         auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame)
+            continue;
         for (auto* world : worlds)
             localFrame->windowProxy().jsWindowProxy(*world)->window();
     }
