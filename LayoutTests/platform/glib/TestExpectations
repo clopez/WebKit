@@ -597,6 +597,8 @@ webkit.org/b/298491 media/media-vp9-reschange-webm.html [ Timeout ]
 webkit.org/b/307141 media/media-source/media-source-seek-and-play.html [ Failure Pass ]
 webkit.org/b/307141 media/media-source/media-controller-media-source-play-then-pause.html [ Failure Pass ]
 
+webkit.org/b/312871 media/media-source/media-source-seek-to-zero-then-play.html [ Failure ]
+
 # NOTIFICATION_EVENT tests
 http/tests/workers/service/shownotification-allowed-document.html [ Pass ]
 http/tests/workers/service/shownotification-invalid-data.html [ Pass ]
@@ -3583,7 +3585,6 @@ ipc/restrictedendpoints/allow-access-testOnlyIPC.html [ Skip ]
 # Assorted crashes
 ipc/convert-to-luminance-mask-float16.html [ Crash ]
 ipc/empty-svgfilterrenderer-expression-crash.html [ Crash ]
-ipc/send-gpu-GetShareableBitmap-RemoteRenderingBackend.html [ Crash ]
 
 ### FAILING TESTS
 
@@ -3595,11 +3596,9 @@ ipc/stream-sync-reply-shared-memory.html [ Failure ]
 
 ipc/decode-feConvolveMatrix-kernelSize-overflow.html [ Failure ]
 ipc/invalid-addSourceBuffer-to-GPU-process-crash.html [ Failure ]
-ipc/invalid-message-to-web-process-crash.html [ Failure ]
 ipc/restore-empty-stack-crash.html [ Failure ]
 ipc/restrictedendpoints/deny-access-attachmentElement.html [ Failure ]
 ipc/serialized-type-info.html [ Failure ]
-http/tests/ipc/null-port-on-sharedmemoryhandle-creation.html [ Failure ]
 
 ipc/restrictedendpoints/deny-access-testOnlyIPC.html [ Crash ]
 ipc/restrictedendpoints/deny-access-webGPU.html [ Crash ]
@@ -5470,6 +5469,8 @@ webkit.org/b/310749 imported/w3c/web-platform-tests/media-source/mediasource-con
 http/wpt/service-workers/fetch-service-worker-preload-download.https.html [ Pass Timeout ]
 http/tests/workers/service/service-worker-download-octet-stream-nosniff.https.html [ Pass Failure ]
 
+webkit.org/b/312924 fast/webcodecs/resetting-audio-decoder-with-zero-size-crash.html [ Skip ]
+
 # Resource timing tests are flaky due to redirect timing variability
 webkit.org/b/197473 imported/w3c/web-platform-tests/speculation-rules/prefetch/navigation-timing-requestStart-responseStart.https.html?include=waitingForRedirect [ Pass Failure ]
 
@@ -5488,6 +5489,9 @@ webkit.org/b/311928 fast/css/user-drag-none.html [ Failure Pass ]
 webkit.org/b/311929 fast/dom/access-key-iframe.html [ Failure Pass ]
 
 webkit.org/b/312267 imported/w3c/web-platform-tests/css/css-text/text-autospace/text-autospace-mixed-001.html [ ImageOnlyFailure ]
+
+webkit.org/b/307886 js/dom/promise-stack-overflow.html [ Pass Failure ]
+webkit.org/b/312893 http/tests/permissions/permissions-query-shared-worker.html [ Pass Failure ]
 
 # End: Common failures between GTK and WPE.
 
