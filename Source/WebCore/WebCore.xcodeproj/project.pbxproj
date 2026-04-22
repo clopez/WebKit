@@ -4290,6 +4290,7 @@
 		A5071E871C56D0E1009951BE /* ResourceUsageThread.h in Headers */ = {isa = PBXBuildFile; fileRef = A5071E841C56D079009951BE /* ResourceUsageThread.h */; };
 		A513B3D7114B1666001C429B /* KeyEventCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A5C974CF11485FF10066F2AB /* KeyEventCocoa.h */; };
 		A51432582DE0CE6E0059FFA1 /* GridSpan.h in Headers */ = {isa = PBXBuildFile; fileRef = A51432552DE0CE6E0059FFA1 /* GridSpan.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A515729D2F7AD717008975E0 /* SubtreeScrollbarChangesState.h in Headers */ = {isa = PBXBuildFile; fileRef = A515729A2F7AD717008975E0 /* SubtreeScrollbarChangesState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A52B348F1FA3BDA6008B6246 /* ServiceWorkerDebuggable.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B348C1FA3BD79008B6246 /* ServiceWorkerDebuggable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A52B34961FA3E290008B6246 /* ServiceWorkerInspectorProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B34931FA3E286008B6246 /* ServiceWorkerInspectorProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A52B349E1FA41703008B6246 /* WorkerDebuggerProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B349C1FA416F8008B6246 /* WorkerDebuggerProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -17131,6 +17132,8 @@
 		A51324D7290A235900C0DCFA /* GridMasonryLayout.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GridMasonryLayout.h; sourceTree = "<group>"; };
 		A51432552DE0CE6E0059FFA1 /* GridSpan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GridSpan.h; sourceTree = "<group>"; };
 		A51432562DE0CE6E0059FFA1 /* GridSpan.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = GridSpan.cpp; sourceTree = "<group>"; };
+		A515729A2F7AD717008975E0 /* SubtreeScrollbarChangesState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SubtreeScrollbarChangesState.h; sourceTree = "<group>"; };
+		A515729B2F7AD717008975E0 /* SubtreeScrollbarChangesState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SubtreeScrollbarChangesState.cpp; sourceTree = "<group>"; };
 		A52B348C1FA3BD79008B6246 /* ServiceWorkerDebuggable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceWorkerDebuggable.h; sourceTree = "<group>"; };
 		A52B348E1FA3BD79008B6246 /* ServiceWorkerDebuggable.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ServiceWorkerDebuggable.cpp; sourceTree = "<group>"; };
 		A52B34931FA3E286008B6246 /* ServiceWorkerInspectorProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceWorkerInspectorProxy.h; sourceTree = "<group>"; };
@@ -41511,6 +41514,8 @@
 				A539B0252F8F168200F84422 /* ScrollbarUpdateScope.h */,
 				E440FD5425A4AFEE00F7C849 /* StyledMarkedText.cpp */,
 				E440FD5125A4AFDF00F7C849 /* StyledMarkedText.h */,
+				A515729B2F7AD717008975E0 /* SubtreeScrollbarChangesState.cpp */,
+				A515729A2F7AD717008975E0 /* SubtreeScrollbarChangesState.h */,
 				E31CD750229F749500FBDA19 /* TableLayout.cpp */,
 				A8CFF04C0A154F09000A4234 /* TableLayout.h */,
 				0F54DCE31881051D003EEDBB /* TextAutoSizing.cpp */,
@@ -48258,6 +48263,7 @@
 				659A7D130B6DB4D9001155B3 /* SubstituteData.h in Headers */,
 				1A8F6B020DB53006001DB794 /* SubstituteResource.h in Headers */,
 				5778BD821DA4806C009E3009 /* SubtleCrypto.h in Headers */,
+				A515729D2F7AD717008975E0 /* SubtreeScrollbarChangesState.h in Headers */,
 				93B2D8160F9920D2006AE6B2 /* SuddenTermination.h in Headers */,
 				97C078501165D5BE003A32EF /* SuffixTree.h in Headers */,
 				97627B9814FB5424002CDCA1 /* Supplementable.h in Headers */,
@@ -49747,26 +49753,24 @@
 		F4CDF3CA27E9187200191928 /* Copy Profiling Data */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
-			dependencyFile = "$(DERIVED_FILES_DIR)/copy-profiling-data.d";
 			files = (
 			);
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(WK_COMPRESSED_OPTIMIZATION_PROFILE_FOLDER)",
+				"$(WK_COMPRESSED_OPTIMIZATION_PROFILE_FILE)",
 				"$(SRCROOT)/../../Tools/Profiling/Empty.profdata",
-				"$(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)/copy-profiling-data.py",
+				"$(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)/copy-profiling-data.sh",
 			);
 			name = "Copy Profiling Data";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/Profiling/arm64e.profdata",
-				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/Profiling/x86_64.profdata",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WebCore.profdata",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    echo \"dependencies: \" > \"${DERIVED_FILES_DIR}/copy-profiling-data.d\"\n    exit 0;\nfi\n\"${SCRIPT_INPUT_FILE_2}\"\n";
+			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\"${SCRIPT_INPUT_FILE_2}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
