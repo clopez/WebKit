@@ -2951,6 +2951,8 @@
 		72BB9E87295257FA00842DBB /* ToggleButtonPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BB9E86295257F800842DBB /* ToggleButtonPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72BB9E8A2952582000842DBB /* ToggleButtonMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BB9E882952581E00842DBB /* ToggleButtonMac.h */; };
 		72BB9E8F2952591000842DBB /* ButtonControlMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BB9E8D2952590F00842DBB /* ButtonControlMac.h */; };
+		72BDED112F8DABFA00199F64 /* CVPixelBufferUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BDED0F2F8D9F9700199F64 /* CVPixelBufferUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72BDED122F8DAC0A00199F64 /* ShareableCVPixelBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BDED0D2F8D9B1600199F64 /* ShareableCVPixelBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72BDF25F2A2B670D00260319 /* PathSegmentData.h in Headers */ = {isa = PBXBuildFile; fileRef = 72BDF25E2A2B647200260319 /* PathSegmentData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C11DAD2849425800E826DD /* ByteArrayPixelBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C11DAC28492A9200E826DD /* ByteArrayPixelBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C11DAD2849425900E826DD /* Float16ArrayPixelBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C11DAC28492A9300E826DD /* Float16ArrayPixelBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2961,6 +2963,7 @@
 		72C37C1D2967747E007E8F52 /* SliderTrackPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1A2967747D007E8F52 /* SliderTrackPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C37C1D2967747E007E8F53 /* SwitchPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1A2967747D007E8F53 /* SwitchPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72C37C1F2967747E007E8F52 /* SliderThumbPart.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C37C1C2967747E007E8F52 /* SliderThumbPart.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		72C99A9F2F9944110070F060 /* ShareableCVPixelFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = 72C99A9D2F993DF60070F060 /* ShareableCVPixelFormat.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72D3F66D2A37FE9700F3A82B /* RotationDirection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D3F66C2A37F48E00F3A82B /* RotationDirection.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72D73644278461A000398663 /* FilterResults.h in Headers */ = {isa = PBXBuildFile; fileRef = 7211B5D6276536820076FEF8 /* FilterResults.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72E5023129B669EE00E5B8E7 /* RenderingResource.h in Headers */ = {isa = PBXBuildFile; fileRef = 72E5023029B669ED00E5B8E7 /* RenderingResource.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -14246,6 +14249,10 @@
 		72BB9E892952581F00842DBB /* ToggleButtonMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ToggleButtonMac.mm; sourceTree = "<group>"; };
 		72BB9E8C2952590E00842DBB /* ButtonControlMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ButtonControlMac.mm; sourceTree = "<group>"; };
 		72BB9E8D2952590F00842DBB /* ButtonControlMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ButtonControlMac.h; sourceTree = "<group>"; };
+		72BDED0D2F8D9B1600199F64 /* ShareableCVPixelBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ShareableCVPixelBuffer.h; sourceTree = "<group>"; };
+		72BDED0E2F8D9B1600199F64 /* ShareableCVPixelBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ShareableCVPixelBuffer.cpp; sourceTree = "<group>"; };
+		72BDED0F2F8D9F9700199F64 /* CVPixelBufferUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CVPixelBufferUtilities.h; sourceTree = "<group>"; };
+		72BDED102F8D9F9700199F64 /* CVPixelBufferUtilities.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CVPixelBufferUtilities.cpp; sourceTree = "<group>"; };
 		72BDF25E2A2B647200260319 /* PathSegmentData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PathSegmentData.h; sourceTree = "<group>"; };
 		72BEE7CC2E79E32200026436 /* LayoutIntegrationGridLayout.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LayoutIntegrationGridLayout.h; sourceTree = "<group>"; };
 		72BEE7CD2E79E3E900026436 /* LayoutIntegrationGridLayout.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LayoutIntegrationGridLayout.cpp; sourceTree = "<group>"; };
@@ -14275,6 +14282,8 @@
 		72C37C1A2967747D007E8F53 /* SwitchPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwitchPart.h; sourceTree = "<group>"; };
 		72C37C1B2967747E007E8F52 /* SliderTrackPart.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SliderTrackPart.cpp; sourceTree = "<group>"; };
 		72C37C1C2967747E007E8F52 /* SliderThumbPart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SliderThumbPart.h; sourceTree = "<group>"; };
+		72C99A9D2F993DF60070F060 /* ShareableCVPixelFormat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ShareableCVPixelFormat.h; sourceTree = "<group>"; };
+		72C99A9E2F993DF60070F060 /* ShareableCVPixelFormat.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ShareableCVPixelFormat.cpp; sourceTree = "<group>"; };
 		72CE4EA32970FF8800A2AD95 /* ImageControlsButtonMac.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ImageControlsButtonMac.mm; sourceTree = "<group>"; };
 		72CE4EA42970FF8800A2AD95 /* ImageControlsButtonMac.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageControlsButtonMac.h; sourceTree = "<group>"; };
 		72CE4EA5297102B800A2AD95 /* ImageControlsButtonPart.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageControlsButtonPart.h; sourceTree = "<group>"; };
@@ -36387,6 +36396,8 @@
 				5150B5DE27CDF499004FC81E /* CMUtilities.mm */,
 				F48D2AA32159740D00C6752B /* ColorCocoa.h */,
 				F48D2AA42159740D00C6752B /* ColorCocoa.mm */,
+				72BDED102F8D9F9700199F64 /* CVPixelBufferUtilities.cpp */,
+				72BDED0F2F8D9F9700199F64 /* CVPixelBufferUtilities.h */,
 				2DABFA7E2B216C68001C33D7 /* DynamicContentScalingDisplayList.h */,
 				B275354C0B053814002CE64F /* FloatRectCocoa.mm */,
 				1C16B86C284D73EF00318FEC /* FontCacheCocoa.mm */,
@@ -36431,6 +36442,10 @@
 				BCD8FA442F28010600B42872 /* PlatformMediaEngineConfigurationFactoryCocoa.cpp */,
 				BCD8FA432F28010600B42872 /* PlatformMediaEngineConfigurationFactoryCocoa.h */,
 				A19311012D1138B7003C8410 /* PlatformTimeRangesCocoa.mm */,
+				72BDED0E2F8D9B1600199F64 /* ShareableCVPixelBuffer.cpp */,
+				72BDED0D2F8D9B1600199F64 /* ShareableCVPixelBuffer.h */,
+				72C99A9E2F993DF60070F060 /* ShareableCVPixelFormat.cpp */,
+				72C99A9D2F993DF60070F060 /* ShareableCVPixelFormat.h */,
 				CDEB3D7224C41A6E001FBEEF /* SourceBufferParser.cpp */,
 				CDEB3D7324C41A6E001FBEEF /* SourceBufferParser.h */,
 				CD8F667024C0F208000C421C /* SourceBufferParserWebM.cpp */,
@@ -44073,6 +44088,7 @@
 				E4DD993A2F07CB5600F46E9D /* CustomFunctionRegistry.h in Headers */,
 				5C5D2385227A0652000B9BDA /* CustomHeaderFields.h in Headers */,
 				4B1E13E721790D660042CF98 /* CustomPaintCanvas.h in Headers */,
+				72BDED112F8DABFA00199F64 /* CVPixelBufferUtilities.h in Headers */,
 				7B8ED5F026F0C13D008AC023 /* CVUtilities.h in Headers */,
 				A8CB413E0E8633FD0032C4F0 /* DashArray.h in Headers */,
 				97BC6A211505F081001B74AC /* Database.h in Headers */,
@@ -47678,6 +47694,8 @@
 				FD45A952175D3F3E00C21EC8 /* ShapeOutsideInfo.h in Headers */,
 				46C963C22B6C992A002F46D1 /* ShareableBitmap.h in Headers */,
 				46C963C62B6C9CAE002F46D1 /* ShareableBitmapHandle.h in Headers */,
+				72BDED122F8DAC0A00199F64 /* ShareableCVPixelBuffer.h in Headers */,
+				72C99A9F2F9944110070F060 /* ShareableCVPixelFormat.h in Headers */,
 				46ADA8792B6D5B6500D9D746 /* ShareableResource.h in Headers */,
 				B6F2010D2EAC180400BBF4AA /* ShareableSpatialImage.h in Headers */,
 				1D9F0FC12122029B005D8FD4 /* ShareData.h in Headers */,
@@ -49638,13 +49656,15 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/Modules/modern-media-controls/images",
 			);
 			name = "Copy modern media controls code and assets";
 			outputPaths = (
+				"$(DERIVED_FILE_DIR)/copy-modern-media-controls.stamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "SRC_DIR=\"$SRCROOT/Modules/modern-media-controls\"\nDST_DIR=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/modern-media-controls\"\n\nmkdir -p \"$DST_DIR\"\n\nif [ \"${WK_PLATFORM_NAME}\" == \"macosx\" ]; then\n    IMG_OS_PREFIX=\"macOS\"\nelse\n    if [[ \"${WK_PLATFORM_NAME}\" == *\"watch\"* ]]; then\n        IMG_OS_PREFIX=\"watchOS\"\n    else\n        IMG_OS_PREFIX=\"iOS\"\n    fi\nfi\n\nif [ -n \"$IMG_OS_PREFIX\" ]; then\nrsync -aq --exclude \".svn\" --exclude \".DS_Store\" \"$SRC_DIR/images/$IMG_OS_PREFIX/\" \"$DST_DIR/images\"\nfi\n\ncd \"$SRC_DIR\"\n";
+			shellScript = "SRC_DIR=\"$SRCROOT/Modules/modern-media-controls\"\nDST_DIR=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/modern-media-controls\"\n\nmkdir -p \"$DST_DIR\"\n\nif [ \"${WK_PLATFORM_NAME}\" == \"macosx\" ]; then\n    IMG_OS_PREFIX=\"macOS\"\nelse\n    if [[ \"${WK_PLATFORM_NAME}\" == *\"watch\"* ]]; then\n        IMG_OS_PREFIX=\"watchOS\"\n    else\n        IMG_OS_PREFIX=\"iOS\"\n    fi\nfi\n\nif [ -n \"$IMG_OS_PREFIX\" ]; then\nrsync -aq --exclude \".svn\" --exclude \".DS_Store\" \"$SRC_DIR/images/$IMG_OS_PREFIX/\" \"$DST_DIR/images\"\nfi\n\ncd \"$SRC_DIR\"\ntouch \"${DERIVED_FILE_DIR}/copy-modern-media-controls.stamp\"\n";
 		};
 		947D341A2BA12DD50051D6D0 /* Remove stale PALSwift.h added in 275246@main */ = {
 			isa = PBXShellScriptBuildPhase;

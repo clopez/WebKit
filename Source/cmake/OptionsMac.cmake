@@ -323,8 +323,9 @@ if (ENABLE_SANITIZERS)
     endif ()
 endif ()
 
-# Dead-strip unused symbols and dylibs.
-add_link_options(-Wl,-dead_strip)
+# Dead-strip unused symbols and dylibs. Mirrors Xcode's DEAD_CODE_STRIPPING,
+# which is YES for release configs and NO for Debug.
+add_link_options("$<$<NOT:$<CONFIG:Debug>>:-Wl,-dead_strip>")
 add_link_options(-Wl,-dead_strip_dylibs)
 
 if (CMAKE_GENERATOR STREQUAL "Ninja")
@@ -350,4 +351,15 @@ if (CMAKE_EXPORT_COMPILE_COMMANDS AND NOT EXISTS ${CMAKE_SOURCE_DIR}/compile_com
         ${CMAKE_BINARY_DIR}/compile_commands.json
         ${CMAKE_SOURCE_DIR}/compile_commands.json
         SYMBOLIC)
+endif ()
+
+# Regenerate the Xcode debug wrapper on every (re)configure so its scheme paths
+# and lldbinit source-map track this binary directory. Runs at configure time
+# (not as a build target) to keep the no-op ninja build at zero actions.
+if (EXISTS ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project)
+    execute_process(
+        COMMAND ${Python_EXECUTABLE}
+                ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project
+                ${CMAKE_BINARY_DIR}
+        OUTPUT_QUIET)
 endif ()

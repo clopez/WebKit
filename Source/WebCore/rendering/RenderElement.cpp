@@ -243,6 +243,8 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
         return createRenderer<RenderGrid>(element, WTF::move(style));
     case Style::DisplayType::BlockDeprecatedFlex:
     case Style::DisplayType::InlineDeprecatedFlex:
+        if (rendererTypeOverride.contains(ConstructBlockLevelRendererFor::DeprecatedFlexBox))
+            return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
         return createRenderer<RenderDeprecatedFlexibleBox>(element, WTF::move(style));
     case Style::DisplayType::RubyBase:
         return createRenderer<RenderInline>(RenderObject::Type::Inline, element, WTF::move(style));
@@ -1098,7 +1100,12 @@ void RenderElement::styleDidChange(Style::Difference diff, const RenderStyle* ol
 
     if (!m_parent)
         return;
-    
+
+    // When style containment changes, quote depth scoping boundaries change,
+    // so all quotes need to be recalculated.
+    if (oldStyle && oldStyle->usedContain().contains(Style::ContainValue::Style) != m_style.usedContain().contains(Style::ContainValue::Style))
+        view().setHasQuotesNeedingUpdate(true);
+
     if (diff == Style::DifferenceResult::Layout || diff == Style::DifferenceResult::Overflow) {
         RenderCounter::rendererStyleChanged(*this, oldStyle, m_style);
 
