@@ -117,7 +117,7 @@ public:
 #endif
     }
 
-#if PLATFORM(GTK) || PLATFORM(WPE) 
+#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
     bool usesGL() const { return m_renderingPurpose == RenderingPurpose::Composited || m_hardwareAccelerationEnabled; }
 #elif PLATFORM(WPE)
     constexpr bool usesGL() const { return true; }
@@ -341,7 +341,7 @@ private:
 
         enum class Type {
             Invalid,
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
 #if USE(GBM) || OS(ANDROID)
             EGLImage,
 #endif
