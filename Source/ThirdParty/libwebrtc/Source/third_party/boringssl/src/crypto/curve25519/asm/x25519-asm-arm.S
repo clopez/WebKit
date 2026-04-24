@@ -22,9 +22,6 @@
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_ARM) && defined(__ELF__)
 
 .fpu neon
-.arch armv8-a
-.fpu crypto-neon-fp-armv8
-.arm
 .text
 .align 4
 

@@ -20,7 +20,7 @@
 #pragma once
 
 #include "WebExtensionMatchPattern.h"
-#include "WebKitWebExtensionMatchPatternPrivate.h"
+#include "WebKitWebExtensionMatchPattern.h"
 #include <wtf/RefPtr.h>
 
 typedef struct _WebKitWebExtensionMatchPattern WebKitWebExtensionMatchPattern;
