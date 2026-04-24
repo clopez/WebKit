@@ -91,7 +91,13 @@ std::optional<DMABufBufferAttributes> DMABufBufferAttributes::fromGBMBufferObjec
     attributes.modifier = enableModifiers == EnableModifiers::Yes ? gbm_bo_get_modifier(bo) : DRM_FORMAT_MOD_INVALID;
 
     for (int i = 0; i < planeCount; ++i) {
+<<<<<<< HEAD
         int fd = MemoryMappedGPUBuffer::exportFDForPlane(bo, i, MemoryMappedGPUBuffer::FDExportPurpose::GPUSampling);
+||||||| parent of 39ab287987f9 (chore(webkit): bootstrap build #2284)
+        int fd = getMappableFDForPlane(bo, i);
+=======
+        int fd = gbm_bo_get_fd_for_plane(bo, i);
+>>>>>>> 39ab287987f9 (chore(webkit): bootstrap build #2284)
         if (fd < 0) {
             LOG_ERROR("DMABufBufferAttributes::fromGBMBufferObject(), failed to export dma-buf for plane %d", i);
             return std::nullopt;
