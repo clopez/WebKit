@@ -465,31 +465,6 @@ bool WebLoaderStrategy::fillParametersForNetworkProcessLoad(ResourceLoader& reso
 
     LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be scheduled with the NetworkProcess with priority %d, storedCredentialsPolicy %i", resourceLoader.url().string().latin1().data(), static_cast<int>(resourceLoader.request().priority()), (int)storedCredentialsPolicy);
 
-<<<<<<< HEAD
-    NetworkResourceLoadParameters loadParameters {
-        trackingParameters.webPageProxyID,
-        trackingParameters.pageID,
-        trackingParameters.frameID,
-        request
-    };
-    if (!loadParameters.createSandboxExtensionHandlesIfNecessary()) {
-        RunLoop::mainSingleton().dispatch([resourceLoader = Ref { resourceLoader }, error = blockedError(request)] {
-            resourceLoader->didFail(error);
-        });
-        return;
-    }
-
-||||||| parent of 95d99ce392f8 (chore(webkit): bootstrap build #2284 (with 31dab2d9da5a0b131f329b57f774e24d1266f1b9 cherry-pick))
-    NetworkResourceLoadParameters loadParameters {
-        trackingParameters.webPageProxyID,
-        trackingParameters.pageID,
-        trackingParameters.frameID,
-        request
-    };
-    loadParameters.createSandboxExtensionHandlesIfNecessary();
-
-=======
->>>>>>> 95d99ce392f8 (chore(webkit): bootstrap build #2284 (with 31dab2d9da5a0b131f329b57f774e24d1266f1b9 cherry-pick))
     loadParameters.identifier = identifier;
     loadParameters.parentPID = legacyPresentingApplicationPID();
     loadParameters.contentSniffingPolicy = contentSniffingPolicy;
@@ -664,7 +639,12 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         trackingParameters.frameID,
         request
     };
-    loadParameters.createSandboxExtensionHandlesIfNecessary();
+    if (!loadParameters.createSandboxExtensionHandlesIfNecessary()) {
+        RunLoop::mainSingleton().dispatch([resourceLoader = Ref { resourceLoader }, error = blockedError(request)] {
+            resourceLoader->didFail(error);
+        });
+        return;
+    }
 
     if (!fillParametersForNetworkProcessLoad(resourceLoader, request, trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime, loadParameters)) {
         WEBLOADERSTRATEGY_RELEASE_LOG_ERROR("scheduleLoad: no sourceOrigin (priority=%d)", static_cast<int>(resourceLoader.request().priority()));
