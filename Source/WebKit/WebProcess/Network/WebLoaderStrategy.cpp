@@ -479,7 +479,7 @@ bool WebLoaderStrategy::fillParametersForNetworkProcessLoad(ResourceLoader& reso
         return;
     }
 
-||||||| parent of 39ab287987f9 (chore(webkit): bootstrap build #2284)
+||||||| parent of 95d99ce392f8 (chore(webkit): bootstrap build #2284 (with 31dab2d9da5a0b131f329b57f774e24d1266f1b9 cherry-pick))
     NetworkResourceLoadParameters loadParameters {
         trackingParameters.webPageProxyID,
         trackingParameters.pageID,
@@ -489,7 +489,7 @@ bool WebLoaderStrategy::fillParametersForNetworkProcessLoad(ResourceLoader& reso
     loadParameters.createSandboxExtensionHandlesIfNecessary();
 
 =======
->>>>>>> 39ab287987f9 (chore(webkit): bootstrap build #2284)
+>>>>>>> 95d99ce392f8 (chore(webkit): bootstrap build #2284 (with 31dab2d9da5a0b131f329b57f774e24d1266f1b9 cherry-pick))
     loadParameters.identifier = identifier;
     loadParameters.parentPID = legacyPresentingApplicationPID();
     loadParameters.contentSniffingPolicy = contentSniffingPolicy;
