@@ -18,13 +18,23 @@
  */
 
 #include "config.h"
-#include "WebKitWebExtensionMatchPattern.h"
+#include "WebKitWebExtensionMatchPatternPrivate.h"
+//#include "<wpe/WebKitWebExtensionMatchPattern.h>"
 
 #include "WebExtensionMatchPattern.h"
 #include "WebKitError.h"
 #include "WebKitPrivate.h"
 
 #include <wtf/URLParser.h>
+
+WEBKIT_API WebKitWebExtensionMatchPattern * webkit_web_extension_match_pattern_ref (WebKitWebExtensionMatchPattern *matchPattern);
+WEBKIT_API void webkit_web_extension_match_pattern_unref (WebKitWebExtensionMatchPattern *matchPattern);
+typedef enum {
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_NONE = 1 << 0,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_SCHEMES = 1 << 1,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_PATHS = 1 << 2,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_MATCH_BIDIRECTIONALLY = 1 << 3,
+} WebKitWebExtensionMatchPatternOptions;
 
 using namespace WebKit;
 
