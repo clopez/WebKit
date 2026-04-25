@@ -1093,12 +1093,10 @@ css/parser/CSSPropertyParserConsumer+Syntax.cpp
 css/parser/CSSPropertyParserConsumer+TextDecoration.cpp
 css/parser/CSSPropertyParserConsumer+Timeline.cpp
 css/parser/CSSPropertyParserConsumer+Transform.cpp
-css/parser/CSSPropertyParserConsumer+Transitions.cpp
 css/parser/CSSPropertyParserConsumer+UI.cpp
 css/parser/CSSPropertyParserConsumer+URL.cpp
 css/parser/CSSPropertyParserConsumer+UnicodeRange.cpp
 css/parser/CSSPropertyParserConsumer+ViewTransition.cpp
-css/parser/CSSPropertyParserConsumer+WillChange.cpp
 css/parser/CSSPropertyParserResult.cpp
 css/parser/CSSSelectorParser.cpp
 css/parser/CSSSelectorParserContext.cpp
@@ -4026,6 +4024,9 @@ JSCredentialMediationRequirement.cpp
 JSCredentialPropertiesOutput.cpp
 JSCredentialRequestOptions.cpp
 JSCredentialsContainer.cpp
+JSFederatedCredentialRequestOptions.cpp
+JSIdentityCredentialRequestOptions.cpp
+JSOTPCredentialRequestOptions.cpp
 JSCrypto.cpp
 JSCryptoAesKeyAlgorithm.cpp
 JSCryptoAlgorithmParameters.cpp

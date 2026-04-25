@@ -683,6 +683,7 @@ public:
     void willCommitLayerTree(RemoteLayerTreeTransaction&, WebCore::FrameIdentifier);
     void willCommitMainFrameData(MainFrameData&, const TransactionID&);
     void didFlushLayerTreeAtTime(MonotonicTime, bool flushSucceeded);
+    std::optional<EditorState> editorStateIfUpdateNeeded();
 #endif
 
     void layoutIfNeeded();
@@ -2786,6 +2787,10 @@ private:
 
     String m_userAgent;
     bool m_hasCustomUserAgent { false };
+
+#if ENABLE(VIEWPORT_RESIZING)
+    int m_lastShrinkToFitLayoutWidth { 0 };
+#endif
 
 #if ENABLE(TILED_CA_DRAWING_AREA)
     DrawingAreaType m_drawingAreaType;

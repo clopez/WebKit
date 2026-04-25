@@ -1491,7 +1491,6 @@ webkit.org/b/261906 imported/w3c/web-platform-tests/editing/run/forwarddelete.ht
 # webkit.org/b/262216 (REGRESSION(268472@main): 5 tests under http/tests/contentextensions/ are consistently failing.)
 http/tests/contentextensions/main-resource-redirect-blocked.py [ Pass Failure ]
 http/tests/contentextensions/main-resource-redirect-error.html [ Pass Failure ]
-http/tests/contentextensions/block-everything-unless-domain.html [ Pass Failure ] # Switch back to [ Pass Timeout ] when resolved: webkit.org/b/167653
 http/tests/contentextensions/block-everything-unless-domain-iframe.html [ Pass Failure ]
 http/tests/contentextensions/block-everything-unless-domain-redirect.py [ Pass Failure ]
 
@@ -2343,8 +2342,6 @@ webkit.org/b/306278 [ arm64 ] media/media-source/media-managedmse-resume-after-r
 
 webkit.org/b/306294 http/wpt/offscreen-canvas/transferToImageBitmap-webgl.html [ ImageOnlyFailure Pass ]
 
-webkit.org/b/312818 accessibility/mac/client/absolute-position-iframe.html [ Pass Failure ]
-
 webkit.org/b/309917 imported/w3c/web-platform-tests/css/css-viewport/zoom/iframe-zoom-nested.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/306570 [ Tahoe arm64 ] http/tests/webcodecs/video-decoder-callbacks-do-not-leak.html [ Pass Failure ]
@@ -2407,6 +2404,8 @@ webkit.org/b/306444 [ Release ] imported/w3c/web-platform-tests/editing/other/ty
 
 webkit.org/b/307850 media/modern-media-controls/tracks-support/audio-single-track.html [ Pass Timeout ]
 
+webkit.org/b/313259 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/preserves-pitch.html [ Pass Failure ]
+
 webkit.org/b/312499 imported/w3c/web-platform-tests/shadow-dom/reference-target/tentative/form.html [ Pass Failure ]
 
 webkit.org/b/307886 [ Release arm64 ] js/dom/promise-stack-overflow.html [ Pass Failure ]
@@ -2418,6 +2417,9 @@ webkit.org/b/307889 http/tests/multipart/multipart-async-image.html [ Pass Failu
 webkit.org/b/310302 imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_on_image_map.html [ Pass Failure ]
 
 # FIXME <https://webkit.org/b/311136>: Additional work needed to pass these tests
+http/tests/site-isolation/inspector/debugger/scriptParsed-frame-target.html [ Skip ]
+http/tests/site-isolation/inspector/debugger/pause-in-cross-origin-iframe.html [ Skip ]
+http/tests/site-isolation/inspector/debugger/setBreakpoint-cross-origin-iframe.html [ Skip ]
 http/tests/site-isolation/inspector/runtime/evaluate-in-cross-origin-iframe.html [ Failure Crash ]
 http/tests/site-isolation/inspector/runtime/execution-context-from-frame-target.html [ Failure ]
 http/tests/site-isolation/inspector/runtime/executionContextCreated-frame-target.html [ Failure ]

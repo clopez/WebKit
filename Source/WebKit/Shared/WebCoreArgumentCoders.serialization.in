@@ -3981,9 +3981,9 @@ enum class WebCore::ScrollSnapStop : bool;
     float offset;
     WebCore::ScrollSnapStop stop;
     bool hasSnapAreaLargerThanViewport;
-    Markable<WebCore::NodeIdentifier> snapTargetID;
     bool isFocused;
-    Vector<uint64_t> snapAreaIndices;
+    Markable<WebCore::NodeIdentifier> snapTargetID;
+    Vector<size_t, 1> snapAreaIndices;
 };
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -6846,6 +6846,7 @@ header: <WebCore/TextExtractionTypes.h>
     String autocomplete;
     String pattern;
     String name;
+    String value;
     std::optional<int> minLength;
     std::optional<int> maxLength;
     bool isRequired;
@@ -7937,6 +7938,7 @@ header: <WebCore/WebCodecsEncodedAudioChunk.h>
 
 #if USE(LIBRICE)
 header: <WebCore/RiceGatherResult.h>
+using WebCore::RiceSocket = std::pair<String, WebCore::RTCIceProtocol>;
 [CustomHeader] struct WebCore::RiceGatherResult {
     HashMap<WebCore::RiceSocket, String> addresses;
     Vector<WebCore::RiceSocket> turnAddresses;
@@ -8844,6 +8846,7 @@ enum class WebCore::CDMInstanceAllowDistinctiveIdentifiers : bool
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+header: <WebCore/LegacyCDMSession.h>
 using WebCore::LegacyCDMSessionClient::MediaKeyErrorCode = unsigned short
 #endif
 

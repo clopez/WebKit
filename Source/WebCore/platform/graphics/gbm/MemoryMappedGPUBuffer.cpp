@@ -144,30 +144,24 @@ static DMABufExportCapabilities runCapabilityProbe()
         return { true, probeReadWriteMappability(fd.value(), gbm_bo_get_stride_for_plane(bo, 0) * probeSize) };
     };
 
-    ProbeResult gbmCall;
-#if HAVE(GBM_BO_GET_FD_FOR_PLANE)
-    // Without HAVE(GBM_BO_GET_FD_FOR_PLANE) the GBMVersioning.h shim forwards to the
-    // DRMSystemCall path, so there's no point in probing GBMCall separately.
-    gbmCall = runProbe([](struct gbm_bo* bo) {
+    DMABufExportCapabilities caps;
+    ProbeResult gbmCall = runProbe([](struct gbm_bo* bo) {
         return gbm_bo_get_fd_for_plane(bo, 0);
     });
-#endif
 
-    ProbeResult drmSystemCall = runProbe([](struct gbm_bo* bo) {
-        return gbmExportPlaneFDWithExplicitReadWriteMapping(bo, 0);
-    });
-
-    // Pick the first mmap-capable path. Otherwise keep any path that at
-    // least exports, so non-mmap callers (e.g. EGLImage wrapping) still work.
-    DMABufExportCapabilities caps;
     if (gbmCall.mappable)
         caps = { DMABufExportStrategy::GBMCall, SupportsReadWriteMemoryMapping::Yes };
-    else if (drmSystemCall.mappable)
-        caps = { DMABufExportStrategy::DRMSystemCall, SupportsReadWriteMemoryMapping::Yes };
-    else if (gbmCall.exported)
-        caps = { DMABufExportStrategy::GBMCall, SupportsReadWriteMemoryMapping::No };
-    else if (drmSystemCall.exported)
-        caps = { DMABufExportStrategy::DRMSystemCall, SupportsReadWriteMemoryMapping::No };
+    else {
+        ProbeResult drmSystemCall = runProbe([](struct gbm_bo* bo) {
+            return gbmExportPlaneFDWithExplicitReadWriteMapping(bo, 0);
+        });
+        if (drmSystemCall.mappable)
+            caps = { DMABufExportStrategy::DRMSystemCall, SupportsReadWriteMemoryMapping::Yes };
+        else if (gbmCall.exported)
+            caps = { DMABufExportStrategy::GBMCall, SupportsReadWriteMemoryMapping::No };
+        else if (drmSystemCall.exported)
+            caps = { DMABufExportStrategy::DRMSystemCall, SupportsReadWriteMemoryMapping::No };
+    }
 
     RELEASE_LOG(GraphicsBuffer, "MemoryMappedGPUBuffer capability probe: strategy=%s mmap-capable=%s",
         strategyName(caps.strategy).characters(),
@@ -187,15 +181,21 @@ bool MemoryMappedGPUBuffer::isSupported()
     return cachedExportCapabilities().memoryMappable == SupportsReadWriteMemoryMapping::Yes;
 }
 
-int MemoryMappedGPUBuffer::exportFDForPlane(struct gbm_bo* bo, int plane)
+int MemoryMappedGPUBuffer::exportFDForPlane(struct gbm_bo* bo, int plane, FDExportPurpose purpose)
 {
-    switch (cachedExportCapabilities().strategy) {
-    case DMABufExportStrategy::GBMCall:
+    switch (purpose) {
+    case FDExportPurpose::GPUSampling:
         return gbm_bo_get_fd_for_plane(bo, plane);
-    case DMABufExportStrategy::DRMSystemCall:
-        return gbmExportPlaneFDWithExplicitReadWriteMapping(bo, plane);
-    case DMABufExportStrategy::Unsupported:
-        return -1;
+    case FDExportPurpose::CPUMapping:
+        switch (cachedExportCapabilities().strategy) {
+        case DMABufExportStrategy::GBMCall:
+            return gbm_bo_get_fd_for_plane(bo, plane);
+        case DMABufExportStrategy::DRMSystemCall:
+            return gbmExportPlaneFDWithExplicitReadWriteMapping(bo, plane);
+        case DMABufExportStrategy::Unsupported:
+            return -1;
+        }
+        break;
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -274,6 +274,18 @@ std::unique_ptr<MemoryMappedGPUBuffer> MemoryMappedGPUBuffer::create(const IntSi
         return nullptr;
     }
 
+    // Order matters: the RDWR mapping export must precede the GPU-sampling export.
+    // The kernel caches the dma-buf object per gem-handle on first export and locks
+    // its mode flags; older Mesas call gbm_bo_get_fd_for_plane() without DRM_RDWR,
+    // so if createDMABufFromGBMBufferObject() ran first every subsequent FD --
+    // including our DRMSystemCall RDWR fallback -- would alias that cached read-only
+    // dma-buf and SIGBUS on mmap(PROT_WRITE).
+    if (!buffer->exportFDForMappingFromGBMBufferObject(bo)) {
+        RELEASE_LOG_ERROR(GraphicsBuffer, "MemoryMappedGPUBuffer::create(), failed to export dma-buf FD for mapping: %s", safeStrerror(errno).data());
+        gbm_bo_destroy(bo);
+        return nullptr;
+    }
+
     if (!buffer->createDMABufFromGBMBufferObject(bo)) {
         RELEASE_LOG_ERROR(GraphicsBuffer, "MemoryMappedGPUBuffer::create(), failed to create dma-buf from GBM buffer object");
         gbm_bo_destroy(bo);
@@ -337,17 +349,11 @@ bool MemoryMappedGPUBuffer::createDMABufFromGBMBufferObject(struct gbm_bo* bo)
     return true;
 }
 
-int MemoryMappedGPUBuffer::primaryPlaneDmaBufFD() const
+bool MemoryMappedGPUBuffer::exportFDForMappingFromGBMBufferObject(struct gbm_bo* bo)
 {
-    ASSERT(m_dmaBuf);
-
-    auto& fds = m_dmaBuf->attributes().fds;
-    ASSERT(!fds.isEmpty());
-
-    auto fd = fds[0].value();
-    ASSERT(fd >= 0);
-
-    return fd;
+    ASSERT(!m_exportedFDForMapping);
+    m_exportedFDForMapping = UnixFileDescriptor { exportFDForPlane(bo, 0, FDExportPurpose::CPUMapping), UnixFileDescriptor::Adopt };
+    return !!m_exportedFDForMapping;
 }
 
 uint32_t MemoryMappedGPUBuffer::primaryPlaneDmaBufStride() const
@@ -368,8 +374,9 @@ bool MemoryMappedGPUBuffer::mapIfNeeded()
         return true;
 
     ASSERT(isLinear() || isVivanteSuperTiled());
+    ASSERT(m_exportedFDForMapping);
     m_mappedLength = primaryPlaneDmaBufStride() * m_allocatedSize.height();
-    m_mappedData = mmap(nullptr, m_mappedLength, PROT_READ | PROT_WRITE, MAP_SHARED, primaryPlaneDmaBufFD(), 0);
+    m_mappedData = mmap(nullptr, m_mappedLength, PROT_READ | PROT_WRITE, MAP_SHARED, m_exportedFDForMapping.value(), 0);
     if (m_mappedData == MAP_FAILED) {
         m_mappedLength = 0;
         m_mappedData = nullptr;
@@ -500,7 +507,8 @@ bool MemoryMappedGPUBuffer::performDMABufSyncSystemCall(OptionSet<DMABufSyncFlag
     mapFlag(DMABufSyncFlag::Read, DMA_BUF_SYNC_READ);
     mapFlag(DMABufSyncFlag::Write, DMA_BUF_SYNC_WRITE);
 
-    auto fd = primaryPlaneDmaBufFD();
+    ASSERT(m_exportedFDForMapping);
+    auto fd = m_exportedFDForMapping.value();
 
     unsigned counter = 0;
     int result;

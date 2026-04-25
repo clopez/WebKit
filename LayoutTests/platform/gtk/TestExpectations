@@ -524,6 +524,8 @@ webkit.org/b/236298 fast/inline-block/hidpi-margin-top-with-subpixel-value-and-o
 
 webkit.org/b/131347 svg/custom/hidpi-masking-clipping.svg [ ImageOnlyFailure ]
 
+webkit.org/b/131934 fast/dom/Window/mozilla-focus-blur.html [ Failure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Expected failures.
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1330,7 +1332,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-tr
 
 http/tests/login-status/login-status-api-getter-setter-functions.html [ Failure ]
 
-imported/w3c/web-platform-tests/css/css-overflow/scrollbar-gutter-root.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/overflow-auto-scrolling-with-margin-and-transform.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-001.html [ ImageOnlyFailure ]
@@ -1361,10 +1362,11 @@ webkit.org/b/278719 fast/events/touch/touch-handler-count.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/touch-inside-iframe.html [ Timeout ]
 webkit.org/b/278719 fast/events/touch/touch-inside-iframe-scrolled.html [ Timeout ]
 webkit.org/b/278719 fast/events/touch/touch-slider.html [ Crash Failure ]
-webkit.org/b/278719 fast/events/touch/touch-slider-no-js-touch-listener.html [ Crash Failure ]
 webkit.org/b/278719 fast/events/touch/touch-stale-node-crash.html [ Timeout ]
 webkit.org/b/278719 imported/w3c/web-platform-tests/touch-events/idlharness.window.html [ Failure ]
 webkit.org/b/278719 imported/w3c/web-platform-tests/touch-events/touch-globaleventhandler-interface.html [ Failure ]
+
+webkit.org/b/208984 fast/events/touch/touch-slider-no-js-touch-listener.html [ Failure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/element-is-grouping-during-animation.html [ ImageOnlyFailure Pass ]
 
@@ -1423,6 +1425,8 @@ webkit.org/b/305509 http/tests/inspector/network/har/har-page.html [ Failure Pas
 webkit.org/b/305509 imported/w3c/web-platform-tests/css/css-pseudo/marker-animate-002.html [ ImageOnlyFailure Pass ]
 webkit.org/b/305509 imported/w3c/web-platform-tests/css/css-view-transitions/start-view-transtion-skips-active.html [ Failure Pass ]
 webkit.org/b/305509 imported/w3c/web-platform-tests/event-timing/interactionid-orphan-pointerup.html [ Failure Pass ]
+
+webkit.org/b/305514 webanimations/focus-accelerated-animated-element-initially-in-overflow.html [ Failure ]
 
 # [GTK] Some SVG tests sometimes fail with a very differently sized layer
 webkit.org/b/308976 svg/filters/feMerge.svg [ Pass Failure ImageOnlyFailure ]
@@ -1487,12 +1491,4 @@ webkit.org/b/312888 inspector/debugger/async-stack-trace-basic.html [ Pass Crash
 webkit.org/b/312889 media/video-seek-past-end-paused.html [ Pass Timeout ]
 webkit.org/b/312892 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/replace-before-load/window-open-self.html [ Pass Failure ]
 
-webkit.org/b/313041 inspector/debugger/async-stack-trace-truncate.html [ Pass Crash Timeout ]
-webkit.org/b/313042 media/W3C/audio/currentSrc/currentSrc_nonempty_after_adding_source_child.html [ Pass Failure ]
 webkit.org/b/313043 transitions/remove-transition-style.html [ Pass Failure ]
-webkit.org/b/313046 webgl/2.0.0/conformance2/textures/video/tex-3d-rg32f-rg-float.html [ Pass Failure ]
-webkit.org/b/313047 webgl/2.0.0/conformance2/textures/video/tex-3d-rgb5_a1-rgba-unsigned_byte.html [ Pass Failure ]
-webkit.org/b/313048 webgl/2.0.0/conformance2/textures/video/tex-3d-srgb8-rgb-unsigned_byte.html [ Pass Failure ]
-webkit.org/b/313049 webrtc/getDisplayMedia-odd-size.html [ Pass Failure Timeout Crash ]
-webkit.org/b/313050 webrtc/peer-connection-remote-audio-mute.html [ Pass Timeout ]
-webkit.org/b/313051 webrtc/video-rotation.html [ Pass Failure Timeout ]

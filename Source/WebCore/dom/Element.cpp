@@ -1752,7 +1752,7 @@ void Element::setScrollLeft(int newLeft)
 
     if (document->scrollingElement() == this) {
         if (RefPtr frame = documentFrameWithNonNullView()) {
-            IntPoint position(static_cast<int>(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
+            IntPoint position(clampToInteger(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
             protect(frame->view())->setScrollPosition(position, options);
         }
         return;
@@ -1780,7 +1780,7 @@ void Element::setScrollTop(int newTop)
 
     if (document->scrollingElement() == this) {
         if (RefPtr frame = documentFrameWithNonNullView()) {
-            IntPoint position(frame->view()->scrollX(), static_cast<int>(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
+            IntPoint position(frame->view()->scrollX(), clampToInteger(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
             protect(frame->view())->setScrollPosition(position, options);
         }
         return;
@@ -5818,7 +5818,8 @@ void Element::resetComputedStyle()
 void Element::resetStyleRelations()
 {
     clearStyleFlags(NodeStyleFlag::StyleAffectedByEmpty);
-    clearStyleFlags(NodeStyleFlag::AffectedByHasWithSiblingRelationship);
+    clearStyleFlags(NodeStyleFlag::AffectedByHasWithBackwardSiblingRelationship);
+    clearStyleFlags(NodeStyleFlag::AffectedByHasWithForwardSiblingRelationship);
     clearStyleFlags(NodeStyleFlag::AffectedByHasWithAdjacentSiblingRelationship);
     if (!hasRareData())
         return;
