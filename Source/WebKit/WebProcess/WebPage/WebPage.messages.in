@@ -214,14 +214,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
     LoadURLInFrame(URL url, String referrer, WebCore::FrameIdentifier frameID)
     LoadDataInFrame(std::span<const uint8_t> data, String MIMEType, String encodingName, URL baseURL, WebCore::FrameIdentifier frameID)
     LoadRequest(struct WebKit::LoadParameters loadParameters)
-<<<<<<< HEAD
     LoadDidCommitInAnotherProcess(WebCore::FrameIdentifier frameID, std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier, std::optional<URL> mainFrameDocumentURL)
-||||||| parent of a386dbc00b69 (chore(webkit): bootstrap build #2285)
-    LoadDidCommitInAnotherProcess(WebCore::FrameIdentifier frameID, std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier)
-=======
-    LoadDidCommitInAnotherProcess(WebCore::FrameIdentifier frameID, std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier)
     LoadRequestInFrameForInspector(struct WebKit::LoadParameters loadParameters, WebCore::FrameIdentifier frameID)
->>>>>>> a386dbc00b69 (chore(webkit): bootstrap build #2285)
     LoadRequestWaitingForProcessLaunch(struct WebKit::LoadParameters loadParameters, URL resourceDirectoryURL, WebKit::WebPageProxyIdentifier pageID, bool checkAssumedReadAccessToResourceURL)
     LoadData(struct WebKit::LoadParameters loadParameters)
     LoadSimulatedRequestAndResponse(struct WebKit::LoadParameters loadParameters, WebCore::ResourceResponse simulatedResponse)
