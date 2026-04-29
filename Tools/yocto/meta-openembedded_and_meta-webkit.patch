@@ -816,3 +816,68 @@ index 0000000..75b3187
 +RDEPENDS:${PN} = "perl"
 +
 +BBCLASSEXTEND = "native"
+diff --git a/sources/meta-webkit/classes/systemd-auto-enable-policy.bbclass b/sources/meta-webkit/classes/systemd-auto-enable-policy.bbclass
+new file mode 100644
+index 0000000..18b1f3c
+--- /dev/null
++++ b/sources/meta-webkit/classes/systemd-auto-enable-policy.bbclass
+@@ -0,0 +1,8 @@
++# Easily allow to disable specific systemd services at the distro level conf
++python __anonymous() {
++    if bb.utils.contains('DISTRO_FEATURES', 'systemd', True, False, d):
++        packages_to_disable = d.getVar('SYSTEMD_AUTOSTART_DISABLE') or ''
++        pn = d.getVar('PN')
++        if pn in packages_to_disable.split():
++            d.setVar('SYSTEMD_AUTO_ENABLE:%s' % pn, 'disable')
++}
+diff --git a/sources/meta-webkit/conf/distro/webkitdevci.conf b/sources/meta-webkit/conf/distro/webkitdevci.conf
+index 1f952c2..d299d1f 100644
+--- a/sources/meta-webkit/conf/distro/webkitdevci.conf
++++ b/sources/meta-webkit/conf/distro/webkitdevci.conf
+@@ -48,5 +48,14 @@ PACKAGECONFIG:append:pn-php = " apache2"
+ # Disable mysql support as we don't need to build mysql/mariadb
+ PACKAGECONFIG:remove:pn-php = "mysql"
+ 
++# Disable the following systemd services by default
++# - Netdata: is only needed on the RPi4 bots and is manually enabled there (via deploy-webkit-buildbot-ews).
++# - Apache2: the service is not needed for the tests, the layout test runner takes care of starting/stopping it.
++INHERIT += "systemd-auto-enable-policy"
++SYSTEMD_AUTOSTART_DISABLE = "netdata apache2"
++
+ # Whitelist license from some deps.
+ LICENSE_FLAGS_ACCEPTED:append = " commercial synaptics-killswitch"
++
++# Optional support for clang if meta-clang is enabled
++CLANGSDK ?= "1"
+diff --git a/sources/meta-webkit/conf/layer.conf b/sources/meta-webkit/conf/layer.conf
+index 124c13d..1a38638 100644
+--- a/sources/meta-webkit/conf/layer.conf
++++ b/sources/meta-webkit/conf/layer.conf
+@@ -9,6 +9,8 @@ BBFILES_DYNAMIC += " \
+     qt5-layer:${LAYERDIR}/dynamic-layers/qt5-layer/*/*/*.bbappend \
+     webserver:${LAYERDIR}/dynamic-layers/webserver/*/*/*.bb \
+     webserver:${LAYERDIR}/dynamic-layers/webserver/*/*/*.bbappend \
++    clang-layer:${LAYERDIR}/dynamic-layers/clang-layer/*/*/*.bb \
++    clang-layer:${LAYERDIR}/dynamic-layers/clang-layer/*/*/*.bbappend \
+     "
+ 
+ BBFILE_COLLECTIONS += "webkit"
+diff --git a/sources/meta-webkit/dynamic-layers/clang-layer/recipes-core/images/webkit-dev-ci-tools.bbappend b/sources/meta-webkit/dynamic-layers/clang-layer/recipes-core/images/webkit-dev-ci-tools.bbappend
+new file mode 100644
+index 0000000..b1950a5
+--- /dev/null
++++ b/sources/meta-webkit/dynamic-layers/clang-layer/recipes-core/images/webkit-dev-ci-tools.bbappend
+@@ -0,0 +1,2 @@
++TOOLCHAIN_HOST_TASK:append = " nativesdk-clang nativesdk-compiler-rt nativesdk-compiler-rt-sanitizers"
++IMAGE_INSTALL:append = " clang compiler-rt compiler-rt-sanitizers libcxx"
+diff --git a/sources/meta-webkit/dynamic-layers/webserver/recipes-core/images/webkit-dev-ci-tools.bbappend b/sources/meta-webkit/dynamic-layers/webserver/recipes-core/images/webkit-dev-ci-tools.bbappend
+--- a/sources/meta-webkit/dynamic-layers/webserver/recipes-core/images/webkit-dev-ci-tools.bbappend
++++ b/sources/meta-webkit/dynamic-layers/webserver/recipes-core/images/webkit-dev-ci-tools.bbappend
+@@ -1,4 +1,5 @@
+ IMAGE_INSTALL:append = " \
+     apache2 \
+     apache2-scripts \
+-"
+\ No newline at end of file
++    netdata \
++"
