@@ -305,7 +305,7 @@ void RenderTable::updateLogicalWidth()
     auto& styleLogicalWidth = style().logicalWidth();
     if (auto overridingLogicalWidth = this->overridingBorderBoxLogicalWidth())
         setLogicalWidth(*overridingLogicalWidth);
-    else if ((styleLogicalWidth.isSpecified() && styleLogicalWidth.isPossiblyPositive()) || styleLogicalWidth.isIntrinsicOrStretch())
+    else if ((styleLogicalWidth.isSpecified() && (styleLogicalWidth.isPossiblyPositive() || styleLogicalWidth.isKnownZero())) || styleLogicalWidth.isIntrinsicOrStretch())
         setLogicalWidth(convertStyleLogicalWidthToComputedWidth(styleLogicalWidth, containerWidthInInlineDirection));
     else {
         // Subtract out any fixed margins from our available width for auto width tables.
@@ -610,13 +610,18 @@ void RenderTable::layout()
 
         setLogicalHeight(logicalHeight() + borderAndPaddingBefore);
 
-        if (!isOutOfFlowPositioned())
-            updateLogicalHeight();
-
         LayoutUnit computedLogicalHeight;
 
+        if (!isOutOfFlowPositioned())
+            updateLogicalHeight();
+        else {
+            // Can't call updateLogicalHeight here - it would set logicalHeight breaking section positioning below (sections accumulate from borderAndPaddingBefore, not from the final table height).
+            auto computedValues = computeLogicalHeight(logicalHeight(), 0_lu);
+            computedLogicalHeight = computedValues.extent - borderAndPaddingBefore - borderAndPaddingAfter - sumCaptionsLogicalHeight();
+        }
+
         auto& logicalHeightLength = style().logicalHeight();
-        if (logicalHeightLength.isIntrinsicOrStretch() || (logicalHeightLength.isSpecified() && logicalHeightLength.isPossiblyPositive()))
+        if (!isOutOfFlowPositioned() && (logicalHeightLength.isIntrinsicOrStretch() || (logicalHeightLength.isSpecified() && logicalHeightLength.isPossiblyPositive())))
             computedLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalHeightLength);
 
         if (auto overridingLogicalHeight = this->overridingBorderBoxLogicalHeight())
