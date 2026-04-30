@@ -233,12 +233,8 @@
 #include <WebCore/DigitalCredentialsProtocols.h>
 #include <WebCore/DigitalCredentialsRequestData.h>
 #include <WebCore/DigitalCredentialsResponseData.h>
-<<<<<<< HEAD
-#include <WebCore/DocumentSyncData.h>
-||||||| parent of e4d64f32e946 (chore(webkit): bootstrap build #2286)
-=======
 #include <WebCore/DiagnosticLoggingResultType.h>
->>>>>>> e4d64f32e946 (chore(webkit): bootstrap build #2286)
+#include <WebCore/DocumentSyncData.h>
 #include <WebCore/DragController.h>
 #include <WebCore/DragData.h>
 #include <WebCore/DragEventTargetData.h>
