@@ -4836,6 +4836,12 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event, CheckDr
     if (!document)
         return false;
 
+#if PLATFORM(MAC)
+    auto* page = m_frame->page();
+    if (page && !page->overrideDragPasteboardName().isEmpty())
+        dragState().dataTransfer = DataTransfer::createForDrag(*document, page->overrideDragPasteboardName());
+    else
+#endif
     dragState().dataTransfer = DataTransfer::createForDrag(*document);
     auto hasNonDefaultPasteboardData = HasNonDefaultPasteboardData::No;
     
@@ -5440,6 +5446,7 @@ static HitTestResult hitTestResultInFrame(LocalFrame* frame, const LayoutPoint& 
     return result;
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 {
     Ref frame = m_frame.get();
@@ -5571,7 +5578,7 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
         if (!targetFrame)
             continue;
 
-#if PLATFORM(WPE) || PLATFORM(GTK)
+#if !ENABLE(IOS_TOUCH_EVENTS)
         RefPtr<EventTarget> pointerTarget = touchTarget;
 
         if (pointState != PlatformTouchPoint::TouchPressed) {
@@ -5667,6 +5674,7 @@ Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(co
 
     return swallowedEvent;
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #endif // ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
 
 #if ENABLE(TOUCH_EVENTS)
