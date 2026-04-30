@@ -7070,6 +7070,13 @@
 		E5F06AF724D4BB5600BBC4F8 /* DateTimeEditElement.h in Headers */ = {isa = PBXBuildFile; fileRef = E5F06AF524D4BB5600BBC4F8 /* DateTimeEditElement.h */; };
 		E5F67D962B65CDBE00CC30DE /* AttachmentAssociatedElement.h in Headers */ = {isa = PBXBuildFile; fileRef = E5F67D932B65CC2400CC30DE /* AttachmentAssociatedElement.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E71467B324ABAEF200FB2F50 /* AudioNodeOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = E71467B124ABAEF100FB2F50 /* AudioNodeOptions.h */; };
+		F050E16823AC9C080011CE47 /* PlatformTouchEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E16623AC9C070011CE47 /* PlatformTouchEvent.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F050E16A23AD660C0011CE47 /* Touch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16923AD660C0011CE47 /* Touch.cpp */; };
+		F050E16D23AD66630011CE47 /* TouchList.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E16B23AD66620011CE47 /* TouchList.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F050E16E23AD66630011CE47 /* TouchList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16C23AD66630011CE47 /* TouchList.cpp */; };
+		F050E17123AD669F0011CE47 /* TouchEvent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16F23AD669E0011CE47 /* TouchEvent.cpp */; };
+		F050E17423AD6A800011CE47 /* DocumentTouch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E17323AD6A800011CE47 /* DocumentTouch.cpp */; };
+		F050E17823AD70C50011CE47 /* PlatformTouchPoint.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E17623AD70C40011CE47 /* PlatformTouchPoint.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E71467B624ABAF1D00FB2F50 /* PannerOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = E71467B524ABAF1D00FB2F50 /* PannerOptions.h */; };
 		E755E89224C7434B009F7C23 /* PeriodicWaveConstraints.h in Headers */ = {isa = PBXBuildFile; fileRef = E755E88F24C7434B009F7C23 /* PeriodicWaveConstraints.h */; };
 		E755E89924C7461D009F7C23 /* PeriodicWaveOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = E755E89624C7461D009F7C23 /* PeriodicWaveOptions.h */; };
@@ -7136,18 +7143,7 @@
 		EE6C530F2F8831FF00C7B706 /* RenderTreeOrder.h in Headers */ = {isa = PBXBuildFile; fileRef = EE6C530D2F8830BD00C7B706 /* RenderTreeOrder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EEE349082DE0061C00A7D4BB /* StyleScopeIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = EEE349072DE005FC00A7D4BB /* StyleScopeIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EFCC6C8F20FE914400A2321B /* CanvasActivityRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = EFCC6C8D20FE914000A2321B /* CanvasActivityRecord.h */; settings = {ATTRIBUTES = (Private, ); }; };
-<<<<<<< HEAD
 		EFDEE0C8177A66CA2E21B69E /* SkipBack10.svg in Copy Modern Media Controls Images */ = {isa = PBXBuildFile; fileRef = AAEC636EAA8CE308206FFC96 /* SkipBack10.svg */; platformFilters = (macos, ); };
-||||||| parent of e4d64f32e946 (chore(webkit): bootstrap build #2286)
-=======
-		F050E16823AC9C080011CE47 /* PlatformTouchEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E16623AC9C070011CE47 /* PlatformTouchEvent.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		F050E16A23AD660C0011CE47 /* Touch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16923AD660C0011CE47 /* Touch.cpp */; };
-		F050E16D23AD66630011CE47 /* TouchList.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E16B23AD66620011CE47 /* TouchList.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		F050E16E23AD66630011CE47 /* TouchList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16C23AD66630011CE47 /* TouchList.cpp */; };
-		F050E17123AD669F0011CE47 /* TouchEvent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E16F23AD669E0011CE47 /* TouchEvent.cpp */; };
-		F050E17423AD6A800011CE47 /* DocumentTouch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F050E17323AD6A800011CE47 /* DocumentTouch.cpp */; };
-		F050E17823AD70C50011CE47 /* PlatformTouchPoint.h in Headers */ = {isa = PBXBuildFile; fileRef = F050E17623AD70C40011CE47 /* PlatformTouchPoint.h */; settings = {ATTRIBUTES = (Private, ); }; };
->>>>>>> e4d64f32e946 (chore(webkit): bootstrap build #2286)
 		F12171F616A8CF0B000053CA /* WebVTTElement.h in Headers */ = {isa = PBXBuildFile; fileRef = F12171F416A8BC63000053CA /* WebVTTElement.h */; };
 		F30EE46B2E721BA800935B60 /* FrameInspectorController.h in Headers */ = {isa = PBXBuildFile; fileRef = F30EE46A2E721B9D00935B60 /* FrameInspectorController.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F32BDCD92363AACA0073B6AE /* UserGestureEmulationScope.h in Headers */ = {isa = PBXBuildFile; fileRef = F32BDCD72363AACA0073B6AE /* UserGestureEmulationScope.h */; };
