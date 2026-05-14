@@ -34,6 +34,11 @@ class SVGTransformList final : public SVGValuePropertyList<SVGTransform> {
     using Base::Base;
 
 public:
+
+    SVGTransformList();
+    SVGTransformList(SVGPropertyOwner*, SVGPropertyAccess);
+    SVGTransformList(const SVGTransformList&, SVGPropertyAccess);
+
     static Ref<SVGTransformList> create()
     {
         return adoptRef(*new SVGTransformList());
@@ -61,6 +66,7 @@ public:
 
     void parse(StringView);
     String valueAsString() const override;
+    ~SVGTransformList();
 
 private:
 

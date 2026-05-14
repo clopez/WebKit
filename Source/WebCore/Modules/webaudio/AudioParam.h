@@ -117,6 +117,8 @@ public:
     void connect(AudioNodeOutput*);
     void disconnect(AudioNodeOutput*);
 
+    ~AudioParam();
+
 protected:
     AudioParam(BaseAudioContext&, const String&, float defaultValue, float minValue, float maxValue, AutomationRate, AutomationRateMode);
 

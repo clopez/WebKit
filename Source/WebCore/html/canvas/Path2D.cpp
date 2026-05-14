@@ -38,6 +38,8 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Path2D);
 
 Path2D::~Path2D() = default;
+Path2D::Path2D() = default;
+Path2D::Path2D(const Path& path) : CanvasPath(path) { }
 
 ExceptionOr<void> Path2D::addPath(Path2D& path, DOMMatrix2DInit&& matrixInit)
 {
