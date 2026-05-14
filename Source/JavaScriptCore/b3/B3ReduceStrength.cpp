@@ -1718,6 +1718,9 @@ private:
             if (handleBitAndDistributivity())
                 break;
 
+            if (handleRotateFromShiftXorOr())
+                break;
+
             break;
 
         case BitXor:
@@ -1766,6 +1769,9 @@ private:
             }
                 
             if (handleBitAndDistributivity())
+                break;
+
+            if (handleRotateFromShiftXorOr())
                 break;
 
             break;
@@ -3741,19 +3747,24 @@ private:
                     break;
                 }
 
-                if (auto child = SIMDShuffle::isOnlyOneSideMask(pattern)) {
-                    switch (child.value()) {
+                if (auto result = SIMDShuffle::isOnlyOneSideMask(pattern)) {
+                    auto [child, newPattern] = result.value();
+                    switch (child) {
                     case 0: {
-                        replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, m_value->child(0), m_value->child(2));
+                        Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, newPattern);
+                        m_insertionSet.insertValue(m_index, newPatternValue);
+                        replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, m_value->child(0), newPatternValue);
                         break;
                     }
                     case 1: {
-                        v128_t newPattern = pattern;
-                        for (unsigned i = 0; i < 16; ++i)
-                            newPattern.u8x16[i] = pattern.u8x16[i] - 16;
                         Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, newPattern);
                         m_insertionSet.insertValue(m_index, newPatternValue);
                         replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, m_value->child(1), newPatternValue);
+                        break;
+                    }
+                    case 2: {
+                        // All OOB.
+                        replaceWithNewValue(m_proc.addConstant(m_value->origin(), B3::V128, vectorAllZeros()));
                         break;
                     }
                     }
@@ -3799,19 +3810,27 @@ private:
                     // If all composed indices reference only one side (0..15 or 16..31),
                     // emit a 2-child unary shuffle instead of a 3-child binary shuffle.
                     // This enables further optimizations like DUP detection in ReduceStrength.
-                    if (auto side = SIMDShuffle::isOnlyOneSideMask(newPattern)) {
-                        Value* src;
-                        v128_t unaryPattern = newPattern;
-                        if (*side == 0)
-                            src = newChild0;
-                        else {
-                            src = newChild1;
-                            for (unsigned i = 0; i < 16; ++i)
-                                unaryPattern.u8x16[i] -= 16;
+                    if (auto result = SIMDShuffle::isOnlyOneSideMask(newPattern)) {
+                        auto [child, unaryPattern] = result.value();
+                        switch (child) {
+                        case 0: {
+                            Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, unaryPattern);
+                            m_insertionSet.insertValue(m_index, newPatternValue);
+                            replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, newChild0, newPatternValue);
+                            break;
                         }
-                        Value* newPat = m_proc.addConstant(m_value->origin(), B3::V128, unaryPattern);
-                        m_insertionSet.insertValue(m_index, newPat);
-                        replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, src, newPat);
+                        case 1: {
+                            Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, unaryPattern);
+                            m_insertionSet.insertValue(m_index, newPatternValue);
+                            replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, newChild1, newPatternValue);
+                            break;
+                        }
+                        case 2: {
+                            // All OOB.
+                            replaceWithNewValue(m_proc.addConstant(m_value->origin(), B3::V128, vectorAllZeros()));
+                            break;
+                        }
+                        }
                         return true;
                     }
 
@@ -3977,7 +3996,7 @@ private:
         case WasmStructGet: {
             auto replaceWithNonTrapping = [&] {
                 WasmStructGetValue* structGet = m_value->as<WasmStructGetValue>();
-                SUPPRESS_UNCOUNTED_ARG Value* newValue = m_insertionSet.insert<WasmStructGetValue>(m_index, WasmStructGet, m_value->origin(), m_value->type(), structGet->child(0), structGet->rtt(), structGet->structType(), structGet->fieldIndex(), structGet->fieldHeapKey(), structGet->mutability());
+                Value* newValue = m_insertionSet.insert<WasmStructGetValue>(m_index, WasmStructGet, m_value->origin(), m_value->type(), structGet->child(0), structGet->rtt(), structGet->fieldIndex(), structGet->fieldHeapKey(), structGet->mutability());
                 newValue->as<WasmStructFieldValue>()->setRange(structGet->range());
                 m_value->replaceWithIdentity(newValue);
                 m_changed = true;
@@ -4030,7 +4049,7 @@ private:
         case WasmStructSet: {
             auto replaceWithNonTrapping = [&] {
                 WasmStructSetValue* structSet = m_value->as<WasmStructSetValue>();
-                SUPPRESS_UNCOUNTED_ARG Value* newValue = m_insertionSet.insert<WasmStructSetValue>(m_index, WasmStructSet, m_value->origin(), structSet->child(0), structSet->child(1), structSet->rtt(), structSet->structType(), structSet->fieldIndex(), structSet->fieldHeapKey());
+                Value* newValue = m_insertionSet.insert<WasmStructSetValue>(m_index, WasmStructSet, m_value->origin(), structSet->child(0), structSet->child(1), structSet->rtt(), structSet->fieldIndex(), structSet->fieldHeapKey());
                 newValue->as<WasmStructFieldValue>()->setRange(structSet->range());
                 m_value->replaceWithIdentity(newValue);
                 m_changed = true;
@@ -4062,7 +4081,7 @@ private:
                 auto* structNew = child->as<WasmStructNewValue>();
                 auto rtt = structNew->rtt();
                 int32_t toHeapType = cast->targetHeapType();
-                SUPPRESS_UNCOUNTED_LOCAL const Wasm::RTT* targetRTT = cast->targetRTT();
+                RefPtr targetRTT = cast->targetRTT();
                 if (!Wasm::typeIndexIsType(static_cast<Wasm::TypeIndex>(toHeapType))) {
                     if (rtt->isSubRTT(*targetRTT)) {
                         // shouldNegate can only be set on WasmRefTest.
@@ -4134,7 +4153,7 @@ private:
                 auto* structNew = child->as<WasmStructNewValue>();
                 auto rtt = structNew->rtt();
                 int32_t toHeapType = cast->targetHeapType();
-                SUPPRESS_UNCOUNTED_LOCAL const Wasm::RTT* targetRTT = cast->targetRTT();
+                RefPtr targetRTT = cast->targetRTT();
                 if (!Wasm::typeIndexIsType(static_cast<Wasm::TypeIndex>(toHeapType))) {
                     const bool isSubtype = rtt->isSubRTT(*targetRTT);
                     replaceWithNewValue(m_proc.addIntConstant(m_value, cast->shouldNegate() ? !isSubtype : isSubtype));
@@ -4331,6 +4350,42 @@ private:
             std::swap(m_value->child(0), m_value->child(1));
             m_changed = true;
         }
+    }
+
+    // Turn this: BitOr(Shl(value, N), ZShr(value, M))
+    //            BitXor(Shl(value, N), ZShr(value, M))
+    // Into this: RotR(value, M)
+    // where N, M are constants in (0, width) and N + M == width (32 or 64).
+    // We emit RotR rather than RotL because ARM64 has no rotate-left directly.
+    bool handleRotateFromShiftXorOr()
+    {
+        ASSERT(m_value->opcode() == BitOr || m_value->opcode() == BitXor);
+        unsigned width = m_value->type() == Int32 ? 32 : m_value->type() == Int64 ? 64 : 0;
+        if (!width)
+            return false;
+
+        auto tryMatch = [&](Value* shl, Value* shr) -> bool {
+            if (shl->opcode() != Shl || shr->opcode() != ZShr)
+                return false;
+            if (shl->child(0) != shr->child(0))
+                return false;
+            if (!shl->child(1)->hasInt32() || !shr->child(1)->hasInt32())
+                return false;
+            unsigned n = static_cast<unsigned>(shl->child(1)->asInt32()) & (width - 1);
+            unsigned m = static_cast<unsigned>(shr->child(1)->asInt32()) & (width - 1);
+            if (!n || n + m != width)
+                return false;
+
+            Value* amount = m_insertionSet.insert<Const32Value>(m_index, m_value->origin(), static_cast<int32_t>(m));
+            replaceWithNew<Value>(RotR, m_value->origin(), shl->child(0), amount);
+            return true;
+        };
+
+        if (tryMatch(m_value->child(0), m_value->child(1)))
+            return true;
+        if (tryMatch(m_value->child(1), m_value->child(0)))
+            return true;
+        return false;
     }
 
     // For Op==Add or Sub, turn any of these:

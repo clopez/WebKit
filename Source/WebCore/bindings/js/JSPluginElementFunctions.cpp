@@ -27,6 +27,7 @@
 #include "HTMLPlugInElement.h"
 #include "JSHTMLElement.h"
 #include <JavaScriptCore/JSObjectInlines.h>
+#include <JavaScriptCore/PropertySlot.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -126,7 +127,7 @@ bool pluginElementCustomPut(JSHTMLElement* element, JSGlobalObject* lexicalGloba
 
 JSC_DEFINE_HOST_FUNCTION(callPlugin, (JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame))
 {
-    JSHTMLElement* element = uncheckedDowncast<JSHTMLElement>(callFrame->jsCallee());
+    JSHTMLElement* element = downcast<JSHTMLElement>(callFrame->jsCallee());
 
     // Get the plug-in script object.
     JSObject* scriptObject = pluginScriptObject(lexicalGlobalObject, element);

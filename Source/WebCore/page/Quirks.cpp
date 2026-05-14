@@ -41,7 +41,6 @@
 #include "ElementInlines.h"
 #include "ElementTargetingTypes.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLArticleElement.h"
@@ -70,6 +69,7 @@
 #include "QuirksData.h"
 #include "RegistrableDomain.h"
 #include "RenderStyle+GettersInlines.h"
+#include "RenderView.h"
 #include "ResourceLoadObserver.h"
 #include "ResourceRequest.h"
 #include "SVGElementTypeHelpers.h"
@@ -1251,6 +1251,13 @@ bool Quirks::shouldEnableRemoteTrackLabelQuirk() const
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldEnableRemoteTrackLabelQuirk);
 }
 
+bool Quirks::shouldEnableCameraBackgroundPlayback() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldEnableCameraBackgroundPlayback);
+}
+
 bool Quirks::shouldEnableSpeakerSelectionPermissionsPolicyQuirk() const
 {
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
@@ -1847,6 +1854,14 @@ bool Quirks::shouldFlipScreenDimensions() const
 #endif
 }
 
+// rdar://175565114
+bool Quirks::shouldAvoidProgrammaticScrollClamping() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldAvoidProgrammaticScrollClampingQuirk);
+}
+
 // This section is dedicated to UA override for iPad. iPads (but iPad Mini) are sending a desktop user agent
 // to websites. In some cases, the website breaks in some ways, not expecting a touch interface for the website.
 // Controls not active or too small, form factor, etc. In this case it is better to send the iPad Mini UA.
@@ -1872,39 +1887,25 @@ bool Quirks::needsIPadMiniUserAgent(const URL& url)
     return false;
 }
 
-bool Quirks::needsIPhoneUserAgent(const URL& url)
+bool Quirks::needsIPhoneUserAgent(const URL& url, UseDesktopClassBrowsing useDesktopClassBrowsing)
 {
 #if PLATFORM(IOS_FAMILY)
-    if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
-        return true;
-    if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
-        return true;
+    switch (useDesktopClassBrowsing) {
+    case UseDesktopClassBrowsing::Unspecified:
+        if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
+            return true;
+        break;
+    case UseDesktopClassBrowsing::No:
+        // rdar://175017084
+        if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
+            return true;
+        break;
+    case UseDesktopClassBrowsing::Yes:
+        break;
+    }
 #else
     UNUSED_PARAM(url);
-#endif
-    return false;
-}
-
-bool Quirks::needsChromeForAndroidUserAgent(const URL& url)
-{
-#if PLATFORM(IOS_FAMILY)
-    // nfl.com rdar://171113872
-    if (url.host() == "www.nfl.com"_s && PAL::currentUserInterfaceIdiomIsSmallScreen())
-        return true;
-#else
-    UNUSED_PARAM(url);
-#endif
-    return false;
-}
-
-bool Quirks::needsMediaSourceEnabled(const URL& url)
-{
-#if PLATFORM(IOS_FAMILY)
-    // nfl.com rdar://171113872
-    if (url.host() == "www.nfl.com"_s && PAL::currentUserInterfaceIdiomIsSmallScreen())
-        return true;
-#else
-    UNUSED_PARAM(url);
+    UNUSED_PARAM(useDesktopClassBrowsing);
 #endif
     return false;
 }
@@ -2285,6 +2286,14 @@ bool Quirks::needsChromeOSNavigatorUserAgentQuirk(const Document& document) cons
     return true;
 }
 
+// instagram.com: rdar://174936655
+bool Quirks::shouldSendFakeTouchForceChangeEvent() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldSendFakeTouchForceChangeEvent);
+}
+
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
@@ -2311,6 +2320,21 @@ bool Quirks::shouldLimitHLSPlaybackRate() const
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldLimitHLSPlaybackRate);
+}
+
+// nfl.com:
+bool Quirks::shouldSuppressHLSSubtitles() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldSuppressHLSSubtitles);
+}
+
+bool Quirks::shouldSuppressMediaSessionPauseActionOnInterruption() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::ShouldSuppressMediaSessionPauseActionOnInterruption);
 }
 
 // spotify.com rdar://140707449
@@ -2693,6 +2717,8 @@ static void handleInstagramQuirks(QuirksData& quirksData, const URL&, const Stri
 #if PLATFORM(IOS_FAMILY)
     // instagram.com rdar://121014613
     quirksData.shouldDisableElementFullscreen = true;
+    // instagram.com: rdar://174936655
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldSendFakeTouchForceChangeEvent);
 #endif
 }
 
@@ -3011,8 +3037,12 @@ static void handleYCombinatorQuirks(QuirksData& quirksData, const URL& quirksURL
 
 static void handleYahooQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL& /* documentURL */)
 {
-    // yahoo.com: rdar://170502516
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsYahooVolumeSliderQuirk);
+    quirksData.enableQuirks({
+        // yahoo.com: rdar://170502516
+        QuirksData::SiteSpecificQuirk::NeedsYahooVolumeSliderQuirk,
+        // yahoo.com: rdar://136767005
+        QuirksData::SiteSpecificQuirk::ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor,
+    });
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -3240,6 +3270,10 @@ static void handleGoogleQuirks(QuirksData& quirksData, const URL& quirksURL, con
     bool shouldPreventDispatchOfTouchEventQuirk = topDocumentHost == "sites.google.com"_s;
     quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::ShouldPreventDispatchOfTouchEventQuirk, shouldPreventDispatchOfTouchEventQuirk);
 #endif
+#if ENABLE(MEDIA_STREAM)
+    if (topDocumentHost == "meet.google.com"_s)
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldEnableCameraBackgroundPlayback);
+#endif
 #if PLATFORM(MAC)
     // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=161984
     quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::IsTouchBarUpdateSuppressedForHiddenContentEditableQuirk, quirksData.isGoogleDocs);
@@ -3445,6 +3479,13 @@ static void NODELETE handleNBAQuirks(QuirksData& quirksData, const URL& /* quirk
     UNUSED_PARAM(quirksData);
     UNUSED_PARAM(quirksDomainString);
 #endif
+}
+
+static void handleNFLQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
+{
+    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("nfl.com"_s);
+
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldSuppressHLSSubtitles);
 }
 
 static void handleNHLQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
@@ -3666,6 +3707,8 @@ static void handleTwitterXQuirks(QuirksData& quirksData, const URL& /* quirksURL
         QuirksData::SiteSpecificQuirk::ShouldSilenceMediaQueryListChangeEvents,
         // x.com: rdar://problem/58804852 and rdar://problem/61731801
         QuirksData::SiteSpecificQuirk::ShouldSilenceWindowResizeEventsDuringApplicationSnapshotting,
+        // x.com: rdar://175565114
+        QuirksData::SiteSpecificQuirk::ShouldAvoidProgrammaticScrollClampingQuirk,
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
         // x.com: rdar://73369869
@@ -3719,6 +3762,11 @@ static void handleYouTubeQuirks(QuirksData& quirksData, const URL& quirksURL, co
             QuirksData::SiteSpecificQuirk::NeedsYouTubeMouseOutQuirk
         });
     }
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    if (WTF::IOSApplication::isTubular())
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldSuppressMediaSessionPauseActionOnInterruption);
 #endif
 
     UNUSED_PARAM(quirksURL);
@@ -3798,6 +3846,10 @@ void Quirks::determineRelevantQuirks()
 
     // Push state file path restrictions break Mimeo Photo Plugin (rdar://112445672).
     m_quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::ShouldDisablePushStateFilePathRestrictions, shouldDisablePushStateFilePathRestrictions);
+#endif
+
+#if PLATFORM(COCOA)
+    m_quirksData.setQuirkState(QuirksData::SiteSpecificQuirk::NeedsYouTubeCaptionQuirk, isYoutubeEmbedDomain());
 #endif
 
     auto quirksURL = topDocumentURL();
@@ -3896,6 +3948,7 @@ void Quirks::determineRelevantQuirks()
         { "messenger"_s, &handleFacebookMessengerQuirks },
         { "netflix"_s, &handleNetflixQuirks },
         { "nba"_s, &handleNBAQuirks },
+        { "nfl"_s, &handleNFLQuirks },
         { "nhl"_s, &handleNHLQuirks },
 #if PLATFORM(IOS) || PLATFORM(VISION)
         { "nytimes"_s, &handleNYTimesQuirks },

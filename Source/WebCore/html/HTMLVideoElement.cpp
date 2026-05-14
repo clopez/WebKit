@@ -59,6 +59,8 @@
 #include "Settings.h"
 #include "ShareableBitmap.h"
 #include "VideoFrameMetadata.h"
+#include <wtf/NativePromise.h>
+#include <wtf/ReducedResolutionSeconds.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
@@ -67,6 +69,7 @@
 #endif
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
+#include "EventTarget.h"
 #include "HTMLVideoElementPictureInPicture.h"
 #include "PictureInPictureObserver.h"
 #endif
@@ -527,7 +530,7 @@ URL HTMLVideoElement::posterImageURL() const
     auto url = imageSourceURL().trim(isASCIIWhitespace);
     if (url.isEmpty())
         return URL();
-    return protect(document())->completeURL(url);
+    return protect(document())->encodingParseURL(url);
 }
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -586,9 +589,6 @@ HTMLVideoElement::VideoPresentationMode HTMLVideoElement::toPresentationMode(HTM
 
 void HTMLVideoElement::webkitSetPresentationMode(VideoPresentationMode mode)
 {
-    if (mode == VideoPresentationMode::InWindow && !document().settings().inWindowFullscreenEnabled())
-        return;
-
     INFO_LOG(LOGIDENTIFIER, ", mode = ",  mode);
     if (!isChangingVideoFullscreenMode())
         setPresentationMode(mode);
@@ -848,7 +848,7 @@ void HTMLVideoElement::serviceRequestVideoFrameCallbacks(ReducedResolutionSecond
             continue;
 
         if (RefPtr callback = std::exchange(request->callback, { }))
-            callback->invoke(std::round(now.milliseconds()), *videoFrameMetadata);
+            callback->invoke(now.milliseconds(), *videoFrameMetadata);
     }
     m_servicedVideoFrameRequests.clear();
 

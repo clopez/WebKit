@@ -89,6 +89,7 @@ Modules/airplay/WebMediaSessionManager.mm @nonARC
 Modules/applepay/ApplePayCouponCodeChangedEvent.cpp
 Modules/applepay/ApplePayCancelEvent.cpp
 Modules/applepay/ApplePayContactField.cpp
+Modules/applepay/ApplePayInstallmentConfigurationWebCore.cpp
 Modules/applepay/ApplePayLogoSystemImage.mm @nonARC
 Modules/applepay/ApplePayMerchantCapability.cpp
 Modules/applepay/ApplePayPaymentAuthorizationResult.cpp
@@ -466,6 +467,7 @@ platform/graphics/cocoa/HEVCUtilitiesCocoa.mm @nonARC
 platform/graphics/cocoa/IOSurface.mm @nonARC
 platform/graphics/cocoa/IOSurfaceDrawingBuffer.cpp
 platform/graphics/cocoa/IOSurfacePoolCocoa.mm @nonARC
+platform/graphics/cocoa/ISOBMFFPreParser.cpp
 platform/graphics/cocoa/IconCocoa.mm @nonARC
 platform/graphics/cocoa/IntRectCocoa.mm @nonARC
 platform/graphics/cocoa/ImageAdapterCocoa.mm @nonARC
@@ -475,6 +477,7 @@ platform/graphics/cocoa/PlatformMediaEngineConfigurationFactoryCocoa.cpp
 platform/graphics/cocoa/PlatformTimeRangesCocoa.mm @nonARC @no-unify
 platform/graphics/cocoa/ShareableCVPixelBuffer.cpp
 platform/graphics/cocoa/ShareableCVPixelFormat.cpp
+platform/graphics/cocoa/ShareableGainMap.cpp
 platform/graphics/cocoa/SourceBufferParser.cpp
 platform/graphics/cocoa/SourceBufferParserWebM.cpp
 platform/graphics/cocoa/SystemFontDatabaseCocoa.mm @nonARC

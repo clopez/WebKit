@@ -51,6 +51,7 @@
 #import "LocalCurrentGraphicsContext.h"
 #import "LocalDefaultSystemAppearance.h"
 #import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameView.h"
 #import "LocalizedStrings.h"
 #import "Logging.h"
@@ -60,6 +61,8 @@
 #import "RenderAttachment.h"
 #import "RenderMedia.h"
 #import "RenderMeter.h"
+#import "RenderObjectInlines.h"
+#import "RenderProgress.h"
 #import "RenderSlider.h"
 #import "RenderStyle+GettersInlines.h"
 #import "RenderStyle+SettersInlines.h"
@@ -69,6 +72,7 @@
 #import "StyleComputedStyle+InitialInlines.h"
 #import "StylePadding.h"
 #import "UTIUtilities.h"
+#import "UserAgentParts.h"
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <CoreServices/CoreServices.h>
@@ -83,6 +87,7 @@
 #import <pal/spi/mac/NSImageSPI.h>
 #import <pal/spi/mac/NSSharingServicePickerSPI.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/MathExtras.h>
 #import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/RetainPtr.h>
@@ -90,6 +95,7 @@
 
 #if ENABLE(SERVICE_CONTROLS)
 #include "ImageControlsMac.h"
+#include "Page.h"
 #endif
 
 @interface WebCoreRenderThemeNotificationObserver : NSObject
@@ -130,6 +136,8 @@
 @end
 
 namespace WebCore {
+
+constexpr CGFloat attachmentIconSelectionBorderThickness = 1;
 
 using namespace CSS::Literals;
 using namespace HTMLNames;

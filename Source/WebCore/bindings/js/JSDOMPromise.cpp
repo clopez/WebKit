@@ -29,6 +29,7 @@
 #include "JSDOMGlobalObject.h"
 #include "LocalDOMWindow.h"
 #include <JavaScriptCore/BuiltinNames.h>
+#include <JavaScriptCore/CallFrameInlines.h>
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/JSBoundFunction.h>
 #include <JavaScriptCore/JSNativeStdFunction.h>
@@ -58,7 +59,7 @@ auto DOMPromise::whenPromiseIsSettled(JSDOMGlobalObject* globalObject, JSC::JSPr
         ASSERT(castedThis);
         // We exchange callback so that all captured variables are deallocated after the call. This is quicker than waiting for the handler function to be GCed.
         if (castedThis)
-            std::exchange(callback, { })(uncheckedDowncast<JSDOMGlobalObject>(globalObject), castedThis->status() == JSC::JSPromise::Status::Fulfilled, castedThis->result());
+            std::exchange(callback, { })(downcast<JSDOMGlobalObject>(globalObject), castedThis->status() == JSC::JSPromise::Status::Fulfilled, castedThis->result());
         return JSC::JSValue::encode(JSC::jsUndefined());
     });
 

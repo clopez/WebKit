@@ -49,11 +49,13 @@
 #import "LocalizedDateCache.h"
 #import "NodeRenderStyle.h"
 #import "Page.h"
+#import "PlatformRenderTheme.h"
 #import "RenderBoxInlines.h"
 #import "RenderBoxModelObjectInlines.h"
 #import "RenderButton.h"
 #import "RenderMenulist.h"
 #import "RenderMeter.h"
+#import "RenderObjectInlines.h"
 #import "RenderProgress.h"
 #import "RenderSlider.h"
 #import "RenderStyle+SettersInlines.h"
@@ -3596,7 +3598,6 @@ bool RenderThemeCocoa::paintMeterForVectorBasedControls(const RenderElement& ren
     }
 #endif
 
-
     return true;
 }
 
@@ -4272,7 +4273,6 @@ bool RenderThemeCocoa::paintSearchFieldDecorationsForVectorBasedControls(const R
 {
     return false;
 }
-
 
 bool RenderThemeCocoa::adjustSearchFieldCancelButtonStyleForVectorBasedControls(RenderStyle& style, const Element* element) const
 {

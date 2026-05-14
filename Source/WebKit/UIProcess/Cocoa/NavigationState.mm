@@ -432,12 +432,23 @@ static void trySOAuthorization(Ref<API::NavigationAction>&& navigationAction, We
 {
 #if HAVE(APP_SSO)
     if (!navigationAction->shouldPerformSOAuthorization()) {
-        completionHandler(false);
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler)] mutable {
+            completionHandler(false);
+        });
+        return;
+    }
+    // URLs with a registered WKURLSchemeHandler are handled locally and should not go through SSO.
+    if (page.urlSchemeHandlerForScheme(navigationAction->request().url().protocol())) {
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler)] mutable {
+            completionHandler(false);
+        });
         return;
     }
     protect(page.websiteDataStore())->soAuthorizationCoordinator(page).tryAuthorize(WTF::move(navigationAction), page, WTF::move(completionHandler));
 #else
-    completionHandler(false);
+    callOnMainRunLoop([completionHandler = WTF::move(completionHandler)] mutable {
+        completionHandler(false);
+    });
 #endif
 }
 
@@ -491,10 +502,21 @@ static void interceptMarketplaceKitNavigation(Ref<API::NavigationAction>&& actio
 
 static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction, WebPageProxy& page, WTF::Function<void(bool)>&& completionHandler)
 {
+    // URLs with a registered WKURLSchemeHandler are handled locally and should not be intercepted by app links or SSO.
+    if (page.urlSchemeHandlerForScheme(navigationAction->request().url().protocol())) {
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler)] mutable {
+            completionHandler(false);
+        });
+        return;
+    }
+
 #if HAVE(MARKETPLACE_KIT)
     if (isMarketplaceKitURL(navigationAction->request().url())) {
         interceptMarketplaceKitNavigation(WTF::move(navigationAction), page);
-        return completionHandler(true /* interceptedNavigation */);
+        callOnMainRunLoop([completionHandler = WTF::move(completionHandler)] mutable {
+            completionHandler(true /* interceptedNavigation */);
+        });
+        return;
     }
 #endif // HAVE(MARKETPLACE_KIT)
 
@@ -511,6 +533,7 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
 
         auto* localCompletionHandler = new WTF::Function<void (bool)>([navigationAction = WTF::move(navigationAction), weakPage = WeakPtr { page }, completionHandler = WTF::move(completionHandler)] (bool success) mutable {
             ASSERT(RunLoop::isMain());
+            RELEASE_LOG(Loading, "tryInterceptNavigation: LSAppLink openWithURL completed, success=%d", success);
             if (!success && weakPage) {
                 trySOAuthorization(WTF::move(navigationAction), *weakPage, WTF::move(completionHandler));
                 return;
@@ -525,6 +548,7 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
         RetainPtr<_LSOpenConfiguration> configuration = adoptNS([[_LSOpenConfiguration alloc] init]);
         configuration.get().referrerURL = referrerURL.get();
 
+        RELEASE_LOG(Loading, "tryInterceptNavigation: Calling async LSAppLink openWithURL");
         [LSAppLink openWithURL:url.createNSURL().get() configuration:configuration.get() completionHandler:[localCompletionHandler](BOOL success, NSError *) {
             RunLoop::mainSingleton().dispatch([localCompletionHandler, success] {
                 (*localCompletionHandler)(success);
@@ -568,6 +592,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageP
     if (!m_navigationState || (!m_navigationState->m_navigationDelegateMethods.webViewDecidePolicyForNavigationActionDecisionHandler
         && !m_navigationState->m_navigationDelegateMethods.webViewDecidePolicyForNavigationActionWithPreferencesUserInfoDecisionHandler
         && !m_navigationState->m_navigationDelegateMethods.webViewDecidePolicyForNavigationActionWithPreferencesDecisionHandler)) {
+        RELEASE_LOG(Loading, "NavigationState::decidePolicyForNavigationAction: Client does not implement decidePolicyForNavigationAction");
         auto completionHandler = [webPage = protect(webPageProxy), listener = WTF::move(listener), navigationAction, defaultWebsitePolicies] (bool interceptedNavigation) {
             if (interceptedNavigation) {
                 listener->ignore(WasNavigationIntercepted::Yes);
@@ -592,7 +617,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageP
 
             auto nsURLRequest = wrapper(API::URLRequest::create(navigationAction->request()));
             if ((nsURLRequest.get().URL && [NSURLConnection canHandleRequest:nsURLRequest.get()])
-                || webPage->urlSchemeHandlerForScheme(nsURLRequest.get().URL.scheme)
+                || webPage->urlSchemeHandlerForScheme(String(nsURLRequest.get().URL.scheme))
                 || [nsURLRequest.get().URL.scheme isEqualToString:@"blob"]) {
                 if (navigationAction->shouldPerformDownload())
                     listener->download();
@@ -632,6 +657,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageP
         if (checker->completionHandlerHasBeenCalled())
             return;
         checker->didCallCompletionHandler();
+        RELEASE_LOG(Loading, "NavigationState::decidePolicyForNavigationAction: Client responded with policy %d", static_cast<int>(actionPolicy));
 
         RefPtr<API::WebsitePolicies> apiWebsitePolicies = preferences ?  protect(preferences->_websitePolicies.get()) : defaultWebsitePolicies;
 
@@ -773,6 +799,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPag
 {
     RefPtr navigationState = m_navigationState.get();
     if (!navigationState || !navigationState->m_navigationDelegateMethods.webViewDecidePolicyForNavigationResponseDecisionHandler) {
+        RELEASE_LOG(Loading, "NavigationState::decidePolicyForNavigationResponse: Client does not implement decidePolicyForNavigationResponse");
         RetainPtr<NSURL> url = protect(navigationResponse->response().nsURLResponse()).get().URL;
         if ([url isFileURL]) {
             BOOL isDirectory = NO;
@@ -801,6 +828,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPag
         if (checker->completionHandlerHasBeenCalled())
             return;
         checker->didCallCompletionHandler();
+        RELEASE_LOG(Loading, "NavigationState::decidePolicyForNavigationResponse: Client responded with policy %d", static_cast<int>(responsePolicy));
         ensureOnMainRunLoop([responsePolicy, localListener = WTF::move(localListener)] {
             switch (responsePolicy) {
             case WKNavigationResponsePolicyAllow:

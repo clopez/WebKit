@@ -527,6 +527,7 @@ class ANGLETestBase : public ::testing::Test
     void setBindGeneratesResource(bool bindGeneratesResource);
     void setClientArraysEnabled(bool enabled);
     void setRobustResourceInit(bool enabled);
+    void setPbuffer(bool enabled);
     void setMutableRenderBuffer(bool enabled);
     void setContextProgramCacheEnabled(bool enabled);
     void setContextResetStrategy(EGLenum resetStrategy);
@@ -589,6 +590,11 @@ class ANGLETestBase : public ::testing::Test
     {
         return mCurrentParams->getRenderer() == EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE &&
                mCurrentParams->isSwiftshader();
+    }
+
+    bool isMetalRenderer() const
+    {
+        return mCurrentParams->getRenderer() == EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE;
     }
 
     bool isDriverSystemEgl() const

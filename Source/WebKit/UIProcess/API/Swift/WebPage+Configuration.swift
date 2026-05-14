@@ -28,7 +28,7 @@ import Foundation
 extension WebPage {
     /// A configuration type that specifies the preferences and behaviors of a webpage.
     @MainActor
-    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(anyAppleOSAndDownlevels 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     public struct Configuration {
@@ -167,12 +167,18 @@ extension WebPage {
         /// The process pool to use for the page, used for testing.
         @_spi(Testing)
         public var processPool: WKProcessPool? = nil
+
+        #if os(macOS)
+        /// If `false`, the editor state is always forced to update.
+        @_spi(Testing)
+        public var requiresUserActionForEditingControlsManager: Bool = false
+        #endif
     }
 }
 
 extension WebPage {
     /// A type that describes the authorization permissions policy for the device's sensors a web resource may access.
-    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(anyAppleOSAndDownlevels 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     public struct DeviceSensorAuthorization {
@@ -204,7 +210,7 @@ extension WebPage {
 
 extension WebPage.Configuration {
     /// The behavior used when playing HTML video within a page.
-    @available(iOS 26.0, visionOS 26.0, *)
+    @available(anyAppleOSAndDownlevels 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     @available(macOS, unavailable)

@@ -149,6 +149,7 @@
 #include "WeakGCMapInlines.h"
 #include "WideningNumberPredictionFuzzerAgent.h"
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/ProcessID.h>
 #include <wtf/ReadWriteLock.h>
 #include <wtf/SimpleStats.h>
@@ -169,6 +170,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 #include "JSWebAssemblyInstance.h"
+#include "JSWebAssemblyStreamingContextInlines.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -334,6 +336,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     functionExecutableStructure.setWithoutWriteBarrier(FunctionExecutable::createStructure(*this, nullptr, jsNull()));
 #if ENABLE(WEBASSEMBLY)
     pinballCompletionStructure.setWithoutWriteBarrier(PinballCompletion::createStructure(*this, nullptr, jsNull()));
+    webAssemblyStreamingContextStructure.setWithoutWriteBarrier(JSWebAssemblyStreamingContext::createStructure(*this, nullptr, jsNull()));
 #endif
     moduleProgramExecutableStructure.setWithoutWriteBarrier(ModuleProgramExecutable::createStructure(*this, nullptr, jsNull()));
     slimPromiseReactionStructure.setWithoutWriteBarrier(JSSlimPromiseReaction::createStructure(*this, nullptr, jsNull()));
@@ -379,6 +382,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     bigIntStructure.setWithoutWriteBarrier(JSBigInt::createStructure(*this, nullptr, jsNull()));
     m_orderedHashTableDeletedValue.setWithoutWriteBarrier(OrderedHashMap::createDeletedValue(*this));
     m_orderedHashTableSentinel.setWithoutWriteBarrier(OrderedHashMap::createSentinel(*this));
+    m_sortScratchSentinel.setWithoutWriteBarrier(JSCellButterfly::create(*this, CopyOnWriteArrayWithContiguous, 0));
 
     // Eagerly initialize constant cells since the concurrent compiler can access them.
     if (Options::useJIT()) {
@@ -513,8 +517,11 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     Config::finalize();
 
-    if (!isInMiniMode())
+    if (!isInMiniMode()) {
         initializeAvailableTimeZones();
+        if (heapType == HeapType::Large)
+            dateCache.timeZoneDisplayName(/* isDST */ false);
+    }
 
     // We must set this at the end only after the VM is fully initialized.
     WTF::storeStoreFence();
@@ -982,6 +989,21 @@ void VM::deleteAllCode(DeleteAllCodeEffort effort)
         heap.deleteAllCodeBlocks(effort);
         heap.deleteAllUnlinkedCodeBlocks(effort);
         heap.reportAbandonedObjectGraph();
+
+        if (MemoryPressureHandler::singleton().memoryPressureStatus() == SystemMemoryPressureStatus::Normal)
+            return;
+        // If we're deleting all code as a response to memory pressure, allow
+        // worklist threads to temporarily stop, which frees any thread-local
+        // data (specifically, any bulky heap-allocated data for the assembler
+        // buffer).
+#if ENABLE(JIT)
+        if (auto worklist = JITWorklist::existingGlobalWorklistOrNull())
+            worklist->requestTemporaryStop();
+#if ENABLE(WEBASSEMBLY)
+        if (auto worklist = Wasm::existingWorklistOrNull())
+            worklist->requestTemporaryStop();
+#endif // ENABLE(WEBASSEMBLY)
+#endif // ENABLE(JIT)
     });
 }
 
@@ -1841,6 +1863,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
 #if ENABLE(WEBASSEMBLY)
     visitor.append(pinballCompletionStructure);
     visitor.append(webAssemblyCalleeGroupStructure);
+    visitor.append(webAssemblyStreamingContextStructure);
 #endif
     visitor.append(moduleProgramExecutableStructure);
     visitor.append(slimPromiseReactionStructure);
@@ -1882,6 +1905,8 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(m_emptyPropertyNameEnumerator);
     visitor.append(m_orderedHashTableDeletedValue);
     visitor.append(m_orderedHashTableSentinel);
+    visitor.append(m_cachedSortScratch);
+    visitor.append(m_sortScratchSentinel);
     visitor.append(m_fastCanConstructBoundExecutable);
     visitor.append(m_slowCanConstructBoundExecutable);
     visitor.append(lastCachedString);

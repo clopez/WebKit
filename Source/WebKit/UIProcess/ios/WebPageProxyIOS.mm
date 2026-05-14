@@ -1572,26 +1572,28 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
 
     const bool needsSiteSpecificQuirks = preferences->needsSiteSpecificQuirks();
 
+    auto applyIPhoneUserAgent = [&] {
+        policies.setCustomUserAgent(makeStringByReplacingAll(standardUserAgentWithApplicationName(m_applicationNameForUserAgent), "iPad"_s, "iPhone"_s));
+        policies.setCustomNavigatorPlatform("iPhone"_s);
+    };
+
     if (needsSiteSpecificQuirks) {
         if (auto selectors = Quirks::defaultVisibilityAdjustmentSelectors(request.url()))
             policies.setVisibilityAdjustmentSelectors({ WTF::move(*selectors) });
 
-        if (Quirks::needsMediaSourceEnabled(request.url()))
-            policies.setMediaSourcePolicy(WebsiteMediaSourcePolicy::Enable);
-
         if (Quirks::needsIPhoneUserAgent(request.url())) {
-            policies.setCustomUserAgent(makeStringByReplacingAll(standardUserAgentWithApplicationName(m_applicationNameForUserAgent), "iPad"_s, "iPhone"_s));
-            policies.setCustomNavigatorPlatform("iPhone"_s);
-            return WebContentMode::Mobile;
-        }
-
-        if (Quirks::needsChromeForAndroidUserAgent(request.url())) {
-            policies.setCustomUserAgent("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36"_s);
+            applyIPhoneUserAgent();
             return WebContentMode::Mobile;
         }
     }
 
     bool useDesktopBrowsingMode = useDesktopClassBrowsing(policies, request);
+
+    // rdar://175017084
+    if (needsSiteSpecificQuirks && Quirks::needsIPhoneUserAgent(request.url(), useDesktopBrowsingMode ? UseDesktopClassBrowsing::Yes : UseDesktopClassBrowsing::No)) {
+        applyIPhoneUserAgent();
+        return WebContentMode::Mobile;
+    }
 
     m_preferFasterClickOverDoubleTap = false;
 

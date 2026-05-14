@@ -34,6 +34,7 @@
 #include "WebPage.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSCJSValuePropertyInlines.h>
+#include <JavaScriptCore/JSCellInlines.h>
 #include <JavaScriptCore/JSClassRef.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObjectRef.h>
@@ -113,7 +114,7 @@ JSValueRef callWithArguments(JSObjectRef callbackFunction, JSRetainPtr<JSGlobalC
         return nil;
 
     auto* globalObject = toJS(globalContext.get());
-    RefPtr context = globalObject ? uncheckedDowncast<JSDOMGlobalObject>(globalObject)->scriptExecutionContext() : nullptr;
+    RefPtr context = globalObject ? downcast<JSDOMGlobalObject>(globalObject)->scriptExecutionContext() : nullptr;
     if (!context || context->activeDOMObjectsAreStopped())
         return nil;
 

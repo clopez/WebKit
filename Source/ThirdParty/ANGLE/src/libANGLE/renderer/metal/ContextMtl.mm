@@ -92,7 +92,7 @@ angle::Result AllocateTriangleFanBufferFromPool(ContextMtl *context,
     ANGLE_TRY(mtl::GetTriangleFanIndicesCount(context, vertexCount, &numIndices));
 
     pool->releaseInFlightBuffers(context);
-    ANGLE_TRY(pool->allocate(context, numIndices * sizeof(uint32_t), nullptr, outBuffer));
+    ANGLE_TRY(pool->allocate(context, numIndices * sizeof(uint32_t), outBuffer));
     *numElemsOut = numIndices;
 
     return angle::Result::Continue;
@@ -104,7 +104,7 @@ angle::Result AllocateBufferFromPool(ContextMtl *context,
                                      mtl::BufferSlice *outBuffer)
 {
     pool->releaseInFlightBuffers(context);
-    ANGLE_TRY(pool->allocate(context, indicesToReserve * sizeof(uint32_t), nullptr, outBuffer));
+    ANGLE_TRY(pool->allocate(context, indicesToReserve * sizeof(uint32_t), outBuffer));
 
     return angle::Result::Continue;
 }
@@ -151,8 +151,8 @@ class LineLoopLastSegmentHelper
 
         indexBufferPool->releaseInFlightBuffers(mContextMtl);
 
-        ANGLE_TRY(indexBufferPool->allocate(mContextMtl, 2 * sizeof(uint32_t), nullptr,
-                                            &mLineLoopIndexBuffer));
+        ANGLE_TRY(
+            indexBufferPool->allocate(mContextMtl, 2 * sizeof(uint32_t), &mLineLoopIndexBuffer));
 
         if (indexTypeOrNone == gl::DrawElementsType::InvalidEnum)
         {
@@ -547,8 +547,9 @@ angle::Result ContextMtl::drawTriFanElements(const gl::Context *context,
                                                     &genIndicesCount));
 
         ANGLE_TRY(getDisplay()->getUtils().generateTriFanBufferFromElementsArray(
-            this, {type, count, indices, genIdxBuffer.buffer(),
-                   static_cast<uint32_t>(genIdxBuffer.offset()), primitiveRestart},
+            this,
+            {type, count, indices, genIdxBuffer.buffer(),
+             static_cast<uint32_t>(genIdxBuffer.offset()), primitiveRestart},
             &genIndicesCount));
 
         ANGLE_TRY(mTriFanIndexBuffer.commit(this));
@@ -613,12 +614,13 @@ angle::Result ContextMtl::drawLineLoopElements(const gl::Context *context,
         mtl::BufferSlice genIdxBuffer;
         uint32_t reservedIndices = count * 2;
         uint32_t genIndicesCount;
-        ANGLE_TRY(AllocateBufferFromPool(this, reservedIndices, &mLineLoopIndexBuffer,
-                                         &genIdxBuffer));
+        ANGLE_TRY(
+            AllocateBufferFromPool(this, reservedIndices, &mLineLoopIndexBuffer, &genIdxBuffer));
 
         ANGLE_TRY(getDisplay()->getUtils().generateLineLoopBufferFromElementsArray(
-            this, {type, count, indices, genIdxBuffer.buffer(),
-                   static_cast<uint32_t>(genIdxBuffer.offset()), primitiveRestart},
+            this,
+            {type, count, indices, genIdxBuffer.buffer(),
+             static_cast<uint32_t>(genIdxBuffer.offset()), primitiveRestart},
             &genIndicesCount));
 
         ANGLE_TRY(mLineLoopIndexBuffer.commit(this));
@@ -767,12 +769,13 @@ angle::Result ContextMtl::drawElementsImpl(const gl::Context *context,
 
     gl::DrawElementsType convertedType = type;
 
-    ANGLE_TRY(mVertexArray->getIndexBuffer(context, type, count, indices, &idxBuffer,
-                                           &convertedType));
+    ANGLE_TRY(
+        mVertexArray->getIndexBuffer(context, type, count, indices, &idxBuffer, &convertedType));
 
     ASSERT(idxBuffer.buffer());
-    ASSERT((convertedType == gl::DrawElementsType::UnsignedShort && (idxBuffer.offset() % 2) == 0) ||
-           (convertedType == gl::DrawElementsType::UnsignedInt && (idxBuffer.offset() % 4) == 0));
+    ASSERT(
+        (convertedType == gl::DrawElementsType::UnsignedShort && (idxBuffer.offset() % 2) == 0) ||
+        (convertedType == gl::DrawElementsType::UnsignedInt && (idxBuffer.offset() % 4) == 0));
 
     uint32_t convertedCounti32 = (uint32_t)count;
 
@@ -795,8 +798,9 @@ angle::Result ContextMtl::drawElementsImpl(const gl::Context *context,
     // indices.
     // It's safe to use idxBuffer in this case, as it will contain the same count and restart ranges
     // as drawIdxBuffer.
-    const std::vector<DrawCommandRange> drawCommands = mVertexArray->getDrawIndices(
-        context, type, convertedType, mode, idxBuffer.buffer(), convertedCounti32, idxBuffer.offset());
+    const std::vector<DrawCommandRange> drawCommands =
+        mVertexArray->getDrawIndices(context, type, convertedType, mode, idxBuffer.buffer(),
+                                     convertedCounti32, idxBuffer.offset());
     bool isNoOp = false;
     ANGLE_TRY(setupDraw(context, 0, count, instances, type, indices, false, &isNoOp));
     if (!isNoOp)
@@ -2779,7 +2783,7 @@ angle::Result ContextMtl::handleDirtyActiveTextures(const gl::Context *context)
         TextureMtl *textureMtl = mtl::GetImpl(texture);
 
         // Make sure texture's image definitions will be transferred to GPU.
-        ANGLE_TRY(textureMtl->ensureNativeStorageCreated(context));
+        ANGLE_TRY(textureMtl->ensureNativeStorageCreated(context, true));
 
         // The binding of this texture will be done by ProgramMtl.
         return angle::Result::Continue;

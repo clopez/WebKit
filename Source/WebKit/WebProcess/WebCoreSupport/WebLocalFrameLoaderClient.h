@@ -282,14 +282,13 @@ private:
 
     void documentLoaderDetached(WebCore::NavigationIdentifier, WebCore::LoadWillContinueInAnotherProcess) final;
 
-#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    void didAccessWindowProxyPropertyViaOpener(WebCore::SecurityOriginData&&, WebCore::WindowProxyProperty) final;
-#endif
-
     bool NODELETE siteIsolationEnabled() const;
 
     void broadcastAllFrameTreeSyncDataToOtherProcesses(WebCore::FrameTreeSyncData&) final;
     void broadcastFrameTreeSyncDataToOtherProcesses(const WebCore::FrameTreeSyncSerializationData&) final;
+
+    void didNotifyUserActivation(MonotonicTime) final;
+    void didConsumeUserActivation() final;
 
     void dispatchDecidePolicyForBackForwardNavigationAction(WebCore::FrameLoadRequest&&, const String& referer, WebCore::FrameLoadType);
 

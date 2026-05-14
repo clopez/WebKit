@@ -431,6 +431,69 @@ static ALWAYS_INLINE size_t typedArrayIndexOfImpl(typename ViewClass::ElementTyp
 }
 
 template<typename ViewClass>
+static ALWAYS_INLINE size_t typedArrayLastIndexOfImpl(typename ViewClass::ElementType* array, size_t searchLength, typename ViewClass::ElementType target)
+{
+    if (!searchLength)
+        return WTF::notFound;
+
+    if constexpr (ViewClass::Adaptor::isInteger) {
+        if constexpr (ViewClass::elementSize == 1) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFind8(std::bit_cast<const uint8_t*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+
+        if constexpr (ViewClass::elementSize == 2) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFind16(std::bit_cast<const uint16_t*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+
+        if constexpr (ViewClass::elementSize == 4) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFind32(std::bit_cast<const uint32_t*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+
+        if constexpr (ViewClass::elementSize == 8) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFind64(std::bit_cast<const uint64_t*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+    }
+
+    if constexpr (ViewClass::Adaptor::isFloat) {
+        if constexpr (ViewClass::elementSize == 2) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFindFloat16(std::bit_cast<const Float16*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+
+        if constexpr (ViewClass::elementSize == 4) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFindFloat(std::bit_cast<const float*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+
+        if constexpr (ViewClass::elementSize == 8) {
+            auto* result = std::bit_cast<typename ViewClass::ElementType*>(WTF::reverseFindDouble(std::bit_cast<const double*>(array), target, searchLength));
+            if (result)
+                return result - array;
+            return WTF::notFound;
+        }
+    }
+
+    ASSERT_NOT_REACHED();
+    return WTF::notFound;
+}
+
+template<typename ViewClass>
 ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncIncludes(VM& vm, JSGlobalObject* globalObject, CallFrame* callFrame)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -712,16 +775,11 @@ ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncLastIndexOf(VM& vm, J
     scope.assertNoExceptionExceptTermination();
     RELEASE_ASSERT(!thisObject->isDetached());
 
-    // We always have at least one iteration, since we checked that length is different from 0 earlier.
-    do {
-        if (array[index] == targetOption.value())
-            return JSValue::encode(jsNumber(index));
-        if (!index)
-            break;
-        --index;
-    } while (true);
-
-    return JSValue::encode(jsNumber(-1));
+    size_t searchLength = index + 1;
+    size_t result = typedArrayLastIndexOfImpl<ViewClass>(array, searchLength, targetOption.value());
+    if (result == WTF::notFound)
+        return JSValue::encode(jsNumber(-1));
+    return JSValue::encode(jsNumber(result));
 }
 
 template<typename ViewClass>
@@ -1699,7 +1757,7 @@ static ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncSortImpl(VM& v
     if (callData.type == CallData::Type::JS) [[likely]] {
         CachedCall cachedCall(globalObject, uncheckedDowncast<JSFunction>(comparatorValue), 2);
         RETURN_IF_EXCEPTION(scope, { });
-        result = arrayStableSort(vm, src, workingSet, [&](auto left, auto right) ALWAYS_INLINE_LAMBDA {
+        result = arrayStableSort<MergeStrategy::Simple>(vm, src, workingSet, [&](auto left, auto right) ALWAYS_INLINE_LAMBDA {
             auto scope = DECLARE_THROW_SCOPE(vm);
 
             JSValue leftValue = ViewClass::Adaptor::toJSValue(globalObject, left);
@@ -1715,7 +1773,7 @@ static ALWAYS_INLINE EncodedJSValue genericTypedArrayViewProtoFuncSortImpl(VM& v
         RETURN_IF_EXCEPTION(scope, { });
     } else {
         MarkedArgumentBuffer args;
-        result = arrayStableSort(vm, src, workingSet, [&](auto left, auto right) ALWAYS_INLINE_LAMBDA {
+        result = arrayStableSort<MergeStrategy::Simple>(vm, src, workingSet, [&](auto left, auto right) ALWAYS_INLINE_LAMBDA {
             auto scope = DECLARE_THROW_SCOPE(vm);
 
             args.clear();

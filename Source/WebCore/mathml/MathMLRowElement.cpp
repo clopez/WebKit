@@ -58,8 +58,8 @@ void MathMLRowElement::childrenChanged(const ChildChange& change)
 {
     // FIXME: Avoid this invalidation for valid MathMLFractionElement/MathMLScriptsElement.
     // See https://bugs.webkit.org/show_bug.cgi?id=276828.
-    for (auto* child = firstChild(); child; child = child->nextSibling()) {
-        if (auto* mo = dynamicDowncast<MathMLOperatorElement>(child))
+    for (RefPtr child = firstChild(); child; child = child->nextSibling()) {
+        if (RefPtr mo = dynamicDowncast<MathMLOperatorElement>(*child))
             mo->setOperatorFormDirty();
     }
 
@@ -74,9 +74,9 @@ RenderPtr<RenderElement> MathMLRowElement::createElementRenderer(RenderStyle&& s
     return createRenderer<RenderMathMLRow>(RenderObject::Type::MathMLRow, *this, WTF::move(style));
 }
 
-bool MathMLRowElement::acceptsMathVariantAttribute()
+bool MathMLRowElement::acceptsLegacyMathVariantAttribute()
 {
-    return hasTagName(mstyleTag);
+    return !document().settings().coreMathMLDeprecateLegacyMathvariant() && hasTagName(mstyleTag);
 }
 
 }

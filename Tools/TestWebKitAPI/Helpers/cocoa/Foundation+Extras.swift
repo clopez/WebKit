@@ -21,7 +21,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+public import CoreGraphics
 import Foundation
+private import Synchronization
+
 import struct Foundation.URL
 import struct Swift.String
 
@@ -78,4 +81,170 @@ extension StringProtocol {
 
         return start..<end
     }
+}
+
+extension CGRect {
+    /// The center point of this rect.
+    public var center: CGPoint {
+        .init(x: midX, y: midY)
+    }
+}
+
+/// A type used to model an asynchronous promise, via a Semaphore-like interface.
+public struct Future: Sendable, ~Copyable {
+    private enum State {
+        case initial
+        case waiting(CheckedContinuation<Void, Never>)
+        case signaled
+    }
+
+    private let state = Mutex<State>(.initial)
+
+    /// Create a new Future.
+    public init() {
+    }
+
+    /// Resolves the promise of this Future.
+    public func signal() {
+        let continuation = state.withLock { state -> CheckedContinuation<Void, Never>? in
+            defer {
+                state = .signaled
+            }
+
+            if case .waiting(let continuation) = state {
+                return continuation
+            }
+
+            return nil
+        }
+        continuation?.resume()
+    }
+
+    /// Waits for the promise of this Future to be resolved.
+    public func wait() async {
+        await withCheckedContinuation { continuation in
+            let resumeImmediately = state.withLock { state in
+                switch state {
+                case .signaled:
+                    return true
+
+                case .initial:
+                    state = .waiting(continuation)
+                    return false
+
+                case .waiting:
+                    preconditionFailure("Future only supports a single waiter")
+                }
+            }
+
+            if resumeImmediately {
+                continuation.resume()
+            }
+        }
+    }
+}
+
+/// Temporarily installs a block-based implementation for an Objective-C instance method.
+///
+/// Runs `body` while the swap is in effect, then restores the original implementation
+/// before returning. The original is restored even if `body` throws.
+///
+/// The block's first parameter must be the receiver, followed by the method's arguments.
+/// Declare it with `@convention(block)` so the Objective-C runtime can bridge it to an IMP.
+///
+/// ```swift
+/// let implementation: @convention(block) (NSPasteboard, Date) -> Bool = { _, _ in true }
+/// try await withSwizzledObjectiveCInstanceMethod(
+///     replacing: NSPasteboard.self,
+///     name: #selector(NSPasteboard.canReadItem(withDataConformingToTypes:)),
+///     with: implementation
+/// ) {
+///     // Code under test runs here with the mock in place.
+/// }
+/// ```
+///
+/// - Parameters:
+///   - class: The class whose instance method will be temporarily replaced.
+///   - name: The selector identifying the instance method to swap.
+///   - implementation: An `@convention(block)` closure whose signature matches the method.
+///   - body: The work to run while the swap is in effect.
+/// - Returns: The value returned by `body`.
+/// - Throws: Rethrows any error thrown by `body`.
+@discardableResult
+public nonisolated(nonsending) func withSwizzledObjectiveCInstanceMethod<Result, Failure>(
+    replacing class: AnyClass,
+    name: Selector,
+    with implementation: Any,
+    perform body: () async throws(Failure) -> sending Result
+) async throws(Failure) -> sending Result where Result: ~Copyable, Failure: Error {
+    guard let targetMethod = unsafe class_getInstanceMethod(`class`, name) else {
+        fatalError("\(`class`) does not respond to \(name)")
+    }
+
+    let replacementImplementation = unsafe imp_implementationWithBlock(implementation)
+    let originalImplementation = unsafe method_setImplementation(targetMethod, replacementImplementation)
+    defer {
+        unsafe method_setImplementation(targetMethod, originalImplementation)
+        unsafe imp_removeBlock(replacementImplementation)
+    }
+
+    return try await body()
+}
+
+/// Temporarily replaces the implementation of an Objective-C class method with a custom block implementation for the lifetime of `body`.
+///
+/// For example, given a type
+///
+/// ```swift
+/// @objc public class MyObjectiveCType: NSObject {
+///     dynamic class func add(a: Int, b: Int) -> Int {
+///         a + b
+///     }
+/// }
+/// ```
+///
+/// then the implementation of `add` can be temporarily replaced:
+///
+/// ```swift
+/// let newImplementation = @convention(block) (MyObjectiveCType.Type, Int, Int) -> Int = { _, a, b in
+///     a - b
+/// }
+///
+/// let result = withSwizzledObjectiveCClassMethod(
+///     class: MyObjectiveCType.self,
+///     replacing: #selector(MyObjectiveCType.add(a:b:)),
+///     with: newImplementation
+/// ) {
+///     MyObjectiveCType.add(a: 5, b: 3)
+/// }
+///
+/// // result is now `2`.
+/// ```
+///
+/// - Parameters:
+///   - class: The class whose selector should be replaced.
+///   - selector: The selector to be replaced.
+///   - implementationBlock: A block that will be used as the new implementation.
+///   - body: The code to execute with the replaced implementation.
+/// - Throws: Any error thrown by `body`.
+/// - Returns: The return value of `body`.
+/// - Note: The signature of `implementationBlock` must match exactly; if it does not, undefined behavior will occur.
+@discardableResult
+nonisolated(nonsending) public func withSwizzledObjectiveCClassMethod<Result, Failure>(
+    class: AnyClass,
+    replacing selector: Selector,
+    with implementationBlock: Any,
+    perform body: nonisolated(nonsending) () async throws(Failure) -> sending Result
+) async throws(Failure) -> sending Result where Result: ~Copyable, Failure: Error {
+    guard let method = unsafe class_getClassMethod(`class`, selector) else {
+        preconditionFailure("failed to get class method")
+    }
+
+    let originalImplementation = unsafe method_setImplementation(method, imp_implementationWithBlock(implementationBlock))
+
+    defer {
+        unsafe method_setImplementation(method, originalImplementation)
+    }
+
+    return try await body()
 }

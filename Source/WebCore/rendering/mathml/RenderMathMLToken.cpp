@@ -43,6 +43,7 @@
 #include "RenderIterator.h"
 #include "RenderObjectInlines.h"
 #include "RenderStyle+GettersInlines.h"
+#include "Settings.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -78,6 +79,9 @@ void RenderMathMLToken::updateTokenContent()
 void RenderMathMLToken::computePreferredLogicalWidths()
 {
     ASSERT(needsPreferredLogicalWidthsUpdate());
+
+    if (document().settings().coreMathMLDeprecateLegacyMathvariant())
+        return RenderMathMLBlock::computePreferredLogicalWidths();
 
     if (m_mathVariantGlyphDirty)
         updateMathVariantGlyph();
@@ -181,6 +185,8 @@ void RenderMathMLToken::layoutBlock(RelayoutChildren relayoutChildren, LayoutUni
     setLogicalHeight(LayoutUnit(mathVariantGlyph.font->boundsForGlyph(mathVariantGlyph.glyph).height()));
 
     adjustLayoutForBorderAndPadding();
+
+    updateLogicalHeight();
 
     layoutOutOfFlowBoxes(relayoutChildren);
 }

@@ -51,7 +51,6 @@
 #include "Editor.h"
 #include "EventHandler.h"
 #include "EventLoop.h"
-#include "EventTargetInlines.h"
 #include "EventNames.h"
 #include "FindRevealAlgorithms.h"
 #include "FixedContainerEdges.h"
@@ -85,7 +84,6 @@
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 #include "MemoryCache.h"
-#include "NodeInlines.h"
 #include "NodeRenderStyle.h"
 #include "NullGraphicsContext.h"
 #include "Page.h"
@@ -93,6 +91,7 @@
 #include "PageInspectorController.h"
 #include "PageOverlayController.h"
 #include "PerformanceLoggingClient.h"
+#include "PlatformRenderTheme.h"
 #include "ProgressTracker.h"
 #include "Quirks.h"
 #include "RenderAncestorIterator.h"
@@ -943,11 +942,6 @@ bool LocalFrameView::isScrollSnapInProgress() const
     return false;
 }
 
-void LocalFrameView::updateScrollingCoordinatorScrollSnapProperties() const
-{
-    renderView()->compositor().updateScrollSnapPropertiesWithFrameView(*this);
-}
-
 bool LocalFrameView::flushCompositingStateForThisFrame(const LocalFrame& rootFrameForFlush)
 {
     CheckedPtr renderView = this->renderView();
@@ -1219,25 +1213,18 @@ void LocalFrameView::forceLayoutParentViewIfNeeded()
     if (!ownerRenderer)
         return;
 
-    CheckedPtr contentBox = embeddedContentBox();
-    if (!contentBox)
+    CheckedPtr svgRoot = embeddedSVGRoot();
+    if (!svgRoot)
         return;
 
-    if (auto* svgRoot = dynamicDowncast<LegacyRenderSVGRoot>(contentBox.get())) {
-        if (svgRoot->everHadLayout() && !svgRoot->needsLayout())
-            return;
-    }
-
-    if (auto* svgRoot = dynamicDowncast<RenderSVGRoot>(contentBox.get())) {
-        if (svgRoot->everHadLayout() && !svgRoot->needsLayout())
-            return;
-    }
+    if (svgRoot->everHadLayout() && !svgRoot->needsLayout())
+        return;
 
     LOG(Layout, "LocalFrameView %p forceLayoutParentViewIfNeeded scheduling layout on parent LocalFrameView %p", this, &ownerRenderer->view().frameView());
 
     // If the embedded SVG document appears the first time, the ownerRenderer has already finished
     // layout without knowing about the existence of the embedded SVG document, because RenderReplaced
-    // embeddedContentBox() returns nullptr, as long as the embedded document isn't loaded yet. Before
+    // embeddedSVGRoot() returns nullptr, as long as the embedded document isn't loaded yet. Before
     // bothering to lay out the SVG document, mark the ownerRenderer needing layout and ask its
     // LocalFrameView for a layout. After that the RenderEmbeddedObject (ownerRenderer) carries the
     // correct size, which LegacyRenderSVGRoot::computeReplacedLogicalWidth/Height rely on, when laying
@@ -1526,22 +1513,19 @@ bool LocalFrameView::shouldDeferScrollUpdateAfterContentSizeChange()
     return (layoutContext().layoutPhase() < LocalFrameViewLayoutContext::LayoutPhase::InPostLayout) && (layoutContext().layoutPhase() != LocalFrameViewLayoutContext::LayoutPhase::OutsideLayout);
 }
 
-RenderBox* LocalFrameView::embeddedContentBox() const
+RenderReplaced* LocalFrameView::embeddedSVGRoot() const
 {
     CheckedPtr renderView = this->renderView();
     if (!renderView)
         return nullptr;
 
-    RenderObject* firstChild = renderView->firstChild();
+    auto* firstChild = renderView->firstChild();
 
-    // Curently only embedded SVG documents participate in the size-negotiation logic.
+    // Currently only embedded SVG documents participate in the size-negotiation logic.
     if (auto* svgRoot = dynamicDowncast<LegacyRenderSVGRoot>(firstChild))
         return svgRoot;
 
-    if (auto* svgRoot = dynamicDowncast<RenderSVGRoot>(firstChild))
-        return svgRoot;
-
-    return nullptr;
+    return dynamicDowncast<RenderSVGRoot>(firstChild);
 }
 
 void LocalFrameView::addEmbeddedObjectToUpdate(RenderEmbeddedObject& embeddedObject)
@@ -3297,7 +3281,7 @@ void LocalFrameView::setScrollOffsetWithOptions(const ScrollOffset& scrollOffset
     if (page && page->isMonitoringWheelEvents())
         scrollAnimator().setWheelEventTestMonitor(page->wheelEventTestMonitor());
 
-    ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(scrollOffset, options.snapPointSelectionMethod));
+    auto snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(scrollOffset, options.snapPointSelectionMethod));
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
 
     if (options.animated == ScrollIsAnimated::Yes)
@@ -3802,7 +3786,6 @@ void LocalFrameView::updateScriptedAnimationsAndTimersThrottlingState(const IntR
     else
         scriptedAnimationController->removeThrottlingReason(ThrottlingReason::OutsideViewport);
 }
-
 
 void LocalFrameView::resumeVisibleImageAnimationsIncludingSubframes()
 {
@@ -7282,10 +7265,8 @@ IntSize LocalFrameView::totalScrollbarSpace() const
 
 int LocalFrameView::insetForLeftScrollbarSpace() const
 {
-    if (scrollbarGutterStyle().isStableBothEdges())
+    if (scrollbarGutterStyle().isStableBothEdges() || shouldPlaceVerticalScrollbarOnLeft())
         return scrollbarGutterWidth();
-    if (shouldPlaceVerticalScrollbarOnLeft())
-        return verticalScrollbar() ? verticalScrollbar()->occupiedWidth() : 0;
     return 0;
 }
 

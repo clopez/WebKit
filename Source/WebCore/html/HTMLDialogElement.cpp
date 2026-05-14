@@ -36,7 +36,6 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "Logging.h"
-#include "NodeInlines.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "RenderBlock.h"
@@ -247,10 +246,19 @@ void HTMLDialogElement::requestClose(const String& returnValue, Element* source)
     if (!isOpen())
         return;
 
+    // FIXME(311746): Add missing prelimanary checks that should prevent this function running.
+
+    if (m_isRequestingToClose)
+        return;
+
+    m_isRequestingToClose = true;
+
     Ref cancelEvent = Event::create(eventNames().cancelEvent, Event::CanBubble::No, Event::IsCancelable::Yes);
     dispatchEvent(cancelEvent);
     if (!cancelEvent->defaultPrevented())
         close(returnValue, source);
+
+    m_isRequestingToClose = false;
 }
 
 bool HTMLDialogElement::isValidCommandType(const CommandType command)

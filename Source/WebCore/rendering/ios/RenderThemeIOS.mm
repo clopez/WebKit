@@ -30,6 +30,7 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "ARKitBadgeSystemImage.h"
+#import "AttachmentLayout.h"
 #import "BitmapImage.h"
 #import "BorderShape.h"
 #import "CSSToLengthConversionData.h"
@@ -65,7 +66,7 @@
 #import "LocalCurrentTraitCollection.h"
 #import "LocalFrame.h"
 #import "LocalFrameView.h"
-#import "NodeInlines.h"
+#import "LocalizedDateCache.h"
 #import "NodeRenderStyle.h"
 #import "PaintInfo.h"
 #import "PathUtilities.h"
@@ -76,6 +77,7 @@
 #import "RenderMenuList.h"
 #import "RenderMeter.h"
 #import "RenderObject.h"
+#import "RenderProgress.h"
 #import "RenderSlider.h"
 #import "RenderStyle+SettersInlines.h"
 #import "RenderView.h"
@@ -220,6 +222,15 @@ void RenderThemeIOS::adjustMinimumIntrinsicSizeForAppearance(StyleAppearance app
             style.setMinHeight(Style::MinimumSize(minimumControlSize.height()));
         }
     }
+}
+
+Style::PreferredSizePair RenderThemeIOS::controlSize(StyleAppearance appearance, const FontCascade& fontCascade, const Style::PreferredSizePair& zoomedSize, float) const
+{
+    if (appearance != StyleAppearance::Checkbox && appearance != StyleAppearance::Radio)
+        return zoomedSize;
+
+    auto size = Style::PreferredSize::Fixed { std::max(fontCascade.size(), 16.f) };
+    return { size, size };
 }
 
 void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element*) const
@@ -1434,6 +1445,11 @@ String RenderThemeIOS::extraDefaultStyleSheet()
 void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     paintInfo.context().drawSystemImage(ARKitBadgeSystemImage::create(image), rect);
+}
+
+void RenderThemeIOS::paintSystemPreviewBadge(const PaintInfo& paintInfo, const FloatRect& rect)
+{
+    paintInfo.context().drawSystemImage(ARKitBadgeSystemImage::createWithoutImage(), rect);
 }
 #endif
 

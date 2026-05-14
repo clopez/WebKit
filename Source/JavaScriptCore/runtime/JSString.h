@@ -23,10 +23,7 @@
 #pragma once
 
 #include <JavaScriptCore/ArgList.h>
-#include <JavaScriptCore/CallFrame.h>
 #include <JavaScriptCore/CommonIdentifiers.h>
-#include <JavaScriptCore/EnsureStillAliveHere.h>
-#include <JavaScriptCore/ExceptionEventLocation.h>
 #include <JavaScriptCore/GCOwnedDataScope.h>
 #include <JavaScriptCore/GetVM.h>
 #include <JavaScriptCore/Identifier.h>
@@ -34,10 +31,8 @@
 #include <JavaScriptCore/PropertySlot.h>
 #include <JavaScriptCore/Structure.h>
 #include <JavaScriptCore/ThrowScope.h>
-#include <array>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/ForbidHeapAllocation.h>
-#include <wtf/MathExtras.h>
 #include <wtf/UnalignedAccess.h>
 #include <wtf/text/StringView.h>
 
@@ -754,6 +749,8 @@ private:
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*, JSString*);
     friend JSString* jsAtomString(JSGlobalObject*, VM&, JSString*, JSString*, JSString*);
 };
+
+template<> void JSRopeString::RopeBuilder<RecordOverflow>::expand();
 
 JS_EXPORT_PRIVATE JSString* jsStringWithCacheSlowCase(VM&, StringImpl&);
 

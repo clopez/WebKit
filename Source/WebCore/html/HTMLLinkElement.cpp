@@ -60,7 +60,6 @@
 #include "MediaQueryParser.h"
 #include "MediaQueryParserContext.h"
 #include "MouseEvent.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "Page.h"
 #include "ParsedContentType.h"
@@ -760,7 +759,7 @@ bool HTMLLinkElement::isURLAttribute(const Attribute& attribute) const
 
 URL HTMLLinkElement::href() const
 {
-    return protect(document())->completeURL(attributeWithoutSynchronization(hrefAttr));
+    return protect(document())->encodingParseURL(attributeWithoutSynchronization(hrefAttr));
 }
 
 const AtomString& HTMLLinkElement::rel() const
@@ -771,7 +770,7 @@ const AtomString& HTMLLinkElement::rel() const
 #if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
 URL HTMLLinkElement::environmentMap() const
 {
-    return document().completeURL(attributeWithoutSynchronization(environmentmapAttr));
+    return document().encodingParseURL(attributeWithoutSynchronization(environmentmapAttr));
 }
 #endif
 

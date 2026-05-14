@@ -30,7 +30,6 @@
 #include <JavaScriptCore/ConcurrentJSLock.h>
 #include <JavaScriptCore/IndexingType.h>
 #include <JavaScriptCore/JSCJSValue.h>
-#include <JavaScriptCore/JSCJSValueCell.h>
 #include <JavaScriptCore/JSCast.h>
 #include <JavaScriptCore/JSTypeInfo.h>
 #include <JavaScriptCore/PropertyName.h>
@@ -190,6 +189,8 @@ public:
     void dump(PrintStream& out) const final;
 
 private:
+    explicit StructureFireDetail(ClangVTableWorkaroundTag);
+
     const Structure* m_structure;
 };
 

@@ -49,10 +49,10 @@
 #include "LegacyRenderSVGRoot.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
-#include "NodeInlines.h"
 #include "Editing.h"
 #include "OutlinePainter.h"
 #include "Page.h"
+#include "PlatformRenderTheme.h"
 #include "PseudoElement.h"
 #include "ReferencedSVGResources.h"
 #include "RenderChildIterator.h"
@@ -1715,6 +1715,16 @@ RenderElement* RenderObject::container(const RenderLayerModelObject* repaintCont
 {
     repaintContainerSkipped = false;
     return containerForElement(*this, repaintContainer, &repaintContainerSkipped);
+}
+
+bool RenderObject::isAncestorContainerOfRenderer(const RenderObject& descendant) const
+{
+    for (CheckedPtr renderer = &descendant; renderer; renderer = renderer->container()) {
+        if (renderer == this)
+            return true;
+    }
+
+    return false;
 }
 
 bool RenderObject::isSelectionBorder() const

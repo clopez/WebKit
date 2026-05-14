@@ -63,6 +63,10 @@
 #include "ThrowScope.h"
 #include "TopExceptionScope.h"
 #include "VMTrapsInlines.h"
+#if ENABLE(WEBASSEMBLY)
+#include "JSWebAssemblyStreamingContext.h"
+#include "WebAssemblyCompileOptions.h"
+#endif
 #include <wtf/NoTailCalls.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -1381,6 +1385,32 @@ static void promiseResolveWithoutHandlerJob(JSGlobalObject* globalObject, VM& vm
     promiseResolveWithoutHandlerJobSlow(globalObject, vm, promiseOrCapability, resolution, status);
 }
 
+#if ENABLE(WEBASSEMBLY)
+static void webAssemblyCompileStreaming(JSGlobalObject* globalObject, VM& vm, JSValue resolution, JSWebAssemblyStreamingContext* context, JSPromise::Status status)
+{
+    JSPromise* outerPromise = context->promise();
+    if (status == JSPromise::Status::Rejected) {
+        outerPromise->reject(vm, globalObject, resolution);
+        return;
+    }
+    ASSERT(globalObject->globalObjectMethodTable()->compileStreaming);
+    globalObject->globalObjectMethodTable()->compileStreaming(globalObject, outerPromise, resolution, context->takeCompileOptions());
+}
+
+static void webAssemblyInstantiateStreaming(JSGlobalObject* globalObject, VM& vm, JSValue resolution, JSWebAssemblyStreamingContext* context, JSPromise::Status status)
+{
+    JSPromise* outerPromise = context->promise();
+    if (status == JSPromise::Status::Rejected) {
+        outerPromise->reject(vm, globalObject, resolution);
+        return;
+    }
+
+    // FIXME: <http://webkit.org/b/184888> if there's an importObject and it contains a Memory, then we can compile the module with the right memory type (fast or not) by looking at the memory's type.
+    ASSERT(globalObject->globalObjectMethodTable()->instantiateStreaming);
+    globalObject->globalObjectMethodTable()->instantiateStreaming(globalObject, outerPromise, resolution, context->importObject(), context->takeCompileOptions());
+}
+#endif
+
 void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotask task, uint8_t payload, std::span<const JSValue, maxMicrotaskArguments> arguments, MicrotaskCall* microtaskCall)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -1411,26 +1441,7 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
         if (!promiseSpeciesWatchpointIsValid(vm, promise)) [[unlikely]]
             RELEASE_AND_RETURN(scope, promiseResolveThenableJobWithInternalMicrotaskFastSlow(globalObject, promise, task, context));
 
-        JSValue reactionsOrResult = promise->reactionsOrResult();
-        switch (promise->status()) {
-        case JSPromise::Status::Pending: {
-            auto* reaction = JSSlimPromiseReaction::create(vm, jsUndefined(), task, context, reactionsOrResult ? uncheckedDowncast<JSPromiseReaction>(reactionsOrResult) : nullptr);
-            promise->setReactionsOrResult(vm, reaction);
-            promise->markAsHandled();
-            break;
-        }
-        case JSPromise::Status::Rejected: {
-            if (!promise->isHandled())
-                globalObject->globalObjectMethodTable()->promiseRejectionTracker(globalObject, promise, JSPromiseRejectionOperation::Handle);
-            JSPromise::rejectWithInternalMicrotask(vm, globalObject, reactionsOrResult, task, context);
-            promise->markAsHandled();
-            break;
-        }
-        case JSPromise::Status::Fulfilled: {
-            JSPromise::fulfillWithInternalMicrotask(vm, globalObject, reactionsOrResult, task, context);
-            break;
-        }
-        }
+        promise->performPromiseThenWithInternalMicrotask(vm, globalObject, task, nullptr, context);
         return;
     }
 
@@ -1757,6 +1768,18 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
         importModuleNamespace(globalObject, vm, scope, arguments, payload);
         return;
     }
+
+#if ENABLE(WEBASSEMBLY)
+    case InternalMicrotask::WebAssemblyCompileStreaming:
+        scope.release();
+        webAssemblyCompileStreaming(globalObject, vm, arguments[1], uncheckedDowncast<JSWebAssemblyStreamingContext>(arguments[2].asCell()), static_cast<JSPromise::Status>(payload));
+        return;
+
+    case InternalMicrotask::WebAssemblyInstantiateStreaming:
+        scope.release();
+        webAssemblyInstantiateStreaming(globalObject, vm, arguments[1], uncheckedDowncast<JSWebAssemblyStreamingContext>(arguments[2].asCell()), static_cast<JSPromise::Status>(payload));
+        return;
+#endif
 
     case InternalMicrotask::Opaque: {
         RELEASE_ASSERT_NOT_REACHED();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,16 +35,22 @@
 #include <limits>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 
+#include "CoreVideoSoftLink.h"
+
 namespace WebCore {
 
-
-RefPtr<NativeImage> NativeImage::create(PlatformImagePtr&& image)
+RefPtr<NativeImage> NativeImage::create(PlatformImagePtr&& image, std::optional<GainMap>&& gainMap)
 {
     if (!image)
         return nullptr;
     if (CGImageGetWidth(image.get()) > std::numeric_limits<int>::max() || CGImageGetHeight(image.get()) > std::numeric_limits<int>::max())
         return nullptr;
-    return adoptRef(*new NativeImage(WTF::move(image)));
+    return adoptRef(*new NativeImage(WTF::move(image), WTF::move(gainMap)));
+}
+
+RefPtr<NativeImage> NativeImage::create(PlatformImagePtr&& image)
+{
+    return create(WTF::move(image), std::nullopt);
 }
 
 RefPtr<NativeImage> NativeImage::createTransient(PlatformImagePtr&& image)
@@ -71,6 +77,15 @@ bool NativeImage::hasAlpha() const
 {
     CGImageAlphaInfo info = CGImageGetAlphaInfo(m_platformImage.get());
     return (info >= kCGImageAlphaPremultipliedLast) && (info <= kCGImageAlphaFirst);
+}
+
+size_t NativeImage::sizeInBytes() const
+{
+    CheckedSize height = CGImageGetHeight(m_platformImage);
+    CheckedSize sizeInBytes = height * CGImageGetBytesPerRow(m_platformImage);
+    if (m_gainMap)
+        sizeInBytes += CVPixelBufferGetDataSize(m_gainMap->gainMapPixelBuffer);
+    return sizeInBytes;
 }
 
 DestinationColorSpace NativeImage::colorSpace() const
@@ -117,7 +132,6 @@ void NativeImage::clearSubimages()
     CGSubimageCacheWithTimer::clearImage(platformImage().get());
 #endif
 }
-
 
 } // namespace WebCore
 

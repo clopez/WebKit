@@ -113,6 +113,10 @@ public:
     WKStringRef testPluginDirectory() const { return m_testPluginDirectory.get(); }
 
     PlatformWebView* mainWebView() { return m_mainWebView.get(); }
+    PlatformWebView* viewForPage(WKPageRef);
+    PlatformWebView* targetView() { return m_targetView ? m_targetView : m_mainWebView.get(); }
+    void setTargetView(PlatformWebView* view) { m_targetView = view; }
+    void setTargetViewFromMessage(WKScriptMessageRef);
     WKContextRef context() { return m_context.get(); }
     WKUserContentControllerRef userContentController() { return m_userContentController.get(); }
 
@@ -185,6 +189,7 @@ public:
     static ASCIILiteral webProcessName();
     static ASCIILiteral networkProcessName();
     static ASCIILiteral gpuProcessName();
+    static ASCIILiteral serviceWorkerProcessName();
 
     WorkQueueManager& workQueueManager() { return m_workQueueManager; }
 
@@ -338,11 +343,7 @@ public:
 
     void removeAllSessionCredentials(CompletionHandler<void(WKTypeRef)>&&);
 
-    void clearIndexedDatabases();
-    void clearLocalStorage();
     void syncLocalStorage();
-
-    void clearServiceWorkerRegistrations();
 
     void clearMemoryCache();
     void clearDOMCache(WKStringRef origin);
@@ -356,6 +357,8 @@ public:
 
     bool didReceiveServerRedirectForProvisionalNavigation() const { return m_didReceiveServerRedirectForProvisionalNavigation; }
     void clearDidReceiveServerRedirectForProvisionalNavigation() { m_didReceiveServerRedirectForProvisionalNavigation = false; }
+
+    WKRetainPtr<WKStringRef> lastProvisionalNavigationFailureURL() const;
 
     void addMockMediaDevice(WKStringRef persistentID, WKStringRef label, WKStringRef type, WKDictionaryRef properties);
     void clearMockMediaDevices();
@@ -426,8 +429,6 @@ public:
     void completeMediaKeySystemPermissionCheck(WKMediaKeySystemPermissionCallbackRef);
     void setIsMediaKeySystemPermissionGranted(bool);
     WKRetainPtr<WKStringRef> takeViewPortSnapshot();
-
-    WKRetainPtr<WKArrayRef> getAndClearReportedWindowProxyAccessDomains();
 
     WKPreferencesRef platformPreferences() { return m_preferences.get(); }
 
@@ -740,6 +741,7 @@ private:
 
     std::unique_ptr<PlatformWebView> m_mainWebView;
     Vector<UniqueRef<PlatformWebView>> m_auxiliaryWebViews;
+    PlatformWebView* m_targetView { nullptr };
     WKRetainPtr<WKContextRef> m_context;
     WKRetainPtr<WKPreferencesRef> m_preferences;
     WKRetainPtr<WKUserContentControllerRef> m_userContentController;
@@ -813,6 +815,7 @@ private:
     bool m_shouldDecideResponsePolicyAfterDelay { false };
 
     bool m_didReceiveServerRedirectForProvisionalNavigation { false };
+    WKRetainPtr<WKURLRef> m_lastProvisionalNavigationFailureURL;
 
     WKRetainPtr<WKArrayRef> m_openPanelFileURLs;
 #if PLATFORM(IOS_FAMILY)

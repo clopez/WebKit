@@ -32,7 +32,6 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "RenderElementInlines.h"
 #include "RenderTableCell.h"
@@ -183,7 +182,7 @@ void HTMLTableCellElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) c
 {
     HTMLTablePartElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, protect(document())->completeURL(attributeWithoutSynchronization(backgroundAttr)));
+    addSubresourceURL(urls, protect(document())->encodingParseURL(attributeWithoutSynchronization(backgroundAttr)));
 }
 
 HTMLTableCellElement* HTMLTableCellElement::cellAbove() const

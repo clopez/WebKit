@@ -42,6 +42,7 @@
 #include "LegacyRenderSVGModelObject.h"
 #include "PaintInfo.h"
 #include "PathUtilities.h"
+#include "PlatformRenderTheme.h"
 #include "RenderBlockFlow.h"
 #include "RenderChildIterator.h"
 #include "RenderElementStyleInlines.h"
@@ -729,7 +730,7 @@ void OutlinePainter::addPDFURLAnnotationForLink(const RenderElement& renderer, c
             return;
         }
     }
-    m_paintInfo.context().setURLForRect(protect(element->document())->completeURL(href), urlRect);
+    m_paintInfo.context().setURLForRect(protect(element->document())->encodingParseURL(href), urlRect);
 }
 
 } // namespace WebCore

@@ -87,10 +87,10 @@
 #import <WebCore/NowPlayingInfo.h>
 #import <WebCore/NullPlaybackSessionInterface.h>
 #import <WebCore/PlatformPlaybackSessionInterface.h>
+#import <WebCore/PlatformRenderTheme.h>
 #import <WebCore/PlaybackSessionInterfaceAVKitLegacy.h>
 #import <WebCore/PlaybackSessionInterfaceMac.h>
 #import <WebCore/PlaybackSessionInterfaceTVOS.h>
-#import <WebCore/RenderTheme.h>
 #import <WebCore/RunLoopObserver.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <WebCore/SleepDisabler.h>
@@ -1388,7 +1388,7 @@ bool WebPageProxy::shouldActivateDisplayCaptureCapability() const
     if (!isViewVisible())
         return false;
 
-    return internals().mediaState.containsAny(MediaProducer::DisplayCaptureMask);
+    return internals().mediaState.containsAny(MediaProducer::DisplayCaptureMask | MediaProducer::IsPromptingForDisplayCaptureMask);
 }
 
 bool WebPageProxy::shouldDeactivateDisplayCaptureCapability() const
@@ -1397,7 +1397,7 @@ bool WebPageProxy::shouldDeactivateDisplayCaptureCapability() const
     if (!displayCaptureCapability || !displayCaptureCapability->isActivatingOrActive())
         return false;
 
-    if (internals().mediaState & WebCore::MediaProducer::DisplayCaptureMask)
+    if (internals().mediaState.containsAny(MediaProducer::DisplayCaptureMask | MediaProducer::IsPromptingForDisplayCaptureMask))
         return false;
 
     return true;

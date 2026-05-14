@@ -63,7 +63,6 @@
 #include "LocalFrameView.h"
 #include "MouseEvent.h"
 #include "NodeDocument.h"
-#include "NodeInlines.h"
 #include "OffscreenCanvasRenderingContext2D.h"
 #include "Page.h"
 #include "PageInspectorController.h"
@@ -75,8 +74,11 @@
 #include "SystemSoundManager.h"
 #include "UserGestureIndicator.h"
 #include "WebCorePersistentCoders.h"
+#include <JavaScriptCore/FrameTracers.h>
+#include <JavaScriptCore/JSObjectInlines.h>
 #include <JavaScriptCore/ScriptFunctionCall.h>
 #include <JavaScriptCore/Strong.h>
+#include <JavaScriptCore/StrongInlines.h>
 #include <pal/system/Sound.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/JSONValues.h>
@@ -86,6 +88,8 @@
 #include <wtf/text/MakeString.h>
 
 #if PLATFORM(COCOA)
+#include "ScriptSourceCode.h"
+#include <JavaScriptCore/TopExceptionScope.h>
 #include <wtf/spi/darwin/OSVariantSPI.h>
 #endif
 
@@ -827,7 +831,6 @@ ExceptionOr<JSC::JSValue> InspectorFrontendHost::evaluateScriptInExtensionTab(HT
     JSDOMGlobalObject* frameGlobalObject = frame->script().globalObject(mainThreadNormalWorldSingleton());
     if (!frameGlobalObject)
         return Exception { ExceptionCode::InvalidStateError, "Unable to find global object for <iframe>"_s };
-
 
     JSC::SuspendExceptionScope scope(frameGlobalObject->vm());
     ValueOrException result = frame->script().evaluateInWorld(ScriptSourceCode(scriptSource, JSC::SourceTaintedOrigin::Untainted), mainThreadNormalWorldSingleton());

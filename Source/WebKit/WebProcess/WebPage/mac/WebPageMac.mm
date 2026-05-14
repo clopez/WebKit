@@ -92,6 +92,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
 #import <WebCore/PlatformKeyboardEvent.h>
+#import <WebCore/PlatformRenderTheme.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/PointerCharacteristics.h>
 #import <WebCore/Quirks.h>
@@ -100,7 +101,6 @@
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
 #import <WebCore/RenderStyle.h>
-#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/TextIterator.h>
@@ -356,8 +356,9 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
             haveTextInsertionCommands = true;
     }
     // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
-    // Keypress (Char event) handler is the latest opportunity to execute.
-    if (!haveTextInsertionCommands || platformEvent->type() == PlatformEvent::Type::Char) {
+    // Keypress (Char event) handler is the latest opportunity to execute. When the input method handled the
+    // keydown, no keypress will be dispatched, so text insertion commands must be executed here.
+    if (!haveTextInsertionCommands || platformEvent->type() == PlatformEvent::Type::Char || event.handledByInputMethod()) {
         eventWasHandled = executeKeypressCommandsInternal(commands, &event);
         commands.clear();
     }

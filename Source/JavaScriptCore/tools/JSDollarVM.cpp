@@ -34,6 +34,7 @@
 #include "Completion.h"
 #include "ControlFlowProfiler.h"
 #include "DOMAttributeGetterSetter.h"
+#include "DOMJITCallDOMGetterSnippet.h"
 #include "DOMJITGetterSetter.h"
 #include "Debugger.h"
 #include "ExecutableBaseInlines.h"
@@ -42,6 +43,7 @@
 #include "GetterSetter.h"
 #include "HeapProfiler.h"
 #include "HeapSnapshotBuilder.h"
+#include "InitializeThreading.h"
 #include "InterpreterInlines.h"
 #include "JITSizeStatistics.h"
 #include "JSArray.h"
@@ -70,7 +72,6 @@
 #include <bmalloc/BPlatform.h>
 #include <unicode/uversion.h>
 #include <wtf/ApproximateTime.h>
-#include <wtf/Atomics.h>
 #include <wtf/CPUTime.h>
 #include <wtf/DataLog.h>
 #include <wtf/Language.h>
@@ -94,6 +95,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #include "WasmModuleInformation.h"
 #include "WasmStreamingCompiler.h"
 #include "WasmStreamingParser.h"
+#include "WasmTypeDefinition.h"
 #endif
 
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
@@ -761,13 +763,11 @@ JSC_DEFINE_CUSTOM_SETTER(testStaticAccessorPutter, (JSGlobalObject* globalObject
     return thisObject->putDirect(vm, PropertyName(Identifier::fromString(vm, "testField"_s)), JSValue::decode(value));
 }
 
-static const struct CompactHashIndex staticCustomAccessorTableIndex[6] = {
-    { -1, -1 },
-    { -1, -1 },
-    { -1, -1 },
-    { 0, 4 },
-    { 1, 5 },
+static const struct CompactHashIndex staticCustomAccessorTableIndex[4] = {
     { 2, -1 },
+    { 0, -1 },
+    { 1, -1 },
+    { -1, -1 },
 };
 
 static const struct JSC::HashTableValue staticCustomAccessorTableValues[3] = {
@@ -859,10 +859,10 @@ JSC_DEFINE_CUSTOM_SETTER(testStaticValuePutterSetFlag, (JSGlobalObject* globalOb
 }
 
 static const struct CompactHashIndex staticCustomValueTableIndex[5] = {
-    { 0, -1 },
+    { 1, 4 },
     { -1, -1 },
-    { 1, -1 },
-    { 2, 4 },
+    { 0, -1 },
+    { 2, -1 },
     { 3, -1 },
 };
 
@@ -2210,6 +2210,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionCurrentCPUTime);
 static JSC_DECLARE_HOST_FUNCTION(functionTotalGCTime);
 static JSC_DECLARE_HOST_FUNCTION(functionParseCount);
 static JSC_DECLARE_HOST_FUNCTION(functionIsWasmSupported);
+static JSC_DECLARE_HOST_FUNCTION(functionWasmCanonicalTypeCount);
 static JSC_DECLARE_HOST_FUNCTION(functionMake16BitStringIfPossible);
 static JSC_DECLARE_HOST_FUNCTION(functionGetStructureTransitionList);;
 static JSC_DECLARE_HOST_FUNCTION(functionGetConcurrently);
@@ -3892,6 +3893,16 @@ JSC_DEFINE_HOST_FUNCTION(functionIsWasmSupported, (JSGlobalObject*, CallFrame*))
     return JSValue::encode(jsBoolean(Wasm::isSupported()));
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionWasmCanonicalTypeCount, (JSGlobalObject*, CallFrame*))
+{
+    DollarVMAssertScope assertScope;
+#if ENABLE(WEBASSEMBLY)
+    return JSValue::encode(jsNumber(Wasm::TypeInformation::canonicalTypeCount()));
+#else
+    return JSValue::encode(jsNumber(0));
+#endif
+}
+
 JSC_DEFINE_HOST_FUNCTION(functionMake16BitStringIfPossible, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     DollarVMAssertScope assertScope;
@@ -4530,6 +4541,7 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, alwaysAllow, "parseCount"_s, functionParseCount, 0);
 
     addFunction(vm, alwaysAllow, "isWasmSupported"_s, functionIsWasmSupported, 0);
+    addFunction(vm, alwaysAllow, "wasmCanonicalTypeCount"_s, functionWasmCanonicalTypeCount, 0);
     addFunction(vm, alwaysAllow, "make16BitStringIfPossible"_s, functionMake16BitStringIfPossible, 1);
 
     addFunction(vm, allowIfNotFuzz, "getStructureTransitionList"_s, functionGetStructureTransitionList, 1);
@@ -4626,7 +4638,9 @@ Structure* JSDollarVM::createStructure(VM& vm, JSGlobalObject* globalObject, JSV
 }
 
 DEFINE_VISIT_CHILDREN(JSDollarVM);
-REFTRACKER_IMPL(StrongRefTracker);
+REFTRACKER_IMPL(StrongRefTracker, {
+    JSC::initialize();
+});
 
 } // namespace JSC
 

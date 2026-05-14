@@ -59,6 +59,7 @@
 #endif
 #include "ViewTransition.h"
 #include "ViewTransitionTypeSet.h"
+#include <wtf/GenericHashKey.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -694,11 +695,18 @@ bool SelectorChecker::attributeSelectorMatches(const Element& element, const Qua
     auto& selectorName = isHTML ? selectorAttribute.localNameLowercase() : selectorAttribute.localName();
     if (!Attribute::nameMatchesFilter(attributeName, selectorAttribute.prefix(), selectorName, selectorAttribute.namespaceURI()))
         return false;
-    bool caseSensitive = true;
-    if (selector.attributeValueMatchingIsCaseInsensitive())
-        caseSensitive = false;
-    else if (element.document().isHTMLDocument() && element.isHTMLElement() && !HTMLDocument::isCaseSensitiveAttribute(selector.attribute()))
-        caseSensitive = false;
+    bool caseSensitive = [&] {
+        switch (selector.attributeMatchType()) {
+        case CSSSelector::AttributeMatchType::CaseInsensitive:
+            return false;
+        case CSSSelector::AttributeMatchType::CaseSensitive:
+            return true;
+        case CSSSelector::AttributeMatchType::Default:
+            return !(element.document().isHTMLDocument() && element.isHTMLElement() && !HTMLDocument::isCaseSensitiveAttribute(selector.attribute()));
+        }
+        ASSERT_NOT_REACHED();
+        return true;
+    }();
     return attributeValueMatches(Attribute(attributeName, attributeValue), selector.match(), selector.value(), caseSensitive);
 }
 
@@ -809,11 +817,18 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
             return false;
 
         const QualifiedName& attr = selector.attribute();
-        bool caseSensitive = true;
-        if (selector.attributeValueMatchingIsCaseInsensitive())
-            caseSensitive = false;
-        else if (m_documentIsHTML && element->isHTMLElement() && !HTMLDocument::isCaseSensitiveAttribute(attr))
-            caseSensitive = false;
+        bool caseSensitive = [&] {
+            switch (selector.attributeMatchType()) {
+            case CSSSelector::AttributeMatchType::CaseInsensitive:
+                return false;
+            case CSSSelector::AttributeMatchType::CaseSensitive:
+                return true;
+            case CSSSelector::AttributeMatchType::Default:
+                return !(m_documentIsHTML && element->isHTMLElement() && !HTMLDocument::isCaseSensitiveAttribute(attr));
+            }
+            ASSERT_NOT_REACHED();
+            return true;
+        }();
 
         return anyAttributeMatches(element, selector, attr, caseSensitive);
     }
@@ -1440,9 +1455,9 @@ bool SelectorChecker::matchSelectorList(CheckingContext& checkingContext, const 
 #if ENABLE(CSS_SELECTOR_JIT)
 static constexpr auto maximumCompiledHasArgumentSelectorsSize = 1024u;
 
-static HashMap<const CSSSelectorList*, FixedVector<CompiledSelector>>& NODELETE compiledHasArgumentSelectorsMap()
+static HashMap<GenericHashKey<CSSSelectorList>, FixedVector<CompiledSelector>>& NODELETE compiledHasArgumentSelectorsMap()
 {
-    static NeverDestroyed<HashMap<const CSSSelectorList*, FixedVector<CompiledSelector>>> map;
+    static NeverDestroyed<HashMap<GenericHashKey<CSSSelectorList>, FixedVector<CompiledSelector>>> map;
     return map;
 }
 #endif
@@ -1490,28 +1505,25 @@ bool SelectorChecker::matchHasPseudoClass(CheckingContext& checkingContext, cons
         return false;
 
 #if ENABLE(CSS_SELECTOR_JIT)
-    FixedVector<CompiledSelector>* compiledSelectors = nullptr;
     if (element.document().settings().cssSelectorJITCompilerEnabled()) {
         auto& map = compiledHasArgumentSelectorsMap();
         if (map.size() >= maximumCompiledHasArgumentSelectorsSize)
             map.remove(map.random());
-        compiledSelectors = &map.ensure(&selectorList, [&] {
+        auto& compiledSelectors = map.ensure(selectorList, [&] {
             return FixedVector<CompiledSelector>(selectorList.size());
         }).iterator->value;
+
+        unsigned argIndex = 0;
+        for (auto& hasSelector : selectorList) {
+            if (matchHasArgumentSelector(checkingContext, element, hasSelector, &compiledSelectors[argIndex++]))
+                return true;
+        }
+        return false;
     }
 #endif
 
-#if ENABLE(CSS_SELECTOR_JIT)
-    unsigned argIndex = 0;
-#endif
     for (auto& hasSelector : selectorList) {
-        CompiledSelector* compiled = nullptr;
-#if ENABLE(CSS_SELECTOR_JIT)
-        if (compiledSelectors)
-            compiled = &(*compiledSelectors)[argIndex];
-        ++argIndex;
-#endif
-        if (matchHasArgumentSelector(checkingContext, element, hasSelector, compiled))
+        if (matchHasArgumentSelector(checkingContext, element, hasSelector, nullptr))
             return true;
     }
     return false;

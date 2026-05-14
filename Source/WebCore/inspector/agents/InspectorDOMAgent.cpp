@@ -100,7 +100,6 @@
 #include "LocalFrameView.h"
 #include "MutationEvent.h"
 #include "Node.h"
-#include "NodeInlines.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "PageInspectorController.h"
@@ -1912,7 +1911,7 @@ String InspectorDOMAgent::documentURLString(Document* document)
 
 static String documentBaseURLString(Document* document)
 {
-    return document->completeURL(emptyString()).string();
+    return document->encodingParseURL(emptyString()).string();
 }
 
 static bool NODELETE pseudoElementType(PseudoElementType pseudoElementType, Inspector::Protocol::DOM::PseudoType* type)

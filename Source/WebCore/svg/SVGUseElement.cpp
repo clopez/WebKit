@@ -34,7 +34,6 @@
 #include "ElementChildIteratorInlines.h"
 #include "Event.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "LegacyRenderSVGResource.h"
 #include "LegacyRenderSVGTransformableContainer.h"
 #include "NodeName.h"
@@ -662,10 +661,10 @@ void SVGUseElement::updateExternalDocument()
     URL externalDocumentURL;
     Ref<Document> document = this->document();
     // FIXME: This early exit should be removed once the ASSERT(!url.protocolIsData()) is removed from isExternalURIReference().
-    if (document->completeURL(href()).protocolIsData())
+    if (document->encodingParseURL(href()).protocolIsData())
         return;
     if (isConnected() && isExternalURIReference(href(), document)) {
-        externalDocumentURL = document->completeURL(href());
+        externalDocumentURL = document->encodingParseURL(href());
         if (!externalDocumentURL.hasFragmentIdentifier())
             externalDocumentURL = URL();
     }

@@ -27,11 +27,9 @@
 #include "ElementInlines.h"
 #include "Event.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "JSRequestPriority.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "RequestPriority.h"
 #include "Settings.h"
@@ -222,7 +220,7 @@ void HTMLScriptElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) cons
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, protect(document())->completeURL(sourceAttributeValue()));
+    addSubresourceURL(urls, protect(document())->encodingParseURL(sourceAttributeValue()));
 }
 
 String HTMLScriptElement::sourceAttributeValue() const

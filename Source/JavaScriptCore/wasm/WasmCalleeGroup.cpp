@@ -34,7 +34,6 @@
 #include "WasmIPIntPlan.h"
 #include "WasmMachineThreads.h"
 #include "WasmWorklist.h"
-#include <wtf/text/MakeString.h>
 
 namespace JSC { namespace Wasm {
 
@@ -69,7 +68,7 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
     , m_callers(m_calleeCount)
 {
     RefPtr<CalleeGroup> protectedThis = this;
-    m_plan = adoptRef(*new IPIntPlan(vm, moduleInformation, m_ipintCallees->span().data(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTF::move(protectedThis)] (Plan&) {
+    m_plan = adoptRef(*new IPIntPlan(vm, moduleInformation, m_ipintCallees.copyRef(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTF::move(protectedThis)] (Plan&) {
         Locker locker { m_lock };
         if (m_plan->failed()) {
             m_errorMessage = m_plan->errorMessage();
@@ -492,6 +491,7 @@ TriState CalleeGroup::calleeIsReferenced(const AbstractLocker& locker, Wasm::Cal
     case CompilationMode::JSToWasmICMode:
     case CompilationMode::WasmToJSMode:
     case CompilationMode::WasmBuiltinMode:
+    case CompilationMode::RestoreFrameMode:
         return TriState::True;
     default:
         RELEASE_ASSERT_NOT_REACHED();

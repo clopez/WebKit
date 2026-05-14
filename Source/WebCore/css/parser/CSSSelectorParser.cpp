@@ -790,7 +790,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumeAttribute(CSSParse
     auto selector = makeUnique<MutableCSSSelector>();
 
     if (block.atEnd()) {
-        selector->setAttribute(qualifiedName, CSSSelector::CaseSensitive);
+        selector->setAttribute(qualifiedName, CSSSelector::AttributeMatchType::Default);
         selector->setMatch(CSSSelector::Match::Set);
         return selector;
     }
@@ -1140,12 +1140,14 @@ CSSSelector::Match CSSSelectorParser::consumeAttributeMatch(CSSParserTokenRange&
 CSSSelector::AttributeMatchType CSSSelectorParser::consumeAttributeFlags(CSSParserTokenRange& range)
 {
     if (range.peek().type() != IdentToken)
-        return CSSSelector::CaseSensitive;
+        return CSSSelector::AttributeMatchType::Default;
     const CSSParserToken& flag = range.consumeIncludingWhitespace();
     if (equalLettersIgnoringASCIICase(flag.value(), "i"_s))
-        return CSSSelector::CaseInsensitive;
+        return CSSSelector::AttributeMatchType::CaseInsensitive;
+    if (equalLettersIgnoringASCIICase(flag.value(), "s"_s))
+        return CSSSelector::AttributeMatchType::CaseSensitive;
     m_failedParsing = true;
-    return CSSSelector::CaseSensitive;
+    return CSSSelector::AttributeMatchType::Default;
 }
 
 // <an+b> token sequences have special serialization rules: https://www.w3.org/TR/css-syntax-3/#serializing-anb
@@ -1593,12 +1595,47 @@ static CSSSelectorList buildScopeSelector(const HasCompoundContext& context)
     return CSSSelectorList { WTF::move(result) };
 }
 
-CSSSelectorList CSSSelectorParser::makeHasScopeSelector(const CSSSelector& hasPseudoClass)
+// Returns a selector for the :has() scope element. Encodes two cases:
+//   - Specific selectors: strong scope (e.g. `.c1` for `.c1:has(> .trigger)`).
+//   - Universal `*`: weak scope. No compound peer at any level.
+// Scope-breaking is signalled by the caller passing an empty list.
+// `compoundSelectors` lists the compounds contributing to the scope, from outermost
+// (an enclosing :is()/:not()) to innermost (the :has() itself). For `.foo:is(.bar:has(.x))`
+// the outermost contributes `.foo` and the innermost contributes `.bar`, giving scope `.foo.bar`.
+// Only the outermost's left context (combinator + ancestor chain) is relevant; inner compounds
+// live inside :is()/:not() arguments. Inner compounds containing a type selector are skipped
+// to avoid synthesizing an invalid two-type compound.
+CSSSelectorList CSSSelectorParser::makeHasScopeSelector(const Vector<const CSSSelector*>& compoundSelectors)
 {
-    auto context = collectHasCompoundContext(hasPseudoClass);
-    if (!context)
-        return { };
-    return buildScopeSelector(*context);
+    ASSERT(!compoundSelectors.isEmpty());
+
+    auto* outermost = compoundSelectors.first()->firstInCompound();
+
+    Vector<const CSSSelector*> mergedPeers;
+    for (size_t i = 0; i < compoundSelectors.size(); ++i) {
+        auto context = collectHasCompoundContext(*compoundSelectors[i]);
+        if (!context)
+            continue;
+
+        if (i > 0) {
+            auto containsTypeSelector = std::ranges::any_of(context->compoundPeers, [](auto* peer) {
+                return peer->match() == CSSSelector::Match::Tag;
+            });
+            if (containsTypeSelector)
+                continue;
+        }
+
+        mergedPeers.appendVector(context->compoundPeers);
+    }
+
+    if (mergedPeers.isEmpty()) {
+        MutableCSSSelectorList result;
+        result.append(makeUnique<MutableCSSSelector>(anyQName()));
+        return CSSSelectorList { WTF::move(result) };
+    }
+
+    HasCompoundContext merged { WTF::move(mergedPeers), outermost->relation(), outermost->precedingInComplexSelector() };
+    return buildScopeSelector(merged);
 }
 
 CSSSelectorList CSSSelectorParser::makeHasArgumentWithScope(const CSSSelector& hasArgument, const CSSSelector& scopeSelector)

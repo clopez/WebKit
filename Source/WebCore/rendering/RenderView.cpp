@@ -45,7 +45,6 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
-#include "NodeInlines.h"
 #include "NodeTraversal.h"
 #include "Page.h"
 #include "RenderBoxInlines.h"
@@ -323,7 +322,7 @@ void RenderView::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, Tra
         transformState.move(toLayoutSize(frameView().scrollPositionRespectingCustomFixedPosition()));
 }
 
-bool RenderView::requiresColumns(int) const
+bool RenderView::requiresFragmentedFlow() const
 {
     return frameView().pagination().mode != Pagination::Mode::Unpaginated;
 }

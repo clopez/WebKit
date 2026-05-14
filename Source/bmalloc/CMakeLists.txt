@@ -26,6 +26,7 @@ set(bmalloc_SOURCES
     bmalloc/Mutex.cpp
     bmalloc/TZoneHeap.cpp
     bmalloc/TZoneHeapManager.cpp
+    bmalloc/VMAllocate.cpp
     bmalloc/bmalloc.cpp
 
     libpas/src/libpas/bmalloc_heap.c
@@ -158,6 +159,7 @@ set(bmalloc_C_SOURCES
     libpas/src/libpas/pas_physical_memory_transaction.c
     libpas/src/libpas/pas_primitive_heap_ref.c
     libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.c
+    libpas/src/libpas/pas_process.c
     libpas/src/libpas/pas_ptr_worklist.c
     libpas/src/libpas/pas_race_test_hooks.c
     libpas/src/libpas/pas_random.c
@@ -440,7 +442,6 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_medium_megapage_cache.h
     libpas/src/libpas/pas_megapage_cache.h
     libpas/src/libpas/pas_min_heap.h
-    libpas/src/libpas/pas_mmap_capability.h
     libpas/src/libpas/pas_monotonic_time.h
     libpas/src/libpas/pas_mte.h
     libpas/src/libpas/pas_mte_config.h
@@ -453,6 +454,7 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_page_base_inlines.h
     libpas/src/libpas/pas_page_config_kind.h
     libpas/src/libpas/pas_page_config_size_category.h
+    libpas/src/libpas/pas_page_flags.h
     libpas/src/libpas/pas_page_granule_use_count.h
     libpas/src/libpas/pas_page_header_placement_mode.h
     libpas/src/libpas/pas_page_header_table.h
@@ -470,6 +472,7 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_platform.h
     libpas/src/libpas/pas_primitive_heap_ref.h
     libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.h
+    libpas/src/libpas/pas_process.h
     libpas/src/libpas/pas_ptr_hash_map.h
     libpas/src/libpas/pas_ptr_hash_set.h
     libpas/src/libpas/pas_ptr_min_heap.h
@@ -617,7 +620,7 @@ if (USE_MIMALLOC)
     )
 endif ()
 
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+if (APPLE)
     list(APPEND bmalloc_SOURCES
         bmalloc/TZoneLog.cpp
     )

@@ -35,6 +35,7 @@
 #include "pas_heap_lock.h"
 #include "pas_large_utility_free_heap.h"
 #include "pas_log.h"
+#include "pas_process.h"
 #include "pas_scavenger.h"
 #include "pas_segregated_deallocation_mode.h"
 #include "pas_segregated_page_inlines.h"
@@ -43,7 +44,9 @@
 #include "pas_thread_local_cache_node.h"
 #include "pas_thread_suspend_lock.h"
 #include "pas_zero_memory.h"
-#if !PAS_OS(WINDOWS)
+#if PAS_OS(WINDOWS)
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 #if PAS_OS(DARWIN)
@@ -119,7 +122,7 @@ static void deallocate(pas_thread_local_cache* thread_local_cache)
         thread_local_cache->allocator_index_capacity);
 
     /* If we're doing symmetric decommit, then we need to commit the memory for the TLC now. */
-    pas_page_malloc_commit_without_mprotect(begin, size, /* is_symmetric */ !!PAS_USE_SYMMETRIC_PAGE_ALLOCATION, pas_may_mmap);
+    pas_page_malloc_commit_without_mprotect(begin, size, /* is_symmetric */ !!PAS_USE_SYMMETRIC_PAGE_ALLOCATION, pas_page_flags_none);
     
     pas_large_utility_free_heap_deallocate(begin, size);
 }
@@ -150,6 +153,13 @@ static void destructor(void* arg)
     if (verbose)
         pas_log("[%d] Destructor call for TLS %p\n", getpid(), thread_local_cache);
 
+    /* On Windows, ExitProcess asynchronously terminates other threads, which may still hold
+       a lock. However the caller thread of ExitProcess does normal TLS destruction, which may cause
+       a dead-lock when we need to take a lock which is held by other threads which gets forcefully terminated.
+       When we know this is in the middle of shutting down the process, ignore TLS destruction. */
+    if (pas_process_is_shutting_down())
+        return;
+
 #if !PAS_OS(DARWIN)
     /* If pthread_self_is_exiting_np does not exist, we set PAS_THREAD_LOCAL_CACHE_DESTROYED in the TLS so that
        subsequent calls of pas_thread_local_cache_try_get() can detect whether TLS is destroyed. Since
@@ -167,6 +177,51 @@ static void destructor(void* arg)
             pas_log("[%d] Repeated destructor call for TLS %p\n", getpid(), thread_local_cache);
     }
 }
+
+#if PAS_OS(WINDOWS)
+
+/* Windows teardown of the thread-local cache runs from a static TLS callback
+   registered in the .CRT$XLB segment. Unlike FLS destructors, this fires
+   deterministically during DLL_THREAD_DETACH on the exiting thread.
+   Force the linker to emit the PE TLS directory (via _tls_used) and retain our
+   callback pointer through /OPT:REF. The leading-underscore decoration differs
+   between x86 and x64. */
+
+#ifdef _WIN64
+#pragma comment(linker, "/INCLUDE:_tls_used")
+#pragma comment(linker, "/INCLUDE:pas_tls_callback_func")
+#else
+#pragma comment(linker, "/INCLUDE:__tls_used")
+#pragma comment(linker, "/INCLUDE:_pas_tls_callback_func")
+#endif
+
+static void NTAPI pas_tls_on_thread_exit(PVOID handle, DWORD reason, PVOID reserved)
+{
+    PAS_UNUSED_PARAM(handle);
+    PAS_UNUSED_PARAM(reserved);
+
+    if (reason != DLL_THREAD_DETACH && reason != DLL_PROCESS_DETACH)
+        return;
+
+    void* value = pas_thread_local_cache_pointer;
+    if (!value)
+        return;
+
+    destructor(value);
+}
+
+#ifdef _WIN64
+#pragma const_seg(push, ".CRT$XLB")
+extern const PIMAGE_TLS_CALLBACK pas_tls_callback_func;
+const PIMAGE_TLS_CALLBACK pas_tls_callback_func = pas_tls_on_thread_exit;
+#pragma const_seg(pop)
+#else
+#pragma data_seg(push, ".CRT$XLB")
+PIMAGE_TLS_CALLBACK pas_tls_callback_func = pas_tls_on_thread_exit;
+#pragma data_seg(pop)
+#endif
+
+#endif /* PAS_OS(WINDOWS) */
 
 static pas_thread_local_cache* allocate_cache(unsigned allocator_index_capacity)
 {
@@ -494,7 +549,7 @@ void pas_thread_local_cache_ensure_committed(pas_thread_local_cache* thread_loca
             (char*)thread_local_cache + (page_index << pas_page_malloc_alignment_shift()),
             pas_page_malloc_alignment(),
             /* is_symmetric */ !!PAS_USE_SYMMETRIC_PAGE_ALLOCATION,
-            pas_may_mmap);
+            pas_page_flags_none);
 
         pas_bitvector_set(thread_local_cache->pages_committed, page_index, true);
     }
@@ -925,7 +980,7 @@ static void decommit_allocator_range(pas_thread_local_cache* cache,
 
     pas_page_malloc_decommit_without_mprotect(
         (char*)cache + decommit_range.begin, pas_range_size(decommit_range),
-        /* is_symmetric */ !!PAS_USE_SYMMETRIC_PAGE_ALLOCATION, pas_may_mmap);
+        /* is_symmetric */ !!PAS_USE_SYMMETRIC_PAGE_ALLOCATION, pas_page_flags_none);
 
     if (verbose) {
         pas_log("Num committed pages in the range we just decommitted: %zu\n",

@@ -21,6 +21,8 @@
 #include "config.h"
 #include "Heap.h"
 
+#include "JSCJSValueInlines.h"
+
 #include "BuiltinExecutables.h"
 #include "CodeBlock.h"
 #include "CodeBlockSetInlines.h"
@@ -77,6 +79,7 @@
 #include "PinballCompletion.h"
 #include "PreventCollectionScope.h"
 #include "ProgramExecutable.h"
+#include "ProxyObject.h"
 #include "SamplingProfiler.h"
 #include "ShadowChicken.h"
 #include "SpaceTimeMutatorScheduler.h"
@@ -103,6 +106,7 @@
 #include <wtf/MemoryFootprint.h>
 #include <wtf/RAMSize.h>
 #include <wtf/Scope.h>
+#include <wtf/SetForScope.h>
 #include <wtf/SimpleStats.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -438,6 +442,11 @@ Heap::Heap(VM& vm, HeapType heapType)
     , unlinkedFunctionExecutableSpaceAndSet ISO_SUBSPACE_INIT(*this, destructibleCellHeapCellType, UnlinkedFunctionExecutable) // Hash:0x3ba0f4e1
 
 {
+    if (Options::forceFencedBarrier()) {
+        m_mutatorShouldBeFenced = true;
+        m_barrierThreshold = tautologicalThreshold;
+    }
+
     m_worldState.store(0);
 
     for (unsigned i = 0, numberOfParallelThreads = heapHelperPool().numberOfThreads(); i < numberOfParallelThreads; ++i) {
@@ -1499,6 +1508,10 @@ NEVER_INLINE bool Heap::runBeginPhase(GCConductor conn)
 
     beginMarking();
 
+#if ENABLE(WEBASSEMBLY)
+    prepareWasmCalleeCleanup();
+#endif
+
     forEachSlotVisitor(
         [&] (SlotVisitor& visitor) {
             visitor.didStartMarking();
@@ -1709,6 +1722,10 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
 
     updateObjectCounts();
     endMarking();
+
+#if ENABLE(WEBASSEMBLY)
+    finalizeWasmCalleeCleanup();
+#endif
 
     if (Options::verifyGC()) [[unlikely]]
         verifyGC();
@@ -3152,6 +3169,8 @@ void Heap::addCoreConstraints()
             if (!subspace)
                 return;
             ASSERT(worldIsStopped());
+            // ConservativeRoots gathering requires an up-to-date precise allocations snapshot.
+            m_objectSpace.prepareForConservativeScan();
             // FIXME: Add a second CellState for PinballCompletion so we can skip
             // pinballs whose conservative roots have already been gathered this cycle.
             ConservativeRoots conservativeRoots(*this);
@@ -3494,6 +3513,50 @@ bool Heap::isWasmCalleePendingDestruction(Wasm::Callee& callee)
 {
     Locker locker(m_wasmCalleesPendingDestructionLock);
     return m_wasmCalleesPendingDestruction.contains(callee);
+}
+
+bool Heap::didDiscoverPendingWasmCallee(Wasm::Callee* callee)
+{
+    if (!m_wasmCalleesPendingDestructionSnapshot.contains(callee))
+        return false;
+    m_wasmCalleesDiscoveredDuringGC.add(callee);
+    return true;
+}
+
+void Heap::prepareWasmCalleeCleanup()
+{
+    ASSERT(worldIsStopped());
+    ASSERT(m_wasmCalleesPendingDestructionSnapshot.isEmpty());
+    ASSERT(m_wasmCalleesDiscoveredDuringGC.isEmpty());
+    m_wasmCalleesPendingDestructionSnapshot.clear();
+    m_wasmCalleesDiscoveredDuringGC.clear();
+    m_boxedWasmCalleeFilter = TinyBloomFilter<uintptr_t>();
+
+    Locker locker(m_wasmCalleesPendingDestructionLock);
+    for (auto& callee : m_wasmCalleesPendingDestruction) {
+        m_wasmCalleesPendingDestructionSnapshot.add(callee.ptr());
+        m_boxedWasmCalleeFilter.add(std::bit_cast<uintptr_t>(CalleeBits::boxNativeCallee(callee.ptr())));
+    }
+}
+
+void Heap::finalizeWasmCalleeCleanup()
+{
+    ASSERT(worldIsStopped());
+    if (m_wasmCalleesPendingDestructionSnapshot.isEmpty())
+        return;
+
+    // Release refs outside the lock since Callee destructors may call reportWasmCalleePendingDestruction.
+    Vector<RefPtr<Wasm::Callee>, 8> wasmCalleesToRelease;
+    {
+        Locker locker(m_wasmCalleesPendingDestructionLock);
+        wasmCalleesToRelease = m_wasmCalleesPendingDestruction.takeIf<8>([&](const auto& callee) {
+            return m_wasmCalleesPendingDestructionSnapshot.contains(callee.ptr())
+                && !m_wasmCalleesDiscoveredDuringGC.contains(callee.ptr());
+        });
+    }
+
+    m_wasmCalleesPendingDestructionSnapshot.clear();
+    m_wasmCalleesDiscoveredDuringGC.clear();
 }
 
 #endif

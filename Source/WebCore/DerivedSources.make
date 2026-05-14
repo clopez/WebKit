@@ -1355,7 +1355,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/HTMLOptGroupElement.idl \
     $(WebCore)/html/HTMLOptionElement.idl \
     $(WebCore)/html/HTMLOptionsCollection.idl \
-    $(WebCore)/html/HTMLOrForeignElement.idl \
+    $(WebCore)/html/HTMLOrSVGOrMathMLElement.idl \
     $(WebCore)/html/HTMLOutputElement.idl \
     $(WebCore)/html/HTMLParagraphElement.idl \
     $(WebCore)/html/HTMLParamElement.idl \
@@ -1386,6 +1386,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/HTMLVideoElement.idl \
 	$(WebCore)/html/HTMLVideoElement+CaptionDisplaySettings.idl \
     $(WebCore)/html/HTMLVideoElement+RequestVideoFrameCallback.idl \
+    $(WebCore)/html/HyperlinkElementUtils.idl \
     $(WebCore)/html/ImageBitmap.idl \
     $(WebCore)/html/ImageBitmapOptions.idl \
     $(WebCore)/html/ImageData.idl \
@@ -2225,6 +2226,7 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/htmlSwitchControl.css \
     $(WebCore)/css/mathml.css \
     $(WebCore)/css/mathmlCoreExtras.css \
+    $(WebCore)/css/mathmlCoreMathvariant.css \
     $(WebCore)/css/mathmlFontSizeMath.css \
     $(WebCore)/css/mathmlLegacyFontSizeMath.css \
     $(WebCore)/css/popover.css \
@@ -2604,7 +2606,11 @@ PREPROCESS_IDLS_SCRIPTS = \
 
 IDL_COMMON_ARGS = --write-dependencies --outputDir .
 
-JS_BINDINGS_SCRIPTS = $(COMMON_BINDINGS_SCRIPTS) $(WebCore)/bindings/scripts/CodeGeneratorJS.pm
+JS_BINDINGS_SCRIPTS = \
+    $(COMMON_BINDINGS_SCRIPTS) \
+    $(WebCore)/bindings/scripts/CodeGeneratorJS.pm \
+    $(WebCore)/bindings/scripts/Hasher.pm \
+    $(WebCore)/bindings/scripts/StaticString.pm
 
 SUPPLEMENTAL_DEPENDENCY_FILE = SupplementalDependencies.txt
 SUPPLEMENTAL_MAKEFILE_DEPS = SupplementalDependencies.dep
@@ -2633,6 +2639,7 @@ IDL_INTERMEDIATE_FILES = \
     $(SHADOWREALMGLOBALSCOPE_CONSTRUCTORS_FILE) \
     $(DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) \
     $(SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) \
+    $(SHAREDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) \
     $(WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) \
     $(PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) \
     $(AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE)

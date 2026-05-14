@@ -287,6 +287,7 @@ struct DepthRange {
 struct RequestData {
     bool isPassthroughFullyObscured;
     DepthRange depthRange;
+    Vector<LayerHandle> activeLayerHandles;
 };
 
 struct RateMapDescription {
@@ -489,6 +490,7 @@ struct FrameData {
 enum class CompositionLayerType : uint8_t {
     Quad,
     Equirect,
+    Cylinder,
 };
 
 enum class LayerLayout : uint8_t {
@@ -525,6 +527,13 @@ struct DeviceLayer {
         FrameData::Pose poseInLocalSpace;
     };
     std::optional<EquirectLayerData> equirectLayerData;
+    struct CylinderLayerData {
+        float radius;
+        float centralAngle;
+        float aspectRatio;
+        FrameData::Pose poseInLocalSpace;
+    };
+    std::optional<CylinderLayerData> cylinderLayerData;
 #endif
 };
 

@@ -37,8 +37,10 @@
 #include "DocumentFullscreen.h"
 #include "FixedContainerEdges.h"
 #include "GraphicsLayer.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLIFrameElement.h"
+#include "HTMLModelElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InspectorInstrumentation.h"
@@ -4470,6 +4472,17 @@ bool RenderLayerCompositor::needsContentsCompositingLayer(const RenderLayer& lay
             return true;
     }
 
+#if ENABLE(MODEL_PROCESS)
+    // When a <model> with a hosted contents layer is inside an `<a rel="ar">`, we need a
+    // foreground layer so the AR badge painted in RenderModel::paintReplaced is composited
+    // above the hosted model contents layer.
+    if (CheckedPtr renderModel = dynamicDowncast<RenderModel>(layer.renderer())) {
+        RefPtr anchor = dynamicDowncast<HTMLAnchorElement>(renderModel->modelElement().parentElement());
+        if (anchor && anchor->isSystemPreviewLink())
+            return true;
+    }
+#endif
+
     return false;
 }
 
@@ -4588,10 +4601,11 @@ FloatSize RenderLayerCompositor::enclosingFrameViewVisibleSize() const
     const Ref frameView = m_renderView.frameView();
 #if PLATFORM(IOS_FAMILY)
     return frameView->exposedContentRect().size();
-#endif
+#else
     if (m_scrolledContentsLayer)
         return frameView->sizeForVisibleContent(scrollbarInclusionForVisibleRect());
     return frameView->visibleContentRect().size();
+#endif
 }
 
 float RenderLayerCompositor::contentsScaleMultiplierForNewTiles(const GraphicsLayer*) const
@@ -6149,12 +6163,6 @@ ScrollingCoordinator* RenderLayerCompositor::scrollingCoordinator() const
 GraphicsLayerFactory* RenderLayerCompositor::graphicsLayerFactory() const
 {
     return page().chrome().client().graphicsLayerFactory();
-}
-
-void RenderLayerCompositor::updateScrollSnapPropertiesWithFrameView(const LocalFrameView& frameView) const
-{
-    if (RefPtr coordinator = scrollingCoordinator())
-        coordinator->updateScrollSnapPropertiesWithFrameView(frameView);
 }
 
 Page& RenderLayerCompositor::page() const

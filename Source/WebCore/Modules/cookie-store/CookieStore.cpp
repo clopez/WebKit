@@ -38,7 +38,6 @@
 #include "DocumentPage.h"
 #include "EventNames.h"
 #include "EventTargetInterfaces.h"
-#include "EventTargetInlines.h"
 #include "ExceptionOr.h"
 #include "JSCookieListItem.h"
 #include "JSDOMConvertDictionary.h"
@@ -265,7 +264,7 @@ void CookieStore::getShared(GetType getType, CookieStoreGetOptions&& options, Re
 
     auto url = context->cookieURL();
     if (!options.url.isNull()) {
-        auto parsed = context->completeURL(options.url);
+        auto parsed = context->encodingParseURL(options.url);
         if (context->isDocument() && !equalIgnoringFragmentIdentifier(parsed, url)) {
             promise->reject(Exception { ExceptionCode::TypeError, "URL must match the document URL"_s });
             return;

@@ -29,6 +29,8 @@
 #include "DebugPageOverlays.h"
 #include "Document.h"
 #include "DocumentEnums.h"
+#include "DocumentQuirks.h"
+#include "FrameInlines.h"
 #include "InspectorInstrumentation.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutContext.h"
@@ -48,8 +50,8 @@
 #include "RenderLayerCompositor.h"
 #include "RenderLayoutState.h"
 #include "RenderObjectInlines.h"
-#include "RenderStyle.h"
 #include "RenderStyle+GettersInlines.h"
+#include "RenderStyle.h"
 #include "RenderView.h"
 #include "SVGTextFragment.h"
 #include "ScriptDisallowedScope.h"
@@ -66,15 +68,6 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalFrameViewLayoutContext);
 
 UpdateScrollInfoAfterLayoutTransaction::UpdateScrollInfoAfterLayoutTransaction() = default;
 UpdateScrollInfoAfterLayoutTransaction::~UpdateScrollInfoAfterLayoutTransaction() = default;
-
-static bool isObjectAncestorContainerOf(RenderElement& ancestor, RenderElement& descendant)
-{
-    for (CheckedPtr renderer = &descendant; renderer; renderer = renderer->container()) {
-        if (renderer == &ancestor)
-            return true;
-    }
-    return false;
-}
 
 #ifndef NDEBUG
 class RenderTreeNeedsLayoutChecker {
@@ -591,14 +584,14 @@ void LocalFrameViewLayoutContext::scheduleSubtreeLayout(RenderElement& layoutRoo
         return;
     }
 
-    if (isObjectAncestorContainerOf(*subtreeLayoutRoot, layoutRoot)) {
+    if (subtreeLayoutRoot->isAncestorContainerOfRenderer(layoutRoot)) {
         // Keep the current root.
         layoutRoot.markContainingBlocksForLayout(subtreeLayoutRoot);
         ASSERT(!subtreeLayoutRoot->container() || is<RenderView>(subtreeLayoutRoot->container()) || !subtreeLayoutRoot->container()->needsLayout());
         return;
     }
 
-    if (isObjectAncestorContainerOf(layoutRoot, *subtreeLayoutRoot)) {
+    if (layoutRoot.isAncestorContainerOfRenderer(*subtreeLayoutRoot)) {
         // Re-root at newRelayoutRoot.
         subtreeLayoutRoot->markContainingBlocksForLayout(&layoutRoot);
         setSubtreeLayoutRoot(layoutRoot);

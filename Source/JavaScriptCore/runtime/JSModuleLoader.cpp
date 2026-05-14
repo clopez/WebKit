@@ -720,7 +720,7 @@ JSPromise* JSModuleLoader::loadModule(JSGlobalObject* globalObject, const Module
     resultPromise->markAsHandled();
 
     promise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::ModuleLoadLinkEvaluateSettled, resultPromise, context);
-    resultPromise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::ModuleLoadStoreError, jsUndefined(), context);
+    resultPromise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::ModuleLoadStoreError, nullptr, context);
 
     return resultPromise;
 }
@@ -738,6 +738,9 @@ void JSModuleLoader::innerModuleLoading(JSGlobalObject* globalObject, ModuleGrap
 
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
+
+    checkSafeToRecurse(globalObject, scope);
+    RETURN_IF_EXCEPTION(scope, void());
 
     // 1. Assert: state.[[IsLoading]] is true.
     ASSERT(state->isLoading());
@@ -757,18 +760,25 @@ void JSModuleLoader::innerModuleLoading(JSGlobalObject* globalObject, ModuleGrap
             // (Not possible.)
             // 2.d.ii. Else if module.[[LoadedModules]] contains a LoadedModuleRequest Record record such that ModuleRequestsEqual(record, request) is true, then
             if (auto iter = module->loadedModules().find(ModuleMapKey { request.m_specifier.impl(), request.type() }); iter != module->loadedModules().end()) {
-                checkSafeToRecurse(globalObject, scope);
-                RETURN_IF_EXCEPTION(scope, void());
                 // 2.d.ii.1. Perform InnerModuleLoading(state, record.[[Module]]).
                 innerModuleLoading(globalObject, state, iter->value.m_module.get());
                 RETURN_IF_EXCEPTION(scope, void());
                 // 2.d.iii. Else,
             } else {
                 // 2.d.iii.1. Perform HostLoadImportedModule(module, request, state.[[HostDefined]], state).
+                unsigned loadedModulesCountBefore = module->loadedModules().size();
                 JSPromise* promise = hostLoadImportedModule(globalObject, cyclic, request, state, state->scriptFetcher(), true);
                 RETURN_IF_EXCEPTION(scope, void());
-                promise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::ModuleGraphLoadingError, jsUndefined(), state);
                 // 2.d.iii.2. NOTE: HostLoadImportedModule will call FinishLoadingImportedModule, which re-enters the graph loading process through ContinueModuleLoading.
+                //
+                // If module.[[LoadedModules]] grew across the HostLoadImportedModule call, the requested
+                // module was loaded synchronously, which means it was already loaded before. In that case
+                // there is no need to attach a ModuleGraphLoadingError reaction, so we skip it.
+                bool needsErrorReaction = module->loadedModules().size() == loadedModulesCountBefore;
+                ASSERT(module->loadedModules().size() <= loadedModulesCountBefore + 1);
+                ASSERT(needsErrorReaction != module->loadedModules().contains(ModuleMapKey { request.m_specifier.impl(), request.type() }));
+                if (needsErrorReaction)
+                    promise->performPromiseThenWithInternalMicrotask(vm, globalObject, InternalMicrotask::ModuleGraphLoadingError, nullptr, state);
             }
             // 2.d.iv. If state.[[IsLoading]] is false, return UNUSED.
             if (!state->isLoading())

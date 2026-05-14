@@ -42,11 +42,9 @@
 #include <WebCore/MediaElementSession.h>
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MediaProducer.h>
-#include <WebCore/MediaResourceSniffer.h>
 #include <WebCore/MediaUniqueIdentifier.h>
 #include <WebCore/MessageTargetForTesting.h>
 #include <WebCore/PlatformDynamicRangeLimit.h>
-#include <WebCore/ReducedResolutionSeconds.h>
 #include <WebCore/TextTrackClient.h>
 #include <WebCore/URLKeepingBlobAlive.h>
 #include <WebCore/VideoTrackClient.h>
@@ -1073,6 +1071,7 @@ private:
     bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const override;
     bool shouldOverrideBackgroundLoadingRestriction() const override;
     bool canProduceAudio() const final;
+    bool computeCanProduceAudio() const;
     bool isEnded() const final { return ended(); }
     MediaTime mediaSessionDuration() const final;
     bool hasMediaStreamSource() const final;
@@ -1142,9 +1141,6 @@ private:
     void checkForAudioAndVideo();
 
     bool needsContentTypeToPlay() const;
-    using SnifferPromise = MediaResourceSniffer::Promise;
-    Ref<SnifferPromise> sniffForContentType(const URL&);
-    void cancelSniffer();
 
     void playPlayer();
     void pausePlayer();
@@ -1219,6 +1215,7 @@ private:
     TaskCancellationGroup m_updateShouldAutoplayTaskCancellationGroup;
     RefPtr<TimeRanges> m_playedTimeRanges;
     TaskCancellationGroup m_asyncEventsCancellationGroup;
+    TaskCancellationGroup m_periodicTimeupdateCancellationGroup;
     TaskCancellationGroup m_volumeRevertTaskCancellationGroup;
 
     PlayPromiseVector m_pendingPlayPromises;
@@ -1470,6 +1467,9 @@ private:
 
     bool m_showingStats { false };
 
+    // Cached by canProduceAudioChanged() so virtualHasPendingActivity() can read it safely from the GC thread.
+    std::atomic<bool> m_cachedCanProduceAudio { false };
+
 #if ENABLE(SPEECH_SYNTHESIS)
     RefPtr<SpeechSynthesis> m_speechSynthesis;
 #endif
@@ -1481,9 +1481,6 @@ private:
     bool m_changingSynthesisState { false };
 
     FloatSize m_videoLayerSize { };
-    RefPtr<MediaResourceSniffer> m_sniffer;
-    bool m_networkErrorOccured { false };
-    std::optional<ContentType> m_lastContentTypeUsed;
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     using DefaultSpatialTrackingLabelChangedObserver = WTF::Observer<void(String&&)>;

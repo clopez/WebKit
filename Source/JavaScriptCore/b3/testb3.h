@@ -1448,6 +1448,14 @@ void testVectorExtractLane0Float();
 void testVectorExtractLane0Double();
 void testVectorMulHigh();
 void testVectorMulLow();
+void testVectorMulAddLowSimple();
+void testVectorMulAddLowDoubled();
+void testVectorMulAddLowTwoMuls();
+void testVectorMulAddLowBlaMka();
+void testVectorMulAddHighSimple();
+void testVectorMulAddHighDoubled();
+void testVectorMulAddHighTwoMuls();
+void testVectorMulAddMixedLowHigh();
 void testVectorRelaxedMinMax();
 void testVectorRelaxedQ15Mulr();
 void testVectorRelaxedDotI8x16I7x16();
@@ -1567,5 +1575,21 @@ void testVectorSwizzleToDupElement();
 void testVectorSwizzleComposition();
 void testVectorSwizzleUnaryComposition();
 void testVectorSwizzleCompositionMultiUse();
+void testVectorSwizzleCompositionRightImmOuter();
+void testVectorSwizzleBinaryOnlyOneSideSide0();
+void testVectorSwizzleBinaryOnlyOneSideSide1();
+void testVectorSwizzleBinaryOnlyOneSideSide0WithOOB();
+void testVectorSwizzleBinaryOnlyOneSideSide1WithOOB();
+void testVectorSwizzleBinaryOnlyOneSideAllOOB();
+void testVectorSwizzleBinaryOnlyOneSideMixed();
+void testVectorSwizzleBinaryOnlyOneSideSide1Scattered();
+
+void testRotRFromShiftXorChainSHA256Sigma1_32(int32_t);
+void testRotRFromShiftXorChainSHA512Sigma1_64(int64_t);
+void testRotRFromShiftXorChainSHA256sigma0_32(int32_t);
+void testRotRFromShiftOrChainSHA256Sigma1_32(int32_t);
+void testRotRFromShiftXorChainSharedShiftOperand(int32_t);
+void testShiftOrDifferentBasesNoRotate(int32_t, int32_t, int32_t);
+void testShiftOrMismatchedAmountsNoRotate(int32_t);
 
 #endif // ENABLE(B3_JIT)

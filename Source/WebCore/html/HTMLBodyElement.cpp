@@ -35,7 +35,6 @@
 #include "JSHTMLBodyElement.h"
 #include "LocalDOMWindow.h"
 #include "MutableStyleProperties.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "ResourceLoaderOptions.h"
 #include <wtf/NeverDestroyed.h>
@@ -90,7 +89,7 @@ void HTMLBodyElement::collectPresentationalHintsForAttribute(const QualifiedName
     case AttributeNames::backgroundAttr: {
         auto url = value.string().trim(isASCIIWhitespace);
         if (!url.isEmpty())
-            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(protect(document())->completeURL(url), localName())));
+            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(protect(document())->encodingParseURL(url), localName())));
         break;
     }
     case AttributeNames::marginwidthAttr:
@@ -222,7 +221,7 @@ void HTMLBodyElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, protect(document())->completeURL(attributeWithoutSynchronization(backgroundAttr)));
+    addSubresourceURL(urls, protect(document())->encodingParseURL(attributeWithoutSynchronization(backgroundAttr)));
 }
 
 } // namespace WebCore

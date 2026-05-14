@@ -44,14 +44,11 @@
 #include "UnlinkedProgramCodeBlock.h"
 #include <wtf/FileHandle.h>
 #include <wtf/InlineMap.h>
-#include <wtf/MallocPtr.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/Packed.h>
-#include <wtf/RobinHoodHashMap.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UUID.h>
 #include <wtf/text/AtomStringImpl.h>
-#include <wtf/text/ParsingUtilities.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -2019,6 +2016,7 @@ public:
     Ref<UnlinkedMetadataTable> metadata(Decoder& decoder) const { return m_metadata.decode(decoder); }
 
     unsigned NODELETE isConstructor() const { return m_isConstructor; }
+    unsigned NODELETE isBuiltinDefaultClassConstructor() const { return m_isBuiltinDefaultClassConstructor; }
     unsigned NODELETE hasCapturedVariables() const { return m_hasCapturedVariables; }
     unsigned NODELETE isBuiltinFunction() const { return m_isBuiltinFunction; }
     unsigned NODELETE superBinding() const { return m_superBinding; }
@@ -2055,6 +2053,7 @@ private:
     VirtualRegister m_scopeRegister;
 
     unsigned m_isConstructor : 1;
+    unsigned m_isBuiltinDefaultClassConstructor : 1;
     unsigned m_hasCapturedVariables : 1;
     unsigned m_isBuiltinFunction : 1;
     unsigned m_superBinding : 1;
@@ -2261,6 +2260,7 @@ ALWAYS_INLINE UnlinkedCodeBlock::UnlinkedCodeBlock(Decoder& decoder, Structure* 
     , m_hasCapturedVariables(cachedCodeBlock.hasCapturedVariables())
 
     , m_isBuiltinFunction(cachedCodeBlock.isBuiltinFunction())
+    , m_isBuiltinDefaultClassConstructor(cachedCodeBlock.isBuiltinDefaultClassConstructor())
     , m_superBinding(cachedCodeBlock.superBinding())
     , m_scriptMode(cachedCodeBlock.scriptMode())
     , m_isArrowFunctionContext(cachedCodeBlock.isArrowFunctionContext())
@@ -2453,6 +2453,7 @@ ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::encode(Encoder& encoder, cons
     m_isConstructor = codeBlock.m_isConstructor;
     m_hasCapturedVariables = codeBlock.m_hasCapturedVariables;
     m_isBuiltinFunction = codeBlock.m_isBuiltinFunction;
+    m_isBuiltinDefaultClassConstructor = codeBlock.m_isBuiltinDefaultClassConstructor;
     m_superBinding = codeBlock.m_superBinding;
     m_scriptMode = codeBlock.m_scriptMode;
     m_isArrowFunctionContext = codeBlock.m_isArrowFunctionContext;

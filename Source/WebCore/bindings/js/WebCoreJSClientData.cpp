@@ -45,6 +45,7 @@
 #include "JSWindowProxy.h"
 #include "JSWorkerGlobalScope.h"
 #include "JSWorkletGlobalScope.h"
+#include <JavaScriptCore/CodeBlock.h>
 #include <JavaScriptCore/FastMallocAlignedMemoryAllocator.h>
 #include <JavaScriptCore/HeapInlines.h>
 #include <JavaScriptCore/IsoHeapCellType.h>
@@ -225,7 +226,7 @@ String JSVMClientData::overrideSourceURL(const JSC::StackFrame& frame, const Str
     if (!globalObject->inherits<JSDOMWindowBase>())
         return nullString();
 
-    RefPtr document = uncheckedDowncast<JSDOMWindowBase>(globalObject)->wrapped().documentIfLocal();
+    RefPtr document = downcast<JSDOMWindowBase>(globalObject)->wrapped().documentIfLocal();
     if (!document)
         return nullString();
 

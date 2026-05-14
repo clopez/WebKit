@@ -493,6 +493,20 @@ AlwaysAllowLocalWebarchive:
     WebCore:
       default: false
 
+AlwaysUseTouchEventRegions:
+  type: bool
+  status: internal
+  humanReadableName: "Always use touch event regions"
+  humanReadableDescription: "Use touch event regions regardless of site isolation enablement"
+  condition: ENABLE(TOUCH_EVENT_REGIONS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AlwaysZoomOnDoubleTap:
   type: bool
   status: internal
@@ -2043,6 +2057,20 @@ CookieStoreManagerEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
+CoreMathMLDeprecateLegacyMathvariant:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Deprecate legacy mathvariant"
+  humanReadableDescription: "Align the mathvariant attribute with MathML Core, disabling all variants except italic."
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CoreMathMLEnabled:
   type: bool
   status: unstable
@@ -3014,6 +3042,22 @@ FileSystemEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
 
+FileSystemHandleSerializationEnabled:
+  type: bool
+  status: preview
+  category: dom
+  humanReadableName: "File System Handle Serialization"
+  humanReadableDescription: "Enable FileSystemHandle for postMessage() and structuredClone()"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
+
 FileSystemWritableStreamEnabled:
   type: bool
   status: stable
@@ -3426,6 +3470,21 @@ GridLanesEnabled:
     WebCore:
       default: true
 
+HDRAcceleratedApplyGainMapEnabled:
+  type: bool
+  status: testable
+  category: css
+  webcoreOnChange: setNeedsRelayoutAllFrames
+  humanReadableName: "HDR Accelerated Apply GainMap"
+  humanReadableDescription: "Enable HDR Accelerated Apply GainMap"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 HTMLEnhancedSelectEnabled:
    type: bool
    status: stable
@@ -3734,20 +3793,6 @@ ImageControlsEnabled:
   humanReadableName: "Image Controls"
   humanReadableDescription: "Enable image controls"
   condition: ENABLE(SERVICE_CONTROLS)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
-InWindowFullscreenEnabled:
-  type: bool
-  status: internal
-  category: media
-  humanReadableName: "In-Window Fullscreen"
-  humanReadableDescription: "Enable In-Window Fullscreen"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -8463,6 +8508,20 @@ TwoUpPDFDisplayModeSupportEnabled:
     WebCore:
       default: true
 
+TwoUpPDFTrailingPageLeftAlignmentEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Two-Up PDF Trailing Page Left Alignment"
+  humanReadableDescription: "In two-up PDF display mode, align the trailing odd page to the same column as the first page instead of centering it"
+  condition: ENABLE(UNIFIED_PDF)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
   type: bool
@@ -9416,6 +9475,7 @@ WebGLDraftExtensionsEnabled:
       default: false
     WebCore:
       default: false
+  sharedPreferenceForWebProcess: true
 
 WebGLEnabled:
   type: bool
@@ -10067,19 +10127,33 @@ WirelessPlaybackTargetAPIEnabled:
       "PLATFORM(VISION)" : false
       default: true
 
-WorkerAsynchronousURLErrorHandlingEnabled:
+WorkerInSharedWorkerEnabled:
   type: bool
-  status: stable
+  status: preview
   category: dom
-  humanReadableName: "Worker asynchronous URL error handling"
-  humanReadableDescription: "Worker asynchronous URL error handling"
+  humanReadableName: "Worker in SharedWorker"
+  humanReadableDescription: "Allow creating dedicated workers from shared workers"
   defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
     WebCore:
-      default: true
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
+WorkerParseErrorReportingEnabled:
+  type: bool
+  status: preview
+  category: dom
+  humanReadableName: "Worker parse error reporting"
+  humanReadableDescription: "Report worker script parse errors on the Worker object"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
 
 WriteRichTextDataWhenCopyingOrDragging:
   type: bool

@@ -179,7 +179,6 @@ Shared/Extensions/Cocoa/WebExtensionFrameIdentifierCocoa.mm @nonARC
 
 Shared/Cocoa/APIDataCocoa.mm @nonARC
 Shared/Cocoa/APIObject.mm @nonARC
-Shared/Cocoa/ARKitSoftLink.mm @nonARC
 Shared/Cocoa/AccessibilityPreferences.mm @nonARC
 Shared/Cocoa/AuxiliaryProcessCocoa.mm @nonARC
 Shared/Cocoa/CodeSigning.mm @nonARC
@@ -600,7 +599,6 @@ UIProcess/ios/WKApplicationStateTrackingView.mm @nonARC
 UIProcess/ios/WKBaseScrollView.mm @nonARC
 UIProcess/ios/WKContentView.mm @nonARC @no-unify
 UIProcess/ios/WKContentViewInteraction.mm @nonARC @no-unify
-UIProcess/ios/WKDeferringGestureRecognizer.mm @nonARC
 UIProcess/ios/WKExtendedTextInputTraits.mm @nonARC
 UIProcess/ios/WKExtrinsicButton.mm @nonARC
 UIProcess/ios/WKGeolocationProviderIOS.mm @nonARC
@@ -729,6 +727,12 @@ UIProcess/WebsiteData/Cocoa/WebsiteDataStoreCocoa.mm @nonARC
 UIProcess/XR/ios/PlatformXRARKit.mm @nonARC
 UIProcess/XR/ios/PlatformXRSystemIOS.mm @nonARC
 UIProcess/XR/ios/WKARPresentationSession.mm @nonARC
+
+UIProcess/XR/xros/PlatformXRCompositor.mm @nonARC
+UIProcess/XR/xros/PlatformXRSystemXROS.mm @nonARC
+UIProcess/XR/xros/WKSpatialGestureRecognizer.mm @nonARC
+UIProcess/XR/xros/WKXRControllerManager.mm @nonARC
+UIProcess/XR/xros/WKXRTrackingManager.mm @nonARC
 
 WebProcess/API/Cocoa/WKWebProcess.cpp
 
@@ -933,6 +937,7 @@ LibWebRTCCodecsMessageReceiver.cpp
 LibWebRTCCodecsProxyMessageReceiver.cpp
 LibWebRTCNetworkMessageReceiver.cpp
 LogStreamMessageReceiver.cpp
+Shared/LogStream.mm @no-unify
 ModelConnectionToWebProcessMessageReceiver.cpp
 MediaPlayerPrivateRemoteMessageReceiver.cpp
 MediaSourcePrivateRemoteMessageReceiverMessageReceiver.cpp
@@ -1040,6 +1045,7 @@ WasmDebuggerDispatcherMessageReceiver.cpp
 WebInspectorInterruptDispatcherMessageReceiver.cpp
 WebInspectorBackendMessageReceiver.cpp
 WebInspectorBackendProxyMessageReceiver.cpp
+ProxyingNetworkAgentMessageReceiver.cpp
 WebInspectorUIExtensionControllerMessageReceiver.cpp
 WebInspectorUIExtensionControllerProxyMessageReceiver.cpp
 WebInspectorUIMessageReceiver.cpp

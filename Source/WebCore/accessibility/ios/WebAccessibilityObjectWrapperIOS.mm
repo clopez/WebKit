@@ -35,26 +35,32 @@
 #import "AXObjectCacheInlines.h"
 #import "AXSearchManager.h"
 #import "AXUtilities.h"
+#import "AccessibilityObjectInlines.h"
 #import "AccessibilityRenderObject.h"
 #import "AccessibilityScrollView.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
 #import "CocoaAccessibilityConstants.h"
 #import "FontCascade.h"
+#import "FrameDestructionObserverInlines.h"
 #import "FrameSelection.h"
 #import "HTMLFrameOwnerElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
+#import "HTMLSelectElement.h"
 #import "HTMLTextAreaElement.h"
 #import "HitTestResult.h"
 #import "IntRect.h"
 #import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalizedStrings.h"
 #import "Page.h"
 #import "Range.h"
+#import "RenderObjectDocument.h"
 #import "RenderView.h"
 #import "SVGElementInlines.h"
 #import "SVGNames.h"
+#import "SelectPopoverElement.h"
 #import "SelectionGeometry.h"
 #import "Settings.h"
 #import "SimpleRange.h"
@@ -68,6 +74,7 @@
 #import <wtf/HashFunctions.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 #if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
@@ -76,6 +83,7 @@
 
 #if ENABLE(SPATIAL_IMAGE_CONTROLS)
 #import "HTMLImageElement.h"
+#import "LocalFrameView.h"
 #import "SpatialImageControls.h"
 #import <pal/ios/UIKitSoftLink.h>
 #endif
@@ -420,6 +428,86 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
         cache->stopCachingComputedObjectAttributes();
 }
 
+enum class AccessibilityElementsCollectionMode : bool {
+    CountOnly,
+    Elements,
+};
+
+struct AccessibilityElementsResult {
+    NSInteger count { 0 };
+    RetainPtr<NSMutableArray> elements;
+};
+
+- (AccessibilityElementsResult)_collectAccessibilityElements:(AccessibilityElementsCollectionMode)mode
+{
+    AccessibilityElementsResult result;
+    bool shouldCollectElements = mode == AccessibilityElementsCollectionMode::Elements;
+    if (shouldCollectElements)
+        result.elements = adoptNS([[NSMutableArray alloc] init]);
+
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+    if ([self hasImageControls]) {
+        if (shouldCollectElements)
+            [result.elements addObject:[self mockImageElement]];
+        result.count++;
+    }
+#endif
+
+    for (const auto& child : self.axBackingObject->stitchedUnignoredChildren()) {
+        // Base-select popovers are reparented from children of the select to siblings
+        // of the select in the iOS accessibility tree. On iOS, isAccessibilityElement=YES
+        // elements are treated as leaves — assistive technologies won't recurse into
+        // their children. The select is an accessibility element, so without reparenting
+        // the popover to be a sibling, its menu items are unreachable.
+        if (is<SelectPopoverElement>(child->node()))
+            continue;
+
+        if (shouldCollectElements) {
+            auto* wrapper = child->wrapper();
+            if (child->isRemoteFrame()) {
+                if (id platformRemoteFrame = child->remoteFramePlatformElement().unsafeGet())
+                    [result.elements addObject:platformRemoteFrame];
+                else
+                    [result.elements addObject:wrapper];
+            } else if (child->isAttachment()) {
+                if (id attachmentView = [wrapper attachmentView])
+                    [result.elements addObject:attachmentView];
+                else
+                    [result.elements addObject:wrapper];
+            } else
+                [result.elements addObject:wrapper];
+        }
+        result.count++;
+
+        // After adding a base-select to its parent's children, inject the popover as
+        // a sibling based on the reasoning above.
+        if (auto* select = dynamicDowncast<HTMLSelectElement>(child->node()); select && select->usesBaseAppearancePicker()) {
+            if (auto* popover = select->pickerPopoverElement()) {
+                if (shouldCollectElements) {
+                    CheckedPtr cache = downcast<AccessibilityObject>(child.get()).axObjectCache();
+                    if (auto* axPopover = cache ? cache->getOrCreate(*popover) : nullptr) {
+                        if (auto* popoverWrapper = axPopover->wrapper())
+                            [result.elements addObject:popoverWrapper];
+                    }
+                }
+                result.count++;
+            }
+        }
+    }
+
+#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
+    if (self.axBackingObject->isModel()) {
+        for (auto child : self.axBackingObject->modelElementChildren().children) {
+            if (shouldCollectElements)
+                [result.elements addObject:child.get()];
+            result.count++;
+        }
+    }
+#endif
+
+    return result;
+}
+
 - (NSArray *)accessibilityElements
 {
     if (![self _prepareAccessibilityCall])
@@ -430,33 +518,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView accessibilityElements];
     }
 
-    auto array = adoptNS([[NSMutableArray alloc] init]);
-
-#if ENABLE(SPATIAL_IMAGE_CONTROLS)
-    if ([self hasImageControls])
-        [array addObject:[self mockImageElement]];
-#endif
-
-    for (const auto& child : self.axBackingObject->stitchedUnignoredChildren()) {
-        auto* wrapper = child->wrapper();
-        if (child->isRemoteFrame()) {
-            if (id platformRemoteFrame = child->remoteFramePlatformElement().unsafeGet())
-                [array addObject:platformRemoteFrame];
-        } else if (child->isAttachment()) {
-            if (id attachmentView = [wrapper attachmentView])
-                [array addObject:attachmentView];
-        } else
-            [array addObject:wrapper];
-    }
-
-#if ENABLE(MODEL_ELEMENT_ACCESSIBILITY)
-    if (self.axBackingObject->isModel()) {
-        for (auto child : self.axBackingObject->modelElementChildren().children)
-            [array addObject:child.get()];
-    }
-#endif
-
-    return array.autorelease();
+    return [self _collectAccessibilityElements:AccessibilityElementsCollectionMode::Elements].elements.autorelease();
 }
 
 - (NSInteger)accessibilityElementCount
@@ -469,14 +531,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView accessibilityElementCount];
     }
 
-    NSInteger count = self.axBackingObject->stitchedUnignoredChildren().size();
-
-#if ENABLE(SPATIAL_IMAGE_CONTROLS)
-    if ([self hasImageControls])
-        count += 1;
-#endif
-
-    return count;
+    return [self _collectAccessibilityElements:AccessibilityElementsCollectionMode::CountOnly].count;
 }
 
 - (id)accessibilityElementAtIndex:(NSInteger)index
@@ -489,31 +544,10 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView accessibilityElementAtIndex:index];
     }
 
-    const auto& children = self.axBackingObject->stitchedUnignoredChildren();
-    size_t elementIndex = static_cast<size_t>(index);
-
-#if ENABLE(SPATIAL_IMAGE_CONTROLS)
-    if ([self hasImageControls]) {
-        if (!index)
-            return [self mockImageElement];
-
-        elementIndex -= 1;
-    }
-#endif
-
-    if (elementIndex >= children.size())
+    auto elements = [self _collectAccessibilityElements:AccessibilityElementsCollectionMode::Elements].elements;
+    if (index < 0 || static_cast<NSUInteger>(index) >= [elements count])
         return nil;
-
-    AccessibilityObjectWrapper* wrapper = children[elementIndex]->wrapper();
-    if (children[elementIndex]->isAttachment()) {
-        if (id attachmentView = [wrapper attachmentView])
-            return attachmentView;
-    } else if (children[elementIndex]->isRemoteFrame()) {
-        if (id remoteFramePlatformElement = children[elementIndex]->remoteFramePlatformElement().unsafeGet())
-            return remoteFramePlatformElement;
-    }
-
-    return wrapper;
+    return elements[index];
 }
 
 - (NSInteger)indexOfAccessibilityElement:(id)element
@@ -526,27 +560,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
             return [attachmentView indexOfAccessibilityElement:element];
     }
 
-#if ENABLE(SPATIAL_IMAGE_CONTROLS)
-    if ([self hasImageControls]) {
-        if (element == [self mockImageElement])
-            return 0;
-    }
-#endif
-
-    const auto& children = self.axBackingObject->stitchedUnignoredChildren();
-    unsigned count = children.size();
-    for (unsigned k = 0; k < count; ++k) {
-        AccessibilityObjectWrapper* wrapper = children[k]->wrapper();
-        if (wrapper == element || (children[k]->isAttachment() && [wrapper attachmentView] == element)) {
-#if ENABLE(SPATIAL_IMAGE_CONTROLS)
-            if ([self hasImageControls])
-                return k + 1;
-#endif
-            return k;
-        }
-    }
-
-    return NSNotFound;
+    return [[self _collectAccessibilityElements:AccessibilityElementsCollectionMode::Elements].elements indexOfObject:element];
 }
 
 - (CGPathRef)_accessibilityPath
@@ -585,7 +599,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    return self.axBackingObject->popupValue().createNSString().autorelease();
+    return self.axBackingObject->popupValueString().createNSString().autorelease();
 }
 
 - (BOOL)accessibilityIsInDescriptionListDefinition
@@ -915,7 +929,9 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
         traits |= [self _axAdjustableTrait];
         break;
     case AccessibilityRole::MenuItem:
-        traits |= [self _axMenuItemTrait];
+        // Menu items need _axButtonTrait so iOS Voice Control recognizes them
+        // as actionable elements and generates numbered overlays for them.
+        traits |= [self _axMenuItemTrait] | [self _axButtonTrait];
         break;
     case AccessibilityRole::MenuItemCheckbox:
     case AccessibilityRole::MenuItemRadio:
@@ -1784,7 +1800,6 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     return YES;
 }
 
-
 - (BOOL)accessibilityScroll:(UIAccessibilityScrollDirection)direction
 {
     if (![self _prepareAccessibilityCall])
@@ -2426,7 +2441,6 @@ static RenderObject* rendererForView(WAKView* view)
     auto range = makeSimpleRange([startMarker visiblePosition], [endMarker visiblePosition]);
     return range ? self.axBackingObject->contentForRange(*range).autorelease() : nil;
 }
-
 
 // This method is intended to take a text marker representing a VisiblePosition and convert it
 // into a normalized location within the document.

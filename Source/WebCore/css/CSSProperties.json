@@ -10649,7 +10649,7 @@
                 "computed-style-storage-path": ["m_nonInheritedData", "rareData", "grid"],
                 "computed-style-storage-kind": "reference",
                 "computed-style-type": "Style::GridTrackSizes",
-                "parser-function": "consumeGridTrackList",
+                "parser-function": "consumeGridTrackSizes",
                 "parser-grammar-unused": "<track-size>+",
                 "parser-grammar-unused-reason": "Needs investigation."
             },
@@ -10667,7 +10667,7 @@
                 "computed-style-storage-path": ["m_nonInheritedData", "rareData", "grid"],
                 "computed-style-storage-kind": "reference",
                 "computed-style-type": "Style::GridTrackSizes",
-                "parser-function": "consumeGridTrackList",
+                "parser-function": "consumeGridTrackSizes",
                 "parser-grammar-unused": "<track-size>+",
                 "parser-grammar-unused-reason": "Needs investigation."
             },
@@ -10735,7 +10735,7 @@
                 "computed-style-storage-path": ["m_nonInheritedData", "rareData", "grid"],
                 "computed-style-storage-kind": "reference",
                 "computed-style-type": "Style::GridTemplateList",
-                "parser-function": "consumeGridTemplatesRowsOrColumns",
+                "parser-function": "consumeGridTemplateList",
                 "parser-grammar-unused": "none | <track-list> | <auto-track-list>",
                 "parser-grammar-unused-reason": "Needs investigation."
             },
@@ -10752,7 +10752,7 @@
                 "computed-style-storage-path": ["m_nonInheritedData", "rareData", "grid"],
                 "computed-style-storage-kind": "reference",
                 "computed-style-type": "Style::GridTemplateList",
-                "parser-function": "consumeGridTemplatesRowsOrColumns",
+                "parser-function": "consumeGridTemplateList",
                 "parser-grammar-unused": "none | <track-list> | <auto-track-list>",
                 "parser-grammar-unused-reason": "Needs investigation."
             },
@@ -13099,8 +13099,10 @@
        },
         "position-anchor": {
             "animation-type": "discrete",
-            "initial": "auto",
+            "initial": "normal",
             "values": [
+                "normal",
+                "none",
                 "auto"
             ],
             "codegen-properties": {
@@ -13108,7 +13110,7 @@
                 "computed-style-storage-path": ["m_nonInheritedData", "rareData"],
                 "computed-style-storage-kind": "reference",
                 "computed-style-type": "Style::PositionAnchor",
-                "parser-grammar": "auto | <dashed-ident>"
+                "parser-grammar": "normal | none | auto | <dashed-ident>"
             },
             "specification": {
                 "category": "css-anchor-position",

@@ -31,9 +31,7 @@
 #include <WebCore/Frame.h>
 #include <WebCore/HitTestRequest.h>
 #include <WebCore/ScrollbarMode.h>
-#include <wtf/CheckedRef.h>
 #include <wtf/HashSet.h>
-#include <wtf/Platform.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakRef.h>
 
@@ -108,7 +106,6 @@ struct ViewportArguments;
 enum class ReferrerPolicy : uint8_t;
 enum class SandboxFlag : uint16_t;
 enum class UserScriptInjectionTime : bool;
-enum class WindowProxyProperty : uint8_t;
 
 using SandboxFlags = OptionSet<SandboxFlag>;
 using IntDegrees = int32_t;
@@ -331,10 +328,6 @@ public:
     void documentURLOrOriginDidChange();
     void dispatchLoadEventToParent();
 
-#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    void didAccessWindowProxyPropertyViaOpener(WindowProxyProperty);
-#endif
-
     void storageAccessExceptionReceivedForDomain(const RegistrableDomain&);
     bool requestSkipUserActivationCheckForStorageAccess(const RegistrableDomain&);
 
@@ -342,6 +335,7 @@ public:
     String customUserAgentAsSiteSpecificQuirks() const final;
     String customNavigatorPlatform() const final;
     OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const final;
+    bool allowPrivacyProxy() const final;
     AutoplayPolicy autoplayPolicy() const final;
 
     WEBCORE_EXPORT SandboxFlags NODELETE effectiveSandboxFlags() const;
@@ -424,10 +418,6 @@ private:
     unsigned m_navigationDisableCount { 0 };
     unsigned m_selfOnlyRefCount { 0 };
     bool m_hasHadUserInteraction { false };
-
-#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    OptionSet<WindowProxyProperty> m_accessedWindowProxyPropertiesViaOpener;
-#endif
 
     std::unique_ptr<OverrideScreenSize> m_overrideScreenSize;
 

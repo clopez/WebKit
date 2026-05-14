@@ -34,6 +34,7 @@
 #include "HTMLSelectElement.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "NodeRenderStyle.h"
+#include "PlatformRenderTheme.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderElementStyleInlines.h"
@@ -182,7 +183,7 @@ void RenderMenuList::computePreferredLogicalWidths()
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
-    RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), writingMode().isHorizontal() ? horizontalBorderAndPaddingExtent() : verticalBorderAndPaddingExtent());
+    constrainPreferredLogicalWidthsByMinMax(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
     clearNeedsPreferredWidthsUpdate();
 }

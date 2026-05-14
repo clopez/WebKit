@@ -42,6 +42,7 @@
 #include "RenderView.h"
 #include "TimelineRecordFactory.h"
 #include "WebDebuggerAgent.h"
+#include <wtf/SetForScope.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "WebCoreThreadInternal.h"

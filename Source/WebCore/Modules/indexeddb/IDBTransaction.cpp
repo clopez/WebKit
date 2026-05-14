@@ -345,8 +345,18 @@ void IDBTransaction::stop()
     if (isVersionChange())
         m_openDBRequest = nullptr;
 
-    if (isFinishedOrFinishing())
+    m_openRequests.clear();
+
+    if (isFinishedOrFinishing()) {
+        if (m_currentlyCompletingRequest) {
+            // The request event will never be dispatched after context is stopped.
+            // Reset m_currentlyCompletingRequest so handleOperationsCompletedOnServer can drain remaining operations.
+            ++m_handledRequestResultsCount;
+            m_currentlyCompletingRequest = nullptr;
+            handleOperationsCompletedOnServer();
+        }
         return;
+    }
 
     abortInternal();
 }
@@ -423,6 +433,11 @@ void IDBTransaction::completeNoncursorRequest(IDBRequest& request, const IDBResu
 
     request.completeRequestAndDispatchEvent(result);
 
+    if (m_isStopped) {
+        ++m_handledRequestResultsCount;
+        return;
+    }
+
     m_currentlyCompletingRequest = request;
 }
 
@@ -431,6 +446,11 @@ void IDBTransaction::completeCursorRequest(IDBRequest& request, const IDBResultD
     ASSERT(!m_currentlyCompletingRequest);
 
     request.didOpenOrIterateCursor(result);
+
+    if (m_isStopped) {
+        ++m_handledRequestResultsCount;
+        return;
+    }
 
     m_currentlyCompletingRequest = request;
 }
@@ -1289,7 +1309,7 @@ void IDBTransaction::putOrAddOnServer(IDBClient::TransactionOperation& operation
     // workers currently write blobs to disk synchronously.
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=157958 - Make this asynchronous after refactoring allows it.
     if (!isMainThread()) {
-        auto idbValue = value->writeBlobsToDiskForIndexedDBSynchronously(isEphemeral);
+        auto idbValue = value->writeBlobsToDiskForIndexedDBSynchronously(isEphemeral, globalObject->vm());
         if (idbValue.data().data()) {
             auto indexKeys = generateIndexKeyMapForValueIsolatedCopy(*globalObject, objectStoreInfo, keyData, idbValue);
             m_database->connectionProxy().putOrAdd(operation, WTF::move(keyData), idbValue, indexKeys, overwriteMode);

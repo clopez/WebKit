@@ -148,11 +148,10 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
     for (unsigned i = 0; i < m_moduleInformation->typeCount(); ++i) {
         Wasm::TypeSignatureIndex typeSignatureIndex(i);
         Ref rtt = m_moduleInformation->rtt(typeSignatureIndex);
-        Ref type = m_moduleInformation->typeSignature(typeSignatureIndex);
         if (rtt->kind() == RTTKind::Array)
-            gcObjectStructureID(i).set(vm, this, JSWebAssemblyArray::createStructure(vm, WTF::move(type), WTF::move(rtt)));
+            gcObjectStructureID(i).set(vm, this, JSWebAssemblyArray::createStructure(vm, WTF::move(rtt)));
         else if (rtt->kind() == RTTKind::Struct)
-            gcObjectStructureID(i).set(vm, this, JSWebAssemblyStruct::createStructure(vm, WTF::move(type), WTF::move(rtt)));
+            gcObjectStructureID(i).set(vm, this, JSWebAssemblyStruct::createStructure(vm, WTF::move(rtt)));
     }
 
     m_vm->traps().registerMirror(m_stackMirror);
@@ -348,6 +347,7 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, Structure* insta
                 moduleRecord->appendRequestedModule(moduleName, nullptr);
             moduleRecord->addImportEntry(WebAssemblyModuleRecord::ImportEntry {
                 WebAssemblyModuleRecord::ImportEntryType::Single,
+                WebAssemblyModuleRecord::ModulePhase::Evaluation,
                 moduleName,
                 fieldName,
                 Identifier::fromUid(PrivateName(PrivateName::Description, "WebAssemblyImportName"_s)),
@@ -544,7 +544,7 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
             // for the import.
             // https://bugs.webkit.org/show_bug.cgi?id=165510
             auto functionIndex = Wasm::FunctionSpaceIndex(initialBitsOrIndex);
-            TypeIndex typeIndex = m_module->typeIndexFromFunctionIndexSpace(functionIndex);
+            Ref<const Wasm::RTT> rtt = m_module->rttFromFunctionIndexSpace(functionIndex);
             if (isImportFunction(functionIndex)) {
                 JSObject* functionImport = getImportFunctionObject(functionIndex, globalObject);
                 if (isWebAssemblyHostFunction(functionImport)) {
@@ -562,8 +562,7 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
                     functionImport,
                     functionIndex,
                     this,
-                    typeIndex,
-                    TypeInformation::getCanonicalRTT(typeIndex));
+                    WTF::move(rtt));
                 jsTable->set(dstIndex, wrapperFunction);
                 continue;
             }
@@ -572,7 +571,6 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
             auto wasmCallee = calleeGroup()->wasmCalleeFromFunctionIndexSpace(functionIndex);
             ASSERT(wasmCallee);
             WasmToWasmImportableFunction::LoadLocation entrypointLoadLocation = calleeGroup()->entrypointLoadLocationFromFunctionIndexSpace(functionIndex);
-            const auto& signature = TypeInformation::getFunctionSignature(typeIndex);
             // FIXME: Say we export local function "foo" at function index 0.
             // What if we also set it to the table an Element w/ index 0.
             // Does (new Instance(...)).exports.foo === table.get(0)?
@@ -581,14 +579,13 @@ void JSWebAssemblyInstance::initElementSegment(uint32_t tableIndex, const Elemen
                 vm,
                 globalObject,
                 globalObject->webAssemblyFunctionStructure(),
-                signature.argumentCount(),
+                rtt->argumentCount(),
                 WTF::makeString(functionIndex.rawIndex()),
                 this,
                 jsToWasmCallee,
                 *wasmCallee,
                 entrypointLoadLocation,
-                typeIndex,
-                TypeInformation::getCanonicalRTT(typeIndex));
+                WTF::move(rtt));
             jsTable->set(dstIndex, function);
             continue;
         }

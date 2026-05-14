@@ -28,7 +28,6 @@
 #include "EventNames.h"
 #include "EventPath.h"
 #include "EventTarget.h"
-#include "EventTargetInlines.h"
 #include "InspectorInstrumentation.h"
 #include "JSDOMGlobalObject.h"
 #include "JSNodeCustomInlines.h"
@@ -166,7 +165,7 @@ Vector<Ref<EventTarget>> Event::composedPath(JSC::JSGlobalObject& lexicalGlobalO
 {
     if (!m_eventPath)
         return Vector<Ref<EventTarget>>();
-    if (uncheckedDowncast<JSDOMGlobalObject>(&lexicalGlobalObject)->world().shadowRootIsAlwaysOpen())
+    if (downcast<JSDOMGlobalObject>(&lexicalGlobalObject)->world().shadowRootIsAlwaysOpen())
         return m_eventPath->computePathTreatingAllShadowRootsAsOpen();
     return m_eventPath->computePathUnclosedToTarget(*protect(currentTarget()));
 }

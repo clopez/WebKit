@@ -42,6 +42,7 @@
 #include "JSEvent.h"
 #include "JSExecState.h"
 #include "JSExecStateInstrumentation.h"
+#include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/VMEntryScopeInlines.h>
 #include <wtf/Ref.h>
@@ -107,7 +108,7 @@ void JSErrorHandler::handleEvent(ScriptExecutionContext& scriptExecutionContext,
 
             {
                 auto scope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
-                auto* jsErrorEvent = uncheckedDowncast<JSErrorEvent>(toJS(globalObject, globalObject, *errorEvent));
+                auto* jsErrorEvent = downcast<JSErrorEvent>(toJS(globalObject, globalObject, *errorEvent));
                 if (auto* exception = scope.exception()) [[unlikely]] {
                     scope.clearException();
                     return exception;

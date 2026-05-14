@@ -24,7 +24,7 @@
 #include "JSDOMWrapperCache.h"
 #include <JavaScriptCore/ArgList.h>
 #include <JavaScriptCore/JSFunction.h>
-#include <JavaScriptCore/StructureCreateInlines.h>
+#include <WebCore/JSDOMBindingFacade.h>
 
 namespace WebCore {
 
@@ -67,7 +67,7 @@ template<typename JSClass> inline JSDOMBuiltinConstructor<JSClass>* JSDOMBuiltin
 
 template<typename JSClass> inline JSC::Structure* JSDOMBuiltinConstructor<JSClass>::createStructure(JSC::VM& vm, JSC::JSGlobalObject& globalObject, JSC::JSValue prototype)
 {
-    auto* structure = JSC::Structure::create(vm, &globalObject, prototype, JSC::TypeInfo(JSC::InternalFunctionType, StructureFlags), info());
+    auto* structure = JSC::Structure::create(vm, &globalObject, prototype, JSC::TypeInfo(JSC::InternalFunctionType, StructureFlags), info(), JSC::NonArray);
     structure->setMayBePrototype(true);
     return structure;
 }
@@ -76,7 +76,7 @@ template<typename JSClass> inline void JSDOMBuiltinConstructor<JSClass>::finishC
 {
     Base::finishCreation(vm);
     ASSERT(inheritsSlow(info()));
-    setInitializeFunction(vm, *JSC::JSFunction::create(vm, &globalObject, initializeExecutable(vm), &globalObject));
+    SUPPRESS_FORWARD_DECL_ARG setInitializeFunction(vm, *JSC::JSFunction::create(vm, &globalObject, initializeExecutable(vm), &globalObject));
     initializeProperties(vm, globalObject);
 }
 
@@ -90,14 +90,14 @@ template<typename JSClass> inline JSC::Structure* JSDOMBuiltinConstructor<JSClas
     auto scope = DECLARE_THROW_SCOPE(vm);
     auto* newTargetGlobalObject = JSC::getFunctionRealm(lexicalGlobalObject, newTarget);
     RETURN_IF_EXCEPTION(scope, nullptr);
-    auto* baseStructure = getDOMStructure<JSClass>(vm, *uncheckedDowncast<JSDOMGlobalObject>(newTargetGlobalObject));
+    auto* baseStructure = getDOMStructure<JSClass>(vm, *downcast<JSDOMGlobalObject>(newTargetGlobalObject));
     RELEASE_AND_RETURN(scope, JSC::InternalFunction::createSubclassStructure(lexicalGlobalObject, newTarget, baseStructure));
 }
 
 template<typename JSClass> inline JSC::EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSDOMBuiltinConstructor<JSClass>::construct(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
 {
     ASSERT(callFrame);
-    auto* castedThis = uncheckedDowncast<JSDOMBuiltinConstructor>(callFrame->jsCallee());
+    auto* castedThis = downcast<JSDOMBuiltinConstructor>(callFrame->jsCallee());
     auto* structure = castedThis->getDOMStructureForJSObject(lexicalGlobalObject, asObject(callFrame->newTarget()));
     if (!structure) [[unlikely]]
         return { };

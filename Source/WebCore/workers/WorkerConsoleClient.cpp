@@ -80,13 +80,16 @@ void WorkerConsoleClient::messageWithTypeAndLevel(MessageType type, MessageLevel
     arguments->getFirstArgumentAsString(messageText);
 
     auto message = makeUnique<Inspector::ConsoleMessage>(MessageSource::ConsoleAPI, type, level, messageText, arguments.copyRef(), exec);
+
+    auto url = message->url();
+    auto line = message->line();
+    auto column = message->column();
+
     protect(m_globalScope.get())->addConsoleMessage(WTF::move(message));
 
     auto* domGlobalObject = dynamicDowncast<JSDOMGlobalObject>(exec);
-    if (level == MessageLevel::Error && domGlobalObject && domGlobalObject->hasScriptErrorCallbacks()) {
-        auto fullMessageText = makeStringByJoining(arguments->getArgumentsAsStrings(), " "_s);
-        domGlobalObject->invokeScriptErrorCallbacks(fullMessageText, message->url(), message->line(), message->column());
-    }
+    if (level == MessageLevel::Error && domGlobalObject && domGlobalObject->hasScriptErrorCallbacks())
+        domGlobalObject->invokeScriptErrorCallbacks(messageText, url, line, column);
 }
 
 void WorkerConsoleClient::count(JSC::JSGlobalObject* exec, const String& label)

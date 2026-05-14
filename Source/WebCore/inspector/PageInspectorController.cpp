@@ -35,7 +35,6 @@
 #include "CommandLineAPIHost.h"
 #include "CommonVM.h"
 #include "DOMWrapperWorld.h"
-#include "EventTargetInlines.h"
 #include "GraphicsContext.h"
 #include "InspectorAnimationAgent.h"
 #include "InspectorBackendClient.h"
@@ -326,6 +325,23 @@ void PageInspectorController::disconnectAllFrontends()
     m_pauseAfterInitialization = false;
 
     m_inspectorBackendClient->frontendCountChanged(m_frontendRouter->frontendCount());
+}
+
+void PageInspectorController::connectRemoteInstrumentation()
+{
+    // Called before any frontend connects to this WebProcess. The UIProcess has an
+    // active frontend on the web-page target and needs this WebProcess to participate
+    // in instrumentation (e.g., network events) before connectFrontend() is called.
+    // frontendCreated() / registerInstrumentingAgents() make InspectorInstrumentation
+    // hooks active so that FrameNetworkAgentProxy can observe early page loads.
+    InspectorInstrumentation::frontendCreated();
+    InspectorInstrumentation::registerInstrumentingAgents(m_instrumentingAgents.get());
+}
+
+void PageInspectorController::disconnectRemoteInstrumentation()
+{
+    InspectorInstrumentation::unregisterInstrumentingAgents(m_instrumentingAgents.get());
+    InspectorInstrumentation::frontendDeleted();
 }
 
 void PageInspectorController::show()

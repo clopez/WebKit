@@ -31,7 +31,6 @@
 #include "Image.h"
 #include "LegacyRenderSVGResource.h"
 #include "NativeImage.h"
-#include "NodeInlines.h"
 #include "RenderObject.h"
 #include "SVGElementInlines.h"
 #include "SVGNames.h"
@@ -88,7 +87,7 @@ void SVGFEImageElement::requestImageResource()
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
     options.contentSecurityPolicyImposition = isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
 
-    CachedResourceRequest request(ResourceRequest(document().completeURL(href())), options);
+    CachedResourceRequest request(ResourceRequest(document().encodingParseURL(href())), options);
     request.setInitiator(*this);
     m_cachedImage = protect(document().cachedResourceLoader())->requestImage(WTF::move(request)).value_or(nullptr);
 
@@ -243,7 +242,7 @@ void SVGFEImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) cons
 {
     SVGFilterPrimitiveStandardAttributes::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, document().completeURL(href()));
+    addSubresourceURL(urls, document().encodingParseURL(href()));
 }
 
 } // namespace WebCore

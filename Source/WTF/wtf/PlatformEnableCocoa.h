@@ -28,12 +28,10 @@
 
 #pragma once
 
+#if PLATFORM(COCOA)
+
 #ifndef WTF_PLATFORM_GUARD_AGAINST_INDIRECT_INCLUSION
 #error "Please #include <wtf/Platform.h> instead of this file directly."
-#endif
-
-#if !PLATFORM(COCOA)
-#error "This file should only be included when building for one of Apple's Cocoa platforms."
 #endif
 
 /* Please keep the following in alphabetical order so we can notice duplicates. */
@@ -481,6 +479,10 @@
 
 #if !defined(ENABLE_LEGACY_ENCRYPTED_MEDIA) && !PLATFORM(MACCATALYST)
 #define ENABLE_LEGACY_ENCRYPTED_MEDIA 1
+#endif
+
+#if !defined(ENABLE_RESPONSIVE_LIVE_RESIZE_UPDATE) && HAVE(RESPONSIVE_LIVE_RESIZE_UPDATE)
+#define ENABLE_RESPONSIVE_LIVE_RESIZE_UPDATE 1
 #endif
 
 #if !defined(ENABLE_LOGD_BLOCKING_IN_WEBCONTENT) && (PLATFORM(IOS_FAMILY) || ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT))
@@ -1091,9 +1093,6 @@
 #define ENABLE_AV1 1
 #endif
 
-#if !defined(ENABLE_WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-#define ENABLE_WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION 1
-#endif
 
 #if !defined(ENABLE_CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH) && PLATFORM(IOS)
 #define ENABLE_CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH 1
@@ -1184,3 +1183,5 @@
 #if !defined(ENABLE_NETWORK_CACHE_BLOB_STORAGE_MEMORY_CACHE)
 #define ENABLE_NETWORK_CACHE_BLOB_STORAGE_MEMORY_CACHE 1
 #endif
+
+#endif // PLATFORM(COCOA)

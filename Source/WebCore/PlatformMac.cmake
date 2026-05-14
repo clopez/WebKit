@@ -243,6 +243,7 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/spi/mac"
     "${WEBCORE_DIR}/platform/video-codecs"
     "${WEBCORE_DIR}/plugins/mac"
+    "${WEBCORE_DIR}/rendering/cocoa"
     "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
 )
 
@@ -551,6 +552,7 @@ list(APPEND WebCore_SOURCES
     testing/MockContentFilter.cpp # FIXME: Compiled into WebCore because CMake links WebCoreTestSupport statically (Bug 312062).
     testing/MockContentFilterManager.cpp
     testing/MockContentFilterSettings.cpp
+    testing/MockParentalControlsURLFilter.mm
 
     workers/service/ServiceWorkerRoute.mm
 )
@@ -845,7 +847,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cocoa/CMUtilities.h
     platform/graphics/cocoa/CVPixelBufferUtilities.h
     platform/graphics/cocoa/ColorCocoa.h
-    platform/graphics/cocoa/CVPixelBufferUtilities.h
     platform/graphics/cocoa/DynamicContentScalingDisplayList.h
     platform/graphics/cocoa/FontCacheCoreText.h
     platform/graphics/cocoa/FontCascadeCocoaInlines.h
@@ -863,6 +864,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cocoa/NullVideoPresentationInterface.h
     platform/graphics/cocoa/ShareableCVPixelBuffer.h
     platform/graphics/cocoa/ShareableCVPixelFormat.h
+    platform/graphics/cocoa/ShareableGainMap.h
     platform/graphics/cocoa/SourceBufferParser.h
     platform/graphics/cocoa/SourceBufferParserWebM.h
     platform/graphics/cocoa/SystemFontDatabaseCoreText.h
@@ -1103,7 +1105,6 @@ list(APPEND WebCoreTestSupport_SOURCES
     testing/MockApplePaySetupFeature.cpp
     testing/MockContentFilter.cpp
     testing/MockContentFilterSettings.cpp
-    testing/MockParentalControlsURLFilter.mm
     testing/MockMediaSessionCoordinator.cpp
     testing/MockPaymentCoordinator.cpp
     testing/MockPreviewLoaderClient.cpp

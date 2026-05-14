@@ -36,6 +36,7 @@
 #include "WasmLimits.h"
 #include "js/JSWebAssemblyInstance.h"
 #include <span>
+#include <wtf/CheckedArithmetic.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -888,7 +889,7 @@ public:
         struct TryTableTarget {
             CatchKind type;
             uint32_t tag;
-            const TypeDefinition* exceptionSignature;
+            const RTT* exceptionSignature;
             ControlRef target;
         };
         using TargetList = Vector<TryTableTarget>;
@@ -1088,7 +1089,7 @@ public:
     static constexpr bool tierSupportsSIMD() { return true; }
     static constexpr bool validateFunctionBodySize = true;
 
-    BBQJIT(CompilationContext&, const TypeDefinition& signature, Module&, CalleeGroup&, IPIntCallee& profiledCallee, BBQCallee& callee, const FunctionData& function, FunctionCodeIndex functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation);
+    BBQJIT(CompilationContext&, const RTT& signature, Module&, CalleeGroup&, IPIntCallee& profiledCallee, BBQCallee& callee, const FunctionData& function, FunctionCodeIndex functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation);
 
     ALWAYS_INLINE static Value emptyExpression()
     {
@@ -1097,7 +1098,7 @@ public:
 
     void NODELETE setParser(FunctionParser<BBQJIT>* parser);
 
-    bool NODELETE addArguments(const TypeDefinition& signature);
+    bool addArguments(const RTT& signature);
 
     Value addConstant(Type type, uint64_t value);
 
@@ -1147,8 +1148,13 @@ public:
 
     // Memory
 
-    inline Location emitCheckAndPreparePointer(Value pointer, uint32_t uoffset, uint32_t sizeOfOperation, uint8_t memoryIndex)
+    inline Location emitCheckAndPreparePointer(Value pointer, uint64_t uoffset, uint32_t sizeOfOperation, uint8_t memoryIndex)
     {
+        if (WTF::sumOverflows<uint64_t>(static_cast<uint64_t>(sizeOfOperation), uoffset)) {
+            recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, m_jit.jump());
+            return Location::fromGPR(wasmBaseMemoryPointer);
+        }
+
         ScratchScope<1, 0> scratches(*this);
         Location pointerLocation;
 
@@ -1167,7 +1173,18 @@ public:
                 boundsCheckingSizeRegister);
         }
 
+        uint64_t boundary = static_cast<uint64_t>(sizeOfOperation) + uoffset - 1;
+
         if (pointer.isConst()) {
+            uint64_t constantPointer = m_info.memory(memoryIndex).isMemory64()
+                ? pointer.asI64()
+                : static_cast<uint32_t>(pointer.asI32());
+
+            if (sumOverflows<uint64_t>(constantPointer, boundary)) {
+                recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, m_jit.jump());
+                return Location::fromGPR(wasmBaseMemoryPointer);
+            }
+
             pointerLocation = Location::fromGPR(scratches.gpr(0));
             emitMoveConst(pointer, pointerLocation);
         } else
@@ -1181,20 +1198,31 @@ public:
         loadWebAssemblyGlobalState(wasmBaseMemoryPointer, wasmBoundsCheckingSizeRegister);
 #endif
 
-        uint64_t boundary = static_cast<uint64_t>(sizeOfOperation) + uoffset - 1;
         // conservatively force bounds checking if memoryIndex != 0
         switch (memoryIndex ? MemoryMode::BoundsChecking : m_mode) {
         case MemoryMode::BoundsChecking: {
             // We're not using signal handling only when the memory is not shared.
             // Regardless of signaling, we must check that no memory access exceeds the current memory size.
-            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
-            if (boundary)
-                m_jit.addPtr(TrustedImmPtr(boundary), wasmScratchGPR);
+
+            if (m_info.memory(memoryIndex).isMemory64()) {
+                if (boundary) {
+                    m_jit.move(TrustedImmPtr(boundary), wasmScratchGPR);
+                    Jump overflow = m_jit.branchAddPtr(ResultCondition::Carry, pointerLocation.asGPR(), wasmScratchGPR);
+                    recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, overflow);
+                } else
+                    m_jit.move(pointerLocation.asGPR(), wasmScratchGPR);
+            } else {
+                m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+                if (boundary)
+                    m_jit.addPtr(TrustedImmPtr(boundary), wasmScratchGPR);
+            }
+
             recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchPtr(RelationalCondition::AboveOrEqual, wasmScratchGPR, boundsCheckingSizeRegister));
             break;
         }
 
         case MemoryMode::Signaling: {
+            RELEASE_ASSERT(!m_info.memory(memoryIndex).isMemory64());
             // We've virtually mapped 4GiB+redzone for this memory. Only the user-allocated pages are addressable, contiguously in range [0, current],
             // and everything above is mapped PROT_NONE. We don't need to perform any explicit bounds check in the 4GiB range because WebAssembly register
             // memory accesses are 32-bit. However WebAssembly register + offset accesses perform the addition in 64-bit which can push an access above
@@ -1217,10 +1245,17 @@ public:
         }
 
 #if CPU(ARM64)
-        m_jit.addZeroExtend64(baseRegister, pointerLocation.asGPR(), wasmScratchGPR);
+        if (m_info.memory(memoryIndex).isMemory64())
+            m_jit.addPtr(baseRegister, pointerLocation.asGPR(), wasmScratchGPR);
+        else
+            m_jit.addZeroExtend64(baseRegister, pointerLocation.asGPR(), wasmScratchGPR);
 #else
-        m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
-        m_jit.addPtr(baseRegister, wasmScratchGPR);
+        if (m_info.memory(memoryIndex).isMemory64())
+            m_jit.addPtr(baseRegister, pointerLocation.asGPR(), wasmScratchGPR);
+        else {
+            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
+            m_jit.addPtr(baseRegister, wasmScratchGPR);
+        }
 #endif
 
         consume(pointer);
@@ -1355,25 +1390,25 @@ public:
     template<typename Functor>
     void emitAtomicOpGeneric(ExtAtomicOpType op, Address address, Location old, Location cur, const Functor& functor);
 
-    [[nodiscard]] Value emitAtomicLoadOp(ExtAtomicOpType loadOp, Type valueType, Location pointer, uint32_t uoffset);
+    [[nodiscard]] Value emitAtomicLoadOp(ExtAtomicOpType loadOp, Type valueType, Location pointer, uint64_t uoffset);
 
-    [[nodiscard]] PartialResult atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicLoad(ExtAtomicOpType loadOp, Type valueType, ExpressionType pointer, ExpressionType& result, uint64_t uoffset, uint8_t memoryIndex);
 
-    void emitAtomicStoreOp(ExtAtomicOpType storeOp, Type, Location pointer, Value value, uint32_t uoffset);
+    void emitAtomicStoreOp(ExtAtomicOpType storeOp, Type, Location pointer, Value, uint64_t uoffset);
 
-    [[nodiscard]] PartialResult atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicStore(ExtAtomicOpType storeOp, Type valueType, ExpressionType pointer, ExpressionType value, uint64_t uoffset, uint8_t memoryIndex);
 
-    Value emitAtomicBinaryRMWOp(ExtAtomicOpType op, Type valueType, Location pointer, Value value, uint32_t uoffset);
+    Value emitAtomicBinaryRMWOp(ExtAtomicOpType op, Type valueType, Location pointer, Value value, uint64_t uoffset);
 
-    [[nodiscard]] PartialResult atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicBinaryRMW(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType value, ExpressionType& result, uint64_t uoffset, uint8_t memoryIndex);
 
-    [[nodiscard]] Value emitAtomicCompareExchange(ExtAtomicOpType op, Type, Location pointer, Value expected, Value value, uint32_t uoffset);
+    [[nodiscard]] Value emitAtomicCompareExchange(ExtAtomicOpType op, Type, Location pointer, Value expected, Value value, uint64_t uoffset);
 
-    [[nodiscard]] PartialResult atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint64_t uoffset, uint8_t memoryIndex);
 
-    [[nodiscard]] PartialResult atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicWait(ExtAtomicOpType op, ExpressionType pointer, ExpressionType value, ExpressionType timeout, ExpressionType& result, uint64_t uoffset, uint8_t memoryIndex);
 
-    [[nodiscard]] PartialResult atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint32_t uoffset, uint8_t memoryIndex);
+    [[nodiscard]] PartialResult atomicNotify(ExtAtomicOpType op, ExpressionType pointer, ExpressionType count, ExpressionType& result, uint64_t uoffset, uint8_t memoryIndex);
 
     [[nodiscard]] PartialResult atomicFence(ExtAtomicOpType, uint8_t);
 
@@ -1419,9 +1454,6 @@ public:
 
     [[nodiscard]] PartialResult addI31GetU(TypedExpression value, ExpressionType& result);
 
-    // Given a type index, verify that it's an array type and return its expansion
-    const ArrayType* getArrayTypeDefinition(TypeSignatureIndex typeIndex);
-
     // Given a type index for an array signature, look it up, expand it and
     // return the element type
     StorageType getArrayElementType(TypeSignatureIndex typeIndex);
@@ -1463,15 +1495,15 @@ public:
     [[nodiscard]] PartialResult addArrayInitData(TypeSignatureIndex dstTypeIndex, TypedExpression dst, ExpressionType dstOffset, uint32_t srcDataIndex, ExpressionType srcOffset, ExpressionType size);
 
     // Returns true if a writeBarrier/mutatorFence is needed.
-    [[nodiscard]] bool emitStructSet(GPRReg structGPR, const StructType& structType, uint32_t fieldIndex, Value value);
+    [[nodiscard]] bool emitStructSet(GPRReg structGPR, const RTT& structType, uint32_t fieldIndex, Value value);
 
     void emitAllocateGCStructUninitialized(GPRReg resultGPR, TypeSignatureIndex typeIndex, GPRReg scratchGPR, GPRReg scratchGPR2);
     [[nodiscard]] PartialResult addStructNewDefault(TypeSignatureIndex typeIndex, ExpressionType& result);
     [[nodiscard]] PartialResult addStructNew(TypeSignatureIndex typeIndex, ArgumentList& args, Value& result);
 
-    [[nodiscard]] PartialResult addStructGet(ExtGCOpType structGetKind, TypedExpression structValue, const StructType& structType, const RTT&, uint32_t fieldIndex, Value& result);
+    [[nodiscard]] PartialResult addStructGet(ExtGCOpType structGetKind, TypedExpression structValue, const RTT& structType, uint32_t fieldIndex, Value& result);
 
-    [[nodiscard]] PartialResult addStructSet(TypedExpression structValue, const StructType& structType, const RTT&, uint32_t fieldIndex, Value value);
+    [[nodiscard]] PartialResult addStructSet(TypedExpression structValue, const RTT& structType, uint32_t fieldIndex, Value value);
 
     enum class CastKind { Test, Cast };
     void emitRefTestOrCast(CastKind, const TypedExpression&, GPRReg, bool allowNull, int32_t toHeapType, JumpList& failureCases);
@@ -1978,12 +2010,12 @@ public:
 
     void emitCatchAllImpl(ControlData& dataCatch);
 
-    void emitCatchImpl(ControlData& dataCatch, const TypeDefinition& exceptionSignature, ResultList& results);
+    void emitCatchImpl(ControlData& dataCatch, const RTT& exceptionSignature, ResultList& results);
     void emitCatchTableImpl(ControlData& entryData, ControlType::TryTableTarget&);
 
-    [[nodiscard]] PartialResult addCatch(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, Stack& expressionStack, ControlType& data, ResultList& results);
+    [[nodiscard]] PartialResult addCatch(unsigned exceptionIndex, const RTT& exceptionSignature, Stack& expressionStack, ControlType& data, ResultList& results);
 
-    [[nodiscard]] PartialResult addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& data, ResultList& results);
+    [[nodiscard]] PartialResult addCatchToUnreachable(unsigned exceptionIndex, const RTT& exceptionSignature, ControlType& data, ResultList& results);
 
     [[nodiscard]] PartialResult addCatchAll(Stack& expressionStack, ControlType& data);
 
@@ -2051,14 +2083,14 @@ public:
     void flushRegisters();
 
     template<typename Args>
-    void saveValuesAcrossCallAndPassArguments(const Args& arguments, const CallInformation& callInfo, const TypeDefinition& signature);
+    void saveValuesAcrossCallAndPassArguments(const Args& arguments, const CallInformation&, const RTT& signature);
 
     void slowPathSpillBindings(const RegisterBindings&);
     void slowPathRestoreBindings(const RegisterBindings&);
     void NODELETE restoreValuesAfterCall(const CallInformation&);
 
     template<size_t N>
-    void returnValuesFromCall(Vector<Value, N>& results, const FunctionSignature& functionType, const CallInformation& callInfo);
+    void returnValuesFromCall(Vector<Value, N>& results, const RTT& functionType, const CallInformation&);
 
     template<typename Func>
     void emitCCall(Func function, std::span<const Value> arguments);
@@ -2066,15 +2098,15 @@ public:
     template<typename Func>
     void emitCCall(Func function, std::span<const Value> arguments, Value& result);
 
-    void emitTailCall(FunctionSpaceIndex, const TypeDefinition& signature, ArgumentList& arguments);
-    [[nodiscard]] PartialResult addCall(unsigned, FunctionSpaceIndex, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType = CallType::Call);
+    void emitTailCall(FunctionSpaceIndex, const RTT& signature, ArgumentList& arguments);
+    [[nodiscard]] PartialResult addCall(unsigned, FunctionSpaceIndex, const RTT& signature, ArgumentList& arguments, ResultList& results, CallType = CallType::Call);
 
-    void emitIndirectCall(const char* opcode, unsigned callProfileIndex, const Value& callee, GPRReg importableFunction, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results);
-    void emitIndirectTailCall(const char* opcode, const Value& callee, GPRReg importableFunction, const TypeDefinition& signature, ArgumentList& arguments);
+    void emitIndirectCall(const char* opcode, unsigned callProfileIndex, const Value& callee, GPRReg importableFunction, const RTT& signature, ArgumentList& arguments, ResultList& results);
+    void emitIndirectTailCall(const char* opcode, const Value& callee, GPRReg importableFunction, const RTT& signature, ArgumentList& arguments);
 
-    [[nodiscard]] PartialResult addCallIndirect(unsigned, unsigned tableIndex, const TypeDefinition& expandedSignature, const RTT& rtt, ArgumentList& args, ResultList& results, CallType = CallType::Call);
+    [[nodiscard]] PartialResult addCallIndirect(unsigned, unsigned tableIndex, const RTT& expandedSignature, ArgumentList& args, ResultList& results, CallType = CallType::Call);
 
-    [[nodiscard]] PartialResult addCallRef(unsigned, const TypeDefinition& expandedSignature, ArgumentList& args, ResultList& results, CallType = CallType::Call);
+    [[nodiscard]] PartialResult addCallRef(unsigned, const RTT& expandedSignature, ArgumentList& args, ResultList& results, CallType = CallType::Call);
 
     [[nodiscard]] PartialResult addUnreachable();
 
@@ -2257,7 +2289,7 @@ private:
     IPIntCallee& m_profiledCallee;
     BBQCallee& m_callee;
     const FunctionData& m_function;
-    const FunctionSignature* m_functionSignature;
+    const Ref<const RTT> m_functionSignature;
     FunctionCodeIndex m_functionIndex;
     const ModuleInformation& m_info;
     MemoryMode m_mode;
@@ -2323,7 +2355,7 @@ using MinOrMax = BBQJIT::MinOrMax;
 } // namespace JSC::Wasm::BBQJITImpl
 
 using BBQJIT = BBQJITImpl::BBQJIT;
-Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext&, IPIntCallee&, BBQCallee&, const FunctionData&, const TypeDefinition&, Vector<UnlinkedWasmToWasmCall>&, Module&, CalleeGroup&, const ModuleInformation&, MemoryMode, FunctionCodeIndex functionIndex);
+Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext&, IPIntCallee&, BBQCallee&, const FunctionData&, const RTT&, Vector<UnlinkedWasmToWasmCall>&, Module&, CalleeGroup&, const ModuleInformation&, MemoryMode, FunctionCodeIndex functionIndex);
 
 } } // namespace JSC::Wasm
 

@@ -34,7 +34,6 @@
 #include "AccessibilityObjectInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "ElementInlines.h"
-#include "EventTargetInlines.h"
 #include "HTMLNames.h"
 #include "RenderIterator.h"
 #include "RenderObject.h"
@@ -106,6 +105,18 @@ void AccessibilitySVGObject::accessibilityText(Vector<AccessibilityText>& textOr
     String helptext = helpTextFromChildren(titleChild.get(), descChild.get(), descriptionText);
     if (!helptext.isEmpty())
         textOrder.append(AccessibilityText(WTF::move(helptext), AccessibilityTextSource::Help));
+}
+
+void AccessibilitySVGObject::alternativeText(Vector<AccessibilityText>& textOrder) const
+{
+    // https://w3c.github.io/svg-aam/#mapping_additional_nd
+    // Per SVG-AAM §7.1, the accessible name comes from aria-labelledby/aria-label,
+    // a <title> child, xlink:title (on <a>), the <use> target, or alt (on <image>).
+    // Expose this as Alternative text so host-language parents (e.g. <a> or <button>)
+    // pick it up via textUnderElement when deriving their own accname.
+    String descriptionText = description();
+    if (!descriptionText.isEmpty())
+        textOrder.append(AccessibilityText(WTF::move(descriptionText), AccessibilityTextSource::Alternative));
 }
 
 auto AccessibilitySVGObject::matchingTitleAndDescChildren() const -> MatchingLanguageChildren

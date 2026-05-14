@@ -156,7 +156,7 @@ protected:
     StringImplShape(uint32_t refCount, std::span<const char16_t>, unsigned hashAndFlags);
 
     enum ConstructWithConstExprTag { ConstructWithConstExpr };
-    template<unsigned characterCount> constexpr StringImplShape(uint32_t refCount, unsigned length, const char (&characters)[characterCount], unsigned hashAndFlags, ConstructWithConstExprTag);
+    constexpr StringImplShape(uint32_t refCount, ASCIILiteral, unsigned hashAndFlags, ConstructWithConstExprTag);
     template<unsigned characterCount> constexpr StringImplShape(uint32_t refCount, unsigned length, const char16_t (&characters)[characterCount], unsigned hashAndFlags, ConstructWithConstExprTag);
 
     std::atomic<uint32_t> m_refCount;
@@ -408,10 +408,11 @@ public:
         //       StringImpl::hash() only sets a new hash iff !hasHash().
         //       Additionally, StringImpl::setHash() asserts hasHash() and !isStatic().
 
-        template<unsigned characterCount> explicit constexpr StaticStringImpl(const char (&characters)[characterCount], StringKind = StringNormal);
+        explicit constexpr StaticStringImpl(ASCIILiteral, StringKind = StringNormal);
         template<unsigned characterCount> explicit constexpr StaticStringImpl(const char16_t (&characters)[characterCount], StringKind = StringNormal);
         operator StringImpl&();
         operator const StringImpl&() const;
+        ASCIILiteral literal() const { return ASCIILiteral::fromLiteralUnsafe(m_data8Char); }
     };
 
     WTF_EXPORT_PRIVATE static StaticStringImpl s_emptyAtomString;
@@ -804,8 +805,12 @@ inline std::strong_ordering codePointCompare(std::span<const CharacterType1> cha
         using ChunkType = std::conditional_t<sizeof(CharacterType1) == 1, uint32_t, uint64_t>;
         constexpr size_t stride = sizeof(ChunkType) / sizeof(CharacterType1);
         for (; position + (stride - 1) < commonLength;) {
-            auto lhs = *std::bit_cast<const ChunkType*>(characters1Ptr);
-            auto rhs = *std::bit_cast<const ChunkType*>(characters2Ptr);
+            // Even though CPU does not need aligned access, we cannot
+            // simply dereference ChunkType* or the compiler may perform
+            // optimizations based on the assumption that all ChunkType
+            // objects are naturally aligned.
+            auto lhs = unalignedLoad<ChunkType>(characters1Ptr);
+            auto rhs = unalignedLoad<ChunkType>(characters2Ptr);
             if (lhs != rhs) {
                 if constexpr (sizeof(CharacterType1) == 1)
                     return (flipBytes(lhs) > flipBytes(rhs)) ? std::strong_ordering::greater : std::strong_ordering::less;
@@ -882,13 +887,13 @@ inline StringImplShape::StringImplShape(uint32_t refCount, std::span<const char1
     RELEASE_ASSERT(data.size() <= MaxLength);
 }
 
-template<unsigned characterCount> constexpr StringImplShape::StringImplShape(uint32_t refCount, unsigned length, const char (&characters)[characterCount], unsigned hashAndFlags, ConstructWithConstExprTag)
+constexpr StringImplShape::StringImplShape(uint32_t refCount, ASCIILiteral literal, unsigned hashAndFlags, ConstructWithConstExprTag)
     : m_refCount(refCount)
-    , m_length(length)
-    , m_data8Char(characters)
+    , m_length(literal.length())
+    , m_data8Char(literal.characters())
     , m_hashAndFlags(hashAndFlags)
 {
-    RELEASE_ASSERT(length <= MaxLength);
+    RELEASE_ASSERT(m_length <= MaxLength);
 }
 
 template<unsigned characterCount> constexpr StringImplShape::StringImplShape(uint32_t refCount, unsigned length, const char16_t (&characters)[characterCount], unsigned hashAndFlags, ConstructWithConstExprTag)
@@ -1263,6 +1268,21 @@ template<typename T> inline T* StringImpl::tailPointer()
 }
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
+template<typename CharacterType> inline Ref<StringImpl> StringImpl::createUninitializedInternalNonEmpty(size_t length, std::span<CharacterType>& data)
+{
+    ASSERT(length);
+
+    // Allocate a single buffer large enough to contain the StringImpl
+    // struct as well as the data which it contains. This removes one
+    // heap allocation from this call.
+    if (!isValidLength<CharacterType>(length))
+        CRASH();
+
+    SUPPRESS_UNCOUNTED_LOCAL StringImpl* string = static_cast<StringImpl*>(StringImplMalloc::malloc(allocationSize<CharacterType>(length)));
+    data = unsafeMakeSpan(string->tailPointer<CharacterType>(), length);
+    return constructInternal<CharacterType>(*string, length);
+}
+
 inline StringImpl* const& StringImpl::substringBuffer() const
 {
     ASSERT(bufferOwnership() == BufferSubstring);
@@ -1282,9 +1302,9 @@ inline void StringImpl::assertHashIsCorrect() const
     ASSERT(existingHash() == StringHasher::computeHashAndMaskTop8Bits(span8()));
 }
 
-template<unsigned characterCount> constexpr StringImpl::StaticStringImpl::StaticStringImpl(const char (&characters)[characterCount], StringKind stringKind)
-    : StringImplShape(s_refCountFlagIsStaticString, characterCount - 1, characters,
-        s_hashFlag8BitBuffer | s_hashFlagDidReportCost | stringKind | BufferInternal | (StringHasher::computeLiteralHashAndMaskTop8Bits(characters) << s_flagCount), ConstructWithConstExpr)
+constexpr StringImpl::StaticStringImpl::StaticStringImpl(ASCIILiteral literal, StringKind stringKind)
+    : StringImplShape(s_refCountFlagIsStaticString, literal,
+        s_hashFlag8BitBuffer | s_hashFlagDidReportCost | stringKind | BufferInternal | (StringHasher::computeLiteralHashAndMaskTop8Bits(literal) << s_flagCount), ConstructWithConstExpr)
 {
 }
 

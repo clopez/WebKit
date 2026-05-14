@@ -33,7 +33,6 @@
 #include "HTMLFrameOwnerElement.h"
 #include "FrameInlines.h"
 #include "NodeDocument.h"
-#include "NodeInlines.h"
 #include "RemoteDOMWindow.h"
 #include "RemoteFrameClient.h"
 #include "RemoteFrameView.h"
@@ -176,6 +175,11 @@ URL RemoteFrame::urlForConsoleLog() const
 OptionSet<AdvancedPrivacyProtections> RemoteFrame::advancedPrivacyProtections() const
 {
     return m_advancedPrivacyProtections;
+}
+
+bool RemoteFrame::allowPrivacyProxy() const
+{
+    return m_allowPrivacyProxy;
 }
 
 void RemoteFrame::updateScrollingMode()
