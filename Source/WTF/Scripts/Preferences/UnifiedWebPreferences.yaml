@@ -901,7 +901,7 @@ BlockIOKitInWebContentSandbox:
   humanReadableName: "IOKit blocking in the WebContent sandbox"
   humanReadableDescription: "Block IOKit access in the WebContent sandbox"
   webcoreBinding: none
-  condition: HAVE(SANDBOX_STATE_FLAGS)
+  condition: PLATFORM(COCOA)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
@@ -3413,6 +3413,20 @@ GetUserMediaRequiresFocus:
     WebCore:
       default: true
 
+GlobalPrivacyControlEnabled:
+  type: bool
+  status: testable
+  category: privacy
+  humanReadableName: "Global Privacy Control"
+  humanReadableDescription: "Enable Global Privacy Control (GPC) signal"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 GoogleAntiFlickerOptimizationQuirkEnabled:
   type: bool
   status: mature
@@ -3472,18 +3486,18 @@ GridLanesEnabled:
 
 HDRAcceleratedApplyGainMapEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   webcoreOnChange: setNeedsRelayoutAllFrames
   humanReadableName: "HDR Accelerated Apply GainMap"
   humanReadableDescription: "Enable HDR Accelerated Apply GainMap"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 HTMLEnhancedSelectEnabled:
    type: bool
@@ -8813,7 +8827,7 @@ UseSkiaForComposition:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 

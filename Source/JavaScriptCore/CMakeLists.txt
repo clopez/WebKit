@@ -1208,8 +1208,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSDestructibleObject.h
     runtime/JSDestructibleObjectHeapCellType.h
     runtime/JSEmbedderArrayLike.h
-    runtime/JSHeapDouble.h
-    runtime/JSHeapInt32.h
     runtime/JSExportMacros.h
     runtime/JSFloat16Array.h
     runtime/JSFloat32Array.h
@@ -1485,13 +1483,17 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/WriteBarrierInlines.h
 
     runtime/temporal/core/CalendarArithmetic.h
+    runtime/temporal/core/CalendarFields.h
     runtime/temporal/core/CalendarICUBridge.h
+    runtime/temporal/core/DurationArithmetic.h
     runtime/temporal/core/ISOArithmetic.h
     runtime/temporal/core/InstantCore.h
+    runtime/temporal/core/PlainDateTimeCore.h
     runtime/temporal/core/Rounding.h
     runtime/temporal/core/TemporalCoreTypes.h
     runtime/temporal/core/TemporalEnums.h
     runtime/temporal/core/TimeZoneICUBridge.h
+    runtime/temporal/core/ZonedDateTimeCore.h
 
     tools/Integrity.h
     tools/IntegrityInlines.h
@@ -1730,11 +1732,10 @@ set(JavaScriptCore_INTERFACE_DEPENDENCIES
 WEBKIT_FRAMEWORK_DECLARE(JavaScriptCore)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
-if (NOT WIN32)
+if (ENABLE_UNSAFE_BUFFER_USAGE_WARNING)
     WEBKIT_ADD_TARGET_CXX_FLAGS(JavaScriptCore
         -Wunsafe-buffer-usage
         -Wunsafe-buffer-usage-in-libc-call
-        -fsafe-buffer-usage-suggestions
     )
 endif ()
 

@@ -155,12 +155,14 @@ public:
     static void rejectWithInternalMicrotask(VM&, JSGlobalObject*, JSValue argument, InternalMicrotask, JSValue context);
     static void fulfillWithInternalMicrotask(VM&, JSGlobalObject*, JSValue argument, InternalMicrotask, JSValue context);
 
-    void performPromiseThenWithInternalMicrotask(VM&, JSGlobalObject*, InternalMicrotask, JSPromise*, JSValue context);
+    void performPromiseThenWithInternalMicrotask(VM&, JSGlobalObject*, InternalMicrotask, JSCell*, JSValue context);
 
     bool isThenFastAndNonObservable();
 
     std::tuple<JSFunction*, JSFunction*> createResolvingFunctions(VM&, JSGlobalObject*);
     std::tuple<JSFunction*, JSFunction*> createFirstResolvingFunctions(VM&, JSGlobalObject*);
+    JSFunction* createFirstResolveFunction(VM&, JSGlobalObject*);
+    JSFunction* createFirstRejectFunction(VM&, JSGlobalObject*);
     static std::tuple<JSFunction*, JSFunction*> createResolvingFunctionsWithInternalMicrotask(VM&, JSGlobalObject*, InternalMicrotask, JSValue context);
     static std::tuple<JSObject*, JSObject*, JSObject*> newPromiseCapability(JSGlobalObject*, JSValue constructor);
     static JSValue createPromiseCapability(VM&, JSGlobalObject*, JSObject* promise, JSObject* resolve, JSObject* reject);
@@ -216,7 +218,7 @@ private:
     void setSlot(VM& vm, JSValue value) { m_slot.set(vm, this, value); }
     void clearSlot() { m_slot.clear(); }
 
-    void setInlineMicrotaskReaction(VM&, InternalMicrotask, JSPromise*, JSValue context);
+    void setInlineMicrotaskReaction(VM&, InternalMicrotask, JSCell*, JSValue context);
     void setInlineHandlerReaction(VM&, InlineReactionKind, JSPromise*, JSValue handler);
     JSPromiseReaction* spillInlineReaction(VM&);
     JSPromiseReaction* reactionHead(VM&);

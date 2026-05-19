@@ -95,6 +95,7 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/API/Cocoa"
     "${WEBKIT_DIR}/UIProcess/Authentication/cocoa"
     "${WEBKIT_DIR}/UIProcess/Cocoa"
+    "${WEBKIT_DIR}/UIProcess/Cocoa/Separated"
     "${WEBKIT_DIR}/UIProcess/Cocoa/SOAuthorization"
     "${WEBKIT_DIR}/UIProcess/Cocoa/TextExtraction"
     "${WEBKIT_DIR}/UIProcess/Extensions/Cocoa"
@@ -170,18 +171,6 @@ set(WebKit_SWIFT_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Platform/spi/Cocoa"
     "${WEBKIT_DIR}/Platform/spi/Cocoa/Modules"
     "${WEBKIT_DIR}/Platform/spi/ios"
-)
-
-# Targets that stage the headers the -typecheck/-emit-clang-header pass reads.
-# Declaring these lets WEBKIT_TARGET_ADD_SWIFT_SOURCES detach the header
-# command from cmake_object_order_depends_target_WebKit so it starts once
-# headers are copied instead of waiting for WebCore/WebKitLegacy to link.
-set(WebKit_SWIFT_HEADER_DEPENDS
-    PAL_CopyHeaders
-    WTF_CopyHeaders
-    WebKit_CopyHeaders
-    bmalloc_CopyHeaders
-    bmalloc_CopyPrivateHeaders
 )
 
 file(WRITE "${CMAKE_BINARY_DIR}/WebKit/WebPushDaemonStubs.cpp"
@@ -461,8 +450,4 @@ list(APPEND WebKit_DERIVED_SOURCES
 )
 
 # Generated JSWebExtension*.mm IDL bindings need -fobjc-arc; route to WebKitARC.
-foreach (_file IN ITEMS ${WebKit_BINDINGS_IN_FILES})
-    get_filename_component(_name ${_file} NAME_WE)
-    list(APPEND WebKit_ARC_SOURCES ${WebKit_DERIVED_SOURCES_DIR}/JS${_name}.mm)
-    set_source_files_properties(${WebKit_DERIVED_SOURCES_DIR}/JS${_name}.mm PROPERTIES GENERATED TRUE)
-endforeach ()
+list(APPEND WebKit_ARC_SOURCES ${WebKit_DERIVED_SOURCES_DIR}/JSWebExtensionAPIUnified.mm)

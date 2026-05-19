@@ -929,11 +929,10 @@ WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER(WebKit WebKit
     "${WebKit_SWIFT_INTEROP_MODULE_PATH}"
     "${WebKit_DERIVED_SOURCES_DIR}/WebKit-Swift-CPP.h")
 
-if (PORT STREQUAL GTK OR PORT STREQUAL WPE)
+if (ENABLE_UNSAFE_BUFFER_USAGE_WARNING)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit
         -Wunsafe-buffer-usage
         -Wunsafe-buffer-usage-in-libc-call
-        -fsafe-buffer-usage-suggestions
     )
 endif ()
 
@@ -968,6 +967,10 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
         # DEPENDS needs the actual path. Check source tree first, then derived.
         if (EXISTS ${WEBKIT_DIR}/${_file}.messages.in)
             list(APPEND _input_files ${WEBKIT_DIR}/${_file}.messages.in)
+            file(STRINGS ${WEBKIT_DIR}/${_file}.messages.in _swift_attr REGEX "SwiftReceiver")
+            if (_swift_attr)
+                list(APPEND _outputs ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.swift)
+            endif ()
         else ()
             list(APPEND _input_files ${WebKit_DERIVED_SOURCES_DIR}/${_name}.messages.in)
         endif ()
@@ -1009,6 +1012,7 @@ GENERATE_MESSAGE_SOURCES(WebKit_DERIVED_SOURCES "${WebKit_MESSAGES_IN_FILES}")
 macro(GENERATE_IDL_BINDINGS _output_source _inputs)
     unset(_input_files)
     unset(_outputs)
+    unset(_import_names)
     foreach (_file IN ITEMS ${_inputs})
         get_filename_component(_name ${_file} NAME_WE)
         list(APPEND _input_files ${WEBKIT_DIR}/${_file}.idl)
@@ -1017,12 +1021,14 @@ macro(GENERATE_IDL_BINDINGS _output_source _inputs)
 
             ${WebKit_DERIVED_SOURCES_DIR}/JS${_name}.h
         )
+        list(APPEND _import_names JS${_name}.mm)
         list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/JS${_name}.h)
     endforeach ()
 
     add_custom_command(
         OUTPUT
             ${_outputs}
+            ${WebKit_DERIVED_SOURCES_DIR}/JSWebExtensionAPIUnified.mm
         MAIN_DEPENDENCY ${WEBCORE_DIR}/bindings/scripts/generate-bindings-all.pl
         DEPENDS
             ${_input_files}
@@ -1033,6 +1039,7 @@ macro(GENERATE_IDL_BINDINGS _output_source _inputs)
            "${WEBKIT_DIR}/WebProcess/Extensions/Bindings/Scripts/GenerateImports.pl"
            "${WEBKIT_DIR}/WebProcess/Extensions/Bindings/Scripts/IDLAttributes.json"
         COMMAND ${PERL_EXECUTABLE} -I "${WEBKIT_DIR}/WebProcess/Extensions/Bindings/Scripts" ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --outputDir . --generator Extensions --idlAttributesFile "${WEBKIT_DIR}/WebProcess/Extensions/Bindings/Scripts/IDLAttributes.json" --idlFileNamesList WebExtensionIDLFileNamesList.txt ${_input_files}
+        COMMAND ${PERL_EXECUTABLE} "${WEBKIT_DIR}/WebProcess/Extensions/Bindings/Scripts/GenerateImports.pl" JSWebExtensionAPIUnified.mm ${_import_names}
         WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
         VERBATIM
     )
@@ -1259,6 +1266,11 @@ if (ENABLE_BACK_FORWARD_LIST_SWIFT)
 endif ()
 
 list(APPEND WebKit_SOURCES ${WebKit_DERIVED_SOURCES})
+
+if (TARGET WebKit_SwiftCxxHeader)
+    add_custom_target(WebKit_DerivedHeadersForSwift DEPENDS ${WebKit_HEADERS} ${WebKit_DERIVED_SOURCES})
+    add_dependencies(WebKit_SwiftCxxHeader WebKit_DerivedHeadersForSwift)
+endif ()
 
 WEBKIT_COMPUTE_SOURCES(WebKit)
 

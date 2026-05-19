@@ -51,7 +51,7 @@ private actor Recap {
 }
 
 @MainActor
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct AppKitGesturesTests {
     private static let text = "Here's to the crazy ones."
 
@@ -75,6 +75,50 @@ struct AppKitGesturesTests {
         self.window.setFrameOrigin(.zero)
         NSApp.activate(ignoringOtherApps: true)
         self.window.makeKeyAndOrderFront(nil)
+    }
+
+    @Test(
+        .bug("https://webkit.org/b/314880", "Only mouse tracking mode produces pointer events"),
+        arguments: [true, false]
+    )
+    func singleClickFiresPointerMouseAndClickEvents(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let expectedEvents = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]
+
+        try await page.callJavaScript(
+            """
+            window.eventLog = [];
+            const target = document.getElementById("div");
+            for (const eventType of events) {
+                target.addEventListener(eventType, e => window.eventLog.push(e.type));
+            }
+            """,
+            arguments: ["events": expectedEvents]
+        )
+
+        if contentEditable {
+            // FIXME: <rdar://177201499> This workaround establishes a selection first so that the synthetic click does not change insertion point.
+            try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", offset: 0))
+            await page.waitForNextPresentationUpdate()
+        }
+
+        let toBounds = try await screenBoundsOfText("to")
+
+        guard NSApp.isActive else { return }
+
+        await recap.play { composer in
+            composer._wk_click(at: toBounds.center, for: .seconds(0.05))
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let eventLog = try await #require(page.callJavaScript("return window.eventLog;") as? [String])
+
+        for eventType in expectedEvents {
+            #expect(eventLog.contains(eventType))
+        }
     }
 
     @Test(arguments: [true, false])
@@ -197,6 +241,48 @@ struct AppKitGesturesTests {
         let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
 
         #expect(newSelection == crazySelection)
+    }
+
+    @Test(
+        .bug("https://webkit.org/b/314804", "Triple click does not generate a line selection on PDF")
+    )
+    func tripleClickingInPDFSelectsLine() async throws {
+        let pdfURL = try #require(Bundle.testResources.url(forResource: "test", withExtension: "pdf"))
+        try await page.load(URLRequest(url: pdfURL)).wait()
+        await page.waitForNextPresentationUpdate()
+
+        // Recap requires this test to be ran within an app host.
+        guard NSApp.isActive else {
+            return
+        }
+
+        let pointInDOMCoords = try #require(
+            DOMRect(decodedRepresentation: [
+                "x": 100.0,
+                "y": 100.0,
+                "width": 0.0,
+                "height": 0.0,
+            ])
+        )
+        let clickPoint = convertToCoreGraphicsScreenCoordinates(
+            rectInViewportCoordinates: pointInDOMCoords,
+            window: window
+        )
+        .origin
+
+        await recap.play { composer in
+            composer._wk_click(at: clickPoint, for: .seconds(0.1))
+            composer.advanceTime(0.1)
+            composer._wk_click(at: clickPoint, for: .seconds(0.1))
+            composer.advanceTime(0.1)
+            composer._wk_click(at: clickPoint, for: .seconds(0.1))
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let selectedText = await page.copySelection()
+        #expect(selectedText == "Test PDF Content")
     }
 
     @Test(arguments: [0.1, 0.5, 0.9])

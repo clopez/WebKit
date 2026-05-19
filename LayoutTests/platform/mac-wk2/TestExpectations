@@ -2242,8 +2242,6 @@ webkit.org/b/310302 imported/w3c/web-platform-tests/uievents/mouse/mouse_boundar
 http/tests/site-isolation/inspector/debugger/scriptParsed-frame-target.html [ Skip ]
 http/tests/site-isolation/inspector/debugger/pause-in-cross-origin-iframe.html [ Skip ]
 http/tests/site-isolation/inspector/debugger/setBreakpoint-cross-origin-iframe.html [ Skip ]
-http/tests/site-isolation/inspector/runtime/evaluate-in-cross-origin-iframe.html [ Failure Crash ]
-http/tests/site-isolation/inspector/runtime/execution-context-from-frame-target.html [ Failure ]
 http/tests/site-isolation/inspector/runtime/executionContextCreated-frame-target.html [ Failure ]
 http/tests/site-isolation/inspector/page/override-setting-cross-origin-iframe.html [ Pass Failure ]
 webkit.org/b/311836 http/tests/site-isolation/inspector/page/set-emulated-media-cross-origin-iframe.html [ Pass Failure ]
@@ -2270,6 +2268,8 @@ webkit.org/b/308165 [ Debug ] scrollingcoordinator/mac/latching/simple-page-rubb
 
 webkit.org/b/311759 [ Release arm64 ] imported/w3c/web-platform-tests/event-timing/keydown.html [ Pass Failure ]
 
+webkit.org/b/315060 imported/w3c/web-platform-tests/dom/events/Event-timestamp-high-resolution.https.html [ Pass Failure ]
+
 webkit.org/b/308325 [ Debug ] http/wpt/cache-storage/cache-in-stopped-context.html [ Pass Failure ]
 
 webkit.org/b/309173 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/modulepreload-referrerpolicy.html [ Pass Failure ]
@@ -2295,6 +2295,8 @@ webkit.org/b/314668 webrtc/getUserMedia-webaudio-autoplay.html [ Pass Failure ]
 
 webkit.org/b/314136 accessibility/mac/client/div-bounds.html [ Pass Failure ]
 
+webkit.org/b/314851 http/tests/site-isolation/inspector/debugger/provisional-frame-target-pausing.html [ Failure ]
+
 webkit.org/b/308334 [ Debug ] http/tests/webgpu/webgpu/api/validation/gpu_external_texture_expiration.html [ Skip ]
 
 webkit.org/b/311677 [ Tahoe+ Release ] imported/w3c/web-platform-tests/svg/animations/svglength-animation-invalid-value-5.html [ Pass Failure ]
@@ -2312,3 +2314,9 @@ webkit.org/b/313554 [ Debug ] http/tests/security/javascriptURL/xss-ALLOWED-from
 webkit.org/b/313664 [ Tahoe+ ] imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-linear-gradient.html [ ImageOnlyFailure ]
 
 webkit.org/b/313764 [ Tahoe+ Debug ] webrtc/ephemeral-certificates-and-cnames.html [ Pass Timeout ]
+
+webkit.org/b/315040 imported/w3c/web-platform-tests/dom/events/Event-timestamp-high-resolution.html [ Pass Failure ]
+
+# webkit.org/b/315048 REGRESSION(313302@main): [macOS]: 2 tests in imported/w3c/web-platform-tests/dom/nodes/moveBefore are flaky crashes
+imported/w3c/web-platform-tests/dom/nodes/moveBefore/style-applies.html [ Skip ]
+imported/w3c/web-platform-tests/dom/nodes/moveBefore/throws-exception.html [ Skip ]

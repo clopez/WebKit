@@ -1036,6 +1036,7 @@ private:
         case GetByValMegamorphic:
         case ArrayPop:
         case ArrayPush:
+        case ArrayShift:
         case ArraySplice:
         case RegExpExec:
         case RegExpExecNonGlobalOrSticky:
@@ -1221,6 +1222,11 @@ private:
             break;
         }
 
+        case StringMatch: {
+            setPrediction(SpecOther | SpecArray);
+            break;
+        }
+
         case StringLocaleCompare: {
             setPrediction(SpecInt32Only);
             break;
@@ -1229,6 +1235,7 @@ private:
         case StringValueOf:
         case StringSlice:
         case StringSubstring:
+        case StringSubstr:
         case ToUpperCase:
         case ToLowerCase:
             setPrediction(SpecString);
@@ -1411,6 +1418,10 @@ private:
 
         case ObjectToString:
             setPrediction(SpecString);
+            break;
+
+        case SymbolToString:
+            setPrediction(SpecStringResolved);
             break;
 
         case Spread:
@@ -1812,6 +1823,7 @@ private:
         case PromiseReject:
         case PromiseThen:
         case PerformPromiseThen:
+        case PerformPromiseThenOneHandler:
             break;
             
         // This gets ignored because it only pretends to produce a value.

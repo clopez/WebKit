@@ -320,6 +320,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case NormalizeMapKey:
     case StringSlice:
     case StringSubstring:
+    case StringSubstr:
     case ToUpperCase:
     case ToLowerCase:
     case MapGet:
@@ -419,6 +420,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case GetTypedArrayLengthAsInt52:
     case GetVectorLength:
     case ArrayPop:
+    case ArrayShift:
     case StringAt:
     case StringCharAt:
     case StringCharCodeAt:
@@ -582,6 +584,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ObjectGetOwnPropertyNames:
     case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case SymbolToString:
     case ReflectOwnKeys:
     case SetLocal:
     case SetCallee:
@@ -640,6 +643,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case RegExpMatchFast:
     case RegExpMatchFastGlobal:
     case RegExpSearch:
+    case StringMatch:
     case Call:
     case DirectCall:
     case TailCallInlinedCaller:
@@ -804,6 +808,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case PromiseReject:
     case PromiseThen:
     case PerformPromiseThen:
+    case PerformPromiseThenOneHandler:
     case SetAdd:
     case MapSet:
     case MapOrSetDelete:

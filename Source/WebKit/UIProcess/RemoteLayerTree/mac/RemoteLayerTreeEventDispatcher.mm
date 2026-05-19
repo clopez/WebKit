@@ -83,7 +83,7 @@ private:
         if (!eventDispatcher)
             return;
 
-        if (!eventDispatcher->scrollingTreeWasRecentlyActive())
+        if (!eventDispatcher->scrollingThreadNeedsDisplayDidRefresh())
             return;
 
         ScrollingThread::dispatch([dispatcher = Ref { *eventDispatcher }, displayID] {
@@ -237,7 +237,7 @@ void RemoteLayerTreeEventDispatcher::scrollingThreadHandleWheelEvent(const WebWh
     if (!scrollingTree)
         return;
 
-    auto locker = RemoteLayerTreeHitTestLocker { *scrollingTree };
+    ScrollingTree::HitTestLocker locker { *scrollingTree };
 
     auto platformWheelEvent = platform(webWheelEvent);
     auto processingSteps = determineWheelEventProcessing(platformWheelEvent, rubberBandableEdges);
@@ -468,7 +468,7 @@ void RemoteLayerTreeEventDispatcher::didRefreshDisplay(PlatformDisplayID display
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
     {
         // Make sure the lock is held for the handleSyntheticWheelEvent callback.
-        auto locker = RemoteLayerTreeHitTestLocker { *scrollingTree };
+        ScrollingTree::HitTestLocker locker { *scrollingTree };
         m_momentumEventDispatcher->displayDidRefresh(displayID);
     }
 #endif
@@ -577,6 +577,18 @@ void RemoteLayerTreeEventDispatcher::waitForRenderingUpdateCompletionOrTimeout()
         tracePoint(ScrollingThreadRenderUpdateSyncEnd);
 }
 
+bool RemoteLayerTreeEventDispatcher::scrollingThreadNeedsDisplayDidRefresh()
+{
+    auto scrollingTree = this->scrollingTree();
+    if (!scrollingTree)
+        return false;
+
+    if (scrollingTree->hasRecentActivity())
+        return true;
+
+    return haveLayersWithAnimations();
+}
+
 bool RemoteLayerTreeEventDispatcher::scrollingTreeWasRecentlyActive()
 {
     auto scrollingTree = this->scrollingTree();
@@ -586,6 +598,11 @@ bool RemoteLayerTreeEventDispatcher::scrollingTreeWasRecentlyActive()
     if (scrollingTree->hasRecentActivity())
         return true;
 
+    return false;
+}
+
+bool RemoteLayerTreeEventDispatcher::haveLayersWithAnimations()
+{
 #if ENABLE(THREADED_ANIMATIONS)
     Locker lock { m_animationLock };
     return !m_animationStacks.isEmpty();
@@ -598,6 +615,14 @@ void RemoteLayerTreeEventDispatcher::mainThreadDisplayDidRefresh(PlatformDisplay
 {
     if (!scrollingTreeWasRecentlyActive())
         return;
+
+    {
+        Locker locker { m_scrollingTreeLock };
+        // The state can be Desynchronized if CommitDelayState is Delayed, since we skip sending DisplayDidRefresh to the web process.
+        // There's no point trying to synchronize in that case.
+        if (m_state == SynchronizationState::Desynchronized)
+            return;
+    }
 
     tracePoint(ScrollingThreadRenderUpdateSyncStart);
 

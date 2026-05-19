@@ -2685,6 +2685,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case StringSubstr: {
+        compileStringSubstr(node);
+        break;
+    }
+
     case ToUpperCase: {
         compileToUpperCase(node);
         break;
@@ -3172,6 +3177,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case StringMatch: {
+        compileStringMatch(node);
+        break;
+    }
+
     case StringLastIndexOf: {
         compileStringLastIndexOf(node);
         break;
@@ -3310,6 +3320,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case ObjectToString: {
         compileObjectToString(node);
+        break;
+    }
+
+    case SymbolToString: {
+        compileSymbolToString(node);
         break;
     }
 
@@ -4429,6 +4444,10 @@ void SpeculativeJIT::compile(Node* node)
         compilePerformPromiseThen(node);
         break;
 
+    case PerformPromiseThenOneHandler:
+        compilePerformPromiseThenOneHandler(node);
+        break;
+
     case Unreachable:
         unreachable(node);
         break;
@@ -4547,6 +4566,7 @@ void SpeculativeJIT::compile(Node* node)
     case MultiGetByVal:
     case MultiPutByVal:
     case MapStorage:
+    case ArrayShift:
         DFG_CRASH(m_graph, node, "unexpected node in DFG backend");
         break;
     }

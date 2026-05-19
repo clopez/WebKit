@@ -171,6 +171,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case ArrayifyToStructure:
         case ArrayPush:
         case ArrayPop:
+        case ArrayShift:
         case ArrayIncludes:
         case ArrayIndexOf:
         case HasIndexedProperty:
@@ -271,6 +272,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case GetExecutable:
     case BottomValue:
     case TypeOf:
+    case SymbolToString:
         def(PureValue(node));
         return;
 
@@ -793,6 +795,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case DeleteByVal:
     case ArrayPush:
     case ArrayPop:
+    case ArrayShift:
     case ArraySplice:
     case Call:
     case DirectCall:
@@ -2300,6 +2303,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case StringSplit:
+    case StringMatch:
         clobberTop();
         return;
 
@@ -2563,6 +2567,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
 
     case StringSlice:
     case StringSubstring:
+    case StringSubstr:
         def(PureValue(node));
         return;
 
@@ -2617,6 +2622,14 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case NewResolvedPromise:
+        if (node->isResolvedValueKnownNonThenable()) {
+            read(HeapObjectCount);
+            write(HeapObjectCount);
+            return;
+        }
+        clobberTop();
+        return;
+
     case NewRejectedPromise:
         clobberTop();
         return;
@@ -2625,6 +2638,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case PromiseReject:
     case PromiseThen:
     case PerformPromiseThen:
+    case PerformPromiseThenOneHandler:
         clobberTop();
         return;
 

@@ -35,15 +35,23 @@
 #include "WebProcess.h"
 #include <WebCore/CoordinatedPlatformLayer.h>
 #include <WebCore/Damage.h>
+#include <WebCore/FontCache.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SkiaCompositingLayer.h>
 #include <WebCore/TextureMapperLayer.h>
 #include <WebCore/TransformationMatrix.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+#include <skia/core/SkCanvas.h>
+#include <skia/core/SkFont.h>
+#include <skia/core/SkFontMgr.h>
+#include <skia/core/SkPaint.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/StringToIntegerConversion.h>
 
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -97,25 +105,21 @@ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTre
         // a plain C cast expression in this one instance works in all cases.
         static_assert(sizeof(GLNativeWindowType) <= sizeof(uint64_t), "GLNativeWindowType must not be longer than 64 bits.");
         auto nativeSurfaceHandle = (GLNativeWindowType)m_surface->window();
-        if (m_useSkia && !nativeSurfaceHandle) {
-            // When using Skia for composition, use the thread-local SkiaGLContext from sharedDisplay()
-            // instead of creating a separate GLContext. This avoids expensive context switching between
-            // the compositor's context and Skia's context during paintToSkiaCanvas().
-            if (auto* context = PlatformDisplay::sharedDisplay().skiaGLContext()) {
-                context->makeContextCurrent();
-                glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
-            }
+        auto context = GLContext::create(PlatformDisplay::sharedDisplay(), nativeSurfaceHandle);
+        if (!context || !context->makeContextCurrent()) {
+            m_state.state = State::Invalidated;
             return;
         }
 
-        m_context = GLContext::create(PlatformDisplay::sharedDisplay(), nativeSurfaceHandle);
-        if (m_context && m_context->makeContextCurrent()) {
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
+
+        if (m_useSkia)
+            PlatformDisplay::sharedDisplay().setSkiaGLContextForCurrentThread(WTF::move(context));
+        else {
+            m_context = WTF::move(context);
+            m_textureMapper = TextureMapper::create();
             if (!nativeSurfaceHandle)
                 m_flipY = !m_flipY;
-            glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
-
-            if (!m_useSkia)
-                m_textureMapper = TextureMapper::create();
         }
     });
 }
@@ -364,11 +368,6 @@ void ThreadedCompositor::paintToSkiaCanvas(const TransformationMatrix& matrix, c
     auto& rootLayer = m_sceneState->rootLayer().ensureSkiaTarget();
     rootLayer.setTransform(matrix);
 
-    // We only need context switching here for the old API (indicated by m_context != nullptr).
-    auto& display = PlatformDisplay::sharedDisplay();
-    if (m_context)
-        display.skiaGLContext()->makeContextCurrent();
-
     m_surface->clear(reasons);
 
     canvas->save();
@@ -392,11 +391,11 @@ void ThreadedCompositor::paintToSkiaCanvas(const TransformationMatrix& matrix, c
     }
 #endif
 
-    if (auto* surface = canvas->getSurface())
-        display.skiaGrContext()->flushAndSubmit(surface, GrSyncCpu::kNo);
+    if (m_fpsCounter.drawsFPS)
+        drawFPSCounter(*canvas);
 
-    if (m_context)
-        m_context->makeContextCurrent();
+    if (auto* surface = canvas->getSurface())
+        PlatformDisplay::sharedDisplay().skiaGrContext()->flushAndSubmit(surface, GrSyncCpu::kNo);
 
     if (sceneHasRunningAnimations)
         requestComposition(CompositionReason::Animation);
@@ -494,6 +493,8 @@ void ThreadedCompositor::renderLayerTree()
 
     if (m_context)
         m_context->swapBuffers();
+    else
+        PlatformDisplay::sharedDisplay().skiaGLContext()->swapBuffers();
 
     m_surface->didRenderFrame();
     m_surface->sendFrame();
@@ -625,6 +626,15 @@ void ThreadedCompositor::initializeFPSCounter()
         m_fpsCounter.exposesFPS = true;
         m_fpsCounter.calculationInterval = interval;
     }
+
+    // WEBKIT_DRAW_FPS=1 additionally renders the FPS as an on-screen overlay,
+    // reusing the calculation interval (which WEBKIT_SHOW_FPS may override).
+    if (const auto* drawFPSEnvironment = getenv("WEBKIT_DRAW_FPS")) {
+        if (auto enabled = parseInteger<unsigned>(StringView::fromLatin1(drawFPSEnvironment)); enabled && *enabled) {
+            m_fpsCounter.exposesFPS = true;
+            m_fpsCounter.drawsFPS = true;
+        }
+    }
 }
 
 void ThreadedCompositor::updateFPSCounter()
@@ -639,13 +649,61 @@ void ThreadedCompositor::updateFPSCounter()
     m_fpsCounter.frameCountSinceLastCalculation++;
     const Seconds delta = MonotonicTime::now() - m_fpsCounter.lastCalculationTimestamp;
     if (delta >= m_fpsCounter.calculationInterval) {
-        WTFSetCounter(FPS, static_cast<int>(std::round(m_fpsCounter.frameCountSinceLastCalculation / delta.seconds())));
+        m_fpsCounter.lastFPS = static_cast<int>(std::round(m_fpsCounter.frameCountSinceLastCalculation / delta.seconds()));
+        WTFSetCounter(FPS, m_fpsCounter.lastFPS);
         if (m_fpsCounter.exposesFPS)
             m_fpsCounter.fps = m_fpsCounter.frameCountSinceLastCalculation / delta.seconds();
         m_fpsCounter.frameCountSinceLastCalculation = 0;
         m_fpsCounter.lastCalculationTimestamp += delta;
     } else if (m_fpsCounter.exposesFPS)
         m_fpsCounter.fps = std::nullopt;
+}
+
+void ThreadedCompositor::drawFPSCounter(SkCanvas& canvas)
+{
+    static SkFont font = [] {
+        constexpr unsigned defaultFontSize = 14;
+        unsigned fontSize = defaultFontSize;
+        if (const auto* fontSizeEnvvar = getenv("WEBKIT_DRAW_FPS_FONT_SIZE")) {
+            if (auto value = parseInteger<unsigned>(StringView::fromLatin1(fontSizeEnvvar)); value && *value)
+                fontSize = *value;
+        }
+        auto typeface = FontCache::forCurrentThread().fontManager().matchFamilyStyle("monospace", SkFontStyle::Bold());
+        SkFont f(typeface, fontSize);
+        f.setEdging(SkFont::Edging::kAntiAlias);
+        f.setSubpixel(true);
+        return f;
+    }();
+
+    // Scale the box padding with the font size so the overlay stays
+    // proportionate at large WEBKIT_DRAW_FPS_FONT_SIZE values
+    // (~3px at the default size of 14).
+    const float padding = font.getSize() * 0.2f;
+
+    if (m_fpsCounter.lastFPS != m_fpsCounter.displayedFPS) {
+        m_fpsCounter.displayedFPS = m_fpsCounter.lastFPS;
+        m_fpsCounter.fpsString = String::number(m_fpsCounter.lastFPS).ascii();
+        SkRect textBounds;
+        font.measureText(m_fpsCounter.fpsString.data(), m_fpsCounter.fpsString.length(), SkTextEncoding::kUTF8, &textBounds);
+        m_fpsCounter.backgroundWidth = textBounds.width() + padding * 2;
+        m_fpsCounter.backgroundHeight = textBounds.height() + padding * 2;
+        m_fpsCounter.textBaseline = -textBounds.fTop + padding;
+    }
+
+    // Drawn in device space at the top-left corner, matching the debug repaint
+    // counter style used by SkiaCompositingLayer.
+    SkAutoCanvasRestore autoRestore(&canvas, true);
+    canvas.resetMatrix();
+
+    SkPaint backgroundPaint;
+    backgroundPaint.setColor(SK_ColorBLACK);
+    backgroundPaint.setStyle(SkPaint::kFill_Style);
+    canvas.drawRect(SkRect::MakeXYWH(0, 0, m_fpsCounter.backgroundWidth, m_fpsCounter.backgroundHeight), backgroundPaint);
+
+    SkPaint textPaint;
+    textPaint.setColor(SK_ColorWHITE);
+    textPaint.setAntiAlias(true);
+    canvas.drawString(m_fpsCounter.fpsString.data(), padding, m_fpsCounter.textBaseline, font, textPaint);
 }
 
 void ThreadedCompositor::fillGLInformation(RenderProcessInfo&& info, CompletionHandler<void(RenderProcessInfo&&)>&& completionHandler)

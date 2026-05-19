@@ -1534,7 +1534,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 break;
             }
             if (producesInteger(node->arithRoundingMode())) {
-                int32_t roundedValueAsInt32 = static_cast<int32_t>(roundedValue);
+                int32_t roundedValueAsInt32 = truncateDoubleToInt32(roundedValue);
                 if (roundedValueAsInt32 == roundedValue) {
                     if (shouldCheckNegativeZero(node->arithRoundingMode())) {
                         if (roundedValueAsInt32 || !std::signbit(roundedValue)) {
@@ -1634,7 +1634,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case StringSubstring:
-    case StringSlice: {
+    case StringSlice:
+    case StringSubstr: {
         setTypeForNode(node, SpecString);
         break;
     }
@@ -2704,6 +2705,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             setTypeForNode(node, SpecArray);
         break;
 
+    case StringMatch:
+        clobberWorld();
+        makeHeapTopForNode(node);
+        break;
+
     case StringFromCharCode: {
         if (node->child1().useKind() == Int32Use || node->child1().useKind() == KnownInt32Use) {
             if (node->child1()->isInt32Constant() && node->child1()->asUInt32() <= maxSingleCharacterString) {
@@ -3335,6 +3341,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
             
     case ArrayPop:
+        clobberWorld();
+        makeHeapTopForNode(node);
+        break;
+
+    case ArrayShift:
         clobberWorld();
         makeHeapTopForNode(node);
         break;
@@ -4012,6 +4023,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case NewResolvedPromise:
+        if (!node->isResolvedValueKnownNonThenable())
+            clobberWorld();
+        setTypeForNode(node, SpecPromiseObject);
+        break;
+
     case NewRejectedPromise: {
         clobberWorld();
         setTypeForNode(node, SpecPromiseObject);
@@ -4126,6 +4142,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case ObjectToString: {
         clobberWorld();
         setTypeForNode(node, SpecString);
+        break;
+    }
+
+    case SymbolToString: {
+        setTypeForNode(node, SpecStringResolved);
         break;
     }
 
@@ -5992,6 +6013,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case PerformPromiseThen:
+    case PerformPromiseThenOneHandler:
         clobberWorld();
         break;
 

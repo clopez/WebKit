@@ -179,6 +179,7 @@ inline CapabilityLevel canCompile(Node* node)
     case StringStartsWith:
     case StringEndsWith:
     case StringSplit:
+    case StringMatch:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case NukeStructureAndSetButterfly:
@@ -250,6 +251,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ObjectGetOwnPropertyNames:
     case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case SymbolToString:
     case ReflectOwnKeys:
     case MakeRope:
     case MakeAtomString:
@@ -437,6 +439,7 @@ inline CapabilityLevel canCompile(Node* node)
     case StringValueOf:
     case StringSlice:
     case StringSubstring:
+    case StringSubstr:
     case ToUpperCase:
     case ToLowerCase:
     case NumberToStringWithRadix:
@@ -453,6 +456,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ArrayIndexOf:
     case ArrayPop:
     case ArrayPush:
+    case ArrayShift:
     case ParseInt:
     case ToIntegerOrInfinity:
     case ToLength:
@@ -518,6 +522,7 @@ inline CapabilityLevel canCompile(Node* node)
     case PromiseReject:
     case PromiseThen:
     case PerformPromiseThen:
+    case PerformPromiseThenOneHandler:
         // These are OK.
         break;
 

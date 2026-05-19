@@ -2503,6 +2503,7 @@
 		55F1F4A427BC993300132A6B /* WebAssemblyCachedScriptSourceProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 55F1F4A227BC993200132A6B /* WebAssemblyCachedScriptSourceProvider.h */; };
 		55FA7FFB2110ECD7005AEFE7 /* SVGZoomAndPanType.h in Headers */ = {isa = PBXBuildFile; fileRef = 55FA7FFA2110ECD7005AEFE7 /* SVGZoomAndPanType.h */; };
 		55FD9FC127B20D520045DA1F /* WebAssemblyScriptSourceCode.h in Headers */ = {isa = PBXBuildFile; fileRef = 55FD9FBF27B20D520045DA1F /* WebAssemblyScriptSourceCode.h */; };
+		564EF2812FA167E3008E9EC3 /* NavigatorGlobalPrivacyControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 564EF27D2FA05074008E9EC3 /* NavigatorGlobalPrivacyControl.h */; };
 		5704405A1E53936200356601 /* JSAesCbcCfbParams.h in Headers */ = {isa = PBXBuildFile; fileRef = 570440591E53936200356601 /* JSAesCbcCfbParams.h */; };
 		5706A6981DDE5E4600A03B14 /* JSRsaOaepParams.h in Headers */ = {isa = PBXBuildFile; fileRef = 5706A6971DDE5E4600A03B14 /* JSRsaOaepParams.h */; };
 		57093D1324C97C8F0086C52D /* FetchResponse.h in Headers */ = {isa = PBXBuildFile; fileRef = 413015D61C7B570400091C6E /* FetchResponse.h */; };
@@ -13237,6 +13238,9 @@
 		55FA7FFA2110ECD7005AEFE7 /* SVGZoomAndPanType.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGZoomAndPanType.h; sourceTree = "<group>"; };
 		55FD9FBF27B20D520045DA1F /* WebAssemblyScriptSourceCode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebAssemblyScriptSourceCode.h; sourceTree = "<group>"; };
 		560A7F202DB83BDE00B69AF8 /* SVGFilterEffectGraph.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SVGFilterEffectGraph.h; sourceTree = "<group>"; };
+		564EF27C2FA04E9E008E9EC3 /* NavigatorGlobalPrivacyControl.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NavigatorGlobalPrivacyControl.idl"; sourceTree = "<group>"; };
+		564EF27D2FA05074008E9EC3 /* NavigatorGlobalPrivacyControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NavigatorGlobalPrivacyControl.h; sourceTree = "<group>"; };
+		564EF27E2FA05074008E9EC3 /* NavigatorGlobalPrivacyControl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = NavigatorGlobalPrivacyControl.cpp; sourceTree = "<group>"; };
 		565E7E6449095E4933B5F978 /* Volume2.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = Volume2.svg; sourceTree = "<group>"; };
 		56FFE14C3114000000000000 /* StyleLocalPropertyRegistry.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleLocalPropertyRegistry.cpp; sourceTree = "<group>"; };
 		570440571E53851600356601 /* CryptoAlgorithmAESCFBCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CryptoAlgorithmAESCFBCocoa.cpp; sourceTree = "<group>"; };
@@ -19054,6 +19058,8 @@
 		BC0A309D2E876826007B809D /* StyleFontSizeAdjust.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleFontSizeAdjust.cpp; sourceTree = "<group>"; };
 		BC0CA74C264AED0A004FDC62 /* PixelBufferConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PixelBufferConversion.h; sourceTree = "<group>"; };
 		BC0CA74D264AED0A004FDC62 /* PixelBufferConversion.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PixelBufferConversion.cpp; sourceTree = "<group>"; };
+		BC0DF4E32FB23B4500952D29 /* StylePrimitiveNumericTypes+DeprecatedConversions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StylePrimitiveNumericTypes+DeprecatedConversions.h"; sourceTree = "<group>"; };
+		BC0DF4E42FB23B4500952D29 /* StylePrimitiveNumericTypes+DeprecatedCSSValueConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StylePrimitiveNumericTypes+DeprecatedCSSValueConversion.h"; sourceTree = "<group>"; };
 		BC10137B25C3624B00DC773C /* ColorModels.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ColorModels.h; sourceTree = "<group>"; };
 		BC10137E25C3631600DC773C /* ColorTransferFunctions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ColorTransferFunctions.h; sourceTree = "<group>"; };
 		BC10DA7A2E807B3C000EE742 /* StyleScrollSnapAlign.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleScrollSnapAlign.h; sourceTree = "<group>"; };
@@ -20041,7 +20047,6 @@
 		BC9BE3EB2CFE1D1300D8C2CA /* CSSBoxShadow.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSBoxShadow.h; sourceTree = "<group>"; };
 		BC9BE3EF2CFE297D00D8C2CA /* StylePrimitiveNumericTypes+Logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StylePrimitiveNumericTypes+Logging.h"; sourceTree = "<group>"; };
 		BC9CC6192E79DEED00592740 /* StyleLengthWrapper+DeprecatedCSSValueConversion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StyleLengthWrapper+DeprecatedCSSValueConversion.h"; sourceTree = "<group>"; };
-		BC9CC61A2E79E1C400592740 /* StyleLengthWrapper+DeprecatedCSSValueConversion.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "StyleLengthWrapper+DeprecatedCSSValueConversion.cpp"; sourceTree = "<group>"; };
 		BC9CC61B2E79E4ED00592740 /* TimelineRangeValue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TimelineRangeValue.h; sourceTree = "<group>"; };
 		BC9CC61D2E79E53200592740 /* TimelineRangeValue.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TimelineRangeValue.cpp; sourceTree = "<group>"; };
 		BCA088F2264E1BF9003E2A6C /* ImageDataSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageDataSettings.h; sourceTree = "<group>"; };
@@ -31054,6 +31059,9 @@
 				E12719C90EEEC21300F61213 /* NavigatorBase.cpp */,
 				E12719C60EEEC16800F61213 /* NavigatorBase.h */,
 				7C2E0BD92511800E005F3C87 /* NavigatorCookies.idl */,
+				564EF27E2FA05074008E9EC3 /* NavigatorGlobalPrivacyControl.cpp */,
+				564EF27D2FA05074008E9EC3 /* NavigatorGlobalPrivacyControl.h */,
+				564EF27C2FA04E9E008E9EC3 /* NavigatorGlobalPrivacyControl.idl */,
 				7C5BEA3A1E9EE77100CC517B /* NavigatorID.idl */,
 				7C5BEA3B1E9EE77100CC517B /* NavigatorLanguage.idl */,
 				6D61E3762C2E016F00F1C6AA /* NavigatorLoginStatus.cpp */,
@@ -38779,7 +38787,6 @@
 				BCD67C642D2477CA0079EB9C /* StyleLengthResolution.h */,
 				BC34D37D2E428981001EAD95 /* StyleLengthWrapper+Blending.h */,
 				BC2A0DF02E0A2BCE003CBA0E /* StyleLengthWrapper+CSSValueConversion.h */,
-				BC9CC61A2E79E1C400592740 /* StyleLengthWrapper+DeprecatedCSSValueConversion.cpp */,
 				BC9CC6192E79DEED00592740 /* StyleLengthWrapper+DeprecatedCSSValueConversion.h */,
 				BC22AAFB2E37F866009AC0C3 /* StyleLengthWrapper.h */,
 				BC22AAF32E37F6CD009AC0C3 /* StyleLengthWrapperData.cpp */,
@@ -38797,6 +38804,8 @@
 				BCB271F02CC0156E00265123 /* StylePrimitiveNumericTypes+Conversions.h */,
 				BC2A0E782E0DAF88003CBA0E /* StylePrimitiveNumericTypes+CSSValueConversion.h */,
 				BC3CC1B62DE1368D0032971C /* StylePrimitiveNumericTypes+CSSValueCreation.h */,
+				BC0DF4E32FB23B4500952D29 /* StylePrimitiveNumericTypes+DeprecatedConversions.h */,
+				BC0DF4E42FB23B4500952D29 /* StylePrimitiveNumericTypes+DeprecatedCSSValueConversion.h */,
 				BCB271F42CC018F100265123 /* StylePrimitiveNumericTypes+Evaluation.h */,
 				BC9BE3EF2CFE297D00D8C2CA /* StylePrimitiveNumericTypes+Logging.h */,
 				BCEC09E32F3132C1009A3938 /* StylePrimitiveNumericTypes+Rounding.h */,
@@ -47242,6 +47251,7 @@
 				0753E09A2E595C9F00A52914 /* NavigatorEME.h in Headers */,
 				513EB5F22BF2D9B800BC98B1 /* NavigatorGamepad.h in Headers */,
 				9711460414EF009A00674FD9 /* NavigatorGeolocation.h in Headers */,
+				564EF2812FA167E3008E9EC3 /* NavigatorGlobalPrivacyControl.h in Headers */,
 				5EA725D61ACABD5700EAD17B /* NavigatorMediaDevices.h in Headers */,
 				077BA572260FA0140072F19F /* NavigatorMediaSession.h in Headers */,
 				93B0A65326CDD14100AA21E4 /* NavigatorPermissions.h in Headers */,
@@ -50137,6 +50147,7 @@
 			);
 			inputPaths = (
 				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(SRCROOT)/../../Tools/Scripts/check-for-inappropriate-objc-class-names",
 			);
 			name = "Check For Inappropriate Objective-C Class Names";
 			outputPaths = (
@@ -50195,6 +50206,7 @@
 				"$(SRCROOT)/Scripts/generate-unified-sources.sh",
 				"$(SRCROOT)/Sources.txt",
 				"$(SRCROOT)/SourcesCocoa.txt",
+				"$(SRCROOT)/SourcesCocoaInternalSDK.txt",
 				"$(SRCROOT)/platform/SourcesLibWebRTC.txt",
 				"$(BUILT_PRODUCTS_DIR)$(WK_LIBRARY_HEADERS_FOLDER_PATH)/wtf/Scripts/generate-unified-source-bundles.py",
 			);
@@ -50217,6 +50229,7 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/DerivedSources.make",
+				"$(SRCROOT)/Scripts/check-xcfilelists.sh",
 			);
 			name = "Check .xcfilelists";
 			outputFileListPaths = (
@@ -50237,6 +50250,7 @@
 			);
 			inputPaths = (
 				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(SRCROOT)/../../Tools/Scripts/check-for-weak-vtables-and-externals",
 			);
 			name = "Check For Weak VTables and Externals";
 			outputPaths = (
@@ -50253,6 +50267,7 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/../../Tools/Scripts/check-for-inappropriate-files-in-framework",
 			);
 			name = "Check For Inappropriate Files In Framework";
 			outputPaths = (
@@ -50269,11 +50284,13 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/Scripts/create-symlink-to-cryptex.sh",
 			);
 			name = "Create Symlink to Cryptex Path";
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(OUTPUT_CRYPTEX_SYMLINK_PATH)",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/zsh;
@@ -50372,6 +50389,11 @@
 			);
 			inputPaths = (
 				"$(WTF_BUILD_SCRIPTS_DIR)/audit-spi-if-needed.sh",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64_32.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64e.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.armv7k.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.x86_64.resp",
 			);
 			name = "Audit SPI use";
 			outputFileListPaths = (

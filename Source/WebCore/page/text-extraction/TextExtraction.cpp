@@ -270,6 +270,8 @@ static void addBoxShadowIfNeeded(Node& node, const String& colorAsString)
 
 using ClientNodeAttributesMap = WeakHashMap<Node, HashMap<String, String>, WeakPtrImplWithEventTargetData>;
 
+static constexpr unsigned maxExtractionRecursionDepth = 255;
+
 struct TraversalContext {
     const Request originalRequest;
     const ClientNodeAttributesMap clientNodeAttributes;
@@ -280,7 +282,9 @@ struct TraversalContext {
     Vector<WeakPtr<Node, WeakPtrImplWithEventTargetData>> enclosingBlocks;
     WeakHashMap<Node, unsigned, WeakPtrImplWithEventTargetData> enclosingBlockNumberMap;
     WeakHashSet<Node, WeakPtrImplWithEventTargetData> additionalContainersToCollect;
+    WeakHashSet<Node, WeakPtrImplWithEventTargetData> visitedContainers;
     unsigned inAdditionalContainerToCollectCount { 0 };
+    unsigned depth { 0 };
     Vector<bool, 1> hasOverflowItemsStack;
     Vector<unsigned, 2> visualBlockContainerStack { 0 };
     unsigned nextVisualBlockContainerNumber { 1 };
@@ -528,6 +532,17 @@ static bool isInDisabledFormControl(Node& node)
     return control && control->isDisabledFormControl();
 }
 
+static String normalizedLabelText(const Element& element)
+{
+    for (auto attribute : { HTMLNames::aria_labelAttr.get(), HTMLNames::labelAttr.get() }) {
+        auto text = normalizeText(element.attributeWithoutSynchronization(attribute));
+        if (!text.isEmpty())
+            return text;
+    }
+
+    return { };
+}
+
 enum class SkipExtraction : bool {
     Self,
     SelfAndSubtree
@@ -610,13 +625,21 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
         return { SkipExtraction::Self };
     }
 
+    bool focused = protect(element->document())->activeElement() == element;
+
     if (!element->isInUserAgentShadowTree() && element->isRootEditableElement()) {
-        if (context.mergeParagraphs)
-            return { Editable { } };
+        if (context.mergeParagraphs) {
+            return { Editable {
+                .label = normalizedLabelText(*element),
+                .placeholder = { },
+                .isSecure = false,
+                .isFocused = focused,
+            } };
+        }
 
         return { ContentEditableData {
             .isPlainTextOnly = !element->hasRichlyEditableStyle(),
-            .isFocused = protect(element->document())->activeElement() == element,
+            .isFocused = focused,
         } };
     }
 
@@ -859,8 +882,21 @@ static bool isVisuallyDistinctContainer(const RenderStyle& style, const FloatRec
 
 static inline void extractRecursive(Node& node, Item& parentItem, TraversalContext& context)
 {
+    if (context.depth >= maxExtractionRecursionDepth)
+        return;
+
     if (context.nodesToSkip.contains(node))
         return;
+
+    if (RefPtr container = dynamicDowncast<ContainerNode>(node)) {
+        if (!context.visitedContainers.add(*container).isNewEntry)
+            return;
+    }
+
+    ++context.depth;
+    auto depthScope = makeScopeExit([&] {
+        --context.depth;
+    });
 
     bool isBlock = WebCore::isBlock(node);
     if (isBlock)
@@ -951,7 +987,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
 
         if (!role.isEmpty()) {
             auto shouldSuppressRole = [&] {
-                static constexpr auto ignoredRoles = std::to_array({ "presentation"_s, "none"_s, "generic"_s, "group"_s, "rowgroup"_s, "directory"_s, "complementary"_s, "contentinfo"_s });
+                static constexpr auto ignoredRoles = WTF::toArray({ "presentation"_s, "none"_s, "generic"_s, "group"_s, "rowgroup"_s, "directory"_s, "complementary"_s, "contentinfo"_s });
                 for (auto ignoredRole : ignoredRoles) {
                     if (equalLettersIgnoringASCIICase(role, ignoredRole))
                         return true;
@@ -1382,7 +1418,9 @@ Result extractItem(Request&& request, LocalFrame& frame)
             .enclosingBlocks = { },
             .enclosingBlockNumberMap = { },
             .additionalContainersToCollect = WTF::move(additionalContainersToCollect),
+            .visitedContainers = { },
             .inAdditionalContainerToCollectCount = 0,
+            .depth = 0,
             .hasOverflowItemsStack = { false },
             .onlyCollectTextAndLinksCount = 0,
             .mergeParagraphs = request.mergeParagraphs,
@@ -2257,17 +2295,6 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
             bounds = rootViewBounds(*targetNode);
         completion(success, WTF::move(message), bounds);
     });
-}
-
-static String normalizedLabelText(const Element& element)
-{
-    for (auto attribute : { HTMLNames::aria_labelAttr.get(), HTMLNames::labelAttr.get() }) {
-        auto text = normalizeText(element.attributeWithoutSynchronization(attribute));
-        if (!text.isEmpty())
-            return text;
-    }
-
-    return { };
 }
 
 static String wrapWithDoubleQuotes(StringView text)

@@ -289,6 +289,7 @@ bool doesGC(Graph& graph, Node* node)
 #if ASSERT_ENABLED
     case ArrayPush:
     case ArrayPop:
+    case ArrayShift:
     case ArraySplice:
     case PushWithScope:
     case CreateActivation:
@@ -409,6 +410,7 @@ bool doesGC(Graph& graph, Node* node)
     case ObjectGetOwnPropertyNames:
     case ObjectGetOwnPropertySymbols:
     case ObjectToString:
+    case SymbolToString:
     case ReflectOwnKeys:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
@@ -460,6 +462,7 @@ bool doesGC(Graph& graph, Node* node)
     case StringReplaceString:
     case StringSlice:
     case StringSubstring:
+    case StringSubstr:
     case StringValueOf:
     case CreateRest:
     case ToUpperCase:
@@ -496,6 +499,7 @@ bool doesGC(Graph& graph, Node* node)
     case StringStartsWith:
     case StringEndsWith:
     case StringSplit:
+    case StringMatch:
     case ResolvePromiseFirstResolving:
     case RejectPromiseFirstResolving:
     case FulfillPromiseFirstResolving:
@@ -505,6 +509,7 @@ bool doesGC(Graph& graph, Node* node)
     case PromiseReject:
     case PromiseThen:
     case PerformPromiseThen:
+    case PerformPromiseThenOneHandler:
     case ArrayIsArray:
 #else // not ASSERT_ENABLED
     // See comment at the top for why the default for all nodes should be to
