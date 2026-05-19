@@ -5184,6 +5184,7 @@
 		BC3078F72D0369C000630D75 /* CSSBoxShadowProperty.h in Headers */ = {isa = PBXBuildFile; fileRef = BC3078F62D0369C000630D75 /* CSSBoxShadowProperty.h */; };
 		BC3079462D0783C900630D75 /* CSSCalcRandomCachingKeyMap.h in Headers */ = {isa = PBXBuildFile; fileRef = BC3079432D07610100630D75 /* CSSCalcRandomCachingKeyMap.h */; };
 		BC3079472D0783D500630D75 /* CSSCalcRandomCachingKey.h in Headers */ = {isa = PBXBuildFile; fileRef = BC3079442D0761AC00630D75 /* CSSCalcRandomCachingKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		62E7A81B328ECC03C163FD37 /* CSSCalcRandomSharingOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = AEA6F2D310E7B97572112B8C /* CSSCalcRandomSharingOptions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC3301312BEC1AA700A2A878 /* CSSCalcSymbolsAllowed.h in Headers */ = {isa = PBXBuildFile; fileRef = BC33012C2BEBE8FB00A2A878 /* CSSCalcSymbolsAllowed.h */; };
 		BC348BD40DB7F804004ABAB9 /* JSXMLHttpRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = BC348BD20DB7F804004ABAB9 /* JSXMLHttpRequest.h */; };
 		BC348BD40DB7F804004ABABA /* WebCoreJSBuiltins.h in Headers */ = {isa = PBXBuildFile; fileRef = BC348BD20DB7F804004ABABA /* WebCoreJSBuiltins.h */; };
@@ -19346,6 +19347,7 @@
 		BC3078FC2D03831C00630D75 /* CSSFilterReference.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSFilterReference.h; sourceTree = "<group>"; };
 		BC3079432D07610100630D75 /* CSSCalcRandomCachingKeyMap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSCalcRandomCachingKeyMap.h; sourceTree = "<group>"; };
 		BC3079442D0761AC00630D75 /* CSSCalcRandomCachingKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSCalcRandomCachingKey.h; sourceTree = "<group>"; };
+		AEA6F2D310E7B97572112B8C /* CSSCalcRandomSharingOptions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSCalcRandomSharingOptions.h; sourceTree = "<group>"; };
 		BC33012B2BEBE8FB00A2A878 /* CSSCalcSymbolsAllowed.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSSCalcSymbolsAllowed.cpp; sourceTree = "<group>"; };
 		BC33012C2BEBE8FB00A2A878 /* CSSCalcSymbolsAllowed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CSSCalcSymbolsAllowed.h; sourceTree = "<group>"; };
 		BC33FB1A0F30EE85002CDD7C /* RenderLineBoxList.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RenderLineBoxList.cpp; sourceTree = "<group>"; };
@@ -39150,6 +39152,7 @@
 				BC4630B92E9D59D000EA911F /* CSSCalcOperator.h */,
 				BC3079442D0761AC00630D75 /* CSSCalcRandomCachingKey.h */,
 				BC3079432D07610100630D75 /* CSSCalcRandomCachingKeyMap.h */,
+				AEA6F2D310E7B97572112B8C /* CSSCalcRandomSharingOptions.h */,
 				BC33012B2BEBE8FB00A2A878 /* CSSCalcSymbolsAllowed.cpp */,
 				BC33012C2BEBE8FB00A2A878 /* CSSCalcSymbolsAllowed.h */,
 				BC709DDF266323CE00B9A21C /* CSSCalcSymbolTable.cpp */,
@@ -44477,6 +44480,7 @@
 				BC4630BE2E9D5CAD00EA911F /* CSSCalcOperator.h in Headers */,
 				BC3079472D0783D500630D75 /* CSSCalcRandomCachingKey.h in Headers */,
 				BC3079462D0783C900630D75 /* CSSCalcRandomCachingKeyMap.h in Headers */,
+				62E7A81B328ECC03C163FD37 /* CSSCalcRandomSharingOptions.h in Headers */,
 				BC3301312BEC1AA700A2A878 /* CSSCalcSymbolsAllowed.h in Headers */,
 				BC709DE0266323CF00B9A21C /* CSSCalcSymbolTable.h in Headers */,
 				BC000BE72C6011020033AA75 /* CSSCalcTree.h in Headers */,

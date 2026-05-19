@@ -760,7 +760,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         sandbox_enable_state_flag("BlockUserInstalledFonts", *auditToken);
 #endif // PLATFORM(MAC)
 #endif // HAVE(SANDBOX_STATE_FLAGS)
-    auto shouldBlockIOKit = parameters.store.getBoolValueForKey(WebPreferencesKey::blockIOKitInWebContentSandboxKey())
+    auto shouldBlockIOKit = m_shouldRenderDOMInGPUProcess
 #if ENABLE(WEBGL)
         && m_shouldRenderWebGLInGPUProcess
 #if ENABLE(TILED_CA_DRAWING_AREA)
@@ -768,7 +768,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 #endif
         && m_shouldRenderCanvasInGPUProcess
-        && m_shouldRenderDOMInGPUProcess
         && m_shouldPlayMediaInGPUProcess;
 
     if (shouldBlockIOKit) {
@@ -2224,6 +2223,27 @@ void WebPage::tryClose(CompletionHandler<void(bool)>&& completionHandler)
         return;
     }
     completionHandler(coreFrame->loader().shouldClose());
+}
+
+void WebPage::dispatchCrossOriginBeforeUnloadCheckForFrame(WebCore::FrameIdentifier frameID, WebCore::SecurityOriginData&& navigatingFrameOrigin)
+{
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    if (!webFrame)
+        return;
+
+    RefPtr document = webFrame->coreLocalFrame() ? webFrame->coreLocalFrame()->document() : nullptr;
+    if (!document)
+        return;
+
+    RefPtr window = document->window();
+    if (!window || !window->hasEventListeners(eventNames().beforeunloadEvent))
+        return;
+
+    Ref frameOrigin = document->securityOrigin();
+    if (frameOrigin->isSameOriginDomain(navigatingFrameOrigin.securityOrigin()))
+        return;
+
+    document->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "Blocked attempt to show beforeunload confirmation dialog on behalf of a frame with different security origin. Protocols, domains, and ports must match."_s);
 }
 
 void WebPage::sendClose()

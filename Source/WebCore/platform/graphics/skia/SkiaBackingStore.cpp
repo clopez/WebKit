@@ -31,7 +31,6 @@
 #include "CoordinatedTileBuffer.h"
 #include "PlatformDisplay.h"
 #include "SkiaPaintingEngine.h"
-#include "SkiaUtilities.h"
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkColorSpace.h>
 #include <skia/gpu/ganesh/GrBackendSurface.h>
@@ -98,9 +97,9 @@ void SkiaBackingStore::drawDebugBorders(SkCanvas& canvas, const SkPaint& paint)
         canvas.drawRect(SkRect(tile.rect()), paint);
 }
 
-bool SkiaBackingStore::Tile::tryEnsureSurface(const IntSize& size, CoordinatedTileBuffer& buffer)
+bool SkiaBackingStore::Tile::tryEnsureSurface(const IntSize& size, CoordinatedTileBuffer& buffer, SkColorType colorType)
 {
-    if (m_surface)
+    if (m_surface && m_surface->imageInfo().colorType() == colorType)
         return true;
 
     OptionSet<BitmapTexture::Flags> flags;
@@ -120,8 +119,12 @@ bool SkiaBackingStore::Tile::tryEnsureSurface(const IntSize& size, CoordinatedTi
     auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
     auto texture = BitmapTexturePool::singleton().acquireTexture(size, flags);
     unsigned textureID = texture->id();
-    GrBackendTexture backendTexture = texture->createSkiaBackendTexture();
-    auto surface = SkSurfaces::WrapBackendTexture(grContext, backendTexture, kTopLeft_GrSurfaceOrigin, 0, kRGBA_8888_SkColorType, SkColorSpace::MakeSRGB(), nullptr, +[](void* userData) {
+    GrGLTextureInfo externalTexture;
+    externalTexture.fTarget = GL_TEXTURE_2D;
+    externalTexture.fID = textureID;
+    externalTexture.fFormat = colorType == kRGBA_8888_SkColorType ? GL_RGBA8 : GL_BGRA8_EXT;
+    auto backendTexture = GrBackendTextures::MakeGL(texture->size().width(), texture->size().height(), skgpu::Mipmapped::kNo, externalTexture);
+    auto surface = SkSurfaces::WrapBackendTexture(grContext, backendTexture, kTopLeft_GrSurfaceOrigin, 0, colorType, SkColorSpace::MakeSRGB(), nullptr, +[](void* userData) {
         static_cast<BitmapTexture*>(userData)->deref();
     }, &texture.leakRef());
     if (!surface)
@@ -150,9 +153,6 @@ void SkiaBackingStore::Tile::update(const IntRect& dirtyRect, const IntRect& til
         m_surface = nullptr;
     }
 
-    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
-    ASSERT(grContext);
-
     if (buffer.isBackedByOpenGL()) {
         auto& acceleratedBuffer = static_cast<CoordinatedAcceleratedTileBuffer&>(buffer);
         acceleratedBuffer.serverWait();
@@ -169,21 +169,24 @@ void SkiaBackingStore::Tile::update(const IntRect& dirtyRect, const IntRect& til
                     static_cast<BitmapTexture*>(userData)->deref();
                 }, &texture.leakRef());
             } else {
+                auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
                 m_surface = SkSurfaces::WrapBackendTexture(grContext, backendTexture, kTopLeft_GrSurfaceOrigin, 0, kRGBA_8888_SkColorType, SkColorSpace::MakeSRGB(), nullptr, +[](void* userData) {
                     static_cast<BitmapTexture*>(userData)->deref();
                 }, &texture.leakRef());
             }
-        } else if (tryEnsureSurface(tileRect.size(), buffer)) {
+        } else if (tryEnsureSurface(tileRect.size(), buffer, kRGBA_8888_SkColorType)) {
+            auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
             auto image = SkImages::BorrowTextureFrom(grContext, backendTexture, kTopLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
-            SkiaUtilities::paintImageRectToSurface(m_surface, image, dirtyRect);
+            SkPaint paint;
+            paint.setBlendMode(SkBlendMode::kSrc);
+            m_surface->getCanvas()->drawImageRect(image, SkRect::MakeWH(dirtyRect.width(), dirtyRect.height()), SkRect::Make(SkIRect(dirtyRect)),
+                SkSamplingOptions(SkFilterMode::kNearest, SkMipmapMode::kNone), &paint, SkCanvas::kFast_SrcRectConstraint);
         }
-    } else if (tryEnsureSurface(tileRect.size(), buffer)) {
+    } else if (tryEnsureSurface(tileRect.size(), buffer, kBGRA_8888_SkColorType)) {
         auto& unacceleratedBuffer = static_cast<CoordinatedUnacceleratedTileBuffer&>(buffer);
         auto imageInfo = SkImageInfo::Make(dirtyRect.width(), dirtyRect.height(), kBGRA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
         SkPixmap pixmap(imageInfo, unacceleratedBuffer.data(), unacceleratedBuffer.stride());
-        auto image = SkImages::RasterFromPixmap(pixmap, nullptr, nullptr);
-        SkiaUtilities::paintImageRectToSurface(m_surface, image, dirtyRect);
-        grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kNo);
+        m_surface->writePixels(pixmap, dirtyRect.x(), dirtyRect.y());
     }
 
     WTFEndSignpost(this, SkiaBackingStoreTileUpdate);
@@ -198,9 +201,9 @@ sk_sp<SkImage> SkiaBackingStore::Tile::image()
         GrGLTextureInfo externalTexture;
         externalTexture.fTarget = GL_TEXTURE_2D;
         externalTexture.fID = m_textureID;
-        externalTexture.fFormat = GL_RGBA8;
+        externalTexture.fFormat = m_surface->imageInfo().colorType() == kRGBA_8888_SkColorType ? GL_RGBA8 : GL_BGRA8_EXT;
         auto backendTexture = GrBackendTextures::MakeGL(m_surface->width(), m_surface->height(), skgpu::Mipmapped::kNo, externalTexture);
-        m_cachedImage = SkImages::BorrowTextureFrom(PlatformDisplay::sharedDisplay().skiaGrContext(), backendTexture, kTopLeft_GrSurfaceOrigin, kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
+        m_cachedImage = SkImages::BorrowTextureFrom(PlatformDisplay::sharedDisplay().skiaGrContext(), backendTexture, kTopLeft_GrSurfaceOrigin, m_surface->imageInfo().colorType(), kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
     }
     return m_cachedImage;
 }

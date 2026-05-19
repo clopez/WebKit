@@ -39,6 +39,7 @@
 #include "ConcatKeyAtomStringCacheInlines.h"
 #include "DFGDriver.h"
 #include "DFGJITCode.h"
+#include "DFGNode.h"
 #include "DFGToFTLDeferredCompilationCallback.h"
 #include "DFGToFTLForOSREntryDeferredCompilationCallback.h"
 #include "DateInstance.h"
@@ -1153,7 +1154,7 @@ JSC_DEFINE_JIT_OPERATION(operationArrayPushDouble, EncodedJSValue, (JSGlobalObje
     OPERATION_RETURN(scope, JSValue::encode(jsNumber(array->length())));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationArrayPushMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, void* buffer, int32_t elementCount))
+JSC_DEFINE_JIT_OPERATION(operationArrayPushMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, EncodedJSValue* buffer, int32_t elementCount))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -1172,21 +1173,20 @@ JSC_DEFINE_JIT_OPERATION(operationArrayPushMultiple, EncodedJSValue, (JSGlobalOb
     // the IndexingType is ArrayWithSlowPutArrayStorage which could have an indexed accessor in a prototype chain.
     RELEASE_ASSERT(!shouldUseSlowPut(array->indexingType()));
 
-    EncodedJSValue* values = static_cast<EncodedJSValue*>(buffer);
     for (int32_t i = 0; i < elementCount; ++i) {
-        array->pushInline(globalObject, JSValue::decode(values[i]));
+        array->pushInline(globalObject, JSValue::decode(buffer[i]));
         OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
     }
     OPERATION_RETURN(scope, JSValue::encode(jsNumber(array->length())));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationArrayPushDoubleMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, void* buffer, int32_t elementCount))
+JSC_DEFINE_JIT_OPERATION(operationArrayPushDoubleMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, double* buffer, int32_t elementCount))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    // Don't need a ActiveScratchBufferScope here because the scratch buffer only contains double values for this call.
     auto scope = DECLARE_THROW_SCOPE(vm);
+    ActiveScratchBufferScope activeScratchBufferScope(ScratchBuffer::fromData(buffer), elementCount);
 
     // We assume that multiple JSArray::push calls with ArrayWithDouble do not cause JS traps.
     // If it can cause any JS interactions, we can call the caller JS function of this function and overwrite the
@@ -1194,15 +1194,14 @@ JSC_DEFINE_JIT_OPERATION(operationArrayPushDoubleMultiple, EncodedJSValue, (JSGl
     // that there is no indexed accessors in this object and its prototype chain.
     ASSERT(array->indexingMode() == ArrayWithDouble);
 
-    double* values = static_cast<double*>(buffer);
     for (int32_t i = 0; i < elementCount; ++i) {
-        array->pushInline(globalObject, JSValue(JSValue::EncodeAsDouble, values[i]));
+        array->pushInline(globalObject, JSValue(JSValue::EncodeAsDouble, buffer[i]));
         OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
     }
     OPERATION_RETURN(scope, JSValue::encode(jsNumber(array->length())));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationArrayPushMultipleSlow, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, void* buffer, int32_t elementCount))
+JSC_DEFINE_JIT_OPERATION(operationArrayPushMultipleSlow, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, EncodedJSValue* buffer, int32_t elementCount))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -1214,9 +1213,8 @@ JSC_DEFINE_JIT_OPERATION(operationArrayPushMultipleSlow, EncodedJSValue, (JSGlob
     MarkedArgumentBuffer arguments;
     arguments.ensureCapacity(elementCount);
 
-    EncodedJSValue* values = static_cast<EncodedJSValue*>(buffer);
     for (int32_t i = 0; i < elementCount; ++i)
-        arguments.append(JSValue::decode(values[i]));
+        arguments.append(JSValue::decode(buffer[i]));
 
     if (arguments.hasOverflowed()) [[unlikely]] {
         throwOutOfMemoryError(globalObject, scope);
@@ -1280,6 +1278,122 @@ JSC_DEFINE_JIT_OPERATION(operationArrayShift, EncodedJSValue, (JSGlobalObject* g
     scope.release();
     setLength(globalObject, vm, array, length - 1);
     OPERATION_RETURN(scope, JSValue::encode(front));
+}
+
+static ALWAYS_INLINE JSValue arrayUnshiftSingleImpl(JSGlobalObject* globalObject, VM& vm, JSArray* array, JSValue value)
+{
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    uint64_t length = toLength(globalObject, array);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (length >= maxSafeIntegerAsUInt64()) [[unlikely]]
+        return throwTypeError(globalObject, scope, unshiftArrayLengthExceeded);
+
+    unshift(globalObject, array, 0, 0, 1, length);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    array->putByIndexInline(globalObject, static_cast<unsigned>(0), value, true);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    uint64_t newLength = length + 1;
+    scope.release();
+    setLength(globalObject, vm, array, newLength);
+    return jsNumber(newLength);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationArrayUnshift, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, EncodedJSValue encodedValue))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    OPERATION_RETURN(scope, JSValue::encode(arrayUnshiftSingleImpl(globalObject, vm, array, JSValue::decode(encodedValue))));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationArrayUnshiftDouble, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, double value))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    OPERATION_RETURN(scope, JSValue::encode(arrayUnshiftSingleImpl(globalObject, vm, array, jsNumber(value))));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationArrayUnshiftMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, EncodedJSValue* buffer, int32_t elementCount))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    ActiveScratchBufferScope activeScratchBufferScope(ScratchBuffer::fromData(buffer), elementCount);
+
+    // We assume that multiple unshift calls with ArrayWithInt32/ArrayWithContiguous do not cause JS traps.
+    // If it can cause any JS interactions, we can call the caller JS function of this function and overwrite the
+    // content of ScratchBuffer. If the IndexingType is now ArrayWithInt32/ArrayWithContiguous, we can ensure
+    // that there is no indexed accessors in this object and its prototype chain.
+    ASSERT(!shouldUseSlowPut(array->indexingType()));
+
+    uint64_t length = toLength(globalObject, array);
+    OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
+    if (length + elementCount > maxSafeIntegerAsUInt64()) [[unlikely]]
+        OPERATION_RETURN(scope, throwVMTypeError(globalObject, scope, unshiftArrayLengthExceeded));
+
+    if (elementCount > 0) {
+        unshift(globalObject, array, 0, 0, static_cast<uint32_t>(elementCount), length);
+        OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
+        // FIXME: Potentially we can do gcSafeMemcpy / memcpy for this operation. But be careful that the above unshift may
+        // convert JSArray type to ArrayStorage when increased size exceeds ArrayStorage threshold.
+        for (int32_t k = 0; k < elementCount; ++k) {
+            array->putByIndexInline(globalObject, static_cast<unsigned>(k), JSValue::decode(buffer[k]), true);
+            OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        }
+    }
+
+    uint64_t newLength = length + static_cast<unsigned>(elementCount);
+    scope.release();
+    setLength(globalObject, vm, array, newLength);
+    OPERATION_RETURN(scope, JSValue::encode(jsNumber(newLength)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationArrayUnshiftDoubleMultiple, EncodedJSValue, (JSGlobalObject* globalObject, JSArray* array, double* buffer, int32_t elementCount))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    ActiveScratchBufferScope activeScratchBufferScope(ScratchBuffer::fromData(buffer), elementCount);
+
+    ASSERT(array->indexingMode() == ArrayWithDouble);
+
+    uint64_t length = toLength(globalObject, array);
+    OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
+    if (length + elementCount > maxSafeIntegerAsUInt64()) [[unlikely]]
+        OPERATION_RETURN(scope, throwVMTypeError(globalObject, scope, unshiftArrayLengthExceeded));
+
+    // We assume that multiple unshift calls with ArrayWithDouble do not cause JS traps.
+    // If it can cause any JS interactions, we can call the caller JS function of this function and overwrite the
+    // content of ScratchBuffer. If the IndexingType is now ArrayWithDouble, we can ensure
+    // that there is no indexed accessors in this object and its prototype chain.
+    if (elementCount > 0) {
+        unshift(globalObject, array, 0, 0, static_cast<uint32_t>(elementCount), length);
+        OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
+        // FIXME: Potentially we can do gcSafeMemcpy / memcpy for this operation. But be careful that the above unshift may
+        // convert JSArray type to ArrayStorage when increased size exceeds ArrayStorage threshold.
+        for (int32_t k = 0; k < elementCount; ++k) {
+            array->putByIndexInline(globalObject, static_cast<unsigned>(k), JSValue(JSValue::EncodeAsDouble, buffer[k]), true);
+            OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        }
+    }
+
+    uint64_t newLength = length + static_cast<unsigned>(elementCount);
+    scope.release();
+    setLength(globalObject, vm, array, newLength);
+    OPERATION_RETURN(scope, JSValue::encode(jsNumber(newLength)));
 }
 
 template<bool ignoreResult>
@@ -2219,22 +2333,32 @@ JSC_DEFINE_JIT_OPERATION(operationObjectDefineProperty, void, (JSGlobalObject* g
     OPERATION_RETURN(scope);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationObjectDefinePropertyFromFields, void, (JSGlobalObject* globalObject, JSObject* target, EncodedJSValue encodedKey, EncodedJSValue encodedEnumerable, EncodedJSValue encodedConfigurable, EncodedJSValue encodedValue, EncodedJSValue encodedWritable, EncodedJSValue encodedGetter, EncodedJSValue encodedSetter))
+JSC_DEFINE_JIT_OPERATION(operationObjectDefinePropertyFromFields, void, (JSGlobalObject* globalObject, JSObject* target, EncodedJSValue encodedKey, EncodedJSValue* descriptorBuffer))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    JSValue enumerable;
+    JSValue configurable;
+    JSValue value;
+    JSValue writable;
+    JSValue getter;
+    JSValue setter;
+    {
+        ActiveScratchBufferScope activeScratchBufferScope(ScratchBuffer::fromData(descriptorBuffer), Node::numberOfDescriptorSlots);
+
+        enumerable = JSValue::decode(descriptorBuffer[Node::EnumerableSlot]);
+        configurable = JSValue::decode(descriptorBuffer[Node::ConfigurableSlot]);
+        value = JSValue::decode(descriptorBuffer[Node::ValueSlot]);
+        writable = JSValue::decode(descriptorBuffer[Node::WritableSlot]);
+        getter = JSValue::decode(descriptorBuffer[Node::GetSlot]);
+        setter = JSValue::decode(descriptorBuffer[Node::SetSlot]);
+    }
+
     auto propertyName = JSValue::decode(encodedKey).toPropertyKey(globalObject);
     OPERATION_RETURN_IF_EXCEPTION(scope);
-
-    JSValue enumerable = JSValue::decode(encodedEnumerable);
-    JSValue configurable = JSValue::decode(encodedConfigurable);
-    JSValue value = JSValue::decode(encodedValue);
-    JSValue writable = JSValue::decode(encodedWritable);
-    JSValue getter = JSValue::decode(encodedGetter);
-    JSValue setter = JSValue::decode(encodedSetter);
 
     PropertyDescriptor desc;
     if (enumerable)
