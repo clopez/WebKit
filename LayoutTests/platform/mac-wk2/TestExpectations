@@ -2251,23 +2251,14 @@ webkit.org/b/314746 [ Release ] fast/images/decode-render-animated-image.html [ 
 
 # Site Isolation Inspector: Network proxying (webkit.org/b/310163)
 # Tests that require the full ProxyingNetworkAgent + event routing stack.
-# Expectations will be narrowed as the stack lands incrementally.
-webkit.org/b/310163 http/tests/site-isolation/inspector/console/message-from-iframe.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/console/message-from-worker.html [ Pass Failure ]
 webkit.org/b/310163 http/tests/site-isolation/inspector/network/cross-origin-iframe-network-events-have-correct-frame-id.html [ Pass Failure ]
 webkit.org/b/310163 http/tests/site-isolation/inspector/network/cross-origin-iframe-network-loading-finished.html [ Pass Failure ]
 webkit.org/b/310163 http/tests/site-isolation/inspector/network/cross-origin-iframe-resource-appears-in-network-domain.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/page/override-user-agent-cross-origin-iframe.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/target/target-cross-origin-page-navigation.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/target/target.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/unit-tests/target-manager.html [ Pass Failure ]
-webkit.org/b/310163 http/tests/site-isolation/inspector/worker/worker-in-cross-origin-iframe.html [ Pass Failure ]
+webkit.org/b/315225 http/tests/site-isolation/inspector/network/cross-origin-iframe-request-id-uniqueness.html [ Skip ]
 
 webkit.org/b/308165 [ Debug ] scrollingcoordinator/mac/latching/simple-page-rubberbands.html [ Pass Failure ]
 
 webkit.org/b/311759 [ Release arm64 ] imported/w3c/web-platform-tests/event-timing/keydown.html [ Pass Failure ]
-
-webkit.org/b/315060 imported/w3c/web-platform-tests/dom/events/Event-timestamp-high-resolution.https.html [ Pass Failure ]
 
 webkit.org/b/308325 [ Debug ] http/wpt/cache-storage/cache-in-stopped-context.html [ Pass Failure ]
 
@@ -2317,3 +2308,9 @@ webkit.org/b/313764 [ Tahoe+ Debug ] webrtc/ephemeral-certificates-and-cnames.ht
 # webkit.org/b/315048 REGRESSION(313302@main): [macOS]: 2 tests in imported/w3c/web-platform-tests/dom/nodes/moveBefore are flaky crashes
 imported/w3c/web-platform-tests/dom/nodes/moveBefore/style-applies.html [ Skip ]
 imported/w3c/web-platform-tests/dom/nodes/moveBefore/throws-exception.html [ Skip ]
+
+webkit.org/b/315238 [ Sequoia+ ] imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-video-jitterBufferTarget-stats.html [ Pass Failure ]
+
+webkit.org/b/315242 [ Tahoe x86_64 ] fast/forms/select/mac-wk2/inactive-appearance.html [ ImageOnlyFailure ]
+
+webkit.org/b/315246 [ Tahoe x86_64 ] http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-filtered-link-decoration-after-long-deletion.html [ Pass Failure ]
