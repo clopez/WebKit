@@ -246,6 +246,10 @@ angle::ObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
 {
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     auto deviceList = angle::adoptObjCPtr(MTLCopyAllDevices());
+    if ([deviceList count] == 1)
+    {
+        return deviceList[0];
+    }
 
     EGLAttrib high = attribs.get(EGL_PLATFORM_ANGLE_DEVICE_ID_HIGH_ANGLE, 0);
     EGLAttrib low  = attribs.get(EGL_PLATFORM_ANGLE_DEVICE_ID_LOW_ANGLE, 0);
@@ -966,6 +970,7 @@ void DisplayMtl::initializeExtensions() const
     mNativeExtensions.copyCompressedTextureCHROMIUM = false;
     mNativeExtensions.textureMirrorClampToEdgeEXT   = true;
     mNativeExtensions.depthClampEXT                 = true;
+    mNativeExtensions.rgbxInternalFormatANGLE       = mFeatures.hasTextureSwizzle.enabled;
 
     // EXT_debug_marker is not implemented yet, but the entry points must be exposed for the
     // Metal backend to be used in Chrome (http://anglebug.com/42263519)

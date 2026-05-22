@@ -74,6 +74,7 @@
 #include "StylePaintImage.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
+#include "StyleScope.h"
 
 namespace WebCore {
 namespace Style {
@@ -150,9 +151,9 @@ RefPtr<Image> BuilderState::createStyleImage(const CSSValue& value) const
     return nullptr;
 }
 
-void BuilderState::registerSubstitutionAttribute(const AtomString& attributeLocalName)
+void BuilderState::registerSubstitutionAttribute(const AtomString& attributeLocalName, const Scope* targetScope)
 {
-    m_registeredSubstitutionAttributes.append(attributeLocalName);
+    m_registeredSubstitutionAttributes.append({ attributeLocalName, targetScope });
 }
 
 void BuilderState::adjustStyleForInterCharacterRuby()

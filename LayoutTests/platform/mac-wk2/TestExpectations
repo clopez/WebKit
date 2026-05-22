@@ -2204,8 +2204,6 @@ webkit.org/b/307377 [ Tahoe Release arm64 ] compositing/webgl/update-composited-
 
 webkit.org/b/309833 fast/scrolling/mac/scrollend-event-user-scroll-basic.html [ Failure Pass ]
 
-webkit.org/b/314348 inspector/timeline/line-column.html [ Failure ]
-
 webkit.org/b/307691 [ Tahoe Release arm64 ] svg/gradients/spreadMethod.svg [ ImageOnlyFailure Pass ]
 
 webkit.org/b/309370 fast/css/vertical-text-overflow-ellipsis-text-align-center.html [ Failure Pass ]
@@ -2281,8 +2279,6 @@ webkit.org/b/308856 [ Debug ] http/tests/websocket/tests/hybi/handshake-ok-with-
 
 webkit.org/b/309850 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Pass Failure ]
 
-webkit.org/b/314668 webrtc/getUserMedia-webaudio-autoplay.html [ Pass Failure ]
-
 webkit.org/b/314136 accessibility/mac/client/div-bounds.html [ Pass Failure ]
 
 webkit.org/b/314851 http/tests/site-isolation/inspector/debugger/provisional-frame-target-pausing.html [ Failure ]
@@ -2314,3 +2310,11 @@ webkit.org/b/315238 [ Sequoia+ ] imported/w3c/web-platform-tests/webrtc/RTCRtpRe
 webkit.org/b/315242 [ Tahoe x86_64 ] fast/forms/select/mac-wk2/inactive-appearance.html [ ImageOnlyFailure ]
 
 webkit.org/b/315246 [ Tahoe x86_64 ] http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-filtered-link-decoration-after-long-deletion.html [ Pass Failure ]
+
+webkit.org/b/315282 [ Tahoe Release x86_64 ] imported/w3c/web-platform-tests/scroll-animations/css/deferred-timeline-composited.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315282 [ Tahoe Release x86_64 ] webanimations/document-timeline-current-time-updates-without-running-animations.html [ Pass Failure ]
+webkit.org/b/315282 [ Tahoe Release x86_64 ] webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Pass Failure ]
+
+webkit.org/b/315337 [ Sequoia x86_64 ] imported/w3c/web-platform-tests/css/css-view-transitions/new-content-root-scrollbar-with-fixed-background.html [ ImageOnlyFailure ]
+webkit.org/b/315337 [ Sequoia x86_64 ] imported/w3c/web-platform-tests/css/css-view-transitions/old-content-root-scrollbar-with-fixed-background.html [ ImageOnlyFailure ]
+webkit.org/b/315337 [ Sequoia x86_64 ] imported/w3c/web-platform-tests/css/filter-effects/root-element-with-opacity-filter-001.html [ ImageOnlyFailure ]

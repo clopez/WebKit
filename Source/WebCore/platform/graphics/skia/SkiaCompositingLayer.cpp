@@ -27,6 +27,7 @@
 #include "SkiaCompositingLayer.h"
 
 #if USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#include "BitmapTexture.h"
 #include "CoordinatedAnimatedBackingStoreClient.h"
 #include "CoordinatedImageBackingStore.h"
 #include "CoordinatedPlatformLayerBuffer.h"
@@ -488,7 +489,7 @@ void SkiaCompositingLayer::paintSelf(SkCanvas& canvas, PaintContext& context)
                 TransformationMatrix matrix = canvas.getLocalToDevice();
                 downcast<CoordinatedPlatformLayerBufferHolePunch>(*m_contentsBuffer).setHolePunchVideoRectangle(enclosingIntRect(matrix.mapRect(m_contentsRect)));
 #endif
-                paint.setColor(SK_ColorTRANSPARENT);
+                paint.setBlendMode(SkBlendMode::kClear);
                 canvas.drawRect(SkRect(m_contentsRect), paint);
             } else
                 image = m_contentsBuffer->skiaImage();
@@ -741,7 +742,7 @@ void SkiaCompositingLayer::paintWithIntermediateSurface(SkCanvas& canvas, PaintC
 
     surfaceCanvas->clear(SK_ColorTRANSPARENT);
     surfaceCanvas->translate(-surfaceRect.x(), -surfaceRect.y());
-    SetForScope scopedOffset(context.offset, toIntSize(contentsRect.location()));
+    SetForScope scopedOffset(context.offset, toIntSize(surfaceRect.location()));
     paintFunction(*surfaceCanvas, context);
     grContext->flushAndSubmit(surface.get(), GrSyncCpu::kNo);
 
