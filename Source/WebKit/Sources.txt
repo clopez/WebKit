@@ -576,7 +576,6 @@ UIProcess/API/C/WKSpeechRecognitionPermissionCallback.cpp
 UIProcess/API/C/WKTextChecker.cpp
 UIProcess/API/C/WKUserContentControllerRef.cpp
 UIProcess/API/C/WKUserContentExtensionStoreRef.cpp
-UIProcess/API/C/WKUserMediaPermissionCheck.cpp
 UIProcess/API/C/WKUserMediaPermissionRequest.cpp
 UIProcess/API/C/WKUserScriptRef.cpp
 UIProcess/API/C/WKWebsiteDataStoreConfigurationRef.cpp
@@ -643,6 +642,7 @@ UIProcess/Inspector/WebPageInspectorController.cpp
 
 UIProcess/Inspector/Agents/InspectorBrowserAgent.cpp
 UIProcess/Inspector/Agents/ProxyingNetworkAgent.cpp
+UIProcess/Inspector/Agents/ProxyingPageAgent.cpp
 
 UIProcess/Media/AudioSessionRoutingArbitratorProxy.cpp
 UIProcess/Media/MediaUsageManager.cpp
@@ -749,7 +749,9 @@ WebProcess/Inspector/UIProcessForwardingFrontendChannel.cpp
 WebProcess/Inspector/FrameInspectorTarget.cpp
 WebProcess/Inspector/WebInspectorBackend.cpp
 WebProcess/Inspector/WebInspectorBackendClient.cpp
+WebProcess/Inspector/BackendResourceDataStore.cpp
 WebProcess/Inspector/FrameNetworkAgentProxy.cpp
+WebProcess/Inspector/PageAgentProxy.cpp
 WebProcess/Inspector/WebInspectorInterruptDispatcher.cpp
 WebProcess/Inspector/WebInspectorUI.cpp
 

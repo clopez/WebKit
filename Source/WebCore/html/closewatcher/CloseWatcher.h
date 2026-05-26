@@ -29,12 +29,12 @@
 #include <WebCore/ActiveDOMObject.h>
 #include <WebCore/EventTarget.h>
 #include <WebCore/EventTargetInterfaces.h>
-#include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
+class Document;
 class KeyboardEvent;
 
 enum class RequireHistoryActionActivation : bool { No, Yes };
@@ -46,6 +46,7 @@ public:
         RefPtr<AbortSignal> signal;
     };
 
+    static RefPtr<CloseWatcher> create(Document&);
     static ExceptionOr<Ref<CloseWatcher>> create(ScriptExecutionContext&, const Options&);
 
     explicit CloseWatcher(Document&);

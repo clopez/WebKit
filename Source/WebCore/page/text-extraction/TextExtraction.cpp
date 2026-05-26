@@ -604,6 +604,14 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                     return { WTF::move(url) };
 
                 auto shortenedString = shortenedURLString(url);
+                bool linksToCurrentURL = [&] {
+                    auto urlAsView = [](const URL& url) -> StringView {
+                        if (url.hasFragmentIdentifier() && url.fragmentIdentifier().isEmpty())
+                            return url.viewWithoutFragmentIdentifier();
+                        return url.string();
+                    };
+                    return urlAsView(url) == urlAsView(protect(element->document())->url());
+                }();
 
                 String target;
                 if (RefPtr anchor = dynamicDowncast<HTMLAnchorElement>(*element))
@@ -612,7 +620,8 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 return { LinkItemData {
                     WTF::move(target),
                     WTF::move(url),
-                    WTF::move(shortenedString)
+                    WTF::move(shortenedString),
+                    linksToCurrentURL,
                 } };
             }
         }
@@ -1423,7 +1432,7 @@ Result extractItem(Request&& request, LocalFrame& frame)
         WeakHashSet<Node, WeakPtrImplWithEventTargetData> additionalContainersToCollect;
         RefPtr extractionRoot = dynamicDowncast<ContainerNode>(*extractionRootNode);
         if (extractionRoot && request.includeOffscreenPasswordFields && request.collectionRectInRootView) {
-            ListHashSet<Ref<HTMLElement>> targetedElements;
+            OrderedHashSet<Ref<HTMLElement>> targetedElements;
             for (Ref input : descendantsOfType<HTMLInputElement>(*extractionRoot)) {
                 if (!input->isPasswordField())
                     continue;
@@ -1653,7 +1662,7 @@ static Vector<std::pair<String, FloatRect>> extractAllTextAndRectsRecursive(Docu
     if (!view)
         return { };
 
-    ListHashSet<Ref<HTMLFrameOwnerElement>> frameOwners;
+    OrderedHashSet<Ref<HTMLFrameOwnerElement>> frameOwners;
     Vector<std::pair<String, FloatRect>> result;
     auto fullRange = makeRangeSelectingNodeContents(*bodyElement);
     for (TextIterator iterator { fullRange, behaviorsForTextExtraction }; !iterator.atEnd(); iterator.advance()) {

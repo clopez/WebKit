@@ -431,6 +431,15 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
         }
     }
 
+    // Highlight pseudo-elements are resolved lazily and have no other resolution trigger.
+    // Re-resolve any that were previously cached.
+    if (existingStyle) {
+        for (auto& [identifier, _] : existingStyle->cachedPseudoStyles()) {
+            if (isHighlightPseudoElement(identifier.type))
+                resolveAndAddPseudoElementStyle(identifier);
+        }
+    }
+
 #if ENABLE(TOUCH_ACTION_REGIONS)
     // FIXME: Track this exactly.
     if (!update.style->touchAction().isAuto() && !m_document->quirks().shouldDisablePointerEventsQuirk())
@@ -1093,7 +1102,7 @@ void TreeResolver::pushParent(Element& element, const RenderStyle& style, Option
 #endif
 {
     scope().selectorMatchingState.selectorFilter.pushParent(&element);
-    if (style.containerType() != ContainerType::Normal)
+    if (!style.containerType().isNormal())
         scope().selectorMatchingState.containerQueryEvaluationState.sizeQueryContainers.append(element);
 
     Parent parent(element, style, changes, descendantsToResolve, isInDisplayNoneTree);
@@ -1456,7 +1465,7 @@ auto TreeResolver::updateStateForQueryContainer(Element& element, const RenderSt
         return LayoutInterleavingAction::None;
 
     auto* existingStyle = element.renderOrDisplayContentsStyle();
-    if (style->containerType() != ContainerType::Normal || (existingStyle && existingStyle->containerType() != ContainerType::Normal)) {
+    if (!style->containerType().isNormal() || (existingStyle && !existingStyle->containerType().isNormal())) {
         // If any of the queries use font-size relative units then a font size change
         // may affect their evaluation, so force re-evaluating all descendants.
         if (styleChangeAffectsRelativeUnits(*style, existingStyle))

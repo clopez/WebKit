@@ -3243,7 +3243,7 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
         // Check our containing block chain. If anything in the chain needs a layout, then require a full layout.
         for (CheckedPtr currentRenderer = renderer; currentRenderer && !currentRenderer->isRenderView(); currentRenderer = currentRenderer->container()) {
 
-            if (currentRenderer->style().containerType() != ContainerType::Normal) {
+            if (!currentRenderer->style().containerType().isNormal()) {
                 requireFullLayout = true;
                 break;
             }
@@ -11036,6 +11036,9 @@ void Document::handlePopoverLightDismiss(const PointerEvent& event, Node& target
                             if (RefPtr popover = dynamicDowncast<HTMLElement>(button->commandForElement()); popover && isShowingAutoPopover(*popover))
                                 invokerPopover = WTF::move(popover);
                             else if (RefPtr popover = button->popoverTargetElement(); popover && isShowingAutoPopover(*popover))
+                                invokerPopover = WTF::move(popover);
+                        } else if (RefPtr input = dynamicDowncast<HTMLInputElement>(*htmlElement)) {
+                            if (RefPtr popover = input->popoverTargetElement(); popover && isShowingAutoPopover(*popover))
                                 invokerPopover = WTF::move(popover);
                         } else if (settings().htmlEnhancedSelectEnabled()) {
                             if (auto* select = dynamicDowncast<HTMLSelectElement>(*htmlElement)) {

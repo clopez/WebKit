@@ -192,9 +192,9 @@ static RefPtr<Style::Image> minimallySupportedContentDataImage(const Style::Cont
     auto* data = content.tryData();
     if (!data)
         return nullptr;
-    if (data->list.size() != 1)
+    if (data->visible.size() != 1)
         return nullptr;
-    auto* image = std::get_if<Style::Content::Image>(&data->list[0]);
+    auto* image = std::get_if<Style::Content::Image>(&data->visible[0]);
     if (!image)
         return nullptr;
     return image->image.value.ptr();
@@ -2824,14 +2824,13 @@ void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer
 
 bool RenderElement::hasEligibleContainmentForSizeQuery() const
 {
-    switch (style().containerType()) {
-    case ContainerType::InlineSize:
-        return shouldApplyInlineSizeContainment();
-    case ContainerType::Size:
+    auto& type = style().containerType();
+    if (type.hasSize())
         return shouldApplySizeContainment();
-    case ContainerType::Normal:
+    if (type.hasInlineSize())
+        return shouldApplyInlineSizeContainment();
+    if (type.isNormal())
         return true;
-    }
     ASSERT_NOT_REACHED();
     return false;
 }

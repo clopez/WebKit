@@ -1157,6 +1157,9 @@ webkit.org/b/220719 accessibility/braille-label-role.html [ Failure ]
 # Key events for AX actions seems to not be not being emitted
 webkit.org/b/221022 accessibility/keyevents-for-actions-mimic-real-key-events.html [ Timeout ]
 
+# Test requires WebKitTestRunner property 'standaloneWebApplicationURL', which is only implemented for Cocoa platforms.
+http/tests/resourceLoadStatistics/standalone-web-application-exempt-from-website-data-deletion.html [ Skip ]
+
 webkit.org/b/221447 accessibility/aria-current-state-changed-notification.html [ Failure ]
 
 webkit.org/b/221645 accessibility/aria-sort.html [ Failure ]
@@ -1299,9 +1302,6 @@ webkit.org/b/213114 fast/flexbox/line-clamp-with-anchor-content-only.html [ Imag
 
 webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-variable.html [ ImageOnlyFailure ]
 webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-backslant-variable.html [ ImageOnlyFailure ]
-
-# Failing since imported.
-imported/w3c/web-platform-tests/intersection-observer/cross-origin-tall-iframe-rendering.sub.html [ ImageOnlyFailure ]
 
 # fast/gradients are Skip in the top level Expectation. When fixing, change this to
 # Pass instead of removing this line.
@@ -1562,6 +1562,37 @@ webkit.org/b/179261 editing/selection/drag-to-contenteditable-iframe.html [ Time
 [ Debug ] editing/execCommand/delete-non-editable-range-crash.html [ Timeout Pass ]
 
 webkit.org/b/312533 editing/selection/first-letter-selection-painting.html [ ImageOnlyFailure Pass ]
+
+# Requires support for testing text replacement
+webkit.org/b/144690 editing/spelling/text-replacement-after-typing-to-word.html [ Skip ]
+webkit.org/b/144690 editing/spelling/text-replacement-first-word-second-line.html [ Skip ]
+
+webkit.org/b/144690 editing/spelling/grammar-and-spelling-error-styling.html [ ImageOnlyFailure ]
+webkit.org/b/144690 editing/spelling/spelling-marker-includes-hyphen.html [ ImageOnlyFailure ]
+
+webkit.org/b/144690 fast/writing-mode/english-bt-text-with-spelling-marker.html [ ImageOnlyFailure ]
+
+webkit.org/b/193627 editing/spelling/spelling-dots-position.html [ ImageOnlyFailure ]
+
+webkit.org/b/144690 editing/spelling/context-menu-suggestions-multiword-selection.html [ Skip ]
+webkit.org/b/144690 editing/spelling/context-menu-suggestions-subword-selection.html [ Skip ]
+webkit.org/b/144690 editing/spelling/delete-into-misspelled-word.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-arrow-downstream-into-multiword-phrase.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-arrow-upstream-into-multiword-phrase.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-correction-shown-clicking-middle-of-word.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-correction-shown-clicking-multiword-phrase.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-edit-word.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-markers-hidpi.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-markers.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-paste.html [ Skip ]
+webkit.org/b/144690 editing/spelling/grammar-text-effect-not-reapplied.html [ Skip ]
+webkit.org/b/144690 editing/spelling/inline-spelling-markers-hidpi.html [ Skip ]
+webkit.org/b/144690 editing/spelling/inline-spelling-markers.html [ Skip ]
+webkit.org/b/144690 editing/spelling/markers.html [ Skip ]
+webkit.org/b/144690 editing/spelling/spellcheck-async-mutation.html [ Skip ]
+webkit.org/b/144690 editing/spelling/spelling-exactly-selected-word.html [ Skip ]
+webkit.org/b/144690 editing/spelling/spelling-with-punctuation-selection.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Editing-related bugs
@@ -2187,8 +2218,6 @@ perf [ Skip ]
 
 webkit.org/b/210487 http/tests/resourceLoadStatistics/switch-session-on-navigation-to-prevalent-with-interaction.py [ Failure ]
 
-webkit.org/b/210796 http/tests/resourceLoadStatistics/standalone-web-application-exempt-from-website-data-deletion.html [ Failure ]
-
 http/tests/resourceLoadStatistics/omit-document-referrer-nested-third-party-iframe-ephemeral.html [ Skip ]
 http/tests/resourceLoadStatistics/omit-document-referrer-third-party-iframe-ephemeral.html [ Skip ]
 http/tests/resourceLoadStatistics/omit-referrer-for-navigation-ephemeral.html [ Skip ]
@@ -2495,6 +2524,8 @@ webkit.org/b/283410 media/media-vp8-webm-with-poster.html [ Pass ImageOnlyFailur
 webkit.org/b/188218 fast/repaint/canvas-object-fit.html [ Failure ]
 
 webkit.org/b/170337 fast/repaint/obscured-background-no-repaint.html [ Failure ]
+
+webkit.org/b/176648 fast/repaint/inline-outline-repaint.html [ ImageOnlyFailure ]
 
 webkit.org/b/308103 fast/repaint/svg-image-object-fit-animation-repaint.html [ ImageOnlyFailure Pass ]
 
@@ -5585,6 +5616,8 @@ webkit.org/b/314643 media/media-source/media-source-duration-truncation-ended.ht
 webkit.org/b/314809 fast/repaint/table-row-move-after-content-change.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/315294 imported/w3c/web-platform-tests/preload/prefetch-cache.html [ Pass Failure ]
+
+webkit.org/b/315517 imported/w3c/web-platform-tests/css/css-values/attr-pseudo-elem-invalidation-2.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

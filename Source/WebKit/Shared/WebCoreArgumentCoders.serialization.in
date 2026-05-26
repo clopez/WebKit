@@ -1412,7 +1412,7 @@ struct WebCore::NotificationData {
     WTF::UUID notificationID;
     std::optional<WebCore::ScriptExecutionContextIdentifier> contextIdentifier;
     PAL::SessionID sourceSession;
-    MonotonicTime creationTime;
+    WallTime creationTime;
     Vector<uint8_t> data;
     std::optional<bool> silent;
 };
@@ -6830,6 +6830,7 @@ header: <WebCore/TextExtractionTypes.h>
     String target;
     URL completedURL;
     String shortenedURLString;
+    bool linksToCurrentURL;
 };
 
 header: <WebCore/TextExtractionTypes.h>

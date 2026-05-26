@@ -4527,19 +4527,21 @@ ExceptionOr<void> Element::setOuterHTML(Variant<Ref<TrustedHTML>, String>&& html
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
 
-    // The specification allows setting outerHTML on an Element whose parent is a DocumentFragment and Gecko supports this.
-    // https://w3c.github.io/DOM-Parsing/#dom-element-outerhtml
-    RefPtr parent = parentElement();
-    if (!parent) [[unlikely]] {
-        if (!parentNode())
-            return { };
-        return Exception { ExceptionCode::NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element"_s };
-    }
+    // https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-element-outerhtml
+    RefPtr parent = parentNode();
+    if (!parent)
+        return { };
+    if (is<Document>(*parent))
+        return Exception { ExceptionCode::NoModificationAllowedError, "Cannot set outerHTML on element because its parent is a Document"_s };
+
+    RefPtr contextElement = dynamicDowncast<Element>(parent);
+    if (!contextElement)
+        contextElement = HTMLBodyElement::create(document());
 
     RefPtr previous = previousSibling();
     RefPtr next = nextSibling();
 
-    auto fragment = createFragmentForInnerOuterHTML(*parent, stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowScriptingContent }, CustomElementRegistry::registryForElement(*parent));
+    auto fragment = createFragmentForInnerOuterHTML(*contextElement, stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowScriptingContent }, CustomElementRegistry::registryForElement(*contextElement));
     if (fragment.hasException())
         return fragment.releaseException();
 
@@ -4830,7 +4832,7 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
     // FIXME: This is not as efficient as it could be. For example if an ancestor has a non-inherited style change but
     // the styles are otherwise clean we would not need to re-resolve descendants.
     for (auto& element : elementsRequiringComputedStyle | std::views::reverse) {
-        if (computedStyle && computedStyle->containerType() != ContainerType::Normal && mode != ResolveComputedStyleMode::Editability) {
+        if (computedStyle && !computedStyle->containerType().isNormal() && mode != ResolveComputedStyleMode::Editability) {
             // If we find a query container we need to bail out and do full style update to resolve it.
             if (document->updateStyleIfNeeded())
                 return this->computedStyle();

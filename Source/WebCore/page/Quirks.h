@@ -115,6 +115,7 @@ public:
     WEBCORE_EXPORT static bool shouldAllowNavigationToCustomProtocolWithoutUserGesture(StringView protocol, const SecurityOriginData& requesterOrigin);
 
     WEBCORE_EXPORT bool needsYouTubeCaptionsQuirk() const;
+    bool needsYouTubeEmbedAutoplayQuirk() const;
     WEBCORE_EXPORT bool NODELETE needsYouTubeMouseOutQuirk() const;
 
     WEBCORE_EXPORT bool shouldDisableWritingSuggestionsByDefault() const;
@@ -122,7 +123,7 @@ public:
     WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&&);
     WEBCORE_EXPORT String storageAccessUserAgentStringQuirkForDomain(const URL&);
     WEBCORE_EXPORT static bool needsIPadMiniUserAgent(const URL&);
-    WEBCORE_EXPORT static bool NODELETE needsIPhoneUserAgent(const URL&, UseDesktopClassBrowsing = UseDesktopClassBrowsing::Unspecified);
+    WEBCORE_EXPORT static bool NODELETE needsIPhoneUserAgent(const URL&);
     WEBCORE_EXPORT static bool NODELETE needsDesktopUserAgent(const URL&);
     WEBCORE_EXPORT static std::optional<String> needsCustomUserAgentOverride(const URL&, const String& applicationNameForUserAgent, const String& currentUserAgent);
 
@@ -288,6 +289,7 @@ public:
     WEBCORE_EXPORT bool shouldHideSoftTopScrollEdgeEffectDuringFocus(const Element&) const;
 
     bool needsClaudeSidebarViewportUnitQuirk(Element&, const RenderStyle&) const;
+    WEBCORE_EXPORT bool needsHideSelectionDuringOverflowScrollQuirk() const;
     bool needsChromeOSNavigatorUserAgentQuirk(const Document&) const;
 #endif
 

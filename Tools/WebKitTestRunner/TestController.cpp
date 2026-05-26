@@ -37,6 +37,7 @@
 #include "TestInvocation.h"
 #include "WebCoreTestSupport.h"
 #include <JavaScriptCore/InitializeThreading.h>
+#include <WebCore/NotificationData.h>
 #include <WebKit/WKArray.h>
 #include <WebKit/WKAuthenticationChallenge.h>
 #include <WebKit/WKAuthenticationDecisionListener.h>
@@ -78,7 +79,6 @@
 #include <WebKit/WKURL.h>
 #include <WebKit/WKUserContentControllerRef.h>
 #include <WebKit/WKUserContentExtensionStoreRef.h>
-#include <WebKit/WKUserMediaPermissionCheck.h>
 #include <WebKit/WKUserScriptInjectionTime.h>
 #include <WebKit/WKUserScriptRef.h>
 #include <WebKit/WKWebsiteDataStoreConfigurationRef.h>
@@ -1004,6 +1004,11 @@ WKWebsiteDataStoreRef TestController::defaultWebsiteDataStore()
     if (!dataStore) {
         auto configuration = adoptWK(WKWebsiteDataStoreConfigurationCreate());
         configureWebsiteDataStoreTemporaryDirectories(configuration.get());
+
+        // Including any non-trivial value of "persistent notifications have a minimum timeout before being closeable"
+        // is counterproductive for layout tests - especially WPT tests. We cover the behavior in API tests.
+        // So let's just set it to a tiny value for no behavior change in layout tests.
+        WKWebsiteDataStoreConfigurationSetOverridePersistentNotificationMinimumLifetimeForTesting(configuration.get(), std::numeric_limits<float>::min());
         dataStore = WKWebsiteDataStoreCreateWithConfiguration(configuration.get());
     }
     return dataStore;
@@ -1134,7 +1139,9 @@ bool TestController::grantNotificationPermission(WKStringRef originString)
     auto previousPermissionState = m_webNotificationProvider.permissionState(origin.get());
 
     m_webNotificationProvider.setPermission(toWTFString(originString), true);
+
     WKNotificationManagerProviderDidUpdateNotificationPolicy(WKNotificationManagerGetSharedServiceWorkerNotificationManager(), origin.get(), true);
+    WKNotificationManagerProviderDidUpdateNotificationPolicy(WKContextGetNotificationManager(m_context.get()), origin.get(), true);
 
     if (!previousPermissionState || !*previousPermissionState)
         WKPagePermissionChanged(toWK("notifications").get(), originString);

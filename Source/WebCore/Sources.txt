@@ -895,11 +895,13 @@ css/CSSBorderImageSourceValue.cpp
 css/CSSBorderImageWidthValue.cpp
 css/CSSBoxShadowPropertyValue.cpp
 css/CSSCanvasValue.cpp
+css/CSSClipValue.cpp
 css/CSSColorSchemeValue.cpp
 css/CSSColorValue.cpp
 css/CSSComputedStyleDeclaration.cpp @header:RenderStyleGetters
 css/CSSConditionRule.cpp
 css/CSSContainerRule.cpp
+css/CSSContentValue.cpp
 css/CSSCounterStyleDescriptors.cpp
 css/CSSCounterStyleRegistry.cpp
 css/CSSCounterStyleRule.cpp
@@ -972,6 +974,7 @@ css/CSSPropertyInitialValues.cpp
 css/CSSPropertyRule.cpp
 css/CSSPropertySourceData.cpp
 css/CSSQuadValue.cpp
+css/CSSQuotesValue.cpp
 css/CSSRatioValue.cpp
 css/CSSRayValue.cpp
 css/CSSRectValue.cpp
@@ -1013,12 +1016,6 @@ css/DOMCSSPaintWorklet.cpp
 css/DOMCSSRegisterCustomProperty.cpp
 css/DOMMatrix.cpp
 css/DOMMatrixReadOnly.cpp
-css/DeprecatedCSSOMBoxShadowValue.cpp
-css/DeprecatedCSSOMFilterFunctionValue.cpp
-css/DeprecatedCSSOMPrimitiveValue.cpp
-css/DeprecatedCSSOMTextShadowValue.cpp
-css/DeprecatedCSSOMValue.cpp
-css/DeprecatedCSSOMValueList.cpp
 css/FontFace.cpp
 css/FontFaceSet.cpp
 css/ImmutableStyleProperties.cpp
@@ -1054,6 +1051,10 @@ css/calc/CSSCalcTree+Simplification.cpp @header:RenderStyleGetters
 css/calc/CSSCalcTree.cpp
 css/calc/CSSCalcType.cpp
 css/calc/CSSCalcValue.cpp
+css/deprecated-cssom/DeprecatedCSSOMLazySerializingCustomValue.cpp
+css/deprecated-cssom/DeprecatedCSSOMPrimitiveValue.cpp
+css/deprecated-cssom/DeprecatedCSSOMValue.cpp
+css/deprecated-cssom/DeprecatedCSSOMValueList.cpp
 css/parser/CSSAtRuleID.cpp
 css/parser/CSSCustomPropertySyntax.cpp
 css/parser/CSSParser.cpp
@@ -1066,7 +1067,6 @@ css/parser/CSSPropertyParser.cpp
 css/parser/CSSPropertyParserConsumer+Align.cpp
 css/parser/CSSPropertyParserConsumer+Anchor.cpp
 css/parser/CSSPropertyParserConsumer+Animations.cpp
-css/parser/CSSPropertyParserConsumer+Attr.cpp
 css/parser/CSSPropertyParserConsumer+Background.cpp
 css/parser/CSSPropertyParserConsumer+Box.cpp
 css/parser/CSSPropertyParserConsumer+Color.cpp
@@ -1178,6 +1178,7 @@ css/values/backgrounds/CSSBorderImageSource.cpp
 css/values/backgrounds/CSSBorderImageWidth.cpp
 css/values/backgrounds/CSSBorderImage.cpp
 css/values/borders/CSSBorderRadius.cpp
+css/values/borders/CSSBoxShadow.cpp
 css/values/color-adjust/CSSColorScheme.cpp
 css/values/color/CSSColor.cpp
 css/values/color/CSSColorLayers.cpp
@@ -1192,6 +1193,10 @@ css/values/color/CSSKeywordColor.cpp @header:RenderStyleGetters
 css/values/color/CSSLightDarkColor.cpp
 css/values/color/CSSPlatformColorResolutionState.cpp
 css/values/color/CSSResolvedColor.cpp
+css/values/content/CSSContent.cpp
+css/values/content/CSSQuotes.cpp
+css/values/filter-effects/CSSAppleColorFilter.cpp
+css/values/filter-effects/CSSFilter.cpp
 css/values/fonts/CSSFontFamilyName.cpp
 css/values/fonts/CSSFontStyleRange.cpp
 css/values/grid/CSSGridAutoFlow.cpp
@@ -1202,6 +1207,8 @@ css/values/grid/CSSGridSubgrid.cpp
 css/values/grid/CSSGridTemplateList.cpp
 css/values/grid/CSSGridTrackSizes.cpp
 css/values/images/CSSGradient.cpp
+css/values/images/CSSImageWrapper.cpp
+css/values/masking/CSSClip.cpp
 css/values/masking/CSSMaskBorderOutset.cpp
 css/values/masking/CSSMaskBorderRepeat.cpp
 css/values/masking/CSSMaskBorderSlice.cpp
@@ -1233,6 +1240,7 @@ css/values/shapes/CSSPolygonFunction.cpp
 css/values/shapes/CSSRectFunction.cpp
 css/values/shapes/CSSShapeFunction.cpp
 css/values/shapes/CSSXywhFunction.cpp
+css/values/text-decoration/CSSTextShadow.cpp
 cssjit/SelectorCompiler.cpp
 dom/AbortController.cpp
 dom/AbortSignal.cpp
@@ -3322,6 +3330,7 @@ style/values/color/StyleLightDarkColor.cpp
 style/values/color/StyleOpacity.cpp
 style/values/color/StyleResolvedColor.cpp
 style/values/contain/StyleContain.cpp
+style/values/contain/StyleContainerType.cpp
 style/values/content/StyleContent.cpp @header:RenderStyleGetters
 style/values/content/StyleQuotes.cpp
 style/values/counter-styles/StyleCounterStyle.cpp

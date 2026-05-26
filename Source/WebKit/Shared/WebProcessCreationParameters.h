@@ -200,6 +200,7 @@ struct WebProcessCreationParameters {
 
     std::optional<WebProcessDataStoreParameters> websiteDataStoreParameters;
 
+    std::optional<SandboxExtension::Handle> mobileGestaltExtensionHandle;
     std::optional<SandboxExtension::Handle> launchServicesExtensionHandle;
 #if HAVE(VIDEO_RESTRICTED_DECODING)
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
@@ -280,6 +281,8 @@ struct WebProcessCreationParameters {
 
     Seconds memoryFootprintPollIntervalForTesting;
     Vector<uint64_t> memoryFootprintNotificationThresholds;
+
+    std::optional<Seconds> overridePersistentNotificationMinimumLifetime;
 
 #if ENABLE(NOTIFY_BLOCKING)
     Vector<std::pair<String, uint64_t>> notifyState;

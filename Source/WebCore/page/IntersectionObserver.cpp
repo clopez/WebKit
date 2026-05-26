@@ -472,7 +472,6 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
     bool isFirstObservation = !registration.previousThresholdIndex;
 
     // This is only set for explicit roots.
-    // FIXME: remove one remaining place that needs this to work with implicit root.
     CheckedPtr<RenderBlock> rootRenderer;
 
     CheckedPtr<RenderElement> targetRenderer;
@@ -514,13 +513,6 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             return;
         }
 
-        // This is needed to get the root's renderer to compute the root bounds.
-        // FIXME: remove this when computing root bounds no longer requires rootRenderer.
-        RefPtr hostLocalFrameView = dynamicDowncast<LocalFrameView>(hostFrameView);
-        if (!hostLocalFrameView)
-            return;
-        rootRenderer = hostLocalFrameView->renderView();
-
         intersectionState.canComputeIntersection = true;
         intersectionState.rootBounds = layoutViewportRectForIntersection();
     };
@@ -535,6 +527,8 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
         auto rootUsedZoom = [&] () -> float {
             if (rootRenderer)
                 return rootRenderer->style().usedZoom();
+
+            ASSERT(!root());
 
             // If applyRootMargin is Yes, the root and target frames are same-origin.
             // Therefore the root frame should be in the same process as the target frame
@@ -612,8 +606,29 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
     if (isFirstObservation || intersectionState.isIntersecting)
         intersectionState.absoluteTargetRect = targetRenderer->localToAbsoluteQuad(FloatRect(localTargetBounds)).boundingBox();
 
+    auto rootLocalToAbsoluteRect = [&] (FloatRect rect) {
+        if (rootRenderer)
+            return rootRenderer->localToAbsoluteQuad(rect).boundingBox();
+
+        // The below codepath is specific to implicit root, where the root is the main frame.
+        ASSERT(!root());
+
+        // When page scale is > 1 (e.g by pinch-to-zoom), a scale transform is applied on the
+        // main frame's RenderView in Style::resolveForDocument(). Therefore we have to apply
+        // this transform to the local coordinate to turn it into absolute.
+        // This is identical to calling localToAbsoluteQuad() on the main frame's RenderView,
+        // as it'll apply the same transform.
+        // This is not applicable on iOS, as it applies the page scale differently.
+#if !PLATFORM(IOS)
+        if (RefPtr hostPage = hostFrameView.frame().page())
+            rect.scale(hostPage->pageScaleFactor());
+#endif
+
+        return rect;
+    };
+
     if (intersectionState.isIntersecting) {
-        auto rootAbsoluteIntersectionRect = rootRenderer->localToAbsoluteQuad(rootLocalIntersectionRect).boundingBox();
+        auto rootAbsoluteIntersectionRect = rootLocalToAbsoluteRect(rootLocalIntersectionRect);
 
         if (root() && &targetRenderer->frame() == &rootRenderer->frame())
             intersectionState.absoluteIntersectionRect = rootAbsoluteIntersectionRect;
@@ -644,7 +659,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
 
     intersectionState.observationChanged = isFirstObservation || intersectionState.thresholdIndex != registration.previousThresholdIndex;
     if (intersectionState.observationChanged) {
-        intersectionState.absoluteRootBounds = rootRenderer->localToAbsoluteQuad(intersectionState.rootBounds).boundingBox();
+        intersectionState.absoluteRootBounds = rootLocalToAbsoluteRect(intersectionState.rootBounds);
 
         if (!intersectionState.absoluteTargetRect)
             intersectionState.absoluteTargetRect = targetRenderer->localToAbsoluteQuad(FloatRect(localTargetBounds)).boundingBox();
@@ -666,6 +681,19 @@ auto IntersectionObserver::updateObservations(const Frame& hostFrame) -> NeedNot
     auto needNotify = NeedNotify::No;
 
     for (auto& target : observationTargets()) {
+        // For implicit-root observers, a target whose owning Document is not fully
+        // active (e.g. created via document.implementation.createHTMLDocument) cannot
+        // produce an intersection. Skip without advancing the registration state, so a
+        // later adopt into a fully-active document is treated as the first observation.
+        // Drop the first-observation keep-alive so a permanently detached target/document
+        // can be collected (intersection-observer/no-document-leak.html).
+        if (!root() && !target.document().isFullyActive()) {
+            m_targetsWaitingForFirstObservation.removeFirstMatching([&](auto& pendingTarget) {
+                return pendingTarget.ptr() == &target;
+            });
+            continue;
+        }
+
         auto& targetRegistrations = target.intersectionObserverDataIfExists()->registrations;
         auto index = targetRegistrations.findIf([&](auto& registration) {
             return registration.observer.get() == this;

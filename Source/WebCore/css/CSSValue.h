@@ -81,10 +81,12 @@ public:
     bool isBorderImageWidthValue() const { return m_classType == ClassType::BorderImageWidth; }
     bool isBoxShadowPropertyValue() const { return m_classType == ClassType::BoxShadowProperty; }
     bool isCanvasValue() const { return m_classType == ClassType::Canvas; }
+    bool isClipValue() const { return m_classType == ClassType::Clip; }
     bool isColor() const { return m_classType == ClassType::Color; }
 #if ENABLE(DARK_MODE_CSS)
     bool isColorScheme() const { return m_classType == ClassType::ColorScheme; }
 #endif
+    bool isContentValue() const { return m_classType == ClassType::Content; }
     bool isCounter() const { return m_classType == ClassType::Counter; }
     bool isCrossfadeValue() const { return m_classType == ClassType::Crossfade; }
     bool isCursorImageValue() const { return m_classType == ClassType::CursorImage; }
@@ -129,6 +131,7 @@ public:
     bool isPositionYValue() const { return m_classType == ClassType::PositionY; }
     bool isPrimitiveValue() const { return m_classType == ClassType::Primitive; }
     bool isQuad() const { return m_classType == ClassType::Quad; }
+    bool isQuotesValue() const { return m_classType == ClassType::Quotes; }
     bool isRatioValue() const { return m_classType == ClassType::Ratio; }
     bool isRayValue() const { return m_classType == ClassType::Ray; }
     bool isRect() const { return m_classType == ClassType::Rect; }
@@ -222,10 +225,12 @@ protected:
         BorderImageSource,
         BorderImageWidth,
         BoxShadowProperty,
+        Clip,
         Color,
 #if ENABLE(DARK_MODE_CSS)
         ColorScheme,
 #endif
+        Content,
         Counter,
         CustomIdent,
         CustomProperty,
@@ -258,6 +263,7 @@ protected:
         PositionX,
         PositionY,
         Quad,
+        Quotes,
         Ratio,
         Ray,
         Rect,

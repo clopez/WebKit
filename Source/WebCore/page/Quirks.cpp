@@ -413,6 +413,18 @@ bool Quirks::needsYouTubeCaptionsQuirk() const
 #endif
 }
 
+// theguardian.com rdar://166727225
+bool Quirks::needsYouTubeEmbedAutoplayQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsYouTubeEmbedAutoplayQuirk);
+#else
+    return false;
+#endif
+}
+
 // safe.menlosecurity.com rdar://135114489
 // FIXME (rdar://138585709): Remove this quirk for safe.menlosecurity.com once investigation into text corruption on the site is completed and the issue is resolved.
 bool Quirks::shouldDisableWritingSuggestionsByDefault() const
@@ -1889,25 +1901,13 @@ bool Quirks::needsIPadMiniUserAgent(const URL& url)
     return false;
 }
 
-bool Quirks::needsIPhoneUserAgent(const URL& url, UseDesktopClassBrowsing useDesktopClassBrowsing)
+bool Quirks::needsIPhoneUserAgent(const URL& url)
 {
 #if PLATFORM(IOS_FAMILY)
-    switch (useDesktopClassBrowsing) {
-    case UseDesktopClassBrowsing::Unspecified:
-        if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
-            return true;
-        break;
-    case UseDesktopClassBrowsing::No:
-        // rdar://175017084
-        if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
-            return true;
-        break;
-    case UseDesktopClassBrowsing::Yes:
-        break;
-    }
+    if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
+        return true;
 #else
     UNUSED_PARAM(url);
-    UNUSED_PARAM(useDesktopClassBrowsing);
 #endif
     return false;
 }
@@ -2483,6 +2483,12 @@ bool Quirks::needsClaudeSidebarViewportUnitQuirk(Element& element, const RenderS
 
     return false;
 }
+
+bool Quirks::needsHideSelectionDuringOverflowScrollQuirk() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsHideSelectionDuringOverflowScrollQuirk);
+}
 #endif
 
 bool Quirks::needsLimitedMatroskaSupport() const
@@ -3034,9 +3040,14 @@ static void handleDisneyPlusQuirks(QuirksData& quirksData, const URL& /* quirksU
     });
 }
 
-static void handleGuardianQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL&  /* documentURL */)
+static void handleGuardianQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL& documentURL)
 {
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldHideSoftTopScrollEdgeEffectDuringFocusQuirk);
+
+    // theguardian.com rdar://166727225
+    auto documentDomain = RegistrableDomain(documentURL).string();
+    if (documentDomain == "youtube.com"_s || documentDomain == "youtube-nocookie.com"_s)
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsYouTubeEmbedAutoplayQuirk);
 }
 #endif // PLATFORM(IOS_FAMILY)
 
@@ -3068,18 +3079,23 @@ static void handleDailyMailCoUkQuirks(QuirksData& quirksData, const URL& /* quir
 
 static void handleClaudeQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
 {
-    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("claude.ai"_s);
-
+    if (quirksDomainString == "claude.ai"_s) {
 #if PLATFORM(IOS_FAMILY)
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsClaudeSidebarViewportUnitQuirk);
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsClaudeSidebarViewportUnitQuirk);
 #endif
 
-    // rdar://174779259.
-    // The Claude SPA's logout flow leaves some identification cookies behind.
-    // On the next /chat boot those cookies cause the SPA to enter an unauthenticated boot path
-    // that 403s and triggers a /chat -> /logout redirect loop. See
-    // Quirks::clearLogoutSurvivingIdentityCookiesIfNeeded() for the cleanup hook.
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsLogoutCookieCleanupQuirk);
+        // rdar://174779259.
+        // The Claude SPA's logout flow leaves some identification cookies behind.
+        // On the next /chat boot those cookies cause the SPA to enter an unauthenticated boot path
+        // that 403s and triggers a /chat -> /logout redirect loop. See
+        // Quirks::clearLogoutSurvivingIdentityCookiesIfNeeded() for the cleanup hook.
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsLogoutCookieCleanupQuirk);
+    }
+
+#if PLATFORM(IOS_FAMILY)
+    if (quirksDomainString == "claude.ai"_s || quirksDomainString == "claude.com"_s)
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsHideSelectionDuringOverflowScrollQuirk);
+#endif
 }
 
 #if ENABLE(TEXT_AUTOSIZING)

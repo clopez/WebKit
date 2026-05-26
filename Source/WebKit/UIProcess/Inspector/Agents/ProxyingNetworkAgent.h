@@ -78,7 +78,7 @@ public:
     CommandResult<void> enable() final;
     CommandResult<void> disable() final;
     CommandResult<void> setExtraHTTPHeaders(Ref<JSON::Object>&&) final;
-    CommandResultOf<String, bool> getResponseBody(const Protocol::Network::RequestId&) final;
+    void getResponseBody(const Protocol::Network::RequestId&, Ref<GetResponseBodyCallback>&&) final;
     CommandResult<void> setResourceCachingDisabled(bool) final;
     CommandResult<void> setClearResourceDataOnNavigate(bool) final;
     void loadResource(const Protocol::Network::FrameId&, const String& url, Ref<LoadResourceCallback>&&) final;
@@ -107,6 +107,8 @@ private:
     void loadingFinished(ResourceID, double timestamp, const String& sourceMapURL);
     void loadingFailed(ResourceID, double timestamp, const String& errorText, bool canceled);
     void requestServedFromMemoryCache(ResourceID, FrameID, ContextID, const String& documentURL, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, ResourceType, double timestamp);
+
+    void removeAllRegisteredReceivers();
 
     const UniqueRef<NetworkFrontendDispatcher> m_frontendDispatcher;
     const Ref<NetworkBackendDispatcher> m_backendDispatcher;

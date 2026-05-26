@@ -98,6 +98,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/crypto/parameters"
     "${WEBCORE_DIR}/css"
     "${WEBCORE_DIR}/css/calc"
+    "${WEBCORE_DIR}/css/deprecated-cssom"
     "${WEBCORE_DIR}/css/parser"
     "${WEBCORE_DIR}/css/query"
     "${WEBCORE_DIR}/css/typedom"
@@ -109,6 +110,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/values/borders"
     "${WEBCORE_DIR}/css/values/color"
     "${WEBCORE_DIR}/css/values/color-adjust"
+    "${WEBCORE_DIR}/css/values/content"
     "${WEBCORE_DIR}/css/values/counter-styles"
     "${WEBCORE_DIR}/css/values/easing"
     "${WEBCORE_DIR}/css/values/filter-effects"
@@ -1033,12 +1035,6 @@ set(WebCore_NON_SVG_IDL_FILES
     css/DOMMatrix2DInit.idl
     css/DOMMatrixInit.idl
     css/DOMMatrixReadOnly.idl
-    css/DeprecatedCSSOMCounter.idl
-    css/DeprecatedCSSOMPrimitiveValue.idl
-    css/DeprecatedCSSOMRGBColor.idl
-    css/DeprecatedCSSOMRect.idl
-    css/DeprecatedCSSOMValue.idl
-    css/DeprecatedCSSOMValueList.idl
     css/FontFace.idl
     css/FontFaceSet.idl
     css/MediaList.idl
@@ -1047,6 +1043,13 @@ set(WebCore_NON_SVG_IDL_FILES
     css/StyleMedia.idl
     css/StyleSheet.idl
     css/StyleSheetList.idl
+
+    css/deprecated-cssom/DeprecatedCSSOMCounter.idl
+    css/deprecated-cssom/DeprecatedCSSOMPrimitiveValue.idl
+    css/deprecated-cssom/DeprecatedCSSOMRGBColor.idl
+    css/deprecated-cssom/DeprecatedCSSOMRect.idl
+    css/deprecated-cssom/DeprecatedCSSOMValue.idl
+    css/deprecated-cssom/DeprecatedCSSOMValueList.idl
 
     css/typedom/CSSNumericValue.idl
     css/typedom/CSSOMKeywordValue.idl
@@ -3240,7 +3243,7 @@ if (WTF_CPU_ARM AND NOT CMAKE_CROSSCOMPILING)
 endif ()
 
 if (ENABLE_WEBCORE_TEST_SUPPORT)
-    WEBKIT_ADD_PREFIX_HEADER(WebCoreTestSupport WebCorePrefix.h PREFIX_LANGUAGES CXX OBJCXX)
+    WEBKIT_ADD_PREFIX_HEADER(WebCoreTestSupport WebCorePrefix.h PREFIX_NO_CODEGEN PREFIX_LANGUAGES CXX OBJCXX)
 
     WEBKIT_COPY_FILES(Copy_WebCoreTestSupportPrivateHeaders
         DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCoreTestSupport

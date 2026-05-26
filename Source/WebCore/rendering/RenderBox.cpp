@@ -171,7 +171,7 @@ void RenderBox::willBeDestroyed()
     if (hasInitializedStyle()) {
         if (!style().scrollSnapAlign().isNone())
             view().unregisterBoxWithScrollSnapPositions(*this);
-        if (style().containerType() != ContainerType::Normal)
+        if (!style().containerType().isNormal())
             view().unregisterContainerQueryBox(*this);
         if (!style().anchorNames().isNone())
             view().unregisterAnchor(*this);
@@ -277,10 +277,8 @@ void RenderBox::styleWillChange(Style::Difference diff, const RenderStyle& newSt
                 // We are about to go out of flow. Before that takes place, we need to mark the
                 // current containing block chain for preferred widths recalculation.
                 setNeedsLayoutAndPreferredWidthsUpdate();
-                if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(parent())) {
-                    flexContainer->clearCachedFlexItemIntrinsicContentLogicalHeight(*this);
-                    flexContainer->clearCachedMainSizeForFlexItem(*this);
-                }
+                if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(parent()))
+                    flexContainer->flexItemWillBeRemoved(*this);
                 if (isInTopLayerOrBackdrop(style(), element())) {
                     // Since top layer's containing block is driven by the associated element's state (see Element::isInTopLayerOrBackdrop)
                     // and this state is set before styleWillChange call, dirtying ancestors starting from _this_ fails to mark the current ancestor chain properly.
@@ -305,9 +303,9 @@ void RenderBox::styleWillChange(Style::Difference diff, const RenderStyle& newSt
             view().unregisterBoxWithScrollSnapPositions(*this);
     }
 
-    if (newStyle.containerType() != ContainerType::Normal)
+    if (!newStyle.containerType().isNormal())
         view().registerContainerQueryBox(*this);
-    else if (oldStyle && oldStyle->containerType() != ContainerType::Normal)
+    else if (oldStyle && !oldStyle->containerType().isNormal())
         view().unregisterContainerQueryBox(*this);
 
     if (!newStyle.positionTryFallbacks().isNone() && newStyle.hasOutOfFlowPosition())
@@ -3354,29 +3352,6 @@ static bool NODELETE shouldFlipBeforeAfterMargins(WritingMode containingBlockWri
     return shouldFlip;
 }
 
-bool RenderBox::shouldCacheIntrinsicContentLogicalHeightForFlexItem() const
-{
-    // The flex stretch algorithm needs to know the item's intrinsic content height
-    // before stretch was applied. We cache it so the stretch phase can read back
-    // the pre-stretch value after relayout. Items with aspect-ratio don't need
-    // caching because their content height is always derivable from the current width.
-    return isFlexItem() && !isFloatingOrOutOfFlowPositioned() && !shouldComputeLogicalHeightFromAspectRatio();
-}
-
-void RenderBox::cacheIntrinsicContentLogicalHeightForFlexItem(LayoutUnit height) const
-{
-    // FIXME: it should be enough with checking hasOverridingLogicalHeight() as this logic could be shared
-    // by any layout system using overrides like grid or flex. However this causes a never ending sequence of calls
-    // between layoutBlock() <-> relayoutToAvoidWidows().
-    if (!shouldCacheIntrinsicContentLogicalHeightForFlexItem())
-        return;
-    ASSERT(is<RenderFlexibleBox>(parent()));
-    if (overridingBorderBoxLogicalHeight())
-        return;
-    if (CheckedPtr flexibleBox = dynamicDowncast<RenderFlexibleBox>(parent()))
-        flexibleBox->setCachedFlexItemIntrinsicContentLogicalHeight(*this, height);
-}
-
 void RenderBox::overrideLogicalHeightForSizeContainment()
 {
     LayoutUnit intrinsicHeight;
@@ -3401,7 +3376,8 @@ void RenderBox::updateLogicalHeight()
     if (shouldApplySizeContainment() && !isRenderGrid())
         overrideLogicalHeightForSizeContainment();
 
-    cacheIntrinsicContentLogicalHeightForFlexItem(contentBoxLogicalHeight());
+    if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(parent()))
+        flexContainer->setFlexItemContentLogicalHeightIfNeeded(*this, contentBoxLogicalHeight());
     auto computedValues = computeLogicalHeight(logicalHeight(), logicalTop());
     setLogicalHeight(computedValues.extent);
     setLogicalTop(computedValues.position);

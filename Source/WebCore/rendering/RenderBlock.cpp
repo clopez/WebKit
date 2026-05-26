@@ -1340,7 +1340,7 @@ bool RenderBlock::establishesIndependentFormattingContextIgnoringDisplayType(con
         || style.hasOutOfFlowPosition()
         || isBlockBoxWithPotentiallyScrollableOverflow()
         || style.usedContain().contains(Style::ContainValue::Layout)
-        || style.containerType() != ContainerType::Normal
+        || !style.containerType().isNormal()
         || Style::ContainmentChecker { style, *element }.shouldApplyPaintContainment()
         || (style.display().isBlockType() && !style.blockStepSize().isNone());
 }
@@ -3028,8 +3028,10 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
         }
 
         if (shouldComputeLogicalHeightFromAspectRatio()) {
-            // Only grid is expected to be in a state where it is calculating pref width and having unknown logical width.
-            if (isRenderGrid() && needsPreferredLogicalWidthsUpdate() && !style.logicalWidth().isSpecified())
+            // Grid and flex containers may be in a state where they are calculating pref width
+            // with logical width not yet specified; in that case logicalWidth() carries the previous
+            // layout's value and would feed a stale aspect-ratio derivation here.
+            if ((isRenderGrid() || is<RenderFlexibleBox>(*this)) && needsPreferredLogicalWidthsUpdate() && !style.logicalWidth().isSpecified())
                 return { };
             return blockSizeFromAspectRatio(
                 horizontalBorderAndPaddingExtent(),
@@ -3202,11 +3204,24 @@ LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect
         clipRect.setY(writingMode().isBlockTopToBottom() ? paintRect.y() : paintRect.y() + paintRect.height() - borderExtent);
         clipRect.setWidth(legend->width());
         clipRect.setHeight(borderExtent);
+        // When the legend overlaps a non-block-start border (e.g. via negative
+        // margin), extend the clip in the block direction to cover the legend's
+        // layout box so that border behind it is not painted.
+        if (!borderExtent) {
+            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->height() - borderExtent) / 2) : 0_lu;
+            clipRect.setY(paintRect.y() + legend->y() - adjustment);
+            clipRect.setHeight(legend->height());
+        }
     } else {
         clipRect.setX(writingMode().isBlockLeftToRight() ? paintRect.x() : paintRect.x() + paintRect.width() - borderExtent);
         clipRect.setY(paintRect.y() + legend->y());
         clipRect.setWidth(borderExtent);
         clipRect.setHeight(legend->height());
+        if (!borderExtent) {
+            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->width() - borderExtent) / 2) : 0_lu;
+            clipRect.setX(paintRect.x() + legend->x() - adjustment);
+            clipRect.setWidth(legend->width());
+        }
     }
     return clipRect;
 }

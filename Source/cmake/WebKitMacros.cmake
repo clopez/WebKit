@@ -149,6 +149,7 @@ function(WEBKIT_ADD_PREFIX_HEADER _target _header)
     string(JOIN "," _pch_genex_langs ${_PCH_PREFIX_LANGUAGES})
     target_precompile_headers(${_target} PRIVATE
         "$<$<COMPILE_LANGUAGE:${_pch_genex_langs}>:${CMAKE_CURRENT_SOURCE_DIR}/${_header}>")
+    _WEBKIT_PCH_STUB_NO_TIMESTAMP(${_target} ${_PCH_PREFIX_LANGUAGES})
     _WEBKIT_ADD_PCH_OBJECT(${_target} ${ARGN})
 endfunction()
 
@@ -187,6 +188,18 @@ function(_WEBKIT_ADD_PCH_OBJECT _target)
         set_source_files_properties("${_pch_obj_src}" PROPERTIES
             COMPILE_OPTIONS "-Xclang;-building-pch-with-obj;-fvisibility-inlines-hidden"
             SKIP_UNITY_BUILD_INCLUSION ON)
+    endforeach ()
+endfunction()
+
+function(_WEBKIT_PCH_STUB_NO_TIMESTAMP _target)
+    if (NOT COMPILER_IS_CLANG)
+        return()
+    endif ()
+    get_target_property(_pch_bin_dir ${_target} BINARY_DIR)
+    foreach (_lang ${ARGN})
+        _WEBKIT_PCH_PATHS_FOR_LANGUAGE(${_lang} _src_ext _stub_ext _pch_stem)
+        set_property(SOURCE "${_pch_bin_dir}/CMakeFiles/${_target}.dir/${_pch_stem}.${_stub_ext}"
+            APPEND PROPERTY COMPILE_OPTIONS "-Xclang;-fno-pch-timestamp")
     endforeach ()
 endfunction()
 
@@ -230,6 +243,7 @@ function(WEBKIT_ADD_PREFIX_HEADER_WITH_PARENT _target _base_target _header _pare
                     OBJECT_DEPENDS "${_base_pch}")
             endforeach ()
         endif ()
+        _WEBKIT_PCH_STUB_NO_TIMESTAMP(${_target} ${ARGN})
         _WEBKIT_ADD_PCH_OBJECT(${_target} PREFIX_NO_CODEGEN PREFIX_LANGUAGES ${ARGN})
     else ()
         WEBKIT_ADD_PREFIX_HEADER(${_target} ${_parent_header} PREFIX_LANGUAGES ${ARGN})
@@ -832,6 +846,7 @@ function(_webkit_setup_swift_header_deps _target _stamp _header)
         add_custom_target(${_target}_SwiftCxxHeaderStamp DEPENDS ${_stamp})
         add_dependencies(${_target}_SwiftCxxHeader ${_target}_SwiftCxxHeaderStamp ${_deps})
         add_dependencies(${_target} ${_target}_SwiftCxxHeader)
+        add_dependencies(${_target}_SwiftGeneratedDeps ${_deps})
     else ()
         target_sources(${_target} PRIVATE ${_header})
     endif ()
@@ -964,6 +979,7 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         endif ()
         list(APPEND _swift_options "-module-cache-path" "${CMAKE_BINARY_DIR}/SwiftModuleCache")
         set_property(DIRECTORY "${CMAKE_BINARY_DIR}" APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/SwiftModuleCache")
+        list(APPEND _swift_options "-track-system-dependencies")
         # We'll use these options both for mainstream cmake invocations of swiftc (here)
         # and for our own invocation to output an interoperability .h file (later).
         # target_compile_options deduplicates repeated tokens, so collapse each
@@ -1158,7 +1174,6 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
                     -module-name ${_module_name}
                     -Xfrontend -emit-clang-header-min-access -Xfrontend ${${_target}_SWIFT_EMIT_CLANG_HEADER_MIN_ACCESS}
                     -emit-clang-header-path ${_header_tmp_path}
-                    -track-system-dependencies
                     -emit-dependencies
                 COMMAND
                     ${CMAKE_COMMAND} -E copy_if_different ${_header_tmp_path} ${_header_path}

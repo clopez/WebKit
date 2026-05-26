@@ -94,7 +94,6 @@ enum class ColumnFill : bool;
 enum class ColumnProgression : bool;
 enum class ColumnSpan : bool;
 enum class CompositeOperator : uint8_t;
-enum class ContainerType : uint8_t;
 enum class ContentDistribution : uint8_t;
 enum class ContentPosition : uint8_t;
 enum class ContentVisibility : uint8_t;
@@ -342,6 +341,7 @@ struct ScrollMarginEdge;
 struct ScrollPaddingEdge;
 struct ScrollSnapAlign;
 struct ScrollSnapType;
+struct ContainerType;
 struct ScrollTimeline;
 struct ScrollbarColor;
 struct ScrollbarGutter;
@@ -617,6 +617,8 @@ public:
 
     inline float usedZoom() const;
     inline bool setUsedZoom(float);
+
+    void setZoomFromAnimation(Zoom);
 
     inline ZoomFactor usedZoomForLength() const;
 
