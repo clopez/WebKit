@@ -422,8 +422,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor(static_cast<UIUserInterfaceIdiom>(overrideUserInterfaceIdiom), overrideScaleFactor);
 #endif
 
-    populateMobileGestaltCache(WTF::move(parameters.mobileGestaltExtensionHandle));
-
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
 
 #if ENABLE(SANDBOX_EXTENSIONS)
@@ -1349,6 +1347,9 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     m_imageAnimationEnabled = preferences.imageAnimationEnabled;
 #endif
+#if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
+    m_videoAutoplayPreviewsEnabled = preferences.videoAutoplayPreviewsEnabled;
+#endif
 #if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
     m_prefersNonBlinkingCursor = preferences.prefersNonBlinkingCursor;
 #endif
@@ -1374,17 +1375,20 @@ void WebProcess::updatePageAccessibilitySettings()
     Image::setSystemAllowsAnimationControls(!imageAnimationEnabled());
 #endif
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
     for (auto& page : m_pageMap.values()) {
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
         page->updateImageAnimationEnabled();
+#endif
+#if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
+        page->updateVideoAutoplayPreviewsEnabled();
 #endif
 
 #if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
         page->updatePrefersNonBlinkingCursor();
 #endif
     }
-#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
 }
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)

@@ -2264,6 +2264,10 @@ webkit.org/b/315308 http/tests/inspector/network/cross-origin-iframe-get-respons
 
 webkit.org/b/308165 [ Debug ] scrollingcoordinator/mac/latching/simple-page-rubberbands.html [ Pass Failure ]
 
+webkit.org/b/315579 [ Tahoe ] webaudio/PeriodicWave/ctor-periodicwave.html [ Failure ]
+
+webkit.org/b/315578 imported/w3c/web-platform-tests/url/IdnaTestV2.any.html [ Failure ]
+
 webkit.org/b/311759 [ Release arm64 ] imported/w3c/web-platform-tests/event-timing/keydown.html [ Pass Failure ]
 
 webkit.org/b/308325 [ Debug ] http/wpt/cache-storage/cache-in-stopped-context.html [ Pass Failure ]
@@ -2309,6 +2313,8 @@ webkit.org/b/313664 [ Tahoe+ ] imported/w3c/web-platform-tests/css/filter-effect
 
 webkit.org/b/313764 [ Tahoe+ Debug ] webrtc/ephemeral-certificates-and-cnames.html [ Pass Timeout ]
 
+webkit.org/b/315618 [ Release ] imported/w3c/web-platform-tests/resize-observer/callback-cross-realm-report-exception.html [ Pass Failure ]
+
 # webkit.org/b/315048 REGRESSION(313302@main): [macOS]: 2 tests in imported/w3c/web-platform-tests/dom/nodes/moveBefore are flaky crashes
 imported/w3c/web-platform-tests/dom/nodes/moveBefore/style-applies.html [ Skip ]
 imported/w3c/web-platform-tests/dom/nodes/moveBefore/throws-exception.html [ Skip ]
@@ -2329,4 +2335,10 @@ webkit.org/b/315354 media/video-concurrent-visible-playback.html [ Pass Failure 
 
 webkit.org/b/315398 [ Release ] http/tests/site-isolation/accessibility/client/simple-iframe.html [ Timeout ]
 
-webkit.org/b/314902 [ Debug ] http/tests/site-isolation/inspector/target/target.html [ Skip ]
+# webkit.org/b/314902 REGRESSION(313207@main): [macOS Debug] ASSERTION FAILED: !m_messageReceiverMapCount
+[ Debug ] http/tests/site-isolation/inspector/target/target.html [ Skip ]
+[ Debug ] http/tests/site-isolation/inspector/target/target-cross-origin-page-navigation.html [ Skip ]
+
+# webkit.org/b/315593 [macOS Release] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.sharedworker.html  is a flaky crash
+[ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.serviceworker.html [ Skip ]
+[ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.sharedworker.html [ Skip ]
