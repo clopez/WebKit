@@ -1456,6 +1456,8 @@ public:
     void compileNewSymbol(Node*);
     void compileNewMap(Node*);
     void compileNewSet(Node*);
+    void compileNewWeakMap(Node*);
+    void compileNewWeakSet(Node*);
     void compileNewRegExpUntyped(Node*);
 
     void emitNewTypedArrayWithSizeInRegister(Node*, TypedArrayType, RegisteredStructure, GPRReg sizeGPR);
@@ -1688,6 +1690,7 @@ public:
     void compileArrayConcatAppendOne(Node*);
     void compileArraySplice(Node*);
     void compileArrayIndexOfOrArrayIncludes(Node*);
+    void compileArrayJoin(Node*);
     void compileArrayPush(Node*);
     void compileArrayUnshift(Node*);
     void compileNotifyWrite(Node*);

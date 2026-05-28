@@ -175,6 +175,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case ArrayUnshift:
         case ArrayIncludes:
         case ArrayIndexOf:
+        case ArrayJoin:
         case HasIndexedProperty:
         case AtomicsAdd:
         case AtomicsAnd:
@@ -770,6 +771,11 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             RELEASE_ASSERT_NOT_REACHED();
             return;
         }
+        return;
+    }
+
+    case ArrayJoin: {
+        clobberTop();
         return;
     }
 
@@ -2258,6 +2264,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case NewStringObject:
     case NewMap:
     case NewSet:
+    case NewWeakMap:
+    case NewWeakSet:
     case PhantomNewObject:
     case MaterializeNewObject:
     case PhantomNewFunction:

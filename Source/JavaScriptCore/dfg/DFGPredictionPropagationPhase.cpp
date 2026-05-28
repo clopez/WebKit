@@ -1239,6 +1239,7 @@ private:
         case StringSubstr:
         case ToUpperCase:
         case ToLowerCase:
+        case ArrayJoin:
             setPrediction(SpecString);
             break;
 
@@ -1456,6 +1457,16 @@ private:
 
         case NewSet: {
             setPrediction(SpecSetObject);
+            break;
+        }
+
+        case NewWeakMap: {
+            setPrediction(SpecWeakMapObject);
+            break;
+        }
+
+        case NewWeakSet: {
+            setPrediction(SpecWeakSetObject);
             break;
         }
 

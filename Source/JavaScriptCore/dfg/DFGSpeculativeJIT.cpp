@@ -10198,6 +10198,37 @@ void SpeculativeJIT::compileArrayConcatAppendOne(Node* node)
     cellResult(resultGPR, node);
 }
 
+void SpeculativeJIT::compileArrayJoin(Node* node)
+{
+    Edge& separatorEdge = m_graph.varArgChild(node, 1);
+    SpeculateCellOperand array(this, m_graph.varArgChild(node, 0));
+    GPRReg arrayGPR = array.gpr();
+
+    if (separatorEdge.useKind() == StringUse) {
+        SpeculateCellOperand separator(this, separatorEdge);
+        GPRReg separatorGPR = separator.gpr();
+        speculateString(separatorEdge, separatorGPR);
+
+        flushRegisters();
+        GPRFlushedCallResult result(this);
+        GPRReg resultGPR = result.gpr();
+        callOperation(operationArrayJoin, resultGPR, LinkableConstant::globalObject(*this, node), arrayGPR, separatorGPR);
+        speculationCheck(ExoticObjectMode, JSValueSource(), nullptr, branchTestPtr(Zero, resultGPR));
+        cellResult(resultGPR, node);
+        return;
+    }
+
+    JSValueOperand separator(this, separatorEdge);
+    JSValueRegs separatorRegs = separator.jsValueRegs();
+
+    flushRegisters();
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    callOperation(operationArrayJoinGeneric, resultGPR, LinkableConstant::globalObject(*this, node), arrayGPR, separatorRegs);
+    speculationCheck(ExoticObjectMode, JSValueSource(), nullptr, branchTestPtr(Zero, resultGPR));
+    cellResult(resultGPR, node);
+}
+
 void SpeculativeJIT::compileArraySplice(Node* node)
 {
     unsigned refCount = node->refCount();
@@ -12021,6 +12052,28 @@ void SpeculativeJIT::compileNewSet(Node* node)
 
     addSlowPathGenerator(slowPathCall(slowCases, this, operationNewSet, resultGPR, TrustedImmPtr(&vm()), TrustedImmPtr(structure)));
 
+    cellResult(resultGPR, node);
+}
+
+void SpeculativeJIT::compileNewWeakMap(Node* node)
+{
+    // FIXME: Inline-allocate the cell like NewMap once WeakMapImpl supports a lazily-allocated buffer.
+    flushRegisters();
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    FrozenValue* structure = m_graph.freezeStrong(node->structure().get());
+    callOperation(operationNewWeakMap, resultGPR, TrustedImmPtr(&vm()), TrustedImmPtr(structure));
+    cellResult(resultGPR, node);
+}
+
+void SpeculativeJIT::compileNewWeakSet(Node* node)
+{
+    // FIXME: Inline-allocate the cell like NewSet once WeakMapImpl supports a lazily-allocated buffer.
+    flushRegisters();
+    GPRFlushedCallResult result(this);
+    GPRReg resultGPR = result.gpr();
+    FrozenValue* structure = m_graph.freezeStrong(node->structure().get());
+    callOperation(operationNewWeakSet, resultGPR, TrustedImmPtr(&vm()), TrustedImmPtr(structure));
     cellResult(resultGPR, node);
 }
 

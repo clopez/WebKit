@@ -1207,6 +1207,9 @@ private:
         case ArrayIndexOf:
             compileArrayIndexOfOrArrayIncludes();
             break;
+        case ArrayJoin:
+            compileArrayJoin();
+            break;
         case CreateActivation:
             compileCreateActivation();
             break;
@@ -1862,6 +1865,12 @@ private:
             break;
         case NewSet:
             compileNewSet();
+            break;
+        case NewWeakMap:
+            compileNewWeakMap();
+            break;
+        case NewWeakSet:
+            compileNewWeakSet();
             break;
         case SetFunctionName:
             compileSetFunctionName();
@@ -8529,6 +8538,23 @@ IGNORE_CLANG_WARNINGS_END
         LValue firstArray = lowCell(m_node->child1());
         LValue second = lowJSValue(m_node->child2());
         LValue result = vmCall(pointerType(), operationArrayConcatAppendOne, weakPointer(globalObject), firstArray, second);
+        speculate(ExoticObjectMode, noValue(), nullptr, m_out.isNull(result));
+        setJSValue(result);
+    }
+
+    void compileArrayJoin()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        LValue array = lowCell(m_graph.varArgChild(m_node, 0));
+        Edge separatorEdge = m_graph.varArgChild(m_node, 1);
+        LValue result;
+        if (separatorEdge.useKind() == StringUse) {
+            LValue separator = lowString(separatorEdge);
+            result = vmCall(pointerType(), operationArrayJoin, weakPointer(globalObject), array, separator);
+        } else {
+            LValue separator = lowJSValue(separatorEdge);
+            result = vmCall(pointerType(), operationArrayJoinGeneric, weakPointer(globalObject), array, separator);
+        }
         speculate(ExoticObjectMode, noValue(), nullptr, m_out.isNull(result));
         setJSValue(result);
     }
@@ -19516,6 +19542,18 @@ IGNORE_CLANG_WARNINGS_END
 
         m_out.appendTo(continuation, lastNext);
         setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
+    }
+
+    void compileNewWeakMap()
+    {
+        // FIXME: Inline-allocate the cell like NewMap once WeakMapImpl supports a lazily-allocated buffer.
+        setJSValue(vmCall(pointerType(), operationNewWeakMap, m_vmValue, frozenPointer(m_graph.freezeStrong(m_node->structure().get()))));
+    }
+
+    void compileNewWeakSet()
+    {
+        // FIXME: Inline-allocate the cell like NewSet once WeakMapImpl supports a lazily-allocated buffer.
+        setJSValue(vmCall(pointerType(), operationNewWeakSet, m_vmValue, frozenPointer(m_graph.freezeStrong(m_node->structure().get()))));
     }
 
     void compileSetFunctionName()

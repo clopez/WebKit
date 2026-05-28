@@ -160,6 +160,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(ArithUnary, Common) \
     CLONE_STATUS(ArrayIncludes, Common) \
     CLONE_STATUS(ArrayIndexOf, Common) \
+    CLONE_STATUS(ArrayJoin, Common) \
     CLONE_STATUS(ArrayPop, Common) \
     CLONE_STATUS(ArrayPush, Common) \
     CLONE_STATUS(ArrayShift, Common) \
@@ -303,6 +304,8 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, const CustomizeSucc
     CLONE_STATUS(NewRegExp, Common) \
     CLONE_STATUS(NewRegExpUntyped, Common) \
     CLONE_STATUS(NewSet, Common) \
+    CLONE_STATUS(NewWeakMap, Common) \
+    CLONE_STATUS(NewWeakSet, Common) \
     CLONE_STATUS(NormalizeMapKey, Common) \
     CLONE_STATUS(NumberToStringWithValidRadixConstant, Common) \
     CLONE_STATUS(NukeStructureAndSetButterfly, Common) \

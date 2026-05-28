@@ -409,6 +409,8 @@ inline CapabilityLevel canCompile(Node* node)
     case NewRegExp:
     case NewMap:
     case NewSet:
+    case NewWeakMap:
+    case NewWeakSet:
     case StringReplace:
     case StringReplaceAll:
     case StringReplaceRegExp:
@@ -455,6 +457,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ArraySplice:
     case ArrayIncludes:
     case ArrayIndexOf:
+    case ArrayJoin:
     case ArrayPop:
     case ArrayPush:
     case ArrayShift:

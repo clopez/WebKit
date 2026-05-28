@@ -122,11 +122,6 @@ inline bool RenderStyle::isLink() const
     return m_computedStyle.isLink();
 }
 
-inline bool RenderStyle::emptyState() const
-{
-    return m_computedStyle.emptyState();
-}
-
 inline bool RenderStyle::firstChildState() const
 {
     return m_computedStyle.firstChildState();
@@ -292,9 +287,9 @@ inline std::optional<Style::PseudoElementIdentifier> RenderStyle::pseudoElementI
     return m_computedStyle.pseudoElementIdentifier();
 }
 
-inline RenderStyle* RenderStyle::getCachedPseudoStyle(const Style::PseudoElementIdentifier& pseudoElementIdentifier) const
+inline RenderStyle* RenderStyle::pseudoElementStyle(const Style::PseudoElementIdentifier& pseudoElementIdentifier) const
 {
-    return m_computedStyle.getCachedPseudoStyle(pseudoElementIdentifier);
+    return m_computedStyle.pseudoElementStyle(pseudoElementIdentifier);
 }
 
 // MARK: - Custom properties

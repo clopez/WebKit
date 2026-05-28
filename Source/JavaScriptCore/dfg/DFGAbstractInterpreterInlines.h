@@ -3360,6 +3360,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setNonCellTypeForNode(node, SpecInt32Only);
         break;
     }
+
+    case ArrayJoin:
+        clobberWorld();
+        setTypeForNode(node, SpecString);
+        break;
             
     case ArrayPop:
         clobberWorld();
@@ -3976,6 +3981,14 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case NewSet:
+        setForNode(node, node->structure());
+        break;
+
+    case NewWeakMap:
+        setForNode(node, node->structure());
+        break;
+
+    case NewWeakSet:
         setForNode(node, node->structure());
         break;
 

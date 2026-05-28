@@ -2413,9 +2413,6 @@ imported/w3c/web-platform-tests/svg/path/bearing/absolute.svg [ ImageOnlyFailure
 imported/w3c/web-platform-tests/svg/path/bearing/relative.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/path/bearing/zero.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/path/closepath/segment-completing.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/path/distance/pathlength-path-negative.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/path/distance/pathlength-path-zero.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/path/distance/pathLength-zero.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/path/distance/pathLength-zero-percentage.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/path/distance/pathlength-rect-mutating.svg [ Failure Pass ]
 imported/w3c/web-platform-tests/svg/animations/seeking-events-1.html [ Failure Pass ]
@@ -3472,6 +3469,27 @@ imported/w3c/web-platform-tests/css/css-text/white-space/text-wrap-balance-line-
 imported/w3c/web-platform-tests/css/css-text/white-space/text-wrap-balance-line-clamp-007.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/white-space/textarea-always-preserves-spaces-001.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-u002d.html [ ImageOnlyFailure ]
+
+# webkit.org/b/315647 text-fit property not implemented
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/background-image.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/columns-consistent.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/consistent-blank-line.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/grow-consistent.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/grow-per-line-all-line-height.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/grow-per-line-all.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/grow-per-line.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/selection-highlight-painting.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/shrink-consistent.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/shrink-per-line-all.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/spacing.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-align.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-box.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-decoration-skip-ink.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-decoration-thickness.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-emphasis.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/text-underline-offset.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/vertical-align.html [ ImageOnlyFailure ]
+webkit.org/b/315647 imported/w3c/web-platform-tests/css/css-text/text-fit/writing-mode.html [ ImageOnlyFailure ]
 # css-text end
 
 webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-animations/animation-delay-008.html [ ImageOnlyFailure Pass ]
@@ -4508,6 +4526,7 @@ imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-ifra
 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-047.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-048.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/intrinsic-percent-non-replaced-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/stretch/cache-miss-001.html [ ImageOnlyFailure ]
 
 # wpt css-text-decor failures
 webkit.org/b/230041 imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-color-selection-pseudo-01.html [ ImageOnlyFailure ]
@@ -5572,8 +5591,9 @@ imported/w3c/web-platform-tests/css/css-conditional/container-queries/custom-lay
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/pseudo-elements-010.html [ ImageOnlyFailure ]
 
-# Scroll-state container queries (unsupported).
+# Scroll-state container queries (unsupported), enable parsing test only.
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/scroll-state [ Skip ]
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/scroll-state/container-type-scroll-state-parsing.html [ Pass ]
 
 webkit.org/b/279424 [ Debug ] imported/w3c/web-platform-tests/css/css-conditional/container-queries/svg-foreignobject-no-size-container.html [ Skip ] # Crash
 
@@ -6015,6 +6035,11 @@ webkit.org/b/243313 [ Debug ] imported/w3c/web-platform-tests/html/semantics/emb
 fast/text/accessibility-bold-system-font [ Pass Failure ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/streams/transferable/gc-crash.html [ Skip ]
+
+# height: fill-available failures
+webkit.org/b/241104 fast/block/fill-available-with-no-specified-containing-block-height.html [ ImageOnlyFailure ]
+webkit.org/b/241104 fast/block/fill-available-with-absolute-position.html [ ImageOnlyFailure ]
+webkit.org/b/241104 fast/css/fill-available-with-percent-height-no-quirk.html [ ImageOnlyFailure ]
 
 # scroll anchoring failures
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/anchor-inside-textarea.tentative.html [ Failure ]
@@ -6515,8 +6540,6 @@ imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-color-dynamic-7.htm
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-color-dynamic-8.html [ Skip ]
 
 # Imported WPT /css/css-tables which are crashing or fails.
-imported/w3c/web-platform-tests/css/css-tables/calc-percent-plus-0px-auto.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-tables/calc-percent-plus-0px-fixed.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-tables/col-definite-max-size-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-tables/col-definite-size-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-tables/absolute-tables-011.tentative.html [ ImageOnlyFailure ]

@@ -1337,6 +1337,20 @@ CSSScrollAnchoringEnabled:
     WebCore:
       default: true
 
+CSSScrollStateContainerQueriesEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS Scroll State Container Queries"
+  humanReadableDescription: "Enable scroll-state value for container-type CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSScrollbarColorEnabled:
   type: bool
   status: stable
@@ -7987,6 +8001,21 @@ StorageAccessAPIEnabled:
       default: true
     WebCore:
       default: true
+  sharedPreferenceForWebProcess: true
+
+StorageAccessAPIPerPageScopeEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Storage Access API Per-Page Scope"
+  humanReadableDescription: "When enabled, storage access granted to one frame is shared with all same-origin frames on the page"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
   sharedPreferenceForWebProcess: true
 
 StorageBlockingPolicy:

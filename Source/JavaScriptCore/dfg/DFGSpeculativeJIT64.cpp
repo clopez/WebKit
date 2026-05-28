@@ -4279,6 +4279,11 @@ void SpeculativeJIT::compile(Node* node)
         compileArrayIndexOfOrArrayIncludes(node);
         break;
     }
+
+    case ArrayJoin: {
+        compileArrayJoin(node);
+        break;
+    }
         
     case ArrayPop: {
         ASSERT(node->arrayMode().isJSArray());
@@ -4722,6 +4727,16 @@ void SpeculativeJIT::compile(Node* node)
 
     case NewSet: {
         compileNewSet(node);
+        break;
+    }
+
+    case NewWeakMap: {
+        compileNewWeakMap(node);
+        break;
+    }
+
+    case NewWeakSet: {
+        compileNewWeakSet(node);
         break;
     }
 

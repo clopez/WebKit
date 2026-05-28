@@ -2973,6 +2973,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case ArrayJoin: {
+        compileArrayJoin(node);
+        break;
+    }
+
     case DFG::Jump: {
         jump(node->targetBlock());
         noResult(node);
@@ -3287,6 +3292,16 @@ void SpeculativeJIT::compile(Node* node)
 
     case NewSet: {
         compileNewSet(node);
+        break;
+    }
+
+    case NewWeakMap: {
+        compileNewWeakMap(node);
+        break;
+    }
+
+    case NewWeakSet: {
+        compileNewWeakSet(node);
         break;
     }
 

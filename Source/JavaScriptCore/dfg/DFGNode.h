@@ -2330,6 +2330,7 @@ public:
         case EnumeratorNextUpdateIndexAndMode:
         case ArrayIncludes:
         case ArrayIndexOf:
+        case ArrayJoin:
             return true;
         default:
             break;
@@ -2455,6 +2456,8 @@ public:
         case NewRegExpUntyped:
         case NewMap:
         case NewSet:
+        case NewWeakMap:
+        case NewWeakSet:
         case NewArrayWithSizeAndStructure:
         case NewTypedArrayBuffer:
             return true;
@@ -2743,6 +2746,7 @@ public:
         case ArrayUnshift:
         case ArrayIncludes:
         case ArrayIndexOf:
+        case ArrayJoin:
         case HasIndexedProperty:
         case AtomicsAdd:
         case AtomicsAnd:
