@@ -2206,6 +2206,8 @@ webkit.org/b/307691 [ Tahoe Release arm64 ] svg/gradients/spreadMethod.svg [ Ima
 
 webkit.org/b/309370 fast/css/vertical-text-overflow-ellipsis-text-align-center.html [ Failure Pass ]
 
+webkit.org/b/315773 media/track/audio-track.html [ Pass Failure ]
+
 webkit.org/b/306436 http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-with-link-query-using-cookiestore-api.https.html [ Pass Failure ]
 
 # webkit.org/b/309529 3x imported/w3c/web-platform-tests/editing/other/typing-around-link-element-at-collapsed-selection.tentative.html are flaky text failures
@@ -2264,8 +2266,6 @@ webkit.org/b/315308 http/tests/inspector/network/cross-origin-iframe-get-respons
 
 webkit.org/b/308165 [ Debug ] scrollingcoordinator/mac/latching/simple-page-rubberbands.html [ Pass Failure ]
 
-webkit.org/b/315579 [ Tahoe ] webaudio/PeriodicWave/ctor-periodicwave.html [ Failure ]
-
 webkit.org/b/315578 imported/w3c/web-platform-tests/url/IdnaTestV2.any.html [ Failure ]
 
 webkit.org/b/311759 [ Release arm64 ] imported/w3c/web-platform-tests/event-timing/keydown.html [ Pass Failure ]
@@ -2291,7 +2291,11 @@ webkit.org/b/308856 [ Debug ] http/tests/websocket/tests/hybi/handshake-ok-with-
 
 webkit.org/b/309850 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Pass Failure ]
 
+webkit.org/b/315780 imported/w3c/web-platform-tests/hr-time/timeOrigin.html [ Pass Failure ]
+
 webkit.org/b/314136 accessibility/mac/client/div-bounds.html [ Pass Failure ]
+
+webkit.org/b/315776 [ arm64 ] inspector/timeline/timeline-recording.html [ Pass Failure ]
 
 webkit.org/b/314851 http/tests/site-isolation/inspector/debugger/provisional-frame-target-pausing.html [ Failure ]
 
