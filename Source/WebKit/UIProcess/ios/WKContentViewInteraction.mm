@@ -2471,17 +2471,7 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
 #if ENABLE(TOUCH_EVENTS)
 - (void)_touchEvent:(const WebKit::WebTouchEvent&)touchEvent preventsNativeGestures:(BOOL)preventsNativeGesture
 {
-    if (!preventsNativeGesture)
-        return;
-
-    if (touchEvent.allTouchPointsAreReleased())
-        [self _resetPanningPreventionFlags];
-    else {
-        _preventsPanningInXAxis = YES;
-        _preventsPanningInYAxis = YES;
-    }
-
-    if (![_touchEventGestureRecognizer isDispatchingTouchEvents])
+    if (!preventsNativeGesture || ![_touchEventGestureRecognizer isDispatchingTouchEvents])
         return;
 
     _longPressCanClick = NO;
@@ -11616,6 +11606,12 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         capturedDragData.setFileNames(filenames);
 
         Ref page = *retainedSelf->_page;
+        if (!page->hasRunningProcess()) {
+            if (RefPtr pageClient = page->pageClient())
+                pageClient->didPerformDragOperation(false);
+            return;
+        }
+
         WebKit::SandboxExtensionHandle sandboxExtensionHandle;
         Vector<WebKit::SandboxExtensionHandle> sandboxExtensionForUpload;
         auto dragPasteboardName = WebCore::Pasteboard::nameOfDragPasteboard();

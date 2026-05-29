@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+/*
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,30 +23,51 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "CSSRectValue.h"
+#pragma once
+
+#include "CSSClip.h"
+#include "CSSColor.h"
+#include "CSSContent.h"
+#include "CSSCustomIdent.h"
+#include "CSSFontFamilyName.h"
+#include "CSSKeyword.h"
+#include "CSSPrimitiveNumericRaw.h"
+#include "CSSString.h"
+#include "CSSURL.h"
+#include "CSSUnevaluatedCalc.h"
+#include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/Variant.h>
 
 namespace WebCore {
 
-CSSRectValue::CSSRectValue(Rect rect)
-    : CSSValue(ClassType::Rect)
-    , m_rect(WTF::move(rect))
-{
-}
+struct DeprecatedCSSOMPrimitiveValueData {
+    WTF_MAKE_STRUCT_TZONE_ALLOCATED(DeprecatedCSSOMPrimitiveValueData);
 
-Ref<CSSRectValue> CSSRectValue::create(Rect rect)
-{
-    return adoptRef(*new CSSRectValue(WTF::move(rect)));
-}
+    using TypeErasedValue = Function<String(const CSS::SerializationContext&)>;
+    using NumericRaw = CSS::UnconstrainedPrimitiveNumericRaw;
+    using NumericCalc = CSS::UnevaluatedCalcBase;
 
-String CSSRectValue::customCSSText(const CSS::SerializationContext& context) const
-{
-    return m_rect.cssText(context);
-}
+    Variant<
+        TypeErasedValue,
+        NumericRaw,
+        NumericCalc,
+        CSS::CustomIdent,
+        CSS::Keyword,
+        CSS::String,
+        CSS::FontFamilyName,
+        CSS::URL,
+        CSS::Color,
+        CSS::ContentCounterFunction,
+        CSS::ContentCountersFunction,
+        CSS::ContentLegacyAttrFunction,
+        CSS::ClipRect
+    > value;
 
-bool CSSRectValue::equals(const CSSRectValue& other) const
-{
-    return m_rect.equals(other.m_rect);
-}
+    template<typename... F> decltype(auto) switchOn(F&&... f) const
+    {
+        return WTF::switchOn(value, std::forward<F>(f)...);
+    }
+};
 
 } // namespace WebCore

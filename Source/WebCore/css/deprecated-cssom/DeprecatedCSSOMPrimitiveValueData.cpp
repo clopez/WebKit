@@ -16,6 +16,7 @@
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
@@ -23,33 +24,12 @@
  */
 
 #include "config.h"
-#include "CSSFilter.h"
+#include "DeprecatedCSSOMPrimitiveValueData.h"
 
-#include "CSSPrimitiveNumericTypes+Serialization.h"
-#include "DeprecatedCSSOMLazySerializingCustomValue.h"
-#include "DeprecatedCSSOMPrimitiveValue.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
-namespace CSS {
 
-static Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMValueForFilterFunction(CSSValuePool&, CSSStyleDeclaration& owner, const FilterValue& value)
-{
-    return DeprecatedCSSOMLazySerializingCustomValue::create([copy = FilterValue { value }](const CSS::SerializationContext& context) {
-        return CSS::serializationForCSS(context, copy);
-    }, owner);
-}
+WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(DeprecatedCSSOMPrimitiveValueData);
 
-Ref<DeprecatedCSSOMValue> DeprecatedCSSOMValueCreation<FilterValue>::operator()(CSSValuePool& pool, CSSStyleDeclaration& owner, const FilterValue& value)
-{
-    return WTF::switchOn(value,
-        [&](const CSS::FilterReference& reference) -> Ref<DeprecatedCSSOMValue> {
-            return createDeprecatedCSSOMValue(pool, owner, reference.url);
-        },
-        [&](const auto&) -> Ref<DeprecatedCSSOMValue> {
-            return createDeprecatedCSSOMValueForFilterFunction(pool, owner, value);
-        }
-    );
-}
-
-} // namespace CSS
 } // namespace WebCore
