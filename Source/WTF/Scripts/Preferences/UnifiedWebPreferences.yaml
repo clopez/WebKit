@@ -1138,7 +1138,7 @@ CSSFontSynthesisStyleObliqueOnlyEnabled:
 
 CSSFontVariantEmojiEnabled:
   type: bool
-  status: testable
+  status: preview
   category: css
   humanReadableName: "CSS font-variant-emoji property"
   humanReadableDescription: "Enable the font-variant-emoji CSS property"
@@ -1582,7 +1582,7 @@ CSSUnprefixedBackdropFilterEnabled:
 
 CSSWordBreakAutoPhraseEnabled:
   type: bool
-  status: testable
+  status: preview
   category: css
   webcoreOnChange: setNeedsRecalcStyleInAllFrames
   humanReadableName: "word-break: auto-phrase enabled"
