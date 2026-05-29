@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,21 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This forwarding header exists because the IPC message code generator
+// includes <WebCore/SharedTimebaseHandle.h> based on the type name.
+// SharedTimebaseHandle is actually defined in SharedTimebase.h.
 #pragma once
-
-#include <WebCore/FloatSize.h>
-#include <wtf/MediaTime.h>
-#include <wtf/Seconds.h>
-
-namespace WebKit {
-
-// Cadence at which the GPU-side proxy refreshes the SharedTimebase anchor
-// during steady-state playback. Also caps SharedTimebaseReader's
-// between-anchor extrapolation to this interval.
-constexpr Seconds remoteAudioVideoRendererUpdateInterval = 250_ms;
-
-struct RemoteAudioVideoRendererState {
-    bool paused { false };
-};
-
-}
+#include <WebCore/SharedTimebase.h>

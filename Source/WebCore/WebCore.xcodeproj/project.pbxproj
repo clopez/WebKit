@@ -1823,6 +1823,9 @@
 		4683DF402767DF98007D00C8 /* JSShadowRealmGlobalScopeBase.h in Headers */ = {isa = PBXBuildFile; fileRef = 4683DF3E2767DF98007D00C8 /* JSShadowRealmGlobalScopeBase.h */; };
 		4683DF412767E91A007D00C8 /* ShadowRealmGlobalScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 4683DF3B2767DF26007D00C8 /* ShadowRealmGlobalScope.h */; };
 		4688C4B92B6B06F2003533C9 /* SharedMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 4688C4B72B6B06F2003533C9 /* SharedMemory.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		8B3C8739E3CFAB0D42937C95 /* SharedTimebase.h in Headers */ = {isa = PBXBuildFile; fileRef = C994659FB046BBF6205518AD /* SharedTimebase.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E1F2A3B4C5D607182930A1B2 /* SharedTimebase.serialization.in in Headers */ = {isa = PBXBuildFile; fileRef = F90E19093397CCADD697485E /* SharedTimebase.serialization.in */; settings = {ATTRIBUTES = (Private, ); }; };
+		D5E6F7081920A1B2C3D4E5F6 /* SharedTimebaseHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* SharedTimebaseHandle.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4688E98027B6B45000567CD2 /* CoreLocationGeolocationProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 4688E97F27B6B44400567CD2 /* CoreLocationGeolocationProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4688EE3C26DD2610002AF5C4 /* CrossOriginMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 4688EE3A26DD260C002AF5C4 /* CrossOriginMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46893B8427E8D74C002CC13D /* PartitionedSecurityOrigin.h in Headers */ = {isa = PBXBuildFile; fileRef = 46893B8327E8D716002CC13D /* PartitionedSecurityOrigin.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -11972,6 +11975,10 @@
 		4688C4B42B6B0697003533C9 /* SharedMemoryCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SharedMemoryCocoa.mm; sourceTree = "<group>"; };
 		4688C4B62B6B06F1003533C9 /* SharedMemory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SharedMemory.cpp; sourceTree = "<group>"; };
 		4688C4B72B6B06F2003533C9 /* SharedMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SharedMemory.h; sourceTree = "<group>"; };
+		7A41D77F6A607BD50B7B35A6 /* SharedTimebase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SharedTimebase.cpp; sourceTree = "<group>"; };
+		C994659FB046BBF6205518AD /* SharedTimebase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SharedTimebase.h; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* SharedTimebaseHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SharedTimebaseHandle.h; sourceTree = "<group>"; };
+		F90E19093397CCADD697485E /* SharedTimebase.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = SharedTimebase.serialization.in; sourceTree = "<group>"; };
 		4688E97D27B6B44300567CD2 /* CoreLocationGeolocationProvider.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CoreLocationGeolocationProvider.mm; sourceTree = "<group>"; };
 		4688E97F27B6B44400567CD2 /* CoreLocationGeolocationProvider.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoreLocationGeolocationProvider.h; sourceTree = "<group>"; };
 		4688EE3A26DD260C002AF5C4 /* CrossOriginMode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CrossOriginMode.h; sourceTree = "<group>"; };
@@ -39590,6 +39597,10 @@
 				4688C4B72B6B06F2003533C9 /* SharedMemory.h */,
 				834DFACE1F7DAE5700C2725B /* SharedStringHash.cpp */,
 				834DFACC1F7DAE5600C2725B /* SharedStringHash.h */,
+				7A41D77F6A607BD50B7B35A6 /* SharedTimebase.cpp */,
+				C994659FB046BBF6205518AD /* SharedTimebase.h */,
+				F90E19093397CCADD697485E /* SharedTimebase.serialization.in */,
+				A1B2C3D4E5F60718293A4B5C /* SharedTimebaseHandle.h */,
 				93309EA0099EB78C0056E581 /* SharedTimer.h */,
 				0742C5022926E29500D26990 /* SimpleCaretAnimator.cpp */,
 				0742C5032926E29500D26990 /* SimpleCaretAnimator.h */,
@@ -48468,6 +48479,9 @@
 				4688C4B92B6B06F2003533C9 /* SharedMemory.h in Headers */,
 				CD36C16B260A65CC00C8C529 /* SharedRoutingArbitrator.h in Headers */,
 				834DFAD01F7DAE5D00C2725B /* SharedStringHash.h in Headers */,
+				8B3C8739E3CFAB0D42937C95 /* SharedTimebase.h in Headers */,
+				E1F2A3B4C5D607182930A1B2 /* SharedTimebase.serialization.in in Headers */,
+				D5E6F7081920A1B2C3D4E5F6 /* SharedTimebaseHandle.h in Headers */,
 				93309EA3099EB78C0056E581 /* SharedTimer.h in Headers */,
 				41DC04FE27A83C93008CF968 /* SharedVideoFrameInfo.h in Headers */,
 				46CF504A27AB1EA40070DBC8 /* SharedWorkerContextManager.h in Headers */,
