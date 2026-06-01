@@ -342,7 +342,7 @@ bool canUseForLineLayout(const RenderBlockFlow& rootContainer)
     return true;
 }
 
-bool canUseForPreferredWidthComputation(const RenderBlockFlow& blockContainer)
+bool canUseForIntrinsicWidthComputation(const RenderBlockFlow& blockContainer)
 {
     for (auto walker = InlineWalker(blockContainer); !walker.atEnd(); walker.advance()) {
         CheckedRef renderer = *walker.current();
@@ -371,7 +371,7 @@ bool canUseForPreferredWidthComputation(const RenderBlockFlow& blockContainer)
             auto allowImagesToBreak = !blockContainer.document().inQuirksMode() || !blockContainer.isRenderTableCell();
             if (!allowImagesToBreak)
                 return true;
-            // FIXME: See RenderReplaced::computeIntrinsicLogicalWidthContributions where m_minContentLogicalWidth is set to 0.
+            // FIXME: See RenderReplaced::computeIntrinsicLogicalWidthContributions where m_minContentLogicalWidthContribution is set to 0.
             auto isReplacedWithSpecialIntrinsicWidth = [&] {
                 if (auto* renderReplaced = dynamicDowncast<RenderReplaced>(unsupportedRenderElement.get()))
                     return renderReplaced->style().logicalMaxWidth().isPercentOrCalculated();

@@ -432,6 +432,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/filesystem/FileSystemHandleIdentifier.h
     Modules/filesystem/FileSystemHandleInfo.h
     Modules/filesystem/FileSystemHandleKind.h
+    Modules/filesystem/FileSystemHandleRecord.h
+    Modules/filesystem/FileSystemHandleStorageKeepAlive.h
     Modules/filesystem/FileSystemStorageConnection.h
     Modules/filesystem/FileSystemSyncAccessHandleIdentifier.h
     Modules/filesystem/FileSystemWritableFileStreamIdentifier.h
@@ -1348,6 +1350,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/LoadableScript.h
     dom/LoadableScriptClient.h
     dom/LoadableScriptError.h
+    dom/LocalNameWithNamespace.h
     dom/MessagePort.h
     dom/MessagePortIdentifier.h
     dom/ModuleFetchParameters.h

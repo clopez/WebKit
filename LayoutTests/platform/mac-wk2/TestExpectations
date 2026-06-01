@@ -1189,7 +1189,6 @@ webkit.org/b/245010 imported/w3c/web-platform-tests/html/browsers/browsing-the-w
 
 #webkit.org/b/248537 Batch mark expectations for Ventura test failures
 webrtc/canvas-to-peer-connection-2d.html [ Pass Failure ]
-webrtc/canvas-to-peer-connection.html [ Pass Failure ]
 [ x86_64 ] scrollbars/scrolling-by-page-accounting-oversized-fixed-elements-on-keyboard-spacebar.html [ Pass Failure ]
 [ x86_64 ] imported/mozilla/svg/blend-color.svg [ ImageOnlyFailure ]
 [ x86_64 ] imported/w3c/web-platform-tests/css/css-grid/alignment/grid-item-aspect-ratio-stretch-2.html [ Pass ImageOnlyFailure ]
@@ -1224,7 +1223,6 @@ webkit.org/b/256217 [ Debug ] imported/w3c/web-platform-tests/background-fetch/p
 # webkit.org/b/258328 Umbrella Bug: Batch mark expectations slowing down EWS (258328)
 [ Debug ] imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginSource.sub.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-035.html [ Pass ImageOnlyFailure ]
-fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass Crash ]
 media/track/video-track-addition-and-frame-removal.html [ Pass Crash ]
 media/track/track-cue-left-align.html [ Pass Crash ]
 http/tests/media/modern-media-controls/skip-back-support/skip-back-support-live-broadcast.html [ Pass Crash ]
@@ -2291,8 +2289,6 @@ webkit.org/b/308856 [ Debug ] http/tests/websocket/tests/hybi/handshake-ok-with-
 
 webkit.org/b/309850 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Pass Failure ]
 
-webkit.org/b/315780 imported/w3c/web-platform-tests/hr-time/timeOrigin.html [ Pass Failure ]
-
 webkit.org/b/314136 accessibility/mac/client/div-bounds.html [ Pass Failure ]
 
 webkit.org/b/315776 [ arm64 ] inspector/timeline/timeline-recording.html [ Pass Failure ]
@@ -2339,10 +2335,6 @@ webkit.org/b/315354 media/video-concurrent-visible-playback.html [ Pass Failure 
 
 webkit.org/b/315398 [ Release ] http/tests/site-isolation/accessibility/client/simple-iframe.html [ Timeout ]
 
-# webkit.org/b/314902 REGRESSION(313207@main): [macOS Debug] ASSERTION FAILED: !m_messageReceiverMapCount
-[ Debug ] http/tests/site-isolation/inspector/target/target.html [ Skip ]
-[ Debug ] http/tests/site-isolation/inspector/target/target-cross-origin-page-navigation.html [ Skip ]
-
 # webkit.org/b/315593 [macOS Release] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.sharedworker.html  is a flaky crash
 [ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.serviceworker.html [ Skip ]
 [ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.sharedworker.html [ Skip ]
@@ -2354,3 +2346,89 @@ webkit.org/b/315710 [ Sequoia ] imported/w3c/web-platform-tests/css/css-backgrou
 webkit.org/b/315734 [ Sequoia Release x86_64 ] fast/webgpu/image-data-8-bytes-per-pixel.html [ Timeout ]
 
 webkit.org/b/315764 [ Sequoia Release x86_64 ] http/wpt/cross-origin-opener-policy/header-parsing-with-report-to.https.html [ Pass Failure ]
+webkit.org/b/315862 [ Sequoia Release x86_64 ] imported/blink/fast/transforms/mirror-transform-tiled-scaled-background.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-r16f-red-half_float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-r32f-red-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rg16f-rg-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rg16f-rg-half_float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rg32f-rg-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rg8-rg-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rg8ui-rg_integer-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb10_a2-rgba-unsigned_int_2_10_10_10_rev.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb16f-rgb-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb5_a1-rgba-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb5_a1-rgba-unsigned_short_5_5_5_1.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb8-rgb-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb8ui-rgb_integer-unsigned_byte.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb9_e5-rgb-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-3d-rgb9_e5-rgb-half_float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas_sub_rectangle/tex-3d-r32f-red-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas_sub_rectangle/tex-3d-rg16f-rg-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/canvas_sub_rectangle/tex-3d-rgb9_e5-rgb-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/misc/angle-stuck-depth-textures.html [ Pass Failure ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/misc/copy-texture-image-luma-format.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/webgl_canvas/tex-3d-r11f_g11f_b10f-rgb-float.html [ Pass Timeout ]
+webkit.org/b/315877 [ Sequoia Debug x86_64 ] webgl/2.0.y/conformance2/textures/image_bitmap_from_video/tex-2d-rgba32f-rgba-float.html [ Pass Failure ]
+
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-class.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-default-icon.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-folder-icon.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-icon-from-file-extension.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-id.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-ref-progress-075-selected-alone.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-ref-progress-075-selected-extended-left.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-ref-progress-075-selected-extended-right.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-ref-progress-075-selected-extended.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-ref-progress-075.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-text-align-center-rtl.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-text-align-center.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/cocoa/wide-attachment-uti.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/mac/wide-attachment-image-controls-basic.html [ Pass Failure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/mac/wide-attachment-title-with-rtl.html [ Pass ImageOnlyFailure ]
+webkit.org/b/315881 [ Sequoia Release x86_64 ] fast/attachment/mac/wide-attachment-type-attribute.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/315889 [ Sequoia Release x86_64 ] compositing/overflow/image-load-overflow-scrollbars.html [ Pass Timeout ]
+webkit.org/b/315889 [ Sequoia Release x86_64 ] editing/async-clipboard/clipboard-read-write-images.html [ Pass Failure ]
+webkit.org/b/315889 [ Sequoia Release x86_64 ] fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass Crash Failure ]
+webkit.org/b/315889 [ Sequoia Release x86_64 ] fast/images/protected-image-queue.html [ Pass Timeout ]
+
+webkit.org/b/315886 [ Sequoia Release x86_64 ] http/tests/cache/link-prefetch-main-resource.html [ Pass Failure ]
+webkit.org/b/315886 [ Sequoia Release x86_64 ] http/tests/canvas/canvas-tainted-after-draw-image.html [ Pass Timeout ]
+webkit.org/b/315886 [ Sequoia Release x86_64 ] http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-previous-user-activation.html [ Pass Failure ]
+webkit.org/b/315886 [ Sequoia Release x86_64 ] http/tests/security/allow-top-level-navigations-by-third-party-iframes-with-user-activation.html [ Pass Failure ]
+
+webkit.org/b/315960 [ Sequoia Release x86_64 ] fast/canvas/canvas-blending-color-over-image.html [ Pass Timeout ]
+webkit.org/b/315960 [ Sequoia Release x86_64 ] fast/canvas/toDataURL-not-empty.html [ Pass Failure ]
+webkit.org/b/315960 [ Sequoia Release x86_64 ] fast/canvas/toDataURL-supportedTypes.html [ Pass Failure ]
+
+webkit.org/b/315963 [ Sequoia Release x86_64 ] fast/webgpu/copy-image-mismatched-dimensions.html [ Pass Timeout ]
+webkit.org/b/315963 [ Sequoia Release x86_64 ] fast/webgpu/nocrash/fuzz-274271.html [ Pass Timeout ]
+
+webkit.org/b/315966 [ Sequoia Release x86_64 ] http/wpt/service-workers/fetch-service-worker-preload-download-through-direct-preload.https.html [ Pass Timeout ]
+webkit.org/b/315966 [ Sequoia Release x86_64 ] http/wpt/service-workers/fetch-service-worker-preload-use-download-and-clone.https.html [ Pass Timeout ]
+webkit.org/b/315966 [ Sequoia Release x86_64 ] http/wpt/service-workers/fetch-service-worker-preload-use-download.https.html [ Pass Timeout ]
+
+webkit.org/b/315967 [ Sequoia Release x86_64 ] fast/dom/HTMLAnchorElement/anchor-file-blob-convert-to-download-async-delegate.html [ Pass Failure ]
+webkit.org/b/315967 [ Sequoia Release x86_64 ] fast/dom/HTMLAnchorElement/anchor-file-blob-convert-to-download.html [ Pass Failure ]
+
+webkit.org/b/315968 [ Sequoia Release x86_64 ] fast/scrolling/mac/rubberband-overflow-in-wheel-region.html [ Pass Timeout ]
+webkit.org/b/315968 [ Sequoia Release x86_64 ] fast/scrolling/scroll-anchoring/heuristic-disabled-above-threshold.html [ Pass Failure ]
+
+webkit.org/b/315971 [ Sequoia Release x86_64 ] ietestcenter/css3/bordersbackgrounds/background-attachment-local-scrolling.htm [ Pass Timeout ]
+webkit.org/b/315971 [ Sequoia Release x86_64 ] ietestcenter/css3/multicolumn/column-block-formatting-context-001.htm [ Pass Timeout ]
+
+webkit.org/b/315972 [ Sequoia Debug x86_64 ] webrtc/canvas-to-peer-connection.html [ Pass Failure Timeout ]
+webkit.org/b/315972 [ Sequoia Debug x86_64 ] webrtc/multi-audio.html [ Pass Failure ]
+
+webkit.org/b/315973 [ Sequoia Release x86_64 ] imported/w3c/web-platform-tests/webrtc-encoded-transform/script-transform-generateKeyFrame.https.html [ Pass Failure ]
+
+webkit.org/b/315975 [ Sequoia Debug x86_64 ] compositing/repaint/become-overlay-composited-layer.html [ Pass Failure ]
+
+webkit.org/b/315976 [ Sequoia Release x86_64 ] editing/pasteboard/data-transfer-get-data-on-paste-as-plain-text-when-custom-pasteboard-data-disabled.html [ Pass Failure ]
+
+webkit.org/b/315980 [ Sequoia Release x86_64 ] fast/css/video-poster-zoom.html [ Pass Timeout ]
+
+webkit.org/b/315981 [ Sequoia Release x86_64 ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/media_fragment_seek.html [ Pass Failure ]
+
+webkit.org/b/315982 [ Sequoia Release x86_64 ] webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html [ Pass Timeout ]
+

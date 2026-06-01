@@ -373,12 +373,14 @@ namespace JSC { namespace DFG {
     macro(StringEndsWith, NodeResultBoolean) \
     macro(StringSplit, NodeResultJS | NodeMustGenerate) \
     macro(StringMatch, NodeResultJS | NodeMustGenerate) \
+    macro(StringSearch, NodeResultJS | NodeMustGenerate) \
     \
     /* Optimizations for string access */ \
     macro(StringAt, NodeResultJS) \
     macro(StringCharCodeAt, NodeResultInt32) \
     macro(StringCodePointAt, NodeResultInt32) \
     macro(StringCharAt, NodeResultJS) \
+    macro(StringIteratorNext, 0) \
     macro(StringFromCharCode, NodeResultJS | NodeMustGenerate) \
     macro(StringFromCodePoint, NodeResultJS | NodeMustGenerate) \
     \

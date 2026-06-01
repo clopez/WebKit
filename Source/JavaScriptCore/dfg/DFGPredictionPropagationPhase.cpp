@@ -1228,6 +1228,11 @@ private:
             break;
         }
 
+        case StringSearch: {
+            setPrediction(SpecInt32Only);
+            break;
+        }
+
         case StringLocaleCompare: {
             setPrediction(SpecInt32Only);
             break;
@@ -1568,6 +1573,11 @@ private:
 
         case EnumeratorNextUpdateIndexAndMode: {
             setTuplePredictions(SpecInt32Only, SpecInt32Only);
+            break;
+        }
+
+        case StringIteratorNext: {
+            setTuplePredictions(SpecString, SpecInt32Only);
             break;
         }
 

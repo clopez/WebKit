@@ -3188,6 +3188,11 @@ void SpeculativeJIT::compile(Node* node)
         break;
     }
 
+    case StringSearch: {
+        compileStringSearch(node);
+        break;
+    }
+
     case StringLastIndexOf: {
         compileStringLastIndexOf(node);
         break;
@@ -4300,6 +4305,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case EnumeratorNextUpdateIndexAndMode: {
         compileEnumeratorNextUpdateIndexAndMode(node);
+        break;
+    }
+
+    case StringIteratorNext: {
+        compileStringIteratorNext(node);
         break;
     }
 

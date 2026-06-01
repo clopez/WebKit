@@ -55,13 +55,13 @@ void RenderMathMLSpace::computeIntrinsicLogicalWidthContributions()
 {
     ASSERT(hasInvalidContentLogicalWidths());
 
-    m_maxContentLogicalWidth = spaceWidth();
-    m_minContentLogicalWidth = m_maxContentLogicalWidth;
+    m_maxContentLogicalWidthContribution = spaceWidth();
+    m_minContentLogicalWidthContribution = m_maxContentLogicalWidthContribution;
 
     auto sizes = sizeAppliedToMathContent(LayoutPhase::CalculatePreferredLogicalWidth);
     applySizeToMathContent(LayoutPhase::CalculatePreferredLogicalWidth, sizes);
 
-    adjustPreferredLogicalWidthsForBorderAndPadding();
+    adjustContentLogicalWidthsForBorderAndPadding();
 
     clearContentLogicalWidthsInvalidation();
 }

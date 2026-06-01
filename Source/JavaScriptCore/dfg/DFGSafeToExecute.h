@@ -337,6 +337,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case MapIteratorNext:
     case MapIteratorKey:
     case MapIteratorValue:
+    case StringIteratorNext:
     case ExtractValueFromWeakMapGet:
     case WeakMapGet:
     case AtomicsIsLockFree:
@@ -647,6 +648,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case RegExpMatchFastGlobal:
     case RegExpSearch:
     case StringMatch:
+    case StringSearch:
     case Call:
     case DirectCall:
     case TailCallInlinedCaller:

@@ -277,12 +277,18 @@ void SuspendedPageProxy::unsuspend(WebCore::BackForwardFrameItemIdentifier mainF
         page->reload(WebCore::ReloadOption::ExpiredOnly);
     });
 
-    m_browsingContextGroup->forEachRemotePage(*page, [suspendedPage = Ref { *this }, &aggregator, mainFrameItemID](auto& remotePage) {
+    // The cross-site navigation left each iframe process's top-document URL stale, so the restore would
+    // resolve the first party for cookies to the wrong site and terminate the iframe. Send the authoritative
+    // URL+origin from the committed main frame (origin not derived from the URL, so sandbox/opaque cases survive).
+    Ref mainFrameOrigin = m_mainFrame->securityOrigin();
+    std::optional<std::pair<URL, WebCore::SecurityOriginData>> mainFrameURLAndOrigin { { m_mainFrame->url(), mainFrameOrigin->data() } };
+
+    m_browsingContextGroup->forEachRemotePage(*page, [suspendedPage = Ref { *this }, &aggregator, mainFrameItemID, mainFrameURLAndOrigin = WTF::move(mainFrameURLAndOrigin)](auto& remotePage) {
         Ref process = remotePage.siteIsolatedProcess();
         if (!suspendedPage->hasSubframeInProcess(process->coreProcessIdentifier()))
             return;
         RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::unsuspend: Sending RestoreWithFrameItem to pid %i", &suspendedPage, process->processID());
-        process->sendWithAsyncReply(Messages::WebPage::RestoreWithFrameItem(mainFrameItemID), aggregator->chain(), remotePage.identifierInSiteIsolatedProcess());
+        process->sendWithAsyncReply(Messages::WebPage::RestoreWithFrameItem(mainFrameItemID, mainFrameURLAndOrigin), aggregator->chain(), remotePage.identifierInSiteIsolatedProcess());
     });
 }
 
@@ -295,7 +301,8 @@ void SuspendedPageProxy::close()
 
     RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::close()", this);
     m_isClosed = true;
-    sendWithAsyncReply(Messages::WebPage::Close(), [] { });
+    RefPtr page = m_page;
+    m_process->sendPageCloseMessage(page ? std::optional { page->identifier() } : std::nullopt, m_webPageID);
 }
 
 void SuspendedPageProxy::pageDidFirstLayerFlush()
