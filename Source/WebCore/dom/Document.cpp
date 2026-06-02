@@ -1335,6 +1335,11 @@ void Document::invalidateQuerySelectorAllResultsForClassAttributeChange(Node& st
 
 void Document::clearQuerySelectorAllResults()
 {
+    // The map holds only weak references, so its keyed nodes outlive this clear. Reset their per-node flag too, or a
+    // surviving node keeps claiming valid cached results after its entry is gone, asserting in the invalidation path
+    // (invalidateQuerySelectorAllResultsForClassAttributeChange) when it looks up an entry the clear already removed.
+    for (auto entry : m_querySelectorAllResults)
+        entry.key.setHasValidQuerySelectorAllResults(false);
     m_querySelectorAllResults.clear();
 }
 
@@ -6862,6 +6867,17 @@ void Document::nodeWillBeRemoved(Node& node)
         m_markers->removeMarkers(node);
 }
 
+void Document::nodeWillBeMoved(Node& node)
+{
+    ASSERT(ScriptDisallowedScope::InMainThread::hasDisallowedScope());
+
+    for (Ref nodeIterator : m_nodeIterators)
+        nodeIterator->nodeWillBeRemoved(node);
+
+    for (Ref range : m_ranges)
+        range->nodeWillBeRemoved(node);
+}
+
 void Document::parentlessNodeMovedToNewDocument(Node& node)
 {
     Vector<Ref<Range>, 5> rangesAffected;
@@ -7325,6 +7341,7 @@ String Document::referrerForBindings()
     return shouldHideFromBindings ? emptyString() : referrer();
 }
 
+// https://html.spec.whatwg.org/multipage/origin.html#dom-document-domain
 String Document::domain() const
 {
     return securityOrigin().domain();
@@ -7349,6 +7366,9 @@ ExceptionOr<void> Document::setDomain(const String& newDomain)
 
     if (!securityOrigin().isMatchingRegistrableDomainSuffix(newDomain, settings().treatIPAddressAsDomain()))
         return Exception { ExceptionCode::SecurityError, "Attempted to use a non-registrable domain."_s };
+
+    if (originAgentCluster())
+        return { };
 
     securityOrigin().setDomainFromDOM(newDomain);
     return { };
@@ -8334,6 +8354,7 @@ void Document::initSecurityContext()
     contentSecurityPolicy->updateSourceSelf(protect(ownerFrame->document()->securityOrigin()));
 
     setCrossOriginEmbedderPolicy(ownerFrame->document()->crossOriginEmbedderPolicy());
+    setIsOriginKeyed(ownerFrame->document()->isOriginKeyed());
 
     // https://html.spec.whatwg.org/multipage/browsers.html#creating-a-new-browsing-context (Step 12)
     // If creator is non-null and creator's origin is same origin with creator's relevant settings object's top-level origin, then set coop
@@ -8478,9 +8499,25 @@ String Document::agentClusterID() const
     Ref origin = securityOrigin();
     auto& data = origin->data();
     auto browsingContextGroupIdentifier = page() && page()->browsingContextGroupIdentifier() ? page()->browsingContextGroupIdentifier()->toUInt64() : 0;
+    if (origin->isOpaque()) {
+        auto opaqueID = data.opaqueOriginIdentifier();
+        return makeString(browsingContextGroupIdentifier, "-opaque-"_s, opaqueID ? opaqueID->toString() : String { });
+    }
     if (crossOriginIsolated())
         return makeString(browsingContextGroupIdentifier, "-coi-"_s, data.toString());
+    if (m_isOriginKeyed == OriginKeyed::Yes)
+        return makeString(browsingContextGroupIdentifier, "-oac-"_s, data.toString());
     return makeString(browsingContextGroupIdentifier, '-', Site(data).toString());
+}
+
+// https://html.spec.whatwg.org/multipage/origin.html#dom-originagentcluster
+bool Document::originAgentCluster() const
+{
+    if (securityOrigin().isOpaque())
+        return true;
+    if (crossOriginIsolated())
+        return true;
+    return m_isOriginKeyed == OriginKeyed::Yes;
 }
 
 void Document::updateURLForPushOrReplaceState(const URL& url)
@@ -9770,11 +9807,14 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
 
         Style::PseudoClassChangeInvalidation styleInvalidation { elements.last(), pseudoClass, value, Style::InvalidationScope::Descendants };
 
-        // We need to do descendant invalidation for each shadow tree separately as the style is per-scope.
-        Vector<Style::PseudoClassChangeInvalidation> shadowDescendantStyleInvalidations;
+        // Style is resolved per tree scope, and the composed chain can cross scopes where a host's
+        // children are slotted into its shadow tree. styleInvalidation covers the chain's topmost scope;
+        // root one more at the top of each lower scope it crosses so a slotted subtree is invalidated in
+        // the scope whose stylesheet has the rule.
+        Vector<Style::PseudoClassChangeInvalidation> descendantStyleInvalidations;
         for (auto& element : elements) {
-            if (hasShadowRootParent(element))
-                shadowDescendantStyleInvalidations.append({ element, pseudoClass, value, Style::InvalidationScope::Descendants });
+            if (hasShadowRootParent(element) || element->assignedSlot())
+                descendantStyleInvalidations.append({ element, pseudoClass, value, Style::InvalidationScope::Descendants });
         }
 
         for (auto& element : elements)

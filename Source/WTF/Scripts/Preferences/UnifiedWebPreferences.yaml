@@ -3656,6 +3656,20 @@ HiddenUntilFoundEnabled:
      WebCore:
        default: true
 
+HorizontalBannerViewOverlaysEnabled:
+  type: bool
+  status: internal
+  condition: ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)
+  humanReadableName: "Horizontal Banner View Overlays"
+  humanReadableDescription: "Horizontal Banner View Overlays"
+  defaultValue:
+    WebKit:
+      default: WebKit::defaultHorizontalBannerViewOverlaysEnabled()
+    WebKitLegacy:
+      default: false
+    WebCore:
+      default: false
+
 HostedBlurMaterialInMediaControlsEnabled:
   type: bool
   status: internal
@@ -6060,6 +6074,20 @@ OriginAPIEnabled:
       default: true
     WebCore:
       default: true
+
+OriginAgentClusterEnabled:
+  type: bool
+  status: preview
+  category: security
+  humanReadableName: "Origin-Agent-Cluster header"
+  humanReadableDescription: "Support for the Origin-Agent-Cluster HTTP response header and window.originAgentCluster getter"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 OverlayRegionsEnabled:
   type: bool

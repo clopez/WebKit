@@ -57,6 +57,7 @@
 				DDE99311278D088800F60D26 /* Product Dependencies */,
 				DD190BB72E1C480200BE3ECA /* Generate <wtf/Platform.h> args */,
 				65FB3F6509D11E9100F49DEB /* Generate Derived Sources */,
+				DDFE17010000000000000001 /* Generate Header Postprocess Config */,
 			);
 			dependencies = (
 			);
@@ -1478,6 +1479,8 @@
 		86FA9E92142BBB2E001773B7 /* JSBoundFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = 86FA9E90142BBB2E001773B7 /* JSBoundFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		87673EE3E79BBDF070119925 /* JSEmbedderArrayLike.h in Headers */ = {isa = PBXBuildFile; fileRef = 2ACD2ED06C9E402C762987F4 /* JSEmbedderArrayLike.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		8AF85BDD2C9CE0E3005E28DA /* JSIteratorHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AF85BDA2C9CD1E4005E28DA /* JSIteratorHelper.h */; };
+		C9905FE4640C4D9E92C8A70F /* JSSentinel.h in Headers */ = {isa = PBXBuildFile; fileRef = F866E4B6CFEF427ABFF4DACB /* JSSentinel.h */; };
+		705CE029B1CC444180B6CCC8 /* JSSentinelInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DB898DA66DF43B3BCC2A240 /* JSSentinelInlines.h */; };
 		8AF85BE22CA4EE90005E28DA /* JSIteratorHelperPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AF85BDE2CA4EE89005E28DA /* JSIteratorHelperPrototype.h */; };
 		8AF85BE32CA4EE90005E28DA /* JSIteratorHelperPrototypeInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AF85BE02CA4EE89005E28DA /* JSIteratorHelperPrototypeInlines.h */; };
 		8B6016F61F3E3CC000F9DE6A /* AsyncFromSyncIteratorPrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = 8B6016F41F3E3CC000F9DE6A /* AsyncFromSyncIteratorPrototype.h */; };
@@ -2495,6 +2498,7 @@
 				"$(SRCROOT)/Scripts/postprocess-header-rule",
 				"$(WK_WEBKITADDITIONS_POSTPROCESS_SCRIPTS_INPUT)",
 				"$(WK_WEBKITADDITIONS_BRANCH_CONFIG_INPUT)",
+				"$(SHARED_DERIVED_FILE_DIR)/JavaScriptCore-header-postprocess-config.sh",
 			);
 			isEditable = 1;
 			outputFiles = (
@@ -2519,6 +2523,13 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
+		DDFE17030000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65FB3F6609D11E9100F49DEB;
+			remoteInfo = "Derived Sources";
+		};
 		074D7E092E3D3B6800CD38C6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -2838,6 +2849,9 @@
 /* Begin PBXFileReference section */
 		000BEAF0DF604481AF6AB68C /* ModuleScopeData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ModuleScopeData.h; sourceTree = "<group>"; };
 		05517C9F2C74004600ED0CD5 /* JSIterator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSIterator.cpp; sourceTree = "<group>"; };
+		F2F07ACD6A214E0FA91F9B75 /* JSSentinel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSSentinel.cpp; sourceTree = "<group>"; };
+		F866E4B6CFEF427ABFF4DACB /* JSSentinel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSSentinel.h; sourceTree = "<group>"; };
+		4DB898DA66DF43B3BCC2A240 /* JSSentinelInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSSentinelInlines.h; sourceTree = "<group>"; };
 		05517CA02C74004700ED0CD5 /* JSIteratorConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSIteratorConstructor.h; sourceTree = "<group>"; };
 		05517CA12C74004700ED0CD5 /* JSIterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSIterator.h; sourceTree = "<group>"; };
 		05517CA22C74004700ED0CD5 /* JSIteratorConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSIteratorConstructor.cpp; sourceTree = "<group>"; };
@@ -4441,9 +4455,7 @@
 		534C457A1BC703DC007476A7 /* TypedArrayConstructor.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = TypedArrayConstructor.js; sourceTree = "<group>"; };
 		534C457B1BC72411007476A7 /* JSTypedArrayViewConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSTypedArrayViewConstructor.h; sourceTree = "<group>"; };
 		534C457D1BC72549007476A7 /* JSTypedArrayViewConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSTypedArrayViewConstructor.cpp; sourceTree = "<group>"; };
-		534D9BF82363C55D0054524D /* SetIteratorPrototype.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = SetIteratorPrototype.js; sourceTree = "<group>"; };
 		534D9BF92363C55D0054524D /* IteratorHelpers.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = IteratorHelpers.js; sourceTree = "<group>"; };
-		534D9BFA2363C55D0054524D /* MapIteratorPrototype.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = MapIteratorPrototype.js; sourceTree = "<group>"; };
 		534E034D1E4D4B1600213F64 /* AccessCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AccessCase.h; sourceTree = "<group>"; };
 		534E034F1E4D95ED00213F64 /* AccessCase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AccessCase.cpp; sourceTree = "<group>"; };
 		534E03531E53BD2900213F64 /* IntrinsicGetterAccessCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IntrinsicGetterAccessCase.h; sourceTree = "<group>"; };
@@ -9166,6 +9178,9 @@
 				14874AE215EBDE4A002E3587 /* JSScope.h */,
 				0F919D0E157F3327004A4E7D /* JSSegmentedVariableObject.cpp */,
 				0F919D0F157F3327004A4E7D /* JSSegmentedVariableObject.h */,
+				F2F07ACD6A214E0FA91F9B75 /* JSSentinel.cpp */,
+				F866E4B6CFEF427ABFF4DACB /* JSSentinel.h */,
+				4DB898DA66DF43B3BCC2A240 /* JSSentinelInlines.h */,
 				A7299D9B17D12837005F5FF9 /* JSSet.cpp */,
 				A7299D9C17D12837005F5FF9 /* JSSet.h */,
 				FEF5B4282628B5240016E776 /* JSSetInlines.h */,
@@ -10641,7 +10656,6 @@
 				8AA92D3D2CACA137002D872B /* JSIteratorHelperPrototype.js */,
 				8CB955D82C943B9800282DA2 /* JSIteratorPrototype.js */,
 				91F548A52A4CF448007292DE /* MapConstructor.js */,
-				534D9BFA2363C55D0054524D /* MapIteratorPrototype.js */,
 				7035587C1C418419004BD7BF /* MapPrototype.js */,
 				E30677971B8BC6F5003F87F0 /* ModuleLoader.js */,
 				7CF9BC5C1B65D9B1009DB1EF /* ObjectConstructor.js */,
@@ -10651,7 +10665,6 @@
 				7CF9BC5F1B65D9B1009DB1EF /* ReflectObject.js */,
 				654788421C937D2C000781A0 /* RegExpPrototype.js */,
 				84925A9C22B30CC800D1DFFF /* RegExpStringIteratorPrototype.js */,
-				534D9BF82363C55D0054524D /* SetIteratorPrototype.js */,
 				7035587D1C418419004BD7BF /* SetPrototype.js */,
 				2E3AF00D28171AC000371A25 /* ShadowRealmPrototype.js */,
 				7CF9BC601B65D9B1009DB1EF /* StringConstructor.js */,
@@ -12225,6 +12238,8 @@
 				A7C0C4AC168103020017011D /* JSScriptRefPrivate.h in Headers */,
 				14D01A7721FB351F00BC54E9 /* JSScriptSourceProvider.h in Headers */,
 				0F919D11157F332C004A4E7D /* JSSegmentedVariableObject.h in Headers */,
+				C9905FE4640C4D9E92C8A70F /* JSSentinel.h in Headers */,
+				705CE029B1CC444180B6CCC8 /* JSSentinelInlines.h in Headers */,
 				A7299D9E17D12837005F5FF9 /* JSSet.h in Headers */,
 				FEF5B4292628B5240016E776 /* JSSetInlines.h in Headers */,
 				A790DD70182F499700588807 /* JSSetIterator.h in Headers */,
@@ -13218,6 +13233,7 @@
 				DD559E612BE5BD4700C2D03E /* PBXBuildRule */,
 			);
 			dependencies = (
+				DDFE17040000000000000001 /* PBXTargetDependency */,
 				44F93E112AE7200100FFA37C /* PBXTargetDependency */,
 			);
 			name = JavaScriptCore;
@@ -13352,6 +13368,30 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		DDFE17010000000000000001 /* Generate Header Postprocess Config */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/generate-header-postprocess-config.sh",
+				"$(BUILT_PRODUCTS_DIR)$(WK_LIBRARY_HEADERS_FOLDER_PATH)/WebKitAdditions/Scripts/postprocess-framework-headers-definitions",
+				"$(SDKROOT)$(WK_LIBRARY_HEADERS_FOLDER_PATH)/WebKitAdditions/Scripts/postprocess-framework-headers-definitions",
+				"$(BUILT_PRODUCTS_DIR)$(WK_LIBRARY_HEADERS_FOLDER_PATH)/WebKitAdditions/Scripts/branch_config.json",
+				"$(SDKROOT)$(WK_LIBRARY_HEADERS_FOLDER_PATH)/WebKitAdditions/Scripts/branch_config.json",
+			);
+			name = "Generate Header Postprocess Config";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SHARED_DERIVED_FILE_DIR)/JavaScriptCore-header-postprocess-config.sh",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"\n";
+		};
 		1A02D9A81B34A882000D1522 /* Add Symlink in /System/Library/PrivateFrameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -14326,6 +14366,11 @@
 			isa = PBXTargetDependency;
 			target = 65FB3F6609D11E9100F49DEB /* Derived Sources */;
 			targetProxy = 074D7E092E3D3B6800CD38C6 /* PBXContainerItemProxy */;
+		};
+		DDFE17040000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65FB3F6609D11E9100F49DEB /* Derived Sources */;
+			targetProxy = DDFE17030000000000000001 /* PBXContainerItemProxy */;
 		};
 		0F6183471C45F67A0072450B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

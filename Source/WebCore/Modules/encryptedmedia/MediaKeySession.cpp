@@ -815,6 +815,12 @@ void MediaKeySession::sessionClosed()
     // W3C Editor's Draft 09 November 2016
     ALWAYS_LOG(LOGIDENTIFIER);
 
+    // close(), stop(), and a CDM-reported close during update() each queue a task that lands here. They guard on
+    // m_closed before enqueuing, but it is only set when the task runs, so more than one task can already be queued.
+    // Update m_closed here to ensure the promise is only resolved once, and avoid an assertion in DOMPromiseProxy.
+    if (std::exchange(m_closed, true))
+        return;
+
     // 1. Let session be the associated MediaKeySession object.
     // 2. If session's session type is "persistent-usage-record", execute the following steps in parallel:
     if (m_sessionType == MediaKeySessionType::PersistentUsageRecord) {
@@ -828,9 +834,6 @@ void MediaKeySession::sessionClosed()
 
     // 4. Run the Update Expiration algorithm on the session, providing NaN.
     updateExpiration(std::numeric_limits<double>::quiet_NaN());
-
-    // Let's consider the session closed before any promise on the 'closed' attribute is resolved.
-    m_closed = true;
 
     // 5. Let promise be the closed attribute of the session.
     // 6. Resolve promise.
@@ -877,8 +880,14 @@ void MediaKeySession::stop()
         if (!protectedThis)
             return;
 
-        ALWAYS_LOG_WITH_THIS(protectedThis, logIdentifier, "::lambda, closed");
-        protectedThis->sessionClosed();
+        // closeSession() may invoke this callback synchronously (e.g. the Thunder backend), and stop() runs during
+        // document teardown while the event loop has already been marked ready-to-stop. Resolving the closed promise
+        // synchronously here would violate DeferredPromise's suspended-context invariant. Defer to the event loop,
+        // mirroring close(); the task is cleanly dropped if the event loop is already stopped.
+        queueTaskKeepingObjectAlive(*protectedThis, TaskSource::Networking, [logIdentifier](auto& session) {
+            ALWAYS_LOG_WITH_THIS(&session, logIdentifier, "::task, closed");
+            session.sessionClosed();
+        });
     });
 }
 

@@ -17,6 +17,8 @@ accessibility/gtk [ Skip ]
 accessibility/mac [ Skip ]
 accessibility/win [ Skip ]
 http/tests/site-isolation/accessibility/client [ Skip ]
+# Exercises iOS-specific remote-frame accessibility search behavior; enabled only on iOS (see platform/ios/TestExpectations).
+http/tests/site-isolation/accessibility/heading-search-returns-remote-frame.html [ Skip ]
 displaylists [ Skip ]
 editing/mac [ Skip ]
 editing/caret/ios [ Skip ]
@@ -556,6 +558,13 @@ webkit.org/b/176929 imported/w3c/web-platform-tests/html/semantics/embedded-cont
 
 webkit.org/b/311501 imported/w3c/web-platform-tests/mediasession/media-session-artwork-fetch.https.html [ Pass Failure ]
 
+# Media Session tests: rdar://178443322
+imported/w3c/web-platform-tests/mediasession/idlharness.window.html [ Failure ]
+imported/w3c/web-platform-tests/mediasession/mediametadata.html [ Failure ]
+imported/w3c/web-platform-tests/mediasession/setactionhandler.html [ Failure ]
+imported/w3c/web-platform-tests/mediasession/setcameraactive.html [ Pass Failure ]
+imported/w3c/web-platform-tests/mediasession/setmicrophoneactive.html [ Pass Failure ]
+
 # Requires additional test infrastructure.
 imported/w3c/web-platform-tests/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
 
@@ -617,6 +626,7 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/3_tracks.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/audio_has_no_subtitles.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u06E9_no_strong_dir.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/cue_too_long.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/dom_override_remove_cue_while_paused.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_cascade_priority.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_cascade_priority_layer.html [ Pass ]
@@ -645,7 +655,10 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/id_color.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_normal_wrapped.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_nowrap_wrapped.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_pre.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/white-space_pre.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/too_many_cues.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/too_many_cues_wrapped.html [ Pass ]
 
 ## -- Enhanced <select> tests -- ##
 # No calc-size() in default style.
@@ -788,7 +801,7 @@ imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/pageswap/pageswap-traverse-navigation-cross-origin-redirect-no-bfcache.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/history_pushstate_url.html [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/traverse_the_history_3.html [ Skip ]
-imported/w3c/web-platform-tests/html/browsers/origin/origin-keyed-agent-clusters/ [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/origin/origin-keyed-agent-clusters/going-back.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/origin/relaxing-the-same-origin-restriction/document_domain_feature_policy.tentative.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/sandboxing/sandbox-document-open.html [ Skip ]
 imported/w3c/web-platform-tests/html/browsers/sandboxing/sandbox-inherited-from-required-csp.html [ Skip ]
@@ -4565,13 +4578,19 @@ imported/w3c/web-platform-tests/css/css-sizing/margin-collapse-with-indefinite-b
 imported/w3c/web-platform-tests/css/css-sizing/margin-collapse-with-indefinite-block-size-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/replaced-max-height-min-content.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/replaced-min-height-min-content.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-cross-origin.sub.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-request-resize.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-047.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-048.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/intrinsic-percent-non-replaced-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-sizing/stretch/cache-miss-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/replaced-max-width-with-height-fit-content.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/replaced-max-width-with-height-max-content.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/replaced-max-width-with-height-min-content.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-cross-origin.sub.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-dynamic-remove.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-meta-after-head.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-request-resize.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-sizing/responsive-iframe/responsive-iframe-navigation.html [ Failure Pass ]
 
 # wpt css-text-decor failures
 webkit.org/b/230041 imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-color-selection-pseudo-01.html [ ImageOnlyFailure ]
