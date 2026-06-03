@@ -531,6 +531,9 @@ imported/w3c/web-platform-tests/css/css-flexbox/select-element-zero-height-002.h
 # The test is marked as Timeout for wk2. It has been flaky in GTK and WPE since added.
 crypto/subtle/ecdsa-import-compressed-spki-key-p384.html [ Skip ] # Timeout.
 
+# This test causes subsequent tests to crash with an assertion. Unskip when the referring bug is fixed.
+webkit.org/b/298476 gamepad/gamepad-visibility-1.html [ Skip ]
+
 # Conic gradient. Marked as failure in root expectations
 webkit.org/b/225916 imported/w3c/web-platform-tests/css/css-images/conic-gradient-angle.html [ Pass ]
 
@@ -1509,7 +1512,6 @@ webkit.org/b/305744 imported/w3c/web-platform-tests/html/dom/idlharness.https.ht
 #////////////////////////////////////////////////////////////////////////////////////////
 
 webkit.org/b/307135 platform/glib/damage/animations-opacity-to-invisibility.html [ Failure Pass ]
-webkit.org/b/314299 platform/glib/damage/transform-3d-rotate-in-still-rotate.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Damage Tracking-related bugs
@@ -2489,8 +2491,6 @@ media/audioSession [ Skip ]
 webkit.org/b/292839 media/media-fullscreen-not-in-document.html [ Timeout ]
 
 webkit.org/b/292841 fullscreen/exit-full-screen-video-crash.html [ Timeout ]
-
-webkit.org/b/313985 fullscreen/fullscreen-clears-hover-on-overlay.html [ Failure Pass ]
 
 webkit.org/b/298587 fast/media/mq-inverted-colors-ua-style-on-to-off.html [ ImageOnlyFailure ]
 
@@ -4168,6 +4168,8 @@ webkit.org/b/169910 fast/multicol/simple-line-layout-line-index-after-strut.html
 
 webkit.org/b/169917 webgl/1.0.x/conformance/glsl/bugs/temp-expressions-should-not-crash.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.x/conformance/rendering/many-draw-calls.html [ Slow ]
+
+webkit.org/b/316165 workers/bomb.html [ Slow ]
 webkit.org/b/257624 [ Debug ] webgl/2.0.y/conformance/rendering/texture-switch-performance.html [ Failure Pass ]
 webkit.org/b/257624 [ Debug ] webgl/1.0.x/conformance/rendering/texture-switch-performance.html [ Failure Pass ]
 webkit.org/b/169917 webgl/1.0.x/conformance/uniforms/gl-uniform-arrays.html [ Slow ]
@@ -4668,6 +4670,9 @@ fast/css/view-transitions-nested-transparency-layers.html [ ImageOnlyFailure Pas
 imported/w3c/web-platform-tests/css/css-view-transitions/content-with-child-with-transparent-background.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/css/css-view-transitions/snapshot-containing-block-includes-scrollbar-gutter.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/css/css-view-transitions/web-animations-api.html [ ImageOnlyFailure Pass ]
+
+imported/w3c/web-platform-tests/css/css-view-transitions/new-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/old-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/pseudo-with-classes-mismatch-ident.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/css/css-view-transitions/pseudo-with-classes-mismatch-partial.html [ ImageOnlyFailure Pass ]
@@ -5540,6 +5545,10 @@ webkit.org/b/315921 gamepad/gamepad-non-fully-active.html [ Failure Pass ]
 webkit.org/b/315925 inspector/heap/getRemoteObject.html [ Failure Pass ]
 
 webkit.org/b/315934 fast/dom/lazy-image-loading-document-leak.html [ Crash Pass ]
+
+webkit.org/b/316158 fullscreen/full-screen-enter-while-exiting-mid-completion-handler.html [ Crash Pass ]
+
+webkit.org/b/316192 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/no-cors.https.html [ Crash Pass ]
 
 # Needs picture-in-picture support
 media/media-visible-in-viewport-in-fullscreen.html

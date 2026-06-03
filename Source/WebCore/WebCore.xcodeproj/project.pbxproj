@@ -1726,6 +1726,7 @@
 		44AA32A52BD2C7D40011B04B /* SVGResourcesCycleSolver.h in Headers */ = {isa = PBXBuildFile; fileRef = 44AA32A12BD2C7D30011B04B /* SVGResourcesCycleSolver.h */; };
 		44AA32A62BD2C7D40011B04B /* SVGResources.h in Headers */ = {isa = PBXBuildFile; fileRef = 44AA32A22BD2C7D30011B04B /* SVGResources.h */; };
 		44AE045C2579CFFB00C42E65 /* AppHighlightRangeData.h in Headers */ = {isa = PBXBuildFile; fileRef = 44AE045A2579CFFB00C42E65 /* AppHighlightRangeData.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		44BA37FC2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA37FA2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		44BCDC4A2AC30F01002049A1 /* LegacyRenderSVGResourceClipper.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BCDC482AC30F00002049A1 /* LegacyRenderSVGResourceClipper.h */; };
 		44C991860F3D1EBE00586670 /* ScrollbarThemeIOS.h in Headers */ = {isa = PBXBuildFile; fileRef = 44C991850F3D1EBE00586670 /* ScrollbarThemeIOS.h */; };
 		44C9919F0F3D210E00586670 /* ThemeIOS.h in Headers */ = {isa = PBXBuildFile; fileRef = 44C9919D0F3D210E00586670 /* ThemeIOS.h */; };
@@ -11782,6 +11783,8 @@
 		44AE045A2579CFFB00C42E65 /* AppHighlightRangeData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppHighlightRangeData.h; sourceTree = "<group>"; };
 		44B38BF42536901A00A4458D /* RenderSelection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RenderSelection.h; sourceTree = "<group>"; };
 		44B38BF925369A8800A4458D /* RenderSelection.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RenderSelection.cpp; sourceTree = "<group>"; };
+		44BA37FA2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AcceleratedEffectClipPath.h; sourceTree = "<group>"; };
+		44BA37FB2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AcceleratedEffectClipPath.cpp; sourceTree = "<group>"; };
 		44BCDC472AC30F00002049A1 /* LegacyRenderSVGResourceClipper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LegacyRenderSVGResourceClipper.cpp; sourceTree = "<group>"; };
 		44BCDC482AC30F00002049A1 /* LegacyRenderSVGResourceClipper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LegacyRenderSVGResourceClipper.h; sourceTree = "<group>"; };
 		44BD2B36252779780055D95A /* GlobalEventHandlers+Selection.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GlobalEventHandlers+Selection.idl"; sourceTree = "<group>"; };
@@ -38590,6 +38593,8 @@
 				BC7EB7352F75AB8200E243F0 /* paths */,
 				BC7EB70D2F745F4C00E243F0 /* shapes */,
 				BC7EB72C2F7597A500E243F0 /* AcceleratedEffectAnimationUtilities.h */,
+				44BA37FB2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.cpp */,
+				44BA37FA2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.h */,
 				BCB02A9E2E8EF7CB008A0B68 /* AcceleratedEffectOffsetAnchor.cpp */,
 				BCB02A8F2E8ED867008A0B68 /* AcceleratedEffectOffsetAnchor.h */,
 				BCB02A9F2E8EF7CB008A0B68 /* AcceleratedEffectOffsetDistance.cpp */,
@@ -43842,6 +43847,7 @@
 				BC7EB7362F75ABA100E243F0 /* AcceleratedEffectBasicShapePath.h in Headers */,
 				BC7EB73B2F75AE5A00E243F0 /* AcceleratedEffectBoxPath.h in Headers */,
 				BC7EB72B2F74C2BB00E243F0 /* AcceleratedEffectCircleFunction.h in Headers */,
+				44BA37FC2F9F6B0F006BFF77 /* AcceleratedEffectClipPath.h in Headers */,
 				BC7EB7392F75ACB000E243F0 /* AcceleratedEffectCoordBox.h in Headers */,
 				BC7EB72D2F75992200E243F0 /* AcceleratedEffectEllipseFunction.h in Headers */,
 				BC7EB72E2F75997600E243F0 /* AcceleratedEffectInsetFunction.h in Headers */,

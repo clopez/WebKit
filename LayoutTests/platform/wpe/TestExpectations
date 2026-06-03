@@ -1111,8 +1111,6 @@ media/adopt-node-after-showing-picker-crash.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/start-skip-start.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/start-view-transtion-skips-active.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/table-caption.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/new-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/old-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition.html [ Failure  Pass ]
 webkit.org/b/298727 css3/text-decoration/text-decoration-line-grammar-error-1.html [ Skip ]
 webkit.org/b/298727 css3/text-decoration/text-decoration-line-grammar-error-2.html [ Skip ]
@@ -1302,3 +1300,8 @@ webkit.org/b/315515 [ arm64 ] imported/w3c/web-platform-tests/gpc/sec-gpc.https.
 webkit.org/b/315615 media/media-vp8-hiddenframes.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/315825 [ Release arm64 ] editing/spelling/spelling-marker-includes-hyphen.html [ ImageOnlyFailure ]
+
+webkit.org/b/315994 [ x86_64 ] html5lib/generated/run-adoption01-data.html [ Crash Pass ]
+webkit.org/b/315994 [ x86_64 ] animations/restart-after-scroll.html [ Crash Pass ]
+
+webkit.org/b/316194 imported/w3c/web-platform-tests/webrtc/simulcast/vp8.https.html [ Crash Pass ]
