@@ -307,6 +307,9 @@ public:
 
     void didCreateWebPageInProcess(WebCore::PageIdentifier);
 
+    bool hasCommittedClientOrigin(const WebCore::ClientOrigin&) const;
+    void didCommitLoadClientOrigin(WebCore::ClientOrigin&&);
+
     void addVisitedLinkStoreUser(VisitedLinkStore&, WebPageProxyIdentifier);
     void removeVisitedLinkStoreUser(VisitedLinkStore&, WebPageProxyIdentifier);
 
@@ -825,6 +828,8 @@ private:
     HashMap<WebCore::PageIdentifier, UserInitiatedActionByAuthorizationTokenMap> m_userInitiatedActionByAuthorizationTokenMap;
     uint64_t m_frameProcessCount { 0 };
 
+    HashSet<WebCore::ClientOrigin> m_committedClientOrigins; // Only grows because WebProcess can navigate back to an old origin in a history item.
+
     WeakHashMap<VisitedLinkStore, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
 
     int m_numberOfTimesSuddenTerminationWasDisabled { 0 };
@@ -839,8 +844,6 @@ private:
 #if PLATFORM(COCOA)
     bool m_hasSentMessageToUnblockAccessibilityServer { false };
 #endif
-
-    HashMap<String, uint64_t> m_pageURLRetainCountMap;
 
     Expected<WebCore::Site, SiteState> m_site { std::unexpected<SiteState> { SiteState::NotYetSpecified } };
     std::optional<WebCore::Site> m_sharedProcessMainFrameSite;

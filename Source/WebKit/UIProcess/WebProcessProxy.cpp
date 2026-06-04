@@ -358,7 +358,6 @@ void WebProcessProxy::platformInitialize()
 WebProcessProxy::~WebProcessProxy()
 {
     RELEASE_ASSERT(isMainThreadOrCheckDisabled());
-    ASSERT(m_pageURLRetainCountMap.isEmpty());
     WEBPROCESSPROXY_RELEASE_LOG(Process, "destructor:");
 
     // ~AuxiliaryProcessProxy() replies to pending messages after our members are gone; a reply
@@ -973,6 +972,20 @@ void WebProcessProxy::sendPageCloseMessage(std::optional<WebPageProxyIdentifier>
         if (completionHandler)
             completionHandler();
     }, pageID);
+}
+
+bool WebProcessProxy::hasCommittedClientOrigin(const WebCore::ClientOrigin& clientOrigin) const
+{
+    if (isRunningWorkers()) {
+        ASSERT(m_site);
+        return Site { clientOrigin.topOrigin } == *m_site && Site { clientOrigin.clientOrigin } == *m_site;
+    }
+    return m_committedClientOrigins.contains(clientOrigin);
+}
+
+void WebProcessProxy::didCommitLoadClientOrigin(WebCore::ClientOrigin&& clientOrigin)
+{
+    m_committedClientOrigins.add(WTF::move(clientOrigin));
 }
 
 void WebProcessProxy::addVisitedLinkStoreUser(VisitedLinkStore& visitedLinkStore, WebPageProxyIdentifier pageID)

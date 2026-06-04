@@ -561,7 +561,7 @@ webkit.org/b/311501 imported/w3c/web-platform-tests/mediasession/media-session-a
 # Media Session tests: rdar://178443322
 imported/w3c/web-platform-tests/mediasession/idlharness.window.html [ Failure ]
 imported/w3c/web-platform-tests/mediasession/mediametadata.html [ Failure ]
-imported/w3c/web-platform-tests/mediasession/setactionhandler.html [ Failure ]
+imported/w3c/web-platform-tests/mediasession/setactionhandler.html [ Pass ]
 imported/w3c/web-platform-tests/mediasession/setcameraactive.html [ Pass Failure ]
 imported/w3c/web-platform-tests/mediasession/setmicrophoneactive.html [ Pass Failure ]
 
@@ -5678,9 +5678,10 @@ imported/w3c/web-platform-tests/css/css-conditional/container-queries/custom-lay
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/pseudo-elements-010.html [ ImageOnlyFailure ]
 
-# Scroll-state container queries (unsupported), enable parsing test only.
+# Scroll-state container queries (unsupported), enable parsing and computed-value tests only.
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/scroll-state [ Skip ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/scroll-state/container-type-scroll-state-parsing.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/scroll-state/container-type-scroll-state-computed.html [ Pass ]
 
 webkit.org/b/279424 [ Debug ] imported/w3c/web-platform-tests/css/css-conditional/container-queries/svg-foreignobject-no-size-container.html [ Skip ] # Crash
 
@@ -6595,7 +6596,52 @@ webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-borders/border-radiu
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-borders/tentative/border-radius-side-shorthands/border-radius-side-shorthands-001.html [ ImageOnlyFailure ]
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-borders/tentative/border-radius-side-shorthands/border-radius-side-shorthands-002.html [ ImageOnlyFailure ]
 
-webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/tentative/corner-shape [ Skip ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape-absolute-coords-shape.tentative.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-background-origin-border-box.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-polygon-miter-limit.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-shadow-blur.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-shadow-circle.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-shadow-inset-blur.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-shadow-transparent.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-stroke-from-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-two-shapes-shadow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-double.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-backdrop-filter-overflow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-backdrop-filter-video-overflow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-backdrop-filter.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-bevel-overflow-composite.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-bevel-overflow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-fill.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-clips-background.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-collapsed-shape-clips-background.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-geometry-box.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-ignore-radius.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-inner-outer.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-inset-shadow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-auto-forms.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-auto-with-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-auto.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-double-path.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shorthand-rendering.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-double-shape.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-offset.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-with-border-double-ellipse.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-with-border-ellipse.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline-with-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-outline.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-overflow-solid-background.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-overflow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-img-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-inset-shadow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-notch.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-overflow-clip-margin.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-square.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-svg-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-video-border.html [ ImageOnlyFailure ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-iframe-border.html [ ImageOnlyFailure ]
+
+ipc/send-gpu-GetShareableBitmap-RemoteRenderingBackend.html [ ImageOnlyFailure ]
+media/media-source/media-source-real-play-after-eos.html [ ImageOnlyFailure ]
 
 webkit.org/b/279222 imported/w3c/web-platform-tests/css/css-backgrounds/background-image-cors-no-reload.html [ Pass Failure ]
 
@@ -7912,7 +7958,7 @@ imported/w3c/web-platform-tests/svg/painting/reftests/text-shadow-02.html [ Imag
 imported/w3c/web-platform-tests/svg/painting/reftests/text-shadow-03.html [ ImageOnlyFailure ]
 
 # framework is missing for test to run
-webkit.org/b/299496 model-element/gpup-model-element.html [ Skip ]
+webkit.org/b/299496 model-element/gpup/gpup-model-element.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-pseudo/before-as-flex-container.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/svg-text-selection-fill-only.html [ ImageOnlyFailure ]

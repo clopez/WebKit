@@ -339,6 +339,9 @@ void WebFrameProxy::didFailProvisionalLoad()
 void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument, DocumentSecurityPolicy&& documentSecurityPolicy, HashSet<WebCore::SecurityOriginData>&& cspOriginsThatUpgradeInsecureNavigations)
 {
     m_frameLoadState.didCommitLoad();
+    if (RefPtr page = m_page)
+        protect(process())->didCommitLoadClientOrigin(ClientOrigin { SecurityOriginData::fromURL(page->mainFrame()->url()), SecurityOriginData::fromURL(m_frameLoadState.url()) });
+
     if (m_isShowingInitialAboutBlank && !url().isAboutBlank())
         m_isShowingInitialAboutBlank = false;
 
@@ -647,7 +650,8 @@ void WebFrameProxy::getFrameTree(CompletionHandler<void(std::optional<FrameTreeN
             });
             m_completionHandler(m_currentFrameData ? std::optional(FrameTreeNodeData {
                 WTF::move(*m_currentFrameData),
-                WTF::move(nonEmptyChildFrameData)
+                WTF::move(nonEmptyChildFrameData),
+                { }
             }) : std::nullopt);
         }
 
