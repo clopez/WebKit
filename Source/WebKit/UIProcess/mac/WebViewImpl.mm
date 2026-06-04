@@ -5862,10 +5862,17 @@ void WebViewImpl::selectedRangeWithCompletionHandler(void(^completionHandlerPtr)
     m_page->getSelectedRangeAsync([completionHandler, stagedSelectedRange = m_stagedMarkedRange, stagedInsertLength](const EditingRange& editingRangeResult, const EditingRange& compositionRange) {
         void (^completionHandlerBlock)(NSRange) = (void (^)(NSRange))completionHandler.get();
 
-        if (stagedSelectedRange) {
+        if (stagedSelectedRange && compositionRange.location != notFound) {
             completionHandlerBlock(NSRange { compositionRange.location + stagedSelectedRange->location, stagedSelectedRange->length });
             return;
         }
+
+        // If stagedSelectedRange is set but the web process has no composition yet (compositionRange.location
+        // == notFound), the queued setMarkedText hasn't reached the web process. This can happen when an
+        // external source such as inline predictions fires setMarkedText while a modeless IME's keydown is
+        // in flight (m_collectedKeypressCommands is non-empty). Using compositionRange.location (SIZE_MAX)
+        // as the base would overflow; fall through to the stagedInsertLength path instead so the modeless
+        // Korean/Vietnamese IME gets the correct cursor position and stays in modeless mode.
 
         NSRange result = editingRangeResult;
         if (stagedInsertLength && result.location != NSNotFound) {
@@ -5902,6 +5909,15 @@ void WebViewImpl::hasMarkedTextWithCompletionHandler(void(^completionHandler)(BO
     m_page->hasMarkedText([completionHandler = makeBlockPtr(completionHandler)] (bool result) {
         completionHandler(result);
         LOG(TextInput, "    -> hasMarkedText returned %u", result);
+    });
+}
+
+void WebViewImpl::isMarkedTextRequiredForCompositionWithCompletionHandler(void(^completionHandler)(BOOL isMarkedTextRequiredForComposition))
+{
+    LOG(TextInput, "isMarkedTextRequiredForComposition");
+    m_page->isMarkedTextRequiredForComposition([completionHandler = makeBlockPtr(completionHandler)] (bool result) {
+        completionHandler(result);
+        LOG(TextInput, "    -> isMarkedTextRequiredForComposition returned %u", result);
     });
 }
 

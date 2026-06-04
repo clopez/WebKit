@@ -23188,6 +23188,7 @@
 		EE62BD9C2DE12BD4006C9A05 /* ResolvedScopedName.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ResolvedScopedName.cpp; sourceTree = "<group>"; };
 		EE6C530D2F8830BD00C7B706 /* RenderTreeOrder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RenderTreeOrder.h; sourceTree = "<group>"; };
 		EE6C530E2F8830E100C7B706 /* RenderTreeOrder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RenderTreeOrder.cpp; sourceTree = "<group>"; };
+		EE73C8A82FCE7867004FEAE4 /* RemoteFrameLayoutInfo.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteFrameLayoutInfo.cpp; sourceTree = "<group>"; };
 		EE7775212D07B0EF0054B960 /* CSSPropertyParserConsumer+Anchor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CSSPropertyParserConsumer+Anchor.h"; sourceTree = "<group>"; };
 		EE7775222D07B1130054B960 /* CSSPropertyParserConsumer+Anchor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "CSSPropertyParserConsumer+Anchor.cpp"; sourceTree = "<group>"; };
 		EE7A16962C5B192F0057B563 /* ViewTransition+Types.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ViewTransition+Types.idl"; sourceTree = "<group>"; };
@@ -31267,6 +31268,7 @@
 				5C2397D22949213600BB4E10 /* RemoteFrameClient.h */,
 				FADCF77D2DC5DB1700591E33 /* RemoteFrameGeometryTransformer.cpp */,
 				FADCF77C2DC5DB1700591E33 /* RemoteFrameGeometryTransformer.h */,
+				EE73C8A82FCE7867004FEAE4 /* RemoteFrameLayoutInfo.cpp */,
 				EE454B782F19C6D400DD0C8D /* RemoteFrameLayoutInfo.h */,
 				5C6F7689296CBC5400799B41 /* RemoteFrameView.cpp */,
 				5C907EB929528A4300B3402D /* RemoteFrameView.h */,
@@ -50471,19 +50473,20 @@
 		};
 		5DF50887116F3077005202AB /* Check For Inappropriate Files In Framework */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
 				"$(SRCROOT)/../../Tools/Scripts/check-for-inappropriate-files-in-framework",
 			);
 			name = "Check For Inappropriate Files In Framework";
 			outputPaths = (
+				"$(TARGET_TEMP_DIR)/check-for-inappropriate-files-in-framework.timestamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-inappropriate-files-in-framework ]; then\n    ../../Tools/Scripts/check-for-inappropriate-files-in-framework || exit $?\nfi\n";
+			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    touch \"${SCRIPT_OUTPUT_FILE_0}\"\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-inappropriate-files-in-framework ]; then\n    ../../Tools/Scripts/check-for-inappropriate-files-in-framework || exit $?\nfi\n\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
 		6577FFC7276AC9AD0011AEC8 /* Create Symlink to Cryptex Path */ = {
 			isa = PBXShellScriptBuildPhase;

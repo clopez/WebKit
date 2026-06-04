@@ -5491,8 +5491,17 @@ void WebPageProxy::receivedNavigationActionPolicyDecision(WebProcessProxy& proce
     // Apply CSP upgrade-insecure-requests before computing Site. Only needed for remote-frame
     // navigations. Same-process navigations are already upgraded in the WebProcess.
     if (&processInitiatingNavigation != &frame.process()) {
-        auto& upgradeSet = frame.cspOriginsThatUpgradeInsecureNavigations();
-        if (upgradeSet.contains(WebCore::SecurityOriginData::fromURL(navigation.currentRequest().url())))
+        auto urlOrigin = WebCore::SecurityOriginData::fromURL(navigation.currentRequest().url());
+
+        bool shouldUpgrade = frame.cspOriginsThatUpgradeInsecureNavigations().contains(urlOrigin);
+        if (!shouldUpgrade) {
+            if (const auto& originatingFrameInfo = navigation.originatingFrameInfo()) {
+                if (RefPtr originatingFrame = WebFrameProxy::webFrame(originatingFrameInfo->frameID))
+                    shouldUpgrade = originatingFrame->cspOriginsThatUpgradeInsecureNavigations().contains(urlOrigin);
+            }
+        }
+
+        if (shouldUpgrade)
             navigation.upgradeCurrentInsecureRequest();
     }
 
@@ -5904,6 +5913,13 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
 
     if (navigation.currentRequest().url().protocolIsFile())
         newProcess->addPreviouslyApprovedFileURL(navigation.currentRequest().url());
+
+    // Approve file URLs from the target BF item now; BackForwardUpdateItem IPC can surface
+    // iframe file:// URLs before the new process is otherwise seeded with them.
+    if (RefPtr targetItem = navigation.targetItem()) {
+        Ref targetFrameState = targetItem->copyMainFrameStateWithChildren();
+        newProcess->addPreviouslyApprovedFileURLsFromFrameStateTree(targetFrameState.get());
+    }
 
     if (RefPtr provisionalPage = m_provisionalPage; provisionalPage && frame.isMainFrame()) {
         WEBPAGEPROXY_RELEASE_LOG(ProcessSwapping, "continueNavigationInNewProcess: There is already a pending provisional load, cancelling it (provisonalNavigationID=%" PRIu64 ", navigationID=%" PRIu64 ")", m_provisionalPage->navigationID().toUInt64(), navigation.navigationID().toUInt64());
@@ -15409,6 +15425,15 @@ void WebPageProxy::hasMarkedText(CompletionHandler<void(bool)>&& callback)
         return;
     }
     sendWithAsyncReply(Messages::WebPage::HasMarkedText(), WTF::move(callback));
+}
+
+void WebPageProxy::isMarkedTextRequiredForComposition(CompletionHandler<void(bool)>&& callback)
+{
+    if (!hasRunningProcess()) {
+        callback(false);
+        return;
+    }
+    sendWithAsyncReply(Messages::WebPage::IsMarkedTextRequiredForComposition(), WTF::move(callback));
 }
 
 void WebPageProxy::getMarkedRangeAsync(CompletionHandler<void(const EditingRange&)>&& callbackFunction)

@@ -321,6 +321,7 @@ public:
     VisibleWebPageToken visiblePageToken() const;
 
     void addPreviouslyApprovedFileURL(const URL&);
+    void addPreviouslyApprovedFileURLsFromFrameStateTree(const FrameState&);
     bool wasPreviouslyApprovedFileURL(const URL&) const;
 
     void updateTextCheckerState();
@@ -625,6 +626,13 @@ public:
     void incrementFrameProcessCount() { ++m_frameProcessCount; }
     void decrementFrameProcessCount() { --m_frameProcessCount; }
     uint64_t frameProcessCount() const { return m_frameProcessCount; }
+
+    enum class FirstPartyAccessResult {
+        Pass,
+        SilentFailure,
+        HardFailure,
+    };
+    FirstPartyAccessResult allowsFirstPartyAccess(const WebCore::RegistrableDomain&) const;
 
 private:
     Type type() const final { return Type::WebContent; }

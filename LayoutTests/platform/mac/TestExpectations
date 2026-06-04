@@ -189,6 +189,8 @@ webkit.org/b/61827 fast/events/drag-image-filename.html
 fast/mediastream/microphone-change-while-muted.html [ Pass ]
 
 # Media Stream API is not fully supported.
+fast/mediastream/captureStream/canvas-rvfc-metadata.html [ Failure ]
+
 fast/mediastream/MediaStream-add-ended-tracks.html
 
 fast/mediastream/RTCPeerConnection-ice.html [ Skip ]
@@ -1156,7 +1158,6 @@ webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-synthesis
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-01.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-03.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-04.html [ ImageOnlyFailure ]
-webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-bold-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-oblique-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/variations/variable-avar2-warp.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/variations/variable-gpos-avar2.html [ ImageOnlyFailure ]
@@ -2159,9 +2160,6 @@ imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-upright-s
 [ Sonoma+ ] http/tests/media/video-error-abort.html [ Failure ]
 [ Sonoma+ ] http/tests/media/video-served-as-text.html [ Failure ]
 [ Sonoma+ ] http/tests/media/video-throttled-load-metadata.html [ Failure ]
-
-# webkit.org/b/280091 REGRESSION (283643@main) : [ macOS  ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/decode/image-decode-path-changes-svg.tentative.html is a flaky failure.
-imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/decode/image-decode-path-changes-svg.tentative.html [ Pass Failure ]
 
 # webkit.org/b/280193 [ Sequoia ] fast/inline/justify-emphasi s-inline-box.html is a constant failure. 
 fast/inline/justify-emphasis-inline-box.html [ Failure ]

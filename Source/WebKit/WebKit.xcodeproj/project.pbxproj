@@ -251,7 +251,6 @@
 		0D433CF52F857D62004ED8DF /* USDModel+Deformation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D433CF42F857D62004ED8DF /* USDModel+Deformation.swift */; };
 		0D4599052C86B00F00435F48 /* WKDigitalCredentialsPicker.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D9D28E72C81473B002CB4C7 /* WKDigitalCredentialsPicker.h */; };
 		0D4C005A2F4182F100DF1BBF /* ModelUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D653B392F3453C40022454D /* ModelUtils.swift */; };
-		0D4C005B2F4182F100DF1BBF /* ModelIBLTextures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D653B352F3453C40022454D /* ModelIBLTextures.swift */; };
 		0D4C005C2F4182F100DF1BBF /* ModelBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D653B342F3453C40022454D /* ModelBridge.swift */; };
 		0D4C005D2F4182F100DF1BBF /* ModelParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D653B362F3453C40022454D /* ModelParameters.swift */; };
 		0D4C005E2F4182F100DF1BBF /* USDModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D653B3A2F3453C40022454D /* USDModel.swift */; };
@@ -2031,6 +2030,7 @@
 		A1A4FE5A18DCE9FA00B5EA8A /* _WKDownload.h in Headers */ = {isa = PBXBuildFile; fileRef = A1A4FE5718DCE9FA00B5EA8A /* _WKDownload.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A1A4FE5C18DCE9FA00B5EA8A /* _WKDownloadInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = A1A4FE5918DCE9FA00B5EA8A /* _WKDownloadInternal.h */; };
 		A1A4FE6118DD54A400B5EA8A /* _WKDownloadDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = A1A4FE6018DD54A400B5EA8A /* _WKDownloadDelegate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A1A55D8D2FCE64B5007EA84E /* LayerHostingVisibilityPropagator.h in Headers */ = {isa = PBXBuildFile; fileRef = A1A55D8B2FCE63AD007EA84E /* LayerHostingVisibilityPropagator.h */; };
 		A1AE0EC32B166439008A2563 /* ExtensionCapabilityGranter.h in Headers */ = {isa = PBXBuildFile; fileRef = A1AE0EC12B1663D4008A2563 /* ExtensionCapabilityGranter.h */; };
 		A1B849362F3D9F02004256A1 /* PlaybackSessionInterfaceAVKit.h in Headers */ = {isa = PBXBuildFile; fileRef = A1B849322F3D9F02004256A1 /* PlaybackSessionInterfaceAVKit.h */; };
 		A1B849372F3D9F02004256A1 /* VideoPresentationInterfaceAVKit.h in Headers */ = {isa = PBXBuildFile; fileRef = A1B849342F3D9F02004256A1 /* VideoPresentationInterfaceAVKit.h */; };
@@ -3621,7 +3621,6 @@
 		0D653B322F3453C40022454D /* Float3.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Float3.h; sourceTree = "<group>"; };
 		0D653B332F3453C40022454D /* Float4x4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Float4x4.h; sourceTree = "<group>"; };
 		0D653B342F3453C40022454D /* ModelBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelBridge.swift; sourceTree = "<group>"; };
-		0D653B352F3453C40022454D /* ModelIBLTextures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelIBLTextures.swift; sourceTree = "<group>"; };
 		0D653B362F3453C40022454D /* ModelParameters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelParameters.swift; sourceTree = "<group>"; };
 		0D653B372F3453C40022454D /* ModelRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRenderer.swift; sourceTree = "<group>"; };
 		0D653B382F3453C40022454D /* ModelTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModelTypes.h; sourceTree = "<group>"; };
@@ -7773,6 +7772,8 @@
 		A1A4FE5918DCE9FA00B5EA8A /* _WKDownloadInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKDownloadInternal.h; sourceTree = "<group>"; };
 		A1A4FE6018DD54A400B5EA8A /* _WKDownloadDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKDownloadDelegate.h; sourceTree = "<group>"; };
 		A1A53A0F2E943B3E002BAD2D /* AVKit_SPI.swiftinterface */ = {isa = PBXFileReference; lastKnownFileType = text; path = AVKit_SPI.swiftinterface; sourceTree = "<group>"; };
+		A1A55D8B2FCE63AD007EA84E /* LayerHostingVisibilityPropagator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LayerHostingVisibilityPropagator.h; sourceTree = "<group>"; };
+		A1A55D8C2FCE63AD007EA84E /* LayerHostingVisibilityPropagator.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = LayerHostingVisibilityPropagator.mm; sourceTree = "<group>"; };
 		A1AC99A92ECF0E350011617C /* MediaPlaybackTargetSerialized.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaPlaybackTargetSerialized.h; sourceTree = "<group>"; };
 		A1AC99AA2ECF0E350011617C /* MediaPlaybackTargetSerialized.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaPlaybackTargetSerialized.cpp; sourceTree = "<group>"; };
 		A1AE0EC12B1663D4008A2563 /* ExtensionCapabilityGranter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtensionCapabilityGranter.h; sourceTree = "<group>"; };
@@ -9942,7 +9943,6 @@
 				0D653B2F2F34517E0022454D /* MeshImpl.cpp */,
 				0D653B2E2F34517E0022454D /* MeshImpl.h */,
 				0D653B342F3453C40022454D /* ModelBridge.swift */,
-				0D653B352F3453C40022454D /* ModelIBLTextures.swift */,
 				0D078EBB2E738BCD00A9B266 /* ModelObjectHeap.cpp */,
 				0D078EBA2E738BCD00A9B266 /* ModelObjectHeap.h */,
 				0D653B362F3453C40022454D /* ModelParameters.swift */,
@@ -12533,6 +12533,8 @@
 				F496A4301F58A272004C1757 /* DragDropInteractionState.mm */,
 				F4CF1E9B25E40DCC000F9D73 /* GestureRecognizerConsistencyEnforcer.h */,
 				F4CF1E9C25E40DCC000F9D73 /* GestureRecognizerConsistencyEnforcer.mm */,
+				A1A55D8B2FCE63AD007EA84E /* LayerHostingVisibilityPropagator.h */,
+				A1A55D8C2FCE63AD007EA84E /* LayerHostingVisibilityPropagator.mm */,
 				0FCB4E3618BBE044000FCFC9 /* PageClientImplIOS.h */,
 				0FCB4E3718BBE044000FCFC9 /* PageClientImplIOS.mm */,
 				F41145632CD6F4B7004CDBD1 /* PointerTouchCompatibilitySimulator.h */,
@@ -18452,6 +18454,7 @@
 				51E9049A27BCB9D400929E7E /* LaunchServicesSPI.h in Headers */,
 				BCE0937814FB128C001138D9 /* LayerHostingContext.h in Headers */,
 				515A0C552E8284CF00D0B56C /* LayerHostingContextManager.h in Headers */,
+				A1A55D8D2FCE64B5007EA84E /* LayerHostingVisibilityPropagator.h in Headers */,
 				1A92DC1112F8BA460017AF65 /* LayerTreeContext.h in Headers */,
 				44E936FD2447C2D8009FA3E3 /* LegacyCustomProtocolID.h in Headers */,
 				5C1427181C23F8B700D41183 /* LegacyCustomProtocolManager.h in Headers */,
@@ -21579,22 +21582,24 @@
 		};
 		DDFA47222AA93C7F00C7C788 /* Check For Inappropriate Files In Framework */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(SRCROOT)/../../Tools/Scripts/check-for-inappropriate-files-in-framework",
 			);
 			name = "Check For Inappropriate Files In Framework";
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(TARGET_TEMP_DIR)/check-for-inappropriate-files-in-framework.timestamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" ] || [ \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-inappropriate-files-in-framework ]; then\n    export PRODUCT_NAME=WebKit\n    if [ -z \"${WK_FRAMEWORK_VERSION_PREFIX}\" ]; then\n        export SHALLOW_BUNDLE=YES\n    fi\n    ../../Tools/Scripts/check-for-inappropriate-files-in-framework || exit $?\nfi\n";
+			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" ] || [ \"${ACTION}\" = \"installapi\" ]; then\n    touch \"${SCRIPT_OUTPUT_FILE_0}\"\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-inappropriate-files-in-framework ]; then\n    export PRODUCT_NAME=WebKit\n    if [ -z \"${WK_FRAMEWORK_VERSION_PREFIX}\" ]; then\n        export SHALLOW_BUNDLE=YES\n    fi\n    ../../Tools/Scripts/check-for-inappropriate-files-in-framework || exit $?\nfi\n\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
 		E1AC2E2C20F7B95800B0897D /* Unlock Keychain */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -22568,7 +22573,6 @@
 				A14F9B772B68CA6C00AD9C56 /* LinearMediaPlayer.swift in Sources */,
 				A14F9B642B686DD300AD9C56 /* LinearMediaTypes.swift in Sources */,
 				0D4C005C2F4182F100DF1BBF /* ModelBridge.swift in Sources */,
-				0D4C005B2F4182F100DF1BBF /* ModelIBLTextures.swift in Sources */,
 				0D4C005D2F4182F100DF1BBF /* ModelParameters.swift in Sources */,
 				0D4C005F2F4182F100DF1BBF /* ModelRenderer.swift in Sources */,
 				0D4C005A2F4182F100DF1BBF /* ModelUtils.swift in Sources */,

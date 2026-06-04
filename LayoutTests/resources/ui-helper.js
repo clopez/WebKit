@@ -190,20 +190,24 @@ window.UIHelper = class UIHelper {
         await UIHelper.delayFor(0);
     }
 
-    static async waitForCondition(conditionFunc)
+    static async waitForCondition(conditionFunc, maximumFrames = Infinity)
     {
-        while (!conditionFunc()) {
+        for (let frames = 0; !conditionFunc(); ++frames) {
+            if (frames >= maximumFrames)
+                return false;
             await UIHelper.animationFrame();
         }
+        return true;
     }
 
-    static async waitForConditionAsync(conditionFunc)
+    static async waitForConditionAsync(conditionFunc, maximumFrames = Infinity)
     {
-        var condition = await conditionFunc();
-        while (!condition) {
+        for (let frames = 0; !(await conditionFunc()); ++frames) {
+            if (frames >= maximumFrames)
+                return false;
             await UIHelper.animationFrame();
-            condition = await conditionFunc();
         }
+        return true;
     }
 
     static sendEventStream(eventStream)
@@ -1413,6 +1417,15 @@ window.UIHelper = class UIHelper {
 
     static activateDataListSuggestion(index) {
         const script = `uiController.activateDataListSuggestion(${index}, () => {
+            uiController.uiScriptComplete("");
+        });`;
+        return new Promise(resolve => testRunner.runUIScript(script, resolve));
+    }
+
+    static insertAutofillSuggestion(username, password) {
+        const escapedUsername = JSON.stringify(String(username));
+        const escapedPassword = JSON.stringify(String(password));
+        const script = `uiController.insertAutofillSuggestion(${escapedUsername}, ${escapedPassword}, () => {
             uiController.uiScriptComplete("");
         });`;
         return new Promise(resolve => testRunner.runUIScript(script, resolve));

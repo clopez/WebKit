@@ -444,6 +444,8 @@ public:
 
     ExceptionOr<String> autofillFieldName(Element&);
 
+    void allowAutofillForCurrentWorld(JSC::JSGlobalObject&);
+
     ExceptionOr<void> invalidateControlTints();
 
     RefPtr<Range> rangeFromLocationAndLength(Element& scope, unsigned rangeLocation, unsigned rangeLength);
@@ -936,6 +938,7 @@ public:
     bool NODELETE isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
     bool isPlayerPaused(const HTMLMediaElement&) const;
+    double effectiveRate(const HTMLMediaElement&) const;
     void NODELETE forceStereoDecoding(HTMLMediaElement&);
     void beginAudioSessionInterruption();
     void endAudioSessionInterruption();

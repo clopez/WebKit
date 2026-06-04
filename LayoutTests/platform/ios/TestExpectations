@@ -32,7 +32,6 @@ remote-layer-tree [ Pass ]
 swipe [ Pass ]
 webanimations/threaded-animations [ Pass ]
 
-webkit.org/b/271780 fast/dom/Orientation/no-orientation-change-event-when-unparenting-view.html [ Pass Timeout ] # change back to pass when bug resolved
 fast/events/ios [ Pass ]
 fast/events/ios/single-tap-verify-user-gesture.html [ Skip ]
 fast/events/ios/ipad [ Skip ]
@@ -222,6 +221,7 @@ scrollingcoordinator/non-fast-scrollable-region-scaled-iframe.html [ Skip ]
 scrollingcoordinator/non-fast-scrollable-region-transformed-iframe.html [ Skip ]
 
 imported/w3c/web-platform-tests/video-rvfc [ Pass ]
+fast/mediastream/captureStream/canvas-rvfc-metadata.html [ Failure ]
 fast/mediastream/getUserMedia-rvfc.html [ Pass ]
 webrtc/peerConnection-rvfc.html [ Pass ]
 # Timing out tests until we add XR session.
@@ -304,6 +304,7 @@ webaudio/suspend-context-while-interrupted.html [ Skip ]
 webaudio/codec-tests/vorbis [ Skip ]
 # vorbis decoder not available on simulator.
 webaudio/decode-audio-data-webm-vorbis.html [ Failure ]
+webaudio/decode-audio-data-ogg-vorbis.html  [ Failure ]
 media/track/audio-track-configuration-webm.html
 
 # ogg not available in simulator
@@ -2791,7 +2792,6 @@ webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-synthesis
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-01.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-03.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-04.html [ ImageOnlyFailure ]
-webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-bold-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-oblique-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/variations/variable-avar2-warp.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/variations/variable-gpos-avar2.html [ ImageOnlyFailure ]
@@ -7666,11 +7666,13 @@ webkit.org/b/289005 imported/w3c/web-platform-tests/css/css-anchor-position/anch
 
 webkit.org/b/289020 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Pass Failure ]
 
-webkit.org/b/289097 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-fixed-ancestor.html [ Pass Failure ]
+webkit.org/b/289097 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-fixed-ancestor.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/289094 imported/w3c/web-platform-tests/webcodecs/audio-data.crossOriginIsolated.https.any.html [ Pass Timeout ]
 
 webkit.org/b/289109 imported/w3c/web-platform-tests/css/css-view-transitions/transition-skipped-after-animation-started.html [ Pass Crash ]
+
+webkit.org/b/289092 http/wpt/background-fetch/background-fetch-abort.window.html [ Pass Failure ]
 
 # webkit.org/b/289656 ([iOS-18-Simulator-WK2-Tests-EWS] fast/forms/ios/focus-input-via-button-no-scaling.html is crashing
 fast/forms/ios/focus-input-via-button-no-scaling.html [ Pass Crash ]
@@ -8422,5 +8424,9 @@ webkit.org/b/316014 [ Debug ] fast/dom/move-embedded-during-update.html [ Pass F
 # webkit.org/b/316018 IMPORT(314164@main): [iOS] imported/w3c/web-platform-tests/css/css-images tests are failing with image diffs
 imported/w3c/web-platform-tests/css/css-images/gradients-with-border.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-linear.html [ Skip ]
+
+webkit.org/b/316218 fast/scrolling/ios/scroll-into-view-smooth-after-snap.html [ Pass Failure ]
+
+webkit.org/b/316228 fast/dom/Orientation/no-orientation-change-event-when-unparenting-view.html [ Failure ]
 
 webkit.org/b/316118 imported/w3c/web-platform-tests/url/IdnaTestV2.any.html [ Failure ]

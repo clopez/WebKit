@@ -709,6 +709,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
     _impl->hasMarkedTextWithCompletionHandler(completionHandlerPtr);
 }
 
+- (void)isMarkedTextRequiredForCompositionWithCompletionHandler:(void(^)(BOOL isMarkedTextRequiredForComposition))completionHandlerPtr
+{
+    _impl->isMarkedTextRequiredForCompositionWithCompletionHandler(completionHandlerPtr);
+}
+
 - (void)attributedSubstringForProposedRange:(NSRange)nsRange completionHandler:(void(^)(NSAttributedString *attrString, NSRange actualRange))completionHandlerPtr
 {
     _impl->attributedSubstringForProposedRange(nsRange, completionHandlerPtr);
@@ -866,6 +871,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return;
 
     WebCore::CornerRadii newRadii;
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if (RetainPtr<NSViewCornerRadii> radii = self._effectiveCornerRadii) {
         newRadii = WebCore::CornerRadii {
             static_cast<float>([radii topLeft]),
@@ -874,6 +880,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             static_cast<float>([radii bottomRight])
         };
     }
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     if (_lastViewCornerRadii == newRadii)
         return;
@@ -882,6 +889,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     _page->setScrollbarAvoidanceCornerRadii(WTF::move(newRadii));
 }
 
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
 - (NSViewCornerConfiguration *)_cornerConfiguration
 {
     if (self.enclosingScrollView)
@@ -889,6 +897,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     return [NSViewCornerConfiguration configurationWithRadius:(id)_NSCornerRadius.containerConcentricRadius];
 }
+ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 #endif
 

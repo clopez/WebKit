@@ -68,6 +68,7 @@
 #include "DOMRectList.h"
 #include "DOMStringList.h"
 #include "DOMURL.h"
+#include "DOMWrapperWorld.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DiagnosticLoggingClient.h"
 #include "DisabledAdaptations.h"
@@ -2704,7 +2705,11 @@ ExceptionOr<String> Internals::autofillFieldName(Element& element)
         return String { formControl->autofillData().fieldName };
 
     return Exception { ExceptionCode::InvalidNodeTypeError };
+}
 
+void Internals::allowAutofillForCurrentWorld(JSC::JSGlobalObject& globalObject)
+{
+    currentWorld(globalObject).setAllowAutofill();
 }
 
 ExceptionOr<void> Internals::invalidateControlTints()
@@ -5545,6 +5550,12 @@ bool Internals::isPlayerPaused(const HTMLMediaElement& element) const
 {
     RefPtr player = element.player();
     return player && player->paused();
+}
+
+double Internals::effectiveRate(const HTMLMediaElement& element) const
+{
+    RefPtr player = element.player();
+    return player ? player->effectiveRate() : 0.0;
 }
 
 void Internals::forceStereoDecoding(HTMLMediaElement& element)

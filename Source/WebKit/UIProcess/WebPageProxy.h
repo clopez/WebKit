@@ -51,6 +51,10 @@
 #include "WebBackForwardListMessages.h"
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+#include "InputMethodState.h"
+#endif
+
 namespace API {
 class Attachment;
 class ContentWorld;
@@ -621,7 +625,6 @@ struct GeolocationIdentifierType;
 struct FocusedElementInformation;
 struct HardwareKeyboardState;
 #endif
-struct InputMethodState;
 struct InsertTextOptions;
 struct InteractionInformationAtPosition;
 struct InteractionInformationRequest;
@@ -1364,6 +1367,7 @@ public:
     void clearDictationStreamingOpacity();
 
     void hasMarkedText(CompletionHandler<void(bool)>&&);
+    void isMarkedTextRequiredForComposition(CompletionHandler<void(bool)>&&);
     void getMarkedRangeAsync(CompletionHandler<void(const EditingRange&)>&&);
     void getSelectedRangeAsync(CompletionHandler<void(const EditingRange& selectedRange, const EditingRange& compositionRange)>&&);
     void characterIndexForPointAsync(const WebCore::IntPoint&, CompletionHandler<void(uint64_t)>&&);

@@ -383,6 +383,7 @@ class CustomPropertyRegistry;
 class Resolver;
 class Scope;
 class Update;
+enum class SVGRendererUpdateType : bool;
 }
 
 enum class PageshowEventPersistence : bool { NotPersisted, Persisted };
@@ -833,6 +834,9 @@ public:
 
     RenderView* renderView() const { return m_renderView.get(); }
     const RenderStyle* initialContainingBlockStyle() const LIFETIME_BOUND { return m_initialContainingBlockStyle.get(); } // This may end up differing from renderView()->style() due to adjustments.
+
+    const RenderStyle& initialStyle() const LIFETIME_BOUND;
+    void invalidateCachedInitialStyle();
 
     bool renderTreeBeingDestroyed() const { return m_renderTreeBeingDestroyed; }
     bool hasLivingRenderTree() const { return renderView() && !renderTreeBeingDestroyed(); }
@@ -1625,7 +1629,7 @@ public:
     void NODELETE setIsResolvingTreeStyle(bool);
 
     void updateTextRenderer(Text&, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText);
-    void updateSVGRenderer(SVGElement&);
+    void updateSVGRenderer(SVGElement&, Style::SVGRendererUpdateType = Style::SVGRendererUpdateType { });
 
     // Return a Locale for the default locale if the argument is null or empty.
     Locale& getCachedLocale(const AtomString& locale = nullAtom());
@@ -2441,6 +2445,10 @@ private:
 
     RenderPtr<RenderView> m_renderView;
     std::unique_ptr<RenderStyle> m_initialContainingBlockStyle;
+
+    // The `initial style` is used to resolve CSS values used outside of element contexts
+    // such as in media queries.
+    mutable std::unique_ptr<RenderStyle> m_cachedInitialStyle;
 
     WeakHashSet<MediaCanStartListener> m_mediaCanStartListeners;
     WeakHashSet<DisplayChangedObserver> m_displayChangedObservers;

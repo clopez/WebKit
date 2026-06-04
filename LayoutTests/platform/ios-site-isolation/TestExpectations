@@ -148,7 +148,6 @@ http/tests/eventsource/eventsource-page-cache-connected.html [ Failure ]
 http/tests/eventsource/eventsource-page-cache-connecting.html [ Failure ]
 http/tests/fast/events/touch/ios/block-without-overflow-scroll-and-passive-observer-on-document-scrolling-state.html [ Failure ]
 http/tests/fast/events/touch/ios/block-without-overflow-scroll-scrolling-state.html [ Failure ]
-http/tests/loading/authentication-after-redirect-stores-wrong-credentials/authentication-after-redirect-stores-wrong-credentials.html [ Failure ]
 http/tests/loading/bad-server-subframe.html [ Failure ]
 http/tests/loading/main-resource-delegates-on-back-navigation.html [ Failure ]
 http/tests/loading/preload-append-scan.py [ Failure ]
@@ -281,7 +280,6 @@ imported/w3c/web-platform-tests/storage-access-api/storage-access-beyond-cookies
 imported/w3c/web-platform-tests/storage-access-api/storage-access-beyond-cookies.unpartitioned.sub.https.window.html [ Failure ]
 imported/w3c/web-platform-tests/streams/transferable/deserialize-error.window.html [ Failure ]
 imported/w3c/web-platform-tests/svg/animations/svglength-animation-invalid-value-7.html [ Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/link-upgrade.sub.https.html [ Failure ]
 imported/w3c/web-platform-tests/web-animations/crashtests/color-mix-crashtest.html [ Failure ]
 imported/w3c/web-platform-tests/web-share/disabled-by-permissions-policy-cross-origin.https.sub.html [ Failure ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-not-fully-active.html [ Failure ]
@@ -368,7 +366,6 @@ http/tests/security/block-top-level-navigations-by-third-party-sandboxed-iframe.
 http/tests/security/frameNavigation/not-opener.html [ Failure ]
 
 # Intersection Observer x Site Isolation is not fully implemented.
-http/tests/intersection-observer/zoomed-page-iframe-cross-origin.html [ Failure ]
 imported/w3c/web-platform-tests/intersection-observer/cross-origin-tall-iframe.sub.html [ Failure ]
 
 # rdar://178066625

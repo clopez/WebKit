@@ -51,6 +51,7 @@
 #include "RemotePageProxy.h"
 #include "RemoteWorkerType.h"
 #include "ServiceWorkerNotificationHandler.h"
+#include "SessionState.h"
 #include "SpeechRecognitionPermissionRequest.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManager.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManagerMessages.h"
@@ -1558,6 +1559,18 @@ void WebProcessProxy::addPreviouslyApprovedFileURL(const URL& url)
         m_previouslyApprovedFilePaths.add(fileSystemPath);
 }
 
+void WebProcessProxy::addPreviouslyApprovedFileURLsFromFrameStateTree(const FrameState& frameState)
+{
+    URL url { frameState.urlString };
+    if (url.protocolIsFile())
+        addPreviouslyApprovedFileURL(url);
+    URL originalURL { frameState.originalURLString };
+    if (originalURL.protocolIsFile())
+        addPreviouslyApprovedFileURL(originalURL);
+    for (auto& child : frameState.children)
+        addPreviouslyApprovedFileURLsFromFrameStateTree(child.get());
+}
+
 bool WebProcessProxy::wasPreviouslyApprovedFileURL(const URL& url) const
 {
     ASSERT(url.protocolIsFile());
@@ -1808,7 +1821,7 @@ void WebProcessProxy::requestTermination(ProcessTerminationReason reason)
         return;
 
     Ref protectedThis { *this };
-    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%d", static_cast<int>(reason));
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "requestTermination: reason=%" PUBLIC_LOG_STRING, processTerminationReasonToString(reason).characters());
 
     AuxiliaryProcessProxy::terminate();
 
@@ -2937,9 +2950,31 @@ void WebProcessProxy::unwrapCryptoKey(WrappedCryptoKey&& wrappedKey, CompletionH
 
 }
 
+WebProcessProxy::FirstPartyAccessResult WebProcessProxy::allowsFirstPartyAccess(const WebCore::RegistrableDomain& domain) const
+{
+    if (m_site)
+        return domain == m_site->domain() ? FirstPartyAccessResult::Pass : FirstPartyAccessResult::HardFailure;
+
+    switch (m_site.error()) {
+    case SiteState::NotYetSpecified:
+        return FirstPartyAccessResult::Pass;
+    case SiteState::MultipleSites:
+        // A web process under the MultipleSites categorization should not be doing things like
+        // sending badge updates.
+        // This is expected sometimes, like right as a new load is starting, so we can silently ignore.
+        return FirstPartyAccessResult::SilentFailure;
+    case SiteState::SharedProcess:
+        return sharedProcessDomains().contains(domain) ? FirstPartyAccessResult::Pass : FirstPartyAccessResult::HardFailure;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
 void WebProcessProxy::setAppBadgeFromWorker(const SecurityOriginData& origin, std::optional<uint64_t> badge)
 {
-    protect(websiteDataStore())->workerUpdatedAppBadge(origin, badge);
+    MESSAGE_CHECK(allowsFirstPartyAccess(WebCore::RegistrableDomain { origin }) == FirstPartyAccessResult::Pass);
+    if (RefPtr dataStore = websiteDataStore())
+        dataStore->workerUpdatedAppBadge(origin, badge);
 }
 
 const WeakHashSet<WebProcessProxy>* WebProcessProxy::serviceWorkerClientProcesses() const

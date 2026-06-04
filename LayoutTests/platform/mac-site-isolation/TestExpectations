@@ -159,7 +159,6 @@ http/tests/eventsource/eventsource-page-cache-connecting.html [ Failure ]
 http/tests/frame-throttling/timer-throttle-in-cross-origin-subframe.html [ Failure ]
 http/tests/inspector/network/fetch-response-body-304.html [ Failure ]
 http/tests/inspector/target/pause-on-inline-debugger-statement.html [ Failure ]
-http/tests/loading/authentication-after-redirect-stores-wrong-credentials/authentication-after-redirect-stores-wrong-credentials.html [ Failure ]
 http/tests/loading/bad-server-subframe.html [ Failure ]
 http/tests/loading/main-resource-delegates-on-back-navigation.html [ Failure ]
 http/tests/local/blob/download-blob-from-iframe.html [ Failure ]
@@ -440,7 +439,6 @@ http/tests/security/frameNavigation/not-opener.html [ Failure ]
 inspector/unit-tests/target-manager.html [ Skip ]
 
 # Intersection Observer x Site Isolation is not fully implemented.
-http/tests/intersection-observer/zoomed-page-iframe-cross-origin.html [ Failure ]
 imported/w3c/web-platform-tests/intersection-observer/cross-origin-tall-iframe.sub.html [ Failure ]
 
 # Inspector protocol commands (e.g. CSS.getMatchedStylesForNode) return

@@ -2336,8 +2336,6 @@ webkit.org/b/315398 [ Release ] http/tests/site-isolation/accessibility/client/s
 [ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.serviceworker.html [ Skip ]
 [ Release ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.sharedworker.html [ Skip ]
 
-webkit.org/b/315668 [ Release x86_64 ] imported/w3c/web-platform-tests/css/selectors/invalidation/has-complexity.html [ Timeout ]
-
 webkit.org/b/315710 [ Sequoia ] imported/w3c/web-platform-tests/css/css-backgrounds/box-shadow/box-shadow-table-row-display.html [ ImageOnlyFailure ]
 
 webkit.org/b/315734 [ Sequoia Release x86_64 ] fast/webgpu/image-data-8-bytes-per-pixel.html [ Timeout ]
@@ -2432,8 +2430,6 @@ webkit.org/b/316117 [ Tahoe+ Debug ] fast/dom/gc-dom-tree-lifetime-shadow-tree.h
 webkit.org/b/316016 [ Debug ] fast/mediastream/image-capture-take-photo.html [ Skip ]
 
 webkit.org/b/316014 fast/dom/move-embedded-during-update.html [ Pass Failure ]
-
-webkit.org/b/316020 [ Tahoe+ ] media/modern-media-controls/icon-service/icon-service-bundle-load.html [ Pass Failure ]
 
 webkit.org/b/316012 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/sizes/sizes-auto-resize-observer-removes-auto.html [ Pass Failure ]
 
