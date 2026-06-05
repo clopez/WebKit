@@ -2296,7 +2296,7 @@
 		51EE7B381AA50B0500F92B21 /* ResourceLoadInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 51EE7B371AA50B0500F92B21 /* ResourceLoadInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51EE9D642D09479500D97E5E /* DocumentSyncData.h in Headers */ = {isa = PBXBuildFile; fileRef = 51EE9D632D0946F000D97E5E /* DocumentSyncData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51EEAA741BEFFAB100218008 /* IndexValueEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 51EEAA721BEFFA7900218008 /* IndexValueEntry.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		51F0844C2D3E1D0700F85E0A /* H264UtilitiesCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 51F084492D3E1D0700F85E0A /* H264UtilitiesCocoa.h */; };
+		51F0844C2D3E1D0700F85E0A /* H264UtilitiesCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 51F084492D3E1D0700F85E0A /* H264UtilitiesCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51F174FE1F35899200C74950 /* WorkerType.h in Headers */ = {isa = PBXBuildFile; fileRef = 51F174FC1F35898800C74950 /* WorkerType.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51F175031F358B3B00C74950 /* JSServiceWorkerUpdateViaCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 51F175011F358B3600C74950 /* JSServiceWorkerUpdateViaCache.h */; };
 		51F175061F358BF700C74950 /* JSWorkerType.h in Headers */ = {isa = PBXBuildFile; fileRef = 51F175051F358BDE00C74950 /* JSWorkerType.h */; };
