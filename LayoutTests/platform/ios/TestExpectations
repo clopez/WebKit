@@ -2903,9 +2903,6 @@ fast/canvas/webgl/texImage2D-mse-in-dom-flipY-true.html [ Skip ]
 fast/canvas/webgl/texImage2D-video-flipY-false.html [ Skip ]
 fast/canvas/webgl/texImage2D-video-flipY-true.html [ Skip ]
 
-# rendering to floating point FBOs not supported on iOS
-fast/canvas/webgl/readPixels-float.html [ Skip ]
-
 # No colorspaces in iOS WebGL yet.
 webkit.org/b/247166 fast/canvas/webgl/colorspaces-test.html [ Failure ]
 webkit.org/b/247166 fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
@@ -4579,6 +4576,8 @@ webgl/1.0.x/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass
 webgl/2.0.y/conformance/textures/canvas/tex-2d-rgb-rgb-unsigned_byte.html [ Pass Timeout ]
 
 webkit.org/b/229934 webgl/1.0.x/conformance/extensions/webgl-depth-texture.html [ Failure ]
+
+webkit.org/b/254398 webgl/1.0.x/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 webkit.org/b/254398 webgl/2.0.y/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 
 # webkit.org/b/255177 Batch mark expectations for newly failing tests introduced with iOS 16.4 update
@@ -8293,7 +8292,7 @@ webkit.org/b/304298 accessibility/text-stitching-inside-links.html [ Failure ]
 
 webkit.org/b/304427 fast/html/HTMLPluginElement-renderer-destroyed-crash.html [ Skip ]
 
-webkit.org/b/313562 imported/w3c/web-platform-tests/navigation-api/navigate-event/signal-abort-replaceState-crash.html [ Pass Crash Timeout ]
+
 
 webkit.org/b/304851 imported/w3c/web-platform-tests/workers/worker-performance.worker.html [ Pass Failure ]
 
@@ -8438,3 +8437,7 @@ webkit.org/b/316218 fast/scrolling/ios/scroll-into-view-smooth-after-snap.html [
 webkit.org/b/316228 fast/dom/Orientation/no-orientation-change-event-when-unparenting-view.html [ Failure ]
 
 webkit.org/b/316118 imported/w3c/web-platform-tests/url/IdnaTestV2.any.html [ Failure ]
+
+fast/events/pointerleave-after-ancestor-removal.html [ Skip ]
+
+webkit.org/b/316446 imported/w3c/web-platform-tests/css/css-borders/border-width-rounding.tentative.html [ Failure ]

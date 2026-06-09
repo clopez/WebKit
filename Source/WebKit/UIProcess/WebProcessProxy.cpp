@@ -269,6 +269,11 @@ Vector<WeakPtr<RemotePageProxy>> WebProcessProxy::remotePages() const
     return WTF::copyToVector(m_remotePages);
 }
 
+unsigned WebProcessProxy::remotePageCount() const
+{
+    return m_remotePages.computeSize();
+}
+
 void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, NOESCAPE const Function<void(WebPageProxy&)>& callback)
 {
     for (Ref page : globalPages()) {
@@ -305,6 +310,7 @@ Ref<WebProcessProxy> WebProcessProxy::create(WebProcessPool& processPool, Websit
 Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType workerType, WebProcessPool& processPool, Site&& site, WebsiteDataStore& websiteDataStore, CrossOriginMode crossOriginMode, LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity)
 {
     Ref proxy = adoptRef(*new WebProcessProxy(processPool, &websiteDataStore, IsPrewarmed::No, crossOriginMode, lockdownMode, enhancedSecurity));
+    proxy->m_committedSites.add(site);
     proxy->m_site = WTF::move(site);
     proxy->enableRemoteWorkers(workerType, processPool.userContentControllerForRemoteWorkers());
     proxy->connect();
@@ -491,7 +497,7 @@ bool WebProcessProxy::isDummyProcessProxy() const
 void WebProcessProxy::updateRegistrationWithDataStore()
 {
     if (RefPtr dataStore = websiteDataStore()) {
-        if (pageCount() || provisionalPageCount())
+        if (pageCount() || provisionalPageCount() || remotePageCount())
             dataStore->registerProcess(*this);
         else
             dataStore->unregisterProcess(*this);
@@ -564,6 +570,7 @@ void WebProcessProxy::addRemotePageProxy(RemotePageProxy& remotePage)
     ASSERT(!m_isInProcessCache);
     ASSERT(!m_remotePages.contains(remotePage));
     m_remotePages.add(remotePage);
+    updateRegistrationWithDataStore();
     markProcessAsRecentlyUsed();
     initializePreferencesForGPUAndNetworkProcesses(*protect(remotePage.page()));
 }
@@ -574,6 +581,7 @@ void WebProcessProxy::removeRemotePageProxy(RemotePageProxy& remotePage)
         page->processDidBecomeResponsive(*this);
     WEBPROCESSPROXY_RELEASE_LOG(Loading, "removeRemotePageProxy: remotePage=%p", &remotePage);
     m_remotePages.remove(remotePage);
+    updateRegistrationWithDataStore();
     if (m_remotePages.isEmptyIgnoringNullReferences())
         maybeShutDown();
 }
@@ -976,11 +984,16 @@ void WebProcessProxy::sendPageCloseMessage(std::optional<WebPageProxyIdentifier>
 
 bool WebProcessProxy::hasCommittedClientOrigin(const WebCore::ClientOrigin& clientOrigin) const
 {
+    if (m_committedClientOrigins.contains(clientOrigin))
+        return true;
+
     if (isRunningWorkers()) {
-        ASSERT(m_site);
+        if (!m_site)
+            return m_committedSites.contains(Site { clientOrigin.topOrigin }) && m_committedSites.contains(Site { clientOrigin.clientOrigin });
         return Site { clientOrigin.topOrigin } == *m_site && Site { clientOrigin.clientOrigin } == *m_site;
     }
-    return m_committedClientOrigins.contains(clientOrigin);
+
+    return false;
 }
 
 void WebProcessProxy::didCommitLoadClientOrigin(WebCore::ClientOrigin&& clientOrigin)
@@ -1704,8 +1717,10 @@ void WebProcessProxy::maybeShutDown()
     if (state() == State::Terminated || m_isShuttingDown || !canTerminateAuxiliaryProcess())
         return;
 
-    if (canBeAddedToWebProcessCache() && protect(processPool().webProcessCache())->addProcessIfPossible(*this))
+    if (canBeAddedToWebProcessCache() && protect(processPool().webProcessCache())->addProcessIfPossible(*this)) {
+        WEBPROCESSPROXY_RELEASE_LOG(ProcessSwapping, "maybeShutDown: adding process to WebProcess cache (isSharedProcess=%d, frameProcessCount=%" PRIu64 ")", isSharedProcess(), m_frameProcessCount);
         return;
+    }
 
     shutDown();
 }
@@ -2347,6 +2362,7 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
         ASSERT((m_site && *m_site == site) || m_site.error() == SiteState::SharedProcess);
     else {
         // Associate the process with this site.
+        m_committedSites.add(site);
         m_site = WTF::move(site);
     }
 }
@@ -2360,6 +2376,7 @@ void WebProcessProxy::didStartUsingProcessForSiteIsolation(const std::optional<W
         return;
     }
     ASSERT(m_site ? (m_site.value().isEmpty() || m_site.value() == *site || !m_hasCommittedAnyProvisionalLoads) : (m_site.error() == SiteState::NotYetSpecified || m_site.error() == SiteState::MultipleSites));
+    m_committedSites.add(*site);
     m_site = *site;
 }
 

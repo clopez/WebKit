@@ -413,7 +413,6 @@ imported/w3c/web-platform-tests/css/css-text/white-space/hanging-whitespace-001.
 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-062.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-063.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/word-spacing/word-spacing-001.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-text/white-space/text-wrap-balance-line-clamp-002.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/white-space/text-wrap-balance-line-clamp-005.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/white-space/text-wrap-balance-line-clamp-006.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/scale-transform-overlap.html [ Pass ]
@@ -981,6 +980,8 @@ accessibility/text-stitching-after-atomic-inline.html [ Skip ]
 accessibility/text-stitching-end-text-marker.html [ Skip ]
 accessibility/text-stitching-inside-links.html [ Skip ]
 
+webkit.org/b/316359 accessibility/aria-hidden-deep-dom-no-crash.html [ Timeout Pass ]
+
 # Timed out since it was introduced.
 accessibility/css-content-alt-text.html [ Skip ]
 
@@ -1316,9 +1317,6 @@ fast/block/scroll-overflow-in-vertical-writing-mode.html [ ImageOnlyFailure Pass
 imported/blink/fast/pagination/viewport-y-horizontal-tb-rtl.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/213114 fast/flexbox/line-clamp-with-anchor-content-only.html [ ImageOnlyFailure ]
-
-webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-variable.html [ ImageOnlyFailure ]
-webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-backslant-variable.html [ ImageOnlyFailure ]
 
 # fast/gradients are Skip in the top level Expectation. When fixing, change this to
 # Pass instead of removing this line.
@@ -1845,10 +1843,7 @@ webkit.org/b/210486 imported/w3c/web-platform-tests/media-source/mediasource-cor
 
 webkit.org/b/226804 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Failure Timeout ]
 
-webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-trackdefaultlist.html [ Failure ]
 webkit.org/b/210341 media/media-source/media-mp4-h264-sequence-mode.html [ Failure ]
-webkit.org/b/210342 imported/w3c/web-platform-tests/media-source/mediasource-sourcebuffer-trackdefaults.html [ Failure ]
-webkit.org/b/210342 imported/w3c/web-platform-tests/media-source/mediasource-trackdefault.html [ Failure ]
 
 webkit.org/b/146720 media/accessibility-describes-video.html [ Failure ]
 
@@ -1912,6 +1907,8 @@ imported/w3c/web-platform-tests/webcodecs/videoFrame-canvasImageSource.html [ Pa
 imported/w3c/web-platform-tests/webcodecs/videoFrame-createImageBitmap.any.worker.html [ Pass ]
 imported/w3c/web-platform-tests/webcodecs/full-cycle-test.https.any.html?av1_444_high [ Pass ]
 imported/w3c/web-platform-tests/webcodecs/full-cycle-test.https.any.worker.html?av1_444_high [ Pass ]
+
+http/tests/webcodecs/vp9-hdr.html [ Failure ]
 
 # Test decoding a corrupt frame after reset in a flush callback assert_unreached: Should have rejected: undefined Reached unreachable code
 imported/w3c/web-platform-tests/webcodecs/videoDecoder-codec-specific.https.any.html?av1 [ Failure ]
@@ -3744,6 +3741,8 @@ webkit.org/b/242145 media/mediacapabilities/mediacapabilities-allowed-containers
 media/media-allowed-codecs.html [ Skip ]
 media/media-allowed-containers.html [ Skip ]
 media/media-source/media-source-allowed-codecs.html [ Skip ]
+webkit.org/b/316466 media/media-source/media-managedmse-adts-aac.html [ Failure ]
+webkit.org/b/316466 media/media-source/media-managedmse-adts-aac-remove.html [ Failure ]
 
 webkit.org/b/214166 imported/w3c/web-platform-tests/media-source/idlharness.window.html [ Skip ]
 
@@ -4328,7 +4327,6 @@ webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-03.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/font-variation-settings-descriptor-04.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/matching/font-weight-search-direction.html [ ImageOnlyFailure ]
-webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-bold-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/315568 imported/w3c/web-platform-tests/css/css-fonts/synthetic-oblique-out-of-capabilities-range.html [ ImageOnlyFailure ]
 webkit.org/b/207711 [ Debug ] fast/selectors/slow-style-sharing-with-long-cousin-list.html [ Slow ]
 webkit.org/b/208368 imported/w3c/web-platform-tests/wasm/jsapi/constructor/instantiate-bad-imports.any.worker.html [ Failure Pass ]
@@ -4781,7 +4779,7 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_background_properties.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_background_shorthand.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_color.html [ Pass ]
-webkit.org/b/316195 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_namespace.html [ Crash Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_namespace.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_outline_properties.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_outline_shorthand.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_text-decoration_line-through.html [ Pass ]
@@ -5518,6 +5516,7 @@ ipc/serialized-type-info.html [ Skip ]
 ipc/stream-sync-reply-shared-memory.html [ Skip ]
 ipc/convert-to-luminance-mask-float16.html [ Skip ]
 ipc/empty-svgfilterrenderer-expression-crash.html [ Skip ]
+webkit.org/b/297737 ipc/send-gradient.html [ Skip ]
 
 webkit.org/b/314373 media/media-source/media-source-real-webm-fastseek.html [ Failure ]
 webkit.org/b/314373 media/media-source/media-source-real-webm-remove.html [ Failure ]
@@ -5550,8 +5549,19 @@ webkit.org/b/316192 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-m
 
 webkit.org/b/316197 imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer-mode.html [ Crash Pass ]
 
+webkit.org/b/316421 media/track/in-band/track-in-band-srt-mkv-addtrack.html [ Pass Failure ]
+
+webkit.org/b/316424 fast/mediastream/enumerateDevices-camera-denied-expose-with-capture.html [ Pass Failure ]
+
+webkit.org/b/316427 animations/restart-after-scroll.html [ Pass Failure ]
+
+webkit.org/b/316428 imported/w3c/web-platform-tests/html/semantics/popovers/popover-focus-inert-invoker.html [ Pass Failure ]
+
 # Needs picture-in-picture support
 media/media-visible-in-viewport-in-fullscreen.html
+
+webkit.org/b/316573 fast/parser/empty-text-resource.html [ Pass Timeout ]
+webkit.org/b/316575 [ x86_64 ] http/tests/IndexedDB/collect-IDB-objects.https.html [ Pass Crash ]
 
 # End: Common failures between GTK and WPE.
 

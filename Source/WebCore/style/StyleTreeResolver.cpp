@@ -65,11 +65,11 @@
 #include "StyleAdjuster.h"
 #include "StyleBuilder.h"
 #include "StyleComputedStyle+SettersInlines.h"
+#include "StyleDocumentScope.h"
 #include "StyleFontSizeFunctions.h"
 #include "StyleOriginatedTimelinesController.h"
 #include "StylePositionTryFallbackTactic.h"
 #include "StyleResolver.h"
-#include "StyleScope.h"
 #include "StyleTreeResolverInlines.h"
 #include "SVGElement.h"
 #include "Text.h"
@@ -1996,9 +1996,9 @@ unsigned TreeResolver::maximumRenderTreeDepth()
 {
     static unsigned maximum = [] {
 #if PLATFORM(IOS)
-        if (WTF::IOSApplication::isMaild()) {
-            static const unsigned maximumMaildRenderTreeDepth = 100;
-            return maximumMaildRenderTreeDepth;
+        if (WTF::IOSApplication::isMaild() || WTF::IOSApplication::isMobileMail()) {
+            static const unsigned maximumMailRenderTreeDepth = 100;
+            return maximumMailRenderTreeDepth;
         }
 #endif
         return Settings::defaultMaximumRenderTreeDepth;

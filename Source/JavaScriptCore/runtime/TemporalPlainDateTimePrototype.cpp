@@ -258,7 +258,7 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncWith, (JSGlobalObject
         RETURN_IF_EXCEPTION(scope, 0.0);
         if (v.isUndefined())
             return std::numeric_limits<double>::quiet_NaN();
-        double dv = v.toIntegerOrInfinity(globalObject);
+        double dv = v.toIntegerWithTruncation(globalObject);
         RETURN_IF_EXCEPTION(scope, 0.0);
         if (!std::isfinite(dv)) [[unlikely]] {
             throwRangeError(globalObject, scope, "field value must be finite"_s);
@@ -273,7 +273,7 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncWith, (JSGlobalObject
         JSValue v = fields->get(globalObject, vm.propertyNames->day);
         RETURN_IF_EXCEPTION(scope, { });
         if (!v.isUndefined()) {
-            double d = v.toIntegerOrInfinity(globalObject);
+            double d = v.toIntegerWithTruncation(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (!(d > 0 && std::isfinite(d))) [[unlikely]]
                 return throwVMRangeError(globalObject, scope, "day must be a positive finite integer"_s);
@@ -294,7 +294,7 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncWith, (JSGlobalObject
         JSValue eraYearVal = fields->get(globalObject, Identifier::fromString(vm, "eraYear"_s));
         RETURN_IF_EXCEPTION(scope, { });
         if (!eraYearVal.isUndefined()) {
-            double ey = eraYearVal.toIntegerOrInfinity(globalObject);
+            double ey = eraYearVal.toIntegerWithTruncation(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (!std::isfinite(ey)) [[unlikely]]
                 return throwVMRangeError(globalObject, scope, "eraYear must be finite"_s);
@@ -320,7 +320,7 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncWith, (JSGlobalObject
         JSValue v = fields->get(globalObject, vm.propertyNames->month);
         RETURN_IF_EXCEPTION(scope, { });
         if (!v.isUndefined()) {
-            double m = v.toIntegerOrInfinity(globalObject);
+            double m = v.toIntegerWithTruncation(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (!(m > 0 && std::isfinite(m))) [[unlikely]]
                 return throwVMRangeError(globalObject, scope, "month must be a positive finite integer"_s);
@@ -354,7 +354,7 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncWith, (JSGlobalObject
         JSValue v = fields->get(globalObject, vm.propertyNames->year);
         RETURN_IF_EXCEPTION(scope, { });
         if (!v.isUndefined()) {
-            double y = v.toIntegerOrInfinity(globalObject);
+            double y = v.toIntegerWithTruncation(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             if (!std::isfinite(y)) [[unlikely]]
                 return throwVMRangeError(globalObject, scope, "year must be finite"_s);
@@ -487,9 +487,9 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncToZonedDateTime, (JSG
         return throwVMTypeError(globalObject, scope, "Temporal.PlainDateTime.prototype.toZonedDateTime called on value that's not a PlainDateTime"_s);
 
     // Step 3: Let timeZone be ? ToTemporalTimeZoneIdentifier(temporalTimeZoneLike).
-    auto tzRecord = toTemporalTimeZoneIdentifier(globalObject, callFrame->argument(0));
+    auto timeZone = toTemporalTimeZoneIdentifier(globalObject, callFrame->argument(0));
     RETURN_IF_EXCEPTION(scope, { });
-    ASSERT(tzRecord);
+    ASSERT(timeZone);
 
     // Step 4: Let resolvedOptions be ? GetOptionsObject(options).
     JSObject* options = intlGetOptionsObject(globalObject, callFrame->argument(1));
@@ -500,11 +500,11 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncToZonedDateTime, (JSG
     RETURN_IF_EXCEPTION(scope, { });
 
     // Step 6: Let epochNs be ? GetEpochNanosecondsFor(timeZone, plainDateTime.[[ISODateTime]], disambiguation).
-    auto exactTimeOpt = TemporalZonedDateTime::getEpochNanosecondsFor(globalObject, tzRecord->timeZone, plainDateTime->plainDate(), plainDateTime->plainTime(), disambiguation);
+    auto exactTimeOpt = TemporalZonedDateTime::getEpochNanosecondsFor(globalObject, *timeZone, plainDateTime->plainDate(), plainDateTime->plainTime(), disambiguation);
     RETURN_IF_EXCEPTION(scope, { });
 
     // Step 7: Return ! CreateTemporalZonedDateTime(epochNs, timeZone, plainDateTime.[[Calendar]]).
-    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalZonedDateTime::create(vm, globalObject->zonedDateTimeStructure(), *exactTimeOpt, tzRecord->timeZone, WTF::move(tzRecord->identifier), plainDateTime->calendarID())));
+    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalZonedDateTime::create(vm, globalObject->zonedDateTimeStructure(), *exactTimeOpt, *timeZone, plainDateTime->calendarID())));
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.toplaindate
@@ -923,10 +923,9 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainDateTimePrototypeFuncSince, (JSGlobalObjec
     auto* other = TemporalPlainDateTime::from(globalObject, callFrame->argument(0), jsUndefined());
     RETURN_IF_EXCEPTION(scope, { });
 
-    // Steps 4-5: GetDifferenceSettings; negate roundingMode for since.
-    auto [smallestUnit, largestUnit, roundingMode, increment] = extractDifferenceOptions(globalObject, callFrame->argument(1), UnitGroup::DateTime, TemporalUnit::Nanosecond, TemporalUnit::Day);
+    // Steps 4-5: GetDifferenceSettings(~since~, ...).
+    auto [smallestUnit, largestUnit, roundingMode, increment] = extractDifferenceOptions(globalObject, callFrame->argument(1), UnitGroup::DateTime, TemporalUnit::Nanosecond, TemporalUnit::Day, DifferenceOperation::Since);
     RETURN_IF_EXCEPTION(scope, { });
-    roundingMode = TemporalCore::negateTemporalRoundingMode(roundingMode);
 
     // Steps 6-9: DifferenceISODateTime + CreateTemporalDuration.
     auto result = plainDateTime->differenceTemporalPlainDateTime(globalObject, DifferenceOperation::Since, other, smallestUnit, largestUnit, roundingMode, increment);

@@ -813,7 +813,7 @@ class YarrGenerator final : public YarrJITInfo {
         m_jit.loadPair32(parenContextGPR, MacroAssembler::TrustedImm32(ParenContext::beginOffset()), beginGPR, matchAmountGPR);
     }
 
-    void saveParenContext(MacroAssembler::RegisterID parenContextReg, MacroAssembler::RegisterID tempReg, unsigned firstSubpattern, unsigned lastSubpattern, unsigned subpatternBaseFrameLocation)
+    void saveParenContext(MacroAssembler::RegisterID parenContextReg, MacroAssembler::RegisterID matchAmountReg, unsigned firstSubpattern, unsigned lastSubpattern, unsigned subpatternBaseFrameLocation, bool savesReturnAddress)
     {
         BitVector duplicateNamedCaptureGroups;
         bool hasNamedCaptures = m_pattern.hasDuplicateNamedCaptureGroups();
@@ -823,10 +823,17 @@ class YarrGenerator final : public YarrJITInfo {
         // so that on backtrack we can restore it and either accept fewer iterations or
         // re-drive an earlier iteration's content. Used uniformly for FixedCount,
         // Greedy and NonGreedy (FixedCount is simply min == max).
-        loadFromFrame(subpatternBaseFrameLocation + BackTrackInfoParentheses::matchAmountIndex(), tempReg);
-        storeBeginAndMatchAmountToParenContext(m_regs.index, tempReg, parenContextReg);
-        loadFromFrame(subpatternBaseFrameLocation + BackTrackInfoParentheses::returnAddressIndex(), tempReg);
-        m_jit.storePtr(tempReg, MacroAssembler::Address(parenContextReg, ParenContext::returnAddressOffset()));
+        //
+        // matchAmountReg is pre-loaded by the caller and survives this call.
+        storeBeginAndMatchAmountToParenContext(m_regs.index, matchAmountReg, parenContextReg);
+        // returnAddress is only written by NestedAlternativeNext/End during the
+        // forward pass (multi-alt parens). For single-alt parens nothing ever
+        // writes or reads it, so the save/restore round-trip is pure overhead.
+        if (savesReturnAddress) {
+            m_jit.transferPtr(
+                frameAddress().withOffset((subpatternBaseFrameLocation + BackTrackInfoParentheses::returnAddressIndex()) * sizeof(uintptr_t)),
+                MacroAssembler::Address(parenContextReg, ParenContext::returnAddressOffset()));
+        }
         if (shouldRecordSubpatterns()) {
             for (unsigned subpattern = firstSubpattern; subpattern <= lastSubpattern; subpattern++) {
                 static_assert(is64Bit());
@@ -841,19 +848,21 @@ class YarrGenerator final : public YarrJITInfo {
                 clearSubpattern(subpattern);
             }
             for (unsigned duplicateNamedGroupId : duplicateNamedCaptureGroups) {
-                loadDuplicateNamedGroupSubpatternId(duplicateNamedGroupId, tempReg);
-                m_jit.store32(tempReg, MacroAssembler::Address(parenContextReg, ParenContext::duplicateNamedCaptureOffset(m_parenContextSizes, duplicateNamedGroupId)));
+                m_jit.transfer32(
+                    duplicateNamedGroupAddress(duplicateNamedGroupId),
+                    MacroAssembler::Address(parenContextReg, ParenContext::duplicateNamedCaptureOffset(m_parenContextSizes, duplicateNamedGroupId)));
                 storeDuplicateNamedGroupSubpatternId(duplicateNamedGroupId, 0);
             }
         }
         subpatternBaseFrameLocation += YarrStackSpaceForBackTrackInfoParentheses;
         for (unsigned frameLocation = subpatternBaseFrameLocation; frameLocation < m_parenContextSizes.frameSlots(); frameLocation++) {
-            loadFromFrame(frameLocation, tempReg);
-            m_jit.storePtr(tempReg, MacroAssembler::Address(parenContextReg, ParenContext::savedFrameOffset(m_parenContextSizes) + frameLocation * sizeof(uintptr_t)));
+            m_jit.transferPtr(
+                frameAddress().withOffset(frameLocation * sizeof(uintptr_t)),
+                MacroAssembler::Address(parenContextReg, ParenContext::savedFrameOffset(m_parenContextSizes) + frameLocation * sizeof(uintptr_t)));
         }
     }
 
-    void restoreParenContext(MacroAssembler::RegisterID parenContextReg, MacroAssembler::RegisterID tempReg, unsigned firstSubpattern, unsigned lastSubpattern, unsigned subpatternBaseFrameLocation)
+    void restoreParenContext(MacroAssembler::RegisterID parenContextReg, MacroAssembler::RegisterID tempReg, unsigned firstSubpattern, unsigned lastSubpattern, unsigned subpatternBaseFrameLocation, bool savesReturnAddress)
     {
         BitVector duplicateNamedCaptureGroups;
         bool hasNamedCaptures = m_pattern.hasDuplicateNamedCaptureGroups();
@@ -861,8 +870,11 @@ class YarrGenerator final : public YarrJITInfo {
         loadBeginAndMatchAmountFromParenContext(parenContextReg, m_regs.index, tempReg);
         storeToFrame(m_regs.index, subpatternBaseFrameLocation + BackTrackInfoParentheses::beginIndex());
         storeToFrame(tempReg, subpatternBaseFrameLocation + BackTrackInfoParentheses::matchAmountIndex());
-        m_jit.loadPtr(MacroAssembler::Address(parenContextReg, ParenContext::returnAddressOffset()), tempReg);
-        storeToFrame(tempReg, subpatternBaseFrameLocation + BackTrackInfoParentheses::returnAddressIndex());
+        if (savesReturnAddress) {
+            m_jit.transferPtr(
+                MacroAssembler::Address(parenContextReg, ParenContext::returnAddressOffset()),
+                frameAddress().withOffset((subpatternBaseFrameLocation + BackTrackInfoParentheses::returnAddressIndex()) * sizeof(void*)));
+        }
         if (shouldRecordSubpatterns()) {
             for (unsigned subpattern = firstSubpattern; subpattern <= lastSubpattern; subpattern++) {
                 static_assert(is64Bit());
@@ -874,14 +886,16 @@ class YarrGenerator final : public YarrJITInfo {
                 }
             }
             for (unsigned duplicateNamedGroupId : duplicateNamedCaptureGroups) {
-                m_jit.load32(MacroAssembler::Address(parenContextReg, ParenContext::duplicateNamedCaptureOffset(m_parenContextSizes, duplicateNamedGroupId)), tempReg);
-                storeDuplicateNamedGroupSubpatternIdFromReg(duplicateNamedGroupId, tempReg);
+                m_jit.transfer32(
+                    MacroAssembler::Address(parenContextReg, ParenContext::duplicateNamedCaptureOffset(m_parenContextSizes, duplicateNamedGroupId)),
+                    duplicateNamedGroupAddress(duplicateNamedGroupId));
             }
         }
         subpatternBaseFrameLocation += YarrStackSpaceForBackTrackInfoParentheses;
         for (unsigned frameLocation = subpatternBaseFrameLocation; frameLocation < m_parenContextSizes.frameSlots(); frameLocation++) {
-            m_jit.loadPtr(MacroAssembler::Address(parenContextReg, ParenContext::savedFrameOffset(m_parenContextSizes) + frameLocation * sizeof(uintptr_t)), tempReg);
-            storeToFrame(tempReg, frameLocation);
+            m_jit.transferPtr(
+                MacroAssembler::Address(parenContextReg, ParenContext::savedFrameOffset(m_parenContextSizes) + frameLocation * sizeof(uintptr_t)),
+                frameAddress().withOffset(frameLocation * sizeof(void*)));
         }
     }
 #endif
@@ -2952,6 +2966,17 @@ class YarrGenerator final : public YarrJITInfo {
 
         m_backtrackingState.link(*this, op);
 
+        if (term->possessive()) {
+            // When term is possessive, we do not need to do backtracking.
+            // Just rewind index completely and falling through to the next backtracking.
+            loadFromFrame(term->frameLocation + BackTrackInfoPatternCharacter::matchAmountIndex(), countRegister);
+            if (m_decodeSurrogatePairs && !U_IS_BMP(term->patternCharacter))
+                m_jit.lshift32(MacroAssembler::TrustedImm32(1), countRegister);
+            m_jit.sub32(countRegister, m_regs.index);
+            m_backtrackingState.fallthrough();
+            return;
+        }
+
         loadFromFrame(term->frameLocation + BackTrackInfoPatternCharacter::matchAmountIndex(), countRegister);
         m_backtrackingState.append(m_jit.branchTest32(MacroAssembler::Zero, countRegister));
         m_jit.sub32(MacroAssembler::TrustedImm32(1), countRegister);
@@ -3265,6 +3290,18 @@ class YarrGenerator final : public YarrJITInfo {
         const MacroAssembler::RegisterID countRegister = m_regs.regT1;
 
         m_backtrackingState.link(*this, op);
+
+        // Leveraging possessive flag to optimize this backtracking by rewinding entire matching so far.
+        // Important thing is possessive in YarrJIT is optional optimization flag: we can leverage this only when we can use it easily.
+        // We can completely ignore this flag and still this is OK.
+        if (term->possessive() && (!m_decodeSurrogatePairs || term->isFixedWidthCharacterClass())) {
+            loadFromFrame(term->frameLocation + BackTrackInfoCharacterClass::matchAmountIndex(), countRegister);
+            if (m_decodeSurrogatePairs && term->characterClass->hasNonBMPCharacters())
+                m_jit.lshift32(MacroAssembler::TrustedImm32(1), countRegister); // 2 code units per match.
+            m_jit.sub32(countRegister, m_regs.index);
+            m_backtrackingState.fallthrough();
+            return;
+        }
 
         loadFromFrame(term->frameLocation + BackTrackInfoCharacterClass::matchAmountIndex(), countRegister);
         m_backtrackingState.append(m_jit.branchTest32(MacroAssembler::Zero, countRegister));
@@ -4289,27 +4326,26 @@ class YarrGenerator final : public YarrJITInfo {
                 defineReentryLabel(op);
                 MacroAssembler::RegisterID currParenContextReg = m_regs.regT0;
                 MacroAssembler::RegisterID newParenContextReg = m_regs.regT1;
+                MacroAssembler::RegisterID countTemporary = m_regs.regT2;
 
                 loadFromFrame(parenthesesFrameLocation + BackTrackInfoParentheses::parenContextHeadIndex(), currParenContextReg);
                 allocateParenContext(newParenContextReg);
                 m_jit.storePtr(currParenContextReg, MacroAssembler::Address(newParenContextReg, ParenContext::nextOffset()));
                 storeToFrame(newParenContextReg, parenthesesFrameLocation + BackTrackInfoParentheses::parenContextHeadIndex());
 
+                loadFromFrame(parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex(), countTemporary);
+
                 // Save the pre-iteration state (save-at-BEGIN) and clear nested captures
-                // so this iteration starts fresh.
-                saveParenContext(newParenContextReg, m_regs.regT2, term->parentheses.subpatternId, term->parentheses.lastSubpatternId, parenthesesFrameLocation);
+                // so this iteration starts fresh. We only persist returnAddress for multi-alt parens (single-alt never writes it).
+                bool savesReturnAddress = term->parentheses.disjunction->m_alternatives.size() > 1;
+                saveParenContext(newParenContextReg, countTemporary, term->parentheses.subpatternId, term->parentheses.lastSubpatternId, parenthesesFrameLocation, savesReturnAddress);
 
                 // This iteration's context is now on the stack: bump matchAmount. The
                 // save above captured the pre-increment count, so the popped context
                 // restores exactly this value on backtrack. (The NonGreedy min==0 skip
                 // path jumps over this push, leaving matchAmount == 0.)
-                {
-                    const MacroAssembler::RegisterID countTemporary = m_regs.regT2;
-                    loadFromFrame(parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex(), countTemporary);
-                    m_jit.add32(MacroAssembler::TrustedImm32(1), countTemporary);
-                    storeToFrame(countTemporary, parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex());
-                }
-
+                m_jit.add32(MacroAssembler::TrustedImm32(1), countTemporary);
+                storeToFrame(countTemporary, parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex());
                 storeToFrame(m_regs.index, parenthesesFrameLocation + BackTrackInfoParentheses::beginIndex());
 
                 // If the parenthese are capturing, store the starting index value to the
@@ -5043,7 +5079,8 @@ class YarrGenerator final : public YarrJITInfo {
                 //     (Greedy at/above min) or re-drive the now-topmost iteration's content
                 //     (FixedCount / below min / NonGreedy). FixedCount has min == max, so
                 //     it never accepts fewer.
-                restoreParenContext(currParenContextReg, m_regs.regT2, term->parentheses.subpatternId, term->parentheses.lastSubpatternId, parenthesesFrameLocation);
+                bool savesReturnAddress = term->parentheses.disjunction->m_alternatives.size() > 1;
+                restoreParenContext(currParenContextReg, m_regs.regT2, term->parentheses.subpatternId, term->parentheses.lastSubpatternId, parenthesesFrameLocation, savesReturnAddress);
 
                 m_jit.loadPtr(MacroAssembler::Address(currParenContextReg, ParenContext::nextOffset()), newParenContextReg);
                 freeParenContext(currParenContextReg);
@@ -7354,7 +7391,6 @@ private:
     RegisterAtOffsetList m_calleeSaves;
     MacroAssembler::JumpList m_abortExecution;
     MacroAssembler::JumpList m_hitMatchLimit;
-    MacroAssembler::Label m_tryReadUnicodeCharacterEntry;
     MacroAssembler::JumpList m_inlinedMatched;
     MacroAssembler::JumpList m_inlinedFailedMatch;
 

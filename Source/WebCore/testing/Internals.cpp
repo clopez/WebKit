@@ -247,10 +247,10 @@
 #include "StorageNamespaceProvider.h"
 #include "StreamTransferUtilities.h"
 #include "StringCallback.h"
+#include "StyleDocumentScope.h"
 #include "StyleGridPosition.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
-#include "StyleScope.h"
 #include "StyleSheetContents.h"
 #include "SystemSoundManager.h"
 #include "TextIterator.h"
@@ -1357,6 +1357,12 @@ void Internals::setHasHDRContentForTesting(HTMLImageElement& element)
 bool Internals::hasPendingActivity(const WebCodecsVideoDecoder& decoder) const
 {
     return decoder.hasPendingActivity();
+}
+
+bool Internals::is10bitsVideoFrame(const WebCodecsVideoFrame& frame) const
+{
+    RefPtr videoFrame = frame.internalFrame();
+    return videoFrame && videoFrame->is10bits();
 }
 #endif
 

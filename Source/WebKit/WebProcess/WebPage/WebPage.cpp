@@ -867,8 +867,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 
     m_corsDisablingPatterns = WTF::move(parameters.corsDisablingPatterns);
-    if (!m_corsDisablingPatterns.isEmpty())
-        synchronizeCORSDisablingPatternsWithNetworkProcess();
     pageConfiguration.corsDisablingPatterns = parseAndAllowAccessToCORSDisablingPatterns(m_corsDisablingPatterns);
 
     pageConfiguration.maskedURLSchemes = WTF::move(parameters.maskedURLSchemes);
@@ -927,27 +925,14 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     }
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    if (parameters.store.getBoolValueForKey(WebPreferencesKey::remoteMediaSessionManagerEnabledKey()) || parameters.store.getBoolValueForKey(WebPreferencesKey::siteIsolationSharedProcessEnabledKey())) {
+    if (parameters.store.getBoolValueForKey(WebPreferencesKey::remoteMediaSessionManagerEnabledKey()) || parameters.store.getBoolValueForKey(WebPreferencesKey::siteIsolationEnabledKey())) {
         pageConfiguration.mediaSessionManagerFactory = [weakThis = WeakPtr { *this }](PageIdentifier) -> RefPtr<MediaSessionManagerInterface> {
 
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return nullptr;
 
-            // FIXME: This is often null with site isolation enabled. It seems like this is not what was intended.
-            RefPtr topDocument = protectedThis->localTopDocument();
-            if (!topDocument)
-                return nullptr;
-
-            RefPtr topCorePage = topDocument->page();
-            if (!topCorePage)
-                return nullptr;
-
-            RefPtr topWebPage = WebPage::fromCorePage(*topCorePage);
-            if (!topWebPage)
-                return nullptr;
-
-            RefPtr<PlatformMediaSessionManager> manager = RemoteMediaSessionManager::create(*topWebPage, *protectedThis);
+            RefPtr<PlatformMediaSessionManager> manager = RemoteMediaSessionManager::create(*protectedThis);
             manager->resetRestrictions();
 
             return manager;
@@ -1633,11 +1618,6 @@ WebPage::~WebPage()
 {
     ASSERT(!m_page);
     WEBPAGE_RELEASE_LOG(Loading, "destructor:");
-
-    if (!m_corsDisablingPatterns.isEmpty()) {
-        m_corsDisablingPatterns.clear();
-        synchronizeCORSDisablingPatternsWithNetworkProcess();
-    }
 
     platformDetach();
 
@@ -2344,8 +2324,7 @@ void WebPage::loadDataInFrame(std::span<const uint8_t> data, String&& type, Stri
     frame->coreLocalFrame()->loader().load(FrameLoadRequest(*frame->coreLocalFrame(), ResourceRequest(WTF::move(baseURL)), WTF::move(substituteData)));
 }
 
-#if ENABLE(CONTENT_EXTENSIONS)
-void WebPage::applyResourceMonitorUnloadToIFrameElement(FrameIdentifier frameID)
+void WebPage::applyMonitorUnloadToIFrameElement(FrameIdentifier frameID, WebCore::IFrameUnloadReason reason)
 {
     RefPtr frame = WebProcess::singleton().webFrame(frameID);
     if (!frame)
@@ -2364,9 +2343,17 @@ void WebPage::applyResourceMonitorUnloadToIFrameElement(FrameIdentifier frameID)
     if (!iframeElement)
         return;
 
-    LocalFrame::applyResourceMonitorErrorToIFrameElement(*iframeElement);
-}
+    switch (reason) {
+    case WebCore::IFrameUnloadReason::MemoryMonitor:
+        LocalFrame::applyMemoryMonitorErrorToIFrameElement(*iframeElement);
+        return;
+    case WebCore::IFrameUnloadReason::ResourceMonitor:
+#if ENABLE(CONTENT_EXTENSIONS)
+        LocalFrame::applyResourceMonitorErrorToIFrameElement(*iframeElement);
 #endif
+        return;
+    }
+}
 
 #if !PLATFORM(COCOA)
 void WebPage::platformDidReceiveLoadParameters(const LoadParameters& loadParameters)
@@ -2674,7 +2661,9 @@ void WebPage::goToBackForwardItem(GoToBackForwardItemParameters&& parameters)
         targetFrame = historyItemFrame.releaseNonNull();
 
     if (RefPtr targetLocalFrame = targetFrame->provisionalFrame() ? targetFrame->provisionalFrame() : targetFrame->coreLocalFrame()) {
-        if (!targetLocalFrame->loader().shouldProceedWithAsyncBackForwardNavigation()) {
+        bool wasCancelled = targetLocalFrame->loader().asyncBackForwardNavigationWasCancelled();
+        targetLocalFrame->loader().clearAsyncBackForwardNavigationState();
+        if (wasCancelled) {
             WEBPAGE_RELEASE_LOG(Loading, "goToBackForwardItem: Skipping because pending async back/forward traversal was cancelled");
             return;
         }
@@ -5127,7 +5116,9 @@ void WebPage::adjustSettingsForLockdownMode(Settings& settings, const WebPrefere
     Settings::disableGlobalUnstableFeaturesForModernWebKit();
     settings.disableFeaturesForLockdownMode();
 
-    if (WebPreferences::forcedSiteIsolationAlwaysOnForTesting() && originalSiteIsolationEnabled)
+    // Though SiteIsolationEnabled is still unstable, web process must stay in sync with the UI process
+    // setting to avoid IPC state mismatch.
+    if (originalSiteIsolationEnabled)
         settings.setSiteIsolationEnabled(true);
 
 #if PLATFORM(COCOA)
@@ -8364,7 +8355,8 @@ void WebPage::dismissImmersiveElement(CompletionHandler<void()>&& completion)
 
 void WebPage::exitImmersive(CompletionHandler<void()>&& completion)
 {
-    if (RefPtr localTopDocument = this->localTopDocument(); RefPtr protectedImmersive = localTopDocument->immersiveIfExists())
+    RefPtr localTopDocument = this->localTopDocument();
+    if (RefPtr protectedImmersive = localTopDocument ? localTopDocument->immersiveIfExists() : nullptr)
         protectedImmersive->exitImmersiveIfNeeded(WTF::move(completion));
     else
         completion();
@@ -9422,14 +9414,7 @@ void WebPage::updateCORSDisablingPatterns(Vector<String>&& patterns)
         return;
 
     m_corsDisablingPatterns = WTF::move(patterns);
-    synchronizeCORSDisablingPatternsWithNetworkProcess();
     page->setCORSDisablingPatterns(parseAndAllowAccessToCORSDisablingPatterns(m_corsDisablingPatterns));
-}
-
-void WebPage::synchronizeCORSDisablingPatternsWithNetworkProcess()
-{
-    // FIXME: We should probably have this mechanism done between UIProcess and NetworkProcess directly.
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::SetCORSDisablingPatterns(m_identifier, m_corsDisablingPatterns), 0);
 }
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)

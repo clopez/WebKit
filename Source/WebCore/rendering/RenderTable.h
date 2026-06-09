@@ -70,8 +70,6 @@ public:
     inline LayoutUnit borderTop() const final;
     inline LayoutUnit borderBottom() const final;
 
-    Color bgColor() const { return protect(style())->visitedDependentBackgroundColorApplyingColorFilter(); }
-
     LayoutUnit outerBorderBefore() const;
     LayoutUnit outerBorderAfter() const;
     LayoutUnit outerBorderStart() const;
@@ -104,10 +102,6 @@ public:
         m_columnLogicalWidthChanged |= m_columnPos[index] != position;
         m_columnPos[index] = position;
     }
-
-    RenderTableSection* NODELETE header() const;
-    RenderTableSection* NODELETE footer() const;
-    RenderTableSection* NODELETE firstBody() const;
 
     // This function returns 0 if the table has no section.
     RenderTableSection* NODELETE topSection() const;
@@ -185,7 +179,7 @@ public:
     RenderTableCell* cellBefore(const RenderTableCell*) const;
     RenderTableCell* cellAfter(const RenderTableCell*) const;
  
-    typedef Vector<CollapsedBorderValue> CollapsedBorderValues;
+    using CollapsedBorderValues = Vector<CollapsedBorderValue>;
     bool collapsedBordersAreValid() const { return m_collapsedBordersValid; }
     void invalidateCollapsedBorders(RenderTableCell* cellWithStyleChange = nullptr);
     void invalidateCollapsedBordersAfterStyleChangeIfNeeded(const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle, RenderTableCell* cellWithStyleChange = nullptr);
@@ -285,16 +279,16 @@ protected:
     std::unique_ptr<TableLayout> m_tableLayout;
 
     CollapsedBorderValues m_collapsedBorders;
-    const CollapsedBorderValue* m_currentBorder;
-    bool m_collapsedBordersValid : 1;
-    bool m_collapsedEmptyBorderIsPresent : 1;
+    const CollapsedBorderValue* m_currentBorder { nullptr };
+    bool m_collapsedBordersValid : 1 { false };
+    bool m_collapsedEmptyBorderIsPresent : 1 { false };
 
-    mutable bool m_hasColElements : 1;
-    mutable bool m_needsSectionRecalc : 1;
+    mutable bool m_hasColElements : 1 { false };
+    mutable bool m_needsSectionRecalc : 1 { false };
 
-    bool m_columnLogicalWidthChanged : 1;
-    mutable bool m_columnRenderersValid: 1;
-    mutable bool m_hasCellColspanThatDeterminesTableWidth : 1;
+    bool m_columnLogicalWidthChanged : 1 { false };
+    mutable bool m_columnRenderersValid : 1 { false };
+    mutable bool m_hasCellColspanThatDeterminesTableWidth : 1 { false };
 
     bool hasCellColspanThatDeterminesTableWidth() const
     {
@@ -311,8 +305,8 @@ protected:
     LayoutUnit m_vSpacing;
     LayoutUnit m_borderStart;
     LayoutUnit m_borderEnd;
-    mutable LayoutUnit m_columnOffsetTop;
-    mutable LayoutUnit m_columnOffsetHeight;
+    mutable LayoutUnit m_columnOffsetTop { -1 };
+    mutable LayoutUnit m_columnOffsetHeight { -1 };
     unsigned m_recursiveSectionMovedWithPaginationLevel { 0 };
 };
 

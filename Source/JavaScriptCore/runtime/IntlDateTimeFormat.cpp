@@ -2190,8 +2190,8 @@ std::unique_ptr<UDateFormat, IntlDateTimeFormat::UDateFormatDeleter> IntlDateTim
 
     // Steps 7-8: BestFitFormatMatcher(formatOptions, formats).
     String generatorLocale = m_impl->m_dataLocale;
-    if (!generatorLocale.contains("calendar"_s) && !m_impl->m_calendar.isEmpty())
-        generatorLocale = makeString(generatorLocale, generatorLocale.contains('@') ? ";calendar="_s : "@calendar="_s, m_impl->m_calendar);
+    if (!m_impl->m_calendar.isEmpty())
+        generatorLocale = makeString(generatorLocale, "-u-ca-"_s, m_impl->m_calendar);
     auto generator = std::unique_ptr<UDateTimePatternGenerator, ICUDeleter<udatpg_close>>(udatpg_open(generatorLocale.utf8().data(), &status));
     if (U_FAILURE(status))
         return nullptr;
@@ -2255,8 +2255,10 @@ std::unique_ptr<UDateFormat, IntlDateTimeFormat::UDateFormatDeleter> IntlDateTim
     //     is observably equivalent because ICU's pattern generator respects hour-field length.
     Vector<char16_t, 32> formatOptions;
     if (!inheritAll && allowedFieldsForKind(kind).get('G')) {
-        if (m_impl->m_userSkeleton.contains(u'G'))
-            formatOptions.append(u'G');
+        for (auto ch : m_impl->m_userSkeleton) {
+            if (ch == u'G')
+                formatOptions.append(ch);
+        }
     }
 
     // Steps 13-14: anyPresent — whether the user set any date/time option.
@@ -2336,8 +2338,8 @@ std::unique_ptr<UDateFormat, IntlDateTimeFormat::UDateFormatDeleter> IntlDateTim
     // We always use best-fit (spec also allows basicFormatMatcher but best-fit is the default).
     // The hourCycle field from step 12 is applied post-pattern via replaceHourCycleInPattern.
     String generatorLocale = m_impl->m_dataLocale;
-    if (!generatorLocale.contains("calendar"_s) && !m_impl->m_calendar.isEmpty())
-        generatorLocale = makeString(generatorLocale, generatorLocale.contains('@') ? ";calendar="_s : "@calendar="_s, m_impl->m_calendar);
+    if (!m_impl->m_calendar.isEmpty())
+        generatorLocale = makeString(generatorLocale, "-u-ca-"_s, m_impl->m_calendar);
     auto generator = std::unique_ptr<UDateTimePatternGenerator, ICUDeleter<udatpg_close>>(udatpg_open(generatorLocale.utf8().data(), &status));
     if (U_FAILURE(status))
         return nullptr;

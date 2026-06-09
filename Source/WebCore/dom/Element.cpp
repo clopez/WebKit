@@ -150,13 +150,13 @@
 #include "ShadowRootInit.h"
 #include "SimulatedClick.h"
 #include "SlotAssignment.h"
+#include "StyleDocumentScope.h"
 #include "StyleableInlines.h"
 #include "StyleComputedStyle+SettersInlines.h"
 #include "StyleInvalidator.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
-#include "StyleScope.h"
 #include "StyleTreeResolver.h"
 #include "StyleZoomPrimitivesInlines.h"
 #include "TextIterator.h"
@@ -1427,8 +1427,8 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
         Style::adjustForAbsoluteZoom(renderer->scrollTop(), *renderer)
     );
     IntPoint scrollPosition(
-        clampToInteger(scrollToOptions.left.value() * renderer->style().usedZoom()),
-        clampToInteger(scrollToOptions.top.value() * renderer->style().usedZoom())
+        clampTo<int>(scrollToOptions.left.value() * renderer->style().usedZoom()),
+        clampTo<int>(scrollToOptions.top.value() * renderer->style().usedZoom())
     );
 
     auto animated = useSmoothScrolling(scrollToOptions.behavior, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
@@ -1767,14 +1767,14 @@ void Element::setScrollLeft(int newLeft)
 
     if (document->scrollingElement() == this) {
         if (RefPtr frame = documentFrameWithNonNullView()) {
-            IntPoint position(clampToInteger(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
+            IntPoint position(clampTo<int>(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
             protect(frame->view())->setScrollPosition(position, options);
         }
         return;
     }
 
     if (CheckedPtr renderer = renderBox()) {
-        int clampedLeft = clampToInteger(newLeft * renderer->style().usedZoom());
+        int clampedLeft = clampTo<int>(newLeft * renderer->style().usedZoom());
         renderer->setScrollLeft(clampedLeft, options);
         if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
@@ -1795,14 +1795,14 @@ void Element::setScrollTop(int newTop)
 
     if (document->scrollingElement() == this) {
         if (RefPtr frame = documentFrameWithNonNullView()) {
-            IntPoint position(frame->view()->scrollX(), clampToInteger(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
+            IntPoint position(frame->view()->scrollX(), clampTo<int>(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
             protect(frame->view())->setScrollPosition(position, options);
         }
         return;
     }
 
     if (CheckedPtr renderer = renderBox()) {
-        int clampedTop = clampToInteger(newTop * renderer->style().usedZoom());
+        int clampedTop = clampTo<int>(newTop * renderer->style().usedZoom());
         renderer->setScrollTop(clampedTop, options);
         if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
@@ -3280,6 +3280,11 @@ void Element::movingSteps(bool isSubtreeRoot, ContainerNode& oldParent)
             updateNameForDocument(*newHTMLDocument, nullAtom(), nameValue);
     }
 
+    if (!is<HTMLSlotElement>(*this))
+        updateEffectiveTextDirectionIfNeeded();
+
+    updateEffectiveLangState();
+
     if (!isSubtreeRoot || !hasFocusWithin())
         return;
 
@@ -3327,6 +3332,12 @@ void Element::setInvokedPopover(RefPtr<Element>&& element)
     invalidateStyle();
 }
 
+inline void ShadowRoot::setHost(Element* host)
+{
+    m_host = host;
+    m_shadowIncludingRoot = host ? &host->shadowIncludingRoot() : this;
+}
+
 void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
 {
     ASSERT(!newShadowRoot->hasChildNodes());
@@ -3341,7 +3352,7 @@ void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
 
         m_shadowRoot = WTF::move(newShadowRoot);
 
-        shadowRoot->setHost(*this);
+        shadowRoot->setHost(this);
         shadowRoot->setParentTreeScope(treeScope());
 
         NodeVector postInsertionNotificationTargets;

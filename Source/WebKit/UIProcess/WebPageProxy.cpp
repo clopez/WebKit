@@ -405,6 +405,10 @@
 #include "WebDeviceOrientationUpdateProviderProxy.h"
 #endif
 
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+#include "RemoteMediaSessionManagerProxy.h"
+#endif
+
 #if ENABLE(DATA_DETECTION)
 #include "DataDetectionResult.h"
 #endif
@@ -1496,7 +1500,8 @@ bool WebPageProxy::suspendCurrentPageIfPossible(API::Navigation& navigation, Ref
 
     Ref suspendedPage = SuspendedPageProxy::create(*this, protect(legacyMainFrameProcess()), mainFrame.releaseNonNull(), std::exchange(m_browsingContextGroup, BrowsingContextGroup::create()), shouldDelayClosingUntilFirstLayerFlush);
     std::optional<BackForwardFrameItemIdentifier> mainFrameItemID;
-    if (fromItem && protect(preferences())->multiProcessBackForwardCacheEnabled())
+    Ref preferences = this->preferences();
+    if (fromItem && preferences->siteIsolationEnabled() && preferences->multiProcessBackForwardCacheEnabled())
         mainFrameItemID = protect(fromItem)->mainFrameItem().identifier();
     suspendedPage->startSuspension(mainFrameItemID);
     // startSuspension() sends async IPCs to subframe processes. Failure is
@@ -1653,6 +1658,8 @@ void WebPageProxy::finishAttachingToWebProcess(const Site& site, ProcessLaunchRe
     if (reason != ProcessLaunchReason::ProcessSwap)
         initializeWebPage(site, m_mainFrame ? m_mainFrame->effectiveSandboxFlags() : configuration().initialSandboxFlags(), m_mainFrame ? m_mainFrame->effectiveReferrerPolicy() : configuration().initialReferrerPolicy());
 
+    sendCORSDisablingPatternsToNetworkProcessIfNecessary();
+
     if (RefPtr inspector = this->inspector())
         inspector->updateForNewPageProcess(*this);
 
@@ -1702,6 +1709,13 @@ void WebPageProxy::didAttachToRunningProcess()
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     ASSERT(!m_webDeviceOrientationUpdateProviderProxy);
     m_webDeviceOrientationUpdateProviderProxy = WebDeviceOrientationUpdateProviderProxy::create(*this);
+#endif
+
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+    if (protect(preferences())->remoteMediaSessionManagerEnabled() || protect(preferences())->siteIsolationEnabled()) {
+        ASSERT(!m_mediaSessionManagerProxy);
+        m_mediaSessionManagerProxy = RemoteMediaSessionManagerProxy::create(*this);
+    }
 #endif
 
 #if !PLATFORM(IOS_FAMILY)
@@ -2752,7 +2766,8 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
 
     // Cross-site SuspendedPageProxy entries follow the unsuspend() path; skip them here.
     auto shouldRestoreFromBackForwardCache = ShouldRestoreFromBackForwardCache::Unspecified;
-    if (protect(preferences())->multiProcessBackForwardCacheEnabled()) {
+    Ref preferences = this->preferences();
+    if (preferences->siteIsolationEnabled() && preferences->multiProcessBackForwardCacheEnabled()) {
         RefPtr entry = item->backForwardCacheEntry();
         shouldRestoreFromBackForwardCache = entry ? ShouldRestoreFromBackForwardCache::Yes : ShouldRestoreFromBackForwardCache::No;
 
@@ -3274,6 +3289,8 @@ void WebPageProxy::updateActivityState(OptionSet<ActivityState> flagsToUpdate)
 {
     bool wasVisible = isViewVisible();
     RefPtr pageClient = this->pageClient();
+    if (!pageClient)
+        return;
     internals().activityState.remove(flagsToUpdate);
     if (flagsToUpdate & ActivityState::IsFocused && pageClient->isViewFocused())
         internals().activityState.add(ActivityState::IsFocused);
@@ -4485,10 +4502,8 @@ void WebPageProxy::didFinishProcessingAllPendingMouseEvents()
 
 void WebPageProxy::flushPendingMouseEventCallbacks()
 {
-    for (auto& callback : internals().callbackHandlersAfterProcessingPendingMouseEvents)
+    for (auto&& callback : std::exchange(internals().callbackHandlersAfterProcessingPendingMouseEvents, { }))
         callback();
-
-    internals().callbackHandlersAfterProcessingPendingMouseEvents.clear();
 }
 
 void WebPageProxy::doAfterProcessingAllPendingKeyEvents(WTF::Function<void ()>&& action)
@@ -4508,10 +4523,8 @@ void WebPageProxy::didFinishProcessingAllPendingKeyEvents()
 
 void WebPageProxy::flushPendingKeyEventCallbacks()
 {
-    for (auto& callback : internals().callbackHandlersAfterProcessingPendingKeyEvents)
+    for (auto&& callback : std::exchange(internals().callbackHandlersAfterProcessingPendingKeyEvents, { }))
         callback();
-
-    internals().callbackHandlersAfterProcessingPendingKeyEvents.clear();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -6478,7 +6491,7 @@ void WebPageProxy::accessibilitySettingsDidChange()
 
 #if PLATFORM(COCOA)
     // Also update screen properties which encodes invert colors.
-    protect(legacyMainFrameProcess().processPool())->screenPropertiesChanged();
+    protect(legacyMainFrameProcess().processPool())->screenPropertiesChanged("accessibilitySettingsDidChange"_s);
 #endif
     send(Messages::WebPage::AccessibilitySettingsDidChange());
 }
@@ -6859,6 +6872,7 @@ void WebPageProxy::viewScaleFactorDidChange(IPC::Connection& connection, double 
     MESSAGE_CHECK_BASE(scaleFactorIsValid(scaleFactor), connection);
     if (!legacyMainFrameProcess().hasConnection(connection))
         return;
+    m_viewScaleFactor = scaleFactor;
 
     forEachWebContentProcess([&] (auto& process, auto pageID) {
         if (&process == &legacyMainFrameProcess())
@@ -8299,7 +8313,6 @@ void WebPageProxy::didCommitLoadForFrame(IPC::Connection& connection, FrameIdent
 #if HAVE(SAFE_BROWSING)
         if (navigation && navigation->hadSafeBrowsingWarning())
             protectedPageLoadState->setHadSafeBrowsingWarning(transaction);
-        m_hasShownSafeBrowsingWarningAfterLastLoadCommit = false;
 #endif
     }
 
@@ -9061,7 +9074,11 @@ void WebPageProxy::didReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone> l
 {
     RefPtr protectedPageClient { pageClient() };
 
-    if (layoutMilestones.contains(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout))
+    if (layoutMilestones.contains(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout)
+#if HAVE(SAFE_BROWSING)
+        && !m_safeBrowsingWarningShownForNavigation
+#endif
+    )
         protectedPageClient->clearBrowsingWarningIfForMainFrameNavigation();
 
     if (layoutMilestones.contains(WebCore::LayoutMilestone::DidFirstMeaningfulPaint)) {
@@ -9390,7 +9407,63 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
             sendCachedLinkDecorationFilteringData();
 #endif
 
+#if HAVE(SAFE_BROWSING)
+        bool safeBrowsingWarningAlreadyShown = navigation->hadSafeBrowsingWarning() && !navigation->safeBrowsingWarning();
+        if (!safeBrowsingWarningAlreadyShown) {
+            m_safeBrowsingWarningShownForNavigation = std::nullopt;
+            protectedPageClient->clearBrowsingWarning();
+        }
+#else
         protectedPageClient->clearBrowsingWarning();
+#endif
+
+        if (policyAction == PolicyAction::Download && navigation->safeBrowsingCheckOngoing()) {
+            navigation->whenSafeBrowsingCheckCompletes([
+                this, protectedThis = WTF::move(protectedThis), navigation, completionHandlerWrapper = WTF::move(completionHandlerWrapper),
+                frame, frameInfo = WTF::move(frameInfo), protectedPageClient = WTF::move(protectedPageClient)
+            ] mutable {
+                if (RefPtr safeBrowsingWarning = navigation->safeBrowsingWarning()) {
+                    navigation->setSafeBrowsingWarning(nullptr);
+                    if (!frame->isMainFrame()) {
+                        auto error = interruptedForPolicyChangeError(navigation->currentRequest());
+                        m_navigationClient->didFailProvisionalNavigationWithError(*this, FrameInfoData { frameInfo }, navigation.get(), navigation->currentRequest().url(), error, nullptr);
+                        WEBPAGEPROXY_RELEASE_LOG(Loading, "decidePolicyForNavigationAction: Ignoring download because Safe Browsing found a match.");
+                        completionHandlerWrapper(PolicyAction::Ignore);
+                        return;
+                    }
+
+                    Ref protectedPageLoadState = pageLoadState();
+                    auto transaction = protectedPageLoadState->transaction();
+                    protectedPageLoadState->setTitleFromBrowsingWarning(transaction, safeBrowsingWarning->title());
+
+                    protectedPageClient->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = WTF::move(protectedThis), completionHandlerWrapper = WTF::move(completionHandlerWrapper), protectedPageClient](auto&& result) mutable {
+                        Ref protectedPageLoadState = protectedThis->pageLoadState();
+                        auto transaction = protectedPageLoadState->transaction();
+                        protectedPageLoadState->setTitleFromBrowsingWarning(transaction, { });
+
+                        switchOn(result, [&](const URL& url) {
+                            completionHandlerWrapper(PolicyAction::Ignore);
+                            protectedThis->loadRequest({ URL { url } });
+                        }, [&protectedThis, &completionHandlerWrapper](ContinueUnsafeLoad continueUnsafeLoad) {
+                            switch (continueUnsafeLoad) {
+                            case ContinueUnsafeLoad::No:
+                                if (!protectedThis->hasCommittedAnyProvisionalLoads())
+                                    protectedThis->m_uiClient->close(protectedThis.ptr());
+                                completionHandlerWrapper(PolicyAction::Ignore);
+                                break;
+                            case ContinueUnsafeLoad::Yes:
+                                completionHandlerWrapper(PolicyAction::Download);
+                                break;
+                            }
+                        });
+                    });
+                    m_uiClient->didShowSafeBrowsingWarning();
+                    return;
+                }
+                completionHandlerWrapper(PolicyAction::Download);
+            });
+            return;
+        }
 
         if (RefPtr safeBrowsingWarning = navigation->safeBrowsingWarning()) {
             navigation->setSafeBrowsingWarning(nullptr);
@@ -9422,6 +9495,7 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
             auto transaction = protectedPageLoadState->transaction();
             protectedPageLoadState->setTitleFromBrowsingWarning(transaction, safeBrowsingWarning->title());
 
+            WEBPAGEPROXY_RELEASE_LOG(Loading, "decidePolicyForNavigationAction: showing safe browsing warning, navigationID=%" PRIu64, navigation->navigationID().toUInt64());
             protectedPageClient->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = WTF::move(protectedThis), completionHandler = WTF::move(completionHandlerWrapper), policyAction, protectedPageClient] (auto&& result) mutable {
 
                 Ref protectedPageLoadState = protectedThis->pageLoadState();
@@ -9663,13 +9737,14 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
     MESSAGE_CHECK_URL_COMPLETION(process, request.url(), completionHandler({ }));
     MESSAGE_CHECK_URL_COMPLETION(process, response.url(), completionHandler({ }));
     RefPtr navigation = navigationID ? m_navigationState->navigation(*navigationID) : nullptr;
-    Ref navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(WTF::move(frameInfo)).get(), request, response, canShowMIMEType, WTF::move(downloadAttribute), navigation.get());
 
     // COOP only applies to top-level browsing contexts.
     if (frameInfo.isMainFrame && coopValuesRequireBrowsingContextGroupSwitch(isShowingInitialAboutBlank, activeDocumentCOOPValue, frameInfo.securityOrigin.securityOrigin().get(), obtainCrossOriginOpenerPolicy(response).value, SecurityOrigin::create(response.url()).get())) {
         mainFrame()->disownOpener();
         m_openedMainFrameName = { };
     }
+
+    Ref navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(FrameInfoData { frameInfo }).get(), request, response, canShowMIMEType, WTF::move(downloadAttribute), navigation.get());
 
     auto expectSafeBrowsing = ShouldExpectSafeBrowsingResult::No;
     MonotonicTime requestStart;
@@ -9714,9 +9789,43 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
 #if USE(QUICK_LOOK) && ENABLE(QUICKLOOK_SANDBOX_RESTRICTIONS)
         bool supportsMIMEType = PreviewConverter::supportsMIMEType(navigationResponse->response().mimeType());
 #endif
-        auto completionHandlerWrapper = [navigation, protectedThis, request, navigationResponse = WTF::move(navigationResponse), frameInfo = WTF::move(frameInfo), completionHandler = WTF::move(completionHandler)]  (PolicyAction policyAction) mutable {
+        auto completionHandlerWrapper = [navigation, protectedThis, request, navigationResponse = WTF::move(navigationResponse), completionHandler = WTF::move(completionHandler)](PolicyAction policyAction) mutable {
             protectedThis->receivedNavigationResponsePolicyDecision(policyAction, navigation.get(), request, WTF::move(navigationResponse), WTF::move(completionHandler));
         };
+        if (policyAction == PolicyAction::Download && navigation && navigation->safeBrowsingCheckOngoing()) {
+            navigation->whenSafeBrowsingCheckCompletes([
+                this, protectedThis = WTF::move(protectedThis), navigation, completionHandlerWrapper = WTF::move(completionHandlerWrapper),
+                frame, frameInfo = WTF::move(frameInfo), request
+            ] mutable {
+                if (RefPtr safeBrowsingWarning = navigation->safeBrowsingWarning()) {
+                    if (!frame->isMainFrame()) {
+                        auto error = interruptedForPolicyChangeError(navigation->currentRequest());
+                        m_navigationClient->didFailProvisionalNavigationWithError(*this, FrameInfoData { frameInfo }, navigation.get(), request.url(), error, nullptr);
+                        completionHandlerWrapper(PolicyAction::Ignore);
+                        return;
+                    }
+                    Ref protectedPageLoadState = pageLoadState();
+                    auto transaction = protectedPageLoadState->transaction();
+                    protectedPageLoadState->setTitleFromBrowsingWarning(transaction, safeBrowsingWarning->title());
+                    navigation->setSafeBrowsingWarning(nullptr);
+                    protect(protectedThis->pageClient())->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = WTF::move(protectedThis), completionHandlerWrapper = WTF::move(completionHandlerWrapper)](auto&& result) mutable {
+                        switchOn(result, [&](const URL& url) {
+                            completionHandlerWrapper(PolicyAction::Ignore);
+                            protectedThis->loadRequest(URL { url });
+                        }, [&](ContinueUnsafeLoad continueUnsafeLoad) {
+                            if (continueUnsafeLoad == ContinueUnsafeLoad::No)
+                                completionHandlerWrapper(PolicyAction::Ignore);
+                            else
+                                completionHandlerWrapper(PolicyAction::Download);
+                        });
+                    });
+                    m_uiClient->didShowSafeBrowsingWarning();
+                    return;
+                }
+                completionHandlerWrapper(PolicyAction::Download);
+            });
+            return;
+        }
         if (navigation && navigation->safeBrowsingWarning()) {
             RefPtr safeBrowsingWarning = navigation->safeBrowsingWarning();
             if (frame->isMainFrame() && safeBrowsingWarning->url().isValid()) {
@@ -9739,6 +9848,7 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
             auto transaction = protectedPageLoadState->transaction();
             protectedPageLoadState->setTitleFromBrowsingWarning(transaction, safeBrowsingWarning->title());
             navigation->setSafeBrowsingWarning(nullptr);
+            WEBPAGEPROXY_RELEASE_LOG(Loading, "decidePolicyForResponseShared: showing safe browsing warning, navigationID=%" PRIu64, navigation->navigationID().toUInt64());
             protect(protectedThis->pageClient())->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = WTF::move(protectedThis), completionHandler = WTF::move(completionHandlerWrapper), policyAction] (auto&& result) mutable {
 
                 Ref protectedPageLoadState = protectedThis->pageLoadState();
@@ -9802,7 +9912,19 @@ void WebPageProxy::showBrowsingWarning(RefPtr<WebKit::BrowsingWarning>&& safeBro
     Ref protectedPageLoadState = pageLoadState();
     auto transaction = protectedPageLoadState->transaction();
     protectedPageLoadState->setTitleFromBrowsingWarning(transaction, safeBrowsingWarning->title());
-    protect(pageClient())->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = Ref { *this }] (auto&& result) mutable {
+#if HAVE(SAFE_BROWSING)
+    auto navigationID = m_safeBrowsingWarningShownForNavigation;
+#endif
+    protect(pageClient())->showBrowsingWarning(*safeBrowsingWarning, [protectedThis = Ref { *this }
+#if HAVE(SAFE_BROWSING)
+        , navigationID
+#endif
+    ] (auto&& result) mutable {
+#if HAVE(SAFE_BROWSING)
+        if (protectedThis->m_safeBrowsingWarningShownForNavigation != navigationID)
+            return;
+#endif
+
         Ref protectedPageLoadState = protectedThis->pageLoadState();
         auto transaction = protectedPageLoadState->transaction();
         protectedPageLoadState->setTitleFromBrowsingWarning(transaction, { });
@@ -9817,7 +9939,17 @@ void WebPageProxy::showBrowsingWarning(RefPtr<WebKit::BrowsingWarning>&& safeBro
 #if HAVE(SAFE_BROWSING)
                 protectedThis->completeSafeBrowsingCheckForModals(false);
 #endif
-                protectedThis->goBack();
+                {
+                    Ref protectedPageLoadState = protectedThis->pageLoadState();
+                    auto transaction = protectedPageLoadState->transaction();
+                    protectedPageLoadState->clearPendingAPIRequest(transaction);
+                }
+                if (!protectedThis->hasCommittedAnyProvisionalLoads())
+                    protectedThis->m_uiClient->close(protectedThis.ptr());
+                else {
+                    protectedThis->stopLoading();
+                    protectedThis->goBack();
+                }
             } else {
 #if HAVE(SAFE_BROWSING)
                 protectedThis->completeSafeBrowsingCheckForModals(true);
@@ -9900,8 +10032,9 @@ void WebPageProxy::contentRuleListMatchedRule(WebCore::ContentRuleListMatchedRul
 {
     m_navigationClient->contentRuleListMatchedRule(*this, WTF::move(matchedRule));
 }
+#endif
 
-void WebPageProxy::applyResourceMonitorUnloadToFrameOwner(WebCore::FrameIdentifier frameID)
+void WebPageProxy::applyMonitorUnloadToFrameOwner(WebCore::FrameIdentifier frameID, WebCore::IFrameUnloadReason reason)
 {
     RefPtr frame = WebFrameProxy::webFrame(frameID);
     if (!frame)
@@ -9909,9 +10042,8 @@ void WebPageProxy::applyResourceMonitorUnloadToFrameOwner(WebCore::FrameIdentifi
     RefPtr parent = frame->parentFrame();
     if (!parent)
         return;
-    sendToProcessContainingFrame(parent->frameID(), Messages::WebPage::ApplyResourceMonitorUnloadToIFrameElement(frameID));
+    sendToProcessContainingFrame(parent->frameID(), Messages::WebPage::ApplyMonitorUnloadToIFrameElement(frameID, reason));
 }
-#endif
 
 void WebPageProxy::didNavigateWithNavigationData(IPC::Connection& connection, const WebNavigationDataStore& store, FrameIdentifier frameID)
 {
@@ -11370,23 +11502,6 @@ void WebPageProxy::setMockVideoPresentationModeEnabled(bool enabled)
     m_mockVideoPresentationModeEnabled = enabled;
     if (auto* videoPresentationManager = m_videoPresentationManager.get())
         videoPresentationManager->setMockVideoPresentationModeEnabled(enabled);
-}
-
-#endif
-
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-void WebPageProxy::addRemoteMediaSessionManager(WebCore::PageIdentifier localPageIdentifier)
-{
-    if (!m_mediaSessionManagerProxy)
-        m_mediaSessionManagerProxy = RemoteMediaSessionManagerProxy::create(webPageIDInMainFrameProcess(), protect(siteIsolatedProcess()));
-
-    protect(*m_mediaSessionManagerProxy)->addRemoteMediaSessionManager(localPageIdentifier);
-}
-
-void WebPageProxy::removeRemoteMediaSessionManager(WebCore::PageIdentifier pageIdentifier)
-{
-    if (m_mediaSessionManagerProxy)
-        protect(*m_mediaSessionManagerProxy)->removeRemoteMediaSessionManager(pageIdentifier);
 }
 
 #endif
@@ -13131,6 +13246,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     m_webDeviceOrientationUpdateProviderProxy = nullptr;
 #endif
 
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+    m_mediaSessionManagerProxy = nullptr;
+#endif
+
     for (Ref editCommand : std::exchange(m_editCommandSet, { }))
         editCommand->invalidate();
 
@@ -13198,7 +13317,8 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #endif
 
 #if HAVE(SAFE_BROWSING)
-    m_hasShownSafeBrowsingWarningAfterLastLoadCommit = false;
+    if (resetStateReason != ResetStateReason::NavigationSwap)
+        m_safeBrowsingWarningShownForNavigation = std::nullopt;
 #endif
 }
 
@@ -17315,6 +17435,19 @@ void WebPageProxy::setCORSDisablingPatterns(Vector<String>&& patterns)
 {
     m_corsDisablingPatterns = WTF::move(patterns);
     send(Messages::WebPage::UpdateCORSDisablingPatterns(m_corsDisablingPatterns));
+    sendCORSDisablingPatternsToNetworkProcessIfNecessary();
+}
+
+// We send patterns directly to the NetworkProcess rather than going through the WebContent process so that a
+// compromised WebContent process cannot tamper with the patterns and disable CORS for arbitrary URLs.
+void WebPageProxy::sendCORSDisablingPatternsToNetworkProcessIfNecessary()
+{
+    if (m_corsDisablingPatterns.isEmpty())
+        return;
+    RefPtr networkProcess = websiteDataStore().networkProcessIfExists();
+    if (!networkProcess)
+        return;
+    networkProcess->send(Messages::NetworkProcess::SetCORSDisablingPatternsForPage(legacyMainFrameProcess().coreProcessIdentifier(), webPageIDInMainFrameProcess(), m_corsDisablingPatterns), 0);
 }
 
 void WebPageProxy::setOverriddenMediaType(const String& mediaType)
@@ -18795,6 +18928,13 @@ bool NODELETE shouldShowSwiftDemoLogo()
 RefPtr<WebDeviceOrientationUpdateProviderProxy> WebPageProxy::webDeviceOrientationUpdateProviderProxy()
 {
     return m_webDeviceOrientationUpdateProviderProxy;
+}
+#endif
+
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+RemoteMediaSessionManagerProxy* WebPageProxy::remoteMediaSessionManagerProxy()
+{
+    return m_mediaSessionManagerProxy.get();
 }
 #endif
 

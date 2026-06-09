@@ -92,7 +92,7 @@ String TemporalPlainYearMonth::toString(JSGlobalObject* globalObject, JSValue op
     if (!options) [[likely]]
         return toString();
 
-    String calendarName = toTemporalCalendarName(globalObject, options);
+    String calendarName = temporalShowCalendarName(globalObject, options);
     RETURN_IF_EXCEPTION(scope, { });
 
     return ISO8601::temporalYearMonthToString(m_plainYearMonth, calendarName, m_calendarID);
@@ -325,16 +325,13 @@ ISO8601::Duration TemporalPlainYearMonth::sinceOrUntil(JSGlobalObject* globalObj
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto [smallestUnit, largestUnit, roundingMode, increment] = extractDifferenceOptions(globalObject, optionsValue, UnitGroup::Date, TemporalUnit::Month, TemporalUnit::Year);
+    auto [smallestUnit, largestUnit, roundingMode, increment] = extractDifferenceOptions(globalObject, optionsValue, UnitGroup::Date, TemporalUnit::Month, TemporalUnit::Year, op);
     RETURN_IF_EXCEPTION(scope, { });
 
     if (m_calendarID != other->m_calendarID) [[unlikely]] {
         throwRangeError(globalObject, scope, "cannot compute difference between year-months with different calendars"_s);
         return { };
     }
-
-    if (op == DifferenceOperation::Since)
-        roundingMode = TemporalCore::negateTemporalRoundingMode(roundingMode);
 
     RELEASE_AND_RETURN(scope, JSC::differenceTemporalPlainYearMonth<op>(globalObject, plainYearMonth(), other->plainYearMonth(), increment, smallestUnit, largestUnit, roundingMode, m_calendarID));
 }
@@ -347,11 +344,6 @@ ISO8601::Duration TemporalPlainYearMonth::until(JSGlobalObject* globalObject, Te
 ISO8601::Duration TemporalPlainYearMonth::since(JSGlobalObject* globalObject, TemporalPlainYearMonth* other, JSValue optionsValue)
 {
     return sinceOrUntil<DifferenceOperation::Since>(globalObject, other, optionsValue);
-}
-
-String TemporalPlainYearMonth::monthCode() const
-{
-    return ISO8601::monthCode(m_plainYearMonth.month());
 }
 
 } // namespace JSC

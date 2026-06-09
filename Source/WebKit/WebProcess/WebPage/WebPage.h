@@ -255,6 +255,7 @@ enum class ExceptionCode : uint8_t;
 enum class FinalizeRenderingUpdateFlags : uint8_t;
 enum class HasOrShouldIgnoreUserGesture : bool;
 enum class HighlightRequestOriginatedInApp : bool;
+enum class IFrameUnloadReason : bool;
 enum class ImageDecodingError : uint8_t;
 enum class InputMode : uint8_t;
 enum class IsLoggedIn : uint8_t;
@@ -1966,8 +1967,6 @@ public:
     static void updatePreferencesGenerated(const WebPreferencesStore&);
     static void updateSettingsGenerated(const WebPreferencesStore&, WebCore::Settings&);
 
-    void synchronizeCORSDisablingPatternsWithNetworkProcess();
-
 #if ENABLE(GPU_PROCESS)
     void gpuProcessConnectionDidBecomeAvailable(GPUProcessConnection&);
     void gpuProcessConnectionWasDestroyed();
@@ -2385,9 +2384,7 @@ private:
     void loadURLInFrame(URL&&, const String& referrer, WebCore::FrameIdentifier);
     void loadDataInFrame(std::span<const uint8_t>, String&& MIMEType, String&& encodingName, URL&& baseURL, WebCore::FrameIdentifier);
 
-#if ENABLE(CONTENT_EXTENSIONS)
-    void applyResourceMonitorUnloadToIFrameElement(WebCore::FrameIdentifier);
-#endif
+    void applyMonitorUnloadToIFrameElement(WebCore::FrameIdentifier, WebCore::IFrameUnloadReason);
 
     void didRemoveBackForwardItem(WebCore::BackForwardFrameItemIdentifier);
     void invalidateBackForwardListCache();
@@ -3232,12 +3229,10 @@ private:
     HashMap<String, Ref<WebURLSchemeHandlerProxy>> m_schemeToURLSchemeHandlerProxyMap;
     HashMap<WebURLSchemeHandlerIdentifier, WeakRef<WebURLSchemeHandlerProxy>> m_identifierToURLSchemeHandlerProxyMap;
 
-    HashMap<uint64_t, Function<void(bool granted)>> m_storageAccessResponseCallbackMap;
 
     OptionSet<LayerTreeFreezeReason> m_layerTreeFreezeReasons;
     bool m_isSuspended { false };
     bool m_needsFontAttributes { false };
-    bool m_firstFlushAfterCommit { false };
     bool m_needsFixedContainerEdgesUpdate { true };
 #if PLATFORM(COCOA)
     WeakPtr<WebRemoteObjectRegistry> m_remoteObjectRegistry;
@@ -3310,7 +3305,6 @@ private:
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
     RefPtr<WebCore::MediaSessionCoordinator> m_mediaSessionCoordinator;
-    RefPtr<RemoteMediaSessionCoordinator> m_remoteMediaSessionCoordinator;
 #endif
 
 #if ENABLE(GPU_PROCESS)

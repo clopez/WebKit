@@ -411,8 +411,6 @@ Heap::Heap(VM& vm, HeapType heapType)
     , intlSegmentIteratorHeapCellType(IsoHeapCellType::Args<IntlSegmentIterator>())
     , intlSegmenterHeapCellType(IsoHeapCellType::Args<IntlSegmenter>())
     , intlSegmentsHeapCellType(IsoHeapCellType::Args<IntlSegments>())
-    , temporalTimeZoneHeapCellType(IsoHeapCellType::Args<TemporalTimeZone>())
-    , temporalZonedDateTimeHeapCellType(IsoHeapCellType::Args<TemporalZonedDateTime>())
 #if ENABLE(WEBASSEMBLY)
     , webAssemblyExceptionHeapCellType(IsoHeapCellType::Args<JSWebAssemblyException>())
     , webAssemblyFunctionHeapCellType(IsoHeapCellType::Args<WebAssemblyFunction>())
@@ -1237,6 +1235,33 @@ void Heap::addToRememberedSet(const JSCell* constCell)
     // be unfortunate but not the end of the world.
     cell->setCellState(CellState::PossiblyGrey);
     m_mutatorMarkStack->append(cell);
+}
+
+void Heap::clearConcurrentRetainedDataIfPossible()
+{
+
+    // FIXME: It's weird that we drive the runloop in the middle of a JS stack. But a few places in WebCore testing/debugger code do that so clearing would otherwise be invalid there. This is technically not strong enough to catch any bad code but it seems to work for the testing/debugger code in question.
+    if (vm().entryScope) [[unlikely]]
+        return;
+
+    // It wouldn't be safe to clear the list if it's possible to have a GCOwnedDataScope on the stack since
+    // m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope
+    // is what's keeping the backing bytes alive.
+    ASSERT(!m_topGCOwnedDataScope);
+
+    if (!m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope.size())
+        return;
+#if ENABLE(JIT)
+    auto* worklist = JITWorklist::existingGlobalWorklistOrNull();
+    // We need to make sure no JIT thread could be looking at one of our old strings. Any thread that starts after
+    // this check will load the new StringImpl rather than the one in this list so we're safe to delete these as
+    // long as none were running at the time of this check.
+    if (!worklist || !worklist->totalOngoingCompilations()) {
+#else
+    {
+#endif
+        m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope.clear();
+    }
 }
 
 void Heap::sweepSynchronously()
@@ -2323,7 +2348,10 @@ void Heap::finalize()
     vm().stringSplitCache.clear();
     vm().jsonAtomStringCache.clearJSStrings();
 
-    m_possiblyAccessedStringsFromConcurrentThreads.clear();
+    m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope.removeAllMatching([&](const auto& iter) {
+        return !m_discoveredAccessedStringsFromGCOwnedDataScope.contains(iter.first);
+    });
+    m_discoveredAccessedStringsFromGCOwnedDataScope.clear();
 
     immutableButterflyToStringCache.clear();
     
@@ -3019,7 +3047,6 @@ void Heap::addCoreConstraints()
                 // If we tried to scan while not under a safepoint we could stop a thread that's in the process of calling
                 // one of the callees we are looking for.
                 // FIXME: Should we have two constraints for this? One for concurrent and one under safepoint at the bitter end.
-                // TODO: Verify this part only runs on one thread.
                 ASSERT(worldIsStopped());
                 ConservativeRoots conservativeRoots(*this);
 

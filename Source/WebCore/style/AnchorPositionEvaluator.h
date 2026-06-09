@@ -94,13 +94,15 @@ public:
     void setHidden(bool hide) { m_isHidden = hide; }
 
     inline void addScrollSnapshot(const RenderBox& scroller);
-    inline void addViewportSnapshot(const RenderView&);
-    bool hasViewportSnapshot() const { return m_adjustForViewport; }
+    enum Direction : int8_t { Normal = 1, Reverse = -1 };
+    inline void addViewportSnapshot(const RenderView&, Direction = Reverse);
+    bool hasViewportSnapshot() const { return m_adjustmentForViewport; }
 
     inline void addStickySnapshot(const RenderBoxModelObject& sticky);
 
     enum Diff : uint8_t { New, SnapshotsDiffer, SnapshotsMatch };
     bool NODELETE recaptureDiffers(const AnchorScrollAdjuster&) const; // Snapshot differences can require invalidation.
+    void removeMatchingSnapshots(const AnchorScrollAdjuster&);
 
     void setFallbackLimits(const RenderBox& anchored);
     bool hasFallbackLimits() const { return m_hasFallback; }
@@ -115,9 +117,9 @@ private:
     CheckedRef<RenderBox> m_anchored;
     Vector<AnchorScrollSnapshot, 1> m_scrollSnapshots;
     Vector<AnchorStickySnapshot> m_stickySnapshots;
+    int8_t m_adjustmentForViewport { 0 }; /* Boolean and directional multiplier. */
     bool m_needsXAdjustment : 1 { false };
     bool m_needsYAdjustment : 1 { false };
-    bool m_adjustForViewport : 1 { false };
     bool m_hasChainedAnchor : 1 { false };
     bool m_isHidden : 1 { false };
     bool m_hasFallback : 1 { false };

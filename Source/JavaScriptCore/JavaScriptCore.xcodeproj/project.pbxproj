@@ -683,7 +683,6 @@
 		0FFB921C16D02F110055A5DB /* DFGOSRExitCompilationInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 65987F2C167FE84B003C2F8D /* DFGOSRExitCompilationInfo.h */; };
 		0FFB921D16D02F300055A5DB /* DFGSlowPathGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F1E3A501537C2CB000F9456 /* DFGSlowPathGenerator.h */; };
 		0FFB922016D033B70055A5DB /* NodeConstructors.h in Headers */ = {isa = PBXBuildFile; fileRef = 930DAD030FB1EB1A0082D205 /* NodeConstructors.h */; };
-		0FFC92161B94FB3E0071DD66 /* DFGPropertyTypeKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFC92151B94FB3E0071DD66 /* DFGPropertyTypeKey.h */; };
 		0FFC99D1184EC8AD009C10AB /* ConstantMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFC99D0184EC8AD009C10AB /* ConstantMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0FFFC95814EF90A200C72532 /* DFGCFAPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC94C14EF909500C72532 /* DFGCFAPhase.h */; };
 		0FFFC95A14EF90A900C72532 /* DFGCSEPhase.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFFC94E14EF909500C72532 /* DFGCSEPhase.h */; };
@@ -2002,9 +2001,6 @@
 		E307178E24C7829D00DF0644 /* IntlLocale.h in Headers */ = {isa = PBXBuildFile; fileRef = A3AFF92B245A3CF900C9BA3B /* IntlLocale.h */; };
 		E30873E7272559410053B601 /* IntlPluralRules.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7D5FB18F20744BF1005DDF64 /* IntlPluralRules.cpp */; };
 		E30D06B829C6C3EE0014CCE7 /* WasmBBQDisassembler.h in Headers */ = {isa = PBXBuildFile; fileRef = E30D06B729C6C3E80014CCE7 /* WasmBBQDisassembler.h */; };
-		E30E8A5426DE2E4800DA4915 /* TemporalTimeZonePrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = E30E8A4E26DE2E4700DA4915 /* TemporalTimeZonePrototype.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E30E8A5626DE2E4800DA4915 /* TemporalTimeZone.h in Headers */ = {isa = PBXBuildFile; fileRef = E30E8A5026DE2E4800DA4915 /* TemporalTimeZone.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E30E8A5726DE2E4800DA4915 /* TemporalTimeZoneConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = E30E8A5126DE2E4800DA4915 /* TemporalTimeZoneConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E31179AA2288386100514B2C /* SymbolTableOrScopeDepth.h in Headers */ = {isa = PBXBuildFile; fileRef = E31179A92288385D00514B2C /* SymbolTableOrScopeDepth.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E31618131EC5FE170006A218 /* DOMAnnotation.h in Headers */ = {isa = PBXBuildFile; fileRef = E31618101EC5FE080006A218 /* DOMAnnotation.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E31618151EC5FE270006A218 /* DOMAttributeGetterSetter.h in Headers */ = {isa = PBXBuildFile; fileRef = E31618121EC5FE080006A218 /* DOMAttributeGetterSetter.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3839,7 +3835,6 @@
 		0FF9CE721B9CD6D0004EDCA6 /* InlineCacheCompiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InlineCacheCompiler.h; sourceTree = "<group>"; };
 		0FFB6C361AF48DDC00DB1BF7 /* TypeofType.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TypeofType.cpp; sourceTree = "<group>"; };
 		0FFB6C371AF48DDC00DB1BF7 /* TypeofType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TypeofType.h; sourceTree = "<group>"; };
-		0FFC92151B94FB3E0071DD66 /* DFGPropertyTypeKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGPropertyTypeKey.h; path = dfg/DFGPropertyTypeKey.h; sourceTree = "<group>"; };
 		0FFC99D0184EC8AD009C10AB /* ConstantMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ConstantMode.h; sourceTree = "<group>"; };
 		0FFFC94B14EF909500C72532 /* DFGCFAPhase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DFGCFAPhase.cpp; path = dfg/DFGCFAPhase.cpp; sourceTree = "<group>"; };
 		0FFFC94C14EF909500C72532 /* DFGCFAPhase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGCFAPhase.h; path = dfg/DFGCFAPhase.h; sourceTree = "<group>"; };
@@ -4701,6 +4696,7 @@
 		53F40E921D5A4AB30099A1B6 /* WasmOMGIRGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmOMGIRGenerator.h; sourceTree = "<group>"; };
 		53F6BF6C1C3F060A00F41E5D /* InternalFunctionAllocationProfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InternalFunctionAllocationProfile.h; sourceTree = "<group>"; };
 		53F9DD762BEFD76D004A17B7 /* GCOwnedDataScope.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GCOwnedDataScope.h; sourceTree = "<group>"; };
+		53F9DD782BEFD76D004A17B7 /* GCOwnedDataScope.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = GCOwnedDataScope.cpp; sourceTree = "<group>"; };
 		53FA2AE01CF37F3F0022711D /* LLIntPrototypeLoadAdaptiveStructureWatchpoint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LLIntPrototypeLoadAdaptiveStructureWatchpoint.h; sourceTree = "<group>"; };
 		53FA2AE21CF380390022711D /* LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp; sourceTree = "<group>"; };
 		53FD04D11D7AB187003287D3 /* WasmCallingConvention.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmCallingConvention.cpp; sourceTree = "<group>"; };
@@ -5936,12 +5932,6 @@
 		E307178224C7824700DF0644 /* IntlSegmenterConstructor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IntlSegmenterConstructor.cpp; sourceTree = "<group>"; };
 		E30D06B629C6C3E80014CCE7 /* WasmBBQDisassembler.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmBBQDisassembler.cpp; sourceTree = "<group>"; };
 		E30D06B729C6C3E80014CCE7 /* WasmBBQDisassembler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmBBQDisassembler.h; sourceTree = "<group>"; };
-		E30E8A4C26DE2E4700DA4915 /* TemporalTimeZonePrototype.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TemporalTimeZonePrototype.cpp; sourceTree = "<group>"; };
-		E30E8A4D26DE2E4700DA4915 /* TemporalTimeZone.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TemporalTimeZone.cpp; sourceTree = "<group>"; };
-		E30E8A4E26DE2E4700DA4915 /* TemporalTimeZonePrototype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TemporalTimeZonePrototype.h; sourceTree = "<group>"; };
-		E30E8A4F26DE2E4700DA4915 /* TemporalTimeZoneConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TemporalTimeZoneConstructor.cpp; sourceTree = "<group>"; };
-		E30E8A5026DE2E4800DA4915 /* TemporalTimeZone.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TemporalTimeZone.h; sourceTree = "<group>"; };
-		E30E8A5126DE2E4800DA4915 /* TemporalTimeZoneConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TemporalTimeZoneConstructor.h; sourceTree = "<group>"; };
 		E31179A92288385D00514B2C /* SymbolTableOrScopeDepth.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SymbolTableOrScopeDepth.h; sourceTree = "<group>"; };
 		E31618101EC5FE080006A218 /* DOMAnnotation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DOMAnnotation.h; sourceTree = "<group>"; };
 		E31618111EC5FE080006A218 /* DOMAttributeGetterSetter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DOMAttributeGetterSetter.cpp; sourceTree = "<group>"; };
@@ -7656,6 +7646,7 @@
 				2ADFA26218EF3540004F9FCC /* GCLogging.cpp */,
 				2AABCDE618EF294200002096 /* GCLogging.h */,
 				5272987B235FC8BA005C982C /* GCMemoryOperations.h */,
+				53F9DD782BEFD76D004A17B7 /* GCOwnedDataScope.cpp */,
 				53F9DD762BEFD76D004A17B7 /* GCOwnedDataScope.h */,
 				0F97152E1EB28BE900A1645D /* GCRequest.cpp */,
 				0F97152F1EB28BE900A1645D /* GCRequest.h */,
@@ -9599,12 +9590,6 @@
 				FF356CE22FA9824300213929 /* TemporalPlainYearMonthConstructor.h */,
 				FF356CE52FA9824300213929 /* TemporalPlainYearMonthPrototype.cpp */,
 				FF356CE42FA9824300213929 /* TemporalPlainYearMonthPrototype.h */,
-				E30E8A4D26DE2E4700DA4915 /* TemporalTimeZone.cpp */,
-				E30E8A5026DE2E4800DA4915 /* TemporalTimeZone.h */,
-				E30E8A4F26DE2E4700DA4915 /* TemporalTimeZoneConstructor.cpp */,
-				E30E8A5126DE2E4800DA4915 /* TemporalTimeZoneConstructor.h */,
-				E30E8A4C26DE2E4700DA4915 /* TemporalTimeZonePrototype.cpp */,
-				E30E8A4E26DE2E4700DA4915 /* TemporalTimeZonePrototype.h */,
 				FF544CFD2FBA8C6900C4D8BC /* TemporalZonedDateTime.cpp */,
 				FF544CFC2FBA8C6900C4D8BC /* TemporalZonedDateTime.h */,
 				FF544CFF2FBA8C6900C4D8BC /* TemporalZonedDateTimeConstructor.cpp */,
@@ -10008,7 +9993,6 @@
 				0FFFC95214EF909500C72532 /* DFGPredictionPropagationPhase.h */,
 				0F2B9CE019D0BA7D00B1D1B5 /* DFGPromotedHeapLocation.cpp */,
 				0F2B9CE119D0BA7D00B1D1B5 /* DFGPromotedHeapLocation.h */,
-				0FFC92151B94FB3E0071DD66 /* DFGPropertyTypeKey.h */,
 				0FB1765E196B8F9E0091052A /* DFGPureValue.cpp */,
 				0FB1765F196B8F9E0091052A /* DFGPureValue.h */,
 				0F3A1BF71A9ECB7D000DE01A /* DFGPutStackSinkingPhase.cpp */,
@@ -11634,7 +11618,6 @@
 				0FBE0F7516C1DB0B0082C5E8 /* DFGPredictionInjectionPhase.h in Headers */,
 				0FFFC95E14EF90B700C72532 /* DFGPredictionPropagationPhase.h in Headers */,
 				0F2B9CED19D0BA7D00B1D1B5 /* DFGPromotedHeapLocation.h in Headers */,
-				0FFC92161B94FB3E0071DD66 /* DFGPropertyTypeKey.h in Headers */,
 				0FB17663196B8F9E0091052A /* DFGPureValue.h in Headers */,
 				0F3A1BFA1A9ECB7D000DE01A /* DFGPutStackSinkingPhase.h in Headers */,
 				86EC9DD11328DF82002B2AD7 /* DFGRegisterBank.h in Headers */,
@@ -12766,9 +12749,6 @@
 				FF356CE92FA9824300213929 /* TemporalPlainYearMonth.h in Headers */,
 				FF356CEA2FA9824300213929 /* TemporalPlainYearMonthConstructor.h in Headers */,
 				FF356CE62FA9824300213929 /* TemporalPlainYearMonthPrototype.h in Headers */,
-				E30E8A5626DE2E4800DA4915 /* TemporalTimeZone.h in Headers */,
-				E30E8A5726DE2E4800DA4915 /* TemporalTimeZoneConstructor.h in Headers */,
-				E30E8A5426DE2E4800DA4915 /* TemporalTimeZonePrototype.h in Headers */,
 				FF544D062FBA8C6900C4D8BC /* TemporalZonedDateTime.h in Headers */,
 				FF544D072FBA8C6900C4D8BC /* TemporalZonedDateTimeConstructor.h in Headers */,
 				FF544D052FBA8C6900C4D8BC /* TemporalZonedDateTimePrototype.h in Headers */,

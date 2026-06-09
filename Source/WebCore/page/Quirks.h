@@ -146,6 +146,7 @@ public:
     bool needsZomatoEmailLoginLabelQuirk() const;
     bool NODELETE needsGoogleMapsScrollingQuirk() const;
     bool NODELETE needsGoogleTranslateScrollingQuirk() const;
+    bool NODELETE needsNetflixVolumeSliderQuirk() const;
     bool needsGeforcenowWarningDisplayNoneQuirk() const;
 
     bool needsYahooVolumeSliderQuirk() const;
@@ -245,6 +246,8 @@ public:
     bool shouldBlockFetchWithNewlineAndLessThan() const;
     bool shouldDisableFetchMetadata() const;
     bool shouldDisablePushStateFilePathRestrictions() const;
+
+    bool shouldDisableScrollAnchoringQuirk() const;
 
     void setNeedsConfigurableIndexedPropertiesQuirk() { m_needsConfigurableIndexedPropertiesQuirk = true; }
     bool needsConfigurableIndexedPropertiesQuirk() const;

@@ -28,14 +28,27 @@
 #import "Helpers/cocoa/HTTPServer.h"
 #import "Helpers/PlatformUtilities.h"
 #import "Helpers/Test.h"
+#import "Helpers/cocoa/TestNavigationDelegate.h"
 #import "Helpers/cocoa/TestWKWebView.h"
 #import "Helpers/Utilities.h"
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/_WKFeature.h>
+#import <WebKit/_WKProcessPoolConfiguration.h>
+#import <wtf/text/MakeString.h>
 
 namespace TestWebKitAPI {
+
+static void enableWebLocksAPI(WKWebViewConfiguration *configuration)
+{
+    for (_WKFeature *feature in [WKPreferences _features]) {
+        if ([feature.key isEqualToString:@"WebLocksAPIEnabled"]) {
+            [[configuration preferences] _setEnabled:YES forFeature:feature];
+            return;
+        }
+    }
+}
 
 enum class ShouldUseSameProcess : bool { No, Yes };
 
@@ -46,12 +59,7 @@ static void runSnapshotAcrossPagesTest(ShouldUseSameProcess shouldUseSameProcess
     });
 
     RetainPtr configuration1 = adoptNS([[WKWebViewConfiguration alloc] init]);
-    for (_WKFeature *feature in [WKPreferences _features]) {
-        if ([feature.key isEqualToString:@"WebLocksAPIEnabled"]) {
-            [[configuration1 preferences] _setEnabled:YES forFeature:feature];
-            break;
-        }
-    }
+    enableWebLocksAPI(configuration1.get());
 
     RetainPtr webView1 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration1.get()]);
     [webView1 synchronouslyLoadRequest:server.request()];
@@ -71,12 +79,7 @@ static void runSnapshotAcrossPagesTest(ShouldUseSameProcess shouldUseSameProcess
 
     RetainPtr configuration2 = adoptNS([[WKWebViewConfiguration alloc] init]);
     configuration2.get().processPool = [configuration1 processPool];
-    for (_WKFeature *feature in [WKPreferences _features]) {
-        if ([feature.key isEqualToString:@"WebLocksAPIEnabled"]) {
-            [[configuration2 preferences] _setEnabled:YES forFeature:feature];
-            break;
-        }
-    }
+    enableWebLocksAPI(configuration2.get());
     if (shouldUseSameProcess == ShouldUseSameProcess::Yes) {
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         configuration2.get()._relatedWebView = webView1.get();
@@ -142,12 +145,7 @@ static void runLockRequestWaitingOnAnotherPage(ShouldUseSameProcess shouldUseSam
     });
 
     RetainPtr configuration1 = adoptNS([[WKWebViewConfiguration alloc] init]);
-    for (_WKFeature *feature in [WKPreferences _features]) {
-        if ([feature.key isEqualToString:@"WebLocksAPIEnabled"]) {
-            [[configuration1 preferences] _setEnabled:YES forFeature:feature];
-            break;
-        }
-    }
+    enableWebLocksAPI(configuration1.get());
 
     RetainPtr webView1 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration1.get()]);
     [webView1 synchronouslyLoadRequest:server.request()];
@@ -167,12 +165,7 @@ static void runLockRequestWaitingOnAnotherPage(ShouldUseSameProcess shouldUseSam
 
     RetainPtr configuration2 = adoptNS([[WKWebViewConfiguration alloc] init]);
     configuration2.get().processPool = [configuration1 processPool];
-    for (_WKFeature *feature in [WKPreferences _features]) {
-        if ([feature.key isEqualToString:@"WebLocksAPIEnabled"]) {
-            [[configuration2 preferences] _setEnabled:YES forFeature:feature];
-            break;
-        }
-    }
+    enableWebLocksAPI(configuration2.get());
     if (shouldUseSameProcess == ShouldUseSameProcess::Yes) {
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         configuration2.get()._relatedWebView = webView1.get();
@@ -242,6 +235,130 @@ TEST(WebLocks, LockRequestWaitingOnAnotherPageInOtherProcess)
 TEST(WebLocks, LockRequestWaitingOnAnotherPageInSameProcess)
 {
     runLockRequestWaitingOnAnotherPage(ShouldUseSameProcess::Yes);
+}
+
+TEST(WebLocks, ServiceWorkerLockRequestAfterCrossSiteNavigationInSameProcess)
+{
+    TestWebKitAPI::HTTPServer server1({ }, TestWebKitAPI::HTTPServer::Protocol::Http);
+    TestWebKitAPI::HTTPServer server2({ }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto swScript = "self.addEventListener('message', event => { event.waitUntil(new Promise(() => {})); event.source.postMessage('processing'); function loop() { navigator.locks.request('sw-lock', () => {}).then(loop); } loop(); });"_s;
+    auto page2HTML = "<script>webkit.messageHandlers.testHandler.postMessage('LOADED');</script>"_s;
+    auto page1HTML = makeString(
+        "<script>"
+        "navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready).then(reg => {"
+        "    navigator.serviceWorker.onmessage = () => { window.location = 'http://localhost:"_s, server2.port(), "/'; };"
+        "    reg.active.postMessage('start');"
+        "});"
+        "</script>"_s);
+
+    server1.addResponse("/sw.js"_s, { { { "Content-Type"_s, "text/javascript"_s } }, swScript });
+    server1.addResponse("/"_s, { page1HTML });
+    server2.addResponse("/"_s, { page2HTML });
+
+    RetainPtr processPoolConfiguration = adoptNS([[_WKProcessPoolConfiguration alloc] init]);
+    processPoolConfiguration.get().processSwapsOnNavigation = NO;
+    RetainPtr processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get().processPool = processPool.get();
+    enableWebLocksAPI(configuration.get());
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+
+    __block bool done = false;
+    [webView performAfterReceivingAnyMessage:^(NSString *message) {
+        EXPECT_WK_STREQ(message, @"LOADED");
+        done = true;
+    }];
+
+    [webView synchronouslyLoadRequest:server1.request()];
+    TestWebKitAPI::Util::run(&done);
+}
+
+TEST(WebLocks, CrossSiteIframeUsingLocksInServiceWorkerHostingProcess)
+{
+    TestWebKitAPI::HTTPServer server1({ }, TestWebKitAPI::HTTPServer::Protocol::Http);
+    TestWebKitAPI::HTTPServer server2({ }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto swScript =
+        "self.addEventListener('install', e => self.skipWaiting());"
+        "self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));"_s;
+
+    // navigator.locks.request calls WebLockRegistryProxy::requestLock.
+    auto iframeHTML =
+        "<script>"
+        "  navigator.locks.request('iframe-lock', () => new Promise(() => {}));"
+        "  parent.postMessage('IFRAME_READY', '*');"
+        "</script>"_s;
+
+    auto pageHTML = makeString(
+        "<script>"
+        "  window.addEventListener('message', e => {"
+        "    if (e.data === 'IFRAME_READY')"
+        "      webkit.messageHandlers.testHandler.postMessage('IFRAME_READY');"
+        "  });"
+        "  navigator.serviceWorker.register('/sw.js')"
+        "    .then(() => navigator.serviceWorker.ready)"
+        "    .then(() => {"
+        "      const f = document.createElement('iframe');"
+        "      f.id = 'subframe';"
+        "      f.src = 'http://localhost:"_s, server2.port(), "/iframe';"
+        "      document.body.appendChild(f);"
+        "    });"
+        "</script>"_s);
+
+    server1.addResponse("/"_s, { pageHTML });
+    server1.addResponse("/sw.js"_s, { { { "Content-Type"_s, "text/javascript"_s } }, swScript });
+    server2.addResponse("/iframe"_s, { iframeHTML });
+
+    RetainPtr processPoolConfiguration = adoptNS([[_WKProcessPoolConfiguration alloc] init]);
+    processPoolConfiguration.get().processSwapsOnNavigation = NO;
+    RetainPtr processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get().processPool = processPool.get();
+    enableWebLocksAPI(configuration.get());
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+
+    __block bool done = false;
+    __block bool webProcessTerminated = false;
+    RetainPtr navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    navigationDelegate.get().webContentProcessDidTerminate = ^(WKWebView *, _WKProcessTerminationReason) {
+        webProcessTerminated = true;
+        done = true;
+    };
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    [webView performAfterReceivingAnyMessage:^(NSString *message) {
+        if ([message isEqualToString:@"IFRAME_READY"])
+            done = true;
+    }];
+
+    [webView loadRequest:server1.request()];
+    TestWebKitAPI::Util::run(&done);
+
+    // Wait long enough for webContentProcessDidTerminate to fire.
+    TestWebKitAPI::Util::runFor(0.1_s);
+    EXPECT_FALSE(webProcessTerminated);
+
+    // If the WebProcess was terminated by requestLock's MESSAGE_CHECK, we
+    // have already failed and don't need to check clientIsGoingAway.
+    if (webProcessTerminated)
+        return;
+
+    // Detaching the iframe will call WebLockRegistryProxy::clientIsGoingAway.
+    __block bool detachDone = false;
+    [webView evaluateJavaScript:@"document.getElementById('subframe').remove(); 1" completionHandler:^(id, NSError *error) {
+        EXPECT_NULL(error);
+        detachDone = true;
+    }];
+    TestWebKitAPI::Util::run(&detachDone);
+
+    // Wait long enough for webContentProcessDidTerminate to fire.
+    TestWebKitAPI::Util::runFor(0.1_s);
+    EXPECT_FALSE(webProcessTerminated);
 }
 
 } // namespace TestWebKitAPI

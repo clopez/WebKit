@@ -113,7 +113,7 @@ Adjuster::Adjuster(const Document& document, const Style::ComputedStyle& parentS
 static void addIntrinsicMargins(Style::ComputedStyle& style)
 {
     // Intrinsic margin value.
-    const auto intrinsicMargin = MarginEdge::Fixed { static_cast<float>(clampToInteger(2 * style.usedZoom())) };
+    const auto intrinsicMargin = MarginEdge::Fixed { static_cast<float>(clampTo<int>(2 * style.usedZoom())) };
 
     // FIXME: Using width/height alone and not also dealing with min-width/max-width is flawed.
     // FIXME: Using "hasQuirk" to decide the margin wasn't set is kind of lame.
@@ -527,6 +527,15 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
         // https://drafts.csswg.org/css-ruby-1/#bidi
         if (style.display().isRubyContainerOrInternalRubyBox())
             style.setUnicodeBidi(forceBidiIsolationForRuby(style.unicodeBidi()));
+
+        // Line decorations propagate through the box tree, not through inheritance, so only a
+        // box-generating element folds its own text-decoration-line into the in-effect value.
+        if (shouldInheritTextDecorationsInEffect(style, m_element.get())) {
+            auto updatedTextDecorationLineInEffect = style.textDecorationLineInEffect();
+            updatedTextDecorationLineInEffect.addOrReplaceIfNotNone(style.textDecorationLine());
+            style.setTextDecorationLineInEffect(updatedTextDecorationLineInEffect);
+        } else
+            style.setTextDecorationLineInEffect(style.textDecorationLine());
     }
 
     auto hasAutoZIndex = [](const Style::ComputedStyle& style, const Style::ComputedStyle& parentBoxStyle, const Element* element) {
@@ -623,13 +632,6 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
         if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(element); htmlElement && htmlElement->isHiddenUntilFound())
             style.setAutoRevealsWhenFound();
     }
-
-    if (shouldInheritTextDecorationsInEffect(style, m_element.get())) {
-        auto updatedTextDecorationLineInEffect = style.textDecorationLineInEffect();
-        updatedTextDecorationLineInEffect.addOrReplaceIfNotNone(style.textDecorationLine());
-        style.setTextDecorationLineInEffect(updatedTextDecorationLineInEffect);
-    } else
-        style.setTextDecorationLineInEffect(style.textDecorationLine());
 
     bool overflowIsClipOrVisible = isOverflowClipOrVisible(style.overflowY()) && isOverflowClipOrVisible(style.overflowX());
 
@@ -1028,6 +1030,16 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
         static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
         if (is<HTMLBodyElement>(*m_element) && m_element->hasClassName(className))
             style.setUsedTouchAction(CSS::Keyword::Auto { });
+    }
+    // netflix.com rdar://178545839
+    if (documentQuirks.needsNetflixVolumeSliderQuirk()) {
+        static MainThreadNeverDestroyed<const QualifiedName> dataUiaAttr(nullAtom(), "data-uia"_s, nullAtom());
+        static MainThreadNeverDestroyed<const AtomString> scrubberValue("scrubber"_s);
+        static MainThreadNeverDestroyed<const AtomString> verticalValue("vertical"_s);
+        if (is<HTMLDivElement>(*m_element)
+            && m_element->attributeWithoutSynchronization(dataUiaAttr) == scrubberValue
+            && m_element->attributeWithoutSynchronization(HTMLNames::aria_orientationAttr) == verticalValue)
+            style.setUsedTouchAction(CSS::Keyword::None { });
     }
     if (documentQuirks.needsFacebookStoriesCreationFormQuirk(*m_element, style))
         style.setDisplayMaintainingOriginalDisplay(DisplayType::BlockFlex);
