@@ -340,8 +340,6 @@ void WebFrameProxy::didFailProvisionalLoad()
 void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::CertificateInfo& certificateInfo, bool containsPluginDocument, DocumentSecurityPolicy&& documentSecurityPolicy, HashSet<WebCore::SecurityOriginData>&& cspOriginsThatUpgradeInsecureNavigations)
 {
     m_frameLoadState.didCommitLoad();
-    if (RefPtr page = m_page)
-        protect(process())->didCommitLoadClientOrigin(ClientOrigin { SecurityOriginData::fromURL(page->mainFrame()->url()), SecurityOriginData::fromURL(m_frameLoadState.url()) });
 
     if (m_isShowingInitialAboutBlank && !url().isAboutBlank())
         m_isShowingInitialAboutBlank = false;
@@ -352,7 +350,14 @@ void WebFrameProxy::didCommitLoad(const String& contentType, const WebCore::Cert
     m_containsPluginDocument = containsPluginDocument;
     m_documentSecurityPolicy = WTF::move(documentSecurityPolicy);
     m_cspOriginsThatUpgradeInsecureNavigations = WTF::move(cspOriginsThatUpgradeInsecureNavigations);
-    updateDocumentSecurityOrigin(nullptr);
+
+    RefPtr creator = parentFrame() ? parentFrame() : opener();
+    updateDocumentSecurityOrigin(creator.get());
+
+    if (RefPtr page = m_page) {
+        RefPtr mainFrame = page->mainFrame();
+        protect(process())->didCommitLoadClientOrigin(ClientOrigin { mainFrame ? mainFrame->documentSecurityOriginData() : SecurityOriginData { }, documentSecurityOriginData() });
+    }
 
     RefPtr webPage = page();
     if (webPage && protect(webPage->preferences())->siteIsolationEnabled())
@@ -457,7 +462,7 @@ bool WebFrameProxy::didHandleContentFilterUnblockNavigation(const ResourceReques
     m_contentFilterUnblockHandler.setConfigurationPath(protect(page->websiteDataStore())->configuration().webContentRestrictionsConfigurationFile());
 #endif
 
-    std::optional<URL> unblockRequestURL = std::nullopt;
+    std::optional<URL> unblockRequestURL;
 #if HAVE(WEBCONTENTRESTRICTIONS_ASK_TO)
     bool webContentRestrictionsAskToEnabled = page->preferences().webContentRestrictionsAskToEnabled();
     if (webContentRestrictionsAskToEnabled)
@@ -614,7 +619,7 @@ void WebFrameProxy::commitProvisionalFrame(IPC::Connection& connection, FrameIde
 {
     ASSERT(m_page);
     if (m_provisionalFrame) {
-        protect(process())->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID, m_layerHostingContextIdentifier, nullptr), *webPageIDInCurrentProcess());
+        protect(process())->send(Messages::WebPage::LoadDidCommitInAnotherProcess(frameID, m_provisionalFrame->process().coreProcessIdentifier(), m_layerHostingContextIdentifier, nullptr), *webPageIDInCurrentProcess());
 
         WebCore::ProcessIdentifier oldProcessID = process().coreProcessIdentifier();
         std::optional<WebCore::PageIdentifier> oldPageID = webPageIDInCurrentProcess();
@@ -698,6 +703,7 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
         m_frameID,
         m_opener ? std::optional(m_opener->frameID()) : std::nullopt,
         m_frameName,
+        process().coreProcessIdentifier(),
         calculateFrameTreeSyncData(),
         WTF::map(m_childFrames, [] (auto& frame) {
             return frame->frameTreeCreationParameters();
@@ -930,7 +936,7 @@ WebFrameProxy* WebFrameProxy::nextSibling() const
         return nullptr;
 
     auto it = m_parentFrame->m_childFrames.find(this);
-    if (it == m_childFrames.end()) {
+    if (it == m_parentFrame->m_childFrames.end()) {
         ASSERT_NOT_REACHED();
         return nullptr;
     }
@@ -946,7 +952,7 @@ WebFrameProxy* WebFrameProxy::previousSibling() const
         return nullptr;
 
     auto it = m_parentFrame->m_childFrames.find(this);
-    if (it == m_childFrames.end()) {
+    if (it == m_parentFrame->m_childFrames.end()) {
         ASSERT_NOT_REACHED();
         return nullptr;
     }

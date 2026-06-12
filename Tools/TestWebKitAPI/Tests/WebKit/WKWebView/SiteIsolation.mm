@@ -67,6 +67,7 @@
 #import <WebKit/_WKTextManipulationDelegate.h>
 #import <WebKit/_WKTextManipulationItem.h>
 #import <WebKit/_WKTextManipulationToken.h>
+#import <WebKit/_WKUserInitiatedAction.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/text/MakeString.h>
@@ -2836,6 +2837,78 @@ TEST(SiteIsolation, OpenedWindowFocusDelegates)
 
     [opener.webView.get() evaluateJavaScript:@"w.blur()" completionHandler:nil];
     Util::run(&calledUnfocusWebView);
+}
+
+TEST(SiteIsolation, PopunderPreventedByConsumedAction)
+{
+    auto openerHTML = "<script>"
+        "window.name = 'opener';"
+        "addEventListener('mouseup', () => {"
+        "    window.open('https://domain3.com/popup');"
+        "    w.focus();"
+        "});"
+        "let w = window.open('https://domain2.com/opened');"
+        "</script>"_s;
+    HTTPServer server({
+        { "/example"_s, { openerHTML } },
+        { "/opened"_s, { ""_s } },
+        { "/popup"_s, { ""_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    __block WebViewAndDelegates opener;
+    __block WebViewAndDelegates opened;
+    __block RetainPtr<TestWKWebView> popupWebView;
+    __block RetainPtr<TestNavigationDelegate> popupNavigationDelegate;
+    __block int windowOpenCount = 0;
+    opener.navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [opener.navigationDelegate allowAnyTLSCertificate];
+    auto configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration);
+    opener.webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration]);
+    opener.webView.get().navigationDelegate = opener.navigationDelegate.get();
+    opener.uiDelegate = adoptNS([TestUIDelegate new]);
+    opener.uiDelegate.get().createWebViewWithConfiguration = ^(WKWebViewConfiguration *configuration, WKNavigationAction *navigationAction, WKWindowFeatures *) {
+        enableSiteIsolation(configuration);
+        if (!windowOpenCount++) {
+            // First window.open: the pre-opened cross-origin window.
+            opened.webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
+            opened.navigationDelegate = adoptNS([TestNavigationDelegate new]);
+            [opened.navigationDelegate allowAnyTLSCertificate];
+            opened.uiDelegate = adoptNS([TestUIDelegate new]);
+            opened.webView.get().navigationDelegate = opened.navigationDelegate.get();
+            opened.webView.get().UIDelegate = opened.uiDelegate.get();
+            return opened.webView.get();
+        }
+        // Second window.open (the popup): consume the gesture.
+        [navigationAction._userInitiatedAction consume];
+        popupNavigationDelegate = adoptNS([TestNavigationDelegate new]);
+        [popupNavigationDelegate allowAnyTLSCertificate];
+        popupWebView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration]);
+        [popupWebView setNavigationDelegate:popupNavigationDelegate.get()];
+        return popupWebView.get();
+    };
+    [opener.webView setUIDelegate:opener.uiDelegate.get()];
+    opener.webView.get().configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
+    [opener.webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    while (!opened.webView)
+        Util::spinRunLoop();
+    [opened.navigationDelegate waitForDidFinishNavigation];
+
+    __block bool focusCalled = false;
+    [opened.uiDelegate setFocusWebView:^(WKWebView *) {
+        focusCalled = true;
+    }];
+
+    [opener.webView mouseDownAtPoint:CGPointMake(50, 50) simulatePressure:NO];
+    [opener.webView mouseUpAtPoint:CGPointMake(50, 50)];
+    [opener.webView waitForPendingMouseEvents];
+    while (!popupWebView)
+        Util::spinRunLoop();
+
+    // The popup was created, but w.focus() on the cross-origin window should NOT
+    // have called the focus delegate because the user gesture was already consumed
+    // during popup creation. This exercises the FocusRemoteFrame IPC path.
+    EXPECT_FALSE(focusCalled);
 }
 #endif
 
@@ -9256,6 +9329,102 @@ TEST(SiteIsolation, MultiProcessBFCacheSameSiteWithCrossSiteIframeMultipleCycles
         EXPECT_WK_STREQ(@"https://a.com/a2", [webView URL].absoluteString);
         EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker ? true : false"] boolValue]);
     }
+}
+
+// Cross-site navigation A → data: URL, then back to A. Without the SI carve-out in
+// WebProcessPool::processForNavigationInternal, data: URLs are treated as same-origin
+// (NavigationAction::shouldTreatAsSameOriginNavigation hard-codes that), so no swap,
+// no SuspendedPageProxy, and goBack falls through to a fresh load.
+TEST(SiteIsolation, MultiProcessBFCacheCrossSiteToDataURL)
+{
+    HTTPServer server({
+        { "/a"_s, { "page a"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto *configuration = server.httpsProxyConfiguration();
+    [configuration _setAllowTopNavigationToDataURLs:YES];
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker = true"];
+
+    [webView evaluateJavaScript:@"window.location.href = \"data:text/html,<body>data url</body>\"" completionHandler:nil];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_WK_STREQ(@"https://a.com/a", [webView URL].absoluteString);
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker ? true : false"] boolValue]);
+}
+
+// Multiple sequential data: URL navigations: A -> data:1 -> data:2 -> back -> back.
+// Each cross-origin navigation lands on an empty-Site target, so each step exercises
+// the relaxed (non-isEmpty) suspended-page lookup. Both back-navigations must restore
+// from the correct SuspendedPageProxy.
+TEST(SiteIsolation, MultiProcessBFCacheCrossSiteToMultipleDataURLs)
+{
+    HTTPServer server({
+        { "/a"_s, { "page a"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto *configuration = server.httpsProxyConfiguration();
+    [configuration _setAllowTopNavigationToDataURLs:YES];
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView objectByEvaluatingJavaScript:@"window.__marker = 'A'"];
+
+    [webView evaluateJavaScript:@"window.location.href = \"data:text/html,<body>data1</body><script>window.__marker='D1'</script>\"" completionHandler:nil];
+    [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_WK_STREQ(@"D1", [webView objectByEvaluatingJavaScript:@"window.__marker"]);
+
+    [webView evaluateJavaScript:@"window.location.href = \"data:text/html,<body>data2</body><script>window.__marker='D2'</script>\"" completionHandler:nil];
+    [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_WK_STREQ(@"D2", [webView objectByEvaluatingJavaScript:@"window.__marker"]);
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_TRUE([[webView URL].absoluteString hasPrefix:@"data:text/html,"]);
+    EXPECT_WK_STREQ(@"D1", [webView objectByEvaluatingJavaScript:@"window.__marker"]);
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_WK_STREQ(@"https://a.com/a", [webView URL].absoluteString);
+    EXPECT_WK_STREQ(@"A", [webView objectByEvaluatingJavaScript:@"window.__marker"]);
+}
+
+// Cross-origin navigation through a string-returning javascript: URL. Top-level
+// navigation to javascript: replaces the document content but does not change the
+// URL or create a back-forward entry; verify that the carve-out (keyed on
+// protocolIsData()) does not accidentally process-swap for this scheme.
+TEST(SiteIsolation, MultiProcessBFCacheCrossSiteToJavaScriptURL)
+{
+    HTTPServer server({
+        { "/a"_s, { "page a"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto *configuration = server.httpsProxyConfiguration();
+    [configuration _setAllowTopNavigationToDataURLs:YES];
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    NSUInteger bfListBefore = [[[webView backForwardList] backList] count];
+    pid_t pidBefore = [webView _webProcessIdentifier];
+
+    __block bool jsRan = false;
+    [webView evaluateJavaScript:@"window.location.href = \"javascript:'<body>js url</body>'\"" completionHandler:^(id, NSError *) {
+        jsRan = true;
+    }];
+    TestWebKitAPI::Util::run(&jsRan);
+    TestWebKitAPI::Util::spinRunLoop(10);
+
+    EXPECT_WK_STREQ(@"https://a.com/a", [webView URL].absoluteString);
+    EXPECT_EQ(bfListBefore, [[[webView backForwardList] backList] count]);
+    EXPECT_EQ(pidBefore, [webView _webProcessIdentifier]);
 }
 
 TEST(SiteIsolation, MultiProcessBFCacheSameSiteWithDifferentCrossSiteIframes)

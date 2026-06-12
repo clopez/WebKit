@@ -1344,11 +1344,10 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     RefPtr relatedPage = pageConfiguration->relatedPage();
     bool siteIsolationEnabled = protect(pageConfiguration->preferences())->siteIsolationEnabled();
     if (siteIsolationEnabled) {
-        // These preferences are coupled to Site Isolation here. WebKitTestRunner must
-        // mirror this in TestController::featuresImpliedBySiteIsolation().
-        // FIXME: Find a single shared definition so the product and the test harness
-        // cannot drift out of sync.
         Ref<WebPreferences> preferences = pageConfiguration->preferences();
+        // FIXME: we should enable UseUIProcessForBackForwardItemLoading not only here but also in test infrastructure
+        // when site isolation is enabled, but doing that causes a lot of test failures that we need to investigate.
+        // https://bugs.webkit.org/show_bug.cgi?id=316588
         preferences->setUseUIProcessForBackForwardItemLoading(true);
         preferences->setMultiProcessBackForwardCacheEnabled(true);
     }
@@ -2173,7 +2172,7 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         return completionHandler(sourceProcess.copyRef(), nullptr, "Navigation is treated as same-site (archive load)"_s);
     }
 
-    if (siteIsolationEnabled && !site.isEmpty()) {
+    if (siteIsolationEnabled) {
         if (RefPtr targetItem = navigation.targetItem(); targetItem && frame.isMainFrame()) {
             if (RefPtr suspendedPage = targetItem->suspendedPage()) {
                 Ref process = suspendedPage->process();
@@ -2187,7 +2186,9 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
                 }
             }
         }
+    }
 
+    if (siteIsolationEnabled && !site.isEmpty()) {
         ASSERT(frameInfo.isMainFrame ? site == mainFrameSite : Site(URL(protect(page.pageLoadState())->activeURL())) == mainFrameSite);
         if (!frame.isMainFrame() && site == mainFrameSite) {
             Ref mainFrameProcess = Ref { page.mainFrame()->process() };
@@ -2372,11 +2373,13 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
             return { createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s };
     }
 
-    const bool treatAsSameOriginNavigation = [&targetURL, &navigation, &siteIsolationEnabled] {
-        if (siteIsolationEnabled
-            && targetURL.protocolIsAbout()
-            && !SecurityPolicy::shouldInheritSecurityOriginFromOwner(targetURL))
-            return false;
+    const bool treatAsSameOriginNavigation = [&targetURL, &navigation, &siteIsolationEnabled, &frame] {
+        if (siteIsolationEnabled) {
+            if (targetURL.protocolIsAbout() && !SecurityPolicy::shouldInheritSecurityOriginFromOwner(targetURL))
+                return false;
+            if (frame.isMainFrame() && targetURL.protocolIsData())
+                return false;
+        }
 
         return navigation.treatAsSameOriginNavigation();
     }();
@@ -2773,11 +2776,11 @@ void WebProcessPool::observeScriptTrackingPrivacyUpdatesIfNeeded()
 
 void WebProcessPool::observeConsistentQueryParameterFilteringQuirkUpdatesIfNeeded()
 {
-    if (m_scriptTrackingPrivacyDataUpdateObserver)
+    if (m_consistentPrivacyQuirkDataUpdateObserver)
         return;
 
     Ref controller = ConsistentPrivacyQuirkController::sharedSingleton();
-    m_scriptTrackingPrivacyDataUpdateObserver = controller->observeUpdates([weakThis = WeakPtr { *this }] {
+    m_consistentPrivacyQuirkDataUpdateObserver = controller->observeUpdates([weakThis = WeakPtr { *this }] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;

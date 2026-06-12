@@ -555,6 +555,11 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebBackForwardListCounts.serialization.in
     Shared/WebContextMenuItemData.serialization.in
     Shared/WebCoreArgumentCoders.serialization.in
+    Shared/WebCoreArgumentCodersAuth.serialization.in
+    Shared/WebCoreArgumentCodersMedia.serialization.in
+    Shared/WebCoreArgumentCodersNetwork.serialization.in
+    Shared/WebCoreArgumentCodersPayment.serialization.in
+    Shared/WebCoreArgumentCodersStorage.serialization.in
     Shared/WebCoreFont.serialization.in
     Shared/WebCompiledContentRuleListData.serialization.in
     Shared/WebEvent.serialization.in
@@ -765,6 +770,10 @@ set(WebKit_FRAMEWORKS
     WebCore
     bmalloc
 )
+if (USE_APPLE_INTERNAL_SDK)
+    list(APPEND WebKit_FRAMEWORKS WebKitAdditions)
+    list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES "${WebKitAdditions_FRAMEWORK_HEADERS_DIR}/WebKitAdditions")
+endif ()
 
 set(WebProcess_LIBRARIES WebKit)
 set(NetworkProcess_LIBRARIES WebKit)
@@ -998,7 +1007,7 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
             list(APPEND _input_files ${WEBKIT_DIR}/${_file}.messages.in)
             file(STRINGS ${WEBKIT_DIR}/${_file}.messages.in _swift_attr REGEX "SwiftReceiver")
             if (_swift_attr)
-                list(APPEND _outputs ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.swift)
+                list(APPEND _outputs ${_name}MessageReceiver.swift)
             endif ()
         else ()
             list(APPEND _input_files ${WebKit_DERIVED_SOURCES_DIR}/${_name}.messages.in)
@@ -1009,23 +1018,35 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
             set(_receiver_cpp ${_name}MessageReceiver.cpp)
         endif ()
         list(APPEND _outputs
-            ${WebKit_DERIVED_SOURCES_DIR}/${_receiver_cpp}
-            ${WebKit_DERIVED_SOURCES_DIR}/${_name}Messages.h
+            ${_receiver_cpp}
+            ${_name}Messages.h
         )
         list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/${_receiver_cpp})
     endforeach ()
+    list(APPEND _outputs
+        MessageArgumentDescriptions.cpp
+        MessageNames.cpp
+        MessageNames.h
+    )
 
     list(APPEND ${_output_source}
         ${WebKit_DERIVED_SOURCES_DIR}/MessageArgumentDescriptions.cpp
         ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp
     )
 
+    set(_messages_stage_dir ${WebKit_DERIVED_SOURCES_DIR}/.messages-stage)
+    # copy_if_different (rather than copy_directory_if_different, which is unavailable on
+    # older CMake versions) copies only changed files back, leaving the timestamps of
+    # unchanged outputs untouched so downstream C++ is not needlessly rebuilt.
+    unset(_absolute_outputs)
+    unset(_messages_copy_commands)
+    foreach (_rel IN LISTS _outputs)
+        list(APPEND _absolute_outputs ${WebKit_DERIVED_SOURCES_DIR}/${_rel})
+        list(APPEND _messages_copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_messages_stage_dir}/${_rel} ${WebKit_DERIVED_SOURCES_DIR}/${_rel})
+    endforeach ()
     add_custom_command(
         OUTPUT
-            ${WebKit_DERIVED_SOURCES_DIR}/MessageArgumentDescriptions.cpp
-            ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp
-            ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.h
-            ${_outputs}
+            ${_absolute_outputs}
         MAIN_DEPENDENCY ${WEBKIT_DIR}/Scripts/generate-message-receiver.py
         DEPENDS
             ${WEBKIT_DIR}/Scripts/webkit/__init__.py
@@ -1033,7 +1054,9 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
             ${WEBKIT_DIR}/Scripts/webkit/model.py
             ${WEBKIT_DIR}/Scripts/webkit/parser.py
             ${_input_files}
-        COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-message-receiver.py --preserve-subdirs ${WEBKIT_DIR} ${_inputs}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_messages_stage_dir}
+        COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-message-receiver.py --preserve-subdirs ${WEBKIT_DIR} ${_inputs} --output-dir ${_messages_stage_dir}
+        ${_messages_copy_commands}
         WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
         VERBATIM
     )
@@ -1106,6 +1129,13 @@ list(APPEND WebKit_SERIALIZATION_DEPENDENCIES "${WebKit_DERIVED_SOURCES_DIR}/Sha
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersShared.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedExtensions.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebGPU.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebCoreArgumentCodersAuth.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebCoreArgumentCodersMedia.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebCoreArgumentCodersNetwork.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebCoreArgumentCodersPayment.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersSharedWebCoreArgumentCodersStorage.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersWebProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersGPUProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersNetworkProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
@@ -1117,26 +1147,48 @@ list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
 )
 
+set(_serializers_stage_dir ${WebKit_DERIVED_SOURCES_DIR}/.serializers-stage)
+set(_serializers_outputs
+    GeneratedSerializers.h
+    GeneratedSerializersShared.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedExtensions.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebGPU.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebCoreArgumentCodersAuth.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebCoreArgumentCodersMedia.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebCoreArgumentCodersNetwork.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebCoreArgumentCodersPayment.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersSharedWebCoreArgumentCodersStorage.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersWebProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersGPUProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersNetworkProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersPlatform.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersModelProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersUIProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedSerializersCommon.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    GeneratedWebKitSecureCoding.h
+    GeneratedWebKitSecureCoding.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    SerializedTypeInfo.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+)
+# copy_if_different (rather than copy_directory_if_different, which is unavailable on
+# older CMake versions) copies only changed files back, leaving the timestamps of
+# unchanged outputs untouched so downstream C++ is not needlessly rebuilt.
+unset(_serializers_absolute_outputs)
+unset(_serializers_copy_commands)
+foreach (_rel IN LISTS _serializers_outputs)
+    list(APPEND _serializers_absolute_outputs ${WebKit_DERIVED_SOURCES_DIR}/${_rel})
+    list(APPEND _serializers_copy_commands COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_serializers_stage_dir}/${_rel} ${WebKit_DERIVED_SOURCES_DIR}/${_rel})
+endforeach ()
 add_custom_command(
     OUTPUT
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersShared.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersWebProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersGPUProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersNetworkProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersPlatform.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersModelProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersUIProcess.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializersCommon.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.h
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
-        ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+        ${_serializers_absolute_outputs}
     MAIN_DEPENDENCY ${WEBKIT_DIR}/Scripts/generate-serializers.py
     DEPENDS
         ${WEBKIT_DIR}/Scripts/webkit/opaque_ipc_types.py
         ${WebKit_SERIALIZATION_DEPENDENCIES}
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py ${WebKit_GENERATED_SERIALIZERS_SUFFIX} --split-by-directory ${WebKit_SERIALIZATION_DEPENDENCIES}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${_serializers_stage_dir}
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py ${WebKit_GENERATED_SERIALIZERS_SUFFIX} --split-by-directory ${WebKit_SERIALIZATION_DEPENDENCIES} --output-dir ${_serializers_stage_dir}
+    ${_serializers_copy_commands}
     WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
     VERBATIM
 )
@@ -1146,6 +1198,13 @@ if (WTF_CPU_ARM AND NOT CMAKE_CROSSCOMPILING)
     set(GeneratedSerializers_COMPILE_OPTIONS -O0 -DRELEASE_WITHOUT_OPTIMIZATIONS=ON)
     foreach (GeneratedSerializers_BASENAME
         GeneratedSerializersShared
+        GeneratedSerializersSharedExtensions
+        GeneratedSerializersSharedWebGPU
+        GeneratedSerializersSharedWebCoreArgumentCodersAuth
+        GeneratedSerializersSharedWebCoreArgumentCodersMedia
+        GeneratedSerializersSharedWebCoreArgumentCodersNetwork
+        GeneratedSerializersSharedWebCoreArgumentCodersPayment
+        GeneratedSerializersSharedWebCoreArgumentCodersStorage
         GeneratedSerializersWebProcess
         GeneratedSerializersGPUProcess
         GeneratedSerializersNetworkProcess

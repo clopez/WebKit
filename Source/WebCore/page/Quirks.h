@@ -139,6 +139,8 @@ public:
 
     WEBCORE_EXPORT bool static NODELETE shouldDisableBlobFileAccessEnforcement();
 
+    bool shouldAllowMixedContentConnectionToLoopback(const URL&);
+
     bool NODELETE needsGMailOverflowScrollQuirk() const;
     bool NODELETE needsYouTubeOverflowScrollQuirk() const;
     bool NODELETE needsFullscreenDisplayNoneQuirk() const;
@@ -360,6 +362,10 @@ public:
     void clearLogoutSurvivingIdentityCookiesIfNeeded(const URL& fetchURL, int httpStatusCode);
 
     void determineRelevantQuirks();
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(IOS_TOUCH_EVENTS)
+    WEBCORE_EXPORT bool shouldAllowNativeTapsOnMediaElements(const Node*) const;
+#endif
 
 #if PLATFORM(IOS_FAMILY)
     bool NODELETE shouldSendFakeTouchForceChangeEvent() const;

@@ -864,7 +864,7 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
                 section->paint(info, childPoint);
             }
         }
-        m_currentBorder = 0;
+        m_currentBorder = nullptr;
     }
 
     // Paint outline.
@@ -889,7 +889,7 @@ void RenderTable::paintCollapsedBordersForRow(PaintInfo& paintInfo, RenderTableR
             }
         }
     }
-    m_currentBorder = { };
+    m_currentBorder = nullptr;
 }
 
 void RenderTable::adjustBorderBoxRectForPainting(LayoutRect& rect)
@@ -1165,8 +1165,8 @@ LayoutUnit RenderTable::offsetLeftForColumn(const RenderTableCol& column) const
 LayoutUnit RenderTable::offsetWidthForColumn(const RenderTableCol& column) const
 {
     const RenderTableCol* currentColumn = &column;
-    bool hasColumnChildren;
-    if ((hasColumnChildren = currentColumn->isTableColumnGroupWithColumnChildren()))
+    bool hasColumnChildren = currentColumn->isTableColumnGroupWithColumnChildren();
+    if (hasColumnChildren)
         currentColumn = currentColumn->nextColumn(); // First column in column-group
     unsigned numberOfEffectiveColumns = numEffCols();
     ASSERT_WITH_SECURITY_IMPLICATION(m_columnPos.size() >= numberOfEffectiveColumns + 1);

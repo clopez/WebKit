@@ -32,6 +32,7 @@
 #include "ContainerNodeInlines.h"
 #include "Cookie.h"
 #include "CookieJar.h"
+#include "DNS.h"
 #include "DatasetDOMStringMap.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentLoader.h"
@@ -677,6 +678,19 @@ bool Quirks::shouldComputeSimulatedMouseEventMovementDelta() const
 
     return m_quirksData.isTikTok || m_quirksData.isFacebook;
 }
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(IOS_TOUCH_EVENTS)
+bool Quirks::shouldAllowNativeTapsOnMediaElements(const Node* node) const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    if (!m_quirksData.isLinkedIn)
+        return false;
+
+    return is<HTMLMediaElement>(node) && downcast<HTMLMediaElement>(*node).hasClassName("vjs-tech"_s);
+}
+#endif
+
 #endif
 
 // live.com rdar://52116170
@@ -742,6 +756,16 @@ bool Quirks::shouldIgnoreInputModeNone() const
 #else
     return false;
 #endif
+}
+
+// rdar://176981763
+bool Quirks::shouldAllowMixedContentConnectionToLoopback(const URL& url)
+{
+    if (m_document->url().host() != "account.battle.net"_s || m_document->url().path().startsWith("/login"_s))
+        return false;
+    if (auto address = IPAddress::fromString(url.host().toStringWithoutCopying()))
+        return address->isLoopback();
+    return false;
 }
 
 // FIXME: Remove after the site is fixed, <rdar://problem/50374200>
@@ -3543,6 +3567,13 @@ static void handleIMDBQuirks(QuirksData& quirksData, const URL& /* quirksURL */,
 
 }
 
+static void handleLinkedInQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
+{
+    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("linkedin.com"_s);
+
+    quirksData.isLinkedIn = true;
+}
+
 static void handleLiveQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& /* documentURL */)
 {
     QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("live.com"_s);
@@ -4091,6 +4122,7 @@ void Quirks::determineRelevantQuirks()
         { "imdb"_s, &handleIMDBQuirks },
         { "instagram"_s, &handleInstagramQuirks },
         { "invideo"_s, &handleInVideoQuirks },
+        { "linkedin"_s, &handleLinkedInQuirks },
         { "live"_s, &handleLiveQuirks },
 #if PLATFORM(MAC)
         { "madisoncityk12"_s, &handleMadisonCityK12Quirks },

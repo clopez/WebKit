@@ -168,11 +168,6 @@ static bool representsDraggableElement(const WebKit::InteractionInformationAtPos
     return info.isLink || info.isImage || info.isAttachment || info.isDHTMLDraggable || info.isColorInput || info.prefersDraggingOverTextSelection;
 }
 
-static bool representsSelectableElement(const WebKit::InteractionInformationAtPosition& info)
-{
-    return info.selectability == WebKit::InteractionInformationAtPosition::Selectability::Selectable;
-}
-
 static NSString *gestureLogName(NSGestureRecognizer *gesture)
 {
     if (!gesture)
@@ -247,6 +242,7 @@ static NSString *gestureLogName(NSGestureRecognizer *gesture)
     [self setUpGestureRecognizers];
     [self addGesturesToWebView];
     [self enableGesturesIfNeeded];
+    [self ensureGesturesAreNotArchived];
 
     return self;
 }
@@ -366,6 +362,22 @@ static NSString *gestureLogName(NSGestureRecognizer *gesture)
     [self enableGestureIfNeeded:_dragPressGestureRecognizer.get()];
 
     // The deferring gesture recognizers are intentionally not enabled.
+}
+
+- (void)ensureGesturesAreNotArchived
+{
+    // The set of gestures managed by WKAppKitGestureController are configured
+    // and installed freshly for every web view initialization, and as such we
+    // want to avoid duplicate sets when views are decoded.
+
+    [_panGestureRecognizer setShouldBeArchived:NO];
+    [_mouseTrackingGestureRecognizer setShouldBeArchived:NO];
+    [_singleClickGestureRecognizer setShouldBeArchived:NO];
+    [_doubleClickGestureRecognizer setShouldBeArchived:NO];
+    [_secondaryClickGestureRecognizer setShouldBeArchived:NO];
+    [_secondaryClickDeferringGestureRecognizer setShouldBeArchived:NO];
+    [_dragPressGestureRecognizer setShouldBeArchived:NO];
+    [_dragDeferringGestureRecognizer setShouldBeArchived:NO];
 }
 
 - (void)enableGestureIfNeeded:(NSGestureRecognizer *)gesture
@@ -713,7 +725,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
             }
 
             if (strongDeferring == strongSelf->_secondaryClickDeferringGestureRecognizer) {
-                bool isSelectable = representsSelectableElement(info);
+                bool isSelectable = info.isSelectable();
                 WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(RefPtr { strongSelf->_page.get() }->logIdentifier(), "Resolved deferral: isSelectable=%d", isSelectable);
                 return !isSelectable;
             }
@@ -850,7 +862,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     WebKit::InteractionInformationRequest request { WebCore::IntPoint { locationInViewCoordinates } };
 
     bool requestIsValid = _hasValidPositionInformation && _positionInformation.request.isValidForRequest(request);
-    bool isSelectable = representsSelectableElement(_positionInformation);
+    bool isSelectable = _positionInformation.isSelectable();
     bool shouldBegin = requestIsValid && isSelectable;
 
     if (!requestIsValid)

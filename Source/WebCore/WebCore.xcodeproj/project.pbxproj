@@ -5654,6 +5654,7 @@
 		BCD9F13D2E1EE70A00D1C3DF /* CSSGridNamedAreaMap.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F13C2E1EE70A00D1C3DF /* CSSGridNamedAreaMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCD9F1682E202E2100D1C3DF /* StyleGridOrderedNamedLinesMap.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F1672E202E2100D1C3DF /* StyleGridOrderedNamedLinesMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCD9F1752E203A0200D1C3DF /* StyleObjectPosition.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F1742E20384800D1C3DF /* StyleObjectPosition.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		9D41451DA980438DA186DBDF /* StyleObjectViewBox.h in Headers */ = {isa = PBXBuildFile; fileRef = CEA340CB3EC1453981DF6B56 /* StyleObjectViewBox.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCD9F1782E2040DC00D1C3DF /* StylePerspectiveOrigin.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F1772E2040DC00D1C3DF /* StylePerspectiveOrigin.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCD9F17A2E2045C500D1C3DF /* StyleTransformOrigin.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F1792E2045C500D1C3DF /* StyleTransformOrigin.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCD9F1B32E21D62800D1C3DF /* StyleGridTemplateList.h in Headers */ = {isa = PBXBuildFile; fileRef = BCD9F1B22E21D62800D1C3DF /* StyleGridTemplateList.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -7161,6 +7162,7 @@
 		F3D461491161D53200CA0D09 /* JSErrorHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F3D461471161D53200CA0D09 /* JSErrorHandler.h */; };
 		F3E5BBEBC56FC96C0C330EBC /* Overflow.svg in Copy Modern Media Controls Images */ = {isa = PBXBuildFile; fileRef = C029AAD880833E8D745FD969 /* Overflow.svg */; platformFilters = (ios, maccatalyst, tvos, xros, ); };
 		F3EB1F322F43B92600725B79 /* FrameConsoleAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = F3EB1F2E2F43B92600725B79 /* FrameConsoleAgent.h */; };
+		E6F93CF6265A334D32D41777 /* FrameCSSAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7C0F6A57EB56935552649019 /* FrameCSSAgent.h */; };
 		F4023C4B2D3C4E670008A06D /* UnicodeHelpers.h in Headers */ = {isa = PBXBuildFile; fileRef = F4023C482D3C4E670008A06D /* UnicodeHelpers.h */; };
 		F402822F2D88C9A700F3680B /* CocoaView.h in Headers */ = {isa = PBXBuildFile; fileRef = F402822E2D88C9A700F3680B /* CocoaView.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F403E7872363B58C00044550 /* EnterKeyHint.h in Headers */ = {isa = PBXBuildFile; fileRef = F403E7852363B58C00044550 /* EnterKeyHint.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -20501,6 +20503,8 @@
 		BCD9F1672E202E2100D1C3DF /* StyleGridOrderedNamedLinesMap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleGridOrderedNamedLinesMap.h; sourceTree = "<group>"; };
 		BCD9F1692E202E8C00D1C3DF /* StyleGridNamedLinesMap.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleGridNamedLinesMap.cpp; sourceTree = "<group>"; };
 		BCD9F1742E20384800D1C3DF /* StyleObjectPosition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleObjectPosition.h; sourceTree = "<group>"; };
+		CEA340CB3EC1453981DF6B56 /* StyleObjectViewBox.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleObjectViewBox.h; sourceTree = "<group>"; };
+		DCD61E9000DE48A88138DCA4 /* StyleObjectViewBox.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleObjectViewBox.cpp; sourceTree = "<group>"; };
 		BCD9F1772E2040DC00D1C3DF /* StylePerspectiveOrigin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StylePerspectiveOrigin.h; sourceTree = "<group>"; };
 		BCD9F1792E2045C500D1C3DF /* StyleTransformOrigin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleTransformOrigin.h; sourceTree = "<group>"; };
 		BCD9F1B22E21D62800D1C3DF /* StyleGridTemplateList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleGridTemplateList.h; sourceTree = "<group>"; };
@@ -23206,6 +23210,8 @@
 		F3EB1F2E2F43B92600725B79 /* FrameConsoleAgent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FrameConsoleAgent.h; sourceTree = "<group>"; };
 		F3EB1F2F2F43B92600725B79 /* FrameConsoleAgent.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FrameConsoleAgent.cpp; sourceTree = "<group>"; };
 		F3FB34D3C8B0041EA738900D /* Ellipsis.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = Ellipsis.svg; sourceTree = "<group>"; };
+		7C0F6A57EB56935552649019 /* FrameCSSAgent.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FrameCSSAgent.h; sourceTree = "<group>"; };
+		28B3EF64E96201CC125E5C5F /* FrameCSSAgent.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FrameCSSAgent.cpp; sourceTree = "<group>"; };
 		F4023C482D3C4E670008A06D /* UnicodeHelpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = UnicodeHelpers.h; sourceTree = "<group>"; };
 		F4023C492D3C4E670008A06D /* UnicodeHelpers.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = UnicodeHelpers.cpp; sourceTree = "<group>"; };
 		F402822E2D88C9A700F3680B /* CocoaView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CocoaView.h; sourceTree = "<group>"; };
@@ -38839,6 +38845,8 @@
 				BC22AA9F2E36A554009AC0C3 /* StyleImageWrapper.cpp */,
 				BC22AA9D2E36A2BD009AC0C3 /* StyleImageWrapper.h */,
 				BCD9F1742E20384800D1C3DF /* StyleObjectPosition.h */,
+				DCD61E9000DE48A88138DCA4 /* StyleObjectViewBox.cpp */,
+				CEA340CB3EC1453981DF6B56 /* StyleObjectViewBox.h */,
 			);
 			path = images;
 			sourceTree = "<group>";
@@ -41472,6 +41480,8 @@
 			children = (
 				F3EB1F2F2F43B92600725B79 /* FrameConsoleAgent.cpp */,
 				F3EB1F2E2F43B92600725B79 /* FrameConsoleAgent.h */,
+				28B3EF64E96201CC125E5C5F /* FrameCSSAgent.cpp */,
+				7C0F6A57EB56935552649019 /* FrameCSSAgent.h */,
 				5EAA0AFF2F4FC900009CAB0D /* FrameDebuggerAgent.cpp */,
 				5EAA0B002F4FC900009CAB0D /* FrameDebuggerAgent.h */,
 				5E3DD8072F903C9A00250DF5 /* FrameDOMAgent.cpp */,
@@ -45457,6 +45467,7 @@
 				46B95196207D633A00A7D2DD /* Frame.h in Headers */,
 				F3EB1F322F43B92600725B79 /* FrameConsoleAgent.h in Headers */,
 				DAED203116F244480070EC0F /* FrameConsoleClient.h in Headers */,
+				E6F93CF6265A334D32D41777 /* FrameCSSAgent.h in Headers */,
 				5EAA0B042F4FC901009CAB0D /* FrameDebugger.h in Headers */,
 				5EAA0B012F4FC900009CAB0D /* FrameDebuggerAgent.h in Headers */,
 				974A862314B7ADBB003FDC76 /* FrameDestructionObserver.h in Headers */,
@@ -48885,6 +48896,7 @@
 				BC63AD4D2F085646007B62C4 /* StyleNonInheritedMiscData.h in Headers */,
 				BC63AD4E2F085646007B62C4 /* StyleNonInheritedRareData.h in Headers */,
 				BCD9F1752E203A0200D1C3DF /* StyleObjectPosition.h in Headers */,
+				9D41451DA980438DA186DBDF /* StyleObjectViewBox.h in Headers */,
 				BCCE4F462DF74F1D005554EA /* StyleOffsetAnchor.h in Headers */,
 				BCCE4F412DF73F64005554EA /* StyleOffsetDistance.h in Headers */,
 				BCCE4F612DF89776005554EA /* StyleOffsetPath.h in Headers */,

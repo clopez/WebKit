@@ -187,7 +187,7 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     return frame;
 }
 
-Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID, const String& frameName, std::optional<WebCore::FrameIdentifier> openerFrameID, Ref<WebCore::FrameTreeSyncData>&& frameTreeSyncData)
+Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID, const String& frameName, std::optional<WebCore::FrameIdentifier> openerFrameID, WebCore::ProcessIdentifier hostingProcessID, Ref<WebCore::FrameTreeSyncData>&& frameTreeSyncData)
 {
     RefPtr<WebCore::Frame> opener;
     if (openerFrameID) {
@@ -204,6 +204,7 @@ Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, We
     auto coreFrame = RemoteFrame::createSubframe(*corePage, [frame] (auto&) {
         return makeUniqueRef<WebRemoteFrameClient>(frame.copyRef(), frame->makeInvalidator());
     }, frameID, *parentCoreFrame, opener.get(), std::nullopt, WTF::move(frameTreeSyncData), WebCore::Frame::AddToFrameTree::Yes);
+    coreFrame->setHostingProcessIdentifier(hostingProcessID);
     frame->m_coreFrame = coreFrame.get();
     coreFrame->tree().setSpecifiedName(AtomString(frameName));
     return frame;
@@ -390,7 +391,7 @@ uint64_t WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction&& policyFunc
     return policyListenerID;
 }
 
-void WebFrame::loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier)
+void WebFrame::loadDidCommitInAnotherProcess(WebCore::ProcessIdentifier hostingProcessID, std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier)
 {
     RefPtr localFrame = coreLocalFrame();
     if (!localFrame) {
@@ -432,6 +433,7 @@ void WebFrame::loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHosting
 
         return WebCore::RemoteFrame::createMainFrame(*corePage, WTF::move(clientCreator), m_frameID, nullptr, WTF::move(frameTreeSyncData));
     }();
+    newFrame->setHostingProcessIdentifier(hostingProcessID);
     m_coreFrame = newFrame.get();
 
     if (parent)
@@ -1219,7 +1221,7 @@ String WebFrame::provisionalURL() const
     return provisionalDocumentLoader->url().string();
 }
 
-String WebFrame::suggestedFilenameForResourceWithURL(const URL& url) const
+String WebFrame::suggestedFilenameForResourceWithURL(const URL& url, ResourceType resourceType) const
 {
     RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
     if (!localFrame)
@@ -1229,11 +1231,12 @@ String WebFrame::suggestedFilenameForResourceWithURL(const URL& url) const
     if (!loader)
         return String();
 
-    // First, try the main resource.
-    if (loader->url() == url)
-        return loader->response().suggestedFilename();
+    if (loader->url() == url) {
+        const auto& mimeType = loader->response().mimeType();
+        if (resourceType != ResourceType::Image || mimeType.startsWithIgnoringASCIICase("image/"_s))
+            return loader->response().suggestedFilename();
+    }
 
-    // Next, try subresources.
     RefPtr<ArchiveResource> resource = loader->subresource(url);
     if (resource)
         return resource->response().suggestedFilename();
@@ -1241,7 +1244,7 @@ String WebFrame::suggestedFilenameForResourceWithURL(const URL& url) const
     return String();
 }
 
-String WebFrame::mimeTypeForResourceWithURL(const URL& url) const
+String WebFrame::mimeTypeForResourceWithURL(const URL& url, ResourceType resourceType) const
 {
     RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
     if (!localFrame)
@@ -1251,11 +1254,12 @@ String WebFrame::mimeTypeForResourceWithURL(const URL& url) const
     if (!loader)
         return String();
 
-    // First, try the main resource.
-    if (loader->url() == url)
-        return loader->response().mimeType();
+    if (loader->url() == url) {
+        const auto& mimeType = loader->response().mimeType();
+        if (resourceType != ResourceType::Image || mimeType.startsWithIgnoringASCIICase("image/"_s))
+            return mimeType;
+    }
 
-    // Next, try subresources.
     RefPtr<ArchiveResource> resource = loader->subresource(url);
     if (resource)
         return resource->mimeType();
@@ -1728,6 +1732,25 @@ void WebFrame::requestTextExtraction(TextExtraction::Request&& request, Completi
     RefPtr frame = coreLocalFrame();
     if (!frame)
         return completion({ });
+
+#if ENABLE(PDF_PLUGIN)
+    if (RefPtr pluginView = WebPage::pluginViewForFrame(frame.get())) {
+        if (auto pdfText = pluginView->fullDocumentString(); !pdfText.isEmpty()) {
+            TextExtraction::Result result;
+            TextExtraction::ScrollableItemData scrollableData;
+            if (RefPtr view = frame->view()) {
+                scrollableData.contentSize = view->contentsSize();
+                scrollableData.scrollPosition = view->scrollPosition();
+            }
+            scrollableData.isRoot = true;
+            result.rootItem.data = WTF::move(scrollableData);
+            result.rootItem.frameIdentifier = frame->frameID();
+            result.visibleTextLength = pdfText.length();
+            result.pdfMarkdownContent = WTF::move(pdfText);
+            return completion(WTF::move(result));
+        }
+    }
+#endif
 
     completion(TextExtraction::extractItem(WTF::move(request), *frame));
 }

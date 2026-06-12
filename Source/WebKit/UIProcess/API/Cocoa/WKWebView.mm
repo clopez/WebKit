@@ -4014,11 +4014,11 @@ struct WKWebViewData {
 
 - (void)_setContentOffsetX:(NSNumber *)x y:(NSNumber *)y animated:(BOOL)animated
 {
-    std::optional<int> optionalX = std::nullopt;
+    std::optional<int> optionalX;
     if (x)
         optionalX = static_cast<int>([x doubleValue]);
 
-    std::optional<int> optionalY = std::nullopt;
+    std::optional<int> optionalY;
     if (y)
         optionalY = static_cast<int>([y doubleValue]);
 
@@ -7336,6 +7336,19 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
             WTF::move(maxWordsPerParagraph),
             WTF::move(topHostName),
         };
+        if (result->pdfMarkdownContent) {
+            RELEASE_LOG(TextExtraction, "<%@: %p> PDF extraction complete (%.0f ms)", [strongSelf class], strongSelf.get(), (MonotonicTime::now() - startTime).milliseconds());
+            auto formattedText = WebKit::formatPDFMarkdownForOutput(*result->pdfMarkdownContent, outputFormat);
+            completionHandler(adoptNS([[_WKTextExtractionResult alloc]
+                initWithWebView:strongSelf
+                origin:wrapper(API::SecurityOrigin::create(origin))
+                textContent:formattedText.createNSString()
+                filteredOutAnyText:NO
+                shortenedURLs:@{ }
+                textToContainerMap:{ }]));
+            return;
+        }
+
         WebKit::convertToText(WTF::move(result->rootItem), WTF::move(options), [weakSelf, startTime, urlCache, origin = WTF::move(origin), completionHandler = WTF::move(completionHandler), endTextExtractionScope = WTF::move(endTextExtractionScope)](auto&& result) {
             RetainPtr strongSelf = weakSelf.get();
             if (!strongSelf)

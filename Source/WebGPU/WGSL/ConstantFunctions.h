@@ -269,7 +269,19 @@ template<Constraint constraint, typename Functor>
 template<typename U>
 struct StaticCast {
     template<typename T>
-    static U cast(T t) { return static_cast<U>(t); }
+    static U cast(T t)
+    {
+        if constexpr (std::is_integral_v<U> && !std::is_same_v<U, bool> && (std::is_floating_point_v<T> || std::is_same_v<T, half>)) {
+            if constexpr (std::is_same_v<T, half>) {
+                static const half max = 0x1.ffcp15;
+                static const half lowest = -max;
+                return U(std::clamp(t, std::max(T(std::numeric_limits<U>::min()), lowest), max));
+            } else if (std::is_same_v<T, float>)
+                return U(std::clamp(t, T(std::numeric_limits<U>::min()), T(std::numeric_limits<U>::max() - ((128 << (!std::is_signed_v<U>)) - 1))));
+        }
+
+        return static_cast<U>(t);
+    }
 };
 
 template<typename U>
@@ -1415,10 +1427,10 @@ CONSTANT_FUNCTION(Refract)
     const auto& refract = [&]<typename T>(T e3) -> ConstantResult {
         auto* elementType = std::get<Types::Vector>(*resultType).element;
         CALL(dot, Dot, elementType, { e2, e1 });
-        CALL(pow, Pow, elementType, { dot, static_cast<T>(2.0) });
-        CALL(sub, Minus, elementType, { static_cast<T>(1.0), pow });
-        CALL(pow2, Pow, elementType, { e3, static_cast<T>(2.0) });
-        CALL(mul, Multiply, elementType, { pow2, sub });
+        CALL(dotSquared, Multiply, elementType, { dot, dot });
+        CALL(sub, Minus, elementType, { static_cast<T>(1.0), dotSquared });
+        CALL(e3Squared, Multiply, elementType, { e3, e3 });
+        CALL(mul, Multiply, elementType, { e3Squared, sub });
         CALL(k, Minus, elementType, { static_cast<T>(1.0), mul });
         CALL(lt, Lt, elementType, { k, static_cast<T>(0.0) });
 

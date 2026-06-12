@@ -4161,26 +4161,24 @@ bool EventHandler::keyEvent(const PlatformKeyboardEvent& keyEvent)
 {
     Ref frame = m_frame.get();
     RefPtr page = frame->page();
-    RefPtr mainFrameDocument = frame->document() ? frame->document()->mainFrameDocument() : nullptr;
+    RefPtr document = frame->document();
     MonotonicTime savedLastHandledUserGestureTimestamp;
     bool savedUserDidInteractWithPage = page && page->userDidInteractWithPage();
 
-    if (auto* document = frame->document())
+    if (document)
         savedLastHandledUserGestureTimestamp = document->lastHandledUserGestureTimestamp();
 
     bool wasHandled = internalKeyEvent(keyEvent);
 
     // If the key event was not handled, do not treat it as user interaction with the page.
-    if (mainFrameDocument) {
+    if (document) {
         if (!wasHandled) {
             if (page)
                 page->setUserDidInteractWithPage(savedUserDidInteractWithPage);
+            document->updateLastHandledUserGestureTimestamp(savedLastHandledUserGestureTimestamp);
         } else
-            ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*mainFrameDocument);
+            ResourceLoadObserver::singleton().logUserInteractionWithReducedTimeResolution(*document);
     }
-
-    if (!wasHandled && frame->document())
-        protect(frame->document())->updateLastHandledUserGestureTimestamp(savedLastHandledUserGestureTimestamp);
 
     return wasHandled;
 }
@@ -4552,10 +4550,7 @@ void EventHandler::defaultKeyboardEventHandler(KeyboardEvent& event)
                 if (event.isTrusted())
                     frame->document()->window()->closeWatcherManager().processCloseWatchers();
             } else {
-                if (frame->settings().closedbyAttributeEnabled()) {
-                    if (RefPtr activeCloseableDialog = frame->document()->activeCloseableDialog())
-                        activeCloseableDialog->requestClose(nullString(), nullptr);
-                } else if (RefPtr activeModalDialog = frame->document()->activeModalDialog())
+                if (RefPtr activeModalDialog = frame->document()->activeModalDialog())
                     activeModalDialog->queueCancelTask();
                 if (RefPtr topmostAutoPopover = frame->document()->topmostAutoPopover())
                     topmostAutoPopover->hidePopover();

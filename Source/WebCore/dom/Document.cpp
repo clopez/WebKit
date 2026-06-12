@@ -1038,6 +1038,10 @@ void Document::commonTeardown()
     if (RefPtr rtcNetworkManager = std::exchange(m_rtcNetworkManager, nullptr))
         rtcNetworkManager->close();
 #endif
+
+#if ENABLE(VIDEO)
+    m_lazyLoadVideoObserver = nullptr;
+#endif
 }
 
 Quirks& Document::ensureQuirks()
@@ -6246,6 +6250,7 @@ static void updateCaptureSourceToPageMutedState(Document& document, Page& page, 
         source.setMuted(page.mutedState().contains(MediaProducerMutedState::AudioCaptureIsMuted) || (document.hidden() && document.settings().interruptAudioOnPageVisibilityChangeEnabled()));
         break;
     case CaptureDevice::DeviceType::Camera:
+    case CaptureDevice::DeviceType::Canvas:
         source.setMuted(page.mutedState().contains(MediaProducerMutedState::VideoCaptureIsMuted) || (document.hidden() && document.settings().interruptVideoOnPageVisibilityChangeEnabled()));
         break;
     case CaptureDevice::DeviceType::Screen:
@@ -6907,6 +6912,9 @@ void Document::nodeWillBeMoved(Node& node)
 
     for (Ref range : m_ranges)
         range->nodeWillBeRemoved(node);
+
+    if (RefPtr frame = this->frame())
+        frame->selection().nodeWillBeRemoved(node);
 }
 
 void Document::parentlessNodeMovedToNewDocument(Node& node)
@@ -11000,16 +11008,6 @@ HTMLDialogElement* Document::activeModalDialog() const
     for (auto& element : m_topLayerElements | std::views::reverse) {
         if (auto* dialog = dynamicDowncast<HTMLDialogElement>(element.get()); dialog && dialog->isModal())
             return dialog;
-    }
-
-    return nullptr;
-}
-
-HTMLDialogElement* Document::activeCloseableDialog() const
-{
-    for (auto& dialog : m_openDialogsList | std::views::reverse) {
-        if (dialog->computedClosedByState() != ClosedByState::None)
-            return &dialog.get();
     }
 
     return nullptr;

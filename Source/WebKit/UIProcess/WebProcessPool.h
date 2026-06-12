@@ -84,6 +84,10 @@ OBJC_CLASS WKProcessPoolWeakObserver;
 #include <wtf/cf/NotificationCenterCF.h>
 #endif
 
+#if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK) && PLATFORM(COCOA)
+#include <WebCore/CaptionUserPreferences.h>
+#endif
+
 namespace API {
 class Array;
 class AutomationClient;
@@ -418,8 +422,6 @@ public:
 
     static void NODELETE setInvalidMessageCallback(void (*)(WKStringRef));
     static void didReceiveInvalidMessage(IPC::MessageName);
-
-    bool isURLKnownHSTSHost(const String& urlString) const;
 
     static void registerGlobalURLSchemeAsHavingCustomProtocolHandlers(const String&);
     static void unregisterGlobalURLSchemeAsHavingCustomProtocolHandlers(const String&);
@@ -1004,6 +1006,7 @@ private:
     RefPtr<ListDataObserver> m_storageAccessUserAgentStringQuirksDataUpdateObserver;
     RefPtr<ListDataObserver> m_storageAccessPromptQuirksDataUpdateObserver;
     RefPtr<ListDataObserver> m_scriptTrackingPrivacyDataUpdateObserver;
+    RefPtr<ListDataObserver> m_consistentPrivacyQuirkDataUpdateObserver;
 #endif
 
     bool m_webProcessStateUpdatesForPageClientEnabled { false };
@@ -1046,6 +1049,11 @@ private:
     bool m_suppressEDR { false };
 
     Seconds m_pltResourceDelayInterval { 100_ms };
+
+#if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK) && PLATFORM(COCOA)
+    std::optional<WebCore::CaptionUserPreferences::CaptionDisplayMode> m_captionDisplayMode;
+    std::optional<Vector<String>> m_preferredLanguages;
+#endif
 };
 
 template<typename T>

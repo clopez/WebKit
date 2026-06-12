@@ -1891,7 +1891,6 @@ public:
     OrderedHashSet<Ref<HTMLDialogElement>>& openDialogsList() { return m_openDialogsList; }
 
     HTMLDialogElement* activeModalDialog() const;
-    HTMLDialogElement* activeCloseableDialog() const;
     HTMLElement* NODELETE topmostAutoPopover() const;
     RefPtr<HTMLDialogElement> nearestClickedDialog(const PointerEvent&, Node&) const;
 
@@ -2071,8 +2070,6 @@ public:
     ResourceMonitor& resourceMonitor();
     ResourceMonitor* NODELETE parentResourceMonitorIfExists();
 
-    bool shouldSkipResourceMonitorThrottling() const { return m_shouldSkipResourceMonitorThrottling; }
-    void setShouldSkipResourceMonitorThrottling(bool flag) { m_shouldSkipResourceMonitorThrottling = flag; }
 #endif
 
     double lookupCSSRandomBaseValue(const CSSCalc::RandomCachingKey&) const;
@@ -2857,7 +2854,6 @@ private:
 
 #if ENABLE(CONTENT_EXTENSIONS)
     RefPtr<ResourceMonitor> m_resourceMonitor;
-    bool m_shouldSkipResourceMonitorThrottling { false };
 #endif
 
     mutable RefPtr<CSSCalc::RandomCachingKeyMap> m_randomCachingKeyMap;
