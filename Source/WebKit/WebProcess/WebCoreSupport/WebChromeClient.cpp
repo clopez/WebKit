@@ -1117,6 +1117,8 @@ bool WebChromeClient::shouldNotifyOnFormChanges()
 RefPtr<PopupMenu> WebChromeClient::createPopupMenu(PopupMenuClient& client) const
 {
     RefPtr page = m_page.get();
+    if (!page)
+        return nullptr;
     return WebPopupMenu::create(page.get(), &client);
 }
 
@@ -1711,14 +1713,6 @@ void WebChromeClient::sampledPageTopColorChanged() const
     if (auto* page = m_page.get())
         page->sampledPageTopColorChanged();
 }
-
-#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
-void WebChromeClient::spatialBackdropSourceChanged() const
-{
-    if (RefPtr page = m_page.get())
-        page->spatialBackdropSourceChanged();
-}
-#endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
 void WebChromeClient::allowImmersiveElement(CompletionHandler<void(bool)>&& completion) const

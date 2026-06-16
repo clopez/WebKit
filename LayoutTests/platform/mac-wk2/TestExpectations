@@ -1459,7 +1459,6 @@ http/tests/webgpu/webgpu/shader/validation/expression/call/builtin/mix.html [ Sk
 http/tests/webgpu/webgpu/shader/execution/expression/constructor/non_zero.html [ Skip ]
 http/tests/webgpu/webgpu/shader/execution/expression/unary/af_arithmetic.html [ Skip ]
 http/tests/webgpu/webgpu/shader/execution/memory_layout.html [ Skip ]
-http/tests/webgpu/webgpu/shader/validation/expression/call/builtin/textureLoad.html [ Skip ]
 http/tests/webgpu/webgpu/shader/validation/expression/call/builtin/transpose.html [ Skip ]
 http/tests/webgpu/webgpu/shader/execution/expression/access/vector/components.html [ Skip ]
 http/tests/webgpu/webgpu/shader/execution/expression/call/builtin/refract.html [ Skip ]
@@ -2439,3 +2438,7 @@ webkit.org/b/316036 [ Debug ] inspector/timeline/timeline-event-TimerFire.html [
 webkit.org/b/315982 [ Sequoia Release x86_64 ] webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html [ Pass Timeout ]
 
 webkit.org/b/316089 [ Sequoia Release ] inspector/css/setLayoutContextTypeChangedMode.html [ Pass Failure ]
+
+webkit.org/b/317031 [ Release ] imported/w3c/web-platform-tests/web-locks/acquire.https.any.sharedworker.html  [ Pass Crash ]
+
+webkit.org/b/317141 [ Tahoe ] fast/speechsynthesis/speech-synthesis-speak.html [ Skip ]

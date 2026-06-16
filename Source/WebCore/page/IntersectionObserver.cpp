@@ -63,6 +63,7 @@
 #include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
+#include "TransformState.h"
 #include "VisibleRectContext.h"
 #include "WebCoreOpaqueRootInlines.h"
 #include <JavaScriptCore/AbstractSlotVisitorInlines.h>
@@ -86,7 +87,7 @@ static ExceptionOr<IntersectionObserverMarginBox> parseMargin(String& margin, co
     tokenRange.consumeWhitespace();
 
     if (tokenRange.atEnd())
-        return IntersectionObserverMarginBox { IntersectionObserverMarginEdge::Fixed { 0 } };
+        return IntersectionObserverMarginBox { IntersectionObserverMarginEdge::Dimension { 0 } };
 
     auto consumeEdge = [&] -> ExceptionOr<IntersectionObserverMarginEdge> {
         auto parsedValue = MetaConsumer<CSS::LengthPercentage<CSS::All, float>>::consume(tokenRange, parserState);
@@ -106,7 +107,7 @@ static ExceptionOr<IntersectionObserverMarginBox> parseMargin(String& margin, co
                 // Spec states: "Similar to the CSS margin property, this is a string of 1-4 components, each either an *absolute length* or a percentage."
                 // https://w3c.github.io/IntersectionObserver/#dom-intersectionobserverinit-rootmargin
                 if (lengthUnit == CSS::LengthUnit::Px) {
-                    return { IntersectionObserverMarginEdge::Fixed {
+                    return { IntersectionObserverMarginEdge::Dimension {
                         Style::toStyle(CSS::LengthRaw<CSS::All, float> { lengthUnit, raw->value }, NoConversionDataRequiredToken { }).unresolvedValue()
                     } };
                 }
@@ -241,7 +242,7 @@ static String marginBoxToString(const IntersectionObserverMarginBox& marginBox)
         if (auto percentage = edge.tryPercentage())
             stringBuilder.append(static_cast<int>(percentage->value), "%"_s, side != BoxSide::Left ? " "_s : ""_s);
         else
-            stringBuilder.append(static_cast<int>(edge.tryFixed()->resolveZoom(Style::ZoomNeeded { })), "px"_s, side != BoxSide::Left ? " "_s : ""_s);
+            stringBuilder.append(static_cast<int>(edge.tryDimension()->resolveZoom(Style::ZoomNeeded { })), "px"_s, side != BoxSide::Left ? " "_s : ""_s);
     }
     return stringBuilder.toString();
 }
@@ -357,7 +358,7 @@ static void expandRootBoundsWithRootMargin(FloatRect& rootBounds, const Intersec
     auto zoomAdjustedLength = [](const IntersectionObserverMarginEdge& edge, float maximumValue, float zoomFactor) {
         if (auto percentage = edge.tryPercentage())
             return Style::evaluate<float>(*percentage, maximumValue);
-        return Style::evaluate<float>(*edge.tryFixed(), Style::ZoomNeeded { }) * zoomFactor;
+        return Style::evaluate<float>(*edge.tryDimension(), Style::ZoomNeeded { }) * zoomFactor;
     };
 
     auto rootMarginEdges = FloatBoxExtent {
@@ -497,6 +498,53 @@ static std::optional<LayoutRect> computeClippedRectInRootContentsSpace(const Lay
 
     absoluteClippedRect->moveBy(enclosingFrameParent->virtualView()->childFrameOwnerContentBoxLocation(*enclosingFrame));
     return computeClippedRectInRootContentsSpace(*absoluteClippedRect, targetSecurityOrigin, enclosingFrame.get(), WTF::move(scrollMargin));
+}
+
+// Equivalent to FrameView::convertFromContainingView.
+static FloatRect convertFromContainingView(const FrameView& frameView, const FrameView& parentView, FloatRect rect)
+{
+    if (is<LocalFrameView>(parentView)) {
+        // If we can compute it the old way, do so.
+        return frameView.convertFromContainingView(rect);
+    }
+
+    rect = parentView.viewToContents(rect);
+
+    auto transform = parentView.absoluteToChildFrameOwnerLocalTransform(frameView.frame());
+    FloatRect transformed = transform.projectQuad(rect).boundingBox();
+    transformed.moveBy(-parentView.childFrameOwnerContentBoxLocation(frameView.frame()));
+
+    return transformed;
+}
+
+// Equivalent to Widget::convertFromRootView.
+static FloatRect convertFromRootView(const FrameView& frameView, FloatRect rect)
+{
+    auto parentView = [&frameView] () -> RefPtr<const FrameView> {
+        if (RefPtr parent = dynamicDowncast<FrameView>(frameView.parent()))
+            return parent;
+
+        // When Site Isolation is enabled, Widget::m_parent is not populated if
+        // frameView is RemoteFrameView. Workaround this by using the frame tree parent.
+        // FIXME: fix the underlying issue instead.
+        if (RefPtr parent = frameView.frame().tree().parent())
+            return parent->virtualView();
+
+        return nullptr;
+    }();
+
+    if (parentView) {
+        FloatRect parentRect = convertFromRootView(*parentView, rect);
+        return convertFromContainingView(frameView, *parentView, parentRect);
+    }
+
+    return rect;
+}
+
+// Equivalent to rootViewToContents.
+static FloatRect mainFrameViewToContents(const FrameView& targetFrameView, FloatRect rect)
+{
+    return targetFrameView.viewToContents(convertFromRootView(targetFrameView, rect));
 }
 
 auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRegistration& registration, FrameView& hostFrameView, Element& target, ApplyRootMargin applyRootMargin) const -> IntersectionObservationState
@@ -674,7 +722,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             intersectionState.absoluteIntersectionRect = rootAbsoluteIntersectionRect;
         else {
             auto rootViewIntersectionRect = hostFrameView.contentsToView(rootAbsoluteIntersectionRect);
-            intersectionState.absoluteIntersectionRect = targetRenderer->view().frameView().rootViewToContents(rootViewIntersectionRect);
+            intersectionState.absoluteIntersectionRect = mainFrameViewToContents(targetRenderer->view().frameView(), rootViewIntersectionRect);
         }
 
         intersectionState.isIntersecting = intersectionState.absoluteIntersectionRect->edgeInclusiveIntersect(*intersectionState.absoluteTargetRect);

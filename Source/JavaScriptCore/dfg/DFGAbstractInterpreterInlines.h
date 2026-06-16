@@ -3473,6 +3473,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         setTypeForNode(node, SpecOther | SpecArray);
         break;
 
+    case RegExpSplitFast:
+        ASSERT(node->child1().useKind() == RegExpObjectUse);
+        ASSERT(node->child2().useKind() == StringUse || node->child2().useKind() == KnownStringUse);
+        clobberWorld();
+        setTypeForNode(node, SpecArray);
+        break;
+
     case RegExpMatchFastGlobal:
         ASSERT(node->child2().useKind() == StringUse || node->child2().useKind() == KnownStringUse);
         setTypeForNode(node, SpecOther | SpecArray);
@@ -5549,6 +5556,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
     case StringIteratorNext: {
         m_state.setTypeForTupleNode(node, 0, SpecString);
+        m_state.setNonCellTypeForTupleNode(node, 1, SpecInt32Only);
+        clearForNode(node);
+        break;
+    }
+
+    case StringIteratorNextWithUndefined: {
+        m_state.setTypeForTupleNode(node, 0, SpecString | SpecOther);
         m_state.setNonCellTypeForTupleNode(node, 1, SpecInt32Only);
         clearForNode(node);
         break;

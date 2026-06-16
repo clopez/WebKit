@@ -4174,6 +4174,11 @@ void WebPageProxy::performDragOperation(DragData& dragData, const String& dragSt
         if (!protectedThis->m_mainFrame)
             return;
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+        for (auto& filename : dragData.fileNames())
+            protect(protectedThis->legacyMainFrameProcess())->addAllowedAttachmentFilePath(filename);
+#endif
+
         DragData dragDataCopy(dragData);
 
         protectedThis->sendWithAsyncReplyToProcessContainingFrame(protectedThis->m_mainFrame->frameID(), Messages::WebPage::PerformDragOperation(protectedThis->m_mainFrame->frameID(), WTF::move(dragData), WTF::move(sandboxExtensionHandle), WTF::move(sandboxExtensionsForUpload)), [protectedThis, frameID = protectedThis->m_mainFrame->frameID(), dragDataCopy = WTF::move(dragDataCopy), dragStorageName] (DragOperationResult dragOperationResult) mutable {
@@ -6027,6 +6032,7 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         bool isPendingInitialHistoryItem = navigation.isInitialFrameSrcLoad() || frame.isShowingInitialAboutBlank();
         loadParameters.lockBackForwardList = isPendingInitialHistoryItem ? LockBackForwardList::No : navigation.lockBackForwardList();
         loadParameters.ownerPermissionsPolicy = navigation.ownerPermissionsPolicy();
+        loadParameters.advancedPrivacyProtections = navigation.originatorAdvancedPrivacyProtections();
         loadParameters.navigationUpgradeToHTTPSBehavior = navigationUpgradeToHTTPSBehavior;
         loadParameters.isHandledByAboutSchemeHandler = m_aboutSchemeHandler->canHandleURL(loadParameters.request.url());
         loadParameters.isHistoryItemNavigation = navigation.lastNavigationAction()->navigationType == NavigationType::BackForward;
@@ -11874,7 +11880,7 @@ void WebPageProxy::postMessageToInjectedBundle(const String& messageName, API::O
     send(Messages::WebPage::PostInjectedBundleMessage(messageName, UserData(protect(legacyMainFrameProcess())->transformObjectsToHandles(messageBody).get())));
 }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
 void WebPageProxy::Internals::failedToShowPopupMenu()
 {
     protect(page)->send(Messages::WebPage::FailedToShowPopupMenu());
@@ -14855,27 +14861,6 @@ void WebPageProxy::sampledPageTopColorChanged(const Color& sampledPageTopColor)
         pageClient->sampledPageTopColorDidChange();
 }
 
-#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
-std::optional<WebCore::SpatialBackdropSource> WebPageProxy::spatialBackdropSource() const
-{
-    return internals().spatialBackdropSource;
-}
-
-void WebPageProxy::spatialBackdropSourceChanged(std::optional<WebCore::SpatialBackdropSource>&& spatialBackdropSource)
-{
-    if (internals().spatialBackdropSource == spatialBackdropSource)
-        return;
-
-    if (RefPtr pageClient = this->pageClient())
-        pageClient->spatialBackdropSourceWillChange();
-
-    internals().spatialBackdropSource = WTF::move(spatialBackdropSource);
-
-    if (RefPtr pageClient = this->pageClient())
-        pageClient->spatialBackdropSourceDidChange();
-}
-#endif
-
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
 void WebPageProxy::allowImmersiveElement(CompletionHandler<void(bool)>&& completion)
 {
@@ -16837,6 +16822,7 @@ void WebPageProxy::registerAttachmentIdentifierFromFilePath(IPC::Connection& con
 {
     MESSAGE_CHECK_BASE(protect(preferences())->attachmentElementEnabled(), connection);
     MESSAGE_CHECK_BASE(IdentifierToAttachmentMap::isValidKey(identifier), connection);
+    MESSAGE_CHECK_BASE(WebProcessProxy::fromConnection(connection)->isAllowedAttachmentFilePath(filePath), connection);
 
     if (attachmentForIdentifier(identifier))
         return;
@@ -16862,6 +16848,7 @@ void WebPageProxy::registerAttachmentsFromSerializedData(IPC::Connection& connec
     MESSAGE_CHECK_BASE(protect(preferences())->attachmentElementEnabled(), connection);
 
     for (auto& serializedData : data) {
+        MESSAGE_CHECK_BASE(IdentifierToAttachmentMap::isValidKey(serializedData.identifier), connection);
         auto identifier = WTF::move(serializedData.identifier);
         if (!attachmentForIdentifier(identifier)) {
             Ref attachment = ensureAttachment(identifier);
@@ -18307,6 +18294,7 @@ INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetFocusedElementSelectedI
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetSelectElementIsOpen);
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::SetIsShowingInputViewForFocusedElement);
 INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::AutofillLoginCredentials);
+INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::BlurFocusedElement);
 #endif
 #undef INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME
 

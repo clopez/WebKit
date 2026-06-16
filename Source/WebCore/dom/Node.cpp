@@ -395,6 +395,11 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
 #endif
 }
 
+Node::Node(ClangVTableWorkaroundTag, Document& document)
+    : Node(document, NodeType::Element, { })
+{
+}
+
 static HashMap<WeakPtr<Node, WeakPtrImplWithEventTargetData>, NodeIdentifier>& NODELETE nodeIdentifiersMap()
 {
     static MainThreadNeverDestroyed<HashMap<WeakPtr<Node, WeakPtrImplWithEventTargetData>, NodeIdentifier>> map;
@@ -1514,6 +1519,15 @@ void Node::removingSteps(RemovalType removalType, ContainerNode& oldParentOfRemo
     if (removalType.disconnectedFromDocument) {
         if (CheckedPtr cache = oldParentOfRemovedTree.document().existingAXObjectCache())
             cache->remove(*this);
+    }
+}
+
+void Node::updateShadowIncludingRootForSubtree()
+{
+    SUPPRESS_UNCOUNTED_LOCAL for (auto* current = this; current; current = NodeTraversal::next(*current, this)) {
+        current->updateShadowIncludingRoot();
+        SUPPRESS_UNCOUNTED_LOCAL if (auto* shadowRoot = current->shadowRoot())
+            shadowRoot->updateShadowIncludingRootForSubtree();
     }
 }
 

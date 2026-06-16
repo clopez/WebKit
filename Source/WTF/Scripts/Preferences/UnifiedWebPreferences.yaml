@@ -334,6 +334,26 @@ AllowTestOnlyIPC:
       default: false
   sharedPreferenceForWebProcess: true
 
+AllowTestOnlyMockContentFilterIPC:
+  type: bool
+  status: embedder
+  exposed: [ WebKit ]
+  webcoreBinding: none
+  defaultValue:
+    WebKit:
+      default: false
+  sharedPreferenceForWebProcess: true
+
+AllowTestOnlyOriginAccessAllowListIPC:
+  type: bool
+  status: embedder
+  exposed: [ WebKit ]
+  webcoreBinding: none
+  defaultValue:
+    WebKit:
+      default: false
+  sharedPreferenceForWebProcess: true
+
 AllowTopNavigationToDataURLs:
   type: bool
   humanReadableName: "Allow top navigation to data: URLs"
@@ -4022,17 +4042,17 @@ InlineMediaPlaybackRequiresPlaysInlineAttribute:
 
 InputMethodUsesCorrectKeyEventOrder:
   type: bool
-  status: stable
+  status: unstable
   category: dom
   humanReadableName: "Correct key event ordering with composition events"
   condition: PLATFORM(MAC)
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
   sharedPreferenceForWebProcess: true
 
 InputTypeColorEnabled:
@@ -9709,23 +9729,6 @@ WebLocksAPIEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
-
-WebPageSpatialBackdropEnabled:
-  type: bool
-  status: testable
-  category: html
-  condition: ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
-  humanReadableName: "Website environments"
-  humanReadableDescription: "Enable website environments"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-  disableInLockdownMode: true
-  sharedPreferenceForWebProcess: true
 
 WebRTCAV1CodecEnabled:
   type: bool
