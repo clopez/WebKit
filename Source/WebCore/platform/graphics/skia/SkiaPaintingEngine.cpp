@@ -79,7 +79,7 @@ static bool canPerformAcceleratedRendering()
 SkiaPaintingEngine::SkiaPaintingEngine(sk_sp<GrContextThreadSafeProxy>&& threadSafeGrContext)
     : m_threadSafeGrContext(WTF::move(threadSafeGrContext))
 {
-    if (canPerformAcceleratedRendering() && !m_threadSafeGrContext) {
+    if (canPerformAcceleratedRendering() && !canUseDDL()) {
         if (auto numberOfGPUThreads = numberOfGPUPaintingThreads())
             m_paintingWorkerPool = WorkerPool::create("SkiaGPUWorker"_s, numberOfGPUThreads);
 
@@ -119,7 +119,7 @@ void SkiaPaintingEngine::paintIntoGraphicsContext(const GraphicsLayer& layer, Gr
 Ref<CoordinatedTileBuffer> SkiaPaintingEngine::createBuffer(RenderingMode renderingMode, const IntSize& size, bool contentsOpaque) const
 {
     if (renderingMode == RenderingMode::Accelerated) {
-        if (useThreadedRendering() && m_threadSafeGrContext)
+        if (useThreadedRendering() && canUseDDL())
             return CoordinatedAcceleratedTileBuffer::create(m_threadSafeGrContext, size, contentsOpaque ? CoordinatedTileBuffer::NoFlags : CoordinatedTileBuffer::SupportsAlpha);
 
         PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
@@ -154,7 +154,7 @@ RefPtr<SkiaGPUAtlas> SkiaPaintingEngine::createAtlas(const SkiaImageAtlasLayout&
         isDMABufBackedTexture = true;
 #endif
 
-    auto atlas = SkiaGPUAtlas::create(layout, WTF::move(texture), Ref { uploadCondition }, m_threadSafeGrContext);
+    auto atlas = SkiaGPUAtlas::create(layout, WTF::move(texture), Ref { uploadCondition }, canUseDDL() ? m_threadSafeGrContext : nullptr);
     if (!atlas)
         return nullptr;
 
@@ -226,7 +226,7 @@ Ref<SkiaRecordingResult> SkiaPaintingEngine::record(const GraphicsLayerCoordinat
     SkPictureRecorder pictureRecorder;
     auto* recordingCanvas = pictureRecorder.beginRecording(recordRect.width(), recordRect.height());
     GraphicsContextSkia recordingContext(*recordingCanvas, renderingMode, RenderingPurpose::LayerBacking);
-    recordingContext.beginRecording(GraphicsContextSkia::RecordingMode::Tile, m_threadSafeGrContext);
+    recordingContext.beginRecording(GraphicsContextSkia::RecordingMode::Tile, canUseDDL() ? m_threadSafeGrContext : nullptr);
     paintIntoGraphicsContext(layer, recordingContext, recordRect, contentsOpaque, contentsScale);
     auto recordingData = recordingContext.endRecording();
 
@@ -277,7 +277,7 @@ Ref<SkiaRecordingResult> SkiaPaintingEngine::record(const GraphicsLayerCoordinat
     return result;
 }
 
-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordinated& layer, Ref<SkiaRecordingResult>&& recording, const IntRect& dirtyRect)
+Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordinated& layer, Ref<SkiaRecordingResult>&& recording, const IntRect& tileRect, const IntRect& dirtyRect)
 {
     // ### Asynchronous rendering on worker threads ###
     ASSERT(useThreadedRendering());
@@ -285,30 +285,40 @@ Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const GraphicsLayerCoordin
     Ref platformLayer = layer.coordinatedPlatformLayer();
     platformLayer->willPaintTile();
 
+    sk_sp<GrContextThreadSafeProxy> threadSafeGrContext;
+    if (canUseDDL())
+        threadSafeGrContext = m_threadSafeGrContext;
     auto renderingMode = recording->renderingMode();
-    auto buffer = createBuffer(renderingMode, dirtyRect.size(), recording->contentsOpaque());
+    auto bufferSize = renderingMode == RenderingMode::Accelerated && useThreadedRendering() && threadSafeGrContext ? tileRect.size() : dirtyRect.size();
+    auto buffer = createBuffer(renderingMode, bufferSize, recording->contentsOpaque());
     buffer->beginPainting();
 
-    m_paintingWorkerPool->postTask([platformLayer = WTF::move(platformLayer), buffer = Ref { buffer }, dirtyRect, recording = WTF::move(recording), threadSafeGrContext = m_threadSafeGrContext]() mutable {
+    m_paintingWorkerPool->postTask([platformLayer = WTF::move(platformLayer), buffer = Ref { buffer }, tileRect, dirtyRect, recording = WTF::move(recording), threadSafeGrContext = WTF::move(threadSafeGrContext)]() mutable {
         if (auto* canvas = buffer->canvas()) {
-            auto replayPicture = [](const sk_sp<SkPicture>& picture, SkCanvas* canvas, const IntRect& recordRect, const IntRect& paintRect) {
+            auto replayPicture = [](const sk_sp<SkPicture>& picture, SkCanvas* canvas, const IntRect& recordRect, const IntRect& tileRect, const IntRect& dirtyRect, bool isDDLBuffer) {
                 canvas->save();
-                canvas->clear(SkColors::kTransparent);
-                canvas->clipRect(SkRect::MakeXYWH(0, 0, paintRect.width(), paintRect.height()));
-                canvas->translate(recordRect.x() - paintRect.x(), recordRect.y() - paintRect.y());
+                if (isDDLBuffer) {
+                    canvas->clipRect(SkRect::MakeXYWH(dirtyRect.x() - tileRect.x(), dirtyRect.y() - tileRect.y(), dirtyRect.width(), dirtyRect.height()));
+                    canvas->translate(recordRect.x() - tileRect.x(), recordRect.y() - tileRect.y());
+                } else {
+                    canvas->clear(SkColors::kTransparent);
+                    canvas->clipRect(SkRect::MakeXYWH(0, 0, dirtyRect.width(), dirtyRect.height()));
+                    canvas->translate(recordRect.x() - dirtyRect.x(), recordRect.y() - dirtyRect.y());
+                }
                 picture->playback(canvas);
                 canvas->restore();
             };
 
-            WTFBeginSignpost(canvas, PaintTile, "Skia/%s threaded, dirty region %ix%i+%i+%i", buffer->isBackedByOpenGL() ? "GPU" : "CPU", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
+            const bool isDDLBuffer = buffer->isBackedByOpenGL() && !static_cast<CoordinatedAcceleratedTileBuffer&>(buffer.get()).texture();
+            WTFBeginSignpost(canvas, PaintTile, "Skia/%s%s threaded, dirty region %ix%i+%i+%i", buffer->isBackedByOpenGL() ? "GPU" : "CPU", isDDLBuffer ? "(DDL)" : "", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
             // Use SkiaReplayCanvas if there are GPU fences or GPU atlases to handle.
             if (recording->hasFences() || recording->hasGPUAtlases()) {
-                auto replayCanvas = SkiaReplayCanvas::create(dirtyRect.size(), recording, threadSafeGrContext);
+                auto replayCanvas = SkiaReplayCanvas::create(tileRect.size(), recording, threadSafeGrContext);
                 replayCanvas->addCanvas(canvas);
-                replayPicture(replayCanvas->picture(), &replayCanvas.get(), recording->recordRect(), dirtyRect);
+                replayPicture(replayCanvas->picture(), &replayCanvas.get(), recording->recordRect(), tileRect, dirtyRect, isDDLBuffer);
                 replayCanvas->removeCanvas(canvas);
             } else
-                replayPicture(recording->picture(), canvas, recording->recordRect(), dirtyRect);
+                replayPicture(recording->picture(), canvas, recording->recordRect(), tileRect, dirtyRect, isDDLBuffer);
             WTFEndSignpost(canvas, PaintTile);
         }
 
@@ -416,6 +426,27 @@ bool SkiaPaintingEngine::shouldUseVivanteSuperTiledTileTextures()
     });
 
     return shouldUseVivanteSuperTiledTextures;
+}
+
+bool SkiaPaintingEngine::isDDLEnabled()
+{
+    static std::once_flag onceFlag;
+    static bool isDDLEnabled = false;
+
+    std::call_once(onceFlag, [] {
+        if (const char* envString = getenv("WEBKIT_SKIA_ENABLE_DDL")) {
+            auto envStringView = StringView::fromLatin1(envString);
+            if (envStringView == "1"_s)
+                isDDLEnabled = true;
+        }
+    });
+
+    return isDDLEnabled;
+}
+
+bool SkiaPaintingEngine::canUseDDL() const
+{
+    return m_threadSafeGrContext && isDDLEnabled();
 }
 
 } // namespace WebCore

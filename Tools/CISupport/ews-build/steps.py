@@ -2981,9 +2981,10 @@ class Trigger(trigger.Trigger):
 
         properties_to_pass = {prop: properties.Property(prop) for prop in property_names}
         properties_to_pass['retry_count'] = properties.Property('retry_count', default=0)
-        properties_to_pass['os_version_builder'] = properties.Property('os_version', default='')
-        properties_to_pass['xcode_version_builder'] = properties.Property('xcode_version', default='')
-        properties_to_pass['deployment_target_builder'] = properties.Property('deployment_target')
+        if not self.triggers:
+            properties_to_pass['os_version_builder'] = properties.Property('os_version', default='')
+            properties_to_pass['xcode_version_builder'] = properties.Property('xcode_version', default='')
+            properties_to_pass['deployment_target_builder'] = properties.Property('deployment_target')
         properties_to_pass['parent_buildnumber'] = properties.Property('buildnumber')
         properties_to_pass['parent_builderid'] = properties.Property('builderid')
         properties_to_pass['rebuild_without_change_on_builder'] = properties.Property('rebuild_without_change_on_builder', default=False)
@@ -3895,8 +3896,13 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
                 RevertAppliedChanges(),
                 CleanWorkingDirectory(),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
-                SetO3OptimizationLevel(),
-                CompileJSCWithoutChange(),
+                SetO3OptimizationLevel()
+            ]
+            if self.getProperty('rebuild_without_change_on_builder', False):
+                steps_to_add.extend([DownloadBuiltProduct(suffix=SUFFIX_WITHOUT_CHANGE), ExtractBuiltProduct()])
+            else:
+                steps_to_add.extend([CompileJSCWithoutChange()])
+            steps_to_add += [
                 ValidateChange(verifyBugClosed=False, addURLs=False),
                 KillOldProcesses(),
                 RunJSCTestsWithoutChange(),

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2020 Igalia S.L.
  * Copyright (C) 2026 Samuel Weinig <sam@webkit.org>
  *
@@ -48,6 +48,22 @@ static std::pair<UnitType, UnitType> NODELETE rangeForAxis(RectType rect, Scroll
     return axis == ScrollEventAxis::Horizontal ? std::make_pair(rect.x(), rect.maxX()) : std::make_pair(rect.y(), rect.maxY());
 }
 
+template <typename UnitType, typename RectType>
+bool ScrollSnapOffsetsInfo<UnitType, RectType>::snapOffsetCoversSnapport(const SnapOffset<UnitType>& snapOffset, ScrollEventAxis axis, UnitType axisOffset, UnitType viewportLength) const
+{
+    if (!snapOffset.hasSnapAreaLargerThanViewport)
+        return false;
+    for (auto areaIndex : snapOffset.snapAreaIndices) {
+        auto [areaMin, areaMax] = rangeForAxis<UnitType>(snapAreas[areaIndex], axis);
+        if (areaMin <= axisOffset && areaMax >= axisOffset + viewportLength)
+            return true;
+    }
+    return false;
+}
+
+template bool LayoutScrollSnapOffsetsInfo::snapOffsetCoversSnapport(const SnapOffset<LayoutUnit>&, ScrollEventAxis, LayoutUnit, LayoutUnit) const;
+template bool FloatScrollSnapOffsetsInfo::snapOffsetCoversSnapport(const SnapOffset<float>&, ScrollEventAxis, float, float) const;
+
 template <typename UnitType>
 struct PotentialSnapPointSearchResult {
     std::optional<std::pair<UnitType, unsigned>> previous;
@@ -75,15 +91,8 @@ static PotentialSnapPointSearchResult<UnitType> searchForPotentialSnapPoints(con
     };
 
     for (unsigned i = 0; i < snapOffsets.size(); i++) {
-        if (!landedInsideSnapAreaThatConsumesViewport && snapOffsets[i].hasSnapAreaLargerThanViewport) {
-            for (auto snapAreaIndices : snapOffsets[i].snapAreaIndices) {
-                auto [snapAreaMin, snapAreaMax] = rangeForAxis<UnitType>(info.snapAreas[snapAreaIndices], axis);
-                if (snapAreaMin <= destinationOffset && snapAreaMax >= (destinationOffset + viewportLength)) {
-                    landedInsideSnapAreaThatConsumesViewport = true;
-                    break;
-                }
-            }
-        }
+        if (!landedInsideSnapAreaThatConsumesViewport && info.snapOffsetCoversSnapport(snapOffsets[i], axis, destinationOffset, viewportLength))
+            landedInsideSnapAreaThatConsumesViewport = true;
 
         UnitType potentialSnapOffset = snapOffsets[i].offset;
         if (potentialSnapOffset == destinationOffset)
@@ -230,11 +239,16 @@ static std::pair<LayoutType, std::optional<unsigned>> closestSnapOffsetWithInfoA
         // two screen-widths away, a naïve “always snap to nearest” selection algorithm might “trap” the
         //
         // For a directional scroll, we never snap back to the original scroll position or before it,
-        // always preferring the snap offset in the scroll direction.
+        // always preferring the snap offset in the scroll direction. Prefer the actual scroll
+        // direction (velocity) to decide which side to discard, since the predicted destination can
+        // collapse onto the original offset (e.g. when momentum prediction is disabled); only fall
+        // back to the destination for non-directional scrolls where velocity is 0.
         auto& originalOffset = *originalOffsetForDirectionalSnapping;
-        if (originalOffset < scrollDestinationOffset && previous && (*previous).first <= originalOffset)
+        bool scrollingForward = velocity ? velocity > 0 : scrollDestinationOffset > originalOffset;
+        bool scrollingBackward = velocity ? velocity < 0 : scrollDestinationOffset < originalOffset;
+        if (scrollingForward && previous && (*previous).first <= originalOffset)
             previous.reset();
-        if (originalOffset > scrollDestinationOffset && next && (*next).first >= originalOffset)
+        if (scrollingBackward && next && (*next).first >= originalOffset)
             next.reset();
     }
 
@@ -245,10 +259,16 @@ static std::pair<LayoutType, std::optional<unsigned>> closestSnapOffsetWithInfoA
     if (!next)
         return *previous;
 
-    // If this scroll isn't directional, then choose whatever snap point is closer, otherwise pick the offset in the scroll direction.
-    if (!std::abs(velocity))
-        return (scrollDestinationOffset - (*previous).first) <= ((*next).first - scrollDestinationOffset) ? *previous : *next;
-    return velocity < 0 ? *previous : *next;
+    // The directional filtering above has already discarded any snap offset that would trap the
+    // scroll (i.e. one at or behind the original offset), so both remaining candidates are valid
+    // targets in the scroll direction. Among them, prefer whichever is closest to the scroll
+    // destination, so a snap point between the origin and the destination is preferred over one that
+    // overshoots it. Only fall back to the scroll direction to break an exact tie.
+    auto distanceToPrevious = scrollDestinationOffset - (*previous).first;
+    auto distanceToNext = (*next).first - scrollDestinationOffset;
+    if (distanceToPrevious == distanceToNext)
+        return velocity < 0 ? *previous : *next;
+    return distanceToPrevious < distanceToNext ? *previous : *next;
 }
 
 static LayoutRect computeScrollSnapPortRect(const Style::ComputedStyle& style, const LayoutRect& rect)

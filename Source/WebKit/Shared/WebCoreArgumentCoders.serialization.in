@@ -2409,7 +2409,7 @@ header: <WebCore/SwitchPart.h>
 
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::FEColorMatrix {
     WebCore::ColorMatrixType type();
-    Vector<float> values();
+    [Validator='WebCore::FEColorMatrix::areValuesValidForType(*type, *values)'] Vector<float> values();
 
     WebCore::DestinationColorSpace operatingColorSpace();
 };
@@ -3924,6 +3924,12 @@ enum class WebCore::BrowsingContextGroupSwitchDecision : uint8_t {
     StayInGroup,
     NewSharedGroup,
     NewIsolatedGroup,
+};
+
+header: <WebCore/FrameLoaderTypes.h>
+enum class WebCore::NavigationResponseProcessSwapReason : uint8_t {
+    COOP,
+    EnhancedSecurity,
 };
 
 enum class WebCore::ShouldOpenExternalURLsPolicy : uint8_t {
@@ -7262,4 +7268,34 @@ header: <WebCore/EventHandler.h>
     Mouse,
     Wheel,
     Touch
+};
+
+enum class WebCore::IsProcessingUserGesture : uint8_t {
+    No,
+    Yes,
+    Potentially
+};
+
+enum class WebCore::CanRequestDOMPaste : bool;
+enum class WebCore::UserGestureType : uint8_t {
+    EscapeKey,
+    ActivationTriggering,
+    Other
+};
+enum class WebCore::GestureScope : bool
+enum class WebCore::DOMPasteAccessPolicy : uint8_t {
+    NotRequestedYet,
+    Denied,
+    Granted
+};
+
+header: <WebCore/UserGestureIndicator.h>
+[CustomHeader] struct WebCore::UserGestureTokenData {
+    WebCore::IsProcessingUserGesture isProcessingUserGesture;
+    WebCore::UserGestureType userGestureType;
+    std::optional<WTF::UUID> authorizationToken;
+    WebCore::CanRequestDOMPaste canRequestDOMPaste;
+    MonotonicTime startTime;
+    WebCore::DOMPasteAccessPolicy domPasteAccessPolicy;
+    WebCore::GestureScope scope;
 };

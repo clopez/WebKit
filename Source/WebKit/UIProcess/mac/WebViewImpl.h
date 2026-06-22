@@ -34,6 +34,7 @@
 #include "AppKitSPI.h"
 #include "DrawingAreaInfo.h"
 #include "EditorState.h"
+#include "FocusedElementInformation.h"
 #include "ImageAnalysisUtilities.h"
 #include "PDFPluginIdentifier.h"
 #include "TransientZoomState.h"
@@ -381,10 +382,16 @@ public:
     void activeSpaceDidChange();
 
     void pageDidScroll(const WebCore::IntPoint&);
+    void didEndSyntheticMomentumScrolling();
 
     NSRect scrollViewFrame();
     bool NODELETE hasScrolledContentsUnderTitlebar();
     void updateTitlebarAdjacencyState();
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    void setFullScreenTitlebarOverlayHeight(CGFloat);
+    CGFloat NODELETE fullScreenTitlebarOverlayHeight() const { return m_fullScreenTitlebarOverlayHeight; }
+#endif
 
     RetainPtr<NSView> hitTest(CGPoint);
 
@@ -456,7 +463,8 @@ public:
     void changeFontAttributesFromSender(id);
     void changeFontColorFromSender(id);
     bool validateUserInterfaceItem(id <NSValidatedUserInterfaceItem>);
-    void setEditableElementIsFocused(bool);
+    void setFocusedElementInputType(InputType);
+    bool editableElementIsFocused() const;
 
     enum class ContentRelativeChildViewsSuppressionType : uint8_t { Remove, Restore, TemporarilyRemove };
     void suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType);
@@ -800,9 +808,9 @@ public:
     void takeFocus(WebCore::FocusDirection);
     void clearPromisedImageDragData() { m_promisedImageDragData.reset(); }
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, WebCore::FrameIdentifier, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
     void handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteAccessResponse);
-    NSMenu *domPasteMenu() const LIFETIME_BOUND { return m_domPasteMenu.get(); }
+    NSMenu *domPasteMenu() const LIFETIME_BOUND { return m_domPasteState ? m_domPasteState->menu.get() : nullptr; }
     void hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse);
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
@@ -837,6 +845,7 @@ public:
 
 #if ENABLE(WRITING_TOOLS)
     void showWritingTools(WTRequestedTool = WTRequestedToolIndex);
+    bool shouldAllowWritingToolsAffordance() const;
 
     void addTextAnimationForAnimationID(WTF::UUID, const WebCore::TextAnimationData&);
     void removeTextAnimationForAnimationID(WTF::UUID);
@@ -1139,7 +1148,7 @@ private:
     NSInteger m_lastCandidateRequestSequenceNumber;
     NSRange m_softSpaceRange { NSNotFound, 0 };
     bool m_isHandlingAcceptedCandidate { false };
-    bool m_editableElementIsFocused { false };
+    InputType m_focusedElementInputType { InputType::None };
     bool m_isTextInsertionReplacingSoftSpace { false };
     RetainPtr<_WKWarningView> m_warningView;
     
@@ -1158,9 +1167,15 @@ private:
     bool m_isRegisteredScrollViewSeparatorTrackingAdapter { false };
     NSRect m_lastScrollViewFrame { NSZeroRect };
 
-    RetainPtr<NSMenu> m_domPasteMenu;
-    RetainPtr<WKDOMPasteMenuDelegate> m_domPasteMenuDelegate;
-    CompletionHandler<void(WebCore::DOMPasteAccessResponse)> m_domPasteRequestHandler;
+    CGFloat m_fullScreenTitlebarOverlayHeight { 0 };
+
+    struct DOMPasteState {
+        RetainPtr<NSMenu> menu;
+        RetainPtr<WKDOMPasteMenuDelegate> menuDelegate;
+        CompletionHandler<void(WebCore::DOMPasteAccessResponse)> requestHandler;
+        WebCore::FrameIdentifier requestFrame;
+    };
+    std::optional<DOMPasteState> m_domPasteState;
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
     RefPtr<MediaSessionCoordinatorProxyPrivate> m_coordinatorForTesting;

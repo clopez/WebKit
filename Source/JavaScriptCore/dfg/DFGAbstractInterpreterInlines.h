@@ -1735,6 +1735,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case MapIteratorNext:
+        m_state.setTypeForTupleNode(node, 0, SpecCellOther);
+        m_state.setNonCellTypeForTupleNode(node, 1, SpecInt32Only);
+        clearForNode(node);
+        break;
     case IsEmptyStorage:
         setTypeForNode(node, SpecBoolean);
         break;
@@ -3483,6 +3487,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case RegExpMatchFastGlobal:
         ASSERT(node->child2().useKind() == StringUse || node->child2().useKind() == KnownStringUse);
         setTypeForNode(node, SpecOther | SpecArray);
+        break;
+
+    case RegExpStringIteratorNext:
+        ASSERT(node->child1().useKind() == CellUse);
+        clobberWorld();
+        setTypeForNode(node, SpecFinalObject);
         break;
             
     case StringReplace:

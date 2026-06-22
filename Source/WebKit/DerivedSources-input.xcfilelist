@@ -352,6 +352,7 @@ $(PROJECT_DIR)/Shared/IPCTesterReceiver.messages.in
 $(PROJECT_DIR)/Shared/ImageOptions.serialization.in
 $(PROJECT_DIR)/Shared/InspectorExtensionTypes.serialization.in
 $(PROJECT_DIR)/Shared/InspectorNetworkTypes.serialization.in
+$(PROJECT_DIR)/Shared/InspectorPageTypes.serialization.in
 $(PROJECT_DIR)/Shared/JavaScriptCore.serialization.in
 $(PROJECT_DIR)/Shared/JavaScriptEvaluationResult.serialization.in
 $(PROJECT_DIR)/Shared/KeyEventInterpretationContext.serialization.in
@@ -523,6 +524,7 @@ $(PROJECT_DIR)/Shared/WebsiteDataStoreParameters.serialization.in
 $(PROJECT_DIR)/Shared/WebsitePoliciesData.serialization.in
 $(PROJECT_DIR)/Shared/WebsitePopUpPolicy.serialization.in
 $(PROJECT_DIR)/Shared/WebsitePushAndNotificationsEnabledPolicy.serialization.in
+$(PROJECT_DIR)/Shared/WriteWebArchiveToPasteBoardResult.serialization.in
 $(PROJECT_DIR)/Shared/XR/PlatformXR.serialization.in
 $(PROJECT_DIR)/Shared/XR/XRSystem.serialization.in
 $(PROJECT_DIR)/Shared/cf/CFTypes.serialization.in

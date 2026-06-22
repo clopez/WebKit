@@ -203,7 +203,7 @@ private:
 
     void showDictationAlternativeUI(const WebCore::FloatRect& boundingBoxOfDictatedText, WebCore::DictationContext) final;
 
-    void setEditableElementIsFocused(bool) override;
+    void setFocusedElementInputType(InputType) override;
 
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
 
@@ -243,7 +243,7 @@ private:
     void willBeginViewGesture() final;
     void didEndViewGesture() final;
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, WebCore::FrameIdentifier, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
     void makeViewBlank(bool) final;
 
@@ -294,6 +294,7 @@ private:
     void derefView() override;
 
     void pageDidScroll(const WebCore::IntPoint&) override;
+    void didEndSyntheticMomentumScrolling() override;
     void didRestoreScrollPosition() override;
     bool windowIsFrontWindowUnderMouse(const NativeWebMouseEvent&) override;
 

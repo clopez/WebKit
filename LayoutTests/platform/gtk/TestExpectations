@@ -23,6 +23,7 @@ fast/scrolling/gtk [ Pass ]
 swipe [ Pass ]
 
 imported/w3c/web-platform-tests/css/CSS2/normal-flow/overflow-scroll-paint-order.html [ Pass ]
+webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-backdrop-filter-overflow.html [ Pass ]
 imported/w3c/web-platform-tests/css/CSS2/floats/overflow-scroll-float-paint-order.html [ Pass ]
 imported/w3c/web-platform-tests/css/CSS2/linebox/vertical-align-baseline-009.xht [ Pass ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-to-sticky-003.html [ Pass ]
@@ -207,9 +208,6 @@ webkit.org/b/224924 fast/forms/date/date-show-picker.html [ Skip ]
 webkit.org/b/224924 fast/forms/datetimelocal/datetimelocal-show-picker.html [ Skip ]
 
 fast/forms/time/time-editable-components/time-editable-components-focus-and-blur-events.html [ Failure ]
-
-# Requires WebP support.
-webkit.org/b/98939 fast/canvas/canvas-toDataURL-webp.html [ Skip ]
 
 # DataTransferItems is not yet implemented.
 webkit.org/b/98940 editing/pasteboard/data-transfer-items.html [ Skip ]
@@ -1005,7 +1003,6 @@ webkit.org/b/234782 imported/w3c/web-platform-tests/css/css-writing-modes/text-s
 webkit.org/b/273396 css3/masking/clip-path-border-radius-border-box-000.html [ ImageOnlyFailure ]
 webkit.org/b/273396 css3/masking/clip-path-border-radius-stroke-box-000.html [ ImageOnlyFailure ]
 webkit.org/b/273396 css3/masking/clip-path-border-radius-view-box-000.html [ ImageOnlyFailure ]
-webkit.org/b/273396 css3/masking/clip-path-inset-corners.html [ ImageOnlyFailure ]
 webkit.org/b/273396 fast/canvas/canvas-filter-drawing.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-backgrounds/css-border-radius-001.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-012.html [ ImageOnlyFailure ]
@@ -1259,7 +1256,6 @@ webkit.org/b/309266 css3/scroll-snap/scroll-snap-drag-scrollbar-thumb.html [ Pas
 
 [ Release ] http/tests/security/video-cross-origin-accessfailure.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/permissions/permissions-garbage-collect.https.html [ Pass Failure ]
-[ Release ] imported/w3c/web-platform-tests/preload/prefetch-document.html [ Failure Pass ]
 [ Release ] imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-none-block.html [ Failure Pass ]
 [ Release ] fast/dom/Window/window-resize-update-scrollbars.html [ Failure Pass ]
 
@@ -1314,3 +1310,8 @@ webkit.org/b/316577 http/tests/animations/threaded-animations-timeline-resumptio
 
 webkit.org/b/278719 fast/events/touch/touch-scaled-scrolled.html [ Failure Timeout ]
 webkit.org/b/317009 fast/events/mouse-events-on-textarea-resize.html [ Pass Failure ]
+
+webkit.org/b/316547 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/pushstate.https.html [ Failure ]
+webkit.org/b/316547 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-clients-matchall.https.html [ Failure ]
+webkit.org/b/316547 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/service-worker-controlled-after-restore.https.html [ Failure ]
+webkit.org/b/316547 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/back-forward-cache/storage-events.html [ Failure ]

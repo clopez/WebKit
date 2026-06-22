@@ -3650,6 +3650,7 @@
 		8AF4E55611DC5A36000ED3DE /* PerformanceNavigation.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AF4E55311DC5A36000ED3DE /* PerformanceNavigation.h */; };
 		8AF4E55C11DC5A63000ED3DE /* PerformanceTiming.h in Headers */ = {isa = PBXBuildFile; fileRef = 8AF4E55911DC5A63000ED3DE /* PerformanceTiming.h */; };
 		8B3C8739E3CFAB0D42937C95 /* SharedTimebase.h in Headers */ = {isa = PBXBuildFile; fileRef = C994659FB046BBF6205518AD /* SharedTimebase.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FED1234567890ABCDEF12347 /* PeriodicSharedTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = FED1234567890ABCDEF12345 /* PeriodicSharedTimer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		8B5216F72DEE4E75003BC21B /* LazyLoadModelObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = 8B5216F42DEE4E75003BC21B /* LazyLoadModelObserver.h */; };
 		8D8AB55246EA6D3E46D7E2EF /* UnifiedSource38-header-RenderStyleGetters.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCFF63713748594F7E1BE330 /* UnifiedSource38-header-RenderStyleGetters.cpp */; };
 		8E4C96DD1AD4483500365A50 /* JSFetchResponse.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E4C96D91AD4483500365A50 /* JSFetchResponse.h */; };
@@ -14762,6 +14763,8 @@
 		7A29F57118C69514004D0F81 /* OutOfBandTextTrackPrivateAVF.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OutOfBandTextTrackPrivateAVF.h; sourceTree = "<group>"; };
 		7A3EBEAA21BF054C000D043D /* JSSVGViewSpecCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSSVGViewSpecCustom.cpp; sourceTree = "<group>"; };
 		7A41D77F6A607BD50B7B35A6 /* SharedTimebase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SharedTimebase.cpp; sourceTree = "<group>"; };
+		FED1234567890ABCDEF12345 /* PeriodicSharedTimer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PeriodicSharedTimer.h; sourceTree = "<group>"; };
+		FED1234567890ABCDEF12346 /* PeriodicSharedTimer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = PeriodicSharedTimer.mm; sourceTree = "<group>"; };
 		7A4278FF2D8CC06500A60073 /* FontCascadeCocoaInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FontCascadeCocoaInlines.h; sourceTree = "<group>"; };
 		7A45032D18DB717200377B34 /* BufferedLineReader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BufferedLineReader.cpp; sourceTree = "<group>"; };
 		7A45032E18DB717200377B34 /* BufferedLineReader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BufferedLineReader.h; sourceTree = "<group>"; };
@@ -37107,6 +37110,8 @@
 				E59A1DCE2B7FEAE8007D9F0D /* MultiRepresentationHEICMetrics.h */,
 				CDC522422A4F6E7900155FAE /* NullPlaybackSessionInterface.h */,
 				CDC522442A4F705F00155FAE /* NullVideoPresentationInterface.h */,
+				FED1234567890ABCDEF12345 /* PeriodicSharedTimer.h */,
+				FED1234567890ABCDEF12346 /* PeriodicSharedTimer.mm */,
 				BCD8FA442F28010600B42872 /* PlatformMediaEngineConfigurationFactoryCocoa.cpp */,
 				BCD8FA432F28010600B42872 /* PlatformMediaEngineConfigurationFactoryCocoa.h */,
 				A19311012D1138B7003C8410 /* PlatformTimeRangesCocoa.mm */,
@@ -47705,6 +47710,7 @@
 				86512EDF154A2AEF00A90426 /* PerformanceResourceTiming.h in Headers */,
 				8AF4E55C11DC5A63000ED3DE /* PerformanceTiming.h in Headers */,
 				A554B5F31E38393A001D4E03 /* PerformanceUserTiming.h in Headers */,
+				FED1234567890ABCDEF12347 /* PeriodicSharedTimer.h in Headers */,
 				FD581FB51520F93B003A7A75 /* PeriodicWave.h in Headers */,
 				E755E89224C7434B009F7C23 /* PeriodicWaveConstraints.h in Headers */,
 				E755E89924C7461D009F7C23 /* PeriodicWaveOptions.h in Headers */,
@@ -50269,7 +50275,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0700;
-				LastUpgradeCheck = 1140;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					5325BDC621DFF33700A0DEE1 = {
 						CreatedOnToolsVersion = 10.1;

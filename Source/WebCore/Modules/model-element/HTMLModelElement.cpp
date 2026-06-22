@@ -35,6 +35,7 @@
 #include "DOMMatrixReadOnly.h"
 #include "DOMPointReadOnly.h"
 #include "DOMPromiseProxy.h"
+#include "DiagnosticLoggingClient.h"
 #include "DocumentEventLoop.h"
 #include "DocumentPage.h"
 #include "DocumentResourceLoader.h"
@@ -272,6 +273,7 @@ void HTMLModelElement::setSourceURL(const URL& url)
     m_dataMemoryCost.store(0, std::memory_order_relaxed);
     m_dataComplete = false;
     m_model = nullptr;
+    m_originalMIMEType = String();
 
     if (RefPtr resource = std::exchange(m_resource, nullptr))
         resource->removeClient(*this);
@@ -725,13 +727,14 @@ void HTMLModelElement::deleteModelPlayer()
             modelPlayerProvider->deleteModelPlayer(*modelPlayer);
 
         RefPtr protectedThis { weakThis };
-        if (protectedThis)
+        if (protectedThis && protectedThis->m_modelPlayer == modelPlayer)
             protectedThis->m_modelPlayer = nullptr;
     };
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
     // Let the document trigger the model player deletion after transitioning out the immersive element if needed
-    if (RefPtr documentImmersive = document().immersiveIfExists())
+    RefPtr documentImmersive = document().immersiveIfExists();
+    if (m_detachedForImmersive && documentImmersive)
         return documentImmersive->exitRemovedImmersiveElementIfNeeded(this, WTF::move(deleteModelPlayerBlock));
 #endif
     deleteModelPlayerBlock();
@@ -950,6 +953,8 @@ void HTMLModelElement::beginStageModeTransform(const TransformationMatrix& trans
 {
     if (m_modelPlayer)
         m_modelPlayer->beginStageModeTransform(transform);
+
+    logInteractionDiagnostic();
 }
 
 void HTMLModelElement::updateStageModeTransform(const TransformationMatrix& transform)
@@ -1157,6 +1162,28 @@ bool HTMLModelElement::isPointInSystemPreviewBadge(const FloatPoint& localPoint)
 }
 #endif
 
+void HTMLModelElement::logInteractionDiagnostic()
+{
+    RefPtr page = document().page();
+    if (!page)
+        return;
+
+    // Models may be converted at runtime so we classify analytics based on the original resource MIME type
+    // We log model type for analytics as:
+    // Unknown = 0
+    int64_t modelType = 0;
+    // USD = 1
+    if (MIMETypeRegistry::isUSDMIMEType(m_originalMIMEType))
+        modelType = 1;
+    // GLTF = 2
+    else if (MIMETypeRegistry::isGLTFMIMEType(m_originalMIMEType))
+        modelType = 2;
+
+    DiagnosticLoggingClient::ValueDictionary dictionary;
+    dictionary.set("type"_s, modelType);
+    protect(page->diagnosticLoggingClient())->logDiagnosticMessageWithValueDictionary("ModelElementInteraction"_s, "Safari"_s, dictionary, ShouldSample::No);
+}
+
 void HTMLModelElement::dragDidStart(WebCore::MouseRelatedEvent& event)
 {
     ASSERT(!m_isDragging);
@@ -1168,6 +1195,8 @@ void HTMLModelElement::dragDidStart(WebCore::MouseRelatedEvent& event)
     frame->eventHandler().setCapturingMouseEventsElement(this);
     event.setDefaultHandled();
     m_isDragging = true;
+
+    logInteractionDiagnostic();
 
     if (RefPtr modelPlayer = m_modelPlayer)
         modelPlayer->handleMouseDown(flippedLocationInElementForMouseEvent(event), event.timeStamp());
@@ -1525,6 +1554,7 @@ void HTMLModelElement::modelResourceFinished()
 
     m_dataComplete = true;
     m_dataMemoryCost.store(m_data.size(), std::memory_order_relaxed);
+    m_originalMIMEType = resource->mimeType();
     m_model = Model::create(m_data.takeBufferAsContiguous().get(), resource->mimeType(), resource->url());
 
     ActiveDOMObject::queueTaskToDispatchEvent(*this, TaskSource::DOMManipulation, Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
@@ -1748,8 +1778,10 @@ void HTMLModelElement::setDetachedForImmersive(bool detachedForImmersive)
 void HTMLModelElement::ensureModelPlayer(CompletionHandler<void(ExceptionOr<RefPtr<ModelPlayer>>)>&& completion)
 {
     RefPtr modelPlayer = m_modelPlayer;
-    if (modelPlayer && modelPlayer->isPlaceholder())
+    if (modelPlayer && modelPlayer->isPlaceholder()) {
         reloadModelPlayer();
+        modelPlayer = m_modelPlayer;
+    }
 
     if (modelPlayer && !modelPlayer->isPlaceholder())
         return completion(protect(modelPlayer));

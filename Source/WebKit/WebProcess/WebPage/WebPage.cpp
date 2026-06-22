@@ -971,6 +971,16 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
             backend->enableNetworkInstrumentation();
     }
 
+    if (parameters.shouldEnablePageInstrumentation) {
+        // Mirror network: enable page instrumentation before the frontend connects so the
+        // PageAgentProxy is live before this (possibly cross-origin, freshly-spawned) process's
+        // first frame commit. This sets the gate so ensurePageInstrumentationForFrame() registers
+        // a per-frame proxy when the provisional LocalFrame is created (WebFrame::createProvisionalFrame),
+        // delivering the child's initial frameNavigated to the UIProcess ProxyingPageAgent.
+        if (RefPtr backend = inspector(LazyCreationPolicy::CreateIfNeeded))
+            backend->enablePageInstrumentation();
+    }
+
 #if PLATFORM(IOS_FAMILY) || ENABLE(ROUTING_ARBITRATION)
     DeprecatedGlobalSettings::setShouldManageAudioSessionCategory(true);
 #endif
@@ -1419,7 +1429,7 @@ void WebPage::allFrameTreeSyncDataChangedInAnotherProcess(FrameIdentifier frameI
         coreFrame->updateFrameTreeSyncData(WTF::move(data));
 }
 
-void WebPage::updateUserActivationTimestamps(const Vector<FrameIdentifier>& frameIDs, MonotonicTime activationTime)
+void WebPage::updateUserActivationState(const Vector<FrameIdentifier>& frameIDs, MonotonicTime activationTime)
 {
     for (auto frameID : frameIDs) {
         RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
@@ -1429,7 +1439,7 @@ void WebPage::updateUserActivationTimestamps(const Vector<FrameIdentifier>& fram
         if (!localFrame)
             continue;
         if (RefPtr window = localFrame->window())
-            window->setLastActivationTimestamp(activationTime);
+            window->updateActivation(activationTime);
     }
 }
 
@@ -1621,7 +1631,7 @@ bool WebPage::isThrottleable() const
 WebPage::~WebPage()
 {
     ASSERT(!m_page);
-    WEBPAGE_RELEASE_LOG(Loading, "destructor:");
+    WEBPAGE_RELEASE_LOG_FORWARDABLE(Loading, WebPageDestructor);
 
     platformDetach();
 
@@ -2414,6 +2424,8 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
         WebProcess::singleton().webLoaderStrategy().setExistingNetworkResourceLoadIdentifierToResume(std::nullopt);
     });
 
+    m_shouldConsiderEnhancedSecurityForInsecureResponseForCurrentNavigation = loadParameters.shouldConsiderEnhancedSecurityForInsecureResponse;
+
     SendStopResponsivenessTimer stopper;
 
     m_pendingNavigationID = loadParameters.navigationID;
@@ -2665,10 +2677,9 @@ void WebPage::goToBackForwardItem(GoToBackForwardItemParameters&& parameters)
         targetFrame = historyItemFrame.releaseNonNull();
 
     if (RefPtr targetLocalFrame = targetFrame->provisionalFrame() ? targetFrame->provisionalFrame() : targetFrame->coreLocalFrame()) {
-        bool wasCancelled = targetLocalFrame->loader().asyncBackForwardNavigationWasCancelled();
-        targetLocalFrame->loader().clearAsyncBackForwardNavigationState();
-        if (wasCancelled) {
+        if (targetLocalFrame->loader().asyncBackForwardNavigationWasCancelled()) {
             WEBPAGE_RELEASE_LOG(Loading, "goToBackForwardItem: Skipping because pending async back/forward traversal was cancelled");
+            targetLocalFrame->loader().clearAsyncBackForwardNavigationState();
             return;
         }
         protect(corePage())->goToItem(*targetLocalFrame, *item, parameters.backForwardType, parameters.shouldTreatAsContinuingLoad, parameters.shouldRestoreFromBackForwardCache);
@@ -7589,7 +7600,7 @@ void WebPage::resetFocusedElementForFrame(WebFrame* frame)
         m_sendAutocorrectionContextAfterFocusingElement = false;
         send(Messages::WebPageProxy::ElementDidBlur());
 #elif PLATFORM(MAC)
-        send(Messages::WebPageProxy::SetEditableElementIsFocused(false));
+        send(Messages::WebPageProxy::SetFocusedElementInputType(InputType::None));
 #endif
         m_focusedElement = nullptr;
     }
@@ -7618,6 +7629,74 @@ bool WebPage::shouldDispatchUpdateAfterFocusingElement(const Element& element) c
 static bool isTextFormControlOrEditableContent(const WebCore::Element& element)
 {
     return is<HTMLTextFormControlElement>(element) || element.hasEditableStyle();
+}
+
+InputType WebPage::inputTypeForElement(const WebCore::Element& element)
+{
+    if (is<HTMLSelectElement>(element))
+        return InputType::Select;
+
+    if (is<HTMLTextAreaElement>(element))
+        return InputType::TextArea;
+
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element)) {
+        if (input->isPasswordField())
+            return InputType::Password;
+
+        if (input->isSearchField())
+            return InputType::Search;
+
+        if (input->isEmailField())
+            return InputType::Email;
+
+        if (input->isTelephoneField())
+            return InputType::Phone;
+
+        if (input->isNumberField()) {
+            auto pattern = input->attributeWithoutSynchronization(HTMLNames::patternAttr);
+            return pattern == "\\d*"_s || pattern == "[0-9]*"_s ? InputType::NumberPad : InputType::Number;
+        }
+
+        if (input->isDateTimeLocalField())
+            return InputType::DateTimeLocal;
+
+        if (input->isDateField())
+            return InputType::Date;
+
+        if (input->isTimeField())
+            return InputType::Time;
+
+        if (input->isWeekField())
+            return InputType::Week;
+
+        if (input->isMonthField())
+            return InputType::Month;
+
+        if (input->isURLField())
+            return InputType::URL;
+
+        if (input->isColorControl())
+            return InputType::Color;
+
+        if (input->isText()) {
+            auto pattern = input->attributeWithoutSynchronization(HTMLNames::patternAttr);
+            if (pattern == "\\d*"_s || pattern == "[0-9]*"_s)
+                return InputType::NumberPad;
+
+            RefPtr form = input->form();
+            bool hasFormAction = form && !form->getURLAttribute(HTMLNames::actionAttr).isEmpty();
+            if (hasFormAction && (input->getNameAttribute().contains("search"_s) || input->getIdAttribute().contains("search"_s) || input->attributeWithoutSynchronization(HTMLNames::titleAttr).contains("search"_s)))
+                return InputType::Search;
+
+            return InputType::Text;
+        }
+        return InputType::None;
+    }
+
+    if (element.hasEditableStyle())
+        return InputType::ContentEditable;
+
+    return InputType::None;
 }
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(FULLSCREEN_API)
@@ -7683,7 +7762,7 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
 #elif PLATFORM(MAC)
         // FIXME: This can be unified with the iOS code above by bringing ElementDidFocus to macOS.
         // This also doesn't take other noneditable controls into account, such as input type color.
-        send(Messages::WebPageProxy::SetEditableElementIsFocused(!element.hasTagName(WebCore::HTMLNames::selectTag)));
+        send(Messages::WebPageProxy::SetFocusedElementInputType(inputTypeForElement(element)));
 #endif
         m_recentlyBlurredElement = nullptr;
     }
@@ -7698,7 +7777,7 @@ void WebPage::elementDidBlur(WebCore::Element& element)
 #if PLATFORM(IOS_FAMILY)
                 protectedThis->send(Messages::WebPageProxy::ElementDidBlur());
 #elif PLATFORM(MAC)
-                protectedThis->send(Messages::WebPageProxy::SetEditableElementIsFocused(false));
+                protectedThis->send(Messages::WebPageProxy::SetFocusedElementInputType(InputType::None));
 #endif
             }
             protectedThis->m_recentlyBlurredElement = nullptr;
@@ -9159,11 +9238,6 @@ void WebPage::getTextFragmentMatch(CompletionHandler<void(const String&)>&& comp
         return;
     }
     FragmentDirectiveParser fragmentDirectiveParser(fragmentDirective);
-    if (!fragmentDirectiveParser.isValid()) {
-        completionHandler({ });
-        return;
-    }
-
     auto parsedTextDirectives = fragmentDirectiveParser.parsedTextDirectives();
     auto highlightRanges = FragmentDirectiveRangeFinder::findRangesFromTextDirectives(parsedTextDirectives, *document);
     if (highlightRanges.isEmpty()) {
@@ -10178,7 +10252,7 @@ void WebPage::frameWasFocusedInAnotherProcess(std::optional<WebCore::FrameIdenti
     corePage()->focusController().setFocusedFrame(coreFrame.get(), WebCore::BroadcastFocusedFrame::No);
 }
 
-void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts& message)
+void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts& message, std::optional<WebCore::UserGestureTokenData>&& userGestureToken)
 {
     RefPtr targetFrame = WebProcess::singleton().webFrame(target);
     if (!targetFrame)
@@ -10203,7 +10277,7 @@ void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const WebCore::
     if (!globalObject)
         return;
 
-    targetWindow->postMessageFromRemoteFrame(*globalObject, WTF::move(sourceWindow), sourceOrigin, WTF::move(targetOrigin), message);
+    targetWindow->postMessageFromRemoteFrame(*globalObject, WTF::move(sourceWindow), sourceOrigin, WTF::move(targetOrigin), message, WTF::move(userGestureToken));
 }
 
 void WebPage::renderTreeAsTextForTesting(WebCore::FrameIdentifier frameID, uint64_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior, CompletionHandler<void(String&&)>&& completionHandler)

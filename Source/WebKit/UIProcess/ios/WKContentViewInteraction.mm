@@ -5206,9 +5206,10 @@ static UIPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory
 
 - (BOOL)_handleDOMPasteRequestWithResult:(WebCore::DOMPasteAccessResponse)response
 {
-    if (auto pasteAccessCategory = std::exchange(_domPasteRequestCategory, std::nullopt)) {
+    if (_domPasteRequestCategoryAndFrameID) {
+        auto [pasteAccessCategory, frameID] = *std::exchange(_domPasteRequestCategoryAndFrameID, std::nullopt);
         if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture) {
-            if (auto replyID = protect(_page)->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(*pasteAccessCategory), [] () { }))
+            if (auto replyID = protect(_page)->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory), [] () { }, frameID))
                 protect(protect(protect(_page->websiteDataStore())->networkProcess())->connection())->waitForAsyncReplyAndDispatchImmediately<Messages::NetworkProcess::AllowFilesAccessFromWebProcess>(*replyID, 100_ms);
         }
     }
@@ -6400,7 +6401,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
     _isChangingFocusUsingAccessoryTab = YES;
     [self _internalBeginSelectionChange];
-    protect(_page)->focusNextFocusedElement(direction == WebKit::TabDirection::Next, [protectedSelf = retainPtr(self)] {
+    protect(_page)->focusNextFocusedElement(_focusedElementInformation.frameID(), direction == WebKit::TabDirection::Next, [protectedSelf = retainPtr(self)] {
         [protectedSelf _internalEndSelectionChange];
         [protectedSelf reloadInputViews];
         protectedSelf->_isChangingFocusUsingAccessoryTab = NO;
@@ -7454,31 +7455,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
     auto extendedTraits = dynamic_objc_cast<WKExtendedTextInputTraits>(traits);
     auto privateTraits = (id <UITextInputTraits_Private>)traits;
 
-    BOOL isSingleLineDocument = ^{
-        switch (_focusedElementInformation.elementType) {
-        case WebKit::InputType::ContentEditable:
-        case WebKit::InputType::TextArea:
-        case WebKit::InputType::None:
-            return NO;
-        case WebKit::InputType::Color:
-        case WebKit::InputType::Date:
-        case WebKit::InputType::DateTimeLocal:
-        case WebKit::InputType::Drawing:
-        case WebKit::InputType::Email:
-        case WebKit::InputType::Month:
-        case WebKit::InputType::Number:
-        case WebKit::InputType::NumberPad:
-        case WebKit::InputType::Password:
-        case WebKit::InputType::Phone:
-        case WebKit::InputType::Search:
-        case WebKit::InputType::Select:
-        case WebKit::InputType::Text:
-        case WebKit::InputType::Time:
-        case WebKit::InputType::URL:
-        case WebKit::InputType::Week:
-            return YES;
-        }
-    }();
+    BOOL isSingleLineDocument = WebKit::isSingleLineInputType(_focusedElementInformation.elementType);
 
     if ([extendedTraits respondsToSelector:@selector(setSingleLineDocument:)])
         extendedTraits.singleLineDocument = isSingleLineDocument;
@@ -8920,14 +8897,14 @@ static BOOL allPasteboardItemOriginsMatchOrigin(UIPasteboard *pasteboard, const 
     return foundAtLeastOneMatchingIdentifier;
 }
 
-- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory requiresInteraction:(WebCore::DOMPasteRequiresInteraction)requiresInteraction elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
+- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory requiresInteraction:(WebCore::DOMPasteRequiresInteraction)requiresInteraction frameID:(WebCore::FrameIdentifier)frameID elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
 {
     if (auto existingCompletionHandler = std::exchange(_domPasteRequestHandler, WTF::move(completionHandler))) {
         ASSERT_NOT_REACHED();
         existingCompletionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     }
 
-    _domPasteRequestCategory = pasteAccessCategory;
+    _domPasteRequestCategoryAndFrameID = { { pasteAccessCategory, frameID } };
 
     if (requiresInteraction == WebCore::DOMPasteRequiresInteraction::No && allPasteboardItemOriginsMatchOrigin(protect(pasteboardForAccessCategory(pasteAccessCategory)), originIdentifier)) {
         [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::GrantedForCommand];
@@ -9315,13 +9292,13 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (void)focusedFormControlViewDidRequestNextNode:(WKFocusedFormControlView *)view
 {
     if (_focusedElementInformation.hasNextNode)
-        _page->focusNextFocusedElement(true, [] { });
+        _page->focusNextFocusedElement(_focusedElementInformation.frameID(), true, [] { });
 }
 
 - (void)focusedFormControlViewDidRequestPreviousNode:(WKFocusedFormControlView *)view
 {
     if (_focusedElementInformation.hasPreviousNode)
-        _page->focusNextFocusedElement(false, [] { });
+        _page->focusNextFocusedElement(_focusedElementInformation.frameID(), false, [] { });
 }
 
 - (BOOL)hasNextNodeForFocusedFormControlView:(WKFocusedFormControlView *)view

@@ -1522,6 +1522,11 @@ void Node::removingSteps(RemovalType removalType, ContainerNode& oldParentOfRemo
     }
 }
 
+void Node::movingSteps(bool, ContainerNode&)
+{
+    invalidateStyle(Style::Validity::SubtreeInvalid, Style::InvalidationMode::InsertedIntoAncestor);
+}
+
 void Node::updateShadowIncludingRootForSubtree()
 {
     SUPPRESS_UNCOUNTED_LOCAL for (auto* current = this; current; current = NodeTraversal::next(*current, this)) {
@@ -3086,9 +3091,20 @@ template<TreeType treeType> bool NODELETE isSiblingSubsequent(const Node& siblin
 
     ASSERT(!siblingA.isPseudoElement() && !siblingB.isPseudoElement());
 
-    for (auto sibling = &siblingA; sibling; sibling = sibling->nextSibling()) {
-        if (sibling == &siblingB)
+    if (!siblingB.nextSibling() || !siblingA.previousSibling())
+        return true;
+    if (!siblingA.nextSibling() || !siblingB.previousSibling())
+        return false;
+
+    for (const Node* following = siblingA.nextSibling(), *preceding = siblingA.previousSibling(); following || preceding;) {
+        if (following == &siblingB)
             return true;
+        if (preceding == &siblingB)
+            return false;
+        if (following)
+            following = following->nextSibling();
+        if (preceding)
+            preceding = preceding->previousSibling();
     }
 
     return false;

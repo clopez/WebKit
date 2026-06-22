@@ -77,7 +77,7 @@ GradientData::Inputs LegacyRenderSVGResourceGradient::computeInputs(RenderElemen
 GradientData* LegacyRenderSVGResourceGradient::gradientDataForRenderer(RenderElement& renderer, const Style::ComputedStyle& style, OptionSet<RenderSVGResourceMode> resourceMode)
 {
     // Be sure to synchronize all SVG properties on the gradientElement _before_ processing any further.
-    // Otherwhise the call to collectGradientAttributes() in createTileImage(), may cause the SVG DOM property
+    // Otherwise the call to collectGradientAttributes() in createTileImage(), may cause the SVG DOM property
     // synchronization to kick in, which causes removeAllClientsFromCacheAndMarkForInvalidation() to be called, which in turn deletes our
     // GradientData object! Leaving out the line below will cause svg/dynamic-updates/SVG*GradientElement-svgdom* to crash.
     if (m_shouldCollectGradientAttributes) {
@@ -133,17 +133,16 @@ static inline void applyGradientResource(RenderElement& renderer, const Style::C
     if (resourceMode.contains(RenderSVGResourceMode::ApplyToText))
         context.setTextDrawingMode(resourceMode.contains(RenderSVGResourceMode::ApplyToFill) ? TextDrawingMode::Fill : TextDrawingMode::Stroke);
 
-    auto userspaceTransform = gradientData.userspaceTransform;
-
     if (resourceMode.contains(RenderSVGResourceMode::ApplyToFill)) {
         context.setAlpha(Style::evaluate<float>(style.fillOpacity()));
-        context.setFillGradient(*gradientData.gradient, userspaceTransform);
+        context.setFillGradient(*gradientData.gradient, gradientData.userspaceTransform);
         context.setFillRule(style.fillRule());
     } else if (resourceMode.contains(RenderSVGResourceMode::ApplyToStroke)) {
-        if (style.vectorEffect() == VectorEffect::NonScalingStroke)
-            userspaceTransform = LegacyRenderSVGResourceContainer::transformOnNonScalingStroke(&renderer, gradientData.userspaceTransform);
         context.setAlpha(Style::evaluate<float>(style.strokeOpacity()));
-        context.setStrokeGradient(*gradientData.gradient, userspaceTransform);
+        if (style.vectorEffect() == VectorEffect::NonScalingStroke)
+            context.setStrokeGradient(*gradientData.gradient, LegacyRenderSVGResourceContainer::transformOnNonScalingStroke(&renderer, gradientData.userspaceTransform));
+        else
+            context.setStrokeGradient(*gradientData.gradient, gradientData.userspaceTransform);
         SVGRenderSupport::applyStrokeStyleToContext(context, style, renderer);
     }
 }

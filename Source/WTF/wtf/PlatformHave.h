@@ -185,6 +185,14 @@
 #define HAVE_INT128_T 1
 #endif
 
+// Work around a clang static analyzer crash modeling __builtin_*_overflow on a
+// 128-bit result type (llvm/llvm-project#173795; fixed in
+// apple-clang-2100.3.6.4 / macOS 27 / Xcode 27). Set only for older analyzers,
+// so CheckedArithmetic.h takes its manual (non-builtin) 128-bit overflow path.
+#if defined(__clang_analyzer__) && defined(__apple_build_version__) && __apple_build_version__ < 21000323
+#define HAVE_BROKEN_STATIC_ANALYZER_INT128_OVERFLOW 1
+#endif
+
 #if OS(UNIX) && !OS(FUCHSIA)
 #define HAVE_RESOURCE_H 1
 #endif
@@ -1860,4 +1868,12 @@
     || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 260400) \
     || (PLATFORM(VISION) && __VISION_OS_VERSION_MIN_REQUIRED >= 260400))
 #define HAVE_CORE_TEXT_GLYPHHASCOMPLEXCOLOR_FUNCTION 1
+#endif
+
+#if !defined(HAVE_PASSKIT_DELEGATED_REQUEST) \
+    && (((PLATFORM(IOS) || PLATFORM(MACCATALYST)) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 260400) \
+    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 260400) \
+    || (PLATFORM(VISION) && __VISION_OS_VERSION_MIN_REQUIRED >= 260400) \
+    || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260400))
+#define HAVE_PASSKIT_DELEGATED_REQUEST 1
 #endif

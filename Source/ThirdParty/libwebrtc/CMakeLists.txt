@@ -41,9 +41,10 @@ set(webrtc_SOURCES
     Source/third_party/abseil-cpp/absl/base/internal/strerror.cc
     Source/third_party/abseil-cpp/absl/base/internal/sysinfo.cc
     Source/third_party/abseil-cpp/absl/base/internal/thread_identity.cc
-    Source/third_party/abseil-cpp/absl/base/internal/throw_delegate.cc
     Source/third_party/abseil-cpp/absl/base/internal/unscaledcycleclock.cc
+    Source/third_party/abseil-cpp/absl/base/casts.cc
     Source/third_party/abseil-cpp/absl/base/log_severity.cc
+    Source/third_party/abseil-cpp/absl/base/throw_delegate.cc
     Source/third_party/abseil-cpp/absl/container/internal/hash_generator_testing.cc
     Source/third_party/abseil-cpp/absl/container/internal/hashtablez_sampler.cc
     Source/third_party/abseil-cpp/absl/container/internal/hashtablez_sampler_force_weak_definition.cc
@@ -129,7 +130,6 @@ set(webrtc_SOURCES
     Source/third_party/abseil-cpp/absl/strings/match.cc
     Source/third_party/abseil-cpp/absl/strings/numbers.cc
     Source/third_party/abseil-cpp/absl/strings/str_cat.cc
-    Source/third_party/abseil-cpp/absl/strings/string_view.cc
     Source/third_party/abseil-cpp/absl/strings/str_replace.cc
     Source/third_party/abseil-cpp/absl/strings/str_split.cc
     Source/third_party/abseil-cpp/absl/strings/substitute.cc
@@ -159,6 +159,7 @@ set(webrtc_SOURCES
     Source/third_party/abseil-cpp/absl/time/internal/cctz/src/zone_info_source.cc
     Source/third_party/abseil-cpp/absl/time/internal/test_util.cc
     Source/third_party/abseil-cpp/absl/time/time.cc
+    Source/third_party/abseil-cpp/absl/types/source_location.cc
     Source/third_party/crc32c/src/src/crc32c_arm64.cc
     Source/third_party/crc32c/src/src/crc32c.cc
     Source/third_party/crc32c/src/src/crc32c_portable.cc
@@ -1386,7 +1387,6 @@ list(APPEND webrtc_SOURCES
     Source/third_party/libyuv/source/compare.cc
     Source/third_party/libyuv/source/compare_common.cc
     Source/third_party/libyuv/source/compare_gcc.cc
-    Source/third_party/libyuv/source/compare_msa.cc
     Source/third_party/libyuv/source/compare_neon.cc
     Source/third_party/libyuv/source/compare_neon64.cc
     Source/third_party/libyuv/source/compare_win.cc
@@ -1407,7 +1407,6 @@ list(APPEND webrtc_SOURCES
     Source/third_party/libyuv/source/rotate_common.cc
     Source/third_party/libyuv/source/rotate_gcc.cc
     Source/third_party/libyuv/source/rotate_lsx.cc
-    Source/third_party/libyuv/source/rotate_msa.cc
     Source/third_party/libyuv/source/rotate_neon.cc
     Source/third_party/libyuv/source/rotate_neon64.cc
     Source/third_party/libyuv/source/rotate_sme.cc
@@ -1417,7 +1416,6 @@ list(APPEND webrtc_SOURCES
     Source/third_party/libyuv/source/row_gcc.cc
     Source/third_party/libyuv/source/row_lasx.cc
     Source/third_party/libyuv/source/row_lsx.cc
-    Source/third_party/libyuv/source/row_msa.cc
     Source/third_party/libyuv/source/row_neon.cc
     Source/third_party/libyuv/source/row_neon64.cc
     Source/third_party/libyuv/source/row_rvv.cc
@@ -1430,7 +1428,6 @@ list(APPEND webrtc_SOURCES
     Source/third_party/libyuv/source/scale_common.cc
     Source/third_party/libyuv/source/scale_gcc.cc
     Source/third_party/libyuv/source/scale_lsx.cc
-    Source/third_party/libyuv/source/scale_msa.cc
     Source/third_party/libyuv/source/scale_neon.cc
     Source/third_party/libyuv/source/scale_neon64.cc
     Source/third_party/libyuv/source/scale_rgb.cc
@@ -1540,13 +1537,14 @@ list(APPEND webrtc_SOURCES
     Source/third_party/boringssl/src/crypto/evp/evp.cc
     Source/third_party/boringssl/src/crypto/evp/evp_ctx.cc
     Source/third_party/boringssl/src/crypto/evp/pbkdf.cc
+    Source/third_party/boringssl/src/crypto/evp/print.cc
     Source/third_party/boringssl/src/crypto/evp/p_dh.cc
     Source/third_party/boringssl/src/crypto/evp/p_dsa.cc
     Source/third_party/boringssl/src/crypto/evp/p_ec.cc
     Source/third_party/boringssl/src/crypto/evp/p_ed25519.cc
     Source/third_party/boringssl/src/crypto/evp/p_hkdf.cc
     Source/third_party/boringssl/src/crypto/evp/p_mldsa.cc
-    Source/third_party/boringssl/src/crypto/evp/print.cc
+    Source/third_party/boringssl/src/crypto/evp/p_mlkem.cc
     Source/third_party/boringssl/src/crypto/evp/p_rsa.cc
     Source/third_party/boringssl/src/crypto/evp/p_x25519.cc
     Source/third_party/boringssl/src/crypto/evp/scrypt.cc
@@ -1773,28 +1771,6 @@ list(APPEND webrtc_SOURCES
     Source/third_party/boringssl/src/ssl/tls13_server.cc
     Source/third_party/boringssl/src/ssl/tls_method.cc
     Source/third_party/boringssl/src/ssl/tls_record.cc
-    Source/third_party/boringssl/src/tool/args.cc
-    Source/third_party/boringssl/src/tool/ciphers.cc
-    Source/third_party/boringssl/src/tool/client.cc
-    Source/third_party/boringssl/src/tool/const.cc
-    Source/third_party/boringssl/src/tool/digest.cc
-    Source/third_party/boringssl/src/tool/fd.cc
-    Source/third_party/boringssl/src/tool/file.cc
-    Source/third_party/boringssl/src/tool/generate_ech.cc
-    Source/third_party/boringssl/src/tool/generate_ed25519.cc
-    Source/third_party/boringssl/src/tool/genrsa.cc
-    Source/third_party/boringssl/src/tool/pkcs12.cc
-    Source/third_party/boringssl/src/tool/rand.cc
-    Source/third_party/boringssl/src/tool/server.cc
-    Source/third_party/boringssl/src/tool/sign.cc
-    Source/third_party/boringssl/src/tool/speed.cc
-    Source/third_party/boringssl/src/tool/tool.cc
-    Source/third_party/boringssl/src/tool/transport_common.cc
-    Source/third_party/boringssl/src/util/ar/testdata/sample/bar.cc
-    Source/third_party/boringssl/src/util/bazel-example/example.cc
-    Source/third_party/boringssl/src/util/fipstools/acvp/modulewrapper/main.cc
-    Source/third_party/boringssl/src/util/fipstools/acvp/modulewrapper/modulewrapper.cc
-    Source/third_party/boringssl/src/util/fipstools/acvp/modulewrapper/proto.cc
 )
 
 if (WTF_CPU_X86_64 OR WTF_CPU_X86)

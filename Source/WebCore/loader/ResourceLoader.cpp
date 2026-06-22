@@ -351,14 +351,6 @@ void ResourceLoader::setDataBufferingPolicy(DataBufferingPolicy dataBufferingPol
         m_resourceData.reset();
 }
 
-void ResourceLoader::willSwitchToSubstituteResource()
-{
-    ASSERT(m_documentLoader && !m_documentLoader->isSubstituteLoadPending(this));
-    platformStrategies()->loaderStrategy()->remove(this);
-    if (RefPtr handle = m_handle)
-        handle->cancel();
-}
-
 void ResourceLoader::addBuffer(const FragmentedSharedBuffer& buffer, DataPayloadType dataPayloadType)
 {
     if (m_options.dataBufferingPolicy == DataBufferingPolicy::DoNotBufferData)
@@ -474,7 +466,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
 
     bool isRedirect = !redirectResponse.isNull();
     if (isRedirect) {
-        RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: Processing cross-origin redirect");
+        RESOURCELOADER_RELEASE_LOG_FORWARDABLE(ResourceLoaderWillSendRequestInternalCrossOriginRedirect);
         platformStrategies()->loaderStrategy()->crossOriginRedirectReceived(this, request.url());
         if (frameLoader)
             protect(frameLoader->client())->didLoadFromRegistrableDomain(RegistrableDomain(request.url()));

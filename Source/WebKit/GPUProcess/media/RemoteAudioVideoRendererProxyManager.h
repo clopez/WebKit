@@ -51,6 +51,7 @@
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 namespace WebCore {
 class AudioVideoRenderer;
@@ -73,6 +74,7 @@ public:
 
     void ref() const final;
     void deref() const final;
+    ThreadSafeWeakPtrControlBlock& controlBlock() const;
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -168,7 +170,6 @@ private:
         RefPtr<WebCore::AudioVideoRenderer> renderer;
         Markable<WebCore::HTMLMediaElementIdentifier> mediaElementIdentifier;
         Markable<WebCore::MediaPlayerIdentifier> playerIdentifier;
-        std::unique_ptr<WebCore::SharedTimebase> sharedTimebase;
 #if PLATFORM(COCOA)
         LayerHostingContextManager layerHostingContextManager;
 #endif
@@ -178,7 +179,7 @@ private:
         MonotonicTime nextPlaybackQualityMetricsUpdateTime { };
         bool isGatheringVideoFrameMetadata { false };
     };
-    RefPtr<WebCore::AudioVideoRenderer> createRenderer();
+    RefPtr<WebCore::AudioVideoRenderer> createRenderer(UniqueRef<WebCore::SharedTimebase>&&);
     RefPtr<WebCore::AudioVideoRenderer> rendererFor(RemoteAudioVideoRendererIdentifier) const;
     RemoteAudioVideoRendererState stateFor(RemoteAudioVideoRendererIdentifier) const;
     RendererContext& NODELETE contextFor(RemoteAudioVideoRendererIdentifier);
@@ -189,7 +190,6 @@ private:
     using LayerHostingContextCallback = CompletionHandler<void(WebCore::HostingContext)>;
     void requestHostingContext(RemoteAudioVideoRendererIdentifier, LayerHostingContextCallback&&);
     WebCore::MediaSampleConverter& converterFor(RendererContext&, TrackIdentifier);
-    static void updateContextSharedTimebase(const RendererContext&);
     template<typename Message> void publishAndSend(RemoteAudioVideoRendererIdentifier, Message&&);
 
 #if PLATFORM(COCOA)
@@ -207,7 +207,7 @@ private:
     HashMap<RemoteAudioVideoRendererIdentifier, RendererContext> m_renderers;
     const Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
 
-    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
+    ThreadSafeWeakRef<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
 #if !RELEASE_LOG_DISABLED
     uint64_t m_logIdentifier { 0 };
     const Ref<Logger> m_logger;

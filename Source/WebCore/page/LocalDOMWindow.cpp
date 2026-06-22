@@ -1005,12 +1005,6 @@ void LocalDOMWindow::processPostMessage(JSC::JSGlobalObject& lexicalGlobalObject
         if (userGestureToForward && userGestureToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
             userGestureToForward = nullptr;
 
-        if (userGestureToForward && userGestureToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
-            userGestureToForward = nullptr;
-
-        if (userGestureToForward && userGestureToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
-            userGestureToForward = nullptr;
-
         UserGestureIndicator userGestureIndicator(userGestureToForward);
         InspectorInstrumentation::willDispatchPostMessage(frame, postMessageIdentifier);
 
@@ -1063,7 +1057,7 @@ ExceptionOr<void> LocalDOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobal
     return { };
 }
 
-void LocalDOMWindow::postMessageFromRemoteFrame(JSC::JSGlobalObject& lexicalGlobalObject, RefPtr<WindowProxy>&& source, const WebCore::SecurityOriginData& sourceOrigin, std::optional<WebCore::SecurityOriginData>&& targetOriginData, const WebCore::MessageWithMessagePorts& message)
+void LocalDOMWindow::postMessageFromRemoteFrame(JSC::JSGlobalObject& lexicalGlobalObject, RefPtr<WindowProxy>&& source, const WebCore::SecurityOriginData& sourceOrigin, std::optional<WebCore::SecurityOriginData>&& targetOriginData, const WebCore::MessageWithMessagePorts& message, std::optional<UserGestureTokenData>&& userGestureToForward)
 {
     if (!frame())
         return;
@@ -1071,6 +1065,11 @@ void LocalDOMWindow::postMessageFromRemoteFrame(JSC::JSGlobalObject& lexicalGlob
     RefPtr<SecurityOrigin> targetOrigin;
     if (targetOriginData)
         targetOrigin = targetOriginData->securityOrigin();
+
+    if (userGestureToForward && userGestureToForward->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwarding))
+        userGestureToForward = std::nullopt;
+
+    auto userGestureIndicator = userGestureToForward ? UserGestureIndicator(*userGestureToForward, protect(frame()->document())) : UserGestureIndicator(std::nullopt);
 
     processPostMessage(lexicalGlobalObject, sourceOrigin.securityOrigin(), message, WTF::move(source), WTF::move(targetOrigin));
 }
@@ -1561,20 +1560,22 @@ bool LocalDOMWindow::hasTransientActivation() const
     return now >= m_lastActivationTimestamp && now < (m_lastActivationTimestamp + transientActivationDuration());
 }
 
-// When the current high resolution time given W is greater than or equal to the last activation timestamp in W,
-// W is said to have sticky activation. (https://html.spec.whatwg.org/multipage/interaction.html#sticky-activation)
+// https://html.spec.whatwg.org/multipage/interaction.html#sticky-activation
+// The published spec still derives sticky activation from the last activation
+// timestamp; we track it as an explicit boolean per the proposed
+// whatwg/html#11454 (https://github.com/whatwg/html/pull/11454).
 bool LocalDOMWindow::hasStickyActivation() const
 {
-    auto now = MonotonicTime::now();
-    return now >= m_lastActivationTimestamp;
+    return m_hasStickyActivation;
 }
 
-// When the last history-action activation timestamp of W is not equal to the last activation timestamp of W,
-// then W is said to have history-action activation.
-// (https://html.spec.whatwg.org/multipage/interaction.html#history-action-activation)
+// https://html.spec.whatwg.org/multipage/interaction.html#history-action-activation
+// Tracked as an explicit boolean per the proposed whatwg/html#11454
+// (https://github.com/whatwg/html/pull/11454); the published spec still derives
+// it by comparing the history-action and last activation timestamps.
 bool LocalDOMWindow::hasHistoryActionActivation() const
 {
-    return m_lastHistoryActionActivationTimestamp != m_lastActivationTimestamp;
+    return m_hasHistoryActionActivation;
 }
 
 // https://html.spec.whatwg.org/multipage/interaction.html#consume-user-activation
@@ -1615,7 +1616,7 @@ bool LocalDOMWindow::consumeHistoryActionUserActivation()
         if (!localFrame)
             continue;
         if (auto* window = localFrame->window())
-            window->m_lastHistoryActionActivationTimestamp = window->m_lastActivationTimestamp;
+            window->consumeHistoryActionActivation();
     }
 
     return true;
@@ -1636,7 +1637,7 @@ std::optional<LocalDOMWindow::ClickEventData> LocalDOMWindow::consumeLastUserCli
 
 static void updateActivationTimestampAndNotify(LocalDOMWindow& window, MonotonicTime activationTime, bool closeWatcherEnabled)
 {
-    window.setLastActivationTimestamp(activationTime);
+    window.updateActivation(activationTime);
     if (closeWatcherEnabled)
         window.closeWatcherManager().notifyAboutUserActivation();
 }

@@ -77,14 +77,14 @@ Ref<Font> Font::create(const FontPlatformData& platformData, Origin origin, IsIn
     return adoptRef(*new Font(platformData, origin, interstitial, visibility, orientationFallback, identifier));
 }
 
-Ref<Font> Font::create(Ref<SharedBuffer>&& fontFaceData, Font::Origin origin, float fontSize, bool, bool syntheticItalic, DownloadableBinaryFontTrustedTypes trustedType)
+Ref<Font> Font::create(Ref<SharedBuffer>&& fontFaceData, Font::Origin origin, float fontSize, bool, bool, DownloadableBinaryFontTrustedTypes trustedType)
 {
     bool wrapping;
     auto customFontData = CachedFont::createCustomFontData(fontFaceData.get(), { }, wrapping, trustedType);
     FontDescription description;
     description.setComputedSize(fontSize);
     // FIXME: Why doesn't this pass in any meaningful data for the last few arguments?
-    auto platformData = CachedFont::platformDataFromCustomData(*customFontData, description, syntheticItalic, { });
+    auto platformData = CachedFont::platformDataFromCustomData(*customFontData, description, { });
     return Font::create(WTF::move(platformData), origin);
 }
 
@@ -385,14 +385,6 @@ static void overrideControlCharacters(Vector<char16_t>& buffer, unsigned start, 
 
 static RefPtr<GlyphPage> createAndFillGlyphPage(unsigned pageNumber, const Font& font)
 {
-#if PLATFORM(IOS_FAMILY)
-    // FIXME: Times New Roman contains Arabic glyphs, but Core Text doesn't know how to shape them. See <rdar://problem/9823975>.
-    // Once we have the fix for <rdar://problem/9823975> then remove this code together with Font::shouldNotBeUsedForArabic()
-    // in <rdar://problem/12096835>.
-    if (GlyphPage::pageNumberIsUsedForArabic(pageNumber) && font.shouldNotBeUsedForArabic())
-        return nullptr;
-#endif
-
     unsigned glyphPageSize = GlyphPage::sizeForPageNumber(pageNumber);
 
     unsigned start = GlyphPage::startingCodePointInPageNumber(pageNumber);

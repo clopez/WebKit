@@ -647,8 +647,11 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         loadParameters.isInitiatorPrefetch = handle->type() == CachedResource::Type::LinkPrefetch;
 
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
-    if (loadParameters.isMainFrameNavigation)
+    if (loadParameters.isMainFrameNavigation) {
         existingNetworkResourceLoadIdentifierToResume = std::exchange(m_existingNetworkResourceLoadIdentifierToResume, std::nullopt);
+        if (RefPtr webFrame = WebFrame::webFrame(frame->frameID()))
+            loadParameters.shouldConsiderEnhancedSecurityForInsecureResponse = webFrame->page() ? webFrame->page()->takeShouldConsiderEnhancedSecurityForInsecureResponseForCurrentNavigation() : false;
+    }
     WEBLOADERSTRATEGY_RELEASE_LOG_FORWARDABLE(WebLoaderStrategyScheduleLoadResourceScheduledWithNetworkProcess, static_cast<int>(resourceLoader.request().priority()), existingNetworkResourceLoadIdentifierToResume ? existingNetworkResourceLoadIdentifierToResume->toUInt64() : 0);
 
     loadParameters.isInitiatedByDedicatedWorker = resourceLoader.options().initiatorContext == InitiatorContext::Worker && std::holds_alternative<std::monostate>(resourceLoader.options().workerIdentifier);
@@ -1192,6 +1195,11 @@ ResourceError WebLoaderStrategy::cancelledError(const ResourceRequest& request) 
 ResourceError WebLoaderStrategy::blockedError(const ResourceRequest& request) const
 {
     return WebKit::blockedError(request);
+}
+
+bool WebLoaderStrategy::isBlockedError(const WebCore::ResourceError& error) const
+{
+    return WebKit::isBlockedError(error);
 }
 
 ResourceError WebLoaderStrategy::blockedByContentBlockerError(const ResourceRequest& request) const

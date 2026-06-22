@@ -437,7 +437,7 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(InlineIterator::SVGTextBoxItera
     // Main layout algorithm.
     while (true) {
         // Find the start of the current text box in this list, respecting ligatures.
-        SVGTextMetrics visualMetrics(SVGTextMetrics::SkippedSpaceMetrics);
+        SVGTextMetrics visualMetrics(SVGTextMetrics::MetricsType::SkippedSpaceMetrics);
         if (!currentVisualCharacterMetrics(*textBox, visualMetricsValues, visualMetrics))
             break;
 
@@ -451,7 +451,7 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(InlineIterator::SVGTextBoxItera
             break;
 
         ASSERT(logicalAttributes);
-        SVGTextMetrics logicalMetrics(SVGTextMetrics::SkippedSpaceMetrics);
+        SVGTextMetrics logicalMetrics(SVGTextMetrics::MetricsType::SkippedSpaceMetrics);
         if (!currentLogicalCharacterMetrics(logicalAttributes, logicalMetrics))
             break;
 
@@ -523,7 +523,12 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(InlineIterator::SVGTextBoxItera
                 m_lineLayoutChunkStarts.add(makeKey(*textBox));
         }
 
-        float angle = SVGTextLayoutAttributes::isEmptyValue(data.rotate) ? 0 : data.rotate;
+        // Reduce the supplemental rotation modulo a full turn so an exact
+        // multiple of 360 (e.g. rotate="360") collapses to the identity. A
+        // rotate(360) builds its matrix from sin(2*pi), which evaluates to a
+        // tiny non-zero value (~1e-16, machine-epsilon rounding error) rather
+        // than 0, and getRotationOfChar() then rounds that back up to ~360.
+        float angle = SVGTextLayoutAttributes::isEmptyValue(data.rotate) ? 0 : fmodf(data.rotate, 360);
 
         // Calculate glyph orientation angle.
         auto remainingCharacters = characters.subspan(m_visualCharacterOffset);

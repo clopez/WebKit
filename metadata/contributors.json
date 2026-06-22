@@ -3901,6 +3901,14 @@
    },
    {
       "emails" : [
+         "iroy@apple.com",
+         "issacroy05@gmail.com"
+      ],
+      "github" : "TheBoyRoy05",
+      "name" : "Issac Roy"
+   },
+   {
+      "emails" : [
          "ike@apple.com"
       ],
       "name" : "Ivan Ivan Krsti\u0107"
@@ -5599,6 +5607,7 @@
    },
    {
       "emails" : [
+         "info.aeslilly@gmail.com",
          "lilly_le@apple.com"
       ],
       "github" : "codedbycupidity",

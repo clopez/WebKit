@@ -463,7 +463,7 @@ void GraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)
 
 void GraphicsContext::clipOutRoundedRect(const FloatRoundedRect& rect)
 {
-    if (!rect.isRounded()) {
+    if (!rect.hasNonZeroRadii()) {
         clipOut(rect.rect());
         return;
     }
@@ -494,7 +494,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, Compos
 
 void GraphicsContext::fillRoundedRect(const FloatRoundedRect& rect, const Color& color, BlendMode blendMode)
 {
-    if (rect.isRounded()) {
+    if (rect.hasNonZeroRadii()) {
         setCompositeOperation(compositeOperation(), blendMode);
         fillRoundedRectImpl(rect, color);
         setCompositeOperation(compositeOperation());
@@ -550,13 +550,7 @@ void GraphicsContext::strokeArc(const PathArc& arc)
 
 void GraphicsContext::strokeLine(const PathDataLine& line)
 {
-#if ENABLE(INLINE_PATH_DATA)
     auto path = Path({ PathSegment { PathDataLine { { line.start() }, { line.end() } } } });
-#else
-    Path path;
-    path.moveTo(line.start());
-    path.addLineTo(line.end());
-#endif
     strokePath(path);
 }
 

@@ -349,6 +349,19 @@ TEST(TextExtractionTests, InteractionDebugDescription)
         EXPECT_WK_STREQ("Click on “Subject” in child node of editable h3 labeled “Heading”, with rendered text “Subject”", description);
         EXPECT_NULL(error);
     }
+    {
+        RetainPtr interaction = adoptNS([[_WKTextExtractionInteraction alloc] initWithAction:_WKTextExtractionActionClick]);
+
+        [interaction setNodeIdentifier:extractNodeIdentifier(debugText, @"Open menu")];
+        description = [interaction debugDescriptionInWebView:webView error:&error];
+        EXPECT_WK_STREQ("Click on img labeled “Open menu” under link with href “/menu” with id “menu-link”", description);
+        EXPECT_NULL(error);
+
+        [interaction setNodeIdentifier:extractNodeIdentifier(debugText, @"Checkmark icon")];
+        description = [interaction debugDescriptionInWebView:webView error:&error];
+        EXPECT_WK_STREQ("Click on img labeled “Checkmark icon” under button labeled “Submit form” with id “submit-with-icon”", description);
+        EXPECT_NULL(error);
+    }
 }
 
 TEST(TextExtractionTests, InteractionDebugDescriptionWithStaleNodeIdentifier)
@@ -489,6 +502,26 @@ TEST(TextExtractionTests, TargetNodeWithSameOriginSubframe)
     EXPECT_TRUE([debugText containsString:@"subframe content"]);
 }
 
+TEST(TextExtractionTests, ExtractFromDocumentWithoutBody)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+
+    RetainPtr request = adoptNS([[NSURLRequest alloc] initWithURL:adoptNS([[NSURL alloc] initWithString:@"data:application/xml,<root><item>hello%20world</item></root>"]).get()]);
+    [webView synchronouslyLoadRequest:request.get()];
+
+    RetainPtr debugText = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setFilterOptions:_WKTextExtractionFilterNone];
+        return configuration.autorelease();
+    }()];
+
+    EXPECT_NOT_NULL(debugText);
+}
+
 TEST(TextExtractionTests, ReplacementStrings)
 {
     RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
@@ -545,6 +578,22 @@ TEST(TextExtractionTests, VisibleTextOnly)
     EXPECT_FALSE([debugText containsString:@"They push the human race forward"]);
     EXPECT_FALSE([debugText containsString:@"Because the people who are crazy"]);
 #endif // ENABLE(TEXT_EXTRACTION_FILTER)
+}
+
+TEST(TextExtractionTests, ZeroWordLimit)
+{
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [[configuration preferences] _setTextExtractionEnabled:YES];
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
+    [webView synchronouslyLoadHTMLString:@"Hello"];
+
+    RetainPtr extractionConfiguration = adoptNS([_WKTextExtractionConfiguration new]);
+    [extractionConfiguration setOutputFormat:_WKTextExtractionOutputFormatPlainText];
+    [extractionConfiguration setFilterOptions:_WKTextExtractionFilterNone];
+    [extractionConfiguration setMaxWordsPerParagraph:0];
+
+    EXPECT_WK_STREQ("…", [webView synchronouslyGetDebugText:extractionConfiguration.get()]);
 }
 
 TEST(TextExtractionTests, SkipNearlyTransparentContentByDefault)
@@ -715,10 +764,11 @@ TEST(TextExtractionTests, NodesToSkip)
     }()];
 
     NSArray<NSString *> *lines = [debugText componentsSeparatedByString:@"\n"];
-    EXPECT_EQ([lines count], 3u);
+    EXPECT_EQ([lines count], 4u);
     EXPECT_WK_STREQ("Test", lines[0]);
     EXPECT_WK_STREQ("subject SUBJECT", lines[1]);
-    EXPECT_WK_STREQ("0", lines[2]);
+    EXPECT_WK_STREQ("![]() [](file:///menu)![]()", lines[2]);
+    EXPECT_WK_STREQ("0", lines[3]);
 }
 
 TEST(TextExtractionTests, RequestJSHandleForNodeIdentifier)
@@ -1839,7 +1889,7 @@ TEST(TextExtractionTests, RequestTextExtractionInSVGDocument)
     }];
     Util::run(&done);
 
-    EXPECT_NULL(resultItem);
+    EXPECT_NOT_NULL(resultItem);
 }
 
 #if PLATFORM(MAC)

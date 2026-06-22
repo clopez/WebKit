@@ -95,6 +95,12 @@ endif ()
 list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
     "SourcesCocoa.txt"
 )
+# FIXME: Test building on iOS and then enable on iOS.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
+        "SourcesCMakeCocoa.txt"
+    )
+endif ()
 
 list(APPEND WebCore_LIBRARIES
     ${ACCELERATE_LIBRARY}
@@ -1208,6 +1214,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cocoa/MediaPlayerEnumsCocoa.h
     platform/graphics/cocoa/NullPlaybackSessionInterface.h
     platform/graphics/cocoa/NullVideoPresentationInterface.h
+    platform/graphics/cocoa/PeriodicSharedTimer.h
     platform/graphics/cocoa/ShareableCVPixelBuffer.h
     platform/graphics/cocoa/ShareableCVPixelFormat.h
     platform/graphics/cocoa/ShareableGainMap.h

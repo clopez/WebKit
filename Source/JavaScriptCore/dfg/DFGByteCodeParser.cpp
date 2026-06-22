@@ -1133,6 +1133,8 @@ private:
                 node->mergeFlags(NodeMayHaveDoubleResult);
             if (observed.didObserveNonNumeric())
                 node->mergeFlags(NodeMayHaveNonNumericResult);
+            if (observed.didObserveInt32Overflow())
+                node->mergeFlags(NodeMayOverflowInt32InBaseline);
             if (observed.didObserveBigInt32())
                 node->mergeFlags(NodeMayHaveBigInt32Result);
             if (observed.didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
@@ -1201,6 +1203,15 @@ private:
                 node->mergeFlags(NodeMayHaveBigInt32Result);
             if (arithProfile->didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
                 node->mergeFlags(NodeMayHaveHeapBigIntResult);
+            break;
+        }
+
+        case UInt32ToNumber: {
+            UnaryArithProfile* arithProfile = m_inlineStackTop->m_profiledBlock->unaryArithProfileForBytecodeIndex(m_currentIndex);
+            if (!arithProfile)
+                break;
+            if (arithProfile->didObserveInt32Overflow() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, Overflow))
+                node->mergeFlags(NodeMayOverflowInt32InBaseline);
             break;
         }
 
@@ -1997,8 +2008,7 @@ void ByteCodeParser::inlineCall(Node* callTargetNode, Operand result, CallVarian
     m_currentExitOrigin = oldExitOrigin;
 
     // At this point, it's again OK to OSR exit.
-    m_exitOK = true;
-    addToGraph(ExitOK);
+    emitExitOK();
 
     processSetLocalQueue();
 
@@ -2408,9 +2418,8 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleInlining(
 
     // It's OK to exit right now, even though we set some locals. That's because those locals are not
     // user-visible.
-    m_exitOK = true;
-    addToGraph(ExitOK);
-    
+    emitExitOK();
+
     SwitchData& data = *m_graph.m_switchData.add();
     data.kind = SwitchCell;
     addToGraph(Switch, OpInfo(&data), thingToSwitchOn);
@@ -3846,6 +3855,30 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             return CallOptimizationResult::Inlined;
         }
 
+        case RegExpStringIteratorNextIntrinsic: {
+            if (!is64Bit())
+                return CallOptimizationResult::DidNothing;
+
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                return CallOptimizationResult::DidNothing;
+
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue))
+                return CallOptimizationResult::DidNothing;
+
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCache))
+                return CallOptimizationResult::DidNothing;
+
+            JSGlobalObject* globalObject = m_inlineStackTop->m_codeBlock->globalObject();
+            Structure* iteratorResultStructure = globalObject->iteratorResultObjectStructureConcurrently();
+            if (!iteratorResultStructure)
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+            Node* iterator = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
+            setResult(addToGraph(RegExpStringIteratorNext, OpInfo(m_graph.registerStructure(iteratorResultStructure)), OpInfo(prediction), iterator));
+            return CallOptimizationResult::Inlined;
+        }
+
         case ObjectCreateIntrinsic: {
             if (argumentCountIncludingThis != 2)
                 return CallOptimizationResult::DidNothing;
@@ -3879,8 +3912,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             // we can say exitOK for each ToObject.
             unsigned errorStringIndex = UINT32_MAX;
             Node* target = addToGraph(ToObject, OpInfo(errorStringIndex), OpInfo(SpecNone), get(virtualRegisterForArgumentIncludingThis(1, registerOffset)));
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
             addToGraph(ObjectAssign, Edge(target, KnownCellUse), Edge(get(virtualRegisterForArgumentIncludingThis(2, registerOffset))));
             setResult(target);
             return CallOptimizationResult::Inlined;
@@ -4411,9 +4443,35 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             insertChecks();
             Node* mapIterator = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
-            UseKind useKind = intrinsic == JSMapIteratorNextIntrinsic ? MapIteratorObjectUse : SetIteratorObjectUse;
-            Node* storage = addToGraph(MapIteratorNext, Edge(mapIterator, useKind));
-            setResult(storage);
+            bool isMapIterator = intrinsic == JSMapIteratorNextIntrinsic;
+            UseKind iteratorUseKind = isMapIterator ? MapIteratorObjectUse : SetIteratorObjectUse;
+            UseKind ownerUseKind = isMapIterator ? MapObjectUse : SetObjectUse;
+            SpeculatedType ownerSpec = isMapIterator ? SpecMapObject : SpecSetObject;
+
+            unsigned storageFieldIndex = isMapIterator ? static_cast<unsigned>(JSMapIterator::Field::Storage) : static_cast<unsigned>(JSSetIterator::Field::Storage);
+            unsigned iteratedObjectFieldIndex = isMapIterator ? static_cast<unsigned>(JSMapIterator::Field::IteratedObject) : static_cast<unsigned>(JSSetIterator::Field::IteratedObject);
+            unsigned entryFieldIndex = isMapIterator ? static_cast<unsigned>(JSMapIterator::Field::Entry) : static_cast<unsigned>(JSSetIterator::Field::Entry);
+
+            addToGraph(Check, Edge(mapIterator, iteratorUseKind));
+
+            Node* storageField = addToGraph(GetInternalField, OpInfo(storageFieldIndex), OpInfo(SpecCellOther | SpecEmpty), mapIterator);
+            Node* iteratedObjectField = addToGraph(GetInternalField, OpInfo(iteratedObjectFieldIndex), OpInfo(ownerSpec), mapIterator);
+            Node* entryField = addToGraph(GetInternalField, OpInfo(entryFieldIndex), OpInfo(SpecInt32Only), mapIterator);
+
+            Node* tuple = addToGraph(MapIteratorNext, Edge(storageField), Edge(iteratedObjectField, ownerUseKind), Edge(entryField));
+
+            Node* newStorage = addToGraph(ExtractFromTuple, OpInfo(0), tuple);
+            newStorage->setResult(NodeResultJS);
+            Node* newEntry = addToGraph(ExtractFromTuple, OpInfo(1), tuple);
+            newEntry->setResult(NodeResultInt32);
+
+            addToGraph(PutInternalField, OpInfo(storageFieldIndex), mapIterator, newStorage);
+            addToGraph(PutInternalField, OpInfo(entryFieldIndex), mapIterator, newEntry);
+
+            FrozenValue* sentinelConst = m_graph.freezeStrong(m_graph.m_vm.orderedHashTableSentinel());
+            Node* done = addToGraph(CompareEqPtr, OpInfo(sentinelConst), newStorage);
+
+            setResult(done);
             return CallOptimizationResult::Inlined;
         }
 
@@ -4423,9 +4481,20 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             insertChecks();
             Node* mapIterator = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
-            UseKind useKind = intrinsic == JSMapIteratorKeyIntrinsic ? MapIteratorObjectUse : SetIteratorObjectUse;
-            Node* storage = addToGraph(MapIteratorKey, OpInfo(0), OpInfo(prediction), Edge(mapIterator, useKind));
-            setResult(storage);
+            bool isMapIterator = intrinsic == JSMapIteratorKeyIntrinsic;
+            UseKind iteratorUseKind = isMapIterator ? MapIteratorObjectUse : SetIteratorObjectUse;
+            BucketOwnerType ownerType = isMapIterator ? BucketOwnerType::Map : BucketOwnerType::Set;
+
+            unsigned storageFieldIndex = isMapIterator ? static_cast<unsigned>(JSMapIterator::Field::Storage) : static_cast<unsigned>(JSSetIterator::Field::Storage);
+            unsigned entryFieldIndex = isMapIterator ? static_cast<unsigned>(JSMapIterator::Field::Entry) : static_cast<unsigned>(JSSetIterator::Field::Entry);
+
+            addToGraph(Check, Edge(mapIterator, iteratorUseKind));
+
+            Node* storageField = addToGraph(GetInternalField, OpInfo(storageFieldIndex), OpInfo(SpecCellOther), mapIterator);
+            Node* entryField = addToGraph(GetInternalField, OpInfo(entryFieldIndex), OpInfo(SpecInt32Only), mapIterator);
+
+            Node* result = addToGraph(MapIteratorKey, OpInfo(ownerType), OpInfo(prediction), Edge(storageField), Edge(entryField));
+            setResult(result);
             return CallOptimizationResult::Inlined;
         }
 
@@ -4434,8 +4503,17 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             insertChecks();
             Node* mapIterator = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
-            Node* storage = addToGraph(MapIteratorValue, OpInfo(0), OpInfo(prediction), Edge(mapIterator, MapIteratorObjectUse));
-            setResult(storage);
+
+            unsigned storageFieldIndex = static_cast<unsigned>(JSMapIterator::Field::Storage);
+            unsigned entryFieldIndex = static_cast<unsigned>(JSMapIterator::Field::Entry);
+
+            addToGraph(Check, Edge(mapIterator, MapIteratorObjectUse));
+
+            Node* storageField = addToGraph(GetInternalField, OpInfo(storageFieldIndex), OpInfo(SpecCellOther), mapIterator);
+            Node* entryField = addToGraph(GetInternalField, OpInfo(entryFieldIndex), OpInfo(SpecInt32Only), mapIterator);
+
+            Node* result = addToGraph(MapIteratorValue, OpInfo(BucketOwnerType::Map), OpInfo(prediction), Edge(storageField), Edge(entryField));
+            setResult(result);
             return CallOptimizationResult::Inlined;
         }
 
@@ -5090,8 +5168,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             // We've set some locals, but they are not user-visible since they are newly allocated for this inlined call. It's still OK to exit from here.
             // JSBoundFunction's trampoline does not have user-visible effect. So exiting to the pre-bound function location is OK.
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             // Bound function itself is completely wiped. And we should behave as if the current caller is directly calling this function.
             // If the current caller is calling the callee in a tail-call form, then it should be a tail-call.
@@ -5455,8 +5532,7 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
         Node* lengthNode = addToGraph(op, OpInfo(mayBeResizableOrGrowableSharedArrayBuffer), Edge(thisNode, DataViewObjectUse));
         if (mayBeResizableOrGrowableSharedArrayBuffer)
             lengthNode->mergeFlags(NodeMustGenerate);
-        m_exitOK = true;
-        addToGraph(ExitOK);
+        emitExitOK();
 
         set(result, lengthNode);
         return true;
@@ -5489,8 +5565,7 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
         NodeType op = mayBeLargeTypedArray ? GetTypedArrayLengthAsInt52 : GetArrayLength;
         Node* lengthNode = addToGraph(op, OpInfo(ArrayMode(arrayType, Array::NonArray, Array::InBounds, Array::AsIs, Array::Read, mayBeLargeTypedArray, mayBeResizableOrGrowableSharedTypedArray).asWord()), thisNode);
         // Our ArrayMode shouldn't cause us to exit here so we should be ok to exit without effects.
-        m_exitOK = true;
-        addToGraph(ExitOK);
+        emitExitOK();
 
         if (!logSize) {
             set(result, lengthNode);
@@ -5790,8 +5865,7 @@ void ByteCodeParser::emitProxyObjectLoadCall(VirtualRegister destination, Specul
     set(virtualRegisterForArgumentIncludingThis(2, registerOffset), base, ImmediateNakedSet); // FIXME: We can extend this to handle arbitrary receiver.
 
     // We've set some locals, but they are not user-visible. It's still OK to exit from here.
-    m_exitOK = true;
-    addToGraph(ExitOK);
+    emitExitOK();
 
     handleCall(destination, Call, InlineCallFrame::ProxyObjectLoadCall, osrExitIndex, functionNode, numberOfParameters - 1, registerOffset, *getByStatus.variants()[0].callLinkStatus(), prediction, nullptr);
 }
@@ -5834,8 +5908,7 @@ void ByteCodeParser::emitProxyObjectStoreCall(Node* base, Node* propertyNameNode
     set(virtualRegisterForArgumentIncludingThis(3, registerOffset), value, ImmediateNakedSet);
 
     // We've set some locals, but they are not user-visible. It's still OK to exit from here.
-    m_exitOK = true;
-    addToGraph(ExitOK);
+    emitExitOK();
 
     handleCall(VirtualRegister(), Call, InlineCallFrame::ProxyObjectStoreCall, osrExitIndex, functionNode, numberOfParameters - 1, registerOffset, *putByStatus.variants()[0].callLinkStatus(), SpecOther, nullptr, ecmaMode);
 }
@@ -5874,8 +5947,7 @@ void ByteCodeParser::emitProxyObjectInCall(VirtualRegister destination, Speculat
     set(virtualRegisterForArgumentIncludingThis(1, registerOffset), propertyNameNode, ImmediateNakedSet);
 
     // We've set some locals, but they are not user-visible. It's still OK to exit from here.
-    m_exitOK = true;
-    addToGraph(ExitOK);
+    emitExitOK();
 
     handleCall(destination, Call, InlineCallFrame::ProxyObjectInCall, osrExitIndex, functionNode, numberOfParameters - 1, registerOffset, *inByStatus.variants()[0].callLinkStatus(), prediction, nullptr);
 }
@@ -6956,9 +7028,8 @@ void ByteCodeParser::handleGetById(
     set(virtualRegisterForArgumentIncludingThis(0, registerOffset), base, ImmediateNakedSet);
 
     // We've set some locals, but they are not user-visible. It's still OK to exit from here.
-    m_exitOK = true;
-    addToGraph(ExitOK);
-    
+    emitExitOK();
+
     handleCall(
         destination, Call, InlineCallFrame::GetterCall, osrExitIndex,
         getter, numberOfParameters - 1, registerOffset, *variant.callLinkStatus(), prediction, nullptr);
@@ -7413,9 +7484,8 @@ void ByteCodeParser::handlePutById(
         set(virtualRegisterForArgumentIncludingThis(1, registerOffset), value, ImmediateNakedSet);
 
         // We've set some locals, but they are not user-visible. It's still OK to exit from here.
-        m_exitOK = true;
-        addToGraph(ExitOK);
-    
+        emitExitOK();
+
         handleCall(
             VirtualRegister(), Call, InlineCallFrame::SetterCall,
             osrExitIndex, setter, numberOfParameters - 1, registerOffset,
@@ -7727,8 +7797,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
             // Normally we wouldn't be allowed to exit here, but in this case we'd
             // only be re-initializing the locals and resetting the scope register
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             handleCheckTraps();
 
@@ -9625,8 +9694,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             // The SetArgumentDefinitely nodes that follow below may exit because we may hoist type checks
             // to them. The SetLocal nodes that follow below may exit because we may choose
             // a flush format that speculates on the type of the local.
-            m_exitOK = true; 
-            addToGraph(ExitOK);
+            emitExitOK();
 
             {
                 auto addResult = m_graph.m_rootToArguments.add(m_currentBlock, ArgumentsVector());
@@ -10616,8 +10684,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 Node* badMode = addToGraph(ArithBitAnd, mode, jsConstant(jsNumber(JSPropertyNameEnumerator::GenericMode | JSPropertyNameEnumerator::OwnStructureMode)));
 
                 // We know the ArithBitAnd cannot have effects so it's ok to exit here.
-                m_exitOK = true;
-                addToGraph(ExitOK);
+                emitExitOK();
 
                 addToGraph(CheckIsConstant, OpInfo(m_graph.freezeStrong(jsNumber(0))), badMode);
 
@@ -10750,8 +10817,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 Node* badMode = addToGraph(ArithBitAnd, mode, jsConstant(jsNumber(JSPropertyNameEnumerator::GenericMode | JSPropertyNameEnumerator::OwnStructureMode)));
 
                 // We know the ArithBitAnd cannot have effects so it's ok to exit here.
-                m_exitOK = true;
-                addToGraph(ExitOK);
+                emitExitOK();
 
                 addToGraph(CheckIsConstant, OpInfo(m_graph.freezeStrong(jsNumber(0))), badMode);
 
@@ -11376,8 +11442,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             Node* andResult = addToGraph(ArithBitAnd, isArray, isKnownIterFunction);
 
             // We know the ArithBitAnd cannot have effects so it's ok to exit here.
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11452,8 +11517,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             branchData->taken = BranchTarget(kindCheckBlock);
             branchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11470,8 +11534,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             kindBranchData->taken = BranchTarget(iteratedObjectCheckBlock);
             kindBranchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(kindBranchData), isKindMatch);
             flushForTerminal();
@@ -11487,8 +11550,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             arrayBranchData->taken = BranchTarget(fastBlock);
             arrayBranchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(arrayBranchData), isIteratedArray);
             flushForTerminal();
@@ -11559,8 +11621,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             branchData->taken = BranchTarget(kindCheckBlock);
             branchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11577,8 +11638,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             kindBranchData->taken = BranchTarget(fastBlock);
             kindBranchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(kindBranchData), isKindMatch);
             flushForTerminal();
@@ -11634,8 +11694,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             branchData->taken = BranchTarget(kindCheckBlock);
             branchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11652,8 +11711,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             kindBranchData->taken = BranchTarget(fastBlock);
             kindBranchData->notTaken = BranchTarget(failedBlock);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(kindBranchData), isKindMatch);
             flushForTerminal();
@@ -11701,8 +11759,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
 
             Node* andResult = addToGraph(ArithBitAnd, isMap, isKnownIterFunction);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11775,8 +11832,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
 
             Node* andResult = addToGraph(ArithBitAnd, isSet, isKnownIterFunction);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -11846,8 +11902,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
 
             Node* andResult = addToGraph(ArithBitAnd, isString, isKnownIterFunction);
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             addToGraph(Branch, OpInfo(branchData), andResult);
             flushForTerminal();
@@ -12012,8 +12067,7 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         else {
             Node* isFastSentinel = addToGraph(CompareEqPtr, OpInfo(frozenSentinel), get(bytecode.m_next));
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             failedBlock = allocateUntargetableBlock();
             BasicBlock* fastBlock = allocateUntargetableBlock();
@@ -12045,14 +12099,12 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             Node* butterfly = addToGraph(GetButterfly, iteratedObject);
             Node* length = addToGraph(GetArrayLength, OpInfo(arrayMode.asWord()), Edge(iteratedObject), Edge(butterfly, KnownStorageUse));
             // GetArrayLength is pessimized prior to fixup.
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
             Node* isOutOfBounds = addToGraph(CompareGreaterEq, Edge(index, Int32Use), Edge(length, Int32Use));
 
             isDone = addToGraph(ArithBitOr, isDone, isOutOfBounds);
             // The above compare doesn't produce effects since we know the values are booleans. We don't set UseKinds because Fixup likes to add edges.
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(isDoneBlock);
@@ -12081,6 +12133,7 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
                 addVarArgChild(nullptr); // Leave room for property storage.
                 Node* element = addToGraph(Node::VarArg, GetByVal, OpInfo(arrayMode.asWord()), OpInfo(prediction));
                 if (kind == IterationKind::Entries) {
+                    emitExitOK();
                     addVarArgChild(index);
                     addVarArgChild(element);
                     unsigned vectorHint = 2;
@@ -12149,8 +12202,7 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         else {
             Node* isFastSentinel = addToGraph(CompareEqPtr, OpInfo(frozenSentinel), get(bytecode.m_next));
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             failedBlock = allocateUntargetableBlock();
             BasicBlock* fastMapBlock = allocateUntargetableBlock();
@@ -12170,10 +12222,43 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         BasicBlock* isDoneBlock = allocateUntargetableBlock();
         BasicBlock* doLoadBlock = allocateUntargetableBlock();
 
+        unsigned storageFieldIndex = static_cast<unsigned>(JSMapIterator::Field::Storage);
+        unsigned iteratedObjectFieldIndex = static_cast<unsigned>(JSMapIterator::Field::IteratedObject);
+        unsigned entryFieldIndex = static_cast<unsigned>(JSMapIterator::Field::Entry);
+
+        // The iterator is not mutated in this block. We carry the advanced (storage,
+        // entry) pair to the successor blocks via tmps and commit it there, so an OSR
+        // exit at the iterator_next checkpoint can simply re-run next() cleanly.
+        auto nextTmps = allocatePrivateTmps(2);
+        Operand tmpStorage = nextTmps.operandAt(0);
+        Operand tmpEntry = nextTmps.operandAt(1);
+
         {
-            // Now MapIterator status gets mutated. So we must not do OSRExit unless it is throwing an exception.
             Node* iterator = get(bytecode.m_iterator);
-            Node* doneNode = addToGraph(MapIteratorNext, Edge(iterator, MapIteratorObjectUse));
+
+            Node* storageField = addToGraph(GetInternalField, OpInfo(storageFieldIndex), OpInfo(SpecCellOther | SpecEmpty), iterator);
+            Node* iteratedObjectField = addToGraph(GetInternalField, OpInfo(iteratedObjectFieldIndex), OpInfo(SpecMapObject), iterator);
+            Node* entryField = addToGraph(GetInternalField, OpInfo(entryFieldIndex), OpInfo(SpecInt32Only), iterator);
+
+            Node* tuple = addToGraph(MapIteratorNext, Edge(storageField), Edge(iteratedObjectField, MapObjectUse), Edge(entryField));
+
+            Node* newStorage = addToGraph(ExtractFromTuple, OpInfo(0), tuple);
+            newStorage->setResult(NodeResultJS);
+            Node* newEntry = addToGraph(ExtractFromTuple, OpInfo(1), tuple);
+            newEntry->setResult(NodeResultInt32);
+
+            // Flush so the successor reads go through a phi merge rather than
+            // short-circuiting to the producer, which would create cross-block edges
+            // that violate the CPS validator.
+            set(tmpStorage, newStorage, ImmediateNakedSet);
+            flush(tmpStorage);
+            set(tmpEntry, newEntry, ImmediateNakedSet);
+            flush(tmpEntry);
+
+            FrozenValue* sentinelConst = m_graph.freezeStrong(m_graph.m_vm.orderedHashTableSentinel());
+            Node* doneNode = addToGraph(CompareEqPtr, OpInfo(sentinelConst), newStorage);
+
+            emitExitOK();
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(isDoneBlock);
@@ -12186,20 +12271,22 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             clearCaches();
             keepUsesOfCurrentInstructionAlive(currentInstruction, m_currentIndex.checkpoint());
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
+
+            Node* keyStorage = get(tmpStorage);
+            Node* keyEntry = get(tmpEntry);
 
             Node* value = nullptr;
             switch (kind) {
             case IterationKind::Keys:
-                value = addToGraph(MapIteratorKey, OpInfo(0), OpInfo(prediction), Edge(get(bytecode.m_iterator), MapIteratorObjectUse));
+                value = addToGraph(MapIteratorKey, OpInfo(BucketOwnerType::Map), OpInfo(prediction), Edge(keyStorage), Edge(keyEntry));
                 break;
             case IterationKind::Values:
-                value = addToGraph(MapIteratorValue, OpInfo(0), OpInfo(prediction), Edge(get(bytecode.m_iterator), MapIteratorObjectUse));
+                value = addToGraph(MapIteratorValue, OpInfo(BucketOwnerType::Map), OpInfo(prediction), Edge(keyStorage), Edge(keyEntry));
                 break;
             case IterationKind::Entries: {
-                Node* key = addToGraph(MapIteratorKey, OpInfo(0), OpInfo(prediction), Edge(get(bytecode.m_iterator), MapIteratorObjectUse));
-                Node* mapValue = addToGraph(MapIteratorValue, OpInfo(0), OpInfo(prediction), Edge(get(bytecode.m_iterator), MapIteratorObjectUse));
+                Node* key = addToGraph(MapIteratorKey, OpInfo(BucketOwnerType::Map), OpInfo(SpecBytecodeTop), Edge(keyStorage), Edge(keyEntry));
+                Node* mapValue = addToGraph(MapIteratorValue, OpInfo(BucketOwnerType::Map), OpInfo(SpecBytecodeTop), Edge(keyStorage), Edge(keyEntry));
                 addVarArgChild(key);
                 addVarArgChild(mapValue);
                 unsigned vectorHint = 2;
@@ -12208,6 +12295,12 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             }
             }
             Node* falseNode = jsConstant(jsBoolean(false));
+
+            // Commit the advanced state after the loads, so a key/value OSR exit cannot
+            // leave the iterator partially advanced.
+            Node* iterator = get(bytecode.m_iterator);
+            addToGraph(PutInternalField, OpInfo(storageFieldIndex), iterator, keyStorage);
+            addToGraph(PutInternalField, OpInfo(entryFieldIndex), iterator, keyEntry);
 
             set(bytecode.m_value, value);
             set(bytecode.m_done, falseNode);
@@ -12226,8 +12319,14 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             m_currentBlock = isDoneBlock;
             clearCaches();
             keepUsesOfCurrentInstructionAlive(currentInstruction, m_currentIndex.checkpoint());
+
+            emitExitOK();
+
             Node* trueNode = jsConstant(jsBoolean(true));
             Node* bottomNode = jsConstant(m_graph.bottomValueMatchingSpeculation(prediction));
+
+            Node* iterator = get(bytecode.m_iterator);
+            addToGraph(PutInternalField, OpInfo(storageFieldIndex), iterator, weakJSConstant(m_graph.m_vm.orderedHashTableSentinel()));
 
             set(bytecode.m_value, bottomNode);
             set(bytecode.m_done, trueNode);
@@ -12256,8 +12355,7 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         else {
             Node* isFastSentinel = addToGraph(CompareEqPtr, OpInfo(frozenSentinel), get(bytecode.m_next));
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             failedBlock = allocateUntargetableBlock();
             BasicBlock* fastSetBlock = allocateUntargetableBlock();
@@ -12277,10 +12375,43 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         BasicBlock* isDoneBlock = allocateUntargetableBlock();
         BasicBlock* doLoadBlock = allocateUntargetableBlock();
 
+        unsigned storageFieldIndex = static_cast<unsigned>(JSSetIterator::Field::Storage);
+        unsigned iteratedObjectFieldIndex = static_cast<unsigned>(JSSetIterator::Field::IteratedObject);
+        unsigned entryFieldIndex = static_cast<unsigned>(JSSetIterator::Field::Entry);
+
+        // The iterator is not mutated in this block. We carry the advanced (storage,
+        // entry) pair to the successor blocks via tmps and commit it there, so an OSR
+        // exit at the iterator_next checkpoint can simply re-run next() cleanly.
+        auto nextTmps = allocatePrivateTmps(2);
+        Operand tmpStorage = nextTmps.operandAt(0);
+        Operand tmpEntry = nextTmps.operandAt(1);
+
         {
-            // Now SetIterator status gets mutated. So we must not do OSRExit unless it is throwing an exception.
             Node* iterator = get(bytecode.m_iterator);
-            Node* doneNode = addToGraph(MapIteratorNext, Edge(iterator, SetIteratorObjectUse));
+
+            Node* storageField = addToGraph(GetInternalField, OpInfo(storageFieldIndex), OpInfo(SpecCellOther | SpecEmpty), iterator);
+            Node* iteratedObjectField = addToGraph(GetInternalField, OpInfo(iteratedObjectFieldIndex), OpInfo(SpecSetObject), iterator);
+            Node* entryField = addToGraph(GetInternalField, OpInfo(entryFieldIndex), OpInfo(SpecInt32Only), iterator);
+
+            Node* tuple = addToGraph(MapIteratorNext, Edge(storageField), Edge(iteratedObjectField, SetObjectUse), Edge(entryField));
+
+            Node* newStorage = addToGraph(ExtractFromTuple, OpInfo(0), tuple);
+            newStorage->setResult(NodeResultJS);
+            Node* newEntry = addToGraph(ExtractFromTuple, OpInfo(1), tuple);
+            newEntry->setResult(NodeResultInt32);
+
+            // Flush so the successor reads go through a phi merge rather than
+            // short-circuiting to the producer, which would create cross-block edges
+            // that violate the CPS validator.
+            set(tmpStorage, newStorage, ImmediateNakedSet);
+            flush(tmpStorage);
+            set(tmpEntry, newEntry, ImmediateNakedSet);
+            flush(tmpEntry);
+
+            FrozenValue* sentinelConst = m_graph.freezeStrong(m_graph.m_vm.orderedHashTableSentinel());
+            Node* doneNode = addToGraph(CompareEqPtr, OpInfo(sentinelConst), newStorage);
+
+            emitExitOK();
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(isDoneBlock);
@@ -12293,18 +12424,27 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             clearCaches();
             keepUsesOfCurrentInstructionAlive(currentInstruction, m_currentIndex.checkpoint());
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
-            Node* key = addToGraph(MapIteratorKey, OpInfo(0), OpInfo(prediction), Edge(get(bytecode.m_iterator), SetIteratorObjectUse));
-            Node* value = key;
+            Node* keyStorage = get(tmpStorage);
+            Node* keyEntry = get(tmpEntry);
+
+            Node* value = nullptr;
             if (kind == IterationKind::Entries) {
+                Node* key = addToGraph(MapIteratorKey, OpInfo(BucketOwnerType::Set), OpInfo(SpecBytecodeTop), Edge(keyStorage), Edge(keyEntry));
                 addVarArgChild(key);
                 addVarArgChild(key);
                 unsigned vectorHint = 2;
                 value = addToGraph(Node::VarArg, NewArray, OpInfo(ArrayWithContiguous), OpInfo(vectorHint));
-            }
+            } else
+                value = addToGraph(MapIteratorKey, OpInfo(BucketOwnerType::Set), OpInfo(prediction), Edge(keyStorage), Edge(keyEntry));
             Node* falseNode = jsConstant(jsBoolean(false));
+
+            // Commit the advanced state after the loads, so a key OSR exit cannot leave
+            // the iterator partially advanced.
+            Node* iterator = get(bytecode.m_iterator);
+            addToGraph(PutInternalField, OpInfo(storageFieldIndex), iterator, keyStorage);
+            addToGraph(PutInternalField, OpInfo(entryFieldIndex), iterator, keyEntry);
 
             set(bytecode.m_value, value);
             set(bytecode.m_done, falseNode);
@@ -12323,8 +12463,14 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             m_currentBlock = isDoneBlock;
             clearCaches();
             keepUsesOfCurrentInstructionAlive(currentInstruction, m_currentIndex.checkpoint());
+
+            emitExitOK();
+
             Node* trueNode = jsConstant(jsBoolean(true));
             Node* bottomNode = jsConstant(m_graph.bottomValueMatchingSpeculation(prediction));
+
+            Node* iterator = get(bytecode.m_iterator);
+            addToGraph(PutInternalField, OpInfo(storageFieldIndex), iterator, weakJSConstant(m_graph.m_vm.orderedHashTableSentinel()));
 
             set(bytecode.m_value, bottomNode);
             set(bytecode.m_done, trueNode);
@@ -12369,8 +12515,7 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
         else {
             Node* isFastSentinel = addToGraph(CompareEqPtr, OpInfo(frozenSentinel), get(bytecode.m_next));
 
-            m_exitOK = true;
-            addToGraph(ExitOK);
+            emitExitOK();
 
             failedBlock = allocateUntargetableBlock();
             BasicBlock* fastStringBlock = allocateUntargetableBlock();

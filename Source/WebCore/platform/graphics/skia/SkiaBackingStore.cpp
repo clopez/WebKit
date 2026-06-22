@@ -62,8 +62,20 @@ void SkiaBackingStore::update(const FloatSize& size, float scale, CoordinatedBac
     for (const auto& tileUpdate : update.tilesToUpdate()) {
         auto it = m_tiles.find(tileUpdate.tileID);
         ASSERT(it != m_tiles.end());
-        it->value.update(tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer);
+        it->value.scheduleUpdate(tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer);
+        m_hasPendingTileUpdates = true;
     }
+}
+
+void SkiaBackingStore::processPendingTileUpdates()
+{
+    if (!m_hasPendingTileUpdates)
+        return;
+
+    for (auto& tile : m_tiles.values())
+        tile.processPendingUpdateIfNeeded();
+
+    m_hasPendingTileUpdates = false;
 }
 
 static inline bool allTileEdgesExposed(const FloatRect& totalRect, const FloatRect& tileRect)
@@ -118,6 +130,18 @@ void SkiaBackingStore::drawDebugBorders(SkCanvas& canvas, const SkPaint& paint)
         canvas.drawRect(SkRect(tile.rect()), paint);
 }
 
+void SkiaBackingStore::Tile::scheduleUpdate(const IntRect& dirtyRect, const IntRect& tileRect, CoordinatedTileBuffer& buffer)
+{
+    m_pendingUpdates.append({ tileRect, dirtyRect, Ref { buffer } });
+}
+
+void SkiaBackingStore::Tile::processPendingUpdateIfNeeded()
+{
+    for (auto& pendingUpdate : m_pendingUpdates)
+        update(pendingUpdate.dirtyRect, pendingUpdate.tileRect, pendingUpdate.buffer.get());
+    m_pendingUpdates.clear();
+}
+
 void SkiaBackingStore::Tile::ensureTexture(const IntSize& size, CoordinatedTileBuffer& buffer)
 {
     OptionSet<BitmapTexture::Flags> flags;
@@ -155,6 +179,7 @@ void SkiaBackingStore::Tile::update(const IntRect& dirtyRect, const IntRect& til
     if (unscaledTileRect != m_rect) {
         m_rect = unscaledTileRect;
         m_texture = nullptr;
+        m_surface = nullptr;
     }
 
     if (buffer.isBackedByOpenGL()) {
@@ -168,25 +193,12 @@ void SkiaBackingStore::Tile::update(const IntRect& dirtyRect, const IntRect& til
             auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
             ASSERT(grContext);
 
-            auto createSkiaSurface = [&](const IntRect& rect) -> sk_sp<SkSurface> {
-                auto imageInfo = SkImageInfo::Make(rect.width(), rect.height(), kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
-                auto properties = FontRenderOptions::singleton().createSurfaceProps();
-                return SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kYes, imageInfo, 0, kTopLeft_GrSurfaceOrigin, &properties);
-            };
-            auto surface = createSkiaSurface(dirtyRect);
-            skgpu::ganesh::DrawDDL(surface.get(), displayList);
-
-            if (dirtyRect.size() == tileRect.size())
-                m_surface = WTF::move(surface);
-            else {
-                if (!m_surface)
-                    m_surface = createSkiaSurface(tileRect);
-
-                SkPaint paint;
-                paint.setBlendMode(SkBlendMode::kSrc);
-                m_surface->getCanvas()->drawImageRect(surface->makeImageSnapshot(), SkRect::MakeWH(dirtyRect.width(), dirtyRect.height()), SkRect::Make(SkIRect(dirtyRect)),
-                    SkSamplingOptions(SkFilterMode::kNearest, SkMipmapMode::kNone), &paint, SkCanvas::kFast_SrcRectConstraint);
+            if (!m_surface) {
+                const auto& characterization = displayList->characterization();
+                m_surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kYes, characterization.imageInfo(), characterization.sampleCount(), characterization.origin(), &characterization.surfaceProps());
             }
+
+            skgpu::ganesh::DrawDDL(m_surface.get(), displayList);
         } else if (auto texture = acceleratedBuffer.texture()) {
             ASSERT(!m_surface);
 

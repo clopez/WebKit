@@ -2323,7 +2323,7 @@ void WebViewImpl::windowWillClose()
 
 void WebViewImpl::screenDidChangeColorSpace()
 {
-    protect(m_page->configuration().processPool())->screenPropertiesChanged("screenDidChangeColorSpace"_s);
+    protect(m_page->configuration().processPool())->screenPropertiesChanged();
 }
 
 void WebViewImpl::applicationShouldSuppressHDR(bool suppress)
@@ -2539,6 +2539,13 @@ void WebViewImpl::pageDidScroll(const IntPoint& scrollOffset)
     }
 }
 
+void WebViewImpl::didEndSyntheticMomentumScrolling()
+{
+#if HAVE(APPKIT_GESTURES_SUPPORT)
+    [appKitGestureController() didEndSyntheticMomentumScrolling];
+#endif
+}
+
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
 void WebViewImpl::updateScrollPocketVisibilityWhenScrolledToTop()
@@ -2589,6 +2596,21 @@ bool WebViewImpl::hasScrolledContentsUnderTitlebar()
 {
     return m_isRegisteredScrollViewSeparatorTrackingAdapter && !pageIsScrolledToTop();
 }
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+void WebViewImpl::setFullScreenTitlebarOverlayHeight(CGFloat fullScreenTitlebarOverlayHeight)
+{
+    if (![m_view.get() _scrollPocketInFullscreenEnabled])
+        return;
+
+    if (m_fullScreenTitlebarOverlayHeight == fullScreenTitlebarOverlayHeight)
+        return;
+
+    m_fullScreenTitlebarOverlayHeight = fullScreenTitlebarOverlayHeight;
+
+    updateScrollPocket();
+}
+#endif
 
 void WebViewImpl::updateTitlebarAdjacencyState()
 {
@@ -5100,9 +5122,9 @@ static RetainPtr<NSPasteboard> pasteboardForAccessCategory(WebCore::DOMPasteAcce
     }
 }
 
-void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteRequiresInteraction requiresInteraction, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
+void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteRequiresInteraction requiresInteraction, WebCore::FrameIdentifier frameID, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
 {
-    ASSERT(!m_domPasteRequestHandler);
+    ASSERT(!m_domPasteState);
     hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 
     RetainPtr data = [pasteboardForAccessCategory(pasteAccessCategory).get() dataForType:RetainPtr { @(WebCore::PasteboardCustomData::cocoaType().characters()) }.get()];
@@ -5110,23 +5132,28 @@ void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAcc
     if (requiresInteraction == WebCore::DOMPasteRequiresInteraction::No && WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == originIdentifier) {
         m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory), [completion = WTF::move(completion)] () mutable {
             completion(WebCore::DOMPasteAccessResponse::GrantedForGesture);
-        });
+        }, frameID);
         return;
     }
 
-    m_domPasteMenuDelegate = adoptNS([[WKDOMPasteMenuDelegate alloc] initWithWebViewImpl:*this pasteAccessCategory:pasteAccessCategory]);
-    m_domPasteRequestHandler = WTF::move(completion);
-    m_domPasteMenu = adoptNS([[NSMenu alloc] initWithTitle:WebCore::contextMenuItemTagPaste().createNSString().get()]);
+    RetainPtr menuDelegate = adoptNS([[WKDOMPasteMenuDelegate alloc] initWithWebViewImpl:*this pasteAccessCategory:pasteAccessCategory]);
+    RetainPtr menu = adoptNS([[NSMenu alloc] initWithTitle:WebCore::contextMenuItemTagPaste().createNSString().get()]);
+    [menu setDelegate:menuDelegate.get()];
+    [menu setAllowsContextMenuPlugIns:NO];
 
-    [m_domPasteMenu setDelegate:m_domPasteMenuDelegate.get()];
-    [m_domPasteMenu setAllowsContextMenuPlugIns:NO];
+    m_domPasteState = DOMPasteState {
+        menu,
+        menuDelegate,
+        WTF::move(completion),
+        frameID,
+    };
 
-    auto pasteMenuItem = RetainPtr([m_domPasteMenu insertItemWithTitle:WebCore::contextMenuItemTagPaste().createNSString().get() action:@selector(_web_grantDOMPasteAccess) keyEquivalent:@"" atIndex:0]);
-    [pasteMenuItem setTarget:m_domPasteMenuDelegate.get()];
+    auto pasteMenuItem = RetainPtr([menu insertItemWithTitle:WebCore::contextMenuItemTagPaste().createNSString().get() action:@selector(_web_grantDOMPasteAccess) keyEquivalent:@"" atIndex:0]);
+    [pasteMenuItem setTarget:menuDelegate.get()];
 
     RetainPtr window = [m_view.get() window];
     RetainPtr event = m_page->createSyntheticEventForContextMenu([window convertPointFromScreen:NSEvent.mouseLocation]);
-    [NSMenu popUpContextMenu:m_domPasteMenu.get() withEvent:event.get() forView:retainPtr(window.get().contentView).get()];
+    [NSMenu popUpContextMenu:menu.get() withEvent:event.get() forView:retainPtr(window.get().contentView).get()];
 }
 
 void WebViewImpl::handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteAccessResponse response)
@@ -5139,13 +5166,18 @@ void WebViewImpl::handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAc
 
 void WebViewImpl::hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse response)
 {
-    if (auto handler = std::exchange(m_domPasteRequestHandler, { }))
-        handler(response);
-    [m_domPasteMenu removeAllItems];
-    [m_domPasteMenu update];
-    [m_domPasteMenu cancelTracking];
-    m_domPasteMenu = nil;
-    m_domPasteMenuDelegate = nil;
+    if (!m_domPasteState)
+        return;
+
+    auto [menu, menuDelegate, requestHandler, requestFrame] = *std::exchange(m_domPasteState, std::nullopt);
+
+    ASSERT(requestHandler);
+    if (requestHandler)
+        requestHandler(response);
+
+    [menu removeAllItems];
+    [menu update];
+    [menu cancelTracking];
 }
 
 static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captureAtNominalResolution, ForceSoftwareCapturingViewportSnapshot forceSoftwareCapturing)
@@ -5271,6 +5303,11 @@ void WebViewImpl::showWritingTools(WTRequestedTool tool)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[PAL::getWTWritingToolsClassSingleton() sharedInstance] showTool:tool forSelectionRect:selectionRect ofView:m_view.get().get() forDelegate:(NSObject<WTWritingToolsDelegate> *)m_view.get().get()];
 ALLOW_DEPRECATED_DECLARATIONS_END
+}
+
+bool WebViewImpl::shouldAllowWritingToolsAffordance() const
+{
+    return m_page->editorState().isEditableOrRanged() && !isSingleLineInputType(m_focusedElementInputType);
 }
 
 void WebViewImpl::addTextAnimationForAnimationID(WTF::UUID uuid, const WebCore::TextAnimationData& data)
@@ -6935,9 +6972,9 @@ void WebViewImpl::updateTouchBar()
     if (touchBar.get() == m_currentTouchBar)
         return;
 
-    // If m_editableElementIsFocused is true, then we may have a non-editable selection right now just because
+    // If an editable element is focused, then we may have a non-editable selection right now just because
     // the user is clicking or tabbing between editable fields.
-    if (m_editableElementIsFocused && touchBar.get() != textTouchBar())
+    if (editableElementIsFocused() && touchBar.get() != textTouchBar())
         return;
 
     m_currentTouchBar = touchBar.get();
@@ -7317,15 +7354,6 @@ bool WebViewImpl::shouldRequestCandidates() const
     return false;
 }
 
-void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
-{
-    m_editableElementIsFocused = editableElementIsFocused;
-
-    // If the editable elements have blurred, then we might need to get rid of the editing function bar.
-    if (!m_editableElementIsFocused)
-        updateTouchBar();
-}
-
 #else // !HAVE(TOUCH_BAR)
 
 void WebViewImpl::forceRequestCandidatesForTesting()
@@ -7337,12 +7365,47 @@ bool WebViewImpl::shouldRequestCandidates() const
     return false;
 }
 
-void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
+#endif // HAVE(TOUCH_BAR)
+
+void WebViewImpl::setFocusedElementInputType(InputType inputType)
 {
-    m_editableElementIsFocused = editableElementIsFocused;
+    m_focusedElementInputType = inputType;
+
+#if HAVE(TOUCH_BAR)
+    // If the editable elements have blurred, then we might need to get rid of the editing function bar.
+    if (!editableElementIsFocused())
+        updateTouchBar();
+#endif
 }
 
-#endif // HAVE(TOUCH_BAR)
+bool WebViewImpl::editableElementIsFocused() const
+{
+    switch (m_focusedElementInputType) {
+    case InputType::None:
+    case InputType::Select:
+        return false;
+    case InputType::ContentEditable:
+    case InputType::Text:
+    case InputType::Password:
+    case InputType::TextArea:
+    case InputType::Search:
+    case InputType::Email:
+    case InputType::URL:
+    case InputType::Phone:
+    case InputType::Number:
+    case InputType::NumberPad:
+    case InputType::Date:
+    case InputType::DateTimeLocal:
+    case InputType::Month:
+    case InputType::Week:
+    case InputType::Time:
+    case InputType::Drawing:
+    case InputType::Color:
+        return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
 
 #if HAVE(REDESIGNED_TEXT_CURSOR)
 void WebViewImpl::updateCursorAccessoryPlacement()
@@ -7807,11 +7870,12 @@ void WebViewImpl::updateScrollPocket()
     RetainPtr view = m_view.get();
     CGFloat topContentInset = obscuredContentInsets().top();
     CGFloat additionalHeight = page->overflowHeightForTopScrollEdgeEffect();
+    auto needsTopViewForFullScreenTitlebar = [view _scrollPocketInFullscreenEnabled] && (m_fullScreenTitlebarOverlayHeight > 0);
     bool needsTopView = protect(page->preferences())->contentInsetBackgroundFillEnabled()
         && view
         && !view->_reasonsToHideTopScrollPocket
         && (m_clientImplicitlyRequestedTopScrollPocket || automaticallyAdjustsContentInsets())
-        && (topContentInset > 0 || additionalHeight > 0);
+        && (topContentInset > 0 || additionalHeight > 0 || needsTopViewForFullScreenTitlebar);
 
     RetainPtr topScrollPocketSelector = NSStringFromSelector(@selector(_topScrollPocket));
     if (!needsTopView) {
@@ -7863,6 +7927,16 @@ void WebViewImpl::updateScrollPocket()
         for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())
             topInsetFrame = NSUnionRect(topInsetFrame, [view convertRect:pocketContainer.bounds fromView:pocketContainer]);
     }
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    if (RetainPtr screen = [[view window] screen]; screen && needsTopViewForFullScreenTitlebar) {
+        auto pocketInScreen = convertFromViewToScreen(topInsetFrame);
+        auto revealedBottom = NSMaxY([screen frame]) - m_fullScreenTitlebarOverlayHeight;
+        auto pocketBottom = NSMinY(pocketInScreen);
+        if (revealedBottom < pocketBottom && m_fullScreenTitlebarOverlayHeight > 0)
+            topInsetFrame.size.height += pocketBottom - revealedBottom;
+    }
+#endif
 
     topInsetFrame = [m_topScrollPocket frameForAlignmentRect:topInsetFrame];
 

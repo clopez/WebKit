@@ -109,6 +109,7 @@ set(WTF_PUBLIC_HEADERS
     FlipBytes.h
     Float16.h
     ForbidHeapAllocation.h
+    FormattedLogging.h
     Forward.h
     Function.h
     FunctionDispatcher.h
@@ -120,6 +121,7 @@ set(WTF_PUBLIC_HEADERS
     GetPtr.h
     GlobalVersion.h
     GraphNodeWorklist.h
+    GraphOrdering.h
     GregorianDateTime.h
     HashCountedSet.h
     HashFunctions.h
@@ -681,6 +683,7 @@ set(WTF_SOURCES
     text/SymbolRegistry.cpp
     text/TextBreakIterator.cpp
     text/TextStream.cpp
+    text/UniquedStringImpl.cpp
     text/WTFString.cpp
 
     text/icu/UnicodeExtras.cpp

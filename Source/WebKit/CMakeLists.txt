@@ -506,6 +506,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/ImageOptions.serialization.in
     Shared/InspectorExtensionTypes.serialization.in
     Shared/InspectorNetworkTypes.serialization.in
+    Shared/InspectorPageTypes.serialization.in
     Shared/JavaScriptCore.serialization.in
     Shared/JavaScriptEvaluationResult.serialization.in
     Shared/LayerTreeContext.serialization.in
@@ -586,6 +587,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebsitePoliciesData.serialization.in
     Shared/WebsitePopUpPolicy.serialization.in
     Shared/WebsitePushAndNotificationsEnabledPolicy.serialization.in
+    Shared/WriteWebArchiveToPasteBoardResult.serialization.in
 
     Shared/API/APIArray.serialization.in
     Shared/API/APIData.serialization.in
