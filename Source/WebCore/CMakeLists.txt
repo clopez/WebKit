@@ -3231,13 +3231,16 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 )
 
 WEBKIT_SYMLINK_FILES(WebCore_CopyPrivateHeaders
+    PRUNE_STALE
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore
     FILES ${WebCore_PRIVATE_FRAMEWORK_HEADERS}
     FLATTENED
 )
-list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
-if (ENABLE_WEBCORE_TEST_SUPPORT)
-    list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
+if (NOT USE_HEADER_MAPS)
+    list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
+    if (ENABLE_WEBCORE_TEST_SUPPORT)
+        list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
+    endif ()
 endif ()
 
 WEBKIT_FRAMEWORK(WebCore)
@@ -3306,11 +3309,14 @@ if (ENABLE_WEBCORE_TEST_SUPPORT)
     WEBKIT_ADD_PREFIX_HEADER(WebCoreTestSupport WebCorePrefix.h PREFIX_NO_CODEGEN PREFIX_LANGUAGES CXX OBJCXX)
 
     WEBKIT_COPY_FILES(Copy_WebCoreTestSupportPrivateHeaders
+        PRUNE_STALE
         DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCoreTestSupport
         FILES ${WebCoreTestSupport_PRIVATE_HEADERS}
         FLATTENED
     )
-    list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES Copy_WebCoreTestSupportPrivateHeaders)
+    if (NOT USE_HEADER_MAPS)
+        list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES Copy_WebCoreTestSupportPrivateHeaders)
+    endif ()
 
     list(APPEND WebCoreTestSupport_INCLUDE_DIRECTORIES ${WebCore_INCLUDE_DIRECTORIES})
     list(APPEND WebCoreTestSupport_PRIVATE_INCLUDE_DIRECTORIES ${WebCore_PRIVATE_INCLUDE_DIRECTORIES})

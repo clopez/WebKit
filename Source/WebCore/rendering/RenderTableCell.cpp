@@ -366,12 +366,12 @@ LayoutUnit RenderTableCell::logicalHeightForRowSizing() const
     auto specifiedSize = !isOrthogonal() ? style().logicalHeight() : style().logicalWidth();
     if (!specifiedSize.isSpecified())
         return usedLogicalSize;
-    auto computedLogicaSize = Style::evaluate<LayoutUnit>(specifiedSize, 0_lu, style().usedZoomForLength());
+    auto computedLogicalSize = Style::evaluate<LayoutUnit>(specifiedSize, 0_lu, style().usedZoomForLength());
     // In strict mode, box-sizing: content-box do the right thing and actually add in the border and padding.
     // Call computedCSSPadding* directly to avoid including implicitPadding.
     if (!document().inQuirksMode() && style().boxSizing() != BoxSizing::BorderBox)
-        computedLogicaSize += computedCSSPaddingBefore() + computedCSSPaddingAfter() + borderBefore() + borderAfter();
-    return std::max(computedLogicaSize, usedLogicalSize);
+        computedLogicalSize += computedCSSPaddingBefore() + computedCSSPaddingAfter() + borderBefore() + borderAfter();
+    return std::max(computedLogicalSize, usedLogicalSize);
 }
 
 void RenderTableCell::setCellLogicalWidth(LayoutUnit logicalWidthInTableDirection)
@@ -1302,7 +1302,7 @@ LayoutUnit RenderTableCell::borderHalfStart(bool outer) const
 {
     CollapsedBorderValue border = collapsedStartBorder(DoNotIncludeBorderColor);
     if (border.exists())
-        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), document().deviceScaleFactor(), !(tableWritingMode().isInlineFlipped() ^ outer));
+        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), protect(document())->deviceScaleFactor(), !(tableWritingMode().isInlineFlipped() ^ outer));
     return 0;
 }
     
@@ -1310,7 +1310,7 @@ LayoutUnit RenderTableCell::borderHalfEnd(bool outer) const
 {
     CollapsedBorderValue border = collapsedEndBorder(DoNotIncludeBorderColor);
     if (border.exists())
-        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), document().deviceScaleFactor(), tableWritingMode().isInlineFlipped() ^ outer);
+        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), protect(document())->deviceScaleFactor(), tableWritingMode().isInlineFlipped() ^ outer);
     return 0;
 }
 
@@ -1318,7 +1318,7 @@ LayoutUnit RenderTableCell::borderHalfBefore(bool outer) const
 {
     CollapsedBorderValue border = collapsedBeforeBorder(DoNotIncludeBorderColor);
     if (border.exists())
-        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), document().deviceScaleFactor(), !(tableWritingMode().isBlockFlipped() ^ outer));
+        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), protect(document())->deviceScaleFactor(), !(tableWritingMode().isBlockFlipped() ^ outer));
     return 0;
 }
 
@@ -1326,7 +1326,7 @@ LayoutUnit RenderTableCell::borderHalfAfter(bool outer) const
 {
     CollapsedBorderValue border = collapsedAfterBorder(DoNotIncludeBorderColor);
     if (border.exists())
-        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), document().deviceScaleFactor(), tableWritingMode().isBlockFlipped() ^ outer);
+        return CollapsedBorderValue::adjustedCollapsedBorderWidth(border.width(), protect(document())->deviceScaleFactor(), tableWritingMode().isBlockFlipped() ^ outer);
     return 0;
 }
 
@@ -1442,15 +1442,15 @@ void RenderTableCell::paintCollapsedBorders(PaintInfo& paintInfo, const LayoutPo
     LayoutUnit leftWidth = leftVal.width();
     LayoutUnit rightWidth = rightVal.width();
 
-    float deviceScaleFactor = document().deviceScaleFactor();
+    float deviceScaleFactor = protect(document())->deviceScaleFactor();
     LayoutUnit leftHalfCollapsedBorder = CollapsedBorderValue::adjustedCollapsedBorderWidth(leftWidth , deviceScaleFactor, false);
     LayoutUnit topHalfCollapsedBorder = CollapsedBorderValue::adjustedCollapsedBorderWidth(topWidth, deviceScaleFactor, false);
-    LayoutUnit righHalftCollapsedBorder = CollapsedBorderValue::adjustedCollapsedBorderWidth(rightWidth, deviceScaleFactor, true);
+    LayoutUnit rightHalfCollapsedBorder = CollapsedBorderValue::adjustedCollapsedBorderWidth(rightWidth, deviceScaleFactor, true);
     LayoutUnit bottomHalfCollapsedBorder = CollapsedBorderValue::adjustedCollapsedBorderWidth(bottomWidth, deviceScaleFactor, true);
     
     LayoutRect borderRect = LayoutRect(paintRect.x() - leftHalfCollapsedBorder,
         paintRect.y() - topHalfCollapsedBorder,
-        paintRect.width() + leftHalfCollapsedBorder + righHalftCollapsedBorder,
+        paintRect.width() + leftHalfCollapsedBorder + rightHalfCollapsedBorder,
         paintRect.height() + topHalfCollapsedBorder + bottomHalfCollapsedBorder);
 
     BorderStyle topStyle = collapsedBorderStyle(topVal.style());
@@ -1475,7 +1475,7 @@ void RenderTableCell::paintCollapsedBorders(PaintInfo& paintInfo, const LayoutPo
     
     for (CollapsedBorder* border = borders.nextBorder(); border; border = borders.nextBorder()) {
         if (border->borderValue.isSameIgnoringColor(*table()->currentBorderValue()))
-            BorderPainter::drawLineForBoxSide(graphicsContext, document(), LayoutRect(LayoutPoint(border->x1, border->y1), LayoutPoint(border->x2, border->y2)), border->side,
+            BorderPainter::drawLineForBoxSide(graphicsContext, protect(document()), LayoutRect(LayoutPoint(border->x1, border->y1), LayoutPoint(border->x2, border->y2)), border->side,
                 border->borderValue.color(), border->style, 0, 0, antialias);
     }
 }
@@ -1613,7 +1613,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
         }
     }
 
-    auto compositeOp = document().compositeOperatorForBackgroundColor(color, *this);
+    auto compositeOp = protect(document())->compositeOperatorForBackgroundColor(color, *this);
 
     BackgroundPainter painter { *this, paintInfo };
 
@@ -1704,7 +1704,7 @@ void RenderTableCell::scrollbarsChanged(bool horizontalScrollbarChanged, bool ve
 
 bool RenderTableCell::hasLineIfEmpty() const
 {
-    if (element() && element()->hasEditableStyle())
+    if (element() && protect(element())->hasEditableStyle())
         return true;
 
     return RenderBlock::hasLineIfEmpty();

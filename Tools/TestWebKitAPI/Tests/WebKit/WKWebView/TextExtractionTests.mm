@@ -817,6 +817,29 @@ TEST(TextExtractionTests, RequestJSHandleForNodeIdentifier)
     EXPECT_NULL([extractionResult jsHandleForNodeIdentifier:nil searchText:@"text that does not exist"]);
 }
 
+TEST(TextExtractionTests, RequestJSHandleForStaleNodeIdentifier)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+
+    [webView synchronouslyLoadTestPageNamed:@"debug-text-extraction"];
+
+    RetainPtr extractionResult = [webView synchronouslyExtractDebugTextResult:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setIncludeRects:NO];
+        [configuration setIncludeURLs:NO];
+        return configuration.autorelease();
+    }()];
+
+    RetainPtr nodeID = extractNodeIdentifier([extractionResult textContent], @"Compose a new message");
+    EXPECT_NOT_NULL(nodeID.get());
+    [webView synchronouslyLoadHTMLString:@"<body>different content</body>"];
+    EXPECT_NULL([extractionResult jsHandleForNodeIdentifier:nodeID searchText:nil]);
+}
+
 TEST(TextExtractionTests, RequestJSHandleForNodeIdentifierCaseSensitive)
 {
     RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
@@ -1076,7 +1099,7 @@ static void overrideGetListsForNamespace(SSBLookupContext *instance, SEL, NSStri
             @"test2/domains": @[ @".*" ],
             @"test2/filter": @[ @"return input.replaceAll('o', '•').replaceAll('u', 'v')" ],
         };
-        completion(hardCodedResult.get(), nil);
+        completion(hardCodedResult, nil);
     });
 }
 
@@ -1107,6 +1130,66 @@ TEST(TextExtractionTests, FilteringRules)
     EXPECT_TRUE([debugText containsString:@"<input type='email' placeholder='Recipient address'>f••</input>"]);
     EXPECT_TRUE([debugText containsString:@"<h3 aria-label='Heading'>Svbject</h3>"]);
     EXPECT_TRUE([debugText containsString:@"The qvick br•wn f•x jvmped •ver the lazy d•g"]);
+}
+
+static void overrideGetListsForNamespaceIsolation(SSBLookupContext *, SEL, NSString *, NSString *, WKSafeBrowsingNamespacedListBlock completion)
+{
+    static NeverDestroyed workQueue = WorkQueue::create("Queue for simulating SSB API"_s);
+    workQueue.get()->dispatch([completion = makeBlockPtr(completion)] {
+        RetainPtr hardCodedResult = @{
+            @"isolation/domains": @[ @".*" ],
+            @"isolation/filter": @[ @"\
+                let dom = '<dom:?>'; \
+                try { \
+                    const text = (typeof document !== 'undefined' && document && document.body) ? document.body.innerText.trim() : ''; \
+                    dom = text ? `<dom:leaked:${text}>` : '<dom:empty>'; \
+                } catch (e) { \
+                    dom = `<dom:threw:${e.name}>`; \
+                } \
+                let net = '<net:?>'; \
+                try { \
+                    const response = await fetch('http://127.0.0.1:1/should-never-load'); \
+                    net = `<net:loaded:${response.status}>`; \
+                } catch (e) { \
+                    net = '<net:blocked>'; \
+                } \
+                return `${dom}|${net}`; \
+            " ],
+        };
+        completion(hardCodedResult, nil);
+    });
+}
+
+TEST(TextExtractionTests, FilteringRulesAreIsolated)
+{
+    HTTPServer server { { { "/should-never-load"_s, { "leaked"_s } } }, HTTPServer::Protocol::Http };
+
+    InstanceMethodSwizzler safeBrowsingSwizzler {
+        getSSBLookupContextClassSingleton(),
+        @selector(_getListsForNamespace:collectionId:completionHandler:),
+        reinterpret_cast<IMP>(overrideGetListsForNamespaceIsolation)
+    };
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:^{
+        RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+        [[configuration preferences] _setTextExtractionEnabled:YES];
+        return configuration.autorelease();
+    }()]);
+
+    [webView synchronouslyLoadTestPageNamed:@"debug-text-extraction"];
+
+    RetainPtr debugText = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setOutputFormat:_WKTextExtractionOutputFormatHTML];
+        [configuration setNodeIdentifierInclusion:_WKTextExtractionNodeIdentifierInclusionNone];
+        [configuration setIncludeRects:NO];
+        return configuration.autorelease();
+    }()];
+
+    EXPECT_TRUE([debugText containsString:@"&lt;dom:empty&gt;|&lt;net:blocked&gt;"]);
+    EXPECT_FALSE([debugText containsString:@"&lt;dom:leaked:"]);
+    EXPECT_FALSE([debugText containsString:@"&lt;net:loaded:"]);
+    EXPECT_EQ(0u, server.totalRequests());
 }
 
 #endif // HAVE(SAFARI_SAFE_BROWSING_NAMESPACED_LISTS)
@@ -1292,6 +1375,53 @@ TEST(TextExtractionTests, ClickInteractionWithTextOnly)
     RetainPtr result = [webView synchronouslyPerformInteraction:click.get()];
     EXPECT_NULL([result error]);
     EXPECT_WK_STREQ("1", [webView stringByEvaluatingJavaScript:@"clickCount.textContent"]);
+}
+
+TEST(TextExtractionTests, ScrollToRevealFallsBackToFullDocumentWhenNodeMisses)
+{
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [[configuration preferences] _setTextExtractionEnabled:YES];
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration]);
+    [webView synchronouslyLoadHTMLString:@R"HTML(
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name='viewport' content='width=device-width, initial-scale=1'>
+        </head>
+        <body>
+            <button id='anchor'>Anchor Section</button>
+            <div style='height: 5000px'></div>
+            <div id='target'>Reveal Me Down Here</div>
+        </body>
+        </html>
+    )HTML"];
+
+    EXPECT_EQ(0, [[webView objectByEvaluatingJavaScript:@"window.scrollY"] intValue]);
+
+    RetainPtr debugText = [webView synchronouslyGetDebugText:^{
+        RetainPtr configuration = adoptNS([_WKTextExtractionConfiguration new]);
+        [configuration setIncludeRects:NO];
+        [configuration setNodeIdentifierInclusion:_WKTextExtractionNodeIdentifierInclusionAllContainers];
+        return configuration.autorelease();
+    }()];
+    RetainPtr anchorID = extractNodeIdentifier(debugText, @"Anchor Section");
+    EXPECT_NOT_NULL(anchorID);
+
+    RetainPtr scroll = adoptNS([[_WKTextExtractionInteraction alloc] initWithAction:_WKTextExtractionActionScroll]);
+    [scroll setNodeIdentifier:anchorID];
+    [scroll setText:@"Reveal Me Down Here"];
+
+    RetainPtr result = [webView synchronouslyPerformInteraction:scroll];
+    EXPECT_NULL([result error]);
+    EXPECT_GT([[webView objectByEvaluatingJavaScript:@"window.scrollY"] intValue], 0);
+
+    RetainPtr missingScroll = adoptNS([[_WKTextExtractionInteraction alloc] initWithAction:_WKTextExtractionActionScroll]);
+    [missingScroll setNodeIdentifier:anchorID];
+    [missingScroll setText:@"This text does not exist anywhere"];
+
+    RetainPtr missingResult = [webView synchronouslyPerformInteraction:missingScroll];
+    EXPECT_NOT_NULL([missingResult error]);
 }
 
 TEST(TextExtractionTests, ClickInteractionWhileInBackground)

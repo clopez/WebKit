@@ -219,6 +219,7 @@ class Range;
 class RegistrableDomain;
 class RemoteFrameGeometryTransformer;
 class RenderImage;
+class RenderObject;
 class Report;
 class ResourceRequest;
 class ResourceResponse;
@@ -1083,6 +1084,9 @@ public:
     void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&);
     void elementDidBlur(WebCore::Element&);
     static InputType inputTypeForElement(const WebCore::Element&);
+#if PLATFORM(IOS_FAMILY)
+    void flushPendingFocusedElementUpdateIfNeeded();
+#endif
     void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode);
     void focusedSelectElementDidChangeOptions(const WebCore::HTMLSelectElement&);
     void resetFocusedElementForFrame(WebFrame*);
@@ -1236,6 +1240,7 @@ public:
 #endif // PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(COCOA)
+    WebCore::RenderObject* rendererForSelectionAutoscroll(WebCore::LocalFrame&) const;
     void startAutoscrollAtPosition(const WebCore::FloatPoint&);
     void cancelAutoscroll();
 #endif
@@ -2147,8 +2152,8 @@ public:
 
     void setObscuredContentInsets(const WebCore::FloatBoxExtent&);
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    void setHasBannerViewOverlay(bool);
+#if HAVE(NSREFRESHCONTROLLER)
+    void setHasRefreshController(bool);
 #endif
 
     void updateOpener(WebCore::FrameIdentifier, std::optional<WebCore::FrameIdentifier>);
@@ -2237,6 +2242,7 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     std::optional<FocusedElementInformation> focusedElementInformation();
+    std::optional<FocusedElementInformation> focusedElementInformationWithoutLayout(WebCore::Element&);
     void generateSyntheticEditingCommand(SyntheticEditingCommandType);
     void setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(const WebCore::SimpleRange&, WebCore::Affinity);
     void dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch, const WebCore::IntPoint&);
@@ -2763,7 +2769,7 @@ private:
 
     void hasTextExtractionFilterRules(CompletionHandler<void(bool)>&&);
     void updateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData>&&);
-    void applyTextExtractionFilter(const String& input, std::optional<WebCore::NodeIdentifier>&& containerNode, CompletionHandler<void(const String&)>&&);
+    void applyTextExtractionFilter(const String& input, CompletionHandler<void(const String&)>&&);
 
 #if HAVE(SANDBOX_STATE_FLAGS)
     static void setHasLaunchedWebContentProcess();
@@ -3084,6 +3090,12 @@ private:
 
 #if PLATFORM(MAC)
     double m_overflowHeightForTopScrollEdgeEffect { 0 };
+
+    // Root-view origin of the in-flight selection-extend drag: captured on the first extent update and
+    // cleared by `cancelAutoscroll` (which the UI process calls at gesture begin/end). Lets the edge check
+    // require a minimum drag toward an edge before selection autoscroll engages, so a selection that merely
+    // originates near an edge doesn't scroll. Persists across hot-zone enter/exit within a single drag.
+    std::optional<WebCore::IntPoint> m_selectionAutoscrollDragOrigin;
 #endif
 
     bool m_needsScrollGeometryUpdates { false };
@@ -3176,6 +3188,19 @@ private:
     CompletionHandler<void(InteractionInformationAtPosition&&)> m_pendingSynchronousPositionInformationReply;
     bool m_sendAutocorrectionContextAfterFocusingElement { false };
     std::unique_ptr<WebCore::IgnoreSelectionChangeForScope> m_ignoreSelectionChangeScopeForDictation;
+
+    struct PendingFocusedElementUpdate {
+        WeakPtr<WebCore::Element, WebCore::WeakPtrImplWithEventTargetData> element;
+        WebCore::FocusOptions options;
+        bool userIsInteracting { false };
+        bool isFocusingWithValidationMessage { false };
+        RefPtr<WebCore::Element> recentlyBlurredElementSnapshot;
+        OptionSet<WebCore::ActivityState> activityStateChanges;
+        RefPtr<API::Object> userData;
+    };
+    std::optional<PendingFocusedElementUpdate> m_pendingFocusedElementUpdate;
+
+    void emitDeferredFocusedElementUpdate(PendingFocusedElementUpdate&&);
 
     bool m_isMobileDoctype { false };
     bool m_hasAnyActiveTouchPoints { false };
@@ -3345,6 +3370,7 @@ private:
 #endif
 
     Vector<WebCore::TextExtraction::FilterRule> m_textExtractionFilterRules;
+    RefPtr<WebCore::Page> m_textExtractionFilterPage;
 
     RefPtr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;
     std::unique_ptr<FrameInfoData> m_mainFrameNavigationInitiator;

@@ -1,20 +1,26 @@
 /*
- * Copyright (C) 2025 Igalia, S.L.
+ * Copyright (C) 2025-2026 Igalia, S.L.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * aint with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -54,18 +60,18 @@ public:
 protected:
     OpenXRLayer(UniqueRef<OpenXRSwapchain>&&);
 #if OS(ANDROID)
-    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTextureAndroid(WebCore::GLDisplay&, PlatformGLObject);
+    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTextureAndroid(WebCore::GLDisplay&, PlatformGLObject, uint32_t width, uint32_t height);
     void blitTexture() const;
     inline bool needsBlitTexture() const { return true; }
 #else
     std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTextureDMABuf(WebCore::GLDisplay&, WebCore::GLContext&, PlatformGLObject);
 #endif
 #if USE(GBM)
-    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTextureGBM(WebCore::GLDisplay&, PlatformGLObject);
+    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTextureGBM(WebCore::GLDisplay&, PlatformGLObject, uint32_t width, uint32_t height);
     void blitTexture() const;
     inline bool needsBlitTexture() const { return m_gbmDevice; }
 #endif
-    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTexture(PlatformGLObject);
+    std::optional<PlatformXR::FrameData::ExternalTexture> exportOpenXRTexture(PlatformGLObject, uint32_t width, uint32_t height);
 
     UniqueRef<OpenXRSwapchain> m_swapchain;
 
@@ -159,6 +165,38 @@ private:
     explicit OpenXRCylinderLayer(UniqueRef<OpenXRSwapchain>&&, PlatformXR::LayerLayout);
 
     Vector<XrCompositionLayerCylinderKHR> m_layers;
+};
+#endif
+
+#if defined(XR_KHR_composition_layer_cube)
+// The OpenXR cube swapchain is a cubemap (faceCount=6) that cannot be shared cross-process as a 2D DMABuf,
+// so the WebProcess renders into a side-by-side 2D buffer (cubeCount*6 faces laid out horizontally) which
+// this layer reconstructs into the cubemap swapchain(s) each frame. Stereo uses one cube swapchain per eye.
+class OpenXRCubeLayer final : public OpenXRCompositionLayer {
+    WTF_MAKE_TZONE_ALLOCATED(OpenXRCubeLayer);
+    WTF_MAKE_NONCOPYABLE(OpenXRCubeLayer);
+public:
+    static std::unique_ptr<OpenXRCubeLayer> create(std::unique_ptr<OpenXRSwapchain>&&, std::unique_ptr<OpenXRSwapchain>&& rightSwapchain, PlatformXR::LayerLayout);
+    ~OpenXRCubeLayer();
+
+    std::optional<PlatformXR::FrameData::LayerData> startFrame() override;
+    Vector<XrCompositionLayerBaseHeader*> endFrame(const PlatformXR::DeviceLayer&, XrSpace, const Vector<XrView>&) override;
+
+private:
+    OpenXRCubeLayer(UniqueRef<OpenXRSwapchain>&&, std::unique_ptr<OpenXRSwapchain>&& rightSwapchain, PlatformXR::LayerLayout);
+
+    void reconstructCubeFaces();
+    uint32_t cubeCount() const { return m_layout == PlatformXR::LayerLayout::Mono ? 1 : 2; }
+    OpenXRSwapchain& swapchainForCube(uint32_t cube) { return cube && m_rightSwapchain ? *m_rightSwapchain : m_swapchain.get(); }
+
+    static constexpr uint32_t faceCount = 6;
+
+    Vector<XrCompositionLayerCubeKHR> m_layers;
+    std::unique_ptr<OpenXRSwapchain> m_rightSwapchain;
+    // One side-by-side buffer per swapchain image (keyed by the image), so the WebProcess and the
+    // reconstruction don't read/write the same buffer concurrently. Mirrors the per-image reuse of other layers.
+    HashMap<PlatformGLObject, PlatformGLObject> m_sideBySideTextures;
+    std::array<PlatformGLObject, 2> m_reconstructionFBOs { 0, 0 };
 };
 #endif
 

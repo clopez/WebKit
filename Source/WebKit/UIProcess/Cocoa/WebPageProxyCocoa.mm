@@ -415,15 +415,18 @@ void WebPageProxy::drainDeferredModalsForNewNavigation()
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
-void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
+void WebPageProxy::contentFilterDidBlockLoadForFrame(IPC::Connection& connection, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
 {
-    contentFilterDidBlockLoadForFrameShared(unblockHandler, frameID);
+    contentFilterDidBlockLoadForFrameShared(connection, unblockHandler, frameID);
 }
 
-void WebPageProxy::contentFilterDidBlockLoadForFrameShared(const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
+void WebPageProxy::contentFilterDidBlockLoadForFrameShared(IPC::Connection& connection, const WebCore::ContentFilterUnblockHandler& unblockHandler, FrameIdentifier frameID)
 {
-    if (RefPtr frame = WebFrameProxy::webFrame(frameID))
-        frame->contentFilterDidBlockLoad(unblockHandler);
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame)
+        return;
+    MESSAGE_CHECK(frame->page() == this, connection);
+    frame->contentFilterDidBlockLoad(unblockHandler);
 }
 #endif
 
@@ -1214,7 +1217,7 @@ bool WebPageProxy::useGPUProcessForDOMRenderingEnabled() const
     for (RefPtr page = configuration->relatedPage(); page && !visitedPages.contains(*page); page = page->configuration().relatedPage()) {
         if (protect(page->preferences())->useGPUProcessForDOMRenderingEnabled())
             return true;
-        visitedPages.add(page.releaseNonNull());
+        visitedPages.add(*page);
     }
 
     return false;

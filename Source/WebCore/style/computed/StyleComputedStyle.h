@@ -221,6 +221,8 @@ public:
     inline bool isRowFlexDirection() const;
     inline bool isSkippedRootOrSkippedContent() const;
 
+    bool isListItemType() const;
+
     inline bool specifiesColumns() const;
 
     inline bool usesStandardScrollbarStyle() const;
@@ -240,6 +242,8 @@ public:
     // whether or not to establish a containing block), the computed value is what matters.
     inline bool hasTransformRelatedProperty() const;
     inline bool affectsTransform() const;
+
+    inline bool has3DTransformOperation() const;
 
 private:
     ComputedStyle(ComputedStyle&, ComputedStyle&&);

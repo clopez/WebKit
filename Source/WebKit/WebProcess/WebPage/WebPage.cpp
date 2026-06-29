@@ -341,6 +341,7 @@
 #include <WebCore/SubstituteData.h>
 #include <WebCore/SystemPreviewInfo.h>
 #include <WebCore/TextExtraction.h>
+#include <WebCore/TextExtractionScriptFiltering.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextManipulationController.h>
 #include <WebCore/TextRecognitionOptions.h>
@@ -1161,8 +1162,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     setObscuredContentInsets(parameters.obscuredContentInsets);
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    setHasBannerViewOverlay(parameters.hasBannerViewOverlay);
+#if HAVE(NSREFRESHCONTROLLER)
+    setHasRefreshController(parameters.hasRefreshController);
 #endif
 
     m_userAgent = WTF::move(parameters.userAgent);
@@ -1411,8 +1412,20 @@ void WebPage::frameTreeSyncDataChangedInAnotherProcess(FrameIdentifier frameID, 
     if (coreFrame) {
         coreFrame->updateFrameTreeSyncData(data);
 
-        if (data.type == FrameTreeSyncDataType::FrameRect)
+        switch (data.type) {
+        case FrameTreeSyncDataType::FrameRect:
             frame->updateFrameRectFromRemote(coreFrame->frameTreeSyncData().frameRect);
+            break;
+
+        case FrameTreeSyncDataType::FrameScrollPosition:
+            if (RefPtr view = coreFrame->virtualView())
+                view->scrollTo(coreFrame->frameTreeSyncData().frameScrollPosition);
+
+            break;
+
+        default:
+            break;
+        }
     }
 }
 
@@ -1847,6 +1860,9 @@ void WebPage::changeFont(WebCore::FontChanges&& changes)
 void WebPage::executeEditCommandWithCallback(const String& commandName, const String& argument, CompletionHandler<void()>&& completionHandler)
 {
     executeEditCommand(commandName, argument);
+#if PLATFORM(IOS_FAMILY)
+    flushPendingFocusedElementUpdateIfNeeded();
+#endif
     completionHandler();
 }
 
@@ -2215,6 +2231,7 @@ void WebPage::close(CompletionHandler<void()>&& completionHandler)
 
     m_drawingArea = nullptr;
     m_webPageTesting = nullptr;
+    m_textExtractionFilterPage = nullptr;
     m_page = nullptr;
 
     bool isRunningModal = m_isRunningModal;
@@ -3558,7 +3575,7 @@ void WebPage::paintSnapshotAtSize(const IntRect& rect, const IntSize& bitmapSize
     if (options.contains(SnapshotOption::InViewCoordinates))
         coordinateSpace = LocalFrameView::ViewCoordinates;
 
-    frameView.paintContentsForSnapshot(graphicsContext, snapshotRect, shouldPaintSelection, coordinateSpace);
+    frameView.paintContentsForSnapshot(graphicsContext, snapshotRect, nullptr, shouldPaintSelection, coordinateSpace);
 
     if (options.contains(SnapshotOption::PaintSelectionRectangle)) {
         FloatRect selectionRectangle = protect(frame.selection())->selectionBounds();
@@ -3662,12 +3679,10 @@ RefPtr<WebImage> WebPage::snapshotNode(WebCore::Node& node, SnapshotOptions opti
 
     Color savedBackgroundColor = frameView->baseBackgroundColor();
     frameView->setBaseBackgroundColor(Color::transparentBlack);
-    frameView->setNodeToDraw(&node);
 
-    frameView->paintContentsForSnapshot(graphicsContext, snapshotRect, LocalFrameView::ExcludeSelection, LocalFrameView::DocumentCoordinates);
+    frameView->paintContentsForSnapshot(graphicsContext, snapshotRect, &node, LocalFrameView::ExcludeSelection, LocalFrameView::DocumentCoordinates);
 
     frameView->setBaseBackgroundColor(savedBackgroundColor);
-    frameView->setNodeToDraw(nullptr);
 
     return snapshot;
 }
@@ -4487,10 +4502,10 @@ void WebPage::setObscuredContentInsets(const FloatBoxExtent& obscuredContentInse
 #endif
 }
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-void WebPage::setHasBannerViewOverlay(bool hasBannerViewOverlay)
+#if HAVE(NSREFRESHCONTROLLER)
+void WebPage::setHasRefreshController(bool hasRefreshController)
 {
-    m_page->setHasBannerViewOverlay(hasBannerViewOverlay);
+    m_page->setHasRefreshController(hasRefreshController);
 }
 #endif
 
@@ -4923,6 +4938,9 @@ void WebPage::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& parame
             WEBPAGE_RELEASE_LOG_ERROR(Process, "runJavaScriptInFrameInScriptWorld: Request to run JavaScript failed with error %" PRIVATE_LOG_STRING, result.error()->message.utf8().data());
         else
             WEBPAGE_RELEASE_LOG(Process, "runJavaScriptInFrameInScriptWorld: Request to run JavaScript succeeded");
+#if PLATFORM(IOS_FAMILY)
+        flushPendingFocusedElementUpdateIfNeeded();
+#endif
         completionHandler(WTF::move(result));
     });
 }
@@ -5258,10 +5276,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     downcast<WebMediaStrategy>(platformStrategies()->mediaStrategy()).setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
 #if ENABLE(VIDEO)
     protect(WebProcess::singleton().remoteMediaPlayerManager())->setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
-#if PLATFORM(COCOA)
-    platformStrategies()->mediaStrategy()->enableRemoteRenderer(MediaPlayerMediaEngineIdentifier::CocoaWebM, settings.mediaContainmentEnabled());
-    platformStrategies()->mediaStrategy()->enableRemoteRenderer(MediaPlayerMediaEngineIdentifier::AVFoundationMSE, settings.mediaContainmentEnabled());
-#endif
 #endif
 #if HAVE(AVASSETREADER)
     protect(WebProcess::singleton().remoteImageDecoderAVFManager())->setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
@@ -5395,6 +5409,9 @@ void WebPage::updateRendering()
     protect(corePage())->updateRendering();
 
 #if PLATFORM(IOS_FAMILY)
+    if (auto pendingUpdate = std::exchange(m_pendingFocusedElementUpdate, { }))
+        emitDeferredFocusedElementUpdate(WTF::move(*pendingUpdate));
+
     findController().redraw();
     foundTextRangeController().redraw();
 #endif
@@ -5505,11 +5522,16 @@ void WebPage::didCompleteRenderingFrame()
     protect(corePage())->didCompleteRenderingFrame();
 }
 
-void WebPage::releaseMemory(Critical)
+void WebPage::releaseMemory(Critical critical)
 {
 #if ENABLE(GPU_PROCESS)
     if (RefPtr renderingBackend = m_remoteRenderingBackendProxy)
         renderingBackend->releaseMemory();
+#endif
+
+#if USE(COORDINATED_GRAPHICS)
+    if (RefPtr drawingArea = m_drawingArea)
+        drawingArea->releaseMemory(critical);
 #endif
 
     m_foundTextRangeController->clearCachedRanges();
@@ -7074,7 +7096,7 @@ void WebPage::drawFrameToSnapshot(FrameIdentifier frameID, const IntRect& rect, 
     LocalFrameView::SelectionInSnapshot shouldPaintSelection = LocalFrameView::IncludeSelection;
     LocalFrameView::CoordinateSpaceForSnapshot coordinateSpace = LocalFrameView::DocumentCoordinates;
 
-    frameView->paintContentsForSnapshot(m_remoteSnapshotState->recorder, rect, shouldPaintSelection, coordinateSpace);
+    frameView->paintContentsForSnapshot(m_remoteSnapshotState->recorder, rect, nullptr, shouldPaintSelection, coordinateSpace);
 
     remoteRenderingBackend->sinkSnapshotRecorderIntoSnapshotFrame(WTF::move(m_remoteSnapshotState->recorder), frameID, Ref { m_remoteSnapshotState->callback }->chain());
 
@@ -7597,6 +7619,7 @@ void WebPage::resetFocusedElementForFrame(WebFrame* frame)
 
     if (frame->isMainFrame() || m_focusedElement->document().frame() == frame->coreLocalFrame()) {
 #if PLATFORM(IOS_FAMILY)
+        m_pendingFocusedElementUpdate = std::nullopt;
         m_sendAutocorrectionContextAfterFocusingElement = false;
         send(Messages::WebPageProxy::ElementDidBlur());
 #elif PLATFORM(MAC)
@@ -7610,8 +7633,15 @@ void WebPage::elementDidRefocus(Element& element, const FocusOptions& options)
 {
     elementDidFocus(element, options);
 
-    if (m_userIsInteracting)
-        scheduleFullEditorStateUpdate();
+    if (!m_userIsInteracting)
+        return;
+
+#if PLATFORM(IOS_FAMILY)
+    if (m_pendingFocusedElementUpdate)
+        return;
+#endif
+
+    scheduleFullEditorStateUpdate();
 }
 
 bool WebPage::shouldDispatchUpdateAfterFocusingElement(const Element& element) const
@@ -7741,12 +7771,7 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
         if (isChangingFocusedElement && (m_userIsInteracting || m_keyboardIsAttached))
             m_sendAutocorrectionContextAfterFocusingElement = true;
 
-        auto information = focusedElementInformation();
-        if (!information)
-            return;
-
         RefPtr<API::Object> userData;
-
         m_formClient->willBeginInputSession(this, &element, protect(WebFrame::fromCoreFrame(*protect(element.document().frame()))).get(), m_userIsInteracting, userData);
 
         if (!userData) {
@@ -7756,9 +7781,17 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
                     userData = userDataFromJSONData(*data);
             }
         }
-
-        information->preventScroll = options.preventScroll;
-        send(Messages::WebPageProxy::ElementDidFocus(information.value(), m_userIsInteracting, m_recentlyBlurredElement, m_lastActivityStateChanges, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+        m_pendingFocusedElementUpdate = PendingFocusedElementUpdate {
+            .element = element,
+            .options = options,
+            .userIsInteracting = m_userIsInteracting,
+            .recentlyBlurredElementSnapshot = m_recentlyBlurredElement,
+            .activityStateChanges = m_lastActivityStateChanges,
+            .userData = WTF::move(userData),
+        };
+        if (RefPtr formControlElement = dynamicDowncast<HTMLFormControlElement>(element))
+            m_pendingFocusedElementUpdate->isFocusingWithValidationMessage = formControlElement->isFocusingWithValidationMessage();
+        scheduleFullEditorStateUpdate();
 #elif PLATFORM(MAC)
         // FIXME: This can be unified with the iOS code above by bringing ElementDidFocus to macOS.
         // This also doesn't take other noneditable controls into account, such as input type color.
@@ -7771,6 +7804,9 @@ void WebPage::elementDidFocus(Element& element, const FocusOptions& options)
 void WebPage::elementDidBlur(WebCore::Element& element)
 {
     if (m_focusedElement == &element) {
+#if PLATFORM(IOS_FAMILY)
+        m_pendingFocusedElementUpdate = std::nullopt;
+#endif
         m_recentlyBlurredElement = WTF::move(m_focusedElement);
         callOnMainRunLoop([protectedThis = Ref { *this }] {
             if (protectedThis->m_recentlyBlurredElement) {
@@ -10377,11 +10413,22 @@ void WebPage::hasTextExtractionFilterRules(CompletionHandler<void(bool)>&& compl
 void WebPage::updateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData>&& ruleData)
 {
     m_textExtractionFilterRules = TextExtraction::extractRules(WTF::move(ruleData));
+    m_textExtractionFilterPage = nullptr;
 }
 
-void WebPage::applyTextExtractionFilter(const String& input, std::optional<NodeIdentifier>&& containerNodeID, CompletionHandler<void(const String&)>&& completion)
+void WebPage::applyTextExtractionFilter(const String& input, CompletionHandler<void(const String&)>&& completion)
 {
-    TextExtraction::applyRules(input, WTF::move(containerNodeID), m_textExtractionFilterRules, Ref { *corePage() }, WTF::move(completion));
+    if (m_textExtractionFilterRules.isEmpty())
+        return completion(input);
+
+    RefPtr mainFrame = corePage() ? corePage()->localMainFrame() : nullptr;
+    RefPtr document = mainFrame ? mainFrame->document() : nullptr;
+    auto documentURL = document ? document->url() : URL { };
+
+    if (!m_textExtractionFilterPage)
+        m_textExtractionFilterPage = TextExtraction::createScriptFilteringPage();
+
+    TextExtraction::applyScriptFilteringRules(input, documentURL, m_textExtractionFilterRules, protect(*m_textExtractionFilterPage), WTF::move(completion));
 }
 
 template<typename T> T WebPage::contentsToRootView(WebCore::FrameIdentifier frameID, T geometry)

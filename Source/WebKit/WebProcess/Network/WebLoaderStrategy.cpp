@@ -402,7 +402,7 @@ static void addParametersShared(const LocalFrame* frame, NetworkResourceLoadPara
         parameters.isClearSiteDataExecutionContextEnabled = document->settings().clearSiteDataExecutionContextsSupportEnabled();
         parameters.mayBlockNetworkRequest = (!isMainFrameNavigation && document->settings().scriptTrackingPrivacyNetworkRequestBlockingLatchEnabled()) ?
             std::optional { WebProcess::singleton().shouldBlockRequest(parameters.request.url(), protect(document->topOrigin())) } : std::nullopt;
-        parameters.globalPrivacyControlEnabled = document->settings().globalPrivacyControlEnabled();
+        parameters.globalPrivacyControlStatus = document->settings().globalPrivacyControlStatus();
     }
 
     if (RefPtr page = frame->page()) {
@@ -935,9 +935,14 @@ void WebLoaderStrategy::browsingContextRemoved(LocalFrame& frame)
     RefPtr networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection();
     if (!networkProcessConnection)
         return;
+    RefPtr corePage = frame.page();
+    if (!corePage)
+        return;
+    RefPtr page = WebPage::fromCorePage(*corePage);
+    if (!page)
+        return;
 
-    Ref page = *WebPage::fromCorePage(*protect(frame.page()));
-    networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::BrowsingContextRemoved(page->webPageProxyIdentifier(), page->identifier(), WebFrame::fromCoreFrame(frame)->frameID()), 0);
+    networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::BrowsingContextRemoved(page->webPageProxyIdentifier(), page->identifier(), frame.frameID()), 0);
 }
 
 void WebLoaderStrategy::startPingLoad(LocalFrame& frame, ResourceRequest& request, const HTTPHeaderMap& originalRequestHeaders, const FetchOptions& options, ContentSecurityPolicyImposition policyCheck, PingLoadCompletionHandler&& completionHandler)

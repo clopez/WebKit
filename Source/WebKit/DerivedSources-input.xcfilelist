@@ -116,9 +116,7 @@ $(PROJECT_DIR)/GPUProcess/media/RemoteMediaPlayerManagerProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteMediaPlayerProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteMediaPlayerProxyConfiguration.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteMediaResourceLoader.messages.in
-$(PROJECT_DIR)/GPUProcess/media/RemoteMediaSourceProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteRemoteCommandListenerProxy.messages.in
-$(PROJECT_DIR)/GPUProcess/media/RemoteSourceBufferProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteTextTrackProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoFrameObjectHeap.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoTrackProxy.messages.in
@@ -422,6 +420,7 @@ $(PROJECT_DIR)/Shared/WebCoreArgumentCodersAuth.serialization.in
 $(PROJECT_DIR)/Shared/WebCoreArgumentCodersMedia.serialization.in
 $(PROJECT_DIR)/Shared/WebCoreArgumentCodersNetwork.serialization.in
 $(PROJECT_DIR)/Shared/WebCoreArgumentCodersPayment.serialization.in
+$(PROJECT_DIR)/Shared/WebCoreArgumentCodersPlatform.serialization.in
 $(PROJECT_DIR)/Shared/WebCoreArgumentCodersStorage.serialization.in
 $(PROJECT_DIR)/Shared/WebCoreFont.serialization.in
 $(PROJECT_DIR)/Shared/WebEvent.serialization.in
@@ -668,7 +667,6 @@ $(PROJECT_DIR)/WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/AudioVideoRendererRemoteMessageReceiver.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaOverridesForTesting.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaPlayerPrivateRemote.messages.in
-$(PROJECT_DIR)/WebProcess/GPU/media/MediaSourcePrivateRemoteMessageReceiver.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaTimeUpdateData.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteAudioHardwareListener.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteAudioSession.messages.in
@@ -687,8 +685,6 @@ $(PROJECT_DIR)/WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteMediaResourceLoaderProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteRemoteCommandListener.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteVideoFrameProxyProperties.serialization.in
-$(PROJECT_DIR)/WebProcess/GPU/media/SourceBufferPrivateRemote.messages.in
-$(PROJECT_DIR)/WebProcess/GPU/media/SourceBufferPrivateRemoteMessageReceiver.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/ios/RemoteMediaSessionHelper.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/LibWebRTCCodecs.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/LibWebRTCRemoteCodecs.messages.in

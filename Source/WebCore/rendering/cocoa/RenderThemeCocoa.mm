@@ -53,7 +53,7 @@
 #import "RenderBoxInlines.h"
 #import "RenderBoxModelObjectInlines.h"
 #import "RenderButton.h"
-#import "RenderMenulist.h"
+#import "RenderMenuList.h"
 #import "RenderMeter.h"
 #import "RenderObjectInlines.h"
 #import "RenderProgress.h"
@@ -143,7 +143,7 @@ static void drawFocusRingForPathForVectorBasedControls(const RenderObject& box, 
 
     // macOS controls have never honored outline offset.
 #if PLATFORM(IOS_FAMILY)
-    auto deviceScaleFactor = box.document().deviceScaleFactor();
+    auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     auto outlineOffset = floorToDevicePixel(Style::evaluate<float>(box.style().usedOutlineOffset(), Style::ZoomNeeded { }), deviceScaleFactor);
 
     if (outlineOffset > 0) {
@@ -1348,6 +1348,14 @@ String RenderThemeCocoa::youTubeQuirkScript()
     return m_youTubeCaptionQuirkScript;
 }
 
+String RenderThemeCocoa::cnnQuirkScript()
+{
+    if (!m_cnnCaptionQuirkScript)
+        m_cnnCaptionQuirkScript = StringImpl::createWithoutCopying(CNNCaptionQuirkJavaScript);
+
+    return m_cnnCaptionQuirkScript;
+}
+
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -1954,7 +1962,7 @@ static constexpr auto defaultCornerRadiusForTextBasedControls = 5.f;
 
 static RoundedShape shapeForSliderThumb(const RenderElement& box, const FloatRect& rect, ShouldComputePath computePath = ShouldComputePath::Yes)
 {
-    const auto deviceScaleFactor = box.document().deviceScaleFactor();
+    const auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
 
     const auto snappedRect = snapRectToDevicePixels(LayoutRect(rect), deviceScaleFactor);
     const auto cornerRadius = std::min(snappedRect.width(), snappedRect.height()) / 2.f;
@@ -1994,7 +2002,7 @@ bool RenderThemeCocoa::paintCheckboxForVectorBasedControls(const RenderElement& 
     GraphicsContextStateSaver stateSaver { context };
 
     auto controlStates = RenderTheme::singleton().extractControlStyleStatesForRenderer(box);
-    auto deviceScaleFactor = box.document().deviceScaleFactor();
+    auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     auto styleColorOptions = box.styleColorOptions();
     auto usedZoom = box.style().usedZoom();
 
@@ -2112,7 +2120,7 @@ bool RenderThemeCocoa::paintRadioForVectorBasedControls(const RenderElement& box
     const auto paintRect = radioShape.boundingRect;
 
     const auto controlStates = RenderTheme::singleton().extractControlStyleStatesForRenderer(box);
-    const auto deviceScaleFactor = box.document().deviceScaleFactor();
+    const auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     const auto styleColorOptions = box.styleColorOptions();
     const auto usedZoom = box.style().usedZoom();
 
@@ -2174,7 +2182,7 @@ bool RenderThemeCocoa::paintButtonForVectorBasedControls(const RenderElement& bo
         return false;
 
     CheckedRef style = box.style();
-    const auto deviceScaleFactor = box.document().deviceScaleFactor();
+    const auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     const auto styleColorOptions = box.styleColorOptions();
 
     const auto zoomScale = style->usedZoom();
@@ -2192,7 +2200,7 @@ bool RenderThemeCocoa::paintButtonForVectorBasedControls(const RenderElement& bo
 #if PLATFORM(MAC)
         isWindowActive = states.contains(ControlStyle::State::WindowActive);
 #endif
-        if (isSubmitStyleButton(box.element()) && isWindowActive)
+        if (isSubmitStyleButton(protect(box.element())) && isWindowActive)
             backgroundColor = controlTintColorWithContrast(box.style(), styleColorOptions);
         else
             backgroundColor = colorCompositedOverCanvasColor(CSSValueAppleSystemOpaqueSecondaryFill, styleColorOptions);
@@ -3100,7 +3108,7 @@ static bool paintTextAreaOrTextField(const RenderElement& box, const PaintInfo& 
     Path path;
     path.addContinuousRoundedRect(rect, cornerRadius, cornerRadius);
 
-    const auto deviceScaleFactor = box.document().deviceScaleFactor();
+    const auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     drawShapeWithBorder(context, deviceScaleFactor, path, rect, backgroundColor, borderThicknessForTextBasedControl * usedZoom, borderColor);
 
     if (controlIsFocusedWithOutlineStyleAutoForVectorBasedControls(box))
@@ -3225,7 +3233,7 @@ bool RenderThemeCocoa::adjustMenuListStyleForVectorBasedControls(Style::Computed
     RenderTheme::adjustMenuListStyle(style, element);
 
     if (!style.hasExplicitlySetColor()) {
-        const auto styleColorOptions = element->document().styleColorOptions(&style);
+        const auto styleColorOptions = protect(element->document())->styleColorOptions(&style);
         style.setColor(buttonTextColor(styleColorOptions, !element->isDisabledFormControl()));
     }
 
@@ -3308,7 +3316,7 @@ bool RenderThemeCocoa::adjustButtonStyleForVectorBasedControls(Style::ComputedSt
     if (RefPtr input = dynamicDowncast<HTMLFormControlElement>(element))
         isEnabled = !input->isDisabledFormControl();
 
-    const auto styleColorOptions = element->document().styleColorOptions(&style);
+    const auto styleColorOptions = protect(element->document())->styleColorOptions(&style);
 
     auto adjustStyleForSubmitButton = [&] {
         style.setInsideSubmitButton(true);
@@ -3363,7 +3371,7 @@ bool RenderThemeCocoa::adjustMenuListButtonStyleForVectorBasedControls(Style::Co
         return false;
 
     if (!style.hasExplicitlySetColor()) {
-        const auto styleColorOptions = element->document().styleColorOptions(&style);
+        const auto styleColorOptions = protect(element->document())->styleColorOptions(&style);
         style.setColor(buttonTextColor(styleColorOptions, !element->isDisabledFormControl()));
     }
 
@@ -3914,7 +3922,7 @@ static void paintSliderTicksForVectorBasedControls(const RenderElement& box, con
 
     float alpha = RenderTheme::singleton().isEnabled(box) ? 1.0f : kDisabledControlAlpha;
 
-    for (auto& optionElement : dataList->suggestions()) {
+    for (Ref optionElement : dataList->suggestions()) {
         if (auto optionValue = input->listOptionValueAsDouble(optionElement)) {
             auto tickFraction = (*optionValue - min) / (max - min);
             auto tickRatio = isInlineFlipped ? 1.0 - tickFraction : tickFraction;
@@ -3931,7 +3939,7 @@ static void paintSliderTicksForVectorBasedControls(const RenderElement& box, con
 
             // Snap the tick to device pixels along the sliding axis so that it lines up with the slider thumb,
             // but keep the width and height equal so that it remains a circle.
-            const auto deviceScaleFactor = box.document().deviceScaleFactor();
+            const auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
             tickRect = snapRectToDevicePixels(LayoutRect(tickRect), deviceScaleFactor);
 
             if (isHorizontal)
@@ -4745,7 +4753,7 @@ std::optional<RoundedShape> RenderThemeCocoa::shapeForInteractionRegion(const Re
 
 FloatSize RenderThemeCocoa::inflateRectForInteractionRegion(const RenderElement& box, FloatRect& rect)
 {
-    if (nodeIsDateOrTimeRelatedInput(box.element())) {
+    if (nodeIsDateOrTimeRelatedInput(protect(box.element()))) {
         const auto cssBorderWidth = box.style().usedZoom();
         rect.inflate(cssBorderWidth);
         return { cssBorderWidth, cssBorderWidth };

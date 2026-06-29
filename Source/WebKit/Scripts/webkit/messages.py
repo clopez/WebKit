@@ -539,13 +539,11 @@ def serialized_identifiers():
         'WebKit::RemoteLegacyCDMSessionIdentifier',
         'WebKit::RemoteMediaResourceIdentifier',
         'WebKit::RemoteMediaResourceLoaderIdentifier',
-        'WebKit::RemoteMediaSourceIdentifier',
         'WebKit::RemotePathImplIdentifier',
         'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RemoteSerializedImageBufferIdentifier',
         'WebKit::RemoteSnapshotIdentifier',
         'WebKit::RemoteSnapshotRecorderIdentifier',
-        'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RemoteVideoFrameIdentifier',
         'WebKit::RemoteRenderingBackendIdentifier',
         'WebKit::RenderingUpdateID',
@@ -685,8 +683,6 @@ def types_that_cannot_be_forward_declared():
         'WebKit::LegacyCustomProtocolID',
         'WebKit::PlaybackSessionContextIdentifier',
         'WebKit::RemoteMediaResourceLoaderIdentifier',
-        'WebKit::RemoteMediaSourceIdentifier',
-        'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RemoteVideoFrameReadReference',
         'WebKit::RemoteVideoFrameWriteReference',
         'WebKit::RenderingUpdateID',
@@ -735,8 +731,6 @@ def conditions_for_header(header):
         '"RemoteLegacyCDMIdentifier.h"': ["ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)"],
         '"RemoteLegacyCDMSessionIdentifier.h"': ["ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)"],
         '"RemoteMediaResourceLoaderIdentifier.h"': ["ENABLE(GPU_PROCESS) && ENABLE(VIDEO)"],
-        '"RemoteMediaSourceIdentifier.h"': ["ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)"],
-        '"RemoteSourceBufferIdentifier.h"': ["ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)"],
         '"SoupCookiePersistentStorageType.h"': ["USE(SOUP)"],
         '"SharedCARingBuffer.h"': ["PLATFORM(COCOA)"],
         '"UserMessage.h"': ["USE(GLIB)"],
@@ -1342,6 +1336,7 @@ def headers_for_type(type, for_implementation_file=False):
         'WebCore::MediaSettingsRange': ['<WebCore/MediaSettingsRange.h>'],
         'WebCore::MediaSourcePrivateAddStatus': ['<WebCore/MediaSourcePrivate.h>'],
         'WebCore::MediaSourcePrivateEndOfStreamStatus': ['<WebCore/MediaSourcePrivate.h>'],
+        'WebCore::MediaSourceReadyState': ['<WebCore/MediaSourcePrivate.h>'],
         'WebCore::MediaTimePromise::Result': ['<WebCore/MediaPromiseTypes.h>'],
         'WebCore::MessagePortChannelProvider::HasActivity': ['<WebCore/MessagePortChannelProvider.h>'],
         'WebCore::ModalContainerControlType': ['<WebCore/ModalContainerTypes.h>'],
@@ -1818,7 +1813,6 @@ def generate_enabled_by_for_receiver(receiver, messages):
 
 def generate_get_target_statements(receiver):
     result = []
-    result.append('    Ref protectedThis { *this };\n')
 
     def append_swift_get_target_statements(result):
         result.append('    auto target = getMessageTarget();\n')

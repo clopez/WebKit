@@ -881,6 +881,8 @@ webkit.org/b/142726 fast/images/animated-png.html [ Skip ]
 webkit.org/b/145432 media/video-transformed-by-javascript.html [ Failure ]
 
 webkit.org/b/140022 http/tests/media/track-in-band-hls-metadata.html [ Pass Timeout Failure ]
+webkit.org/b/317607 http/tests/media/track/text-track-cross-origin-in-band.html [ Pass Failure ]
+webkit.org/b/317607 http/tests/media/track/track-removal-clears-pending-list.html [ Failure ]
 
 # <rdar://problem/21263363>
 http/tests/media/remove-while-loading.html [ Skip ]
@@ -1748,7 +1750,7 @@ webkit.org/b/223472 [ Release arm64 ] imported/w3c/web-platform-tests/resource-t
 
 webkit.org/b/227753 fast/dom/Window/post-message-large-array-buffer-should-not-crash.html [ Pass Failure ]
 
-webkit.org/b/227877 imported/w3c/web-platform-tests/navigation-timing/test_timing_attributes_order.html [ Pass Failure ]
+webkit.org/b/227877 imported/w3c/web-platform-tests/navigation-timing/test-timing-attributes-order.html [ Pass Failure ]
 
 webkit.org/b/222385 imported/w3c/web-platform-tests/xhr/event-upload-progress-crossorigin.any.worker.html [ Pass Failure ]
 
@@ -1817,8 +1819,6 @@ imported/w3c/web-platform-tests/webcodecs/videoFrame-drawImage.any.worker.html [
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-fling-in-large-area.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/common-to-both-axes-supercedes-first-in-tree-order.html [ Pass Failure ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-nested-containers.html [ Pass Failure ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-targeted-element.html [ Skip ]
 
 webkit.org/b/170629  memory/memory-pressure-simulation.html [ Pass Failure Crash ]
 
@@ -1886,7 +1886,6 @@ webkit.org/b/245994 imported/w3c/web-platform-tests/streams/readable-byte-stream
 svg/transforms/layout-tiny-elements-in-scaled-group.svg [ ImageOnlyFailure ]
 svg/transforms/rotation-origin-in-small-units.svg [ ImageOnlyFailure ]
 svg/transforms/rotation-tiny-element-in-group.svg [ ImageOnlyFailure ]
-svg/transforms/transform-origin-and-box-getCTM.html [ Failure ]
 svg/transforms/transformed-child-in-container.svg [ Pass ImageOnlyFailure ]
 svg/transforms/translation-tiny-element.svg [ ImageOnlyFailure ]
 

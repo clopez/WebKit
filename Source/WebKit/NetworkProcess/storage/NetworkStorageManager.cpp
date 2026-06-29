@@ -1573,6 +1573,20 @@ void NetworkStorageManager::resume()
     workQueue().resume();
 }
 
+void NetworkStorageManager::setWebProcessSuspended(WebCore::ProcessIdentifier processIdentifier, bool isSuspended)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (m_closed)
+        return;
+
+    workQueue().dispatch([this, protectedThis = Ref { *this }, processIdentifier, isSuspended] {
+        assertIsCurrent(workQueue());
+        if (RefPtr connectionToClient = m_idbStorageRegistry->existingConnectionToClient(processIdentifier))
+            connectionToClient->setClientProcessSuspended(isSuspended);
+    });
+}
+
 void NetworkStorageManager::handleLowMemoryWarning()
 {
     ASSERT(RunLoop::isMain());
@@ -2096,7 +2110,10 @@ void NetworkStorageManager::commitTransaction(IPC::Connection& connection, const
 void NetworkStorageManager::didFinishHandlingVersionChangeTransaction(IPC::Connection& ipcConnection, WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier)
 {
     if (RefPtr databaseConnection = m_idbStorageRegistry->connection(databaseConnectionIdentifier, ipcConnection)) {
-        MESSAGE_CHECK(databaseConnection->checkedDatabase()->isVersionChangeTransactionFinishingOrFinished(transactionIdentifier), ipcConnection);
+        if (!databaseConnection->checkedDatabase()->isVersionChangeTransactionFinishingOrFinished(transactionIdentifier)) {
+            RELEASE_LOG_FAULT(IndexedDB, "NetworkStorageManager::didFinishHandlingVersionChangeTransaction: version change transaction %" PUBLIC_LOG_STRING " is not finishing or finished", transactionIdentifier.loggingString().utf8().data());
+            return;
+        }
         databaseConnection->didFinishHandlingVersionChange(transactionIdentifier);
     }
 }

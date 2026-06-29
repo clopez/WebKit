@@ -48,8 +48,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
     [DeferSendingIfSuspended] SetShouldSuppressHDR(bool shouldSuppressHDR)
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    SetHasBannerViewOverlay(bool hasBannerViewOverlay)
+#if HAVE(NSREFRESHCONTROLLER)
+    SetHasRefreshController(bool hasRefreshController)
 #endif
 
     SetUnderlayColor(WebCore::Color color)
@@ -887,7 +887,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     # Text extraction support
     HasTextExtractionFilterRules() -> (bool hasRules)
     UpdateTextExtractionFilterRules(Vector<WebCore::TextExtraction::FilterRuleData> ruleData)
-    ApplyTextExtractionFilter(String input, std::optional<WebCore::NodeIdentifier> containerNodeID) -> (String output)
+    ApplyTextExtractionFilter(String input) -> (String output)
 
 #if PLATFORM(IOS_FAMILY)
     ShouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint point) -> (bool shouldDismiss)

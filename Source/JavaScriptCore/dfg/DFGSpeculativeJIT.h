@@ -164,7 +164,7 @@ public:
 
     BasicBlock* nextBlock()
     {
-        for (BlockIndex resultIndex = m_block->index + 1; ; resultIndex++) {
+        for (BlockIndex resultIndex = m_block->index() + 1; ; resultIndex++) {
             if (resultIndex >= m_graph.numBlocks())
                 return nullptr;
             if (BasicBlock* result = m_graph.block(resultIndex))
@@ -1481,6 +1481,7 @@ public:
     void compileNumberToStringWithRadix(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*, int32_t radix);
+    void compileInt32ToStringRadix10(Node*);
     void compileNewStringObject(Node*);
     void compileNewSymbol(Node*);
     void compileNewMap(Node*);

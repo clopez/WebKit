@@ -635,7 +635,16 @@ void GPUConnectionToWebProcess::canDecodeExtendedType(PlatformMediaDecodingType 
         .platformType = platformType,
         .type = contentType,
     };
-    completionHandler(MediaPlayer::supportsType(parameters) != MediaPlayer::SupportsType::IsNotSupported);
+    auto containment = MediaContainmentEnabled::No;
+#if PLATFORM(COCOA)
+    if (sharedPreferencesForWebProcessValue().mediaContainmentEnabled)
+        containment = MediaContainmentEnabled::Yes;
+#endif
+    MediaPlayerEngineSelection selection {
+        .scope = MediaPlayerScope::Supports,
+        .mediaContainmentEnabled = containment,
+    };
+    completionHandler(MediaPlayer::supportsType(parameters, selection) != MediaPlayer::SupportsType::IsNotSupported);
 }
 #endif
 
@@ -1229,16 +1238,6 @@ RemoteVideoFrameObjectHeap& GPUConnectionToWebProcess::videoFrameObjectHeap() co
 }
 #endif
 
-
-#if ENABLE(MEDIA_SOURCE)
-void GPUConnectionToWebProcess::enableMockMediaSource()
-{
-    if (m_mockMediaSourceEnabled)
-        return;
-    MediaStrategy::addMockMediaSourceEngine();
-    m_mockMediaSourceEnabled = true;
-}
-#endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 void GPUConnectionToWebProcess::updateSampleBufferDisplayLayerBoundsAndPosition(SampleBufferDisplayLayerIdentifier identifier, WebCore::FloatRect bounds, std::optional<MachSendRightAnnotated>&& fence)

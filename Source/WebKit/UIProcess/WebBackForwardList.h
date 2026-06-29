@@ -105,6 +105,8 @@ public:
     FrameState* findFrameStateInItem(WebCore::BackForwardItemIdentifier, WebCore::FrameIdentifier, uint64_t);
     void updateFrameIdentifier(WebCore::FrameIdentifier oldFrameID, WebCore::FrameIdentifier newFrameID);
 
+    void replaceFrameStateForChild(WebBackForwardListItem&, WebCore::FrameIdentifier, Ref<FrameState>&& newFrameState);
+
     String loggingString() const;
 
     enum class MakeAPIArray : bool { No, Yes };
@@ -152,6 +154,7 @@ using WebBackForwardListWrapper = WebBackForwardList;
 
 // Avoid including WebKit-Swift.h in header files to avoid dependency loops.
 class WebBackForwardList;
+class WebBackForwardListMessageForwarder;
 
 // This C++ stub object exists to forward API calls through to the Swift implementation.
 // Although the BackForwardList is in Swift, we retain a C++
@@ -187,11 +190,13 @@ public:
     String loggingString();
 
     WebBackForwardList& getImpl() { return *m_impl; }
+    WebBackForwardListMessageForwarder& messageReceiver() const;
 
 private:
     explicit WebBackForwardListWrapper(WebPageProxy&);
 
     std::unique_ptr<WebBackForwardList> m_impl;
+    Ref<WebBackForwardListMessageForwarder> m_messageForwarder;
 };
 
 #endif // ENABLE(BACK_FORWARD_LIST_SWIFT)

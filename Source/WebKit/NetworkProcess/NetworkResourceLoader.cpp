@@ -463,7 +463,7 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
     if (networkSession->shouldSendPrivateTokenIPCForTesting())
         connectionToWebProcess().networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::DidAllowPrivateTokenUsageByThirdPartyForTesting(sessionID(), request.isPrivateTokenUsageByThirdPartyAllowed(), request.url()), 0);
 
-    if (m_parameters.globalPrivacyControlEnabled) {
+    if (m_parameters.globalPrivacyControlStatus) {
         auto requestOrigin = SecurityOrigin::create(request.url());
         if (requestOrigin->isPotentiallyTrustworthy())
             request.addHTTPHeaderFieldIfNotPresent(HTTPHeaderName::SecGPC, "1"_s);
@@ -1598,7 +1598,7 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
 
     // If there is a match in the network cache, we need to reuse the original cache policy and partition.
     newRequest.setCachePolicy(originalRequest().cachePolicy());
-    newRequest.setCachePartition(originalRequest().cachePartition());
+    newRequest.setShouldBlockThirdPartyStorage(originalRequest().shouldBlockThirdPartyStorage());
 
     if (m_isWaitingContinueWillSendRequestForCachedRedirect) {
         m_isWaitingContinueWillSendRequestForCachedRedirect = false;

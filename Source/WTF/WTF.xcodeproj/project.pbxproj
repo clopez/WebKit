@@ -329,6 +329,7 @@
 		DD3DC87627A4BF8E007E5B61 /* TriState.h in Headers */ = {isa = PBXBuildFile; fileRef = 149EF16216BBFE0D000A4331 /* TriState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC87727A4BF8E007E5B61 /* Spectrum.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A4730D151A825B004123FF /* Spectrum.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC87827A4BF8E007E5B61 /* Liveness.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4B4C41E88939C00DBBE86 /* Liveness.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0FA1B2C30000000000000002 /* SSACalculator.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FA1B2C30000000000000001 /* SSACalculator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC87927A4BF8E007E5B61 /* RefCounted.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472FF151A825B004123FF /* RefCounted.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC87A27A4BF8E007E5B61 /* DebugHeap.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F95B63120CB4B7700479635 /* DebugHeap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC87B27A4BF8E007E5B61 /* ParallelHelperPool.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FFF19DB1BB334EB00886D91 /* ParallelHelperPool.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -496,7 +497,7 @@
 		DD3DC92527A4BF8E007E5B61 /* ApproximateTime.h in Headers */ = {isa = PBXBuildFile; fileRef = E37E96532702AD0700E1C36A /* ApproximateTime.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC92627A4BF8E007E5B61 /* CPUTime.h in Headers */ = {isa = PBXBuildFile; fileRef = E38C41271EB4E0680042957D /* CPUTime.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC92727A4BF8E007E5B61 /* StdMap.h in Headers */ = {isa = PBXBuildFile; fileRef = 391BD6BA4D164FD294F9A93D /* StdMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD3DC92827A4BF8E007E5B61 /* SaturatedArithmetic.h in Headers */ = {isa = PBXBuildFile; fileRef = 14F3B0F615E45E4600210069 /* SaturatedArithmetic.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DD3DC92827A4BF8E007E5B61 /* SaturatingArithmetic.h in Headers */ = {isa = PBXBuildFile; fileRef = 14F3B0F615E45E4600210069 /* SaturatingArithmetic.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC92927A4BF8E007E5B61 /* BoxPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F93274A1C17F4B700CF6566 /* BoxPtr.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC92A27A4BF8E007E5B61 /* dtoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47298151A825A004123FF /* dtoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC92B27A4BF8E007E5B61 /* PlatformUse.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CFAF3C923D0AF1500D21BDD /* PlatformUse.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1042,6 +1043,21 @@
 			runOncePerArchitecture = 0;
 			script = "cp -f \"${INPUT_FILE_PATH}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
+		DDE748582F77554F008013AB /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*/module.modulemap";
+			fileType = pattern.proxy;
+			inputFiles = (
+				"$(WK_HEADERS_VFS_FILE)",
+			);
+			isEditable = 1;
+			name = "Workaround for rdar://173516139";
+			outputFiles = (
+				"$(HEADER_OUTPUT_DIR)/$(INPUT_FILE_NAME)",
+			);
+			script = "cp \"${INPUT_FILE_PATH}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
 		DDE7488A2F7B4577008013AB /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
@@ -1234,6 +1250,7 @@
 		0FEC84B01BDACD390080FF74 /* ScopedLambda.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScopedLambda.h; sourceTree = "<group>"; };
 		0FED67B51B22D4D80066CE15 /* TinyPtrSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TinyPtrSet.h; sourceTree = "<group>"; };
 		0FF4B4C41E88939C00DBBE86 /* Liveness.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Liveness.h; sourceTree = "<group>"; };
+		0FA1B2C30000000000000001 /* SSACalculator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SSACalculator.h; sourceTree = "<group>"; };
 		0FF860941BCCBD740045127F /* PointerComparison.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PointerComparison.h; sourceTree = "<group>"; };
 		0FFBCBFA1FD37E0F0072AAF0 /* CountingLock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CountingLock.h; sourceTree = "<group>"; };
 		0FFF19DA1BB334EB00886D91 /* ParallelHelperPool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ParallelHelperPool.cpp; sourceTree = "<group>"; };
@@ -1267,7 +1284,7 @@
 		14DFC2882ED23C5A0072E4A6 /* RefCountDebugger.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RefCountDebugger.cpp; sourceTree = "<group>"; };
 		14E785E71DFB330100209BD1 /* OrdinalNumber.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OrdinalNumber.h; sourceTree = "<group>"; };
 		14F1EB412DDF9BFF009BBD4B /* OptionalOrReference.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OptionalOrReference.h; sourceTree = "<group>"; };
-		14F3B0F615E45E4600210069 /* SaturatedArithmetic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SaturatedArithmetic.h; sourceTree = "<group>"; };
+		14F3B0F615E45E4600210069 /* SaturatingArithmetic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SaturatingArithmetic.h; sourceTree = "<group>"; };
 		1A1D8B9B173186CE00141DA4 /* FunctionDispatcher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FunctionDispatcher.h; sourceTree = "<group>"; };
 		1A1D8B9D1731879800141DA4 /* FunctionDispatcher.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FunctionDispatcher.cpp; sourceTree = "<group>"; };
 		1A233C7C17DAA6E300A93ACF /* MallocPtr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MallocPtr.h; sourceTree = "<group>"; };
@@ -2726,7 +2743,7 @@
 				A1657D3D2CB46E25003579FC /* RuntimeApplicationChecks.h */,
 				46E43647271F10AA00C88C90 /* SafeStrerror.cpp */,
 				46E43646271F10AA00C88C90 /* SafeStrerror.h */,
-				14F3B0F615E45E4600210069 /* SaturatedArithmetic.h */,
+				14F3B0F615E45E4600210069 /* SaturatingArithmetic.h */,
 				1469419416EAAFF80024E146 /* SchedulePair.h */,
 				1A3524AA1D63A2FF0031729B /* Scope.h */,
 				0FEC84B01BDACD390080FF74 /* ScopedLambda.h */,
@@ -2769,6 +2786,7 @@
 				79038E05224B05A7004C0738 /* SpanningTree.h */,
 				02F0B57890A842688F808D7C /* SparseBitVector.h */,
 				A8A4730D151A825B004123FF /* Spectrum.h */,
+				0FA1B2C30000000000000001 /* SSACalculator.h */,
 				A8A4730F151A825B004123CF /* StackAllocation.h */,
 				A8A4730E151A825B004123FF /* StackBounds.cpp */,
 				A8A4730F151A825B004123FF /* StackBounds.h */,
@@ -3897,7 +3915,7 @@
 				DDF3072227C086CC006A526F /* RuntimeApplicationChecksCocoa.h in Headers */,
 				DD3DC86327A4BF8E007E5B61 /* SafeStrerror.h in Headers */,
 				DDF306E527C08654006A526F /* SandboxSPI.h in Headers */,
-				DD3DC92827A4BF8E007E5B61 /* SaturatedArithmetic.h in Headers */,
+				DD3DC92827A4BF8E007E5B61 /* SaturatingArithmetic.h in Headers */,
 				DD3DC91527A4BF8E007E5B61 /* SchedulePair.h in Headers */,
 				DD3DC87527A4BF8E007E5B61 /* Scope.h in Headers */,
 				DD3DC8CB27A4BF8E007E5B61 /* ScopedLambda.h in Headers */,
@@ -3937,6 +3955,7 @@
 				DD3DC8CD27A4BF8E007E5B61 /* SpanningTree.h in Headers */,
 				08982C1A106045F4A68DF4F1 /* SparseBitVector.h in Headers */,
 				DD3DC87727A4BF8E007E5B61 /* Spectrum.h in Headers */,
+				0FA1B2C30000000000000002 /* SSACalculator.h in Headers */,
 				DD3DC97F27A4BF8E007E5BC1 /* StackAllocation.h in Headers */,
 				DD3DC97F27A4BF8E007E5B61 /* StackBounds.h in Headers */,
 				DD3DC98E27A4BF8E007E5B61 /* StackCheck.h in Headers */,
@@ -4312,12 +4331,14 @@
 				DD07DF4C2A7DB6640091EACE /* Symlink public SDK headers */,
 				DD3DC85D27A4BF87007E5B61 /* Headers */,
 				DDA35E4929CA74D4006C1018 /* Generate TAPI filelist */,
+				F4D2D69E2EFE7A1500A0BB8E /* Copy Profiling Data */,
 				5D247B5E14689B8600E78B76 /* Sources */,
 				5D247B5F14689B8600E78B76 /* Frameworks */,
 				077FEABC2EE0084F0071F92D /* Verify Module */,
 			);
 			buildRules = (
 				147572882CCD82170027BA8F /* PBXBuildRule */,
+				DDE748582F77554F008013AB /* PBXBuildRule */,
 				DDF307FB27C08869006A526F /* PBXBuildRule */,
 				DDF3080F27C091A9006A526F /* PBXBuildRule */,
 				DD3C8E7627C84C9400322F62 /* PBXBuildRule */,
@@ -4403,7 +4424,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "depfile=\"${SCRIPT_OUTPUT_FILE_0/%.timestamp/.d}\"\n\nif [ \"${ACTION}\" = \"installhdrs\" ]; then\n    echo \"dependencies: \" > \"${depfile}\"\n    touch \"${SCRIPT_OUTPUT_FILE_0}\"\n    exit 0;\nfi\n\nif [ ${DEPLOYMENT_LOCATION} != YES ]; then\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"${BUILT_PRODUCTS_DIR}${WTF_INSTALL_PATH_PREFIX}${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${SCRIPT_INPUT_FILE_1}\"\nelse\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"<SDKROOT>${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}/WTF.json\"\nfi\n\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			shellScript = "set -e\n\ndepfile=\"${SCRIPT_OUTPUT_FILE_0/%.timestamp/.d}\"\n\nif [ \"${ACTION}\" = \"installhdrs\" ]; then\n    echo \"dependencies: \" > \"${depfile}\"\n    touch \"${SCRIPT_OUTPUT_FILE_0}\"\n    exit 0;\nfi\n\nif [ ${DEPLOYMENT_LOCATION} != YES ]; then\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"${BUILT_PRODUCTS_DIR}${WTF_INSTALL_PATH_PREFIX}${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${SCRIPT_INPUT_FILE_1}\"\nelse\n    \"${SCRIPT_INPUT_FILE_0}\" --depfile \"${depfile}\" --relative-to=\"<SDKROOT>${WK_LIBRARY_HEADERS_FOLDER_PATH}\" \"${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}/WTF.json\"\nfi\n\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
 		520CF9492BDA9B4800C27FD2 /* Generate clangd configuration file */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4490,6 +4511,30 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SCRIPT_INPUT_FILE_0}\"\n";
+		};
+		F4D2D69E2EFE7A1500A0BB8E /* Copy Profiling Data */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			dependencyFile = "$(DERIVED_FILES_DIR)/copy-profiling-data.d";
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(WK_COMPRESSED_OPTIMIZATION_PROFILE_FOLDER)",
+				"$(SRCROOT)/../../Tools/Profiling/Empty.profdata",
+				"$(BMALLOC_BUILD_SCRIPTS_DIR)/copy-profiling-data.py",
+			);
+			name = "Copy Profiling Data";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WTF/Profiling/arm64e.profdata",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WTF/Profiling/x86_64.profdata",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    echo \"dependencies: \" > \"${DERIVED_FILES_DIR}/copy-profiling-data.d\"\n    exit 0;\nfi\n\"${SCRIPT_INPUT_FILE_2}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

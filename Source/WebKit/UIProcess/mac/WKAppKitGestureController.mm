@@ -445,8 +445,8 @@ static NSString *gestureLogName(NSGestureRecognizer *gesture)
     if ([gesture state] == NSGestureRecognizerStateBegan)
         viewImpl->dismissContentRelativeChildWindowsWithAnimation(false);
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    viewImpl->updateBannerViewForPanGesture([gesture state]);
+#if HAVE(NSREFRESHCONTROLLER)
+    viewImpl->updateRefreshControllerForPanGesture([gesture state]);
 #endif
 
     [self sendWheelEventForGesture:_panGestureRecognizer];
@@ -1002,11 +1002,11 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     case NSGestureRecognizerStateChanged: {
         if (!_dragGestureHasSentMouseDown)
             break;
-        if (_gestureDraggingSession)
-            [_gestureDraggingSession updateDragWithGesture:gesture];
-        else {
+        // Drive WebCore's drag-initiation hysteresis. Once the session exists, AppKit tracks the
+        // gesture itself and WebCore is driven by the platform drag callbacks, so we stop feeding it.
+        if (!_gestureDraggingSession) {
             RetainPtr mouseDragged = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDragged location:locationInWindow modifierFlags:modifierFlags timestamp:timestamp windowNumber:windowNumber context:nil eventNumber:0 clickCount:1 pressure:1.0];
-            viewImpl->mouseDragged(mouseDragged.get(), WebKit::WebEventInputSource::Automation, WebCore::PlatformMouseEvent::CanInitiateDrag::Yes);
+            viewImpl->mouseDragged(mouseDragged, WebKit::WebEventInputSource::Automation, WebCore::PlatformMouseEvent::CanInitiateDrag::Yes);
         }
         break;
     }
@@ -1015,8 +1015,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     case NSGestureRecognizerStateFailed: {
         if (!_dragGestureHasSentMouseDown)
             break;
-        if (_gestureDraggingSession)
-            [_gestureDraggingSession updateDragWithGesture:gesture];
 
         RetainPtr mouseUp = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:locationInWindow modifierFlags:modifierFlags timestamp:timestamp windowNumber:windowNumber context:nil eventNumber:0 clickCount:1 pressure:0.0];
         viewImpl->mouseUp(mouseUp.get(), WebKit::WebEventInputSource::Automation, WebCore::PlatformMouseEvent::CanInitiateDrag::Yes);
@@ -1573,6 +1571,12 @@ static inline bool isSamePair(NSGestureRecognizer *a, NSGestureRecognizer *b, NS
     if (!webView)
         return NO;
 
+    // None of our gesture recognizers may prevent an enclosing scroll view's pan (or any other
+    // scroll/zoom) gesture, so that a scroll can always be handed off to the enclosing scroll view
+    // e.g. a scroll over a draggable <img> in a non-scrollable web view.
+    if ([self _isScrollOrZoomGestureRecognizer:preventedGestureRecognizer])
+        return NO;
+
     bool isOurClickGesture = preventingGestureRecognizer == _singleClickGestureRecognizer
         || preventingGestureRecognizer == _secondaryClickGestureRecognizer
         || preventingGestureRecognizer == _mouseTrackingGestureRecognizer
@@ -1580,9 +1584,6 @@ static inline bool isSamePair(NSGestureRecognizer *a, NSGestureRecognizer *b, NS
 
     if (!isOurClickGesture)
         return YES;
-
-    if ([self _isScrollOrZoomGestureRecognizer:preventedGestureRecognizer])
-        return NO;
 
     // Don't let other click gestures prevent the secondary click GR; it must be allowed to fire its
     // press timer (0.72s) without being short-circuited by gestures that recognize earlier

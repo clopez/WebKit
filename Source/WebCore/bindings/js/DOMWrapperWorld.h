@@ -109,6 +109,7 @@ public:
 
     Type type() const { return m_type; }
     bool isNormal() const { return m_type == Type::Normal; }
+    bool isNonNormal() const { return m_type != Type::Normal; }
     bool isUser() const { return m_type == Type::User; }
 
     const String& name() const LIFETIME_BOUND { return m_name; }
@@ -133,7 +134,7 @@ private:
     // facility relies on mmap/mprotect and is only built on Cocoa.
     void noteTableBacking(void* base, size_t size) { m_wrappersTableBase = base; m_wrappersTableSize = size; }
     void forgetTableBacking(void* base) { if (m_wrappersTableBase == base) { m_wrappersTableBase = nullptr; m_wrappersTableSize = 0; } }
-    void setWrappersTableWritable(bool);
+    SUPPRESS_NODELETE void NODELETE setWrappersTableWritable(bool);
     void* m_wrappersTableBase { nullptr };
     size_t m_wrappersTableSize { 0 };
     unsigned m_wrappersTableWritableDepth { 0 };

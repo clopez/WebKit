@@ -32,7 +32,6 @@
 #include "CommonVM.h"
 #include "ComposedTreeIterator.h"
 #include "ContainerNodeInlines.h"
-#include "DOMWrapperWorld.h"
 #include "DocumentPage.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
@@ -81,8 +80,6 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
-#include "RunJavaScriptParameters.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "SimpleRange.h"
 #include "StaticRange.h"
@@ -102,7 +99,6 @@
 #include <JavaScriptCore/RegularExpression.h>
 #include <ranges>
 #include <unicode/uchar.h>
-#include <wtf/CallbackAggregator.h>
 #include <wtf/Scope.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -1879,7 +1875,7 @@ static String invalidNodeIdentifierDescription(std::optional<NodeIdentifier>&& i
     if (!identifier)
         return "Missing nodeIdentifier"_s;
 
-    return makeString("Failed to resolve nodeIdentifier "_s, identifier->loggingString());
+    return makeString("Failed to resolve stale uid="_s, identifier->loggingString());
 }
 
 static String searchTextNotFoundDescription(const String& searchText)
@@ -1944,12 +1940,15 @@ static Expected<ResolvedMouseTarget, String> resolveMouseTarget(Node& targetNode
         element = targetNode.parentElementInComposedTree();
 
     if (!element || !element->isConnected())
-        return makeUnexpected("Target has been disconnected from the DOM"_s);
+        return makeUnexpected("Target element could not be found; uid may be stale"_s);
+
+    if (!element->document().hasLivingRenderTree())
+        return makeUnexpected("Target belongs to a detached document; uid may be stale"_s);
 
     {
         CheckedPtr renderer = element->renderer();
         if (!renderer)
-            return makeUnexpected("Target is not rendered (possibly display: none)"_s);
+            return makeUnexpected("Target is not rendered (possibly display: none) or uid may be stale"_s);
 
         if (renderer->style().usedVisibility() != Visibility::Visible)
             return makeUnexpected("Target is hidden via CSS visibility"_s);
@@ -2146,7 +2145,7 @@ static void highlightText(LocalFrame& frame, std::optional<NodeIdentifier>&& ide
     if (!view)
         return completion(false, nullFrameDescription);
 
-    document->textExtractionHighlightRegistry().addAnnotationHighlightWithRange(StaticRange::create(*range));
+    protect(document->textExtractionHighlightRegistry())->addAnnotationHighlightWithRange(StaticRange::create(*range));
 
     if (scrollToVisible)
         view->revealRangeWithTemporarySelection(*range);
@@ -2572,6 +2571,13 @@ static void scrollToReveal(LocalFrame& frame, std::optional<NodeIdentifier>&& id
         return completion(false, invalidNodeIdentifierDescription(WTF::move(identifier)));
 
     auto foundRange = searchForText(*searchScope, searchText);
+    if (!foundRange && identifier) {
+        if (RefPtr fallbackScope = bodyOrDocumentElement(frame); fallbackScope && fallbackScope != searchScope) {
+            // Fall back to searching the rest of the document (after the start of the target node).
+            if (auto expandedRange = makeSimpleRange(positionBeforeNode(*searchScope), positionAfterNode(*fallbackScope)))
+                foundRange = searchForText(WTF::move(*expandedRange), searchText);
+        }
+    }
     if (!foundRange)
         return completion(false, searchTextNotFoundDescription(searchText));
 
@@ -2996,6 +3002,9 @@ std::optional<SimpleRange> rangeForExtractedText(const LocalFrame& frame, Extrac
     auto [text, nodeIdentifier] = extractedText;
 
     RefPtr node = resolveNodeWithBodyOrDocumentElementAsFallback(frame, nodeIdentifier);
+    if (!node)
+        return { };
+
     if (text.isEmpty())
         return { makeRangeSelectingNodeContents(*node) };
 
@@ -3015,93 +3024,6 @@ Vector<FilterRule> extractRules(Vector<FilterRuleData>&& data)
 
         return { WTF::move(name), { WTF::move(regex) }, WTF::move(scriptSource) };
     });
-}
-
-static DOMWrapperWorld& filteringWorld()
-{
-    static NeverDestroyed<RefPtr<DOMWrapperWorld>> world = DOMWrapperWorld::create(commonVM(), DOMWrapperWorld::Type::Internal, "Text Extraction Filtering Rules"_s);
-    return *world.get();
-}
-
-void applyRules(const String& input, std::optional<NodeIdentifier>&& containerNodeID, const Vector<FilterRule>& rules, Page& page, CompletionHandler<void(const String&)>&& completion)
-{
-    if (rules.isEmpty())
-        return completion(input);
-
-    RefPtr mainFrame = page.localMainFrame();
-    if (!mainFrame)
-        return completion(input);
-
-    RefPtr document = mainFrame->document();
-    if (!document)
-        return completion(input);
-
-    RefPtr containerNode = resolveNodeWithBodyOrDocumentElementAsFallback(*mainFrame, WTF::move(containerNodeID));
-    if (!containerNode)
-        return completion(input);
-
-    Ref world = filteringWorld();
-    auto makeArguments = [&] {
-        ArgumentMap argumentMap;
-        argumentMap.reserveInitialCapacity(2);
-        argumentMap.add("input"_s, [input](auto& lexicalGlobalObject) {
-            JSLockHolder lock { &lexicalGlobalObject };
-            return JSValue { jsString(commonVM(), input) };
-        });
-        argumentMap.add("containerNode"_s, [containerNode, mainFrame, world = world.copyRef()](auto& lexicalGlobalObject) {
-            if (!containerNode)
-                return jsNull();
-
-            JSLockHolder lock { &lexicalGlobalObject };
-            return toJS(&lexicalGlobalObject, protect(mainFrame->script())->globalObject(world), *containerNode);
-        });
-        return std::make_optional(WTF::move(argumentMap));
-    };
-
-    auto filteredStrings = Box<Vector<String>>::create();
-    auto aggregator = MainRunLoopCallbackAggregator::create([completion = WTF::move(completion), input, filteredStrings] mutable {
-        if (filteredStrings->isEmpty())
-            return completion(input);
-
-        auto shortestFilteredString = std::ranges::min(*filteredStrings, { }, [](auto& string) {
-            return string.length();
-        });
-        completion(WTF::move(shortestFilteredString));
-    });
-
-    auto urlString = document->url().string();
-    for (auto& [name, urlPattern, source] : rules) {
-        bool shouldApplyRule = WTF::switchOn(urlPattern, [](FilterRulePattern pattern) {
-            return pattern == FilterRulePattern::Global;
-        }, [&](const Yarr::RegularExpression& regex) {
-            return regex.match(urlString) >= 0;
-        });
-
-        if (!shouldApplyRule)
-            continue;
-
-        auto parameters = RunJavaScriptParameters {
-            source,
-            SourceTaintedOrigin::Untainted,
-            { },
-            true, // runAsAsyncFunction
-            makeArguments(),
-            false, // forceUserGesture
-            RemoveTransientActivation::No
-        };
-
-        JSLockHolder lock(commonVM());
-        protect(mainFrame->script())->executeAsynchronousUserAgentScriptInWorld(world, WTF::move(parameters), [document, aggregator, filteredStrings](auto valueOrException) {
-            if (!valueOrException)
-                return;
-
-            auto jsValue = valueOrException.value();
-            if (!jsValue.isString())
-                return;
-
-            filteredStrings->append(jsValue.getString(document->globalObject()));
-        });
-    }
 }
 
 } // namespace TextExtraction

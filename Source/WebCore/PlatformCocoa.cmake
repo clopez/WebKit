@@ -129,7 +129,7 @@ if (ACCESSIBILITYSUPPORT_LIBRARY)
 endif ()
 
 if (USE_LIBWEBRTC)
-    list(APPEND WebCore_PRIVATE_LIBRARIES webrtc opus vpx webm yuv libsrtp)
+    list(APPEND WebCore_PRIVATE_LIBRARIES webrtc opus vpx webm yuv libsrtp webrtc_objc_categories)
 else ()
     set(_webm_parser_dir "${CMAKE_SOURCE_DIR}/Source/ThirdParty/libwebrtc/Source/third_party/libwebm/webm_parser")
     file(GLOB _webm_parser_srcs "${_webm_parser_dir}/src/*.cc")
@@ -1411,6 +1411,7 @@ set(ADDITIONAL_BINDINGS_DEPENDENCIES
 set(WebCore_USER_AGENT_SCRIPTS
     ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
     ${WEBCORE_DIR}/Modules/modern-media-controls/media/YouTubeCaptionQuirk.js
+    ${WEBCORE_DIR}/Modules/modern-media-controls/media/CNNCaptionQuirk.js
 )
 
 list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE WebCore)

@@ -529,10 +529,14 @@
 		07AA27602F83C3A900FE10FC /* Exceptions for "Tests" folder in "TestWebKitAPI" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				WebKit/WebPage/AppKitGesturesTests.swift,
+				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
+				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
+				WebKit/WebPage/SimulateClickOverTextTests.swift,
 				WebKit/WebPage/URLSchemeHandlerTests.swift,
 				WebKit/WebPage/WebPageMouseEventsTests.swift,
 				WebKit/WebPage/WebPageNavigationTests.swift,
@@ -778,6 +782,7 @@
 				WebCore/TransformationMatrix.cpp,
 				WebCore/U2fCommandConstructorTest.cpp,
 				WebCore/URLParserTextEncoding.cpp,
+				WebCore/UserAgentStringParser.cpp,
 				WebCore/WritingModeTests.cpp,
 				WebCore/XRCompositionLayer.cpp,
 				WebCore/YouTubePluginReplacement.cpp,
@@ -1212,7 +1217,7 @@
 				WTF/RobinHoodHashSet.cpp,
 				WTF/RunLoop.cpp,
 				WTF/SafeStrerror.cpp,
-				WTF/SaturatedArithmeticOperations.cpp,
+				WTF/SaturatingArithmeticOperations.cpp,
 				WTF/Scope.cpp,
 				WTF/ScopedLambda.cpp,
 				WTF/SegmentedVector.cpp,
@@ -1292,11 +1297,16 @@
 		07C913DE2F820CCA003A09D8 /* Exceptions for "Tests" folder in "TestWebKitAPIBundle" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				WebKit/WebPage/AppKitGesturesTests.swift,
+				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
+				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
+				WebKit/WebPage/SimulateClickOverTextTests.swift,
 				WebKit/WebPage/URLSchemeHandlerTests.swift,
+				WebKit/WebPage/WebPageMouseEventsTests.swift,
 				WebKit/WebPage/WebPageNavigationTests.swift,
 				WebKit/WebPage/WebPageTests.swift,
 				WebKit/WebPage/WebPageTransferableTests.swift,

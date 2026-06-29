@@ -85,6 +85,9 @@ struct QuirksData {
         NeedsBodyScrollbarWidthNoneDisabledQuirk,
         NeedsCanPlayAfterSeekedQuirk,
         NeedsChromeMediaControlsPseudoElementQuirk,
+#if PLATFORM(COCOA)
+        NeedsCNNCaptionQuirk,
+#endif
         NeedsLogoutCookieCleanupQuirk,
 #if PLATFORM(IOS_FAMILY)
         NeedsAmazonDesignMenuViewportUnitQuirk,
@@ -152,6 +155,9 @@ struct QuirksData {
 #if ENABLE(VIDEO_PRESENTATION_MODE)
         RequiresUserGestureToLoadInPictureInPictureQuirk,
         RequiresUserGestureToPauseInPictureInPictureQuirk,
+#endif
+#if ENABLE(FULLSCREEN_API)
+        RequiresUserGestureToPlayInFullscreenQuirk,
 #endif
         ReturnNullPictureInPictureElementDuringFullscreenChangeQuirk,
 #if PLATFORM(IOS_FAMILY)
