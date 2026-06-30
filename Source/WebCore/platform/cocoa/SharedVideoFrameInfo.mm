@@ -174,9 +174,13 @@ static std::span<const uint8_t> copyToCVPixelBufferPlane(CVPixelBufferRef pixelB
     uint32_t bytesPerRowDestination = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, planeIndex);
     for (unsigned i = 0; i < height; ++i) {
         memcpySpan(destination, source.first(std::min(bytesPerRowSource, bytesPerRowDestination)));
+        if (bytesPerRowSource < bytesPerRowDestination)
+            memsetSpan(destination.subspan(bytesPerRowSource, bytesPerRowDestination - bytesPerRowSource), 0);
         skip(source, bytesPerRowSource);
         skip(destination, bytesPerRowDestination);
     }
+    memsetSpan(destination, 0);
+
     return source;
 }
 

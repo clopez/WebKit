@@ -2885,6 +2885,7 @@ bool WebPageProxy::dispatchPerFrameTraversals(WebBackForwardListFrameItem& fromF
         return anySent;
 
     auto& toChildren = toFrame.children();
+    HashSet<WebCore::BackForwardFrameItemIdentifier> pairedFromChildren;
     for (size_t i = 0; i < toChildren.size(); ++i) {
         Ref toChild = toChildren[i];
         auto childFrameID = toChild->frameID();
@@ -2892,9 +2893,12 @@ bool WebPageProxy::dispatchPerFrameTraversals(WebBackForwardListFrameItem& fromF
             continue;
         // Stored frameIDs can disagree across entries after a process swap; fall back to position, which is stable across history.
         RefPtr fromChild = fromFrame.childItemForFrameID(*childFrameID);
-        if (!fromChild)
+        // A duplicated frameID in the to tree can resolve two siblings to the same from child; pairing both
+        // would dispatch a second traversal to the same live frame and clobber the intended navigation. Fall
+        // back to position when the resolved from child is already paired.
+        if (!fromChild || pairedFromChildren.contains(fromChild->identifier()))
             fromChild = fromFrame.childItemAtIndex(i);
-        if (!fromChild)
+        if (!fromChild || !pairedFromChildren.add(fromChild->identifier()).isNewEntry)
             continue;
         if (dispatchPerFrameTraversals(*fromChild, toChild, navigationID, frameLoadType, shouldRestore, publicSuffix))
             anySent = true;
@@ -9293,7 +9297,7 @@ RefPtr<FrameState> WebPageProxy::frameStateForBackForwardChildFrame(WebFrameProx
     if (!index)
         return nullptr;
 
-    RefPtr frameState = backForwardList().findFrameStateInItem(targetBackForwardItemIdentifier, frame.parentFrame()->frameID(), *index);
+    RefPtr frameState = backForwardList().findFrameStateInItem(targetBackForwardItemIdentifier, frame.parentFrame()->frameID(), frame.frameID(), *index);
     if (!frameState)
         return nullptr;
 
@@ -13186,6 +13190,8 @@ void WebPageProxy::focusedElementChanged(IPC::Connection& connection, const std:
 void WebPageProxy::focusedFrameChanged(IPC::Connection& connection, std::optional<FrameIdentifier>&& frameID)
 {
     RefPtr frame = frameID ? WebFrameProxy::webFrame(*frameID) : nullptr;
+    if (frame)
+        MESSAGE_CHECK_BASE(frame->page() == this, connection);
     m_focusedFrame = WTF::move(frame);
     broadcastFocusedFrameToOtherProcesses(connection, WTF::move(frameID));
 }

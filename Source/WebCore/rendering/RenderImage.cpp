@@ -112,16 +112,16 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
     auto run = InlineIterator::boxFor(*this);
     if (!run) {
         // This is a block image.
-        imageRect = IntRect(0, 0, width(), height());
+        imageRect = IntRect(0, 0, borderBoxWidth(), borderBoxHeight());
         isFirstOnLine = true;
         isLastOnLine = true;
         lineExtentRect = imageRect;
         if (containingBlock->isHorizontalWritingMode()) {
             lineExtentRect.setX(containingBlock->x());
-            lineExtentRect.setWidth(containingBlock->width());
+            lineExtentRect.setWidth(containingBlock->borderBoxWidth());
         } else {
             lineExtentRect.setY(containingBlock->y());
-            lineExtentRect.setHeight(containingBlock->height());
+            lineExtentRect.setHeight(containingBlock->borderBoxHeight());
         }
     } else {
         auto selectionLogicalRect = LineSelection::logicalRect(*run->lineBox());
@@ -291,11 +291,11 @@ bool RenderImage::shouldCollapseToEmpty() const
     return document().inNoQuirksMode() || (style().logicalWidth().isAuto() && style().logicalHeight().isAuto());
 }
 
-LayoutUnit RenderImage::computeReplacedLogicalWidth(ShouldComputePreferred shouldComputePreferred) const
+LayoutUnit RenderImage::computeReplacedLogicalWidth(IsComputingIntrinsicSize isComputingIntrinsicSize) const
 {
     if (shouldCollapseToEmpty())
         return { };
-    return RenderReplaced::computeReplacedLogicalWidth(shouldComputePreferred);
+    return RenderReplaced::computeReplacedLogicalWidth(isComputingIntrinsicSize);
 }
 
 LayoutUnit RenderImage::computeReplacedLogicalHeight(std::optional<LayoutUnit> estimatedUsedWidth) const
@@ -612,10 +612,10 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
         auto contentLogicalHeight = settings().subpixelInlineLayoutEnabled() ? fontMetrics.height() : fontMetrics.intHeight();
         auto adjustedPaintOffset = LayoutPoint { paintOffset.x(), paintOffset.y() - contentLogicalHeight };
 
-        auto visualLeft = size().width() / 2 - contentLogicalHeight / 2;
+        auto visualLeft = borderBoxSize().width() / 2 - contentLogicalHeight / 2;
         auto visualRight = visualLeft + contentLogicalHeight;
         if (writingMode().isBlockFlipped())
-            visualLeft = size().width() - visualRight;
+            visualLeft = borderBoxSize().width() - visualRight;
         visualLeft += adjustedPaintOffset.x();
 
         visualLeft = roundToDevicePixel(visualLeft, protect(document())->deviceScaleFactor());
@@ -739,13 +739,13 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
     if (!areaElementStyle)
         return;
 
-    auto outlineWidth = Style::evaluate<float>(areaElementStyle->usedOutlineWidth(), Style::ZoomNeeded { });
+    auto outlineWidth = Style::evaluate<float>(areaElementStyle->usedOutlineWidth(), areaElementStyle->usedZoomForLength(), areaElementStyle->deviceScaleFactor());
     if (!outlineWidth)
         return;
 
     // Even if the theme handles focus ring drawing for entire elements, it won't do it for
     // an area within an image, so we don't call RenderTheme::supportsFocusRing here.
-    auto path = areaElement->computePathForFocusRing(size());
+    auto path = areaElement->computePathForFocusRing(borderBoxSize());
     if (path.isEmpty())
         return;
 

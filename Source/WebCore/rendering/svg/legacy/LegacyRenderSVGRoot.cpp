@@ -145,7 +145,7 @@ bool LegacyRenderSVGRoot::isEmbeddedThroughFrameContainingSVGDocument() const
     return frame().document()->isSVGDocument();
 }
 
-LayoutUnit LegacyRenderSVGRoot::computeReplacedLogicalWidth(ShouldComputePreferred shouldComputePreferred) const
+LayoutUnit LegacyRenderSVGRoot::computeReplacedLogicalWidth(IsComputingIntrinsicSize isComputingIntrinsicSize) const
 {
     // When we're embedded through SVGImage (border-image/background-image/<html:img>/...) we're forced to resize to a specific size.
     if (!m_containerSize.isEmpty())
@@ -164,13 +164,13 @@ LayoutUnit LegacyRenderSVGRoot::computeReplacedLogicalWidth(ShouldComputePreferr
             if (!viewBoxSize.isEmpty()) {
                 float height = element->hasIntrinsicHeight() ? element->intrinsicHeight() : legacySVGRootDefaultHeight;
                 double ratio = viewBoxSize.width() / viewBoxSize.height();
-                return computeReplacedLogicalWidthRespectingMinMaxWidth(LayoutUnit(height * ratio), shouldComputePreferred);
+                return computeReplacedLogicalWidthRespectingMinMaxWidth(LayoutUnit(height * ratio), isComputingIntrinsicSize);
             }
         }
     }
 
     // SVG embedded via SVGImage (background-image/border-image/etc) / Inline SVG.
-    return RenderReplaced::computeReplacedLogicalWidth(shouldComputePreferred);
+    return RenderReplaced::computeReplacedLogicalWidth(isComputingIntrinsicSize);
 }
 
 LayoutUnit LegacyRenderSVGRoot::computeReplacedLogicalHeight(std::optional<LayoutUnit> estimatedUsedWidth) const
@@ -216,12 +216,12 @@ void LegacyRenderSVGRoot::layout()
     auto checkForRepaintOverride = !needsLayout ? std::make_optional(LayoutRepainter::CheckForRepaint::No) : std::nullopt;
     LayoutRepainter repainter(*this, checkForRepaintOverride);
 
-    LayoutSize oldSize = size();
+    LayoutSize oldSize = borderBoxSize();
     updateLogicalWidth();
     updateLogicalHeight();
     buildLocalToBorderBoxTransform();
 
-    m_isLayoutSizeChanged = needsLayout || (svgSVGElement().hasRelativeLengths() && oldSize != size());
+    m_isLayoutSizeChanged = needsLayout || (svgSVGElement().hasRelativeLengths() && oldSize != borderBoxSize());
     SVGRenderSupport::layoutChildren(*this, needsLayout || SVGRenderSupport::filtersForceContainerLayout(*this));
 
     if (!m_resourcesNeedingToInvalidateClients.isEmptyIgnoringNullReferences()) {
@@ -584,7 +584,7 @@ bool LegacyRenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResu
         // hit testing would stop immediately. For SVG only trees this doesn't matter. Though when we have a <foreignObject> subtree we need
         // to be able to detect hits on the background of a <div> element. If we'd return true here in the 'Foreground' phase, we are not able
         // to detect these hits anymore.
-        LayoutRect boundsRect(accumulatedOffset + location(), size());
+        LayoutRect boundsRect(accumulatedOffset + location(), borderBoxSize());
         if (locationInContainer.intersects(boundsRect)) {
             updateHitTestResult(result, pointInBorderBox);
             if (result.addNodeToListBasedTestResult(protect(nodeForHitTest()).get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)

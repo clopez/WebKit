@@ -6686,13 +6686,13 @@ GetByOffsetMethod ByteCodeParser::planLoad(const ObjectPropertyCondition& condit
     //    Hence this results in zero code and we won't jettison this compilation if the object
     //    transitions, even if the structure is watchable right now.
     //
-    // 2) Need to emit a load, and the current structure of the base is going to be watched by the
-    //    DFG anyway (i.e. dfgShouldWatch). Watch the structure and emit the load. Don't watch the
+    // 2) Need to emit a load, and the current structure of the base may be watched by the
+    //    DFG anyway (i.e. dfgMayWatch). Watch the structure and emit the load. Don't watch the
     //    condition, since the act of turning the base into a constant in IR will cause the DFG to
     //    watch the structure anyway and doing so would subsume watching the condition.
     //
     // 3) Need to emit a load, and the current structure of the base is watchable but not by the
-    //    DFG (i.e. transitionWatchpointSetIsStillValid() and !dfgShouldWatchIfPossible()). Watch
+    //    DFG (i.e. transitionWatchpointSetIsStillValid() and !dfgMayWatchIfPossible()). Watch
     //    the condition, and emit a load.
     //
     // 4) Need to emit a load, and the current structure of the base is not watchable. Emit a
@@ -6719,9 +6719,9 @@ GetByOffsetMethod ByteCodeParser::planLoad(const ObjectPropertyCondition& condit
     if (!condition.structureEnsuresValidity(Concurrency::ConcurrentThread, structure))
         return GetByOffsetMethod();
     
-    // If the structure is watched by the DFG already, then just use this fact to emit the load.
+    // If the structure may be watched by the DFG, then watch it and use this fact to emit the load.
     // This is case (2) above.
-    if (structure->dfgShouldWatch())
+    if (m_graph.tryWatch(structure))
         return m_graph.promoteToConstant(GetByOffsetMethod::loadFromPrototype(base, condition.offset()));
     
     // If we can watch the condition right now, then we can emit the load after watching it. This
@@ -6867,7 +6867,7 @@ Node* ByteCodeParser::load(
         // Try to optimize away the structure check. Note that it's not worth doing anything about this
         // if the base's structure is watched.
         Structure* structure = unwrapped->constant()->structure();
-        if (!structure->dfgShouldWatch()) {
+        if (!m_graph.tryWatch(structure)) {
             if (!variant.conditionSet().isEmpty()) {
                 // This means that we're loading from a prototype or we have a property miss. We expect
                 // the base not to have the property. We can only use ObjectPropertyCondition if all of
@@ -6992,8 +6992,6 @@ void ByteCodeParser::handleGetById(
     NodeType getById;
     if (type == AccessType::GetById)
         getById = getByStatus.makesCalls() ? GetByIdFlush : GetById;
-    else if (type == AccessType::TryGetById)
-        getById = TryGetById;
     else
         getById = getByStatus.makesCalls() ? GetByIdDirectFlush : GetByIdDirect;
     auto* data = m_graph.m_getByIdData.add(GetByIdData { identifier, getByStatus.preferredCacheType() });
@@ -7821,9 +7819,7 @@ void ByteCodeParser::parseGetById(const JSInstruction* currentInstruction, unsig
     Node* base = get(bytecode.m_base);
     
     AccessType type = AccessType::GetById;
-    if constexpr (Op::opcodeID == op_try_get_by_id)
-        type = AccessType::TryGetById;
-    else if constexpr (Op::opcodeID == op_get_by_id_direct)
+    if constexpr (Op::opcodeID == op_get_by_id_direct)
         type = AccessType::GetByIdDirect;
     
     GetByStatus getByStatus = GetByStatus::computeFor(
@@ -8564,9 +8560,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 SpeculatedType prediction = getPrediction();
                 auto* hasInstanceImpl = m_vm->propertyNames->hasInstanceSymbol.impl();
                 unsigned identifierNumber = m_graph.identifiers().ensure(hasInstanceImpl);
-                AccessType type = AccessType::GetById;
 
-                handleGetById(bytecode.m_hasInstanceOrPrototype, prediction, get(bytecode.m_constructor), CacheableIdentifier::createFromImmortalIdentifier(hasInstanceImpl), identifierNumber, getByStatus, type, nextCheckpoint());
+                handleGetById(bytecode.m_hasInstanceOrPrototype, prediction, get(bytecode.m_constructor), CacheableIdentifier::createFromImmortalIdentifier(hasInstanceImpl), identifierNumber, getByStatus, AccessType::GetById, nextCheckpoint());
                 itermediateIndex = progressToNextCheckpoint();
 
                 // 2. Get Prototype
@@ -8637,9 +8632,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 SpeculatedType prediction = getPrediction();
                 auto* prototypeImpl = m_vm->propertyNames->prototype.impl();
                 unsigned identifierNumber = m_graph.identifiers().ensure(prototypeImpl);
-                AccessType type = AccessType::GetById;
 
-                handleGetById(bytecode.m_hasInstanceOrPrototype, prediction, get(bytecode.m_constructor), CacheableIdentifier::createFromImmortalIdentifier(prototypeImpl), identifierNumber, getByStatus, type, nextCheckpoint());
+                handleGetById(bytecode.m_hasInstanceOrPrototype, prediction, get(bytecode.m_constructor), CacheableIdentifier::createFromImmortalIdentifier(prototypeImpl), identifierNumber, getByStatus, AccessType::GetById, nextCheckpoint());
                 progressToNextCheckpoint();
 
                 // 3. Do value instanceof prototype.
@@ -9237,14 +9231,6 @@ void ByteCodeParser::parseBlock(unsigned limit)
             auto identifier = CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_inlineStackTop->m_profiledBlock, uid);
             parseGetById<OpGetByIdDirect>(currentInstruction, identifierNumber, identifier);
             NEXT_OPCODE(op_get_by_id_direct);
-        }
-        case op_try_get_by_id: {
-            auto bytecode = currentInstruction->as<OpTryGetById>();
-            unsigned identifierNumber = m_inlineStackTop->m_identifierRemap[bytecode.m_property];
-            UniquedStringImpl* uid = m_graph.identifiers()[identifierNumber];
-            auto identifier = CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_inlineStackTop->m_profiledBlock, uid);
-            parseGetById<OpTryGetById>(currentInstruction, identifierNumber, identifier);
-            NEXT_OPCODE(op_try_get_by_id);
         }
         case op_get_by_id: {
             auto bytecode = currentInstruction->as<OpGetById>();
@@ -12144,15 +12130,12 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             auto* nextImpl = m_vm->propertyNames->next.impl();
             unsigned identifierNumber = m_graph.identifiers().ensure(nextImpl);
 
-            AccessType type = AccessType::GetById;
-
             GetByStatus getByStatus = GetByStatus::computeFor(
                 m_inlineStackTop->m_profiledBlock,
                 m_inlineStackTop->m_baselineMap, m_icContextStack,
                 currentCodeOrigin());
 
-
-            handleGetById(bytecode.m_next, prediction, base, CacheableIdentifier::createFromImmortalIdentifier(nextImpl), identifierNumber, getByStatus, type, osrExitIndex);
+            handleGetById(bytecode.m_next, prediction, base, CacheableIdentifier::createFromImmortalIdentifier(nextImpl), identifierNumber, getByStatus, AccessType::GetById, osrExitIndex);
 
             // Do our set locals. We don't want to run our get_by_id again so we move to the next bytecode.
             m_currentIndex = osrExitIndex;
@@ -12793,14 +12776,12 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             auto* doneImpl = m_vm->propertyNames->done.impl();
             unsigned identifierNumber = m_graph.identifiers().ensure(doneImpl);
 
-            AccessType type = AccessType::GetById;
-
             GetByStatus getByStatus = GetByStatus::computeFor(
                 m_inlineStackTop->m_profiledBlock,
                 m_inlineStackTop->m_baselineMap, m_icContextStack,
                 currentCodeOrigin());
 
-            handleGetById(bytecode.m_done, prediction, base, CacheableIdentifier::createFromImmortalIdentifier(doneImpl), identifierNumber, getByStatus, type, nextCheckpoint());
+            handleGetById(bytecode.m_done, prediction, base, CacheableIdentifier::createFromImmortalIdentifier(doneImpl), identifierNumber, getByStatus, AccessType::GetById, nextCheckpoint());
             // Set a value for m_value so we don't exit on it differing from what we expected.
             set(bytecode.m_value, jsConstant(m_graph.bottomValueMatchingSpeculation(valuePredicition)));
             progressToNextCheckpoint();
@@ -12820,14 +12801,12 @@ void ByteCodeParser::handleIteratorNext(const JSInstruction* currentInstruction,
             auto* valueImpl = m_vm->propertyNames->value.impl();
             unsigned identifierNumber = m_graph.identifiers().ensure(valueImpl);
 
-            AccessType type = AccessType::GetById;
-
             GetByStatus getByStatus = GetByStatus::computeFor(
                 m_inlineStackTop->m_profiledBlock,
                 m_inlineStackTop->m_baselineMap, m_icContextStack,
                 currentCodeOrigin());
 
-            handleGetById(bytecode.m_value, valuePredicition, base, CacheableIdentifier::createFromImmortalIdentifier(valueImpl), identifierNumber, getByStatus, type, osrExitIndex);
+            handleGetById(bytecode.m_value, valuePredicition, base, CacheableIdentifier::createFromImmortalIdentifier(valueImpl), identifierNumber, getByStatus, AccessType::GetById, osrExitIndex);
 
             // We're done, exit forwards.
             m_currentIndex = osrExitIndex;

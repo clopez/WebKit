@@ -786,7 +786,7 @@ Path AccessibilityRenderObject::elementPath() const
         if (!rectsSpanMultipleLines(rects, style->writingMode().isHorizontal()))
             return { };
 
-        auto outlineOffset = Style::evaluate<float>(style->usedOutlineOffset(), Style::ZoomNeeded { });
+        auto outlineOffset = Style::evaluate<float>(style->usedOutlineOffset(), style->usedZoomForLength());
         float deviceScaleFactor = protect(renderText->document())->deviceScaleFactor();
         Vector<FloatRect> pixelSnappedRects;
         for (auto rect : rects) {
@@ -1248,7 +1248,7 @@ bool AccessibilityRenderObject::computeIsIgnored() const
 
         if (image) {
             // check for one-dimensional image
-            if (image->height() <= 1 || image->width() <= 1)
+            if (image->borderBoxHeight() <= 1 || image->borderBoxWidth() <= 1)
                 return true;
 
             // check whether rendered image was stretched from one-dimensional file image
@@ -1317,7 +1317,7 @@ bool AccessibilityRenderObject::computeIsIgnored() const
         }
 
         if (WeakPtr canvasBox = dynamicDowncast<RenderBox>(*m_renderer)) {
-            if (canvasBox->height() <= 1 || canvasBox->width() <= 1)
+            if (canvasBox->borderBoxHeight() <= 1 || canvasBox->borderBoxWidth() <= 1)
                 return true;
         }
         // Otherwise fall through; use presence of help text, title, or description to decide.

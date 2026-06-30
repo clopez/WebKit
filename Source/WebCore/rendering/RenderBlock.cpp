@@ -1125,9 +1125,9 @@ bool RenderBlock::paintChild(RenderBox& child, PaintInfo& paintInfo, const Layou
         return false;
     }
 
-    if (!child.isFloating() && child.isBlockLevelReplacedOrAtomicInline() && usePrintRect && child.height() <= view().printRect().height()) {
+    if (!child.isFloating() && child.isBlockLevelReplacedOrAtomicInline() && usePrintRect && child.borderBoxHeight() <= view().printRect().height()) {
         // Paginate block-level replaced elements.
-        if (absoluteChildY + child.height() > view().printRect().maxY()) {
+        if (absoluteChildY + child.borderBoxHeight() > view().printRect().maxY()) {
             if (absoluteChildY < view().truncatedAt())
                 view().setBestTruncatedAt(absoluteChildY, &child);
             // If we were able to truncate, don't paint.
@@ -1147,9 +1147,9 @@ bool RenderBlock::paintChild(RenderBox& child, PaintInfo& paintInfo, const Layou
     // Check for page-break-after: always, and if it's set, break and bail.
     bool checkAfterAlways = !childrenInline() && (usePrintRect && alwaysPageBreak(child.style().breakAfter()));
     if (checkAfterAlways
-        && (absoluteChildY + child.height()) > paintInfo.rect.y()
-        && (absoluteChildY + child.height()) < paintInfo.rect.maxY()) {
-        view().setBestTruncatedAt(absoluteChildY + child.height() + std::max<LayoutUnit>(0, child.collapsedMarginAfter()), this, true);
+        && (absoluteChildY + child.borderBoxHeight()) > paintInfo.rect.y()
+        && (absoluteChildY + child.borderBoxHeight()) < paintInfo.rect.maxY()) {
+        view().setBestTruncatedAt(absoluteChildY + child.borderBoxHeight() + std::max<LayoutUnit>(0, child.collapsedMarginAfter()), this, true);
         return false;
     }
 
@@ -1222,7 +1222,7 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
     if ((paintPhase == PaintPhase::BlockBackground || paintPhase == PaintPhase::ChildBlockBackground) && style().usedVisibility() == Visibility::Visible) {
         if (hasVisibleBoxDecorations())
             paintBoxDecorations(paintInfo, paintOffset);
-        paintDebugBoxShadowIfApplicable(paintInfo.context(), { paintOffset, size() });
+        paintDebugBoxShadowIfApplicable(paintInfo.context(), { paintOffset, borderBoxSize() });
     }
     
     // Paint legends just above the border before we scroll or clip.
@@ -1247,7 +1247,7 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
         paintInfo.accessibilityRegionContext()->takeBounds(*this, paintOffset);
 
     if (paintPhase == PaintPhase::EventRegion) {
-        auto borderRect = LayoutRect(paintOffset, size());
+        auto borderRect = LayoutRect(paintOffset, borderBoxSize());
 
         Ref document = this->document();
         if (paintInfo.paintBehavior.contains(PaintBehavior::EventRegionIncludeBackground) && visibleToHitTesting()) {
@@ -1330,7 +1330,7 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
     // 5. paint outline.
     if ((paintPhase == PaintPhase::Outline || paintPhase == PaintPhase::SelfOutline) && hasOutline() && style().usedVisibility() == Visibility::Visible)
-        paintOutline(paintInfo, LayoutRect(paintOffset, size()));
+        paintOutline(paintInfo, LayoutRect(paintOffset, borderBoxSize()));
 
     // 7. paint caret.
     // If the caret's node's render object's containing block is this block, and the paint action is PaintPhase::Foreground,
@@ -1500,7 +1500,7 @@ static void clipOutOutOfFlowBoxes(const PaintInfo* paintInfo, const LayoutPoint&
         return;
     
     for (auto& renderer : *outOfFlowBoxes)
-        paintInfo->context().clipOut(IntRect(offset.x() + renderer.x(), offset.y() + renderer.y(), renderer.width(), renderer.height()));
+        paintInfo->context().clipOut(IntRect(offset.x() + renderer.x(), offset.y() + renderer.y(), renderer.borderBoxWidth(), renderer.borderBoxHeight()));
 }
 
 LayoutUnit blockDirectionOffset(RenderBlock& rootBlock, const LayoutSize& offsetFromRootBlock)
@@ -1532,7 +1532,7 @@ GapRects RenderBlock::selectionGaps(RenderBlock& rootBlock, const LayoutPoint& r
     // Clip out floating and positioned objects when painting selection gaps.
     if (paintInfo) {
         // Note that we don't clip out overflow for positioned objects.  We just stick to the border box.
-        LayoutRect flippedBlockRect(offsetFromRootBlock.width(), offsetFromRootBlock.height(), width(), height());
+        LayoutRect flippedBlockRect(offsetFromRootBlock.width(), offsetFromRootBlock.height(), borderBoxWidth(), borderBoxHeight());
         rootBlock.flipForWritingMode(flippedBlockRect);
         flippedBlockRect.moveBy(rootBlockPhysicalPosition);
         clipOutOutOfFlowBoxes(paintInfo, flippedBlockRect.location(), outOfFlowBoxes());
@@ -2086,7 +2086,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
 
     // Now hit test our background
     if (hitTestAction == HitTestAction::BlockBackground || hitTestAction == HitTestAction::ChildBlockBackground) {
-        LayoutRect boundsRect(adjustedLocation, size());
+        LayoutRect boundsRect(adjustedLocation, borderBoxSize());
         if (visibleToHitTesting(request) && locationInContainer.intersects(boundsRect)) {
             updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - localOffset));
             if (result.addNodeToListBasedTestResult(protect(nodeForHitTest()).get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
@@ -2170,7 +2170,7 @@ PositionWithAffinity RenderBlock::positionForPointWithInlineChildren(const Layou
 static inline bool NODELETE isChildHitTestCandidate(const RenderBox& box, HitTestSource source)
 {
     auto visibility = source == HitTestSource::Script ? box.style().visibility() : box.style().usedVisibility();
-    return box.height() && visibility == Visibility::Visible && !box.isOutOfFlowPositioned() && !box.isRenderFragmentedFlow();
+    return box.borderBoxHeight() && visibility == Visibility::Visible && !box.isOutOfFlowPositioned() && !box.isRenderFragmentedFlow();
 }
 
 // Valid candidates in a FragmentedFlow must be rendered by the fragment.
@@ -2680,14 +2680,14 @@ void RenderBlock::setPageLogicalOffset(LayoutUnit logicalOffset)
 
 void RenderBlock::boundingRects(Vector<LayoutRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
-    rects.append({ accumulatedOffset, size() });
+    rects.append({ accumulatedOffset, borderBoxSize() });
 }
 
 void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
     // FIXME: This is wrong for block-flows that are horizontal.
     // https://bugs.webkit.org/show_bug.cgi?id=46781
-    FloatRect logicalRect { { }, size() };
+    FloatRect logicalRect { { }, borderBoxSize() };
     CheckedPtr fragmentedFlow = enclosingFragmentedFlow();
     if (!fragmentedFlow || !fragmentedFlow->absoluteQuadsForBox(quads, wasFixed, *this))
         quads.append(localToAbsoluteQuad(logicalRect, MapCoordinatesMode::UseTransforms, wasFixed));
@@ -3273,12 +3273,12 @@ void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
         return;
 
     if (writingMode().isHorizontal()) {
-        LayoutUnit yOff = std::max(0_lu, (legend->height() - RenderBox::borderBefore()) / 2);
+        LayoutUnit yOff = std::max(0_lu, (legend->borderBoxHeight() - RenderBox::borderBefore()) / 2);
         paintRect.setHeight(paintRect.height() - yOff);
         if (writingMode().isBlockTopToBottom())
             paintRect.setY(paintRect.y() + yOff);
     } else {
-        LayoutUnit xOff = std::max(0_lu, (legend->width() - RenderBox::borderBefore()) / 2);
+        LayoutUnit xOff = std::max(0_lu, (legend->borderBoxWidth() - RenderBox::borderBefore()) / 2);
         paintRect.setWidth(paintRect.width() - xOff);
         if (writingMode().isBlockLeftToRight())
             paintRect.setX(paintRect.x() + xOff);
@@ -3298,25 +3298,25 @@ LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect
     if (writingMode().isHorizontal()) {
         clipRect.setX(paintRect.x() + legend->x());
         clipRect.setY(writingMode().isBlockTopToBottom() ? paintRect.y() : paintRect.y() + paintRect.height() - borderExtent);
-        clipRect.setWidth(legend->width());
+        clipRect.setWidth(legend->borderBoxWidth());
         clipRect.setHeight(borderExtent);
         // When the legend overlaps a non-block-start border (e.g. via negative
         // margin), extend the clip in the block direction to cover the legend's
         // layout box so that border behind it is not painted.
         if (!borderExtent) {
-            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->height() - borderExtent) / 2) : 0_lu;
+            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->borderBoxHeight() - borderExtent) / 2) : 0_lu;
             clipRect.setY(paintRect.y() + legend->y() - adjustment);
-            clipRect.setHeight(legend->height());
+            clipRect.setHeight(legend->borderBoxHeight());
         }
     } else {
         clipRect.setX(writingMode().isBlockLeftToRight() ? paintRect.x() : paintRect.x() + paintRect.width() - borderExtent);
         clipRect.setY(paintRect.y() + legend->y());
         clipRect.setWidth(borderExtent);
-        clipRect.setHeight(legend->height());
+        clipRect.setHeight(legend->borderBoxHeight());
         if (!borderExtent) {
-            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->width() - borderExtent) / 2) : 0_lu;
+            LayoutUnit adjustment = intrinsicBorderForFieldset() ? std::max(0_lu, (legend->borderBoxWidth() - borderExtent) / 2) : 0_lu;
             clipRect.setX(paintRect.x() + legend->x() - adjustment);
-            clipRect.setWidth(legend->width());
+            clipRect.setWidth(legend->borderBoxWidth());
         }
     }
     return clipRect;

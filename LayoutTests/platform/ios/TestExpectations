@@ -8474,8 +8474,6 @@ webkit.org/b/316446 imported/w3c/web-platform-tests/css/css-borders/border-width
 
 webkit.org/b/316830 fast/forms/datalist/datalist-textinput-suggestions-order.html [ Pass Timeout ]
 
-webkit.org/b/317667 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/with-types/at-rule-with-types-parsing.html [ Skip ]
-
 webkit.org/b/317753 imported/w3c/web-platform-tests/content-security-policy/sandbox/meta-element.sub.html [ Skip ]
 
 webkit.org/b/317756 imported/w3c/web-platform-tests/css/selectors/user-valid.html [ Skip ]
@@ -8499,4 +8497,7 @@ imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard-snap-interrup
 
 webkit.org/b/317884 imported/w3c/web-platform-tests/digital-credentials/get-non-fully-active.https.html [ Skip ]
 
-webkit.org/b/317962 [ Debug ] ipc/networksessioncocoa-empty-resource-request.html [ Failure ]
+webkit.org/b/318157 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.sharedworker.html [ Failure ]
+webkit.org/b/318157 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.worker.html [ Failure ]
+webkit.org/b/318157 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.serviceworker.html [ Failure ]
+webkit.org/b/318157 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.sharedworker.html [ Failure ]

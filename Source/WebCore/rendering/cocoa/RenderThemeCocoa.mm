@@ -136,15 +136,15 @@ static Color colorCompositedOverCanvasColor(CSSValueID cssValue, OptionSet<Style
     return blendSourceOver(backingColor, foregroundColor);
 }
 
-static void drawFocusRingForPathForVectorBasedControls(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect, Path path)
+static void drawFocusRingForPathForVectorBasedControls(const RenderObject& box, const PaintInfo& paintInfo, [[maybe_unused]] const FloatRect& rect, Path path)
 {
     auto& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver(context);
 
     // macOS controls have never honored outline offset.
 #if PLATFORM(IOS_FAMILY)
-    auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
-    auto outlineOffset = floorToDevicePixel(Style::evaluate<float>(box.style().usedOutlineOffset(), Style::ZoomNeeded { }), deviceScaleFactor);
+    auto deviceScaleFactor = box.style().deviceScaleFactor();
+    auto outlineOffset = floorToDevicePixel(Style::evaluate<float>(box.style().usedOutlineOffset(), box.style().usedZoomForLength()), deviceScaleFactor);
 
     if (outlineOffset > 0) {
         const auto center = rect.center();
@@ -153,8 +153,6 @@ static void drawFocusRingForPathForVectorBasedControls(const RenderObject& box, 
         context.scale(sizeWithOffset / rect.size());
         context.translate(-center);
     }
-#else
-    UNUSED_PARAM(rect);
 #endif
 
     auto focusRingColor = RenderTheme::singleton().focusRingColor(box.styleColorOptions() | StyleColorOptions::UseSystemAppearance);
@@ -201,7 +199,7 @@ static Color colorWithTargetLuminance(Color color, float targetLuminance)
 
     const auto [x, y, z, alpha] = color.toColorTypeLossy<XYZA<float, WhitePoint::D65>>().resolved();
 
-    targetLuminance = std::clamp(0.f, targetLuminance, 1.f);
+    targetLuminance = std::clamp(targetLuminance, 0.f, 1.f);
     if (y > 0.0f) {
         const auto scale = targetLuminance / y;
         return Color(XYZA<float, WhitePoint::D65> { x * scale, targetLuminance, z * scale, alpha });
@@ -1444,7 +1442,7 @@ LayoutRect RenderThemeCocoa::adjustedPaintRect(const RenderBox& box, const Layou
     if (box.style().usedAppearance() == StyleAppearance::Checkbox || box.style().usedAppearance() == StyleAppearance::Radio) {
         float width = std::min(paintRect.width(), paintRect.height());
         float height = width;
-        return enclosingLayoutRect(FloatRect(paintRect.x(), paintRect.y() + (box.height() - height) / 2, width, height)); // Vertically center the checkbox.
+        return enclosingLayoutRect(FloatRect(paintRect.x(), paintRect.y() + (box.borderBoxHeight() - height) / 2, width, height)); // Vertically center the checkbox.
     }
 #else
     UNUSED_PARAM(box);
@@ -1843,7 +1841,7 @@ static RoundedShape shapeForButton(const RenderElement& box, const FloatRect& re
         // at different positions don't fall on different sides of the
         // threshold due to device pixel snapping.
         if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(box)) {
-            const auto sizeRatio = (renderBox->width() / renderBox->height()).toFloat();
+            const auto sizeRatio = (renderBox->borderBoxWidth() / renderBox->borderBoxHeight()).toFloat();
             const auto limitingRatio = 1.5f;
             if (limitingRatio > sizeRatio && sizeRatio > 1 / limitingRatio)
                 controlRadius = radiusForLargeButton;
@@ -2992,7 +2990,7 @@ static float cornerRadiusForConcentricTextBasedControl(const RenderElement& box,
         canBeConcentric = WTF::areEssentiallyEqual(inlineDistance, leftDistance) && WTF::areEssentiallyEqual(inlineDistance, rightDistance);
     } else {
         inlineDistance = isInlineFlipped ? leftDistance : rightDistance;
-        canBeConcentric = WTF::areEssentiallyEqual(inlineDistance, topDistance) && WTF::areEssentiallyEqual(inlineDistance, topDistance);
+        canBeConcentric = WTF::areEssentiallyEqual(inlineDistance, topDistance) && WTF::areEssentiallyEqual(inlineDistance, bottomDistance);
     }
 
     if (canBeConcentric) {
@@ -3476,22 +3474,24 @@ bool RenderThemeCocoa::paintMenuListButtonDecorationsForVectorBasedControls(cons
     auto glyphBlockSize = isHorizontalWritingMode ? glyphSize.height() : glyphSize.width();
     glyphOrigin.setY(logicalRect.center().y() - glyphBlockSize / 2.0f);
 
+    auto zoom = style->usedZoomForLength();
+    auto deviceScaleFactor = style->deviceScaleFactor();
+
     auto glyphPaddingEnd = logicalRect.width();
-    auto usedZoom = style->usedZoomForLength();
     if (auto fixedPaddingEnd = style->paddingEnd().tryFixed())
-        glyphPaddingEnd = fixedPaddingEnd->resolveZoom(usedZoom);
+        glyphPaddingEnd = Style::evaluate<float>(*fixedPaddingEnd, zoom);
 
     // Add popup internal start padding for symmetry.
     if (is<RenderMenuList>(box)) {
         auto internalPadding = popupInternalPaddingBox(style.get());
         if (auto paddingStart = internalPadding.start(style->writingMode()).tryFixed())
-            glyphPaddingEnd += paddingStart->resolveZoom(usedZoom);
+            glyphPaddingEnd += Style::evaluate<float>(*paddingStart, style->usedZoomForLength());
     }
 
     if (!style->writingMode().isInlineFlipped())
-        glyphOrigin.setX(logicalRect.maxX() - glyphInlineSize - Style::evaluate<float>(box.style().usedBorderWidthEnd(), Style::ZoomNeeded { }) - glyphPaddingEnd);
+        glyphOrigin.setX(logicalRect.maxX() - glyphInlineSize - Style::evaluate<float>(style->usedBorderWidthEnd(), zoom, deviceScaleFactor) - glyphPaddingEnd);
     else
-        glyphOrigin.setX(logicalRect.x() + Style::evaluate<float>(box.style().usedBorderWidthEnd(), Style::ZoomNeeded { }) + glyphPaddingEnd);
+        glyphOrigin.setX(logicalRect.x() + Style::evaluate<float>(style->usedBorderWidthEnd(), zoom, deviceScaleFactor) + glyphPaddingEnd);
 
     if (!isHorizontalWritingMode)
         glyphOrigin = glyphOrigin.transposedPoint();
@@ -4762,7 +4762,7 @@ FloatSize RenderThemeCocoa::inflateRectForInteractionRegion(const RenderElement&
     return { 0, 0 };
 }
 
-float RenderThemeCocoa::adjustedMaximumLogicalWidthForControl(const Style::ComputedStyle& style, const Element& element, float maximumLogicalWidth) const
+float RenderThemeCocoa::adjustedMaximumLogicalWidthForControl([[maybe_unused]] const Style::ComputedStyle& style, [[maybe_unused]] const Element& element, float maximumLogicalWidth) const
 {
 #if PLATFORM(MAC)
     if (!formControlRefreshEnabled(&element) || !style.hasUsedAppearance() || style.nativeAppearanceDisabled())
@@ -4786,13 +4786,10 @@ float RenderThemeCocoa::adjustedMaximumLogicalWidthForControl(const Style::Compu
         if (auto paddingEdgeInlineStartFixed = paddingEdgeInlineStart.tryFixed()) {
             if (auto paddingEdgeInlineEndFixed = paddingEdgeInlineEnd.tryFixed()) {
                 auto usedZoom = style.usedZoomForLength();
-                maximumLogicalWidth += paddingEdgeInlineStartFixed->resolveZoom(usedZoom) - paddingEdgeInlineEndFixed->resolveZoom(usedZoom);
+                maximumLogicalWidth += Style::evaluate<float>(*paddingEdgeInlineStartFixed, usedZoom) - Style::evaluate<float>(*paddingEdgeInlineEndFixed, usedZoom);
             }
         }
     }
-#else
-    UNUSED_PARAM(style);
-    UNUSED_PARAM(element);
 #endif
     return maximumLogicalWidth;
 }
