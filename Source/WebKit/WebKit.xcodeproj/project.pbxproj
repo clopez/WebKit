@@ -1236,8 +1236,6 @@
 		513E462D1AD837560016234A /* WKSharingServicePickerDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = 513E462B1AD837560016234A /* WKSharingServicePickerDelegate.h */; };
 		513FFB91201459C6002596EA /* WebMessagePortChannelProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 513FFB8F201459C2002596EA /* WebMessagePortChannelProvider.h */; };
 		514129941C6428BB0059E714 /* WebIDBConnectionToServer.h in Headers */ = {isa = PBXBuildFile; fileRef = 514129921C6428100059E714 /* WebIDBConnectionToServer.h */; };
-		514246BF2F3F85EE002A3AEA /* WKJSScriptingBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 514246BD2F3F85EE002A3AEA /* WKJSScriptingBuffer.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		514246C02F3F85EE002A3AEA /* WKJSScriptingBufferInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 514246BE2F3F85EE002A3AEA /* WKJSScriptingBufferInternal.h */; };
 		514526ED271E1647000467B6 /* NetworkNotificationManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 514526EB271E1626000467B6 /* NetworkNotificationManager.h */; };
 		514526FF271FB7EC000467B6 /* NotificationManagerMessageHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 514526FE271FB7E8000467B6 /* NotificationManagerMessageHandler.h */; };
 		51452705271FBA40000467B6 /* NotificationManagerMessageHandlerMessages.h in Headers */ = {isa = PBXBuildFile; fileRef = 51452701271FBA35000467B6 /* NotificationManagerMessageHandlerMessages.h */; };
@@ -2800,7 +2798,6 @@
 		FABBBC862D35B59A00820017 /* UnifiedSource139.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FABBBC822D35B59A00820017 /* UnifiedSource139.cpp */; };
 		FABBDEA12B85557500EFAFC4 /* CoreIPCNSURLCredential.mm in Sources */ = {isa = PBXBuildFile; fileRef = FABBDE9E2B85550100EFAFC4 /* CoreIPCNSURLCredential.mm */; };
 		FAC7C0C22D712E2900E7297E /* CoreIPCNumber.mm in Sources */ = {isa = PBXBuildFile; fileRef = FAC7C0C12D712AAF00E7297E /* CoreIPCNumber.mm */; };
-		FADAF3C82EA2F54D001ACE2E /* _WKJSBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = FADAF3C32EA2E992001ACE2E /* _WKJSBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FAE61CE62D0A5608000D238D /* UnifiedSource132.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAE61CDF2D0A5606000D238D /* UnifiedSource132.cpp */; };
 		FAE61CE72D0A5608000D238D /* UnifiedSource134.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAE61CE02D0A5606000D238D /* UnifiedSource134.cpp */; };
 		FAE61CE82D0A5608000D238D /* UnifiedSource136.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAE61CE12D0A5606000D238D /* UnifiedSource136.cpp */; };
@@ -6064,9 +6061,6 @@
 		513FFB8F201459C2002596EA /* WebMessagePortChannelProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebMessagePortChannelProvider.h; sourceTree = "<group>"; };
 		514129911C6428100059E714 /* WebIDBConnectionToServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebIDBConnectionToServer.cpp; sourceTree = "<group>"; };
 		514129921C6428100059E714 /* WebIDBConnectionToServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebIDBConnectionToServer.h; sourceTree = "<group>"; };
-		514246BC2F3F85DE002A3AEA /* WKJSScriptingBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WKJSScriptingBuffer.mm; sourceTree = "<group>"; };
-		514246BD2F3F85EE002A3AEA /* WKJSScriptingBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WKJSScriptingBuffer.h; sourceTree = "<group>"; };
-		514246BE2F3F85EE002A3AEA /* WKJSScriptingBufferInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WKJSScriptingBufferInternal.h; sourceTree = "<group>"; };
 		5143B25E1DDCDFD10014FAC6 /* _WKIconLoadingDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _WKIconLoadingDelegate.h; sourceTree = "<group>"; };
 		5143B2611DDD0DA00014FAC6 /* APIIconLoadingClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = APIIconLoadingClient.h; sourceTree = "<group>"; };
 		514526EB271E1626000467B6 /* NetworkNotificationManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkNotificationManager.h; sourceTree = "<group>"; };
@@ -9293,9 +9287,6 @@
 		FAC8498E2A9E92DF00D407EF /* WebTransportSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WebTransportSession.h; path = Network/WebTransportSession.h; sourceTree = "<group>"; };
 		FAD05DAE2DCBD89800330C10 /* DragInitiationResult.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = DragInitiationResult.h; path = ios/DragInitiationResult.h; sourceTree = "<group>"; };
 		FAD05DAF2DCBD8E100330C10 /* DragInitiationResult.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = DragInitiationResult.serialization.in; path = ios/DragInitiationResult.serialization.in; sourceTree = "<group>"; };
-		FADAF3C32EA2E992001ACE2E /* _WKJSBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _WKJSBuffer.h; sourceTree = "<group>"; };
-		FADAF3C62EA2EAA1001ACE2E /* APIJSBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = APIJSBuffer.h; sourceTree = "<group>"; };
-		FADAF3C72EA2EAA1001ACE2E /* APIJSBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = text; path = APIJSBuffer.cpp; sourceTree = "<group>"; };
 		FAE61CDF2D0A5606000D238D /* UnifiedSource132.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource132.cpp; sourceTree = "<group>"; };
 		FAE61CE02D0A5606000D238D /* UnifiedSource134.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource134.cpp; sourceTree = "<group>"; };
 		FAE61CE12D0A5606000D238D /* UnifiedSource136.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UnifiedSource136.cpp; sourceTree = "<group>"; };
@@ -12882,7 +12873,6 @@
 				63DCF6AF2980C0E50016E213 /* _WKInspectorWindowInternal.h */,
 				31B362942141EBAD007BFA53 /* _WKInternalDebugFeature.h */,
 				31B362922141EBAC007BFA53 /* _WKInternalDebugFeature.mm */,
-				FADAF3C32EA2E992001ACE2E /* _WKJSBuffer.h */,
 				FA8B4F792E4A5F7300E419CD /* _WKJSHandle.h */,
 				2D790A9C1AD7050D00AB90B3 /* _WKLayoutMode.h */,
 				51C0C9791DDD78540032CAD3 /* _WKLinkIconParameters.h */,
@@ -13099,9 +13089,6 @@
 				51DB22E72F3EB13300BDCDCE /* WKJSHandle.h */,
 				51DB22E82F3EB13300BDCDCE /* WKJSHandle.mm */,
 				51DB22E92F3EB13300BDCDCE /* WKJSHandleInternal.h */,
-				514246BD2F3F85EE002A3AEA /* WKJSScriptingBuffer.h */,
-				514246BC2F3F85DE002A3AEA /* WKJSScriptingBuffer.mm */,
-				514246BE2F3F85EE002A3AEA /* WKJSScriptingBufferInternal.h */,
 				5116CE6E2F3F983800968E09 /* WKJSSerializedNode.h */,
 				5116CE6F2F3F983800968E09 /* WKJSSerializedNode.mm */,
 				5116CE702F3F983800968E09 /* WKJSSerializedNodeInternal.h */,
@@ -16398,8 +16385,6 @@
 				999B7F4F2554BA3F00F450A4 /* APIInspectorExtension.cpp */,
 				99BE3B1225422F4100C6551C /* APIInspectorExtension.h */,
 				996B2B9E25E2582C00719379 /* APIInspectorExtensionClient.h */,
-				FADAF3C72EA2EAA1001ACE2E /* APIJSBuffer.cpp */,
-				FADAF3C62EA2EAA1001ACE2E /* APIJSBuffer.h */,
 				FA58F4512E1DF3190098E1C8 /* APIJSHandle.cpp */,
 				FA58F4502E1DF3190098E1C8 /* APIJSHandle.h */,
 				7CE4D2061A46775700C7F152 /* APILegacyContextHistoryClient.h */,
@@ -17972,7 +17957,6 @@
 				99996A9F25004BCC004F7559 /* _WKInspectorPrivateForTesting.h in Headers */,
 				A5C0F0AB2000658200536536 /* _WKInspectorWindow.h in Headers */,
 				31B362952141EBCD007BFA53 /* _WKInternalDebugFeature.h in Headers */,
-				FADAF3C82EA2F54D001ACE2E /* _WKJSBuffer.h in Headers */,
 				FA8B4F7C2E4A5F7C00E419CD /* _WKJSHandle.h in Headers */,
 				2D790A9D1AD7050D00AB90B3 /* _WKLayoutMode.h in Headers */,
 				510F59111DDE297000412FF5 /* _WKLinkIconParameters.h in Headers */,
@@ -19519,8 +19503,6 @@
 				51DB22F22F3EB16E00BDCDCE /* WKJSHandle.h in Headers */,
 				51DB22F12F3EB16E00BDCDCE /* WKJSHandleInternal.h in Headers */,
 				FA84D6692E579F38004BDAA4 /* WKJSHandleRef.h in Headers */,
-				514246BF2F3F85EE002A3AEA /* WKJSScriptingBuffer.h in Headers */,
-				514246C02F3F85EE002A3AEA /* WKJSScriptingBufferInternal.h in Headers */,
 				5116CE712F3F983F00968E09 /* WKJSSerializedNode.h in Headers */,
 				5116CE722F3F983F00968E09 /* WKJSSerializedNodeInternal.h in Headers */,
 				2DD5E129210ADC7B00DB6012 /* WKKeyboardScrollingAnimator.h in Headers */,

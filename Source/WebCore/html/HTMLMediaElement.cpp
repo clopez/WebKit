@@ -5594,7 +5594,7 @@ void HTMLMediaElement::configureTextTrackGroup(const TrackGroup& group)
     // track if it is less suitable, and we do want to disable it if another track is more suitable.
     int alreadyVisibleTrackScore = 0;
     if (group.visibleTrack && captionPreferences) {
-        alreadyVisibleTrackScore = captionPreferences->textTrackSelectionScore(*group.visibleTrack, protect(*this));
+        alreadyVisibleTrackScore = captionPreferences->textTrackSelectionScore(protect(*group.visibleTrack), protect(*this));
         currentlyEnabledTracks.append(protect(*group.visibleTrack));
     }
 

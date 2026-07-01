@@ -149,6 +149,18 @@ static const unsigned backgroundObscurationTestMaxDepth = 4;
 
 bool RenderBox::s_hadNonVisibleOverflow = false;
 
+#if ASSERT_ENABLED
+static bool canHaveBoxInfoInFragment(auto& renderer)
+{
+    return !renderer.isFloating()
+        && !renderer.isBlockLevelReplacedOrAtomicInline()
+        && !renderer.isInline()
+        && !renderer.isRenderTableCell()
+        && renderer.isRenderBlock()
+        && !renderer.isRenderSVGBlock();
+}
+#endif
+
 RenderBox::RenderBox(Type type, Element& element, Style::ComputedStyle&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
     : RenderBoxModelObject(type, element, WTF::move(style), flags | TypeFlag::IsBox, typeSpecificFlags)
 {
@@ -4325,7 +4337,7 @@ void RenderBox::computeOutOfFlowPositionedLogicalWidth(LogicalExtentComputedValu
     // FIXME: Add support for other types of objects as containerBlock, not only RenderBlock.
     if (enclosingFragmentedFlow() && isWritingModeRoot() && inlineConstraints.isOrthogonal()) {
         if (CheckedPtr container = dynamicDowncast<RenderBlock>(inlineConstraints.container())) {
-            ASSERT(inlineConstraints.container().canHaveBoxInfoInFragment());
+            ASSERT(canHaveBoxInfoInFragment(inlineConstraints.container()));
             LayoutUnit logicalLeftPos = computedValues.position;
             LayoutUnit cbPageOffset = container->offsetFromLogicalTopOfFirstPage();
             RenderFragmentContainer* cbFragment = container->fragmentAtBlockOffset(cbPageOffset);
@@ -4463,7 +4475,7 @@ void RenderBox::computeOutOfFlowPositionedLogicalHeight(LogicalExtentComputedVal
     // FIXME: Add support for other types of objects as containerBlock, not only RenderBlock.
     if (enclosingFragmentedFlow() && blockConstraints.isOrthogonal()) {
         if (CheckedPtr container = dynamicDowncast<RenderBlock>(blockConstraints.container())) {
-            ASSERT(blockConstraints.container().canHaveBoxInfoInFragment());
+            ASSERT(canHaveBoxInfoInFragment(blockConstraints.container()));
             LayoutUnit logicalTopPos = computedValues.position;
             LayoutUnit cbPageOffset = container->offsetFromLogicalTopOfFirstPage() - logicalLeft();
             RenderFragmentContainer* cbFragment = container->fragmentAtBlockOffset(cbPageOffset);

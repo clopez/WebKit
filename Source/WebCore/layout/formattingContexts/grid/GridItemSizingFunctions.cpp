@@ -40,8 +40,8 @@ GridItemSizingFunctions GridItemSizingFunctions::inlineAxis(const IntegrationUti
         [&integrationUtils](const PlacedGridItem& gridItem, LayoutUnit blockAxisConstraint) {
             return GridLayoutUtils::inlineAxisMaxContentContribution(gridItem, blockAxisConstraint, integrationUtils);
         },
-        [&integrationUtils](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace, LayoutUnit oppositeAxisConstraint) {
-            UNUSED_PARAM(oppositeAxisConstraint);
+        [&integrationUtils](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace, LayoutUnit blockAxisConstraint) {
+            UNUSED_PARAM(blockAxisConstraint);
             return GridLayoutUtils::inlineMinimumSize(gridItem, trackSizingFunctions, borderAndPadding, availableSpace, integrationUtils);
         }
     };
@@ -56,8 +56,8 @@ GridItemSizingFunctions GridItemSizingFunctions::blockAxis(const GridFormattingC
         [&formattingContext](const PlacedGridItem& gridItem, LayoutUnit inlineAxisConstraint) {
             return GridLayoutUtils::blockAxisMaxContentContribution(gridItem, inlineAxisConstraint, formattingContext);
         },
-        [&formattingContext](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace, LayoutUnit oppositeAxisConstraint) {
-            return GridLayoutUtils::blockMinimumSize(gridItem, trackSizingFunctions, borderAndPadding, availableSpace, formattingContext, oppositeAxisConstraint);
+        [&formattingContext](const PlacedGridItem& gridItem, const TrackSizingFunctionsList& trackSizingFunctions, LayoutUnit borderAndPadding, LayoutUnit availableSpace, LayoutUnit inlineAxisConstraint) {
+            return GridLayoutUtils::blockMinimumSize(gridItem, trackSizingFunctions, borderAndPadding, availableSpace, formattingContext, inlineAxisConstraint);
         }
     };
 }

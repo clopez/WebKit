@@ -5861,9 +5861,8 @@ bool RenderLayer::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect)
     if (renderer().isFieldset())
         return false;
 
-    // FIXME: We currently only check the immediate renderer,
-    // which will miss many cases.
-    if (renderer().backgroundIsKnownToBeOpaqueInRect(localRect))
+    // FIXME: We currently only check the immediate renderer, which will miss many cases.
+    if (CheckedPtr renderer = renderBox(); renderer && renderer->backgroundIsKnownToBeOpaqueInRect(localRect))
         return true;
     
     // We can't consult child layers if we clip, since they might cover

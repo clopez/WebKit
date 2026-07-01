@@ -484,7 +484,9 @@ public:
 
     virtual void adjustBorderBoxRectForPainting(LayoutRect&) { };
 
-    bool backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect) const override;
+    // Returns true if the background is painted opaque in the given rect.
+    // The query rect is given in local coordinate system.
+    virtual bool backgroundIsKnownToBeOpaqueInRect(const LayoutRect&) const;
     inline bool backgroundIsKnownToBeObscured(const LayoutPoint& paintOffset);
     void NODELETE invalidateAncestorBackgroundObscurationStatus();
 

@@ -894,6 +894,17 @@ AffineTransform RenderLayerModelObject::computeRendererTransform() const
     return matrix.toAffineTransform();
 }
 
+void RenderLayerModelObject::contentChanged(ContentChangeType changeType, const std::optional<FloatRect>& dirtyRect)
+{
+    if (CheckedPtr layer = this->layer())
+        layer->contentChanged(changeType, dirtyRect);
+}
+
+bool RenderLayerModelObject::hasAcceleratedCompositing() const
+{
+    return view().compositor().hasAcceleratedCompositing();
+}
+
 #if ASSERT_ENABLED
 bool RenderLayerModelObject::layerAccessPreventedSlow() const
 {

@@ -29,6 +29,7 @@
 
 #include "AdaptiveInferredPropertyValueWatchpointBase.h"
 #include "CodeBlock.h"
+#include "GCAwareJITStubRoutine.h"
 #include "ObjectPropertyCondition.h"
 #include "PackedCellPtr.h"
 #include "Watchpoint.h"
