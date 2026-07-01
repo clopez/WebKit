@@ -1059,7 +1059,6 @@ imported/w3c/web-platform-tests/xhr/send-authentication-basic-setrequestheader-e
 webkit.org/b/252953 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-height-constrained-by-max-width.html [ ImageOnlyFailure ]
 webkit.org/b/252953 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-width-constrained-by-max-height.html [ ImageOnlyFailure ]
 # Ftp code is disabled in gtk port
-http/tests/misc/ftp-eplf-directory.py [ Skip ]
 
 # text-transform: full-width
 webkit.org/b/143153 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-002.xht [ ImageOnlyFailure ]
@@ -1220,9 +1219,9 @@ webkit.org/b/213202 fast/mediastream/getUserMedia-grant-persistency3.html [ Fail
 webkit.org/b/305509 fast/css/max-content-img-sizing-1.html [ ImageOnlyFailure Pass ]
 webkit.org/b/305509 fast/css/max-content-img-sizing-2.html [ ImageOnlyFailure Pass ]
 webkit.org/b/305509 fast/events/drag-selects-image.html [ Failure Pass ]
-webkit.org/b/305509 fast/events/mouse-cursor-change.html [ Failure ]
-webkit.org/b/305509 fast/events/mouse-cursor-no-mousemove.html [ Failure ]
-webkit.org/b/305509 fast/events/mouse-cursor-update-during-raf.html [ Failure ]
+webkit.org/b/305509 fast/events/mouse-cursor-change.html [ Failure Pass ]
+webkit.org/b/305509 fast/events/mouse-cursor-no-mousemove.html [ Failure Pass ]
+webkit.org/b/305509 fast/events/mouse-cursor-update-during-raf.html [ Failure Pass ]
 webkit.org/b/305509 fast/events/page-visibility-resize-event-order.html [ Pass Timeout ]
 webkit.org/b/305509 http/tests/inspector/network/har/har-page.html [ Failure Pass ]
 webkit.org/b/305509 imported/w3c/web-platform-tests/css/css-pseudo/marker-animate-002.html [ ImageOnlyFailure Pass ]
@@ -1343,3 +1342,10 @@ webkit.org/b/318035 imported/w3c/web-platform-tests/css/css-view-transitions/ifr
 webkit.org/b/318035 imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-old-main-new-iframe.html [ Pass ImageOnlyFailure ]
 webkit.org/b/318035 imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-old-main-old-iframe.html [ Pass ImageOnlyFailure ]
 webkit.org/b/318035 imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-old-main.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/318339 fast/parser/entity-comment-in-script-tricky.html [ Pass Timeout ]
+webkit.org/b/318340 accessibility/list/list-active-element-selected-children.html [ Pass Timeout ]
+webkit.org/b/318341 accessibility/display-contents/aria-grid.html [ Pass Timeout ]
+webkit.org/b/318342 http/tests/misc/script-async.html [ Failure Pass ]
+webkit.org/b/318343 fast/events/blur-window-with-focus-in-shadow-tree-crash.html [ Pass Timeout ]
+webkit.org/b/318344 accessibility/custom-elements/autocomplete.html [ Pass Timeout ]

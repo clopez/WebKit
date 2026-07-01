@@ -3606,6 +3606,7 @@ ipc/pasteboard-write-custom-data.html [ Skip ]
 ipc/remotedisplaylistrecorder-drawcontrolpart-slidertrackpart-crash.html [ Skip ]
 ipc/media-containment-bypass-create-player.html [ Skip ]
 http/tests/ipc/gpu-load-error-empty-user-info-crssh.html [ Skip ]
+ipc/usermedia-capture-start-producing-data-race.html [ Skip ]
 
 # These tests are specific to Cocoa's definition of WebCore::PlatformColorSpace which is different from Skia's.
 ipc/decode-feConvolveMatrix-kernelSize-overflow.html [ Skip ]
@@ -4229,7 +4230,6 @@ webkit.org/b/184295 http/wpt/loading/redirect-headers.html [ Skip ]
 webkit.org/b/185548 accessibility/scroll-to-make-visible-iframe-offscreen.html [ Timeout ]
 
 webkit.org/b/187271 fast/text/emoji-with-joiner.html [ Failure ]
-webkit.org/b/190707 css-custom-properties-api/length2.html [ Failure ]
 webkit.org/b/191497 http/tests/inspector/network/getSerializedCertificate.html [ Skip ]
 webkit.org/b/192407 http/tests/inspector/network/resource-security-connection.html [ Skip ]
 webkit.org/b/193323 http/wpt/cache-storage/cache-quota.any.html [ Failure ]

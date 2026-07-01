@@ -1093,8 +1093,6 @@ void HTMLInputElement::setChecked(bool isChecked, WasSetByJavaScript wasCheckedB
         if (CheckedPtr cache = renderer->document().existingAXObjectCache())
             cache->checkedStateChanged(*this);
     }
-
-    invalidateStyle();
 }
 
 void HTMLInputElement::setIndeterminate(bool newValue)

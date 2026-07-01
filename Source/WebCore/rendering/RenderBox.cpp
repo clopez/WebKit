@@ -119,7 +119,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBox);
 
 struct SameSizeAsRenderBox : public RenderBoxModelObject {
     virtual ~SameSizeAsRenderBox() = default;
-    LayoutRect frameRect;
+    LayoutRect borderBoxRectInContainer;
     LayoutBoxExtent marginBox;
     LayoutUnit preferredLogicalWidths[2];
     void* pointers[1];
@@ -590,18 +590,6 @@ void RenderBox::layout()
     clearNeedsLayout();
 }
 
-// More IE extensions.  clientWidth and clientHeight represent the interior of an object
-// excluding border and scrollbar.
-LayoutUnit RenderBox::clientWidth() const
-{
-    return paddingBoxWidth();
-}
-
-LayoutUnit RenderBox::clientHeight() const
-{
-    return paddingBoxHeight();
-}
-
 int RenderBox::scrollWidth() const
 {
     if (hasPotentiallyScrollableOverflow() && layer())
@@ -609,9 +597,9 @@ int RenderBox::scrollWidth() const
     // For objects with visible overflow, this matches IE.
     if (writingMode().isLogicalLeftInlineStart()) {
         // FIXME: This should use snappedIntSize() instead with absolute coordinates.
-        return roundToInt(std::max(clientWidth(), layoutOverflowRect().maxX() - borderLeft()));
+        return roundToInt(std::max(paddingBoxWidth(), layoutOverflowRect().maxX() - borderLeft()));
     }
-    return roundToInt(clientWidth() - std::min<LayoutUnit>(0, layoutOverflowRect().x() - borderLeft()));
+    return roundToInt(paddingBoxWidth() - std::min<LayoutUnit>(0, layoutOverflowRect().x() - borderLeft()));
 }
 
 int RenderBox::scrollHeight() const
@@ -621,7 +609,7 @@ int RenderBox::scrollHeight() const
     // For objects with visible overflow, this matches IE.
     // FIXME: Need to work right with writing modes.
     // FIXME: This should use snappedIntSize() instead with absolute coordinates.
-    return roundToInt(std::max(clientHeight(), layoutOverflowRect().maxY() - borderTop()));
+    return roundToInt(std::max(paddingBoxHeight(), layoutOverflowRect().maxY() - borderTop()));
 }
 
 int RenderBox::scrollLeft() const
@@ -895,7 +883,7 @@ IntRect absoluteInteractionBounds(const RenderObject& renderer)
         if (box->style().isOverflowVisible())
             rect = box->layoutOverflowRect();
         else
-            rect = box->clientBoxRect();
+            rect = LayoutRect(box->borderLeft(), box->borderTop(), box->paddingBoxWidth(), box->paddingBoxHeight());
         return box->localToAbsoluteQuad(rect).enclosingBoundingBox();
     }
 
@@ -1020,8 +1008,8 @@ int RenderBox::reflectionOffset() const
     if (!reflection)
         return 0;
     if (reflection->direction == ReflectionDirection::Left || reflection->direction == ReflectionDirection::Right)
-        return Style::evaluate<int>(reflection->offset, borderBoxRect().width(), Style::ZoomNeeded { });
-    return Style::evaluate<int>(reflection->offset, borderBoxRect().height(), Style::ZoomNeeded { });
+        return Style::evaluate<int>(reflection->offset, borderBoxWidth(), Style::ZoomNeeded { });
+    return Style::evaluate<int>(reflection->offset, borderBoxHeight(), Style::ZoomNeeded { });
 }
 
 LayoutRect RenderBox::reflectedRect(const LayoutRect& r) const
@@ -2766,14 +2754,14 @@ auto RenderBox::computeVisibleRectsInContainer(const RepaintRects& rects, const 
 
 void RenderBox::repaintDuringLayoutIfMoved(const LayoutRect& oldRect)
 {
-    if (oldRect.location() != m_frameRect.location()) {
-        LayoutRect newRect = m_frameRect;
+    if (oldRect.location() != m_borderBoxRectInContainer.location()) {
+        LayoutRect newRect = m_borderBoxRectInContainer;
         // The child moved.  Invalidate the object's old and new positions.  We have to do this
         // since the object may not have gotten a layout.
-        m_frameRect = oldRect;
+        m_borderBoxRectInContainer = oldRect;
         repaint();
         repaintOverhangingFloats(true);
-        m_frameRect = newRect;
+        m_borderBoxRectInContainer = newRect;
         repaint();
         repaintOverhangingFloats(true);
     }
@@ -4248,9 +4236,9 @@ LayoutRange RenderBox::containingBlockRangeForPositioned(const RenderBoxModelObj
             if (auto boxInfo = containingBlock->renderBoxFragmentInfo(fragment)) {
                 auto size = boxInfo->logicalWidth();
                 if (BoxAxis::Horizontal == physicalAxis)
-                    size -= containingBlock->borderBoxWidth() - containingBlock->clientWidth();
+                    size -= containingBlock->borderBoxWidth() - containingBlock->paddingBoxWidth();
                 else
-                    size -= containingBlock->borderBoxHeight() - containingBlock->clientHeight();
+                    size -= containingBlock->borderBoxHeight() - containingBlock->paddingBoxHeight();
                 return LayoutRange(startEdge, std::max<LayoutUnit>(0, size));
             }
         }
@@ -4260,8 +4248,8 @@ LayoutRange RenderBox::containingBlockRangeForPositioned(const RenderBoxModelObj
         return getScrollableContainingBlockRange(*containingBlock, physicalAxis);
 
     return BoxAxis::Horizontal == physicalAxis
-        ? LayoutRange(startEdge, containingBlock->clientWidth())
-        : LayoutRange(startEdge, containingBlock->clientHeight());
+        ? LayoutRange(startEdge, containingBlock->paddingBoxWidth())
+        : LayoutRange(startEdge, containingBlock->paddingBoxHeight());
 }
 
 void RenderBox::computeOutOfFlowPositionedLogicalWidth(LogicalExtentComputedValues& computedValues) const
@@ -4846,7 +4834,7 @@ bool RenderBox::hasLayoutOverflow() const
     if (!m_overflow)
         return false;
 
-    return !flippedClientBoxRect().contains(m_overflow->layoutOverflowRect());
+    return !flippedPaddingBoxRect().contains(m_overflow->layoutOverflowRect());
 }
 
 LayoutOptionalOutsets RenderBox::allowedLayoutOverflow() const
@@ -4874,25 +4862,25 @@ LayoutOptionalOutsets RenderBox::allowedLayoutOverflow() const
     return allowance;
 }
 
-LayoutRect RenderBox::clampToAllowedLayoutOverflow(const LayoutRect& rect, const LayoutRect& flippedClientBoxRect)
+LayoutRect RenderBox::clampToAllowedLayoutOverflow(const LayoutRect& rect, const LayoutRect& flippedPaddingBoxRect)
 {
     LayoutOptionalOutsets allowance = allowedLayoutOverflow();
     LayoutRect clippedRect(rect);
     // Non-negative values indicate a limit, let's apply them.
     if (allowance.top())
-        clippedRect.shiftYEdgeTo(std::max(rect.y(), flippedClientBoxRect.y() - *allowance.top()));
+        clippedRect.shiftYEdgeTo(std::max(rect.y(), flippedPaddingBoxRect.y() - *allowance.top()));
     if (allowance.bottom())
-        clippedRect.shiftMaxYEdgeTo(std::min(rect.maxY(), flippedClientBoxRect.maxY() + *allowance.bottom()));
+        clippedRect.shiftMaxYEdgeTo(std::min(rect.maxY(), flippedPaddingBoxRect.maxY() + *allowance.bottom()));
     if (allowance.left())
-        clippedRect.shiftXEdgeTo(std::max(rect.x(), flippedClientBoxRect.x() - *allowance.left()));
+        clippedRect.shiftXEdgeTo(std::max(rect.x(), flippedPaddingBoxRect.x() - *allowance.left()));
     if (allowance.right())
-        clippedRect.shiftMaxXEdgeTo(std::min(rect.maxX(), flippedClientBoxRect.maxX() + *allowance.right()));
+        clippedRect.shiftMaxXEdgeTo(std::min(rect.maxX(), flippedPaddingBoxRect.maxX() + *allowance.right()));
     return clippedRect;
 }
 
 void RenderBox::addLayoutOverflow(const LayoutRect& rect)
 {
-    auto clientBox = flippedClientBoxRect();
+    auto clientBox = flippedPaddingBoxRect();
     if (clientBox.contains(rect) || rect.isEmpty())
         return;
 
@@ -4930,7 +4918,7 @@ void RenderBox::addMarginBoxOverflow(const RenderBox& renderer, LayoutSize offse
 
     // Some in-flow boxes (e.g. grid items) only extend the layout overflow edge.
     if (options.contains(ComputeOverflowOptions::MarginsExtendLayoutOverflow)) {
-        auto clippedChildMarginRect = clampToAllowedLayoutOverflow(childMarginRect, flippedClientBoxRect());
+        auto clippedChildMarginRect = clampToAllowedLayoutOverflow(childMarginRect, flippedPaddingBoxRect());
         if (!layoutOverflowRect().contains(clippedChildMarginRect))
             ensureOverflow().addLayoutOverflow(clippedChildMarginRect);
         ASSERT(!options.containsAny({ ComputeOverflowOptions::MarginsExtendContentAreaX, ComputeOverflowOptions::MarginsExtendContentAreaY })); // If you need this to work, remove the return statement.
@@ -4954,7 +4942,7 @@ void RenderBox::clearOverflow()
 RenderOverflow& RenderBox::ensureOverflow()
 {
     if (!m_overflow)
-        m_overflow = makeUnique<RenderOverflow>(flippedClientBoxRect(), borderBoxRect(), flippedContentBoxRect());
+        m_overflow = makeUnique<RenderOverflow>(flippedPaddingBoxRect(), borderBoxRect(), flippedContentBoxRect());
 
     return *m_overflow;
 }
@@ -5121,12 +5109,11 @@ LayoutRect RenderBox::layoutOverflowRectForPropagation(const WritingMode parentW
     return convertRectToParentWritingMode(rect, parentWritingMode);
 }
 
-LayoutRect RenderBox::flippedClientBoxRect() const
+LayoutRect RenderBox::flippedPaddingBoxRect() const
 {
     // Because of the special coordinate system used for overflow rectangles (not quite logical, not
     // quite physical), we need to flip the block progression coordinate in vertical-rl and
-    // horizontal-bt writing modes. Apart from that, this method does the same as clientBoxRect().
-
+    // horizontal-bt writing modes. Apart from that, this method does the same as paddingBoxRect().
     auto rect = paddingBoxRectIncludingScrollbar();
     // Flip block progression axis if writing mode is vertical-rl or horizontal-bt.
     flipForWritingMode(rect);

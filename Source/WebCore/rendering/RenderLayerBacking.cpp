@@ -342,8 +342,8 @@ RenderLayerBacking::RenderLayerBacking(RenderLayer& layer)
         if (!fullscreenElement || !fullscreenElement->renderer() || fullscreenElement->renderer()->pseudoElementRenderer(PseudoElementType::Backdrop) != &renderer)
             return false;
 
-        auto rendererRect = box->frameRect();
-        return rendererRect == box->view().frameRect();
+        auto rendererRect = box->borderBoxRectInContainer();
+        return rendererRect == box->view().borderBoxRectInContainer();
     };
     setRequiresBackgroundLayer(isFullsizeBackdrop(layer.renderer()));
 #endif

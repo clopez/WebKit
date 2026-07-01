@@ -255,7 +255,7 @@ LayoutUnit RenderView::clientLogicalWidthForFixedPosition() const
     if (settings().visualViewportEnabled())
         return isHorizontalWritingMode() ? frameView->layoutViewportRect().width() : frameView->layoutViewportRect().height();
 
-    return clientLogicalWidth();
+    return paddingBoxLogicalWidth();
 }
 
 LayoutUnit RenderView::clientLogicalHeightForFixedPosition() const
@@ -272,7 +272,7 @@ LayoutUnit RenderView::clientLogicalHeightForFixedPosition() const
     if (settings().visualViewportEnabled())
         return isHorizontalWritingMode() ? frameView->layoutViewportRect().height() : frameView->layoutViewportRect().width();
 
-    return clientLogicalHeight();
+    return paddingBoxLogicalHeight();
 }
 
 void RenderView::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
@@ -732,7 +732,7 @@ bool RenderView::shouldPaintBaseBackground() const
         return true;
 
     if (RefPtr parentFrame = frameView->frame().parent()) {
-        if (auto* documentLoader = document->loader(); documentLoader && documentLoader->isInitialAboutBlank()) {
+        if (auto* documentLoader = document->loader(); documentLoader && documentLoader->isInitialAboutBlank() == IsInitialAboutBlank::Yes) {
             // https://github.com/w3c/csswg-drafts/issues/9624#issuecomment-1944425637
             // > RESOLVED: initial about:blank iframes are always transparent
             return false;

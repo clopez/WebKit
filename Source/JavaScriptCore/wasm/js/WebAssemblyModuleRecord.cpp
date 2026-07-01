@@ -500,6 +500,9 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
             if ((memory->memory().sharingMode() == MemorySharingMode::Shared) != moduleInformation.memory(import.kindIndex).isShared())
                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import"_s, "provided a 'shared' that is different from the module's declared 'shared' import memory attribute"_s)));
 
+            if (memory->memory().addressType() != moduleInformation.memory(import.kindIndex).addressType())
+                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import"_s, "provided an 'index' that is different from the module's declared 'index' import memory attribute"_s)));
+
             // ii. Append v to memories.
             // iii. Append v.[[Memory]] to imports.
             m_instance->setMemory(vm, import.kindIndex, memory);

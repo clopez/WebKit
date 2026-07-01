@@ -2874,10 +2874,28 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
     return RefPtr<API::Navigation> { WTF::move(navigation) };
 }
 
+// The HTML spec replaces an iframe's initial about:blank entry on the frame's first real
+// navigation; WebKit's BF list keeps the stale state in older entries, so dispatching a
+// traversal into one would regress the live iframe. The target entry is identified by the
+// authoritative isInitialAboutBlank flag (set from DocumentLoader::isInitialAboutBlank when the
+// history item is created), not by a URL-string match, so an intentional iframe.src="about:blank"
+// navigation — which is not the initial empty document — is correctly dispatched.
+static bool isStaleInitialAboutBlankIframeTarget(WebBackForwardListFrameItem& toFrame)
+{
+    if (toFrame.frameState().isInitialAboutBlank == WebCore::IsInitialAboutBlank::No)
+        return false;
+    auto toFrameID = toFrame.frameID();
+    if (!toFrameID)
+        return false;
+    RefPtr toLiveFrame = WebFrameProxy::webFrame(*toFrameID);
+    return toLiveFrame && !toLiveFrame->isMainFrame();
+}
+
 bool WebPageProxy::dispatchPerFrameTraversals(WebBackForwardListFrameItem& fromFrame, WebBackForwardListFrameItem& toFrame, NavigationIdentifier navigationID, FrameLoadType frameLoadType, ShouldRestoreFromBackForwardCache shouldRestore, const WebCore::PublicSuffix& publicSuffix)
 {
     bool anySent = false;
-    if (fromFrame.frameState().itemSequenceNumber != toFrame.frameState().itemSequenceNumber)
+    if (fromFrame.frameState().itemSequenceNumber != toFrame.frameState().itemSequenceNumber
+        && !isStaleInitialAboutBlankIframeTarget(toFrame))
         anySent = sendGoToBackForwardItemForFrame(toFrame, navigationID, frameLoadType, shouldRestore, publicSuffix);
 
     bool sameDocument = fromFrame.frameState().documentSequenceNumber == toFrame.frameState().documentSequenceNumber;
@@ -9889,7 +9907,7 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
     RefPtr navigation = navigationID ? m_navigationState->navigation(*navigationID) : nullptr;
 
     // COOP only applies to top-level browsing contexts.
-    if (frameInfo.isMainFrame && coopValuesRequireBrowsingContextGroupSwitch(isShowingInitialAboutBlank, activeDocumentCOOPValue, frameInfo.securityOrigin.securityOrigin().get(), obtainCrossOriginOpenerPolicy(response).value, SecurityOrigin::create(response.url()).get())) {
+    if (frameInfo.isMainFrame && coopValuesRequireBrowsingContextGroupSwitch(isShowingInitialAboutBlank ? WebCore::IsInitialAboutBlank::Yes : WebCore::IsInitialAboutBlank::No, activeDocumentCOOPValue, frameInfo.securityOrigin.securityOrigin().get(), obtainCrossOriginOpenerPolicy(response).value, SecurityOrigin::create(response.url()).get())) {
         mainFrame()->disownOpener();
         m_openedMainFrameName = { };
     }
@@ -13841,6 +13859,9 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     if (m_viewWindowCoordinates)
         parameters.viewWindowCoordinates = *m_viewWindowCoordinates;
     parameters.overflowHeightForTopScrollEdgeEffect = m_overflowHeightForTopScrollEdgeEffect;
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    parameters.fullScreenTitlebarOverlayIsDisplayed = fullScreenTitlebarOverlayIsDisplayed();
+#endif
 #if HAVE(NSVIEW_CORNER_CONFIGURATION)
     parameters.scrollbarAvoidanceCornerRadii = internals().scrollbarAvoidanceCornerRadii;
 #endif
@@ -16758,8 +16779,8 @@ void WebPageProxy::closeOverlayedViews()
 #if ENABLE(POINTER_LOCK)
 void WebPageProxy::requestPointerLock(IPC::Connection& connection, CompletionHandler<void(bool)>&& completionHandler)
 {
+    MESSAGE_CHECK_COMPLETION_BASE(!m_isPointerLocked, connection, didDenyPointerLock(WTF::move(completionHandler)));
     ASSERT(!m_isPointerLockPending);
-    ASSERT(!m_isPointerLocked);
     m_isPointerLockPending = true;
 
     if (!isViewVisible() || !isViewFocused()) {
@@ -16790,7 +16811,11 @@ void WebPageProxy::didAllowPointerLock(CompletionHandler<void(bool)>&& completio
     if (!m_isPointerLockPending)
         return completionHandler(false);
 
-    ASSERT(!m_isPointerLocked);
+    if (m_isPointerLocked) {
+        ASSERT_NOT_REACHED();
+        return completionHandler(false);
+    }
+
     m_isPointerLocked = true;
     m_isPointerLockPending = false;
 
@@ -16804,7 +16829,11 @@ void WebPageProxy::didDenyPointerLock(CompletionHandler<void(bool)>&& completion
     if (!m_isPointerLockPending)
         return completionHandler(false);
 
-    ASSERT(!m_isPointerLocked);
+    if (m_isPointerLocked) {
+        ASSERT_NOT_REACHED();
+        return completionHandler(false);
+    }
+
     m_isPointerLockPending = false;
 
     completionHandler(false);

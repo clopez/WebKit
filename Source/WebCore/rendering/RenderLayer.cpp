@@ -2086,8 +2086,8 @@ static LayoutRect computeLayerPositionAndIntegralSize(const RenderLayerModelObje
         return { LayoutPoint(), inlineRenderer->linesBoundingBox().size() };
 
     if (auto* boxRenderer = dynamicDowncast<RenderBox>(renderer)) {
-        const auto& frameRect = boxRenderer->frameRect();
-        return { boxRenderer->topLeftLocation(), snappedIntSize(frameRect.size(), frameRect.location()) };
+        const auto& borderBox = boxRenderer->borderBoxRectInContainer();
+        return { boxRenderer->topLeftLocation(), snappedIntSize(borderBox.size(), borderBox.location()) };
     }
 
     if (auto* svgModelObjectRenderer = dynamicDowncast<RenderSVGModelObject>(renderer)) {
@@ -3078,7 +3078,7 @@ IntSize RenderLayer::visibleSize() const
     if (!box)
         return IntSize();
 
-    return IntSize(roundToInt(box->clientWidth()), roundToInt(box->clientHeight()));
+    return IntSize(roundToInt(box->paddingBoxWidth()), roundToInt(box->paddingBoxHeight()));
 }
 
 RenderLayer::OverflowControlRects RenderLayer::overflowControlsRects() const

@@ -27,8 +27,13 @@
 
 #include "Decoder.h"
 #include "Encoder.h"
+#include "Logging.h"
 #include "SandboxExtension.h"
 #include <WebCore/FormData.h>
+
+#if PLATFORM(COCOA)
+#include "PathsBlockedForSandboxExtensions.h"
+#endif
 
 namespace IPC {
 
@@ -54,7 +59,26 @@ private:
 inline FormDataReference::FormDataReference(RefPtr<WebCore::FormData>&& data, Vector<WebKit::SandboxExtensionHandle>&& sandboxExtensionHandles)
     : m_data(WTF::move(data))
 {
-    WebKit::SandboxExtension::consumePermanently(WTF::move(sandboxExtensionHandles));
+    if (!m_data)
+        return;
+
+#if PLATFORM(COCOA)
+    for (auto& element : m_data->elements()) {
+        if (auto* fileData = std::get_if<WebCore::FormDataElement::EncodedFileData>(&element.data)) {
+            const String& path = fileData->filename;
+            if (WebKit::pathIsBlockedForSandboxExtensions(path)) {
+                RELEASE_LOG(Process, "Form data file path was blocked for sandbox extension: %{private}s", path.utf8().data());
+                m_data = nullptr;
+                break;
+            }
+        }
+    }
+#endif // PLATFORM(COCOA)
+
+    if (m_data && !WebKit::SandboxExtension::consumePermanently(sandboxExtensionHandles)) {
+        RELEASE_LOG_ERROR(IPC, "FormDataReference: dropping body because a file sandbox extension could not be consumed");
+        m_data = nullptr;
+    }
 }
 
 inline Vector<WebKit::SandboxExtensionHandle> FormDataReference::sandboxExtensionHandles() const
@@ -65,6 +89,12 @@ inline Vector<WebKit::SandboxExtensionHandle> FormDataReference::sandboxExtensio
     return WTF::compactMap(m_data->elements(), [](auto& element) -> std::optional<WebKit::SandboxExtensionHandle> {
         if (auto* fileData = std::get_if<WebCore::FormDataElement::EncodedFileData>(&element.data)) {
             const String& path = fileData->filename;
+#if PLATFORM(COCOA)
+            if (WebKit::pathIsBlockedForSandboxExtensions(path)) {
+                RELEASE_LOG(Process, "Form data file path was blocked for sandbox extension: %{private}s", path.utf8().data());
+                return std::nullopt;
+            }
+#endif // PLATFORM(COCOA)
             if (auto handle = WebKit::SandboxExtension::createHandle(path, WebKit::SandboxExtension::Type::ReadOnly))
                 return { WTF::move(*handle) };
         }

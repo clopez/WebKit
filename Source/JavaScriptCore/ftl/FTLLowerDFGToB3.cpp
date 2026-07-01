@@ -1936,6 +1936,9 @@ private:
         case ToLowerCase:
             compileToLowerCase();
             break;
+        case StringTrim:
+            compileStringTrim();
+            break;
         case NumberToStringWithRadix:
             compileNumberToStringWithRadix();
             break;
@@ -6746,7 +6749,7 @@ IGNORE_CLANG_WARNINGS_END
 
             m_out.appendTo(slowCase, continuation);
             ValueFromBlock slowResult = m_out.anchor(
-                vmCall(Int64, operationGetByValObjectInt, weakPointer(globalObject), base, index));
+                vmCall(Int64, operationGetByValArrayStorageInt, weakPointer(globalObject), base, index));
             m_out.jump(continuation);
 
             m_out.appendTo(continuation, lastNext);
@@ -20872,6 +20875,26 @@ IGNORE_CLANG_WARNINGS_END
 
         m_out.appendTo(continuation, lastNext);
         setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
+    }
+
+    void compileStringTrim()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        LValue string = lowString(m_node->child1());
+        switch (m_node->intrinsic()) {
+        case StringPrototypeTrimIntrinsic:
+            setJSValue(vmCall(pointerType(), operationStringTrim, weakPointer(globalObject), string));
+            break;
+        case StringPrototypeTrimStartIntrinsic:
+            setJSValue(vmCall(pointerType(), operationStringTrimStart, weakPointer(globalObject), string));
+            break;
+        case StringPrototypeTrimEndIntrinsic:
+            setJSValue(vmCall(pointerType(), operationStringTrimEnd, weakPointer(globalObject), string));
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            break;
+        }
     }
 
     void compileNumberToStringWithRadix()

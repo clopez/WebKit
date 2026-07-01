@@ -2958,10 +2958,6 @@ static void handleCNNQuirks(QuirksData& quirksData, const URL& /* quirksURL */, 
 
     // cnn.com rdar://119640248
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsFullscreenObjectFitQuirk);
-    // cnn.com rdar://176539646
-#if ENABLE(THREADED_ANIMATIONS)
-    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldDisableThreadedAnimationsQuirk);
-#endif
 #if PLATFORM(COCOA)
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsCNNCaptionQuirk);
 #endif

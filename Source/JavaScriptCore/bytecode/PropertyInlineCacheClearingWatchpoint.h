@@ -86,6 +86,7 @@ class AdaptiveValuePropertyInlineCacheClearingWatchpoint final : public Adaptive
     WTF_MAKE_NONCOPYABLE(AdaptiveValuePropertyInlineCacheClearingWatchpoint);
     WTF_MAKE_TZONE_ALLOCATED(AdaptiveValuePropertyInlineCacheClearingWatchpoint);
 
+    bool isValid() const final { return !m_owner->ownerIsDead(); }
     void handleFire(VM&, const FireDetail&) final;
 
 public:

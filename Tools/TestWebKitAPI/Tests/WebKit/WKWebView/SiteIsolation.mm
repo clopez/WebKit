@@ -4961,6 +4961,47 @@ TEST(SiteIsolation, NavigateFrameWithSiblingsBackForward)
     EXPECT_WK_STREQ([webView _test_waitForAlert], "c");
 }
 
+TEST(SiteIsolation, IntentionalAboutBlankIframeBackForwardNotSkipped)
+{
+    // Regression test for the URL-heuristic gap in isStaleInitialAboutBlankIframeTarget
+    // (https://bugs.webkit.org/show_bug.cgi?id=317458). A child frame that navigates
+    // *intentionally* to about:blank after its first real load produces a legitimate,
+    // traversable back/forward entry — distinct from the frame's initial empty document.
+    // A URL-string guard would wrongly skip the traversal into that entry; the
+    // authoritative isInitialAboutBlank flag lets it through.
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/a'></iframe>"_s } },
+        { "/a"_s, { "<script> alert('a'); </script>"_s } },
+        { "/c"_s, { "<script> alert('c'); </script>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "a");
+
+    auto childURLIs = [webView = RetainPtr { webView }] (NSString *expected) {
+        for (int i = 0; i < 100; ++i) {
+            RetainPtr value = [webView objectByEvaluatingJavaScript:@"location.href" inFrame:[webView firstChildFrame]];
+            if ([value isKindOfClass:[NSString class]] && [(NSString *)value.get() isEqualToString:expected])
+                return true;
+            TestWebKitAPI::Util::runFor(0.05_s);
+        }
+        return false;
+    };
+
+    // Intentional about:blank navigation in the child frame, after its first real load.
+    [webView evaluateJavaScript:@"location.href = 'about:blank'" inFrame:[webView firstChildFrame] completionHandler:nil];
+    EXPECT_TRUE(childURLIs(@"about:blank"));
+
+    // Navigate the child to a real URL so the live frame is on a real document.
+    [webView evaluateJavaScript:@"location.href = 'https://webkit.org/c'" inFrame:[webView firstChildFrame] completionHandler:nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "c");
+
+    // Going back must traverse the child back to the intentional about:blank entry,
+    // not leave it stranded on /c. With the old URL heuristic this was skipped.
+    [webView goBack];
+    EXPECT_TRUE(childURLIs(@"about:blank"));
+}
+
 TEST(SiteIsolation, RedirectToCSP)
 {
     HTTPServer server({
@@ -9700,6 +9741,65 @@ TEST(SiteIsolation, MultiProcessBFCacheGoForward)
 
     EXPECT_WK_STREQ(@"https://c.com/c", [webView URL].absoluteString);
     EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker_c ? true : false"] boolValue]);
+}
+
+TEST(SiteIsolation, MultiProcessBFCacheRestoreWithCrossSiteIframeDoesNotCrash)
+{
+    // Regression test for bug 318179. /a1 and /a2 are same-site so the main frame is not
+    // process-swapped: the back/forward item gets a BFCache entry but no SuspendedPageProxy,
+    // so goBack restores via RestoreWithFrameItem dispatched straight to the iframe process
+    // while /a2's subframe is still attached there.
+    HTTPServer server({
+        { "/a1"_s, { "<iframe src='https://b.com/frame'></iframe>"_s } },
+        { "/a2"_s, { "<iframe src='https://b.com/frame'></iframe>"_s } },
+        { "/frame"_s, { "iframe content"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto *configuration = server.httpsProxyConfiguration();
+    enableFeature(configuration, @"MultiProcessBackForwardCacheEnabled");
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a1"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+    [webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker_a1 = true"];
+    [webView objectByEvaluatingJavaScript:@"window.__iframeBfcacheMarker = true" inFrame:[webView firstChildFrame]];
+
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://a.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://b.com"_s } } },
+    });
+
+    pid_t iframePID = findFramePID(frameTrees(webView.get()).get(), FrameType::Remote);
+    EXPECT_NE(iframePID, 0);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a2"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://a.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://b.com"_s } } },
+    });
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_WK_STREQ(@"https://a.com/a1", [webView URL].absoluteString);
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker_a1 ? true : false"] boolValue]);
+
+    // Drain the RestoreWithFrameItem IPC so an iframe-process crash lands in-window.
+    Util::runFor(0.5_s);
+    EXPECT_TRUE(processStillRunning(iframePID));
+
+    Vector<ExpectedFrameTree> expectedAfterGoBack = {
+        { "https://a.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://b.com"_s } } },
+    };
+    while (!frameTreesMatch(frameTrees(webView.get()).get(), Vector<ExpectedFrameTree> { expectedAfterGoBack }))
+        TestWebKitAPI::Util::spinRunLoop();
+    checkFrameTreesInProcesses(webView.get(), WTF::move(expectedAfterGoBack));
+
+    // Reading the iframe-scope marker round-trips to the iframe process, proving it restored rather than crashed and reloaded.
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__iframeBfcacheMarker ? true : false" inFrame:[webView firstChildFrame]] boolValue]);
 }
 
 TEST(SiteIsolation, MultiProcessBFCacheSameSiteNavAfterRestore)

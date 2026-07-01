@@ -2264,7 +2264,6 @@
 		51BCCE301F8F179E006BA0ED /* ServiceWorkerThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 517C87101F8EE72E00EB8076 /* ServiceWorkerThread.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51BE37E00DAEE00E001085FC /* StorageArea.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BE37DE0DAEE00E001085FC /* StorageArea.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51C0AA390F2AA10A001648C2 /* CachedFrame.h in Headers */ = {isa = PBXBuildFile; fileRef = 51C0AA380F2AA10A001648C2 /* CachedFrame.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		51C81B8A0C4422F70019ECE3 /* FTPDirectoryParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 51C81B880C4422F70019ECE3 /* FTPDirectoryParser.h */; };
 		51CA7EE91F883390003D3131 /* ServiceWorkerContextData.h in Headers */ = {isa = PBXBuildFile; fileRef = 51CA7EE71F8832E0003D3131 /* ServiceWorkerContextData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51CBFC990D10E483002DBF51 /* CachedFramePlatformData.h in Headers */ = {isa = PBXBuildFile; fileRef = 51CBFC980D10E483002DBF51 /* CachedFramePlatformData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51CF3E962EE8071B00EEAFDD /* FormatDescriptionUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = CDD8D310271F2C8D00DAA256 /* FormatDescriptionUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3983,7 +3982,6 @@
 		970B72A6145008EB00F00A37 /* EventHeaders.h in Headers */ = {isa = PBXBuildFile; fileRef = 970B72A5145008EB00F00A37 /* EventHeaders.h */; };
 		9711460414EF009A00674FD9 /* NavigatorGeolocation.h in Headers */ = {isa = PBXBuildFile; fileRef = 9711460114EF009A00674FD9 /* NavigatorGeolocation.h */; };
 		971C31113358BF5C94D9690E /* VolumeMuted.svg in Copy Modern Media Controls Images */ = {isa = PBXBuildFile; fileRef = 85DD3663671B2D14371BB163 /* VolumeMuted.svg */; platformFilters = (ios, maccatalyst, tvos, xros, ); };
-		97205AB0123928CA00B17380 /* FTPDirectoryDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 97205AAE123928CA00B17380 /* FTPDirectoryDocument.h */; };
 		97205AB61239291000B17380 /* ImageDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 97205AB21239291000B17380 /* ImageDocument.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		97205AB81239291000B17380 /* MediaDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 97205AB41239291000B17380 /* MediaDocument.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		97205ABC1239292700B17380 /* PluginDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 97205ABA1239292700B17380 /* PluginDocument.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4413,6 +4411,8 @@
 		A513B3D7114B1666001C429B /* KeyEventCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = A5C974CF11485FF10066F2AB /* KeyEventCocoa.h */; };
 		A51432582DE0CE6E0059FFA1 /* GridSpan.h in Headers */ = {isa = PBXBuildFile; fileRef = A51432552DE0CE6E0059FFA1 /* GridSpan.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A515729D2F7AD717008975E0 /* SubtreeScrollbarChangesState.h in Headers */ = {isa = PBXBuildFile; fileRef = A515729A2F7AD717008975E0 /* SubtreeScrollbarChangesState.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A52460C12FF48CE4003567A5 /* GridItemSizingFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = A52460BE2FF48CE4003567A5 /* GridItemSizingFunctions.h */; };
+		A52460C22FF48CE4003567A5 /* GridSizeTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = A52460C02FF48CE4003567A5 /* GridSizeTypes.h */; };
 		A52B348F1FA3BDA6008B6246 /* ServiceWorkerDebuggable.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B348C1FA3BD79008B6246 /* ServiceWorkerDebuggable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A52B34961FA3E290008B6246 /* ServiceWorkerInspectorProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B34931FA3E286008B6246 /* ServiceWorkerInspectorProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A52B349E1FA41703008B6246 /* WorkerDebuggerProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = A52B349C1FA416F8008B6246 /* WorkerDebuggerProxy.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -12874,8 +12874,6 @@
 		51BE37DE0DAEE00E001085FC /* StorageArea.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StorageArea.h; sourceTree = "<group>"; };
 		51C0AA380F2AA10A001648C2 /* CachedFrame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CachedFrame.h; sourceTree = "<group>"; };
 		51C0AA400F2AA15E001648C2 /* CachedFrame.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CachedFrame.cpp; sourceTree = "<group>"; };
-		51C81B870C4422F70019ECE3 /* FTPDirectoryParser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FTPDirectoryParser.cpp; sourceTree = "<group>"; };
-		51C81B880C4422F70019ECE3 /* FTPDirectoryParser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FTPDirectoryParser.h; sourceTree = "<group>"; };
 		51CA7EE71F8832E0003D3131 /* ServiceWorkerContextData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceWorkerContextData.h; sourceTree = "<group>"; };
 		51CBFC980D10E483002DBF51 /* CachedFramePlatformData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CachedFramePlatformData.h; sourceTree = "<group>"; };
 		51CF3EA42EEFAA3E00EEAFDD /* MediaSampleConverter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaSampleConverter.h; sourceTree = "<group>"; };
@@ -16640,8 +16638,6 @@
 		9711460014EF009A00674FD9 /* NavigatorGeolocation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NavigatorGeolocation.cpp; sourceTree = "<group>"; };
 		9711460114EF009A00674FD9 /* NavigatorGeolocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NavigatorGeolocation.h; sourceTree = "<group>"; };
 		9711460214EF009A00674FD9 /* Navigator+Geolocation.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Navigator+Geolocation.idl"; sourceTree = "<group>"; };
-		97205AAD123928CA00B17380 /* FTPDirectoryDocument.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FTPDirectoryDocument.cpp; sourceTree = "<group>"; };
-		97205AAE123928CA00B17380 /* FTPDirectoryDocument.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FTPDirectoryDocument.h; sourceTree = "<group>"; };
 		97205AB11239291000B17380 /* ImageDocument.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ImageDocument.cpp; sourceTree = "<group>"; };
 		97205AB21239291000B17380 /* ImageDocument.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImageDocument.h; sourceTree = "<group>"; };
 		97205AB31239291000B17380 /* MediaDocument.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MediaDocument.cpp; sourceTree = "<group>"; };
@@ -17521,6 +17517,9 @@
 		A51432562DE0CE6E0059FFA1 /* GridSpan.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = GridSpan.cpp; sourceTree = "<group>"; };
 		A515729A2F7AD717008975E0 /* SubtreeScrollbarChangesState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SubtreeScrollbarChangesState.h; sourceTree = "<group>"; };
 		A515729B2F7AD717008975E0 /* SubtreeScrollbarChangesState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SubtreeScrollbarChangesState.cpp; sourceTree = "<group>"; };
+		A52460BE2FF48CE4003567A5 /* GridItemSizingFunctions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GridItemSizingFunctions.h; sourceTree = "<group>"; };
+		A52460BF2FF48CE4003567A5 /* GridItemSizingFunctions.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = GridItemSizingFunctions.cpp; sourceTree = "<group>"; };
+		A52460C02FF48CE4003567A5 /* GridSizeTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GridSizeTypes.h; sourceTree = "<group>"; };
 		A52B348C1FA3BD79008B6246 /* ServiceWorkerDebuggable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceWorkerDebuggable.h; sourceTree = "<group>"; };
 		A52B348E1FA3BD79008B6246 /* ServiceWorkerDebuggable.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ServiceWorkerDebuggable.cpp; sourceTree = "<group>"; };
 		A52B34931FA3E286008B6246 /* ServiceWorkerInspectorProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceWorkerInspectorProxy.h; sourceTree = "<group>"; };
@@ -33112,8 +33111,6 @@
 				F50664F6157F52DC00AC226F /* FormController.h */,
 				4A0DA2FC129B241900AB61E1 /* FormListedElement.cpp */,
 				4A0DA2FD129B241900AB61E1 /* FormListedElement.h */,
-				97205AAD123928CA00B17380 /* FTPDirectoryDocument.cpp */,
-				97205AAE123928CA00B17380 /* FTPDirectoryDocument.h */,
 				830030F31B7D33A600ED3AAC /* GenericCachedHTMLCollection.cpp */,
 				830030F41B7D33A600ED3AAC /* GenericCachedHTMLCollection.h */,
 				F55B3D8B1251F12D003EF269 /* HiddenInputType.cpp */,
@@ -34362,12 +34359,15 @@
 				A585CC3E2E566A7800A69390 /* GridFormattingContext.cpp */,
 				A585CC3D2E566A7800A69390 /* GridFormattingContext.h */,
 				A5AFABD62E8D931F00485152 /* GridItemRect.h */,
+				A52460BF2FF48CE4003567A5 /* GridItemSizingFunctions.cpp */,
+				A52460BE2FF48CE4003567A5 /* GridItemSizingFunctions.h */,
 				A585CC402E566A7800A69390 /* GridLayout.cpp */,
 				A585CC3F2E566A7800A69390 /* GridLayout.h */,
 				A5AC7CAC2F4E9AC700981859 /* GridLayoutConstraints.h */,
 				A5CE23262F35106900179F07 /* GridLayoutState.h */,
 				A5AFABC22E8C5D4900485152 /* GridLayoutUtils.cpp */,
 				A5AFABC12E8C5D4900485152 /* GridLayoutUtils.h */,
+				A52460C02FF48CE4003567A5 /* GridSizeTypes.h */,
 				A5FA576D2E85F8A400EF058F /* GridTypeAliases.h */,
 				A532262E2E7492C100DDFA5E /* ImplicitGrid.cpp */,
 				A532262D2E7492C100DDFA5E /* ImplicitGrid.h */,
@@ -38727,8 +38727,6 @@
 				9E68A6962DC9407300039106 /* FrameMemoryMonitor.cpp */,
 				9E68A6952DC9406100039106 /* FrameMemoryMonitor.h */,
 				628D214D12131EF40055DCFC /* FrameNetworkingContext.h */,
-				51C81B870C4422F70019ECE3 /* FTPDirectoryParser.cpp */,
-				51C81B880C4422F70019ECE3 /* FTPDirectoryParser.h */,
 				28538EED20221FA600D1909A /* HeaderFieldTokenizer.cpp */,
 				28538EEE20221FA600D1909A /* HeaderFieldTokenizer.h */,
 				97DCE1FF10807C750057D394 /* HistoryController.cpp */,
@@ -45550,8 +45548,6 @@
 				A773AD2F2E7CCA1A004E6E72 /* FrameTreeSyncData.serialization.in in Headers */,
 				5C907ECA2952E20800B3402D /* FrameView.h in Headers */,
 				5EAAE11E2F4FC900009CAB0D /* FrameWorkerAgent.h in Headers */,
-				97205AB0123928CA00B17380 /* FTPDirectoryDocument.h in Headers */,
-				51C81B8A0C4422F70019ECE3 /* FTPDirectoryParser.h in Headers */,
 				46781A1528EFCF810095AD63 /* FullscreenOptions.h in Headers */,
 				26B999931803B9D900D01121 /* FunctionCall.h in Headers */,
 				72C9B6522F99950B0070F060 /* GainMap.h in Headers */,
@@ -45652,10 +45648,12 @@
 				A5FA57662E85F40D00EF058F /* GridAreaLines.h in Headers */,
 				A585CC442E566A7800A69390 /* GridFormattingContext.h in Headers */,
 				A5AFABD72E8D932300485152 /* GridItemRect.h in Headers */,
+				A52460C12FF48CE4003567A5 /* GridItemSizingFunctions.h in Headers */,
 				A585CC452E566A7800A69390 /* GridLayout.h in Headers */,
 				A5AC7CAD2F4E9AC700981859 /* GridLayoutConstraints.h in Headers */,
 				A5CE23272F35106E00179F07 /* GridLayoutState.h in Headers */,
 				A5AFABC32E8C5D5000485152 /* GridLayoutUtils.h in Headers */,
+				A52460C22FF48CE4003567A5 /* GridSizeTypes.h in Headers */,
 				A51432582DE0CE6E0059FFA1 /* GridSpan.h in Headers */,
 				E12DE7181E4B74A600F9ACCF /* GridTrackSizingAlgorithm.h in Headers */,
 				A5FA576E2E85F8A700EF058F /* GridTypeAliases.h in Headers */,

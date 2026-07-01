@@ -900,6 +900,8 @@ void CommandEncoder::incrementBufferMapCount()
 
 void CommandEncoder::decrementBufferMapCount()
 {
+    if (m_bufferMapCount <= 0)
+        return;
     --m_bufferMapCount;
     if (RefPtr commandBuffer = m_cachedCommandBuffer.get())
         commandBuffer->setBufferMapCount(m_bufferMapCount);

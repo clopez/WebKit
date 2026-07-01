@@ -481,7 +481,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'extract-built-product',
             'test262-test'
         ],
-        'Apple-Sequoia-AppleSilicon-O3-Debug-JSC-BuildAndTest': [
+        'Apple-Tahoe-AppleSilicon-O3-Debug-JSC-BuildAndTest': [
             'configure-build',
             'configuration',
             'clean-and-update-working-directory',

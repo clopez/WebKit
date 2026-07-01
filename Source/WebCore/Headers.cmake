@@ -1977,6 +1977,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/ContextMenuProvider.h
     page/CrossSiteNavigationDataTransfer.h
     page/CryptoClient.h
+    page/CueMatch.h
     page/DOMSelection.h
     page/DOMTimer.h
     page/DOMWindow.h

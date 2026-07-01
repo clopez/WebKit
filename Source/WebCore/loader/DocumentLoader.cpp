@@ -1038,13 +1038,6 @@ void DocumentLoader::responseReceived(ResourceResponse&& response, CompletionHan
     }
 
     RefPtr frame = m_frame.get();
-#if ENABLE(FTPDIR)
-    // Respect the hidden FTP Directory Listing pref so it can be tested even if the policy delegate might otherwise disallow it
-    if (frame && frame->settings().forceFTPDirectoryListings() && m_response.mimeType() == "application/x-ftp-directory"_s) {
-        continueAfterContentPolicy(PolicyAction::Use);
-        return;
-    }
-#endif
 
     if (!frame) {
         DOCUMENTLOADER_RELEASE_LOG("responseReceived by DocumentLoader with null frame");
@@ -2131,7 +2124,7 @@ bool DocumentLoader::maybeLoadEmpty()
     }
 
     SetForScope isInFinishedLoadingOfEmptyDocument { m_isInFinishedLoadingOfEmptyDocument, true };
-    m_isInitialAboutBlank = isDisplayingInitialEmptyDocument;
+    m_isInitialAboutBlank = isDisplayingInitialEmptyDocument ? IsInitialAboutBlank::Yes : IsInitialAboutBlank::No;
     finishedLoading();
     return true;
 }

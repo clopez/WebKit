@@ -31,6 +31,7 @@
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NetworkResourceLoadParameters.h"
+#include "PreconnectRequest.h"
 #include "RemoteWorkerFrameLoaderClient.h"
 #include "WebCompiledContentRuleList.h"
 #include "WebErrors.h"
@@ -573,8 +574,6 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         }
     }
 
-    loadParameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
-
     loadParameters.isMainFrameNavigation = isMainFrameNavigation;
     if (loadParameters.isMainFrameNavigation && document) {
         // Fall back to use opener's cross-origin opener policy like in Document::initSecurityContext.
@@ -891,7 +890,6 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, WebC
     loadParameters.storedCredentialsPolicy = options.credentials == FetchOptions::Credentials::Omit ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use;
     loadParameters.clientCredentialPolicy = clientCredentialPolicy;
     loadParameters.shouldClearReferrerOnHTTPSToHTTPRedirect = shouldClearReferrerOnHTTPSToHTTPRedirect(webFrame ? protect(webFrame->coreLocalFrame()).get() : nullptr);
-    loadParameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
 
     loadParameters.options = options;
     loadParameters.sourceOrigin = document->securityOrigin();
@@ -978,7 +976,7 @@ void WebLoaderStrategy::startPingLoad(LocalFrame& frame, ResourceRequest& reques
     loadParameters.options = options;
     loadParameters.originalRequestHeaders = originalRequestHeaders;
     loadParameters.shouldClearReferrerOnHTTPSToHTTPRedirect = shouldClearReferrerOnHTTPSToHTTPRedirect(&frame);
-    loadParameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
+
     if (policyCheck == ContentSecurityPolicyImposition::DoPolicyCheck && !document->shouldBypassMainWorldContentSecurityPolicy()) {
         if (CheckedPtr contentSecurityPolicy = document->contentSecurityPolicy())
             loadParameters.cspResponseHeaders = contentSecurityPolicy->responseHeaders();
@@ -1041,44 +1039,44 @@ void WebLoaderStrategy::preconnectTo(WebCore::ResourceRequest&& request, WebPage
             request.setIsAppInitiated(loader->lastNavigationWasAppInitiated());
     }
 
-    NetworkResourceLoadParameters parameters {
+    if (request.httpUserAgent().isEmpty()) {
+        // FIXME: we add user-agent to the preconnect request because otherwise the preconnect
+        // gets thrown away by CFNetwork when using an HTTPS proxy (<rdar://problem/59434166>).
+        String webPageUserAgent = webPage.userAgent(request.url());
+        if (!webPageUserAgent.isEmpty())
+            request.setHTTPUserAgent(webPageUserAgent);
+    }
+
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
+    if (RefPtr loader = policySourceDocumentLoaderForFrame(*protect(webFrame.coreLocalFrame())))
+        advancedPrivacyProtections = loader->advancedPrivacyProtections();
+
+    std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
+#if ENABLE(APP_BOUND_DOMAINS)
+    isNavigatingToAppBoundDomain = webFrame.isTopFrameNavigatingToAppBoundDomain();
+#endif
+
+    PreconnectRequest preconnectRequest {
+        std::nullopt,
+        WTF::move(request),
         webPage.webPageProxyIdentifier(),
         webPage.identifier(),
         webFrame.frameID(),
-        WTF::move(request)
+        storedCredentialsPolicy,
+        advancedPrivacyProtections,
+        isNavigatingToAppBoundDomain
     };
-    parameters.createSandboxExtensionHandlesIfNecessary();
 
-    if (parameters.request.httpUserAgent().isEmpty()) {
-        // FIXME: we add user-agent to the preconnect request because otherwise the preconnect
-        // gets thrown away by CFNetwork when using an HTTPS proxy (<rdar://problem/59434166>).
-        String webPageUserAgent = webPage.userAgent(parameters.request.url());
-        if (!webPageUserAgent.isEmpty())
-            parameters.request.setHTTPUserAgent(webPageUserAgent);
-    }
-    parameters.identifier = WebCore::ResourceLoaderIdentifier::generate();
-    parameters.parentPID = legacyPresentingApplicationPID();
-    parameters.storedCredentialsPolicy = storedCredentialsPolicy;
-    parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
-    parameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
-    // FIXME: Use the proper destination once all fetch options are passed.
-    parameters.options.destination = FetchOptions::Destination::EmptyString;
-#if ENABLE(APP_BOUND_DOMAINS)
-    parameters.isNavigatingToAppBoundDomain = webFrame.isTopFrameNavigatingToAppBoundDomain();
-#endif
-    if (RefPtr loader = policySourceDocumentLoaderForFrame(*protect(webFrame.coreLocalFrame())))
-        parameters.advancedPrivacyProtections = loader->advancedPrivacyProtections();
-
-    std::optional<WebCore::ResourceLoaderIdentifier> preconnectionIdentifier;
     if (completionHandler) {
-        preconnectionIdentifier = parameters.identifier;
-        auto addResult = m_preconnectCompletionHandlers.add(*preconnectionIdentifier, WTF::move(completionHandler));
+        auto preconnectionIdentifier = WebCore::ResourceLoaderIdentifier::generate();
+        preconnectRequest.preconnectionIdentifier = preconnectionIdentifier;
+        auto addResult = m_preconnectCompletionHandlers.add(preconnectionIdentifier, WTF::move(completionHandler));
         ASSERT_UNUSED(addResult, addResult.isNewEntry);
     }
 
     // FIXME: Use sendWithAsyncReply instead of preconnectionIdentifier
     // FIXME: don't use WebCore::ResourceLoaderIdentifier for a preconnection identifier, too. It should have its own type.
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::PreconnectTo(preconnectionIdentifier, WTF::move(parameters)), 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::PreconnectTo(WTF::move(preconnectRequest)), 0);
 }
 
 void WebLoaderStrategy::didFinishPreconnection(WebCore::ResourceLoaderIdentifier preconnectionIdentifier, ResourceError&& error)

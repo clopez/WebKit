@@ -398,9 +398,9 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeOcclusionState:) name:NSWindowDidChangeOcclusionStateNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowWillClose:) name:NSWindowWillCloseNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowWillEnterOrExitFullScreen:) name:NSWindowWillEnterFullScreenNotification object:window];
-    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidEnterOrExitFullScreen:) name:NSWindowDidEnterFullScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidEnterFullScreen:) name:NSWindowDidEnterFullScreenNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowWillEnterOrExitFullScreen:) name:NSWindowWillExitFullScreenNotification object:window];
-    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidEnterOrExitFullScreen:) name:NSWindowDidExitFullScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidExitFullScreen:) name:NSWindowDidExitFullScreenNotification object:window];
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
 #if HAVE(SUPPORT_HDR_DISPLAY_APIS)
@@ -621,10 +621,16 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 }
 #endif
 
-- (void)_windowDidEnterOrExitFullScreen:(NSNotification *)notification
+- (void)_windowDidEnterFullScreen:(NSNotification *)notification
 {
     if (CheckedPtr impl = _impl.get())
-        impl->windowDidEnterOrExitFullScreen();
+        impl->windowDidEnterOrExitFullScreen(true);
+}
+
+- (void)_windowDidExitFullScreen:(NSNotification *)notification
+{
+    if (CheckedPtr impl = _impl.get())
+        impl->windowDidEnterOrExitFullScreen(false);
 }
 
 - (void)_windowWillEnterOrExitFullScreen:(NSNotification *)notification
@@ -1498,6 +1504,8 @@ void WebViewImpl::handleProcessSwapOrExit()
 #if HAVE(APPKIT_GESTURES_SUPPORT)
     [m_appKitGestureController reset];
 #endif
+
+    m_contentRelativeViewsNeedToBeRepositioned = false;
 }
 
 void WebViewImpl::processWillSwap()
@@ -2221,9 +2229,13 @@ void WebViewImpl::windowWillEnterOrExitFullScreen()
     m_windowIsEnteringOrExitingFullScreen = true;
 }
 
-void WebViewImpl::windowDidEnterOrExitFullScreen()
+void WebViewImpl::windowDidEnterOrExitFullScreen(bool windowIsInFullScreen)
 {
     m_windowIsEnteringOrExitingFullScreen = false;
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    m_page->setWindowIsInNativeFullScreen(windowIsInFullScreen ? WebPageProxy::WindowIsInNativeFullScreen::Yes : WebPageProxy::WindowIsInNativeFullScreen::No);
+#endif
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
     updateScrollPocket();
@@ -2478,6 +2490,11 @@ void WebViewImpl::viewDidMoveToWindow()
 
     m_page->setIntrinsicDeviceScaleFactor(intrinsicDeviceScaleFactor());
     m_page->webViewDidMoveToWindow();
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    auto isInNativeFullScreen = window && (window.get().styleMask & NSWindowStyleMaskFullScreen);
+    m_page->setWindowIsInNativeFullScreen(isInNativeFullScreen ? WebPageProxy::WindowIsInNativeFullScreen::Yes : WebPageProxy::WindowIsInNativeFullScreen::No);
+#endif
 }
 
 void WebViewImpl::viewDidChangeBackingProperties()
@@ -2609,7 +2626,11 @@ void WebViewImpl::setFullScreenTitlebarOverlayHeight(CGFloat fullScreenTitlebarO
     if (m_fullScreenTitlebarOverlayHeight == fullScreenTitlebarOverlayHeight)
         return;
 
+    auto wasRevealed = m_fullScreenTitlebarOverlayHeight > 0;
     m_fullScreenTitlebarOverlayHeight = fullScreenTitlebarOverlayHeight;
+    auto isRevealed = m_fullScreenTitlebarOverlayHeight > 0;
+    if (wasRevealed != isRevealed)
+        m_page->setFullScreenTitlebarOverlayIsRevealed(isRevealed);
 
     updateScrollPocket();
 }
@@ -3843,7 +3864,7 @@ bool WebViewImpl::hasContentRelativeChildViews() const
 
 void WebViewImpl::suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType type)
 {
-    if (!hasContentRelativeChildViews())
+    if (!hasContentRelativeChildViews() && !inputContextForSelectionUpdates())
         return;
 
     switch (type) {
@@ -3860,13 +3881,16 @@ void WebViewImpl::suppressContentRelativeChildViews(ContentRelativeChildViewsSup
 
 void WebViewImpl::contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState state)
 {
-    if (!hasContentRelativeChildViews())
-        return;
+    bool started = state == PAL::HysteresisState::Started;
+    if (hasContentRelativeChildViews()) {
+        if (started)
+            suppressContentRelativeChildViews();
+        else
+            restoreContentRelativeChildViews();
+    }
 
-    if (state == PAL::HysteresisState::Started)
-        suppressContentRelativeChildViews();
-    else
-        restoreContentRelativeChildViews();
+    if (m_contentRelativeViewsNeedToBeRepositioned != started && std::exchange(m_contentRelativeViewsNeedToBeRepositioned, started))
+        [inputContextForSelectionUpdates() textInputClientDidUpdateSelection];
 }
 
 void WebViewImpl::pageScrollingHysteresisFired(PAL::HysteresisState state)
