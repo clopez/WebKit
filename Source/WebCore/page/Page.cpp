@@ -977,7 +977,7 @@ void Page::setHasInjectedUserScript()
 
 void Page::updateTopDocumentSyncData(const DocumentSyncSerializationData& data)
 {
-    switch (data.type) {
+    switch (static_cast<DocumentSyncDataType>(data.value.index())) {
     case DocumentSyncDataType::DocumentClasses:
     case DocumentSyncDataType::DocumentSecurityOrigin:
     case DocumentSyncDataType::DocumentURL:
@@ -4281,11 +4281,6 @@ void Page::accessibilitySettingsDidChange()
 void Page::appearanceDidChange()
 {
     forEachDocument([] (auto& document) {
-        document.styleScope().didChangeStyleSheetEnvironment();
-        document.styleScope().evaluateMediaQueriesForAppearanceChange();
-        document.updateElementsAffectedByMediaQueries();
-        document.scheduleRenderingUpdate(RenderingUpdateStep::MediaQueryEvaluation);
-        document.invalidateScrollbars();
         document.appearanceDidChange();
     });
 }

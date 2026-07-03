@@ -36,7 +36,7 @@ TEST(JSBuffer, Data)
     static const char constantString[] = "Hello world!";
 
     RetainPtr oddLength = [NSData dataWithBytes:"abc" length:3];
-    RetainPtr evenLength = adoptNS([NSData dataWithBytes:"abcd" length:4]);
+    RetainPtr evenLength = [NSData dataWithBytes:"abcd" length:4];
     RetainPtr invalidSurrogatePair = [NSData dataWithBytes:"\x3d\xd8\x27\x00\xff\xff\x00\x00" length:8];
     RetainPtr readOnlyBuffer = [NSData dataWithBytesNoCopy:(void *)constantString length:sizeof(constantString)-1 freeWhenDone:NO];
     RetainPtr configuration = adoptNS([WKWebViewConfiguration new]);

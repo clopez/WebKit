@@ -497,7 +497,7 @@ public:
         return adoptRef(*new EmptyCredentialRequestCoordinatorClient);
     }
 
-    void showDigitalCredentialsChooser(DigitalCredentialsRawRequests&&, const DigitalCredentialsRequestData&, CompletionHandler<void(Expected<DigitalCredentialsResponseData, ExceptionData>&&)>&& completionHandler)
+    void showDigitalCredentialsChooser(std::optional<FrameIdentifier>, DigitalCredentialsRawRequests&&, const DigitalCredentialsRequestData&, CompletionHandler<void(Expected<DigitalCredentialsResponseData, ExceptionData>&&)>&& completionHandler)
     {
         callOnMainThread([completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(makeUnexpected(ExceptionData { ExceptionCode::NotSupportedError, "Empty client."_s }));
@@ -1069,7 +1069,11 @@ void EmptyFrameLoaderClient::shouldGoToHistoryItemAsync(HistoryItem&, Completion
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void EmptyFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int, FrameLoadType)
+void EmptyFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int)
+{
+}
+
+void EmptyFrameLoaderClient::dispatchEnqueueHistoryTraversalDelta(int)
 {
 }
 

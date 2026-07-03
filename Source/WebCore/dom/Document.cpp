@@ -7967,6 +7967,12 @@ void Document::applyPendingXSLTransformsTimerFired()
         if (transformSourceDocument() || !processingInstruction->sheet())
             return;
 
+        // Don't attempt to compile a stylesheet whose import chain is still loading.
+        // Compiling a partially-loaded tree can cause libxslt to free imported docs
+        // that WebKit still references, leading to use-after-free.
+        if (processingInstruction->sheet()->isLoading())
+            continue;
+
         // If the Document has already been detached from the frame, or the frame is currently in the process of
         // changing to a new document, don't attempt to create a new Document from the XSLT.
         if (!frame() || frame()->documentIsBeingReplaced())
@@ -8948,6 +8954,13 @@ void Document::reveal()
 {
     if (m_hasBeenRevealed)
         return;
+
+    // A navigation away from this document that will replace it is in progress, so this
+    // document is being discarded before it was ever revealed. Do not reveal it (and do
+    // not mark it revealed, so it can still reveal if the navigation is aborted).
+    if (RefPtr frame = this->frame(); frame && frame->loader().provisionalDocumentLoader())
+        return;
+
     m_hasBeenRevealed = true;
 
     PageRevealEvent::Init init;
@@ -10008,6 +10021,12 @@ bool Document::useDarkAppearance([[maybe_unused]] const Style::ComputedStyle* st
 
 void Document::appearanceDidChange()
 {
+    styleScope().didChangeStyleSheetEnvironment();
+    styleScope().evaluateMediaQueriesForAppearanceChange();
+    updateElementsAffectedByMediaQueries();
+    scheduleRenderingUpdate(RenderingUpdateStep::MediaQueryEvaluation);
+    invalidateScrollbars();
+
     if (std::exchange(m_cachedThemeColor, Color()) != themeColor())
         themeColorChanged();
 }

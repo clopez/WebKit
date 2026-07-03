@@ -7167,7 +7167,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-types-m
 
 # Chromium specific test.
 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/chromium-paint-holding-timeout.html [ ImageOnlyFailure ]
-webkit.org/b/278756 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/skip-outbound-vt-before-reveal.html [ Failure ]
 
 # prerender not supported.
 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/prerender-removed-during-navigation.html [ Skip ]
@@ -7712,6 +7711,7 @@ imported/w3c/web-platform-tests/css/css-scoping/has-slotted-functional-flattened
 
 imported/w3c/web-platform-tests/webrtc-encoded-transform/script-transform-generateKeyFrame-simulcast.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc-encoded-transform/RTCRtpScriptTransform-encoded-transform.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc-encoded-transform/RTCEncodedFrame-copy-construction.https.html [ Failure ]
 
 # https://bugs.webkit.org/show_bug.cgi?id=276663
 inspector/css/getMatchedStylesForNodeNestingStyleGrouping.html [ Failure ]

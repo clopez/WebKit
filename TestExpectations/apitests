@@ -349,4 +349,8 @@ webkit.org/b/318265 [ mac debug ] TestWebKitAPI.WKWebExtensionAPIDeclarativeNetR
 webkit.org/b/318265 [ mac debug ] TestWebKitAPI.WKWebExtensionAPIDeclarativeNetRequest.UpdateEnabledRulesets [ Timeout ]
 webkit.org/b/318265 [ mac debug ] TestWebKitAPI.WKWebExtensionAPIDeclarativeNetRequest.UpdateEnabledRulesetsPerformsCompilation [ Timeout ]
 
-webkit.org/b/318367 TestWebKitAPI.JSBuffer.Data [ Crash ]
+webkit.org/b/318460 TestWebKitAPI.WebKit.BlockedUploadDirectory [ Failure ]
+
+webkit.org/b/318485 [ mac release ] TestWebKitAPI.WebKit.MediaBufferingPolicy [ Pass Failure ]
+
+webkit.org/b/318502 TestWebKitAPI.ParentalControlsContentFilteringTests.BlockedURL [ Failure ]
