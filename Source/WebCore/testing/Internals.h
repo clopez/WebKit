@@ -167,10 +167,6 @@ class TextTrackCueGeneric;
 class VTTCue;
 #endif
 
-#if ENABLE(WEB_RTC)
-class RTCRtpSFrameTransform;
-#endif
-
 #if ENABLE(WEBXR)
 class WebXRTest;
 #endif
@@ -306,6 +302,8 @@ public:
     void NODELETE setSpeculativeTilingDelayDisabledForTesting(bool);
 
     Ref<CSSComputedStyleDeclaration> computedStyleIncludingVisitedInfo(Element&) const;
+
+    float usedOutlineOffset(Element&);
 
     Node& ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
@@ -842,9 +840,6 @@ public:
     void isVP9HardwareDecoderUsed(RTCPeerConnection&, DOMPromiseDeferred<IDLBoolean>&&);
     bool isSupportingAV1HardwareDecoder() const;
 
-    void setSFrameCounter(RTCRtpSFrameTransform&, const String&);
-    uint64_t NODELETE sframeCounter(const RTCRtpSFrameTransform&);
-    uint64_t NODELETE sframeKeyId(const RTCRtpSFrameTransform&);
     void NODELETE setEnableWebRTCEncryption(bool);
     bool hasPeerConnectionEnabledServiceClass(const RTCPeerConnection&);
 #endif

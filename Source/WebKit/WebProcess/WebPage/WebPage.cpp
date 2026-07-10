@@ -6639,7 +6639,7 @@ void WebPage::sendSetWindowFrame(const FloatRect& windowFrame)
 #if PLATFORM(COCOA)
     m_hasCachedWindowFrame = false;
 #endif
-    send(Messages::WebPageProxy::SetWindowFrame(windowFrame));
+    send(Messages::WebPageProxy::SetWindowFrameIPC(windowFrame));
 }
 
 #if PLATFORM(COCOA)
@@ -8405,7 +8405,12 @@ void WebPage::scheduleFullEditorStateUpdate()
 
 void WebPage::loadAndDecodeImage(WebCore::ResourceRequest&& request, std::optional<WebCore::FloatSize> sizeConstraint, uint64_t maximumBytesFromNetwork, CompletionHandler<void(Expected<Ref<WebCore::ShareableBitmap>, WebCore::ResourceError>&&)>&& completionHandler)
 {
-    URL url = request.url();
+    auto url = request.url();
+    RefPtr page = corePage();
+    if (!page)
+        return completionHandler(makeUnexpected(decodeError(url)));
+
+    request.setFirstPartyForCookies(page->mainFrameURL());
     WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::LoadImageForDecoding(WTF::move(request), m_webPageProxyIdentifier, maximumBytesFromNetwork), [completionHandler = WTF::move(completionHandler), sizeConstraint, url] (Expected<Ref<WebCore::FragmentedSharedBuffer>, WebCore::ResourceError>&& result) mutable {
         if (!result)
             return completionHandler(makeUnexpected(WTF::move(result.error())));
@@ -8904,7 +8909,7 @@ void WebPage::setIsSuspended(bool suspended, CompletionHandler<void(std::optiona
 void WebPage::suspendWithFrameItem(BackForwardFrameItemIdentifier identifier, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (m_isSuspended)
-        return completionHandler(true);
+        return completionHandler(BackForwardCache::singleton().isInBackForwardCache(identifier));
 
     RefPtr page = corePage();
     if (!page) {
@@ -9812,7 +9817,7 @@ void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<Media
         return;
     }
 
-    sendWithAsyncReply(Messages::WebPageProxy::ShowMediaControlsContextMenu(WTF::move(targetFrame), WTF::move(items), protect(WebFrame::fromCoreFrame(*frame))->info(), identifier), completionHandler);
+    sendWithAsyncReply(Messages::WebPageProxy::ShowMediaControlsContextMenu(WTF::move(targetFrame), WTF::move(items), protect(WebFrame::fromCoreFrame(*frame))->info(), identifier), WTF::move(completionHandler));
 }
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 

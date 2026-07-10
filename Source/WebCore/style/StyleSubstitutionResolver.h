@@ -69,13 +69,23 @@ private:
     bool substituteDashedFunction(StringView functionName, CSSParserTokenRange, Vector<CSSParserToken>&);
     RefPtr<MutableStyleProperties> resolveAndRegisterDashedFunctionArguments(const Vector<StyleRuleFunction::Parameter>&, const Vector<Vector<CSSParserToken>>&, LocalPropertyRegistry&, ScopeOrdinal definitionScope);
     bool substituteAttrFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
+    bool substituteIfFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
     bool substituteInternalAutoBaseFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
+    bool substituteRandomItemFunction(CSSParserTokenRange, Vector<CSSParserToken>&, const CSSParserContext&);
+    std::optional<double> randomItemBaseValue(Vector<CSSParserToken> randomKey);
 
     struct AttrArgumentGrammarSubstitution {
         Vector<CSSParserToken> firstArg;
         std::optional<CSSParserTokenRange> fallbackRange;
     };
     std::optional<AttrArgumentGrammarSubstitution> substituteAttrArgumentGrammar(CSSParserTokenRange, const CSSParserContext&);
+
+    struct IfBranch {
+        // A null condition is the `else` keyword, which always matches.
+        std::optional<Vector<CSSParserToken>> condition;
+        CSSParserTokenRange valueRange;
+    };
+    std::optional<Vector<IfBranch>> substituteIfArgumentGrammar(CSSParserTokenRange, const CSSParserContext&);
 
     RefPtr<const CustomProperty> propertyValueForVariableName(const AtomString&, CSSValueID);
     RefPtr<CSSVariableData> trySimpleSubstitution(const CSSSubstitutionValue&);
@@ -90,6 +100,7 @@ private:
     Vector<String> m_intermediateTokenStrings;
     Vector<RefPtr<const CustomProperty>> m_intermediateCustomProperties;
     unsigned m_urlContextDepth { 0 };
+    unsigned m_randomItemAutoIndex { 0 };
     bool m_isAttrTainted { false };
     bool m_hasTaintedURL { false };
 };

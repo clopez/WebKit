@@ -688,7 +688,7 @@ void WebLocalFrameLoaderClient::dispatchDidCommitLoad(std::optional<HasInsecureC
     }
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), frame->info(), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), certificateInfo, usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), m_localFrame->document()->isPluginDocument(), *hasInsecureContent, documentLoader->mouseEventPolicy(), *coreLocalFrame->frameDocumentSecurityPolicy(), cspOriginsThatUpgradeInsecureNavigations, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), m_localFrame->loader().loadingFromCachedPage() ? RestoredFromBackForwardCache::Yes : RestoredFromBackForwardCache::No, WTF::move(redirectReplaceFrameState)));
+    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), frame->info(), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), m_localFrame->document()->isPluginDocument(), *hasInsecureContent, documentLoader->mouseEventPolicy(), *coreLocalFrame->frameDocumentSecurityPolicy(), cspOriginsThatUpgradeInsecureNavigations, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), m_localFrame->loader().loadingFromCachedPage() ? RestoredFromBackForwardCache::Yes : RestoredFromBackForwardCache::No, WTF::move(redirectReplaceFrameState)));
     webPage->didCommitLoad(m_frame.ptr());
 }
 
@@ -1474,22 +1474,13 @@ void WebLocalFrameLoaderClient::shouldGoToHistoryItemAsync(HistoryItem& item, Co
     webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldGoToBackForwardListItem(item.itemID(), item.isInBackForwardCache()), WTF::move(completionHandler));
 }
 
-void WebLocalFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int steps)
+void WebLocalFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int steps, FrameLoadType frameLoadType)
 {
     RefPtr webPage = m_frame->page();
     if (!webPage)
         return;
 
-    webPage->send(Messages::WebPageProxy::GoToBackForwardItemAtIndex(steps));
-}
-
-void WebLocalFrameLoaderClient::dispatchEnqueueHistoryTraversalDelta(int delta)
-{
-    RefPtr webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    webPage->send(Messages::WebPageProxy::EnqueueHistoryTraversalDelta(delta));
+    webPage->send(Messages::WebPageProxy::GoToBackForwardItemAtIndex(steps, frameLoadType));
 }
 
 bool WebLocalFrameLoaderClient::shouldFallBack(const ResourceError& error) const

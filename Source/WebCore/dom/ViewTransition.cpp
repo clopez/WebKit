@@ -472,9 +472,14 @@ static RefPtr<ImageBuffer> snapshotElementVisualOverflowClippedToViewport(LocalF
     RefPtr frameView = frame.document()->view();
     if (!frameView)
         return nullptr;
-    auto hostWindow = frameView->root() ? protect(frameView->root())->hostWindow() : nullptr;
 
-    auto buffer = ImageBuffer::create(paintRect.size(), RenderingMode::Accelerated, RenderingPurpose::Snapshot, scaleFactor, screenColorSpace(frameView), PixelFormat::BGRA8, hostWindow);
+    auto hostWindow = frameView->root() ? protect(frameView->root())->hostWindow() : nullptr;
+    auto colorSpace = screenColorSpace(frameView);
+#if PLATFORM(IOS_FAMILY)
+    colorSpace = DestinationColorSpace::SRGB(); // FIXME: We should use the screen colorspace on iOS too, but that has blending issues: webkit.org/b/318764.
+#endif
+
+    auto buffer = ImageBuffer::create(paintRect.size(), RenderingMode::Accelerated, RenderingPurpose::Snapshot, scaleFactor, colorSpace, PixelFormat::BGRA8, hostWindow);
     if (!buffer)
         return nullptr;
 
@@ -974,6 +979,11 @@ void ViewTransition::copyElementBaseProperties(RenderLayerModelObject& renderer,
         // since the computed transform has already included it.
         transform.translate(output.size.width() / 2, output.size.height() / 2);
         transform.translateRight(-output.size.width() / 2, -output.size.height() / 2);
+
+        // Factor out the zoom from the nearest common ancestor of the captured element and the view transition
+        // pseudo tree (the document element), so that it doesn't get applied a second time when rendering the
+        // snapshots.
+        transform.unzoom(documentElementRenderer->style().usedZoom());
 
         Ref transformListValue = CSSTransformListValue::create(Style::createCSSValue(CSSValuePool::singleton(), documentElementRenderer->style(), transform));
         protect(output.properties)->setProperty(CSSPropertyTransform, WTF::move(transformListValue));

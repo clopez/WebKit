@@ -644,6 +644,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case CheckBadValue:
     case RegExpExec:
     case RegExpExecNonGlobalOrSticky:
+    case RegExpExecSticky:
     case RegExpTest:
     case RegExpTestInline:
     case RegExpMatchFast:
@@ -829,7 +830,6 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ArithRandom:
     case DateNow:
     case ArithIMul:
-    case TryGetById:
     case StringLocaleCompare:
     case FunctionBind:
     case DateSetTime:

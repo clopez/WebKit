@@ -201,7 +201,6 @@
 #include "PushSubscriptionData.h"
 #include "RTCController.h"
 #include "RTCNetworkManager.h"
-#include "RTCRtpSFrameTransform.h"
 #include "Range.h"
 #include "ReadableStream.h"
 #include "RenderEmbeddedObject.h"
@@ -251,6 +250,7 @@
 #include "StringCallback.h"
 #include "StyleDocumentScope.h"
 #include "StyleGridPosition.h"
+#include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
 #include "StyleSheetContents.h"
@@ -775,7 +775,7 @@ void Internals::resetToConsistentState(Page& page)
 
 #if USE(AUDIO_SESSION)
     AudioSession::singleton().setCategoryOverride(AudioSessionCategory::None);
-    AudioSession::singleton().tryToSetActive(false)->whenSettled(RunLoop::mainSingleton(), [](auto&&) { });
+    AudioSession::singleton().tryToSetActive(false);
     AudioSession::singleton().endInterruptionForTesting();
 #endif
 
@@ -1640,6 +1640,15 @@ Ref<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(El
     return CSSComputedStyleDeclaration::create(element, CSSComputedStyleDeclaration::AllowVisited::Yes);
 }
 
+float Internals::usedOutlineOffset(Element& element)
+{
+    element.document().updateStyleIfNeeded();
+    auto* style = element.computedStyle();
+    if (!style)
+        return 0;
+    return Style::evaluate<float>(style->usedOutlineOffset(), style->usedZoomForLength());
+}
+
 Node& Internals::ensureUserAgentShadowRoot(Element& host)
 {
     return host.ensureUserAgentShadowRoot();
@@ -2054,22 +2063,6 @@ void Internals::isVP9HardwareDecoderUsed(RTCPeerConnection& connection, DOMPromi
     connection.gatherDecoderImplementationName([promise = WTF::move(promise)](auto&& name) mutable {
         promise.resolve(!name.contains("fallback from:"_s) && !name.contains("libvpx"_s));
     });
-}
-
-void Internals::setSFrameCounter(RTCRtpSFrameTransform& transform, const String& counter)
-{
-    if (auto value = parseInteger<uint64_t>(counter))
-        transform.setCounterForTesting(*value);
-}
-
-uint64_t Internals::sframeCounter(const RTCRtpSFrameTransform& transform)
-{
-    return transform.counterForTesting();
-}
-
-uint64_t Internals::sframeKeyId(const RTCRtpSFrameTransform& transform)
-{
-    return transform.keyIdForTesting();
 }
 
 void Internals::setEnableWebRTCEncryption(bool value)

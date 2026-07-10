@@ -376,6 +376,7 @@ bool doesGC(Graph& graph, Node* node)
     case PutToArguments:
     case RegExpExec:
     case RegExpExecNonGlobalOrSticky:
+    case RegExpExecSticky:
     case RegExpMatchFast:
     case RegExpMatchFastGlobal:
     case RegExpSplitFast:
@@ -403,7 +404,6 @@ bool doesGC(Graph& graph, Node* node)
     case ToPropertyKey:
     case ToPropertyKeyOrNumber:
     case ToThis:
-    case TryGetById:
     case CreateThis:
     case CreatePromise:
     case CreateGenerator:

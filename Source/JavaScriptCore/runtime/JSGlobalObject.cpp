@@ -343,7 +343,7 @@
 
 namespace JSC {
 
-MicrotaskQueue& JSGlobalObject::microtaskQueue() const { return m_microtaskQueue.get(); }
+static StringImpl::StaticStringImpl intlLegacyConstructedSymbolDescription { "IntlLegacyConstructedSymbol" };
 
 #define CHECK_FEATURE_FLAG_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
 static_assert(std::is_same_v<std::remove_cv_t<decltype(featureFlag)>, bool> || std::is_same_v<std::remove_cv_t<decltype(featureFlag)>, bool&>);
@@ -949,6 +949,7 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_customGetterFunctionSet(vm)
     , m_customSetterFunctionSet(vm)
     , m_importMap(ImportMap::create())
+    , m_intlLegacyConstructedSymbol(SymbolImpl::create(intlLegacyConstructedSymbolDescription))
     , m_globalObjectMethodTable(globalObjectMethodTable ? globalObjectMethodTable : baseGlobalObjectMethodTable())
 {
 }
@@ -2073,6 +2074,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isDetached)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 1, "typedArrayViewIsDetached"_s, typedArrayViewPrivateFuncIsDetached, ImplementationVisibility::Private));
         });
+    m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isTypedArrayOutOfBounds)].initLater([] (const Initializer<JSCell>& init) {
+        init.set(JSFunction::create(init.vm, init.owner, 1, "typedArrayViewIsOutOfBounds"_s, typedArrayViewPrivateFuncIsOutOfBounds, ImplementationVisibility::Private));
+    });
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::instanceOf)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 0, "instanceOf"_s, objectPrivateFuncInstanceOf, ImplementationVisibility::Private));
         });
@@ -3709,20 +3713,6 @@ static bool incumbentRealmIs(VM& vm, JSGlobalObject* target)
         return IterationStatus::Continue;
     });
     return result;
-}
-
-void JSGlobalObject::queueMicrotask(VM& vm, QueuedTask&& task)
-{
-    if (!m_canFastQueueMicrotask || vm.crossTaskToken()) [[unlikely]] {
-        queueMicrotaskSlow(vm, WTF::move(task));
-        return;
-    }
-    microtaskQueue().enqueue(WTF::move(task));
-}
-
-void JSGlobalObject::queueMicrotask(VM& vm, InternalMicrotask job, uint8_t payload, JSValue argument0, JSValue argument1, JSValue argument2)
-{
-    queueMicrotask(vm, QueuedTask { nullptr, job, payload, this, argument0, argument1, argument2 });
 }
 
 void JSGlobalObject::queueMicrotaskSlow(VM& vm, QueuedTask&& task)

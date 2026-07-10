@@ -228,7 +228,6 @@ namespace JSC { namespace DFG {
     macro(PutPrivateNameById, NodeMustGenerate) \
     macro(CheckPrivateBrand, NodeMustGenerate) \
     macro(SetPrivateBrand, NodeMustGenerate) \
-    macro(TryGetById, NodeResultJS) \
     macro(GetById, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdFlush, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdWithThis, NodeResultJS | NodeMustGenerate) \
@@ -357,6 +356,7 @@ namespace JSC { namespace DFG {
     /* Optimizations for regular expression matching. */\
     macro(RegExpExec, NodeResultJS | NodeMustGenerate) \
     macro(RegExpExecNonGlobalOrSticky, NodeResultJS | NodeMustGenerate) \
+    macro(RegExpExecSticky, NodeResultJS | NodeMustGenerate) \
     macro(RegExpTest, NodeResultJS | NodeMustGenerate) \
     macro(RegExpTestInline, NodeResultJS | NodeMustGenerate) \
     macro(RegExpMatchFast, NodeResultJS | NodeMustGenerate) \

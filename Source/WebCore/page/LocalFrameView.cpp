@@ -152,7 +152,6 @@
 #include <wtf/text/TextStream.h>
 
 #if PLATFORM(IOS_FAMILY)
-#include "DocumentLoader.h"
 #include "LegacyTileCache.h"
 #endif
 
@@ -706,7 +705,7 @@ void LocalFrameView::applyPaginationToViewport()
         if (!columnGap.isNormal()) {
             CheckedPtr renderBox = dynamicDowncast<RenderBox>(documentOrBodyRenderer.get());
             if (CheckedPtr containerForPaginationGap = renderBox ? renderBox : documentOrBodyRenderer->containingBlock())
-                pagination.gap = Style::evaluate<LayoutUnit>(columnGap, containerForPaginationGap->contentBoxLogicalWidth(), Style::ZoomNeeded { }).toUnsigned();
+                pagination.gap = Style::evaluate<LayoutUnit>(columnGap, containerForPaginationGap->contentBoxLogicalWidth(), documentOrBodyRenderer->style().usedZoomForLength()).toUnsigned();
         }
     }
     setPagination(pagination);

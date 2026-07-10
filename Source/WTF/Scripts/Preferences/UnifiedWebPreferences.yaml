@@ -550,6 +550,20 @@ AnimatedImageAsyncDecodingEnabled:
     WebCore:
       default: true
 
+AnimationTriggersEnabled:
+  type: bool
+  status: testable
+  category: animation
+  humanReadableName: "Animation Triggers"
+  humanReadableDescription: "Support for the timeline-trigger, animation-trigger and event-trigger CSS properties"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AnonymousBlockGenerationDisabled:
   type: bool
   status: unstable
@@ -637,21 +651,6 @@ ApplePayEnabled:
       default: false
   sharedPreferenceForWebProcess: true
   richJavaScript: true
-
-AsyncAudioSessionActivationEnabled:
-  type: bool
-  status: stable
-  category: media
-  humanReadableName: "Async Audio Session Activation"
-  humanReadableDescription: "Use async IPC for audio session activation"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-  sharedPreferenceForWebProcess: true
 
 # FIXME: This is on by default in WebKit2 PLATFORM(COCOA). Perhaps we should consider turning it on for WebKitLegacy as well.
 AsyncClipboardAPIEnabled:
@@ -838,6 +837,21 @@ AzimuthAngleEnabled:
     WebCore:
       "PLATFORM(COCOA)": true
       default: false
+
+BackForwardCacheWithMediaEnabled:
+  type: bool
+  status: stable
+  category: media
+  humanReadableName: "Back/Forward Cache with Media"
+  humanReadableDescription: "Enable back/forward cache for pages with media"
+  condition: PLATFORM(WPE)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 BackgroundFetchAPIEnabled:
   type: bool
@@ -1034,16 +1048,16 @@ CSSAppearanceBaseEnabled:
 CSSAttrSubstitutionFunctionEnabled:
   type: bool
   category: css
-  status: preview
+  status: stable
   humanReadableName: "CSS attr() substitution function"
   humanReadableDescription: "Enable CSS Values 5 attr() arbitrary substitution function"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSAxisRelativePositionKeywordsEnabled:
   type: bool
@@ -1062,16 +1076,16 @@ CSSAxisRelativePositionKeywordsEnabled:
 CSSCalcMixEnabled:
   type: bool
   category: css
-  status: preview
+  status: stable
   humanReadableName: "CSS calc-mix()"
   humanReadableDescription: "Enable support for CSS calc-mix()"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSColorLayersEnabled:
   type: bool
@@ -1171,6 +1185,20 @@ CSSFieldSizingEnabled:
     WebCore:
       default: true
 
+CSSFontFaceMetricOverrideDescriptorsEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS @font-face metric override descriptors"
+  humanReadableDescription: "Enable CSS @font-face metric override descriptors"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSFontSynthesisStyleObliqueOnlyEnabled:
   type: bool
   status: preview
@@ -1202,17 +1230,17 @@ CSSFontVariantEmojiEnabled:
 
 CSSFunctionAtRuleEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS @function"
   humanReadableDescription: "Enable CSS @function rule"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSIdentFunctionEnabled:
   type: bool
@@ -1227,6 +1255,20 @@ CSSIdentFunctionEnabled:
       default: false
     WebCore:
       default: false
+
+CSSIfFunctionEnabled:
+  type: bool
+  category: css
+  status: stable
+  humanReadableName: "CSS if() function"
+  humanReadableDescription: "Enable CSS Values 5 if() conditional substitution function"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 CSSInputSecurityEnabled:
   type: bool
@@ -1903,17 +1945,17 @@ ClearSiteDataHTTPHeaderEnabled:
 
 CloseWatcherEnabled:
   type: bool
-  status: preview
+  status: stable
   category: html
   humanReadableName: "Close Watcher API"
   humanReadableDescription: "Enable Close Watcher API including dialog closedby attribute"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ColorFilterEnabled:
   type: bool
@@ -4052,16 +4094,16 @@ IndexedDBAPIEnabled:
 IndexedDBGetAllRecordsAndGetAllOptionsEnabled:
   type: bool
   category: dom
-  status: preview
+  status: stable
   humanReadableName: "IndexedDB getAllRecords() API and IDBGetAllOptions"
   humanReadableDescription: "Enable the getAllRecords() API on IDBObjectStore/IDBIndex and enable getAll()/getAllKeys() to accept IDBGetAllOptions and support direction"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 IndexedDBSQLiteMemoryBackingStoreEnabled:
   type: bool
@@ -7356,6 +7398,20 @@ ScrollingPerformanceTestingEnabled:
     WebCore:
       default: false
 
+SearchInputResultsAttributeEnabled:
+  type: bool
+  status: embedder
+  humanReadableName: "<input type=search> results=N attribute"
+  humanReadableDescription: "Enable the legacy WebKit-only ::-webkit-search-results-button saved-searches dropdown opt-in"
+  defaultValue:
+    WebKitLegacy:
+      "PLATFORM(COCOA)" : WebKit::defaultSearchInputResultsAttributeEnabled()
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 SecureContextChecksEnabled:
   type: bool
   status: internal
@@ -8191,20 +8247,6 @@ StorageBlockingPolicy:
       default: StorageBlockingPolicy::AllowAll
   sharedPreferenceForWebProcess: true
 
-SubpixelInlineLayoutEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: "Subpixels in inline layout (in block direction)"
-  humanReadableDescription: "Subpixels in line layout (in block direction)"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 SupportHDRCompositorTonemappingEnabled:
   type: bool
   status: testable
@@ -8590,7 +8632,7 @@ ThreadedTimeBasedAnimationsAtHighFrameRateEnabled:
 
 ThreadedTimeBasedAnimationsEnabled:
   type: bool
-  status: preview
+  status: stable
   category: animation
   humanReadableName: "Threaded Time-based Animations"
   humanReadableDescription: "Run qualifying time-based animations on a separate thread"
@@ -8599,9 +8641,9 @@ ThreadedTimeBasedAnimationsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
 TiledScrollingIndicatorVisible:
@@ -10124,7 +10166,7 @@ WebSocketEnabled:
 
 WebTransportEnabled:
   type: bool
-  status: Web_transport_status
+  status: developer
   category: networking
   humanReadableName: "WebTransport"
   humanReadableDescription: "Enable WebTransport"
@@ -10132,9 +10174,9 @@ WebTransportEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: WebKit::defaultWebTransportEnabled()
     WebCore:
-      default: true
+      default: false
   sharedPreferenceForWebProcess: true
   richJavaScript: true
   disableInLockdownMode: true

@@ -26,13 +26,17 @@
 #include "config.h"
 #include "StyleSubstitutionResolver.h"
 
+#include "CSSCalcRandomCachingKey.h"
 #include "CSSCustomPropertySyntax.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParser.h"
 #include "CSSPropertyParserConsumer+Ident.h"
+#include "CSSPropertyParserConsumer+MetaConsumer.h"
+#include "CSSPropertyParserConsumer+NumberDefinitions.h"
 #include "CSSPropertyParserConsumer+Primitives.h"
+#include "CSSPropertyParserState.h"
 #include "CSSRegisteredCustomProperty.h"
 #include "CSSSelectorParser.h"
 #include "CSSSerializationContext.h"
@@ -44,11 +48,13 @@
 #include "CSSVariableData.h"
 #include "CSSWideKeyword.h"
 #include "ConstantPropertyMap.h"
+#include "ContainerQueryEvaluator.h"
 #include "CustomFunctionRegistry.h"
 #include "Document.h"
 #include "Element.h"
 #include "ElementInlines.h"
 #include "HTMLSelectElement.h"
+#include "IfConditionEvaluator.h"
 #include "MatchResult.h"
 #include "MutableStyleProperties.h"
 #include "SelectPopoverElement.h"
@@ -58,12 +64,17 @@
 #include "StyleCustomProperty.h"
 #include "StyleCustomPropertyRegistry.h"
 #include "StyleLocalPropertyRegistry.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include <wtf/IndexedRange.h>
 
 namespace WebCore {
 namespace Style {
+
+// The maximum number of tokens that may be produced by a substitution function reference or fallback value.
+// https://drafts.csswg.org/css-variables/#long-variables
+static constexpr size_t maxSubstitutionTokens = 65536;
 
 static bool containsURLTokens(std::span<const CSSParserToken> tokens)
 {
@@ -136,10 +147,6 @@ RefPtr<const CustomProperty> SubstitutionResolver::propertyValueForVariableName(
 
 bool SubstitutionResolver::substituteVariableFunction(CSSParserTokenRange range, CSSValueID functionId, Vector<CSSParserToken>& tokens, const CSSParserContext& context)
 {
-    // The maximum number of tokens that may be produced by a substitution function reference or fallback value.
-    // https://drafts.csswg.org/css-variables/#long-variables
-    static constexpr size_t maxSubstitutionTokens = 65536;
-
     ASSERT(functionId == CSSValueVar || functionId == CSSValueEnv);
 
     range.consumeWhitespace();
@@ -375,10 +382,6 @@ bool SubstitutionResolver::substituteDashedFunction(StringView functionName, CSS
     if (!substitutedArguments)
         return false;
 
-    auto resultValue = dynamicDowncast<CSSCustomPropertyValue>(protect(customFunction->properties)->getPropertyCSSValue(CSSPropertyResult));
-    if (!resultValue)
-        return false;
-
     // "Let registrations be an initially empty set of custom property registrations."
     auto registrations = LocalPropertyRegistry { };
 
@@ -398,9 +401,43 @@ bool SubstitutionResolver::substituteDashedFunction(StringView functionName, CSS
     // "Let body rule be the function body."
     // The body resolves tree-scoped references (var(), nested dashed-functions) relative to the scope
     // where the function was defined, not the calling element's scope.
+    // Merge the body's declaration blocks now, dropping blocks whose @container conditions do not
+    // match the calling element. https://drafts.csswg.org/css-mixins/#evaluating-custom-functions
+    auto bodyProperties = [&]() -> Ref<const StyleProperties> {
+        auto& blocks = customFunction->declarationBlocks;
+
+        // The common case is a single block with no container queries.
+        if (blocks.size() == 1 && blocks.first().containerQueries.isEmpty())
+            return blocks.first().properties;
+
+        // A pseudo-element's queries select containers from its originating element inclusive.
+        auto selectionMode = m_styleBuilder.state().style().pseudoElementIdentifier()
+            ? ContainerQueryEvaluator::SelectionMode::PseudoElement
+            : ContainerQueryEvaluator::SelectionMode::Element;
+        ContainerQueryEvaluator evaluator(*element, selectionMode, foundScopeOrdinal, nullptr);
+        auto containerQueriesMatch = [&](const auto& chain) {
+            for (auto& containerRule : chain) {
+                if (!evaluator.evaluate(containerRule->containerQuery()))
+                    return false;
+            }
+            return true;
+        };
+
+        auto mutableProperties = MutableStyleProperties::create();
+        for (auto& block : blocks) {
+            // A container query in the body makes the result depend on the calling element's
+            // container, not just the matched declarations, so it must not be cached.
+            if (!block.containerQueries.isEmpty())
+                m_styleBuilder.state().setIsContainerDependent();
+            if (containerQueriesMatch(block.containerQueries))
+                mutableProperties->mergeAndOverrideOnConflict(block.properties.get());
+        }
+        return mutableProperties;
+    }();
+
     auto bodyMatchResult = MatchResult::create();
     bodyMatchResult->authorDeclarations.append({ *resolvedArgumentProperties });
-    bodyMatchResult->authorDeclarations.append({ .properties = customFunction->properties, .styleScopeOrdinal = foundScopeOrdinal });
+    bodyMatchResult->authorDeclarations.append({ .properties = bodyProperties, .styleScopeOrdinal = foundScopeOrdinal });
 
     // "Resolve function styles using custom function, body rule, registrations, and calling context."
     // The hypothetical element acts as a child of the calling element, inheriting its computed custom
@@ -418,8 +455,7 @@ bool SubstitutionResolver::substituteDashedFunction(StringView functionName, CSS
     bodyBuilder.state().addGuardedFunctionContexts(m_styleBuilder.state());
 
     // "Return the value of the result property in body styles."
-    // Body custom properties are applied lazily as result's var() references reach them.
-    auto resolvedResult = bodyBuilder.resolveFunctionResult(*resultValue);
+    auto resolvedResult = bodyBuilder.resolveFunctionResult();
     if (!resolvedResult)
         return false;
 
@@ -744,6 +780,240 @@ bool SubstitutionResolver::substituteInternalAutoBaseFunction(CSSParserTokenRang
     return true;
 }
 
+bool SubstitutionResolver::substituteRandomItemFunction(CSSParserTokenRange range, Vector<CSSParserToken>& tokens, const CSSParserContext& context)
+{
+    // https://drafts.csswg.org/css-values-5/#funcdef-random-item
+    //
+    // The argument grammar is validated at parse time:
+    //   <random-item-args> = random-item( <declaration-value>, [ <declaration-value>? ]# )
+    // Here the full grammar is applied: substitute the argument grammar first, then parse the
+    // first argument as <random-key> and select an item. This follows substituteAttrFunction.
+
+    range.consumeWhitespace();
+
+    // Split at the first literal comma: the first argument is the <random-key>, the rest are items.
+    auto randomKeyStart = range;
+    while (!range.atEnd() && range.peek().type() != CommaToken)
+        range.consumeComponentValue();
+    auto randomKeyRange = randomKeyStart.rangeUntil(range);
+
+    if (!CSSPropertyParserHelpers::consumeCommaIncludingWhitespace(range))
+        return false;
+
+    // Collect the item ranges. Each item is a (possibly empty) <declaration-value>; a {}-wrapped
+    // block groups internal commas and is unwrapped when the selected item is substituted below.
+    Vector<CSSParserTokenRange> items;
+    do {
+        auto itemStart = range;
+        while (!range.atEnd() && range.peek().type() != CommaToken)
+            range.consumeComponentValue();
+        items.append(itemStart.rangeUntil(range));
+    } while (CSSPropertyParserHelpers::consumeCommaIncludingWhitespace(range));
+
+    if (items.isEmpty())
+        return false;
+
+    // <random-key> may itself contain arbitrary substitution functions (var(), attr(), ...);
+    // substitute them before parsing it as a <random-key>.
+    auto substitutedRandomKey = substituteTokenRange(randomKeyRange, context);
+    if (!substitutedRandomKey)
+        return false;
+
+    auto baseValue = randomItemBaseValue(WTF::move(*substitutedRandomKey));
+    if (!baseValue)
+        return false;
+
+    // https://drafts.csswg.org/css-values-5/#random-item
+    // "Let index be a random integer less than N (the number of items), given the base value R:
+    //  round(down, R * N, 1)." fixed accepts the closed range [0, 1], so R can be exactly 1,
+    // which makes R * N == N; the clamp below is required to keep the index in range.
+    auto index = static_cast<size_t>(*baseValue * items.size());
+    if (index >= items.size())
+        index = items.size() - 1;
+
+    auto selectedTokens = substituteTokenRange(unwrapArgumentBraces(items[index]), context);
+    if (!selectedTokens)
+        return false;
+
+    // https://drafts.csswg.org/css-variables/#long-variables
+    if (selectedTokens->size() > maxSubstitutionTokens)
+        return false;
+
+    tokens.appendVector(*selectedTokens);
+    return true;
+}
+
+std::optional<double> SubstitutionResolver::randomItemBaseValue(Vector<CSSParserToken> randomKey)
+{
+    // <random-key> = auto | <random-cache-key> | fixed <number [0,1]>
+    // The subset supported here matches random()'s current support:
+    //   [ [ auto | <dashed-ident> ] || element-scoped ] | fixed <number [0,1]>
+    // property-scoped / property-index-scoped / <random-ua-ident> are a follow-up, in sync with random().
+    CSSParserTokenRange randomKeyRange { randomKey };
+    randomKeyRange.consumeWhitespace();
+    if (randomKeyRange.atEnd())
+        return { };
+
+    if (randomKeyRange.peek().id() == CSSValueFixed) {
+        randomKeyRange.consumeIncludingWhitespace();
+        // fixed <number [0,1]>, reusing random()'s number consumer so calc()/var()-derived numbers
+        // are accepted identically.
+        auto numberParsingState = CSS::PropertyParserState { .context = m_substitutionValue->context() };
+        auto number = CSSPropertyParserHelpers::MetaConsumer<CSS::Number<CSS::ClosedUnitRange>>::consume(randomKeyRange, numberParsingState);
+        if (!number || !randomKeyRange.atEnd())
+            return { };
+        return Style::toStyle(*number, m_styleBuilder.state()).value;
+    }
+
+    std::optional<CSS::Keyword::ElementScoped> elementScoped;
+    std::optional<AtomString> dashedIdent;
+    bool isAuto = false;
+
+    while (!randomKeyRange.atEnd()) {
+        auto& token = randomKeyRange.peek();
+        if (!elementScoped && token.id() == CSSValueElementScoped) {
+            elementScoped = CSS::Keyword::ElementScoped { };
+            randomKeyRange.consumeIncludingWhitespace();
+            continue;
+        }
+        if (!isAuto && !dashedIdent && token.id() == CSSValueAuto) {
+            isAuto = true;
+            randomKeyRange.consumeIncludingWhitespace();
+            continue;
+        }
+        if (!isAuto && !dashedIdent && token.type() == IdentToken && isCustomPropertyName(token.value())) {
+            dashedIdent = token.value().toAtomString();
+            randomKeyRange.consumeIncludingWhitespace();
+            continue;
+        }
+        break;
+    }
+
+    if (!randomKeyRange.atEnd())
+        return { };
+
+    if (elementScoped && !m_styleBuilder.state().element())
+        return { };
+
+    if (dashedIdent)
+        return m_styleBuilder.state().lookupCSSRandomBaseValue(CSSCalc::RandomCachingKey { Style::CustomIdent { *dashedIdent } }, elementScoped);
+
+    // "auto" (or an omitted identifier alongside element-scoped) keys on the current property,
+    // disambiguated by a per-resolver index so independent auto instances in one declaration select
+    // independently.
+    //
+    // FIXME: This index is counted here, at substitution time, in a separate space from random()'s
+    // parse-time cssRandomFunctionCount. An auto random-item() and an auto random() in the same
+    // property value can therefore land on the same RandomCachingKey and share a base value, and the
+    // index follows the selected branch rather than parse position. Unifying this with random()'s
+    // counter is the job of the shared <random-key> helper follow-up.
+    auto autoKey = CSSCalc::RandomSharingOptions::Auto {
+        .property = m_styleBuilder.state().cssPropertyID(),
+        .index = m_randomItemAutoIndex++
+    };
+    return m_styleBuilder.state().lookupCSSRandomBaseValue(CSSCalc::RandomCachingKey { autoKey }, elementScoped);
+}
+
+auto SubstitutionResolver::substituteIfArgumentGrammar(CSSParserTokenRange range, const CSSParserContext& context) -> std::optional<Vector<IfBranch>>
+{
+    // https://drafts.csswg.org/css-values-5/#argument-grammars
+    // <if-args> = if( [ <if-args-branch>; ]* <if-args-branch> ;? )
+    // <if-args-branch> = <declaration-value> : <declaration-value>?
+    // The condition excludes top-level colons, so the first top-level colon separates it from the
+    // value and top-level semicolons separate branches. A single pass consumes both in source order.
+
+    range.consumeWhitespace();
+
+    Vector<IfBranch> branches;
+    while (!range.atEnd()) {
+        auto conditionStart = range;
+        while (!range.atEnd() && range.peek().type() != ColonToken && range.peek().type() != SemicolonToken)
+            range.consumeComponentValue();
+        auto conditionRange = conditionStart.rangeUntil(range);
+
+        // A branch without a colon is invalid, but an empty segment (from a doubled or trailing
+        // semicolon) is skipped.
+        if (range.atEnd() || range.peek().type() == SemicolonToken) {
+            conditionRange.consumeWhitespace();
+            if (!conditionRange.atEnd())
+                return { };
+            if (!range.atEnd())
+                range.consumeIncludingWhitespace(); // semicolon
+            continue;
+        }
+
+        range.consume(); // colon
+
+        auto valueStart = range;
+        while (!range.atEnd() && range.peek().type() != SemicolonToken)
+            range.consumeComponentValue();
+        auto valueRange = valueStart.rangeUntil(range);
+        valueRange.consumeWhitespace();
+
+        if (!range.atEnd())
+            range.consumeIncludingWhitespace(); // semicolon
+
+        auto substitutedCondition = substituteTokenRange(conditionRange, context);
+        if (!substitutedCondition)
+            continue;
+
+        // <if-condition> = <boolean-expr[ <if-test> ]> | else. The else keyword is recognized after
+        // substitution (it may come from a var()), and always matches, so it is stored as a null
+        // condition. Other conditions are evaluated later.
+        auto substitutedRange = CSSParserTokenRange { *substitutedCondition };
+        substitutedRange.consumeWhitespace();
+        if (CSSPropertyParserHelpers::consumeIdentRaw<CSSValueElse>(substitutedRange) && substitutedRange.atEnd()) {
+            branches.append({ std::nullopt, valueRange });
+            continue;
+        }
+
+        branches.append({ WTF::move(*substitutedCondition), valueRange });
+    }
+
+    return branches;
+}
+
+bool SubstitutionResolver::substituteIfFunction(CSSParserTokenRange argumentsRange, Vector<CSSParserToken>& tokens, const CSSParserContext& context)
+{
+    // https://drafts.csswg.org/css-values-5/#funcdef-if
+    auto branches = substituteIfArgumentGrammar(argumentsRange, context);
+    if (!branches)
+        return false;
+
+    for (auto& branch : *branches) {
+        IfConditionEvaluator conditionEvaluator { m_styleBuilder, context };
+        auto conditionResult = branch.condition
+            ? conditionEvaluator.evaluate(*branch.condition)
+            : IfConditionEvaluator::Result::True;
+
+        // An invalid condition makes the whole if() IACVT. This matches the imported WPT but not the
+        // spec algorithm, which continues to the next branch on a condition parse failure.
+        // FIXME: Revisit once the spec/WPT discrepancy is resolved upstream.
+        if (conditionResult == IfConditionEvaluator::Result::Invalid)
+            return false;
+
+        if (conditionResult != IfConditionEvaluator::Result::True)
+            continue;
+
+        // Substitute the value part and return.
+        auto startIndex = tokens.size();
+        auto substitutedValue = substituteTokenRange(branch.valueRange, context);
+        if (!substitutedValue)
+            return false;
+
+        tokens.appendVector(*substitutedValue);
+
+        // A condition that read an attr()-tainted property taints the whole substitution value.
+        if (conditionEvaluator.referencedAttrTaintedValue())
+            propagateAttrTaint(IsAttrTainted::Yes, std::span(tokens).subspan(startIndex));
+
+        return true;
+    }
+
+    // No condition matched. Empty token stream.
+    return true;
+}
+
 std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange(CSSParserTokenRange range, const CSSParserContext& context)
 {
     Vector<CSSParserToken> tokens;
@@ -766,6 +1036,11 @@ std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange
                     success = false;
                 continue;
             }
+            if (functionId == CSSValueIf) {
+                if (!substituteIfFunction(range.consumeBlock(), tokens, context))
+                    success = false;
+                continue;
+            }
             if (functionId == CSSValueInternalAutoBase) {
                 if (!substituteInternalAutoBaseFunction(range.consumeBlock(), tokens, context))
                     success = false;
@@ -773,6 +1048,11 @@ std::optional<Vector<CSSParserToken>> SubstitutionResolver::substituteTokenRange
             }
             if (token.value() == "-internal-first-valid"_s) {
                 if (!substituteFirstValid(range.consumeBlock(), tokens, context))
+                    success = false;
+                continue;
+            }
+            if (functionId == CSSValueRandomItem) {
+                if (!substituteRandomItemFunction(range.consumeBlock(), tokens, context))
                     success = false;
                 continue;
             }
@@ -840,6 +1120,7 @@ RefPtr<CSSVariableData> SubstitutionResolver::substitute(const CSSSubstitutionVa
 {
     m_isAttrTainted = false;
     m_hasTaintedURL = false;
+    m_randomItemAutoIndex = 0;
     m_substitutionValue = &value;
 
     if (auto data = trySimpleSubstitution(value)) {

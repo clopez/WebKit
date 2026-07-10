@@ -594,14 +594,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/RTCIceTcpCandidateType.h
     Modules/mediastream/RTCNetworkManager.h
     Modules/mediastream/RTCRtpCodec.h
-    Modules/mediastream/RTCRtpSFrameTransformer.h
     Modules/mediastream/RTCRtpScriptTransformer.h
     Modules/mediastream/RTCRtpTransceiver.h
     Modules/mediastream/RTCRtpTransformBackend.h
     Modules/mediastream/RTCRtpTransformableFrame.h
     Modules/mediastream/RTCSessionDescription.h
     Modules/mediastream/RTCStatsReport.h
-    Modules/mediastream/SFrameUtils.h
     Modules/mediastream/STUNMessageParsing.h
     Modules/mediastream/UserMediaClient.h
     Modules/mediastream/UserMediaController.h
@@ -1464,7 +1462,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/messageports/MessageWithMessagePorts.h
     dom/messageports/TransferredMessagePort.h
 
-
+    editing/CachedMatchFinder.h
     editing/CharacterRange.h
     editing/ClipboardAccessPolicy.h
     editing/CompositionHighlight.h
@@ -1654,7 +1652,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/OffscreenCanvas.h
     html/Origin.h
     html/OwnerPermissionsPolicyData.h
-    html/PDFDocument.h
+    html/PDFJSDocument.h
     html/PermissionsPolicy.h
     html/PluginDocument.h
     html/ResolvedCaptionDisplaySettingsOptions.h
@@ -3213,6 +3211,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/anchor-position/StylePositionTryFallbacks.h
     style/values/anchor-position/StylePositionVisibility.h
 
+    style/values/animation-triggers/StyleTimelineTrigger.h
+    style/values/animation-triggers/StyleTimelineTriggerName.h
+    style/values/animation-triggers/StyleTimelineTriggers.h
+
     style/values/animations/StyleAnimation.h
     style/values/animations/StyleAnimations.h
     style/values/animations/StyleSingleAnimationDelay.h
@@ -3577,7 +3579,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     testing/MockGamepadProvider.h
     testing/MockParentalControlsURLFilter.h
     testing/MockWebAuthenticationConfiguration.h
-
     testing/js/WebCoreTestSupport.h
 
     workers/FetchingWorkerIdentifier.h
@@ -3595,7 +3596,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/WorkerOrWorkletThread.h
     workers/WorkerReportingProxy.h
     workers/WorkerRunLoop.h
-    workers/WorkerSTWParticipation.h
     workers/WorkerScriptLoader.h
     workers/WorkerScriptLoaderClient.h
     workers/WorkerThread.h

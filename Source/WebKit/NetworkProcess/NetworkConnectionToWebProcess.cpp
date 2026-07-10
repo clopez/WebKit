@@ -241,7 +241,12 @@ void NetworkConnectionToWebProcess::hasUploadStateChanged(bool hasUpload)
 void NetworkConnectionToWebProcess::loadImageForDecoding(WebCore::ResourceRequest&& request, WebPageProxyIdentifier pageID, uint64_t maximumBytesFromNetwork, CompletionHandler<void(Expected<Ref<WebCore::FragmentedSharedBuffer>, WebCore::ResourceError>&&)>&& completionHandler)
 {
     auto url = request.url();
-    MESSAGE_CHECK_COMPLETION(url.isValid(), completionHandler(makeUnexpected<WebCore::ResourceError>({ })));
+    MESSAGE_CHECK_COMPLETION(url.isValid() && url.protocolIsInHTTPFamily(), completionHandler(makeUnexpected<WebCore::ResourceError>({ })));
+
+    if (request.firstPartyForCookies().isValid())
+        MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, request.firstPartyForCookies()) == NetworkProcess::AllowCookieAccess::Allow, completionHandler(makeUnexpected<WebCore::ResourceError>({ })));
+    else
+        request.setAllowCookies(false);
     CheckedPtr networkSession = this->networkSession();
     if (!networkSession)
         return completionHandler(makeUnexpected<WebCore::ResourceError>({ }));
@@ -1484,7 +1489,6 @@ void NetworkConnectionToWebProcess::storageAccessQuirkForTopFrameDomain(URL&& to
 void NetworkConnectionToWebProcess::requestStorageAccessUnderOpener(WebCore::RegistrableDomain&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, WebCore::RegistrableDomain&& openerDomain)
 {
     MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, domainInNeedOfStorageAccess) == NetworkProcess::AllowCookieAccess::Allow);
-    MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, openerDomain) == NetworkProcess::AllowCookieAccess::Allow);
 
     if (CheckedPtr networkSession = this->networkSession()) {
         if (RefPtr resourceLoadStatistics = networkSession->resourceLoadStatistics())

@@ -451,7 +451,7 @@ void RenderLayerModelObject::mapLocalToSVGContainer(const RenderLayerModelObject
 
 void RenderLayerModelObject::applySVGTransform(TransformationMatrix& transform, const SVGGraphicsElement& graphicsElement, const Style::ComputedStyle& style, const FloatRect& boundingBox, const std::optional<AffineTransform>& preApplySVGTransformMatrix, const std::optional<AffineTransform>& postApplySVGTransformMatrix, OptionSet<Style::TransformResolverOption> options) const
 {
-    auto svgTransform = graphicsElement.transform().concatenate().value_or(identity);
+    auto svgTransform = graphicsElement.concatenatedTransform();
     auto* supplementalTransform = graphicsElement.supplementalTransform(); // SMIL <animateMotion>
 
     // This check does not use style.hasTransformRelatedProperty() on purpose -- we only want to know if either the 'transform' property, an
@@ -835,6 +835,23 @@ void RenderLayerModelObject::updateTransformAndRepaintForSVGAfterAttributeChange
         if (markedAny) {
             repaintClientsOfReferencedSVGResources();
             return;
+        }
+    }
+
+    // An ancestor container's own bounding boxes (its object, stroke and repaint bounding boxes) and
+    // cached visual overflow rect are computed from its descendants, so they include this renderer's
+    // transformed bounds and go stale when its transform changes. This path skips the layout that would
+    // recompute them, so when the transform actually
+    // changed, invalidate both up the ancestor chain to the SVG root, giving getBBox() and paint or
+    // hit-test culling a fresh rect. The scale-change paths above already scheduled a relayout for this.
+    if (previousTransform != currentTransform) {
+        for (CheckedPtr ancestor = parent(); ancestor; ancestor = ancestor->parent()) {
+            if (CheckedPtr svgAncestor = dynamicDowncast<RenderLayerModelObject>(ancestor.get())) {
+                svgAncestor->invalidateCachedSVGTransformDependentBoundingBoxes();
+                svgAncestor->invalidateCachedVisualOverflowRect();
+            }
+            if (ancestor->isRenderSVGRoot())
+                break;
         }
     }
 
