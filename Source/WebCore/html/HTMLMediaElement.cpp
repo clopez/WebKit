@@ -9449,14 +9449,12 @@ bool HTMLMediaElement::shouldOverridePauseDuringRouteChange() const
 #endif
 }
 
-void HTMLMediaElement::requestHostingContext(Function<void(HostingContext)>&& completionHandler)
+Ref<MediaPlayer::HostingContextPromise> HTMLMediaElement::requestHostingContext()
 {
-    if (RefPtr player = m_player) {
-        player->requestHostingContext(WTF::move(completionHandler));
-        return;
-    }
+    if (RefPtr player = m_player)
+        return player->requestHostingContext();
 
-    completionHandler({ });
+    return HostingContextPromise::createAndReject();
 }
 
 HostingContext HTMLMediaElement::layerHostingContext()
@@ -9842,7 +9840,9 @@ void HTMLMediaElement::updateShouldPlay()
         play();
     } else
         ALWAYS_LOG(LOGIDENTIFIER, "autoplay blocked with reason: ", canTransition.error());
-}void HTMLMediaElement::resetPlaybackSessionState()
+}
+
+void HTMLMediaElement::resetPlaybackSessionState()
 {
     if (RefPtr mediaSession = m_mediaSession)
         mediaSession->resetPlaybackSessionState();

@@ -111,6 +111,7 @@
 #import <WebCore/CompositionHighlight.h>
 #import <WebCore/DataDetectorElementInfo.h>
 #import <WebCore/DestinationColorSpace.h>
+#import <WebCore/DiagnosticLoggingClient.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/DigitalCredentialsRequestData.h>
 #import <WebCore/DragData.h>
@@ -1408,6 +1409,10 @@ WebViewImpl::WebViewImpl(WKWebView *view, WebProcessPool& processPool, Ref<API::
 
     auto& pageConfiguration = m_page->configuration();
     m_page->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags(), pageConfiguration.initialReferrerPolicy());
+
+    // This will ensure that DisplayID is set. This default is important so that offscreen webviews
+    // can schedule presentation updates.
+    windowDidChangeScreen();
 
     registerDraggedTypes();
 

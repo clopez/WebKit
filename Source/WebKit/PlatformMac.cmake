@@ -35,12 +35,21 @@ if (NOT AVFAUDIO_LIBRARY-NOTFOUND)
 endif ()
 
 list(APPEND WebKit_PRIVATE_LIBRARIES "-weak_framework PowerLog")
+if (USE_APPLE_INTERNAL_SDK)
+    list(APPEND WebKit_PRIVATE_LIBRARIES
+        "-weak_framework CoreML"
+        "-weak_framework NaturalLanguage"
+    )
+endif ()
 
 list(APPEND WebKit_SOURCES
     NetworkProcess/mac/NetworkConnectionToWebProcessMac.mm
 
     UIProcess/PDF/WKPDFHUDView.mm
     ${WEBKIT_DIR}/Platform/cocoa/WKMaterialHostingSupport.swift
+    ${WEBKIT_DIR}/Shared/Model/WKStageModeOrbitSimulator.swift
+    ${WEBKIT_DIR}/UIProcess/Cocoa/WKDeferringGestureRecognizer.swift
+    ${WEBKIT_DIR}/UIProcess/mac/WKTextSelectionController.swift
     ${WEBKIT_DIR}/UIProcess/PDF/WKPDFHUDView.swift
 
     WebProcess/InjectedBundle/API/c/mac/WKBundlePageMac.mm
@@ -150,7 +159,7 @@ add_custom_command(
         ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-derived-log-sources.py
         ${_log_messages_inputs}
         ${_log_messages_generated}
-        "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}"
+        ${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}
     WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
     VERBATIM
 )
@@ -163,6 +172,25 @@ list(APPEND WebKit_SOURCES
 list(APPEND WebKit_PRIVATE_LIBRARIES
     "-weak_framework PowerLog"
 )
+
+foreach (_header IN LISTS WebKit_PUBLIC_FRAMEWORK_HEADERS)
+    file(READ ${WEBKIT_DIR}/${_header} _contents)
+    # Only run headers through the replacement script if they actually contain
+    # a WKA import.
+    if (_contents MATCHES "#import <WebKitAdditions/.*\.h>")
+        get_filename_component(_name ${_header} NAME)
+        add_custom_command(
+            OUTPUT ${WebKit_HEADERS_DIR}/${_name}
+            COMMAND
+                env ${WEBKITADDITIONS_DEFINITIONS_FOR_HEADER_REPLACEMENT}
+                    ${WEBKIT_DIR}/mac/replace-webkit-additions-includes.py
+                    ${WebKitAdditions_FRAMEWORK_HEADERS_DIR} ${CMAKE_OSX_SYSROOT}
+                    ${WEBKIT_DIR}/${_header} ${WebKit_HEADERS_DIR}/${_name}
+            MAIN_DEPENDENCY ${WEBKIT_DIR}/${_header}
+            VERBATIM
+        )
+    endif ()
+endforeach ()
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -compatibility_version 1 -current_version ${WEBKIT_MAC_VERSION}")
 # -Wl,-u forces a symbol reference so -dead_strip_dylibs won't prune the weak framework.
@@ -235,20 +263,22 @@ add_custom_command(
         "${_wk_modules_dir}/module.private.modulemap"
         MAIN_DEPENDENCY "${WEBKIT_DIR}/Modules/OSX_Private.modulemap"
         VERBATIM)
-add_custom_command(
-        OUTPUT "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${_wk_modules_dir}/WebKit.swiftcrossimport"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${WEBKIT_DIR}/Modules/SwiftUI.swiftoverlay"
-        "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay"
-        MAIN_DEPENDENCY "${WEBKIT_DIR}/Modules/SwiftUI.swiftoverlay"
-        VERBATIM)
 
 add_custom_target(WebKit_CopyModules ALL DEPENDS
         "${_wk_modules_dir}/module.modulemap"
-        "${_wk_modules_dir}/module.private.modulemap"
-        "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay")
-
+        "${_wk_modules_dir}/module.private.modulemap")
 list(APPEND WebKit_DEPENDENCIES WebKit_CopyModules)
+
+add_custom_command(
+    OUTPUT "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_wk_modules_dir}/WebKit.swiftcrossimport"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${WEBKIT_DIR}/Modules/SwiftUI.swiftoverlay"
+    "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay"
+    MAIN_DEPENDENCY "${WEBKIT_DIR}/Modules/SwiftUI.swiftoverlay"
+    VERBATIM)
+add_custom_target(WebKit_SwiftCrossImport ALL DEPENDS
+    "${_wk_modules_dir}/WebKit.swiftcrossimport/SwiftUI.swiftoverlay")
+add_dependencies(WebKit WebKit_SwiftCrossImport)
 
 set(WebKit_OUTPUT_NAME WebKit)
 

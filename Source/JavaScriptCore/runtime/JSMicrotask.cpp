@@ -212,16 +212,19 @@ static void promiseResolveThenableJobFastSlow(JSGlobalObject* globalObject, JSPr
     VM& vm = globalObject->vm();
     auto scope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
 
-    JSObject* constructor = promiseSpeciesConstructor(globalObject, promise);
-    if (scope.exception()) [[unlikely]]
-        return;
-
+    // https://tc39.es/ecma262/#sec-newpromiseresolvethenablejob
+    // NewPromiseResolveThenableJob step a: create resolving functions first so
+    // an abrupt completion of the inlined `then` (SpeciesConstructor or
+    // NewPromiseCapability throwing) routes to reject(error) per step c.
     auto [resolve, reject] = promiseToResolve->createResolvingFunctions(vm, globalObject);
 
-    auto capability = JSPromise::createNewPromiseCapability(globalObject, constructor);
+    JSObject* constructor = promiseSpeciesConstructor(globalObject, promise);
     if (!scope.exception()) [[likely]] {
-        promise->performPromiseThen(vm, globalObject, resolve, reject, capability);
-        return;
+        auto capability = JSPromise::createNewPromiseCapability(globalObject, constructor);
+        if (!scope.exception()) [[likely]] {
+            promise->performPromiseThen(vm, globalObject, resolve, reject, capability);
+            return;
+        }
     }
 
     JSValue error = scope.exception()->value();
@@ -241,16 +244,15 @@ static void promiseResolveThenableJobWithInternalMicrotaskFastSlow(JSGlobalObjec
     VM& vm = globalObject->vm();
     auto scope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
 
-    JSObject* constructor = promiseSpeciesConstructor(globalObject, promise);
-    if (scope.exception()) [[unlikely]]
-        return;
-
     auto [resolve, reject] = JSPromise::createResolvingFunctionsWithInternalMicrotask(vm, globalObject, task, context);
 
-    auto capability = JSPromise::createNewPromiseCapability(globalObject, constructor);
+    JSObject* constructor = promiseSpeciesConstructor(globalObject, promise);
     if (!scope.exception()) [[likely]] {
-        promise->performPromiseThen(vm, globalObject, resolve, reject, capability);
-        return;
+        auto capability = JSPromise::createNewPromiseCapability(globalObject, constructor);
+        if (!scope.exception()) [[likely]] {
+            promise->performPromiseThen(vm, globalObject, resolve, reject, capability);
+            return;
+        }
     }
 
     JSValue error = scope.exception()->value();
@@ -301,27 +303,13 @@ static void asyncFromSyncIteratorContinueOrDone(JSGlobalObject* globalObject, VM
     case JSPromise::Status::Rejected: {
         JSValue syncIterator = contextObject->getDirect(vm, vm.propertyNames->builtinNames().syncIteratorPrivateName());
         if (syncIterator.isObject()) {
-            JSValue returnMethod;
-            JSValue error;
-            {
-                auto catchScope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
-                returnMethod = asObject(syncIterator)->get(globalObject, vm.propertyNames->returnKeyword);
-                if (catchScope.exception()) [[unlikely]] {
-                    error = catchScope.exception()->value();
-                    if (!catchScope.clearExceptionExceptTermination()) [[unlikely]] {
-                        scope.release();
-                        return;
-                    }
-                }
-            }
-            if (error) [[unlikely]] {
-                promise->reject(vm, error);
-                return;
-            }
-            if (returnMethod.isCallable()) {
+            auto catchScope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
+            JSValue returnMethod = asObject(syncIterator)->get(globalObject, vm.propertyNames->returnKeyword);
+            if (!catchScope.exception() && returnMethod.isCallable())
                 callMicrotask(globalObject, returnMethod, syncIterator, dynamicCastToCell(returnMethod), "return is not a function"_s, nullptr);
-                if (scope.exception()) [[unlikely]]
-                    return;
+            if (!catchScope.clearExceptionExceptTermination()) [[unlikely]] {
+                scope.release();
+                return;
             }
         }
         scope.release();

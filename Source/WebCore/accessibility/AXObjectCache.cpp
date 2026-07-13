@@ -1406,6 +1406,7 @@ void AXObjectCache::remove(AXID axID)
     if (!object)
         return;
 
+    SetForScope removingNode(m_isRemovingNode, true);
 #if PLATFORM(COCOA)
     if (m_liveRegionManager)
         m_liveRegionManager->unregisterLiveRegion(axID);
@@ -5440,6 +5441,13 @@ void AXObjectCache::performDeferredCacheUpdate(ForceLayout forceLayout)
             handleMenuOpened(*element);
             handleLiveRegionCreated(*element);
 
+            if (element->hasID() && m_unresolvedRelationTargetIds.contains(element->getIdAttribute())) {
+                // A previously-unresolved relation target (e.g. an aria-labelledby target that didn't
+                // exist when relations were last built) was just inserted, so dirty relations to
+                // re-resolve them.
+                markRelationsDirty();
+            }
+
             if (RefPtr label = dynamicDowncast<HTMLLabelElement>(*element)) {
                 // A label was added or removed. Update its LabelFor relationships.
                 m_elementsWithRelationAttributes.add(*label);
@@ -6647,10 +6655,28 @@ void AXObjectCache::updateRelationsIfNeeded()
 {
     if (!m_relationsNeedUpdate)
         return;
+
+    if (m_isRemovingNode) {
+        // Don't rebuild relations while removing a node (see remove(AXID)). Besides being crash-unsafe
+        // mid-destruction, reading the current (stale) relations here is correct: the parent ID that
+        // queueNodeRemoval() records must match the isolated tree's m_nodeMap, which reflects the same
+        // last-built relations. A fresh rebuild would desync from it and make removeSubtreeFromNodeMap()
+        // bail. m_relationsNeedUpdate stays set, so relations are rebuilt on the next update cycle.
+        //
+        // In the future, we should consider changing queueNodeRemoval()'s bail-if-parent-doesn't-match
+        // mechanism to something more robust. Presumably we can determine whether to bail purely based
+        // on whether the object is connected in the AX tree at all, catching the re-parenting scenario
+        // while avoiding the issues with our current mechanism (which can leak subtrees if we read the
+        // parent at the wrong time (the DOM has changed, relations have changed, etc). If we find a way
+        // to do that, we can probably remove this m_isRemovingNode flag.
+        return;
+    }
+
     relationsNeedUpdate(false);
     m_relations.clear();
     m_recentlyRemovedRelations.clear();
     m_relationTargets.clear();
+    m_unresolvedRelationTargetIds.clear();
     m_hasAriaOwnsRelations = false;
 
     if (!m_doneInitialRelationsBuild) {
@@ -6723,6 +6749,17 @@ bool AXObjectCache::addRelation(Element& origin, const QualifiedName& attribute)
     auto relation = attributeToRelationType(attribute);
     if (!m_document)
         return false;
+
+    // Remember any referenced ids whose target doesn't exist yet, so that if an element with one of
+    // these ids is inserted later, we know to dirty relations and re-resolve it
+    if (const auto& value = origin.attributeWithoutSynchronization(attribute); !value.isNull()) {
+        Ref treeScope = origin.treeScope();
+        for (auto& id : SpaceSplitString(value, SpaceSplitString::ShouldFoldCase::No)) {
+            if (!treeScope->elementByIdResolvingReferenceTarget(id))
+                m_unresolvedRelationTargetIds.add(id);
+        }
+    }
+
     if (Element::isElementReflectionAttribute(m_document->settings(), attribute)) {
         if (auto reflectedElement = origin.elementForAttributeInternal(attribute))
             return addRelation(origin, *reflectedElement, relation);

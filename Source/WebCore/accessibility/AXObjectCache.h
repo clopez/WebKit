@@ -1123,6 +1123,8 @@ private:
 #endif
     bool m_isSynchronizingSelection { false };
     bool m_performingDeferredCacheUpdate { false };
+    // True while remove(AXID) is tearing down an object.
+    bool m_isRemovingNode { false };
     double m_loadingProgress { 0 };
 
     // Tracks focus landing inside an aria-hidden region. After one rendering update
@@ -1145,6 +1147,10 @@ private:
     HashSet<AXID> m_relationTargets;
     HashMap<AXID, AXRelations> m_recentlyRemovedRelations;
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_elementsWithRelationAttributes;
+    // Ids referenced by a relation attribute (e.g. aria-labelledby) whose target didn't exist when
+    // relations were last built. If an element with one of these ids is later inserted, we must
+    // re-resolve relations.
+    HashSet<AtomString> m_unresolvedRelationTargetIds;
 
 #if USE(ATSPI)
     ListHashSet<RefPtr<AccessibilityObject>> m_deferredParentChangedList;

@@ -772,10 +772,21 @@ SMILTime SVGSMILElement::simpleDuration() const
     return std::min(dur(), SMILTime::indefinite());
 }
 
-static void insertSorted(Vector<SMILTimeWithOrigin>& list, SMILTimeWithOrigin time)
+static void insertSortedAndUnique(Vector<SMILTimeWithOrigin>& list, SMILTimeWithOrigin time)
 {
     ASSERT(std::is_sorted(list.begin(), list.end()));
-    list.insert(std::lower_bound(list.begin(), list.end(), time) - list.begin(), time);
+    size_t position = std::lower_bound(list.begin(), list.end(), time) - list.begin();
+    // The list is only ordered by time, so entries sharing this time are contiguous
+    // starting at `position`. Skip the insertion if the same (time, origin) pair is
+    // already present to keep repeated beginElementAt/endElementAt calls from ballooning
+    // the list with duplicates.
+    for (auto& existing : list.subspan(position)) {
+        if (existing.time() != time.time())
+            break;
+        if (existing.originIsScript() == time.originIsScript())
+            return;
+    }
+    list.insert(position, time);
 }
 
 void SVGSMILElement::addInstanceTime(BeginOrEnd beginOrEnd, SMILTime time, SMILTimeWithOrigin::Origin origin)
@@ -783,7 +794,7 @@ void SVGSMILElement::addInstanceTime(BeginOrEnd beginOrEnd, SMILTime time, SMILT
     SMILTime elapsed = this->elapsed();
     if (elapsed.isUnresolved())
         return;
-    insertSorted(beginOrEnd == Begin ? m_beginTimes : m_endTimes, SMILTimeWithOrigin(time, origin));
+    insertSortedAndUnique(beginOrEnd == Begin ? m_beginTimes : m_endTimes, SMILTimeWithOrigin(time, origin));
     if (beginOrEnd == Begin)
         beginListChanged(elapsed);
     else
@@ -854,7 +865,18 @@ void SVGSMILElement::resolveInterval(bool first, SMILTime& beginResult, SMILTime
     // See the pseudocode in http://www.w3.org/TR/SMIL3/smil-timing.html#q90.
     SMILTime beginAfter = first ? -std::numeric_limits<double>::infinity() : m_intervalEnd;
     SMILTime lastIntervalTempEnd = std::numeric_limits<double>::infinity();
+
+    // Defensively bound the walk: a malformed or non-advancing begin/end list must never spin
+    // here indefinitely. Falling out leaves the interval unresolved.
+    size_t currentIteration = 0;
+    // Allow 4x the begin-time count for end-time refinement retries, but never fewer than 1M
+    // iterations so small/empty lists driven by dynamic or event-based times aren't capped early.
+    size_t maxIterations = std::max<size_t>(m_beginTimes.size() * 4, 1000000);
     while (true) {
+        if (currentIteration++ >= maxIterations) [[unlikely]] {
+            ASSERT_NOT_REACHED();
+            break;
+        }
         bool equalsMinimumOK = !first || m_intervalEnd > m_intervalBegin;
         SMILTime tempBegin = findInstanceTime(Begin, beginAfter, equalsMinimumOK);
         if (tempBegin.isUnresolved())
@@ -1002,7 +1024,17 @@ void SVGSMILElement::seekToIntervalCorrespondingToTime(SMILTime elapsed)
     ASSERT(elapsed >= m_intervalBegin);
 
     // Manually seek from interval to interval, just as if the animation would run regulary.
+    // Defensively bound the walk so a non-advancing interval list can't spin here indefinitely.
+    // Falling out simply stops seeking at the current interval.
+    size_t currentIteration = 0;
+    // Allow 4x the begin-time count for end-time refinement retries, but never fewer than 1M
+    // iterations so small/empty lists driven by dynamic or event-based times aren't capped early.
+    size_t maxIterations = std::max<size_t>(m_beginTimes.size() * 4, 1000000);
     while (true) {
+        if (currentIteration++ >= maxIterations) [[unlikely]] {
+            ASSERT_NOT_REACHED();
+            return;
+        }
         // Figure out the next value in the begin time list after the current interval begin.
         SMILTime nextBegin = findInstanceTime(Begin, m_intervalBegin, false);
 

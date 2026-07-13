@@ -31,6 +31,7 @@
 #pragma once
 
 #include <WebCore/BaselineAlignment.h>
+#include <WebCore/FlexLayoutUtils.h>
 #include <WebCore/OrderIterator.h>
 #include <WebCore/RenderBlock.h>
 #include <wtf/Range.h>
@@ -47,6 +48,8 @@ class RenderFlexibleBox : public RenderBlock {
     WTF_MAKE_TZONE_ALLOCATED(RenderFlexibleBox);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderFlexibleBox);
 public:
+    const FlexLayoutUtils& flexLayoutUtils() const LIFETIME_BOUND { return m_flexLayoutUtils; }
+
     RenderFlexibleBox(Type, Element&, Style::ComputedStyle&&);
     RenderFlexibleBox(Type, Document&, Style::ComputedStyle&&);
     virtual ~RenderFlexibleBox();
@@ -67,15 +70,12 @@ public:
 
     bool willStretchItem(const RenderBox& item, LogicalBoxAxis containingAxis, StretchingMode = StretchingMode::Normal) const override;
 
-    bool NODELETE isHorizontalFlow() const;
-    Direction NODELETE crossAxisDirection() const;
-
     const OrderIterator& orderIterator() const LIFETIME_BOUND { return m_orderIterator; }
 
     LayoutOptionalOutsets allowedLayoutOverflow() const override;
 
     virtual bool isFlexibleBoxImpl() const { return false; };
-    
+
     std::optional<LayoutUnit> usedFlexItemOverridingLogicalHeightForPercentageResolution(const RenderBox&);
     bool canUseFlexItemForPercentageResolution(const RenderBox&);
 
@@ -87,10 +87,10 @@ public:
 
     LayoutUnit staticMainAxisPositionForPositionedFlexItem(const RenderBox&);
     LayoutUnit staticCrossAxisPositionForPositionedFlexItem(const RenderBox&);
-    
+
     LayoutUnit staticInlinePositionForPositionedFlexItem(const RenderBox&);
     LayoutUnit staticBlockPositionForPositionedFlexItem(const RenderBox&);
-    
+
     // Returns true if the position changed. In that case, the flexItem will have to
     // be laid out again.
     bool setStaticPositionForPositionedLayout(const RenderBox&);
@@ -98,26 +98,12 @@ public:
     enum class GapType : uint8_t { BetweenLines, BetweenItems };
     LayoutUnit computeGap(GapType) const;
 
-    bool useContentBasedMinimumBlockSize(const RenderBox&) const;
-
     bool isComputingFlexBaseSizes() const { return m_isComputingFlexBaseSizes; }
-
-    static std::optional<TextDirection> NODELETE leftRightAxisDirectionFromStyle(const Style::ComputedStyle&);
 
     bool hasModernLayout() const { return m_hasFlexFormattingContextLayout && *m_hasFlexFormattingContextLayout; }
 
     bool shouldResetFlexItemLogicalHeightBeforeLayout() const { return m_shouldResetFlexItemLogicalHeightBeforeLayout; }
     bool isInCrossAxisStretchLayout() const { return m_inLayout && m_afterCrossAxisItemSizing; }
-
-    bool NODELETE isColumnOrRowReverse() const;
-    bool NODELETE isWrapReverse() const;
-    bool NODELETE isMultiline() const;
-    bool NODELETE mainAxisIsFlexItemInlineAxis(const RenderBox&) const;
-    ItemPosition alignmentForFlexItem(const RenderBox&) const;
-    Style::FlexBasis flexBasisForFlexItem(const RenderBox&) const;
-    bool hasDefiniteCrossSizeForFlexItem(const RenderBox& flexItem) const;
-    bool hasDefiniteLogicalWidthForAspectRatioCrossSize() const;
-    bool hasStretchedFlexItemWithAspectRatio() const;
 
     class OverridingSizesScope {
     public:
@@ -152,6 +138,8 @@ protected:
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const override;
 
 private:
+    friend class FlexLayoutUtils;
+
     struct FlexBaseAndHypotheticalMainSize {
         LayoutUnit flexBaseContentSize;
         LayoutUnit hypotheticalMainContentSize;
@@ -162,118 +150,30 @@ private:
     public:
         FlexLayoutItem(RenderBox&, const FlexBaseAndHypotheticalMainSize&, bool everHadLayout);
 
-        LayoutUnit NODELETE hypotheticalMainAxisMarginBoxSize() const;
-        LayoutUnit NODELETE flexBaseMarginBoxSize() const;
-        LayoutUnit NODELETE flexedMarginBoxSize() const;
+        LayoutUnit NODELETE hypotheticalMainAxisMarginBoxSize(LayoutUnit hypotheticalMainContentSize, LayoutUnit mainAxisMargin) const;
+        LayoutUnit NODELETE flexBaseMarginBoxSize(LayoutUnit flexBaseContentSize, LayoutUnit mainAxisMargin) const;
+        LayoutUnit NODELETE flexedMarginBoxSize(LayoutUnit mainSize, LayoutUnit mainAxisMargin) const;
         const Style::ComputedStyle& NODELETE style() const LIFETIME_BOUND;
         LayoutUnit constrainSizeByMinMax(const LayoutUnit size) const;
 
         CheckedRef<RenderBox> renderer;
-        LayoutUnit flexBaseContentSize;
         const LayoutUnit mainAxisBorderAndPadding;
-        mutable LayoutUnit mainAxisMargin;
         const std::pair<LayoutUnit, LayoutUnit> minMaxSizes;
-        const LayoutUnit hypotheticalMainContentSize;
-        LayoutUnit flexedContentSize;
-        bool frozen { false };
         bool everHadLayout { false };
-        LayoutPoint flowAwareLocation;
     };
 
     enum class FlexSign : uint8_t {
         PositiveFlexibility,
         NegativeFlexibility,
     };
-    
+
     enum class SizeDefiniteness : uint8_t { Definite, Indefinite, Unknown };
-    
+
     static constexpr unsigned s_flexLayoutItemsInitialCapacity = 4;
     using FlexItemBorderBoxRects = Vector<LayoutRect, s_flexLayoutItemsInitialCapacity>;
     using FlexLayoutItems = Vector<FlexLayoutItem, s_flexLayoutItemsInitialCapacity>;
-
-    struct LineState;
-    static constexpr unsigned s_lineStatesInitialCapacity = 2;
-    using FlexLineStates = Vector<LineState, s_lineStatesInitialCapacity>;
-
-    bool NODELETE isColumnFlow() const;
-    bool NODELETE isLeftToRightFlow() const;
-    const Style::PreferredSize& NODELETE preferredMainSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    const Style::MinimumSize& NODELETE minMainSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    const Style::MaximumSize& NODELETE maxMainSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    const Style::PreferredSize& NODELETE preferredCrossSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    const Style::MinimumSize& NODELETE minCrossSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    const Style::MaximumSize& NODELETE maxCrossSizeLengthForFlexItem(const RenderBox&) const LIFETIME_BOUND;
-    bool useContentBasedMinimumSize(const RenderBox&) const;
-    LayoutUnit NODELETE crossAxisExtentForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit crossAxisIntrinsicExtentForFlexItem(RenderBox& flexItem);
-    LayoutUnit flexItemIntrinsicLogicalHeight(RenderBox& flexItem) const;
-    LayoutUnit flexItemIntrinsicLogicalWidth(RenderBox& flexItem);
-    LayoutUnit NODELETE mainAxisExtentForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit mainAxisContentExtentForFlexItemIncludingScrollbar(const RenderBox& flexItem) const;
-    LayoutUnit NODELETE crossAxisExtent() const;
-    LayoutUnit NODELETE mainAxisExtent() const;
-    LayoutUnit crossAxisContentExtent() const;
-    LayoutUnit columnInnerMainSize(LayoutUnit hypotheticalMainSize);
-    LayoutUnit mainAxisAvailableSpace();
-    template<typename SizeType> std::optional<LayoutUnit> computeMainAxisExtentForFlexItem(RenderBox& flexItem, const SizeType&);
-    FlowDirection NODELETE transformedBlockFlowDirection() const;
-    LayoutUnit flowAwareBorderStart() const;
-    LayoutUnit flowAwareBorderEnd() const;
-    LayoutUnit flowAwareBorderBefore() const;
-    LayoutUnit flowAwareBorderAfter() const;
-    LayoutUnit flowAwarePaddingStart() const;
-    LayoutUnit flowAwarePaddingEnd() const;
-    LayoutUnit flowAwarePaddingBefore() const;
-    LayoutUnit flowAwarePaddingAfter() const;
-    LayoutUnit flowAwareMarginStartForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit flowAwareMarginEndForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit flowAwareMarginBeforeForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit crossAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit mainAxisMarginExtentForFlexItem(const RenderBox& flexItem) const;
-    LayoutUnit crossAxisScrollbarExtent() const;
-    LayoutUnit mainAxisScrollbarExtent() const;
-    LayoutUnit crossAxisScrollbarExtentForFlexItem(const RenderBox& flexItem) const;
-    LayoutPoint NODELETE flowAwareLocationForFlexItem(const RenderBox& flexItem) const;
-
-    double preferredAspectRatioForFlexItem(const RenderBox&) const;
-    bool flexItemHasComputableAspectRatio(const RenderBox&) const;
-    bool flexItemHasComputableAspectRatioAndCrossSizeIsConsideredDefinite(const RenderBox&);
-
-    bool crossAxisIsLogicalWidth() const;
-    void clearFlexItemOverridingSizes();
-    LayoutUnit innerCrossSizeForFlexItem(const RenderBox& flexItem) const;
-    template<typename SizeType> LayoutUnit computeMainSizeFromAspectRatioUsing(const RenderBox& flexItem, const SizeType& crossSizeLength) const;
-    void NODELETE setFlowAwareLocationForFlexItem(RenderBox& flexItem, const LayoutPoint&);
-    void setFlexItemGeometry(FlexLayoutItem&);
-    LayoutUnit flexBaseSizeForFlexItem(RenderBox& flexItem);
-    void ensureBlockAxisContentSizeForFlexItemIfNeeded(RenderBox& flexItem);
-    void NODELETE adjustAlignmentForFlexItem(RenderBox& flexItem, LayoutUnit);
-    inline OverflowAlignment overflowAlignmentForFlexItem(const RenderBox& flexItem) const;
-    template<typename SizeType> bool canComputePercentageFlexBasis(const RenderBox& flexItem, const SizeType&, UpdatePercentageHeightDescendants);
-    template<typename SizeType> bool flexItemMainSizeIsDefinite(const RenderBox&, const SizeType&);
-    template<typename SizeType> bool flexItemCrossSizeIsDefinite(const RenderBox&, const SizeType&);
-    bool needToStretchFlexItemLogicalHeight(const RenderBox& flexItem) const;
-    bool flexBaseSizeNeedsBlockAxisContentSize(const RenderBox& flexItem);
-    Overflow NODELETE mainAxisOverflowForFlexItem(const RenderBox& flexItem) const;
-    Overflow NODELETE crossAxisOverflowForFlexItem(const RenderBox& flexItem) const;
-
-    void performFlexLayout(RelayoutChildren);
-    FlexLayoutItems collectFlexItems(RelayoutChildren);
-    // Sizes every flex line and lays out its items, returning the line states together with each line's remaining main-axis free space.
-    std::pair<FlexLineStates, Vector<LayoutUnit>> layoutFlexLines(FlexLayoutItems& allItems, RelayoutChildren, LayoutUnit gapBetweenItems);
-    // Positions each line's items along the main axis (justify-content + auto margins).
-    void handleMainAxisAlignment(FlexLineStates&, const Vector<LayoutUnit>& remainingFreeSpaces, LayoutUnit gapBetweenItems);
-    void setFlexItemCountsForFirstAndLastLine(const FlexLineStates&);
-    void adjustLogicalHeightForLineIfEmpty();
-
-    struct FlexingLineData {
-        LayoutUnit sumFlexBaseSize;
-        double totalFlexGrow { 0 };
-        double totalFlexShrink { 0 };
-        double totalWeightedFlexShrink { 0 };
-        LayoutUnit sumHypotheticalMainSize;
-    };
-    std::optional<FlexingLineData> computeNextFlexLine(size_t& nextIndex, FlexLayoutItems& allItems, LayoutUnit mainAxisAvailableSpace, LayoutUnit gapBetweenItems);
+    using FlexBaseAndHypotheticalMainSizeList = Vector<FlexBaseAndHypotheticalMainSize, s_flexLayoutItemsInitialCapacity>;
+    struct FlexLines;
 
     // A flex line is a contiguous range of allItems. computeFlexLines collects every line's range upfront
     // plus the per-line hypothetical main size that columnInnerMainSize needs.
@@ -282,58 +182,6 @@ private:
         LineRanges ranges;
         Vector<LayoutUnit> hypotheticalMainSizes;
     };
-    FlexLines computeFlexLines(FlexLayoutItems& allItems, LayoutUnit gapBetweenItems);
-    // Resolves each flex item's flexed main size (spec 9.7) for every line, and returns the resulting main-axis free space per line.
-    Vector<LayoutUnit> computeMainSizeForFlexItems(FlexLayoutItems& allItems, const FlexLines&, LayoutUnit gapBetweenItems);
-    void trimCrossAxisMarginsForFlexItems(FlexLayoutItems& allItems, const FlexLines&);
-    void layoutFlexItems(std::span<FlexLayoutItem>, RelayoutChildren);
-    // Measures every flex line's cross size up front, returning the line states (cross-axis offset, cross extent, baseline groups) ready for placement.
-    FlexLineStates computeCrossSizeForFlexLines(FlexLayoutItems& allItems, const FlexLines&);
-
-    LayoutUnit NODELETE autoMarginOffsetInMainAxis(std::span<const FlexLayoutItem>, LayoutUnit& availableFreeSpace);
-    void NODELETE updateAutoMarginsInMainAxis(RenderBox& flexItem, LayoutUnit autoMarginOffset);
-
-    void initializeMarginTrimState(); 
-    // Start margin parallel with the cross axis
-    bool NODELETE shouldTrimMainAxisMarginStart() const;
-    // End margin parallel with the cross axis
-    bool NODELETE shouldTrimMainAxisMarginEnd() const;
-    // Margins parallel with the main axis
-    bool NODELETE shouldTrimCrossAxisMarginStart() const;
-    bool NODELETE shouldTrimCrossAxisMarginEnd() const;
-    void trimMainAxisMarginStart(const FlexLayoutItem&);
-    void trimMainAxisMarginEnd(const FlexLayoutItem&);
-    void trimCrossAxisMarginStart(const FlexLayoutItem&);
-    void trimCrossAxisMarginEnd(const FlexLayoutItem&);
-    bool isChildEligibleForMarginTrim(Style::MarginTrimSide, const RenderBox&) const final;
-    bool canFitItemWithTrimmedMarginEnd(const FlexLayoutItem&, LayoutUnit sumHypotheticalMainSize, LayoutUnit mainAxisAvailableSpace) const;
-    void removeMarginEndFromFlexSizes(FlexLayoutItem&, LayoutUnit& sumFlexBaseSize, LayoutUnit& sumHypotheticalMainSize) const;
-
-    bool NODELETE hasAutoMarginsInCrossAxis(const RenderBox& flexItem) const;
-    bool NODELETE updateAutoMarginsInCrossAxis(RenderBox& flexItem, LayoutUnit availableAlignmentSpace);
-    LayoutUnit resolveFlexibleLengthsForLineItems(std::span<FlexLayoutItem>, LayoutUnit containerMainInnerSize, LayoutUnit gapBetweenItems);
-    void distributeMainAxisFreeSpaceForMultilineColumnIfNeeded(FlexLineStates&, LayoutUnit gapBetweenItems);
-    void repositionLogicalHeightDependentFlexItems(FlexLineStates&, LayoutUnit gapBetweenLines);
-    
-    LayoutUnit availableAlignmentSpaceForFlexItem(LayoutUnit lineCrossAxisExtent, const RenderBox& flexItem);
-    LayoutUnit marginBoxAscentForFlexItem(const RenderBox& flexItem);
-    
-    LayoutUnit computeFlexItemMarginValue(const Style::MarginEdge&);
-    void prepareOrderIteratorAndMargins();
-    std::pair<LayoutUnit, LayoutUnit> computeFlexItemMinMaxMainSizes(RenderBox& flexItem);
-    std::optional<LayoutUnit> computeUsedMaxMainSize(RenderBox& flexItem);
-    LayoutUnit computeUsedNonAutoMinMainSize(RenderBox& flexItem, const Style::MinimumSize&);
-    LayoutUnit computeContentBasedMinMainSize(RenderBox& flexItem, std::optional<LayoutUnit> maxExtent);
-    LayoutUnit adjustFlexItemSizeForAspectRatioCrossAxisMinAndMax(const RenderBox& flexItem, LayoutUnit flexItemSize);
-    FlexBaseAndHypotheticalMainSize flexBaseAndHypotheticalMainSize(RenderBox&);
-    
-    void freezeInflexibleItems(FlexSign, std::span<FlexLayoutItem>, LayoutUnit& remainingFreeSpace, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink);
-    bool resolveFlexibleLengths(FlexSign, std::span<FlexLayoutItem>, LayoutUnit initialFreeSpace, LayoutUnit& remainingFreeSpace, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink);
-    void freezeViolations(Vector<FlexLayoutItem*, 4>&, LayoutUnit& availableFreeSpace, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink);
-    
-    void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
-    void setOverridingMainSizeForFlexItem(RenderBox&, LayoutUnit);
-    void prepareFlexItemForPositionedLayout(RenderBox& flexItem);
 
     // A baseline-sharing group's members (indices into the owning line's items) and the ascent they align
     // to. Flex owns this because it positions each member within the group; the shared BaselineAlignmentState
@@ -345,42 +193,95 @@ private:
     // A line almost always has a single baseline-sharing group (at most 3 can exist), so keep one inline.
     using BaselineSharingGroups = Vector<BaselineSharingGroup, 1>;
 
-    struct FlexLineResult {
-        LayoutUnit crossAxisOffsetForNextLine;
-        LayoutUnit crossAxisExtent;
-        BaselineSharingGroups baselineSharingGroups;
-    };
-    // Measures each flex item's hypothetical cross size, returning the line's cross extent, its baseline sharing groups, and the next line's cross-axis offset.
-    FlexLineResult hypotheticalCrossSizeForFlexItems(std::span<const FlexLayoutItem>, LayoutUnit crossAxisOffset);
-    void placeFlexItems(LayoutUnit crossAxisOffset, std::span<FlexLayoutItem>, LayoutUnit availableFreeSpace, LayoutUnit gapBetweenItems);
-    void layoutFlexItemAfterMainSizing(FlexLayoutItem&, RelayoutChildren);
-    void layoutColumnReverse(std::span<const FlexLayoutItem>, LayoutUnit crossAxisOffset, LayoutUnit availableFreeSpace, LayoutUnit gapBetweenItems);
-    void alignFlexLines(FlexLineStates&, LayoutUnit gapBetweenLines);
-    void computeCrossSizeForFlexItems(FlexLineStates&);
-    void alignFlexItems(FlexLineStates&);
-    void applyStretchAlignmentToFlexItem(RenderBox& flexItem, LayoutUnit lineCrossAxisExtent);
-    void applyStretchMinMaxCrossSize(RenderBox& flexItem, LayoutUnit lineCrossAxisExtent, LogicalBoxAxis);
-    void performBaselineAlignment(LineState&);
-    void flipForRightToLeftColumn(const FlexLineStates& linesState);
-    void flipForWrapReverse(const FlexLineStates&, LayoutUnit crossAxisStartEdge);
-    
+    void performFlexLayout(RelayoutChildren);
+    FlexLayoutItems collectFlexItems(RelayoutChildren, FlexBaseAndHypotheticalMainSizeList& sizingList);
+    FlexLines computeFlexLines(FlexLayoutItems& allItems, std::span<const FlexBaseAndHypotheticalMainSize> sizingList, std::span<LayoutUnit> mainAxisMargins);
+    // Resolves each flex item's flexed main size (spec 9.7) for every line, and returns the used main size of each item.
+    Vector<LayoutUnit> computeMainSizeForFlexItems(FlexLayoutItems& allItems, const FlexLines&, std::span<const FlexBaseAndHypotheticalMainSize> sizingList, std::span<const LayoutUnit> mainAxisMargins, LayoutUnit gapBetweenItems);
+    LayoutUnit resolveFlexibleLengthsForLineItems(std::span<FlexLayoutItem>, std::span<const FlexBaseAndHypotheticalMainSize> lineSizing, std::span<LayoutUnit> mainSizes, std::span<const LayoutUnit> margins, LayoutUnit containerMainInnerSize, LayoutUnit gapBetweenItems);
+    void distributeMainAxisFreeSpaceForMultilineColumnIfNeeded(const FlexLines&, FlexLayoutItems&, std::span<const FlexBaseAndHypotheticalMainSize> sizingList, Vector<LayoutUnit>& mainSizeList, const Vector<LayoutUnit>& marginsList, Vector<LayoutPoint>& positionList, const Vector<LayoutUnit>& lineCrossOffsetList, LayoutUnit gapBetweenItems);
+    // Trims the cross-axis margins of the items on the first and last flex line (must run before laying the items out).
+    void trimCrossAxisMarginsForFlexItems(FlexLayoutItems& allItems, const FlexLines&);
+    // Lays out each flex item at its resolved main size.
+    void layoutFlexItems(std::span<FlexLayoutItem>, std::span<const LayoutUnit> mainSizes, RelayoutChildren);
+    void layoutFlexItemAfterMainSizing(FlexLayoutItem&, LayoutUnit mainSize, RelayoutChildren);
+    Vector<LayoutUnit> hypotheticalCrossSizeForFlexItems(const FlexLayoutItems&);
+    Vector<LayoutUnit> crossSizeForFlexLines(const FlexLines&, const FlexLayoutItems&, const Vector<LayoutUnit>& hypotheticalCrossSizeList);
+    Vector<LayoutPoint> handleMainAxisAlignment(const FlexLines&, FlexLayoutItems&, const Vector<LayoutUnit>& mainSizeList, const Vector<LayoutUnit>& marginsList, const Vector<LayoutUnit>& lineCrossOffsetList, LayoutUnit gapBetweenItems);
+    Vector<LayoutUnit> computeCrossSizeForFlexItems(const FlexLines&, FlexLayoutItems&, const Vector<LayoutUnit>& lineCrossSizeList);
+    void handleCrossAxisAlignmentForFlexLines(const FlexLines&, Vector<LayoutPoint>& positionList, Vector<LayoutUnit>& lineCrossOffsetList, Vector<LayoutUnit>& lineCrossSizeList, LayoutUnit gapBetweenLines);
+    void handleCrossAxisAlignmentForFlexItems(const FlexLines&, FlexLayoutItems&, const Vector<LayoutUnit>& crossSizeList, const Vector<LayoutUnit>& lineCrossSizeList, Vector<LayoutPoint>& positionList);
+    void performBaselineAlignment(WTF::Range<size_t> lineRange, FlexLayoutItems&, Vector<LayoutUnit>& crossItemOffsetList, const Vector<LayoutUnit>& crossSizeList, LayoutUnit lineCrossAxisExtent);
+
+    void placeFlexItems(LayoutUnit crossAxisOffset, std::span<FlexLayoutItem>, std::span<LayoutPoint> positions, LayoutUnit availableFreeSpace, LayoutUnit gapBetweenItems);
+    void layoutColumnReverse(std::span<FlexLayoutItem>, std::span<LayoutPoint> positions, LayoutUnit crossAxisOffset, LayoutUnit availableFreeSpace, LayoutUnit gapBetweenItems);
+    void setFlexItemCountsForFirstAndLastLine(const FlexLines&);
+    void adjustLogicalHeightForLineIfEmpty();
+
     void appendFlexItemBorderBoxRects(FlexItemBorderBoxRects&);
     void repaintFlexItemsDuringLayoutIfMoved(const FlexItemBorderBoxRects&);
+    FlexBaseAndHypotheticalMainSize flexBaseAndHypotheticalMainSize(RenderBox&);
+    LayoutUnit flexBaseSizeForFlexItem(RenderBox& flexItem);
+    bool flexBaseSizeNeedsBlockAxisContentSize(const RenderBox& flexItem);
+    void ensureBlockAxisContentSizeForFlexItemIfNeeded(RenderBox& flexItem);
+    std::pair<LayoutUnit, LayoutUnit> computeFlexItemMinMaxMainSizes(RenderBox& flexItem);
+    std::optional<LayoutUnit> computeUsedMaxMainSize(RenderBox& flexItem);
+    LayoutUnit computeUsedNonAutoMinMainSize(RenderBox& flexItem, const Style::MinimumSize&);
+    LayoutUnit computeContentBasedMinMainSize(RenderBox& flexItem, std::optional<LayoutUnit> maxExtent);
+    template<typename SizeType> std::optional<LayoutUnit> computeMainAxisExtentForFlexItem(RenderBox& flexItem, const SizeType&);
+    template<typename SizeType> LayoutUnit computeMainSizeFromAspectRatioUsing(const RenderBox& flexItem, const SizeType& crossSizeLength) const;
+    LayoutUnit adjustFlexItemSizeForAspectRatioCrossAxisMinAndMax(const RenderBox& flexItem, LayoutUnit flexItemSize);
+    LayoutUnit mainAxisAvailableSpace();
 
-    bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
-    void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox&);
+    LayoutUnit crossAxisIntrinsicExtentForFlexItem(RenderBox& flexItem);
+    LayoutUnit flexItemIntrinsicLogicalHeight(RenderBox& flexItem) const;
+    LayoutUnit flexItemIntrinsicLogicalWidth(RenderBox& flexItem);
+    template<typename SizeType> bool canComputePercentageFlexBasis(const RenderBox& flexItem, const SizeType&, UpdatePercentageHeightDescendants);
+    template<typename SizeType> bool flexItemMainSizeIsDefinite(const RenderBox&, const SizeType&);
+    template<typename SizeType> bool flexItemCrossSizeIsDefinite(const RenderBox&, const SizeType&);
 
-    void resetHasDefiniteHeight() { m_hasDefiniteHeight = SizeDefiniteness::Unknown; }
+    bool flexItemHasComputableAspectRatioAndCrossSizeIsConsideredDefinite(const RenderBox&);
+
+    void initializeMarginTrimState();
+    void trimMainAxisMarginStart(const FlexLayoutItem&, LayoutUnit& mainAxisMargin);
+    void trimMainAxisMarginEnd(const FlexLayoutItem&, LayoutUnit& mainAxisMargin);
+    void trimCrossAxisMarginStart(const FlexLayoutItem&);
+    void trimCrossAxisMarginEnd(const FlexLayoutItem&);
+    bool isChildEligibleForMarginTrim(Style::MarginTrimSide, const RenderBox&) const final;
+    bool canFitItemWithTrimmedMarginEnd(const FlexLayoutItem&, LayoutUnit hypotheticalMainContentSize, LayoutUnit mainAxisMargin, LayoutUnit sumHypotheticalMainSize, LayoutUnit mainAxisAvailableSpace) const;
+    void removeMarginEndFromFlexSizes(FlexLayoutItem&, LayoutUnit& sumFlexBaseSize, LayoutUnit& sumHypotheticalMainSize) const;
+
+    LayoutUnit NODELETE autoMarginOffsetInMainAxis(std::span<const FlexLayoutItem>, LayoutUnit& availableFreeSpace);
+    void NODELETE updateAutoMarginsInMainAxis(RenderBox& flexItem, LayoutUnit autoMarginOffset);
+
+    bool NODELETE updateAutoMarginsInCrossAxis(FlexLayoutItem&, LayoutUnit& crossOffset, LayoutUnit availableAlignmentSpace);
+    LayoutUnit applyStretchAlignmentToFlexItem(RenderBox& flexItem, LayoutUnit lineCrossAxisExtent);
+    LayoutUnit applyStretchMinMaxCrossSize(RenderBox& flexItem, LayoutUnit lineCrossAxisExtent, LogicalBoxAxis);
+    void setOverridingMainSizeForFlexItem(RenderBox&, LayoutUnit);
+
+    void clearFlexItemOverridingSizes();
+
+    void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
+    void NODELETE setFlowAwareLocationForFlexItem(RenderBox& flexItem, const LayoutPoint&);
+    void setFlexItemGeometry(FlexLayoutItem&, const LayoutPoint& location);
     const RenderBox* flexItemForFirstBaseline() const;
     const RenderBox* flexItemForLastBaseline() const;
     const RenderBox* firstBaselineCandidateOnLine(OrderIterator, size_t numberOfItemsOnLine) const;
     const RenderBox* lastBaselineCandidateOnLine(OrderIterator, size_t numberOfItemsOnLine) const;
 
+    bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
+    void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox&);
+    void prepareFlexItemForPositionedLayout(RenderBox& flexItem);
+
+    void prepareOrderIteratorAndMargins();
+
+    void resetHasDefiniteHeight() { m_hasDefiniteHeight = SizeDefiniteness::Unknown; }
+
     bool layoutUsingFlexFormattingContext();
 
     // Inner main size for flex items where main axis is the item's block axis (column flex or orthogonal).
     HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_blockAxisSize;
-    
+
     // This is used to cache the intrinsic size on the cross axis to avoid
     // relayouts when stretching.
     HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_contentLogicalHeights;
@@ -393,6 +294,7 @@ private:
     SingleThreadWeakHashSet<const RenderBox> m_flexItemsWithCompletedLayout;
 
     mutable OrderIterator m_orderIterator { *this };
+    const FlexLayoutUtils m_flexLayoutUtils { *this };
     size_t m_numberOfFlexItemsOnFirstLine { 0 };
     size_t m_numberOfFlexItemsOnLastLine { 0 };
 
