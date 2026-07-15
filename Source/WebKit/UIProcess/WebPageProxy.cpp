@@ -129,6 +129,7 @@
 #include "RestrictedOpenerType.h"
 #include "RunJavaScriptParameters.h"
 #include "SandboxExtension.h"
+#include "SessionHistoryTraversalQueue.h"
 #include "SharedBufferReference.h"
 #include "SpeechRecognitionPermissionManager.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSource.h"
@@ -257,6 +258,7 @@
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/LinkDecorationFilteringData.h>
+#include <WebCore/LocalDOMWindow.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MediaDeviceHashSalts.h>
 #include <WebCore/MediaStreamRequest.h>
@@ -305,6 +307,7 @@
 #include <ranges>
 #include <stdio.h>
 #include <wtf/CallbackAggregator.h>
+#include <wtf/CheckedArithmetic.h>
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/FileSystem.h>
@@ -314,6 +317,7 @@
 #include <wtf/Scope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/URLHash.h>
 #include <wtf/URLParser.h>
@@ -913,6 +917,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
 #endif
     , m_navigationState(makeUniqueRefWithoutRefCountedCheck<WebNavigationState>(*this))
     , m_generatePageLoadTimingTimer(RunLoop::mainSingleton(), "WebPageProxy::GeneratePageLoadTimingTimer"_s, this, &WebPageProxy::didEndNetworkRequestsForPageLoadTimingTimerFired)
+    , m_sessionHistoryTraversalQueue(makeUniqueRefWithoutRefCountedCheck<SessionHistoryTraversalQueue>(*this))
 #if PLATFORM(COCOA)
     , m_textIndicatorFadeTimer(RunLoop::mainSingleton(), "WebPageProxy::TextIndicatorFadeTimer"_s, this, &WebPageProxy::startTextIndicatorFadeOut)
 #endif
@@ -1896,6 +1901,12 @@ void WebPageProxy::close()
 
     m_isClosed = true;
 
+#if ENABLE(WEB_AUTHN) && ENABLE(WEBDRIVER_BIDI)
+    abortPendingDigitalCredentialWaitHandlers("Page closed."_s);
+#endif
+
+    m_sessionHistoryTraversalQueue->cancel();
+
     // Make sure we do this before we clear the UIClient so that we can ask the UIClient
     // to release the wake locks.
     internals().sleepDisablers.clear();
@@ -2497,7 +2508,7 @@ void WebPageProxy::loadDataWithNavigationShared(Ref<WebProcessProxy>&& process, 
             return;
         protectedProcess->send(Messages::WebPage::LoadData(WTF::move(loadParameters)), webPageID);
         protectedProcess->startResponsivenessTimer();
-    }, true);
+    }, WebProcessProxy::CreateSandboxExtensionForNetworkingProcess::Yes);
 }
 
 RefPtr<API::Navigation> WebPageProxy::loadSimulatedRequest(WebCore::ResourceRequest&& simulatedRequest, WebCore::ResourceResponse&& simulatedResponse, Ref<WebCore::SharedBuffer>&& data)
@@ -2874,10 +2885,12 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
             anySent = sendGoToBackForwardItemForFrame(protect(item->mainFrameItem()), navigation->navigationID(), frameLoadType, shouldRestoreFromBackForwardCache, publicSuffix);
         if (!anySent)
             WEBPAGEPROXY_RELEASE_LOG_ERROR(ProcessSwapping, "goToBackForwardItem: walk dispatched no GoToBackForwardItem messages — back/forward action will be silently dropped");
+        navigation->setBackForwardTraversalWasDispatched(anySent);
     } else {
         process->markProcessAsRecentlyUsed();
         process->send(Messages::WebPage::GoToBackForwardItem({ navigation->navigationID(), copyFrameStateForBackForwardNavigation(frameItem), frameLoadType, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, shouldRestoreFromBackForwardCache, std::nullopt, WTF::move(publicSuffix), { }, WebCore::ProcessSwapDisposition::None }), webPageIDInProcess(process));
         process->startResponsivenessTimer();
+        navigation->setBackForwardTraversalWasDispatched(true);
     }
 
     return RefPtr<API::Navigation> { WTF::move(navigation) };
@@ -3082,15 +3095,33 @@ void WebPageProxy::shouldGoToBackForwardListItemSync(BackForwardItemIdentifier i
     shouldGoToBackForwardListItem(itemID, false, WTF::move(completionHandler));
 }
 
-void WebPageProxy::goToBackForwardItemAtIndex(int32_t steps, FrameLoadType frameLoadType)
+void WebPageProxy::goToBackForwardItemAtIndex(int32_t steps)
+{
+    goToBackForwardItemAtIndexForTraversal(steps);
+}
+
+RefPtr<API::Navigation> WebPageProxy::goToBackForwardItemAtIndexForTraversal(int32_t steps)
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "goToBackForwardItemAtIndex: steps=%d", steps);
 
     RefPtr item = backForwardListWrapper().itemAtDeltaFromCurrentIndex(steps, AllowSkippingBackForwardItems::No);
     if (!item)
-        return;
+        return nullptr;
 
-    goToBackForwardItem(frameItemForLegacyTraversalRouting(*item, "goToBackForwardItemAtIndex"_s), frameLoadType);
+    // Report the navigation only when a traversal was actually dispatched — a resolved item whose
+    // per-frame walk sends nothing would otherwise leave the traversal queue waiting forever.
+    RefPtr navigation = goToBackForwardItem(frameItemForLegacyTraversalRouting(*item, "goToBackForwardItemAtIndex"_s), FrameLoadType::IndexedBackForward);
+    return navigation && navigation->backForwardTraversalWasDispatched() ? navigation : nullptr;
+}
+
+void WebPageProxy::enqueueHistoryTraversalDelta(int32_t delta)
+{
+    m_sessionHistoryTraversalQueue->enqueueDelta(delta);
+}
+
+int32_t WebPageProxy::inFlightTraversalDirection() const
+{
+    return m_sessionHistoryTraversalQueue->inFlightDirection();
 }
 
 bool WebPageProxy::shouldKeepCurrentBackForwardListItemInList(WebBackForwardListItem& item)
@@ -4689,6 +4720,55 @@ void WebPageProxy::flushPendingKeyEventCallbacks()
         callback();
 }
 
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+void WebPageProxy::doAfterProcessingAllPendingWheelEvents(WTF::Function<void ()>&& action)
+{
+    if (!isProcessingWheelEvents()) {
+        action();
+        return;
+    }
+
+    internals().callbackHandlersAfterProcessingPendingWheelEvents.append(WTF::move(action));
+}
+
+void WebPageProxy::didFinishProcessingAllPendingWheelEvents()
+{
+    flushPendingWheelEventCallbacks();
+}
+
+void WebPageProxy::flushPendingWheelEventCallbacks()
+{
+    for (auto&& callback : std::exchange(internals().callbackHandlersAfterProcessingPendingWheelEvents, { }))
+        callback();
+}
+
+bool WebPageProxy::isProcessingTouchEvents() const
+{
+    return !internals().touchEventQueue.isEmpty();
+}
+
+void WebPageProxy::doAfterProcessingAllPendingTouchEvents(WTF::Function<void ()>&& action)
+{
+    if (!isProcessingTouchEvents()) {
+        action();
+        return;
+    }
+
+    internals().callbackHandlersAfterProcessingPendingTouchEvents.append(WTF::move(action));
+}
+
+void WebPageProxy::didFinishProcessingAllPendingTouchEvents()
+{
+    flushPendingTouchEventCallbacks();
+}
+
+void WebPageProxy::flushPendingTouchEventCallbacks()
+{
+    for (auto&& callback : std::exchange(internals().callbackHandlersAfterProcessingPendingTouchEvents, { }))
+        callback();
+}
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 void WebPageProxy::handleWheelEventWithoutScrolling(const WebWheelEvent& event, CompletionHandler<void(bool)>&& completionHandler)
 {
@@ -4881,6 +4961,9 @@ void WebPageProxy::wheelEventHandlingCompleted(bool wasHandled)
 
     if (RefPtr automationSession = m_configuration->processPool().automationSession())
         automationSession->wheelEventsFlushedForPage(*this);
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+    didFinishProcessingAllPendingWheelEvents();
+#endif
 }
 
 void WebPageProxy::cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent& nativeWheelEvent)
@@ -5330,6 +5413,11 @@ void WebPageProxy::touchEventHandlingCompleted(IPC::Connection* connection, std:
         bool isEventHandled = false;
         pageClient->doneWithTouchEvent(queuedEvents.deferredTouchEvents.at(i), isEventHandled);
     }
+
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+    if (internals().touchEventQueue.isEmpty())
+        didFinishProcessingAllPendingTouchEvents();
+#endif
 }
 
 void WebPageProxy::handleTouchEvent(IPC::Connection* connection, const NativeWebTouchEvent& event)
@@ -7815,9 +7903,15 @@ void WebPageProxy::didEndNetworkRequestsForPageLoadTimingTimerFired()
 void WebPageProxy::updateScrollingMode(IPC::Connection& connection, WebCore::FrameIdentifier frameID, WebCore::ScrollbarMode scrollingMode)
 {
     if (RefPtr frame = WebFrameProxy::webFrame(frameID)) {
-        Ref process = WebProcessProxy::fromConnection(connection);
         RefPtr parentFrame = frame->parentFrame();
-        MESSAGE_CHECK(process, parentFrame && &parentFrame->process() == process.ptr());
+        // A late UpdateScrollingMode for a subframe detached mid-traversal (parent already gone) is a
+        // benign straggler; ignore it. Terminating it as an invalid message resets PageLoadState to an
+        // empty URL and hangs the navigation (webkit.org/b/318728).
+        if (!parentFrame)
+            return;
+        Ref process = WebProcessProxy::fromConnection(connection);
+        // The sender must host the parent frame, which owns the child's scrolling mode.
+        MESSAGE_CHECK(process, &parentFrame->process() == process.ptr());
         frame->updateScrollingMode(scrollingMode);
     }
 }
@@ -8247,6 +8341,10 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
     MESSAGE_CHECK_URL(process, provisionalURL);
     MESSAGE_CHECK_URL(process, error.failingURL());
 
+    // A failed main-frame provisional load also settles an in-flight traversal (nothing committed).
+    if (frame.isMainFrame())
+        m_sessionHistoryTraversalQueue->traversalDidSettle();
+
     RefPtr protectedPageClient { pageClient() };
 
     if (m_controlledByAutomation && willInternallyHandleFailure == WillInternallyHandleFailure::No) {
@@ -8426,6 +8524,12 @@ void WebPageProxy::didCommitLoadForFrame(IPC::Connection& connection, FrameIdent
     RefPtr frame = WebFrameProxy::webFrame(frameID);
     if (!frame)
         return;
+
+    // The current index advances (via the synchronous BackForwardGoToItem) before this commit, so
+    // settle the cross-process traversal queue here; no-op unless a traversal is in flight.
+    if (frame->isMainFrame())
+        m_sessionHistoryTraversalQueue->traversalDidSettle();
+
     if (frame->provisionalFrame()) {
         frame->commitProvisionalFrame(connection, frameID, WTF::move(frameInfo), WTF::move(request), navigationID, WTF::move(mimeType), frameHasCustomContentProvider, frameLoadType, usedLegacyTLS, wasPrivateRelayed, WTF::move(proxyName), source, containsPluginDocument, hasInsecureContent, mouseEventPolicy, WTF::move(documentSecurityPolicy), WTF::move(cspOriginsThatUpgradeInsecureNavigations), userData, restoredFromBackForwardCache, WTF::move(redirectReplaceFrameState));
         return;
@@ -9024,6 +9128,10 @@ void WebPageProxy::didSameDocumentNavigationForFrame(IPC::Connection& connection
     MESSAGE_CHECK_URL(m_legacyMainFrameProcess, url);
 
     WEBPAGEPROXY_RELEASE_LOG(Loading, "didSameDocumentNavigationForFrame: frameID=%" PRIu64 ", isMainFrame=%d, type=%u", frameID.toUInt64(), frame->isMainFrame(), std::to_underlying(navigationType));
+
+    // Same-document main-frame traversals advance the index without a load commit, so settle here too.
+    if (frame->isMainFrame())
+        m_sessionHistoryTraversalQueue->traversalDidSettle();
 
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
     RefPtr<API::Navigation> navigation;
@@ -11213,6 +11321,29 @@ void WebPageProxy::showContactPicker(IPC::Connection& connection, ContactsReques
         completionHandler(std::nullopt);
 }
 
+#if ENABLE(WEBDRIVER_BIDI) && ENABLE(WEB_AUTHN)
+enum class VirtualWalletDisposition : uint8_t { NotHandled, Handled, StorePendingHandler };
+
+static VirtualWalletDisposition applyVirtualWalletBehavior(const VirtualWalletBehavior& behavior, DigitalCredentialsPickerCompletionHandler& completionHandler)
+{
+    using VirtualWalletAction = Inspector::Protocol::BidiDigitalCredentials::VirtualWalletAction;
+    switch (behavior.action) {
+    case VirtualWalletAction::Wait:
+        return VirtualWalletDisposition::StorePendingHandler;
+    case VirtualWalletAction::Decline:
+        completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotAllowedError, "Virtual wallet declined the request."_s }));
+        return VirtualWalletDisposition::Handled;
+    case VirtualWalletAction::Respond:
+        completionHandler(WebCore::DigitalCredentialsResponseData { behavior.protocol, behavior.responseJSON });
+        return VirtualWalletDisposition::Handled;
+    case VirtualWalletAction::Clear:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    return VirtualWalletDisposition::NotHandled;
+}
+#endif
+
 #if ENABLE(WEB_AUTHN)
 void WebPageProxy::showDigitalCredentialsChooser(IPC::Connection& connection, std::optional<WebCore::FrameIdentifier>&& frameID, const WebCore::DigitalCredentialsRequestData& requestData, CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
 {
@@ -11243,9 +11374,8 @@ void WebPageProxy::showDigitalCredentialsChooser(IPC::Connection& connection, st
                         contextID = automationSession->handleForWebPageProxy(*this);
                     const auto walletBehavior = agent.behaviorForContext(contextID);
                     if (walletBehavior) {
-                        using VirtualWalletAction = Inspector::Protocol::BidiDigitalCredentials::VirtualWalletAction;
-                        switch (walletBehavior->action) {
-                        case VirtualWalletAction::Wait:
+                        switch (applyVirtualWalletBehavior(*walletBehavior, completionHandler)) {
+                        case VirtualWalletDisposition::StorePendingHandler:
                             // FIXME: A concurrent request from a site-isolated cross-origin iframe (separate
                             // process) can clobber this single slot; only same-process concurrency is
                             // serialized by prepareCredentialRequests (webkit.org/b/318408).
@@ -11253,18 +11383,27 @@ void WebPageProxy::showDigitalCredentialsChooser(IPC::Connection& connection, st
                             m_pendingDigitalCredentialsWaitContextID = contextID;
                             agent.holdPendingHandler(contextID, WTF::move(completionHandler));
                             return;
-                        case VirtualWalletAction::Decline:
-                            completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotAllowedError, "Virtual wallet declined the request."_s }));
+                        case VirtualWalletDisposition::Handled:
                             return;
-                        case VirtualWalletAction::Respond:
-                            completionHandler(WebCore::DigitalCredentialsResponseData { walletBehavior->protocol, walletBehavior->responseJSON });
-                            return;
-                        case VirtualWalletAction::Clear:
-                            // 'clear' removes the stored behavior in the agent, so it is never a stored action here.
-                            ASSERT_NOT_REACHED();
+                        case VirtualWalletDisposition::NotHandled:
                             break;
                         }
                     }
+                }
+            }
+#endif
+
+#if ENABLE(WEBDRIVER_BIDI)
+            if (const auto& testBehavior = internals().testingVirtualWalletBehavior) {
+                switch (applyVirtualWalletBehavior(*testBehavior, completionHandler)) {
+                case VirtualWalletDisposition::StorePendingHandler:
+                    settlePendingTestingDigitalCredentialHandler("Superseded by a new digital credential request."_s);
+                    internals().testingPendingDigitalCredentialHandler = WTF::move(completionHandler);
+                    return;
+                case VirtualWalletDisposition::Handled:
+                    return;
+                case VirtualWalletDisposition::NotHandled:
+                    break;
                 }
             }
 #endif
@@ -11276,6 +11415,14 @@ void WebPageProxy::showDigitalCredentialsChooser(IPC::Connection& connection, st
                 completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::SecurityError, "Digital credentials request is not same-origin with top-level navigable."_s }))
             );
 
+            auto lastActivationTimestamp = internals().lastActivationTimestamp;
+            bool hasTransientActivation = MonotonicTime::now() - lastActivationTimestamp < WebCore::LocalDOMWindow::transientActivationDuration();
+            if (!hasTransientActivation || lastActivationTimestamp <= internals().lastConsumedDigitalCredentialsActivationTimestamp) {
+                completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotAllowedError, "Digital credentials request requires transient user activation."_s }));
+                return;
+            }
+            internals().lastConsumedDigitalCredentialsActivationTimestamp = lastActivationTimestamp;
+
             LOG(DigitalCredentials, "WebPageProxy::showDigitalCredentialsChooser() - UIProcess: passing to pageClient to present chooser UI");
             protect(pageClient())->showDigitalCredentialsChooser(requestData, WTF::move(completionHandler));
 #else
@@ -11283,6 +11430,53 @@ void WebPageProxy::showDigitalCredentialsChooser(IPC::Connection& connection, st
 #endif
     });
 }
+
+#if ENABLE(WEBDRIVER_BIDI)
+void WebPageProxy::settlePendingTestingDigitalCredentialHandler(ASCIILiteral rejectionMessage)
+{
+    if (auto handler = std::exchange(internals().testingPendingDigitalCredentialHandler, nullptr))
+        handler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotAllowedError, rejectionMessage }));
+}
+
+void WebPageProxy::abortPendingDigitalCredentialWaitHandlers(ASCIILiteral rejectionMessage)
+{
+    settlePendingTestingDigitalCredentialHandler(rejectionMessage);
+    if (auto contextID = std::exchange(m_pendingDigitalCredentialsWaitContextID, std::nullopt); contextID) {
+        if (RefPtr automationSession = configuration().processPool().automationSession())
+            automationSession->bidiProcessor().digitalCredentialsAgent().releasePendingHandler(*contextID);
+    }
+}
+
+void WebPageProxy::setVirtualWalletBehaviorForTesting(const String& action, const String& protocol, const String& responseJSON)
+{
+    using VirtualWalletAction = Inspector::Protocol::BidiDigitalCredentials::VirtualWalletAction;
+
+    if (action == "clear"_s) {
+        internals().testingVirtualWalletBehavior = std::nullopt;
+        settlePendingTestingDigitalCredentialHandler("Virtual wallet behavior cleared."_s);
+        return;
+    }
+
+    std::optional<VirtualWalletAction> parsedAction;
+    if (action == "respond"_s)
+        parsedAction = VirtualWalletAction::Respond;
+    else if (action == "decline"_s)
+        parsedAction = VirtualWalletAction::Decline;
+    else if (action == "wait"_s)
+        parsedAction = VirtualWalletAction::Wait;
+
+    if (!parsedAction) {
+        ASSERT_NOT_REACHED_WITH_MESSAGE("Unknown virtual wallet action: %s", action.utf8().data());
+        return;
+    }
+
+    settlePendingTestingDigitalCredentialHandler("Virtual wallet behavior replaced."_s);
+
+    // FIXME: Only org-iso-mdoc is supported, so the requested protocol is ignored (webkit.org/b/317545).
+    UNUSED_PARAM(protocol);
+    internals().testingVirtualWalletBehavior = VirtualWalletBehavior { *parsedAction, WebCore::DigitalCredentialPresentationProtocol::OrgIsoMdoc, responseJSON };
+}
+#endif
 
 void WebPageProxy::fetchRawDigitalCredentialRequests(CompletionHandler<void(WebCore::DigitalCredentialsRawRequests)>&& completionHandler)
 {
@@ -11302,10 +11496,7 @@ void WebPageProxy::dismissDigitalCredentialsChooser(IPC::Connection& connection,
     );
 #if ENABLE(WEB_AUTHN)
 #if ENABLE(WEBDRIVER_BIDI)
-    if (auto contextID = std::exchange(m_pendingDigitalCredentialsWaitContextID, std::nullopt)) {
-        if (RefPtr automationSession = configuration().processPool().automationSession())
-            automationSession->bidiProcessor().digitalCredentialsAgent().releasePendingHandler(*contextID);
-    }
+    abortPendingDigitalCredentialWaitHandlers("Digital credential request dismissed."_s);
 #endif
     protect(pageClient())->dismissDigitalCredentialsChooser(WTF::move(completionHandler));
 #else
@@ -12517,7 +12708,7 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item, c
         return;
 
     case ContextMenuItemTagCopySubject:
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
         handleContextMenuCopySubject(hitTestData.sourceImageMIMEType);
 #endif
         return;
@@ -13546,6 +13737,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     m_focusedFrame = nullptr;
     m_suspendedPageKeptToPreventFlashing = nullptr;
     m_lastSuspendedPage = nullptr;
+
+#if ENABLE(WEB_AUTHN) && ENABLE(WEBDRIVER_BIDI)
+    abortPendingDigitalCredentialWaitHandlers("The page was reset."_s);
+#endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
     m_allowedImmersiveElementFrameInfo = nullptr;
@@ -18283,7 +18478,7 @@ void WebPageProxy::cancelTextRecognitionForVideoInElementFullScreen()
 }
 #endif // #if ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
 
 void WebPageProxy::shouldAllowRemoveBackground(const ElementContext& context, CompletionHandler<void(bool)>&& completion)
 {

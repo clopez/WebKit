@@ -153,11 +153,7 @@ imported/w3c/web-platform-tests/css/css-images/object-fit-scale-down-svg-004p.ht
 imported/w3c/web-platform-tests/css/css-lists/list-style-type-decimal-line-height.html [ Pass ]
 
 webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-border-area-corner-shape.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-grid/alignment/grid-gutters-explicit-placement.html [ Pass ]
 imported/w3c/web-platform-tests/svg/linking/reftests/media-fragment-override-multiple.html [ Pass ]
-
-imported/w3c/web-platform-tests/css/css-grid/computed-grid-column.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-grid/grid-lanes/animation/grid-template-columns-001.html [ Pass ]
 
 compositing/scrolling/async-overflow-scrolling [ Pass ]
 compositing/scrolling/async-overflow-scrolling/mac [ Skip ]
@@ -930,6 +926,13 @@ imported/w3c/web-platform-tests/html/interaction/focus/anchor-element-focus-ring
 # Passing since 316397@main.
 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-notch.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-superellipse-negative-inf.html [ Pass ]
+
+# Passing since 316722@main.
+imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-fill.html [ Pass ]
+
+# Passing since 317045@main.
+imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-square-notch-mixed.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-square-notch-superellipse.html [ Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of PASSING tests.
@@ -4129,7 +4132,7 @@ webkit.org/b/169910 fast/multicol/simple-line-layout-line-index-after-strut.html
 webkit.org/b/169917 webgl/1.0.x/conformance/glsl/bugs/temp-expressions-should-not-crash.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.x/conformance/rendering/many-draw-calls.html [ Slow ]
 
-webkit.org/b/316165 workers/bomb.html [ Slow ]
+webkit.org/b/316165 [ Release ] workers/bomb.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.x/conformance/uniforms/gl-uniform-arrays.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.x/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Slow ]
 webkit.org/b/172270 fast/text/web-font-load-invisible-during-loading.html [ Failure ]
@@ -5495,6 +5498,9 @@ webkit.org/b/319050 [ Debug ] imported/w3c/web-platform-tests/fetch/local-networ
 webkit.org/b/319051 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Failure ]
 webkit.org/b/319052 [ Debug ] http/tests/websocket/tests/hybi/inspector/handshake-error.html [ Failure ]
 webkit.org/b/319053 [ Debug ] media/video-playback-restriction-play-before-load.html [ Failure ]
+webkit.org/b/319310 [ Debug ] fast/repaint/iframe-avoid-redundant-repaint.html [ Failure Pass ]
+webkit.org/b/319311 [ Debug ] fast/repaint/missing-out-of-flow-repaint-on-destroy.html [ Pass ImageOnlyFailure ]
+webkit.org/b/319312 [ Debug ] workers/bomb.html [ Skip ]
 
 # End: Common failures between GTK and WPE.
 

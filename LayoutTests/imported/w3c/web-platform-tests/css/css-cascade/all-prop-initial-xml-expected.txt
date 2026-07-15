@@ -351,6 +351,7 @@ PASS text-box-edge
 PASS text-box-trim
 PASS text-combine-upright
 PASS text-decoration-color
+PASS text-decoration-inset
 PASS text-decoration-line
 PASS text-decoration-skip-ink
 PASS text-decoration-style
@@ -401,11 +402,13 @@ PASS view-transition-class
 PASS view-transition-name
 PASS visibility
 PASS white-space-collapse
+PASS white-space-trim
 PASS widows
 PASS width
 PASS will-change
 PASS word-break
 PASS word-spacing
+PASS wrap-inside
 PASS writing-mode
 PASS x
 PASS y

@@ -547,6 +547,7 @@ class RemoteScrollingCoordinatorProxy;
 class RevealItem;
 class SandboxExtensionHandle;
 class SecKeyProxyStore;
+class SessionHistoryTraversalQueue;
 class SpeechRecognitionPermissionManager;
 class SuspendedPageProxy;
 class SystemPreviewController;
@@ -1009,7 +1010,13 @@ public:
     void didChangeBackForwardList(WebBackForwardListItem* addedItem, Vector<Ref<WebBackForwardListItem>>&& removed);
     void shouldGoToBackForwardListItem(WebCore::BackForwardItemIdentifier, bool inBackForwardCache, CompletionHandler<void(WebCore::ShouldGoToHistoryItem)>&&);
     void shouldGoToBackForwardListItemSync(WebCore::BackForwardItemIdentifier, CompletionHandler<void(WebCore::ShouldGoToHistoryItem)>&&);
-    void goToBackForwardItemAtIndex(int32_t steps, WebCore::FrameLoadType);
+    // IPC entry point: the reply-less message discards the navigation, so keep it void to avoid
+    // instantiating RefPtr<API::Navigation>'s destructor in the generated receiver (which lacks the
+    // complete API::Navigation type). The traversal queue uses the RefPtr-returning variant below.
+    void goToBackForwardItemAtIndex(int32_t steps);
+    RefPtr<API::Navigation> goToBackForwardItemAtIndexForTraversal(int32_t steps);
+    void enqueueHistoryTraversalDelta(int32_t delta);
+    int32_t inFlightTraversalDirection() const;
 
     bool shouldKeepCurrentBackForwardListItemInList(WebBackForwardListItem&);
 
@@ -1462,6 +1469,17 @@ public:
     void doAfterProcessingAllPendingKeyEvents(Function<void()>&&);
     void didFinishProcessingAllPendingKeyEvents();
     void flushPendingKeyEventCallbacks();
+
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+    void doAfterProcessingAllPendingWheelEvents(Function<void()>&&);
+    void didFinishProcessingAllPendingWheelEvents();
+    void flushPendingWheelEventCallbacks();
+
+    bool isProcessingTouchEvents() const;
+    void doAfterProcessingAllPendingTouchEvents(Function<void()>&&);
+    void didFinishProcessingAllPendingTouchEvents();
+    void flushPendingTouchEventCallbacks();
+#endif
 
     bool NODELETE isProcessingWheelEvents() const;
     void handleNativeWheelEvent(const NativeWebWheelEvent&);
@@ -2409,6 +2427,12 @@ public:
     void dismissDigitalCredentialsChooser(IPC::Connection&, CompletionHandler<void(bool)>&&);
     void fetchRawDigitalCredentialRequests(CompletionHandler<void(WebCore::DigitalCredentialsRawRequests)>&&);
     void showDigitalCredentialsChooser(IPC::Connection&, std::optional<WebCore::FrameIdentifier>&&, const WebCore::DigitalCredentialsRequestData&, CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&);
+#if ENABLE(WEBDRIVER_BIDI)
+    // Test-only wallet actuation for run-webkit-tests (no automation session); webkit.org/b/306292.
+    void setVirtualWalletBehaviorForTesting(const String& action, const String& protocol, const String& responseJSON);
+    void settlePendingTestingDigitalCredentialHandler(ASCIILiteral rejectionMessage);
+    void abortPendingDigitalCredentialWaitHandlers(ASCIILiteral rejectionMessage);
+#endif
 #endif
 
     using TextManipulationItemCallback = Function<void(const Vector<WebCore::TextManipulationItem>&)>;
@@ -2593,7 +2617,7 @@ public:
     void handleContextMenuLookUpImage();
 #endif
 
-#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(CONTEXT_MENUS) && ENABLE(IMAGE_ANALYSIS)
     void handleContextMenuCopySubject(const String& preferredMIMEType);
 #endif
 
@@ -2681,7 +2705,7 @@ public:
     void cancelTextRecognitionForVideoInElementFullScreen();
 #endif
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     void replaceImageForRemoveBackground(const WebCore::ElementContext&, const Vector<String>& types, std::span<const uint8_t>);
     void shouldAllowRemoveBackground(const WebCore::ElementContext&, CompletionHandler<void(bool)>&&);
 #endif
@@ -3768,6 +3792,8 @@ private:
     std::unique_ptr<WebPageLoadTiming> m_pageLoadTimingPendingCommit;
     HashSet<WebCore::FrameIdentifier> m_framesWithSubresourceLoadingForPageLoadTiming;
     RunLoop::Timer m_generatePageLoadTimingTimer;
+
+    const UniqueRef<SessionHistoryTraversalQueue> m_sessionHistoryTraversalQueue;
 
 #if PLATFORM(COCOA)
     RunLoop::Timer m_textIndicatorFadeTimer;

@@ -107,7 +107,6 @@ JavaScriptCore_BUILTINS_SOURCES = \
     $(JavaScriptCore)/builtins/ArrayIteratorPrototype.js \
     $(JavaScriptCore)/builtins/ArrayPrototype.js \
     $(JavaScriptCore)/builtins/AsyncDisposableStackPrototype.js \
-    $(JavaScriptCore)/builtins/AsyncGeneratorPrototype.js \
     $(JavaScriptCore)/builtins/AsyncIteratorPrototype.js \
     $(JavaScriptCore)/builtins/DisposableStackPrototype.js \
     $(JavaScriptCore)/builtins/FunctionPrototype.js \
@@ -304,6 +303,7 @@ INSPECTOR_DOMAINS := \
     $(JavaScriptCore)/inspector/protocol/ScriptProfiler.json \
     $(JavaScriptCore)/inspector/protocol/Security.json \
     $(JavaScriptCore)/inspector/protocol/ServiceWorker.json \
+    $(JavaScriptCore)/inspector/protocol/Storage.json \
     $(JavaScriptCore)/inspector/protocol/Target.json \
     $(JavaScriptCore)/inspector/protocol/Timeline.json \
     $(JavaScriptCore)/inspector/protocol/Worker.json \

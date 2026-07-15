@@ -159,7 +159,7 @@ class EmptyContextMenuClient final : public ContextMenuClient {
     bool NODELETE supportsLookUpInImages() final { return false; }
 #endif
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     bool NODELETE supportsCopySubject() final { return false; }
 #endif
 };
@@ -1069,7 +1069,11 @@ void EmptyFrameLoaderClient::shouldGoToHistoryItemAsync(HistoryItem&, Completion
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void EmptyFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int, FrameLoadType)
+void EmptyFrameLoaderClient::dispatchGoToBackForwardItemAtIndex(int)
+{
+}
+
+void EmptyFrameLoaderClient::dispatchEnqueueHistoryTraversalDelta(int)
 {
 }
 

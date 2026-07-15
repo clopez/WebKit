@@ -366,7 +366,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncDisposableStackPrototype.js
-    ${JAVASCRIPTCORE_DIR}/builtins/AsyncGeneratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/DisposableStackPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/FunctionPrototype.js
@@ -1711,6 +1710,7 @@ set(JavaScriptCore_INSPECTOR_DOMAINS
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/ScriptProfiler.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Security.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/ServiceWorker.json
+    ${JAVASCRIPTCORE_DIR}/inspector/protocol/Storage.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Target.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Timeline.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Worker.json
@@ -1847,6 +1847,10 @@ WEBKIT_DEFINE_SUBTARGET_WITH_PREFIX(JavaScriptCore JavaScriptCoreJIT
     DIRS jit dfg ftl bytecode bytecompiler llint lol tools)
 
 WEBKIT_FRAMEWORK(JavaScriptCore)
+
+if (USE_APPLE_INTERNAL_SDK)
+    WEBKIT_TARGET_USE_PGO(JavaScriptCore PROFILE JavaScriptCore)
+endif ()
 
 WEBKIT_ADD_PREFIX_HEADER(JavaScriptCore JavaScriptCorePrefix.h PREFIX_LANGUAGES CXX)
 

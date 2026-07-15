@@ -2120,7 +2120,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/WebKitBuffer.h
     page/WebKitJSHandle.h
     page/WebKitNamespace.h
-    page/WebKitSerializedNode.h
+    page/WebKitNodeSnapshot.h
     page/WheelEventDeltaFilter.h
     page/WheelEventTestMonitor.h
     page/WindowFeatures.h
@@ -2454,7 +2454,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/AudioVideoRenderer.h
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
-    platform/graphics/ByteArrayPixelBuffer.h
     platform/graphics/CachedSubimage.h
     platform/graphics/Color.h
     platform/graphics/ColorBlending.h
@@ -2488,7 +2487,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/DoublePoint.h
     platform/graphics/DoubleRect.h
     platform/graphics/DoubleSize.h
-    platform/graphics/Float16ArrayPixelBuffer.h
     platform/graphics/FloatLine.h
     platform/graphics/FloatPoint.h
     platform/graphics/FloatPoint3D.h
@@ -2688,6 +2686,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/TrackBuffer.h
     platform/graphics/TrackPrivateBase.h
     platform/graphics/TrackPrivateBaseClient.h
+    platform/graphics/TypedArrayPixelBuffer.h
     platform/graphics/VP9Utilities.h
     platform/graphics/VelocityData.h
     platform/graphics/VideoLayerManager.h
@@ -3497,8 +3496,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/text/StyleTextIndent.h
     style/values/text/StyleTextSpacingTrim.h
     style/values/text/StyleTextTransform.h
+    style/values/text/StyleWhiteSpaceTrim.h
     style/values/text/StyleWordSpacing.h
 
+    style/values/text-decoration/StyleTextDecorationInset.h
     style/values/text-decoration/StyleTextDecorationLine.h
     style/values/text-decoration/StyleTextDecorationThickness.h
     style/values/text-decoration/StyleTextEmphasisPosition.h
@@ -3728,7 +3729,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/JSStyleSheetList.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSTreeWalker.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSWebKitJSHandle.h
-    ${WebCore_DERIVED_SOURCES_DIR}/JSWebKitSerializedNode.h
+    ${WebCore_DERIVED_SOURCES_DIR}/JSWebKitNodeSnapshot.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSXPathExpression.h
     ${WebCore_DERIVED_SOURCES_DIR}/JSXPathResult.h
     ${WebCore_DERIVED_SOURCES_DIR}/MathMLNames.h

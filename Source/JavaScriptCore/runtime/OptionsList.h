@@ -126,8 +126,6 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, shadowChickenLogSize, 1000, Normal, nullptr) \
     v(Unsigned, shadowChickenMaxTailDeletedFramesSize, 128, Normal, nullptr) \
     \
-    v(Bool, useIterationIntrinsics, true, Normal, nullptr) \
-    \
     v(OSLogType, useOSLog, OSLogType::None, Normal, "Log dataLog()s to os_log instead of stderr"_s) \
     /* dumpDisassembly implies dumpDFGDisassembly. */ \
     v(Bool, needDisassemblySupport, false, Normal, nullptr) \
@@ -348,6 +346,9 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, wasmInliningSmallFunctionThreshold, 50, Normal, "Wasm size threshold for small wasm functions"_s) \
     \
     v(Double, jitPolicyScale, 1.0, Normal, "scale JIT thresholds to this specified ratio between 0.0 (compile ASAP) and 1.0 (compile like normal)."_s) \
+    v(Int32, numberOfP0CoresOverrides, 0, Normal, "If non-zero, overrides the number of P0 (highest-performance) cores reported by hwNumberOfP0Cores(); 0 means use the value reported by the hardware."_s) \
+    v(Double, dfgThresholdScaleForLowP0Cores, 2.0, Normal, "On low P0-core-count Apple silicon Macs, scale the DFG tier-up thresholds (thresholdForOptimize*) by this factor."_s) \
+    v(Double, ftlThresholdScaleForLowP0Cores, 1.5, Normal, "On low P0-core-count Apple silicon Macs, scale the FTL tier-up thresholds (thresholdForFTLOptimize*) by this factor."_s) \
     v(Bool, forceEagerCompilation, false, Normal, nullptr) \
     v(Int32, thresholdForJITAfterWarmUp, 500, Normal, nullptr) \
     v(Int32, thresholdForJITSoon, 100, Normal, nullptr) \
@@ -679,6 +680,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \
     v(Bool, useShadowRealm, false, Normal, "Expose the ShadowRealm object."_s) \
     v(Bool, useTemporal, true, Normal, "Expose the Temporal object."_s) \
+    v(Bool, useIntlEraMonthcode, false, Normal, "Enable Intl.Era-monthcode Stage 4 proposal."_s) \
     v(Bool, useTrustedTypes, true, Normal, "Enable trusted types eval protection feature."_s) \
     v(Bool, useWasmJSStringBuiltins, true, Normal, "Enable the implementation of the JS String Builtins proposal."_s) \
     v(Bool, useWasmMemory64, false, Normal, "Allow the Memory64 proposal for WebAssembly. This feature is currently only supported in the IPInt tier."_s) \

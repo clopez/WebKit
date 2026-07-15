@@ -85,7 +85,7 @@ if (NOT USE_APPLE_INTERNAL_SDK)
     unset(_availability_overlay_yaml)
 endif ()
 
-if (EXISTS "/usr/local/include/WebKitAdditions" AND NOT EXISTS "/usr/local/include/AppleFeatures/AppleFeatures.h")
+if (NOT USE_APPLE_INTERNAL_SDK AND EXISTS "/usr/local/include/WebKitAdditions" AND NOT EXISTS "/usr/local/include/AppleFeatures/AppleFeatures.h")
     set(_apple_features_stub "${CMAKE_BINARY_DIR}/generated-stubs/AppleFeatures")
     file(MAKE_DIRECTORY "${_apple_features_stub}")
     file(CONFIGURE OUTPUT "${_apple_features_stub}/AppleFeatures.h" CONTENT
@@ -182,4 +182,11 @@ if (CMAKE_EXPORT_COMPILE_COMMANDS AND NOT EXISTS ${CMAKE_SOURCE_DIR}/compile_com
         ${CMAKE_BINARY_DIR}/compile_commands.json
         ${CMAKE_SOURCE_DIR}/compile_commands.json
         SYMBOLIC)
+endif ()
+
+# Profile-Guided Optimization for the Cocoa ports. The Internal overlay resolves
+# the WebKitAdditions PGO profiles and defines WEBKIT_TARGET_USE_PGO,
+# which the relevant framework CMakeLists call.
+if (USE_APPLE_INTERNAL_SDK)
+    include(OptionsPGO)
 endif ()

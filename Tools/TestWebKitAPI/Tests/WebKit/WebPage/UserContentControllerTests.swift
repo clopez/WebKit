@@ -54,26 +54,26 @@ struct UserContentControllerTests {
 
         // The other WebKitNamespace attributes shouldn't be accessible.
 
-        let evaluateScript: Void? = try await page.callJavaScript(returning: Void?.self) {
+        let evaluateScript = try await page.callJavaScript(returning: Bool.self) {
             """
-            return window.webkit.evaluateScript;
+            return !!window.webkit.evaluateScript;
             """
         }
-        #expect(evaluateScript == nil)
+        #expect(!evaluateScript)
 
-        let createJSHandle: Void? = try await page.callJavaScript(returning: Void?.self) {
+        let createJSHandle = try await page.callJavaScript(returning: Bool.self) {
             """
-            return window.webkit.createJSHandle;
+            return !!window.webkit.createJSHandle;
             """
         }
-        #expect(createJSHandle == nil)
+        #expect(!createJSHandle)
 
-        let serializeNode: Void? = try await page.callJavaScript(returning: Void?.self) {
+        let nodeSnapshotCreator = try await page.callJavaScript(returning: Bool.self) {
             """
-            return window.webkit.serializeNode;
+            return !!window.webkit.createNodeSnapshot;
             """
         }
-        #expect(serializeNode == nil)
+        #expect(!nodeSnapshotCreator)
     }
 }
 

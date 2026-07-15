@@ -365,6 +365,7 @@ fast/selectors/text-field-selection-text-shadow.html [ WontFix ]
 fast/selectors/text-field-selection-window-inactive-stroke-color.html [ WontFix ]
 fast/selectors/text-field-selection-window-inactive-text-shadow.html [ WontFix ]
 fast/text/selection-with-text-decorations.html [ WontFix ]
+imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-inset-marked-text-gap.html [ WontFix ]
 
 # Plugins are not supported on iOS
 fast/frames/sandboxed-iframe-plugins.html
@@ -400,6 +401,7 @@ http/tests/media/audio-load-loadeddata.html [ Pass ]
 
 # Digital Credentials
 http/wpt/identity/identitycredentialscontainer-get-hidden.https.html [ Skip ]
+webkit.org/b/318843 http/wpt/identity/formats/ISO18013/mobiledocument.https.html [ Failure ]
 
 # No touch events
 fast/events/touch [ Skip ]
@@ -1491,9 +1493,15 @@ imported/w3c/web-platform-tests/css/css-view-transitions/input-pointer-capture-w
 
 # Needs special fuzziness on iOS.
 imported/w3c/web-platform-tests/css/css-view-transitions/rotated-cat-off-top-edge.html [ ImageOnlyFailure ]
+
 imported/w3c/web-platform-tests/css/css-view-transitions/table-caption.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-left-of-viewport-offscreen-old.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
+
+# webkit.org/b/316882 1px device-pixel rounding difference in snapRectToDevicePixels for the
+# overflow-visible ::view-transition-old/new object-view-box path.
+webkit.org/b/316882 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-with-object-view-box.html [ Skip ]
+webkit.org/b/316882 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-with-object-view-box.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 
@@ -1896,6 +1904,8 @@ imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1e.html 
 imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-thickness-length-rounding-min-val.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text-decor/text-shadow/svg-fill-none.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text-decor/text-shadow/svg-stroke-dasharray.html [ ImageOnlyFailure ]
+# incorrect skip ink on iOS only
+imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-inset-011.html [ ImageOnlyFailure ]
 
 fast/flexbox/flex-hang.html [ Failure ]
 fast/flexbox/overhanging-floats-removed.html [ Failure ]

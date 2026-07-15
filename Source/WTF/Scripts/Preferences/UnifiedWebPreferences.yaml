@@ -1326,6 +1326,20 @@ CSSLineFitEdgeEnabled:
     WebCore:
       default: false
 
+CSSMarkerContentEnabled:
+  type: bool
+  status: preview
+  category: css
+  humanReadableName: "CSS content on ::marker"
+  humanReadableDescription: "Enable the content property on the ::marker pseudo-element"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSMathDepthEnabled:
   type: bool
   status: stable
@@ -1541,6 +1555,21 @@ CSSSelectorJITCompilerEnabled:
     WebCore:
       default: true
 
+CSSTextDecorationInsetEnabled:
+  type: bool
+  status: preview
+  category: css
+  webcoreOnChange: setNeedsRecalcStyleInAllFrames
+  humanReadableName: "CSS text-decoration-inset property"
+  humanReadableDescription: "Enable the text-decoration-inset property, defined in CSS Text Decoration 4"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSTextDecorationLineErrorValues:
   type: bool
   status: stable
@@ -1713,6 +1742,21 @@ CSSUnprefixedBackdropFilterEnabled:
       "ENABLE(UNPREFIXED_BACKDROP_FILTER)": true
       default: false
 
+CSSWhiteSpaceTrimEnabled:
+  type: bool
+  status: preview
+  category: css
+  webcoreOnChange: setNeedsRecalcStyleInAllFrames
+  humanReadableName: "CSS white-space-trim property"
+  humanReadableDescription: "Enable the property white-space-trim, defined in CSS Text 4"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSWordBreakAutoPhraseEnabled:
   type: bool
   status: preview
@@ -1720,6 +1764,21 @@ CSSWordBreakAutoPhraseEnabled:
   webcoreOnChange: setNeedsRecalcStyleInAllFrames
   humanReadableName: "word-break: auto-phrase enabled"
   humanReadableDescription: "Enables the auto-phrase value of the word-break CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CSSWrapInsideEnabled:
+  type: bool
+  status: preview
+  category: css
+  webcoreOnChange: setNeedsRecalcStyleInAllFrames
+  humanReadableName: "CSS wrap-inside property"
+  humanReadableDescription: "Enable the wrap-inside property, defined in CSS Text 4"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3154,7 +3213,7 @@ FileSystemEnabled:
 
 FileSystemHandleSerializationEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "File System Handle Serialization"
   humanReadableDescription: "Enable FileSystemHandle for postMessage() and structuredClone()"
@@ -3162,8 +3221,10 @@ FileSystemHandleSerializationEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)" : true
       default: false
     WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
@@ -3715,17 +3776,17 @@ HardwareAccelerationEnabled:
 
 HeadingOffsetEnabled:
   type: bool
-  status: preview
+  status: stable
   category: html
   humanReadableName: "HTML headingoffset & headingreset attributes"
   humanReadableDescription: "Enable HTML headingoffset & headingreset attribute support"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 HiddenPageCSSAnimationSuspensionEnabled:
   type: bool
@@ -6865,7 +6926,7 @@ RemoveBackgroundEnabled:
   category: dom
   humanReadableName: "Remove Background"
   humanReadableDescription: "Enable Remove Background"
-  condition: ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+  condition: ENABLE(IMAGE_ANALYSIS)
   exposed: [ WebKit ]
   defaultValue:
     WebCore:
@@ -7077,6 +7138,20 @@ SKAttributionEnabled:
       default: true
     WebKit:
       default: true
+
+SVGExternalResourcesEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "SVG external resources"
+  humanReadableDescription: "Enable referencing SVG resources (paint servers, etc.) via external or data: URLs"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
 
 SWVPDecodersAlwaysEnabled:
   type: bool
@@ -7955,6 +8030,7 @@ ShrinksStandaloneImagesToFit:
 SiteIsolationEnabled:
   type: bool
   status: unstable
+  defaultsOverridable: true
   category: security
   humanReadableName: "Site Isolation"
   humanReadableDescription: "Put cross-origin iframes in a different process"
@@ -10359,17 +10435,17 @@ WirelessPlaybackTargetAPIEnabled:
 
 WorkerInSharedWorkerEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "Worker in SharedWorker"
   humanReadableDescription: "Allow creating dedicated workers from shared workers"
   defaultValue:
     WebCore:
-      default: false
+      default: true
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
 
 WorkerParseErrorReportingEnabled:
   type: bool

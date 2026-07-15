@@ -470,6 +470,7 @@ public:
     void resumeBackgroundFetch(WKStringRef);
     void simulateClickBackgroundFetch(WKStringRef);
     void setBackgroundFetchPermission(bool);
+    void setVirtualWalletBehavior(WKStringRef action, WKStringRef protocol, WKStringRef responseJSON);
     WKRetainPtr<WKStringRef> lastAddedBackgroundFetchIdentifier() const;
     WKRetainPtr<WKStringRef> lastRemovedBackgroundFetchIdentifier() const;
     WKRetainPtr<WKStringRef> lastUpdatedBackgroundFetchIdentifier() const;
@@ -511,6 +512,11 @@ public:
 #if !PLATFORM(COCOA)
     void doAfterProcessingAllPendingMouseEvents(CompletionHandler<void()>&&);
     void doAfterProcessingAllPendingKeyEvents(CompletionHandler<void()>&&);
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+    void doAfterProcessingAllPendingWheelEvents(CompletionHandler<void()>&&);
+    void doAfterProcessingAllPendingTouchEvents(CompletionHandler<void()>&&);
+    void doAfterProcessingAllPendingTouchAndWheelEvents(CompletionHandler<void()>&&);
+#endif
 #endif
 
     static uint64_t responseHeaderCount(WKURLResponseRef);

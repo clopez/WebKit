@@ -1212,7 +1212,7 @@ static NSArray<NSString *> *passwordTextTouchBarDefaultItemIdentifiers()
 
 #endif // HAVE(TOUCH_BAR)
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
 
 @interface WKImageAnalysisOverlayViewDelegate : NSObject<VKCImageAnalysisOverlayViewDelegate>
 - (instancetype)initWithWebViewImpl:(WebKit::WebViewImpl&)impl;
@@ -1296,7 +1296,7 @@ static void* imageOverlayObservationContext = &imageOverlayObservationContext;
 
 @end
 
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#endif // ENABLE(IMAGE_ANALYSIS)
 
 namespace WebKit {
 
@@ -1839,6 +1839,15 @@ RetainPtr<NSView> WebViewImpl::hitTestPDFHUD(WebCore::FloatPoint locationInView)
 bool WebViewImpl::isPointOnPDFHUD(WebCore::FloatPoint locationInView)
 {
     return !!hitTestPDFHUD(locationInView);
+}
+
+bool WebViewImpl::isPointInScrollbar(CGPoint locationInView)
+{
+    CheckedPtr scrollingCoordinatorProxy = m_page->scrollingCoordinatorProxy();
+    if (!scrollingCoordinatorProxy)
+        return false;
+
+    return scrollingCoordinatorProxy->isPointInScrollbar(locationInView);
 }
 
 bool WebViewImpl::isViewVisible(NSView *view)
@@ -5186,8 +5195,11 @@ void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAcc
 
 void WebViewImpl::handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteAccessResponse response)
 {
-    if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture)
-        m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory), [] () { });
+    if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture) {
+        m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory), [] { }, m_domPasteState.transform([](const auto& state) {
+            return state.requestFrame;
+        }));
+    }
 
     hideDOMPasteMenuWithResult(response);
 }
@@ -6852,7 +6864,7 @@ void WebViewImpl::mouseUp(NSEvent *event, WebEventInputSource inputSource, WebCo
 
     setLastMouseDownEvent(nil);
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     fulfillDeferredImageAnalysisOverlayViewHierarchyTask();
 #endif
 
@@ -7602,7 +7614,7 @@ void WebViewImpl::didFinishPresentation(WKRevealItemPresenter *presenter)
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-CocoaImageAnalyzer* WebViewImpl::ensureImageAnalyzer()
+VKCImageAnalyzer* WebViewImpl::ensureImageAnalyzer()
 {
     if (!m_imageAnalyzer) {
         lazyInitialize(m_imageAnalyzerQueue, WorkQueue::create("WebKit image analyzer queue"_s));
@@ -7612,16 +7624,16 @@ CocoaImageAnalyzer* WebViewImpl::ensureImageAnalyzer()
     return m_imageAnalyzer.get();
 }
 
-int32_t WebViewImpl::processImageAnalyzerRequest(CocoaImageAnalyzerRequest *request, CompletionHandler<void(RetainPtr<CocoaImageAnalysis>&&, NSError *)>&& completion)
+int32_t WebViewImpl::processImageAnalyzerRequest(VKCImageAnalyzerRequest *request, CompletionHandler<void(RetainPtr<VKCImageAnalysis>&&, NSError *)>&& completion)
 {
-    return [protect(ensureImageAnalyzer()) processRequest:request progressHandler:nil completionHandler:makeBlockPtr([completion = WTF::move(completion)](CocoaImageAnalysis *result, NSError *error) mutable {
+    return [protect(ensureImageAnalyzer()) processRequest:request progressHandler:nil completionHandler:makeBlockPtr([completion = WTF::move(completion)](VKCImageAnalysis *result, NSError *error) mutable {
         callOnMainRunLoop([completion = WTF::move(completion), result = RetainPtr { result }, error = RetainPtr { error }] mutable {
             completion(WTF::move(result), error.get());
         });
     }).get()];
 }
 
-static RetainPtr<CocoaImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRef image, const URL& imageURL, const URL& pageURL, VKAnalysisTypes types)
+static RetainPtr<VKCImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRef image, const URL& imageURL, const URL& pageURL, VKAnalysisTypes types)
 {
     auto request = createImageAnalyzerRequest(image, types);
     [request setImageURL:imageURL.createNSURL().get()];
@@ -7644,17 +7656,12 @@ void WebViewImpl::requestTextRecognition(const URL& imageURL, ShareableBitmap::H
 
     RetainPtr cgImage = imageBitmap->createPlatformImage(DontCopyBackingStore);
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     if (!targetLanguageIdentifier.isEmpty())
         return requestVisualTranslation(protect(ensureImageAnalyzer()).get(), imageURL.createNSURL().get(), sourceLanguageIdentifier, targetLanguageIdentifier, cgImage.get(), WTF::move(completion));
-#else
-    UNUSED_PARAM(sourceLanguageIdentifier);
-    UNUSED_PARAM(targetLanguageIdentifier);
-#endif
 
     auto request = createImageAnalyzerRequest(cgImage.get(), imageURL, [NSURL _web_URLWithWTFString:m_page->currentURL()], VKAnalysisTypeText);
     auto startTime = MonotonicTime::now();
-    processImageAnalyzerRequest(request.get(), [completion = WTF::move(completion), startTime](RetainPtr<CocoaImageAnalysis>&& analysis, NSError *) mutable {
+    processImageAnalyzerRequest(request.get(), [completion = WTF::move(completion), startTime](RetainPtr<VKCImageAnalysis>&& analysis, NSError *) mutable {
         auto result = makeTextRecognitionResult(analysis.get());
         RELEASE_LOG(ImageAnalysis, "Image analysis completed in %.0f ms (found text? %d)", (MonotonicTime::now() - startTime).milliseconds(), !result.isEmpty());
         completion(WTF::move(result));
@@ -7671,7 +7678,7 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
     RetainPtr cgImage = imageBitmap.createPlatformImage(DontCopyBackingStore);
     auto request = createImageAnalyzerRequest(cgImage.get(), imageURL, [NSURL _web_URLWithWTFString:m_page->currentURL()], VKAnalysisTypeVisualSearch);
     auto startTime = MonotonicTime::now();
-    [protect(ensureImageAnalyzer()) processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([completion = WTF::move(completion), startTime] (CocoaImageAnalysis *analysis, NSError *) mutable {
+    [protect(ensureImageAnalyzer()) processRequest:request.get() progressHandler:nil completionHandler:makeBlockPtr([completion = WTF::move(completion), startTime] (VKCImageAnalysis *analysis, NSError *) mutable {
         BOOL result = [analysis hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
         RetainPtr loop = CFRunLoopGetMain();
         CFRunLoopPerformBlock(loop.get(), RetainPtr { bridge_cast(NSEventTrackingRunLoopMode) }.get(), makeBlockPtr([completion = WTF::move(completion), result, startTime] () mutable {
@@ -7686,7 +7693,7 @@ void WebViewImpl::computeHasVisualSearchResults(const URL& imageURL, ShareableBi
 
 bool WebViewImpl::imageAnalysisOverlayViewHasCursorAtPoint(NSPoint locationInView) const
 {
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     return [m_imageAnalysisOverlayView interactableItemExistsAtPoint:locationInView];
 #else
     UNUSED_PARAM(locationInView);
@@ -7696,7 +7703,7 @@ bool WebViewImpl::imageAnalysisOverlayViewHasCursorAtPoint(NSPoint locationInVie
 
 void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&& bitmapHandle, WebCore::FloatRect bounds)
 {
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     auto imageBitmap = ShareableBitmap::create(WTF::move(bitmapHandle));
     if (!imageBitmap)
         return;
@@ -7706,7 +7713,7 @@ void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitma
         return;
 
     auto request = WebKit::createImageAnalyzerRequest(image.get(), VKAnalysisTypeText);
-    m_currentImageAnalysisRequestID = processImageAnalyzerRequest(request.get(), [weakThis = WeakPtr { *this }, bounds](RetainPtr<CocoaImageAnalysis>&& result, NSError *error) {
+    m_currentImageAnalysisRequestID = processImageAnalyzerRequest(request.get(), [weakThis = WeakPtr { *this }, bounds](RetainPtr<VKCImageAnalysis>&& result, NSError *error) {
         CheckedPtr checkedThis = weakThis.get();
         if (!checkedThis || !checkedThis->m_currentImageAnalysisRequestID)
             return;
@@ -7726,14 +7733,14 @@ void WebViewImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitma
 
 void WebViewImpl::cancelTextRecognitionForVideoInElementFullscreen()
 {
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
     if (auto identifier = std::exchange(m_currentImageAnalysisRequestID, 0))
         [m_imageAnalyzer cancelRequestID:identifier];
     uninstallImageAnalysisOverlayView();
 #endif
 }
 
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#if ENABLE(IMAGE_ANALYSIS)
 
 void WebViewImpl::installImageAnalysisOverlayView(RetainPtr<VKCImageAnalysis>&& analysis)
 {
@@ -7789,7 +7796,7 @@ void WebViewImpl::fulfillDeferredImageAnalysisOverlayViewHierarchyTask()
         task();
 }
 
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+#endif // ENABLE(IMAGE_ANALYSIS)
 
 #if ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)
 

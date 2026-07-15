@@ -868,6 +868,7 @@ if (ENABLE_BACK_FORWARD_LIST_SWIFT)
     requires cplusplus
     header \"${WebCore_PRIVATE_HEADERS_DIR}/DiagnosticLoggingKeys.h\"
     header \"${WebCore_PRIVATE_HEADERS_DIR}/DiagnosticLoggingClient.h\"
+    header \"${WebCore_PRIVATE_HEADERS_DIR}/TextGranularity.h\"
     export *
 }
 ")
@@ -1433,6 +1434,9 @@ WEBKIT_DEFINE_SUBTARGET_WITH_PREFIX(WebKit WebKitShared
     DIRS DerivedSources)
 
 WEBKIT_FRAMEWORK(WebKit)
+if (USE_APPLE_INTERNAL_SDK)
+    WEBKIT_TARGET_USE_PGO(WebKit PROFILE WebKit)
+endif ()
 WEBKIT_ADD_PREFIX_HEADER(WebKit WebKitPrefix.h PREFIX_LANGUAGES CXX OBJCXX)
 
 if (SWIFT_REQUIRED AND "${PORT}" STREQUAL "Mac")

@@ -3476,7 +3476,7 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init, std::
     }
     auto scopedRegistry = ShadowRootScopedCustomElementRegistry::No;
     if (!registryKind)
-        registryKind = !registry && usesNullCustomElementRegistry() ? CustomElementRegistryKind::Null : CustomElementRegistryKind::Window;
+        registryKind = CustomElementRegistryKind::Window;
     if (registryKind == CustomElementRegistryKind::Null) {
         ASSERT(!registry);
         scopedRegistry = ShadowRootScopedCustomElementRegistry::Yes;
@@ -4460,7 +4460,7 @@ ExceptionOr<void> Element::replaceChildrenWithMarkup(const String& markup, Optio
         return { };
     }
 
-    auto fragment = createFragmentForInnerOuterHTML(*this, markup, policy, protect(CustomElementRegistry::registryForNodeOrTreeScope(container, protect(container->treeScope()))));
+    auto fragment = createFragmentForInnerOuterHTML(*this, markup, policy, protect(CustomElementRegistry::registryForNodeOrTreeScope(container, protect(container->treeScope()))), container->usesNullCustomElementRegistry() ? CustomElementRegistryKind::Null : CustomElementRegistryKind::Window);
     if (fragment.hasException())
         return fragment.releaseException();
 
@@ -4526,7 +4526,7 @@ ExceptionOr<void> Element::setOuterHTML(Variant<Ref<TrustedHTML>, String>&& html
     RefPtr previous = previousSibling();
     RefPtr next = nextSibling();
 
-    auto fragment = createFragmentForInnerOuterHTML(*contextElement, stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowScriptingContent }, protect(CustomElementRegistry::registryForElement(*contextElement)));
+    auto fragment = createFragmentForInnerOuterHTML(*contextElement, stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowScriptingContent }, protect(CustomElementRegistry::registryForElement(*contextElement)), contextElement->usesNullCustomElementRegistry() ? CustomElementRegistryKind::Null : CustomElementRegistryKind::Window);
     if (fragment.hasException())
         return fragment.releaseException();
 
@@ -5492,7 +5492,7 @@ bool Element::hasPendingKeyframesUpdate(const std::optional<Style::PseudoElement
 
 void Element::disconnectFromResizeObserversSlow(ResizeObserverData& observerData)
 {
-    for (const auto& observer : observerData.observers)
+    for (RefPtr observer : observerData.observers)
         observer->targetDestroyed(*this);
     observerData.observers.clear();
 }
@@ -6181,7 +6181,8 @@ ExceptionOr<void> Element::insertAdjacentHTML(const String& where, const String&
         return contextElement.releaseException();
     // Step 3.
     RefPtr registry = CustomElementRegistry::registryForElement(contextElement.returnValue());
-    auto fragment = createFragmentForInnerOuterHTML(contextElement.releaseReturnValue(), markup, { ParserContentPolicy::AllowScriptingContent }, registry.get());
+    auto registryKind = contextElement.returnValue()->usesNullCustomElementRegistry() ? CustomElementRegistryKind::Null : CustomElementRegistryKind::Window;
+    auto fragment = createFragmentForInnerOuterHTML(contextElement.releaseReturnValue(), markup, { ParserContentPolicy::AllowScriptingContent }, registry.get(), registryKind);
     if (fragment.hasException())
         return fragment.releaseException();
 

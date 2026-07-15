@@ -925,15 +925,15 @@ TEST(SiteIsolation, OpenWithNoopener)
     auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example", false);
     __block RetainPtr openerView = opener.webView;
     __block RetainPtr openedView = opened.webView;
-    opened.navigationDelegate.get().decidePolicyForNavigationAction = ^(WKNavigationAction *, void (^completionHandler)(WKNavigationActionPolicy)) {
+    opened.navigationDelegate.get().decidePolicyForNavigationAction = ^(WKNavigationAction *action, void (^completionHandler)(WKNavigationActionPolicy)) {
         checkFrameTreesInProcesses(openerView.get(), { { "https://example.com"_s } });
-        checkFrameTreesInProcesses(openedView.get(), { { "://"_s } }); // FIXME: This should be https://webkit.org
+        checkFrameTreesInProcesses(openedView.get(), { { "://"_s } });
         EXPECT_NE([openerView _webProcessIdentifier], [openedView _webProcessIdentifier]);
         completionHandler(WKNavigationActionPolicyAllow);
     };
     opened.navigationDelegate.get().decidePolicyForNavigationResponse = ^(WKNavigationResponse *, void (^completionHandler)(WKNavigationResponsePolicy)) {
         checkFrameTreesInProcesses(openerView.get(), { { "https://example.com"_s } });
-        checkFrameTreesInProcesses(openedView.get(), { { "://"_s } }); // FIXME: This should be https://webkit.org
+        checkFrameTreesInProcesses(openedView.get(), { { "://"_s } });
         EXPECT_NE([openerView _webProcessIdentifier], [openedView _webProcessIdentifier]);
         completionHandler(WKNavigationResponsePolicyAllow);
     };
@@ -5109,7 +5109,8 @@ TEST(SiteIsolation, MultipleWebViewsWithSameOpenedConfiguration)
     auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example", false);
     RetainPtr webView2 = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:opened.webView.get().configuration]);
     [opened.navigationDelegate waitForDidFinishNavigation];
-    // FIXME: load something with webView2 without asserting, like https://example.com/popup
+    [webView2 loadURL:[NSURL URLWithString:@"https://example.com/popup"]];
+    [webView2 _test_waitForDidFinishNavigation];
 }
 
 TEST(SiteIsolation, RecoverFromCrash)
@@ -10176,6 +10177,78 @@ TEST(SiteIsolation, PasteboardReading)
     EXPECT_WK_STREQ([webView _test_waitForAlert], "hello");
 }
 
+TEST(SiteIsolation, DOMPasteAccessGrantedInCrossOriginFrame)
+{
+    auto subframeMarkup = "<script>function tryToReadPasteboard() {"
+        "navigator.clipboard.readText()"
+        "    .then(text => { window.readTextResult = 'PASS: ' + text; })"
+        "    .catch(error => { window.readTextResult = 'FAIL: ' + error; })"
+        "}</script>"
+        "<button onclick='tryToReadPasteboard()' id='testbutton'>Click</button>"_s;
+
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/iframe'></iframe>"_s } },
+        { "/iframe"_s, { subframeMarkup } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+#if PLATFORM(MAC)
+    [NSPasteboard.generalPasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
+    [NSPasteboard.generalPasteboard setString:@"hello" forType:NSPasteboardTypeString];
+#else
+    [UIPasteboard generalPasteboard].string = @"hello";
+#endif
+
+    auto [webView, delegate] = siteIsolatedViewAndDelegate(server.httpsProxyConfiguration());
+#if PLATFORM(MAC)
+    [[webView window] orderFrontRegardless];
+#endif
+    [webView loadURL:[NSURL URLWithString:@"https://example.com/example"]];
+    [delegate waitForDidFinishNavigation];
+    [webView evaluateJavaScript:@"document.getElementById('testbutton').click();" inFrame:[webView firstChildFrame] inContentWorld:WKContentWorld.pageWorld completionHandler:nil];
+
+#if PLATFORM(MAC)
+    bool selectedPasteItem = false;
+    BlockPtr allowPasteHandler = makeBlockPtr([webView, &selectedPasteItem](NSTimer *timer) {
+        RetainPtr activeMenu = [webView _activeMenu];
+        if (!activeMenu)
+            return;
+
+        for (NSMenuItem *item in [activeMenu itemArray]) {
+            if ([item.title isEqualToString:@"Paste"]) {
+                [activeMenu performActionForItemAtIndex:[activeMenu indexOfItem:item]];
+                [activeMenu cancelTracking];
+                [timer invalidate];
+                selectedPasteItem = true;
+                break;
+            }
+        }
+    });
+
+    RetainPtr selectPasteItemTimer = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:allowPasteHandler.get()];
+    [NSRunLoop.mainRunLoop addTimer:selectPasteItemTimer forMode:NSEventTrackingRunLoopMode];
+    Util::run(&selectedPasteItem);
+#else
+    __block bool shownMenu = false;
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    InstanceMethodSwizzler showMenuSwizzler {
+        UIMenuController.class,
+        @selector(showMenuFromView:rect:),
+        imp_implementationWithBlock(^(UIMenuController *, UIView *, CGRect) {
+            shownMenu = true;
+        })
+    };
+    Util::run(&shownMenu);
+
+    [[webView textInputContentView] paste:UIMenuController.sharedMenuController];
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
+
+    TestWebKitAPI::Util::waitForConditionWithLogging([&] {
+        RetainPtr readTextResult = [webView stringByEvaluatingJavaScript:@"window.readTextResult" inFrame:[webView firstChildFrame]];
+        return [readTextResult isEqualToString:@"PASS: hello"];
+    }, 5, @"Timed out waiting for subframe to finish paste.");
+}
+
 TEST(SiteIsolation, UserGesture)
 {
     auto mainFrameHTML = "<!doctype html>"
@@ -10213,6 +10286,165 @@ TEST(SiteIsolation, UserGesture)
 
     [webView clickOnElementID:@"testbutton"];
     EXPECT_WK_STREQ([webView _test_waitForAlert], "did not throw");
+}
+
+TEST(SiteIsolation, CrossProcessHistoryTraversalCoalesce)
+{
+    constexpr auto pageWithIframes = "<iframe src='https://webkit.org/x'></iframe><iframe src='https://apple.com/x'></iframe>"_s;
+    constexpr auto iframeBody = "x"_s;
+
+    HTTPServer server({
+        { "/a"_s, { pageWithIframes } },
+        { "/b"_s, { pageWithIframes } },
+        { "/c"_s, { pageWithIframes } },
+        { "/x"_s, { iframeBody } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/c"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_EQ([webView backForwardList].backList.count, (NSUInteger)2);
+    EXPECT_EQ([webView backForwardList].forwardList.count, (NSUInteger)0);
+
+    auto childFrames = [webView mainFrame].childFrames;
+    EXPECT_EQ(childFrames.count, 2u);
+    pid_t mainPid = [[webView mainFrame] info]._processIdentifier;
+    pid_t pidWk = childFrames[0].info._processIdentifier;
+    pid_t pidAp = childFrames[1].info._processIdentifier;
+    EXPECT_NE(pidWk, mainPid);
+    EXPECT_NE(pidAp, mainPid);
+    EXPECT_NE(pidWk, pidAp);
+
+    __block unsigned didFinishCount = 0;
+    navigationDelegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *) {
+        ++didFinishCount;
+    };
+
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[0].info completionHandler:nil];
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[1].info completionHandler:nil];
+
+    // A split traversal settles in two navigations, so wait for the deterministic destination.
+    int spins = 0;
+    while (![[[webView URL] absoluteString] isEqualToString:@"https://example.com/a"] && spins++ < 100)
+        TestWebKitAPI::Util::runFor(0.1_s);
+
+    EXPECT_TRUE(didFinishCount == 1u || didFinishCount == 2u);
+    EXPECT_WK_STREQ(@"https://example.com/a", [[webView URL] absoluteString]);
+    EXPECT_EQ([webView backForwardList].backList.count, (NSUInteger)0);
+    EXPECT_EQ([webView backForwardList].forwardList.count, (NSUInteger)2);
+}
+
+TEST(SiteIsolation, CrossProcessHistoryTraversalGoMinus2)
+{
+    constexpr auto pageWithIframes = "<iframe src='https://webkit.org/x'></iframe><iframe src='https://apple.com/x'></iframe>"_s;
+    constexpr auto iframeBody = "x"_s;
+
+    HTTPServer server({
+        { "/a"_s, { pageWithIframes } },
+        { "/b"_s, { pageWithIframes } },
+        { "/c"_s, { pageWithIframes } },
+        { "/x"_s, { iframeBody } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/c"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_EQ([webView backForwardList].backList.count, (NSUInteger)2);
+    EXPECT_EQ([webView backForwardList].forwardList.count, (NSUInteger)0);
+    EXPECT_EQ([webView mainFrame].childFrames.count, 2u);
+
+    [webView evaluateJavaScript:@"history.go(-2)" completionHandler:nil];
+
+    int spins = 0;
+    while (![[[webView URL] absoluteString] isEqualToString:@"https://example.com/a"] && spins++ < 100)
+        TestWebKitAPI::Util::runFor(0.1_s);
+
+    EXPECT_WK_STREQ(@"https://example.com/a", [[webView URL] absoluteString]);
+    EXPECT_EQ([webView backForwardList].backList.count, (NSUInteger)0);
+    EXPECT_EQ([webView backForwardList].forwardList.count, (NSUInteger)2);
+}
+
+TEST(SiteIsolation, CrossProcessHistoryTraversalSameFrameBackTwice)
+{
+    constexpr auto pageWithIframes = "<iframe src='https://webkit.org/x'></iframe><iframe src='https://apple.com/x'></iframe>"_s;
+    constexpr auto iframeBody = "x"_s;
+
+    HTTPServer server({
+        { "/a"_s, { pageWithIframes } },
+        { "/b"_s, { pageWithIframes } },
+        { "/c"_s, { pageWithIframes } },
+        { "/x"_s, { iframeBody } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/c"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    auto childFrames = [webView mainFrame].childFrames;
+    EXPECT_EQ(childFrames.count, 2u);
+
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[0].info completionHandler:nil];
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[0].info completionHandler:nil];
+
+    int spins = 0;
+    while (![[[webView URL] absoluteString] isEqualToString:@"https://example.com/a"] && spins++ < 100)
+        TestWebKitAPI::Util::runFor(0.1_s);
+
+    EXPECT_WK_STREQ(@"https://example.com/a", [[webView URL] absoluteString]);
+    EXPECT_EQ([webView backForwardList].backList.count, (NSUInteger)0);
+    EXPECT_EQ([webView backForwardList].forwardList.count, (NSUInteger)2);
+}
+
+TEST(SiteIsolation, CrossProcessSameDocumentHistoryTraversalDoesNotStall)
+{
+    HTTPServer server({
+        { "/page"_s, { "<iframe src='https://iframe.com/child'></iframe>"_s } },
+        { "/child"_s, { "child"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/page"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+
+    [webView objectByEvaluatingJavaScript:@"location.hash = 'a'"];
+    [webView objectByEvaluatingJavaScript:@"location.hash = 'b'"];
+    EXPECT_WK_STREQ(@"https://example.com/page#b", [[webView URL] absoluteString]);
+
+    auto childFrames = [webView mainFrame].childFrames;
+    EXPECT_EQ(childFrames.count, 1u);
+    EXPECT_NE(childFrames[0].info._processIdentifier, [[webView mainFrame] info]._processIdentifier);
+
+    auto waitForURL = [&](NSString *expected) {
+        int spins = 0;
+        while (![[[webView URL] absoluteString] isEqualToString:expected] && spins++ < 100)
+            TestWebKitAPI::Util::runFor(0.1_s);
+    };
+
+    // The first back (#b -> #a) is same-document; the second only runs if that settled the queue.
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[0].info completionHandler:nil];
+    waitForURL(@"https://example.com/page#a");
+    EXPECT_WK_STREQ(@"https://example.com/page#a", [[webView URL] absoluteString]);
+
+    [webView evaluateJavaScript:@"history.back()" inFrame:childFrames[0].info completionHandler:nil];
+    waitForURL(@"https://example.com/page");
+    EXPECT_WK_STREQ(@"https://example.com/page", [[webView URL] absoluteString]);
 }
 
 }

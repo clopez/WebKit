@@ -162,6 +162,18 @@ FloatRect smallestRectWithAspectRatioAroundRect(float aspectRatio, const FloatRe
     return destRect;
 }
 
+FloatRect fullRectFromSubrectAndSize(const FloatSize& naturalSize, const FloatRect& subrect, const FloatRect& destRect)
+{
+    float scaleX = destRect.width() / subrect.width();
+    float scaleY = destRect.height() / subrect.height();
+    return {
+        destRect.x() - subrect.x() * scaleX,
+        destRect.y() - subrect.y() * scaleY,
+        naturalSize.width() * scaleX,
+        naturalSize.height() * scaleY
+    };
+}
+
 FloatSize sizeWithAreaAndAspectRatio(float area, float aspectRatio)
 {
     auto scaledWidth = std::sqrt(area * aspectRatio);
@@ -205,9 +217,19 @@ FloatPoint midPoint(const FloatPoint& first, const FloatPoint& second)
     return { std::midpoint(first.x(), second.x()), std::midpoint(first.y(), second.y()) };
 }
 
+FloatPoint linearInterpolation(const FloatPoint& from, const FloatPoint& to, float t)
+{
+    return { from.x() + (to.x() - from.x()) * t, from.y() + (to.y() - from.y()) * t };
+}
+
 float dotProduct(const FloatSize& u, const FloatSize& v)
 {
     return u.width() * v.width() + u.height() * v.height();
+}
+
+float signedDistanceToLine(const FloatPoint& point, const FloatPoint& lineStart, const FloatPoint& lineEnd)
+{
+    return dotProduct(point - lineStart, (lineEnd - lineStart).perpendicular());
 }
 
 static float NODELETE angleBetweenVectors(const FloatSize& u, const FloatSize& v)
