@@ -384,7 +384,7 @@
 #include "ViewSnapshotStore.h"
 #endif
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
 #include <WebCore/SelectionData.h>
 #endif
 
@@ -416,10 +416,6 @@
 
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
 #include "WebDeviceOrientationUpdateProviderProxy.h"
-#endif
-
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-#include "RemoteMediaSessionManagerProxy.h"
 #endif
 
 #if ENABLE(DATA_DETECTION)
@@ -492,7 +488,6 @@
 
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 #include "RemoteAudioSessionConfiguration.h"
-#include "RemoteMediaSessionManagerProxy.h"
 #endif
 
 #if HAVE(ENHANCED_SECURITY_LINKS)
@@ -1731,13 +1726,6 @@ void WebPageProxy::didAttachToRunningProcess()
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     ASSERT(!m_webDeviceOrientationUpdateProviderProxy);
     m_webDeviceOrientationUpdateProviderProxy = WebDeviceOrientationUpdateProviderProxy::create(*this);
-#endif
-
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    if (protect(preferences())->remoteMediaSessionManagerEnabled() || protect(preferences())->siteIsolationEnabled()) {
-        ASSERT(!m_mediaSessionManagerProxy);
-        m_mediaSessionManagerProxy = RemoteMediaSessionManagerProxy::create(*this);
-    }
 #endif
 
 #if !PLATFORM(IOS_FAMILY)
@@ -4313,7 +4301,7 @@ void WebPageProxy::performDragOperation(DragData& dragData, const String& dragSt
     for (auto& fileName : dragData.fileNames())
         protect(legacyMainFrameProcess())->addPreviouslyApprovedFileURL(URL::fileURLWithFileSystemPath(fileName));
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     URL url { dragData.asURL() };
     if (url.protocolIsFile())
         protect(legacyMainFrameProcess())->assumeReadAccessToBaseURL(*this, url.string(), [] { });
@@ -4372,7 +4360,7 @@ void WebPageProxy::performDragControllerAction(DragControllerAction action, Drag
         dragData.setClientPosition(roundedIntPoint(remoteUserInputEventData->transformedPoint));
         performDragControllerAction(action, dragData, remoteUserInputEventData->targetFrameID);
     };
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     ASSERT(dragData.platformData());
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::PerformDragControllerAction(action, dragData.clientPosition(), dragData.globalPosition(), dragData.draggingSourceOperationMask(), *dragData.platformData(), dragData.flags()), WTF::move(completionHandler));
 #else
@@ -4412,7 +4400,7 @@ void WebPageProxy::didPerformDragControllerAction(std::optional<WebCore::DragOpe
 #if PLATFORM(GTK) || PLATFORM(WPE)
 void WebPageProxy::startDrag(SelectionData&& selectionData, OptionSet<WebCore::DragOperation> dragOperationMask, std::optional<ShareableBitmap::Handle>&& dragImageHandle, IntPoint&& dragImageHotspot)
 {
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     if (RefPtr pageClient = this->pageClient()) {
         RefPtr dragImage = dragImageHandle ? ShareableBitmap::create(WTF::move(*dragImageHandle)) : nullptr;
         pageClient->startDrag(WTF::move(selectionData), dragOperationMask, WTF::move(dragImage), WTF::move(dragImageHotspot));
@@ -10347,7 +10335,7 @@ void WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation(WebCore::Navig
     Ref processForNavigation = [&]() -> Ref<WebProcessProxy> {
         if (browsingContextGroupSwitchDecision == BrowsingContextGroupSwitchDecision::NewIsolatedGroup) {
             auto enableWebAssemblyDebugger = protect(m_configuration->preferences())->webAssemblyDebuggerEnabled() ? WebProcessProxy::EnableWebAssemblyDebugger::Yes : WebProcessProxy::EnableWebAssemblyDebugger::No;
-            return protect(m_configuration->processPool())->createNewWebProcess(protect(websiteDataStore()).ptr(), lockdownMode, enhancedSecurity, enableWebAssemblyDebugger, WebProcessProxy::IsPrewarmed::No, CrossOriginMode::Isolated);
+            return protect(m_configuration->processPool())->createNewWebProcess(protect(websiteDataStore()).ptr(), lockdownMode, enhancedSecurity, enableWebAssemblyDebugger, WebProcessProxy::IsPrewarmed::No, CrossOriginMode::Isolated, WebKit::jscOptionsForWebProcess(protect(m_configuration->preferences())->store(), lockdownMode == WebProcessProxy::LockdownMode::Enabled));
         }
         return protect(m_configuration->processPool())->processForSite(protect(websiteDataStore()), WebProcessProxy::IsolatedProcessType::MainFrame, responseSite, responseSite, { }, lockdownMode, enhancedSecurity, m_configuration, WebCore::ProcessSwapDisposition::COOP);
     }();
@@ -13857,10 +13845,6 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
     m_webDeviceOrientationUpdateProviderProxy = nullptr;
 #endif
 
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-    m_mediaSessionManagerProxy = nullptr;
-#endif
-
     for (Ref editCommand : std::exchange(m_editCommandSet, { }))
         editCommand->invalidate();
 
@@ -14420,6 +14404,36 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.shouldForceSiteIsolationAlwaysOnForTesting = WebPreferences::forcedSiteIsolationAlwaysOnForTesting();
     parameters.shouldEnableNetworkInstrumentation = inspectorController().isNetworkInstrumentationEnabled();
     parameters.shouldEnablePageInstrumentation = inspectorController().isPageInstrumentationEnabled();
+
+    // Each SharedMemoryHandle serializes as a Mach port descriptor; the shared-memory send fallback cannot
+    // reduce the descriptor count, so log when it grows large (see MACH_SEND_TOO_LARGE CreateWebPage crashes).
+    auto& userContentParameters = parameters.userContentControllerParameters;
+    size_t estimatedPortDescriptors = userContentParameters.buffers.size();
+#if ENABLE(CONTENT_EXTENSIONS)
+    estimatedPortDescriptors += userContentParameters.contentRuleLists.size();
+#endif
+    constexpr size_t creationParametersPortDescriptorLogThreshold = 1000;
+    if (estimatedPortDescriptors >= creationParametersPortDescriptorLogThreshold) {
+        [[maybe_unused]] size_t contentRuleListsCount = 0;
+#if ENABLE(CONTENT_EXTENSIONS)
+        contentRuleListsCount = userContentParameters.contentRuleLists.size();
+#endif
+        [[maybe_unused]] size_t gpuIOKitExtensionHandlesCount = 0;
+        [[maybe_unused]] size_t gpuMachExtensionHandlesCount = 0;
+#if PLATFORM(COCOA)
+        gpuIOKitExtensionHandlesCount = parameters.gpuIOKitExtensionHandles.size();
+        gpuMachExtensionHandlesCount = parameters.gpuMachExtensionHandles.size();
+#endif
+        [[maybe_unused]] size_t fontMachExtensionHandlesCount = 0;
+#if HAVE(STATIC_FONT_REGISTRY) && !ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
+        fontMachExtensionHandlesCount = parameters.fontMachExtensionHandles.size();
+#endif
+
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "creationParameters: high estimated port-descriptor count (~%zu): buffers=%zu, contentRuleLists=%zu, userScripts=%zu, userStyleSheets=%zu, messageHandlers=%zu, gpuIOKitExtensionHandles=%zu, gpuMachExtensionHandles=%zu, fontMachExtensionHandles=%zu"
+            , estimatedPortDescriptors, userContentParameters.buffers.size(), contentRuleListsCount
+            , userContentParameters.userScripts.size(), userContentParameters.userStyleSheets.size(), userContentParameters.messageHandlers.size()
+            , gpuIOKitExtensionHandlesCount, gpuMachExtensionHandlesCount, fontMachExtensionHandlesCount);
+    }
 
     return parameters;
 }
@@ -18928,6 +18942,7 @@ INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::CommitPot
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::PotentialTapAtPosition);
 #endif
 #if PLATFORM(IOS_FAMILY)
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::ApplyAutocorrection);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::DrawToImage);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::DrawToPDFiOS);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::DrawPrintingPagesToSnapshotiOS);
@@ -18952,6 +18967,7 @@ INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::UserMedia
 INSTANTIATE_SEND_SYNC_TO_PROCESS_CONTAINING_FRAME(WebPageTesting::IsEditingCommandEnabled);
 #if PLATFORM(IOS_FAMILY)
 INSTANTIATE_SEND_SYNC_TO_PROCESS_CONTAINING_FRAME(WebPage::ComputePagesForPrintingiOS);
+INSTANTIATE_SEND_SYNC_TO_PROCESS_CONTAINING_FRAME(WebPage::SyncApplyAutocorrection);
 #endif
 #undef INSTANTIATE_SEND_SYNC_TO_PROCESS_CONTAINING_FRAME
 
@@ -19615,13 +19631,6 @@ bool NODELETE shouldShowSwiftDemoLogo()
 RefPtr<WebDeviceOrientationUpdateProviderProxy> WebPageProxy::webDeviceOrientationUpdateProviderProxy()
 {
     return m_webDeviceOrientationUpdateProviderProxy;
-}
-#endif
-
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-RemoteMediaSessionManagerProxy* WebPageProxy::remoteMediaSessionManagerProxy()
-{
-    return m_mediaSessionManagerProxy.get();
 }
 #endif
 

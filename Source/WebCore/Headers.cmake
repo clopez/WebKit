@@ -3036,6 +3036,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/RenderElementInlines.h
     rendering/RenderElementStyleInlines.h
     rendering/RenderEmbeddedObject.h
+    rendering/RenderFlexLayout.h
     rendering/RenderFlexibleBox.h
     rendering/RenderFrame.h
     rendering/RenderFrameBase.h
@@ -3224,6 +3225,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/animations/StyleSingleAnimationRange.h
     style/values/animations/StyleSingleAnimationRangeName.h
     style/values/animations/StyleSingleAnimationTimeline.h
+    style/values/animations/StyleSingleAnimationTrigger.h
 
     style/values/backgrounds/StyleBackgroundLayer.h
     style/values/backgrounds/StyleBackgroundLayers.h
