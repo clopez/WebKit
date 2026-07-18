@@ -2534,7 +2534,7 @@ enum class WebCore::UseLosslessCompression : bool;
 [AdditionalEncoder=StreamConnectionEncoder] struct WebCore::PixelBufferFormat {
     WebCore::AlphaPremultiplication alphaFormat;
     WebCore::PixelFormat pixelFormat;
-    WebCore::DestinationColorSpace colorSpace;
+    [Validator='colorSpace->usesRGBColorModel()'] WebCore::DestinationColorSpace colorSpace;
 };
 
 [RefCounted] class WebCore::TextIndicator {
@@ -5356,7 +5356,7 @@ enum class WebCore::StorageAccessWasGranted : uint8_t {
 
 enum class WebCore::StorageAccessPromptWasShown : bool
 
-enum class WebCore::HasOrShouldIgnoreUserGesture : bool
+enum class WebCore::HasUserGestureOrNoUserGestureRequired : bool
 
 enum class WebCore::StorageAccessScope : bool
 

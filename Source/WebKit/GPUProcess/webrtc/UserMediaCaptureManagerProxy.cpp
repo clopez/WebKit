@@ -137,6 +137,11 @@ public:
 
     void start()
     {
+        // A compromised WebContent process may send StartProducingData repeatedly. Once we are
+        // observing, prepareAudioDescription() would race the capture thread's audioSamplesAvailable().
+        if (m_isObservingMedia)
+            return;
+
         m_shouldReset = true;
         m_isStopped = false;
         m_source->start();
@@ -231,7 +236,7 @@ public:
             bool isObservingMedia = protectedThis->isObservingMedia();
             protectedThis->unobserveMedia();
 
-            source->applyConstraints(WTF::move(constraints), [weakThis = WTF::move(weakThis), &constraints, isObservingMedia, callback = WTF::move(callback)](auto&& error) mutable {
+            source->applyConstraints(constraints, [weakThis = WTF::move(weakThis), constraints, isObservingMedia, callback = WTF::move(callback)](auto&& error) mutable {
                 RefPtr protectedThis = weakThis.get();
                 if (!protectedThis) {
                     callback(RealtimeMediaSource::ApplyConstraintsError { { }, { } });

@@ -525,8 +525,11 @@ void WebGLRenderingContextBase::initializeNewContext(Ref<GraphicsContextGL> cont
     updateActiveOrdinal();
     if (!wasActive)
         addActiveContext(*this);
-    initializeContextState();
-    initializeDefaultObjects();
+    {
+        Locker locker { objectGraphLock() };
+        initializeContextState();
+        initializeDefaultObjects();
+    }
     // Next calls will receive the context lost callback.
     m_context->setClient(this);
 }
@@ -773,7 +776,7 @@ RefPtr<ImageBuffer> WebGLRenderingContextBase::surfaceBufferToImageBuffer(Surfac
     RefPtr scriptExecutionContext = this->scriptExecutionContext();
     if (!scriptExecutionContext)
         return nullptr;
-    auto size = m_defaultFramebuffer->size();
+    auto size = clampedCanvasSize();
     if (size.isEmpty())
         return nullptr;
     RefPtr<ImageBuffer> buffer;
@@ -814,7 +817,7 @@ RefPtr<ByteArrayPixelBuffer> WebGLRenderingContextBase::drawingBufferToPixelBuff
     if (m_attributes.premultipliedAlpha)
         return nullptr;
     clearIfComposited(CallerTypeOther);
-    auto size = m_defaultFramebuffer->size();
+    auto size = clampedCanvasSize();
     if (size.isEmpty())
         return nullptr;
     PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, DestinationColorSpace::SRGB() };
@@ -859,10 +862,12 @@ RefPtr<VideoFrame> WebGLRenderingContextBase::surfaceBufferToVideoFrame(SurfaceB
 
 RefPtr<ImageBuffer> WebGLRenderingContextBase::transferToImageBuffer()
 {
+    if (isContextLost())
+        return nullptr;
     RefPtr scriptExecutionContext = this->scriptExecutionContext();
     if (!scriptExecutionContext)
         return nullptr;
-    const auto size = m_defaultFramebuffer->size();
+    auto size = clampedCanvasSize();
     if (size.isEmpty())
         return nullptr;
     RefPtr buffer = createImageBufferForWebGLContextReads(size, *scriptExecutionContext);
@@ -882,8 +887,12 @@ RefPtr<ImageBuffer> WebGLRenderingContextBase::transferToImageBuffer()
 
 void WebGLRenderingContextBase::didUpdateCanvasSizeProperties(bool)
 {
-    if (isContextLost())
+    if (isContextLost()) {
+        m_readDrawingBuffer = nullptr;
+        m_readDisplayBuffer = nullptr;
+        updateMemoryCost();
         return;
+    }
 
     auto newSize = clampedCanvasSize();
     if (newSize == m_defaultFramebuffer->size())
@@ -891,6 +900,7 @@ void WebGLRenderingContextBase::didUpdateCanvasSizeProperties(bool)
 
     m_readDrawingBuffer = nullptr;
     m_readDisplayBuffer = nullptr;
+
     m_defaultFramebuffer->reshape(newSize);
     updateMemoryCost();
 
@@ -1367,54 +1377,53 @@ void WebGLRenderingContextBase::copyTexSubImage2D(GCGLenum target, GCGLint level
     graphicsContextGL()->copyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
 }
 
-RefPtr<WebGLBuffer> WebGLRenderingContextBase::createBuffer()
+Ref<WebGLBuffer> WebGLRenderingContextBase::createBuffer()
 {
     if (isContextLost())
-        return nullptr;
+        return WebGLBuffer::createLost();
     return WebGLBuffer::create(*this);
 }
 
-RefPtr<WebGLFramebuffer> WebGLRenderingContextBase::createFramebuffer()
+Ref<WebGLFramebuffer> WebGLRenderingContextBase::createFramebuffer()
 {
     if (isContextLost())
-        return nullptr;
+        return WebGLFramebuffer::createLost();
     return WebGLFramebuffer::create(*this);
 }
 
-RefPtr<WebGLTexture> WebGLRenderingContextBase::createTexture()
+Ref<WebGLTexture> WebGLRenderingContextBase::createTexture()
 {
     if (isContextLost())
-        return nullptr;
+        return WebGLTexture::createLost();
     return WebGLTexture::create(*this);
 }
 
-RefPtr<WebGLProgram> WebGLRenderingContextBase::createProgram()
+Ref<WebGLProgram> WebGLRenderingContextBase::createProgram()
 {
-    if (isContextLost())
-        return nullptr;
-    auto program = WebGLProgram::create(*this);
-    if (!program)
-        return nullptr;
-    InspectorInstrumentation::didCreateWebGLProgram(*this, *program);
+    Ref program = [&]() {
+        if (isContextLost())
+            return WebGLProgram::createLost(*this);
+        return WebGLProgram::create(*this);
+    }();
+    InspectorInstrumentation::didCreateWebGLProgram(*this, program);
     return program;
 }
 
-RefPtr<WebGLRenderbuffer> WebGLRenderingContextBase::createRenderbuffer()
+Ref<WebGLRenderbuffer> WebGLRenderingContextBase::createRenderbuffer()
 {
     if (isContextLost())
-        return nullptr;
+        return WebGLRenderbuffer::createLost();
     return WebGLRenderbuffer::create(*this);
 }
 
 RefPtr<WebGLShader> WebGLRenderingContextBase::createShader(GCGLenum type)
 {
-    if (isContextLost())
-        return nullptr;
     if (type != GraphicsContextGL::VERTEX_SHADER && type != GraphicsContextGL::FRAGMENT_SHADER) {
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "createShader"_s, "invalid shader type"_s);
         return nullptr;
     }
-
+    if (isContextLost())
+        return WebGLShader::createLost(type);
     return WebGLShader::create(*this, type);
 }
 
@@ -5724,14 +5733,16 @@ void WebGLRenderingContextBase::updateMemoryCost() const
         newMemoryCost += Ref { *m_readDisplayBuffer }->memoryCost();
     if (m_readDrawingBuffer)
         newMemoryCost += Ref { *m_readDrawingBuffer }->memoryCost();
-    size_t area = m_defaultFramebuffer->size().unclampedArea();
-    size_t bytesPerSample = 4;
-    if (m_attributes.depth)
-        bytesPerSample += 4;
-    else if (m_attributes.stencil)
-        bytesPerSample += 1;
-    size_t samplesPerPixel = m_attributes.antialias ? 4 : 1;
-    newMemoryCost += area * samplesPerPixel * bytesPerSample;
+    if (!isContextLost()) {
+        size_t area = m_defaultFramebuffer->size().unclampedArea();
+        size_t bytesPerSample = 4;
+        if (m_attributes.depth)
+            bytesPerSample += 4;
+        else if (m_attributes.stencil)
+            bytesPerSample += 1;
+        size_t samplesPerPixel = m_attributes.antialias ? 4 : 1;
+        newMemoryCost += area * samplesPerPixel * bytesPerSample;
+    }
     CanvasRenderingContext::updateMemoryCost(newMemoryCost);
 }
 

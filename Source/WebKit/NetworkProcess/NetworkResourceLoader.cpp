@@ -1405,10 +1405,19 @@ void NetworkResourceLoader::continueWillSendRedirectedRequest(ResourceRequest&& 
 
     // We send the request body separately because the ResourceRequest body normally does not get encoded when sent over IPC, as an optimization.
     // However, we really need the body here because a redirect cross-site may cause a process-swap and the request to start again in a new WebContent process.
-    sendWithAsyncReply(Messages::WebResourceLoader::WillSendRequest(redirectRequest, IPC::FormDataReference { redirectRequest.httpBody() }, sanitizeResponseIfPossible(WTF::move(redirectResponse), ResourceResponse::SanitizationType::Redirection)), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler)] (ResourceRequest&& newRequest, bool isAllowedToAskUserForCredentials) mutable {
+    sendWithAsyncReply(Messages::WebResourceLoader::WillSendRequest(redirectRequest, IPC::FormDataReference { redirectRequest.httpBody() }, sanitizeResponseIfPossible(WTF::move(redirectResponse), ResourceResponse::SanitizationType::Redirection)), [weakThis = WeakPtr { *this }, completionHandler = WTF::move(completionHandler), firstPartyForCookiesFromRedirectRequest = redirectRequest.firstPartyForCookies()] (ResourceRequest&& newRequest, bool isAllowedToAskUserForCredentials) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return completionHandler({ });
+
+        if (newRequest.firstPartyForCookies() != firstPartyForCookiesFromRedirectRequest) {
+            Ref connection = protectedThis->m_connection;
+            auto allowCookieAccess = connection->networkProcess().allowsFirstPartyForCookies(
+                connection->webProcessIdentifier(), newRequest.firstPartyForCookies());
+            MESSAGE_CHECK_COMPLETION_BASE(allowCookieAccess == NetworkProcess::AllowCookieAccess::Allow,
+                connection->connection(), completionHandler({ }));
+        }
+
         protectedThis->continueWillSendRequest(WTF::move(newRequest), isAllowedToAskUserForCredentials, WTF::move(completionHandler));
     });
 }
@@ -1477,6 +1486,12 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
 {
     LOADER_RELEASE_LOG("continueWillSendRequest: (isAllowedToAskUserForCredentials=%d)", isAllowedToAskUserForCredentials);
 
+    // If there is a match in the network cache, we need to reuse the original cache policy and partition.
+    // This must happen before any branch below that may store a redirect in the disk cache, otherwise a
+    // compromised WebContent process could poison the cache for an arbitrary partition.
+    newRequest.setCachePolicy(originalRequest().cachePolicy());
+    newRequest.setCachePartition(originalRequest().cachePartition());
+
     if (m_redirectionForCurrentNavigation) {
         LOADER_RELEASE_LOG("continueWillSendRequest: using stored redirect response");
         auto redirection = std::exchange(m_redirectionForCurrentNavigation, { });
@@ -1527,10 +1542,6 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
     }
 
     m_isAllowedToAskUserForCredentials = isAllowedToAskUserForCredentials;
-
-    // If there is a match in the network cache, we need to reuse the original cache policy and partition.
-    newRequest.setCachePolicy(originalRequest().cachePolicy());
-    newRequest.setCachePartition(originalRequest().cachePartition());
 
     if (m_isWaitingContinueWillSendRequestForCachedRedirect) {
         m_isWaitingContinueWillSendRequestForCachedRedirect = false;

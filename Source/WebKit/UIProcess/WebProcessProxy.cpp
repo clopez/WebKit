@@ -277,12 +277,11 @@ void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const Secu
     }
 }
 
-Vector<std::pair<WebCore::ProcessIdentifier, WebCore::RegistrableDomain>> WebProcessProxy::allowedFirstPartiesForCookies()
+void WebProcessProxy::addAllowedFirstPartyForCookies(const WebCore::RegistrableDomain& domain, LoadedWebArchive loadedWebArchive)
 {
-    Vector<std::pair<WebCore::ProcessIdentifier, WebCore::RegistrableDomain>> result;
-    for (Ref page : globalPages())
-        result.append(std::make_pair(page->legacyMainFrameProcess().coreProcessIdentifier(), RegistrableDomain(URL(page->currentURL()))));
-    return result;
+    m_allowedFirstPartiesForCookies.second.add(domain);
+    if (loadedWebArchive == LoadedWebArchive::Yes)
+        m_allowedFirstPartiesForCookies.first = LoadedWebArchive::Yes;
 }
 
 Ref<WebProcessProxy> WebProcessProxy::create(WebProcessPool& processPool, WebsiteDataStore* websiteDataStore, LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode, ShouldLaunchProcess shouldLaunchProcess)
@@ -952,6 +951,20 @@ void WebProcessProxy::didCommitLoadClientOrigin(WebCore::ClientOrigin&& clientOr
     m_committedClientOrigins.add(WTF::move(clientOrigin));
 }
 
+void WebProcessProxy::sendPageCloseMessage(std::optional<WebPageProxyIdentifier> pageProxyID, WebCore::PageIdentifier pageID, CompletionHandler<void()>&& completionHandler)
+{
+    if (pageProxyID)
+        m_pagesPendingClose.add(*pageProxyID);
+    sendWithAsyncReply(Messages::WebPage::Close(), [weakThis = WeakPtr { *this }, pageProxyID, completionHandler = WTF::move(completionHandler)]() mutable {
+        if (RefPtr protectedThis = weakThis; protectedThis && pageProxyID) {
+            protectedThis->m_pagesPendingClose.remove(*pageProxyID);
+            protectedThis->reportProcessDisassociatedWithPageIfNecessary(*pageProxyID);
+        }
+        if (completionHandler)
+            completionHandler();
+    }, pageID);
+}
+
 void WebProcessProxy::addVisitedLinkStoreUser(VisitedLinkStore& visitedLinkStore, WebPageProxyIdentifier pageID)
 {
     auto& users = m_visitedLinkStoresWithUsers.ensure(visitedLinkStore, [] {
@@ -1118,9 +1131,12 @@ bool WebProcessProxy::checkURLReceivedFromWebProcess(const URL& url, CheckBackFo
 
     // Items in back/forward list have been already checked.
     // One case where we don't have sandbox extensions for file URLs in b/f list is if the list has been reinstated after a crash or a browser restart.
+    // Only consider items belonging to a page hosted by this WebProcessProxy.
     if (checkBackForwardList == CheckBackForwardList::Yes) {
         String path = url.fileSystemPath();
         for (auto& item : WebBackForwardListItem::allItems().values()) {
+            if (!m_pageMap.contains(item->pageID()))
+                continue;
             URL itemURL { item->url() };
             if (itemURL.protocolIsFile() && itemURL.fileSystemPath() == path)
                 return true;
@@ -1548,6 +1564,28 @@ bool WebProcessProxy::wasPreviouslyApprovedFileURL(const URL& url) const
     if (fileSystemPath.isEmpty())
         return false;
     return m_previouslyApprovedFilePaths.contains(fileSystemPath);
+}
+
+bool WebProcessProxy::hasGrantedSandboxExtensionForFile(const String& filePath) const
+{
+    if (m_mayHaveUniversalFileReadSandboxExtension)
+        return true;
+
+    auto startsWithPath = [&filePath](const String& accessPath) {
+        return filePath.startsWith(accessPath);
+    };
+
+    auto& platformPaths = platformPathsWithAssumedReadAccess();
+    if (std::ranges::find_if(platformPaths, startsWithPath) != platformPaths.end())
+        return true;
+
+    if (std::ranges::find_if(m_localPathsWithAssumedReadAccess, startsWithPath) != m_localPathsWithAssumedReadAccess.end())
+        return true;
+
+    if (m_previouslyApprovedFilePaths.contains(filePath))
+        return true;
+
+    return false;
 }
 
 void WebProcessProxy::recordUserGestureAuthorizationToken(FrameIdentifier frameID, PageIdentifier pageID, WTF::UUID authorizationToken)
