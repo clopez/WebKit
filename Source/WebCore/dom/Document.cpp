@@ -444,6 +444,10 @@
 #include "LazyLoadModelObserver.h"
 #endif
 
+#if ENABLE(PICTURE_IN_PICTURE_API)
+#include "HTMLVideoElementPictureInPicture.h"
+#endif
+
 #if USE(QUICK_LOOK)
 #include "QuickLook.h"
 #endif
@@ -1943,9 +1947,19 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
     return CustomElementNameValidationStatus::Valid;
 }
 
-void Document::setActiveCustomElementRegistry(CustomElementRegistry* registry)
+CustomElementRegistry* Document::activeCustomElementConstructorRegistry(JSC::JSObject* constructor)
 {
-    m_activeCustomElementRegistry = registry;
+    return m_activeCustomElementConstructorMap.get(reinterpret_cast<uintptr_t>(constructor));
+}
+
+void Document::addToActiveCustomElementConstructorMap(JSC::JSObject* constructor, CustomElementRegistry& registry)
+{
+    m_activeCustomElementConstructorMap.set(reinterpret_cast<uintptr_t>(constructor), registry);
+}
+
+void Document::removeFromActiveCustomElementConstructorMap(JSC::JSObject* constructor)
+{
+    m_activeCustomElementConstructorMap.remove(reinterpret_cast<uintptr_t>(constructor));
 }
 
 ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName, Variant<String, ElementCreationOptions>&& argument)
@@ -3734,6 +3748,11 @@ void Document::willBeRemovedFromFrame()
     }
 #endif
 
+#if ENABLE(PICTURE_IN_PICTURE_API)
+    if (RefPtr pictureInPictureElement = m_pictureInPictureElement)
+        HTMLVideoElementPictureInPicture::from(*pictureInPictureElement).didExitPictureInPicture();
+#endif
+
     protect(cachedResourceLoader())->stopUnusedPreloadsTimer();
 
     if (page() && !m_mediaState.isEmpty()) {
@@ -4184,6 +4203,21 @@ bool Document::isFullyActive() const
             return ancestor->isMainFrame();
     }
     return frame->isMainFrame();
+}
+
+// https://html.spec.whatwg.org/multipage/interaction.html#fully-active-descendant-of-a-top-level-traversable-with-user-attention
+// "System focus" here is a property of the top-level traversable (the window), not of this
+// frame's subtree, so it checks FocusController window state rather than Document::hasFocus().
+// FIXME: the spec also grants user attention while UA widgets (e.g. the URL bar) hold keyboard
+// input; that disjunct is not yet modeled here (webkit.org/b/256299).
+bool Document::isFullyActiveAndHasUserAttention() const
+{
+    if (!isFullyActive() || visibilityState() != VisibilityState::Visible)
+        return false;
+    RefPtr page = this->page();
+    if (!page)
+        return false;
+    return page->focusController().isActive() && page->focusController().isFocused();
 }
 
 void Document::detachParser()
@@ -6748,7 +6782,7 @@ bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions&
             window()->navigation().setFocusChanged(FocusDidChange::Yes);
     }
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     // GTK relies on creating the AXObjectCache when a focus change happens.
     if (CheckedPtr cache = axObjectCache())
 #else
@@ -7970,6 +8004,14 @@ void Document::applyPendingXSLTransformsNowIfScheduled()
     applyPendingXSLTransformsTimerFired();
 }
 
+void Document::logXSLTDeprecationWarningIfNeeded()
+{
+    if (m_hasLoggedXSLTDeprecationWarning)
+        return;
+    m_hasLoggedXSLTDeprecationWarning = true;
+    addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "XSLT is deprecated and will be removed in a future version of WebKit."_s);
+}
+
 void Document::applyPendingXSLTransformsTimerFired()
 {
     ASSERT(settings().isXSLTEnabled());
@@ -7996,6 +8038,8 @@ void Document::applyPendingXSLTransformsTimerFired()
         // changing to a new document, don't attempt to create a new Document from the XSLT.
         if (!frame() || frame()->documentIsBeingReplaced())
             return;
+
+        logXSLTDeprecationWarningIfNeeded();
 
         Ref processor = XSLTProcessor::create();
         processor->setXSLStyleSheet(downcast<XSLStyleSheet>(processingInstruction->sheet()));

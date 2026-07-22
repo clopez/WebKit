@@ -82,6 +82,7 @@ class RenderTreePosition;
 class Settings;
 class ShadowRoot;
 class SpaceSplitString;
+class SpatialPortalController;
 class StylePropertyMap;
 class StylePropertyMapReadOnly;
 class Text;
@@ -857,6 +858,7 @@ public:
 
     bool NODELETE hasDisplayContents() const;
     bool NODELETE hasDisplayNone() const;
+    bool computedStyleIsDisplayNone();
     void storeDisplayContentsOrNoneStyle(std::unique_ptr<Style::ComputedStyle>);
     void clearDisplayContentsOrNoneStyle();
 
@@ -922,6 +924,12 @@ public:
 
     bool NODELETE shouldNotifyTextManipulationControllerIfDisplayed() const;
     void NODELETE clearShouldNotifyTextManipulationControllerIfDisplayed();
+
+#if ENABLE(SPATIAL_PORTAL)
+    SpatialPortalController& ensureSpatialPortalController();
+    SpatialPortalController* spatialPortalController() const;
+    void clearSpatialPortalController();
+#endif
 
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);

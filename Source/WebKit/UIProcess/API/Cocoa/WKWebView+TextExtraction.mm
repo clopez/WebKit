@@ -260,6 +260,7 @@ static WebKit::TextExtractionOutputFormat textExtractionOutputFormat(_WKTextExtr
         filterUsingRules,
         includeURLs = configuration.includeURLs,
         includeRects = configuration.includeRects,
+        includeTagName = configuration.includeTagName,
         includeSelectOptions = configuration.includeSelectOptions,
         applyDiscretionaryWordLimit = configuration.maxWordsPerParagraphPolicy == _WKTextExtractionWordLimitPolicyDiscretionary,
         shortenURLs = configuration.shortenURLs,
@@ -359,6 +360,8 @@ static WebKit::TextExtractionOutputFormat textExtractionOutputFormat(_WKTextExtr
             optionFlags.add(ShortenURLs);
         if (includeSelectOptions)
             optionFlags.add(IncludeSelectOptions);
+        if (includeTagName)
+            optionFlags.add(IncludeTagName);
         RefPtr urlCache = strongSelf->_textExtractionURLCache;
         WebKit::TextExtractionOptions options {
             WTF::move(mainFrameIdentifier),
@@ -442,7 +445,11 @@ static WebKit::TextExtractionOutputFormat textExtractionOutputFormat(_WKTextExtr
         }
     }();
 
-    if (auto identifiers = WebKit::parseExtractedNodeInfo(nodeIdentifierString)) {
+    if (RetainPtr elementHandle = [wkInteraction elementHandle]) {
+        const auto& info = elementHandle->_ref->info();
+        interaction.targetNodeHandleIdentifier = info.identifier;
+        frameIdentifier = info.frameInfo.frameID;
+    } else if (auto identifiers = WebKit::parseExtractedNodeInfo(nodeIdentifierString)) {
         interaction.nodeIdentifier = { WTF::move(identifiers->nodeIdentifier) };
         frameIdentifier = WTF::move(identifiers->frameIdentifier);
     }
@@ -460,7 +467,7 @@ static WebKit::TextExtractionOutputFormat textExtractionOutputFormat(_WKTextExtr
     interaction.replaceAll = wkInteraction.replaceAll;
     interaction.scrollToVisible = wkInteraction.scrollToVisible;
     interaction.scrollDelta = WebCore::FloatSize { wkInteraction.scrollDelta };
-    if (!interaction.nodeIdentifier) {
+    if (!interaction.nodeIdentifier && !interaction.targetNodeHandleIdentifier) {
         if (RetainPtr context = [wkInteraction extractionContext]) {
             auto result = [context resolveContainerForSearchText:wkInteraction.text];
             if (!result.has_value())
@@ -750,6 +757,7 @@ static OptionSet<WebCore::DataDetectorType> NODELETE coreDataDetectorTypes(_WKTe
             .includeAccessibilityAttributes = !!configuration.includeAccessibilityAttributes,
             .includeTextInAutoFilledControls = !!configuration.includeTextInAutoFilledControls,
             .includeOffscreenPasswordFields = !!configuration.includeOffscreenPasswordFields,
+            .includeTagName = !!configuration.includeTagName,
 #if ENABLE(DATA_DETECTION)
             .dataDetectorTypes = coreDataDetectorTypes(configuration.dataDetectorTypes),
 #endif
@@ -904,7 +912,7 @@ static OptionSet<WebCore::DataDetectorType> NODELETE coreDataDetectorTypes(_WKTe
     if (!protect(page->preferences())->textExtractionEnabled())
         return completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
 
-    auto nodeIdentifierString = String { wkInteraction.nodeIdentifier };
+    auto nodeIdentifierString = wkInteraction.elementHandle ? emptyString() : String { wkInteraction.nodeIdentifier };
     auto conversionResult = [self _convertToWebCoreInteraction:wkInteraction nodeIdentifier:nodeIdentifierString];
     if (!conversionResult)
         return completionHandler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSDebugDescriptionErrorKey: conversionResult.error().get() }]);

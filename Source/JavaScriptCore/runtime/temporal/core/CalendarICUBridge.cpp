@@ -63,7 +63,7 @@ static CString buildICULocale(StringView calendarId)
 }
 
 // buildCalendarTemplate — internal: opens ICU UCalendar for the given CalendarID, set to UTC.
-// NOTE: For Gregory/ISO/Japanese/Buddhist/Roc: sets Gregorian change date to -infinity for proleptic Gregorian arithmetic.
+// NOTE: For Gregory/ISO: sets Gregorian change date to -infinity for proleptic Gregorian arithmetic.
 static std::unique_ptr<UCalendar, ICUDeleter<ucal_close>> buildCalendarTemplate(const AbstractLocker&, CalendarID calendarId)
 {
     auto str = calendarIDToString(calendarId);
@@ -76,8 +76,8 @@ static std::unique_ptr<UCalendar, ICUDeleter<ucal_close>> buildCalendarTemplate(
     // use proleptic Gregorian for all valid dates (effectively -infinity for our purposes).
     // ucal_setGregorianChange is only supported on the base Gregorian calendar; ICU returns
     // U_UNSUPPORTED_ERROR for derived calendars (Japanese, Buddhist, ROC). Those derived
-    // calendars already use proleptic-Gregorian arithmetic in the years Temporal cares about,
-    // so calling ucal_setGregorianChange would be a no-op and we skip it.
+    // calendars cannot be configured this way, so Gregorian-arithmetic accessors route through
+    // the base Gregorian calendar below.
     if (calendarId == gregoryCalendarID() || calendarIsISO(calendarId)) {
         const double prolepticGregorianChangeMs = -8.64e15; // ExactTime::minValue / nsPerMillisecond
         ucal_setGregorianChange(cal.get(), prolepticGregorianChangeMs, &status);
@@ -96,14 +96,37 @@ public:
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CalendarCacheEntry);
 
 // Japanese/ROC/Buddhist derive from Gregorian and reject ucal_setGregorianChange
-// (U_UNSUPPORTED_ERROR), so year-length / month-length / leap-year accessors
-// route through gregory to get proleptic Gregorian. Era-facing paths keep the
-// derived calendar so era labels remain correct.
+// (U_UNSUPPORTED_ERROR), so Gregorian-arithmetic accessors route through gregory
+// to get proleptic Gregorian. Calendar-native year and era fields are handled
+// separately.
 static CalendarID gregorianArithmeticCalendarFor(CalendarID calendarId)
 {
     if (calendarId == japaneseCalendarID() || calendarId == rocCalendarID() || calendarId == buddhistCalendarID())
         return gregoryCalendarID();
     return calendarId;
+}
+
+static constexpr int32_t rocCalendarYearOffset = 1911;
+static constexpr int32_t buddhistCalendarYearOffset = 543;
+
+struct GregorianArithmeticYearFields {
+    int32_t year;
+    ASCIILiteral era;
+    int32_t eraYear;
+};
+
+static GregorianArithmeticYearFields gregorianArithmeticYearFieldsFor(CalendarID calendarId, int32_t isoYear)
+{
+    ASSERT(calendarId == rocCalendarID() || calendarId == buddhistCalendarID());
+    if (calendarId == buddhistCalendarID()) {
+        int32_t year = isoYear + buddhistCalendarYearOffset;
+        return { year, "be"_s, year };
+    }
+
+    int32_t year = isoYear - rocCalendarYearOffset;
+    if (year > 0)
+        return { year, "roc"_s, year };
+    return { year, "broc"_s, 1 - year };
 }
 
 struct CalendarLRUCachePolicy {
@@ -190,7 +213,7 @@ static bool setCalendarToISODate(UCalendar* cal, const ISO8601::PlainDate& isoDa
     return U_SUCCESS(status);
 }
 
-// isoDateFromCalendarChecked — internal: reads back ISO date from ICU calendar's current epoch ms; returns nullopt if out of representable range
+// isoDateFromCalendarChecked — internal: reads back ISO date from ICU calendar's current epoch ms; returns nullopt if outside the supported ISO year range
 static std::optional<ISO8601::PlainDate> isoDateFromCalendarChecked(UCalendar* cal)
 {
     UErrorCode status = U_ZERO_ERROR;
@@ -283,8 +306,10 @@ static std::optional<String> mapICUEraToTemporalEra(CalendarID calendarId, int32
     }
     if (calendarId == rocCalendarID())
         return !icuEra ? "broc"_s : "roc"_s;
-    if (calendarId == copticCalendarID() || calendarId == ethiopicCalendarID())
+    if (calendarId == copticCalendarID())
         return "am"_s;
+    if (calendarId == ethiopicCalendarID())
+        return !icuEra ? "aa"_s : "am"_s;
     if (calendarId == ethioaaCalendarID())
         return "aa"_s;
     if (calendarId == hebrewCalendarID())
@@ -411,8 +436,15 @@ static std::optional<int32_t> mapTemporalEraToICUEra(CalendarID calendarId, Stri
             return 1;
         return std::nullopt;
     }
-    if (calendarId == copticCalendarID() || calendarId == ethiopicCalendarID())
+    if (calendarId == copticCalendarID())
         return era == "am"_s ? std::optional<int32_t>(1) : std::nullopt;
+    if (calendarId == ethiopicCalendarID()) {
+        if (era == "aa"_s)
+            return 0;
+        if (era == "am"_s)
+            return 1;
+        return std::nullopt;
+    }
     if (calendarId == ethioaaCalendarID())
         return era == "aa"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarId == hebrewCalendarID())
@@ -426,9 +458,21 @@ static std::optional<int32_t> mapTemporalEraToICUEra(CalendarID calendarId, Stri
     return std::nullopt;
 }
 
-// isoToCalendarFields — no single temporal_rs equivalent; aggregates Calendar::year/month/month_code/day/era into one ICU pass.
+// isoToCalendarFields — no single temporal_rs equivalent; aggregates Calendar::year/month/month_code/day/era.
 TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const ISO8601::PlainDate& isoDate)
 {
+    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID()) {
+        auto yearFields = gregorianArithmeticYearFieldsFor(calendarId, isoDate.year());
+        CalendarFields fields;
+        fields.year = yearFields.year;
+        fields.era = String(yearFields.era);
+        fields.eraYear = yearFields.eraYear;
+        fields.month = isoDate.month();
+        fields.day = isoDate.day();
+        fields.monthCode = ISO8601::monthCode(isoDate.month());
+        return fields;
+    }
+
     struct RawFields {
         int32_t extendedYear { 0 };
         int32_t ucalEra { 0 };
@@ -447,7 +491,6 @@ TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const 
 
         UErrorCode status = U_ZERO_ERROR;
         RawFields raw;
-        // NOTE: ROC UCAL_EXTENDED_YEAR may return Gregorian year on some ICU versions; handled below.
         raw.extendedYear = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
@@ -476,11 +519,20 @@ TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const 
 
     CalendarFields fields;
     fields.year = raw.extendedYear;
-    if (calendarId == rocCalendarID())
-        fields.year = !raw.ucalEra ? -(raw.ucalYear - 1) : raw.ucalYear;
+    if (calendarId == ethioaaCalendarID())
+        fields.year = raw.ucalYear;
     fields.month = *raw.ordinalMonth;
     fields.day = static_cast<uint8_t>(raw.day);
     fields.monthCode = WTF::move(*raw.monthCode);
+
+    if (calendarId == japaneseCalendarID()) {
+        fields.year = isoDate.year();
+        if (isoDate.year() < japaneseCalendarGregorianTransitionYear) {
+            fields.month = isoDate.month();
+            fields.day = isoDate.day();
+            fields.monthCode = ISO8601::monthCode(isoDate.month());
+        }
+    }
 
     // isLeapMonth is re-derived from the month code (avoids needing UCAL_IS_LEAP_MONTH in raw)
     fields.isLeapMonth = fields.monthCode.endsWith("L"_s);
@@ -511,24 +563,20 @@ TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const 
 TemporalResult<int32_t> calendarYear(CalendarID calendarId, const ISO8601::PlainDate& isoDate)
 {
     // 1. Return the extended year of isoDate in calendarId.
+    // NOTE: The Japanese extended year is always the ISO year.
+    if (calendarId == japaneseCalendarID())
+        return isoDate.year();
+    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID())
+        return gregorianArithmeticYearFieldsFor(calendarId, isoDate.year()).year;
     return withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<int32_t> {
         if (!cal) [[unlikely]]
             return makeUnexpected(rangeError(icuOpenCalendarFailed));
         if (!setCalendarToISODate(cal, isoDate)) [[unlikely]]
             return makeUnexpected(rangeError(icuSetCalendarFailed));
         UErrorCode status = U_ZERO_ERROR;
-        // NOTE: ROC UCAL_EXTENDED_YEAR may return Gregorian year on some ICU versions; compute from era+year.
-        if (calendarId == rocCalendarID()) {
-            int32_t era = ucal_get(cal, UCAL_ERA, &status);
-            if (U_FAILURE(status)) [[unlikely]]
-                return makeUnexpected(rangeError(icuReadCalendarFailed));
-            int32_t eraYear = ucal_get(cal, UCAL_YEAR, &status);
-            if (U_FAILURE(status)) [[unlikely]]
-                return makeUnexpected(rangeError(icuReadCalendarFailed));
-            return !era ? -(eraYear - 1) : eraYear;
-        }
-        // Buddhist: UCAL_EXTENDED_YEAR is the Gregorian year; UCAL_YEAR is the BE year.
-        if (calendarId == buddhistCalendarID()) {
+        // Older ICU versions expose an Amete Mihret-relative UCAL_EXTENDED_YEAR for Ethioaa;
+        // newer versions may make UCAL_YEAR and UCAL_EXTENDED_YEAR equal.
+        if (calendarId == ethioaaCalendarID()) {
             int32_t eraYear = ucal_get(cal, UCAL_YEAR, &status);
             if (U_FAILURE(status)) [[unlikely]]
                 return makeUnexpected(rangeError(icuReadCalendarFailed));
@@ -553,7 +601,7 @@ TemporalResult<uint8_t> calendarMonth(CalendarID calendarId, const ISO8601::Plai
     // NOTE: Japanese pre-1873 "ce"/"bce" eras use ISO month directly to bypass ICU Julian conversion.
     if (calendarId == japaneseCalendarID() && isoDate.year() < japaneseCalendarGregorianTransitionYear)
         return isoDate.month();
-    return withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<uint8_t> {
+    return withCalendar(gregorianArithmeticCalendarFor(calendarId), [&](UCalendar* cal) -> TemporalResult<uint8_t> {
         if (!cal) [[unlikely]]
             return makeUnexpected(rangeError(icuOpenCalendarFailed));
         if (!setCalendarToISODate(cal, isoDate)) [[unlikely]]
@@ -577,7 +625,7 @@ TemporalResult<String> calendarMonthCode(CalendarID calendarId, const ISO8601::P
     // NOTE: Japanese pre-1873 "ce"/"bce" eras use ISO month code directly to bypass ICU Julian conversion.
     if (calendarId == japaneseCalendarID() && isoDate.year() < japaneseCalendarGregorianTransitionYear)
         return ISO8601::monthCode(isoDate.month());
-    return withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<String> {
+    return withCalendar(gregorianArithmeticCalendarFor(calendarId), [&](UCalendar* cal) -> TemporalResult<String> {
         if (!cal) [[unlikely]]
             return makeUnexpected(rangeError(icuOpenCalendarFailed));
         if (!setCalendarToISODate(cal, isoDate)) [[unlikely]]
@@ -601,7 +649,7 @@ TemporalResult<uint8_t> calendarDay(CalendarID calendarId, const ISO8601::PlainD
     // NOTE: Japanese pre-1873 "ce"/"bce" eras return ISO day directly to bypass ICU Julian conversion.
     if (calendarId == japaneseCalendarID() && isoDate.year() < japaneseCalendarGregorianTransitionYear)
         return isoDate.day();
-    return withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<uint8_t> {
+    return withCalendar(gregorianArithmeticCalendarFor(calendarId), [&](UCalendar* cal) -> TemporalResult<uint8_t> {
         if (!cal) [[unlikely]]
             return makeUnexpected(rangeError(icuOpenCalendarFailed));
         if (!setCalendarToISODate(cal, isoDate)) [[unlikely]]
@@ -640,6 +688,8 @@ TemporalResult<std::optional<String>> calendarEra(CalendarID calendarId, const I
     // 1. If calendarId has no eras, return undefined.
     if (!calendarHasEras(calendarId))
         return std::optional<String>(std::nullopt);
+    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID())
+        return std::optional<String>(String(gregorianArithmeticYearFieldsFor(calendarId, isoDate.year()).era));
     // 2. Return the era string for isoDate in calendarId (e.g. "ce", "bce", "reiwa").
     // NOTE: Japanese dates before 1873 use "ce"/"bce" per spec, not ICU era names.
     if (calendarId == japaneseCalendarID() && isoDate.year() < japaneseCalendarGregorianTransitionYear)
@@ -673,6 +723,8 @@ TemporalResult<std::optional<int32_t>> calendarEraYear(CalendarID calendarId, co
     // 1. If calendarId has no eras, return undefined.
     if (!calendarHasEras(calendarId))
         return std::optional<int32_t>(std::nullopt);
+    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID())
+        return std::optional<int32_t>(gregorianArithmeticYearFieldsFor(calendarId, isoDate.year()).eraYear);
     // 2. Return the era year (year within the current era) of isoDate in calendarId.
     // NOTE: Japanese "ce"/"bce" fallback: eraYear is the Gregorian year.
     if (calendarId == japaneseCalendarID() && isoDate.year() < japaneseCalendarGregorianTransitionYear)
@@ -961,6 +1013,11 @@ static bool compareSurpassesOrdinally(
     return false;
 }
 
+static UCalendarDateFields calendarArithmeticYearField(CalendarID calendarId)
+{
+    return calendarId == ethioaaCalendarID() ? UCAL_YEAR : UCAL_EXTENDED_YEAR;
+}
+
 // resolveMonthCodeToOrdinal — internal: resolves a monthCode to its 1-based ordinal position in the given year
 static int32_t resolveMonthCodeToOrdinal(CalendarID calendarId, const String& monthCode, int32_t year)
 {
@@ -968,7 +1025,10 @@ static int32_t resolveMonthCodeToOrdinal(CalendarID calendarId, const String& mo
         if (!cal)
             return 1;
         UErrorCode status = U_ZERO_ERROR;
-        ucal_set(cal, UCAL_EXTENDED_YEAR, year);
+        auto yearField = calendarArithmeticYearField(calendarId);
+        if (yearField == UCAL_YEAR)
+            ucal_set(cal, UCAL_ERA, 0);
+        ucal_set(cal, yearField, year);
         ucal_set(cal, UCAL_MONTH, 0);
         ucal_set(cal, UCAL_IS_LEAP_MONTH, 0);
         ucal_set(cal, UCAL_DAY_OF_MONTH, 1);
@@ -976,7 +1036,7 @@ static int32_t resolveMonthCodeToOrdinal(CalendarID calendarId, const String& mo
         if (U_FAILURE(status)) [[unlikely]]
             return 1;
 
-        int32_t savedYear = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
+        int32_t savedYear = ucal_get(cal, yearField, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return 1;
         int32_t lastOrdinal = 1;
@@ -998,7 +1058,7 @@ static int32_t resolveMonthCodeToOrdinal(CalendarID calendarId, const String& mo
             ucal_add(cal, UCAL_MONTH, 1, &status);
             if (U_FAILURE(status)) [[unlikely]]
                 return lastOrdinal;
-            int32_t curYear = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
+            int32_t curYear = ucal_get(cal, yearField, &status);
             if (U_FAILURE(status)) [[unlikely]]
                 return lastOrdinal;
             if (curYear != savedYear)
@@ -1028,6 +1088,151 @@ static bool nonISODateSurpasses(
     return compareSurpassesOrdinally(sign, y0, m0, sourceDay, targetYear, targetOrdinalMonth, targetDay);
 }
 
+static bool calendarIsNonISOSolar(CalendarID calendarId)
+{
+    return calendarId == copticCalendarID() || calendarId == ethiopicCalendarID() || calendarId == ethioaaCalendarID()
+        || calendarId == indianCalendarID() || calendarId == persianCalendarID();
+}
+
+static int32_t fixedSolarMonthsInYear(CalendarID calendarId)
+{
+    ASSERT(calendarIsNonISOSolar(calendarId));
+    return calendarId == copticCalendarID() || calendarId == ethiopicCalendarID() || calendarId == ethioaaCalendarID() ? 13 : 12;
+}
+
+struct FixedSolarYearMonth {
+    int32_t year;
+    int32_t month;
+};
+
+static std::optional<FixedSolarYearMonth> balanceFixedSolarYearMonth(int32_t sourceYear, int32_t sourceMonth, int32_t monthsInYear, int64_t years, int64_t months)
+{
+    CheckedInt64 checkedBalancedMonth = CheckedInt64(sourceMonth) + months;
+    if (checkedBalancedMonth.hasOverflowed()) [[unlikely]]
+        return std::nullopt;
+    int64_t balancedMonth = checkedBalancedMonth;
+    int64_t yearDelta = balancedMonth / monthsInYear;
+    int32_t expectedMonth = balancedMonth % monthsInYear;
+    if (expectedMonth < 0) {
+        expectedMonth += monthsInYear;
+        --yearDelta;
+    }
+
+    CheckedInt64 checkedExpectedYear = CheckedInt64(sourceYear) + years + yearDelta;
+    if (checkedExpectedYear.hasOverflowed()) [[unlikely]]
+        return std::nullopt;
+    CheckedInt32 expectedYear = checkedExpectedYear;
+    if (expectedYear.hasOverflowed()) [[unlikely]]
+        return std::nullopt;
+    return FixedSolarYearMonth { expectedYear, expectedMonth };
+}
+
+// Clear and construct an exact native year/month at day 1. Noon preserves Temporal's partial-day
+// endpoints. At ICU's extreme millisecond boundary, directly set fields can resolve one day off;
+// correct only that rounding after the expected year/month resolve, then verify every field.
+static std::optional<bool> setFixedSolarCalendarToYearMonth(UCalendar* cal, CalendarID calendarId, const FixedSolarYearMonth& expected)
+{
+    ucal_clear(cal);
+    auto yearField = calendarArithmeticYearField(calendarId);
+    if (yearField == UCAL_YEAR)
+        ucal_set(cal, UCAL_ERA, 0);
+    ucal_set(cal, yearField, expected.year);
+    ucal_set(cal, UCAL_MONTH, expected.month);
+    ucal_set(cal, UCAL_DAY_OF_MONTH, 1);
+    ucal_set(cal, UCAL_HOUR_OF_DAY, 12);
+
+    UErrorCode status = U_ZERO_ERROR;
+    ucal_getMillis(cal, &status);
+    if (U_FAILURE(status)) [[unlikely]]
+        return std::nullopt;
+    int32_t actualYear = ucal_get(cal, yearField, &status);
+    int32_t actualMonth = ucal_get(cal, UCAL_MONTH, &status);
+    int32_t actualDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
+    if (U_FAILURE(status)) [[unlikely]]
+        return std::nullopt;
+    if (actualYear == expected.year && actualMonth == expected.month && std::abs(actualDay - 1) == 1) {
+        ucal_add(cal, UCAL_DAY_OF_MONTH, 1 - actualDay, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return std::nullopt;
+        actualYear = ucal_get(cal, yearField, &status);
+        actualMonth = ucal_get(cal, UCAL_MONTH, &status);
+        actualDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return std::nullopt;
+    }
+    return actualYear == expected.year && actualMonth == expected.month && actualDay == 1;
+}
+
+static TemporalResult<ISO8601::PlainDate> fixedSolarDateAdd(CalendarID calendarId, const ISO8601::PlainDate& isoDate, const ISO8601::Duration& duration, TemporalOverflow overflow)
+{
+    auto baselineOrError = withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<ISO8601::PlainDate> {
+        if (!cal) [[unlikely]]
+            return makeUnexpected(rangeError(icuOpenCalendarFailed));
+        if (!setCalendarToISODate(cal, isoDate)) [[unlikely]]
+            return makeUnexpected(rangeError(icuSetCalendarFailed));
+
+        UErrorCode status = U_ZERO_ERROR;
+        auto yearField = calendarArithmeticYearField(calendarId);
+        int32_t sourceYear = ucal_get(cal, yearField, &status);
+        int32_t sourceMonth = ucal_get(cal, UCAL_MONTH, &status);
+        int32_t sourceDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return makeUnexpected(rangeError(icuReadCalendarFailed));
+
+        auto expected = balanceFixedSolarYearMonth(sourceYear, sourceMonth, fixedSolarMonthsInYear(calendarId), duration.years(), duration.months());
+        if (!expected) [[unlikely]]
+            return makeUnexpected(rangeError("Result of calendar date addition is outside representable range"_s));
+        auto constructedExactly = setFixedSolarCalendarToYearMonth(cal, calendarId, *expected);
+        if (!constructedExactly) [[unlikely]]
+            return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+        if (!*constructedExactly) [[unlikely]]
+            return makeUnexpected(rangeError("Result of calendar date addition is outside representable range"_s));
+
+        int32_t maxDay = ucal_getLimit(cal, UCAL_DAY_OF_MONTH, UCAL_ACTUAL_MAXIMUM, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return makeUnexpected(rangeError(icuReadCalendarFailed));
+        if (overflow == TemporalOverflow::Reject && sourceDay > maxDay) [[unlikely]]
+            return makeUnexpected(rangeError("day is out of range for the resulting month (overflow: reject)"_s));
+        int32_t regulatedDay = std::min(sourceDay, maxDay);
+        ucal_set(cal, UCAL_DAY_OF_MONTH, regulatedDay);
+        ucal_getMillis(cal, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+        int32_t actualYear = ucal_get(cal, yearField, &status);
+        int32_t actualMonth = ucal_get(cal, UCAL_MONTH, &status);
+        int32_t actualDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return makeUnexpected(rangeError(icuReadCalendarFailed));
+        // At ICU's extreme millisecond boundary, resolving a directly set day can round to
+        // the adjacent day even though that native day is representable. Correct only the day
+        // after the expected year/month have resolved exactly, then verify all fields again.
+        if (actualYear == expected->year && actualMonth == expected->month && std::abs(actualDay - regulatedDay) == 1) {
+            ucal_add(cal, UCAL_DAY_OF_MONTH, regulatedDay - actualDay, &status);
+            if (U_FAILURE(status)) [[unlikely]]
+                return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+            actualYear = ucal_get(cal, yearField, &status);
+            actualMonth = ucal_get(cal, UCAL_MONTH, &status);
+            actualDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
+            if (U_FAILURE(status)) [[unlikely]]
+                return makeUnexpected(rangeError(icuReadCalendarFailed));
+        }
+        if (actualYear != expected->year || actualMonth != expected->month || actualDay != regulatedDay) [[unlikely]]
+            return makeUnexpected(rangeError("Result of calendar date addition is outside representable range"_s));
+
+        auto baseline = isoDateFromCalendarChecked(cal);
+        if (!baseline || !ISO8601::isDateTimeWithinLimits(baseline->year(), baseline->month(), baseline->day(), 12, 0, 0, 0, 0, 0)) [[unlikely]]
+            return makeUnexpected(rangeError("Result of calendar date addition is outside representable range"_s));
+        return *baseline;
+    });
+    if (!baselineOrError)
+        return makeUnexpected(baselineOrError.error());
+
+    ISO8601::Duration remaining;
+    remaining.setWeeks(duration.weeks());
+    remaining.setDays(duration.days());
+    return isoDateAdd(*baselineOrError, remaining, overflow);
+}
+
 // calendarDateAdd — temporal_rs: Calendar::date_add (src/builtins/core/calendar.rs)
 //   temporal_rs delegates to icu4x: AnyCalendar::add -> ArithmeticDate::added (components/calendar/src/calendar_arithmetic.rs)
 //   ICU4C has no equivalent: we use ucal_add(UCAL_EXTENDED_YEAR/UCAL_MONTH) with month-code re-resolution for lunisolar.
@@ -1035,19 +1240,22 @@ static bool nonISODateSurpasses(
 // CalendarDateAdd steps:
 //   1. If iso8601 -> isoDateAdd (BalanceISOYearMonth + RegulateISODate + AddDaysToISODate). (our steps 1–2)
 //   2. (else) NonISODateAdd — implementation-defined. (our steps 3–9)
-//   3. If ISODateWithinLimits(result) is false, throw RangeError. (checked via isoDateFromCalendarChecked)
+//   3. If ISODateWithinLimits(result) is false, throw RangeError. (checked after conversion)
 //   4. Return result.
 TemporalResult<ISO8601::PlainDate> calendarDateAdd(CalendarID calendarId, const ISO8601::PlainDate& isoDate, const ISO8601::Duration& duration, TemporalOverflow overflow)
 {
-    // 1. If calendarId is not a lunisolar calendar, use ISO proleptic-Gregorian arithmetic.
-    // NOTE: Non-lunisolar calendars share proleptic Gregorian arithmetic; bypass ICU (gregory uses Julian pre-1582).
-    if (!calendarIsLunisolar(calendarId))
-        return isoDateAdd(isoDate, duration, overflow);
-    // 2. If there are no year or month components, day/week addition is calendar-independent; use isoDateAdd.
+    // 1. If there are no year or month components, day/week addition is calendar-independent; use isoDateAdd.
     // NOTE: ICU's Chinese/Dangi approximation gives wrong results for far-future dates (year > ~2100).
     if (!duration.years() && !duration.months())
         return isoDateAdd(isoDate, duration, overflow);
-    // 3. Let totalDays be duration.[[Days]] + 7 × duration.[[Weeks]].
+    // 2. Fixed solar calendars construct the exact expected native fields directly.
+    if (calendarIsNonISOSolar(calendarId))
+        return fixedSolarDateAdd(calendarId, isoDate, duration, overflow);
+    // 3. Gregorian-derived calendars use ISO proleptic-Gregorian arithmetic.
+    // NOTE: ICU's gregory uses Julian arithmetic before 1582; keep the ISO path for Gregorian-derived calendars.
+    if (!calendarIsLunisolar(calendarId))
+        return isoDateAdd(isoDate, duration, overflow);
+    // 4. Let totalDays be duration.[[Days]] + 7 × duration.[[Weeks]].
     // NOTE: ucal_add takes int32_t; any component outside int32_t exceeds Temporal's representable range.
     auto fitsInt32 = [](int64_t v) -> bool {
         return v >= INT32_MIN && v <= INT32_MAX;
@@ -1074,19 +1282,17 @@ TemporalResult<ISO8601::PlainDate> calendarDateAdd(CalendarID calendarId, const 
         int32_t originalDay = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
-        // 7. If duration.[[Years]] ≠ 0, add years; for lunisolar, re-resolve the original month code in the new year.
+        // 7. If duration.[[Years]] ≠ 0, add years and re-resolve the original month code in the new year.
         if (duration.years()) {
             ucal_add(cal, UCAL_EXTENDED_YEAR, clampTo<int32_t>(duration.years()), &status);
             if (U_FAILURE(status)) [[unlikely]]
                 return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
-            if (calendarIsLunisolar(calendarId)) {
-                auto foundState = setCalendarToMonthCode(cal, calendarId, origMonthCode);
-                if (!foundState) [[unlikely]]
-                    return makeUnexpected(rangeError("Failed to resolve month code after year addition"_s));
-                //    a. If overflow is ~reject~ and month code doesn't exist in new year, throw RangeError.
-                if (!foundState.value() && overflow == TemporalOverflow::Reject) [[unlikely]]
-                    return makeUnexpected(rangeError("month code does not exist in the target year (overflow: reject)"_s));
-            }
+            auto foundState = setCalendarToMonthCode(cal, calendarId, origMonthCode);
+            if (!foundState) [[unlikely]]
+                return makeUnexpected(rangeError("Failed to resolve month code after year addition"_s));
+            //    a. If overflow is ~reject~ and month code doesn't exist in new year, throw RangeError.
+            if (!foundState.value() && overflow == TemporalOverflow::Reject) [[unlikely]]
+                return makeUnexpected(rangeError("month code does not exist in the target year (overflow: reject)"_s));
         }
 
         // 8. If duration.[[Months]] ≠ 0, add months.
@@ -1150,10 +1356,27 @@ static std::optional<bool> surpassesMonths(
     int32_t targetDay)
 {
     UErrorCode status = U_ZERO_ERROR;
-    ucal_add(trialCal, UCAL_MONTH, sign, &status);
-    if (U_FAILURE(status)) [[unlikely]]
-        return std::nullopt;
-    int32_t trialYear = ucal_get(trialCal, UCAL_EXTENDED_YEAR, &status);
+    if (calendarIsNonISOSolar(calendarId)) {
+        auto yearField = calendarArithmeticYearField(calendarId);
+        int32_t sourceYear = ucal_get(trialCal, yearField, &status);
+        int32_t sourceMonth = ucal_get(trialCal, UCAL_MONTH, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return std::nullopt;
+        auto expected = balanceFixedSolarYearMonth(sourceYear, sourceMonth, fixedSolarMonthsInYear(calendarId), 0, sign);
+        if (!expected)
+            return true;
+        auto advancedExactly = setFixedSolarCalendarToYearMonth(trialCal, calendarId, *expected);
+        if (!advancedExactly)
+            return std::nullopt;
+        if (!*advancedExactly)
+            return true;
+    } else {
+        ucal_add(trialCal, UCAL_MONTH, sign, &status);
+        if (U_FAILURE(status)) [[unlikely]]
+            return std::nullopt;
+    }
+    auto yearField = calendarArithmeticYearField(calendarId);
+    int32_t trialYear = ucal_get(trialCal, yearField, &status);
     if (U_FAILURE(status)) [[unlikely]]
         return std::nullopt;
     auto trialMonthCode = getMonthCode(trialCal, calendarId);
@@ -1203,7 +1426,7 @@ static std::optional<bool> setMonths(UCalendar* cal, int32_t sourceDay)
 
 // calendarDateUntil — temporal_rs: Calendar::date_until (src/builtins/core/calendar.rs)
 //   temporal_rs delegates to icu4x: AnyCalendar::until -> ArithmeticDate::until + SurpassesChecker (components/calendar/src/calendar_arithmetic.rs)
-//   ICU4C has no equivalent: we use epoch-ms comparison + iterative ucal_add(UCAL_MONTH) walking.
+//   ICU4C has no equivalent: fixed-solar calendars balance native fields directly; lunisolar calendars walk months with ucal_add.
 // https://tc39.es/proposal-temporal/#sec-temporal-calendardateuntil
 // CalendarDateUntil steps:
 //   1. Let sign be CompareISODate(one, two). (our step 4)
@@ -1215,9 +1438,9 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
     // CalendarDateUntil takes "largestUnit: a date unit" — spec guarantees Year/Month/Week/Day only.
     ASSERT(largestUnit == TemporalUnit::Year || largestUnit == TemporalUnit::Month || largestUnit == TemporalUnit::Week || largestUnit == TemporalUnit::Day);
 
-    // 1. If calendarId is not lunisolar, use ISO proleptic-Gregorian arithmetic (route through diffISODate).
+    // 1. If calendarId is neither fixed solar nor lunisolar, use ISO proleptic-Gregorian arithmetic.
     // NOTE: ICU's 'gregory' uses Julian before 1582, causing field mismatches; always route through ISO.
-    if (!calendarIsLunisolar(calendarId))
+    if (!calendarIsNonISOSolar(calendarId) && !calendarIsLunisolar(calendarId))
         return diffISODate(one, two, largestUnit);
     // 2. If largestUnit is ~day~ or ~week~, use pure ISO day count (calendar-independent).
     // NOTE: ICU Chinese/Dangi epoch ms is approximate for dates beyond ~year 2100; pure ISO is exact.
@@ -1242,7 +1465,7 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
         t.epochMs = ucal_getMillis(cal, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
-        t.year = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
+        t.year = ucal_get(cal, calendarArithmeticYearField(calendarId), &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
         auto monthCodeOpt = getMonthCode(cal, calendarId);
@@ -1267,6 +1490,7 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
         double epochMs { 0 };
         int32_t year { 0 };
         String monthCode;
+        int32_t ordinalMonth { 0 };
         int32_t day { 0 };
     };
     auto sourceOrError = withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<SourceFields> {
@@ -1279,13 +1503,14 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
         s.epochMs = ucal_getMillis(cal, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
-        s.year = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
+        s.year = ucal_get(cal, calendarArithmeticYearField(calendarId), &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
         auto monthCodeOpt = getMonthCode(cal, calendarId);
         if (!monthCodeOpt) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
         s.monthCode = WTF::move(*monthCodeOpt);
+        s.ordinalMonth = ucal_get(cal, UCAL_MONTH, &status) + 1;
         s.day = ucal_get(cal, UCAL_DAY_OF_MONTH, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuReadCalendarFailed));
@@ -1304,6 +1529,27 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
         sign = -1;
     else
         return ISO8601::Duration { };
+
+    // Fixed-solar calendars have a constant month count, so jump directly to the native
+    // total-month difference. At most one candidate can surpass because it is already in
+    // the target year/month; preserve the existing unregulated source-day comparison.
+    if (calendarIsNonISOSolar(calendarId) && largestUnit == TemporalUnit::Month) {
+        CheckedInt64 checkedMonths = (CheckedInt64(target.year) - source.year) * fixedSolarMonthsInYear(calendarId);
+        checkedMonths += target.ordinalMonth - source.ordinalMonth;
+        if (checkedMonths.hasOverflowed()) [[unlikely]]
+            return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+        int64_t months = checkedMonths;
+        if (compareSurpassesOrdinally(sign, target.year, target.ordinalMonth, source.day, target.year, target.ordinalMonth, target.day))
+            months -= sign;
+
+        ISO8601::Duration monthDuration;
+        monthDuration.setMonths(months);
+        auto intermediate = calendarDateAdd(calendarId, one, monthDuration, TemporalOverflow::Constrain);
+        if (!intermediate) [[unlikely]]
+            return makeUnexpected(intermediate.error());
+        auto remainder = diffISODate(*intermediate, two, TemporalUnit::Day);
+        return ISO8601::Duration { 0, months, 0, remainder.days(), 0, 0, 0, 0, Int128(0), Int128(0) };
+    }
 
     // NOTE: min_years fast-forward: pre-guess year delta that doesn't surpass (icu4x optimization).
     int32_t yearDiff = target.year - source.year;
@@ -1347,7 +1593,8 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
             return makeUnexpected(rangeError(icuSetCalendarFailed));
 
         UErrorCode status = U_ZERO_ERROR;
-        // NOTE: lunisolar months per year vary; iterate one at a time (no min_months fast-forward).
+        // Lunisolar month counts vary. Fixed-solar calendars reach this loop only for
+        // largestUnit year, so direct construction is bounded to at most one native year.
         int32_t candidateMonths = sign;
         //    d. Set cal to (one + years) with day=1 for clamping-free month advancement.
         double startMs = ucal_getMillis(cal, &status);
@@ -1370,14 +1617,27 @@ TemporalResult<ISO8601::Duration> calendarDateUntil(CalendarID calendarId, const
             // ucal_setMillis(cal, startMs) below resets it before applying the final months count.
         }
 
-        // Restore cal to (one + years), apply total months in one ucal_add (avoids undo asymmetry).
+        // Restore cal to (one + years), then apply total months without undoing trial steps.
         ucal_setMillis(cal, startMs, &status);
         if (U_FAILURE(status)) [[unlikely]]
             return makeUnexpected(rangeError(icuSetCalendarFailed));
         if (months) {
-            ucal_add(cal, UCAL_MONTH, months, &status);
-            if (U_FAILURE(status)) [[unlikely]]
-                return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+            if (calendarIsNonISOSolar(calendarId)) {
+                int32_t sourceYear = ucal_get(cal, calendarArithmeticYearField(calendarId), &status);
+                int32_t sourceMonth = ucal_get(cal, UCAL_MONTH, &status);
+                if (U_FAILURE(status)) [[unlikely]]
+                    return makeUnexpected(rangeError(icuReadCalendarFailed));
+                auto expected = balanceFixedSolarYearMonth(sourceYear, sourceMonth, fixedSolarMonthsInYear(calendarId), 0, months);
+                if (!expected) [[unlikely]]
+                    return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+                auto advancedExactly = setFixedSolarCalendarToYearMonth(cal, calendarId, *expected);
+                if (!advancedExactly || !*advancedExactly) [[unlikely]]
+                    return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+            } else {
+                ucal_add(cal, UCAL_MONTH, months, &status);
+                if (U_FAILURE(status)) [[unlikely]]
+                    return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+            }
         }
         //    e. Apply regulated day = min(sourceDay, end_of_month) via setMonths.
         if (!setMonths(cal, source.day)) [[unlikely]]
@@ -1621,48 +1881,74 @@ Expected<int32_t, EcmaReferenceYearError> ecmaReferenceYear(CalendarID calendarI
 //   2. Let result be ? CalendarDateToISO(calendar, fields, overflow).
 //      -> iso8601: handled by the JS layer before reaching here.
 //      -> non-ISO: implementation-defined (NonISOCalendarDateToISO); no concrete spec steps.
-//   3. If ISODateWithinLimits(result) is false, throw a RangeError.  (checked via isoDateFromCalendarChecked)
+//   3. Date-producing callers enforce ISODateWithinLimits; partial callers enforce their own limits.
 //   4. Return result.
 TemporalResult<ISO8601::PlainDate> calendarDateFromFields(CalendarID calendarId, std::optional<int32_t> year, uint8_t month, uint8_t day, std::optional<StringView> era, std::optional<int32_t> eraYear, std::optional<ParsedMonthCode> monthCode, TemporalOverflow overflow)
 {
     bool tookEraPath = false;
     if (era && eraYear) {
         tookEraPath = true;
-        // Japanese "ce"/"bce": eraYear IS the Gregorian year. Use ISO date path.
-        if (calendarId == japaneseCalendarID() && (*era == "ce"_s || *era == "bce"_s)) {
-            // For Japanese "ce"/"bce" eras, the year IS the ISO year — bypass ICU to avoid
-            // Julian/Gregorian calendar switch issues for pre-1582 dates. Apply overflow.
+        if (calendarId == japaneseCalendarID()) {
+            // Named-era arithmetic year is era start year + eraYear - 1.
             CheckedInt32 checkedISOYear = *eraYear;
             if (*era == "bce"_s)
                 checkedISOYear = 1 - checkedISOYear;
+            else if (*era != "ce"_s) {
+                const JapaneseEra* japaneseEra = nullptr;
+                for (auto& candidate : japaneseEras) {
+                    if (*era == StringView(candidate.name)) {
+                        japaneseEra = &candidate;
+                        break;
+                    }
+                }
+                if (!japaneseEra) [[unlikely]]
+                    return makeUnexpected(rangeError("era is not valid for this calendar"_s));
+                checkedISOYear += japaneseEra->startYear;
+                checkedISOYear -= 1;
+            }
             if (checkedISOYear.hasOverflowed() || !ISO8601::isYearWithinLimits(checkedISOYear.value())) [[unlikely]]
                 return makeUnexpected(rangeError("Resolved calendar date is outside representable range"_s));
             int32_t isoYear = checkedISOYear.value();
-            // year.has_value() means user-provided; check for consistency (NonISOResolveFields step).
             if (year && *year != isoYear) [[unlikely]]
                 return makeUnexpected(rangeError("year is inconsistent with era and eraYear"_s));
-            uint8_t resolvedMonth = month;
-            if (month > 12) {
-                if (overflow == TemporalOverflow::Reject) [[unlikely]]
-                    return makeUnexpected(rangeError("month is out of range for this calendar"_s));
-                resolvedMonth = 12;
-            }
-            uint8_t resolvedDay = day;
-            uint8_t daysInMo = ISO8601::daysInMonth(isoYear, resolvedMonth);
-            if (day > daysInMo) {
-                if (overflow == TemporalOverflow::Reject) [[unlikely]]
-                    return makeUnexpected(rangeError("Day is out of range for the given month"_s));
-                resolvedDay = daysInMo;
-            }
-            return ISO8601::PlainDate(isoYear, resolvedMonth, resolvedDay);
+            return calendarDateFromFields(gregoryCalendarID(), isoYear, month, day, std::nullopt, std::nullopt, monthCode, overflow);
         }
     }
+
+    // A Japanese extended year is an ISO year. Resolve year-only input through the
+    // proleptic-Gregorian calendar so getters can be fed back through from() or with().
+    if (calendarId == japaneseCalendarID() && !tookEraPath)
+        return calendarDateFromFields(gregorianArithmeticCalendarFor(calendarId), year, month, day, std::nullopt, std::nullopt, monthCode, overflow);
 
     std::optional<int32_t> icuEraCode;
     if (tookEraPath && era) {
         icuEraCode = mapTemporalEraToICUEra(calendarId, *era);
         if (!icuEraCode) [[unlikely]]
             return makeUnexpected(rangeError("era is not valid for this calendar"_s));
+    }
+
+    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID()) {
+        CheckedInt32 checkedCalendarYear = year.value_or(0);
+        if (tookEraPath) {
+            checkedCalendarYear = *eraYear;
+            if (calendarId == rocCalendarID() && !*icuEraCode) {
+                checkedCalendarYear = 1;
+                checkedCalendarYear -= *eraYear;
+            }
+            if (checkedCalendarYear.hasOverflowed()) [[unlikely]]
+                return makeUnexpected(rangeError("Resolved calendar date is outside representable range"_s));
+            if (year && *year != checkedCalendarYear.value()) [[unlikely]]
+                return makeUnexpected(rangeError("year is inconsistent with era and eraYear"_s));
+        }
+
+        CheckedInt32 checkedISOYear = checkedCalendarYear;
+        if (calendarId == rocCalendarID())
+            checkedISOYear += rocCalendarYearOffset;
+        else
+            checkedISOYear -= buddhistCalendarYearOffset;
+        if (checkedISOYear.hasOverflowed() || !ISO8601::isYearWithinLimits(checkedISOYear.value())) [[unlikely]]
+            return makeUnexpected(rangeError("Resolved calendar date is outside representable range"_s));
+        return calendarDateFromFields(gregoryCalendarID(), checkedISOYear.value(), month, day, std::nullopt, std::nullopt, monthCode, overflow);
     }
 
     return withCalendar(calendarId, [&](UCalendar* cal) -> TemporalResult<ISO8601::PlainDate> {
@@ -1672,24 +1958,14 @@ TemporalResult<ISO8601::PlainDate> calendarDateFromFields(CalendarID calendarId,
         UErrorCode status = U_ZERO_ERROR;
 
         if (tookEraPath) {
-            // era && eraYear, not Japanese "ce"/"bce".
+            // Gregorian-derived calendars returned through arithmetic paths above.
             if (!icuEraCode) [[unlikely]]
                 return makeUnexpected(rangeError("era is not valid for this calendar"_s));
             ucal_set(cal, UCAL_ERA, *icuEraCode);
             ucal_set(cal, UCAL_YEAR, *eraYear);
-        } else if (calendarId == rocCalendarID()) {
-            // ROC: convert temporal year to era+eraYear for ICU.
-            int32_t y = year.value_or(0);
-            if (y <= 0) {
-                ucal_set(cal, UCAL_ERA, 0); // broc
-                ucal_set(cal, UCAL_YEAR, 1 - y);
-            } else {
-                ucal_set(cal, UCAL_ERA, 1); // roc
-                ucal_set(cal, UCAL_YEAR, y);
-            }
-        } else if (calendarId == buddhistCalendarID()) {
-            // Buddhist: `year` is the BE year (= Gregorian + 543). UCAL_YEAR is BE; UCAL_EXTENDED_YEAR is Gregorian.
-            ucal_set(cal, UCAL_ERA, 0); // be
+        } else if (calendarId == ethioaaCalendarID()) {
+            // Ethioaa uses calendar-native UCAL_YEAR for arithmetic.
+            ucal_set(cal, UCAL_ERA, 0);
             ucal_set(cal, UCAL_YEAR, year.value_or(0));
         } else
             ucal_set(cal, UCAL_EXTENDED_YEAR, year.value_or(0));
@@ -1934,7 +2210,9 @@ TemporalResult<ISO8601::PlainDate> calendarDateFromFields(CalendarID calendarId,
                 int32_t era = ucal_get(cal, UCAL_ERA, &yearStatus);
                 int32_t ey = ucal_get(cal, UCAL_YEAR, &yearStatus);
                 resolvedYear = !era ? -(ey - 1) : ey;
-            } else
+            } else if (calendarId == ethioaaCalendarID())
+                resolvedYear = ucal_get(cal, UCAL_YEAR, &yearStatus);
+            else
                 resolvedYear = ucal_get(cal, UCAL_EXTENDED_YEAR, &yearStatus);
             if (!U_FAILURE(yearStatus) && resolvedYear != *year) [[unlikely]]
                 return makeUnexpected(rangeError("year is inconsistent with era and eraYear"_s));

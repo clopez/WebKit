@@ -2324,6 +2324,11 @@ private:
             break;
         }
 
+        case OpenAsyncFromSyncIterator: {
+            fixEdge<UntypedUse>(node->child1());
+            break;
+        }
+
         case ToThis: {
             fixupToThis(node);
             break;
@@ -3807,7 +3812,6 @@ private:
         case NewSet:
         case NewWeakMap:
         case NewWeakSet:
-        case IsTypedArrayView:
         case IsEmpty:
         case TypeOfIsUndefined:
         case TypeOfIsObject:

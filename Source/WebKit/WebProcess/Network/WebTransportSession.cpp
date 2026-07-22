@@ -170,9 +170,9 @@ Ref<WebCore::WebTransportConnectionStatsPromise> WebTransportSession::getStats()
 {
     return sendWithPromisedReply(Messages::NetworkTransportSession::GetStats())->whenSettled(RunLoop::mainSingleton(), [] (auto&& stats) mutable {
         ASSERT(RunLoop::isMain());
-        if (!stats)
+        if (!stats || !*stats)
             return WebCore::WebTransportConnectionStatsPromise::createAndReject();
-        return WebCore::WebTransportConnectionStatsPromise::createAndResolve(WTF::move(*stats));
+        return WebCore::WebTransportConnectionStatsPromise::createAndResolve(WTF::move(**stats));
     });
 }
 
@@ -245,14 +245,14 @@ void WebTransportSession::datagramOutgoingMaxAgeUpdated(std::optional<double> ma
     send(Messages::NetworkTransportSession::DatagramOutgoingMaxAgeUpdated(maxAge));
 }
 
-void WebTransportSession::datagramIncomingHighWaterMarkUpdated(double watermark)
+void WebTransportSession::incomingMaxBufferedDatagramsUpdated(uint32_t value)
 {
-    send(Messages::NetworkTransportSession::DatagramIncomingHighWaterMarkUpdated(watermark));
+    send(Messages::NetworkTransportSession::IncomingMaxBufferedDatagramsUpdated(value));
 }
 
-void WebTransportSession::datagramOutgoingHighWaterMarkUpdated(double watermark)
+void WebTransportSession::outgoingMaxBufferedDatagramsUpdated(uint32_t value)
 {
-    send(Messages::NetworkTransportSession::DatagramOutgoingHighWaterMarkUpdated(watermark));
+    send(Messages::NetworkTransportSession::OutgoingMaxBufferedDatagramsUpdated(value));
 }
 
 }

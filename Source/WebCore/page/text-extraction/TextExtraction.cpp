@@ -1152,6 +1152,15 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
         if (shouldIdentifyClickableElement)
             return FallbackPolicy::Extract;
 
+        // With tag names requested, also extract a generic block that renders its own inline content like
+        // a paragraph, heading, caption, etc so its tag prefixes that text. Semantic containers are already
+        // extracted above; a generic structural wrapper (block-level children) still collapses.
+        if (context.originalRequest.includeTagName && isBlock) {
+            CheckedPtr renderer = node.renderer();
+            if (renderer->childrenInline())
+                return FallbackPolicy::Extract;
+        }
+
         return FallbackPolicy::Skip;
     }();
 
@@ -1962,6 +1971,30 @@ static Node* findNodeAtRootViewLocation(const LocalFrameView& view, Document& do
     return document.hitTest(defaultHitTestOptions, result) ? result.innerNode() : nullptr;
 }
 
+static RefPtr<Element> frontmostHitTestedElementInSubtree(const LocalFrameView& view, Document& document, FloatPoint locationInRootView, const Element& target)
+{
+    static constexpr OptionSet listBasedHitTestOptions {
+        HitTestRequest::Type::ReadOnly,
+        HitTestRequest::Type::DisallowUserAgentShadowContent,
+        HitTestRequest::Type::CollectMultipleElements,
+        HitTestRequest::Type::IncludeAllElementsUnderPoint,
+    };
+
+    HitTestResult result { view.rootViewToContents(roundedIntPoint(locationInRootView)) };
+    document.hitTest(listBasedHitTestOptions, result);
+
+    for (auto& node : result.listBasedTestResult()) {
+        RefPtr element = dynamicDowncast<Element>(node.get());
+        if (!element)
+            element = node->parentElementInComposedTree();
+
+        if (element && (element == &target || element->isShadowIncludingDescendantOf(target)))
+            return element;
+    }
+
+    return nullptr;
+}
+
 struct ResolvedMouseTarget {
     Ref<Element> element;
     Ref<LocalFrame> frame;
@@ -2006,7 +2039,7 @@ static Expected<ResolvedMouseTarget, String> resolveMouseTarget(Node& targetNode
     std::optional<SimpleRange> foundRange;
     if (!searchText.isEmpty()) {
         foundRange = searchForClickTarget(*element, searchText);
-        if (!foundRange)
+        if (!foundRange && !normalizedLabelText(*element).containsIgnoringASCIICase(normalizeText(searchText)))
             return makeUnexpected(searchTextNotFoundDescription(searchText));
     }
 
@@ -2053,8 +2086,11 @@ static void dispatchSimulatedClick(Node& targetNode, const String& searchText, C
 
     UserGestureIndicator indicator { IsProcessingUserGesture::Yes, document.ptr() };
 
-    // Fall back to dispatching a programmatic click.
-    if (protect(element)->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents))
+    Ref clickTarget = element;
+    if (RefPtr descendant = frontmostHitTestedElementInSubtree(view, document, centerInRootView, element))
+        clickTarget = descendant.releaseNonNull();
+
+    if (protect(clickTarget)->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents))
         completion(true, { });
     else
         completion(false, "Failed to click (tried falling back to dispatching programmatic click since target could not be hit-tested)"_s);

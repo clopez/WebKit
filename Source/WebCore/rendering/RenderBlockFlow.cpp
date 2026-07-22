@@ -777,9 +777,9 @@ static bool formattingContextRootIntrinsicLogicalWidthsDependOnOwnHeight(const R
         //    to the flex item's min and max cross size) and is considered definite."
         // In multi-line containers each line's cross size is driven by its own items, so the
         // container's preferred widths cannot depend on its own height through this mechanism.
-        if (flexBox->flexLayoutUtils().isMultiline())
+        if (flexBox->isMultiline())
             return false;
-        if (flexBox->flexLayoutUtils().hasStretchedFlexItemWithAspectRatio())
+        if (flexBox->hasStretchedFlexItemWithAspectRatio())
             return true;
     }
     return false;
@@ -4409,7 +4409,7 @@ void RenderBlockFlow::layoutInlineContent(RelayoutChildren relayoutChildren, Lay
     auto& inlineLayout = *this->inlineLayout();
 
     ASSERT(containingBlock() || is<RenderView>(*this));
-    inlineLayout.updateFormattingContexGeometries(containingBlock() ? containingBlockLogicalWidthForContent() : LayoutUnit());
+    inlineLayout.updateFormattingContextGeometries(containingBlock() ? containingBlockLogicalWidthForContent() : LayoutUnit());
 
     auto marginInfo = MarginInfo { *this, MarginInfo::IgnoreScrollbarForAfterMargin::No };
     auto shouldForceFullLayout = relayoutChildren == RelayoutChildren::Yes || inlineContentStatus.hasDirtyInFlowBlockLevelElement ? LayoutIntegration::LineLayout::ForceFullLayout::Yes : LayoutIntegration::LineLayout::ForceFullLayout::No;

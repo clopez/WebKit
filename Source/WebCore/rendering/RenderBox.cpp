@@ -342,6 +342,16 @@ void RenderBox::invalidateAncestorBackgroundObscurationStatus()
     }
 }
 
+#if ENABLE(SPATIAL_PORTAL)
+static void spatialPortalStyleDidChange(Element& element, SpatialType oldSpatial, SpatialType newSpatial)
+{
+    if (oldSpatial == SpatialType::None && newSpatial == SpatialType::Portal)
+        element.ensureSpatialPortalController();
+    else if (oldSpatial == SpatialType::Portal && newSpatial == SpatialType::None)
+        element.clearSpatialPortalController();
+}
+#endif
+
 void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyle* oldStyle)
 {
     // Horizontal writing mode definition is updated in RenderBoxModelObject::updateFromStyle,
@@ -456,6 +466,14 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
     if ((layer() && diff == Style::DifferenceResult::Layout && hasNonVisibleOverflow())
         || (oldStyle && oldStyle->isOverflowVisible() != style().isOverflowVisible()))
         layoutContext().invalidateAnchorDependenciesForScroller(*this);
+
+#if ENABLE(SPATIAL_PORTAL)
+    auto oldSpatial = oldStyle ? oldStyle->spatial() : SpatialType::None;
+    if (oldSpatial != newStyle.spatial()) {
+        if (RefPtr element = this->element())
+            spatialPortalStyleDidChange(*element, oldSpatial, newStyle.spatial());
+    }
+#endif
 }
 
 static bool NODELETE hasEquivalentGridPositioningStyle(const Style::ComputedStyle& style, const Style::ComputedStyle& oldStyle)
@@ -3719,7 +3737,7 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeSizingKe
                 // When the width comes from a flex cross-axis override (e.g. stretch in a
                 // column flex container), use it to compute the min-content height through
                 // the aspect ratio.
-                if (!isFlexItem() || downcast<RenderFlexibleBox>(parent())->flexLayoutUtils().isHorizontalFlow())
+                if (!isFlexItem() || downcast<RenderFlexibleBox>(parent())->isHorizontalFlow())
                     return { };
                 if (auto overridingWidth = overridingBorderBoxLogicalWidth(); overridingWidth && !preferredRatio.isEmpty())
                     return resolveHeightForRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), contentBoxLogicalWidth(*overridingWidth), preferredRatio.transposedSize().aspectRatio(), BoxSizing::ContentBox);
@@ -3858,7 +3876,7 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeContentA
         },
         [&](const CSS::Keyword::Auto&) -> std::optional<LayoutUnit> {
             if constexpr (std::same_as<SizeType, Style::MinimumSize>) {
-                if (intrinsicContentHeight && isFlexItem() && downcast<RenderFlexibleBox>(parent())->flexLayoutUtils().useContentBasedMinimumBlockSize(*this))
+                if (intrinsicContentHeight && isFlexItem() && downcast<RenderFlexibleBox>(parent())->useContentBasedMinimumBlockSize(*this))
                     return adjustIntrinsicLogicalHeightForBoxSizing(*intrinsicContentHeight);
                 return LayoutUnit { 0 };
             } else
@@ -5323,7 +5341,7 @@ bool RenderBox::isBlockSizeResolvableForStretch() const
     // already gives the correct answer during that phase.
     if (containingBlock->isFlexItem()) {
         if (auto* flexContainer = dynamicDowncast<RenderFlexibleBox>(containingBlock->parent()))
-            return flexContainer->flexLayoutUtils().mainAxisIsFlexItemInlineAxis(*containingBlock) && flexContainer->flexLayoutUtils().hasDefiniteCrossSizeForFlexItem(*containingBlock);
+            return flexContainer->mainAxisIsFlexItemInlineAxis(*containingBlock) && flexContainer->hasDefiniteCrossSizeForFlexItem(*containingBlock);
     }
 
     return false;
@@ -5531,7 +5549,7 @@ bool RenderBox::shouldIgnoreLogicalMinMaxWidthSizes() const
     if (!isFlexItem())
         return false;
     if (auto* flexBox = dynamicDowncast<RenderFlexibleBox>(parent()))
-        return flexBox->isComputingFlexBaseSizes() && writingMode().isHorizontal() == flexBox->flexLayoutUtils().isHorizontalFlow();
+        return flexBox->isComputingFlexBaseSizes() && writingMode().isHorizontal() == flexBox->isHorizontalFlow();
     ASSERT_NOT_REACHED();
     return false;
 }
@@ -5541,7 +5559,7 @@ bool RenderBox::shouldIgnoreLogicalMinMaxHeightSizes() const
     if (!isFlexItem())
         return false;
     if (auto* flexBox = dynamicDowncast<RenderFlexibleBox>(parent()))
-        return flexBox->isComputingFlexBaseSizes() && writingMode().isHorizontal() != flexBox->flexLayoutUtils().isHorizontalFlow();
+        return flexBox->isComputingFlexBaseSizes() && writingMode().isHorizontal() != flexBox->isHorizontalFlow();
     ASSERT_NOT_REACHED();
     return false;
 }
@@ -5603,6 +5621,9 @@ bool RenderBox::requiresLayer() const
         || style().specifiesColumns()
         || style().usedContain().contains(Style::ContainValue::Layout)
         || !style().usedZIndex().isAuto()
+#if ENABLE(SPATIAL_PORTAL)
+        || style().spatial() == SpatialType::Portal
+#endif
         || hasRunningAcceleratedAnimations();
 }
 

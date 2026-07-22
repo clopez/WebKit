@@ -756,7 +756,6 @@ public:
     void compileOverridesHasInstance(Node*);
 
     void compileIsCellWithType(Node*);
-    void compileIsTypedArrayView(Node*);
     void compileArrayIsArray(Node*);
 
     void emitCall(Node*);
@@ -1759,6 +1758,7 @@ public:
     void compileMaterializeNewObject(Node*);
     void compileRecordRegExpCachedResult(Node*);
     void compileToObjectOrCallObjectConstructor(Node*);
+    void compileOpenAsyncFromSyncIterator(Node*);
     void compileResolveScope(Node*);
     void compileResolveScopeForHoistingFuncDeclInEval(Node*);
     void compileGetGlobalVariable(Node*);

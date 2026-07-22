@@ -1153,6 +1153,15 @@ void MediaPlayerPrivateGStreamer::sourceSetup(GstElement* sourceElement)
     m_source = sourceElement;
 
     if (WEBKIT_IS_WEB_SRC(m_source.get())) {
+
+        if (m_isLegacyPlaybin) {
+            // Give meaningful unique name to our HTTP source elements. uridecodebin hardcodes it to
+            // "source", which doesn't ease debugging involving multiple players.
+            static Atomic<unsigned> id = 0;
+            auto newName = makeString("http-src-"_s, id.exchangeAdd(1));
+            gst_object_set_name(GST_OBJECT_CAST(m_source.get()), newName.ascii().data());
+        }
+
         auto* source = WEBKIT_WEB_SRC_CAST(m_source.get());
         webKitWebSrcSetReferrer(source, m_referrer);
         webKitWebSrcSetResourceLoader(source, m_loader);
@@ -4306,10 +4315,17 @@ RefPtr<VideoFrame> MediaPlayerPrivateGStreamer::videoFrameForCurrentTime()
         return nullptr;
 
     auto frame = VideoFrameGStreamer::createWrappedSample(m_sample);
-    if (frame->contentHint() != VideoFrameContentHint::Canvas)
+    auto contentHint = frame->contentHint();
+    if (contentHint != VideoFrameContentHint::Canvas && contentHint != VideoFrameContentHint::WebRTC)
         return frame;
 
-    auto convertedSample = frame->downloadSample(GST_VIDEO_FORMAT_BGRA);
+    GRefPtr<GstSample> convertedSample;
+    if (contentHint == VideoFrameContentHint::WebRTC) {
+        auto colorSpace = frame->nativeColorSpace();
+        convertedSample = frame->convert(GST_VIDEO_FORMAT_I420, frame->presentationSize(), colorSpace);
+    } else
+        convertedSample = frame->downloadSample(GST_VIDEO_FORMAT_BGRA);
+
     if (!convertedSample)
         return nullptr;
 

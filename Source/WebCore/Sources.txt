@@ -306,6 +306,7 @@ Modules/model-element/ModelPlayerAnimationState.cpp
 Modules/model-element/ModelPlayerClient.cpp
 Modules/model-element/ModelPlayerProvider.cpp
 Modules/model-element/PlaceholderModelPlayer.cpp
+Modules/model-element/SpatialPortalController.cpp
 Modules/model-element/dummy/DummyModelPlayer.cpp
 Modules/model-element/dummy/DummyModelPlayerProvider.cpp
 Modules/notifications/Notification.cpp
@@ -2004,9 +2005,8 @@ layout/formattingContexts/block/BlockMarginCollapse.cpp @header:RenderStyleGette
 layout/formattingContexts/block/PrecomputedBlockMarginCollapse.cpp @header:RenderStyleGetters
 layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingContext.cpp @header:RenderStyleGetters
 layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingQuirks.cpp
-layout/formattingContexts/flex/FlexFormattingContext.cpp @header:RenderStyleGetters
-layout/formattingContexts/flex/FlexFormattingUtils.cpp @header:RenderStyleGetters
-layout/formattingContexts/flex/FlexLayout.cpp @header:RenderStyleGetters
+layout/formattingContexts/flex/FlexFormattingContext.cpp @header:RenderStyleGetters @cost:4
+layout/formattingContexts/flex/FlexFormattingUtils.cpp @header:RenderStyleGetters @cost:4
 layout/formattingContexts/grid/GridFormattingContext.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/GridItemSizingFunctions.cpp
 layout/formattingContexts/grid/GridLayout.cpp @header:RenderStyleGetters
@@ -2564,6 +2564,7 @@ platform/gamepad/GamepadProvider.cpp
 platform/graphics/AV1Utilities.cpp
 platform/graphics/AlphaPremultiplication.cpp
 platform/graphics/AnimationFrameRate.cpp
+platform/graphics/ArrayPixelBuffer.cpp
 platform/graphics/BezierUtilities.cpp
 platform/graphics/BifurcatedGraphicsContext.cpp
 platform/graphics/BitmapImage.cpp
@@ -2933,7 +2934,6 @@ rendering/CounterNode.cpp
 rendering/EllipsisBoxPainter.cpp @header:RenderStyleGetters @cost:5
 rendering/EventRegion.cpp @header:RenderStyleGetters @cost:5
 rendering/FixedTableLayout.cpp @header:RenderStyleGetters @cost:5
-rendering/FlexLayoutUtils.cpp @header:RenderStyleGetters @cost:4
 rendering/FloatingObjects.cpp @header:RenderStyleGetters @cost:5
 rendering/GlyphDisplayListCache.cpp @header:RenderStyleGetters @cost:5
 rendering/GlyphDisplayListCacheRemoval.cpp
@@ -2985,7 +2985,6 @@ rendering/RenderElement.cpp @header:RenderStyleGetters @cost:12
 rendering/RenderEmbeddedObject.cpp @header:RenderStyleGetters @cost:7
 rendering/RenderFileUploadControl.cpp @header:RenderStyleGetters @cost:7
 rendering/RenderFlexibleBox.cpp @header:RenderStyleGetters @cost:7
-rendering/RenderFlexLayout.cpp @header:RenderStyleGetters @cost:4
 rendering/RenderFragmentContainer.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderFragmentContainerSet.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderFragmentedFlow.cpp @header:RenderStyleGetters @cost:6
@@ -4143,7 +4142,6 @@ JSDataCue.cpp
 JSDataTransfer.cpp
 JSDataTransferItem.cpp
 JSDataTransferItemList.cpp
-JSDatagramsReadableMode.cpp
 JSDatabase.cpp
 JSDatabaseCallback.cpp
 JSDecompressionStream.cpp

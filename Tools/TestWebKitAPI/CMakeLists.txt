@@ -215,6 +215,7 @@ if (ENABLE_WEBCORE)
 
         Tests/WebCore/AffineTransform.cpp
         Tests/WebCore/AudioSampleFormat.cpp
+        Tests/WebCore/BezierUtilitiesTests.cpp
         Tests/WebCore/CSSParser.cpp
         Tests/WebCore/CSSTokenizerTests.cpp
         Tests/WebCore/CachedMatchFinder.cpp
@@ -229,6 +230,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/FloatRectTests.cpp
         Tests/WebCore/FloatSegmentTest.cpp
         Tests/WebCore/FloatSizeTests.cpp
+        Tests/WebCore/FlowModeTests.cpp
         Tests/WebCore/GridPosition.cpp
         Tests/WebCore/HTMLParserIdioms.cpp
         Tests/WebCore/HTTPParsers.cpp
@@ -265,6 +267,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/TimeRanges.cpp
         Tests/WebCore/TransformationMatrix.cpp
         Tests/WebCore/URLParserTextEncoding.cpp
+        Tests/WebCore/URLPatternTests.cpp
         Tests/WebCore/WritingModeTests.cpp
         Tests/WebCore/XRCompositionLayer.cpp
     )

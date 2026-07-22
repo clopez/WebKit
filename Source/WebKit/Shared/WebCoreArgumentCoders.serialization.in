@@ -32,7 +32,13 @@ enum class WebCore::ContactProperty : uint8_t {
 
 header: <WebCore/IDBResultData.h>
 
-enum class WebCore::IPAddressSpace : bool;
+header: <WebCore/IPAddressSpace.h>
+
+enum class WebCore::IPAddressSpace : uint8_t {
+    Public,
+    Local,
+    Loopback
+};
 
 enum class WebCore::NotificationEventType : bool;
 
@@ -4861,6 +4867,7 @@ header: <WebCore/TextExtractionTypes.h>
     String text;
     std::optional<WebCore::FloatPoint> locationInRootView;
     std::optional<WebCore::NodeIdentifier> nodeIdentifier;
+    std::optional<WebCore::JSHandleIdentifier> targetNodeHandleIdentifier;
     WebCore::FloatSize scrollDelta;
     bool replaceAll;
     bool scrollToVisible;
@@ -4892,6 +4899,7 @@ header: <WebCore/TextExtractionTypes.h>
     bool includeAccessibilityAttributes;
     bool includeTextInAutoFilledControls;
     bool includeOffscreenPasswordFields;
+    bool includeTagName;
 #if ENABLE(DATA_DETECTION)
     OptionSet<WebCore::DataDetectorType> dataDetectorTypes;
 #endif

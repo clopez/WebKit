@@ -53,7 +53,6 @@ namespace JSC {
     macro(callFunction) \
     macro(charCodeAt) \
     macro(executor) \
-    macro(isView) \
     macro(iteratedObject) \
     macro(iteratedString) \
     macro(promise) \
@@ -218,7 +217,6 @@ namespace JSC {
     macro(asyncFromSyncIteratorCreate) \
     macro(regExpStringIteratorCreate) \
     macro(iteratorHelperCreate) \
-    macro(syncIterator) \
     macro(includes) \
     macro(ReferenceError) \
     macro(SuppressedError) \

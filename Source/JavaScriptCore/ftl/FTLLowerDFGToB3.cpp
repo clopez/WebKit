@@ -817,6 +817,9 @@ private:
         case CallObjectConstructor:
             compileToObjectOrCallObjectConstructor();
             break;
+        case OpenAsyncFromSyncIterator:
+            compileOpenAsyncFromSyncIterator();
+            break;
         case ToThis:
             compileToThis();
             break;
@@ -1740,9 +1743,6 @@ private:
             break;
         case IsConstructor:
             compileIsConstructor();
-            break;
-        case IsTypedArrayView:
-            compileIsTypedArrayView();
             break;
         case ParseInt:
             compileParseInt();
@@ -2695,6 +2695,12 @@ private:
 
         m_out.appendTo(continuation, lastNext);
         setJSValue(m_out.phi(Int64, fastResult, slowResult));
+    }
+
+    void compileOpenAsyncFromSyncIterator()
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        setJSValue(vmCall(Int64, operationOpenAsyncFromSyncIterator, weakPointer(globalObject), lowJSValue(m_node->child1())));
     }
 
     void compileToThis()
@@ -8714,7 +8720,8 @@ IGNORE_CLANG_WARNINGS_END
             LBasicBlock fastCheckElementCell = m_out.newBlock();
             LBasicBlock fastCheckElementString = m_out.newBlock();
             LBasicBlock fastPath = m_out.newBlock();
-            LBasicBlock slowCheckElementRope = m_out.newBlock();
+            LBasicBlock checkElementRope = m_out.newBlock();
+            LBasicBlock ropeElementLengthCheck = m_out.newBlock();
             LBasicBlock compareStringLengths = m_out.newBlock();
             LBasicBlock slowCheckElement8Bit = m_out.newBlock();
             LBasicBlock checkNonEmpty = m_out.newBlock();
@@ -8800,12 +8807,12 @@ IGNORE_CLANG_WARNINGS_END
             m_out.appendTo(fastCheckElementString, fastPath);
             m_out.branch(isString(element), usually(fastPath), rarely(loopNext));
 
-            m_out.appendTo(fastPath, slowCheckElementRope);
+            m_out.appendTo(fastPath, checkElementRope);
             ValueFromBlock foundResult = isArrayIncludes ? m_out.anchor(m_out.constBool(true)) : m_out.anchor(index);
-            m_out.branch(m_out.equal(element, searchElement), rarely(continuation), usually(slowCheckElementRope));
+            m_out.branch(m_out.equal(element, searchElement), rarely(continuation), usually(checkElementRope));
 
-            m_out.appendTo(slowCheckElementRope, compareStringLengths);
-            m_out.branch(isRopeString(element), rarely(slowCase), usually(compareStringLengths));
+            m_out.appendTo(checkElementRope, compareStringLengths);
+            m_out.branch(isRopeString(element), rarely(ropeElementLengthCheck), usually(compareStringLengths));
 
             m_out.appendTo(compareStringLengths, slowCheckElement8Bit);
             LValue elementImpl = m_out.loadPtr(element, m_heaps.JSString_value);
@@ -8862,10 +8869,15 @@ IGNORE_CLANG_WARNINGS_END
             m_out.appendTo(compareWordsTail, compareWordsTailLoad);
             m_out.branch(m_out.isNull(compareWordsLoopIndexInLoop), unsure(continuation), unsure(compareWordsTailLoad));
 
-            m_out.appendTo(compareWordsTailLoad, loopNext);
+            m_out.appendTo(compareWordsTailLoad, ropeElementLengthCheck);
             LValue elementTailWord = m_out.load64(TypedPointer(m_heaps.characters8.atAnyIndex(), elementData));
             LValue searchElementTailWord = m_out.load64(TypedPointer(m_heaps.characters8.atAnyIndex(), searchElementData));
             m_out.branch(m_out.notEqual(elementTailWord, searchElementTailWord), unsure(loopNext), unsure(continuation));
+
+            m_out.appendTo(ropeElementLengthCheck, loopNext);
+            m_out.branch(
+                m_out.notEqual(m_out.load32NonNegative(element, m_heaps.JSRopeString_length), m_out.load32(searchElementImpl, m_heaps.StringImpl_length)),
+                usually(loopNext), rarely(slowCase));
 
             m_out.appendTo(loopNext,  notFound);
             LValue nextIndex = m_out.add(index, m_out.intPtrOne);
@@ -10025,9 +10037,6 @@ IGNORE_CLANG_WARNINGS_END
         case JSWrapForValidIteratorType:
             compileNewInternalFieldObjectImpl<JSWrapForValidIterator>(operationNewWrapForValidIterator);
             break;
-        case JSAsyncFromSyncIteratorType:
-            compileNewInternalFieldObjectImpl<JSAsyncFromSyncIterator>(operationNewAsyncFromSyncIterator);
-            break;
         case JSRegExpStringIteratorType:
             compileNewInternalFieldObjectImpl<JSRegExpStringIterator>(operationNewRegExpStringIterator);
             break;
@@ -10990,9 +10999,11 @@ IGNORE_CLANG_WARNINGS_END
         ASSERT(!isCopyOnWrite(m_node->indexingMode()));
 
         LValue publicLength = lowInt32(m_node->child1());
+        LValue vectorLengthHint = m_out.constInt32(m_node->vectorLengthHint());
+        LValue vectorLength = m_out.select(m_out.aboveOrEqual(publicLength, vectorLengthHint), publicLength, vectorLengthHint);
         LValue indexingType = m_out.constInt32(m_node->indexingType());
 
-        LValue butterfly = allocateButterfly(indexingType, m_out.int32Zero, publicLength, publicLength);
+        LValue butterfly = allocateButterfly(indexingType, m_out.int32Zero, publicLength, vectorLength);
 
         setStorage(butterfly);
         // No mutator fence is needed. Butterflies are only scanned when the GC discovers them in an object not on the stack.
@@ -14954,7 +14965,6 @@ IGNORE_CLANG_WARNINGS_END
     {
         Node* node = m_node;
         WebAssemblyFunction* wasmFunction = node->castOperand<WebAssemblyFunction*>();
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
 
         Ref signature = wasmFunction->signature();
         const Wasm::WasmCallingConvention& wasmCC = Wasm::wasmCallingConvention();
@@ -15151,7 +15161,7 @@ IGNORE_CLANG_WARNINGS_END
                 break;
             }
             case Wasm::TypeKind::I64: {
-                setJSValue(vmCall(Int64, operationInt64ToBigInt, weakPointer(globalObject), patchpoint));
+                setJSValue(allocateHeapBigInt64(patchpoint, /* isSigned */ true));
                 break;
             }
             case Wasm::TypeKind::Ref:
@@ -17149,24 +17159,6 @@ IGNORE_CLANG_WARNINGS_END
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         LValue value = lowJSValue(m_node->child1());
         setBoolean(vmCall(Int32, operationIsConstructor, weakPointer(globalObject), value));
-    }
-
-    void compileIsTypedArrayView()
-    {
-        LValue value = lowJSValue(m_node->child1());
-
-        LBasicBlock isCellCase = m_out.newBlock();
-        LBasicBlock continuation = m_out.newBlock();
-
-        ValueFromBlock notCellResult = m_out.anchor(m_out.booleanFalse);
-        m_out.branch(isCell(value, provenType(m_node->child1())), unsure(isCellCase), unsure(continuation));
-
-        LBasicBlock lastNext = m_out.appendTo(isCellCase, continuation);
-        ValueFromBlock cellResult = m_out.anchor(isTypedArrayView(value, provenType(m_node->child1())));
-        m_out.jump(continuation);
-
-        m_out.appendTo(continuation, lastNext);
-        setBoolean(m_out.phi(Int32, notCellResult, cellResult));
     }
 
     void compileTypeOf()
@@ -19305,9 +19297,6 @@ IGNORE_CLANG_WARNINGS_END
             break;
         case JSWrapForValidIteratorType:
             compileMaterializeNewInternalFieldObjectImpl<JSWrapForValidIterator>(operationNewWrapForValidIterator);
-            break;
-        case JSAsyncFromSyncIteratorType:
-            compileMaterializeNewInternalFieldObjectImpl<JSAsyncFromSyncIterator>(operationNewAsyncFromSyncIterator);
             break;
         case JSRegExpStringIteratorType:
             compileMaterializeNewInternalFieldObjectImpl<JSRegExpStringIterator>(operationNewRegExpStringIterator);
@@ -21532,11 +21521,7 @@ IGNORE_CLANG_WARNINGS_END
                     loadedValue = emitCodeBasedOnEndiannessBranch(isLittleEndian, emitLittleEndianCode, emitBigEndianCode);
                 }
 
-                JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
-                if (data.isSigned)
-                    setJSValue(vmCall(Int64, operationInt64ToBigInt, weakPointer(globalObject), loadedValue));
-                else
-                    setJSValue(vmCall(Int64, operationUInt64ToBigInt, weakPointer(globalObject), loadedValue));
+                setJSValue(allocateHeapBigInt64(loadedValue, /* isSigned */ data.isSigned));
                 break;
             }
             default:
@@ -24829,6 +24814,73 @@ IGNORE_CLANG_WARNINGS_END
 
         m_out.appendTo(continuation, lastNext);
         return m_out.phi(Int64, zeroValue, nonZeroValue);
+    }
+
+    LValue allocateHeapBigInt64(LValue value, bool isSigned)
+    {
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+#if USE(BIGINT32)
+        if (isSigned)
+            return vmCall(Int64, operationInt64ToBigInt, weakPointer(globalObject), value);
+        return vmCall(Int64, operationUInt64ToBigInt, weakPointer(globalObject), value);
+#else
+        Structure* structure = vm().bigIntStructure.get();
+        uint8_t inlineTypeFlags = structure->typeInfo().inlineTypeFlags();
+
+        LBasicBlock fastCase = m_out.newBlock();
+        LBasicBlock slowCase = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        ValueFromBlock zeroResult = m_out.anchor(weakPointer(vm().heapBigIntConstantZero.get()));
+        m_out.branch(m_out.isZero64(value), unsure(continuation), unsure(fastCase));
+
+        LBasicBlock lastNext = m_out.appendTo(fastCase, slowCase);
+        Allocator allocatorValue = allocatorForConcurrently<JSBigInt>(vm(), JSBigInt::allocationSize(1), AllocatorForMode::AllocatorIfExists);
+        LValue bigInt = allocateCell(m_out.constIntPtr(allocatorValue.localAllocator()), structure, slowCase);
+
+        // Initialize m_length = 1 and m_hash = 0 with a single 64-bit store.
+        m_out.store64(m_out.constInt64(1), bigInt, m_heaps.JSBigInt_length);
+
+        LValue magnitude = value;
+        if (isSigned) {
+            LValue isNegative = m_out.lessThan(value, m_out.int64Zero);
+            magnitude = m_out.select(isNegative, m_out.neg(value), value);
+            m_out.store32As8(
+                m_out.select(isNegative,
+                    m_out.constInt32(inlineTypeFlags | TypeInfoPerCellBit),
+                    m_out.constInt32(inlineTypeFlags)),
+                bigInt, m_heaps.JSCell_typeInfoFlags);
+        }
+        m_out.store64(magnitude, bigInt, m_heaps.JSBigInt_data);
+
+        mutatorFence();
+        ValueFromBlock fastResult = m_out.anchor(bigInt);
+        m_out.jump(continuation);
+
+        m_out.appendTo(slowCase, continuation);
+        VM& vm = this->vm();
+        LValue slowResultValue;
+        if (isSigned) {
+            slowResultValue = lazySlowPath(
+                [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                    return createLazyCallGenerator(vm,
+                        operationInt64ToBigInt, locations[0].directGPR(), CCallHelpers::TrustedImmPtr(globalObject),
+                        locations[1].directGPR());
+                }, value);
+        } else {
+            slowResultValue = lazySlowPath(
+                [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                    return createLazyCallGenerator(vm,
+                        operationUInt64ToBigInt, locations[0].directGPR(), CCallHelpers::TrustedImmPtr(globalObject),
+                        locations[1].directGPR());
+                }, value);
+        }
+        ValueFromBlock slowResult = m_out.anchor(slowResultValue);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        return m_out.phi(pointerType(), zeroResult, fastResult, slowResult);
+#endif
     }
 
 #if USE(BIGINT32)
