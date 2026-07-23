@@ -40,7 +40,7 @@ class RenderFlexibleBox;
 
 class FlexLayoutItem {
 public:
-    FlexLayoutItem(RenderBox&, bool everHadLayout, bool shouldInvalidateChildContent);
+    FlexLayoutItem(RenderBox&, bool flexContainerIsHorizontalFlow, bool everHadLayout, bool shouldInvalidateChildContent);
 
     LayoutUnit NODELETE hypotheticalMainAxisMarginBoxSize(LayoutUnit hypotheticalMainContentSize) const;
     LayoutUnit NODELETE flexBaseMarginBoxSize(LayoutUnit flexBaseContentSize) const;
@@ -63,7 +63,7 @@ using FlexLayoutItems = Vector<FlexLayoutItem, 4>;
 
 struct FlexLayoutConstraints {
     // The formatting-context root's computed style (the flex container's own style).
-    const Style::ComputedStyle& style;
+    CheckedRef<const Style::ComputedStyle> style;
     bool isHorizontalFlow { false };
     bool isColumnFlow { false };
     bool isMultiline { false };
@@ -93,7 +93,7 @@ struct FlexContainerUsedExtents {
 
 class FlexFormattingContext {
 public:
-    FlexFormattingContext(RenderFlexibleBox&);
+    FlexFormattingContext(RenderFlexibleBox&, const FlexLayoutConstraints&);
 
     struct Result {
         std::optional<LayoutUnit> alignContentStartOverflow;
@@ -104,9 +104,6 @@ public:
     Result layout(FlexLayoutItems&);
 
 private:
-    static FlexLayoutConstraints flexLayoutConstraints(RenderFlexibleBox&);
-    static LayoutUnit mainAxisAvailableSpace(RenderFlexibleBox&);
-
     struct FlexBaseAndHypotheticalMainSize {
         LayoutUnit flexBase;
         LayoutUnit hypotheticalMainSize;
@@ -206,7 +203,7 @@ private:
 
     const FlexFormattingUtils& flexFormattingUtils() const;
 
-    RenderFlexibleBox& m_flexBox;
+    const CheckedRef<RenderFlexibleBox> m_flexBox;
     FlexFormattingUtils m_flexFormattingUtils;
     const FlexLayoutConstraints m_constraints;
     Result m_result;

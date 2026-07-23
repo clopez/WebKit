@@ -47,11 +47,13 @@ public:
     bool setStaticPositionForPositionedLayout(const RenderBox&);
 
 private:
-    FlexLayoutItems collectFlexItems(RelayoutChildren);
+    FlexLayoutItems collectFlexItems(RelayoutChildren, const FlexLayoutConstraints&);
+    FlexLayoutConstraints flexLayoutConstraints() const;
+    LayoutUnit mainAxisAvailableSpace() const;
     void prepareFlexItemForPositionedLayout(RenderBox&);
-    const RenderBox* flexItemForFirstBaseline() const;
-    const RenderBox* flexItemForLastBaseline() const;
-    const RenderBox* baselineFlexItemInLine(size_t lineStart, size_t itemCount, bool reverse) const;
+    CheckedPtr<const RenderBox> flexItemForFirstBaseline() const;
+    CheckedPtr<const RenderBox> flexItemForLastBaseline() const;
+    CheckedPtr<const RenderBox> baselineFlexItemInLine(size_t lineStart, size_t itemCount, bool reverse) const;
     LayoutUnit staticMainAxisPositionForPositionedFlexItem(const RenderBox&);
     LayoutUnit staticCrossAxisPositionForPositionedFlexItem(const RenderBox&);
     LayoutUnit staticInlinePositionForPositionedFlexItem(const RenderBox&);

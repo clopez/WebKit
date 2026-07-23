@@ -31,6 +31,21 @@ private import CxxStdlib
 private import WebCore_Private
 import struct Swift.String
 
+final class WKClickPressGestureRecognizer: NSPressGestureRecognizer {
+    weak var controller: WKAppKitGestureController?
+
+    init(controller: WKAppKitGestureController, target: Any?, action: Selector?) {
+        self.controller = controller
+        super.init(target: target, action: action)
+    }
+
+    // swift-format-ignore: AllPublicDeclarationsHaveDocumentation
+    @objc
+    public required dynamic init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+}
+
 final class WKPanGestureRecognizer: NSPanGestureRecognizer {
     private weak var webView: WKWebView?
 
@@ -99,6 +114,28 @@ extension WKAppKitGestureController {
         panGestureRecognizer.name = "WKPanGesture"
 
         self.panGestureRecognizer = panGestureRecognizer
+    }
+
+    @objc(makeImageAnalysisDeferringGestureRecognizerWithName:)
+    func makeImageAnalysisDeferringGestureRecognizer(withName name: String) -> WKDeferringGestureRecognizer {
+        let deferringGestureRecognizer = WKDeferringGestureRecognizer(deferringGestureDelegate: self)
+        configure(forImageAnalysisDeferral: deferringGestureRecognizer)
+        deferringGestureRecognizer.name = name
+        deferringGestureRecognizer.delegate = self
+        deferringGestureRecognizer.immediatelyFailsAfterActionEnd = true
+        return deferringGestureRecognizer
+    }
+
+    func setUpSingleClickGestureRecognizer() {
+        let singleClickGestureRecognizer = WKClickPressGestureRecognizer(
+            controller: self,
+            target: self,
+            action: #selector(singleClickGestureRecognized)
+        )
+        configure(forSingleClick: singleClickGestureRecognizer)
+        singleClickGestureRecognizer.delegate = self
+        singleClickGestureRecognizer.name = "WKSingleClickGesture"
+        self.singleClickGestureRecognizer = singleClickGestureRecognizer
     }
 
     @objc(loggingDescriptionForGestureRecognizer:)
