@@ -26,13 +26,18 @@
 #include "config.h"
 #include "IPAddressSpace.h"
 
+#include "DNS.h"
+#include "Site.h"
 #include <array>
-#include <cstdio>
 #include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/StringView.h>
+
+#if OS(UNIX)
+#include <arpa/inet.h>
+#endif
 
 namespace WebCore {
 
@@ -132,14 +137,46 @@ static IPAddressSpace classifyHost(String host)
     return IPAddressSpace::Public;
 }
 
-IPAddressSpace determineIPAddressSpace(const URL& url)
+static IPAddressSpace determineIPAddressSpaceFromHost(StringView host)
 {
     // Defined in https://wicg.github.io/local-network-access/#ip-address-space-section
-    StringView host = url.host();
     if (host.startsWith('[') && host.endsWith(']'))
         host = host.substring(1, host.length() - 2);
 
     return classifyHost(host.toString());
 }
+
+IPAddressSpace determineIPAddressSpace(const URL& url)
+{
+    return determineIPAddressSpaceFromHost(url.host());
+}
+
+IPAddressSpace determineIPAddressSpace(const Site& site)
+{
+    return determineIPAddressSpaceFromHost(site.domain().string());
+}
+
+#if OS(UNIX)
+IPAddressSpace classifyIPAddressSpace(const IPAddress& address)
+{
+    char buffer[INET6_ADDRSTRLEN];
+    if (address.isIPv4()) {
+        if (!inet_ntop(AF_INET, &address.ipv4Address(), buffer, sizeof(buffer)))
+            return IPAddressSpace::Unknown;
+    } else if (address.isIPv6()) {
+        if (!inet_ntop(AF_INET6, &address.ipv6Address(), buffer, sizeof(buffer)))
+            return IPAddressSpace::Unknown;
+    } else
+        return IPAddressSpace::Unknown;
+
+    return classifyHost(String::fromLatin1(buffer));
+}
+#else
+IPAddressSpace classifyIPAddressSpace(const IPAddress&)
+{
+    // IPAddress::fromString() is OS(UNIX)-only (see DNS.cpp), so there's no address to classify here.
+    return IPAddressSpace::Unknown;
+}
+#endif
 
 } // namespace WebCore

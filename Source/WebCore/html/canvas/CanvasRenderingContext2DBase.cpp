@@ -266,15 +266,17 @@ CanvasRenderingContext2DBase::CanvasRenderingContext2DBase(CanvasBase& canvas, C
 
 CanvasRenderingContext2DBase::~CanvasRenderingContext2DBase()
 {
-#if ASSERT_ENABLED
     m_unrealizedSaveCount = 0;
     size_t restoreCount = m_stateStack.size() - 1;
     for (size_t i = 0; i < restoreCount; ++i)
         restore();
-    m_stateStack.first() = State();
+
+    // Should only have one state now.
+    ASSERT(m_stateStack.size() == 1);
+
+    // The buffer created in buffer() is save(), so restore() here to match.
     if (RefPtr buffer = m_buffer)
         buffer->context().restore();
-#endif
 }
 
 bool CanvasRenderingContext2DBase::isAccelerated() const
@@ -3274,7 +3276,7 @@ void CanvasRenderingContext2DBase::setLetterSpacing(const String& letterSpacing)
     auto parserContext = CSSParserContext { HTMLStandardMode };
     auto parserState = CSS::PropertyParserState { .context = parserContext, .pool = protect(canvasBase())->scriptExecutionContext()->cssValuePool() };
 
-    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<CSS::AllUnzoomed>>::consume(tokenRange, parserState);
+    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<>>::consume(tokenRange, parserState);
     if (!parsedValue)
         return;
     auto rawLength = parsedValue->raw();
@@ -3302,7 +3304,7 @@ void CanvasRenderingContext2DBase::setWordSpacing(const String& wordSpacing)
     auto parserContext = CSSParserContext { HTMLStandardMode };
     auto parserState = CSS::PropertyParserState { .context = parserContext, .pool = protect(canvasBase())->scriptExecutionContext()->cssValuePool() };
 
-    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<CSS::AllUnzoomed>>::consume(tokenRange, parserState);
+    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<>>::consume(tokenRange, parserState);
     if (!parsedValue)
         return;
     auto rawLength = parsedValue->raw();

@@ -1360,9 +1360,11 @@ unsigned Page::findMatchesForText(const String& target, FindOptions options, uns
             frame = incrementFrame(frame.get(), true, CanWrap::No);
             continue;
         }
-        if (shouldMarkMatches == MarkMatches)
+        if (shouldMarkMatches == MarkMatches) {
             protect(localFrame->editor())->setMarkedTextMatchesAreHighlighted(shouldHighlightMatches == HighlightMatches);
-        matchCount += protect(localFrame->editor())->countMatchesForText(target, std::nullopt, options, maxMatchCount ? (maxMatchCount - matchCount) : 0, shouldMarkMatches == MarkMatches, nullptr);
+            matchCount += protect(localFrame->editor())->markAllMatchesForText(target, options, maxMatchCount ? (maxMatchCount - matchCount) : 0);
+        } else
+            matchCount += protect(localFrame->editor())->countMatchesForText(target, std::nullopt, options, maxMatchCount ? (maxMatchCount - matchCount) : 0, false, nullptr);
         frame = incrementFrame(frame.get(), true, CanWrap::No);
     } while (frame);
 
@@ -1488,6 +1490,8 @@ void Page::unmarkAllTextMatches()
     forEachDocument([] (Document& document) {
         if (CheckedPtr markers = document.markersIfExists())
             markers->removeMarkers(DocumentMarkerType::TextMatch);
+        if (RefPtr frame = document.frame())
+            protect(frame->editor())->textMatchMarkersWereCleared();
     });
 }
 
@@ -5190,7 +5194,7 @@ ModelPlayerProvider& Page::modelPlayerProvider()
     return m_modelPlayerProvider.get();
 }
 
-void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections)
+void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections, std::optional<bool> globalPrivacyControlEnabled)
 {
     RefPtr localMainFrame = this->localMainFrame();
     if (!localMainFrame)
@@ -5208,6 +5212,8 @@ void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& 
 
     if (auto* documentLoader = localMainFrame->loader().documentLoader())
         documentLoader->setAdvancedPrivacyProtections(advancedPrivacyProtections);
+
+    settings().setGlobalPrivacyControlEnabled(globalPrivacyControlEnabled);
 
     document->setStorageBlockingPolicy(document->settings().storageBlockingPolicy());
 

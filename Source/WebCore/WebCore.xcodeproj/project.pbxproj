@@ -1617,6 +1617,8 @@
 		41E12E9F24FE74E20093FFB4 /* WebSocketIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E12E9D24FE74E20093FFB4 /* WebSocketIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		41E1B1D10FF5986900576B3B /* AbstractWorker.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E1B1CB0FF5986900576B3B /* AbstractWorker.h */; };
 		41E27170300934A90015A3AF /* PendingStreamIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E2716F300934A20015A3AF /* PendingStreamIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		41E2806F300A38020015A3AF /* FetchRequestDuplex.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E2806D300A37F90015A3AF /* FetchRequestDuplex.h */; };
+		41E271713009351A0015A3AF /* PendingStreamState.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E271723009352A0015A3AF /* PendingStreamState.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		41E2F199274FAECF00A089EE /* NavigationPreloadManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 41E2F197274FAECB00A089EE /* NavigationPreloadManager.h */; };
 		41E4C3E729A3D03300EA6B3A /* BackgroundFetch.h in Headers */ = {isa = PBXBuildFile; fileRef = 418B491D29A3CF80007B3135 /* BackgroundFetch.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		41E4C3E829A3D03900EA6B3A /* BackgroundFetchEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 418B491E29A3CF81007B3135 /* BackgroundFetchEngine.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -7500,6 +7502,8 @@
 		FE0D84E910484348001A179E /* WebEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = FE0D84E810484348001A179E /* WebEvent.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE1A2B3C4D5E6F0011112303 /* FlexFormattingContext.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1A2B3C4D5E6F0011112302 /* FlexFormattingContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE1A2B3C4D5E6F0011112403 /* FlexFormattingUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1A2B3C4D5E6F0011112402 /* FlexFormattingUtils.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FE1A2B3C4D5E6F0011112503 /* FlexLayoutState.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1A2B3C4D5E6F0011112502 /* FlexLayoutState.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FE1A2B3C4D5E6F0011112505 /* FlexIntegrationUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1A2B3C4D5E6F0011112504 /* FlexIntegrationUtils.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE36FD1516C7826500F887C1 /* ChangeVersionData.h in Headers */ = {isa = PBXBuildFile; fileRef = FE36FD1116C7826400F887C1 /* ChangeVersionData.h */; };
 		FE36FD1716C7826500F887C1 /* SQLTransactionStateMachine.h in Headers */ = {isa = PBXBuildFile; fileRef = FE36FD1316C7826400F887C1 /* SQLTransactionStateMachine.h */; };
 		FE36FD1816C7826500F887C1 /* SQLTransactionState.h in Headers */ = {isa = PBXBuildFile; fileRef = FE36FD1416C7826400F887C1 /* SQLTransactionState.h */; };
@@ -11537,6 +11541,10 @@
 		41E1F33D248A62B60022D5DE /* AudioSampleBufferConverter.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AudioSampleBufferConverter.mm; sourceTree = "<group>"; };
 		41E1F33F248A62B60022D5DE /* AudioSampleBufferConverter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioSampleBufferConverter.h; sourceTree = "<group>"; };
 		41E2716F300934A20015A3AF /* PendingStreamIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PendingStreamIdentifier.h; sourceTree = "<group>"; };
+		41E2806D300A37F90015A3AF /* FetchRequestDuplex.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FetchRequestDuplex.h; sourceTree = "<group>"; };
+		41E2806E300A37F90015A3AF /* FetchRequestDuplex.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = FetchRequestDuplex.idl; sourceTree = "<group>"; };
+		41E271723009352A0015A3AF /* PendingStreamState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PendingStreamState.h; sourceTree = "<group>"; };
+		41E271733009353A0015A3AF /* PendingStreamState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PendingStreamState.cpp; sourceTree = "<group>"; };
 		41E2F195274FAECA00A089EE /* NavigationPreloadManager.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = NavigationPreloadManager.idl; sourceTree = "<group>"; };
 		41E2F197274FAECB00A089EE /* NavigationPreloadManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NavigationPreloadManager.h; sourceTree = "<group>"; };
 		41E2F198274FAECB00A089EE /* NavigationPreloadManager.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = NavigationPreloadManager.cpp; sourceTree = "<group>"; };
@@ -19659,6 +19667,8 @@
 		BC4F32CA2E8C518300F6AEC1 /* StyleAccentColor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleAccentColor.h; sourceTree = "<group>"; };
 		BC4F32CB2E8C518300F6AEC1 /* StyleAccentColor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleAccentColor.cpp; sourceTree = "<group>"; };
 		BC51156D12B1749C00C96754 /* ScrollAnimatorMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ScrollAnimatorMac.mm; sourceTree = "<group>"; };
+		BC51496330111DE2003E6266 /* StyleZoomResolvable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleZoomResolvable.h; sourceTree = "<group>"; };
+		BC514965301120A9003E6266 /* StyleZoomResolved.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleZoomResolved.h; sourceTree = "<group>"; };
 		BC5238112F82BE2000316BBC /* StyleCounterStyle.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleCounterStyle.cpp; sourceTree = "<group>"; };
 		BC53C5F40DA56B920021EB5D /* Gradient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Gradient.h; sourceTree = "<group>"; };
 		BC53C6070DA56C570021EB5D /* Gradient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Gradient.cpp; sourceTree = "<group>"; };
@@ -23610,6 +23620,9 @@
 		FAC8497A2A9E68E900D407EF /* WebTransportSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebTransportSession.h; sourceTree = "<group>"; };
 		FAC8497E2A9E6CEF00D407EF /* WebTransportSessionClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebTransportSessionClient.h; sourceTree = "<group>"; };
 		FAC849912A9EB85F00D407EF /* WebTransportSession.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebTransportSession.cpp; sourceTree = "<group>"; };
+		BA5EC0DE2C0000000000AA01 /* WebTransportWriter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebTransportWriter.cpp; sourceTree = "<group>"; };
+		BA5EC0DE2C0000000000AA02 /* WebTransportWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebTransportWriter.h; sourceTree = "<group>"; };
+		BA5EC0DE2C0000000000AA03 /* WebTransportWriter.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = WebTransportWriter.idl; sourceTree = "<group>"; };
 		FAC849922A9FD85F00D407EF /* WebTransportBidirectionalStreamSource.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebTransportBidirectionalStreamSource.cpp; sourceTree = "<group>"; };
 		FAC849932A9FD86000D407EF /* WebTransportBidirectionalStreamSource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebTransportBidirectionalStreamSource.h; sourceTree = "<group>"; };
 		FAC849942A9FD86000D407EF /* WebTransportReceiveStreamSource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebTransportReceiveStreamSource.h; sourceTree = "<group>"; };
@@ -23934,6 +23947,9 @@
 		FE1A2B3C4D5E6F0011112302 /* FlexFormattingContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlexFormattingContext.h; sourceTree = "<group>"; };
 		FE1A2B3C4D5E6F0011112401 /* FlexFormattingUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FlexFormattingUtils.cpp; sourceTree = "<group>"; };
 		FE1A2B3C4D5E6F0011112402 /* FlexFormattingUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlexFormattingUtils.h; sourceTree = "<group>"; };
+		FE1A2B3C4D5E6F0011112502 /* FlexLayoutState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlexLayoutState.h; sourceTree = "<group>"; };
+		FE1A2B3C4D5E6F0011112504 /* FlexIntegrationUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlexIntegrationUtils.h; sourceTree = "<group>"; };
+		FE1A2B3C4D5E6F0011112506 /* FlexIntegrationUtils.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FlexIntegrationUtils.cpp; sourceTree = "<group>"; };
 		FE36FD1116C7826400F887C1 /* ChangeVersionData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChangeVersionData.h; sourceTree = "<group>"; };
 		FE36FD1216C7826400F887C1 /* SQLTransactionStateMachine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SQLTransactionStateMachine.cpp; sourceTree = "<group>"; };
 		FE36FD1316C7826400F887C1 /* SQLTransactionStateMachine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SQLTransactionStateMachine.h; sourceTree = "<group>"; };
@@ -27893,6 +27909,8 @@
 				7CE191541F2A9B1D00272F78 /* FetchRequestCredentials.idl */,
 				464D4C7D28D2407B001C47C7 /* FetchRequestDestination.h */,
 				464D4C7C28D2407A001C47C7 /* FetchRequestDestination.idl */,
+				41E2806D300A37F90015A3AF /* FetchRequestDuplex.h */,
+				41E2806E300A37F90015A3AF /* FetchRequestDuplex.idl */,
 				7CE191471F2A98AF00272F78 /* FetchRequestInit.h */,
 				7CE191491F2A98B000272F78 /* FetchRequestInit.idl */,
 				7CE1914F1F2A9B0A00272F78 /* FetchRequestMode.h */,
@@ -30845,6 +30863,8 @@
 				447958021643B47B001E0A7F /* ParsedContentType.cpp */,
 				447958031643B47B001E0A7F /* ParsedContentType.h */,
 				41E2716F300934A20015A3AF /* PendingStreamIdentifier.h */,
+				41E271733009353A0015A3AF /* PendingStreamState.cpp */,
+				41E271723009352A0015A3AF /* PendingStreamState.h */,
 				37BAAE571980D1DD005DFE71 /* ProtectionSpace.h */,
 				514C765F0CE923A1007EF3CD /* ProtectionSpaceBase.cpp */,
 				514C76600CE923A1007EF3CD /* ProtectionSpaceBase.h */,
@@ -31562,6 +31582,8 @@
 		6FAC251D2813258A0045683F /* flex */ = {
 			isa = PBXGroup;
 			children = (
+				FE1A2B3C4D5E6F0011112506 /* FlexIntegrationUtils.cpp */,
+				FE1A2B3C4D5E6F0011112504 /* FlexIntegrationUtils.h */,
 				6FAC2520281326720045683F /* LayoutIntegrationFlexLayout.cpp */,
 				6FAC251E281326570045683F /* LayoutIntegrationFlexLayout.h */,
 			);
@@ -31575,6 +31597,7 @@
 				FE1A2B3C4D5E6F0011112302 /* FlexFormattingContext.h */,
 				FE1A2B3C4D5E6F0011112401 /* FlexFormattingUtils.cpp */,
 				FE1A2B3C4D5E6F0011112402 /* FlexFormattingUtils.h */,
+				FE1A2B3C4D5E6F0011112502 /* FlexLayoutState.h */,
 			);
 			path = flex;
 			sourceTree = "<group>";
@@ -38379,6 +38402,8 @@
 				BC913AE02EE1FA36009E3349 /* StyleZoom.h */,
 				BC913AE12EE1FA36009E3349 /* StyleZoomPrimitives.h */,
 				BC1778102F4908C500E318C5 /* StyleZoomPrimitivesInlines.h */,
+				BC51496330111DE2003E6266 /* StyleZoomResolvable.h */,
+				BC514965301120A9003E6266 /* StyleZoomResolved.h */,
 			);
 			path = viewport;
 			sourceTree = "<group>";
@@ -43378,6 +43403,9 @@
 				FAC849912A9EB85F00D407EF /* WebTransportSession.cpp */,
 				FAC8497A2A9E68E900D407EF /* WebTransportSession.h */,
 				FAC8497E2A9E6CEF00D407EF /* WebTransportSessionClient.h */,
+				BA5EC0DE2C0000000000AA01 /* WebTransportWriter.cpp */,
+				BA5EC0DE2C0000000000AA02 /* WebTransportWriter.h */,
+				BA5EC0DE2C0000000000AA03 /* WebTransportWriter.idl */,
 				5CC66DB92D122C8F00479139 /* WorkerWebTransportSession.cpp */,
 				5CC66DB82D122C8F00479139 /* WorkerWebTransportSession.h */,
 			);
@@ -45421,6 +45449,7 @@
 				7CE1915A1F2A9B3400272F78 /* FetchRequestCache.h in Headers */,
 				7CE191551F2A9B1D00272F78 /* FetchRequestCredentials.h in Headers */,
 				464D4C7E28D24080001C47C7 /* FetchRequestDestination.h in Headers */,
+				41E2806F300A38020015A3AF /* FetchRequestDuplex.h in Headers */,
 				7CE1914A1F2A98B900272F78 /* FetchRequestInit.h in Headers */,
 				7CE191511F2A9B0A00272F78 /* FetchRequestMode.h in Headers */,
 				7CE191601F2A9B4F00272F78 /* FetchRequestRedirect.h in Headers */,
@@ -45491,6 +45520,8 @@
 				A8CFF04F0A154F09000A4234 /* FixedTableLayout.h in Headers */,
 				FE1A2B3C4D5E6F0011112303 /* FlexFormattingContext.h in Headers */,
 				FE1A2B3C4D5E6F0011112403 /* FlexFormattingUtils.h in Headers */,
+				FE1A2B3C4D5E6F0011112505 /* FlexIntegrationUtils.h in Headers */,
+				FE1A2B3C4D5E6F0011112503 /* FlexLayoutState.h in Headers */,
 				6FFDC442212EFF1700A9CA91 /* FloatAvoider.h in Headers */,
 				BC073BAA0C399B1F000F5979 /* FloatConversion.h in Headers */,
 				115CFA86208B9066001E6991 /* FloatingContext.h in Headers */,
@@ -47788,6 +47819,7 @@
 				8A7CC96B12076D73001D4588 /* PendingScript.h in Headers */,
 				E3FA38641D71812D00AA5950 /* PendingScriptClient.h in Headers */,
 				41E27170300934A90015A3AF /* PendingStreamIdentifier.h in Headers */,
+				41E271713009351A0015A3AF /* PendingStreamState.h in Headers */,
 				8A844D0511D3C18E0014065C /* Performance.h in Headers */,
 				86BE340115058CB200CE0FD8 /* PerformanceEntry.h in Headers */,
 				4822FD232E2A8058004CAFF9 /* PerformanceEventTiming.h in Headers */,

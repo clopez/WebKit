@@ -586,6 +586,85 @@ macro(_WEBKIT_LIBRARY_LINK_FRAMEWORK _target)
     endif ()
 endmacro()
 
+function(_WEBKIT_ADD_CODE_SIGN _target)
+    get_target_property(_skip_codesign ${_target} SKIP_CODESIGN)
+    if (_skip_codesign)
+        return()
+    endif ()
+    set(_identity ${WEBKIT_CODE_SIGN_IDENTITY})
+    if (NOT _identity)
+        set(_identity "-")
+    endif ()
+    cmake_parse_arguments(_arg "" "" "DEPENDS" ${ARGN})
+    get_target_property(_is_framework ${_target} FRAMEWORK)
+    if (_is_framework)
+        set(_sign_path "$<TARGET_BUNDLE_DIR:${_target}>")
+        if (PORT STREQUAL Mac)
+            set(_cstemp_path "${_sign_path}/Versions/A/$<TARGET_FILE_BASE_NAME:${_target}>.cstemp")
+        else ()
+            set(_cstemp_path "${_sign_path}/$<TARGET_FILE_BASE_NAME:${_target}>.cstemp")
+        endif ()
+    else ()
+        set(_sign_path "$<TARGET_FILE:${_target}>")
+        set(_cstemp_path "${_sign_path}.cstemp")
+    endif ()
+    if (${_target}_CODE_SIGN_ENTITLEMENTS)
+        set(_entitlements --entitlements ${${_target}_CODE_SIGN_ENTITLEMENTS})
+        list(APPEND _arg_DEPENDS ${${_target}_CODE_SIGN_ENTITLEMENTS})
+    endif ()
+
+    get_target_property(_target_type ${_target} TYPE)
+    if (_target_type STREQUAL "EXECUTABLE")
+        # Executables have no "sign last" ordering constraint (unlike a
+        # framework, which must sign after its embedded bundles). Attach the
+        # signing as a POST_BUILD step so that building the target directly,
+        # e.g. `cmake --build . --target jsc`, always signs it. A stamp-based
+        # target that only runs during an `all` build would leave a directly
+        # built executable unsigned and unable to JIT (webkit.org/b/320034).
+        add_custom_command(
+            TARGET ${_target} POST_BUILD
+            # Work around rdar://145010536 when a previous codesign task was interrupted.
+            COMMAND rm -f ${_cstemp_path}
+            COMMAND set -o pipefail &&
+                ${WEBKITADDITIONS_CODESIGN_PRELUDE}
+                /usr/bin/codesign --force --sign ${_identity} ${_entitlements} ${_sign_path} 2>&1 |
+                sed "/replacing existing signature/d"
+            VERBATIM
+            COMMENT "Code signing ${_target}")
+        # A POST_BUILD command only re-runs when the target relinks, so make a
+        # change to the entitlements force a relink; otherwise editing the
+        # entitlements would leave the binary signed with the stale set.
+        if (${_target}_CODE_SIGN_ENTITLEMENTS)
+            set_property(TARGET ${_target} APPEND PROPERTY
+                LINK_DEPENDS ${${_target}_CODE_SIGN_ENTITLEMENTS})
+        endif ()
+        # Preserve a named ${_target}_CodeSign target so ordering edges elsewhere
+        # (e.g. WebKit.framework signing after its XPC services) keep resolving.
+        # The POST_BUILD command above performs the actual signing when the
+        # target builds, so this target only needs to depend on it.
+        add_custom_target(${_target}_CodeSign ALL)
+        add_dependencies(${_target}_CodeSign ${_target})
+        return()
+    endif ()
+
+    set(_stamp "${CMAKE_CURRENT_BINARY_DIR}/${_target}-codesign.stamp")
+
+    add_custom_command(
+        OUTPUT ${_stamp}
+        DEPENDS $<TARGET_FILE:${_target}> ${_arg_DEPENDS}
+        # Work around rdar://145010536 when a previous codesign task was interrupted.
+        COMMAND rm -f ${_cstemp_path}
+        COMMAND set -o pipefail &&
+            ${WEBKITADDITIONS_CODESIGN_PRELUDE}
+            /usr/bin/codesign --force --sign ${_identity} ${_entitlements} ${_sign_path} 2>&1 |
+            sed "/replacing existing signature/d"
+        COMMAND ${CMAKE_COMMAND} -E touch ${_stamp}
+        VERBATIM
+        COMMENT "Code signing ${_target}")
+    add_custom_target(${_target}_CodeSign ALL DEPENDS ${_stamp})
+    add_dependencies(${_target}_CodeSign ${_target})
+endfunction()
+
 macro(_WEBKIT_TARGET_INTERFACE _target)
     add_library(${_target}_PostBuild INTERFACE)
     target_link_libraries(${_target}_PostBuild INTERFACE ${${_target}_INTERFACE_LIBRARIES})
@@ -599,6 +678,9 @@ macro(_WEBKIT_TARGET_INTERFACE _target)
     endif ()
     if (NOT ${_target}_LIBRARY_TYPE STREQUAL "SHARED")
         target_compile_definitions(${_target}_PostBuild INTERFACE "STATICALLY_LINKED_WITH_${_target}")
+    endif ()
+    if (TARGET ${_target}_CodeSign)
+        add_dependencies(${_target}_PostBuild ${_target}_CodeSign)
     endif ()
     add_library(WebKit::${_target} ALIAS ${_target}_PostBuild)
 endmacro()
@@ -632,6 +714,7 @@ macro(WEBKIT_FRAMEWORK _target)
         target_compile_options(${_target} BEFORE PUBLIC -F${CMAKE_BINARY_DIR})
         install(TARGETS ${_target} FRAMEWORK DESTINATION ${LIB_INSTALL_DIR})
         _WEBKIT_CREATE_FRAMEWORK_BUNDLE_STRUCTURE(${_target})
+        _WEBKIT_ADD_CODE_SIGN(${_target} DEPENDS ${${_target}_CODE_SIGN_INPUTS})
     endif ()
 
     _WEBKIT_TARGET_INTERFACE(${_target})
@@ -652,6 +735,10 @@ macro(WEBKIT_LIBRARY _target)
         set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${${_target}_OUTPUT_NAME})
     endif ()
 
+    if (APPLE AND ${${_target}_LIBRARY_TYPE} MATCHES SHARED)
+        _WEBKIT_ADD_CODE_SIGN(${_target} DEPENDS ${${_target}_CODE_SIGN_INPUTS})
+    endif ()
+
     _WEBKIT_TARGET_INTERFACE(${_target})
 endmacro()
 
@@ -662,6 +749,10 @@ macro(WEBKIT_EXECUTABLE _target)
 
     if (${_target}_OUTPUT_NAME)
         set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${${_target}_OUTPUT_NAME})
+    endif ()
+
+    if (APPLE)
+        _WEBKIT_ADD_CODE_SIGN(${_target} DEPENDS ${${_target}_CODE_SIGN_INPUTS})
     endif ()
 endmacro()
 

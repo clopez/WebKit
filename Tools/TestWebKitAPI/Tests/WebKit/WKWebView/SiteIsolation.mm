@@ -1403,12 +1403,40 @@ TEST(SiteIsolation, QueryFramesStateAfterNavigating)
         { "/subframe3.html"_s, { "SubFrame3"_s } },
         { "/subframe4.html"_s, { "SubFrame4"_s } }
     }, HTTPServer::Protocol::Http);
-    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero]);
+    RetainPtr configuration = adoptNS([WKWebViewConfiguration new]);
+    enableSiteIsolation(configuration.get());
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero configuration:configuration.get()]);
     [webView synchronouslyLoadRequest:server.request("/page1.html"_s)];
     EXPECT_EQ(3u, [webView mainFrame].childFrames.count);
 
     [webView synchronouslyLoadRequest:server.request("/page2.html"_s)];
     EXPECT_EQ(1u, [webView mainFrame].childFrames.count);
+}
+
+TEST(SiteIsolation, QueryFramesStateAfterGoingBackToCachedPageWithIframe)
+{
+    HTTPServer server({
+        { "/page1.html"_s, { "<iframe src='subframe.html'></iframe>"_s } },
+        { "/page2.html"_s, { ""_s } },
+        { "/subframe.html"_s, { "SubFrame"_s } }
+    }, HTTPServer::Protocol::Http);
+    RetainPtr configuration = adoptNS([WKWebViewConfiguration new]);
+    enableSiteIsolation(configuration.get());
+    enableFeature(configuration.get(), @"MultiProcessBackForwardCacheEnabled");
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero configuration:configuration.get()]);
+    [webView synchronouslyLoadRequest:server.request("/page1.html"_s)];
+    EXPECT_EQ(1u, [webView mainFrame].childFrames.count);
+    RetainPtr<WKFrameInfo> childFrame = [webView mainFrame].childFrames.firstObject.info;
+    [webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker = true"];
+    [webView objectByEvaluatingJavaScript:@"window.__iframeBfcacheMarker = true" inFrame:childFrame.get()];
+
+    [webView synchronouslyLoadRequest:server.request("/page2.html"_s)];
+    EXPECT_EQ(0u, [webView mainFrame].childFrames.count);
+
+    [webView synchronouslyGoBack];
+    EXPECT_EQ(1u, [webView mainFrame].childFrames.count);
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__bfcacheMarker ? true : false"] boolValue]);
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"window.__iframeBfcacheMarker ? true : false" inFrame:[webView mainFrame].childFrames.firstObject.info] boolValue]);
 }
 
 TEST(SiteIsolation, NavigatingCrossOriginIframeToSameOrigin)
@@ -5924,11 +5952,7 @@ TEST(SiteIsolation, CoordinateTransformation)
         return result;
     };
 
-#if PLATFORM(MAC)
     constexpr auto expectedTransformedY = 38;
-#else
-    constexpr auto expectedTransformedY = 40;
-#endif
     {
         [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
         [navigationDelegate waitForDidFinishNavigation];
@@ -6938,6 +6962,48 @@ TEST(SiteIsolation, SharedProcessSameOrigin)
         {
             "https://example.com"_s,
             { { "https://example.com"_s } },
+        },
+    });
+}
+
+TEST(SiteIsolation, SharedProcessExcludesLoopback)
+{
+    HTTPServer localServer({
+        { "/local"_s, { "hi"_s } },
+    }, HTTPServer::Protocol::Https);
+
+    HTTPServer server({
+        { "/example"_s, { makeString("<!DOCTYPE html><iframe src='https://webkit.org/webkit'></iframe><iframe src='https://apple.com/apple'></iframe><iframe src='https://127.0.0.1:"_s, localServer.port(), "/local'></iframe>"_s) } },
+        { "/webkit"_s, { "hi"_s } },
+        { "/apple"_s, { "hi"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+    [storeConfiguration setHTTPSProxy:[NSURL URLWithString:[NSString stringWithFormat:@"https://127.0.0.1:%d/", server.port()]]];
+    RetainPtr viewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    [viewConfiguration setWebsiteDataStore:adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]).get()];
+    enableSiteIsolation(viewConfiguration.get());
+    enableFeature(viewConfiguration.get(), @"SiteIsolationSharedProcessEnabled");
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:viewConfiguration.get()]);
+    webView.get().navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    checkFrameTreesInProcesses(webView.get(), {
+        {
+            "https://example.com"_s,
+            { { RemoteFrame }, { RemoteFrame }, { RemoteFrame } }
+        },
+        {
+            RemoteFrame,
+            { { "https://webkit.org"_s }, { "https://apple.com"_s }, { RemoteFrame } }
+        },
+        {
+            RemoteFrame,
+            { { RemoteFrame }, { RemoteFrame }, { makeString("https://127.0.0.1:"_s, localServer.port()) } }
         },
     });
 }

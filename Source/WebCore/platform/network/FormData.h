@@ -40,6 +40,7 @@ namespace WebCore {
 class BlobRegistryImpl;
 class DOMFormData;
 class File;
+class PendingStreamState;
 class SharedBuffer;
 
 struct FormDataElement {
@@ -134,7 +135,7 @@ public:
     static Ref<FormData> create(const Vector<uint8_t>&);
     static Ref<FormData> create(const DOMFormData&, EncodingType = EncodingType::FormURLEncoded);
     static Ref<FormData> createMultiPart(const DOMFormData&);
-    WEBCORE_EXPORT static Ref<FormData> create(PendingStreamIdentifier);
+    WEBCORE_EXPORT static Ref<FormData> create(PendingStreamIdentifier, RefPtr<WebCore::PendingStreamState>&&);
     WEBCORE_EXPORT ~FormData();
 
     // FIXME: Both these functions perform a deep copy of m_elements, but differ in handling of other data members.
@@ -154,7 +155,10 @@ public:
     // If the FormData has no blob references to resolve, this is returned.
     WEBCORE_EXPORT Ref<FormData> resolveBlobReferences(BlobRegistryImpl* = nullptr);
     bool NODELETE containsBlobElement() const;
+
     WEBCORE_EXPORT bool isPendingStream() const;
+    WEBCORE_EXPORT void setPendingStreamState(Ref<PendingStreamState>&&);
+    PendingStreamState* pendingStreamState() const { return m_pendingStreamState.get(); }
 
     WEBCORE_EXPORT FormDataForUpload prepareForUpload();
 
@@ -203,6 +207,7 @@ private:
     bool m_alwaysStream { false };
     Vector<uint8_t> m_boundary;
     mutable std::optional<uint64_t> m_lengthInBytes;
+    RefPtr<PendingStreamState> m_pendingStreamState;
 };
 
 inline bool operator==(const FormData& a, const FormData& b)

@@ -42,6 +42,7 @@ namespace LayoutIntegration {
 
 FlexLayout::FlexLayout(RenderFlexibleBox& flexBox)
     : m_flexBox(flexBox)
+    , m_integrationUtils(flexBox)
 {
 }
 
@@ -128,8 +129,6 @@ FlexLayoutItems FlexLayout::collectFlexItems(RelayoutChildren relayoutChildren, 
         if (!flexItem)
             continue;
         auto everHadLayout = flexItem->everHadLayout();
-        if (CheckedPtr flexibleBox = dynamicDowncast<RenderFlexibleBox>(flexItem.get()))
-            flexibleBox->resetHasDefiniteHeight();
         if (everHadLayout && flexItem->hasTrimmedMargin(std::optional<Style::MarginTrimSide> { }))
             flexItem->clearTrimmedMarginsMarkings();
         if (flexItem->shouldInvalidateContentWidths())
@@ -142,6 +141,10 @@ FlexLayoutItems FlexLayout::collectFlexItems(RelayoutChildren relayoutChildren, 
 
 void FlexLayout::layout(RelayoutChildren relayoutChildren)
 {
+    // Reset the per-layout line counts the baseline queries read; the flex algorithm below sets them when it runs.
+    m_numberOfFlexItemsOnFirstLine = 0;
+    m_numberOfFlexItemsOnLastLine = 0;
+
     auto constraints = flexLayoutConstraints();
     auto flexItems = collectFlexItems(relayoutChildren, constraints);
     if (flexItems.isEmpty()) {
@@ -149,17 +152,17 @@ void FlexLayout::layout(RelayoutChildren relayoutChildren)
         return;
     }
 
-    auto flexLayoutResult = WebCore::FlexFormattingContext(flexBox(), constraints).layout(flexItems);
+    auto flexLayoutResult = WebCore::FlexFormattingContext(m_integrationUtils, constraints).layout(flexItems);
     if (flexLayoutResult.alignContentStartOverflow)
         flexBox().m_alignContentStartOverflow = *flexLayoutResult.alignContentStartOverflow;
     flexBox().m_justifyContentStartOverflow = flexLayoutResult.justifyContentStartOverflow;
-    flexBox().m_numberOfFlexItemsOnFirstLine = flexLayoutResult.numberOfFlexItemsOnFirstLine;
-    flexBox().m_numberOfFlexItemsOnLastLine = flexLayoutResult.numberOfFlexItemsOnLastLine;
+    m_numberOfFlexItemsOnFirstLine = flexLayoutResult.numberOfFlexItemsOnFirstLine;
+    m_numberOfFlexItemsOnLastLine = flexLayoutResult.numberOfFlexItemsOnLastLine;
 }
 
 std::optional<LayoutUnit> FlexLayout::firstLineBaseline() const
 {
-    if ((flexBox().isWritingModeRoot() && !flexBox().isFlexItem()) || !flexBox().m_numberOfFlexItemsOnFirstLine || flexBox().shouldApplyLayoutContainment())
+    if ((flexBox().isWritingModeRoot() && !flexBox().isFlexItem()) || !m_numberOfFlexItemsOnFirstLine || flexBox().shouldApplyLayoutContainment())
         return { };
 
     CheckedPtr baselineFlexItem = flexItemForFirstBaseline();
@@ -168,9 +171,9 @@ std::optional<LayoutUnit> FlexLayout::firstLineBaseline() const
 
     FlexFormattingUtils utils { flexBox() };
     auto baseline = std::optional<LayoutUnit> { };
-    if (!FlexFormattingUtils::isColumnFlow(flexBox()) && !FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexBox(), *baselineFlexItem))
+    if (!FlexFormattingUtils::isColumnFlow(flexBox()) && !FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(*baselineFlexItem))
         baseline = utils.crossAxisExtentForFlexItem(*baselineFlexItem);
-    else if (FlexFormattingUtils::isColumnFlow(flexBox()) && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexBox(), *baselineFlexItem))
+    else if (FlexFormattingUtils::isColumnFlow(flexBox()) && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(*baselineFlexItem))
         baseline = utils.mainAxisExtentForFlexItem(*baselineFlexItem);
     else if (auto firstLineBaseline = baselineFlexItem->firstLineBaseline())
         baseline = firstLineBaseline;
@@ -191,7 +194,7 @@ std::optional<LayoutUnit> FlexLayout::firstLineBaseline() const
 
 std::optional<LayoutUnit> FlexLayout::lastLineBaseline() const
 {
-    if (flexBox().isWritingModeRoot() || !flexBox().m_numberOfFlexItemsOnLastLine || flexBox().shouldApplyLayoutContainment())
+    if (flexBox().isWritingModeRoot() || !m_numberOfFlexItemsOnLastLine || flexBox().shouldApplyLayoutContainment())
         return { };
 
     CheckedPtr baselineFlexItem = flexItemForLastBaseline();
@@ -200,9 +203,9 @@ std::optional<LayoutUnit> FlexLayout::lastLineBaseline() const
 
     FlexFormattingUtils utils { flexBox() };
     auto baseline = std::optional<LayoutUnit> { };
-    if (!FlexFormattingUtils::isColumnFlow(flexBox()) && !FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexBox(), *baselineFlexItem))
+    if (!FlexFormattingUtils::isColumnFlow(flexBox()) && !FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(*baselineFlexItem))
         baseline = utils.crossAxisExtentForFlexItem(*baselineFlexItem);
-    else if (FlexFormattingUtils::isColumnFlow(flexBox()) && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexBox(), *baselineFlexItem))
+    else if (FlexFormattingUtils::isColumnFlow(flexBox()) && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(*baselineFlexItem))
         baseline = utils.mainAxisExtentForFlexItem(*baselineFlexItem);
     else if (auto lastLineBaseline = baselineFlexItem->lastLineBaseline())
         baseline = lastLineBaseline;
@@ -229,8 +232,8 @@ CheckedPtr<const RenderBox> FlexLayout::flexItemForFirstBaseline() const
     auto& flexItems = flexBox().flexItems();
     bool reverse = flexBox().style().flexDirection() == FlexDirection::RowReverse || flexBox().style().flexDirection() == FlexDirection::ColumnReverse;
     if (FlexFormattingUtils::isWrapReverse(flexBox()))
-        return baselineFlexItemInLine(flexItems.size() - flexBox().m_numberOfFlexItemsOnLastLine, flexBox().m_numberOfFlexItemsOnLastLine, reverse);
-    return baselineFlexItemInLine(0, flexBox().m_numberOfFlexItemsOnFirstLine, reverse);
+        return baselineFlexItemInLine(flexItems.size() - m_numberOfFlexItemsOnLastLine, m_numberOfFlexItemsOnLastLine, reverse);
+    return baselineFlexItemInLine(0, m_numberOfFlexItemsOnFirstLine, reverse);
 }
 
 CheckedPtr<const RenderBox> FlexLayout::flexItemForLastBaseline() const
@@ -241,8 +244,8 @@ CheckedPtr<const RenderBox> FlexLayout::flexItemForLastBaseline() const
     auto& flexItems = flexBox().flexItems();
     bool reverse = !(flexBox().style().flexDirection() == FlexDirection::RowReverse || flexBox().style().flexDirection() == FlexDirection::ColumnReverse);
     if (FlexFormattingUtils::isWrapReverse(flexBox()))
-        return baselineFlexItemInLine(0, flexBox().m_numberOfFlexItemsOnFirstLine, reverse);
-    return baselineFlexItemInLine(flexItems.size() - flexBox().m_numberOfFlexItemsOnLastLine, flexBox().m_numberOfFlexItemsOnLastLine, reverse);
+        return baselineFlexItemInLine(0, m_numberOfFlexItemsOnFirstLine, reverse);
+    return baselineFlexItemInLine(flexItems.size() - m_numberOfFlexItemsOnLastLine, m_numberOfFlexItemsOnLastLine, reverse);
 }
 
 CheckedPtr<const RenderBox> FlexLayout::baselineFlexItemInLine(size_t lineStart, size_t itemCount, bool reverse) const
@@ -259,9 +262,9 @@ CheckedPtr<const RenderBox> FlexLayout::baselineFlexItemInLine(size_t lineStart,
             continue;
         if (!fallback)
             fallback = flexItem;
-        auto position = FlexFormattingUtils::alignmentForFlexItem(flexBox(), *flexItem);
+        auto position = FlexFormattingUtils::alignmentForFlexItem(*flexItem);
         if ((position == ItemPosition::Baseline || position == ItemPosition::LastBaseline)
-            && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexBox(), *flexItem) && !FlexFormattingUtils::hasAutoMarginsInCrossAxis(flexBox(), *flexItem))
+            && FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(*flexItem) && !FlexFormattingUtils::hasAutoMarginsInCrossAxis(*flexItem))
             return flexItem;
     }
     return fallback;
@@ -285,7 +288,7 @@ LayoutUnit FlexLayout::staticCrossAxisPositionForPositionedFlexItem(const Render
     FlexFormattingUtils utils { flexBox() };
     auto availableSpace = utils.availableAlignmentSpaceForFlexItem(FlexFormattingUtils::crossAxisContentExtent(flexBox()), flexItem, utils.crossAxisExtentForFlexItem(flexItem));
     auto safety = utils.overflowAlignmentForFlexItem(flexItem);
-    auto align = FlexFormattingUtils::alignmentForFlexItem(flexBox(), flexItem);
+    auto align = FlexFormattingUtils::alignmentForFlexItem(flexItem);
     if (availableSpace < 0 && safety == OverflowAlignment::Safe)
         align = ItemPosition::FlexStart;
     return FlexFormattingUtils::alignmentOffset(availableSpace, align, { }, { }, FlexFormattingUtils::isWrapReverse(flexBox()));

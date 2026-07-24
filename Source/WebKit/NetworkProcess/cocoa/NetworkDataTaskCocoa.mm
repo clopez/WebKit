@@ -39,9 +39,11 @@
 #import <WebCore/AdvancedPrivacyProtections.h>
 #import <WebCore/AuthenticationChallenge.h>
 #import <WebCore/HTTPStatusCodes.h>
+#import <WebCore/IPAddressSpace.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/OriginAccessPatterns.h>
+#import <WebCore/PendingStreamState.h>
 #import <WebCore/RegistrableDomain.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/ResourceRequest.h>
@@ -188,6 +190,21 @@ void NetworkDataTaskCocoa::updateFirstPartyInfoForSession(const URL& requestURL)
         session->setFirstPartyHostIPAddress(requestURL.host().toString(), ipAddress.get());
 }
 
+void NetworkDataTaskCocoa::installPendingStreamProbe(WebCore::PendingStreamState& state)
+{
+    state.setHTTPVersionProbe([weakThis = ThreadSafeWeakPtr { *this }] {
+        RefPtr task = weakThis.get();
+        if (!task || !task->m_task)
+            return WebCore::PendingStreamState::HTTPVersion::Unknown;
+        auto protocolName = retainPtr([task->m_task _incompleteTaskMetrics].transactionMetrics.lastObject.networkProtocolName);
+        if (!protocolName)
+            return WebCore::PendingStreamState::HTTPVersion::Unknown;
+        if ([protocolName isEqualToString:@"h2"] || [protocolName isEqualToString:@"h2c"] || [protocolName isEqualToString:@"h3"])
+            return WebCore::PendingStreamState::HTTPVersion::HTTP2OrLater;
+        return WebCore::PendingStreamState::HTTPVersion::HTTP1;
+    });
+}
+
 NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataTaskClient& client, const NetworkLoadParameters& parameters)
     : NetworkDataTask(session, client, parameters.request, parameters.storedCredentialsPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.isMainFrameNavigation, parameters.isInitiatedByDedicatedWorker)
     , NetworkTaskCocoa(session)
@@ -228,6 +245,11 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
 
     auto thirdPartyCookieBlockingDecision = requestThirdPartyCookieBlockingDecision(request);
     restrictRequestReferrerToOriginIfNeeded(request);
+
+    if (RefPtr body = request.httpBody()) {
+        if (RefPtr state = body->pendingStreamState())
+            installPendingStreamProbe(*state);
+    }
 
     RetainPtr<NSURLRequest> nsRequest = request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
     ASSERT(nsRequest);
@@ -386,6 +408,15 @@ void NetworkDataTaskCocoa::didReceiveChallenge(WebCore::AuthenticationChallenge&
 {
     WTFEmitSignpost(m_task.get(), DataTask, "received challenge");
 
+    if (hasPendingStreamBody() && challenge.failureResponse().httpStatusCode() == httpStatus401Unauthorized) {
+        if (RefPtr client = m_client) {
+            WebCore::ResourceError error { WebCore::errorDomainWebKitInternal, 0, firstRequest().url(), "Fetch upload streams cannot handle 401"_s, WebCore::ResourceError::Type::Cancellation };
+            client->didCompleteWithError(error, { });
+        }
+        completionHandler(AuthenticationChallengeDisposition::Cancel, { });
+        return;
+    }
+
     if (tryPasswordBasedAuthentication(challenge, completionHandler))
         return;
 
@@ -432,12 +463,18 @@ void NetworkDataTaskCocoa::didReceiveResponse(WebCore::ResourceResponse&& respon
             session->reportNetworkIssue(*m_webPageProxyID, firstRequest().url());
     }
 #endif
-    NetworkDataTask::didReceiveResponse(WTF::move(response), negotiatedLegacyTLS, privateRelayed, WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get())), WTF::move(completionHandler));
+    auto resolvedIPAddress = WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get()));
+    if (resolvedIPAddress)
+        response.setIPAddressSpace(WebCore::classifyIPAddressSpace(*resolvedIPAddress));
+    NetworkDataTask::didReceiveResponse(WTF::move(response), negotiatedLegacyTLS, privateRelayed, resolvedIPAddress, WTF::move(completionHandler));
 }
 
 void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&& redirectResponse, WebCore::ResourceRequest&& request, RedirectCompletionHandler&& completionHandler)
 {
     WTFEmitSignpost(m_task.get(), DataTask, "redirect");
+
+    if (auto resolvedIPAddress = WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get())))
+        redirectResponse.setIPAddressSpace(WebCore::classifyIPAddressSpace(*resolvedIPAddress));
 
     networkLoadMetrics().hasCrossOriginRedirect = networkLoadMetrics().hasCrossOriginRedirect || !WebCore::SecurityOrigin::create(request.url())->canRequest(redirectResponse.url(), WebCore::EmptyOriginAccessPatterns::singleton());
 

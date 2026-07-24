@@ -457,6 +457,9 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(MaskedAlternativeInfo);
 
 static constexpr MacroAssembler::TrustedImm32 surrogateTagMask = MacroAssembler::TrustedImm32(0xfc00fc00);
 static constexpr MacroAssembler::TrustedImm32 surrogatePairTags = MacroAssembler::TrustedImm32(0xdc00d800);
+static constexpr MacroAssembler::TrustedImm32 firstCharacterNonBMPBit = MacroAssembler::TrustedImm32(0x8000);
+static constexpr MacroAssembler::TrustedImm32 firstCharacterSurrogateTagMask = MacroAssembler::TrustedImm32(0xf800);
+static constexpr MacroAssembler::TrustedImm32 firstCharacterSurrogateTag = MacroAssembler::TrustedImm32(0xd800);
 
 #if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS)
 template<TryReadUnicodeCharGenFirstNonBMPOptimization useNonBMPOptimization>
@@ -478,14 +481,9 @@ void tryReadUnicodeCharImpl(VM& vm, CCallHelpers& jit, MacroAssembler::RegisterI
     // Load and try to process two UTF-16 characters.
     // If they are a proper surrogate pair, compute the non-BMP codepoint.
     jit.load32(MacroAssembler::Address(regs.regUnicodeInputAndTrail), resultReg);
-#if CPU(ARM64)
-    jit.and32AndSetFlags(surrogateTagMask, resultReg, regs.unicodeAndSubpatternIdTemp);
-    isBMP.append(jit.branch(MacroAssembler::Zero));
-#else
+    isBMP.append(jit.branchTest32(MacroAssembler::Zero, resultReg, firstCharacterNonBMPBit));
     jit.and32(surrogateTagMask, resultReg, regs.unicodeAndSubpatternIdTemp);
-    isBMP.append(jit.branch32(MacroAssembler::Equal, regs.unicodeAndSubpatternIdTemp, MacroAssembler::TrustedImm32(0)));
-#endif
-    slowCases.append(jit.branch32(MacroAssembler::NotEqual, regs.unicodeAndSubpatternIdTemp, surrogatePairTags));
+    MacroAssembler::Jump notSurrogatePair = jit.branch32(MacroAssembler::NotEqual, regs.unicodeAndSubpatternIdTemp, surrogatePairTags);
 
     // Create the UTF32 character from the surrogate pair.
 #if CPU(ARM64)
@@ -504,6 +502,10 @@ void tryReadUnicodeCharImpl(VM& vm, CCallHelpers& jit, MacroAssembler::RegisterI
         jit.move(MacroAssembler::TrustedImm32(1), regs.firstCharacterAdditionalReadSize);
 #endif
     done.append(jit.jump());
+
+    notSurrogatePair.link(&jit);
+    jit.and32(firstCharacterSurrogateTagMask, regs.unicodeAndSubpatternIdTemp, regs.unicodeAndSubpatternIdTemp);
+    slowCases.append(jit.branch32(MacroAssembler::Equal, regs.unicodeAndSubpatternIdTemp, firstCharacterSurrogateTag));
 
     isBMP.link(jit);
     jit.and32(MacroAssembler::TrustedImm32(0xffff), resultReg);
@@ -1579,6 +1581,19 @@ class YarrGenerator final : public YarrJITInfo {
         else if (m_decodeSurrogatePairs)
             tryReadUnicodeChar(address, resultReg);
 #endif
+        else
+            m_jit.load16Unaligned(address, resultReg);
+    }
+
+    // Read a raw code unit without surrogate pair decoding. This is used for
+    // Boyer-Moore lookahead which is a hash-based prefilter where false positives
+    // are safe, so exact codepoint decoding is unnecessary.
+    void readCharacterRaw(Checked<unsigned> negativeCharacterOffset, MacroAssembler::RegisterID resultReg)
+    {
+        MacroAssembler::BaseIndex address = negativeOffsetIndexedAddress(negativeCharacterOffset, resultReg, m_regs.index);
+
+        if (m_charSize == CharSize::Char8)
+            m_jit.load8(address, resultReg);
         else
             m_jit.load16Unaligned(address, resultReg);
     }
@@ -5747,37 +5762,33 @@ class YarrGenerator final : public YarrJITInfo {
         m_ops.last().m_previousOp = notFound;
 
         if (disjunction->m_minimumSize && !m_pattern.sticky()) {
-            if (!m_pattern.eitherUnicode()) {
-                // Collect BoyerMooreInfo if it is possible and profitable. BoyerMooreInfo will be used to emit fast skip path with large stride
-                // at the beginning of the body alternatives.
-                // We do not emit these fast path when RegExp has sticky or unicode flag. Sticky case does not need this since
-                // it fails when the body alternatives fail to match with the current offset.
-                // FIXME: Support unicode flag.
-                // https://bugs.webkit.org/show_bug.cgi?id=228611
-                auto bmInfo = BoyerMooreInfo::create(m_charSize, std::min<unsigned>(disjunction->m_minimumSize, BoyerMooreInfo::maxLength));
-                if (collectBoyerMooreInfo(disjunction, currentAlternativeIndex, bmInfo.get())) {
-                    dataLogLnIf(YarrJITInternal::verbose, bmInfo.get());
-                    m_ops.last().m_bmInfo = bmInfo.ptr();
-                    m_bmInfos.append(WTF::move(bmInfo));
-                    m_usesT2 = true;
-                    if (m_sampleString)
-                        m_sampler.sample(m_sampleString.value());
-                } else
-                    dataLogLnIf(YarrJITInternal::verbose, "BM collection failed");
+            // Collect BoyerMooreInfo if it is possible and profitable. BoyerMooreInfo will be used to emit fast skip path with large stride
+            // at the beginning of the body alternatives.
+            // We do not emit these fast path when RegExp has sticky flag. Sticky case does not need this since
+            // it fails when the body alternatives fail to match with the current offset.
+            auto bmInfo = BoyerMooreInfo::create(m_charSize, std::min<unsigned>(disjunction->m_minimumSize, BoyerMooreInfo::maxLength));
+            if (collectBoyerMooreInfo(disjunction, currentAlternativeIndex, bmInfo.get())) {
+                dataLogLnIf(YarrJITInternal::verbose, bmInfo.get());
+                m_ops.last().m_bmInfo = bmInfo.ptr();
+                m_bmInfos.append(WTF::move(bmInfo));
+                m_usesT2 = true;
+                if (m_sampleString)
+                    m_sampler.sample(m_sampleString.value());
+            } else
+                dataLogLnIf(YarrJITInternal::verbose, "BM collection failed");
 
 #if CPU(ARM64) || CPU(X86_64)
-                // Try multi-pattern SIMD search for alternations with 2 fixed alternatives
-                // This is more effective than bitmap lookahead for patterns like /agggtaaa|tttaccct/i
-                if (m_charSize == CharSize::Char8 && alternatives.size() >= 2) {
-                    if (auto maskedInfo = MaskedAlternativeInfo::create(*disjunction, m_pattern.ignoreCase(), m_charSize)) {
-                        dataLogLnIf(Options::verboseRegExpCompilation(), "Found multi-pattern SIMD candidate: ", alternatives.size(), " alternatives, minLen=", maskedInfo->minPatternLength);
-                        auto info = makeUniqueRef<MaskedAlternativeInfo>(*maskedInfo);
-                        m_ops.last().m_maskedAltInfo = info.ptr();
-                        m_maskedAltInfos.append(WTF::move(info));
-                    }
+            // Try multi-pattern SIMD search for alternations with 2 fixed alternatives
+            // This is more effective than bitmap lookahead for patterns like /agggtaaa|tttaccct/i
+            if (!m_pattern.eitherUnicode() && m_charSize == CharSize::Char8 && alternatives.size() >= 2) {
+                if (auto maskedInfo = MaskedAlternativeInfo::create(*disjunction, m_pattern.ignoreCase(), m_charSize)) {
+                    dataLogLnIf(Options::verboseRegExpCompilation(), "Found multi-pattern SIMD candidate: ", alternatives.size(), " alternatives, minLen=", maskedInfo->minPatternLength);
+                    auto info = makeUniqueRef<MaskedAlternativeInfo>(*maskedInfo);
+                    m_ops.last().m_maskedAltInfo = info.ptr();
+                    m_maskedAltInfos.append(WTF::move(info));
                 }
-#endif
             }
+#endif
 
             // If every repeated alternative starts with a non-BMP character class whose members
             // all share the same UTF-16 lead surrogate, then any candidate match position must
@@ -5969,6 +5980,11 @@ class YarrGenerator final : public YarrJITInfo {
             if (term.inputPosition != cursor)
                 return std::nullopt;
             auto& characterClass = *term.characterClass;
+            // In Unicode mode, a class which can match a non-BMP code point consumes one or two code
+            // units, so the offsets of subsequent terms are not fixed. End the BM window here to avoid
+            // false negatives (e.g. /(.A)\1/u).
+            if (m_decodeSurrogatePairs && (term.invert() || characterClass.hasNonBMPCharacters()))
+                return std::nullopt;
             auto addCharacterClass = [&](unsigned index) {
                 if (term.invert() || characterClass.m_anyCharacter) {
                     bmInfo.setAll(index);
@@ -6098,7 +6114,7 @@ class YarrGenerator final : public YarrJITInfo {
             dataLogLnIf(Options::verboseRegExpCompilation(), "Found characters fastpath lookahead ", charactersFastPath);
             JIT_COMMENT(m_jit, "BMSearch characters fastpath");
             auto loopHead = m_jit.label();
-            readCharacter(checkedOffset - endIndex + 1, m_regs.regT0);
+            readCharacterRaw(checkedOffset - endIndex + 1, m_regs.regT0);
             matched.append(m_jit.branch32(MacroAssembler::Equal, m_regs.regT0, MacroAssembler::TrustedImm32(charactersFastPath.at(0))));
             if (charactersFastPath.size() > 1)
                 matched.append(m_jit.branch32(MacroAssembler::Equal, m_regs.regT0, MacroAssembler::TrustedImm32(charactersFastPath.at(1))));
@@ -6112,7 +6128,7 @@ class YarrGenerator final : public YarrJITInfo {
         ASSERT(span.size());
         m_jit.move(MacroAssembler::TrustedImmPtr(span.data()), m_regs.regT1);
         auto loopHead = m_jit.label();
-        readCharacter(checkedOffset - endIndex + 1, m_regs.regT0);
+        readCharacterRaw(checkedOffset - endIndex + 1, m_regs.regT0);
 #if CPU(ARM64) || CPU(RISCV64)
         static_assert(sizeof(BoyerMooreBitmap::Map::WordType) == sizeof(uint64_t));
         static_assert(1 << 6 == 64);

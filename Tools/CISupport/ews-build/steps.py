@@ -2674,8 +2674,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
     haltOnFailure = False
     EMBEDDED_CHECKS = ['ios', 'ios-safer-cpp', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
     MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'api-mac-debug', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc-x86-64', 'jsc-debug-arm64']
-    LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'gtk3-libwebrtc', 'wpe-wk2', 'api-wpe']
-    EXTRA_LINUX_CHECKS = ['jsc-armv7', 'jsc-armv7-tests']
+    LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'gtk3-libwebrtc', 'wpe-wk2', 'api-wpe', 'jsc-wpe']
     WINDOWS_CHECKS = ['win']
     EWS_WEBKIT_FAILED = 0
     EWS_WEBKIT_PASSED = 1
@@ -2766,7 +2765,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         branch = self.getProperty('github.base.ref', DEFAULT_BRANCH)
         is_glib_stable_branch = bool(re.match(r'webkitglib/\d+\.\d+', branch))
         if is_glib_stable_branch:
-            queues_for_safe_merge = self.LINUX_CHECKS + self.EXTRA_LINUX_CHECKS
+            queues_for_safe_merge = self.LINUX_CHECKS
         else:
             queues_for_safe_merge = self.EMBEDDED_CHECKS + self.MACOS_CHECKS
             if self.getProperty('project') == CANONICAL_GITHUB_PROJECT:
@@ -2775,10 +2774,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
 
         for queue in queues_for_safe_merge:
             queue_data = response.json().get(queue, None)
-            # jsc-arm7-tests will not set its status if skipped, so we condition on jsc-armv7
-            if queue == 'jsc-armv7-tests' and response.json().get('jsc-armv7', {}).get('state', None) == 3:
-                yield self._addToLog('stdio', f'{queue}: Skipped\n')
-            elif queue_data:
+            if queue_data:
                 status = queue_data.get('state', None)
                 if status == 0:  # success
                     yield self._addToLog('stdio', f'{queue}: Success\n')
@@ -3822,9 +3818,6 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
         if platform in ('gtk', 'wpe', 'jsc-only'):
             self.command.extend(['--memory-limited', '--verbose'])
 
-        if self.getProperty('architecture') in ["armv7"]:
-            self.command = ["linux32"] + self.command
-
         self.command += customBuildFlag(self.getProperty('platform'), self.getProperty('fullPlatform'))
         self.command.extend(self.command_extra)
 
@@ -4207,6 +4200,7 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
     ENABLE_GUARD_MALLOC = False
     ENABLE_ADDITIONAL_ARGUMENTS = True
     EXIT_AFTER_FAILURES = '60'
+    MAX_FAILURES_TO_CHECK_RESULTS_DB = 60
     STRESS_MODE = False
     command = ['python3', 'Tools/Scripts/run-webkit-tests',
                '--no-build',
@@ -4366,7 +4360,7 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
             if not has_commit:
                 yield self._addToLog(self.results_db_log_name, f"'{identifier}' could not be found on the results database, falling back to tip-of-tree\n")
 
-        for test in failing_tests:
+        for test in failing_tests[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]:
             data = yield ResultsDatabase.is_test_pre_existing_failure(
                 test, configuration=configuration,
                 commit=identifier if has_commit else None,
@@ -4375,10 +4369,6 @@ class RunWebKitTests(shell.Test, AddToLogMixin, ShellMixin):
             if data['is_existing_failure']:
                 self.preexisting_failures_in_results_db.append(test)
                 self.failing_tests_filtered.remove(test)
-            else:
-                # Optimization to skip consulting results-db for every failure if we encounter any new failure,
-                # since until there is atleast one failure which is not pre-existing, we will anayways have to continue with retry logic.
-                break
 
     def evaluateResult(self, cmd):
         result = SUCCESS
@@ -4875,8 +4865,12 @@ class RunWebKitTestsWithoutChange(RunWebKitTests):
         first_results_did_exceed_test_failure_limit = self.getProperty('first_results_exceed_failure_limit', False)
         second_results_did_exceed_test_failure_limit = self.getProperty('second_results_exceed_failure_limit', False)
         if not first_results_did_exceed_test_failure_limit and not second_results_did_exceed_test_failure_limit:
-            first_results_failing_tests = set(self.getProperty('first_run_failures', set()))
-            second_results_failing_tests = set(self.getProperty('second_run_failures', set()))
+            # Skip tests that results-db already flagged as pre-existing (use the filtered lists); the
+            # analysis step ignores them anyways, so re-running them on the clean tree is wasted work.
+            first_run_failures_filtered = self.getProperty('first_run_failures_filtered', None)
+            first_results_failing_tests = set(first_run_failures_filtered if first_run_failures_filtered is not None else self.getProperty('first_run_failures', []))
+            second_run_failures_filtered = self.getProperty('second_run_failures_filtered', None)
+            second_results_failing_tests = set(second_run_failures_filtered if second_run_failures_filtered is not None else self.getProperty('second_run_failures', []))
             list_failed_tests_with_change = sorted(first_results_failing_tests.union(second_results_failing_tests))
             if list_failed_tests_with_change:
                 positional_test_paths = self.positional_test_paths_from_additional_arguments()
@@ -5095,9 +5089,6 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
         second_results_failing_tests = set(self.getProperty('second_run_failures', []))
         clean_tree_results_did_exceed_test_failure_limit = self.getProperty('clean_tree_results_exceed_failure_limit')
         clean_tree_results_failing_tests = set(self.getProperty('clean_tree_run_failures', []))
-        flaky_failures = first_results_failing_tests.union(second_results_failing_tests) - first_results_failing_tests.intersection(second_results_failing_tests)
-        num_flaky_failures = len(flaky_failures)
-        flaky_failures_string = ', '.join(sorted(flaky_failures)[:self.NUM_FAILURES_TO_DISPLAY])
 
         if (not first_results_failing_tests) and (not second_results_failing_tests):
             # If we've made it here, then layout-tests and re-run-layout-tests failed, which means
@@ -5114,6 +5105,19 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
                 self.setProperty('build_summary', message)
                 return defer.returnValue(SUCCESS)
             return defer.returnValue(self.retry_build('Unexpected infrastructure issue, retrying build'))
+
+        # Ignore failures results-db already flagged as pre-existing (use the filtered lists) so a
+        # pre-existing flaky test is not blamed on the change. Done after the empty-check above, which
+        # must use the raw lists to detect the infrastructure 'no results' case.
+        first_run_failures_filtered = self.getProperty('first_run_failures_filtered', None)
+        if first_run_failures_filtered is not None:
+            first_results_failing_tests = set(first_run_failures_filtered)
+        second_run_failures_filtered = self.getProperty('second_run_failures_filtered', None)
+        if second_run_failures_filtered is not None:
+            second_results_failing_tests = set(second_run_failures_filtered)
+        flaky_failures = first_results_failing_tests.union(second_results_failing_tests) - first_results_failing_tests.intersection(second_results_failing_tests)
+        num_flaky_failures = len(flaky_failures)
+        flaky_failures_string = ', '.join(sorted(flaky_failures)[:self.NUM_FAILURES_TO_DISPLAY])
 
         if first_results_did_exceed_test_failure_limit and second_results_did_exceed_test_failure_limit:
             if (len(first_results_failing_tests) - len(clean_tree_results_failing_tests)) <= 5:
@@ -6469,7 +6473,7 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
         configuration = self.getProperty('configuration', 'debug')
 
         # iOS simulators have significant boot overhead, so use a lower cap
-        MAX_TESTS = 5 if platform == 'ios' else 30
+        MAX_TESTS = 2 if platform == 'ios' else 30
 
         self.log_observer = logobserver.BufferLogObserver(wantStdout=True, wantStderr=True)
         self.addLogObserver('stdio', self.log_observer)

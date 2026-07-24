@@ -344,7 +344,8 @@ auto SectionParser::parseTableHelper(bool isImport) -> PartialResult
     ASSERT(!isShared);
     if (!limits) [[unlikely]]
         return makeUnexpected(WTF::move(limits.error()));
-    WASM_PARSER_FAIL_IF(initial > maxTableEntries, "Table's initial page count of "_s, initial, " is too big, maximum "_s, maxTableEntries);
+
+    uint32_t clampedInitial = initial > maxTableEntries ? static_cast<uint32_t>(maxTableEntries) : static_cast<uint32_t>(initial);
 
     ASSERT(!maximum || *maximum >= initial);
 
@@ -354,7 +355,7 @@ auto SectionParser::parseTableHelper(bool isImport) -> PartialResult
         bool isExtendedConstantExpression;
         v128_t unusedVector { };
         WASM_FAIL_IF_HELPER_FAILS(parseInitExpr(initOpcode, isExtendedConstantExpression, initialBitsOrImportNumber, unusedVector, type, typeForInitOpcode));
-        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, type), "Table init_expr opcode of type "_s, typeForInitOpcode.kind, " doesn't match table's type "_s, type.kind);
+        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, type), "Table init_expr opcode of type "_s, typeForInitOpcode.kind(), " doesn't match table's type "_s, type.kind());
 
         if (isExtendedConstantExpression)
             tableInitType = TableInformation::FromExtendedExpression;
@@ -369,7 +370,7 @@ auto SectionParser::parseTableHelper(bool isImport) -> PartialResult
     }
 
     TableElementType tableType = isSubtype(type, funcrefType()) ? TableElementType::Funcref : TableElementType::Externref;
-    m_info->tables.append(TableInformation(initial, maximum, isImport, tableType, type, tableInitType, initialBitsOrImportNumber, isTable64));
+    m_info->tables.append(TableInformation(clampedInitial, maximum, isImport, tableType, type, tableInitType, initialBitsOrImportNumber, isTable64));
 
     return { };
 }
@@ -485,7 +486,7 @@ auto SectionParser::parseGlobal() -> PartialResult
             global.initializationType = GlobalInformation::FromRefFunc;
         else
             global.initializationType = GlobalInformation::FromExpression;
-        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, global.type), "Global init_expr opcode of type "_s, typeForInitOpcode.kind, " doesn't match global's type "_s, global.type.kind);
+        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, global.type), "Global init_expr opcode of type "_s, typeForInitOpcode.kind(), " doesn't match global's type "_s, global.type.kind());
 
         if (initOpcode == RefFunc) {
             ASSERT(global.initializationType != GlobalInformation::FromVector);
@@ -829,7 +830,7 @@ auto SectionParser::parseInitExpr(uint8_t& opcode, bool& isExtendedConstantExpre
             TypeIndex typeIndex = m_info->rtt(ModuleInformation::typeSignatureIndexFromHeapType(heapType)).asTypeIndex();
             typeOfNull = Type { TypeKind::RefNull, typeIndex };
         } else
-            typeOfNull = Type { TypeKind::RefNull, static_cast<TypeIndex>(heapType) };
+            typeOfNull = Type { TypeKind::RefNull, typeIndexFromTypeKind(static_cast<TypeKind>(heapType)) };
         resultType = typeOfNull;
         bitsOrImportNumber = JSValue::encode(jsNull());
         break;
@@ -1290,7 +1291,7 @@ auto SectionParser::parseElementSegmentVectorOfExpressions(Type elementType, Vec
         bool isExtendedConstantExpression;
         v128_t unusedVector { };
         WASM_FAIL_IF_HELPER_FAILS(parseInitExpr(initOpcode, isExtendedConstantExpression, initialBitsOrIndex, unusedVector, elementType, typeForInitOpcode));
-        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, elementType), "Element section's "_s, elementNum, "th element's init_expr opcode of type "_s, typeForInitOpcode.kind, " doesn't match element's type "_s, elementType.kind);
+        WASM_PARSER_FAIL_IF(!isSubtype(typeForInitOpcode, elementType), "Element section's "_s, elementNum, "th element's init_expr opcode of type "_s, typeForInitOpcode.kind(), " doesn't match element's type "_s, elementType.kind());
 
         if (isExtendedConstantExpression)
             initType = Element::InitializationType::FromExtendedExpression;

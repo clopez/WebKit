@@ -6005,8 +6005,15 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
         case AXNotification::PressedStateChanged:
         case AXNotification::TextChanged:
         case AXNotification::TextSecurityChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), NodeUpdateOptions::nodeUpdate());
+            break;
         case AXNotification::ValueChanged:
             tree->queueNodeUpdate(notification.first->objectID(), NodeUpdateOptions::nodeUpdate());
+            // A text control's value and selection must stay consistent for clients that read the
+            // selection in response to this notification, so push the current selection alongside the
+            // value rather than letting it arrive later on the selection-change channel.
+            if (notification.first->isTextControl())
+                onSelectedTextChanged(notification.first->selectedVisiblePositionRange(), notification.first.ptr());
             break;
         case AXNotification::LabelChanged: {
             tree->queueNodeUpdate(notification.first->objectID(), NodeUpdateOptions::nodeUpdate());
@@ -6896,6 +6903,13 @@ bool AXObjectCache::addRelation(Element& origin, const QualifiedName& attribute)
 
 void AXObjectCache::addLabelForRelation(Element& origin)
 {
+    RefPtr label = dynamicDowncast<HTMLLabelElement>(origin);
+
+    if (label) {
+        if (const auto& controlID = label->attributeWithoutSynchronization(forAttr); !controlID.isEmpty())
+            m_referencedRelationTargetIds.add(controlID);
+    }
+
     // A detached label has no accessibility object, so its label relations have no consumer. Skipping
     // it here also avoids HTMLLabelElement::control()'s scan of the label's descendants.
     if (!origin.isInTreeScope())
@@ -6904,7 +6918,7 @@ void AXObjectCache::addLabelForRelation(Element& origin)
     bool addedRelation = false;
 
     // LabelFor relations are established for <label for=...>.
-    if (RefPtr label = dynamicDowncast<HTMLLabelElement>(origin)) {
+    if (label) {
         if (RefPtr control = Accessibility::controlForLabelElement(*label)) {
             // Always add NativeLabelFor for geometry purposes.
             addedRelation = addRelation(origin, *control, AXRelation::NativeLabelFor);

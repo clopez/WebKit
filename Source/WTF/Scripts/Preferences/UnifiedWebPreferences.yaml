@@ -379,7 +379,7 @@ AllowUniversalAccessFromFileURLs:
     WebCore:
       default: true
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 AllowViewportShrinkToFitContent:
   type: bool
   status: internal
@@ -651,6 +651,21 @@ ApplePayEnabled:
       default: false
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+
+AsyncAudioSessionActivationEnabled:
+  type: bool
+  status: stable
+  category: media
+  humanReadableName: "Async Audio Session Activation"
+  humanReadableDescription: "Use async IPC for audio session activation"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+  sharedPreferenceForWebProcess: true
 
 # FIXME: This is on by default in WebKit2 PLATFORM(COCOA). Perhaps we should consider turning it on for WebKitLegacy as well.
 AsyncClipboardAPIEnabled:
@@ -1827,7 +1842,7 @@ CSSWrapInsideEnabled:
     WebCore:
       default: true
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 CacheAPIEnabled:
   type: bool
   status: embedder
@@ -3075,7 +3090,7 @@ ExperimentalSandboxEnabled:
 
 ExplicitResourceManagementEnabled:
   type: bool
-  status: testable
+  status: stable
   category: javascript
   humanReadableName: "Explicit Resource Management"
   humanReadableDescription: "Enable explicit resource management builtins and syntax."
@@ -3084,7 +3099,7 @@ ExplicitResourceManagementEnabled:
   sharedPreferenceForWebProcess: true
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 ExposeCaptureDevicesAfterCaptureEnabled:
   type: bool
@@ -3473,6 +3488,7 @@ FullScreenEnabled:
   humanReadableDescription: "Fullscreen API"
   condition: ENABLE(FULLSCREEN_API)
   hidden: EXPERIMENTAL_FULLSCREEN_API_HIDDEN
+  inspectorOverride: true
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3659,18 +3675,13 @@ GetUserMediaRequiresFocus:
       default: true
 
 GlobalPrivacyControlEnabled:
-  type: bool
-  status: testable
-  category: privacy
+  type: "std::optional<bool>"
+  status: embedder
   humanReadableName: "Global Privacy Control"
   humanReadableDescription: "Enable Global Privacy Control (GPC) signal"
   defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
     WebCore:
-      default: false
+      default: std::nullopt
 
 GoogleAntiFlickerOptimizationQuirkEnabled:
   type: bool
@@ -4630,7 +4641,7 @@ IsFirstPartyWebsiteDataRemovalDisabled:
     WebCore:
       default: false
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 IsFirstPartyWebsiteDataRemovalLiveOnTestingEnabled:
   type: bool
   status: developer
@@ -4645,7 +4656,7 @@ IsFirstPartyWebsiteDataRemovalLiveOnTestingEnabled:
     WebCore:
       default: false
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 IsFirstPartyWebsiteDataRemovalReproTestingEnabled:
   type: bool
   status: developer
@@ -4742,7 +4753,7 @@ IteratorSequencingEnabled:
     WebKit:
       default: true
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 ItpDebugModeEnabled:
   type: bool
   status: developer
@@ -4848,6 +4859,23 @@ JavaScriptRuntimeFlags:
       default: 0
     WebCore:
       default: '{ }'
+
+JointIterationEnabled:
+  type: bool
+  status: testable
+  category: javascript
+  humanReadableName: "Joint Iteration"
+  humanReadableDescription: "Expose the Iterator.zip and Iterator.zipKeyed methods"
+  webcoreBinding: none
+  jscOptionName: useJointIteration
+  sharedPreferenceForWebProcess: true
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 KeyboardDismissalGestureEnabled:
   type: bool
@@ -6325,6 +6353,7 @@ NotificationsEnabled:
   humanReadableName: "Notifications"
   humanReadableDescription: "Enable the Notifications API"
   condition: ENABLE(NOTIFICATIONS)
+  inspectorOverride: true
   defaultValue:
     WebKitLegacy:
       "PLATFORM(IOS_FAMILY)": false
@@ -6637,7 +6666,6 @@ PeerConnectionEnabled:
       default: true
     WebKit:
       "USE(LIBWEBRTC)": WebKit::defaultPeerConnectionEnabledAvailable()
-      "USE(GSTREAMER_WEBRTC)": true
       default: false
     WebCore:
       default: true
@@ -6776,6 +6804,7 @@ PointerLockEnabled:
   condition: ENABLE(POINTER_LOCK)
   humanReadableName: "Pointer Lock API"
   humanReadableDescription: "Enable the Pointer Lock API"
+  inspectorOverride: true
   defaultValue:
     WebKitLegacy:
       "PLATFORM(IOS_FAMILY)": false
@@ -6977,6 +7006,7 @@ PushAPIEnabled:
   category: dom
   humanReadableName: "Push API"
   humanReadableDescription: "Enable Push API"
+  inspectorOverride: true
   defaultValue:
     WebCore:
       default: false
@@ -8133,7 +8163,7 @@ ShouldTakeNearSuspendedAssertions:
     WebCore:
       default: true
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 # FIXME: This is not used in WebCore, so should not have a binding to WebCore::Settings.
 ShouldUseServiceWorkerShortTimeout:
   type: bool
@@ -8950,7 +8980,7 @@ ThreadedTimeBasedAnimationsEnabled:
     WebCore:
       default: true
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 TiledScrollingIndicatorVisible:
   type: bool
   status: internal
@@ -10302,11 +10332,9 @@ WebRTCEncodedTransformEnabled:
       default: false
     WebKit:
       "USE(LIBWEBRTC) && PLATFORM(COCOA)": WebKit::defaultPeerConnectionEnabledAvailable()
-      "USE(GSTREAMER_WEBRTC)": true
       default: false
     WebCore:
       "USE(LIBWEBRTC)": true
-      "USE(GSTREAMER_WEBRTC)": true
       default: false
   disableInLockdownMode: true
 
@@ -10388,7 +10416,7 @@ WebRTCMediaPipelineAdditionalLoggingEnabled:
     WebCore:
       default: false
 
-# FIXME: This is not relevant for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+# FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 WebRTCPlatformCodecsInGPUProcessEnabled:
   type: bool
   status: embedder

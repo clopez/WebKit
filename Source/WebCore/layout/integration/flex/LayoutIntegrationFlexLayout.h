@@ -26,6 +26,7 @@
 #pragma once
 
 #include <WebCore/FlexFormattingContext.h>
+#include <WebCore/FlexIntegrationUtils.h>
 #include <wtf/CheckedRef.h>
 
 namespace WebCore {
@@ -62,6 +63,10 @@ private:
     RenderFlexibleBox& flexBox() const LIFETIME_BOUND { return m_flexBox; }
 
     const CheckedRef<RenderFlexibleBox> m_flexBox;
+    FlexIntegrationUtils m_integrationUtils;
+
+    size_t m_numberOfFlexItemsOnFirstLine { 0 };
+    size_t m_numberOfFlexItemsOnLastLine { 0 };
 };
 
 }

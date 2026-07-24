@@ -424,6 +424,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/FetchRequestCache.idl
     Modules/fetch/FetchRequestCredentials.idl
     Modules/fetch/FetchRequestDestination.idl
+    Modules/fetch/FetchRequestDuplex.idl
     Modules/fetch/FetchRequestInit.idl
     Modules/fetch/FetchRequestMode.idl
     Modules/fetch/FetchRequestRedirect.idl
@@ -924,6 +925,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webtransport/WebTransportSendStream.idl
     Modules/webtransport/WebTransportSendStreamOptions.idl
     Modules/webtransport/WebTransportSendStreamStats.idl
+    Modules/webtransport/WebTransportWriter.idl
 
 
     animation/AnimationEffect.idl
@@ -3018,6 +3020,7 @@ GENERATE_BINDINGS(WebCoreBindings
     DESTINATION ${WebCore_DERIVED_SOURCES_DIR}
     GENERATOR JS
     SUPPLEMENTAL_DEPFILE ${SUPPLEMENTAL_DEPENDENCY_FILE}
+    INSPECTOR_NATIVE_FUNCTION_PARAMETERS_FILE ${WebCore_DERIVED_SOURCES_DIR}/InspectorNativeFunctionParameters.json
     # Auxiliary translation unit emitted alongside JSDOMWindow.cpp by
     # CodeGeneratorJS.pm to keep JSDOMWindow.cpp's compile time off the build's
     # critical path.

@@ -831,11 +831,6 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-eleme
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/natural-size-orientation.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-submit-remove-children.html [ Skip ]
 webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-anchor-nested-display.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/250171 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-scroll-within.html [ Skip ]
-webkit.org/b/318835 imported/w3c/web-platform-tests/html/semantics/popovers/popover-focus-previous-crash.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-interactions.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting-anchor.tentative.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting-hints.html [ Pass Failure ]
 imported/w3c/web-platform-tests/inert/inert-with-fullscreen-element.html [ Pass Failure ]
 imported/w3c/web-platform-tests/screen-orientation/active-lock.html [ Pass Failure ]
@@ -1398,12 +1393,6 @@ webkit.org/b/247283 imported/w3c/web-platform-tests/fetch/metadata/generated/css
 # Fetch features that are not implemented.
 imported/w3c/web-platform-tests/fetch/corb [ Skip ]
 imported/w3c/web-platform-tests/fetch/fetch-later [ Skip ]
-
-# ReadableStream upload is not supported.
-imported/w3c/web-platform-tests/fetch/api/basic/request-upload.h2.any.html [ Skip ]
-imported/w3c/web-platform-tests/fetch/api/basic/request-upload.h2.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/fetch/api/basic/request-upload.h2.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/fetch/api/basic/request-upload.h2.any.sharedworker.html [ Skip ]
 
 # This fetch test crashes.
 [ Debug ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.serviceworker.html [ Skip ]
@@ -3077,7 +3066,6 @@ imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-origin-3.html [ 
 imported/w3c/web-platform-tests/css/css-masking/animations/clip-path-interpolation-shape-arc-direction-agnostic-radius.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-polygon-014.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-url-reference-empty-while-loading.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-url-reference-external.html [ ImageOnlyFailure ]
 
 # A support file for a test
 imported/w3c/web-platform-tests/css/css-masking/clip-path/svg-clipPath.svg [ Skip ]
@@ -5099,9 +5087,7 @@ webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/ch-uni
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/ch-units-vrl-006.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/ch-units-vrl-007.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/ch-units-vrl-008.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/float-in-htb-in-vrl.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/mongolian-orientation-001.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/nested-orthogonal-001.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/normal-flow-overconstrained-vrl-002.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/normal-flow-overconstrained-vrl-004.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/overconstrained-rel-pos-ltr-left-right-vrl-004.xht [ ImageOnlyFailure ]
@@ -5124,10 +5110,6 @@ webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-o
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-sideways-vrl-100.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-upright-vlr-100.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-upright-vrl-100.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/three-levels-of-orthogonal-flows.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/two-levels-of-orthogonal-flows-fixed.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/two-levels-of-orthogonal-flows-percentage.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/two-levels-of-orthogonal-flows.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/available-size-020.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/available-size-021.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/available-size-022.html [ ImageOnlyFailure ]
@@ -6790,7 +6772,7 @@ imported/w3c/web-platform-tests/webtransport/streams-close.https.any.servicework
 imported/w3c/web-platform-tests/webtransport/streams-close.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/streams-close.https.any.worker.html [ Skip ]
 
-# Backend gaps (datagram flow-control, getStats, close, historical, idlharness exportKeyingMaterial).
+# Backend gaps (datagram flow-control, getStats, close, historical).
 imported/w3c/web-platform-tests/webtransport/datagrams.https.any.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/datagrams.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/datagrams.https.any.sharedworker.html [ Skip ]
@@ -6807,10 +6789,6 @@ imported/w3c/web-platform-tests/webtransport/historical.https.sub.any.html [ Ski
 imported/w3c/web-platform-tests/webtransport/historical.https.sub.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/historical.https.sub.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/historical.https.sub.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.html [ Skip ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.worker.html [ Skip ]
 
 # Some of Canvas Layer API features are not supported yet.
 imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.isotropic.html [ ImageOnlyFailure ]
