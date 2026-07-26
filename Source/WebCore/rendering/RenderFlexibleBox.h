@@ -75,15 +75,10 @@ public:
     // Flex-container queries used by non-flex layout code (RenderBox/RenderBlock/RenderBlockFlow/InspectorOverlay);
     // thin proxies to FlexFormattingUtils, which stays internal to the flex formatting context.
     using GapType = FlexFormattingUtils::GapType;
-    bool useContentBasedMinimumBlockSize(const RenderBox& flexItem) const;
     bool hasStretchedFlexItemWithAspectRatio() const;
     LayoutUnit computeGap(GapType) const;
     bool NODELETE isHorizontalFlow() const;
     bool isMultiline() const;
-    bool mainAxisIsFlexItemInlineAxis(const RenderBox& flexItem) const;
-    Style::FlexBasis flexBasisForFlexItem(const RenderBox& flexItem) const;
-    ItemPosition alignmentForFlexItem(const RenderBox& flexItem) const;
-    bool hasDefiniteCrossSizeForFlexItem(const RenderBox& flexItem) const;
 
     std::optional<LayoutUnit> usedFlexItemOverridingLogicalHeightForPercentageResolution(const RenderBox&);
     bool canUseFlexItemForPercentageResolution(const RenderBox&);
@@ -92,7 +87,7 @@ public:
     void flexItemWillBeRemoved(const RenderBox& flexItem);
 
     LayoutUnit flexItemContentLogicalHeight(const RenderBox& flexItem) const;
-    void setFlexItemContentLogicalHeightIfNeeded(const RenderBox& flexItem, LayoutUnit height);
+    void setFlexItemContentLogicalHeightFromLayout(const RenderBox& flexItem, LayoutUnit height);
 
     // Returns true if the position changed. In that case, the flexItem will have to be laid out again.
     bool setStaticPositionForPositionedLayout(const RenderBox&);
@@ -109,14 +104,16 @@ private:
     friend class FlexFormattingUtils;
     friend class LayoutIntegration::FlexLayout;
     friend class LayoutIntegration::FlexIntegrationUtils;
-    friend class LayoutIntegration::ScopedCrossAxisOverrideForFlexItem;
+    friend class LayoutIntegration::FlexItemIntrinsicWidthComputationScope;
 
     using FlexItemBorderBoxRects = Vector<LayoutRect, 4>;
 
     void appendFlexItemBorderBoxRects(FlexItemBorderBoxRects&);
     void repaintFlexItemsDuringLayoutIfMoved(const FlexItemBorderBoxRects&);
 
-    template<typename SizeType> bool canComputePercentageFlexBasis(const RenderBox& flexItem, const SizeType&, UpdatePercentageHeightDescendants);
+    template<typename SizeType> bool canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, const SizeType&, UpdatePercentageHeightDescendants);
+    // Whether a percentage resolves at all, for callers that only need the yes/no and have no percentage of their own.
+    bool canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, UpdatePercentageHeightDescendants);
     template<typename SizeType> bool flexItemMainSizeIsDefinite(const RenderBox&, const SizeType&);
 
     void initializeMarginTrimState();
@@ -130,10 +127,6 @@ private:
 
     FlexLayoutState& flexLayoutState() LIFETIME_BOUND { ASSERT(m_flexLayoutState); return *m_flexLayoutState; }
 
-    void setBlockAxisSizeForFlexItem(const RenderBox& flexItem, LayoutUnit size) { m_blockAxisSize.set(flexItem, size); }
-    std::optional<LayoutUnit> blockAxisSizeForFlexItem(const RenderBox& flexItem) const { return m_blockAxisSize.getOptional(flexItem); }
-    void cacheFlexItemContentLogicalHeightIfAllowed(const RenderBox& flexItem, LayoutUnit height);
-    LayoutUnit computeBlockAxisContentSizeForFlexItem(RenderBox& flexItem);
     void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox& flexItem);
     void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
     bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
@@ -141,13 +134,6 @@ private:
     void addItemAtFlexLineEnd(const RenderBox& flexItem) { m_marginTrimItems.m_itemsAtFlexLineEnd.add(flexItem); }
     void addItemOnFirstFlexLine(const RenderBox& flexItem) { m_marginTrimItems.m_itemsOnFirstFlexLine.add(flexItem); }
     void addItemOnLastFlexLine(const RenderBox& flexItem) { m_marginTrimItems.m_itemsOnLastFlexLine.add(flexItem); }
-
-    // Inner main size for flex items where main axis is the item's block axis (column flex or orthogonal).
-    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_blockAxisSize;
-
-    // This is used to cache the intrinsic size on the cross axis to avoid
-    // relayouts when stretching.
-    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_contentLogicalHeights;
 
     Vector<SingleThreadWeakPtr<RenderBox>> m_flexItems;
     // The flex formatting context integration: RenderFlexibleBox owns it and befriends it so it can reach the
@@ -166,6 +152,8 @@ private:
 
     std::optional<FlexLayoutState> m_flexLayoutState;
     bool m_inSimplifiedLayout { false };
+    // FIXME: Remove along with m_flexLayoutState's overly wide scope (see layoutBlock).
+    bool m_inPostFlexUpdateScrollbarLayout { false };
     mutable bool m_inFlexItemIntrinsicWidthComputation { false };
 };
 

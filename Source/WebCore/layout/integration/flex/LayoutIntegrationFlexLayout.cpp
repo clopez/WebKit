@@ -42,7 +42,7 @@ namespace LayoutIntegration {
 
 FlexLayout::FlexLayout(RenderFlexibleBox& flexBox)
     : m_flexBox(flexBox)
-    , m_integrationUtils(flexBox)
+    , m_integrationUtils(flexBox, m_flexItemContentCache)
 {
 }
 
@@ -273,7 +273,7 @@ CheckedPtr<const RenderBox> FlexLayout::baselineFlexItemInLine(size_t lineStart,
 LayoutUnit FlexLayout::staticMainAxisPositionForPositionedFlexItem(const RenderBox& flexItem)
 {
     FlexFormattingUtils utils { flexBox() };
-    auto flexItemMainExtent = utils.mainAxisMarginExtentForFlexItem(flexItem) + utils.mainAxisExtentForFlexItem(flexItem);
+    auto flexItemMainExtent = utils.resolveMainAxisMarginExtentForFlexItem(flexItem) + utils.mainAxisExtentForFlexItem(flexItem);
     auto mainAxisContentSize = FlexFormattingUtils::isColumnFlow(flexBox()) ? flexBox().contentBoxLogicalHeight() : flexBox().contentBoxLogicalWidth();
     auto availableSpace = mainAxisContentSize - flexItemMainExtent;
     auto isReverse = utils.isColumnOrRowReverse();
@@ -323,6 +323,26 @@ bool FlexLayout::setStaticPositionForPositionedLayout(const RenderBox& flexItem)
         }
     }
     return positionChanged;
+}
+
+LayoutUnit FlexLayout::flexItemContentLogicalHeight(const RenderBox& flexItem) const
+{
+    return m_integrationUtils.flexItemContentLogicalHeight(flexItem);
+}
+
+void FlexLayout::setFlexItemContentLogicalHeightFromLayout(const RenderBox& flexItem, LayoutUnit height)
+{
+    m_integrationUtils.setFlexItemContentLogicalHeightFromLayout(flexItem, height);
+}
+
+void FlexLayout::invalidateBlockAxisSizeForFlexItem(const RenderBox& flexItem)
+{
+    m_integrationUtils.invalidateBlockAxisSizeForFlexItem(flexItem);
+}
+
+void FlexLayout::flexItemWillBeRemoved(const RenderBox& flexItem)
+{
+    m_integrationUtils.flexItemWillBeRemoved(flexItem);
 }
 
 }
