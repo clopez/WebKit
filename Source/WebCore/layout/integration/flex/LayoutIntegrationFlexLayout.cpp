@@ -42,7 +42,6 @@ namespace LayoutIntegration {
 
 FlexLayout::FlexLayout(RenderFlexibleBox& flexBox)
     : m_flexBox(flexBox)
-    , m_integrationUtils(flexBox, m_flexItemContentCache)
 {
 }
 
@@ -141,18 +140,16 @@ FlexLayoutItems FlexLayout::collectFlexItems(RelayoutChildren relayoutChildren, 
 
 void FlexLayout::layout(RelayoutChildren relayoutChildren)
 {
+    auto flexLayoutStateScope = SetForScope { m_flexLayoutState, FlexLayoutState { } };
+
     // Reset the per-layout line counts the baseline queries read; the flex algorithm below sets them when it runs.
     m_numberOfFlexItemsOnFirstLine = 0;
     m_numberOfFlexItemsOnLastLine = 0;
 
     auto constraints = flexLayoutConstraints();
     auto flexItems = collectFlexItems(relayoutChildren, constraints);
-    if (flexItems.isEmpty()) {
-        flexBox().updateFlexContainerLogicalHeight(0_lu);
-        return;
-    }
 
-    auto flexLayoutResult = WebCore::FlexFormattingContext(m_integrationUtils, constraints).layout(flexItems);
+    auto flexLayoutResult = WebCore::FlexFormattingContext(flexBox(), constraints, *m_flexLayoutState, m_flexItemContentCache).layout(flexItems);
     if (flexLayoutResult.alignContentStartOverflow)
         flexBox().m_alignContentStartOverflow = *flexLayoutResult.alignContentStartOverflow;
     flexBox().m_justifyContentStartOverflow = flexLayoutResult.justifyContentStartOverflow;
@@ -325,24 +322,27 @@ bool FlexLayout::setStaticPositionForPositionedLayout(const RenderBox& flexItem)
     return positionChanged;
 }
 
-LayoutUnit FlexLayout::flexItemContentLogicalHeight(const RenderBox& flexItem) const
-{
-    return m_integrationUtils.flexItemContentLogicalHeight(flexItem);
-}
-
 void FlexLayout::setFlexItemContentLogicalHeightFromLayout(const RenderBox& flexItem, LayoutUnit height)
 {
-    m_integrationUtils.setFlexItemContentLogicalHeightFromLayout(flexItem, height);
+    // Captures a flex item's content logical height mid-layout, before computeLogicalHeight
+    // applies fixed/min/max or any overridingBorderBoxLogicalHeight set by the flex container for stretch alignment.
+    // Reading logicalHeight() at the end of the flex item's layout would give the constrained/overridden value, not the content height the flex algorithm needs.
+    auto canSetFlexItemContentLogicalHeight = !flexItem.isFloatingOrOutOfFlowPositioned() && !flexItem.shouldComputeLogicalHeightFromAspectRatio() && !is<RenderReplaced>(flexItem);
+    if (!canSetFlexItemContentLogicalHeight)
+        return;
+    if (flexItem.overridingBorderBoxLogicalHeight())
+        return;
+    m_flexItemContentCache.setContentLogicalHeight(flexItem, height);
 }
 
 void FlexLayout::invalidateBlockAxisSizeForFlexItem(const RenderBox& flexItem)
 {
-    m_integrationUtils.invalidateBlockAxisSizeForFlexItem(flexItem);
+    m_flexItemContentCache.clearBlockAxisSize(flexItem);
 }
 
 void FlexLayout::flexItemWillBeRemoved(const RenderBox& flexItem)
 {
-    m_integrationUtils.flexItemWillBeRemoved(flexItem);
+    m_flexItemContentCache.remove(flexItem);
 }
 
 }

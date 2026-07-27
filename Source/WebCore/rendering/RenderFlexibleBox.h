@@ -33,7 +33,6 @@
 #include <WebCore/BaselineAlignment.h>
 #include <WebCore/FlexFormattingContext.h>
 #include <WebCore/FlexFormattingUtils.h>
-#include <WebCore/FlexLayoutState.h>
 #include <WebCore/LayoutIntegrationFlexLayout.h>
 #include <WebCore/RenderBlock.h>
 #include <wtf/Range.h>
@@ -86,15 +85,13 @@ public:
     void invalidateBlockAxisSizeForFlexItem(const RenderBox& flexItem);
     void flexItemWillBeRemoved(const RenderBox& flexItem);
 
-    LayoutUnit flexItemContentLogicalHeight(const RenderBox& flexItem) const;
     void setFlexItemContentLogicalHeightFromLayout(const RenderBox& flexItem, LayoutUnit height);
 
     // Returns true if the position changed. In that case, the flexItem will have to be laid out again.
     bool setStaticPositionForPositionedLayout(const RenderBox&);
 
-    bool isComputingFlexBaseSizes() const { return m_flexLayoutState && m_flexLayoutState->phase() == FlexLayoutState::Phase::ComputingFlexBaseSizes; }
-
-    bool isInCrossAxisStretchLayout() const { return m_flexLayoutState && m_flexLayoutState->phase() == FlexLayoutState::Phase::CrossAxisItemSizing; }
+    bool isComputingFlexBaseSizes() const;
+    bool isInCrossAxisStretchLayout() const;
 
 protected:
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const override;
@@ -123,10 +120,6 @@ private:
 
     void prepareFlexItemsAndMargins();
 
-    FlexContainerUsedExtents updateFlexContainerLogicalHeight(LayoutUnit flexContentBlockExtent);
-
-    FlexLayoutState& flexLayoutState() LIFETIME_BOUND { ASSERT(m_flexLayoutState); return *m_flexLayoutState; }
-
     void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox& flexItem);
     void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
     bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
@@ -150,10 +143,7 @@ private:
     LayoutUnit m_alignContentStartOverflow { 0 };
     LayoutUnit m_justifyContentStartOverflow { 0 };
 
-    std::optional<FlexLayoutState> m_flexLayoutState;
     bool m_inSimplifiedLayout { false };
-    // FIXME: Remove along with m_flexLayoutState's overly wide scope (see layoutBlock).
-    bool m_inPostFlexUpdateScrollbarLayout { false };
     mutable bool m_inFlexItemIntrinsicWidthComputation { false };
 };
 

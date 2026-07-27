@@ -54,10 +54,10 @@ namespace LayoutIntegration {
 
 class FlexIntegrationUtils {
 public:
-    FlexIntegrationUtils(RenderFlexibleBox&, FlexItemContentCache&);
+    FlexIntegrationUtils(RenderFlexibleBox&, FlexLayoutState&, FlexItemContentCache&);
 
     RenderFlexibleBox& flexBox() const LIFETIME_BOUND { return m_flexBox; }
-    FlexLayoutState& flexLayoutState() const;
+    FlexLayoutState& flexLayoutState() const LIFETIME_BOUND;
 
     void applyStretchedLogicalHeightToFlexItem(const FlexLayoutItem&, LayoutUnit blockSize);
     void layoutFlexItemForStretchedCrossSize(const FlexLayoutItem&, LayoutUnit crossSize, LogicalBoxAxis crossAxis);
@@ -85,12 +85,6 @@ public:
     LayoutUnit flexItemContentLogicalHeight(const FlexLayoutItem&) const;
     LayoutUnit computeBlockAxisContentSizeForFlexItem(const FlexLayoutItem&);
 
-    LayoutUnit flexItemContentLogicalHeight(const RenderBox& flexItem) const;
-    void setFlexItemContentLogicalHeightFromLayout(const RenderBox& flexItem, LayoutUnit);
-    void restoreFlexItemContentLogicalHeight(const RenderBox& flexItem, LayoutUnit);
-    LayoutUnit computeBlockAxisContentSizeForFlexItem(RenderBox& flexItem);
-    void invalidateBlockAxisSizeForFlexItem(const RenderBox& flexItem);
-    void flexItemWillBeRemoved(const RenderBox& flexItem);
     template<typename SizeType> bool flexItemMainSizeIsDefinite(const FlexLayoutItem&, const SizeType&);
     template<typename SizeType> std::optional<LayoutUnit> computeMainAxisExtentForFlexItem(const FlexLayoutItem&, const SizeType&, LayoutUnit mainAxisSizeForLengthResolution);
     LayoutUnit maxContentMainAxisExtentForFlexItem(const FlexLayoutItem&);
@@ -105,6 +99,7 @@ public:
 
 private:
     const CheckedRef<RenderFlexibleBox> m_flexBox;
+    FlexLayoutState& m_flexLayoutState;
     FlexItemContentCache& m_flexItemContentCache;
 };
 
