@@ -68,13 +68,13 @@ void FlexIntegrationUtils::applyStretchedLogicalHeightToFlexItem(const FlexLayou
     // correctly even when there's an overrideHeight.
     auto canSetFlexItemContentLogicalHeight = !is<RenderReplaced>(renderer) && !renderer.shouldComputeLogicalHeightFromAspectRatio();
     if (!canSetFlexItemContentLogicalHeight) {
-        flexBox().dirtyPercentHeightDescendantsWithinFlexItem(renderer);
+        dirtyPercentHeightDescendantsWithinFlexItem(renderer);
         layoutFlexItemForStretchedCrossSize(flexLayoutItem, blockSize, LogicalBoxAxis::Block);
         return;
     }
 
     auto contentLogicalHeight = flexItemContentLogicalHeight(flexLayoutItem);
-    flexBox().dirtyPercentHeightDescendantsWithinFlexItem(renderer);
+    dirtyPercentHeightDescendantsWithinFlexItem(renderer);
     layoutFlexItemForStretchedCrossSize(flexLayoutItem, blockSize, LogicalBoxAxis::Block);
     m_flexItemContentCache.setContentLogicalHeight(renderer, contentLogicalHeight);
 }
@@ -90,6 +90,26 @@ void FlexIntegrationUtils::layoutFlexItemForStretchedCrossSize(const FlexLayoutI
     renderer.layoutIfNeeded();
 }
 
+void FlexIntegrationUtils::resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem)
+{
+    if (!FlexFormattingUtils::hasAutoMarginsInCrossAxis(flexItem))
+        return;
+
+    flexItem.updateLogicalHeight();
+    if (FlexFormattingUtils::isHorizontalFlow(flexBox())) {
+        if (flexItem.style().marginTop().isAuto())
+            flexItem.setMarginTop(0_lu);
+        if (flexItem.style().marginBottom().isAuto())
+            flexItem.setMarginBottom(0_lu);
+        return;
+    }
+
+    if (flexItem.style().marginLeft().isAuto())
+        flexItem.setMarginLeft(0_lu);
+    if (flexItem.style().marginRight().isAuto())
+        flexItem.setMarginRight(0_lu);
+}
+
 void FlexIntegrationUtils::layoutFlexItemWithMainSize(FlexLayoutItem& flexLayoutItem, LayoutUnit mainSize)
 {
     auto& flexItem = flexLayoutItem.renderer.get();
@@ -101,7 +121,7 @@ void FlexIntegrationUtils::layoutFlexItemWithMainSize(FlexLayoutItem& flexLayout
 
     if (mainSizeIsUnchanged) {
         // To avoid double applying margin changes in updateAutoMarginsInCrossAxis, we reset the margins here.
-        flexBox().resetAutoMarginsAndLogicalTopInCrossAxis(flexItem);
+        resetAutoMarginsAndLogicalTopInCrossAxis(flexItem);
     }
 
     // We may have already forced relayout for orthogonal flowing children in computeInnerFlexBaseSizeForFlexItem.
@@ -121,7 +141,7 @@ void FlexIntegrationUtils::layoutFlexItemWithMainSize(FlexLayoutItem& flexLayout
         // correctly, because its descendants are not sized correctly yet. Our
         // previous layout of the child was done without an override height set.
         // So, redo it here.
-        return flexBox().flexItemHasPercentHeightDescendants(flexItem);
+        return flexItemHasPercentHeightDescendants(flexItem);
     };
 
     if (shouldMarkFlexItemForLayout())
@@ -270,7 +290,7 @@ void FlexIntegrationUtils::trimMainAxisMarginStart(FlexLayoutItem& flexLayoutIte
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::InlineStart);
     else
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::BlockStart);
-    addItemAtFlexLineStart(flexLayoutItem);
+    flexBox().flexLayout().addItemAtFlexLineStart(flexLayoutItem.renderer.get());
 }
 
 void FlexIntegrationUtils::trimMainAxisMarginEnd(FlexLayoutItem& flexLayoutItem)
@@ -280,7 +300,7 @@ void FlexIntegrationUtils::trimMainAxisMarginEnd(FlexLayoutItem& flexLayoutItem)
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::InlineEnd);
     else
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::BlockEnd);
-    addItemAtFlexLineEnd(flexLayoutItem);
+    flexBox().flexLayout().addItemAtFlexLineEnd(flexLayoutItem.renderer.get());
 }
 
 void FlexIntegrationUtils::trimCrossAxisMarginStart(const FlexLayoutItem& flexLayoutItem)
@@ -289,7 +309,7 @@ void FlexIntegrationUtils::trimCrossAxisMarginStart(const FlexLayoutItem& flexLa
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::BlockStart);
     else
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::InlineStart);
-    addItemOnFirstFlexLine(flexLayoutItem);
+    flexBox().flexLayout().addItemOnFirstFlexLine(flexLayoutItem.renderer.get());
 }
 
 void FlexIntegrationUtils::trimCrossAxisMarginEnd(const FlexLayoutItem& flexLayoutItem)
@@ -298,7 +318,7 @@ void FlexIntegrationUtils::trimCrossAxisMarginEnd(const FlexLayoutItem& flexLayo
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::BlockEnd);
     else
         setTrimmedMarginForChild(flexLayoutItem, Style::MarginTrimSide::InlineEnd);
-    addItemOnLastFlexLine(flexLayoutItem);
+    flexBox().flexLayout().addItemOnLastFlexLine(flexLayoutItem.renderer.get());
 }
 
 LayoutUnit FlexIntegrationUtils::adjustBorderBoxLogicalWidthForBoxSizing(LayoutUnit computedLogicalWidth) const
@@ -306,29 +326,68 @@ LayoutUnit FlexIntegrationUtils::adjustBorderBoxLogicalWidthForBoxSizing(LayoutU
     return flexBox().adjustBorderBoxLogicalWidthForBoxSizing(computedLogicalWidth);
 }
 
-void FlexIntegrationUtils::addItemAtFlexLineStart(const FlexLayoutItem& flexLayoutItem)
+void FlexIntegrationUtils::dirtyPercentHeightDescendantsWithinFlexItem(RenderBox& flexItem)
 {
-    flexBox().addItemAtFlexLineStart(flexLayoutItem.renderer.get());
+    // In quirks mode, the percentage height walk may register descendants on the
+    // flex container instead of the flex item. This method uses
+    // dirtyForLayoutFromPercentageHeightDescendant to propagate layout through
+    // intermediate auto-height ancestors down to those descendants.
+    if (!flexBox().hasPercentHeightDescendants())
+        return;
+    CheckedPtr flexItemBlockFlow = dynamicDowncast<RenderBlockFlow>(flexItem);
+    if (!flexItemBlockFlow)
+        return;
+    for (auto& descendant : *flexBox().percentHeightDescendants()) {
+        if (descendant.parent() == &flexBox())
+            continue;
+        if (flexItemBlockFlow->isContainingBlockAncestorFor(descendant))
+            flexItemBlockFlow->dirtyForLayoutFromPercentageHeightDescendant(descendant);
+    }
 }
 
-void FlexIntegrationUtils::addItemAtFlexLineEnd(const FlexLayoutItem& flexLayoutItem)
+bool FlexIntegrationUtils::flexItemHasPercentHeightDescendants(const RenderBox& renderer) const
 {
-    flexBox().addItemAtFlexLineEnd(flexLayoutItem.renderer.get());
-}
+    // FIXME: This function can be removed soon after webkit.org/b/204318 is fixed. Evaluate whether the
+    // skipContainingBlockForPercentHeightCalculation() check below should be moved to the caller in that case.
+    CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(renderer);
+    if (!renderBlock)
+        return false;
 
-void FlexIntegrationUtils::addItemOnFirstFlexLine(const FlexLayoutItem& flexLayoutItem)
-{
-    flexBox().addItemOnFirstFlexLine(flexLayoutItem.renderer.get());
-}
+    // FlexibleBoxImpl's like RenderButton might wrap their children in anonymous blocks. Those anonymous blocks are
+    // skipped for percentage height calculations in RenderBox::computePercentageLogicalHeight() and thus
+    // addPercentHeightDescendant() is never called for them. This means that this method would always wrongly
+    // return false for a child of a <button> with a percentage height.
+    if (flexBox().hasPercentHeightDescendants()) {
+        for (auto& descendant : *flexBox().percentHeightDescendants()) {
+            if (renderBlock->isContainingBlockAncestorFor(descendant))
+                return true;
+        }
+    }
 
-void FlexIntegrationUtils::addItemOnLastFlexLine(const FlexLayoutItem& flexLayoutItem)
-{
-    flexBox().addItemOnLastFlexLine(flexLayoutItem.renderer.get());
+    if (!renderBlock->hasPercentHeightDescendants())
+        return false;
+
+    auto* percentHeightDescendants = renderBlock->percentHeightDescendants();
+    if (!percentHeightDescendants)
+        return false;
+
+    for (auto& descendant : *percentHeightDescendants) {
+        bool hasOutOfFlowAncestor = false;
+        for (auto* ancestor = descendant.containingBlock(); ancestor && ancestor != renderBlock.get(); ancestor = ancestor->containingBlock()) {
+            if (ancestor->isOutOfFlowPositioned()) {
+                hasOutOfFlowAncestor = true;
+                break;
+            }
+        }
+        if (!hasOutOfFlowAncestor)
+            return true;
+    }
+    return false;
 }
 
 bool FlexIntegrationUtils::flexItemHasPercentHeightDescendants(const FlexLayoutItem& flexLayoutItem) const
 {
-    return flexBox().flexItemHasPercentHeightDescendants(flexLayoutItem.renderer.get());
+    return flexItemHasPercentHeightDescendants(flexLayoutItem.renderer.get());
 }
 
 LayoutUnit FlexIntegrationUtils::flexItemContentLogicalHeight(const FlexLayoutItem& flexLayoutItem) const
@@ -362,7 +421,7 @@ LayoutUnit FlexIntegrationUtils::computeBlockAxisContentSizeForFlexItem(const Fl
 
     auto blockAxisContentSize = [&] {
         auto flexBasis = FlexFormattingUtils::flexBasisForFlexItem(renderer);
-        if (flexBasis.isPercentOrCalculated() && !flexBox().flexItemMainSizeIsDefinite(renderer, flexBasis))
+        if (flexBasis.isPercentOrCalculated() && !flexBox().flexLayout().flexItemMainSizeIsDefinite(renderer, flexBasis))
             return flexItemContentLogicalHeight(flexLayoutItem) + renderer.scrollbarLogicalHeight();
         return renderer.logicalHeight() - renderer.borderAndPaddingLogicalHeight();
     }();
@@ -374,7 +433,7 @@ LayoutUnit FlexIntegrationUtils::computeBlockAxisContentSizeForFlexItem(const Fl
 
 template<typename SizeType> bool FlexIntegrationUtils::flexItemMainSizeIsDefinite(const FlexLayoutItem& flexLayoutItem, const SizeType& size)
 {
-    return flexBox().flexItemMainSizeIsDefinite(flexLayoutItem.renderer.get(), size);
+    return flexBox().flexLayout().flexItemMainSizeIsDefinite(flexLayoutItem.renderer.get(), size);
 }
 
 // Explicit instantiations for the SizeTypes FlexFormattingContext resolves through the integration from a separate translation unit.

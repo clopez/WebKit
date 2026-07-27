@@ -67,19 +67,14 @@ public:
     void updateAutoMarginsInMainAxis(const FlexLayoutItem&, LayoutUnit autoMarginOffset);
     bool updateAutoMarginsInCrossAxis(const FlexLayoutItem&, LayoutUnit& crossOffset, LayoutUnit availableAlignmentSpace);
     void setFlexItemOverridingBorderBoxLogicalHeight(const FlexLayoutItem&, LayoutUnit);
-    void invalidateFlexItemContentLogicalWidthsIfNeeded(const FlexLayoutItem&);
 
-    void setTrimmedMarginForChild(const FlexLayoutItem&, Style::MarginTrimSide);
     void trimMainAxisMarginStart(FlexLayoutItem&);
     void trimMainAxisMarginEnd(FlexLayoutItem&);
     void trimCrossAxisMarginStart(const FlexLayoutItem&);
     void trimCrossAxisMarginEnd(const FlexLayoutItem&);
     LayoutUnit adjustBorderBoxLogicalWidthForBoxSizing(LayoutUnit computedLogicalWidth) const;
 
-    void addItemAtFlexLineStart(const FlexLayoutItem&);
-    void addItemAtFlexLineEnd(const FlexLayoutItem&);
-    void addItemOnFirstFlexLine(const FlexLayoutItem&);
-    void addItemOnLastFlexLine(const FlexLayoutItem&);
+    bool flexItemHasPercentHeightDescendants(const RenderBox&) const;
     bool flexItemHasPercentHeightDescendants(const FlexLayoutItem&) const;
 
     LayoutUnit flexItemContentLogicalHeight(const FlexLayoutItem&) const;
@@ -98,6 +93,11 @@ public:
     template<typename SizeType> LayoutUnit computeLogicalWidthUsingForFlexItem(const FlexLayoutItem&, const SizeType&, LayoutUnit availableWidth) const;
 
 private:
+    void setTrimmedMarginForChild(const FlexLayoutItem&, Style::MarginTrimSide);
+    void invalidateFlexItemContentLogicalWidthsIfNeeded(const FlexLayoutItem&);
+    void resetAutoMarginsAndLogicalTopInCrossAxis(RenderBox& flexItem);
+    void dirtyPercentHeightDescendantsWithinFlexItem(RenderBox& flexItem);
+
     const CheckedRef<RenderFlexibleBox> m_flexBox;
     FlexLayoutState& m_flexLayoutState;
     FlexItemContentCache& m_flexItemContentCache;
