@@ -1776,7 +1776,14 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     auto publicSuffix = WebCore::PublicSuffixStore::singleton().publicSuffix(URL(currentItem->url()));
 
     // We allow stale content when reloading a WebProcess that's been killed or crashed.
-    send(Messages::WebPage::GoToBackForwardItem({ navigation->navigationID(), copyFrameStateForBackForwardNavigation(protect(currentItem->mainFrameItem())), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, ShouldRestoreFromBackForwardCache::Unspecified, std::nullopt, publicSuffix, { }, WebCore::ProcessSwapDisposition::None }));
+    GoToBackForwardItemParameters parameters { navigation->navigationID(), copyFrameStateForBackForwardNavigation(protect(currentItem->mainFrameItem())), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, ShouldRestoreFromBackForwardCache::Unspecified, std::nullopt, publicSuffix, { }, WebCore::ProcessSwapDisposition::None };
+
+    // The relaunched process is still launching; for a file:// item defer the load so the sandbox
+    // extension is re-issued after launch, as the other load paths do.
+    if (protect(m_legacyMainFrameProcess)->isLaunching() && URL { currentItem->url() }.protocolIsFile())
+        send(Messages::WebPage::GoToBackForwardItemWaitingForProcessLaunch(WTF::move(parameters), identifier()));
+    else
+        send(Messages::WebPage::GoToBackForwardItem(WTF::move(parameters)));
 
     Ref legacyMainFrameProcess = m_legacyMainFrameProcess;
     legacyMainFrameProcess->startResponsivenessTimer();
@@ -8514,8 +8521,11 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
     m_failingProvisionalLoadURL = { };
     m_allowsLoadingAlternateHTMLForFailingProvisionalLoadURL = true;
 
+    if (willContinueLoading == WillContinueLoading::Yes)
+        return;
+
     // If the provisional page's load fails then we destroy the provisional page.
-    if (m_provisionalPage && m_provisionalPage->mainFrame() == &frame && (willContinueLoading == WillContinueLoading::No))
+    if (m_provisionalPage && m_provisionalPage->mainFrame() == &frame)
         m_provisionalPage = nullptr;
 
     if (auto provisionalFrame = frame.takeProvisionalFrame()) {
