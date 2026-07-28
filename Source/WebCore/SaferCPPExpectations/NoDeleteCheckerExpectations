@@ -6,7 +6,6 @@ Modules/webtransport/WebTransportDatagramsWritable.cpp
 css/CSSComputedStyleDeclaration.cpp
 css/CSSPropertyInitialValues.cpp
 css/DOMMatrixReadOnly.cpp
-css/PropertySetCSSDescriptors.cpp
 css/SelectorChecker.cpp
 css/StyleSheetList.cpp
 css/parser/CSSPropertyParserConsumer+String.cpp
@@ -21,6 +20,7 @@ html/HTMLFormControlsCollection.cpp
 html/HTMLTableElement.cpp
 html/HTMLTableRowsCollection.cpp
 [ macOS ] inspector/InspectorFrontendHost.cpp
+layout/formattingContexts/flex/FlexFormattingContext.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
 layout/formattingContexts/inline/InlineTextItem.cpp
 loader/EmptyClients.cpp
@@ -33,6 +33,7 @@ page/LocalFrameView.cpp
 page/scrolling/ScrollingStateNode.cpp
 page/text-extraction/TextExtraction.cpp
 platform/sql/SQLiteStatementAutoResetScope.cpp
+rendering/RenderBox.cpp
 rendering/RenderGeometryMap.cpp
 rendering/RenderObject.cpp
 rendering/StyledMarkedText.cpp

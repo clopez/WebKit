@@ -40,6 +40,7 @@
 #include "PropertyNameArray.h"
 #include "VMInlines.h"
 #include <charconv>
+#include <wtf/MathExtras.h>
 #include <wtf/dragonbox/dragonbox_to_chars.h>
 #include <wtf/text/EscapedFormsForJSON.h>
 #include <wtf/text/MakeString.h>
@@ -1149,6 +1150,23 @@ ALWAYS_INLINE void FastStringifier<CharType, bufferMode>::appendInt32(int32_t nu
     }
 }
 
+static ALWAYS_INLINE bool eightByteRangeNeedsJSONEscape(uint64_t word)
+{
+    bool hasControl = hasZeroByte(word & 0xE0E0E0E0E0E0E0E0ULL); // any byte in [0x00,0x1F]?
+    bool hasQuote = hasZeroByte(word ^ 0x2222222222222222ULL); // any byte == '"'?
+    bool hasBackslash = hasZeroByte(word ^ 0x5C5C5C5C5C5C5C5CULL); // any byte == '\\'?
+    return hasControl || hasQuote || hasBackslash;
+}
+
+template<typename CharType>
+static ALWAYS_INLINE uint64_t copyEightBytesAndLoad(const CharType* source, CharType* destination)
+{
+    uint64_t word;
+    memcpySpan(std::span<uint8_t, 8> { std::bit_cast<uint8_t*>(&word), 8 }, std::span<const CharType, 8> { source, 8 });
+    memcpySpan(std::span<CharType, 8> { destination, 8 }, std::span<const uint8_t, 8> { std::bit_cast<const uint8_t*>(&word), 8 });
+    return word;
+}
+
 template<typename CharType>
 static ALWAYS_INLINE bool stringCopySameType(std::span<const CharType> span, CharType* cursor)
 {
@@ -1193,6 +1211,20 @@ static ALWAYS_INLINE bool stringCopySameType(std::span<const CharType> span, Cha
         return SIMD::isNonZero(accumulated);
     }
 #endif
+    if constexpr (sizeof(CharType) == 1) {
+        constexpr size_t narrowStride = 8;
+        if (span.size() >= narrowStride) {
+            const auto* ptr = span.data();
+            const auto* end = ptr + span.size();
+            auto* cursorEnd = cursor + span.size();
+            uint64_t accumulated = 0;
+            for (; ptr + narrowStride <= end; ptr += narrowStride, cursor += narrowStride)
+                accumulated |= eightByteRangeNeedsJSONEscape(copyEightBytesAndLoad(ptr, cursor));
+            if (ptr < end)
+                accumulated |= eightByteRangeNeedsJSONEscape(copyEightBytesAndLoad(end - narrowStride, cursorEnd - narrowStride));
+            return accumulated;
+        }
+    }
     for (auto character : span) {
         if constexpr (sizeof(CharType) != 1) {
             if (U16_IS_SURROGATE(character)) [[unlikely]]
@@ -1429,14 +1461,19 @@ void FastStringifier<CharType, bufferMode>::append(JSValue value)
             ++m_depth;
         const unsigned newLineAndIndent = hasGap == HasGap::Yes ? newLineAndIndentSize() : 0;
         structure.forEachProperty(m_vm, [&](const auto& entry) -> bool {
-            // https://tc39.es/ecma262/#sec-serializejsonproperty
-            // Step 2.a's GetV finds an own toJSON regardless of enumerability.
-            if (entry.key() == m_vm.propertyNames->toJSON) [[unlikely]] {
-                recordFailure("object has toJSON"_s);
-                return false;
-            }
-            if (entry.attributes() & PropertyAttribute::DontEnum)
+            if (entry.attributes() & PropertyAttribute::DontEnum) [[unlikely]] {
+                // https://tc39.es/ecma262/#sec-serializejsonproperty
+                // Step 2.a's GetV finds an own toJSON regardless of enumerability, so a
+                // non-enumerable one still applies even though this loop skips the entry.
+                // An enumerable toJSON needs no check.
+                // 1. If it is callable, appending its value below fails the fast path.
+                // 2. If it is not callable the spec serializes it as an ordinary property.
+                if (entry.key() == m_vm.propertyNames->toJSON) [[unlikely]] {
+                    recordFailure("object has non-enumerable toJSON"_s);
+                    return false;
+                }
                 return true;
+            }
             auto& name = *entry.key();
             if (name.isSymbol()) [[unlikely]] {
                 recordFailure("symbol"_s);
