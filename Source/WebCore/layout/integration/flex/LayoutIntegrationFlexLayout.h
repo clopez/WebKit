@@ -26,6 +26,7 @@
 #pragma once
 
 #include <WebCore/FlexFormattingContext.h>
+#include <WebCore/FlexIntegrationUtils.h>
 #include <WebCore/FlexItemContentCache.h>
 #include <WebCore/FlexLayoutState.h>
 #include <wtf/CheckedRef.h>
@@ -73,10 +74,6 @@ public:
     // CSS Flexbox 9.8: whether the item's post-flexing size is definite, which is what makes a percentage
     // resolved against it meaningful.
     bool hasDefiniteSizeForPercentResolution(const RenderBox& flexItem);
-    template<typename SizeType> bool flexItemMainSizeIsDefinite(const RenderBox&, const SizeType&);
-    template<typename SizeType> bool canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, const SizeType&, RenderBox::UpdatePercentageHeightDescendants);
-    // Whether a percentage resolves at all, for callers that only need the yes/no and have no percentage of their own.
-    bool canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, RenderBox::UpdatePercentageHeightDescendants);
 
     // Whether the given side of the item's margin has been trimmed, for RenderFlexibleBox::isChildEligibleForMarginTrim.
     // Answered from the running flex algorithm while it is running, and from what it last produced otherwise --
@@ -88,14 +85,6 @@ public:
     void flexItemWillBeRemoved(const RenderBox& flexItem);
 
 private:
-    // The flex container's own block-size definiteness, computed once per layout and cached on the layout state.
-    // The formatting context reaches these through FlexLayoutState directly; here they only back the percentage
-    // resolution above.
-    bool isInLayout() const { return !!m_flexLayoutState; }
-    bool isFlexBoxBlockSizeDefinite() const { return m_flexLayoutState && m_flexLayoutState->isFlexBoxBlockSizeDefinite(); }
-    bool isFlexBoxBlockSizeIndefinite() const { return m_flexLayoutState && m_flexLayoutState->isFlexBoxBlockSizeIndefinite(); }
-    void setFlexBoxBlockSizeIsDefinite(bool isDefinite) { ASSERT(m_flexLayoutState); m_flexLayoutState->setFlexBoxBlockSizeIsDefinite(isDefinite); }
-
     FlexLayoutState::MarginTrimItems marginTrimItemsBeforeFlexLayout() const;
 
     void buildFlexItemList();

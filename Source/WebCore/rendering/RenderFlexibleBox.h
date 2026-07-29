@@ -31,7 +31,6 @@
 #pragma once
 
 #include <WebCore/BaselineAlignment.h>
-#include <WebCore/FlexFormattingContext.h>
 #include <WebCore/FlexFormattingUtils.h>
 #include <WebCore/LayoutIntegrationFlexLayout.h>
 #include <WebCore/RenderBlock.h>
@@ -66,8 +65,6 @@ public:
 
     bool willStretchItem(const RenderBox& item, LogicalBoxAxis containingAxis, StretchingMode = StretchingMode::Normal) const override;
 
-    LayoutIntegration::FlexLayout& flexLayout() LIFETIME_BOUND { return m_flexLayout; }
-
     LayoutOptionalOutsets allowedLayoutOverflow() const override;
 
     virtual bool isFlexibleBoxImpl() const { return false; };
@@ -93,10 +90,7 @@ protected:
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const override;
 
 private:
-    friend class FlexFormattingContext;
-    friend class FlexFormattingUtils;
     friend class LayoutIntegration::FlexLayout;
-    friend class LayoutIntegration::FlexIntegrationUtils;
     friend class LayoutIntegration::FlexItemIntrinsicWidthComputationScope;
 
     bool isChildEligibleForMarginTrim(Style::MarginTrimSide, const RenderBox&) const final;

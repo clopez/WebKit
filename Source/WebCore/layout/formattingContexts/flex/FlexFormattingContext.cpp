@@ -48,10 +48,10 @@ static LayoutUnit constrainSizeByMinMax(LayoutUnit size, std::pair<LayoutUnit, L
     return std::max(minMaxSizes.first, std::min(size, minMaxSizes.second));
 }
 
-FlexFormattingContext::FlexFormattingContext(RenderFlexibleBox& flexBox, const FlexLayoutConstraints& constraints, FlexLayoutState& layoutState, FlexItemContentCache& contentCache)
+FlexFormattingContext::FlexFormattingContext(RenderFlexibleBox& flexBox, LayoutIntegration::FlexIntegrationUtils& integrationUtils, const FlexLayoutConstraints& constraints, FlexLayoutState& layoutState)
     : m_flexBox(flexBox)
     , m_layoutState(layoutState)
-    , m_integrationUtils(flexBox, layoutState, contentCache)
+    , m_integrationUtils(integrationUtils)
     , m_flexFormattingUtils(flexBox)
     , m_constraints(constraints)
 {
@@ -146,8 +146,6 @@ FlexFormattingContext::FlexBaseAndHypotheticalMainSizeList FlexFormattingContext
         auto minMaxMainSizes = minMaxMainSizesForFlexItem(flexItem);
         // The hypothetical main size is the item's flex base size clamped according to its used min and max main sizes.
         flexBaseAndHypotheticalMainSizeList[index] = { flexBase, std::max(minMaxMainSizes.first, std::min(flexBase, minMaxMainSizes.second)), minMaxMainSizes };
-        // FIXME: Figure out if we can do this outside of the loop.
-        layoutState().resetFlexBoxBlockSizeDefiniteness();
     }
     return flexBaseAndHypotheticalMainSizeList;
 }
@@ -804,12 +802,11 @@ void FlexFormattingContext::setFlexItemCountsForFirstAndLastLine(const FlexLines
     if (flexLines.ranges.isEmpty())
         return;
 
-    auto isWrapReverse = m_constraints.isWrapReverse;
-    auto firstLineItemsCountInOriginalOrder = flexLines.ranges.first().distance();
-    auto lastLineItemsCountInOriginalOrder = flexLines.ranges.last().distance();
-
-    m_result.numberOfFlexItemsOnFirstLine = !isWrapReverse ? firstLineItemsCountInOriginalOrder : lastLineItemsCountInOriginalOrder;
-    m_result.numberOfFlexItemsOnLastLine = !isWrapReverse ? lastLineItemsCountInOriginalOrder : firstLineItemsCountInOriginalOrder;
+    // Counted in the order the lines were collected, which is the order the flex item list is in: the caller indexes
+    // that list by these counts, so they must not be flipped for wrap-reverse here. Mapping the visually-first and
+    // -last line onto those slices is FlexLayout::flexItemForFirstBaseline's job.
+    m_result.numberOfFlexItemsOnFirstLine = flexLines.ranges.first().distance();
+    m_result.numberOfFlexItemsOnLastLine = flexLines.ranges.last().distance();
 }
 
 LayoutUnit FlexFormattingContext::flexBaseSizeForFlexItem(const FlexLayoutItem& flexLayoutItem)
@@ -1066,13 +1063,11 @@ template<typename SizeType> bool FlexFormattingContext::flexItemCrossSizeIsDefin
     // container's cross size is definite. We use a dummy percentage for stretch
     // since computePercentageLogicalHeight evaluates the value as a percentage.
     auto crossSizeIsDefinite = [&](const auto& sizeForPercentageComputation) {
-        if (!flexLayoutItem.mainAxisIsInlineAxis || layoutState().isFlexBoxBlockSizeDefinite())
+        if (!flexLayoutItem.mainAxisIsInlineAxis)
             return true;
-        if (layoutState().isFlexBoxBlockSizeIndefinite())
-            return false;
-        bool definite = bool(integrationUtils().computePercentageLogicalHeightForFlexItem(flexLayoutItem, sizeForPercentageComputation));
-        layoutState().setFlexBoxBlockSizeIsDefinite(definite);
-        return definite;
+        if (auto isDefinite = integrationUtils().isFlexBoxBlockSizeDefiniteForFlexItem(flexLayoutItem))
+            return *isDefinite;
+        return bool(integrationUtils().computePercentageLogicalHeightForFlexItem(flexLayoutItem, sizeForPercentageComputation));
     };
 
     if (size.isPercentOrCalculated())
@@ -1161,7 +1156,7 @@ LayoutUnit FlexFormattingContext::applyStretchAlignmentToFlexItem(const FlexLayo
             // Have to force another relayout even though the child is sized correctly,
             // because its descendants are not sized correctly yet.
             // The previous layout of the child was done without an override height set.
-            return layoutState().hasFlexItemCompletedLayout(flexLayoutItem.renderer) && integrationUtils().flexItemHasPercentHeightDescendants(flexLayoutItem);
+            return integrationUtils().hasFlexItemCompletedLayout(flexLayoutItem) && integrationUtils().flexItemHasPercentHeightDescendants(flexLayoutItem);
         };
         if (flexItemNeedsLayout())
             integrationUtils().applyStretchedLogicalHeightToFlexItem(flexLayoutItem, blockSize);

@@ -44,9 +44,9 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(FlexItemContentCache);
-
 namespace LayoutIntegration {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FlexItemContentCache);
 
 FlexIntegrationUtils::FlexIntegrationUtils(RenderFlexibleBox& flexBox, FlexLayoutState& flexLayoutState, FlexItemContentCache& flexItemContentCache)
     : m_flexBox(flexBox)
@@ -386,6 +386,11 @@ bool FlexIntegrationUtils::flexItemHasPercentHeightDescendants(const RenderBox& 
     return false;
 }
 
+bool FlexIntegrationUtils::hasFlexItemCompletedLayout(const FlexLayoutItem& flexLayoutItem) const
+{
+    return flexLayoutState().hasFlexItemCompletedLayout(flexLayoutItem.renderer);
+}
+
 bool FlexIntegrationUtils::flexItemHasPercentHeightDescendants(const FlexLayoutItem& flexLayoutItem) const
 {
     return flexItemHasPercentHeightDescendants(flexLayoutItem.renderer.get());
@@ -422,7 +427,7 @@ LayoutUnit FlexIntegrationUtils::computeBlockAxisContentSizeForFlexItem(const Fl
 
     auto blockAxisContentSize = [&] {
         auto flexBasis = FlexFormattingUtils::flexBasisForFlexItem(renderer);
-        if (flexBasis.isPercentOrCalculated() && !flexBox().flexLayout().flexItemMainSizeIsDefinite(renderer, flexBasis))
+        if (flexBasis.isPercentOrCalculated() && !flexItemMainSizeIsDefinite(renderer, flexBasis, &m_flexLayoutState))
             return flexItemContentLogicalHeight(flexLayoutItem) + renderer->scrollbarLogicalHeight();
         return renderer->logicalHeight() - renderer->borderAndPaddingLogicalHeight();
     }();
@@ -434,7 +439,7 @@ LayoutUnit FlexIntegrationUtils::computeBlockAxisContentSizeForFlexItem(const Fl
 
 template<typename SizeType> bool FlexIntegrationUtils::flexItemMainSizeIsDefinite(const FlexLayoutItem& flexLayoutItem, const SizeType& size)
 {
-    return flexBox().flexLayout().flexItemMainSizeIsDefinite(flexLayoutItem.renderer.get(), size);
+    return flexItemMainSizeIsDefinite(flexLayoutItem.renderer.get(), size, &m_flexLayoutState);
 }
 
 // Explicit instantiations for the SizeTypes FlexFormattingContext resolves through the integration from a separate translation unit.
@@ -442,6 +447,80 @@ template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::FlexBasis>
 template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::MinimumSize>(const FlexLayoutItem&, const Style::MinimumSize&);
 template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::MaximumSize>(const FlexLayoutItem&, const Style::MaximumSize&);
 template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::PreferredSize>(const FlexLayoutItem&, const Style::PreferredSize&);
+
+std::optional<bool> FlexIntegrationUtils::isFlexBoxBlockSizeDefiniteForFlexItem(const RenderBox& flexItem, const FlexLayoutState* flexLayoutState)
+{
+    // The container answers only while its algorithm is running, which is when the value was computed.
+    if (!flexLayoutState)
+        return { };
+
+    // An orthogonal item's percentage block size resolves against the container's inline size instead.
+    CheckedRef flexBox = downcast<RenderFlexibleBox>(*flexItem.parent());
+    if (flexBox->writingMode().isOrthogonal(flexItem.writingMode()))
+        return { };
+
+    // A widget substitutes its own intrinsic height for a percentage the container cannot resolve, so it can be
+    // definite where the container is not. See RenderBox::computePercentageLogicalHeight.
+    if (flexItem.style().hasUsedAppearance())
+        return { };
+
+    return flexLayoutState->isFlexBoxBlockSizeDefinite();
+}
+
+template<typename SizeType> bool FlexIntegrationUtils::canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, const SizeType& percentSize, RenderBox::UpdatePercentageHeightDescendants updateDescendants, const FlexLayoutState* flexLayoutState)
+{
+    CheckedRef flexBox = downcast<RenderFlexibleBox>(*flexItem.parent());
+    if (!FlexFormattingUtils::isColumnFlow(flexBox))
+        return true;
+
+    if (auto isDefinite = isFlexBoxBlockSizeDefiniteForFlexItem(flexItem, flexLayoutState)) {
+        // Answering from the container skips computePercentageLogicalHeight, which also registers the item as a
+        // percent-height descendant -- that is what dirties the item when the container is resized. Register it here
+        // instead. The item's containing block is the flex container and the percentage walk cannot leave it, which
+        // is the same reason the container can answer at all.
+        if (updateDescendants == RenderBox::UpdatePercentageHeightDescendants::Yes) {
+            ASSERT(flexItem.containingBlock() == flexBox.ptr());
+            flexBox->addPercentHeightDescendant(const_cast<RenderBox&>(flexItem));
+        }
+        return *isDefinite;
+    }
+
+    auto isPercentResolveSuspended = flexBox->view().frameView().layoutContext().isPercentHeightResolveDisabledFor(flexItem);
+    ASSERT(!isPercentResolveSuspended || is<RenderBlock>(flexItem));
+
+    return !isPercentResolveSuspended && flexItem.computePercentageLogicalHeight(percentSize, updateDescendants).has_value();
+}
+
+bool FlexIntegrationUtils::canResolvePercentAgainstContainerBlockSize(const RenderBox& flexItem, RenderBox::UpdatePercentageHeightDescendants updateDescendants, const FlexLayoutState* flexLayoutState)
+{
+    // Any percentage resolves against the same container block size, so a zero one answers the question.
+    return canResolvePercentAgainstContainerBlockSize(flexItem, Style::PreferredSize { 0_css_percentage }, updateDescendants, flexLayoutState);
+}
+
+template<typename SizeType> bool FlexIntegrationUtils::flexItemMainSizeIsDefinite(const RenderBox& flexItem, const SizeType& size, const FlexLayoutState* flexLayoutState)
+{
+    if constexpr (!std::same_as<SizeType, Style::MaximumSize>) {
+        if (size.isAuto())
+            return false;
+    }
+    if constexpr (std::same_as<SizeType, Style::FlexBasis>) {
+        if (size.isContent())
+            return false;
+    }
+    if (!FlexFormattingUtils::mainAxisIsFlexItemInlineAxis(flexItem) && (size.isIntrinsic() || size.isIntrinsicKeyword()))
+        return false;
+    // Stretch is definite in the same cases as percentages, i.e., when the container's cross size is definite.
+    if (size.isStretch())
+        return canResolvePercentAgainstContainerBlockSize(flexItem, RenderBox::UpdatePercentageHeightDescendants::No, flexLayoutState);
+    if (size.isPercentOrCalculated())
+        return canResolvePercentAgainstContainerBlockSize(flexItem, size, RenderBox::UpdatePercentageHeightDescendants::No, flexLayoutState);
+    return true;
+}
+
+template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::FlexBasis>(const RenderBox&, const Style::FlexBasis&, const FlexLayoutState*);
+template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::MinimumSize>(const RenderBox&, const Style::MinimumSize&, const FlexLayoutState*);
+template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::MaximumSize>(const RenderBox&, const Style::MaximumSize&, const FlexLayoutState*);
+template bool FlexIntegrationUtils::flexItemMainSizeIsDefinite<Style::PreferredSize>(const RenderBox&, const Style::PreferredSize&, const FlexLayoutState*);
 
 template<typename SizeType>
 std::optional<LayoutUnit> FlexIntegrationUtils::computeMainAxisExtentForFlexItem(const FlexLayoutItem& flexLayoutItem, const SizeType& size, LayoutUnit mainAxisSizeForLengthResolution)
@@ -606,6 +685,11 @@ template std::optional<LayoutUnit> FlexIntegrationUtils::computePercentageLogica
 template std::optional<LayoutUnit> FlexIntegrationUtils::computePercentageLogicalHeightForFlexItem<Style::MinimumSize>(const FlexLayoutItem&, const Style::MinimumSize&) const;
 template std::optional<LayoutUnit> FlexIntegrationUtils::computePercentageLogicalHeightForFlexItem<Style::MaximumSize>(const FlexLayoutItem&, const Style::MaximumSize&) const;
 template std::optional<LayoutUnit> FlexIntegrationUtils::computePercentageLogicalHeightForFlexItem<Style::PreferredSize::Calc>(const FlexLayoutItem&, const Style::PreferredSize::Calc&) const;
+
+std::optional<bool> FlexIntegrationUtils::isFlexBoxBlockSizeDefiniteForFlexItem(const FlexLayoutItem& flexLayoutItem) const
+{
+    return isFlexBoxBlockSizeDefiniteForFlexItem(flexLayoutItem.renderer.get(), &m_flexLayoutState);
+}
 
 template<typename SizeType> std::optional<LayoutUnit> FlexIntegrationUtils::computeLogicalHeightUsingForFlexItem(const FlexLayoutItem& flexLayoutItem, const SizeType& size) const
 {
