@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-# Copyright (C) 2018 Bocoup LLC. All rights reserved.
 # Copyright (C) 2026 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,18 +24,3 @@
 # TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
-
-import os
-import sys
-
-from webkitpy.port.linux_container_sdk_utils import maybe_enter_webkit_container_sdk, maybe_use_container_sdk_root_dir
-maybe_enter_webkit_container_sdk()
-maybe_use_container_sdk_root_dir()
-
-script_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.join(script_dir, "test262"))
-
-from runner import main
-
-if __name__ == "__main__":
-    main()
