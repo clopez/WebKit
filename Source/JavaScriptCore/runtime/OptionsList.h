@@ -507,11 +507,8 @@ bool hasCapacityToUseLargeGigacage();
     \
     v(Bool, logPhaseTimes, false, Normal, nullptr) \
     v(Double, rareBlockPenalty, 0.001, Normal, nullptr) \
-    v(Bool, airForceBriggsAllocator, false, Normal, nullptr) \
-    v(Bool, airForceIRCAllocator, false, Normal, nullptr) \
     v(Bool, airGreedyRegAllocVerbose, false, Normal, nullptr) \
     v(OptionString, airGreedyRegAllocDumpFunction, nullptr, Normal, "dump greedy register allocator state and IR for functions matching this substring"_s) \
-    v(Bool, airUseGreedyRegAlloc, true, Normal, nullptr) \
     v(Double, airGreedyRegAllocSplitMultiplier, 2.0, Normal, nullptr) \
     v(Bool, airGreedyRegAllocSplitAroundLoops, false, Normal, nullptr) \
     v(Double, airGreedyRegAllocLoopSplitMaxLoopFraction, 0.75, Normal, nullptr) \
@@ -634,6 +631,8 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, maxPartialLoopUnrollingBodyNodeSize, 70, Normal, nullptr) \
     v(Unsigned, maxPartialLoopUnrollingIterationCount, 4, Normal, nullptr) \
     v(Unsigned, maxNumericHotLoopSize, 225, Normal, nullptr) \
+    v(Unsigned, maxIntegerRangeOptimizationRelationshipsPerNode, 24, Normal, "How many relationships IRO keeps about any one node, 0 for no cap."_s) \
+    v(Unsigned, maxIntegerRangeOptimizationWork, 50000000, Normal, "Give up threshold for IRO"_s) \
     v(Bool, printEachUnrolledLoop, false, Normal, nullptr) \
     v(Bool, verboseExecutablePoolAllocation, false, Normal, nullptr) \
     v(Bool, useHandlerICInFTL, false, Normal, nullptr) \

@@ -115,6 +115,12 @@
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
+#if ENABLE(SPATIAL_PORTAL)
+#include "ElementAncestorIteratorInlines.h"
+#include "HTMLModelElement.h"
+#include "TypedElementDescendantIteratorInlines.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBox);
@@ -344,12 +350,42 @@ void RenderBox::invalidateAncestorBackgroundObscurationStatus()
 }
 
 #if ENABLE(SPATIAL_PORTAL)
-static void spatialPortalStyleDidChange(Element& element, SpatialType oldSpatial, SpatialType newSpatial)
+static bool isNestedInsideSpatialPortal(const Element& element)
 {
-    if (oldSpatial == SpatialType::None && newSpatial == SpatialType::Portal)
+    for (Ref ancestor : ancestorsOfType<Element>(element)) {
+        if (ancestor->establishesSpatialPortal())
+            return true;
+    }
+    return false;
+}
+
+static void updateSpatialPortalController(Element& element)
+{
+    bool hadController = element.establishesSpatialPortal();
+
+    CheckedPtr box = dynamicDowncast<RenderBox>(element.renderer());
+    if (box && box->style().spatial() == SpatialType::Portal && !isNestedInsideSpatialPortal(element))
         element.ensureSpatialPortalController();
-    else if (oldSpatial == SpatialType::Portal && newSpatial == SpatialType::None)
+    else
         element.clearSpatialPortalController();
+
+    if (box && hadController != element.establishesSpatialPortal()) {
+        if (CheckedPtr layer = box->layer())
+            layer->setNeedsCompositingConfigurationUpdate();
+    }
+}
+
+static void spatialPortalStyleDidChange(Element& element)
+{
+    updateSpatialPortalController(element);
+
+    for (Ref descendant : descendantsOfType<Element>(element)) {
+        if (CheckedPtr box = dynamicDowncast<RenderBox>(descendant->renderer()); box && box->style().spatial() == SpatialType::Portal)
+            updateSpatialPortalController(descendant);
+    }
+
+    for (Ref model : descendantsOfType<HTMLModelElement>(element))
+        model->spatialPortalContextDidChange();
 }
 #endif
 
@@ -472,7 +508,7 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
     auto oldSpatial = oldStyle ? oldStyle->spatial() : SpatialType::None;
     if (oldSpatial != newStyle.spatial()) {
         if (RefPtr element = this->element())
-            spatialPortalStyleDidChange(*element, oldSpatial, newStyle.spatial());
+            spatialPortalStyleDidChange(*element);
     }
 #endif
 }
@@ -4168,14 +4204,21 @@ void RenderBox::constrainIntrinsicLogicalWidthsByMinMax(LayoutUnit& minIntrinsic
         return { };
     }();
 
+    // The aspect-ratio transfer derives a main-axis min/max from the cross axis; it is not the
+    // item's own min/max-width, so it applies even when measuring a flex base size.
     if (!style().logicalWidth().isFixed() && shouldComputeLogicalHeightFromAspectRatio())
         applyTransferredMinMaxSizesFromAspectRatio(minIntrinsicLogicalWidth, maxIntrinsicLogicalWidth);
 
-    maxIntrinsicLogicalWidth = std::min(maxIntrinsicLogicalWidth, usedMaxLogicalWidth);
-    minIntrinsicLogicalWidth = std::min(minIntrinsicLogicalWidth, usedMaxLogicalWidth);
+    // A flex item being measured for its flex base size ignores its own min/max-width: the flex
+    // algorithm re-applies them later, when deriving the hypothetical main size (see
+    // shouldIgnoreLogicalMinMaxWidthSizes()). Border and padding still apply.
+    if (!shouldIgnoreLogicalMinMaxWidthSizes()) {
+        maxIntrinsicLogicalWidth = std::min(maxIntrinsicLogicalWidth, usedMaxLogicalWidth);
+        minIntrinsicLogicalWidth = std::min(minIntrinsicLogicalWidth, usedMaxLogicalWidth);
 
-    maxIntrinsicLogicalWidth = std::max(maxIntrinsicLogicalWidth, usedMinLogicalWidth);
-    minIntrinsicLogicalWidth = std::max(minIntrinsicLogicalWidth, usedMinLogicalWidth);
+        maxIntrinsicLogicalWidth = std::max(maxIntrinsicLogicalWidth, usedMinLogicalWidth);
+        minIntrinsicLogicalWidth = std::max(minIntrinsicLogicalWidth, usedMinLogicalWidth);
+    }
 
     auto borderAndPadding = borderAndPaddingLogicalWidth();
     minIntrinsicLogicalWidth += borderAndPadding;

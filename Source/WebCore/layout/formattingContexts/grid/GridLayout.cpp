@@ -83,6 +83,12 @@ GridDimensions GridLayout::calculateInitialImplicitGridDimensions(const Unplaced
     for (const auto& item : unplacedGridItems.definiteRowPositionedItems)
         updateGridBounds(item);
 
+    // The implicit grid always starts with at least one row. Grid coverage guarantees at least one
+    // in-flow grid item, and every item occupies at least one row, so placement would end up
+    // creating this row regardless. Starting with it means the grid matrix is never empty, which
+    // lets the column count always be read from the matrix itself.
+    maximumRowIndex = std::max<size_t>(maximumRowIndex, 1);
+
     return {
         maximumColumnIndex,
         maximumRowIndex
@@ -226,7 +232,7 @@ GridLayoutResult GridLayout::layout(UnplacedGridItems& unplacedGridItems, const 
 
     auto gridItemRects = computeGridItemRects(placedGridItems, inlineAxisPositions, blockAxisPositions, usedInlineSizes, usedBlockSizes, usedInlineMargins, usedBlockMargins);
 
-    return { usedTrackSizes, gridItemRects };
+    return { WTF::move(usedTrackSizes), WTF::move(gridItemRects) };
 }
 
 BorderBoxPositions GridLayout::performInlineAxisSelfAlignment(const PlacedGridItems& placedGridItems, const Vector<UsedMargins>& inlineMargins, const UsedInlineSizes& borderBoxSizes,

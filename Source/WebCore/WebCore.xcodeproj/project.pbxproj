@@ -1939,7 +1939,6 @@
 		48B187A62E63BD3C009B57A9 /* AccessibilityObjectInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B187A52E63BD3C009B57A9 /* AccessibilityObjectInlines.h */; };
 		48B5BF3729CA691700FEBE3B /* AccessibilityRegionContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 48B5BF3529CA691700FEBE3B /* AccessibilityRegionContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48BFAF1E2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestData.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BFAF1C2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestData.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		48BFAF1F2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BFAF1D2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48BFAF2B2F3137FA00E7D926 /* DigitalCredentialsRequestDataBuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BFAF292F3137FA00E7D926 /* DigitalCredentialsRequestDataBuilder.h */; };
 		48CBBAB52EC3B70000EC5429 /* AXID.h in Headers */ = {isa = PBXBuildFile; fileRef = 48CBBAB42EC3B70000EC5429 /* AXID.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		48D0E12929F7329E00263857 /* ElementAnimationContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 48D0E12829F7322900263857 /* ElementAnimationContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -6293,6 +6292,7 @@
 		DCA7EDF52C655235000F16C7 /* BoxSides.h in Headers */ = {isa = PBXBuildFile; fileRef = DCA7EDF42C655235000F16C7 /* BoxSides.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD05637D29B6B88100A98258 /* InlineDisplayContent.h in Headers */ = {isa = PBXBuildFile; fileRef = DD05637C29B6B88100A98258 /* InlineDisplayContent.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD05FE0D0B8BA3C6009ACDFE /* WebCoreObjCExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = DD05FE0B0B8BA3C6009ACDFE /* WebCoreObjCExtras.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DD14265D2F81000000C1D6A8 /* InspectorNativeFunctionParameters.json in Headers */ = {isa = PBXBuildFile; fileRef = DD14265E2F81000000C1D6A8 /* InspectorNativeFunctionParameters.json */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD17C082286EC57400D60B58 /* build in Copy PDF.js */ = {isa = PBXBuildFile; fileRef = DD17C07C286EC51900D60B58 /* build */; };
 		DD17C083286EC57700D60B58 /* LICENSE in Copy PDF.js */ = {isa = PBXBuildFile; fileRef = DD17C080286EC51B00D60B58 /* LICENSE */; };
 		DD17C084286EC57A00D60B58 /* web in Copy PDF.js */ = {isa = PBXBuildFile; fileRef = DD17C07E286EC51A00D60B58 /* web */; };
@@ -12213,7 +12213,6 @@
 		48B5BF3529CA691700FEBE3B /* AccessibilityRegionContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AccessibilityRegionContext.h; sourceTree = "<group>"; };
 		48B5BF3629CA691700FEBE3B /* AccessibilityRegionContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AccessibilityRegionContext.cpp; sourceTree = "<group>"; };
 		48BFAF1C2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredentialsMobileDocumentRequestData.h; sourceTree = "<group>"; };
-		48BFAF1D2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h; sourceTree = "<group>"; };
 		48BFAF292F3137FA00E7D926 /* DigitalCredentialsRequestDataBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DigitalCredentialsRequestDataBuilder.h; sourceTree = "<group>"; };
 		48BFAF322F318E9E00E7D926 /* DigitalCredentialsRequestDataBuilder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = DigitalCredentialsRequestDataBuilder.cpp; sourceTree = "<group>"; };
 		48C4E83C2B34D8380083460A /* AXTextRun.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AXTextRun.cpp; sourceTree = "<group>"; };
@@ -21842,6 +21841,7 @@
 		DCD61E9000DE48A88138DCA4 /* StyleObjectViewBox.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleObjectViewBox.cpp; sourceTree = "<group>"; };
 		DD05637C29B6B88100A98258 /* InlineDisplayContent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InlineDisplayContent.h; sourceTree = "<group>"; };
 		DD05FE0B0B8BA3C6009ACDFE /* WebCoreObjCExtras.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WebCoreObjCExtras.h; sourceTree = "<group>"; };
+		DD14265E2F81000000C1D6A8 /* InspectorNativeFunctionParameters.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = InspectorNativeFunctionParameters.json; sourceTree = "<group>"; };
 		DD17C079286EC51800D60B58 /* README.webkit */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.webkit; sourceTree = "<group>"; };
 		DD17C07B286EC51900D60B58 /* PdfJSFiles.cmake */ = {isa = PBXFileReference; lastKnownFileType = text; path = PdfJSFiles.cmake; sourceTree = "<group>"; };
 		DD17C07C286EC51900D60B58 /* build */ = {isa = PBXFileReference; lastKnownFileType = folder; path = build; sourceTree = "<group>"; };
@@ -24970,7 +24970,6 @@
 				0D494DEC2B5DF3DC00B61C51 /* DigitalCredentialRequestOptions.h */,
 				0D431A802B5A3A9800864655 /* DigitalCredentialRequestOptions.idl */,
 				48BFAF1C2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestData.h */,
-				48BFAF1D2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h */,
 				0DF687F52C8840D100C16DC9 /* DigitalCredentialsRequestData.h */,
 				48BFAF322F318E9E00E7D926 /* DigitalCredentialsRequestDataBuilder.cpp */,
 				48BFAF292F3137FA00E7D926 /* DigitalCredentialsRequestDataBuilder.h */,
@@ -25260,6 +25259,7 @@
 				BC9854430CD3D9D000069BC1 /* Window */,
 				A83B79220CCB00F0000B0825 /* XML */,
 				A83B790C0CCAFF83000B0825 /* XPath */,
+				DD14265E2F81000000C1D6A8 /* InspectorNativeFunctionParameters.json */,
 				BC348BD10DB7F804004ABABB /* WebCoreJSBuiltinInternals.cpp */,
 				BC348BD20DB7F804004ABABB /* WebCoreJSBuiltinInternals.h */,
 				BC348BD10DB7F804004ABABA /* WebCoreJSBuiltins.cpp */,
@@ -45176,7 +45176,6 @@
 				0D77A8522B9063A700BBD327 /* DigitalCredentialPresentationProtocol.h in Headers */,
 				0D431F002B9053DC001E222F /* DigitalCredentialRequestOptions.h in Headers */,
 				48BFAF1E2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestData.h in Headers */,
-				48BFAF1F2F2D7B3A00E7D926 /* DigitalCredentialsMobileDocumentRequestDataWithRequestInfo.h in Headers */,
 				E8E7BDE32D94D20E0000A163 /* DigitalCredentialsProtocols.h in Headers */,
 				0DF687F62C88414900C16DC9 /* DigitalCredentialsRequestData.h in Headers */,
 				48BFAF2B2F3137FA00E7D926 /* DigitalCredentialsRequestDataBuilder.h in Headers */,
@@ -46194,6 +46193,7 @@
 				A5860E6E230DE30A00461AAE /* InspectorInstrumentationWebKit.h in Headers */,
 				A5B81CAF1FAA44620037D1E6 /* InspectorLayerTreeAgent.h in Headers */,
 				A5B81CB01FAA44620037D1E6 /* InspectorMemoryAgent.h in Headers */,
+				DD14265D2F81000000C1D6A8 /* InspectorNativeFunctionParameters.json in Headers */,
 				A5B81CB11FAA44620037D1E6 /* InspectorNetworkAgent.h in Headers */,
 				9995243E2E8F0CA50093C3E0 /* InspectorNetworkIntercept.h in Headers */,
 				504AACCE1834455900E3D9BC /* InspectorNodeFinder.h in Headers */,

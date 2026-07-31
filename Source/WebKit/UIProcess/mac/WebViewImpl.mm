@@ -67,13 +67,14 @@
 #import "UIGamepadProvider.h"
 #import "UndoOrRedo.h"
 #import "ViewGestureController.h"
+#import "WKAlternatePDFHUDView.h"
 #import "WKAppKitGestureController.h"
+#import "WKDefaultPDFHUDView.h"
 #import "WKEditCommand.h"
 #import "WKErrorInternal.h"
 #import "WKFullScreenWindowController.h"
 #import "WKImmediateActionController.h"
 #import "WKNSURLExtras.h"
-#import "WKPDFHUDView.h"
 #import "WKPrintingView.h"
 #import "WKQuickLookPreviewController.h"
 #import "WKRevealItemPresenter.h"
@@ -1791,11 +1792,37 @@ void WebViewImpl::createPDFHUD(PDFPluginIdentifier identifier, WebCore::FrameIde
 {
     removePDFHUD(identifier);
 
+    auto actionHandler = makeBlockPtr([weakThis = WeakPtr { *this }, identifier, frameID](WKPDFHUDViewControlAction action) {
+        CheckedPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        Ref page = protectedThis->page();
+
+        switch (action) {
+        case WKPDFHUDViewControlActionZoomIn:
+            page->pdfZoomIn(identifier, frameID);
+            return;
+
+        case WKPDFHUDViewControlActionZoomOut:
+            page->pdfZoomOut(identifier, frameID);
+            return;
+
+        case WKPDFHUDViewControlActionOpenInPreview:
+            page->pdfOpenWithPreview(identifier, frameID);
+            return;
+
+        case WKPDFHUDViewControlActionSavePDF:
+            page->pdfSaveToPDF(identifier, frameID);
+            return;
+        }
+    });
+
     // The bounding box is in the plugin frame's local root view coordinates.
     // For cross-origin <iframe> PDFs, this lacks the subframe's offset in the
     // page, so we need to convert that to top level web view coordinates.
     m_pdfHUDsPendingCreation.set(identifier, boundingBoxInFrameRootView);
-    convertPDFHUDBoundingBoxToWebViewCoordinates(frameID, boundingBoxInFrameRootView, [weakThis = WeakPtr { *this }, identifier, frameID, requestedBox = boundingBoxInFrameRootView](const WebCore::IntRect& boundingBoxInWebView) {
+    convertPDFHUDBoundingBoxToWebViewCoordinates(frameID, boundingBoxInFrameRootView, [weakThis = WeakPtr { *this }, identifier, frameID, requestedBox = boundingBoxInFrameRootView, actionHandler](const WebCore::IntRect& boundingBoxInWebView) {
         CheckedPtr checkedThis = weakThis.get();
         if (!checkedThis)
             return;
@@ -1805,7 +1832,11 @@ void WebViewImpl::createPDFHUD(PDFPluginIdentifier identifier, WebCore::FrameIde
         if (!latestBoxInFrameRootView)
             return;
 
-        RetainPtr hud = adoptNS([[WKPDFHUDView alloc] initWithFrame:boundingBoxInWebView pluginIdentifier:identifier.toUInt64() frameIdentifier:frameID.toUInt64() webView:checkedThis->m_page->cocoaView()]);
+        const auto compositingBordersVisible = protect(checkedThis->m_page->preferences())->compositingBordersVisible();
+
+        RetainPtr<Class> hudType = protect(checkedThis->m_page->preferences())->useAlternatePDFHUD() ? WKAlternatePDFHUDView.class : WKDefaultPDFHUDView.class;
+        RetainPtr<NSView<WKPDFHUDView>> hud = adoptNS([[hudType alloc] initWithFrame:boundingBoxInWebView frameIdentifier:frameID.toUInt64() compositingBordersVisible:compositingBordersVisible actionHandler:actionHandler.get()]);
+
         [checkedThis->m_view.get() addSubview:hud];
         checkedThis->_pdfHUDViews.add(identifier, WTF::move(hud));
 
@@ -4529,7 +4560,7 @@ void WebViewImpl::setInspectorAttachmentView(NSView *newView)
         return;
 
     m_inspectorAttachmentView = newView;
-    
+
     if (RefPtr inspector = m_page->inspector())
         inspector->attachmentViewDidChange(oldView ? oldView.get() : m_view.get().get(), newView ? RetainPtr { newView }.get() : m_view.get().get());
 }

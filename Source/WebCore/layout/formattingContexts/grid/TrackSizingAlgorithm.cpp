@@ -387,15 +387,37 @@ static void sizeTracksToFitNonSpanningItems(const ResolveIntrinsicTrackSizesCont
 }
 
 // Used for space distribution.
-static Vector<size_t> indexesForUnfrozenAffectedTracks(const TrackIndexes& affectedTracks, const WTF::Range<size_t>& itemSpan,
+static Vector<size_t> indexesForUnfrozenAffectedTracks(const Vector<size_t>& spannedAffectedTracks,
     const UnsizedTracks& unsizedTracks, const Vector<LayoutUnit>& itemIncurredIncreases)
 {
     Vector<size_t> indexes;
-    for (auto [affectedIndex, trackIndex] : WTF::indexedRange(affectedTracks)) {
-        if (itemSpan.contains(trackIndex) && unsizedTracks[trackIndex].baseSize + itemIncurredIncreases[affectedIndex] < unsizedTracks[trackIndex].growthLimit)
-            indexes.append(affectedIndex);
+    for (auto trackIndex : spannedAffectedTracks) {
+        if (unsizedTracks[trackIndex].baseSize + itemIncurredIncreases[trackIndex] < unsizedTracks[trackIndex].growthLimit)
+            indexes.append(trackIndex);
     }
     return indexes;
+}
+
+// Find the item-incurred increase for each affected track by:
+// distributing the space equally among these tracks,
+// freezing a track’s item-incurred increase as its affected size + item-incurred increase
+// reaches its limit (and continuing to grow the unfrozen tracks as needed).
+static void distributeSpaceEquallyAmongTracks(LayoutUnit& space, const Vector<size_t>& trackIndexes,
+    const UnsizedTracks& unsizedTracks, Vector<LayoutUnit>& itemIncurredIncreases)
+{
+    auto unfrozenTrackIndexes = indexesForUnfrozenAffectedTracks(trackIndexes, unsizedTracks, itemIncurredIncreases);
+    while (!unfrozenTrackIndexes.isEmpty() && space > 0) {
+        auto tracksRemainingForDistributionCount = unfrozenTrackIndexes.size();
+        for (auto trackIndex : unfrozenTrackIndexes) {
+            auto& track = unsizedTracks[trackIndex];
+            auto spaceRemainingUntilGrowthLimit = track.growthLimit - (track.baseSize + itemIncurredIncreases[trackIndex]);
+            auto spaceDistributed = std::min(space / tracksRemainingForDistributionCount, spaceRemainingUntilGrowthLimit);
+            itemIncurredIncreases[trackIndex] += spaceDistributed;
+            space -= spaceDistributed;
+            --tracksRemainingForDistributionCount;
+        }
+        unfrozenTrackIndexes = indexesForUnfrozenAffectedTracks(trackIndexes, unsizedTracks, itemIncurredIncreases);
+    }
 }
 
 // https://drafts.csswg.org/css-grid-1/#extra-space
@@ -404,18 +426,28 @@ static void distributeExtraSpaceToBaseSizes(UnsizedTracks& unsizedTracks, const 
 {
     ASSERT(accommodatedItemsIndexes.size() == sizeContributions.size());
 
-    // 1. Maintain separately for each affected track a planned increase, initially set to 0.
-    Vector<LayoutUnit> plannedIncreases(affectedTracksIndexes.size());
+    // 1. Maintain separately for each affected track a planned increase, initially set to 0. The
+    // vector is keyed by track index (sized to all tracks); non-affected slots stay unused.
+    // Note that tracks beyond affectedTrackIndexes may be resized in step 2.3,
+    // where space is distributed to non-affected tracks.
+    Vector<LayoutUnit> plannedIncreases(unsizedTracks.size());
 
     // 2. For each accommodated item...
     for (auto [contributionIndex, gridItemIndex] : WTF::indexedRange(accommodatedItemsIndexes)) {
-        // ...considering only tracks the item spans:
+        // considering only tracks the item spans:
         auto itemSpan = gridItemSpanList[gridItemIndex];
 
         ASSERT(itemSpan.distance() == 1);
 
+        // Gather the affected tracks the item spans; they receive space up to their limits.
+        Vector<size_t> spannedAffectedTracks;
+        for (size_t trackIndex = itemSpan.begin(); trackIndex < itemSpan.end(); ++trackIndex) {
+            if (affectedTracksIndexes.contains(trackIndex))
+                spannedAffectedTracks.append(trackIndex);
+        }
+
         // 2.1. Find the space to distribute: the item's size contribution minus the base sizes of
-        //      every track it spans, floored at zero.
+        // every track it spans, floored at zero.
         LayoutUnit spannedBaseSizes;
         for (size_t trackIndex = itemSpan.begin(); trackIndex < itemSpan.end(); ++trackIndex)
             spannedBaseSizes += unsizedTracks[trackIndex].baseSize;
@@ -423,49 +455,33 @@ static void distributeExtraSpaceToBaseSizes(UnsizedTracks& unsizedTracks, const 
         if (!spaceToDistribute)
             continue;
 
-        // 2.2. Distribute space up to limits: find the item-incurred increase for each affected
-        //      track...
-        Vector<LayoutUnit> itemIncurredIncreases(affectedTracksIndexes.size());
-        auto unfrozenIndexes = indexesForUnfrozenAffectedTracks(affectedTracksIndexes, itemSpan, unsizedTracks, itemIncurredIncreases);
-        while (!unfrozenIndexes.isEmpty() && spaceToDistribute) {
-
-            // ...by distributing the space equally among the affected tracks the item spans,
-            //  freezing a track once its base size plus that increase reaches its growth limit.
-            auto tracksRemainingForDistributionCount = unfrozenIndexes.size();
-            for (auto affectedIndex : unfrozenIndexes) {
-                auto& track = unsizedTracks[affectedTracksIndexes[affectedIndex]];
-                auto spaceRemainingUntilGrowthLimit = track.growthLimit - (track.baseSize + itemIncurredIncreases[affectedIndex]);
-                auto spaceDistributed = std::min(spaceToDistribute / tracksRemainingForDistributionCount, spaceRemainingUntilGrowthLimit);
-                itemIncurredIncreases[affectedIndex] += spaceDistributed;
-                spaceToDistribute -= spaceDistributed;
-                --tracksRemainingForDistributionCount;
-            }
-            unfrozenIndexes = indexesForUnfrozenAffectedTracks(affectedTracksIndexes, itemSpan, unsizedTracks, itemIncurredIncreases);
-        }
+        // 2.2. Distribute space up to limits:
+        Vector<LayoutUnit> itemIncurredIncreases(unsizedTracks.size());
+        distributeSpaceEquallyAmongTracks(spaceToDistribute, spannedAffectedTracks, unsizedTracks, itemIncurredIncreases);
 
         // 2.3. Distribute space to non-affected tracks: if extra space remains and the item spans
-        //      both affected and non-affected tracks, distribute it into the non-affected tracks.
+        // both affected and non-affected tracks, distribute it into the non-affected tracks.
         auto distributeSpaceToNonAffectedTracks = [] {
             notImplemented();
         };
         UNUSED_VARIABLE(distributeSpaceToNonAffectedTracks);
 
         // 2.4. Distribute space beyond limits: if extra space still remains, unfreeze and continue
-        //      distributing it to the item-incurred increases.
+        // distributing it to the item-incurred increases.
         auto distributeSpaceBeyondLimits = [] {
             notImplemented();
         };
         UNUSED_VARIABLE(distributeSpaceBeyondLimits);
 
         // 2.5. For each affected track, if its item-incurred increase is larger than its planned
-        //      increase, set the planned increase to that value.
-        for (auto [affectedIndex, trackIndex] : WTF::indexedRange(affectedTracksIndexes))
-            plannedIncreases[affectedIndex] = std::max(plannedIncreases[affectedIndex], itemIncurredIncreases[affectedIndex]);
+        // increase, set the planned increase to that value.
+        for (auto trackIndex : spannedAffectedTracks)
+            plannedIncreases[trackIndex] = std::max(plannedIncreases[trackIndex], itemIncurredIncreases[trackIndex]);
     }
 
     // 3. Update the affected tracks' base sizes by adding in the planned increase.
-    for (auto [affectedTrackIndex, trackIndex] : WTF::indexedRange(affectedTracksIndexes))
-        unsizedTracks[trackIndex].baseSize += plannedIncreases[affectedTrackIndex];
+    for (auto trackIndex : affectedTracksIndexes)
+        unsizedTracks[trackIndex].baseSize += plannedIncreases[trackIndex];
 }
 
 template<typename MinTrackSizingFunctionPredicate>

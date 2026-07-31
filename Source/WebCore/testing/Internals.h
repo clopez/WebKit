@@ -542,6 +542,7 @@ public:
     void setCachedFindMatchBufferLimitForTesting(unsigned maximumRunCount);
 #if ENABLE(VIDEO)
     ExceptionOr<Vector<double>> findCueMatches(const String&, const Vector<String>& findOptions);
+    void clearFindCaptionTracks();
 #endif
 
     unsigned numberOfScrollableAreas();
@@ -1690,6 +1691,11 @@ public:
     void NODELETE disableModelLoadDelaysForTesting();
     String modelElementState(HTMLModelElement&);
     bool NODELETE isModelElementIntersectingViewport(HTMLModelElement&);
+#endif
+
+#if ENABLE(SPATIAL_PORTAL)
+    unsigned NODELETE numberOfHostedModelsInSpatialPortal(Element&);
+    bool NODELETE establishesSpatialPortal(Element&);
 #endif
 
     ExceptionOr<void> copyImageAtLocation(int x, int y);

@@ -372,25 +372,14 @@ struct WrappedCryptoKey;
 struct MockWebAuthenticationConfiguration;
 struct DigitalCredentialsMobileDocumentRequestData;
 
-#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
-struct DigitalCredentialsMobileDocumentRequestDataWithRequestInfo;
-using RawDigitalCredentialsWithRequestInfo = Vector<String>;
-#endif
-
 struct MobileDocumentRequest;
 struct OpenID4VPMultisignedRequest;
 struct OpenID4VPSignedRequest;
 using UnvalidatedDigitalCredentialRequest = Variant<MobileDocumentRequest, OpenID4VPSignedRequest, OpenID4VPMultisignedRequest>;
 using DigitalCredentialsRequestData = Variant<
     WebCore::DigitalCredentialsMobileDocumentRequestData
-#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
-    , WebCore::DigitalCredentialsMobileDocumentRequestDataWithRequestInfo
-#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
 >;
 using DigitalCredentialsRawRequests = Variant<Vector<UnvalidatedDigitalCredentialRequest>
-#if ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
-        , RawDigitalCredentialsWithRequestInfo
-#endif // ENABLE(ISO18013_DOCUMENT_REQUEST_INFO)
     >;
 struct DigitalCredentialsResponseData;
 struct MobileDocumentRequest;
@@ -579,6 +568,7 @@ class WebContextMenuProxy;
 class WebDateTimePicker;
 class WebDeviceOrientationUpdateProviderProxy;
 class WebEditCommandProxy;
+class WebEvent;
 class WebExtensionController;
 class WebFramePolicyListenerProxy;
 class WebFrameProxy;
@@ -774,6 +764,7 @@ public:
     WebCore::PageIdentifier webPageIDInMainFrameProcess() const { return m_webPageID; }
     WebCore::PageIdentifier identifierInSiteIsolatedProcess() const { return webPageIDInMainFrameProcess(); }
     WebCore::PageIdentifier webPageIDInProcess(const WebProcessProxy&) const;
+    WebCore::PageIdentifier webPageIDInProcessForFrame(std::optional<WebCore::FrameIdentifier>);
 
     PAL::SessionID NODELETE sessionID() const;
 
@@ -1188,15 +1179,13 @@ public:
 #if PLATFORM(COCOA)
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
     WebCore::FloatRect selectionBoundingRectInRootViewCoordinates() const;
-    // Maps a selection rect from the focused frame's root-view space to main-frame coordinates.
-    void convertEditorStateSelectionRectToMainFrameCoordinates(WebCore::FloatRect, CompletionHandler<void(WebCore::FloatRect)>&&);
 #endif
 
     void processWillSuspend();
     void processDidResume();
 
 #if PLATFORM(COCOA)
-    void selectWithGesture(WebCore::IntPoint, GestureType, GestureRecognizerState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&&);
+    void selectWithGesture(std::optional<WebCore::FrameIdentifier>, WebCore::IntPoint, GestureType, GestureRecognizerState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&&);
 
     void didReceivePositionInformation(const InteractionInformationAtPosition&);
     void requestPositionInformation(const InteractionInformationRequest&);
@@ -1204,7 +1193,7 @@ public:
     void selectPositionAtPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
     void updateSelectionWithExtentPoint(WebCore::IntPoint, bool isInteractingWithFocusedElement, RespectSelectionAnchor, CompletionHandler<void(bool)>&&);
     void updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, TextInteractionSource, CompletionHandler<void(bool)>&&);
-    void selectTextWithGranularityAtPoint(WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
+    void selectTextWithGranularityAtPoint(std::optional<WebCore::FrameIdentifier>, WebCore::IntPoint, WebCore::TextGranularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&&);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1463,6 +1452,7 @@ public:
     void processNextQueuedMouseEvent();
     void sendMouseEvent(WebCore::FrameIdentifier, const NativeWebMouseEvent&, std::optional<Vector<SandboxExtensionHandle>>&&);
     void handleMouseEvent(const NativeWebMouseEvent&);
+    void recordUIProcessUserActivation(const WebEvent&);
     void dispatchMouseDidMoveOverElementAsynchronously(const NativeWebMouseEvent&);
 
     void doAfterProcessingAllPendingMouseEvents(Function<void()>&&);
@@ -3664,7 +3654,8 @@ private:
     void addMessageToConsoleForTesting(String&&);
     void frameTextForTesting(WebCore::FrameIdentifier, CompletionHandler<void(String&&)>&&);
     void bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier, WebCore::AccessibilityRemoteToken dataToken, CompletionHandler<void(WebCore::AccessibilityRemoteToken, int)>&&);
-    void updateRemoteFrameAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint);
+    void updateRemoteFrameOffsetInMainFrame(WebCore::FrameIdentifier, WebCore::IntPoint);
+    void pushCumulativeOffsetInMainFrame(WebFrameProxy&);
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     void updateRemoteFrameAccessibilityInheritedState(WebCore::FrameIdentifier, const WebCore::InheritedFrameState&);
 #endif

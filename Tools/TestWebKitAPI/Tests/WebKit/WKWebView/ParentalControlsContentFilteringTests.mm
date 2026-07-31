@@ -28,6 +28,7 @@
 #if HAVE(WEBCONTENTRESTRICTIONS)
 
 #import "HTTPServer.h"
+#import "Helpers/cocoa/TestUIDelegate.h"
 #import "PlatformUtilities.h"
 #import "Test.h"
 #import "TestNavigationDelegate.h"
@@ -39,12 +40,17 @@ using namespace TestWebKitAPI;
 
 TEST(ParentalControlsContentFilteringTests, BlockedURL)
 {
+    HTTPServer server({
+        { "/blockedSite"_s, { "<p>This site should be blocked</p>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
     NSData *shieldHTML = [@"<script>"
     "window.webkit.messageHandlers.testHandler.postMessage('SHIELD_IFRAME_READY', '*');"
     "</script>" dataUsingEncoding:NSUTF8StringEncoding];
 
-    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
-    auto blockedURL = [NSURL URLWithString:@"https://example.com"];
+    auto configuration = server.httpsProxyConfiguration();
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration]);
+    auto blockedURL = [NSURL URLWithString:@"https://example.com/blockedSite"];
     __block bool mockInstalled = false;
     [[webView configuration].websiteDataStore _installMockParentalControlsURLFilterForTestingWithBlockedURLs:@[blockedURL] replacementData:shieldHTML completionHandler:^{
         mockInstalled = true;
@@ -52,6 +58,7 @@ TEST(ParentalControlsContentFilteringTests, BlockedURL)
     Util::run(&mockInstalled);
 
     RetainPtr navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    [navigationDelegate allowAnyTLSCertificate];
     __block bool didFail = false;
 
     [navigationDelegate setDidFailProvisionalNavigation:^(WKWebView *, WKNavigation *, NSError *error) {
@@ -67,7 +74,7 @@ TEST(ParentalControlsContentFilteringTests, BlockedURL)
             iframeShieldDidLoad = true;
     }];
 
-    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com"]]];
+    [webView loadRequest:[NSURLRequest requestWithURL:blockedURL]];
 
     Util::run(&didFail);
     Util::run(&iframeShieldDidLoad);
@@ -232,6 +239,99 @@ TEST(ParentalControlsContentFilteringTests, BlockedIframe)
     [webView loadRequest:server.request("/mainframe"_s)];
     Util::run(&iframeShieldDidLoad);
     EXPECT_FALSE(blockedIframeLoaded);
+}
+
+TEST(ParentalControlsContentFilteringTests, OpenBlockedPopUp)
+{
+    auto mainframeHTML = "<script>"
+    "var blockedUrl = 'https://example.com/blockedSite';"
+    "window.open(blockedUrl);"
+    "</script>"_s;
+
+    NSData *popupReplacementHTML = [@"<script>"
+    "window.webkit.messageHandlers.testHandler.postMessage('popup_html_loaded');"
+    "</script>" dataUsingEncoding:NSUTF8StringEncoding];
+
+    HTTPServer server({
+        { "/mainframe"_s, { { { "Content-Type"_s, "text/html"_s } }, mainframeHTML } },
+        { "/blockedSite"_s, { { { "Content-Type"_s, "text/html"_s } }, "<p>This site should be blocked</p>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto configuration = server.httpsProxyConfiguration();
+    configuration.preferences.javaScriptCanOpenWindowsAutomatically = true;
+
+    RetainPtr messageHandler = adoptNS([TestMessageHandler new]);
+    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"testHandler"];
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration]);
+
+    __block bool popupLoaded = false;
+    [messageHandler addMessage:@"popup_html_loaded" withHandler:^{
+        popupLoaded = true;
+    }];
+
+    RetainPtr navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    [navigationDelegate allowAnyTLSCertificate];
+    [webView setNavigationDelegate:navigationDelegate];
+
+    __block RetainPtr<WKWebView> popupWindow;
+    RetainPtr uiDelegate = adoptNS([TestUIDelegate new]);
+    uiDelegate.get().createWebViewWithConfiguration = ^(WKWebViewConfiguration *configuration, WKNavigationAction *action, WKWindowFeatures *windowFeatures) {
+        popupWindow = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
+        [popupWindow.get() setNavigationDelegate:navigationDelegate];
+        return popupWindow.get();
+    };
+    [webView setUIDelegate:uiDelegate];
+
+    auto blockedURL = [NSURL URLWithString:@"https://example.com/blockedSite"];
+    __block bool mockInstalled = false;
+    [[webView configuration].websiteDataStore _installMockParentalControlsURLFilterForTestingWithBlockedURLs:@[blockedURL] replacementData:popupReplacementHTML completionHandler:^{
+        mockInstalled = true;
+    }];
+    Util::run(&mockInstalled);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.org/mainframe"]]];
+    Util::run(&popupLoaded);
+}
+
+TEST(ParentalControlsContentFilteringTests, BlockedNavigationFromLinkClick)
+{
+    auto mainframeHTML = "<html><a id='jsClickHere'></a></html>"
+    "<script>"
+    "jsClickHere.href = 'https://example.com/blockedSite';"
+    "jsClickHere.click()"
+    "</script>"_s;
+
+    NSData *replacementHTML =[@"<script>"
+    "window.webkit.messageHandlers.testHandler.postMessage('replacement_html_loaded', '*');"
+    "</script>" dataUsingEncoding:NSUTF8StringEncoding];
+
+    HTTPServer server({
+        { "/mainframe"_s, { { { "Content-Type"_s, "text/html"_s } }, mainframeHTML } },
+        { "/blockedSite"_s, { { { "Content-Type"_s, "text/html"_s } }, "<p>This site should be blocked</p>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto configuration = server.httpsProxyConfiguration();
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration]);
+
+    RetainPtr navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    [navigationDelegate allowAnyTLSCertificate];
+    [webView setNavigationDelegate:navigationDelegate];
+
+    auto blockedURL = [NSURL URLWithString:@"https://example.com/blockedSite"];
+    __block bool mockInstalled = false;
+    [[webView configuration].websiteDataStore _installMockParentalControlsURLFilterForTestingWithBlockedURLs:@[blockedURL] replacementData:replacementHTML completionHandler:^{
+        mockInstalled = true;
+    }];
+    Util::run(&mockInstalled);
+
+    __block bool shieldLoaded = false;
+    [webView performAfterReceivingAnyMessage:^(NSString *message) {
+        if ([message isEqualToString:@"replacement_html_loaded"])
+            shieldLoaded = true;
+    }];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.org/mainframe"]]];
+    Util::run(&shieldLoaded);
 }
 
 #endif // HAVE(WEBCONTENTRESTRICTIONS)

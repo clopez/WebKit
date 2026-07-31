@@ -652,7 +652,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/X86Assembler.h
     assembler/X86_64Registers.h
 
-    b3/air/AirAllocateRegistersByGraphColoring.h
     b3/air/AirDisassembler.h
     b3/B3CanonicalizePrePostIncrements.h
     b3/B3Common.h
@@ -1764,6 +1763,7 @@ endif ()
 
 WEBKIT_FRAMEWORK_DECLARE(JavaScriptCore)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
+WEBKIT_ADD_TARGET_THREAD_SAFETY_WARNINGS(JavaScriptCore)
 WEBKIT_ADD_TARGET_UNSAFE_BUFFER_WARNINGS(JavaScriptCore)
 
 if (COMPILER_IS_GCC_OR_CLANG)

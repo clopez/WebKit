@@ -1397,9 +1397,11 @@ void WebPageProxy::handleSynchronousMessage(IPC::Connection& connection, const S
     if (!m_injectedBundleClient)
         return completionHandler({ });
 
-    RefPtr<API::Object> returnData;
     Ref process = WebProcessProxy::fromConnection(connection);
-    m_injectedBundleClient->didReceiveSynchronousMessageFromInjectedBundle(this, messageName, process->transformHandlesToObjects(protect(messageBody.object()).get()).get(), [completionHandler = WTF::move(completionHandler), process] (RefPtr<API::Object>&& returnData) mutable {
+    // Whether the sender hosts the committed local main frame (false for a cross-origin subframe process).
+    RefPtr mainFrame = m_mainFrame;
+    bool fromMainFrameProcess = mainFrame && process.ptr() == &mainFrame->process();
+    m_injectedBundleClient->didReceiveSynchronousMessageFromInjectedBundle(this, messageName, process->transformHandlesToObjects(protect(messageBody.object()).get()).get(), fromMainFrameProcess, [completionHandler = WTF::move(completionHandler), process] (RefPtr<API::Object>&& returnData) mutable {
         completionHandler(UserData(process->transformObjectsToHandles(returnData.get())));
     });
 }
@@ -4539,8 +4541,6 @@ void WebPageProxy::sendMouseEvent(FrameIdentifier frameID, const NativeWebMouseE
 {
     if (event.type() == WebEventType::MouseDown || event.type() == WebEventType::MouseUp)
         processContainingFrame(frameID)->recordUserGestureAuthorizationToken(frameID, webPageIDInMainFrameProcess(), event.authorizationToken());
-    if (event.isActivationTriggeringEvent())
-        internals().lastActivationTimestamp = MonotonicTime::now();
 
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::MouseEvent(frameID, event, WTF::move(sandboxExtensions)), [weakThis = WeakPtr { *this }, eventType = event.type()] (IPC::Connection* connection, bool handled, std::optional<RemoteUserInputEventData> remoteUserInputEventData) mutable {
         RefPtr protectedThis = weakThis.get();
@@ -4559,6 +4559,12 @@ void WebPageProxy::sendMouseEvent(FrameIdentifier frameID, const NativeWebMouseE
     });
 }
 
+void WebPageProxy::recordUIProcessUserActivation(const WebEvent& event)
+{
+    if (event.isActivationTriggeringEvent())
+        internals().lastActivationTimestamp = MonotonicTime::now();
+}
+
 void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
 {
     if (event.type() == WebEventType::MouseDown)
@@ -4569,6 +4575,8 @@ void WebPageProxy::handleMouseEvent(const NativeWebMouseEvent& event)
 
     if (!m_mainFrame)
         return;
+
+    recordUIProcessUserActivation(event);
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     WTFBeginSignpost(event.signpostIdentifier(), HandleMouseEvent, "id: %" PRIuPTR ", type: %s", event.signpostIdentifier(), toString(event.type()).characters());
@@ -5090,8 +5098,6 @@ void WebPageProxy::sendKeyEvent(const NativeWebKeyboardEvent& event)
     Ref targetProcess = targetFrame->process();
     targetProcess->startResponsivenessTimer(event.type() == WebEventType::KeyDown ? WebProcessProxy::UseLazyStop::Yes : WebProcessProxy::UseLazyStop::No);
     targetProcess->recordUserGestureAuthorizationToken(targetFrameID, webPageIDInMainFrameProcess(), event.authorizationToken());
-    if (event.isActivationTriggeringEvent())
-        internals().lastActivationTimestamp = MonotonicTime::now();
     sendWithAsyncReplyToProcessContainingFrame(targetFrameID, Messages::WebPage::KeyEvent(targetFrameID, event), [weakThis = WeakPtr { *this }] (IPC::Connection* connection, bool handled) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !connection)
@@ -5114,6 +5120,8 @@ bool WebPageProxy::handleKeyboardEvent(const NativeWebKeyboardEvent& event)
         m_uiClient->didNotHandleKeyEvent(this, event);
         return false;
     }
+
+    recordUIProcessUserActivation(event);
 
     LOG_WITH_STREAM(KeyHandling, stream << "WebPageProxy::handleKeyboardEvent: " << event.type());
 
@@ -5280,9 +5288,6 @@ void WebPageProxy::sendPreventableTouchEvent(WebCore::FrameIdentifier frameID, c
     if (event.type() == WebEventType::TouchEnd && protect(preferences())->verifyWindowOpenUserGestureFromUIProcess())
         processContainingFrame(frameID)->recordUserGestureAuthorizationToken(frameID, webPageIDInMainFrameProcess(), event.authorizationToken());
 
-    if (event.isActivationTriggeringEvent())
-        internals().lastActivationTimestamp = MonotonicTime::now();
-
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::EventDispatcher::TouchEvent(webPageIDInProcess(processContainingFrame(frameID)), frameID, event), [this, weakThis = WeakPtr { *this }, event] (IPC::Connection* connection, bool handled, std::optional<RemoteWebTouchEvent> remoteWebTouchEvent) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
@@ -5334,6 +5339,8 @@ void WebPageProxy::handlePreventableTouchEvent(NativeWebTouchEvent& event)
 
     if (!m_mainFrame)
         return;
+
+    recordUIProcessUserActivation(event);
 
     TraceScope scope(SyncTouchEventStart, SyncTouchEventEnd);
 
@@ -5411,9 +5418,6 @@ void WebPageProxy::sendUnpreventableTouchEvent(WebCore::FrameIdentifier frameID,
     if (event.type() == WebEventType::TouchEnd && protect(preferences())->verifyWindowOpenUserGestureFromUIProcess())
         processContainingFrame(frameID)->recordUserGestureAuthorizationToken(frameID, webPageIDInMainFrameProcess(), event.authorizationToken());
 
-    if (event.isActivationTriggeringEvent())
-        internals().lastActivationTimestamp = MonotonicTime::now();
-
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::EventDispatcher::TouchEvent(webPageIDInProcess(processContainingFrame(frameID)), frameID, event), [protectedThis = Ref { *this }] (bool, std::optional<RemoteWebTouchEvent> remoteWebTouchEvent) mutable {
         if (!remoteWebTouchEvent)
             return;
@@ -5428,6 +5432,8 @@ void WebPageProxy::handleUnpreventableTouchEvent(const NativeWebTouchEvent& even
 
     if (!m_mainFrame)
         return;
+
+    recordUIProcessUserActivation(event);
 
     TrackingType touchEventsTrackingType = touchEventTrackingType(event);
     if (touchEventsTrackingType == TrackingType::NotTracking)
@@ -8525,10 +8531,14 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
     if (m_provisionalPage && m_provisionalPage->mainFrame() == &frame)
         m_provisionalPage = nullptr;
 
-    if (auto provisionalFrame = frame.takeProvisionalFrame()) {
+    if (RefPtr provisionalFrame = frame.provisionalFrame()) {
+        if (navigationID && provisionalFrame->navigationID() != *navigationID)
+            return;
+
         ASSERT(m_preferences->siteIsolationEnabled());
         ASSERT(!frame.isMainFrame());
-        ASSERT_UNUSED(provisionalFrame, provisionalFrame->process().coreProcessIdentifier() != frame.process().coreProcessIdentifier());
+        ASSERT(provisionalFrame->process().coreProcessIdentifier() != frame.process().coreProcessIdentifier());
+        frame.takeProvisionalFrame();
         frame.notifyParentOfLoadCompletion(process);
         frame.broadcastFrameTreeSyncData(FrameTreeSyncData::create());
     }
@@ -14865,7 +14875,7 @@ void WebPageProxy::willStartCapture(UserMediaPermissionRequestProxy& request, Co
 
     if (RefPtr frame = WebFrameProxy::webFrame(request.frameID())) {
         auto webProcessIdentifier = frame->process().coreProcessIdentifier();
-        gpuProcess->updateCaptureAccess(request.requiresAudioCapture(), request.requiresVideoCapture(), request.requiresDisplayCapture(), webProcessIdentifier, identifier(), WTF::move(callback));
+        gpuProcess->updateCaptureAccess(request.requiresAudioCapture(), request.requiresVideoCapture(), request.requiresDisplayCapture(), request.willUseEchoCancellation(), webProcessIdentifier, identifier(), WTF::move(callback));
         gpuProcess->updateCaptureOrigin(request.topLevelDocumentSecurityOrigin().data(), webProcessIdentifier);
     } else
         return callback();
@@ -18246,8 +18256,9 @@ void WebPageProxy::gpuProcessExited(ProcessTerminationReason)
     bool activeDisplayCapture = false;
     if (activeAudioCapture || activeVideoCapture) {
         Ref gpuProcess = protect(configuration().processPool())->ensureGPUProcess();
+        constexpr bool willUseEchoCancellation = false;
         forEachWebContentProcess([&](auto& webProcess, auto pageID) {
-            gpuProcess->updateCaptureAccess(activeAudioCapture, activeVideoCapture, activeDisplayCapture, webProcess.coreProcessIdentifier(), identifier(), [] { });
+            gpuProcess->updateCaptureAccess(activeAudioCapture, activeVideoCapture, activeDisplayCapture, willUseEchoCancellation, webProcess.coreProcessIdentifier(), identifier(), [] { });
         });
 #if PLATFORM(IOS_FAMILY)
         gpuProcess->setOrientationForMediaCapture(m_orientationForMediaCapture);
@@ -18807,6 +18818,14 @@ Ref<WebProcessProxy> WebPageProxy::processContainingFrame(std::optional<WebCore:
     return siteIsolatedProcess();
 }
 
+WebCore::PageIdentifier WebPageProxy::webPageIDInProcessForFrame(std::optional<WebCore::FrameIdentifier> frameID)
+{
+    // For the main frame this resolves to the main frame process and returns m_webPageID,
+    // matching webPageIDInMainFrameProcess(). For an out-of-process frame it returns the identifier the
+    // RemotePage's WebPage is registered under in that frame's process.
+    return webPageIDInProcess(processContainingFrame(frameID));
+}
+
 template<typename F>
 decltype(auto) WebPageProxy::sendToWebPage(std::optional<FrameIdentifier> frameID, F&& sendFunction)
 {
@@ -18933,6 +18952,10 @@ INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::NavigateS
 #if ENABLE(TWO_PHASE_CLICKS)
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::CommitPotentialTap);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::PotentialTapAtPosition);
+#endif
+#if PLATFORM(COCOA)
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::SelectWithGesture);
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::SelectTextWithGranularityAtPoint);
 #endif
 #if PLATFORM(IOS_FAMILY)
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(WebPage::ApplyAutocorrection);
@@ -19161,9 +19184,38 @@ void WebPageProxy::bindRemoteAccessibilityFrames(int processIdentifier, WebCore:
     completionHandler(frameDataToken, frameProcessIdentifier);
 }
 
-void WebPageProxy::updateRemoteFrameAccessibilityOffset(WebCore::FrameIdentifier frameID, WebCore::IntPoint offset)
+void WebPageProxy::updateRemoteFrameOffsetInMainFrame(WebCore::FrameIdentifier frameID, WebCore::IntPoint offset)
 {
-    sendToProcessContainingFrame(frameID, Messages::WebPage::UpdateRemotePageAccessibilityOffset(frameID, offset));
+    // The offset pushed from the web process is this frame's origin within its immediate parent
+    // frame. To convert selection rects to main-frame coordinates, each frame's process needs the
+    // cumulative offset (the sum of its ancestors' origins). Record the per-parent offset here and
+    // recompute the cumulative offset for this frame and its descendants, so out-of-order arrival of
+    // ancestor and descendant offsets converges to the correct result.
+    internals().remoteFrameOffsetsInParent.set(frameID, offset);
+
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame)
+        return;
+
+    pushCumulativeOffsetInMainFrame(*frame);
+    for (RefPtr descendant = frame->traverseNext(frame.get()); descendant; descendant = descendant->traverseNext(frame.get()))
+        pushCumulativeOffsetInMainFrame(*descendant);
+}
+
+void WebPageProxy::pushCumulativeOffsetInMainFrame(WebFrameProxy& frame)
+{
+    auto frameID = frame.frameID();
+    auto it = internals().remoteFrameOffsetsInParent.find(frameID);
+    if (it == internals().remoteFrameOffsetsInParent.end())
+        return;
+
+    WebCore::IntPoint cumulativeOffset;
+    for (RefPtr ancestor = &frame; ancestor; ancestor = ancestor->parentFrame()) {
+        if (auto ancestorOffset = internals().remoteFrameOffsetsInParent.getOptional(ancestor->frameID()))
+            cumulativeOffset.moveBy(*ancestorOffset);
+    }
+
+    sendToProcessContainingFrame(frameID, Messages::WebPage::UpdateRemotePageOffsetInMainFrame(frameID, cumulativeOffset));
 }
 
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
