@@ -27,10 +27,16 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
+import contextlib
+import io
 import os
+import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
+
+import yaml
 
 import runner
 
@@ -1038,6 +1044,170 @@ class TestTestFileRegex(unittest.TestCase):
     def test_rejects_non_js(self):
         self.assertIsNone(runner._TEST_FILE_RE.search("test.py"))
         self.assertIsNone(runner._TEST_FILE_RE.search("test.txt"))
+
+
+# Stands in for jsc. Picks its outcome from the name of the test file it is
+# handed, so one mock covers every case below. The exit codes match jsc's:
+# 3 is EXIT_EXCEPTION, 139 is death by SIGSEGV as reported through the shell.
+_MOCK_JSC = """\
+#!/usr/bin/env python3
+import sys
+
+target = sys.argv[-1]
+if "crashing" in target:
+    sys.stdout.write("Exception: Test262: This test crashes.")
+    sys.exit(139)
+if "failing" in target:
+    sys.stdout.write("Exception: Test262: This test fails.")
+    sys.exit(3)
+sys.exit(0)
+"""
+
+
+class TestEndToEnd(unittest.TestCase):
+    """Drives main() end to end against a mock jsc.
+
+    Ported from Tools/Scripts/webkitperl/test262_unittest, which covered the
+    Perl runner the same way and was removed along with it.
+    """
+
+    TEST_FILES = ("passing.js", "failing.js", "crashing.js")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+        self.test262_dir = os.path.join(self.tmp, "test262")
+        harness_dir = os.path.join(self.test262_dir, "harness")
+        tests_dir = os.path.join(self.test262_dir, "test")
+        os.makedirs(harness_dir)
+        os.makedirs(tests_dir)
+        for name in ("sta.js", "assert.js", "doneprintHandle.js"):
+            with open(os.path.join(harness_dir, name), "w") as f:
+                f.write("// mock harness\n")
+        for name in self.TEST_FILES:
+            with open(os.path.join(tests_dir, name), "w") as f:
+                f.write("// mock test\n")
+
+        self.jsc = os.path.join(self.tmp, "mock-jsc")
+        with open(self.jsc, "w") as f:
+            f.write(_MOCK_JSC)
+        os.chmod(self.jsc, 0o755)
+
+        # main() writes test262-results/ into the working directory.
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(self.tmp)
+
+    def _write_yaml(self, name, contents):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w") as f:
+            yaml.dump(contents, f)
+        return path
+
+    def _run(self, *extra_args):
+        argv = [
+            "test262-runner",
+            "-p", "1",
+            "--release",
+            "--no-progress",
+            "--jsc", self.jsc,
+            "-t", self.test262_dir,
+        ] + list(extra_args)
+        out = io.StringIO()
+        exit_code = 0
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            with mock.patch.object(sys, "argv", argv):
+                try:
+                    runner.main()
+                except SystemExit as e:
+                    exit_code = e.code or 0
+        return exit_code, out.getvalue()
+
+    def test_failure_without_expectations(self):
+        code, out = self._run("-i", "-x", "-o", "test/failing.js")
+        self.assertEqual(code, 1)
+        self.assertEqual(out.count("! NEW FAIL"), 2)
+
+    def test_pass_without_expectations(self):
+        code, out = self._run("-i", "-x", "-o", "test/passing.js")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.count("! NEW FAIL"), 0)
+
+    def test_newly_failing(self):
+        expectations = self._write_yaml(
+            "expectations.yaml", {"test/unrelated.js": {"default": 3}}
+        )
+        code, out = self._run("-i", "-e", expectations, "-o", "test/failing.js")
+        self.assertEqual(code, 1)
+        self.assertEqual(out.count("! NEW FAIL"), 2)
+
+    def test_newly_passing(self):
+        expectations = self._write_yaml(
+            "expectations.yaml",
+            {"test/passing.js": {"default": 3, "strict mode": 3}},
+        )
+        code, out = self._run("-i", "-e", expectations, "-o", "test/passing.js")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.count("NEW PASS"), 2)
+        self.assertIn("2 tests newly pass", out)
+
+    def test_expected_failure_is_not_new(self):
+        expectations = self._write_yaml(
+            "expectations.yaml",
+            {"test/failing.js": {"default": 3, "strict mode": 3}},
+        )
+        code, out = self._run("-i", "-e", expectations, "-o", "test/failing.js")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.count("! NEW FAIL"), 0)
+
+    def test_crash_where_failure_was_expected_is_new(self):
+        # A test that used to throw and now crashes is still a regression, even
+        # though it failed before and fails now.
+        expectations = self._write_yaml(
+            "expectations.yaml",
+            {"test/crashing.js": {"default": 3, "strict mode": 3}},
+        )
+        code, out = self._run("-i", "-e", expectations, "-o", "test/crashing.js")
+        self.assertEqual(code, 1)
+        self.assertEqual(out.count("! NEW FAIL"), 2)
+
+    def test_test_only_accepts_a_single_file(self):
+        code, out = self._run("-i", "-x", "-o", "test/passing.js")
+        self.assertEqual(code, 0)
+        self.assertIn("2 tests run", out)
+
+    def test_no_tests_found_is_an_error(self):
+        code, out = self._run("-i", "-x", "-o", "test/does-not-exist")
+        self.assertEqual(code, 1)
+        self.assertIn("No test files found.", out)
+
+    def test_skipped_files_reports_newly_passing(self):
+        config = self._write_yaml(
+            "config.yaml", {"skip": {"files": ["test/passing.js"]}}
+        )
+        code, out = self._run("-c", config, "-S")
+        self.assertIn("2 tests newly pass", out)
+        self.assertIn("PASS test/passing.js", out)
+
+    def test_skipped_files_does_not_report_expected_failures(self):
+        config = self._write_yaml(
+            "config.yaml", {"skip": {"files": ["test/failing.js"]}}
+        )
+        code, out = self._run("-c", config, "-S")
+        self.assertEqual(out.count("! NEW FAIL"), 0)
+
+    def test_save_records_exit_codes(self):
+        expectations = os.path.join(self.tmp, "saved.yaml")
+        self._run("-i", "-x", "--save", "-e", expectations)
+        with open(expectations) as f:
+            saved = yaml.safe_load(f)
+        self.assertEqual(
+            saved,
+            {
+                "test/crashing.js": {"default": 139, "strict mode": 139},
+                "test/failing.js": {"default": 3, "strict mode": 3},
+            },
+        )
 
 
 if __name__ == "__main__":

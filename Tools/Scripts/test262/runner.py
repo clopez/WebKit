@@ -596,8 +596,15 @@ def _discover_tests(test262_dir: str, test_dirs: List[str]) -> List[str]:
     files = []
     for test_dir in test_dirs:
         root = os.path.join(test262_dir, test_dir)
+        # --test-only accepts a single test file as well as a directory.
+        if os.path.isfile(root):
+            if _TEST_FILE_RE.search(os.path.basename(root)):
+                files.append(root)
+            else:
+                print(f"Warning: not a test file: {root}", file=sys.stderr)
+            continue
         if not os.path.isdir(root):
-            print(f"Warning: test directory not found: {root}", file=sys.stderr)
+            print(f"Warning: test path not found: {root}", file=sys.stderr)
             continue
         for dirpath, _, filenames in os.walk(root):
             for f in sorted(filenames):
@@ -664,6 +671,9 @@ def _find_jsc(jsc_path: Optional[str], release: bool, port: Optional[str] = None
         candidates = [
             config_dir / "bin" / "jsc",
             config_dir / "jsc",
+            # Apple ports ship jsc inside the framework, see jscPath() in
+            # webkitdirs.pm and the equivalent probe in run-jsc-stress-tests.
+            config_dir / "JavaScriptCore.framework" / "Helpers" / "jsc",
             config_dir / "Debug" / "jsc",
             config_dir / "Release" / "jsc",
         ]
@@ -1333,8 +1343,10 @@ def main() -> None:
             ]
 
         if not files:
-            print("No test files found.")
-            return
+            # Running nothing is never a success: exiting 0 here makes a typo in
+            # --test-only or --filter look like a clean run.
+            print("No test files found.", file=sys.stderr)
+            sys.exit(1)
 
         total_files = len(files)
 
@@ -1467,13 +1479,23 @@ def main() -> None:
                     )
                     if args.verbose:
                         new_failure_report += msg + "\n"
-                    if not expectations or not args.verbose:
+                    # --skipped-files runs the tests the config skips, which are
+                    # expected to fail; reporting every one of them as a new
+                    # failure is pure noise, so only --verbose asks for it.
+                    suppressed = args.skipped_files and not args.verbose
+                    if not suppressed and (not expectations or not args.verbose):
                         print(msg)
 
             elif result.endswith("pass"):
-                if result == "unexpected_pass":
+                is_new_pass = result == "unexpected_pass"
+                # --skipped-files deliberately runs without an expectations
+                # file, so nothing is ever classified unexpected_pass there.
+                # Every test that passes is one the config no longer needs to
+                # skip, which is the entire point of the mode.
+                if is_new_pass or args.skipped_files:
                     new_pass_count += 1
                     new_pass_report += f"PASS {path} ({mode})\n"
+                if is_new_pass:
                     if not args.verbose:
                         print(f"NEW PASS {path} ({mode})")
                 elif args.verbose:
