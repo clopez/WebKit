@@ -16,6 +16,9 @@ accessibility/ios-simulator [ Skip ]
 accessibility/gtk [ Skip ]
 accessibility/mac [ Skip ]
 accessibility/win [ Skip ]
+# The isolated tree only ships in Safari on macOS, so these run there alone
+# (re-enabled in platform/mac/TestExpectations).
+accessibility/isolated-tree [ Skip ]
 http/tests/site-isolation/accessibility/client [ Skip ]
 # Exercises iOS-specific remote-frame accessibility search behavior; enabled only on iOS (see platform/ios/TestExpectations).
 http/tests/site-isolation/accessibility/heading-search-returns-remote-frame.html [ Skip ]
@@ -392,9 +395,6 @@ media/deactivate-audio-session.html [ Skip ]
 
 # Skip the test which hits a debug assertion for now.
 [ Debug ] media/track/webvtt-parser-does-not-leak.html [ Skip ]
-
-# Skip isolated-tree specific tests.
-accessibility/isolated-tree [ Skip ]
 
 # ApplePay is only available on iOS (greater than iOS 10) and macOS (greater than macOS 10.12) and only for WebKit2.
 fast/css/appearance-apple-pay-button.html [ Skip ]
@@ -4997,6 +4997,18 @@ webkit.org/b/292182 webgl/2.0.y/conformance/textures/misc/texture-video-transpar
 webkit.org/b/292182 webgl/2.0.y/conformance2/rendering/clipping-wide-points.html [ Failure Pass ]
 
 webkit.org/b/313392 webgl/2.0.y/conformance2/textures/misc/tex-image-10bpc.html
+
+# To be fixed failures after "Update WebGL conformance tests 2026-07-18 (f15a73f727d8ee66a3ec6d0bed9f02f08cacc2c1)"
+webkit.org/b/320901 webgl/1.0.x/conformance/attribs/gl-get-attrib-location-errors.html [ Failure ]
+webkit.org/b/320901 webgl/1.0.x/conformance/glsl/misc/shader-with-double-underscore.html [ Failure ]
+webkit.org/b/320901 webgl/1.0.x/conformance/textures/misc/tex-image-svg-image-no-natural-width-and-height.html [ Failure ]
+webkit.org/b/320901 webgl/1.0.x/conformance/uniforms/gl-get-uniform-location-errors.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance/attribs/gl-get-attrib-location-errors.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance/glsl/misc/shader-with-double-underscore.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance/textures/misc/tex-image-svg-image-no-natural-width-and-height.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance/uniforms/gl-get-uniform-location-errors.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance2/extensions/webgl-render-shared-exponent.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance2/rendering/blitframebuffer-test.html [ Failure ]
 
 # Until more platforms ship with WebGL GPUP
 webgl/webgl-fail-platform-context-creation-no-crash.html [ Failure Pass ]

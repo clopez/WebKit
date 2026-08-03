@@ -28,6 +28,7 @@
 
 #include "CanvasRenderingContext2DBase.h"
 #include "InspectorCanvasProcessedArguments.h"
+#include "IntSize.h"
 #include "WebGL2RenderingContext.h"
 #include "WebGLRenderingContextBase.h"
 #include <JavaScriptCore/AsyncStackTrace.h>
@@ -74,6 +75,9 @@ public:
 
     HTMLCanvasElement* canvasElement() const;
 
+    Vector<IntSize> sizes() const;
+    Vector<String> cssCanvasNames() const;
+
     ScriptExecutionContext* scriptExecutionContext() const;
 
     JSC::JSValue resolveContext(JSC::JSGlobalObject*);
@@ -91,8 +95,7 @@ public:
     bool NODELETE currentFrameHasData() const;
 
     void recordAction(String&&, InspectorCanvasProcessedArguments&& = { });
-    void recordAction(String&&, RecordingSwizzleType, InspectorCanvasProcessedArguments&& = { });
-    void recordAction(String&&, uintptr_t receiver, RecordingSwizzleType, InspectorCanvasProcessedArguments&& = { });
+    void recordAction(String&&, InspectorCanvasProcessedArgument&& receiver, InspectorCanvasProcessedArguments&& = { });
 
     Ref<JSON::ArrayOf<Inspector::Protocol::Recording::Frame>> releaseFrames() { return m_frames.releaseNonNull(); }
 

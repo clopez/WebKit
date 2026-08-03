@@ -46,7 +46,6 @@
 #include "ImageBitmapRenderingContext.h"
 #include "ImageData.h"
 #include "InspectorCanvasCallTracer.h"
-#include "InspectorInstrumentation.h"
 #include "InspectorShaderProgram.h"
 #include "InstrumentingAgents.h"
 #include "JSExecState.h"
@@ -415,13 +414,20 @@ void InspectorCanvasAgent::didCreateCanvasRenderingContext(CanvasRenderingContex
 
 void InspectorCanvasAgent::didChangeCanvasSize(CanvasRenderingContext& context)
 {
-    RefPtr inspectorCanvas = findInspectorCanvas(context);
+    RefPtr<InspectorCanvas> inspectorCanvas;
+    if (WeakPtr gpuCanvasContext = dynamicDowncast<GPUCanvasContext>(context)) {
+        WeakPtr device = gpuCanvasContext->device();
+        if (!device)
+            return;
+        inspectorCanvas = findInspectorCanvas(*device);
+    } else
+        inspectorCanvas = findInspectorCanvas(context);
+
     ASSERT(inspectorCanvas);
     if (!inspectorCanvas)
         return;
 
-    const auto& size = context.canvasBase().size();
-    m_frontendDispatcher->canvasSizeChanged(inspectorCanvas->identifier(), size.width(), size.height());
+    dispatchCanvasSizeChanged(*inspectorCanvas);
 }
 
 void InspectorCanvasAgent::didChangeCanvasMemory(const CanvasRenderingContext& context)
@@ -650,6 +656,15 @@ void InspectorCanvasAgent::willDestroyWebGPUDevice(GPUDevice& device)
     unbindCanvas(*inspectorCanvas);
 }
 
+void InspectorCanvasAgent::didChangeGPUDeviceClientNodes(GPUDevice& device)
+{
+    RefPtr inspectorCanvas = findInspectorCanvas(device);
+    if (!inspectorCanvas)
+        return;
+
+    dispatchCanvasSizeChanged(*inspectorCanvas);
+}
+
 void InspectorCanvasAgent::didCreateWebGPUComputePipeline(GPUDevice& device, GPUComputePipeline& pipeline)
 {
     auto inspectorCanvas = findInspectorCanvas(device);
@@ -718,15 +733,15 @@ void InspectorCanvasAgent::recordAction(CanvasRenderingContext& canvasRenderingC
         didFinishRecordingCanvasFrame(canvasRenderingContext, true);
 }
 
-void InspectorCanvasAgent::recordAction(CanvasRenderingContext& canvasRenderingContext, RecordingSwizzleType receiverSwizzleType, String&& name, InspectorCanvasProcessedArguments&& arguments)
+void InspectorCanvasAgent::recordAction(CanvasRenderingContext& canvasRenderingContext, InspectorCanvasProcessedArgument&& receiver, String&& name, InspectorCanvasProcessedArguments&& arguments)
 {
     ASSERT(canvasRenderingContext.hasActiveInspectorCanvasCallTracer());
 
-    auto inspectorCanvas = findInspectorCanvas(canvasRenderingContext);
+    RefPtr inspectorCanvas = findInspectorCanvas(canvasRenderingContext);
     ASSERT(inspectorCanvas);
 
     scheduleRecordingCanvasFrame(*inspectorCanvas);
-    inspectorCanvas->recordAction(WTF::move(name), receiverSwizzleType, WTF::move(arguments));
+    inspectorCanvas->recordAction(WTF::move(name), WTF::move(receiver), WTF::move(arguments));
 
     if (!inspectorCanvas->hasBufferSpace())
         didFinishRecordingCanvasFrame(canvasRenderingContext, true);
@@ -748,7 +763,7 @@ void InspectorCanvasAgent::recordAction(GPUDevice& device, String&& name, Inspec
         didFinishRecordingCanvasFrame(device, true);
 }
 
-void InspectorCanvasAgent::recordAction(GPUDevice& device, uintptr_t receiver, RecordingSwizzleType receiverSwizzleType, String&& name, InspectorCanvasProcessedArguments&& arguments)
+void InspectorCanvasAgent::recordAction(GPUDevice& device, InspectorCanvasProcessedArgument&& receiver, String&& name, InspectorCanvasProcessedArguments&& arguments)
 {
     ASSERT(device.hasActiveInspectorCanvasCallTracer());
 
@@ -758,7 +773,7 @@ void InspectorCanvasAgent::recordAction(GPUDevice& device, uintptr_t receiver, R
         return;
 
     scheduleRecordingCanvasFrame(*inspectorCanvas);
-    inspectorCanvas->recordAction(WTF::move(name), receiver, receiverSwizzleType, WTF::move(arguments));
+    inspectorCanvas->recordAction(WTF::move(name), WTF::move(receiver), WTF::move(arguments));
 
     if (!inspectorCanvas->hasBufferSpace())
         didFinishRecordingCanvasFrame(device, true);
@@ -877,7 +892,7 @@ InspectorCanvas& InspectorCanvasAgent::bindCanvas(CanvasRenderingContext& contex
 
     context.canvasBase().addObserver(*this);
 
-    m_frontendDispatcher->canvasAdded(inspectorCanvas->buildObjectForCanvas(captureBacktrace));
+    m_frontendDispatcher->canvasAdded(buildObjectForCanvas(inspectorCanvas, captureBacktrace));
 
 #if ENABLE(WEBGL)
     if (is<WebGLRenderingContextBase>(context)) {
@@ -899,9 +914,30 @@ InspectorCanvas& InspectorCanvasAgent::bindCanvas(GPUDevice& device, bool captur
     auto inspectorCanvas = InspectorCanvas::create(device);
     m_identifierToInspectorCanvas.set(inspectorCanvas->identifier(), inspectorCanvas.copyRef());
 
-    m_frontendDispatcher->canvasAdded(inspectorCanvas->buildObjectForCanvas(captureBacktrace));
+    m_frontendDispatcher->canvasAdded(buildObjectForCanvas(inspectorCanvas, captureBacktrace));
 
     return inspectorCanvas.unsafeGet();
+}
+
+Ref<Inspector::Protocol::Canvas::Canvas> InspectorCanvasAgent::buildObjectForCanvas(InspectorCanvas& inspectorCanvas, bool captureBacktrace)
+{
+    return inspectorCanvas.buildObjectForCanvas(captureBacktrace);
+}
+
+void InspectorCanvasAgent::dispatchCanvasSizeChanged(InspectorCanvas& inspectorCanvas)
+{
+    RefPtr<JSON::ArrayOf<Inspector::Protocol::GenericTypes::Size>> sizesPayload;
+    auto sizes = inspectorCanvas.sizes();
+    if (!sizes.isEmpty()) {
+        sizesPayload = JSON::ArrayOf<Inspector::Protocol::GenericTypes::Size>::create();
+        for (auto& size : sizes) {
+            sizesPayload->addItem(Inspector::Protocol::GenericTypes::Size::create()
+                .setWidth(size.width())
+                .setHeight(size.height())
+                .release());
+        }
+    }
+    m_frontendDispatcher->canvasSizeChanged(inspectorCanvas.identifier(), WTF::move(sizesPayload));
 }
 
 void InspectorCanvasAgent::unbindCanvas(InspectorCanvas& inspectorCanvas)
