@@ -189,6 +189,11 @@ void SkiaCompositingLayer::setContentsBuffer(std::unique_ptr<CoordinatedPlatform
     m_contentsBuffer = WTF::move(contentsBuffer);
 }
 
+std::unique_ptr<CoordinatedPlatformLayerBuffer> SkiaCompositingLayer::takeContentsBuffer()
+{
+    return WTF::move(m_contentsBuffer);
+}
+
 void SkiaCompositingLayer::setContentsSolidColor(const Color& color)
 {
     if (m_contentsSolidColor == color)
@@ -646,6 +651,24 @@ void SkiaCompositingLayer::paintContents(SkCanvas& canvas, PaintContext& context
     const auto ctm = transform.asM33();
     bool enableAntialias = !ctm.preservesAxisAlignment() && !ctm.preservesRightAngles();
 
+    auto shouldBlend = [&]() -> bool {
+        if (m_contentsOpaque)
+            return false;
+
+        if (m_backingStore)
+            return true;
+
+        if (m_contentsBuffer)
+            return m_contentsBuffer->flags().contains(TextureMapperFlags::ShouldBlend);
+
+        if (m_imageBackingStore) {
+            if (const auto* buffer = m_imageBackingStore->buffer())
+                return buffer->flags().contains(TextureMapperFlags::ShouldBlend);
+        }
+
+        return true;
+    };
+
     // When the layer contents are fully opaque and composited at full opacity with the default
     // (source-over) blend mode, drawing the batched tiles/images with source-over needlessly keeps
     // GL_BLEND enabled for every draw. Compositing with source (kSrc) instead lets Skia's blend
@@ -656,7 +679,7 @@ void SkiaCompositingLayer::paintContents(SkCanvas& canvas, PaintContext& context
     // filter and still use kSrc when it provably keeps the contents opaque.
     bool forcedSrcBlendMode = false;
     auto batchBlendMode = context.blendMode;
-    if (!batchBlendMode && !context.colorFilter && m_contentsOpaque && context.opacity == 1) {
+    if (!batchBlendMode && !context.colorFilter && !shouldBlend() && context.opacity == 1) {
         batchBlendMode = SkBlendMode::kSrc;
         forcedSrcBlendMode = true;
     }

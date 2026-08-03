@@ -145,17 +145,22 @@ bool RenderLayerModelObject::requiresLayerForSVGIntrinsicReasons() const
 {
     // Plain 2D transforms need no layer, paintRendererByApplyingTransformForSVG() handles them.
     // 3D transforms require compositing, hence a layer, as do grouping effects, z-index, etc.
-    return createsGroup()
-        || style().transform().has3DOperation()
-        || style().translate().is3DOperation()
-        || style().scale().is3DOperation()
-        || style().rotate().is3DOperation()
-        || style().transformStyle3D() == TransformStyle3D::Preserve3D
-        || !style().perspective().isNone()
+    //
+    // clip-path also needs no layer. It is applied at paint and hit-test time via
+    // ClipPathPaintScope and pointInSVGClippingArea(). So use the group check without the clip-path
+    // branch, letting a bare clip-path stay non-layered.
+    auto& style = this->style();
+    return createsGroupForStyleExcludingClipPath(style)
+        || style.transform().has3DOperation()
+        || style.translate().is3DOperation()
+        || style.scale().is3DOperation()
+        || style.rotate().is3DOperation()
+        || style.transformStyle3D() == TransformStyle3D::Preserve3D
+        || !style.perspective().isNone()
         || hasHiddenBackface()
         || hasReflection()
-        || !style().specifiedZIndex().isAuto()
-        || style().isolation() != Isolation::Auto;
+        || !style.specifiedZIndex().isAuto()
+        || style.isolation() != Isolation::Auto;
 }
 
 void RenderLayerModelObject::styleWillChange(Style::Difference diff, const Style::ComputedStyle& newStyle)
@@ -259,7 +264,7 @@ void RenderLayerModelObject::styleDidChange(Style::Difference diff, const Style:
     }
 }
 
-bool RenderLayerModelObject::applyCachedClipAndScrollPosition(RepaintRects&, const RenderLayerModelObject*, VisibleRectContext) const
+bool RenderLayerModelObject::applyCachedClipAndScrollPosition(RepaintRects&, const RenderLayerModelObject*, const VisibleRectContext&) const
 {
     return false;
 }
@@ -358,11 +363,10 @@ bool RenderLayerModelObject::shouldPaintSVGRenderer(const PaintInfo& paintInfo, 
     return true;
 }
 
-auto RenderLayerModelObject::computeVisibleRectsInSVGContainer(const RepaintRects& rects, const RenderLayerModelObject* container, VisibleRectContext context) const -> std::optional<RepaintRects>
+auto RenderLayerModelObject::computeVisibleRectsInSVGContainer(const RepaintRects& rects, const RenderLayerModelObject* container, const VisibleRectContext& context, VisibleRectState state) const -> std::optional<RepaintRects>
 {
     ASSERT(is<RenderSVGModelObject>(this) || is<RenderSVGBlock>(this));
     ASSERT(!style().hasInFlowPosition());
-    ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
 
     if (container == this)
         return rects;
@@ -412,7 +416,7 @@ auto RenderLayerModelObject::computeVisibleRectsInSVGContainer(const RepaintRect
         }
     }
 
-    return localContainer->computeVisibleRectsInContainer(adjustedRects, container, context);
+    return localContainer->computeVisibleRectsInContainer(adjustedRects, container, context, state);
 }
 
 void RenderLayerModelObject::mapLocalToSVGContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const

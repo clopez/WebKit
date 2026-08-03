@@ -540,6 +540,9 @@ private:
     static void multiplySpecialLowFixed(std::span<const Digit, XSize>, std::span<const Digit, YSize>, std::span<Digit, RSize> result);
     template<size_t N>
     static std::span<Digit, N * 2> multiplyCombaFixed(std::span<const Digit, N> x, std::span<const Digit, N> y, std::span<Digit, N * 2> result);
+    template<size_t N>
+    static std::span<Digit, N * 2> squareCombaFixed(std::span<const Digit, N> x, std::span<Digit, N * 2> result);
+    static std::span<Digit> multiplyDigitsInto(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
 
     static std::span<Digit> NODELETE divideSingle(std::span<Digit> q, Digit& remainder, std::span<const Digit>, Digit);
     static std::tuple<std::span<Digit>, std::span<Digit>> divideSchoolbook(std::span<Digit> q, std::span<Digit> r, std::span<const Digit>, std::span<const Digit>);
@@ -548,6 +551,12 @@ private:
 
     static std::span<Digit> NODELETE addSchoolbook(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
     static std::span<Digit> NODELETE subSchoolbook(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    template<size_t N>
+    static std::span<Digit, N + 1> addSchoolbookFixed(std::span<const Digit, N> x, std::span<const Digit, N> y, std::span<Digit, N + 1> result);
+    template<size_t N>
+    static std::span<Digit, N> subSchoolbookFixed(std::span<const Digit, N> x, std::span<const Digit, N> y, std::span<Digit, N> result);
+    static std::span<Digit> addDigitsInto(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static std::span<Digit> subDigitsInto(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
 
     static ComparisonResult NODELETE compareDigits(std::span<const Digit> x, std::span<const Digit> y);
     static std::span<Digit> NODELETE addDigits(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
@@ -599,9 +608,15 @@ private:
     // inverse through a span whose extent is fixed at compile time.
     static_assert(maxFixedCachedModDivisorSize <= maxCachedModDivisorSize);
     static void cachedModMakeInverse(VM&, std::span<const Digit> b);
+    static Digit cachedModFoldFactor(std::span<const Digit> b);
     static std::span<const Digit> cachedMod(VM&, std::span<Digit> r, std::span<const Digit>, std::span<const Digit>);
     template<size_t N, size_t ASize>
     static void cachedModFixed(VM&, std::span<Digit, N> r, std::span<const Digit, ASize>, std::span<const Digit, N> b);
+    template<typename RSpan, typename ASpan, typename BSpan>
+    static void cachedModFoldImpl(RSpan r, ASpan, BSpan b, Digit c);
+    template<size_t N, size_t ASize>
+    static void cachedModFoldFixed(std::span<Digit, N> r, std::span<const Digit, ASize>, std::span<const Digit, N> b, Digit c);
+    static void cachedModFold(std::span<Digit> r, std::span<const Digit>, std::span<const Digit> b, Digit c);
     static bool NODELETE greaterThanOrEqual(std::span<const Digit>, std::span<const Digit>);
 
     static std::span<Digit> rightShift(std::span<Digit> z, std::span<const Digit> x, unsigned);

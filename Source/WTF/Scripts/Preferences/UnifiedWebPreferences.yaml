@@ -211,9 +211,11 @@ AccessHandleEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)" : true
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)" : true
       default: false
 
 AccessibilityTextStitchingEnabled:
@@ -3291,9 +3293,11 @@ FileSystemEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)" : true
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)" : true
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
@@ -3327,9 +3331,11 @@ FileSystemWritableStreamEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
@@ -4553,19 +4559,6 @@ InterruptVideoOnPageVisibilityChangeEnabled:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebCore:
-      default: false
-
-IntlEraMonthcodeEnabled:
-  type: bool
-  status: testable
-  category: javascript
-  humanReadableName: "Intl Era and Month Code"
-  humanReadableDescription: "Enable Intl.Era-monthcode proposal."
-  webcoreBinding: none
-  jscOptionName: useIntlEraMonthcode
-  sharedPreferenceForWebProcess: true
-  defaultValue:
-    WebKit:
       default: false
 
 InvisibleAutoplayNotPermitted:
@@ -7104,6 +7097,19 @@ ReadableStreamTransferEnabled:
     WebKit:
       default: true
 
+RegExpBufferBoundariesEnabled:
+  type: bool
+  status: testable
+  category: javascript
+  humanReadableName: "RegExp Buffer Boundaries"
+  humanReadableDescription: "Allow the use in regular expressions of \\\\A, \\\\z and \\\\Z from the RegExp Buffer Boundaries proposal"
+  webcoreBinding: none
+  jscOptionName: useRegExpBufferBoundaries
+  sharedPreferenceForWebProcess: true
+  defaultValue:
+    WebKit:
+      default: false
+
 RemoteMediaSessionManagerEnabled:
   type: bool
   status: unstable
@@ -8507,9 +8513,11 @@ StorageAPIEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
 StorageAPIEstimateEnabled:
@@ -8523,9 +8531,11 @@ StorageAPIEstimateEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
 StorageAccessAPIEnabled:

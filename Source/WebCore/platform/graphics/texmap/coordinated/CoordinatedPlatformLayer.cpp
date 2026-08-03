@@ -75,7 +75,7 @@ CoordinatedPlatformLayer::~CoordinatedPlatformLayer() = default;
 
 void CoordinatedPlatformLayer::setOwner(GraphicsLayerCoordinated* owner)
 {
-    ASSERT(isMainThread());
+    assertIsMainThread();
     if (m_owner == owner)
         return;
 
@@ -93,7 +93,7 @@ void CoordinatedPlatformLayer::setOwner(GraphicsLayerCoordinated* owner)
 
 GraphicsLayerCoordinated* CoordinatedPlatformLayer::owner() const
 {
-    ASSERT(isMainThread());
+    assertIsMainThread();
     return m_owner;
 }
 
@@ -126,13 +126,12 @@ SkiaCompositingLayer& CoordinatedPlatformLayer::ensureSkiaTarget()
 
 static bool shouldReleaseBuffer(CoordinatedPlatformLayerBuffer* buffer)
 {
-    if (!buffer)
-        return false;
-
 #if ENABLE(VIDEO)
     // Do not release hole punch buffers early. See https://bugs.webkit.org/show_bug.cgi?id=267322.
-    if (is<CoordinatedPlatformLayerBufferHolePunch>(*buffer))
+    if (is<CoordinatedPlatformLayerBufferHolePunch>(buffer))
         return false;
+#else
+    UNUSED_PARAM(buffer);
 #endif
 
     return true;
@@ -145,8 +144,13 @@ void CoordinatedPlatformLayer::invalidateTarget()
         Locker locker { m_lock };
         m_backingStore = nullptr;
         m_imageBackingStore.committed = nullptr;
-        if (shouldReleaseBuffer(m_contentsBuffer.committed.get()))
+        if (m_target && shouldReleaseBuffer(m_contentsBuffer.committed.get()))
             m_contentsBuffer.committed = nullptr;
+#if USE(SKIA)
+        if (m_skiaTarget && !shouldReleaseBuffer(m_skiaTarget->contentsBuffer()))
+            m_contentsBuffer.committed = m_skiaTarget->takeContentsBuffer();
+#endif
+        m_contentsBuffer.hasCommitted = false;
     }
     m_target = nullptr;
 #if USE(SKIA)
@@ -299,27 +303,22 @@ const TransformationMatrix& CoordinatedPlatformLayer::childrenTransform() const
 
 void CoordinatedPlatformLayer::didUpdateLayerTransform()
 {
+    assertIsMainThread();
     m_needsTilesUpdate = true;
 }
 
 void CoordinatedPlatformLayer::setVisibleRect(const FloatRect& visibleRect)
 {
-    assertIsHeld(m_lock);
+    assertIsMainThread();
     if (m_visibleRect == visibleRect)
         return;
 
     m_visibleRect = visibleRect;
 }
 
-const FloatRect& CoordinatedPlatformLayer::visibleRect() const
-{
-    assertIsHeld(m_lock);
-    return m_visibleRect;
-}
-
 void CoordinatedPlatformLayer::setTransformedVisibleRect(IntRect&& transformedVisibleRect)
 {
-    assertIsHeld(m_lock);
+    assertIsMainThread();
     if (m_transformedVisibleRect == transformedVisibleRect)
         return;
 
@@ -343,7 +342,7 @@ const Markable<ScrollingNodeID>& CoordinatedPlatformLayer::scrollingNodeID() con
 
 void CoordinatedPlatformLayer::setDrawsContent(bool drawsContent)
 {
-    assertIsHeld(m_lock);
+    assertIsMainThread();
     m_drawsContent = drawsContent;
 }
 
@@ -357,6 +356,12 @@ void CoordinatedPlatformLayer::setMasksToBounds(bool masksToBounds)
     m_pendingChanges.add(Change::MasksToBounds);
     damageWholeLayer();
     notifyCompositionRequired();
+}
+
+bool CoordinatedPlatformLayer::masksToBounds() const
+{
+    assertIsHeld(m_lock);
+    return m_masksToBounds;
 }
 
 void CoordinatedPlatformLayer::setPreserves3D(bool preserves3D)
@@ -473,6 +478,7 @@ void CoordinatedPlatformLayer::setContentsClippingRect(const FloatRoundedRect& c
 
 void CoordinatedPlatformLayer::setContentsScale(float contentsScale)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     if (m_contentsScale == contentsScale)
         return;
@@ -488,21 +494,10 @@ float CoordinatedPlatformLayer::contentsScale() const
     return m_contentsScale;
 }
 
-bool CoordinatedPlatformLayer::hasCommittedContentsBuffer() const
-{
-    assertIsHeld(m_lock);
-#if USE(SKIA)
-    if (m_skiaTarget)
-        return !!m_skiaTarget->contentsBuffer();
-#endif
-
-    return !!m_contentsBuffer.committed;
-}
-
 void CoordinatedPlatformLayer::setContentsBuffer(std::unique_ptr<CoordinatedPlatformLayerBuffer>&& buffer, std::optional<Damage>&& dirtyRegion, RequireComposition requireComposition)
 {
     assertIsHeld(m_lock);
-    if (!buffer && !m_contentsBuffer.pending && !hasCommittedContentsBuffer())
+    if (!buffer && !m_contentsBuffer.pending && !m_contentsBuffer.hasCommitted)
         return;
 
     m_contentsBuffer.pending = WTF::move(buffer);
@@ -523,7 +518,7 @@ void CoordinatedPlatformLayer::setContentsBuffer(std::unique_ptr<CoordinatedPlat
 void CoordinatedPlatformLayer::replaceCurrentContentsBufferWithCopy()
 {
     Locker locker { m_lock };
-    if (!hasCommittedContentsBuffer())
+    if (!m_contentsBuffer.hasCommitted)
         return;
 
     m_contentsBuffer.pending = nullptr;
@@ -533,6 +528,7 @@ void CoordinatedPlatformLayer::replaceCurrentContentsBufferWithCopy()
         if (auto* buffer = m_skiaTarget->contentsBuffer()) {
             if (is<CoordinatedPlatformLayerBufferVideo>(*buffer))
                 m_contentsBuffer.pending = downcast<CoordinatedPlatformLayerBufferVideo>(*buffer).copyBuffer();
+            m_contentsBuffer.hasCommitted = !!m_contentsBuffer.pending;
             m_skiaTarget->setContentsBuffer(WTF::move(m_contentsBuffer.pending));
         }
         return;
@@ -541,6 +537,7 @@ void CoordinatedPlatformLayer::replaceCurrentContentsBufferWithCopy()
     if (is<CoordinatedPlatformLayerBufferVideo>(*m_contentsBuffer.committed))
         m_contentsBuffer.pending = downcast<CoordinatedPlatformLayerBufferVideo>(*m_contentsBuffer.committed).copyBuffer();
     m_contentsBuffer.committed = WTF::move(m_contentsBuffer.pending);
+    m_contentsBuffer.hasCommitted = !!m_contentsBuffer.committed;
     ensureTarget().setContentsLayer(m_contentsBuffer.committed.get());
 }
 #endif
@@ -601,6 +598,7 @@ void CoordinatedPlatformLayer::setContentsTilePhase(const FloatSize& contentsTil
 
 void CoordinatedPlatformLayer::setDirtyRegion(Damage&& damage)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     auto dirtyRegion = damage.rects();
     if (m_dirtyRegion != dirtyRegion) {
@@ -659,6 +657,12 @@ void CoordinatedPlatformLayer::setMask(CoordinatedPlatformLayer* mask)
     m_pendingChanges.add(Change::Mask);
     damageWholeLayer();
     notifyCompositionRequired();
+}
+
+CoordinatedPlatformLayer* CoordinatedPlatformLayer::mask() const
+{
+    assertIsHeld(m_lock);
+    return m_mask;
 }
 
 void CoordinatedPlatformLayer::setReplica(CoordinatedPlatformLayer* replica)
@@ -722,15 +726,48 @@ void CoordinatedPlatformLayer::setAnimations(const TextureMapperAnimations& anim
     notifyCompositionRequired();
 }
 
+RefPtr<CoordinatedPlatformLayer> CoordinatedPlatformLayer::parent() const
+{
+    assertIsHeld(m_lock);
+    return m_parent;
+}
+
 void CoordinatedPlatformLayer::setChildren(Vector<Ref<CoordinatedPlatformLayer>>&& children)
 {
     assertIsHeld(m_lock);
     if (m_children == children)
         return;
 
+    while (!m_children.isEmpty()) {
+        auto child = m_children.takeLast();
+        Locker childLocker { child->m_lock };
+        child->m_parent = nullptr;
+    }
+
     m_children = WTF::move(children);
+
+    for (auto& child : m_children) {
+        Locker childLocker { child->m_lock };
+        child->removeFromParent();
+        child->m_parent = this;
+    }
+
     m_pendingChanges.add(Change::Children);
     notifyCompositionRequired();
+}
+
+void CoordinatedPlatformLayer::removeFromParent()
+{
+    assertIsHeld(m_lock);
+    RefPtr parent = std::exchange(m_parent, nullptr);
+    if (!parent)
+        return;
+
+    Locker parentLocker { parent->m_lock };
+
+    parent->m_children.removeFirstMatching([this](auto& layer) {
+        return layer.ptr() == this;
+    });
 }
 
 const Vector<Ref<CoordinatedPlatformLayer>>& CoordinatedPlatformLayer::children() const
@@ -774,6 +811,7 @@ void CoordinatedPlatformLayer::setDebugBorder(Color&& borderColor, float borderW
 
 void CoordinatedPlatformLayer::setShowRepaintCounter(bool showRepaintCounter)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     if ((m_repaintCount != -1 && showRepaintCounter) || (m_repaintCount == -1 && !showRepaintCounter))
         return;
@@ -785,6 +823,7 @@ void CoordinatedPlatformLayer::setShowRepaintCounter(bool showRepaintCounter)
 
 bool CoordinatedPlatformLayer::needsBackingStore() const
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     if (!m_owner)
         return false;
@@ -806,6 +845,7 @@ bool CoordinatedPlatformLayer::needsBackingStore() const
 
 void CoordinatedPlatformLayer::updateBackingStore()
 {
+    assertIsMainThread();
     Locker locker { m_lock };
     if (!m_backingStoreProxy)
         return;
@@ -815,7 +855,7 @@ void CoordinatedPlatformLayer::updateBackingStore()
 
     Damage damage(m_size, Damage::Mode::Rectangles);
     IntRect contentsRect(IntPoint::zero(), IntSize(m_size));
-    auto updateResult = m_backingStoreProxy->updateIfNeeded(m_transformedVisibleRect, contentsRect, m_contentsScale, m_pendingTilesCreation || m_needsTilesUpdate, m_dirtyRegion, damage, *this);
+    auto updateResult = m_backingStoreProxy->updateIfNeeded(m_transformedVisibleRect, contentsRect, enclosingIntRect(m_visibleRect).size(), m_contentsScale, m_pendingTilesCreation || m_needsTilesUpdate, m_dirtyRegion, damage, *this);
     m_needsTilesUpdate = false;
 #if ENABLE(DAMAGE_TRACKING)
     addDamage(WTF::move(damage));
@@ -837,6 +877,7 @@ void CoordinatedPlatformLayer::updateBackingStore()
 
 void CoordinatedPlatformLayer::updateContents(bool affectedByTransformAnimation)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
 
     if (needsBackingStore()) {
@@ -924,6 +965,7 @@ void CoordinatedPlatformLayer::didPaintTile()
 
 Ref<CoordinatedTileBuffer> CoordinatedPlatformLayer::paint(const IntRect& dirtyRect)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     ASSERT(m_client);
     ASSERT(m_owner);
@@ -951,6 +993,7 @@ sk_sp<GrContextThreadSafeProxy> CoordinatedPlatformLayer::threadSafeGrContext() 
 
 Ref<SkiaRecordingResult> CoordinatedPlatformLayer::record(const IntRect& recordRect, unsigned dirtyTilesCount)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     ASSERT(m_client);
     ASSERT(m_owner);
@@ -959,6 +1002,7 @@ Ref<SkiaRecordingResult> CoordinatedPlatformLayer::record(const IntRect& recordR
 
 Ref<CoordinatedTileBuffer> CoordinatedPlatformLayer::replay(Ref<SkiaRecordingResult>&& recording, const IntRect& tileRect, const IntRect& dirtyRect)
 {
+    assertIsMainThread();
     assertIsHeld(m_lock);
     ASSERT(m_client);
     ASSERT(m_owner);
@@ -1238,6 +1282,7 @@ void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<Com
     if (reasons.containsAny({ CompositionReason::RenderingUpdate, CompositionReason::VideoFrame, CompositionReason::AsyncScrolling })) {
         if (m_pendingChanges.contains(Change::ContentsBuffer)) {
             m_contentsBuffer.committed = WTF::move(m_contentsBuffer.pending);
+            m_contentsBuffer.hasCommitted = !!m_contentsBuffer.committed;
             m_pendingChanges.remove(Change::ContentsBuffer);
         }
 
@@ -1433,6 +1478,7 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
         }
 #endif
         if (m_pendingChanges.contains(Change::ContentsBuffer)) {
+            m_contentsBuffer.hasCommitted = !!m_contentsBuffer.pending;
             layer.setContentsBuffer(WTF::move(m_contentsBuffer.pending));
             m_pendingChanges.remove(Change::ContentsBuffer);
         }

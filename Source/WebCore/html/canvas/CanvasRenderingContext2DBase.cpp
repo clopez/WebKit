@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
@@ -1983,6 +1983,26 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(ImageBitmap& imageBitm
     return { };
 }
 
+ExceptionOr<Ref<DOMMatrix>> CanvasRenderingContext2DBase::drawElementImage(CanvasElementImageSource&&, float, float)
+{
+    return Exception { ExceptionCode::NotSupportedError };
+}
+
+ExceptionOr<Ref<DOMMatrix>> CanvasRenderingContext2DBase::drawElementImage(CanvasElementImageSource&&, float, float, float, float)
+{
+    return Exception { ExceptionCode::NotSupportedError };
+}
+
+ExceptionOr<Ref<DOMMatrix>> CanvasRenderingContext2DBase::drawElementImage(CanvasElementImageSource&&, float, float, float, float, float, float)
+{
+    return Exception { ExceptionCode::NotSupportedError };
+}
+
+ExceptionOr<Ref<DOMMatrix>> CanvasRenderingContext2DBase::drawElementImage(CanvasElementImageSource&&, float, float, float, float, float, float, float, float)
+{
+    return Exception { ExceptionCode::NotSupportedError };
+}
+
 void CanvasRenderingContext2DBase::clearCanvas()
 {
     auto* c = effectiveDrawingContext();
@@ -2610,7 +2630,7 @@ RefPtr<ImageData> CanvasRenderingContext2DBase::makeImageDataIfContentsCached(co
         .rows = data->mutableSpan(),
     };
     convertImagePixels(source, destination, size);
-    return ImageData::create(size, WTF::move(data), m_settings.colorSpace);
+    return ImageData::create(size, Ref<JSC::ArrayBufferView>(WTF::move(data)), m_settings.colorSpace);
 }
 
 ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, int sy, int sw, int sh, std::optional<ImageDataSettings> settings) const
@@ -2644,7 +2664,7 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
             return Exception { ExceptionCode::InvalidStateError };
 
         auto format = PixelBufferFormat { AlphaPremultiplication::Unpremultiplied, outputPixelFormat, buffer->colorSpace() };
-        RefPtr pixelBuffer = dynamicDowncast<ByteArrayPixelBuffer>(buffer->getPixelBuffer(format, imageDataRect));
+        RefPtr pixelBuffer = dynamicDowncast<ArrayPixelBuffer>(buffer->getPixelBuffer(format, imageDataRect));
         if (!pixelBuffer)
             return Exception { ExceptionCode::InvalidStateError };
 

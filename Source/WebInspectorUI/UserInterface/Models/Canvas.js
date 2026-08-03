@@ -25,7 +25,7 @@
 
 WI.Canvas = class Canvas extends WI.Object
 {
-    constructor(target, identifier, contextType, size, {domNode, cssCanvasName, contextAttributes, features, memoryCost, stackTrace} = {})
+    constructor(target, identifier, contextType, size, {domNode, cssCanvasName, contextAttributes, features, memoryCost, stackTrace, displayName} = {})
     {
         super();
 
@@ -34,6 +34,7 @@ WI.Canvas = class Canvas extends WI.Object
         console.assert(contextType);
         console.assert(!size || size instanceof WI.Size, size);
         console.assert(!stackTrace || stackTrace instanceof WI.StackTrace, stackTrace);
+        console.assert(!displayName || typeof displayName === "string", displayName);
 
         this._target = target;
         this._identifier = identifier;
@@ -46,6 +47,7 @@ WI.Canvas = class Canvas extends WI.Object
         this._extensions = new Set;
         this._memoryCost = memoryCost || NaN;
         this._stackTrace = stackTrace || null;
+        this._displayName = displayName || "";
 
         this._clientNodes = null;
         this._shaderProgramCollection = new WI.ShaderProgramCollection;
@@ -125,6 +127,7 @@ WI.Canvas = class Canvas extends WI.Object
             features: payload.features,
             memoryCost: payload.memoryCost,
             stackTrace: WI.StackTrace.fromPayload(target, payload.stackTrace),
+            displayName: payload.name,
         });
     }
 
@@ -178,15 +181,6 @@ WI.Canvas = class Canvas extends WI.Object
         Canvas._nextDeviceUniqueDisplayNameNumber = 1;
     }
 
-    static supportsRequestContentForContextType(contextType)
-    {
-        switch (contextType) {
-        case Canvas.ContextType.WebGPU:
-            return false;
-        }
-        return true;
-    }
-
     // Public
 
     get target() { return this._target; }
@@ -204,27 +198,6 @@ WI.Canvas = class Canvas extends WI.Object
     get recordingFrameCount() { return this._recordingFrames.length; }
     get recordingBufferUsed() { return this._recordingBufferUsed; }
 
-    get supportsRecording()
-    {
-        switch (this._contextType) {
-        case WI.Canvas.ContextType.Canvas2D:
-        case WI.Canvas.ContextType.OffscreenCanvas2D:
-        case WI.Canvas.ContextType.BitmapRenderer:
-        case WI.Canvas.ContextType.OffscreenBitmapRenderer:
-        case WI.Canvas.ContextType.WebGL:
-        case WI.Canvas.ContextType.OffscreenWebGL:
-        case WI.Canvas.ContextType.WebGL2:
-        case WI.Canvas.ContextType.OffscreenWebGL2:
-            return true;
-
-        case WI.Canvas.ContextType.WebGPU:
-            return false;
-        }
-
-        console.assert(false, "not reached");
-        return false;
-    }
-
     get recordingActive()
     {
         return this._recordingState !== WI.Canvas.RecordingState.Inactive;
@@ -232,6 +205,9 @@ WI.Canvas = class Canvas extends WI.Object
 
     get displayName()
     {
+        if (this._displayName)
+            return this._displayName;
+
         if (this._cssCanvasName)
             return WI.UIString("CSS canvas \u201C%s\u201D").format(this._cssCanvasName);
 
@@ -304,9 +280,6 @@ WI.Canvas = class Canvas extends WI.Object
 
     requestContent()
     {
-        if (!Canvas.supportsRequestContentForContextType(this._contextType))
-            return Promise.resolve(null);
-
         return this._target.CanvasAgent.requestContent(this._identifier).then((result) => result.content).catch((error) => console.error(error));
     }
 
@@ -442,7 +415,8 @@ WI.Canvas = class Canvas extends WI.Object
     {
         // Called from WI.CanvasManager.
 
-        this._recordingFrames.pushAll(framesPayload.map(WI.RecordingFrame.fromPayload));
+        let version = InspectorBackend.getVersion("Recording");
+        this._recordingFrames.pushAll(framesPayload.map((frame) => WI.RecordingFrame.fromPayload(frame, version)));
 
         this._recordingBufferUsed = bufferUsed;
 

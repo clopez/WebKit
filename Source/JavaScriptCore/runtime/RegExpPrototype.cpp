@@ -37,7 +37,6 @@
 #include "RegExpObject.h"
 #include "RegExpObjectInlines.h"
 #include "RegExpPrototypeInlines.h"
-#include "StringRecursionChecker.h"
 #include "StringSplitCacheInlines.h"
 #include "YarrFlags.h"
 #include <wtf/text/StringBuilder.h>
@@ -413,11 +412,6 @@ JSC_DEFINE_HOST_FUNCTION(regExpProtoFuncToString, (JSGlobalObject* globalObject,
 
     JSObject* thisObject = asObject(thisValue);
     Integrity::auditStructureID(thisObject->structureID());
-
-    StringRecursionChecker checker(globalObject, thisObject);
-    EXCEPTION_ASSERT(!scope.exception() || checker.earlyReturnValue());
-    if (JSValue earlyReturnValue = checker.earlyReturnValue())
-        return JSValue::encode(earlyReturnValue);
 
     JSValue sourceValue = thisObject->get(globalObject, vm.propertyNames->source);
     RETURN_IF_EXCEPTION(scope, { });
@@ -1734,8 +1728,8 @@ JSC_DEFINE_HOST_FUNCTION(regExpProtoFuncMatchAll, (JSGlobalObject* globalObject,
         bool global = regExp->global();
         bool fullUnicode = regExp->eitherUnicode();
 
-        double lastIndexDouble = regExpObject->getLastIndex().asNumber();
-        size_t lastIndex = lastIndexDouble > 0 ? static_cast<size_t>(std::min(lastIndexDouble, maxSafeInteger())) : 0;
+        uint64_t lastIndex = regExpObject->getLastIndex().toLength(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
 
         Structure* structure = globalObject->regExpStructure();
         RegExpObject* matcher = RegExpObject::create(vm, structure, regExp);

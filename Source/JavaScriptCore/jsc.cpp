@@ -3037,7 +3037,7 @@ JSC_DEFINE_HOST_FUNCTION(functionFinalizationRegistryDeadCount, (JSGlobalObject*
 
 JSC_DEFINE_HOST_FUNCTION(functionIs32BitPlatform, (JSGlobalObject*, CallFrame*))
 {
-#if USE(JSVALUE64)
+#if CPU(ADDRESS64)
     return JSValue::encode(JSValue(JSC::JSValue::JSFalse));
 #else
     return JSValue::encode(JSValue(JSC::JSValue::JSTrue));
@@ -3257,7 +3257,7 @@ JSC_DEFINE_HOST_FUNCTION(functionEnsureArrayStorage, (JSGlobalObject* globalObje
 {
     VM& vm = globalObject->vm();
     for (unsigned i = 0; i < callFrame->argumentCount(); ++i) {
-        if (JSObject* object = dynamicDowncast<JSObject>(callFrame->argument(i)))
+        if (auto* object = dynamicDowncast<JSObjectWithButterfly>(callFrame->argument(i)))
             object->ensureArrayStorage(vm);
     }
     return JSValue::encode(jsUndefined());

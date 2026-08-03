@@ -728,7 +728,6 @@ webkit.org/b/188979 fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-last-001.xht [ ImageOnlyFailure ]
 
-webkit.org/b/202736 http/wpt/cache-storage/cache-quota-after-restart.any.html [ Failure ]
 webkit.org/b/202736 [ Release ] http/wpt/cache-storage/quota-third-party.https.html [ Failure Pass ]
 
 # The GPU process should not be used in layout tests yet
@@ -887,7 +886,6 @@ fast/events/mouse-cursor-pseudo-elements.html [ Failure Pass ]
 
 webkit.org/b/278719 fast/events/touch/touch-event-frames.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/frame-hover-update.html [ Failure ]
-webkit.org/b/278719 fast/events/touch/multi-touch-some-without-handlers.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/ontouchstart-active-selector.html [ Failure  ]
 webkit.org/b/278719 fast/events/touch/send-oncancel-event.html [ Pass ]
 webkit.org/b/278719 fast/events/touch/touch-event-pageXY.html [ Failure ]

@@ -642,6 +642,7 @@ public:
     WriteBarrier<JSBigInt> m_nextCachedBigIntDivisor;
     Vector<UCPURegister> m_bigIntCachedInverse;
     int m_bigIntDivisorCount { 0 };
+    UCPURegister m_bigIntFoldFactor { 0 };
 
     JSCell* orderedHashTableDeletedValue()
     {
@@ -907,9 +908,6 @@ public:
 
     Interpreter interpreter;
     VMEntryScope* entryScope { nullptr };
-
-    JSObject* stringRecursionCheckFirstObject { nullptr };
-    UncheckedKeyHashSet<JSObject*> stringRecursionCheckVisitedObjects;
 
     DateCache dateCache;
 
