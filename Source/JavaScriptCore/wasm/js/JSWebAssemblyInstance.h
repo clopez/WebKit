@@ -214,13 +214,11 @@ public:
 
             // reload all of the cached base and size pointers
             for (unsigned i = 0; i < m_moduleInformation->memoryCount(); i++) {
+                if (!m_memories[i])
+                    continue;
                 cachedMemoryBaseSizePairs()[i] = {
                     m_memories[i]->basePointer(),
-#if CPU(ARM)
-                    m_memories[i]->size();
-#else
                     m_memories[i]->mappedCapacity()
-#endif
                 };
             }
             m_cachedMemory0Size = m_memories[0]->memory().size();

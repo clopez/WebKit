@@ -4035,8 +4035,12 @@ void SpeculativeJIT::emitUntypedOrAnyBigIntBitOp(Node* node)
 
     GPRTemporary result(this);
     JSValueRegs resultRegs = JSValueRegs(result.gpr());
-    GPRTemporary scratch(this);
-    GPRReg scratchGPR = scratch.gpr();
+    std::optional<GPRTemporary> scratch;
+    GPRReg scratchGPR = InvalidGPRReg;
+    if constexpr (SnippetGenerator::needsScratchGPR) {
+        scratch.emplace(this);
+        scratchGPR = scratch->gpr();
+    }
 
     SnippetOperand leftOperand;
     SnippetOperand rightOperand;
@@ -4061,7 +4065,12 @@ void SpeculativeJIT::emitUntypedOrAnyBigIntBitOp(Node* node)
         rightRegs = right->jsValueRegs();
     }
 
-    SnippetGenerator gen(leftOperand, rightOperand, resultRegs, leftRegs, rightRegs, scratchGPR);
+    SnippetGenerator gen = [&] {
+        if constexpr (SnippetGenerator::needsScratchGPR)
+            return SnippetGenerator(leftOperand, rightOperand, resultRegs, leftRegs, rightRegs, scratchGPR);
+        else
+            return SnippetGenerator(leftOperand, rightOperand, resultRegs, leftRegs, rightRegs);
+    }();
     gen.generateFastPath(*this);
 
     ASSERT(gen.didEmitFastPath());
@@ -7304,15 +7313,13 @@ void SpeculativeJIT::compileNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEq
     JSValueOperand left(this, notDoubleChild, ManualOperandSpeculation);
     JSValueOperand right(this, neitherDoubleNorHeapBigIntNorStringChild, ManualOperandSpeculation);
 
-    GPRTemporary temp(this);
     GPRTemporary result(this, Reuse, left, right);
     JSValueRegs leftRegs = left.jsValueRegs();
     JSValueRegs rightRegs = right.jsValueRegs();
-    GPRReg tempGPR = temp.gpr();
     GPRReg resultGPR = result.gpr();
 
-    speculateNotDouble(notDoubleChild, leftRegs, tempGPR);
-    speculateNeitherDoubleNorHeapBigIntNorString(neitherDoubleNorHeapBigIntNorStringChild, rightRegs, tempGPR);
+    speculateNotDouble(notDoubleChild, leftRegs);
+    speculateNeitherDoubleNorHeapBigIntNorString(neitherDoubleNorHeapBigIntNorStringChild, rightRegs);
 
     emitBitwiseJSValueEquality(leftRegs, rightRegs, resultGPR);
     unblessedBooleanResult(resultGPR, node);
@@ -7323,13 +7330,11 @@ void SpeculativeJIT::compilePeepHoleNotDoubleNeitherDoubleNorHeapBigIntNorString
     JSValueOperand left(this, notDoubleChild, ManualOperandSpeculation);
     JSValueOperand right(this, neitherDoubleNorHeapBigIntNorStringChild, ManualOperandSpeculation);
 
-    GPRTemporary temp(this);
     JSValueRegs leftRegs = left.jsValueRegs();
     JSValueRegs rightRegs = right.jsValueRegs();
-    GPRReg tempGPR = temp.gpr();
 
-    speculateNotDouble(notDoubleChild, leftRegs, tempGPR);
-    speculateNeitherDoubleNorHeapBigIntNorString(neitherDoubleNorHeapBigIntNorStringChild, rightRegs, tempGPR);
+    speculateNotDouble(notDoubleChild, leftRegs);
+    speculateNeitherDoubleNorHeapBigIntNorString(neitherDoubleNorHeapBigIntNorStringChild, rightRegs);
 
     BasicBlock* taken = branchNode->branchData()->taken.block;
     BasicBlock* notTaken = branchNode->branchData()->notTaken.block;
@@ -12325,7 +12330,7 @@ void SpeculativeJIT::speculateNotCellNorBigInt(Edge edge)
 #endif
 }
 
-void SpeculativeJIT::speculateNotDouble(Edge edge, JSValueRegs regs, GPRReg tempGPR)
+void SpeculativeJIT::speculateNotDouble(Edge edge, JSValueRegs regs)
 {
     if (!needsTypeCheck(edge, ~SpecFullDouble))
         return;
@@ -12336,7 +12341,7 @@ void SpeculativeJIT::speculateNotDouble(Edge edge, JSValueRegs regs, GPRReg temp
     if (mayBeInt32)
         done = branchIfInt32(regs);
 
-    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs, tempGPR));
+    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs));
 
     if (mayBeInt32)
         done.link(this);
@@ -12348,14 +12353,10 @@ void SpeculativeJIT::speculateNotDouble(Edge edge)
         return;
     
     JSValueOperand operand(this, edge, ManualOperandSpeculation);
-    GPRTemporary temp(this);
-    JSValueRegs regs = operand.jsValueRegs();
-    GPRReg tempGPR = temp.gpr();
-    
-    speculateNotDouble(edge, regs, tempGPR);
+    speculateNotDouble(edge, operand.jsValueRegs());
 }
 
-void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge, JSValueRegs regs, GPRReg tempGPR)
+void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge, JSValueRegs regs)
 {
     if (!needsTypeCheck(edge, ~(SpecFullDouble | SpecHeapBigInt)))
         return;
@@ -12366,7 +12367,7 @@ void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge, JSValueRegs 
     if (mayBeInt32)
         done.append(branchIfInt32(regs));
 
-    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs, tempGPR));
+    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs));
 
     bool mayBeNotCell = needsTypeCheck(edge, SpecCell);
     if (mayBeNotCell)
@@ -12384,14 +12385,10 @@ void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge)
         return;
 
     JSValueOperand operand(this, edge, ManualOperandSpeculation);
-    GPRTemporary temp(this);
-    JSValueRegs regs = operand.jsValueRegs();
-    GPRReg tempGPR = temp.gpr();
-
-    speculateNeitherDoubleNorHeapBigInt(edge, regs, tempGPR);
+    speculateNeitherDoubleNorHeapBigInt(edge, operand.jsValueRegs());
 }
 
-void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge, JSValueRegs regs, GPRReg tempGPR)
+void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge, JSValueRegs regs)
 {
     if (!needsTypeCheck(edge, ~(SpecFullDouble | SpecString | SpecHeapBigInt)))
         return;
@@ -12402,7 +12399,7 @@ void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge, JSV
     if (mayBeInt32)
         done.append(branchIfInt32(regs));
 
-    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs, tempGPR));
+    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, branchIfNumber(regs));
 
     bool mayBeNotCell = needsTypeCheck(edge, SpecCell);
     if (mayBeNotCell)
@@ -12421,11 +12418,7 @@ void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge)
         return;
 
     JSValueOperand operand(this, edge, ManualOperandSpeculation);
-    GPRTemporary temp(this);
-    JSValueRegs regs = operand.jsValueRegs();
-    GPRReg tempGPR = temp.gpr();
-
-    speculateNeitherDoubleNorHeapBigIntNorString(edge, regs, tempGPR);
+    speculateNeitherDoubleNorHeapBigIntNorString(edge, operand.jsValueRegs());
 }
 
 void SpeculativeJIT::speculateOther(Edge edge, JSValueRegs regs, GPRReg tempGPR)
@@ -12694,7 +12687,7 @@ void SpeculativeJIT::emitSwitchImm(Node* node, SwitchData* data)
 
         notInt32.link(this);
         JumpList failureCases;
-        failureCases.append(branchIfNotNumber(valueRegs, scratchGPR1));
+        failureCases.append(branchIfNotNumber(valueRegs));
         unboxDoubleWithoutAssertions(valueRegs.payloadGPR(), scratchGPR1, scratchFPR3);
         branchConvertDoubleToInt32(scratchFPR3, scratchGPR1, failureCases, scratchFPR4, /* negZeroCheck */ false);
         addBranch(failureCases, data->fallThrough.block);
@@ -13481,72 +13474,8 @@ void SpeculativeJIT::compileRegExpTest(Node* node)
             speculateRegExpObject(node->child2(), baseGPR);
             speculateString(node->child3(), argumentGPR);
 
-#if CPU(ARM64) || CPU(X86_64)
-            // Anchored RegExp.test(string) fast-fail on a constant RegExpObject; tests input[0].
-            {
-                if (const auto* localBitmap = m_graph.tryGetConstantRegExpFirstCharacterBitmap(node->child2().node(), FirstCharacterFilterPosition::AtStart)) {
-                    const uint8_t* bitmap = localBitmap->storageBytes().data();
-
-                    GPRTemporary result(this);
-                    GPRTemporary scratch1(this);
-                    GPRTemporary scratch2(this);
-
-                    GPRReg resultGPR = result.gpr();
-                    GPRReg scratch1GPR = scratch1.gpr();
-                    GPRReg scratch2GPR = scratch2.gpr();
-
-                    flushRegisters();
-
-                    JumpList slowCases;
-                    JumpList doneCases;
-
-                    emitRegExpAnchoredFirstCharacterFilterGuards(bitmap, argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
-
-                    move(TrustedImm32(0), resultGPR);
-                    doneCases.append(jump());
-
-                    slowCases.link(this);
-                    callOperation(operationRegExpTestString, resultGPR, globalObjectGPR, baseGPR, argumentGPR);
-
-                    doneCases.link(this);
-                    unblessedBooleanResult(resultGPR, node);
-                    return;
-                }
-            }
-
-            // Sticky RegExp.test(string) fast-fail on a constant RegExpObject; tests input[lastIndex].
-            {
-                if (const auto* localBitmap = m_graph.tryGetConstantRegExpFirstCharacterBitmap(node->child2().node(), FirstCharacterFilterPosition::AtLastIndex)) {
-                    const uint8_t* bitmap = localBitmap->storageBytes().data();
-
-                    GPRTemporary result(this);
-                    GPRTemporary scratch1(this);
-                    GPRTemporary scratch2(this);
-                    GPRReg resultGPR = result.gpr();
-                    GPRReg scratch1GPR = scratch1.gpr();
-                    GPRReg scratch2GPR = scratch2.gpr();
-
-                    flushRegisters();
-
-                    JumpList slowCases;
-                    JumpList doneCases;
-
-                    emitRegExpStickyFirstCharacterFilterGuards(bitmap, baseGPR, argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
-
-                    // The byte cannot begin a match: reset lastIndex to 0 and return false.
-                    store64(TrustedImm64(JSValue::encode(jsNumber(0))), Address(baseGPR, RegExpObject::offsetOfLastIndex()));
-                    move(TrustedImm32(0), resultGPR);
-                    doneCases.append(jump());
-
-                    slowCases.link(this);
-                    callOperation(operationRegExpTestString, resultGPR, globalObjectGPR, baseGPR, argumentGPR);
-
-                    doneCases.link(this);
-                    unblessedBooleanResult(resultGPR, node);
-                    return;
-                }
-            }
-#endif
+            if (tryEmitRegExpTestFirstCharacterFilter(node, globalObjectGPR, baseGPR, JSValueRegs(argumentGPR), node->child2(), node->child3()))
+                return;
 
             flushRegisters();
             GPRFlushedCallResult result(this);
@@ -13561,6 +13490,9 @@ void SpeculativeJIT::compileRegExpTest(Node* node)
         GPRReg baseGPR = base.gpr();
         JSValueRegs argumentRegs = argument.jsValueRegs();
         speculateRegExpObject(node->child2(), baseGPR);
+
+        if (tryEmitRegExpTestFirstCharacterFilter(node, globalObjectGPR, baseGPR, argumentRegs, node->child2(), node->child3()))
+            return;
 
         flushRegisters();
         GPRFlushedCallResult result(this);
@@ -13580,6 +13512,65 @@ void SpeculativeJIT::compileRegExpTest(Node* node)
     callOperation(operationRegExpTestGeneric, result.gpr(), globalObjectGPR, baseRegs, argumentRegs);
 
     unblessedBooleanResult(result.gpr(), node);
+}
+
+// RegExp.test(input) fast-fail on a constant RegExpObject: when the one byte a match would have to
+// start at cannot begin a match, answer false without entering the RegExp engine. A sticky pattern
+// looks at input[lastIndex] and must also reset lastIndex to 0, as a failed RegExpBuiltinExec does.
+bool SpeculativeJIT::tryEmitRegExpTestFirstCharacterFilter(Node* node, GPRReg globalObjectGPR, GPRReg baseGPR, JSValueRegs argumentRegs, Edge baseEdge, Edge argumentEdge)
+{
+    // At most one position can apply: AtStart requires a non-global non-sticky pattern, AtLastIndex a sticky one.
+    auto position = FirstCharacterFilterPosition::AtStart;
+    const auto* localBitmap = m_graph.tryGetConstantRegExpFirstCharacterBitmap(baseEdge.node(), position);
+    if (!localBitmap) {
+        position = FirstCharacterFilterPosition::AtLastIndex;
+        localBitmap = m_graph.tryGetConstantRegExpFirstCharacterBitmap(baseEdge.node(), position);
+    }
+    if (!localBitmap)
+        return false;
+
+    const uint8_t* bitmap = localBitmap->storageBytes().data();
+    bool argumentIsString = argumentEdge.useKind() == StringUse || argumentEdge.useKind() == KnownStringUse;
+    GPRReg argumentGPR = argumentRegs.payloadGPR();
+
+    GPRTemporary result(this);
+    GPRTemporary scratch1(this);
+    GPRTemporary scratch2(this);
+    GPRReg resultGPR = result.gpr();
+    GPRReg scratch1GPR = scratch1.gpr();
+    GPRReg scratch2GPR = scratch2.gpr();
+
+    // baseGPR/argumentRegs/globalObjectGPR are preserved across flushRegisters for the slow-path
+    // operation call; the scratch registers are free to clobber.
+    flushRegisters();
+
+    JumpList slowCases;
+    JumpList doneCases;
+
+    if (!argumentIsString) {
+        slowCases.append(branchIfNotCell(argumentRegs));
+        slowCases.append(branchIfNotString(argumentGPR));
+    }
+
+    if (position == FirstCharacterFilterPosition::AtStart)
+        emitRegExpAnchoredFirstCharacterFilterGuards(bitmap, argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
+    else {
+        emitRegExpStickyFirstCharacterFilterGuards(bitmap, baseGPR, argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
+        store64(TrustedImm64(JSValue::encode(jsNumber(0))), Address(baseGPR, RegExpObject::offsetOfLastIndex()));
+    }
+
+    move(TrustedImm32(0), resultGPR);
+    doneCases.append(jump());
+
+    slowCases.link(this);
+    if (argumentIsString)
+        callOperation(operationRegExpTestString, resultGPR, globalObjectGPR, baseGPR, argumentGPR);
+    else
+        callOperation(operationRegExpTest, resultGPR, globalObjectGPR, baseGPR, argumentRegs);
+
+    doneCases.link(this);
+    unblessedBooleanResult(resultGPR, node);
+    return true;
 }
 
 void SpeculativeJIT::compileStringReplace(Node* node)
@@ -13761,7 +13752,6 @@ void SpeculativeJIT::compileRegExpExecNonGlobalOrSticky(Node* node)
 
     speculateString(node->child2(), argumentGPR);
 
-#if CPU(ARM64) || CPU(X86_64)
     // Anchored non-sticky exec fast-fail; tests input[0].
     {
         RegExp* regExp = node->castOperand<RegExp*>();
@@ -13795,7 +13785,6 @@ void SpeculativeJIT::compileRegExpExecNonGlobalOrSticky(Node* node)
             return;
         }
     }
-#endif
 
     flushRegisters();
     JSValueRegsFlushedCallResult result(this);
@@ -13819,7 +13808,6 @@ void SpeculativeJIT::compileRegExpExecSticky(Node* node)
     speculateRegExpObject(node->child2(), baseGPR);
     speculateString(node->child3(), argumentGPR);
 
-#if CPU(ARM64) || CPU(X86_64)
     // Sticky exec fast-fail; when input[lastIndex] cannot begin a match, reset lastIndex to 0 and
     // return null inline.
     {
@@ -13857,7 +13845,6 @@ void SpeculativeJIT::compileRegExpExecSticky(Node* node)
             return;
         }
     }
-#endif
 
     flushRegisters();
     JSValueRegsFlushedCallResult result(this);
@@ -14369,7 +14356,7 @@ void SpeculativeJIT::compileNormalizeMapKey(Node* node)
     auto slowPath = jump();
     isNotCell.link(this);
 
-    passThroughCases.append(branchIfNotNumber(keyRegs, scratchGPR));
+    passThroughCases.append(branchIfNotNumber(keyRegs));
     passThroughCases.append(branchIfInt32(keyRegs));
 
     unboxDoubleWithoutAssertions(keyRegs.gpr(), scratchGPR, doubleValueFPR);
@@ -16026,18 +16013,16 @@ void SpeculativeJIT::compileToPropertyKeyOrNumber(Node* node)
     DFG_ASSERT(m_graph, node, node->child1().useKind() == UntypedUse, node->child1().useKind());
     JSValueOperand argument(this, node->child1());
     JSValueRegsTemporary result(this, Reuse, argument);
-    GPRTemporary temp(this);
 
     JSValueRegs argumentRegs = argument.jsValueRegs();
     JSValueRegs resultRegs = result.regs();
-    GPRReg tempGPR = temp.gpr();
 
     argument.use();
 
     JumpList alreadyPropertyKey;
     JumpList slowCases;
 
-    alreadyPropertyKey.append(branchIfNumber(argumentRegs, tempGPR));
+    alreadyPropertyKey.append(branchIfNumber(argumentRegs));
     slowCases.append(branchIfNotCell(argumentRegs));
     alreadyPropertyKey.append(branchIfSymbol(argumentRegs.payloadGPR()));
     slowCases.append(branchIfNotString(argumentRegs.payloadGPR()));
@@ -16055,11 +16040,9 @@ void SpeculativeJIT::compileToNumeric(Node* node)
     DFG_ASSERT(m_graph, node, node->child1().useKind() == UntypedUse, node->child1().useKind());
     JSValueOperand argument(this, node->child1());
     JSValueRegsTemporary result(this);
-    GPRTemporary temp(this);
 
     JSValueRegs argumentRegs = argument.jsValueRegs();
     JSValueRegs resultRegs = result.regs();
-    GPRReg scratch = temp.gpr();
     // FIXME: add a fast path for BigInt32 here.
     // https://bugs.webkit.org/show_bug.cgi?id=211064
 
@@ -16070,7 +16053,7 @@ void SpeculativeJIT::compileToNumeric(Node* node)
     Jump isHeapBigInt = jump();
 
     notCell.link(this);
-    slowCases.append(branchIfNotNumber(argumentRegs, scratch));
+    slowCases.append(branchIfNotNumber(argumentRegs));
 
     isHeapBigInt.link(this);
     moveValueRegs(argumentRegs, resultRegs);
@@ -16099,16 +16082,14 @@ void SpeculativeJIT::compileCallNumberConstructor(Node* node)
     DFG_ASSERT(m_graph, node, node->child1().useKind() == UntypedUse, node->child1().useKind());
     JSValueOperand argument(this, node->child1());
     JSValueRegsTemporary result(this);
-    GPRTemporary temp(this);
 
     JSValueRegs argumentRegs = argument.jsValueRegs();
     JSValueRegs resultRegs = result.regs();
-    GPRReg tempGPR = temp.gpr();
     // FIXME: add a fast path for BigInt32 here.
     // https://bugs.webkit.org/show_bug.cgi?id=211064
 
     JumpList slowCases;
-    slowCases.append(branchIfNotNumber(argumentRegs, tempGPR));
+    slowCases.append(branchIfNotNumber(argumentRegs));
     moveValueRegs(argumentRegs, resultRegs);
     addSlowPathGenerator(slowPathCall(slowCases, this, operationCallNumberConstructor, resultRegs, LinkableConstant::globalObject(*this, node), argumentRegs));
 
@@ -16868,7 +16849,7 @@ void SpeculativeJIT::compileProfileType(Node* node)
     else if (cachedTypeLocation->m_lastSeenType == TypeAnyInt)
         jumpToEnd.append(branchIfInt32(valueRegs));
     else if (cachedTypeLocation->m_lastSeenType == TypeNumber)
-        jumpToEnd.append(branchIfNumber(valueRegs, scratch1GPR));
+        jumpToEnd.append(branchIfNumber(valueRegs));
     else if (cachedTypeLocation->m_lastSeenType == TypeString) {
         Jump isNotCell = branchIfNotCell(valueRegs);
         jumpToEnd.append(branchIfString(valueRegs.payloadGPR()));

@@ -393,7 +393,7 @@ void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(
     if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecFullDouble)) {
         if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecInt32Only))
             trueCase.append(branchIfInt32(leftRegs));
-        speculationCheck(BadType, leftRegs, leftNeitherDoubleNorHeapBigIntChild.node(), branchIfNumber(leftRegs, tempGPR));
+        speculationCheck(BadType, leftRegs, leftNeitherDoubleNorHeapBigIntChild.node(), branchIfNumber(leftRegs));
     }
     if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecHeapBigInt)) {
         if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, SpecCell))
@@ -403,8 +403,8 @@ void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(
     trueCase.append(jump());
     notEqual.link(this);
 
-    speculateNotDouble(rightNotDoubleChild, rightRegs, tempGPR);
-    speculateNotDouble(leftNeitherDoubleNorHeapBigIntChild, leftRegs, tempGPR);
+    speculateNotDouble(rightNotDoubleChild, rightRegs);
+    speculateNotDouble(leftNeitherDoubleNorHeapBigIntChild, leftRegs);
 
     if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, SpecCellCheck))
         falseCase.append(branchIfNotCell(leftRegs));
@@ -10010,7 +10010,8 @@ void SpeculativeJIT::emitRegExpAnchoredFirstCharacterFilterGuards(const uint8_t*
 
 void SpeculativeJIT::emitRegExpStickyFirstCharacterFilterGuards(const uint8_t* bitmap, GPRReg baseGPR, GPRReg argumentGPR, GPRReg scratch1GPR, GPRReg scratch2GPR, GPRReg scratch3GPR, JumpList& slowCases)
 {
-    ASSERT(noOverlap(baseGPR, argumentGPR, scratch1GPR, scratch2GPR, scratch3GPR));
+    ASSERT(noOverlap(baseGPR, scratch1GPR, scratch2GPR, scratch3GPR));
+    ASSERT(noOverlap(argumentGPR, scratch1GPR, scratch2GPR, scratch3GPR));
 
     // The string must be a resolved 8-bit string.
     loadPtr(Address(argumentGPR, JSString::offsetOfValue()), scratch1GPR);

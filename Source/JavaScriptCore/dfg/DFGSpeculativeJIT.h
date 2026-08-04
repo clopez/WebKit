@@ -1586,6 +1586,7 @@ public:
     void compileRegExpMatchFastGlobal(Node*);
     void compileRegExpSplitFast(Node*);
     void compileRegExpTest(Node*);
+    bool tryEmitRegExpTestFirstCharacterFilter(Node*, GPRReg globalObjectGPR, GPRReg baseGPR, JSValueRegs argumentRegs, Edge baseEdge, Edge argumentEdge);
     void compileRegExpTestInline(Node*);
     void compileRegExpSearch(Node*);
     void compileRegExpStringIteratorNext(Node*);
@@ -1896,11 +1897,11 @@ public:
     void speculateNotCell(Edge, JSValueRegs);
     void speculateNotCell(Edge);
     void speculateNotCellNorBigInt(Edge);
-    void speculateNotDouble(Edge, JSValueRegs, GPRReg temp);
+    void speculateNotDouble(Edge, JSValueRegs);
     void speculateNotDouble(Edge);
-    void speculateNeitherDoubleNorHeapBigInt(Edge, JSValueRegs, GPRReg temp);
+    void speculateNeitherDoubleNorHeapBigInt(Edge, JSValueRegs);
     void speculateNeitherDoubleNorHeapBigInt(Edge);
-    void speculateNeitherDoubleNorHeapBigIntNorString(Edge, JSValueRegs, GPRReg temp);
+    void speculateNeitherDoubleNorHeapBigIntNorString(Edge, JSValueRegs);
     void speculateNeitherDoubleNorHeapBigIntNorString(Edge);
     void speculateOther(Edge, JSValueRegs, GPRReg temp);
     void speculateOther(Edge, JSValueRegs);
