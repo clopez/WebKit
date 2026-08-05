@@ -3747,6 +3747,15 @@ webkit.org/b/236904 imported/mozilla/svg/path-02.svg [ ImageOnlyFailure ]
 # Incorrect upstream, but seem to pass on the bots, possibly with a broken baseline.
 css2.1/20110323/replaced-intrinsic-001.htm [ Pass ]
 
+# New failure after import of css/css-ui (2026-07):
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/caret-eol-001.html [ ImageOnlyFailure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/caret-eol-002.html [ ImageOnlyFailure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/inert-attribute-overriding.html [ Failure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/resize-iframe-3d-transform.tentative.html [ Failure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/resize-textarea-rtl-001.tentative.html [ Failure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/resize-textarea-rtl-002.tentative.html [ Failure ]
+webkit.org/b/320474 imported/w3c/web-platform-tests/css/css-ui/user-select-button.html [ Failure ]
+
 # Passing only on iOS
 imported/w3c/web-platform-tests/css/css-contain/contain-size-select-001.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-select-002.html [ Pass ]
@@ -8532,7 +8541,6 @@ fast/forms/datalist/data-list-search-input-with-appearance-none.html [ Timeout ]
 fast/forms/datalist/datalist-textinput-dynamically-add-options-on-keydown.html [ Pass Timeout ]
 fast/forms/ios/select-option-update-1000.html [ Failure Timeout ] # rdar://178168662
 fast/images/imageDocument-title.html [ Pass Crash ] # rdar://178675308
-fast/mediastream/audio-session-category-capture-audio-context.html [ Pass Timeout ]
 fast/mediastream/media-stream-video-track-interrupted.html [ Pass Failure ] # rdar://178673961
 fast/mediastream/mediastreamtrack-clone-muted.html [ Pass Timeout ] # rdar://178215298
 fast/screen-orientation/orientation-in-resize-event.html [ Pass Failure Timeout ] # rdar://177741597

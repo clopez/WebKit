@@ -490,6 +490,9 @@ Modules/webcodecs/WebCodecsAudioEncoder.cpp
 Modules/webcodecs/WebCodecsBase.cpp
 Modules/webcodecs/WebCodecsEncodedAudioChunk.cpp
 Modules/webcodecs/WebCodecsEncodedVideoChunk.cpp
+Modules/webcodecs/WebCodecsImageDecoder.cpp
+Modules/webcodecs/WebCodecsImageTrack.cpp
+Modules/webcodecs/WebCodecsImageTrackList.cpp
 Modules/webcodecs/WebCodecsVideoDecoder.cpp
 Modules/webcodecs/WebCodecsVideoEncoder.cpp
 Modules/webcodecs/WebCodecsVideoFrame.cpp
@@ -800,6 +803,7 @@ bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWebCodecsAudioDecoderCustom.cpp
 bindings/js/JSWebCodecsAudioEncoderCustom.cpp
+bindings/js/JSWebCodecsImageDecoderCustom.cpp
 bindings/js/JSWebCodecsVideoDecoderCustom.cpp
 bindings/js/JSWebCodecsVideoEncoderCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
@@ -2689,6 +2693,7 @@ platform/graphics/NativeImage.cpp
 platform/graphics/NativeImageSource.cpp
 platform/graphics/NullImageBufferBackend.cpp
 platform/graphics/Path.cpp
+platform/graphics/PathArcLengthMapper.cpp
 platform/graphics/PathImpl.cpp
 platform/graphics/PathSegment.cpp
 platform/graphics/PathSegmentData.cpp
@@ -3138,6 +3143,7 @@ rendering/svg/RenderSVGTransformableContainer.cpp
 rendering/svg/RenderSVGViewportContainer.cpp @header:RenderStyleGetters
 rendering/svg/SVGBoundingBoxComputation.cpp @header:RenderStyleGetters
 rendering/svg/SVGContainerLayout.cpp @header:RenderStyleGetters
+rendering/svg/SVGImageIntrinsicSizing.cpp @header:RenderStyleGetters
 rendering/svg/SVGInlineFlowBox.cpp
 rendering/svg/SVGInlineTextBox.cpp @header:RenderStyleGetters
 rendering/svg/SVGPathFromElement.cpp @header:RenderStyleGetters
@@ -3528,6 +3534,7 @@ style/values/transforms/functions/StyleSkewTransformFunction.cpp
 style/values/transforms/functions/StyleTransformFunctionBase.cpp
 style/values/transforms/functions/StyleTranslateTransformFunction.cpp
 style/values/transforms/StylePerspective.cpp
+style/values/transforms/StylePortalTransform.cpp
 style/values/transforms/StyleRotate.cpp
 style/values/transforms/StyleScale.cpp
 style/values/transforms/StyleTransform.cpp
@@ -5235,6 +5242,10 @@ JSWebCodecsEncodedVideoChunkMetadata.cpp
 JSWebCodecsEncodedVideoChunkOutputCallback.cpp
 JSWebCodecsEncodedVideoChunkType.cpp
 JSWebCodecsErrorCallback.cpp
+JSWebCodecsImageDecoder.cpp
+JSWebCodecsImageDecodeResult.cpp
+JSWebCodecsImageTrack.cpp
+JSWebCodecsImageTrackList.cpp
 JSWebCodecsSvcOutputMetadata.cpp
 JSWebCodecsVideoDecoder.cpp
 JSWebCodecsVideoDecoderConfig.cpp

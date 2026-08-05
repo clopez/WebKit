@@ -75,7 +75,7 @@ void JSWebAssemblyTable::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 
 DEFINE_VISIT_CHILDREN(JSWebAssemblyTable);
 
-std::optional<uint32_t> JSWebAssemblyTable::grow(JSGlobalObject* globalObject, uint32_t delta, JSValue defaultValue)
+std::optional<uint32_t> JSWebAssemblyTable::grow(JSGlobalObject* globalObject, uint64_t delta, JSValue defaultValue)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -163,10 +163,10 @@ JSObject* JSWebAssemblyTable::type(JSGlobalObject* globalObject)
     }
 
     JSObject* result;
-    auto numberOrBigInt = [&](uint32_t value) {
+    auto numberOrBigInt = [&](uint64_t value) {
         return m_table->addressType().is64Bit()
             ? JSBigInt::createFrom(globalObject, value)
-            : jsNumber(value);
+            : jsNumber(static_cast<double>(value));
     };
 
     auto maximum = m_table->maximum();

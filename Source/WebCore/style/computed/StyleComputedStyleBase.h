@@ -315,6 +315,7 @@ struct OverflowClipMargin;
 struct PaddingEdge;
 struct PageSize;
 struct Perspective;
+struct PortalTransform;
 struct Position;
 struct PositionAnchor;
 struct PositionArea;
@@ -646,6 +647,7 @@ public:
 #if ENABLE(TEXT_AUTOSIZING)
     void setSpecifiedLineHeight(LineHeight&&);
 #endif
+    void setSpecifiedLineHeightFromAnimation(LineHeight&&);
 
     void setLetterSpacingFromAnimation(LetterSpacing&&);
     void setWordSpacingFromAnimation(WordSpacing&&);

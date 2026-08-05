@@ -694,7 +694,21 @@ AsyncClipboardAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)" : true
+      "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)" : true
+      default: false
+    WebCore:
+      default: false
+
+AsyncClipboardRichContentEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Async clipboard rich content"
+  humanReadableDescription: "Enable rich content types in the async clipboard API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
@@ -1714,6 +1728,20 @@ CSSTextWrapPrettyEnabled:
      WebCore:
        default: true
 
+CSSToggleFunctionEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS toggle() function"
+  humanReadableDescription: "Enable CSS Values 5 toggle() function"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSTransformStyleSeparatedEnabled:
   type: bool
   status: testable
@@ -2422,7 +2450,7 @@ DOMPasteAccessRequestsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(VISION)": true
+      "PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN) || PLATFORM(VISION)": true
       default: false
     WebCore:
       default: false
@@ -5173,6 +5201,20 @@ LinkSanitizerEnabled:
     WebCore:
       default: false
 
+ListMarkerPositionedPostLayoutEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "Position outside list markers after layout"
+  humanReadableDescription: "Keep an outside list marker as the list item's first child and position it after layout, instead of reparenting it into the descendant that holds the first line box"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 LoadDeferringEnabled:
   type: bool
   status: embedder
@@ -7390,7 +7432,7 @@ SKAttributionEnabled:
 
 SVGExternalResourcesEnabled:
   type: bool
-  status: testable
+  status: preview
   category: css
   humanReadableName: "SVG external resources"
   humanReadableDescription: "Enable referencing SVG resources (paint servers, etc.) via external or data: URLs"
@@ -8404,6 +8446,7 @@ SpatialPortalEnabled:
       default: false
     WebCore:
       default: false
+  sharedPreferenceForWebProcess: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 SpeakerSelectionRequiresUserGesture:
@@ -10106,6 +10149,22 @@ WebCodecsHEVCEnabled:
     WebCore:
       "USE(GSTREAMER)": true
       "PLATFORM(COCOA)": true
+      default: false
+
+WebCodecsImageEnabled:
+  type: bool
+  status: unstable
+  category: media
+  webcoreOnChange: setNeedsRelayoutAllFrames
+  humanReadableName: "WebCodecs Image API"
+  humanReadableDescription: "Enable WebCodecs Image API"
+  condition: ENABLE(WEB_CODECS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 WebCodecsVideoEnabled:

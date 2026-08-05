@@ -1135,13 +1135,16 @@ public:
 
     [[nodiscard]] PartialResult setGlobal(uint32_t index, Value value);
 
+    void emitZeroExtendAddressOperand(bool is64Bit, Value operand);
+
     // Memory
 
     inline Location emitCheckAndPreparePointer(Value pointer, uint64_t uoffset, uint32_t sizeOfOperation, uint8_t memoryIndex)
     {
         if (WTF::sumOverflows<uint64_t>(static_cast<uint64_t>(sizeOfOperation), uoffset)) {
             recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, m_jit.jump());
-            return Location::fromGPR(wasmBaseMemoryPointer);
+            consume(pointer);
+            return Location::fromGPR(wasmScratchGPR);
         }
 
         ScratchScope<1, 0> scratches(*this);
@@ -1171,7 +1174,8 @@ public:
 
             if (sumOverflows<uint64_t>(constantPointer, boundary)) {
                 recordJumpToThrowException(ExceptionType::OutOfBoundsMemoryAccess, m_jit.jump());
-                return Location::fromGPR(wasmBaseMemoryPointer);
+                consume(pointer);
+                return Location::fromGPR(wasmScratchGPR);
             }
 
             pointerLocation = Location::fromGPR(scratches.gpr(0));
@@ -1180,8 +1184,7 @@ public:
             pointerLocation = loadIfNecessary(pointer);
         ASSERT(pointerLocation.isGPR());
 
-        // conservatively force bounds checking if memoryIndex != 0
-        switch (memoryIndex ? MemoryMode::BoundsChecking : m_mode) {
+        switch (m_info.memoryModeForAccess(memoryIndex, m_mode)) {
         case MemoryMode::BoundsChecking: {
             // We're not using signal handling only when the memory is not shared.
             // Regardless of signaling, we must check that no memory access exceeds the current memory size.
@@ -1204,7 +1207,7 @@ public:
         }
 
         case MemoryMode::Signaling: {
-            RELEASE_ASSERT(!m_info.memory(memoryIndex).isMemory64());
+            RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!m_info.memory(memoryIndex).isMemory64());
             // We've virtually mapped 4GiB+redzone for this memory. Only the user-allocated pages are addressable, contiguously in range [0, current],
             // and everything above is mapped PROT_NONE. We don't need to perform any explicit bounds check in the 4GiB range because WebAssembly register
             // memory accesses are 32-bit. However WebAssembly register + offset accesses perform the addition in 64-bit which can push an access above
@@ -1297,7 +1300,7 @@ public:
         RELEASE_ASSERT_NOT_REACHED();
     }
 
-    Address materializePointer(Location pointerLocation, uint32_t uoffset);
+    Address materializePointer(Location pointerLocation, uint64_t uoffset);
 
     constexpr static const char* LOAD_OP_NAMES[14] = {
         "I32Load", "I64Load", "F32Load", "F64Load",

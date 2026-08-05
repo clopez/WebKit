@@ -38,8 +38,21 @@ WI.Recording = class Recording extends WI.Object
 
         this._swizzle = null;
         this._actions = [new WI.RecordingInitialStateAction].concat(...this._frames.map((frame) => frame.actions));
+        this._recordingObjectIdentifiersBySwizzleType = new Map;
+        for (let frame of this._frames) {
+            for (let action of frame.actions) {
+                for (let [identifier, swizzleType] of action.recordingObjectIdentifiers) {
+                    let identifiers = this._recordingObjectIdentifiersBySwizzleType.get(swizzleType);
+                    if (!identifiers) {
+                        identifiers = new Set;
+                        this._recordingObjectIdentifiersBySwizzleType.set(swizzleType, identifiers);
+                    }
+                    identifiers.add(identifier);
+                }
+            }
+        }
         this._visualActionIndexes = [];
-        this._source = null;
+        this._weakSource = null;
 
         this._processContext = null;
         this._processStates = [];
@@ -459,6 +472,48 @@ WI.Recording = class Recording extends WI.Object
         return name + (identifier || "");
     }
 
+    static isObjectSwizzleType(swizzleType)
+    {
+        switch (swizzleType) {
+        case WI.Recording.Swizzle.WebGLBuffer:
+        case WI.Recording.Swizzle.WebGLFramebuffer:
+        case WI.Recording.Swizzle.WebGLRenderbuffer:
+        case WI.Recording.Swizzle.WebGLTexture:
+        case WI.Recording.Swizzle.WebGLShader:
+        case WI.Recording.Swizzle.WebGLProgram:
+        case WI.Recording.Swizzle.WebGLUniformLocation:
+        case WI.Recording.Swizzle.WebGLQuery:
+        case WI.Recording.Swizzle.WebGLSampler:
+        case WI.Recording.Swizzle.WebGLSync:
+        case WI.Recording.Swizzle.WebGLTimerQueryEXT:
+        case WI.Recording.Swizzle.WebGLTransformFeedback:
+        case WI.Recording.Swizzle.WebGLVertexArrayObject:
+        case WI.Recording.Swizzle.WebGLVertexArrayObjectOES:
+        case WI.Recording.Swizzle.GPUBindGroup:
+        case WI.Recording.Swizzle.GPUBindGroupLayout:
+        case WI.Recording.Swizzle.GPUBuffer:
+        case WI.Recording.Swizzle.GPUCommandBuffer:
+        case WI.Recording.Swizzle.GPUCommandEncoder:
+        case WI.Recording.Swizzle.GPUComputePassEncoder:
+        case WI.Recording.Swizzle.GPUComputePipeline:
+        case WI.Recording.Swizzle.GPUExternalTexture:
+        case WI.Recording.Swizzle.GPUPipelineLayout:
+        case WI.Recording.Swizzle.GPUQuerySet:
+        case WI.Recording.Swizzle.GPUQueue:
+        case WI.Recording.Swizzle.GPURenderBundle:
+        case WI.Recording.Swizzle.GPURenderBundleEncoder:
+        case WI.Recording.Swizzle.GPURenderPassEncoder:
+        case WI.Recording.Swizzle.GPURenderPipeline:
+        case WI.Recording.Swizzle.GPUSampler:
+        case WI.Recording.Swizzle.GPUShaderModule:
+        case WI.Recording.Swizzle.GPUTexture:
+        case WI.Recording.Swizzle.GPUTextureView:
+            return true;
+        }
+
+        return false;
+    }
+
     static displayNameForSwizzleType(swizzleType)
     {
         switch (swizzleType) {
@@ -516,6 +571,44 @@ WI.Recording = class Recording extends WI.Object
             return WI.unlocalizedString("WebGLVertexArrayObject");
         case WI.Recording.Swizzle.WebGLVertexArrayObjectOES:
             return WI.unlocalizedString("WebGLVertexArrayObjectOES");
+        case WI.Recording.Swizzle.GPUBindGroup:
+            return WI.unlocalizedString("GPUBindGroup");
+        case WI.Recording.Swizzle.GPUBindGroupLayout:
+            return WI.unlocalizedString("GPUBindGroupLayout");
+        case WI.Recording.Swizzle.GPUBuffer:
+            return WI.unlocalizedString("GPUBuffer");
+        case WI.Recording.Swizzle.GPUCommandBuffer:
+            return WI.unlocalizedString("GPUCommandBuffer");
+        case WI.Recording.Swizzle.GPUCommandEncoder:
+            return WI.unlocalizedString("GPUCommandEncoder");
+        case WI.Recording.Swizzle.GPUComputePassEncoder:
+            return WI.unlocalizedString("GPUComputePassEncoder");
+        case WI.Recording.Swizzle.GPUComputePipeline:
+            return WI.unlocalizedString("GPUComputePipeline");
+        case WI.Recording.Swizzle.GPUExternalTexture:
+            return WI.unlocalizedString("GPUExternalTexture");
+        case WI.Recording.Swizzle.GPUPipelineLayout:
+            return WI.unlocalizedString("GPUPipelineLayout");
+        case WI.Recording.Swizzle.GPUQuerySet:
+            return WI.unlocalizedString("GPUQuerySet");
+        case WI.Recording.Swizzle.GPUQueue:
+            return WI.unlocalizedString("GPUQueue");
+        case WI.Recording.Swizzle.GPURenderBundle:
+            return WI.unlocalizedString("GPURenderBundle");
+        case WI.Recording.Swizzle.GPURenderBundleEncoder:
+            return WI.unlocalizedString("GPURenderBundleEncoder");
+        case WI.Recording.Swizzle.GPURenderPassEncoder:
+            return WI.unlocalizedString("GPURenderPassEncoder");
+        case WI.Recording.Swizzle.GPURenderPipeline:
+            return WI.unlocalizedString("GPURenderPipeline");
+        case WI.Recording.Swizzle.GPUSampler:
+            return WI.unlocalizedString("GPUSampler");
+        case WI.Recording.Swizzle.GPUShaderModule:
+            return WI.unlocalizedString("GPUShaderModule");
+        case WI.Recording.Swizzle.GPUTexture:
+            return WI.unlocalizedString("GPUTexture");
+        case WI.Recording.Swizzle.GPUTextureView:
+            return WI.unlocalizedString("GPUTextureView");
         case WI.Recording.Swizzle.DOMPointInit:
             return WI.unlocalizedString("DOMPointInit");
         default:
@@ -564,8 +657,8 @@ WI.Recording = class Recording extends WI.Object
     get actions() { return this._actions; }
     get visualActionIndexes() { return this._visualActionIndexes; }
 
-    get source() { return this._source; }
-    set source(source) { this._source = source; }
+    get source() { return this._weakSource?.deref() || null; }
+    set source(source) { this._weakSource = source ? new WeakRef(source) : null; }
 
     get processing() { return this._processing; }
 
@@ -628,13 +721,8 @@ WI.Recording = class Recording extends WI.Object
 
     createDisplayName(suggestedName)
     {
-        let recordingNameSet;
-        if (this._source) {
-            recordingNameSet = this._source[WI.Recording.CanvasRecordingNamesSymbol];
-            if (!recordingNameSet)
-                this._source[WI.Recording.CanvasRecordingNamesSymbol] = recordingNameSet = new Set;
-        } else
-            recordingNameSet = WI.Recording._importedRecordingNameSet;
+        let source = this.source;
+        let recordingNameSet = source ? (source[WI.Recording.CanvasRecordingNamesSymbol] ||= new Set) : WI.Recording._importedRecordingNameSet;
 
         let name;
         if (suggestedName) {
@@ -656,6 +744,13 @@ WI.Recording = class Recording extends WI.Object
     is2D()
     {
         return WI.Recording.is2D(this._type);
+    }
+
+    displayNameForReceiver([identifier, swizzleType])
+    {
+        if (this._recordingObjectIdentifiersBySwizzleType.get(swizzleType)?.size === 1)
+            identifier = null;
+        return WI.Recording.displayNameForReceiver([identifier, swizzleType]);
     }
 
     async swizzle(index, type)
@@ -693,7 +788,26 @@ WI.Recording = class Recording extends WI.Object
             || type === WI.Recording.Swizzle.WebGLTimerQueryEXT
             || type === WI.Recording.Swizzle.WebGLTransformFeedback
             || type === WI.Recording.Swizzle.WebGLVertexArrayObject
-            || type === WI.Recording.Swizzle.WebGLVertexArrayObjectOES) {
+            || type === WI.Recording.Swizzle.WebGLVertexArrayObjectOES
+            || type === WI.Recording.Swizzle.GPUBindGroup
+            || type === WI.Recording.Swizzle.GPUBindGroupLayout
+            || type === WI.Recording.Swizzle.GPUBuffer
+            || type === WI.Recording.Swizzle.GPUCommandBuffer
+            || type === WI.Recording.Swizzle.GPUCommandEncoder
+            || type === WI.Recording.Swizzle.GPUComputePassEncoder
+            || type === WI.Recording.Swizzle.GPUComputePipeline
+            || type === WI.Recording.Swizzle.GPUExternalTexture
+            || type === WI.Recording.Swizzle.GPUPipelineLayout
+            || type === WI.Recording.Swizzle.GPUQuerySet
+            || type === WI.Recording.Swizzle.GPUQueue
+            || type === WI.Recording.Swizzle.GPURenderBundle
+            || type === WI.Recording.Swizzle.GPURenderBundleEncoder
+            || type === WI.Recording.Swizzle.GPURenderPassEncoder
+            || type === WI.Recording.Swizzle.GPURenderPipeline
+            || type === WI.Recording.Swizzle.GPUSampler
+            || type === WI.Recording.Swizzle.GPUShaderModule
+            || type === WI.Recording.Swizzle.GPUTexture
+            || type === WI.Recording.Swizzle.GPUTextureView) {
             return index;
         }
 
@@ -1319,6 +1433,7 @@ WI.Recording.Swizzle = {
     WebGLSync: 22,
     WebGLTransformFeedback: 23,
     WebGLVertexArrayObject: 24,
+    DOMPointInit: 25,
     Canvas: 26,
     GPUBindGroup: 27,
     GPUBindGroupLayout: 28,

@@ -5485,6 +5485,7 @@
                 {
                     "enable-if": "ENABLE_TEXT_AUTOSIZING",
                     "animation-wrapper-requires-getter": "specifiedLineHeight",
+                    "animation-wrapper-requires-setter": "setSpecifiedLineHeightFromAnimation",
                     "style-builder-custom": "All",
                     "style-extractor-custom": true,
                     "computed-style-storage-path": ["m_inheritedData"],
@@ -7927,6 +7928,26 @@
                 "category": "svg",
                 "url": "https://svgwg.org/svg2-draft/interact.html#PointerEventsProperty"
             }
+        },
+        "portal-transform": {
+            "animation-type": "discrete",
+            "initial": "auto",
+            "values": [
+                "none",
+                "auto"
+            ],
+            "codegen-properties": {
+                "enable-if": "ENABLE_SPATIAL_PORTAL",
+                "settings-flag": "spatialPortalEnabled",
+                "computed-style-storage-path": ["m_nonInheritedData", "rareData"],
+                "computed-style-storage-kind": "reference",
+                "computed-style-type": "Style::PortalTransform",
+                "parser-grammar": "<<values>>"
+            },
+            "specification": {
+                "url": "https://webkit.github.io/explainers/css-spatial/Overview.html#portals"
+            },
+            "status": "in development"
         },
         "position": {
             "animation-type": "discrete",

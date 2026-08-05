@@ -83,6 +83,7 @@
 #include "RenderLayerInlines.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
+#include "RenderListItem.h"
 #include "RenderListMarker.h"
 #include "RenderMathMLBlock.h"
 #include "RenderMultiColumnFlow.h"
@@ -118,6 +119,8 @@
 #if ENABLE(SPATIAL_PORTAL)
 #include "ElementAncestorIteratorInlines.h"
 #include "HTMLModelElement.h"
+#include "SpatialPortalController.h"
+#include "StylePortalTransform.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #endif
 
@@ -387,6 +390,15 @@ static void spatialPortalStyleDidChange(Element& element)
     for (Ref model : descendantsOfType<HTMLModelElement>(element))
         model->spatialPortalContextDidChange();
 }
+
+// TODO: rdar://182292652
+static PortalTransformKind portalTransformKind(const Style::PortalTransform& portalTransform)
+{
+    return portalTransform.switchOn(
+        [](CSS::Keyword::None) { return PortalTransformKind::None; },
+        [](CSS::Keyword::Auto) { return PortalTransformKind::Auto; }
+    );
+}
 #endif
 
 void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyle* oldStyle)
@@ -505,10 +517,15 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
         layoutContext().invalidateAnchorDependenciesForScroller(*this);
 
 #if ENABLE(SPATIAL_PORTAL)
-    auto oldSpatial = oldStyle ? oldStyle->spatial() : SpatialType::None;
-    if (oldSpatial != newStyle.spatial()) {
-        if (RefPtr element = this->element())
+    if (RefPtr element = this->element()) {
+        auto oldSpatial = oldStyle ? oldStyle->spatial() : SpatialType::None;
+        if (oldSpatial != newStyle.spatial())
             spatialPortalStyleDidChange(*element);
+
+        if (newStyle.spatial() == SpatialType::Portal) {
+            if (CheckedPtr controller = element->spatialPortalController())
+                controller->setPortalTransform(portalTransformKind(newStyle.portalTransform()));
+        }
     }
 #endif
 }
@@ -4875,6 +4892,8 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox, Enu
 void RenderBox::addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> options)
 {
     for (auto& child : childrenOfType<RenderBox>(*this)) {
+        if (child.isExcludedMarker())
+            continue;
         if (!child.isFloatingOrOutOfFlowPositioned())
             addOverflowFromContainedBox(child, options);
     }
