@@ -1774,8 +1774,7 @@ bool RenderBox::hitTestBorderRadius(const HitTestLocation& hitTestLocation, cons
     borderRect.moveBy(adjustedLocation);
 
     auto borderShape = BorderShape::shapeForBorderRect(style(), borderRect);
-    // To handle non-round corners, BorderShape should do the hit-testing.
-    return hitTestLocation.intersects(borderShape.deprecatedRoundedRect());
+    return borderShape.shapeIntersectsHitTestLocation(hitTestLocation, style().deviceScaleFactor());
 }
 
 bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction action)
@@ -2034,6 +2033,8 @@ static bool isCandidateForOpaquenessTest(const RenderBox& childBox)
     if (childStyle.usedVisibility() != Visibility::Visible)
         return false;
     if (!childStyle.shapeOutside().isNone())
+        return false;
+    if (childBox.hasClip())
         return false;
     if (!childBox.borderBoxWidth() || !childBox.borderBoxHeight())
         return false;

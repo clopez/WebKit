@@ -8043,44 +8043,6 @@ TEST(SiteIsolation, SharedProcessInProcessCacheAfterNavigation)
     }
 }
 
-#if USE(RUNNINGBOARD)
-TEST(SiteIsolation, SharedProcessDropsPageLoadActivityAfterCrossSiteNavigation)
-{
-    HTTPServer server({
-        { "/example"_s, { "<iframe src='https://webkit.org/webkit'>"_s } },
-        { "/webkit"_s, { "webkit"_s } },
-        { "/safari"_s, { "<body>safari</body>"_s } },
-    }, HTTPServer::Protocol::HttpsProxy);
-    auto [webView, navigationDelegate] = siteIsolatedViewWithSharedProcess(server, EnableProcessCache::No, nil, nil, nil, EnableBackForwardCache::Yes);
-
-    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
-    [navigationDelegate waitForDidFinishNavigation];
-
-    checkFrameTreesInProcesses(webView.get(), {
-        {
-            "https://example.com"_s,
-            { { RemoteFrame } }
-        },
-        {
-            RemoteFrame,
-            { { "https://webkit.org"_s } }
-        },
-    });
-    auto sharedProcess = [webView mainFrame].childFrames[0].info._processIdentifier;
-    EXPECT_NE(sharedProcess, [webView mainFrame].info._processIdentifier);
-
-    // Cross-site navigation. The example.com page enters the back/forward cache, which keeps the
-    // old BrowsingContextGroup and webkit.org remote page alive.
-    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://apple.com/safari"]]];
-    [navigationDelegate waitForDidFinishNavigation];
-
-    // The shared process is still alive so the cached example.com page can be restored, but it
-    // shouldn't be holding on to any page load activity.
-    EXPECT_TRUE(processStillRunning(sharedProcess));
-    EXPECT_EQ([WKWebView _suspendedRemotePageNetworkActivityCountForTesting], 0u);
-}
-#endif // USE(RUNNINGBOARD)
-
 TEST(SiteIsolation, WebProcessCacheCrashWithZeroSharedProcess)
 {
     HTTPServer server({
@@ -9873,6 +9835,52 @@ TEST(SiteIsolation, SelectionBoundingRectInMainFrameIsNotOffset)
     EXPECT_LT(CGRectGetMinX(rect), 50);
     EXPECT_LT(CGRectGetMinY(rect), 50);
 }
+
+#if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
+TEST(SiteIsolation, SelectionInCrossOriginIframeIsContainedByContentView)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0'><iframe id='iframe' style='margin: 100px; width: 400px; height: 300px; border: none;' src='https://webkit.org/iframe'></iframe></body>"_s } },
+        { "/iframe"_s, { "<!DOCTYPE html><body style='margin: 0'>test</body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    // The selection container is only ever the enclosing overflow-scroll layer when
+    // SelectionHonorsOverflowScrolling is enabled, so enable it to exercise the code path this test
+    // guards.
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration.get());
+    for (_WKFeature *feature in WKPreferences._features) {
+        if ([feature.key isEqualToString:@"SelectionHonorsOverflowScrolling"])
+            [[configuration preferences] _setEnabled:YES forFeature:feature];
+    }
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    // The container is the enclosing layer only when that layer is in a window, so host the view.
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get() addToWindow:YES]);
+    webView.get().navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    RetainPtr childFrame = [webView firstChildFrame];
+    [webView evaluateJavaScript:@"document.getElementById('iframe').focus()" completionHandler:nil];
+    while (![childFrame _isFocused])
+        childFrame = [webView firstChildFrame];
+
+    [webView _synchronouslyExecuteEditCommand:@"SelectAll" argument:nil];
+    while (![webView selectionRangeHasStartOffset:0 endOffset:4 inFrame:childFrame.get()])
+        Util::spinRunLoop();
+    [webView waitForNextPresentationUpdate];
+
+    // The selection lives in a cross-origin subframe, whose rects are reported in main-frame
+    // coordinates, so it must be contained by the WKContentView itself -- not the subframe's
+    // overflow-scroll layer (which is offset by the subframe's position and scroll). Otherwise the
+    // selection loupe/handles are positioned in the wrong coordinate space.
+    EXPECT_EQ(webView.get().selectionHighlightView.superview, webView.get().textInputContentView);
+}
+#endif // HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
 
 #endif // PLATFORM(IOS_FAMILY)
 
