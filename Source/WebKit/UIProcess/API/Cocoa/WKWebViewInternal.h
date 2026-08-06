@@ -777,6 +777,8 @@ struct LiveResizeSnapshotState {
 
 - (BOOL)_scrollPocketInFullscreenEnabled;
 
+- (void)_insertAttachmentWithFileWrapperAsync:(NSFileWrapper *)fileWrapper contentType:(nullable NSString *)contentType completion:(void(^)(_WKAttachment *))completionHandler;
+
 @end
 
 @interface WKWebView (WKTextExtraction)
@@ -788,6 +790,7 @@ struct LiveResizeSnapshotState {
 - (void)_requestJSHandleForNodeIdentifier:(NSString *)nodeIdentifier searchText:(NSString *)searchText completionHandler:(void (^)(_WKJSHandle * _Nullable))completionHandler;
 - (void)_requestContainerJSHandleForNodeIdentifier:(NSString *)nodeIdentifier searchText:(NSString *)searchText completionHandler:(void (^)(_WKJSHandle * _Nullable))completionHandler;
 - (void)_requestContainerJSHandleForSearchTexts:(NSArray<NSString *> *)searchTexts nodeIdentifier:(NSString *)nodeIdentifier completionHandler:(void (^)(_WKJSHandle * _Nullable))completionHandler;
+- (void)_requestFrameInfoForNodeIdentifier:(NSString *)nodeIdentifier completionHandler:(void (^)(WKFrameInfo * _Nullable))completionHandler;
 
 #if !__has_feature(modules) || WK_SUPPORTS_SWIFT_OBJCXX_INTEROP
 
