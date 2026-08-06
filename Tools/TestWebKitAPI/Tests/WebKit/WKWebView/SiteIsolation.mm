@@ -9836,6 +9836,96 @@ TEST(SiteIsolation, SelectionBoundingRectInMainFrameIsNotOffset)
     EXPECT_LT(CGRectGetMinY(rect), 50);
 }
 
+TEST(SiteIsolation, SelectionInCrossOriginIframeTracksMainFrameScroll)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0; height: 3000px'>"
+            "<iframe id='sameorigin' style='display: block; position: absolute; top: 100px; left: 100px; width: 400px; height: 200px; border: none;' src='https://example.com/iframe'></iframe>"
+            "<iframe id='crossorigin' style='display: block; position: absolute; top: 500px; left: 100px; width: 400px; height: 200px; border: none;' src='https://webkit.org/iframe'></iframe>"
+            "</body>"_s } },
+        { "/iframe"_s, { "<!DOCTYPE html><body style='margin: 0'>test</body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration.get());
+    for (_WKFeature *feature in WKPreferences._features) {
+        if ([feature.key isEqualToString:@"SelectionHonorsOverflowScrolling"])
+            [[configuration preferences] _setEnabled:YES forFeature:feature];
+    }
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get() addToWindow:YES]);
+    webView.get().navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    // Locate the same-origin and cross-origin iframes in the frame tree.
+    auto childInfoForHost = [&](NSString *host) -> RetainPtr<WKFrameInfo> {
+        for (_WKFrameTreeNode *child in [webView mainFrame].childFrames) {
+            if ([child.info.securityOrigin.host isEqualToString:host])
+                return child.info;
+        }
+        return nil;
+    };
+    while (!childInfoForHost(@"example.com") || !childInfoForHost(@"webkit.org"))
+        Util::spinRunLoop();
+
+    auto readSelectionRect = [&]() -> CGRect {
+        __block CGRect rect = CGRectZero;
+        __block bool didReceiveRect = false;
+        [webView _selectionBoundingRectInMainFrameCoordinatesForTesting:^(CGRect receivedRect) {
+            rect = receivedRect;
+            didReceiveRect = true;
+        }];
+        Util::run(&didReceiveRect);
+        return rect;
+    };
+
+    // Focus the given iframe and select all of its text so the editor state is recomputed with the
+    // main frame at its current scroll offset, then report the selection rect. WKFrameInfo's focus
+    // state is a snapshot, so re-fetch it each spin. Clear the frame's selection first (so the
+    // subsequent SelectAll always recomputes) and key the waits off the specific frame.
+    auto selectTextAndReadRect = [&](NSString *elementID, NSString *host) -> CGRect {
+        [webView evaluateJavaScript:[NSString stringWithFormat:@"document.getElementById('%@').focus()", elementID] completionHandler:nil];
+        RetainPtr<WKFrameInfo> frame;
+        while (!(frame = childInfoForHost(host)) || ![frame _isFocused])
+            Util::spinRunLoop();
+        [webView evaluateJavaScript:@"getSelection().removeAllRanges()" inFrame:frame.get() completionHandler:nil];
+        while ([webView selectionRangeHasStartOffset:0 endOffset:4 inFrame:frame.get()])
+            Util::spinRunLoop();
+        [webView _synchronouslyExecuteEditCommand:@"SelectAll" argument:nil];
+        while (![webView selectionRangeHasStartOffset:0 endOffset:4 inFrame:frame.get()])
+            Util::spinRunLoop();
+        [webView waitForNextPresentationUpdate];
+        return readSelectionRect();
+    };
+
+    auto scrollDelta = [&](NSString *elementID, NSString *host) -> CGFloat {
+        [[webView scrollView] setContentOffset:CGPointZero animated:NO];
+        [webView waitForNextPresentationUpdate];
+        CGRect before = selectTextAndReadRect(elementID, host);
+
+        [[webView scrollView] setContentOffset:CGPointMake(0, 200) animated:NO];
+        [webView waitForNextPresentationUpdate];
+        CGRect after = selectTextAndReadRect(elementID, host);
+
+        return CGRectGetMinY(after) - CGRectGetMinY(before);
+    };
+
+    // A same-origin iframe shares the main frame's process, so its selection rect uses the ordinary
+    // (known-correct) conversion; a cross-origin iframe's rect goes through the site-isolation
+    // conversion. The two must respond to main-frame scrolling identically -- otherwise the selection
+    // (and caret) in the cross-origin iframe is drawn at the wrong location once the main frame is
+    // scrolled, because the main frame's RemoteFrameView proxy subtracts its scroll offset while the
+    // real main frame (which delegates scrolling to the UIScrollView) does not.
+    CGFloat sameOriginDelta = scrollDelta(@"sameorigin", @"example.com");
+    CGFloat crossOriginDelta = scrollDelta(@"crossorigin", @"webkit.org");
+    EXPECT_EQ(crossOriginDelta, sameOriginDelta);
+}
+
 #if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
 TEST(SiteIsolation, SelectionInCrossOriginIframeIsContainedByContentView)
 {
@@ -9881,6 +9971,85 @@ TEST(SiteIsolation, SelectionInCrossOriginIframeIsContainedByContentView)
     EXPECT_EQ(webView.get().selectionHighlightView.superview, webView.get().textInputContentView);
 }
 #endif // HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
+
+} // namespace TestWebKitAPI
+
+@interface SiteIsolationInputSessionWebView : TestWKWebView
+@property (nonatomic, readonly) BOOL hasActiveInputSession;
+@end
+
+@implementation SiteIsolationInputSessionWebView {
+    BOOL _hasActiveInputSession;
+}
+
+- (BOOL)hasActiveInputSession
+{
+    return _hasActiveInputSession;
+}
+
+- (void)didStartFormControlInteraction
+{
+    _hasActiveInputSession = YES;
+    [super didStartFormControlInteraction];
+}
+
+- (void)didEndFormControlInteraction
+{
+    _hasActiveInputSession = NO;
+    [super didEndFormControlInteraction];
+}
+
+@end
+
+namespace TestWebKitAPI {
+
+TEST(SiteIsolation, FocusingMainFrameFieldKeepsFocusAfterCrossOriginIframeField)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0'><input id='mainInput'><iframe id='iframe' style='display: block; width: 300px; height: 200px; border: none;' src='https://webkit.org/iframe'></iframe></body>"_s } },
+        { "/iframe"_s, { "<!DOCTYPE html><body style='margin: 0'><input id='iframeInput'></body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration.get());
+
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+    RetainPtr webView = adoptNS([[SiteIsolationInputSessionWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get() addToWindow:YES]);
+    webView.get().navigationDelegate = navigationDelegate.get();
+
+    RetainPtr inputDelegate = adoptNS([[TestInputDelegate alloc] init]);
+    [inputDelegate setFocusStartsInputSessionPolicyHandler:[](WKWebView *, id<_WKFocusedElementInfo>) {
+        return _WKFocusStartsInputSessionPolicyAllow;
+    }];
+    [webView _setInputDelegate:inputDelegate.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+    [webView focusInWindow];
+
+    RetainPtr childFrame = [webView firstChildFrame];
+
+    // Focus the text field in the cross-origin iframe and wait (via the didStartFormControlInteraction
+    // hook) for its input session to begin. A cross-origin frame needs a user gesture to take focus, so
+    // this can't use -evaluateJavaScriptAndWaitForInputSessionToChange, which evaluates without one.
+    [webView objectByEvaluatingJavaScriptWithUserGesture:@"document.getElementById('iframeInput').focus()" inFrame:childFrame.get()];
+    while (![webView hasActiveInputSession])
+        Util::spinRunLoop();
+
+    // Focus the text field in the main frame.
+    [webView objectByEvaluatingJavaScriptWithUserGesture:@"document.getElementById('mainInput').focus()"];
+
+    // Once the main frame takes focus, the subframe process blurs its now-defocused field and sends an
+    // ElementDidBlur that can arrive afterwards. Round-trip through the subframe process so that blur has
+    // been delivered to and processed by the UI process (messages from a process are ordered) before we
+    // assert. The main frame's input session must remain active -- previously the stale blur cleared it.
+    [webView objectByEvaluatingJavaScript:@"0" inFrame:childFrame.get()];
+    [webView waitForNextPresentationUpdate];
+
+    EXPECT_TRUE([webView hasActiveInputSession]);
+}
 
 #endif // PLATFORM(IOS_FAMILY)
 

@@ -541,7 +541,6 @@ imported/w3c/web-platform-tests/html/webappapis/dynamic-markup-insertion/opening
 imported/w3c/web-platform-tests/html/webappapis/scripting/event-loops/fully_active_document.window.html [ Skip ]
 
 # Skip WPT webaudio tests that are timing out.
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediastreamaudiosourcenode-interface/mediastreamaudiosourcenode-routing.html [ Skip ]
 webkit.org/b/280303  imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-sinkid-state-change.https.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/setSinkId-with-MediaElementAudioSourceNode.https.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-suspend-resume-close.html [ Skip ]
@@ -4919,7 +4918,6 @@ webkit.org/b/214300 imported/w3c/web-platform-tests/css/css-fonts/hiragana-katak
 imported/w3c/web-platform-tests/css/css-fonts/font-face-local-not-family.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-fonts/font-family-name-000.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-fonts/font-palette-23b.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-metrics-override.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-fonts/font-synthesis-position-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-fonts/font-variant-emoji-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-fonts/font-variant-emoji-004.html [ ImageOnlyFailure ]
@@ -4939,12 +4937,6 @@ webkit.org/b/150081 imported/w3c/web-platform-tests/css/css-fonts/font-language-
 webkit.org/b/182042 imported/w3c/web-platform-tests/css/css-fonts/font-default-04.html [ ImageOnlyFailure ]
 webkit.org/b/182042 imported/w3c/web-platform-tests/css/css-fonts/font-kerning-03.html [ ImageOnlyFailure ]
 webkit.org/b/86071 imported/w3c/web-platform-tests/css/css-fonts/font-kerning-05.html [ ImageOnlyFailure ]
-
-# @font-face: ascent-override, descent-override, and line-gap-override
-webkit.org/b/219735 imported/w3c/web-platform-tests/css/css-fonts/ascent-descent-override.html [ ImageOnlyFailure ]
-webkit.org/b/219735 imported/w3c/web-platform-tests/css/css-fonts/line-gap-override.html [ ImageOnlyFailure ]
-webkit.org/b/219735 imported/w3c/web-platform-tests/css/css-fonts/font-face-unicode-range-nbsp.html [ ImageOnlyFailure ]
-webkit.org/b/219735 imported/w3c/web-platform-tests/css/css-font-loading/fontface-override-descriptors.html [ ImageOnlyFailure ]
 
 # We intentionally do not want to allow disabling required ligatures, so we don't honor this optional test.
 imported/w3c/web-platform-tests/css/css-fonts/font-variant-ligatures-11.optional.html [ ImageOnlyFailure ]
@@ -5010,6 +5002,7 @@ webkit.org/b/320901 webgl/2.0.y/conformance/attribs/gl-get-attrib-location-error
 webkit.org/b/320901 webgl/2.0.y/conformance/glsl/misc/shader-with-double-underscore.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance/textures/misc/tex-image-svg-image-no-natural-width-and-height.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance/uniforms/gl-get-uniform-location-errors.html [ Failure ]
+webkit.org/b/320901 webgl/2.0.y/conformance2/extensions/webgl-render-shared-exponent.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance2/rendering/blitframebuffer-test.html [ Failure ]
 
 # Until more platforms ship with WebGL GPUP
@@ -5531,7 +5524,6 @@ imported/w3c/web-platform-tests/css/css-multicol/multicol-width-005.html [ Image
 imported/w3c/web-platform-tests/css/css-multicol/with-custom-layout-on-same-element.https.html
 imported/w3c/web-platform-tests/css/css-multicol/multicol-span-all-children-height-003.html [ Skip ] # times out
 imported/w3c/web-platform-tests/css/css-multicol/multicol-breaking-006.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-multicol/multicol-fill-balance-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-multicol/multicol-fill-balance-nested-000.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-multicol/multicol-nested-007.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-multicol/multicol-nested-008.html [ ImageOnlyFailure ]
@@ -5753,7 +5745,6 @@ imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-
 
 imported/w3c/web-platform-tests/css/css-highlight-api/highlight-image-currentcolor.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-highlight-api/highlight-image-stacked.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-highlight-api/HighlightRegistry-highlightsFromPoint.html [ Failure ]
 
 http/tests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-offscreencanvas.html [ Skip ]
 http/tests/webgl/2.0.y/conformance/textures/misc/origin-clean-conformance-offscreencanvas.html [ Skip ]
@@ -6152,7 +6143,6 @@ imported/w3c/web-platform-tests/trusted-types/should-trusted-type-policy-creatio
 webkit.org/b/281223 imported/w3c/web-platform-tests/dom/nodes/moveBefore/focus-preserve-render.html [ Skip ]
 webkit.org/b/281223 imported/w3c/web-platform-tests/dom/nodes/moveBefore/moveBefore-option-recalc-style.html [ Skip ]
 webkit.org/b/281223 imported/w3c/web-platform-tests/dom/nodes/moveBefore/select-option-optgroup.html [ Skip ]
-webkit.org/b/281223 imported/w3c/web-platform-tests/dom/nodes/moveBefore/relevant-mutations.html [ Skip ]
 
 # Flaky crash.
 webkit.org/b/315031 imported/w3c/web-platform-tests/dom/nodes/moveBefore/throws-exception.html [ Skip ]
@@ -6358,7 +6348,6 @@ imported/w3c/web-platform-tests/clear-site-data/resource.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/domain/domain-attribute-idn-host.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-fonts/test_datafont_same_origin.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-values/dynamic-viewport-units-rule-cache.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-variables/variable-reference-refresh.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/abort/serviceworker-intercepted.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/corb/preload-image-png-mislabeled-as-html-nosniff.tentative.sub.html [ Skip ]

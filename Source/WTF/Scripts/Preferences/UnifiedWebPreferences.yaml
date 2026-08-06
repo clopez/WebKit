@@ -1260,17 +1260,17 @@ CSSFieldSizingEnabled:
 
 CSSFontFaceMetricOverrideDescriptorsEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS @font-face metric override descriptors"
   humanReadableDescription: "Enable CSS @font-face metric override descriptors"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSFontSynthesisStyleObliqueOnlyEnabled:
   type: bool
@@ -7031,7 +7031,7 @@ PropagateDamagingInformation:
      WebKitLegacy:
        default: false
      WebKit:
-       "PLATFORM(GTK)": true
+       "PLATFORM(GTK) || PLATFORM(WPE)": true
        default: false
      WebCore:
        default: false
@@ -8447,6 +8447,20 @@ SpatialPortalEnabled:
     WebCore:
       default: false
   sharedPreferenceForWebProcess: true
+
+SpatialVideoRenderingEnabled:
+  type: bool
+  status: testable
+  category: media
+  humanReadableName: "Spatial Video Rendering"
+  humanReadableDescription: "Render projected/spatial (APMP) video onto a draggable projection in the media controls"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 SpeakerSelectionRequiresUserGesture:
