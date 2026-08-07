@@ -2453,6 +2453,13 @@ void WebProcessProxy::didCompleteAutofill(const WebCore::Site& site)
         dataStore->isolatedSiteStore().addSite(site, IsolatedSiteStore::Signal::Autofill);
 }
 
+void WebProcessProxy::didObserveFirstPartyUserGesture(const WebCore::Site& site)
+{
+    MESSAGE_CHECK(!site.isEmpty());
+    if (RefPtr dataStore = websiteDataStore())
+        dataStore->isolatedSiteStore().addSite(site, IsolatedSiteStore::Signal::FirstPartyUserGesture);
+}
+
 void WebProcessProxy::activePagesDomainsForTesting(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::WebProcess::GetActivePagesOriginsForTesting(), WTF::move(completionHandler));
@@ -2533,6 +2540,7 @@ void WebProcessProxy::didStartUsingProcessForSiteIsolation(const std::optional<W
 {
     if (!site) {
         ASSERT(m_site.error() == SiteState::NotYetSpecified || m_site.error() == SiteState::SharedProcess);
+        m_sharedProcessDomains.clear();
         m_site = makeUnexpected(SiteState::SharedProcess);
         m_sharedProcessMainFrameSite = mainFrameSite;
         return;

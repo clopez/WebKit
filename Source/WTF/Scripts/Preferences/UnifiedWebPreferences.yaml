@@ -3949,17 +3949,17 @@ HiddenUntilFoundEnabled:
 
 HighlightsFromPointEnabled:
    type: bool
-   status: testable
+   status: stable
    category: css
    humanReadableName: "CSS Custom Highlight API: highlightsFromPoint()"
    humanReadableDescription: "Enable the CSS Custom Highlight API highlightsFromPoint() method"
    defaultValue:
      WebKitLegacy:
-       default: false
+       default: true
      WebKit:
-       default: false
+       default: true
      WebCore:
-       default: false
+       default: true
 
 HorizontalBannerViewOverlaysEnabled:
   type: bool
@@ -9335,7 +9335,6 @@ UseDamagingInformationForCompositing:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
