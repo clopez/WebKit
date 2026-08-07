@@ -5067,6 +5067,37 @@ TEST(SiteIsolation, GoBackToNestedIframeCreatedAfterNavigatingSibling)
     EXPECT_WK_STREQ([webView _test_waitForAlert], "c");
 }
 
+TEST(SiteIsolation, GoBackReloadsDynamicallyCreatedCrossSiteIframe)
+{
+    HTTPServer server({
+        { "/example"_s, { "<body><script>"
+            "var reloaded = sessionStorage.getItem('loaded');"
+            "sessionStorage.setItem('loaded', '1');"
+            "var iframe = document.createElement('iframe');"
+            "iframe.name = reloaded ? 'frame2' : 'frame1';"
+            "iframe.src = reloaded ? 'https://webkit.org/a2' : 'https://webkit.org/a';"
+            "document.body.appendChild(iframe);"
+            "</script></body>"_s } },
+        { "/a"_s, { "<script> alert('a'); </script>"_s } },
+        { "/a2"_s, { "<script> alert('a2'); </script>"_s } },
+        { "/b"_s, { ""_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto *configuration = server.httpsProxyConfiguration();
+    configuration.processPool = processPoolWithBackForwardCacheDisabled().get();
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    EXPECT_WK_STREQ("a", [webView _test_waitForAlert]);
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://apple.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView goBack];
+    EXPECT_WK_STREQ("a2", [webView _test_waitForAlert]);
+    EXPECT_WK_STREQ("https://webkit.org/a2", [webView objectByEvaluatingJavaScript:@"location.href" inFrame:[webView firstChildFrame]]);
+}
+
 TEST(SiteIsolation, AdvancedPrivacyProtectionsHideScreenMetricsFromBindings)
 {
     auto frameHTML = [NSString stringWithContentsOfFile:[NSBundle.test_resourcesBundle pathForResource:@"simple" ofType:@"html"] encoding:NSUTF8StringEncoding error:NULL];
@@ -8043,6 +8074,44 @@ TEST(SiteIsolation, SharedProcessInProcessCacheAfterNavigation)
         finished = false;
     }
 }
+
+#if USE(RUNNINGBOARD)
+TEST(SiteIsolation, SharedProcessDropsPageLoadActivityAfterCrossSiteNavigation)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/webkit'>"_s } },
+        { "/webkit"_s, { "webkit"_s } },
+        { "/safari"_s, { "<body>safari</body>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewWithSharedProcess(server, EnableProcessCache::No, nil, nil, nil, EnableBackForwardCache::Yes);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    checkFrameTreesInProcesses(webView.get(), {
+        {
+            "https://example.com"_s,
+            { { RemoteFrame } }
+        },
+        {
+            RemoteFrame,
+            { { "https://webkit.org"_s } }
+        },
+    });
+    auto sharedProcess = [webView mainFrame].childFrames[0].info._processIdentifier;
+    EXPECT_NE(sharedProcess, [webView mainFrame].info._processIdentifier);
+
+    // Cross-site navigation. The example.com page enters the back/forward cache, which keeps the
+    // old BrowsingContextGroup and webkit.org remote page alive.
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://apple.com/safari"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    // The shared process is still alive so the cached example.com page can be restored, but it
+    // shouldn't be holding on to any page load activity.
+    EXPECT_TRUE(processStillRunning(sharedProcess));
+    EXPECT_EQ([WKWebView _suspendedRemotePageNetworkActivityCountForTesting], 0u);
+}
+#endif // USE(RUNNINGBOARD)
 
 TEST(SiteIsolation, WebProcessCacheCrashWithZeroSharedProcess)
 {
