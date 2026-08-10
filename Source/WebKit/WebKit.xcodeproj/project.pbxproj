@@ -989,6 +989,8 @@
 		3326F2672B06A1F4001A535F /* _WKWebExtensionDeclarativeNetRequestTranslator.h in Headers */ = {isa = PBXBuildFile; fileRef = 3326F2632B06A1F4001A535F /* _WKWebExtensionDeclarativeNetRequestTranslator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		3336763B130C99DC006C9DE2 /* WKResourceCacheManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 33367639130C99DC006C9DE2 /* WKResourceCacheManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		335698F62B19307700C7FEE4 /* WebExtensionConstants.h in Headers */ = {isa = PBXBuildFile; fileRef = 335698F52B19307700C7FEE4 /* WebExtensionConstants.h */; };
+		3365E6733023E5C0003166AA /* WebExtensionAPIOffscreen.h in Headers */ = {isa = PBXBuildFile; fileRef = 3365E6723023E5C0003166AA /* WebExtensionAPIOffscreen.h */; };
+		3366F02F3024FD1B002EEB9A /* WebExtensionOffscreenDocumentParameters.h in Headers */ = {isa = PBXBuildFile; fileRef = 3366F02D3024FD10002EEB9A /* WebExtensionOffscreenDocumentParameters.h */; };
 		336E07482EBCC1E400B4D635 /* WKAppKitGestureController.h in Headers */ = {isa = PBXBuildFile; fileRef = 336E07462EBCC1C100B4D635 /* WKAppKitGestureController.h */; };
 		337042042B58A2430077FF78 /* WebExtensionAPIWebRequestEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 337042032B58A2430077FF78 /* WebExtensionAPIWebRequestEvent.h */; };
 		337042092B58A8390077FF78 /* _WKWebExtensionWebRequestFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 337042072B58A8390077FF78 /* _WKWebExtensionWebRequestFilter.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2526,6 +2528,7 @@
 		E50620922542102000C43091 /* ContactsUISPI.h in Headers */ = {isa = PBXBuildFile; fileRef = E50620912542102000C43091 /* ContactsUISPI.h */; };
 		E50F80F62BD648720079DBDE /* HardwareKeyboardState.h in Headers */ = {isa = PBXBuildFile; fileRef = E50F80F52BD648620079DBDE /* HardwareKeyboardState.h */; };
 		E5227D8427A11261008EAB57 /* WebFoundTextRange.h in Headers */ = {isa = PBXBuildFile; fileRef = E5227D8227A11231008EAB57 /* WebFoundTextRange.h */; };
+		2A0F3D0130200A0100AB01F0 /* PDFAccessibilityDisplayModeState.h in Headers */ = {isa = PBXBuildFile; fileRef = 2A0F3D0230200A0100AB01F0 /* PDFAccessibilityDisplayModeState.h */; };
 		E52A431D2F3279E700D5360C /* PDFDisplayMode.h in Headers */ = {isa = PBXBuildFile; fileRef = E52A431C2F3279E700D5360C /* PDFDisplayMode.h */; };
 		E52CF55220A35C3A00DADA27 /* WebDataListSuggestionPicker.h in Headers */ = {isa = PBXBuildFile; fileRef = E52CF55020A35C3A00DADA27 /* WebDataListSuggestionPicker.h */; };
 		E539DFEB2A44A6A600769F09 /* MRUIKitSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = E539DFEA2A44A69100769F09 /* MRUIKitSPI.h */; };
@@ -5409,6 +5412,12 @@
 		33367638130C99DC006C9DE2 /* WKResourceCacheManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKResourceCacheManager.cpp; sourceTree = "<group>"; };
 		33367639130C99DC006C9DE2 /* WKResourceCacheManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKResourceCacheManager.h; sourceTree = "<group>"; };
 		335698F52B19307700C7FEE4 /* WebExtensionConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebExtensionConstants.h; sourceTree = "<group>"; };
+		3365E6723023E5C0003166AA /* WebExtensionAPIOffscreen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebExtensionAPIOffscreen.h; sourceTree = "<group>"; };
+		3365E6743023E75D003166AA /* WebExtensionAPIOffscreenCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebExtensionAPIOffscreenCocoa.mm; sourceTree = "<group>"; };
+		3365E6763023EA6F003166AA /* WebExtensionAPIOffscreen.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = WebExtensionAPIOffscreen.idl; sourceTree = "<group>"; };
+		3366F02D3024FD10002EEB9A /* WebExtensionOffscreenDocumentParameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebExtensionOffscreenDocumentParameters.h; sourceTree = "<group>"; };
+		3366F02E3024FD10002EEB9A /* WebExtensionOffscreenDocumentParameters.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = WebExtensionOffscreenDocumentParameters.serialization.in; sourceTree = "<group>"; };
+		3366F03130250860002EEB9A /* WebExtensionContextAPIOffscreenCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebExtensionContextAPIOffscreenCocoa.mm; sourceTree = "<group>"; };
 		336E07462EBCC1C100B4D635 /* WKAppKitGestureController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKAppKitGestureController.h; sourceTree = "<group>"; };
 		336E07472EBCC1C100B4D635 /* WKAppKitGestureController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WKAppKitGestureController.mm; sourceTree = "<group>"; };
 		337041FF2B5895C00077FF78 /* WebExtensionAPIWebRequestEvent.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = WebExtensionAPIWebRequestEvent.idl; sourceTree = "<group>"; };
@@ -8817,10 +8826,12 @@
 		E50F80F42BD648620079DBDE /* HardwareKeyboardState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = HardwareKeyboardState.cpp; path = ios/HardwareKeyboardState.cpp; sourceTree = "<group>"; };
 		E50F80F52BD648620079DBDE /* HardwareKeyboardState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HardwareKeyboardState.h; path = ios/HardwareKeyboardState.h; sourceTree = "<group>"; };
 		E50F80F72BD649100079DBDE /* HardwareKeyboardState.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = HardwareKeyboardState.serialization.in; path = ios/HardwareKeyboardState.serialization.in; sourceTree = "<group>"; };
+		2A0F3D0330200A0100AB01F0 /* PDFAccessibilityDisplayModeState.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = PDFAccessibilityDisplayModeState.serialization.in; sourceTree = "<group>"; };
 		E5182DAA2F33148100C5E2E2 /* PDFDisplayMode.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = PDFDisplayMode.serialization.in; sourceTree = "<group>"; };
 		E5227D8227A11231008EAB57 /* WebFoundTextRange.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebFoundTextRange.h; sourceTree = "<group>"; };
 		E5227D8327A11231008EAB57 /* WebFoundTextRange.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebFoundTextRange.cpp; sourceTree = "<group>"; };
 		E522BA692CA1E6BD0032FAC4 /* WebFoundTextRange.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = WebFoundTextRange.serialization.in; sourceTree = "<group>"; };
+		2A0F3D0230200A0100AB01F0 /* PDFAccessibilityDisplayModeState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PDFAccessibilityDisplayModeState.h; sourceTree = "<group>"; };
 		E52A431C2F3279E700D5360C /* PDFDisplayMode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PDFDisplayMode.h; sourceTree = "<group>"; };
 		E52CF55020A35C3A00DADA27 /* WebDataListSuggestionPicker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebDataListSuggestionPicker.h; sourceTree = "<group>"; };
 		E52CF55120A35C3A00DADA27 /* WebDataListSuggestionPicker.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebDataListSuggestionPicker.cpp; sourceTree = "<group>"; };
@@ -10458,6 +10469,8 @@
 				FA45FA392E4545E500057B45 /* NodeHitTestResult.h */,
 				FA45FA3B2E45462200057B45 /* NodeHitTestResult.serialization.in */,
 				8657EE3928EDB8C500FF9B40 /* Pasteboard.serialization.in */,
+				2A0F3D0230200A0100AB01F0 /* PDFAccessibilityDisplayModeState.h */,
+				2A0F3D0330200A0100AB01F0 /* PDFAccessibilityDisplayModeState.serialization.in */,
 				E52A431C2F3279E700D5360C /* PDFDisplayMode.h */,
 				E5182DAA2F33148100C5E2E2 /* PDFDisplayMode.serialization.in */,
 				7AFBD36E21E546E3005DBACB /* PersistencyUtils.cpp */,
@@ -11090,6 +11103,7 @@
 				B6544F9E2939457C00034EB0 /* WebExtensionContextAPIEventCocoa.mm */,
 				1C78656D2AD1FD4F00EF3082 /* WebExtensionContextAPIExtensionCocoa.mm */,
 				1C6B84B92B0BE3A300E885DD /* WebExtensionContextAPIMenusCocoa.mm */,
+				3366F03130250860002EEB9A /* WebExtensionContextAPIOffscreenCocoa.mm */,
 				B65DA1DC294BDE4700DB503A /* WebExtensionContextAPIPermissionsCocoa.mm */,
 				1C9A15D22ABE2F4B002CC12A /* WebExtensionContextAPIPortCocoa.mm */,
 				1C4A14C72ABBBA3900A1018C /* WebExtensionContextAPIRuntimeCocoa.mm */,
@@ -11141,6 +11155,7 @@
 				1C5DC44F290888140061EC62 /* WebExtensionAPINamespace.h */,
 				1C386F2F2AF4082F004108F0 /* WebExtensionAPINotifications.h */,
 				1C5DC44E29087E7F0061EC62 /* WebExtensionAPIObject.h */,
+				3365E6723023E5C0003166AA /* WebExtensionAPIOffscreen.h */,
 				B65DA1D1294BC25300DB503A /* WebExtensionAPIPermissions.h */,
 				1C9A15C92ABDEF13002CC12A /* WebExtensionAPIPort.h */,
 				1C5DC469290B239C0061EC62 /* WebExtensionAPIRuntime.h */,
@@ -11184,6 +11199,7 @@
 				1CCEE4562B098B4C0034E059 /* WebExtensionAPIMenusCocoa.mm */,
 				1C5DC4512908A9D00061EC62 /* WebExtensionAPINamespaceCocoa.mm */,
 				1C386F312AF40849004108F0 /* WebExtensionAPINotificationsCocoa.mm */,
+				3365E6743023E75D003166AA /* WebExtensionAPIOffscreenCocoa.mm */,
 				B65DA1D2294BC26300DB503A /* WebExtensionAPIPermissionsCocoa.mm */,
 				1C9A15D02ABDF334002CC12A /* WebExtensionAPIPortCocoa.mm */,
 				1C5DC464290B23890061EC62 /* WebExtensionAPIRuntimeCocoa.mm */,
@@ -11378,6 +11394,7 @@
 				1CCEE44F2B097F9D0034E059 /* WebExtensionAPIMenus.idl */,
 				1C9DD9A428FA19A30093BDB0 /* WebExtensionAPINamespace.idl */,
 				1C386F2E2AF407B1004108F0 /* WebExtensionAPINotifications.idl */,
+				3365E6763023EA6F003166AA /* WebExtensionAPIOffscreen.idl */,
 				B6544F76293560B000034EB0 /* WebExtensionAPIPermissions.idl */,
 				1C9A15CB2ABDF10C002CC12A /* WebExtensionAPIPort.idl */,
 				1C9DD99C28FA19A30093BDB0 /* WebExtensionAPIRuntime.idl */,
@@ -15761,6 +15778,8 @@
 				1C4EBD732ABA481B0005868F /* WebExtensionMessageSenderParameters.serialization.in */,
 				1CE2323D2CBF1A8B00DFD6C6 /* WebExtensionMessageTargetParameters.h */,
 				1CE2323E2CBF1A8B00DFD6C6 /* WebExtensionMessageTargetParameters.serialization.in */,
+				3366F02D3024FD10002EEB9A /* WebExtensionOffscreenDocumentParameters.h */,
+				3366F02E3024FD10002EEB9A /* WebExtensionOffscreenDocumentParameters.serialization.in */,
 				67AD7CB32CBB361D00B9B22B /* WebExtensionPermission.cpp */,
 				67AD7CB22CBB361C00B9B22B /* WebExtensionPermission.h */,
 				1C9A15C72ABDEEB4002CC12A /* WebExtensionPortChannelIdentifier.h */,
@@ -18656,6 +18675,7 @@
 				A1798B3E222D97A2000764BD /* PaymentAuthorizationPresenter.h in Headers */,
 				A1798B43222D98DF000764BD /* PaymentAuthorizationViewController.h in Headers */,
 				950FECF5285027200002DE4E /* PaymentTokenContext.h in Headers */,
+				2A0F3D0130200A0100AB01F0 /* PDFAccessibilityDisplayModeState.h in Headers */,
 				C1E123BA20A11573002646F4 /* PDFContextMenu.h in Headers */,
 				E52A431D2F3279E700D5360C /* PDFDisplayMode.h in Headers */,
 				33AE61252B20F13B00E1C215 /* PDFKitSPI.h in Headers */,
@@ -19044,6 +19064,7 @@
 				1C5DC46C290B271E0061EC62 /* WebExtensionAPINamespace.h in Headers */,
 				1C386F302AF4082F004108F0 /* WebExtensionAPINotifications.h in Headers */,
 				1C5DC46B290B271E0061EC62 /* WebExtensionAPIObject.h in Headers */,
+				3365E6733023E5C0003166AA /* WebExtensionAPIOffscreen.h in Headers */,
 				B61AFA392950DFB3008220B1 /* WebExtensionAPIPermissions.h in Headers */,
 				1C9A15CA2ABDEF13002CC12A /* WebExtensionAPIPort.h in Headers */,
 				1C5DC46A290B271A0061EC62 /* WebExtensionAPIRuntime.h in Headers */,
@@ -19093,6 +19114,7 @@
 				1C6BE7A32B0A94E500D01D93 /* WebExtensionMenuItemType.h in Headers */,
 				1C73167B2AC1E676007FADA4 /* WebExtensionMessagePort.h in Headers */,
 				1C4EBD722ABA47610005868F /* WebExtensionMessageSenderParameters.h in Headers */,
+				3366F02F3024FD1B002EEB9A /* WebExtensionOffscreenDocumentParameters.h in Headers */,
 				1C9A15C82ABDEEB4002CC12A /* WebExtensionPortChannelIdentifier.h in Headers */,
 				B69E1A682AFF5F0C000FB98E /* WebExtensionRegisteredScriptParameters.h in Headers */,
 				B6D0310A2AC1F631006C8E0B /* WebExtensionScriptInjectionParameters.h in Headers */,

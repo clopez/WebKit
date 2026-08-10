@@ -39,6 +39,7 @@ set(TestWTF_SOURCES
     Tests/WTF/BitSet.cpp
     Tests/WTF/BitVector.cpp
     Tests/WTF/BloomFilter.cpp
+    Tests/WTF/Borrow.cpp
     Tests/WTF/BorrowedBytes.cpp
     Tests/WTF/BoxPtr.cpp
     Tests/WTF/BumpPointerAllocator.cpp
@@ -46,6 +47,8 @@ set(TestWTF_SOURCES
     Tests/WTF/CStringView.cpp
     Tests/WTF/CharacterProperties.cpp
     Tests/WTF/CheckedArithmeticOperations.cpp
+    Tests/WTF/CheckedPtr.cpp
+    Tests/WTF/CheckedRef.cpp
     Tests/WTF/CompactPtr.cpp
     Tests/WTF/CompactRefPtr.cpp
     Tests/WTF/CompactRefPtrTuple.cpp
@@ -111,6 +114,7 @@ set(TestWTF_SOURCES
     Tests/WTF/RedBlackTree.cpp
     Tests/WTF/Ref.cpp
     Tests/WTF/RefCountedFixedVector.cpp
+    Tests/WTF/RefCountedWithInlineWeakPtr.cpp
     Tests/WTF/RefCounter.cpp
     Tests/WTF/RefLogger.cpp
     Tests/WTF/RefPtr.cpp
@@ -154,6 +158,7 @@ set(TestWTF_SOURCES
     Tests/WTF/UniqueRef.cpp
     Tests/WTF/UniqueRefVector.cpp
     Tests/WTF/Vector.cpp
+    Tests/WTF/VectorBorrow.cpp
     Tests/WTF/WTFString.cpp
     Tests/WTF/WeakPtr.cpp
     Tests/WTF/WorkQueue.cpp

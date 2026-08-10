@@ -1927,7 +1927,9 @@ accessibility/mac/text-operation/text-operation-capitalize.html [ Slow ]
 accessibility/datetime/input-date-field-labels-and-value-changes.html [ Slow ]
 accessibility/list/list-active-element-selected-children.html [ Slow ]
 accessibility/display-contents/aria-hidden.html [ Slow ]
+accessibility/isolated-tree/display-contents/aria-hidden.html [ Slow ]
 accessibility/display-contents/aria-grid.html [ Slow ]
+accessibility/isolated-tree/display-contents/aria-grid.html [ Slow ]
 animations/CSSKeyframesRule-name-null.html [ Slow ]
 animations/CSSKeyframesRule-parameters.html [ Slow ]
 apple-visual-effects/apple-visual-effect-automatic-vibrancy.html [ Slow ]
@@ -2457,3 +2459,5 @@ webkit.org/b/321185 [ Debug ] imported/w3c/web-platform-tests/wasm/core/float_ex
 webkit.org/b/321191 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-event.https.h2.html [ Pass Crash Failure ]
 
 webkit.org/b/321298 [ Release ] imported/w3c/web-platform-tests/wasm/serialization/memory/window-success.tentative.https.html [ Skip ]
+
+webkit.org/b/321312 imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getSynchronizationSources.https.html [ Pass Failure ]

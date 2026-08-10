@@ -182,6 +182,11 @@ PDFAccessibilityDisplayMode UnifiedPDFPlugin::accessibilityDisplayMode() const
     return PDFAccessibilityDisplayMode::None;
 }
 
+PDFAccessibilityDisplayModeState UnifiedPDFPlugin::defaultAccessibilityDisplayModeStateForCurrentSettings() const
+{
+    return PDFAccessibilityDisplayModeState::Ineligible;
+}
+
 void applyPDFContentAXColorAdjustment(CGContextRef, PDFPage *, PDFAccessibilityDisplayMode)
 {
 }
@@ -189,6 +194,11 @@ void applyPDFContentAXColorAdjustment(CGContextRef, PDFPage *, PDFAccessibilityD
 WebCore::Color pdfPageBackgroundColor(PDFAccessibilityDisplayMode)
 {
     return WebCore::Color::white;
+}
+
+WebCore::Color pdfPluginBackgroundColor(PDFAccessibilityDisplayMode, const WebCore::Color& unadjustedColor)
+{
+    return unadjustedColor;
 }
 
 WebCore::BlendMode pdfSelectionBlendMode(PDFAccessibilityDisplayMode)
@@ -217,7 +227,8 @@ UnifiedPDFPlugin::UnifiedPDFPlugin(HTMLPlugInElement& element)
     this->setVerticalScrollElasticity(ScrollElasticity::Automatic);
     this->setHorizontalScrollElasticity(ScrollElasticity::Automatic);
 
-    m_accessibilityDisplayMode = accessibilityDisplayMode();
+    m_accessibilityDisplayModeState = defaultAccessibilityDisplayModeStateForCurrentSettings();
+    updateFullFramePluginBackgroundColor();
 
     Ref document = element.document();
     Ref annotationContainer = document->createElement(HTMLNames::divTag, false);
@@ -783,17 +794,52 @@ void UnifiedPDFPlugin::didChangeSettings()
 
     protect(m_presentationController)->updateDebugBorders(showDebugBorders, showRepaintCounter);
 
-    auto displayMode = accessibilityDisplayMode();
-    if (m_accessibilityDisplayMode != displayMode) {
-        m_accessibilityDisplayMode = displayMode;
-
-        RefPtr presentationController = m_presentationController;
-        presentationController->invalidateRenderedContentForAccessibilityDisplayModeChange();
-        presentationController->updateForAccessibilityDisplayModeChange(displayMode);
-        updateScrollbarOverlayStyle();
-        setNeedsRepaintForIncrementalLoad();
-    }
+    auto defaultDisplayModeState = defaultAccessibilityDisplayModeStateForCurrentSettings();
+    auto isEligible = defaultDisplayModeState != PDFAccessibilityDisplayModeState::Ineligible;
+    auto wasEligible = m_accessibilityDisplayModeState != PDFAccessibilityDisplayModeState::Ineligible;
+    if (isEligible != wasEligible)
+        setAccessibilityDisplayModeState(defaultDisplayModeState);
 }
+
+void UnifiedPDFPlugin::setAccessibilityDisplayModeState(PDFAccessibilityDisplayModeState state)
+{
+    if (m_accessibilityDisplayModeState == state)
+        return;
+
+    m_accessibilityDisplayModeState = state;
+
+    RefPtr presentationController = m_presentationController;
+    presentationController->updateForAccessibilityDisplayModeChange();
+
+    if (RefPtr rootLayer = m_rootLayer)
+        rootLayer->setBackgroundColor(pluginBackgroundColor());
+    updateFullFramePluginBackgroundColor();
+
+    updateScrollbarOverlayStyle();
+
+#if ENABLE(PDF_HUD) && ENABLE(AX_PDF_SUPPORT)
+    updateHUDAccessibilityDisplayMode();
+#endif
+}
+
+Color UnifiedPDFPlugin::pluginBackgroundColor() const
+{
+    return pdfPluginBackgroundColor(accessibilityDisplayMode(), PDFPluginBase::pluginBackgroundColor());
+}
+
+#if ENABLE(PDF_HUD) && ENABLE(AX_PDF_SUPPORT)
+
+void UnifiedPDFPlugin::updateHUDAccessibilityDisplayMode()
+{
+    RefPtr frame = m_frame.get();
+    if (!frame)
+        return;
+
+    if (RefPtr page = frame->page())
+        page->updatePDFHUDAccessibilityDisplayMode(*this);
+}
+
+#endif // ENABLE(PDF_HUD)
 
 void UnifiedPDFPlugin::notifyFlushRequired(const GraphicsLayer*)
 {
@@ -1341,8 +1387,12 @@ bool UnifiedPDFPlugin::geometryDidChange(const IntSize& pluginSize, const Affine
         activeAnnotation->updateGeometry();
 #endif
 
-    if (sizeChanged)
-        updateLayout();
+    // A subframe PDF should keep fitting to its frame when the frame's size changes,
+    // until the user zooms. Pinning would freeze the scale computed at install time.
+    if (sizeChanged) {
+        bool shouldRefitToFrame = !isFullMainFramePlugin() && m_shouldUpdateAutoSizeScale == ShouldUpdateAutoSizeScale::Yes;
+        updateLayout(shouldRefitToFrame ? AdjustScaleAfterLayout::Yes : AdjustScaleAfterLayout::No);
+    }
 
 #if ENABLE(PDF_PAGE_NUMBER_INDICATOR)
     updatePageNumberIndicator();
@@ -1429,7 +1479,7 @@ void UnifiedPDFPlugin::updateLayout(AdjustScaleAfterLayout shouldAdjustScale, st
         LOG_WITH_STREAM(PDF, stream << "UnifiedPDFPlugin::updateLayout - on first layout, chose scale for actual size " << initialScaleFactor);
         setScaleFactor(initialScaleFactor);
 
-        if (!shouldSizeToFitContent())
+        if (!shouldSizeToFitContent() && isFullMainFramePlugin())
             m_shouldUpdateAutoSizeScale = ShouldUpdateAutoSizeScale::No;
     }
 
@@ -3998,6 +4048,21 @@ void UnifiedPDFPlugin::zoomOut()
 void UnifiedPDFPlugin::resetZoom()
 {
     setScaleFactor(initialScale());
+}
+
+void UnifiedPDFPlugin::toggleAccessibilityDisplayMode()
+{
+    switch (accessibilityDisplayModeState()) {
+    case PDFAccessibilityDisplayModeState::Ineligible:
+        return;
+    case PDFAccessibilityDisplayModeState::Off:
+        setAccessibilityDisplayModeState(PDFAccessibilityDisplayModeState::On);
+        return;
+    case PDFAccessibilityDisplayModeState::On:
+        setAccessibilityDisplayModeState(PDFAccessibilityDisplayModeState::Off);
+        return;
+    }
+    ASSERT_NOT_REACHED();
 }
 
 #endif // ENABLE(PDF_HUD)

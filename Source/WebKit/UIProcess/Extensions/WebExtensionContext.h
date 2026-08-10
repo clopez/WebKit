@@ -101,6 +101,11 @@
 #include "WebExtensionBookmarksParameters.h"
 #endif
 
+#if ENABLE(2022_GLIB_API)
+#include "WebKitWebExtensionContext.h"
+#include <wtf/glib/GWeakPtr.h>
+#endif
+
 OBJC_CLASS NSArray;
 OBJC_CLASS NSDate;
 OBJC_CLASS NSDictionary;
@@ -179,7 +184,11 @@ public:
 
     static WebExtensionContext* NODELETE get(WebExtensionContextIdentifier);
 
+#if PLATFORM(COCOA)
     explicit WebExtensionContext(Ref<WebExtension>&&);
+#elif ENABLE(2022_GLIB_API)
+    explicit WebExtensionContext(WebKitWebExtensionContext*);
+#endif
 
     using PermissionsMap = HashMap<String, WallTime>;
     using PermissionMatchPatternsMap = HashMap<Ref<WebExtensionMatchPattern>, WallTime>;
@@ -907,6 +916,15 @@ private:
     void menusRemoveAll(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
     void fireMenusClickedEventIfNeeded(const WebExtensionMenuItem&, bool wasChecked, const WebExtensionMenuItemContextParameters&);
 
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    // Offscreen APIs
+    bool isOffscreenMessageAllowed(IPC::Decoder&);
+
+    void offscreenCreateDocument(const WebExtensionOffscreenDocumentParameters&, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void offscreenCloseDocument(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void offscreenHasDocument(CompletionHandler<void(Expected<bool, WebExtensionError>&&)>&&);
+#endif
+
     // Permissions APIs
     void permissionsGetAll(CompletionHandler<void(Vector<String>&& permissions, Vector<String>&& origins)>&&);
     void permissionsContains(HashSet<String> permissions, HashSet<String> origins, CompletionHandler<void(bool)>&&);
@@ -1034,8 +1052,10 @@ private:
     // webRequest support.
     bool hasPermissionToSendWebRequestEvent(WebExtensionTab*, const URL& resourceURL, const ResourceLoadInfo&);
 
+#if PLATFORM(COCOA)
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+#endif
 
     bool isLoaded(IPC::Decoder&) const { return isLoaded(); }
     bool isLoadedAndPrivilegedMessage(IPC::Decoder& message) const { return isLoaded() && isPrivilegedMessage(message); }
@@ -1098,6 +1118,8 @@ private:
     RetainPtr<WKWebView> m_backgroundWebView;
     Variant<std::monostate, Ref<ProcessThrottlerActivity>, Ref<ProcessActivityGroup>> m_backgroundWebViewActivity;
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;
+#elif ENABLE(2022_GLIB_API)
+    GWeakPtr<WebKitWebExtensionContext> m_delegate;
 #endif
     RefPtr<API::Error> m_backgroundContentLoadError;
 

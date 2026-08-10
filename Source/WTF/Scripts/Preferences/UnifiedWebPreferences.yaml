@@ -4348,7 +4348,8 @@ InputTypeColorEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(COCOA) && !PLATFORM(WATCHOS) || PLATFORM(GTK)": true
+      "PLATFORM(COCOA) && !PLATFORM(WATCHOS)": true
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
@@ -9223,6 +9224,7 @@ UnifyDamagedRegions:
      WebKitLegacy:
        default: false
      WebKit:
+       "PLATFORM(GTK) || PLATFORM(WPE)": true
        default: false
      WebCore:
        default: false
@@ -9335,6 +9337,7 @@ UseDamagingInformationForCompositing:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
@@ -10244,6 +10247,21 @@ WebExtensionBookmarksEnabled:
   humanReadableName: "WebExtension Bookmarks API"
   humanReadableDescription: "Enable support for WebExtensions using the Bookmarks API"
   condition: ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+WebExtensionOffscreenEnabled:
+  type: bool
+  status: testable
+  category: extensions
+  humanReadableName: "WebExtension Offscreen API"
+  humanReadableDescription: "Enable support for WebExtensions using the Offscreen API"
+  condition: ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
   defaultValue:
     WebKitLegacy:
       default: false

@@ -152,6 +152,16 @@ public:
             m_invertedStrings = true;
         }
 
+        if (!isUnionSetOp()) {
+            // FIXME: Flipping the pending op (intersect with complement == subtract, and vice versa)
+            // would avoid materializing the complement, but m_strings still needs the original op.
+            CharacterClass inverted;
+            addSortedInverted(0, 0xff, other->m_matches8, other->m_ranges8, inverted.m_matches8, inverted.m_ranges8);
+            addSortedInverted(0x100, UCHAR_MAX_VALUE, other->m_matches32, other->m_ranges32, inverted.m_matches32, inverted.m_ranges32);
+            append(&inverted);
+            return;
+        }
+
         addSortedInverted(0, 0xff, other->m_matches8, other->m_ranges8, m_matches8, m_ranges8);
         addSortedInverted(0x100, UCHAR_MAX_VALUE, other->m_matches32, other->m_ranges32, m_matches32, m_ranges32);
     }
@@ -3517,6 +3527,21 @@ std::unique_ptr<CharacterClass> anycharCreate()
     characterClass->m_characterWidths = CharacterClassWidths::HasBothBMPAndNonBMP;
     characterClass->m_anyCharacter = true;
     return characterClass;
+}
+
+bool CharacterClass::hasOnlyNonSurrogateBMPCharacters() const
+{
+    if (hasStrings() || !hasOnlyBMPCharacters())
+        return false;
+    for (auto character : m_matches32) {
+        if (U_IS_SURROGATE(character))
+            return false;
+    }
+    for (auto& range : m_ranges32) {
+        if (range.end >= 0xd800 && range.begin <= 0xdfff)
+            return false;
+    }
+    return true;
 }
 
 std::optional<char16_t> CharacterClass::hasSharedLeadSurrogate() const
