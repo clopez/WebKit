@@ -95,6 +95,7 @@ namespace WebKit {
 
 enum class BackgroundFetchChange : uint8_t;
 enum class UnifiedOriginStorageLevel : uint8_t;
+class FileSystemStorageHandle;
 class FileSystemStorageHandleRegistry;
 class IDBStorageRegistry;
 class NetworkProcess;
@@ -109,7 +110,7 @@ public:
     static bool canHandleTypes(OptionSet<WebsiteDataType>);
     static OptionSet<WebsiteDataType> allManagedTypes();
 
-    void startReceivingMessageFromConnection(IPC::Connection&, const Vector<WebCore::RegistrableDomain>&, const SharedPreferencesForWebProcess&);
+    void startReceivingMessageFromConnection(IPC::Connection&, std::optional<HashSet<WebCore::RegistrableDomain>>&&, const SharedPreferencesForWebProcess&);
     void stopReceivingMessageFromConnection(IPC::Connection&);
     void updateSharedPreferencesForConnection(IPC::Connection&, const SharedPreferencesForWebProcess&);
 
@@ -154,7 +155,7 @@ public:
     void setBackupExclusionPeriodForTesting(Seconds, CompletionHandler<void()>&&);
 #endif
     void setStorageSiteValidationEnabled(bool);
-    void addAllowedSitesForConnection(IPC::Connection::UniqueID, const Vector<WebCore::RegistrableDomain>&);
+    void updateAllowedSitesForConnection(IPC::Connection::UniqueID, std::optional<HashSet<WebCore::RegistrableDomain>>&&);
 
     void dispatchTaskToBackgroundFetchManager(const WebCore::ClientOrigin&, Function<void(BackgroundFetchStoreManager*)>&&);
     void notifyBackgroundFetchChange(const String&, BackgroundFetchChange);
@@ -193,26 +194,28 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>& replyEncoder);
 
+    // Message handlers for StorageManager.
+    void persisted(IPC::Connection&, const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
+    void persist(IPC::Connection&, const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
+    void estimate(IPC::Connection&, const WebCore::ClientOrigin&, CompletionHandler<void(std::optional<WebCore::StorageEstimate>)>&&);
+
     // Message handlers for FileSystem.
-    void persisted(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
-    void persist(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
-    void estimate(const WebCore::ClientOrigin&, CompletionHandler<void(std::optional<WebCore::StorageEstimate>)>&&);
     void fileSystemGetDirectory(IPC::Connection&, WebCore::ClientOrigin&&, CompletionHandler<void(Expected<std::optional<WebCore::FileSystemHandleIdentifier>, FileSystemStorageError>)>&&);
-    void closeHandle(WebCore::FileSystemHandleIdentifier);
-    void isSameEntry(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(bool)>&&);
-    void move(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, const String& newName, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
+    void closeHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier);
+    void isSameEntry(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(bool)>&&);
+    void move(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, const String& newName, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
     void getFileHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, String&& name, bool createIfNecessary, CompletionHandler<void(Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError>)>&&);
     void getDirectoryHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, String&& name, bool createIfNecessary, CompletionHandler<void(Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError>)>&&);
-    void removeEntry(WebCore::FileSystemHandleIdentifier, const String& name, bool deleteRecursively, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
-    void resolve(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&&);
+    void removeEntry(IPC::Connection&, WebCore::FileSystemHandleIdentifier, const String& name, bool deleteRecursively, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
+    void resolve(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&&);
     void getFile(IPC::Connection&, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<String, FileSystemStorageError>)>&&);
-    void createSyncAccessHandle(WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<FileSystemSyncAccessHandleInfo, FileSystemStorageError>)>&&);
-    void closeSyncAccessHandle(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemSyncAccessHandleIdentifier, CompletionHandler<void()>&&);
-    void requestNewCapacityForSyncAccessHandle(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemSyncAccessHandleIdentifier, uint64_t newCapacity, CompletionHandler<void(std::optional<uint64_t>)>&&);
-    void createWritable(WebCore::FileSystemHandleIdentifier, bool keepExistingData, CompletionHandler<void(Expected<WebCore::FileSystemWritableFileStreamIdentifier, FileSystemStorageError>)>&&);
-    void closeWritable(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemWritableFileStreamIdentifier, WebCore::FileSystemWriteCloseReason, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
-    void executeCommandForWritable(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemWritableFileStreamIdentifier, WebCore::FileSystemWriteCommandType, std::optional<uint64_t> position, std::optional<uint64_t> size, std::span<const uint8_t> dataBytes, bool hasDataError, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
-    void getHandleNames(WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&&);
+    void createSyncAccessHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<FileSystemSyncAccessHandleInfo, FileSystemStorageError>)>&&);
+    void closeSyncAccessHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemSyncAccessHandleIdentifier, CompletionHandler<void()>&&);
+    void requestNewCapacityForSyncAccessHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemSyncAccessHandleIdentifier, uint64_t newCapacity, CompletionHandler<void(std::optional<uint64_t>)>&&);
+    void createWritable(IPC::Connection&, WebCore::FileSystemHandleIdentifier, bool keepExistingData, CompletionHandler<void(Expected<WebCore::FileSystemWritableFileStreamIdentifier, FileSystemStorageError>)>&&);
+    void closeWritable(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemWritableFileStreamIdentifier, WebCore::FileSystemWriteCloseReason, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
+    void executeCommandForWritable(IPC::Connection&, WebCore::FileSystemHandleIdentifier, WebCore::FileSystemWritableFileStreamIdentifier, WebCore::FileSystemWriteCommandType, std::optional<uint64_t> position, std::optional<uint64_t> size, std::span<const uint8_t> dataBytes, bool hasDataError, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
+    void getHandleNames(IPC::Connection&, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&&);
     void getHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, String&& name, CompletionHandler<void(Expected<std::optional<std::pair<WebCore::FileSystemHandleIdentifier, bool>>, FileSystemStorageError>)>&&);
     
     // Message handlers for WebStorage.
@@ -255,7 +258,7 @@ private:
 
     // Message handlers for CacheStorage.
     void cacheStorageOpenCache(const WebCore::ClientOrigin&, const String& cacheName, WebCore::DOMCacheEngine::CacheIdentifierCallback&&);
-    void cacheStorageRemoveCache(WebCore::DOMCacheIdentifier, WebCore::DOMCacheEngine::RemoveCacheIdentifierCallback&&);
+    void cacheStorageRemoveCache(IPC::Connection&, WebCore::DOMCacheIdentifier, WebCore::DOMCacheEngine::RemoveCacheIdentifierCallback&&);
     void cacheStorageAllCaches(const WebCore::ClientOrigin&, uint64_t updateCounter, WebCore::DOMCacheEngine::CacheInfosCallback&&);
     void cacheStorageReference(IPC::Connection&, WebCore::DOMCacheIdentifier);
     void cacheStorageDereference(IPC::Connection&, WebCore::DOMCacheIdentifier);
@@ -289,8 +292,10 @@ private:
     OriginQuotaManager::Parameters originQuotaManagerParameters(const WebCore::ClientOrigin&);
     RefPtr<WebCore::IDBServer::UniqueIDBDatabaseTransaction> idbTransaction(const WebCore::IDBRequestData&, IPC::Connection&);
     void setStorageSiteValidationEnabledInternal(bool);
-    void addAllowedSitesForConnectionInternal(IPC::Connection::UniqueID, const Vector<WebCore::RegistrableDomain>&);
+    void updateAllowedSitesForConnectionInternal(IPC::Connection::UniqueID, std::optional<HashSet<WebCore::RegistrableDomain>>&&);
     bool isSiteAllowedForConnection(IPC::Connection::UniqueID, const WebCore::RegistrableDomain&) const;
+    bool canConnectionAccessFileSystemHandle(IPC::Connection::UniqueID, const FileSystemStorageHandle&) const;
+    bool canConnectionAccessSiteForWebStorage(IPC::Connection&, const WebCore::RegistrableDomain&) const;
 
     RefPtr<FileSystemStorageHandleRegistry> protectedFileSystemStorageHandleRegistry();
 
@@ -332,7 +337,9 @@ private:
 #endif
     std::unique_ptr<ServiceWorkerStorageManager> m_sharedServiceWorkerStorageManager WTF_GUARDED_BY_CAPABILITY(workQueue());
     HashMap<WebCore::ClientOrigin, WallTime> m_lastModificationTimes WTF_GUARDED_BY_CAPABILITY(workQueue());
-    using ConnectionSitesMap = HashMap<IPC::Connection::UniqueID, HashSet<WebCore::RegistrableDomain>>;
+    struct AllSites { };
+    using AllowedSites = Variant<AllSites, HashSet<WebCore::RegistrableDomain>>;
+    using ConnectionSitesMap = HashMap<IPC::Connection::UniqueID, AllowedSites>;
     std::optional<ConnectionSitesMap> m_allowedSitesForConnections WTF_GUARDED_BY_CAPABILITY(workQueue());
     HashMap<IPC::Connection::UniqueID, SharedPreferencesForWebProcess> m_preferencesForConnections WTF_GUARDED_BY_CAPABILITY(workQueue());
 };
