@@ -553,12 +553,19 @@ static bool isInDisabledFormControl(Node& node)
     return control && control->isDisabledFormControl();
 }
 
-static String normalizedLabelText(const Element& element)
+enum class IncludeAssociatedLabels : bool { No, Yes };
+
+static String normalizedLabelText(Element& element, IncludeAssociatedLabels includeAssociatedLabels = IncludeAssociatedLabels::No)
 {
     for (auto attribute : { HTMLNames::aria_labelAttr.get(), HTMLNames::labelAttr.get() }) {
         auto text = normalizeText(element.attributeWithoutSynchronization(attribute));
         if (!text.isEmpty())
             return text;
+    }
+
+    if (includeAssociatedLabels == IncludeAssociatedLabels::Yes) {
+        if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(element))
+            return normalizeText(labelText(*htmlElement));
     }
 
     return { };
@@ -1133,7 +1140,19 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
 
         if (!role.isEmpty()) {
             auto shouldSuppressRole = [&] {
-                static constexpr auto ignoredRoles = WTF::toArray({ "presentation"_s, "none"_s, "generic"_s, "group"_s, "rowgroup"_s, "directory"_s, "complementary"_s, "contentinfo"_s });
+                static constexpr auto ignoredRoles = WTF::toArray({
+                    "presentation"_s,
+                    "none"_s,
+                    "generic"_s,
+                    "group"_s,
+                    "rowgroup"_s,
+                    "directory"_s,
+                    "complementary"_s,
+                    "contentinfo"_s,
+                    "tree"_s,
+                    "treeitem"_s
+                });
+
                 for (auto ignoredRole : ignoredRoles) {
                     if (equalLettersIgnoringASCIICase(role, ignoredRole))
                         return true;
@@ -1985,6 +2004,24 @@ static String searchTextNotFoundDescription(const String& searchText)
     return makeString('\'', searchText, "' not found inside the target node"_s);
 }
 
+static String alternativeTextForFallbackTextSearch(const Element& element)
+{
+    if (RefPtr image = dynamicDowncast<HTMLImageElement>(element))
+        return image->altText();
+
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element)) {
+        if (input->isImageButton())
+            return input->altText();
+
+        if (shouldTreatAsPasswordField(input.get()))
+            return { };
+
+        return input->valueWithDefault();
+    }
+
+    return { };
+}
+
 static bool searchTextMatchesElementLabelOrRenderedText(Element& element, const String& searchText)
 {
     auto withoutWhitespace = [](const String& string) {
@@ -2002,8 +2039,15 @@ static bool searchTextMatchesElementLabelOrRenderedText(Element& element, const 
     if (withoutWhitespace(normalizedLabelText(element)).containsIgnoringASCIICase(strippedSearchText))
         return true;
 
+    if (withoutWhitespace(alternativeTextForFallbackTextSearch(element)).containsIgnoringASCIICase(strippedSearchText))
+        return true;
+
     auto range = makeRangeSelectingNodeContents(element);
-    return withoutWhitespace(plainText(range, behaviorsForTextExtraction)).containsIgnoringASCIICase(strippedSearchText);
+    if (withoutWhitespace(plainText(range, behaviorsForTextExtraction)).containsIgnoringASCIICase(strippedSearchText))
+        return true;
+
+    RefPtr input = dynamicDowncast<HTMLInputElement>(element);
+    return input && withoutWhitespace(input->placeholder()).containsIgnoringASCIICase(strippedSearchText);
 }
 
 static constexpr auto nullFrameDescription = "Browsing context has been detached"_s;
@@ -2395,7 +2439,7 @@ static String precedingRenderedTextLabel(const Element& element)
     return joined;
 }
 
-static String textDescription(const Element& element, Vector<String>& stringsToValidate, bool isTargetElement = true)
+static String textDescription(Element& element, Vector<String>& stringsToValidate, bool isTargetElement = true)
 {
     StringBuilder description;
 
@@ -2427,7 +2471,7 @@ static String textDescription(const Element& element, Vector<String>& stringsToV
         hasAccessibleName = true;
     }
 
-    if (auto text = normalizedLabelText(element); !text.isEmpty()) {
+    if (auto text = normalizedLabelText(element, IncludeAssociatedLabels::Yes); !text.isEmpty()) {
         description.append(makeString(" labeled "_s, wrapWithDoubleQuotes(WTF::move(text))));
         stringsToValidate.append(WTF::move(text));
         needsParentContext = false;
@@ -2531,7 +2575,7 @@ static String textDescription(const Element& element, Vector<String>& stringsToV
     return parentDescription;
 }
 
-static String textDescription(const Element& element)
+static String textDescription(Element& element)
 {
     Vector<String> ignoredStringsToValidate;
     return textDescription(element, ignoredStringsToValidate);

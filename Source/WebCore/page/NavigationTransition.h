@@ -38,22 +38,27 @@ class Exception;
 class NavigationTransition final : public RefCounted<NavigationTransition> {
     WTF_MAKE_TZONE_ALLOCATED(NavigationTransition);
 public:
-    static Ref<NavigationTransition> create(NavigationNavigationType, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&&);
+    static Ref<NavigationTransition> create(NavigationNavigationType, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&& committed, Ref<DeferredPromise>&& finished);
 
     NavigationNavigationType navigationType() { return m_navigationType; };
     NavigationHistoryEntry& from() { return m_from; };
+    DOMPromise& committed();
     DOMPromise& finished();
 
+    void resolveCommitted();
     void resolvePromise();
     void rejectPromise(Exception&, JSC::JSValue exceptionObject);
     void rejectPromise(JSC::JSValue exceptionObject);
 
 private:
-    explicit NavigationTransition(NavigationNavigationType, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&& finished);
+    explicit NavigationTransition(NavigationNavigationType, Ref<NavigationHistoryEntry>&& fromEntry, Ref<DeferredPromise>&& committed, Ref<DeferredPromise>&& finished);
 
     NavigationNavigationType m_navigationType;
+    bool m_committedSettled { false };
     const Ref<NavigationHistoryEntry> m_from;
+    const Ref<DeferredPromise> m_committed;
     const Ref<DeferredPromise> m_finished;
+    RefPtr<DOMPromise> m_committedDOMPromise;
     RefPtr<DOMPromise> m_finishedDOMPromise;
 };
 

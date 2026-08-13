@@ -1317,17 +1317,17 @@ CSSFunctionAtRuleEnabled:
 
 CSSIdentFunctionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS ident() function"
   humanReadableDescription: "Enable the CSS Values 5 ident() function"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSIfFunctionEnabled:
   type: bool
@@ -1335,6 +1335,20 @@ CSSIfFunctionEnabled:
   status: stable
   humanReadableName: "CSS if() function"
   humanReadableDescription: "Enable CSS Values 5 if() conditional substitution function"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
+CSSInheritFunctionEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "CSS inherit() function"
+  humanReadableDescription: "Enable the CSS Values 5 inherit() function"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -1429,17 +1443,17 @@ CSSMathDepthEnabled:
       
 CSSObjectViewBoxEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS object-view-box property"
   humanReadableDescription: "Enable support for CSS object-view-box property"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSOverflowClipMarginEnabled:
   type: bool
@@ -1827,6 +1841,20 @@ CSSUnprefixedBackdropFilterEnabled:
       default: false
     WebCore:
       "ENABLE(UNPREFIXED_BACKDROP_FILTER)": true
+      default: false
+
+CSSUserSelectEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS Unprefixed User Select"
+  humanReadableDescription: "Enable the unprefixed user-select CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 CSSWhiteSpaceTrimEnabled:
@@ -4194,6 +4222,19 @@ ImportDeferEnabled:
     WebKit:
       default: true
 
+ImportTextEnabled:
+  type: bool
+  status: stable
+  category: javascript
+  humanReadableName: "Import Text"
+  humanReadableDescription: "Enable text module import."
+  webcoreBinding: none
+  jscOptionName: useImportText
+  sharedPreferenceForWebProcess: true
+  defaultValue:
+    WebKit:
+      default: true
+
 InactiveMediaCaptureStreamRepromptIntervalInMinutes:
   type: double
   status: embedder
@@ -6268,6 +6309,20 @@ NavigationAPIEnabled:
       "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
+NavigationAPIPrecommitHandlerEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Navigation API Precommit Handler"
+  humanReadableDescription: "Enable Navigation API Precommit Handler"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 NavigatorUserAgentDataJavaScriptAPIEnabled:
   type: bool
   status: internal
@@ -6880,17 +6935,17 @@ PopoverAttributeEnabled:
 
 PopoverHintEnabled:
   type: bool
-  status: preview
+  status: stable
   category: html
   humanReadableName: "HTML popover hint type"
   humanReadableDescription: "Enable popover='hint' type support"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 PreferFasterClickOverDoubleTap:
   type: bool
@@ -9272,7 +9327,7 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
 
 UseAlternatePDFHUD:
   type: bool
-  status: internal
+  status: mature
   category: html
   humanReadableName: "Alternate PDF HUD"
   humanReadableDescription: "Use the alternate PDF HUD"
@@ -9281,7 +9336,7 @@ UseAlternatePDFHUD:
   condition: ENABLE(PDF_HUD)
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 UseAppKitGestures:
   type: bool
@@ -10169,9 +10224,8 @@ WebCodecsHEVCEnabled:
 
 WebCodecsImageEnabled:
   type: bool
-  status: unstable
+  status: testable
   category: media
-  webcoreOnChange: setNeedsRelayoutAllFrames
   humanReadableName: "WebCodecs Image API"
   humanReadableDescription: "Enable WebCodecs Image API"
   condition: ENABLE(WEB_CODECS)

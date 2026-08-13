@@ -775,7 +775,6 @@ webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/composite
 webkit.org/b/244474 fast/canvas/webgl/oes-texture-float-linear.html [ Failure ]
 webkit.org/b/244476 fast/canvas/webgl/webgl-compressed-texture-size-limit.html [ Failure ]
 
-webkit.org/b/244489 fast/canvas/webgl/bufferData-offset-length.html [ Failure ]
 webkit.org/b/244491 fast/canvas/webgl/webgl2-texture-upload-enums.html [ Failure ]
 
 webgl/1.0.x/conformance/extensions/oes-texture-float-with-video.html [ Timeout ]
@@ -1126,7 +1125,6 @@ webkit.org/b/309369 [ arm64 ] imported/w3c/web-platform-tests/css/motion/offset-
 
 webkit.org/b/309372 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Failure ]
 webkit.org/b/309372 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-convolvernode-interface/convolution-mono-mono.html [ Failure ]
-webkit.org/b/309372 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-convolvernode-interface/realtime-conv.html [ Failure ]
 webkit.org/b/309372 [ arm64 ] webaudio/Analyser/realtimeanalyser-freq-data.html [ Failure ]
 webkit.org/b/309372 [ arm64 ] webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Failure ]
 
@@ -1211,6 +1209,7 @@ webkit.org/b/316418 imported/w3c/web-platform-tests/html/semantics/popovers/popo
 webkit.org/b/316419 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/src_object_blob.html [ Pass Failure ]
 webkit.org/b/316422 css3/text-decoration/text-decoration-line-spelling-error-2.html [ Pass ImageOnlyFailure ]
 webkit.org/b/316426 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/networkState_during_loadstart.html [ Pass Failure ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/loading-the-media-resource/resource-selection-source-media-env-change.html [ Pass Failure ]
 
 webkit.org/b/316582 [ arm64 ] imported/w3c/web-platform-tests/wasm/core/simd/simd_f32x4_pmin_pmax.wast.js.html [ Pass Failure Timeout ]
 webkit.org/b/316583 [ arm64 ] css3/filters/filter-animation-from-none-multi-hw.html [ Pass Failure ]
@@ -1310,6 +1309,28 @@ webkit.org/b/321283 [ arm64 ] webaudio/MediaElementAudioSource/mediaelementaudio
 webkit.org/b/309266 [ Release x86_64 ] css3/scroll-snap/scroll-snap-drag-scrollbar-thumb.html [ Pass Failure ]
 webkit.org/b/252878 [ Debug ] fast/frames/exponential-frames.html [ Pass Timeout ]
 
-webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-inset-shadow.html [ ImageOnlyFailure ]
+webkit.org/b/277912 [ arm64 ] imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-inset-shadow.html [ ImageOnlyFailure ]
 webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-notch-mixed.html [ ImageOnlyFailure ]
 webkit.org/b/277912 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-superellipse-negative-100.html [ ImageOnlyFailure ]
+
+webkit.org/b/321450 [ arm64 ] fast/mediacapturefromelement/CanvasCaptureMediaStream-capture-out-of-DOM-canvas.html [ Failure Pass ]
+webkit.org/b/316453 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-001.html [ Crash Timeout ]
+[ arm64 ] webrtc/video-rotation.html [ Failure Pass ]
+
+# Tests expected to crash report Timeout instead on ARM64.
+webkit.org/b/321481 [ arm64 ] fast/css/container-query-orientation-modal-dialog-crash.html [ Crash Pass Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/animation/flow-tolerance-interpolation.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/alignment/row-subgrid-alignment-in-subgridded-axis-002.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-002.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-003.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-001.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-002.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-003.html [ Crash Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-014.html [ Crash ImageOnlyFailure Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-019.html [ Crash ImageOnlyFailure Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-015.html [ Crash ImageOnlyFailure Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-021.html [ Crash ImageOnlyFailure Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/selection/caret/move-around-generated-content.html [ Crash Failure Pass Timeout ]
+webkit.org/b/321481 [ arm64 ] imported/w3c/web-platform-tests/webrtc/simulcast/screenshare.https.html [ Crash Failure Timeout ]
+
+webkit.org/b/309372 [ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-convolvernode-interface/realtime-conv.html [ Failure ]

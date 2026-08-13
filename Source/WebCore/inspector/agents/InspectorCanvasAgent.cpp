@@ -674,6 +674,15 @@ void InspectorCanvasAgent::didChangeGPUDeviceClientNodes(GPUDevice& device)
     dispatchCanvasSizeChanged(*inspectorCanvas);
 }
 
+void InspectorCanvasAgent::didChangeWebGPUMemory(GPUDevice& device)
+{
+    RefPtr inspectorCanvas = findInspectorCanvas(device);
+    if (!inspectorCanvas)
+        return;
+
+    m_frontendDispatcher->canvasMemoryChanged(inspectorCanvas->identifier(), inspectorCanvas->memoryCost());
+}
+
 void InspectorCanvasAgent::didCreateWebGPUComputePipeline(GPUDevice& device, GPUComputePipeline& pipeline)
 {
     auto inspectorCanvas = findInspectorCanvas(device);
@@ -792,6 +801,36 @@ void InspectorCanvasAgent::recordAction(GPUDevice& device, InspectorCanvasProces
 
     scheduleRecordingCanvasFrame(*inspectorCanvas);
     inspectorCanvas->recordAction(WTF::move(name), WTF::move(receiver), WTF::move(arguments));
+
+    if (!inspectorCanvas->hasBufferSpace())
+        didFinishRecordingCanvasFrame(device, true);
+}
+
+void InspectorCanvasAgent::recordActionResult(CanvasRenderingContext& canvasRenderingContext, InspectorCanvasProcessedArgument&& result)
+{
+    ASSERT(canvasRenderingContext.hasActiveInspectorCanvasCallTracer());
+
+    RefPtr inspectorCanvas = findInspectorCanvas(canvasRenderingContext);
+    ASSERT(inspectorCanvas);
+    if (!inspectorCanvas)
+        return;
+
+    inspectorCanvas->recordActionResult(WTF::move(result));
+
+    if (!inspectorCanvas->hasBufferSpace())
+        didFinishRecordingCanvasFrame(canvasRenderingContext, true);
+}
+
+void InspectorCanvasAgent::recordActionResult(GPUDevice& device, InspectorCanvasProcessedArgument&& result)
+{
+    ASSERT(device.hasActiveInspectorCanvasCallTracer());
+
+    RefPtr inspectorCanvas = findInspectorCanvas(device);
+    ASSERT(inspectorCanvas);
+    if (!inspectorCanvas)
+        return;
+
+    inspectorCanvas->recordActionResult(WTF::move(result));
 
     if (!inspectorCanvas->hasBufferSpace())
         didFinishRecordingCanvasFrame(device, true);

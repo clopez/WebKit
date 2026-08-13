@@ -642,6 +642,7 @@
 		0FEC857C1BDACDC70080FF74 /* AirHandleCalleeSaves.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC85571BDACDC70080FF74 /* AirHandleCalleeSaves.h */; };
 		0FEC857E1BDACDC70080FF74 /* AirInsertionSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC85591BDACDC70080FF74 /* AirInsertionSet.h */; };
 		0FEC85801BDACDC70080FF74 /* AirInst.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC855B1BDACDC70080FF74 /* AirInst.h */; };
+		B44D5339A33349BEB6C351CC /* AirInstAnalyzer.h in Headers */ = {isa = PBXBuildFile; fileRef = BD331F0A2D7C479E858667D8 /* AirInstAnalyzer.h */; };
 		0FEC85811BDACDC70080FF74 /* AirInstInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC855C1BDACDC70080FF74 /* AirInstInlines.h */; };
 		0FEC85841BDACDC70080FF74 /* AirPhaseScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC855F1BDACDC70080FF74 /* AirPhaseScope.h */; };
 		0FEC85881BDACDC70080FF74 /* AirSpecial.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FEC85631BDACDC70080FF74 /* AirSpecial.h */; };
@@ -1279,6 +1280,7 @@
 		53F11F41209138D700E411A7 /* JSCellButterfly.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F11F40209138D700E411A7 /* JSCellButterfly.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		53F40E851D58F9770099A1B6 /* WasmSections.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F40E841D58F9770099A1B6 /* WasmSections.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		53F40E8B1D5901BB0099A1B6 /* WasmFunctionParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F40E8A1D5901BB0099A1B6 /* WasmFunctionParser.h */; };
+		E0EA80DE450D471DB60067AE /* WasmByteLoopIdiom.h in Headers */ = {isa = PBXBuildFile; fileRef = 59599FF72E2E412795C8979D /* WasmByteLoopIdiom.h */; };
 		53F40E8D1D5901F20099A1B6 /* WasmParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F40E8C1D5901F20099A1B6 /* WasmParser.h */; };
 		53F40E931D5A4AB30099A1B6 /* WasmOMGIRGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F40E921D5A4AB30099A1B6 /* WasmOMGIRGenerator.h */; };
 		53F6BF6D1C3F060A00F41E5D /* InternalFunctionAllocationProfile.h in Headers */ = {isa = PBXBuildFile; fileRef = 53F6BF6C1C3F060A00F41E5D /* InternalFunctionAllocationProfile.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3770,6 +3772,7 @@
 		0FEC85591BDACDC70080FF74 /* AirInsertionSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirInsertionSet.h; path = b3/air/AirInsertionSet.h; sourceTree = "<group>"; };
 		0FEC855A1BDACDC70080FF74 /* AirInst.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AirInst.cpp; path = b3/air/AirInst.cpp; sourceTree = "<group>"; };
 		0FEC855B1BDACDC70080FF74 /* AirInst.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirInst.h; path = b3/air/AirInst.h; sourceTree = "<group>"; };
+		BD331F0A2D7C479E858667D8 /* AirInstAnalyzer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirInstAnalyzer.h; path = b3/air/AirInstAnalyzer.h; sourceTree = "<group>"; };
 		0FEC855C1BDACDC70080FF74 /* AirInstInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirInstInlines.h; path = b3/air/AirInstInlines.h; sourceTree = "<group>"; };
 		0FEC855E1BDACDC70080FF74 /* AirPhaseScope.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AirPhaseScope.cpp; path = b3/air/AirPhaseScope.cpp; sourceTree = "<group>"; };
 		0FEC855F1BDACDC70080FF74 /* AirPhaseScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AirPhaseScope.h; path = b3/air/AirPhaseScope.h; sourceTree = "<group>"; };
@@ -4703,6 +4706,7 @@
 		53F256E11B87E28000B4B768 /* JSTypedArrayViewPrototype.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSTypedArrayViewPrototype.cpp; sourceTree = "<group>"; };
 		53F40E841D58F9770099A1B6 /* WasmSections.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmSections.h; sourceTree = "<group>"; };
 		53F40E8A1D5901BB0099A1B6 /* WasmFunctionParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmFunctionParser.h; sourceTree = "<group>"; };
+		59599FF72E2E412795C8979D /* WasmByteLoopIdiom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmByteLoopIdiom.h; sourceTree = "<group>"; };
 		53F40E8C1D5901F20099A1B6 /* WasmParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmParser.h; sourceTree = "<group>"; };
 		53F40E8E1D5902820099A1B6 /* WasmOMGIRGenerator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmOMGIRGenerator.cpp; sourceTree = "<group>"; };
 		53F40E921D5A4AB30099A1B6 /* WasmOMGIRGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmOMGIRGenerator.h; sourceTree = "<group>"; };
@@ -7254,6 +7258,7 @@
 				0FEC85591BDACDC70080FF74 /* AirInsertionSet.h */,
 				0FEC855A1BDACDC70080FF74 /* AirInst.cpp */,
 				0FEC855B1BDACDC70080FF74 /* AirInst.h */,
+				BD331F0A2D7C479E858667D8 /* AirInstAnalyzer.h */,
 				0FEC855C1BDACDC70080FF74 /* AirInstInlines.h */,
 				0FDF67D41D9DC43E001B9825 /* AirKind.cpp */,
 				0FDF67D51D9DC43E001B9825 /* AirKind.h */,
@@ -8374,6 +8379,7 @@
 				37AAC091279F124200D64842 /* WasmBranchHints.h */,
 				37AAC090279F124100D64842 /* WasmBranchHintsSectionParser.cpp */,
 				37AAC092279F124200D64842 /* WasmBranchHintsSectionParser.h */,
+				59599FF72E2E412795C8979D /* WasmByteLoopIdiom.h */,
 				525C0DD71E935847002184CD /* WasmCallee.cpp */,
 				525C0DD81E935847002184CD /* WasmCallee.h */,
 				526AC4B41E977C5D003500E1 /* WasmCalleeGroup.cpp */,
@@ -11061,6 +11067,7 @@
 				53C2CE9C22FCC3D6008B2853 /* AirHelpers.h in Headers */,
 				0FEC857E1BDACDC70080FF74 /* AirInsertionSet.h in Headers */,
 				0FEC85801BDACDC70080FF74 /* AirInst.h in Headers */,
+				B44D5339A33349BEB6C351CC /* AirInstAnalyzer.h in Headers */,
 				0FEC85811BDACDC70080FF74 /* AirInstInlines.h in Headers */,
 				0FDF67D71D9DC442001B9825 /* AirKind.h in Headers */,
 				2684D4381C00161C0081D663 /* AirLiveness.h in Headers */,
@@ -12826,6 +12833,7 @@
 				37AAC094279F1C0500D64842 /* WasmBranchHints.h in Headers */,
 				37AAC093279F1BFC00D64842 /* WasmBranchHintsSectionParser.h in Headers */,
 				FFB963922E38302B0069A70F /* WasmBreakpointManager.h in Headers */,
+				E0EA80DE450D471DB60067AE /* WasmByteLoopIdiom.h in Headers */,
 				525C0DDA1E935847002184CD /* WasmCallee.h in Headers */,
 				526AC4B71E977C5D003500E1 /* WasmCalleeGroup.h in Headers */,
 				53FD04D41D7AB291003287D3 /* WasmCallingConvention.h in Headers */,

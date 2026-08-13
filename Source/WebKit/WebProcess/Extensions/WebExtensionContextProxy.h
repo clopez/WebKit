@@ -86,15 +86,13 @@ public:
 
     bool isURLForThisExtension(const URL&) const;
 
-#if PLATFORM(COCOA)
-    NSDictionary *manifest() const { return m_manifest.get(); }
+    RefPtr<JSON::Object> manifest() const { return m_manifest ? m_manifest.get()->asObject() : nullptr; }
 
     double manifestVersion() const { return m_manifestVersion; }
     bool supportsManifestVersion(double version) const { return manifestVersion() >= version; }
-#endif
     RefPtr<WebExtensionLocalization> localization() const { return m_localization; }
 
-    bool isSessionStorageAllowedInContentScripts() const { return m_isSessionStorageAllowedInContentScripts; }
+    bool isStorageAllowedInUntrustedContexts(WebExtensionDataType dataType) const { return isStorageTypeAllowedInUntrustedContexts(m_storageAccessLevels, dataType); }
 
     PAL::SessionID defaultSessionID() const { return m_defaultSessionID; }
 
@@ -206,7 +204,7 @@ private:
     void dispatchRuntimeStartupEvent();
 
     // Storage
-    void NODELETE setStorageAccessLevel(bool);
+    void setStorageAccessLevel(WebExtensionDataType, WebExtensionStorageAccessLevel);
     void dispatchStorageChangedEvent(const Vector<String>& onChangedJSON, WebExtensionDataType, WebExtensionContentWorldType);
 
     // Tabs
@@ -248,11 +246,9 @@ private:
     String m_uniqueIdentifier;
     HashSet<String> m_unsupportedAPIs;
     RefPtr<WebExtensionLocalization> m_localization;
-#if PLATFORM(COCOA)
-    RetainPtr<NSDictionary> m_manifest;
-#endif
+    RefPtr<JSON::Value> m_manifest;
     double m_manifestVersion { 0 };
-    bool m_isSessionStorageAllowedInContentScripts { false };
+    WebExtensionStorageAccessLevelMap m_storageAccessLevels;
     PAL::SessionID m_defaultSessionID { PAL::SessionID::defaultSessionID() };
     mutable PermissionsMap m_grantedPermissions;
     mutable WallTime m_nextGrantedPermissionsExpirationDate { WallTime::nan() };

@@ -1652,7 +1652,6 @@ editing/input/scroll-viewport-page-up-down.html [ Pass Failure ]
 # webkit.org/b/282046 REGRESSION(285592@main): [ macOS iOS wk2 ] http/tests/site-isolation/load-event.html are near constant failures.
 http/tests/site-isolation/load-event.html [ Pass Failure ]
 webkit.org/b/289347 http/tests/site-isolation/fullscreen.html [ Pass Failure ]
-webkit.org/b/289347 http/tests/site-isolation/fullscreen-escape-key.html [ Pass Failure ]
 
 # webkit.org/b/281923  [ Sequoia+ ] 3 tests in http/tests/cookies/same-site are constant failure (failure in EWS)
 [ Sequoia+ ] http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
@@ -2458,6 +2457,11 @@ webkit.org/b/321185 [ Debug ] imported/w3c/web-platform-tests/wasm/core/float_ex
 
 webkit.org/b/321191 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-event.https.h2.html [ Pass Crash Failure ]
 
-webkit.org/b/321298 [ Release ] imported/w3c/web-platform-tests/wasm/serialization/memory/window-success.tentative.https.html [ Skip ]
-
 webkit.org/b/321312 imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getSynchronizationSources.https.html [ Pass Failure ]
+
+# webkit.org/b/321298 [ Release ] REGRESSION(316423@main): [macOS Release] imported/w3c/web-platform-tests/wasm/serialization/memory/window-success.tentative.https.html is a flaky crash
+[ Release ] imported/w3c/web-platform-tests/wasm/serialization/memory/window-nested-dedicated-worker-failure.tentative.https.html [ Skip ]
+[ Release ] imported/w3c/web-platform-tests/wasm/serialization/memory/window-sharedworker-failure.tentative.https.html [ Skip ]
+
+# Debug assertion in PaymentRequest::suspend() when a request is Interactive as the document enters the back/forward cache
+webkit.org/b/321524 [ Debug ] imported/w3c/web-platform-tests/payment-request/payment-request-show-method.https.html [ Skip ]

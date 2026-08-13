@@ -4,6 +4,7 @@
 # Tests that crash #
 ####################
 http/tests/security/top-level-unique-origin2.https.html [ Crash ]
+imported/w3c/web-platform-tests/content-security-policy/inheritance/about-blank-from-javascript-url-inherits-csp-from-initiator.sub.html [ Crash ]
 imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html [ Crash ]
 imported/w3c/web-platform-tests/speculation-rules/prefetch/redirect-url.https.html?origin=cross-site-redirect [ Crash ]
 imported/w3c/web-platform-tests/speculation-rules/speculation-tags/same-site-to-cross-site-redirection-prefetch.https.html [ Crash ]
@@ -100,14 +101,12 @@ imported/blink/fast/forms/datetimelocal-multiple-fields/datetimelocal-multiple-f
 imported/blink/fast/forms/month-multiple-fields/month-multiple-fields-clearbutton-visibility-after-restore.html [ Timeout ]
 imported/blink/fast/forms/time-multiple-fields/time-multiple-fields-clearbutton-visibility-after-restore.html [ Timeout ]
 imported/blink/fast/forms/week-multiple-fields/week-multiple-fields-clearbutton-visibility-after-restore.html [ Timeout ]
-media/media-session/interruption-sends-pause-action.html [ Timeout ]
 media/remote-control-command-paused-with-webaudio.html [ Timeout ]
 media/video-play-pause-exception.html [ Timeout ]
 platform/ios/mediastream/audio-muted-in-background-tab.html [ Timeout ]
 webaudio/MediaElementAudioSource/mediaelementaudiosourcenode-playbackrate.html [ Timeout ]
 webaudio/audiocontext-large-samplerate.html [ Timeout ]
 webaudio/audiocontext-low-samplerate.html [ Timeout ]
-webaudio/audiocontext-state-interrupted.html [ Timeout ]
 webaudio/audiocontext-state.html [ Timeout ]
 webaudio/crashtest/audioworklet-concurrent-resampler-crash.html [ Timeout ]
 webaudio/getOutputTimestamp.html [ Timeout ]

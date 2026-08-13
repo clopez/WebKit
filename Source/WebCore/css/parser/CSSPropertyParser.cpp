@@ -359,7 +359,9 @@ std::optional<Variant<Ref<const Style::CustomProperty>, CSSWideKeyword>> CSSProp
         .context = context,
         .currentRule = StyleRuleType::Style,
         .currentProperty = CSSPropertyCustom,
+        .currentCustomPropertyName = name,
         .important = IsImportant::No,
+        .randomFunctionsDisallowed = builderState.isResolvingContainerQueries(),
     };
 
     auto value = consumeTypedCustomPropertyValue(range, state, name, syntax, builderState, isAttrTainted);
@@ -378,6 +380,7 @@ RefPtr<const Style::CustomProperty> CSSPropertyParser::parseTypedCustomPropertyI
         .currentRule = StyleRuleType::Style,
         .currentProperty = CSSPropertyCustom,
         .important = IsImportant::No,
+        .randomFunctionsDisallowed = true,
     };
 
     auto value = consumeTypedCustomPropertyValue(range, state, name, syntax, builderState);

@@ -292,6 +292,11 @@ enum class SpatialType : bool {
     Portal
 };
 
+enum class PortalActionType : bool {
+    None,
+    Orbit
+};
+
 enum class TextCombine : bool {
     None,
     All
@@ -502,7 +507,8 @@ enum class UserDrag : uint8_t {
 enum class UserSelect : uint8_t {
     None,
     Text,
-    All
+    All,
+    Auto
 };
 
 // CSS3 Image Values
@@ -1221,6 +1227,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, WebCore::Overflow);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowAlignment);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowWrap);
 WTF::TextStream& operator<<(WTF::TextStream&, PointerEvents);
+WTF::TextStream& operator<<(WTF::TextStream&, PortalActionType);
 WTF::TextStream& operator<<(WTF::TextStream&, PositionType);
 WTF::TextStream& operator<<(WTF::TextStream&, PrintColorAdjust);
 WTF::TextStream& operator<<(WTF::TextStream&, PseudoElementType);

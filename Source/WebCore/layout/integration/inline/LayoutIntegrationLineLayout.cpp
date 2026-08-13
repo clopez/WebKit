@@ -491,12 +491,18 @@ void LineLayout::setExcludedMarkerPositions(const ExcludedMarkerList& excludedMa
 
     // The first line with content on it: a line holding nothing but collapsible whitespace or empty inline boxes is
     // not one the marker's search would have settled for either, it carries on to the content that follows.
+    // A line whose content is a block level box is not one to align with: the marker's render tree level search
+    // descends into such a box and settles on the line its own content makes. Fall back to it only when there is no
+    // line with inline content at all, where it is the only line we have.
     auto* firstContentfulLine = [&]() -> const InlineDisplay::Line* {
+        const InlineDisplay::Line* firstBlockContentLine = nullptr;
         for (auto& line : m_inlineContent->displayContent().lines) {
-            if (line.hasContentfulInFlowBox())
+            if (line.hasContentfulInlineLevelBox())
                 return &line;
+            if (!firstBlockContentLine && line.hasContentfulInFlowBox())
+                firstBlockContentLine = &line;
         }
-        return { };
+        return firstBlockContentLine;
     }();
     if (!firstContentfulLine) {
         ASSERT_NOT_REACHED();
@@ -1404,7 +1410,7 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
                 return !m_inlineContent->isInlineBoxWrapperForBlockLevelBox(box);
             case HitTestAction::ChildBlockBackground:
             case HitTestAction::ChildBlockBackgrounds:
-                return box.isBlockLevelBox() || m_inlineContent->isInlineBoxWrapperForBlockLevelBox(box);
+                return box.isBlockLevelBox() || (m_inlineContent->isInlineBoxWrapperForBlockLevelBox(box) && !box.isRootInlineBox());
             case HitTestAction::Float:
                 return box.isBlockLevelBox();
             case HitTestAction::BlockBackground:

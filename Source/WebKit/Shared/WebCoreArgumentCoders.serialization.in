@@ -2160,7 +2160,8 @@ enum class WebCore::FetchOptionsDestination : uint8_t {
     Track,
     Video,
     Worker,
-    Xslt
+    Xslt,
+    Text
 };
 
 enum class WebCore::FetchOptionsMode : uint8_t {
@@ -7003,6 +7004,9 @@ enum class WebCore::PortalTransformKind : uint8_t {
     None,
     Auto
 };
+
+header: <WebCore/PortalAction.h>
+enum class WebCore::PortalActionKind : bool;
 #endif
 
 header: <WebCore/FixedContainerEdges.h>

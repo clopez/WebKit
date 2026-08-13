@@ -120,7 +120,9 @@ static NSString * const lastSeenVersionStateKey = @"LastSeenVersion";
 static NSString * const lastSeenDisplayNameStateKey = @"LastSeenDisplayName";
 static NSString * const lastLoadedDeclarativeNetRequestHashStateKey = @"LastLoadedDeclarativeNetRequestHash";
 
+// Read-only, legacy key. Use storageAccessLevelsKey instead.
 static NSString * const sessionStorageAllowedInContentScriptsKey = @"SessionStorageAllowedInContentScripts";
+static NSString * const storageAccessLevelsKey = @"StorageAccessLevels";
 
 // Update this value when any changes are made to the WebExtensionEventListenerType enum.
 static constexpr NSInteger currentBackgroundContentListenerStateVersion = 4;
@@ -169,6 +171,11 @@ static constexpr NSInteger currentDeclarativeNetRequestRuleTranslatorVersion = 6
         return;
 
     extensionContext->didFinishDocumentLoad(webView, navigation);
+}
+
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+    [self webView:webView didFailNavigation:navigation withError:error];
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error
@@ -293,7 +300,7 @@ Expected<bool, RefPtr<API::Error>> WebExtensionContext::load(WebExtensionControl
     if (RetainPtr displayName = protect(m_extension)->displayName().createNSString())
         [m_state setObject:displayName.get() forKey:lastSeenDisplayNameStateKey];
 
-    m_isSessionStorageAllowedInContentScripts = boolForKey(m_state.get(), sessionStorageAllowedInContentScriptsKey, false);
+    loadStorageAccessLevelsFromStorage();
 
     determineInstallReasonDuringLoad();
 
@@ -342,6 +349,10 @@ Expected<bool, RefPtr<API::Error>> WebExtensionContext::unload()
     writeStateToStorage();
 
     unloadBackgroundWebView();
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    unloadOffscreenWebView();
+#endif
+
     removeInjectedContent();
 
     invalidateStorage();
@@ -574,6 +585,7 @@ void WebExtensionContext::invalidateStorage()
     m_localStorageStore = nullptr;
     m_sessionStorageStore = nullptr;
     m_syncStorageStore = nullptr;
+    m_storageAccessLevels.clear();
 }
 
 void WebExtensionContext::setInspectable(bool inspectable)
@@ -2863,10 +2875,16 @@ void WebExtensionContext::reportWebViewConfigurationErrorIfNeeded(const WebExten
 
 bool WebExtensionContext::decidePolicyForNavigationAction(WKWebView *webView, WKNavigationAction *navigationAction)
 {
+#ifndef NDEBUG
+    bool isValidWebView = (webView == m_backgroundWebView);
 #if ENABLE(INSPECTOR_EXTENSIONS)
-    ASSERT(webView == m_backgroundWebView || isInspectorBackgroundPage(webView));
-#else
-    ASSERT(webView == m_backgroundWebView);
+    isValidWebView |= isInspectorBackgroundPage(webView);
+#endif
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    isValidWebView |= isOffscreenWebView(webView);
+#endif
+
+    ASSERT(isValidWebView);
 #endif
 
     NSURL *url = navigationAction.request.URL;
@@ -2878,6 +2896,13 @@ bool WebExtensionContext::decidePolicyForNavigationAction(WKWebView *webView, WK
 
 void WebExtensionContext::didFinishDocumentLoad(WKWebView *webView, WKNavigation *)
 {
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    if (isOffscreenWebView(webView)) {
+        performTasksAfterOffscreenContentLoads();
+        return;
+    }
+#endif
+
     if (webView != m_backgroundWebView)
         return;
 
@@ -2890,6 +2915,13 @@ void WebExtensionContext::didFinishDocumentLoad(WKWebView *webView, WKNavigation
 
 void WebExtensionContext::didFailNavigation(WKWebView *webView, WKNavigation *, RefPtr<API::Error> error)
 {
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    if (isOffscreenWebView(webView)) {
+        unloadOffscreenWebView();
+        return;
+    }
+#endif
+
     if (webView != m_backgroundWebView)
         return;
 
@@ -2913,6 +2945,13 @@ void WebExtensionContext::webViewWebContentProcessDidTerminate(WKWebView *webVie
 #if ENABLE(INSPECTOR_EXTENSIONS)
     if (isInspectorBackgroundPage(webView)) {
         [webView loadRequest:[NSURLRequest requestWithURL:inspectorBackgroundPageURL().createNSURL().get()]];
+        return;
+    }
+#endif
+
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    if (isOffscreenWebView(webView)) {
+        unloadOffscreenWebView();
         return;
     }
 #endif
@@ -3481,19 +3520,54 @@ void WebExtensionContext::loadDeclarativeNetRequestRules(CompletionHandler<void(
     });
 }
 
-void WebExtensionContext::setSessionStorageAllowedInContentScripts(bool allowed)
+void WebExtensionContext::loadStorageAccessLevelsFromStorage()
 {
-    m_isSessionStorageAllowedInContentScripts = allowed;
+    auto *savedLevels = objectForKey<NSDictionary>(m_state.get(), storageAccessLevelsKey);
+    bool legacySessionStorageAllowed = boolForKey(m_state.get(), sessionStorageAllowedInContentScriptsKey, false);
 
-    [m_state setObject:@(allowed) forKey:sessionStorageAllowedInContentScriptsKey];
+    // Remove the legacy key.
+    [m_state removeObjectForKey:sessionStorageAllowedInContentScriptsKey];
 
+    if (savedLevels) {
+        for (auto dataType : allWebExtensionDataTypes()) {
+            auto *accessLevelString = objectForKey<NSString>(savedLevels, toAPIString(dataType).createNSString().get());
+            if (auto accessLevel = toWebExtensionStorageAccessLevel(String { accessLevelString }))
+                m_storageAccessLevels.set(dataType, *accessLevel);
+        }
+
+        return;
+    }
+
+    // Migrate the existing value.
+    if (legacySessionStorageAllowed) {
+        m_storageAccessLevels.set(WebExtensionDataType::Session, WebExtensionStorageAccessLevel::TrustedAndUntrustedContexts);
+
+        saveStorageAccessLevelsToStorage();
+    }
+}
+
+void WebExtensionContext::saveStorageAccessLevelsToStorage()
+{
+    auto *savedLevels = [NSMutableDictionary dictionaryWithCapacity:m_storageAccessLevels.size()];
+
+    for (auto [dataType, accessLevel] : m_storageAccessLevels)
+        [savedLevels setObject:toAPIString(accessLevel).createNSString().get() forKey:toAPIString(dataType).createNSString().get()];
+
+    [m_state setObject:savedLevels forKey:storageAccessLevelsKey];
     writeStateToStorage();
+}
+
+void WebExtensionContext::setStorageAccessLevel(WebExtensionDataType dataType, WebExtensionStorageAccessLevel accessLevel)
+{
+    m_storageAccessLevels.set(dataType, accessLevel);
+
+    saveStorageAccessLevelsToStorage();
 
     if (!isLoaded())
         return;
 
     if (RefPtr extensionController = this->extensionController())
-        extensionController->sendToAllProcesses(Messages::WebExtensionContextProxy::SetStorageAccessLevel(allowed), identifier());
+        extensionController->sendToAllProcesses(Messages::WebExtensionContextProxy::SetStorageAccessLevel(dataType, accessLevel), identifier());
 }
 
 void WebExtensionContext::sendTestMessage(const String& message, id argument)

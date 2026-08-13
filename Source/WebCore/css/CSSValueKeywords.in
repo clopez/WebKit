@@ -1572,12 +1572,17 @@ to-zero
 no-clamp
 random
 element-scoped
+property-scoped
+property-index-scoped
 // fixed
 sibling-count
 sibling-index
 infinity
 -infinity id=NegativeInfinity
 NaN
+
+// ident()
+ident
 
 from-image
 
@@ -1986,3 +1991,4 @@ no-ellipsis
 
 // CSS Spatial Layout (spatial: portal)
 portal enable-if=ENABLE_SPATIAL_PORTAL
+orbit enable-if=ENABLE_SPATIAL_PORTAL

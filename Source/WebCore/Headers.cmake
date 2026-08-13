@@ -619,6 +619,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/model-element/ModelPlayerIdentifier.h
     Modules/model-element/ModelPlayerProvider.h
     Modules/model-element/ModelPlayerTransformState.h
+    Modules/model-element/PortalAction.h
     Modules/model-element/PortalTransform.h
     Modules/model-element/SpatialPortalController.h
 
@@ -1141,7 +1142,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/calc/CSSCalcOperator.h
     css/calc/CSSCalcRandomCachingKey.h
-    css/calc/CSSCalcRandomSharingOptions.h
+    css/calc/CSSCalcRandomSharing.h
     css/calc/CSSCalcSymbolTable.h
     css/calc/CSSCalcTree.h
     css/calc/CSSCalcType.h
@@ -2049,6 +2050,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/MemoryRelease.h
     page/ModalContainerTypes.h
     page/NavigationActivation.h
+    page/NavigationHistoryBehavior.h
     page/NavigationNavigationType.h
     page/Navigator.h
     page/NavigatorBase.h

@@ -1505,10 +1505,10 @@ imported/w3c/web-platform-tests/css/css-view-transitions/table-caption.html [ Im
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-left-of-viewport-offscreen-old.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
 
-# webkit.org/b/316882 1px device-pixel rounding difference in snapRectToDevicePixels for the
+# webkit.org/b/321467 1px device-pixel rounding difference in snapRectToDevicePixels for the
 # overflow-visible ::view-transition-old/new object-view-box path.
-webkit.org/b/316882 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-with-object-view-box.html [ Skip ]
-webkit.org/b/316882 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-with-object-view-box.html [ Skip ]
+webkit.org/b/321467 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-with-object-view-box.html [ ImageOnlyFailure ]
+webkit.org/b/321467 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-with-object-view-box.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-inline-with-offset-from-containing-block-clipped.html [ ImageOnlyFailure ]
 
@@ -5735,7 +5735,6 @@ webkit.org/b/160368 http/tests/xmlhttprequest/workers/methods-async.html [ Pass 
 webkit.org/b/161323 media/track/media-element-enqueue-event-crash.html [ Skip ]
 webkit.org/b/161323 media/track/track-remove-crash.html [ Skip ]
 
-webkit.org/b/142152 media/track/track-in-band-cues-added-once.html [ Pass Failure ]
 webkit.org/b/161491 media/video-main-content-allow-then-scroll.html [ Failure ]
 
 webkit.org/b/153029 fast/css-generated-content/details-summary-before-after.html [ Failure ]
@@ -8693,8 +8692,22 @@ imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.servicewor
 imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.sharedworker.html [ Failure ]
 imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.worker.html [ Failure ]
 
+# testdriver-vendor.js dispatches key actions through a UI script that references eventSender,
+# which does not exist in the UI-script context, and uiController has no leapForward equivalent,
+# so an action sequence with a key source resolves without dispatching anything on iOS.
+imported/w3c/web-platform-tests/infrastructure/testdriver/key-source-pause.html [ Skip ]
+
 # scheduleResizeEventIfNeeded() suppresses resize events on iOS while the document is still loading,
 # since Safari on iOS resizes the window while setting up its viewport.
 imported/w3c/web-platform-tests/css/css-values/dynamic-viewport-units-rule-cache.html [ Skip ]
 
 webkit.org/b/321191 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-event.https.h2.html [ Pass Crash Failure ]
+
+webkit.org/b/321528 [ Release ] imported/w3c/web-platform-tests/background-fetch/match.https.window.html [ Pass Failure ]
+
+# REGRESSION(317976@main): stale ASSERT(rowEnd.isExplicit()) in LayoutIntegrationGridCoverage.cpp
+# newly reachable after 317976@main relaxed the justify-items alignment gate for GridFormattingContext.
+webkit.org/b/321629 [ Debug ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-014.html [ Skip ]
+webkit.org/b/321629 [ Debug ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-019.html [ Skip ]
+webkit.org/b/321629 [ Debug ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-015.html [ Skip ]
+webkit.org/b/321629 [ Debug ] imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-021.html [ Skip ]

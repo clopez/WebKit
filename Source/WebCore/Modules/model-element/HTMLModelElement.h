@@ -108,6 +108,7 @@ public:
     void didFinishLoadingInsidePortal();
     void didFailLoadingInsidePortal(const ResourceError&);
     void spatialPortalContextDidChange();
+    SpatialPortalController* lastRegisteredPortalController() const;
 #endif
 
     std::optional<PlatformLayerIdentifier> layerID() const;
@@ -350,6 +351,7 @@ private:
     void sourceRequestResource();
     bool shouldDeferLoading() const;
     bool NODELETE isModelDeferred() const;
+    bool hasLiveModelPlayer() const;
     bool isModelLoading() const;
     bool isModelLoaded() const;
     bool isModelUnloading() const;

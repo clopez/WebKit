@@ -56,6 +56,7 @@
 #include "StyleCustomPropertyData.h"
 #include "StyleCustomPropertyRegistry.h"
 #include "StyleFontSizeFunctions.h"
+#include "StyleLocalPropertyRegistry.h"
 #include "StylePropertyShorthand.h"
 #include "StyleSubstitutionResolver.h"
 #include <wtf/SetForScope.h>
@@ -253,7 +254,8 @@ void Builder::applyCustomPropertyFromCallingContext(const AtomString& name)
     auto* callingContextBuilder = m_state->callingContextBuilder();
     ASSERT(callingContextBuilder);
 
-    if (m_state->registeredProperty(name))
+    auto* localRegistry = m_state->localPropertyRegistry();
+    if (localRegistry && localRegistry->get(name))
         applyCustomProperty(name, CSSWideKeyword::Initial);
     else {
         callingContextBuilder->applyCustomProperty(name);
@@ -294,7 +296,7 @@ void Builder::applyCustomPropertyImpl(const AtomString& name, const PropertyCasc
         return CSSWideKeyword::Unset;
     };
 
-    SetForScope levelScope(m_state->m_currentProperty, &property);
+    BuilderStatePropertyScope levelScope(m_state, &property);
     SetForScope scopedLinkMatchMutation(m_state->m_linkMatch, SelectorChecker::MatchDefault);
 
     auto resolvedValue = resolveCustomPropertyValue(customPropertyValue.get());
@@ -310,7 +312,7 @@ void Builder::applyCustomPropertyImpl(const AtomString& name, const PropertyCasc
 
 inline void Builder::applyCascadeProperty(const PropertyCascade::Property& property)
 {
-    SetForScope levelScope(m_state->m_currentProperty, &property);
+    BuilderStatePropertyScope levelScope(m_state, &property);
 
     auto applyWithLinkMatch = [&](SelectorChecker::LinkMatchMask linkMatch) {
         if (property.cssValue[linkMatch]) {
@@ -347,7 +349,7 @@ bool Builder::applyRollbackCascadeProperty(const PropertyCascade& rollbackCascad
         return false;
 
     if (RefPtr value = rollbackProperty->cssValue[linkMatchMask]) {
-        SetForScope levelScope(m_state->m_currentProperty, rollbackProperty);
+        BuilderStatePropertyScope levelScope(m_state, rollbackProperty);
         applyProperty(propertyID, *value, linkMatchMask, rollbackProperty->origin);
     }
     return true;
@@ -363,7 +365,7 @@ bool Builder::applyRollbackCascadeCustomProperty(const PropertyCascade& rollback
     if (RefPtr value = rollbackProperty.cssValue[SelectorChecker::MatchDefault]) {
         Ref customPropertyValue = downcast<CSSCustomPropertyValue>(*value);
 
-        SetForScope levelScope(m_state->m_currentProperty, &rollbackProperty);
+        BuilderStatePropertyScope levelScope(m_state, &rollbackProperty);
         auto resolvedValue = resolveCustomPropertyValue(customPropertyValue);
         if (!resolvedValue)
             resolvedValue = CustomProperty::createForGuaranteedInvalid(name);
@@ -705,7 +707,7 @@ std::optional<Builder::CustomPropertyOrKeyword> Builder::resolveFunctionResult()
     if (!m_cascade.hasNormalProperty(CSSPropertyResult))
         return { };
 
-    SetForScope resultScope(m_state->m_currentProperty, &m_cascade.functionResultProperty());
+    BuilderStatePropertyScope resultScope(m_state, &m_cascade.functionResultProperty());
 
     // Apply all local variables, not just those reached by result. A local can be in a cycle with the
     // function even when result never references it.
@@ -854,7 +856,7 @@ const PropertyCascade* Builder::ensureRollbackCascadeForRevert()
 
 const PropertyCascade* Builder::ensureRollbackCascadeForRevertLayer()
 {
-    auto& property = *m_state->m_currentProperty;
+    const auto& property = *m_state->m_currentProperty;
     auto rollbackLayerPriority = property.cascadeLayerPriority;
     if (!rollbackLayerPriority)
         return ensureRollbackCascadeForRevert();

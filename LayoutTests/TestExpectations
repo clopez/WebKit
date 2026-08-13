@@ -541,11 +541,17 @@ imported/w3c/web-platform-tests/html/webappapis/dynamic-markup-insertion/opening
 imported/w3c/web-platform-tests/html/webappapis/scripting/event-loops/fully_active_document.window.html [ Skip ]
 
 # Skip WPT webaudio tests that are timing out.
-webkit.org/b/280303  imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-sinkid-state-change.https.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/setSinkId-with-MediaElementAudioSourceNode.https.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-suspend-resume-close.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-analysernode-interface/test-analyser-resume-after-suspended.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/mediaElementAudioSourceToScriptProcessorTest.html [ Skip ]
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediastreamaudiosourcenode-interface/mediastreamaudiosourcenode-from-context-with-different-rate.https.html [ Skip ] # timeout
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-rendersizehint.https.html [ Skip ] # timeout
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-sinkid-constructor.https.html [ Skip ] # One subtest timeout
+imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiobuffersourcenode-interface/audiobuffersource-start-null-buffer.html [ Skip ] # Generate Different Results each run
+
+# This test crashes.
+webkit.org/b/321393 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontextoptions.html [ Skip ]
 
 # This test is timing out due to lack of support for SharedArrayBuffer.
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-postmessage-sharedarraybuffer.https.html [ Skip ]
@@ -1210,7 +1216,6 @@ imported/w3c/web-platform-tests/content-security-policy/script-src/tentative/scr
 imported/w3c/web-platform-tests/content-security-policy/script-src/tentative/script-url-blocked-report-contains-hash-shared-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/script-src/tentative/script-url-blocked-report-contains-hash.https.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/child-src/child-src-cross-origin-load.sub.html [ Skip ]
-imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-text-import-blocked.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-webtransport-allowed.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-webtransport-hashes.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-cross-in-cross-none-block.html [ Skip ]
@@ -1441,8 +1446,6 @@ imported/w3c/web-platform-tests/fetch/fetch-later [ Skip ]
 [ Debug ] imported/w3c/web-platform-tests/fetch/api/crashtests/huge-fetch.any.serviceworker.html [ Skip ]
 
 # These fetch tests time out.
-imported/w3c/web-platform-tests/fetch/metadata/generated/script-text-module-import-static.https.sub.html [ Skip ]
-imported/w3c/web-platform-tests/fetch/metadata/generated/script-text-module-import-static.sub.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/metadata/object.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/metadata/window-open.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/orb/tentative/status.sub.html [ Skip ]
@@ -2540,6 +2543,7 @@ webkit.org/b/187003 imported/w3c/web-platform-tests/infrastructure/reftest/refte
 imported/w3c/web-platform-tests/infrastructure/assumptions/ahem.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/infrastructure/assumptions/min-font-size.html [ ImageOnlyFailure ]
 webkit.org/b/197011 imported/w3c/web-platform-tests/infrastructure/testdriver [ Skip ] # largely supported; some actions need interactive window
+imported/w3c/web-platform-tests/infrastructure/testdriver/key-source-pause.html [ Pass ] # does not need an interactive window
 webkit.org/b/187093 [ Debug ] imported/w3c/web-platform-tests/infrastructure/assumptions/html-elements.html [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/wpt-server-websocket.sub.html [ Skip ] # non deterministic URL in text dump
 
@@ -3054,7 +3058,6 @@ webkit.org/b/319443 imported/w3c/web-platform-tests/css/css-masking/mask-image/b
 webkit.org/b/319443 imported/w3c/web-platform-tests/css/css-masking/mask-image/backdrop-filter-mask-image-while-loading.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-fixed-position-rounding-error.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-foreignobject-non-zero-xy.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-clip-3.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-clip-4.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-clip-5.html [ ImageOnlyFailure ]
@@ -3338,9 +3341,6 @@ webkit.org/b/163706 imported/w3c/web-platform-tests/css/css-shapes/shape-outside
 # subpixel inline layout
 # This old test case fails with Firefox and Chrome.
 webkit.org/b/163706 imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-008.html [ ImageOnlyFailure ]
-
-# Temporary failure until we start using ANGLE as a WebGL backend
-webkit.org/b/163924 fast/canvas/webgl/bufferData-offset-length.html [ Pass Failure ]
 
 webkit.org/b/164080 http/tests/websocket/tests/hybi/closed-when-entering-page-cache.html [ Pass Failure ]
 webkit.org/b/164080 http/tests/websocket/tests/hybi/stop-on-resume-in-error-handler.html [ Pass Failure ]
@@ -4608,6 +4608,9 @@ webkit.org/b/203356 imported/w3c/web-platform-tests/css/css-transitions/properti
 imported/w3c/web-platform-tests/css/css-transitions/transitioncancel-003.html [ Failure Pass ]
 
 # wpt css-values failures
+# The "Shared between elements within a property - shorthand" subtest compares two random() draws in
+# a margin shorthand for inequality and does not always get distinct ones.
+imported/w3c/web-platform-tests/css/css-values/random-computed.tentative.html [ Failure Pass ]
 webkit.org/b/203320 imported/w3c/web-platform-tests/css/css-values/percentage-rem-low.html [ ImageOnlyFailure ]
 webkit.org/b/259025 imported/w3c/web-platform-tests/css/css-values/ic-unit-015.html [ ImageOnlyFailure ]
 webkit.org/b/277995 imported/w3c/web-platform-tests/css/css-values/calc-size/calc-size-aspect-ratio-001.html [ ImageOnlyFailure ]
@@ -4965,9 +4968,6 @@ imported/w3c/web-platform-tests/css/css-fonts/font-weight-normal-001.xht [ Image
 # DEQP is skipped on the main fleet of bots because of the long run time.
 webgl/2.0.y/deqp [ Skip ]
 
-# webkit.org/b/211220 svg_image WebGL 2.0 tests currently fail due to inconsistencies between browsers
-webgl/2.0.y/conformance2/textures/svg_image [ Skip ]
-
 # Flaky failures
 
 webgl/1.0.x/conformance/glsl [ Slow ]
@@ -5017,7 +5017,6 @@ webkit.org/b/320901 webgl/2.0.y/conformance/attribs/gl-get-attrib-location-error
 webkit.org/b/320901 webgl/2.0.y/conformance/glsl/misc/shader-with-double-underscore.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance/textures/misc/tex-image-svg-image-no-natural-width-and-height.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance/uniforms/gl-get-uniform-location-errors.html [ Failure ]
-webkit.org/b/320901 webgl/2.0.y/conformance2/extensions/webgl-render-shared-exponent.html [ Failure ]
 webkit.org/b/320901 webgl/2.0.y/conformance2/rendering/blitframebuffer-test.html [ Failure ]
 
 # Until more platforms ship with WebGL GPUP
@@ -7131,14 +7130,7 @@ imported/w3c/web-platform-tests/navigation-api/navigate-event/dangling-navigate-
 imported/w3c/web-platform-tests/navigation-api/navigate-event/replaceState-inside-back-handler-infinite.optional.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-multiple-history-pushState.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-multiple-location.html [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler-redirect.html?currententrychange [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler-redirect.html?no-currententrychange [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler-reject.tentative.html?currententrychange [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler-reject.tentative.html?no-currententrychange [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler.html?currententrychange [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/navigate-intercept-precommitHandler.html?no-currententrychange [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/transition-to.html [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/precommit-handler/ [ Skip ]
 
 # Require enabling CSS Scroll Anchoring
 imported/w3c/web-platform-tests/navigation-api/scroll-behavior/after-transition-reload.html [ Skip ]
@@ -8138,8 +8130,6 @@ webkit.org/b/308096 imported/w3c/web-platform-tests/css/cssom-view/scrollParent.
 webkit.org/b/296130 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-in-scroller-nested-4.html [ Pass Failure ]
 webkit.org/b/281267 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Pass Failure ]
 
-imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-painting-021.html [ ImageOnlyFailure ]
-
 imported/w3c/web-platform-tests/cookies/third-party-cookies/third-party-cookie-heuristics.tentative.https.html [ Skip ] # Timeout
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-canvas-element/canvas-descendants-focusability-006.html [ Skip ] # Timeout
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_allow_top_navigation_by_user_activation_with_user_gesture.html [ Skip ] # Timeout
@@ -8207,8 +8197,6 @@ webkit.org/b/314100 imported/w3c/web-platform-tests/css/selectors/has-specificit
 imported/w3c/web-platform-tests/scroll-animations/animation-trigger/animation-trigger-fill-mode-both.tentative.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/scroll-animations/animation-trigger/animation-trigger-fill-mode-none.tentative.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/scroll-animations/animation-trigger/timeline-trigger-source-starts-in-trigger-range.tentative.html [ Pass Failure ]
-
-webkit.org/b/314830 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.serviceworker.html [ Failure ]
 
 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/supported-shapes/path/shape-outside-path-000.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/supported-shapes/path/shape-outside-path-001.html [ ImageOnlyFailure ]
