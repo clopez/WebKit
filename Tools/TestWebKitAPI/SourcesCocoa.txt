@@ -163,11 +163,12 @@ Tests/WebKit/WKWebView/GetResourceData.mm @nonARC
 Tests/WebKit/WKWebView/GetUserMedia.mm @nonARC @no-unify
 Tests/WebKit/WKWebView/HistoryDelegate.mm @nonARC
 Tests/WebKit/WKWebView/HSTS.mm @nonARC
+Tests/WebKit/WKWebView/HTTP2Server.mm @nonARC
+Tests/WebKit/WKWebView/HTTP3Server.mm @nonARC
 Tests/WebKit/WKWebView/IDBCheckpointWAL.mm @nonARC
 Tests/WebKit/WKWebView/IDBDeleteRecovery.mm @nonARC
 Tests/WebKit/WKWebView/IDBIndexUpgradeToV2.mm @nonARC
 Tests/WebKit/WKWebView/IDBObjectStoreInfoUpgradeToV2.mm @nonARC
-Tests/WebKit/WKWebView/IPCSharedMemoryFallback.mm @nonARC
 Tests/WebKit/WKWebView/IPCTestingAPI.mm @nonARC
 Tests/WebKit/WKWebView/IconLoadingDelegate.mm @nonARC
 Tests/WebKit/WKWebView/ImageAnalysisTests.mm @nonARC

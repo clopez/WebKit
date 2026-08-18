@@ -382,14 +382,14 @@ void BlendingKeyframes::analyzeKeyframe(const BlendingKeyframe& keyframe)
 
         if (keyframe.animatesProperty(CSSPropertyTransform)) {
             auto [isWidthDependent, isHeightDependent] = style->transform().computeSizeDependencies();
-            m_hasWidthDependentTransform = isWidthDependent;
-            m_hasHeightDependentTransform = isHeightDependent;
+            m_hasWidthDependentTransform |= isWidthDependent;
+            m_hasHeightDependentTransform |= isHeightDependent;
         }
 
         if (keyframe.animatesProperty(CSSPropertyTranslate)) {
             auto [isWidthDependent, isHeightDependent] = style->translate().computeSizeDependencies();
-            m_hasWidthDependentTransform = isWidthDependent;
-            m_hasHeightDependentTransform = isHeightDependent;
+            m_hasWidthDependentTransform |= isWidthDependent;
+            m_hasHeightDependentTransform |= isHeightDependent;
         }
     };
 
@@ -475,6 +475,7 @@ BlendingKeyframe::BlendingKeyframe(const BlendingKeyframe& source)
     , m_timingFunction(source.m_timingFunction)
     , m_compositeOperation(source.m_compositeOperation)
     , m_containsDirectionAwareProperty(source.m_containsDirectionAwareProperty)
+    , m_hasPropertiesWithRevertRuleOrLayer(source.m_hasPropertiesWithRevertRuleOrLayer)
 {
 }
 

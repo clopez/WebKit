@@ -237,10 +237,6 @@ webkit.org/b/251107 [ Debug ] inspector/canvas/recording-webgl2-full.html [ Fail
 webkit.org/b/251107 inspector/canvas/recording-webgl2-snapshots.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Timeout ]
 
-# No colorspaces in non-Cocoa WebGL.
-fast/canvas/webgl/colorspaces-test.html [ Failure ]
-fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
-
 # These tests reference specific fonts on Mac port.
 Bug(GTK) fast/text/font-weights.html [ WontFix ]
 Bug(GTK) fast/text/font-weights-zh.html [ WontFix ]
@@ -1094,8 +1090,6 @@ webkit.org/b/309572 compositing/video/video-object-view-box-object-position-no-p
 webkit.org/b/309572 compositing/video/video-object-view-box-writing-mode-no-poster.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition-before-ready.html [ Failure ]
 
-http/tests/login-status/login-status-api-getter-setter-functions.html [ Failure ]
-
 imported/w3c/web-platform-tests/css/css-overflow/overflow-auto-scrolling-with-margin-and-transform.html [ Skip ]
 
 webkit.org/b/278719 fast/events/touch/basic-multi-touch-events.html [ Failure ]
@@ -1268,7 +1262,6 @@ webkit.org/b/318025 animations/font-variations/font-stretch.html [ Pass Timeout 
 webkit.org/b/318026 [ Release ] fast/canvas/canvas-layer-drawing.html [ Pass ImageOnlyFailure ]
 webkit.org/b/318027 [ Release ] fast/events/mouse-focus-imagemap.html [ Pass Failure ]
 webkit.org/b/318028 [ Release ] fast/parser/entity-end-xmp-tag.html [ Pass Timeout ]
-webkit.org/b/318029 [ Release ] media/media-source/media-source-seek-twice.html [ Pass Timeout ]
 webkit.org/b/318030 inspector/canvas/create-context-2d.html [ Crash Pass Failure ]
 webkit.org/b/318031 imported/w3c/web-platform-tests/css/filter-effects/filtered-inline-applies-to-block.html [ Pass ImageOnlyFailure ]
 webkit.org/b/318032 svg/filters/feImage-element-primitive-subregion.svg [ Pass ImageOnlyFailure ]
@@ -1309,7 +1302,6 @@ webkit.org/b/319318 http/tests/inspector/network/har/har-page-aggressive-gc.html
 webkit.org/b/319319 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-replaced.html [ Failure Pass ]
 webkit.org/b/319323 imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard-snap-interruption.html [ Failure Pass ]
 webkit.org/b/319324 inspector/canvas/create-context-webgl.html [ Failure Pass ]
-webkit.org/b/319325 fast/body-propagation/background-color/010.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/320055 [ Release ] imported/w3c/web-platform-tests/html/interaction/focus/the-autofocus-attribute/update-the-rendering.html [ Failure Pass ]
 webkit.org/b/320058 [ Debug ] ipc/send-filter.html [ Crash Pass ]
@@ -1333,3 +1325,5 @@ webkit.org/b/321278 imported/w3c/web-platform-tests/css/CSS2/tables/table-anonym
 webkit.org/b/321281 [ Debug ] webrtc/video-disabled-black.html [ Crash Pass ]
 webkit.org/b/320649 [ Debug ] webrtc/disable-encryption.html [ Crash Pass ]
 webkit.org/b/321451 [ Debug ] inspector/unit-tests/debouncer.html [ Failure Pass ]
+
+webkit.org/b/321789 animations/no-style-recalc-during-accelerated-animation.html [ Failure Pass ]

@@ -32,7 +32,7 @@
 #include "WebExtensionControllerProxy.h"
 #include "WebExtensionPermission.h"
 
-#if ENABLE(INSPECTOR_EXTENSIONS) || ENABLE(WK_WEB_EXTENSIONS_SIDEBAR) ||  ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
+#if ENABLE(INSPECTOR_EXTENSIONS) || ENABLE(WK_WEB_EXTENSIONS_SIDEBAR) ||  ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS) || ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
 #include "WebPage.h"
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
@@ -60,6 +60,18 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
     Ref extensionContext = this->extensionContext();
     if (extensionContext->isUnsupportedAPI(propertyPath(), name)) [[unlikely]]
         return false;
+
+    if (name == "test"_s)
+        return extensionContext->inTestingMode();
+
+#if ENABLE(WK_WEB_EXTENSIONS_OFFSCREEN)
+    if (name == "offscreen"_s)
+        return page->corePage()->settings().webExtensionOffscreenEnabled() && extensionContext->hasPermission("offscreen"_s);
+
+    // The offscreen document is not a full extension environment; only runtime and test are reachable from it.
+    if (page && extensionContext->isOffscreenPage(*page))
+        return name == "runtime"_s;
+#endif
 
     if (name == "action"_s)
         return extensionContext->supportsManifestVersion(3) && doesDictionaryExist(extensionContext->manifest(), "action"_s);
@@ -110,8 +122,8 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
     if (name == "storage"_s)
         return extensionContext->hasPermission(name) || extensionContext->hasPermission("unlimitedStorage"_s);
 
-    if (name == "test"_s)
-        return extensionContext->inTestingMode();
+    if (name == "dom"_s || name == "extension"_s || name == "i18n"_s || name == "permissions"_s || name == "runtime"_s || name == "tabs"_s || name == "windows"_s)
+        return true;
 
 finish:
     // The rest of the property names marked dynamic in WebExtensionAPINamespace.idl match permission names.

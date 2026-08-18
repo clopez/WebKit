@@ -1642,7 +1642,7 @@ float Internals::usedOutlineOffset(Element& element)
     auto* style = element.computedStyle();
     if (!style)
         return 0;
-    return Style::evaluate<float>(style->usedOutlineOffset(), style->usedZoomForLength());
+    return Style::evaluate<float>(style->usedOutlineOffset(), style->usedZoomForLength(), style->deviceScaleFactor());
 }
 
 Node& Internals::ensureUserAgentShadowRoot(Element& host)
@@ -7026,6 +7026,22 @@ auto Internals::audioSessionCategory() const -> AudioSessionCategory
     return AudioSession::singleton().category();
 #else
     return AudioSessionCategory::None;
+#endif
+}
+
+void Internals::systemAudioSessionCategory(DOMPromiseDeferred<IDLEnumeration<AudioSessionCategory>>&& promise)
+{
+#if USE(AUDIO_SESSION)
+    AudioSession::singleton().systemCategoryForTesting()->whenSettled(RunLoop::mainSingleton(),
+        [promise = WTF::move(promise)](auto&& result) mutable {
+            if (!result) {
+                promise.reject(Exception { ExceptionCode::InvalidStateError, "Could not read the system audio session category"_s });
+                return;
+            }
+            promise.resolve(*result);
+        });
+#else
+    promise.resolve(AudioSessionCategory::None);
 #endif
 }
 

@@ -117,6 +117,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/values/fonts"
     "${WEBCORE_DIR}/css/values/grid"
     "${WEBCORE_DIR}/css/values/images"
+    "${WEBCORE_DIR}/css/values/link-params"
     "${WEBCORE_DIR}/css/values/masking"
     "${WEBCORE_DIR}/css/values/motion"
     "${WEBCORE_DIR}/css/values/non-standard"
@@ -239,6 +240,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/style/values/images/kinds"
     "${WEBCORE_DIR}/style/values/inline"
     "${WEBCORE_DIR}/style/values/line-grid"
+    "${WEBCORE_DIR}/style/values/link-params"
     "${WEBCORE_DIR}/style/values/lists"
     "${WEBCORE_DIR}/style/values/masking"
     "${WEBCORE_DIR}/style/values/math"
@@ -1997,6 +1999,8 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
     Modules/push-api/ServiceWorkerRegistration+PushAPI.idl
     Modules/push-api/WindowPush.idl
 
+    Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl
+
     Modules/screen-wake-lock/Navigator+ScreenWakeLock.idl
 
     Modules/speech/DOMWindow+SpeechSynthesis.idl
@@ -2117,6 +2121,7 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
     page/DOMWindow+RequestIdleCallback.idl
     page/DOMWindow+Selection.idl
     page/DOMWindow+VisualViewport.idl
+    page/Navigator+LoginStatus.idl
     page/Navigator+UserActivation.idl
     page/NavigatorCookies.idl
     page/NavigatorGlobalPrivacyControl.idl
@@ -2219,6 +2224,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/html/shadow/detailsElementShadow.css
     ${WEBCORE_DIR}/html/shadow/imageOverlay.css
     ${WEBCORE_DIR}/html/shadow/meterElementShadow.css
+    ${WEBCORE_DIR}/html/shadow/spatialImageControls.css
 )
 
 set(WebCore_LIBRARIES
@@ -2659,12 +2665,17 @@ set(MODERN_MEDIA_CONTROLS_STYLE_SHEETS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/adwaita-fullscreen-media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/media-controls.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/media-document.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/metadata-container.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/placard.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider-base.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/slider.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/status-label.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/text-tracks.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/time-control.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/time-label.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/tvos-media-controls.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-media-controls.css"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-slider.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/watchos-activity-indicator.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/watchos-media-controls.css"
 )
@@ -2709,6 +2720,7 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/rewind-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/forward-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/overflow-button.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/close-button.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/buttons-container.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/status-label.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/controls-bar.js"
@@ -2721,6 +2733,7 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/macos-inline-media-controls.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/macos-fullscreen-media-controls.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/macos-layout-traits.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/metadata-container.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/placard.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/airplay-placard.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/fullscreen-placard.js"
@@ -2729,7 +2742,12 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/watchos-activity-indicator.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/watchos-media-controls.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/watchos-layout-traits.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/tvos-layout-traits.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/tvos-media-controls.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-slider.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-volume-container.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-media-controls.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/controls/vision-layout-traits.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/adwaita-inline-media-controls.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/adwaita-fullscreen-media-controls.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/adwaita-layout-traits.js"
@@ -2739,6 +2757,7 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/close-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/controls-visibility-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/fullscreen-support.js"
+    "${WEBCORE_DIR}/Modules/modern-media-controls/media/metadata-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/mute-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/overflow-support.js"
     "${WEBCORE_DIR}/Modules/modern-media-controls/media/pip-support.js"

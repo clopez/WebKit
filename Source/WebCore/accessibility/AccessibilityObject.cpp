@@ -118,6 +118,7 @@
 #include "SharedBuffer.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
+#include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
@@ -2127,6 +2128,12 @@ bool AccessibilityObject::isInUserAgentShadowTree() const
 {
     RefPtr node = this->node();
     return node && node->isInUserAgentShadowTree();
+}
+
+bool AccessibilityObject::isInsideNativeTextControl() const
+{
+    RefPtr node = this->node();
+    return node && is<HTMLTextFormControlElement>(node->shadowHost());
 }
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 

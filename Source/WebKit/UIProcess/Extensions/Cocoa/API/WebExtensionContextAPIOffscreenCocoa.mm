@@ -35,13 +35,18 @@
 #import "WKNavigationDelegate.h"
 #import "WKUIDelegate.h"
 #import "WKWebViewInternal.h"
+#import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionOffscreenDocumentParameters.h"
+#import "WebPageProxy.h"
 
 namespace WebKit {
 
 bool WebExtensionContext::isOffscreenMessageAllowed(IPC::Decoder& message)
 {
-    return isLoadedAndPrivilegedMessage(message) && hasPermission(WebExtensionPermission::offscreen());
+    if (RefPtr controller = extensionController())
+        return isLoadedAndPrivilegedMessage(message) && hasPermission(WebExtensionPermission::offscreen()) && controller->isFeatureEnabled(@"WebExtensionOffscreenEnabled");
+
+    return false;
 }
 
 void WebExtensionContext::offscreenCreateDocument(const WebExtensionOffscreenDocumentParameters& parameters, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -75,13 +80,20 @@ void WebExtensionContext::offscreenCreateDocument(const WebExtensionOffscreenDoc
     m_offscreenWebView.get().inspectable = m_inspectable;
 
     Ref offscreenPage = *m_offscreenWebView.get()._page;
-    Ref offscreenProcess = offscreenPage->siteIsolatedProcess();
+
+    offscreenProcess->send(Messages::WebExtensionContextProxy::SetOffscreenPageIdentifier(offscreenPage->webPageIDInMainFrameProcess()), identifier());
 
     constexpr ASCIILiteral activityName = "Web Extension offscreen document"_s;
-    if (protect(offscreenPage->preferences())->siteIsolationEnabled())
-        m_offscreenWebViewActivity = protect(offscreenPage->activityGroupContext())->foregroundProcessActivityGroup(activityName);
-    else
-        m_offscreenWebViewActivity = protect(offscreenProcess->throttler())->foregroundActivity(activityName);
+    m_offscreenWebViewActivity = protect(offscreenPage->activityGroupContext())->foregroundProcessActivityGroup(activityName);
+
+    // Put the offscreen web view into a window so that it can be used to play audio (a common use case for the API).
+#if PLATFORM(MAC)
+    m_offscreenWebViewWindow = adoptNS([[NSWindow alloc] initWithContentRect:NSZeroRect styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO]);
+    [m_offscreenWebViewWindow.get().contentView addSubview:m_offscreenWebView.get()];
+#elif PLATFORM(IOS_FAMILY)
+    m_offscreenWebViewWindow = adoptNS([[UIWindow alloc] initWithFrame:CGRectZero]);
+    [m_offscreenWebViewWindow.get() addSubview:m_offscreenWebView.get()];
+#endif
 
     [m_offscreenWebView loadRequest:[NSURLRequest requestWithURL:documentURL.createNSURL().get()]];
 
@@ -114,6 +126,11 @@ void WebExtensionContext::unloadOffscreenWebView()
         completionHandler(toWebExtensionError(completionHandlerAPIName, nullString(), @"offscreen document was closed"));
 
     m_offscreenWebViewActivity = { };
+
+#if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
+    [m_offscreenWebView removeFromSuperview];
+    m_offscreenWebViewWindow = nil;
+#endif
 
     [m_offscreenWebView _close];
     m_offscreenWebView = nil;

@@ -76,7 +76,6 @@ protected:
     void setCurrentMediaSession(std::optional<WebCore::MediaSessionIdentifier>);
 
 #if USE(AUDIO_SESSION)
-    void setAudioSessionCategory(WebCore::AudioSessionCategory, WebCore::AudioSessionMode, WebCore::RouteSharingPolicy);
     void setAudioSessionPreferredBufferSize(uint64_t);
 #endif
 
@@ -97,10 +96,8 @@ private:
     void removeSession(WebCore::PlatformMediaSessionInterface&) final;
     void setCurrentSession(WebCore::PlatformMediaSessionInterface&) final;
     void sessionWillBeginPlayback(WebCore::PlatformMediaSessionInterface&, CompletionHandler<void(bool)>&&) final;
-    Ref<GenericPromise> updateSessionState() final;
+    void updateSessionState() final;
     void sessionStateChanged(WebCore::PlatformMediaSessionInterface&) final;
-    void processWillSuspend() final;
-    void processDidResume() final;
 
     void addRestriction(WebCore::PlatformMediaSessionMediaType, WebCore::MediaSessionRestrictions) final;
     void removeRestriction(WebCore::PlatformMediaSessionMediaType, WebCore::MediaSessionRestrictions) final;

@@ -156,7 +156,7 @@ public:
 
     ExceptionOr<void> updateCurrentEntry(UpdateCurrentEntryOptions&&);
 
-    enum class DispatchResult : uint8_t { Completed, Aborted, Intercepted };
+    enum class DispatchResult : uint8_t { Completed, Aborted, Intercepted, DeferredCommit };
     DispatchResult dispatchTraversalNavigateEvent(HistoryItem&);
     bool dispatchPushReplaceReloadNavigateEvent(const URL&, NavigationNavigationType, bool isSameDocument, FormState*, SerializedScriptValue* classicHistoryAPIState = nullptr, Element* sourceElement = nullptr);
     bool dispatchDownloadNavigateEvent(const URL&, const String& downloadFilename, Element* sourceElement = nullptr);
@@ -166,7 +166,10 @@ public:
 
     RefPtr<NavigationActivation> createForPageswapEvent(HistoryItem* newItem, DocumentLoader*, bool fromBackForwardCache);
 
+    void informAboutChildNavigableDestruction();
+
     void abortOngoingNavigationIfNeeded();
+    void discardOngoingNavigationForBackForwardCache();
 
     NavigationHistoryEntry* findEntryByKey(const String&) const;
     bool suppressNormalScrollRestoration() const { return m_suppressNormalScrollRestorationDuringOngoingNavigation; }
@@ -285,12 +288,16 @@ private:
     void disposeOfForwardEntriesInParents(BackForwardItemIdentifier);
     void recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIdentifier, LocalFrame* navigatedFrame);
 
+    void clearDeferredTraversalIfNeeded();
+    void resumeDeferredTraversalIfNeeded();
+
     // https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-api-method-tracker
     class MethodTrackerRegistry {
     public:
         void setUpcomingNonTraverse(Ref<NavigationAPIMethodTracker>&&) WTF_EXCLUDES_LOCK(m_lock);
         void addUpcomingTraverse(const String& key, Ref<NavigationAPIMethodTracker>&&) WTF_EXCLUDES_LOCK(m_lock);
         NavigationAPIMethodTracker* upcomingTraverse(const String& key) const WTF_EXCLUDES_LOCK(m_lock);
+        Vector<Ref<NavigationAPIMethodTracker>> upcomingTraverseTrackers() const WTF_EXCLUDES_LOCK(m_lock);
         NavigationAPIMethodTracker* ongoing() const WTF_EXCLUDES_LOCK(m_lock);
 
         RefPtr<NavigationAPIMethodTracker> takeUpcomingNonTraverseIfEquals(NavigationAPIMethodTracker&) WTF_EXCLUDES_LOCK(m_lock);

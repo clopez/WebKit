@@ -953,6 +953,9 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::IsIndeterminate:
         stream << "IsIndeterminate";
         break;
+    case AXProperty::IsInsideNativeTextControl:
+        stream << "IsInsideNativeTextControl";
+        break;
     case AXProperty::IsInUserAgentShadowTree:
         stream << "IsInUserAgentShadowTree";
         break;

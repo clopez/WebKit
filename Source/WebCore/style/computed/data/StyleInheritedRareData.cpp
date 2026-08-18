@@ -92,6 +92,7 @@ InheritedRareData::InheritedRareData()
     , nbspMode(static_cast<unsigned>(NBSPMode::Normal))
     , lineBreak(static_cast<unsigned>(LineBreak::Auto))
     , webkitUserSelect(static_cast<unsigned>(ComputedStyle::initialWebkitUserSelect()))
+    , usedUserSelect(static_cast<unsigned>(UserSelect::Text))
     , speakAs(ComputedStyle::initialSpeakAs().toRaw())
     , hyphens(static_cast<unsigned>(Hyphens::Manual))
     , textCombine(static_cast<unsigned>(ComputedStyle::initialTextCombine()))
@@ -123,7 +124,6 @@ InheritedRareData::InheritedRareData()
     , joinStyle(static_cast<unsigned>(ComputedStyle::initialJoinStyle()))
     , hasExplicitlySetStrokeWidth(false)
     , hasExplicitlySetStrokeColor(false)
-    , hasExplicitlySetWebkitUserSelect(false)
     , effectiveInert(false)
     , effectivelyTransparent(false)
     , effectiveWrapInsideAvoid(false)
@@ -199,6 +199,7 @@ inline InheritedRareData::InheritedRareData(const InheritedRareData& o)
     , nbspMode(o.nbspMode)
     , lineBreak(o.lineBreak)
     , webkitUserSelect(o.webkitUserSelect)
+    , usedUserSelect(o.usedUserSelect)
     , speakAs(o.speakAs)
     , hyphens(o.hyphens)
     , textCombine(o.textCombine)
@@ -230,7 +231,6 @@ inline InheritedRareData::InheritedRareData(const InheritedRareData& o)
     , joinStyle(o.joinStyle)
     , hasExplicitlySetStrokeWidth(o.hasExplicitlySetStrokeWidth)
     , hasExplicitlySetStrokeColor(o.hasExplicitlySetStrokeColor)
-    , hasExplicitlySetWebkitUserSelect(o.hasExplicitlySetWebkitUserSelect)
     , effectiveInert(o.effectiveInert)
     , effectivelyTransparent(o.effectivelyTransparent)
     , effectiveWrapInsideAvoid(o.effectiveWrapInsideAvoid)
@@ -296,6 +296,7 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
         && textSizeAdjust == o.textSizeAdjust
 #endif
         && webkitUserSelect == o.webkitUserSelect
+        && usedUserSelect == o.usedUserSelect
         && speakAs == o.speakAs
         && hyphens == o.hyphens
         && hyphenateLimitBefore == o.hyphenateLimitBefore
@@ -333,7 +334,6 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
         && joinStyle == o.joinStyle
         && hasExplicitlySetStrokeWidth == o.hasExplicitlySetStrokeWidth
         && hasExplicitlySetStrokeColor == o.hasExplicitlySetStrokeColor
-        && hasExplicitlySetWebkitUserSelect == o.hasExplicitlySetWebkitUserSelect
         && mathShift == o.mathShift
         && mathStyle == o.mathStyle
         && isInSubtreeWithBlendMode == o.isInSubtreeWithBlendMode
@@ -413,6 +413,7 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
     LOG_IF_DIFFERENT_WITH_CAST(NBSPMode, nbspMode);
     LOG_IF_DIFFERENT_WITH_CAST(LineBreak, lineBreak);
     LOG_IF_DIFFERENT_WITH_CAST(UserSelect, webkitUserSelect);
+    LOG_IF_DIFFERENT_WITH_CAST(UserSelect, usedUserSelect);
 
     LOG_IF_DIFFERENT_WITH_FROM_RAW(SpeakAs, speakAs);
 
@@ -454,7 +455,6 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
 
     LOG_IF_DIFFERENT_WITH_CAST(bool, hasExplicitlySetStrokeWidth);
     LOG_IF_DIFFERENT_WITH_CAST(bool, hasExplicitlySetStrokeColor);
-    LOG_IF_DIFFERENT_WITH_CAST(bool, hasExplicitlySetWebkitUserSelect);
 
     LOG_IF_DIFFERENT_WITH_CAST(MathShift, mathShift);
     LOG_IF_DIFFERENT_WITH_CAST(MathStyle, mathStyle);

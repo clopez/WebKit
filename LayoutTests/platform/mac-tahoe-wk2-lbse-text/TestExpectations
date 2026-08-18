@@ -49,12 +49,10 @@ svg/filters/feImage-filterUnits-userSpaceOnUse-primitiveUnits-objectBoundingBox.
 svg/filters/feImage-filterUnits-userSpaceOnUse-primitiveUnits-userSpaceOnUse.svg       [ ImageOnlyFailure ]
 svg/filters/feImage-late-indirect-update.svg                                           [ ImageOnlyFailure ]
 svg/filters/feImage-reference-svg-primitive.svg                                        [ ImageOnlyFailure ]
-svg/filters/filter-image-ref-root.html                                                 [ ImageOnlyFailure ]
 svg/filters/filter-on-root-tile-boundary.html                                          [ ImageOnlyFailure ]
 svg/filters/filter-on-tspan.svg                                                        [ ImageOnlyFailure ]
 svg/filters/filter-placement-issue.svg                                                 [ ImageOnlyFailure ]
 svg/filters/filter-source-position.svg                                                 [ ImageOnlyFailure ]
-svg/filters/filter-specified-on-svg-root.html                                          [ ImageOnlyFailure ]
 
 # Regressed by conditional layer creation (bugs.webkit.org/b/308565). Filter and resource-buffer
 # painting for non-layered SVG renderers is corrected by a follow-up PR, which restores these.
@@ -109,15 +107,6 @@ svg/zoom/page/non-scaling-stroke-textRendering-geometricPrecision.svg [ ImageOnl
 
 # SMIL animation issues
 svg/stroke/animated-non-scaling-stroke.html [ ImageOnlyFailure ]
-
-# Empty/zero viewBox doesn't disable rendering under LBSE (see bug 320095).
-# DRAFT: these WPT tests replace svg/custom/viewBox-empty.html (removed). Confirm
-# against an LBSE-text run and delete any line that actually PASSES before landing
-# (a passing test marked ImageOnlyFailure reports as an unexpected pass).
-imported/w3c/web-platform-tests/svg/coordinate-systems/viewBox-zero-disables-rendering-contexts.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/coordinate-systems/viewBox-zero-disables-rendering-001.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/coordinate-systems/viewBox-zero-disables-rendering-002.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/coordinate-systems/viewBox-zero-disables-rendering-003.svg [ ImageOnlyFailure ]
 
 # SVG <image> (buffered-rendering) issues
 svg/repaint/buffered-rendering-static-image.html [ ImageOnlyFailure ]

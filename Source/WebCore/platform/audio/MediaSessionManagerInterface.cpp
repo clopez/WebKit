@@ -54,16 +54,6 @@ public:
         : m_pageIdentifier(pageIdentifier) { }
 
 private:
-    Ref<GenericPromise> tryToSetAudioSessionActive(bool active, PlatformMediaSessionInterface*) final
-    {
-#if USE(AUDIO_SESSION)
-        return AudioSession::singleton().tryToSetActive(active);
-#else
-        UNUSED_PARAM(active);
-        return GenericPromise::createAndResolve();
-#endif
-    }
-
     void hasActiveNowPlayingSessionChanged(PlatformMediaSessionInterface*) final
     {
         if (RefPtr page = m_pageIdentifier ? Page::fromPageIdentifier(*m_pageIdentifier) : nullptr)
@@ -639,7 +629,11 @@ void MediaSessionManagerInterface::sessionWillEndPlayback(PlatformMediaSessionIn
     RefPtr<PlatformMediaSessionInterface> firstPausedSession;
     for (auto it = sessions.begin(); it != sessions.end(); ++it) {
         RefPtr session = *it.get();
-        if (&pausingSession == session.get() || session->state() == PlatformMediaSession::State::Playing)
+        // preparingToPlay() counts as playing here, as it does in enforceConcurrentPlaybackRestriction().
+        // A session whose admission is in flight is not Playing yet, and the session it evicts must not be
+        // inserted ahead of it: currentSession() is the front of the list, and the guard in
+        // enforceConcurrentPlaybackRestriction() relies on it naming the session that claimed playback last.
+        if (&pausingSession == session.get() || session->state() == PlatformMediaSession::State::Playing || session->preparingToPlay())
             continue;
 
         firstPausedSession = session.get();
@@ -726,28 +720,21 @@ void MediaSessionManagerInterface::removeAudioCaptureSource(AudioCaptureSource& 
 
 Ref<GenericPromise> MediaSessionManagerInterface::audioCaptureSourceStateChanged(IsCaptureStarting isCaptureStarting)
 {
-    Ref categoryApplied = updateSessionState();
+    updateSessionState();
 #if USE(AUDIO_SESSION)
     // Activation and deactivation are requested synchronously, so a caller that does not wait on the
-    // returned promise observes AudioSession::isActive() as soon as this returns (RemoteAudioSession
-    // reflects the requested state optimistically). navigator.mediaSession.setMicrophoneActive() for
-    // instance resolves its promise from the UIProcess ValidateCaptureStateUpdate reply, which does not
-    // wait for the UpdateMediaSessionStates round-trip that applies the category under site isolation.
-    // The returned promise settles once both the category has been applied and the activation has
-    // completed, so a caller that does wait — the getUserMedia promise, the track mute/unmute events —
-    // sees a session that is both categorised and active.
-    if (isCaptureStarting == IsCaptureStarting::Yes) {
-        GenericPromise::Producer producer;
-        Ref promise = producer.promise();
-        GenericPromise::all({ WTF::move(categoryApplied), maybeActivateAudioSession() })->chainTo(WTF::move(producer));
-        return promise;
-    }
+    // returned promise still observes AudioSession::isActive() as soon as this returns
+    // (RemoteAudioSession reflects the requested state optimistically). The promise settles once the
+    // activation has completed, for callers that need an active session — the getUserMedia promise and
+    // the track unmute event.
+    if (isCaptureStarting == IsCaptureStarting::Yes)
+        return maybeActivateAudioSession();
 
     maybeDeactivateAudioSession();
 #else
     UNUSED_PARAM(isCaptureStarting);
 #endif
-    return categoryApplied;
+    return GenericPromise::createAndResolve();
 }
 
 int MediaSessionManagerInterface::countActiveAudioCaptureSources()
@@ -959,11 +946,6 @@ void MediaSessionManagerInterface::scheduleUpdateSessionState()
         updateSessionState();
         m_hasScheduledSessionStateUpdate = false;
     });
-}
-
-Ref<GenericPromise> MediaSessionManagerInterface::updateSessionState()
-{
-    return GenericPromise::createAndResolve();
 }
 
 #if !RELEASE_LOG_DISABLED

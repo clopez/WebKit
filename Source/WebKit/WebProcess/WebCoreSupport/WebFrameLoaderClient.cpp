@@ -199,7 +199,14 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
 
     RefPtr webPage = m_frame->page();
 
-    uint64_t listenerID = m_frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::Yes);
+    Markable<WebCore::ScriptExecutionContextIdentifier> downloadAttributeInitiatingDocument;
+    if (!navigationAction.downloadAttribute().isNull()) {
+        if (RefPtr localFrame = m_frame->coreLocalFrame()) {
+            if (RefPtr document = localFrame->document())
+                downloadAttributeInitiatingDocument = document->identifier();
+        }
+    }
+    uint64_t listenerID = m_frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::Yes, downloadAttributeInitiatingDocument);
 
     // Notify the UIProcess.
     if (policyDecisionMode == PolicyDecisionMode::Synchronous) {
@@ -283,6 +290,12 @@ void WebFrameLoaderClient::didConsumeUserActivation()
 {
     if (RefPtr webPage = m_frame->page())
         webPage->send(Messages::WebPageProxy::DidConsumeUserActivation(m_frame->frameID()));
+}
+
+void WebFrameLoaderClient::didHandleFirstUserGesture(MonotonicTime gestureTime)
+{
+    if (RefPtr webPage = m_frame->page())
+        webPage->send(Messages::WebPageProxy::DidHandleFirstUserGesture(m_frame->frameID(), gestureTime));
 }
 
 }

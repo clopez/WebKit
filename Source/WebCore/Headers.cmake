@@ -814,6 +814,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webtransport/WebTransportConnectionStats.h
     Modules/webtransport/WebTransportDatagramStats.h
     Modules/webtransport/WebTransportHash.h
+    Modules/webtransport/WebTransportHeaderValidation.h
     Modules/webtransport/WebTransportOptions.h
     Modules/webtransport/WebTransportReceiveStreamStats.h
     Modules/webtransport/WebTransportReliabilityMode.h
@@ -1210,9 +1211,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/values/images/CSSGradient.h
 
+    css/values/link-params/CSSLinkParameter.h
+
     css/values/motion/CSSRayFunction.h
 
     css/values/primitives/CSSCustomIdent.h
+    css/values/primitives/CSSDeclarationValue.h
     css/values/primitives/CSSKeyword.h
     css/values/primitives/CSSKeywordList.h
     css/values/primitives/CSSPosition.h
@@ -1718,6 +1722,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/track/VTTCue.h
     html/track/VTTRegion.h
     html/track/VideoTrackClient.h
+    html/track/WebVTTParser.h
 
     inspector/CommandLineAPIHost.h
     inspector/FrameInspectorController.h
@@ -2112,6 +2117,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/UADataValues.h
     page/UALowEntropyJSON.h
     page/UndoManager.h
+    page/UserAgentStringData.h
+    page/UserAgentStringParser.h
     page/UserContentController.h
     page/UserContentProvider.h
     page/UserContentTypes.h
@@ -2493,6 +2500,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ContentsFormat.h
     platform/graphics/CopyImageOptions.h
     platform/graphics/CornerRadii.h
+    platform/graphics/CornerShapeUtilities.h
     platform/graphics/Damage.h
     platform/graphics/DashArray.h
     platform/graphics/DecodingOptions.h
@@ -2530,6 +2538,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontFamilySpecificationNull.h
     platform/graphics/FontFeatureValues.h
     platform/graphics/FontGenericFamilies.h
+    platform/graphics/FontInlines.h
     platform/graphics/FontMetrics.h
     platform/graphics/FontMetricsOverrides.h
     platform/graphics/FontPalette.h
@@ -2699,6 +2708,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/TabSize.h
     platform/graphics/TextMeasurementCache.h
     platform/graphics/TextRun.h
+    platform/graphics/TextShapingResultAndDisplayList.h
     platform/graphics/TextTrackRepresentation.h
     platform/graphics/TileGridIdentifier.h
     platform/graphics/TiledBacking.h
@@ -2713,6 +2723,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/VideoTarget.h
     platform/graphics/VideoTrackPrivate.h
     platform/graphics/VideoTrackPrivateClient.h
+    platform/graphics/WebGPUFramePacer.h
     platform/graphics/WidthIterator.h
     platform/graphics/WindRule.h
 
@@ -3371,6 +3382,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/line-grid/StyleWebKitLineGrid.h
 
+    style/values/link-params/StyleLinkParameters.h
+
     style/values/lists/StyleCounterIncrement.h
     style/values/lists/StyleCounterReset.h
     style/values/lists/StyleCounterSet.h
@@ -3427,6 +3440,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/position/StyleInset.h
 
     style/values/primitives/StyleCustomIdent.h
+    style/values/primitives/StyleDeclarationValue.h
     style/values/primitives/StyleCoordinatedValueList.h
     style/values/primitives/StyleCoordinatedValueListValue.h
     style/values/primitives/StylePosition.h
@@ -3441,6 +3455,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StylePrimitiveNumericTypes+Rounding.h
     style/values/primitives/StylePrimitiveNumericTypes.h
     style/values/primitives/StyleRatio.h
+    style/values/primitives/StyleSnapLengthAsBorderWidth.h
     style/values/primitives/StyleString.h
     style/values/primitives/StyleURL.h
     style/values/primitives/StyleUnevaluatedCalculation.h
@@ -3490,6 +3505,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/sizing/StyleMaximumSize.h
     style/values/sizing/StyleMinimumSize.h
     style/values/sizing/StylePreferredSize.h
+    style/values/sizing/StyleSizing.h
 
     style/values/speech/StyleSpeakAs.h
 

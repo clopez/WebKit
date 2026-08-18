@@ -47,6 +47,7 @@ class FloatPoint;
 class FloatSize;
 class FloatPoint3D;
 class FloatRect;
+class Font;
 class FontCascade;
 class FontCascadeDescription;
 class FontMetrics;
@@ -287,6 +288,7 @@ struct LetterSpacing;
 struct LineHeight;
 struct LineWidth;
 struct LineFitEdge;
+struct LinkParameters;
 struct ListStyleType;
 struct MarginEdge;
 struct MarginTrim;
@@ -374,6 +376,7 @@ struct Transform;
 struct TransformOrigin;
 struct Transition;
 struct Translate;
+struct UsedOutlineOffset;
 struct VerticalAlign;
 struct ViewTimeline;
 struct ViewTransitionClasses;
@@ -540,7 +543,8 @@ public:
     inline std::optional<size_t> usedPositionOptionIndex() const;
     inline void setUsedPositionOptionIndex(std::optional<size_t>);
 
-    inline bool effectiveInert() const;
+    inline bool NODELETE effectiveInert() const;
+    bool NODELETE effectiveInertOutOfLine() const;
     inline void setEffectiveInert(bool);
 
     inline bool isEffectivelyTransparent() const; // This or any ancestor has opacity 0.
@@ -557,6 +561,10 @@ public:
 
     inline StyleAppearance usedAppearance() const;
     inline void setUsedAppearance(StyleAppearance);
+
+    inline void setUsedUserSelect(UserSelect);
+
+    inline UserSelect usedUserSelectIgnoringEffectivelyInert() const;
 
     // usedContentVisibility will return ContentVisibility::Hidden in a content-visibility: hidden subtree (overriding
     // content-visibility: auto at all times), ContentVisibility::Auto in a content-visibility: auto subtree (when the
@@ -635,6 +643,7 @@ public:
     // MARK: - Fonts
 
     inline const FontCascade& fontCascade() const;
+    const FontCascade& fontCascadeOutOfLine() const;
     WEBCORE_EXPORT FontCascade& mutableFontCascadeWithoutUpdate();
     void setFontCascade(FontCascade&&);
 
@@ -643,6 +652,7 @@ public:
     WEBCORE_EXPORT void setFontDescription(FontCascadeDescription&&);
     bool setFontDescriptionWithoutUpdate(FontCascadeDescription&&);
 
+    WEBCORE_EXPORT const Font& primaryFont() const LIFETIME_BOUND;
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const LIFETIME_BOUND;
     std::pair<FontOrientation, NonCJKGlyphOrientation> NODELETE fontAndGlyphOrientation();
     float NODELETE computedFontSize() const;

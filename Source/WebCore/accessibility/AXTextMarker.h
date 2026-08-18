@@ -421,6 +421,8 @@ public:
     String toString(IncludeListMarkerText = IncludeListMarkerText::Yes, IncludeImageAltText = IncludeImageAltText::No) const;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    // The length of what toString returns, computed without building the string. AX-thread only.
+    unsigned length(IncludeListMarkerText = IncludeListMarkerText::Yes) const;
     std::optional<std::pair<AXTextMarker, AXTextMarker>> toValidTextRunMarkers() const;
     // Returns the bounds (frame) of the text in this range relative to the viewport.
     // Analagous to AXCoreObject::relativeFrame().
@@ -434,6 +436,16 @@ public:
     String description() const;
     String debugDescription() const;
 private:
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    // Hands each piece of this range's text to |append| in document order: the text of every run the
+    // range spans, plus the characters emitted between them (see auxiliaryTextForObject). toString
+    // and length both walk a range through here, so a string and its length can never disagree, and
+    // length never has to build the string. Each piece is a StringView into storage that outlives
+    // the |append| call.
+    template<typename AppendFunction>
+    void forEachTextPiece(IncludeListMarkerText, IncludeImageAltText, NOESCAPE const AppendFunction&) const;
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+
     AXTextMarker m_start;
     AXTextMarker m_end;
 };
@@ -508,6 +520,11 @@ AXIsolatedObject* findObjectWithRuns(AXIsolatedObject& start, AXDirection direct
 // both the control's U+FFFC and its content would count it twice.
 enum class EmitObjectReplacementCharacters : bool { No, Yes };
 EmittedAuxiliaryText auxiliaryTextForObject(AXIsolatedObject&, TraversalPoint, char16_t lastEmittedCharacter, EmitObjectReplacementCharacters = EmitObjectReplacementCharacters::Yes);
+
+// The offset of the trailing newline a native text control renders for the empty final line of a value
+// ending in a line break — a newline the value itself doesn't contain — or nullopt when this object
+// doesn't hold that newline.
+std::optional<unsigned> offsetOfCollapsedTrailingNewline(AXIsolatedObject&, const AXTextRuns* textRunsForObject);
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 } // namespace Accessibility

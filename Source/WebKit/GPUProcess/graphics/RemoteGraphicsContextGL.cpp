@@ -160,10 +160,10 @@ void RemoteGraphicsContextGL::workQueueInitialize(WebCore::GraphicsContextGLAttr
             initializationState.max3DTextureSize = context->max3DTextureSize();
             initializationState.maxArrayTextureLayers = context->maxArrayTextureLayers();
         }
-        send(Messages::RemoteGraphicsContextGLProxy::WasCreated(workQueue().wakeUpSemaphore(), m_connection->clientWaitSemaphore(), { initializationState }));
+        send(Messages::RemoteGraphicsContextGLProxy::WasCreated({ initializationState }));
         m_connection->startReceivingMessages(*this, Messages::RemoteGraphicsContextGL::messageReceiverName(), m_identifier.toUInt64());
     } else
-        send(Messages::RemoteGraphicsContextGLProxy::WasCreated({ }, { }, std::nullopt));
+        send(Messages::RemoteGraphicsContextGLProxy::WasCreated(std::nullopt));
 }
 
 void RemoteGraphicsContextGL::workQueueUninitialize()
@@ -262,13 +262,13 @@ void RemoteGraphicsContextGL::ensureExtensionEnabled(GCGLExtension extension)
     MESSAGE_CHECK(success);
 }
 
-void RemoteGraphicsContextGL::copyNativeImageYFlipped(WebCore::GraphicsContextGL::SurfaceBuffer buffer, WebCore::RenderingResourceIdentifier nativeImageIdentifier)
+void RemoteGraphicsContextGL::copyNativeImageYFlipped(WebCore::GraphicsContextGL::SurfaceBuffer buffer, RemoteNativeImageReference nativeImageReference)
 {
     assertIsCurrent(workQueue());
     RefPtr image = protect(m_context)->copyNativeImageYFlipped(buffer);
     // FIXME: Handle OOM.
     MESSAGE_CHECK(image);
-    bool success = m_sharedResourceCache->addNativeImage(nativeImageIdentifier, image.releaseNonNull());
+    bool success = m_sharedResourceCache->addNativeImage(nativeImageReference, image.releaseNonNull());
     MESSAGE_CHECK(success);
 }
 

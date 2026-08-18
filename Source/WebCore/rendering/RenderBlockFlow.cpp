@@ -102,6 +102,7 @@ bool RenderBlock::s_canPropagateFloatIntoSibling = false;
 struct SameSizeAsMarginInfo {
     uint32_t bitfields : 16;
     LayoutUnit margins[2];
+    LayoutUnit marginBeforeWithClearance;
 };
 
 static_assert(sizeof(MarginValues) == sizeof(LayoutUnit[4]), "MarginValues should stay small");
@@ -160,7 +161,7 @@ RenderBlockFlow::MarginInfo::MarginInfo(const RenderBlockFlow& block, IgnoreScro
     m_negativeMargin = m_canCollapseMarginBeforeWithChildren ? block.maxNegativeMarginBefore() : 0_lu;
 }
 
-RenderBlockFlow::MarginInfo::MarginInfo(bool canCollapseWithChildren, bool canCollapseMarginBeforeWithChildren, bool canCollapseMarginAfterWithChildren, bool quirkContainer, bool atBeforeSideOfBlock, bool atAfterSideOfBlock,  bool hasMarginBeforeQuirk, bool hasMarginAfterQuirk, bool determinedMarginBeforeQuirk, LayoutUnit positiveMargin, LayoutUnit negativeMargin)
+RenderBlockFlow::MarginInfo::MarginInfo(bool canCollapseWithChildren, bool canCollapseMarginBeforeWithChildren, bool canCollapseMarginAfterWithChildren, bool quirkContainer, bool atBeforeSideOfBlock, bool atAfterSideOfBlock,  bool hasMarginBeforeQuirk, bool hasMarginAfterQuirk, bool determinedMarginBeforeQuirk, LayoutUnit positiveMargin, LayoutUnit negativeMargin, LayoutUnit marginBeforeWithClearance)
     : m_canCollapseWithChildren(canCollapseWithChildren)
     , m_canCollapseMarginBeforeWithChildren(canCollapseMarginBeforeWithChildren)
     , m_canCollapseMarginAfterWithChildren(canCollapseMarginAfterWithChildren)
@@ -172,6 +173,7 @@ RenderBlockFlow::MarginInfo::MarginInfo(bool canCollapseWithChildren, bool canCo
     , m_determinedMarginBeforeQuirk(determinedMarginBeforeQuirk)
     , m_positiveMargin(positiveMargin)
     , m_negativeMargin(negativeMargin)
+    , m_marginBeforeWithClearance(marginBeforeWithClearance)
 {
 }
 
@@ -4159,70 +4161,79 @@ bool RenderBlockFlow::layoutSimpleBlockContentInInline(MarginInfo& marginInfo)
         return false;
     }
 
-    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
-        ASSERT(!walker.current()->selfNeedsLayout());
+    auto layoutBlockLevelBoxes = [&]() -> bool {
+        for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+            ASSERT(!walker.current()->selfNeedsLayout());
 
-        CheckedRef renderer = *walker.current();
-        CheckedPtr blockRenderer = dynamicDowncast<RenderBox>(renderer.get());
-        if (!blockRenderer || !blockRenderer->isBlockLevelBox()) {
-            // The line this content sits on consumes the margin after of the preceding block level box as the
-            // spacing before the line, so nothing is left to collapse with the container's margin after.
-            auto isContentfulInline = [&] {
-                if (CheckedPtr text = dynamicDowncast<RenderText>(renderer.get()))
-                    return text->hasRenderedText();
-                return !is<RenderInline>(renderer.get()) && !renderer->isFloatingOrOutOfFlowPositioned();
-            };
-            if (isContentfulInline()) {
-                marginInfo.setMargin({ }, { });
-                marginInfo.setAtBeforeSideOfBlock(false);
+            CheckedRef renderer = *walker.current();
+            CheckedPtr blockRenderer = dynamicDowncast<RenderBox>(renderer.get());
+            if (!blockRenderer || !blockRenderer->isBlockLevelBox()) {
+                // The line this content sits on consumes the margin after of the preceding block level box as the
+                // spacing before the line, so nothing is left to collapse with the container's margin after.
+                auto isContentfulInline = [&] {
+                    if (CheckedPtr text = dynamicDowncast<RenderText>(renderer.get()))
+                        return text->hasRenderedText();
+                    return !is<RenderInline>(renderer.get()) && !renderer->isFloatingOrOutOfFlowPositioned();
+                };
+                if (isContentfulInline()) {
+                    marginInfo.setMargin({ }, { });
+                    marginInfo.setAtBeforeSideOfBlock(false);
+                }
+                continue;
             }
-            continue;
-        }
 
-        auto logicalHeight = blockRenderer->logicalHeight();
-        auto isEligibleForBlockOnlyLayout = [&] {
-            // Do not interfere with margin collapsing.
-            if (!blockRenderer->isInFlow() || !logicalHeight)
-                return false;
-            // FIXME: This should be some narrower test.
-            if (blockRenderer->isRenderTable())
-                return false;
-            if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(*blockRenderer))
-                return !renderBlock->containsFloats();
-            return true;
-        };
-        if (!isEligibleForBlockOnlyLayout())
-            return false;
-
-        auto displayBox = InlineIterator::boxFor(*blockRenderer);
-        if (!displayBox) {
-            ASSERT_NOT_REACHED();
-            return false;
-        }
-
-        auto borderBoxLogicalTop = blockRenderer->logicalTop();
-        auto marginBoxLogicalTop = borderBoxLogicalTop;
-
-        if (!marginInfo.canCollapseWithMarginBefore()) {
-            // Although this box is not expected to change position or size (since no self-layout is set),
-            // we treat layout as starting at the box's top margin to avoid confusion when the container performs layout on it.
-            // This logic is copied from estimateLogicalTopPosition.
-            auto marginValues = marginValuesForChild(*blockRenderer);
-            marginBoxLogicalTop -= std::max(marginInfo.positiveMargin(), marginValues.positiveMarginBefore()) - std::max(marginInfo.negativeMargin(), marginValues.negativeMarginBefore());
-        }
-
-        marginInfo = layoutBlockChildFromInlineLayout(*blockRenderer, marginBoxLogicalTop, marginInfo).marginInfo;
-        auto shouldFallbackToNormalInlineLayout = [&] {
-            if (logicalHeight != blockRenderer->logicalHeight())
+            auto logicalHeight = blockRenderer->logicalHeight();
+            auto isEligibleForBlockOnlyLayout = [&] {
+                // Do not interfere with margin collapsing.
+                if (!blockRenderer->isInFlow() || !logicalHeight)
+                    return false;
+                // FIXME: This should be some narrower test.
+                if (blockRenderer->isRenderTable())
+                    return false;
+                if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(*blockRenderer))
+                    return !renderBlock->containsFloats();
                 return true;
-            if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(*blockRenderer))
-                return renderBlock->containsFloats();
-            return false;
-        };
-        if (shouldFallbackToNormalInlineLayout())
-            return false;
-        blockRenderer->setLogicalTop(borderBoxLogicalTop);
+            };
+            if (!isEligibleForBlockOnlyLayout())
+                return false;
+
+            auto displayBox = InlineIterator::boxFor(*blockRenderer);
+            if (!displayBox) {
+                ASSERT_NOT_REACHED();
+                return false;
+            }
+
+            auto borderBoxLogicalTop = blockRenderer->logicalTop();
+            auto marginBoxLogicalTop = borderBoxLogicalTop;
+
+            if (!marginInfo.canCollapseWithMarginBefore()) {
+                // Although this box is not expected to change position or size (since no self-layout is set),
+                // we treat layout as starting at the box's top margin to avoid confusion when the container performs layout on it.
+                // This logic is copied from estimateLogicalTopPosition.
+                auto marginValues = marginValuesForChild(*blockRenderer);
+                marginBoxLogicalTop -= std::max(marginInfo.positiveMargin(), marginValues.positiveMarginBefore()) - std::max(marginInfo.negativeMargin(), marginValues.negativeMarginBefore());
+            }
+
+            marginInfo = layoutBlockChildFromInlineLayout(*blockRenderer, marginBoxLogicalTop, marginInfo).marginInfo;
+            auto shouldFallbackToNormalInlineLayout = [&] {
+                if (logicalHeight != blockRenderer->logicalHeight())
+                    return true;
+                if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(*blockRenderer))
+                    return renderBlock->containsFloats();
+                return false;
+            };
+            if (shouldFallbackToNormalInlineLayout())
+                return false;
+            blockRenderer->setLogicalTop(borderBoxLogicalTop);
+        }
+        return true;
+    };
+
+    if (!layoutBlockLevelBoxes()) {
+        rebuildFloatingObjectSetFromIntrudingFloats();
+        return false;
     }
+
     inlineLayout()->updateOverflow();
     return true;
 }

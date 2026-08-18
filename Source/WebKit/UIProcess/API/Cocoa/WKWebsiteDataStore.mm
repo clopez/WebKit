@@ -729,7 +729,8 @@ struct WKWebsiteData {
             _WKWebsiteDataTypeAdClickAttributions,
             _WKWebsiteDataTypePrivateClickMeasurements,
             _WKWebsiteDataTypeAlternativeServices,
-            _WKWebsiteDataTypeEnhancedSecurityRecord
+            _WKWebsiteDataTypeEnhancedSecurityRecord,
+            _WKWebsiteDataTypeIsolatedSiteRecord
         ];
 
         return [retainPtr([self allWebsiteDataTypes]) setByAddingObjectsFromArray:privateTypes];
@@ -1264,6 +1265,11 @@ struct WKWebsiteData {
     if (!signals)
         return nil;
     return @(signals->toRaw());
+}
+
+- (void)_setHighValueFraudTargetDomainsForTesting:(NSArray<NSString *> *)domains
+{
+    protect(*_websiteDataStore)->setHighValueFraudTargetDomainsForTesting(makeVector<String>(domains));
 }
 
 - (void)_getPendingPushMessage:(void(^)(NSDictionary *))completionHandler

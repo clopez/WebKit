@@ -101,7 +101,7 @@ TreeResolver::~TreeResolver()
     m_document->styleScope().updateAnchorPositioningStateAfterStyleResolution();
 }
 
-TreeResolver::Scope::Scope(Document& document, Update& update)
+TreeResolver::Scope::Scope(Document& document, Box<NewStyleDuringResolutionMap> newStyleDuringResolutionMap)
     : resolver(document.styleScope().resolver())
 {
     document.setIsResolvingTreeStyle(true);
@@ -110,7 +110,7 @@ TreeResolver::Scope::Scope(Document& document, Update& update)
     for (Ref shadowRoot : document.inDocumentShadowRoots())
         const_cast<ShadowRoot&>(shadowRoot.get()).styleScope().resolver();
 
-    selectorMatchingState.containerQueryEvaluationState.styleUpdate = &update;
+    selectorMatchingState.containerQueryEvaluationState.newStyleDuringResolutionMap = WTF::move(newStyleDuringResolutionMap);
 }
 
 TreeResolver::Scope::Scope(ShadowRoot& shadowRoot, Scope& enclosingScope)
@@ -376,6 +376,8 @@ auto TreeResolver::resolveElement(Element& element, const Style::ComputedStyle* 
         }
     }
 
+    m_newStyleDuringResolutionMap->add(element, ComputedStyle::clonePtr(*update.style));
+
     auto resolveAndAddPseudoElementStyle = [&](const PseudoElementIdentifier& pseudoElementIdentifier) {
         const Style::ComputedStyle* existingPseudoStyle = existingStyle ? existingStyle->pseudoElementStyle(pseudoElementIdentifier) : nullptr;
         auto pseudoElementUpdate = resolvePseudoElement(element, pseudoElementIdentifier, update, parent().isInDisplayNoneTree, existingPseudoStyle);
@@ -436,8 +438,10 @@ auto TreeResolver::resolveElement(Element& element, const Style::ComputedStyle* 
     // Re-resolve any that were previously cached.
     if (existingStyle) {
         for (auto& [identifier, _] : existingStyle->pseudoElementStyles()) {
-            if (isHighlightPseudoElement(identifier.type))
-                resolveAndAddPseudoElementStyle(identifier);
+            // Highlight pseudo-elements inherit from the corresponding pseudo-element of the parent,
+            // so a change has to reach the descendants too.
+            if (isHighlightPseudoElement(identifier.type) && resolveAndAddPseudoElementStyle(identifier))
+                descendantsToResolve = DescendantsToResolve::All;
         }
     }
 
@@ -1512,7 +1516,10 @@ std::unique_ptr<Update> TreeResolver::resolve()
 
     if (!m_update)
         m_update = makeUnique<Update>(m_document);
-    m_scopeStack.append(adoptRef(*new Scope(m_document, *m_update)));
+
+    m_newStyleDuringResolutionMap->clear();
+
+    m_scopeStack.append(adoptRef(*new Scope(m_document, m_newStyleDuringResolutionMap)));
     m_parentStack.append(Parent(m_document));
 
     resolveComposedTree();

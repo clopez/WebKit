@@ -96,7 +96,6 @@
 #endif
 
 @interface WKWebView ()
-- (void)copy:(id)sender;
 - (void)paste:(id)sender;
 - (WKPageRef)_pageForTesting;
 @end
@@ -5098,6 +5097,38 @@ TEST(SiteIsolation, GoBackReloadsDynamicallyCreatedCrossSiteIframe)
     EXPECT_WK_STREQ("https://webkit.org/a2", [webView objectByEvaluatingJavaScript:@"location.href" inFrame:[webView firstChildFrame]]);
 }
 
+TEST(SiteIsolation, GoBackToCrossSiteIframeAfterPersistedSessionRestore)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/source'></iframe>"_s } },
+        { "/source"_s, { "<script> alert('source'); </script>"_s } },
+        { "/destination"_s, { "<script> alert('destination'); </script>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "source");
+
+    [webView evaluateJavaScript:@"location.href = 'https://apple.com/destination'" inFrame:[webView firstChildFrame] completionHandler:nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "destination");
+
+    RetainPtr sessionState = [webView _sessionState];
+    RetainPtr persistedSessionState = adoptNS([[_WKSessionState alloc] initWithData:[sessionState data]]);
+
+    auto [newWebView, newNavigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [newWebView _restoreSessionState:persistedSessionState.get() andNavigate:YES];
+    EXPECT_WK_STREQ([newWebView _test_waitForAlert], "destination");
+
+    RetainPtr childFrame = [newWebView firstChildFrame];
+
+    [newWebView goBack];
+    EXPECT_WK_STREQ("source", [newWebView _test_waitForAlert]);
+    EXPECT_WK_STREQ("https://webkit.org/source", [newWebView objectByEvaluatingJavaScript:@"location.href" inFrame:childFrame.get()]);
+
+    [newWebView goForward];
+    EXPECT_WK_STREQ("destination", [newWebView _test_waitForAlert]);
+}
+
 TEST(SiteIsolation, AdvancedPrivacyProtectionsHideScreenMetricsFromBindings)
 {
     auto frameHTML = [NSString stringWithContentsOfFile:[NSBundle.test_resourcesBundle pathForResource:@"simple" ofType:@"html"] encoding:NSUTF8StringEncoding error:NULL];
@@ -8324,6 +8355,8 @@ TEST(SiteIsolation, SharedProcessWithResourceLoadStatistics)
     NSURL *itpRoot = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"SharedProcessWithResourceLoadStatisticsTestITP"] isDirectory:YES];
     auto defaultFileManager = [NSFileManager defaultManager];
     [defaultFileManager removeItemAtPath:itpRoot.path error:nil];
+    // Its recorded import would make a second run of this binary skip the import entirely.
+    [defaultFileManager removeItemAtPath:dataStoreRoot.path error:nil];
 
     [defaultFileManager createDirectoryAtURL:itpRoot withIntermediateDirectories:YES attributes:nil error:nil];
     NSURL *itpDatabaseFile = [itpRoot URLByAppendingPathComponent:@"observations.db"];
@@ -8422,6 +8455,8 @@ TEST(SiteIsolation, SharedProcessAfterClick)
     NSURL *itpRoot = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"SharedProcessAfterClickTestITP"] isDirectory:YES];
     auto defaultFileManager = [NSFileManager defaultManager];
     [defaultFileManager removeItemAtPath:itpRoot.path error:nil];
+    // Its recorded import would make a second run of this binary skip the import entirely.
+    [defaultFileManager removeItemAtPath:dataStoreRoot.path error:nil];
 
     [defaultFileManager createDirectoryAtURL:itpRoot withIntermediateDirectories:YES attributes:nil error:nil];
     NSURL *itpDatabaseFile = [itpRoot URLByAppendingPathComponent:@"observations.db"];
@@ -8482,6 +8517,8 @@ TEST(SiteIsolation, SharedProcessAfterKeyDown)
     NSURL *itpRoot = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"SharedProcessAfterKeyDownTestITP"] isDirectory:YES];
     auto defaultFileManager = [NSFileManager defaultManager];
     [defaultFileManager removeItemAtPath:itpRoot.path error:nil];
+    // Its recorded import would make a second run of this binary skip the import entirely.
+    [defaultFileManager removeItemAtPath:dataStoreRoot.path error:nil];
 
     [defaultFileManager createDirectoryAtURL:itpRoot withIntermediateDirectories:YES attributes:nil error:nil];
     NSURL *itpDatabaseFile = [itpRoot URLByAppendingPathComponent:@"observations.db"];
@@ -12745,6 +12782,181 @@ TEST(SiteIsolation, ColorSchemePreferenceInheritedByCrossSiteIframe)
     NSString *check = @"String(matchMedia('(prefers-color-scheme: dark)').matches)";
     EXPECT_WK_STREQ([webView stringByEvaluatingJavaScript:check], "true");
     EXPECT_WK_STREQ([webView stringByEvaluatingJavaScript:check inFrame:childFrame.get()], "true");
+}
+
+TEST(SiteIsolation, RestoredPageIsRenderedAfterCrossSiteBFCacheRoundTrip)
+{
+    HTTPServer server({
+        { "/a"_s, { "a"_s } },
+        { "/b"_s, { "b"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto *configuration = server.httpsProxyConfiguration();
+    enableFeature(configuration, @"MultiProcessBackForwardCacheEnabled");
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://b.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+    checkFrameTreesInProcesses(webView.get(), { { "https://a.com"_s } });
+
+    [webView waitForNextPresentationUpdate];
+
+    [webView goForward];
+    [navigationDelegate waitForDidFinishNavigation];
+    checkFrameTreesInProcesses(webView.get(), { { "https://b.com"_s } });
+
+    [webView waitForNextPresentationUpdate];
+}
+
+TEST(SiteIsolation, RestoredPageWithIframeIsRenderedAfterCrossSiteBFCacheRoundTrip)
+{
+    HTTPServer server({
+        { "/a"_s, { "<iframe src='https://frame.com/frame'></iframe>"_s } },
+        { "/frame"_s, { "frame"_s } },
+        { "/b"_s, { "b"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto *configuration = server.httpsProxyConfiguration();
+    enableFeature(configuration, @"MultiProcessBackForwardCacheEnabled");
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://b.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    [webView goBack];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    Vector<ExpectedFrameTree> expectedAfterGoBack = {
+        { "https://a.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://frame.com"_s } } },
+    };
+    while (!frameTreesMatch(frameTrees(webView.get()).get(), Vector<ExpectedFrameTree> { expectedAfterGoBack }))
+        TestWebKitAPI::Util::spinRunLoop();
+    checkFrameTreesInProcesses(webView.get(), Vector<ExpectedFrameTree> { expectedAfterGoBack });
+
+    [webView goForward];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+    checkFrameTreesInProcesses(webView.get(), { { "https://b.com"_s } });
+}
+
+static Vector<double> preferredRenderingUpdateIntervals(TestWKWebView *webView)
+{
+    Vector<double> result;
+    __block bool done { false };
+    __block Vector<double>* values = &result;
+    [webView _preferredRenderingUpdateIntervalsForTesting:^(NSArray<NSNumber *> *intervals) {
+        for (NSNumber *interval in intervals)
+            values->append(interval.doubleValue);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    return result;
+}
+
+TEST(SiteIsolation, DisplayRefreshRateReachesSubframeProcess)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/webkit'></iframe>"_s } },
+        { "/webkit"_s, { "<p>hi</p>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 800, 600));
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://webkit.org"_s } } }
+    });
+
+    [webView _setDisplayForTesting:1 nominalFramesPerSecond:120];
+    auto fastIntervals = preferredRenderingUpdateIntervals(webView.get());
+    EXPECT_EQ(fastIntervals.size(), 2u);
+    for (auto interval : fastIntervals)
+        EXPECT_EQ(interval, fastIntervals[0]);
+
+
+    [webView _setDisplayForTesting:2 nominalFramesPerSecond:30];
+    auto slowIntervals = preferredRenderingUpdateIntervals(webView.get());
+    EXPECT_EQ(slowIntervals.size(), 2u);
+    for (auto interval : slowIntervals)
+        EXPECT_EQ(interval, slowIntervals[0]);
+
+    EXPECT_NE(slowIntervals[0], fastIntervals[0]);
+}
+
+enum class SiteIsolationHighValueFraudTargetDomainsEnabled : bool { No, Yes };
+
+static std::pair<RetainPtr<TestWKWebView>, RetainPtr<TestNavigationDelegate>> siteIsolatedViewWithHighValueFraudTargetDomains(const HTTPServer& server, NSArray<NSString *> *domains, SiteIsolationHighValueFraudTargetDomainsEnabled enabled)
+{
+    RetainPtr navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [navigationDelegate allowAnyTLSCertificate];
+
+    RetainPtr storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+    [storeConfiguration setHTTPSProxy:[NSURL URLWithString:[NSString stringWithFormat:@"https://127.0.0.1:%d/", server.port()]]];
+    RetainPtr dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]);
+
+    // Stand in for the list WebPrivacy would have delivered, which is unavailable in tests.
+    [dataStore _setHighValueFraudTargetDomainsForTesting:domains];
+
+    RetainPtr viewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    [viewConfiguration setWebsiteDataStore:dataStore.get()];
+    enableSiteIsolation(viewConfiguration.get());
+    enableFeature(viewConfiguration.get(), @"SiteIsolationSharedProcessEnabled");
+    if (enabled == SiteIsolationHighValueFraudTargetDomainsEnabled::Yes)
+        enableFeature(viewConfiguration.get(), @"SiteIsolationHighValueFraudTargetDomainsEnabled");
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:viewConfiguration.get()]);
+    webView.get().navigationDelegate = navigationDelegate.get();
+    return { WTF::move(webView), WTF::move(navigationDelegate) };
+}
+
+static HTTPServer serverWithTwoCrossSiteFrames()
+{
+    return HTTPServer({
+        { "/example"_s, { "<!DOCTYPE html><iframe src='https://b.com/frame'></iframe><iframe src='https://c.com/frame'></iframe>"_s } },
+        { "/frame"_s, { "hi"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+}
+
+TEST(SiteIsolation, SharedProcessExcludesHighValueFraudTargetDomains)
+{
+    auto server = serverWithTwoCrossSiteFrames();
+    auto [webView, navigationDelegate] = siteIsolatedViewWithHighValueFraudTargetDomains(server, @[@"b.com"], SiteIsolationHighValueFraudTargetDomainsEnabled::Yes);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    // b.com is on the high-value fraud target domains list, so it gets its own process rather than
+    // joining c.com in the shared process.
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s, { { RemoteFrame }, { RemoteFrame } } },
+        { RemoteFrame, { { "https://b.com"_s }, { RemoteFrame } } },
+        { RemoteFrame, { { RemoteFrame }, { "https://c.com"_s } } },
+    });
+}
+
+TEST(SiteIsolation, SharedProcessIgnoresHighValueFraudTargetDomainsWhenDisabled)
+{
+    auto server = serverWithTwoCrossSiteFrames();
+    auto [webView, navigationDelegate] = siteIsolatedViewWithHighValueFraudTargetDomains(server, @[@"b.com"], SiteIsolationHighValueFraudTargetDomainsEnabled::No);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    // The list is populated but the preference is off, so b.com is still allowed to share a process.
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://example.com"_s, { { RemoteFrame }, { RemoteFrame } } },
+        { RemoteFrame, { { "https://b.com"_s }, { "https://c.com"_s } } },
+    });
 }
 
 }

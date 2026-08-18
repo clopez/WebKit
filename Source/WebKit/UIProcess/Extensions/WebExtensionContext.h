@@ -129,7 +129,12 @@ OBJC_PROTOCOL(WKWebExtensionWindow);
 #if PLATFORM(MAC)
 OBJC_CLASS NSEvent;
 OBJC_CLASS NSMenu;
+OBJC_CLASS NSWindow;
 OBJC_CLASS WKOpenPanelParameters;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+OBJC_CLASS UIWindow;
 #endif
 
 namespace PAL {
@@ -345,7 +350,7 @@ public:
 
     WebExtensionContextIdentifier NODELETE privilegedIdentifier() const;
 
-    WebExtensionContextParameters parameters(IncludePrivilegedIdentifier) const;
+    WebExtensionContextParameters parameters(IncludePrivilegedIdentifier, WebProcessProxy& destinationProcess) const;
 
     bool operator==(const WebExtensionContext& other) const { return (this == &other); }
 
@@ -643,13 +648,16 @@ public:
 
     UserStyleSheetVector& dynamicallyInjectedUserStyleSheets() LIFETIME_BOUND { return m_dynamicallyInjectedUserStyleSheets; };
 
-    std::optional<WebCore::PageIdentifier> backgroundPageIdentifier() const;
+    // Maps page identifiers appropriately, even with site isolation enabled.
+    std::optional<WebCore::PageIdentifier> backgroundPageIdentifier(WebProcessProxy& destinationProcess) const;
+    std::optional<WebCore::PageIdentifier> backgroundPageIdentifierInOwnProcess() const;
+
 #if ENABLE(INSPECTOR_EXTENSIONS)
     Vector<PageIdentifierTuple> inspectorBackgroundPageIdentifiers() const;
     Vector<PageIdentifierTuple> inspectorPageIdentifiers() const;
 #endif
-    Vector<PageIdentifierTuple> popupPageIdentifiers() const;
-    Vector<PageIdentifierTuple> tabPageIdentifiers() const;
+    Vector<PageIdentifierTuple> popupPageIdentifiers(WebProcessProxy& destinationProcess) const;
+    Vector<PageIdentifierTuple> tabPageIdentifiers(WebProcessProxy& destinationProcess) const;
 
     void addExtensionTabPage(WebPageProxy&, WebExtensionTab&);
     void addPopupPage(WebPageProxy&, WebExtensionAction&);
@@ -1140,6 +1148,11 @@ private:
     RetainPtr<WKWebView> m_offscreenWebView;
     Variant<std::monostate, Ref<ProcessThrottlerActivity>, Ref<ProcessActivityGroup>> m_offscreenWebViewActivity;
     Vector<CompletionHandler<void(Expected<void, WebExtensionError>&&)>> m_offscreenDocumentLoadCompletionHandlers;
+#if PLATFORM(MAC)
+    RetainPtr<NSWindow> m_offscreenWebViewWindow;
+#elif PLATFORM(IOS_FAMILY)
+    RetainPtr<UIWindow> m_offscreenWebViewWindow;
+#endif
 #endif
 
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;

@@ -1565,6 +1565,21 @@ void WebPage::updateUserActivationState(const Vector<FrameIdentifier>& frameIDs,
     }
 }
 
+void WebPage::updateLastHandledUserGestureTimestamp(const Vector<FrameIdentifier>& frameIDs, MonotonicTime gestureTime)
+{
+    for (auto frameID : frameIDs) {
+        RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+        if (!webFrame || webFrame->page() != this)
+            continue;
+        RefPtr localFrame = webFrame->coreLocalFrame();
+        if (!localFrame)
+            continue;
+        localFrame->setHasHadUserInteraction();
+        if (RefPtr document = localFrame->document())
+            document->updateLastHandledUserGestureTimestamp(gestureTime);
+    }
+}
+
 void WebPage::consumeUserActivations(const Vector<FrameIdentifier>& frameIDs)
 {
     for (auto frameID : frameIDs) {
@@ -4512,6 +4527,17 @@ void WebPage::touchEvent(const WebTouchEvent& touchEvent, CompletionHandler<void
 }
 #endif
 
+#if ENABLE(COORDINATED_TOUCH_EVENTS)
+bool WebPage::dispatchTouchEvent(const WebTouchEvent& event)
+{
+    bool result = false;
+    touchEvent(event, [&](std::optional<WebEventType>, bool handled) {
+        result = handled;
+    });
+    return result;
+}
+#endif
+
 void WebPage::cancelPointer(WebCore::PointerID pointerId, const WebCore::IntPoint& documentPoint)
 {
     m_page->pointerCaptureController().cancelPointer(pointerId, documentPoint);
@@ -5869,7 +5895,7 @@ void WebPage::closeFullScreen()
 {
     removeReasonsToDisallowLayoutViewportHeightExpansion(DisallowLayoutViewportHeightExpansionReason::ElementFullScreen);
 
-    send(Messages::WebFullScreenManagerProxy::Close());
+    send(Messages::WebFullScreenManagerProxy::CloseFullScreen());
 }
 
 void WebPage::prepareToEnterElementFullScreen()
@@ -9077,15 +9103,17 @@ void WebPage::suspendWithFrameItem(BackForwardFrameItemIdentifier identifier, Co
         return completionHandler(false);
     }
 
-    // Detach the current root frames instead of freezing the whole page, so a same-site navigation
-    // later reusing this WebPage for a new root frame doesn't get frozen too.
-    HashSet<WeakRef<WebCore::LocalFrame>> detachedFrames;
-    for (auto& weakFrame : copyToVector(page->rootFrames())) {
-        Ref frame = weakFrame.get();
-        detachedFrames.add(weakFrame);
-        page->removeRootFrame(frame);
+    if (!page->localMainFrame()) {
+        // Detach the current root frames instead of freezing the whole page, so a same-site navigation
+        // later reusing this WebPage for a new root frame doesn't get frozen too.
+        HashSet<WeakRef<WebCore::LocalFrame>> detachedFrames;
+        for (auto& weakFrame : copyToVector(page->rootFrames())) {
+            Ref frame = weakFrame.get();
+            detachedFrames.add(weakFrame);
+            page->removeRootFrame(frame);
+        }
+        BackForwardCache::singleton().setDetachedRootFramesForFrameItem(identifier, WTF::move(detachedFrames));
     }
-    BackForwardCache::singleton().setDetachedRootFramesForFrameItem(identifier, WTF::move(detachedFrames));
 
     m_isSuspended = true;
     WEBPAGE_RELEASE_LOG(ProcessSwapping, "suspendWithFrameItem: Successfully cached page");

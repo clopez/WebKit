@@ -972,6 +972,9 @@ public:
     // text field or the controls of a <video>. TextIterator walks the light DOM and so never emits
     // this text, and neither do the text-marker walks over document text.
     virtual bool isInUserAgentShadowTree() const = 0;
+    // True when this object's node is in the shadow tree of an <input> or <textarea>, as opposed to
+    // an ARIA text control.
+    virtual bool isInsideNativeTextControl() const = 0;
     virtual AXTextRunLineID listMarkerLineID() const = 0;
     virtual String listMarkerText() const = 0;
     virtual FontOrientation fontOrientation() const = 0;

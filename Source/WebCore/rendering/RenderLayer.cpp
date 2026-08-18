@@ -1055,7 +1055,7 @@ bool RenderLayer::shouldPaintWithFilters(OptionSet<PaintBehavior> paintBehavior)
     if (filter.isNone())
         return false;
 
-    if (renderer().isRenderOrLegacyRenderSVGRoot() && filter.isReferenceFilter())
+    if (renderer().isLegacyRenderSVGRoot() && filter.isReferenceFilter())
         return false;
 
     if (RenderLayerFilters::isIdentity(renderer()))
@@ -1937,6 +1937,23 @@ void RenderLayer::dirtyVisibleContentStatus()
         parent()->dirtyAncestorChainVisibleDescendantStatus();
 }
 
+void RenderLayer::dirtyVisibleContentStatusIncludingAncestors()
+{
+    dirtyVisibleContentStatus();
+
+    // computeHasVisibleContent() looks past a hidden layer into the children it paints, so those
+    // ancestors are stale too. That walk stops at the first self-painting layer.
+    if (isSelfPaintingLayer())
+        return;
+
+    for (auto* ancestor = parent(); ancestor; ancestor = ancestor->parent()) {
+        if (ancestor->renderer().style().usedVisibility() != Visibility::Visible)
+            ancestor->dirtyVisibleContentStatus();
+        if (ancestor->isSelfPaintingLayer())
+            break;
+    }
+}
+
 void RenderLayer::dirtyAncestorChainVisibleDescendantStatus()
 {
     setNeedsPositionUpdate();
@@ -2042,7 +2059,7 @@ bool RenderLayer::computeHasVisibleContent() const
     if (m_svgData && !renderer().style().filter().isNone())
         return true;
 
-    // Layer's renderer has visibility:hidden, but some non-layer child may have visibility:visible.
+    // Layer's renderer has visibility:hidden, but a child we paint ourselves may have visibility:visible.
     auto nextRenderer = [&] (auto& renderer) -> const RenderObject* {
         for (auto* ancestor = &renderer; ancestor && ancestor != &this->renderer(); ancestor = ancestor->parent()) {
             if (auto* sibling = ancestor->nextSibling())
@@ -2052,7 +2069,7 @@ bool RenderLayer::computeHasVisibleContent() const
     };
     const auto* renderer = this->renderer().firstChild();
     while (renderer) {
-        if (CheckedPtr renderElement = dynamicDowncast<RenderElement>(renderer); renderElement && !renderElement->hasLayer()) {
+        if (CheckedPtr renderElement = dynamicDowncast<RenderElement>(renderer); renderElement && !renderElement->hasSelfPaintingLayer()) {
             if (renderElement->style().usedVisibility() == Visibility::Visible)
                 return true;
             if (auto* firstChild = renderElement->firstChild()) {
@@ -3771,6 +3788,11 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
 
         LayerPaintingInfo localPaintingInfo(paintingInfo);
 
+        // The outermost <svg> is a replaced element in the CSS box tree, so its filter is set up in
+        // CSS box coordinates (see RenderLayerFilters::beginFilterEffect) and none of the SVG user
+        // space corrections in this scope apply to it.
+        bool filtersInSVGUserSpace = renderer().isSVGLayerAwareRenderer() && !renderer().isRenderSVGRoot();
+
         // Position the filter buffer and composite its result at the element's
         // nominalSVGLayoutLocation, independent of intermediate force-layers that perturb offsetFromRoot.
         auto svgFilterOffset = columnAwareOffsetFromRoot;
@@ -3783,29 +3805,16 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
 
         auto* filterContext = setupFilters(context, localPaintingInfo, localPaintFlags, svgFilterOffset, backgroundRect);
 
-        // Non-layer content drawn into the buffer uses a distinct offset. The buffer coordinate
-        // system is the filter region (transform-aware objectBoundingBox), whereas svgFilterOffset is
-        // based on objectBoundingBoxWithoutTransformations. The two differ by the child-transform delta
-        // only when the filtered element has a transformed child (e.g. a layered <use> with x/y), and
-        // are equal otherwise. This positions non-layer fragment collection only. A layer child already
-        // carries its transform in its CTM, so it uses svgFilterOffset (the buffer origin). Adding the
-        // delta there would double-count the transform (svg/filters/filter-refresh.svg).
         auto svgFilterContentOffset = svgFilterOffset;
-        if (filterContext && renderer().isSVGLayerAwareRenderer())
+        if (filterContext && filtersInSVGUserSpace)
             svgFilterContentOffset += renderer().objectBoundingBoxLocation() - renderer().nominalSVGLayoutLocation();
 
-        // Layer children reset their CTM via offsetFromAncestor(rootLayer) and miss the buffer origin
-        // that non-layer children pick up through containerBaseOffset, so translate them by
-        // svgFilterOffset to match. Needed when rootLayer == this, and when this filter is nested
-        // inside another filter whose buffer was coordinate-origin shifted (our buffer inherits the
-        // shift but the layer child does not, svg/filters/filter-refresh.svg). The nested case is read
-        // from rootLayer directly: a descendant painting inside a shifted buffer always has that
-        // shifting ancestor (transformed, hence rootLayer-establishing, and filtered) as its rootLayer.
         // A failed filter does not paint its descendants, so a rootLayer with hasFilter() set up a buffer.
         CheckedPtr currentRootLayer = localPaintingInfo.rootLayer;
         bool rootLayerShiftedFilterBuffer = currentRootLayer && currentRootLayer != this
-            && currentRootLayer->hasFilter() && currentRootLayer->renderer().isSVGLayerAwareRenderer();
-        bool appliesFilterChildCorrection = filterContext && renderer().isSVGLayerAwareRenderer()
+            && currentRootLayer->hasFilter() && currentRootLayer->renderer().isSVGLayerAwareRenderer()
+            && !currentRootLayer->renderer().isRenderSVGRoot();
+        bool appliesFilterChildCorrection = filterContext && filtersInSVGUserSpace
             && (currentRootLayer == this || rootLayerShiftedFilterBuffer);
 
         // This applies to this layer's immediate child layers only, and a nested filter re-derives its own.
@@ -3933,7 +3942,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
             // element is its own rootLayer, or a force-created ancestor layer baked it in). In the plain
             // non-layer case offsetFromRoot equals the nominal position and isZero() skips.
             GraphicsContextStateSaver filterCompensationSaver(context, false);
-            if (renderer().isSVGLayerAwareRenderer()) {
+            if (filtersInSVGUserSpace) {
                 auto svgFilterCompensation = columnAwareOffsetFromRoot - svgFilterOffset;
                 if (!svgFilterCompensation.isZero()) {
                     filterCompensationSaver.save();
@@ -5647,14 +5656,14 @@ LayoutRect RenderLayer::calculateLayerBounds(const RenderLayer* ancestorLayer, c
 
         auto renderableInfiniteRect = LayoutRect::renderableInfiniteRect();
         if (clipRect.width() > renderableInfiniteRect.width() || clipRect.height() > renderableInfiniteRect.height()) {
-            // When ancestor clips only one axis, leaving the other one unbounded, clip again passing
-            // document rectangle as constraining rectangle to clipRectRelativeToAncestor(),
-            // like selfClipRect() does, to ensure we return a finite rectangle. Checking either width or
-            // height matches LayoutRect::infiniteRect doesn't work either because clipRectRelativeToAncestor()
-            // returns a rectangle that has been moved and intersected, so it's close to infinite but not exactly
-            // infinite. So, comparing to LayoutRect::renderableInfiniteRect() we make sure that we don't return
+            // Similar to the CSS clip check below, fall back to the descendant union if ancestor clipped
+            // only one axis, leaving the other one unbounded. The clipRect.isInfinte() check doesn't
+            // work here because it checks both axis. Checking either width or height matches
+            // LayoutRect::infiniteRect doesn't work either because clipRectRelativeToAncestor() returns
+            // a rectangle that has been moved and intersected, so it's close to infinite but not exactly
+            // infinite. Comparing to LayoutRect::renderableInfiniteRect() we make sure that we don't return
             // a rectangle that can't be handled as layer bounds.
-            clipRect = clipRectRelativeToAncestor(clippingRootLayer, offsetFromRoot, renderer().view().documentRect());
+            return infiniteRect;
         }
 
         if (renderer().hasClip()) {
@@ -5968,6 +5977,9 @@ void RenderLayer::updateSelfPaintingLayer()
 
     if (!parent())
         return;
+
+    // We are part of what a hidden ancestor paints now.
+    parent()->dirtyVisibleContentStatusIncludingAncestors();
 
     if (isSelfPaintingLayer)
         parent()->setAncestorChainHasSelfPaintingLayerDescendant();

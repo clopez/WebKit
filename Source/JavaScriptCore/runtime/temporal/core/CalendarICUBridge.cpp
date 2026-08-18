@@ -957,15 +957,17 @@ static bool calendarUsesISOFallbackForExtremeYear(CalendarID calendarId, int32_t
 // same fields one at a time and must agree with these: they feed the getters, these feed resolution.
 TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const ISO8601::PlainDate& isoDate)
 {
-    if (calendarId == rocCalendarID() || calendarId == buddhistCalendarID()) {
-        auto yearFields = gregorianArithmeticYearFieldsFor(calendarId, isoDate.year());
+    // Proleptic Gregorian fields; only the arithmetic year differs (roc/buddhist offset it, japanese doesn't).
+    if (calendarIsGregorianStructured(calendarId)) {
         CalendarFields fields;
-        fields.year = yearFields.year;
-        fields.era = String(yearFields.era);
-        fields.eraYear = yearFields.eraYear;
+        fields.year = calendarId == japaneseCalendarID() ? isoDate.year() : gregorianArithmeticYearFieldsFor(calendarId, isoDate.year()).year;
         fields.month = isoDate.month();
         fields.day = isoDate.day();
         fields.monthCode = ISO8601::monthCode(isoDate.month());
+        if (auto era = emitEraProleptic(calendarId, isoDate)) {
+            fields.era = era->era;
+            fields.eraYear = era->eraYear;
+        }
         return fields;
     }
 
@@ -1050,20 +1052,11 @@ TemporalResult<CalendarFields> isoToCalendarFields(CalendarID calendarId, const 
     fields.day = static_cast<uint8_t>(raw.day);
     fields.monthCode = WTF::move(*raw.monthCode);
 
-    if (calendarId == japaneseCalendarID()) {
-        // Japanese uses proleptic Gregorian for its date fields, so year/month/day/monthCode are
-        // always the ISO values regardless of era. Only era/eraYear differ.
-        fields.year = isoDate.year();
-        fields.month = isoDate.month();
-        fields.day = isoDate.day();
-        fields.monthCode = ISO8601::monthCode(isoDate.month());
-    }
-
     // isLeapMonth is re-derived from the month code (avoids needing UCAL_IS_LEAP_MONTH in raw)
     fields.isLeapMonth = fields.monthCode.endsWith("L"_s);
 
     if (raw.hasEra) {
-        auto emitted = emitEraProleptic(calendarId, isoDate).value_or(emitEraFromICU(calendarId, raw.ucalEra, raw.ucalYear, raw.extendedYear));
+        auto emitted = emitEraFromICU(calendarId, raw.ucalEra, raw.ucalYear, raw.extendedYear);
         fields.era = emitted.era;
         fields.eraYear = emitted.eraYear;
     }
@@ -1587,10 +1580,15 @@ TemporalResult<bool> yearContainsMonthCode(CalendarID calendarId, int32_t year, 
 }
 
 // https://tc39.es/proposal-intl-era-monthcode/#sec-temporal-constrainmonthcode
-static TemporalResult<ParsedMonthCode> constrainMonthCodeGivenContainment(CalendarID calendarId, ParsedMonthCode monthCode, bool contained, TemporalOverflow overflow)
+TemporalResult<ParsedMonthCode> constrainMonthCode(CalendarID calendarId, int32_t year, ParsedMonthCode monthCode, TemporalOverflow overflow)
 {
+    // Step 1: Assert IsValidMonthCodeForCalendar.
+    ASSERT(isValidMonthCodeForCalendar(calendarId, monthCode));
+    auto contained = yearContainsMonthCode(calendarId, year, monthCode);
+    if (!contained) [[unlikely]]
+        return makeUnexpected(contained.error());
     // Step 2: If YearContainsMonthCode, return monthCode.
-    if (contained)
+    if (*contained)
         return monthCode;
     // Step 3: If overflow is ~reject~, throw RangeError.
     if (overflow == TemporalOverflow::Reject)
@@ -1603,30 +1601,6 @@ static TemporalResult<ParsedMonthCode> constrainMonthCodeGivenContainment(Calend
     // Step 8: hebrew row → ~skip-forward~ → assert "M05L" (8.a), return "M06" (8.b).
     ASSERT(monthCode.monthNumber == 5 && monthCode.isLeapMonth);
     return ParsedMonthCode { 6, false };
-}
-TemporalResult<ParsedMonthCode> constrainMonthCode(CalendarID calendarId, int32_t year, ParsedMonthCode monthCode, TemporalOverflow overflow)
-{
-    // Step 1: Assert IsValidMonthCodeForCalendar.
-    ASSERT(isValidMonthCodeForCalendar(calendarId, monthCode));
-    // Steps 2-8: delegate to algorithm extract with cursor-computed containment.
-    auto contained = yearContainsMonthCode(calendarId, year, monthCode);
-    if (!contained) [[unlikely]]
-        return makeUnexpected(contained.error());
-    return constrainMonthCodeGivenContainment(calendarId, monthCode, *contained, overflow);
-}
-static TemporalResult<ParsedMonthCode> constrainMonthCodeInternal(UCalendar* cal, CalendarID calendarId, ParsedMonthCode monthCode, TemporalOverflow overflow)
-{
-    // Step 1: Assert IsValidMonthCodeForCalendar.
-    ASSERT(isValidMonthCodeForCalendar(calendarId, monthCode));
-    UErrorCode status = U_ZERO_ERROR;
-    int32_t year = ucal_get(cal, UCAL_EXTENDED_YEAR, &status);
-    if (U_FAILURE(status)) [[unlikely]]
-        return makeUnexpected(rangeError(icuReadCalendarFailed));
-    // Steps 2-8: delegate to algorithm extract with cursor-computed containment.
-    auto contained = yearContainsMonthCodeInternal(cal, calendarId, year, monthCode);
-    if (!contained) [[unlikely]]
-        return makeUnexpected(rangeError(icuReadCalendarFailed));
-    return constrainMonthCodeGivenContainment(calendarId, monthCode, *contained, overflow);
 }
 
 // https://tc39.es/proposal-intl-era-monthcode/#sec-temporal-monthcodetoordinal
@@ -2518,29 +2492,16 @@ static void setICUCalendarYear(UCalendar* cal, CalendarID calendarId, std::optio
     ucal_set(cal, UCAL_EXTENDED_YEAR, year.value_or(0));
 }
 
-static TemporalResult<void> positionCursorAtConstrainedMonthCode(UCalendar* cal, CalendarID calendarId, const ParsedMonthCode& monthCode, TemporalOverflow overflow)
+static TemporalResult<void> positionCursorAtConstrainedMonthCode(UCalendar* cal, CalendarID calendarId, const ParsedMonthCode& monthCode)
 {
     if (!isValidMonthCodeForCalendar(calendarId, monthCode)) [[unlikely]]
         return makeUnexpected(rangeError("monthCode is not valid for this calendar"_s));
 
-    auto constrained = constrainMonthCodeInternal(cal, calendarId, monthCode, overflow);
-    if (!constrained) [[unlikely]]
-        return makeUnexpected(constrained.error());
+    ASSERT(!monthCode.isLeapMonth);
 
-    // Position the cursor at the constrained monthCode.
-    UErrorCode status = U_ZERO_ERROR;
-    if (calendarIsLunisolar(calendarId)) {
-        String targetCode = makeString("M"_s, constrained->monthNumber < 10 ? "0"_s : ""_s,
-            constrained->monthNumber, constrained->isLeapMonth ? "L"_s : ""_s);
-        auto probe = setCalendarToMonthCode(cal, calendarId, targetCode);
-        if (!probe) [[unlikely]]
-            return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
-        return { };
-    }
     // Non-lunisolar: direct set (M13 for coptic/ethiopic/ethioaa; M01..M12 otherwise).
-    ucal_set(cal, UCAL_MONTH, constrained->monthNumber - 1);
-    if (constrained->isLeapMonth)
-        ucal_set(cal, UCAL_IS_LEAP_MONTH, 1);
+    UErrorCode status = U_ZERO_ERROR;
+    ucal_set(cal, UCAL_MONTH, monthCode.monthNumber - 1);
     ucal_set(cal, UCAL_DAY_OF_MONTH, 1);
     ucal_getMillis(cal, &status);
     if (U_FAILURE(status)) [[unlikely]]
@@ -2590,13 +2551,20 @@ static TemporalResult<void> validateRejectMode(UCalendar* cal, CalendarID calend
 // https://tc39.es/proposal-intl-era-monthcode/#sup-temporal-nonisocalendardatetoiso
 TemporalResult<ISO8601::PlainDate> nonISOCalendarDateToISO(CalendarID calendarId, std::optional<int32_t> year, uint8_t month, uint8_t day, std::optional<ParsedMonthCode> monthCode, TemporalOverflow overflow)
 {
+    // month == 0 means "resolve by monthCode" (no ordinal exists yet). The fast paths below still
+    // need one: monthNumber works for indian/gregorian-structured (no leap months) and for
+    // chinese/dangi's extreme-year fallback too, which ignores leap-ness regardless.
+    uint8_t effectiveMonth = month;
+    if (!effectiveMonth && monthCode)
+        effectiveMonth = static_cast<uint8_t>(monthCode->monthNumber);
+
     if (year && calendarUsesISOFallbackForExtremeYear(calendarId, *year)) {
         int32_t isoYear = *year;
-        if (month > 12) {
+        if (effectiveMonth > 12) {
             if (overflow == TemporalOverflow::Reject) [[unlikely]]
                 return makeUnexpected(rangeError("month is out of range"_s));
         }
-        uint8_t isoMonth = std::clamp<uint8_t>(month, 1, 12);
+        uint8_t isoMonth = std::clamp<uint8_t>(effectiveMonth, 1, 12);
         uint8_t maxDay = ISO8601::daysInMonth(isoYear, isoMonth);
         if (day > maxDay) {
             if (overflow == TemporalOverflow::Reject) [[unlikely]]
@@ -2617,11 +2585,11 @@ TemporalResult<ISO8601::PlainDate> nonISOCalendarDateToISO(CalendarID calendarId
                     return makeUnexpected(rangeError("month is out of range"_s));
                 sakaMonth = static_cast<uint8_t>(monthCode->monthNumber);
             } else {
-                if (month > 12) {
+                if (effectiveMonth > 12) {
                     if (overflow == TemporalOverflow::Reject) [[unlikely]]
                         return makeUnexpected(rangeError("month is out of range"_s));
                 }
-                sakaMonth = std::clamp<uint8_t>(month, 1, 12);
+                sakaMonth = std::clamp<uint8_t>(effectiveMonth, 1, 12);
             }
             uint8_t monthLen = indianSakaDaysInMonth(*year, sakaMonth);
             uint8_t sakaDay = day;
@@ -2647,8 +2615,8 @@ TemporalResult<ISO8601::PlainDate> nonISOCalendarDateToISO(CalendarID calendarId
                 return makeUnexpected(rangeError("month is out of range"_s));
             ASSERT(year);
             int32_t isoYear = gregorianStructuredCalendarISOYear(calendarId, *year);
-            uint8_t resolvedMonth = month;
-            if (month > 12) {
+            uint8_t resolvedMonth = effectiveMonth;
+            if (effectiveMonth > 12) {
                 if (overflow == TemporalOverflow::Reject) [[unlikely]]
                     return makeUnexpected(rangeError("month is out of range for this calendar"_s));
                 resolvedMonth = 12;
@@ -2715,7 +2683,7 @@ TemporalResult<ISO8601::PlainDate> nonISOCalendarDateToISO(CalendarID calendarId
                     return makeUnexpected(rangeError("monthCode does not exist in this calendar year"_s));
             } else {
                 // Non-lunisolar with monthCode (Gregorian-based calendars).
-                if (auto r = positionCursorAtConstrainedMonthCode(cal, calendarId, *monthCode, overflow); !r)
+                if (auto r = positionCursorAtConstrainedMonthCode(cal, calendarId, *monthCode); !r)
                     return makeUnexpected(r.error());
             }
         } else {

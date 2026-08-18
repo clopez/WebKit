@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2020-2026 Apple Inc. All rights reserved.
 # Copyright (C) 2021 Igalia S.L.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -22,6 +22,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from . import loadConfig
+from .steps import ResultsDatabase, ResultsDBReportMixin, RunJavaScriptCoreTests
 import os
 import unittest
 
@@ -39,7 +40,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'update-working-directory',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'check-webkit-style'
@@ -55,7 +55,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -76,7 +75,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -100,7 +98,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -118,7 +115,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -137,7 +133,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -163,7 +158,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -190,7 +184,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -209,7 +202,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -231,7 +223,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -257,7 +248,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -277,7 +267,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -304,7 +293,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -330,7 +318,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -413,7 +400,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -438,7 +424,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -456,7 +441,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -475,7 +459,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -500,7 +483,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -518,7 +500,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -536,7 +517,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -554,7 +534,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -572,7 +551,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'validate-user-for-queue',
@@ -591,7 +569,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -609,7 +586,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -630,7 +606,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -650,7 +625,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -671,7 +645,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-specific-revision',
             'get-test-expectations-baseline',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'get-updated-test-expectations',
@@ -697,7 +670,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -719,7 +691,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -739,7 +710,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -759,7 +729,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'validate-change',
@@ -777,7 +746,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'validate-change',
@@ -795,7 +763,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'validate-change',
@@ -812,7 +779,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -833,7 +799,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
@@ -853,7 +818,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'jhbuild',
@@ -874,7 +838,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'jhbuild',
@@ -896,7 +859,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'fetch-branch-references',
             'checkout-specific-revision',
             'show-identifier',
-            'apply-patch',
             'checkout-pull-request',
             'validate-change-content',
             'validate-change',
@@ -906,33 +868,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'buildbot-check-config-for-ews',
             'shared-unit-tests',
             'resultsdbpy-unit-tests'
-        ],
-        'Commit-Queue': [
-            'configure-build',
-            'validate-change',
-            'validate-committer-and-reviewer',
-            'configuration',
-            'clean-up-git-repo',
-            'set-credential-helper',
-            'checkout-source',
-            'fetch-branch-references',
-            'update-working-directory',
-            'show-identifier',
-            'install-hooks',
-            'apply-patch',
-            'validate-squashed',
-            'add-reviewer-to-commit-message',
-            'validate-commit-message',
-            'kill-old-processes',
-            'compile-webkit',
-            'kill-old-processes',
-            'validate-change',
-            'check-status-on-other-ewses',
-            'layout-tests',
-            'validate-change',
-            'canonicalize-commit',
-            'push-commit-to-webkit-repo',
-            'set-build-summary'
         ],
         'Merge-Queue': [
             'configure-build',
@@ -1016,6 +951,21 @@ class TestExpectedBuildSteps(unittest.TestCase):
                 buildSteps.append(step_name)
             self.assertTrue(builder['name'] in self.expected_steps, 'Missing expected steps for builder: %s\n Actual result is %s' % (builder['name'], buildSteps))
             self.assertListEqual(self.expected_steps[builder['name']], buildSteps, msg="Expected steps don't match for builder %s" % builder['name'])
+
+    def test_steps_that_report_declare_the_suite_they_run(self):
+        for builder in self.config['builders']:
+            for step in builder['factory'].steps:
+                step_class = step.step_class
+                if not issubclass(step_class, ResultsDBReportMixin) or not step_class.reports_to_results_db:
+                    continue
+
+                expected_suite = 'javascriptcore-tests' if issubclass(step_class, RunJavaScriptCoreTests) else 'layout-tests'
+                self.assertIn(step_class.suite, ResultsDatabase.SUITES, msg='%s reports %s to the unknown suite %r' % (
+                    builder['name'], step_class.__name__, step_class.suite,
+                ))
+                self.assertEqual(step_class.suite, expected_suite, msg='%s reports %s to the %r suite' % (
+                    builder['name'], step_class.__name__, step_class.suite,
+                ))
 
     def test_unnecessary_expected_steps(self):
         builders = set()

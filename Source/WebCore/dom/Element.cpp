@@ -1418,7 +1418,7 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
     if (canShortCircuitScroll())
         return;
 
-    document->updateLayoutIgnorePendingStylesheets(LayoutOptions::UpdateCompositingLayers);
+    document->updateLayoutIgnorePendingStylesheets({ LayoutOptions::UpdateCompositingLayers, LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible }, this);
 
     if (document->scrollingElement() == this) {
         // If the element is the scrolling element and is not potentially scrollable,
@@ -5964,10 +5964,13 @@ void Element::resetComputedStyle()
         element.elementRareData()->setComputedStyle(nullptr);
     };
     reset(*this);
-    for (Ref child : descendantsOfType<Element>(*this)) {
+    for (Ref descendant : composedTreeDescendants(*this)) {
+        RefPtr child = dynamicDowncast<Element>(descendant.get());
+        if (!child)
+            continue;
         if (!child->hasRareData() || !child->elementRareData()->computedStyle() || child->hasDisplayContents() || child->hasDisplayNone())
             continue;
-        reset(child);
+        reset(*child);
     }
 }
 

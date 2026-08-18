@@ -49,7 +49,6 @@
 #include "ChromeClient.h"
 #include "CommonAtomStrings.h"
 #include "CommonVM.h"
-#include "ConstantPropertyMap.h"
 #include "ContainerNodeInlines.h"
 #include "ContextMenuClient.h"
 #include "ContextMenuController.h"
@@ -195,6 +194,7 @@
 #include "StringCallback.h"
 #include "StyleAdjuster.h"
 #include "StyleDocumentScope.h"
+#include "StyleEnvironmentVariables.h"
 #include "StyleResolver.h"
 #include "SubframeLoader.h"
 #include "SubresourceLoader.h"
@@ -1004,12 +1004,15 @@ void Page::updateTopDocumentSyncData(const DocumentSyncSerializationData& data)
     case DocumentSyncDataType::IsAutofocusProcessed:
     case DocumentSyncDataType::IsClosing:
     case DocumentSyncDataType::UserDidInteractWithPage:
-#if ENABLE(DOM_AUDIO_SESSION)
-    case DocumentSyncDataType::AudioSessionType:
-#endif
         protect(m_topDocumentSyncData)->update(data);
         break;
 #if ENABLE(DOM_AUDIO_SESSION)
+    case DocumentSyncDataType::AudioSessionType:
+        protect(m_topDocumentSyncData)->update(data);
+        // The type was set by a document in another process. Each process computes its own audio
+        // session category, so apply the override the type implies here too.
+        DOMAudioSession::applyTypeToAudioSessionCategoryOverride(m_topDocumentSyncData->audioSessionType);
+        break;
     case DocumentSyncDataType::AudioSessionState:
         protect(m_topDocumentSyncData)->update(data);
         forEachDocument([](Document& document) {
@@ -1028,6 +1031,12 @@ void Page::updateTopDocumentSyncData(const DocumentSyncSerializationData& data)
 void Page::updateTopDocumentSyncData(Ref<DocumentSyncData>&& data)
 {
     m_topDocumentSyncData = WTF::move(data);
+
+#if ENABLE(DOM_AUDIO_SESSION)
+    // This path carries the whole state at once, when a remote page is set up in this process. Apply
+    // the override the type implies, as the per-field path does for later changes.
+    DOMAudioSession::applyTypeToAudioSessionCategoryOverride(m_topDocumentSyncData->audioSessionType);
+#endif
 }
 
 void Page::setMainFrameURLFragment(String&& fragment)
@@ -2259,6 +2268,7 @@ void Page::syncLocalFrameInfoToRemote()
         RefPtr<LocalFrameView> frameView = frame.view();
 
         frameView->updateLayoutViewportRect();
+        frameView->updateContentsSizeForRemoteFrames();
 
         HashMap<FrameIdentifier, Ref<RemoteFrameLayoutInfo>> childrenFrameLayoutInfo;
         for (RefPtr child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
@@ -3467,9 +3477,9 @@ void Page::resumeAnimatingImages()
 {
     // Drawing models which cache painted content while out-of-window (WebKit2's composited drawing areas, etc.)
     // require that we repaint animated images to kickstart the animation loop.
-    RefPtr localMainFrame = this->localMainFrame();
-    if (RefPtr view = localMainFrame ? localMainFrame->view() : nullptr)
-        view->resumeVisibleImageAnimationsIncludingSubframes();
+    forEachRootFrameView([] (LocalFrameView& view) {
+        view.resumeVisibleImageAnimationsIncludingSubframes();
+    });
 }
 
 void Page::setActivityState(OptionSet<ActivityState> activityState)
@@ -3583,9 +3593,9 @@ void Page::setIsVisibleInternal(bool isVisible)
         });
 #endif
 
-        RefPtr localMainFrame = this->localMainFrame();
-        if (RefPtr view = localMainFrame ? localMainFrame->view() : nullptr)
-            view->show();
+        forEachRootFrameView([] (LocalFrameView& view) {
+            view.show();
+        });
 
         if (m_settings->hiddenPageCSSAnimationSuspensionEnabled()) {
             forEachDocument([] (Document& document) {
@@ -3627,9 +3637,9 @@ void Page::setIsVisibleInternal(bool isVisible)
 #endif
 
         suspendScriptedAnimations();
-        RefPtr localMainFrame = this->localMainFrame();
-        if (RefPtr view = localMainFrame ? localMainFrame->view() : nullptr)
-            view->hide();
+        forEachRootFrameView([] (LocalFrameView& view) {
+            view.hide();
+        });
     }
 
     forEachDocument([] (Document& document) {
@@ -4400,7 +4410,7 @@ void Page::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
     m_unobscuredSafeAreaInsets = insets;
 
     forEachDocument([&] (Document& document) {
-        document.constantProperties().didChangeSafeAreaInsets();
+        document.styleScope().environmentVariables().didChangeSafeAreaInsets();
     });
 }
 
@@ -4455,9 +4465,11 @@ bool Page::useDarkAppearance() const
     if (m_useDarkAppearanceOverride)
         return m_useDarkAppearanceOverride.value();
 
+    if (mainFrame().isPrinting())
+        return false;
+
     if (RefPtr localMainFrame = this->localMainFrame()) {
-        // Printed page should always use light appearance (i.e return false)
-        // FIXME: implement this logic for remote main frames.
+        // Media type can be non-screen without printing (Inspector emulation, client override).
         RefPtr view = localMainFrame->view();
         if (!view || view->mediaType() != screenAtom())
             return false;
@@ -4491,7 +4503,7 @@ void Page::setFullscreenInsets(const FloatBoxExtent& insets)
     m_fullscreenInsets = insets;
 
     forEachDocument([] (Document& document) {
-        document.constantProperties().didChangeFullscreenInsets();
+        document.styleScope().environmentVariables().didChangeFullscreenInsets();
     });
 }
 
@@ -4503,7 +4515,7 @@ void Page::setFullscreenAutoHideDuration(Seconds duration)
     m_fullscreenAutoHideDuration = duration;
 
     forEachDocument([&] (Document& document) {
-        document.constantProperties().setFullscreenAutoHideDuration(duration);
+        document.styleScope().environmentVariables().setFullscreenAutoHideDuration(duration);
     });
 }
 
@@ -4717,6 +4729,17 @@ void Page::forEachLocalFrame(NOESCAPE const Function<void(LocalFrame&)>& functor
 
     for (auto& frame : frames)
         functor(frame);
+}
+
+void Page::forEachRootFrameView(NOESCAPE const Function<void(LocalFrameView&)>& functor)
+{
+    auto views = WTF::compactMap<1>(m_rootFrames, [](auto& rootFrame) -> RefPtr<LocalFrameView> {
+        ASSERT(rootFrame->isRootFrame());
+        return rootFrame->view();
+    });
+
+    for (auto& view : views)
+        functor(view);
 }
 
 void Page::forEachWindowEventLoop(NOESCAPE const Function<void(WindowEventLoop&)>& functor)
