@@ -84,7 +84,7 @@ public:
     void unregisterWithDocument(Document&);
 
     void clientWillBeginAutoplaying() final;
-    void clientWillBeginPlayback(CompletionHandler<void(bool)>&&) final;
+    Ref<GenericPromise> clientWillBeginPlayback() final;
     bool clientWillPausePlayback() final;
     void clientCharacteristicsChanged(bool) final;
 
@@ -93,6 +93,10 @@ public:
     void inActiveDocumentChanged();
 
     Expected<void, MediaPlaybackDenialExplanation> playbackStateChangePermitted(MediaPlaybackState) const;
+    // playbackStateChangePermitted() only denies an audible element, so play() is permitted while
+    // the resource is believed to be silent (no audio track discovered yet, muted, or volume zero)
+    // and denied once it becomes audible.
+    bool playbackPermitted() const final { return playbackStateChangePermitted(MediaPlaybackState::Playing).has_value(); }
     bool autoplayPermitted() const;
     bool dataLoadingPermitted() const;
     WEBCORE_EXPORT MediaPlayer::BufferingPolicy preferredBufferingPolicy() const;

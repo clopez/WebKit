@@ -31,18 +31,12 @@
 
 typedef struct _GTlsCertificate GTlsCertificate;
 typedef struct _GUnixFDList GUnixFDList;
-typedef struct _GVariant GVariant;
 
 namespace IPC {
 
 template<> struct ArgumentCoder<GRefPtr<GByteArray>> {
     static void encode(Encoder&, const GRefPtr<GByteArray>&);
     static std::optional<GRefPtr<GByteArray>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<GRefPtr<GVariant>> {
-    static void encode(Encoder&, const GRefPtr<GVariant>&);
-    static std::optional<GRefPtr<GVariant>> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<GRefPtr<GTlsCertificate>> {

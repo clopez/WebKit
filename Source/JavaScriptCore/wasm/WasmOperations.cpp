@@ -332,10 +332,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, void, (void* sp,
 
         switch (argType.kind()) {
         case TypeKind::Void:
-        case TypeKind::Func:
-        case TypeKind::Struct:
         case TypeKind::Structref:
-        case TypeKind::Array:
         case TypeKind::Arrayref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
@@ -344,9 +341,6 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, void, (void* sp,
         case TypeKind::Nofuncref:
         case TypeKind::Noexternref:
         case TypeKind::I31ref:
-        case TypeKind::Rec:
-        case TypeKind::Sub:
-        case TypeKind::Subfinal:
         case TypeKind::V128:
             RELEASE_ASSERT_NOT_REACHED();
         case TypeKind::RefNull:
@@ -423,6 +417,8 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, void, (void* sp,
 ALWAYS_INLINE void assertCalleeIsReferenced(CallFrame* frame, JSWebAssemblyInstance* instance)
 {
 #if ASSERT_ENABLED
+    if (!frame->callee().isNativeCallee())
+        return;
     CalleeGroup& calleeGroup = *instance->calleeGroup();
     Wasm::Callee* callee = uncheckedDowncast<Wasm::Callee>(frame->callee().asNativeCallee());
     TriState status;

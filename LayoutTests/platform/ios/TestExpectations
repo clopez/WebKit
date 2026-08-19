@@ -49,6 +49,8 @@ fast/snapshot [ Skip ]
 fast/forms/switch/pointer-tracking-there-and-back-again-rtl.html [ Skip ]
 fast/forms/switch/pointer-tracking-there-and-back-again.html [ Skip ]
 fast/forms/switch/pointer-tracking.html [ Skip ]
+fast/forms/switch/pointer-tracking-vertical-lr.html [ Skip ]
+fast/forms/switch/pointer-tracking-transform.html [ Skip ]
 
 # Shadow of Liquid Glass switches is different between transform and zoom.
 fast/forms/switch/zoom-approximates-transform.html [ Skip ]
@@ -130,6 +132,7 @@ fast/scrolling/ios [ Pass ]
 fast/speechrecognition/ios [ Pass ]
 fast/viewport/ios [ Pass ]
 fast/visual-viewport/ios/ [ Pass ]
+http/tests/visual-viewport/ios/ [ Pass ]
 scrollingcoordinator [ Pass ]
 scrollingcoordinator/mac [ Skip ]
 fast/web-share [ Pass ]
@@ -7321,8 +7324,6 @@ webkit.org/b/206952 imported/w3c/IndexedDB-private-browsing/idbindex_getKey6.htm
 
 webkit.org/b/209234 [ Release ] platform/ios/ios/plugin/youtube-flash-plugin-iframe-no-height-or-width.html [ Pass Failure ]
 
-webkit.org/b/214422 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/suspend-after-construct.html [ Pass Failure ]
-
 webkit.org/b/214730 [ Debug ] imported/w3c/web-platform-tests/webrtc/RTCCertificate-postMessage.html [ Skip ]
 webkit.org/b/214730 [ Debug ] imported/w3c/web-platform-tests/webrtc/RTCCertificate.html [ Skip ]
 webkit.org/b/214730 [ Debug ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-generateCertificate.html [ Skip ]
@@ -8621,7 +8622,6 @@ webkit.org/b/319761 imported/w3c/web-platform-tests/css/css-viewport/zoom/perspe
 # (the drag target is computed from glyph rects + a fixed offset). Needs a more robust target; follow-up.
 webkit.org/b/319784 editing/selection/ios/bidi-visually-contiguous-selection-multiline.html [ Failure ]
 
-webkit.org/b/317884 imported/w3c/web-platform-tests/digital-credentials/get-non-fully-active.https.html [ Skip ]
 webkit.org/b/256299 imported/w3c/web-platform-tests/digital-credentials/allow-attribute-with-get.https.html [ Pass Failure ]
 
 webkit.org/b/318157 [ Debug ] imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.any.sharedworker.html [ Failure ]
@@ -8711,3 +8711,9 @@ webkit.org/b/321691 [ Release ] imported/w3c/web-platform-tests/web-locks/bfcach
 webkit.org/b/321726 imported/w3c/web-platform-tests/largest-contentful-paint/observe-svg-data-uri-image.html [ Pass Failure ]
 
 webkit.org/b/321701 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/button-in-popover.html [ Failure ]
+
+# webkit.org/b/321110 NEW TEST(317810@main): [iOS macOS]4 tests in imported/w3c/web-platform-tests/webtransport/idlharness are constant failure
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.worker.html [ Failure ]

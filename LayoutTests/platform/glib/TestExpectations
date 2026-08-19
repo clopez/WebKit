@@ -1041,9 +1041,6 @@ accessibility/css-content-alt-text.html [ Skip ]
 # AXObjectCache::announce not implemented.
 accessibility/announcement-notification.html [ Skip ]
 
-# Failing since introduced.
-accessibility/focus-change-id-mutation-and-removal-crash.html [ Skip ]
-
 # AccessibilityUIElement::isInTable is not implemented.
 accessibility/table-ancestry.html [ Skip ]
 
@@ -1119,12 +1116,6 @@ accessibility/loading-iframe-updates-axtree.html [ Skip ]
 # Missing AccessibilityUIElement::{isBusy, isAtomicLiveRegion, liveRegionStatus, liveRegionRelevant} implementations.
 accessibility/live-region-attributes-update-after-dynamic-change.html [ Skip ]
 
-# Missing AccessibilityUIElement::focusableAncestor implementation.
-accessibility/focusable-ancestor.html [ Failure ]
-
-# Missing AccessibilityUIElement::{editableAncestor, highestEditableAncestor} implementations.
-accessibility/editable-ancestor.html [ Failure ]
-
 # Timing out since it was added in https://bugs.webkit.org/show_bug.cgi?id=239434.
 accessibility/text-updates-after-dynamic-change.html [ Skip ]
 
@@ -1133,9 +1124,6 @@ accessibility/aria-multiline.html [ Skip ]
 
 # Failing since added in https://bugs.webkit.org/show_bug.cgi?id=244069.
 accessibility/dynamically-ignored-canvas.html [ Skip ]
-
-# Missing AccessibilityUIElement::takeFocus().
-accessibility/basic-focusability.html [ Skip ]
 
 # Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
 accessibility/aria-controlled-table-row-visibility.html [ Skip ]
@@ -1177,8 +1165,6 @@ accessibility/visible-character-range-vertical-rl.html [ Skip ]
 
 accessibility/display-contents/tree-and-treeitems.html [ Failure ]
 
-webkit.org/b/212805 accessibility/svg-text.html [ Failure ]
-
 accessibility/combobox/mac [ Skip ]
 accessibility/shadow-dom/reference-target/mac [ Skip ]
 
@@ -1186,9 +1172,6 @@ accessibility/textarea-line-for-index.html [ Skip ]
 
 # AX support for datetime input elements needs to be completed in glib platforms.
 accessibility/datetime [ Skip ]
-
-# Requires AccessibilityUIElement::dismiss to return whether or not it was handled.
-accessibility/dismiss-action-returns-whether-keyevent-handled.html [ Skip ]
 
 # Different roles
 accessibility/contenteditable-values.html [ Skip ]
@@ -1198,11 +1181,6 @@ accessibility/aria-table-indextext.html [ Failure ]
 
 # Started failing on [313982@main..313983@main].
 webkit.org/b/315858 [ Release ] accessibility/aria-owns-deep-chain-no-timeout.html [ Timeout Pass ]
-
-# Added in r263823. Both tests are timing out.
-webkit.org/b/213874 accessibility/keyevents-for-increment-actions-with-node-removal.html [ Skip ]
-webkit.org/b/213874 accessibility/keyevents-posted-for-increment-actions.html [ Skip ]
-webkit.org/b/213874 accessibility/keyevents-posted-for-dismiss-action.html [ Skip ]
 
 webkit.org/b/199860 accessibility/button-with-aria-haspopup-role.html [ Failure ]
 webkit.org/b/199860 accessibility/datalist.html [ Failure ]
@@ -1273,9 +1251,6 @@ webkit.org/b/232249 accessibility/video-element-url-attribute.html [ Failure ]
 webkit.org/b/232255 accessibility/math-has-non-presentational-children.html [ Failure ]
 
 webkit.org/b/232256 accessibility/auto-fill-crash.html [ Failure ]
-
-# Times out due to missing AccessibilityUIElement::takeFocus
-http/tests/accessibility/focus-text-field-in-iframe.html [ Skip ]
 
 # Times out due to missing AccessibilityUIElement::linkedUIElementAtIndex() implementation.
 accessibility/combobox/combobox-linked-listbox-destroyed.html [ Skip ]
@@ -4339,7 +4314,7 @@ imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSel
 imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-002.html [ ImageOnlyFailure ]
 
 # Flakily crashing on GTK and WPE bots
-webkit.org/b/286131 imported/w3c/web-platform-tests/css/css-transforms/transform-box/cssbox-content-box-002.html [ Pass Crash ImageOnlyFailure ]
+webkit.org/b/286131 imported/w3c/web-platform-tests/css/css-transforms/transform-box/cssbox-content-box-002.html [ Pass Crash ImageOnlyFailure Timeout ]
 
 imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/mouse-wheel.html [ Skip ]
@@ -4647,7 +4622,6 @@ webkit.org/b/278719 fast/events/touch/multi-touch-some-without-handlers.html [ T
 webkit.org/b/278719 fast/events/touch/ontouchstart-active-selector.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/page-scaled-touch-gesture-click.html [ Timeout ]
 webkit.org/b/278719 fast/events/touch/scroll-without-mouse-lacks-mousemove-events.html [ Failure ]
-webkit.org/b/278719 fast/events/touch/send-oncancel-event.html [ Timeout ]
 webkit.org/b/278719 fast/events/touch/touch-constructor.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/touch-input-element-change-documents.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/touch-scaled-scrolled.html [ Failure ]
@@ -4895,6 +4869,8 @@ webkit.org/b/303873 imported/w3c/web-platform-tests/trusted-types/navigate-to-ja
 
 # No USE(AUDIO_SESSION) support:
 media/volume-activate-audio-session.html [ Skip ]
+media/audio-session-not-activated-for-denied-audible-element.html [ Skip ]
+media/audio-session-not-activated-when-unmuting-denied-element.html [ Skip ]
 
 # Does not work on glib platforms
 http/tests/performance/performance-resource-timing-cross-origin-media-with-cors.html [ Skip ]

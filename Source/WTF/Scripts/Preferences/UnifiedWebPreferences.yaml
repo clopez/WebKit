@@ -7507,17 +7507,17 @@ SKAttributionEnabled:
 
 SVGExternalResourcesEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "SVG external resources"
   humanReadableDescription: "Enable referencing SVG resources (paint servers, etc.) via external or data: URLs"
   defaultValue:
     WebCore:
-      default: false
+      default: true
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
 
 SWVPDecodersAlwaysEnabled:
   type: bool
@@ -9956,7 +9956,7 @@ WasmJSTypesEnabled:
   status: testable
   category: javascript
   humanReadableName: "WebAssembly JS Types"
-  humanReadableDescription: "Enable the js-types proposal type() methods on WebAssembly.Memory/Table/Global/Tag prototypes."
+  humanReadableDescription: "Enable the js-types proposal: type() on WebAssembly.Memory/Table/Global/Tag, and the type field on WebAssembly.Module.imports/exports descriptors."
   webcoreBinding: none
   jscOptionName: useWasmJSTypes
   sharedPreferenceForWebProcess: true

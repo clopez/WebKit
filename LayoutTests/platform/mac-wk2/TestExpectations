@@ -1044,8 +1044,6 @@ webkit.org/b/224294 [ Debug ] inspector/indexeddb/requestDatabaseNames.html [ Pa
 
 webkit.org/b/224633 media/presentationmodechanged-fired-once.html [ Pass Timeout ]
 
-webkit.org/b/225430 [ arm64 ] http/tests/inspector/network/resource-sizes-network.html [ Pass Failure ]
-
 webkit.org/b/225488 fast/scrolling/mac/rubberband-overflow-in-wheel-region-root-jiggle.html [ Pass Timeout ]
 
 webkit.org/b/225498 fast/scrolling/mac/overflow-scrollbars-toggle-dark-mode.html [ Pass ImageOnlyFailure ]
@@ -2409,8 +2407,6 @@ webkit.org/b/317173 [ arm64 ] fast/webgpu/nocrash/fuzz-298315.html [ Pass Crash 
 
 webkit.org/b/317857 [ Debug ] http/tests/site-isolation/frame-index.html [ Skip ]
 
-webkit.org/b/317884 imported/w3c/web-platform-tests/digital-credentials/get-non-fully-active.https.html [ Failure ]
-
 webkit.org/b/318150 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-border-area-border-shape-overflow.html [ ImageOnlyFailure ]
 webkit.org/b/318150 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-border-area-border-shape.html [ ImageOnlyFailure ]
 
@@ -2441,8 +2437,6 @@ webkit.org/b/319798 [ arm64 ] imported/w3c/web-platform-tests/media-source/media
 
 webkit.org/b/320245 [ Release x86_64 ] imported/w3c/web-platform-tests/web-locks/bfcache/abort.tentative.https.html [ Pass Crash ]
 
-webkit.org/b/320913 http/tests/security/contentSecurityPolicy/multipart-three-part.py [ Pass Crash Timeout ]
-
 webkit.org/b/320326 imported/w3c/web-platform-tests/css/css-highlight-api/painting/custom-highlight-dynamic-font-metrics-001.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/321103 [ Debug ] imported/w3c/web-platform-tests/uievents/textInput/enter-textarea-contenteditable.html [ Pass Failure ]
@@ -2464,3 +2458,13 @@ webkit.org/b/321524 [ Debug ] imported/w3c/web-platform-tests/payment-request/pa
 webkit.org/b/321726 imported/w3c/web-platform-tests/largest-contentful-paint/observe-svg-data-uri-image.html [ Pass Failure ]
 
 webkit.org/b/321823 [ Debug ] imported/w3c/web-platform-tests/fullscreen/model/move-to-fullscreen-iframe.html [ Pass Crash ]
+
+# webkit.org/b/321110 NEW TEST(317810@main): [iOS macOS]4 tests in imported/w3c/web-platform-tests/webtransport/idlharness are constant failure
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.serviceworker.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.sharedworker.html [ Failure ]
+imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.worker.html [ Failure ]
+
+webkit.org/b/322051 [ Release ] media/picture-in-picture/picture-in-picture-interruption.html [ Pass Failure ]
+
+webkit.org/b/321961 [ Debug ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audionode-interface/audionode-channel-rules.html [ Pass Crash ]

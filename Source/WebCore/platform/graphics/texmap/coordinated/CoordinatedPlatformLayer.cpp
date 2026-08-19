@@ -61,6 +61,9 @@ Ref<CoordinatedPlatformLayer> CoordinatedPlatformLayer::create()
 CoordinatedPlatformLayer::CoordinatedPlatformLayer(Client* client)
     : m_client(client)
     , m_id(PlatformLayerIdentifier::generate())
+#if USE(SKIA)
+    , m_threadSafeGrContext(m_client ? m_client->paintingEngine().threadSafeGrContext() : nullptr)
+#endif
 {
     ASSERT(isMainThread());
 }
@@ -377,6 +380,17 @@ void CoordinatedPlatformLayer::setBackfaceVisibility(bool backfaceVisibility)
 
     m_backfaceVisibility = backfaceVisibility;
     m_pendingChanges.add(Change::BackfaceVisibility);
+    notifyCompositionRequired();
+}
+
+void CoordinatedPlatformLayer::setBackgroundColor(const Color& backgroundColor)
+{
+    assertIsHeld(m_lock);
+    if (m_backgroundColor == backgroundColor)
+        return;
+
+    m_backgroundColor = backgroundColor;
+    m_pendingChanges.add(Change::BackgroundColor);
     notifyCompositionRequired();
 }
 
@@ -975,16 +989,6 @@ void CoordinatedPlatformLayer::didPaintTile()
         m_client->didPaintTile();
 }
 
-#if USE(SKIA)
-sk_sp<GrContextThreadSafeProxy> CoordinatedPlatformLayer::threadSafeGrContext() const
-{
-    if (!m_client)
-        return nullptr;
-
-    return m_client->paintingEngine().threadSafeGrContext();
-}
-#endif
-
 void CoordinatedPlatformLayer::waitUntilPaintingComplete()
 {
     Locker locker { m_lock };
@@ -1140,6 +1144,11 @@ void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<Com
             m_pendingChanges.remove(Change::BackfaceVisibility);
         }
 
+        if (m_pendingChanges.contains(Change::BackgroundColor)) {
+            layer.setBackgroundColor(m_backgroundColor);
+            m_pendingChanges.remove(Change::BackgroundColor);
+        }
+
         if (m_pendingChanges.contains(Change::Opacity)) {
             layer.setOpacity(m_opacity);
             m_pendingChanges.remove(Change::Opacity);
@@ -1150,6 +1159,7 @@ void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<Com
                 if (!m_backingStore)
                     m_backingStore = CoordinatedBackingStore::create();
                 layer.setBackingStore(m_backingStore.get());
+                layer.setBackgroundColor({ });
 
                 if (auto* animatedBackingStoreClient = m_backingStoreProxy->animatedBackingStoreClient())
                     layer.setAnimatedBackingStoreClient(animatedBackingStoreClient);
@@ -1343,6 +1353,11 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
         if (m_pendingChanges.contains(Change::BackfaceVisibility)) {
             layer.setBackfaceVisibility(m_backfaceVisibility);
             m_pendingChanges.remove(Change::BackfaceVisibility);
+        }
+
+        if (m_pendingChanges.contains(Change::BackgroundColor)) {
+            layer.setBackgroundColor(m_backgroundColor);
+            m_pendingChanges.remove(Change::BackgroundColor);
         }
 
         if (m_pendingChanges.contains(Change::Opacity)) {
