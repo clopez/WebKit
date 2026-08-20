@@ -249,6 +249,7 @@ enum class DragApplicationFlags : uint8_t;
 enum class DragHandlingMethod : uint8_t;
 enum class DragEventHandled : bool;
 enum class DeviceOrientationOrMotionPermissionState : uint8_t;
+enum class EditAction : uint8_t;
 enum class EventHandling : uint8_t;
 enum class EventMakesGamepadsVisible : bool;
 enum class ExceptionCode : uint8_t;
@@ -878,9 +879,9 @@ public:
     void frameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier, const WebCore::FrameTreeSyncSerializationData&);
     void allFrameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier, Ref<WebCore::FrameTreeSyncData>&&);
 
-    // Clamps local iframe-root children's exposedContentRect to the embedder-visible rect carried in
-    // the parent's childrenFrameLayoutInfo.
-    void updateExposedRectFromParent(WebCore::Frame& parentCoreFrame);
+    // Updates visible rect state (e.g. windowClipRect and exposedContentRect) in this process using
+    // clipping rects from a parent frame process.
+    void updateChildFrameVisibleRectsFromParent(WebCore::Frame& parentCoreFrame);
 
     void updateUserActivationState(const Vector<WebCore::FrameIdentifier>&, MonotonicTime);
     void consumeUserActivations(const Vector<WebCore::FrameIdentifier>&);
@@ -1439,7 +1440,7 @@ public:
     bool NODELETE isSelectTrailingWhitespaceEnabled() const;
     void NODELETE setSelectTrailingWhitespaceEnabled(bool);
 
-    void replaceSelectionWithText(WebCore::LocalFrame*, const String&);
+    void replaceSelectionWithText(WebCore::LocalFrame*, const String&, WebCore::EditAction);
     void clearSelection();
     void restoreSelectionInFocusedEditableElement();
 
