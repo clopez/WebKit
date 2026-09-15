@@ -1063,6 +1063,9 @@ private:
                     }
                     
                     if (structure) {
+                        m_interpreter.execute(indexInBlock); // Push CFA over this node after we get the state before.
+                        alreadyHandled = true; // Don't allow the default constant folder to do things to this.
+                        m_insertionSet.insertCheck(indexInBlock, node->origin, node->children);
                         node->convertToNewObject(m_graph.registerStructure(structure));
                         changed = true;
                         break;
@@ -1403,6 +1406,7 @@ private:
                 case NewAsyncFunction: {
                     node->convertToIdentityOn(node->child1()->child1().node());
                     node->child1().setUseKind(KnownCellUse);
+                    m_interpreter.execute(indexInBlock); // Catch the fact that we may overwrite a stale AbstractValue.
                     eliminated = true;
                     break;
                 }

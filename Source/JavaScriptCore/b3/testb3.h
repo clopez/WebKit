@@ -665,6 +665,7 @@ void testSelectInvert();
 void testCheckSelect();
 void testCheckSelectCheckSelect();
 void testCheckSelectAndCSE();
+void testCheckSelectAndDeadCheckCSE();
 void testPowDoubleByIntegerLoop(double xOperand, int32_t yOperand);
 double b3Pow(double x, int y);
 void testTruncOrHigh();
@@ -1259,6 +1260,7 @@ void testShuffleDoesntTrashCalleeSaves();
 void testDemotePatchpointTerminal();
 void testReportUsedRegistersLateUseFollowedByEarlyDefDoesNotMarkUseAsDead();
 void testInfiniteLoopDoesntCauseBadHoisting();
+void testBackwardsDominatorsWithMultipleBackEdges();
 void testDivImmArgFloat(float, float);
 void testDivImmsFloat(float, float);
 void testModArgDouble(double);
@@ -1436,5 +1438,6 @@ void testCCmpNegatedAnd32(int32_t, int32_t);
 void testCCmpNegatedOr32(int32_t, int32_t);
 void testCCmpMixedWidth32And64(int32_t, int64_t, int32_t);
 void testCCmpMixedWidth64And32(int64_t, int32_t);
+void testCCmpChainRollback(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
 
 #endif // ENABLE(B3_JIT)

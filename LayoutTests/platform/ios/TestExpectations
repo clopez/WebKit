@@ -263,6 +263,9 @@ fast/images/jpegxl-with-color-profile.html [ Pass ]
 # Video as an image source is only supported on macOS and iOS.
 fast/images/video-as-image.html [ Pass ]
 
+# ImageIO rejects an acTL declaring zero frames, so the default image never decodes.
+fast/images/apng-acTL-zero-frame-count.html [ Skip ]
+
 # No fullscreen API on iOS
 fullscreen
 http/tests/fullscreen
@@ -2849,6 +2852,9 @@ fast/canvas/webgl/texImage2D-video-flipY-true.html [ Skip ]
 
 # rendering to floating point FBOs not supported on iOS
 fast/canvas/webgl/readPixels-float.html [ Skip ]
+
+# WEBGL_draw_instanced_base_vertex_base_instance is unavailable on the iOS simulator.
+webkit.org/b/319507 fast/canvas/webgl/draw-elements-base-vertex-out-of-bounds.html [ Skip ]
 
 # No colorspaces in iOS WebGL yet.
 webkit.org/b/247166 fast/canvas/webgl/colorspaces-test.html [ Failure ]

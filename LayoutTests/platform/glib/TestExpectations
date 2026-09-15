@@ -1707,6 +1707,8 @@ webkit.org/b/284429 imported/w3c/web-platform-tests/webcodecs/audio-encoder.http
 # is not supported) is expected to fail.
 http/wpt/webcodecs/H264-422.html [ Failure ]
 
+http/wpt/webcodecs/configure-encoder-big-frame-size.html [ Pass Failure ]
+
 fast/mediacapturefromelement/CanvasCaptureMediaStream-capture-out-of-DOM-canvas-webgl.html [ Pass Failure ]
 
 
@@ -1717,9 +1719,6 @@ webkit.org/b/264665 http/wpt/webcodecs/videoFrame-webglCanvasImageSource.html [ 
 http/wpt/webcodecs/encode-bitrate-change.html [ Failure ]
 
 webkit.org/b/264666 imported/w3c/web-platform-tests/encrypted-media/clearkey-generate-request-disallowed-input.https.html [ Failure ]
-
-
-
 
 webkit.org/b/187804 imported/w3c/web-platform-tests/media-source/mediasource-seek-beyond-duration.html [ Failure Pass ]
 
@@ -2400,6 +2399,13 @@ http/tests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-offscr
 
 webgl/webgl-draft-extensions-flag-default.html [ Skip ]
 webgl/webgl-draft-extensions-flag-on.html [ Skip ]
+
+# ANGLE disables base vertex/base instance on Linux.
+webkit.org/b/319507 fast/canvas/webgl/draw-elements-base-vertex-out-of-bounds.html [ Skip ]
+
+# WEBGL2 failures
+webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-render-snorm.html [ Failure ]
+webkit.org/b/251107 webgl/2.0.y/conformance2/textures/video/tex-2d-r16f-red-half_float.html [ Timeout Pass ]
 
 # WEBGL2 flakies
 webkit.org/b/251106 webgl/1.0.x/conformance/offscreencanvas/context-lost-restored-worker.html [ Pass Timeout ]

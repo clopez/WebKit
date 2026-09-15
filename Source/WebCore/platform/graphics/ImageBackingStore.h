@@ -47,11 +47,16 @@ class ImageBackingStore {
 public:
     static std::unique_ptr<ImageBackingStore> create(const IntSize& size, bool premultiplyAlpha = true)
     {
-        return std::unique_ptr<ImageBackingStore>(new ImageBackingStore(size, premultiplyAlpha));
+        auto backingStore = std::unique_ptr<ImageBackingStore>(new ImageBackingStore(size, premultiplyAlpha));
+        if (!backingStore->m_pixels)
+            return nullptr;
+        return backingStore;
     }
 
     static std::unique_ptr<ImageBackingStore> create(const ImageBackingStore& other)
     {
+        if (!other.m_pixels)
+            return nullptr;
         return std::unique_ptr<ImageBackingStore>(new ImageBackingStore(other));
     }
 
@@ -86,6 +91,12 @@ public:
 
     const IntSize& size() const { return m_size; }
     const IntRect& frameRect() const { return m_frameRect; }
+
+    uint32_t& pixelAt(int x, int y)
+    {
+        ASSERT(inBounds(IntPoint(x, y)));
+        return m_pixelsSpan[y * m_size.width() + x];
+    }
 
     void clear()
     {
@@ -139,12 +150,6 @@ public:
     {
         ASSERT(inBounds(IntPoint(x, y)));
         return m_pixelsSpan.subspan(y * m_size.width() + x);
-    }
-
-    uint32_t& pixelAt(int x, int y)
-    {
-        ASSERT(inBounds(IntPoint(x, y)));
-        return m_pixelsSpan[y * m_size.width() + x];
     }
 
     void setPixel(uint32_t& destination, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
@@ -207,11 +212,12 @@ private:
         : m_premultiplyAlpha(premultiplyAlpha)
     {
         ASSERT(!size.isEmpty() && !isOverSize(size));
-        setSize(size);
+        RELEASE_ASSERT(setSize(size));
     }
 
     ImageBackingStore(const ImageBackingStore& other)
         : m_size(other.m_size)
+        , m_frameRect(other.m_frameRect)
         , m_premultiplyAlpha(other.m_premultiplyAlpha)
     {
         ASSERT(!m_size.isEmpty() && !isOverSize(m_size));
