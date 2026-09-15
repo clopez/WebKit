@@ -4,6 +4,8 @@ set(libwebrtc_DERIVED_SOURCES_DIR "${CMAKE_BINARY_DIR}/libwebrtc/DerivedSources"
 file(MAKE_DIRECTORY ${libwebrtc_DERIVED_SOURCES_DIR})
 
 enable_language(ASM)
+include(WebRTCAssemblerFlags)
+WEBRTC_SET_ASSEMBLER_FLAGS()
 
 add_definitions(-DLIBYUV_DISABLE_SME)
 add_definitions(-DLIBYUV_DISABLE_SVE)
