@@ -3220,12 +3220,6 @@ else ()
         list(APPEND vpx_SOURCES
             Source/third_party/libvpx/source/libvpx/vpx_ports/aarch32_cpudetect.c
         )
-    else(WTF_CPU_ARM)
-        message(FATAL_ERROR "XDO es WTF_CPU_ADDRESS32=${WTF_CPU_ADDRESS32} y WTF_CPU_ARM=${WTF_CPU_ARM}")
-        list(APPEND vpx_SOURCES
-            Source/third_party/libvpx/source/libvpx/vpx_ports/arm_cpudetect.c
-        )
-
     endif ()
 endif ()
 
@@ -3237,7 +3231,7 @@ elseif (WTF_CPU_ARM64)
     add_library(vpx OBJECT ${vpx_SOURCES})
     target_compile_options(vpx PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-march=armv8.2-a+dotprod>)
     target_compile_options(vpx PRIVATE $<$<COMPILE_LANGUAGE:C>:-march=armv8.2-a+dotprod>)
-else ()
+elseif (WTF_CPU_ARM)
     add_library(vpx OBJECT ${vpx_SOURCES})
 endif ()
 
