@@ -138,9 +138,13 @@ inline Butterfly* Butterfly::createOrGrowPropertyStorage(
     if (!oldButterfly)
         return create(vm, intendedOwner, 0, newPropertyCapacity, false, IndexingHeader(), 0);
 
-    size_t preCapacity = oldButterfly->indexingHeader()->preCapacity(structure);
-    size_t indexingPayloadSizeInBytes = oldButterfly->indexingHeader()->indexingPayloadSizeInBytes(structure);
     bool hasIndexingHeader = structure->hasIndexingHeader(intendedOwner);
+    size_t preCapacity = 0;
+    size_t indexingPayloadSizeInBytes = 0;
+    if (hasIndexingHeader) {
+        preCapacity = oldButterfly->indexingHeader()->preCapacity(structure);
+        indexingPayloadSizeInBytes = oldButterfly->indexingHeader()->indexingPayloadSizeInBytes(structure);
+    }
     Butterfly* result = createUninitialized(vm, intendedOwner, preCapacity, newPropertyCapacity, hasIndexingHeader, indexingPayloadSizeInBytes);
     // Use memcpy since this butterfly is not tied to any object yet.
     memcpy(
