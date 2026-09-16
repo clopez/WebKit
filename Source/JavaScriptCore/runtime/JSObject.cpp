@@ -888,7 +888,7 @@ bool JSObject::putInlineSlow(JSGlobalObject* globalObject, PropertyName property
                 ASSERT(customSetter);
                 // FIXME: We should only be caching these if we're not an uncacheable dictionary:
                 // https://bugs.webkit.org/show_bug.cgi?id=215347
-                slot.setCustomAccessor(obj, customSetter);
+                slot.setCustomAccessor(obj, customSetter, offset);
                 scope.release();
                 customSetter(obj->realm(), JSValue::encode(slot.thisValue()), JSValue::encode(value), propertyName);
                 return true;
@@ -898,7 +898,7 @@ bool JSObject::putInlineSlow(JSGlobalObject* globalObject, PropertyName property
                     if (customSetter) {
                         // FIXME: We should only be caching these if we're not an uncacheable dictionary:
                         // https://bugs.webkit.org/show_bug.cgi?id=215347
-                        slot.setCustomValue(obj, customSetter);
+                        slot.setCustomValue(obj, customSetter, offset);
                         RELEASE_AND_RETURN(scope, customSetter(obj->realm(), JSValue::encode(obj), JSValue::encode(value), propertyName));
                     }
                     // Avoid PutModePut because it fails for non-extensible structures.
@@ -2408,9 +2408,9 @@ bool JSObject::deleteProperty(JSCell* cell, JSGlobalObject* globalObject, Proper
             ASSERT(!isValidOffset(structure->get(vm, propertyName, attributes)));
             if (offset != invalidOffset)
                 thisObject->locationForOffset(offset)->clear();
-            if (thisObject->mayBePrototype()) [[unlikely]]
-                vm.invalidateStructureChainIntegrity(VM::StructureChainIntegrityEvent::Remove);
         }
+        if (thisObject->mayBePrototype()) [[unlikely]]
+            vm.invalidateStructureChainIntegrity(VM::StructureChainIntegrityEvent::Remove);
     } else
         slot.setConfigurableMiss();
 
@@ -2897,6 +2897,8 @@ void JSObject::freeze(VM& vm)
         Structure* oldStructure = structure();
         DeferredStructureTransitionWatchpointFire deferred(vm, oldStructure);
         setStructure(vm, Structure::freezeTransition(vm, oldStructure, &deferred));
+        if (mayBePrototype()) [[unlikely]]
+            vm.invalidateStructureChainIntegrity(VM::StructureChainIntegrityEvent::Change);
     }
 }
 
@@ -3798,6 +3800,7 @@ bool JSObject::increaseVectorLength(VM& vm, unsigned newLength)
         // The cell was already big enough for the desired length!
         for (unsigned i = vectorLength; i < availableVectorLength; ++i)
             storage->m_vector[i].clear();
+        WTF::storeStoreFence();
         storage->setVectorLength(availableVectorLength);
         return true;
     }
@@ -4107,7 +4110,7 @@ void JSObject::convertToUncacheableDictionary(VM& vm)
 }
 
 
-void JSObject::shiftButterflyAfterFlattening(const GCSafeConcurrentJSLocker&, VM& vm, Structure* structure, size_t outOfLineCapacityAfter)
+void JSObject::shiftButterflyAfterFlattening(const ConcurrentJSLocker&, VM& vm, Structure* structure, size_t outOfLineCapacityAfter)
 {
     // This could interleave visitChildren because some old structure could have been a non
     // dictionary structure. We have to be crazy careful. But, we are guaranteed to be holding

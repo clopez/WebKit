@@ -36,40 +36,131 @@ using namespace WebCore;
 
 TEST(PixelBufferConversionTests, convertImagePixels)
 {
-    auto convert = [&](PixelFormat sourceFormat, PixelFormat destinationFormat) -> std::vector<uint8_t> {
-        const PixelBufferFormat sourcePixelBufferFormat { AlphaPremultiplication::Unpremultiplied, sourceFormat, DestinationColorSpace::SRGB() };
-        const PixelBufferFormat destinationPixelBufferFormat { AlphaPremultiplication::Unpremultiplied, destinationFormat, DestinationColorSpace::SRGB() };
-        const std::vector<uint8_t> sourceBytes = { 1, 2, 3, 4 };
+    // Orange with 75% alpha.
+    const std::vector<uint8_t> orderedBytesUnpremultiplied = { 255, 127, 0, 191 };
+    const std::vector<uint8_t> orderedBytesPremultiplied = { 191, 95, 0, 191 };
+    const std::vector<uint8_t> reorderedBytesUnpremultiplied = { 0, 127, 255, 191 };
+    const std::vector<uint8_t> reorderedBytesPremultiplied = { 0, 95, 191, 191 };
+    const std::vector<uint8_t> orderedBytesOpaque = { 191, 95, 0 };
+    const std::vector<uint8_t> reorderedBytesOpaque = { 0, 95, 191 };
+    const std::vector<uint8_t> orderedBytesOpaqueAlpha = { 191, 95, 0, 255 };
+    const std::vector<uint8_t> reorderedBytesOpaqueAlpha = { 0, 95, 191, 255 };
+
+    auto convert = [&](PixelFormat sourceFormat, AlphaPremultiplication sourceAlphaPremultiplication, PixelFormat destinationFormat, AlphaPremultiplication destinationAlphaPremultiplication, bool removeAlpha = false) -> std::vector<uint8_t> {
+        const PixelBufferFormat sourcePixelBufferFormat { sourceAlphaPremultiplication, sourceFormat, ColorSpace::SRGB() };
+        const PixelBufferFormat destinationPixelBufferFormat { destinationAlphaPremultiplication, destinationFormat, ColorSpace::SRGB() };
+        const std::vector<uint8_t> sourceBytes =
+            pixelFormatIsOpaque(sourceFormat)
+                ? orderedBytesPremultiplied
+                : ((sourceAlphaPremultiplication == AlphaPremultiplication::Unpremultiplied)
+                    ? orderedBytesUnpremultiplied
+                    : orderedBytesPremultiplied);
         std::vector<uint8_t> destinationBytes(4);
         constexpr int bytesPerRow = 4;
-        const PixelBufferConversionView destination { sourcePixelBufferFormat, bytesPerRow, destinationBytes };
-        const ConstPixelBufferConversionView source { destinationPixelBufferFormat, bytesPerRow, sourceBytes };
+        const ConstPixelBufferConversionView source { sourcePixelBufferFormat, bytesPerRow, sourceBytes };
+        const PixelBufferConversionView destination { destinationPixelBufferFormat, bytesPerRow, destinationBytes };
         const IntSize size { 1, 1 };
 
         convertImagePixels(source, destination, size);
+
+        if (pixelFormatIsOpaque(destinationFormat))
+            destinationBytes.pop_back();
+
         return destinationBytes;
     };
 
-    EXPECT_EQ(convert(PixelFormat::RGBA8, PixelFormat::RGBA8), (std::vector<uint8_t> { 1, 2, 3, 4 }));
-    EXPECT_EQ(convert(PixelFormat::RGBA8, PixelFormat::BGRA8), (std::vector<uint8_t> { 3, 2, 1, 4 }));
-    EXPECT_EQ(convert(PixelFormat::RGBA8, PixelFormat::BGRX8), (std::vector<uint8_t> { 3, 2, 1, 4 }));
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), orderedBytesUnpremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), orderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), orderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), orderedBytesUnpremultiplied);
 
-    EXPECT_EQ(convert(PixelFormat::BGRA8, PixelFormat::RGBA8), (std::vector<uint8_t> { 3, 2, 1, 4 }));
-    EXPECT_EQ(convert(PixelFormat::BGRA8, PixelFormat::BGRA8), (std::vector<uint8_t> { 1, 2, 3, 4 }));
-    EXPECT_EQ(convert(PixelFormat::BGRA8, PixelFormat::BGRX8), (std::vector<uint8_t> { 3, 2, 1, 4 }));
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesUnpremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), reorderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), reorderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesUnpremultiplied);
+
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), orderedBytesUnpremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), orderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), orderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), orderedBytesUnpremultiplied);
+
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesUnpremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), reorderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), reorderedBytesPremultiplied);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesUnpremultiplied);
+
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaqueAlpha);
+
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaqueAlpha);
+
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied), orderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaque);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRX8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaque);
+
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Premultiplied), orderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, AlphaPremultiplication::Unpremultiplied), orderedBytesOpaqueAlpha);
+
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Premultiplied), reorderedBytesOpaqueAlpha);
+    EXPECT_EQ(convert(PixelFormat::RGBX8, AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, AlphaPremultiplication::Unpremultiplied), reorderedBytesOpaqueAlpha);
 }
 
 TEST(PixelBufferConversionTests, convertImagePixels2)
 {
-    auto convert = [&](PixelFormat sourceFormat, PixelFormat destinationFormat) -> std::vector<uint8_t> {
-        const PixelBufferFormat sourcePixelBufferFormat { AlphaPremultiplication::Unpremultiplied, sourceFormat, DestinationColorSpace::SRGB() };
-        const PixelBufferFormat destinationPixelBufferFormat { AlphaPremultiplication::Unpremultiplied, destinationFormat, DestinationColorSpace::SRGB() };
+    auto convert = [&](PixelFormat sourceFormat, PixelFormat destinationFormat, AlphaPremultiplication alphaFormat = AlphaPremultiplication::Unpremultiplied) -> std::vector<uint8_t> {
+        const PixelBufferFormat sourcePixelBufferFormat { alphaFormat, sourceFormat, ColorSpace::SRGB() };
+        const PixelBufferFormat destinationPixelBufferFormat { alphaFormat, destinationFormat, ColorSpace::SRGB() };
         const std::vector<uint8_t> sourceBytes = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
         std::vector<uint8_t> destinationBytes(8);
-        constexpr int destinationBytesPerRow = 4;
-        const PixelBufferConversionView destination { sourcePixelBufferFormat, destinationBytesPerRow, destinationBytes };
         constexpr int sourceBytesPerRow = 8;
-        const ConstPixelBufferConversionView source { destinationPixelBufferFormat, sourceBytesPerRow, sourceBytes };
+        const ConstPixelBufferConversionView source { sourcePixelBufferFormat, sourceBytesPerRow, sourceBytes };
+        constexpr int destinationBytesPerRow = 4;
+        const PixelBufferConversionView destination { destinationPixelBufferFormat, destinationBytesPerRow, destinationBytes };
         const IntSize size { 1, 2 };
 
         convertImagePixels(source, destination, size);
@@ -78,6 +169,9 @@ TEST(PixelBufferConversionTests, convertImagePixels2)
 
     EXPECT_EQ(convert(PixelFormat::RGBA8, PixelFormat::RGBA8), (std::vector<uint8_t> { 1, 2, 3, 4, 9, 10, 11, 12 }));
     EXPECT_EQ(convert(PixelFormat::RGBA8, PixelFormat::BGRA8), (std::vector<uint8_t> { 3, 2, 1, 4, 11, 10, 9, 12 }));
+#if !USE(SKIA)
+    EXPECT_EQ(convert(PixelFormat::BGRA8, PixelFormat::BGRX8, AlphaPremultiplication::Premultiplied), (std::vector<uint8_t> { 1, 2, 3, 4, 9, 10, 11, 12 }));
+#endif
 }
 
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
@@ -96,7 +190,7 @@ static std::vector<Float16> float16sFromByteVector(const std::vector<uint8_t>& b
     return components;
 }
 
-static std::vector<Float16> convertFloat16s(AlphaPremultiplication sourceAlphaFormat, DestinationColorSpace sourceColorSpace, AlphaPremultiplication destinationAlphaFormat, DestinationColorSpace destinationDestinationColorSpace, const std::vector<Float16>& components)
+static std::vector<Float16> convertFloat16s(AlphaPremultiplication sourceAlphaFormat, ColorSpace sourceColorSpace, AlphaPremultiplication destinationAlphaFormat, ColorSpace destinationColorSpace, const std::vector<Float16>& components)
 {
     RELEASE_ASSERT(!(components.size() % 4));
     IntSize size(components.size() / 4, 1);
@@ -104,7 +198,7 @@ static std::vector<Float16> convertFloat16s(AlphaPremultiplication sourceAlphaFo
     unsigned bytesPerRow = sourceBytes.size();
     std::vector<uint8_t> destinationBytes(bytesPerRow);
     ConstPixelBufferConversionView source { PixelBufferFormat { .alphaFormat = sourceAlphaFormat, .pixelFormat = PixelFormat::RGBA16F, .colorSpace = sourceColorSpace }, bytesPerRow, sourceBytes };
-    PixelBufferConversionView destination { PixelBufferFormat { .alphaFormat = destinationAlphaFormat, .pixelFormat = PixelFormat::RGBA16F, .colorSpace = destinationDestinationColorSpace }, bytesPerRow, destinationBytes };
+    PixelBufferConversionView destination { PixelBufferFormat { .alphaFormat = destinationAlphaFormat, .pixelFormat = PixelFormat::RGBA16F, .colorSpace = destinationColorSpace }, bytesPerRow, destinationBytes };
 
     convertImagePixels(source, destination, size);
 
@@ -122,14 +216,14 @@ static void expectFloat16sNear(const std::vector<Float16>& actual, const std::ve
 TEST(PixelBufferConversionTests, convertImagePixelsFloat16Identical)
 {
     std::vector<Float16> sourceFloat16s { 3.0, 0.5, 0.25, 1.0, 0.125, -0.25, 0.5, 1.0 };
-    EXPECT_EQ(convertFloat16s(AlphaPremultiplication::Premultiplied, DestinationColorSpace::SRGB(), AlphaPremultiplication::Premultiplied, DestinationColorSpace::SRGB(), sourceFloat16s), sourceFloat16s);
+    EXPECT_EQ(convertFloat16s(AlphaPremultiplication::Premultiplied, ColorSpace::SRGB(), AlphaPremultiplication::Premultiplied, ColorSpace::SRGB(), sourceFloat16s), sourceFloat16s);
 }
 
 TEST(PixelBufferConversionTests, convertImagePixelsFloat16AlphaOnly)
 {
     // Alpha-only changes within RGBA16F use the vImage half-float premultiply entry points.
     auto convert = [](AlphaPremultiplication sourceAlphaFormat, AlphaPremultiplication destinationAlphaFormat, const std::vector<Float16>& components) {
-        return convertFloat16s(sourceAlphaFormat, DestinationColorSpace::SRGB(), destinationAlphaFormat, DestinationColorSpace::SRGB(), components);
+        return convertFloat16s(sourceAlphaFormat, ColorSpace::SRGB(), destinationAlphaFormat, ColorSpace::SRGB(), components);
     };
 
     expectFloat16sNear(convert(AlphaPremultiplication::Unpremultiplied, AlphaPremultiplication::Premultiplied, { 1.0, 0.5, 0.25, 0.5 }), { 0.5, 0.25, 0.125, 0.5 });
@@ -143,12 +237,12 @@ TEST(PixelBufferConversionTests, convertImagePixelsFloat16ColorSpaceConversion)
 {
     // Orange rgb(255, 165, 0) ~ color(srgb 1 0.6471 0) -> color(display-p3 0.9497 0.6629 0.2330)
     std::vector<Float16> sourceFloat16s { 1.0, 0.6471, 0.0, 1.0 };
-    expectFloat16sNear(convertFloat16s(AlphaPremultiplication::Premultiplied, DestinationColorSpace::SRGB(), AlphaPremultiplication::Premultiplied, DestinationColorSpace::ExtendedDisplayP3(), sourceFloat16s), { 0.9497, 0.6629, 0.2330, 1.0 });
+    expectFloat16sNear(convertFloat16s(AlphaPremultiplication::Premultiplied, ColorSpace::SRGB(), AlphaPremultiplication::Premultiplied, ColorSpace::ExtendedDisplayP3(), sourceFloat16s), { 0.9497, 0.6629, 0.2330, 1.0 });
 }
 
 TEST(PixelBufferConversionTests, convertImagePixelsFloat16ToAndFromByte)
 {
-    const auto colorSpace = DestinationColorSpace::SRGB();
+    const auto colorSpace = ColorSpace::SRGB();
     constexpr int float16BytesPerRow = 4 * sizeof(Float16);
     constexpr int u8BytesPerRow = 4;
 
@@ -178,11 +272,39 @@ TEST(PixelBufferConversionTests, convertImagePixelsFloat16ToAndFromByte)
 
         expectFloat16sNear(float16sFromByteVector(destinationBytes), { 1.0, 128.0 / 255.0, 0.0, 1.0 });
     }
+
+    // RGBA16F to RGBX8: the components are scaled to [0, 255] and the alpha is dropped. The
+    // contents are premultiplied, so dropping the alpha composites them against black.
+    {
+        const auto sourceBytes = byteVectorFromFloat16s({ 0.5, 0.25, 0.0, 0.5 });
+        std::vector<uint8_t> destinationBytes(4);
+        const ConstPixelBufferConversionView source { { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA16F, colorSpace }, float16BytesPerRow, sourceBytes };
+        const PixelBufferConversionView destination { { AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, colorSpace }, u8BytesPerRow, destinationBytes };
+
+        convertImagePixels(source, destination, { 1, 1 });
+
+        EXPECT_NEAR(destinationBytes[0], 128U, 1);
+        EXPECT_NEAR(destinationBytes[1], 64U, 1);
+        EXPECT_EQ(destinationBytes[2], 0);
+    }
+
+    // RGBX8 to RGBA16F: the destination gets an opaque alpha, and the component the source has in
+    // place of alpha is ignored rather than read as one.
+    {
+        const std::vector<uint8_t> sourceBytes { 255, 128, 0, 7 };
+        std::vector<uint8_t> destinationBytes(4 * sizeof(Float16));
+        const ConstPixelBufferConversionView source { { AlphaPremultiplication::Premultiplied, PixelFormat::RGBX8, colorSpace }, u8BytesPerRow, sourceBytes };
+        const PixelBufferConversionView destination { { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA16F, colorSpace }, float16BytesPerRow, destinationBytes };
+
+        convertImagePixels(source, destination, { 1, 1 });
+
+        expectFloat16sNear(float16sFromByteVector(destinationBytes), { 1.0, 128.0 / 255.0, 0.0, 1.0 });
+    }
 }
 
 TEST(PixelBufferConversionTests, convertImagePixelsFloat16PaddedRows)
 {
-    const auto colorSpace = DestinationColorSpace::SRGB();
+    const auto colorSpace = ColorSpace::SRGB();
     const auto sourceBytes = byteVectorFromFloat16s({
         1.0, 0.0, 0.0, 1.0, /* padding: */ 0.0, 0.0,
         0.0, 1.0, 0.0, 1.0, /* padding: */ 0.0, 0.0,

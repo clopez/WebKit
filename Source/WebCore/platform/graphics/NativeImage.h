@@ -40,14 +40,19 @@
 class GrDirectContext;
 #endif
 
+#if HAVE(IOSURFACE)
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer* CVPixelBufferRef;
+#endif
+
 namespace WebCore {
 
 class Color;
-class DestinationColorSpace;
+class ColorSpace;
 class FloatRect;
 class GraphicsContext;
 class IntSize;
 class NativeImageBackend;
+class PixelBuffer;
 struct ImageOrientation;
 struct ImagePaintingOptions;
 
@@ -67,6 +72,11 @@ public:
     static WEBCORE_EXPORT RefPtr<NativeImage> createTransient(PlatformImagePtr&&);
 #endif
 
+#if USE(CG)
+    WEBCORE_EXPORT static RefPtr<NativeImage> create(RetainPtr<CVPixelBufferRef>, CGImageAlphaInfo, RetainPtr<CGColorSpaceRef>);
+#endif
+    WEBCORE_EXPORT static RefPtr<NativeImage> create(Ref<PixelBuffer>&&);
+
     WEBCORE_EXPORT virtual ~NativeImage();
 
     WEBCORE_EXPORT virtual PlatformImagePtr platformImage() const;
@@ -75,7 +85,7 @@ public:
     WEBCORE_EXPORT virtual bool hasAlpha() const;
     WEBCORE_EXPORT size_t sizeInBytes() const;
     std::optional<Color> singlePixelSolidColor() const;
-    WEBCORE_EXPORT virtual DestinationColorSpace colorSpace() const;
+    WEBCORE_EXPORT virtual ColorSpace colorSpace() const;
     WEBCORE_EXPORT bool hasHDRContent() const;
     bool hasHDRGainMap() const { return m_gainMap.has_value(); }
     Headroom baseImageHeadroom() const { return m_baseImageHeadroom; }

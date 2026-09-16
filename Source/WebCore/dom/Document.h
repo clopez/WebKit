@@ -469,7 +469,7 @@ public:
     inline static Ref<Document> create(const Settings&, const URL&);
     static Ref<Document> createNonRenderedPlaceholder(LocalFrame&, const URL&);
     static Ref<Document> create(Document&);
-    static Ref<Document> createCloned(ClonedDocumentType, const Settings&, const URL&, const URL& baseURL, const URL& baseURLOverride, const Variant<String, URL>& documentURI, DocumentCompatibilityMode, Document& contextDocument, SecurityOriginPolicy*, const String& contentType, TextResourceDecoder*);
+    static Ref<Document> createCloned(ClonedDocumentType, const Settings&, const URL&, const URL& baseURL, const URL& baseURLOverride, const Variant<String, URL>& documentURI, DocumentCompatibilityMode, OptionSet<ParserContentPolicy>, Document& contextDocument, SecurityOriginPolicy*, const String& contentType, TextResourceDecoder*);
 
     virtual ~Document();
 
@@ -828,6 +828,8 @@ public:
 
     inline const SettingsValues& settingsValues() const final; // Defined in DocumentSettingsValues.h.
 
+    const NetworkLoadPolicy& networkLoadPolicy() const final;
+
     void NODELETE suspendDeviceMotionAndOrientationUpdates();
     void NODELETE resumeDeviceMotionAndOrientationUpdates();
 
@@ -839,8 +841,15 @@ public:
     const Style::ComputedStyle& initialStyle() const LIFETIME_BOUND;
     void invalidateCachedInitialStyle();
 
-    bool renderTreeBeingDestroyed() const { return m_renderTreeBeingDestroyed; }
-    bool hasLivingRenderTree() const { return renderView() && !renderTreeBeingDestroyed(); }
+    enum class RenderTreeState : uint8_t {
+        NotBuilt,
+        Built,
+        BeingDestroyed,
+    };
+    RenderTreeState renderTreeState() const { return m_renderTreeState; }
+
+    WEBCORE_EXPORT bool canEverRender() const;
+
     void updateRenderTree(std::unique_ptr<Style::Update> styleUpdate);
 
     bool updateLayoutIfDimensionsOutOfDate(Element&, OptionSet<DimensionsCheck> = { DimensionsCheck::Width, DimensionsCheck::Height }, OptionSet<LayoutOptions> = { });
@@ -1438,7 +1447,7 @@ public:
     bool loadEventFinished() const { return m_loadEventFinished; }
 
     bool isContextThread() const final;
-    bool isSecureContext() const final;
+    WEBCORE_EXPORT bool isSecureContext() const final;
     bool NODELETE crossOriginIsolated() const final;
     bool NODELETE originAgentCluster() const;
     String agentClusterID() const final;
@@ -1771,8 +1780,8 @@ public:
     unsigned numberOfIntersectionObservers() const { return m_localIntersectionObservers.size() + m_remoteIntersectionObservers.size(); }
 
     // Update ONLY remote intersection observers registered to this document.
-    // When the main frame updates its rendering, it sends an IPC message to request its child documents
-    // to update their remote observers, which ends up calling this.
+    // This is called when an ancestor frame in another process updates geometry that could affect
+    // IntersectionObservers in this document.
     WEBCORE_EXPORT void updateRemoteIntersectionObservers();
 
     // Update local and remote intersection observers that are registered to this document.
@@ -1869,9 +1878,7 @@ public:
     // Per https://html.spec.whatwg.org/multipage/obsolete.html#dom-document-releaseevents, this method does nothing.
     void releaseEvents() { }
 
-#if ENABLE(TEXT_AUTOSIZING)
     TextAutoSizing& textAutoSizing();
-#endif
 
     Logger& logger();
     const Logger& logger() const { return const_cast<Document&>(*this).logger(); }
@@ -2214,7 +2221,7 @@ private:
     WeakPtr<HTMLMetaElement, WeakPtrImplWithEventTargetData> determineActiveThemeColorMetaElement();
     void themeColorChanged();
 
-    void NODELETE invalidateAccessKeyCacheSlowCase();
+    void invalidateAccessKeyCacheSlowCase();
     void buildAccessKeyCache();
 
     void intersectionObserversInitialUpdateTimerFired();
@@ -2549,9 +2556,7 @@ private:
     Timer m_pendingTasksTimer;
     Vector<Task> m_pendingTasks;
 
-#if ENABLE(TEXT_AUTOSIZING)
     std::unique_ptr<TextAutoSizing> m_textAutoSizing;
-#endif
 
     const RefPtr<HighlightRegistry> m_highlightRegistry;
     const RefPtr<HighlightRegistry> m_fragmentHighlightRegistry;
@@ -2799,7 +2804,7 @@ private:
     bool m_sawElementsInKnownNamespaces { false };
     bool m_isSrcdocDocument { false };
 
-    bool m_renderTreeBeingDestroyed { false };
+    RenderTreeState m_renderTreeState { RenderTreeState::NotBuilt };
     bool m_hasPreparedForDestruction { false };
 
     bool m_hasStyleWithViewportUnits { false };

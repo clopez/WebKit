@@ -41,6 +41,7 @@
 #include "ScopedActiveMessageReceiveQueue.h"
 #include "SharedPreferencesForWebProcess.h"
 #include "SpeechRecognitionServer.h"
+#include "Untrusted.h"
 #include "UserContentControllerIdentifier.h"
 #include "VisibleWebPageCounter.h"
 #include "WebPageProxyIdentifier.h"
@@ -57,12 +58,12 @@
 #include <WebCore/Site.h>
 #include <WebCore/UserGestureTokenIdentifier.h>
 #include <pal/SessionID.h>
-#include <wtf/Expected.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Logger.h>
+#include <wtf/MachSendRight.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -112,6 +113,7 @@ struct WebProcessCreationParameters;
 class SecurityOriginData;
 struct WrappedCryptoKey;
 
+enum class AccessibilityMode : uint8_t;
 enum class PermissionName : uint8_t;
 enum class ThirdPartyCookieBlockingMode : uint8_t;
 using FramesPerSecond = unsigned;
@@ -235,7 +237,7 @@ public:
     void waitForSharedPreferencesForWebProcessToSync(uint64_t sharedPreferencesVersion, CompletionHandler<void(bool success)>&&);
 
     enum class SiteState : uint8_t { NotYetSpecified, MultipleSites, SharedProcess };
-    const Expected<WebCore::Site, SiteState>& site() const LIFETIME_BOUND { return m_site; }
+    const std::expected<WebCore::Site, SiteState>& site() const LIFETIME_BOUND { return m_site; }
 
     bool isSharedProcess() const { return !m_site && m_site.error() == SiteState::SharedProcess; }
     const std::optional<WebCore::Site>& sharedProcessMainFrameSite() const LIFETIME_BOUND { return m_sharedProcessMainFrameSite; }
@@ -268,6 +270,7 @@ public:
 
     static RefPtr<WebProcessProxy> processForIdentifier(WebCore::ProcessIdentifier);
     static Ref<WebProcessProxy> fromConnection(const IPC::Connection&);
+    static Vector<Ref<WebProcessProxy>> allProcesses();
     static WebPageProxy* NODELETE webPage(WebPageProxyIdentifier);
     static WebPageProxy* NODELETE webPage(WebCore::PageIdentifier);
     static WebPageProxy* NODELETE audioCapturingWebPage();
@@ -322,6 +325,7 @@ public:
 
     bool hasCommittedClientOrigin(const WebCore::ClientOrigin&) const;
     void didCommitLoadClientOrigin(WebCore::ClientOrigin&&);
+    void didBecomeRemoteWorkerHostForSite(const WebCore::Site&);
 
     void addVisitedLinkStoreUser(VisitedLinkStore&, WebPageProxyIdentifier);
     void removeVisitedLinkStoreUser(VisitedLinkStore&, WebPageProxyIdentifier);
@@ -372,8 +376,8 @@ public:
     void setOptInCookiePartitioningEnabled(bool);
 #endif
 
-    void didPostMessage(WebPageProxyIdentifier, UserContentControllerIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(Expected<WebKit::JavaScriptEvaluationResult, String>&&)>&&);
-    void didPostLegacySynchronousMessage(WebPageProxyIdentifier, UserContentControllerIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(Expected<JavaScriptEvaluationResult, String>&&)>&&);
+    void didPostMessage(WebPageProxyIdentifier, UserContentControllerIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(std::expected<WebKit::JavaScriptEvaluationResult, String>&&)>&&);
+    void didPostLegacySynchronousMessage(WebPageProxyIdentifier, UserContentControllerIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(std::expected<JavaScriptEvaluationResult, String>&&)>&&);
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -425,6 +429,9 @@ public:
     static const Vector<String>& mediaMIMETypes();
     void cacheMediaMIMETypes(const Vector<String>&);
     void cacheMediaSourceTypeSupported(const String& type, bool isSupported);
+
+    void setTaskNamePort(MachSendRight&&);
+    const MachSendRight& taskNamePort() const { return m_taskNamePort; }
 #endif
 
 #if HAVE(DISPLAY_LINK)
@@ -485,6 +492,15 @@ public:
 #if PLATFORM(COCOA)
     void unblockAccessibilityServerIfNeeded();
 #endif
+
+    // A web process reporting the mode it just transitioned to.
+    void accessibilityModeDidChange(WebCore::AccessibilityMode);
+
+    // The mode web content should be in, UIProcess-wide. When one process enables accessibility we
+    // propagate it to all of them. Tests can turn it back off with resetAccessibilityModeForTesting.
+    static WebCore::AccessibilityMode accessibilityModeForWebContent();
+    static void setAccessibilityModeForWebContent(WebCore::AccessibilityMode, const WebProcessProxy* processToSkip = nullptr);
+    static void resetAccessibilityModeForTesting();
 
     void updateAudibleMediaAssertions();
     void updateMediaStreamingActivity();
@@ -563,7 +579,7 @@ public:
     void serializeAndWrapCryptoKey(WebCore::CryptoKeyData&&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
     void unwrapCryptoKey(WebCore::WrappedCryptoKey&&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
 
-    void setAppBadgeFromWorker(const WebCore::SecurityOriginData&, std::optional<uint64_t> badge);
+    void setAppBadgeFromWorker(IPC::Untrusted<WebCore::SecurityOriginData>&&, std::optional<uint64_t> badge);
 
     WebCore::CrossOriginMode crossOriginMode() const { return m_crossOriginMode; }
     LockdownMode lockdownMode() const { return m_lockdownMode; }
@@ -655,6 +671,7 @@ public:
         HardFailure,
     };
     FirstPartyAccessResult allowsFirstPartyAccess(const WebCore::RegistrableDomain&) const;
+    FirstPartyAccessResult participatesInPageWithFirstPartySite(const WebCore::Site&) const;
 
 private:
     Type type() const final { return Type::WebContent; }
@@ -696,7 +713,6 @@ private:
 
     using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, CheckedRef<WebProcessProxy>>;
     static WebProcessProxyMap& NODELETE allProcessMap();
-    static Vector<Ref<WebProcessProxy>> allProcesses();
     static WebPageProxyMap& NODELETE globalPageMap();
     static Vector<Ref<WebPageProxy>> globalPages();
 
@@ -756,10 +772,10 @@ private:
     void didChangeIsResponsive() override;
     bool canTerminateAuxiliaryProcess();
 
-    void didCollectPrewarmInformation(const WebCore::RegistrableDomain&, const WebCore::PrewarmInformation&);
+    void didCollectPrewarmInformation(IPC::Untrusted<WebCore::RegistrableDomain>&&, const WebCore::PrewarmInformation&);
 
-    void didCompleteAutofill(const WebCore::Site&);
-    void didObserveFirstPartyUserGesture(const WebCore::Site&);
+    void didCompleteAutofill(IPC::Untrusted<WebCore::Site>&&);
+    void didObserveFirstPartyUserGesture(IPC::Untrusted<WebCore::Site>&&);
 
     void logDiagnosticMessageForResourceLimitTermination(const String& limitKey);
     
@@ -848,6 +864,7 @@ private:
     uint64_t m_frameProcessCount { 0 };
 
     HashSet<WebCore::ClientOrigin> m_committedClientOrigins; // Only grows because WebProcess can navigate back to an old origin in a history item.
+    HashSet<WebCore::Site> m_remoteWorkerSites; // Only grows so that messages sent by a remote worker that is going away remain valid.
 
     WeakHashMap<VisitedLinkStore, HashSet<WebPageProxyIdentifier>> m_visitedLinkStoresWithUsers;
 
@@ -865,12 +882,13 @@ private:
     bool m_hasSentMessageToUnblockAccessibilityServer { false };
 #endif
 
-    Expected<WebCore::Site, SiteState> m_site { std::unexpected<SiteState> { SiteState::NotYetSpecified } };
+    std::expected<WebCore::Site, SiteState> m_site { std::unexpected<SiteState> { SiteState::NotYetSpecified } };
     HashSet<WebCore::Site> m_committedSites;
     std::optional<WebCore::Site> m_sharedProcessMainFrameSite;
     HashSet<WebCore::RegistrableDomain> m_sharedProcessDomains;
     std::pair<LoadedWebArchive, HashSet<WebCore::RegistrableDomain>> m_allowedFirstPartiesForCookies { LoadedWebArchive::No, { } };
     bool m_isInProcessCache { false };
+    bool m_isEligibleForWebProcessCache { true };
     bool m_isShuttingDown { false };
     bool m_isRunningProcess { false };
 
@@ -902,6 +920,7 @@ private:
 
 #if PLATFORM(COCOA)
     MediaCaptureSandboxExtensions m_mediaCaptureSandboxExtensions { SandboxExtensionType::None };
+    MachSendRight m_taskNamePort;
 #endif
     RefPtr<Logger> m_logger;
 
@@ -984,8 +1003,6 @@ private:
 #if ENABLE(WEBASSEMBLY_DEBUGGER) && ENABLE(REMOTE_INSPECTOR)
     RefPtr<WasmDebuggerDebuggable> m_wasmDebuggerDebuggable;
 #endif
-
-    bool m_isEligibleForWebProcessCache { true };
 
     HashMap<String, SandboxExtension::Handle> m_fileSandboxExtensions;
 

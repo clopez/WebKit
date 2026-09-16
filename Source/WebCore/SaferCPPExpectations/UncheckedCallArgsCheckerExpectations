@@ -99,7 +99,6 @@ editing/EditorCommand.cpp
 editing/FrameSelection.cpp
 editing/InsertIntoTextNodeCommand.cpp
 editing/MarkupAccumulator.cpp
-editing/ModifySelectionListLevel.cpp
 editing/RenderedPosition.cpp
 editing/ReplaceSelectionCommand.cpp
 editing/SimplifyMarkupCommand.cpp
@@ -239,12 +238,10 @@ page/MemoryRelease.cpp
 page/PageSerializer.cpp
 page/Performance.cpp
 page/PerformanceMonitor.cpp
-[ iOS ] page/Quirks.cpp
 page/ResizeObserver.cpp
 page/SettingsBase.cpp
 page/SpatialNavigation.cpp
 [ iOS ] page/cocoa/ContentChangeObserver.cpp
-page/cocoa/PageCocoa.mm
 [ iOS ] page/ios/FrameIOS.mm
 [ Mac ] page/mac/ServicesOverlayController.mm
 page/scrolling/AsyncScrollingCoordinator.cpp
@@ -305,7 +302,6 @@ rendering/LogicalSelectionOffsetCachesInlines.h
 rendering/MarkedText.cpp
 rendering/MarkedText.h
 rendering/MotionPath.cpp
-rendering/OrderIterator.cpp
 rendering/PositionedLayoutConstraints.cpp
 rendering/RegionContext.h
 rendering/RenderAttachment.cpp
@@ -344,7 +340,7 @@ rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
 rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
-rendering/RenderListMarker.cpp
+rendering/RenderListOutsideMarker.cpp
 rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnFlow.cpp
 rendering/RenderMultiColumnSet.cpp
@@ -495,7 +491,6 @@ workers/WorkerGlobalScope.cpp
 workers/WorkerMessagingProxy.cpp
 workers/WorkerNotificationClient.cpp
 workers/WorkerOrWorkletGlobalScope.cpp
-workers/WorkerOrWorkletScriptController.cpp
 workers/WorkerRunLoop.cpp
 workers/WorkerThread.cpp
 workers/shared/context/SharedWorkerThreadProxy.cpp

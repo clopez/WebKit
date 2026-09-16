@@ -23,6 +23,7 @@ fast/page-color-sampling [ Pass ]
 http/tests/pdf [ Pass ]
 http/tests/quicklook [ Pass ]
 http/tests/swipe [ Pass ]
+ipc/cocoa [ Pass ]
 ipc/ios [ Pass ]
 media/ios [ Pass ]
 media/audioSession/ios [ Pass ]
@@ -42,6 +43,10 @@ http/tests/site-isolation/select-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/autofill-credentials-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/open-panel-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/focus-navigation-cross-origin-iframe.html [ Pass ]
+http/tests/site-isolation/ios/exposed-content-rect.html [ Pass ]
+http/tests/site-isolation/ios/exposed-content-rect-nested.html [ Pass ]
+http/tests/site-isolation/ios/exposed-content-rect-3d-transformed.html [ Pass ]
+
 fast/forms/switch [ Pass ]
 fast/snapshot [ Skip ]
 
@@ -206,7 +211,9 @@ imported/w3c/web-platform-tests/payment-request/payment-request-disallowed-when-
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/form-controls/text-transform.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/phrasing-content-0/br-wbr-content/content-property.tentative.html [ ImageOnlyFailure ]
 
-webkit.org/b/259089 imported/w3c/web-platform-tests/css/css-ui/text-overflow-028.html [ ImageOnlyFailure ]
+webkit.org/b/259089 imported/w3c/web-platform-tests/css/css-overflow/text-overflow-028.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/css-overflow/before-after-pseudo-element-scrolling.html [ ImageOnlyFailure ]
 
 webkit.org/b/279302 imported/w3c/web-platform-tests/css/css-ui/outline-width-rounding.tentative.html [ Failure ]
 webkit.org/b/279302 imported/w3c/web-platform-tests/css/css-ui/parsing/outline-width-computed.html [ Failure ]
@@ -279,11 +286,15 @@ fast/images/jpegxl-with-color-profile.html [ Pass ]
 # Video as an image source is only supported on macOS and iOS.
 fast/images/video-as-image.html [ Pass ]
 
+# ImageIO rejects an acTL declaring zero frames, so the default image never decodes.
+fast/images/apng-acTL-zero-frame-count.html [ Skip ]
+
 # No fullscreen API on iOS
 fullscreen
 http/tests/fullscreen
 imported/w3c/web-platform-tests/fullscreen
 compositing/no-compositing-when-full-screen-is-present.html
+http/tests/site-isolation/viewer-mode-fullscreens-owner-iframe.html
 webkit.org/b/200308 fast/events/touch/ios/content-observation/non-visible-content-change-in-fullscreen-mode.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-interactions.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-combinations.html [ Skip ]
@@ -1066,7 +1077,7 @@ svg/text/foreignObject-repaint.xml [ Skip ]
 svg/text/select-text-svgfont.html [ Skip ]
 svg/text/selection-doubleclick.svg [ Skip ]
 svg/text/selection-tripleclick.svg [ Skip ]
-imported/w3c/web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-shadow/part/invalidation-part-pseudo.html [ Skip ]
 
 # iOS has a different copy image behavior.
 http/tests/pasteboard/copy-image-from-context-menu.html [ Skip ]
@@ -1334,6 +1345,8 @@ imported/w3c/web-platform-tests/shadow-dom/leaktests/selection.html [ Skip ]
 # Tests that use EventSender's mouseMoveTo, mouseUp and mouseDown
 css3/viewport-percentage-lengths/vh-resize.html [ Skip ]
 editing/caret/caret-type-for-user-select-none.html [ Skip ]
+# iOS paints the caret in the tint color, which the web process does not resolve.
+editing/caret/caret-color-legibility-after-paste.html [ Skip ]
 editing/pasteboard/can-read-in-dragstart-event.html [ Skip ]
 editing/pasteboard/cleanup-on-move.html [ Skip ]
 editing/pasteboard/copy-crash.html [ Skip ]
@@ -1639,6 +1652,13 @@ webkit.org/b/180275 editing/caret/color-span-inside-editable-background.html [ I
 webkit.org/b/180725 editing/caret/color-span-inside-editable.html [ ImageOnlyFailure ]
 
 webkit.org/b/180286 editing/input/editable-container-with-word-wrap-normal.html [ Failure ]
+
+# Moving the selection out of a composition only aborts the composition on macOS, where
+# Editor::selectionWillChange() cancels it. That function is an empty stub on every other
+# port, so no compositionend is dispatched. Same gap as
+# fast/events/ime-compositionend-on-selection-change.html.
+editing/input/compositionend-after-clicking-outside-editable.html [ Failure ]
+editing/input/compositionend-data-after-aborting-composition.html [ Failure ]
 
 # Font tests that fail:
 fonts/font-fallback-prefers-pictographs.html [ ImageOnlyFailure ]
@@ -2400,99 +2420,251 @@ webkit.org/b/148806 imported/w3c/web-platform-tests/css/css-multicol/multicol-sp
 fast/dom/linkify-phone-numbers.html [ Pass ]
 
 accessibility/table-exposure-updates-dynamically.html [ Pass ]
+accessibility/ARIA-reflection.html [ Pass ]
+accessibility/accessibility-crash-focused-element-change.html [ Pass ]
+accessibility/accessibility-crash-setattribute.html [ Pass ]
+accessibility/accessibility-crash-with-dynamic-inline-content.html [ Pass ]
+accessibility/accessibility-node-memory-management.html [ Pass ]
 accessibility/accessibility-node-reparent.html [ Pass Timeout ] # rdar://178168616
+accessibility/accessibility-object-detached.html [ Pass ]
+accessibility/accessibility-object-update-during-style-resolution-crash.html [ Pass ]
+accessibility/activation-of-input-field-inside-other-element.html [ Pass ]
+accessibility/active-descendant-changes-result-in-focus-changes.html [ Pass ]
+accessibility/anchor-with-click-handler-is-link.html [ Pass ]
+accessibility/anonymous-render-block-in-continuation-causes-crash.html [ Pass ]
 accessibility/area-element-bounding-box.html [ Pass Crash ] # rdar://178168616
+accessibility/aria-actions-ignored-target.html [ Pass ]
 accessibility/aria-actions.html [ Pass Failure Timeout ] # rdar://178169452
 accessibility/aria-owns-text-stitching.html [ Pass Timeout Crash ] # rdar://178168616
+accessibility/aria-activedescendant-crash.html [ Pass ]
 accessibility/aria-braillelabel.html [ Pass Timeout ] # rdar://178168616
 accessibility/aria-brailleroledescription.html [ Pass ]
+accessibility/aria-cellspans-with-native-cellspans.html [ Pass ]
+accessibility/aria-checkbox-text.html [ Pass ]
 accessibility/aria-checked-mixed-value.html [ Pass ]
 accessibility/aria-controlled-table-row-visibility.html [ Pass ]
+accessibility/aria-controls-with-tabs.html [ Pass ]
 accessibility/aria-describedby-on-input.html [ Pass ]
 accessibility/attributed-string-for-line-in-table.html [ Pass Timeout ] # rdar://178168616
 accessibility/attributed-string-text-stitching.html [ Pass Timeout ] # rdar://178168616
 accessibility/body-element-aria-hidden.html [ Pass ]
 accessibility/button-in-deep-dom.html [ Pass ]
 accessibility/display-contents/aria-hidden.html [ Pass ]
+accessibility/aria-details.html [ Pass ]
+accessibility/aria-grid-with-aria-owns-rows.html [ Pass ]
+accessibility/aria-help.html [ Pass ]
+accessibility/aria-hidden-crash.html [ Pass ]
+accessibility/aria-hidden-deep-dom-no-crash.html [ Pass ]
+accessibility/aria-hidden-false-ignored.html [ Pass ]
+accessibility/aria-hidden-focus-not-overridden-when-caught.html [ Pass ]
+accessibility/aria-hidden-focus-override.html [ Pass ]
+accessibility/aria-hidden-hides-all-elements.html [ Pass ]
+accessibility/aria-hidden-subtree.html [ Pass ]
+accessibility/aria-hidden-text-stitching.html [ Pass ]
+accessibility/aria-hidden-update.html [ Pass ]
+accessibility/aria-hidden-updates-alldescendants.html [ Pass ]
+accessibility/aria-hidden.html [ Pass ]
+accessibility/aria-image-emits-object-replacement.html [ Pass ]
+accessibility/aria-label-on-label-element.html [ Pass ]
+accessibility/aria-label.html [ Pass ]
+accessibility/aria-labeled-with-hidden-node.html [ Pass ]
+accessibility/aria-labelledby-added-via-innerHTML.html [ Pass ]
+accessibility/aria-labelledby-cycle-multi-element.html [ Pass ]
+accessibility/aria-labelledby-display-contents-shadow-root.html [ Pass ]
+accessibility/aria-labelledby-hidden-text.html [ Pass ]
+accessibility/aria-labelledby-on-checkbox.html [ Pass ]
+accessibility/aria-labelledby-on-input.html [ Pass ]
+accessibility/aria-labelledby-overrides-aria-labeledby.html [ Pass ]
+accessibility/aria-labelledby-stay-within.html [ Pass ]
+accessibility/aria-labelledby-target-added-via-innerHTML.html [ Pass ]
+accessibility/aria-labelledby-with-descendants.html [ Pass ]
+accessibility/aria-modal-text-descendants.html [ Pass ]
 accessibility/aria-multiline.html [ Pass ]
+accessibility/aria-namefrom-author.html [ Pass ]
+accessibility/aria-owns-crash-after-subtree-update.html [ Pass ]
+accessibility/aria-owns-cycles.html [ Pass ]
+accessibility/aria-owns-deep-chain-no-timeout.html [ Pass ]
+accessibility/aria-owns-grid-parts.html [ Pass ]
+accessibility/aria-owns-hierarchy-remap.html [ Pass ]
 accessibility/aria-readonly-updates-after-dynamic-change.html [ Pass Timeout ] # rdar://178168616
+accessibility/aria-readonly.html [ Pass ]
+accessibility/aria-relations-disconnected-subtree-no-timeout.html [ Pass ]
 accessibility/aria-required-updates-after-dynamic-change.html [ Pass Timeout ] # rdar://178168616
+accessibility/aria-required.html [ Pass ]
 accessibility/aria-roles-unignored.html [ Pass ]
+accessibility/aria-roles.html [ Pass ]
+accessibility/aria-slider-value-change.html [ Pass ]
 accessibility/aria-slider-value.html [ Pass ]
 accessibility/aria-table-indextext.html [ Pass ]
 accessibility/ax-object-destroyed-on-reload.html [ Pass Timeout ] # rdar://178168616
 accessibility/basic-focusability.html [ Pass ]
+accessibility/ax-value-with-search.html [ Pass ]
+accessibility/axpress-on-aria-button.html [ Pass ]
 accessibility/base-select-option-border-radius-path.html [ Pass ]
 accessibility/base-select-option-press-closes-popover.html [ Pass ]
+accessibility/bezier-path-curves.html [ Pass ]
 accessibility/button-hit-test.html [ Pass ]
 accessibility/button-inside-label-ax-text.html [ Pass ]
 accessibility/canvas-drawFocusIfNeeded-bounds.html [ Pass ]
+accessibility/button-title-change.html [ Pass ]
 accessibility/canvas-drawFocusIfNeeded-bounds-with-object-fit.html [ Pass ]
 accessibility/canvas-drawFocusIfNeeded-bounds-with-transform.html [ Pass ]
 accessibility/changing-aria-hidden-with-display-none-parent.html [ Pass Timeout ] # rdar://178168616
 accessibility/checkbox-mixed-value.html [ Pass Timeout ] # rdar://178168616
 accessibility/clip-path-bounding-box.html [ Pass Failure Timeout ] # rdar://177742349, rdar://179387348
+accessibility/clipped-text-under-element.html [ Pass ]
+accessibility/color-picker-press.html [ Pass ]
+accessibility/combobox/combobox-value.html [ Pass ]
+accessibility/container-node-delete-causes-crash.html [ Pass ]
+accessibility/content-changed-notification-causes-crash.html [ Pass ]
+accessibility/content-editable.html [ Pass ]
+accessibility/contenteditable-hidden-div.html [ Pass ]
+accessibility/crash-determining-aria-role-when-label-present.html [ Pass ]
+accessibility/crash-in-element-for-text-marker.html [ Pass ]
+accessibility/crash-table-recursive-layout.html [ Pass ]
+accessibility/crash-when-render-tree-is-not-clean.html [ Pass ]
+accessibility/crash-when-renderers-are-added-back-to-deferred-list.html [ Pass ]
+accessibility/crash-while-adding-text-child-with-transform.html [ Pass ]
+accessibility/crash-with-noelement-selectbox.html [ Pass ]
+accessibility/create-unconnected-node-during-layout-crash.html [ Pass ]
 accessibility/css-content-alt-text.html [ Pass Crash ] # rdar://178168847
+accessibility/css-speech-speak.html [ Pass ]
+accessibility/css-table-ignored.html [ Pass ]
+accessibility/custom-elements/current.html [ Pass ]
+accessibility/custom-elements/heading.html [ Pass ]
+accessibility/datalist.html [ Pass ]
+accessibility/details-summary-content-hidden.html [ Pass ]
 accessibility/dialog-slotted-content.html [ Pass Timeout ] # rdar://178168616
 accessibility/dirty-relations-and-modal-tree-update-crash.html [ Pass Timeout ] # rdar://178168616
 accessibility/dirty-style-and-relations-crash.html [ Pass ]
 accessibility/dismiss-action-returns-whether-keyevent-handled.html [ Pass ]
+accessibility/display-contents/descendant-menu-item.html [ Pass ]
 accessibility/display-contents/dynamically-added-children.html [ Pass ]
 accessibility/display-contents/element-roles.html [ Pass ]
+accessibility/display-contents/list.html [ Pass ]
 accessibility/display-contents/listbox-item.html [ Pass ]
 accessibility/display-contents/object-ordering.html [ Pass ]
 accessibility/display-contents/table.html [ Pass ]
 accessibility/display-contents/table-section-elements.html [ Pass ]
 accessibility/display-flex-shadow-dom-accname.html [ Pass ]
 accessibility/display-none-descendant-of-relation.html [ Pass ]
+accessibility/dropdown-value.html [ Pass ]
+accessibility/duplicate-child-nodes.html [ Pass ]
 accessibility/duplicate-hidden-label-text.html [ Pass ]
 accessibility/dynamic-aria-describedby-subtree.html [ Pass ]
 accessibility/dynamic-aria-describedby-text.html [ Pass ]
+accessibility/dynamic-aria-hidden-cell.html [ Pass ]
 accessibility/dynamic-aria-hidden-inside-button.html [ Pass ]
+accessibility/dynamic-changes-update-position.html [ Pass ]
 accessibility/dynamic-datetime-attribute.html [ Pass ]
 accessibility/dynamic-font-change-dirty-style-and-relations.html [ Pass ]
+accessibility/dynamic-frame-prepend-crash.html [ Pass ]
+accessibility/dynamic-modal.html [ Pass ]
 accessibility/dynamic-speak-as.html [ Pass ]
+accessibility/dynamic-subtree-replacement-with-stale-parent-children.html [ Pass ]
 accessibility/dynamic-text.html [ Pass Timeout ] # rdar://178168616
 accessibility/dynamic-text-stitching.html [ Pass ]
 accessibility/dynamic-text-color-change-dirty-style-and-relations.html [ Pass ]
 accessibility/dynamically-ignored-canvas.html [ Pass ]
+accessibility/editable-svg-arrow-movement.html [ Pass ]
 accessibility/editable-webpage-focused-ui-element.html [ Pass ]
 accessibility/element-haspopup.html [ Pass ]
+accessibility/element-outside-modal-with-zindex.html [ Pass ]
 accessibility/element-path-with-css-transforms.html [ Pass ]
+accessibility/element-reflection-arialabelledby.html [ Pass ]
+accessibility/ellipsis-text.html [ Pass ]
 
 # Regressions from ENABLE(ACCESSIBILITY_LOCAL_FRAME).
 # accessibility/empty-text-under-element-cached.html [ Pass ]
+accessibility/file-upload-button-with-axpress.html [ Pass ]
+accessibility/first-letter-single-character.html [ Pass ]
+accessibility/first-letter-text-transform-causes-crash.html [ Pass ]
+accessibility/focus-change-id-mutation-and-removal-crash.html [ Pass ]
+accessibility/focus-crash.html [ Pass ]
+accessibility/full-size-kana-untransformed.html [ Pass ]
+accessibility/grid-add-remove-rows.html [ Pass ]
+accessibility/grid-with-aria-owned-cells.html [ Pass ]
+accessibility/gtk/aria-listbox-crash.html [ Pass ]
+accessibility/gtk/aria-options-and-menuitems-crash.html [ Pass ]
+accessibility/gtk/text-attribute-empty-li.html [ Pass ]
+accessibility/gtk/text-for-range-extraneous-whitespace.html [ Pass ]
+accessibility/hang-in-isignored.html [ Pass ]
+accessibility/heading-clickpoint.html [ Pass ]
 
 accessibility/heading-level.html [ Pass ]
+accessibility/heading-title-includes-links.html [ Pass ]
+accessibility/help-text.html [ Pass ]
 accessibility/hidden-elements-with-aria-attributes.html [ Pass ]
 accessibility/hidden-label.html [ Pass ]
+accessibility/hidden-object-text-value-crash.html [ Pass ]
 accessibility/hidden-slot.html [ Pass ]
+accessibility/hidden-until-found-programmatically-revealed.html [ Pass ]
 accessibility/html-element-aria-hidden.html [ Pass ]
 accessibility/html5-required-attribute.html [ Pass ]
+accessibility/iframe-bastardization.html [ Pass ]
+accessibility/iframe-content-remains-accessible-after-navigation.html [ Pass ]
 # Regressions from ENABLE(ACCESSIBILITY_LOCAL_FRAME).
 # accessibility/iframe-tree-update-with-dirty-layout.html [ Pass ]
 # accessibility/iframe-with-role.html [ Pass ]
+accessibility/ignore-spacer-elements.html [ Pass ]
+accessibility/image-load-on-delay.html [ Pass ]
+accessibility/image-map-title-causes-crash.html [ Pass ]
+accessibility/image-overlay-elements-presentational.html [ Pass ]
+accessibility/img-alt-attribute-unassigned-empty.html [ Pass ]
+accessibility/img-alt-tag-only-whitespace.html [ Pass ]
+accessibility/img-aria-button-alt-tag.html [ Pass ]
 accessibility/indeterminate-progressbar-custom-element.html [ Pass ]
+accessibility/index-for-zero-offset-text-marker.html [ Pass ]
+accessibility/inline-continuations.html [ Pass ]
+accessibility/input-file-causes-crash.html [ Pass ]
+accessibility/input-image-alt.html [ Pass ]
+accessibility/input-type-change-crash-2.html [ Pass ]
 accessibility/input-type-hidden-in-aria-hidden-false.html [ Pass ]
 accessibility/datetime/input-time-label-value.html [ Pass ]
 accessibility/image-map-link-title-text.html [ Pass ]
 accessibility/invalid-inputs.html [ Pass ]
 accessibility/insert-text-into-password-field.html [ Pass ]
+accessibility/keyevents-for-increment-actions-with-node-removal.html [ Pass ]
+accessibility/keyevents-posted-for-increment-actions.html [ Pass ]
+accessibility/label-element-press.html [ Pass ]
+accessibility/label-for-control-id-change.html [ Pass ]
 accessibility/language-attribute-change.html [ Pass ]
+accessibility/language-attribute.html [ Pass ]
+accessibility/large-text-area.html [ Pass ]
 accessibility/line-range-display-table-in-flex.html [ Pass ]
+accessibility/line-requests-starting-after-first-line.html [ Pass ]
 accessibility/link-becomes-visited.html [ Pass ]
+accessibility/link-inside-button-accessible-text.html [ Pass ]
+accessibility/links-activation.html [ Pass ]
+accessibility/list-item-with-pseudo-element-crash.html [ Pass ]
+accessibility/list-items-ignored.html [ Pass ]
 accessibility/list-marker-text-stitching.html [ Pass Timeout ] # rdar://178168616
 accessibility/list-with-dynamically-changing-content.html [ Pass Timeout ] # rdar://178168616
+accessibility/listitem-title.html [ Pass ]
+accessibility/listmarker-suffix.html [ Pass ]
 accessibility/live-region-attributes-update-after-dynamic-change.html [ Pass ]
+accessibility/math-has-non-presentational-children.html [ Pass ]
+accessibility/mathml-multiscript-none-holds-slot.html [ Pass ]
+accessibility/mathml-multiscript-odd-postscripts.html [ Pass ]
+accessibility/menu-item-crash.html [ Pass ]
 accessibility/menu-list-crash2.html [ Pass ]
 accessibility/menu-with-menuitem-grandchildren.html [ Pass ]
+accessibility/mixed-checkbox.html [ Pass ]
 accessibility/mixed-contenteditable-visible-character-range-hang.html [ Pass ]
 accessibility/mixed-contenteditable-double-br-visible-character-range-hang.html [ Pass ]
 accessibility/multiple-attribute-change-crash.html [ Pass ]
+accessibility/native-label-geometry-with-aria-labelledby.html [ Pass ]
+accessibility/native-vs-nonnative-checkboxes.html [ Pass ]
 accessibility/nested-custom-element-accname.html [ Pass ]
+accessibility/nested-layout-crash.html [ Pass ]
+accessibility/nested-modal.html [ Pass ]
 accessibility/node-only-inert-object.html [ Pass ]
+accessibility/node-only-object-aria-owns-hang.html [ Pass ]
 accessibility/node-only-object-element-rect.html [ Pass ]
 accessibility/checkbox-radio-element-rect.html [ Pass ]
+accessibility/non-native-image-crash.html [ Pass ]
+accessibility/noscript-ignored.html [ Pass ]
+accessibility/offset-from-root-outside-text-run.html [ Pass ]
 accessibility/opacity-0-bounding-box.html [ Pass Failure ] # rdar://177981724
 accessibility/out-of-bounds-rowspan.html [ Pass ]
 accessibility/out-of-bounds-rowspan-display-none.html [ Pass ]
@@ -2502,27 +2674,91 @@ accessibility/out-of-bounds-rowspan-orphan-rows.html [ Pass ]
 accessibility/page-reload-deadlock.html [ Pass ]
 accessibility/password-selected-text-range.html [ Pass ]
 accessibility/placeholder.html [ Pass ]
+accessibility/popover-remove-controller-then-popover-crash.html [ Pass ]
+accessibility/popup-button-title.html [ Pass ]
+accessibility/presentational-children.html [ Pass ]
+accessibility/presentational-elements-with-focus.html [ Pass ]
+accessibility/press-targets-center-point.html [ Pass ]
+accessibility/press-works-on-control-types.html [ Pass ]
+accessibility/progress-element-min-max.html [ Pass ]
 accessibility/progress-indeterminate-value.html [ Pass ]
+accessibility/radio-button-checkbox-size.html [ Pass ]
+accessibility/range-alter-by-percent.html [ Pass ]
+accessibility/range-alter-by-step.html [ Pass ]
+accessibility/range-from-webarea.html [ Pass ]
 accessibility/range-input-increment-decrement-fires-input-event.html [ Pass ]
+accessibility/recompute-current-modal-after-aria-modal-element-appears.html [ Pass ]
+accessibility/relations-update-during-node-removal-crash.html [ Pass ]
+accessibility/replace-text-with-empty-range.html [ Pass ]
+accessibility/replace-text-with-range-on-webarea-element.html [ Pass ]
+accessibility/replace-text-with-range.html [ Pass ]
+accessibility/row-with-aria-role-in-native-table.html [ Pass ]
 accessibility/rowspan-zero-table.html [ Pass ]
+accessibility/search-predicate-visited-links.html [ Pass ]
+accessibility/secure-field-value.html [ Pass ]
+accessibility/selected-text-range-aria-elements.html [ Pass ]
+accessibility/self-deleting-select-element.html [ Pass ]
+accessibility/self-referencing-aria-labelledby.html [ Pass ]
+accessibility/set-value-not-work-for-disabled-sliders.html [ Pass ]
+accessibility/shadow-dom-aria-grid.html [ Pass ]
+accessibility/shadow-dom-element-in-aria-modal.html [ Pass ]
 accessibility/shadow-dom-hit-test.html [ Pass ]
+accessibility/shadow-dom/reference-target/aria-controls.html [ Pass ]
+accessibility/shadow-dom/reference-target/aria-describedby.html [ Pass ]
+accessibility/shadow-host-style-invalidation-during-text-under-element-crash.html [ Pass ]
 accessibility/slider-with-lost-renderer.html [ Pass ]
+accessibility/slot-aria-labelledby.html [ Pass ]
 accessibility/slot-default-contents-accname.html [ Pass ]
+accessibility/spinbutton-implicit-values.html [ Pass ]
 accessibility/spinbutton-increment-decrement.html [ Pass ]
 accessibility/display-contents/text-under-element.html [ Pass ]
 accessibility/text-updates-after-dynamic-change.html [ Pass ]
+accessibility/stitched-text-marker-range-for-ui-element.html [ Pass ]
+accessibility/string-range-contains-listmarker.html [ Pass ]
+accessibility/submit-button-default-value.html [ Pass ]
+accessibility/svg-anchor-with-click-handler-is-link.html [ Pass ]
+accessibility/svg-duplicated.html [ Pass ]
+accessibility/svg-element-press.html [ Pass ]
+accessibility/svg-labelledby.html [ Pass ]
+accessibility/svg-use-cycle-no-crash.html [ Pass ]
+accessibility/tabindex-removed.html [ Pass ]
 accessibility/table-ancestry.html [ Pass ]
 accessibility/table-display-block.html [ Pass ]
 accessibility/table-display-flex.html [ Pass ]
 accessibility/table-display-grid.html [ Pass ]
 accessibility/table-display-inline-block.html [ Pass ]
+accessibility/table-ignored-with-role-on-tbody.html [ Pass ]
+accessibility/table-nofirstbody.html [ Pass ]
+accessibility/table-notbody.html [ Pass ]
+accessibility/table-row-role-changes.html [ Pass ]
+accessibility/table-title.html [ Pass ]
+accessibility/table-with-empty-thead-causes-crash.html [ Pass ]
+accessibility/table-with-missing-aria-role-rows.html [ Pass ]
+accessibility/text-alternative-calculation-from-listbox.html [ Pass ]
 accessibility/text-input-hit-test.html [ Pass ]
+accessibility/text-marker-emitted-newlines.html [ Pass ]
+accessibility/text-marker-length.html [ Pass ]
+accessibility/text-marker-range-for-element-crash.html [ Pass ]
+accessibility/text-marker-string-excludes-generated-content.html [ Pass ]
+accessibility/text-markers-for-input-with-placeholder.html [ Pass ]
+accessibility/text-stitching-line-break.html [ Pass ]
 accessibility/textarea-line-for-index.html [ Pass ]
+accessibility/textarea-selected-text-range.html [ Pass ]
+accessibility/textarea-value-changes.html [ Pass ]
+accessibility/textbox-role-on-contenteditable-crash.html [ Pass ]
+accessibility/title-tag-on-unimportant-elements-is-help-text.html [ Pass ]
+accessibility/title-ui-element-correctness.html [ Pass ]
+accessibility/transformed-bounds.html [ Pass ]
 accessibility/tree-update-with-dirty-layout.html [ Pass ]
 accessibility/tree-update-with-dynamically-ignored-inline-child-div.html [ Pass ]
 accessibility/tree-update-with-dynamically-ignored-tabindex-div.html [ Pass ]
+accessibility/treeitem-child-exposed.html [ Pass ]
+accessibility/unknown-roles-not-exposed.html [ Pass ]
+accessibility/updating-attribute-in-table-causes-crash.html [ Pass ]
+accessibility/updating-attribute-in-table-row-crash.html [ Pass ]
 accessibility/url-test.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
+[ Release ] accessibility/visible-character-range-basic.html [ Pass ]
 accessibility/visible-character-range-height-changes.html [ Pass ]
 webkit.org/b/306555 accessibility/visible-character-range-vertical-rl.html [ Failure ]
 accessibility/visibility-visible-inside-hidden.html [ Pass ]
@@ -2733,6 +2969,9 @@ media/airplay-allows-buffering.html
 media/airplay-autoplay.html
 media/airplay-target-availability.html
 media/airplay-target-availability-disableremoteplayback.html
+http/tests/media/airplay-target-availability-in-cross-origin-iframe.html
+http/tests/media/airplay-select-target-in-cross-origin-iframe.html
+http/tests/media/airplay-picker-rect-in-cross-origin-iframe.html
 
 # needs enhanced eventSender.contextMenu() return value
 webkit.org/b/116651 media/context-menu-actions.html
@@ -2934,6 +3173,9 @@ fast/canvas/webgl/texImage2D-mse-in-dom-flipY-false.html [ Skip ]
 fast/canvas/webgl/texImage2D-mse-in-dom-flipY-true.html [ Skip ]
 fast/canvas/webgl/texImage2D-video-flipY-false.html [ Skip ]
 fast/canvas/webgl/texImage2D-video-flipY-true.html [ Skip ]
+
+# WEBGL_draw_instanced_base_vertex_base_instance is unavailable on the iOS simulator.
+webkit.org/b/319507 fast/canvas/webgl/draw-elements-base-vertex-out-of-bounds.html [ Skip ]
 
 # No colorspaces in iOS WebGL yet.
 webkit.org/b/247166 fast/canvas/webgl/colorspaces-test.html [ Failure ]
@@ -3480,9 +3722,24 @@ webkit.org/b/250767 imported/w3c/web-platform-tests/html/user-activation/activat
 
 # :hover simulation not working on iOS
 imported/w3c/web-platform-tests/css/selectors/hover-002.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/hover-boundary-events.html [ Skip ]
 imported/w3c/web-platform-tests/css/selectors/hover-toplayer-001.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-18.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-18a.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-18b.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-18c.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-63.xml [ Skip ]
 imported/w3c/web-platform-tests/css/css-text-decor/invalidation/text-decoration-thickness.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/hit-test-unrelated-element.html [ Skip ]
+
+# :active simulation not working on iOS
+imported/w3c/web-platform-tests/css/selectors/active-after-relayouts.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/active-display-none-001.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/active-inside-link.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/active-observable.html [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-19.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-19b.xml [ Skip ]
+imported/w3c/web-platform-tests/css/selectors/old-tests/css3-modsel-64.xml [ Skip ]
 
 # Certain versions of iOS use different text security characters.
 webkit.org/b/209692 platform/ios/fast/text/text-security-disc-bullet-pua-ios-new.html [ Pass ]
@@ -3502,6 +3759,9 @@ imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-ap
 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-applied-if-sizing-cyclic-dependency-002.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-grid/subgrid/alignment-in-subgridded-axes-001.html [ Skip ]
 webkit.org/b/266091 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/intrinsic-sizing/grid-lanes-intrinsic-sizing-cols-006.html
+
+imported/w3c/web-platform-tests/css/css-grid/layout-algorithm/flex-sizing-rows-indefinite-height.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-grid/layout-algorithm/grid-template-flexible-rerun-track-sizing.html [ ImageOnlyFailure ]
 
 
 fast/text/text-styles/-apple-system [ Pass ]
@@ -5268,7 +5528,6 @@ fast/events/page-visibility-iframe-delete-test.html
 fast/events/page-visibility-iframe-propagation-test.html
 fast/events/page-visibility-transition-test.html
 
-fast/filter-image/filter-image-animation.html
 fast/forms/formmethod-attribute-input-2.html
 fast/forms/formtarget-attribute-input-2.html
 fast/forms/interactive-validation-formnovalidate-2.html
@@ -6419,7 +6678,6 @@ webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-016.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-sizing/thin-element-render.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-values/ch-unit-002.html [ ImageOnlyFailure ]
-webkit.org/b/277995 imported/w3c/web-platform-tests/css/css-values/attr-all-types.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-values/viewport-units-scrollbars-compute.html [ Skip ]
 
 #1px diff
@@ -6683,6 +6941,7 @@ imported/w3c/web-platform-tests/html/editing/focus/sequential-focus-navigation-a
 
 # Drag-and-drop testdriver automation is not supported on iOS.
 webkit.org/b/66547 imported/w3c/web-platform-tests/html/editing/dnd/events/dragenter-dragleave-related-target.html [ Skip ]
+imported/w3c/web-platform-tests/html/editing/dnd/datastore/datatransferitemlist-clear-read-only.html [ Skip ]
 
 ######################################################
 # Test failures from turning GPU Process on by default
@@ -7123,10 +7382,10 @@ imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-leading-spaces
 imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-leading-spaces-013.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-transitions/render-blocking/no-transition-from-ua-to-blocking-stylesheet.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ui/outline-028.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-010.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-011.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-013.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-014.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-010.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-011.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-013.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-014.html [ Pass ImageOnlyFailure ]
 fast/forms/textfield-outline.html [ Pass Failure ]
 http/tests/security/clipboard/copy-paste-html-across-origin-sanitizes-html.html [ Pass Failure ]
 http/tests/security/clipboard/copy-paste-html-across-origin-strips-mso-list.html [ Pass Failure ]
@@ -7417,7 +7676,7 @@ webkit.org/b/276005 webgl/2.0.y/conformance2/textures/canvas/tex-2d-rgba16f-rgba
 webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-inset-002.html [ ImageOnlyFailure ]
 webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-polygon-002.html [ ImageOnlyFailure ]
 webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-xywh-002.html [ ImageOnlyFailure ]
-webkit.org/b/276013 webgl/1.0.x/conformance/glsl/bugs/sampler-array-using-loop-index.html [ Failure ]
+webkit.org/b/276013 [ x86_64 ] webgl/1.0.x/conformance/glsl/bugs/sampler-array-using-loop-index.html [ Failure ]
 webkit.org/b/276013 [ x86_64 ] webgl/2.0.y/conformance/glsl/bugs/sampler-array-using-loop-index.html [ Failure ]
 # these specifically are baselined to pass on arm64, so we expect failure on x86_64
 webkit.org/b/275963 [ x86_64 ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Failure ]
@@ -7928,6 +8187,8 @@ fast/forms/form-control-refresh/checkbox-radio-inactive-appearance-dark-bg-light
 fast/forms/form-control-refresh/checkbox-radio-inactive-appearance-light-bg-dark-color-scheme.html [ Skip ]
 fast/forms/form-control-refresh/progress-window-inactive-state-dark-mode.html [ Skip ]
 fast/forms/form-control-refresh/progress-window-inactive-state-light-mode.html [ Skip ]
+fast/forms/form-control-refresh/spinbutton-window-inactive-state-dark-mode.html [ Skip ]
+fast/forms/form-control-refresh/spinbutton-window-inactive-state-light-mode.html [ Skip ]
 
 # rdar://155348715 (REGRESSION (Liquid Glass): [ iOS 26 ] 72 WPT/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-*.html tests are constantly failing (IMAGE).)
 # Explicit pass expectations for many of these tests are set above. Uncomment that block once this is resolved.
@@ -8412,6 +8673,8 @@ imported/w3c/web-platform-tests/css/css-highlight-api/highlight-text-across-elem
 pdf/annotations [ Skip ]
 pdf/pdf-in-iframe-with-text-annotation.html [ Skip ]
 
+pdf/mac [ Skip ]
+
 webkit.org/b/312496 fast/forms/select/base/select-pagedown-pageup-vertical.html [ Pass Failure Timeout ] # rdar://178158648
 
 webkit.org/b/312499 imported/w3c/web-platform-tests/shadow-dom/reference-target/tentative/form.html [ Pass Failure ]
@@ -8473,7 +8736,7 @@ imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-co
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-touch-scroll.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-self-invoke.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-shadowhost-focus-navigation.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scoping/hover-invalidates-slotted-descendant.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-shadow/hover-invalidates-slotted-descendant.html [ Skip ]
 
 # rdar://168334716 (MTLCompilerService crashes when Metal Shader Validation is enabled on iOS Simulator)
 webgl/webgl2-provoking-vertex-primitive-restart-uint16-nocrash.html [ Skip ]
@@ -8586,7 +8849,6 @@ media/video-webm-seek-multi-audio-tracks.html [ Timeout ] # rdar://180007922
 quicklook/word-legacy.html [ Failure ] # rdar://174850780
 quicklook/word.html [ Failure ] # rdar://174850780
 svg/filters/feMorphology-negative-radius.html [ Pass Crash ] # rdar://178675229
-webgl/1.0.x/conformance/textures/misc/texture-srgb-upload.html [ Timeout ] # rdar://176399952
 workers/worker-set-delete-terminate-crash.html [ Timeout ] # rdar://178590046
 svg/transforms/nested-svg-transform-attribute-creates-layer.html [ Failure ] # rdar://180457293
 svg/compositing/segment-removed-after-anchor-decomposited-layer-tree.html [ Failure ] # rdar://180457293
@@ -8631,8 +8893,6 @@ webkit.org/b/318157 imported/w3c/web-platform-tests/IndexedDB/nested-cloning-lar
 webkit.org/b/318157 imported/w3c/web-platform-tests/IndexedDB/nested-cloning-large-multiple.any.sharedworker.html [ Pass Failure ] # rdar://178158917
 
 webkit.org/b/318375 imported/w3c/web-platform-tests/css/css-anchor-position/scroll-to-anchored-fixed-001.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/318258 [ Debug ] ipc/fecolormatrix-type-values-mismatch-crash.html [ Failure ]
 
 # rdar://179251021
 imported/w3c/web-platform-tests/xhr/send-entity-body-document.htm [ Pass Failure ]
@@ -9634,9 +9894,6 @@ imported/w3c/web-platform-tests/mixed-content/gen/top.meta/unset/video-tag.https
 imported/w3c/web-platform-tests/preload/link-header-preload-non-html.html [ Crash ] # rdar://178339957
 imported/w3c/web-platform-tests/preload/single-download-preload.html [ Crash ] # rdar://178339957
 
-
-imported/w3c/web-platform-tests/resource-timing/resource_initiator_types.html [ Crash Failure ] # rdar://178339779
-
 imported/w3c/web-platform-tests/service-workers/idlharness.https.any.html [ Crash ] # rdar://178339789
 
 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-video.https.html [ Crash ] # rdar://178339706
@@ -9681,7 +9938,7 @@ compositing/animation/animation-backing.html [ Pass Failure ] # rdar://178546584
 
 http/wpt/mediastream/transfer-videotrackgenerator-track.html [ Pass Failure ] # rdar://178546599
 
-imported/w3c/web-platform-tests/css/css-shadow-parts/interaction-with-nested-pseudo-class.html [ Pass ImageOnlyFailure ] # rdar://178546619
+imported/w3c/web-platform-tests/css/css-shadow/part/interaction-with-nested-pseudo-class.html [ Pass ImageOnlyFailure ] # rdar://178546619
 
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-display-contents.html [ Pass ImageOnlyFailure ] # rdar://178546827
 
@@ -9909,10 +10166,10 @@ imported/w3c/web-platform-tests/svg/animations/reinserting-svg-into-document.htm
 
 imported/w3c/web-platform-tests/pointerevents/pointerevent_releasepointercapture_onpointercancel_touch.html [ Pass Failure ] # rdar://178676720
 
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-001.html [ Pass ImageOnlyFailure ] # rdar://178676888
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-002.html [ Pass ImageOnlyFailure ] # rdar://178676888
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-004.html [ Pass ImageOnlyFailure ] # rdar://178676888
-imported/w3c/web-platform-tests/css/css-ui/text-overflow-003.html [ Pass ImageOnlyFailure ] # rdar://178676888
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-001.html [ Pass ImageOnlyFailure ] # rdar://178676888
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-002.html [ Pass ImageOnlyFailure ] # rdar://178676888
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-004.html [ Pass ImageOnlyFailure ] # rdar://178676888
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-003.html [ Pass ImageOnlyFailure ] # rdar://178676888
 
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-in-iframe.html [ Pass ImageOnlyFailure ] # rdar://178676913
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-generated-content.html [ Pass ImageOnlyFailure ] # rdar://178676913
@@ -10019,3 +10276,11 @@ http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-wit
 
 # rdar://175824217 (New Test (312034@main): imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-2.html is a constant IMAGE failure on iOS 26 and later.)
 imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-2.html [ ImageOnlyFailure ]
+
+webkit.org/b/322305 fast/visual-viewport/ios/interactive-widget/resizes-content-orientation-rotations.html [ Failure ]
+
+imported/w3c/web-platform-tests/input-events/select-event-drag-remove.html [ Skip ] # timeout
+
+# webkit.org/b/301546 [iOS26-iOS27] Two tests in imported/w3c/web-platform-tests/uievents/mouse are constant failures
+imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=16 [ Failure ]
+imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=42 [ Failure ]

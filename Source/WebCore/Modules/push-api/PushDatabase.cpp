@@ -33,7 +33,6 @@
 #include "SecurityOrigin.h"
 #include <iterator>
 #include <wtf/CrossThreadCopier.h>
-#include <wtf/Expected.h>
 #include <wtf/FileSystem.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Scope.h>
@@ -190,12 +189,12 @@ PushTopics PushTopics::isolatedCopy() &&
 
 enum class ShouldDeleteAndRetry : bool { No, Yes };
 
-static Expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateDatabaseImpl(const String& path)
+static std::expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateDatabaseImpl(const String& path)
 {
     ASSERT(!RunLoop::isMain());
 
     if (path != ":memory:"_s && !FileSystem::fileExists(path) && !FileSystem::makeAllDirectories(FileSystem::parentPath(path))) {
-        RELEASE_LOG_ERROR(Push, "Couldn't create PushDatabase parent directories for path %s", path.utf8().data());
+        RELEASE_LOG_ERROR(Push, "Couldn't create PushDatabase parent directories for path %s", path.utf8());
         return makeUnexpected(ShouldDeleteAndRetry::No);
     }
 
@@ -203,7 +202,7 @@ static Expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateD
     db->disableThreadingChecks();
 
     if (!db->open(path)) {
-        RELEASE_LOG_ERROR(Push, "Couldn't open PushDatabase at path %s", path.utf8().data());
+        RELEASE_LOG_ERROR(Push, "Couldn't open PushDatabase at path %s", path.utf8());
         return makeUnexpected(ShouldDeleteAndRetry::Yes);
     }
 
@@ -211,14 +210,14 @@ static Expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateD
     {
         auto sql = db->prepareStatement("PRAGMA user_version"_s);
         if (!sql || sql->step() != SQLITE_ROW) {
-            RELEASE_LOG_ERROR(Push, "Couldn't get PushDatabase version at path %s", path.utf8().data());
+            RELEASE_LOG_ERROR(Push, "Couldn't get PushDatabase version at path %s", path.utf8());
             return makeUnexpected(ShouldDeleteAndRetry::Yes);
         }
         version = sql->columnInt(0);
     }
 
     if (version < 0 || version > currentPushDatabaseVersion) {
-        RELEASE_LOG_ERROR(Push, "Found unexpected PushDatabase version: %d (expected: %d) at path: %s", version, currentPushDatabaseVersion, path.utf8().data());
+        RELEASE_LOG_ERROR(Push, "Found unexpected PushDatabase version: %d (expected: %d) at path: %s", version, currentPushDatabaseVersion, path.utf8());
         return makeUnexpected(ShouldDeleteAndRetry::Yes);
     }
 
@@ -231,14 +230,14 @@ static Expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateD
         for (auto i = version; i < currentPushDatabaseVersion; i++) {
             for (auto statement : pushDatabaseSchemaStatements[i]) {
                 if (!db->executeCommand(statement)) {
-                    RELEASE_LOG_ERROR(Push, "Error executing PushDatabase DDL statement %s at path %s: %d", statement.characters(), path.utf8().data(), db->lastError());
+                    RELEASE_LOG_ERROR(Push, "Error executing PushDatabase DDL statement %s at path %s: %d", statement.characters(), path.utf8(), db->lastError());
                     return makeUnexpected(ShouldDeleteAndRetry::Yes);
                 }
             }
         }
 
         if (!db->executeCommandSlow(makeString("PRAGMA user_version = "_s, currentPushDatabaseVersion)))
-            RELEASE_LOG_ERROR(Push, "Error setting user version for PushDatabase at path %s: %d", path.utf8().data(), db->lastError());
+            RELEASE_LOG_ERROR(Push, "Error setting user version for PushDatabase at path %s: %d", path.utf8(), db->lastError());
 
         transaction.commit();
     }
@@ -253,11 +252,11 @@ static std::unique_ptr<SQLiteDatabase> openAndMigrateDatabase(const String& path
     auto result = openAndMigrateDatabaseImpl(path);
     if (!result && result.error() == ShouldDeleteAndRetry::Yes) {
         if (path == SQLiteDatabase::inMemoryPath() || !SQLiteFileSystem::deleteDatabaseFile(path)) {
-            RELEASE_LOG_ERROR(Push, "Failed to delete PushDatabase at path %s; bailing on recreating from scratch", path.utf8().data());
+            RELEASE_LOG_ERROR(Push, "Failed to delete PushDatabase at path %s; bailing on recreating from scratch", path.utf8());
             return nullptr;
         }
 
-        RELEASE_LOG_ERROR(Push, "Deleted PushDatabase at path %s and recreating from scratch", path.utf8().data());
+        RELEASE_LOG_ERROR(Push, "Deleted PushDatabase at path %s and recreating from scratch", path.utf8());
         result = openAndMigrateDatabaseImpl(path);
     }
 
@@ -336,7 +335,7 @@ SQLiteStatementAutoResetScope PushDatabase::cachedStatementOnQueue(ASCIILiteral 
     auto statementRef = makeUniqueRefFromNonNullUniquePtr(WTF::move(statement));
     CheckedPtr statementPtr = statementRef.ptr();
     m_statements.add(query, WTF::move(statementRef));
-    return SQLiteStatementAutoResetScope(statementPtr);
+    return SQLiteStatementAutoResetScope(WTF::move(statementPtr));
 }
 
 template<typename... Args>
@@ -366,14 +365,6 @@ static std::span<const uint8_t> NODELETE uuidToSpan(const std::optional<WTF::UUI
     }
 
     return uuid->span();
-}
-
-static std::optional<WTF::UUID> uuidFromSpan(std::span<const uint8_t> span)
-{
-    if (span.size() != 16)
-        return std::nullopt;
-
-    return WTF::UUID(span.first<16>());
 }
 
 static SQLValue expirationTimeToValue(std::optional<EpochTimeStamp> timestamp)
@@ -579,7 +570,7 @@ static PushRecord makePushRecordFromRow(SQLiteStatementAutoResetScope& sql, int 
         .subscriptionSetIdentifier = {
             .bundleIdentifier = sql->columnText(columnIndex + 1),
             .pushPartition = sql->columnText(columnIndex + 2),
-            .dataStoreIdentifier = uuidFromSpan(sql->columnBlobAsSpan(columnIndex + 3))
+            .dataStoreIdentifier = WTF::UUID::tryCreate(sql->columnBlobAsSpan(columnIndex + 3))
         },
         .securityOrigin = sql->columnText(columnIndex + 4),
         .scope = sql->columnText(columnIndex + 5),
@@ -682,7 +673,7 @@ void PushDatabase::getPushSubscriptionSetRecords(CompletionHandler<void(Vector<P
             PushSubscriptionSetIdentifier identifier {
                 .bundleIdentifier = sql->columnText(0),
                 .pushPartition = sql->columnText(1),
-                .dataStoreIdentifier = uuidFromSpan(sql->columnBlobAsSpan(2))
+                .dataStoreIdentifier = WTF::UUID::tryCreate(sql->columnBlobAsSpan(2))
             };
             String securityOrigin = sql->columnText(3);
             bool enabled = static_cast<SubscriptionSetsStateColumn>(sql->columnInt(4)) == SubscriptionSetsStateColumn::Enabled;

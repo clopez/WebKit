@@ -14,17 +14,21 @@ https://www.airindiaexpress.com/
     NeedsAirIndiaExpressLayeringQuirk
 https://www.amazon.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://sub.amazon.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://www.amazon.co.uk/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://amazon.design/
     NeedsAmazonDesignMenuViewportUnitQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://www.apple.com/
     EnsureCaptionVisibilityInFullscreenAndPictureInPicture
 https://as.com/
-    (none)
+    ShouldDisableElementFullscreenQuirk
 https://www.att.com/
     ShouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk
 https://www.bbc.co.uk/
@@ -53,7 +57,7 @@ https://www.cnn.com/
     NeedsFullscreenObjectFitQuirk
     ShouldDisableThreadedAnimationsQuirk
 https://www.digitaltrends.com/
-    (none)
+    ShouldDisableElementFullscreenQuirk
 https://discord.com/
     ShouldUseLayoutViewportForClientRectsQuirk
 https://store.steampowered.com/
@@ -76,12 +80,13 @@ https://www.ea.com/
     (none)
 https://www.espn.com/
     AllowLayeredFullscreenVideos
-    NeedsPauseBeforeFullscreenExitQuirk
+    NeedsSuppressedPauseEventOnFullscreenExitQuirk
     ShouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk
 https://www.facebook.com/
     NeedsFacebookRemoveNotSupportedQuirk
     RequiresUserGestureToPauseInPictureInPictureQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
     ShouldEnableCameraAndMicrophonePermissionStateQuirk
     ShouldEnableEnumerateDeviceQuirk
     ShouldEnableFacebookFlagQuirk
@@ -92,19 +97,29 @@ https://www.forbes.com/
 https://gizmodo.com/
     NeedsFullscreenDisplayNoneQuirk
 https://play.geforcenow.com/
-    (none)
+    NeedsGeforcenowWarningDisplayNoneQuirk
 https://www.google.com/
     MaybeBypassBackForwardCache
+https://www.google.com/search
+    MaybeBypassBackForwardCache
+    NeedsAnchorToBeMouseFocusableQuirk
+https://www.google.com/search/howsearchworks
+    MaybeBypassBackForwardCache
+https://www.google.co.jp/search
+    MaybeBypassBackForwardCache
+    NeedsAnchorToBeMouseFocusableQuirk
 https://www.google.com/maps/
     MayNeedToIgnoreContentObservation
     MaybeBypassBackForwardCache
     NeedsGoogleMapsScrollingQuirk
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://maps.google.com/maps/
     MayNeedToIgnoreContentObservation
     MaybeBypassBackForwardCache
     NeedsGoogleMapsScrollingQuirk
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://docs.google.com/
     InputMethodUsesCorrectKeyEventOrder
     MaybeBypassBackForwardCache
@@ -132,6 +147,8 @@ https://www.carrentals.com/
     NeedsExpediaGroupAnimationQuirk
 https://www.cheaptickets.com/
     NeedsExpediaGroupAnimationQuirk
+https://www.chess.com/
+    ShouldEnterNativeFullscreenWhenCallingElementRequestFullscreen
 https://www.ebookers.de/
     NeedsExpediaGroupAnimationQuirk
 https://www.expedia.com/
@@ -169,6 +186,7 @@ https://www.imdb.com/
     NeedsZeroMaxTouchPointsQuirk
 https://www.instagram.com/
     NeedsInstagramResizingReelsQuirk
+    ShouldDisableElementFullscreenQuirk
     ShouldSendFakeTouchForceChangeEvent
 https://invideo.io/
     NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk
@@ -248,11 +266,13 @@ https://www.sharepoint.com/
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
 https://soundcloud.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
     ShouldExposeShowModalDialog
 https://soylent.com/
     (none)
 https://open.spotify.com/
     NeedsBodyScrollbarWidthNoneDisabledQuirk
+    NeedsWebKitMediaKeysTransportStreamIsTypeSupportedQuirk
     NeedsWebKitMediaTextTrackDisplayQuirk
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
     ShouldBlockAudiblePlaybackWhileAudioIsPlaying
@@ -274,6 +294,7 @@ https://www.thesaurus.com/
 https://www.tiktok.com/
     NeedsTikTokOverflowingContentQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://trix-editor.org/
     (none)
 https://www.twitch.tv/
@@ -287,6 +308,7 @@ https://vimeo.com/
     BlocksReturnToFullscreenFromPictureInPictureQuirk
     MaybeBypassBackForwardCache
     NeedsPreloadAutoQuirk
+    ShouldDisableElementFullscreenQuirk
     ShouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk
 https://www.walmart.com/
     MayNeedToIgnoreContentObservation
@@ -304,6 +326,7 @@ https://workspaces.xyz/
 https://wpdevelopment.ca/
     (none)
 https://x.com/
+    NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk
     RequiresUserGestureToLoadInPictureInPictureQuirk
     RequiresUserGestureToPauseInPictureInPictureQuirk
     ShouldAvoidProgrammaticScrollClampingQuirk
@@ -324,12 +347,14 @@ https://www.youtube.com/
     NeedsYouTubeCaptionQuirk
     NeedsYouTubeMouseOutQuirk
     NeedsYouTubeOverflowScrollQuirk
+    ShouldDisableElementFullscreenQuirk
     ShouldSilenceResizeObservers
 https://www.youtube-nocookie.com/
     (none)
 https://www.zillow.com/
     ShouldAvoidScrollingWhenFocusedContentIsVisibleQuirk
     ShouldSilenceResizeObservers
+    ShouldTranscodeHeicImagesQuirk
 https://www.zomato.com/
     (none)
 https://zoom.us/

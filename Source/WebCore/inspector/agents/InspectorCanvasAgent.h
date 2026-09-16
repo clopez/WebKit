@@ -70,6 +70,7 @@ class InspectorCanvasAgent : public InspectorAgentBase, public Inspector::Canvas
     WTF_MAKE_TZONE_ALLOCATED(InspectorCanvasAgent);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(InspectorCanvasAgent);
 public:
+
     ~InspectorCanvasAgent();
 
     // InspectorAgentBase
@@ -95,7 +96,7 @@ public:
     void setShaderProgramHighlighted(const Inspector::Protocol::Canvas::ProgramId&, bool highlighted, Ref<SetShaderProgramHighlightedCallback>&&);
 
     // CanvasObserver
-    void canvasChanged(CanvasBase&, const FloatRect&) final;
+    void canvasContentsWillChange(CanvasBase&, const FloatRect&) final;
     void canvasResized(CanvasBase&) final { }
     void canvasDestroyed(CanvasBase&) final;
 

@@ -33,6 +33,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #if ENABLE(WEBASSEMBLY_BBQJIT)
 
 #include "B3Common.h"
+#include "B3Operations.h"
 #include "B3ValueRep.h"
 #include "BinarySwitch.h"
 #include "BytecodeStructs.h"
@@ -60,6 +61,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "WasmOMGIRGenerator.h"
 #include "WasmOperations.h"
 #include "WasmOps.h"
+#include "WasmTable.h"
 #include "WasmThunks.h"
 #include "WasmTypeDefinition.h"
 #include "WebAssemblyFunctionBase.h"
@@ -76,7 +78,7 @@ Location Location::fromArgumentLocation(ArgumentLocation argLocation, TypeKind)
 {
     switch (argLocation.location.kind()) {
     case ValueLocation::Kind::GPRRegister:
-        return Location::fromGPR(argLocation.location.jsr().gpr());
+        return Location::fromGPR(argLocation.location.gpr());
     case ValueLocation::Kind::FPRRegister:
         return Location::fromFPR(argLocation.location.fpr());
     case ValueLocation::Kind::StackArgument:
@@ -154,26 +156,64 @@ Value BBQJIT::instanceValue()
 // Tables
 [[nodiscard]] PartialResult BBQJIT::addTableGet(unsigned tableIndex, Value index, Value& result)
 {
-    // FIXME: Emit this inline <https://bugs.webkit.org/show_bug.cgi?id=198506>.
-    auto table = m_info.table(tableIndex);
+    auto& table = m_info.table(tableIndex);
     ASSERT(index.type() == table.addressType().asWasmTypeKind());
     TypeKind returnType = table.wasmType().kind();
     ASSERT(typeKindSizeInBytes(returnType) == 8);
 
     emitZeroExtendAddressOperand(table.addressType().is64Bit(), index);
 
-    Vector<Value, 8> arguments = {
-        instanceValue(),
-        Value::fromI32(tableIndex),
-        index
-    };
-    result = topValue(returnType);
-    emitCCall(&operationGetWasmTableElement, arguments, result);
-    Location resultLocation = loadIfNecessary(result);
+    {
+        ScratchScope<3, 0> scratches(*this);
+        GPRReg tableGPR = scratches.gpr(0);
+        GPRReg scratchGPR = scratches.gpr(1);
+        GPRReg valueGPR = scratches.gpr(2);
+
+        m_jit.loadPtr(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfTable(m_info, tableIndex)), tableGPR);
+        m_jit.load32(Address(tableGPR, Table::offsetOfLength()), scratchGPR);
+
+        GPRReg indexGPR;
+        if (index.isConst()) {
+            uint64_t indexValue = table.addressType().is64Bit() ? static_cast<uint64_t>(index.asI64()) : static_cast<uint32_t>(index.asI32());
+            recordJumpToThrowException(ExceptionType::OutOfBoundsTableAccess, m_jit.branch64(RelationalCondition::BelowOrEqual, scratchGPR, TrustedImm64(indexValue)));
+            m_jit.move(TrustedImm64(indexValue), scratchGPR);
+            indexGPR = scratchGPR;
+        } else {
+            indexGPR = loadIfNecessary(index).asGPR();
+            recordJumpToThrowException(ExceptionType::OutOfBoundsTableAccess, m_jit.branch64(RelationalCondition::AboveOrEqual, indexGPR, scratchGPR));
+        }
+
+        if (table.type() == TableElementType::Funcref) {
+            m_jit.loadPtr(Address(tableGPR, FuncRefTable::offsetOfWrappers()), tableGPR);
+            static_assert(sizeof(WriteBarrier<WebAssemblyFunctionBase>) == 8);
+            m_jit.load64(MacroAssembler::BaseIndex(tableGPR, indexGPR, MacroAssembler::TimesEight), valueGPR);
+
+            JumpList slowPath = m_jit.branchTest64(ResultCondition::Zero, valueGPR);
+            MacroAssembler::Label done(m_jit);
+            uint64_t constIndex = index.isConst()
+                ? (table.addressType().is64Bit() ? static_cast<uint64_t>(index.asI64()) : static_cast<uint32_t>(index.asI32()))
+                : 0;
+            m_slowPaths.append({ origin(), WTF::move(slowPath), WTF::move(done), copyBindings(), [tableIndex, indexIsConst = index.isConst(), constIndex, indexGPR, valueGPR](BBQJIT&, CCallHelpers& jit) {
+                jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
+                if (indexIsConst)
+                    jit.setupArguments<decltype(operationGetWasmTableElement)>(GPRInfo::wasmContextInstancePointer, TrustedImm32(tableIndex), TrustedImm64(constIndex));
+                else
+                    jit.setupArguments<decltype(operationGetWasmTableElement)>(GPRInfo::wasmContextInstancePointer, TrustedImm32(tableIndex), indexGPR);
+                jit.callOperation<OperationPtrTag>(operationGetWasmTableElement);
+                jit.move(GPRInfo::returnValueGPR, valueGPR);
+            } });
+        } else {
+            m_jit.loadPtr(Address(tableGPR, ExternOrAnyRefTable::offsetOfJSValues()), tableGPR);
+            static_assert(sizeof(WriteBarrier<Unknown>) == 8);
+            m_jit.load64(MacroAssembler::BaseIndex(tableGPR, indexGPR, MacroAssembler::TimesEight), valueGPR);
+        }
+
+        consume(index);
+        result = topValue(returnType);
+        m_jit.move(valueGPR, allocate(result).asGPR());
+    }
 
     LOG_INSTRUCTION("TableGet", tableIndex, index, RESULT(result));
-
-    recordJumpToThrowException(ExceptionType::OutOfBoundsTableAccess, m_jit.branchTest64(ResultCondition::Zero, resultLocation.asGPR()));
     return { };
 }
 
@@ -1574,22 +1614,6 @@ void BBQJIT::emitAllocateGCArrayUninitialized(GPRReg resultGPR, TypeSignatureInd
 [[nodiscard]] PartialResult BBQJIT::addArrayNewDefault(TypeSignatureIndex typeIndex, ExpressionType size, ExpressionType& result)
 {
     StorageType elementType = getArrayElementType(typeIndex);
-    // FIXME: We don't have a good way to fill V128s yet so just make a call.
-    if (elementType.unpacked().isV128()) {
-        Vector<Value, 8> arguments = {
-            instanceValue(),
-            Value::fromI32(typeIndex.rawIndex()),
-            size,
-        };
-        result = topValue(TypeKind::Arrayref);
-        emitCCall(operationWasmArrayNewEmpty, arguments, result);
-
-        Location resultLocation = loadIfNecessary(result);
-        emitThrowOnNullReference(ExceptionType::BadArrayNew, resultLocation);
-
-        LOG_INSTRUCTION("ArrayNewDefault", typeIndex, size, RESULT(result));
-        return { };
-    }
 
     GPRReg resultGPR;
     {
@@ -1602,7 +1626,13 @@ void BBQJIT::emitAllocateGCArrayUninitialized(GPRReg resultGPR, TypeSignatureInd
         JIT_COMMENT(m_jit, "Array allocation done do initialization");
         std::optional<ScratchScope<1, 0>> sizeScratch;
         Location sizeLocation = materializeToGPR(size, sizeScratch);
-        Value initValue = Value::fromI64(Wasm::isRefType(elementType.unpacked()) ? JSValue::encode(jsNull()) : 0);
+        Value initValue;
+        if (elementType.unpacked().isV128()) {
+            // FIXME: We should have V128 Constant.
+            materializeVectorConstant(v128_t { }, Location::fromFPR(wasmScratchFPR));
+            initValue = Value::pinned(TypeKind::V128, Location::fromFPR(wasmScratchFPR));
+        } else
+            initValue = Value::fromI64(Wasm::isRefType(elementType.unpacked()) ? JSValue::encode(jsNull()) : 0);
 
         emitArrayGetPayload(elementType, resultGPR, scratchGPR);
 
@@ -1845,9 +1875,15 @@ void BBQJIT::emitArraySetUnchecked(TypeSignatureIndex typeIndex, Value arrayref,
         m_jit.zeroExtend32ToWord(indexLocation.asGPR(), indexLocation.asGPR());
     }
 
+    bool needsWriteBarrier = isRefType(getArrayElementType(typeIndex).unpacked());
+    if (needsWriteBarrier && value.isConst()) {
+        ASSERT(!JSValue::decode(value.asI64()).isCell());
+        needsWriteBarrier = false;
+    }
+
     emitArraySetUnchecked(typeIndex, arrayref, index, value);
 
-    if (isRefType(getArrayElementType(typeIndex).unpacked()))
+    if (needsWriteBarrier)
         emitWriteBarrier(arrayLocation.asGPR());
     consume(arrayref);
 
@@ -1890,56 +1926,110 @@ void BBQJIT::emitArraySetUnchecked(TypeSignatureIndex typeIndex, Value arrayref,
         consume(offset);
         consume(value);
         consume(size);
-        emitThrowException(ExceptionType::NullArrayFill);
+        emitThrowException(ExceptionType::NullAccess);
         return { };
     }
 
-    if (typedArray.type().isNullable())
-        emitThrowOnNullReference(ExceptionType::NullArrayFill, loadIfNecessary(arrayref));
-
-    Value shouldThrow = topValue(TypeKind::I32);
-    if (value.type() != TypeKind::V128) {
-        value = marshallToI64(value);
-        Vector<Value, 8> arguments = {
-            instanceValue(),
-            arrayref,
-            offset,
-            value,
-            size
-        };
-        emitCCall(&operationWasmArrayFill, arguments, shouldThrow);
-    } else {
-        ASSERT(!value.isConst());
-        Location valueLocation = loadIfNecessary(value);
-        consume(value);
-
-        Value lane0, lane1;
-        {
-            ScratchScope<2, 0> scratches(*this);
-            lane0 = Value::pinned(TypeKind::I64, Location::fromGPR(scratches.gpr(0)));
-            lane1 = Value::pinned(TypeKind::I64, Location::fromGPR(scratches.gpr(1)));
-
-            m_jit.vectorExtractLaneInt64(TrustedImm32(0), valueLocation.asFPR(), scratches.gpr(0));
-            m_jit.vectorExtractLaneInt64(TrustedImm32(1), valueLocation.asFPR(), scratches.gpr(1));
-        }
-
-        Vector<Value, 8> arguments = {
-            instanceValue(),
-            arrayref,
-            offset,
-            lane0,
-            lane1,
-            size,
-        };
-        emitCCall(operationWasmArrayFillVector, arguments, shouldThrow);
+    StorageType elementType = getArrayElementType(typeIndex);
+    {
+        ScratchScope<1, 0> length(*this);
+        emitGetArraySizeWithNullCheck(typedArray, length.gpr(0));
+        emitArrayRangeCheck(length.gpr(0), offset, size, ExceptionType::OutOfBoundsArrayFill);
     }
-    Location shouldThrowLocation = loadIfNecessary(shouldThrow);
 
     LOG_INSTRUCTION("ArrayFill", typeIndex, arrayref, offset, value, size);
 
-    recordJumpToThrowException(ExceptionType::OutOfBoundsArrayFill, m_jit.branchTest32(ResultCondition::Zero, shouldThrowLocation.asGPR()));
+    bool isEmptyRange = size.isConst() && !size.asI32();
+    if (!isEmptyRange) {
+        bool fillsVector = value.type() == TypeKind::V128;
+        ASSERT_IMPLIES(fillsVector, !value.isConst());
+        // Reinterpreting a float fill value as its bits flushes it, which has to happen on both edges
+        // of the branch below, not just the one that calls.
+        Value fillBits = fillsVector ? value : marshallToI64(value);
 
-    consume(shouldThrow);
+        // An empty range has nothing left to do once it is in bounds, and collection code fills empty
+        // ranges constantly, so branch around the call. Both edges of that branch have to agree on
+        // where every value lives, which is what the flush establishes.
+        flushRegisters();
+
+        Vector<Value, 8> arguments;
+        JumpList isEmpty;
+        {
+            // emitCCall() cannot run with scratches held, so compute the arguments here and name the
+            // registers they landed in once the scope has released them.
+            ScratchScope<4, 0> scratches(*this);
+            GPRReg payloadGPR = scratches.gpr(0);
+            GPRReg countGPR = scratches.gpr(1);
+            GPRReg valueGPR = scratches.gpr(2);
+            GPRReg lane1GPR = scratches.gpr(3);
+
+            emitZeroExtendI32(size, countGPR);
+            if (!size.isConst())
+                isEmpty.append(m_jit.branchTest32(ResultCondition::Zero, countGPR));
+
+            emitArrayElementAddress(elementType, arrayref, offset, payloadGPR);
+
+            Value payload = Value::pinned(TypeKind::I64, Location::fromGPR(payloadGPR));
+            Value count = Value::pinned(TypeKind::I64, Location::fromGPR(countGPR));
+
+            if (fillsVector) {
+                // Read the lanes out of the slot the flush left them in; binding the vector to a
+                // register here is something the branch's other edge would not have done.
+                static_assert(tempSlotSize >= static_cast<int>(sizeof(v128_t)));
+                ASSERT(locationOf(fillBits).isMemory());
+                Address slot = locationOf(fillBits).asAddress();
+                m_jit.load64(slot, valueGPR);
+                m_jit.load64(slot.withOffset(sizeof(uint64_t)), lane1GPR);
+                arguments = {
+                    payload,
+                    Value::pinned(TypeKind::I64, Location::fromGPR(valueGPR)),
+                    Value::pinned(TypeKind::I64, Location::fromGPR(lane1GPR)),
+                    count,
+                };
+            } else {
+                emitMove(fillBits, Location::fromGPR(valueGPR));
+                // A one-byte element goes to the memory fill, which takes its pattern as an i32.
+                TypeKind valueType = elementType.elementSize() == 1 ? TypeKind::I32 : TypeKind::I64;
+                arguments = { payload, Value::pinned(valueType, Location::fromGPR(valueGPR)), count };
+            }
+        }
+
+        if (fillsVector)
+            emitCCall(&operationWasmArrayFill16B, arguments);
+        else if (isRefType(elementType.unpacked())) {
+            // A reference has to be stored whole or the concurrent collector could read a torn JSValue,
+            // which a wider store does not promise.
+            emitCCall(&operationWasmArrayFillRefs, arguments);
+
+            // emitWriteBarrier() allocates its own scratches, so stage the cell somewhere they cannot take.
+            emitMove(arrayref, Location::fromGPR(wasmScratchGPR));
+            emitWriteBarrier(wasmScratchGPR);
+        } else {
+            switch (elementType.elementSize()) {
+            case 1:
+                emitCCall(&B3::operationMemoryFill, arguments);
+                break;
+            case 2:
+                emitCCall(&operationWasmArrayFill2B, arguments);
+                break;
+            case 4:
+                emitCCall(&operationWasmArrayFill4B, arguments);
+                break;
+            case 8:
+                emitCCall(&operationWasmArrayFill8B, arguments);
+                break;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+            }
+        }
+
+        isEmpty.link(m_jit);
+    }
+
+    consume(arrayref);
+    consume(offset);
+    consume(value);
+    consume(size);
 
     return { };
 }
@@ -2011,7 +2101,7 @@ void BBQJIT::emitAllocateGCStructUninitialized(GPRReg resultGPR, TypeSignatureIn
         emitAllocateGCStructUninitialized(resultGPR, typeIndex, wasmScratchGPR, scratchGPR);
 
         JIT_COMMENT(m_jit, "Struct allocation done, do initialization");
-        bool needsMutatorFence = false;
+        bool needsMutatorFence = structType.hasRefFieldTypes();
         for (StructFieldCount i = 0; i < structType.fieldCount(); ++i) {
             if (Wasm::isRefType(structType.field(i).type))
                 needsMutatorFence |= emitStructSet(resultGPR, structType, i, Value::fromRef(TypeKind::RefNull, JSValue::encode(jsNull())));
@@ -2022,8 +2112,8 @@ void BBQJIT::emitAllocateGCStructUninitialized(GPRReg resultGPR, TypeSignatureIn
                 needsMutatorFence |= emitStructSet(resultGPR, structType, i, Value::fromI64(0));
         }
 
-        // No write barrier needed here as all fields are set to constants.
-        ASSERT_UNUSED(needsMutatorFence, !needsMutatorFence);
+        if (needsMutatorFence)
+            emitMutatorFence();
     }
 
     result = topValue(TypeKind::Ref);
@@ -2057,7 +2147,7 @@ void BBQJIT::emitAllocateGCStructUninitialized(GPRReg resultGPR, TypeSignatureIn
         emitAllocateGCStructUninitialized(resultGPR, typeIndex, wasmScratchGPR, scratchGPR);
 
         JIT_COMMENT(m_jit, "Struct allocation done, do initialization");
-        bool needsMutatorFence = false;
+        bool needsMutatorFence = structType.hasRefFieldTypes();
         for (uint32_t i = 0; i < args.size(); ++i)
             needsMutatorFence |= emitStructSet(resultGPR, structType, i, args[i]);
 
@@ -2230,8 +2320,10 @@ void BBQJIT::emitRefTestOrCast(CastKind castKind, const TypedExpression& typedVa
 
     JumpList doneCases;
     if (typedValue.type().isNullable()) {
-        if (auto offset = castAccessOffset(); offset && offset.value() <= maxAcceptableOffsetForNullReference()) {
-            // We will have access which will be trapped.
+        if (auto offset = castAccessOffset(); Options::useWasmFaultSignalHandler() && offset && offset.value() <= maxAcceptableOffsetForNullReference()) {
+            // The cast below dereferences the reference at this offset, so a null lands in the
+            // guard region and the fault handler turns it into a trap. Without the handler
+            // installed there is nothing to catch it, so the check must be emitted.
         } else {
             if (allowNull)
                 doneCases.append(m_jit.branchIfNull(valueGPR));
@@ -2544,10 +2636,7 @@ void BBQJIT::emitRefTestOrCast(CastKind castKind, const TypedExpression& typedVa
 
 [[nodiscard]] PartialResult BBQJIT::addI64MulWideU(Value lhs, Value rhs, Value& resultLo, Value& resultHi)
 {
-#if CPU(X86_64)
-    for (JSC::Reg reg : clobbersForDivX86())
-        clobber(reg);
-#endif
+    PREPARE_FOR_MOD_OR_DIV;
 
     std::optional<ScratchScope<1, 0>> lhsScratch, rhsScratch;
     Location lhsLocation = materializeToGPR(lhs, lhsScratch);
@@ -2568,13 +2657,8 @@ void BBQJIT::emitRefTestOrCast(CastKind castKind, const TypedExpression& typedVa
         std::swap(lhsLocation, rhsLocation);
     m_jit.move(lhsLocation.asGPR(), X86Registers::eax);
     m_jit.x86UMulHigh64(rhsLocation.asGPR(), X86Registers::eax, X86Registers::edx);
-    if (resultLoLocation.asGPR() != X86Registers::edx) {
-        m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
-        m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
-    } else {
-        m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
-        m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
-    }
+    m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
+    m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
 #elif CPU(ARM64)
     if (resultHiLocation.asGPR() == lhsLocation.asGPR()) {
         m_jit.move(lhsLocation.asGPR(), wasmScratchGPR);
@@ -2595,10 +2679,7 @@ void BBQJIT::emitRefTestOrCast(CastKind castKind, const TypedExpression& typedVa
 
 [[nodiscard]] PartialResult BBQJIT::addI64MulWideS(Value lhs, Value rhs, Value& resultLo, Value& resultHi)
 {
-#if CPU(X86_64)
-    for (JSC::Reg reg : clobbersForDivX86())
-        clobber(reg);
-#endif
+    PREPARE_FOR_MOD_OR_DIV;
 
     std::optional<ScratchScope<1, 0>> lhsScratch, rhsScratch;
     Location lhsLocation = materializeToGPR(lhs, lhsScratch);
@@ -2619,13 +2700,8 @@ void BBQJIT::emitRefTestOrCast(CastKind castKind, const TypedExpression& typedVa
         std::swap(lhsLocation, rhsLocation);
     m_jit.move(lhsLocation.asGPR(), X86Registers::eax);
     m_jit.x86MulHigh64(rhsLocation.asGPR(), X86Registers::eax, X86Registers::edx);
-    if (resultLoLocation.asGPR() != X86Registers::edx) {
-        m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
-        m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
-    } else {
-        m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
-        m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
-    }
+    m_jit.move(X86Registers::eax, resultLoLocation.asGPR());
+    m_jit.move(X86Registers::edx, resultHiLocation.asGPR());
 #elif CPU(ARM64)
     if (resultHiLocation.asGPR() == lhsLocation.asGPR()) {
         m_jit.move(lhsLocation.asGPR(), wasmScratchGPR);
@@ -4100,30 +4176,7 @@ void BBQJIT::materializeVectorConstant(v128_t value, Location result)
             return { };
         }
 
-        {
-            v128_t towerOfPower { };
-            switch (info.lane) {
-            case SIMDLane::i32x4:
-                for (unsigned i = 0; i < 4; ++i)
-                    towerOfPower.u32x4[i] = 1 << i;
-                break;
-            case SIMDLane::i16x8:
-                for (unsigned i = 0; i < 8; ++i)
-                    towerOfPower.u16x8[i] = 1 << i;
-                break;
-            case SIMDLane::i8x16:
-                for (unsigned i = 0; i < 8; ++i)
-                    towerOfPower.u8x16[i] = 1 << i;
-                for (unsigned i = 0; i < 8; ++i)
-                    towerOfPower.u8x16[i + 8] = 1 << i;
-                break;
-            default:
-                RELEASE_ASSERT_NOT_REACHED();
-            }
-
-            // FIXME: this is bad, we should load
-            materializeVectorConstant(towerOfPower, Location::fromFPR(wasmScratchFPR));
-        }
+        m_jit.loadVector(TrustedImmPtr(vectorBitmaskTower(info.lane)), wasmScratchFPR);
 
         {
             ScratchScope<0, 1> scratches(*this, valueLocation, resultLocation);

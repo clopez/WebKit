@@ -782,7 +782,7 @@ void WebPageProxy::executeSavedCommandBySelector(IPC::Connection&, const String&
     completionHandler(false);
 }
 
-bool WebPageProxy::shouldDelayWindowOrderingForEvent(const WebKit::WebMouseEvent&)
+bool WebPageProxy::shouldDelayWindowOrderingForEvent(Ref<WebKit::WebMouseEvent>&&)
 {
     notImplemented();
     return false;
@@ -912,14 +912,19 @@ void WebPageProxy::didProgrammaticallyClearFocusedElement(WebCore::ElementContex
 
 void WebPageProxy::elementDidFocus(IPC::Connection& connection, const FocusedElementInformation& information, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, const UserData& userData)
 {
+    Ref process = WebProcessProxy::fromConnection(connection);
+
     m_pendingInputModeChange = std::nullopt;
-    m_focusedElementProcessID = WebProcessProxy::fromConnection(connection)->coreProcessIdentifier();
+    m_focusedElementProcessID = process->coreProcessIdentifier();
 
     RefPtr pageClient = this->pageClient();
     if (!pageClient)
         return;
 
-    RefPtr userDataObject = WebProcessProxy::fromConnection(connection)->transformHandlesToObjects(protect(userData.object())).get();
+    if (pageClient->hasFocusedElement())
+        blurPreviousNode = true;
+
+    RefPtr userDataObject = process->transformHandlesToObjects(protect(userData.object())).get();
 
     convertFocusedElementInformationRectsToMainFrameCoordinates(information,
         [weakThis = WeakPtr { *this }, userIsInteracting, blurPreviousNode, activityStateChanges, userDataObject = WTF::move(userDataObject)] (FocusedElementInformation convertedInfo) {
@@ -975,15 +980,21 @@ void WebPageProxy::convertFocusedElementInformationRectsToMainFrameCoordinates(F
 
     Vector<FloatRect> rects;
     rects.append(information.interactionRect);
+    // The last interaction location is the tap point as delivered to the frame's own process, so it is in
+    // that frame's root-view coordinates. Convert it too, so that comparing it against interactionRect in
+    // -[WKContentView rectToRevealWhenZoomingToFocusedElement] compares points in the same space.
+    rects.append({ FloatPoint { information.lastInteractionLocation }, FloatSize { } });
     if (information.hasNextNode)
         rects.append(information.nextNodeRect);
     if (information.hasPreviousNode)
         rects.append(information.previousNodeRect);
 
-    convertRectsToMainFrameCoordinates(WTF::move(rects), frame->rootFrame()->frameID(), [information = WTF::move(information), completionHandler = WTF::move(completionHandler)](std::optional<Vector<FloatRect>> convertedRects) mutable {
-        if (convertedRects) {
+    auto expectedRectCount = rects.size();
+    convertRectsToMainFrameCoordinates(WTF::move(rects), frame->rootFrame()->frameID(), [expectedRectCount, information = WTF::move(information), completionHandler = WTF::move(completionHandler)](std::optional<Vector<FloatRect>> convertedRects) mutable {
+        if (convertedRects && convertedRects->size() == expectedRectCount) {
             size_t index = 0;
             information.interactionRect = IntRect(convertedRects->at(index++));
+            information.lastInteractionLocation = IntPoint(convertedRects->at(index++).location());
             if (information.hasNextNode)
                 information.nextNodeRect = IntRect(convertedRects->at(index++));
             if (information.hasPreviousNode)
@@ -1573,12 +1584,27 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         policies.setCustomNavigatorPlatform("iPhone"_s);
     };
 
+    auto applyCapabilityPoliciesForContentMode = [&](WebContentMode contentMode) {
+        bool shouldEmulateDesktopClassHardware = contentMode == WebContentMode::Desktop && m_configuration->backgroundTextExtractionEnabled();
+#if ENABLE(TOUCH_EVENTS)
+        bool shouldOmitTouchEventDOMAttributes = shouldEmulateDesktopClassHardware
+            || (contentMode == WebContentMode::Desktop && needsSiteSpecificQuirks && Quirks::shouldOmitTouchEventDOMAttributesForDesktopWebsite(request.url()));
+        policies.setOverrideTouchEventDOMAttributesEnabled(!shouldOmitTouchEventDOMAttributes);
+#endif
+#if ENABLE(IOS_TOUCH_EVENTS)
+        policies.setOverrideShouldReportZeroMaxTouchPoints(shouldEmulateDesktopClassHardware);
+#endif
+        policies.setOverrideShouldReportViewportSizeAsScreenSize(shouldEmulateDesktopClassHardware && !desktopClassBrowsingSupported());
+        policies.setOverrideShouldReportDesktopClassPointingDevice(shouldEmulateDesktopClassHardware);
+    };
+
     if (needsSiteSpecificQuirks) {
         if (auto selectors = Quirks::defaultVisibilityAdjustmentSelectors(request.url()))
             policies.setVisibilityAdjustmentSelectors({ WTF::move(*selectors) });
 
         if (Quirks::needsIPhoneUserAgent(request.url())) {
             applyIPhoneUserAgent();
+            applyCapabilityPoliciesForContentMode(WebContentMode::Mobile);
             return WebContentMode::Mobile;
         }
     }
@@ -1589,6 +1615,7 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
 
     if (!useDesktopBrowsingMode) {
         policies.setIdempotentModeAutosizingOnlyHonorsPercentages(true);
+        applyCapabilityPoliciesForContentMode(WebContentMode::Mobile);
         return WebContentMode::Mobile;
     }
 
@@ -1620,10 +1647,7 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         m_preferFasterClickOverDoubleTap = true;
     }
 
-#if ENABLE(TOUCH_EVENTS)
-    if (needsSiteSpecificQuirks && Quirks::shouldOmitTouchEventDOMAttributesForDesktopWebsite(request.url()))
-        policies.setOverrideTouchEventDOMAttributesEnabled(false);
-#endif
+    applyCapabilityPoliciesForContentMode(WebContentMode::Desktop);
 
     policies.setInlineMediaPlaybackPolicy(WebsiteInlineMediaPlaybackPolicy::DoesNotRequirePlaysInlineAttribute);
 

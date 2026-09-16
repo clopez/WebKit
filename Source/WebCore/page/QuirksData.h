@@ -25,313 +25,91 @@
 
 #pragma once
 
-#include <initializer_list>
-#include <wtf/Platform.h>
+#include <WebCore/QuirkBehaviors.h>
+#include <WebCore/URLMatch.h>
+#include <span>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-struct QuirksData {
-    bool isAirIndiaExpress : 1 { false };
-    bool isAmazon : 1 { false };
-    bool isBankOfAmerica : 1 { false };
-    bool isBestBuy : 1 { false };
-    bool isBing : 1 { false };
-    bool isCBSSports : 1 { false };
-    bool isCEAC : 1 { false };
-    bool isDictionary : 1 { false };
-    bool isEA : 1 { false };
-    bool isESPN : 1 { false };
-    bool isFacebook : 1 { false };
-    bool isGoogleDocs : 1 { false };
-    bool isGoogleProperty : 1 { false };
-    bool isGoogleMaps : 1 { false };
-    bool isIHeart : 1 { false };
-    bool isInVideo : 1 { false };
-    bool isLinkedIn : 1 { false };
-    bool isNBA : 1 { false };
-    bool isNetflix : 1 { false };
-    bool isOutlook : 1 { false };
-    bool isSoundCloud : 1 { false };
-    bool isThesaurus : 1 { false };
-    bool isTikTok : 1 { false };
-    bool isVimeo : 1 { false };
-    bool isWalmart : 1 { false };
-    bool isWebEx : 1 { false };
-    bool isYouTube : 1 { false };
-    bool isZoom : 1 { false };
+struct ParameterizedQuirkBehavior {
+    QuirkBehaviorID id;
+    std::optional<URLMatch> urlCondition { std::nullopt };
+    QuirkParameters parameters;
+};
 
-    enum class SiteSpecificQuirk {
-#if PLATFORM(IOS) || PLATFORM(VISION)
-        AllowLayeredFullscreenVideos,
-#endif
-#if ENABLE(FULLSCREEN_API) && ENABLE(VIDEO_PRESENTATION_MODE)
-        BlocksEnteringStandardFullscreenFromPictureInPictureQuirk,
-        BlocksReturnToFullscreenFromPictureInPictureQuirk,
-#endif
-        EnsureCaptionVisibilityInFullscreenAndPictureInPicture,
-        HasBrokenEncryptedMediaAPISupportQuirk,
-        ImplicitMuteWhenVolumeSetToZero,
-        InputMethodUsesCorrectKeyEventOrder,
-        InputMethodMustUseCompositionEvents,
-#if PLATFORM(MAC)
-        IsNeverRichlyEditableForTouchBarQuirk,
-        IsTouchBarUpdateSuppressedForHiddenContentEditableQuirk,
-#endif
-        MaybeBypassBackForwardCache,
-#if ENABLE(TWO_PHASE_CLICKS)
-        MayNeedToIgnoreContentObservation,
-#endif
-        NeedsAirIndiaExpressLayeringQuirk,
-        NeedsBodyScrollbarWidthNoneDisabledQuirk,
-        NeedsCanPlayAfterSeekedQuirk,
-        NeedsChromeMediaControlsPseudoElementQuirk,
-#if PLATFORM(COCOA)
-        NeedsCNNCaptionQuirk,
-#endif
-        NeedsLogoutCookieCleanupQuirk,
-#if PLATFORM(IOS_FAMILY)
-        NeedsAmazonDesignMenuViewportUnitQuirk,
-        NeedsClaudeSidebarViewportUnitQuirk,
-        NeedsHideSelectionDuringOverflowScrollQuirk,
-#endif
-        NeedsCustomUserAgentData,
-#if PLATFORM(IOS_FAMILY)
-        NeedsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk,
-#endif
-        NeedsFacebookRemoveNotSupportedQuirk,
-#if PLATFORM(COCOA)
-        NeedsAnchorToBeMouseFocusableQuirk,
-        NeedsFormControlToBeMouseFocusableQuirk,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        NeedsFullscreenDisplayNoneQuirk,
-        NeedsFullscreenObjectFitQuirk,
-        NeedsGMailOverflowScrollQuirk,
-        NeedsGoogleMapsScrollingQuirk,
-        NeedsGoogleTranslateScrollingQuirk,
-#endif
-#if PLATFORM(IOS) || PLATFORM(VISION)
-        NeedsNetflixVolumeSliderQuirk,
-#endif
-        NeedsGeforcenowWarningDisplayNoneQuirk,
-        NeedsExpediaGroupAnimationQuirk,
-        NeedsMediaRewriteRangeRequestQuirk,
-        NeedsMozillaFileTypeForDataTransferQuirk,
-        NeedsNavigatorUserAgentDataQuirk,
-        NeedsNowPlayingFullscreenSwapQuirk,
-#if PLATFORM(IOS_FAMILY)
-        NeedsPauseBeforeFullscreenExitQuirk,
-        NeedsPreloadAutoQuirk,
-#endif
-#if PLATFORM(MAC)
-        NeedsPrimeVideoUserSelectNoneQuirk,
-#endif
-        NeedsResettingTransitionCancelsRunningTransitionQuirk,
-        NeedsReuseLiveRangeForSelectionUpdateQuirk,
-        NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk,
-        NeedsScrollbarWidthThinDisabledQuirk,
-        NeedsSeekingSupportDisabledQuirk,
-        NeedsSuppressPostLayoutBoundaryEventsQuirk,
-        NeedsTikTokOverflowingContentQuirk,
-        NeedsVideoShouldMaintainAspectRatioQuirk,
-        NeedsWebKitMediaTextTrackDisplayQuirk,
-#if PLATFORM(COCOA)
-        NeedsYouTubeCaptionQuirk,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        NeedsYouTubeEmbedAutoplayQuirk,
-#endif
-#if ENABLE(TWO_PHASE_CLICKS)
-        NeedsYouTubeMouseOutQuirk,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        NeedsYouTubeOverflowScrollQuirk,
-#endif
-        NeedsZeroMaxTouchPointsQuirk,
-#if PLATFORM(MAC)
-        NeedsZomatoEmailLoginLabelQuirk,
-#endif
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-        RequiresUserGestureToLoadInPictureInPictureQuirk,
-        RequiresUserGestureToPauseInPictureInPictureQuirk,
-#endif
-#if ENABLE(FULLSCREEN_API)
-        RequiresUserGestureToPlayInFullscreenQuirk,
-#endif
-        ReturnNullPictureInPictureElementDuringFullscreenChangeQuirk,
-#if PLATFORM(IOS_FAMILY)
-        ShouldAllowPopupFromMicrosoftOfficeToOneDrive,
-#endif
-        ShouldAutoplayWebAudioForArbitraryUserGestureQuirk,
-        ShouldAvoidProgrammaticScrollClampingQuirk,
-        ShouldAvoidResizingWhenInputViewBoundsChangeQuirk,
-        ShouldAvoidScrollingWhenFocusedContentIsVisibleQuirk,
-        ShouldBlockFetchWithNewlineAndLessThan,
-        ShouldBypassAsyncScriptDeferring,
-        ShouldComparareUsedValuesForBorderWidthForTriggeringTransitions,
-        ShouldDelayReloadWhenRegisteringServiceWorker,
-#if HAVE(PIP_SKIP_PREROLL)
-        ShouldDisableAdSkippingInPip,
-#endif
-        ShouldDisableDataURLPaddingValidation,
-        ShouldDisableDOMAudioSession,
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-        ShouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk,
-#endif
-        ShouldDisableFetchMetadata,
-#if PLATFORM(VISION)
-        ShouldDisableFullscreenVideoAspectRatioAdaptiveSizingQuirk,
-#endif
-#if ENABLE(MEDIA_STREAM)
-        ShouldDisableImageCaptureQuirk,
-        ShouldAllowMediaStreamTrackSerializationQuirk,
-#endif
-        ShouldDisableLazyIframeLoadingQuirk,
-        ShouldDisableMediaLayerTeardownOnPageVisibilityChangeQuirk,
-#if PLATFORM(IOS_FAMILY)
-        ShouldDisablePointerEventsQuirk,
-#endif
-        ShouldDisablePushStateFilePathRestrictions,
-        ShouldDisableScrollAnchoringQuirk,
-#if ENABLE(THREADED_ANIMATIONS)
-        ShouldDisableThreadedAnimationsQuirk,
-#endif
-        ShouldDisableWritingSuggestionsByDefaultQuirk,
-        ShouldDispatchPlayPauseEventsOnResume,
-#if ENABLE(TOUCH_EVENTS)
-        ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick,
-#endif
-        ShouldDispatchSyntheticMouseEventsWhenModifyingSelectionQuirk,
-        ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
-#if ENABLE(MEDIA_STREAM)
-        ShouldEnableCameraAndMicrophonePermissionStateQuirk,
-        ShouldEnableCameraBackgroundPlayback,
-        ShouldEnableEnumerateDeviceQuirk,
-        ShouldEnableFacebookFlagQuirk,
-#endif
-        ShouldEnableFontLoadingAPIQuirk,
-#if ENABLE(MEDIA_STREAM)
-        ShouldEnableLegacyGetUserMediaQuirk,
-        ShouldEnableRemoteTrackLabelQuirk,
-#endif
-#if ENABLE(WEB_RTC)
-        ShouldEnableRTCEncodedStreamsQuirk,
-#endif
-#if ENABLE(MEDIA_STREAM)
-        ShouldEnableSpeakerSelectionPermissionsPolicyQuirk,
-#endif
-        ShouldEnterNativeFullscreenWhenCallingElementRequestFullscreen,
-        ShouldExposeShowModalDialog,
-#if ENABLE(FLIP_SCREEN_DIMENSIONS_QUIRKS)
-        ShouldFlipScreenDimensionsQuirk,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        ShouldHideCoarsePointerCharacteristicsQuirk,
-        ShouldHideSoftTopScrollEdgeEffectDuringFocusQuirk,
-        ShouldIgnoreAriaForFastPathContentObservationCheckQuirk,
-        ShouldIgnoreInputModeNone,
-#endif
-        ShouldIgnorePlaysInlineRequirementQuirk,
-#if ENABLE(TEXT_AUTOSIZING)
-        ShouldIgnoreTextAutoSizingQuirk,
-#endif
-#if ENABLE(META_VIEWPORT)
-        ShouldIgnoreViewportArgumentsToAvoidExcessiveZoomQuirk,
-        ShouldIgnoreViewportArgumentsToAvoidEnlargedViewQuirk,
-        ShouldUseDynamicViewportUnitsAsDefaultQuirk,
-#endif
-        ShouldLayOutAtMinimumWindowWidthWhenIgnoringScalingConstraintsQuirk,
-#if PLATFORM(IOS_FAMILY)
-        ShouldNavigatorPluginsBeEmpty,
-#endif
-#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
-        ShouldPreventDispatchOfTouchEventQuirk,
-#endif
-        ShouldPreventOrientationMediaQueryFromEvaluatingToLandscapeQuirk,
-#if ENABLE(PICTURE_IN_PICTURE_API)
-        ShouldReportDocumentAsVisibleIfActivePIPQuirk,
-#endif
-        ShouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk,
-#if PLATFORM(IOS_FAMILY)
-        ShouldUseLayoutViewportForClientRectsQuirk,
-        ShouldSilenceWindowResizeEventsDuringApplicationSnapshotting,
-#endif
-#if PLATFORM(IOS) || PLATFORM(VISION)
-        ShouldSilenceMediaQueryListChangeEvents,
-        ShouldSilenceResizeObservers,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        ShouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreasQuirk,
-#endif
-#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
-        ShouldSupportHoverMediaQueriesQuirk,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        ShouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk,
-#endif
-#if ENABLE(CONTENT_CHANGE_OBSERVER)
-        ShouldTreatAddingMouseOutEventListenerAsContentChange,
-#endif
-        ShouldUnloadHeavyFrames,
-        ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor,
-        ShouldAllowNotificationPermissionWithoutUserGesture,
-        NeedsInstagramResizingReelsQuirk,
-        NeedsYahooVolumeSliderQuirk,
-#if PLATFORM(IOS_FAMILY)
-        NeedsChromeOSNavigatorUserAgentQuirk,
-        ShouldSendFakeTouchForceChangeEvent,
-#endif
-        ShouldLimitHLSPlaybackRate,
-        ShouldDeferIntersectionObserversDuringResize,
-        ShouldSuppressHLSSubtitles,
-        ShouldSuppressMediaSessionPauseActionOnInterruption,
-        ShouldBlockAudiblePlaybackWhileAudioIsPlaying,
-
-        NumberOfQuirks
-    };
-
-    WTF::BitSet<static_cast<size_t>(SiteSpecificQuirk::NumberOfQuirks)> activeQuirks;
-
-    inline bool quirkIsEnabled(SiteSpecificQuirk quirk) const
+class QuirksData {
+public:
+    inline bool isBehaviorEnabled(const QuirkBehavior& quirk) const
     {
-        return activeQuirks.get(static_cast<size_t>(quirk));
+        return m_activeQuirks.get(static_cast<size_t>(quirk.id));
     }
 
-    inline void enableQuirks()
+    inline bool isSite(QuirkSite site) const
     {
-        // No-op to support macro expansions
+        return m_sites.get(static_cast<size_t>(site));
     }
 
-    constexpr void enableQuirks(std::initializer_list<SiteSpecificQuirk> quirks)
+    inline bool hasEnabledBehaviors() const
     {
-        for (auto quirk : quirks)
-            activeQuirks.set(static_cast<size_t>(quirk));
+        return !m_activeQuirks.isEmpty();
     }
 
-    inline void enableQuirk(SiteSpecificQuirk quirk)
+    inline const QuirkBitSet& enabledBehaviors() const LIFETIME_BOUND
     {
-        return activeQuirks.set(static_cast<size_t>(quirk));
+        return m_activeQuirks;
     }
 
-    inline void setQuirkState(SiteSpecificQuirk quirk, bool state)
+    inline Vector<QuirkParameters, 1> parametersFor(const QuirkBehavior& behavior, const URLMatchContext& context) const
     {
-        return activeQuirks.set(static_cast<size_t>(quirk), state);
+        if (!isBehaviorEnabled(behavior))
+            return { };
+
+        Vector<QuirkParameters, 1> matching;
+        for (auto& candidate : m_parameterizedBehaviors) {
+            if (candidate.id != behavior.id)
+                continue;
+
+            if (!candidate.urlCondition || candidate.urlCondition->matches(context))
+                matching.append(candidate.parameters);
+        }
+
+        return matching;
     }
 
-    // Requires check at moment of use
-    std::optional<bool> needsDisableDOMPasteAccessQuirk;
-    std::optional<bool> shouldDisableElementFullscreen;
+    inline void applyTableRow(std::span<const QuirkBehavior> behaviors)
+    {
+        for (auto& behavior : behaviors) {
+            m_activeQuirks.set(static_cast<size_t>(behavior.id));
 
-#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
-    enum class ShouldDispatchSimulatedMouseEvents : uint8_t {
-        Unknown,
-        No,
-        DependingOnTargetWithSliderRole,
-        DependingOnTargetFor_mybinder_org,
-        Yes,
-    };
-    ShouldDispatchSimulatedMouseEvents shouldDispatchSimulatedMouseEventsQuirk { ShouldDispatchSimulatedMouseEvents::Unknown };
-#endif
+            if (behavior.parameters)
+                m_parameterizedBehaviors.append({ behavior.id, behavior.urlCondition, *behavior.parameters });
+        }
+    }
+
+    inline void addSite(QuirkSite site)
+    {
+        m_sites.set(static_cast<size_t>(site));
+    }
+
+    inline void setEnabled(QuirkBehaviorID id, bool state)
+    {
+        m_activeQuirks.set(static_cast<size_t>(id), state);
+    }
+
+    void merge(const QuirksData& other)
+    {
+        auto& [otherActiveQuirks, otherSites, otherParameterizedBehaviors] = other;
+        m_activeQuirks.merge(otherActiveQuirks);
+        m_sites.merge(otherSites);
+        m_parameterizedBehaviors.appendVector(otherParameterizedBehaviors);
+    }
+
+private:
+    QuirkBitSet m_activeQuirks;
+    QuirkSiteBitSet m_sites;
+    Vector<ParameterizedQuirkBehavior> m_parameterizedBehaviors;
 };
 
 } // namespace WebCore
+

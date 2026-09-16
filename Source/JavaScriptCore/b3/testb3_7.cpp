@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "testb3.h"
+#include "B3BackwardsDominators.h"
 #include <wtf/WasmSIMD128.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -220,7 +221,7 @@ void testX86LeaAddShlLeftScale1()
                 return strstr(disassembly, "lea (%rdi,%rsi,1), %rax")
                     || strstr(disassembly, "lea (%rsi,%rdi,1), %rax");
             },
-            "Expected to find something like lea (%rdi,%rsi,1), %rax but didn't!");
+            "Expected to find something like lea (%rdi,%rsi,1), %rax but didn't!"_s);
     }
 }
 
@@ -1912,6 +1913,106 @@ void testWasmAddress()
         CHECK_EQ(numToStore, value);
 }
 
+void testWasmAddressZeroExtendScaledIndex()
+{
+    if (Options::defaultB3OptLevel() < 2)
+        return;
+
+    Procedure proc;
+    GPRReg pinnedGPR = GPRInfo::argumentGPR2;
+    proc.pinRegister(pinnedGPR);
+
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<int32_t, int32_t, unsigned*>(proc, root);
+    Value* index32 = arguments[0];
+    Value* pointer = root->appendNew<Value>(
+        proc, Shl, Origin(),
+        root->appendNew<Value>(proc, ZExt32, Origin(), index32),
+        root->appendNew<Const32Value>(proc, Origin(), 2));
+    root->appendNew<Value>(
+        proc, Return, Origin(),
+        root->appendNew<MemoryValue>(
+            proc, Load, Int32, Origin(),
+            root->appendNew<WasmAddressValue>(proc, Origin(), pointer, pinnedGPR), 0));
+
+    auto code = compileProc(proc);
+    if (isARM64())
+        checkUsesInstruction(*code, ".*ldr.*uxtw #0x2.*", true);
+
+    int32_t values[] = { 11, 22, 33, 44, 55 };
+    for (int32_t i = 0; i < 5; ++i)
+        CHECK_EQ(invoke<int32_t>(*code, i, 0, values), values[i]);
+
+    int32_t num = 99;
+    uint32_t wideIndex = 0x40000000;
+    intptr_t addr = std::bit_cast<intptr_t>(&num);
+    intptr_t base = addr - (static_cast<intptr_t>(wideIndex) << 2);
+    CHECK_EQ(invoke<int32_t>(*code, static_cast<int32_t>(wideIndex), 0, std::bit_cast<unsigned*>(base)), num);
+}
+
+void testWasmAddressZeroExtend32BitShiftWraps()
+{
+    Procedure proc;
+    GPRReg pinnedGPR = GPRInfo::argumentGPR2;
+    proc.pinRegister(pinnedGPR);
+
+    BasicBlock* root = proc.addBlock();
+    auto arguments = cCallArgumentValues<int32_t, int32_t, unsigned*>(proc, root);
+    Value* index32 = arguments[0];
+    Value* pointer = root->appendNew<Value>(
+        proc, ZExt32, Origin(),
+        root->appendNew<Value>(
+            proc, Shl, Origin(), index32,
+            root->appendNew<Const32Value>(proc, Origin(), 2)));
+    root->appendNew<Value>(
+        proc, Return, Origin(),
+        root->appendNew<MemoryValue>(
+            proc, Load, Int32, Origin(),
+            root->appendNew<WasmAddressValue>(proc, Origin(), pointer, pinnedGPR), 0));
+
+    auto code = compileProc(proc);
+    int32_t values[] = { 11, 22, 33, 44, 55 };
+    CHECK_EQ(invoke<int32_t>(*code, 0, 0, values), 11);
+    CHECK_EQ(invoke<int32_t>(*code, 1, 0, values), 22);
+    CHECK_EQ(invoke<int32_t>(*code, static_cast<int32_t>(0x40000000), 0, values), 11);
+}
+
+void testWasmAddressScaledIndexWithLockedShlChild()
+{
+    Procedure proc;
+    GPRReg pinnedGPR = GPRInfo::argumentGPR2;
+    proc.pinRegister(pinnedGPR);
+
+    BasicBlock* root = proc.addBlock();
+    BasicBlock* loadBlock = proc.addBlock();
+    BasicBlock* bailBlock = proc.addBlock();
+
+    auto arguments = cCallArgumentValues<uint64_t, uint64_t, int32_t*>(proc, root);
+    Value* masked = root->appendNew<Value>(
+        proc, BitAnd, Origin(), arguments[0],
+        root->appendNew<Const64Value>(proc, Origin(), 7));
+    Value* pointer = root->appendNew<Value>(
+        proc, Shl, Origin(), masked,
+        root->appendNew<Const32Value>(proc, Origin(), 2));
+    root->appendNewControlValue(proc, Branch, Origin(), arguments[1], FrequentedBlock(loadBlock), FrequentedBlock(bailBlock));
+
+    loadBlock->appendNewControlValue(
+        proc, Return, Origin(),
+        loadBlock->appendNew<MemoryValue>(
+            proc, Load, Int32, Origin(),
+            loadBlock->appendNew<WasmAddressValue>(proc, Origin(), pointer, pinnedGPR), 0));
+
+    bailBlock->appendNewControlValue(
+        proc, Return, Origin(),
+        bailBlock->appendNew<Const32Value>(proc, Origin(), -1));
+
+    auto code = compileProc(proc);
+    int32_t values[] = { 11, 22, 33, 44, 55, 66, 77, 88 };
+    for (uint64_t i = 0; i < 8; ++i)
+        CHECK_EQ(invoke<int32_t>(*code, 0x100 + i, 1, values), values[i]);
+    CHECK_EQ(invoke<int32_t>(*code, 0x100, 0, values), -1);
+}
+
 void testWasmAddressWithOffset()
 {
     Procedure proc;
@@ -2307,6 +2408,70 @@ void testInfiniteLoopDoesntCauseBadHoisting()
     auto code = compileProc(proc);
     RELEASE_ASSERT(!proc.calleeSaveRegisterAtOffsetList().registerCount());
     invoke<void>(*code, static_cast<intptr_t>(55)); // Shouldn't crash dereferncing 55.
+}
+
+void testBackwardsDominatorsWithMultipleBackEdges()
+{
+    // A loop whose header has two latches (back-edge sources), where only one
+    // of them also exits the loop:
+    //
+    //   root    --> header
+    //   header  --> success | failure          (branch)
+    //   success --> header (back edge) | exit   (branch)   // latch that can exit
+    //   failure --> header (back edge)                     // latch with no exit
+    //   exit    --> Return                                 // the only terminal
+    //
+    // `success` and `failure` are both back-edge sources. The `failure` latch
+    // has no exit of its own, so control that keeps taking it loops forever.
+    // BackwardsGraph treats that as a form of terminality: it computes
+    // post-dominators by reversing the CFG and giving the synthetic reverse
+    // root a successor for every terminal and every back-edge source.
+    //
+    // The property B3 LICM (and the control-equivalence consumers) rely on is
+    // the post-dominator relation: `success` must NOT post-dominate the header
+    // or the loop entry, because control can stay in the loop forever via the
+    // exit-less `failure` latch without ever reaching `success`. If `failure`
+    // is missing from the reverse root's successors, the header is reachable in
+    // the reverse CFG only through `success`, so `success` falsely
+    // post-dominates the header (and `root`) -- the false relationship that
+    // would let LICM hoist a control-dependent read out of the loop.
+    Procedure proc;
+    BasicBlock* root = proc.addBlock();
+    BasicBlock* header = proc.addBlock();
+    BasicBlock* success = proc.addBlock();
+    BasicBlock* failure = proc.addBlock();
+    BasicBlock* exit = proc.addBlock();
+    auto arguments = cCallArgumentValues<intptr_t>(proc, root);
+    Value* arg = arguments[0];
+
+    root->appendNewControlValue(proc, Jump, Origin(), header);
+    header->appendNewControlValue(
+        proc, Branch, Origin(),
+        header->appendNew<Value>(proc, Equal, Origin(), arg,
+            header->appendNew<ConstPtrValue>(proc, Origin(), 10)),
+        success, failure);
+    success->appendNewControlValue(
+        proc, Branch, Origin(),
+        success->appendNew<Value>(proc, Equal, Origin(), arg,
+            success->appendNew<ConstPtrValue>(proc, Origin(), 20)),
+        header, exit);
+    failure->appendNewControlValue(proc, Jump, Origin(), header);
+    exit->appendNewControlValue(proc, Return, Origin());
+
+    proc.resetReachability();
+
+    BackwardsDominators& backwardsDominators = proc.backwardsDominators();
+
+    // Sanity: `header` genuinely post-dominates the entry (root's only successor
+    // is header), so the checks below are not vacuously true.
+    CHECK(backwardsDominators.dominates(header, root));
+
+    // The actual property: `success` must not post-dominate the header or the
+    // loop entry, because the exit-less `failure` latch is an escape that
+    // bypasses `success`. A dropped `failure` back-edge source makes both of
+    // these falsely true.
+    CHECK(!backwardsDominators.dominates(success, header));
+    CHECK(!backwardsDominators.dominates(success, root));
 }
 
 static void testSimpleTuplePair(unsigned first, int64_t second)

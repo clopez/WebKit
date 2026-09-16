@@ -76,9 +76,6 @@ struct ProgressNoClamp;
 struct Random;
 struct CalcMix;
 
-// Non-standard
-struct Blend;
-
 template<typename Op>
 concept Leaf = requires(Op) {
     Op::isLeaf == true;
@@ -117,6 +114,14 @@ struct Dimension {
     bool operator==(const Dimension&) const = default;
 };
 
+// The `size` keyword of calc-size(). Carries no value because it stands for the used value of the
+// calc-size basis, which is not known until layout resolves it.
+struct Size {
+    static constexpr bool isLeaf = true;
+
+    bool operator==(const Size&) const = default;
+};
+
 template<typename Op> struct IndirectNode {
     UniqueRef<Op> op;
 
@@ -135,6 +140,7 @@ using Node = Variant<
     Number,
     Percentage,
     Dimension,
+    Size,
     IndirectNode<Sum>,
     IndirectNode<Product>,
     IndirectNode<Negate>,
@@ -165,8 +171,7 @@ using Node = Variant<
     IndirectNode<Progress>,
     IndirectNode<ProgressNoClamp>,
     IndirectNode<Random>,
-    IndirectNode<CalcMix>,
-    IndirectNode<Blend>
+    IndirectNode<CalcMix>
 >;
 
 struct Child {
@@ -560,18 +565,6 @@ struct CalcMix {
     bool operator==(const CalcMix&) const = default;
 };
 
-// Non-standard
-struct Blend {
-    WTF_MAKE_STRUCT_TZONE_ALLOCATED(Blend);
-    static constexpr auto op = CSSCalc::Operator::Blend;
-
-    double progress;
-    Child from;
-    Child to;
-
-    bool operator==(const Blend&) const = default;
-};
-
 // MARK: Construction
 
 // Default implementation of ChildConstruction used for all indirect nodes.
@@ -829,16 +822,6 @@ template<size_t I> const auto& get(const CalcMix& root)
     return root.children;
 }
 
-template<size_t I> const auto& get(const Blend& root)
-{
-    if constexpr (!I)
-        return root.progress;
-    else if constexpr (I == 1)
-        return root.from;
-    else if constexpr (I == 2)
-        return root.to;
-}
-
 // MARK: Child Definition
 
 template<typename T>
@@ -893,7 +876,6 @@ OP_TUPLE_LIKE_CONFORMANCE(Progress, 3);
 OP_TUPLE_LIKE_CONFORMANCE(ProgressNoClamp, 3);
 OP_TUPLE_LIKE_CONFORMANCE(Random, 4);
 OP_TUPLE_LIKE_CONFORMANCE(CalcMix, 1);
-OP_TUPLE_LIKE_CONFORMANCE(Blend, 3);
 
 #undef OP_TUPLE_LIKE_CONFORMANCE
 

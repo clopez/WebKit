@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !__has_feature(objc_arc)
+#error This file requires ARC. Add the "-fobjc-arc" compiler flag for this file.
+#endif
+
 #import "config.h"
 #import <wtf/FileSystem.h>
 
@@ -37,11 +41,16 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/spi/cocoa/BOMSPI.h>
+#import <wtf/text/CString.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/StringCommon.h>
 
 #if HAVE(APFS_CACHEDELETE_PURGEABLE)
 #import <apfs/apfs_fsctl.h>
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+#import <pwd.h>
 #endif
 
 SOFT_LINK_PRIVATE_FRAMEWORK(Bom)
@@ -117,7 +126,7 @@ String extractTemporaryZipArchive(const String& path)
         };
 
         auto copier = BOMCopierNew();
-        if (BOMCopierCopyWithOptions(copier, newURL.path.fileSystemRepresentation, fileSystemRepresentation(temporaryDirectory).data(), bridge_cast(options)))
+        if (BOMCopierCopyWithOptions(copier, newURL.path.fileSystemRepresentation, fileSystemRepresentation(temporaryDirectory).legacyCStringPointer(), bridge_cast(options)))
             temporaryDirectory = nullString();
         BOMCopierFree(copier);
     }];
@@ -158,7 +167,7 @@ std::pair<String, FileHandle> openTemporaryFile(StringView prefix, StringView su
     temporaryFilePath.append("XXXXXX"_span);
     
     // Append the file name suffix.
-    CString suffixUTF8 = suffix.utf8();
+    auto suffixUTF8 = suffix.utf8();
     temporaryFilePath.append(suffixUTF8.spanIncludingNullTerminator());
 
     auto fileHandle = FileHandle::adopt(mkostemps(temporaryFilePath.mutableSpan().data(), suffixUTF8.length(), O_CLOEXEC));
@@ -196,13 +205,13 @@ NSString *createTemporaryDirectory(NSString *directoryPrefix)
     return [[NSFileManager defaultManager] stringWithFileSystemRepresentation:path.span().data() length:length];
 }
 
-std::pair<FileHandle, CString> createTemporaryFileInDirectory(const String& directory, const String& suffix)
+std::pair<FileHandle, String> createTemporaryFileInDirectory(const String& directory, const String& suffix)
 {
     auto fsSuffix = fileSystemRepresentation(suffix);
     auto templatePath = pathByAppendingComponents(directory, { { makeString("XXXXXX"_s, suffix) } });
     auto fsTemplatePath = fileSystemRepresentation(templatePath);
-    auto fileHandle = FileHandle::adopt(mkstemps(fsTemplatePath.mutableSpanIncludingNullTerminator().data(), fsSuffix.length()));
-    return { WTF::move(fileHandle), WTF::move(fsTemplatePath) };
+    auto fileHandle = FileHandle::adopt(mkstemps(byteCast<char>(fsTemplatePath.mutableSpanIncludingNullTerminator()).data(), fsSuffix.length()));
+    return { WTF::move(fileHandle), String::fromUTF8(fsTemplatePath.span()) };
 }
 
 #ifdef IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES
@@ -272,7 +281,7 @@ bool makeSafeToUseMemoryMapForPath(const String& path)
     NSError *error = nil;
     BOOL success = [[NSFileManager defaultManager] setAttributes:@{ NSFileProtectionKey: NSFileProtectionCompleteUnlessOpen } ofItemAtPath:path.createNSString().get() error:&error];
     if (error || !success) {
-        WTFLogAlways("makeSafeToUseMemoryMapForPath(%s) failed with error %@", path.utf8().data(), error);
+        SAFE_WTFLOGALWAYS("makeSafeToUseMemoryMapForPath(%s) failed with error %@", path.utf8(), error);
         return false;
     }
     return true;
@@ -286,7 +295,7 @@ bool setExcludedFromBackup(const String& path, bool excluded)
 
     NSError *error;
     if (![[NSURL fileURLWithPath:path.createNSString().get() isDirectory:YES] setResourceValue:[NSNumber numberWithBool:excluded] forKey:NSURLIsExcludedFromBackupKey error:&error]) {
-        LOG_ERROR("Cannot exclude path '%s' from backup with error '%@'", path.utf8().data(), error.localizedDescription);
+        LOG_ERROR("Cannot exclude path '%s' from backup with error '%@'", path.utf8(), error.localizedDescription);
         return false;
     }
 
@@ -295,13 +304,13 @@ bool setExcludedFromBackup(const String& path, bool excluded)
 
 bool markPurgeable(const String& path)
 {
-    CString fileSystemPath = fileSystemRepresentation(path);
+    auto fileSystemPath = fileSystemRepresentation(path);
     if (fileSystemPath.isNull())
         return false;
 
 #if HAVE(APFS_CACHEDELETE_PURGEABLE)
     uint64_t flags = APFS_MARK_PURGEABLE | APFS_PURGEABLE_DATA_TYPE | APFS_PURGEABLE_MARK_CHILDREN;
-    return !fsctl(fileSystemPath.data(), APFSIOC_MARK_PURGEABLE, &flags, 0);
+    return !fsctl(fileSystemPath.legacyCStringPointer(), APFSIOC_MARK_PURGEABLE, &flags, 0);
 #else
     return false;
 #endif
@@ -326,13 +335,13 @@ String darwinCacheDirectory()
     char temp[PATH_MAX];
     size_t length = confstr(_CS_DARWIN_USER_CACHE_DIR, temp, sizeof(temp));
     if (!length) {
-        RELEASE_LOG_ERROR(Process, "Could not retrieve cache directory path: %s\n", safeStrerror(errno).data());
+        RELEASE_LOG_ERROR(Process, "Could not retrieve cache directory path: %s\n", safeStrerror(errno));
         return { };
     }
     RELEASE_ASSERT(length <= sizeof(temp));
     char resolvedPath[PATH_MAX];
     if (!realpath(temp, resolvedPath)) {
-        RELEASE_LOG_ERROR(Process, "Could not canonicalize cache directory path: %s\n", safeStrerror(errno).data());
+        RELEASE_LOG_ERROR(Process, "Could not canonicalize cache directory path: %s\n", safeStrerror(errno));
         return { };
     }
     return String::fromUTF8(resolvedPath);
@@ -343,16 +352,37 @@ String darwinTempDirectory()
     char temp[PATH_MAX];
     size_t length = confstr(_CS_DARWIN_USER_TEMP_DIR, temp, sizeof(temp));
     if (!length) {
-        RELEASE_LOG_ERROR(Process, "Could not retrieve temporary directory path: %s\n", safeStrerror(errno).data());
+        RELEASE_LOG_ERROR(Process, "Could not retrieve temporary directory path: %s\n", safeStrerror(errno));
         return { };
     }
     RELEASE_ASSERT(length <= sizeof(temp));
     char resolvedPath[PATH_MAX];
     if (!realpath(temp, resolvedPath)) {
-        RELEASE_LOG_ERROR(Process, "Could not canonicalize temporary directory path: %s\n", safeStrerror(errno).data());
+        RELEASE_LOG_ERROR(Process, "Could not canonicalize temporary directory path: %s\n", safeStrerror(errno));
         return { };
     }
     return String::fromUTF8(resolvedPath);
+}
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+std::optional<String> homeDirectory()
+{
+    // According to the man page for getpwuid_r, we should use sysconf(_SC_GETPW_R_SIZE_MAX) to determine the size of the buffer.
+    // However, a buffer size of 4096 should be sufficient, since PATH_MAX is 1024.
+    std::array<char, 4096> buffer;
+    passwd pwd;
+    passwd* result = nullptr;
+    if (getpwuid_r(getuid(), &pwd, buffer.data(), buffer.size(), &result) || !result) {
+        RELEASE_LOG_ERROR(Process, "Couldn't find home directory, errno=%d", errno);
+        return std::nullopt;
+    }
+    return String::fromUTF8(pwd.pw_dir);
+}
+#endif // PLATFORM(MAC) || PLATFORM(MACCATALYST)
+
+UTF8CString currentExecutableName()
+{
+    return UTF8CString { byteCast<char8_t>(getprogname()) };
 }
 
 } // namespace FileSystemImpl

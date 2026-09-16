@@ -166,7 +166,9 @@ public:
 
     void setPDFDisplayMode(PDFPluginDisplayMode);
 
+#if ENABLE(PDF_HUD)
     void openWithPreview(CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)>&&);
+#endif
 
     void focusPluginElement();
 
@@ -271,6 +273,7 @@ private:
     Vector<WebCore::FloatRect> pdfAnnotationRectsForTesting() const override;
     void unlockPDFDocumentForTesting(const String& password) final;
     void setPDFTextAnnotationValueForTesting(unsigned pageIndex, unsigned annotationIndex, const String& value) final;
+    Vector<String> pdfContextMenuItemTitlesForTesting(const WebCore::IntPoint&) const final;
     void registerPDFTestCallback(RefPtr<WebCore::VoidCallback>&&) final;
 };
 

@@ -451,13 +451,6 @@ inline void ContextPrivateProvokingVertex(PrivateState *privateState,
     privateState->setProvokingVertex(provokeMode);
 }
 
-inline void ContextPrivateCoverageModulation(PrivateState *privateState,
-                                             PrivateStateCache *privateStateCache,
-                                             GLenum components)
-{
-    privateState->setCoverageModulation(components);
-}
-
 inline void ContextPrivateClipControl(PrivateState *privateState,
                                       PrivateStateCache *privateStateCache,
                                       ClipOrigin origin,
@@ -783,14 +776,8 @@ inline void ContextPrivatePatchParameteri(PrivateState *privateState,
                                           GLenum pname,
                                           GLint value)
 {
-    switch (pname)
-    {
-        case GL_PATCH_VERTICES:
-            privateState->setPatchVertices(value);
-            break;
-        default:
-            break;
-    }
+    ASSERT(pname == GL_PATCH_VERTICES);
+    privateState->setPatchVertices(value);
 }
 
 inline void ContextPrivateAlphaFunc(PrivateState *privateState,

@@ -99,7 +99,6 @@ class Box;
 namespace Style {
 class ComputedStyle;
 class PseudoElementRequest;
-enum class MarginTrimSide : uint8_t;
 }
 
 enum class Affinity : bool;
@@ -132,12 +131,12 @@ public:
         CombineText,
         Counter,
         DeprecatedFlexibleBox,
-        DetailsMarker,
         EmbeddedObject,
         FileUploadControl,
         FlexibleBox,
         Frame,
         FrameSet,
+        Glyph,
         Grid,
         HTMLCanvas,
         IFrame,
@@ -146,7 +145,7 @@ public:
         LineBreak,
         ListBox,
         ListItem,
-        ListMarker,
+        ListOutsideMarker,
         Media,
         MenuList,
         Meter,
@@ -244,7 +243,7 @@ public:
         IsBox = 1 << 2,
         IsBoxModelObject = 1 << 3,
         IsLayerModelObject = 1 << 4,
-        IsRenderInline = 1 << 5,
+        IsInlineBox = 1 << 5,
         IsRenderBlock = 1 << 6,
         IsFlexibleBox = 1 << 7,
     };
@@ -379,7 +378,6 @@ public:
 
     RenderElement* NODELETE firstNonAnonymousAncestor() const;
 
-#if ENABLE(TEXT_AUTOSIZING)
     // Minimal distance between the block with fixed height and overflowing content and the text block to apply text autosizing.
     // The greater this constant is the more potential places we have where autosizing is turned off.
     // So it should be as low as possible. There are sites that break at 2.
@@ -393,7 +391,6 @@ public:
 
     typedef BlockContentHeightType (*HeightTypeTraverseNextInclusionFunction)(const RenderObject&);
     RenderObject* traverseNext(const RenderObject* stayWithin, HeightTypeTraverseNextInclusionFunction, int& currentDepth, int& newFixedDepth) const;
-#endif
 
     WEBCORE_EXPORT RenderLayer* NODELETE enclosingLayer() const;
 
@@ -435,16 +432,16 @@ public:
     bool isRenderBoxModelObject() const { return m_typeFlags.contains(TypeFlag::IsBoxModelObject); }
     bool isRenderBlock() const { return m_typeFlags.contains(TypeFlag::IsRenderBlock); }
     bool isRenderBlockFlow() const { return m_typeSpecificFlags.kind() == TypeSpecificFlags::Kind::BlockFlow; }
-    bool isRenderInline() const { return m_typeFlags.contains(TypeFlag::IsRenderInline); }
+    bool isInlineBox() const { return m_typeFlags.contains(TypeFlag::IsInlineBox); }
     bool isRenderLayerModelObject() const { return m_typeFlags.contains(TypeFlag::IsLayerModelObject); }
 
     inline bool isAtomicInlineLevelBox() const; // Defined in RenderObjectStyle.h
     inline bool isNonReplacedAtomicInlineLevelBox() const;
 
     bool isRenderCounter() const { return type() == Type::Counter; }
+    bool isRenderGlyph() const { return type() == Type::Glyph; }
     bool isRenderQuote() const { return type() == Type::Quote; }
 
-    bool isRenderDetailsMarker() const { return type() == Type::DetailsMarker; }
     bool isRenderEmbeddedObject() const { return type() == Type::EmbeddedObject; }
     bool NODELETE isFieldset() const;
     bool isRenderFileUploadControl() const { return type() == Type::FileUploadControl; }
@@ -453,7 +450,7 @@ public:
     virtual bool isImage() const { return false; }
     bool isRenderListBox() const { return type() == Type::ListBox; }
     bool isRenderListItem() const { return type() == Type::ListItem; }
-    bool isRenderListMarker() const { return type() == Type::ListMarker; }
+    bool isRenderListOutsideMarker() const { return type() == Type::ListOutsideMarker; }
     bool isRenderMedia() const { return isRenderReplaced() && m_typeSpecificFlags.replacedFlags().contains(ReplacedFlag::IsMedia); }
     bool isRenderMenuList() const { return type() == Type::MenuList; }
     bool isRenderMeter() const { return type() == Type::Meter; }
@@ -887,7 +884,9 @@ public:
     RepaintContainerStatus containerForRepaint() const;
     // Actually do the repaint of rect r for this object which has been computed in the coordinate space
     // of repaintContainer. If repaintContainer is nullptr, repaint via the view.
-    void repaintUsingContainer(SingleThreadWeakPtr<const RenderLayerModelObject>&& repaintContainer, const LayoutRect&, bool shouldClipToLayer = true) const;
+    enum class ClipRepaintToLayer : bool { No, Yes };
+    enum class RepaintRectIsPartial : bool { No, Yes };
+    void repaintUsingContainer(SingleThreadWeakPtr<const RenderLayerModelObject>&& repaintContainer, const LayoutRect&, ClipRepaintToLayer = ClipRepaintToLayer::Yes, RepaintRectIsPartial = RepaintRectIsPartial::No) const;
 
     // Repaint the entire object.  Called when, e.g., the color of a border changes, or when a border
     // style changes.
@@ -897,7 +896,6 @@ public:
     // Repaint a specific subrectangle within a given object.  The rect |r| is in the object's coordinate space.
     WEBCORE_EXPORT void repaintRectangle(const LayoutRect&, bool shouldClipToLayer = true) const;
 
-    enum class ClipRepaintToLayer : bool { No, Yes };
     void repaintRectangle(const LayoutRect&, ClipRepaintToLayer, ForceRepaint, std::optional<LayoutBoxExtent> additionalRepaintOutsets = std::nullopt) const;
 
     // Repaint a slow repaint object, which, at this time, means we are repainting an object with background-attachment:fixed.
@@ -1039,7 +1037,7 @@ public:
     virtual bool shouldPaintSelectionGaps() const { return false; }
 
     // When performing a global document tear-down, or when going into the back/forward cache, the renderer of the document is cleared.
-    bool renderTreeBeingDestroyed() const; // Defined in RenderObjectInlines.h
+    bool renderTreeBeingDestroyed() const; // Defined in RenderObjectDocument.h
 
     void destroy();
 

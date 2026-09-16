@@ -114,7 +114,7 @@ protected:
 
     // GraphicsContextGL::Client overrides.
     void forceContextLost() final;
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final;
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, std::span<const char8_t>) final;
     void didChangeMemoryCost() final;
 
     // Messages to be received.
@@ -130,7 +130,7 @@ protected:
     void prepareForDisplay(CompletionHandler<void()>&&);
 #endif
     void getErrors(CompletionHandler<void(GCGLErrorCodeSet)>&&);
-    void copyNativeImageYFlipped(WebCore::GraphicsContextGL::SurfaceBuffer, RemoteNativeImageReference);
+    void copyNativeImage(WebCore::GraphicsContextGL::SurfaceBuffer, RemoteNativeImageReference);
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
     void surfaceBufferToVideoFrame(WebCore::GraphicsContextGL::SurfaceBuffer, CompletionHandler<void(std::optional<WebKit::RemoteVideoFrameProxy::Properties>&&)>&&);
 #endif
@@ -157,7 +157,7 @@ protected:
 #if ENABLE(WEBXR)
     void framebufferDiscard(uint32_t target, std::span<const uint32_t> attachments);
 #endif
-    void setDrawingBufferColorSpace(WebCore::DestinationColorSpace&&);
+    void setDrawingBufferColorSpace(WebCore::ColorSpace&&);
 
 #if PLATFORM(COCOA)
     using GCGLContext = WebCore::GraphicsContextGLCocoa;

@@ -28,7 +28,6 @@
 
 #if ENABLE(OFFSCREEN_CANVAS)
 
-#include "BitmapImage.h"
 #include "CSSValuePool.h"
 #include "CanvasRenderingContext.h"
 #include "ContextDestructionObserverInlines.h"
@@ -172,7 +171,6 @@ void OffscreenCanvas::setSizeForControllingContext(IntSize newSize)
 
 void OffscreenCanvas::didUpdateSizeProperties(bool sizeChanged)
 {
-    clearCopiedImage();
     if (m_context)
         m_context->didUpdateCanvasSizeProperties(sizeChanged);
     notifyObserversCanvasResized();
@@ -286,18 +284,19 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
     return Exception { ExceptionCode::TypeError };
 }
 
-ExceptionOr<RefPtr<ImageBitmap>> OffscreenCanvas::transferToImageBitmap()
+ExceptionOr<Ref<ImageBitmap>> OffscreenCanvas::transferToImageBitmap()
 {
     if (m_detached || !m_context)
         return Exception { ExceptionCode::InvalidStateError };
+    // An ImageBitmap cannot have a zero dimension, so there is nothing to hand back. This matches
+    // createImageBitmap() on a zero-sized canvas. https://html.spec.whatwg.org/#dom-offscreencanvas-transfertoimagebitmap
     if (size().isEmpty())
-        return { RefPtr<ImageBitmap> { nullptr } };
-    clearCopiedImage();
+        return Exception { ExceptionCode::InvalidStateError };
     bool bitmapOriginClean = originClean();
     RefPtr buffer = m_context->transferToImageBuffer();
     if (!buffer)
         return Exception { ExceptionCode::UnknownError }; // UnknownError is used for DOM out-of-memory.
-    return { ImageBitmap::create(buffer.releaseNonNull(), bitmapOriginClean) };
+    return ImageBitmap::create(buffer.releaseNonNull(), bitmapOriginClean);
 }
 
 static String toEncodingMimeType(const String& mimeType)
@@ -348,29 +347,10 @@ void OffscreenCanvas::convertToBlob(ImageEncodeOptions&& options, Ref<DeferredPr
     promise->resolveWithNewlyCreated<IDLInterface<Blob>>(WTF::move(blob));
 }
 
-void OffscreenCanvas::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
+void OffscreenCanvas::willUpdateContents(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
-    clearCopiedImage();
     scheduleCommitToPlaceholderCanvas();
-    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
-}
-
-Image* OffscreenCanvas::copiedImage() const
-{
-    if (m_detached)
-        return nullptr;
-
-    if (!m_copiedImage) {
-        RefPtr buffer = const_cast<OffscreenCanvas*>(this)->makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
-        if (buffer)
-            m_copiedImage = BitmapImage::create(buffer->copyNativeImage());
-    }
-    return m_copiedImage.get();
-}
-
-void OffscreenCanvas::clearCopiedImage() const
-{
-    m_copiedImage = nullptr;
+    CanvasBase::willUpdateContents(rect, shouldApplyPostProcessingToDirtyRect);
 }
 
 SecurityOrigin* OffscreenCanvas::securityOrigin() const

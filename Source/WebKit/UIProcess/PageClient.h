@@ -114,8 +114,8 @@ class SecurityOrigin;
 
 namespace WebCore {
 class Color;
+class ColorSpace;
 class Cursor;
-class DestinationColorSpace;
 class FloatQuad;
 class FloatRect;
 class Region;
@@ -351,7 +351,7 @@ public:
     virtual bool showShareSheet(WebCore::ShareDataWithParsedURL&&, WTF::CompletionHandler<void (bool)>&&) { return false; }
     virtual void showContactPicker(WebCore::ContactsRequestData&&, WTF::CompletionHandler<void(std::optional<Vector<WebCore::ContactInfo>>&&)>&& completionHandler) { completionHandler(std::nullopt); }
 
-    virtual void showDigitalCredentialsChooser(const WebCore::DigitalCredentialsRequestData&, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
+    virtual void showDigitalCredentialsChooser(const WebCore::DigitalCredentialsRequestData&, WTF::CompletionHandler<void(std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
     {
         completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotSupportedError, "Digital credentials are not supported."_s }));
     }
@@ -494,7 +494,7 @@ public:
     virtual void didDismissContextMenu() { }
 #endif
 
-    virtual RefPtr<WebColorPicker> createColorPicker(WebPageProxy&, const WebCore::Color& initialColor, const WebCore::IntRect&, ColorControlSupportsAlpha, Vector<WebCore::Color>&&, std::optional<WebCore::FrameIdentifier>) = 0;
+    virtual RefPtr<WebColorPicker> createColorPicker(WebPageProxy&, const WebCore::Color& initialColor, ColorControlSupportsAlpha, Vector<WebCore::Color>&&, std::optional<WebCore::FrameIdentifier>) = 0;
 
     virtual RefPtr<WebDataListSuggestionsDropdown> createDataListSuggestionsDropdown(WebPageProxy&) = 0;
 
@@ -585,7 +585,7 @@ public:
 
     virtual CocoaWindow *platformWindow() const = 0;
 
-    virtual WebCore::DestinationColorSpace colorSpace() = 0;
+    virtual WebCore::ColorSpace colorSpace() = 0;
 #endif
 
     virtual void reconcileEnclosingScrollViewContentOffset(EditorState&) { };
@@ -608,6 +608,7 @@ public:
     virtual void didProgrammaticallyClearFocusedElement(WebCore::ElementContext&&) = 0;
     virtual void updateFocusedElementInformation(const FocusedElementInformation&) = 0;
     virtual void elementDidBlur() = 0;
+    virtual bool hasFocusedElement() const = 0;
     virtual void focusedElementDidChangeInputMode(WebCore::InputMode) = 0;
     virtual void didUpdateEditorState() = 0;
     virtual bool isFocusingElement() = 0;
@@ -897,7 +898,7 @@ public:
 #endif
 
 #if ENABLE(VIDEO)
-    virtual void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&&);
+    virtual void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(std::expected<void, WebCore::ExceptionData>&&)>&&);
 #endif
 
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)

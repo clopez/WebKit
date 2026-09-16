@@ -51,6 +51,7 @@
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderObjectInlines.h"
+#include "RenderSVGInline.h"
 #include "RenderStyleConstants.h"
 #include "RenderTreeUpdaterGeneratedContent.h"
 #include "RenderTreeUpdaterViewTransition.h"
@@ -68,6 +69,10 @@
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
 #include "ContentChangeObserver.h"
+#endif
+
+#if ENABLE(SPATIAL_PORTAL)
+#include "HTMLModelElement.h"
 #endif
 
 namespace WebCore {
@@ -139,6 +144,7 @@ void RenderTreeUpdater::commit(std::unique_ptr<Style::Update> styleUpdate)
 
     generatedContent().updateRemainingQuotes();
     generatedContent().updateCounters();
+    generatedContent().updateListMarkers();
 
     m_builder.updateAfterDescendants(renderView());
 
@@ -163,7 +169,7 @@ void RenderTreeUpdater::updateRebuildRoots()
             return false;
         };
         auto isBlockInInline = [&] {
-            if (!is<RenderInline>(renderingAncestor->renderer()))
+            if (!renderingAncestor->renderer()->isInlineBox())
                 return false;
             return rootRenderer && rootRenderer->isInFlow() && !rootRenderer->isInline();
         };
@@ -463,6 +469,20 @@ void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::Ele
             element.clearLastRememberedLogicalHeight();
     }
 
+#if ENABLE(SPATIAL_PORTAL)
+    // A <model> inside a spatial portal generates no renderer but drives a 3D entity from its resolved style, so a
+    // copy is kept for it. Cloned, not moved, because createRenderer() below still consumes the original, and only
+    // when the display:{contents|none} store above has not already taken it.
+    RefPtr modelInPortal = dynamicDowncast<HTMLModelElement>(element);
+    if (!hasDisplayContentsOrNone && modelInPortal && !element.renderer() && modelInPortal->isInsidePortal()) {
+        element.storeDisplayContentsOrNoneStyle(Style::ComputedStyle::clonePtr(elementUpdateStyle));
+
+        // Pushed from here rather than during style resolution, which clears the cached computed style before it runs.
+        if (!elementUpdate.changes.isEmpty())
+            modelInPortal->updateEntityTransformFromCSS();
+    }
+#endif
+
     auto scopeExit = makeScopeExit([&] {
         if (!hasDisplayContentsOrNone) {
             auto* box = element.renderBox();
@@ -559,7 +579,7 @@ bool RenderTreeUpdater::textRendererIsNeeded(const Text& textNode)
     if (previousRenderer && previousRenderer->isBR()) // <span><br/> <br/></span>
         return false;
 
-    if (parentRenderer.isRenderInline()) {
+    if (parentRenderer.isInlineBox()) {
         // <span><div/> <div/></span>
         if (previousRenderer && !previousRenderer->isInline() && !previousRenderer->isOutOfFlowPositioned())
             return false;
@@ -625,10 +645,16 @@ void RenderTreeUpdater::createTextRenderer(Text& textNode, const Style::TextUpda
     if (textUpdate && textUpdate->inheritedDisplayContentsStyle && *textUpdate->inheritedDisplayContentsStyle) {
         // Wrap text renderer into anonymous inline so we can give it a style.
         // This is to support "<div style='display:contents;color:green'>text</div>" type cases
-        auto newDisplayContentsAnonymousWrapper = WebCore::createRenderer<RenderInline>(RenderObject::Type::Inline, protect(textNode.document()), Style::ComputedStyle::clone(**textUpdate->inheritedDisplayContentsStyle));
+        auto wrapperStyle = Style::ComputedStyle::clone(**textUpdate->inheritedDisplayContentsStyle);
+        auto& parent = renderTreePosition.parent();
+        RenderPtr<RenderInline> newDisplayContentsAnonymousWrapper;
+        if (parent.isRenderSVGText() || parent.isRenderSVGInline())
+            newDisplayContentsAnonymousWrapper = WebCore::createRenderer<RenderSVGInline>(RenderObject::Type::SVGInline, protect(textNode.document()), WTF::move(wrapperStyle));
+        else
+            newDisplayContentsAnonymousWrapper = WebCore::createRenderer<RenderInline>(RenderObject::Type::Inline, protect(textNode.document()), WTF::move(wrapperStyle));
         newDisplayContentsAnonymousWrapper->initializeStyle();
         auto& displayContentsAnonymousWrapper = *newDisplayContentsAnonymousWrapper;
-        m_builder.attach(renderTreePosition.parent(), WTF::move(newDisplayContentsAnonymousWrapper), renderTreePosition.nextSibling());
+        m_builder.attach(parent, WTF::move(newDisplayContentsAnonymousWrapper), renderTreePosition.nextSibling());
 
         textRenderer->setInlineWrapperForDisplayContents(&displayContentsAnonymousWrapper);
         m_builder.attach(displayContentsAnonymousWrapper, WTF::move(textRenderer));
@@ -811,13 +837,13 @@ static std::optional<DidRepaintAndMarkContainingBlock> repaintAndMarkContainingB
             if (!destroyRoot.hasLayer() || !destroyRoot.isOutOfFlowPositioned())
                 return false;
             CheckedPtr container = destroyRoot.container();
-            if (!container || !container->isInFlowPositioned() || !is<RenderInline>(*container))
+            if (!container || !container->isInFlowPositioned() || !container->isInlineBox())
                 return false;
             CheckedPtr layer = downcast<RenderLayerModelObject>(destroyRoot).layer();
             auto cachedRepaintRect = layer->cachedClippedOverflowRect();
             if (!cachedRepaintRect)
                 return false;
-            destroyRoot.repaintUsingContainer(layer->repaintContainer(), *cachedRepaintRect, false);
+            destroyRoot.repaintUsingContainer(layer->repaintContainer(), *cachedRepaintRect, RenderObject::ClipRepaintToLayer::No);
             return true;
         };
         if (repaintUsingCachedRectIfNeeded())

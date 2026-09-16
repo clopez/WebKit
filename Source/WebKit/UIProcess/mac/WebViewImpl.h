@@ -140,7 +140,7 @@ enum class HysteresisState : bool;
 }
 
 namespace WebCore {
-class DestinationColorSpace;
+class ColorSpace;
 class IntPoint;
 struct DataDetectorElementInfo;
 struct ExceptionData;
@@ -188,6 +188,7 @@ using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
 - (void)_web_editorStateDidChange;
 
 - (void)_web_gestureEventWasNotHandledByWebCore:(NSEvent *)event;
+- (void)_web_magnificationGestureEventWasNotHandledByWebCoreWithPhase:(NSEventPhase)phase magnification:(CGFloat)magnification locationInWindow:(NSPoint)locationInWindow;
 
 - (void)_web_didChangeContentSize:(NSSize)newSize;
 
@@ -415,7 +416,7 @@ public:
 
     RetainPtr<NSView> hitTest(CGPoint);
 
-    WebCore::DestinationColorSpace colorSpace();
+    WebCore::ColorSpace colorSpace();
 
     void setUnderlayColor(NSColor *);
     RetainPtr<NSColor> underlayColor() const;
@@ -611,7 +612,7 @@ public:
     void shareSheetDidDismiss(WKShareSheet *);
 
 #if ENABLE(WEB_AUTHN)
-    void showDigitalCredentialsChooser(const WebCore::DigitalCredentialsRequestData&, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&, WKWebView*);
+    void showDigitalCredentialsChooser(const WebCore::DigitalCredentialsRequestData&, WTF::CompletionHandler<void(std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&, WKWebView*);
     void dismissDigitalCredentialsChooser(WTF::CompletionHandler<void(bool)>&&, WKWebView*);
 #endif
 
@@ -692,6 +693,7 @@ public:
     void gestureEventWasNotHandledByWebCore(const NativeWebGestureEvent&);
 #endif
     void gestureEventWasNotHandledByWebCoreFromViewOnly(NSEvent *);
+    void magnificationGestureEventWasNotHandledByWebCoreFromViewOnly(NSEventPhase, CGFloat magnification, NSPoint locationInWindow);
 
     void didRestoreScrollPosition();
     
@@ -919,7 +921,7 @@ public:
 #endif
 
 #if ENABLE(VIDEO)
-    void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&&);
+    void showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentifier, const WebCore::ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(std::expected<void, WebCore::ExceptionData>&&)>&&);
 #endif
 
 #if HAVE(APPKIT_GESTURES_SUPPORT)
@@ -1039,7 +1041,7 @@ private:
     std::optional<EditorState::PostLayoutData> postLayoutDataForContentEditable();
     bool inputMethodUsesCorrectKeyEventOrder();
 
-    void magnificationGestureWasNotHandledByWebCoreFromViewOnly(float magnification, WebEventPhase, WebCore::FloatPoint originInViewCoordinates);
+    void applyNativeMagnification(float magnification, WebEventPhase, WebCore::FloatPoint originInViewCoordinates, WebEventInputSource = WebEventInputSource::UserDriven);
 
     WeakObjCPtr<WKWebView> m_view;
     const UniqueRef<PageClient> m_pageClient;
@@ -1058,6 +1060,8 @@ private:
     bool m_clipsToVisibleRect { false };
     bool m_needsViewFrameInWindowCoordinates;
     bool m_didScheduleWindowAndViewFrameUpdate { false };
+    // Whether this view has pushed its frames since accessibility was turned on.
+    bool m_didUpdateFramesForAccessibility { false };
     bool m_windowOcclusionDetectionEnabled { true };
     bool m_windowIsEnteringOrExitingFullScreen { false };
 

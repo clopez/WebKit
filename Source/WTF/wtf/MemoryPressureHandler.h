@@ -138,6 +138,8 @@ public:
         RELEASE_ASSERT(!m_installed);
         m_dispatchQueue = WTF::move(queue);
     }
+
+    WTF_EXPORT_PRIVATE void setDispatchQueueWithLabel(ASCIILiteral);
 #endif
 
     class ReliefLogger {
@@ -277,6 +279,7 @@ private:
 
 using WTF::Critical;
 using WTF::MemoryPressureHandler;
+using WTF::MemoryPressureHandlerConfiguration;
 using WTF::Synchronous;
 using WTF::SystemMemoryPressureStatus;
 using WTF::WebsamProcessState;

@@ -405,7 +405,19 @@ macro prepareStateForCCall()
     addp PB, PC
 end
 
+macro restoreStateAfterCCallWithoutExceptionCheck()
+    move r0, PC
+    subp PB, PC
+end
+
 macro restoreStateAfterCCall()
+    # Slow paths report pending exceptions by returning LLInt::exceptionSignal
+    # (all ones) in r1. In such cases, r0 contains a sentinel bytecode pointer
+    # that lives in a different allocation from this CodeBlock's instruction
+    # buffer. Therefore, PB and PC have different MTE tags that don't cancel
+    # when subtracted and we need to check for exceptionSignal here to jump
+    # straight to the throw trampoline.
+    bpeq r1, -1, _llint_throw_from_slow_path_trampoline
     move r0, PC
     subp PB, PC
 end
@@ -2978,7 +2990,7 @@ llintOpWithMetadata(op_put_to_scope, OpPutToScope, macro (size, get, dispatch, m
         loadConstantOrVariable(size, t0, t1)
         loadp OpPutToScope::Metadata::m_watchpointSet[t5], t2
         btpz t2, .noVariableWatchpointSet
-        notifyWrite(t2, .pDynamic)
+        notifyWrite(t2, t0, .pDynamic)
     .noVariableWatchpointSet:
         loadp OpPutToScope::Metadata::m_operand[t5], t0
         storeq t1, [t0]
@@ -2996,7 +3008,7 @@ llintOpWithMetadata(op_put_to_scope, OpPutToScope, macro (size, get, dispatch, m
         loadConstantOrVariable(size, t1, t2)
         loadp OpPutToScope::Metadata::m_watchpointSet[t5], t3
         btpz t3, .noVariableWatchpointSet
-        notifyWrite(t3, .pDynamic)
+        notifyWrite(t3, t1, .pDynamic)
     .noVariableWatchpointSet:
         loadp OpPutToScope::Metadata::m_operand[t5], t1
         storeq t2, JSLexicalEnvironment_variables[t0, t1, 8]

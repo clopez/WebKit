@@ -6,6 +6,8 @@
 
 // WebGLCompatibilityTest.cpp : Tests of the GL_ANGLE_webgl_compatibility extension.
 
+#include <array>
+
 #include "common/unsafe_buffers.h"
 #include "test_utils/ANGLETest.h"
 
@@ -363,6 +365,12 @@ class HardenedContextTest : public ANGLETest<>
     HardenedContextTest() { setHardenedContextEnabled(true); }
 };
 
+class HardenedContextTestES31 : public HardenedContextTest
+{
+  protected:
+    HardenedContextTestES31() { setHardenedContextEnabled(true); }
+};
+
 // Context creation would fail if EGL_ANGLE_create_context_webgl_compatibility was not available so
 // the GL extension should always be present
 TEST_P(WebGLCompatibilityTest, ExtensionStringExposed)
@@ -647,9 +655,6 @@ TEST_P(WebGL1CompatibilityTest, EnablePixelBufferObjectExtensions)
     EXPECT_FALSE(IsGLExtensionEnabled("GL_NV_pixel_buffer_object"));
     EXPECT_FALSE(IsGLExtensionEnabled("GL_OES_mapbuffer"));
     EXPECT_FALSE(IsGLExtensionEnabled("GL_EXT_map_buffer_range"));
-
-    // http://anglebug.com/40644771
-    ANGLE_SKIP_TEST_IF(IsMac() && IsIntelUHD630Mobile() && IsDesktopOpenGL());
 
     GLBuffer buffer;
     glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
@@ -3034,9 +3039,6 @@ void main() {
 // Based on the WebGL test conformance/textures/misc/texture-copying-feedback-loops.html
 TEST_P(WebGLCompatibilityTest, TextureCopyingFeedbackLoops)
 {
-    // TODO(anglebug.com/40096747): Failing on ARM-based Apple DTKs.
-    ANGLE_SKIP_TEST_IF(IsMac() && IsARM64() && IsDesktopOpenGL());
-
     GLTexture texture;
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -3098,9 +3100,6 @@ TEST_P(WebGLCompatibilityTest, TextureCopyingFeedbackLoops)
 // Based on the WebGL test conformance/textures/misc/texture-copying-feedback-loops.html
 TEST_P(HardenedContextTest, TextureCopyingFeedbackLoops)
 {
-    // TODO(anglebug.com/40096747): Failing on ARM-based Apple DTKs.
-    ANGLE_SKIP_TEST_IF(IsMac() && IsARM64() && IsDesktopOpenGL());
-
     GLTexture texture;
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -3209,10 +3208,7 @@ TEST_P(WebGL2CompatibilityTest, CopyMip1ToMip0)
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
     // http://anglebug.com/42263392
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsIntel() && (IsWindows() || IsMac()));
-
-    // TODO(anglebug.com/40096747): Failing on ARM64-based Apple DTKs.
-    ANGLE_SKIP_TEST_IF(IsMac() && IsARM64() && IsDesktopOpenGL());
+    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsIntel() && IsWindows());
 
     GLFramebuffer framebuffer;
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -3248,9 +3244,6 @@ TEST_P(WebGL2CompatibilityTest, CopyMip1ToMip0)
 
     // http://anglebug.com/42263389
     ANGLE_SKIP_TEST_IF(IsOpenGL() && IsNVIDIA());
-
-    // http://anglebug.com/42263390
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsAMD() && IsMac());
 
     // Bind framebuffer to mip 0 and make sure the copy was done.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
@@ -3800,9 +3793,6 @@ TEST_P(WebGLCompatibilityTest, RGB32FTextures)
 
 TEST_P(WebGLCompatibilityTest, RGBA32FTextures)
 {
-    // http://anglebug.com/42263897
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsMac());
-
     constexpr float data[] = {7000.0f, 100.0f, 33.0f, -1.0f};
 
     for (auto extension : FloatingPointTextureExtensions)
@@ -4106,9 +4096,6 @@ TEST_P(WebGLCompatibilityTest, HalfFloatBlend)
 
 TEST_P(WebGLCompatibilityTest, R16FTextures)
 {
-    // http://anglebug.com/42263897
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsMac());
-
     constexpr float readPixelsData[] = {-5000.0f, 0.0f, 0.0f, 1.0f};
     const GLushort textureData[]     = {
         gl::float32ToFloat16(readPixelsData[0]), gl::float32ToFloat16(readPixelsData[1]),
@@ -4167,9 +4154,6 @@ TEST_P(WebGLCompatibilityTest, R16FTextures)
 
 TEST_P(WebGLCompatibilityTest, RG16FTextures)
 {
-    // http://anglebug.com/42263897
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsMac());
-
     constexpr float readPixelsData[] = {7108.0f, -10.0f, 0.0f, 1.0f};
     const GLushort textureData[]     = {
         gl::float32ToFloat16(readPixelsData[0]), gl::float32ToFloat16(readPixelsData[1]),
@@ -4228,9 +4212,6 @@ TEST_P(WebGLCompatibilityTest, RG16FTextures)
 
 TEST_P(WebGLCompatibilityTest, RGB16FTextures)
 {
-    // http://anglebug.com/42263897
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsMac());
-
     ANGLE_SKIP_TEST_IF(IsOzone() && IsIntel());
 
     constexpr float readPixelsData[] = {7000.0f, 100.0f, 33.0f, 1.0f};
@@ -4291,9 +4272,6 @@ TEST_P(WebGLCompatibilityTest, RGB16FTextures)
 
 TEST_P(WebGLCompatibilityTest, RGBA16FTextures)
 {
-    // http://anglebug.com/42263897
-    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsMac());
-
     ANGLE_SKIP_TEST_IF(IsOzone() && IsIntel());
 
     constexpr float readPixelsData[] = {7000.0f, 100.0f, 33.0f, -1.0f};
@@ -6098,7 +6076,7 @@ TEST_P(WebGLCompatibilityTest, EnableCompressedTextureExtensionETC1)
 // This is an implementation-defined limit - crbug.com/1220237 .
 TEST_P(WebGLCompatibilityTest, ValidateArraySizes)
 {
-    // Note: on macOS/Intel with ANGLE's OpenGL backend, loops are not used to initialize arrays, so
+    // Note: on Qualcomm proprietary GL drivers, loops are not used to initialize arrays, so
     // getting anywhere close to this limit results in gigantic shaders that are too slow to
     // compile. For the "ok" case, therefore, use a fairly small array.
     constexpr char kVSArrayOK[] =
@@ -6161,7 +6139,7 @@ void main()
 // This is an implementation-defined limit - crbug.com/1220237 .
 TEST_P(WebGLCompatibilityTest, ValidateStructSizes)
 {
-    // Note: on macOS/Intel with ANGLE's OpenGL backend, loops are not used to initialize arrays, so
+    // Note: on Qualcomm proprietary GL drivers, loops are not used to initialize arrays, so
     // getting anywhere close to this limit results in gigantic shaders that are too slow to
     // compile. For this reason, only perform a negative test.
     constexpr char kFSStructTooLarge[] =
@@ -6744,6 +6722,50 @@ void main()
     EXPECT_EQ(0u, program);
 }
 
+// Similar to HardendContextTest.ValidateTypeSizes, but validate size checks in compute shaders
+// in ES31.
+TEST_P(HardenedContextTestES31, ValidateTypeSizes)
+{
+    constexpr char kCSArrayBlockTooLarge[] = R"(#version 310 es
+layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
+
+// 1 + the maximum size this implementation allows.
+uniform LargeArrayBlock {
+    vec4 large_array[134217729];
+};
+
+layout(binding = 1) buffer Output {
+    uint result[];
+} sb_out;
+
+void main()
+{
+    if (large_array[1].x == 2.0)
+        sb_out.result[0] = 42u;
+    else
+        sb_out.result[0] = 21u;
+})";
+
+    GLuint program = CompileComputeProgram(kCSArrayBlockTooLarge, true);
+    EXPECT_EQ(0u, program);
+}
+
+// Similar to HardendContextTestES31.ValidateTypeSizes, but validates that an 8x8x8 int array does
+// not trigger the validation error.
+TEST_P(HardenedContextTestES31, PassingArraySize)
+{
+    constexpr char kCS[] = R"(#version 310 es
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+void main() {
+  int a[8][8][8];
+}
+)";
+
+    GLuint program = CompileComputeProgram(kCS, true);
+    EXPECT_NE(0u, program);
+}
+
 // Similar to WebGL2GLSLTest.InitUninitializedLocals, but ensure the same validation is done in
 // non-webgl contexts with the EGL_CONTEXT_HARDENED_ANGLE flag.
 TEST_P(HardenedContextTest, InitUninitializedLocals)
@@ -6972,13 +6994,14 @@ TEST_P(WebGL2CompatibilityTest, ETC2EACFormats)
 // Test that GL_HALF_FLOAT_OES type is rejected by WebGL 2.0 contexts.
 TEST_P(WebGL2CompatibilityTest, HalfFloatOesType)
 {
-    const std::array<std::pair<GLenum, GLenum>, 6> formats = {{{GL_R16F, GL_RED},
-                                                               {GL_RG16F, GL_RG},
-                                                               {GL_RGB16F, GL_RGB},
-                                                               {GL_RGBA16F, GL_RGBA},
-                                                               {GL_R11F_G11F_B10F, GL_RGB},
-                                                               {GL_RGB9_E5, GL_RGB}}};
-    for (const auto &fmt : formats)
+    static constexpr std::array<std::pair<GLenum, GLenum>, 6> kFormats = {
+        {{GL_R16F, GL_RED},
+         {GL_RG16F, GL_RG},
+         {GL_RGB16F, GL_RGB},
+         {GL_RGBA16F, GL_RGBA},
+         {GL_R11F_G11F_B10F, GL_RGB},
+         {GL_RGB9_E5, GL_RGB}}};
+    for (const auto &fmt : kFormats)
     {
         {
             GLTexture tex;
@@ -7352,10 +7375,10 @@ void main(void) {
 
     GLBuffer buffer;
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    std::array<int8_t, 12> data = {
+    static constexpr std::array<int8_t, 12> kData = {
         1,
     };
-    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, kData.size() * sizeof(kData[0]), kData.data(), GL_STATIC_DRAW);
 
     ANGLE_GL_PROGRAM(program, kVS, kFS);
     glBindAttribLocation(program, 0, "attr1");
@@ -7479,14 +7502,14 @@ void main()
     ANGLE_GL_PROGRAM(program, kVS, kFS);
     glUseProgram(program);
 
-    const GLint attrLocations[4] = {
+    const std::array<GLint, 4> attrLocations = {
         glGetAttribLocation(program, "attr1"),
         glGetAttribLocation(program, "attr2"),
         glGetAttribLocation(program, "attr3"),
         glGetAttribLocation(program, "attr4"),
     };
 
-    GLBuffer buffers[4];
+    std::array<GLBuffer, 4> buffers;
 
     // Set up all the buffers as such:
     //
@@ -7494,27 +7517,27 @@ void main()
     // Buffer 2: 16 bytes + (offset) 212
     // Buffer 3: 128 bytes + (offset) 76
     // Buffer 4: 96 bytes + (offset) 52
-    constexpr GLsizei kBufferSizes[4] = {
+    static constexpr std::array<GLsizei, 4> kBufferSizes = {
         64,
         16,
         128,
         96,
     };
-    constexpr GLsizei kBufferOffsets[4] = {
+    static constexpr std::array<GLsizei, 4> kBufferOffsets = {
         124,
         212,
         76,
         52,
     };
     // Attribute component count corresponding to the shader
-    constexpr GLint kAttrComponents[4] = {
+    static constexpr std::array<GLint, 4> kAttrComponents = {
         4,
         2,
         4,
         3,
     };
     // Attribute types
-    constexpr GLenum kAttrTypes[4] = {
+    static constexpr std::array<GLenum, 4> kAttrTypes = {
         GL_SHORT,
         GL_BYTE,
         GL_FLOAT,
@@ -7530,7 +7553,7 @@ void main()
     //   drawn from this buffer.
     // - Buffer 4 has 96 bytes, each attribute is 6 bytes.  With a stride of 8, 12 vertices can be
     //   drawn from this buffer.
-    constexpr GLsizei kAttrStrides[4] = {
+    static constexpr std::array<GLsizei, 4> kAttrStrides = {
         12,
         0,
         20,
@@ -7539,15 +7562,12 @@ void main()
 
     for (int i = 0; i < 4; ++i)
     {
-        ANGLE_UNSAFE_TODO({
-            glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
-            glBufferData(GL_ARRAY_BUFFER, kBufferSizes[i] + kBufferOffsets[i], nullptr,
-                         GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers[i]);
+        glBufferData(GL_ARRAY_BUFFER, kBufferSizes[i] + kBufferOffsets[i], nullptr, GL_STATIC_DRAW);
 
-            glEnableVertexAttribArray(attrLocations[i]);
-            glVertexAttribPointer(attrLocations[i], kAttrComponents[i], kAttrTypes[i], GL_TRUE,
-                                  kAttrStrides[i], reinterpret_cast<void *>(kBufferOffsets[i]));
-        })
+        glEnableVertexAttribArray(attrLocations[i]);
+        glVertexAttribPointer(attrLocations[i], kAttrComponents[i], kAttrTypes[i], GL_TRUE,
+                              kAttrStrides[i], reinterpret_cast<void *>(kBufferOffsets[i]));
     }
     ASSERT_GL_NO_ERROR();
 
@@ -8013,7 +8033,9 @@ TEST_P(WebGL2CompatibilityTest, UnpackStateValidation)
             }
 
             const void *dataPtr =
-                usePixelUnpackBuffer ? nullptr : reinterpret_cast<const void *>(data.data());
+                usePixelUnpackBuffer
+                    ? nullptr
+                    : ANGLE_UNSAFE_BUFFERS(reinterpret_cast<const void *>(data.data()));
 
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, usePixelUnpackBuffer ? buf.get() : 0);
             ASSERT_GL_NO_ERROR();
@@ -8531,4 +8553,7 @@ TEST_P(HardenedContextTest, UniformBufferRangeExceedsSize)
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HardenedContextTest);
 ANGLE_INSTANTIATE_TEST_ES3(HardenedContextTest);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HardenedContextTestES31);
+ANGLE_INSTANTIATE_TEST_ES31(HardenedContextTestES31);
 }  // namespace angle

@@ -113,6 +113,11 @@
 #include <WebCore/ImageAnalysisQueue.h>
 #endif
 
+#if USE(GLIB)
+#include "WebKitWebView.h"
+#include <wtf/glib/GWeakPtr.h>
+#endif
+
 namespace WebKit {
 
 struct PrivateClickMeasurementAndMetadata {
@@ -136,12 +141,12 @@ struct SpeechSynthesisData {
 #if ENABLE(TOUCH_EVENTS)
 
 struct QueuedTouchEvents {
-    QueuedTouchEvents(const NativeWebTouchEvent& event)
-        : forwardedEvent(event)
+    QueuedTouchEvents(Ref<NativeWebTouchEvent>&& event)
+        : forwardedEvent(WTF::move(event))
     {
     }
-    NativeWebTouchEvent forwardedEvent;
-    Vector<NativeWebTouchEvent> deferredTouchEvents;
+    Ref<NativeWebTouchEvent> forwardedEvent;
+    Vector<Ref<NativeWebTouchEvent>> deferredTouchEvents;
 };
 
 struct TouchEventTracking {
@@ -193,7 +198,7 @@ public:
 
 #if ENABLE(WEB_AUTHN) && ENABLE(WEBDRIVER_BIDI)
     std::optional<VirtualWalletBehavior> testingVirtualWalletBehavior;
-    CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)> testingPendingDigitalCredentialHandler;
+    CompletionHandler<void(std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)> testingPendingDigitalCredentialHandler;
 #endif
 
     uint32_t checkedPtrCount() const { return WebPopupMenuProxy::Client::checkedPtrCount(); }
@@ -236,7 +241,7 @@ public:
     WebCore::IntSize fixedLayoutSize;
     GeolocationPermissionRequestManagerProxy geolocationPermissionRequestManager;
     HiddenPageThrottlingAutoIncreasesCounter::Token hiddenPageDOMTimerThrottlingAutoIncreasesCount;
-    Deque<NativeWebKeyboardEvent> keyEventQueue;
+    Deque<Ref<NativeWebKeyboardEvent>> keyEventQueue;
     WebCore::RectEdges<bool> mainFramePinnedState { true, true, true, true };
     WebCore::LayoutPoint maxStableLayoutViewportOrigin;
     WebCore::FloatSize maximumUnobscuredSize;
@@ -246,8 +251,8 @@ public:
     WebCore::LayoutPoint minStableLayoutViewportOrigin;
     WebCore::IntSize minimumSizeForAutoLayout;
     WebCore::FloatSize minimumUnobscuredSize;
-    Deque<NativeWebMouseEvent> mouseEventQueue;
-    Vector<WebMouseEvent> coalescedMouseEvents;
+    Deque<Ref<NativeWebMouseEvent>> mouseEventQueue;
+    Vector<Ref<WebMouseEvent>> coalescedMouseEvents;
     WebCore::MediaProducerMutedStateFlags mutedState;
     WebNotificationManagerMessageHandler notificationManagerMessageHandler;
     OptionSet<WebCore::LayoutMilestone> observedLayoutMilestones;
@@ -310,6 +315,10 @@ public:
     std::optional<TransactionID> firstLayerTreeTransactionIdAfterDidCommitLoad;
 #endif
 
+#if USE(GLIB)
+    GWeakPtr<WebKitWebView> platformView;
+#endif
+
 #if ENABLE(CONTEXT_MENUS)
     ContextMenuContextData activeContextMenuContextData;
 #endif
@@ -333,7 +342,7 @@ public:
     RefPtr<WebColorPicker> colorPicker;
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-    Deque<NativeWebGestureEvent> gestureEventQueue;
+    Deque<Ref<NativeWebGestureEvent>> gestureEventQueue;
     unsigned droppedGestureEventCount { 0 };
 #endif
 

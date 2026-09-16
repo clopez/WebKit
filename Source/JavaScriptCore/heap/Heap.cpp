@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2003-2026 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ *  Copyright (C) 2026 Igalia S.L.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -111,6 +112,7 @@
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SimpleStats.h>
+#include <wtf/SpinBackoff.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Threading.h>
@@ -336,7 +338,7 @@ private:
     , name ISO_SUBSPACE_INIT(*this, heapCellType, type)
 
 #define INIT_SERVER_STRUCTURE_ISO_SUBSPACE(name, heapCellType, type) \
-    , name(#name, *this, heapCellType, WTF::roundUpToMultipleOf<type::atomSize>(sizeof(type)), type::numberOfLowerTierPreciseCells, makeUnique<StructureAlignedMemoryAllocator>())
+    , name(#name, *this, heapCellType, WTF::roundUpToMultipleOf<type::atomSize>(sizeof(type)), type::numberOfLowerTierPreciseCells, structureAllocator.get())
 
 Heap::Heap(VM& vm, HeapType heapType)
     : m_heapType(heapType)
@@ -379,7 +381,6 @@ Heap::Heap(VM& vm, HeapType heapType)
     , callbackObjectHeapCellType(IsoHeapCellType::Args<JSCallbackObject<JSNonFinalObject>>())
     , customGetterFunctionHeapCellType(IsoHeapCellType::Args<JSCustomGetterFunction>())
     , customSetterFunctionHeapCellType(IsoHeapCellType::Args<JSCustomSetterFunction>())
-    , dateInstanceHeapCellType(IsoHeapCellType::Args<DateInstance>())
     , errorInstanceHeapCellType(IsoHeapCellType::Args<ErrorInstance>())
     , finalizationRegistryCellType(IsoHeapCellType::Args<JSFinalizationRegistry>())
     , globalLexicalEnvironmentHeapCellType(IsoHeapCellType::Args<JSGlobalLexicalEnvironment>())
@@ -428,6 +429,7 @@ Heap::Heap(VM& vm, HeapType heapType)
     // AlignedMemoryAllocators
     , fastMallocAllocator(makeUnique<FastMallocAlignedMemoryAllocator>())
     , primitiveGigacageAllocator(makeUnique<GigacageAlignedMemoryAllocator>(Gigacage::Primitive))
+    , structureAllocator(makeUnique<StructureAlignedMemoryAllocator>())
 
     // Subspaces
     , primitiveGigacageAuxiliarySpace("Primitive Gigacage Auxiliary"_s, *this, auxiliaryHeapCellType, primitiveGigacageAllocator.get()) // Hash:0x3e7cd762
@@ -451,7 +453,7 @@ Heap::Heap(VM& vm, HeapType heapType)
     m_worldState.store(0);
 
     for (unsigned i = 0, numberOfParallelThreads = heapHelperPool().numberOfThreads(); i < numberOfParallelThreads; ++i) {
-        std::unique_ptr<SlotVisitor> visitor = makeUnique<SlotVisitor>(*this, toCString("P", i + 1));
+        std::unique_ptr<SlotVisitor> visitor = makeUnique<SlotVisitor>(*this, toUTF8CString("P", i + 1));
         if (Options::optimizeParallelSlotVisitorsForStoppedMutator())
             visitor->optimizeForStoppedMutator();
         m_availableParallelSlotVisitors.append(visitor.get());
@@ -499,11 +501,6 @@ Heap::~Heap()
     
     for (WeakBlock* block : m_logicallyEmptyWeakBlocks)
         WeakBlock::destroy(*this, block);
-}
-
-bool Heap::isPagedOut()
-{
-    return m_objectSpace.isPagedOut();
 }
 
 void Heap::dumpHeapStatisticsAtVMDestruction()
@@ -609,6 +606,9 @@ void Heap::lastChanceToFinalize()
     m_arrayBuffers.lastChanceToFinalize();
     m_objectSpace.lastChanceToFinalize();
     releaseDelayedReleasedObjects();
+#if ENABLE(WEBASSEMBLY)
+    Wasm::TypeInformation::cleanupIfRequested();
+#endif
 
     sweepAllLogicallyEmptyWeakBlocks();
     
@@ -837,6 +837,9 @@ void Heap::reconcileWeakReferencesAtGCEnd()
 #endif
 
     vm().reconcileWeakReferencesAtGCEnd();
+
+    if (auto* clientData = vm().clientData)
+        clientData->reconcileWeakReferencesAtGCEnd(vm(), collectionScope);
 }
 
 void Heap::willStartIterating()
@@ -1148,6 +1151,10 @@ void Heap::deleteAllCodeBlocks(DeleteAllCodeEffort effort)
                 });
         });
 
+    // MicrotaskCallCache lives outside any CodeBlock and keys its cached entry points on the callee's
+    // executable, so after the code is detached above its callee check would still hit and call into it.
+    vm.clearMicrotaskCallCaches();
+
 #if ENABLE(WEBASSEMBLY)
     {
         // We must ensure that we clear the JS call ICs from Wasm. Otherwise, Wasm will
@@ -1307,6 +1314,9 @@ void Heap::sweepSynchronously()
     }
     m_objectSpace.sweepBlocks();
     m_objectSpace.shrink();
+#if ENABLE(WEBASSEMBLY)
+    Wasm::TypeInformation::cleanupIfRequested();
+#endif
     if (Options::logGC()) [[unlikely]] {
         MonotonicTime after = MonotonicTime::now();
         dataLog("=> ", capacity() / 1024, "kb, ", (after - before).milliseconds(), "ms");
@@ -1551,8 +1561,8 @@ NEVER_INLINE bool Heap::runBeginPhase(GCConductor conn)
     if (Options::useGCSignpost()) [[unlikely]] {
         StringPrintStream stream;
         stream.print("GC:(", RawPointer(this), "),mode:(", (isFullGC ? "Full" : "Eden"), "),version:(", m_gcVersion, "),conn:(", gcConductorShortName(conn), "),capacity(", capacity() / 1024, "kb)");
-        m_signpostMessage = stream.toCString();
-        WTFBeginSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.data() ? m_signpostMessage.data() : "(nullptr)");
+        m_signpostMessage = stream.toUTF8CString();
+        WTFBeginSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.legacyCStringPointer() ? m_signpostMessage.legacyCStringPointer() : "(nullptr)");
     }
 
     prepareForMarking();
@@ -1806,7 +1816,7 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
 
         cancelDeferredWorkIfNeeded();
         reapWeakHandles();
-        pruneStaleEntriesFromWeakGCHashTables();
+        reconcileWeakGCHashTables();
         sweepArrayBuffers();
         snapshotUnswept();
         reconcileWeakReferencesAtGCEnd(); // Must precede clearCurrentlyExecuting: CodeBlock::reconcileWeakReferencesAtGCEnd queries which CodeBlocks are currently executing.
@@ -1857,7 +1867,7 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
 
     dataLogLnIf(Options::logGC(), "GC END!");
     if (Options::useGCSignpost()) [[unlikely]] {
-        WTFEndSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.data() ? m_signpostMessage.data() : "(nullptr)");
+        WTFEndSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.legacyCStringPointer() ? m_signpostMessage.legacyCStringPointer() : "(nullptr)");
         m_signpostMessage = { };
     }
 
@@ -1991,6 +2001,7 @@ NEVER_INLINE void Heap::resumeThePeriphery()
             visitorsToUpdate.append(&visitor);
         });
     
+    SpinBackoff backoff;
     for (unsigned countdown = 40; !visitorsToUpdate.isEmpty() && countdown--;) {
         for (unsigned index = 0; index < visitorsToUpdate.size(); ++index) {
             SlotVisitor& visitor = *visitorsToUpdate[index];
@@ -2007,7 +2018,7 @@ NEVER_INLINE void Heap::resumeThePeriphery()
                 visitorsToUpdate.takeLast();
             }
         }
-        Thread::yield();
+        backoff.spinOnce();
     }
     
     for (SlotVisitor* visitor : visitorsToUpdate)
@@ -2147,7 +2158,7 @@ NEVER_INLINE void Heap::collectInMutatorThread()
                     }
                 }
             };
-            callWithCurrentThreadState(scopedLambda<void(CurrentThreadState&)>(WTF::move(lambda)));
+            callWithCurrentThreadState(lambda);
             return;
         }
     }
@@ -2360,6 +2371,9 @@ void Heap::runCollectionEpilogue()
         deleteSourceProviderCaches();
         sweepEagerlyInEpilogue();
     }
+#if ENABLE(WEBASSEMBLY)
+    Wasm::TypeInformation::cleanupIfRequested();
+#endif
     
     if (HasOwnPropertyCache* cache = vm().hasOwnPropertyCache())
         cache->clear();
@@ -2509,12 +2523,24 @@ void Heap::reapWeakHandles()
     m_objectSpace.reapWeakSets();
 }
 
-void Heap::pruneStaleEntriesFromWeakGCHashTables()
+void Heap::reconcileWeakGCHashTables()
 {
-    if (!m_collectionScope || m_collectionScope.value() != CollectionScope::Full)
+    CollectionScope collectionScope = m_collectionScope.value_or(CollectionScope::Full);
+    if (collectionScope == CollectionScope::Full) {
+        for (auto* weakGCHashTable : m_weakGCHashTables)
+            weakGCHashTable->reconcileWeakReferencesAtGCEnd(vm(), collectionScope);
+        m_dirtyWeakGCHashTables.forEach([](WeakGCHashTable* weakGCHashTable) {
+            weakGCHashTable->remove();
+        });
         return;
-    for (auto* weakGCHashTable : m_weakGCHashTables)
-        weakGCHashTable->pruneStaleEntries();
+    }
+
+    // Only a table that gained an entry since the last collection can hold an entry that dies here:
+    // everything that survived that collection is old, and an eden collection cannot free it.
+    m_dirtyWeakGCHashTables.forEach([&](WeakGCHashTable* weakGCHashTable) {
+        weakGCHashTable->remove();
+        weakGCHashTable->reconcileWeakReferencesAtGCEnd(vm(), collectionScope);
+    });
 }
 
 void Heap::sweepArrayBuffers()
@@ -3014,7 +3040,20 @@ void Heap::registerWeakGCHashTable(WeakGCHashTable* weakGCHashTable)
 
 void Heap::unregisterWeakGCHashTable(WeakGCHashTable* weakGCHashTable)
 {
+    if (weakGCHashTable->isOnList())
+        weakGCHashTable->remove();
     m_weakGCHashTables.remove(weakGCHashTable);
+}
+
+void Heap::addDirtyWeakGCHashTable(WeakGCHashTable* weakGCHashTable)
+{
+    ASSERT(!weakGCHashTable->isOnList());
+    m_dirtyWeakGCHashTables.append(weakGCHashTable);
+}
+
+void WeakGCHashTable::addToDirtyList(VM& vm)
+{
+    vm.heap.addDirtyWeakGCHashTable(this);
 }
 
 void Heap::didAllocateBlock(size_t capacity)
@@ -3421,26 +3460,25 @@ void Heap::removeGCCompletionCallback(const GCCompletionCallback& callback)
     m_gcCompletionCallbacks.removeFirst(callback);
 }
 
-void Heap::setBonusVisitorTask(RefPtr<SharedTask<void(SlotVisitor&)>> task)
-{
-    Locker locker { m_markingMutex };
-    m_bonusVisitorTask = task;
-    m_markingConditionVariable.notifyAll();
-}
-
-
 void Heap::runTaskInParallel(RefPtr<SharedTask<void(SlotVisitor&)>> task)
 {
     unsigned initialRefCount = task->refCount();
-    setBonusVisitorTask(task);
-    task->run(*m_collectorSlotVisitor);
-    setBonusVisitorTask(nullptr);
-    // The constraint solver expects return of this function to imply termination of the task in all
-    // threads. This ensures that property.
     {
         Locker locker { m_markingMutex };
+        m_bonusVisitorTask = task;
+        m_markingConditionVariable.notifyAll();
+    }
+
+    task->run(*m_collectorSlotVisitor);
+
+    {
+        Locker locker { m_markingMutex };
+        m_bonusVisitorTask = nullptr;
+
+        // The constraint solver expects return of this function to imply termination of the task in all
+        // threads. This ensures that property.
         while (task->refCount() > initialRefCount)
-            m_markingConditionVariable.wait(m_markingMutex);
+            m_bonusVisitorTaskConditionVariable.wait(m_markingMutex);
     }
 }
 

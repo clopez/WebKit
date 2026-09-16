@@ -86,7 +86,6 @@
 #include "NavigationRequester.h"
 #include "NavigationScheduler.h"
 #include "NetworkLoadMetrics.h"
-#include "NetworkStorageSession.h"
 #include "OriginAccessPatterns.h"
 #include "Page.h"
 #include "Performance.h"
@@ -103,6 +102,7 @@
 #include "ServiceWorkerClientData.h"
 #include "ServiceWorkerProvider.h"
 #include "Settings.h"
+#include "StorageAccessQuirks.h"
 #include "SubresourceLoader.h"
 #include "TextResourceDecoder.h"
 #include "UserContentProvider.h"
@@ -614,7 +614,8 @@ bool DocumentLoader::setControllingServiceWorkerRegistration(ServiceWorkerRegist
 
 void DocumentLoader::matchRegistration(const URL& url, SWClientConnection::RegistrationCallback&& callback)
 {
-    bool shouldTryLoadingThroughServiceWorker = m_canUseServiceWorkers && !frameLoader()->isReloadingFromOrigin() && m_frame->page() && url.protocolIsInHTTPFamily();
+    bool shouldTryLoadingThroughServiceWorker = m_canUseServiceWorkers && !frameLoader()->isReloadingFromOrigin() && m_frame->page()
+        && (url.protocolIsInHTTPFamily() || LegacySchemeRegistry::shouldTreatURLSchemeAsAllowingServiceWorkerClients(url.protocol()));
     if (!shouldTryLoadingThroughServiceWorker) {
         callback(std::nullopt);
         return;
@@ -762,7 +763,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
         if (!parentFrame)
             return completionHandler(WTF::move(newRequest));
 
-        if (MixedContentChecker::shouldBlockRequest(*parentFrame, newRequest.url())) {
+        if (MixedContentChecker::shouldBlockRequest(*parentFrame, newRequest.url(), MixedContentChecker::IsUpgradable::No, newRequest.targetAddressSpace())) {
             cancelMainResourceLoad(protect(frameLoader())->cancelledError(newRequest));
             return completionHandler(WTF::move(newRequest));
         }
@@ -949,7 +950,7 @@ void DocumentLoader::responseReceived(const CachedResource& resource, const Reso
         Ref document = *frame->document();
         if (Quirks::isMicrosoftTeamsRedirectURL(response.url())) {
             auto firstPartyDomain = RegistrableDomain(response.url());
-            if (auto loginDomains = NetworkStorageSession::subResourceDomainsInNeedOfStorageAccessForFirstParty(firstPartyDomain)) {
+            if (auto loginDomains = subResourceDomainsInNeedOfStorageAccessForFirstParty(firstPartyDomain)) {
                 if (!Quirks::hasStorageAccessForAllLoginDomains(*loginDomains, firstPartyDomain)) {
                     protect(frame->navigationScheduler())->scheduleRedirect(document, 0, microsoftTeamsRedirectURL(), IsMetaRefresh::No);
                     completionHandler();
@@ -1023,6 +1024,13 @@ void DocumentLoader::responseReceived(ResourceResponse&& response, CompletionHan
         m_isLoadingMultipartContent = true;
 
     m_response = WTF::move(response);
+
+    // blob: is a local scheme, so HTML's "determine navigation params policy container" takes the
+    // initiator's address space for it rather than the response's.
+    if (m_response.url().protocolIsBlob()) {
+        if (auto& requester = triggeringAction().requester())
+            m_response.setIPAddressSpace(requester->policyContainer.ipAddressSpace);
+    }
 
     if (m_identifierForLoadWithoutResourceLoader) {
         RefPtr frameLoader = this->frameLoader();
@@ -1359,7 +1367,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
                     document->createNewIdentifier();
             }
 
-            if (m_frame->document()->activeServiceWorker() || document->url().protocolIsInHTTPFamily() || (document->page() && document->page()->isServiceWorkerPage()) || (document->parentDocument() && shouldUseActiveServiceWorkerFromParent(document, *protect(document->parentDocument()))))
+            if (m_frame->document()->activeServiceWorker() || document->url().protocolIsInHTTPFamily() || LegacySchemeRegistry::shouldTreatURLSchemeAsAllowingServiceWorkerClients(document->url().protocol()) || (document->page() && document->page()->isServiceWorkerPage()) || (document->parentDocument() && shouldUseActiveServiceWorkerFromParent(document, *protect(document->parentDocument()))))
                 document->setServiceWorkerConnection(&ServiceWorkerProvider::singleton().serviceWorkerConnection());
 
             if (m_resultingClientId) {
@@ -2230,7 +2238,7 @@ void DocumentLoader::startLoadingMainResource()
 
         DOCUMENTLOADER_RELEASE_LOG_FORWARDABLE(DocumentLoaderStartLoadingMainResourceStartingLoad);
 
-        if (m_substituteData.isValid()) {
+        if (m_substituteData.isValid() || LegacySchemeRegistry::shouldTreatURLSchemeAsAllowingServiceWorkerClients(request.url().protocol())) {
             auto url = request.url();
             matchRegistration(url, [request = WTF::move(request), protectedThis = Ref { *this }, this] (auto&& registrationData) mutable {
                 if (!m_mainDocumentError.isNull()) {
@@ -2326,7 +2334,10 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
             return;
         }
 
-        if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)) {
+        bool isHTTPSOnlyActive = advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)
+            || m_httpsByDefaultMode == HTTPSByDefaultMode::UpgradeWithUserMediatedFallback
+            || m_httpsByDefaultMode == HTTPSByDefaultMode::UpgradeAndNoFallback;
+        if (isHTTPSOnlyActive) {
             if (platformStrategies()->loaderStrategy()->isHttpNavigationWithHTTPSOnlyError(mainResourceOrError.error())) {
                 DOCUMENTLOADER_RELEASE_LOG("loadMainResource: Unable to load main resource, URL has HTTP scheme with HTTPSOnly enabled");
                 cancelMainResourceLoad(mainResourceOrError.error());

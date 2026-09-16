@@ -77,6 +77,7 @@ workers [ Skip ]
 fast/events/pointer [ Pass ]
 interaction-region [ Pass ]
 media/media-css-volume-locked.html [ Pass ]
+media/caption-mirroring-quirk-unrelated-host.html [ Pass ]
 overlay-region [ Pass ]
 platform/visionos/transforms [ Pass ]
 fast/images/spatial-image-controls.html [ Pass ]
@@ -90,6 +91,7 @@ model-element/immersive [ Pass ]
 model-element/model-element-animations-loop.html [ Slow ]
 model-element/model-element-lazy-loading-unloading.html [ Slow ]
 model-element/model-element-suspend-before-ready.html [ Slow ]
+ipc/cocoa [ Pass ]
 ipc/dynamic-content-scaling-display-list-during-prepare-for-display.html [ Pass ]
 
 imported/w3c/web-platform-tests/webxr [ Pass ]
@@ -138,6 +140,8 @@ imported/w3c/web-platform-tests/digital-credentials/ [ Skip ]
 pdf/annotations [ Skip ]
 pdf/pdf-in-iframe-with-text-annotation.html [ Skip ]
 
+pdf/mac [ Skip ]
+
 ### END OF Legitimate failures
 ###################################################################################################
 
@@ -185,6 +189,8 @@ fast/forms/form-control-refresh/checkbox-radio-inactive-appearance-dark-bg-light
 fast/forms/form-control-refresh/checkbox-radio-inactive-appearance-light-bg-dark-color-scheme.html [ Skip ]
 fast/forms/form-control-refresh/progress-window-inactive-state-dark-mode.html [ Skip ]
 fast/forms/form-control-refresh/progress-window-inactive-state-light-mode.html [ Skip ]
+fast/forms/form-control-refresh/spinbutton-window-inactive-state-dark-mode.html [ Skip ]
+fast/forms/form-control-refresh/spinbutton-window-inactive-state-light-mode.html [ Skip ]
 
 # webkit.org/b/300929 REGRESSION(297559@main): interaction-region/form-control-refresh/date-native-interaction-region.html does not pass on visionOS
 interaction-region/form-control-refresh/date-native-interaction-region.html [ Failure ]

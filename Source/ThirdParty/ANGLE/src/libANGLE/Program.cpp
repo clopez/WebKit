@@ -41,6 +41,8 @@
 #include "platform/PlatformMethods.h"
 #include "platform/autogen/FrontendFeatures_autogen.h"
 
+#include "compression_utils_portable.h"
+
 namespace gl
 {
 
@@ -343,7 +345,21 @@ ProgramBindings::~ProgramBindings() {}
 
 void ProgramBindings::bindLocation(GLuint index, const std::string &name)
 {
-    mBindings[name] = index;
+    if (name.find('[') != std::string::npos)
+    {
+        if (angle::EndsWith(name, "[0]") && (name.find(']') == name.length() - 1))
+        {
+            mBindings[name.substr(0, name.length() - 3)] = index;
+        }
+        else
+        {
+            return;
+        }
+    }
+    else
+    {
+        mBindings[name] = index;
+    }
 }
 
 int ProgramBindings::getBindingByName(const std::string &name) const
@@ -378,8 +394,16 @@ ProgramAliasedBindings::ProgramAliasedBindings() {}
 
 ProgramAliasedBindings::~ProgramAliasedBindings() {}
 
-void ProgramAliasedBindings::bindLocation(GLuint index, const std::string &name)
+void ProgramAliasedBindings::bindLocation(GLuint index,
+                                          const std::string &name,
+                                          BindLocationPolicy policy)
 {
+    if (policy == BindLocationPolicy::IgnoreIndexing && name.find('[') != std::string::npos &&
+        (!angle::EndsWith(name, "[0]") || name.find(']') != name.length() - 1))
+    {
+        return;
+    }
+
     mBindings[name] = ProgramBinding(index);
 
     // EXT_blend_func_extended spec: "If it specifies the base name of an array,
@@ -853,19 +877,20 @@ void Program::bindUniformLocation(const Context *context,
                                   const char *name)
 {
     ASSERT(!mLinkingState);
-    mState.mUniformLocationBindings.bindLocation(location.value, name);
+    mState.mUniformLocationBindings.bindLocation(location.value, name,
+                                                 BindLocationPolicy::AcceptIndexing);
 }
 
 void Program::bindFragmentOutputLocation(const Context *context, GLuint index, const char *name)
 {
     ASSERT(!mLinkingState);
-    mState.mFragmentOutputLocations.bindLocation(index, name);
+    mState.mFragmentOutputLocations.bindLocation(index, name, BindLocationPolicy::IgnoreIndexing);
 }
 
 void Program::bindFragmentOutputIndex(const Context *context, GLuint index, const char *name)
 {
     ASSERT(!mLinkingState);
-    mState.mFragmentOutputIndexes.bindLocation(index, name);
+    mState.mFragmentOutputIndexes.bindLocation(index, name, BindLocationPolicy::IgnoreIndexing);
 }
 
 void Program::makeNewExecutable(const Context *context)
@@ -986,7 +1011,6 @@ angle::Result Program::link(const Context *context, angle::JobResultExpectancy r
     // TODO: http://anglebug.com/42263141: Enable program caching for separable programs
     if (cache && !isSeparable())
     {
-        std::lock_guard<angle::SimpleMutex> cacheLock(context->getProgramCacheMutex());
         egl::CacheGetResult result = egl::CacheGetResult::NotFound;
         ANGLE_TRY(cache->getProgram(context, this, &mProgramHash, &result));
 
@@ -1430,8 +1454,76 @@ angle::Result Program::loadBinary(const Context *context,
     ASSERT(mLinkingState);
     unlink();
 
+    angle::MemoryBuffer decompressedBuffer;
+    const void *streamData = binary;
+    GLsizei streamLength   = length;
+
+    if (context->getFrontendFeatures().compressProgramBinaryBlob.enabled)
+    {
+        if (length <= static_cast<GLsizei>(kProgramBinaryHeaderSize))
+        {
+            WARN() << "Program binary is too small to load (" << length << " bytes).";
+            return angle::Result::Continue;
+        }
+
+        const ProgramBinaryHeader *header = reinterpret_cast<const ProgramBinaryHeader *>(binary);
+
+        uint32_t magic;
+        uint32_t expectedCRC;
+        uint64_t uncompressedSize;
+        header->getData(&magic, &expectedCRC, &uncompressedSize);
+
+        if (magic != ProgramBinaryHeader::kProgramBinaryMagic)
+        {
+            WARN() << "Failed to load program binary. Invalid magic value (" << magic << ").";
+            return angle::Result::Continue;
+        }
+
+        // Validate uncompressed size fits in GLsizei before decompression.
+        if (uncompressedSize > static_cast<size_t>(std::numeric_limits<GLsizei>::max()))
+        {
+            WARN() << "Uncompressed program binary too large (" << uncompressedSize << " bytes).";
+            return angle::Result::Continue;
+        }
+
+        // Compressed payload starts after the header.
+        const uint8_t *compressedData = ANGLE_UNSAFE_BUFFERS(
+            reinterpret_cast<const uint8_t *>(binary) + kProgramBinaryHeaderSize);
+        const size_t compressedSize = static_cast<size_t>(length) - kProgramBinaryHeaderSize;
+
+        // Decompress the payload.
+        if (!angle::DecompressBlob(compressedData, compressedSize,
+                                   static_cast<size_t>(uncompressedSize), &decompressedBuffer))
+        {
+            WARN() << "Failed to decompress program binary.";
+            return angle::Result::Continue;
+        }
+
+        // Validate CRC for decompressed data matches the expected CRC.
+        const uint32_t computedCRC =
+            angle::GenerateCRC32(decompressedBuffer.data(), decompressedBuffer.size());
+        if (computedCRC != expectedCRC)
+        {
+            WARN() << "CRC mismatch after decompression (expected CRC = " << expectedCRC
+                   << ", computed CRC = " << computedCRC << ")";
+            return angle::Result::Continue;
+        }
+
+        // Validate decompressed size.
+        if (decompressedBuffer.size() != static_cast<size_t>(uncompressedSize))
+        {
+            WARN() << "Decompressed size mismatch (expected size = " << uncompressedSize
+                   << ", actual size = " << decompressedBuffer.size() << ")";
+            return angle::Result::Continue;
+        }
+
+        streamData   = decompressedBuffer.data();
+        streamLength = static_cast<GLsizei>(decompressedBuffer.size());
+    }
+
     BinaryInputStream stream(
-        ANGLE_UNSAFE_TODO(angle::Span(static_cast<const uint8_t *>(binary), length)));
+        ANGLE_UNSAFE_TODO(angle::Span(static_cast<const uint8_t *>(streamData), streamLength)));
+
     if (!deserialize(context, stream))
     {
         return angle::Result::Continue;
@@ -1518,7 +1610,10 @@ angle::Result Program::getBinary(Context *context,
         // TODO: This should be moved to the validation layer but computing the size of the binary
         // before saving it causes the save to happen twice.  It may be possible to write the binary
         // to a separate buffer, validate sizes and then copy it.
-        ANGLE_CHECK(context, false, err::kInsufficientBufferSize, GL_INVALID_OPERATION);
+        context->getMutableErrorSetForValidation()->validationError(
+            angle::EntryPoint::GLGetProgramBinary, GL_INVALID_OPERATION,
+            err::kInsufficientBufferSize);
+        return angle::Result::Stop;
     }
 
     if (binary)
@@ -2263,14 +2358,70 @@ angle::Result Program::serialize(const Context *context)
     mProgram->save(context, &stream);
     ASSERT(mState.mExecutable->mPostLinkSubTasks.empty());
 
-    if (!mBinary.resize(stream.size()))
+    if (context->getFrontendFeatures().compressProgramBinaryBlob.enabled)
     {
-        ANGLE_PERF_WARNING(context->getState().getDebug(), GL_DEBUG_SEVERITY_LOW,
-                           "Failed to allocate enough memory to serialize a program. (%zu bytes)",
-                           stream.size());
-        return angle::Result::Stop;
+        const size_t uncompressedSize   = stream.size();
+        const uint8_t *uncompressedData = reinterpret_cast<const uint8_t *>(stream.data());
+        if (uncompressedSize > static_cast<size_t>(std::numeric_limits<GLsizei>::max()))
+        {
+            WARN() << "Program binary is too large to serialize (" << uncompressedSize
+                   << " bytes).";
+            return angle::Result::Stop;
+        }
+
+        // Compress the serialized payload directly into |mBinary|.
+        const uLong expectedCompressedSize =
+            zlib_internal::GzipExpectedCompressedSize(static_cast<uLong>(uncompressedSize));
+        if (!mBinary.resize(kProgramBinaryHeaderSize + expectedCompressedSize))
+        {
+            WARN() << "Failed to allocate enough memory to compress the expected blob size. ("
+                   << kProgramBinaryHeaderSize + expectedCompressedSize << " bytes).";
+            return angle::Result::Stop;
+        }
+
+        uLongf actualCompressedSize = expectedCompressedSize;
+        int zResult                 = zlib_internal::CompressHelper(
+            zlib_internal::GZIP, ANGLE_UNSAFE_BUFFERS(mBinary.data() + kProgramBinaryHeaderSize),
+            &actualCompressedSize, uncompressedData, static_cast<uLong>(uncompressedSize),
+            Z_BEST_SPEED, nullptr, nullptr);
+
+        if (zResult != Z_OK)
+        {
+            WARN() << "Failed to compress program binary (" << uncompressedSize
+                   << " bytes). Program binary will not be saved";
+            mBinary.destroy();
+            return angle::Result::Stop;
+        }
+
+        // Trim |mBinary| down to the header and the actual compressed data size.
+        ASSERT(actualCompressedSize <= expectedCompressedSize);
+        if (!mBinary.resize(kProgramBinaryHeaderSize + actualCompressedSize))
+        {
+            WARN() << "Failed to trim program binary to actual size. ("
+                   << kProgramBinaryHeaderSize + actualCompressedSize << " bytes).";
+            mBinary.destroy();
+            return angle::Result::Stop;
+        }
+
+        // Prepend the ProgramBinaryHeader.
+        ProgramBinaryHeader *header = reinterpret_cast<ProgramBinaryHeader *>(mBinary.data());
+        const uint32_t dataCRC      = angle::GenerateCRC32(uncompressedData, uncompressedSize);
+        header->setData(ProgramBinaryHeader::kProgramBinaryMagic, dataCRC,
+                        static_cast<uint64_t>(uncompressedSize));
     }
-    angle::SpanMemcpy(mBinary.span(), angle::Span(stream));
+    else
+    {
+        if (!mBinary.resize(stream.size()))
+        {
+            ANGLE_PERF_WARNING(
+                context->getState().getDebug(), GL_DEBUG_SEVERITY_LOW,
+                "Failed to allocate enough memory to serialize a program. (%zu bytes)",
+                stream.size());
+            return angle::Result::Stop;
+        }
+        angle::SpanMemcpy(mBinary.span(), angle::Span(stream));
+    }
+
     return angle::Result::Continue;
 }
 
@@ -2410,7 +2561,6 @@ void Program::cacheProgramBinaryIfNotAlready(const Context *context)
     ASSERT(mState.mExecutable->mPostLinkSubTasks.empty());
 
     // Save to the program cache.
-    std::lock_guard<angle::SimpleMutex> cacheLock(context->getProgramCacheMutex());
     MemoryProgramCache *cache = context->getMemoryProgramCache();
     // TODO: http://anglebug.com/42263141: Enable program caching for separable programs
     if (cache && !isSeparable() &&

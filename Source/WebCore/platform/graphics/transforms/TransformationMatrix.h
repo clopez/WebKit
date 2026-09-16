@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/AffineTransform.h>
 #include <WebCore/CompositeOperation.h>
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FloatPoint3D.h>
@@ -35,6 +36,7 @@
 #include <wtf/Forward.h>
 #include <wtf/Platform.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/Variant.h>
 
 #if USE(CA)
 typedef struct CATransform3D CATransform3D;
@@ -363,24 +365,26 @@ public:
 
     WEBCORE_EXPORT AffineTransform NODELETE toAffineTransform() const;
 
+    struct Translation2DIPCData {
+        double m41 { 0 };
+        double m42 { 0 };
+    };
+    struct Translation3DIPCData {
+        double m41 { 0 };
+        double m42 { 0 };
+        double m43 { 0 };
+    };
+    struct FullIPCData {
+        std::array<double, 16> values { };
+    };
+    using IPCData = Variant<std::monostate /* identity */, Translation2DIPCData, Translation3DIPCData, AffineTransform, FullIPCData>;
+
+    WEBCORE_EXPORT IPCData ipcData() const;
+    WEBCORE_EXPORT static TransformationMatrix fromIPCData(IPCData&&);
+
     bool operator==(const TransformationMatrix& m2) const
     {
-        return (m_matrix[0][0] == m2.m_matrix[0][0] &&
-                m_matrix[0][1] == m2.m_matrix[0][1] &&
-                m_matrix[0][2] == m2.m_matrix[0][2] &&
-                m_matrix[0][3] == m2.m_matrix[0][3] &&
-                m_matrix[1][0] == m2.m_matrix[1][0] &&
-                m_matrix[1][1] == m2.m_matrix[1][1] &&
-                m_matrix[1][2] == m2.m_matrix[1][2] &&
-                m_matrix[1][3] == m2.m_matrix[1][3] &&
-                m_matrix[2][0] == m2.m_matrix[2][0] &&
-                m_matrix[2][1] == m2.m_matrix[2][1] &&
-                m_matrix[2][2] == m2.m_matrix[2][2] &&
-                m_matrix[2][3] == m2.m_matrix[2][3] &&
-                m_matrix[3][0] == m2.m_matrix[3][0] &&
-                m_matrix[3][1] == m2.m_matrix[3][1] &&
-                m_matrix[3][2] == m2.m_matrix[3][2] &&
-                m_matrix[3][3] == m2.m_matrix[3][3]);
+        return m_matrix == m2.m_matrix;
     }
 
     // *this = *this * t

@@ -68,6 +68,7 @@
 #include "FrameSelection.h"
 #include "GeometryUtilities.h"
 #include "HTMLAreaElement.h"
+#include "HTMLBRElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDataListElement.h"
 #include "HTMLDetailsElement.h"
@@ -105,7 +106,7 @@
 #include "RenderLayer.h"
 #include "RenderLayerInlines.h"
 #include "RenderListItem.h"
-#include "RenderListMarker.h"
+#include "RenderListOutsideMarker.h"
 #include "RenderObjectInlines.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
@@ -943,6 +944,38 @@ std::optional<SimpleRange> AccessibilityObject::simpleRange() const
             return range;
     }
     return AXObjectCache::rangeForNodeContents(*node);
+}
+
+HTMLTextFormControlElement* AccessibilityObject::nativeTextControl() const
+{
+    if (auto* textArea = dynamicDowncast<HTMLTextAreaElement>(node()))
+        return textArea;
+
+    auto* input = dynamicDowncast<HTMLInputElement>(node());
+    return input && (input->isText() || input->isNumberField()) ? input : nullptr;
+}
+
+AXTextMarkerRange AccessibilityObject::textMarkerRange() const
+{
+    // A native text control's value lives in its shadow inner text element, so the host has no
+    // children whose contents to take: simpleRange covers the control as a single replaced object,
+    // which stringifies to an object replacement character rather than the value.
+    if (RefPtr textControl = nativeTextControl()) {
+        if (RefPtr innerText = textControl->innerTextElement()) {
+            auto range = AXObjectCache::rangeForNodeContents(*innerText);
+            // A value ending in a line break renders an empty final line, which
+            // HTMLTextFormControlElement::setInnerTextValue gives a line box by appending a
+            // placeholder <br>. That <br>'s newline is collapsed out by rendering and is not a
+            // character of the value, so leave it out.
+            if (is<HTMLBRElement>(innerText->lastChild()) && range.end.offset)
+                --range.end.offset;
+            // A control with no value has no text to point at, so leave it pointing at itself,
+            // which is the only marker its callers can place in the document.
+            if (range.start != range.end)
+                return AXTextMarkerRange { std::optional { range } };
+        }
+    }
+    return simpleRange();
 }
 
 Vector<BoundaryPoint> AccessibilityObject::previousLineStartBoundaryPoints(const VisiblePosition& startingPosition, const SimpleRange& targetRange, unsigned positionsToRetrieve) const
@@ -2074,6 +2107,15 @@ VisiblePositionRange AccessibilityObject::lineRangeForPosition(const VisiblePosi
             break;
         }
 
+        if (!inSameBlock(next, visiblePosition)) {
+            // A line that ends its block has no next line to run into, so this position is already in
+            // whatever follows the block, and the newline between the two is synthesized to separate
+            // them rather than being a line break that terminates this line. End the range at the
+            // line. Reaching outside it would, for the last line of an editable element, hand out a
+            // range that leaves the field and counts a character the field's text doesn't have.
+            break;
+        }
+
         if (stringForVisiblePositionRange({ end, next }).contains("\n"_s)) {
             // Return the range including the line break.
             return { start, next };
@@ -2161,33 +2203,33 @@ static RenderListItem* NODELETE renderListItemContainer(Node* node)
 }
 
 // Returns the text representing a list marker taking into account the position of the text in the line of text.
-static StringView lineStartListMarkerText(const RenderListItem* listItem, const VisiblePosition& startVisiblePosition, std::optional<StringView> markerText = std::nullopt)
+static String lineStartListMarkerText(const RenderListItem* listItem, const VisiblePosition& startVisiblePosition, String markerText = { })
 {
     if (!listItem)
         return { };
 
-    if (!markerText)
-        markerText = listItem->markerTextWithSuffix();
-    if (markerText->isEmpty())
+    if (markerText.isNull())
+        markerText = listItem->markerText();
+    if (markerText.isEmpty())
         return { };
 
     // Only include the list marker if the range includes the line start (where the marker would be), and is in the same line as the marker.
     if (!isStartOfLine(startVisiblePosition) || !inSameLine(startVisiblePosition, firstPositionInNode(protect(*listItem->element()))))
         return { };
-    return *markerText;
+    return markerText;
 }
 
-StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, Position&& startPosition)
+String AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, Position&& startPosition)
 {
     CheckedPtr listItem = renderListItemContainer(node);
     if (!listItem)
         return { };
     // Creating a VisiblePosition and determining its relationship to a line of text can be expensive.
     // Thus perform that determination only if we have some text to return.
-    auto markerText = listItem->markerTextWithSuffix();
+    auto markerText = listItem->markerText();
     if (markerText.isEmpty())
         return { };
-    return lineStartListMarkerText(listItem.get(), startPosition, markerText);
+    return lineStartListMarkerText(listItem.get(), startPosition, WTF::move(markerText));
 }
 
 String AccessibilityObject::textContentPrefixFromListMarker() const
@@ -2507,10 +2549,12 @@ CharacterRange AccessibilityObject::doAXStyleRangeForIndex(unsigned index) const
 }
 
 // Given an indexed character, the line number of the text associated with this accessibility
-// object that contains the character.
+// object that contains the character. The index one past the last character is accepted too: that
+// is where the caret sits at the end of a field, and it is a position AXInsertionPointLineNumber
+// already answers for.
 unsigned AccessibilityObject::doAXLineForIndex(unsigned index)
 {
-    return lineForPosition(visiblePositionForIndex(index, false));
+    return lineForPosition(visiblePositionForIndex(index, /* lastIndexOK */ true));
 }
 
 void AccessibilityObject::updateBackingStore()
@@ -2600,7 +2644,17 @@ void AccessibilityObject::updateChildrenIfNecessary()
     if (!childrenInitialized()) {
         // Enable the cache in case we end up adding a lot of children, we don't want to recompute axIsIgnored each time.
         AXAttributeCacheScope enableCache(axObjectCache());
+
+        // setIsIgnoredFromParentDataForChild() derives each child's data from ours when we have any.
+        // Compute and set it now so each child doesn't repeat unnecessary work.
+        bool didSetIsIgnoredFromParentData = m_isIgnoredFromParentData.isNull();
+        if (didSetIsIgnoredFromParentData)
+            setIsIgnoredFromParentData(computeIsIgnoredFromParentData());
+
         addChildren();
+
+        if (didSetIsIgnoredFromParentData)
+            clearIsIgnoredFromParentData();
     }
 }
 
@@ -2926,7 +2980,19 @@ bool AccessibilityObject::replaceTextInRange(const String& replacementString, co
     // Also only do this when the field is in editing mode.
     Ref frame = renderer()->frame();
     if (element->shouldUseInputMethod()) {
-        frame->selection().setSelectedRange(rangeForCharacterRange(range), Affinity::Downstream, FrameSelection::ShouldCloseTyping::Yes);
+        uint64_t textLength = getLengthForTextRange();
+        uint64_t startIndex = std::min(range.location, textLength);
+        uint64_t endIndex = startIndex + std::min(range.length, textLength - startIndex);
+
+        auto start = visiblePositionForIndex(static_cast<int>(startIndex));
+        std::optional insertionRange = makeSimpleRange(start, endIndex == startIndex ? start : visiblePositionForIndex(static_cast<int>(endIndex)));
+        if (!insertionRange)
+            return false;
+
+        // Fail if the selection can't be set, otherwise the wrong text would be replaced.
+        if (!frame->selection().setSelectedRange(*insertionRange, Affinity::Downstream, FrameSelection::ShouldCloseTyping::Yes))
+            return false;
+
         protect(frame->editor())->replaceSelectionWithText(replacementString, Editor::SelectReplacement::No, Editor::SmartReplace::No);
         return true;
     }
@@ -3237,7 +3303,7 @@ String AccessibilityObject::embeddedImageDescription() const
 static RefPtr<Image> imageFromRenderer(RenderObject* renderer)
 {
     CheckedPtr renderImage = dynamicDowncast<RenderImage>(renderer);
-    auto* cachedImage = renderImage ? renderImage->cachedImage() : nullptr;
+    RefPtr cachedImage = renderImage ? renderImage->cachedImage() : nullptr;
     return cachedImage ? cachedImage->image() : nullptr;
 }
 
@@ -3272,7 +3338,7 @@ RefPtr<SharedBuffer> AccessibilityObject::imageData(const AXImageDataParameters&
     }
 
     FloatSize bufferSize(targetWidth, targetHeight);
-    auto imageBuffer = ImageBuffer::create(bufferSize, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1.0f, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    auto imageBuffer = ImageBuffer::create(bufferSize, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1.0f, ColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!imageBuffer)
         return nullptr;
 
@@ -3287,7 +3353,7 @@ RefPtr<SharedBuffer> AccessibilityObject::imageData(const AXImageDataParameters&
         extractionRect = IntRect(IntPoint(), IntSize(targetWidth, targetHeight));
 
     // Extract pixels as unpremultiplied RGBA8.
-    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, DestinationColorSpace::SRGB() };
+    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, ColorSpace::SRGB() };
     auto pixelBuffer = imageBuffer->getPixelBuffer(format, extractionRect);
     if (!pixelBuffer)
         return nullptr;
@@ -4246,14 +4312,24 @@ std::optional<InputType::Type> AccessibilityObject::inputType() const
 
 bool AccessibilityObject::isARIAHidden() const
 {
-    if (isFocused())
-        return false;
-
     if (shouldIgnoreARIAHidden())
         return false;
 
     RefPtr node = this->node();
     RefPtr element = dynamicDowncast<Element>(node);
+
+    // Check whether aria-hidden="true" is specified before doing anything else. Every remaining condition
+    // below can only turn a true result into false, so the vast majority of objects, which don't
+    // specify aria-hidden at all, can bail out here without paying for the focus and tag name checks.
+    bool isHiddenByAssignedSlot = false;
+    if (RefPtr assignedSlot = node ? node->assignedSlot() : nullptr)
+        isHiddenByAssignedSlot = equalLettersIgnoringASCIICase(assignedSlot->attributeWithDefaultARIA(aria_hiddenAttr), "true"_s);
+    if (!isHiddenByAssignedSlot && !(element && equalLettersIgnoringASCIICase(element->attributeWithDefaultARIA(aria_hiddenAttr), "true"_s)))
+        return false;
+
+    if (isFocused())
+        return false;
+
     AtomString tag = element ? element->localName() : nullAtom();
     // https://github.com/w3c/aria/pull/1880
     // To prevent authors from hiding all content from assistive technology users, do not respect
@@ -4262,11 +4338,7 @@ bool AccessibilityObject::isARIAHidden() const
     if (bodyTag->hasLocalName(tag) || htmlTag->hasLocalName(tag) || (SVGNames::svgTag->hasLocalName(tag) && !element->parentNode()))
         return false;
 
-    if (RefPtr assignedSlot = node ? node->assignedSlot() : nullptr) {
-        if (equalLettersIgnoringASCIICase(assignedSlot->attributeWithDefaultARIA(aria_hiddenAttr), "true"_s))
-            return true;
-    }
-    return element && equalLettersIgnoringASCIICase(element->attributeWithDefaultARIA(aria_hiddenAttr), "true"_s);
+    return true;
 }
 
 bool AccessibilityObject::isShowingValidationMessage() const
@@ -4585,6 +4657,33 @@ bool AccessibilityObject::ariaRoleHasPresentationalChildren() const
     }
 }
 
+AccessibilityIsIgnoredFromParentData AccessibilityObject::computeIsIgnoredFromParentData()
+{
+    AccessibilityIsIgnoredFromParentData result = AccessibilityIsIgnoredFromParentData(this);
+
+    if (isARIAHidden())
+        result.isAXHidden = true;
+
+    bool ignoreARIAHidden = isFocused();
+    for (RefPtr object = parentObject(); object; object = object->parentObject()) {
+        if (!result.isAXHidden && !ignoreARIAHidden && object->isARIAHidden())
+            result.isAXHidden = true;
+
+        if (!result.isPresentationalChildOfAriaRole && object->ariaRoleHasPresentationalChildren())
+            result.isPresentationalChildOfAriaRole = true;
+
+        if (!result.isDescendantOfBarrenParent && !object->canHaveChildren())
+            result.isDescendantOfBarrenParent = true;
+
+        if (result.isAXHidden && result.isPresentationalChildOfAriaRole && result.isDescendantOfBarrenParent) {
+            // Every field is set, and none of them can be un-set by an ancestor further up.
+            break;
+        }
+    }
+
+    return result;
+}
+
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject& child)
 {
     AccessibilityIsIgnoredFromParentData result = AccessibilityIsIgnoredFromParentData(this);
@@ -4593,20 +4692,8 @@ void AccessibilityObject::setIsIgnoredFromParentDataForChild(AccessibilityObject
         result.isPresentationalChildOfAriaRole = m_isIgnoredFromParentData.isPresentationalChildOfAriaRole || ariaRoleHasPresentationalChildren();
         result.isDescendantOfBarrenParent = m_isIgnoredFromParentData.isDescendantOfBarrenParent || !canHaveChildren();
     } else {
-        if (child.isARIAHidden())
-            result.isAXHidden = true;
-
-        bool ignoreARIAHidden = child.isFocused();
-        for (auto* object = child.parentObject(); object; object = object->parentObject()) {
-            if (!result.isAXHidden && !ignoreARIAHidden && object->isARIAHidden())
-                result.isAXHidden = true;
-
-            if (!result.isPresentationalChildOfAriaRole && object->ariaRoleHasPresentationalChildren())
-                result.isPresentationalChildOfAriaRole = true;
-
-            if (!result.isDescendantOfBarrenParent && !object->canHaveChildren())
-                result.isDescendantOfBarrenParent = true;
-        }
+        // We have nothing to inherit from, so |child| has to compute its own data.
+        result = child.computeIsIgnoredFromParentData();
     }
 
     child.setIsIgnoredFromParentData(result);

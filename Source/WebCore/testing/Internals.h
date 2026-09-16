@@ -156,6 +156,7 @@ class XMLHttpRequest;
 struct VideoConfiguration;
 
 enum class DocumentMarkerType : uint32_t;
+enum class IPAddressSpace : uint8_t;
 
 #if ENABLE(ENCRYPTED_MEDIA)
 class MediaKeys;
@@ -268,6 +269,7 @@ public:
 
     unsigned imageFrameIndex(HTMLImageElement&);
     unsigned imageFrameCount(HTMLImageElement&);
+    bool forceDecodeImageFrameAtIndex(HTMLImageElement&, unsigned index);
     float imageFrameDurationAtIndex(HTMLImageElement&, unsigned index);
     void setImageFrameDecodingDuration(HTMLImageElement&, float duration);
     void resetImageAnimation(HTMLImageElement&);
@@ -306,6 +308,8 @@ public:
 
     float usedOutlineOffset(Element&);
 
+    String computedAppleColorFilter(Element&);
+
     Node& ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
     ExceptionOr<String> shadowRootType(const Node&) const;
@@ -319,6 +323,8 @@ public:
     double requestAnimationFrameInterval() const;
     bool NODELETE scriptedAnimationsAreSuspended() const;
     bool NODELETE areTimersThrottled() const;
+    double domTimerAlignmentInterval() const;
+    double domTimerAlignmentIntervalIncreaseLimit() const;
 
     enum EventThrottlingBehavior { Responsive, Unresponsive };
     void NODELETE setEventThrottlingBehaviorOverride(std::optional<EventThrottlingBehavior>);
@@ -409,6 +415,8 @@ public:
 
     ExceptionOr<Ref<DOMRect>> layoutViewportRect();
     ExceptionOr<Ref<DOMRect>> visualViewportRect();
+    ExceptionOr<Ref<DOMRect>> windowClipRect();
+    ExceptionOr<Ref<DOMRect>> exposedContentRect();
 
     ExceptionOr<void> setViewIsTransparent(bool);
 
@@ -417,6 +425,8 @@ public:
     ExceptionOr<void> setUnderPageBackgroundColorOverride(const String& colorValue);
 
     ExceptionOr<String> documentBackgroundColor();
+
+    ExceptionOr<String> paintedCaretColor();
 
     ExceptionOr<bool> displayP3Available()
     {
@@ -467,6 +477,7 @@ public:
     String textFragmentDirectiveForRange(const Range&);
 
     ExceptionOr<void> setDelegatesScrolling(bool enabled);
+    ExceptionOr<bool> delegatesScrollingToNativeView();
 
     ExceptionOr<uint64_t> lastSpellCheckRequestSequence();
     ExceptionOr<uint64_t> lastSpellCheckProcessedSequence();
@@ -701,6 +712,8 @@ public:
     void setHeaderHeight(float);
     void setFooterHeight(float);
 
+    float obscuredContentInsetTop();
+
     struct FullscreenInsets {
         float top { 0 };
         float left { 0 };
@@ -719,7 +732,7 @@ public:
         RGBA16F,
 #endif
     };
-    void NODELETE setScreenContentsFormatsForTesting(const Vector<Internals::ContentsFormat>&);
+    void setScreenContentsFormatsForTesting(const Vector<Internals::ContentsFormat>&);
 
 #if ENABLE(VIDEO)
     bool NODELETE isChangingPresentationMode(HTMLVideoElement&) const;
@@ -862,6 +875,7 @@ public:
     void NODELETE simulateAudioInterruption(HTMLMediaElement&);
     ExceptionOr<bool> mediaElementHasCharacteristic(HTMLMediaElement&, const String&);
     void enterViewerMode(HTMLVideoElement&);
+    void setVideoInExternalPlayback(HTMLVideoElement&, bool);
     ExceptionOr<bool> mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement&);
 
     bool NODELETE elementShouldBufferData(HTMLMediaElement&);
@@ -940,9 +954,11 @@ public:
     ExceptionOr<String> mediaSessionRestrictions(const String& mediaType) const;
     void setMediaElementRestrictions(HTMLMediaElement&, StringView restrictionsString);
     ExceptionOr<void> postRemoteControlCommand(const String&, float argument);
+    ExceptionOr<void> postSystemRemoteControlCommand(const String&, float argument);
     void activeAudioRouteDidChange(bool shouldPause);
     bool NODELETE elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
     bool NODELETE isPlayerVisibleInViewport(const HTMLMediaElement&) const;
+    bool isMediaElementIntersectingViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
     bool isPlayerPaused(const HTMLMediaElement&) const;
     double effectiveRate(const HTMLMediaElement&) const;
@@ -959,6 +975,7 @@ public:
     void setMockMediaPlaybackTargetPickerEnabled(bool);
     ExceptionOr<void> setMockMediaPlaybackTargetPickerState(const String& deviceName, const String& deviceState);
     void mockMediaPlaybackTargetPickerDismissPopup();
+    void mockMediaPlaybackTargetPickerRect(DOMPromiseDeferred<IDLInterface<DOMRect>>&&);
 #endif
 
     bool isMonitoringWirelessRoutes() const;
@@ -989,6 +1006,8 @@ public:
     RefPtr<File> createFile(const String&);
     void asyncCreateFile(const String&, DOMPromiseDeferred<IDLInterface<File>>&&);
     String createTemporaryFile(const String& name, const String& contents);
+
+    String documentIPAddressSpace() const;
 
     void queueMicroTask(int);
     bool testPreloaderSettingViewport();
@@ -1177,6 +1196,7 @@ public:
     void updateQuotaBasedOnSpaceUsage();
 
     void setConsoleMessageListener(RefPtr<StringCallback>&&);
+    void configureLoggingChannel(const String& channelName, bool enabled);
 
     using HasRegistrationPromise = DOMPromiseDeferred<IDLBoolean>;
     void hasServiceWorkerRegistration(const String& clientURL, HasRegistrationPromise&&);
@@ -1344,6 +1364,7 @@ public:
 
     bool elementIsActiveNowPlayingSession(HTMLMediaElement&) const;
     void elementIsActiveNowPlayingSessionInGPUProcess(HTMLMediaElement&, DOMPromiseDeferred<IDLBoolean>&&);
+    void elementIsRemoteCommandTargetInGPUProcess(HTMLMediaElement&, DOMPromiseDeferred<IDLBoolean>&&);
 
 #endif // ENABLE(VIDEO)
 
@@ -1359,7 +1380,7 @@ public:
 
     void notifyResourceLoadObserver();
 
-    unsigned NODELETE primaryScreenDisplayID();
+    unsigned primaryScreenDisplayID();
 
     bool capsLockIsOn();
         
@@ -1661,6 +1682,7 @@ public:
     void setPDFDisplayModeForTesting(Element&, const String&) const;
     void unlockPDFDocumentForTesting(Element&, const String&) const;
     bool sendEditingCommandToPDFForTesting(Element&, const String& commandName, const String& argument) const;
+    Vector<String> pdfContextMenuItemTitlesForTesting(Element&, int x, int y) const;
     void registerPDFTest(Ref<VoidCallback>&&, Element&);
 
     String NODELETE defaultSpatialTrackingLabel() const;

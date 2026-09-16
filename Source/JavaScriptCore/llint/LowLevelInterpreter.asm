@@ -215,6 +215,8 @@ const CalleeSaveSpaceStackAligned = (CalleeSaveSpaceAsVirtualRegisters * SlotSiz
 const ClearWatchpoint = constexpr ClearWatchpoint
 const IsWatched = constexpr IsWatched
 const IsInvalidated = constexpr IsInvalidated
+const InlineWatchpointSetThinFlag = constexpr InlineWatchpointSet::IsThinFlag
+const InlineWatchpointSetThinInvalidated = constexpr (InlineWatchpointSet::encodeState(IsInvalidated))
 
 # ShadowChicken data
 const ShadowChickenTailMarker = constexpr ShadowChicken::Packet::tailMarkerValue
@@ -1416,8 +1418,12 @@ macro skipIfIsRememberedOrInEden(cell, slowPath)
 .done:
 end
 
-macro notifyWrite(set, slow)
-    bbneq WatchpointSet::m_state[set], IsInvalidated, slow
+macro notifyWrite(set, scratch, slow)
+    loadp InlineWatchpointSet::m_data[set], scratch
+    bpeq scratch, InlineWatchpointSetThinInvalidated, .done
+    btpnz scratch, InlineWatchpointSetThinFlag, slow
+    bbneq WatchpointSet::m_state[scratch], IsInvalidated, slow
+.done:
 end
 
 macro varReadOnlyCheck(slowPath, scratch)
@@ -1545,16 +1551,23 @@ end
     move cfr, a0
     move PC, a1
     cCall3(_llint_check_stack_and_vm_traps)
+
+    # Normally we'd use the exceptionSignal convention that restoreStateAfterCCall()
+    # checks for, but this slow path reports a throw by putting a CallFrame pointer
+    # in r1. Therefore, we need to test it here before PC is rebuilt, because r0 has
+    # a differently tagged sentinel value that must not have PB subtracted from it.
+    bpneq r1, 0, .stackCheckThrewException
     restoreStateAfterCCall()
+    jmp .stackHeightOKGetCodeBlock
 
-    bpeq r1, 0, .stackHeightOKGetCodeBlock
-
+.stackCheckThrewException:
     # We're throwing before the frame is fully set up. This frame will be
     # ignored by the unwinder. So, let's restore the callee saves before we
     # start unwinding. We need to do this before we change the cfr.
     restoreCalleeSavesUsedByLLInt()
 
     move r1, cfr
+    move 0, PC
     jmp _llint_throw_from_slow_path_trampoline
 
 .stackHeightOKGetCodeBlock:
@@ -1978,16 +1991,35 @@ if not C_LOOP
             # Because of ARM64 calling convention, stack-pointer is already 16-byte aligned.
             # Let's check address is aligned or not to use 16-byte zero-fill.
             assert(macro (ok)  btpz a0, (PtrSize * 2 - 1), ok end)
-            btpz address, (PtrSize * 2 - 1), .zeroFillLoop
+            btpz address, (PtrSize * 2 - 1), .zeroFillAligned
             # If it is not aligned, then store pointer-size and increment.
             emit "str xzr, [x1], #8" # address is a1, thus x1
             bpbeq a0, address, .zeroFillDone
+        .zeroFillAligned:
             assert(macro (ok)  btpz address, (PtrSize * 2 - 1), ok end)
+            # dc zva clears a whole zero block per instruction without reading memory, roughly
+            # twice the throughput of a store-pair loop. It is only usable when that block is one
+            # 64-byte cache line (DCZID_EL0.BS == 4) and unprivileged use is permitted
+            # (DCZID_EL0.DZP == 0); every other bit of the register is RES0, so both conditions
+            # hold exactly when it reads 4.
+            emit "mrs x2, dczid_el0" # scratch is a2, thus x2
+            bpneq scratch, 4, .zeroFillLoop
+        .zeroFillToBlock:
+            btpz address, 63, .zeroFillBlocks
+            emit "stp xzr, xzr, [x1], #16" # address is a1, thus x1
+            bpa a0, address, .zeroFillToBlock
+            jmp .zeroFillDone
+        .zeroFillBlocks:
+            emit "and x2, x0, #-64" # scratch = the last block boundary at or below the end
+            bpbeq scratch, address, .zeroFillLoop
+        .zeroFillBlockLoop:
+            emit "dc zva, x1" # address is a1, thus x1
+            addp 64, address
+            bpa scratch, address, .zeroFillBlockLoop
+            bpbeq a0, address, .zeroFillDone
         .zeroFillLoop:
-            # Use non-temporal store-pair (stnp) since these stack values are meaningless to the execution.
-            # Avoid polluting CPU cache by using stnp.
-            emit "stnp xzr, xzr, [x1]" # address is a1, thus x1
-            addp PtrSize * 2, address
+            # stp, not stnp: for regions this small the non-temporal hint measures slower.
+            emit "stp xzr, xzr, [x1], #16" # address is a1, thus x1
             bpa a0, address, .zeroFillLoop
         else
             move 0, scratch
@@ -2830,8 +2862,11 @@ op(checkpoint_osr_exit_from_inlined_call_trampoline, macro ()
         cCall2(_llint_slow_path_checkpoint_osr_exit_from_inlined_call)
 
         setupReturnToBaselineAfterCheckpointExitIfNeeded()
-        restoreStateAfterCCall()
+        # At this point, a throw would've been reported via VM::m_exception, not via the
+        # exceptionSignal convention that's checked in restoreStateAfterCCall(). Therefore,
+        # we need to check for exceptions accordingly here first, not through restoreStateAfterCCall().
         branchIfException(_llint_throw_from_slow_path_trampoline)
+        restoreStateAfterCCallWithoutExceptionCheck() # Exceptions have already been checked above.
 
         if ARM64E
             move r1, a0
@@ -2855,8 +2890,12 @@ op(checkpoint_osr_exit_trampoline, macro ()
         # We don't call saveStateForCCall() because we are going to use the bytecodeIndex from our side state.
         cCall2(_llint_slow_path_checkpoint_osr_exit)
         setupReturnToBaselineAfterCheckpointExitIfNeeded()
-        restoreStateAfterCCall()
+        # At this point, a throw would've been reported via VM::m_exception, not via the
+        # exceptionSignal convention that's checked in restoreStateAfterCCall(). Therefore,
+        # we need to check for exceptions accordingly here first, not through restoreStateAfterCCall().
         branchIfException(_llint_throw_from_slow_path_trampoline)
+        restoreStateAfterCCallWithoutExceptionCheck() # Exceptions have already been checked above.
+
         if ARM64E
             move r1, a0
             leap _g_config, a2
@@ -2881,8 +2920,12 @@ op(array_sort_comparator_return_trampoline, macro ()
         cCall2(_llint_slow_path_array_sort_comparator_return)
 
         setupReturnToBaselineAfterCheckpointExitIfNeeded()
-        restoreStateAfterCCall()
+        # At this point, a throw would've been reported via VM::m_exception, not via the
+        # exceptionSignal convention that's checked in restoreStateAfterCCall(). Therefore,
+        # we need to check for exceptions accordingly here first, not through restoreStateAfterCCall().
         branchIfException(_llint_throw_from_slow_path_trampoline)
+        restoreStateAfterCCallWithoutExceptionCheck() # Exceptions have already been checked above.
+
         if ARM64E
             move r1, a0
             leap _g_config, a2

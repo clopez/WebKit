@@ -25,6 +25,7 @@
 #include "WebCoreBuiltinNames.h"
 #include "WebCoreJSBuiltins.h"
 #include "WorkerThreadType.h"
+#include <JavaScriptCore/WeakGCMap.h>
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -57,6 +58,13 @@ public:
     ExtendedDOMIsoSubspaces& subspaces() LIFETIME_BOUND { return m_subspaces; }
 
     Vector<JSC::IsoSubspace*>& outputConstraintSpaces() LIFETIME_BOUND { return m_outputConstraintSpaces; }
+
+    // Each entry pairs a subspace whose cell type declares reconcileWeakReferencesAtGCEnd() with a
+    // functor that recovers that cell type, which only the code creating the subspace knows.
+    using ReconcileWeakReferencesAtGCEndFunction = void (*)(JSC::HeapCell*, JSC::VM&, JSC::CollectionScope);
+    Vector<std::pair<JSC::IsoSubspace*, ReconcileWeakReferencesAtGCEndFunction>>& weakReconciliationSpaces() LIFETIME_BOUND { return m_weakReconciliationSpaces; }
+
+    void reconcileWeakReferencesAtGCEnd(JSC::VM&, JSC::CollectionScope);
 
     template<typename Func>
     void forEachOutputConstraintSpace(const Func& func)
@@ -92,6 +100,7 @@ public:
     // DOM exception wrappers (IDL [Exception] interfaces) are JSC::ErrorInstance subclasses, so
     // they need custom heap cell types.
     JSC::IsoHeapCellType m_heapCellTypeForJSDOMException;
+    JSC::IsoHeapCellType m_heapCellTypeForJSQuotaExceededError;
 #if ENABLE(WEB_RTC)
     JSC::IsoHeapCellType m_heapCellTypeForJSRTCError;
 #endif
@@ -118,6 +127,7 @@ private:
 
     const UniqueRef<ExtendedDOMIsoSubspaces> m_subspaces;
     Vector<JSC::IsoSubspace*> m_outputConstraintSpaces;
+    Vector<std::pair<JSC::IsoSubspace*, ReconcileWeakReferencesAtGCEndFunction>> m_weakReconciliationSpaces;
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JSVMClientData);
@@ -179,10 +189,17 @@ public:
 
     ExtendedDOMClientIsoSubspaces& clientSubspaces() LIFETIME_BOUND { return m_clientSubspaces; }
 
+    JSC::WeakGCMap<JSHandleIdentifier, JSDOMGlobalObject>& jsHandleGlobalObjects() LIFETIME_BOUND { return m_jsHandleGlobalObjects; }
+
     void addClient(JSVMClientDataClient& client) { m_clients.add(client); }
 
 private:
     bool isWebCoreJSClientData() const final { return true; }
+
+    void reconcileWeakReferencesAtGCEnd(JSC::VM& vm, JSC::CollectionScope collectionScope) final
+    {
+        m_heapData->reconcileWeakReferencesAtGCEnd(vm, collectionScope);
+    }
 
     HashSet<DOMWrapperWorld*> m_worldSet;
     RefPtr<DOMWrapperWorld> m_normalWorld;
@@ -206,6 +223,8 @@ private:
     JSC::GCClient::IsoSubspace m_idbSerializationSpace;
 
     const UniqueRef<ExtendedDOMClientIsoSubspaces> m_clientSubspaces;
+
+    JSC::WeakGCMap<JSHandleIdentifier, JSDOMGlobalObject> m_jsHandleGlobalObjects;
 
     WeakHashSet<JSVMClientDataClient> m_clients;
 };
@@ -260,6 +279,14 @@ IGNORE_WARNINGS_BEGIN("tautological-compare")
             heapData.outputConstraintSpaces().append(space);
 IGNORE_WARNINGS_END
 IGNORE_WARNINGS_END
+
+        if constexpr (requires (T* cell, JSC::VM& vm, JSC::CollectionScope collectionScope) { cell->reconcileWeakReferencesAtGCEnd(vm, collectionScope); }) {
+            auto reconcileCell = [] (JSC::HeapCell* heapCell, JSC::VM& vm, JSC::CollectionScope collectionScope) {
+                SUPPRESS_MEMORY_UNSAFE_CAST auto* cell = static_cast<T*>(heapCell);
+                cell->reconcileWeakReferencesAtGCEnd(vm, collectionScope);
+            };
+            heapData.weakReconciliationSpaces().append({ space, reconcileCell });
+        }
     }
 
     auto uniqueClientSubspace = makeUnique<JSC::GCClient::IsoSubspace>(*space);

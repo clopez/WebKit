@@ -70,6 +70,7 @@ def main():
     AutoInstall.register(Package('pathspec', Version(0, 12, 1)))
 
     tester = Tester()
+    tester.add_tree(os.path.join(_webkit_root, 'Tools', 'Scripts'), 'swift')
     tester.add_tree(os.path.join(_webkit_root, 'Tools', 'Scripts'), 'webkitpy')
     tester.add_tree(os.path.join(_webkit_root, 'Tools', 'Scripts', 'test262'), 'test262')
     tester.add_tree(os.path.join(_webkit_root, 'Tools', 'Scripts', 'libraries', 'webkitcorepy'), 'webkitcorepy')
@@ -265,6 +266,12 @@ class Tester(object):
                 results[test] = Upload.create_test_result(actual=Upload.Expectations.ERROR, log='/n'.join(errors))
             for test, failures in test_runner.failures:
                 results[test] = Upload.create_test_result(actual=Upload.Expectations.FAIL, log='/n'.join(failures))
+            for test in test_runner.expected_failures:
+                results[test] = Upload.create_test_result(
+                    expected=Upload.Expectations.FAIL, actual=Upload.Expectations.FAIL)
+            for test in test_runner.unexpected_successes:
+                results[test] = Upload.create_test_result(
+                    expected=Upload.Expectations.FAIL, actual=Upload.Expectations.PASS)
 
             _host.initialize_scm()
             upload = Upload(

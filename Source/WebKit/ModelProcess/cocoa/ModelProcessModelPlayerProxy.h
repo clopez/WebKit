@@ -169,7 +169,7 @@ public:
     void setEnvironmentMap(Ref<WebCore::SharedBuffer>&& data) final;
     void setHasPortal(bool) final;
 #if ENABLE(SPATIAL_PORTAL)
-    void setPortalTransform(WebCore::PortalTransformKind) final;
+    void setPortalTransform(const WebCore::UsedPortalTransform&) final;
     void setPortalAction(WebCore::PortalActionKind) final;
 #endif
     void setStageMode(WebCore::StageModeOperation) final;
@@ -206,12 +206,20 @@ private:
         bool loop { false };
         double playbackRate { 1.0 };
         std::optional<WebCore::ModelPlayerAnimationState> animationStateToRestore;
+#if ENABLE(SPATIAL_PORTAL)
+        // Set from CSS or the entityTransform attribute. Stored rather than applied directly because it can arrive
+        // before the entity exists, and has to be recomposed whenever the container's scale changes.
+        simd_float4x4 childTransform { matrix_identity_float4x4 };
+#endif
     };
     using TrackedModelMap = HashMap<WebCore::NodeIdentifier, UniqueRef<TrackedModel>>;
 
-    RESRT modelStandardizedTransformSRT(RESRT originalSRT);
-    RESRT modelLocalizedTransformSRT(RESRT originalSRT);
+    RESRT modelStandardizedTransformSRT(RESRT originalSRT) const;
+    RESRT modelLocalizedTransformSRT(RESRT originalSRT) const;
     void computeTransform(bool);
+#if ENABLE(SPATIAL_PORTAL)
+    simd_float4x4 contentTransformMatrix() const;
+#endif
     void updateTransform();
     void applyEnvironmentMapDataAndRelease(CompletionHandler<void()>&&);
     void applyStageModeOperationToDriver();
@@ -219,6 +227,9 @@ private:
     WebCore::StageModeOperation effectiveStageModeOperation() const;
     void updateTransformSRT();
     void notifyModelPlayerOfTransformChange();
+#if ENABLE(SPATIAL_PORTAL)
+    RESRT childEntityTransformSRT(const TrackedModel&) const;
+#endif
     void applyDefaultIBL();
     void updateForCurrentStageMode();
     void setUpLoadedEntity(WebCore::NodeIdentifier, WKRKEntity *);
@@ -268,8 +279,9 @@ private:
     RefPtr<WebCore::SharedBuffer> m_transientEnvironmentMapData;
     bool m_hasPortal { true };
 #if ENABLE(SPATIAL_PORTAL)
-    WebCore::PortalTransformKind m_portalTransform { WebCore::PortalTransformKind::Auto };
+    WebCore::UsedPortalTransform m_portalTransform;
     WebCore::PortalActionKind m_portalAction { WebCore::PortalActionKind::None };
+    bool m_isSpatialPortal { false };
 #endif
 
     // For interactions

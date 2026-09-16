@@ -34,6 +34,7 @@
 #include <WebCore/IntRectHash.h>
 #include <WebCore/LoadSchedulingMode.h>
 #include <WebCore/MediaSessionGroupIdentifier.h>
+#include <WebCore/NetworkLoadPolicy.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/Pagination.h>
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
@@ -277,7 +278,6 @@ using MediaProducerMediaStateFlags = OptionSet<MediaProducerMediaState>;
 using MediaProducerMutedStateFlags = OptionSet<MediaProducerMutedState>;
 
 enum class EventThrottlingBehavior : bool { Responsive, Unresponsive };
-enum class MainFrameMainResource : bool { No, Yes };
 
 enum class PageIsEditable : bool { No, Yes };
 
@@ -562,6 +562,7 @@ public:
     ElementTargetingController& elementTargetingController() { return m_elementTargetingController.get(); }
 
     Seconds domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
+    Seconds domTimerAlignmentIntervalIncreaseLimit() const { return m_domTimerAlignmentIntervalIncreaseLimit; }
 
     void setTabKeyCyclesThroughElements(bool b) { m_tabKeyCyclesThroughElements = b; }
     bool tabKeyCyclesThroughElements() const { return m_tabKeyCyclesThroughElements; }
@@ -707,11 +708,9 @@ public:
     bool defaultUseDarkAppearance() const { return m_useDarkAppearance; }
     void setUseDarkAppearanceOverride(std::optional<bool>);
 
-#if ENABLE(TEXT_AUTOSIZING)
     float textAutosizingWidth() const { return m_textAutosizingWidth; }
     void setTextAutosizingWidth(float textAutosizingWidth) { m_textAutosizingWidth = textAutosizingWidth; }
     WEBCORE_EXPORT void recomputeTextAutoSizingInAllFrames();
-#endif
 
     OptionSet<FilterRenderingMode> preferredFilterRenderingModes(const GraphicsContext&) const;
 
@@ -1079,11 +1078,12 @@ public:
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     void addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier);
     void removePlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier);
-    void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, const IntPoint&, bool, RouteSharingPolicy, const String&);
+    void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, FrameIdentifier, const IntPoint&, bool, RouteSharingPolicy, const String&);
     void playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier, MediaProducerMediaStateFlags);
     WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerEnabled(bool);
     WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetMockState);
     WEBCORE_EXPORT void mockMediaPlaybackTargetPickerDismissPopup();
+    WEBCORE_EXPORT void mockMediaPlaybackTargetPickerRect(CompletionHandler<void(FloatRect)>&&);
 
     WEBCORE_EXPORT void setPlaybackTarget(PlaybackTargetClientContextIdentifier, Ref<MediaPlaybackTarget>&&);
     WEBCORE_EXPORT void playbackTargetAvailabilityDidChange(PlaybackTargetClientContextIdentifier, bool);
@@ -1137,6 +1137,7 @@ public:
     bool isUtilityPage() const { return m_isUtilityPage; }
 
     WEBCORE_EXPORT bool allowsLoadFromURL(const URL&, MainFrameMainResource) const;
+    const NetworkLoadPolicy& networkLoadPolicy() const { return m_networkLoadPolicy; }
     WEBCORE_EXPORT bool hasLocalDataForURL(const URL&);
 
     ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking() const { return m_shouldRelaxThirdPartyCookieBlocking; }
@@ -1181,6 +1182,9 @@ public:
     DeviceOrientationAndMotionAccessController& deviceOrientationAndMotionAccessController();
     WEBCORE_EXPORT void clearDeviceOrientationAndMotionPermissions();
 #endif
+
+    MonotonicTime lastOrientationChangeTime() const { return m_lastOrientationChangeTime; }
+    WEBCORE_EXPORT void orientationDidChange();
 
     WEBCORE_EXPORT void forEachDocument(NOESCAPE const Function<void(Document&)>&) const;
     bool findMatchingLocalDocument(NOESCAPE const Function<bool(Document&)>&) const;
@@ -1338,10 +1342,6 @@ public:
 #if ENABLE(WRITING_TOOLS_TEXT_EFFECTS)
     TextEffectController& textEffectController() { return m_textEffectController.get(); }
 #endif
-
-    bool hasActiveNowPlayingSession() const { return m_hasActiveNowPlayingSession; }
-    void hasActiveNowPlayingSessionChanged();
-    void updateActiveNowPlayingSessionNow();
 
 #if PLATFORM(IOS_FAMILY)
     bool canShowWhileLocked() const { return m_canShowWhileLocked; }
@@ -1536,6 +1536,7 @@ private:
     const UniqueRef<BackForwardController> m_backForwardController;
     HashSet<WeakRef<LocalFrame>> m_rootFrames;
     const UniqueRef<EditorClient> m_editorClient;
+
     Ref<Frame> m_mainFrame;
     String m_mainFrameURLFragment;
 
@@ -1593,11 +1594,10 @@ private:
     bool m_useDarkAppearance { false };
     std::optional<bool> m_useDarkAppearanceOverride;
 
-#if ENABLE(TEXT_AUTOSIZING)
     float m_textAutosizingWidth { 0 };
-#endif
+
     float m_initialScaleIgnoringContentSize { 1.0f };
-    
+
     bool m_suppressScrollbarAnimations { false };
 
 #if HAVE(NSREFRESHCONTROLLER)
@@ -1788,9 +1788,8 @@ private:
     Vector<UserContentURLPattern> m_corsDisablingPatterns;
     const HashSet<String> m_maskedURLSchemes;
     Vector<UserStyleSheet> m_userStyleSheetsPendingInjection;
-    const std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> m_allowedNetworkHosts;
+    const NetworkLoadPolicy m_networkLoadPolicy;
     bool m_isTakingSnapshotsForApplicationSuspension { false };
-    bool m_loadsSubresources { true };
     bool m_canUseCredentialStorage { true };
     ShouldRelaxThirdPartyCookieBlocking m_shouldRelaxThirdPartyCookieBlocking;
     LoadSchedulingMode m_loadSchedulingMode { LoadSchedulingMode::Direct };
@@ -1880,15 +1879,13 @@ private:
 
     HashSet<std::pair<URL, ScriptTrackingPrivacyCategory>> m_scriptTrackingPrivacyReports;
 
-    bool m_hasActiveNowPlayingSession { false };
-    Timer m_activeNowPlayingSessionUpdateTimer;
-
     std::unique_ptr<LoginStatus> m_lastAuthentication;
 
     bool m_shouldDeferResizeEvents { false };
     bool m_shouldDeferScrollEvents { false };
     bool m_shouldDeferIntersectionObservations { false };
     MonotonicTime m_lastResizeTimeForIOQuirk;
+    MonotonicTime m_lastOrientationChangeTime;
 
     Ref<DocumentSyncData> m_topDocumentSyncData;
 

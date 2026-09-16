@@ -160,20 +160,21 @@ void MarkedBlock::Handle::stopAllocating(const FreeList& freeList, StopAllocatin
     
     blockHeader().m_newlyAllocated.clearAll();
     blockHeader().m_newlyAllocatedVersion = heap()->objectSpace().newlyAllocatedVersion();
+    blockHeader().m_newlyAllocated.setEachNthBit(m_atomsPerCell, m_startAtom, endAtom);
 
-    forEachCell(
-        [&] (size_t, HeapCell* cell, HeapCell::Kind) -> IterationStatus {
-            block().setNewlyAllocated(cell);
-            return IterationStatus::Continue;
-        });
-
-    freeList.forEach(
-        [&] (HeapCell* cell) {
-            if constexpr (MarkedBlockInternal::verbose)
-                dataLog("Free cell: ", RawPointer(cell), "\n");
-            if (m_attributes.destruction != DoesNotNeedDestruction)
-                cell->zap(HeapCell::StopAllocating);
-            block().clearNewlyAllocated(cell);
+    ASSERT(freeList.cellSize() == m_atomsPerCell * atomSize);
+    bool needsZapping = m_attributes.destruction != DoesNotNeedDestruction;
+    freeList.forEachInterval(
+        [&](char* intervalStart, char* intervalEnd) {
+            if (needsZapping || MarkedBlockInternal::verbose) {
+                for (char* cell = intervalStart; cell < intervalEnd; cell += freeList.cellSize()) {
+                    if constexpr (MarkedBlockInternal::verbose)
+                        dataLog("Free cell: ", RawPointer(cell), "\n");
+                    if (needsZapping)
+                        std::bit_cast<HeapCell*>(cell)->zap(HeapCell::StopAllocating);
+                }
+            }
+            blockHeader().m_newlyAllocated.clearEachNthBit(m_atomsPerCell, block().candidateAtomNumber(intervalStart), block().candidateAtomNumber(intervalEnd));
         });
     
     m_isFreeListed = false;
@@ -487,12 +488,17 @@ Subspace* MarkedBlock::Handle::subspace() const
 
 void MarkedBlock::Handle::sweep(FreeList* freeList)
 {
-    SweepingScope sweepingScope(*heap());
     m_directory->assertIsMutatorOrMutatorIsStopped();
     ASSERT(m_directory->isInUse(this));
 
     SweepMode sweepMode = freeList ? SweepToFreeList : SweepOnly;
     bool needsDestruction = m_attributes.destruction != DoesNotNeedDestruction && m_directory->isDestructible(this);
+    // Nothing has been allocated into a block that is still swept, so no weak handle into it can have
+    // been created and died since; re-sweeping its weak set would find nothing.
+    if (sweepMode == SweepOnly && !needsDestruction && !m_directory->isUnswept(this))
+        return;
+
+    SweepingScope sweepingScope(*heap());
 
     m_weakSet.sweep();
 
@@ -587,9 +593,9 @@ NO_RETURN_DUE_TO_CRASH NEVER_INLINE static void crashDueToGarbageCollectorClient
         "WebKit developers: check for missing write barriers, incomplete visitChildren implementations, "
         "or unrooted GC objects.",
         heapCell);
-    auto message = out.toCString();
-    WTF::setCrashLogMessage(message.data());
-    dataLogLn(message.data());
+    auto message = out.toUTF8CString();
+    WTF::setCrashLogMessage(message.legacyCStringPointer());
+    dataLogLn(message);
 #endif
     CRASH_WITH_INFO(heapCell, cellFirst8Bytes, zeroCounts, bitfield, subspaceHash, blockVM, actualVM);
 }
@@ -623,9 +629,9 @@ NO_RETURN_DUE_TO_CRASH NEVER_INLINE void MarkedBlock::analyzeInvalidHandleAndCra
         StringPrintStream out;
         out.printf("Suspected memory corruption: invalid handle [line=%d]: markedBlock=%p; heapCell=%p; cellFirst8Bytes=%#llx; subspaceHash=%#x; contiguousZeros=%lu; totalZeros=%lu; blockVM=%p; actualVM=%p; isBlockVMValid=%d; isBlockInSet=%d; isBlockInDir=%d; foundInBlockVM=%d;",
             line, this, heapCell, cellFirst8Bytes, subspaceHash, contiguousZeroBytesHeadOfBlock, totalZeroBytesInBlock, blockVM, actualVM, isBlockVMValid, isBlockInSet, isBlockInDirectory, foundInBlockVM);
-        auto message = out.toCString();
-        WTF::setCrashLogMessage(message.data());
-        dataLogLn(message.data());
+        auto message = out.toUTF8CString();
+        WTF::setCrashLogMessage(message.legacyCStringPointer());
+        dataLogLn(message);
 #else
         UNUSED_PARAM(line);
 #endif

@@ -79,6 +79,7 @@ class GraphicsLayerKeyframeValueList;
 class HTMLVideoElement;
 class Image;
 class ImageBuffer;
+class MediaPlayer;
 class Model;
 class Settings;
 class TiledBacking;
@@ -315,6 +316,9 @@ public:
     virtual void setBackdropFiltersRect(const FloatRoundedRect& backdropFiltersRect) { m_backdropFiltersRect = backdropFiltersRect; }
     const FloatRoundedRect& backdropFiltersRect() const LIFETIME_BOUND { return m_backdropFiltersRect; }
 
+    Path backdropFiltersShapePath() const { return m_backdropFiltersShapePath; }
+    virtual void setBackdropFiltersShapePath(const Path& path) { m_backdropFiltersShapePath = path; }
+
     BlendMode blendMode() const { return m_blendMode; }
     virtual void setBlendMode(BlendMode blendMode) { m_blendMode = blendMode; }
 
@@ -407,6 +411,9 @@ public:
     virtual void removeModelContents() { }
 #endif
     virtual void setContentsToVideoElement(HTMLVideoElement&, ContentsLayerPurpose) { }
+#if ENABLE(VIDEO)
+    WEBCORE_EXPORT virtual void setContentsToMediaPlayer(MediaPlayer*, ContentsLayerPurpose);
+#endif
     virtual void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose);
     WEBCORE_EXPORT virtual RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate* existing);
 #if ENABLE(MODEL_ELEMENT)
@@ -695,6 +702,7 @@ protected:
     ScalingFilter m_contentsMinificationFilter = ScalingFilter::Linear;
     ScalingFilter m_contentsMagnificationFilter = ScalingFilter::Linear;
     FloatRoundedRect m_backdropFiltersRect;
+    Path m_backdropFiltersShapePath;
     std::optional<FloatRect> m_animationExtent;
 
     EventRegion m_eventRegion;

@@ -501,12 +501,12 @@ void UnifiedPDFPlugin::createPasswordEntryForm()
 
     Ref passwordForm = PDFPluginPasswordForm::create(this);
     m_passwordForm = passwordForm.ptr();
-    passwordForm->attach(m_annotationContainer.get());
+    passwordForm->attach(protect(m_annotationContainer));
 
     if (supportsForms()) {
         Ref passwordField = PDFPluginPasswordField::create(this);
         m_passwordField = passwordField.ptr();
-        passwordField->attach(m_annotationContainer.get());
+        passwordField->attach(protect(m_annotationContainer));
     }
 }
 
@@ -911,12 +911,12 @@ void UnifiedPDFPlugin::paintContents(const GraphicsLayer& layer, GraphicsContext
     };
 
     if (&layer == layerForHorizontalScrollbar()) {
-        paintScrollbar(m_horizontalScrollbar.get(), context);
+        paintScrollbar(protect(m_horizontalScrollbar), context);
         return;
     }
 
     if (&layer == layerForVerticalScrollbar()) {
-        paintScrollbar(m_verticalScrollbar.get(), context);
+        paintScrollbar(protect(m_verticalScrollbar), context);
         return;
     }
 
@@ -2295,12 +2295,14 @@ PlatformWheelEvent UnifiedPDFPlugin::wheelEventCopyWithVelocity(const PlatformWh
 bool UnifiedPDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
 {
 #if ENABLE(CONTEXT_MENUS)
+    ASSERT(isContextMenuEvent(event));
+
     RefPtr frame = m_frame.get();
     RefPtr webPage = frame ? frame->page() : nullptr;
     if (!webPage)
         return false;
 
-    auto contextMenu = createContextMenu(event);
+    auto contextMenu = createContextMenu(flooredIntPoint(event.position()), event.inputSource());
     if (!contextMenu)
         return false;
 
@@ -2605,10 +2607,8 @@ auto UnifiedPDFPlugin::toContextMenuItemTag(int tagValue) -> ContextMenuItemTag
     return isKnownContextMenuItemTag ? static_cast<ContextMenuItemTag>(tagValue) : ContextMenuItemTag::Unknown;
 }
 
-std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouseEvent& contextMenuEvent) const
+std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const IntPoint& contextMenuEventRootViewPoint, WebEventInputSource inputSource) const
 {
-    ASSERT(isContextMenuEvent(contextMenuEvent));
-
     RefPtr frame = m_frame.get();
     if (!frame || !frame->coreLocalFrame())
         return std::nullopt;
@@ -2617,17 +2617,14 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouse
     if (!frameView)
         return std::nullopt;
 
-    auto contextMenuEventRootViewPoint = flooredIntPoint(contextMenuEvent.position());
-
     Vector<PDFContextMenuItem> menuItems;
 
     auto addSeparator = [item = separatorContextMenuItem(), &menuItems] {
         menuItems.append(item);
     };
 
-    if ([m_pdfDocument allowsCopying] && hasSelection()) {
-        bool shouldPresentLookupAndSearchOptions = !isInBaseSystem();
-        menuItems.appendVector(selectionContextMenuItems(contextMenuEventRootViewPoint, shouldPresentLookupAndSearchOptions));
+    if (hasSelection()) {
+        menuItems.appendVector(selectionContextMenuItems(contextMenuEventRootViewPoint));
         addSeparator();
     }
 
@@ -2659,8 +2656,21 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouse
         contextMenuPoint,
         WTF::move(menuItems),
         WTF::move(openInDefaultViewerTag),
-        contextMenuEvent.inputSource()
+        inputSource
     };
+}
+
+Vector<String> UnifiedPDFPlugin::contextMenuItemTitlesForTesting(const IntPoint& contextMenuEventRootViewPoint) const
+{
+    auto contextMenu = createContextMenu(contextMenuEventRootViewPoint, WebEventInputSource::UserDriven);
+    if (!contextMenu)
+        return { };
+
+    return WTF::compactMap(contextMenu->items, [](auto& item) -> std::optional<String> {
+        if (item.separator == ContextMenuItemIsSeparator::Yes)
+            return std::nullopt;
+        return item.title;
+    });
 }
 
 bool UnifiedPDFPlugin::isDisplayModeContextMenuItemTag(ContextMenuItemTag tag) const
@@ -2739,13 +2749,17 @@ PDFContextMenuItem UnifiedPDFPlugin::separatorContextMenuItem() const
     return { { }, 0, std::to_underlying(ContextMenuItemTag::Invalid), ContextMenuItemTagNoAction, ContextMenuItemEnablement::Disabled, ContextMenuItemHasAction::No, ContextMenuItemIsSeparator::Yes };
 }
 
-Vector<PDFContextMenuItem> UnifiedPDFPlugin::selectionContextMenuItems(const IntPoint& contextMenuEventRootViewPoint, bool shouldPresentLookupAndSearchOptions) const
+Vector<PDFContextMenuItem> UnifiedPDFPlugin::selectionContextMenuItems(const IntPoint& contextMenuEventRootViewPoint) const
 {
-    if (![m_pdfDocument allowsCopying] || !hasSelection())
-        return { };
+    Vector<PDFContextMenuItem> items;
+    if (!hasSelection())
+        return items;
 
-    Vector<PDFContextMenuItem> items { contextMenuItem(ContextMenuItemTag::Copy) };
+    bool allowsCopying = [m_pdfDocument allowsCopying];
+    if (allowsCopying)
+        items.append(contextMenuItem(ContextMenuItemTag::Copy));
 
+    bool shouldPresentLookupAndSearchOptions = !isInBaseSystem();
     if (shouldPresentLookupAndSearchOptions) {
         items.insertVector(0, Vector<PDFContextMenuItem> {
             contextMenuItem(ContextMenuItemTag::DictionaryLookup),
@@ -2755,7 +2769,9 @@ Vector<PDFContextMenuItem> UnifiedPDFPlugin::selectionContextMenuItems(const Int
         });
     }
 
-    if (RetainPtr annotation = annotationForRootViewPoint(contextMenuEventRootViewPoint); annotation && annotationIsExternalLink(annotation.get()))
+    RetainPtr annotation = annotationForRootViewPoint(contextMenuEventRootViewPoint);
+    bool externalLinkUnderContextMenu = annotation && annotationIsExternalLink(annotation);
+    if (allowsCopying && externalLinkUnderContextMenu)
         items.append(contextMenuItem(ContextMenuItemTag::CopyLink));
 
     return items;
@@ -2966,8 +2982,11 @@ bool UnifiedPDFPlugin::isEditingCommandEnabled(const String& commandName)
     if (equalLettersIgnoringASCIICase(commandName, "selectall"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(commandName, "copy"_s) || equalLettersIgnoringASCIICase(commandName, "takefindstringfromselection"_s))
+    if (equalLettersIgnoringASCIICase(commandName, "takefindstringfromselection"_s))
         return hasSelection();
+
+    if (equalLettersIgnoringASCIICase(commandName, "copy"_s))
+        return hasSelection() && [m_pdfDocument allowsCopying];
 
     return false;
 }
@@ -3766,7 +3785,7 @@ RefPtr<TextIndicator> UnifiedPDFPlugin::textIndicatorForPageRect(FloatRect pageR
     auto rectInRootViewCoordinates = convertFromPluginToRootView(encloseRectToDevicePixels(rectInPluginCoordinates, deviceScaleFactor));
     auto bufferSize = rectInRootViewCoordinates.size().scaled(mainFrameScaleForTextIndicator);
 
-    auto buffer { ImageBuffer::create(bufferSize, RenderingMode::Unaccelerated, RenderingPurpose::ShareableSnapshot, deviceScaleFactor, DestinationColorSpace::SRGB(), PixelFormat::BGRA8) };
+    auto buffer { ImageBuffer::create(bufferSize, RenderingMode::Unaccelerated, RenderingPurpose::ShareableSnapshot, deviceScaleFactor, ColorSpace::SRGB(), PixelFormat::BGRA8) };
     if (!buffer)
         return { };
 
@@ -4287,7 +4306,7 @@ void UnifiedPDFPlugin::setActiveAnnotation(SetActiveAnnotationParams&& setActive
             }
 
             RefPtr newActiveAnnotation = PDFPluginAnnotation::create(annotation.get(), this);
-            newActiveAnnotation->attach(m_annotationContainer.get());
+            newActiveAnnotation->attach(protect(m_annotationContainer));
             m_activeAnnotation = WTF::move(newActiveAnnotation);
             revealAnnotation(protect(protect(activeAnnotation())->annotation()).get());
         } else
@@ -4871,12 +4890,12 @@ bool UnifiedPDFPlugin::platformPopulateEditorStateIfNeeded(EditorState& state) c
 
     auto selectedString = String { [selection string] };
     state.postLayoutData = EditorState::PostLayoutData { };
+    state.postLayoutData->selectedTextLength = selectedString.length();
+    state.postLayoutData->canCopy = !selectedString.isEmpty() && [m_pdfDocument allowsCopying];
 #if PLATFORM(IOS_FAMILY)
     state.postLayoutData->isStableStateUpdate = true;
     state.postLayoutData->wordAtSelection = WTF::move(selectedString);
 #endif
-    state.postLayoutData->selectedTextLength = selectedString.length();
-    state.postLayoutData->canCopy = !selectedString.isEmpty();
 
     state.visualData = EditorState::VisualData { };
     state.visualData->rootFrameID = rootFrameID;

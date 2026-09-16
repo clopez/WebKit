@@ -186,6 +186,7 @@ Modules/fetch/FetchRequest.cpp @cost:3
 Modules/fetch/FetchResponse.cpp @cost:4
 Modules/fetch/FormDataConsumer.cpp
 Modules/fetch/IPAddressSpace.cpp
+Modules/fetch/LocalNetworkAccess.cpp
 Modules/fetch/WindowOrWorkerGlobalScopeFetch.cpp @cost:3
 Modules/filesystem/FileSystemDirectoryHandle.cpp
 Modules/filesystem/FileSystemFileHandle.cpp
@@ -450,6 +451,7 @@ Modules/url-pattern/URLPatternCanonical.cpp
 Modules/url-pattern/URLPatternComponent.cpp
 Modules/url-pattern/URLPatternConstructorStringParser.cpp
 Modules/url-pattern/URLPatternParser.cpp
+Modules/url-pattern/URLPatternPartListMatcher.cpp
 Modules/url-pattern/URLPatternTokenizer.cpp
 Modules/web-locks/WebLock.cpp
 Modules/web-locks/WebLockManager.cpp
@@ -517,6 +519,7 @@ Modules/webauthn/AuthenticatorCoordinator.cpp
 Modules/webauthn/AuthenticatorResponse.cpp
 Modules/webauthn/PublicKeyCredential.cpp
 Modules/webauthn/WebAuthenticationUtils.cpp
+Modules/webauthn/WellKnownOriginList.cpp
 Modules/webauthn/apdu/ApduCommand.cpp
 Modules/webauthn/apdu/ApduResponse.cpp
 Modules/webauthn/cbor/CBORReader.cpp
@@ -793,6 +796,7 @@ bindings/js/JSEventTargetCustom.cpp
 bindings/js/JSExecState.cpp
 bindings/js/JSExtendableMessageEventCustom.cpp
 bindings/js/JSFetchEventCustom.cpp
+bindings/js/JSGPUErrorCustom.cpp
 bindings/js/JSHTMLAllCollectionCustom.cpp
 bindings/js/JSHTMLCanvasElementCustom.cpp
 bindings/js/JSHTMLElementCustom.cpp @cost:3
@@ -956,6 +960,7 @@ css/CSSBorderImageSliceValue.cpp
 css/CSSBorderImageSourceValue.cpp
 css/CSSBorderImageWidthValue.cpp
 css/CSSBoxShadowPropertyValue.cpp
+css/CSSCalcSizeValue.cpp
 css/CSSCanvasValue.cpp
 css/CSSClipValue.cpp
 css/CSSColorImageValue.cpp
@@ -976,6 +981,7 @@ css/CSSDynamicRangeLimitValue.cpp
 css/CSSEasingFunctionValue.cpp
 css/CSSFilterImageValue.cpp
 css/CSSFilterValue.cpp
+css/CSSFlexWrapValue.cpp
 css/CSSFontFace.cpp
 css/CSSFontFaceDescriptors.cpp
 css/CSSFontFaceRule.cpp
@@ -985,6 +991,7 @@ css/CSSFontFaceSrcValue.cpp
 css/CSSFontFamilyNameValue.cpp
 css/CSSFontFeatureValue.cpp
 css/CSSFontFeatureValuesRule.cpp
+css/CSSFontPaletteValue.cpp
 css/CSSFontPaletteValuesRule.cpp
 css/CSSFontSelector.cpp
 css/CSSFontStyleRangeValue.cpp
@@ -1028,6 +1035,7 @@ css/CSSPageRule.cpp
 css/CSSPaintImageValue.cpp
 css/CSSParamValue.cpp
 css/CSSPathValue.cpp
+css/CSSPinnedAnchorNameValue.cpp
 css/CSSShorthandSubstitutionValue.cpp
 css/CSSPositionTryDescriptors.cpp
 css/CSSPositionTryRule.cpp
@@ -1085,7 +1093,6 @@ css/MediaList.cpp
 css/MediaQueryList.cpp
 css/MediaQueryListEvent.cpp
 css/MediaQueryMatcher.cpp @cost:3
-css/MediaQueryParserContext.cpp
 css/MutableStyleProperties.cpp
 css/PropertySetCSSDescriptors.cpp
 css/SelectorChecker.cpp @cost:6
@@ -1134,6 +1141,7 @@ css/parser/CSSPropertyParserConsumer+Anchor.cpp
 css/parser/CSSPropertyParserConsumer+Animations.cpp
 css/parser/CSSPropertyParserConsumer+Background.cpp
 css/parser/CSSPropertyParserConsumer+Box.cpp
+css/parser/CSSPropertyParserConsumer+CalcSize.cpp
 css/parser/CSSPropertyParserConsumer+Color.cpp @cost:7
 css/parser/CSSPropertyParserConsumer+ColorAdjust.cpp
 css/parser/CSSPropertyParserConsumer+ColorInterpolationMethod.cpp
@@ -1248,6 +1256,7 @@ css/values/backgrounds/CSSBorderImage.cpp
 css/values/borders/CSSBorderRadius.cpp
 css/values/color-adjust/CSSColorScheme.cpp
 css/values/color/CSSColor.cpp
+css/values/color/CSSColorInterpolationMethod.cpp
 css/values/color/CSSColorLayers.cpp
 css/values/color/CSSColorLayersResolver.cpp
 css/values/color/CSSColorMix.cpp
@@ -1265,6 +1274,8 @@ css/values/color/CSSResolvedColor.cpp
 css/values/content/CSSContent.cpp
 css/values/content/CSSQuotes.cpp
 css/values/fonts/CSSFontFamilyName.cpp
+css/values/fonts/CSSFontPalette.cpp
+css/values/fonts/CSSFontPaletteMix.cpp
 css/values/fonts/CSSFontStyleRange.cpp
 css/values/grid/CSSGridAutoFlow.cpp
 css/values/grid/CSSGridLine.cpp
@@ -1297,9 +1308,11 @@ css/values/primitives/CSSPrimitiveNumericUnits.cpp
 css/values/primitives/CSSRatio.cpp
 css/values/primitives/CSSString.cpp
 css/values/primitives/CSSSymbol.cpp
+css/values/primitives/CSSTypeSpecifier.cpp
 css/values/primitives/CSSURL.cpp
 css/values/primitives/CSSURLModifiers.cpp
 css/values/primitives/CSSUnevaluatedCalc.cpp
+css/values/sizing/CSSCalcSizeFunction.cpp
 css/values/shapes/CSSCircleFunction.cpp
 css/values/shapes/CSSEllipseFunction.cpp
 css/values/shapes/CSSInsetFunction.cpp
@@ -1344,6 +1357,7 @@ dom/CustomElementRegistry.cpp
 dom/CustomEvent.cpp
 dom/CustomStateSet.cpp
 dom/DOMException.cpp
+dom/QuotaExceededError.cpp
 dom/DOMImplementation.cpp
 dom/DOMPointInit.cpp
 dom/DOMPointReadOnly.cpp
@@ -2074,10 +2088,13 @@ layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingContext.
 layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingQuirks.cpp
 layout/formattingContexts/flex/FlexFormattingContext.cpp @header:RenderStyleGetters @cost:4
 layout/formattingContexts/flex/FlexFormattingUtils.cpp @header:RenderStyleGetters @cost:4
+layout/formattingContexts/flex/FlexLineBreaker.cpp
 layout/formattingContexts/grid/GridFormattingContext.cpp @header:RenderStyleGetters
+layout/formattingContexts/grid/GridItemPlacer.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/GridItemSizingFunctions.cpp
 layout/formattingContexts/grid/GridLayout.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/GridLayoutUtils.cpp @header:RenderStyleGetters
+layout/formattingContexts/grid/GridSizer.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/ImplicitGrid.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/PlacedGridItem.cpp @header:RenderStyleGetters
 layout/formattingContexts/grid/TrackSizingAlgorithm.cpp
@@ -2287,6 +2304,7 @@ page/FocusController.cpp
 page/Frame.cpp
 page/FrameConsoleClient.cpp
 page/FrameDestructionObserver.cpp
+page/FrameGeometrySyncData.cpp
 page/FrameIdentifier.cpp
 page/FrameSnapshotting.cpp @header:RenderStyleGetters @cost:6
 page/FrameTree.cpp
@@ -2322,6 +2340,7 @@ page/NavigatorBase.cpp
 page/NavigatorGlobalPrivacyControl.cpp
 page/NavigatorLoginStatus.cpp
 page/NavigatorUAData.cpp
+page/NetworkLoadPolicy.cpp
 page/OpportunisticTaskScheduler.cpp
 page/OriginAccessEntry.cpp
 page/OriginAccessPatterns.cpp
@@ -2353,6 +2372,7 @@ page/PointerCaptureController.cpp
 page/PointerLockController.cpp
 page/PrintContext.cpp @header:RenderStyleGetters @cost:7
 page/ProcessWarming.cpp
+page/QuirkTable.cpp
 page/Quirks.cpp @header:RenderStyleGetters @cost:11
 page/RemoteDOMWindow.cpp
 page/RemoteFrame.cpp
@@ -2376,6 +2396,7 @@ page/ShadowRealmGlobalScope.cpp
 page/ShareDataReader.cpp
 page/SpatialNavigation.cpp @header:RenderStyleGetters @cost:6
 page/TextIndicator.cpp @header:RenderStyleGetters @cost:6
+page/URLMatch.cpp
 page/UndoItem.cpp
 page/UndoManager.cpp
 page/UserContentController.cpp
@@ -2651,13 +2672,13 @@ platform/graphics/ColorInterpolationMethod.cpp
 platform/graphics/ColorLuminance.cpp
 platform/graphics/ColorSerialization.cpp
 platform/graphics/ColorSpace.cpp
+platform/graphics/ColorSpaceName.cpp
 platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/ContentTypeUtilities.cpp
 platform/graphics/ContentsFormat.cpp
 platform/graphics/CornerRadii.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
-platform/graphics/DestinationColorSpace.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
 platform/graphics/DisplayRefreshMonitorClient.cpp
 platform/graphics/DisplayRefreshMonitorManager.cpp
@@ -2676,6 +2697,7 @@ platform/graphics/FloatRoundedRect.cpp
 platform/graphics/FloatSegment.cpp
 platform/graphics/FloatSize.cpp
 platform/graphics/Font.cpp
+platform/graphics/FontBase.cpp
 platform/graphics/FontCache.cpp
 platform/graphics/FontCascade.cpp
 platform/graphics/FontCascadeCache.cpp
@@ -2686,6 +2708,8 @@ platform/graphics/FontFamilySpecificationNull.cpp
 platform/graphics/FontFeatureValues.cpp
 platform/graphics/FontGenericFamilies.cpp
 platform/graphics/FontPlatformData.cpp
+platform/graphics/FontPalette.cpp
+platform/graphics/FontPaletteMix.cpp
 platform/graphics/FontRanges.cpp
 platform/graphics/FontRenderOptions.cpp
 platform/graphics/FontSelectionAlgorithm.cpp
@@ -2934,6 +2958,7 @@ platform/network/BlobResourceHandle.cpp
 platform/network/BlobResourceHandleBase.cpp
 platform/network/CacheValidation.cpp
 platform/network/Cookie.cpp
+platform/network/CookieStorageSession.cpp
 platform/network/CredentialBase.cpp
 platform/network/CredentialStorage.cpp
 platform/network/DNS.cpp
@@ -2947,7 +2972,6 @@ platform/network/HTTPParsers.cpp
 platform/network/MIMEHeader.cpp
 platform/network/NetworkLoadMetrics.cpp
 platform/network/NetworkStateNotifier.cpp
-platform/network/NetworkStorageSession.cpp
 platform/network/ParsedContentRange.cpp
 platform/network/ParsedContentType.cpp
 platform/network/PendingStreamState.cpp
@@ -2960,6 +2984,7 @@ platform/network/ResourceHandleClient.cpp
 platform/network/ResourceRequestBase.cpp
 platform/network/ResourceResponseBase.cpp
 platform/network/SameSiteInfo.cpp
+platform/network/StorageAccessQuirks.cpp
 platform/network/SynchronousLoaderClient.cpp
 platform/network/TimingAllowOrigin.cpp
 platform/sql/SQLiteAuthorizer.cpp
@@ -3014,7 +3039,7 @@ rendering/Grid.cpp @header:RenderStyleGetters @cost:5
 rendering/GridBaselineAlignment.cpp @header:RenderStyleGetters @cost:5
 rendering/GridLayoutFunctions.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderGridLayoutState.cpp
-rendering/GridMasonryLayout.cpp @header:RenderStyleGetters @cost:5
+rendering/GridLanesLayout.cpp @header:RenderStyleGetters @cost:5
 rendering/GridTrackSizingAlgorithm.cpp @header:RenderStyleGetters @cost:6
 rendering/HitTestLocation.cpp
 rendering/HitTestRequest.cpp @header:RenderStyleGetters @cost:4
@@ -3085,7 +3110,7 @@ rendering/RenderLineBoxList.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderLineBreak.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderListBox.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderListItem.cpp @header:RenderStyleGetters @cost:7
-rendering/RenderListMarker.cpp @header:RenderStyleGetters @cost:8
+rendering/RenderListOutsideMarker.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderMarquee.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderMedia.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderMenuList.cpp @header:RenderStyleGetters @cost:8
@@ -3130,6 +3155,7 @@ rendering/RenderWidget.cpp @header:RenderStyleGetters
 rendering/SubtreeScrollbarChangesState.cpp
 rendering/StyledMarkedText.cpp @header:RenderStyleGetters
 rendering/TableLayout.cpp @header:RenderStyleGetters
+rendering/TextAutoSizing.cpp @header:RenderStyleGetters
 rendering/TextBoxPainter.cpp @header:RenderStyleGetters
 rendering/TextBoxTrimmer.cpp @header:RenderStyleGetters
 rendering/TextDecorationPainter.cpp @header:RenderStyleGetters
@@ -3159,6 +3185,7 @@ rendering/mathml/RenderMathMLUnderOver.cpp @header:RenderStyleGetters
 rendering/mathml/MathVariant.cpp
 rendering/shapes/BoxLayoutShape.cpp @header:RenderStyleGetters
 rendering/shapes/LayoutShape.cpp
+rendering/shapes/PathLayoutShape.cpp
 rendering/shapes/PolygonLayoutShape.cpp
 rendering/shapes/RasterLayoutShape.cpp
 rendering/shapes/RectangleLayoutShape.cpp
@@ -3333,7 +3360,6 @@ style/calc/StyleCalculationTree+Copy.cpp
 style/calc/StyleCalculationTree+Evaluation.cpp
 style/calc/StyleCalculationTree.cpp
 style/calc/StyleCalculationValue.cpp
-style/calc/StyleCalculationValueMap.cpp
 style/computed/data/StyleAppleColorFilterData.cpp @cost:5
 style/computed/data/StyleBackdropFilterData.cpp @cost:5
 style/computed/data/StyleBackgroundData.cpp @cost:5
@@ -3375,6 +3401,7 @@ style/values/align/StyleAlignSelf.cpp @header:RenderStyleGetters @cost:5
 style/values/align/StyleJustifyContent.cpp
 style/values/align/StyleJustifyItems.cpp
 style/values/align/StyleJustifySelf.cpp @header:RenderStyleGetters @cost:5
+style/values/anchor-position/StylePinnedAnchorName.cpp
 style/values/anchor-position/StylePositionAnchor.cpp
 style/values/anchor-position/StylePositionAreaAxis.cpp
 style/values/anchor-position/StylePositionAreaSelf.cpp
@@ -3411,6 +3438,7 @@ style/values/color/StyleColorLayers.cpp
 style/values/color/StyleColorMix.cpp
 style/values/color/StyleColorOptions.cpp
 style/values/color/StyleContrastColor.cpp
+style/values/color/StyleCurrentAccentColor.cpp
 style/values/color/StyleCurrentColor.cpp
 style/values/color/StyleDynamicRangeLimit.cpp
 style/values/color/StyleDynamicRangeLimitMix.cpp
@@ -3448,11 +3476,13 @@ style/values/filter-effects/StyleOpacityFunction.cpp
 style/values/filter-effects/StyleSaturateFunction.cpp
 style/values/filter-effects/StyleSepiaFunction.cpp
 style/values/flexbox/StyleFlexBasis.cpp
+style/values/flexbox/StyleFlexWrap.cpp
 style/values/fonts/StyleFontFamily.cpp
 style/values/fonts/StyleFontFamilyName.cpp
 style/values/fonts/StyleFontFeatureSettings.cpp
 style/values/fonts/StyleFontMetricsOverride.cpp
 style/values/fonts/StyleFontPalette.cpp
+style/values/fonts/StyleFontPaletteMix.cpp
 style/values/fonts/StyleFontSizeAdjust.cpp @header:RenderStyleGetters @cost:5
 style/values/fonts/StyleFontStyle.cpp
 style/values/fonts/StyleFontVariantAlternates.cpp
@@ -3472,7 +3502,6 @@ style/values/grid/StyleGridTemplateList.cpp @header:RenderStyleGetters @cost:6
 style/values/grid/StyleGridTrackBreadth.cpp
 style/values/grid/StyleGridTrackSize.cpp
 style/values/grid/StyleGridTrackSizes.cpp
-style/values/grid/StyleFlowTolerance.cpp
 style/values/images/kinds/StyleCachedImage.cpp @header:RenderStyleGetters @cost:6
 style/values/images/kinds/StyleCanvasImage.cpp @header:RenderStyleGetters @cost:6
 style/values/images/kinds/StyleCrossfadeImage.cpp
@@ -3524,9 +3553,11 @@ style/values/non-standard/StyleWebKitTouchCallout.cpp
 style/values/outline/StyleOutlineOffset.cpp @header:RenderStyleGetters
 style/values/overflow/StyleBlockEllipsis.cpp
 style/values/overflow/StyleScrollbarGutter.cpp
+style/values/overflow/StyleTextOverflow.cpp
 style/values/overflow/StyleOverflowClipMargin.cpp
 style/values/page/StylePageSize.cpp
 style/values/pointerevents/StyleTouchAction.cpp
+style/values/primitives/StyleCalcSizeValue.cpp
 style/values/primitives/StyleCustomIdent.cpp
 style/values/primitives/StyleDeclarationValue.cpp
 style/values/primitives/StyleLengthResolution.cpp @header:RenderStyleGetters @cost:6
@@ -3536,6 +3567,7 @@ style/values/primitives/StyleRatio.cpp
 style/values/primitives/StyleSnapLengthAsBorderWidth.cpp
 style/values/primitives/StyleString.cpp
 style/values/primitives/StyleURL.cpp
+style/values/primitives/StyleUnevaluatedCalcSize.cpp
 style/values/primitives/StyleUnevaluatedCalculation.cpp
 style/values/rhythm/StyleBlockStepSize.cpp
 style/values/scroll-animations/StyleScrollFunction.cpp
@@ -4396,6 +4428,7 @@ JSGPUDeviceLost.cpp
 JSGPUDeviceLostInfo.cpp
 JSGPUDeviceLostReason.cpp
 JSGPUDeviceUncapturedError.cpp
+JSGPUError.cpp
 JSGPUErrorFilter.cpp
 JSGPUExtent3DDict.cpp
 JSGPUExternalTexture.cpp
@@ -4902,6 +4935,8 @@ JSPushSubscriptionOptions.cpp
 JSPushSubscriptionOptionsInit.cpp
 JSQueuingStrategy.cpp
 JSQueuingStrategySize.cpp
+JSQuotaExceededError.cpp
+JSQuotaExceededErrorOptions.cpp
 JSRTCAnswerOptions.cpp
 JSRTCCertificate.cpp
 JSRTCConfiguration.cpp

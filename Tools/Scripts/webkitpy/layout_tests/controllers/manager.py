@@ -723,11 +723,14 @@ class Manager(object):
             if initial_results.keyboard_interrupted:
                 exit_code = INTERRUPTED_EXIT_STATUS
             else:
-                if self._options.show_results and (initial_results.unexpected_results_by_name or
+                if (initial_results.unexpected_results_by_name or
                     (self._options.full_results_html and initial_results.total_failures)):
                     if len(self._driver_names) > 1 or not any(self._subdirectories.values()):
                         results_path = self._filesystem.join(self._base_port.results_directory(), "results.html")
-                        self._port.show_results_html_file(results_path)
+                        if self._options.show_results:
+                            self._port.show_results_html_file(results_path)
+                        else:
+                            _log.info("Results are available at %s" % results_path)
                 exit_code = self._port.exit_code_from_summarized_results(summarized_results)
         return test_run_results.RunDetails(exit_code, summarized_results, initial_results, retry_results, enabled_pixel_tests_in_retry)
 
@@ -876,7 +879,7 @@ class Manager(object):
         self._filesystem.write_text_file(full_results_path, jsonp_string)
 
     def _copy_results_html_file(self, filename, destination_path):
-        base_dir = self._port.path_from_webkit_base('LayoutTests', 'fast', 'harness')
+        base_dir = self._port.harness_resources_dir()
         results_file = self._filesystem.join(base_dir, filename)
         # Note that the results.html template file won't exist when we're using a MockFileSystem during unit tests,
         # so make sure it exists before we try to copy it.

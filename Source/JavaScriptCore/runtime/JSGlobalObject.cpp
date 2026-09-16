@@ -488,7 +488,7 @@ JSC_DEFINE_HOST_FUNCTION(assertCall, (JSGlobalObject* globalObject, CallFrame* c
         return IterationStatus::Done;
     });
     RELEASE_ASSERT(!!codeBlock);
-    RELEASE_ASSERT_WITH_MESSAGE(false, "JS assertion failed at line %u in:\n%s\n", lineColumn.line, codeBlock->sourceCodeForTools().data());
+    RELEASE_ASSERT_WITH_MESSAGE(false, "JS assertion failed at line %u in:\n%s\n", lineColumn.line, codeBlock->sourceCodeForTools().legacyCStringPointer());
     return JSValue::encode(jsUndefined());
 }
 #endif // ASSERT_ENABLED
@@ -530,7 +530,7 @@ JSC_DEFINE_HOST_FUNCTION(dumpAndClearSamplingProfilerSamples, (JSGlobalObject* g
             return JSValue::encode(jsUndefined());
         }
 
-        CString utf8String = jsonData.utf8();
+        auto utf8String = jsonData.utf8();
 
         fileHandle.write(byteCast<uint8_t>(utf8String.span()));
         dataLogLn("Dumped sampling profiler samples to ", tempFilePath);
@@ -678,6 +678,7 @@ const GlobalObjectMethodTable* JSGlobalObject::baseGlobalObjectMethodTable()
         &shouldInterruptScript,
         &javaScriptRuntimeFlags,
         &shouldInterruptScriptBeforeTimeout,
+        nullptr, // moduleTypeIsAllowed
         nullptr, // moduleLoaderImportModule
         nullptr, // moduleLoaderResolve
         nullptr, // moduleLoaderFetch
@@ -2359,7 +2360,7 @@ bool JSGlobalObject::defineOwnProperty(JSObject* object, JSGlobalObject* globalO
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSGlobalObject* thisObject = uncheckedDowncast<JSGlobalObject>(object);
 
-    SymbolTableEntry entry;
+    SymbolTableEntry::Fast entry;
     PropertyDescriptor currentDescriptor;
     if (symbolTableGet(thisObject, propertyName, entry, currentDescriptor)) {
         bool isExtensible = false; // ignored since current descriptor is present
@@ -2377,8 +2378,13 @@ bool JSGlobalObject::defineOwnProperty(JSObject* object, JSGlobalObject* globalO
             RETURN_IF_EXCEPTION(scope, false);
         }
         if (descriptor.writablePresent() && !descriptor.writable() && !entry.isReadOnly()) {
-            entry.setReadOnly();
-            thisObject->symbolTable()->set(propertyName.uid(), entry);
+            {
+                SymbolTable* symbolTable = thisObject->symbolTable();
+                ConcurrentJSLocker locker(symbolTable->m_lock);
+                auto iter = symbolTable->find(locker, propertyName.uid());
+                ASSERT(iter != symbolTable->end(locker));
+                iter->value.setReadOnly();
+            }
             thisObject->varReadOnlyWatchpointSet().fireAll(vm, "GlobalVar was redefined as ReadOnly");
         }
         return true;
@@ -3205,7 +3211,7 @@ void JSGlobalObject::addStaticGlobals(std::span<GlobalPropertyInfo> globals)
         // the static globals because configurable = false.
         ASSERT(global.attributes & PropertyAttribute::DontDelete);
         
-        WatchpointSet* watchpointSet = nullptr;
+        InlineWatchpointSet* watchpointSet = nullptr;
         WriteBarrierBase<Unknown>* variable = nullptr;
         {
             ConcurrentJSLocker locker(symbolTable()->m_lock);

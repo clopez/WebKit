@@ -29,7 +29,6 @@
 #include "TimeBasedEvictionMode.h"
 #include "UnifiedOriginStorageLevel.h"
 #include "WebPushDaemonConnectionConfiguration.h"
-#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/SecurityOriginData.h>
 #include <pal/SessionID.h>
 #include <wtf/Seconds.h>
@@ -100,6 +99,7 @@ struct NetworkSessionCreationParameters {
     std::optional<unsigned> overrideServiceWorkerRegistrationCountTestingValue;
     bool preventsSystemHTTPProxyAuthentication { false };
     bool allowsHSTSWithUntrustedRootCertificate { false };
+    bool qualifiedServerTrustDebugEnabledForTesting { false };
     String pcmMachServiceName;
     String webPushMachServiceName;
     String webPushPartitionString;

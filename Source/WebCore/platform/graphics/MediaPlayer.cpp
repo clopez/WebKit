@@ -26,6 +26,8 @@
 #include "config.h"
 #include "MediaPlayer.h"
 
+#include <wtf/text/TextStream.h>
+
 #if ENABLE(VIDEO)
 
 #include "CommonAtomStrings.h"
@@ -74,6 +76,7 @@
 #endif
 
 #if USE(GSTREAMER)
+#include "CoordinatedPlatformLayerBufferProxy.h"
 #include "MediaPlayerPrivateGStreamer.h"
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaPlayerPrivateGStreamerMSE.h"
@@ -183,7 +186,7 @@ public:
     void setPresentationSize(const IntSize&) final { }
 
     void paint(GraphicsContext&, const FloatRect&) final { }
-    DestinationColorSpace colorSpace() final { return DestinationColorSpace::SRGB(); }
+    ColorSpace colorSpace() final { return ColorSpace::SRGB(); }
 private:
     explicit NullMediaPlayerPrivate(MediaPlayer&) { }
 };
@@ -246,7 +249,7 @@ public:
     ThreadSafeWeakPtrControlBlock& controlBlock() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::controlBlock(); }
     uint32_t weakRefCount() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::weakRefCount(); }
 private:
-    void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&& completionHandler) final
+    void sendH2Ping(const URL&, CompletionHandler<void(std::expected<Seconds, ResourceError>&&)>&& completionHandler) final
     {
         completionHandler(makeUnexpected(ResourceError { }));
     }
@@ -668,7 +671,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
 
     // Don't delete and recreate the player unless it comes from a different engine.
     if (!engine) {
-        LOG(Media, "MediaPlayer::loadWithNextMediaEngine - no media engine found for type \"%s\"", contentType().raw().utf8().data());
+        LOG_WITH_STREAM(Media, stream << "MediaPlayer::loadWithNextMediaEngine - no media engine found for type \""_s << contentType().raw() << "\""_s);
         m_currentMediaEngine = engine.get();
         m_private = nullptr;
     } else if (m_currentMediaEngine.get() != engine.get()) {
@@ -1249,7 +1252,7 @@ Ref<MediaPlayer::BitmapImagePromise> MediaPlayer::bitmapImageForCurrentTime()
     return protect(m_private)->bitmapImageForCurrentTime();
 }
 
-DestinationColorSpace MediaPlayer::colorSpace()
+ColorSpace MediaPlayer::colorSpace()
 {
     return protect(m_private)->colorSpace();
 }
@@ -1821,6 +1824,19 @@ bool MediaPlayer::isGStreamerHolePunchingEnabled()
 {
     return protect(client())->isGStreamerHolePunchingEnabled();
 }
+
+#if USE(COORDINATED_GRAPHICS)
+void MediaPlayer::setPlatformLayerBufferProxy(Ref<CoordinatedPlatformLayerBufferProxy>&& proxy)
+{
+    if (m_private)
+        protect(m_private)->setPlatformLayerBufferProxy(WTF::move(proxy));
+}
+
+RefPtr<CoordinatedPlatformLayerBufferProxy> MediaPlayer::platformLayerBufferProxy() const
+{
+    return m_private ? protect(m_private)->platformLayerBufferProxy() : nullptr;
+}
+#endif
 #endif
 
 String MediaPlayer::languageOfPrimaryAudioTrack() const
@@ -2025,6 +2041,11 @@ void MediaPlayer::audioOutputDeviceChanged()
 std::optional<MediaPlayerIdentifier> MediaPlayer::identifier() const
 {
     return protect(m_private)->identifier();
+}
+
+bool MediaPlayer::isHostedInGPUProcess() const
+{
+    return protect(m_private)->mediaPlayerType() == MediaPlayerType::Remote;
 }
 
 std::optional<VideoFrameMetadata> MediaPlayer::videoFrameMetadata()

@@ -28,6 +28,7 @@
 
 #include "StyleKeyword+Mappings.h"
 #include <wtf/text/TextStream.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -53,6 +54,17 @@ CSSBoxType transformBoxToCSSBoxType(TransformBox transformBox)
         ASSERT_NOT_REACHED();
         return CSSBoxType::BorderBox;
     }
+}
+
+String fallbackText(SynthesizedGlyph glyph)
+{
+    switch (glyph) {
+    case SynthesizedGlyph::PickerUp:
+        return String::fromCodePoint(upArrowhead);
+    case SynthesizedGlyph::PickerDown:
+        return String::fromCodePoint(downArrowhead);
+    }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 TextStream& operator<<(TextStream& ts, AnimationDirection direction)
@@ -600,16 +612,6 @@ TextStream& operator<<(TextStream& ts, FlexDirection flexDirection)
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, FlexWrap flexWrap)
-{
-    switch (flexWrap) {
-    case FlexWrap::NoWrap: ts << "no-wrap"_s; break;
-    case FlexWrap::Wrap: ts << "wrap"_s; break;
-    case FlexWrap::Reverse: ts << "reverse"_s; break;
-    }
-    return ts;
-}
-
 TextStream& operator<<(TextStream& ts, Float floating)
 {
     switch (floating) {
@@ -949,6 +951,15 @@ TextStream& operator<<(TextStream& ts, QuoteType quoteType)
     return ts;
 }
 
+TextStream& operator<<(TextStream& ts, SynthesizedGlyph glyph)
+{
+    switch (glyph) {
+    case SynthesizedGlyph::PickerUp: ts << "picker-up"_s; break;
+    case SynthesizedGlyph::PickerDown: ts << "picker-down"_s; break;
+    }
+    return ts;
+}
+
 TextStream& operator<<(TextStream& ts, ReflectionDirection direction)
 {
     switch (direction) {
@@ -1144,15 +1155,6 @@ TextStream& operator<<(TextStream& ts, TextJustify justify)
     case TextJustify::None: ts << "none"_s; break;
     }
 
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, TextOverflow overflow)
-{
-    switch (overflow) {
-    case TextOverflow::Clip: ts << "clip"_s; break;
-    case TextOverflow::Ellipsis: ts << "ellipsis"_s; break;
-    }
     return ts;
 }
 
@@ -1387,6 +1389,9 @@ TextStream& operator<<(TextStream& ts, OverflowContinue overflowContinue)
         break;
     case OverflowContinue::Discard:
         ts << "discard"_s;
+        break;
+    case OverflowContinue::WebkitLegacy:
+        ts << "-webkit-legacy"_s;
         break;
     }
     return ts;

@@ -132,8 +132,8 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "12.2.0")
-            message(FATAL_ERROR "GCC 12.2 or newer is required to build WebKit. Use a newer GCC version or Clang.")
+        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "13.1.0")
+            message(FATAL_ERROR "GCC 13.1 or newer is required to build WebKit. Use a newer GCC version or Clang.")
         endif ()
     endif ()
 
@@ -338,6 +338,13 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     include(OptionsCommon)
     include(Options${PORT})
 
+    # This has to come after Options${PORT} to see any ENABLE_THREAD_SAFETY_WARNING.
+    if (ENABLE_THREAD_SAFETY_WARNING)
+        WEBKIT_PREPEND_GLOBAL_CXX_FLAGS(-Wthread-safety)
+    endif ()
+
+    include(WebKitSwiftFlags)
+
     # Check gperf after including OptionsXXX.cmake since gperf is required only when ENABLE_WEBCORE is true,
     # and ENABLE_WEBCORE is configured in OptionsXXX.cmake.
     if (ENABLE_WEBCORE)
@@ -382,7 +389,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         # LTO builds error out on duplicate __llvm_profile_filename definitions.
         set(PGO_LINK_FLAGS "${PGO_COMPILE_OPTIONS}")
         if (LD_SUPPORTS_ALLOW_MULTIPLE_DEFINITION)
-            string(PREPEND PGO_LINK_FLAGS "-Wl,--allow-multiple-definition ")
+            add_link_options("LINKER:--allow-multiple-definition")
         endif ()
         string(PREPEND CMAKE_EXE_LINKER_FLAGS "${PGO_LINK_FLAGS} ")
         string(PREPEND CMAKE_SHARED_LINKER_FLAGS "${PGO_LINK_FLAGS} ")
@@ -515,6 +522,81 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         add_custom_target(UpdateClangdConf
             ALL
             DEPENDS ${CMAKE_SOURCE_DIR}/.clangd
+        )
+    endif ()
+
+    # -----------------------------------------------------------------------------
+    # Record the build settings for later commands
+    # -----------------------------------------------------------------------------
+    # run-safari, run-webkit-tests and the apps built above WebKit resolve a build
+    # through the settings in the base product directory, which only build-webkit
+    # and set-webkit-configuration write. A tree configured or built straight from
+    # a preset records them too, so that the build made last is the one those
+    # commands resolve. set-webkit-configuration stays the only writer of the files.
+    execute_process(
+        COMMAND ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/webkit-build-directory --top-level
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE _base_product_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE _base_product_dir_result
+    )
+    if (_base_product_dir_result EQUAL 0)
+        get_filename_component(_base_product_dir "${_base_product_dir}" REALPATH)
+    else ()
+        set(_base_product_dir "")
+    endif ()
+
+    cmake_path(GET CMAKE_BINARY_DIR FILENAME _configuration_directory)
+    cmake_path(GET CMAKE_BINARY_DIR PARENT_PATH _tree_directory)
+    cmake_path(GET _tree_directory PARENT_PATH _tree_base_dir)
+    get_filename_component(_tree_base_dir "${_tree_base_dir}" REALPATH)
+
+    # A sanitizer or a forced optimization level builds into a directory of its
+    # own, whichever configuration it was built in, so there the configuration is
+    # the build type and everywhere else it is the directory, which is what has
+    # to be resolved. A preset describes its build completely, so the settings it
+    # does not use are cleared rather than left at whatever was recorded before.
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(_build_type_configuration --debug)
+    else ()
+        set(_build_type_configuration --release)
+    endif ()
+
+    set(_recorded_settings "")
+    if (_configuration_directory STREQUAL "Release")
+        set(_recorded_settings --release --no-asan --no-tsan --force-opt=none)
+    elseif (_configuration_directory STREQUAL "Debug")
+        set(_recorded_settings --debug --no-asan --no-tsan --force-opt=none)
+    elseif (_configuration_directory STREQUAL "DebugO3")
+        set(_recorded_settings --debug --no-asan --no-tsan --force-opt=O3)
+    elseif (_configuration_directory STREQUAL "ASan")
+        set(_recorded_settings ${_build_type_configuration} --asan --no-tsan --force-opt=none)
+    elseif (_configuration_directory STREQUAL "TSan")
+        set(_recorded_settings ${_build_type_configuration} --tsan --no-asan --force-opt=none)
+    endif ()
+
+    if (NOT _base_product_dir)
+        message(STATUS "Not recording the build settings: the base product directory could not be resolved")
+    elseif (NOT _tree_base_dir STREQUAL _base_product_dir)
+        message(STATUS "Not recording the build settings: ${CMAKE_BINARY_DIR} is not in ${_base_product_dir}")
+    elseif (NOT _recorded_settings)
+        message(STATUS "Not recording the build settings: set-webkit-configuration has no setting for the ${_configuration_directory} configuration")
+    else ()
+        # Recorded now, so that a tree that is only configured is already the one
+        # later commands resolve, and again on every build, so that the settings
+        # are those of the build made last.
+        execute_process(
+            COMMAND ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/set-webkit-configuration
+                    --cmake ${_recorded_settings}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMAND_ERROR_IS_FATAL ANY
+        )
+        add_custom_target(RecordBuildSettings ALL
+            COMMAND ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/set-webkit-configuration
+                    --cmake ${_recorded_settings}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Recording the build settings for later commands"
+            VERBATIM
         )
     endif ()
 

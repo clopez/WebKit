@@ -35,6 +35,7 @@
 #include "GraphicsLayerFilterAnimationValue.h"
 #include "GraphicsLayerKeyframeValueList.h"
 #include "LayoutRect.h"
+#include "MediaPlayer.h"
 #include "MediaPlayerEnums.h"
 #include "RotateTransformOperation.h"
 #include <wtf/FileHandle.h>
@@ -748,6 +749,13 @@ RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayer::createAsyncCont
     return nullptr;
 }
 
+#if ENABLE(VIDEO)
+void GraphicsLayer::setContentsToMediaPlayer(MediaPlayer* player, ContentsLayerPurpose purpose)
+{
+    SUPPRESS_FORWARD_DECL_ARG setContentsToPlatformLayer(player ? player->platformLayer() : nullptr, purpose);
+}
+#endif
+
 void GraphicsLayer::getDebugBorderInfo(Color& color, float& width) const
 {
     width = 2;
@@ -1166,14 +1174,14 @@ void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer)
         return;
 
     String output = layer->layerTreeAsText(WebCore::AllLayerTreeAsTextOptions);
-    WTFLogAlways("%s\n", output.utf8().data());
+    SAFE_WTFLOGALWAYS("%s\n", output.utf8());
 
     // The tree is too large to print to the os log so save the tree output
     // to a file in case we don't have easy access to stderr.
     auto [tempFilePath, fileHandle] = FileSystem::openTemporaryFile("GraphicsLayerTree"_s);
     if (fileHandle) {
         fileHandle.write(byteCast<uint8_t>(output.utf8().span()));
-        WTFLogAlways("Saved GraphicsLayer Tree to %s", tempFilePath.utf8().data());
+        SAFE_WTFLOGALWAYS("Saved GraphicsLayer Tree to %s", tempFilePath.utf8());
     } else
         WTFLogAlways("Failed to open temporary file for saving the GraphicsLayer Tree.");
 }

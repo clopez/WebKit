@@ -256,14 +256,14 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
 
 ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutionContext& context, ImageBuffer& buffer, IntSize size, WebCodecsVideoFrame::Init&& init)
 {
-    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() };
+    PixelBufferFormat format { AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, ColorSpace::SRGB() };
     IntRect region { IntPoint::zero(), size };
 
     auto pixelBuffer = buffer.getPixelBuffer(format, region);
     if (!pixelBuffer)
         return Exception { ExceptionCode::InvalidStateError,  "Buffer has no frame"_s };
 
-    auto videoFrame = VideoFrame::createFromPixelBuffer(pixelBuffer.releaseNonNull(), { PlatformVideoColorPrimaries::Bt709, PlatformVideoTransferCharacteristics::Iec6196621, PlatformVideoMatrixCoefficients::Rgb, true });
+    auto videoFrame = VideoFrame::createFromPixelBuffer(pixelBuffer.releaseNonNull(), { .primaries = PlatformVideoColorPrimaries::Bt709, .transfer = PlatformVideoTransferCharacteristics::Iec6196621, .matrix = PlatformVideoMatrixCoefficients::Rgb, .fullRange = true });
 
     if (!videoFrame)
         return Exception { ExceptionCode::InvalidStateError,  "Unable to create frame from buffer"_s };

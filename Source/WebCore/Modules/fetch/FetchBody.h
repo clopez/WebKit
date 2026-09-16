@@ -104,6 +104,11 @@ public:
         ASSERT(!m_readableStream);
         m_readableStream = WTF::move(stream);
     }
+    void setAsReadableStream()
+    {
+        ASSERT(m_readableStream);
+        m_data = Ref { *m_readableStream };
+    }
 
     void convertReadableStreamToArrayBuffer(FetchBodyOwner&, CompletionHandler<void(std::optional<Exception>&&)>&&);
 
@@ -113,16 +118,17 @@ public:
 
     bool isBlob() const { return std::holds_alternative<Ref<Blob>>(m_data); }
     bool isFormData() const { return std::holds_alternative<Ref<FormData>>(m_data); }
+    bool isPendingStreamFormData() const { return std::holds_alternative<Ref<FormData>>(m_data) && formDataBody().pendingStreamState(); }
     bool isReadableStream() const { return std::holds_alternative<Ref<ReadableStream>>(m_data); }
 
 private:
     explicit FetchBody(Ref<Blob>&& data) : m_data(WTF::move(data)) { }
     explicit FetchBody(Ref<ArrayBuffer>&& data) : m_data(WTF::move(data)) { }
     explicit FetchBody(Ref<ArrayBufferView>&& data) : m_data(WTF::move(data)) { }
-    explicit FetchBody(Ref<FormData>&& data) : m_data(WTF::move(data)) { }
+    explicit FetchBody(Ref<FormData>&& data, RefPtr<DOMFormData>&& source = { }) : m_data(WTF::move(data)), m_formDataSource(WTF::move(source)) { }
     explicit FetchBody(Ref<URLSearchParams>&& data) : m_data(WTF::move(data)) { }
     explicit FetchBody(Ref<ReadableStream>&& stream) : m_data(stream), m_readableStream(WTF::move(stream)) { }
-    explicit FetchBody(UniqueRef<FetchBodyConsumer>&& consumer) : m_consumer(consumer.moveToUniquePtr()) { }
+    explicit FetchBody(UniqueRef<FetchBodyConsumer>&& consumer, RefPtr<DOMFormData>&& source = { }) : m_consumer(consumer.moveToUniquePtr()), m_formDataSource(WTF::move(source)) { }
 
     void consume(FetchBodyOwner&, Ref<DeferredPromise>&&);
 
@@ -152,6 +158,7 @@ private:
     std::unique_ptr<FetchBodyConsumer> m_consumer;
     RefPtr<ReadableStream> m_readableStream;
     RefPtr<PendingStreamState> m_pendingStreamState;
+    RefPtr<DOMFormData> m_formDataSource;
 };
 
 struct FetchBodyWithType {

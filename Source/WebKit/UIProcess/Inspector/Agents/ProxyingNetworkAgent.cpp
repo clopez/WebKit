@@ -44,7 +44,6 @@
 #include <WebCore/ProcessQualified.h>
 #include <tuple>
 #include <utility>
-#include <wtf/Expected.h>
 
 namespace Inspector {
 
@@ -157,7 +156,7 @@ static RefPtr<Protocol::Network::Response> buildObjectForResourceResponse(const 
 ProxyingNetworkAgent::ProxyingNetworkAgent(WebKit::WebPageAgentContext& context)
     : InspectorAgentBase("Network"_s, context)
     , m_frontendDispatcher(makeUniqueRef<NetworkFrontendDispatcher>(context.frontendRouter))
-    , m_backendDispatcher(NetworkBackendDispatcher::create(context.backendDispatcher, this))
+    , m_backendDispatcher(NetworkBackendDispatcher::create(protect(context.backendDispatcher), this))
     , m_inspectedPage(context.inspectedPage)
 {
 }
@@ -188,12 +187,12 @@ void ProxyingNetworkAgent::removeAllRegisteredReceivers()
 
 void ProxyingNetworkAgent::didCreateFrontendAndBackend()
 {
-    enable();
+    std::ignore = enable();
 }
 
 void ProxyingNetworkAgent::willDestroyFrontendAndBackend(DisconnectReason)
 {
-    disable();
+    std::ignore = disable();
 }
 
 void ProxyingNetworkAgent::enableInstrumentationForProcess(WebKit::WebProcessProxy& webProcess, WebCore::PageIdentifier pageID)
@@ -297,7 +296,7 @@ CommandResult<void> ProxyingNetworkAgent::disable()
     m_resourceCachingDisabled = false;
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
     if (RefPtr inspectedPage = m_inspectedPage.get())
-        inspectedPage->websiteDataStore().setEmulatedConditions(std::nullopt);
+        protect(inspectedPage->websiteDataStore())->setEmulatedConditions(std::nullopt, 0_s);
 #endif
 
     return { };
@@ -377,7 +376,7 @@ void ProxyingNetworkAgent::getResponseBody(const Protocol::Network::RequestId& r
     auto [targetProcess, targetPageID, resourceID] = WTF::move(resolved.value());
     targetProcess->sendWithAsyncReply(
         Messages::WebInspectorBackend::GetResponseBody { resourceID },
-        [callback = WTF::move(callback)](Expected<std::pair<String, bool>, String>&& result) mutable {
+        [callback = WTF::move(callback)](std::expected<std::pair<String, bool>, String>&& result) mutable {
             if (result) {
                 auto& [content, base64Encoded] = result.value();
                 callback->sendSuccess(content, base64Encoded);
@@ -399,7 +398,7 @@ void ProxyingNetworkAgent::getSerializedCertificate(const Protocol::Network::Req
     auto [targetProcess, targetPageID, resourceID] = WTF::move(resolved.value());
     targetProcess->sendWithAsyncReply(
         Messages::WebInspectorBackend::GetSerializedCertificate { resourceID },
-        [callback = WTF::move(callback)](Expected<String, String>&& result) mutable {
+        [callback = WTF::move(callback)](std::expected<String, String>&& result) mutable {
             if (result)
                 callback->sendSuccess(result.value());
             else
@@ -464,7 +463,7 @@ void ProxyingNetworkAgent::loadResource(const Protocol::Network::FrameId& frameI
 
     targetProcess->sendWithAsyncReply(
         Messages::WebInspectorBackend::LoadResource { frameID, url },
-        [callback = WTF::move(callback)](Expected<std::tuple<String, String, int>, String>&& result) mutable {
+        [callback = WTF::move(callback)](std::expected<std::tuple<String, String, int>, String>&& result) mutable {
             if (result) {
                 auto& [content, mimeType, status] = result.value();
                 callback->sendSuccess(content, mimeType, status);
@@ -526,17 +525,23 @@ CommandResult<void> ProxyingNetworkAgent::interceptRequestWithError(const Protoc
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
-CommandResult<void> ProxyingNetworkAgent::setEmulatedConditions(std::optional<int>&& bytesPerSecondLimit)
+CommandResult<void> ProxyingNetworkAgent::setEmulatedConditions(std::optional<int>&& bandwidth, std::optional<int>&& latency)
 {
+    if (bandwidth && *bandwidth < 0)
+        return makeUnexpected("bandwidth cannot be negative"_s);
+
+    if (latency && *latency < 0)
+        return makeUnexpected("latency cannot be negative"_s);
+
     RefPtr inspectedPage = m_inspectedPage.get();
     if (!inspectedPage)
         return makeUnexpected("Inspected page is gone"_s);
 
-    std::optional<int64_t> limit;
-    if (bytesPerSecondLimit)
-        limit = *bytesPerSecondLimit;
+    std::optional<uint64_t> bandwidthBytesPerSecond;
+    if (bandwidth)
+        bandwidthBytesPerSecond = *bandwidth;
 
-    inspectedPage->websiteDataStore().setEmulatedConditions(WTF::move(limit));
+    protect(inspectedPage->websiteDataStore())->setEmulatedConditions(bandwidthBytesPerSecond, Seconds::fromMilliseconds(latency.value_or(0)));
     return { };
 }
 

@@ -20,6 +20,7 @@ list(APPEND TestWTF_SOURCES
     Tests/WTF/glib/GRefPtr.cpp
     Tests/WTF/glib/GUniquePtr.cpp
     Tests/WTF/glib/GWeakPtr.cpp
+    Tests/WTF/glib/SysprofAnnotator.cpp
     Tests/WTF/glib/TimeZoneGLib.cpp
     Tests/WTF/glib/WorkQueueGLib.cpp
 
@@ -41,6 +42,8 @@ list(APPEND TestJavaScriptCore_LIBRARIES
 
 # TestWebCore
 list(APPEND TestWebCore_SOURCES
+    Tests/WebCore/ImageDecoderTests.cpp
+
     Tests/WebCore/glib/Damage.cpp
     Tests/WebCore/glib/GraphicsContextGLTextureMapper.cpp
     Tests/WebCore/glib/RunLoopObserver.cpp

@@ -44,9 +44,9 @@
 #include "compiler/translator/tree_ops/SeparateDeclarations.h"
 #include "compiler/translator/tree_ops/SimplifyLoopConditions.h"
 #include "compiler/translator/tree_ops/SplitSequenceOperator.h"
-#include "compiler/translator/tree_ops/glsl/RegenerateStructNames.h"
 #include "compiler/translator/tree_ops/glsl/RewriteRepeatedAssignToSwizzled.h"
 #include "compiler/translator/tree_ops/glsl/UseInterfaceBlockFields.h"
+#include "compiler/translator/tree_ops/glsl/WrapStructConstructors.h"
 #include "compiler/translator/tree_ops/glsl/apple/AddAndTrueToLoopCondition.h"
 #include "compiler/translator/tree_ops/glsl/apple/UnfoldShortCircuitAST.h"
 #include "compiler/translator/tree_ops/msl/EnsureLoopForwardProgress.h"
@@ -413,13 +413,11 @@ TCompiler::TCompiler(sh::GLenum type, ShShaderSpec spec, ShShaderOutput output)
 
 TCompiler::~TCompiler() {}
 
-bool TCompiler::shouldRunLoopAndIndexingValidation(const ShCompileOptions &compileOptions) const
+bool TCompiler::shouldRunLoopAndIndexingValidation() const
 {
-    // If compiling an ESSL 1.00 shader for WebGL, or if its been requested through the API,
-    // validate loop and indexing as well (to verify that the shader only uses minimal functionality
-    // of ESSL 1.00 as in Appendix A of the spec).
-    return (IsWebGLBasedSpec(mShaderSpec) && mShaderVersion == 100) ||
-           compileOptions.validateLoopIndexing;
+    // If compiling an ESSL 1.00 shader for WebGL, validate loop and indexing as well (to verify
+    // that the shader only uses minimal functionality of ESSL 1.00 as in Appendix A of the spec).
+    return IsWebGLBasedSpec(mShaderSpec) && mShaderVersion == 100;
 }
 
 bool TCompiler::Init(const ShBuiltInResources &resources)
@@ -528,15 +526,6 @@ TIntermBlock *TCompiler::compileTreeImpl(angle::Span<const char *const> shaderSt
     }
 #endif
     ASSERT(root != nullptr);
-
-    if (compileOptions.skipAllValidationAndTransforms)
-    {
-        if (!compileOptions.useIR)
-        {
-            collectVariables(root);
-        }
-        return root;
-    }
 
     const bool hasAnyClipCullDistance =
         parseContext.isExtensionEnabled(TExtension::ANGLE_clip_cull_distance) ||
@@ -910,14 +899,6 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         }
     }
 
-    if (compileOptions.regenerateStructNames)
-    {
-        if (!RegenerateStructNames(this, root, &mSymbolTable))
-        {
-            return false;
-        }
-    }
-
     if (compileOptions.emulateGLDrawID &&
         IsExtensionEnabled(mExtensionBehavior, TExtension::ANGLE_multi_draw))
     {
@@ -942,6 +923,9 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         mResources.MaxDrawBuffers > 1 &&
         IsExtensionEnabled(mExtensionBehavior, TExtension::EXT_draw_buffers))
     {
+        // In WebGL2, gl_FragData has only one element.  But in WebGL2, EXT_draw_buffers is not a
+        // supported extension.
+        ASSERT(mShaderSpec != SH_WEBGL2_SPEC);
         if (!EmulateGLFragColorBroadcast(this, root, mResources.MaxDrawBuffers,
                                          mResources.MaxDualSourceDrawBuffers, &mSymbolTable,
                                          mShaderVersion))
@@ -1047,9 +1031,17 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         }
     }
 
+    if (compileOptions.avoidComplexExpressionsInStructConstructor)
+    {
+        if (!WrapStructConstructors(this, root, &mSymbolTable))
+        {
+            return false;
+        }
+    }
+
     if (compileOptions.clampIndirectArrayBounds)
     {
-        if (!ClampIndirectIndices(this, root, &mSymbolTable))
+        if (!ClampIndirectIndices(this, root, &mSymbolTable, mExtensionBehavior))
         {
             return false;
         }
@@ -1116,11 +1108,9 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         // init statements can declare arrays or nameless structs and have multiple
         // declarations.
 
-        if (!shouldRunLoopAndIndexingValidation(compileOptions))
+        if (!shouldRunLoopAndIndexingValidation())
         {
-            if (!SimplifyLoopConditions(this, root,
-                                        IntermNodePatternMatcher::kArrayDeclaration |
-                                            IntermNodePatternMatcher::kNamelessStructDeclaration,
+            if (!SimplifyLoopConditions(this, root, IntermNodePatternMatcher::kArrayDeclaration,
                                         &getSymbolTable()))
             {
                 return false;
@@ -1215,6 +1205,13 @@ bool TCompiler::compile(angle::Span<const char *const> shaderStrings,
         return true;
     }
 
+    // Certain extensions are not allowed in WebGL2.
+    if (mShaderSpec == SH_WEBGL2_SPEC)
+    {
+        ASSERT(!mResources.EXT_frag_depth && !mResources.EXT_shader_texture_lod &&
+               !mResources.EXT_draw_buffers && !mResources.NV_draw_buffers);
+    }
+
     // Reset the extension behavior for each compilation unit.  Support for some extensions depends
     // on compile flags.  This is done before resetting the flags that don't apply to some shader
     // stages because extensions are either exposed to all or none of the stages.
@@ -1232,7 +1229,7 @@ bool TCompiler::compile(angle::Span<const char *const> shaderStrings,
             OutputTree(root, mInfoSink.info);
         }
 
-        if (compileOptions.objectCode && !compileOptions.skipAllValidationAndTransforms)
+        if (compileOptions.objectCode)
         {
             PerformanceDiagnostics perfDiagnostics(&mDiagnostics);
             if (!translate(root, compileOptions, &perfDiagnostics))
@@ -1447,9 +1444,8 @@ void TCompiler::collectVariables(TIntermBlock *root)
     ASSERT(!mVariablesCollected);
     CollectVariables(root, &mAttributes, &mOutputVariables, &mUniforms, &mInputVaryings,
                      &mOutputVaryings, &mSharedVariables, &mUniformBlocks, &mShaderStorageBlocks,
-                     mResources.UserVariableNamePrefix, mResources.HashFunction, &mSymbolTable,
-                     mShaderType, mExtensionBehavior,
-                     mCompileOptions.transformFloatUniformTo16Bits);
+                     mResources.HashFunction, &mNameMap, &mSymbolTable, mShaderType,
+                     mExtensionBehavior, mCompileOptions.transformFloatUniformTo16Bits);
     collectInterfaceBlocks();
     mVariablesCollected = true;
 }

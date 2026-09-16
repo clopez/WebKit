@@ -26,13 +26,14 @@
 #include "config.h"
 #include <wtf/text/TextStream.h>
 
+#include <wtf/HexNumber.h>
 #include <wtf/MathExtras.h>
 #include <wtf/MediaTime.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/ReducedResolutionSeconds.h>
 #include <wtf/Seconds.h>
 #include <wtf/URL.h>
-#include <wtf/UUID.h>
+#include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF {
@@ -131,9 +132,21 @@ TextStream& TextStream::operator<<(const AtomString& string)
     return *this;
 }
 
-TextStream& TextStream::operator<<(const CString& string)
+TextStream& TextStream::operator<<(const UTF8CString& string)
 {
-    m_text.append(string);
+    m_text.append(string.span());
+    return *this;
+}
+
+TextStream& TextStream::operator<<(const Latin1CString& string)
+{
+    m_text.append(string.span());
+    return *this;
+}
+
+TextStream& TextStream::operator<<(const ASCIICString& string)
+{
+    m_text.append(string.span());
     return *this;
 }
 
@@ -245,15 +258,9 @@ TextStream& operator<<(TextStream& stream, const MediaTime& time)
     return stream << time.toJSONString();
 }
 
-TextStream& operator<<(TextStream& ts, const ObjectIdentifierGenericBase<uint64_t>& identifier)
+TextStream& operator<<(TextStream& ts, const ObjectIdentifierGenericBase& identifier)
 {
-    ts << identifier.toRawValue();
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, const ObjectIdentifierGenericBase<UUID>& identifier)
-{
-    ts << identifier.toRawValue();
+    ts << identifier.toUInt64();
     return ts;
 }
 

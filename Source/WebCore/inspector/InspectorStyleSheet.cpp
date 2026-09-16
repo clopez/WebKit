@@ -166,15 +166,17 @@ static ASCIILiteral atRuleIdentifierForType(StyleRuleType styleRuleType)
 
 static bool isValidRuleHeaderText(const String& headerText, StyleRuleType styleRuleType, Document* document, CSSParserEnum::NestedContext nestedContext = { })
 {
-    auto isValidAtRuleHeaderText = [&] (const String& atRuleIdentifier) {
+    auto isValidAtRuleHeaderText = [&](const String& atRuleIdentifier) {
         if (headerText.isEmpty())
             return false;
+
+        auto parseText = makeString(atRuleIdentifier, ' ', headerText, " {}"_s);
 
         // Make sure the engine can parse the provided `@` rule, even if it only uses unsupported features. As long as
         // the rule text is entirely consumed and it creates a rule of the expected type, we consider it valid because
         // we will be able to continue to edit the rule in the future.
         CSSParserContext context(parserContextForDocument(document)); // CSSParser holds a reference to this.
-        CSSParser parser(context, makeString(atRuleIdentifier, ' ', headerText, " {}"_s));
+        CSSParser parser(context, parseText);
         if (!parser.tokenizer())
             return false;
 
@@ -233,25 +235,6 @@ static std::optional<Inspector::Protocol::CSS::Grouping::Type> NODELETE protocol
     }
 }
 
-class ParsedStyleSheet {
-    WTF_MAKE_TZONE_ALLOCATED(ParsedStyleSheet);
-public:
-    ParsedStyleSheet();
-
-    const String& NODELETE text() const { ASSERT(m_hasText); return m_text; }
-    void setText(const String& text);
-    bool NODELETE hasText() const { return m_hasText; }
-    RuleSourceDataList* NODELETE sourceData() const { return m_sourceData.get(); }
-    void setSourceData(std::unique_ptr<RuleSourceDataList>);
-    bool NODELETE hasSourceData() const { return m_sourceData != nullptr; }
-    WebCore::CSSRuleSourceData* ruleSourceDataAt(unsigned) const;
-
-private:
-
-    String m_text;
-    bool m_hasText;
-    std::unique_ptr<RuleSourceDataList> m_sourceData;
-};
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ParsedStyleSheet);
 

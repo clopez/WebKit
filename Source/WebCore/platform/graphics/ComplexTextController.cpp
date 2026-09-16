@@ -384,7 +384,7 @@ void ComplexTextController::collectComplexTextRuns()
     RefPtr<const Font> smallSynthesizedFont;
     RefPtr<const Font> halfWidthFont;
 
-    CachedTextBreakIterator graphemeClusterIterator(m_run->text(), { }, TextBreakIterator::CharacterMode { }, m_fontCascade->fontDescription().computedLocale());
+    CachedTextBreakIterator graphemeClusterIterator(m_run->text(), { }, TextBreakIterator::CharacterMode { }, m_fontCascade->fontDescription().usedLocale());
 
     char32_t baseCharacter;
     advanceByCombiningCharacterSequence(graphemeClusterIterator, currentIndex, baseCharacter);
@@ -712,18 +712,25 @@ void ComplexTextController::adjustGlyphsAndAdvances()
         unsigned glyphCount = complexTextRun->glyphCount();
         Ref font = complexTextRun->font();
 
-        if (!complexTextRun->isLTR())
+        bool runIsLTR = complexTextRun->isLTR();
+        if (!runIsLTR)
             m_isLTROnly = false;
+        // Adjusting a cluster base's advance moves the pen its marks are positioned against. CoreText emits glyphs
+        // in visual order, so only an LTR cluster's marks follow their base and are affected by that.
+        bool shouldCompensateMarkOrigins = runIsLTR;
 
         auto glyphs = complexTextRun->glyphs();
         auto advances = complexTextRun->baseAdvances();
 
-        // Lower in this function, synthetic bold is blanket-applied to everything, so no need to double-apply it here.
-        float spaceWidth = font->spaceWidth(Font::SyntheticBoldInclusion::Exclude);
+        float spaceWidth = font->spaceWidth();
         auto charactersSpan = complexTextRun->characters();
         FloatPoint glyphOrigin;
         unsigned previousCharacterIndex = m_run->ltr() ? std::numeric_limits<unsigned>::min() : std::numeric_limits<unsigned>::max();
         bool isMonotonic = true;
+        // The compensation a cluster's base records for the origins of the marks that follow it; zero until a
+        // base is emitted.
+        // FIXME: Handle a cluster CoreText split across two runs, whose base is the previous run's last glyph.
+        float pendingMarkOriginCompensation = 0;
 
 #if USE(CORE_TEXT) || USE(SKIA)
         auto boundsForGlyphs = font->boundsForGlyphs(glyphs);
@@ -741,11 +748,24 @@ void ComplexTextController::adjustGlyphsAndAdvances()
             char16_t character = charactersSpan[characterIndex];
 
             bool treatAsSpace = FontCascade::treatAsSpace(character);
+            bool isTabWithTabStops = character == tabCharacter && m_run->allowTabs();
             CGGlyph glyph = glyphs[glyphIndex];
             FloatSize advance = treatAsSpace ? FloatSize(spaceWidth, advances[glyphIndex].height()) : advances[glyphIndex];
 
-            if (character == tabCharacter && m_run->allowTabs()) {
-                advance.setWidth(m_fontCascade->tabWidth(font.get(), m_run->tabSize(), m_run->xPos() + m_totalAdvance.width(), Font::SyntheticBoldInclusion::Exclude));
+            // Adjusting a cluster base's advance also moves the pen used to position its combining marks. We
+            // need to compensate for that pen movement when positioning the marks. Most adjustments need this
+            // compensation, but three do not and are tracked here so they can be subtracted out when computing
+            // the final adjustment:
+            //   - the run's initial advance, minus the first glyph's origin. advance() subtracts that same
+            //     combination again when it converts layout advances into paint advances, so no further
+            //     adjustment is needed.
+            //   - left expansion on the run's first glyph, for the same reason: it adjusts the run's initial advance.
+            //   - text-autospace, which is also added to this glyph's own origin, so the base and its marks
+            //     shift together and keep their relative positions.
+            float advanceAdjustmentExcludedFromMarkCompensation = 0;
+
+            if (isTabWithTabStops) {
+                advance.setWidth(m_fontCascade->tabWidth(font.get(), m_run->tabSize(), m_run->xPos() + m_totalAdvance.width()));
                 // Like simple text path in WidthIterator::applyCSSVisibilityRules,
                 // make tabCharacter glyph invisible after advancing.
                 glyph = deletedGlyph;
@@ -770,7 +790,9 @@ void ComplexTextController::adjustGlyphsAndAdvances()
             // https://www.w3.org/TR/css-text-3/#white-space-processing
             // "Control characters (Unicode category Cc)—other than tabs (U+0009), line feeds (U+000A), carriage returns (U+000D) and sequences that form a segment break—must be rendered as a visible glyph"
             // Also, we're omitting Null (U+0000) from this set because Chrome and Firefox do so and it's needed for compat. See https://github.com/w3c/csswg-drafts/pull/6983.
-            if (character != newlineCharacter && character != carriageReturn && character != noBreakSpace && character != tabCharacter && character != nullCharacter && isControlCharacter(character)) {
+            // treatAsSpace() already covers the tab and line feed called out above; space and no-break space are
+            // not control characters, so excluding them here costs nothing.
+            if (!treatAsSpace && character != carriageReturn && character != nullCharacter && isControlCharacter(character)) {
                 // Let's assume that .notdef is visible.
                 glyph = 0;
 #if USE(CORE_TEXT) || USE(SKIA)
@@ -781,13 +803,12 @@ void ComplexTextController::adjustGlyphsAndAdvances()
 
             if (!glyphIndex) {
                 advance.expand(complexTextRun->initialAdvance().width(), complexTextRun->initialAdvance().height());
-                if (auto origins = complexTextRun->glyphOrigins(); !origins.empty())
+                advanceAdjustmentExcludedFromMarkCompensation = complexTextRun->initialAdvance().width();
+                if (auto origins = complexTextRun->glyphOrigins(); !origins.empty()) {
                     advance.expand(-origins[0].x(), -origins[0].y());
+                    advanceAdjustmentExcludedFromMarkCompensation -= origins[0].x();
+                }
             }
-
-            // Only embolden glyphs that advance the pen, like the "zero width lurkers" guard below.
-            if (advance.width())
-                advance.expand(font->syntheticBoldOffset(), 0);
 
             if (hasExtraSpacing) {
                 // If we're a glyph with an advance, add in letter-spacing.
@@ -824,9 +845,16 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                             if (m_adjustedBaseAdvances.isEmpty()) {
                                 advance.expand(m_expansionPerOpportunity, 0);
                                 complexTextRun->growInitialAdvanceHorizontally(m_expansionPerOpportunity);
+                                // This went into the run's initial advance, so like the rest of it, it leaves the
+                                // origins of this glyph's marks alone.
+                                advanceAdjustmentExcludedFromMarkCompensation += m_expansionPerOpportunity;
                             } else {
+                                // This widens a glyph already emitted, moving this glyph and everything after it.
+                                // If this glyph is one of that glyph's marks, it needs the compensation.
                                 m_adjustedBaseAdvances.last().expand(m_expansionPerOpportunity, 0);
                                 m_totalAdvance.expand(m_expansionPerOpportunity, 0);
+                                if (shouldCompensateMarkOrigins)
+                                    pendingMarkOriginCompensation -= m_expansionPerOpportunity;
                             }
                         }
                         if (expandRight) {
@@ -837,8 +865,8 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                     } else
                         afterExpansion = false;
 
-                    // Account for word-spacing.
-                    if (treatAsSpace && (character != '\t' || !m_run->allowTabs()) && (characterIndex > 0 || runIndex > 0 || character == noBreakSpace) && m_fontCascade->wordSpacing())
+                    // Account for word-spacing. Test for it first: it is rare, and the rest of these checks are not free.
+                    if (m_fontCascade->wordSpacing() && treatAsSpace && (character != '\t' || !m_run->allowTabs()) && (characterIndex > 0 || runIndex > 0 || character == noBreakSpace))
                         advance.expand(m_fontCascade->wordSpacing(), 0);
                 } else
                     afterExpansion = false;
@@ -846,20 +874,22 @@ void ComplexTextController::adjustGlyphsAndAdvances()
 
             const auto& textAutoSpace =  m_fontCascade->textAutospace();
             float textAutoSpaceSpacing = 0;
-            auto characterClass = TextSpacing::CharacterClass::Undefined;
-            // Since we are iterating through glyphs here we skip combining marks, since we just care about the grapheme cluster base for text-autospace.
-            if (!textAutoSpace.isNoAutospace() && !isCombiningMark(character)) {
-                characterClass = TextSpacing::characterClass(character);
-                if (textAutoSpace.shouldApplySpacing(previousCharacterClass, characterClass)) {
-                    textAutoSpaceSpacing = complexTextRun->textAutospaceSize();
-                    advance.expand(textAutoSpaceSpacing, 0);
+            if (!textAutoSpace.isNoAutospace()) {
+                // Since we are iterating through glyphs here we skip combining marks, since we just care about the grapheme cluster base for text-autospace.
+                if (!isCombiningMark(character)) {
+                    auto characterClass = TextSpacing::characterClass(character);
+                    if (textAutoSpace.shouldApplySpacing(previousCharacterClass, characterClass)) {
+                        textAutoSpaceSpacing = complexTextRun->textAutospaceSize();
+                        advance.expand(textAutoSpaceSpacing, 0);
+                        // This is added to this glyph's own origin below too, so it moves the whole cluster.
+                        advanceAdjustmentExcludedFromMarkCompensation += textAutoSpaceSpacing;
+                    }
+
+                    previousCharacterClass = characterClass;
                 }
 
-                previousCharacterClass = characterClass;
-            }
-
-            if (!textAutoSpace.isNoAutospace())
                 m_textAutoSpaceSpacings.append(textAutoSpaceSpacing);
+            }
 
             m_totalAdvance += advance;
 
@@ -877,10 +907,21 @@ void ComplexTextController::adjustGlyphsAndAdvances()
             }
 
             m_adjustedBaseAdvances.append(advance);
+            // A glyph that advances the pen is a cluster base and keeps its own origin; the zero-advance glyphs
+            // after it are its marks, and take the compensation their base recorded.
+            float originCompensation = pendingMarkOriginCompensation;
+            if (advances[glyphIndex].width()) {
+                originCompensation = 0;
+                // CoreText guarantees only the sum of a cluster's base advances and glyph origins, so the marks
+                // can be moved back by adjusting their origins. The compensation is everything that changed this
+                // base's advance, less the excluded part above -- negated, to undo it.
+                float advanceAdjustment = (advance.width() - advances[glyphIndex].width()) - advanceAdjustmentExcludedFromMarkCompensation;
+                pendingMarkOriginCompensation = shouldCompensateMarkOrigins ? -advanceAdjustment : 0;
+            }
             if (auto origins = complexTextRun->glyphOrigins(); !origins.empty()) {
                 ASSERT(m_glyphOrigins.size() < m_adjustedBaseAdvances.size());
                 m_glyphOrigins.grow(m_adjustedBaseAdvances.size());
-                m_glyphOrigins[m_glyphOrigins.size() - 1] = origins[glyphIndex] + FloatSize(textAutoSpaceSpacing, 0);
+                m_glyphOrigins[m_glyphOrigins.size() - 1] = origins[glyphIndex] + FloatSize(textAutoSpaceSpacing + originCompensation, 0);
                 ASSERT(m_glyphOrigins.size() == m_adjustedBaseAdvances.size());
             }
             m_adjustedGlyphs.append(glyph);
@@ -935,8 +976,7 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(const Font& font, std::spa
 
     // Synthesize a run of missing glyphs.
     m_glyphs.fill(0, m_glyphCount);
-    // Synthetic bold will be handled later in adjustGlyphsAndAdvances().
-    m_baseAdvances.fill(FloatSize(protect(font)->widthForGlyph(0, Font::SyntheticBoldInclusion::Exclude), 0), m_glyphCount);
+    m_baseAdvances.fill(FloatSize(protect(font)->widthForGlyph(0), 0), m_glyphCount);
 }
 
 ComplexTextController::ComplexTextRun::ComplexTextRun(const Vector<FloatSize>& advances, const Vector<FloatPoint>& origins, const Vector<Glyph>& glyphs, const Vector<unsigned>& stringIndices, FloatSize initialAdvance, const Font& font, std::span<const char16_t> characters, unsigned stringLocation, unsigned indexBegin, unsigned indexEnd, bool ltr)

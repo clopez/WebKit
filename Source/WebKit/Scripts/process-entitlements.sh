@@ -144,6 +144,11 @@ function mac_process_network_entitlements()
         # FIXME: This should be removed after crash investigation as part of <rdar://problem/160965793>
         plistbuddy Add :com.apple.private.get-system-corpse bool YES
 
+        plistbuddy Add :com.apple.private.security.mutable-state-flags array
+        plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string BlockNetworkAccess
+        plistbuddy Add :com.apple.private.security.enable-state-flags array
+        plistbuddy Add :com.apple.private.security.enable-state-flags:0 string BlockNetworkAccess
+
         if [[ "${WK_USE_FATAL_EXCEPTIONS}" == YES ]]
         then
             plistbuddy Add :com.apple.private.pac.exception bool YES
@@ -276,6 +281,16 @@ function mac_process_webpushd_entitlements()
         plistbuddy Add :com.apple.security.application-groups:0 string group.com.apple.webkit.webpushd
         plistbuddy Add :com.apple.private.security.restricted-application-groups array
         plistbuddy Add :com.apple.private.security.restricted-application-groups:0 string group.com.apple.webkit.webpushd
+    fi
+
+    if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
+    then
+        plistbuddy Add :com.apple.developer.hardened-process bool YES
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 260000 ))
+        then
+            plistbuddy Add :com.apple.security.hardened-process.checked-allocations.no-tagged-receive bool YES
+        fi
+        plistbuddy Add :com.apple.security.hardened-process.checked-allocations.soft-mode bool YES
     fi
 }
 
@@ -604,6 +619,9 @@ function ios_family_process_webpushd_entitlements()
     plistbuddy Add :com.apple.private.security.storage.os_eligibility.readonly bool YES
     plistbuddy Add :com.apple.security.exception.files.absolute-path.read-only array
     plistbuddy Add :com.apple.security.exception.files.absolute-path.read-only:0 string /private/var/db/os_eligibility/eligibility.plist
+    plistbuddy Add :com.apple.developer.hardened-process bool YES
+    plistbuddy Add :com.apple.security.hardened-process.checked-allocations.no-tagged-receive bool YES
+    plistbuddy Add :com.apple.security.hardened-process.checked-allocations.soft-mode bool YES
 }
 
 function ios_family_process_network_entitlements()

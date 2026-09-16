@@ -631,11 +631,11 @@ void HTMLImageElement::removingSteps(RemovalType removalType, ContainerNode& old
     FormAssociatedElement::elementRemovedFromAncestor(*this, removalType);
 }
 
-void HTMLImageElement::movingSteps(bool isSubtreeRoot, ContainerNode& oldParent)
+void HTMLImageElement::movingSteps(IsSubtreeRoot isSubtreeRoot, ContainerNode& oldParent)
 {
     HTMLElement::movingSteps(isSubtreeRoot, oldParent);
 
-    if (!isSubtreeRoot)
+    if (isSubtreeRoot == IsSubtreeRoot::No)
         return;
 
     if (RefPtr parentPicture = dynamicDowncast<HTMLPictureElement>(parentElement())) {
@@ -657,6 +657,14 @@ void HTMLImageElement::setPictureElement(HTMLPictureElement* pictureElement)
     m_pictureElement = pictureElement;
 }
     
+LayoutSize HTMLImageElement::naturalSize() const
+{
+    RefPtr image = m_imageLoader->image();
+    if (!image)
+        return { };
+    return image->unclampedImageSizeForRenderer(protect(renderer()).get(), 1.0f, CachedImage::IntrinsicSize, m_imageDevicePixelRatio);
+}
+
 unsigned HTMLImageElement::width()
 {
     if (inRenderedDocument())
@@ -664,20 +672,18 @@ unsigned HTMLImageElement::width()
 
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
-        auto optionalWidth = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(widthAttr));
-        if (optionalWidth)
+        if (auto optionalWidth = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(widthAttr)))
             return optionalWidth.value();
 
-        // if the image is available, use its width
-        if (RefPtr image = m_imageLoader->image())
-            return image->imageSizeForRenderer(nullptr, 1.0f, CachedImage::IntrinsicSize).width().toUnsigned();
+        // otherwise fall back to what naturalWidth returns
+        return naturalSize().width().toUnsigned();
     }
 
     CheckedPtr box = renderBox();
     if (!box)
         return 0;
     LayoutRect contentRect = box->contentBoxRect();
-    return Style::adjustLayoutUnitForAbsoluteZoom(contentRect.width(), *box).round();
+    return Style::unapplyingZoom<LayoutUnit>(contentRect.width(), *box).round();
 }
 
 unsigned HTMLImageElement::height()
@@ -687,36 +693,28 @@ unsigned HTMLImageElement::height()
 
     if (!renderer()) {
         // check the attribute first for an explicit pixel value
-        auto optionalHeight = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(heightAttr));
-        if (optionalHeight)
+        if (auto optionalHeight = parseHTMLNonNegativeInteger(attributeWithoutSynchronization(heightAttr)))
             return optionalHeight.value();
 
-        // if the image is available, use its height
-        if (RefPtr image = m_imageLoader->image())
-            return image->imageSizeForRenderer(nullptr, 1.0f, CachedImage::IntrinsicSize).height().toUnsigned();
+        // otherwise fall back to what naturalHeight returns
+        return naturalSize().height().toUnsigned();
     }
 
     CheckedPtr box = renderBox();
     if (!box)
         return 0;
     LayoutRect contentRect = box->contentBoxRect();
-    return Style::adjustLayoutUnitForAbsoluteZoom(contentRect.height(), *box).round();
+    return Style::unapplyingZoom<LayoutUnit>(contentRect.height(), *box).round();
 }
 
 unsigned HTMLImageElement::naturalWidth() const
 {
-    RefPtr image = m_imageLoader->image();
-    if (!image)
-        return 0;
-    return image->unclampedImageSizeForRenderer(protect(renderer()).get(), 1.0f, CachedImage::IntrinsicSize, m_imageDevicePixelRatio).width().toUnsigned();
+    return naturalSize().width().toUnsigned();
 }
 
 unsigned HTMLImageElement::naturalHeight() const
 {
-    RefPtr image = m_imageLoader->image();
-    if (!image)
-        return 0;
-    return image->unclampedImageSizeForRenderer(protect(renderer()).get(), 1.0f, CachedImage::IntrinsicSize, m_imageDevicePixelRatio).height().toUnsigned();
+    return naturalSize().height().toUnsigned();
 }
 
 bool HTMLImageElement::isURLAttribute(const Attribute& attribute) const

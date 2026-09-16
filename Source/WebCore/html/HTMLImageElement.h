@@ -42,6 +42,7 @@ class HTMLFormElement;
 class HTMLImageLoader;
 class HTMLMapElement;
 class Image;
+class LayoutSize;
 class SecurityOrigin;
 
 struct ImageCandidate;
@@ -218,7 +219,7 @@ private:
 
     NeedsPostConnectionSteps insertionSteps(InsertionType, ContainerNode&) override;
     void removingSteps(RemovalType, ContainerNode&) override;
-    void movingSteps(bool isSubtreeRoot, ContainerNode&) override;
+    void movingSteps(IsSubtreeRoot, ContainerNode&) override;
 
     bool NODELETE isFormListedElement() const final { return false; }
     FormAssociatedElement* NODELETE asFormAssociatedElement() final { return this; }
@@ -241,6 +242,8 @@ private:
     ImageCandidate bestFitSourceFromPictureElement();
 
     std::optional<float> autoSizesLayoutWidth() const;
+
+    LayoutSize naturalSize() const;
 
     void copyNonAttributePropertiesFromElement(const Element&) final;
 

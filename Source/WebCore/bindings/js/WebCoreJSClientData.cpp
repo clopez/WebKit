@@ -41,6 +41,7 @@
 #include "JSIDBSerializationGlobalObject.h"
 #include "JSObservableArray.h"
 #include "JSPaintWorkletGlobalScope.h"
+#include "JSQuotaExceededError.h"
 #include "JSServiceWorkerGlobalScope.h"
 #include "JSShadowRealmGlobalScope.h"
 #include "JSSharedWorkerGlobalScope.h"
@@ -56,6 +57,7 @@
 #include <JavaScriptCore/MarkingConstraint.h>
 #include <JavaScriptCore/SubspaceInlines.h>
 #include <JavaScriptCore/VM.h>
+#include <JavaScriptCore/WeakGCMapInlines.h>
 #include "runtime_array.h"
 #include "runtime_method.h"
 #include "runtime_object.h"
@@ -101,6 +103,7 @@ JSHeapData::JSHeapData(Heap& heap)
 #endif
     , m_heapCellTypeForJSIDBSerializationGlobalObject(JSC::IsoHeapCellType::Args<JSIDBSerializationGlobalObject>())
     , m_heapCellTypeForJSDOMException(JSC::IsoHeapCellType::Args<JSDOMException>())
+    , m_heapCellTypeForJSQuotaExceededError(JSC::IsoHeapCellType::Args<JSQuotaExceededError>())
 #if ENABLE(WEB_RTC)
     , m_heapCellTypeForJSRTCError(JSC::IsoHeapCellType::Args<JSRTCError>())
 #endif
@@ -124,6 +127,17 @@ JSHeapData::JSHeapData(Heap& heap)
     , m_idbSerializationSpace ISO_SUBSPACE_INIT(heap, m_heapCellTypeForJSIDBSerializationGlobalObject, JSIDBSerializationGlobalObject)
     , m_subspaces(makeUniqueRef<ExtendedDOMIsoSubspaces>())
 {
+}
+
+void JSHeapData::reconcileWeakReferencesAtGCEnd(VM& vm, CollectionScope collectionScope)
+{
+    for (auto& [space, reconcileCell] : m_weakReconciliationSpaces) {
+        space->forEachMarkedCell(
+            [&] (HeapCell* cell, HeapCell::Kind kind) {
+                RELEASE_ASSERT(kind == HeapCell::Kind::JSCell);
+                reconcileCell(cell, vm, collectionScope);
+            });
+    }
 }
 
 JSHeapData* JSHeapData::ensureHeapData(Heap& heap)
@@ -157,6 +171,7 @@ JSVMClientData::JSVMClientData(VM& vm)
     , CLIENT_ISO_SUBSPACE_INIT(m_windowProxySpace)
     , CLIENT_ISO_SUBSPACE_INIT(m_idbSerializationSpace)
     , m_clientSubspaces(makeUniqueRef<ExtendedDOMClientIsoSubspaces>())
+    , m_jsHandleGlobalObjects(vm)
 {
 }
 

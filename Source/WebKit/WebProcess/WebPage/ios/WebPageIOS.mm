@@ -760,20 +760,30 @@ static RetainPtr<NSDictionary> createAccessibillityTokenDictionary(WebCore::Acce
     return @{ @"ax-pid" : @(elementToken.pid), @"ax-uuid" : [uuid UUIDString], @"ax-register" : @YES };
 }
 
-void WebPage::registerRemoteFrameAccessibilityTokens(pid_t pid, WebCore::AccessibilityRemoteToken elementToken, WebCore::FrameIdentifier frameID)
+void WebPage::registerRemoteFrameAccessibilityTokens(pid_t, WebCore::AccessibilityRemoteToken elementToken, WebCore::FrameIdentifier frameID)
 {
-    createMockAccessibilityElement(pid);
-    if ([m_mockAccessibilityElement respondsToSelector:@selector(setRemoteTokenDictionary:)])
-        [m_mockAccessibilityElement setRemoteTokenDictionary:createAccessibillityTokenDictionary(elementToken).get()];
-    [m_mockAccessibilityElement setFrameIdentifier:frameID];
+    // Each local root frame gets a mock accessibility element that serves as the target for the
+    // remote accessibility element in the parent process.
+    RetainPtr frameElement = ensureRemoteFrameAccessibilityElement(frameID);
+
+    if ([frameElement respondsToSelector:@selector(setRemoteTokenDictionary:)])
+        [frameElement setRemoteTokenDictionary:createAccessibillityTokenDictionary(elementToken).get()];
+    [frameElement setFrameIdentifier:frameID];
 }
 
-void WebPage::createMockAccessibilityElement(pid_t pid)
+// The presenting process identifier is only used on macOS. iOS pairs an element with its parent by
+// the UUID in the remote token dictionary instead.
+RetainPtr<WKAccessibilityWebPageObject> WebPage::createMockAccessibilityElementWithPresenter(pid_t)
 {
     auto mockAccessibilityElement = adoptNS([[WKAccessibilityWebPageObject alloc] init]);
 
     [mockAccessibilityElement setWebPage:this];
-    m_mockAccessibilityElement = WTF::move(mockAccessibilityElement);
+    return mockAccessibilityElement;
+}
+
+void WebPage::createMockAccessibilityElement(pid_t pid)
+{
+    m_mockAccessibilityElement = createMockAccessibilityElementWithPresenter(pid);
 }
 
 void WebPage::registerUIProcessAccessibilityTokens(WebCore::AccessibilityRemoteToken elementToken, WebCore::AccessibilityRemoteToken)
@@ -801,6 +811,13 @@ WebCore::IntPoint WebPage::remoteFrameOffsetInMainFrame()
 
 bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
 {
+    // CFNetwork's built-in protocols always handle these schemes, and a custom NSURLProtocol can
+    // only add handling, never take it away. Materializing the NSURLRequest just to ask is very
+    // expensive for URLs with a long query.
+    auto& url = request.url();
+    if (url.protocolIsInHTTPFamily() || url.protocolIsFile() || url.protocolIsData() || url.protocolIsAbout())
+        return true;
+
     RetainPtr nsRequest = request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
     if (!nsRequest.get().URL)
         return false;
@@ -808,7 +825,7 @@ bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
     return [NSURLConnection canHandleRequest:nsRequest.get()];
 }
 
-void WebPage::shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent&, CompletionHandler<void(bool)>&& completionHandler)
+void WebPage::shouldDelayWindowOrderingEvent(Ref<WebKit::WebMouseEvent>&&, CompletionHandler<void(bool)>&& completionHandler)
 {
     notImplemented();
     completionHandler(false);
@@ -952,7 +969,7 @@ Awaitable<DragInitiationResult> WebPage::requestDragStart(std::optional<WebCore:
     if (!localRootFrame)
         co_return { false };
 
-    auto handledOrTransformer = co_await AwaitableFromCompletionHandler<Expected<bool, RemoteFrameGeometryTransformer>> { [=] (auto completionHandler) {
+    auto handledOrTransformer = co_await AwaitableFromCompletionHandler<std::expected<bool, RemoteFrameGeometryTransformer>> { [=] (auto completionHandler) {
         localRootFrame->eventHandler().tryToBeginDragAtPoint(clientPosition, globalPosition, WTF::move(completionHandler));
     } };
     if (handledOrTransformer)
@@ -979,7 +996,7 @@ Awaitable<DragInitiationResult> WebPage::requestAdditionalItemsForDragSession(st
 
     localMainFrame->eventHandler().dragSourceEndedAt(event, { }, MayExtendDragSession::Yes);
 
-    auto handledOrTransformer = co_await AwaitableFromCompletionHandler<Expected<bool, RemoteFrameGeometryTransformer>> { [=] (auto completionHandler) {
+    auto handledOrTransformer = co_await AwaitableFromCompletionHandler<std::expected<bool, RemoteFrameGeometryTransformer>> { [=] (auto completionHandler) {
         localMainFrame->eventHandler().tryToBeginDragAtPoint(clientPosition, globalPosition, WTF::move(completionHandler));
     } };
     if (handledOrTransformer)
@@ -2647,7 +2664,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformationWitho
     FocusedElementInformation information;
 
     if (RefPtr webFrame = WebProcess::singleton().webFrame(focusedOrMainFrame->frameID()))
-        information.frame = webFrame->info(WithCertificateInfo::Yes);
+        information.frame = webFrame->info();
 
     information.lastInteractionLocation = flooredIntPoint(m_lastInteractionLocation);
     if (auto elementContext = contextForElement(*focusedElement))
@@ -2655,7 +2672,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformationWitho
 
     if (CheckedPtr renderer = focusedElement->renderer()) {
         information.interactionRect = rootViewInteractionBounds(*focusedElement);
-        information.nodeFontSize = protect(renderer->style())->fontDescription().computedSize();
+        information.nodeFontSize = protect(renderer->style())->fontDescription().usedSize();
 
         bool inFixed = false;
         renderer->localToContainerPoint(FloatPoint(), nullptr, MapCoordinatesMode::UseTransforms, &inFixed);
@@ -2903,6 +2920,7 @@ void WebPage::setDeviceOrientation(IntDegrees deviceOrientation)
     if (deviceOrientation == m_deviceOrientation)
         return;
     m_deviceOrientation = deviceOrientation;
+    protect(m_page)->orientationDidChange();
 #if ENABLE(ORIENTATION_EVENTS)
     if (RefPtr localMainFrame = protect(m_page)->localMainFrame())
         localMainFrame->orientationChanged();
@@ -3189,8 +3207,6 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
         return m_viewportConfiguration.setDefaultConfiguration(parametersForStandardFrame());
 }
 
-#if ENABLE(TEXT_AUTOSIZING)
-
 void WebPage::updateTextAutosizingEnablementFromInitialScale(double initialScale)
 {
     if (protect(*m_page)->settings().textAutosizingEnabledAtLargeInitialScale())
@@ -3236,11 +3252,9 @@ void WebPage::resetIdempotentTextAutosizingIfNeeded(double previousInitialScale)
     // We don't need to update text sizing eagerly. There might be multiple incoming dynamic viewport changes.
     m_textAutoSizingAdjustmentTimer.startOneShot(textAutoSizingDelay());
 }
-#endif // ENABLE(TEXT_AUTOSIZING)
 
 void WebPage::resetTextAutosizing()
 {
-#if ENABLE(TEXT_AUTOSIZING)
     for (RefPtr frame = &m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
         if (!localFrame)
@@ -3250,10 +3264,8 @@ void WebPage::resetTextAutosizing()
             continue;
         protect(document->renderView())->resetTextAutosizing();
     }
-#endif
 }
 
-#if ENABLE(TEXT_AUTOSIZING)
 void WebPage::scheduleTextAutosizingResetAfterLayout()
 {
     for (RefPtr frame = &m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
@@ -3266,9 +3278,6 @@ void WebPage::scheduleTextAutosizingResetAfterLayout()
         document->renderView()->setTextAutosizingState(RenderView::TextAutosizingState::ResetScheduled);
     }
 }
-#else
-void WebPage::scheduleTextAutosizingResetAfterLayout() { }
-#endif
 
 #if ENABLE(VIEWPORT_RESIZING)
 
@@ -3401,12 +3410,10 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 {
     double initialScale = m_viewportConfiguration.initialScale();
     double initialScaleIgnoringContentSize = m_viewportConfiguration.initialScaleIgnoringContentSize();
-#if ENABLE(TEXT_AUTOSIZING)
     double previousInitialScaleIgnoringContentSize = m_page->initialScaleIgnoringContentSize();
     protect(m_page)->setInitialScaleIgnoringContentSize(initialScaleIgnoringContentSize);
     resetIdempotentTextAutosizingIfNeeded(previousInitialScaleIgnoringContentSize);
     updateTextAutosizingEnablementFromInitialScale(initialScale);
-#endif
     if (setFixedLayoutSize(m_viewportConfiguration.layoutSize())) {
         // During a dynamic viewport size update (rotation/resize), the upcoming
         // layout may still see stale block widths from before the change, so
@@ -3926,12 +3933,15 @@ void WebPage::didEndUserTriggeredZooming()
 }
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-static std::optional<RemoteWebTouchEvent> transformEventIfNecessary(const Expected<bool, WebCore::RemoteFrameGeometryTransformer>& transformer, WebTouchEvent&& event)
+static std::optional<RemoteWebTouchEvent> transformEventIfNecessary(const std::expected<bool, WebCore::RemoteFrameGeometryTransformer>& transformer, const WebTouchEvent& event)
 {
     if (transformer)
         return std::nullopt;
-    event.transformToRemoteFrameCoordinates(transformer.error());
-    return RemoteWebTouchEvent { transformer.error().remoteFrameID(), WTF::move(event) };
+    // A deep copy: transforming mutates the event and its coalesced/predicted children in place, and
+    // the event we were handed is shared with the queue and its completion handlers.
+    Ref transformedEvent = event.copy();
+    transformedEvent->transformToRemoteFrameCoordinates(transformer.error());
+    return RemoteWebTouchEvent { transformer.error().remoteFrameID(), WTF::move(transformedEvent) };
 }
 
 void WebPage::dispatchAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEventQueue>&& queue)
@@ -3947,7 +3957,7 @@ void WebPage::dispatchAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEv
             completionHandler(handled, std::nullopt);
 
         // The last handler corresponds to the event that was actually dispatched.
-        touchEventData.completionHandlers.last()(handled, transformEventIfNecessary(handleTouchEventResult, WTF::move(touchEventData.event)));
+        touchEventData.completionHandlers.last()(handled, transformEventIfNecessary(handleTouchEventResult, touchEventData.event));
     }
 }
 
@@ -4109,9 +4119,9 @@ void WebPage::drawPrintingToSnapshotiOS(RemoteSnapshotIdentifier snapshotIdentif
 
     Ref remoteRenderingBackend = ensureRemoteRenderingBackendProxy();
     m_remoteSnapshotState = {
-        snapshotIdentifier,
-        remoteRenderingBackend->createSnapshotRecorder(snapshotIdentifier),
-        MainRunLoopSuccessCallbackAggregator::create([completionHandler = WTF::move(completionHandler), snapshotSize = mediaBox.size()] (bool success) mutable {
+        .identifier = snapshotIdentifier,
+        .recorder = remoteRenderingBackend->createSnapshotRecorder(mediaBox, snapshotIdentifier),
+        .callback = MainRunLoopSuccessCallbackAggregator::create([completionHandler = WTF::move(completionHandler), snapshotSize = mediaBox.size()] (bool success) mutable {
             completionHandler(success ? std::optional<FloatSize>(snapshotSize) : std::nullopt);
         })
     };
@@ -4140,7 +4150,7 @@ void WebPage::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, 
 
         auto snapshotRect = IntRect { FloatRect { { }, FloatSize { printInfo.availablePaperWidth, printInfo.availablePaperHeight } } };
 
-        RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::PDFDocument, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+        RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::PDFDocument, RenderingPurpose::Snapshot, 1, ColorSpace::SRGB(), PixelFormat::BGRA8);
         if (!buffer)
             return;
 
@@ -4196,9 +4206,9 @@ void WebPage::drawPrintingPagesToSnapshotiOS(RemoteSnapshotIdentifier snapshotId
 
     Ref remoteRenderingBackend = ensureRemoteRenderingBackendProxy();
     m_remoteSnapshotState = {
-        snapshotIdentifier,
-        remoteRenderingBackend->createSnapshotRecorder(snapshotIdentifier),
-        MainRunLoopSuccessCallbackAggregator::create([completionHandler = WTF::move(completionHandler), snapshotSize = mediaBox.size()] (bool success) mutable {
+        .identifier = snapshotIdentifier,
+        .recorder = remoteRenderingBackend->createSnapshotRecorder(mediaBox, snapshotIdentifier),
+        .callback = MainRunLoopSuccessCallbackAggregator::create([completionHandler = WTF::move(completionHandler), snapshotSize = mediaBox.size()] (bool success) mutable {
             completionHandler(success ? std::optional<FloatSize>(snapshotSize) : std::nullopt);
         })
     };

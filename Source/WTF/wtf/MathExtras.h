@@ -29,6 +29,7 @@
 #include <bit>
 #include <climits>
 #include <cmath>
+#include <concepts>
 #include <float.h>
 #include <limits>
 #include <numbers>
@@ -180,8 +181,11 @@ inline float roundevenf(float value)
 {
     float rounded = std::round(value);
     if (std::fabs(value - rounded) == 0.5f) {
-        if (std::fmod(rounded, 2.0f) != 0.0f)
-            return rounded - std::copysign(1.0f, value);
+        if (std::fmod(rounded, 2.0f) != 0.0f) {
+            // copysign is needed for the tie that rounds to zero: -0.5 lands on
+            // -1.0 - -1.0, which is +0.0, but roundeven(-0.5) is -0.0.
+            return std::copysign(rounded - std::copysign(1.0f, value), value);
+        }
     }
     return rounded;
 }
@@ -190,8 +194,11 @@ inline double roundeven(double value)
 {
     double rounded = std::round(value);
     if (std::fabs(value - rounded) == 0.5) {
-        if (std::fmod(rounded, 2.0) != 0.0)
-            return rounded - std::copysign(1.0, value);
+        if (std::fmod(rounded, 2.0) != 0.0) {
+            // copysign is needed for the tie that rounds to zero: -0.5 lands on
+            // -1.0 - -1.0, which is +0.0, but roundeven(-0.5) is -0.0.
+            return std::copysign(rounded - std::copysign(1.0, value), value);
+        }
     }
     return rounded;
 }
@@ -422,11 +429,15 @@ constexpr bool isMultipleOf(unsigned factor, T value)
     return factor && !(value % factor);
 }
 
-template<typename T> constexpr bool isLessThan(const T& a, const T& b) { return a < b; }
-template<typename T> constexpr bool isLessThanEqual(const T& a, const T& b) { return a <= b; }
-template<typename T> constexpr bool isGreaterThan(const T& a, const T& b) { return a > b; }
-template<typename T> constexpr bool isGreaterThanEqual(const T& a, const T& b) { return a >= b; }
 template<typename T> constexpr bool isInRange(const T& a, const T& min, const T& max) { return a >= min && a <= max; }
+
+// Unlike std::abs, this is defined for the most negative value of the type, whose magnitude a
+// signed type cannot represent.
+template<std::signed_integral SignedType> constexpr std::make_unsigned_t<SignedType> absoluteValueAsUnsigned(SignedType value)
+{
+    std::make_unsigned_t<SignedType> magnitude = value;
+    return value < 0 ? -magnitude : magnitude;
+}
 
 // decompose 'number' to its sign, exponent, and mantissa components.
 // The result is interpreted as:

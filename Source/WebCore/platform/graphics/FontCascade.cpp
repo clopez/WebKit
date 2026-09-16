@@ -400,7 +400,7 @@ NEVER_INLINE float FontCascade::widthForSimpleTextSlow(StringView text, TextDire
     else
         addGlyphsFromText(glyphBuffer, font, text.span16());
 
-    auto initialAdvance = font->applyTransforms(glyphBuffer, 0, 0, enableKerning(), requiresShaping(), fontDescription().computedLocale(), text, textDirection);
+    auto initialAdvance = font->applyTransforms(glyphBuffer, 0, 0, enableKerning(), requiresShaping(), fontDescription().usedLocale(), text, textDirection);
     auto result = 0.f;
     for (size_t i = 0; i < glyphBuffer.size(); ++i)
         result += WebCore::width(glyphBuffer.advanceAt(i));
@@ -446,7 +446,7 @@ float FontCascade::zeroWidth() const
     // This represents the advance measure of the glyph 0 (zero, the Unicode character U+0030)
     // in the element's font. In cases where it is impossible or impractical to determine the measure of the 0 glyph,
     // it must be assumed to be 0.5em
-    auto defaultZeroWidthValue = fontDescription().computedSize() / 2;
+    auto defaultZeroWidthValue = fontDescription().usedSize() / 2;
     if (!metricsOfPrimaryFont().zeroWidth())
         return defaultZeroWidthValue;
 

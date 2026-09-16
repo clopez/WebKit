@@ -158,6 +158,7 @@
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/TextStream.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 #include "PlatformTouchEventIOS.h"
@@ -2094,8 +2095,21 @@ HandleUserInputEventResult EventHandler::handleMousePressEvent(const PlatformMou
 
     if (!passedToScrollbar) {
         auto subframe = subframeForHitTestResult(mouseEvent);
-        if (auto remoteMouseEventData = userInputEventDataForRemoteFrame(dynamicDowncast<RemoteFrame>(subframe).get(), mouseEvent.hitTestResult().doublePointInInnerNodeFrame()))
-            return *remoteMouseEventData;
+        if (RefPtr remoteSubframe = dynamicDowncast<RemoteFrame>(subframe)) {
+            if (auto remoteMouseEventData = userInputEventDataForRemoteFrame(remoteSubframe, mouseEvent.hitTestResult().doublePointInInnerNodeFrame())) {
+                // Start capturing future events for this frame, mirroring the LocalFrame case below.
+                // Without this, a drag that leaves the remote subframe's on-screen bounds gets
+                // re-hit-tested into whatever's underneath instead of continuing to be delivered to
+                // the process that owns it.
+                if (m_mousePressed) {
+                    m_capturingMouseEventsElement = remoteSubframe->ownerElement();
+                    m_eventHandlerWillResetCapturingMouseEventsElement = true;
+                    if (!m_capturingMouseEventsElement)
+                        m_isCapturingRootElementForMouseEvents = true;
+                }
+                return *remoteMouseEventData;
+            }
+        }
 
         if (RefPtr localSubframe = dynamicDowncast<LocalFrame>(subframe)) {
             auto result = passMousePressEventToSubframe(mouseEvent, *localSubframe);
@@ -3585,7 +3599,8 @@ HandleUserInputEventResult EventHandler::handleWheelEventInternal(const Platform
     auto allowsScrollingState = SetForScope(m_currentWheelEventAllowsScrolling, processingSteps.contains(WheelEventProcessingSteps::SynchronousScrolling));
     
     setFrameWasScrolledByUser();
-    setLastKnownMousePosition(event.position(), event.globalPosition(), LastKnownMousePositionSource::Wheel);
+    if (event.inputSource() == MouseEventInputSource::UserDriven)
+        setLastKnownMousePosition(event.position(), event.globalPosition(), LastKnownMousePositionSource::Wheel);
 
     if (m_frame->isMainFrame()) {
         RefPtr page = m_frame->page();
@@ -4213,7 +4228,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     Ref frame = m_frame.get();
     RefPtr protectedView { frame->view() };
 
-    LOG(Editing, "EventHandler %p keyEvent (text %s keyIdentifier %s)", this, initialKeyEvent.text().utf8().data(), initialKeyEvent.keyIdentifier().utf8().data());
+    LOG_WITH_STREAM(Editing, stream << "EventHandler "_s << this << " keyEvent (text "_s << initialKeyEvent.text() << " keyIdentifier "_s << initialKeyEvent.keyIdentifier() << ")"_s);
 
 #if ENABLE(POINTER_LOCK)
     if (initialKeyEvent.type() == PlatformEvent::Type::KeyDown && initialKeyEvent.windowsVirtualKeyCode() == VK_ESCAPE && frame->page()->pointerLockController().element()) {
@@ -4932,7 +4947,7 @@ bool EventHandler::mouseMovementExceedsThreshold(const FloatPoint& viewportLocat
 
 bool EventHandler::handleTextInputEvent(const String& text, Event* underlyingEvent, TextEventInputType inputType)
 {
-    LOG(Editing, "EventHandler %p handleTextInputEvent (text %s)", this, text.utf8().data());
+    LOG_WITH_STREAM(Editing, stream << "EventHandler "_s << this << " handleTextInputEvent (text "_s << text << ")"_s);
 
     // Platforms should differentiate real commands like selectAll from text input in disguise (like insertNewline),
     // and avoid dispatching text input events from keydown default handlers.
@@ -5449,7 +5464,7 @@ static HitTestResult hitTestResultInFrame(LocalFrame* frame, const LayoutPoint& 
     return result;
 }
 
-Expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
+std::expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 {
     Ref frame = m_frame.get();
 

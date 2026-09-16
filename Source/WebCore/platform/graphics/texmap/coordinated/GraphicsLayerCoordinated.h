@@ -84,7 +84,9 @@ private:
     void setContentsClipShapePath(const Path&) override;
     void setContentsNeedsDisplay() override;
     void setContentsNeedsDisplayInRect(const FloatRect&) override;
-    void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) override;
+#if ENABLE(VIDEO) && USE(GSTREAMER)
+    void setContentsToMediaPlayer(MediaPlayer*, ContentsLayerPurpose) override;
+#endif
     void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose) override;
     RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate*) override;
     void setContentsToImage(Image*) override;
@@ -115,6 +117,7 @@ private:
     void setReplicatedByLayer(RefPtr<GraphicsLayer>&&) override;
     bool setBackdropFilters(const FilterOperations&) override;
     void setBackdropFiltersRect(const FloatRoundedRect&) override;
+    void setBackdropFiltersShapePath(const Path&) override;
     void setIsBackdropRoot(bool) override;
 
     bool addAnimation(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String&, double) override;
@@ -142,6 +145,7 @@ private:
         Backdrop,
         BackdropRect,
         BackdropRoot,
+        BackdropShapePath,
         BackgroundColor,
         BackfaceVisibility,
         BlendMode,

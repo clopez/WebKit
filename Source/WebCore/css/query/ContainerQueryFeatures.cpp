@@ -96,7 +96,7 @@ struct WidthFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        auto width = Style::adjustForAbsoluteZoom(renderer.contentBoxWidth(), renderer);
+        auto width = Style::unapplyingZoom<int>(renderer.contentBoxWidth(), renderer);
         return evaluateLengthFeature(feature, width, conversionData);
     }
 };
@@ -111,7 +111,7 @@ struct HeightFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        auto height = Style::adjustForAbsoluteZoom(renderer.contentBoxHeight(), renderer);
+        auto height = Style::unapplyingZoom<int>(renderer.contentBoxHeight(), renderer);
         return evaluateLengthFeature(feature, height, conversionData);
     }
 };
@@ -126,7 +126,7 @@ struct InlineSizeFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        auto logicalWidth = Style::adjustForAbsoluteZoom(renderer.contentBoxLogicalWidth(), renderer);
+        auto logicalWidth = Style::unapplyingZoom<int>(renderer.contentBoxLogicalWidth(), renderer);
         return evaluateLengthFeature(feature, logicalWidth, conversionData);
     }
 };
@@ -141,7 +141,7 @@ struct BlockSizeFeatureSchema : public SizeFeatureSchema {
 
     EvaluationResult evaluate(const MQ::Feature& feature, const RenderBox& renderer, const CSSToLengthConversionData& conversionData) const override
     {
-        auto logicalHeight = Style::adjustForAbsoluteZoom(renderer.contentBoxLogicalHeight(), renderer);
+        auto logicalHeight = Style::unapplyingZoom<int>(renderer.contentBoxLogicalHeight(), renderer);
         return evaluateLengthFeature(feature, logicalHeight, conversionData);
     }
 };
@@ -197,7 +197,11 @@ static std::optional<StyleRangeValue> evaluateStyleRangeValue(const Vector<CSSPa
         return { };
 
     auto& conversionData = context.conversionData;
-    auto parserState = CSS::PropertyParserState { .context = protect(context.document.get())->cssParserContext() };
+
+    auto parserState = CSS::PropertyParserState {
+        .context = protect(context.document.get())->cssParserContext(),
+        .treeCountingFunctionsAllowed = true,
+    };
 
     auto isFullyConsumed = [](CSSParserTokenRange consumed) {
         consumed.consumeWhitespace();
@@ -276,8 +280,9 @@ struct StyleFeatureSchema : public FeatureSchema {
     // https://drafts.csswg.org/css-mixins/#resolve-function-styles
     static const Style::LocalPropertyRegistry* localPropertyRegistry(const FeatureEvaluationContext& context)
     {
-        CheckedPtr builderState = context.conversionData.styleBuilderState();
-        return builderState ? builderState->localPropertyRegistry() : nullptr;
+        // Both evaluators that reach a style() feature, container queries and if(), have a builder state.
+        CheckedRef builderState = *context.conversionData.styleBuilderState();
+        return builderState->localPropertyRegistry();
     }
 
     // FeatureSchema conformance

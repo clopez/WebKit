@@ -40,6 +40,7 @@ InheritedRareData::InheritedRareData()
     , textStrokeColor(ComputedStyle::initialTextStrokeColor())
     , textFillColor(ComputedStyle::initialTextFillColor())
     , textEmphasisColor(ComputedStyle::initialTextEmphasisColor())
+    , colorForHighlight(Color::currentColor())
     , visitedLinkTextStrokeColor(ComputedStyle::initialTextStrokeColor())
     , visitedLinkTextFillColor(ComputedStyle::initialTextFillColor())
     , visitedLinkTextEmphasisColor(ComputedStyle::initialTextEmphasisColor())
@@ -60,6 +61,8 @@ InheritedRareData::InheritedRareData()
 #endif
     , listStyleType(ComputedStyle::initialListStyleType())
     , blockEllipsis(ComputedStyle::initialBlockEllipsis())
+    , borderHorizontalSpacing(ComputedStyle::initialBorderHorizontalSpacing())
+    , borderVerticalSpacing(ComputedStyle::initialBorderVerticalSpacing())
     , textIndent(ComputedStyle::initialTextIndent())
     , listStyleImage(ComputedStyle::initialListStyleImage())
     , dynamicRangeLimit(ComputedStyle::initialDynamicRangeLimit())
@@ -73,14 +76,13 @@ InheritedRareData::InheritedRareData()
     , lineGrid(ComputedStyle::initialLineGrid())
     , tabSize(ComputedStyle::initialTabSize())
     , strokeMiterLimit(ComputedStyle::initialStrokeMiterLimit())
-#if ENABLE(TEXT_AUTOSIZING)
     , textSizeAdjust(ComputedStyle::initialTextSizeAdjust())
-#endif
     , mathDepth(ComputedStyle::initialMathDepth())
     , textBoxEdge(ComputedStyle::initialTextBoxEdge())
     , lineFitEdge(ComputedStyle::initialLineFitEdge())
     , widows(ComputedStyle::initialWidows())
     , orphans(ComputedStyle::initialOrphans())
+    , internalHyphenateLimitCharsWord(ComputedStyle::initialInternalHyphenateLimitCharsWord())
     , hyphenateLimitBefore(ComputedStyle::initialHyphenateLimitBefore())
     , hyphenateLimitAfter(ComputedStyle::initialHyphenateLimitAfter())
     , hyphenateLimitLines(ComputedStyle::initialHyphenateLimitLines())
@@ -147,6 +149,7 @@ inline InheritedRareData::InheritedRareData(const InheritedRareData& o)
     , textStrokeColor(o.textStrokeColor)
     , textFillColor(o.textFillColor)
     , textEmphasisColor(o.textEmphasisColor)
+    , colorForHighlight(o.colorForHighlight)
     , visitedLinkTextStrokeColor(o.visitedLinkTextStrokeColor)
     , visitedLinkTextFillColor(o.visitedLinkTextFillColor)
     , visitedLinkTextEmphasisColor(o.visitedLinkTextEmphasisColor)
@@ -167,6 +170,8 @@ inline InheritedRareData::InheritedRareData(const InheritedRareData& o)
 #endif
     , listStyleType(o.listStyleType)
     , blockEllipsis(o.blockEllipsis)
+    , borderHorizontalSpacing(o.borderHorizontalSpacing)
+    , borderVerticalSpacing(o.borderVerticalSpacing)
     , textIndent(o.textIndent)
     , listStyleImage(o.listStyleImage)
     , dynamicRangeLimit(o.dynamicRangeLimit)
@@ -180,14 +185,13 @@ inline InheritedRareData::InheritedRareData(const InheritedRareData& o)
     , lineGrid(o.lineGrid)
     , tabSize(o.tabSize)
     , strokeMiterLimit(o.strokeMiterLimit)
-#if ENABLE(TEXT_AUTOSIZING)
     , textSizeAdjust(o.textSizeAdjust)
-#endif
     , mathDepth(o.mathDepth)
     , textBoxEdge(o.textBoxEdge)
     , lineFitEdge(o.lineFitEdge)
     , widows(o.widows)
     , orphans(o.orphans)
+    , internalHyphenateLimitCharsWord(o.internalHyphenateLimitCharsWord)
     , hyphenateLimitBefore(o.hyphenateLimitBefore)
     , hyphenateLimitAfter(o.hyphenateLimitAfter)
     , hyphenateLimitLines(o.hyphenateLimitLines)
@@ -262,6 +266,7 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
         && textStrokeColor == o.textStrokeColor
         && textFillColor == o.textFillColor
         && textEmphasisColor == o.textEmphasisColor
+        && colorForHighlight == o.colorForHighlight
         && visitedLinkTextStrokeColor == o.visitedLinkTextStrokeColor
         && visitedLinkTextFillColor == o.visitedLinkTextFillColor
         && visitedLinkTextEmphasisColor == o.visitedLinkTextEmphasisColor
@@ -292,9 +297,7 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
 #if ENABLE(WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY)
         && overflowScrolling == o.overflowScrolling
 #endif
-#if ENABLE(TEXT_AUTOSIZING)
         && textSizeAdjust == o.textSizeAdjust
-#endif
         && webkitUserSelect == o.webkitUserSelect
         && usedUserSelect == o.usedUserSelect
         && speakAs == o.speakAs
@@ -302,6 +305,7 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
         && hyphenateLimitBefore == o.hyphenateLimitBefore
         && hyphenateLimitAfter == o.hyphenateLimitAfter
         && hyphenateLimitLines == o.hyphenateLimitLines
+        && internalHyphenateLimitCharsWord == o.internalHyphenateLimitCharsWord
 #if ENABLE(DARK_MODE_CSS)
         && colorScheme == o.colorScheme
 #endif
@@ -357,6 +361,8 @@ bool InheritedRareData::operator==(const InheritedRareData& o) const
         && listStyleImage == o.listStyleImage
         && listStyleType == o.listStyleType
         && blockEllipsis == o.blockEllipsis
+        && borderHorizontalSpacing == o.borderHorizontalSpacing
+        && borderVerticalSpacing == o.borderVerticalSpacing
         && mathDepth == o.mathDepth;
 }
 
@@ -367,7 +373,6 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
 
     LOG_IF_DIFFERENT(usedZoom);
     LOG_IF_DIFFERENT(deviceScaleFactor);
-
     LOG_IF_DIFFERENT(listStyleImage);
 
     LOG_IF_DIFFERENT(textStrokeWidth);
@@ -375,6 +380,7 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
     LOG_IF_DIFFERENT(textStrokeColor);
     LOG_IF_DIFFERENT(textFillColor);
     LOG_IF_DIFFERENT(textEmphasisColor);
+    LOG_IF_DIFFERENT(colorForHighlight);
 
     LOG_IF_DIFFERENT(visitedLinkTextStrokeColor);
     LOG_IF_DIFFERENT(visitedLinkTextFillColor);
@@ -484,6 +490,7 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
     LOG_IF_DIFFERENT(visitedLinkStrokeColor);
 
     LOG_IF_DIFFERENT(hyphenateCharacter);
+    LOG_IF_DIFFERENT(internalHyphenateLimitCharsWord);
     LOG_IF_DIFFERENT(hyphenateLimitBefore);
     LOG_IF_DIFFERENT(hyphenateLimitAfter);
     LOG_IF_DIFFERENT(hyphenateLimitLines);
@@ -499,15 +506,17 @@ void InheritedRareData::dumpDifferences(TextStream& ts, const InheritedRareData&
     LOG_IF_DIFFERENT(lineGrid);
     LOG_IF_DIFFERENT(tabSize);
 
-#if ENABLE(TEXT_AUTOSIZING)
     LOG_IF_DIFFERENT(textSizeAdjust);
-#endif
+
 #if ENABLE(CSS_TAP_HIGHLIGHT_COLOR)
     LOG_IF_DIFFERENT(tapHighlightColor);
 #endif
 
     LOG_IF_DIFFERENT(listStyleType);
     LOG_IF_DIFFERENT(blockEllipsis);
+
+    LOG_IF_DIFFERENT(borderHorizontalSpacing);
+    LOG_IF_DIFFERENT(borderVerticalSpacing);
 
     LOG_IF_DIFFERENT(mathDepth);
 }

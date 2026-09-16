@@ -110,6 +110,17 @@ void WebsitePoliciesData::applyToSettings(const WebsitePoliciesData& websitePoli
     if (auto overrideValue = websitePolicies.overrideTouchEventDOMAttributesEnabled)
         settings.setTouchEventDOMAttributesEnabled(*overrideValue);
 #endif
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+    if (auto overrideValue = websitePolicies.overrideShouldReportZeroMaxTouchPoints)
+        settings.setShouldReportZeroMaxTouchPoints(*overrideValue);
+#endif
+
+    if (auto overrideValue = websitePolicies.overrideShouldReportViewportSizeAsScreenSize)
+        settings.setShouldReportViewportSizeAsScreenSize(*overrideValue);
+
+    if (auto overrideValue = websitePolicies.overrideShouldReportDesktopClassPointingDevice)
+        settings.setShouldReportDesktopClassPointingDevice(*overrideValue);
 }
 
 void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePolicies, WebCore::DocumentLoader& documentLoader)
@@ -235,6 +246,17 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
     if (auto overrideValue = websitePolicies.overrideTouchEventDOMAttributesEnabled)
         frame->settings().setTouchEventDOMAttributesEnabled(*overrideValue);
 #endif
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+    if (auto overrideValue = websitePolicies.overrideShouldReportZeroMaxTouchPoints)
+        frame->settings().setShouldReportZeroMaxTouchPoints(*overrideValue);
+#endif
+
+    if (auto overrideValue = websitePolicies.overrideShouldReportViewportSizeAsScreenSize)
+        frame->settings().setShouldReportViewportSizeAsScreenSize(*overrideValue);
+
+    if (auto overrideValue = websitePolicies.overrideShouldReportDesktopClassPointingDevice)
+        frame->settings().setShouldReportDesktopClassPointingDevice(*overrideValue);
 
     documentLoader.applyPoliciesToSettings();
 }

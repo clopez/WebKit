@@ -111,6 +111,7 @@ public:
     inline bool canContainFixedPositionObjects(const Style::ComputedStyle* styleToUse = nullptr) const; // Defined in RenderElementStyleInlines.h.
     inline bool canContainAbsolutelyPositionedObjects(const Style::ComputedStyle* styleToUse = nullptr) const; // Defined in RenderElementStyleInlines.h.
     bool canEstablishContainingBlockWithTransform() const;
+    RenderBlock* nearestNonAnonymousContainingBlockIncludingSelf() const;
 
     inline bool shouldApplyLayoutContainment() const; // Defined in RenderElementStyleInlines.h
     inline bool shouldApplySizeContainment() const; // Defined in RenderElementStyleInlines.h
@@ -122,7 +123,7 @@ public:
 
     bool hasEligibleContainmentForSizeQuery() const;
 
-    std::unique_ptr<Style::ComputedStyle> selectionPseudoStyle() const;
+    const Style::ComputedStyle* selectionPseudoStyle() const LIFETIME_BOUND;
 
     // Obtains the selection colors that should be used when painting a selection.
     Color selectionBackgroundColor() const;
@@ -259,10 +260,8 @@ public:
     bool hasCounterNodeMap() const { return m_hasCounterNodeMap; }
     void setHasCounterNodeMap(bool f) { m_hasCounterNodeMap = f; }
 
-#if ENABLE(TEXT_AUTOSIZING)
-    void adjustComputedFontSizesOnBlocks(float size, float visibleWidth);
+    void adjustFontSizesOnBlocks(float size, float visibleWidth);
     WEBCORE_EXPORT void resetTextAutosizing();
-#endif
 
     WEBCORE_EXPORT ImageOrientation imageOrientation() const;
 

@@ -186,6 +186,7 @@ void HTMLSelectElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     ScriptDisallowedScope::EventAllowedScope buttonSlotScope { buttonSlot };
     buttonSlot->setAttributeWithoutSynchronization(inertAttr, emptyAtom());
     buttonSlot->setAttributeWithoutSynchronization(nameAttr, buttonSlotName());
+    buttonSlot->setAttributeWithoutSynchronization(styleAttr, "text-overflow:inherit"_s);
     buttonSlot->appendChild(SelectFallbackButtonElement::create(document));
     root.appendChild(buttonSlot);
     m_buttonSlot = WTF::move(buttonSlot);
@@ -696,7 +697,7 @@ CompletionHandlerCallingScope HTMLSelectElement::optionToSelectFromChildChangeSc
     };
 
     RefPtr<HTMLOptionElement> optionToSelect;
-    if (change.type == ChildChange::Type::ElementInserted || change.type == ChildChange::Type::ElementAndTextInserted) {
+    if (change.type == ChildChange::Type::ElementInserted || change.type == ChildChange::Type::ElementAndTextInserted || change.type == ChildChange::Type::ElementMovedInto) {
         auto handleInsertedElement = [&](Element& insertedElement) {
             if (auto* option = dynamicDowncast<HTMLOptionElement>(insertedElement)) {
                 if (option->selectedWithoutUpdate())

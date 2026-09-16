@@ -44,7 +44,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorMemoryAgent);
 InspectorMemoryAgent::InspectorMemoryAgent(PageAgentContext& context)
     : InspectorAgentBase("Memory"_s, context)
     , m_frontendDispatcher(makeUniqueRef<Inspector::MemoryFrontendDispatcher>(context.frontendRouter))
-    , m_backendDispatcher(Inspector::MemoryBackendDispatcher::create(context.backendDispatcher, this))
+    , m_backendDispatcher(Inspector::MemoryBackendDispatcher::create(protect(context.backendDispatcher), this))
 {
 }
 
@@ -93,8 +93,9 @@ Inspector::Protocol::ErrorStringOr<void> InspectorMemoryAgent::startTracking()
     if (m_tracking)
         return { };
 
-    ResourceUsageThread::addObserver(this, Memory, [this] (const ResourceUsageData& data) {
-        collectSample(data);
+    ResourceUsageThread::addObserver(this, Memory, [weakThis = WeakPtr { *this }] (const ResourceUsageData& data) {
+        if (CheckedPtr agent = weakThis.get())
+            agent->collectSample(data);
     });
 
     m_tracking = true;

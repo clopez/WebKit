@@ -1,11 +1,7 @@
 set(MACOSX_FRAMEWORK_IDENTIFIER com.apple.WebCore)
-if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (WebCore_INSTALL_NAME_DIR)
     set_target_properties(WebCore PROPERTIES
         INSTALL_NAME_DIR "${WebCore_INSTALL_NAME_DIR}"
-    )
-    target_link_options(WebCore PRIVATE
-        -compatibility_version 1.0.0
-        -current_version ${WEBKIT_MAC_VERSION}
     )
 endif ()
 
@@ -18,10 +14,10 @@ target_compile_options(WebCore PRIVATE
 
 target_compile_options(WebCore PRIVATE ${WEBKIT_PRIVATE_FRAMEWORKS_COMPILE_FLAG})
 
-target_link_options(WebCore PRIVATE -weak_framework BrowserEngineKit)
+target_link_options(WebCore PRIVATE "LINKER:-weak_framework,BrowserEngineKit")
 
 target_link_options(WebCore PRIVATE
-    -Wl,-unexported_symbols_list,${WEBCORE_DIR}/Configurations/WebCore.unexp
+    "LINKER:-unexported_symbols_list,${WEBCORE_DIR}/Configurations/WebCore.unexp"
 )
 
 find_library(ACCELERATE_LIBRARY Accelerate)
@@ -78,7 +74,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
     "SourcesCocoa.txt"
 )
 # FIXME: Test building on iOS and then enable on iOS.
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
     list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
         "SourcesCMakeCocoa.txt"
     )
@@ -154,9 +150,7 @@ if (ACCESSIBILITYSUPPORT_LIBRARY)
     list(APPEND WebCore_LIBRARIES ${ACCESSIBILITYSUPPORT_LIBRARY})
 endif ()
 
-if (USE_LIBWEBRTC)
-    list(APPEND WebCore_PRIVATE_LIBRARIES webrtc opus vpx webm yuv libsrtp webrtc_objc_categories)
-else ()
+if (NOT USE_LIBWEBRTC)
     set(_webm_parser_dir "${CMAKE_SOURCE_DIR}/Source/ThirdParty/libwebrtc/Source/third_party/libwebm/webm_parser")
     file(GLOB _webm_parser_srcs "${_webm_parser_dir}/src/*.cc")
     add_library(WebMParser OBJECT ${_webm_parser_srcs})
@@ -173,15 +167,15 @@ if (ENABLE_AV1)
 endif ()
 
 if (NOT ENABLE_WEBGPU)
-    if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        list(APPEND WebCore_PRIVATE_LIBRARIES "-Wl,-undefined,dynamic_lookup")
+    if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
+        target_link_options(WebCore PRIVATE "LINKER:-undefined,dynamic_lookup")
     endif ()
 else ()
     list(APPEND WebCore_LIBRARIES "$<TARGET_LINKER_FILE:WebGPU>")
     list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/WebGPU/Headers")
 endif ()
 
-set(WebCore_EXTRA_LINK_OPTIONS "SHELL:-Wl,-force_load $<TARGET_FILE:PAL>")
+set(WebCore_EXTRA_LINK_OPTIONS "LINKER:-force_load,$<TARGET_FILE:PAL>")
 
 find_library(COREUI_FRAMEWORK CoreUI HINTS ${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks)
 if (COREUI_FRAMEWORK)
@@ -489,7 +483,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cocoa/GraphicsContextCocoa.mm
     platform/graphics/cocoa/GraphicsContextGLCocoa.mm
     platform/graphics/cocoa/IOSurface.mm
-    platform/graphics/cocoa/IOSurfaceDrawingBuffer.cpp
     platform/graphics/cocoa/IOSurfacePoolCocoa.mm
     platform/graphics/cocoa/IntRectCocoa.mm
     platform/graphics/cocoa/MediaPlayerEnumsCocoa.mm
@@ -531,21 +524,19 @@ list(APPEND WebCore_SOURCES
     platform/mediastream/libwebrtc/LibWebRTCDav1dDecoder.cpp
 
     platform/network/cf/CertificateInfoCFNet.cpp
+    platform/network/cf/CookieStorageSessionCFNet.cpp
     platform/network/cf/DNSResolveQueueCFNet.cpp
     platform/network/cf/FormDataStreamCFNet.mm
-    platform/network/cf/NetworkStorageSessionCFNet.cpp
     platform/network/cf/ResourceRequestCFNet.cpp
 
     platform/network/cocoa/AuthenticationCocoa.mm
     platform/network/cocoa/BlobDataFileReferenceCocoa.mm
     platform/network/cocoa/CookieCocoa.mm
-    platform/network/cocoa/CookieStorageCocoa.mm
-    platform/network/cocoa/CookieStorageObserver.mm
+    platform/network/cocoa/CookieStorageSessionCocoa.mm
     platform/network/cocoa/CredentialCocoa.mm
     platform/network/cocoa/CredentialStorageCocoa.mm
     platform/network/cocoa/FormDataStreamCocoa.mm
     platform/network/cocoa/NetworkLoadMetrics.mm
-    platform/network/cocoa/NetworkStorageSessionCocoa.mm
     platform/network/cocoa/ProtectionSpaceCocoa.mm
     platform/network/cocoa/ResourceErrorCocoa.mm
     platform/network/cocoa/ResourceHandleCocoa.mm
@@ -570,8 +561,6 @@ list(APPEND WebCore_SOURCES
     testing/MockContentFilterManager.cpp
     testing/MockContentFilterSettings.cpp
     testing/MockParentalControlsURLFilter.mm
-
-    workers/service/ServiceWorkerRoute.mm
 )
 
 if (WEBKIT_SDK_IS_MACOS)
@@ -615,7 +604,7 @@ list(APPEND WebCore_SOURCES
     platform/mac/PlatformEventFactoryMac.mm
     platform/mac/PlatformPasteboardMac.mm
     platform/mac/PlatformScreenMac.mm
-    platform/mac/PowerObserverMac.cpp
+    platform/mac/PowerObserverMac.mm
     platform/mac/RevealUtilities.mm
     platform/mac/ScrollAnimatorMac.mm
     platform/mac/ScrollViewMac.mm
@@ -1030,7 +1019,6 @@ list(REMOVE_ITEM WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     page/DOMSelection.h
     page/GetComposedRangesOptions.h
-    page/LocalFrameViewInlines.h
     page/NavigationNavigationType.h
     page/NavigatorLoginStatus.h
     page/NavigatorUAData.h
@@ -1061,6 +1049,8 @@ list(REMOVE_ITEM WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/angle/ANGLEHeaders.h
 
+    platform/graphics/egl/BitmapTexture.h
+    platform/graphics/egl/BitmapTexturePool.h
     platform/graphics/egl/GLContext.h
     platform/graphics/egl/GLContextWrapper.h
     platform/graphics/egl/GLDisplay.h
@@ -1318,6 +1308,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/avfoundation/AudioSourceProviderAVFObjC.h
     platform/graphics/avfoundation/AudioVideoRendererAVFObjC.h
     platform/graphics/avfoundation/ISOFairPlayStreamingPsshBox.h
+    platform/graphics/avfoundation/ImageDecoderFactoryAVF.h
     platform/graphics/avfoundation/InbandTextTrackPrivateAVF.h
     platform/graphics/avfoundation/MediaPlaybackTargetCocoa.h
     platform/graphics/avfoundation/MediaPlayerPrivateAVFoundation.h
@@ -1362,6 +1353,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cg/ImageDecoderCG.h
     platform/graphics/cg/PDFDocumentImage.h
     platform/graphics/cg/PathCG.h
+    platform/graphics/cg/ShareableSpatialImage.h
+    platform/graphics/cg/SpatialImageTypes.h
     platform/graphics/cg/UTIRegistry.h
 
     platform/graphics/cocoa/AV1UtilitiesCocoa.h
@@ -1482,7 +1475,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/cf/ResourceResponse.h
 
     platform/network/cocoa/AuthenticationCocoa.h
-    platform/network/cocoa/CookieStorageObserver.h
     platform/network/cocoa/CredentialCocoa.h
     platform/network/cocoa/FormDataStreamCocoa.h
     platform/network/cocoa/HTTPCookieAcceptPolicyCocoa.h

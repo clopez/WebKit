@@ -390,6 +390,7 @@ int Element::defaultTabIndex() const
 bool Element::isNonceable() const
 {
     // https://www.w3.org/TR/CSP3/#is-element-nonceable
+    // '<link' is not in the published algorithm yet. See https://github.com/w3c/webappsec-csp/pull/810
     if (elementRareData()->nonce().isNull())
         return false;
 
@@ -399,14 +400,17 @@ bool Element::isNonceable() const
     if (hasAttributes() && isAnyOf<HTMLScriptElement, SVGScriptElement>(*this)) {
         static constexpr auto scriptString = "<script"_s;
         static constexpr auto styleString = "<style"_s;
+        static constexpr auto linkString = "<link"_s;
 
         for (auto& attribute : attributes()) {
             auto name = attribute.localNameLowercase();
             auto value = attribute.value();
             if (name.contains(scriptString)
                 || name.contains(styleString)
+                || name.contains(linkString)
                 || value.containsIgnoringASCIICase(scriptString)
-                || value.containsIgnoringASCIICase(styleString))
+                || value.containsIgnoringASCIICase(styleString)
+                || value.containsIgnoringASCIICase(linkString))
                 return false;
         }
     }
@@ -1447,8 +1451,8 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
         return;
 
     auto scrollToOptions = normalizeNonFiniteCoordinatesOrFallBackTo(options,
-        Style::adjustForAbsoluteZoom(renderer->scrollLeft(), *renderer),
-        Style::adjustForAbsoluteZoom(renderer->scrollTop(), *renderer)
+        Style::unapplyingZoom<int>(renderer->scrollLeft(), *renderer),
+        Style::unapplyingZoom<int>(renderer->scrollTop(), *renderer)
     );
     IntPoint scrollPosition(
         clampTo<int>(scrollToOptions.left.value() * renderer->style().usedZoom()),
@@ -1590,7 +1594,7 @@ int Element::offsetWidth()
     protect(document())->updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Width, { LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::IgnorePendingStylesheets });
     if (CheckedPtr renderer = renderBoxModelObject()) {
         auto offsetWidth = LayoutUnit { roundToInt(renderer->offsetWidth()) };
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(offsetWidth, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(offsetWidth, *renderer).toDouble());
     }
     return 0;
 }
@@ -1600,7 +1604,7 @@ int Element::offsetHeight()
     protect(document())->updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Height, { LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::IgnorePendingStylesheets });
     if (CheckedPtr renderer = renderBoxModelObject()) {
         auto offsetHeight = LayoutUnit { roundToInt(renderer->offsetHeight()) };
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(offsetHeight, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(offsetHeight, *renderer).toDouble());
     }
     return 0;
 }
@@ -1631,7 +1635,7 @@ int Element::clientLeft()
 
     if (CheckedPtr renderer = renderBox()) {
         auto clientLeft = LayoutUnit { roundToInt(renderer->borderLeft()) };
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(clientLeft, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(clientLeft, *renderer).toDouble());
     }
     return 0;
 }
@@ -1642,7 +1646,7 @@ int Element::clientTop()
 
     if (CheckedPtr renderer = renderBox()) {
         auto clientTop = LayoutUnit { roundToInt(renderer->borderTop()) };
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(clientTop, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(clientTop, *renderer).toDouble());
     }
     return 0;
 }
@@ -1652,7 +1656,7 @@ int Element::clientWidth()
     Ref document = this->document();
     document->updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Width, { LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::IgnorePendingStylesheets });
 
-    if (!document->hasLivingRenderTree())
+    if (document->renderTreeState() != Document::RenderTreeState::Built)
         return 0;
 
     CheckedRef renderView = *document->renderView();
@@ -1661,7 +1665,7 @@ int Element::clientWidth()
     // When in quirks mode, clientWidth for the body element should return the width of the containing frame.
     bool inQuirksMode = document->inQuirksMode();
     if ((!inQuirksMode && document->documentElement() == this) || (inQuirksMode && isHTMLElement() && document->bodyOrFrameset() == this))
-        return Style::adjustForAbsoluteZoom(protect(renderView->frameView())->layoutWidth(), renderView);
+        return Style::unapplyingZoom<int>(protect(renderView->frameView())->layoutWidth(), renderView);
     
     if (CheckedPtr renderer = renderBox()) {
         auto clientWidth = LayoutUnit { roundToInt(renderer->paddingBoxWidth()) };
@@ -1680,7 +1684,7 @@ int Element::clientWidth()
                 clientWidth += renderer->paddingLeft() + renderer->paddingRight();
             clientWidth += renderer->borderLeft() + renderer->borderRight();
         }
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(clientWidth, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(clientWidth, *renderer).toDouble());
     }
     return 0;
 }
@@ -1689,7 +1693,7 @@ int Element::clientHeight()
 {
     Ref document = this->document();
     document->updateLayoutIfDimensionsOutOfDate(*this, DimensionsCheck::Height, { LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible, LayoutOptions::IgnorePendingStylesheets });
-    if (!document->hasLivingRenderTree())
+    if (document->renderTreeState() != Document::RenderTreeState::Built)
         return 0;
 
     CheckedRef renderView = *document->renderView();
@@ -1698,7 +1702,7 @@ int Element::clientHeight()
     // When in quirks mode, clientHeight for the body element should return the height of the containing frame.
     bool inQuirksMode = document->inQuirksMode();
     if ((!inQuirksMode && document->documentElement() == this) || (inQuirksMode && isHTMLElement() && document->bodyOrFrameset() == this))
-        return Style::adjustForAbsoluteZoom(protect(renderView->frameView())->layoutHeight(), renderView);
+        return Style::unapplyingZoom<int>(protect(renderView->frameView())->layoutHeight(), renderView);
 
     if (CheckedPtr renderer = renderBox()) {
         auto clientHeight = LayoutUnit { roundToInt(renderer->paddingBoxHeight()) };
@@ -1717,7 +1721,7 @@ int Element::clientHeight()
                 clientHeight += renderer->paddingTop() + renderer->paddingBottom();
             clientHeight += renderer->borderTop() + renderer->borderBottom();
         }
-        return convertToNonSubpixelValue(Style::adjustLayoutUnitForAbsoluteZoom(clientHeight, *renderer).toDouble());
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(clientHeight, *renderer).toDouble());
     }
     return 0;
 }
@@ -1757,7 +1761,7 @@ int Element::scrollLeft()
     }
 
     if (CheckedPtr renderer = renderBox())
-        return Style::adjustForAbsoluteZoom(renderer->scrollLeft(), *renderer);
+        return Style::unapplyingZoom<int>(renderer->scrollLeft(), *renderer);
     return 0;
 }
 
@@ -1773,7 +1777,7 @@ int Element::scrollTop()
     }
 
     if (CheckedPtr renderer = renderBox())
-        return Style::adjustForAbsoluteZoom(renderer->scrollTop(), *renderer);
+        return Style::unapplyingZoom<int>(renderer->scrollTop(), *renderer);
     return 0;
 }
 
@@ -1846,8 +1850,10 @@ int Element::scrollWidth()
         return 0;
     }
 
-    if (CheckedPtr renderer = renderBox())
-        return Style::adjustForAbsoluteZoom(renderer->scrollWidth(), *renderer);
+    if (CheckedPtr renderer = renderBox()) {
+        auto scrollWidth = LayoutUnit { renderer->scrollWidth() };
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(scrollWidth, *renderer).toDouble());
+    }
     return 0;
 }
 
@@ -1864,8 +1870,10 @@ int Element::scrollHeight()
         return 0;
     }
 
-    if (CheckedPtr renderer = renderBox())
-        return Style::adjustForAbsoluteZoom(renderer->scrollHeight(), *renderer);
+    if (CheckedPtr renderer = renderBox()) {
+        auto scrollHeight = LayoutUnit { renderer->scrollHeight() };
+        return convertToNonSubpixelValue(Style::unapplyingZoom<LayoutUnit>(scrollHeight, *renderer).toDouble());
+    }
     return 0;
 }
 
@@ -2339,7 +2347,7 @@ bool Element::isElementReflectionAttribute(const Settings& settings, const Quali
 {
     return name == HTMLNames::aria_activedescendantAttr
         || (settings.popoverAttributeEnabled() && name == HTMLNames::popovertargetAttr)
-        || (settings.commandAttributesEnabled() && name == HTMLNames::commandforAttr);
+        || name == HTMLNames::commandforAttr;
 }
 
 bool Element::isElementsArrayReflectionAttribute(const QualifiedName& name)
@@ -2468,7 +2476,7 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
         }
         break;
     case AttributeNames::accesskeyAttr:
-        document().invalidateAccessKeyCache();
+        protect(document())->invalidateAccessKeyCache();
         break;
     case AttributeNames::dirAttr:
         dirAttributeChanged(newValue);
@@ -2886,11 +2894,12 @@ bool Element::computedStyleIsDisplayNone()
 
 void Element::storeDisplayContentsOrNoneStyle(std::unique_ptr<Style::ComputedStyle> style)
 {
-    // This is used by RenderTreeUpdater to store the style for Elements with display:{contents|none}.
+    // This is used by RenderTreeUpdater to store the style for Elements with display:{contents|none}, and for
+    // renderer-less Elements that still need it (see renderOrDisplayContentsStyle()).
     // Normally style is held in renderers but display:contents doesn't generate one.
     // This is kept distinct from ElementRareData::computedStyle() which can update outside style resolution.
     // This way renderOrDisplayContentsStyle() always returns consistent styles matching the rendering state.
-    ASSERT(style && (style->display() == Style::DisplayType::Contents || style->display() == Style::DisplayType::None));
+    ASSERT(style);
     ASSERT(!renderer() || isPseudoElement());
     ensureElementRareData().setDisplayContentsOrNoneStyle(WTF::move(style));
 }
@@ -3292,9 +3301,6 @@ void Element::removingSteps(RemovalType removalType, ContainerNode& oldParentOfR
         if (isInTopLayer()) [[unlikely]]
             removeFromTopLayer();
 
-        if (oldDocument->cssTarget() == this)
-            oldDocument->setCSSTarget(nullptr);
-
         if (isDefinedCustomElement()) [[unlikely]]
             CustomElementReactionQueue::enqueueDisconnectedCallbackIfNeeded(*this);
     }
@@ -3327,7 +3333,7 @@ void Element::removingSteps(RemovalType removalType, ContainerNode& oldParentOfR
     }
 }
 
-void Element::movingSteps(bool isSubtreeRoot, ContainerNode& oldParent)
+void Element::movingSteps(IsSubtreeRoot isSubtreeRoot, ContainerNode& oldParent)
 {
     ContainerNode::movingSteps(isSubtreeRoot, oldParent);
 
@@ -3361,7 +3367,7 @@ void Element::movingSteps(bool isSubtreeRoot, ContainerNode& oldParent)
 
     updateEffectiveLangState();
 
-    if (!isSubtreeRoot || !hasFocusWithin())
+    if (isSubtreeRoot == IsSubtreeRoot::No || !hasFocusWithin())
         return;
 
     if (RefPtr oldParentElement = dynamicDowncast<Element>(oldParent))
@@ -3769,7 +3775,10 @@ void Element::childrenChanged(const ChildChange& change)
         switch (change.type) {
         case ChildChange::Type::ElementInserted:
         case ChildChange::Type::ElementRemoved:
+        case ChildChange::Type::ElementMovedFrom:
+        case ChildChange::Type::ElementMovedInto:
             // For elements, we notify shadowRoot in Element::insertionSteps and Element::removingSteps.
+            // FIXME(321178): Need to notify shadowRoot when elements are moved.
             break;
         case ChildChange::Type::AllChildrenRemoved:
         case ChildChange::Type::AllChildrenReplaced:
@@ -3779,10 +3788,14 @@ void Element::childrenChanged(const ChildChange& change)
         case ChildChange::Type::TextInserted:
         case ChildChange::Type::TextRemoved:
         case ChildChange::Type::TextChanged:
+        case ChildChange::Type::TextMovedFrom:
+        case ChildChange::Type::TextMovedInto:
             shadowRoot->didMutateTextNodesOfShadowHost();
             break;
         case ChildChange::Type::NonContentsChildInserted:
         case ChildChange::Type::NonContentsChildRemoved:
+        case ChildChange::Type::NonContentsChildMovedFrom:
+        case ChildChange::Type::NonContentsChildMovedInto:
             break;
         }
     }
@@ -4308,8 +4321,11 @@ void Element::focus(const FocusOptions& options)
         newTarget = findFocusDelegateForTarget(*root, options.trigger);
         if (!newTarget)
             return;
-    } else if (!isProgramaticallyFocusable(*newTarget))
+    } else if (!isProgramaticallyFocusable(*newTarget)) {
+        if (this == document->documentElement())
+            document->setFocusedElement(nullptr);
         return;
+    }
 
     if (RefPtr page = document->page()) {
         Ref frame = *document->frame();
@@ -4811,6 +4827,12 @@ const Style::ComputedStyle* Element::renderOrDisplayContentsStyle(const std::opt
 
     if (hasDisplayContents())
         return elementRareData()->displayContentsOrNoneStyle();
+
+    if (!renderer() && hasRareData()) {
+        auto* style = elementRareData()->displayContentsOrNoneStyle();
+        if (style && style->display() != Style::DisplayType::None)
+            return style;
+    }
 
     return renderStyle();
 }
@@ -6650,7 +6672,7 @@ RefPtr<HTMLElement> Element::topmostPopoverAncestor(TopLayerElementType topLayer
     HashMap<Ref<const Element>, size_t> topLayerPositions;
     size_t i = 0;
     for (auto& element : document().topLayerElements()) {
-        if (auto* htmlElement = dynamicDowncast<HTMLElement>(element.get())) {
+        if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(element.get())) {
             if (htmlElement->popoverData() && htmlElement->popoverData()->visibilityState() == PopoverVisibilityState::Showing
                 && (htmlElement->popoverState() == PopoverState::Auto || (considerHints && htmlElement->popoverState() == PopoverState::Hint)))
                 topLayerPositions.add(element, i++);

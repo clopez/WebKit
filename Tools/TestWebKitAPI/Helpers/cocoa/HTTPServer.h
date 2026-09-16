@@ -40,6 +40,7 @@
 #import <wtf/text/StringHash.h>
 
 OBJC_CLASS NSURLRequest;
+OBJC_CLASS HTTPServerBridge;
 
 namespace TestWebKitAPI {
 
@@ -58,6 +59,7 @@ public:
         Vector<Connection> connections;
         Vector<CoroutineHandle<ConnectionTask::promise_type>> coroutineHandles;
         String lastRequestCookies;
+        bool sawAuthorizationHeader { false };
     };
 
     enum class Protocol : uint8_t {
@@ -68,7 +70,8 @@ public:
         Http2,
         Http3,
         HttpsProxy,
-        HttpsProxyWithAuthentication
+        HttpsProxyWithAuthentication,
+        Http2Proxy,
     };
     enum class DeferListening : bool { No, Yes };
     using CertificateVerifier = Function<void(sec_protocol_metadata_t, sec_trust_t, sec_protocol_verify_complete_t)>;
@@ -90,6 +93,7 @@ public:
     size_t totalConnections() const;
     size_t totalRequests() const;
     String lastRequestCookies() const;
+    bool sawAuthorizationHeader() const;
     void startListening(CompletionHandler<void()>&&);
     void cancel(CompletionHandler<void()>&&);
     void cancel();
@@ -101,6 +105,7 @@ public:
     static void respondWithOK(Connection);
     static void respondWithChallengeThenOK(Connection);
     static String parseCookies(const Vector<char>& request);
+    static String parseAuthorization(const Vector<char>& request);
     static String parsePath(const Vector<char>& request);
     static String parseBody(const Vector<char>&);
     static Vector<uint8_t> testPrivateKey();
@@ -116,6 +121,7 @@ private:
 
     Ref<RequestData> m_requestData;
     RetainPtr<nw_listener_t> m_listener;
+    RetainPtr<HTTPServerBridge> m_serverBridge;
     Protocol m_protocol { Protocol::Http };
 } SWIFT_NAME(__CxxHTTPServer);
 
@@ -130,13 +136,13 @@ struct HTTPResponse {
         : body(WTF::move(body)) { }
     HTTPResponse(const String& body)
         : body(bodyFromString(body)) { }
-    HTTPResponse(HashMap<String, String>&& headerFields, const String& body)
+    HTTPResponse(Vector<WTF::KeyValuePair<String, String>>&& headerFields, const String& body)
         : headerFields(WTF::move(headerFields))
         , body(bodyFromString(body)) { }
-    HTTPResponse(HashMap<String, String>&& headerFields, NSData *data)
+    HTTPResponse(Vector<WTF::KeyValuePair<String, String>>&& headerFields, NSData *data)
         : headerFields(WTF::move(headerFields))
         , body(makeVector(data)) { }
-    HTTPResponse(unsigned statusCode, HashMap<String, String>&& headerFields = { }, const String& body = { })
+    HTTPResponse(unsigned statusCode, Vector<WTF::KeyValuePair<String, String>>&& headerFields = { }, const String& body = { })
         : statusCode(statusCode)
         , headerFields(WTF::move(headerFields))
         , body(bodyFromString(body)) { }
@@ -157,12 +163,17 @@ struct HTTPResponse {
         headerFieldsFor304 = WTF::move(headerFields);
     }
 
+    void setHeaderField(String&& name, String&& value)
+    {
+        headerFields.append({ WTF::move(name), WTF::move(value) });
+    }
+
     enum class IncludeContentLength : bool { No, Yes };
     Vector<uint8_t> serialize(IncludeContentLength = IncludeContentLength::Yes) const;
     static Vector<uint8_t> bodyFromString(const String&);
 
     unsigned statusCode { 200 };
-    HashMap<String, String> headerFields;
+    Vector<WTF::KeyValuePair<String, String>> headerFields;
     Vector<uint8_t> body;
     Behavior behavior { Behavior::SendResponseNormally };
     bool shouldRespondWith304ToConditionalRequests { false };

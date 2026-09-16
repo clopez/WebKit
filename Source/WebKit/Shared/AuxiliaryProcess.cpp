@@ -116,7 +116,7 @@ void AuxiliaryProcess::initialize(AuxiliaryProcessInitializationParameters&& par
     PAL::SessionID::enableGenerationProtection();
     WebPageProxyIdentifier::enableGenerationProtection();
 
-    Ref connection = IPC::Connection::createClientConnection(WTF::move(parameters.connectionIdentifier));
+    Ref connection = IPC::Connection::createClientConnection(WTF::move(parameters.connectionIdentifier), connectionReceiveQueueQOS());
     lazyInitialize(m_connection, connection.copyRef());
     initializeConnection(connection.ptr());
     connection->open(*this);
@@ -292,7 +292,7 @@ void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationPar
 
 void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, const Vector<uint32_t>&)
 {
-    WTFLogAlways("Received invalid message: '%s'", description(messageName).characters());
+    SAFE_WTFLOGALWAYS("Received invalid message: '%s'", description(messageName));
     CRASH();
 }
 

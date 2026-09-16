@@ -37,6 +37,7 @@
 #include "RenderDescendantIterator.h"
 #include "RenderElementInlines.h"
 #include "RenderElementStyleInlines.h"
+#include "RenderGlyph.h"
 #include "RenderImage.h"
 #include "RenderQuote.h"
 #include "RenderTextFragment.h"
@@ -127,6 +128,13 @@ void RenderTreeUpdater::GeneratedContent::updateCounters()
     update();
 }
 
+void RenderTreeUpdater::GeneratedContent::updateListMarkers()
+{
+    // The markers were collected by the builder as it changed the tree, since a marker's text is made of its list
+    // item's list-item counter value and that is only settled once the tree is done changing.
+    m_updater.m_builder.updateListMarkerContents();
+}
+
 static KeyframeEffectStack* NODELETE keyframeEffectStackForPseudoElement(const Element& element, PseudoElementType pseudoElementType)
 {
     if (!element.mayHaveKeyframeEffects())
@@ -171,6 +179,13 @@ static RenderPtr<RenderObject> createContentRenderer(const Style::Content::Quote
 {
     auto contentRenderer = createRenderer<RenderQuote>(document, Style::ComputedStyle::createStyleInheritingFromPseudoStyle(pseudoStyle), value.quote);
     contentRenderer->initializeStyle();
+    return contentRenderer;
+}
+
+static RenderPtr<RenderObject> createContentRenderer(const Style::Content::Glyph& value, const String& altText, Document& document, const Style::ComputedStyle&)
+{
+    auto contentRenderer = createRenderer<RenderGlyph>(document, value.glyph);
+    contentRenderer->setAltText(altText);
     return contentRenderer;
 }
 

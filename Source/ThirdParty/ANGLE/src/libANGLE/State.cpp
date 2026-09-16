@@ -103,20 +103,7 @@ T *AllocateOrGetSharedResourceManager(const State *shareContextState,
 // refactory done.
 bool IsTextureCompatibleWithSampler(TextureType texture, TextureType sampler)
 {
-    if (sampler == texture)
-    {
-        return true;
-    }
-
-    if (sampler == TextureType::VideoImage)
-    {
-        if (texture == TextureType::VideoImage || texture == TextureType::_2D)
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return sampler == texture;
 }
 
 // While pixel local storage is active, the drawbuffers on and after 'firstPLSDrawBuffer'
@@ -472,8 +459,6 @@ void PrivateState::initialize(Context *context)
     mMultiSampling    = true;
     mSampleAlphaToOne = false;
 
-    mCoverageModulation = GL_NONE;
-
     // This coherent blending is enabled by default, but can be enabled or disabled by calling
     // glEnable() or glDisable() with the symbolic constant GL_BLEND_ADVANCED_COHERENT_KHR.
     mBlendAdvancedCoherent = true;
@@ -673,8 +658,7 @@ void PrivateState::setClipControl(ClipOrigin origin, ClipDepthMode depth)
 
     if (updated)
     {
-        mDirtyBits.set(state::DIRTY_BIT_EXTENDED);
-        mExtendedDirtyBits.set(state::EXTENDED_DIRTY_BIT_CLIP_CONTROL);
+        mDirtyBits.set(state::DIRTY_BIT_CLIP_CONTROL);
     }
 }
 
@@ -1214,15 +1198,6 @@ void PrivateState::setUnpackSkipPixels(GLint skipPixels)
 {
     mUnpack.skipPixels = skipPixels;
     mDirtyBits.set(state::DIRTY_BIT_UNPACK_STATE);
-}
-
-void PrivateState::setCoverageModulation(GLenum components)
-{
-    if (mCoverageModulation != components)
-    {
-        mCoverageModulation = components;
-        mDirtyBits.set(state::DIRTY_BIT_COVERAGE_MODULATION);
-    }
 }
 
 void PrivateState::setFramebufferSRGB(bool sRGB)
@@ -2031,9 +2006,6 @@ void PrivateState::getFloatv(GLenum pname, GLfloat *params) const
         case GL_SAMPLE_ALPHA_TO_ONE_EXT:
             *params = static_cast<GLfloat>(mSampleAlphaToOne);
             break;
-        case GL_COVERAGE_MODULATION_CHROMIUM:
-            params[0] = static_cast<GLfloat>(mCoverageModulation);
-            break;
         case GL_ALPHA_TEST_REF:
             *params = mGLES1State.mAlphaTestParameters.ref;
             break;
@@ -2258,9 +2230,6 @@ void PrivateState::getIntegerv(GLenum pname, GLint *params) const
         case GL_SAMPLE_ALPHA_TO_ONE_EXT:
             *params = static_cast<GLint>(mSampleAlphaToOne);
             break;
-        case GL_COVERAGE_MODULATION_CHROMIUM:
-            *params = static_cast<GLint>(mCoverageModulation);
-            break;
         case GL_ALPHA_TEST_FUNC:
             *params = ToGLenum(mGLES1State.mAlphaTestParameters.func);
             break;
@@ -2459,7 +2428,6 @@ State::State(const State *shareContextState,
              TextureManager *shareTextures,
              SemaphoreManager *shareSemaphores,
              egl::ContextMutex *contextMutex,
-             const OverlayType *overlay,
              const Version &clientVersion,
              bool debug,
              bool bindGeneratesResourceCHROMIUM,
@@ -2503,7 +2471,6 @@ State::State(const State *shareContextState,
       mVertexArray(nullptr),
       mDisplayTextureShareGroup(shareTextures != nullptr),
       mMaxShaderCompilerThreads(std::numeric_limits<GLuint>::max()),
-      mOverlay(overlay),
       mPrivateState(clientVersion,
                     debug,
                     bindGeneratesResourceCHROMIUM,
@@ -2570,10 +2537,6 @@ void State::initialize(Context *context)
     if (nativeExtensions.EGLImageExternalOES || nativeExtensions.EGLStreamConsumerExternalNV)
     {
         mSamplerTextures[TextureType::External].resize(getCaps().maxCombinedTextureImageUnits);
-    }
-    if (nativeExtensions.videoTextureWEBGL)
-    {
-        mSamplerTextures[TextureType::VideoImage].resize(getCaps().maxCombinedTextureImageUnits);
     }
     mCompleteTextureBindings.reserve(getCaps().maxCombinedTextureImageUnits);
     for (int32_t textureIndex = 0; textureIndex < getCaps().maxCombinedTextureImageUnits;
@@ -2712,12 +2675,14 @@ ANGLE_INLINE void State::setActiveTextureDirty(size_t textureIndex, Texture *tex
         return;
     }
 
-    if (texture->hasAnyDirtyBit())
+    const bool needsRobustInit =
+        isRobustResourceInitEnabled() && texture->initState() == InitState::MayNeedInit;
+    if (texture->hasAnyDirtyBit() || needsRobustInit)
     {
         setTextureDirty(textureIndex);
     }
 
-    if (isRobustResourceInitEnabled() && texture->initState() == InitState::MayNeedInit)
+    if (needsRobustInit)
     {
         mDirtyObjects.set(state::DIRTY_OBJECT_TEXTURES_INIT);
     }
@@ -3865,21 +3830,6 @@ void State::getBooleani_v(GLenum target, GLuint index, GLboolean *data) const
 // refactor done.
 Texture *State::getTextureForActiveSampler(TextureType type, size_t index)
 {
-    if (type != TextureType::VideoImage)
-    {
-        return mSamplerTextures[type][index].get();
-    }
-
-    ASSERT(type == TextureType::VideoImage);
-
-    Texture *candidateTexture = mSamplerTextures[type][index].get();
-    if (candidateTexture->getWidth(TextureTarget::VideoImage, 0) == 0 ||
-        candidateTexture->getHeight(TextureTarget::VideoImage, 0) == 0 ||
-        candidateTexture->getDepth(TextureTarget::VideoImage, 0) == 0)
-    {
-        return mSamplerTextures[TextureType::_2D][index].get();
-    }
-
     return mSamplerTextures[type][index].get();
 }
 
@@ -3920,7 +3870,8 @@ angle::Result State::syncTexturesInit(const Context *context, Command command)
         Texture *texture = mActiveTexturesCache[textureUnitIndex];
         if (texture)
         {
-            ANGLE_TRY(texture->ensureInitialized(context));
+            ANGLE_TRY(
+                texture->ensureInitialized(context, EnsureInitializedLevels::AllEnabledLevels));
         }
     }
     return angle::Result::Continue;
@@ -3935,7 +3886,8 @@ angle::Result State::syncImagesInit(const Context *context, Command command)
         Texture *texture = mImageUnits[imageUnitIndex].texture.get();
         if (texture)
         {
-            ANGLE_TRY(texture->ensureInitialized(context));
+            ANGLE_TRY(
+                texture->ensureInitialized(context, EnsureInitializedLevels::AllEnabledLevels));
         }
     }
     return angle::Result::Continue;
@@ -4163,14 +4115,11 @@ angle::Result State::onExecutableChange(const Context *context)
         if (!image)
             continue;
 
-        if (image->hasAnyDirtyBit())
+        const bool needsRobustInit =
+            isRobustResourceInitEnabled() && image->initState() == InitState::MayNeedInit;
+        if (image->hasAnyDirtyBit() || needsRobustInit)
         {
             ANGLE_TRY(image->syncState(context, Command::Other));
-        }
-
-        if (isRobustResourceInitEnabled() && image->initState() == InitState::MayNeedInit)
-        {
-            mDirtyObjects.set(state::DIRTY_OBJECT_IMAGES_INIT);
         }
     }
 
@@ -4264,13 +4213,15 @@ void State::onImageStateChange(const Context *context, size_t unit)
         if (!image.texture.get())
             return;
 
-        if (image.texture->hasAnyDirtyBit())
+        const bool needsRobustInit =
+            isRobustResourceInitEnabled() && image.texture->initState() == InitState::MayNeedInit;
+        if (image.texture->hasAnyDirtyBit() || needsRobustInit)
         {
             mDirtyImages.set(unit);
             mDirtyObjects.set(state::DIRTY_OBJECT_IMAGES);
         }
 
-        if (isRobustResourceInitEnabled() && image.texture->initState() == InitState::MayNeedInit)
+        if (needsRobustInit)
         {
             mDirtyObjects.set(state::DIRTY_OBJECT_IMAGES_INIT);
         }
@@ -4312,6 +4263,16 @@ void State::onAtomicCounterBufferStateChange(size_t atomicCounterBufferIndex)
 void State::onShaderStorageBufferStateChange(size_t shaderStorageBufferIndex)
 {
     mDirtyBits.set(state::DIRTY_BIT_SHADER_STORAGE_BUFFER_BINDING);
+}
+
+void State::onCurrentExecutableRelink()
+{
+    // Called when a program or PPO is already current but its executable is recreated.  The state
+    // of the previous executable is cleaned up before the new executable is installed.
+    if (mExecutable)
+    {
+        unsetActiveTextures(mExecutable->getActiveSamplersMask());
+    }
 }
 
 void State::initializeForCapture(const Context *context)

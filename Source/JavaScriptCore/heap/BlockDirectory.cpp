@@ -26,6 +26,7 @@
 #include "config.h"
 #include "BlockDirectory.h"
 
+#include "AlignedMemoryAllocator.h"
 #include "BlockDirectoryInlines.h"
 #include "Heap.h"
 #include "HeapInlines.h"
@@ -35,7 +36,6 @@
 
 #include <wtf/FunctionTraits.h>
 #include <wtf/Lock.h>
-#include <wtf/SimpleStats.h>
 
 namespace JSC {
 
@@ -64,45 +64,37 @@ void BlockDirectory::setSubspace(Subspace* subspace)
     m_subspace = subspace;
 }
 
-void BlockDirectory::updatePercentageOfPagedOutPages(SimpleStats& stats)
+void BlockDirectory::noteBlockMayBeStealable(unsigned index)
 {
-    // FIXME: We should figure out a solution for Windows and PlayStation.
-    // QNX doesn't have mincore(), though the information can be had. But since all mapped
-    // pages are resident, does it matter?
-#if OS(UNIX) && !PLATFORM(PLAYSTATION) && !OS(QNX) && !OS(HAIKU)
-    size_t pageSize = WTF::pageSize();
-    ASSERT(!(MarkedBlock::blockSize % pageSize));
-    auto numberOfPagesInMarkedBlock = MarkedBlock::blockSize / pageSize;
-    // For some reason this can be unsigned char or char on different OSes...
-    using MincoreBufferType = std::remove_pointer_t<FunctionTraits<decltype(mincore)>::ArgumentType<2>>;
-    static_assert(std::is_same_v<std::make_unsigned_t<MincoreBufferType>, unsigned char>);
-    Vector<MincoreBufferType, 16> pagedBits(FillWith { }, numberOfPagesInMarkedBlock, MincoreBufferType { });
+    if (!isStealable(index))
+        return;
 
-    for (auto* handle : m_blocks) {
-        if (!handle)
-            continue;
-
-        auto* pageStart = handle->pageStart();
-        auto markedBlockSizeInBytes = handle->backingStorageSize();
-        RELEASE_ASSERT(markedBlockSizeInBytes / pageSize <= numberOfPagesInMarkedBlock);
-        // We could cache this in bulk (e.g. 25 MB chunks) but we haven't seen any data that it actually matters.
-        auto result = mincore(pageStart, markedBlockSizeInBytes, pagedBits.mutableSpan().data());
-        RELEASE_ASSERT(!result);
-        constexpr unsigned pageIsResidentAndNotCompressed = 1;
-        for (unsigned i = 0; i < numberOfPagesInMarkedBlock; ++i)
-            stats.add(!(pagedBits[i] & pageIsResidentAndNotCompressed));
-    }
-#else
-    UNUSED_PARAM(stats);
-#endif
+    // The cursor only moves forward, so a block that falls empty behind it would stay invisible for
+    // the rest of the collection cycle and the heap would grow instead of reusing it.
+    m_emptyCursor = std::min<unsigned>(m_emptyCursor, index);
+    subspace()->alignedMemoryAllocator()->addDirectoryWithEmptyBlocks(this);
 }
 
 MarkedBlock::Handle* BlockDirectory::findEmptyBlockToSteal()
 {
     Locker locker(bitvectorLock());
-    m_emptyCursor = (emptyBits() & ~inUseBits()).findBit(m_emptyCursor, true);
-    if (m_emptyCursor >= m_blocks.size())
-        return nullptr;
+    auto stealable = stealableBits();
+    for (;;) {
+        m_emptyCursor = stealable.findBit(m_emptyCursor, true);
+        if (m_emptyCursor >= m_blocks.size())
+            return nullptr;
+
+        // A block still holding WeakBlocks is the expensive kind to hand over: the subspace taking it
+        // has no use for that capacity, and releasing it means chasing a cold pointer chain. Reading
+        // the head of the chain costs nothing, so pass over those and find one that is free to give.
+        //
+        // FIXME: We should explore the better way to handle it. We should have unified better WeakBlock
+        // allocator with pooling, instead of pooling in each MarkedBlock's WeakSet. Then, this becomes
+        // always empty.
+        if (!m_blocks[m_emptyCursor]->weakSet().head())
+            break;
+        m_emptyCursor++;
+    }
     dataLogLnIf(BlockDirectoryInternal::verbose, "Setting block ", m_emptyCursor, " in use (findEmptyBlockToSteal) for ", *this);
     setIsInUse(m_emptyCursor, true);
     return m_blocks[m_emptyCursor];
@@ -232,11 +224,16 @@ void BlockDirectory::prepareForAllocation()
         [&] (LocalAllocator* allocator) {
             allocator->prepareForAllocation();
         });
-    
+
     m_unsweptCursor = 0;
     m_emptyCursor = 0;
-    
+
     assertSweeperIsSuspended();
+    // endMarking recomputes the empty bits wholesale rather than block by block, so none of the blocks
+    // that fell empty there announced themselves the way didFinishUsingBlock does. Re-derive
+    // membership from the bits here, once m_emptyCursor above has been rewound to match them.
+    if (!stealableBits().isEmpty())
+        subspace()->alignedMemoryAllocator()->addDirectoryWithEmptyBlocks(this);
     edenBits().clearAll();
 
     if (Options::useImmortalObjects()) [[unlikely]] {
@@ -385,7 +382,7 @@ void BlockDirectory::sweep()
             block->sweep(nullptr);
         }
         ASSERT(!isUnswept(index));
-        setIsInUse(index, false);
+        didFinishUsingBlock(locker, block);
     }
 }
 
@@ -399,7 +396,7 @@ void BlockDirectory::shrink()
 
     Locker locker(bitvectorLock());
     for (size_t index = 0; index < m_blocks.size(); ++index) {
-        index = (emptyBits() & ~destructibleBits() & ~inUseBits()).findBit(index, true);
+        index = stealableBits().findBit(index, true);
         if (index >= m_blocks.size())
             break;
 
@@ -456,6 +453,7 @@ void BlockDirectory::didFinishUsingBlock(AbstractLocker&, MarkedBlock::Handle* h
 
     dataLogLnIf(BlockDirectoryInternal::verbose, "Setting block ", handle->index(), " not in use (didFinishUsingBlock) for ", *this);
     setIsInUse(handle, false);
+    noteBlockMayBeStealable(handle->index());
 }
 
 RefPtr<SharedTask<MarkedBlock::Handle*()>> BlockDirectory::parallelNotEmptyBlockSource()

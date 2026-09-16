@@ -314,9 +314,9 @@ Ref<Connection> Connection::createServerConnection(Identifier&& identifier, Thre
     return adoptRef(*new Connection(WTF::move(identifier), true, receiveQueueQOS));
 }
 
-Ref<Connection> Connection::createClientConnection(Identifier&& identifier)
+Ref<Connection> Connection::createClientConnection(Identifier&& identifier, Thread::QOS receiveQueueQOS)
 {
-    return adoptRef(*new Connection(WTF::move(identifier), false));
+    return adoptRef(*new Connection(WTF::move(identifier), false, receiveQueueQOS));
 }
 
 static HashMap<IPC::Connection::UniqueID, ThreadSafeWeakPtr<Connection>>& NODELETE connectionMap() WTF_REQUIRES_LOCK(s_connectionMapLock)
@@ -1760,6 +1760,12 @@ bool Connection::shouldCrashOnMessageCheckFailure()
 void Connection::setShouldCrashOnMessageCheckFailure(bool shouldCrash)
 {
     s_shouldCrashOnMessageCheckFailure = shouldCrash;
+}
+
+void Connection::logFailedMessageCheck(const String& reason, const String& function, const String& file, unsigned line)
+{
+    RELEASE_LOG_FAULT_WITH_PAYLOAD(IPC, "%s %u: Invalid message dispatched %s: %s", file.utf8(), line, function.utf8(), reason.utf8());
+    CRASH_IF_TESTING
 }
 
 } // namespace IPC

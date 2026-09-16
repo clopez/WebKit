@@ -55,9 +55,11 @@
 #include <WebCore/StyleTextEmphasisStyle.h>
 #include <WebCore/StyleTextIndent.h>
 #include <WebCore/StyleTextShadow.h>
+#include <WebCore/StyleTextSizeAdjust.h>
 #include <WebCore/StyleTextUnderlineOffset.h>
 #include <WebCore/StyleTextUnderlinePosition.h>
 #include <WebCore/StyleTouchAction.h>
+#include <WebCore/StyleWebKitBorderSpacing.h>
 #include <WebCore/StyleWebKitLineBoxContain.h>
 #include <WebCore/StyleWebKitLineGrid.h>
 #include <WebCore/StyleWebKitOverflowScrolling.h>
@@ -71,10 +73,6 @@
 
 #if HAVE(CORE_MATERIAL)
 #include <WebCore/AppleVisualEffect.h>
-#endif
-
-#if ENABLE(TEXT_AUTOSIZING)
-#include <WebCore/StyleTextSizeAdjust.h>
 #endif
 
 #if ENABLE(DARK_MODE_CSS)
@@ -114,6 +112,11 @@ public:
     Color textStrokeColor;
     Color textFillColor;
     Color textEmphasisColor;
+    // Duplicates the color property as an unresolved Style::Color, which InheritedData::color
+    // cannot hold. A highlight pseudo-element inherits it unresolved so that currentcolor keeps
+    // resolving against each originating element down the highlight chain.
+    // https://drafts.csswg.org/css-pseudo-4/#highlight-cascade
+    Color colorForHighlight;
     Color visitedLinkTextStrokeColor;
     Color visitedLinkTextFillColor;
     Color visitedLinkTextEmphasisColor;
@@ -144,6 +147,9 @@ public:
     ListStyleType listStyleType;
     BlockEllipsis blockEllipsis;
 
+    WebkitBorderSpacing borderHorizontalSpacing;
+    WebkitBorderSpacing borderVerticalSpacing;
+
     TextIndent textIndent;
 
     ImageOrNone listStyleImage;
@@ -160,9 +166,7 @@ public:
 
     StrokeMiterlimit strokeMiterLimit;
 
-#if ENABLE(TEXT_AUTOSIZING)
     TextSizeAdjust textSizeAdjust;
-#endif
 
     MathDepth mathDepth;
 
@@ -171,6 +175,7 @@ public:
 
     Widows widows;
     Orphans orphans;
+    HyphenateLimitEdge internalHyphenateLimitCharsWord;
     HyphenateLimitEdge hyphenateLimitBefore;
     HyphenateLimitEdge hyphenateLimitAfter;
     HyphenateLimitLines hyphenateLimitLines;

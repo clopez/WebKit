@@ -66,7 +66,7 @@ static double unzoomFontMetric(double metric, const FontDescription& fontDescrip
 static double resolveEm(const FontCascade& fontCascadeForUnit)
 {
     auto& fontDescription = fontCascadeForUnit.fontDescription();
-    return fontDescription.specifiedSize();
+    return fontDescription.computedSize();
 }
 
 // Resolve the "ex" and "rex" units.
@@ -79,7 +79,7 @@ static double resolveEx(const FontCascade& fontCascadeForUnit)
     if (fontMetrics.xHeight())
         return unzoomFontMetric(fontMetrics.xHeight().value(), fontDescription);
 
-    return fontDescription.specifiedSize() / 2.0;
+    return fontDescription.computedSize() / 2.0;
 }
 
 // Resolve the "cap" and "rcap" units.
@@ -110,7 +110,7 @@ static double resolveIc(const FontCascade& fontCascadeForUnit)
     auto& fontDescription = fontCascadeForUnit.fontDescription();
     auto ideogramWidth = fontCascadeForUnit.metricsOfPrimaryFont().ideogramWidth();
     if (!ideogramWidth)
-        return fontDescription.unzoomedComputedSize();
+        return fontDescription.unzoomedUsedSize();
     return unzoomFontMetric(ideogramWidth.value(), fontDescription);
 }
 
@@ -124,9 +124,9 @@ static double resolveLh(const ComputedStyle* style, const FontCascade& fallbackF
         auto& fontDescription = fontCascade.fontDescription();
 
         return evaluate<float>(
-            style->specifiedLineHeight(),
+            style->lineHeight(),
             LineHeightEvaluationContext {
-                fontDescription.specifiedSize(),
+                fontDescription.computedSize(),
                 static_cast<float>(unzoomFontMetric(fontCascade.metricsOfPrimaryFont().lineSpacing(), fontDescription)),
             },
             ZoomFactor::none()
@@ -145,12 +145,59 @@ enum class ViewportType : uint8_t {
     Dynamic,
 };
 
-enum class ViewportPhysicalDimension : uint8_t {
+enum class ViewportDimension : uint8_t {
     Height,
     Width,
     Max,
     Min,
+    Inline,
+    Block,
 };
+
+template<LogicalBoxAxis axis>
+static double NODELETE resolveViewportLogicalAxis(const FloatSize& size, const ComputedStyle& style)
+{
+    switch (mapAxisLogicalToPhysical(style.writingMode(), axis)) {
+    case BoxAxis::Horizontal:
+        return size.width();
+    case BoxAxis::Vertical:
+        return size.height();
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+template<LogicalBoxAxis axis>
+static double resolveViewportLogicalAxis(const FloatSize& size, const RenderView& renderView, const auto& adaptor)
+{
+    if (auto* style = adaptor.styleForViewportUnits())
+        return resolveViewportLogicalAxis<axis>(size, *style);
+
+    auto* rootElement = renderView.document().documentElement();
+    if (!rootElement)
+        return 0;
+    auto* rootStyle = rootElement->renderStyle();
+    if (!rootStyle)
+        return 0;
+    return resolveViewportLogicalAxis<axis>(size, *rootStyle);
+}
+
+template<ViewportDimension axis>
+static double resolveViewportAxis(const FloatSize& size, const RenderView& renderView, const auto& adaptor)
+{
+    if constexpr (axis == ViewportDimension::Height)
+        return size.height();
+    else if constexpr (axis == ViewportDimension::Width)
+        return size.width();
+    else if constexpr (axis == ViewportDimension::Max)
+        return size.maxDimension();
+    else if constexpr (axis == ViewportDimension::Min)
+        return size.minDimension();
+    else if constexpr (axis == ViewportDimension::Inline)
+        return resolveViewportLogicalAxis<LogicalBoxAxis::Inline>(size, renderView, adaptor);
+    else if constexpr (axis == ViewportDimension::Block)
+        return resolveViewportLogicalAxis<LogicalBoxAxis::Block>(size, renderView, adaptor);
+}
 
 template<ViewportType type>
 static FloatSize resolveViewportType(const RenderView& renderView)
@@ -165,87 +212,21 @@ static FloatSize resolveViewportType(const RenderView& renderView)
         return renderView.sizeForCSSDynamicViewportUnits();
 }
 
-template<ViewportPhysicalDimension axis>
-static double resolveViewportPercentagePhysicalAxis(const FloatSize& size)
-{
-    if constexpr (axis == ViewportPhysicalDimension::Height)
-        return size.height();
-    else if constexpr (axis == ViewportPhysicalDimension::Width)
-        return size.width();
-    else if constexpr (axis == ViewportPhysicalDimension::Max)
-        return size.maxDimension();
-    else if constexpr (axis == ViewportPhysicalDimension::Min)
-        return size.minDimension();
-}
 
-template<LogicalBoxAxis axis>
-static double NODELETE resolveViewportPercentageLogicalAxis(const FloatSize& size, const ComputedStyle& style)
+template<ViewportType type, ViewportDimension axis>
+static double resolveViewportUnit(const auto& adaptor)
 {
-    switch (mapAxisLogicalToPhysical(style.writingMode(), axis)) {
-    case BoxAxis::Horizontal:
-        return size.width();
-    case BoxAxis::Vertical:
-        return size.height();
-    }
+    adaptor.setUsesViewportUnits();
 
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
-template<LogicalBoxAxis axis>
-static double NODELETE resolveViewportPercentageLogicalAxis(const FloatSize& size, const ComputedStyle* style)
-{
-    if (!style)
-        return 0;
-    return resolveViewportPercentageLogicalAxis<axis>(size, *style);
-}
-
-template<LogicalBoxAxis axis>
-static double NODELETE resolveViewportPercentageLogicalAxis(const FloatSize& size, const RenderView& renderView)
-{
-    auto* rootElement = renderView.document().documentElement();
-    if (!rootElement)
-        return 0;
-    return resolveViewportPercentageLogicalAxis<axis>(size, rootElement->renderStyle());
-}
-
-template<LogicalBoxAxis axis>
-static double resolveViewportPercentageLogicalAxis(const FloatSize& size, const RenderView& renderView, const ComputedStyle* style)
-{
-    if (style)
-        return resolveViewportPercentageLogicalAxis<axis>(size, *style) / renderView.pageZoomFactor();
-    return resolveViewportPercentageLogicalAxis<axis>(size, renderView) / renderView.pageZoomFactor();
-}
-
-template<ViewportType type, ViewportPhysicalDimension axis>
-static double resolveViewportPercentageUnit(const RenderView& renderView)
-{
-    return resolveViewportPercentagePhysicalAxis<axis>(resolveViewportType<type>(renderView)) / 100.0;
-}
-
-template<ViewportType type, LogicalBoxAxis axis>
-static double resolveViewportPercentageUnit(const RenderView& renderView, const ComputedStyle* style)
-{
-    return resolveViewportPercentageLogicalAxis<axis>(resolveViewportType<type>(renderView), renderView, style) / 100.0;
-}
-
-template<ViewportType type, ViewportPhysicalDimension axis>
-static double resolveViewportPercentageUnit(const RenderView* renderView)
-{
+    auto* renderView = adaptor.renderViewForViewportUnits();
     if (!renderView) {
-        if constexpr (axis == ViewportPhysicalDimension::Max || axis == ViewportPhysicalDimension::Min)
+        if constexpr (axis == ViewportDimension::Max || axis == ViewportDimension::Min)
             return 1;
         else
             return 0;
     }
-    return resolveViewportPercentageUnit<type, axis>(*renderView) / renderView->pageZoomFactor();
-}
 
-template<ViewportType type, LogicalBoxAxis axis>
-static double resolveViewportPercentageUnit(const RenderView* renderView, const ComputedStyle* style)
-{
-    if (!renderView)
-        return 0;
-    return resolveViewportPercentageUnit<type, axis>(*renderView, style) / renderView->pageZoomFactor();
+    return resolveViewportAxis<axis>(resolveViewportType<type>(*renderView), *renderView, adaptor) / 100.0 / renderView->pageZoomFactor();
 }
 
 // MARK: - "container-percentage" resolution functions
@@ -540,80 +521,56 @@ static double resolveLengthImpl(double value, CSS::LengthUnit lengthUnit, const 
     // MARK: "viewport-percentage" resolution
 
     case Vh:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, ViewportPhysicalDimension::Height>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Height>(adaptor);
     case Vw:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, ViewportPhysicalDimension::Width>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Width>(adaptor);
     case Vmax:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, ViewportPhysicalDimension::Max>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Max>(adaptor);
     case Vmin:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, ViewportPhysicalDimension::Min>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Min>(adaptor);
     case Vb:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, LogicalBoxAxis::Block>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Block>(adaptor);
     case Vi:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Default, LogicalBoxAxis::Inline>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Default, ViewportDimension::Inline>(adaptor);
 
     case Svh:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, ViewportPhysicalDimension::Height>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Height>(adaptor);
     case Svw:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, ViewportPhysicalDimension::Width>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Width>(adaptor);
     case Svmax:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, ViewportPhysicalDimension::Max>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Max>(adaptor);
     case Svmin:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, ViewportPhysicalDimension::Min>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Min>(adaptor);
     case Svb:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, LogicalBoxAxis::Block>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Block>(adaptor);
     case Svi:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Small, LogicalBoxAxis::Inline>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Small, ViewportDimension::Inline>(adaptor);
 
     case Lvh:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, ViewportPhysicalDimension::Height>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Height>(adaptor);
     case Lvw:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, ViewportPhysicalDimension::Width>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Width>(adaptor);
     case Lvmax:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, ViewportPhysicalDimension::Max>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Max>(adaptor);
     case Lvmin:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, ViewportPhysicalDimension::Min>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Min>(adaptor);
     case Lvb:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, LogicalBoxAxis::Block>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Block>(adaptor);
     case Lvi:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Large, LogicalBoxAxis::Inline>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Large, ViewportDimension::Inline>(adaptor);
 
     case Dvh:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, ViewportPhysicalDimension::Height>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Height>(adaptor);
     case Dvw:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, ViewportPhysicalDimension::Width>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Width>(adaptor);
     case Dvmax:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, ViewportPhysicalDimension::Max>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Max>(adaptor);
     case Dvmin:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, ViewportPhysicalDimension::Min>(adaptor.renderViewForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Min>(adaptor);
     case Dvb:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, LogicalBoxAxis::Block>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Block>(adaptor);
     case Dvi:
-        adaptor.setUsesViewportUnits();
-        return value * resolveViewportPercentageUnit<ViewportType::Dynamic, LogicalBoxAxis::Inline>(adaptor.renderViewForViewportUnits(), adaptor.styleForViewportUnits());
+        return value * resolveViewportUnit<ViewportType::Dynamic, ViewportDimension::Inline>(adaptor);
 
     // MARK: "container-percentage" resolution
 
@@ -748,16 +705,18 @@ bool equalForLengthResolution(const ComputedStyle& styleA, const ComputedStyle& 
 {
     // These properties affect results of `resolveLength` above.
 
+    if (styleA.fontDescription().usedSize() != styleB.fontDescription().usedSize())
+        return false;
     if (styleA.fontDescription().computedSize() != styleB.fontDescription().computedSize())
         return false;
-    if (styleA.fontDescription().specifiedSize() != styleB.fontDescription().specifiedSize())
-        return false;
-
     if (styleA.metricsOfPrimaryFont().xHeight() != styleB.metricsOfPrimaryFont().xHeight())
         return false;
     if (styleA.metricsOfPrimaryFont().zeroWidth() != styleB.metricsOfPrimaryFont().zeroWidth())
         return false;
-
+    if (styleA.metricsOfPrimaryFont().lineSpacing() != styleB.metricsOfPrimaryFont().lineSpacing())
+        return false;
+    if (styleA.lineHeight() != styleB.lineHeight())
+        return false;
     if (styleA.zoom() != styleB.zoom())
         return false;
 
@@ -768,12 +727,12 @@ bool equalForLengthResolution(const ComputedStyle& styleA, const ComputedStyle& 
 
 double emToPxDouble(double value, const ComputedStyle& style)
 {
-    return value * style.fontCascade().fontDescription().specifiedSize();
+    return value * style.fontCascade().fontDescription().computedSize();
 }
 
 double emToPxDoubleZoomed(double value, const ComputedStyle& style)
 {
-    return value * style.fontCascade().fontDescription().computedSize();
+    return value * style.fontCascade().fontDescription().usedSize();
 }
 
 } // namespace Style

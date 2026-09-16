@@ -55,6 +55,7 @@
 #include "RenderLayerBacking.h"
 #include "RenderLayerModelObject.h"
 #include "ResourceError.h"
+#include "StylePortalTransform.h"
 #include "VisibilityChangeClient.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/RefCounted.h>
@@ -326,6 +327,8 @@ void SpatialPortalController::loadChildModelIfReady(HTMLModelElement& model)
 
     it->value.loadedModel = modelData;
 
+    model.updateEntityTransformFromCSS();
+
     if (RefPtr<ModelPlayer> placeholder = std::exchange(it->value.placeholder, nullptr)) {
         auto animationState = placeholder->currentAnimationState(nodeID);
         auto transformState = placeholder->currentTransformState(nodeID);
@@ -454,12 +457,31 @@ ModelPlayer* SpatialPortalController::ensureModelPlayer()
     return m_modelPlayer.get();
 }
 
-void SpatialPortalController::setPortalTransform(PortalTransformKind kind)
+void SpatialPortalController::updatePortalTransform()
 {
-    if (m_portalTransform == kind)
+    RefPtr element = m_portalElement.get();
+    if (!element)
         return;
 
-    m_portalTransform = kind;
+    if (CheckedPtr box = dynamicDowncast<RenderBox>(element->renderer()))
+        updatePortalTransform(*box);
+}
+
+void SpatialPortalController::updatePortalTransform(const RenderBox& box)
+{
+    auto& style = box.style();
+    auto& portalTransform = style.portalTransform();
+    auto referenceSize = FloatSize { box.borderBoxSize() };
+    auto zoom = style.usedZoomForLength();
+
+    UsedPortalTransform used { .fitsContent = portalTransform.hasAuto() };
+    portalTransform.applyBeforeAuto(used.transformBeforeAuto, referenceSize, zoom);
+    portalTransform.applyAfterAuto(used.transformAfterAuto, referenceSize, zoom);
+
+    if (m_portalTransform == used)
+        return;
+
+    m_portalTransform = WTF::move(used);
 
     if (RefPtr player = m_modelPlayer)
         player->setPortalTransform(m_portalTransform);
@@ -674,6 +696,8 @@ void SpatialPortalController::configureGraphicsLayer(GraphicsLayer& graphicsLaye
 
 void SpatialPortalController::sizeMayHaveChanged()
 {
+    updatePortalTransform();
+
     RefPtr player = m_modelPlayer;
     if (!player)
         return;
@@ -707,6 +731,26 @@ void SpatialPortalController::modelDidFailLoading(ModelPlayer&, NodeIdentifier n
 
     if (RefPtr child = it->value.element.get())
         child->didFailLoadingInsidePortal(error);
+}
+
+void SpatialPortalController::childTransformDidChange(HTMLModelElement& model, const TransformationMatrix& transform)
+{
+    auto nodeID = model.nodeIdentifier();
+    if (hostedModelElement(nodeID) != &model)
+        return;
+
+    RefPtr player = m_modelPlayer;
+    if (!player)
+        return;
+
+    if (!player->supportsTransform(transform)) {
+        logWarning(*player, "Ignoring a transform on a <model> inside a spatial portal: only uniform, shear-free transforms are supported."_s);
+        return;
+    }
+
+    player->setEntityTransform(nodeID, transform);
+
+    model.didUpdateEntityTransformInsidePortal(transform);
 }
 
 void SpatialPortalController::modelDidUnload(ModelPlayer& player)

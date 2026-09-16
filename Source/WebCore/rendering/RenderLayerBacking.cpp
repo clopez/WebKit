@@ -903,12 +903,20 @@ void RenderLayerBacking::updateBackdropFiltersGeometry()
         auto roundedBoxRect = borderShape.deprecatedRoundedRect();
         roundedBoxRect.move(contentOffsetInCompositingLayer());
         backdropFiltersRect = roundedBoxRect.pixelSnappedRoundedRectForPainting(deviceScaleFactor());
+
+        if (renderBox->style().border().hasNonRoundCornerShape()) {
+            auto shapePath = borderShape.pathForOuterShape(deviceScaleFactor());
+            shapePath.translate(FloatSize { contentOffsetInCompositingLayer() });
+            m_graphicsLayer->setBackdropFiltersShapePath(shapePath);
+        } else
+            m_graphicsLayer->setBackdropFiltersShapePath({ });
     } else {
         auto boxRect = renderBox->borderBoxRect();
         if (renderBox->hasClip())
             boxRect.intersect(renderBox->clipRect({ }));
         boxRect.move(contentOffsetInCompositingLayer());
         backdropFiltersRect = FloatRoundedRect(snapRectToDevicePixels(boxRect, deviceScaleFactor()));
+        m_graphicsLayer->setBackdropFiltersShapePath({ });
     }
 
     m_graphicsLayer->setBackdropFiltersRect(backdropFiltersRect);
@@ -1357,7 +1365,7 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
             )
             m_graphicsLayer->setContentsToVideoElement(videoElement, GraphicsLayer::ContentsLayerPurpose::Media);
         else
-            m_graphicsLayer->setContentsToPlatformLayer(videoElement->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Media);
+            m_graphicsLayer->setContentsToMediaPlayer(videoElement->player(), GraphicsLayer::ContentsLayerPurpose::Media);
         updateContentsRects();
     }
 #endif
@@ -3209,12 +3217,6 @@ bool RenderLayerBacking::updateMaskingLayer(bool hasMask, bool hasClipPath, bool
             if (!GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape))
                 return true;
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
-            Ref settings = renderer().settings();
-            if (!settings->useSkiaForComposition())
-                return true;
-#endif
-
             return false;
         };
         if (shouldAddClipPathPaintingPhase())
@@ -4465,8 +4467,8 @@ static RefPtr<Pattern> patternForDescription(PatternDescription description, Flo
 
         FontCascadeDescription fontDescription;
         fontDescription.setOneFamily("Helvetica"_s);
-        fontDescription.setSpecifiedSize(10);
         fontDescription.setComputedSize(10);
+        fontDescription.setUsedSize(10);
         fontDescription.setWeight(FontSelectionValue(500));
         FontCascade font(WTF::move(fontDescription));
         font.update(nullptr);

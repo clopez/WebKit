@@ -40,9 +40,6 @@ dom/ElementInlinesLight.h
 editing/Editor.h
 html/HTMLMediaElement.cpp
 html/canvas/PlaceholderRenderingContext.cpp
-inspector/InspectorStyleSheet.h
-inspector/InstrumentingAgents.h
-inspector/UserGestureEmulationScope.h
 layout/formattingContexts/inline/InlineFormattingContext.h
 layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/formattingContexts/inline/InlineLine.h
@@ -63,4 +60,3 @@ rendering/svg/SVGRenderingContext.h
 style/StyleBuilderState.h
 style/StyleExtractorState.h
 style/values/images/kinds/StyleCachedImage.cpp
-testing/Internals.cpp

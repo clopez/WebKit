@@ -70,7 +70,6 @@
 #include <WebCore/MouseEvent.h>
 #include <WebCore/MouseEventTypes.h>
 #include <WebCore/NetscapePlugInStreamLoader.h>
-#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NodeDocument.h>
 #include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/PageInlines.h>
@@ -725,7 +724,7 @@ void PluginView::handleEvent(Event& event)
     if (!shouldForwardToPlugin(event))
         return;
 
-    const CheckedPtr currentEvent = WebPage::currentEvent();
+    const RefPtr currentEvent = WebPage::currentEvent();
     if (!currentEvent)
         return;
 
@@ -1046,7 +1045,7 @@ FetchOptions::Destination PluginView::fetchDestination() const
 
 void PluginView::loadMainResource()
 {
-    auto referrer = SecurityPolicy::generateReferrerHeader(frame()->document()->referrerPolicy(), m_mainResourceURL, frame()->loader().outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
+    auto referrer = SecurityPolicy::generateReferrerHeader(frame()->document()->referrerPolicy(), m_mainResourceURL, protect(frame()->loader())->outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
     if (referrer.isEmpty())
         referrer = { };
 
@@ -1159,6 +1158,11 @@ void PluginView::setPDFTextAnnotationValueForTesting(unsigned pageIndex, unsigne
     return m_plugin->setTextAnnotationValueForTesting(pageIndex, annotationIndex, value);
 }
 
+Vector<String> PluginView::pdfContextMenuItemTitlesForTesting(const WebCore::IntPoint& pointInRootView) const
+{
+    return m_plugin->contextMenuItemTitlesForTesting(pointInRootView);
+}
+
 void PluginView::registerPDFTestCallback(RefPtr<VoidCallback>&& callback)
 {
     m_plugin->registerPDFTest(WTF::move(callback));
@@ -1174,10 +1178,12 @@ void PluginView::setPDFDisplayMode(PDFPluginDisplayMode mode)
     m_plugin->setDisplayModeAndUpdateLayout(mode);
 }
 
+#if ENABLE(PDF_HUD)
 void PluginView::openWithPreview(CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)>&& completionHandler)
 {
     m_plugin->openWithPreview(WTF::move(completionHandler));
 }
+#endif
 
 #if ENABLE(TWO_PHASE_CLICKS)
 

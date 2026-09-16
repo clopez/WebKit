@@ -56,6 +56,7 @@
 #include "PositionedLayoutConstraints.h"
 #include "RelayoutScopeForScrollbarChange.h"
 #include "RenderBlockFlow.h"
+#include "RenderBlockFlowInlines.h"
 #include "RenderBlockInlines.h"
 #include "RenderBoxFragmentInfo.h"
 #include "RenderBoxInlines.h"
@@ -72,7 +73,7 @@
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
-#include "RenderListMarker.h"
+#include "RenderListOutsideMarker.h"
 #include "RenderMenuList.h"
 #include "RenderObjectInlines.h"
 #include "RenderTableCell.h"
@@ -90,6 +91,7 @@
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StylePrimitiveNumericTypes+EvaluationMinimum.h"
 #include "TransformState.h"
+#include <wtf/HexNumber.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
@@ -302,7 +304,6 @@ void RenderBlock::styleWillChange(Style::Difference diff, const Style::ComputedS
     const Style::ComputedStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
     setBlockLevelReplacedOrAtomicInline(newStyle.display().isInlineType());
     if (oldStyle) {
-        removeOutOfFlowBoxesIfNeededOnStyleChange(*this, *oldStyle, newStyle);
         if (isLegend() && oldStyle->floating() == Float::None && newStyle.floating() != Float::None)
             setIsExcludedFromNormalLayout(false);
     }
@@ -396,6 +397,9 @@ bool RenderBlock::isSelfCollapsingBlock() const
             [&](const Style::PreferredSize::Calc&) {
                 return true;
             },
+            [&](const Style::PreferredSize::CalcSize&) {
+                return true;
+            },
             [](const CSS::Keyword::Stretch&) {
                 return true;
             },
@@ -432,6 +436,9 @@ bool RenderBlock::isSelfCollapsingBlock() const
                 return handleNonZeroPercentageOrCalc();
             },
             [&](const Style::PreferredSize::Calc&) {
+                return handleNonZeroPercentageOrCalc();
+            },
+            [&](const Style::PreferredSize::CalcSize&) {
                 return handleNonZeroPercentageOrCalc();
             },
             [](const CSS::Keyword::Auto&) {
@@ -554,18 +561,22 @@ static EnumSet<LogicalBoxAxis> sizesAffectedByScrollbarsForSubtreeRoot(const Ren
     if (layoutContext.subtreeScrollbarChangesState())
         return { };
 
+    EnumSet<LogicalBoxAxis> sizesAffected;
+
     auto& style = renderBlock.style();
     auto& computedLogicalWidth = style.logicalWidth();
-    if (computedLogicalWidth.isFixed())
-        return { };
+    if (!computedLogicalWidth.isFixed() && (computedLogicalWidth.isIntrinsic() || computedLogicalWidth.isMinIntrinsic() || renderBlock.sizesLogicalWidthToFitContent()))
+        sizesAffected.add(LogicalBoxAxis::Inline);
 
-    if (computedLogicalWidth.isIntrinsic() || computedLogicalWidth.isMinIntrinsic())
-        return LogicalBoxAxis::Inline;
+    auto& computedLogicalHeight = style.logicalHeight();
 
-    if (renderBlock.sizesLogicalWidthToFitContent())
-        return LogicalBoxAxis::Inline;
+    if (style.display().isFlexibleBox() && renderBlock.isBlockLevelBox() && (computedLogicalHeight.isAuto() || computedLogicalHeight.isIntrinsic()))
+        sizesAffected.add(LogicalBoxAxis::Block);
 
-    return { };
+    if (renderBlock.isRenderGrid() && (computedLogicalHeight.isAuto() || computedLogicalHeight.isIntrinsic()))
+        sizesAffected.add(LogicalBoxAxis::Block);
+
+    return sizesAffected;
 }
 
 static bool canContainDescendantScrollbarChanges(const RenderBlock& renderBlock, const LocalFrameViewLayoutContext& layoutContext)
@@ -781,6 +792,10 @@ bool RenderBlock::simplifiedLayout()
     if (!canPerformSimplifiedLayout())
         return false;
 
+    // Out-of-flow movements issue their own repaints.
+    auto checkForRepaint = !needsSimplifiedNormalFlowLayout() ? std::optional { LayoutRepainter::CheckForRepaint::No } : std::nullopt;
+    auto repainter = LayoutRepainter { *this, checkForRepaint };
+
     LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || writingMode().isBlockFlipped());
     bool didOutOfFlowMovement = false;
     if (needsOutOfFlowMovementLayout()) {
@@ -824,6 +839,7 @@ bool RenderBlock::simplifiedLayout()
         RelayoutScopeForScrollbarChange relayoutScope { *this, InOverflowRelayout::No };
     }
     clearNeedsLayout();
+    repainter.repaintAfterLayout();
     return true;
 }
 
@@ -867,9 +883,9 @@ std::pair<LayoutUnit, LayoutUnit> RenderBlock::intrinsicLogicalMarginStartAndEnd
     auto& marginEnd = child.style().marginEnd(writingMode());
     auto startValue = LayoutUnit { };
     auto endValue = LayoutUnit { };
-    if (!marginStart.isAuto() && !shouldTrimChildMargin(Style::MarginTrimSide::InlineStart, child))
+    if (!marginStart.isAuto())
         startValue = Style::evaluateMinimum<LayoutUnit>(marginStart, 0_lu, child.style().usedZoomForLength());
-    if (!marginEnd.isAuto() && !shouldTrimChildMargin(Style::MarginTrimSide::InlineEnd, child))
+    if (!marginEnd.isAuto())
         endValue = Style::evaluateMinimum<LayoutUnit>(marginEnd, 0_lu, child.style().usedZoomForLength());
     return { startValue, endValue };
 }
@@ -1375,9 +1391,9 @@ bool RenderBlock::establishesIndependentFormattingContext() const
         // https://drafts.csswg.org/css-grid-2/#grid-item-display
         if (!style.gridTemplateColumns().subgrid && !style.gridTemplateRows().subgrid)
             return true;
-        // Masonry makes grid items not subgrids.
+        // Grid lanes layout makes grid items not subgrids.
         if (auto* parentGridBox = dynamicDowncast<RenderGrid>(parent()))
-            return parentGridBox->isMasonry();
+            return parentGridBox->isGridLanes();
     }
 
     return false;
@@ -1812,7 +1828,7 @@ static inline void markRendererAndParentForLayout(RenderBox& renderer)
     parentBlock->setChildNeedsLayout();
 }
 
-void RenderBlock::removeOutOfFlowBoxes(const RenderBlock* newContainingBlockCandidate, ContainingBlockState containingBlockState)
+void RenderBlock::removeOutOfFlowBoxes(const RenderElement* newContainingBlockCandidate, ContainingBlockState containingBlockState)
 {
     auto* outOfFlowDescendants = outOfFlowBoxes();
     if (!outOfFlowDescendants)
@@ -2569,7 +2585,7 @@ std::pair<RenderObject*, RenderElement*> RenderBlock::firstLetterAndContainer(Re
         }
 
         RenderElement& current = downcast<RenderElement>(*firstLetter);
-        if (is<RenderListMarker>(current))
+        if (current.style().isListMarkerStyle())
             firstLetter = current.nextSibling();
         else if (current.isFloatingOrOutOfFlowPositioned()) {
             if (current.style().pseudoElementType() == PseudoElementType::FirstLetter) {
@@ -2688,31 +2704,6 @@ void RenderBlock::setPageLogicalOffset(LayoutUnit logicalOffset)
     rareData->m_pageLogicalOffset = logicalOffset;
 }
 
-void RenderBlock::boundingRects(Vector<LayoutRect>& rects, const LayoutPoint& accumulatedOffset) const
-{
-    rects.append({ accumulatedOffset, borderBoxSize() });
-}
-
-void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
-{
-    // FIXME: This is wrong for block-flows that are horizontal.
-    // https://bugs.webkit.org/show_bug.cgi?id=46781
-    FloatRect logicalRect { { }, borderBoxSize() };
-    CheckedPtr fragmentedFlow = enclosingFragmentedFlow();
-    if (!fragmentedFlow || !fragmentedFlow->absoluteQuadsForBox(quads, wasFixed, *this))
-        quads.append(localToAbsoluteQuad(logicalRect, MapCoordinatesMode::UseTransforms, wasFixed));
-}
-
-LayoutRect RenderBlock::rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const
-{
-    return RenderBox::rectWithOutlineForRepaint(repaintContainer, outlineWidth);
-}
-
-const Style::ComputedStyle& RenderBlock::outlineStyleForRepaint() const
-{
-    return RenderElement::outlineStyleForRepaint();
-}
-
 LayoutUnit RenderBlock::offsetFromLogicalTopOfFirstPage() const
 {
     auto* layoutState = view().frameView().layoutContext().layoutState();
@@ -2827,23 +2818,6 @@ bool RenderBlock::updateFragmentRangeForBoxChild(const RenderBox& box) const
         return true;
 
     return false;
-}
-
-void RenderBlock::setTrimmedMarginForChild(RenderBox& child, Style::MarginTrimSide side)
-{
-    // Only the block-axis sides: margin-trim applies to block containers and multi-column containers, and it has no
-    // effect on the inline-axis margins of their children.
-    switch (side) {
-    case Style::MarginTrimSide::BlockStart:
-        setMarginBeforeForChild(child, 0_lu);
-        break;
-    case Style::MarginTrimSide::BlockEnd:
-        setMarginAfterForChild(child, 0_lu);
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
 }
 
 LayoutUnit RenderBlock::collapsedMarginBeforeForChild(const RenderBox& child) const
@@ -3229,8 +3203,9 @@ void RenderBlock::layoutExcludedChildren(RelayoutChildren relayoutChildren)
     
     LayoutUnit fieldsetBorderBefore = borderBefore();
     LayoutUnit legendLogicalHeight = logicalHeightForChild(legend);
-    LayoutUnit legendBeforeMargin = marginBeforeForChild(legend);
-    LayoutUnit legendAfterMargin = marginAfterForChild(legend);
+    CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*this);
+    LayoutUnit legendBeforeMargin = blockFlow && blockFlow->shouldTrimChildMargin(Style::MarginTrimSide::BlockStart, legend) ? 0_lu : marginBeforeForChild(legend);
+    LayoutUnit legendAfterMargin = blockFlow && blockFlow->shouldTrimChildMargin(Style::MarginTrimSide::BlockEnd, legend) ? 0_lu : marginAfterForChild(legend);
     LayoutUnit topPositionForLegend = std::max(0_lu, (fieldsetBorderBefore - legendLogicalHeight) / 2);
     LayoutUnit bottomPositionForLegend = topPositionForLegend + legendLogicalHeight + legendAfterMargin;
 

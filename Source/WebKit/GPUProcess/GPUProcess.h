@@ -132,9 +132,15 @@ public:
     WebCore::NowPlayingManager& nowPlayingManager() LIFETIME_BOUND;
 
     void recomputeNowPlayingOwner();
-    bool isNowPlayingArbiterActive() const { return m_isNowPlayingArbiterActive; }
+    void setNowPlayingFallbackSession(std::optional<WebCore::QualifiedMediaSessionIdentifier>);
+    void withdrawNowPlayingCandidate(WebCore::QualifiedPageIdentifier);
+    void nowPlayingClientDidClose(WebCore::ProcessIdentifier);
     bool isActiveNowPlayingPage(WebCore::ProcessIdentifier process, WebCore::PageIdentifier page) const { return m_activeNowPlayingOwner && m_activeNowPlayingOwner->process == process && m_activeNowPlayingOwner->page == page; }
     bool isActiveNowPlayingSession(WebCore::ProcessIdentifier process, WebCore::MediaSessionIdentifier session) const { return m_activeNowPlayingOwner && m_activeNowPlayingOwner->process == process && m_activeNowPlayingOwner->session == session; }
+    // Unlike remoteCommandTargetSessionInProcess(), safe to ask from any process: it compares rather than assuming
+    // the caller owns the target.
+    bool isRemoteCommandTargetSession(WebCore::ProcessIdentifier process, WebCore::MediaSessionIdentifier session) const { return m_remoteCommandTarget && *m_remoteCommandTarget == WebCore::QualifiedMediaSessionIdentifier { session, process }; }
+    std::optional<WebCore::MediaSessionIdentifier> remoteCommandTargetSessionInProcess(WebCore::ProcessIdentifier) const;
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     WorkQueue& videoMediaStreamTrackRendererQueue();
@@ -200,6 +206,7 @@ private:
     void initializeProcess(const AuxiliaryProcessInitializationParameters&) override;
     void initializeProcessName(const AuxiliaryProcessInitializationParameters&) override;
     void initializeSandbox(const AuxiliaryProcessInitializationParameters&, SandboxInitializationParameters&) override;
+    Thread::QOS connectionReceiveQueueQOS() const override { return Thread::QOS::UserInteractive; }
     bool shouldTerminate() override;
 
     void tryExitIfUnused();
@@ -214,7 +221,6 @@ private:
     void updateGPUProcessPreferences(GPUProcessPreferences&&);
     void createGPUConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&, CompletionHandler<void()>&&);
     void sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
-    void updateNowPlayingArbiterActive(const SharedPreferencesForWebProcess&);
     void securityFlagsDidChange(SecurityFlags&&);
     void addSession(PAL::SessionID, GPUProcessSessionParameters&&);
     void removeSession(PAL::SessionID);
@@ -321,6 +327,8 @@ private:
         WebCore::MediaSessionIdentifier session;
     };
     std::optional<NowPlayingOwner> m_activeNowPlayingOwner;
+    std::optional<WebCore::QualifiedMediaSessionIdentifier> m_nowPlayingFallbackSession;
+    std::optional<WebCore::QualifiedMediaSessionIdentifier> m_remoteCommandTarget;
     String m_applicationVisibleName;
 #if PLATFORM(MAC)
     String m_uiProcessName;
@@ -335,8 +343,6 @@ private:
     bool m_haveEnabledVP9Decoder { false };
     bool m_haveEnabledSWVP9Decoder { false };
 #endif
-    bool m_isNowPlayingArbiterActive { false };
-
 };
 
 } // namespace WebKit

@@ -27,6 +27,7 @@
 
 #if ENABLE(WEBGL)
 
+#include "AlphaPremultiplication.h"
 #include "CanvasElementImage.h"
 #include "EventLoop.h"
 #include "GPUBasedCanvasRenderingContext.h"
@@ -101,6 +102,7 @@ class HTMLImageElement;
 class ImageData;
 class IntSize;
 class KHRParallelShaderCompile;
+class NativeImage;
 class NVShaderNoperspectiveInterpolation;
 class OESDrawBuffersIndexed;
 class OESElementIndexUint;
@@ -444,6 +446,7 @@ public:
     void didUpdateCanvasSizeProperties(bool) override;
 
     RefPtr<ImageBuffer> surfaceBufferToImageBuffer(SurfaceBuffer) final;
+    RefPtr<NativeImage> surfaceBufferToNativeImage(SurfaceBuffer) final;
     bool isSurfaceBufferTransparentBlack(SurfaceBuffer) const final { return false; }
 
     RefPtr<ByteArrayPixelBuffer> drawingBufferToPixelBuffer();
@@ -464,7 +467,7 @@ public:
 
     // GraphicsContextGL::Client
     void forceContextLost() final;
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final;
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, std::span<const char8_t>) final;
     void didChangeMemoryCost() final;
 
     void recycleContext();
@@ -561,7 +564,7 @@ protected:
         CallerTypeOther,
     };
 
-    void markContextChangedAndNotifyCanvasObserver(CallerType = CallerTypeDrawOrClear);
+    void willUpdateDrawingBufferContents(CallerType = CallerTypeDrawOrClear);
 
     void addActivityStateChangeObserverIfNecessary();
     void removeActivityStateChangeObserver();
@@ -591,10 +594,10 @@ protected:
     // Adds a compressed texture format.
     void addCompressedTextureFormat(GCGLenum);
 
-    RefPtr<Image> drawImageIntoBuffer(Image&, int width, int height, int deviceScaleFactor, ASCIILiteral functionName);
+    RefPtr<NativeImage> drawImageIntoBuffer(Image&, int width, int height, int deviceScaleFactor, ASCIILiteral functionName);
 
 #if ENABLE(VIDEO)
-    RefPtr<Image> videoFrameToImage(HTMLVideoElement&, ASCIILiteral functionName);
+    RefPtr<NativeImage> videoFrameToNativeImage(HTMLVideoElement&, ASCIILiteral functionName);
 #endif
 
     void loseExtensions(LostContextMode);
@@ -675,10 +678,10 @@ protected:
         LRUImageBufferCache(int capacity);
         // Returns pointer to a cleared image buffer that is owned by the cache. The pointer is valid until next call.
         // Using fillOperator == CompositeOperator::Copy can be used to omit the clear of the buffer.
-        RefPtr<ImageBuffer> imageBuffer(const IntSize&, DestinationColorSpace, CompositeOperator fillOperator = CompositeOperator::SourceOver);
+        RefPtr<ImageBuffer> imageBuffer(const IntSize&, ColorSpace, CompositeOperator fillOperator = CompositeOperator::SourceOver);
     private:
         void bubbleToFront(size_t idx);
-        Vector<std::optional<std::pair<DestinationColorSpace, Ref<ImageBuffer>>>> m_buffers;
+        Vector<std::optional<std::pair<ColorSpace, Ref<ImageBuffer>>>> m_buffers;
     };
     LRUImageBufferCache m_generatedImageCache { 0 };
 
@@ -724,8 +727,21 @@ protected:
 
     bool m_compositingResultsNeedUpdating { false };
     bool m_memoryCostUpdateScheduled { false };
-    RefPtr<ImageBuffer> m_readDrawingBuffer;
-    RefPtr<ImageBuffer> m_readDisplayBuffer;
+
+    // Temporary holder for both ImageBuffer and NativeImage requests.
+    // Once ImageBuffer requests have been removed, this will be reverted to RefPtr<NativeImage>.
+    struct ReadSurfaceBuffer {
+        RefPtr<NativeImage> image;
+        RefPtr<ImageBuffer> buffer;
+
+        bool isEmpty() const { return !image && !buffer; }
+        void clear();
+        size_t memoryCost() const;
+    };
+    ReadSurfaceBuffer& readSurfaceBuffer(SurfaceBuffer);
+
+    ReadSurfaceBuffer m_readDrawingBuffer;
+    ReadSurfaceBuffer m_readDisplayBuffer;
 
     // Enabled extension objects.
     // FIXME: Move some of these to WebGLRenderingContext, the ones not needed for WebGL2
@@ -866,7 +882,7 @@ protected:
 
     ExceptionOr<void> texImageSourceHelper(TexImageFunctionID, GCGLenum target, GCGLint level, GCGLint internalformat, GCGLint border, GCGLenum format, GCGLenum type, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, const IntRect& sourceImageRect, GCGLsizei depth, GCGLint unpackImageHeight, TexImageSource&&);
     void texImageArrayBufferViewHelper(TexImageFunctionID, GCGLenum target, GCGLint level, GCGLint internalformat, GCGLsizei width, GCGLsizei height, GCGLsizei depth, GCGLint border, GCGLenum format, GCGLenum type, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, RefPtr<ArrayBufferView>&& pixels, NullDisposition, uint64_t srcOffset);
-    void texImageImpl(TexImageFunctionID, GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, GCGLenum format, GCGLenum type, Image&, GraphicsContextGL::DOMSource, bool flipY, bool premultiplyAlpha, bool ignoreNativeImageAlphaPremultiplication, const IntRect&, GCGLsizei depth, GCGLint unpackImageHeight);
+    void texImageImpl(TexImageFunctionID, GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLint xoffset, GCGLint yoffset, GCGLint zoffset, GCGLenum format, GCGLenum type, NativeImage&, std::optional<AlphaPremultiplication> sourceAlphaPremultiplication, bool flipY, bool premultiplyAlpha, const IntRect&, GCGLsizei depth, GCGLint unpackImageHeight);
     void texImage2DBase(GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, std::span<const uint8_t> pixels);
     void texSubImage2DBase(GCGLenum target, GCGLint level, GCGLint xoffset, GCGLint yoffset, GCGLsizei width, GCGLsizei height, GCGLenum internalFormat, GCGLenum format, GCGLenum type, std::span<const uint8_t> pixels);
     static ASCIILiteral texImageFunctionName(TexImageFunctionID);

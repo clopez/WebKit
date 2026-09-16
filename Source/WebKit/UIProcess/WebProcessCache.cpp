@@ -185,7 +185,7 @@ bool WebProcessCache::addProcess(Ref<CachedProcess>&& cachedProcess)
 
         evictAtRandomIfNeeded();
 
-        WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added shared process to WebProcess cache (size=%u, capacity=%u) %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), site->toString().utf8().data());
+        WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added shared process to WebProcess cache (size=%u, capacity=%u) %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), site->toString().utf8());
         m_sharedProcessesPerSite.add(*site, WTF::move(cachedProcess));
 
         return true;
@@ -204,7 +204,7 @@ bool WebProcessCache::addProcess(Ref<CachedProcess>&& cachedProcess)
 
     evictAtRandomIfNeeded();
 
-    WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added process to WebProcess cache (size=%u, capacity=%u, isolatedProcessType=%d) %" SENSITIVE_LOG_STRING ", mainFrameSite: %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), static_cast<int>(isolatedProcessType), site.loggingString().utf8().data(), mainFrameSite.loggingString().utf8().data());
+    WEBPROCESSCACHE_RELEASE_LOG("addProcess: Added process to WebProcess cache (size=%u, capacity=%u, isolatedProcessType=%d) %" SENSITIVE_LOG_STRING ", mainFrameSite: %" SENSITIVE_LOG_STRING, cachedProcess->process().processID(), size() + 1, capacity(), static_cast<int>(isolatedProcessType), site.loggingString().utf8(), mainFrameSite.loggingString().utf8());
     m_processesPerSite.add({ site, mainFrameSite }, WTF::move(cachedProcess));
 
     return true;
@@ -241,7 +241,7 @@ RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, 
 
     auto it = m_processesPerSite.find({ site, mainFrameSite });
     if (it == m_processesPerSite.end()) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeProcess: did not find %" SENSITIVE_LOG_STRING ", mainFrameSite: %" SENSITIVE_LOG_STRING, 0, site.loggingString().utf8().data(), mainFrameSite.loggingString().utf8().data());
+        WEBPROCESSCACHE_RELEASE_LOG("takeProcess: did not find %" SENSITIVE_LOG_STRING ", mainFrameSite: %" SENSITIVE_LOG_STRING, 0, site.loggingString().utf8(), mainFrameSite.loggingString().utf8());
         return nullptr;
     }
 
@@ -266,7 +266,7 @@ RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, 
     }
 
     Ref process = m_processesPerSite.take(it)->takeProcess();
-    WEBPROCESSCACHE_RELEASE_LOG("takeProcess: Taking process from WebProcess cache (size=%u, capacity=%u, processWasTerminated=%d, isolatedProcessType=%d) %" SENSITIVE_LOG_STRING ", mainFrameSite %" SENSITIVE_LOG_STRING, process->processID(), size(), capacity(), process->wasTerminated(), static_cast<int>(isolatedProcessType), site.loggingString().utf8().data(), mainFrameSite.loggingString().utf8().data());
+    WEBPROCESSCACHE_RELEASE_LOG("takeProcess: Taking process from WebProcess cache (size=%u, capacity=%u, processWasTerminated=%d, isolatedProcessType=%d) %" SENSITIVE_LOG_STRING ", mainFrameSite %" SENSITIVE_LOG_STRING, process->processID(), size(), capacity(), process->wasTerminated(), static_cast<int>(isolatedProcessType), site.loggingString().utf8(), mainFrameSite.loggingString().utf8());
 
     ASSERT(!process->pageCount());
     ASSERT(!process->provisionalPageCount());
@@ -282,34 +282,53 @@ RefPtr<WebProcessProxy> WebProcessCache::takeProcess(const WebCore::Site& site, 
 
 RefPtr<WebProcessProxy> WebProcessCache::takeSharedProcess(const WebCore::Site& mainFrameSite, WebsiteDataStore& dataStore, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity, const API::PageConfiguration& pageConfiguration)
 {
-    auto it = m_sharedProcessesPerSite.find(mainFrameSite);
-    if (it == m_sharedProcessesPerSite.end()) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: did not find %" SENSITIVE_LOG_STRING, 0, mainFrameSite.loggingString().utf8().data());
+    RefPtr<CachedProcess> cachedProcess;
+    std::optional<uint64_t> pendingAddRequestIdentifier;
+    if (auto it = m_sharedProcessesPerSite.find(mainFrameSite); it != m_sharedProcessesPerSite.end())
+        cachedProcess = it->value.ptr();
+    else {
+        for (auto& pair : m_pendingAddRequests) {
+            Ref process = pair.value->process();
+            auto& site = process->sharedProcessMainFrameSite();
+            if (process->isSharedProcess() && site && *site == mainFrameSite) {
+                cachedProcess = pair.value.ptr();
+                pendingAddRequestIdentifier = pair.key;
+                break;
+            }
+        }
+    }
+
+    if (!cachedProcess) {
+        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: did not find %" SENSITIVE_LOG_STRING, 0, mainFrameSite.loggingString().utf8());
         return nullptr;
     }
 
-    if (it->value->process().websiteDataStore() != &dataStore) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, datastore not identical", it->value->process().processID());
+    if (cachedProcess->process().websiteDataStore() != &dataStore) {
+        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, datastore not identical", cachedProcess->process().processID());
         return nullptr;
     }
 
-    if (it->value->process().lockdownMode() != lockdownMode) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, lockdown mode not identical", it->value->process().processID());
+    if (cachedProcess->process().lockdownMode() != lockdownMode) {
+        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, lockdown mode not identical", cachedProcess->process().processID());
         return nullptr;
     }
 
-    if (it->value->process().enhancedSecurity() != enhancedSecurity) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, enhanced security not identical", it->value->process().processID());
+    if (cachedProcess->process().enhancedSecurity() != enhancedSecurity) {
+        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, enhanced security not identical", cachedProcess->process().processID());
         return nullptr;
     }
 
-    if (!Ref { it->value->process() }->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
-        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, preferences not identical", it->value->process().processID());
+    if (!Ref { cachedProcess->process() }->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
+        WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: cannot take process, preferences not identical", cachedProcess->process().processID());
         return nullptr;
     }
 
-    Ref process = m_sharedProcessesPerSite.take(it)->takeProcess();
-    WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: Taking process from WebProcess cache (size=%u, capacity=%u, processWasTerminated=%d) %" SENSITIVE_LOG_STRING, process->processID(), size(), capacity(), process->wasTerminated(), mainFrameSite.loggingString().utf8().data());
+    if (pendingAddRequestIdentifier)
+        m_pendingAddRequests.remove(*pendingAddRequestIdentifier);
+    else
+        m_sharedProcessesPerSite.remove(mainFrameSite);
+    Ref process = cachedProcess->takeProcess();
+    WEBPROCESSCACHE_RELEASE_LOG("takeSharedProcess: Taking process from WebProcess cache (size=%u, capacity=%u, processWasTerminated=%d, wasPendingAddRequest=%d) %" SENSITIVE_LOG_STRING, process->processID(), size(), capacity(), process->wasTerminated(), !!pendingAddRequestIdentifier, mainFrameSite.loggingString().utf8());
 
     ASSERT(!process->pageCount());
     ASSERT(!process->provisionalPageCount());
@@ -521,7 +540,7 @@ void WebProcessCache::CachedProcess::evictionTimerFired()
 {
     ASSERT(m_process);
     auto process = m_process.copyRef();
-    process->processPool().webProcessCache().removeProcess(*process, ShouldShutDownProcess::Yes);
+    protect(process->processPool().webProcessCache())->removeProcess(*process, ShouldShutDownProcess::Yes);
 }
 
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)

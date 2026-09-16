@@ -3786,7 +3786,8 @@
          "i_gower@apple.com"
       ],
       "github" : "igower",
-      "name" : "Ian Gower"
+      "name" : "Ian Gower",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6443,6 +6444,18 @@
    },
    {
       "emails" : [
+         "morne@apple.com",
+         "morne@morneveldsman.com"
+      ],
+      "expertise" : "Web Compatibility",
+      "github" : "mveldsman",
+      "name" : "Morne Veldsman",
+      "nicks" : [
+         "mveldsman"
+      ]
+   },
+   {
+      "emails" : [
          "Ms2ger@igalia.com",
          "Ms2ger@gmail.com"
       ],
@@ -7783,7 +7796,8 @@
       "name" : "Sergey Rubanov",
       "nicks" : [
          "chicoxyzzy"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -8977,7 +8991,7 @@
    },
    {
       "emails" : [
-         "yousuke.kimoto@sony.com"
+         "yousuke.kimoto@gmail.com"
       ],
       "github" : "ykimot",
       "name" : "Yousuke Kimoto",

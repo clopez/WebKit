@@ -38,6 +38,7 @@
 #include "Latin1TextIterator.h"
 #include "LayoutInlineTextBox.h"
 #include "RenderBox.h"
+#include "RenderGlyph.h"
 #include "StyleComputedStyle+GettersInlines.h"
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextRun.h"
@@ -64,6 +65,12 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
 {
     if (from == to)
         return 0;
+
+    if (inlineTextBox.hasSynthesizedGlyph()) {
+        if (CheckedPtr glyphRenderer = dynamicDowncast<RenderGlyph>(inlineTextBox.rendererForIntegration()))
+            return glyphRenderer->advanceRatio() * fontCascade.size();
+        return (fontCascade.metricsOfPrimaryFont().intAscent() * 2 / 3 + 1) / 2 + 2; // List bullet.
+    }
 
     if (inlineTextBox.isCombined())
         return fontCascade.size();
@@ -153,10 +160,10 @@ static void fallbackFontsForRunWithIterator(SingleThreadWeakHashSet<const Font>&
                 // "Unsupported Default_ignorable characters must be ignored for text rendering."
                 auto isIgnored = isDefaultIgnorableCodePoint(character);
 
-                // If we include the synthetic bold expansion, then even zero-width glyphs will have their fonts added.
-                if (isNonSpacingMark || glyphData.font->widthForGlyph(glyphData.glyph, Font::SyntheticBoldInclusion::Exclude))
+                if (isNonSpacingMark || glyphData.font->widthForGlyph(glyphData.glyph)) {
                     if (!isIgnored)
                         fallbackFonts.add(*glyphData.font);
+                }
             }
         };
         addFallbackFontForCharacterIfApplicable(currentCharacter);
@@ -386,7 +393,7 @@ bool TextUtil::mayBreakInBetween(String previousContent, const Style::ComputedSt
         // See the templated CharacterType in nextBreakablePosition for last and lastlast characters.
         nextContent.convertTo16Bit();
     }
-    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { nextContent, Style::toPlatform(nextContentStyle.computedLocale()), TextUtil::lineBreakIteratorMode(nextContentStyle.lineBreak()), TextUtil::contentAnalysis(nextContentStyle.wordBreak()) };
+    auto lineBreakIteratorFactory = CachedLineBreakIteratorFactory { nextContent, Style::toPlatform(nextContentStyle.usedLocale()), TextUtil::lineBreakIteratorMode(nextContentStyle.lineBreak()), TextUtil::contentAnalysis(nextContentStyle.wordBreak()) };
     auto previousContentLength = previousContent.length();
     // FIXME: We should look into the entire uncommitted content for more text context.
     char16_t lastCharacter = previousContentLength ? previousContent[previousContentLength - 1] : 0;
@@ -459,7 +466,7 @@ EnumSet<TextUtil::WordBreakRule> TextUtil::wordBreakBehavior(const Style::Comput
         return { WordBreakRule::AtArbitraryPositionWithinWords };
 
     auto includeHyphenationIfAllowed = [&](std::optional<WordBreakRule> wordBreakRule) -> EnumSet<WordBreakRule> {
-        auto hyphenationIsAllowed = hyphenationIsDisabled == HyphenationIsDisabled::No && style.hyphens() == Hyphens::Auto && canHyphenate(Style::toPlatform(style.computedLocale()));
+        auto hyphenationIsAllowed = hyphenationIsDisabled == HyphenationIsDisabled::No && style.hyphens() == Hyphens::Auto && canHyphenate(Style::toPlatform(style.usedLocale()));
         if (hyphenationIsAllowed) {
             if (wordBreakRule)
                 return { *wordBreakRule, WordBreakRule::AtHyphenationOpportunities };

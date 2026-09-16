@@ -2268,8 +2268,8 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
     }
 
 #if ENABLE(TOUCH_EVENTS)
-    WebKit::NativeWebTouchEvent nativeWebTouchEvent { lastTouchEvent, [_touchEventGestureRecognizer modifierFlags] };
-    nativeWebTouchEvent.setCanPreventNativeGestures(_touchEventsCanPreventNativeGestures || [_touchEventGestureRecognizer isDefaultPrevented]);
+    Ref nativeWebTouchEvent = WebKit::NativeWebTouchEvent::create(lastTouchEvent, [_touchEventGestureRecognizer modifierFlags]);
+    nativeWebTouchEvent->setCanPreventNativeGestures(_touchEventsCanPreventNativeGestures || [_touchEventGestureRecognizer isDefaultPrevented]);
 
     [self _handleTouchActionsForTouchEvent:nativeWebTouchEvent];
 
@@ -2281,14 +2281,14 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
     else
         _page->handleUnpreventableTouchEvent(nativeWebTouchEvent);
 
-    if (nativeWebTouchEvent.allTouchPointsAreReleased()) {
+    if (nativeWebTouchEvent->allTouchPointsAreReleased()) {
         _touchEventsCanPreventNativeGestures = YES;
         _touchStartedNearSelectionHandle = NO;
 
         if (!_page->isScrollingOrZooming())
             [self _resetPanningPreventionFlags];
 
-        if (nativeWebTouchEvent.isPotentialTap() && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
+        if (nativeWebTouchEvent->isPotentialTap() && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
             [self.window makeKeyWindow];
 
         auto stopDeferringNativeGesturesIfNeeded = [] (WKDeferringGestureRecognizer *gestureRecognizer) {
@@ -4907,7 +4907,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (action == @selector(copy:)) {
-        if (editorState.isInPasswordField && !editorState.selectionIsRangeInAutoFilledAndViewableField)
+        bool selectionIsInAutoFilledAndViewablePasswordField = editorState.isInPasswordField && !editorState.selectionIsRangeInAutoFilledAndViewableField;
+        bool selectionIsInPluginWithCopyingDisallowed = editorState.isInPlugin && editorState.hasPostLayoutData() && !editorState.postLayoutData->canCopy;
+        if (selectionIsInAutoFilledAndViewablePasswordField || selectionIsInPluginWithCopyingDisallowed)
             return NO;
         return editorState.selectionType == WebCore::SelectionType::Range;
     }
@@ -5559,8 +5561,8 @@ static void selectionChangedWithTouch(WKTextInteractionWrapper *interaction, con
 
     _autocorrectionContextNeedsUpdate = YES;
     _usingGestureForSelection = YES;
-    protect(_page)->selectWithGesture(std::nullopt, WebCore::IntPoint(point), toGestureType(gestureType), toGestureRecognizerState(state), self._hasFocusedElement, [self, strongSelf = retainPtr(self), state, flags](const WebCore::IntPoint& point, WebKit::GestureType gestureType, WebKit::GestureRecognizerState gestureState, OptionSet<WebKit::SelectionFlags> innerFlags) {
-        selectionChangedWithGesture(_textInteractionWrapper.get(), point, gestureType, gestureState, toSelectionFlags(flags) | innerFlags);
+    protect(_page)->selectWithGesture(std::nullopt, WebCore::IntPoint(point), toGestureType(gestureType), toGestureRecognizerState(state), self._hasFocusedElement, [self, strongSelf = retainPtr(self), state, flags](WebKit::SelectWithGestureResult result) {
+        selectionChangedWithGesture(_textInteractionWrapper.get(), result.point, result.gestureType, result.gestureState, toSelectionFlags(flags) | result.flags);
         if (state == UIGestureRecognizerStateEnded || state == UIGestureRecognizerStateCancelled)
             _usingGestureForSelection = NO;
     });
@@ -5884,7 +5886,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
     if (selectionFlags)
         selectionChangeStream << ", " << "selectionFlags=" << toSelectionFlags(*selectionFlags);
 
-    RELEASE_LOG(TextInteraction, "Text interaction changing selection using '%s' (%s).", methodName, selectionChangeStream.release().utf8().data());
+    RELEASE_LOG(TextInteraction, "Text interaction changing selection using '%s' (%s).", methodName, selectionChangeStream.release().utf8());
 }
 
 - (void)selectPositionAtPoint:(CGPoint)point completionHandler:(void (^)(void))completionHandler
@@ -6384,11 +6386,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
 - (void)updateFocusedElementValueAsColor:(UIColor *)value
 {
-    auto color = [&] {
-        if (protect(_page->preferences())->inputTypeColorEnhancementsEnabled())
-            return WebCore::Color::createAndPreserveColorSpace(protect(protect(value).get().CGColor));
-        return WebCore::Color(WebCore::roundAndClampToSRGBALossy(protect(protect(value).get().CGColor)));
-    }();
+    auto color = WebCore::Color::createAndPreserveColorSpace(protect(protect(value).get().CGColor));
     auto valueAsString = WebCore::serializationForHTML(color);
 
     protect(_page)->setFocusedElementValue(_focusedElementInformation.frameID(), _focusedElementInformation.elementContext, valueAsString);
@@ -7782,7 +7780,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
 
 - (void)_internalHandleKeyWebEvent:(::WebEvent *)theEvent
 {
-    protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent(theEvent, WebKit::NativeWebKeyboardEvent::HandledByInputMethod::No));
+    protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent::create(theEvent, WebKit::NativeWebKeyboardEvent::HandledByInputMethod::No));
 }
 
 - (void)handleKeyWebEvent:(::WebEvent *)event withCompletionHandler:(void (^)(::WebEvent *theEvent, BOOL wasHandled))completionHandler
@@ -7851,11 +7849,11 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
     if ([self _deferKeyEventToInputMethodEditing:event]) {
         completionHandler(event, YES);
         _isDeferringKeyEventsToInputMethod = YES;
-        protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent(event, HandledByInputMethod::Yes));
+        protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent::create(event, HandledByInputMethod::Yes));
         return;
     }
 
-    if (protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent(event, HandledByInputMethod::No)))
+    if (protect(_page)->handleKeyboardEvent(WebKit::NativeWebKeyboardEvent::create(event, HandledByInputMethod::No)))
         _keyWebEventHandlers.append({ event, makeBlockPtr(completionHandler) });
     else
         completionHandler(event, NO);
@@ -9943,7 +9941,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 #endif // HAVE(SHARE_SHEET_UI)
 
 #if ENABLE(WEB_AUTHN)
-- (void)_showDigitalCredentialsChooser:(const WebCore::DigitalCredentialsRequestData&)requestData completionHandler:(WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&)completionHandler
+- (void)_showDigitalCredentialsChooser:(const WebCore::DigitalCredentialsRequestData&)requestData completionHandler:(WTF::CompletionHandler<void(std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&)completionHandler
 {
     _digitalCredentialsPicker = adoptNS([[WKDigitalCredentialsPicker alloc] initWithView:self.webView page:_page.get()]);
     [_digitalCredentialsPicker presentWithRequestData:requestData completionHandler:WTF::move(completionHandler)];
@@ -11099,7 +11097,7 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
         return;
     }
 
-    RELEASE_LOG(DragAndDrop, "Drag session: %p preparing to drag with attachment identifier: %s", session.get(), info.attachmentIdentifier.utf8().data());
+    RELEASE_LOG(DragAndDrop, "Drag session: %p preparing to drag with attachment identifier: %s", session.get(), info.attachmentIdentifier.utf8());
 
     RetainPtr<NSString> utiType;
     RetainPtr<NSString> fileName;
@@ -11129,7 +11127,7 @@ static NSArray<NSItemProvider *> *extractItemProvidersFromDropSession(id <UIDrop
 
         if (auto attachment = protect(strongSelf->_page)->attachmentForIdentifier(info.attachmentIdentifier); attachment && !attachment->isEmpty()) {
             attachment->doWithFileWrapper([&](NSFileWrapper *fileWrapper) {
-                RELEASE_LOG(DragAndDrop, "Drag session: %p delivering promised attachment: %s at path: %@", session.get(), info.attachmentIdentifier.utf8().data(), destinationURL.get().path);
+                RELEASE_LOG(DragAndDrop, "Drag session: %p delivering promised attachment: %s at path: %@", session.get(), info.attachmentIdentifier.utf8(), destinationURL.get().path);
                 NSError *fileWrapperError = nil;
                 if ([fileWrapper writeToURL:destinationURL.get() options:0 originalContentsURL:nil error:&fileWrapperError])
                     callback(destinationURL.get(), nil);
@@ -11989,6 +11987,17 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     return _contextMenuInteractionTargetedPreview.get();
 }
 
+- (UITargetedPreview *)_createTargetedContextMenuHintPreviewForRootViewRect:(CGRect)rectInRootViewCoordinates
+{
+    auto targetedPreview = createFallbackTargetedPreview(self, self.containerForContextMenuHintPreviews, rectInRootViewCoordinates, nil);
+
+    // No hit test result, so no container scroller to track.
+    [self _updateTargetedPreviewScrollViewUsingContainerScrollingNodeID:std::nullopt];
+
+    _contextMenuInteractionTargetedPreview = WTF::move(targetedPreview);
+    return _contextMenuInteractionTargetedPreview.get();
+}
+
 - (BOOL)positionInformationHasImageOverlayDataDetector
 {
 #if ENABLE(DATA_DETECTION)
@@ -12433,8 +12442,9 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     [self _configureMouseGestureRecognizer];
 }
 
-- (void)mouseInteraction:(WKMouseInteraction *)interaction changedWithEvent:(const WebKit::NativeWebMouseEvent&)event
+- (void)mouseInteraction:(WKMouseInteraction *)interaction changedWithEvent:(Ref<WebKit::NativeWebMouseEvent>&&)eventRef
 {
+    const auto& event = eventRef.get();
     Ref page = *_page;
     if (!page->hasRunningProcess())
         return;
@@ -12451,7 +12461,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             [self.window makeKeyWindow];
     }
 
-    page->handleMouseEvent(event);
+    page->handleMouseEvent(WTF::move(eventRef));
 }
 
 #if ENABLE(POINTER_LOCK)
@@ -12502,7 +12512,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if ENABLE(VIDEO) && USE(UICONTEXTMENU)
-- (void)showCaptionDisplaySettingsMenu:(WebCore::HTMLMediaElementIdentifier)identifier withOptions:(const WebCore::ResolvedCaptionDisplaySettingsOptions&)options completionHandler:(CompletionHandler<void(Expected<void, WebCore::ExceptionData>)>&&)completionHandler
+- (void)showCaptionDisplaySettingsMenu:(WebCore::HTMLMediaElementIdentifier)identifier withOptions:(const WebCore::ResolvedCaptionDisplaySettingsOptions&)options completionHandler:(CompletionHandler<void(std::expected<void, WebCore::ExceptionData>)>&&)completionHandler
 {
     [protect(_actionSheetAssistant) showCaptionDisplaySettingsMenu:identifier withOptions:options completionHandler:WTF::move(completionHandler)];
 }
@@ -14407,8 +14417,8 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
     if (!protect(_page->preferences())->textAnimationsEnabled())
         return;
 
-    if (data.style == WebCore::TextAnimationType::Final)
-        [_sourceAnimationIDtoDestinationAnimationID setObject:uuid forKey:data.sourceAnimationUUID.value_or(WTF::UUID(WTF::UUID::emptyValue)).createNSUUID().get()];
+    if (data.style == WebCore::TextAnimationType::Final && data.sourceAnimationUUID)
+        [_sourceAnimationIDtoDestinationAnimationID setObject:uuid forKey:data.sourceAnimationUUID->createNSUUID().get()];
 
     if (!_textAnimationManager)
         _textAnimationManager = adoptNS([WebKit::allocWKTextAnimationManagerInstance() initWithDelegate:self]);
@@ -16303,7 +16313,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         },
         [] (const WebKit::WebFoundTextRange::CueData& cueData) -> RetainPtr<WKFoundTextRange> {
             RetainPtr foundCueTextRange = adoptNS([[WKFoundCueTextRange alloc] init]);
-            [foundCueTextRange setMediaElementIdentifier:cueData.mediaElementIdentifier.toRawValue()];
+            [foundCueTextRange setMediaElementIdentifier:cueData.mediaElementIdentifier.toUInt64()];
             [foundCueTextRange setDocumentOffset:cueData.documentOffset];
             [foundCueTextRange setSeekTimeMilliseconds:cueData.seekTimeMilliseconds];
             return foundCueTextRange;

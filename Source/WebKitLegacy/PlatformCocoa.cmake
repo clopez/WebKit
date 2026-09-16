@@ -8,9 +8,6 @@ find_library(APPLICATIONSERVICES_LIBRARY ApplicationServices)
 find_library(QUARTZ_LIBRARY Quartz)
 find_library(SECURITYINTERFACE_LIBRARY SecurityInterface)
 
-list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
-    PAL
-)
 if (WEBKIT_SDK_IS_IOS_FAMILY)
     list(APPEND WebKitLegacy_PRIVATE_LIBRARIES ${UIKIT_LIBRARY})
 endif ()
@@ -49,7 +46,7 @@ list(APPEND WebKitLegacy_UNIFIED_SOURCE_LIST_FILES
     SourcesCocoa.txt
 )
 # FIXME: Test building on iOS and then enable on iOS.
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
     list(APPEND WebKitLegacy_UNIFIED_SOURCE_LIST_FILES
         SourcesCMakeCocoa.txt
     )
@@ -257,10 +254,6 @@ set(WebKitLegacy_POST_BUILD_COMMAND
 )
 set_target_properties(WebKitLegacy PROPERTIES
     INSTALL_NAME_DIR "${WebKitLegacy_INSTALL_NAME_DIR}"
-)
-target_link_options(WebKitLegacy PRIVATE
-    -compatibility_version 1.0.0
-    -current_version ${WEBKIT_MAC_VERSION}
 )
 
 target_link_options(WebKitLegacy PRIVATE
@@ -1263,6 +1256,12 @@ endif ()
 add_definitions(-iframework ${QUARTZ_LIBRARY}/Frameworks)
 add_definitions(-iframework ${APPLICATIONSERVICES_LIBRARY}/Versions/Current/Frameworks)
 
+if (WebKitLegacy_INSTALL_NAME_DIR)
+    set_target_properties(WebKitLegacy PROPERTIES
+        INSTALL_NAME_DIR "${WebKitLegacy_INSTALL_NAME_DIR}"
+    )
+endif ()
+
 
 # WebKit reexports WebKitLegacy, so the legacy ObjC API is part of WebKit's
 # API.
@@ -1522,19 +1521,26 @@ set(WebKitLegacy_FORWARDED_PRIVATE_HEADERS
 # Make the above also available from <WebKitLegacy/X.h> imports.
 set(WebKitLegacy_PRIVATE_FRAMEWORK_HEADERS
     ${WebKitLegacy_FORWARDED_PUBLIC_HEADERS}
-    ${WebKitLegacy_FORWARDED_PRIVATE_HEADERS})
+    ${WebKitLegacy_FORWARDED_PRIVATE_HEADERS}
+)
 
-list(APPEND WebKitLegacy_INTERFACE_DEPENDENCIES WebKitLegacy_ForwardHeaders WebKitLegacy_ForwardPrivateHeaders)
+list(APPEND WebKitLegacy_INTERFACE_DEPENDENCIES WebKitLegacy_ForwardHeaders WebKitLegacy_ForwardPrivateHeaders WebKitLegacy_CopyPrivateHeaders)
 
 WEBKIT_COPY_FILES(WebKitLegacy_ForwardHeaders
     DESTINATION ${WebKit_HEADERS_DIR}
     FILES ${WebKitLegacy_FORWARDED_PUBLIC_HEADERS}
-    COMMAND ${PERL_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/forward-headers-cmake.pl
+    COMMAND ${PERL_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/forward-headers-cmake.pl --webkit
     FLATTENED
 )
 WEBKIT_COPY_FILES(WebKitLegacy_ForwardPrivateHeaders
     DESTINATION ${WebKit_PRIVATE_HEADERS_DIR}
     FILES ${WebKitLegacy_FORWARDED_PRIVATE_HEADERS}
+    COMMAND ${PERL_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/forward-headers-cmake.pl --webkit
+    FLATTENED
+)
+WEBKIT_COPY_FILES(WebKitLegacy_CopyPrivateHeaders
+    DESTINATION ${WebKitLegacy_HEADERS_DIR}
+    FILES ${WebKitLegacy_PRIVATE_FRAMEWORK_HEADERS}
     COMMAND ${PERL_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/forward-headers-cmake.pl
     FLATTENED
 )
@@ -1724,5 +1730,3 @@ set(WebKitLegacy_PROJECT_HEADERS
     mac/WebView/WebViewInternal.h
     mac/WebView/WebViewRenderingUpdateScheduler.h
 )
-
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -compatibility_version 1 -current_version ${WEBKIT_MAC_VERSION} -framework SecurityInterface")

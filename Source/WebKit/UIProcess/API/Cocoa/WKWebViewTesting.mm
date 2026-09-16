@@ -54,6 +54,7 @@
 #import "WebsiteDataStore.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKInspectorInternal.h"
+#import <WebCore/AXObjectTypes.h>
 #import <WebCore/BoxSides.h>
 #import <WebCore/Color.h>
 #import <WebCore/NowPlayingInfo.h>
@@ -261,6 +262,16 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (CGFloat)_pageScale
 {
     return _page->pageScaleFactor();
+}
+
+- (CGFloat)_minMagnification
+{
+    return _page->minPageZoomFactor();
+}
+
+- (CGFloat)_maxMagnification
+{
+    return _page->maxPageZoomFactor();
 }
 
 - (void)_setContinuousSpellCheckingEnabledForTesting:(BOOL)enabled
@@ -483,6 +494,28 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     protect(_page->legacyMainFrameProcess())->setThrottleStateForTesting(static_cast<WebKit::ProcessThrottleState>(value));
 }
 
+- (NSString *)_processAssertionTypeForTesting
+{
+    if (!_page)
+        return nil;
+
+    auto assertionType = protect(_page->legacyMainFrameProcess())->throttler().assertionTypeForTesting();
+    if (!assertionType)
+        return nil;
+
+    return WebKit::processAssertionTypeDescription(*assertionType).createNSString().autorelease();
+}
+
+- (void)_setJetsamBoostEnabledForTesting:(BOOL)enabled
+{
+#if PLATFORM(MAC) && USE(RUNNINGBOARD)
+    if (_page)
+        protect(_page->legacyMainFrameProcess())->setJetsamBoostEnabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
 - (BOOL)_hasServiceWorkerBackgroundActivityForTesting
 {
     return _page && protect(_page->configuration().processPool())->hasServiceWorkerBackgroundActivityForTesting();
@@ -543,6 +576,18 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
         return playbackSessionManager->wirelessVideoPlaybackDisabled();
 #endif
     return false;
+}
+
+- (double)_maximumSeekableTime
+{
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    if (RefPtr playbackSessionManager = _page->playbackSessionManager()) {
+        auto ranges = playbackSessionManager->seekableRanges();
+        if (ranges.length())
+            return ranges.maximumBufferedTime().toDouble();
+    }
+#endif
+    return std::numeric_limits<double>::quiet_NaN();
 }
 
 - (void)_doAfterProcessingAllPendingMouseEvents:(dispatch_block_t)action
@@ -1090,6 +1135,16 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
++ (BOOL)_isAccessibilityEnabledForTesting
+{
+    return !WebCore::isAccessibilityModeOff(WebKit::WebProcessProxy::accessibilityModeForWebContent());
+}
+
++ (void)_resetAccessibilityModeForTesting
+{
+    WebKit::WebProcessProxy::resetAccessibilityModeForTesting();
+}
+
 - (void)_setMediaVolumeForTesting:(float)mediaVolume
 {
     _page->setMediaVolume(mediaVolume);
@@ -1219,7 +1274,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
-- (void)_startMonitoringWheelEventsForTesting:(void(^)(void))completionHandler
+- (void)_startMonitoringWheelEventsForTestingWithCompletionHandler:(void(^)(void))completionHandler
 {
     RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
@@ -1230,13 +1285,24 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     });
 }
 
-- (void)_waitForWheelEventsToCompleteForTesting:(void(^)(void))completionHandler
+- (void)_waitForWheelEventsToCompleteForTestingWithCompletionHandler:(void(^)(void))completionHandler
 {
     RefPtr pageForTesting = _page->pageForTesting();
     if (!pageForTesting)
         return completionHandler();
 
-    pageForTesting->waitForWheelEventsToCompleteForTesting([completionHandler = makeBlockPtr(completionHandler)] {
+    pageForTesting->waitForWheelEventsToCompleteForTesting(false, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+}
+
+- (void)_waitForWheelEventsAndMomentumToCompleteForTestingWithCompletionHandler:(void(^)(void))completionHandler
+{
+    RefPtr pageForTesting = _page->pageForTesting();
+    if (!pageForTesting)
+        return completionHandler();
+
+    pageForTesting->waitForWheelEventsToCompleteForTesting(true, [completionHandler = makeBlockPtr(completionHandler)] {
         completionHandler();
     });
 }

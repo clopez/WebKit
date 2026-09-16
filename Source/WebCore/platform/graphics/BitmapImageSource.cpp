@@ -116,7 +116,7 @@ EncodedDataStatus BitmapImageSource::dataChanged(FragmentedSharedBuffer* data, b
 
 void BitmapImageSource::destroyDecodedFrames(bool destroyAll)
 {
-    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoded data with destroyAll = %d will be destroyed.", __FUNCTION__, this, sourceUTF8().data(), destroyAll);
+    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoded data with destroyAll = %d will be destroyed.", __FUNCTION__, this, sourceUTF8(), destroyAll);
 
     bool canDestroyDecodedData = destroyAll && this->canDestroyDecodedData();
 
@@ -352,7 +352,7 @@ bool BitmapImageSource::isDecoderWorkQueueIdle() const
 
 void BitmapImageSource::stopDecoderWorkQueue()
 {
-    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding work queue will be stopped.", __FUNCTION__, this, sourceUTF8().data());
+    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding work queue will be stopped.", __FUNCTION__, this, sourceUTF8());
 
     if (!m_decoder || !m_decoder->isWorkQueueIdle())
         return;
@@ -379,7 +379,7 @@ void BitmapImageSource::decode(Function<void(DecodingStatus)>&& decodeCallback)
     unsigned index = currentFrameIndex();
 
     if (isPendingDecodingAtIndex(index, SubsamplingLevel::Default, DecodingMode::Asynchronous)) {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8(), index);
         return;
     }
 
@@ -392,18 +392,18 @@ void BitmapImageSource::decode(Function<void(DecodingStatus)>&& decodeCallback)
         // startAnimation() always decodes the nextFrame which is currentFrameIndex + 1.
         // If primaryFrameIndex = 0, then the sequence of decoding is { 1, 2, .., n, 0, 1, ...}.
         if (startAnimation(SubsamplingLevel::Default, DecodingMode::Asynchronous)) {
-            LOG(Images, "BitmapImageSource::%s - %p - url: %s. Animator has requested decoding next frame at index = %d.", __FUNCTION__, this, sourceUTF8().data(), index);
+            LOG(Images, "BitmapImageSource::%s - %p - url: %s. Animator has requested decoding next frame at index = %d.", __FUNCTION__, this, sourceUTF8(), index);
             return;
         }
     }
 
     if (!compatibleDecodingDestination) {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding for frame at index = %d will be requested.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding for frame at index = %d will be requested.", __FUNCTION__, this, sourceUTF8(), index);
         requestNativeImageAtIndex(index, SubsamplingLevel::Default, ImageAnimatingState::No, { DecodingMode::Asynchronous, preferredDecodingDestination });
         return;
     }
 
-    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d was decoded for natural size.", __FUNCTION__, this, sourceUTF8().data(), index);
+    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d was decoded for natural size.", __FUNCTION__, this, sourceUTF8(), index);
     callDecodeCallbacks(DecodingStatus::Complete);
 }
 
@@ -445,12 +445,12 @@ void BitmapImageSource::imageFrameDecodeAtIndexHasFinished(unsigned index, Subsa
     ASSERT(index < m_frames.size());
 
     if (!nativeImage || !m_decoder) {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d has failed.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d has failed.", __FUNCTION__, this, sourceUTF8(), index);
 
         destroyNativeImageAtIndex(index, options.decodingDestination());
         imageFrameDecodeAtIndexHasFinished(index, animatingState, DecodingStatus::Invalid);
     } else {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d has been decoded.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d has been decoded.", __FUNCTION__, this, sourceUTF8(), index);
 
         cacheNativeImageAtIndex(index, subsamplingLevel, options, nativeImage.releaseNonNull());
 
@@ -567,7 +567,7 @@ DecodingStatus BitmapImageSource::requestNativeImageAtIndex(unsigned index, Subs
     if (!m_decoder)
         return DecodingStatus::Invalid;
 
-    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding for frame at index = %d will be requested.", __FUNCTION__, this, sourceUTF8().data(), index);
+    LOG(Images, "BitmapImageSource::%s - %p - url: %s. Decoding for frame at index = %d will be requested.", __FUNCTION__, this, sourceUTF8(), index);
 
     protect(m_decoder)->requestNativeImageAtIndex(index, subsamplingLevel, animatingState, options);
 
@@ -577,14 +577,14 @@ DecodingStatus BitmapImageSource::requestNativeImageAtIndex(unsigned index, Subs
     return DecodingStatus::Decoding;
 }
 
-Expected<DecodingDestination, DecodingStatus> BitmapImageSource::requestNativeImageAtIndexIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, ImageAnimatingState animatingState, const DecodingOptions& options)
+std::expected<DecodingDestination, DecodingStatus> BitmapImageSource::requestNativeImageAtIndexIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, ImageAnimatingState animatingState, const DecodingOptions& options)
 {
     if (index >= m_frames.size())
         return makeUnexpected(DecodingStatus::Invalid);
 
     // Never decode the same frame from two different threads.
     if (isPendingDecodingAtIndex(index, subsamplingLevel, options)) {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8(), index);
         ++m_blankDrawCountForTesting;
         return makeUnexpected(DecodingStatus::Decoding);
     }
@@ -596,7 +596,7 @@ Expected<DecodingDestination, DecodingStatus> BitmapImageSource::requestNativeIm
     return makeUnexpected(requestNativeImageAtIndex(index, subsamplingLevel, animatingState, options));
 }
 
-Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexCacheIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
+std::expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexCacheIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
 {
     if (!m_decoder)
         return makeUnexpected(DecodingStatus::Invalid);
@@ -607,7 +607,7 @@ Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndex
     // FIXME: Remove this for CG; ImageIO should be thread safe when decoding the same frame from multiple threads.
     // Never decode the same frame from two different threads.
     if (isPendingDecodingAtIndex(index, subsamplingLevel, options)) {
-        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8().data(), index);
+        LOG(Images, "BitmapImageSource::%s - %p - url: %s. Frame at index = %d is being decoded.", __FUNCTION__, this, sourceUTF8(), index);
         ++m_blankDrawCountForTesting;
         return makeUnexpected(DecodingStatus::Decoding);
     }
@@ -636,7 +636,7 @@ Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndex
     return makeUnexpected(DecodingStatus::Invalid);
 }
 
-Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexRequestIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
+std::expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexRequestIfNeeded(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
 {
     if (!m_decoder)
         return makeUnexpected(DecodingStatus::Invalid);
@@ -654,7 +654,7 @@ Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndex
     return makeUnexpected(DecodingStatus::Invalid);
 }
 
-Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexForDrawing(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
+std::expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexForDrawing(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
 {
     // If this is an animated image and the frame is not available, we have no
     // choice but to decode it synchronously. Otherwise, a flicker will happen.
@@ -663,7 +663,7 @@ Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndex
     return nativeImageAtIndexCacheIfNeeded(index, subsamplingLevel, options);
 }
 
-Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::currentNativeImageForDrawing(SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
+std::expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::currentNativeImageForDrawing(SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
 {
     startAnimation(subsamplingLevel, options);
 
@@ -700,7 +700,7 @@ RefPtr<NativeImage> BitmapImageSource::preTransformedNativeImageAtIndex(unsigned
     if (orientation == ImageOrientation::Orientation::None && size == sourceSize)
         return nativeImage;
 
-    RefPtr buffer = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    RefPtr buffer = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, ColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!buffer)
         return nativeImage;
 
@@ -757,7 +757,7 @@ long long BitmapImageSource::expectedContentLength() const
     return m_bitmapImage ? protect(m_bitmapImage)->expectedContentLength() : 0;
 }
 
-CString BitmapImageSource::sourceUTF8() const
+UTF8CString BitmapImageSource::sourceUTF8() const
 {
     return m_bitmapImage ? protect(m_bitmapImage)->sourceUTF8() : ""_s;
 }

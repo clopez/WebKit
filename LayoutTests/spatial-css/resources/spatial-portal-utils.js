@@ -50,6 +50,13 @@ const portalTransformScaleIsUnit = transform => {
 const portalTransformIsResolved = transform => !!transform;
 const portalTransformIsCleared = transform => transform === null;
 
+const resolvedTransformForPortal = async (test, asset, portalTransform, portalOptions = { }) => {
+    const portal = createPortal(test, { ...portalOptions, portalTransform });
+    const model = appendModel(portal, asset);
+    await model.ready;
+    return await waitForPortalTransform(portal, portalTransformIsResolved, `portal-transform: ${portalTransform ?? "auto"}`);
+};
+
 async function waitFor(predicate, description, timeout = 5000) {
     const startTime = Date.now();
 
@@ -75,3 +82,22 @@ async function waitForPortalTransform(portal, predicate, description, timeout = 
         await sleepForSeconds(0.1);
     }
 }
+
+async function waitForEntityTransform(model, predicate, description, timeout = 5000) {
+    const startTime = Date.now();
+
+    while (true) {
+        const transform = model.entityTransform;
+        if (predicate(transform))
+            return transform;
+
+        if (Date.now() - startTime > timeout)
+            throw new Error(`Timeout waiting for the child's entity transform: ${description}`);
+
+        await sleepForSeconds(0.1);
+    }
+}
+
+// The 3D matrix assertions reject a 2D argument outright, and DOMMatrix stays 2D until an operation touches z.
+const as3d = matrix => new DOMMatrixReadOnly(matrix.toFloat64Array());
+

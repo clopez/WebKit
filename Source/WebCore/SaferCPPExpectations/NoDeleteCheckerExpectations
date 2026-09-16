@@ -1,4 +1,3 @@
-css/DOMMatrixReadOnly.cpp
 dom/Document.cpp
 dom/FragmentDirectiveRangeFinder.cpp
 dom/UserGestureIndicator.cpp
@@ -6,12 +5,13 @@ dom/UserGestureIndicator.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
 layout/integration/LayoutIntegrationFormattingContextLayout.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
-loader/EmptyClients.cpp
 loader/TextResourceDecoder.cpp
 page/EventHandler.cpp
 [ iOS ] page/Quirks.cpp
 page/text-extraction/TextExtraction.cpp
+rendering/GridLanesLayout.cpp
 rendering/RenderGeometryMap.cpp
 rendering/StyledMarkedText.cpp
 rendering/TextDecorationPainter.cpp
+svg/animation/SMILTimeContainer.cpp
 testing/Internals.cpp

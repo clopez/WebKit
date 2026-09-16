@@ -47,10 +47,12 @@
 #include <wtf/Assertions.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/Markable.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Platform.h>
 #include <wtf/Seconds.h>
 #include <wtf/URL.h>
+#include <wtf/UUID.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -157,6 +159,7 @@ struct ApplePayAMSUIRequest;
 struct AriaNotifyData;
 struct CharacterRange;
 struct ContactsRequestData;
+struct ContentRuleListBlockedLoadInfo;
 struct ContentRuleListMatchedRule;
 struct ContentRuleListResults;
 struct DataDetectorElementInfo;
@@ -422,11 +425,12 @@ public:
     virtual void updateTextIndicator(RefPtr<TextIndicator>&&) const = 0;
 
     virtual void runOpenPanel(LocalFrame&, FileChooser&) = 0;
+    WEBCORE_EXPORT virtual void transcodeChosenFiles(Vector<String>&& transcodingPaths, String&& destinationUTI, String&& destinationExtension, CompletionHandler<void(Vector<String>&&)>&&);
     virtual void showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&& callback) { callback(false); }
     virtual void showContactPicker(ContactsRequestData&&, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&& callback) { callback(std::nullopt); }
 
 #if ENABLE(WEB_AUTHN)
-    virtual void showDigitalCredentialsChooser(const DigitalCredentialsRequestData&, CompletionHandler<void(Expected<DigitalCredentialsResponseData, ExceptionData>&&)>&& completionHandler)
+    virtual void showDigitalCredentialsChooser(const DigitalCredentialsRequestData&, CompletionHandler<void(std::expected<DigitalCredentialsResponseData, ExceptionData>&&)>&& completionHandler)
     {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::NotSupportedError, "Digital credentials are not supported."_s }));
     }
@@ -458,7 +462,7 @@ public:
 
     virtual DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const { return nullptr; }
 
-    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const DestinationColorSpace&, ImageBufferFormat) const { return nullptr; }
+    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const ColorSpace&, ImageBufferFormat) const { return nullptr; }
     WEBCORE_EXPORT virtual RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>);
 
 #if ENABLE(WEBGL)
@@ -581,6 +585,7 @@ public:
     virtual void disableSuddenTermination() { }
 
     virtual void contentRuleListNotification(const URL&, const ContentRuleListResults&) { };
+    virtual void contentRuleListDidBlockLoad(const ContentRuleListBlockedLoadInfo&) { };
     virtual void contentRuleListMatchedRule(const ContentRuleListMatchedRule&) { };
 
 #if PLATFORM(WIN)
@@ -673,11 +678,12 @@ public:
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     virtual void addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier) { }
     virtual void removePlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier) { }
-    virtual void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, const IntPoint&, bool /*isVideo*/) { }
+    virtual void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, FrameIdentifier, const IntPoint&, bool /*isVideo*/) { }
     virtual void playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier, MediaProducerMediaStateFlags) { }
     virtual void setMockMediaPlaybackTargetPickerEnabled(bool)  { }
     virtual void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetMockState) { }
     virtual void mockMediaPlaybackTargetPickerDismissPopup() { }
+    virtual void mockMediaPlaybackTargetPickerRect(CompletionHandler<void(FloatRect)>&& completionHandler) { completionHandler({ }); }
 #endif
 
     virtual void imageOrMediaDocumentSizeChanged(const IntSize&) { }
@@ -735,9 +741,7 @@ public:
     virtual void requestPermissionOnXRSessionFeatures(const SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, const PlatformXR::Device::FeatureList& /* requiredFeaturesRequested */, const PlatformXR::Device::FeatureList& /* optionalFeaturesRequested */, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler) { completionHandler(granted); }
 #endif
 
-#if ENABLE(TEXT_AUTOSIZING)
     virtual void textAutosizingUsesIdempotentModeChanged() { }
-#endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
     virtual void startApplePayAMSUISession(const URL&, const ApplePayAMSUIRequest&, CompletionHandler<void(std::optional<bool>&&)>&& completionHandler) { completionHandler(std::nullopt); }
@@ -777,7 +781,7 @@ public:
 
     virtual void addSourceTextAnimationForActiveWritingToolsSession(const WTF::UUID& /*sourceAnimationUUID*/, const WTF::UUID& /*destinationAnimationUUID*/, bool, const CharacterRange&, const String&, CompletionHandler<void(TextAnimationRunMode)>&&) { }
 
-    virtual void addDestinationTextAnimationForActiveWritingToolsSession(const WTF::UUID& /*sourceAnimationUUID*/, const WTF::UUID& /*destinationAnimationUUID*/, const std::optional<CharacterRange>&, const String&) { }
+    virtual void addDestinationTextAnimationForActiveWritingToolsSession(Markable<WTF::UUID> /*sourceAnimationUUID*/, Markable<WTF::UUID> /*destinationAnimationUUID*/, const std::optional<CharacterRange>&, const String&) { }
 
     virtual void saveSnapshotOfTextPlaceholderForAnimation(const SimpleRange&) { };
 
@@ -794,8 +798,6 @@ public:
 #endif
 
     virtual void setIsInRedo(bool) { }
-
-    virtual void hasActiveNowPlayingSessionChanged(bool) { }
 
     virtual void getImageBufferResourceLimitsForTesting(CompletionHandler<void(std::optional<ImageBufferResourceLimits>)>&& callback) const { callback(std::nullopt); }
 
@@ -815,8 +817,6 @@ public:
 #if ENABLE(VIDEO)
     WEBCORE_EXPORT virtual void showCaptionDisplaySettings(HTMLMediaElement&, const ResolvedCaptionDisplaySettingsOptions&, CompletionHandler<void(ExceptionOr<void>)>&&);
 #endif
-
-    virtual void updateRemoteIntersectionObserversInOtherWebProcesses() { }
 
     WEBCORE_EXPORT virtual ~ChromeClient();
 

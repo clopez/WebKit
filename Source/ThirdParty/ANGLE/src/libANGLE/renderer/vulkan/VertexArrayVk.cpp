@@ -110,6 +110,8 @@ gl::AttributesMask MergeClientAttribsRange(
     ASSERT(renderer->getFeatures().enableMergeClientAttribBuffer.enabled);
     std::array<size_t, gl::MAX_VERTEX_ATTRIBS> sortedIndices;
     size_t sortedCount = 0;
+    // Per-attribute alignment requirement, only meaningful for combinable attributes.
+    std::array<size_t, gl::MAX_VERTEX_ATTRIBS> alignments = {};
 
     // 1. Analyze attributes and calculate individual range
     for (size_t attribIndex : activeStreamedAttribs)
@@ -118,14 +120,16 @@ gl::AttributesMask MergeClientAttribsRange(
         ASSERT(attrib.enabled);
         const gl::VertexBinding &binding = bindings[attrib.bindingIndex];
 
+        const vk::Format &vertexFormat = renderer->getFormat(attrib.format->id);
+
         bool canCombine = ShouldCombineAttributes(renderer, attrib, binding);
         if (canCombine)
         {
             sortedIndices[sortedCount++] = attribIndex;
+            alignments[attribIndex]      = vertexFormat.getVertexInputAlignment();
         }
 
-        const vk::Format &vertexFormat = renderer->getFormat(attrib.format->id);
-        const GLuint pixelBytes        = vertexFormat.getActualBufferFormat().pixelBytes;
+        const GLuint pixelBytes = vertexFormat.getActualBufferFormat().pixelBytes;
         // If combining, we copy the full stride (padding included). If not, we might pack tightly.
         const size_t destStride      = canCombine ? binding.getStride() : pixelBytes;
         const uintptr_t startAddress = reinterpret_cast<uintptr_t>(attrib.pointer);
@@ -169,7 +173,8 @@ gl::AttributesMask MergeClientAttribsRange(
         // Check for overlap or adjacency:
         // Leader: [Start ............ End]
         // Next:              [Start ............ End]
-        if (leaderRange.endAddr >= nextRange.startAddr)
+        if (leaderRange.endAddr >= nextRange.startAddr &&
+            (leaderRange.startAddr % alignments[nextAttribIndex]) == 0)
         {
             // MERGE:
             // 1. Extend the leader's end address to cover the next attribute
@@ -547,7 +552,7 @@ angle::Result VertexArrayVk::convertIndexBufferGPU(ContextVk *contextVk,
                                                    const void *indices)
 {
     uintptr_t offsetIntoSrcData = reinterpret_cast<uintptr_t>(indices);
-    size_t srcDataSize         = static_cast<size_t>(bufferVk->getSize()) - offsetIntoSrcData;
+    size_t srcDataSize          = static_cast<size_t>(bufferVk->getSize()) - offsetIntoSrcData;
 
     // Allocate buffer for results
     ANGLE_TRY(contextVk->initBufferForVertexConversion(&mTranslatedByteIndexData,
@@ -1040,6 +1045,9 @@ angle::Result VertexArrayVk::syncState(const gl::Context *context,
     }
     mStreamingVertexAttribsMask &= mState.getEnabledAttributesMask();
 
+    // mStreamingVertexAttribsMask may have changed, update mCurrentActiveStreamingAttribsMask.
+    contextVk->updateCurrentActiveStreamingAttribsMask(context);
+
     // All enabled attributes that are dirty
     gl::AttributesMask enabledAttribDirtyBits = attribDirtyBits & mState.getEnabledAttributesMask();
 
@@ -1416,27 +1424,19 @@ angle::Result VertexArrayVk::syncNeedsConversionAttrib(ContextVk *contextVk,
 
 // Handle copying client attribs and/or expanding attrib buffer in case where attribute
 // divisor value has to be emulated.
-angle::Result VertexArrayVk::updateStreamedAttribs(const gl::Context *context,
-                                                   GLint firstVertex,
-                                                   GLsizei vertexOrIndexCount,
-                                                   GLsizei baseInstance,
-                                                   GLsizei instanceCount,
-                                                   gl::DrawElementsType indexTypeOrInvalid,
-                                                   const void *indices,
-                                                   gl::AttributesMask *strideDirtyAttribMaskOut)
+angle::Result VertexArrayVk::updateStreamedAttribs(
+    const gl::Context *context,
+    const gl::AttributesMask activeStreamingAttribsMask,
+    GLint firstVertex,
+    GLsizei vertexOrIndexCount,
+    GLuint baseInstance,
+    GLsizei instanceCount,
+    gl::DrawElementsType indexTypeOrInvalid,
+    const void *indices,
+    gl::AttributesMask *strideDirtyAttribMaskOut)
 {
     ContextVk *contextVk   = vk::GetImpl(context);
     vk::Renderer *renderer = contextVk->getRenderer();
-
-    const gl::AttributesMask activeAttribs =
-        context->getActiveClientAttribsMask() | context->getActiveBufferedAttribsMask();
-    const gl::AttributesMask activeStreamedAttribs = mStreamingVertexAttribsMask & activeAttribs;
-
-    // Early return for corner case where emulated buffered attribs are not active
-    if (!activeStreamedAttribs.any())
-    {
-        return angle::Result::Continue;
-    }
 
     GLint startVertex;
     size_t vertexCount;
@@ -1453,12 +1453,12 @@ angle::Result VertexArrayVk::updateStreamedAttribs(const gl::Context *context,
     gl::AttributesMask mergedAttribMask;
     if (renderer->getFeatures().enableMergeClientAttribBuffer.enabled)
     {
-        mergedAttribMask =
-            MergeClientAttribsRange(renderer, attribs, bindings, activeStreamedAttribs, startVertex,
-                                    startVertex + vertexCount, mergedRanges, mergedIndexes);
+        mergedAttribMask = MergeClientAttribsRange(
+            renderer, attribs, bindings, activeStreamingAttribsMask, startVertex,
+            startVertex + vertexCount, mergedRanges, mergedIndexes);
     }
 
-    for (size_t attribIndex : activeStreamedAttribs)
+    for (size_t attribIndex : activeStreamingAttribsMask)
     {
         const gl::VertexAttribute &attrib = attribs[attribIndex];
         ASSERT(attrib.enabled);
@@ -1507,9 +1507,7 @@ angle::Result VertexArrayVk::updateStreamedAttribs(const gl::Context *context,
                             static_cast<uint32_t>(ComputeVertexAttributeTypeSize(attrib));
 
                         size_t numVertices = GetVertexCount(bufferVk, binding, srcAttributeSize);
-                        numVertices        = numVertices < static_cast<size_t>(baseInstance)
-                                                 ? 0
-                                                 : numVertices - baseInstance;
+                        numVertices = numVertices < baseInstance ? 0 : numVertices - baseInstance;
 
                         ANGLE_TRY(StreamVertexDataWithDivisor(
                             contextVk, vertexDataBuffer, src, bytesToAllocate, binding.getStride(),
@@ -1636,26 +1634,16 @@ angle::Result VertexArrayVk::updateStreamedAttribs(const gl::Context *context,
     return angle::Result::Continue;
 }
 
-void VertexArrayVk::resetInactiveStreamedAttribs(const gl::Context *context)
+void VertexArrayVk::resetInactiveStreamingAttribs(const gl::AttributesMask inactiveAttribMask,
+                                                  vk::BufferHelper &emptyBuffer)
 {
-    ContextVk *contextVk = vk::GetImpl(context);
-    const gl::AttributesMask activeAttribs =
-        context->getActiveClientAttribsMask() | context->getActiveBufferedAttribsMask();
-    const gl::AttributesMask inactiveStreamedAttribs = mStreamingVertexAttribsMask & ~activeAttribs;
-    if (inactiveStreamedAttribs.any())
+    for (size_t inactiveAttribIndex : inactiveAttribMask)
     {
-        vk::BufferHelper &emptyBuffer = contextVk->getEmptyBuffer();
-        for (size_t attribIndex : inactiveStreamedAttribs)
-        {
-            if (mCurrentArrayBuffers[attribIndex] != &emptyBuffer)
-            {
-                mCurrentArrayBuffers[attribIndex]       = &emptyBuffer;
-                mCurrentArrayBufferSerial[attribIndex]  = emptyBuffer.getBufferSerial();
-                mCurrentArrayBufferHandles[attribIndex] = emptyBuffer.getBuffer().getHandle();
-                mCurrentArrayBufferOffsets[attribIndex] = emptyBuffer.getOffset();
-                mCurrentArrayBufferSizes[attribIndex]   = emptyBuffer.getSize();
-            }
-        }
+        mCurrentArrayBuffers[inactiveAttribIndex]       = &emptyBuffer;
+        mCurrentArrayBufferSerial[inactiveAttribIndex]  = emptyBuffer.getBufferSerial();
+        mCurrentArrayBufferHandles[inactiveAttribIndex] = emptyBuffer.getBuffer().getHandle();
+        mCurrentArrayBufferOffsets[inactiveAttribIndex] = emptyBuffer.getOffset();
+        mCurrentArrayBufferSizes[inactiveAttribIndex]   = emptyBuffer.getSize();
     }
 }
 

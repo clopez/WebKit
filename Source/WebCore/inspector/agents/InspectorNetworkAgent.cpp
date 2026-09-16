@@ -87,7 +87,6 @@
 #include <JavaScriptCore/ScriptCallStackFactory.h>
 #include <WebCore/HTTPStatusCodes.h>
 #include <tuple>
-#include <wtf/Expected.h>
 #include <wtf/JSONValues.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
@@ -125,7 +124,7 @@ Ref<Inspector::Protocol::Network::WebSocketFrame> buildWebSocketMessage(const We
 InspectorNetworkAgent::InspectorNetworkAgent(WebAgentContext& context, const NetworkResourcesData::Settings& networkResourcesDataSettings)
     : Inspector::NetworkAgentInstrumentation(context)
     , m_frontendDispatcher(makeUniqueRef<Inspector::NetworkFrontendDispatcher>(context.frontendRouter))
-    , m_backendDispatcher(Inspector::NetworkBackendDispatcher::create(context.backendDispatcher, this))
+    , m_backendDispatcher(Inspector::NetworkBackendDispatcher::create(protect(context.backendDispatcher), this))
     , m_injectedScriptManager(context.injectedScriptManager)
     , m_resourcesData(makeUniqueRef<NetworkResourcesData>(networkResourcesDataSettings))
 {
@@ -203,7 +202,7 @@ Ref<Inspector::Protocol::Network::Metrics> InspectorNetworkAgent::buildObjectFor
 
     if (!networkLoadMetrics.protocol.isNull())
         metrics->setProtocol(networkLoadMetrics.protocol);
-    if (auto* additionalMetrics = networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector.get()) {
+    if (RefPtr additionalMetrics = networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector) {
         if (additionalMetrics->priority != NetworkLoadPriority::Unknown)
             metrics->setPriority(toProtocol(additionalMetrics->priority));
         if (!additionalMetrics->remoteAddress.isNull())
@@ -229,7 +228,7 @@ Ref<Inspector::Protocol::Network::Metrics> InspectorNetworkAgent::buildObjectFor
     auto connectionPayload = Inspector::Protocol::Security::Connection::create()
         .release();
 
-    if (auto* additionalMetrics = networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector.get()) {
+    if (RefPtr additionalMetrics = networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector) {
         if (!additionalMetrics->tlsProtocol.isEmpty())
             connectionPayload->setProtocol(additionalMetrics->tlsProtocol);
         if (!additionalMetrics->tlsCipher.isEmpty())
@@ -861,7 +860,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::disable()
     std::ignore = setResourceCachingDisabled(false);
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
-    setEmulatedConditions(std::nullopt);
+    setEmulatedConditions(std::nullopt, std::nullopt);
 #endif
 
     return { };
@@ -984,7 +983,7 @@ void InspectorNetworkAgent::loadResource(const Inspector::Protocol::Network::Fra
         return;
     }
 
-    ResourceUtilities::loadResource(*context, urlString, [callback = WTF::move(callback)](Expected<std::tuple<String, String, int>, String>&& result) mutable {
+    ResourceUtilities::loadResource(*context, urlString, [callback = WTF::move(callback)](std::expected<std::tuple<String, String, int>, String>&& result) mutable {
         if (result) {
             auto& [content, mimeType, status] = result.value();
             callback->sendSuccess(content, mimeType, status);
@@ -1350,12 +1349,19 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptRequest
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
-Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::setEmulatedConditions(std::optional<int>&& bytesPerSecondLimit)
+Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::setEmulatedConditions(std::optional<int>&& bandwidth, std::optional<int>&& latency)
 {
-    if (bytesPerSecondLimit && *bytesPerSecondLimit < 0)
-        return makeUnexpected("bytesPerSecond cannot be negative"_s);
+    if (bandwidth && *bandwidth < 0)
+        return makeUnexpected("bandwidth cannot be negative"_s);
 
-    if (setEmulatedConditionsInternal(WTF::move(bytesPerSecondLimit)))
+    if (latency && *latency < 0)
+        return makeUnexpected("latency cannot be negative"_s);
+
+    std::optional<uint64_t> bandwidthBytesPerSecond;
+    if (bandwidth)
+        bandwidthBytesPerSecond = *bandwidth;
+
+    if (setEmulatedConditionsInternal(bandwidthBytesPerSecond, Seconds::fromMilliseconds(latency.value_or(0))))
         return { };
 
     return makeUnexpected("Not supported"_s);

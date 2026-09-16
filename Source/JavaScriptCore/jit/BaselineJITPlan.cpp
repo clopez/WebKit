@@ -41,11 +41,7 @@ BaselineJITPlan::BaselineJITPlan(CodeBlock* codeBlock)
 
 auto BaselineJITPlan::compileInThreadImpl(JITCompilationEffort effort) -> CompilationPath
 {
-    {
-        ConcurrentJSLocker locker(m_codeBlock->valueProfileLock());
-        m_codeBlock->updateAllNonLazyValueProfilePredictions(locker);
-        m_codeBlock->updateAllLazyValueProfilePredictions(locker);
-    }
+    m_codeBlock->updatePredictionsConcurrently();
 
     // BaselineJITPlan can keep underlying CodeBlock alive while running.
     // So we do not need to suspend this compilation thread while running GC.

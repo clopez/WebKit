@@ -393,6 +393,9 @@ SET TIMEOUT: html/webappapis/timers/*
 SET TIMEOUT: orientation-event/resources/orientation-event-helpers.js
 SET TIMEOUT: portals/history/resources/portal-harness.js
 SET TIMEOUT: requestidlecallback/deadline-after-expired-timer.html
+SET TIMEOUT: resource-timing/tentative/initiator-url/module-script-from-document.html
+SET TIMEOUT: resource-timing/tentative/initiator-url/set-timeout.html
+SET TIMEOUT: resource-timing/tentative/initiator-url/set-timeout.any.js
 SET TIMEOUT: resources/*
 SET TIMEOUT: scheduler/tentative/current-task-signal-async-abort.any.js
 SET TIMEOUT: scheduler/tentative/current-task-signal-async-priority.any.js
@@ -749,7 +752,7 @@ PARSE-FAILED: mathml/crashtests/mozilla/289180-1.xml
 # Invalid HTML syntax /> on non-void elements
 HTML INVALID SYNTAX: acid/*
 HTML INVALID SYNTAX: conformance-checkers/*
-HTML INVALID SYNTAX: css/css-scoping/shadow-cascade-order-001.html
+HTML INVALID SYNTAX: css/css-shadow/shadow-cascade-order-001.html
 HTML INVALID SYNTAX: dom/nodes/Document-createElement-namespace.html
 HTML INVALID SYNTAX: dom/nodes/Node-lookupNamespaceURI.html
 HTML INVALID SYNTAX: dom/nodes/Node-normalize.html

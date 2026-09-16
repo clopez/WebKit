@@ -66,7 +66,7 @@ public:
 #endif
     };
 
-    Recorder(const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& transform, const DestinationColorSpace& colorSpace, DrawGlyphsMode drawGlyphsMode = DrawGlyphsMode::Normal)
+    Recorder(const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& transform, const ColorSpace& colorSpace, DrawGlyphsMode drawGlyphsMode = DrawGlyphsMode::Normal)
         : Recorder(IsDeferred::Yes, state, initialClip, transform, colorSpace, drawGlyphsMode)
     {
     }
@@ -75,20 +75,13 @@ public:
     WEBCORE_EXPORT void appendDisplayList(const DisplayList&);
 
 protected:
-    WEBCORE_EXPORT Recorder(IsDeferred, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, const DestinationColorSpace&, DrawGlyphsMode);
+    WEBCORE_EXPORT Recorder(IsDeferred, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, const ColorSpace&, DrawGlyphsMode);
 
     struct ContextState {
         AffineTransform ctm;
         FloatRect clipBounds;
-        std::optional<GraphicsContextState> lastDrawingState { std::nullopt };
-
-        ContextState cloneForTransparencyLayer() const
-        {
-            std::optional<GraphicsContextState> lastDrawingStateClone;
-            if (lastDrawingState)
-                lastDrawingStateClone = lastDrawingState->clone(GraphicsContextState::Purpose::TransparencyLayer);
-            return ContextState { ctm, clipBounds, WTF::move(lastDrawingStateClone) };
-        }
+        // GraphicsContextState properties to sync after restore().
+        GraphicsContextState::ChangeFlags committedChanges;
 
         void NODELETE translate(float x, float y);
         void rotate(float angleInRadians);
@@ -126,7 +119,12 @@ protected:
     WEBCORE_EXPORT FloatRect initialClip() const;
     DrawGlyphsMode drawGlyphsMode() const { return m_drawGlyphsMode; }
 
-    const DestinationColorSpace& colorSpace() const LIFETIME_BOUND final { return m_colorSpace; }
+    // The state difference between set GraphicsContext state and
+    // committed recording state.
+    WEBCORE_EXPORT GraphicsContextState::ChangeFlags computeStateChanges();
+    WEBCORE_EXPORT void commitStateChanges(GraphicsContextState::ChangeFlags);
+
+    const ColorSpace& colorSpace() const LIFETIME_BOUND final { return m_colorSpace; }
 
 private:
     bool hasPlatformContext() const final { return false; }
@@ -146,10 +144,14 @@ private:
 
     virtual void appendStateChangeItemIfNecessary() = 0;
 
+    void pushStateForTransparencyLayer();
+
     const AffineTransform& NODELETE ctm() const;
 
     Vector<ContextState, 4> m_stateStack;
-    DestinationColorSpace m_colorSpace;
+    // The state the committed to the recording.
+    GraphicsContextState m_committedState;
+    ColorSpace m_colorSpace;
     const FloatRect m_initialClip;
     const DrawGlyphsMode m_drawGlyphsMode { DrawGlyphsMode::Normal };
 #if USE(CORE_TEXT)

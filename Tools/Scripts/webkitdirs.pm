@@ -79,6 +79,7 @@ BEGIN {
        &availableXcodeSDKs
        &baseProductDir
        &buildCMakeProjectOrExit
+       &buildSystem
        &buildVisualStudioProject
        &buildXCodeProject
        &buildXcodeScheme
@@ -105,7 +106,6 @@ BEGIN {
        &determineCrossTarget
        &determineDefaultCompiler
        &determineXcodeSDK
-       &enableLastBuiltTiebreaker
        &executableProductDir
        &exitStatus
        &extractNonMacOSHostConfiguration
@@ -136,6 +136,7 @@ BEGIN {
        &isLinux
        &isMacCatalystWebKit
        &isPlayStation
+       &isValidForceOptimizationLevel
        &isWPE
        &isWin
        &isWindows
@@ -156,13 +157,18 @@ BEGIN {
        &osXVersion
        &overrideConfiguredXcodeWorkspace
        &parseAvailableXcodeSDKs
+       &passedBuildSystem
        &passedConfiguration
+       &passedForceOptimizationLevel
        &plistPathFromBundle
        &portName
        &prependToEnvironmentVariableList
        &printHelpAndExitForRunAndDebugWebKitAppIfNeeded
        &productDir
        &prohibitUnknownPort
+       &recordBuildSettings
+       &recordForceOptimizationLevel
+       &recordedConfiguration
        &relativeScriptsDir
        &removeCMakeCache
        &runGitUpdate
@@ -207,15 +213,15 @@ BEGIN {
        &willUseWatchSimulatorSDK
        &willUseVisionDeviceSDK
        &willUseVisionSimulatorSDK
+       &webkitProductDir
        &winVersion
        &wrapperPrefixIfNeeded
+       &writeBuildSetting
        &xcodeSDK
        &xcodeSDKPlatformName
        &xcodeVersion
        DO_NOT_USE_OPEN_COMMAND
-       Mac
        USE_OPEN_COMMAND
-       iOS
    );
    %EXPORT_TAGS = ( );
    @EXPORT_OK   = ();
@@ -225,12 +231,7 @@ BEGIN {
 use constant {
     GTK         => "GTK",
     Haiku       => "Haiku",
-    iOS         => "iOS",
-    tvOS        => "tvOS",
-    watchOS     => "watchOS",
-    visionOS    => "visionOS",
-    Mac         => "Mac",
-    MacCatalyst => "MacCatalyst",
+    Cocoa       => "Cocoa",
     JSCOnly     => "JSCOnly",
     PlayStation => "PlayStation",
     Win         => "Win",
@@ -281,7 +282,6 @@ my $osXVersion;
 my $iosVersion;
 my $generateDsym;
 my $isCMakeBuild;
-my $shouldPickLastBuilt = 0;
 my $isGenerateProjectOnly;
 my $shouldBuild32Bit;
 my $isInspectorFrontend;
@@ -569,7 +569,11 @@ sub determineArchitecture
         }
     }
 
-    if (isCMakeBuild()) {
+    # Apple Cocoa already resolved the architecture above, and it is the one the
+    # CMake presets build (CMAKE_OSX_ARCHITECTURES=arm64e); cmake --system-information
+    # reports CMAKE_SYSTEM_PROCESSOR, which is arm64, and probing it costs a full
+    # compiler run on every invocation.
+    if (isCMakeBuild() && !isAppleCocoaWebKit()) {
         if (isCrossCompilation()) {
             my $compiler = "gcc";
             $compiler = $ENV{'CC'} if (defined($ENV{'CC'}));
@@ -633,30 +637,16 @@ sub determineXcodeDestination
     my @architectures = split(' ', $architecture);
     my $generic = $xcodeSDKPlatformName =~ /os$/ || (scalar @architectures) > 1;
 
-    if (willUseIOSDeviceSDK()) {
-        $destination .= 'platform=iOS';
-    } elsif (willUseIOSSimulatorSDK()) {
-        $destination .= 'platform=iOS Simulator';
-    } elsif (willUseAppleTVDeviceSDK()) {
-        $destination .= 'platform=tvOS';
-    } elsif (willUseAppleTVSimulatorSDK()) {
-        $destination .= 'platform=tvOS Simulator';
-    } elsif (willUseWatchDeviceSDK()) {
-        $destination .= 'platform=watchOS';
-    } elsif (willUseWatchSimulatorSDK()) {
-        $destination .= 'platform=watchOS Simulator';
-    } elsif (willUseVisionDeviceSDK()) {
-        $destination .= 'platform=visionOS';
-    } elsif (willUseVisionSimulatorSDK()) {
-        $destination .= 'platform=visionOS Simulator';
-    } else {
-        $destination .= 'platform=macOS';
+    my $osName = sdkPlatformOSName();
+    $destination .= "platform=$osName";
+    $destination .= ' Simulator' if willUseSimulatorSDK();
+    if ($osName eq "macOS") {
         $destination .= ',devicetype=' . ($generic ? 'Any Mac' : 'Mac');
         $destination .= ',arch=' . $architectures[0] unless $generic;
         $destination .= ',variant=Mac Catalyst' if willUseMacCatalystSDK();
     }
 
-    if (!$generic && $xcodeSDKPlatformName =~ /simulator$/) {
+    if (!$generic && willUseSimulatorSDK()) {
         # Two goals:
         # 1. Find a simulator device to build for, to avoid building multiple architectures.
         # 2. Try to pick a simulator that's been used before (either by command-line or IDE builds) to avoid
@@ -683,7 +673,7 @@ sub determineXcodeDestination
         # If we found the previous device, check that the runtime being built has not changed (e.g. due to a
         # major SDK update). If it has changed, or if no previous device is available, fall back to the first
         # eligible device in the list.
-        my $runtime = simulatorRuntime($portName);
+        my $runtime = simulatorRuntime();
         my $device;
         if ($prevDevice && $prevDevice->{runtime} eq $runtime) {
             $device = $prevDevice;
@@ -718,19 +708,60 @@ sub readSanitizerConfiguration($)
     return 0;
 }
 
+my %passedSanitizers;
+sub passedSanitizer($)
+{
+    my ($sanitizer) = @_;
+    $passedSanitizers{$sanitizer} = checkForArgumentAndRemoveFromARGV("--" . lc $sanitizer) ? 1 : 0 unless defined $passedSanitizers{$sanitizer};
+    return $passedSanitizers{$sanitizer};
+}
+
+# The optimization level given on this command line, under either spelling, or
+# "none" to stop forcing one.
+my $passedForceOptimizationLevel;
+my $searchedForPassedForceOptimizationLevel;
+sub passedForceOptimizationLevel()
+{
+    unless ($searchedForPassedForceOptimizationLevel) {
+        $searchedForPassedForceOptimizationLevel = 1;
+        checkForArgumentAndRemoveFromARGVGettingValue("--force-optimization-level", \$passedForceOptimizationLevel)
+            or checkForArgumentAndRemoveFromARGVGettingValue("--force-opt", \$passedForceOptimizationLevel);
+    }
+    return $passedForceOptimizationLevel;
+}
+
+sub isValidForceOptimizationLevel($)
+{
+    my ($level) = @_;
+    return grep { $_ eq $level } qw(none O0 O1 O2 O3 Os Ofast Og);
+}
+
+# "none" stops forcing a level, which is the absence of the setting rather than
+# a value for it.
+sub recordForceOptimizationLevel($)
+{
+    my ($level) = @_;
+    if ($level eq "none") {
+        determineBaseProductDir();
+        unlink File::Spec->catfile($baseProductDir, "ForceOptimizationLevel");
+        return;
+    }
+    writeBuildSetting("ForceOptimizationLevel", substr($level, 1));
+}
+
 sub determineASanIsEnabled
 {
     return if defined $asanIsEnabled;
     determineBaseProductDir();
     # Honor an explicit --asan (like --cmake) in addition to the marker file.
-    $asanIsEnabled = checkForArgumentAndRemoveFromARGV("--asan") || readSanitizerConfiguration("ASan");
+    $asanIsEnabled = passedSanitizer("ASan") || readSanitizerConfiguration("ASan");
 }
 
 sub determineTSanIsEnabled
 {
     return if defined $tsanIsEnabled;
     determineBaseProductDir();
-    $tsanIsEnabled = checkForArgumentAndRemoveFromARGV("--tsan") || readSanitizerConfiguration("TSan");
+    $tsanIsEnabled = passedSanitizer("TSan") || readSanitizerConfiguration("TSan");
 }
 
 sub determineUBSanIsEnabled
@@ -862,8 +893,8 @@ sub argumentsForConfiguration()
     push(@args, '--debug') if ($configuration =~ "^Debug");
     push(@args, '--release') if ($configuration =~ "^Release");
     push(@args, '--ios-device') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'iphoneos');
-    push(@args, '--ios-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'iphonesimulator' && $simulatorIdiom eq "iPhone");
-    push(@args, '--ipad-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'iphonesimulator' && $simulatorIdiom eq "iPad");
+    push(@args, '--ios-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'iphonesimulator' && simulatorIdiom() eq "iPhone");
+    push(@args, '--ipad-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'iphonesimulator' && simulatorIdiom() eq "iPad");
     push(@args, '--tvos-device') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'appletvos');
     push(@args, '--tvos-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'appletvsimulator');
     push(@args, '--watchos-device') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'watchos');
@@ -872,6 +903,9 @@ sub argumentsForConfiguration()
     push(@args, '--visionos-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'xrsimulator');
     push(@args, '--maccatalyst') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'maccatalyst');
     push(@args, '--32-bit') if ($architecture eq "x86");
+    # Only propagate an explicit --cmake or --xcode. Without one the child reads
+    # the same BuildSystem marker this process did.
+    push(@args, isCMakeBuild() ? '--cmake' : '--xcode') if (isAppleCocoaWebKit() && passedBuildSystem());
     push(@args, '--gtk') if isGtk();
     push(@args, '--wpe') if isWPE();
     push(@args, '--jsc-only') if isJSCOnly();
@@ -962,6 +996,27 @@ sub isValidXcodeSDKPlatformName($) {
         maccatalyst
     );
     return grep { $_ eq $name } @platforms;
+}
+
+# Which OS each SDK platform targets, as simctl and xcodebuild spell it. Mac Catalyst
+# targets macOS; use xcodeSDKPlatformName() to tell the two SDK variants apart. Must
+# cover every name isValidXcodeSDKPlatformName() accepts, so this never returns undef.
+my %osNameBySDKPlatformName = (
+    appletvos        => "tvOS",
+    appletvsimulator => "tvOS",
+    iphoneos         => "iOS",
+    iphonesimulator  => "iOS",
+    maccatalyst      => "macOS",
+    macosx           => "macOS",
+    watchos          => "watchOS",
+    watchsimulator   => "watchOS",
+    xros             => "visionOS",
+    xrsimulator      => "visionOS",
+);
+
+sub sdkPlatformOSName()
+{
+    return $osNameBySDKPlatformName{xcodeSDKPlatformName()};
 }
 
 sub determineCrossTarget {
@@ -1186,6 +1241,40 @@ sub usesPerConfigurationBuildDirectory
     return (defined $ENV{"WEBKIT_OUTPUTDIR"});
 }
 
+# The CMake tree of the platform being built, matching the binaryDir of the
+# presets in CMakePresets.json: cmake-mac, cmake-iphoneos, cmake-iphonesimulator.
+sub cmakeCocoaTreeName
+{
+    determineXcodeSDKPlatformName();
+    return "cmake-mac" if $xcodeSDKPlatformName eq "macosx";
+    return "cmake-$xcodeSDKPlatformName";
+}
+
+# The directory a Cocoa CMake build puts its products in, matching the binaryDir
+# of the presets in CMakePresets.json. A sanitizer or a forced optimization level
+# gets a directory of its own, since the products are built with other flags.
+sub cmakeCocoaConfigurationName($)
+{
+    my ($configurationName) = @_;
+    $configurationName = "ASan" if asanIsEnabled();
+    $configurationName = "TSan" if tsanIsEnabled();
+    $configurationName .= "O" . forceOptimizationLevel() if defined forceOptimizationLevel();
+    return $configurationName;
+}
+
+# The directory Xcode builds into, whether or not this invocation selected the
+# CMake tree. Products only Xcode knows how to build (Safari and the frameworks
+# above WebKit) live here even when WebKit itself came from the CMake tree.
+sub xcodeConfigurationProductDir
+{
+    determineBaseProductDir();
+    determineConfiguration();
+    return $baseProductDir if usesPerConfigurationBuildDirectory();
+    my $dir = File::Spec->catdir($baseProductDir, $configuration);
+    $dir .= "-" . xcodeSDKPlatformName() if isEmbeddedWebKit() || isMacCatalystWebKit();
+    return $dir;
+}
+
 sub determineConfigurationProductDir
 {
     return if defined $configurationProductDir;
@@ -1193,29 +1282,43 @@ sub determineConfigurationProductDir
     determineConfiguration();
     if (isWin() || isPlayStation() || (isJSCOnly() && isWindows())) {
         $configurationProductDir = File::Spec->catdir($baseProductDir, $configuration);
+    } elsif (usesPerConfigurationBuildDirectory()) {
+        $configurationProductDir = "$baseProductDir";
+    } elsif (isGtk() or isWPE() or isJSCOnly() or shouldBuildForCrossTarget() or inCrossTargetEnvironment()) {
+        $configurationProductDir = "$baseProductDir/$portName/$configuration";
+    } elsif (isAppleCocoaWebKit() && isCMakeBuild()) {
+        $configurationProductDir = File::Spec->catdir($baseProductDir, cmakeCocoaTreeName(), cmakeCocoaConfigurationName($configuration));
     } else {
-        if (usesPerConfigurationBuildDirectory()) {
-            $configurationProductDir = "$baseProductDir";
-        } else {
-            if (isGtk() or isWPE() or isJSCOnly() or shouldBuildForCrossTarget() or inCrossTargetEnvironment()) {
-                $configurationProductDir = "$baseProductDir/$portName/$configuration";
-            } elsif (isAppleCocoaWebKit() && isCMakeBuild()) {
-                # Sanitizer presets build into a dedicated dir, e.g. cmake-mac/ASan.
-                my $cmakeConfiguration = $configuration;
-                $cmakeConfiguration = "ASan" if asanIsEnabled();
-                $cmakeConfiguration = "TSan" if tsanIsEnabled();
-                $configurationProductDir = "$baseProductDir/cmake-mac/$cmakeConfiguration";
-            } else {
-                $configurationProductDir = "$baseProductDir/$configuration";
-            }
-            $configurationProductDir .= "-" . xcodeSDKPlatformName() if isEmbeddedWebKit() || isMacCatalystWebKit();
-        }
+        $configurationProductDir = xcodeConfigurationProductDir();
     }
 }
 
 sub setConfigurationProductDir($)
 {
     ($configurationProductDir) = @_;
+}
+
+# The configuration recorded by the last build, or by set-webkit-configuration,
+# ignoring any --debug or --release given to this command.
+sub recordedConfiguration()
+{
+    determineBaseProductDir();
+    open CONFIGURATION, File::Spec->catfile($baseProductDir, "Configuration") or return "Release";
+    my $recorded = <CONFIGURATION>;
+    close CONFIGURATION;
+    chomp $recorded if defined $recorded;
+    return $recorded ? $recorded : "Release";
+}
+
+# Where WebKit itself was built. An app that only Xcode can build is built above
+# WebKit rather than with it, in a configuration of its own, so the WebKit it runs
+# against is the one the CMake build recorded and not the one this command was
+# given.
+sub webkitProductDir()
+{
+    return productDir() unless isAppleCocoaWebKit() && isCMakeBuild();
+    determineBaseProductDir();
+    return File::Spec->catdir($baseProductDir, cmakeCocoaTreeName(), cmakeCocoaConfigurationName(recordedConfiguration()));
 }
 
 sub determineCurrentSVNRevision
@@ -1532,6 +1635,27 @@ sub passedConfiguration
     return $passedConfiguration;
 }
 
+my $passedBuildSystem;
+my $searchedForPassedBuildSystem;
+sub determinePassedBuildSystem
+{
+    return if $searchedForPassedBuildSystem;
+    $searchedForPassedBuildSystem = 1;
+    $passedBuildSystem = undef;
+
+    if (checkForArgumentAndRemoveFromARGV("--cmake")) {
+        $passedBuildSystem = "CMake";
+    } elsif (checkForArgumentAndRemoveFromARGV("--xcode")) {
+        $passedBuildSystem = "Xcode";
+    }
+}
+
+sub passedBuildSystem
+{
+    determinePassedBuildSystem();
+    return $passedBuildSystem;
+}
+
 sub setConfiguration
 {
     if (my $config = shift @_) {
@@ -1598,6 +1722,11 @@ sub safariPath
         # Use Safari.app in product directory if present (good for Safari development team).
         if (-d "$configurationProductDir/Safari.app") {
             $safariBundle = "$configurationProductDir/Safari.app";
+        } else {
+            # Safari is built by Xcode, so with --cmake the product directory holds
+            # no Safari.app. Fall back to the Xcode tree before the installed Safari.
+            my $xcodeProductDir = xcodeConfigurationProductDir();
+            $safariBundle = "$xcodeProductDir/Safari.app" if -d "$xcodeProductDir/Safari.app";
         }
     }
 
@@ -1807,20 +1936,10 @@ sub determinePortName()
     if (isAnyWindows()) {
         $portName = Win;
     } elsif (isDarwin()) {
+        # Resolve the platform here so that its arguments are consumed from @ARGV before
+        # any caller inspects what's left.
         determineXcodeSDKPlatformName();
-        if (willUseIOSDeviceSDK() || willUseIOSSimulatorSDK()) {
-            $portName = iOS;
-        } elsif (willUseAppleTVDeviceSDK() || willUseAppleTVSimulatorSDK()) {
-            $portName = tvOS;
-        } elsif (willUseWatchDeviceSDK() || willUseWatchSimulatorSDK()) {
-            $portName = watchOS;
-        } elsif (willUseVisionDeviceSDK() || willUseVisionSimulatorSDK()) {
-            $portName = visionOS;
-        } elsif (willUseMacCatalystSDK()) {
-            $portName = MacCatalyst;
-        } else {
-            $portName = Mac;
-        }
+        $portName = Cocoa;
     } else {
         if ($unknownPortProhibited) {
             my $portsChoice = join "\n\t", qw(
@@ -2009,27 +2128,27 @@ sub isCrossCompilation()
 
 sub isIOSWebKit()
 {
-    return portName() eq iOS;
+    return isAppleCocoaWebKit() && sdkPlatformOSName() eq "iOS";
 }
 
 sub isTVOSWebKit()
 {
-    return portName() eq tvOS;
+    return isAppleCocoaWebKit() && sdkPlatformOSName() eq "tvOS";
 }
 
 sub isWatchOSWebKit()
 {
-    return portName() eq watchOS;
+    return isAppleCocoaWebKit() && sdkPlatformOSName() eq "watchOS";
 }
 
 sub isVisionOSWebKit()
 {
-    return portName() eq visionOS;
+    return isAppleCocoaWebKit() && sdkPlatformOSName() eq "visionOS";
 }
 
 sub isEmbeddedWebKit()
 {
-    return isIOSWebKit() || isTVOSWebKit() || isWatchOSWebKit() || isVisionOSWebKit;
+    return isIOSWebKit() || isTVOSWebKit() || isWatchOSWebKit() || isVisionOSWebKit();
 }
 
 sub isAppleWebKit()
@@ -2037,19 +2156,22 @@ sub isAppleWebKit()
     return isAppleCocoaWebKit();
 }
 
+# Mac and Mac Catalyst both target macOS, so these two check the SDK variant, not the OS.
 sub isAppleMacWebKit()
 {
-    return portName() eq Mac;
+    return isAppleCocoaWebKit() && xcodeSDKPlatformName() eq "macosx";
 }
 
 sub isMacCatalystWebKit()
 {
-    return portName() eq MacCatalyst;
+    return isAppleCocoaWebKit() && xcodeSDKPlatformName() eq "maccatalyst";
 }
 
+# The anchor for every predicate above: they resolve an Xcode SDK, which only makes
+# sense once the Cocoa port is selected.
 sub isAppleCocoaWebKit()
 {
-    return isAppleMacWebKit() || isEmbeddedWebKit() || isMacCatalystWebKit();
+    return portName() eq Cocoa;
 }
 
 sub usesCryptexPath
@@ -2150,6 +2272,18 @@ sub willUseVisionSimulatorSDK()
 sub willUseMacCatalystSDK()
 {
     return xcodeSDKPlatformName() eq "maccatalyst";
+}
+
+sub willUseSimulatorSDK()
+{
+    return xcodeSDKPlatformName() =~ /simulator$/;
+}
+
+# Only the --*-simulator arguments set an idiom; --sdk iphonesimulator leaves it unset.
+sub simulatorIdiom()
+{
+    determineXcodeSDKPlatformName();
+    return $simulatorIdiom // 'iPhone';
 }
 
 sub determineNmPath()
@@ -2655,7 +2789,8 @@ sub wrapperPrefixIfNeeded()
         return ();
     }
     if (isAppleCocoaWebKit()) {
-        return ("xcrun");
+        # Use tools from the active SDK and platform directory.
+        return ("xcrun", "--sdk", xcodeSDK());
     }
     if (shouldBuildForCrossTarget() or inCrossTargetEnvironment()) {
         return ();
@@ -2883,11 +3018,23 @@ sub generateBuildSystemFromCMakeProject
 
     my @args;
     push @args, "-DPORT=\"$port\"";
+    push @args, "-DCMAKE_OSX_SYSROOT=\"" . xcodeSDK() . "\"" if isAppleCocoaWebKit();
     push @args, "-DCMAKE_INSTALL_PREFIX=\"$prefixPath\"" if $prefixPath;
     if ($config =~ /release/i) {
         push @args, "-DCMAKE_BUILD_TYPE=Release";
     } elsif ($config =~ /debug/i) {
         push @args, "-DCMAKE_BUILD_TYPE=Debug";
+    }
+
+    # The compiler reads the configuration's own flags after CMAKE_<LANG>_FLAGS,
+    # so a forced optimization level has to replace them, as the DebugO3 preset
+    # does. The rest of each set is what CMake and the presets use.
+    if (defined forceOptimizationLevel()) {
+        my $optimization = "-O" . forceOptimizationLevel();
+        my ($buildType, $flags) = ($config =~ /debug/i) ? ("DEBUG", "-g $optimization") : ("RELEASE", "$optimization -DNDEBUG -g");
+        foreach my $language ("C", "CXX", "OBJC", "OBJCXX") {
+            push @args, "-DCMAKE_${language}_FLAGS_${buildType}=\"$flags\"";
+        }
     }
 
     push @args, "-DENABLE_SANITIZERS=address" if asanIsEnabled();
@@ -3072,9 +3219,9 @@ sub buildCMakeProjectOrExit($$$@)
     exit(exitStatus(cleanCMakeGeneratedProject())) if $clean;
 
     determineDefaultCompiler(@cmakeArgs);
-    my $wrapper = wrapperPrefixIfNeeded();
-    my $jhbuildPrefix = jhbuildWrapperPrefix();
-    if (defined($wrapper) && defined($jhbuildPrefix) && $wrapper == $jhbuildPrefix) {
+    my @wrapper = wrapperPrefixIfNeeded();
+    my @jhbuildPrefix = jhbuildWrapperPrefix();
+    if (@wrapper && @jhbuildPrefix && "@wrapper" eq "@jhbuildPrefix") {
         if (isGtk() && checkForArgumentAndRemoveFromARGV("--update-gtk")) {
             system("perl", File::Spec->catfile(sourceDir(), "Tools", "Scripts", "update-webkitgtk-libs")) == 0 or die $!;
         }
@@ -3165,61 +3312,26 @@ sub cmakeBasedPortName()
 sub determineIsCMakeBuild()
 {
     return if defined($isCMakeBuild);
-    $isCMakeBuild = checkForArgumentAndRemoveFromARGV("--cmake");
-    return if $isCMakeBuild;
-    if (checkForArgumentAndRemoveFromARGV("--xcode")) {
-        $isCMakeBuild = 0;
+
+    if (my $buildSystem = passedBuildSystem()) {
+        $isCMakeBuild = $buildSystem eq "CMake" ? 1 : 0;
         return;
     }
 
-    # CMake macOS presets build into WebKitBuild/cmake-mac/<Configuration>. When
-    # both trees exist, Xcode wins unless a caller opts into the last-built
-    # tiebreaker via enableLastBuiltTiebreaker() (build drivers do not, so they
-    # never auto-flip).
-    if (isAppleCocoaWebKit()) {
-        determineBaseProductDir();
-        determineConfiguration();
-
-        # CMake sanitizer presets build into cmake-mac/ASan or cmake-mac/TSan, so
-        # resolve the tree the way determineConfigurationProductDir() does. Xcode
-        # toggles ASan within Debug/Release, so its path is unchanged.
-        my $cmakeConfiguration = $configuration;
-        $cmakeConfiguration = "ASan" if asanIsEnabled();
-        $cmakeConfiguration = "TSan" if tsanIsEnabled();
-        my $cmakeMacBuild = File::Spec->catdir($baseProductDir, "cmake-mac", $cmakeConfiguration);
-        my $xcodeBuild = File::Spec->catdir($baseProductDir, $configuration);
-
-        if (-f File::Spec->catfile($cmakeMacBuild, "CMakeCache.txt") && !-d $xcodeBuild) {
-            $isCMakeBuild = 1;
+    determineBaseProductDir();
+    if (open BUILDSYSTEM, File::Spec->catfile($baseProductDir, "BuildSystem")) {
+        my $configuredBuildSystem = <BUILDSYSTEM>;
+        close BUILDSYSTEM;
+        chomp $configuredBuildSystem if defined $configuredBuildSystem;
+        if ($configuredBuildSystem) {
+            $isCMakeBuild = $configuredBuildSystem eq "CMake" ? 1 : 0;
             return;
         }
-
-        # Prefer whichever tree was built most recently, comparing each build
-        # system's log rather than a product binary (which goes stale after a
-        # partial build like JSC-only): cmake-mac's .ninja_log vs Xcode's
-        # XCBuildData/build.db. A missing log is mtime 0, degrading to the
-        # Xcode-wins default. build.db is shared across Xcode configurations.
-        if ($shouldPickLastBuilt && -d $cmakeMacBuild && -d $xcodeBuild) {
-            my $cmakeMarker = File::Spec->catfile($cmakeMacBuild, ".ninja_log");
-            my $xcodeMarker = File::Spec->catfile($baseProductDir, "XCBuildData", "build.db");
-            my $cmakeMtime = -f $cmakeMarker ? stat($cmakeMarker)->mtime : 0;
-            my $xcodeMtime = -f $xcodeMarker ? stat($xcodeMarker)->mtime : 0;
-            if ($cmakeMtime > $xcodeMtime) {
-                $isCMakeBuild = 1;
-                print STDERR "Using last-built tree: cmake-mac/$cmakeConfiguration (CMake)\n";
-            } elsif ($xcodeMtime && $cmakeMtime) {
-                print STDERR "Using last-built tree: $configuration (Xcode)\n";
-            }
-        }
     }
-}
 
-# Opt a read-only path resolver (e.g. webkit-build-directory) into the
-# last-built tiebreaker in determineIsCMakeBuild(). Must be called before the
-# first isCMakeBuild()/product-directory query, since the result is cached.
-sub enableLastBuiltTiebreaker
-{
-    $shouldPickLastBuilt = 1;
+    # Only Apple's Cocoa ports have a choice of build system; every other port
+    # builds with CMake.
+    $isCMakeBuild = isAppleCocoaWebKit() ? 0 : 1;
 }
 
 sub isCMakeBuild()
@@ -3227,6 +3339,41 @@ sub isCMakeBuild()
     return 1 unless isAppleCocoaWebKit();
     determineIsCMakeBuild();
     return $isCMakeBuild;
+}
+
+sub buildSystem()
+{
+    return isCMakeBuild() ? "CMake" : "Xcode";
+}
+
+# Record a setting in the base product directory the way set-webkit-configuration
+# does, so that later commands resolve the same build without being given the
+# same arguments again.
+sub writeBuildSetting($$)
+{
+    my ($fileName, $value) = @_;
+    determineBaseProductDir();
+    make_path($baseProductDir);
+    open SETTING, ">", File::Spec->catfile($baseProductDir, $fileName) or die;
+    print SETTING $value;
+    close SETTING;
+}
+
+# Record every setting given on this command line, so that the settings of the
+# last build are the ones later commands resolve. Only what was passed is
+# written; a setting left out keeps whatever set-webkit-configuration recorded.
+# The build system is only recorded where there is a choice of one.
+sub recordBuildSettings()
+{
+    writeBuildSetting("Configuration", passedConfiguration()) if passedConfiguration();
+    writeBuildSetting("BuildSystem", passedBuildSystem()) if passedBuildSystem() && isAppleCocoaWebKit();
+    for my $sanitizer ("ASan", "TSan") {
+        writeBuildSetting($sanitizer, "YES") if passedSanitizer($sanitizer);
+    }
+    if (my $level = passedForceOptimizationLevel()) {
+        die "Unknown optimization level \"$level\".\n" unless isValidForceOptimizationLevel($level);
+        recordForceOptimizationLevel($level);
+    }
 }
 
 sub determineIsGenerateProjectOnly()
@@ -3270,6 +3417,8 @@ Usage: @{[basename($0)]} [options] <application-path>
   --help                            Show this help message
   --no-saved-state                  Launch the application without state restoration
   --debug|release                   build configuration
+  --cmake                           Use the CMake build
+  --xcode                           Use the Xcode build
 
 Options specific to macOS:
   -g|--guard-malloc                 Enable Guard Malloc
@@ -3307,7 +3456,7 @@ sub argumentsForRunAndDebugMacWebKitApp()
     return @args;
 }
 
-sub setupMacWebKitEnvironment($)
+sub prependMacWebKitDyldPaths($)
 {
     my ($dyldFrameworkPath) = @_;
 
@@ -3317,6 +3466,13 @@ sub setupMacWebKitEnvironment($)
     prependToEnvironmentVariableList("__XPC_DYLD_FRAMEWORK_PATH", $dyldFrameworkPath);
     prependToEnvironmentVariableList("DYLD_LIBRARY_PATH", $dyldFrameworkPath);
     prependToEnvironmentVariableList("__XPC_DYLD_LIBRARY_PATH", $dyldFrameworkPath);
+}
+
+sub setupMacWebKitEnvironment
+{
+    # Prepended in reverse so the first path given ends up searched first.
+    prependMacWebKitDyldPaths($_) for reverse @_;
+
     $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
 
     setUpGuardMallocIfNeeded();
@@ -3479,7 +3635,7 @@ sub relaunchIOSSimulator($)
 sub iosSimulatorDeviceByName($)
 {
     my ($simulatorName) = @_;
-    my $simulatorRuntime = iosSimulatorRuntime();
+    my $simulatorRuntime = simulatorRuntime();
     my @devices = iOSSimulatorDevices();
     for my $device (@devices) {
         if ($device->{name} eq $simulatorName && $device->{runtime} eq $simulatorRuntime) {
@@ -3504,17 +3660,14 @@ sub iosSimulatorDeviceByUDID($)
     return undef;
 }
 
-sub iosSimulatorRuntime
+sub simulatorRuntime()
 {
-    return simulatorRuntime(iOS);
-}
-
-sub simulatorRuntime($)
-{
-    my $platformName = shift;
+    die "Can't find a simulator runtime because the selected SDK isn't a simulator SDK" if !willUseSimulatorSDK();
+    my $platformName = sdkPlatformOSName();
     my $xcodeSDKVersion = xcodeSDKVersion();
+    my $sdk = xcodeSDK();
 
-    my $output = `xcrun --sdk $xcodeSDK simctl list runtimes $platformName --json` or die "Failed to run find simulator runtime";
+    my $output = `xcrun --sdk $sdk simctl list runtimes $platformName --json` or die "Failed to run find simulator runtime";
     for my $runtime (@{decode_json($output)->{runtimes}}) {
         if ($runtime->{version} eq $xcodeSDKVersion) {
             return $runtime->{identifier};
@@ -3526,6 +3679,8 @@ sub simulatorRuntime($)
             return $runtime_id;
         }
     }
+
+    die "No $platformName simulator runtime matches SDK version $xcodeSDKVersion";
 }
 
 sub findOrCreateSimulatorForIOSDevice($)
@@ -3535,7 +3690,7 @@ sub findOrCreateSimulatorForIOSDevice($)
     my $simulatorDeviceType;
 
     # These should match the DEFAULT_DEVICE_TYPES in webkitpy/port/ios_simulator.py.
-    if ($simulatorIdiom eq "iPad") {
+    if (simulatorIdiom() eq "iPad") {
         $simulatorName = "iPad (9th generation) " . $simulatorNameSuffix;
         $simulatorDeviceType = "com.apple.CoreSimulator.SimDeviceType.iPad-9th-generation";
     } else {
@@ -3545,7 +3700,7 @@ sub findOrCreateSimulatorForIOSDevice($)
 
     my $simulatedDevice = iosSimulatorDeviceByName($simulatorName);
     return $simulatedDevice if $simulatedDevice;
-    return createiOSSimulatorDevice($simulatorName, $simulatorDeviceType, iosSimulatorRuntime());
+    return createiOSSimulatorDevice($simulatorName, $simulatorDeviceType, simulatorRuntime());
 }
 
 sub isIOSSimulatorSystemInstalledApp($)
@@ -3671,14 +3826,32 @@ sub commandLineArgumentsForRestrictedEnvironmentVariables($)
     return map { ($prefix, "$_=$ENV{$_}") } grep { /^DYLD_/ } keys %ENV;
 }
 
+sub dyldFrameworkPathsForMacWebKitApp($)
+{
+    my ($appPath) = @_;
+    my @paths = (productDir());
+
+    # An app built above WebKit rather than with it needs both: WebKit and friends
+    # from the directory WebKit was built into, everything above WebKit
+    # (SafariShared, SafariSharedUI, ...) from the directory the app was built
+    # into. Listed second so that WebKit's own directory wins for the frameworks
+    # both provide.
+    if ($appPath =~ m{^(.*)/[^/]+\.app/Contents/MacOS/[^/]+$}) {
+        my $appProductDir = $1;
+        push(@paths, $appProductDir) if $appProductDir ne $paths[0];
+    }
+
+    return @paths;
+}
+
 sub runMacWebKitApp($;$$)
 {
     my ($appPath, $useOpenCommand, $openDocumentPath) = @_;
-    my $productDir = productDir();
-    print "Starting @{[basename($appPath)]} with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";
+    my @frameworkPaths = dyldFrameworkPathsForMacWebKitApp($appPath);
+    print "Starting @{[basename($appPath)]} with DYLD_FRAMEWORK_PATH set to point to built WebKit in @{[join(', ', @frameworkPaths)]}.\n";
 
     local %ENV = %ENV;
-    setupMacWebKitEnvironment($productDir);
+    setupMacWebKitEnvironment(@frameworkPaths);
 
     if (defined($useOpenCommand) && $useOpenCommand == USE_OPEN_COMMAND) {
         my $appPathForOpen = $appPath;
@@ -3719,11 +3892,11 @@ sub execMacWebKitAppForDebugging($)
     chomp $debuggerPath;
     die "Can't find the lldb executable.\n" unless -x $debuggerPath;
 
-    my $productDir = productDir();
-    setupMacWebKitEnvironment($productDir);
+    my @frameworkPaths = dyldFrameworkPathsForMacWebKitApp($appPath);
+    setupMacWebKitEnvironment(@frameworkPaths);
 
     my @architectureFlags = ($architectureSwitch, architecture());
-    print "Starting @{[basename($appPath)]} under lldb with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";
+    print "Starting @{[basename($appPath)]} under lldb with DYLD_FRAMEWORK_PATH set to point to built WebKit in @{[join(', ', @frameworkPaths)]}.\n";
     exec { $debuggerPath } $debuggerPath, @architectureFlags, $argumentsSeparator, $appPath, argumentsForRunAndDebugMacWebKitApp() or die;
 }
 

@@ -58,24 +58,13 @@ TestWebKitAPI.WebPageTransferableTests/exportToImage(type:) [ Skip ]
 [ iOS Debug ] TestWebKitAPI.ContentRuleList.RequestMethods [ Pass Timeout ]
 [ iOS Debug ] TestWebKitAPI.ContentRuleList.ResourceTypes [ Pass Timeout ]
 
-# webkit.org/b/321940 [ macOS DEBUG ] 2x TestWebKitAPI.EnhancedSecurityPolicies.MultiHopThenBackToSecure* (api-tests) are constant timeouts.
-[ mac Debug ] TestWebKitAPI.EnhancedSecurityPolicies.MultiHopThenBackToSecure [ Skip ]
-[ mac Debug ] TestWebKitAPI.EnhancedSecurityPolicies.MultiHopThenBackToSecureJavascript [ Skip ]
-
-# webkit.org/b/322125 [ iOS ]NEW TEST(319178@main): 3x TestWebKitAPI.HTTP2Server.* (api-tests) is a constant timeout. 
-[ iOS ] TestWebKitAPI.HTTP2Server.MultipleRequestsOverOneConnection [ Skip ]
-[ iOS ] TestWebKitAPI.HTTP2Server.NonDefaultStatusCodeAndResponseHeader [ Skip ]
-[ iOS ] TestWebKitAPI.HTTP2Server.POSTBody [ Skip ]
-
-# webkit.org/b/322126 [ iOS ]NEW TEST(319204@main): 3x TestWebKitAPI.HTTP3Server.* (api-tests) is a constant timeout.
-[ iOS Debug ] TestWebKitAPI.HTTP3Server.MultipleRequestsOverOneConnection [ Skip ]
-[ iOS Release ] TestWebKitAPI.HTTP3Server.MultipleRequestsOverOneConnection [ Pass Timeout ]
-[ iOS ] TestWebKitAPI.HTTP3Server.NonDefaultStatusCodeAndResponseHeader [ Skip ]
-[ iOS ] TestWebKitAPI.HTTP3Server.POSTBody [ Skip ]
-
 # webkit.org/b/318893 [ iOS DEBUG ] 2x TestWebKitAPI.IPCTestingAPI.* (api-tests) are constant fails.
 [ iOS Debug ] TestWebKitAPI.IPCTestingAPI.LockdownModeDetection [ Failure ]
 [ iOS Debug ] TestWebKitAPI.IPCTestingAPI.LockdownModeDisabledAllowsWebGL [ Failure ]
+
+# webkit.org/b/324191 [Site Isolation macOS Tahoe Debug]REGRESSION(315452@main): 2x TestWebKitAPI.* (api-tests) are constant crashes.
+[ mac debug arm64 siteisolation ] TestWebKitAPI.ProcessSwap.EphemeralWebStorage [ Crash ]
+[ mac debug arm64 siteisolation ] TestWebKitAPI.WebKit.DecidePolicyForNavigationActionForHyperlinkThatRedirectsWithoutPSON [ Crash ]
 
 # webkit.org/b/318742 [ iOS DEBUG ] 3x TestWebKitAPI.WKWebExtensionAPICookies.* (api-tests) are constant crashes/timeout.
 [ iOS Debug ] TestWebKitAPI.WKWebExtensionAPICookies.GetAllAfterNetworkProcessTermination [ Timeout ]
@@ -162,6 +151,7 @@ webkit.org/b/316420 [ ios ] TestWebKitAPI.HSTS.Preconnect [ Pass Timeout ]
 rdar://143715095 TestWebKitAPI.HSTS.ThirdParty [ Skip ]
 rdar://143715095 TestWebKitAPI.HSTS.ThirdPartyFetch [ Skip ]
 webkit.org/b/231471 TestWebKitAPI.ImageBufferTests.DrawImageBufferDoesNotReferenceExtraMemory [ Skip ]
+webkit.org/b/323702 [ ios ] TestWebKitAPI.IndexedDB.TransactionOfSuspendedProcessIsNotAbortedByItsOwnQueuedTransaction [ Pass Failure ]
 rdar://136551692 [ mac ] TestWebKitAPI.InWindowFullscreen.CanToggleAfterPlaybackStarts [ Skip ]
 rdar://136551692 [ mac ] TestWebKitAPI.InWindowFullscreen.EnterAndExitChangeIsActive [ Skip ]
 rdar://136551692 [ mac ] TestWebKitAPI.InWindowFullscreen.EnterChangesIsActiveWithoutUserGesture [ Skip ]
@@ -218,10 +208,14 @@ webkit.org/b/315685 [ Debug ] TestWebKitAPI.PrivateClickMeasurement.DestinationC
 webkit.org/b/315685 [ Debug ] TestWebKitAPI.PrivateClickMeasurement.EphemeralWithAttributedBundleIdentifier [ Pass Timeout ]
 webkit.org/b/315685 [ Debug ] TestWebKitAPI.PrivateClickMeasurement.ManualAttributionAndConversion [ Pass Timeout ]
 rdar://163517689 [ ios ] TestWebKitAPI.ProcessSwap.CrashWithGestureController [ Skip ]
+webkit.org/b/324268 [ mac arm64 siteisolation ] TestWebKitAPI.ProcessSwap.GoBackToSuspendedPageWithMainFrameIDThatIsNotOne [ Timeout ]
+webkit.org/b/324276 [ mac arm64 siteisolation ] TestWebKitAPI.ProcessSwap.GoToSecondItemInBackHistory [ Pass Timeout ]
+webkit.org/b/324277 TestWebKitAPI.ProcessSwap.HistoryItemIDConfusion [ Pass Timeout ]
 rdar://137984168 [ ios ] TestWebKitAPI.ProcessSwap.NavigateBackAfterCrossOriginClientRedirect [ Skip ]
+webkit.org/b/324130 [ mac arm64 siteisolation ] TestWebKitAPI.ProcessSwap.PageCacheWhenNavigatingFromJS [ Timeout ]
 rdar://163517689 [ ios ] TestWebKitAPI.ProcessSwap.SwapWithGestureController [ Skip ]
+webkit.org/b/324281 [ mac arm64 siteisolation ] TestWebKitAPI.ProcessSwap.TerminatedSuspendedPageProcess [ Failure ]
 webkit.org/b/242085 [ ios ] TestWebKitAPI.RequestTextInputContext.TextInteraction_FocusingAssistedElementShouldNotScrollToReveal [ Skip ]
-webkit.org/b/321947 [ debug ] TestWebKitAPI.ResourceLoadStatistics.BlockUnpartitionedThirdPartyCookies [ Skip ]
 rdar://136525714 [ mac ] TestWebKitAPI.ResourceLoadStatistics.ClientEvaluatedJavaScriptDoesNotLogUserInteraction [ Skip ]
 rdar://172325390 TestWebKitAPI.ResourceLoadStatistics.GrandfatherCallback [ Skip ]
 rdar://136535465 TestWebKitAPI.ResourceLoadStatistics.MigrateDataFromMissingTopFrameUniqueRedirectSameSiteStrictTableSchema [ Skip ]
@@ -279,6 +273,7 @@ webkit.org/b/318267 [ ios ] TestWebKitAPI.WebAuthenticationPanel.GetAssertionPin
 webkit.org/b/317891 [ ios ] TestWebKitAPI.WebAuthenticationPanel.GetAssertionPinProtocol2 [ Skip ]
 rdar://145102423 [ mac debug ] TestWebKitAPI.WebAuthenticationPanel.LAGetAssertionNoMockNoUserGesture [ Skip ]
 rdar://145102423 [ ios debug ] TestWebKitAPI.WebAuthenticationPanel.LAGetAssertionNoMockNoUserGesture [ Skip ]
+webkit.org/b/323143 [ ios ] TestWebKitAPI.WebAuthenticationPanel.LAMakeCredentialAllowLocalAuthenticator [ Pass Timeout ]
 rdar://145102423 [ mac debug ] TestWebKitAPI.WebAuthenticationPanel.MakeCredentialSPITimeout [ Skip ]
 rdar://145102423 [ ios debug ] TestWebKitAPI.WebAuthenticationPanel.MakeCredentialSPITimeout [ Skip ]
 webkit.org/b/318267 [ ios ] TestWebKitAPI.WebAuthenticationPanel.MultipleAccounts [ Skip ]
@@ -298,7 +293,8 @@ webkit.org/b/176250 [ mac ] TestWebKitAPI.WebKit.DOMWindowExtensionBasic [ Skip 
 webkit.org/b/176250 [ mac ] TestWebKitAPI.WebKit.DOMWindowExtensionNoCache [ Skip ]
 rdar://107850827 [ mac ] TestWebKitAPI.WebKit.FirstResponderScrollingPosition [ Skip ]
 webkit.org/b/278563 [ mac debug ] TestWebKitAPI.Webkit.LoadMoreThan4GB [ Skip ]
-webkit.org/b/318485 [ mac release ] TestWebKitAPI.WebKit.MediaBufferingPolicy [ Pass Failure ]
+webkit.org/b/318485 [ sequoia ] TestWebKitAPI.WebKit.MediaBufferingPolicy [ Pass Failure ]
+webkit.org/b/318485 [ sequoia ] TestWebKitAPI.WebKit.MediaBufferingPolicyWhenSuspendedOrHidden [ Pass Failure ]
 webkit.org/b/298289 TestWebKitAPI.WebKit.MobileAssetSandboxCheck [ Skip ]
 webkit.org/b/176250 [ mac ] TestWebKitAPI.WebKit.NewFirstVisuallyNonEmptyLayout [ Skip ]
 webkit.org/b/176250 [ mac ] TestWebKitAPI.WebKit.NewFirstVisuallyNonEmptyLayoutForImages [ Skip ]
@@ -340,6 +336,7 @@ rdar://137088246 [ mac debug ] TestWebKitAPI.WKInspectorExtension.ExtensionTabIs
 webkit.org/b/257332 [ mac ] TestWebKitAPI.WKInspectorExtensionDelegate.ExtensionTabNavigatedCallbacks [ Skip ]
 webkit.org/b/257332 [ mac ] TestWebKitAPI.WKInspectorExtensionDelegate.InspectedPageNavigatedCallbacks [ Skip ]
 webkit.org/b/231847 [ mac ] TestWebKitAPI.WKInspectorExtensionDelegate.ShowAndHideTabCallbacks [ Skip ]
+webkit.org/b/323715 [ ios ] TestWebKitAPI.WKNavigation.PreferredHTTPSPolicyAutomaticHTTPFallbackAfterTerminateProcess [ Pass Timeout ]
 webkit.org/b/293286 TestWebKitAPI.WKNavigation.PreferredHTTPSPolicyAutomaticHTTPFallbackRedirectNo3SecondTimeout [ Skip ]
 webkit.org/b/318821 [ sequoia ] TestWebKitAPI.WKWebExtension.ContentScriptImport [ Pass Timeout ]
 webkit.org/b/318821 [ sequoia ] TestWebKitAPI.WKWebExtension.ContentScriptNotInjectedForExcludedMatchPattern [ Pass Timeout ]

@@ -99,6 +99,7 @@
 #include "OverlapTestRequestClient.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
+#include "PositionedLayoutConstraints.h"
 #include "ReferencedSVGResources.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBoxInlines.h"
@@ -594,7 +595,7 @@ void RenderLayer::removeOnlyThisLayer()
         m_parent->addChild(*current, nextSib);
         current->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
         if (isComposited())
-            current->computeRepaintRectsIncludingDescendants();
+            current->updateRepaintRectsIncludingDescendants(RepaintRectsUpdate::Recompute);
         current = next;
     }
 
@@ -1051,14 +1052,18 @@ bool RenderLayer::canRender3DTransforms() const
 
 bool RenderLayer::shouldPaintWithFilters(OptionSet<PaintBehavior> paintBehavior) const
 {
-    const auto& filter = renderer().style().filter();
+    return shouldPaintWithFilters(renderer().style().filter(), paintBehavior);
+}
+
+bool RenderLayer::shouldPaintWithFilters(const Style::Filter& filter, OptionSet<PaintBehavior> paintBehavior) const
+{
     if (filter.isNone())
         return false;
 
     if (renderer().isLegacyRenderSVGRoot() && filter.isReferenceFilter())
         return false;
 
-    if (RenderLayerFilters::isIdentity(renderer()))
+    if (CSSFilterRenderer::isIdentity(renderer(), filter))
         return false;
 
     if (paintBehavior & PaintBehavior::FlattenCompositingLayers)
@@ -1072,10 +1077,15 @@ bool RenderLayer::shouldPaintWithFilters(OptionSet<PaintBehavior> paintBehavior)
 
 bool RenderLayer::requiresFullLayerImageForFilters() const
 {
-    if (!shouldPaintWithFilters())
+    return requiresFullLayerImageForFilters(renderer().style().filter());
+}
+
+bool RenderLayer::requiresFullLayerImageForFilters(const Style::Filter& filter) const
+{
+    if (!shouldPaintWithFilters(filter))
         return false;
 
-    return m_filters && m_filters->hasFilterThatMovesPixels();
+    return filter.hasFilterThatMovesPixels();
 }
 
 OptionSet<RenderLayer::UpdateLayerPositionsFlag> RenderLayer::flagsForUpdateLayerPositions(RenderLayer& startingLayer)
@@ -1526,22 +1536,27 @@ void RenderLayer::computeRepaintRects(const RenderLayerModelObject* repaintConta
     m_repaintContainer = repaintContainer;
 }
 
-void RenderLayer::computeRepaintRectsIncludingDescendants()
+void RenderLayer::updateRepaintRectsIncludingDescendants(RepaintRectsUpdate update)
 {
     // FIXME: computeRepaintRects() has to walk up the parent chain for every layer to compute the rects.
     // We should make this more efficient.
-    computeRepaintRects(renderer().containerForRepaint().renderer.get());
-    clearClipRects(PaintingClipRects);
+    if (update == RepaintRectsUpdate::Recompute) {
+        computeRepaintRects(renderer().containerForRepaint().renderer.get());
+        clearClipRects(PaintingClipRects);
+    } else {
+        clearRepaintRects();
+        m_repaintContainer = renderer().containerForRepaint().renderer.get();
+    }
 
     for (RenderLayer* layer = firstChild(); layer; layer = layer->nextSibling())
-        layer->computeRepaintRectsIncludingDescendants();
+        layer->updateRepaintRectsIncludingDescendants(update);
 }
 
 void RenderLayer::compositingStatusChanged(LayoutUpToDate layoutUpToDate)
 {
     updateDescendantDependentFlags();
     if (parent() || isRenderViewLayer())
-        computeRepaintRectsIncludingDescendants();
+        updateRepaintRectsIncludingDescendants(RepaintRectsUpdate::Recompute);
     if (layoutUpToDate == LayoutUpToDate::No)
         setSelfAndDescendantsNeedPositionUpdate();
 }
@@ -2085,7 +2100,7 @@ bool RenderLayer::computeHasVisibleContent() const
 static LayoutRect computeLayerPositionAndIntegralSize(const RenderLayerModelObject& renderer)
 {
     if (auto* inlineRenderer = dynamicDowncast<RenderInline>(renderer); inlineRenderer && inlineRenderer->isInline())
-        return { LayoutPoint(), inlineRenderer->linesBoundingBox().size() };
+        return { LayoutPoint(), inlineRenderer->borderBoxRectInContainer().size() };
 
     if (auto* boxRenderer = dynamicDowncast<RenderBox>(renderer)) {
         const auto& borderBox = boxRenderer->borderBoxRectInContainer();
@@ -2192,8 +2207,8 @@ bool RenderLayer::updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* flags
             if (auto* positionedParentScrollableArea = positionedParent->scrollableArea())
                 localPoint -= toLayoutSize(positionedParentScrollableArea->scrollPosition());
         }
-        if (auto* inlinePositionedParent = dynamicDowncast<RenderInline>(positionedParent->renderer()); inlinePositionedParent && inlinePositionedParent->canContainAbsolutelyPositionedObjects())
-            localPoint += inlinePositionedParent->offsetForInFlowPositionedInline(renderBox());
+        if (positionedParent->renderer().isInlineBox() && positionedParent->renderer().canContainAbsolutelyPositionedObjects())
+            localPoint += PositionedLayoutConstraints::containingBlockOffsetForNonStaticAxes(downcast<RenderBoxModelObject>(positionedParent->renderer()), renderer().style());
 
         ASSERT(positionedParent->contentsScrollingScope());
         m_boxScrollingScope = positionedParent->contentsScrollingScope();
@@ -2500,7 +2515,7 @@ RenderLayer::EnclosingCompositingLayerStatus RenderLayer::enclosingCompositingLa
     return { };
 }
 
-RenderLayer* RenderLayer::enclosingFilterLayer(IncludeSelfOrNot includeSelf) const
+RenderLayer* RenderLayer::enclosingPixelMovingFilterLayer(IncludeSelfOrNot includeSelf) const
 {
     const RenderLayer* curr = (includeSelf == IncludeSelf) ? this : parent();
     for (; curr; curr = curr->parent()) {
@@ -2521,18 +2536,19 @@ RenderLayer* RenderLayer::enclosingFilterRepaintLayer() const
 }
 
 // FIXME: This needs a better name.
-void RenderLayer::setFilterBackendNeedsRepaintingInRect(const LayoutRect& rect)
+void RenderLayer::setFilterBackendNeedsRepaintingInRect(const LayoutRect& rect, UseFilterOutsets useFilterOutsets)
 {
     ASSERT(requiresFullLayerImageForFilters());
-    ASSERT(m_filters);
 
     if (rect.isEmpty())
         return;
     
     LayoutRect rectForRepaint = rect;
-    rectForRepaint.expand(toLayoutBoxExtent(filterOutsets()));
+    if (useFilterOutsets == UseFilterOutsets::Add)
+        rectForRepaint.expand(toLayoutBoxExtent(filterOutsets()));
 
-    m_filters->expandDirtySourceRect(rectForRepaint);
+    if (m_filters)
+        m_filters->expandDirtySourceRect(rectForRepaint);
     
     RenderLayer* parentLayer = enclosingFilterRepaintLayer();
     ASSERT(parentLayer);
@@ -5217,15 +5233,18 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
 
         if (renderer().hasNonVisibleOverflow()) {
             ClipRect newOverflowClip = rendererOverflowClipRectForChildLayers({ }, clipRectsContext.overlayScrollbarSizeRelevancy());
-            if (needsTransform)
-                newOverflowClip = LayoutRect(renderer().localToContainerQuad(FloatRect(newOverflowClip.rect()), &clipRectsContext.rootLayer->renderer()).boundingBox());
-            newOverflowClip.moveBy(offset);
-            newOverflowClip.setAffectedByRadius(renderer().style().border().hasBorderRadius());
-            clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
-            if (renderer().canContainAbsolutelyPositionedObjects())
-                clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
-            if (renderer().canContainFixedPositionObjects())
-                clipRects.setFixedClipRect(intersection(newOverflowClip, clipRects.fixedClipRect()));
+
+            if (!newOverflowClip.isInfinite()) {
+                if (needsTransform)
+                    newOverflowClip = LayoutRect(renderer().localToContainerQuad(FloatRect(newOverflowClip.rect()), &clipRectsContext.rootLayer->renderer()).boundingBox());
+                newOverflowClip.moveBy(offset);
+                newOverflowClip.setAffectedByRadius(renderer().style().border().hasBorderRadius());
+                clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
+                if (renderer().canContainAbsolutelyPositionedObjects())
+                    clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
+                if (renderer().canContainFixedPositionObjects())
+                    clipRects.setFixedClipRect(intersection(newOverflowClip, clipRects.fixedClipRect()));
+            }
         }
         if (renderer().hasClip()) {
             if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer())) {
@@ -5364,9 +5383,11 @@ ClipRect RenderLayer::calculateForegroundRect(const ClipRectsContext& clipRectsC
 
     // This layer establishes a clip of some kind.
     if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip()) {
-        auto overflowClipRect = rendererOverflowClipRect(toLayoutPoint(offsetFromRoot), clipRectsContext.overlayScrollbarSizeRelevancy());
-        foregroundRect.intersect(overflowClipRect);
-        foregroundRect.setAffectedByRadius(true);
+        auto overflowClipRect = rendererOverflowClipRectForPainting(toLayoutPoint(offsetFromRoot), clipRectsContext.overlayScrollbarSizeRelevancy());
+        if (!overflowClipRect.isInfinite()) {
+            foregroundRect.intersect(overflowClipRect);
+            foregroundRect.setAffectedByRadius(true);
+        }
         return foregroundRect;
     }
 
@@ -5464,7 +5485,7 @@ bool RenderLayer::intersectsDamageRect(const LayoutRect& layerBounds, const Layo
         return false;
 
     // If we aren't an inline flow, and our layer bounds do intersect the damage rect, then we can return true.
-    if (!renderer().isRenderInline() && layerBounds.intersects(damageRect))
+    if (!renderer().isInlineBox() && layerBounds.intersects(damageRect))
         return true;
 
     // Otherwise we need to compute the bounding box of this single layer and see if it intersects
@@ -5488,8 +5509,8 @@ LayoutRect RenderLayer::localBoundingBox(OptionSet<CalculateLayerBoundsFlag> fla
     // as part of our bounding box.  We do this because we are the responsible layer for both hit testing and painting those
     // floats.
     LayoutRect result;
-    if (CheckedPtr renderInline = dynamicDowncast<RenderInline>(renderer()); renderInline && renderer().isInline())
-        result = renderInline->linesVisualOverflowBoundingBox();
+    if (CheckedPtr inlineBox = dynamicDowncast<RenderInline>(renderer()); inlineBox && renderer().isInline())
+        result = inlineBox->visualOverflowRect();
     else if (CheckedPtr modelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
         result = modelObject->visualOverflowRectEquivalent();
     else if (CheckedPtr tableRow = dynamicDowncast<RenderTableRow>(renderer())) {
@@ -5866,7 +5887,7 @@ bool RenderLayer::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect)
     
     // We can't consult child layers if we clip, since they might cover
     // parts of the rect that are clipped out.
-    if (renderer().hasNonVisibleOverflow())
+    if (renderer().hasNonVisibleOverflow() || renderer().hasClipPath() || renderer().hasMask())
         return false;
     
     return listBackgroundIsKnownToBeOpaqueInRect(positiveZOrderLayers(), localRect)
@@ -6426,15 +6447,20 @@ void RenderLayer::updateFiltersAfterStyleChange(Style::Difference diff, const St
     else if (m_filters)
         m_filters->removeReferenceFilterClients();
 
+    bool filterValueChanged = oldStyle && oldStyle->filter() != renderer().style().filter();
+
+    if (filterValueChanged && requiresFullLayerImageForFilters(oldStyle->filter()) != requiresFullLayerImageForFilters())
+        updateRepaintRectsIncludingDescendants(RepaintRectsUpdate::Discard);
+
     auto filterChanged = [&] {
         if (!m_filters)
             return false;
         if (diff < Style::DifferenceResult::RepaintLayer)
             return false;
+        if (filterValueChanged)
+            return true;
         if (!oldStyle)
             return false;
-        if (oldStyle->filter() != renderer().style().filter())
-            return true;
         auto currentColorChanged = oldStyle->color() != renderer().style().color();
         if (currentColorChanged && oldStyle->filter().hasFilterThatRequiresRepaintForCurrentColorChange())
             return true;
@@ -6495,10 +6521,7 @@ IntOutsets RenderLayer::filterOutsets() const
     if (m_filters)
         return m_filters->calculateOutsets(renderer(), localBoundingBox());
 
-    if (CheckedPtr boxRenderer = renderBox())
-        return boxRenderer->computeFilterOutsets();
-
-    return { };
+    return renderer().computeFilterOutsets();
 }
 
 void RenderLayer::clearFilters()
@@ -6978,7 +7001,7 @@ void showPaintOrderTree(const WebCore::RenderLayer* layer)
     if (layer)
         outputPaintOrderTreeRecursive(stream, *layer, ""_s);
     
-    WTFLogAlways("%s", stream.release().utf8().data());
+    SAFE_WTFLOGALWAYS("%s", stream.release().utf8());
 }
 
 void showPaintOrderTree(const WebCore::RenderObject* renderer)
@@ -7068,7 +7091,7 @@ void showLayerPositionTree(const WebCore::RenderLayer* root, const WebCore::Rend
     if (root)
         outputLayerPositionTreeRecursive(stream, *root, 0, mark);
 
-    WTFLogAlways("%s", stream.release().utf8().data());
+    SAFE_WTFLOGALWAYS("%s", stream.release().utf8());
 }
 
 #endif

@@ -379,6 +379,7 @@ namespace JSC {
         const CommonIdentifiers& propertyNames() const { return *m_vm.propertyNames; }
 
         bool isConstructor() const { return m_codeBlock->isConstructor(); }
+        bool allowsTailCallOptimization() const { return m_allowTailCallOptimization; }
         DerivedContextType derivedContextType() const { return m_derivedContextType; }
         bool usesArrowFunction() const { return m_scopeNode->usesArrowFunction(); }
         bool needsToUpdateArrowFunctionContext() const { return m_needsToUpdateArrowFunctionContext; }
@@ -1157,7 +1158,7 @@ namespace JSC {
 
     private:
         ParserError generate(unsigned&);
-        Variable NODELETE variableForLocalEntry(const Identifier&, const SymbolTableEntry&, int symbolTableConstantIndex, bool isLexicallyScoped);
+        Variable NODELETE variableForLocalEntry(const Identifier&, const SymbolTableEntry::Fast&, int symbolTableConstantIndex, bool isLexicallyScoped);
 
         RegisterID* kill(RegisterID* dst)
         {

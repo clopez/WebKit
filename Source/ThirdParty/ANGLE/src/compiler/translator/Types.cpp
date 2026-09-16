@@ -141,8 +141,6 @@ const char *getBasicString(TBasicType t)
             return "uimageBuffer";
         case EbtAtomicCounter:
             return "atomic_uint";
-        case EbtSamplerVideoWEBGL:
-            return "samplerVideoWEBGL";
         case EbtPixelLocalANGLE:
             return "pixelLocalANGLE";
         case EbtIPixelLocalANGLE:
@@ -755,47 +753,6 @@ const char *TType::getMangledName() const
 void TType::realize()
 {
     getMangledName();
-}
-
-void TType::createSamplerSymbols(const ImmutableString &namePrefix,
-                                 const TString &apiNamePrefix,
-                                 TVector<const TVariable *> *outputSymbols,
-                                 TMap<const TVariable *, TString> *outputSymbolsToAPINames,
-                                 TSymbolTable *symbolTable) const
-{
-    if (isStructureContainingSamplers())
-    {
-        if (isArray())
-        {
-            TType elementType(*this);
-            elementType.toArrayElementType();
-            for (unsigned int arrayIndex = 0u; arrayIndex < getOutermostArraySize(); ++arrayIndex)
-            {
-                std::stringstream elementName = sh::InitializeStream<std::stringstream>();
-                elementName << namePrefix << "_" << arrayIndex;
-                TStringStream elementApiName;
-                elementApiName << apiNamePrefix << "[" << arrayIndex << "]";
-                elementType.createSamplerSymbols(ImmutableString(elementName.str()),
-                                                 elementApiName.str(), outputSymbols,
-                                                 outputSymbolsToAPINames, symbolTable);
-            }
-        }
-        else
-        {
-            mStructure->createSamplerSymbols(namePrefix.data(), apiNamePrefix, outputSymbols,
-                                             outputSymbolsToAPINames, symbolTable);
-        }
-        return;
-    }
-
-    ASSERT(IsSampler(type));
-    TVariable *variable =
-        new TVariable(symbolTable, namePrefix, new TType(*this), SymbolType::AngleInternal);
-    outputSymbols->push_back(variable);
-    if (outputSymbolsToAPINames)
-    {
-        (*outputSymbolsToAPINames)[variable] = apiNamePrefix;
-    }
 }
 
 TFieldListCollection::TFieldListCollection(const TFieldList *fields)

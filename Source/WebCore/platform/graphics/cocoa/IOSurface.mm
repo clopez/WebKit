@@ -26,8 +26,8 @@
 #import "config.h"
 #import "IOSurface.h"
 
+#import "ColorSpace.h"
 #import "ColorSpaceCG.h"
-#import "DestinationColorSpace.h"
 #import "HostWindow.h"
 #import "IOSurfacePool.h"
 #import "ImageBufferBackend.h"
@@ -87,7 +87,8 @@ static RetainPtr<NSString> surfaceNameToNSString(IOSurface::Name name)
     }
 }
 
-std::unique_ptr<IOSurface> IOSurface::create(IOSurfacePool* pool, IntSize size, const DestinationColorSpace& colorSpace, IOSurface::Name name, Format pixelFormat, UseLosslessCompression useLosslessCompression)
+std::unique_ptr<IOSurface> IOSurface::create(IOSurfacePool* pool, IntSize size, const ColorSpace& colorSpace, IOSurface::Name name, Format pixelFormat, UseLosslessCompression useLosslessCompression,
+IOSurfaceOptions options)
 {
     ASSERT(ProcessCapabilities::canUseAcceleratedBuffers());
 
@@ -98,12 +99,15 @@ std::unique_ptr<IOSurface> IOSurface::create(IOSurfacePool* pool, IntSize size, 
                 IOSurfaceSetValue(protect(cachedSurface->surface()).get(), kIOSurfaceName, surfaceNameToNSString(name).get());
                 cachedSurface->setName(name);
             }
+#if HAVE(IOSURFACE_ALPHA_CHANNEL_MODE)
+            cachedSurface->setContentsAlphaPremultiplication(options.alphaPremultiplication);
+#endif
             return cachedSurface;
         }
     }
 
     bool success = false;
-    auto surface = std::unique_ptr<IOSurface>(new IOSurface(size, colorSpace, name, pixelFormat, useLosslessCompression, success));
+    auto surface = std::unique_ptr<IOSurface>(new IOSurface(size, colorSpace, name, pixelFormat, useLosslessCompression, options, success));
     if (!success) {
         LOG(IOSurface, "IOSurface::create failed to create %dx%d surface", size.width(), size.height());
         return nullptr;
@@ -173,7 +177,7 @@ std::unique_ptr<IOSurface> IOSurface::createFromUntrustedUncompressedWebKitSendR
     return { };
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, std::optional<DestinationColorSpace>&& colorSpace)
+std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, std::optional<ColorSpace>&& colorSpace)
 {
     if (!surface)
         return nullptr;
@@ -189,7 +193,7 @@ std::unique_ptr<IOSurface> IOSurface::createFromImage(IOSurfacePool* pool, CGIma
     size_t width = CGImageGetWidth(image);
     size_t height = CGImageGetHeight(image);
 
-    auto surface = IOSurface::create(pool, IntSize(width, height), DestinationColorSpace { CGImageGetColorSpace(image) }, Name::ImageBuffer);
+    auto surface = IOSurface::create(pool, IntSize(width, height), ColorSpace { CGImageGetColorSpace(image) }, Name::ImageBuffer);
     if (!surface)
         return nullptr;
     auto context = surface->createPlatformContext();
@@ -235,6 +239,13 @@ static OSType NODELETE coreVideoFormatFromIOSurfaceFormat(IOSurface::Format form
     ASSERT_NOT_REACHED();
     return 0;
 }
+
+#if HAVE(IOSURFACE_ALPHA_CHANNEL_MODE)
+static CFStringRef alphaChannelModeValue(AlphaPremultiplication alphaPremultiplication)
+{
+    return alphaPremultiplication == AlphaPremultiplication::Premultiplied ? kIOSurfaceAlphaChannelMode_PremultipliedAlpha : kIOSurfaceAlphaChannelMode_StraightAlpha;
+}
+#endif
 
 static RetainPtr<IOSurfaceRef> createSurfaceViaCoreVideo(IntSize size, IOSurface::Name name, IOSurface::Format format, UseLosslessCompression useLosslessCompression)
 {
@@ -393,14 +404,18 @@ static RetainPtr<IOSurfaceRef> createSurface(IntSize size, IOSurface::Name name,
 
 // MARK: -
 
-IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSurface::Name name, Format format, UseLosslessCompression useLosslessCompression, bool& success)
+IOSurface::IOSurface(IntSize size, const ColorSpace& colorSpace, IOSurface::Name name, Format format, UseLosslessCompression useLosslessCompression, IOSurfaceOptions options, bool& success)
     : m_format({ format, useLosslessCompression })
     , m_colorSpace(colorSpace)
+    , m_knownIsVolatile(false)
     , m_size(size)
     , m_name(name)
 {
     ASSERT(!success);
     ASSERT(!size.isEmpty());
+#if !HAVE(IOSURFACE_ALPHA_CHANNEL_MODE)
+    UNUSED_PARAM(options);
+#endif
 
 #if !HAVE(COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES)
     useLosslessCompression = UseLosslessCompression::No;
@@ -425,6 +440,9 @@ IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSu
     success = !!m_surface;
     if (success) {
         setColorSpaceProperty();
+#if HAVE(IOSURFACE_ALPHA_CHANNEL_MODE)
+        setContentsAlphaPremultiplication(options.alphaPremultiplication);
+#endif
         m_totalBytes = IOSurfaceGetAllocSize(m_surface.get());
     } else
         RELEASE_LOG_ERROR(Layers, "IOSurface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), std::to_underlying(format));
@@ -472,7 +490,7 @@ static std::optional<IOSurface::UsedFormat> formatFromSurface(IOSurfaceRef surfa
     return { };
 }
 
-IOSurface::IOSurface(IOSurfaceRef surface, std::optional<DestinationColorSpace>&& colorSpace)
+IOSurface::IOSurface(IOSurfaceRef surface, std::optional<ColorSpace>&& colorSpace)
     : m_format(formatFromSurface(surface))
     , m_colorSpace(WTF::move(colorSpace))
     , m_surface(surface)
@@ -731,10 +749,17 @@ std::optional<IOSurface::LockAndContext> IOSurface::createBitmapPlatformContext(
 
 SetNonVolatileResult IOSurface::state() const
 {
-    uint32_t previousState = 0;
-    IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
-    ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
-    return previousState == kIOSurfacePurgeableEmpty ? SetNonVolatileResult::Empty : SetNonVolatileResult::Valid;
+    if (m_knownIsVolatile.has_value() && !*m_knownIsVolatile)
+        return SetNonVolatileResult::Valid;
+    uint32_t currentState = 0;
+    IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &currentState);
+    if (ret != kIOReturnSuccess) {
+        ASSERT_NOT_REACHED();
+        m_knownIsVolatile = std::nullopt;
+        return SetNonVolatileResult::Valid;
+    }
+    m_knownIsVolatile = currentState != kIOSurfacePurgeableNonVolatile;
+    return currentState == kIOSurfacePurgeableEmpty ? SetNonVolatileResult::Empty : SetNonVolatileResult::Valid;
 }
 
 IOSurfaceSeed IOSurface::seed() const
@@ -744,25 +769,27 @@ IOSurfaceSeed IOSurface::seed() const
 
 bool IOSurface::isVolatile() const
 {
-    uint32_t previousState = 0;
-    IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
-    ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
-    return previousState != kIOSurfacePurgeableNonVolatile;
+    if (!m_knownIsVolatile)
+        (void) state();
+    return m_knownIsVolatile.value_or(false);
 }
 
 SetNonVolatileResult IOSurface::setVolatile(bool isVolatile)
 {
+    if (!isVolatile && m_knownIsVolatile.has_value() && !*m_knownIsVolatile)
+        return SetNonVolatileResult::Valid;
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), isVolatile ? kIOSurfacePurgeableVolatile : kIOSurfacePurgeableNonVolatile, &previousState);
-    ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
-
-    if (previousState == kIOSurfacePurgeableEmpty)
-        return SetNonVolatileResult::Empty;
-
-    return SetNonVolatileResult::Valid;
+    if (ret != kIOReturnSuccess) {
+        ASSERT_NOT_REACHED();
+        m_knownIsVolatile = std::nullopt;
+        return SetNonVolatileResult::Valid;
+    }
+    m_knownIsVolatile = isVolatile;
+    return previousState == kIOSurfacePurgeableEmpty ? SetNonVolatileResult::Empty : SetNonVolatileResult::Valid;
 }
 
-DestinationColorSpace IOSurface::colorSpace()
+ColorSpace IOSurface::colorSpace()
 {
     ensureColorSpace();
     return *m_colorSpace;
@@ -860,6 +887,20 @@ void IOSurface::convertToFormat(IOSurfacePool* pool, std::unique_ptr<IOSurface>&
 
 #endif // HAVE(IOSURFACE_ACCELERATOR)
 
+#if HAVE(IOSURFACE_ALPHA_CHANNEL_MODE)
+void IOSurface::setContentsAlphaPremultiplication(std::optional<AlphaPremultiplication> alphaPremultiplication)
+{
+    if (m_contentsAlphaPremultiplication == alphaPremultiplication)
+        return;
+    m_contentsAlphaPremultiplication = alphaPremultiplication;
+    if (!alphaPremultiplication) {
+        IOSurfaceRemoveValue(m_surface.get(), kIOSurfaceAlphaChannelMode);
+        return;
+    }
+    IOSurfaceSetValue(m_surface.get(), kIOSurfaceAlphaChannelMode, alphaChannelModeValue(*alphaPremultiplication));
+}
+#endif
+
 void IOSurface::setOwnershipIdentity(const ProcessIdentity& resourceOwner)
 {
     ASSERT(resourceOwner);
@@ -900,7 +941,7 @@ void IOSurface::ensureColorSpace()
     if (m_colorSpace)
         return;
 
-    m_colorSpace = surfaceColorSpace().value_or(DestinationColorSpace::SRGB());
+    m_colorSpace = surfaceColorSpace().value_or(ColorSpace::SRGB());
 }
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
@@ -927,7 +968,7 @@ void IOSurface::loadContentEDRHeadroom()
 }
 #endif
 
-std::optional<DestinationColorSpace> IOSurface::surfaceColorSpace() const
+std::optional<ColorSpace> IOSurface::surfaceColorSpace() const
 {
     auto propertyList = adoptCF(IOSurfaceCopyValue(m_surface.get(), kIOSurfaceColorSpace));
     if (!propertyList)
@@ -937,7 +978,7 @@ std::optional<DestinationColorSpace> IOSurface::surfaceColorSpace() const
     if (!colorSpaceCF)
         return { };
     
-    return DestinationColorSpace { colorSpaceCF };
+    return ColorSpace { colorSpaceCF };
 }
 
 IOSurface::Name IOSurface::nameForRenderingPurpose(RenderingPurpose purpose)

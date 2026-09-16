@@ -290,7 +290,7 @@ JSC::JSValue InspectorCanvas::resolveContext(JSC::JSGlobalObject* exec)
     );
 }
 
-HashSet<Element*> InspectorCanvas::cssCanvasClientNodes() const
+HashSet<Ref<Element>> InspectorCanvas::cssCanvasClientNodes() const
 {
     return WTF::switchOn(m_context,
         [](const WeakRef<CanvasRenderingContext>& weakContext) {
@@ -299,14 +299,14 @@ HashSet<Element*> InspectorCanvas::cssCanvasClientNodes() const
         },
         [](const WeakRef<GPUDevice, WeakPtrImplWithEventTargetData>& weakDevice) {
             Ref device = weakDevice;
-            HashSet<Element*> cssCanvasClientNodes;
+            HashSet<Ref<Element>> cssCanvasClientNodes;
             Locker locker { CanvasRenderingContext::instancesLock() };
             for (SUPPRESS_UNCOUNTED_ARG auto* context : CanvasRenderingContext::instances()) {
                 if (!context->isContextThread() || !canvasContextMatchesDevice(*context, device))
                     continue;
 
-                for (auto& cssCanvasClientNode : context->canvasBase().cssCanvasClients())
-                    cssCanvasClientNodes.add(cssCanvasClientNode);
+                for (Ref cssCanvasClientNode : context->canvasBase().cssCanvasClients())
+                    cssCanvasClientNodes.add(WTF::move(cssCanvasClientNode));
             }
             return cssCanvasClientNodes;
         }
@@ -336,7 +336,7 @@ size_t InspectorCanvas::memoryCost() const
     );
 }
 
-void InspectorCanvas::canvasChanged()
+void InspectorCanvas::canvasContentsWillChange()
 {
     Ref context = std::get<WeakRef<CanvasRenderingContext>>(m_context);
     if (!context->hasActiveInspectorCanvasCallTracer())
@@ -793,8 +793,12 @@ Ref<Inspector::Protocol::Recording::Recording> InspectorCanvas::releaseObjectFor
 
 Inspector::Protocol::ErrorStringOr<String> InspectorCanvas::getContentAsDataURL(CanvasRenderingContext& context)
 {
-    auto surfaceBuffer = context.compositingResultsNeedUpdating() ? CanvasRenderingContext::SurfaceBuffer::DrawingBuffer : CanvasRenderingContext::SurfaceBuffer::DisplayBufferForInspector;
-    return encodeDataURL(context.surfaceBufferToImageBuffer(surfaceBuffer), "image/png"_s);
+    RefPtr<NativeImage> image;
+    if (context.compositingResultsNeedUpdating())
+        image = context.canvasBase().copyNativeImage();
+    else
+        image = context.surfaceBufferToNativeImage(CanvasRenderingContext::SurfaceBuffer::DisplayBufferForInspector);
+    return encodeDataURL(WTF::move(image), "image/png"_s);
 }
 
 Inspector::Protocol::ErrorStringOr<String> InspectorCanvas::getContentAsDataURL()
@@ -892,7 +896,7 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
         [&](Ref<HTMLVideoElement>& videoElement) {
             unsigned videoWidth = videoElement->videoWidth();
             unsigned videoHeight = videoElement->videoHeight();
-            RefPtr imageBuffer = ImageBuffer::create(FloatSize(videoWidth, videoHeight), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+            RefPtr imageBuffer = ImageBuffer::create(FloatSize(videoWidth, videoHeight), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, ColorSpace::SRGB(), PixelFormat::BGRA8);
             if (imageBuffer)
                 videoElement->paintCurrentFrameInContext(imageBuffer->context(), FloatRect(0, 0, videoWidth, videoHeight));
             index = indexForData(encodeDataURL(WTF::move(imageBuffer), "image/png"_s, std::nullopt));

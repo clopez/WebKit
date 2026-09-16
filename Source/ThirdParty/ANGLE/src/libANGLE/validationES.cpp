@@ -180,6 +180,10 @@ bool ValidReadPixelsFormatType(const Context *context,
             return (format == GL_RGBA_INTEGER && type == GL_INT);
 
         case GL_UNSIGNED_INT:
+            if (format == GL_STENCIL_INDEX)
+            {
+                return context->getExtensions().readStencilNV && (type == GL_UNSIGNED_BYTE);
+            }
             return (format == GL_RGBA_INTEGER && type == GL_UNSIGNED_INT);
 
         case GL_FLOAT:
@@ -429,7 +433,7 @@ bool ValidateTextureMaxAnisotropyValue(const Context *context,
 
     GLfloat largest = context->getCaps().maxTextureAnisotropy;
 
-    if (paramValue < 1 || paramValue > largest)
+    if (isOutsideOfBounds(paramValue, 1.0f, largest))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kOutsideOfBounds);
         return false;
@@ -611,8 +615,7 @@ ANGLE_INLINE const char *ValidateProgramDrawStates(const Context *context,
         }
     }
 
-    if (ANGLE_UNLIKELY(context->isWebGL() || context->isBufferAccessValidationEnabled() ||
-                       context->isHardenedContext()))
+    if (ANGLE_UNLIKELY(context->isHardenedContext() || context->isBufferAccessValidationEnabled()))
     {
         // Uniform buffer validation
         for (size_t uniformBlockIndex = 0; uniformBlockIndex < executable.getUniformBlocks().size();
@@ -624,8 +627,7 @@ ANGLE_INLINE const char *ValidateProgramDrawStates(const Context *context,
             const OffsetBindingPointer<Buffer> &uniformBuffer =
                 state.getIndexedUniformBuffer(blockBinding);
 
-            if (uniformBuffer.get() == nullptr &&
-                (context->isWebGL() || context->isHardenedContext()))
+            if (uniformBuffer.get() == nullptr && context->isHardenedContext())
             {
                 // undefined behaviour
                 return gl::err::kUniformBufferUnbound;
@@ -761,9 +763,6 @@ bool ValidTextureTarget(const Context *context, TextureType type)
             return context->getClientVersion() >= ES_3_2 ||
                    context->getExtensions().textureCubeMapArrayAny();
 
-        case TextureType::VideoImage:
-            return context->getExtensions().videoTextureWEBGL;
-
         case TextureType::Buffer:
             return context->getClientVersion() >= ES_3_2 ||
                    context->getExtensions().textureBufferAny();
@@ -839,8 +838,6 @@ bool ValidTexture2DDestinationTarget(const Context *context, TextureTarget targe
             return true;
         case TextureTarget::Rectangle:
             return context->getExtensions().textureRectangleANGLE;
-        case TextureTarget::VideoImage:
-            return context->getExtensions().videoTextureWEBGL;
         default:
             return false;
     }
@@ -906,6 +903,7 @@ bool ValidateDrawElementsInstancedBase(const Context *context,
                                        DrawElementsType type,
                                        const void *indices,
                                        GLsizei primcount,
+                                       GLint basevertex,
                                        GLuint baseinstance)
 {
     if (primcount <= 0)
@@ -918,10 +916,11 @@ bool ValidateDrawElementsInstancedBase(const Context *context,
 
         // Early exit.
         return ValidateDrawElementsCommon(context, entryPoint, mode, count, type, indices,
-                                          primcount);
+                                          primcount, basevertex);
     }
 
-    if (!ValidateDrawElementsCommon(context, entryPoint, mode, count, type, indices, primcount))
+    if (!ValidateDrawElementsCommon(context, entryPoint, mode, count, type, indices, primcount,
+                                    basevertex))
     {
         return false;
     }
@@ -1099,7 +1098,6 @@ bool ValidMipLevel(const Context *context, TextureType type, GLint level)
 
         case TextureType::External:
         case TextureType::Rectangle:
-        case TextureType::VideoImage:
         case TextureType::Buffer:
         case TextureType::_2DMultisample:
         case TextureType::_2DMultisampleArray:
@@ -1756,8 +1754,7 @@ bool ValidateBlitFramebufferParameters(const Context *context,
                         return false;
                     }
 
-                    if ((context->isWebGL() || context->isHardenedContext()) &&
-                        *readColorBuffer == *attachment)
+                    if (context->isHardenedContext() && *readColorBuffer == *attachment)
                     {
                         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kBlitSameImageColor);
                         return false;
@@ -1811,8 +1808,7 @@ bool ValidateBlitFramebufferParameters(const Context *context,
                     return false;
                 }
 
-                if ((context->isWebGL() || context->isHardenedContext()) &&
-                    *readBuffer == *drawBuffer)
+                if (context->isHardenedContext() && *readBuffer == *drawBuffer)
                 {
                     ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kBlitSameImageDepthOrStencil);
                     return false;
@@ -1896,90 +1892,79 @@ bool ValidateBindRenderbufferBase(const Context *context,
 bool ValidateFramebufferParameteriBase(const Context *context,
                                        angle::EntryPoint entryPoint,
                                        GLenum target,
-                                       GLenum pname,
+                                       FramebufferParameter pnamePacked,
                                        GLint param)
 {
-    if (!ValidFramebufferTarget(context, target))
+    if (ANGLE_UNLIKELY(!ValidFramebufferTarget(context, target)))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFramebufferTarget);
         return false;
     }
 
-    switch (pname)
-    {
-        case GL_FRAMEBUFFER_DEFAULT_WIDTH:
-        {
-            GLint maxWidth = context->getCaps().maxFramebufferWidth;
-            if (param < 0 || param > maxWidth)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsFramebufferWidth);
-                return false;
-            }
-            break;
-        }
-        case GL_FRAMEBUFFER_DEFAULT_HEIGHT:
-        {
-            GLint maxHeight = context->getCaps().maxFramebufferHeight;
-            if (param < 0 || param > maxHeight)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsFramebufferHeight);
-                return false;
-            }
-            break;
-        }
-        case GL_FRAMEBUFFER_DEFAULT_SAMPLES:
-        {
-            GLint maxSamples = context->getCaps().maxFramebufferSamples;
-            if (param < 0 || param > maxSamples)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsFramebufferSamples);
-                return false;
-            }
-            break;
-        }
-        case GL_FRAMEBUFFER_DEFAULT_FIXED_SAMPLE_LOCATIONS:
-        {
-            break;
-        }
-        case GL_FRAMEBUFFER_DEFAULT_LAYERS_EXT:
-        {
-            if (!context->getExtensions().geometryShaderAny() &&
-                context->getClientVersion() < ES_3_2)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kGeometryShaderExtensionNotEnabled);
-                return false;
-            }
-            GLint maxLayers = context->getCaps().maxFramebufferLayers;
-            if (param < 0 || param > maxLayers)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kInvalidFramebufferLayer);
-                return false;
-            }
-            break;
-        }
-        case GL_FRAMEBUFFER_FLIP_Y_MESA:
-        {
-            if (!context->getExtensions().framebufferFlipYMESA)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPname);
-                return false;
-            }
-            break;
-        }
-        default:
-        {
-            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPname);
-            return false;
-        }
-    }
-
     const Framebuffer *framebuffer = context->getState().getTargetFramebuffer(target);
-    ASSERT(framebuffer);
-    if (framebuffer->isDefault())
+    ASSERT(framebuffer != nullptr);
+
+    if (ANGLE_UNLIKELY(framebuffer->isDefault()))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kDefaultFramebuffer);
         return false;
     }
+
+    const Version &clientVersion = context->getClientVersion();
+    const Extensions &extensions = context->getExtensions();
+    const Caps &caps             = context->getCaps();
+
+    bool isPnameSupported = false;
+    GLint maxParam        = 0;
+    switch (pnamePacked)
+    {
+        case FramebufferParameter::DefaultWidth:
+            isPnameSupported = clientVersion >= ES_3_1;
+            maxParam         = caps.maxFramebufferWidth;
+            break;
+        case FramebufferParameter::DefaultHeight:
+            isPnameSupported = clientVersion >= ES_3_1;
+            maxParam         = caps.maxFramebufferHeight;
+            break;
+        case FramebufferParameter::DefaultLayers:
+            isPnameSupported = clientVersion >= ES_3_2 || extensions.geometryShaderAny();
+            maxParam         = caps.maxFramebufferLayers;
+            break;
+        case FramebufferParameter::DefaultSamples:
+            isPnameSupported = clientVersion >= ES_3_1;
+            maxParam         = caps.maxFramebufferSamples;
+            break;
+        case FramebufferParameter::DefaultFixedSampleLocations:
+            if (clientVersion >= ES_3_1)
+            {
+                return true;  // Any value is valid for this parameter.
+            }
+            break;
+        case FramebufferParameter::FlipY:
+            if (extensions.framebufferFlipYMESA)
+            {
+                return true;  // Any value is valid for this parameter.
+            }
+            break;
+        default:
+            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kParameterNameUnknown);
+            return false;
+    }
+
+    if (ANGLE_UNLIKELY(!isPnameSupported))
+    {
+        ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kParameterNameUnsupported, ToGLenum(pnamePacked));
+        return false;
+    }
+
+    ASSERT(maxParam > 0);
+
+    if (ANGLE_UNLIKELY(param < 0 || param > maxParam))
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kExceedsFramebufferLimit);
+        return false;
+    }
+
     return true;
 }
 
@@ -3824,7 +3809,7 @@ bool ValidateCopyTexImageParametersBase(const Context *context,
     }
 
     // Detect texture copying feedback loops for WebGL or hardedend contexts.
-    if (context->isWebGL() || context->isHardenedContext())
+    if (context->isHardenedContext())
     {
         // zoffset cannot be non-zero for a cube map destination
         ASSERT(!(texType == TextureType::CubeMap && zoffset != 0));
@@ -4172,8 +4157,8 @@ const char *ValidateDrawStates(const Context *context, GLenum *outErrorCode)
             return kSamplerFormatMismatch;
         }
 
-        // Do some additional WebGL-specific validation
-        if (ANGLE_UNLIKELY(context->isWebGL()))
+        // Do some additional WebGL/hardened-specific validation
+        if (ANGLE_UNLIKELY(context->isHardenedContext()))
         {
             const TransformFeedback *transformFeedbackObject = state.getCurrentTransformFeedback();
             if (state.isTransformFeedbackActive() &&
@@ -4217,7 +4202,7 @@ const char *ValidateDrawStates(const Context *context, GLenum *outErrorCode)
             }
         }
 
-        if (ANGLE_UNLIKELY(context->isWebGL() || context->isHardenedContext()))
+        if (ANGLE_UNLIKELY(context->isHardenedContext()))
         {
             // UB: Detect rendering feedback loops for WebGL or hardened context.
             if (framebuffer->formsRenderingFeedbackLoopWith(
@@ -4426,7 +4411,7 @@ const char *ValidateDrawElementsStates(const Context *context)
 
     if (elementArrayBuffer)
     {
-        if (ANGLE_UNLIKELY(context->isWebGL() || context->isHardenedContext()) &&
+        if (ANGLE_UNLIKELY(context->isHardenedContext()) &&
             elementArrayBuffer->hasTFBBindingConflict())
         {
             return kElementArrayBufferBoundForTransformFeedback;
@@ -4461,7 +4446,7 @@ bool ValidateDrawElementsInstancedANGLE(const Context *context,
                                         GLsizei primcount)
 {
     if (!ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                           primcount, 0))
+                                           primcount, 0, 0))
     {
         return false;
     }
@@ -4478,7 +4463,7 @@ bool ValidateDrawElementsInstancedEXT(const Context *context,
                                       GLsizei primcount)
 {
     if (!ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
-                                           primcount, 0))
+                                           primcount, 0, 0))
     {
         return false;
     }
@@ -5575,50 +5560,53 @@ bool ValidateGetFramebufferAttachmentParameterivBase(const Context *context,
 bool ValidateGetFramebufferParameterivBase(const Context *context,
                                            angle::EntryPoint entryPoint,
                                            GLenum target,
-                                           GLenum pname,
+                                           FramebufferParameter pnamePacked,
                                            const GLint *params)
 {
-    if (!ValidFramebufferTarget(context, target))
+    if (ANGLE_UNLIKELY(!ValidFramebufferTarget(context, target)))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidFramebufferTarget);
         return false;
     }
 
-    switch (pname)
-    {
-        case GL_FRAMEBUFFER_DEFAULT_WIDTH:
-        case GL_FRAMEBUFFER_DEFAULT_HEIGHT:
-        case GL_FRAMEBUFFER_DEFAULT_SAMPLES:
-        case GL_FRAMEBUFFER_DEFAULT_FIXED_SAMPLE_LOCATIONS:
-            break;
-        case GL_FRAMEBUFFER_DEFAULT_LAYERS_EXT:
-            if (!context->getExtensions().geometryShaderAny() &&
-                context->getClientVersion() < ES_3_2)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kGeometryShaderExtensionNotEnabled);
-                return false;
-            }
-            break;
-        case GL_FRAMEBUFFER_FLIP_Y_MESA:
-            if (!context->getExtensions().framebufferFlipYMESA)
-            {
-                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPname);
-                return false;
-            }
-            break;
-        default:
-            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidPname);
-            return false;
-    }
-
     const Framebuffer *framebuffer = context->getState().getTargetFramebuffer(target);
-    ASSERT(framebuffer);
+    ASSERT(framebuffer != nullptr);
 
-    if (framebuffer->isDefault())
+    if (ANGLE_UNLIKELY(framebuffer->isDefault()))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kDefaultFramebuffer);
         return false;
     }
+
+    const Version &clientVersion = context->getClientVersion();
+    const Extensions &extensions = context->getExtensions();
+
+    bool isPnameSupported = false;
+    switch (pnamePacked)
+    {
+        case FramebufferParameter::DefaultWidth:
+        case FramebufferParameter::DefaultHeight:
+        case FramebufferParameter::DefaultSamples:
+        case FramebufferParameter::DefaultFixedSampleLocations:
+            isPnameSupported = clientVersion >= ES_3_1;
+            break;
+        case FramebufferParameter::DefaultLayers:
+            isPnameSupported = clientVersion >= ES_3_2 || extensions.geometryShaderAny();
+            break;
+        case FramebufferParameter::FlipY:
+            isPnameSupported = extensions.framebufferFlipYMESA;
+            break;
+        default:
+            ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kParameterNameUnknown);
+            return false;
+    }
+
+    if (ANGLE_UNLIKELY(!isPnameSupported))
+    {
+        ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kParameterNameUnsupported, ToGLenum(pnamePacked));
+        return false;
+    }
+
     return true;
 }
 
@@ -6870,7 +6858,7 @@ bool ValidatePixelPack(const Context *context,
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kBufferMapped);
         return false;
     }
-    if (pixelPackBuffer != nullptr && (context->isWebGL() || context->isHardenedContext()) &&
+    if (pixelPackBuffer != nullptr && context->isHardenedContext() &&
         pixelPackBuffer->hasTFBBindingConflict())
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kPixelPackBufferBoundForTransformFeedback);
@@ -6923,7 +6911,7 @@ bool ValidatePixelPack(const Context *context,
         }
     }
 
-    if (context->isWebGL() || context->isHardenedContext())
+    if (context->isHardenedContext())
     {
         // WebGL 2.0 disallows the scenario:
         //   GL_PACK_SKIP_PIXELS + width > DataStoreWidth
@@ -7135,12 +7123,6 @@ bool ValidateTexParameterBase(const Context *context,
                 !(pname == GL_TEXTURE_WRAP_R && context->getExtensions().texture3DOES))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kES3Required);
-                return false;
-            }
-            if (targetPacked == TextureType::VideoImage &&
-                !context->getExtensions().videoTextureWEBGL)
-            {
-                ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kEnumNotSupported, pname);
                 return false;
             }
             break;
@@ -7478,7 +7460,7 @@ bool ValidateTexParameterBase(const Context *context,
                 ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kFoveatedTextureQcomExtensionRequired);
                 return false;
             }
-            if (static_cast<GLfloat>(params[0]) < 0.0 || static_cast<GLfloat>(params[0]) > 1.0)
+            if (isOutsideOfBounds(static_cast<GLfloat>(params[0]), 0.0f, 1.0f))
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kFoveatedTextureInvalidPixelDensity);
                 return false;
@@ -7593,6 +7575,12 @@ bool ValidateSamplerParameterBase(const Context *context,
     if (ANGLE_UNLIKELY(!context->isSampler(samplerPacked)))
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kInvalidSampler);
+        return false;
+    }
+
+    if (ANGLE_UNLIKELY(params == nullptr))
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_VALUE, kParamsNULL);
         return false;
     }
 

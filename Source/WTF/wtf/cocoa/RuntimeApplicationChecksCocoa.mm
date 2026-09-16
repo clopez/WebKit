@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !__has_feature(objc_arc)
+#error This file requires ARC. Add the "-fobjc-arc" compiler flag for this file.
+#endif
+
 #import "config.h"
 #import "RuntimeApplicationChecksCocoa.h"
 
@@ -251,6 +255,9 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
     // This should be disabled unconditionally until WTF::String is made thread-safe. See the comment in UserScript.cpp.
     // It's only enabled for clients that purposely enable all LOOA checks.
     disableBehavior(SDKAlignedBehavior::EnableUserScriptAndUserStyleInterning);
+
+    if (linkedBefore(dyld_2025_SU_G_os_versions, DYLD_IOS_VERSION_26_6, DYLD_MACOSX_VERSION_26_6))
+        disableBehavior(SDKAlignedBehavior::NetworkProcessInheritsNetworkAccessFromUIProcess);
 
     disableAdditionalSDKAlignedBehaviors(behaviors);
 
@@ -490,7 +497,7 @@ bool MacApplication::isAdobeInstaller()
 
 bool MacApplication::isMiniBrowser()
 {
-    static bool isMiniBrowser = applicationBundleIsEqualTo("org.webkit.MiniBrowser"_s);
+    static bool isMiniBrowser = applicationBundleIsEqualTo("org.webkit.MiniBrowser"_s) || applicationBundleIsEqualTo("org.webkit.SwiftBrowser"_s);
     return isMiniBrowser;
 }
 
@@ -614,7 +621,7 @@ bool IOSApplication::isDataActivation()
 
 bool IOSApplication::isMiniBrowser()
 {
-    static bool isMiniBrowser = applicationBundleIsEqualTo("org.webkit.MiniBrowser"_s);
+    static bool isMiniBrowser = applicationBundleIsEqualTo("org.webkit.MiniBrowser"_s) || applicationBundleIsEqualTo("org.webkit.SwiftBrowser"_s);
     return isMiniBrowser;
 }
 

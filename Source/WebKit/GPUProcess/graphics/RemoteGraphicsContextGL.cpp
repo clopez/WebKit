@@ -195,7 +195,7 @@ void RemoteGraphicsContextGL::forceContextLost()
     send(Messages::RemoteGraphicsContextGLProxy::WasLost());
 }
 
-void RemoteGraphicsContextGL::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, const CString& message)
+void RemoteGraphicsContextGL::addDebugMessage(GCGLenum type, GCGLenum id, GCGLenum severity, std::span<const char8_t> message)
 {
     assertIsCurrent(workQueue());
     send(Messages::RemoteGraphicsContextGLProxy::addDebugMessage(type, id, severity, message));
@@ -262,10 +262,10 @@ void RemoteGraphicsContextGL::ensureExtensionEnabled(GCGLExtension extension)
     MESSAGE_CHECK(success);
 }
 
-void RemoteGraphicsContextGL::copyNativeImageYFlipped(WebCore::GraphicsContextGL::SurfaceBuffer buffer, RemoteNativeImageReference nativeImageReference)
+void RemoteGraphicsContextGL::copyNativeImage(WebCore::GraphicsContextGL::SurfaceBuffer buffer, RemoteNativeImageReference nativeImageReference)
 {
     assertIsCurrent(workQueue());
-    RefPtr image = protect(m_context)->copyNativeImageYFlipped(buffer);
+    RefPtr image = protect(m_context)->copyNativeImage(buffer);
     // FIXME: Handle OOM.
     MESSAGE_CHECK(image);
     bool success = m_sharedResourceCache->addNativeImage(nativeImageReference, image.releaseNonNull());
@@ -503,7 +503,7 @@ void RemoteGraphicsContextGL::framebufferDiscard(uint32_t target, std::span<cons
 
 #endif
 
-void RemoteGraphicsContextGL::setDrawingBufferColorSpace(WebCore::DestinationColorSpace&& colorSpace)
+void RemoteGraphicsContextGL::setDrawingBufferColorSpace(WebCore::ColorSpace&& colorSpace)
 {
     assertIsCurrent(workQueue());
     protect(m_context)->setDrawingBufferColorSpace(colorSpace);

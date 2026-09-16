@@ -114,17 +114,19 @@ static inline JSValue NODELETE getOperand(CallFrame* callFrame, VirtualRegister 
 
 #define LLINT_END_IMPL() LLINT_RETURN_TWO(pc, nullptr)
 
-#define LLINT_THROW(exceptionToThrow) do {                        \
-        throwException(globalObject, throwScope, exceptionToThrow);       \
-        pc = returnToThrow(vm);                                 \
-        LLINT_END_IMPL();                                         \
+#define LLINT_THROW_IMPL() LLINT_RETURN_TWO(pc, exceptionSignal())
+
+#define LLINT_THROW(exceptionToThrow) do {                          \
+        throwException(globalObject, throwScope, exceptionToThrow); \
+        pc = returnToThrow(vm);                                     \
+        LLINT_THROW_IMPL();                                         \
     } while (false)
 
 #define LLINT_CHECK_EXCEPTION() do {                    \
         doExceptionFuzzingIfEnabled(globalObject, throwScope, "LLIntSlowPaths", pc);    \
         if (throwScope.exception()) [[unlikely]] {      \
             pc = returnToThrow(vm);                     \
-            LLINT_END_IMPL();                           \
+            LLINT_THROW_IMPL();                         \
         }                                               \
     } while (false)
 
@@ -274,7 +276,7 @@ extern "C" UGPRPair SYSV_ABI llint_trace_value(CallFrame* callFrame, const JSIns
         operand.offset(),
         u.bits.tag,
         u.bits.payload,
-        toCString(value).data());
+        toUTF8CString(value).legacyCStringPointer());
     LLINT_END_IMPL();
 }
 
@@ -653,7 +655,9 @@ extern "C" UGPRPair SYSV_ABI llint_polymorphic_call(CallFrame* calleeFrame, Call
     void* callTarget = virtualForWithFunction(vm, owner, calleeFrame, callLinkInfo, calleeAsFunctionCell);
     if (scope.exception()) [[unlikely]]
         return encodeResult(callTarget, std::bit_cast<void*>(&vm));
-    linkPolymorphicCall(vm, owner, calleeFrame, *callLinkInfo, CallVariant(calleeAsFunctionCell));
+    // A null cell means virtualForWithFunction did a host call that ran JS and may have freed *callLinkInfo; don't link.
+    if (calleeAsFunctionCell) [[likely]]
+        linkPolymorphicCall(vm, owner, calleeFrame, *callLinkInfo, CallVariant(calleeAsFunctionCell));
     ensureStillAliveHere(owner);
     if (scope.exception()) [[unlikely]]
         return encodeResult(callTarget, std::bit_cast<void*>(&vm));
@@ -1077,7 +1081,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
 
     Structure* oldStructure = baseValue.isCell() ? baseValue.asCell()->structure() : nullptr;
     if (bytecode.m_flags.isDirect())
-        CommonSlowPaths::putDirectWithReify(vm, globalObject, asObject(baseValue), ident, getOperand(callFrame, bytecode.m_value), slot);
+        CommonSlowPaths::putDirectWithReify(vm, globalObject, asObject(baseValue), ident, getOperand(callFrame, bytecode.m_value), slot, &oldStructure);
     else
         baseValue.putInline(globalObject, ident, getOperand(callFrame, bytecode.m_value), slot);
     LLINT_CHECK_EXCEPTION();
@@ -1113,7 +1117,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
         
         if (newStructure->propertyAccessesAreCacheable() && baseCell == slot.base()) {
             if (slot.type() == PutPropertySlot::NewProperty) {
-                GCSafeConcurrentJSLocker locker(codeBlock->m_lock, vm);
+                DeferGC deferGC(vm);
                 if (!newStructure->isDictionary() && newStructure->previousID()->outOfLineCapacity() == newStructure->outOfLineCapacity() && newStructure->previousID() == oldStructure) {
                     ASSERT(oldStructure->transitionWatchpointSetHasBeenInvalidated());
 
@@ -1121,14 +1125,18 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
                     auto result = normalizePrototypeChain(globalObject, baseCell, sawPolyProto);
                     if (result != InvalidPrototypeChain && !sawPolyProto) {
                         ASSERT(oldStructure->isObject());
+                        StructureChain* chain = nullptr;
+                        if (!(bytecode.m_flags.isDirect())) {
+                            chain = newStructure->prototypeChain(vm, globalObject, asObject(baseCell));
+                            ASSERT(chain);
+                        }
+
+                        ConcurrentJSLocker locker(codeBlock->m_lock);
                         metadata.m_oldStructureID = oldStructure->id();
                         metadata.m_offset = slot.cachedOffset();
                         metadata.m_newStructureID = newStructure->id();
-                        if (!(bytecode.m_flags.isDirect())) {
-                            StructureChain* chain = newStructure->prototypeChain(vm, globalObject, asObject(baseCell));
-                            ASSERT(chain);
+                        if (chain)
                             metadata.m_structureChain.set(vm, codeBlock, chain);
-                        }
                         vm.writeBarrier(codeBlock);
                     }
                 }
@@ -1421,7 +1429,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_private_name)
         
         if (newStructure->propertyAccessesAreCacheable() && baseCell == slot.base()) {
             if (slot.type() == PutPropertySlot::NewProperty) {
-                GCSafeConcurrentJSLocker locker(codeBlock->m_lock, vm);
+                DeferGC deferGC(vm);
                 if (!newStructure->isDictionary() && newStructure->previousID()->outOfLineCapacity() == newStructure->outOfLineCapacity() && oldStructure == newStructure->previousID()) {
                     ASSERT(oldStructure->transitionWatchpointSetHasBeenInvalidated());
 
@@ -1429,6 +1437,8 @@ LLINT_SLOW_PATH_DECL(slow_path_put_private_name)
                     auto result = normalizePrototypeChain(globalObject, baseCell, sawPolyProto);
                     if (result != InvalidPrototypeChain && !sawPolyProto) {
                         ASSERT(oldStructure->isObject());
+
+                        ConcurrentJSLocker locker(codeBlock->m_lock);
                         metadata.m_oldStructureID = oldStructure->id();
                         metadata.m_offset = slot.cachedOffset();
                         metadata.m_newStructureID = newStructure->id();
@@ -2336,6 +2346,10 @@ LLINT_SLOW_PATH_DECL(slow_path_handle_exception)
     VM& vm = callFrame->deprecatedVM();
     SlowPathFrameTracer tracer(vm, callFrame);
     genericUnwind(vm, callFrame);
+    // We use LLINT_END_IMPL here instead of LLINT_THROW_IMPL because the throw
+    // trampoline (which is what LLINT_THROW_IMPL eventually triggers) comes
+    // here via callSlowPath(). If we used LLINT_THROW_IMPL, then the throw
+    // trampoline would keep calling itself forever.
     LLINT_END_IMPL();
 }
 

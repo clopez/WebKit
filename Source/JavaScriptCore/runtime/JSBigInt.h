@@ -543,6 +543,14 @@ private:
     template<size_t N>
     static std::span<Digit, N * 2> squareCombaFixed(std::span<const Digit, N> x, std::span<Digit, N * 2> result);
     static std::span<Digit> multiplyDigitsInto(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static void multiplyZeroPadded(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static std::span<Digit> multiplyKaratsuba(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static void karatsubaStart(std::span<Digit> z, std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> scratch, size_t k);
+    static void karatsubaChunk(std::span<Digit> z, std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> scratch);
+    static void karatsubaMain(std::span<Digit> z, std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> scratch, size_t n);
+    static void karatsubaAbsoluteDifference(std::span<Digit> result, std::span<const Digit> x, std::span<const Digit> y, bool& negative);
+    static std::span<Digit> multiplyToom3(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static void toom3Main(std::span<Digit> z, std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> scratch);
 
     static std::span<Digit> NODELETE divideSingle(std::span<Digit> q, Digit& remainder, std::span<const Digit>, Digit);
     static std::tuple<std::span<Digit>, std::span<Digit>> divideSchoolbook(std::span<Digit> q, std::span<Digit> r, std::span<const Digit>, std::span<const Digit>);
@@ -598,20 +606,22 @@ private:
 
     static Digit NODELETE inplaceAdd(std::span<Digit> z, std::span<const Digit> x);
     static Digit NODELETE inplaceSub(std::span<Digit> z, std::span<const Digit> x);
+    static Digit NODELETE inplaceAddAndPropagate(std::span<Digit> z, std::span<const Digit> x);
+    static Digit NODELETE inplaceSubAndPropagate(std::span<Digit> z, std::span<const Digit> x);
 
     static constexpr unsigned maxCachedModDivisorSize = 32; // 2048-bit divisors on 64-bit
     static constexpr unsigned maxFixedCachedModDivisorSize = 4;
     static constexpr unsigned maxInPlaceSubSize = 16;
     static constexpr unsigned maxInPlaceCachedModSize = 8;
     static_assert(maxInPlaceCachedModSize <= maxCachedModDivisorSize);
-    // Only divisors that remainderImpl arms have a cached inverse, and cachedModFixed reads that
-    // inverse through a span whose extent is fixed at compile time.
+    // Only divisors that remainderImpl arms have a cached inverse, and cachedModFixed takes that
+    // inverse as a span whose extent is fixed at compile time.
     static_assert(maxFixedCachedModDivisorSize <= maxCachedModDivisorSize);
     static void cachedModMakeInverse(VM&, std::span<const Digit> b);
     static Digit cachedModFoldFactor(std::span<const Digit> b);
     static std::span<const Digit> cachedMod(VM&, std::span<Digit> r, std::span<const Digit>, std::span<const Digit>);
     template<size_t N, size_t ASize>
-    static void cachedModFixed(VM&, std::span<Digit, N> r, std::span<const Digit, ASize>, std::span<const Digit, N> b);
+    static void cachedModFixed(std::span<Digit, N> r, std::span<const Digit, ASize>, std::span<const Digit, N> b, std::span<const Digit, N + 1> inverse);
     template<typename RSpan, typename ASpan, typename BSpan>
     static void cachedModFoldImpl(RSpan r, ASpan, BSpan b, Digit c);
     template<size_t N, size_t ASize>
@@ -658,9 +668,9 @@ private:
     template <typename BigIntImpl>
     static ImplResult asUintNImpl(JSGlobalObject*, uint64_t, BigIntImpl);
     template <typename BigIntImpl>
-    static ImplResult truncateToNBits(JSGlobalObject*, int32_t, BigIntImpl);
+    static ImplResult truncateToNBits(JSGlobalObject*, unsigned, BigIntImpl);
     template <typename BigIntImpl>
-    static ImplResult truncateAndSubFromPowerOfTwo(JSGlobalObject*, int32_t, BigIntImpl, bool resultSign);
+    static ImplResult truncateAndSubFromPowerOfTwo(JSGlobalObject*, unsigned, BigIntImpl, bool resultSign);
 
     JS_EXPORT_PRIVATE static uint64_t NODELETE toBigUInt64Heap(JSBigInt*);
 

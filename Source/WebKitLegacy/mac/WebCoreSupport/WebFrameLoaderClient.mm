@@ -689,7 +689,7 @@ void WebFrameLoaderClient::dispatchDidReceiveTitle(const WebCore::StringWithDire
     }
 }
 
-void WebFrameLoaderClient::dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>, std::optional<WebCore::UsedLegacyTLS>, std::optional<WebCore::WasPrivateRelayed>)
+void WebFrameLoaderClient::dispatchDidCommitLoad(const std::optional<WebCore::BackForwardCacheCommitData>&)
 {
     // Tell the client we've committed this URL.
     ASSERT([m_webFrame->_private->webFrameView documentView] != nil);
@@ -1828,7 +1828,7 @@ void WebFrameLoaderClient::redirectDataToPlugin(WebCore::Widget& pluginWidget)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>&&)>&& completionHandler)
+void WebFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<void(std::expected<Seconds, WebCore::ResourceError>&&)>&& completionHandler)
 {
     ASSERT_NOT_REACHED();
     completionHandler(makeUnexpected(WebCore::internalError(url)));

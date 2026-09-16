@@ -44,6 +44,7 @@
 #include "CrossTaskToken.h"
 #include "CustomGetterSetterInlines.h"
 #include "DOMAttributeGetterSetterInlines.h"
+#include "DateInstance.h"
 #include "Debugger.h"
 #include "DeferredWorkTimer.h"
 #include "Disassembler.h"
@@ -60,6 +61,7 @@
 #include "GigacageAlignedMemoryAllocator.h"
 #include "HasOwnPropertyCache.h"
 #include "Heap.h"
+#include "HeapIterationScope.h"
 #include "HeapProfiler.h"
 #include "IncrementalSweeper.h"
 #include "Interpreter.h"
@@ -461,7 +463,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         else
             pathOut.print("/tmp/");
         pathOut.print("JSCProfile-", getCurrentProcessID(), "-", m_perBytecodeProfiler->databaseID(), ".json");
-        static NeverDestroyed<CString> pathOutString = pathOut.toCString();
+        static NeverDestroyed<UTF8CString> pathOutString = pathOut.toUTF8CString();
 
 #if PLATFORM(COCOA)
         static std::once_flag registerFlag;
@@ -474,7 +476,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             int token;
             notify_register_dispatch(key, &token, mainDispatchQueueSingleton(), ^(int) {
                 dataLogLn("<BYTECODE.STAT><", pid, "> Dumping");
-                if (!m_perBytecodeProfiler->save(pathOutString->data()))
+                if (!m_perBytecodeProfiler->save(pathOutString->legacyCStringPointer()))
                     dataLogLn("<BYTECODE.STAT><", pid, "> Failed to dump to ", pathOutString.get(), ". Do you need to add a sandbox extension? ((allow file-write* (subpath \"/private/tmp/\")) in WebProcess.sb.in");
                 else
                     dataLogLn("<BYTECODE.STAT><", pid, "> Dumped to ", pathOutString.get());
@@ -484,7 +486,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
         if (Options::dumpProfilerDataAtExit()) [[unlikely]]
-            m_perBytecodeProfiler->registerToSaveAtExit(pathOutString->data());
+            m_perBytecodeProfiler->registerToSaveAtExit(pathOutString->legacyCStringPointer());
     }
 
     // Initialize this last, as a free way of asserting that VM initialization itself
@@ -663,7 +665,7 @@ VM::~VM()
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     if (Options::enableWasmDebugger()) [[unlikely]] {
         auto& debugServer = Wasm::DebugServer::singleton();
-        if (debugServer.hasDebugger())
+        if (debugServer.isConnected())
             debugServer.execution().notifyVMDestruction(this);
     }
 #endif
@@ -1579,7 +1581,7 @@ void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionE
         out.println("Unchecked exception detected at:");
         out.println(StackTracePrinter { *currentTrace, "    " });
 
-        dataLog(out.toCString());
+        dataLog(out.toUTF8CString());
         RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("exception check validation failed");
     }
 }
@@ -1787,6 +1789,13 @@ void VM::executeEntryScopeServicesOnEntry()
     if (dateCache.hasTimeZoneChange()) [[unlikely]] {
         intlCache().clearForTimeZoneChange();
         dateCache.clearForTimeZoneChange();
+        if (dateCache.takeMayHaveCachedLocalGregorianDateTime()) {
+            HeapIterationScope iterationScope(heap);
+            heap.dateInstanceSpace.forEachLiveCell([](HeapCell* cell, HeapCell::Kind) {
+                SUPPRESS_MEMORY_UNSAFE_CAST auto* date = static_cast<DateInstance*>(cell);
+                date->invalidateCachedLocalGregorianDateTime();
+            });
+        }
     }
 
     if (intlCache().hasLanguageChange()) [[unlikely]]
@@ -1897,6 +1906,11 @@ void VM::beginMarking()
 void VM::reconcileWeakReferencesAtGCEnd()
 {
     m_syncResumeCallCache->reconcileWeakReferencesAtGCEnd(*this);
+}
+
+void VM::clearMicrotaskCallCaches()
+{
+    m_syncResumeCallCache->clear();
 }
 
 template<typename Visitor>

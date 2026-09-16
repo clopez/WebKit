@@ -51,8 +51,7 @@ WebGLMultiDraw::~WebGLMultiDraw() = default;
 
 bool WebGLMultiDraw::supported(GraphicsContextGL& context)
 {
-    return context.supportsExtension(GCGLExtension::ANGLE_multi_draw)
-        && context.supportsExtension(GCGLExtension::ANGLE_instanced_arrays);
+    return context.supportsExtension(GCGLExtension::ANGLE_multi_draw);
 }
 
 void WebGLMultiDraw::multiDrawArraysWEBGL(GCGLenum mode, Int32List&& firstsList, GCGLuint firstsOffset, Int32List&& countsList, GCGLuint countsOffset, GCGLsizei drawcount)
@@ -73,6 +72,7 @@ void WebGLMultiDraw::multiDrawArraysWEBGL(GCGLenum mode, Int32List&& firstsList,
     if (RefPtr currentProgram = context->m_currentProgram; currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(context.get(), *currentProgram))
         return;
 
+    context->willUpdateDrawingBufferContents();
     context->clearIfComposited(WebGLRenderingContextBase::CallerTypeDrawOrClear);
 
     {
@@ -80,8 +80,6 @@ void WebGLMultiDraw::multiDrawArraysWEBGL(GCGLenum mode, Int32List&& firstsList,
 
         protect(context->graphicsContextGL())->multiDrawArraysANGLE(mode, GCGLSpanTuple { firstsList.span().subspan(firstsOffset).data(), countsList.span().subspan(countsOffset).data(), static_cast<size_t>(drawcount) });
     }
-
-    context->markContextChangedAndNotifyCanvasObserver();
 }
 
 void WebGLMultiDraw::multiDrawArraysInstancedWEBGL(GCGLenum mode, Int32List&& firstsList, GCGLuint firstsOffset, Int32List&& countsList, GCGLuint countsOffset, Int32List&& instanceCountsList, GCGLuint instanceCountsOffset, GCGLsizei drawcount)
@@ -103,6 +101,7 @@ void WebGLMultiDraw::multiDrawArraysInstancedWEBGL(GCGLenum mode, Int32List&& fi
     if (RefPtr currentProgram = context->m_currentProgram; currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(context.get(), *currentProgram))
         return;
 
+    context->willUpdateDrawingBufferContents();
     context->clearIfComposited(WebGLRenderingContextBase::CallerTypeDrawOrClear);
 
     {
@@ -110,8 +109,6 @@ void WebGLMultiDraw::multiDrawArraysInstancedWEBGL(GCGLenum mode, Int32List&& fi
 
         protect(context->graphicsContextGL())->multiDrawArraysInstancedANGLE(mode, GCGLSpanTuple { firstsList.span().subspan(firstsOffset).data(), countsList.span().subspan(countsOffset).data(), instanceCountsList.span().subspan(instanceCountsOffset).data(), static_cast<size_t>(drawcount) });
     }
-
-    context->markContextChangedAndNotifyCanvasObserver();
 }
 
 void WebGLMultiDraw::multiDrawElementsWEBGL(GCGLenum mode, Int32List&& countsList, GCGLuint countsOffset, GCGLenum type, Int32List&& offsetsList, GCGLuint offsetsOffset, GCGLsizei drawcount)
@@ -132,6 +129,7 @@ void WebGLMultiDraw::multiDrawElementsWEBGL(GCGLenum mode, Int32List&& countsLis
     if (RefPtr currentProgram = context->m_currentProgram; currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(context.get(), *currentProgram))
         return;
 
+    context->willUpdateDrawingBufferContents();
     context->clearIfComposited(WebGLRenderingContextBase::CallerTypeDrawOrClear);
 
     {
@@ -139,8 +137,6 @@ void WebGLMultiDraw::multiDrawElementsWEBGL(GCGLenum mode, Int32List&& countsLis
 
         protect(context->graphicsContextGL())->multiDrawElementsANGLE(mode, GCGLSpanTuple { countsList.span().subspan(countsOffset).data(), offsetsList.span().subspan(offsetsOffset).data(), static_cast<size_t>(drawcount) }, type);
     }
-
-    context->markContextChangedAndNotifyCanvasObserver();
 }
 
 void WebGLMultiDraw::multiDrawElementsInstancedWEBGL(GCGLenum mode, Int32List&& countsList, GCGLuint countsOffset, GCGLenum type, Int32List&& offsetsList, GCGLuint offsetsOffset, Int32List&& instanceCountsList, GCGLuint instanceCountsOffset, GCGLsizei drawcount)
@@ -162,6 +158,7 @@ void WebGLMultiDraw::multiDrawElementsInstancedWEBGL(GCGLenum mode, Int32List&& 
     if (RefPtr currentProgram = context->m_currentProgram; currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(context.get(), *currentProgram))
         return;
 
+    context->willUpdateDrawingBufferContents();
     context->clearIfComposited(WebGLRenderingContextBase::CallerTypeDrawOrClear);
 
     {
@@ -169,8 +166,6 @@ void WebGLMultiDraw::multiDrawElementsInstancedWEBGL(GCGLenum mode, Int32List&& 
 
         protect(context->graphicsContextGL())->multiDrawElementsInstancedANGLE(mode, GCGLSpanTuple { countsList.span().subspan(countsOffset).data(), offsetsList.span().subspan(offsetsOffset).data(), instanceCountsList.span().subspan(instanceCountsOffset).data(), static_cast<size_t>(drawcount) }, type);
     }
-
-    context->markContextChangedAndNotifyCanvasObserver();
 }
 
 bool WebGLMultiDraw::validateDrawcount(WebGLRenderingContextBase& context, ASCIILiteral functionName, GCGLsizei drawcount)

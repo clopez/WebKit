@@ -52,6 +52,9 @@ public:
     WEBCORE_EXPORT static void registerURLSchemeAsNoAccess(const String&); // Thread safe.
     static bool shouldTreatURLSchemeAsNoAccess(StringView); // Thread safe.
 
+    WEBCORE_EXPORT static void registerURLSchemeAsAllowingServiceWorkerClients(const String&); // Must be called on the main thread.
+    static bool shouldTreatURLSchemeAsAllowingServiceWorkerClients(StringView); // Must be called on the main thread.
+
     // Display-isolated schemes can only be displayed (in the sense of
     // SecurityOrigin::canDisplay) by documents from the same scheme.
     WEBCORE_EXPORT static void registerURLSchemeAsDisplayIsolated(const String&); // Thread safe.
@@ -79,12 +82,14 @@ public:
     static bool allowsDatabaseAccessInPrivateBrowsing(const String& scheme);
 
     // Allow non-HTTP schemes to be registered to allow CORS requests.
-    WEBCORE_EXPORT static void registerURLSchemeAsCORSEnabled(const String& scheme);
+    enum class SchemeRegisteredForTheFirstTime : bool { No, Yes };
+    WEBCORE_EXPORT static SchemeRegisteredForTheFirstTime registerURLSchemeAsCORSEnabled(const String& scheme);
     WEBCORE_EXPORT static bool shouldTreatURLSchemeAsCORSEnabled(StringView scheme);
     WEBCORE_EXPORT static Vector<String> allURLSchemesRegisteredAsCORSEnabled();
 
     WEBCORE_EXPORT static void registerURLSchemeAsHandledBySchemeHandler(const String&);
     WEBCORE_EXPORT static bool schemeIsHandledBySchemeHandler(StringView);
+    WEBCORE_EXPORT static bool isBuiltInWebKitHandledScheme(StringView);
 
     // Allow resources from some schemes to load on a page, regardless of its
     // Content Security Policy.

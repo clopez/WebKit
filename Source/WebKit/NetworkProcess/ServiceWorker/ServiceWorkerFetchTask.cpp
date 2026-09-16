@@ -131,7 +131,7 @@ ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerCo
     // We only do the timeout logic for main document navigations because it is not Web-compatible to do so for subresources.
     if (loader.parameters().request.requester() == WebCore::ResourceRequestRequester::Main) {
         m_timeoutTimer = makeUnique<Timer>(*this, &ServiceWorkerFetchTask::timeoutTimerFired);
-        m_timeoutTimer->startOneShot(loader.connectionToWebProcess().networkProcess().serviceWorkerFetchTimeout());
+        m_timeoutTimer->startOneShot(protect(loader.connectionToWebProcess().networkProcess())->serviceWorkerFetchTimeout());
     }
 
     bool canUsePreloader = session && (m_shouldRaceNetworkAndFetchHandler || isNavigationRequest(loader.parameters().options.destination)) && m_currentRequest.httpMethod() == "GET"_s;
@@ -177,7 +177,7 @@ RefPtr<IPC::Connection> ServiceWorkerFetchTask::serviceWorkerConnection()
 template<typename Message> bool ServiceWorkerFetchTask::sendToClient(Message&& message)
 {
     Ref loader = *m_loader;
-    return loader->connectionToWebProcess().connection().send(std::forward<Message>(message), loader->coreIdentifier()) == IPC::Error::NoError;
+    return protect(loader->connectionToWebProcess().connection())->send(std::forward<Message>(message), loader->coreIdentifier()) == IPC::Error::NoError;
 }
 
 void ServiceWorkerFetchTask::start(WebSWServerToContextConnection& serviceWorkerConnection)
@@ -295,7 +295,7 @@ void ServiceWorkerFetchTask::processResponse(ResourceResponse&& response, bool n
         return;
 #endif
 
-    SWFETCH_RELEASE_LOG("processResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%lld, needsContinueDidReceiveResponseMessage=%d, source=%u)", response.httpStatusCode(), response.mimeType().utf8().data(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage, static_cast<unsigned>(response.source()));
+    SWFETCH_RELEASE_LOG("processResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%lld, needsContinueDidReceiveResponseMessage=%d, source=%u)", response.httpStatusCode(), response.mimeType().utf8(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage, static_cast<unsigned>(response.source()));
     m_wasHandled = true;
     if (m_timeoutTimer)
         m_timeoutTimer->stop();
@@ -320,6 +320,11 @@ void ServiceWorkerFetchTask::processResponse(ResourceResponse&& response, bool n
     if (auto error = loader->doCrossOriginOpenerHandlingOfResponse(response)) {
         didFail(*error);
         return;
+    }
+
+    if (loader->isMainResource()) {
+        if (RefPtr swServerConnection = m_swServerConnection.get())
+            swServerConnection->fetchTaskReceivedMainResourceResponse(m_serviceWorkerIdentifier, response, loader->frameID());
     }
 
     if (shouldSetSource == ShouldSetSource::Yes)
@@ -389,7 +394,7 @@ void ServiceWorkerFetchTask::didFail(const ResourceError& error)
     }
     cancelPreloadIfNecessary();
 
-    SWFETCH_RELEASE_LOG_ERROR("didFail: (error.domain=%" PUBLIC_LOG_STRING ", error.code=%d)", error.domain().utf8().data(), error.errorCode());
+    SWFETCH_RELEASE_LOG_ERROR("didFail: (error.domain=%" PUBLIC_LOG_STRING ", error.code=%d)", error.domain().utf8(), error.errorCode());
     protect(m_loader)->didFailLoading(error);
 }
 
@@ -485,7 +490,7 @@ void ServiceWorkerFetchTask::continueFetchTaskWith(ResourceRequest&& request)
         return;
     }
     if (m_timeoutTimer)
-        m_timeoutTimer->startOneShot(loader->connectionToWebProcess().networkProcess().serviceWorkerFetchTimeout());
+        m_timeoutTimer->startOneShot(protect(loader->connectionToWebProcess().networkProcess())->serviceWorkerFetchTimeout());
     m_currentRequest = WTF::move(request);
     startFetch();
 }

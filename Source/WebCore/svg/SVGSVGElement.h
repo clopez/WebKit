@@ -75,7 +75,6 @@ public: // DOM
     void unpauseAnimations();
     bool resumePausedAnimationsIfNeeded(const IntRect&);
     bool NODELETE animationsPaused() const;
-    bool NODELETE hasActiveAnimation() const;
     float getCurrentTime() const;
     void setCurrentTime(float);
     
@@ -87,8 +86,8 @@ public: // DOM
 public:
     static Ref<SVGSVGElement> create(const QualifiedName&, Document&);
     static Ref<SVGSVGElement> create(Document&);
-    bool scrollToFragment(StringView fragmentIdentifier);
-    void resetScrollAnchor();
+    bool setViewForFragment(StringView fragmentIdentifier);
+    void resetViewToDefault();
 
     using PropertyRegistry = SVGPropertyOwnerRegistry<SVGSVGElement, SVGGraphicsElement, SVGFitToViewBox>;
     using SVGGraphicsElement::ref;

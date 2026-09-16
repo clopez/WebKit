@@ -16,6 +16,7 @@
 #include "libANGLE/FramebufferAttachment.h"
 #include "libANGLE/renderer/d3d/FramebufferD3D.h"
 #include "libANGLE/renderer/d3d/ShaderExecutableD3D.h"
+#include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/trace.h"
 
 namespace rx
@@ -360,11 +361,15 @@ void D3DVertexExecutable::getSignature(RendererD3D *renderer,
     {
         angle::FormatID vertexFormatID = inputLayout[index];
         if (vertexFormatID == angle::FormatID::NONE)
+        {
             continue;
+        }
 
         VertexConversionType conversionType = renderer->getVertexConversionType(vertexFormatID);
         if ((conversionType & VERTEX_CONVERT_GPU) == 0)
+        {
             continue;
+        }
 
         GLenum componentType   = renderer->getVertexComponentType(vertexFormatID);
         (*signatureOut)[index] = GetAttribType(componentType);
@@ -380,7 +385,9 @@ bool D3DVertexExecutable::matchesSignature(const Signature &signature) const
         auto a = index < signature.size() ? signature[index] : HLSLAttribType::FLOAT;
         auto b = index < mSignature.size() ? mSignature[index] : HLSLAttribType::FLOAT;
         if (a != b)
+        {
             return false;
+        }
     }
 
     return true;
@@ -526,7 +533,7 @@ bool ProgramExecutableD3D::load(const gl::Context *context,
 
     {
         const gl::ShaderType shaderType = gl::ShaderType::Fragment;
-        size_t imageCount = stream->readInt<size_t>();
+        size_t imageCount               = stream->readInt<size_t>();
         for (size_t imageIndex = 0; imageIndex < imageCount; ++imageIndex)
         {
             D3DImage image;
@@ -562,7 +569,7 @@ bool ProgramExecutableD3D::load(const gl::Context *context,
 
     {
         const gl::ShaderType shaderType = gl::ShaderType::Fragment;
-        size_t image2DUniformCount = stream->readInt<size_t>();
+        size_t image2DUniformCount      = stream->readInt<size_t>();
         if (stream->error())
         {
             infoLog << "Invalid program binary.";
@@ -696,7 +703,7 @@ angle::Result ProgramExecutableD3D::loadBinaryShaderExecutables(d3d::Context *co
 
         size_t vertexShaderSize                   = stream->readInt<size_t>();
         const unsigned char *vertexShaderFunction = stream->remainingSpan().data();
-        ShaderExecutableD3D *shaderExecutable = nullptr;
+        ShaderExecutableD3D *shaderExecutable     = nullptr;
 
         ANGLE_TRY(renderer->loadExecutable(contextD3D, vertexShaderFunction, vertexShaderSize,
                                            gl::ShaderType::Vertex, mStreamOutVaryings,
@@ -1101,7 +1108,9 @@ void ProgramExecutableD3D::updateSamplerMapping()
     for (const D3DUniform *d3dUniform : mD3DUniforms)
     {
         if (!d3dUniform->isSampler())
+        {
             continue;
+        }
 
         int count = d3dUniform->getArraySizeProduct();
 
@@ -1159,14 +1168,14 @@ gl::RangeUI ProgramExecutableD3D::getUsedImageRange(gl::ShaderType type, bool re
     return readonly ? mUsedReadonlyImageRange[type] : mUsedImageRange[type];
 }
 
-bool ProgramExecutableD3D::usesPointSpriteEmulation(RendererD3D *renderer) const
+bool ProgramExecutableD3D::usesPointSpriteEmulation() const
 {
-    return mUsesPointSize && renderer->getMajorShaderModel() >= 4;
+    return mUsesPointSize;
 }
 
-bool ProgramExecutableD3D::usesGeometryShaderForPointSpriteEmulation(RendererD3D *renderer) const
+bool ProgramExecutableD3D::usesGeometryShaderForPointSpriteEmulation() const
 {
-    return usesPointSpriteEmulation(renderer);
+    return usesPointSpriteEmulation();
 }
 
 bool ProgramExecutableD3D::usesGeometryShader(RendererD3D *renderer,
@@ -1185,7 +1194,7 @@ bool ProgramExecutableD3D::usesGeometryShader(RendererD3D *renderer,
         }
         return provokingVertex == gl::ProvokingVertexConvention::LastVertexConvention;
     }
-    return usesGeometryShaderForPointSpriteEmulation(renderer);
+    return usesGeometryShaderForPointSpriteEmulation();
 }
 
 angle::Result ProgramExecutableD3D::getVertexExecutableForCachedInputLayout(
@@ -1269,9 +1278,9 @@ angle::Result ProgramExecutableD3D::getGeometryExecutableForPrimitiveType(
     }
 
     std::string geometryHLSL = DynamicHLSL::GenerateGeometryShaderHLSL(
-        renderer, caps, geometryShaderType, renderer->presentPathFastEnabled(),
-        mHasMultiviewEnabled, renderer->canSelectViewInVertexShader(),
-        usesGeometryShaderForPointSpriteEmulation(renderer), mGeometryShaderPreamble);
+        caps, geometryShaderType, renderer->presentPathFastEnabled(), mHasMultiviewEnabled,
+        renderer->canSelectViewInVertexShader(), usesGeometryShaderForPointSpriteEmulation(),
+        mGeometryShaderPreamble);
 
     gl::InfoLog tempInfoLog;
     gl::InfoLog *currentInfoLog = infoLog ? infoLog : &tempInfoLog;
@@ -1313,8 +1322,8 @@ angle::Result ProgramExecutableD3D::getPixelExecutableForCachedOutputLayout(
     }
 
     std::string pixelHLSL = DynamicHLSL::GeneratePixelShaderForOutputSignature(
-        renderer, mShaderHLSL[gl::ShaderType::Fragment], mPixelShaderKey, mFragDepthUsage,
-        mUsesSampleMask, mPixelShaderOutputLayoutCache, mPixelShaderKey.size());
+        mShaderHLSL[gl::ShaderType::Fragment], mPixelShaderKey, mFragDepthUsage, mUsesSampleMask,
+        mPixelShaderOutputLayoutCache, mPixelShaderKey.size());
 
     std::string finalPixelHLSL = DynamicHLSL::GenerateShaderForImage2DBindSignature(
         *this, gl::ShaderType::Fragment, mAttachedShaders[gl::ShaderType::Fragment], pixelHLSL,
@@ -1736,7 +1745,9 @@ void ProgramExecutableD3D::defineUniformsAndAssignRegisters(
     {
         const gl::LinkedUniform &glUniform = mExecutable->getUniforms()[index];
         if (!glUniform.isInDefaultBlock())
+        {
             continue;
+        }
 
         std::string name = mExecutable->getUniformNames()[index];
         if (glUniform.isArray())
@@ -1817,8 +1828,7 @@ void ProgramExecutableD3D::defineUniformBase(gl::ShaderType shaderType,
     }
 
     unsigned int startRegister = shaderD3D->getUniformRegister(uniform.name);
-    ShShaderOutput outputType  = shaderD3D->compilerOutputType;
-    sh::HLSLBlockEncoder encoder(sh::HLSLBlockEncoder::GetStrategyFor(outputType), true);
+    sh::HLSLBlockEncoder encoder(true);
     encoder.skipRegisters(startRegister);
 
     UniformEncodingVisitorD3D visitor(shaderType, HLSLRegisterType::None, &encoder, uniformMap);
@@ -1843,13 +1853,21 @@ void ProgramExecutableD3D::assignSamplerRegisters(
 {
     D3DUniform *d3dUniform = mD3DUniforms[uniformIndex];
     ASSERT(d3dUniform->isSampler());
-    // If the uniform is an array of arrays, then we have separate entries for each inner array in
-    // mD3DUniforms. However, the sampler register info is stored in the shader only for the
-    // outermost array.
-    std::vector<unsigned int> subscripts;
-    const std::string baseName  = gl::ParseResourceName(d3dUniform->name, &subscripts);
-    unsigned int registerOffset = mExecutable->getUniforms()[uniformIndex].pod.parentArrayIndex *
-                                  d3dUniform->getArraySizeProduct();
+    std::string translatedName             = gl::ParseResourceName(d3dUniform->name, nullptr);
+    const gl::LinkedUniform &linkedUniform = mExecutable->getUniforms()[uniformIndex];
+    const bool isSamplerInStruct           = translatedName.find('.') != std::string::npos;
+
+    // Arrays of arrays have one D3DUniform per inner array, while the shader stores register
+    // information for the outermost array.
+    unsigned int registerOffset =
+        linkedUniform.pod.parentArrayIndex * d3dUniform->getArraySizeProduct();
+    // Extracted sampler arrays combine the elements of arrays of structs.
+    if (isSamplerInStruct)
+    {
+        registerOffset += linkedUniform.getOuterArrayOffset();
+        // Extracted samplers use the original uniform path without array indices.
+        translatedName = RemoveArraySubscripts(translatedName);
+    }
 
     bool hasUniform = false;
     for (gl::ShaderType shaderType : gl::AllShaderTypes())
@@ -1860,10 +1878,10 @@ void ProgramExecutableD3D::assignSamplerRegisters(
         }
 
         const SharedCompiledShaderStateD3D &shaderD3D = mAttachedShaders[shaderType];
-        if (shaderD3D->hasUniform(baseName))
+        if (shaderD3D->hasUniform(translatedName))
         {
             d3dUniform->mShaderRegisterIndexes[shaderType] =
-                shaderD3D->getUniformRegister(baseName) + registerOffset;
+                shaderD3D->getUniformRegister(translatedName) + registerOffset;
             ASSERT(d3dUniform->mShaderRegisterIndexes[shaderType] != GL_INVALID_VALUE);
 
             AssignSamplers(d3dUniform->mShaderRegisterIndexes[shaderType], d3dUniform->typeInfo,
@@ -1966,13 +1984,11 @@ void ProgramExecutableD3D::assignImage2DRegisters(gl::ShaderType shaderType,
 }
 
 void ProgramExecutableD3D::gatherTransformFeedbackVaryings(
-    RendererD3D *renderer,
     const gl::VaryingPacking &varyingPacking,
     const std::vector<std::string> &tfVaryingNames,
     const BuiltinInfo &builtins)
 {
-    const std::string &varyingSemantic =
-        GetVaryingSemantic(renderer->getMajorShaderModel(), usesPointSize());
+    const std::string varyingSemantic = "TEXCOORD";
 
     // Gather the linked varyings that are used for transform feedback, they should all exist.
     mStreamOutVaryings.clear();

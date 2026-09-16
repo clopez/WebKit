@@ -2,7 +2,108 @@
 # exclusively needed in only one subdirectory of Source (e.g. only needed by
 # WebCore), then put it there instead.
 
-set(SWIFT_FATAL_DIAGNOSTIC_FLAGS "-Werror ExistentialAny -Werror StrictMemorySafety -Werror ForeignReferenceType -Werror NoUseUnstructuredThrowingTask -Werror NoUsage")
+# Translates a definition list into one Swift can be given.
+#
+#   FOO       -> -DFOO       for every language (already valid Swift)
+#   FOO=1     -> -DFOO       for every language
+#   FOO=<any> -> -DFOO=<any> for the C family, nothing for Swift
+#
+function(_webkit_definitions_for_swift _outvar)
+    set(_defs "")
+    foreach (_def IN LISTS ARGN)
+        if (NOT _def MATCHES "=")
+            list(APPEND _defs "${_def}")
+        elseif (_def MATCHES "^([^=]+)=1$")
+            list(APPEND _defs "${CMAKE_MATCH_1}")
+        else ()
+            list(APPEND _defs "$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:${_def}>")
+        endif ()
+    endforeach ()
+    set(${_outvar} ${_defs} PARENT_SCOPE)
+endfunction()
+
+# Wrapper for target_compile_definitions() for targets that have (or interface)
+# Swift sources.
+function(webkit_target_compile_definitions _target _scope)
+    _webkit_definitions_for_swift(_defs ${ARGN})
+    if (_defs)
+        target_compile_definitions(${_target} ${_scope} ${_defs})
+    endif ()
+endfunction()
+
+# Wrapper for add_compile_definitions for targets that have (or interface)
+# Swift sources. Directory-scoped counterpart to the above.
+#
+# Value-assigned definitions still reach the clang importer: they stay in
+# COMPILE_DEFINITIONS, where _webkit_cxx_preprocessor_definitions picks them up
+# for _WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS' -Xcc set.
+function(webkit_add_compile_definitions)
+    _webkit_definitions_for_swift(_defs ${ARGN})
+    if (_defs)
+        add_compile_definitions(${_defs})
+    endif ()
+endfunction()
+
+# Rewrites an already-configured target's INTERFACE_COMPILE_DEFINITIONS the same
+# way webkit_target_compile_definitions would have, useful for vendored code we
+# do not want to touch.
+function(webkit_scope_target_interface_definitions _target)
+    if (NOT TARGET ${_target})
+        return()
+    endif ()
+    get_target_property(_interface_defs ${_target} INTERFACE_COMPILE_DEFINITIONS)
+    if (NOT _interface_defs)
+        return()
+    endif ()
+    _webkit_definitions_for_swift(_defs ${_interface_defs})
+    set_property(TARGET ${_target} PROPERTY INTERFACE_COMPILE_DEFINITIONS ${_defs})
+endfunction()
+
+# Wraps a list of C-family compiler options so they never reach the Swift compile
+# line. Intended for pkg-config CFLAGS, which the Find*.cmake modules copy into
+# imported targets' INTERFACE_COMPILE_OPTIONS.
+function(WEBKIT_SCOPE_OPTIONS_TO_NON_SWIFT _outvar)
+    set(_takes_path -isystem -iquote -idirafter -isysroot -include -imacros
+                    -iframework -I -L -F -Xpreprocessor)
+    set(_scoped "")
+    set(_pending "")
+    foreach (_opt IN LISTS ARGN)
+        if (_pending)
+            list(APPEND _scoped "$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:SHELL:${_pending} ${_opt}>")
+            set(_pending "")
+        elseif (_opt IN_LIST _takes_path)
+            set(_pending "${_opt}")
+        else ()
+            list(APPEND _scoped "$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:${_opt}>")
+        endif ()
+    endforeach ()
+    if (_pending)
+        list(APPEND _scoped "$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:${_pending}>")
+    endif ()
+    set(${_outvar} ${_scoped} PARENT_SCOPE)
+endfunction()
+
+# Rewrites an already-configured target's INTERFACE_COMPILE_OPTIONS the way
+# WEBKIT_SCOPE_OPTIONS_TO_NON_SWIFT would have. For targets we do not build
+# ourselves and so cannot filter on the way in.
+function(webkit_scope_target_interface_options _target)
+    if (NOT TARGET ${_target})
+        return()
+    endif ()
+    get_target_property(_interface_opts ${_target} INTERFACE_COMPILE_OPTIONS)
+    if (NOT _interface_opts)
+        return()
+    endif ()
+    WEBKIT_SCOPE_OPTIONS_TO_NON_SWIFT(_scoped_opts ${_interface_opts})
+    set_property(TARGET ${_target} PROPERTY INTERFACE_COMPILE_OPTIONS ${_scoped_opts})
+endfunction()
+
+# Wrapper for pkg_check_modules() that prevents options C compiler-only options
+# from reaching swiftc.
+macro(webkit_pkg_check_modules _prefix)
+    pkg_check_modules(${_prefix} ${ARGN})
+    webkit_scope_target_interface_options(PkgConfig::${_prefix})
+endmacro()
 
 macro(WEBKIT_COMPUTE_SOURCES _framework)
     set(_derivedSourcesPath ${${_framework}_DERIVED_SOURCES_DIR})
@@ -95,9 +196,11 @@ macro(WEBKIT_COMPUTE_SOURCES _framework)
         unset(_resultTmp)
         unset(_outputTmp)
     else ()
+        set(_arcSourcesFile "${CMAKE_CURRENT_BINARY_DIR}/${_framework}ARCSources.txt")
         execute_process(COMMAND ${Python_EXECUTABLE} ${WTF_SCRIPTS_DIR}/generate-unified-source-bundles.py
             ${gusb_args}
             "--print-all-sources"
+            --print-arc-sources "${_arcSourcesFile}"
             ${_sourceListFileTruePaths}
             RESULT_VARIABLE _resultTmp
             OUTPUT_VARIABLE _outputTmp)
@@ -106,7 +209,17 @@ macro(WEBKIT_COMPUTE_SOURCES _framework)
              message(FATAL_ERROR "generate-unified-source-bundles.py exited with non-zero status, exiting")
         endif ()
 
-        list(APPEND ${_framework}_SOURCES ${_outputTmp})
+        # Without bundles there is no *-ARC.mm to key off, so take the @nonARC
+        # annotations straight from the source lists to keep the ARC sources in the
+        # OBJECT library whose OBJCXX precompiled header agrees on -fobjc-arc.
+        file(STRINGS "${_arcSourcesFile}" _arcSources)
+        foreach (_file IN LISTS _outputTmp)
+            if (_file IN_LIST _arcSources)
+                list(APPEND ${_framework}_ARC_SOURCES ${_file})
+            else ()
+                list(APPEND ${_framework}_SOURCES ${_file})
+            endif ()
+        endforeach ()
         unset(_resultTmp)
         unset(_outputTmp)
     endif ()
@@ -368,13 +481,6 @@ macro(_WEBKIT_TARGET_SETUP _target _logical_name)
     target_include_directories(${_target} SYSTEM PRIVATE "$<BUILD_INTERFACE:${${_logical_name}_SYSTEM_INCLUDE_DIRECTORIES}>")
     target_include_directories(${_target} PRIVATE "$<BUILD_INTERFACE:${${_logical_name}_PRIVATE_INCLUDE_DIRECTORIES}>")
 
-    if (DEVELOPER_MODE_CXX_FLAGS)
-        target_compile_options(${_target} PRIVATE
-            "$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:${DEVELOPER_MODE_CXX_FLAGS}>")
-        target_compile_options(${_target} PRIVATE
-            "$<$<COMPILE_LANGUAGE:Swift>:SHELL:${SWIFT_FATAL_DIAGNOSTIC_FLAGS}>")
-    endif ()
-
     target_compile_definitions(${_target} PRIVATE "BUILDING_${_logical_name}")
     if (${_logical_name}_DEFINITIONS)
         target_compile_definitions(${_target} PUBLIC ${${_logical_name}_DEFINITIONS})
@@ -614,8 +720,8 @@ function(_WEBKIT_ADD_CODE_SIGN _target)
     endif ()
 
     get_target_property(_target_type ${_target} TYPE)
-    if (_target_type STREQUAL "EXECUTABLE")
-        # Executables have no "sign last" ordering constraint (unlike a
+    if (NOT _is_framework)
+        # Executables and dylibs have no "sign last" ordering constraint (unlike a
         # framework, which must sign after its embedded bundles). Attach the
         # signing as a POST_BUILD step so that building the target directly,
         # e.g. `cmake --build . --target jsc`, always signs it. A stamp-based
@@ -894,12 +1000,6 @@ function(WEBKIT_ADD_TARGET_UNSAFE_BUFFER_WARNINGS _target)
     endif ()
 endfunction()
 
-function(WEBKIT_ADD_TARGET_THREAD_SAFETY_WARNINGS _target)
-    if (ENABLE_THREAD_SAFETY_WARNING)
-        WEBKIT_ADD_TARGET_CXX_FLAGS(${_target} -Wthread-safety)
-    endif ()
-endfunction()
-
 macro(WEBKIT_POPULATE_LIBRARY_VERSION library_name)
     if (NOT DEFINED ${library_name}_VERSION_MAJOR)
         set(${library_name}_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
@@ -935,13 +1035,21 @@ function(_webkit_platform_args_empty_input _outvar)
 endfunction()
 
 # Collect the global definitions used by C++ from COMPILE_DEFINITIONS and the
-# -D flags in CMAKE_CXX_FLAGS / CMAKE_CXX_FLAGS_<CONFIG>. The Swift clang
-# importer must use the same definitions.
+# -D or /D flags in CMAKE_CXX_FLAGS / CMAKE_CXX_FLAGS_<CONFIG>. The Swift clang
+# importer must use the same definitions. Normalize MSVC-style /D flags to -D
+# because these definitions are forwarded to Swift's clang importer.
 # Keep the real compile order so definitions from CMAKE_CXX_FLAGS take precedence
 function(_webkit_cxx_preprocessor_definitions _outvar)
     set(_defs "")
     get_directory_property(_dir_defs DIRECTORY "${CMAKE_SOURCE_DIR}/Source" COMPILE_DEFINITIONS)
     foreach (_d IN LISTS _dir_defs)
+        # This list becomes a literal clang command line, where COMPILE_LANGUAGE
+        # is illegal, so drop the guard _webkit_definitions_for_swift adds. These
+        # are C-family definitions and this is a C-family preprocess, so the
+        # guard's C-family branch is the right one to take.
+        if (_d MATCHES "^\\$<\\$<NOT:\\$<COMPILE_LANGUAGE:Swift>>:(.+)>$")
+            set(_d "${CMAKE_MATCH_1}")
+        endif ()
         list(APPEND _defs "-D${_d}")
     endforeach ()
 
@@ -957,10 +1065,12 @@ function(_webkit_cxx_preprocessor_definitions _outvar)
             if (_want_value)
                 list(APPEND _defs "-D${_t}")
                 set(_want_value FALSE)
-            elseif (_t STREQUAL "-D")
-                set(_want_value TRUE)  # the `-D FOO` spelling
+            elseif (_t STREQUAL "-D" OR _t STREQUAL "/D")
+                set(_want_value TRUE)  # The `-D FOO` or `/D FOO` spelling.
             elseif (_t MATCHES "^-D.")
                 list(APPEND _defs "${_t}")
+            elseif (_t MATCHES "^/D(.+)")
+                list(APPEND _defs "-D${CMAKE_MATCH_1}")
             endif ()
         endforeach ()
     endforeach ()
@@ -1020,14 +1130,8 @@ function(webkit_generate_platform_feature_defines_file _out_path_var)
         list(GET CMAKE_OSX_ARCHITECTURES 0 _arch)
         list(APPEND _clang_cmd "-arch" "${_arch}")
     endif ()
-    if (CMAKE_OSX_DEPLOYMENT_TARGET)
-        if (WEBKIT_SDK_IS_SIMULATOR)
-            list(APPEND _clang_cmd "-mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        elseif (WEBKIT_SDK_IS_IOS_FAMILY)
-            list(APPEND _clang_cmd "-miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        else ()
-            list(APPEND _clang_cmd "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        endif ()
+    if (WEBKIT_SDK_MIN_VERSION_FLAG)
+        list(APPEND _clang_cmd "${WEBKIT_SDK_MIN_VERSION_FLAG}")
     endif ()
     if (WEBKIT_AVAILABILITY_VFS_OVERLAY_FILE)
         list(APPEND _clang_cmd "-ivfsoverlay" "${WEBKIT_AVAILABILITY_VFS_OVERLAY_FILE}")
@@ -1063,28 +1167,30 @@ function(_WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS _outvar)
     # -I/-isystem/-fmodule-map-file/-fvisibility are not in the hash and stay
     # per-target. Per-target target_compile_definitions are intentionally NOT
     # forwarded here; the wrapper no longer mirrors plain -D to -Xcc.
+    if (WIN32)
+        set(_dllimport_decl "__declspec(dllimport)")
+    else ()
+        set(_dllimport_decl "")
+    endif ()
     set(_flags
-        -DENABLE_WEBGPU_SWIFT=1
-        -DJS_EXPORT_PRIVATE=
+        -DJS_EXPORT_PRIVATE=${_dllimport_decl}
         -DNODELETE=
-        -DPAL_EXPORT=
+        -DPAL_EXPORT=${_dllimport_decl}
         -DUCHAR_TYPE=char16_t
-        -DWEBCORE_EXPORT=
+        -DWEBCORE_EXPORT=${_dllimport_decl}
         -DWEBCORE_TESTSUPPORT_EXPORT=
         -DWK_EXPORT=
-        -DWTF_EXPORT_PRIVATE=
+        -DWTF_EXPORT_PRIVATE=${_dllimport_decl}
         -D__WEBGPU__
     )
     # iOS WebKit_Internal headers gate textual #imports behind this macro that
     # trip strict cross-module-import-visibility checks (bug 312083).
-    if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
         list(APPEND _flags -DWK_SUPPORTS_SWIFT_OBJCXX_INTEROP=1)
     endif ()
-    if (APPLE)
-        # Normalize the LangOpt that WebGPU's SafeInteropWrappers enables
-        # implicitly so PAL/WebKit hash to the same module-cache dir.
-        list(APPEND _flags -fexperimental-bounds-safety-attributes)
-    endif ()
+    # -fexperimental-bounds-safety-attributes belongs to this hash-normalizing
+    # set conceptually, but lives in WebKitSwiftFlags.cmake so it also reaches
+    # the Swift targets that never call this function.
     # Every -D the C++ compiles get, so the importer's view of layout-affecting
     # macros (NDEBUG, ASSERT_ENABLED, _LIBCPP_HARDENING_MODE, ...) matches theirs.
     _webkit_cxx_preprocessor_definitions(_cxx_defs)
@@ -1116,7 +1222,8 @@ function(_webkit_generate_platform_swift_args _target _resp_path)
     _webkit_platform_args_clang_prefix(_clang_cmd
         "${_depfile}" "${_resp_path}" "${WTF_FRAMEWORK_HEADERS_DIR}")
     if (CMAKE_OSX_SYSROOT)
-        list(APPEND _clang_cmd "-isysroot" "${CMAKE_OSX_SYSROOT}")
+        list(APPEND _clang_cmd "-isysroot" "${CMAKE_OSX_SYSROOT}"
+            "-iframework" "${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks")
     endif ()
     if (CMAKE_Swift_COMPILER_TARGET)
         list(APPEND _clang_cmd "-target" "${CMAKE_Swift_COMPILER_TARGET}")
@@ -1124,11 +1231,20 @@ function(_webkit_generate_platform_swift_args _target _resp_path)
     if (WEBKIT_ADDITIONS_INCLUDE_PATH)
         list(APPEND _clang_cmd "-I" "${WEBKIT_ADDITIONS_INCLUDE_PATH}")
     endif ()
+    set(_command_deps "")
+    if (USE_APPLE_INTERNAL_SDK)
+        list(APPEND _clang_cmd "-I" "${WebKitAdditions_FRAMEWORK_HEADERS_DIR}")
+        list(APPEND _command_deps WebKitAdditions_CopyHeaders)
+    endif ()
     # Use the same global definitions as C++ when deriving the Swift compilation arguments.
     _webkit_cxx_preprocessor_definitions(_cxx_defs)
     list(APPEND _clang_cmd ${_cxx_defs})
     # -fsanitize=* drives ASAN_ENABLED etc; keep this preprocess in sync with C++.
     list(APPEND _clang_cmd ${ENABLED_COMPILER_SANITIZERS})
+    if (WIN32 AND COMPILER_IS_CLANG_CL)
+        # See explanation in generate-platform-args
+        list(APPEND _clang_cmd -include version)
+    endif ()
     list(APPEND _clang_cmd "${_empty_input}")
 
     set(_script "${CMAKE_SOURCE_DIR}/Source/WTF/Scripts/generate-platform-args")
@@ -1139,6 +1255,7 @@ function(_webkit_generate_platform_swift_args _target _resp_path)
             --cmake
             --output "${_resp_path}"
             --cmakeconfig "${CMAKE_BINARY_DIR}/cmakeconfig.h"
+            ${_stl_feature_macros_arg}
             --
             ${_clang_cmd}
         DEPFILE "${_depfile}"
@@ -1146,6 +1263,7 @@ function(_webkit_generate_platform_swift_args _target _resp_path)
             "${_script}"
             "${CMAKE_BINARY_DIR}/cmakeconfig.h"
             WTF_CopyHeaders
+            ${_command_deps}
         COMMENT "Generating ${_target} platform-swift-args.resp"
         VERBATIM
     )
@@ -1230,17 +1348,29 @@ function(_webkit_setup_swift_header_deps _target _stamp _header _resp)
     add_dependencies(${_target}_SwiftInterop ${_target}_SwiftCxxHeader)
 endfunction()
 
+function(WEBKIT_QUERY_SWIFT_TARGET_INFO _result _swift_compiler)
+    set(_swift_target_info_args "")
+    if (CMAKE_Swift_COMPILER_TARGET)
+        list(APPEND _swift_target_info_args "-target" "${CMAKE_Swift_COMPILER_TARGET}")
+    endif ()
+    execute_process(
+        COMMAND "${_swift_compiler}" -print-target-info ${_swift_target_info_args}
+        RESULT_VARIABLE _swift_target_info_result
+        OUTPUT_VARIABLE _swift_target_info
+        ERROR_VARIABLE _swift_target_info_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if (NOT _swift_target_info_result EQUAL 0)
+        message(FATAL_ERROR "Failed to query Swift target information: ${_swift_target_info_error}")
+    endif ()
+    set(${_result} "${_swift_target_info}" PARENT_SCOPE)
+endfunction()
+
 macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_name _interop_module_path _output_header)
     if (SWIFT_REQUIRED)
         set_target_properties(${_target} PROPERTIES Swift_MODULE_NAME ${_module_name})
-        # Ask swiftc where to find the header files which support C/C++ builds
-        # Right now this macro is used only once; if it's used more often then
-        # we should abstract this so it's executed only once.
-        execute_process(
-            COMMAND ${ORIGINAL_Swift_COMPILER} -print-target-info
-            OUTPUT_VARIABLE _swift_target_info
-        )
-        string(JSON _swift_target_paths GET ${_swift_target_info} "paths")
+        # Ask swiftc where to find the header files which support C/C++ builds.
+        string(JSON _swift_target_paths GET "${WEBKIT_SWIFT_TARGET_INFO}" "paths")
         string(JSON _swift_runtime_resource_path GET ${_swift_target_paths} "runtimeResourcePath")
         target_include_directories(${_target} SYSTEM AFTER PRIVATE "${_swift_runtime_resource_path}")
         # Swift C++-interop objects auto-link swiftCxx/swiftCxxStdlib; consumers
@@ -1249,7 +1379,8 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         target_link_directories(${_target} INTERFACE "${_swift_runtime_library_path}")
         # Expose the path as a compile definition so the bubblewrap sandbox
         # (BubblewrapLauncher.cpp) can bind-mount it into the child process filesystem.
-        target_compile_definitions(${_target} PRIVATE "WEBKIT_SWIFT_STDLIB_LIBRARY_PATH=\"${_swift_runtime_library_path}\"")
+        webkit_target_compile_definitions(${_target} PRIVATE
+            "WEBKIT_SWIFT_STDLIB_LIBRARY_PATH=\"${_swift_runtime_library_path}\"")
 
         # Assemble arguments which need to be passed to swiftc.
         # The platform-derived feature flags (HAVE_/USE_/ENABLE_/WTF_PLATFORM_/
@@ -1270,32 +1401,24 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # WebKit_Private framework module — matches Xcode's SWIFT_INCLUDE_PATHS
         # which is also Swift-only) can set
         # ${_target}_SWIFT_INTEROP_MODULE_PATH_SWIFT_ONLY to TRUE.
-        list(APPEND _swift_options "-cxx-interoperability-mode=default" "-Xcc" "-std=c++2b")
+        list(APPEND _swift_options ${WEBKIT_SWIFT_CXX_INTEROP_FLAGS})
+        if (CMAKE_Swift_COMPILER_TARGET)
+            list(APPEND _swift_options "-clang-target ${CMAKE_Swift_COMPILER_TARGET}")
+        endif ()
         _WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS(_shared_cc_flags)
         foreach (_f IN LISTS _shared_cc_flags)
-            list(APPEND _swift_options "-Xcc" "${_f}")
+            list(APPEND _swift_options "-Xcc ${_f}")
         endforeach ()
-        # Match Xcode's CommonBase.xcconfig SWIFT_VERSION = 6.0. The importer's
-        # apinotes version is keyed off the effective Swift language mode, so
-        # this also keeps PAL/WebGPU/WebKit on the same module-cache hash.
-        list(APPEND _swift_options "-swift-version" "6")
         if (APPLE)
             # Swift modules extend their underlying ObjC++ module.
             list(APPEND _swift_options "-import-underlying-module")
             # Don't fire the module's own cross-import overlay while compiling it.
-            list(APPEND _swift_options "-Xfrontend" "-disable-cross-import-overlays")
+            list(APPEND _swift_options "-Xfrontend -disable-cross-import-overlays")
         endif ()
         if (${_target}_SWIFT_INTEROP_MODULE_PATH_SWIFT_ONLY)
             list(APPEND _swift_options "-I${_interop_module_path}")
         else ()
-            list(APPEND _swift_options "-Xcc" "-I${_interop_module_path}")
-        endif ()
-        # InternalImportsByDefault keeps unqualified `import Foo` from re-exporting Foo's
-        # types through the module's public interface. WebGPU/PAL want this; WebKit has
-        # public APIs whose signatures use Foundation/UIKit types via plain `import`,
-        # so callers can opt out by setting ${_target}_SWIFT_NO_INTERNAL_IMPORTS_BY_DEFAULT.
-        if (NOT ${_target}_SWIFT_NO_INTERNAL_IMPORTS_BY_DEFAULT)
-            list(APPEND _swift_options "-enable-upcoming-feature" "InternalImportsByDefault")
+            list(APPEND _swift_options "-Xcc -I${_interop_module_path}")
         endif ()
         # On non-Apple platforms, Swift's embedded clang doesn't automatically search
         # the compiler's C++ standard library headers (e.g. <coroutine> lives in /usr/include/c++/15/).
@@ -1326,51 +1449,15 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
                 if (_dir MATCHES "/clang/[0-9]+/include(/|$)")
                     continue ()
                 endif ()
-                list(APPEND _swift_options "-Xcc" "-I${_dir}")
+                list(APPEND _swift_options "-Xcc -I${_dir}")
             endforeach ()
         endif ()
-        # The clang importer must agree with C++ TUs on every layout-affecting
-        # feature check; sanitizers gate ASAN_ENABLED → ENABLE_SECURITY_ASSERTIONS
-        # → RefCountDebuggerImpl members. Without this, Swift's inline `new` of a
-        # RefCounted C++ type undersizes the allocation and the C++ ctor overflows
-        # it. -sanitize= instruments Swift codegen; the importer ignores -Xcc
-        # -fsanitize= for __has_feature(), so define __SANITIZE_*__ directly so
-        # Compiler.h's #ifdef path sets ASAN_ENABLED/TSAN_ENABLED.
-        foreach (_sanitizer IN LISTS ENABLE_SANITIZERS)
-            list(APPEND _swift_options "-sanitize=${_sanitizer}")
-            if (_sanitizer STREQUAL "address")
-                list(APPEND _swift_options "-Xcc" "-D__SANITIZE_ADDRESS__")
-            elseif (_sanitizer STREQUAL "thread")
-                list(APPEND _swift_options "-Xcc" "-D__SANITIZE_THREAD__")
-            endif ()
-        endforeach ()
-        # swiftc spawns swift-plugin-server under sandbox-exec to expand macros
-        # (e.g. SwiftUI @State). When the cmake build itself runs inside an
-        # outer sandbox that disallows nested sandbox_apply, macro expansion
-        # fails with "external macro implementation type ... could not be
-        # found". -disable-sandbox skips the inner sandbox; the macros are
-        # WebKit's own, so the isolation it provides isn't load-bearing here.
-        list(APPEND _swift_options "-disable-sandbox")
         # We'll use these options both for mainstream cmake invocations of swiftc (here)
         # and for our own invocation to output an interoperability .h file (later).
-        # target_compile_options deduplicates repeated tokens, so collapse each
-        # -Xcc <arg> into a single SHELL: entry to keep the pair together.
-        # https://bugs.webkit.org/show_bug.cgi?id=312105
-        set(_swift_only_options "")
-        set(_pending_xcc FALSE)
-        foreach (_opt IN LISTS _swift_options)
-            if (_pending_xcc)
-                list(APPEND _swift_only_options "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc ${_opt}>")
-                set(_pending_xcc FALSE)
-            elseif (_opt STREQUAL "-Xcc")
-                set(_pending_xcc TRUE)
-            else ()
-                list(APPEND _swift_only_options "$<$<COMPILE_LANGUAGE:Swift>:${_opt}>")
-            endif ()
-        endforeach ()
+        _webkit_swift_flag_genexes(_swift_only_options ${_swift_options})
         target_compile_options(${_target} PRIVATE ${_swift_only_options})
 
-        if (CMAKE_SYSTEM_NAME STREQUAL "iOS" AND CMAKE_OSX_SYSROOT)
+        if (WEBKIT_SDK_IS_IOS_FAMILY AND CMAKE_OSX_SYSROOT)
             target_compile_options(${_target} PRIVATE
                 # Our just-built frameworks must come before the SDK's
                 # PrivateFrameworks so `<WebCore/X.h>` etc. resolve to cmake-built
@@ -1391,22 +1478,9 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
             target_compile_options(${_target} PRIVATE
                 "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -isystem${WEBKIT_ADDITIONS_INCLUDE_PATH}>")
         endif ()
-
-        # cmake's Swift interop does not respect CMAKE_SHARED_LINKER_FLAGS, so let's pass
-        # on those that we can.
-        # rdar://155519819
-        string(REPLACE " " ";" CMAKE_SHARED_LINKER_FLAGS_SPLIT "${CMAKE_SHARED_LINKER_FLAGS}")
-        foreach (_flag IN ITEMS ${CMAKE_SHARED_LINKER_FLAGS_SPLIT})
-            # We can only pass on -Wl flags.
-            string(SUBSTRING ${_flag} 0 4 _prefix)
-            if (${_prefix} STREQUAL "-Wl,")
-                string(SUBSTRING ${_flag} 4 -1 _shorter_flag)
-                # SHELL: keeps the -Xlinker/argument pair together; without it
-                # CMake deduplicates the repeated -Xlinker tokens.
-                # https://bugs.webkit.org/show_bug.cgi?id=312105
-                target_compile_options(${_target} PUBLIC "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xlinker ${_shorter_flag}>")
-            endif ()
-        endforeach ()
+        if (USE_APPLE_INTERNAL_SDK)
+            add_dependencies(${_target} WebKitAdditions_CopyHeaders)
+        endif ()
 
         # Empty list means: skip Swift C++ interop header generation entirely.
         # Useful for iOS where some Swift files transitively import broken
@@ -1444,26 +1518,59 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # target_compile_options via _swift_only_options earlier in the macro.
         _webkit_generate_platform_swift_args(${_target} "${_resp_path}")
 
-        # Trigger source whose mtime tracks the resp (and the emit-clang-header
-        # stamp / INTEROP_HEADERS when applicable). target_sources is how we
-        # plumb file-level deps in since CMake's Swift compile ignores
-        # OBJECT_DEPENDS. Created eagerly so the resp's add_custom_command
-        # has an in-graph consumer even when the typecheck path is skipped.
+        # Create a file whose mtime tracks various build changes that should
+        # cause swift's driver to rerun.
         set(_trigger_path "${CMAKE_CURRENT_BINARY_DIR}/${_target}_SwiftRebuildTrigger.swift")
         if (NOT EXISTS "${_trigger_path}")
             file(WRITE "${_trigger_path}" "// Auto-generated; mtime tracks ${_target}'s Swift inputs.\n")
         endif ()
-        set(_trigger_deps "${_resp_path}")
-        if (DEFINED ${_target}_SWIFT_INTEROP_SOURCES)
-            list(APPEND _trigger_deps ${${_target}_SWIFT_INTEROP_HEADERS})
-        elseif (NOT _skip_swift_cxx_header)
-            list(APPEND _trigger_deps "${_header_stamp_path}")
+
+        # Form a flat depfile for the whole module by merging per-object
+        # dependencies produced by the driver invocation. Refer to depfile
+        # logic in `swift-wrapper.py` for the merge implementation.
+        set(_swift_depfile "${CMAKE_CURRENT_BINARY_DIR}/${_target}.swift-deps.d")
+        # cmake_transform_depfile warns when the depfile is missing, so seed an
+        # empty one for the first build.
+        if (NOT EXISTS "${_swift_depfile}")
+            file(WRITE "${_swift_depfile}" "")
+        endif ()
+        set(_compile_stamp "${CMAKE_CURRENT_BINARY_DIR}/${_target}.swift-compile.stamp")
+        target_compile_options(${_target} PRIVATE
+            # Used by swift-wrapper.py to merge per-object dependencies into a
+            # depfile for the whole driver.
+            "$<$<COMPILE_LANGUAGE:Swift>:-emit-dependencies>"
+            # Controls for swift-wrapper.py's depfile merging logic. Namely,
+            # avoid listing metadata files in the depfile output that will
+            # always be invalidated.
+            "$<$<COMPILE_LANGUAGE:Swift>:--emit-ninja-depfile=${_swift_depfile}>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--ninja-depfile-target=${_trigger_path}>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--ninja-depfile-exclude=${_trigger_path}>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--ninja-depfile-exclude=${_header_tmp_path}>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--ninja-depfile-exclude=${_header_path}>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--ninja-depfile-exclude=${CMAKE_CURRENT_BINARY_DIR}/${_module_name}.swiftmodule>"
+            "$<$<COMPILE_LANGUAGE:Swift>:--emit-compile-stamp=${_compile_stamp}>")
+        # The depfile is an input because ninja only ingests one when the edge
+        # declaring it runs, and swiftc-wrapper.py writes it after the module
+        # compiles. rebuild_trigger.py leaves the trigger's mtime alone on those
+        # runs, so the module does not recompile for nothing.
+        set(_trigger_touch_deps "${_resp_path}")
+        if (NOT (DEFINED ${_target}_SWIFT_INTEROP_SOURCES OR
+            _skip_swift_cxx_header))
+            list(APPEND _trigger_touch_deps "${_header_stamp_path}")
         endif ()
         add_custom_command(
             OUTPUT "${_trigger_path}"
-            DEPENDS ${_trigger_deps}
-            COMMAND ${CMAKE_COMMAND} -E touch "${_trigger_path}"
-            COMMENT "Refreshing ${_target} Swift rebuild trigger"
+            DEPENDS ${_trigger_touch_deps} "${_swift_depfile}"
+            DEPFILE "${_swift_depfile}"
+            COMMAND ${Python_EXECUTABLE}
+                "${CMAKE_SOURCE_DIR}/Tools/Scripts/swift/rebuild_trigger.py"
+                --trigger "${_trigger_path}"
+                --depfile "${_swift_depfile}"
+                --stamp "${_compile_stamp}"
+                --root "${CMAKE_BINARY_DIR}"
+                ${_trigger_touch_deps}
+            COMMENT "Propagating ${_target} Swift dependencies"
+            VERBATIM
         )
         target_sources(${_target} PRIVATE "${_trigger_path}")
         add_custom_target(${_target}_SwiftRebuildTrigger DEPENDS "${_trigger_path}")

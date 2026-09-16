@@ -32,6 +32,7 @@ GPUProcess/media/gstreamer/RemoteMediaPlayerProxyGStreamer.cpp
 
 NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
 
+NetworkProcess/Cookies/soup/CookieStorageSoup.cpp
 NetworkProcess/Cookies/soup/WebCookieManagerSoup.cpp
 
 NetworkProcess/NetworkDataTaskDataURL.cpp
@@ -48,6 +49,7 @@ NetworkProcess/soup/NetworkDataTaskSoup.cpp
 NetworkProcess/soup/NetworkProcessMainSoup.cpp
 NetworkProcess/soup/NetworkProcessSoup.cpp
 NetworkProcess/soup/NetworkSessionSoup.cpp
+NetworkProcess/soup/NetworkStorageSessionSoup.cpp
 NetworkProcess/soup/WebKitDirectoryInputStream.cpp
 NetworkProcess/soup/WebSocketTaskSoup.cpp
 
@@ -81,6 +83,9 @@ Shared/API/glib/WebKitURIResponse.cpp @no-unify
 Shared/API/glib/WebKitUserMessage.cpp @no-unify
 
 Shared/glib/ArgumentCodersGLib.cpp
+Shared/glib/CoreIPCGByteArray.cpp
+Shared/glib/CoreIPCGTlsCertificate.cpp
+Shared/glib/CoreIPCGUnixFDList.cpp
 Shared/glib/CoreIPCGVariant.cpp
 Shared/glib/InputMethodState.cpp
 Shared/glib/JavaScriptEvaluationResultGLib.cpp
@@ -340,7 +345,7 @@ WebProcess/WebPage/CoordinatedGraphics/CoordinatedSceneState.cpp
 WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphicsGLib.cpp
 WebProcess/WebPage/CoordinatedGraphics/FrameRenderer.cpp
 WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
-WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp
+WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp @no-unify
 WebProcess/WebPage/CoordinatedGraphics/ScrollbarsControllerCoordinated.cpp
 WebProcess/WebPage/CoordinatedGraphics/ScrollingCoordinatorCoordinated.cpp
 WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp

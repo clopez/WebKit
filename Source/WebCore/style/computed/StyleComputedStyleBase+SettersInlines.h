@@ -73,10 +73,20 @@ inline void ComputedStyleBase::setUsesTreeCountingFunctions()
     m_nonInheritedFlags.useTreeCountingFunctions = true;
 }
 
-inline void ComputedStyleBase::setColorIsCurrentColorForHighlight(bool colorIsCurrentColorForHighlight)
+inline void ComputedStyleBase::setColorForHighlight(Color&& colorForHighlight)
 {
-    if (m_inheritedData->colorIsCurrentColorForHighlight != colorIsCurrentColorForHighlight)
-        m_inheritedData.access().colorIsCurrentColorForHighlight = colorIsCurrentColorForHighlight;
+    if (m_inheritedRareData->colorForHighlight != colorForHighlight)
+        m_inheritedRareData.access().colorForHighlight = WTF::move(colorForHighlight);
+}
+
+inline void ComputedStyleBase::setUsesCurrentBackgroundColorKeyword()
+{
+    m_nonInheritedFlags.usesCurrentBackgroundColorKeyword = true;
+}
+
+inline void ComputedStyleBase::setCurrentBackgroundColor(WebCore::Color currentBackgroundColor)
+{
+    SET(m_inheritedData, currentBackgroundColor, WTF::move(currentBackgroundColor));
 }
 
 inline void ComputedStyleBase::setInsideLink(InsideLink insideLink)

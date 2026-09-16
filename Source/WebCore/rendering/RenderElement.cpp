@@ -297,6 +297,26 @@ const Style::ComputedStyle& RenderElement::firstLineStyle() const
 
 Style::Difference RenderElement::adjustStyleDifference(Style::Difference diff) const
 {
+    auto canRecomputeOverflowWithoutLayout = [&] {
+        // Nothing under an SVG root runs simplified layout.
+        if (!isRenderOrLegacyRenderSVGRoot() && (isSVGLayerAwareRenderer() || isRenderSVGBlock() || isLegacyRenderSVGModelObject()))
+            return false;
+        // An out-of-flow box reaches its new position through simplified layout's movement only path.
+        if (isOutOfFlowPositioned())
+            return false;
+        // RenderTextControlSingleLine::layout() mutates the inner renderers' style heights and resets them on
+        // the next pass, so its geometry depends on how many times it has run. Keep the full layout it has
+        // always had rather than make its 1px rounding depend on this optimization.
+        if (isRenderTextControl())
+            return false;
+        // Let's still trigger layout on content with legacy line layout.
+        if (isInlineBox() && !LayoutIntegration::LineLayout::containing(*this))
+            return false;
+        return true;
+    };
+    if (diff.result == Style::DifferenceResult::Overflow && !canRecomputeOverflowWithoutLayout())
+        diff.result = Style::DifferenceResult::Layout;
+
     // If transform changed, and we are not composited, need to do a layout.
     if (diff.contextSensitiveProperties & Style::DifferenceContextSensitiveProperty::Transform) {
         // FIXME: when transforms are taken into account for overflow, we will need to do a layout.
@@ -489,6 +509,9 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Style
         }
 
         if (shouldRepaintForStyleDifference(diff))
+            return RequiredRepaint::RendererOnly;
+
+        if (diff == Style::DifferenceResult::Overflow && !diff.contextSensitiveProperties.contains(Style::DifferenceContextSensitiveProperty::Transform))
             return RequiredRepaint::RendererOnly;
 
         auto deviceScaleFactor = newStyle.deviceScaleFactor();
@@ -1041,6 +1064,15 @@ void RenderElement::styleWillChange(Style::Difference diff, const Style::Compute
             view().decrementRendersWithOutline();
     }
 
+    bool hadPixelMovingFilter = oldStyle && oldStyle->filter().hasFilterThatMovesPixels();
+    bool hasPixelMovingFilter = newStyle.filter().hasFilterThatMovesPixels();
+    if (hadPixelMovingFilter != hasPixelMovingFilter) {
+        if (hasPixelMovingFilter)
+            view().incrementRenderersWithPixelMovingFilter();
+        else
+            view().decrementRenderersWithPixelMovingFilter();
+    }
+
     bool newStyleSlowScroll = false;
     if (Style::hasImageWithAttachment(newStyle.backgroundLayers(), FillAttachment::FixedBackground) && !settings().fixedBackgroundsPaintRelativeToDocument()) {
         newStyleSlowScroll = true;
@@ -1194,7 +1226,7 @@ void RenderElement::styleDidChange(Style::Difference diff, const Style::Computed
     }
 
     // FIXME: First line change on the block comes in as equal on inline boxes.
-    auto needsLayoutBoxStyleUpdate = (diff >= Style::DifferenceResult::Repaint || (is<RenderInline>(*this) && &style() != &firstLineStyle())) && layoutBox();
+    auto needsLayoutBoxStyleUpdate = (diff >= Style::DifferenceResult::Repaint || (isInlineBox() && &style() != &firstLineStyle())) && layoutBox();
     if (needsLayoutBoxStyleUpdate)
         LayoutIntegration::LineLayout::updateStyle(*this);
 }
@@ -1317,6 +1349,9 @@ void RenderElement::willBeDestroyed()
 
         if (style().hasOutline())
             view().decrementRendersWithOutline();
+
+        if (style().filter().hasFilterThatMovesPixels())
+            view().decrementRenderersWithPixelMovingFilter();
 
         if (auto* firstLineStyle = style().pseudoElementStyle({ PseudoElementType::FirstLine }))
             unregisterImages(*firstLineStyle);
@@ -2001,7 +2036,7 @@ Color RenderElement::selectionColor() const
         || (view().frameView().paintBehavior().containsAny({ PaintBehavior::SelectionOnly, PaintBehavior::SelectionAndBackgroundsOnly })))
         return Color();
 
-    if (auto pseudoStyle = selectionPseudoStyle()) {
+    if (CheckedPtr pseudoStyle = selectionPseudoStyle()) {
         Style::ColorPropertyResolver<Style::ColorPropertyTraits<Property>> colorPropertyResolver { *pseudoStyle };
         auto color = colorPropertyResolver.visitedDependentColorApplyingColorFilter();
         if (!color.isValid())
@@ -2014,22 +2049,9 @@ Color RenderElement::selectionColor() const
     return theme().inactiveSelectionForegroundColor(styleColorOptions());
 }
 
-std::unique_ptr<Style::ComputedStyle> RenderElement::selectionPseudoStyle() const
+const Style::ComputedStyle* RenderElement::selectionPseudoStyle() const
 {
-    if (isAnonymous())
-        return nullptr;
-
-    if (auto selectionStyle = resolvePseudoElementStyle({ PseudoElementType::Selection })) {
-        // We intentionally return the pseudo selection style here if it exists before ascending to
-        // the shadow host element. This allows us to apply selection pseudo styles in user agent
-        // shadow roots, instead of always deferring to the shadow host's selection pseudo style.
-        return selectionStyle;
-    }
-
-    if (auto* renderer = rendererForPseudoStyleAcrossShadowBoundary())
-        return renderer->resolvePseudoElementStyle({ PseudoElementType::Selection });
-
-    return nullptr;
+    return textSegmentPseudoStyle(PseudoElementType::Selection);
 }
 
 Color RenderElement::selectionForegroundColor() const
@@ -2055,7 +2077,7 @@ Color RenderElement::selectionBackgroundColor() const
         pseudoStyleCandidate = pseudoStyleCandidate->firstNonAnonymousAncestor();
 
     if (pseudoStyleCandidate) {
-        auto pseudoStyle = pseudoStyleCandidate->selectionPseudoStyle();
+        CheckedPtr pseudoStyle = pseudoStyleCandidate->selectionPseudoStyle();
         if (pseudoStyle && pseudoStyle->visitedDependentBackgroundColorApplyingColorFilter().isValid())
             return theme().transformSelectionBackgroundColor(pseudoStyle->visitedDependentBackgroundColorApplyingColorFilter(), styleColorOptions());
     }
@@ -2612,7 +2634,6 @@ void RenderElement::repaintOldAndNewPositionsForSVGRenderer() const
     repaint();
 }
 
-#if ENABLE(TEXT_AUTOSIZING)
 static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderObject& renderer)
 {
     const Style::ComputedStyle& style = renderer.style();
@@ -2628,7 +2649,7 @@ static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderOb
     return RenderObject::FlexibleHeight;
 }
 
-void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWidth)
+void RenderElement::adjustFontSizesOnBlocks(float size, float visibleWidth)
 {
     RefPtr document = view().frameView().frame().document();
     if (!document)
@@ -2650,7 +2671,7 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
 
         int stackSize = depthStack.size();
         if (CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*descendant); blockFlow && !blockFlow->isRenderListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
-            blockFlow->adjustComputedFontSizes(size, visibleWidth);
+            blockFlow->adjustFontSizes(size, visibleWidth);
         newFixedDepth = 0;
     }
 
@@ -2680,11 +2701,10 @@ void RenderElement::resetTextAutosizing()
 
         int stackSize = depthStack.size();
         if (auto* blockFlow = dynamicDowncast<RenderBlockFlow>(*descendant); blockFlow && !blockFlow->isRenderListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
-            blockFlow->resetComputedFontSize();
+            blockFlow->resetFontSize();
         newFixedDepth = 0;
     }
 }
-#endif // ENABLE(TEXT_AUTOSIZING)
 
 std::unique_ptr<Style::ComputedStyle> RenderElement::animatedStyle()
 {
@@ -2747,7 +2767,7 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
     // is removed this function should be moved to RenderLayerModelObject.
     // As this method is used by both SVG engines, we need to place it
     // here in RenderElement, as temporary solution.
-    if (element() && !is<SVGElement>(element()))
+    if (!is<SVGElement>(element()) && !is<RenderSVGViewportContainer>(*this))
         return { };
 
     auto alignReferenceBox = [&](FloatRect referenceBox) {

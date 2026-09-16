@@ -79,7 +79,7 @@ PageAgentProxy::~PageAgentProxy()
     // Clear the enabledPageProxy slot on our InstrumentingAgents so a later frame commit
     // doesn't dereference this freed proxy from InspectorInstrumentation. Mirrors
     // FrameNetworkAgentProxy::~FrameNetworkAgentProxy().
-    disable();
+    std::ignore = disable();
 }
 
 void PageAgentProxy::didCreateFrontendAndBackend()
@@ -88,7 +88,7 @@ void PageAgentProxy::didCreateFrontendAndBackend()
 
 void PageAgentProxy::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    disable();
+    std::ignore = disable();
 }
 
 CommandResult<void> PageAgentProxy::enable()
@@ -163,6 +163,12 @@ void PageAgentProxy::frameNavigated(LocalFrame& frame)
     Ref registry = inspectedPage->inspectorController().identifierRegistry();
     RefPtr documentLoader = frame.loader().documentLoader();
     auto loaderId = registry->loaderId(documentLoader.get());
+
+    // The frameId reported to the frontend is computed in the UIProcess from the FrameIdentifier
+    // below, so nothing in this process assigns one. Register the frame here so that commands the
+    // in-process agents still serve (Page.getResourceContent, Page.searchInResource, and the CSS and
+    // DOM commands that take a frameId) can resolve it through frameForId() / assertFrame().
+    registry->registerFrame(frame);
 
     RefPtr connection = WebProcess::singleton().parentProcessConnection();
     if (!connection)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
@@ -157,6 +157,7 @@
 #include <wtf/text/CharacterProperties.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/ParsingUtilities.h>
+#include <wtf/text/TextStream.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #if PLATFORM(MAC)
@@ -201,6 +202,8 @@ static String inputEventDataForEditingStyleAndAction(const StyleProperties* styl
     switch (action) {
     case EditAction::SetColor:
         return style->getPropertyValue(CSSPropertyColor);
+    case EditAction::SetBackgroundColor:
+        return style->getPropertyValue(CSSPropertyBackgroundColor);
     case EditAction::SetInlineWritingDirection:
     case EditAction::SetBlockWritingDirection:
         return style->getPropertyValue(CSSPropertyDirection);
@@ -397,7 +400,7 @@ void Editor::didDispatchInputMethodKeydown(KeyboardEvent& event)
 
 bool Editor::handleTextEvent(TextEvent& event)
 {
-    LOG(Editing, "Editor %p handleTextEvent (data %s)", this, event.data().utf8().data());
+    LOG_WITH_STREAM(Editing, stream << "Editor "_s << this << " handleTextEvent (data "_s << event.data() << ")"_s);
 
     // Default event handling for Drag and Drop will be handled by DragController
     // so we leave the event for it.
@@ -2457,6 +2460,10 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
     else
         selectComposition();
 
+    // Cancelling a composition does not remove the pending composition text from the document, so the
+    // compositionend event has to report the text that is left behind rather than the empty string.
+    String textForCompositionEndEvent = mode == CancelComposition ? compositionText() : text;
+
     RefPtr previousCompositionNode = m_compositionNode;
     m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
@@ -2477,8 +2484,19 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
 
     insertTextForConfirmedComposition(text);
 
-    if (RefPtr target = document->focusedElement())
-        target->dispatchEvent(CompositionEvent::create(eventNames().compositionendEvent, document->windowProxy(), text));
+    // Clicking outside the editable element moves focus away before the composition is torn down, so
+    // there is no focused element left to dispatch to. Fall back to the element the composition belongs
+    // to rather than dropping the compositionend event altogether.
+    RefPtr<Element> target = document->focusedElement();
+    if (!target && previousCompositionNode) {
+        if (RefPtr textControl = enclosingTextFormControl(firstPositionInOrBeforeNode(previousCompositionNode.get())))
+            target = WTF::move(textControl);
+        else
+            target = previousCompositionNode->rootEditableElement();
+    }
+
+    if (target)
+        target->dispatchEvent(CompositionEvent::create(eventNames().compositionendEvent, document->windowProxy(), textForCompositionEndEvent));
 
     if (mode == CancelComposition) {
         // An open typing command that disagrees about current selection would cause issues with typing later on.
@@ -2491,12 +2509,12 @@ void Editor::closeTyping()
     TypingCommand::closeTyping(protect(m_document));
 }
 
-RenderInline* Editor::writingSuggestionRenderer() const
+RenderBoxModelObject* Editor::writingSuggestionRenderer() const
 {
     return m_writingSuggestionRenderer.get();
 }
 
-void Editor::setWritingSuggestionRenderer(RenderInline& renderer)
+void Editor::setWritingSuggestionRenderer(RenderBoxModelObject& renderer)
 {
     m_writingSuggestionRenderer = renderer;
 }
@@ -4556,7 +4574,7 @@ void Editor::selectionStartSetMarkerForTesting(DocumentMarkerType markerType, in
 
     switch (markerType) {
     case DocumentMarkerType::TransparentContent:
-        markers->addMarker(*text, unsignedFrom, unsignedLength, markerType, DocumentMarker::TransparentContentData { node, WTF::UUID { 0 } });
+        markers->addMarker(*text, unsignedFrom, unsignedLength, markerType, DocumentMarker::TransparentContentData { node, std::nullopt });
         return;
 
     case DocumentMarkerType::DraggedContent:
@@ -5096,12 +5114,23 @@ RefPtr<Font> Editor::fontForSelection(bool& hasMultipleFonts)
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
     RefPtr<Font> font;
+    RefPtr<Font> lineBreakFont;
     for (Ref node : intersectingNodes(*range)) {
         CheckedPtr renderer = node->renderer();
         if (!renderer)
             continue;
+
+        // A line break renders no text of its own, so its font must not make uniformly styled text report multiple fonts.
+        if (renderer->isBR()) {
+            if (!lineBreakFont) {
+                Ref primaryFont = renderer->style().fontCascade().primaryFont();
+                lineBreakFont = const_cast<Font*>(primaryFont.ptr());
+            }
+            continue;
+        }
+
         // The font of intermediate nodes that don't affect the rendering of text are not necessary to report, so limit to only such nodes.
-        if (!node->isTextNode() && !renderer->isBR() && !TextNodeTraversal::firstChild(node))
+        if (!node->isTextNode() && !TextNodeTraversal::firstChild(node))
             continue;
         Ref primaryFont = renderer->style().fontCascade().primaryFont();
         if (!font)
@@ -5112,7 +5141,7 @@ RefPtr<Font> Editor::fontForSelection(bool& hasMultipleFonts)
         }
     }
 
-    return font;
+    return font ? font : lineBreakFont;
 }
 
 bool Editor::canCopyExcludingStandaloneImages() const

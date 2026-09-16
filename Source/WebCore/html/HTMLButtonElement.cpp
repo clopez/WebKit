@@ -130,7 +130,7 @@ void HTMLButtonElement::attributeChanged(const QualifiedName& name, const AtomSt
 {
     if (name == typeAttr)
         computeType(newValue);
-    else if ((name == commandAttr || name == commandforAttr) && document().settings().commandAttributesEnabled())
+    else if (name == commandAttr || name == commandforAttr)
         computeType(attributeWithoutSynchronization(HTMLNames::typeAttr));
     else
         HTMLFormControlElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -138,9 +138,6 @@ void HTMLButtonElement::attributeChanged(const QualifiedName& name, const AtomSt
 
 RefPtr<Element> HTMLButtonElement::commandForElement() const
 {
-    if (!document().settings().commandAttributesEnabled())
-        return nullptr;
-
     if (isDisabledFormControl())
         return nullptr;
 
@@ -308,7 +305,7 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
         handlePopoverTargetAction(protect(event.target()).get());
     }
 
-    if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event)) {
+    if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event); keyboardEvent && document().focusedElement() == this) {
         if (keyboardEvent->type() == eventNames.keydownEvent && keyboardEvent->keyIdentifier() == "U+0020"_s) {
             setActive(true);
             // No setDefaultHandled() - IE dispatches a keypress in this case.
@@ -412,7 +409,7 @@ void HTMLButtonElement::computeType(const AtomString& typeAttrValue)
         m_type = Type::Button;
     else if (equalLettersIgnoringASCIICase(typeAttrValue, "submit"_s))
         m_type = Type::Submit;
-    else if (document().settings().commandAttributesEnabled() && (hasAttributeWithoutSynchronization(HTMLNames::commandAttr) || hasAttributeWithoutSynchronization(HTMLNames::commandforAttr)))
+    else if (hasAttributeWithoutSynchronization(HTMLNames::commandAttr) || hasAttributeWithoutSynchronization(HTMLNames::commandforAttr))
         m_type = Type::Button;
     else if (document().settings().htmlEnhancedSelectEnabled() && is<HTMLSelectElement>(parentNode()))
         m_type = Type::Button;

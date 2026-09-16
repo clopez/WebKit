@@ -56,6 +56,7 @@
 #include <wtf/NotFound.h>
 #include <wtf/ParallelHelperPool.h>
 #include <wtf/SegmentedVector.h>
+#include <wtf/SentinelLinkedList.h>
 #include <wtf/Threading.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -96,6 +97,7 @@ class RunningScope;
 class SlotVisitor;
 class SpaceTimeMutatorScheduler;
 class StopIfNecessaryTimer;
+class StructureAlignedMemoryAllocator;
 class SweepingScope;
 class VM;
 class VerifierSlotVisitor;
@@ -123,7 +125,7 @@ class Heap;
     v(calleeSpace, cellHeapCellType, JSCallee) \
     v(clonedArgumentsSpace, cellHeapCellType, ClonedArguments) \
     v(customGetterSetterSpace, cellHeapCellType, CustomGetterSetter) \
-    v(dateInstanceSpace, dateInstanceHeapCellType, DateInstance) \
+    v(dateInstanceSpace, cellHeapCellType, DateInstance) \
     v(domAttributeGetterSetterSpace, cellHeapCellType, DOMAttributeGetterSetter) \
     v(exceptionSpace, destructibleCellHeapCellType, Exception) \
     v(functionSpace, cellHeapCellType, JSFunction) \
@@ -329,12 +331,6 @@ public:
     static JSC::Heap* heap(const JSValue); // 0 for immediate values
     static JSC::Heap* heap(const HeapCell*);
 
-    // This constant determines how many blocks we iterate between checks of our 
-    // deadline when calling Heap::isPagedOut. Decreasing it will cause us to detect 
-    // overstepping our deadline more quickly, while increasing it will cause 
-    // our scan to run faster. 
-    static constexpr unsigned s_timeCheckResolution = 16;
-
     bool isMarked(const void*);
     static bool testAndSetMarked(HeapVersion, const void*);
 
@@ -497,8 +493,7 @@ public:
     void deleteAllUnlinkedCodeBlocks(DeleteAllCodeEffort);
 
     JS_EXPORT_PRIVATE void didAllocate(size_t);
-    bool isPagedOut();
-    
+
     const JITStubRoutineSet& jitStubRoutines() { return *m_jitStubRoutines; }
     
     void addReference(JSCell*, ArrayBuffer*);
@@ -516,6 +511,7 @@ public:
 
     JS_EXPORT_PRIVATE void registerWeakGCHashTable(WeakGCHashTable*);
     JS_EXPORT_PRIVATE void unregisterWeakGCHashTable(WeakGCHashTable*);
+    void addDirtyWeakGCHashTable(WeakGCHashTable*);
 
     void addLogicallyEmptyWeakBlock(WeakBlock*);
 
@@ -774,7 +770,7 @@ private:
 
     void cancelDeferredWorkIfNeeded();
     void reapWeakHandles();
-    void pruneStaleEntriesFromWeakGCHashTables();
+    void reconcileWeakGCHashTables();
     void sweepArrayBuffers();
     void snapshotUnswept();
     void deleteSourceProviderCaches();
@@ -831,8 +827,6 @@ private:
     void iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor&, const Func&);
     
     void assertMarkStacksEmpty();
-
-    void setBonusVisitorTask(RefPtr<SharedTask<void(SlotVisitor&)>>);
 
     void dumpHeapStatisticsAtVMDestruction();
 
@@ -964,6 +958,7 @@ private:
     unsigned m_deferralDepth { 0 };
 
     UncheckedKeyHashSet<WeakGCHashTable*> m_weakGCHashTables;
+    SentinelLinkedList<WeakGCHashTable, BasicRawSentinelNode<WeakGCHashTable>> m_dirtyWeakGCHashTables;
     
 #if ENABLE(WEBASSEMBLY)
     UncheckedKeyHashSet<Ref<Wasm::Callee>> m_wasmCalleesPendingDestruction WTF_GUARDED_BY_LOCK(m_wasmCalleesPendingDestructionLock);
@@ -979,13 +974,13 @@ private:
     std::unique_ptr<MarkStackArray> m_sharedCollectorMarkStack;
     std::unique_ptr<MarkStackArray> m_sharedMutatorMarkStack;
     unsigned m_numberOfActiveParallelMarkers { 0 };
-    unsigned m_numberOfWaitingParallelMarkers { 0 };
+    unsigned m_numberOfWaitingParallelMarkers WTF_GUARDED_BY_LOCK(m_markingMutex) { 0 };
 
     ConcurrentPtrHashSet m_opaqueRoots;
     static constexpr size_t s_blockFragmentLength = 32;
 
     ParallelHelperClient m_helperClient;
-    RefPtr<SharedTask<void(SlotVisitor&)>> m_bonusVisitorTask;
+    RefPtr<SharedTask<void(SlotVisitor&)>> m_bonusVisitorTask WTF_GUARDED_BY_LOCK(m_markingMutex);
 
 #if ENABLE(RESOURCE_USAGE)
     size_t m_blockBytesAllocated { 0 };
@@ -1003,6 +998,7 @@ private:
     bool m_worldIsStopped { false };
     Lock m_markingMutex;
     Condition m_markingConditionVariable;
+    Condition m_bonusVisitorTaskConditionVariable;
 
     MonotonicTime m_beforeGC;
     MonotonicTime m_afterGC;
@@ -1020,7 +1016,7 @@ private:
     bool m_threadShouldStop { false };
     bool m_mutatorDidRun { true };
     bool m_didDeferGCWork { false };
-    bool m_shouldStopCollectingContinuously { false };
+    bool m_shouldStopCollectingContinuously WTF_GUARDED_BY_LOCK(m_collectContinuouslyLock) { false };
     bool m_isCompilerThreadsSuspended { false };
 
     uint64_t m_mutatorExecutionVersion { 0 };
@@ -1064,7 +1060,6 @@ public:
     IsoHeapCellType callbackObjectHeapCellType;
     IsoHeapCellType customGetterFunctionHeapCellType;
     IsoHeapCellType customSetterFunctionHeapCellType;
-    IsoHeapCellType dateInstanceHeapCellType;
     IsoHeapCellType errorInstanceHeapCellType;
     IsoHeapCellType finalizationRegistryCellType;
     IsoHeapCellType globalLexicalEnvironmentHeapCellType;
@@ -1117,6 +1112,7 @@ public:
     // AlignedMemoryAllocators
     std::unique_ptr<FastMallocAlignedMemoryAllocator> fastMallocAllocator;
     std::unique_ptr<GigacageAlignedMemoryAllocator> primitiveGigacageAllocator;
+    std::unique_ptr<StructureAlignedMemoryAllocator> structureAllocator;
 
     // Subspaces
     CompleteSubspace primitiveGigacageAuxiliarySpace; // Typed arrays, strings, bitvectors, etc go here.
@@ -1273,7 +1269,7 @@ public:
     FOR_EACH_JSC_WEBASSEMBLY_DYNAMIC_NON_ISO_SUBSPACE(DEFINE_NON_ISO_SUBSPACE_MEMBER)
 #undef DEFINE_NON_ISO_SUBSPACE_MEMBER
 
-    CString m_signpostMessage;
+    UTF8CString m_signpostMessage;
 };
 
 namespace GCClient {

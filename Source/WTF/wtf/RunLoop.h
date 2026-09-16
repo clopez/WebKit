@@ -217,7 +217,7 @@ public:
         WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Timer);
     public:
         template <typename TimerFiredClass>
-        requires (WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass>::value)
+        requires (WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass>)
         Timer(Ref<RunLoop>&& runLoop, ASCIILiteral description, TimerFiredClass* object, void (TimerFiredClass::*function)())
             : Timer(WTF::move(runLoop), description, [weakObject = ThreadSafeWeakPtr { *object }, function] {
                 if (RefPtr object = weakObject.get())
@@ -227,7 +227,7 @@ public:
         }
 
         template <typename TimerFiredClass>
-        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass>::value && WTF::HasWeakPtrFunctions<TimerFiredClass>::value && WTF::HasRefPtrMemberFunctions<TimerFiredClass>::value)
+        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass> && WTF::HasWeakPtrFunctions<TimerFiredClass> && WTF::HasRefPtrMemberFunctions<TimerFiredClass>)
         Timer(Ref<RunLoop>&& runLoop, ASCIILiteral description, TimerFiredClass* object, void (TimerFiredClass::*function)())
             : Timer(WTF::move(runLoop), description, [weakObject = WeakPtr { *object }, function] {
                 if (RefPtr object = weakObject.get())
@@ -237,7 +237,7 @@ public:
         }
 
         template <typename TimerFiredClass>
-        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass>::value && WTF::HasWeakPtrFunctions<TimerFiredClass>::value && !WTF::HasRefPtrMemberFunctions<TimerFiredClass>::value && WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>::value)
+        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass> && WTF::HasWeakPtrFunctions<TimerFiredClass> && !WTF::HasRefPtrMemberFunctions<TimerFiredClass> && WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>)
         Timer(Ref<RunLoop>&& runLoop, ASCIILiteral description, TimerFiredClass* object, void (TimerFiredClass::*function)())
             : Timer(WTF::move(runLoop), description, [weakObject = WeakPtr { *object }, function] {
                 if (CheckedPtr object = weakObject)
@@ -247,7 +247,7 @@ public:
         }
 
         template <typename TimerFiredClass>
-        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass>::value && !WTF::HasWeakPtrFunctions<TimerFiredClass>::value && WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>::value)
+        requires (!WTF::HasThreadSafeWeakPtrFunctions<TimerFiredClass> && !WTF::HasWeakPtrFunctions<TimerFiredClass> && WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>)
         Timer(Ref<RunLoop>&& runLoop, ASCIILiteral description, TimerFiredClass* object, void (TimerFiredClass::*function)())
             : Timer(WTF::move(runLoop), description, [object = CheckedRef { *object }, function] {
                 (object.ptr()->*function)();
@@ -264,7 +264,7 @@ public:
 #if !PLATFORM(COCOA)
         // FIXME: This constructor isn't as safe as the other ones and should be removed.
         template <typename TimerFiredClass>
-        requires (!WTF::HasRefPtrMemberFunctions<TimerFiredClass>::value && !WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>::value)
+        requires (!WTF::HasRefPtrMemberFunctions<TimerFiredClass> && !WTF::HasCheckedPtrMemberFunctions<TimerFiredClass>)
         Timer(Ref<RunLoop>&& runLoop, ASCIILiteral description, TimerFiredClass* object, void (TimerFiredClass::*function)())
             : Timer(WTF::move(runLoop), description, std::bind(function, object))
         {
@@ -316,7 +316,7 @@ private:
 #else
     mutable Lock m_registeredTimerLock;
 #endif
-    HashSet<TimerBase *> m_registeredTimers;
+    HashSet<TimerBase *> m_registeredTimers WTF_GUARDED_BY_LOCK(m_registeredTimerLock);
 
     Deque<Function<void()>> m_currentIteration;
 
@@ -413,15 +413,6 @@ private:
 
 inline void assertIsCurrent(const RunLoop& runLoop) WTF_ASSERTS_ACQUIRED_CAPABILITY(runLoop)
 {
-    UNUSED_PARAM(runLoop);
-    ASSERT_WITH_SECURITY_IMPLICATION(runLoop.isCurrent());
-}
-
-// Like assertIsCurrent(), but enforced in release builds too. Used by RunLoop::Timer::stop() and the
-// destructor, where running off the run loop's thread while the timer is active is a cross-thread
-// use-after-free, so it must crash even when debug assertions are disabled.
-inline void releaseAssertIsCurrent(const RunLoop& runLoop) WTF_ASSERTS_ACQUIRED_CAPABILITY(runLoop)
-{
     RELEASE_ASSERT(runLoop.isCurrent());
 }
 
@@ -432,5 +423,4 @@ WTF_EXPORT_PRIVATE void callOnRunLoop(RunLoop&, Function<void()>&&);
 using WTF::RunLoop;
 using WTF::RunLoopMode;
 using WTF::assertIsCurrent;
-using WTF::releaseAssertIsCurrent;
 using WTF::callOnRunLoop;

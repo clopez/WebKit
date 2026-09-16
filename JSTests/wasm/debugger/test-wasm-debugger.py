@@ -5,6 +5,7 @@ WebAssembly Debugger Test Runner
 
 import argparse
 import os
+import socket
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -83,6 +84,8 @@ def main():
                         help="List available test cases and exit")
     parser.add_argument("--parallel", "-p", type=int, nargs="?", const=-1, metavar="N",
                         help="Parallel workers (omit N for auto-detect)")
+    parser.add_argument("--lldb", metavar="PATH",
+                        help="LLDB to test against (default: xcrun --find lldb)")
 
     build_group = parser.add_mutually_exclusive_group()
     build_group.add_argument("--debug",   action="store_true", help="Use Debug build")
@@ -95,7 +98,7 @@ def main():
     set_verbose(verbose)
 
     build_config = "Debug" if args.debug else "Release" if args.release else None
-    env = WebKitEnvironment(Path(__file__), build_config)
+    env = WebKitEnvironment(Path(__file__), build_config, args.lldb)
 
     all_tests = list(ALL_TESTS) + [JavaScriptCoreTestCase]
 
@@ -117,9 +120,14 @@ def main():
     else:
         tests = all_tests
 
-    # Assign stable ports: index in all_tests (not filtered list) so ports
-    # don't shift when --test filters a subset.
-    port_map = {cls: 12340 + i for i, cls in enumerate(all_tests)}
+    # OS-assigned ports: a fixed base is collidable by anything else on the machine, and the bind
+    # failure is silent. Every probe is held until all ports are picked, so they cannot repeat.
+    probes = [socket.socket() for _ in all_tests]
+    for probe in probes:
+        probe.bind(("127.0.0.1", 0))
+    port_map = {cls: probe.getsockname()[1] for cls, probe in zip(all_tests, probes)}
+    for probe in probes:
+        probe.close()
     tasks = [(cls, port_map[cls], env, verbose, args.verbose_wasm_debugger)
              for cls in tests]
 

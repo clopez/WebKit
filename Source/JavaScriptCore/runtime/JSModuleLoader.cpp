@@ -345,7 +345,7 @@ void JSModuleLoader::provideFetch(JSGlobalObject* globalObject, const Identifier
         entry->provideFetch(globalObject, jsSourceCode); // can throw
 }
 
-JSPromise* JSModuleLoader::loadModule(JSGlobalObject* globalObject, const Identifier& specifier, RefPtr<ScriptFetchParameters> parameters, RefPtr<ScriptFetcher> scriptFetcher, OptionSet<ModuleLoadFlag> flags)
+JSPromise* JSModuleLoader::loadModule(JSGlobalObject* globalObject, const Identifier& specifier, RefPtr<ScriptFetchParameters> parameters, RefPtr<ScriptFetcher> scriptFetcher, OptionSet<ModuleLoadFlag> flags, const String& referrer)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -369,7 +369,7 @@ JSPromise* JSModuleLoader::loadModule(JSGlobalObject* globalObject, const Identi
     }
 
     if (!promise) {
-        promise = fetch(globalObject, identifierToJSValue(vm, specifier), WTF::move(parameters), scriptFetcher);
+        promise = fetch(globalObject, identifierToJSValue(vm, specifier), referrer, WTF::move(parameters), scriptFetcher);
         RETURN_IF_EXCEPTION(scope, nullptr);
     }
 
@@ -431,6 +431,16 @@ JSPromise* JSModuleLoader::linkAndEvaluateModule(JSGlobalObject* globalObject, c
     return promise;
 }
 
+// The referrer of a module fetch is the referring script's base URL, i.e. its module key. An inline
+// module's key is a Symbol: it has no URL of its own, so we return the empty string and let the host
+// substitute its base URL. A null key means there is no referring script at all.
+static String moduleReferrer(const Identifier& referrerKey)
+{
+    if (referrerKey.isSymbol())
+        return emptyString();
+    return referrerKey.string();
+}
+
 JSPromise* JSModuleLoader::requestImportModule(JSGlobalObject* globalObject, const Identifier& moduleName, const Identifier& referrer, RefPtr<ScriptFetchParameters> parameters, RefPtr<ScriptFetcher> scriptFetcher, bool deferred)
 {
     VM& vm = globalObject->vm();
@@ -442,7 +452,8 @@ JSPromise* JSModuleLoader::requestImportModule(JSGlobalObject* globalObject, con
     OptionSet<ModuleLoadFlag> flags { ModuleLoadFlag::Evaluate, ModuleLoadFlag::Dynamic };
     if (deferred)
         flags.add(ModuleLoadFlag::Deferred);
-    JSPromise* promise = loadModule(globalObject, resolved, WTF::move(parameters), WTF::move(scriptFetcher), flags);
+    // Per "fetch an import() module script graph", the referring script's base URL is the fetch's referrer.
+    JSPromise* promise = loadModule(globalObject, resolved, WTF::move(parameters), WTF::move(scriptFetcher), flags, moduleReferrer(referrer));
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     JSPromise* resultPromise = JSPromise::create(vm, globalObject->promiseStructure());
@@ -450,6 +461,25 @@ JSPromise* JSModuleLoader::requestImportModule(JSGlobalObject* globalObject, con
     promise->performPromiseThenWithInternalMicrotask(vm, InternalMicrotask::ImportModuleNamespace, resultPromise, jsUndefined());
 
     return resultPromise;
+}
+
+// https://html.spec.whatwg.org/multipage/webappapis.html#module-type-allowed
+static bool moduleTypeIsAllowed(JSGlobalObject* globalObject, ScriptFetchParameters::Type type)
+{
+    switch (type) {
+    case ScriptFetchParameters::JavaScript:
+    case ScriptFetchParameters::WebAssembly:
+    case ScriptFetchParameters::JSON:
+    case ScriptFetchParameters::Text:
+    case ScriptFetchParameters::None:
+        return true;
+
+    default:
+        if (globalObject->globalObjectMethodTable()->moduleTypeIsAllowed)
+            return globalObject->globalObjectMethodTable()->moduleTypeIsAllowed(type);
+
+        return false;
+    };
 }
 
 JSPromise* JSModuleLoader::importModule(JSGlobalObject* globalObject, JSString* moduleName, JSValue parameters, const SourceOrigin& referrer, bool deferred)
@@ -464,6 +494,12 @@ JSPromise* JSModuleLoader::importModule(JSGlobalObject* globalObject, JSString* 
 
     auto type = retrieveTypeImportAttribute(globalObject, attributes);
     RETURN_IF_EXCEPTION(scope, nullptr);
+
+    if (type && !moduleTypeIsAllowed(globalObject, *type)) {
+        auto* promise = JSPromise::create(vm, globalObject->promiseStructure());
+        promise->reject(vm, createTypeError(globalObject, "Module type not supported by environment"_s));
+        RELEASE_AND_RETURN(scope, promise);
+    }
 
     RefPtr<ScriptFetchParameters> fetchParams;
     if (type)
@@ -504,15 +540,22 @@ Identifier JSModuleLoader::resolve(JSGlobalObject* globalObject, const Identifie
     RELEASE_AND_RETURN(scope, resolve(globalObject, nameValue, referrerValue, WTF::move(scriptFetcher), useImportMap));
 }
 
-JSPromise* JSModuleLoader::fetch(JSGlobalObject* globalObject, JSValue key, RefPtr<ScriptFetchParameters> parameters, RefPtr<ScriptFetcher> scriptFetcher)
+JSPromise* JSModuleLoader::fetch(JSGlobalObject* globalObject, JSValue key, const String& referrer, RefPtr<ScriptFetchParameters> parameters, RefPtr<ScriptFetcher> scriptFetcher)
 {
     dataLogLnIf(Options::dumpModuleLoadingState(), "Loader [fetch] ", printableModuleKey(globalObject, key));
 
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    // https://html.spec.whatwg.org/multipage/webappapis.html#fetching-scripts:module-type-allowed
+    // Assert: the result of running the module type allowed steps given moduleType and settingsObject is true.
+    // Otherwise, we would not have reached this point because a failure would have been raised when inspecting
+    // moduleRequest.[[Attributes]] in HostLoadImportedModule or fetch a single imported module script.
+    if (parameters)
+        ASSERT(moduleTypeIsAllowed(globalObject, parameters->type()));
+
     if (globalObject->globalObjectMethodTable()->moduleLoaderFetch)
-        RELEASE_AND_RETURN(scope, globalObject->globalObjectMethodTable()->moduleLoaderFetch(globalObject, this, key, WTF::move(parameters), WTF::move(scriptFetcher)));
+        RELEASE_AND_RETURN(scope, globalObject->globalObjectMethodTable()->moduleLoaderFetch(globalObject, this, key, referrer, WTF::move(parameters), WTF::move(scriptFetcher)));
 
     auto* promise = JSPromise::create(vm, globalObject->promiseStructure());
     String moduleKey = key.toWTFString(globalObject);
@@ -594,6 +637,22 @@ JSPromise* JSModuleLoader::hostLoadImportedModule(JSGlobalObject* globalObject, 
     ModuleRegistryEntry* mapEntry = nullptr;
     const Identifier& specifier = moduleRequest.m_specifier;
     auto type = moduleRequest.type();
+
+    // Step 14 calls for calling "fetch a single imported module script"
+    // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-imported-module-script
+    // 3. If the result of running the module type allowed steps given moduleType and settingsObject is false,
+    //    then run onComplete given null, and return.
+    if (!moduleTypeIsAllowed(globalObject, type)) {
+        JSPromise* promise = JSPromise::create(vm, globalObject->promiseStructure());
+
+        auto error = createTypeError(globalObject, "Module type not supported by environment"_s);
+        promise->reject(vm, error);
+
+        auto exception = Exception::create(vm, error);
+        finishLoadingImportedModule(globalObject, referrer, moduleRequest, payload, exception, scriptFetcher);
+
+        RELEASE_AND_RETURN(scope, promise);
+    }
 
     ModuleMapKey moduleMapKey { specifier.impl(), type };
 
@@ -702,7 +761,8 @@ JSPromise* JSModuleLoader::hostLoadImportedModule(JSGlobalObject* globalObject, 
     }
 
     if (mapEntry->status() == ModuleRegistryEntry::Status::New) {
-        JSPromise* promise = fetch(globalObject, identifierToJSValue(vm, resolved), moduleRequest.m_attributes, scriptFetcher);
+        // Per "fetch the descendants of a module script", the referrer is the referring module's base URL.
+        JSPromise* promise = fetch(globalObject, identifierToJSValue(vm, resolved), moduleReferrer(referrerKey), moduleRequest.m_attributes, scriptFetcher);
         RETURN_IF_EXCEPTION(scope, nullptr);
 
         mapEntry->setStatus(ModuleRegistryEntry::Status::Fetching);

@@ -1355,6 +1355,7 @@ void KeyframeEffect::setBlendingKeyframes(BlendingKeyframes&& blendingKeyframes)
 
     checkForMatchingTransformFunctionLists();
 
+    updateComputedKeyframeOffsetsIfNeeded();
     updateAcceleratedAnimationIfNecessary();
 }
 
@@ -2005,11 +2006,13 @@ bool KeyframeEffect::canBeAccelerated(AccountForTimelineAccelerationAbility acco
     if (m_isAssociatedWithProgressBasedTimeline)
         return false;
 
+#if USE(CA)
     if (m_someKeyframesUseStepsTimingFunction || is<StepsTimingFunction>(timingFunction()))
         return false;
 
     if (m_someKeyframesUseLinearTimingFunctionWithPoints || isLinearTimingFunctionWithPoints(timingFunction()))
         return false;
+#endif
 
     if (m_compositeOperation != CompositeOperation::Replace)
         return false;
@@ -2125,7 +2128,21 @@ void KeyframeEffect::addPendingAcceleratedAction(AcceleratedAction action)
 
 void KeyframeEffect::animationDidTick()
 {
-    invalidate();
+    auto canSkipInvalidation = [this]() {
+        if (!isCompletelyAccelerated() || !isRunningAccelerated())
+            return false;
+        if (getBasicTiming().phase != m_phaseAtLastApplication)
+            return false;
+#if ENABLE(THREADED_ANIMATIONS)
+        if (canHaveAcceleratedRepresentation() && m_isAssociatedWithProgressBasedTimeline)
+            return false;
+#endif
+        return true;
+    };
+
+    if (!canSkipInvalidation())
+        invalidate();
+
     updateAcceleratedActions();
 
 #if ENABLE(THREADED_ANIMATIONS)
@@ -2219,7 +2236,7 @@ std::optional<KeyframeEffect::RecomputationReason> KeyframeEffect::recomputeKeyf
         return { };
 
     auto fontSizeChanged = [&]() {
-        return previousUnanimatedStyle && previousUnanimatedStyle->computedFontSize() != unanimatedStyle.computedFontSize();
+        return previousUnanimatedStyle && previousUnanimatedStyle->usedFontSize() != unanimatedStyle.usedFontSize();
     };
 
     auto fontWeightChanged = [&]() {
@@ -2499,7 +2516,7 @@ void KeyframeEffect::applyPendingAcceleratedActions()
         case AcceleratedAction::Stop:
             ASSERT(document());
             renderer->animationFinished(m_blendingKeyframes);
-            if (!document()->renderTreeBeingDestroyed())
+            if (document()->renderTreeState() != Document::RenderTreeState::BeingDestroyed)
                 protect(m_target)->invalidateStyleAndLayerComposition();
             m_runningAccelerated = canBeAccelerated() ? RunningAccelerated::NotStarted : RunningAccelerated::Prevented;
             break;
@@ -2740,10 +2757,12 @@ bool KeyframeEffect::ticksContinuouslyWhileActive() const
     if (doesNotAffectStyles)
         return false;
 
-    auto targetHasDisplayContents = [&]() {
-        return m_target && !m_pseudoElementIdentifier && m_target->hasDisplayContents();
+    // A renderer-less target can still have a resolved style kept for it — display:contents, and a <model> inside
+    // a spatial:portal — in which case there is something to animate and this has to keep ticking.
+    auto targetHasStyleToAnimate = [&]() {
+        return m_target && !m_pseudoElementIdentifier && m_target->renderOrDisplayContentsStyle();
     };
-    if (!renderer() && !m_blendingKeyframes.properties().contains(CSSPropertyDisplay) && !targetHasDisplayContents())
+    if (!renderer() && !m_blendingKeyframes.properties().contains(CSSPropertyDisplay) && !targetHasStyleToAnimate())
         return false;
 
     if (isCompletelyAccelerated() && isRunningAccelerated()) {
@@ -3304,7 +3323,7 @@ void KeyframeEffect::timelineAccelerationAbilityDidChange()
 
 Ref<AcceleratedEffect> KeyframeEffect::acceleratedRepresentation(const IntRect& borderBoxRect, const AcceleratedEffectValues& baseValues, OptionSet<AcceleratedEffectProperty>& disallowedProperties)
 {
-    updateComputedKeyframeOffsetsIfNeeded();
+    ASSERT(canBeAccelerated());
     Ref acceleratedEffect = AcceleratedEffect::create(*this, borderBoxRect, baseValues, disallowedProperties);
     m_acceleratedRepresentation = acceleratedEffect.ptr();
     return acceleratedEffect;

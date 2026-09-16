@@ -1703,6 +1703,9 @@
     "imported/w3c/web-platform-tests/css/css-transforms/animation/translate-interpolation.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/css/css-transitions/events-008.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/css/css-transitions/properties-value-001.html": [
         "slow"
     ],
@@ -4394,6 +4397,24 @@
     "imported/w3c/web-platform-tests/import-maps/import-maps-base-url.sub.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-backspace.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-deleting-in-list-items.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-forwarddelete.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-joining-dl-element-and-another-list.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-joining-dl-elements.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/input-events/input-events-get-target-ranges-non-collapsed-selection.tentative.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/intersection-observer/scroll-margin-propagation.html": [
         "slow"
     ],
@@ -5288,6 +5309,33 @@
     "imported/w3c/web-platform-tests/requestidlecallback/deadline-max.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/resource-timing/buffer-full-eventually.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/content-type-minimization.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/decoded-body-size-compressed.https.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/encoded-body-size-cached.https.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/event-source-timing.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/iframe-failed-commit.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/interim-response-times.h2.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/interim-response-times.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/resource-timing/link-sequence-of-events.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/resource-timing/nested-context-navigations-embed.html": [
         "slow"
     ],
@@ -5297,19 +5345,13 @@
     "imported/w3c/web-platform-tests/resource-timing/nested-context-navigations-object.html": [
         "slow"
     ],
-    "imported/w3c/web-platform-tests/resource-timing/nextHopProtocol-tao-protected.https.html": [
+    "imported/w3c/web-platform-tests/resource-timing/object-not-found-after-cross-origin-redirect.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/resource-timing/resource-timing-level1.sub.html": [
         "slow"
     ],
-    "imported/w3c/web-platform-tests/resource-timing/resource_timing_buffer_full_eventually.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/resource-timing/single-entry-per-resource.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/resource-timing/workerStart-tao-protected.https.html": [
+    "imported/w3c/web-platform-tests/resource-timing/response-status-code.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/screen-orientation/hidden_document.html": [
@@ -5400,6 +5442,9 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/selection/collapse-45.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/selection/crashtests/selection-modify-around-details-not-having-summary.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/selection/extend-00.html": [

@@ -39,6 +39,7 @@
 #include "DOMJITGetterSetter.h"
 #include "Debugger.h"
 #include "ExecutableBaseInlines.h"
+#include "FastMallocAlignedMemoryAllocator.h"
 #include "FrameTracers.h"
 #include "FunctionCodeBlock.h"
 #include "GetterSetter.h"
@@ -55,6 +56,7 @@
 #include "JSString.h"
 #include "LinkBuffer.h"
 #include "NativeCallee.h"
+#include "ObjectConstructor.h"
 #include "ObjectPropertyCondition.h"
 #include "OperationResult.h"
 #include "Options.h"
@@ -1130,7 +1132,7 @@ public:
             snippet->requireGlobalObject = true;
             snippet->setGenerator([=] (CCallHelpers& jit, SnippetParams& params) {
                 DollarVMAssertScope assertScope;
-                JSValueRegs results = params[0].jsValueRegs();
+                GPRReg results = params[0].gpr();
                 GPRReg domGPR = params[1].gpr();
                 GPRReg globalObjectGPR = params[2].gpr();
                 params.addSlowPathCall(jit.jump(), jit, domJITGetterSlowCall, results, globalObjectGPR, domGPR);
@@ -1237,7 +1239,7 @@ public:
             snippet->requireGlobalObject = true;
             snippet->setGenerator([=] (CCallHelpers& jit, SnippetParams& params) {
                 DollarVMAssertScope assertScope;
-                JSValueRegs results = params[0].jsValueRegs();
+                GPRReg results = params[0].gpr();
                 GPRReg domGPR = params[1].gpr();
                 GPRReg globalObjectGPR = params[2].gpr();
                 params.addSlowPathCall(jit.jump(), jit, domJITGetterNoEffectSlowCall, results, globalObjectGPR, domGPR);
@@ -1340,7 +1342,7 @@ public:
             snippet->requireGlobalObject = true;
             snippet->setGenerator([=] (CCallHelpers& jit, SnippetParams& params) {
                 DollarVMAssertScope assertScope;
-                JSValueRegs results = params[0].jsValueRegs();
+                GPRReg results = params[0].gpr();
                 GPRReg domGPR = params[1].gpr();
                 GPRReg globalObjectGPR = params[2].gpr();
                 for (unsigned i = 0; i < numGPScratchRegisters; ++i)
@@ -1606,7 +1608,7 @@ public:
             snippet->requireGlobalObject = true;
             snippet->setGenerator([=] (CCallHelpers& jit, SnippetParams& params) {
                 DollarVMAssertScope assertScope;
-                JSValueRegs results = params[0].jsValueRegs();
+                GPRReg results = params[0].gpr();
                 GPRReg domGPR = params[1].gpr();
                 GPRReg globalObjectGPR = params[2].gpr();
                 params.addSlowPathCall(jit.jump(), jit, domJITGetterBaseJSObjectSlowCall, results, globalObjectGPR, domGPR);
@@ -2217,6 +2219,9 @@ static JSC_DECLARE_HOST_FUNCTION(functionInstallPropertyInlineCacheClearingWatch
 static JSC_DECLARE_HOST_FUNCTION(functionDeltaBetweenButterflies);
 static JSC_DECLARE_HOST_FUNCTION(functionCurrentCPUTime);
 static JSC_DECLARE_HOST_FUNCTION(functionTotalGCTime);
+static JSC_DECLARE_HOST_FUNCTION(functionWarmUpMarkedBlocksAreEnabled);
+static JSC_DECLARE_HOST_FUNCTION(functionWarmUpMarkedBlockCount);
+static JSC_DECLARE_HOST_FUNCTION(functionSetWarmUpMarkedBlockAllocationShouldFail);
 static JSC_DECLARE_HOST_FUNCTION(functionParseCount);
 static JSC_DECLARE_HOST_FUNCTION(functionIsWasmSupported);
 static JSC_DECLARE_HOST_FUNCTION(functionWasmCanonicalTypeCount);
@@ -2244,6 +2249,8 @@ static JSC_DECLARE_HOST_FUNCTION(functionIsGigacageEnabled);
 static JSC_DECLARE_HOST_FUNCTION(functionToCacheableDictionary);
 static JSC_DECLARE_HOST_FUNCTION(functionToUncacheableDictionary);
 static JSC_DECLARE_HOST_FUNCTION(functionIsPrivateSymbol);
+static JSC_DECLARE_HOST_FUNCTION(functionIsDefinitelyAtomString);
+static JSC_DECLARE_HOST_FUNCTION(functionIsAtomString);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpAndResetPasDebugSpectrum);
 static JSC_DECLARE_HOST_FUNCTION(functionMonotonicTimeNow);
 static JSC_DECLARE_HOST_FUNCTION(functionWallTimeNow);
@@ -3642,12 +3649,20 @@ JSC_DEFINE_HOST_FUNCTION(functionFindTypeForExpression, (JSGlobalObject* globalO
     FunctionExecutable* executable = (dynamicDowncast<JSFunction>(functionValue.asCell()->getObject()))->jsExecutable();
 
     RELEASE_ASSERT(callFrame->argument(1).isString());
+    auto scope = DECLARE_THROW_SCOPE(vm);
     auto substring = asString(callFrame->argument(1))->value(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
     String sourceCodeText = executable->source().view().toString();
-    unsigned offset = static_cast<unsigned>(sourceCodeText.find(substring) + executable->source().startOffset());
-    
+    size_t index = sourceCodeText.find(substring);
+    unsigned startOffset = executable->source().startOffset();
+    if (index == notFound || index > std::numeric_limits<unsigned>::max() - startOffset)
+        return JSValue::encode(jsNull());
+    unsigned offset = static_cast<unsigned>(index) + startOffset;
+
     String jsonString = vm.typeProfiler()->typeInformationForExpressionAtOffset(TypeProfilerSearchDescriptorNormal, offset, executable->sourceID(), vm);
-    return JSValue::encode(JSONParse(globalObject, jsonString));
+    JSValue result = JSONParse(globalObject, jsonString);
+    RETURN_IF_EXCEPTION(scope, { });
+    return JSValue::encode(result);
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionReturnTypeFor, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -3973,6 +3988,25 @@ JSC_DEFINE_HOST_FUNCTION(functionTotalGCTime, (JSGlobalObject* globalObject, Cal
     DollarVMAssertScope assertScope;
     VM& vm = globalObject->vm();
     return JSValue::encode(jsNumber(vm.heap.totalGCTime().seconds()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(functionWarmUpMarkedBlocksAreEnabled, (JSGlobalObject*, CallFrame*))
+{
+    DollarVMAssertScope assertScope;
+    return JSValue::encode(jsBoolean(warmUpMarkedBlocksAreEnabledForTesting()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(functionWarmUpMarkedBlockCount, (JSGlobalObject*, CallFrame*))
+{
+    DollarVMAssertScope assertScope;
+    return JSValue::encode(jsNumber(warmUpMarkedBlockCountForTesting()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(functionSetWarmUpMarkedBlockAllocationShouldFail, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    DollarVMAssertScope assertScope;
+    setWarmUpMarkedBlockAllocationShouldFailForTesting(callFrame->argument(0).toBoolean(globalObject));
+    return JSValue::encode(jsUndefined());
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionParseCount, (JSGlobalObject*, CallFrame*))
@@ -4302,6 +4336,29 @@ JSC_DEFINE_HOST_FUNCTION(functionIsPrivateSymbol, (JSGlobalObject*, CallFrame* c
     return JSValue::encode(jsBoolean(asSymbol(callFrame->argument(0))->uid().isPrivate()));
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionIsDefinitelyAtomString, (JSGlobalObject*, CallFrame* callFrame))
+{
+    DollarVMAssertScope assertScope;
+
+    JSValue value = callFrame->argument(0);
+    if (!value.isString())
+        return JSValue::encode(jsBoolean(false));
+
+    return JSValue::encode(jsBoolean(asString(value)->isDefinitelyAtom()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(functionIsAtomString, (JSGlobalObject*, CallFrame* callFrame))
+{
+    DollarVMAssertScope assertScope;
+
+    JSValue value = callFrame->argument(0);
+    if (!value.isString())
+        return JSValue::encode(jsBoolean(false));
+
+    const StringImpl* impl = asString(value)->tryGetValueImpl();
+    return JSValue::encode(jsBoolean(impl && impl->isAtom()));
+}
+
 JSC_DEFINE_HOST_FUNCTION(functionDumpAndResetPasDebugSpectrum, (JSGlobalObject*, CallFrame*))
 {
     DollarVMAssertScope assertScope;
@@ -4432,7 +4489,7 @@ JSC_DEFINE_HOST_FUNCTION(functionSetCrashLogMessage, (JSGlobalObject* globalObje
     String message = callFrame->argument(0).toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    WTF::setCrashLogMessage(message.utf8().data());
+    WTF::setCrashLogMessage(message.utf8().legacyCStringPointer());
 
     return JSValue::encode(jsUndefined());
 }
@@ -4699,6 +4756,9 @@ void JSDollarVM::finishCreation(VM& vm)
     
     addFunction(vm, alwaysAllow, "currentCPUTime"_s, functionCurrentCPUTime, 0);
     addFunction(vm, alwaysAllow, "totalGCTime"_s, functionTotalGCTime, 0);
+    addFunction(vm, alwaysAllow, "warmUpMarkedBlocksAreEnabled"_s, functionWarmUpMarkedBlocksAreEnabled, 0);
+    addFunction(vm, alwaysAllow, "warmUpMarkedBlockCount"_s, functionWarmUpMarkedBlockCount, 0);
+    addFunction(vm, alwaysAllow, "setWarmUpMarkedBlockAllocationShouldFail"_s, functionSetWarmUpMarkedBlockAllocationShouldFail, 1);
 
     addFunction(vm, alwaysAllow, "parseCount"_s, functionParseCount, 0);
 
@@ -4735,6 +4795,8 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, allowIfNotFuzz, "toUncacheableDictionary"_s, functionToUncacheableDictionary, 1);
 
     addFunction(vm, allowIfNotFuzz, "isPrivateSymbol"_s, functionIsPrivateSymbol, 1);
+    addFunction(vm, allowIfNotFuzz, "isDefinitelyAtomString"_s, functionIsDefinitelyAtomString, 1);
+    addFunction(vm, allowIfNotFuzz, "isAtomString"_s, functionIsAtomString, 1);
     addFunction(vm, allowIfNotFuzz, "dumpAndResetPasDebugSpectrum"_s, functionDumpAndResetPasDebugSpectrum, 0);
 
     addFunction(vm, alwaysAllow, "monotonicTimeNow"_s, functionMonotonicTimeNow, 0);

@@ -180,7 +180,6 @@ bool isDefaultValue(AXProperty property, AXPropertyValueVariant& value)
         [](std::unique_ptr<AXTextRuns>& typedValue) { return !typedValue || !typedValue->size(); },
         [](RetainPtr<CTFontRef>& typedValue) { return !typedValue; },
         [](FontOrientation typedValue) { return typedValue == FontOrientation::Horizontal; },
-        [](AXTextRunLineID typedValue) { return !typedValue; },
         [](WallTime& time) { return !time; },
         [](ElementName& name) { return name == ElementName::Unknown; },
         [](DateComponentsType& typedValue) { return typedValue == DateComponentsType::Invalid; },
@@ -1910,15 +1909,23 @@ int AXIsolatedObject::insertionPointLineNumber() const
         return 0;
 
     auto selectedMarkerRange = selectedTextMarkerRange();
-    if (selectedMarkerRange.start().isNull() || !selectedMarkerRange.isCollapsed()) {
+    if (!selectedMarkerRange.isCollapsed()) {
         // If the selection is not collapsed, we don't know whether the insertion point is at the start or the end, so return -1.
         return -1;
     }
 
     if (isTextControl()) {
+        if (selectedMarkerRange.start().isNull()) {
+            // A control with no text has nothing for a marker to point at, and a single line for the
+            // caret to be on.
+            return AXTextMarker { *this, 0 }.toTextRunMarker(idOfNextSiblingIncludingIgnoredOrParent()).isValid() ? -1 : 0;
+        }
         RefPtr selectionObject = selectedMarkerRange.start().isolatedObject();
-        if (selectionObject && isAncestorOfObject(*selectionObject))
-            return selectedMarkerRange.start().lineIndex();
+        if (selectionObject && isAncestorOfObject(*selectionObject)) {
+            // Count lines from this control, not from the selection's own editable ancestor, which is a
+            // nested control when one contains the selection (e.g. a <textarea> inside a contenteditable).
+            return selectedMarkerRange.start().lineIndex(objectID());
+        }
     }
     return -1;
 }

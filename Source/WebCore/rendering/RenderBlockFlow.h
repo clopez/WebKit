@@ -53,11 +53,13 @@ namespace InlineIterator {
 class LineBoxIterator;
 }
 
-#if ENABLE(TEXT_AUTOSIZING)
+namespace Style {
+enum class MarginTrimSide : uint8_t;
+}
+
 enum LineCount {
     NOT_SET = 0, NO_LINE = 1, ONE_LINE = 2, MULTI_LINE = 3
 };
-#endif
 
 class MarginValues {
 public:
@@ -96,19 +98,19 @@ public:
 
     static LayoutUnit positiveMarginBeforeDefault(const RenderBlock& block)
     {
-        return std::max<LayoutUnit>(block.marginBefore(), 0);
+        return std::max<LayoutUnit>(block.marginBefore(block.writingMode()), 0);
     }
     static LayoutUnit negativeMarginBeforeDefault(const RenderBlock& block)
     {
-        return std::max<LayoutUnit>(-block.marginBefore(), 0);
+        return std::max<LayoutUnit>(-block.marginBefore(block.writingMode()), 0);
     }
     static LayoutUnit positiveMarginAfterDefault(const RenderBlock& block)
     {
-        return std::max<LayoutUnit>(block.marginAfter(), 0);
+        return std::max<LayoutUnit>(block.marginAfter(block.writingMode()), 0);
     }
     static LayoutUnit negativeMarginAfterDefault(const RenderBlock& block)
     {
-        return std::max<LayoutUnit>(-block.marginAfter(), 0);
+        return std::max<LayoutUnit>(-block.marginAfter(block.writingMode()), 0);
     }
 
     MarginValues m_margins;
@@ -163,6 +165,7 @@ protected:
 
 public:
     MarginValues marginValuesForChild(RenderBox& child) const;
+    inline bool shouldTrimChildMargin(Style::MarginTrimSide, const RenderBox&) const;
     void dirtyForLayoutFromPercentageHeightDescendant(RenderBox&);
 
     class MarginInfo {
@@ -247,7 +250,6 @@ public:
         LayoutUnit m_marginBeforeWithClearance;
     };
 
-    bool shouldTrimChildMargin(Style::MarginTrimSide, const RenderBox&) const;
     void performBlockStepSizing(RenderBox& child, LayoutUnit blockStepSizeForChild) const;
 
     void layoutBlockChild(RenderBox& child, MarginInfo&, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom);
@@ -262,7 +264,7 @@ public:
     void adjustOutOfFlowBlock(RenderBox& child, const MarginInfo&);
     void adjustFloatingBlock(const MarginInfo&);
 
-    void trimBlockEndChildrenMargins();
+    void adjustBlockEndChildrenForMarginTrim();
 
     void setStaticInlinePositionForChild(RenderBox& child, LayoutUnit inlinePosition);
 
@@ -404,8 +406,6 @@ public:
     std::optional<LayoutUnit> lastLineBaseline() const override;
 
 protected:
-    bool isChildEligibleForMarginTrim(Style::MarginTrimSide, const RenderBox&) const final;
-
     bool shouldResetLogicalHeightBeforeLayout() const override { return true; }
 
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const override;
@@ -454,6 +454,8 @@ protected:
     void layoutExcludedChildren(RelayoutChildren) override;
 
 private:
+    bool isChildEligibleForMarginTrim(Style::MarginTrimSide, const RenderBox&) const;
+
     bool recomputeLogicalWidthAndColumnWidth();
     LayoutUnit columnGap() const;
     
@@ -529,10 +531,9 @@ private:
 
     void dirtyForLayoutFromPercentageHeightDescendants();
 
-#if ENABLE(TEXT_AUTOSIZING)
     int m_widthForTextAutosizing;
     unsigned m_lineCountForTextAutosizing : 2;
-#endif
+
     // FIXME: This is temporary until after we remove the forced "line layout codepath" invalidation.
     std::optional<std::pair<LayoutUnit, LayoutUnit>> m_previousInlineLayoutContentTopAndBottomIncludingInkOverflow;
 
@@ -553,14 +554,12 @@ public:
     Layout::InlineContentCache& ensureInlineContentCache();
     void resetInlineContentCache();
 
-#if ENABLE(TEXT_AUTOSIZING)
-    void adjustComputedFontSizes(float size, float visibleWidth);
-    void resetComputedFontSize()
+    void adjustFontSizes(float size, float visibleWidth);
+    void resetFontSize()
     {
         m_widthForTextAutosizing = -1;
         m_lineCountForTextAutosizing = NOT_SET;
     }
-#endif
 
 protected:
     std::unique_ptr<FloatingObjects> m_floatingObjects;

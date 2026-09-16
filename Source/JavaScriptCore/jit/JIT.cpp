@@ -103,10 +103,10 @@ BaselineUnlinkedCallLinkInfo* JIT::addUnlinkedCallLinkInfo()
     return &m_unlinkedCalls.alloc();
 }
 
-void JIT::emitNotifyWriteWatchpoint(GPRReg pointerToSet)
+void JIT::emitNotifyWriteWatchpoint(GPRReg pointerToSetAndScratch)
 {
-    auto ok = branchTestPtr(Zero, pointerToSet);
-    addSlowCase(branch8(NotEqual, Address(pointerToSet, WatchpointSet::offsetOfState()), TrustedImm32(IsInvalidated)));
+    auto ok = branchTestPtr(Zero, pointerToSetAndScratch);
+    addSlowCase(branchIfInlineWatchpointSetIsStillValid(pointerToSetAndScratch));
     ok.link(this);
 }
 
@@ -616,8 +616,8 @@ void JIT::privateCompileSlowCases()
         if (JITInternal::verbose)
             dataLog("At ", firstTo, " slow: ", iter - m_slowCases.begin(), "\n");
 
-        RELEASE_ASSERT_WITH_MESSAGE(iter == m_slowCases.end() || firstTo.offset() != iter->to.offset(), "Not enough jumps linked in slow case codegen while handling %s.", toCString(currentInstruction->opcodeID()).data());
-        RELEASE_ASSERT_WITH_MESSAGE(firstTo.offset() == (iter - 1)->to.offset(), "Too many jumps linked in slow case codegen while handling %s.", toCString(currentInstruction->opcodeID()).data());
+        RELEASE_ASSERT_WITH_MESSAGE(iter == m_slowCases.end() || firstTo.offset() != iter->to.offset(), "Not enough jumps linked in slow case codegen while handling %s.", toUTF8CString(currentInstruction->opcodeID()).legacyCStringPointer());
+        RELEASE_ASSERT_WITH_MESSAGE(firstTo.offset() == (iter - 1)->to.offset(), "Too many jumps linked in slow case codegen while handling %s.", toUTF8CString(currentInstruction->opcodeID()).legacyCStringPointer());
 
         jump().linkTo(fastPathResumePoint(), this);
         ++bytecodeCountHavingSlowCase;
@@ -797,8 +797,8 @@ RefPtr<BaselineJITCode> JIT::compileAndLinkWithoutFinalizing(JITCompilationEffor
                 if (m_unlinkedCodeBlock->isConstructor() && !argument)
                     continue;
                 int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
-                loadValue(Address(callFrameRegister, offset), jsRegT10);
-                storeValue(jsRegT10, Address(regT2, FixedVector<ArgumentValueProfile>::Storage::offsetOfData() + argument * sizeof(ArgumentValueProfile) + ArgumentValueProfile::offsetOfFirstBucket()));
+                loadValue(Address(callFrameRegister, offset), regT0);
+                storeValue(regT0, Address(regT2, FixedVector<ArgumentValueProfile>::Storage::offsetOfData() + argument * sizeof(ArgumentValueProfile) + ArgumentValueProfile::offsetOfFirstBucket()));
             }
         }
     }
@@ -991,7 +991,7 @@ RefPtr<BaselineJITCode> JIT::link(LinkBuffer& patchBuffer)
     // FIXME: Make a version of CodeBlockWithJITType that knows about UnlinkedCodeBlock.
     CodeRef<JSEntryPtrTag> result = FINALIZE_BASELINE_CODE(
         patchBuffer, JSEntryPtrTag,
-        "Baseline JIT code for %s", toCString(CodeBlockWithJITType(m_profiledCodeBlock, JITType::BaselineJIT)).data());
+        "Baseline JIT code for %s", toUTF8CString(CodeBlockWithJITType(m_profiledCodeBlock, JITType::BaselineJIT)).legacyCStringPointer());
     
     CodePtr<JSEntryPtrTag> withArityCheck = patchBuffer.locationOf<JSEntryPtrTag>(m_arityCheck);
     auto jitCode = adoptRef(*new BaselineJITCode(result, withArityCheck));

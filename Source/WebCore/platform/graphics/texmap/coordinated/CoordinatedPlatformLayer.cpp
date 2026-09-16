@@ -38,8 +38,11 @@
 #include "GraphicsContext.h"
 #include "GraphicsLayerCoordinated.h"
 #include "NativeImage.h"
-#include "TextureMapperLayer.h"
 #include <wtf/MainThread.h>
+
+#if USE(TEXTURE_MAPPER)
+#include "TextureMapperLayer.h"
+#endif
 
 #if USE(SKIA)
 #include "SkiaCompositingLayer.h"
@@ -61,7 +64,7 @@ Ref<CoordinatedPlatformLayer> CoordinatedPlatformLayer::create()
 CoordinatedPlatformLayer::CoordinatedPlatformLayer(Client* client)
     : m_client(client)
     , m_id(PlatformLayerIdentifier::generate())
-#if USE(SKIA)
+#if !USE(TEXTURE_MAPPER)
     , m_threadSafeGrContext(m_client ? m_client->paintingEngine().threadSafeGrContext() : nullptr)
 #endif
 {
@@ -94,6 +97,7 @@ GraphicsLayerCoordinated* CoordinatedPlatformLayer::owner() const
     return m_owner;
 }
 
+#if USE(TEXTURE_MAPPER)
 TextureMapperLayer& CoordinatedPlatformLayer::ensureTarget()
 {
     ASSERT(!isMainThread());
@@ -108,16 +112,17 @@ TextureMapperLayer& CoordinatedPlatformLayer::ensureTarget()
     return *m_target;
 }
 
-#if USE(SKIA)
-SkiaCompositingLayer& CoordinatedPlatformLayer::ensureSkiaTarget()
+#else
+
+SkiaCompositingLayer& CoordinatedPlatformLayer::ensureTarget()
 {
     ASSERT(!isMainThread());
-    if (!m_skiaTarget)
-        m_skiaTarget = SkiaCompositingLayer::create();
+    if (!m_target)
+        m_target = SkiaCompositingLayer::create();
 #if ENABLE(DAMAGE_TRACKING)
-    m_skiaTarget->setDamagePropagationEnabled(m_damagePropagationEnabled);
+    m_target->setDamagePropagationEnabled(m_damagePropagationEnabled);
 #endif
-    return *m_skiaTarget;
+    return *m_target;
 }
 #endif
 
@@ -139,21 +144,24 @@ void CoordinatedPlatformLayer::invalidateTarget()
     ASSERT(!isMainThread());
     {
         Locker locker { m_lock };
+#if USE(TEXTURE_MAPPER)
         m_backingStore = nullptr;
+#endif
         m_imageBackingStore.committed = nullptr;
         if (m_target && shouldReleaseBuffer(m_contentsBuffer.committed.get()))
             m_contentsBuffer.committed = nullptr;
-#if USE(SKIA)
-        if (m_skiaTarget && !shouldReleaseBuffer(m_skiaTarget->contentsBuffer()))
-            m_contentsBuffer.committed = m_skiaTarget->takeContentsBuffer();
+#if !USE(TEXTURE_MAPPER)
+        if (m_target && !shouldReleaseBuffer(m_target->contentsBuffer()))
+            m_contentsBuffer.committed = m_target->takeContentsBuffer();
 #endif
         m_contentsBuffer.hasCommitted = false;
     }
+#if USE(TEXTURE_MAPPER)
     m_target = nullptr;
-#if USE(SKIA)
-    if (m_skiaTarget) {
-        m_skiaTarget->invalidate();
-        m_skiaTarget = nullptr;
+#else
+    if (m_target) {
+        m_target->invalidate();
+        m_target = nullptr;
     }
 #endif
 }
@@ -543,22 +551,23 @@ void CoordinatedPlatformLayer::replaceCurrentContentsBufferWithCopy()
 
     m_contentsBuffer.pending = nullptr;
 
-#if USE(SKIA)
-    if (m_skiaTarget) {
-        if (auto* buffer = m_skiaTarget->contentsBuffer()) {
-            if (is<CoordinatedPlatformLayerBufferVideo>(*buffer))
-                m_contentsBuffer.pending = downcast<CoordinatedPlatformLayerBufferVideo>(*buffer).copyBuffer();
-            m_contentsBuffer.hasCommitted = !!m_contentsBuffer.pending;
-            m_skiaTarget->setContentsBuffer(WTF::move(m_contentsBuffer.pending));
-        }
-        return;
-    }
-#endif
+#if USE(TEXTURE_MAPPER)
     if (is<CoordinatedPlatformLayerBufferVideo>(*m_contentsBuffer.committed))
         m_contentsBuffer.pending = downcast<CoordinatedPlatformLayerBufferVideo>(*m_contentsBuffer.committed).copyBuffer();
     m_contentsBuffer.committed = WTF::move(m_contentsBuffer.pending);
     m_contentsBuffer.hasCommitted = !!m_contentsBuffer.committed;
     ensureTarget().setContentsLayer(m_contentsBuffer.committed.get());
+#else
+    if (!m_target)
+        return;
+
+    if (auto* buffer = m_target->contentsBuffer()) {
+        if (is<CoordinatedPlatformLayerBufferVideo>(*buffer))
+            m_contentsBuffer.pending = downcast<CoordinatedPlatformLayerBufferVideo>(*buffer).copyBuffer();
+        m_contentsBuffer.hasCommitted = !!m_contentsBuffer.pending;
+        m_target->setContentsBuffer(WTF::move(m_contentsBuffer.pending));
+    }
+#endif
 }
 #endif
 
@@ -723,6 +732,18 @@ void CoordinatedPlatformLayer::setBackdropRect(const FloatRoundedRect& backdropR
 
     m_backdropRect = backdropRect;
     m_pendingChanges.add(Change::BackdropRect);
+    damageWholeLayer();
+    notifyCompositionRequired();
+}
+
+void CoordinatedPlatformLayer::setBackdropShapePath(const Path& path)
+{
+    assertIsHeld(m_lock);
+    if (m_backdropShapePath.definitelyEqual(path))
+        return;
+
+    m_backdropShapePath = path;
+    m_pendingChanges.add(Change::BackdropShapePath);
     damageWholeLayer();
     notifyCompositionRequired();
 }
@@ -1033,7 +1054,7 @@ void CoordinatedPlatformLayer::flushPendingState()
         notifyCompositionRequired();
 }
 
-void CoordinatedPlatformLayer::flushPositionChanges(const OptionSet<CompositionReason>& reasons, bool useSkiaTarget)
+void CoordinatedPlatformLayer::flushPositionChanges(const OptionSet<CompositionReason>& reasons)
 {
     ASSERT(!isMainThread());
     if (!reasons.containsAny({ CompositionReason::RenderingUpdate, CompositionReason::AsyncScrolling }))
@@ -1056,37 +1077,20 @@ void CoordinatedPlatformLayer::flushPositionChanges(const OptionSet<CompositionR
         }
     };
 
-#if USE(SKIA)
-    if (useSkiaTarget) {
-        applyPositionChanges(ensureSkiaTarget());
-        return;
-    }
-#else
-    UNUSED_PARAM(useSkiaTarget);
-#endif
-
     applyPositionChanges(ensureTarget());
 }
 
-void CoordinatedPlatformLayer::flushCompositingState(const OptionSet<CompositionReason>& reasons, bool useSkiaTarget)
+void CoordinatedPlatformLayer::flushCompositingState(const OptionSet<CompositionReason>& reasons)
 {
     ASSERT(!isMainThread());
     Locker locker { m_lock };
     if (m_pendingChanges.isEmpty() && (!reasons.contains(CompositionReason::RenderingUpdate) || !m_backingStoreProxy))
         return;
 
-#if USE(SKIA)
-    if (useSkiaTarget) {
-        flushCompositingStateOnSkiaTarget(reasons, ensureSkiaTarget());
-        return;
-    }
-#else
-    UNUSED_PARAM(useSkiaTarget);
-#endif
-
     flushCompositingStateOnTarget(reasons, ensureTarget());
 }
 
+#if USE(TEXTURE_MAPPER)
 void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<CompositionReason>& reasons, TextureMapperLayer& layer)
 {
     assertIsHeld(m_lock);
@@ -1235,6 +1239,13 @@ void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<Com
             m_pendingChanges.remove(Change::BackdropRect);
         }
 
+        // FIXME: clip the backdrop to the corner-shape contour here too. TextureMapper::beginClip()
+        // takes a ClipPath, a triangulated vertex buffer, so this needs a Path tessellation step that
+        // does not exist yet; until then a non-round corner shape on a backdrop filter is clipped only
+        // by the rounded rect above. The Skia compositor, which GTK and WPE use by default, clips to
+        // the contour.
+        m_pendingChanges.remove(Change::BackdropShapePath);
+
         if (m_pendingChanges.contains(Change::Animations)) {
             layer.setAnimations(m_animations);
             m_pendingChanges.remove(Change::Animations);
@@ -1287,8 +1298,9 @@ void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<Com
     }
 }
 
-#if USE(SKIA)
-void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet<CompositionReason>& reasons, SkiaCompositingLayer& layer)
+#else
+
+void CoordinatedPlatformLayer::flushCompositingStateOnTarget(const OptionSet<CompositionReason>& reasons, SkiaCompositingLayer& layer)
 {
     assertIsHeld(m_lock);
     if (reasons.containsAny({ CompositionReason::RenderingUpdate, CompositionReason::AsyncScrolling })) {
@@ -1413,12 +1425,12 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
         }
 
         if (m_pendingChanges.contains(Change::Mask)) {
-            layer.setMask(m_mask ? RefPtr { &m_mask->ensureSkiaTarget() } : nullptr);
+            layer.setMask(m_mask ? RefPtr { &m_mask->ensureTarget() } : nullptr);
             m_pendingChanges.remove(Change::Mask);
         }
 
         if (m_pendingChanges.contains(Change::Replica)) {
-            layer.setReplica(m_replica ? RefPtr { &m_replica->ensureSkiaTarget() } : nullptr);
+            layer.setReplica(m_replica ? RefPtr { &m_replica->ensureTarget() } : nullptr);
             m_pendingChanges.remove(Change::Replica);
         }
 
@@ -1438,6 +1450,17 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
         if (m_pendingChanges.contains(Change::BackdropRect)) {
             layer.setBackdropFiltersRect(m_backdropRect);
             m_pendingChanges.remove(Change::BackdropRect);
+        }
+
+        if (m_pendingChanges.contains(Change::BackdropShapePath)) {
+            if (m_backdropShapePath.isEmpty())
+                layer.setBackdropFiltersClipPath(std::nullopt);
+            else {
+                auto backdropClipPath = *m_backdropShapePath.platformPath();
+                backdropClipPath.setFillType(SkPathFillType::kWinding);
+                layer.setBackdropFiltersClipPath(WTF::move(backdropClipPath));
+            }
+            m_pendingChanges.remove(Change::BackdropShapePath);
         }
 
         if (m_pendingChanges.contains(Change::BackdropRoot)) {
@@ -1467,7 +1490,7 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
 
         if (m_pendingChanges.contains(Change::Children)) {
             layer.setChildren(WTF::map(m_children, [](auto& child) {
-                return Ref { child->ensureSkiaTarget() };
+                return Ref { child->ensureTarget() };
             }));
             m_pendingChanges.remove(Change::Children);
         }
@@ -1491,20 +1514,20 @@ void CoordinatedPlatformLayer::flushCompositingStateOnSkiaTarget(const OptionSet
         }
     }
 }
-#endif // USE(SKIA)
+#endif
 
 bool CoordinatedPlatformLayer::hasPendingBackingStoreTileUpdates() const
 {
     ASSERT(!isMainThread());
 
-#if USE(SKIA)
-    if (m_skiaTarget)
-        return m_skiaTarget->hasPendingBackingStoreTileUpdates();
-#endif
-
+#if USE(TEXTURE_MAPPER)
     Locker locker { m_lock };
     if (m_backingStore)
         return m_backingStore->hasPendingUpdates();
+#else
+    if (m_target)
+        return m_target->hasPendingBackingStoreTileUpdates();
+#endif
 
     return false;
 }
@@ -1513,16 +1536,16 @@ void CoordinatedPlatformLayer::processPendingBackingStoreTileUpdates()
 {
     ASSERT(!isMainThread());
 
-#if USE(SKIA)
-    if (m_skiaTarget) {
-        m_skiaTarget->processPendingTileUpdates();
-        return;
-    }
-#endif
-
+#if USE(TEXTURE_MAPPER)
     Locker locker { m_lock };
     if (m_backingStore)
         m_backingStore->processPendingUpdates();
+#else
+    if (m_target) {
+        m_target->processPendingTileUpdates();
+        return;
+    }
+#endif
 }
 
 } // namespace WebCore

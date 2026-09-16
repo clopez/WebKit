@@ -14,14 +14,18 @@ https://www.airindiaexpress.com/
     NeedsAirIndiaExpressLayeringQuirk
 https://www.amazon.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://sub.amazon.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://www.amazon.co.uk/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://amazon.design/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://www.apple.com/
-    EnsureCaptionVisibilityInFullscreenAndPictureInPicture
+    (none)
 https://as.com/
     (none)
 https://www.att.com/
@@ -75,6 +79,7 @@ https://www.espn.com/
 https://www.facebook.com/
     NeedsFacebookRemoveNotSupportedQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
     ShouldEnableCameraAndMicrophonePermissionStateQuirk
     ShouldEnableEnumerateDeviceQuirk
     ShouldEnableFacebookFlagQuirk
@@ -85,15 +90,23 @@ https://www.forbes.com/
 https://gizmodo.com/
     (none)
 https://play.geforcenow.com/
-    (none)
+    NeedsGeforcenowWarningDisplayNoneQuirk
 https://www.google.com/
+    MaybeBypassBackForwardCache
+https://www.google.com/search
+    MaybeBypassBackForwardCache
+https://www.google.com/search/howsearchworks
+    MaybeBypassBackForwardCache
+https://www.google.co.jp/search
     MaybeBypassBackForwardCache
 https://www.google.com/maps/
     MaybeBypassBackForwardCache
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://maps.google.com/maps/
     MaybeBypassBackForwardCache
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://docs.google.com/
     InputMethodUsesCorrectKeyEventOrder
     MaybeBypassBackForwardCache
@@ -117,6 +130,8 @@ https://www.carrentals.com/
     NeedsExpediaGroupAnimationQuirk
 https://www.cheaptickets.com/
     NeedsExpediaGroupAnimationQuirk
+https://www.chess.com/
+    (none)
 https://www.ebookers.de/
     NeedsExpediaGroupAnimationQuirk
 https://www.expedia.com/
@@ -224,6 +239,7 @@ https://www.sharepoint.com/
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
 https://soundcloud.com/
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
     ShouldExposeShowModalDialog
 https://soylent.com/
     ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick
@@ -249,6 +265,7 @@ https://www.thesaurus.com/
 https://www.tiktok.com/
     NeedsTikTokOverflowingContentQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
+    ShouldDispatchSimulatedMouseEventsQuirk
 https://trix-editor.org/
     (none)
 https://www.twitch.tv/
@@ -274,7 +291,7 @@ https://workspaces.xyz/
 https://wpdevelopment.ca/
     (none)
 https://x.com/
-    (none)
+    NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk
 https://twitter.com/
     (none)
 https://www.yahoo.com/
@@ -282,7 +299,7 @@ https://www.yahoo.com/
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
     ShouldPreventDispatchOfTouchEventQuirk
 https://news.ycombinator.com/
-    (none)
+    ShouldIgnoreTextAutoSizingQuirk
 https://ycombinator.com/
     (none)
 https://www.youtube.com/
@@ -292,6 +309,7 @@ https://www.youtube-nocookie.com/
     (none)
 https://www.zillow.com/
     ShouldAvoidScrollingWhenFocusedContentIsVisibleQuirk
+    ShouldTranscodeHeicImagesQuirk
 https://www.zomato.com/
     (none)
 https://zoom.us/

@@ -176,7 +176,7 @@ public:
     AudioSourceProvider* audioSourceProvider() final;
 #endif
     void paint(GraphicsContext&, const FloatRect&) final;
-    DestinationColorSpace colorSpace() final;
+    ColorSpace colorSpace() final;
     bool supportsFullscreen() const final;
     MediaPlayer::MovieLoadType movieLoadType() const final;
 
@@ -191,8 +191,10 @@ public:
     GstElement* pipeline() const { return m_pipeline.get(); }
 
 #if USE(COORDINATED_GRAPHICS)
-    PlatformLayer* NODELETE platformLayer() const override;
+    PlatformLayer* NODELETE platformLayer() const override { return nullptr; }
     bool supportsAcceleratedRendering() const override { return true; }
+    void setPlatformLayerBufferProxy(Ref<CoordinatedPlatformLayerBufferProxy>&&) override;
+    RefPtr<CoordinatedPlatformLayerBufferProxy> platformLayerBufferProxy() const override;
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -311,9 +313,11 @@ protected:
     virtual void sourceSetup(GstElement*);
     virtual void updatePlaybackRate();
 
+    enum class IsInitialBuffer : bool { No, Yes };
+
     bool isHolePunchRenderingEnabled() const;
     GstElement* createHolePunchVideoSink();
-    void pushNextHolePunchBuffer();
+    void pushNextHolePunchBuffer(IsInitialBuffer = IsInitialBuffer::No);
     bool shouldIgnoreIntrinsicSize() final;
 
 #if USE(GSTREAMER_GL)
@@ -322,7 +326,7 @@ protected:
 
 #if USE(COORDINATED_GRAPHICS)
     enum class IsDuplicateSample : bool { No, Yes };
-    void pushTextureToCompositor(IsDuplicateSample);
+    void pushTextureToCompositor(IsDuplicateSample, IsInitialBuffer = IsInitialBuffer::No);
 #endif
 
     GstElement* videoSink() const { return m_videoSink.get(); }
@@ -355,9 +359,7 @@ protected:
     void loadingFailed(MediaPlayer::NetworkState, MediaPlayer::ReadyState = MediaPlayer::ReadyState::HaveNothing, bool forceNotifications = false);
     void loadStateChanged();
 
-#if USE(TEXTURE_MAPPER)
     void updateTextureMapperFlags();
-#endif
 
     void setCachedPosition(const MediaTime&) const;
 
@@ -415,9 +417,7 @@ protected:
     // Reflects whether the pipeline was suspended due to the HTMLMediaElement being both muted and invisible in the viewport.
     bool isSuspended() const { return m_isSuspended; };
 
-#if USE(TEXTURE_MAPPER)
     OptionSet<TextureMapperFlags> m_textureMapperFlags;
-#endif
 
     GRefPtr<GstElement> m_audioSink;
     GRefPtr<GstElement> m_videoSink;

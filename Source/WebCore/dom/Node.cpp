@@ -123,7 +123,6 @@ struct SameSizeAsNode : EventTarget, CanMakeCheckedPtr<SameSizeAsNode> {
 public:
 #if ASSERT_ENABLED
     bool inRemovedLastRefFunction;
-    bool adoptionIsRequired;
     bool deletionHasBegun;
 #endif
     uint32_t refCountAndParentBit;
@@ -385,10 +384,7 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
     ASSERT(nodeType() == type);
     ASSERT(isMainThread());
 
-    // Allow code to ref the Document while it is being constructed to make our life easier.
-    if (isDocumentNode())
-        relaxAdoptionRequirement();
-    else
+    if (!isDocumentNode())
         document.incrementReferencingNodeCount();
 
 #if !defined(NDEBUG) || DUMP_NODE_STATISTICS
@@ -411,7 +407,6 @@ Node::~Node()
 {
     ASSERT(isMainThread());
     ASSERT(deletionHasBegun());
-    ASSERT(!m_adoptionIsRequired);
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
 
@@ -880,7 +875,7 @@ static Node::Editability NODELETE computeEditabilityFromComputedStyle(const Styl
 
 Node::Editability Node::computeEditabilityWithStyle(const Style::ComputedStyle* incomingStyle, UserSelectAllTreatment treatment, ShouldUpdateStyle shouldUpdateStyle) const
 {
-    if (!document().hasLivingRenderTree() || isPseudoElement())
+    if (!document().canEverRender() || isPseudoElement())
         return Editability::ReadOnly;
 
     Ref document = this->document();
@@ -1523,7 +1518,7 @@ void Node::removingSteps(RemovalType removalType, ContainerNode& oldParentOfRemo
     }
 }
 
-void Node::movingSteps(bool, ContainerNode&)
+void Node::movingSteps(IsSubtreeRoot, ContainerNode&)
 {
     invalidateStyle(Style::Validity::SubtreeInvalid, Style::InvalidationMode::InsertedIntoAncestor);
 }
@@ -3016,7 +3011,7 @@ void Node::setUsesEffectiveTextDirection(bool value)
 
 bool Node::inRenderedDocument() const
 {
-    return isConnected() && document().hasLivingRenderTree();
+    return isConnected() && document().renderTreeState() == Document::RenderTreeState::Built;
 }
 
 void Node::notifyInspectorOfRendererChange()

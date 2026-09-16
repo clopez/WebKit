@@ -421,7 +421,7 @@ void LocalFrameView::clear()
 #if PLATFORM(IOS_FAMILY)
     // To avoid flashes of white, disable tile updates immediately when view is cleared at the beginning of a page load.
     // Tiling will be re-enabled from UIKit via [WAKWindow setTilingMode:] when we have content to draw.
-    if (LegacyTileCache* tileCache = legacyTileCache())
+    if (RefPtr tileCache = legacyTileCache())
         tileCache->setTilingMode(LegacyTileCache::Disabled);
 #endif
 }
@@ -430,7 +430,7 @@ void LocalFrameView::clear()
 void LocalFrameView::didReplaceMultipartContent()
 {
     // Re-enable tile updates that were disabled in clear().
-    if (LegacyTileCache* tileCache = legacyTileCache())
+    if (RefPtr tileCache = legacyTileCache())
         tileCache->setTilingMode(LegacyTileCache::Normal);
 }
 #endif
@@ -963,7 +963,7 @@ bool LocalFrameView::flushCompositingStateForThisFrame(const LocalFrame& rootFra
         return false;
 
 #if PLATFORM(IOS_FAMILY)
-    if (LegacyTileCache* tileCache = legacyTileCache())
+    if (RefPtr tileCache = legacyTileCache())
         tileCache->doPendingRepaints();
 #endif
 
@@ -2050,16 +2050,6 @@ LayoutRect LocalFrameView::layoutViewportRect() const
     return LayoutRect(m_layoutViewportOrigin, baseLayoutViewportSize());
 }
 
-void LocalFrameView::updateLayoutViewportRect()
-{
-    m_frame->loader().client().broadcastFrameLayoutViewportRectToOtherProcesses(layoutViewportRect());
-}
-
-void LocalFrameView::updateContentsSizeForRemoteFrames()
-{
-    m_frame->loader().client().broadcastFrameContentsSizeToOtherProcesses(contentsSize());
-}
-
 // visibleContentRect is in the bounds of the scroll view content. That consists of an
 // optional header, the document, and an optional footer. Only the document is scaled,
 // so we have to compute the visible part of the document in unscaled document coordinates.
@@ -2222,6 +2212,20 @@ TransformationMatrix LocalFrameView::absoluteToChildFrameOwnerLocalTransform(con
 
     auto matrix = transformState.releaseTrackedTransform();
     return valueOrDefault(matrix->inverse());
+}
+
+FloatRect LocalFrameView::mapAbsoluteToChildFrameViewRect(const FloatRect& rect, const Frame& child) const
+{
+    return mapAbsoluteToChildFrameViewRect(rect, absoluteToChildFrameOwnerLocalTransform(child),
+        childFrameOwnerContentBoxLocation(child));
+}
+
+FloatRect LocalFrameView::mapAbsoluteToChildFrameViewRect(const FloatRect& rect, const TransformationMatrix& absoluteToChildFrameOwnerLocalTransform, FloatPoint childFrameOwnerContentBoxLocation)
+{
+    // Use projectQuad() instead of mapRect() here to handle 3D rotations.
+    auto childFrameViewRect = absoluteToChildFrameOwnerLocalTransform.projectQuad(rect).boundingBox();
+    childFrameViewRect.moveBy(-childFrameOwnerContentBoxLocation);
+    return childFrameViewRect;
 }
 
 LayoutRect LocalFrameView::rectForFixedPositionLayout() const
@@ -3242,9 +3246,9 @@ bool LocalFrameView::scrollToAnchorFragment(StringView fragmentIdentifier)
         if (fragmentIdentifier.isEmpty())
             return false;
         if (auto rootElement = DocumentSVG::rootElement(document.get())) {
-            if (rootElement->scrollToFragment(fragmentIdentifier))
+            if (rootElement->setViewForFragment(fragmentIdentifier))
                 return true;
-            // If SVG failed to scrollToAnchor() and anchorElement is null, no other scrolling will be possible.
+            // If the fragment addressed no SVG view and anchorElement is null, no other scrolling will be possible.
             if (!anchorElement)
                 return false;
         }
@@ -3420,10 +3424,10 @@ void LocalFrameView::resetScrollAnchor()
 
     if (is<SVGDocument>(document.get())) {
         if (auto rootElement = DocumentSVG::rootElement(document.get())) {
-            // We need to update the layout before resetScrollAnchor(), otherwise we
+            // We need to update the layout before resetting the view, otherwise we
             // could really mess things up if resetting the anchor comes at a bad moment.
             document->updateStyleIfNeeded();
-            rootElement->resetScrollAnchor();
+            rootElement->resetViewToDefault();
         }
     }
 }
@@ -3821,8 +3825,10 @@ void LocalFrameView::scrollPositionChanged(const ScrollPosition& oldPosition, co
             m_frame->editor().renderLayerDidScroll(*layer);
     }
 
-    if (m_frame->settings().siteIsolationEnabled() && oldPosition != newPosition)
-        static_cast<Frame&>(m_frame).loaderClient().broadcastFrameScrollPositionToOtherProcesses(newPosition);
+    if (oldPosition != newPosition) {
+        if (RefPtr page = m_frame->page(); page && page->mainFrame().tree().containsRemoteFrame())
+            static_cast<Frame&>(m_frame).loaderClient().broadcastFrameScrollPositionToOtherProcesses(newPosition);
+    }
 }
 
 void LocalFrameView::applyRecursivelyWithVisibleRect(NOESCAPE const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>& apply)
@@ -4250,7 +4256,7 @@ void LocalFrameView::adjustTiledBackingCoverage()
     if (renderView && renderView->layer() && renderView->layer()->backing())
         renderView->layer()->backing()->adjustTiledBackingCoverage();
 #if PLATFORM(IOS_FAMILY)
-    if (LegacyTileCache* tileCache = legacyTileCache())
+    if (RefPtr tileCache = legacyTileCache())
         tileCache->setSpeculativeTileCreationEnabled(m_speculativeTilingEnabled);
 #endif
 }

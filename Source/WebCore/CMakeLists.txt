@@ -114,6 +114,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/values/counter-styles"
     "${WEBCORE_DIR}/css/values/easing"
     "${WEBCORE_DIR}/css/values/filter-effects"
+    "${WEBCORE_DIR}/css/values/flexbox"
     "${WEBCORE_DIR}/css/values/fonts"
     "${WEBCORE_DIR}/css/values/grid"
     "${WEBCORE_DIR}/css/values/images"
@@ -123,6 +124,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/values/non-standard"
     "${WEBCORE_DIR}/css/values/primitives"
     "${WEBCORE_DIR}/css/values/shapes"
+    "${WEBCORE_DIR}/css/values/sizing"
     "${WEBCORE_DIR}/css/values/text-decoration"
     "${WEBCORE_DIR}/cssjit"
     "${WEBCORE_DIR}/dom"
@@ -1205,6 +1207,8 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/ProcessingInstruction.idl
     dom/ProgressEvent.idl
     dom/PromiseRejectionEvent.idl
+    dom/QuotaExceededError.idl
+    dom/QuotaExceededErrorOptions.idl
     dom/Range.idl
     dom/ReducerCallback.idl
     dom/RequestAnimationFrameCallback.idl
@@ -1835,6 +1839,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUDeviceDescriptor.idl
     Modules/WebGPU/GPUDeviceLostInfo.idl
     Modules/WebGPU/GPUDeviceLostReason.idl
+    Modules/WebGPU/GPUError.idl
     Modules/WebGPU/GPUErrorFilter.idl
     Modules/WebGPU/GPUExtent3DDict.idl
     Modules/WebGPU/GPUExternalTexture.idl
@@ -2572,7 +2577,9 @@ if (USE_LIBWEBRTC)
         "${WEBCORE_DIR}/platform/libwebrtc"
         "${WEBCORE_DIR}/platform/mediastream/libwebrtc"
     )
-    list(APPEND WebCore_LIBRARIES webrtc)
+    if (NOT APPLE)
+        list(APPEND WebCore_LIBRARIES webrtc)
+    endif ()
     list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
         "platform/SourcesLibWebRTC.txt"
     )
@@ -2859,8 +2866,10 @@ if (ENABLE_WEBCORE_TEST_SUPPORT)
     WEBKIT_LIBRARY_DECLARE(WebCoreTestSupport)
 endif ()
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
-WEBKIT_ADD_TARGET_THREAD_SAFETY_WARNINGS(WebCore)
 WEBKIT_ADD_TARGET_UNSAFE_BUFFER_WARNINGS(WebCore)
+if (ENABLE_WEBCORE_TEST_SUPPORT)
+    WEBKIT_ADD_TARGET_UNSAFE_BUFFER_WARNINGS(WebCoreTestSupport)
+endif ()
 
 if (ENABLE_MALLOC_HEAP_BREAKDOWN)
     list(APPEND WebCore_LIBRARIES ${MALLOC_HEAP_BREAKDOWN_LIBRARIES})
@@ -3314,6 +3323,18 @@ endif ()
 set_target_properties(WebCore PROPERTIES LINKER_LANGUAGE CXX)
 
 if (APPLE)
+    if (USE_LIBWEBRTC)
+        target_link_options(WebCore PRIVATE
+            "LINKER:-weak_library,$<TARGET_FILE:webrtc>")
+        add_dependencies(WebCore webrtc)
+    endif ()
+
+    if (TARGET ANGLE-shared)
+        # ANGLE arrives through the ANGLE::* interface targets, so override the
+        # link feature rather than the link itself.
+        set_property(TARGET WebCore PROPERTY LINK_LIBRARY_OVERRIDE_ANGLE-shared WEAK_LIBRARY)
+    endif ()
+
     # Use target_link_options with LINKER: so CMake translates these for
     # whichever linker driver is used (clang or swiftc).
     target_link_options(WebCore PRIVATE
@@ -3329,6 +3350,7 @@ if (APPLE)
         "LINKER:-allowable_client,InjectedBundleTestWebKitAPI"
         "LINKER:-allowable_client,TestWebCore"
         "LINKER:-allowable_client,TestWebKitAPI"
+        "LINKER:-allowable_client,TestWebKitAPIPlugIn"
         "LINKER:-allowable_client,TestWebKitLegacy"
     )
 endif ()
@@ -3366,6 +3388,14 @@ if (ENABLE_WEBCORE_TEST_SUPPORT)
 
     WEBKIT_LIBRARY(WebCoreTestSupport)
     set_target_properties(WebCoreTestSupport PROPERTIES LINKER_LANGUAGE CXX)
+
+    if (APPLE AND USE_LIBWEBRTC)
+        # testing/MockLibWebRTCPeerConnection.cpp subclasses webrtc interfaces, so
+        # whoever links this library resolves those symbols from libwebrtc.dylib.
+        target_link_options(WebCoreTestSupport INTERFACE
+            "LINKER:-weak_library,$<TARGET_FILE:webrtc>")
+        add_dependencies(WebCoreTestSupport webrtc)
+    endif ()
 endif ()
 
 if (${WebCore_LIBRARY_TYPE} MATCHES "SHARED")

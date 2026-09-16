@@ -108,10 +108,12 @@ void SpinButtonElement::defaultEventHandler(Event& event)
         if (box->borderBoxRect().contains(local)) {
             // The following functions of HTMLInputElement may run JavaScript
             // code which detaches this shadow node. We need to take a reference
-            // and check renderer() after such function calls.
+            // and check renderer() after such function calls. Release the
+            // CheckedPtr first so it isn't left dangling if the renderer dies.
+            box = nullptr;
             Ref<SpinButtonElement> protectedThis(*this);
-            if (m_spinButtonOwner)
-                m_spinButtonOwner->focusAndSelectSpinButtonOwner();
+            if (RefPtr spinButtonOwner = m_spinButtonOwner)
+                spinButtonOwner->focusAndSelectSpinButtonOwner();
             if (renderer()) {
                 if (m_upDownState != Indeterminate) {
                     // A JavaScript event handler called in doStepAction() below
@@ -121,6 +123,8 @@ void SpinButtonElement::defaultEventHandler(Event& event)
                     // chance to cancel the timer.
                     startRepeatingTimer();
                     doStepAction(m_upDownState == Up ? 1 : -1);
+                    if (!renderer())
+                        stopRepeatingTimer();
                 }
             }
             mouseEvent->setDefaultHandled();
@@ -186,13 +190,14 @@ bool SpinButtonElement::willRespondToMouseClickEventsWithEditability(Editability
 
 void SpinButtonElement::doStepAction(int amount)
 {
-    if (!m_spinButtonOwner)
+    RefPtr spinButtonOwner = m_spinButtonOwner;
+    if (!spinButtonOwner)
         return;
 
     if (amount > 0)
-        m_spinButtonOwner->spinButtonStepUp();
+        spinButtonOwner->spinButtonStepUp();
     else if (amount < 0)
-        m_spinButtonOwner->spinButtonStepDown();
+        spinButtonOwner->spinButtonStepDown();
 }
 
 void SpinButtonElement::releaseCapture()
@@ -254,7 +259,8 @@ void SpinButtonElement::setHovered(bool flag, Style::InvalidationScope invalidat
 
 bool SpinButtonElement::shouldRespondToMouseEvents() const
 {
-    return !m_spinButtonOwner || m_spinButtonOwner->shouldSpinButtonRespondToMouseEvents();
+    RefPtr spinButtonOwner = m_spinButtonOwner;
+    return !spinButtonOwner || spinButtonOwner->shouldSpinButtonRespondToMouseEvents();
 }
 
 }

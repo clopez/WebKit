@@ -27,31 +27,12 @@
 
 #include "ArgumentCoders.h"
 #include <gio/gio.h>
-#include <wtf/glib/GRefPtr.h>
-
-typedef struct _GTlsCertificate GTlsCertificate;
-typedef struct _GUnixFDList GUnixFDList;
 
 namespace IPC {
-
-template<> struct ArgumentCoder<GRefPtr<GByteArray>> {
-    static void encode(Encoder&, const GRefPtr<GByteArray>&);
-    static std::optional<GRefPtr<GByteArray>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<GRefPtr<GTlsCertificate>> {
-    static void encode(Encoder&, const GRefPtr<GTlsCertificate>&);
-    static std::optional<GRefPtr<GTlsCertificate>> decode(Decoder&);
-};
 
 template<> struct ArgumentCoder<GTlsCertificateFlags> {
     static void encode(Encoder&, GTlsCertificateFlags);
     static std::optional<GTlsCertificateFlags> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<GRefPtr<GUnixFDList>> {
-    static void encode(Encoder&, const GRefPtr<GUnixFDList>&);
-    static std::optional<GRefPtr<GUnixFDList>> decode(Decoder&);
 };
 
 } // namespace IPC

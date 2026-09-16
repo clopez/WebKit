@@ -53,6 +53,7 @@ class Page;
 class PlaceholderModelPlayer;
 class PortalModelPlayerClient;
 class PortalVisibilityChangeClient;
+class RenderBox;
 class ResourceError;
 class SpatialPortalEventListener;
 class WeakPtrImplWithEventTargetData;
@@ -75,6 +76,7 @@ public:
     void childModelDidChange(HTMLModelElement&);
     void childVisibilityStateChanged(HTMLModelElement&);
     void childWasSuspended(HTMLModelElement&);
+    void childTransformDidChange(HTMLModelElement&, const TransformationMatrix&);
 
     Element* portalElement() const { return m_portalElement.get(); }
     unsigned numberOfHostedModels() const { return m_hostedModels.size(); }
@@ -83,7 +85,8 @@ public:
     void configureGraphicsLayer(GraphicsLayer&, const Color& backgroundColor);
     void sizeMayHaveChanged();
 
-    void setPortalTransform(PortalTransformKind);
+    void updatePortalTransform(const RenderBox&);
+    void updatePortalTransform();
     const std::optional<TransformationMatrix>& resolvedPortalTransform() const { return m_resolvedPortalTransform; }
 
     void setPortalAction(PortalActionKind);
@@ -146,7 +149,7 @@ private:
 #endif
     std::optional<LayoutSize> m_lastPushedContentSize;
     std::optional<TransformationMatrix> m_resolvedPortalTransform;
-    PortalTransformKind m_portalTransform { PortalTransformKind::Auto };
+    UsedPortalTransform m_portalTransform;
     PortalActionKind m_portalAction { PortalActionKind::None };
     bool m_handlesGesture { false };
     bool m_isIntersectingViewport { false };

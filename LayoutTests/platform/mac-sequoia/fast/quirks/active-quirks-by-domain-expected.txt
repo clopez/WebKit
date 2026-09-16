@@ -13,19 +13,15 @@ https://actesting.org/
 https://www.airindiaexpress.com/
     NeedsAirIndiaExpressLayeringQuirk
 https://www.amazon.com/
-    NeedsPrimeVideoUserSelectNoneQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
 https://sub.amazon.com/
-    NeedsPrimeVideoUserSelectNoneQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
 https://www.amazon.co.uk/
-    NeedsPrimeVideoUserSelectNoneQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
 https://amazon.design/
-    NeedsPrimeVideoUserSelectNoneQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
 https://www.apple.com/
-    EnsureCaptionVisibilityInFullscreenAndPictureInPicture
+    (none)
 https://as.com/
     (none)
 https://www.att.com/
@@ -90,9 +86,17 @@ https://www.forbes.com/
 https://gizmodo.com/
     (none)
 https://play.geforcenow.com/
-    (none)
+    NeedsGeforcenowWarningDisplayNoneQuirk
 https://www.google.com/
     MaybeBypassBackForwardCache
+https://www.google.com/search
+    MaybeBypassBackForwardCache
+    NeedsAnchorToBeMouseFocusableQuirk
+https://www.google.com/search/howsearchworks
+    MaybeBypassBackForwardCache
+https://www.google.co.jp/search
+    MaybeBypassBackForwardCache
+    NeedsAnchorToBeMouseFocusableQuirk
 https://www.google.com/maps/
     MaybeBypassBackForwardCache
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
@@ -123,6 +127,8 @@ https://www.carrentals.com/
     NeedsExpediaGroupAnimationQuirk
 https://www.cheaptickets.com/
     NeedsExpediaGroupAnimationQuirk
+https://www.chess.com/
+    (none)
 https://www.ebookers.de/
     NeedsExpediaGroupAnimationQuirk
 https://www.expedia.com/
@@ -177,7 +183,7 @@ https://officeapps.live.com/
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
     ShouldDisableDataURLPaddingValidation
 https://madisoncity.k12.al.us/
-    (none)
+    NeedsFormControlToBeMouseFocusableQuirk
 https://mailchimp.com/
     (none)
 https://www.marcus.com/
@@ -234,6 +240,7 @@ https://soylent.com/
     (none)
 https://open.spotify.com/
     NeedsBodyScrollbarWidthNoneDisabledQuirk
+    NeedsWebKitMediaKeysTransportStreamIsTypeSupportedQuirk
     NeedsWebKitMediaTextTrackDisplayQuirk
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
     ShouldBlockAudiblePlaybackWhileAudioIsPlaying
@@ -284,6 +291,7 @@ https://workspaces.xyz/
 https://wpdevelopment.ca/
     NeedsFormControlToBeMouseFocusableQuirk
 https://x.com/
+    NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk
     RequiresUserGestureToLoadInPictureInPictureQuirk
     RequiresUserGestureToPauseInPictureInPictureQuirk
 https://twitter.com/
@@ -303,6 +311,7 @@ https://www.youtube-nocookie.com/
     (none)
 https://www.zillow.com/
     ShouldAvoidScrollingWhenFocusedContentIsVisibleQuirk
+    ShouldTranscodeHeicImagesQuirk
 https://www.zomato.com/
     NeedsZomatoEmailLoginLabelQuirk
 https://zoom.us/

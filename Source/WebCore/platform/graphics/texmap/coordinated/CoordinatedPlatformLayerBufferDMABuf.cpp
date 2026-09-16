@@ -33,25 +33,21 @@
 #include "DMABufBuffer.h"
 #include "GLContext.h"
 #include "PlatformDisplay.h"
-#include "TextureMapper.h"
 #include <drm_fourcc.h>
 #include <epoxy/egl.h>
 #include <epoxy/gl.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
-#if USE(SKIA)
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-#include <skia/core/SkColorSpace.h>
-#include <skia/gpu/ganesh/SkImageGanesh.h>
-#include <skia/gpu/ganesh/gl/GrGLBackendSurface.h>
-#include <skia/private/chromium/GrPromiseImageTexture.h>
-#include <skia/private/chromium/SkImageChromium.h>
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+#if USE(TEXTURE_MAPPER)
+#include "CoordinatedPlatformLayerBufferExternalOES.h"
+#include "TextureMapper.h"
 #endif
 
 namespace WebCore {
 
+#if USE(TEXTURE_MAPPER)
 std::unique_ptr<CoordinatedPlatformLayerBufferDMABuf> CoordinatedPlatformLayerBufferDMABuf::create(Ref<DMABufBuffer>&& dmabuf, OptionSet<TextureMapperFlags> flags, std::unique_ptr<GLFence>&& fence)
 {
     return makeUnique<CoordinatedPlatformLayerBufferDMABuf>(WTF::move(dmabuf), flags, WTF::move(fence));
@@ -75,7 +71,8 @@ CoordinatedPlatformLayerBufferDMABuf::CoordinatedPlatformLayerBufferDMABuf(Ref<D
 {
 }
 
-#if USE(SKIA)
+#else
+
 std::unique_ptr<CoordinatedPlatformLayerBufferDMABuf> CoordinatedPlatformLayerBufferDMABuf::create(Ref<DMABufBuffer>&& dmabuf, OptionSet<TextureMapperFlags> flags, std::unique_ptr<GLFence>&& fence, const sk_sp<GrContextThreadSafeProxy>& threadSafeGrContext)
 {
     return makeUnique<CoordinatedPlatformLayerBufferDMABuf>(WTF::move(dmabuf), flags, WTF::move(fence), threadSafeGrContext);
@@ -104,10 +101,18 @@ CoordinatedPlatformLayerBufferDMABuf::CoordinatedPlatformLayerBufferDMABuf(Ref<D
 
 CoordinatedPlatformLayerBufferDMABuf::~CoordinatedPlatformLayerBufferDMABuf() = default;
 
-static RefPtr<BitmapTexture> importToTexture(const IntSize& textureSize, const DMABufBuffer::Attributes& dmaBufAttributes, OptionSet<BitmapTexture::Flags> textureFlags)
+#if USE(TEXTURE_MAPPER)
+static RefPtr<BitmapTexture> importToTexture(const IntSize& textureSize, const DMABufBuffer::Attributes& dmaBufAttributes, OptionSet<BitmapTexture::Flags> textureFlags, std::optional<DMABufBuffer::ColorSpace> colorSpace = std::nullopt, std::optional<DMABufBuffer::SampleRange> sampleRange = std::nullopt)
 {
     auto& display = PlatformDisplay::sharedDisplay();
-    auto image = DMABufBuffer::createEGLImage(display.glDisplay(), dmaBufAttributes);
+    EGLImage image = EGL_NO_IMAGE;
+    if (colorSpace && sampleRange) {
+        textureFlags.add(BitmapTexture::Flags::ExternalOESRenderTarget);
+#if USE(GSTREAMER)
+        image = DMABufBuffer::createEGLImageForQualcommVideoFrame(display.glDisplay(), dmaBufAttributes, *colorSpace, *sampleRange);
+#endif
+    } else
+        image = DMABufBuffer::createEGLImage(display.glDisplay(), dmaBufAttributes);
     if (!image)
         return nullptr;
 
@@ -202,6 +207,8 @@ static CoordinatedPlatformLayerBufferYUV::Format yuvFormatFromDRMFourcc(uint32_t
         return CoordinatedPlatformLayerBufferYUV::Format::AYUV;
     case DRM_FORMAT_NV12:
         return CoordinatedPlatformLayerBufferYUV::Format::NV12;
+    case DRM_FORMAT_NV21:
+        return CoordinatedPlatformLayerBufferYUV::Format::NV21;
     case DRM_FORMAT_P010:
         return CoordinatedPlatformLayerBufferYUV::Format::P010;
     case DRM_FORMAT_YUV420:
@@ -218,17 +225,17 @@ static CoordinatedPlatformLayerBufferYUV::Format yuvFormatFromDRMFourcc(uint32_t
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-std::unique_ptr<CoordinatedPlatformLayerBuffer> CoordinatedPlatformLayerBufferDMABuf::importYUV() const
+static std::unique_ptr<CoordinatedPlatformLayerBuffer> importYUV(const Ref<DMABufBuffer>& dmabuf, OptionSet<TextureMapperFlags> flags)
 {
     OptionSet<BitmapTexture::Flags> textureFlags;
-    if (m_flags.contains(TextureMapperFlags::ShouldBlend))
+    if (flags.contains(TextureMapperFlags::ShouldBlend))
         textureFlags.add(BitmapTexture::Flags::SupportsAlpha);
 
     Vector<RefPtr<BitmapTexture>, 4> textures;
     std::array<unsigned, 4> yuvPlane;
     std::array<unsigned, 4> yuvPlaneOffset;
 
-    const auto& attributes = m_dmabuf->attributes();
+    const auto& attributes = dmabuf->attributes();
     const auto& iter = yuvFormatPlaneInfo().find(attributes.fourcc.value);
     if (iter == yuvFormatPlaneInfo().end())
         return nullptr;
@@ -253,7 +260,7 @@ std::unique_ptr<CoordinatedPlatformLayerBuffer> CoordinatedPlatformLayerBufferDM
     auto format = yuvFormatFromDRMFourcc(attributes.fourcc.value);
 
     CoordinatedPlatformLayerBufferYUV::YuvToRgbColorSpace yuvToRgbColorSpace;
-    switch (m_dmabuf->colorSpace().value_or(DMABufBuffer::ColorSpace::Bt601)) {
+    switch (dmabuf->colorSpace().value_or(DMABufBuffer::ColorSpace::Bt601)) {
     case DMABufBuffer::ColorSpace::Bt601:
         yuvToRgbColorSpace = CoordinatedPlatformLayerBufferYUV::YuvToRgbColorSpace::Bt601;
         break;
@@ -269,7 +276,7 @@ std::unique_ptr<CoordinatedPlatformLayerBuffer> CoordinatedPlatformLayerBufferDM
     }
 
     CoordinatedPlatformLayerBufferYUV::TransferFunction transferFunction;
-    switch (m_dmabuf->transferFunction().value_or(DMABufBuffer::TransferFunction::Bt709)) {
+    switch (dmabuf->transferFunction().value_or(DMABufBuffer::TransferFunction::Bt709)) {
     case DMABufBuffer::TransferFunction::Bt709:
         transferFunction = CoordinatedPlatformLayerBufferYUV::TransferFunction::Bt709;
         break;
@@ -279,20 +286,27 @@ std::unique_ptr<CoordinatedPlatformLayerBuffer> CoordinatedPlatformLayerBufferDM
     }
 
     unsigned numberOfPlanes = textures.size();
-    return CoordinatedPlatformLayerBufferYUV::create(format, numberOfPlanes, WTF::move(textures), WTF::move(yuvPlane), WTF::move(yuvPlaneOffset), yuvToRgbColorSpace, transferFunction, m_size, m_flags, nullptr);
+    return CoordinatedPlatformLayerBufferYUV::create(format, numberOfPlanes, WTF::move(textures), WTF::move(yuvPlane), WTF::move(yuvPlaneOffset),
+        yuvToRgbColorSpace, transferFunction, attributes.size, flags, nullptr);
 }
 
 std::unique_ptr<CoordinatedPlatformLayerBuffer> CoordinatedPlatformLayerBufferDMABuf::importDMABuf() const
 {
+    bool importWithHints = m_dmabuf->colorSpace() && m_dmabuf->sampleRange();
     const auto& attributes = m_dmabuf->attributes();
-    if (formatIsYUV(attributes.fourcc.value))
-        return importYUV();
+    if (!importWithHints && formatIsYUV(attributes.fourcc.value))
+        return importYUV(m_dmabuf, m_flags);
 
     OptionSet<BitmapTexture::Flags> textureFlags;
     if (m_flags.contains(TextureMapperFlags::ShouldBlend))
         textureFlags.add(BitmapTexture::Flags::SupportsAlpha);
-    auto texture = importToTexture(attributes.size, attributes, textureFlags);
-    return texture ? CoordinatedPlatformLayerBufferRGB::create(texture.releaseNonNull(), m_flags, nullptr) : nullptr;
+    auto texture = importToTexture(attributes.size, attributes, textureFlags, m_dmabuf->colorSpace(), m_dmabuf->sampleRange());
+    if (!texture)
+        return nullptr;
+
+    if (importWithHints)
+        return CoordinatedPlatformLayerBufferExternalOES::create(texture.releaseNonNull(), m_flags, nullptr);
+    return CoordinatedPlatformLayerBufferRGB::create(texture.releaseNonNull(), m_flags, nullptr);
 }
 
 void CoordinatedPlatformLayerBufferDMABuf::paintToTextureMapper(TextureMapper& textureMapper, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity)
@@ -311,80 +325,16 @@ void CoordinatedPlatformLayerBufferDMABuf::paintToTextureMapper(TextureMapper& t
         buffer->paintToTextureMapper(textureMapper, targetRect, modelViewMatrix, opacity);
 }
 
-#if USE(SKIA)
-struct PromiseDMABufImageContext {
-    WTF_MAKE_STRUCT_TZONE_ALLOCATED(PromiseDMABufImageContext);
-
-    PromiseDMABufImageContext(Ref<DMABufBuffer>&& buffer, std::unique_ptr<GLFence>&& glFence, WTF::UnixFileDescriptor&& fd)
-        : dmabuf(WTF::move(buffer))
-        , fence(WTF::move(glFence))
-        , fenceFD(WTF::move(fd))
-    {
-    }
-
-    sk_sp<GrPromiseImageTexture> promiseImageTexture()
-    {
-        auto& display = PlatformDisplay::sharedDisplay();
-        auto* glContext = display.skiaGLContext();
-        if (!glContext || !glContext->makeContextCurrent())
-            return nullptr;
-
-        if (auto glFence = WTF::move(fence))
-            glFence->serverWait();
-        else if (fenceFD) {
-            if (auto glFence = GLFence::importFD(display.glDisplay(), WTF::move(fenceFD)))
-                glFence->serverWait();
-        }
-
-        const auto& attributes = dmabuf->attributes();
-        if (!dmabuf->buffer()) {
-            std::unique_ptr<CoordinatedPlatformLayerBuffer> buffer;
-            if (auto texture = importToTexture(attributes.size, attributes, { }))
-                buffer = CoordinatedPlatformLayerBufferRGB::create(texture.releaseNonNull(), { }, nullptr);
-            dmabuf->setBuffer(WTF::move(buffer));
-        }
-
-        auto* buffer = dmabuf->buffer();
-        if (is<CoordinatedPlatformLayerBufferRGB>(buffer)) {
-            GrGLTextureInfo externalTexture;
-            externalTexture.fTarget = GL_TEXTURE_2D;
-            externalTexture.fID = downcast<CoordinatedPlatformLayerBufferRGB>(*buffer).textureID();
-            externalTexture.fFormat = GL_RGBA8;
-            auto backendTexture = GrBackendTextures::MakeGL(attributes.size.width(), attributes.size.height(), skgpu::Mipmapped::kNo, externalTexture);
-            return GrPromiseImageTexture::Make(backendTexture);
-        }
-
-        return nullptr;
-    }
-
-    const Ref<DMABufBuffer> dmabuf;
-    std::unique_ptr<GLFence> fence;
-    WTF::UnixFileDescriptor fenceFD;
-};
-
-WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(PromiseDMABufImageContext);
+#else
 
 void CoordinatedPlatformLayerBufferDMABuf::createSkiaImageIfNeeded(const sk_sp<GrContextThreadSafeProxy>& threadSafeGrContext)
 {
-    const auto& attributes = m_dmabuf->attributes();
-    RELEASE_ASSERT(!formatIsYUV(attributes.fourcc.value));
+    if (!threadSafeGrContext)
+        return;
 
-    auto backendFormat = threadSafeGrContext->defaultBackendFormat(kRGBA_8888_SkColorType, GrRenderable::kYes);
-    ASSERT(backendFormat.isValid());
-
-    auto context = makeUnique<PromiseDMABufImageContext>(m_dmabuf.copyRef(), WTF::move(m_fence), WTF::move(m_fenceFD));
-
-    auto origin = m_flags.contains(TextureMapperFlags::ShouldFlipTexture) ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
     auto alphaType = m_flags.contains(TextureMapperFlags::ShouldBlend) ? kPremul_SkAlphaType : kOpaque_SkAlphaType;
-    m_image = SkImages::PromiseTextureFrom(threadSafeGrContext, backendFormat, SkISize::Make(attributes.size.width(), attributes.size.height()), skgpu::Mipmapped::kNo,
-        origin, kRGBA_8888_SkColorType, alphaType, SkColorSpace::MakeSRGB(),
-        +[](void* userData) -> sk_sp<GrPromiseImageTexture> {
-            auto& context = *static_cast<PromiseDMABufImageContext*>(userData);
-            return context.promiseImageTexture();
-        },
-        +[](void* userData) {
-            std::unique_ptr<PromiseDMABufImageContext> context(static_cast<PromiseDMABufImageContext*>(userData));
-        }, context.release());
+    auto origin = m_flags.contains(TextureMapperFlags::ShouldFlipTexture) ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
+    m_image = m_dmabuf->createPromiseImage(threadSafeGrContext, kRGBA_8888_SkColorType, alphaType, origin, WTF::move(m_fence), WTF::move(m_fenceFD));
 }
 
 sk_sp<SkImage> CoordinatedPlatformLayerBufferDMABuf::skiaImage()
@@ -399,13 +349,9 @@ sk_sp<SkImage> CoordinatedPlatformLayerBufferDMABuf::skiaImage()
             fence->serverWait();
     }
 
-    if (!m_dmabuf->buffer())
-        m_dmabuf->setBuffer(importDMABuf());
-
-    if (auto* buffer = m_dmabuf->buffer())
-        return buffer->skiaImage();
-
-    return nullptr;
+    auto alphaType = m_flags.contains(TextureMapperFlags::ShouldBlend) ? kPremul_SkAlphaType : kOpaque_SkAlphaType;
+    auto origin = m_flags.contains(TextureMapperFlags::ShouldFlipTexture) ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
+    return m_dmabuf->createImage(kRGBA_8888_SkColorType, alphaType, origin);
 }
 #endif
 

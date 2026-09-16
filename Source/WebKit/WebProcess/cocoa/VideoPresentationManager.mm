@@ -74,7 +74,7 @@ using namespace WebCore;
 static FloatRect inlineVideoFrame(HTMLVideoElement& element)
 {
     Ref document = element.document();
-    if (!document->hasLivingRenderTree() || document->activeDOMObjectsAreStopped())
+    if (document->renderTreeState() != Document::RenderTreeState::Built || document->activeDOMObjectsAreStopped())
         return { };
 
     document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
@@ -265,6 +265,15 @@ void VideoPresentationManager::removeContext(WebCore::MediaPlayerClientIdentifie
 
     model->setVideoElement(nullptr);
     m_videoElements.remove(*videoElement);
+}
+
+RefPtr<WebCore::HTMLVideoElement> VideoPresentationManager::videoElementForContext(WebCore::MediaPlayerClientIdentifier contextId) const
+{
+    auto it = m_contextMap.find(contextId);
+    if (it == m_contextMap.end())
+        return nullptr;
+
+    return std::get<0>(it->value)->videoElement();
 }
 
 void VideoPresentationManager::addClientForContext(WebCore::MediaPlayerClientIdentifier contextId)

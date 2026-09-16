@@ -113,8 +113,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HTMLCanvasElement);
 using namespace HTMLNames;
 
 // These values come from the WhatWG/W3C HTML spec.
-const int defaultWidth = 300;
-const int defaultHeight = 150;
+constexpr int defaultWidth = 300;
+constexpr int defaultHeight = 150;
 
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document, TypeFlag::HasDidMoveToNewDocument)
@@ -595,9 +595,9 @@ std::optional<FloatRect> HTMLCanvasElement::computeDirtyRectangleIfNeeded(const 
     return dirtyRect;
 }
 
-void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
+void HTMLCanvasElement::willUpdateContents(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
-    clearCopiedImage();
+    m_copiedImage = nullptr;
     if (CheckedPtr renderer = renderBox()) {
         const std::optional<FloatRect> dirtyRect = computeDirtyRectangleIfNeeded(rect);
         if (usesContentsAsLayerContents())
@@ -605,7 +605,7 @@ void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldAppl
         else if (dirtyRect)
             renderer->repaintRectangle(enclosingIntRect(*dirtyRect));
     }
-    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
+    CanvasBase::willUpdateContents(rect, shouldApplyPostProcessingToDirtyRect);
 }
 
 void HTMLCanvasElement::didUpdateSizeProperties()
@@ -620,7 +620,7 @@ void HTMLCanvasElement::didUpdateSizeProperties()
     IntSize newSize(w, h);
     bool sizeChanged = oldSize != newSize;
     CanvasBase::setSize(newSize);
-    clearCopiedImage();
+    m_copiedImage = nullptr;
     if (m_context)
         m_context->didUpdateCanvasSizeProperties(sizeChanged);
     if (CheckedPtr canvasRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer())) {
@@ -820,7 +820,7 @@ RefPtr<VideoFrame> HTMLCanvasElement::toVideoFrame()
     // FIXME: This can likely be optimized quite a bit, especially in the cases where
     // the ImageBuffer is backed by GPU memory already and/or is in the GPU process by
     // specializing toVideoFrame() in ImageBufferBackend to not use getPixelBuffer().
-    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }, { { }, imageBuffer->truncatedLogicalSize() });
+    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, ColorSpace::SRGB() }, { { }, imageBuffer->truncatedLogicalSize() });
     if (!pixelBuffer)
         return nullptr;
 
@@ -860,17 +860,11 @@ SecurityOrigin* HTMLCanvasElement::securityOrigin() const
 
 Image* HTMLCanvasElement::copiedImage() const
 {
-    if (!m_copiedImage) {
-        RefPtr buffer = const_cast<HTMLCanvasElement*>(this)->makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
-        if (buffer)
-            m_copiedImage = BitmapImage::create(buffer->copyNativeImage());
-    }
+    if (m_copiedImage)
+        return m_copiedImage.get();
+    if (RefPtr image = copyNativeImage())
+        m_copiedImage = BitmapImage::create(WTF::move(image));
     return m_copiedImage.get();
-}
-
-void HTMLCanvasElement::clearCopiedImage() const
-{
-    m_copiedImage = nullptr;
 }
 
 bool HTMLCanvasElement::virtualHasPendingActivity() const

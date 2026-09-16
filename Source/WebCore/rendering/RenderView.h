@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2026 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -73,7 +73,7 @@ public:
 
     float NODELETE pageZoomFactor() const;
 
-    WEBCORE_EXPORT LocalFrameView& NODELETE frameView() const LIFETIME_BOUND;
+    inline LocalFrameView& NODELETE frameView() const LIFETIME_BOUND; // Defined in LocalFrameViewInlines.h.
 
     Layout::InitialContainingBlock& initialContainingBlock() { return m_initialContainingBlock.get(); }
     const Layout::InitialContainingBlock& initialContainingBlock() const { return m_initialContainingBlock.get(); }
@@ -86,7 +86,6 @@ public:
     bool needsEventRegionUpdateForNonCompositedFrame() const { return m_needsEventRegionUpdateForNonCompositedFrame; }
     void setNeedsEventRegionUpdateForNonCompositedFrame(bool value = true) { m_needsEventRegionUpdateForNonCompositedFrame = value; }
 
-#if ENABLE(TEXT_AUTOSIZING)
     enum class TextAutosizingState : uint8_t {
         Normal,
         ResetScheduled,
@@ -94,7 +93,6 @@ public:
     };
     TextAutosizingState textAutosizingState() const { return m_textAutosizingState; }
     void setTextAutosizingState(TextAutosizingState state) { m_textAutosizingState = state; }
-#endif
 
     std::optional<RepaintRects> computeVisibleRectsInContainer(const RepaintRects&, const RenderLayerModelObject* container, const VisibleRectContext&, VisibleRectState) const override;
     void repaintRootContents();
@@ -116,7 +114,7 @@ public:
 
     bool printing() const;
 
-    void boundingRects(Vector<LayoutRect>&, const LayoutPoint& accumulatedOffset) const override;
+    Vector<FloatRect> localBorderBoxRects() const final;
     void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const override;
 
     LayoutRect viewRect() const;
@@ -181,11 +179,11 @@ public:
     void incrementRendersWithOutline() { ++m_renderersWithOutlineCount; }
     void decrementRendersWithOutline() { ASSERT(m_renderersWithOutlineCount > 0); --m_renderersWithOutlineCount; }
     bool hasRenderersWithOutline() const { return m_renderersWithOutlineCount; }
+    void incrementRenderersWithPixelMovingFilter() { ++m_renderersWithPixelMovingFilterCount; }
+    void decrementRenderersWithPixelMovingFilter() { ASSERT(m_renderersWithPixelMovingFilterCount > 0); --m_renderersWithPixelMovingFilterCount; }
+    bool hasRenderersWithPixelMovingFilter() const { return m_renderersWithPixelMovingFilterCount; }
 
     ImageQualityController& imageQualityController() LIFETIME_BOUND;
-
-    void setHasSoftwareFilters(bool hasSoftwareFilters) { m_hasSoftwareFilters = hasSoftwareFilters; }
-    bool hasSoftwareFilters() const { return m_hasSoftwareFilters; }
 
     uint64_t rendererCount() const { return m_rendererCount; }
     void didCreateRenderer() { ++m_rendererCount; }
@@ -298,13 +296,10 @@ private:
 
     SingleThreadWeakHashSet<RenderCounter> m_countersNeedingUpdate;
     unsigned m_renderersWithOutlineCount { 0 };
-
-    bool m_hasSoftwareFilters { false };
+    unsigned m_renderersWithPixelMovingFilterCount { 0 };
     bool m_needsRepaintHackAfterCompositingLayerUpdateForDebugOverlaysOnly { false };
     bool m_needsEventRegionUpdateForNonCompositedFrame { false };
-#if ENABLE(TEXT_AUTOSIZING)
     TextAutosizingState m_textAutosizingState { TextAutosizingState::Normal };
-#endif
 
     SingleThreadWeakHashMap<RenderElement, Vector<WeakPtr<CachedImage>>> m_renderersWithPausedImageAnimation;
     WeakHashSet<SVGSVGElement, WeakPtrImplWithEventTargetData> m_SVGSVGElementsWithPausedImageAnimation;

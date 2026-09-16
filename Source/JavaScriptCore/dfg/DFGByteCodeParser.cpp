@@ -338,12 +338,15 @@ void InliningPlan::surveyCallSites(Site& parent, CodeBlock* codeBlock, unsigned 
     }
 }
 
-static bool isHigherPriorityInliningCandidate(InliningPlan::Site* const& left, InliningPlan::Site* const& right)
-{
-    if (left->score != right->score)
-        return left->score > right->score;
-    return left->surveyIndex < right->surveyIndex;
-}
+// Served first is the highest score, then the earliest surveyed site.
+struct InliningCandidateIsLowerPriority {
+    bool operator()(InliningPlan::Site* left, InliningPlan::Site* right) const
+    {
+        if (left->score != right->score)
+            return left->score < right->score;
+        return left->surveyIndex > right->surveyIndex;
+    }
+};
 
 void InliningPlan::build(CodeBlock* rootCodeBlock, JITType jitType)
 {
@@ -359,7 +362,7 @@ void InliningPlan::build(CodeBlock* rootCodeBlock, JITType jitType)
 
     surveyCallSites(m_root, rootCodeBlock, m_root.depth + 1);
 
-    PriorityQueue<InliningPlan::Site*, isHigherPriorityInliningCandidate> queue;
+    PriorityQueue<InliningPlan::Site*, InliningCandidateIsLowerPriority> queue;
 
     auto makeAdmissible = [&](const auto& sites) {
         for (Site* site : sites)
@@ -753,9 +756,8 @@ private:
     {
         ASSERT(node->op() == GetLocal);
         ASSERT(node->origin.semantic.bytecodeIndex() == m_currentIndex);
-        ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
         LazyOperandValueProfileKey key(m_currentIndex, node->operand());
-        SpeculatedType prediction = m_inlineStackTop->m_lazyOperands.prediction(locker, key);
+        SpeculatedType prediction = m_inlineStackTop->m_lazyOperands.prediction(key);
         node->variableAccessData()->predict(prediction);
         return node;
     }
@@ -1103,7 +1105,7 @@ private:
         CodeOrigin semantic = m_currentSemanticOrigin.isSet() ? m_currentSemanticOrigin : currentCodeOrigin();
         CodeOrigin forExit = m_currentExitOrigin.isSet() ? m_currentExitOrigin : currentCodeOrigin();
 
-        return NodeOrigin(semantic, forExit, m_exitOK);
+        return NodeOrigin(WTF::move(semantic), WTF::move(forExit), m_exitOK);
     }
     
     BranchData* branchData(unsigned taken, unsigned notTaken)
@@ -1259,12 +1261,8 @@ private:
             if (opcodeID == op_call_ignore_result)
                 return SpecFullTop;
 
-            SpeculatedType prediction;
-            {
-                JSValue* specFailValue = inlineStackEntry->m_specFailValueProfileBuckets.get(bytecodeIndex);
-                ConcurrentJSLocker locker(codeBlock->valueProfileLock());
-                prediction = codeBlock->valueProfilePredictionForBytecodeIndex(locker, codeOrigin.bytecodeIndex(), specFailValue);
-            }
+            JSValue* specFailValue = inlineStackEntry->m_specFailValueProfileBuckets.get(bytecodeIndex);
+            SpeculatedType prediction = codeBlock->valueProfilePredictionForBytecodeIndex(codeOrigin.bytecodeIndex(), specFailValue);
             auto* fuzzerAgent = m_vm->fuzzerAgent();
             if (fuzzerAgent) [[unlikely]]
                 return fuzzerAgent->getPrediction(codeBlock, codeOrigin, prediction) & SpecBytecodeTop;
@@ -1342,34 +1340,26 @@ private:
     ArrayMode getArrayMode(Array::Action action)
     {
         CodeBlock* codeBlock = m_inlineStackTop->m_profiledBlock;
-        ConcurrentJSLocker locker(codeBlock->m_lock);
-        ArrayProfile* profile = codeBlock->getArrayProfile(locker, codeBlock->bytecodeIndex(m_currentInstruction));
+        ArrayProfile* profile = codeBlock->getArrayProfile(codeBlock->bytecodeIndex(m_currentInstruction));
         if (!profile)
             return { };
-        return getArrayMode(locker, *profile, action);
+        return getArrayMode(*profile, action);
     }
 
-    ArrayMode getArrayMode(ArrayProfile& profile, Array::Action action)
+    ArrayMode getArrayMode(ArrayProfile& liveProfile, Array::Action action)
     {
-        ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
-        return getArrayMode(locker, profile, action);
-    }
-
-    ArrayMode getArrayMode(const ConcurrentJSLocker& locker, ArrayProfile& profile, Array::Action action)
-    {
-        profile.computeUpdatedPrediction(m_inlineStackTop->m_profiledBlock);
-        bool makeSafe = profile.outOfBounds(locker);
-        return ArrayMode::fromObserved(locker, &profile, action, makeSafe);
+        liveProfile.computeUpdatedPrediction(m_inlineStackTop->m_profiledBlock);
+        ArrayProfile profile = liveProfile;
+        return ArrayMode::fromObserved(profile, action, profile.outOfBounds());
     }
 
     bool profiledArrayMayBeRegExpMatchesArray()
     {
         CodeBlock* codeBlock = m_inlineStackTop->m_profiledBlock;
-        ConcurrentJSLocker locker(codeBlock->m_lock);
-        ArrayProfile* profile = codeBlock->getArrayProfile(locker, codeBlock->bytecodeIndex(m_currentInstruction));
+        ArrayProfile* profile = codeBlock->getArrayProfile(codeBlock->bytecodeIndex(m_currentInstruction));
         if (!profile)
             return false;
-        return profile->mayBeRegExpMatchesArray(locker);
+        return profile->mayBeRegExpMatchesArray();
     }
 
     Node* makeSafe(Node* node)
@@ -2581,9 +2571,8 @@ bool ByteCodeParser::handleVarargsInlining(Node* callTargetNode, Operand result,
             // arguments received inside the callee. But that probably won't matter for most
             // calls.
             if (codeBlock && argument < static_cast<unsigned>(codeBlock->numParameters())) {
-                ConcurrentJSLocker locker(codeBlock->valueProfileLock());
                 ArgumentValueProfile& profile = codeBlock->valueProfileForArgument(argument);
-                variable->predict(profile.computeUpdatedPrediction(locker));
+                variable->predict(profile.computeUpdatedPrediction());
             }
             
             Node* setArgument = addToGraph(numSetArguments >= mandatoryMinimum ? SetArgumentMaybe : SetArgumentDefinitely, OpInfo(variable));
@@ -5117,27 +5106,50 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             return CallOptimizationResult::Inlined;
         }
 
-        case DatePrototypeGetFullYearIntrinsic:
-        case DatePrototypeGetUTCFullYearIntrinsic:
-        case DatePrototypeGetMonthIntrinsic:
-        case DatePrototypeGetUTCMonthIntrinsic:
-        case DatePrototypeGetDateIntrinsic:
-        case DatePrototypeGetUTCDateIntrinsic:
-        case DatePrototypeGetDayIntrinsic:
-        case DatePrototypeGetUTCDayIntrinsic:
-        case DatePrototypeGetHoursIntrinsic:
-        case DatePrototypeGetUTCHoursIntrinsic:
-        case DatePrototypeGetMinutesIntrinsic:
-        case DatePrototypeGetUTCMinutesIntrinsic:
-        case DatePrototypeGetSecondsIntrinsic:
-        case DatePrototypeGetUTCSecondsIntrinsic:
         case DatePrototypeGetMillisecondsIntrinsic:
-        case DatePrototypeGetUTCMillisecondsIntrinsic:
+        case DatePrototypeGetUTCMillisecondsIntrinsic: {
+            insertChecks();
+            Node* base = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
+            setResult(addToGraph(DateGetMilliseconds, OpInfo(), OpInfo(prediction), base));
+            return CallOptimizationResult::Inlined;
+        }
+
+        case DatePrototypeGetUTCFullYearIntrinsic:
+        case DatePrototypeGetUTCMonthIntrinsic:
+        case DatePrototypeGetUTCDateIntrinsic:
+        case DatePrototypeGetUTCDayIntrinsic:
+        case DatePrototypeGetUTCHoursIntrinsic:
+        case DatePrototypeGetUTCMinutesIntrinsic:
+        case DatePrototypeGetUTCSecondsIntrinsic:
+        case DatePrototypeGetFullYearIntrinsic:
+        case DatePrototypeGetMonthIntrinsic:
+        case DatePrototypeGetDateIntrinsic:
+        case DatePrototypeGetDayIntrinsic:
+        case DatePrototypeGetHoursIntrinsic:
+        case DatePrototypeGetMinutesIntrinsic:
+        case DatePrototypeGetSecondsIntrinsic:
         case DatePrototypeGetTimezoneOffsetIntrinsic:
         case DatePrototypeGetYearIntrinsic: {
             insertChecks();
+            // Every field comes out of one packed word, so the load and its validity check are a
+            // separate node that all the accessors on a Date share.
+            bool isUTC = false;
+            switch (intrinsic) {
+            case DatePrototypeGetUTCFullYearIntrinsic:
+            case DatePrototypeGetUTCMonthIntrinsic:
+            case DatePrototypeGetUTCDateIntrinsic:
+            case DatePrototypeGetUTCDayIntrinsic:
+            case DatePrototypeGetUTCHoursIntrinsic:
+            case DatePrototypeGetUTCMinutesIntrinsic:
+            case DatePrototypeGetUTCSecondsIntrinsic:
+                isUTC = true;
+                break;
+            default:
+                break;
+            }
             Node* base = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
-            setResult(addToGraph(DateGetInt32OrNaN, OpInfo(intrinsic), OpInfo(prediction), base));
+            Node* storage = addToGraph(DateGetStorage, OpInfo(isUTC), OpInfo(), base);
+            setResult(addToGraph(DateGetInt32OrNaN, OpInfo(intrinsic), OpInfo(prediction), Edge(storage, KnownStorageUse)));
             return CallOptimizationResult::Inlined;
         }
 
@@ -9219,6 +9231,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             }
 
             if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
+                && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadStringType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
 
@@ -9641,6 +9654,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             bool shouldCompileAsDeleteById = false;
 
             if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
+                && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadStringType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
 
@@ -10066,11 +10080,9 @@ void ByteCodeParser::parseBlock(unsigned limit)
             UncheckedKeyHashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> seenArguments;
 
             {
-                ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->valueProfileLock());
-
                 buffer->forEach([&](ValueProfileAndVirtualRegister& profile) {
                     VirtualRegister operand(profile.m_operand);
-                    SpeculatedType prediction = profile.computeUpdatedPrediction(locker);
+                    SpeculatedType prediction = profile.computeUpdatedPrediction();
                     if (operand.isLocal())
                         localPredictions.append(prediction);
                     else {
@@ -10429,7 +10441,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             ResolveType resolveType;
             GetPutInfo getPutInfo(0);
             Structure* structure = nullptr;
-            WatchpointSet* watchpoints = nullptr;
+            InlineWatchpointSet* watchpoints = nullptr;
             uintptr_t operand;
             {
                 ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
@@ -10449,8 +10461,6 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     addToGraph(GetDynamicVar, OpInfo(opInfo1), OpInfo(prediction), get(bytecode.m_scope)));
                 NEXT_OPCODE(op_get_from_scope);
             }
-
-            UNUSED_PARAM(watchpoints); // We will use this in the future. For now we set it as a way of documenting the fact that that's what index 5 is in GlobalVar mode.
 
             JSGlobalObject* globalObject = m_inlineStackTop->m_codeBlock->globalObject();
 
@@ -10488,16 +10498,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             case GlobalLexicalVar:
             case GlobalLexicalVarWithVarInjectionChecks: {
                 addToGraph(Phantom, get(bytecode.m_scope));
-                WatchpointSet* watchpointSet;
-                ScopeOffset offset;
-                JSSegmentedVariableObject* scopeObject = uncheckedDowncast<JSSegmentedVariableObject>(JSScope::constantScopeForCodeBlock(resolveType, m_inlineStackTop->m_codeBlock));
-                {
-                    ConcurrentJSLocker locker(scopeObject->symbolTable()->m_lock);
-                    SymbolTableEntry entry = scopeObject->symbolTable()->get(locker, uid);
-                    watchpointSet = entry.watchpointSet();
-                    offset = entry.scopeOffset();
-                }
-                if (watchpointSet && watchpointSet->state() == IsWatched) {
+                if (watchpoints && watchpoints->state() == IsWatched) {
                     // This has a fun concurrency story. There is the possibility of a race in two
                     // directions:
                     //
@@ -10537,12 +10538,9 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     // that resizes with malloc/free, so if new globals unrelated to the one we are
                     // reading are added, we might access freed memory if we do variableAt().
                     WriteBarrier<Unknown>* pointer = std::bit_cast<WriteBarrier<Unknown>*>(operand);
-                    
-                    ASSERT(scopeObject->findVariableIndex(pointer) == offset);
-                    
                     JSValue value = pointer->get();
                     if (value) {
-                        m_graph.watchpoints().addLazily(*watchpointSet);
+                        m_graph.watchpoints().addLazily(*watchpoints);
                         set(bytecode.m_dst, weakJSConstant(value));
                         break;
                     }
@@ -10622,7 +10620,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             ResolveType resolveType;
             GetPutInfo getPutInfo(0);
             Structure* structure = nullptr;
-            WatchpointSet* watchpoints = nullptr;
+            InlineWatchpointSet* watchpoints = nullptr;
             uintptr_t operand;
             {
                 ConcurrentJSLocker locker(m_inlineStackTop->m_profiledBlock->m_lock);
@@ -10680,10 +10678,6 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     m_graph.watchpoints().addLazily(globalObject->varReadOnlyWatchpointSet());
 
                 JSSegmentedVariableObject* scopeObject = uncheckedDowncast<JSSegmentedVariableObject>(JSScope::constantScopeForCodeBlock(resolveType, m_inlineStackTop->m_codeBlock));
-                if (watchpoints) {
-                    SymbolTableEntry entry = scopeObject->symbolTable()->get(uid);
-                    ASSERT_UNUSED(entry, watchpoints == entry.watchpointSet());
-                }
                 Node* valueNode = get(bytecode.m_value);
                 addToGraph(PutGlobalVariable, OpInfo(operand), weakJSConstant(scopeObject), valueNode);
                 if (watchpoints && watchpoints->state() != IsInvalidated) {
@@ -10959,6 +10953,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap,
                 m_icContextStack, currentCodeOrigin());
             if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
+                && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadStringType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
                 if (CacheableIdentifier identifier = status.singleIdentifier()) {
@@ -11641,6 +11636,7 @@ void ByteCodeParser::handlePutByVal(Bytecode bytecode, BytecodeIndex osrExitInde
     PutByStatus status = PutByStatus::computeFor(m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap, m_icContextStack, currentCodeOrigin());
 
     if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
+        && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadStringType)
         && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
         && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
         if (CacheableIdentifier identifier = status.singleIdentifier()) {

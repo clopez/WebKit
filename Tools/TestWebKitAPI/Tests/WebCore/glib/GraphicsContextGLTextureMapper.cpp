@@ -56,7 +56,7 @@ static RefPtr<TestedGraphicsContextGLTextureMapper> createTestedGraphicsContextG
 class MockGraphicsContextGLClient final : public GraphicsContextGL::Client {
 public:
     void forceContextLost() final { ++m_contextLostCalls; }
-    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, const CString&) final { }
+    void addDebugMessage(GCGLenum, GCGLenum, GCGLenum, std::span<const char8_t>) final { }
     void didChangeMemoryCost() final { }
     int contextLostCalls() { return m_contextLostCalls; }
 private:
@@ -206,7 +206,7 @@ TEST_F(GraphicsContextGLTextureMapperTest, ClearBufferIncorrectSizes)
     auto texture = gl->createTexture();
     gl->bindTexture(GL::TEXTURE_2D, texture);
     gl->texParameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST);
-    gl->texImage2D(GL::TEXTURE_2D, 0, GL::R8UI, 1, 1, 0, GL::RED_INTEGER, GL::UNSIGNED_BYTE, 0);
+    gl->texImage2D(GL::TEXTURE_2D, 0, GL::R8UI, 1, 1, 0, GL::RED_INTEGER, GL::UNSIGNED_BYTE, std::span<const uint8_t> { });
     ASSERT_TRUE(gl->getErrors().isEmpty());
 
     auto fbo = gl->createFramebuffer();
@@ -276,10 +276,36 @@ TEST_F(GraphicsContextGLTextureMapperTest, CopyNativeImageNoDrawingBufferReturns
 {
     using GL = GraphicsContextGL;
     auto gl = createTestedGraphicsContextGL({ });
-    RefPtr drawingImage = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DrawingBuffer);
-    RefPtr displayImage = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DisplayBuffer);
+    RefPtr drawingImage = gl->copyNativeImage(GL::SurfaceBuffer::DrawingBuffer);
+    RefPtr displayImage = gl->copyNativeImage(GL::SurfaceBuffer::DisplayBuffer);
     EXPECT_EQ(drawingImage, nullptr);
     EXPECT_EQ(displayImage, nullptr);
+}
+
+// Test that the copy is in image orientation, i.e. the first row of the image is the top
+// row, even though the first row of the drawing buffer is the bottom row.
+TEST_F(GraphicsContextGLTextureMapperTest, CopyNativeImageIsNotYFlipped)
+{
+    using GL = GraphicsContextGL;
+    auto gl = createTestedGraphicsContextGL({ });
+    gl->reshape(10, 10);
+    // Clear the bottom half of the drawing buffer, in GL coordinates.
+    gl->enable(GL::SCISSOR_TEST);
+    gl->scissor(0, 0, 10, 5);
+    gl->clearColor(0.f, 1.f, 0.f, 1.f);
+    gl->clear(GL::COLOR_BUFFER_BIT);
+    gl->disable(GL::SCISSOR_TEST);
+
+    RefPtr drawingImage = gl->copyNativeImage(GL::SurfaceBuffer::DrawingBuffer);
+    ASSERT_NE(drawingImage, nullptr);
+    EXPECT_TRUE(imagePixelIs(Color::green, *drawingImage, FloatPoint(5, 8)));
+    EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage, FloatPoint(5, 1)));
+
+    gl->prepareForDisplay();
+    RefPtr displayImage = gl->copyNativeImage(GL::SurfaceBuffer::DisplayBuffer);
+    ASSERT_NE(displayImage, nullptr);
+    EXPECT_TRUE(imagePixelIs(Color::green, *displayImage, FloatPoint(5, 8)));
+    EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *displayImage, FloatPoint(5, 1)));
 }
 
 // Test copying images and mutating the drawing buffer.
@@ -289,12 +315,12 @@ TEST_F(GraphicsContextGLTextureMapperTest, CopyImageAndMutateDrawingBuffer)
     using GL = GraphicsContextGL;
     auto gl = createTestedGraphicsContextGL({ });
     gl->reshape(10, 10);
-    RefPtr drawingImage0 = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DrawingBuffer);
+    RefPtr drawingImage0 = gl->copyNativeImage(GL::SurfaceBuffer::DrawingBuffer);
     ASSERT_NE(drawingImage0, nullptr);
     EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage0, FloatPoint(5, 5)));
     gl->clearColor(0.f, 1.f, 0.f, 1.f);
     gl->clear(GL::COLOR_BUFFER_BIT);
-    RefPtr drawingImage1 = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DrawingBuffer);
+    RefPtr drawingImage1 = gl->copyNativeImage(GL::SurfaceBuffer::DrawingBuffer);
     ASSERT_NE(drawingImage1, nullptr);
     EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage0, FloatPoint(5, 5)));
     EXPECT_TRUE(imagePixelIs(Color::green, *drawingImage1, FloatPoint(5, 5)));
@@ -303,13 +329,13 @@ TEST_F(GraphicsContextGLTextureMapperTest, CopyImageAndMutateDrawingBuffer)
     gl->clear(GL::COLOR_BUFFER_BIT);
     EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage0, FloatPoint(5, 5)));
     EXPECT_TRUE(imagePixelIs(Color::green, *drawingImage1, FloatPoint(5, 5)));
-    RefPtr drawingImage2 = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DrawingBuffer);
+    RefPtr drawingImage2 = gl->copyNativeImage(GL::SurfaceBuffer::DrawingBuffer);
     ASSERT_NE(drawingImage2, nullptr);
     EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage0, FloatPoint(5, 5)));
     EXPECT_TRUE(imagePixelIs(Color::green, *drawingImage1, FloatPoint(5, 5)));
     EXPECT_TRUE(imagePixelIs(Color::blue, *drawingImage2, FloatPoint(5, 5)));
     gl->prepareForDisplay();
-    RefPtr displayImage = gl->copyNativeImageYFlipped(GL::SurfaceBuffer::DisplayBuffer);
+    RefPtr displayImage = gl->copyNativeImage(GL::SurfaceBuffer::DisplayBuffer);
     ASSERT_NE(displayImage, nullptr);
     EXPECT_TRUE(imagePixelIs(Color::transparentBlack, *drawingImage0, FloatPoint(5, 5)));
     EXPECT_TRUE(imagePixelIs(Color::green, *drawingImage1, FloatPoint(5, 5)));
