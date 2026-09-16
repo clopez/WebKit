@@ -133,25 +133,24 @@ struct SameSizeAsRenderBox : public RenderBoxModelObject {
     LayoutRect borderBoxRectInContainer;
     LayoutBoxExtent marginBox;
     LayoutUnit preferredLogicalWidths[2];
-    void* pointers[1];
+    void* pointers[2];
 };
 
 static_assert(sizeof(RenderBox) == sizeof(SameSizeAsRenderBox), "RenderBox should stay small");
 
 using namespace HTMLNames;
 
-using OverrideSizeMap = SingleThreadWeakHashMap<const RenderBox, LayoutUnit>;
-static OverrideSizeMap* gOverridingLogicalHeightMap = nullptr;
-static OverrideSizeMap* gOverridingLogicalWidthMap = nullptr;
-
-using OverridingPreferredSizeMap = SingleThreadWeakHashMap<const RenderBox, Style::PreferredSize>;
-static OverridingPreferredSizeMap* gOverridingLogicalHeightMapForFlexBasisComputation = nullptr;
-static OverridingPreferredSizeMap* gOverridingLogicalWidthMapForFlexBasisComputation = nullptr;
-
-// FIXME: We should store these based on physical direction.
-using OverrideOptionalSizeMap = SingleThreadWeakHashMap<const RenderBox, RenderBox::GridAreaSize>;
-static OverrideOptionalSizeMap* gGridAreaContentLogicalHeightMap = nullptr;
-static OverrideOptionalSizeMap* gGridAreaContentLogicalWidthMap = nullptr;
+struct RenderBoxOverridingSizes {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(RenderBoxOverridingSizes);
+public:
+    std::optional<LayoutUnit> borderBoxLogicalWidth;
+    std::optional<LayoutUnit> borderBoxLogicalHeight;
+    std::optional<Style::PreferredSize> logicalWidthForFlexBasisComputation;
+    std::optional<Style::PreferredSize> logicalHeightForFlexBasisComputation;
+    // FIXME: We should store these based on physical direction.
+    std::optional<RenderBox::GridAreaSize> gridAreaContentLogicalWidth;
+    std::optional<RenderBox::GridAreaSize> gridAreaContentLogicalHeight;
+};
 
 // Size of border belt for autoscroll. When mouse pointer in border belt,
 // autoscroll is started.
@@ -197,6 +196,8 @@ void RenderBox::willBeDestroyed()
             view().unregisterBoxWithScrollSnapPositions(*this);
         if (style().containerType().hasSizeContainment())
             view().unregisterContainerQueryBox(*this);
+        if (style().containerType().hasScrollState())
+            view().unregisterScrollStateQueryBox(*this);
         if (!style().anchorNames().isNone())
             view().unregisterAnchor(*this);
         if (!style().positionTryFallbacks().isNone())
@@ -338,6 +339,12 @@ void RenderBox::styleWillChange(Style::Difference diff, const Style::ComputedSty
         view().registerContainerQueryBox(*this);
     else if (oldStyle && oldStyle->containerType().hasSizeContainment())
         view().unregisterContainerQueryBox(*this);
+
+    // A pseudo-element is never selected as a query container, so there is nothing to track for it.
+    if (newStyle.containerType().hasScrollState() && nonPseudoElement())
+        view().registerScrollStateQueryBox(*this);
+    else if (oldStyle && oldStyle->containerType().hasScrollState())
+        view().unregisterScrollStateQueryBox(*this);
 
     if (!newStyle.positionTryFallbacks().isNone() && newStyle.hasOutOfFlowPosition())
         view().registerPositionTryBox(*this);
@@ -1518,30 +1525,33 @@ LayoutUnit RenderBox::maxContentLogicalWidthContribution() const
     return m_maxContentLogicalWidthContribution;
 }
 
+RenderBoxOverridingSizes& RenderBox::ensureOverridingSizes()
+{
+    if (!m_overridingSizes)
+        m_overridingSizes = makeUnique<RenderBoxOverridingSizes>();
+    return *m_overridingSizes;
+}
+
 void RenderBox::setOverridingBorderBoxLogicalHeight(LayoutUnit height)
 {
-    if (!gOverridingLogicalHeightMap)
-        gOverridingLogicalHeightMap = new OverrideSizeMap();
-    gOverridingLogicalHeightMap->set(*this, height);
+    ensureOverridingSizes().borderBoxLogicalHeight = height;
 }
 
 void RenderBox::setOverridingBorderBoxLogicalWidth(LayoutUnit width)
 {
-    if (!gOverridingLogicalWidthMap)
-        gOverridingLogicalWidthMap = new OverrideSizeMap();
-    gOverridingLogicalWidthMap->set(*this, width);
+    ensureOverridingSizes().borderBoxLogicalWidth = width;
 }
 
 void RenderBox::clearOverridingBorderBoxLogicalHeight()
 {
-    if (gOverridingLogicalHeightMap)
-        gOverridingLogicalHeightMap->remove(*this);
+    if (m_overridingSizes)
+        m_overridingSizes->borderBoxLogicalHeight = std::nullopt;
 }
 
 void RenderBox::clearOverridingBorderBoxLogicalWidth()
 {
-    if (gOverridingLogicalWidthMap)
-        gOverridingLogicalWidthMap->remove(*this);
+    if (m_overridingSizes)
+        m_overridingSizes->borderBoxLogicalWidth = std::nullopt;
 }
 
 void RenderBox::clearOverridingSize()
@@ -1552,20 +1562,12 @@ void RenderBox::clearOverridingSize()
 
 std::optional<LayoutUnit> RenderBox::overridingBorderBoxLogicalWidth() const
 {
-    if (!gOverridingLogicalWidthMap)
-        return { };
-    if (auto result = gOverridingLogicalWidthMap->find(*this); result != gOverridingLogicalWidthMap->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->borderBoxLogicalWidth : std::nullopt;
 }
 
 std::optional<LayoutUnit> RenderBox::overridingBorderBoxLogicalHeight() const
 {
-    if (!gOverridingLogicalHeightMap)
-        return { };
-    if (auto result = gOverridingLogicalHeightMap->find(*this); result != gOverridingLogicalHeightMap->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->borderBoxLogicalHeight : std::nullopt;
 }
 
 std::optional<RenderBox::GridAreaSize> RenderBox::gridAreaContentWidth(WritingMode writingMode) const
@@ -1584,91 +1586,68 @@ std::optional<RenderBox::GridAreaSize> RenderBox::gridAreaContentHeight(WritingM
 
 std::optional<RenderBox::GridAreaSize> RenderBox::gridAreaContentLogicalWidth() const
 {
-    if (!gGridAreaContentLogicalWidthMap)
-        return { };
-    if (auto result = gGridAreaContentLogicalWidthMap->find(*this); result != gGridAreaContentLogicalWidthMap->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->gridAreaContentLogicalWidth : std::nullopt;
 }
 
 std::optional<RenderBox::GridAreaSize> RenderBox::gridAreaContentLogicalHeight() const
 {
-    if (!gGridAreaContentLogicalHeightMap)
-        return { };
-    if (auto result = gGridAreaContentLogicalHeightMap->find(*this); result != gGridAreaContentLogicalHeightMap->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->gridAreaContentLogicalHeight : std::nullopt;
 }
 
 void RenderBox::setGridAreaContentLogicalWidth(GridAreaSize logicalWidth)
 {
-    if (!gGridAreaContentLogicalWidthMap)
-        gGridAreaContentLogicalWidthMap = new OverrideOptionalSizeMap;
-    gGridAreaContentLogicalWidthMap->set(*this, logicalWidth);
+    ensureOverridingSizes().gridAreaContentLogicalWidth = logicalWidth;
 }
 
 void RenderBox::setGridAreaContentLogicalHeight(GridAreaSize logicalHeight)
 {
-    if (!gGridAreaContentLogicalHeightMap)
-        gGridAreaContentLogicalHeightMap = new OverrideOptionalSizeMap;
-    gGridAreaContentLogicalHeightMap->set(*this, logicalHeight);
+    ensureOverridingSizes().gridAreaContentLogicalHeight = logicalHeight;
 }
 
 void RenderBox::clearGridAreaContentSize()
 {
-    if (gGridAreaContentLogicalWidthMap)
-        gGridAreaContentLogicalWidthMap->remove(*this);
-    clearGridAreaContentLogicalHeight();
+    if (!m_overridingSizes)
+        return;
+    m_overridingSizes->gridAreaContentLogicalWidth = std::nullopt;
+    m_overridingSizes->gridAreaContentLogicalHeight = std::nullopt;
 }
 
 void RenderBox::clearGridAreaContentLogicalHeight()
 {
-    if (gGridAreaContentLogicalHeightMap)
-        gGridAreaContentLogicalHeightMap->remove(*this);
+    if (m_overridingSizes)
+        m_overridingSizes->gridAreaContentLogicalHeight = std::nullopt;
 }
 
 std::optional<Style::PreferredSize> RenderBox::overridingLogicalHeightForFlexBasisComputation() const
 {
-    if (!gOverridingLogicalHeightMapForFlexBasisComputation)
-        return { };
-    if (auto result = gOverridingLogicalHeightMapForFlexBasisComputation->find(*this); result != gOverridingLogicalHeightMapForFlexBasisComputation->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->logicalHeightForFlexBasisComputation : std::nullopt;
 }
 
 void RenderBox::setOverridingBorderBoxLogicalHeightForFlexBasisComputation(const Style::PreferredSize& logicalHeight)
 {
-    if (!gOverridingLogicalHeightMapForFlexBasisComputation)
-        gOverridingLogicalHeightMapForFlexBasisComputation = new OverridingPreferredSizeMap();
-    gOverridingLogicalHeightMapForFlexBasisComputation->set(*this, logicalHeight);
+    ensureOverridingSizes().logicalHeightForFlexBasisComputation = logicalHeight;
 }
 
 void RenderBox::clearOverridingLogicalHeightForFlexBasisComputation()
 {
-    if (gOverridingLogicalHeightMapForFlexBasisComputation)
-        gOverridingLogicalHeightMapForFlexBasisComputation->remove(*this);
+    if (m_overridingSizes)
+        m_overridingSizes->logicalHeightForFlexBasisComputation = std::nullopt;
 }
 
 std::optional<Style::PreferredSize> RenderBox::overridingLogicalWidthForFlexBasisComputation() const
 {
-    if (!gOverridingLogicalWidthMapForFlexBasisComputation)
-        return { };
-    if (auto result = gOverridingLogicalWidthMapForFlexBasisComputation->find(*this); result != gOverridingLogicalWidthMapForFlexBasisComputation->end())
-        return result->value;
-    return { };
+    return m_overridingSizes ? m_overridingSizes->logicalWidthForFlexBasisComputation : std::nullopt;
 }
 
 void RenderBox::setOverridingBorderBoxLogicalWidthForFlexBasisComputation(const Style::PreferredSize& logicalWidth)
 {
-    if (!gOverridingLogicalWidthMapForFlexBasisComputation)
-        gOverridingLogicalWidthMapForFlexBasisComputation = new OverridingPreferredSizeMap();
-    gOverridingLogicalWidthMapForFlexBasisComputation->set(*this, logicalWidth);
+    ensureOverridingSizes().logicalWidthForFlexBasisComputation = logicalWidth;
 }
 
 void RenderBox::clearOverridingLogicalWidthForFlexBasisComputation()
 {
-    if (gOverridingLogicalWidthMapForFlexBasisComputation)
-        gOverridingLogicalWidthMapForFlexBasisComputation->remove(*this);
+    if (m_overridingSizes)
+        m_overridingSizes->logicalWidthForFlexBasisComputation = std::nullopt;
 }
 
 LayoutUnit RenderBox::adjustBorderBoxLogicalWidthForBoxSizing(const Style::Length<CSS::NonnegativeLayoutUnitClamped, float>& logicalWidth) const
@@ -2600,58 +2579,6 @@ LayoutUnit RenderBox::perpendicularContainingBlockLogicalHeight() const
     view().addPercentHeightDescendant(const_cast<RenderBox&>(*this));
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=158286 We also need to perform the same percentHeightDescendant treatment to the element which dictates the return value for containingBlock()->availableLogicalHeight() above.
     return std::min(fillAvailableExtent, fillFallbackExtent);
-}
-
-void RenderBox::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
-{
-    if (ancestorContainer == this)
-        return;
-
-    if (!ancestorContainer && view().frameView().layoutContext().isPaintOffsetCacheEnabled()) {
-        auto* layoutState = view().frameView().layoutContext().layoutState();
-        LayoutSize offset = layoutState->paintOffset() + locationOffset();
-        if (style().hasInFlowPosition() && layer())
-            offset += layer()->offsetForInFlowPosition();
-        transformState.move(offset);
-        return;
-    }
-
-    bool containerSkipped;
-    RenderElement* container = this->container(ancestorContainer, containerSkipped);
-    if (!container)
-        return;
-
-    bool isFixedPos = isFixedPositioned();
-    // If this box has a transform, it acts as a fixed position container for fixed descendants,
-    // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
-    if (isFixedPos)
-        mode.add(MapCoordinatesMode::IsFixed);
-    else if (mode.contains(MapCoordinatesMode::IsFixed) && canContainFixedPositionObjects())
-        mode.remove(MapCoordinatesMode::IsFixed);
-
-    if (wasFixed)
-        *wasFixed = mode.contains(MapCoordinatesMode::IsFixed);
-
-    LayoutSize containerOffset = offsetFromContainer(*container, LayoutPoint(transformState.mappedPoint()));
-
-    // Remove sticky positioning from the offset if it should be ignored. This is done here in
-    // order to avoid piping this flag down the method chain.
-    if (mode.contains(MapCoordinatesMode::IgnoreStickyOffsets) && isStickilyPositioned())
-        containerOffset -= stickyPositionOffset();
-
-    // Clamp overscroll if requested, so we don't layout into it.
-    if (mode.contains(MapCoordinatesMode::ClampOverscroll)) {
-        if (CheckedPtr boxContainer = dynamicDowncast<RenderBox>(container); boxContainer && boxContainer->hasPotentiallyScrollableOverflow())
-            containerOffset += boxContainer->scrollPosition() - boxContainer->constrainedScrollPosition();
-    }
-
-    pushOntoTransformState(transformState, mode, ancestorContainer, container, containerOffset, containerSkipped);
-    if (containerSkipped)
-        return;
-
-    mode.remove(MapCoordinatesMode::ApplyContainerFlip);
-
-    container->mapLocalToContainer(ancestorContainer, transformState, mode, wasFixed);
 }
 
 void RenderBox::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, TransformState& transformState) const

@@ -44,6 +44,7 @@ class RenderBoxFragmentInfo;
 class RenderFragmentContainer;
 class PositionedLayoutConstraints;
 struct PaintInfo;
+struct RenderBoxOverridingSizes;
 
 enum class AvailableLogicalHeightType : bool { ExcludeMarginBorderPadding, IncludeMarginBorderPadding };
 
@@ -632,7 +633,6 @@ protected:
 
     LayoutRect localOutlineBoundsRepaintRect() const;
 
-    void mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState&, OptionSet<MapCoordinatesMode>, bool* wasFixed) const override;
     void mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode>, TransformState&) const override;
 
     bool skipContainingBlockForPercentHeightCalculation(const RenderBox& containingBlock, bool isPerpendicularWritingMode) const;
@@ -735,7 +735,11 @@ protected:
     // Our overflow information.
     std::unique_ptr<RenderOverflow> m_overflow;
 
+    std::unique_ptr<RenderBoxOverridingSizes> m_overridingSizes;
+
 private:
+    RenderBoxOverridingSizes& ensureOverridingSizes();
+
     // Used to store state between styleWillChange and styleDidChange
     static bool s_hadNonVisibleOverflow;
 };
