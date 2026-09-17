@@ -31,25 +31,25 @@
 
 namespace JSC {
 
-inline size_t IndexingHeader::preCapacity(Structure* structure)
+inline size_t IndexingHeader::preCapacity(Butterfly* butterfly, Structure* structure)
 {
     if (!hasAnyArrayStorage(structure->indexingType())) [[likely]]
         return 0;
     
-    return arrayStorage()->m_indexBias;
+    return from(butterfly)->arrayStorage()->m_indexBias;
 }
 
-inline size_t IndexingHeader::indexingPayloadSizeInBytes(Structure* structure)
+inline size_t IndexingHeader::indexingPayloadSizeInBytes(Butterfly* butterfly, Structure* structure)
 {
     switch (structure->indexingType()) {
     case ALL_UNDECIDED_INDEXING_TYPES:
     case ALL_INT32_INDEXING_TYPES:
     case ALL_DOUBLE_INDEXING_TYPES:
     case ALL_CONTIGUOUS_INDEXING_TYPES:
-        return vectorLength() * sizeof(EncodedJSValue);
+        return from(butterfly)->vectorLength() * sizeof(EncodedJSValue);
         
     case ALL_ARRAY_STORAGE_INDEXING_TYPES:
-        return ArrayStorage::sizeFor(arrayStorage()->vectorLength());
+        return ArrayStorage::sizeFor(from(butterfly)->arrayStorage()->vectorLength());
         
     default:
         ASSERT(!hasIndexedProperties(structure->indexingType()));
