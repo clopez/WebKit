@@ -96,7 +96,7 @@ ALWAYS_INLINE void JSObjectWithButterfly::markAuxiliaryAndVisitOutOfLineProperti
     bool hasIndexingHeader = structure->hasIndexingHeader(this);
     size_t preCapacity;
     if (hasIndexingHeader)
-        preCapacity = butterfly->indexingHeader()->preCapacity(structure);
+        preCapacity = IndexingHeader::preCapacity(butterfly, structure);
     else
         preCapacity = 0;
     
@@ -3905,7 +3905,7 @@ void JSObject::reallocateAndShrinkButterfly(VM& vm, unsigned length)
     ASSERT(hasContiguous(indexingType()) || hasInt32(indexingType()) || hasDouble(indexingType()) || hasUndecided(indexingType()));
     ASSERT(this->butterfly()->vectorLength() > length);
     ASSERT(this->butterfly()->publicLength() >= length);
-    ASSERT(!this->butterfly()->indexingHeader()->preCapacity(structure()));
+    ASSERT(!IndexingHeader::preCapacity(this->butterfly(), structure()));
 
     DeferGC deferGC(vm);
     Butterfly* newButterfly = this->butterfly()->resizeArray(vm, this, structure(), 0, ArrayStorage::sizeFor(length));
@@ -4107,8 +4107,8 @@ void JSObject::shiftButterflyAfterFlattening(const ConcurrentJSLocker&, VM& vm, 
     size_t indexingPayloadSizeInBytes;
     bool hasIndexingHeader = this->hasIndexingHeader();
     if (hasIndexingHeader) [[unlikely]] {
-        preCapacity = oldButterfly->indexingHeader()->preCapacity(structure);
-        indexingPayloadSizeInBytes = oldButterfly->indexingHeader()->indexingPayloadSizeInBytes(structure);
+        preCapacity = IndexingHeader::preCapacity(oldButterfly, structure);
+        indexingPayloadSizeInBytes = IndexingHeader::indexingPayloadSizeInBytes(oldButterfly, structure);
     } else {
         preCapacity = 0;
         indexingPayloadSizeInBytes = 0;

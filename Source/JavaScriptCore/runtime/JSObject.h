@@ -1250,7 +1250,7 @@ constexpr inline intptr_t offsetInButterfly(PropertyOffset offset)
 inline size_t JSObject::butterflyPreCapacity()
 {
     if (hasIndexingHeader()) [[unlikely]]
-        return butterfly()->indexingHeader()->preCapacity(structure());
+        return IndexingHeader::preCapacity(butterfly(), structure());
     return 0;
 }
 
@@ -1263,8 +1263,8 @@ inline size_t JSObject::butterflyTotalSize()
     bool hasIndexingHeader = this->hasIndexingHeader();
 
     if (hasIndexingHeader) [[unlikely]] {
-        preCapacity = butterfly->indexingHeader()->preCapacity(structure);
-        indexingPayloadSizeInBytes = butterfly->indexingHeader()->indexingPayloadSizeInBytes(structure);
+        preCapacity = IndexingHeader::preCapacity(butterfly, structure);
+        indexingPayloadSizeInBytes = IndexingHeader::indexingPayloadSizeInBytes(butterfly, structure);
     } else {
         preCapacity = 0;
         indexingPayloadSizeInBytes = 0;

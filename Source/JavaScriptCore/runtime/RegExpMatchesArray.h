@@ -79,7 +79,7 @@ ALWAYS_INLINE JSArray* createRegExpMatchesArrayForPlainRegExp(VM& vm, JSGlobalOb
     array->putDirectOffset(vm, RegExpMatchesArrayInputPropertyOffset, input);
     array->putDirectOffset(vm, RegExpMatchesArrayGroupsPropertyOffset, jsUndefined());
 
-    ASSERT(!array->butterfly()->indexingHeader()->preCapacity(matchStructure));
+    ASSERT(!IndexingHeader::preCapacity(array->butterfly(), matchStructure));
     auto capacity = matchStructure->outOfLineCapacity();
     auto size = matchStructure->outOfLineSize();
     if (capacity > size) [[unlikely]]

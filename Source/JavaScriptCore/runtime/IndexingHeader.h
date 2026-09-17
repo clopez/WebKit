@@ -114,10 +114,11 @@ public:
         return reinterpret_cast<Butterfly*>(this + 1);
     }
     
-    // These methods are not standalone in the sense that they cannot be
-    // used on a copy of the IndexingHeader.
-    size_t preCapacity(Structure*);
-    size_t indexingPayloadSizeInBytes(Structure*);
+    // A Butterfly can omit its indexing header. These queries take the Butterfly
+    // rather than a header receiver so they can check the indexing type before
+    // deriving or accessing the header. The Structure must describe the Butterfly.
+    static size_t preCapacity(Butterfly*, Structure*);
+    static size_t indexingPayloadSizeInBytes(Butterfly*, Structure*);
     
 private:
     friend class LLIntOffsetsExtractor;
