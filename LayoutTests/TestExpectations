@@ -1871,7 +1871,6 @@ imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-layout-stale-002.ht
 webkit.org/b/279411 imported/w3c/web-platform-tests/css/css-grid/subgrid/alignment-in-subgridded-axes-002.html [ Skip ]
 webkit.org/b/279411 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-baseline-012.html [ Skip ]
 webkit.org/b/279412 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-baseline-010.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-grid/subgrid/standalone-axis-size-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-button.html [ ImageOnlyFailure ]
 
 # grid-lanes
@@ -4179,6 +4178,24 @@ imported/w3c/web-platform-tests/css/css-overflow/scroller-covered-by-empty-svg.h
 imported/w3c/web-platform-tests/css/css-overflow/overflow-canvas.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/overflow-clip-margin-border-radius-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/overflow-clip-margin-border-radius.html [ ImageOnlyFailure ]
+
+# Tests that failed on the 2026-09-16 import of css-overflow
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-in-textarea.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-after-blur.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-dynamic-text-overflow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-dynamic-value.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-dynamic-width.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-field-sizing-content.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-multiline.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/text-overflow-string-in-textarea-scrolled-back.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-048.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-058.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-059.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-060.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-061.html [ ImageOnlyFailure ]
+webkit.org/b/206748 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-062.html [ ImageOnlyFailure ]
+webkit.org/b/324326 imported/w3c/web-platform-tests/css/css-overflow/scroll-axis-lock-none-touch.html [ Skip ]
+webkit.org/b/324326 imported/w3c/web-platform-tests/css/css-overflow/scroll-axis-lock-none-wheel.html  [ Skip ]
 
 # Tests that failed on the 2026-02-02 import of css-overflow
 imported/w3c/web-platform-tests/css/css-overflow/clip-008.html [ ImageOnlyFailure ]
@@ -7682,6 +7699,11 @@ webkit.org/b/268995 [ Debug ] fast/misc/out-of-flow-position-inside-mathml-crash
 
 webkit.org/b/261557 media/video-remove-insert-repaints.html [ Pass Crash ]
 
+# CSS match :not(:not(:host))
+# webkit.org/b/283062
+imported/w3c/web-platform-tests/css/css-shadow/host-multiple-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-shadow/host-multiple-004.html [ ImageOnlyFailure ]
+
 # ::part() cascade is wrong when the part name is forwarded with exportparts and !important is used.
 imported/w3c/web-platform-tests/css/css-shadow/part/exportparts-layered.html [ ImageOnlyFailure ]
 
@@ -7773,6 +7795,8 @@ media/webkit-media-controls-not-visible-after-exiting-fullscreen.html [ Skip ]
 webkit.org/b/279297 fast/block/float/float-avoider-with-negative-margin.html [ ImageOnlyFailure ]
 webkit.org/b/298061 fast/block/crash-with-percent-padding.html [ Skip ]
 
+# imported/w3c/web-platform-tests/css/selectors/featureless-004 is a failure.
+webkit.org/b/280685 imported/w3c/web-platform-tests/css/selectors/featureless-004.html [ ImageOnlyFailure ]
 webkit.org/b/294638 imported/w3c/web-platform-tests/css/selectors/focus-visible-018-2.html [ Skip ]
 
 # Skip large regular expression tests on Debug to avoid timeout.

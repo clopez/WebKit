@@ -488,7 +488,7 @@ JSC_DEFINE_HOST_FUNCTION(assertCall, (JSGlobalObject* globalObject, CallFrame* c
         return IterationStatus::Done;
     });
     RELEASE_ASSERT(!!codeBlock);
-    RELEASE_ASSERT_WITH_MESSAGE(false, "JS assertion failed at line %u in:\n%s\n", lineColumn.line, codeBlock->sourceCodeForTools().legacyCStringPointer());
+    RELEASE_ASSERT_WITH_MESSAGE(false, "JS assertion failed at line %u in:\n%s\n", lineColumn.line, codeBlock->sourceCodeForTools());
     return JSValue::encode(jsUndefined());
 }
 #endif // ASSERT_ENABLED
@@ -897,7 +897,6 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_arrayBufferDetachWatchpointSet(WatchpointSet::create(IsWatched))
     , m_weakRandom(Options::forceWeakRandomSeed() ? Options::forcedWeakRandomSeed() : cryptographicallyRandomNumber<uint32_t>())
     , m_runtimeFlags()
-    , m_stackTraceLimit(Options::defaultErrorStackTraceLimit())
     , m_customGetterFunctionSet(vm)
     , m_customSetterFunctionSet(vm)
     , m_importMap(ImportMap::create())
@@ -3795,6 +3794,23 @@ WatchpointSet& JSGlobalObject::ensureReferencedPropertyWatchpointSet(UniquedStri
     }).iterator->value.get();
 }
 #endif
+
+std::optional<unsigned> JSGlobalObject::stackTraceLimit() const
+{
+    JSObject* errorConstructor = m_errorStructure.constructorConcurrently();
+    if (!errorConstructor)
+        return Options::defaultErrorStackTraceLimit();
+
+    VM& vm = this->vm();
+    JSValue value = errorConstructor->getDirect(vm, vm.propertyNames->stackTraceLimit);
+    if (!value.isNumber())
+        return std::nullopt;
+
+    double limit = value.asNumber();
+    if (std::isnan(limit))
+        return std::nullopt;
+    return clampToUnsigned(limit);
+}
 
 JSGlobalObject* JSGlobalObject::create(VM& vm, Structure* structure)
 {
