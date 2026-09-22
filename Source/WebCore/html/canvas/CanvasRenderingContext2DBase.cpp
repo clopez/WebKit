@@ -593,6 +593,9 @@ void CanvasRenderingContext2DBase::beginLayer()
     save();
     realizeSaves();
 
+    if (m_unrealizedSaveCount)
+        return;
+
     RefPtr<Filter> filter;
     if (!state().filter.isNone())
         filter = createFilter(backingStoreBounds());
@@ -1739,7 +1742,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(WebCodecsVideoFrame& f
         willUpdateContents(normalizedDstRect);
 
     // FIXME: Add support for srcRect
-    context->drawVideoFrame(*internalFrame, dstRect, ImageOrientation::Orientation::None, frame.shoudlDiscardAlpha());
+    context->drawVideoFrame(*internalFrame, dstRect, frame.shoudlDiscardAlpha() ? ShouldDiscardAlpha::Yes : ShouldDiscardAlpha::No);
 
     return { };
 }
@@ -1820,7 +1823,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
         c->drawImage(*image, normalizedDstRect, normalizedSrcRect, options);
     } else if (isFullCanvasCompositeMode(op)) {
         willUpdateEntireContents(willUpdateContentsOptions);
-        fullCanvasCompositedDrawImage(*image, normalizedDstRect, normalizedSrcRect, op, options.drawsHDRContent(), options.allowAcceleratedApplyGainMap());
+        fullCanvasCompositedDrawImage(*image, normalizedDstRect, normalizedSrcRect, op, options);
     } else if (op == CompositeOperator::Copy) {
         willUpdateEntireContents(willUpdateContentsOptions);
         clearCanvas();
@@ -2115,7 +2118,7 @@ static void drawImageToContext(NativeImage& image, GraphicsContext& context, con
     context.drawNativeImage(image, dest, src, options);
 }
 
-template<class T> void CanvasRenderingContext2DBase::fullCanvasCompositedDrawImage(T& image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, DrawsHDRContent drawsHDRContent, AllowAcceleratedApplyGainMap allowAcceleratedApplyGainMap)
+template<class T> void CanvasRenderingContext2DBase::fullCanvasCompositedDrawImage(T& image, const FloatRect& dest, const FloatRect& src, CompositeOperator op, ImagePaintingOptions options)
 {
     ASSERT(isFullCanvasCompositeMode(op));
 
@@ -2141,7 +2144,7 @@ template<class T> void CanvasRenderingContext2DBase::fullCanvasCompositedDrawIma
     buffer->context().translate(-transformedAdjustedRect.location());
     buffer->context().translate(croppedOffset);
     buffer->context().concatCTM(effectiveTransform);
-    drawImageToContext(image, buffer->context(), adjustedDest, src, { CompositeOperator::SourceOver, drawsHDRContent, allowAcceleratedApplyGainMap });
+    drawImageToContext(image, buffer->context(), adjustedDest, src, { options, CompositeOperator::SourceOver });
 
     compositeBuffer(*buffer, bufferRect, op);
 }

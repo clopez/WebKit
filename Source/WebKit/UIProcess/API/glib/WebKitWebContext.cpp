@@ -254,7 +254,7 @@ struct _WebKitWebContextPrivate {
 
 #if !ENABLE(2022_GLIB_API)
     GRefPtr<WebKitFaviconDatabase> faviconDatabase;
-    CString faviconDatabaseDirectory;
+    UTF8CString faviconDatabaseDirectory;
 #endif
     GRefPtr<WebKitSecurityManager> securityManager;
     URISchemeHandlerMap uriSchemeHandlers;
@@ -266,10 +266,10 @@ struct _WebKitWebContextPrivate {
 
     HashMap<WebPageProxyIdentifier, WebKitWebView*> webViews;
 
-    CString webProcessExtensionsDirectory;
+    UTF8CString webProcessExtensionsDirectory;
     GRefPtr<GVariant> webProcessExtensionsInitializationUserData;
 
-    CString localStorageDirectory;
+    UTF8CString localStorageDirectory;
 #if ENABLE(REMOTE_INSPECTOR)
 #if PLATFORM(GTK)
     std::unique_ptr<RemoteInspectorProtocolHandler> remoteInspectorProtocolHandler;
@@ -289,7 +289,7 @@ struct _WebKitWebContextPrivate {
 
     WebKitMemoryPressureSettings* memoryPressureSettings;
 
-    CString timeZoneOverride;
+    UTF8CString timeZoneOverride;
 };
 
 static std::array<unsigned, LAST_SIGNAL> signals;
@@ -340,14 +340,13 @@ void webkitWebContextWillCloseAutomationSession(WebKitWebContext* webContext)
 #define INJECTED_BUNDLE_FILENAME "libWPEInjectedBundle.so"
 #endif
 
-static const char* injectedBundleDirectory()
+static UTF8CString injectedBundleDirectory()
 {
     const char* bundleDirectory = g_getenv("WEBKIT_INJECTED_BUNDLE_PATH");
     if (bundleDirectory && g_file_test(bundleDirectory, G_FILE_TEST_IS_DIR))
-        return bundleDirectory;
+        return UTF8CString { byteCast<char8_t>(bundleDirectory) };
 
-    static const char* injectedBundlePath = PKGLIBDIR G_DIR_SEPARATOR_S "injected-bundle" G_DIR_SEPARATOR_S;
-    return injectedBundlePath;
+    return PKGLIBDIR G_DIR_SEPARATOR_S "injected-bundle"_s G_DIR_SEPARATOR_S;
 }
 
 static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* paramSpec)
@@ -357,7 +356,7 @@ static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* v
     switch (propID) {
 #if PLATFORM(GTK) && !USE(GTK4)
     case PROP_LOCAL_STORAGE_DIRECTORY:
-        g_value_set_string(value, context->priv->localStorageDirectory.data());
+        g_value_set_string(value, context->priv->localStorageDirectory.legacyCStringPointer());
         break;
 #endif
 #if !ENABLE(2022_GLIB_API)
@@ -390,7 +389,7 @@ static void webkitWebContextSetProperty(GObject* object, guint propID, const GVa
     switch (propID) {
 #if PLATFORM(GTK) && !USE(GTK4)
     case PROP_LOCAL_STORAGE_DIRECTORY:
-        context->priv->localStorageDirectory = g_value_get_string(value);
+        context->priv->localStorageDirectory = UTF8CString { byteCast<char8_t>(g_value_get_string(value)) };
         break;
 #endif
 #if !ENABLE(2022_GLIB_API)
@@ -418,7 +417,7 @@ static void webkitWebContextSetProperty(GObject* object, guint propID, const GVa
     case PROP_TIME_ZONE_OVERRIDE: {
         const auto* timeZone = g_value_get_string(value);
         if (isTimeZoneValid(StringView::fromLatin1(timeZone)))
-            context->priv->timeZoneOverride = timeZone;
+            context->priv->timeZoneOverride = UTF8CString { byteCast<char8_t>(timeZone) };
         break;
     }
     default:
@@ -430,7 +429,7 @@ static void webkitWebContextConstructed(GObject* object)
 {
     G_OBJECT_CLASS(webkit_web_context_parent_class)->constructed(object);
 
-    GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory(), INJECTED_BUNDLE_FILENAME, nullptr));
+    GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory().legacyCStringPointer(), INJECTED_BUNDLE_FILENAME, nullptr));
 
     WebKitWebContext* webContext = WEBKIT_WEB_CONTEXT(object);
     WebKitWebContextPrivate* priv = webContext->priv;
@@ -448,11 +447,11 @@ static void webkitWebContextConstructed(GObject* object)
         // Once the settings have been passed to the ProcessPoolConfiguration, we don't need them anymore so we can free them.
         g_clear_pointer(&priv->memoryPressureSettings, webkit_memory_pressure_settings_free);
     }
-    configuration->setTimeZoneOverride(String::fromUTF8(priv->timeZoneOverride.span()));
+    configuration->setTimeZoneOverride(String { priv->timeZoneOverride });
 
 #if !ENABLE(2022_GLIB_API)
     if (!priv->websiteDataManager)
-        priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new("local-storage-directory", priv->localStorageDirectory.data(), nullptr));
+        priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new("local-storage-directory", priv->localStorageDirectory.legacyCStringPointer(), nullptr));
 #endif
 
     priv->processPool = WebProcessPool::create(configuration);
@@ -1186,7 +1185,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
     priv->faviconDatabaseDirectory = directoryPath.utf8();
 
     // Build the full path to the icon database file on disk.
-    GUniquePtr<gchar> faviconDatabasePath(g_build_filename(priv->faviconDatabaseDirectory.data(),
+    GUniquePtr<gchar> faviconDatabasePath(g_build_filename(priv->faviconDatabaseDirectory.legacyCStringPointer(),
         "WebpageIcons.db", nullptr));
 
     // Setting the path will cause the icon database to be opened.
@@ -1219,7 +1218,7 @@ const gchar* webkit_web_context_get_favicon_database_directory(WebKitWebContext 
     if (priv->faviconDatabaseDirectory.isNull())
         return 0;
 
-    return priv->faviconDatabaseDirectory.data();
+    return priv->faviconDatabaseDirectory.legacyCStringPointer();
 }
 
 /**
@@ -1497,7 +1496,7 @@ void webkit_web_context_add_path_to_sandbox(WebKitWebContext* context, const cha
         g_error("Sandbox paths cannot be changed after subprocesses were spawned.");
 
     auto permission = readOnly ? SandboxPermission::ReadOnly : SandboxPermission::ReadWrite;
-    context->priv->processPool->addSandboxPath(path, permission);
+    context->priv->processPool->addSandboxPath(UTF8CString { byteCast<char8_t>(path) }, permission);
 }
 
 #if !ENABLE(2022_GLIB_API)
@@ -1700,8 +1699,8 @@ void webkit_web_context_set_web_extensions_directory(WebKitWebContext* context, 
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(directory);
 
-    context->priv->webProcessExtensionsDirectory = directory;
-    context->priv->processPool->addSandboxPath(directory, SandboxPermission::ReadOnly);
+    context->priv->webProcessExtensionsDirectory = UTF8CString { byteCast<char8_t>(directory) };
+    context->priv->processPool->addSandboxPath(context->priv->webProcessExtensionsDirectory, SandboxPermission::ReadOnly);
 }
 
 #if ENABLE(2022_GLIB_API)
@@ -1999,7 +1998,7 @@ const gchar* webkit_web_context_get_time_zone_override(WebKitWebContext* context
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
 
-    return context->priv->timeZoneOverride.data();
+    return context->priv->timeZoneOverride.legacyCStringPointer();
 }
 
 void webkitWebContextInitializeNotificationPermissions(WebKitWebContext* context)
@@ -2018,7 +2017,7 @@ GVariant* webkitWebContextInitializeWebProcessExtensions(WebKitWebContext* conte
 {
     g_signal_emit(context, signals[INITIALIZE_WEB_PROCESS_EXTENSIONS], 0);
     return g_variant_new("(msmv)",
-        context->priv->webProcessExtensionsDirectory.data(),
+        context->priv->webProcessExtensionsDirectory.legacyCStringPointer(),
         context->priv->webProcessExtensionsInitializationUserData.get());
 }
 

@@ -112,16 +112,16 @@ TEST(WTF, CStringOneByte)
     ASSERT_STREQ(referenceString, stringWithLength.data());
 }
 
-TEST(WTF, CStringUninitializedConstructor)
+TEST(WTF, ASCIICStringUninitializedConstructor)
 {
     std::span<char> buffer;
-    CString emptyString = CString::newUninitialized(0, buffer);
+    ASCIICString emptyString = ASCIICString::newUninitialized(0, buffer);
     ASSERT_FALSE(emptyString.isNull());
     ASSERT_EQ(buffer.data(), emptyString.data());
     ASSERT_TRUE(buffer.empty());
 
     const size_t length = 25;
-    CString uninitializedString = CString::newUninitialized(length, buffer);
+    ASCIICString uninitializedString = ASCIICString::newUninitialized(length, buffer);
     ASSERT_FALSE(uninitializedString.isNull());
     ASSERT_EQ(buffer.data(), uninitializedString.data());
     ASSERT_EQ(uninitializedString.data()[length], 0);
@@ -512,4 +512,28 @@ TEST(WTF, CStringWithEncodingPrintStream)
 
     ASCIICString asciiString { "cafe"_s };
     EXPECT_EQ(print(asciiString), "cafe"_s);
+}
+
+TEST(WTF, CStringWithEncodingFromPrintStream)
+{
+    // A PrintStream can be read back as either encoding. toUTF8CString() reports the bytes it holds,
+    // while toASCIICString() is for streams that only ever print ASCII, where const char* is wanted.
+    EXPECT_EQ(toUTF8CString("P", 1), UTF8CString { u8"P1"_span });
+    EXPECT_EQ(toASCIICString("P", 1), ASCIICString { "P1"_s });
+
+    // ASCII is a subset of UTF-8, so the two agree byte for byte and compare equal across encodings.
+    EXPECT_EQ(toASCIICString("cafe"), toUTF8CString("cafe"));
+
+    // ASCIICString::data() is already a const char*, which is the point of the encoding: no escape
+    // hatch is needed to hand it to a C string interface, unlike UTF8CString::legacyCStringPointer().
+    ASCIICString asciiString = toASCIICString("a", 1, "b", 2);
+    static_assert(std::same_as<decltype(asciiString.data()), const char*>);
+    EXPECT_EQ(asciiString, ASCIICString { "a1b2"_s });
+    EXPECT_EQ(asciiString.length(), 4U);
+
+    // An empty stream reads back as empty rather than null, matching toUTF8CString().
+    StringPrintStream empty;
+    EXPECT_TRUE(empty.toASCIICString().isEmpty());
+    EXPECT_FALSE(empty.toASCIICString().isNull());
+    EXPECT_EQ(empty.toASCIICString(), ASCIICString { ""_s });
 }

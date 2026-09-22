@@ -9097,7 +9097,9 @@ void SpeculativeJIT::compileSpread(Node* node)
         // which performs the authoritative isIteratorProtocolFastAndNonObservable
         // check. The check can be folded when an upstream CheckStructure has
         // already proven that the operand carries the original Set structure.
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+        // FixupPhase arms the Set iterator protocol watchpoint on node->child1(), so
+        // child1's global object must be used.
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->child1()->origin.semantic);
         Structure* originalSetStructure = globalObject->setStructureConcurrently();
         if (!originalSetStructure)
             slowPath.append(jump());
@@ -13530,9 +13532,11 @@ void SpeculativeJIT::emitRegExpTestWithFilter(Node* node, GPRReg globalObjectGPR
 
         if (!localBitmap)
             emitRegExpMinimumLengthFilterGuards(constantMinimumSize, baseGPR, argumentGPR, canBeRope(argumentEdge), scratch1GPR, scratch2GPR, slowCases);
-        else if (position == FirstCharacterFilterPosition::AtStart)
+        else if (position == FirstCharacterFilterPosition::AtStart) {
+            load64(Address(baseGPR, RegExpObject::offsetOfLastIndex()), scratch1GPR);
+            slowCases.append(branchIfNotInt32(scratch1GPR));
             emitRegExpAnchoredFirstCharacterFilterGuards(localBitmap->storageBytes().data(), argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
-        else {
+        } else {
             emitRegExpStickyFirstCharacterFilterGuards(localBitmap->storageBytes().data(), baseGPR, argumentGPR, scratch1GPR, scratch2GPR, resultGPR, slowCases);
             store64(TrustedImm64(JSValue::encode(jsNumber(0))), Address(baseGPR, RegExpObject::offsetOfLastIndex()));
         }

@@ -29,9 +29,14 @@
 #include "Damage.h"
 #include "GraphicsLayer.h"
 #include "GraphicsLayerTransform.h"
-#include "TextureMapperAnimation.h"
 #include <wtf/EnumSet.h>
 #include <wtf/OptionSet.h>
+
+#if USE(TEXTURE_MAPPER)
+#include "TextureMapperAnimation.h"
+#else
+#include "AcceleratedAnimations.h"
+#endif
 
 namespace WebCore {
 class CoordinatedPlatformLayer;
@@ -123,8 +128,6 @@ private:
     bool addAnimation(const GraphicsLayerKeyframeValueList&, const GraphicsLayerAnimation*, const String&, double) override;
     void removeAnimation(const String&, std::optional<AnimatedProperty>) override;
     void pauseAnimation(const String& animationName, double timeOffset) override;
-    void suspendAnimations(MonotonicTime) override;
-    void resumeAnimations() override;
     void transformRelatedPropertyDidChange() override;
     Vector<GraphicsLayer::AcceleratedAnimationForTesting> acceleratedAnimationsForTesting() const override;
 
@@ -234,7 +237,11 @@ private:
     RefPtr<NativeImage> m_contentsImage;
     Color m_contentsColor;
     RefPtr<CoordinatedPlatformLayer> m_backdropLayer;
+#if USE(TEXTURE_MAPPER)
     TextureMapperAnimations m_animations;
+#else
+    AcceleratedAnimations m_animations;
+#endif
 };
 
 } // namespace WebCore

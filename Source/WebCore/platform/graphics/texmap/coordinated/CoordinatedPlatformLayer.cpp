@@ -542,7 +542,7 @@ void CoordinatedPlatformLayer::setContentsBuffer(std::unique_ptr<CoordinatedPlat
         notifyCompositionRequired();
 }
 
-#if ENABLE(VIDEO) && USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER_GL)
 void CoordinatedPlatformLayer::replaceCurrentContentsBufferWithCopy()
 {
     Locker locker { m_lock };
@@ -759,7 +759,11 @@ void CoordinatedPlatformLayer::setIsBackdropRoot(bool isBackdropRoot)
     notifyCompositionRequired();
 }
 
+#if USE(TEXTURE_MAPPER)
 void CoordinatedPlatformLayer::setAnimations(const TextureMapperAnimations& animations)
+#else
+void CoordinatedPlatformLayer::setAnimations(const AcceleratedAnimations& animations)
+#endif
 {
     assertIsHeld(m_lock);
     m_animations = animations;

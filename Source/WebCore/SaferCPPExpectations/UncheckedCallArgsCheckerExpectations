@@ -1,19 +1,12 @@
 Modules/mediacapabilities/MediaCapabilities.cpp
-Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/push-api/PushDatabase.cpp
 Modules/push-api/PushManager.cpp
 Modules/push-api/PushSubscription.cpp
-Modules/webaudio/BaseAudioContext.h
-Modules/webaudio/DefaultAudioDestinationNode.cpp
 Modules/webaudio/IIRFilterNode.cpp
-Modules/webaudio/MediaStreamAudioDestinationNode.cpp
 Modules/webaudio/WaveShaperNode.cpp
-Modules/webdatabase/DatabaseManager.cpp
-Modules/webdatabase/SQLTransaction.cpp
 StyleBuilderGenerated.cpp
 StyleExtractorGenerated.cpp
 accessibility/AXObjectCache.cpp
-accessibility/AccessibilityListBoxOption.cpp
 accessibility/AccessibilityMathMLElement.cpp
 accessibility/AccessibilityMenuListOption.cpp
 accessibility/AccessibilityNodeObject.cpp
@@ -25,12 +18,10 @@ accessibility/AccessibilityRenderObject.cpp
 [ iOS ] accessibility/ios/AccessibilityObjectIOS.mm
 [ iOS ] accessibility/ios/WebAccessibilityObjectWrapperIOS.mm
 [ Mac ] accessibility/mac/AXObjectCacheMac.mm
-[ Mac ] accessibility/mac/AccessibilityObjectMac.mm
 animation/BlendingKeyframes.cpp
 animation/ElementAnimationRareData.cpp
 animation/KeyframeEffect.cpp
 animation/ScrollTimeline.cpp
-animation/StyleOriginatedAnimation.cpp
 animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
 bindings/js/DOMPromiseProxy.h
@@ -71,7 +62,6 @@ dom/ElementInternals.cpp
 dom/ElementIteratorInlines.h
 dom/EventLoop.cpp
 dom/IdTargetObserver.cpp
-dom/IdleCallbackController.cpp
 dom/InlineStyleSheetOwner.cpp
 dom/LiveNodeListInlines.h
 dom/MouseRelatedEvent.cpp
@@ -89,9 +79,6 @@ dom/TreeScope.cpp
 dom/TreeScopeOrderedMap.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
-editing/AlternativeTextController.cpp
-editing/ApplyStyleCommand.cpp
-editing/BreakBlockquoteCommand.cpp
 editing/CompositeEditCommand.cpp
 editing/DeleteSelectionCommand.cpp
 editing/Editor.cpp
@@ -106,7 +93,6 @@ editing/TextInsertionBaseCommand.cpp
 editing/TextManipulationController.cpp
 editing/TypingCommand.cpp
 editing/VisiblePosition.cpp
-editing/VisiblePosition.h
 editing/VisibleUnits.cpp
 editing/cocoa/EditorCocoa.mm
 editing/cocoa/NodeHTMLConverter.mm
@@ -130,20 +116,17 @@ html/canvas/OffscreenCanvasRenderingContext2D.cpp
 html/parser/HTMLDocumentParser.cpp
 html/parser/HTMLParserScheduler.cpp
 html/parser/HTMLScriptRunner.cpp
-inspector/DOMEditor.cpp
-inspector/InspectorAuditAccessibilityObject.cpp
 inspector/InspectorFrontendAPIDispatcher.cpp
 inspector/InspectorFrontendHost.cpp
+inspector/InspectorInstrumentation.cpp
 inspector/InspectorOverlay.cpp
 inspector/InspectorOverlayLabel.cpp
-inspector/InspectorStyleSheet.cpp
 inspector/PageDebugger.cpp
 inspector/WorkerDebugger.cpp
 inspector/agents/InspectorCSSAgent.cpp
 inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
 inspector/agents/InspectorLayerTreeAgent.cpp
-inspector/agents/InspectorNetworkAgent.cpp
 inspector/agents/InspectorPageAgent.cpp
 inspector/agents/WebHeapAgent.cpp
 inspector/agents/frame/FrameCSSAgent.cpp
@@ -205,7 +188,6 @@ layout/integration/inline/LineSelection.h
 layout/layouttree/FormattingContextBoxIterator.h
 layout/layouttree/LayoutContainingBlockChainIterator.h
 layout/layouttree/LayoutTreeBuilder.cpp
-loader/ApplicationManifestLoader.cpp
 loader/DocumentLoader.cpp
 loader/DocumentWriter.cpp
 loader/FrameLoader.cpp
@@ -478,13 +460,11 @@ style/values/images/kinds/StyleGradientImage.cpp
 style/values/primitives/StyleLengthResolution.cpp
 svg/SVGClipPathElement.cpp
 svg/SVGElement.cpp
-svg/SVGElement.h
 svg/SVGFEImageElement.cpp
 svg/SVGMaskElement.cpp
 svg/SVGSVGElement.cpp
 svg/animation/SVGSMILElement.cpp
 svg/graphics/SVGImage.cpp
-svg/properties/SVGAnimatedString.cpp
 testing/Internals.cpp
 workers/WorkerGlobalScope.cpp
 workers/WorkerMessagingProxy.cpp

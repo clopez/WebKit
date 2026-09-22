@@ -29,6 +29,7 @@
 #include "config.h"
 #include "RuleSet.h"
 
+#include "CSSEnvironmentMapRule.h"
 #include "CSSFontSelector.h"
 #include "CSSKeyframesRule.h"
 #include "CSSPositionTryRule.h"
@@ -81,24 +82,6 @@ static unsigned NODELETE rulesCountForName(const RuleSet::AtomRuleMap& map, cons
     if (const auto* rules = map.get(name))
         return rules->size();
     return 0;
-}
-
-// FIXME: Maybe we can unify both following functions
-
-static bool NODELETE hasHostOrScopePseudoClassSubjectInSelectorList(const CSSSelectorList* selectorList)
-{
-    if (!selectorList)
-        return false;
-
-    for (auto& selector : *selectorList) {
-        if (selector.isHostPseudoClass() || selector.isScopePseudoClass())
-            return true;
-
-        if (hasHostOrScopePseudoClassSubjectInSelectorList(selector.selectorList()))
-            return true;
-    }
-
-    return false;
 }
 
 static bool isHostSelectorMatchingInShadowTree(const CSSSelector& startSelector)
@@ -309,9 +292,6 @@ void RuleSet::addRuleToBucket(RuleData& ruleData)
                     fullscreenPseudoClassSelector = current;
                     break;
 #endif
-                case CSSSelector::PseudoClass::Scope:
-                    m_hasHostOrScopePseudoClassRulesInUniversalBucket = true;
-                    break;
                 case CSSSelector::PseudoClass::Heading:
                     headingPseudoClassSelector = current;
                     break;
@@ -322,13 +302,9 @@ void RuleSet::addRuleToBucket(RuleData& ruleData)
                         for (auto* inner = &selectorList->first(); inner; inner = inner->followingInCompound())
                             nestedSelectors.append(inner);
                     }
-                    if (hasHostOrScopePseudoClassSubjectInSelectorList(selectorList))
-                        m_hasHostOrScopePseudoClassRulesInUniversalBucket = true;
                     break;
                 }
                 default:
-                    if (hasHostOrScopePseudoClassSubjectInSelectorList(current->selectorList()))
-                        m_hasHostOrScopePseudoClassRulesInUniversalBucket = true;
                     break;
                 }
                 break;
@@ -544,6 +520,9 @@ void RuleSet::addRuleToBucket(RuleData& ruleData)
 
     // If we didn't find a specialized map to stick it in, file under universal rules.
     m_universalRules.append(ruleData);
+    // Only a rule whose subject compound is allowed to match a featureless element can match the shadow host.
+    if (SelectorChecker::isCompoundSelectorAllowedToMatchFeaturelessShadowHost(ruleData.selector()))
+        m_shadowHostRulesInUniversalBucket.append(ruleData);
 }
 
 void RuleSet::addPageRule(StyleRulePage& rule)
@@ -587,6 +566,7 @@ void RuleSet::traverseRuleDatas(Function&& function)
     traverseVector(m_cuePseudoRules);
 #endif
     traverseVector(m_hostPseudoClassRules);
+    traverseVector(m_shadowHostRulesInUniversalBucket);
     traverseVector(m_slottedPseudoElementRules);
     traverseVector(m_partPseudoElementRules);
     traverseVector(m_focusPseudoClassRules);
@@ -692,6 +672,7 @@ void RuleSet::shrinkToFit()
     m_cuePseudoRules.shrinkToFit();
 #endif
     m_hostPseudoClassRules.shrinkToFit();
+    m_shadowHostRulesInUniversalBucket.shrinkToFit();
     m_slottedPseudoElementRules.shrinkToFit();
     m_partPseudoElementRules.shrinkToFit();
     m_focusPseudoClassRules.shrinkToFit();
@@ -746,6 +727,15 @@ const RefPtr<const StyleRulePositionTry> RuleSet::positionTryRuleForName(const A
 {
     return m_positionTryRules.get(name);
 }
+
+#if ENABLE(SPATIAL_PORTAL)
+
+RefPtr<const StyleRuleEnvironmentMap> RuleSet::environmentMapRuleForName(const AtomString& name) const
+{
+    return m_environmentMapRules.get(name);
+}
+
+#endif // ENABLE(SPATIAL_PORTAL)
 
 WTF::String RuleSet::selectorsForDebugging() const
 {

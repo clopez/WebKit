@@ -634,8 +634,8 @@ void JSGlobalObject::startSignpost(String&& message)
         return JSCJSGlobalObjectSignpostIdentifier::generate();
     }).iterator->value.toUInt64()));
     UNUSED_VARIABLE(identifier);
-    auto string = message.ascii();
-    WTFBeginSignpostAlways(identifier, JSCJSGlobalObject, "%" PUBLIC_LOG_STRING, string.data());
+    auto string = message.utf8();
+    WTFBeginSignpostAlways(identifier, JSCJSGlobalObject, "%" PUBLIC_LOG_STRING, string);
     ProfilerSupport::markStart(identifier, ProfilerSupport::Category::JSGlobalObjectSignpost, WTF::move(string));
 }
 
@@ -645,8 +645,8 @@ void JSGlobalObject::stopSignpost(String&& message)
     if (auto stored = m_signposts.takeOptional(message))
         identifier = std::bit_cast<void*>(static_cast<uintptr_t>(stored->toUInt64()));
     UNUSED_VARIABLE(identifier);
-    auto string = message.ascii();
-    WTFEndSignpostAlways(identifier, JSCJSGlobalObject, "%" PUBLIC_LOG_STRING, string.data());
+    auto string = message.utf8();
+    WTFEndSignpostAlways(identifier, JSCJSGlobalObject, "%" PUBLIC_LOG_STRING, string);
     ProfilerSupport::markEnd(identifier, ProfilerSupport::Category::JSGlobalObjectSignpost, WTF::move(string));
     --activeJSGlobalObjectSignpostIntervalCount;
 }
@@ -3892,12 +3892,13 @@ FunctionExecutable* JSGlobalObject::tryGetCachedFunctionExecutableForFunctionCon
     if (lexicallyScopedFeatures != unlinkedExecutable->lexicallyScopedFeatures())
         return nullptr;
 
+    // The synthesized program is "<prefix><name>(<params>\n) {\n<body>\n}", so a cached range must
+    // begin exactly at the '('. That offset also discriminates the construction mode, since the
+    // prefix length is what moves it: an "async function" candidate cannot answer a "function"
+    // request even when the text from '(' onward agrees.
     auto storedSource = executable->source();
-    if (OrdinalNumber { } != storedSource.firstLine())
-        return nullptr;
-
     int offset = functionConstructorPrefix(functionConstructionMode).length() + name.length();
-    if (offset != storedSource.startColumn().zeroBasedInt())
+    if (storedSource.startOffset() != offset)
         return nullptr;
 
     if (program.substring(offset) != storedSource.view())

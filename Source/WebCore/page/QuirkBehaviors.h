@@ -37,16 +37,12 @@ enum class QuirkSite : uint8_t {
     BankOfAmerica,
     Bing,
     CBSSports,
-    EA,
     Facebook,
     GoogleDocs,
     GoogleProperty,
     GoogleMaps,
     GoogleSearch,
     LinkedIn,
-    MyBinder,
-    NBA,
-    Netflix,
     Outlook,
     Reddit,
     SoundCloud,
@@ -193,6 +189,7 @@ enum class QuirkBehaviorID {
     NeedsAirIndiaExpressLayeringQuirk,
     NeedsBodyScrollbarWidthNoneDisabledQuirk,
     NeedsCanPlayAfterSeekedQuirk,
+    NeedsChromeCompatibilityUserAgentQuirk,
     NeedsChromeMediaControlsPseudoElementQuirk,
     NeedsCNNCaptionQuirk,
     NeedsLimitedMatroskaSupportQuirk,
@@ -221,6 +218,7 @@ enum class QuirkBehaviorID {
     NeedsNavigatorUserAgentDataQuirk,
     NeedsNowPlayingFullscreenSwapQuirk,
     NeedsPartitionedCookiesQuirk,
+    NeedsPerDocumentAutoplayBehaviorQuirk,
     NeedsSuppressedPauseEventOnFullscreenExitQuirk,
     NeedsPreloadAutoQuirk,
     NeedsResettingTransitionCancelsRunningTransitionQuirk,
@@ -231,6 +229,7 @@ enum class QuirkBehaviorID {
     NeedsSupportsProgressMonitoringQuirk,
     NeedsSuppressPostLayoutBoundaryEventsQuirk,
     NeedsTikTokOverflowingContentQuirk,
+    NeedsUserAgentStringOverrideQuirk,
     NeedsVideoShouldMaintainAspectRatioQuirk,
     NeedsWebKitMediaTextTrackDisplayQuirk,
     NeedsYouTubeCaptionQuirk,
@@ -253,6 +252,7 @@ enum class QuirkBehaviorID {
     ShouldBlockFetchWithNewlineAndLessThan,
     ShouldBypassAsyncScriptDeferring,
     ShouldComparareUsedValuesForBorderWidthForTriggeringTransitions,
+    ShouldComputeSimulatedMouseEventMovementDeltaQuirk,
     ShouldDelayReloadWhenRegisteringServiceWorker,
     ShouldDisableAdSkippingInPip,
     ShouldDisableDataURLPaddingValidation,
@@ -300,6 +300,7 @@ enum class QuirkBehaviorID {
     ShouldNavigatorPluginsBeEmpty,
     ShouldOmitTouchEventDOMAttributesForDesktopWebsiteQuirk,
     ShouldPreventDispatchOfTouchEventQuirk,
+    ShouldPreventKeyframeEffectAccelerationQuirk,
     ShouldPreventOrientationMediaQueryFromEvaluatingToLandscapeQuirk,
     ShouldReportDocumentAsVisibleIfActivePIPQuirk,
     ShouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk,
@@ -333,8 +334,10 @@ enum class QuirkBehaviorID {
 using QuirkBitSet = WTF::BitSet<static_cast<size_t>(QuirkBehaviorID::NumberOfIDs)>;
 
 struct QuirkParameters {
-    ASCIILiteral script;
+    ASCIILiteral script = ""_s;
     std::optional<URLMatch> scriptURLCondition { std::nullopt };
+    ASCIILiteral userAgent = ""_s;
+    ASCIILiteral chromeCompatibilityVersion = ""_s;
 
     static consteval QuirkParameters fromScript(ASCIILiteral script)
     {
@@ -350,10 +353,26 @@ struct QuirkParameters {
             .scriptURLCondition = scriptURLCondition
         };
     }
+
+    static consteval QuirkParameters fromUserAgent(ASCIILiteral userAgent)
+    {
+        return QuirkParameters {
+            .userAgent = userAgent
+        };
+    }
+
+    static consteval QuirkParameters fromChromeCompatibilityVersion(ASCIILiteral chromeCompatibilityVersion)
+    {
+        return QuirkParameters {
+            .chromeCompatibilityVersion = chromeCompatibilityVersion
+        };
+    }
 };
 
 enum class QuirkParametersNeeded : uint8_t {
     NeedsScript = 1 << 0,
+    NeedsUserAgent = 1 << 1,
+    NeedsChromeCompatibilityVersion = 1 << 2,
 };
 
 enum class QuirkConditionsSupported : uint8_t {
@@ -422,6 +441,7 @@ inline constexpr QuirkBehavior mayNeedToIgnoreContentObservation { WebCore::Quir
 inline constexpr QuirkBehavior needsAirIndiaExpressLayeringQuirk { WebCore::QuirkBehaviorID::NeedsAirIndiaExpressLayeringQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsBodyScrollbarWidthNoneDisabledQuirk { WebCore::QuirkBehaviorID::NeedsBodyScrollbarWidthNoneDisabledQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsCanPlayAfterSeekedQuirk { WebCore::QuirkBehaviorID::NeedsCanPlayAfterSeekedQuirk, BuildCondition::always };
+inline constexpr QuirkBehavior needsChromeCompatibilityUserAgentQuirk { WebCore::QuirkBehaviorID::NeedsChromeCompatibilityUserAgentQuirk, BuildCondition::cocoa, QuirkParametersNeeded::NeedsChromeCompatibilityVersion };
 inline constexpr QuirkBehavior needsChromeMediaControlsPseudoElementQuirk { WebCore::QuirkBehaviorID::NeedsChromeMediaControlsPseudoElementQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsCNNCaptionQuirk { WebCore::QuirkBehaviorID::NeedsCNNCaptionQuirk, BuildCondition::cocoa };
 inline constexpr QuirkBehavior needsLimitedMatroskaSupportQuirk { WebCore::QuirkBehaviorID::NeedsLimitedMatroskaSupportQuirk, BuildCondition::mediaRecorder && BuildCondition::cocoaWebMPlayer };
@@ -450,6 +470,7 @@ inline constexpr QuirkBehavior needsMozillaFileTypeForDataTransferQuirk { WebCor
 inline constexpr QuirkBehavior needsNavigatorUserAgentDataQuirk { WebCore::QuirkBehaviorID::NeedsNavigatorUserAgentDataQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsNowPlayingFullscreenSwapQuirk { WebCore::QuirkBehaviorID::NeedsNowPlayingFullscreenSwapQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsPartitionedCookiesQuirk { WebCore::QuirkBehaviorID::NeedsPartitionedCookiesQuirk, BuildCondition::always };
+inline constexpr QuirkBehavior needsPerDocumentAutoplayBehaviorQuirk { WebCore::QuirkBehaviorID::NeedsPerDocumentAutoplayBehaviorQuirk, !BuildCondition::mac };
 inline constexpr QuirkBehavior needsSuppressedPauseEventOnFullscreenExitQuirk { WebCore::QuirkBehaviorID::NeedsSuppressedPauseEventOnFullscreenExitQuirk, BuildCondition::iOS };
 inline constexpr QuirkBehavior needsPreloadAutoQuirk { WebCore::QuirkBehaviorID::NeedsPreloadAutoQuirk, BuildCondition::iOSFamily };
 inline constexpr QuirkBehavior needsResettingTransitionCancelsRunningTransitionQuirk { WebCore::QuirkBehaviorID::NeedsResettingTransitionCancelsRunningTransitionQuirk, BuildCondition::always };
@@ -460,6 +481,7 @@ inline constexpr QuirkBehavior needsSeekingSupportDisabledQuirk { WebCore::Quirk
 inline constexpr QuirkBehavior needsSupportsProgressMonitoringQuirk { WebCore::QuirkBehaviorID::NeedsSupportsProgressMonitoringQuirk, BuildCondition::mediaSource };
 inline constexpr QuirkBehavior needsSuppressPostLayoutBoundaryEventsQuirk { WebCore::QuirkBehaviorID::NeedsSuppressPostLayoutBoundaryEventsQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsTikTokOverflowingContentQuirk { WebCore::QuirkBehaviorID::NeedsTikTokOverflowingContentQuirk, BuildCondition::always };
+inline constexpr QuirkBehavior needsUserAgentStringOverrideQuirk { WebCore::QuirkBehaviorID::NeedsUserAgentStringOverrideQuirk, BuildCondition::always, QuirkParametersNeeded::NeedsUserAgent };
 inline constexpr QuirkBehavior needsVideoShouldMaintainAspectRatioQuirk { WebCore::QuirkBehaviorID::NeedsVideoShouldMaintainAspectRatioQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsWebKitMediaTextTrackDisplayQuirk { WebCore::QuirkBehaviorID::NeedsWebKitMediaTextTrackDisplayQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior needsYouTubeCaptionQuirk { WebCore::QuirkBehaviorID::NeedsYouTubeCaptionQuirk, BuildCondition::cocoa };
@@ -482,6 +504,7 @@ inline constexpr QuirkBehavior shouldAvoidScrollingWhenFocusedContentIsVisibleQu
 inline constexpr QuirkBehavior shouldBlockFetchWithNewlineAndLessThan { WebCore::QuirkBehaviorID::ShouldBlockFetchWithNewlineAndLessThan, BuildCondition::always };
 inline constexpr QuirkBehavior shouldBypassAsyncScriptDeferring { WebCore::QuirkBehaviorID::ShouldBypassAsyncScriptDeferring, BuildCondition::always };
 inline constexpr QuirkBehavior shouldComparareUsedValuesForBorderWidthForTriggeringTransitions { WebCore::QuirkBehaviorID::ShouldComparareUsedValuesForBorderWidthForTriggeringTransitions, BuildCondition::always };
+inline constexpr QuirkBehavior shouldComputeSimulatedMouseEventMovementDeltaQuirk { WebCore::QuirkBehaviorID::ShouldComputeSimulatedMouseEventMovementDeltaQuirk, BuildCondition::touchEvents || BuildCondition::touchEventRegions };
 inline constexpr QuirkBehavior shouldDelayReloadWhenRegisteringServiceWorker { WebCore::QuirkBehaviorID::ShouldDelayReloadWhenRegisteringServiceWorker, BuildCondition::always };
 inline constexpr QuirkBehavior shouldDisableAdSkippingInPip { WebCore::QuirkBehaviorID::ShouldDisableAdSkippingInPip, BuildCondition::pipSkipPreroll };
 inline constexpr QuirkBehavior shouldDisableDataURLPaddingValidation { WebCore::QuirkBehaviorID::ShouldDisableDataURLPaddingValidation, BuildCondition::always };
@@ -529,6 +552,7 @@ inline constexpr QuirkBehavior shouldLayOutAtMinimumWindowWidthWhenIgnoringScali
 inline constexpr QuirkBehavior shouldNavigatorPluginsBeEmpty { WebCore::QuirkBehaviorID::ShouldNavigatorPluginsBeEmpty, BuildCondition::iOSFamily };
 inline constexpr QuirkBehavior shouldOmitTouchEventDOMAttributesForDesktopWebsiteQuirk { WebCore::QuirkBehaviorID::ShouldOmitTouchEventDOMAttributesForDesktopWebsiteQuirk, BuildCondition::touchEvents };
 inline constexpr QuirkBehavior shouldPreventDispatchOfTouchEventQuirk { WebCore::QuirkBehaviorID::ShouldPreventDispatchOfTouchEventQuirk, BuildCondition::touchEvents || BuildCondition::touchEventRegions };
+inline constexpr QuirkBehavior shouldPreventKeyframeEffectAccelerationQuirk { WebCore::QuirkBehaviorID::ShouldPreventKeyframeEffectAccelerationQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior shouldPreventOrientationMediaQueryFromEvaluatingToLandscapeQuirk { WebCore::QuirkBehaviorID::ShouldPreventOrientationMediaQueryFromEvaluatingToLandscapeQuirk, BuildCondition::always };
 inline constexpr QuirkBehavior shouldReportDocumentAsVisibleIfActivePIPQuirk { WebCore::QuirkBehaviorID::ShouldReportDocumentAsVisibleIfActivePIPQuirk, BuildCondition::pictureInPictureAPI };
 inline constexpr QuirkBehavior shouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk { WebCore::QuirkBehaviorID::ShouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk, BuildCondition::always };

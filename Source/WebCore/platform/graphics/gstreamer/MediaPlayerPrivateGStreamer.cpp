@@ -3765,8 +3765,6 @@ void MediaPlayerPrivateGStreamer::configureVideoDecoder(GstElement* decoder)
     if (gstObjectHasProperty(decoder, "max-errors"_s))
         g_object_set(decoder, "max-errors", 0, nullptr);
 
-    updateTextureMapperFlags();
-
     setupCodecProbe(decoder);
 
     if (!isMediaStreamPlayer())
@@ -3886,9 +3884,9 @@ void MediaPlayerPrivateGStreamer::pushTextureToCompositor(IsDuplicateSample isDu
     auto frame = VideoFrameGStreamer::createWrappedSample(m_sample, options);
 
 #if USE(TEXTURE_MAPPER)
-    auto buffer = CoordinatedPlatformLayerBufferVideo::create(WTF::move(frame), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_textureMapperFlags, nullptr);
+    auto buffer = CoordinatedPlatformLayerBufferVideo::create(WTF::move(frame), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_videoSourceOrientation);
 #else
-    auto buffer = CoordinatedPlatformLayerBufferVideo::create(WTF::move(frame), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_textureMapperFlags, proxy->threadSafeGrContext());
+    auto buffer = CoordinatedPlatformLayerBufferVideo::create(WTF::move(frame), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_videoSourceOrientation, proxy->threadSafeGrContext());
 #endif
     if (isInitialBuffer == IsInitialBuffer::Yes)
         proxy->setInitialDisplayBuffer(WTF::move(buffer));
@@ -4297,7 +4295,7 @@ void MediaPlayerPrivateGStreamer::paint(GraphicsContext& context, const FloatRec
         return;
 
     Ref frame = VideoFrameGStreamer::create(WTF::move(sample), { IntSize(*presentationSize), { *m_videoInfo } });
-    context.drawVideoFrame(frame, rect, m_videoSourceOrientation, false);
+    context.drawVideoFrame(frame, rect, ShouldDiscardAlpha::No, { m_videoSourceOrientation });
 }
 
 ColorSpace MediaPlayerPrivateGStreamer::colorSpace()
@@ -4337,34 +4335,7 @@ bool MediaPlayerPrivateGStreamer::setVideoSourceOrientation(ImageOrientation ori
         return false;
 
     m_videoSourceOrientation = orientation;
-    updateTextureMapperFlags();
-
     return true;
-}
-
-void MediaPlayerPrivateGStreamer::updateTextureMapperFlags()
-{
-    switch (m_videoSourceOrientation.orientation()) {
-    case ImageOrientation::Orientation::OriginTopLeft:
-        m_textureMapperFlags = { };
-        break;
-    case ImageOrientation::Orientation::OriginRightTop:
-        m_textureMapperFlags = { TextureMapperFlags::ShouldRotateTexture90 };
-        break;
-    case ImageOrientation::Orientation::OriginBottomRight:
-        m_textureMapperFlags = { TextureMapperFlags::ShouldRotateTexture180 };
-        break;
-    case ImageOrientation::Orientation::OriginLeftBottom:
-        m_textureMapperFlags = { TextureMapperFlags::ShouldRotateTexture270 };
-        break;
-    case ImageOrientation::Orientation::OriginBottomLeft:
-        m_textureMapperFlags = { TextureMapperFlags::ShouldFlipTexture };
-        break;
-    default:
-        // FIXME: Handle OriginTopRight, OriginLeftTop and OriginRightBottom.
-        m_textureMapperFlags = { };
-        break;
-    }
 }
 
 bool MediaPlayerPrivateGStreamer::supportsFullscreen() const

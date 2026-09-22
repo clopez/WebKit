@@ -1349,16 +1349,21 @@ using WebCore::ScrollPosition = WebCore::IntPoint;
     bool ownerHasRenderer();
     WebCore::TransformationMatrix childFrameOwnerToRootContentTransform();
     WebCore::TransformationMatrix absoluteToChildFrameOwnerLocalTransform();
-    float usedZoom();
+    float frameScaleFactor();
     WebCore::LayoutPoint contentBoxLocation();
     OptionSet<WebCore::FrameOwnerElementAppearance> ownerElementAppearance();
 };
 
 header: <WebCore/FrameGeometrySyncData.h>
 struct WebCore::FrameGeometrySyncData {
-    WebCore::LayoutRect layoutViewportRect;
     WebCore::IntSize contentsSize;
     HashMap<WebCore::FrameIdentifier, Ref<WebCore::RemoteFrameLayoutInfo>> childrenFrameLayoutInfo;
+};
+
+header: <WebCore/FrameGeometrySyncData.h>
+[CustomHeader] struct WebCore::FrameViewportInfo {
+    WebCore::LayoutRect layoutViewportRect;
+    WebCore::ScrollPosition scrollPosition;
 };
 
 header: <WebCore/VP9Utilities.h>
@@ -1718,9 +1723,9 @@ header: <WebCore/TextIndicator.h>
     WebCore::FloatRect contentImageWithoutSelectionRectInRootViewCoordinates;
     Vector<WebCore::FloatRect> textRectsInBoundingRectCoordinates;
     float contentImageScaleFactor;
-    RefPtr<WebCore::Image> contentImageWithHighlight;
-    RefPtr<WebCore::Image> contentImageWithoutSelection;
-    RefPtr<WebCore::Image> contentImage;
+    RefPtr<WebCore::BitmapImage> contentImageWithHighlight;
+    RefPtr<WebCore::BitmapImage> contentImageWithoutSelection;
+    RefPtr<WebCore::BitmapImage> contentImage;
     WebCore::Color estimatedBackgroundColor;
     WebCore::TextIndicatorPresentationTransition presentationTransition;
     OptionSet<WebCore::TextIndicatorOption> options;
@@ -1962,7 +1967,7 @@ header: <WebCore/KeyboardScroll.h>
 
 header: <WebCore/NotificationResources.h>
 [RefCounted] class WebCore::NotificationResources {
-    RefPtr<WebCore::Image> icon();
+    RefPtr<WebCore::BitmapImage> icon();
 };
 
 [RefCounted] class WebCore::IdentityTransformOperation {
@@ -4071,6 +4076,7 @@ enum class WebCore::AllowsContentJavaScript : bool
     ScriptTrackingPrivacy,
     FailClosedForAllHosts,
     StrictFailClosed,
+    OverrideHardwareConcurrency,
 };
 
 enum class WebCore::ViolationReportType : uint8_t {
@@ -6167,6 +6173,11 @@ header: <WebCore/Image.h>
     RefPtr<WebCore::ShareableBitmap> toShareableBitmap();
 };
 
+header: <WebCore/BitmapImage.h>
+[RefCounted] class WebCore::BitmapImage {
+    RefPtr<WebCore::ShareableBitmap> toShareableBitmap();
+};
+
 [AdditionalEncoder=StreamConnectionEncoder, RefCounted] class WebCore::FilterFunction subclasses {
     WebCore::SVGFilterRenderer
     WebCore::FEBlend
@@ -6288,7 +6299,7 @@ header: <WebCore/TextAttachmentForSerialization.h>
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
 
 [CustomHeader] struct WebCore::MultiRepresentationHEICAttachmentSingleImage {
-    RefPtr<WebCore::Image> image;
+    RefPtr<WebCore::BitmapImage> image;
     WebCore::FloatSize size;
 }
 
@@ -6701,6 +6712,8 @@ using WebCore::SharedMemory::Handle = WebCore::SharedMemoryHandle
 using WebCore::ServiceWorkerOrClientIdentifier = Variant<WebCore::ScriptExecutionContextIdentifier, WebCore::ServiceWorkerIdentifier>
 
 enum class WebCore::RequiresClipToRect : bool
+
+enum class WebCore::ShouldDiscardAlpha : bool
 
 enum class WebCore::HighlightVisibility : bool
 
@@ -7373,6 +7386,7 @@ struct WebCore::FocusOptions {
     WebCore::FocusRemovalEventsMode removalEventsMode;
     WebCore::FocusTrigger trigger;
     WebCore::FocusVisibility visibility;
+    bool preventInputViewPresentation;
 };
 
 enum class WebKit::CommitTiming : bool;

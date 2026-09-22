@@ -710,7 +710,6 @@ webkit.org/b/313803 webkit.org/b/251107 webgl/2.0.y/conformance2/textures/image_
 webkit.org/b/313803 webkit.org/b/251107 webgl/2.0.y/conformance2/textures/video/tex-2d-rgba8ui-rgba_integer-unsigned_byte.html [ Timeout ]
 
 webkit.org/b/212147 http/tests/xmlhttprequest/url-with-credentials.html [ Failure ]
-webkit.org/b/306455 http/tests/xmlhttprequest/logout.html [ Failure Pass ]
 
 webkit.org/b/178591 http/tests/navigation/keyboard-events-during-provisional-navigation.html [ Failure ]
 webkit.org/b/178591 http/tests/navigation/keyboard-events-during-provisional-subframe-navigation.html [ Failure Timeout ]
@@ -1051,8 +1050,6 @@ webkit.org/b/306469 [ Release ] imported/w3c/web-platform-tests/encrypted-media/
 webkit.org/b/316718 [ Release ] imported/w3c/web-platform-tests/encrypted-media/clearkey-keystatuses-multiple-sessions.https.html [ Pass Failure ]
 
 webkit.org/b/306758 media/event-attributes.html [ Pass Failure ]
-
-webkit.org/b/307989 imported/w3c/web-platform-tests/cookies/path/default.html [ Pass Failure ]
 
 webkit.org/b/308292 [ Release ] http/tests/media/text-served-as-text.html [ Pass Crash ]
 

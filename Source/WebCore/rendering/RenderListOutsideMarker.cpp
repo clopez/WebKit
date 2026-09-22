@@ -83,7 +83,7 @@ void RenderListOutsideMarker::willBeDestroyed()
     RenderBox::willBeDestroyed();
 }
 
-static Style::Difference NODELETE adjustedStyleDifference(Style::Difference diff, const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle)
+static Style::Difference adjustedStyleDifference(Style::Difference diff, const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle)
 {
     if (diff >= Style::DifferenceResult::Layout)
         return diff;
@@ -421,20 +421,12 @@ LayoutRect RenderListOutsideMarker::selectionRectForRepaint(const RenderLayerMod
     return { };
 }
 
-static RefPtr<CSSRegisteredCounterStyle> counterStyleFor(const Style::ComputedStyle& markerStyle, Document& document)
+bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document& document)
 {
     auto counterStyle = markerStyle.listStyleType().tryCounterStyle();
     if (!counterStyle)
-        return nullptr;
-    return document.counterStyleRegistry().resolvedCounterStyle(*counterStyle);
-}
-
-bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document& document)
-{
-    RefPtr counterStyle = counterStyleFor(markerStyle, document);
-    if (!counterStyle)
         return false;
-    auto system = counterStyle->system();
+    auto system = document.counterStyleRegistry().resolvedCounterStyle(*counterStyle)->system();
     return system == CSSCounterStyleDescriptors::System::DisclosureClosed || system == CSSCounterStyleDescriptors::System::DisclosureOpen;
 }
 
@@ -471,24 +463,25 @@ bool listMarkerSynthesizesGlyph(const Style::ComputedStyle& markerStyle, Documen
 
 ListMarkerTextContent listMarkerTextContent(const Style::ComputedStyle& markerStyle, RenderListItem& listItem)
 {
-    ListMarkerTextContent textContent;
-    WTF::switchOn(markerStyle.listStyleType(),
+    auto makeTextContentForCounter = [&](CSSRegisteredCounterStyle& counter) {
+        auto text = makeString(counter.prefix().text, counter.text(listItem.value(), markerStyle.writingMode()));
+        return ListMarkerTextContent { .textWithSuffix = makeString(text, counter.suffix().text), .textWithoutSuffixLength = text.length() };
+    };
+
+    return WTF::switchOn(markerStyle.listStyleType(),
         [&](const CSS::Keyword::None&) {
-            textContent = { .textWithSuffix = " "_s, .textWithoutSuffixLength = 0 };
+            return ListMarkerTextContent { .textWithSuffix = " "_s, .textWithoutSuffixLength = 0 };
         },
         [&](const Style::String& identifier) {
-            textContent = { .textWithSuffix = identifier.value, .textWithoutSuffixLength = identifier.value.length() };
+            return ListMarkerTextContent { .textWithSuffix = identifier.value, .textWithoutSuffixLength = identifier.value.length() };
         },
-        [&](const Style::CounterStyle&) {
-            auto counter = counterStyleFor(markerStyle, protect(listItem.document()));
-            ASSERT(counter);
-            if (!counter)
-                return;
-            auto text = makeString(counter->prefix().text, counter->text(listItem.value(), markerStyle.writingMode()));
-            textContent = { .textWithSuffix = makeString(text, counter->suffix().text), .textWithoutSuffixLength = text.length() };
+        [&](const Style::CounterStyle& counterStyle) {
+            return makeTextContentForCounter(protect(listItem.document())->counterStyleRegistry().resolvedCounterStyle(counterStyle));
+        },
+        [&](const Style::ListStyleType::SymbolsFunction& symbolsFunction) {
+            return makeTextContentForCounter(CSSRegisteredCounterStyle::create(symbolsFunction));
         }
     );
-    return textContent;
 }
 
 bool RenderListOutsideMarker::synthesizesGlyph() const

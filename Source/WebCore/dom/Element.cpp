@@ -545,17 +545,13 @@ Element::DispatchMouseEventResult Element::dispatchMouseEvent(const PlatformMous
     if (isForceEvent(platformEvent) && !document().hasListenerTypeForEventType(platformEvent.type()))
         return { Element::EventIsDispatched::No, eventIsDefaultPrevented };
 
-    Vector<Ref<MouseEvent>> childMouseEvents;
-    for (const auto& childPlatformEvent : platformEvent.coalescedEvents()) {
-        Ref childMouseEvent = MouseEvent::create(eventType, document().windowProxy(), childPlatformEvent, { }, { }, detail, relatedTarget);
-        childMouseEvents.append(WTF::move(childMouseEvent));
-    }
+    auto childMouseEvents = WTF::map(platformEvent.coalescedEvents(), [&](auto&& childPlatformEvent) {
+        return MouseEvent::create(eventType, document().windowProxy(), childPlatformEvent, { }, { }, detail, relatedTarget);
+    });
 
-    Vector<Ref<MouseEvent>> predictedEvents;
-    for (const auto& childPlatformEvent : platformEvent.predictedEvents()) {
-        Ref childMouseEvent = MouseEvent::create(eventType, document().windowProxy(), childPlatformEvent, { }, { }, detail, relatedTarget);
-        predictedEvents.append(WTF::move(childMouseEvent));
-    }
+    auto predictedEvents = WTF::map(platformEvent.predictedEvents(), [&](auto&& childPlatformEvent) {
+        return MouseEvent::create(eventType, document().windowProxy(), childPlatformEvent, { }, { }, detail, relatedTarget);
+    });
 
     Ref mouseEvent = MouseEvent::create(eventType, document().windowProxy(), platformEvent, childMouseEvents, predictedEvents, detail, relatedTarget);
 
@@ -1300,7 +1296,8 @@ void Element::scrollIntoView(Variant<bool, ScrollIntoViewOptions>&& arg)
         .alignX = physicalAlignX,
         .alignY = physicalAlignY,
         .behavior = options.behavior,
-        .skipScrollingTargetElement = SkipScrollingTargetElement::Yes
+        .skipScrollingTargetElement = SkipScrollingTargetElement::Yes,
+        .container = options.container
     };
     LocalFrameView::scrollRectToVisible(absoluteBounds, *renderer, insideFixed, visibleOptions);
 }
@@ -1804,8 +1801,10 @@ void Element::setScrollLeft(int newLeft)
     if (CheckedPtr renderer = renderBox()) {
         int clampedLeft = clampTo<int>(newLeft * renderer->style().usedZoom());
         renderer->setScrollLeft(clampedLeft, options);
-        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
-            scrollableArea->setScrollShouldClearLatchedState(true);
+        if (CheckedPtr layer = renderer->layer()) {
+            if (auto* scrollableArea = layer->scrollableArea())
+                scrollableArea->setScrollShouldClearLatchedState(true);
+        }
     }
 }
 
@@ -1832,8 +1831,10 @@ void Element::setScrollTop(int newTop)
     if (CheckedPtr renderer = renderBox()) {
         int clampedTop = clampTo<int>(newTop * renderer->style().usedZoom());
         renderer->setScrollTop(clampedTop, options);
-        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
-            scrollableArea->setScrollShouldClearLatchedState(true);
+        if (CheckedPtr layer = renderer->layer()) {
+            if (auto* scrollableArea = layer->scrollableArea())
+                scrollableArea->setScrollShouldClearLatchedState(true);
+        }
     }
 }
 

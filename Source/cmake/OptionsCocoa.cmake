@@ -296,6 +296,13 @@ add_compile_options(
     "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:-Wno-objc-signed-char-bool-implicit-float-conversion>"
     "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:-Wno-unused-parameter>"
 )
+# BOOL is `signed char` on x86_64 and raises additional warnings.
+if (WTF_CPU_X86_64)
+    add_compile_options(
+        "$<$<COMPILE_LANGUAGE:C,CXX,OBJC,OBJCXX>:-Wno-objc-signed-char-bool-implicit-int-conversion>"
+    )
+endif ()
+
 add_compile_options("$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-Wno-cast-align>")
 add_compile_options("$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-Wno-undefined-inline>")
 add_compile_options("$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-Wno-nonportable-include-path>")
@@ -423,6 +430,11 @@ if (CMAKE_OSX_DEPLOYMENT_TARGET)
     unset(_triple_suffix)
     unset(_triple_arch)
     unset(_arch_count)
+endif ()
+
+# Building x86_64 on an Apple Silicon host means the result only ever runs under Rosetta.
+if (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64" AND WTF_HOST_SYSTEM_MACHINE STREQUAL "arm64")
+    add_compile_definitions(HAVE_CPU_TRANSLATION_CAPABILITY=0)
 endif ()
 
 # Fail loudly if an ASan build dir lost its CMakeCache.txt and reconfigured

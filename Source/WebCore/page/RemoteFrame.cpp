@@ -102,8 +102,11 @@ void RemoteFrame::didFinishLoadInAnotherProcess()
 {
     m_preventsParentFromBeingComplete = false;
 
-    if (RefPtr ownerElement = this->ownerElement())
-        protect(ownerElement->document())->checkCompleted();
+    if (RefPtr ownerElement = this->ownerElement()) {
+        Ref document = ownerElement->document();
+        document->checkCompleted();
+        document->checkLoadComplete();
+    }
 }
 
 bool RemoteFrame::preventsParentFromBeingComplete() const
@@ -253,10 +256,10 @@ ColorSchemePreference RemoteFrame::colorSchemePreference() const
     return m_colorSchemePreference;
 }
 
-float RemoteFrame::usedZoomForChild(const Frame& child) const
+float RemoteFrame::frameScaleFactorForChild(const Frame& child) const
 {
     if (RefPtr info = frameTreeSyncData().frameGeometry.childrenFrameLayoutInfo.get(child.frameID()))
-        return info->usedZoom();
+        return info->frameScaleFactor();
 
     return 1.0;
 }

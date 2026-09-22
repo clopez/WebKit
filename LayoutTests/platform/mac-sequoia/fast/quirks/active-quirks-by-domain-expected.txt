@@ -69,7 +69,7 @@ https://www.dictionary.com/
 https://www.disneyplus.com/
     (none)
 https://www.ea.com/
-    (none)
+    ShouldPreventKeyframeEffectAccelerationQuirk
 https://www.espn.com/
     ShouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk
 https://www.facebook.com/
@@ -172,6 +172,7 @@ https://www.linkedin.com/
     (none)
 https://outlook.live.com/
     NeedsMozillaFileTypeForDataTransferQuirk
+    NeedsUserAgentStringOverrideQuirk
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
 https://live.com/
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
@@ -261,6 +262,7 @@ https://www.theguardian.com/
 https://www.thesaurus.com/
     NeedsAnchorToBeMouseFocusableQuirk
 https://www.tiktok.com/
+    NeedsChromeCompatibilityUserAgentQuirk
     NeedsTikTokOverflowingContentQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
 https://trix-editor.org/

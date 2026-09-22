@@ -26,6 +26,7 @@
 #pragma once
 
 #include <WebCore/IDLTypes.h>
+#include <WebCore/ImageTypes.h>
 #include <WebCore/ScriptWrappable.h>
 #include <atomic>
 #include <wtf/RefCounted.h>
@@ -92,19 +93,19 @@ class ImageBitmap final : public ScriptWrappable, public RefCounted<ImageBitmap>
 public:
     using Source = Variant<
         Ref<HTMLImageElement>,
+        Ref<SVGImageElement>,
 #if ENABLE(VIDEO)
         Ref<HTMLVideoElement>,
 #endif
         Ref<HTMLCanvasElement>,
-        Ref<SVGImageElement>,
         Ref<ImageBitmap>,
 #if ENABLE(OFFSCREEN_CANVAS)
         Ref<OffscreenCanvas>,
 #endif
-        Ref<CSSStyleImageValue>,
 #if ENABLE(WEB_CODECS)
         Ref<WebCodecsVideoFrame>,
 #endif
+        Ref<CSSStyleImageValue>,
         Ref<Blob>,
         Ref<ImageData>
     >;
@@ -117,7 +118,7 @@ public:
     static void createPromise(ScriptExecutionContext&, Source&&, ImageBitmapOptions&&, Promise&&);
     static void createPromise(ScriptExecutionContext&, Source&&, ImageBitmapOptions&&, int sx, int sy, int sw, int sh, Promise&&);
 
-    static RefPtr<ImageBuffer> createImageBuffer(ScriptExecutionContext&, const FloatSize&, RenderingMode, ColorSpace, float resolutionScale = 1);
+    static RefPtr<ImageBuffer> createImageBuffer(ScriptExecutionContext&, const FloatSize&, RenderingMode, ColorSpace, float resolutionScale = 1, DrawsHDRContent = DrawsHDRContent::No);
     static RefPtr<ImageBuffer> createImageBuffer(ScriptExecutionContext&, const FloatSize&, ColorSpace, float resolutionScale = 1);
 
     static RefPtr<ImageBitmap> create(ScriptExecutionContext&, const IntSize&, ColorSpace);

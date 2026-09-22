@@ -155,11 +155,23 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     # -----------------------------------------------------------------------------
     # Use MSVC_CXX_ARCHITECTURE_ID instead of CMAKE_SYSTEM_PROCESSOR when defined,
     # since the later one just resolves to the host processor on Windows.
+    #
+    # Likewise, on Apple platforms CMAKE_SYSTEM_PROCESSOR resolves to the host,
+    # while CMAKE_OSX_ARCHITECTURES selects the target -- these differ when
+    # building x86_64 under Rosetta on an Apple Silicon host. Prefer
+    # CMAKE_OSX_ARCHITECTURES when it names a single architecture so that the
+    # CPU detection below (and everything keyed off WTF_CPU_*, e.g. the
+    # offlineasm backend) matches the code the compiler actually emits. Universal
+    # builds (multiple architectures) fall back to CMAKE_SYSTEM_PROCESSOR.
+    list(LENGTH CMAKE_OSX_ARCHITECTURES _osx_architectures_count)
     if (MSVC_CXX_ARCHITECTURE_ID)
         string(TOLOWER ${MSVC_CXX_ARCHITECTURE_ID} LOWERCASE_CMAKE_SYSTEM_PROCESSOR)
+    elseif (APPLE AND _osx_architectures_count EQUAL 1)
+        string(TOLOWER "${CMAKE_OSX_ARCHITECTURES}" LOWERCASE_CMAKE_SYSTEM_PROCESSOR)
     else ()
         string(TOLOWER ${CMAKE_SYSTEM_PROCESSOR} LOWERCASE_CMAKE_SYSTEM_PROCESSOR)
     endif ()
+    unset(_osx_architectures_count)
     if (LOWERCASE_CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch32|cortex-(a(5|7|8|9|1[2-7]|32)|m[0-9]|r[0-9]([^0-9]|$)))"
             AND NOT LOWERCASE_CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)")
         set(WTF_CPU_ARM 1)
@@ -582,22 +594,42 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     elseif (NOT _recorded_settings)
         message(STATUS "Not recording the build settings: set-webkit-configuration has no setting for the ${_configuration_directory} configuration")
     else ()
-        # Recorded now, so that a tree that is only configured is already the one
-        # later commands resolve, and again on every build, so that the settings
-        # are those of the build made last.
+        # Write the settings when this tree is configured and when it is built, so
+        # that later commands find the tree built last.
+        #
+        # Best-effort: set-webkit-configuration dies in some legitimate
+        # environments (an OpenSource-only checkout using an internal SDK).
+        # Do not fail the configure, and only add the target when recording
+        # worked, so that the same failure does not just move to the first
+        # build.
+        set(_record_settings_command
+            ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/set-webkit-configuration
+            --cmake ${_recorded_settings}
+        )
         execute_process(
-            COMMAND ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/set-webkit-configuration
-                    --cmake ${_recorded_settings}
+            COMMAND ${_record_settings_command}
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            COMMAND_ERROR_IS_FATAL ANY
+            RESULT_VARIABLE _record_settings_result
+            ERROR_VARIABLE _record_settings_error
         )
-        add_custom_target(RecordBuildSettings ALL
-            COMMAND ${PERL_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Tools/Scripts/set-webkit-configuration
-                    --cmake ${_recorded_settings}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            COMMENT "Recording the build settings for later commands"
-            VERBATIM
-        )
+        if (NOT _record_settings_result EQUAL 0)
+            message(STATUS "Not recording the build settings: set-webkit-configuration failed: ${_record_settings_error}")
+        else ()
+            # Recording a setting, in any tree, makes the directory newer than this stamp.
+            set(_record_settings_stamp ${CMAKE_BINARY_DIR}/CMakeFiles/RecordBuildSettings.stamp)
+            add_custom_command(
+                OUTPUT ${_record_settings_stamp}
+                DEPENDS ${_base_product_dir}
+                COMMAND ${_record_settings_command}
+                COMMAND ${CMAKE_COMMAND} -E touch ${_record_settings_stamp}
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                COMMENT "Recording the build settings for later commands"
+                VERBATIM
+            )
+            add_custom_target(RecordBuildSettings ALL
+                DEPENDS ${_record_settings_stamp}
+            )
+        endif ()
     endif ()
 
     # -----------------------------------------------------------------------------

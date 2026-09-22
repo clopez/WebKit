@@ -31,6 +31,11 @@
 #include <WebCore/StyleValueTypes.h>
 
 namespace WebCore {
+
+namespace CSS {
+struct URLModifiers;
+}
+
 namespace Style {
 
 // <param-spec> = color | accent-color | [ <dashed-ident> <css-type>? ]
@@ -68,8 +73,25 @@ template<size_t I> const auto& get(const ParamSpec::Custom& custom)
 // The arguments of param(): a spec and the value it sets, serialized comma separated.
 // The comma is always present, so the value is not coalesced away when it is empty.
 struct LinkParameter {
+    // https://drafts.csswg.org/css-link-params/#param
+    // "Other values will be left unresolved without a type, so the specified value is
+    // passed on unchanged."
+    struct Unresolved {
+        bool operator==(const Unresolved&) const = default;
+    };
+
+    // "If it fails to parse as the given type, the link parameter is invalid and ignored."
+    struct Invalid {
+        bool operator==(const Invalid&) const = default;
+    };
+
+    // A typed value resolves against the element it is specified on, since the resource
+    // cannot see that element's style.
+    using ResolvedValue = Variant<Unresolved, Invalid, Ref<CSSVariableData>>;
+
     ParamSpec spec;
     DeclarationValue value;
+    ResolvedValue resolved { Unresolved { } };
 
     bool operator==(const LinkParameter&) const = default;
 };
@@ -94,6 +116,11 @@ using LinkParameterList = CommaSeparatedFixedVector<ParamFunction>;
 struct LinkParameters : ListOrNone<LinkParameterList> {
     using ListOrNone<LinkParameterList>::ListOrNone;
 };
+
+// Appends the param() modifiers from a resource's url() to the parameters set by the
+// link-parameters property on the element referencing it.
+// https://drafts.csswg.org/css-link-params/#setting
+LinkParameters linkParametersForResource(const LinkParameters& fromProperty, const CSS::URLModifiers& fromURL);
 
 // MARK: - Conversion
 

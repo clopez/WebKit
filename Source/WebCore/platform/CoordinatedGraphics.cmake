@@ -1,6 +1,5 @@
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/page/scrolling/coordinated"
-    "${WEBCORE_DIR}/platform/graphics/texmap"
     "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
 )
 
@@ -18,6 +17,8 @@ list(APPEND WebCore_SOURCES
     page/scrolling/coordinated/ScrollingTreeScrollingNodeDelegateCoordinated.cpp
     page/scrolling/coordinated/ScrollingTreeStickyNodeCoordinated.cpp
 
+    platform/graphics/texmap/coordinated/AcceleratedAnimation.cpp
+    platform/graphics/texmap/coordinated/AcceleratedAnimations.cpp
     platform/graphics/texmap/coordinated/CoordinatedAnimatedBackingStoreClient.cpp
     platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
     platform/graphics/texmap/coordinated/CoordinatedImageBackingStore.cpp
@@ -25,21 +26,25 @@ list(APPEND WebCore_SOURCES
     platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferHolePunch.cpp
     platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferNativeImage.cpp
     platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferProxy.cpp
-    platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferRGB.cpp
     platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferSkiaDeferredImage.cpp
     platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferSkiaImage.cpp
     platform/graphics/texmap/coordinated/CoordinatedTileBuffer.cpp
-    platform/graphics/texmap/coordinated/GraphicsContextGLTextureMapperANGLECoordinated.cpp
+    platform/graphics/texmap/coordinated/GraphicsContextGLEGLCoordinated.cpp
     platform/graphics/texmap/coordinated/GraphicsLayerAsyncContentsDisplayDelegateCoordinated.cpp
     platform/graphics/texmap/coordinated/GraphicsLayerContentsDisplayDelegateCoordinated.cpp
     platform/graphics/texmap/coordinated/GraphicsLayerCoordinated.cpp
 )
 
 if (USE_TEXTURE_MAPPER)
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/platform/graphics/texmap"
+    )
+
     list(APPEND WebCore_SOURCES
         platform/graphics/texmap/coordinated/CoordinatedBackingStore.cpp
         platform/graphics/texmap/coordinated/CoordinatedBackingStoreTile.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferExternalOES.cpp
+        platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferRGB.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferYUV.cpp
     )
 
@@ -47,26 +52,13 @@ if (USE_TEXTURE_MAPPER)
         platform/graphics/texmap/coordinated/CoordinatedBackingStore.h
         platform/graphics/texmap/coordinated/CoordinatedBackingStoreTile.h
     )
-else ()
-    list(APPEND WebCore_SOURCES
-        platform/graphics/texmap/FloatPlane3D.cpp
-        platform/graphics/texmap/FloatPolygon3D.cpp
-        platform/graphics/texmap/GraphicsContextGLTextureMapperANGLE.cpp
-        platform/graphics/texmap/TextureMapperAnimation.cpp
-    )
-
-    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-        platform/graphics/texmap/FloatPlane3D.h
-        platform/graphics/texmap/FloatPolygon3D.h
-        platform/graphics/texmap/GraphicsContextGLTextureMapperANGLE.h
-        platform/graphics/texmap/TextureMapperAnimation.h
-        platform/graphics/texmap/TextureMapperFlags.h
-    )
 endif ()
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/scrolling/coordinated/ScrollingTreeCoordinated.h
 
+    platform/graphics/texmap/coordinated/AcceleratedAnimation.h
+    platform/graphics/texmap/coordinated/AcceleratedAnimations.h
     platform/graphics/texmap/coordinated/CoordinatedAnimatedBackingStoreClient.h
     platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.h
     platform/graphics/texmap/coordinated/CoordinatedCompositionReason.h
@@ -93,7 +85,7 @@ if (USE_GBM)
         platform/graphics/gbm/DRMDevice.h
         platform/graphics/gbm/DRMDeviceManager.h
         platform/graphics/gbm/GBMDevice.h
-        platform/graphics/gbm/GraphicsContextGLTextureMapperGBM.h
+        platform/graphics/gbm/GraphicsContextGLGBM.h
         platform/graphics/gbm/MemoryMappedGPUBuffer.h
 
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferDMABuf.h

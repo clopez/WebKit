@@ -43,9 +43,13 @@ http/tests/site-isolation/select-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/autofill-credentials-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/open-panel-in-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/focus-navigation-cross-origin-iframe.html [ Pass ]
+http/tests/site-isolation/ios/drag-selection-grabber-extends-selection-in-cross-origin-iframe.html [ Pass ]
+http/tests/site-isolation/ios/drag-selection-grabber-in-scrolled-cross-origin-iframe.html [ Pass ]
 http/tests/site-isolation/ios/exposed-content-rect.html [ Pass ]
 http/tests/site-isolation/ios/exposed-content-rect-nested.html [ Pass ]
 http/tests/site-isolation/ios/exposed-content-rect-3d-transformed.html [ Pass ]
+http/tests/site-isolation/ios/select-and-drag-in-transformed-cross-origin-iframe.html [ Pass ]
+http/tests/site-isolation/touch-events/tap-nested-cross-origin-frame-in-offset-subframe.html [ Pass ]
 
 fast/forms/switch [ Pass ]
 fast/snapshot [ Skip ]
@@ -73,6 +77,7 @@ fast/forms/ios/drag-range-thumb.html [ Pass Failure Timeout ]
 fast/forms/ios/inputmode-change-update-keyboard.html [ Pass Timeout ]
 
 fast/css/appearance-apple-pay-button.html [ Pass ]
+fast/css/appearance-apple-pay-button-after-text.html [ Pass ]
 fast/css/appearance-apple-pay-button-div.html [ Pass ]
 fast/css/appearance-apple-pay-button-input-type-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
@@ -1754,7 +1759,6 @@ svg/text/bidi-tspans.svg [ Failure ]
 svg/text/caret-in-svg-text.xhtml [ Failure ]
 svg/text/font-size-below-point-five-2.svg [ Failure ]
 svg/text/hidpi-text-selection-rect-position.html [ ImageOnlyFailure ]
-svg/text/lengthAdjust-text-metrics.html [ Failure ]
 svg/text/remove-tspan-from-text.html [ Failure ]
 svg/text/select-textLength-spacing-squeeze-1.svg [ Failure ]
 svg/text/select-textLength-spacing-squeeze-2.svg [ Failure ]
@@ -4950,6 +4954,11 @@ fast/canvas/hdr/float16-canvas-drawimage-image-accelerated-display-p3.html [ Fai
 fast/canvas/hdr/float16-canvas-drawimage-image-accelerated-no-gpu-process.html [ Failure ]
 fast/canvas/hdr/float16-canvas-drawimage-image-unaccelerated.html [ Failure ]
 fast/canvas/hdr/float16-canvas-drawimage-image-unaccelerated-no-gpu-process.html [ Failure ]
+fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated.html [ Failure ]
+fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated-display-p3.html [ Failure ]
+fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated-no-gpu-process.html [ Failure ]
+fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-unaccelerated.html [ Failure ]
+fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-unaccelerated-no-gpu-process.html [ Failure ]
 fast/images/hdr-basic-image.html [ ImageOnlyFailure ]
 fast/images/hdr-basic-image-dynamic-range-limit.html [ ImageOnlyFailure ]
 fast/images/hdr-background-image.html [ ImageOnlyFailure ]
@@ -6765,8 +6774,6 @@ webkit.org/b/231299 [ Debug ] imported/w3c/web-platform-tests/selection/collapse
 webkit.org/b/196403 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-stop.html [ Pass Failure Slow ]
 
 webkit.org/b/219438 [ Release ] fast/canvas/canvas-overflow-hidden-animation.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/230413 [ Debug ] fast/canvas/canvas-drawImage-detached-leak.html [ Pass Failure ]
 
 webanimations/multiple-transform-properties-and-multiple-transform-properties-animation-with-delay-on-forced-layer.html [ Pass ]
 webanimations/rotate-property-and-rotate-animation-with-delay-on-forced-layer.html [ Pass ]
@@ -10285,6 +10292,15 @@ imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-2
 webkit.org/b/322305 fast/visual-viewport/ios/interactive-widget/resizes-content-orientation-rotations.html [ Failure ]
 
 imported/w3c/web-platform-tests/input-events/select-event-drag-remove.html [ Skip ] # timeout
+
+# The drop shadow offset is not scaled by the perspective transform of an ancestor.
+webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-perspective-scale.html [ ImageOnlyFailure ]
+
+# A filtered layer under a 3D transformed ancestor is rasterized below screen resolution and its drop shadow lands in the wrong place.
+webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-near-eye-plane.html [ ImageOnlyFailure ]
+
+# Nothing is painted when a child of a filtered layer crosses the eye plane under a 3D transformed ancestor.
+imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-crossing-eye-plane.html [ ImageOnlyFailure ]
 
 # webkit.org/b/301546 [iOS26-iOS27] Two tests in imported/w3c/web-platform-tests/uievents/mouse are constant failures
 imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=16 [ Failure ]

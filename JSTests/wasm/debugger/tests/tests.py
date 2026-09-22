@@ -487,6 +487,53 @@ class SwiftWasmGlobalTestCase:
         self.session.cmd("br del -f", patterns=["All breakpoints removed."])
 
 
+class SwiftWasmOperandStackTestCase:
+    test_file = "resources/swift-wasm/operand-stack-test/main.js"
+
+    def execute(self):
+        # i32 on the operand stack, read with qWasmStackValue. produce(7) == 7 * 3 + 1 == 22.
+        self.session.cmd("b operand-stack-test.swift:19")
+        self.session.cmd(
+            "c",
+            patterns=[
+                "Process 1 stopped",
+                "stop reason = breakpoint",
+                "-> 19  \t    consume(r)",
+            ],
+        )
+        self.session.cmd("v r", patterns=["(Int32) r = 22"])
+        self.session.cmd("v n", patterns=["(Int32) n = 7"])
+        self.session.cmd("br del -f", patterns=["All breakpoints removed."])
+
+        # Wasm locals, read with qWasmLocal. a == produce(7) == 22, c == produce(9) == 28.
+        # `n` is not checked here: at -O its local is reused once its last use has passed.
+        self.session.cmd("b operand-stack-test.swift:28")
+        self.session.cmd(
+            "c",
+            patterns=[
+                "Process 1 stopped",
+                "stop reason = breakpoint",
+                "-> 28  \t    consume(b)",
+            ],
+        )
+        self.session.cmd("v a", patterns=["(Int32) a = 22"])
+        self.session.cmd("v c", patterns=["(Int32) c = 28"])
+        self.session.cmd("br del -f", patterns=["All breakpoints removed."])
+
+        # i64 on the operand stack. A reply narrowed to the wrong width truncates this to 21.
+        self.session.cmd("b operand-stack-test.swift:37")
+        self.session.cmd(
+            "c",
+            patterns=[
+                "Process 1 stopped",
+                "stop reason = breakpoint",
+                "-> 37  \t    consume64(r64)",
+            ],
+        )
+        self.session.cmd("v r64", patterns=["(Int64) r64 = 4294967317"])
+        self.session.cmd("br del -f", patterns=["All breakpoints removed."])
+
+
 class NopDropSelectEndTestCase:
     test_file = "resources/wasm/nop-drop-select-end.js"
 
@@ -2062,13 +2109,13 @@ class MultiInstanceUnreachableOwnSiteTestCase:
 
         # A site on instance 0's own `unreachable`. The patch byte and the instruction are both
         # 0x00, so there is no displaced opcode to replay on resume -- the trap has to propagate.
-        self.session.cmd("b 0x4000000000000024", patterns=["Breakpoint 1"])
+        self.session.cmd("b 0x4000000000000025", patterns=["Breakpoint 1"])
         # FIXME: Cannot be looped; the breakpoint only reports on its first hit. LLDB's z0/step/Z0
         # dance assumes the step retires one instruction, but a wasm trap unwinds to JS, so step()
         # resumes all and the JS catch re-enters the export while the site is still lifted.
         self.session.cmd(
             "c",
-            patterns=["Process 1 stopped", "stop reason = breakpoint 1", "->  0x4000000000000024: unreachable"],
+            patterns=["Process 1 stopped", "stop reason = breakpoint 1", "->  0x4000000000000025: unreachable"],
         )
         self.session.cmd(
             "c",
@@ -2085,7 +2132,7 @@ class MultiInstanceUnreachableForeignSiteTestCase:
         # A site on idle instance 1's `unreachable` only. Instance 0 must not stop for a
         # breakpoint it never asked for, but it must still trap on the instruction itself --
         # skipping it would swallow the program's own trap and hang.
-        self.session.cmd("b 0x4000000100000024", patterns=["Breakpoint 1"])
+        self.session.cmd("b 0x4000000100000025", patterns=["Breakpoint 1"])
         for _ in range(3):
             self.session.cmd(
                 "c",
@@ -2102,11 +2149,11 @@ class MultiInstanceUnreachableBothSitesTestCase:
         # Sites on both instances' `unreachable`. Instance 0 stops for its own, then traps; the
         # sibling's site never claims the stop. Single-pass for the reason spelled out in
         # MultiInstanceUnreachableOwnSiteTestCase -- do not wrap these in a loop.
-        self.session.cmd("b 0x4000000100000024", patterns=["Breakpoint 1"])
-        self.session.cmd("b 0x4000000000000024", patterns=["Breakpoint 2"])
+        self.session.cmd("b 0x4000000100000025", patterns=["Breakpoint 1"])
+        self.session.cmd("b 0x4000000000000025", patterns=["Breakpoint 2"])
         self.session.cmd(
             "c",
-            patterns=["Process 1 stopped", "stop reason = breakpoint 2", "->  0x4000000000000024: unreachable"],
+            patterns=["Process 1 stopped", "stop reason = breakpoint 2", "->  0x4000000000000025: unreachable"],
         )
         self.session.cmd(
             "c",
@@ -2131,15 +2178,17 @@ class MultiInstanceUnreachableStepTestCase:
         # Stepping onto, and then off, a real `unreachable` while instance 1's site keeps the
         # preceding nop patched. The first si crosses the shared patch; the second executes the
         # unreachable, which must surface as the trap rather than as another breakpoint stop.
-        self.session.cmd("b 0x4000000100000023", patterns=["Breakpoint 1"])
-        self.session.cmd("b 0x4000000000000023", patterns=["Breakpoint 2"])
+        self.session.cmd("b 0x4000000100000024", patterns=["Breakpoint 1"])
+        self.session.cmd("b 0x4000000000000024", patterns=["Breakpoint 2"])
         for _ in range(3):
             self.session.cmd(
                 "c",
-                patterns=["Process 1 stopped", "stop reason = breakpoint 2", "->  0x4000000000000023: nop"],
+                patterns=["Process 1 stopped", "stop reason = breakpoint 2", "->  0x4000000000000024: nop"],
             )
-            self.session.cmd("si")
-            self.session.cmd("dis", patterns=["->  0x4000000000000024: unreachable"])
+            self.session.cmd(
+                "si",
+                patterns=["stop reason = instruction step into", "->  0x4000000000000025: unreachable"],
+            )
             self.session.cmd("si", patterns=["Unreachable code should not be executed"])
 
         self.session.cmd("br del -f", patterns=["All breakpoints removed. (2 breakpoints)"])
@@ -2388,4 +2437,11 @@ ALL_TESTS = [
     StreamingModuleSourceURLTestCase,
     StreamingModuleLoadTestCase,
     SwiftWasmFatalErrorTestCase,
+]
+
+# Tests that are runnable by name but excluded from a default sweep, because they need something the
+# default environment does not provide. Everything in ALL_TESTS passes on the `xcrun --find lldb`
+# default (validated against Apple's lldb-2100.0.15.202); these do not.
+OPT_IN_TESTS = [
+    SwiftWasmOperandStackTestCase,  # Needs an LLDB carrying llvm/llvm-project#163646; see QueryHandler::handleWasmStackValue.
 ]

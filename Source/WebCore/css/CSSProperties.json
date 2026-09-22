@@ -5398,6 +5398,28 @@
                 "url": "https://www.w3.org/TR/css-logical/#inset-properties"
             }
         },
+        "interpolate-size": {
+            "animation-type": "not animatable",
+            "inherited": true,
+            "initial": "numeric-only",
+            "values": [
+                "numeric-only",
+                "allow-keywords"
+            ],
+            "codegen-properties": {
+                "computed-style-storage-path": [
+                    "m_inheritedRareData"
+                ],
+                "computed-style-storage-kind": "enum",
+                "computed-style-type": "InterpolateSize",
+                "parser-grammar": "<<values>>",
+                "settings-flag": "cssCalcSizeFunctionEnabled"
+            },
+            "specification": {
+                "category": "css-values",
+                "url": "https://drafts.csswg.org/css-values-5/#interpolate-size"
+            }
+        },
         "left": {
             "animation-type": "by computed value",
             "initial": "auto",
@@ -14166,6 +14188,35 @@
                 }
             }
         },
+        "@environment-map": {
+            "name": {
+                "codegen-properties": {
+                    "parser-grammar": "<string>"
+                },
+                "specification": {
+                    "url": "https://webkit.github.io/explainers/css-spatial/Overview.html#descdef-environment-map-name"
+                }
+            },
+            "format": {
+                "values": [
+                    "equirectangular"
+                ],
+                "codegen-properties": {
+                    "parser-grammar": "<<values>>"
+                },
+                "specification": {
+                    "url": "https://webkit.github.io/explainers/css-spatial/Overview.html#descdef-environment-map-format"
+                }
+            },
+            "src": {
+                "codegen-properties": {
+                    "parser-grammar": "<url>"
+                },
+                "specification": {
+                    "url": "https://webkit.github.io/explainers/css-spatial/Overview.html#descdef-environment-map-src"
+                }
+            }
+        },
         "@font-face": {
             "font-family": {
                 "codegen-properties": {
@@ -15729,7 +15780,6 @@
         "<counter-style>": {
             "grammar-unused": "<counter-style-name> | <symbols()>",
             "grammar-unused-reason": "Needs support for excluding a class of names from a <custom-ident>.",
-            "grammar-comment": "Current implementation does not support '<symbols()>'.",
             "grammar-function": "consumeCounterStyle",
             "specification": {
                 "category": "css-counter-styles",
@@ -15738,6 +15788,7 @@
         },
         "<symbols()>": {
             "grammar": "symbols( <symbols-type>? [ <string> | <image> ]+ )",
+            "grammar-comment": "Current implementation does not support <image> symbols.",
             "specification": {
                 "category": "css-counter-styles",
                 "url": "https://drafts.csswg.org/css-counter-styles/#funcdef-symbols"

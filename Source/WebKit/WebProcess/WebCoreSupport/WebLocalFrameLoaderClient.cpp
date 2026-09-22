@@ -1008,7 +1008,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceRe
     auto navigationID = policyDocumentLoader ? policyDocumentLoader->navigationID() : std::nullopt;
 
     Ref frame = m_frame;
-    uint64_t listenerID = frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::No, WebFrame::PolicyCheckKind::Navigation);
+    auto listenerID = frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::No, WebFrame::PolicyCheckKind::Navigation);
 
     bool isShowingInitialAboutBlank = m_localFrame->loader().stateMachine().isDisplayingInitialEmptyDocument();
     auto activeDocumentCOOPValue = m_localFrame->document() ? protect(m_localFrame->document())->crossOriginOpenerPolicy().value : CrossOriginOpenerPolicyValue::SameOrigin;
@@ -1032,7 +1032,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
     Markable<WebCore::ScriptExecutionContextIdentifier> initiatingDocument;
     if (auto* document = localFrame->document())
         initiatingDocument = document->identifier();
-    uint64_t listenerID = m_frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::No, WebFrame::PolicyCheckKind::NewWindow, initiatingDocument);
+    auto listenerID = m_frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::No, WebFrame::PolicyCheckKind::NewWindow, initiatingDocument);
 
     auto& mouseEventData = navigationAction.mouseEventData();
     NavigationActionData navigationActionData {
@@ -1082,6 +1082,12 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
     webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForNewWindowAction(navigationActionData, frameName), [frame = m_frame, listenerID] (PolicyDecision&& policyDecision) {
         frame->didReceivePolicyDecision(listenerID, WTF::move(policyDecision));
     });
+}
+
+void WebLocalFrameLoaderClient::clearLastBroadcastFrameTreeSyncData()
+{
+    m_lastBroadcastFrameGeometry = std::nullopt;
+    m_lastBroadcastFrameViewportInfo = std::nullopt;
 }
 
 void WebLocalFrameLoaderClient::applyWebsitePolicies(WebsitePoliciesData&& websitePolicies)
@@ -1144,6 +1150,10 @@ void WebLocalFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(Frame
         if (m_lastBroadcastFrameGeometry == *frameGeometry)
             return;
         m_lastBroadcastFrameGeometry = *frameGeometry;
+    } else if (auto* viewportInfo = std::get_if<FrameViewportInfo>(&data.value)) {
+        if (m_lastBroadcastFrameViewportInfo == *viewportInfo)
+            return;
+        m_lastBroadcastFrameViewportInfo = *viewportInfo;
     }
 
     WebFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(WTF::move(data));
@@ -1246,7 +1256,7 @@ void WebLocalFrameLoaderClient::dispatchBackForwardItemLoading(const URL& url, c
 void WebLocalFrameLoaderClient::dispatchDecidePolicyForBackForwardNavigationAction(WebCore::FrameLoadRequest&& frameLoadRequest, const String& referer, WebCore::FrameLoadType loadType)
 {
     Ref localFrame = m_localFrame.get();
-    localFrame->loader().setPendingAsyncBackForwardNavigation();
+    localFrame->loader().setWaitingForDelegatedBackForwardLoad();
 
     NavigationAction navigationAction { frameLoadRequest, NavigationType::BackForward, nullptr };
 
@@ -1276,30 +1286,20 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForBackForwardNavigationActi
                 return;
 
             if (action == PolicyAction::Ignore) {
-                // The async back/forward navigation won't proceed; clear the wait state
-                // so the parent can run checkCompleted() without being blocked by this child.
-                localFrame->loader().clearAsyncBackForwardNavigationState();
+                localFrame->loader().clearWaitingForDelegatedBackForwardLoad();
                 return;
             }
 
             RefPtr historyItem = localFrame->loader().requestedHistoryItem();
             if (!historyItem) {
-                // Fallback: FrameState not found, use normal load path
                 RELEASE_LOG(Loading, "dispatchDecidePolicyForBackForwardNavigationAction: FrameState not found, using fallback normal load path");
-                localFrame->loader().cancelPendingAsyncBackForwardNavigation();
+                // Deliberately keep the wait state set: the fallback load clears it in didBeginDocument().
                 if (RefPtr parent = dynamicDowncast<LocalFrame>(localFrame->tree().parent()))
                     parent->loader().continueLoadURLIntoChildFrame(URL { url }, referer, *localFrame);
                 return;
             }
 
-            if (localFrame->loader().asyncBackForwardNavigationWasCancelled()) {
-                localFrame->loader().clearAsyncBackForwardNavigationState();
-                return;
-            }
-
-            // Keep the async-wait state set across the load: the freshly created child still
-            // reports isComplete() until its document begins, so clearing it here would let the
-            // parent fire its load event early. didBeginDocument() clears it once loading starts.
+            // Deliberately keep the wait state set across the load: didBeginDocument() clears it.
             localFrame->loader().loadRequestedHistoryItem(loadType, PolicyAlreadyDecided::Yes);
         }
     );

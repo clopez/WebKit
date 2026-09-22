@@ -516,6 +516,13 @@ public:
     void add(Tmp tmp, LiveRange& range)
     {
         ASSERT(!hasConflict(range, Width64)); // Can't add overlapping LiveRanges
+
+        // The first range can build the tree directly from its intervals in one pass.
+        if (m_allocations.isEmpty()) {
+            m_allocations = AllocatedIntervalSet(range.intervals().span(), tmp);
+            return;
+        }
+
         for (auto& interval : range.intervals()) {
             ASSERT(interval != Interval()); // Strict ordering requires no empty intervals.
             m_allocations.insert(interval, tmp);
@@ -969,10 +976,10 @@ public:
 
     bool shouldDumpFunction() const
     {
-        const char* filter = Options::airGreedyRegAllocDumpFunction();
+        const char8_t* filter = Options::airGreedyRegAllocDumpFunction();
         if (!filter)
             return false;
-        return m_code.proc().name().find(String::fromLatin1(filter)) != notFound;
+        return m_code.proc().name().find(String { filter }) != notFound;
     }
 
     void dump(PrintStream& out) const

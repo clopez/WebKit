@@ -55,7 +55,7 @@ ShareableBitmapConfiguration::ShareableBitmapConfiguration(const NativeImage& im
 
 ColorSpace ShareableBitmapConfiguration::validateColorSpace(const ColorSpace& colorSpace)
 {
-    if (auto colorSpaceAsRGB = colorSpace.asRGB())
+    if (auto colorSpaceAsRGB = colorSpace.asRGBModelMayBeExtended())
         return *colorSpaceAsRGB;
 
     return ColorSpace::ExtendedSRGB();
@@ -281,7 +281,7 @@ void ShareableBitmap::releaseBitmapContextData(void* typelessBitmap, void* typel
     bitmap->deref(); // Balanced by ref in createGraphicsContext.
 }
 
-RefPtr<Image> ShareableBitmap::createImage()
+RefPtr<BitmapImage> ShareableBitmap::createImage()
 {
     if (RetainPtr platformImage = createPlatformImage(DontCopyBackingStore))
         return BitmapImage::create(WTF::move(platformImage));

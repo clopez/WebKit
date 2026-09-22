@@ -36,15 +36,22 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
-using DMABufFormat = std::pair<uint32_t, uint64_t>;
+struct ImageOrientation;
 
 class CoordinatedPlatformLayerBufferVideo final : public CoordinatedPlatformLayerBuffer {
 public:
-    static std::unique_ptr<CoordinatedPlatformLayerBufferVideo> create(Ref<VideoFrameGStreamer>&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>, const sk_sp<GrContextThreadSafeProxy>&);
-    CoordinatedPlatformLayerBufferVideo(Ref<VideoFrameGStreamer>&&, IntSize&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>, const sk_sp<GrContextThreadSafeProxy>&);
+#if USE(TEXTURE_MAPPER)
+    static std::unique_ptr<CoordinatedPlatformLayerBufferVideo> create(Ref<VideoFrameGStreamer>&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, const ImageOrientation&);
+    CoordinatedPlatformLayerBufferVideo(Ref<VideoFrameGStreamer>&&, IntSize&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>);
+#else
+    static std::unique_ptr<CoordinatedPlatformLayerBufferVideo> create(Ref<VideoFrameGStreamer>&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, const ImageOrientation&, const sk_sp<GrContextThreadSafeProxy>&);
+    CoordinatedPlatformLayerBufferVideo(Ref<VideoFrameGStreamer>&&, IntSize&&, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, Origin, Rotation, const sk_sp<GrContextThreadSafeProxy>&);
+#endif
     virtual ~CoordinatedPlatformLayerBufferVideo();
 
+#if USE(GSTREAMER_GL)
     std::unique_ptr<CoordinatedPlatformLayerBuffer> copyBuffer() const;
+#endif
 
 private:
 #if USE(TEXTURE_MAPPER)
@@ -60,30 +67,30 @@ private:
     void createBufferFromMappedFrameIfNeeded();
 
 #else
-    sk_sp<SkImage> skiaImage() override;
+    sk_sp<SkImage> skiaImage() override { return m_image; }
 
-    void createSkiaImageIfNeeded(const sk_sp<GrContextThreadSafeProxy>&, bool gstGLEnabled);
+    void createSkiaImageIfNeeded(const sk_sp<GrContextThreadSafeProxy>&, bool gstGLEnabled, Origin);
 
 #if USE(GBM)
-    void createSkiaImageForQualcommDecoder(const sk_sp<GrContextThreadSafeProxy>&);
+    void createSkiaImageForQualcommDecoder(const sk_sp<GrContextThreadSafeProxy>&, Origin);
 #if GST_CHECK_VERSION(1, 24, 0)
-    void createSkiaImageForDMABufMemory(const sk_sp<GrContextThreadSafeProxy>&);
+    void createSkiaImageForDMABufMemory(const sk_sp<GrContextThreadSafeProxy>&, Origin);
 #endif
 #endif
 
     void createSkiaImageForMainMemory(std::unique_ptr<GstMappedFrame>&&);
 
 #if USE(GSTREAMER_GL)
-    void createSkiaImageForGLMemory(GstGLMemory*, std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&);
-    void createSkiaImageForSinglePlaneGLMemory(GstGLMemory*, std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&);
-    void createSkiaImageForYUVGLMemory(std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&);
+    void createSkiaImageForGLMemory(GstGLMemory*, std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&, Origin);
+    void createSkiaImageForSinglePlaneGLMemory(GstGLMemory*, std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&, Origin);
+    void createSkiaImageForYUVGLMemory(std::unique_ptr<GstMappedFrame>&&, const sk_sp<GrContextThreadSafeProxy>&, Origin);
 #endif
 #endif
 
     Ref<VideoFrameGStreamer> m_videoFrame;
     std::optional<GstVideoDecoderPlatform> m_videoDecoderPlatform;
-    std::unique_ptr<CoordinatedPlatformLayerBuffer> m_buffer;
 #if USE(TEXTURE_MAPPER)
+    std::unique_ptr<CoordinatedPlatformLayerBuffer> m_buffer;
     std::optional<GstMappedFrame> m_mappedVideoFrame;
 #else
     sk_sp<SkImage> m_image;

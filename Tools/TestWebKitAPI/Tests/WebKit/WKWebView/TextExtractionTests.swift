@@ -284,8 +284,6 @@ private func decodeJSONObject(_ text: String) throws -> [String: Any] {
 
 #endif // ENABLE_UNIFIED_PDF
 
-#if ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
-
 private let mainFrameMarkup = """
     <!DOCTYPE html>
     <html>
@@ -338,8 +336,8 @@ private func subFrameMarkup(buttonText: String) -> String {
 }
 
 @MainActor
-private func makeSubframeServer(crossOriginButtonText: String, sameOriginButtonText: String) -> HTTPServer {
-    HTTPServer(protocol: .http) {
+private func makeSubframeServer(crossOriginButtonText: String, sameOriginButtonText: String) throws -> HTTPServer {
+    try HTTPServer(protocol: .http) {
         Route("/") {
             mainFrameMarkup
         }
@@ -372,8 +370,6 @@ private func loadSubframePage(
 
     return subframes.frames
 }
-
-#endif // ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
 
 #if HAVE_SAFARI_SAFE_BROWSING_NAMESPACED_LISTS
 
@@ -655,6 +651,72 @@ struct TextExtractionTests {
         )
         #expect(try await cannotDescribeClick("chevron-two", "Notifications"))
         #expect(try await cannotDescribeClick("chevron-two", "Nonexistent"))
+    }
+
+    @Test
+    func interactionDescriptionSkipsSearchTextForFormControlsAndLinks() async throws {
+        try await webView.load(
+            html: """
+                <style>.collapsed { max-height: 0; overflow-y: hidden }</style>\
+                <label>New password</label><input type='password'>\
+                <div class='collapsed'><button class='change-password-button'><span>Change password</span></button></div>\
+                <a class='forgot-pw-link' href='#reset'>Forgot password?</a>
+                """
+        )
+
+        let debugText = try await webView.debugText()
+
+        func clickDescription(_ locator: String, _ searchText: String) async throws -> String {
+            let interaction = _WKTextExtractionInteraction(action: .click)
+            interaction.nodeIdentifier = try #require(extractNodeIdentifier(debugText, locator))
+            interaction.text = searchText
+            return try await interaction.debugDescription(in: webView)
+        }
+
+        let expected = "Click on button with class “change-password-button” after rendered text “New password”"
+        #expect(try await clickDescription("change-password-button", "Change password") == expected)
+        #expect(try await clickDescription("change-password-button", "Delete account") == expected)
+
+        await #expect(throws: Never.self) {
+            try await clickDescription("Forgot password?", "Something else entirely")
+        }
+    }
+
+    @Test
+    func interactionDescriptionUsesUnrenderedTextForCollapsedTarget() async throws {
+        try await webView.load(
+            html: """
+                <style>.collapsed { max-height: 0; overflow-y: hidden }</style>\
+                <div class='collapsed'><div class='submit-proxy' onclick='' style='width: 200px; height: 40px'>Change password</div></div>\
+                <div class='collapsed'><div class='card-region' onclick='' style='width: 600px; height: 400px'>Change password</div></div>\
+                <div class='collapsed'><div class='mini-card' onclick='' style='width: 200px; height: 40px'><button>Change password</button></div></div>
+                """
+        )
+
+        let debugText = try await webView.debugText()
+
+        func clickDescription(_ className: String, _ searchText: String) async throws -> String {
+            let interaction = _WKTextExtractionInteraction(action: .click)
+            interaction.nodeIdentifier = try #require(extractNodeIdentifier(debugText, className))
+            interaction.text = searchText
+            return try await interaction.debugDescription(in: webView)
+        }
+
+        let description = try await clickDescription("submit-proxy", "Change password")
+        #expect(description.hasPrefix("Click on div"))
+        #expect(description.contains("submit-proxy"))
+
+        await #expect(throws: (any Error).self) {
+            try await clickDescription("submit-proxy", "Delete account")
+        }
+
+        await #expect(throws: (any Error).self) {
+            try await clickDescription("card-region", "Change password")
+        }
+
+        await #expect(throws: (any Error).self) {
+            try await clickDescription("mini-card", "Change password")
+        }
     }
 
     @Test
@@ -2258,10 +2320,9 @@ struct TextExtractionTests {
         #expect(textContent == "submitted")
     }
 
-    #if ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
     @Test
     func resultOrigin() async throws {
-        var server = HTTPServer(protocol: .http) {
+        var server = try HTTPServer(protocol: .http) {
             Route("/") {
                 "<html><body>Hello world</body></html>"
             }
@@ -2284,7 +2345,7 @@ struct TextExtractionTests {
 
     @Test
     func subframeInteractions() async throws {
-        var server = makeSubframeServer(
+        var server = try makeSubframeServer(
             crossOriginButtonText: "Cross origin: click here",
             sameOriginButtonText: "Same origin: click here"
         )
@@ -2327,7 +2388,7 @@ struct TextExtractionTests {
 
     @Test
     func subframeOriginInDebugText() async throws {
-        var server = makeSubframeServer(crossOriginButtonText: "Cross", sameOriginButtonText: "Same")
+        var server = try makeSubframeServer(crossOriginButtonText: "Cross", sameOriginButtonText: "Same")
 
         try await server.run { serverConfiguration in
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
@@ -2346,7 +2407,7 @@ struct TextExtractionTests {
 
     @Test
     func requestFrameInfoForNodeIdentifier() async throws {
-        var server = makeSubframeServer(
+        var server = try makeSubframeServer(
             crossOriginButtonText: "Cross origin: click here",
             sameOriginButtonText: "Same origin: click here"
         )
@@ -2390,7 +2451,6 @@ struct TextExtractionTests {
             #expect(await frameInfo(forNodeIdentifier: "not-a-node-identifier") == nil)
         }
     }
-    #endif // ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
 
     @Test
     func hoverInteractionWithTextOnly() async throws {
@@ -2793,10 +2853,9 @@ struct TextExtractionTests {
         }
     }
 
-    #if ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
     @Test
     func filteringRulesAreIsolated() async throws {
-        var server = HTTPServer(protocol: .http) {
+        var server = try HTTPServer(protocol: .http) {
             Route("/should-never-load") {
                 "leaked"
             }
@@ -2815,7 +2874,6 @@ struct TextExtractionTests {
 
         #expect(server.totalRequests == 0)
     }
-    #endif // ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
 
     #if ENABLE_TEXT_EXTRACTION_FILTER
     @Test
@@ -2892,12 +2950,11 @@ struct TextExtractionTests {
         }
     }
 
-    #if ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
     @Test
     func delayedSafeBrowsingWarningBlocksTextExtraction() async throws {
         DelayedLookupContext.delayDuration = 1
 
-        var server = HTTPServer(protocol: .httpsProxy) {
+        var server = try HTTPServer(protocol: .httpsProxy) {
             Route("/test") {
                 "test"
             }
@@ -2934,7 +2991,7 @@ struct TextExtractionTests {
 
     @Test
     func backgroundTextExtractionBlocksUserMediatedHTTPFallback() async throws {
-        var server = HTTPServer(protocol: .httpsProxy) {
+        var server = try HTTPServer(protocol: .httpsProxy) {
             Route("/secure") {
                 "hi"
             }
@@ -2960,7 +3017,6 @@ struct TextExtractionTests {
             #expect(webView._safeBrowsingWarning == nil)
         }
     }
-    #endif // ENABLE_CXX_INTEROP && compiler(>=6.4) && !SWIFT_WEBKIT_TOOLCHAIN
     #endif // HAVE_SAFE_BROWSING
 
     #if ENABLE_SCREEN_TIME

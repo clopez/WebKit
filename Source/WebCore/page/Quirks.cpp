@@ -283,7 +283,7 @@ bool Quirks::needsPerDocumentAutoplayBehavior() const
     ASSERT(document->isTopDocument());
     return allowedAutoplayQuirks(document).contains(AutoplayQuirk::PerDocumentAutoplayBehavior);
 #else
-    return m_quirksData.isSite(QuirkSite::Netflix) || m_quirksData.isSite(QuirkSite::NBA);
+    return m_quirksData.isBehaviorEnabled(QuirkBehaviorID::NeedsPerDocumentAutoplayBehaviorQuirk);
 #endif
 }
 
@@ -551,7 +551,7 @@ bool Quirks::shouldComputeSimulatedMouseEventMovementDelta() const
 {
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
-    return m_quirksData.isSite(QuirkSite::TikTok) || m_quirksData.isSite(QuirkSite::Facebook);
+    return m_quirksData.isBehaviorEnabled(QuirkBehaviorID::ShouldComputeSimulatedMouseEventMovementDeltaQuirk);
 }
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(IOS_TOUCH_EVENTS)
@@ -594,7 +594,7 @@ bool Quirks::needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const
 
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
-    return m_quirksData.isSite(QuirkSite::GoogleDocs);
+    return m_quirksData.isBehaviorEnabled(QuirkBehaviorID::NeedsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk);
 }
 
 // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=199587
@@ -1728,55 +1728,27 @@ bool Quirks::needsIPhoneUserAgent(const URL& url)
 
 std::optional<String> Quirks::needsCustomUserAgentOverride(const URL& url, const String& applicationNameForUserAgent, const String& currentUserAgent)
 {
-    RegistrableDomain hostDomain { url };
-    auto& domainString = hostDomain.string();
-    auto firefoxUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:139.0) Gecko/20100101 Firefox/139.0"_s;
-    // FIXME(rdar://83078414): Remove once 101edu.co and aktiv.com removes the unsupported message.
-    if (domainString == "app.101edu.co"_s)
-        return firefoxUserAgent;
-    if (domainString == "app.aktiv.com"_s)
-        return firefoxUserAgent;
+    auto quirksData = resolveTopURLQuirks(url);
 
-    auto chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"_s;
-#if PLATFORM(IOS)
-    // amazon.com rdar://117771731
-    if (isProbablyRegistrableDomainForBrand(hostDomain, "amazon"_s) && url.path() == "/gp/video/"_s)
-        return chromeUserAgent;
-#endif
-
-    if ((domainString == "messenger.com"_s || domainString == "facebook.com"_s) && url.path().startsWith("/groupcall/ROOM:"_s))
-        return chromeUserAgent;
-
-    // Outlook detects Safari and handles selections incorrectly in their rich text editor roosterjs
-    auto host = url.host();
-    if (host == "outlook.live.com"_s)
-        return chromeUserAgent;
+    for (const auto& behavior : quirksData.behaviorsMatching(QuirkBehaviorID::NeedsUserAgentStringOverrideQuirk)) {
+        if (behavior.parameters && !behavior.parameters->userAgent.isEmpty())
+            return String { behavior.parameters->userAgent };
+    }
 
 #if PLATFORM(COCOA)
-    // FIXME(rdar://148759791): Remove this once TikTok removes the outdated error message.
-    if (domainString == "tiktok.com"_s) {
-        auto baseUA = currentUserAgent.isEmpty() ? standardUserAgentWithApplicationName(applicationNameForUserAgent) : currentUserAgent;
-        return makeStringByReplacingAll(baseUA, "like Gecko"_s, "like Gecko, like Chrome/136."_s);
-    }
+    for (const auto& behavior : quirksData.behaviorsMatching(QuirkBehaviorID::NeedsChromeCompatibilityUserAgentQuirk)) {
+        if (!behavior.parameters || behavior.parameters->chromeCompatibilityVersion.isEmpty())
+            continue;
 
-    // mms.pinduoduo.com https://bugs.webkit.org/b/318201
-    if (url.host() == "mms.pinduoduo.com"_s) {
-        auto baseUA = currentUserAgent.isEmpty() ? standardUserAgentWithApplicationName(applicationNameForUserAgent) : currentUserAgent;
-        return makeStringByReplacingAll(baseUA, "like Gecko"_s, "like Gecko, like Chrome/149."_s);
-    }
-
-    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=319011 or rdar://181825035):
-    // github.com serves Safari some JS that tries to adjust the scroll position
-    // which interferes with WebKit's scroll to fragment implementation.
-    // Presenting a Chrome-like UA takes the working code path.
-    if (domainString == "github.com"_s) {
-        auto baseUA = currentUserAgent.isEmpty() ? standardUserAgentWithApplicationName(applicationNameForUserAgent) : currentUserAgent;
-        return makeStringByReplacingAll(baseUA, "like Gecko"_s, "like Gecko, like Chrome/151."_s);
+        auto baseUserAgent = currentUserAgent.isEmpty() ? standardUserAgentWithApplicationName(applicationNameForUserAgent) : currentUserAgent;
+        auto chromeCompatibilityToken = makeString("like Gecko, like Chrome/"_s, behavior.parameters->chromeCompatibilityVersion, '.');
+        return makeStringByReplacingAll(baseUserAgent, "like Gecko"_s, chromeCompatibilityToken);
     }
 #else
     UNUSED_PARAM(applicationNameForUserAgent);
     UNUSED_PARAM(currentUserAgent);
 #endif
+
     return { };
 }
 
@@ -1908,14 +1880,14 @@ Vector<String, 1> Quirks::scriptsToEvaluateBeforeRunningScriptFromURL(const URL&
     const auto matchingBehaviors = m_quirksData.behaviorsMatching(id);
 
     for (const auto& behavior : matchingBehaviors) {
-        if (!behavior.parameters)
+        if (!behavior.parameters || behavior.parameters->script.isEmpty())
             continue;
 
-        const bool hasScript = !behavior.parameters->script.isEmpty();
-        const bool unconditional = !behavior.parameters->scriptURLCondition;
-        const bool urlConditionMatches = behavior.parameters->scriptURLCondition->matches(scriptURLContext);
-        if (hasScript && (unconditional || urlConditionMatches))
-            scripts.append(behavior.parameters->script);
+        auto& scriptURLCondition = behavior.parameters->scriptURLCondition;
+        if (scriptURLCondition && !scriptURLCondition->matches(scriptURLContext))
+            continue;
+
+        scripts.append(behavior.parameters->script);
     }
 
     return scripts;
@@ -2479,7 +2451,7 @@ bool Quirks::shouldRewriteMediaRangeRequestForURL(const URL& url) const
 // rdar://106770785
 bool Quirks::shouldPreventKeyframeEffectAcceleration(const KeyframeEffect& effect) const
 {
-    if (!needsQuirks() || !m_quirksData.isSite(QuirkSite::EA))
+    if (!needsQuirks() || !m_quirksData.isBehaviorEnabled(QuirkBehaviorID::ShouldPreventKeyframeEffectAccelerationQuirk))
         return false;
 
     auto target = effect.targetStyleable();

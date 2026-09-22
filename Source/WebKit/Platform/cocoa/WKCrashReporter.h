@@ -29,9 +29,16 @@
 
 #include <WebKit/WKBase.h>
 
+// Declared here rather than included from <wtf/Forward.h>: this header is installed, so clients
+// build it against whatever WTF the SDK ships, which may predate UTF8CString.
+namespace WTF {
+template<typename> class CStringWithEncoding;
+using UTF8CString = CStringWithEncoding<char8_t>;
+}
+
 namespace WebKit {
 
-WK_EXPORT void logAndSetCrashLogMessage(const char*);
+WK_EXPORT void logAndSetCrashLogMessage(WTF::UTF8CString&&);
 
 }
 

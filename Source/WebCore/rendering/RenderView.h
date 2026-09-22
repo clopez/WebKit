@@ -100,8 +100,6 @@ public:
     void repaintViewAndCompositedLayers();
 
 #if ENABLE(AX_CUSTOM_COLOR_MODE)
-    // Some color-filter decisions depend on how boxes actually end up positioned relative to the content
-    // behind them, which is only known once layout has run.
     void adjustAXCustomColorModeAfterLayout();
 #endif
 
@@ -171,10 +169,13 @@ public:
     FloatSize sizeForCSSDefaultViewportUnits() const;
 
     bool hasQuotesNeedingUpdate() const { return m_hasQuotesNeedingUpdate; }
-    void setHasQuotesNeedingUpdate(bool b) { m_hasQuotesNeedingUpdate = b; }
+    void setHasQuotesNeedingUpdate(bool hasQuotesNeedingUpdate) { m_hasQuotesNeedingUpdate = hasQuotesNeedingUpdate; }
 
     void addCounterNeedingUpdate(RenderCounter&);
     SingleThreadWeakHashSet<RenderCounter> takeCountersNeedingUpdate();
+
+    bool hasCounterTreeNeedingUpdate() const { return m_hasCounterTreeNeedingUpdate; }
+    void setHasCounterTreeNeedingUpdate(bool hasCounterTreeNeedingUpdate) { m_hasCounterTreeNeedingUpdate = hasCounterTreeNeedingUpdate; }
 
     void incrementRendersWithOutline() { ++m_renderersWithOutlineCount; }
     void decrementRendersWithOutline() { ASSERT(m_renderersWithOutlineCount > 0); --m_renderersWithOutlineCount; }
@@ -299,6 +300,7 @@ private:
     bool m_hasQuotesNeedingUpdate { false };
 
     SingleThreadWeakHashSet<RenderCounter> m_countersNeedingUpdate;
+    bool m_hasCounterTreeNeedingUpdate { false };
     unsigned m_renderersWithOutlineCount { 0 };
     unsigned m_renderersWithPixelMovingFilterCount { 0 };
     bool m_needsRepaintHackAfterCompositingLayerUpdateForDebugOverlaysOnly { false };

@@ -86,7 +86,6 @@ public:
     WTF_EXPORT_PRIVATE CString(std::span<const char>); // Any encoding
     CString(CStringBuffer* buffer) : m_buffer(buffer) { }
     CString(const std::string&); // Any encoding.
-    WTF_EXPORT_PRIVATE static CString newUninitialized(size_t length, std::span<char>& characterBuffer);
     CString(HashTableDeletedValueType) : m_buffer(HashTableDeletedValue) { }
 
     const char* data() const LIFETIME_BOUND; // Any encoding
@@ -118,6 +117,11 @@ public:
     bool isHashTableDeletedValue() const { return m_buffer.isHashTableDeletedValue(); }
 
     WTF_EXPORT_PRIVATE unsigned NODELETE hash() const;
+
+protected:
+    // Only reachable through CStringWithEncoding below: this hands out a mutable buffer, so there is no
+    // point at which the encoding of the bytes written into it could be established.
+    WTF_EXPORT_PRIVATE static CString newUninitialized(size_t length, std::span<char>& characterBuffer);
 
 private:
     void copyBufferIfNeeded();
@@ -245,6 +249,7 @@ public:
     std::span<const CharacterType> spanIncludingNullTerminator() const LIFETIME_BOUND { return byteCast<CharacterType>(CString::spanIncludingNullTerminator()); }
     std::span<CharacterType> mutableSpan() LIFETIME_BOUND { return byteCast<CharacterType>(CString::mutableSpan()); }
     std::span<CharacterType> mutableSpanIncludingNullTerminator() LIFETIME_BOUND { return byteCast<CharacterType>(CString::mutableSpanIncludingNullTerminator()); }
+    CStringWithEncoding isolatedCopy() const { return CStringWithEncoding { span() }; }
 
     // This is the escape hatch for external C functions and printf-style formatting. It is named for the
     // destination rather than the contents: const char* is what C string interfaces take, which is why this

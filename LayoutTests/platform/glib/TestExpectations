@@ -1361,9 +1361,10 @@ imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-pl
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-rotated-clip.html [ Pass ]
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-element-overflow-scroll-blended-position-fixed.html [ Pass ]
 
-webkit.org/b/314309 imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-edge-behavior.html [ ImageOnlyFailure ]
-webkit.org/b/314310 imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-currentcolor-dynamic-003.html [ ImageOnlyFailure ]
 webkit.org/b/314312 media/media-sources-selection.html [ ImageOnlyFailure ]
+
+# Passes with the clampedBoundsOfProjectedQuad() fix from webkit.org/b/324623.
+webkit.org/b/324623 imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-near-eye-plane.html [ ImageOnlyFailure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Compositing tests
@@ -1524,8 +1525,6 @@ imported/w3c/web-platform-tests/css/css-transforms/css-scale-of-clip-path.html [
 
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-clip.html
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg.html
-
-webkit.org/b/245716 imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-003.html [ ImageOnlyFailure ]
 
 webkit.org/b/315151 imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html [ Pass Timeout ]
 
@@ -2452,6 +2451,7 @@ webkit.org/b/215638 http/tests/websocket/tests/hybi/invalid-continuation.html [ 
 
 webkit.org/b/217267 http/tests/workers/service/postmessage-after-sw-process-crash.https.html [ Timeout Pass ]
 webkit.org/b/305350 http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Timeout Pass Failure ]
+webkit.org/b/324746 http/tests/workers/service/indexeddb-file-broadcast-after-release.html [ Pass Timeout ]
 
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.html [ Skip ]
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.worker.html [ Skip ]
@@ -2561,8 +2561,6 @@ webkit.org/b/203677 svg/W3C-SVG-1.1/painting-fill-05-b.svg [ Failure ]
 webkit.org/b/163831 svg/custom/acid3-test-77.html [ Failure ]
 
 webkit.org/b/141831 svg/animations/animate-text-nested-transforms.html [ Failure ]
-
-webkit.org/b/98653  svg/text/lengthAdjust-text-metrics.html [ Failure ]
 
 webkit.org/b/240934 imported/w3c/web-platform-tests/css/filter-effects/effect-reference-on-span.html [ ImageOnlyFailure ]
 
@@ -5022,6 +5020,7 @@ webkit.org/b/310178 css3/font-variant-font-face-override.html [ ImageOnlyFailure
 webkit.org/b/310178 fast/canvas/fill-text-with-font-features.html [ ImageOnlyFailure ]
 
 webkit.org/b/310213 [ Release ] http/tests/xmlhttprequest/chunked-progress-event-expectedLength.html [ Pass Failure ]
+webkit.org/b/306455 http/tests/xmlhttprequest/logout.html [ Failure Pass ]
 
 webkit.org/b/310215 fast/loader/submit-form-while-parsing-2.html [ Pass Failure Timeout ]
 
@@ -5355,6 +5354,47 @@ webkit.org/b/324247 webaudio/MediaElementAudioSource/mediaelementaudiosourcenode
 # Gardening 2026-09-16
 webkit.org/b/324335 [ Debug ] accessibility/accessible-name-chain-depth-no-crash.html [ Timeout Pass ]
 webkit.org/b/324339 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/text/canvas.2d.fillText.html [ ImageOnlyFailure Pass ]
+
+# Gardening 2026-09-18
+imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-border-area-corner-shape.html [ Pass ]
+
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/close-invalid.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/close-invalid.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/001.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/004.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/005.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/007.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/010.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/011.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/012.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/017.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/021.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-asciiSep-protocol-string.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-asciiSep-protocol-string.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-nonAscii-protocol-string.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-nonAscii-protocol-string.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-protocol-with-space.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-protocol-with-space.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-protocols-repeated.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-protocols-repeated.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-url-with-space.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-url-with-space.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-valid-url-protocol-empty.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Create-valid-url-protocol-empty.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/eventhandlers.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/eventhandlers.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-connecting-async.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-connecting-async.any.worker.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/001.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/002.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/007.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/017.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/opening-handshake/001.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Send-before-open.any.html?wpt_flags=h2 [ Pass ]
+webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Send-before-open.any.worker.html?wpt_flags=h2 [ Pass ]
 
 # End: Common failures between GTK and WPE.
 

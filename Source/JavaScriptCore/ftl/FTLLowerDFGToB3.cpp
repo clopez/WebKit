@@ -10882,7 +10882,10 @@ IGNORE_CLANG_WARNINGS_END
             // Guard: route prototype-mutated or own-Symbol.iterator Sets to slowPath.
             // The check can be folded when an upstream CheckStructure has already
             // proven that the operand carries the original Set structure.
-            Structure* originalSetStructure = globalObject->setStructureConcurrently();
+            // FixupPhase arms the Set iterator protocol watchpoint on m_node->child1(), so
+            // child1's global object must be used.
+            JSGlobalObject* childGlobalObject = m_graph.globalObjectFor(m_node->child1()->origin.semantic);
+            Structure* originalSetStructure = childGlobalObject->setStructureConcurrently();
             if (!originalSetStructure)
                 m_out.jump(slowPath);
             else {
@@ -19705,11 +19708,14 @@ IGNORE_CLANG_WARNINGS_END
             return false;
         const uint8_t* bitmap = localBitmap->storageBytes().data();
 
+        LBasicBlock checkFirstCharacter = m_out.newBlock();
         LBasicBlock falseCase = m_out.newBlock();
         LBasicBlock operationCase = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
 
-        LBasicBlock lastNext = m_out.insertNewBlocksBefore(falseCase);
+        m_out.branch(isNotInt32(m_out.load64(base, m_heaps.RegExpObject_lastIndex)), rarely(operationCase), usually(checkFirstCharacter));
+
+        LBasicBlock lastNext = m_out.appendTo(checkFirstCharacter, falseCase);
         emitAnchoredFirstCharacterGuardChain(argument, argumentEdge, bitmap, operationCase, falseCase);
 
         m_out.appendTo(falseCase, operationCase);

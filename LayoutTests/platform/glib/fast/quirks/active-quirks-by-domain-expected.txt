@@ -73,11 +73,12 @@ https://www.dictionary.com/
 https://www.disneyplus.com/
     (none)
 https://www.ea.com/
-    (none)
+    ShouldPreventKeyframeEffectAccelerationQuirk
 https://www.espn.com/
     (none)
 https://www.facebook.com/
     NeedsFacebookRemoveNotSupportedQuirk
+    ShouldComputeSimulatedMouseEventMovementDeltaQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
     ShouldDispatchSimulatedMouseEventsQuirk
     ShouldEnableCameraAndMicrophonePermissionStateQuirk
@@ -175,6 +176,7 @@ https://www.linkedin.com/
     (none)
 https://outlook.live.com/
     NeedsMozillaFileTypeForDataTransferQuirk
+    NeedsUserAgentStringOverrideQuirk
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
     ShouldPreventDispatchOfTouchEventQuirk
 https://live.com/
@@ -207,6 +209,7 @@ https://www.messenger.com/
     ShouldEnableRTCEncodedStreamsQuirk
     ShouldEnableRemoteTrackLabelQuirk
 https://www.netflix.com/
+    NeedsPerDocumentAutoplayBehaviorQuirk
     NeedsSeekingSupportDisabledQuirk
     ShouldDispatchPointerOutAndLeaveAfterHandlingSyntheticClick
 https://www.nba.com/
@@ -264,6 +267,7 @@ https://www.thesaurus.com/
     (none)
 https://www.tiktok.com/
     NeedsTikTokOverflowingContentQuirk
+    ShouldComputeSimulatedMouseEventMovementDeltaQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
     ShouldDispatchSimulatedMouseEventsQuirk
 https://trix-editor.org/

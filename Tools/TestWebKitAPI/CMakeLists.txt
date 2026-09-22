@@ -125,6 +125,7 @@ set(TestWTF_SOURCES
     Tests/WTF/PackedRef.cpp
     Tests/WTF/PackedRefPtr.cpp
     Tests/WTF/ParkingLot.cpp
+    Tests/WTF/PlainGregorianDateTime.cpp
     Tests/WTF/PreciseSum.cpp
     Tests/WTF/PriorityQueue.cpp
     Tests/WTF/RapidHash.cpp
@@ -283,6 +284,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/DocumentOrder.cpp
         Tests/WebCore/FidoHidMessageTest.cpp
         Tests/WebCore/FileMonitor.cpp
+        Tests/WebCore/FlexLineBreakerTests.cpp
         Tests/WebCore/FloatPointTests.cpp
         Tests/WebCore/FloatQuadTests.cpp
         Tests/WebCore/FloatRectTests.cpp
@@ -292,6 +294,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/FontCascade.cpp
         Tests/WebCore/FontShadowTests.cpp
         Tests/WebCore/GridPosition.cpp
+        Tests/WebCore/HEVCUtilitiesTests.cpp
         Tests/WebCore/HTMLParserIdioms.cpp
         Tests/WebCore/HTTPHeaderField.cpp
         Tests/WebCore/HTTPHeaderMap.cpp
@@ -356,6 +359,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/URLMatch.cpp
         Tests/WebCore/URLParserTextEncoding.cpp
         Tests/WebCore/URLPatternTests.cpp
+        Tests/WebCore/WebCodecsBufferTransfer.cpp
         Tests/WebCore/WebGPUFramePacer.cpp
         Tests/WebCore/WebTransportHeaderValidation.cpp
         Tests/WebCore/WellKnownOriginList.cpp

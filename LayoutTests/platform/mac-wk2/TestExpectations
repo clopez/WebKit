@@ -1045,8 +1045,6 @@ fast/text/international/system-language/navigator-language/navigator-language-ru
 
 webkit.org/b/227805 [ Debug ] fast/canvas/canvas-composite-image.html [ Pass Crash ]
 
-webkit.org/b/230413 fast/canvas/canvas-drawImage-detached-leak.html [ Pass Failure ]
-
 webkit.org/b/226828 media/modern-media-controls/overflow-support/chapters.html [ Pass Failure Timeout ]
 
 webkit.org/b/227922 inspector/canvas/setShaderProgramDisabled.html [ Pass Failure Timeout ]
@@ -1230,6 +1228,11 @@ webkit.org/b/320158 [ x86_64 ] fast/canvas/hdr/float16-canvas-imagedata-small-ac
 [ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-image-accelerated-no-gpu-process.html [ Skip ]
 [ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-image-unaccelerated.html [ Skip ]
 [ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-image-unaccelerated-no-gpu-process.html [ Skip ]
+[ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated.html [ Skip ]
+[ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated-display-p3.html [ Skip ]
+[ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-accelerated-no-gpu-process.html [ Skip ]
+[ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-unaccelerated.html [ Skip ]
+[ Sequoia ] fast/canvas/hdr/float16-canvas-drawimage-imagebitmap-image-unaccelerated-no-gpu-process.html [ Skip ]
 [ Sequoia+ ] fast/images/hdr-basic-image.html [ Pass ]
 [ Sequoia+ ] fast/images/hdr-basic-image-dynamic-range-limit.html [ Pass ]
 [ Sequoia+ ] fast/images/hdr-background-image.html [ Pass ]
@@ -2434,8 +2437,6 @@ fast/animation/css-animation-throttling.html [ Pass Failure ]
 fast/animation/request-animation-frame-throttle-inside-overflow-scroll.html [ Pass Failure ]
 fast/animation/request-animation-frame-throttle-subframe-display-none.html [ Pass Failure ]
 webkit.org/b/319501 fast/animation/request-animation-frame-throttle-subframe.html [ Pass Timeout ]
-
-webkit.org/b/318732 http/tests/site-isolation/page-zoom.html [ Pass ImageOnlyFailure ]
 
 # webkit.org/b/319018 2x media/media-source/* (layout-tests) are flaky timeouts.
 media/media-source/media-source-real-play-after-eos.html [ Pass ImageOnlyFailure Timeout ]

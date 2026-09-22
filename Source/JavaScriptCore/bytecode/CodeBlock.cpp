@@ -1949,22 +1949,6 @@ void CodeBlock::getICStatusMap(ICStatusMap& result)
     getICStatusMap(locker, result);
 }
 
-#if ENABLE(JIT)
-PropertyInlineCache* CodeBlock::findPropertyCache(CodeOrigin codeOrigin)
-{
-    ConcurrentJSLocker locker(m_lock);
-    PropertyInlineCache* result = nullptr;
-    forEachPropertyInlineCache([&](PropertyInlineCache& propertyCache) {
-        if (propertyCache.codeOrigin == codeOrigin) {
-            result = &propertyCache;
-            return IterationStatus::Done;
-        }
-        return IterationStatus::Continue;
-    });
-    return result;
-}
-#endif
-
 template<typename Visitor>
 void CodeBlock::visitOSRExitTargets(const ConcurrentJSLocker&, Visitor& visitor)
 {
@@ -2221,18 +2205,15 @@ void CodeBlock::removeExceptionHandlerForCallSite(DisposableCallSiteIndex callSi
 LineColumn CodeBlock::lineColumnForBytecodeIndex(BytecodeIndex bytecodeIndex) const
 {
     RELEASE_ASSERT(bytecodeIndex.offset() < instructions().size());
-    auto lineColumn = m_unlinkedCode->lineColumnForBytecodeIndex(bytecodeIndex);
-    lineColumn.column += lineColumn.line ? 1 : firstLineColumnOffset();
-    lineColumn.line += ownerExecutable()->firstLine();
-    return lineColumn;
+    auto entry = m_unlinkedCode->expressionInfoForBytecodeIndex(bytecodeIndex);
+    unsigned divotInProvider = sourceOffset() + entry.divot;
+    return source().provider()->documentLineColumnForOffset(divotInProvider);
 }
 
 ExpressionInfo::Entry CodeBlock::expressionInfoForBytecodeIndex(BytecodeIndex bytecodeIndex) const
 {
     auto entry = m_unlinkedCode->expressionInfoForBytecodeIndex(bytecodeIndex);
     entry.divot += sourceOffset();
-    entry.lineColumn.column += entry.lineColumn.line ? 1 : firstLineColumnOffset();
-    entry.lineColumn.line += ownerExecutable()->firstLine();
     return entry;
 }
 

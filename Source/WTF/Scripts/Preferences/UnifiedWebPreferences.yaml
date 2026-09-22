@@ -133,7 +133,7 @@ AXCustomColorModeEnabled:
   status: embedder
   getter: axCustomColorModeEnabled
   webcoreName: axCustomColorModeEnabled
-  webcoreOnChange: setNeedsRecalcStyleInAllFrames
+  webcoreOnChange: axCustomColorModeStateChanged
   condition: ENABLE(AX_CUSTOM_COLOR_MODE)
   defaultValue: false
 
@@ -1150,6 +1150,14 @@ CSSSizeShorthandEnabled:
   category: css
   humanReadableName: "CSS size shorthand"
   humanReadableDescription: "Enable the size shorthand for the width and height properties"
+  defaultValue: false
+
+CSSSymbolsFunctionEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS symbols() function"
+  humanReadableDescription: "Enable the CSS Counter Styles symbols() function"
   defaultValue: false
 
 CSSTextDecorationInsetEnabled:
@@ -3735,6 +3743,15 @@ MaxParseDuration:
   webKitLegacyPreferenceKey: WebKitMaxParseDurationPreferenceKey
   defaultValue: -1
 
+MaximumNestedInlineFormattingContextCount:
+  type: uint32_t
+  status: embedder
+  # Matches SettingsBase::defaultMaximumRenderTreeDepth. Nested contexts can never outnumber the
+  # render tree depth, so the shared default doesn't limit anything by itself.
+  defaultValue:
+    default: 512
+    WebKit: WebKit::defaultMaximumNestedInlineFormattingContextCount()
+
 MediaAudioCodecIDsAllowedInLockdownMode:
   type: String
   status: embedder
@@ -5690,7 +5707,7 @@ SiteIsolationSharedProcessEnabled:
   category: security
   humanReadableName: "Shared process for Site Isolation"
   humanReadableDescription: "Put cross-site frames in a shared Web process"
-  defaultValue: false
+  defaultValue: true
   sharedPreferenceForWebProcess: true
 
 SlowFrameIndicatorVisible:
@@ -6336,6 +6353,16 @@ UseAppKitGesturesForGestureEvents:
   status: internal
   humanReadableName: "AppKit gestures for gesture events"
   humanReadableDescription: "Use AppKit gestures to drive gesture event synthesis"
+  condition: PLATFORM(MAC)
+  defaultValue:
+    default: false
+    WebKit: defaultUseAppKitGestures()
+
+UseAppKitGesturesForManipulationSurfaces:
+  type: bool
+  status: internal
+  humanReadableName: "AppKit gestures for manipulation surfaces"
+  humanReadableDescription: "Use AppKit gestures to drive manipulation surfaces"
   condition: PLATFORM(MAC)
   defaultValue:
     default: false
@@ -6996,6 +7023,15 @@ WebExtensionBookmarksEnabled:
   condition: ENABLE(WK_WEB_EXTENSIONS_BOOKMARKS)
   defaultValue: false
 
+WebExtensionNotificationsEnabled:
+  type: bool
+  status: testable
+  category: extensions
+  humanReadableName: "WebExtension Notifications API"
+  humanReadableDescription: "Enable support for WebExtensions using the Notifications API"
+  condition: ENABLE(WK_WEB_EXTENSIONS_NOTIFICATIONS)
+  defaultValue: false
+
 WebExtensionOffscreenEnabled:
   type: bool
   status: stable
@@ -7291,6 +7327,16 @@ WebRTCVP9Profile2CodecEnabled:
     "PLATFORM(COCOA)": true
     default: false
     WebKitLegacy: false
+
+WebRTCWebCoreVideoCodecsEnabled:
+  type: bool
+  status: testable
+  category: media
+  humanReadableName: "WebRTC WebCore Video Codecs"
+  humanReadableDescription: "Use WebCore's native video codecs instead of libwebrtc's for WebRTC codecs that support it"
+  condition: ENABLE(WEB_RTC)
+  defaultValue: false
+  sharedPreferenceForWebProcess: true
 
 WebSQLEnabled:
   type: bool

@@ -1296,6 +1296,7 @@ $(PROJECT_DIR)/crypto/parameters/X25519Params.idl
 $(PROJECT_DIR)/css/CSSConditionRule.idl
 $(PROJECT_DIR)/css/CSSContainerRule.idl
 $(PROJECT_DIR)/css/CSSCounterStyleRule.idl
+$(PROJECT_DIR)/css/CSSEnvironmentMapRule.idl
 $(PROJECT_DIR)/css/CSSFontFaceDescriptors.idl
 $(PROJECT_DIR)/css/CSSFontFaceRule.idl
 $(PROJECT_DIR)/css/CSSFontFeatureValuesRule.idl
@@ -1978,6 +1979,7 @@ $(PROJECT_DIR)/page/ResizeObserverSize.idl
 $(PROJECT_DIR)/page/Screen.idl
 $(PROJECT_DIR)/page/ScreenOrientation.idl
 $(PROJECT_DIR)/page/ScrollBehavior.idl
+$(PROJECT_DIR)/page/ScrollIntoViewContainer.idl
 $(PROJECT_DIR)/page/ScrollIntoViewOptions.idl
 $(PROJECT_DIR)/page/ScrollLogicalPosition.idl
 $(PROJECT_DIR)/page/ScrollOptions.idl

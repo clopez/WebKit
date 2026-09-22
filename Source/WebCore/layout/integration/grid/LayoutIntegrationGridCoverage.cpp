@@ -84,14 +84,11 @@ enum class GridAvoidanceReason : uint8_t {
     RelativeGridItemHasPercentageInset,
 
     GridItemColumnStartHasLineName,
-    GridItemColumnStartHasNegativeLineNumber,
     GridItemColumnStartHasSpan,
     GridItemHasColumnStartOutsideExplicitGrid,
     GridItemHasUnsupportedColumnEnd,
 
-    GridNeedsImplicitColumnsForItemsLockedToRow,
     GridItemRowStartHasLineName,
-    GridItemRowStartHasNegativeLineNumber,
     GridItemRowStartHasSpan,
     GridItemHasRowStartOutsideExplicitGrid,
     GridItemHasUnsupportedRowEnd,
@@ -111,7 +108,6 @@ static bool avoidanceReasonIsColumnPlacementRelated(GridAvoidanceReason gridAvoi
 {
     switch (gridAvoidanceReason) {
     case GridAvoidanceReason::GridItemColumnStartHasLineName:
-    case GridAvoidanceReason::GridItemColumnStartHasNegativeLineNumber:
     case GridAvoidanceReason::GridItemColumnStartHasSpan:
     case GridAvoidanceReason::GridItemHasColumnStartOutsideExplicitGrid:
     case GridAvoidanceReason::GridItemHasUnsupportedColumnEnd:
@@ -125,7 +121,6 @@ static bool avoidanceReasonIsRowPlacementRelated(GridAvoidanceReason gridAvoidan
 {
     switch (gridAvoidanceReason) {
     case GridAvoidanceReason::GridItemRowStartHasLineName:
-    case GridAvoidanceReason::GridItemRowStartHasNegativeLineNumber:
     case GridAvoidanceReason::GridItemRowStartHasSpan:
     case GridAvoidanceReason::GridItemHasRowStartOutsideExplicitGrid:
     case GridAvoidanceReason::GridItemHasUnsupportedRowEnd:
@@ -159,7 +154,7 @@ static bool hasValidColumnEnd(const Style::GridPositionExplicit& explicitColumnS
             return false;
         },
         [&](const Style::GridPositionExplicit&) {
-            if (!columnEnd.namedGridLine().value.isEmpty() || columnEnd.explicitPosition() < 0 || columnEnd.explicitPosition() > static_cast<int>(linesFromGridTemplateColumnsCount))
+            if (!columnEnd.namedGridLine().value.isEmpty() || columnEnd.explicitPosition() > static_cast<int>(linesFromGridTemplateColumnsCount))
                 return false;
 
             // FIXME: Multi-span items are not yet supported in intrinsic sizing
@@ -229,7 +224,7 @@ static bool hasValidRowEnd(const Style::GridPositionExplicit& explicitRowStart, 
             return true;
         },
         [&](const Style::GridPositionExplicit&) {
-            if (!rowEnd.namedGridLine().value.isEmpty() || rowEnd.explicitPosition() < 0 || rowEnd.explicitPosition() > static_cast<int>(linesFromGridTemplateRowsCount))
+            if (!rowEnd.namedGridLine().value.isEmpty() || rowEnd.explicitPosition() > static_cast<int>(linesFromGridTemplateRowsCount))
                 return false;
 
             // FIXME: Multi-span items are not yet supported in intrinsic sizing
@@ -455,10 +450,6 @@ static EnumSet<GridAvoidanceReason> gridLayoutAvoidanceReason(const RenderGrid& 
     if (gridBlockSizeIsIndefinite && hasPercentageRowTrack())
         ADD_REASON_AND_RETURN_IF_NEEDED(GridAvoidanceReason::GridHasPercentageRowsWithIndefiniteHeight, reasons, reasonCollectionMode);
 
-    ASSERT(renderGridStyle->gridAutoFlow().isRow(),
-        "If we end up supporting column auto flow before broader implicit grid support then the logic using explicitlyPlacedItemsInRowCount will need to be reworked to be based upon the auto flow direction");
-    Vector<size_t> explicitlyPlacedItemsInRowCount;
-
     for (CheckedRef gridItem : childrenOfType<RenderBox>(renderGrid)) {
         // We do not yet support grid item sizing spec for replaced elements.
         // See: https://drafts.csswg.org/css-grid/#grid-item-sizing
@@ -546,8 +537,6 @@ static EnumSet<GridAvoidanceReason> gridLayoutAvoidanceReason(const RenderGrid& 
                 auto columnStartLineNumber = explicitPosition.position.value;
                 if (!columnStart.namedGridLine().value.isEmpty())
                     return GridAvoidanceReason::GridItemColumnStartHasLineName;
-                if (columnStartLineNumber < 0)
-                    return GridAvoidanceReason::GridItemColumnStartHasNegativeLineNumber;
                 if (columnStartLineNumber > static_cast<int>(linesFromGridTemplateColumnsCount))
                     return GridAvoidanceReason::GridItemHasColumnStartOutsideExplicitGrid;
                 if (!hasValidColumnEnd(explicitPosition, gridItemStyle->gridItemColumnEnd(), linesFromGridTemplateColumnsCount))
@@ -578,8 +567,6 @@ static EnumSet<GridAvoidanceReason> gridLayoutAvoidanceReason(const RenderGrid& 
                 auto rowStartLineNumber = explicitPosition.position.value;
                 if (!rowStart.namedGridLine().value.isEmpty())
                     return GridAvoidanceReason::GridItemRowStartHasLineName;
-                if (rowStartLineNumber < 0)
-                    return GridAvoidanceReason::GridItemRowStartHasNegativeLineNumber;
                 if (rowStartLineNumber > static_cast<int>(linesFromGridTemplateRowsCount))
                     return GridAvoidanceReason::GridItemHasRowStartOutsideExplicitGrid;
 
@@ -587,11 +574,6 @@ static EnumSet<GridAvoidanceReason> gridLayoutAvoidanceReason(const RenderGrid& 
                 if (!hasValidRowEnd(explicitPosition, rowEnd, linesFromGridTemplateRowsCount))
                     return GridAvoidanceReason::GridItemHasUnsupportedRowEnd;
 
-                size_t rowIndex = rowStartLineNumber + 1;
-                auto rowsCount = explicitlyPlacedItemsInRowCount.size();
-                if (rowIndex > rowsCount)
-                    explicitlyPlacedItemsInRowCount.insertFill(rowsCount, 0, rowIndex - rowsCount);
-                ++explicitlyPlacedItemsInRowCount[rowStartLineNumber];
                 return { };
             },
             [&](const Style::GridPositionSpan&) -> std::optional<GridAvoidanceReason> {
@@ -606,16 +588,6 @@ static EnumSet<GridAvoidanceReason> gridLayoutAvoidanceReason(const RenderGrid& 
             ASSERT(avoidanceReasonIsRowPlacementRelated(*rowPositioningAvoidanceReason));
             ADD_REASON_AND_RETURN_IF_NEEDED(*rowPositioningAvoidanceReason, reasons, reasonCollectionMode);
         }
-
-        // If there are too many items in a given row compared to the total number of columns in the
-        // explicit grid, then we may need to add additional columns to the implicit grid to place
-        // them properly. We can be more fine grained than what we are doing now, but this is
-        // a good start as we allow more complex placements.
-        auto ineligibleRowIndex = explicitlyPlacedItemsInRowCount.findIf([&](size_t itemsInRowCount) {
-            return itemsInRowCount >= linesFromGridTemplateColumnsCount;
-        });
-        if (ineligibleRowIndex != notFound)
-            ADD_REASON_AND_RETURN_IF_NEEDED(GridAvoidanceReason::GridNeedsImplicitColumnsForItemsLockedToRow, reasons, reasonCollectionMode);
 
         if (gridItemStyle->writingMode().isVertical() || gridItemStyle->writingMode().isBlockFlipped())
             ADD_REASON_AND_RETURN_IF_NEEDED(GridAvoidanceReason::GridItemHasUnsupportedWritingMode, reasons, reasonCollectionMode);
@@ -817,9 +789,6 @@ static void printReason(GridAvoidanceReason reason, TextStream& stream)
     case GridAvoidanceReason::GridItemColumnStartHasLineName:
         stream << "grid item column start has line name";
         break;
-    case GridAvoidanceReason::GridItemColumnStartHasNegativeLineNumber:
-        stream << "grid item column start has negative line number";
-        break;
     case GridAvoidanceReason::GridItemColumnStartHasSpan:
         stream << "grid item column start has span";
         break;
@@ -829,14 +798,8 @@ static void printReason(GridAvoidanceReason reason, TextStream& stream)
     case GridAvoidanceReason::GridItemHasUnsupportedColumnEnd:
         stream << "grid item has unsupported column end";
         break;
-    case GridAvoidanceReason::GridNeedsImplicitColumnsForItemsLockedToRow:
-        stream << "grid needs implicit columns for items locked to row";
-        break;
     case GridAvoidanceReason::GridItemRowStartHasLineName:
         stream << "grid item row start has line name";
-        break;
-    case GridAvoidanceReason::GridItemRowStartHasNegativeLineNumber:
-        stream << "grid item row start has negative line number";
         break;
     case GridAvoidanceReason::GridItemRowStartHasSpan:
         stream << "grid item row start has span";

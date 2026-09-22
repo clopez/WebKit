@@ -490,7 +490,7 @@ void FrameLoader::setDefersLoading(bool defers)
     history().setDefersLoading(defers);
 
     if (!defers) {
-        protect(m_frame)->navigationScheduler().startTimer();
+        protect(protect(m_frame)->navigationScheduler())->startTimer();
         startCheckCompleteTimer();
     }
 }
@@ -710,7 +710,7 @@ void FrameLoader::didExplicitOpen()
     // from a subsequent window.document.open / window.document.write call. 
     // Canceling redirection here works for all cases because document.open 
     // implicitly precedes document.write.
-    protect(m_frame)->navigationScheduler().cancel();
+    protect(protect(m_frame)->navigationScheduler())->cancel();
 }
 
 static inline bool shouldClearWindowName(const LocalFrame& frame, const Document& newDocument)
@@ -854,7 +854,7 @@ void FrameLoader::didBeginDocument(bool dispatch, LocalDOMWindow* previousWindow
 {
     m_needsClear = true;
     m_isComplete = false;
-    m_asyncBackForwardNavigationState = AsyncBackForwardNavigationState::None;
+    m_isWaitingForDelegatedBackForwardLoad = false;
     m_didCallImplicitClose = false;
     Ref frame = m_frame.get();
     Ref document = *frame->document();
@@ -923,7 +923,7 @@ void FrameLoader::didBeginDocument(bool dispatch, LocalDOMWindow* previousWindow
     }
 
     if (document->settings().navigationAPIEnabled() && document->window() && !document->securityOrigin().isOpaque())
-        protect(document->window())->navigation().initializeForNewWindow(navigationType, previousWindow);
+        protect(protect(document->window())->navigation())->initializeForNewWindow(navigationType, previousWindow);
 
     history().restoreDocumentState();
 }
@@ -1251,7 +1251,7 @@ URL FrameLoader::outgoingReferrerURL()
 
 String FrameLoader::outgoingOrigin() const
 {
-    return protect(m_frame->document())->securityOrigin().toString();
+    return protect(protect(m_frame->document())->securityOrigin())->toString();
 }
 
 bool FrameLoader::checkIfFormActionAllowedByCSP(const URL& url, bool didReceiveRedirectResponse, const URL& preRedirectURL) const
@@ -1853,6 +1853,7 @@ void FrameLoader::load(FrameLoadRequest&& request, std::optional<NavigationReque
     loader->setOriginalNavigationStartTime(request.originalNavigationStartTime());
     loader->setIsContentRuleListRedirect(request.isContentRuleListRedirect());
     loader->setIsRequestFromClientOrUserInput(request.isRequestFromClientOrUserInput());
+    loader->setHasCrossOriginRedirect(request.hasCrossOriginRedirect());
     loader->setIsContinuingLoad(request.shouldTreatAsContinuingLoad());
     RefPtr<const SecurityOrigin> initiatorOrigin;
     if (crossSiteRequester) {
@@ -2041,7 +2042,6 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
     }
 
     protect(frame->navigationScheduler())->cancel(NewLoadInProgress::Yes);
-    cancelPendingAsyncBackForwardNavigation();
 
     if (shouldTreatCurrentLoadAsContinuingLoad()) {
         continueLoadAfterNavigationPolicy(loader->request(), formSubmission.get(), NavigationPolicyDecision::ContinueLoad, allowNavigationToInvalidURL, shouldRestoreFromBackForwardCache);
@@ -2298,7 +2298,7 @@ void FrameLoader::stopForBackForwardCache()
     // We cancel pending navigations & policy checks *after* cancelling loads because cancelling loads might end up
     // running script, which could schedule new navigations.
     policyChecker().stopCheck();
-    protect(m_frame)->navigationScheduler().cancel();
+    protect(protect(m_frame)->navigationScheduler())->cancel();
 }
 
 void FrameLoader::stopAllLoadersAndCheckCompleteness()
@@ -2844,7 +2844,7 @@ void FrameLoader::willRestoreFromCachedPage()
     ASSERT(m_frame->page());
     ASSERT(m_frame->isMainFrame());
 
-    protect(m_frame)->navigationScheduler().cancel();
+    protect(protect(m_frame)->navigationScheduler())->cancel();
 
     // We still have to close the previous part page.
     closeURL();
@@ -3078,9 +3078,9 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
         if (!provisionalDocumentLoader->isLoadingInAPISense() || provisionalDocumentLoader->isStopping()) {
             FRAMELOADER_RELEASE_LOG_FORWARDABLE(FrameLoaderCheckLoadCompleteForThisFrameFailedProvisionalLoad, error.isTimeout(), error.isCancellation(), error.errorCode(), isHTTPSFirstApplicable);
 
-            // Provisional load failed before didBeginDocument() could clear the async-wait state;
+            // Provisional load failed before didBeginDocument() could clear the wait state;
             // clear it here so this frame stops blocking its parent's completion.
-            clearAsyncBackForwardNavigationState();
+            clearWaitingForDelegatedBackForwardLoad();
 
             if (loadWillContinueInAnotherProcess == LoadWillContinueInAnotherProcess::No) {
                 auto willInternallyHandleFailure = (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && (!isHTTPSFirstApplicable || isHTTPFallbackInProgressOrUpgradeDisabled()))) ? WillInternallyHandleFailure::No : WillInternallyHandleFailure::Yes;
@@ -3669,7 +3669,7 @@ void FrameLoader::scheduleRefreshIfNeeded(Document& document, const String& cont
     if (parseMetaHTTPEquivRefresh(content, delay, urlString)) {
         auto completedURL = urlString.isEmpty() ? document.url() : document.encodingParseURL(urlString);
         if (!completedURL.protocolIsJavaScript())
-            protect(m_frame)->navigationScheduler().scheduleRedirect(document, delay, WTF::move(completedURL), isMetaRefresh);
+            protect(protect(m_frame)->navigationScheduler())->scheduleRedirect(document, delay, WTF::move(completedURL), isMetaRefresh);
         else {
             auto message = makeString("Refused to refresh "_s, document.url().stringCenterEllipsizedToLength(), " to a javascript: URL"_s);
             document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
@@ -3925,9 +3925,6 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
     // Calling stopLoading() on the provisional document loader can cause the underlying
     // frame to be deallocated.
     Ref frame = m_frame.get();
-
-    // A fragment scroll should cancel any pending async back-forward navigation.
-    cancelPendingAsyncBackForwardNavigation();
 
     // If we have a provisional request for a different document, a fragment scroll should cancel it.
     if (m_provisionalDocumentLoader && !equalIgnoringFragmentIdentifier(m_provisionalDocumentLoader->request().url(), request.url())) {
@@ -4874,28 +4871,11 @@ void FrameLoader::setRequestedHistoryItem(HistoryItem& item)
     }
 }
 
-void FrameLoader::setPendingAsyncBackForwardNavigation()
+void FrameLoader::clearWaitingForDelegatedBackForwardLoad()
 {
-    m_asyncBackForwardNavigationState = AsyncBackForwardNavigationState::Pending;
-}
-
-void FrameLoader::clearAsyncBackForwardNavigationState()
-{
-    if (m_asyncBackForwardNavigationState == AsyncBackForwardNavigationState::None)
+    if (!m_isWaitingForDelegatedBackForwardLoad)
         return;
-    m_asyncBackForwardNavigationState = AsyncBackForwardNavigationState::None;
-    Ref frame = m_frame.get();
-    if (RefPtr parentFrame = dynamicDowncast<LocalFrame>(frame->tree().parent()))
-        parentFrame->loader().checkCompleted();
-}
-
-void FrameLoader::cancelPendingAsyncBackForwardNavigation()
-{
-    if (m_asyncBackForwardNavigationState != AsyncBackForwardNavigationState::Pending)
-        return;
-
-    m_asyncBackForwardNavigationState = AsyncBackForwardNavigationState::Cancelled;
-
+    m_isWaitingForDelegatedBackForwardLoad = false;
     Ref frame = m_frame.get();
     if (RefPtr parentFrame = dynamicDowncast<LocalFrame>(frame->tree().parent()))
         parentFrame->loader().checkCompleted();

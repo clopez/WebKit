@@ -404,6 +404,14 @@ static void pushSpatialPortalProperties(Element& element, const RenderBox& box)
     }
 }
 
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+static void notifyEnvironmentMapStyleDidChange(Element& element)
+{
+    if (CheckedPtr controller = element.spatialPortalController())
+        controller->environmentMapStyleDidChange();
+}
+#endif
+
 static void updateSpatialPortalController(Element& element)
 {
     bool hadController = element.establishesSpatialPortal();
@@ -416,6 +424,9 @@ static void updateSpatialPortalController(Element& element)
 
     if (box && hadController != element.establishesSpatialPortal()) {
         pushSpatialPortalProperties(element, *box);
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+        notifyEnvironmentMapStyleDidChange(element);
+#endif
 
         if (CheckedPtr layer = box->layer())
             layer->setNeedsCompositingConfigurationUpdate();
@@ -557,8 +568,13 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
         if (oldSpatial != newStyle.spatial())
             spatialPortalStyleDidChange(*element);
 
-        if (newStyle.spatial() == SpatialType::Portal)
+        if (newStyle.spatial() == SpatialType::Portal) {
             pushSpatialPortalProperties(*element, *this);
+#if ENABLE(MODEL_ELEMENT_ENVIRONMENT_MAP)
+            if (!oldStyle || oldStyle->environmentMap() != newStyle.environmentMap())
+                notifyEnvironmentMapStyleDidChange(*element);
+#endif
+        }
     }
 #endif
 }
@@ -2858,11 +2874,11 @@ std::pair<LayoutUnit, LayoutUnit> RenderBox::computeIntrinsicKeywordLogicalWidth
         // For replaced elements with an intrinsic aspect ratio (e.g. <img>) and a
         // specified block size, compute the transferred min/max-content inline size
         // through the intrinsic ratio rather than using the raw natural width.
-        auto preferredRatio = renderReplaced->preferredAspectRatioAsSize().aspectRatioDouble();
+        auto preferredRatio = renderReplaced->preferredAspectRatio();
         if (preferredRatio && style().logicalHeight().isSpecified()) {
             auto computedValues = computeLogicalHeight(logicalHeight(), logicalTop());
             auto contentBlockSize = std::max(0_lu, computedValues.extent - borderAndPaddingLogicalHeight());
-            auto maxLogicalWidth = LayoutUnit { contentBlockSize * preferredRatio };
+            auto maxLogicalWidth = LayoutUnit { contentBlockSize * *preferredRatio };
             auto minLogicalWidth = maxLogicalWidth;
             return { minLogicalWidth, maxLogicalWidth };
         }
@@ -3559,13 +3575,13 @@ LayoutUnit RenderBox::blockAxisMarginForStretch() const
 
 template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeSizingKeywordLogicalContentHeightUsingGeneric(const SizeType& logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight, LayoutUnit borderAndPadding) const
 {
-    auto intrinsic = [&] -> std::optional<LayoutUnit> {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE auto intrinsic = [&] -> std::optional<LayoutUnit> {
         if (intrinsicContentHeight)
             return adjustIntrinsicLogicalHeightForBoxSizing(*intrinsicContentHeight);
         return { };
     };
 
-    auto minMaxContent = [&] -> std::optional<LayoutUnit> {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE auto minMaxContent = [&] -> std::optional<LayoutUnit> {
         // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
         // If that happens, this code will have to change.
         if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(this)) {
@@ -3596,7 +3612,7 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeSizingKe
         return intrinsic();
     };
 
-    return WTF::switchOn(logicalHeight,
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE return WTF::switchOn(logicalHeight,
         [&](const CSS::Keyword::MinContent&) -> std::optional<LayoutUnit> {
             return minMaxContent();
         },
@@ -3678,13 +3694,13 @@ std::optional<LayoutUnit> RenderBox::computeSizingKeywordLogicalContentHeightUsi
 
 template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeContentAndScrollbarLogicalHeightUsing(const SizeType& logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
-    auto keywordSize = [&] {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE auto keywordSize = [&] {
         // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
         // If that happens, this code will have to change.
         return computeSizingKeywordLogicalContentHeightUsing(logicalHeight, intrinsicContentHeight, borderAndPaddingLogicalHeight());
     };
 
-    return WTF::switchOn(logicalHeight,
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE return WTF::switchOn(logicalHeight,
         [&](const typename SizeType::Fixed& fixedLogicalHeight) -> std::optional<LayoutUnit> {
             return LayoutUnit { fixedLogicalHeight.resolveZoom(style().usedZoomForLength()) };
         },
@@ -3955,18 +3971,22 @@ void RenderBox::constrainIntrinsicLogicalWidthsByMinMax(LayoutUnit& minIntrinsic
     auto& minLogicalWidth = style().logicalMinWidth();
     auto& maxLogicalWidth = style().logicalMaxWidth();
 
+    // A fixed inline width has already replaced the incoming contributions with itself in
+    // computeIntrinsicLogicalWidthContributions(), so a keyword minimum or maximum cannot read the
+    // content based size back out of them and has to measure it again.
+    // (A zero-width deprecated flex item still flexes, so its 0 is not a usable fixed width.)
+    auto hasFixedLogicalWidth = [&] {
+        auto fixedLogicalWidth = overridingLogicalWidthForFlexBasisComputation().value_or(style().logicalWidth()).tryFixed();
+        return fixedLogicalWidth && fixedLogicalWidth->isPositiveOrZero() && !(isDeprecatedFlexItem() && !static_cast<int>(fixedLogicalWidth->resolveZoom(style().usedZoomForLength())));
+    };
+
     auto usedMaxLogicalWidth = [&] {
         // FIXME: We should be able to handle other values for the max logical width here.
         if (auto fixedMaxLogicalWidth = maxLogicalWidth.tryFixed())
             return adjustContentBoxLogicalWidthForBoxSizing(*fixedMaxLogicalWidth);
 
         if (maxLogicalWidth.isMinContent()) {
-            // max-width: min-content normally resolves to the content-based min-content size,
-            // but a box with its own fixed inline width derives the size from that width instead.
-            // (A zero-width deprecated flex item still flexes, so its 0 is not a usable fixed width.)
-            auto fixedLogicalWidth = overridingLogicalWidthForFlexBasisComputation().value_or(style().logicalWidth()).tryFixed();
-            bool hasFixedLogicalWidth = fixedLogicalWidth && fixedLogicalWidth->isPositiveOrZero() && !(isDeprecatedFlexItem() && !static_cast<int>(fixedLogicalWidth->resolveZoom(style().usedZoomForLength())));
-            if (!hasFixedLogicalWidth)
+            if (!hasFixedLogicalWidth())
                 return minIntrinsicLogicalWidth;
 
             return computeSizingKeywordLogicalWidthUsing(maxLogicalWidth, contentBoxLogicalWidth(), { });
@@ -3980,13 +4000,14 @@ void RenderBox::constrainIntrinsicLogicalWidthsByMinMax(LayoutUnit& minIntrinsic
         if (auto fixedMinLogicalWidth = minLogicalWidth.tryFixed(); fixedMinLogicalWidth && fixedMinLogicalWidth->isPositive())
             return adjustContentBoxLogicalWidthForBoxSizing(*fixedMinLogicalWidth);
 
-        if (minLogicalWidth.isMaxContent())
-            return maxIntrinsicLogicalWidth;
-
         // A min-content minimum floors the contribution at the box's own min-content size,
         // so a smaller max-width cannot clamp it below that (min wins over max).
-        if (minLogicalWidth.isMinContent())
-            return minIntrinsicLogicalWidth;
+        if (minLogicalWidth.isMinContent() || minLogicalWidth.isMaxContent()) {
+            if (hasFixedLogicalWidth())
+                return computeSizingKeywordLogicalWidthUsing(minLogicalWidth, contentBoxLogicalWidth(), { });
+
+            return minLogicalWidth.isMaxContent() ? maxIntrinsicLogicalWidth : minIntrinsicLogicalWidth;
+        }
 
         return { };
     }();
@@ -4256,7 +4277,7 @@ void RenderBox::computeOutOfFlowPositionedLogicalWidth(LogicalExtentComputedValu
 
 template<typename SizeType> LayoutUnit RenderBox::computeOutOfFlowPositionedLogicalWidthUsing(const SizeType& logicalWidth, const PositionedLayoutConstraints& inlineConstraints) const
 {
-    auto fallback = [&] -> LayoutUnit {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE auto fallback = [&] -> LayoutUnit {
         bool shrinkToFit = inlineConstraints.insetFitsContent() || !inlineConstraints.alignmentAppliesStretch(ItemPosition::Stretch);
         if (shrinkToFit) {
             auto preferredWidth = maxContentLogicalWidthContribution() - inlineConstraints.bordersPlusPadding();
@@ -4266,14 +4287,14 @@ template<typename SizeType> LayoutUnit RenderBox::computeOutOfFlowPositionedLogi
         return inlineConstraints.availableContentSpace();
     };
 
-    auto intrinsic = [&](const auto& keyword) -> LayoutUnit {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE auto intrinsic = [&](const auto& keyword) -> LayoutUnit {
         auto availableSpace = inlineConstraints.containingSize();
         availableSpace -= inlineConstraints.insetBeforeValue();
         availableSpace -= inlineConstraints.insetAfterValue();
         return std::max(0_lu, computeSizingKeywordLogicalWidthUsing(keyword, availableSpace, inlineConstraints.bordersPlusPadding()) - inlineConstraints.bordersPlusPadding());
     };
 
-    return WTF::switchOn(logicalWidth,
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE return WTF::switchOn(logicalWidth,
         [&](const typename SizeType::Fixed& fixedLogicalWidth) -> LayoutUnit {
             return adjustContentBoxLogicalWidthForBoxSizing(fixedLogicalWidth);
         },
@@ -5471,14 +5492,18 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerHeight() const
 bool RenderBox::requiresLayer() const
 {
     return RenderBoxModelObject::requiresLayer()
+        || isDocumentElementRenderer()
+        || hasTransformRelatedProperty()
+        || hasHiddenBackface()
+        || hasReflection()
+        || isRenderViewTransitionCapture()
         || hasNonVisibleOverflow()
         || style().specifiesColumns()
         || style().usedContain().contains(Style::ContainValue::Layout)
-        || !style().usedZIndex().isAuto()
 #if ENABLE(SPATIAL_PORTAL)
         || style().spatial() == SpatialType::Portal
 #endif
-        || hasRunningAcceleratedAnimations();
+        || !style().usedZIndex().isAuto();
 }
 
 void RenderBox::updateFloatPainterAfterSelfPaintingLayerChange()

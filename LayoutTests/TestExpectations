@@ -415,6 +415,7 @@ media/deactivate-audio-session.html [ Skip ]
 
 # ApplePay is only available on iOS (greater than iOS 10) and macOS (greater than macOS 10.12) and only for WebKit2.
 fast/css/appearance-apple-pay-button.html [ Skip ]
+fast/css/appearance-apple-pay-button-after-text.html [ Skip ]
 fast/css/appearance-apple-pay-button-div.html [ Skip ]
 fast/css/appearance-apple-pay-button-input-type-button.html [ Skip ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Skip ]
@@ -737,11 +738,29 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customiz
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-optgroup-legend-not-first.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-optgroup-rendering.html [ Pass ImageOnlyFailure ]
 
+# The reference reconstructs Chrome's base-select UA metrics with its own inline styles rather than
+# linking resources/customizable-select-styles.css, so update.css cannot bring it in line with ours.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-base-toggle-invalidation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-base-appearance-ordering.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-base-appearance-writing-modes.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-icon-content-none.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-single-base-appearance-rendering.html [ ImageOnlyFailure ]
+# The selected content fills the line (UA flex: 1 on ::field-content), so justify-content has no effect.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-base-display.html [ ImageOnlyFailure ]
+# update.css gets this close, but ~2px of option/checkmark inline geometry still differs.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-pseudo-ordering.html [ ImageOnlyFailure ]
+# update.css gets this close too; all that differs is update.css's mask approximation of the UA-drawn
+# ::picker-icon glyph, which does not rasterize identically on Intel. The fix belongs upstream, in the
+# shared reference styles.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-base-overflow.html [ ImageOnlyFailure ]
+
 # List boxes/<select multiple>.
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-listbox/ [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-appearance.tentative.html [ ImageOnlyFailure ]
 
 ## -- General <select> tests -- ##
+# Untriaged: times out driving the native popup menu and a color picker.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/multiple-pickers-crash.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-restore-invalid-option.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-many-options.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-multiple-size-1.html [ ImageOnlyFailure ]
@@ -1793,21 +1812,13 @@ imported/w3c/web-platform-tests/css/css-flexbox/abspos/flex-abspos-align-self-sa
 imported/w3c/web-platform-tests/css/css-flexbox/abspos/flex-abspos-align-self-safe-outer-cb-003.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-available-size-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-available-size-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-dynamic-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-006.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-line-count-intrinsic-007.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-min-line-count-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-min-line-count-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-min-line-count-003.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-min-line-count-004.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-min-line-count-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-percentage-size-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-percentage-size-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-flexbox/balance/balance-start-bias-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/flex-aspect-ratio-percentage-height-stale-width.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/gap-collapse.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-flexbox/intrinsic-size/col-wrap-dynamic.html [ ImageOnlyFailure ]
@@ -2960,13 +2971,9 @@ imported/w3c/web-platform-tests/svg/text/reftests/text-font-face-load-image.html
 # textLength. Pinned here until the spacing-mode follow-up patch lands.
 imported/w3c/web-platform-tests/svg/text/reftests/textLength-list-y-spacing.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/css-linked-parameters-precedence-1.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/css-linked-parameters-precedence-2.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-fragment-identifiers-1.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-fragment-identifiers-2.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-function-1.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/img-with-url-function-2.html [ ImageOnlyFailure ]
 
-imported/w3c/web-platform-tests/svg/styling/css-linked-parameters/link-parameters-currentcolor-typed.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/animations/scripted/syncbase-after-removal.html [ Skip ]
 imported/w3c/web-platform-tests/svg/animations/media-fragment-override-animation.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/interact/use-instance-hover.html [ ImageOnlyFailure ]
@@ -5898,7 +5905,6 @@ imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-0
 imported/w3c/web-platform-tests/css/css-contain/contain-style-counters-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-style-counters-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-vs-scrollIntoView-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-vs-scrollIntoView-002.html [ ImageOnlyFailure ]
 
 # Style containment
 imported/w3c/web-platform-tests/css/css-contain/counter-scoping-001.html [ ImageOnlyFailure ]
@@ -6637,9 +6643,6 @@ http/tests/misc/heic-accept-header.html [ Pass Failure ]
 # Missing support to counter-style at-rule in shadow scope rdar://103873418
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/override-in-shadow-dom.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/fallbacks-in-shadow-dom.html [ ImageOnlyFailure ]
-
-# Missing counter-style integration with symbols() rdar://106084071
-imported/w3c/web-platform-tests/css/css-counter-styles/symbols-function [ Skip ]
 
 webkit.org/b/297734 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/descriptor-calc.html [ ImageOnlyFailure ]
 
@@ -7699,11 +7702,6 @@ webkit.org/b/268995 [ Debug ] fast/misc/out-of-flow-position-inside-mathml-crash
 
 webkit.org/b/261557 media/video-remove-insert-repaints.html [ Pass Crash ]
 
-# CSS match :not(:not(:host))
-# webkit.org/b/283062
-imported/w3c/web-platform-tests/css/css-shadow/host-multiple-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-shadow/host-multiple-004.html [ ImageOnlyFailure ]
-
 # ::part() cascade is wrong when the part name is forwarded with exportparts and !important is used.
 imported/w3c/web-platform-tests/css/css-shadow/part/exportparts-layered.html [ ImageOnlyFailure ]
 
@@ -7769,9 +7767,6 @@ imported/w3c/web-platform-tests/webrtc-encoded-transform/script-transform-genera
 imported/w3c/web-platform-tests/webrtc-encoded-transform/RTCRtpScriptTransform-encoded-transform.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc-encoded-transform/RTCEncodedFrame-copy-construction.https.html [ Failure ]
 
-# https://bugs.webkit.org/show_bug.cgi?id=276663
-inspector/css/getMatchedStylesForNodeNestingStyleGrouping.html [ Failure ]
-
 # https://bugs.webkit.org/show_bug.cgi?id=266843 flakey tests with racey promise console.logs
 imported/w3c/web-platform-tests/dom/observable/tentative/observable-from.any.html [ Skip ]
 
@@ -7795,8 +7790,6 @@ media/webkit-media-controls-not-visible-after-exiting-fullscreen.html [ Skip ]
 webkit.org/b/279297 fast/block/float/float-avoider-with-negative-margin.html [ ImageOnlyFailure ]
 webkit.org/b/298061 fast/block/crash-with-percent-padding.html [ Skip ]
 
-# imported/w3c/web-platform-tests/css/selectors/featureless-004 is a failure.
-webkit.org/b/280685 imported/w3c/web-platform-tests/css/selectors/featureless-004.html [ ImageOnlyFailure ]
 webkit.org/b/294638 imported/w3c/web-platform-tests/css/selectors/focus-visible-018-2.html [ Skip ]
 
 # Skip large regular expression tests on Debug to avoid timeout.
@@ -7882,7 +7875,6 @@ imported/w3c/web-platform-tests/svg/struct/reftests/use-inheritance-001.svg [ Im
 imported/w3c/web-platform-tests/svg/struct/reftests/use-inheritance-nth-child-of.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/use-inheritance-nth-last-child-of.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/gradient-in-symbol.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/struct/reftests/outer-svg-transform.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-transform.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-transform-and-viewbox.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-rotate-transform.svg [ ImageOnlyFailure ]
@@ -8218,7 +8210,7 @@ imported/w3c/web-platform-tests/html/semantics/document-metadata/the-style-eleme
 imported/w3c/web-platform-tests/html/semantics/forms/customizable-combobox/customizable-combobox-appearance.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-datalist-element/input-text-datalist-removal.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/input-text-overflow-ellipsis-scroll.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/filterable-select/filterable-select-appearance.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/filterable-select/filterable-select-appearance.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/form-submission-target/form-target-blank-useractivation-multi-globals.html [ Skip ] # timeout
 
 imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open_fires_resize.tentative.html [ Skip ] # timeout

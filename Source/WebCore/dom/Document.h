@@ -29,6 +29,7 @@
 
 #include <WebCore/AsyncNodeDeletionQueue.h>
 #include <WebCore/Color.h>
+#include <WebCore/ColorHash.h>
 #include <WebCore/ContainerNode.h>
 #include <WebCore/ContextDestructionObserver.h>
 #include <WebCore/DocumentClasses.h>
@@ -99,6 +100,9 @@ class TextEncoding;
 namespace WebCore {
 
 class AXObjectCache;
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+class AXCustomColorModeController;
+#endif
 class AppHighlightStorage;
 class Attr;
 class CanvasBase;
@@ -414,7 +418,7 @@ enum class HttpEquivPolicy : uint8_t {
     DisabledByContentDispositionAttachmentSandbox
 };
 
-enum class CustomElementNameValidationStatus {
+enum class CustomElementNameValidationStatus : uint8_t {
     Valid,
     FirstCharacterIsNotLowercaseASCIILetter,
     ContainsNoHyphen,
@@ -768,6 +772,8 @@ public:
     OptionSet<StyleColorOptions> styleColorOptions(const Style::ComputedStyle*) const;
 
     CompositeOperator compositeOperatorForBackgroundColor(const Color&, const RenderElement&) const;
+
+    bool backgroundColorIsPunchedOut(const Color&, const RenderElement&) const;
 
     WEBCORE_EXPORT Ref<Range> createRange();
 
@@ -1511,6 +1517,7 @@ public:
     void decrementLoadEventDelayCount();
     bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
     WEBCORE_EXPORT void checkCompleted();
+    WEBCORE_EXPORT void checkLoadComplete();
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 // FIXME: Properly support using WKA in modules.
@@ -1658,8 +1665,11 @@ public:
     void didAssociateFormControl(Element&);
 
 #if ENABLE(AX_CUSTOM_COLOR_MODE)
-    bool addAXCustomColorModeAdjustedElement(Element&);
-    bool isAXCustomColorModeAdjustedElement(const Element&) const;
+    AXCustomColorModeController* axCustomColorModeControllerIfExists() { return m_axCustomColorModeController.get(); }
+    const AXCustomColorModeController* axCustomColorModeControllerIfExists() const { return m_axCustomColorModeController.get(); }
+    AXCustomColorModeController& axCustomColorModeController();
+
+    bool isAXCustomColorModeActive() const;
 #endif
 
     void adjustStyleColorOptionsIfNeeded(OptionSet<StyleColorOptions>&) const;
@@ -1982,7 +1992,7 @@ public:
     void setPaintWorkletGlobalScopeForName(const String& name, Ref<PaintWorkletGlobalScope>&&);
 
     WEBCORE_EXPORT bool hitTest(const HitTestRequest&, HitTestResult&);
-    bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
+    WEBCORE_EXPORT bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
 #if ASSERT_ENABLED
     bool inHitTesting() const { return m_inHitTesting; }
 #endif
@@ -2095,7 +2105,7 @@ public:
 
     String mediaKeysStorageDirectory();
 
-    void invalidateDOMCookieCache();
+    WEBCORE_EXPORT void invalidateDOMCookieCache();
 
     void detachFromFrame();
     void NODELETE willBeDisconnectedFromFrame(Document&);
@@ -2237,7 +2247,7 @@ private:
 
     void setVisualUpdatesAllowed(ReadyState);
 
-    enum class VisualUpdatesPreventedReason {
+    enum class VisualUpdatesPreventedReason : uint8_t {
         ReadyState     = 1 << 0,
         Suspension     = 1 << 1,
         RenderBlocking = 1 << 2,
@@ -2617,7 +2627,7 @@ private:
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_associatedFormControls;
 #if ENABLE(AX_CUSTOM_COLOR_MODE)
-    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_axCustomColorModeAdjustedElements;
+    std::unique_ptr<AXCustomColorModeController> m_axCustomColorModeController;
 #endif
 
     const std::unique_ptr<OrientationNotifier> m_orientationNotifier;
@@ -2698,8 +2708,6 @@ private:
 
     MediaProducerMediaStateFlags m_mediaState;
 
-    bool m_shouldNotFireMutationEvents = false;
-
     unsigned m_writeRecursionDepth { 0 };
     unsigned m_numberOfRejectedSyncXHRs { 0 };
     unsigned m_parserYieldTokenCount { 0 };
@@ -2751,134 +2759,113 @@ private:
     OptionSet<ContentRelevancy> m_contentRelevancyUpdate;
 
     StandaloneStatus m_xmlStandalone { StandaloneStatus::Unspecified };
-    bool m_hasXMLDeclaration { false };
-
-    bool m_constructionDidFinish { false };
 
 #if ENABLE(DARK_MODE_CSS)
     OptionSet<ColorScheme> m_colorScheme;
 #endif
 
-    bool m_activeParserWasAborted { false };
-    bool m_writeRecursionIsTooDeep { false };
-    bool m_wellFormed { false };
-    bool m_createRenderers { true };
+    DocumentCompatibilityMode m_compatibilityMode { DocumentCompatibilityMode::NoQuirksMode };
 
-    bool m_hasNodesWithMissingStyle { false };
+    Vector<Function<void()>> m_pendingCompressionDictionaryLoads;
+
+    RenderTreeState m_renderTreeState { RenderTreeState::NotBuilt };
+
+    OriginKeyed m_isOriginKeyed { OriginKeyed::No };
+
+    // These flags are kept as full bool members rather than joining the bitfield block below
+    // because they are bound by reference (via SetForScope or std::exchange), which a bitfield
+    // cannot be.
     // But sometimes you need to ignore pending stylesheet count to
     // force an immediate layout when requested by JS.
     bool m_ignorePendingStylesheets { false };
+    bool m_inRenderTreeUpdate { false };
+    bool m_isInStyleInterleavedLayout { false };
+    bool m_renderingIsSuppressedForViewTransition { false };
+    bool m_enableRenderingIsSuppressedForViewTransitionAfterUpdateRendering { false };
+#if ASSERT_ENABLED
+    bool m_inHitTesting { false };
+#endif
 
-    bool m_hasElementUsingStyleBasedEditability { false };
-    bool m_focusNavigationStartingNodeIsRemoved { false };
-
-    bool m_printing { false };
-    bool m_paginatedForScreen { false };
-
-    DocumentCompatibilityMode m_compatibilityMode { DocumentCompatibilityMode::NoQuirksMode };
-    bool m_compatibilityModeLocked { false }; // This is cheaper than making setCompatibilityMode virtual.
+    // Consolidated boolean flags. Keep these together so the compiler packs them into a few
+    // bytes instead of one byte-plus-padding each.
+    bool m_hasXMLDeclaration : 1 { false };
+    bool m_constructionDidFinish : 1 { false };
+    bool m_activeParserWasAborted : 1 { false };
+    bool m_writeRecursionIsTooDeep : 1 { false };
+    bool m_wellFormed : 1 { false };
+    bool m_createRenderers : 1 { true };
+    bool m_hasNodesWithMissingStyle : 1 { false };
+    bool m_hasElementUsingStyleBasedEditability : 1 { false };
+    bool m_focusNavigationStartingNodeIsRemoved : 1 { false };
+    bool m_printing : 1 { false };
+    bool m_paginatedForScreen : 1 { false };
+    bool m_compatibilityModeLocked : 1 { false }; // This is cheaper than making setCompatibilityMode virtual.
 
     // FIXME: Merge these 2 variables into an enum. Also, FrameLoader::m_didCallImplicitClose
     // is almost a duplication of this data, so that should probably get merged in too.
     // FIXME: Document::m_processingLoadEvent and DocumentLoader::m_wasOnloadDispatched are roughly the same
     // and should be merged.
-    bool m_processingLoadEvent { false };
-    bool m_loadEventFinished { false };
-
-    Vector<Function<void()>> m_pendingCompressionDictionaryLoads;
-
-    bool m_visuallyOrdered { false };
-    bool m_bParsing { false }; // FIXME: rename
-
-    bool m_needsFullStyleRebuild { false };
-    bool m_inStyleRecalc { false };
-    bool m_inRenderTreeUpdate { false };
-    bool m_isResolvingTreeStyle { false };
-    bool m_isInStyleInterleavedLayout { false };
-
-    bool m_gotoAnchorNeededAfterStylesheetsLoad { false };
-
-    bool m_isSynthesized { false };
-    bool m_isNonRenderedPlaceholder { false };
-
-    bool m_sawElementsInKnownNamespaces { false };
-    bool m_isSrcdocDocument { false };
-
-    RenderTreeState m_renderTreeState { RenderTreeState::NotBuilt };
-    bool m_hasPreparedForDestruction { false };
-
-    bool m_hasStyleWithViewportUnits { false };
-    bool m_needsDOMWindowResizeEvent { false };
-    bool m_needsVisualViewportResizeEvent { false };
-    bool m_needsVisualViewportScrollEvent { false };
-    bool m_isTimerThrottlingEnabled { false };
-    bool m_isSuspended { false };
-
-    bool m_scheduledTasksAreSuspended { false };
-
-    bool m_areDeviceMotionAndOrientationUpdatesSuspended { false };
-
-    bool m_didEnqueueFirstContentfulPaint { false };
-
-    OriginKeyed m_isOriginKeyed { OriginKeyed::No };
-
-    bool m_mayHaveRenderedSVGForeignObjects { false };
-    bool m_mayHaveRenderedSVGRootElements { false };
-
-    bool m_userHasInteractedWithMediaElement { false };
-
-    bool m_hasEverHadSelectionInsideTextFormControl { false };
-
-    bool m_updateTitleTaskScheduled { false };
-
-    bool m_shouldPreventEnteringBackForwardCacheForTesting { false };
-    bool m_hasLoadedThirdPartyScript { false };
-    bool m_hasLoadedThirdPartyFrame { false };
-    bool m_hasVisuallyNonEmptyCustomContent { false };
-
-    bool m_visibilityHiddenDueToDismissal { false };
-
+    bool m_processingLoadEvent : 1 { false };
+    bool m_loadEventFinished : 1 { false };
+    bool m_visuallyOrdered : 1 { false };
+    bool m_bParsing : 1 { false }; // FIXME: rename
+    bool m_needsFullStyleRebuild : 1 { false };
+    bool m_inStyleRecalc : 1 { false };
+    bool m_isResolvingTreeStyle : 1 { false };
+    bool m_gotoAnchorNeededAfterStylesheetsLoad : 1 { false };
+    bool m_isSynthesized : 1 { false };
+    bool m_isNonRenderedPlaceholder : 1 { false };
+    bool m_sawElementsInKnownNamespaces : 1 { false };
+    bool m_isSrcdocDocument : 1 { false };
+    bool m_hasPreparedForDestruction : 1 { false };
+    bool m_hasStyleWithViewportUnits : 1 { false };
+    bool m_needsDOMWindowResizeEvent : 1 { false };
+    bool m_needsVisualViewportResizeEvent : 1 { false };
+    bool m_needsVisualViewportScrollEvent : 1 { false };
+    bool m_isTimerThrottlingEnabled : 1 { false };
+    bool m_isSuspended : 1 { false };
+    bool m_scheduledTasksAreSuspended : 1 { false };
+    bool m_areDeviceMotionAndOrientationUpdatesSuspended : 1 { false };
+    bool m_didEnqueueFirstContentfulPaint : 1 { false };
+    bool m_mayHaveRenderedSVGForeignObjects : 1 { false };
+    bool m_mayHaveRenderedSVGRootElements : 1 { false };
+    bool m_userHasInteractedWithMediaElement : 1 { false };
+    bool m_hasEverHadSelectionInsideTextFormControl : 1 { false };
+    bool m_updateTitleTaskScheduled : 1 { false };
+    bool m_shouldPreventEnteringBackForwardCacheForTesting : 1 { false };
+    bool m_hasLoadedThirdPartyScript : 1 { false };
+    bool m_hasLoadedThirdPartyFrame : 1 { false };
+    bool m_hasVisuallyNonEmptyCustomContent : 1 { false };
+    bool m_visibilityHiddenDueToDismissal : 1 { false };
+    bool m_shouldNotFireMutationEvents : 1 { false };
+    bool m_hasViewTransitionPseudoElementTree : 1 { false };
+    bool m_isDirAttributeDirty : 1 { false };
+    bool m_usesHeadingOffsetAttribute : 1 { false };
+    bool m_scheduledDeferredAXObjectCacheUpdate : 1 { false };
+    bool m_wasRemovedLastRefCalled : 1 { false };
+    bool m_hasBeenRevealed : 1 { false };
+    bool m_visualUpdatesAllowedChangeRequiresLayoutMilestones : 1 { false };
+    bool m_visualUpdatesAllowedChangeCompletesPageTransition : 1 { false };
+    bool m_requiresTrustedTypes : 1 { false };
 #if ENABLE(XSLT)
-    bool m_hasPendingXSLTransforms { false };
-    bool m_hasLoggedXSLTDeprecationWarning { false };
+    bool m_hasPendingXSLTransforms : 1 { false };
+    bool m_hasLoggedXSLTDeprecationWarning : 1 { false };
 #endif
-
 #if ENABLE(MEDIA_STREAM)
-    bool m_hasHadCaptureMediaStreamTrack { false };
+    bool m_hasHadCaptureMediaStreamTrack : 1 { false };
 #endif
-
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    bool m_hasHDRContent { false };
+    bool m_hasHDRContent : 1 { false };
 #endif
-
-    bool m_hasViewTransitionPseudoElementTree { false };
-    bool m_renderingIsSuppressedForViewTransition { false };
-    bool m_enableRenderingIsSuppressedForViewTransitionAfterUpdateRendering { false };
-
 #if ENABLE(TOUCH_ACTION_REGIONS)
-    bool m_mayHaveElementsWithNonAutoTouchAction { false };
+    bool m_mayHaveElementsWithNonAutoTouchAction : 1 { false };
 #endif
 #if ENABLE(EDITABLE_REGION)
-    bool m_mayHaveEditableElements { false };
+    bool m_mayHaveEditableElements : 1 { false };
 #endif
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-    bool m_isTelephoneNumberParsingAllowed { true };
+    bool m_isTelephoneNumberParsingAllowed : 1 { true };
 #endif
-
-#if ASSERT_ENABLED
-    bool m_inHitTesting { false };
-#endif
-    bool m_isDirAttributeDirty { false };
-    bool m_usesHeadingOffsetAttribute { false };
-
-    bool m_scheduledDeferredAXObjectCacheUpdate { false };
-    bool m_wasRemovedLastRefCalled { false };
-
-    bool m_hasBeenRevealed { false };
-    bool m_visualUpdatesAllowedChangeRequiresLayoutMilestones { false };
-    bool m_visualUpdatesAllowedChangeCompletesPageTransition { false };
-
-    bool m_requiresTrustedTypes { false };
 
     static bool hasEverCreatedAnAXObjectCache;
 

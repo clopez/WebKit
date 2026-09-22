@@ -997,6 +997,7 @@ webkit.org/b/158534 css3/filters/backdrop/dynamic-backdrop-filter-change.html [ 
 webkit.org/b/158649 fast/text/chinese-font-name-aliases-2.html [ ImageOnlyFailure ]
 
 fast/css/appearance-apple-pay-button.html [ Pass ]
+fast/css/appearance-apple-pay-button-after-text.html [ Pass ]
 fast/css/appearance-apple-pay-button-div.html [ Pass ]
 fast/css/appearance-apple-pay-button-input-type-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
@@ -2314,8 +2315,6 @@ webkit.org/b/299322 imported/w3c/web-platform-tests/uievents/mouse/mouse_boundar
 
 webkit.org/b/314491 [ x86_64 ] imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.serviceworker.html [ Pass Crash ]
 
-webkit.org/b/300337 fast/images/imagebitmap-memory.html [ Pass ImageOnlyFailure ]
-
 # webkit.org/b/300715
 media/media-source/media-managedmse-video-with-poster.html [ Pass ImageOnlyFailure ]
 media/media-hevc-video-as-img.html [ Pass ImageOnlyFailure ]
@@ -2405,8 +2404,6 @@ tiled-drawing/mac/margin-tiles-with-banner-view-overlay-repeat-y.html [ Skip ]
 
 # Cocoa platforms use data URLs for pasted images; blob URL tests are for Glib ports
 editing/pasteboard/paste-image-as-blob-url.html [ Skip ]
-
-webkit.org/b/311570 [ Debug ] http/tests/site-isolation/nested-cross-origin-iframe.html [ Skip ]
 
 ipc/send-gpu-GetShareableBitmap-RemoteRenderingBackend.html [ Pass ImageOnlyFailure ]
 media/media-source/media-source-real-play-after-eos.html [ Pass ImageOnlyFailure ]
@@ -2540,3 +2537,9 @@ imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-2
 [ Tahoe+ ] fast/mediastream/mediastreamtrack-video-frameRate-clone-increasing.html [ Pass Failure ]
 
 webkit.org/b/322313 accessibility/isolated-tree/aria-owns-id-change.html [ Timeout ]
+
+# The drop shadow offset is not scaled by the perspective transform of an ancestor.
+webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-perspective-scale.html [ ImageOnlyFailure ]
+
+# A filtered layer under a 3D transformed ancestor is rasterized below screen resolution and its drop shadow lands in the wrong place.
+webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-near-eye-plane.html [ ImageOnlyFailure ]
