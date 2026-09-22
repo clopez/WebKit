@@ -114,6 +114,18 @@ class JitterEstimator {
     // NACKed in order for RttMult to be enabled.
     std::optional<TimeDelta> nack_count_timeout = std::nullopt;
   };
+// gcc 13.4.0 ICEs during LTRANS on this constructor at -O3 + LTO (32-bit).
+// Same defect as the VideoReceiveStream2 construction path; the attribute
+// must be on the declaration, not the out-of-line definition.
+#ifndef WK_GCC_LTO_ICE_WORKAROUND
+#if defined(__GNUC__) && !defined(__clang__)
+#define WK_GCC_LTO_ICE_WORKAROUND __attribute__((noipa, optimize("O0")))
+#else
+#define WK_GCC_LTO_ICE_WORKAROUND
+#endif
+#endif
+
+  WK_GCC_LTO_ICE_WORKAROUND
 
   JitterEstimator(Clock* clock, const FieldTrialsView& field_trials);
   JitterEstimator(const JitterEstimator&) = delete;

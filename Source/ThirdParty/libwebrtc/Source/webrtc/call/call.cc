@@ -1020,6 +1020,18 @@ void Call::DestroyVideoSendStream(webrtc::VideoSendStream* send_stream) {
   delete send_stream_impl;
 }
 
+// Workaround: gcc 13.4.0 ICEs (SIGSEGV in GIMPLE pass ccp, then waccess, then
+// fre) during LTRANS on this function when building with -O2/-O3 + LTO. The
+// malformed IR is produced during WPA and no command-line flag reaches it:
+// LTRANS replays the per-function optimization options recorded here, so this
+// attribute is the only lever. clang is unaffected and must stay untouched so
+// the existing clang builds remain comparable.
+#if defined(__GNUC__) && !defined(__clang__)
+#define WK_GCC_LTO_ICE_WORKAROUND __attribute__((noipa, optimize("O0")))
+#else
+#define WK_GCC_LTO_ICE_WORKAROUND
+#endif
+WK_GCC_LTO_ICE_WORKAROUND
 webrtc::VideoReceiveStreamInterface* Call::CreateVideoReceiveStream(
     webrtc::VideoReceiveStreamInterface::Config configuration) {
   TRACE_EVENT0("webrtc", "Call::CreateVideoReceiveStream");

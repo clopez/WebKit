@@ -111,6 +111,17 @@ class VideoReceiveStream2
   // configured.
   static constexpr size_t kBufferedEncodedFramesMaxSize = 60;
 
+// gcc 13.4.0 ICEs during LTRANS on this constructor at -O2/-O3 + LTO.
+// The attribute must sit on the DECLARATION: placed on the out-of-line
+// definition gcc drops it, and the crash reappears on the __ct_base clone.
+#ifndef WK_GCC_LTO_ICE_WORKAROUND
+#if defined(__GNUC__) && !defined(__clang__)
+#define WK_GCC_LTO_ICE_WORKAROUND __attribute__((noipa, optimize("O0")))
+#else
+#define WK_GCC_LTO_ICE_WORKAROUND
+#endif
+#endif
+  WK_GCC_LTO_ICE_WORKAROUND
   VideoReceiveStream2(const Environment& env,
                       Call* call,
                       int num_cpu_cores,
