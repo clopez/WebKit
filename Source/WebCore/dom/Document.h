@@ -193,7 +193,7 @@ class JSViewTransitionUpdateCallback;
 class LargestContentfulPaintData;
 class LayoutPoint;
 class LayoutRect;
-class LazyLoadImageObserver;
+class LazyLoadElementObserver;
 class LiveNodeList;
 class LocalFrame;
 class LocalFrameView;
@@ -320,10 +320,6 @@ struct EventTrackingRegions;
 struct SystemPreviewInfo;
 #endif
 
-#if ENABLE(VIDEO)
-class LazyLoadVideoObserver;
-#endif
-
 #if ENABLE(WEB_RTC)
 class RTCPeerConnection;
 #endif
@@ -366,10 +362,6 @@ enum class EventTrackingRegionsEventType : uint8_t;
 
 #if ENABLE(MEDIA_SESSION)
 enum class MediaSessionAction : uint8_t;
-#endif
-
-#if ENABLE(MODEL_ELEMENT)
-class LazyLoadModelObserver;
 #endif
 
 using IntDegrees = int32_t;
@@ -1429,6 +1421,9 @@ public:
 
     void updateAccessibilityObjectRegions();
     void updateEventRegions();
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+    void updateAXCustomColorModeTextBackdrops();
+#endif
 
     void NODELETE invalidateRenderingDependentRegions();
     void invalidateEventRegionsForFrame(HTMLFrameOwnerElement&);
@@ -2034,13 +2029,7 @@ public:
 
     bool allowsContentJavaScript() const;
 
-    LazyLoadImageObserver& lazyLoadImageObserver();
-#if ENABLE(MODEL_ELEMENT)
-    LazyLoadModelObserver& lazyLoadModelObserver();
-#endif
-#if ENABLE(VIDEO)
-    LazyLoadVideoObserver& lazyLoadVideoObserver() LIFETIME_BOUND;
-#endif
+    LazyLoadElementObserver& lazyLoadElementObserver() LIFETIME_BOUND;
 
     ContentVisibilityDocumentState& contentVisibilityDocumentState();
 
@@ -2063,6 +2052,10 @@ public:
     void prepareCanvasesForDisplayOrFlushIfNeeded();
     void addCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext&);
     void removeCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext&);
+
+    void serviceCanvasPaintEvents();
+    void requestCanvasPaintEvent(HTMLCanvasElement&);
+    void cancelCanvasPaintEvent(HTMLCanvasElement&);
 
     bool contains(const Node& node) const { return this == &node.treeScope() && node.isConnected(); }
     bool contains(const Node* node) const { return node && contains(*node); }
@@ -2415,13 +2408,7 @@ private:
 
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_cssTarget;
 
-    std::unique_ptr<LazyLoadImageObserver> m_lazyLoadImageObserver;
-#if ENABLE(MODEL_ELEMENT)
-    std::unique_ptr<LazyLoadModelObserver> m_lazyLoadModelObserver;
-#endif
-#if ENABLE(VIDEO)
-    std::unique_ptr<LazyLoadVideoObserver> m_lazyLoadVideoObserver;
-#endif
+    std::unique_ptr<LazyLoadElementObserver> m_lazyLoadElementObserver;
 
     std::unique_ptr<ContentVisibilityDocumentState> m_contentVisibilityDocumentState;
 
@@ -2463,6 +2450,8 @@ private:
     // render update. Hold canvases via rendering context, since there is no common base class that
     // would be managed.
     WeakHashSet<CanvasRenderingContext> m_canvasContextsToPrepare;
+
+    WeakHashSet<HTMLCanvasElement, WeakPtrImplWithEventTargetData> m_canvasesNeedingPaintEvent;
 
     HashMap<String, Ref<HTMLCanvasElement>> m_cssCanvasElements;
 

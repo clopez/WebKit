@@ -110,7 +110,7 @@ public:
     void didFailLoadingInsidePortal(const ResourceError&);
     void didUpdateEntityTransformInsidePortal(const TransformationMatrix&);
     void spatialPortalContextDidChange();
-    SpatialPortalController* lastRegisteredPortalController() const;
+    WEBCORE_EXPORT SpatialPortalController* lastRegisteredPortalController() const;
 #endif
 
     std::optional<PlatformLayerIdentifier> layerID() const;
@@ -210,6 +210,7 @@ public:
 #if ENABLE(SPATIAL_PORTAL)
     bool isInsidePortal() const;
     void updateEntityTransformFromCSS();
+    void updateAnchorFromCSS();
 #endif
 
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&);
@@ -220,7 +221,7 @@ public:
 #endif
 
     bool isIntersectingViewport() const { return m_isIntersectingViewport; }
-    void viewportIntersectionChanged(bool isIntersecting);
+    void lazyLoadIntersectionCallbackInvoked(bool isIntersecting);
 
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
     void dynamicRangeLimitDidChange(PlatformDynamicRangeLimit);

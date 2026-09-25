@@ -1,4 +1,3 @@
-[ iOS ] accessibility/ios/WebAccessibilityObjectWrapperIOS.h
 bindings/js/JSLazyEventListener.cpp
 css/CSSToLengthConversionData.h
 css/SelectorChecker.h
@@ -33,7 +32,6 @@ rendering/LayoutRepainter.h
 rendering/LegacyInlineIterator.h
 rendering/LegacyLineLayout.h
 rendering/LogicalSelectionOffsetCaches.h
-rendering/OrderIterator.h
 rendering/PaintInfo.h
 rendering/PositionedLayoutConstraints.h
 rendering/RenderAncestorIterator.h

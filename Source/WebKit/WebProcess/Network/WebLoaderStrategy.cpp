@@ -67,6 +67,7 @@
 #include <WebCore/NetworkLoadInformation.h>
 #include <WebCore/NodeDocument.h>
 #include <WebCore/PendingStreamState.h>
+#include <WebCore/PermissionsPolicy.h>
 #include <WebCore/PlatformStrategies.h>
 #include <WebCore/ReferrerPolicy.h>
 #include <WebCore/ResourceLoader.h>
@@ -401,6 +402,10 @@ static void addParametersShared(const LocalFrame* frame, NetworkResourceLoadPara
         parameters.globalPrivacyControlEnabled = document->settings().globalPrivacyControlEnabled().value_or(false);
         parameters.clientAddressSpace = document->ipAddressSpace();
         parameters.clientIsSecureContext = document->isSecureContext();
+        if (document->settings().localNetworkAccessEnabled()) {
+            parameters.localNetworkAllowedByPermissionsPolicy = PermissionsPolicy::isFeatureEnabled(PermissionsPolicy::Feature::LocalNetwork, *document, PermissionsPolicy::ShouldReportViolation::No);
+            parameters.loopbackNetworkAllowedByPermissionsPolicy = PermissionsPolicy::isFeatureEnabled(PermissionsPolicy::Feature::LoopbackNetwork, *document, PermissionsPolicy::ShouldReportViolation::No);
+        }
     }
 
     if (RefPtr page = frame->page()) {
@@ -628,7 +633,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         // Use the WebFrame to get the parent because this may be a provisional frame not hooked up to its parent yet.
         RefPtr thisWebFrame = WebFrame::webFrame(frame ? std::optional(frame->frameID()) : std::nullopt);
         RefPtr parentWebFrame = thisWebFrame ? thisWebFrame->parentFrame() : nullptr;
-        for (RefPtr frame = parentWebFrame ? parentWebFrame->coreFrame() : nullptr; frame; frame = frame->tree().parent()) {
+        for (Ref frame : inclusiveAncestorFrames(parentWebFrame ? parentWebFrame->coreFrame() : nullptr)) {
             RefPtr<WebCore::SecurityOrigin> frameOrigin = frame->frameDocumentSecurityOrigin();
             if (!frameOrigin) {
                 WEBLOADERSTRATEGY_RELEASE_LOG_ERROR("scheduleLoad: Unable to get document origin of frame (frameID=%" PRIu64 ")", frame->frameID().toUInt64());

@@ -7,16 +7,8 @@ Modules/webaudio/WaveShaperNode.cpp
 StyleBuilderGenerated.cpp
 StyleExtractorGenerated.cpp
 accessibility/AXObjectCache.cpp
-accessibility/AccessibilityMathMLElement.cpp
-accessibility/AccessibilityMenuListOption.cpp
-accessibility/AccessibilityNodeObject.cpp
-accessibility/AccessibilityObject.cpp
-accessibility/AccessibilityObjectInlines.h
-accessibility/AccessibilityProgressIndicator.cpp
+[ macOS ] accessibility/AccessibilityObject.cpp
 accessibility/AccessibilityRenderObject.cpp
-[ iOS ] accessibility/ios/AXObjectCacheIOS.mm
-[ iOS ] accessibility/ios/AccessibilityObjectIOS.mm
-[ iOS ] accessibility/ios/WebAccessibilityObjectWrapperIOS.mm
 [ Mac ] accessibility/mac/AXObjectCacheMac.mm
 animation/BlendingKeyframes.cpp
 animation/ElementAnimationRareData.cpp
@@ -79,27 +71,10 @@ dom/TreeScope.cpp
 dom/TreeScopeOrderedMap.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
-editing/CompositeEditCommand.cpp
-editing/DeleteSelectionCommand.cpp
-editing/Editor.cpp
-editing/EditorCommand.cpp
-editing/FrameSelection.cpp
-editing/InsertIntoTextNodeCommand.cpp
-editing/MarkupAccumulator.cpp
-editing/RenderedPosition.cpp
-editing/ReplaceSelectionCommand.cpp
-editing/SimplifyMarkupCommand.cpp
-editing/TextInsertionBaseCommand.cpp
-editing/TextManipulationController.cpp
-editing/TypingCommand.cpp
-editing/VisiblePosition.cpp
-editing/VisibleUnits.cpp
-editing/cocoa/EditorCocoa.mm
-editing/cocoa/NodeHTMLConverter.mm
+[ iOS ] editing/Editor.cpp
+[ iOS ] editing/FrameSelection.cpp
 [ iOS ] editing/cocoa/WebContentReaderCocoa.mm
 [ iOS ] editing/ios/EditorIOS.mm
-[ Mac ] editing/mac/EditorMac.mm
-editing/markup.cpp
 html/CachedHTMLCollection.h
 html/CachedHTMLCollectionInlines.h
 html/CollectionTraversalInlines.h

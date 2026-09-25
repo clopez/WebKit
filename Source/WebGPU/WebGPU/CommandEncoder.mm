@@ -591,7 +591,7 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
     using SliceSet = HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
     HashMap<void*, SliceSet> depthSlices;
     NSUInteger compositorTextureSlice = 0;
-    for (auto [ i, attachment ] : indexedRange(descriptor.colorAttachmentsSpan())) {
+    for (auto [ i, attachment ] : indexedRange(colorAttachmentsSpan(descriptor))) {
         if (!attachment.view && !attachment.texture)
             continue;
 
@@ -641,10 +641,10 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
         mtlAttachment.level = 0;
         mtlAttachment.slice = 0;
         uint64_t depthSliceOrArrayLayer = 0;
-        if (attachment.depthSlice) {
+        if (attachment.depthSlice != WGPU_DEPTH_SLICE_UNDEFINED) {
             if (!texture.is3DTexture())
                 return RenderPassEncoder::createInvalid(*this, m_device, @"depthSlice specified on 2D texture");
-            depthSliceOrArrayLayer = textureIsDestroyed ? 0 : *attachment.depthSlice;
+            depthSliceOrArrayLayer = textureIsDestroyed ? 0 : attachment.depthSlice;
             if (depthSliceOrArrayLayer >= texture.depthOrArrayLayers())
                 return RenderPassEncoder::createInvalid(*this, m_device, @"depthSlice is greater than texture's depth or array layers");
 
@@ -942,7 +942,7 @@ void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOff
     [m_blitCommandEncoder copyFromBuffer:source.buffer() sourceOffset:static_cast<NSUInteger>(sourceOffset) toBuffer:destination.buffer() destinationOffset:static_cast<NSUInteger>(destinationOffset) size:static_cast<NSUInteger>(size)];
 }
 
-NSString* CommandEncoder::errorValidatingImageCopyBuffer(const WGPUImageCopyBuffer& imageCopyBuffer) const
+NSString* CommandEncoder::errorValidatingImageCopyBuffer(const WGPUTexelCopyBufferInfo& imageCopyBuffer) const
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpuimagecopybuffer
     Ref buffer = fromAPI(imageCopyBuffer.buffer);
@@ -970,7 +970,7 @@ static bool NODELETE refersToAllAspects(WGPUTextureFormat format, WGPUTextureAsp
     }
 }
 
-NSString* CommandEncoder::errorValidatingCopyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) const
+NSString* CommandEncoder::errorValidatingCopyBufferToTexture(const WGPUTexelCopyBufferInfo& source, const WGPUTexelCopyTextureInfo& destination, const WGPUExtent3D& copySize) const
 {
 #define ERROR_STRING(x) [NSString stringWithFormat:@"GPUCommandEncoder.copyBufferToTexture: %@", x]
     Ref destinationTexture = fromAPI(destination.texture);
@@ -1026,7 +1026,7 @@ NSString* CommandEncoder::errorValidatingCopyBufferToTexture(const WGPUImageCopy
     return nil;
 }
 
-void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize)
+void CommandEncoder::copyBufferToTexture(const WGPUTexelCopyBufferInfo& source, const WGPUTexelCopyTextureInfo& destination, const WGPUExtent3D& copySize)
 {
 #if ENABLE(WEBGPU_SWIFT)
     if (isWebGPUSwiftEnabled()) {
@@ -1150,8 +1150,8 @@ void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, cons
                 auto tripleSum = checkedSum<uint64_t>(zTimesSourceBytesPerImage.value(), blockRowTimesSourceBytesPerRow.value(), source.layout.offset);
                 if (tripleSum.hasOverflowed())
                     return;
-                WGPUImageCopyBuffer newSource {
-                    .layout = WGPUTextureDataLayout {
+                WGPUTexelCopyBufferInfo newSource {
+                    .layout = WGPUTexelCopyBufferLayout {
                         .offset = tripleSum.value(),
                         .bytesPerRow = WGPU_COPY_STRIDE_UNDEFINED,
                         .rowsPerImage = WGPU_COPY_STRIDE_UNDEFINED,
@@ -1161,7 +1161,7 @@ void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, cons
                 auto destinationOriginPlusY = checkedSum<uint32_t>(destination.origin.y, y);
                 if (destinationOriginPlusY.hasOverflowed())
                     return;
-                WGPUImageCopyTexture newDestination {
+                WGPUTexelCopyTextureInfo newDestination {
                     .texture = destination.texture,
                     .mipLevel = destination.mipLevel,
                     .origin = { .x = destination.origin.x, .y = destinationOriginPlusY.value(), .z = destinationOriginPlusZ.value() },
@@ -1285,7 +1285,7 @@ void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, cons
     }
 }
 
-NSString* CommandEncoder::errorValidatingCopyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize) const
+NSString* CommandEncoder::errorValidatingCopyTextureToBuffer(const WGPUTexelCopyTextureInfo& source, const WGPUTexelCopyBufferInfo& destination, const WGPUExtent3D& copySize) const
 {
 #define ERROR_STRING(x) [NSString stringWithFormat:@"GPUCommandEncoder.copyTextureToBuffer: %@", x]
     Ref sourceTexture = fromAPI(source.texture);
@@ -1340,7 +1340,7 @@ NSString* CommandEncoder::errorValidatingCopyTextureToBuffer(const WGPUImageCopy
     return nil;
 }
 
-void CommandEncoder::clearTextureIfNeeded(const WGPUImageCopyTexture& destination, NSUInteger slice)
+void CommandEncoder::clearTextureIfNeeded(const WGPUTexelCopyTextureInfo& destination, NSUInteger slice)
 {
 #if ENABLE(WEBGPU_SWIFT)
     if (isWebGPUSwiftEnabled()) {
@@ -1353,7 +1353,7 @@ void CommandEncoder::clearTextureIfNeeded(const WGPUImageCopyTexture& destinatio
 }
 
 
-void CommandEncoder::clearTextureIfNeeded(const WGPUImageCopyTexture& destination, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder)
+void CommandEncoder::clearTextureIfNeeded(const WGPUTexelCopyTextureInfo& destination, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder)
 {
     Ref texture = fromAPI(destination.texture);
     NSUInteger mipLevel = destination.mipLevel;
@@ -1577,7 +1577,7 @@ static bool NODELETE hasValidDimensions(WGPUTextureDimension dimension, NSUInteg
     }
 }
 
-void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize)
+void CommandEncoder::copyTextureToBuffer(const WGPUTexelCopyTextureInfo& source, const WGPUTexelCopyBufferInfo& destination, const WGPUExtent3D& copySize)
 {
 #if ENABLE(WEBGPU_SWIFT)
     if (isWebGPUSwiftEnabled()) {
@@ -1677,7 +1677,7 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
                 auto blockRowTimesDestinationBytesPerRow = checkedProduct<uint32_t>(y / blockHeight, destinationBytesPerRow);
                 if (yPlusOriginY.hasOverflowed() || blockRowTimesDestinationBytesPerRow.hasOverflowed())
                     return;
-                WGPUImageCopyTexture newSource {
+                WGPUTexelCopyTextureInfo newSource {
                     .texture = source.texture,
                     .mipLevel = source.mipLevel,
                     .origin = { .x = source.origin.x, .y = yPlusOriginY, .z = zPlusOriginZ },
@@ -1686,8 +1686,8 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
                 auto tripleSum = checkedSum<uint64_t>(zTimesDestinationBytesPerImage.value(), blockRowTimesDestinationBytesPerRow.value(), destination.layout.offset);
                 if (tripleSum.hasOverflowed())
                     return;
-                WGPUImageCopyBuffer newDestination {
-                    .layout = WGPUTextureDataLayout {
+                WGPUTexelCopyBufferInfo newDestination {
+                    .layout = WGPUTexelCopyBufferLayout {
                         .offset = tripleSum.value(),
                         .bytesPerRow = WGPU_COPY_STRIDE_UNDEFINED,
                         .rowsPerImage = WGPU_COPY_STRIDE_UNDEFINED,
@@ -1825,7 +1825,7 @@ static bool NODELETE areCopyCompatible(WGPUTextureFormat format1, WGPUTextureFor
     return Texture::removeSRGBSuffix(format1) == Texture::removeSRGBSuffix(format2);
 }
 
-NSString* CommandEncoder::errorValidatingCopyTextureToTexture(const WGPUImageCopyTexture& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) const
+NSString* CommandEncoder::errorValidatingCopyTextureToTexture(const WGPUTexelCopyTextureInfo& source, const WGPUTexelCopyTextureInfo& destination, const WGPUExtent3D& copySize) const
 {
 #define ERROR_STRING(x) [NSString stringWithFormat:@"GPUCommandEncoder.copyTextureToTexture: %@", x]
     Ref sourceTexture = fromAPI(source.texture);
@@ -1903,7 +1903,7 @@ NSString* CommandEncoder::errorValidatingCopyTextureToTexture(const WGPUImageCop
     return nil;
 }
 
-void CommandEncoder::copyTextureToTexture(const WGPUImageCopyTexture& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize)
+void CommandEncoder::copyTextureToTexture(const WGPUTexelCopyTextureInfo& source, const WGPUTexelCopyTextureInfo& destination, const WGPUExtent3D& copySize)
 {
 #if ENABLE(WEBGPU_SWIFT)
     if (isWebGPUSwiftEnabled()) {
@@ -2496,17 +2496,17 @@ void wgpuCommandEncoderCopyBufferToBuffer(WGPUCommandEncoder commandEncoder, WGP
     protect(WebGPU::fromAPI(commandEncoder))->copyBufferToBuffer(protect(WebGPU::fromAPI(source)), sourceOffset, protect(WebGPU::fromAPI(destination)), destinationOffset, size);
 }
 
-void wgpuCommandEncoderCopyBufferToTexture(WGPUCommandEncoder commandEncoder, const WGPUImageCopyBuffer* source, const WGPUImageCopyTexture* destination, const WGPUExtent3D* copySize)
+void wgpuCommandEncoderCopyBufferToTexture(WGPUCommandEncoder commandEncoder, const WGPUTexelCopyBufferInfo* source, const WGPUTexelCopyTextureInfo* destination, const WGPUExtent3D* copySize)
 {
     protect(WebGPU::fromAPI(commandEncoder))->copyBufferToTexture(*source, *destination, *copySize);
 }
 
-void wgpuCommandEncoderCopyTextureToBuffer(WGPUCommandEncoder commandEncoder, const WGPUImageCopyTexture* source, const WGPUImageCopyBuffer* destination, const WGPUExtent3D* copySize)
+void wgpuCommandEncoderCopyTextureToBuffer(WGPUCommandEncoder commandEncoder, const WGPUTexelCopyTextureInfo* source, const WGPUTexelCopyBufferInfo* destination, const WGPUExtent3D* copySize)
 {
     protect(WebGPU::fromAPI(commandEncoder))->copyTextureToBuffer(*source, *destination, *copySize);
 }
 
-void wgpuCommandEncoderCopyTextureToTexture(WGPUCommandEncoder commandEncoder, const WGPUImageCopyTexture* source, const WGPUImageCopyTexture* destination, const WGPUExtent3D* copySize)
+void wgpuCommandEncoderCopyTextureToTexture(WGPUCommandEncoder commandEncoder, const WGPUTexelCopyTextureInfo* source, const WGPUTexelCopyTextureInfo* destination, const WGPUExtent3D* copySize)
 {
     protect(WebGPU::fromAPI(commandEncoder))->copyTextureToTexture(*source, *destination, *copySize);
 }
@@ -2521,7 +2521,7 @@ WGPUCommandBuffer wgpuCommandEncoderFinish(WGPUCommandEncoder commandEncoder, co
     return WebGPU::releaseToAPI(protect(WebGPU::fromAPI(commandEncoder))->finish(*descriptor));
 }
 
-void wgpuCommandEncoderInsertDebugMarker(WGPUCommandEncoder commandEncoder, const char* markerLabel)
+void wgpuCommandEncoderInsertDebugMarker(WGPUCommandEncoder commandEncoder, WGPUStringView markerLabel)
 {
     protect(WebGPU::fromAPI(commandEncoder))->insertDebugMarker(WebGPU::fromAPI(markerLabel));
 }
@@ -2531,7 +2531,7 @@ void wgpuCommandEncoderPopDebugGroup(WGPUCommandEncoder commandEncoder)
     protect(WebGPU::fromAPI(commandEncoder))->popDebugGroup();
 }
 
-void wgpuCommandEncoderPushDebugGroup(WGPUCommandEncoder commandEncoder, const char* groupLabel)
+void wgpuCommandEncoderPushDebugGroup(WGPUCommandEncoder commandEncoder, WGPUStringView groupLabel)
 {
     protect(WebGPU::fromAPI(commandEncoder))->pushDebugGroup(WebGPU::fromAPI(groupLabel));
 }
@@ -2546,7 +2546,7 @@ void wgpuCommandEncoderWriteTimestamp(WGPUCommandEncoder commandEncoder, WGPUQue
     protect(WebGPU::fromAPI(commandEncoder))->writeTimestamp(protect(WebGPU::fromAPI(querySet)), queryIndex);
 }
 
-void wgpuCommandEncoderSetLabel(WGPUCommandEncoder commandEncoder, const char* label)
+void wgpuCommandEncoderSetLabel(WGPUCommandEncoder commandEncoder, WGPUStringView label)
 {
     protect(WebGPU::fromAPI(commandEncoder))->setLabel(WebGPU::fromAPI(label));
 }

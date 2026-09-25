@@ -88,6 +88,10 @@
 #include "SpatialImageControls.h"
 #endif
 
+#if ENABLE(SMART_IMAGE_RESIZER)
+#include <WebKitAdditions/RenderImageAdditions.cpp>
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderImage);
@@ -188,6 +192,9 @@ RenderImage::~RenderImage() = default;
 
 void RenderImage::willBeDestroyed()
 {
+#if ENABLE(SMART_IMAGE_RESIZER)
+    view().unregisterImageForSmartImageResizer(*this);
+#endif
     imageResource().willBeDestroyed();
     RenderReplaced::willBeDestroyed();
 }
@@ -930,6 +937,10 @@ bool RenderImage::canHaveChildren() const
 
 void RenderImage::layout()
 {
+#if ENABLE(SMART_IMAGE_RESIZER)
+    view().setSmartImageResizerNeedsUpdate();
+#endif
+
     // Recomputing overflow is required only when child content is present.
     if (needsSimplifiedNormalFlowLayoutOnly() && !hasShadowContent()) {
         clearNeedsLayout();
@@ -965,10 +976,20 @@ FloatSize RenderImage::preferredAspectRatioAsSize() const
     if (shouldApplySizeOrInlineSizeContainment())
         return RenderReplaced::preferredAspectRatioAsSize();
 
-    // Don't compute an intrinsic ratio to preserve historical WebKit behavior if we're painting alt text and/or a broken image.
     if (shouldDisplayBrokenImageIcon() && !imageRepresentsNothing()) {
-        if (style().aspectRatio().isAutoAndRatio() && !isShowingAltText())
+        auto ratioFromStyle = [&] {
             return FloatSize::narrowPrecision(style().aspectRatioLogicalWidth().value, style().aspectRatioLogicalHeight().value);
+        };
+
+        if (isShowingAltText()) {
+            if (style().aspectRatio().isRatio() && style().display() != Style::DisplayType::InlineFlow)
+                return ratioFromStyle();
+            return { };
+        }
+
+        if (style().aspectRatio().hasRatio())
+            return ratioFromStyle();
+
         return { 1.0, 1.0 };
     }
 

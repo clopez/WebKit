@@ -24,10 +24,10 @@
  */
 
 #import "config.h"
-#import "CMUtilities.h"
 #import "H264UtilitiesCocoa.h"
 
 #import "BitReader.h"
+#import "CMUtilities.h"
 #import "TrackInfo.h"
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -108,18 +108,12 @@ RefPtr<VideoInfo> createVideoInfoFromAVCC(std::span<const uint8_t> avcc)
     if (PAL::CMVideoFormatDescriptionCreateFromH264ParameterSets(kCFAllocatorDefault, paramSetPtrs.size(), paramSetPtrs.span().data(), paramSetSizes.span().data(), lengthSize, &rawDescription))
         return nullptr;
     RetainPtr description = adoptCF(rawDescription);
-    auto dimensions = PAL::CMVideoFormatDescriptionGetDimensions(rawDescription);
-    auto presentationDimensions = PAL::CMVideoFormatDescriptionGetPresentationDimensions(rawDescription, true, true);
+    return createVideoInfoFromFormatDescription(description);
+}
 
-    return VideoInfo::create({
-        {
-            .codecName = kCMVideoCodecType_H264
-        }, {
-            .size = { static_cast<float>(dimensions.width), static_cast<float>(dimensions.height) },
-            .displaySize = { static_cast<float>(presentationDimensions.width), static_cast<float>(presentationDimensions.height) },
-            .extensionAtoms = { FillWith { }, 1 , { computeBoxType(kCMVideoCodecType_H264), SharedBuffer::create(avcc) } },
-        }
-    });
+Vector<uint8_t> convertAVCCMSampleBufferToAnnexB(CMSampleBufferRef avccSampleBuffer, bool isKeyframe)
+{
+    return convertParameterSetsCMSampleBufferToAnnexB(avccSampleBuffer, isKeyframe, PAL::CMVideoFormatDescriptionGetH264ParameterSetAtIndex);
 }
 
 } // namespace WebCore

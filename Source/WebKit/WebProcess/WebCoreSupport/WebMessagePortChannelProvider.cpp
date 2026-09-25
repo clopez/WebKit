@@ -175,7 +175,15 @@ void WebMessagePortChannelProvider::postMessageToRemote(MessageWithMessagePorts&
         }
     }
 
+    if (RefPtr serializedScriptValue = message.message)
+        serializedScriptValue->sinkBuffersIntoTransferHandles();
+
     protect(networkProcessConnection())->send(Messages::NetworkConnectionToWebProcess::PostMessageToRemote { message, remoteTarget, blobURLs }, 0);
+}
+
+void WebMessagePortChannelProvider::ensureMessagePortCreatedWithRoundtrip(CompletionHandler<void()>&& callback)
+{
+    protect(networkProcessConnection())->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::FlushNetworkProcessIPC(), WTF::move(callback));
 }
 
 } // namespace WebKit

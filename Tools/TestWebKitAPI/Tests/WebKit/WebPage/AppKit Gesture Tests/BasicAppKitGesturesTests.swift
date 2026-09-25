@@ -94,6 +94,49 @@ extension AppKitGesturesTests.Basic {
         #expect(actual.map(\.type) == expectedEvents)
     }
 
+    @Test(
+        .bug("https://webkit.org/b/324987")
+    )
+    func singleClickReportsHeldButtonAndPressure() async throws {
+        try await loadHTML()
+
+        try await page.callJavaScript {
+            """
+            window.fieldLog = [];
+            for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+                document.addEventListener(type, event => {
+                    window.fieldLog.push(`${event.type}:${event.buttons}:${event.pressure ?? "-"}:${event.webkitForce}`);
+                });
+            }
+            """
+        }
+
+        let toBounds = try await screenBoundsOfText("to")
+
+        await recap.play { composer in
+            composer._wk_click(at: toBounds.center, for: .seconds(0.05))
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let fieldLog = try await page.callJavaScript(returning: [String].self) {
+            """
+            return window.fieldLog;
+            """
+        }
+
+        #expect(
+            fieldLog == [
+                "pointerdown:1:0.5:0",
+                "mousedown:1:-:1",
+                "pointerup:0:0:0",
+                "mouseup:0:-:0",
+                "click:0:0:0",
+            ]
+        )
+    }
+
     @Test
     func singleClickFiresEventsForListenersOnTheDocument() async throws {
         try await loadHTML()
@@ -115,8 +158,8 @@ extension AppKitGesturesTests.Basic {
         #expect(actual.map(\.type) == expectedEvents)
     }
 
-    @Test(arguments: [[], [KeyboardModifier.shift], [.option], [.command], [.shift, .option, .command]])
-    func singleClickReportsHeldModifierKeys(modifiers: [KeyboardModifier]) async throws {
+    @Test(arguments: [Recap.KeyboardModifiers(), .shift, .option, .command, .all])
+    func singleClickReportsHeldModifierKeys(modifiers: Recap.KeyboardModifiers) async throws {
         let expectedEvents: [DOMEventType] = [.pointerdown, .mousedown, .pointerup, .mouseup, .click]
 
         try await loadHTML()
@@ -159,7 +202,7 @@ extension AppKitGesturesTests.Basic {
             "return window.eventLog;"
         }
 
-        let active = modifiers.map(\.domName).sorted().joined(separator: ",")
+        let active = modifiers.domNames.sorted().joined(separator: ",")
         #expect(observed == expectedEvents.map { "\($0.rawValue)(\(active))" })
     }
 
@@ -448,6 +491,282 @@ extension AppKitGesturesTests.Basic {
         #expect(newSelection == crazySelection)
     }
 
+    // MARK: - Shift-Click Selection Extension
+
+    @Test(arguments: [true, false])
+    func shiftClickAfterSelectionExtendsSelectionForward(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let heresRange = try #require(Self.text.utf16Range(of: "Here's"))
+        let onesRange = try #require(Self.text.utf16Range(of: "ones"))
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", range: heresRange))
+        await page.waitForNextPresentationUpdate()
+
+        let onesBounds = try await screenBoundsOfText("ones")
+
+        // Clicking just inside the right edge of the word resolves to the boundary at its end.
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: CGPoint(x: onesBounds.maxX - 1, y: onesBounds.midY), for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+        let expected = JavaScriptSelection.range(
+            base: .init(in: "div", at: heresRange.lowerBound),
+            extent: .init(in: "div", at: onesRange.upperBound)
+        )
+
+        #expect(newSelection == expected)
+    }
+
+    @Test(arguments: [true, false])
+    func shiftClickBeforeSelectionExtendsSelectionBackward(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let heresRange = try #require(Self.text.utf16Range(of: "Here's"))
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", range: crazyRange))
+        await page.waitForNextPresentationUpdate()
+
+        let heresBounds = try await screenBoundsOfText("Here's")
+
+        // Clicking just inside the left edge of the word resolves to the boundary at its start.
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: CGPoint(x: heresBounds.minX + 1, y: heresBounds.midY), for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+
+        let expected = JavaScriptSelection.range(
+            base: .init(in: "div", at: crazyRange.upperBound),
+            extent: .init(in: "div", at: heresRange.lowerBound)
+        )
+
+        #expect(newSelection == expected)
+    }
+
+    @Test(arguments: [true, false])
+    func shiftClickInsideSelectionShrinksSelection(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let heresRange = try #require(Self.text.utf16Range(of: "Here's"))
+        let theRange = try #require(Self.text.utf16Range(of: "the"))
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+
+        try await page.callJavaScript(
+            JavaScriptMessages.SetSelection(in: "div", range: heresRange.lowerBound..<crazyRange.upperBound)
+        )
+        await page.waitForNextPresentationUpdate()
+
+        let theBounds = try await screenBoundsOfText("the")
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: CGPoint(x: theBounds.maxX - 1, y: theBounds.midY), for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+        let expected = JavaScriptSelection.range(
+            base: .init(in: "div", at: heresRange.lowerBound),
+            extent: .init(in: "div", at: theRange.upperBound)
+        )
+
+        #expect(newSelection == expected)
+    }
+
+    @Test
+    func shiftClickAfterCaretCreatesSelectionFromCaret() async throws {
+        try await loadHTML(contentEditable: true)
+
+        let theRange = try #require(Self.text.utf16Range(of: "the"))
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", offset: 0))
+        await page.waitForNextPresentationUpdate()
+
+        let theBounds = try await screenBoundsOfText("the")
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: CGPoint(x: theBounds.maxX - 1, y: theBounds.midY), for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+        let expected = JavaScriptSelection.range(
+            base: .init(in: "div", at: 0),
+            extent: .init(in: "div", at: theRange.upperBound)
+        )
+
+        #expect(newSelection == expected)
+    }
+
+    @Test
+    func clickWithoutShiftAfterSelectionReplacesSelection() async throws {
+        try await loadHTML(contentEditable: true)
+
+        let heresRange = try #require(Self.text.utf16Range(of: "Here's"))
+        let onesRange = try #require(Self.text.utf16Range(of: "ones"))
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", range: heresRange))
+        await page.waitForNextPresentationUpdate()
+
+        let onesBounds = try await screenBoundsOfText("ones")
+
+        await recap.play { composer in
+            composer._wk_click(at: CGPoint(x: onesBounds.maxX - 1, y: onesBounds.midY), for: .seconds(0.1))
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+
+        #expect(newSelection == .collapsed(.init(in: "div", at: onesRange.upperBound)))
+    }
+
+    @Test
+    func shiftClickOnLinkDoesNotExtendSelection() async throws {
+        let html = """
+            <div id="div" style="font-size: 30px;">\(Self.text)</div>
+            <a id="link" href="#" style="font-size: 30px; display: block;">WebKit Link</a>
+            """
+        try await page.load(html: html).wait()
+
+        let heresRange = try #require(Self.text.utf16Range(of: "Here's"))
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", range: heresRange))
+        await page.waitForNextPresentationUpdate()
+
+        let linkBounds = try await screenBounds(ofElementWithID: "link")
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: linkBounds.center, for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+
+        let unchanged = JavaScriptSelection.range(
+            base: .init(in: "div", at: heresRange.lowerBound),
+            extent: .init(in: "div", at: heresRange.upperBound)
+        )
+
+        #expect(newSelection == unchanged)
+    }
+
+    private static let middleOfTHREEInPDF = NSPoint(x: 176, y: 444)
+    private static let middleOfOneInPDF = NSPoint(x: 134, y: 471)
+
+    private static let pdfDocumentText = "one\nTwo tWo\ntHree THREE threE"
+
+    private func loadPDFAndSelectAll() async throws {
+        let pdfURL = try #require(Bundle.testResources.url(forResource: "find", withExtension: "pdf"))
+        try await page.load(pdfURL).wait()
+        await page.waitForNextPresentationUpdate()
+
+        let focusPoint = screenBounds(ofPointInWindowCoordinates: Self.middleOfTHREEInPDF)
+
+        await recap.play { composer in
+            composer._wk_click(at: focusPoint, for: .seconds(0.1))
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        await page.selectAll()
+
+        #expect(try #require(await page.copySelection()) == Self.pdfDocumentText)
+    }
+
+    @Test
+    func shiftClickAfterMidpointOfPDFSelectionAnchorsOnItsStart() async throws {
+        try await loadPDFAndSelectAll()
+
+        let clickPoint = screenBounds(ofPointInWindowCoordinates: Self.middleOfTHREEInPDF)
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: clickPoint, for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let extended = try #require(await page.copySelection())
+
+        #expect(Self.pdfDocumentText.hasPrefix(extended))
+        #expect(extended.hasPrefix("one\nTwo tWo\ntHree "))
+        #expect(!extended.contains("threE"))
+    }
+
+    @Test
+    func shiftClickBeforeMidpointOfPDFSelectionAnchorsOnItsEnd() async throws {
+        try await loadPDFAndSelectAll()
+
+        let clickPoint = screenBounds(ofPointInWindowCoordinates: Self.middleOfOneInPDF)
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_click(at: clickPoint, for: .seconds(0.1))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let extended = try #require(await page.copySelection())
+
+        #expect(Self.pdfDocumentText.hasSuffix(extended))
+        #expect(extended.hasSuffix("tHree THREE threE"))
+        #expect(!extended.hasPrefix("one"))
+    }
+
+    @Test
+    func shiftDragInPDFShrinksSelectionBackTowardAnchor() async throws {
+        try await loadPDFAndSelectAll()
+
+        let dragStart = screenBounds(ofPointInWindowCoordinates: Self.middleOfTHREEInPDF)
+        let dragEnd = screenBounds(ofPointInWindowCoordinates: Self.middleOfOneInPDF)
+
+        await recap.play { composer in
+            composer.holdingModifiers(.shift) {
+                composer._wk_drag(withStart: dragStart, end: dragEnd, duration: .seconds(0.5))
+            }
+        }
+
+        await page.waitForPendingMouseEvents()
+        await page.waitForNextPresentationUpdate()
+
+        let extended = try #require(await page.copySelection())
+
+        #expect(Self.pdfDocumentText.hasPrefix(extended))
+        #expect(extended.hasPrefix("one"))
+        #expect(!extended.contains("Two"))
+    }
+
     @Test(arguments: [true, false])
     func clickingAndHoldingOnEmptyContentOpensContextMenu(contentEditable: Bool) async throws {
         try await loadHTML(contentEditable: contentEditable)
@@ -524,6 +843,84 @@ extension AppKitGesturesTests.Basic {
         let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
 
         #expect(newSelection == crazySelection)
+    }
+
+    @Test(arguments: [true, false])
+    func clickAndHoldOnVideoOpensContextMenu(controls: Bool) async throws {
+        let baseURL = try #require(Bundle.testResources.resourceURL)
+        let controlsMarkup = controls ? "controls" : ""
+
+        let html = """
+            <video id="video" \(controlsMarkup) src="video-with-audio.mp4" style="display: block; width: 100vw; height: 100vh; margin: 0"></video>
+            """
+        try await page.load(html: html, baseURL: baseURL).wait()
+
+        try await waitForVideoToLoadData(elementID: "video")
+
+        await page.waitForNextPresentationUpdate()
+
+        let videoBounds = try await screenBounds(ofElementWithID: "video")
+
+        await withSwizzledContextMenu {
+            await recap.play { composer in
+                composer._wk_click(at: videoBounds.center, for: .seconds(2))
+            }
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func clickAndHoldOnUnselectableVideoPlayerOpensContextMenu(overlay: Bool) async throws {
+        let baseURL = try #require(Bundle.testResources.resourceURL)
+        let overlayMarkup = overlay ? "<div style='position: absolute; inset: 0'></div>" : ""
+
+        let html = """
+            <div id="player" style="position: relative; width: 100vw; height: 100vh; -webkit-user-select: none; user-select: none">
+                <video id="video" src="video-with-audio.mp4" style="display: block; width: 100%; height: 100%"></video>
+                \(overlayMarkup)
+            </div>
+            """
+        try await page.load(html: html, baseURL: baseURL).wait()
+
+        try await waitForVideoToLoadData(elementID: "video")
+
+        await page.waitForNextPresentationUpdate()
+
+        let playerBounds = try await screenBounds(ofElementWithID: "player")
+
+        await withSwizzledContextMenu {
+            await recap.play { composer in
+                composer._wk_click(at: playerBounds.center, for: .seconds(2))
+            }
+        }
+    }
+
+    @Test
+    func clickAndHoldOnUnselectableContentDoesNotOpenContextMenu() async throws {
+        let html = """
+            <div id="target" style="width: 100vw; height: 100vh; font-size: 30px; -webkit-user-select: none; user-select: none">Hello world</div>
+            <script>
+                window.contextMenuEventCount = 0;
+                document.addEventListener("contextmenu", event => {
+                    window.contextMenuEventCount++;
+                    event.preventDefault();
+                });
+            </script>
+            """
+        try await page.load(html: html).wait()
+        await page.waitForNextPresentationUpdate()
+
+        let targetBounds = try await screenBounds(ofElementWithID: "target")
+
+        await recap.play { composer in
+            composer._wk_click(at: targetBounds.center, for: .seconds(2))
+        }
+
+        await page.waitForNextPresentationUpdate()
+
+        let contextMenuEventCount = try await page.callJavaScript(returning: Int.self) {
+            "return window.contextMenuEventCount;"
+        }
+        #expect(contextMenuEventCount == 0)
     }
 
     @Test
@@ -867,6 +1264,79 @@ extension AppKitGesturesTests.Basic {
         #expect(finalScrollPosition.y == 0)
     }
 
+    private func loadPageWithSubscroller() async throws {
+        let html = """
+            <body style="margin: 0; height: 2000px;">
+                <div id="scroller" style="position: absolute; left: 100px; top: 100px; width: 400px; height: 300px; overflow-y: scroll;">
+                    <div style="height: 400px; background: repeating-linear-gradient(to bottom, blue 0 50px, white 50px 100px);"></div>
+                </div>
+            </body>
+            """
+
+        try await page.load(html: html).wait()
+        await page.waitForNextPresentationUpdate()
+    }
+
+    private func subscrollerScrollTop() async throws -> Double {
+        try #require(try await page.callJavaScript("return document.getElementById('scroller').scrollTop") as? Double)
+    }
+
+    @Test(
+        .bug("https://webkit.org/b/325063", "Cannot drag subscroller scrollbars"),
+        arguments: [Duration.seconds(0.1), .seconds(0.5), .seconds(1.0)]
+    )
+    func scrollingOnSubscrollerScrollBarChangesScrollPosition(pressAndWait: Duration) async throws {
+        try await loadPageWithSubscroller()
+
+        let scrollerBounds = try await screenBounds(ofElementWithID: "scroller")
+        let start = CGPoint(x: scrollerBounds.maxX - 8, y: scrollerBounds.minY + 40)
+        let end = CGPoint(x: start.x, y: start.y + 100)
+
+        await recap.play { composer in
+            composer._wk_drag(withStart: start, end: end, duration: .seconds(0.5), pressAndWait: pressAndWait)
+        }
+
+        try await Task.sleep(for: .seconds(1))
+
+        let scrollTop = try await subscrollerScrollTop()
+        #expect(scrollTop > 0)
+
+        let pageScrollPosition = try await page.callJavaScript(JavaScriptMessages.ScrollPosition())
+        #expect(pageScrollPosition.y == 0)
+    }
+
+    @Test(
+        .bug("https://webkit.org/b/325063", "Cannot drag subscroller scrollbars")
+    )
+    func subscrollerScrollbarCanBeDraggedDuringScrollDeceleration() async throws {
+        try await loadPageWithSubscroller()
+
+        let scrollerBounds = try await screenBounds(ofElementWithID: "scroller")
+        let scrollerCenter = CGPoint(x: scrollerBounds.midX, y: scrollerBounds.midY)
+        let scrollEnd = CGPoint(x: scrollerCenter.x, y: scrollerCenter.y - 50)
+
+        await recap.play { composer in
+            composer._wk_scroll(withStart: scrollerCenter, end: scrollEnd, duration: .seconds(0.1))
+        }
+
+        let thumb = CGPoint(x: scrollerBounds.maxX - 8, y: scrollerBounds.midY)
+        let thumbDragEnd = CGPoint(x: thumb.x, y: scrollerBounds.minY + 10)
+
+        await recap.play { composer in
+            composer._wk_drag(
+                withStart: thumb,
+                end: thumbDragEnd,
+                duration: .seconds(0.5),
+                pressAndWait: .seconds(0.1)
+            )
+        }
+
+        await page.waitForNextPresentationUpdate()
+
+        let scrollTop = try await subscrollerScrollTop()
+        #expect(scrollTop == 0)
+    }
+
     @Test(arguments: [true, false])
     func scrollingChangesScrollPosition(scrollOnImage: Bool) async throws {
         let image = scrollOnImage ? #"<img id="img" src="400x400-green.png" style="display: block; margin: 50px;">"# : ""
@@ -1191,19 +1661,7 @@ extension AppKitGesturesTests.Basic {
 
         let elementID = try await dragAcrossSlider(useNativeWidget: useNativeWidget)
 
-        let finalSliderValue = try await page.callJavaScript(
-            returning: Double.self,
-            arguments: ["elementID": elementID, "useNativeWidget": useNativeWidget]
-        ) {
-            """
-            if (useNativeWidget) {
-                return Number(document.getElementById(elementID).value);
-            } else {
-                return Number(document.getElementById(elementID).getAttribute("aria-valuenow"));
-            }
-            """
-        }
-
+        let finalSliderValue = try await sliderValue(elementID: elementID, useNativeWidget: useNativeWidget)
         #expect(finalSliderValue == Double(maximumValue))
 
         let eventLog = try await page.callJavaScript(returning: [Double].self, arguments: ["elementID": elementID]) {
@@ -1213,6 +1671,22 @@ extension AppKitGesturesTests.Basic {
         }
 
         #expect(eventLog == (initialValue...maximumValue).map(Double.init))
+    }
+
+    @Test(arguments: [true, false])
+    func pressAndHoldBeforeDraggingOverSliderDoesNotOpenContextMenu(useNativeWidget: Bool) async throws {
+        let elementID = try await dragAcrossSlider(useNativeWidget: useNativeWidget, pressAndWait: .seconds(1))
+
+        let contextMenuEventCount = try await page.callJavaScript(returning: Int.self) {
+            "return window.contextMenuEventCount;"
+        }
+        #expect(contextMenuEventCount == 0)
+
+        let selection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+        #expect(selection == .none)
+
+        let finalSliderValue = try await sliderValue(elementID: elementID, useNativeWidget: useNativeWidget)
+        #expect(finalSliderValue == 10)
     }
 
     @Test(
@@ -1984,42 +2458,34 @@ extension AppKitGesturesTests.Basic {
     @Test(
         .bug("https://webkit.org/b/324361", "Diagonal rubber-banding doesn't work, snaps to a single axis")
     )
-    func diagonalPullAtCornerRubberBandsBothAxes() async throws {
+    func diagonalPullAtCornerRubberBandsBothAxesWhenMagnified() async throws {
+        try await loadScrollableGrid()
+        page.magnification = 2
+        try await page.callJavaScript { "window.scrollTo(0, 0);" }
+        await page.waitForNextPresentationUpdate()
+
+        try await startRecordingMinimumSeenScrollOffset()
+        await diagonallyPullPastTopLeftCorner()
+
+        let minimumOffset = try await minimumSeenScrollOffset()
+
+        #expect(minimumOffset.x < -10)
+        #expect(minimumOffset.y < -10)
+    }
+
+    @Test
+    func diagonalPullAtCornerDoesNotRubberBandHorizontallyWhenUnmagnified() async throws {
         try await loadScrollableGrid()
         await page.waitForNextPresentationUpdate()
 
-        // Record the rubber-banding offset while it happens, so we can see how far we got
-        // regardless of where in the snap animation we are when we ask.
-        try await page.callJavaScript {
-            """
-            window._minimumSeenScrollOffset = { x: 0, y: 0 };
-            window.addEventListener("scroll", () => {
-                const minimum = window._minimumSeenScrollOffset;
-                minimum.x = Math.min(minimum.x, window.pageXOffset);
-                minimum.y = Math.min(minimum.y, window.pageYOffset);
-            }, { passive: true });
-            """
-        }
+        try await startRecordingMinimumSeenScrollOffset()
+        await diagonallyPullPastTopLeftCorner()
 
-        let start = screenBounds(ofPointInWindowCoordinates: window.frame.center)
-        let end = CGPoint(x: start.x + 250, y: start.y + 250)
+        // Unmagnified, the horizontal axis controls history swipe, so only the vertical axis stretches.
+        let minimumOffset = try await minimumSeenScrollOffset()
 
-        await recap.play { composer in
-            composer._wk_drag(withStart: start, end: end, duration: .seconds(0.4), release: false)
-            composer.advanceTime(0.4)
-            composer._wk_mouseUp()
-        }
-
-        await page.waitForNextPresentationUpdate()
-
-        let minimumOffset = try await page.callJavaScript(returning: [Double].self) {
-            "return [window._minimumSeenScrollOffset.x, window._minimumSeenScrollOffset.y];"
-        }
-
-        try #require(minimumOffset.count == 2)
-
-        #expect(minimumOffset[0] < -10)
-        #expect(minimumOffset[1] < -10)
+        #expect(minimumOffset.x == 0)
+        #expect(minimumOffset.y < -10)
     }
 
     @Test
@@ -2297,7 +2763,11 @@ extension CGPoint {
 
 extension AppKitGesturesTests.Basic {
     @discardableResult
-    private func dragAcrossSlider(useNativeWidget: Bool, verticalTravelFraction: Double = 0) async throws -> String {
+    private func dragAcrossSlider(
+        useNativeWidget: Bool,
+        verticalTravelFraction: Double = 0,
+        pressAndWait: Duration = .seconds(0.5)
+    ) async throws -> String {
         let elementID = useNativeWidget ? "native-slider" : "custom-slider"
 
         let customHTML = try #require(Bundle.testResources.url(forResource: "custom-slider", withExtension: "html"))
@@ -2321,12 +2791,42 @@ extension AppKitGesturesTests.Basic {
         )
 
         await recap.play { composer in
-            composer._wk_drag(withStart: start, end: end, duration: .seconds(1.5), pressAndWait: .seconds(0.5))
+            composer._wk_drag(withStart: start, end: end, duration: .seconds(1.5), pressAndWait: pressAndWait)
         }
 
         await page.waitForNextPresentationUpdate()
 
         return elementID
+    }
+
+    private func sliderValue(elementID: String, useNativeWidget: Bool) async throws -> Double {
+        try await page.callJavaScript(
+            returning: Double.self,
+            arguments: ["elementID": elementID, "useNativeWidget": useNativeWidget]
+        ) {
+            """
+            if (useNativeWidget) {
+                return Number(document.getElementById(elementID).value);
+            } else {
+                return Number(document.getElementById(elementID).getAttribute("aria-valuenow"));
+            }
+            """
+        }
+    }
+
+    private func waitForVideoToLoadData(elementID: String) async throws {
+        try await page.callJavaScript(arguments: ["elementID": elementID]) {
+            """
+            const video = document.getElementById(elementID);
+            if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+                return;
+
+            await new Promise((resolve, reject) => {
+                video.addEventListener("loadeddata", resolve, { once: true });
+                video.addEventListener("error", () => reject(new Error(`Failed to load video: ${video.error?.message}`)), { once: true });
+            });
+            """
+        }
     }
 
     private func waitForModelReady() async throws {
@@ -2575,6 +3075,42 @@ extension AppKitGesturesTests.Basic {
             </body>
             """
         try await page.load(html: html).wait()
+    }
+
+    private func startRecordingMinimumSeenScrollOffset() async throws {
+        try await page.callJavaScript {
+            """
+            window._minimumSeenScrollOffset = { x: 0, y: 0 };
+            window.addEventListener("scroll", () => {
+                const minimum = window._minimumSeenScrollOffset;
+                minimum.x = Math.min(minimum.x, window.pageXOffset);
+                minimum.y = Math.min(minimum.y, window.pageYOffset);
+            }, { passive: true });
+            """
+        }
+    }
+
+    private func minimumSeenScrollOffset() async throws -> CGPoint {
+        let offset = try await page.callJavaScript(returning: [Double].self) {
+            "return [window._minimumSeenScrollOffset.x, window._minimumSeenScrollOffset.y];"
+        }
+
+        try #require(offset.count == 2)
+
+        return CGPoint(x: offset[0], y: offset[1])
+    }
+
+    private func diagonallyPullPastTopLeftCorner() async {
+        let start = screenBounds(ofPointInWindowCoordinates: window.frame.center)
+        let end = CGPoint(x: start.x + 250, y: start.y + 250)
+
+        await recap.play { composer in
+            composer._wk_drag(withStart: start, end: end, duration: .seconds(0.4), release: false)
+            composer.advanceTime(0.4)
+            composer._wk_mouseUp()
+        }
+
+        await page.waitForNextPresentationUpdate()
     }
 
     private func loadTallDocument() async throws {

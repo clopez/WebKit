@@ -200,9 +200,130 @@ inline XRView& fromAPI(WGPUXRView view)
     return static_cast<XRView&>(*view);
 }
 
+// Associates a chainable extension struct with its sType tag. Specialize for each struct
+// that findChainedStruct() is used with.
+template<typename T> struct ChainedStructSType;
+
+template<> struct ChainedStructSType<WGPUShaderSourceWGSL> {
+    static constexpr WGPUSType value = WGPUSType_ShaderSourceWGSL;
+};
+
+template<> struct ChainedStructSType<WGPUInstanceCocoaDescriptor> {
+    static constexpr WGPUSType value = static_cast<WGPUSType>(WGPUSTypeExtended_InstanceCocoaDescriptor);
+};
+
+template<> struct ChainedStructSType<WGPUSurfaceDescriptorCocoaCustomSurface> {
+    static constexpr WGPUSType value = static_cast<WGPUSType>(WGPUSTypeExtended_SurfaceDescriptorCocoaSurfaceBacking);
+};
+
+// Walks a descriptor's nextInChain looking for one particular extension struct. Every
+// chainable struct starts with its WGPUChainedStruct, so the match can be cast to it.
+template<typename T>
+inline const T* findChainedStruct(const WGPUChainedStruct* chain)
+{
+    static_assert(std::is_same_v<decltype(T::chain), WGPUChainedStruct>);
+    for (; chain; chain = chain->next) {
+        if (chain->sType == ChainedStructSType<T>::value)
+            return reinterpret_cast<const T*>(chain);
+    }
+    return nullptr;
+}
+
 inline String fromAPI(const char* string)
 {
     return String::fromUTF8(string);
+}
+
+inline String fromAPI(WGPUStringView string)
+{
+    if (!string.data)
+        return { };
+    if (string.length == WGPU_STRLEN)
+        return String::fromUTF8(string.data);
+    return String::fromUTF8(unsafeMakeSpan(string.data, string.length));
+}
+
+// Literals have static storage, so the view can borrow them freely.
+inline WGPUStringView toAPI(ASCIILiteral literal)
+{
+    return { literal.characters(), literal.length() };
+}
+
+// Borrows already-encoded UTF-8 bytes, so the result only lives as long as the argument.
+inline WGPUStringView toAPI(const UTF8CString& string LIFETIME_BOUND)
+{
+    auto bytes = byteCast<char>(string.span());
+    return { bytes.data(), bytes.size() };
+}
+
+inline std::span<const WGPUBindGroupLayout> bindGroupLayoutsSpan(const WGPUPipelineLayoutDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.bindGroupLayouts, descriptor.bindGroupLayoutCount);
+}
+
+inline std::span<const WGPUTextureFormat> colorFormatsSpan(const WGPURenderBundleEncoderDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.colorFormats, descriptor.colorFormatCount);
+}
+
+inline std::span<const WGPUBindGroupEntry> entriesSpan(const WGPUBindGroupDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.entries, descriptor.entryCount);
+}
+
+inline std::span<const WGPUBindGroupLayoutEntry> entriesSpan(const WGPUBindGroupLayoutDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.entries, descriptor.entryCount);
+}
+
+inline std::span<const WGPUConstantEntry> constantsSpan(const WGPUComputeState& state)
+{
+    return unsafeMakeSpan(state.constants, state.constantCount);
+}
+
+inline std::span<const WGPUConstantEntry> constantsSpan(const WGPUVertexState& state)
+{
+    return unsafeMakeSpan(state.constants, state.constantCount);
+}
+
+inline std::span<const WGPUConstantEntry> constantsSpan(const WGPUFragmentState& state)
+{
+    return unsafeMakeSpan(state.constants, state.constantCount);
+}
+
+inline std::span<const WGPUShaderModuleCompilationHint> hintsSpan(const WGPUShaderModuleDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.hints, descriptor.hintCount);
+}
+
+inline std::span<const WGPUTextureFormat> viewFormatsSpan(const WGPUTextureDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.viewFormats, descriptor.viewFormatCount);
+}
+
+inline std::span<const WGPUVertexAttribute> attributesSpan(const WGPUVertexBufferLayout& layout)
+{
+    return unsafeMakeSpan(layout.attributes, layout.attributeCount);
+}
+
+inline std::span<const WGPUFeatureName> requiredFeaturesSpan(const WGPUDeviceDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.requiredFeatures, descriptor.requiredFeatureCount);
+}
+
+inline std::span<const WGPURenderPassColorAttachment> colorAttachmentsSpan(const WGPURenderPassDescriptor& descriptor)
+{
+    return unsafeMakeSpan(descriptor.colorAttachments, descriptor.colorAttachmentCount);
+}
+
+inline std::span<const WGPUVertexBufferLayout> buffersSpan(const WGPUVertexState& state)
+{
+    return unsafeMakeSpan(state.buffers, state.bufferCount);
+}
+
+inline std::span<const WGPUColorTargetState> targetsSpan(const WGPUFragmentState& state)
+{
+    return unsafeMakeSpan(state.targets, state.targetCount);
 }
 
 template<typename R, typename... Args>

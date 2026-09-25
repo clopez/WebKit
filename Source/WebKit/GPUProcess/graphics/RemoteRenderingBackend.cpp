@@ -219,6 +219,44 @@ void RemoteRenderingBackend::moveToImageBuffer(RemoteSerializedImageBufferIdenti
     MESSAGE_CHECK(result.isNewEntry, "Duplicate ImageBuffer");
 }
 
+void RemoteRenderingBackend::moveSerializedBufferToTransferHeap(RemoteSerializedImageBufferIdentifier serializedIdentifier, CompletionHandler<void(std::optional<WebCore::ImageBufferTransferIdentifier>)>&& completionHandler)
+{
+    assertIsCurrent(workQueue());
+    std::optional<WebCore::ImageBufferTransferIdentifier> result;
+    [&] {
+        RefPtr imageBuffer = m_sharedResourceCache->takeSerializedImageBuffer(serializedIdentifier);
+        MESSAGE_CHECK(imageBuffer, "Missing SerializedImageBuffer");
+        result = GPUProcess::singleton().depositTransferredImageBuffer(m_gpuConnectionToWebProcess->webProcessIdentifier(), imageBuffer.releaseNonNull());
+    }();
+    // The identifier exists only once the buffer has been deposited, so a claim made with it can
+    // never arrive too early.
+    completionHandler(result);
+}
+
+void RemoteRenderingBackend::takeTransferredBuffer(WebCore::ImageBufferTransferIdentifier transferIdentifier, RenderingResourceIdentifier imageBufferIdentifier, RemoteGraphicsContextIdentifier contextIdentifier)
+{
+    assertIsCurrent(workQueue());
+    RefPtr imageBuffer = GPUProcess::singleton().takeTransferredImageBuffer(transferIdentifier);
+    if (!imageBuffer) {
+        // Discarded along with the process that owned it, or claimed already by a process that
+        // was given the same identifier. Neither is this process's doing, so it is left with a
+        // buffer that failed to be created rather than terminated.
+        RELEASE_LOG(RemoteLayerBuffers, "[renderingBackend=%" PRIu64 "] RemoteRenderingBackend::takeTransferredBuffer - no buffer to take for image buffer %" PRIu64, m_renderingBackendIdentifier.toUInt64(), imageBufferIdentifier.toUInt64());
+        imageBuffer = ImageBuffer::create<NullImageBufferBackend>({ 0, 0 }, 1, ColorSpace::SRGB(), { PixelFormat::BGRA8 }, RenderingPurpose::Unspecified, { });
+        RELEASE_ASSERT(imageBuffer);
+        streamConnection().send(Messages::RemoteImageBufferProxy::DidFailToCreateBackend(), imageBufferIdentifier);
+        auto result = m_remoteImageBuffers.add(imageBufferIdentifier, RemoteImageBuffer::create(imageBuffer.releaseNonNull(), imageBufferIdentifier, contextIdentifier, *this));
+        MESSAGE_CHECK(result.isNewEntry, "Duplicate ImageBuffer");
+        return;
+    }
+
+    ImageBufferCreationContext creationContext;
+    adjustImageBufferCreationContext(m_sharedResourceCache, creationContext);
+    imageBuffer->transferToNewContext(creationContext);
+    auto result = m_remoteImageBuffers.add(imageBufferIdentifier, RemoteImageBuffer::create(imageBuffer.releaseNonNull(), imageBufferIdentifier, contextIdentifier, *this));
+    MESSAGE_CHECK(result.isNewEntry, "Duplicate ImageBuffer");
+}
+
 void RemoteRenderingBackend::createSnapshotRecorder(RemoteSnapshotRecorderIdentifier identifier, RemoteSnapshotIdentifier snapshotIdentifier)
 {
     assertIsCurrent(workQueue());

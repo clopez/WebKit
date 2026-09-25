@@ -615,6 +615,21 @@ FloatQuad FrameView::convertToRootViewAcrossIsolatedFrames(const FloatQuad& quad
     };
 }
 
+FloatPoint FrameView::contentsToMainFrameView(FloatPoint point) const
+{
+    return convertToRootViewAcrossIsolatedFrames(contentsToView(point));
+}
+
+FloatQuad FrameView::contentsToMainFrameView(const FloatQuad& quad) const
+{
+    return {
+        contentsToMainFrameView(quad.p1()),
+        contentsToMainFrameView(quad.p2()),
+        contentsToMainFrameView(quad.p3()),
+        contentsToMainFrameView(quad.p4()),
+    };
+}
+
 FloatRect FrameView::rootViewToContentsAcrossIsolatedFrames(FloatRect rect) const
 {
     return viewToContents(convertFromRootViewAcrossIsolatedFrames(rect));
@@ -623,6 +638,11 @@ FloatRect FrameView::rootViewToContentsAcrossIsolatedFrames(FloatRect rect) cons
 IntRect FrameView::contentsToMainFrameView(const IntRect& rect) const
 {
     return convertToRootViewAcrossIsolatedFrames(contentsToView(rect));
+}
+
+IntPoint FrameView::contentsToMainFrameView(const IntPoint& point) const
+{
+    return roundedIntPoint(convertToRootViewAcrossIsolatedFrames(FloatPoint { contentsToView(point) }));
 }
 
 }

@@ -36,7 +36,14 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(TextureView);
 
 TextureView::TextureView(id<MTLTexture> texture, const WGPUTextureViewDescriptor& descriptor, const std::optional<WGPUExtent3D>& renderExtent, Texture& parentTexture, Device& device)
     : m_texture(texture)
-    , m_descriptor(descriptor)
+    , m_format(descriptor.format)
+    , m_dimension(descriptor.dimension)
+    , m_baseMipLevel(descriptor.baseMipLevel)
+    , m_mipLevelCount(descriptor.mipLevelCount)
+    , m_baseArrayLayer(descriptor.baseArrayLayer)
+    , m_arrayLayerCount(descriptor.arrayLayerCount)
+    , m_aspect(descriptor.aspect)
+    , m_usage(descriptor.usage)
     , m_renderExtent(renderExtent)
     , m_device(device)
     , m_parentTexture(parentTexture)
@@ -44,8 +51,7 @@ TextureView::TextureView(id<MTLTexture> texture, const WGPUTextureViewDescriptor
 }
 
 TextureView::TextureView(Texture& texture, Device& device)
-    : m_descriptor { }
-    , m_device(device)
+    : m_device(device)
     , m_parentTexture(texture)
 {
 }
@@ -98,11 +104,11 @@ uint32_t TextureView::depthOrArrayLayers() const
     return m_parentTexture->physicalMiplevelSpecificTextureExtent(baseMipLevel()).depthOrArrayLayers;
 }
 
-WGPUTextureUsageFlags TextureView::usage() const
+WGPUTextureUsage TextureView::usage() const
 {
     // The descriptor's usage was resolved to the parent texture's usage when the view was created
     // if the view did not narrow it, so this is the set of usages the view itself allows.
-    return m_descriptor.usage;
+    return m_usage;
 }
 
 id<MTLTexture> TextureView::texture() const
@@ -122,7 +128,7 @@ WGPUTextureFormat TextureView::parentFormat() const
 
 WGPUTextureFormat TextureView::format() const
 {
-    return m_descriptor.format;
+    return m_format;
 }
 
 uint32_t TextureView::parentMipLevelCount() const
@@ -132,32 +138,32 @@ uint32_t TextureView::parentMipLevelCount() const
 
 uint32_t TextureView::mipLevelCount() const
 {
-    return m_descriptor.mipLevelCount;
+    return m_mipLevelCount;
 }
 
 uint32_t TextureView::baseMipLevel() const
 {
-    return m_descriptor.baseMipLevel;
+    return m_baseMipLevel;
 }
 
 WGPUTextureAspect TextureView::aspect() const
 {
-    return m_descriptor.aspect;
+    return m_aspect;
 }
 
 uint32_t TextureView::arrayLayerCount() const
 {
-    return m_descriptor.arrayLayerCount;
+    return m_arrayLayerCount;
 }
 
 uint32_t TextureView::baseArrayLayer() const
 {
-    return m_descriptor.baseArrayLayer;
+    return m_baseArrayLayer;
 }
 
 WGPUTextureViewDimension TextureView::dimension() const
 {
-    return m_descriptor.dimension;
+    return m_dimension;
 }
 
 bool TextureView::isDestroyed() const
@@ -206,7 +212,7 @@ void wgpuTextureViewRelease(WGPUTextureView textureView)
     WebGPU::fromAPI(textureView).deref();
 }
 
-void wgpuTextureViewSetLabel(WGPUTextureView textureView, const char* label)
+void wgpuTextureViewSetLabel(WGPUTextureView textureView, WGPUStringView label)
 {
     protect(WebGPU::fromAPI(textureView))->setLabel(WebGPU::fromAPI(label));
 }

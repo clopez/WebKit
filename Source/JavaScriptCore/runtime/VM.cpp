@@ -82,6 +82,7 @@
 #include "JSMicrotask.h"
 #include "JSMicrotaskDispatcher.h"
 #include "JSModuleLoaderInlines.h"
+#include "JSONTransitionCacheInlines.h"
 #include "JSPromise.h"
 #include "JSPromiseCombinatorsContextInlines.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
@@ -410,6 +411,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_fastArrayValuesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastArrayKeysSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastArrayEntriesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
+        m_fastArraySentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastMapKeysSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastMapValuesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastMapEntriesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
@@ -476,7 +478,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             int token;
             notify_register_dispatch(key, &token, mainDispatchQueueSingleton(), ^(int) {
                 dataLogLn("<BYTECODE.STAT><", pid, "> Dumping");
-                if (!m_perBytecodeProfiler->save(pathOutString->legacyCStringPointer()))
+                if (!m_perBytecodeProfiler->save(pathOutString.get()))
                     dataLogLn("<BYTECODE.STAT><", pid, "> Failed to dump to ", pathOutString.get(), ". Do you need to add a sandbox extension? ((allow file-write* (subpath \"/private/tmp/\")) in WebProcess.sb.in");
                 else
                     dataLogLn("<BYTECODE.STAT><", pid, "> Dumped to ", pathOutString.get());
@@ -486,7 +488,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
         if (Options::dumpProfilerDataAtExit()) [[unlikely]]
-            m_perBytecodeProfiler->registerToSaveAtExit(pathOutString->legacyCStringPointer());
+            m_perBytecodeProfiler->registerToSaveAtExit(pathOutString.get());
     }
 
     // Initialize this last, as a free way of asserting that VM initialization itself
@@ -1906,6 +1908,7 @@ void VM::beginMarking()
 void VM::reconcileWeakReferencesAtGCEnd()
 {
     m_syncResumeCallCache->reconcileWeakReferencesAtGCEnd(*this);
+    jsonTransitionCache.reconcileAtGCEnd();
 }
 
 void VM::clearMicrotaskCallCaches()
@@ -1920,6 +1923,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
         microtaskQueue->visitAggregate(visitor);
     });
     numericStrings.visitAggregate(visitor);
+    jsonTransitionCache.visitAggregate(visitor);
     m_builtinExecutables->visitAggregate(visitor);
     m_regExpCache->visitAggregate(visitor);
 
@@ -1988,6 +1992,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(m_fastArrayValuesSentinel);
     visitor.append(m_fastArrayKeysSentinel);
     visitor.append(m_fastArrayEntriesSentinel);
+    visitor.append(m_fastArraySentinel);
     visitor.append(m_fastMapKeysSentinel);
     visitor.append(m_fastMapValuesSentinel);
     visitor.append(m_fastMapEntriesSentinel);

@@ -132,6 +132,9 @@ fast/dom/Window/slow-unload-handler-only-frame-is-stopped.html
 
 webkit.org/b/306558 accessibility/mac/style-range.html [ Failure ]
 
+http/tests/site-isolation/date-time-picker-in-cross-origin-iframe-001.html [ Pass ]
+http/tests/site-isolation/date-time-picker-in-cross-origin-iframe-002.html [ Pass ]
+
 # Site isolation accessibility tests using the accessibility client API:
 # Skip by default, enable tests that are stable.
 http/tests/site-isolation/accessibility/client [ Skip ]
@@ -1497,7 +1500,7 @@ webkit.org/b/207723 http/tests/contentextensions/hide-on-ping-with-ping-that-red
 
 webkit.org/b/207978 imported/w3c/web-platform-tests/service-workers/service-worker/resource-timing.sub.https.html [ Pass Failure ]
 
-webkit.org/b/208219 compositing/video/video-clip-change-src.html [ Pass ImageOnlyFailure ]
+webkit.org/b/208219 [ x86_64 ] compositing/video/video-clip-change-src.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/208220 [ Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/loading-the-media-resource/resource-selection-pointer-control.html [ Pass Failure ]
 
@@ -2543,3 +2546,9 @@ webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/drop-shad
 
 # A filtered layer under a 3D transformed ancestor is rasterized below screen resolution and its drop shadow lands in the wrong place.
 webkit.org/b/324624 imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-near-eye-plane.html [ ImageOnlyFailure ]
+
+# Reaching an unpremultiplied 8 bit PNG decode needs kCGImageSourceCreateUnpremultipliedPNG, which
+# HAVE(IMAGEIO_CREATE_UNPREMULTIPLIED_PNG) does not define for macOS. ImageIO defaults to
+# unpremultiplied on macOS 27, so this only fails on 26 and earlier. 16 bit decodes are
+# unpremultiplied either way, so copy-external-image-image-bitmap-alpha.html runs everywhere.
+webkit.org/b/285186 [ Sequoia Tahoe ] fast/webgpu/copy-external-image-image-bitmap-alpha-8bpc.html [ Failure ]

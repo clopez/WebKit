@@ -543,8 +543,6 @@ public:
     void remoteAudioSessionConfigurationChanged(const RemoteAudioSessionConfiguration&);
 #endif
 
-    void registerURLSchemeAsCORSEnabled(const String&);
-
 private:
     WebProcess();
     ~WebProcess();
@@ -586,6 +584,7 @@ private:
     void registerURLSchemeAsNoAccess(const String&) const;
 #endif
     void registerURLSchemeAsDisplayIsolated(const String&) const;
+    void registerURLSchemeAsCORSEnabled(const String&);
     void registerURLSchemeAsAlwaysRevalidated(const String&) const;
     void registerURLSchemeAsCachePartitioned(const String&) const;
     void registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String&) const;
@@ -900,6 +899,7 @@ private:
 #if PLATFORM(GTK) || PLATFORM(WPE)
     OptionSet<RendererBufferTransportMode> m_rendererBufferTransportMode;
     OptionSet<AvailableInputDevices> m_availableInputDevices;
+    bool m_isStoppingRunLoop { false };
 #endif
 
     bool m_hasSuspendedPageProxy { false };

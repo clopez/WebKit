@@ -418,6 +418,7 @@ void JIT::privateCompileMainPass()
 
         DEFINE_OP(op_iterator_open)
         DEFINE_OP(op_iterator_next)
+        DEFINE_OP(op_iterator_close_check)
         DEFINE_OP(op_async_iterator_next)
 
         DEFINE_OP(op_ret)
@@ -1079,9 +1080,9 @@ int JIT::stackPointerOffsetFor(CodeBlock* codeBlock)
     return stackPointerOffsetFor(codeBlock->unlinkedCodeBlock());
 }
 
-UncheckedKeyHashMap<CString, Seconds> JIT::compileTimeStats()
+UncheckedKeyHashMap<ASCIICString, Seconds> JIT::compileTimeStats()
 {
-    UncheckedKeyHashMap<CString, Seconds> result;
+    UncheckedKeyHashMap<ASCIICString, Seconds> result;
     if (Options::reportTotalCompileTimes()) {
         result.add("Total Compile Time"_s, totalCompileTime());
         result.add("Baseline Compile Time"_s, totalBaselineCompileTime);

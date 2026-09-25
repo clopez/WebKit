@@ -132,7 +132,7 @@ RenderPassEncoder::RenderPassEncoder(id<MTLRenderCommandEncoder> renderCommandEn
         m_descriptor.colorAttachments = &m_descriptorColorAttachments[0];
     if (descriptor.depthStencilAttachment)
         m_descriptor.depthStencilAttachment = &m_descriptorDepthStencilAttachment;
-    auto colorAttachments = descriptor.colorAttachmentsSpan();
+    auto colorAttachments = colorAttachmentsSpan(descriptor);
     for (auto& attachment : colorAttachments) {
         auto texture = attachment.view ? TextureOrTextureView(static_cast<TextureView*>(attachment.view)) : TextureOrTextureView(static_cast<Texture*>(attachment.texture));
         m_colorAttachmentViews.append(texture);
@@ -176,7 +176,7 @@ RenderPassEncoder::RenderPassEncoder(id<MTLRenderCommandEncoder> renderCommandEn
             [m_attachmentsToClear setObject:textureWithClearColor forKey:@(i)];
         }
 
-        textureWithClearColor.depthPlane = texture.isDestroyed() ? 0 : attachment.depthSlice.value_or(0);
+        textureWithClearColor.depthPlane = texture.isDestroyed() || attachment.depthSlice == WGPU_DEPTH_SLICE_UNDEFINED ? 0 : attachment.depthSlice;
     }
 
     if (const auto* attachment = descriptor.depthStencilAttachment) {
@@ -1225,8 +1225,8 @@ bool RenderPassEncoder::splitRenderPass()
         m_metalDescriptor.depthAttachment.loadAction = MTLLoadActionLoad;
         m_metalDescriptor.stencilAttachment.loadAction = MTLLoadActionLoad;
     }
-    m_priorVertexDynamicOffsets.clear();
-    m_priorFragmentDynamicOffsets.clear();
+    m_priorVertexDynamicOffsets.shrink(0);
+    m_priorFragmentDynamicOffsets.shrink(0);
 
     m_renderCommandEncoder = [m_parentEncoder->commandBuffer() renderCommandEncoderWithDescriptor:m_metalDescriptor];
     m_parentEncoder->setExistingEncoder(m_renderCommandEncoder);
@@ -1695,10 +1695,10 @@ void RenderPassEncoder::executeBundles(Vector<Ref<RenderBundle>>&& bundles)
     m_bindGroupDynamicOffsets.clear();
     m_bindGroupDynamicOffsetsChanged.fill(true);
     m_pipeline = nullptr;
-    m_vertexDynamicOffsets.clear();
-    m_priorVertexDynamicOffsets.clear();
-    m_fragmentDynamicOffsets.clear();
-    m_priorFragmentDynamicOffsets.clear();
+    m_vertexDynamicOffsets.shrink(0);
+    m_priorVertexDynamicOffsets.shrink(0);
+    m_fragmentDynamicOffsets.shrink(0);
+    m_priorFragmentDynamicOffsets.shrink(0);
     m_indexBuffer = nullptr;
     m_maxVertexBufferSlot = 0;
     m_maxBindGroupSlot = 0;
@@ -2098,7 +2098,7 @@ void wgpuRenderPassEncoderExecuteBundles(WGPURenderPassEncoder renderPassEncoder
     protect(WebGPU::fromAPI(renderPassEncoder))->executeBundles(WTF::move(bundlesToForward));
 }
 
-void wgpuRenderPassEncoderInsertDebugMarker(WGPURenderPassEncoder renderPassEncoder, const char* markerLabel)
+void wgpuRenderPassEncoderInsertDebugMarker(WGPURenderPassEncoder renderPassEncoder, WGPUStringView markerLabel)
 {
     protect(WebGPU::fromAPI(renderPassEncoder))->insertDebugMarker(WebGPU::fromAPI(markerLabel));
 }
@@ -2108,7 +2108,7 @@ void wgpuRenderPassEncoderPopDebugGroup(WGPURenderPassEncoder renderPassEncoder)
     protect(WebGPU::fromAPI(renderPassEncoder))->popDebugGroup();
 }
 
-void wgpuRenderPassEncoderPushDebugGroup(WGPURenderPassEncoder renderPassEncoder, const char* groupLabel)
+void wgpuRenderPassEncoderPushDebugGroup(WGPURenderPassEncoder renderPassEncoder, WGPUStringView groupLabel)
 {
     protect(WebGPU::fromAPI(renderPassEncoder))->pushDebugGroup(WebGPU::fromAPI(groupLabel));
 }
@@ -2156,7 +2156,7 @@ void wgpuRenderPassEncoderSetViewport(WGPURenderPassEncoder renderPassEncoder, f
     protect(WebGPU::fromAPI(renderPassEncoder))->setViewport(x, y, width, height, minDepth, maxDepth);
 }
 
-void wgpuRenderPassEncoderSetLabel(WGPURenderPassEncoder renderPassEncoder, const char* label)
+void wgpuRenderPassEncoderSetLabel(WGPURenderPassEncoder renderPassEncoder, WGPUStringView label)
 {
     protect(WebGPU::fromAPI(renderPassEncoder))->setLabel(WebGPU::fromAPI(label));
 }

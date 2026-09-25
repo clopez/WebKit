@@ -29,7 +29,6 @@
 #if PLATFORM(COCOA)
 
 #import "CMUtilities.h"
-#import "FormatDescriptionUtilities.h"
 #import "FourCC.h"
 #import "HEVCUtilities.h"
 #import "Logging.h"
@@ -210,92 +209,7 @@ std::optional<PlatformMediaCapabilitiesInfo> validateDoViParameters(const DoViPa
 
 Vector<uint8_t> convertHEVCCMSampleBufferToAnnexB(CMSampleBufferRef hvccSampleBuffer, bool isKeyframe)
 {
-    static constexpr uint8_t annexBHeaderBytes[] = { 0, 0, 0, 1 };
-    static constexpr size_t avccHeaderByteSize = sizeof(uint32_t);
-
-    Vector<uint8_t> annexBBuffer;
-
-    RetainPtr description = PAL::CMSampleBufferGetFormatDescription(hvccSampleBuffer);
-    if (!description) {
-        RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB no description");
-        return annexBBuffer;
-    }
-
-    int naluHeaderSize = 0;
-    size_t paramSetCount = 0;
-    if (PAL::CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(description, 0, nullptr, nullptr, &paramSetCount, &naluHeaderSize) != noErr)
-        return annexBBuffer;
-    if (naluHeaderSize != avccHeaderByteSize) {
-        RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB unexpected nalu header size");
-        return annexBBuffer;
-    }
-
-    if (isKeyframe) {
-        for (size_t i = 0; i < paramSetCount; ++i) {
-            const uint8_t* paramSet = nullptr;
-            size_t paramSetSize = 0;
-            if (PAL::CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(description, i, &paramSet, &paramSetSize, nullptr, nullptr) != noErr || !paramSet)
-                return { };
-            annexBBuffer.append(std::span { annexBHeaderBytes });
-            annexBBuffer.append(unsafeMakeSpan(paramSet, paramSetSize));
-        }
-    }
-
-    RetainPtr blockBuffer = PAL::CMSampleBufferGetDataBuffer(hvccSampleBuffer);
-    if (!blockBuffer) {
-        RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB no block buffer");
-        return { };
-    }
-
-    RetainPtr contiguousBuffer = ensureContiguousBlockBuffer(blockBuffer);
-    if (!contiguousBuffer) {
-        RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB unable to create a contiguous block buffer");
-        return { };
-    }
-
-    auto dataSpan = [](auto contiguousBuffer) -> std::optional<std::span<const uint8_t>> {
-        char* dataPtr = nullptr;
-        size_t blockBufferSize = PAL::CMBlockBufferGetDataLength(contiguousBuffer);
-        if (PAL::CMBlockBufferGetDataPointer(contiguousBuffer, 0, nullptr, nullptr, &dataPtr) != noErr)
-            return { };
-        return unsafeMakeSpan(byteCast<uint8_t>(dataPtr), blockBufferSize);
-    }(contiguousBuffer);
-    if (!dataSpan) {
-        RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB unable to get block buffer data");
-        return { };
-    }
-
-    auto data = *dataSpan;
-    while (data.size() > 0) {
-        if (data.size() < avccHeaderByteSize) {
-            RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB missing data");
-            return { };
-        }
-        uint32_t packetSize;
-        memcpySpan(asMutableByteSpan(packetSize), data.first(avccHeaderByteSize));
-        packetSize = flipBytes(packetSize);
-        size_t bytesWritten = packetSize + avccHeaderByteSize;
-        if (bytesWritten > data.size()) {
-            RELEASE_LOG_ERROR(WebRTC, "convertHEVCCMSampleBufferToAnnexB missing data");
-            return { };
-        }
-        annexBBuffer.append(std::span { annexBHeaderBytes });
-        annexBBuffer.append(data.subspan(avccHeaderByteSize, packetSize));
-        data = data.subspan(bytesWritten);
-    }
-
-    return annexBBuffer;
-}
-
-// FIXME: Remove this default. https://bugs.webkit.org/show_bug.cgi?id=324554
-static PlatformVideoColorSpace defaultHEVCPlatformVideoColorSpace()
-{
-    return {
-        PlatformVideoColorPrimaries::Bt709,
-        PlatformVideoTransferCharacteristics::Iec6196621,
-        PlatformVideoMatrixCoefficients::Bt709,
-        true
-    };
+    return convertParameterSetsCMSampleBufferToAnnexB(hvccSampleBuffer, isKeyframe, PAL::CMVideoFormatDescriptionGetHEVCParameterSetAtIndex);
 }
 
 static RetainPtr<CMFormatDescriptionRef> createHEVCFormatDescriptionFromParameterSets(std::span<const uint8_t* const> paramSetPointers, std::span<const size_t> paramSetSizes, size_t nalUnitHeaderLength)
@@ -306,47 +220,28 @@ static RetainPtr<CMFormatDescriptionRef> createHEVCFormatDescriptionFromParamete
     return adoptCF(rawDescription);
 }
 
-static RefPtr<VideoInfo> createVideoInfoFromHEVCFormatDescription(CMFormatDescriptionRef description, Ref<SharedBuffer>&& hvcCData)
+static bool hevcAnnexBVpsIsFollowedBySpsAndPps(std::span<const uint8_t> data, const Vector<NaluIndex>& naluIndices, size_t vpsIndex)
 {
-    auto dimensions = PAL::CMVideoFormatDescriptionGetDimensions(description);
-    auto presentationDimensions = PAL::CMVideoFormatDescriptionGetPresentationDimensions(description, true, true);
-
-    return VideoInfo::create({
-        {
-            .codecName = kCMVideoCodecType_HEVC
-        }, {
-            .size = { static_cast<float>(dimensions.width), static_cast<float>(dimensions.height) },
-            .displaySize = { static_cast<float>(presentationDimensions.width), static_cast<float>(presentationDimensions.height) },
-            .colorSpace = defaultHEVCPlatformVideoColorSpace(),
-            .extensionAtoms = { FillWith { }, 1, { computeBoxType(kCMVideoCodecType_HEVC), WTF::move(hvcCData) } },
-        }
-    });
-}
-
-static bool hevcAnnexBVpsIsFollowedBySpsAndPps(std::span<const uint8_t> data, const HEVCAnnexBNaluIndices& naluIndices)
-{
-    auto& indices = naluIndices.indices;
-    if (!naluIndices.vpsIndex || *naluIndices.vpsIndex + 2 >= indices.size())
+    if (vpsIndex + 2 >= naluIndices.size())
         return false;
 
-    auto& spsIndex = indices[*naluIndices.vpsIndex + 1];
-    auto& ppsIndex = indices[*naluIndices.vpsIndex + 2];
+    auto& spsIndex = naluIndices[vpsIndex + 1];
+    auto& ppsIndex = naluIndices[vpsIndex + 2];
     return spsIndex.payloadSize && hevcNaluType(data[spsIndex.payloadStartOffset]) == HEVCNaluType::Sps
         && ppsIndex.payloadSize && hevcNaluType(data[ppsIndex.payloadStartOffset]) == HEVCNaluType::Pps;
 }
 
-RefPtr<VideoInfo> createVideoInfoFromHEVCAnnexBStream(std::span<const uint8_t> data, const HEVCAnnexBNaluIndices& naluIndices)
+RefPtr<VideoInfo> createVideoInfoFromHEVCAnnexBStream(std::span<const uint8_t> data, const Vector<NaluIndex>& naluIndices)
 {
-    if (!hevcAnnexBVpsIsFollowedBySpsAndPps(data, naluIndices)) {
+    auto vpsIndex = findHEVCAnnexBVpsIndex(data, naluIndices);
+    if (vpsIndex == notFound || !hevcAnnexBVpsIsFollowedBySpsAndPps(data, naluIndices, vpsIndex)) {
         RELEASE_LOG_ERROR(WebRTC, "createVideoInfoFromHEVCAnnexBStream NAL units following VPS are not SPS/PPS");
         return nullptr;
     }
 
-    auto& indices = naluIndices.indices;
-    size_t vpsIndex = *naluIndices.vpsIndex;
     std::array<std::span<const uint8_t>, 3> paramSets;
     for (size_t i = 0; i < paramSets.size(); ++i) {
-        auto& index = indices[vpsIndex + i];
+        auto& index = naluIndices[vpsIndex + i];
         paramSets[i] = data.subspan(index.payloadStartOffset, index.payloadSize);
     }
     std::array<const uint8_t*, 3> paramSetPointers { paramSets[0].data(), paramSets[1].data(), paramSets[2].data() };
@@ -356,37 +251,31 @@ RefPtr<VideoInfo> createVideoInfoFromHEVCAnnexBStream(std::span<const uint8_t> d
     if (!description)
         return nullptr;
 
-    RetainPtr sampleExtensionsDict = dynamic_cf_cast<CFDictionaryRef>(PAL::CMFormatDescriptionGetExtension(description.get(), PAL::kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms));
-    RetainPtr hvcCData = sampleExtensionsDict ? dynamic_cf_cast<CFDataRef>(CFDictionaryGetValue(sampleExtensionsDict.get(), CFSTR("hvcC"))) : nullptr;
-    if (!hvcCData)
-        return nullptr;
-
-    return createVideoInfoFromHEVCFormatDescription(description.get(), SharedBuffer::create(hvcCData.get()));
+    return createVideoInfoFromFormatDescription(description);
 }
 
-Vector<uint8_t> convertHEVCAnnexBToLengthPrefixed(std::span<const uint8_t> data, const HEVCAnnexBNaluIndices& naluIndices)
+Vector<uint8_t> convertHEVCAnnexBToLengthPrefixed(std::span<const uint8_t> data, const Vector<NaluIndex>& naluIndices)
 {
-    auto& indices = naluIndices.indices;
-
     // We skip all NAL units up to and including the VPS/SPS/PPS triplet, if present, as parameter sets belong in the format description, not in the per-sample data.
     size_t startIndex = 0;
-    if (naluIndices.vpsIndex) {
-        if (hevcAnnexBVpsIsFollowedBySpsAndPps(data, naluIndices))
-            startIndex = *naluIndices.vpsIndex + 3;
+    auto vpsIndex = findHEVCAnnexBVpsIndex(data, naluIndices);
+    if (vpsIndex != notFound) {
+        if (hevcAnnexBVpsIsFollowedBySpsAndPps(data, naluIndices, vpsIndex))
+            startIndex = vpsIndex + 3;
         else
             RELEASE_LOG_ERROR(WebRTC, "convertHEVCAnnexBToLengthPrefixed NAL units following VPS are not SPS/PPS");
     }
 
     size_t totalSize = 0;
-    for (size_t i = startIndex; i < indices.size(); ++i) {
-        if (indices[i].payloadSize)
-            totalSize += sizeof(uint32_t) + indices[i].payloadSize;
+    for (size_t i = startIndex; i < naluIndices.size(); ++i) {
+        if (naluIndices[i].payloadSize)
+            totalSize += sizeof(uint32_t) + naluIndices[i].payloadSize;
     }
 
     Vector<uint8_t> result;
     result.reserveInitialCapacity(totalSize);
-    for (size_t i = startIndex; i < indices.size(); ++i) {
-        auto& index = indices[i];
+    for (size_t i = startIndex; i < naluIndices.size(); ++i) {
+        auto& index = naluIndices[i];
         if (!index.payloadSize)
             continue;
         uint32_t length = flipBytes(static_cast<uint32_t>(index.payloadSize));
@@ -397,7 +286,7 @@ Vector<uint8_t> convertHEVCAnnexBToLengthPrefixed(std::span<const uint8_t> data,
     return result;
 }
 
-RefPtr<VideoInfo> createVideoInfoFromHVCC(std::span<const uint8_t> hvcc, const HVCCParameterSets& parameterSets)
+RefPtr<VideoInfo> createVideoInfoFromHVCC(const HVCCParameterSets& parameterSets)
 {
     if (parameterSets.paramSets.isEmpty())
         return nullptr;
@@ -418,7 +307,7 @@ RefPtr<VideoInfo> createVideoInfoFromHVCC(std::span<const uint8_t> hvcc, const H
     if (!description)
         return nullptr;
 
-    return createVideoInfoFromHEVCFormatDescription(description.get(), SharedBuffer::create(hvcc));
+    return createVideoInfoFromFormatDescription(description);
 }
 
 }

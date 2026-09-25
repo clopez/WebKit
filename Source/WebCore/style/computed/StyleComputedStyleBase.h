@@ -155,6 +155,7 @@ enum class PseudoId : uint8_t;
 enum class RubyPosition : uint8_t;
 enum class RubyAlign : uint8_t;
 enum class RubyOverhang : bool;
+enum class ScrollAxisLock : uint8_t;
 enum class ScrollAxis : uint8_t;
 enum class ScrollSnapStop : bool;
 enum class StyleAppearance : uint8_t;
@@ -552,6 +553,11 @@ public:
     inline bool NODELETE effectiveInert() const;
     bool NODELETE effectiveInertOutOfLine() const;
     inline void setEffectiveInert(bool);
+
+#if ENABLE(SMART_IMAGE_RESIZER)
+    inline bool isAffectedBySmartImageResizer() const;
+    inline void setIsAffectedBySmartImageResizer(bool);
+#endif
 
     inline bool isEffectivelyTransparent() const; // This or any ancestor has opacity 0.
     inline void setIsEffectivelyTransparent(bool);

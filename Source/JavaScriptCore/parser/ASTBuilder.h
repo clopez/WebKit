@@ -1473,15 +1473,12 @@ ExpressionNode* ASTBuilder::makeFunctionCallNode(const JSTokenLocation& location
             return new (m_parserArena) BytecodeIntrinsicNode(BytecodeIntrinsicNode::Type::Function, location, intrinsic->entry(), intrinsic->identifier(), args, divot, divotStart, divotEnd);
     }
 
-    if (func->isOptionalChain()) {
+    if (isOptionalCall && func->isOptionalChain()) {
         OptionalChainNode* optionalChain = static_cast<OptionalChainNode*>(func);
         if (optionalChain->expr()->isLocation()) {
             ASSERT(!optionalChain->expr()->isResolveNode());
-            // We must take care to preserve our `this` value in cases like `a?.b?.()` and `(a?.b)()`, respectively.
-            if (isOptionalCall)
-                return makeFunctionCallNode(location, optionalChain->expr(), previousBaseWasSuper, args, divotStart, divot, divotEnd, callOrApplyChildDepth, isOptionalCall);  
-            optionalChain->setExpr(makeFunctionCallNode(location, optionalChain->expr(), previousBaseWasSuper, args, divotStart, divot, divotEnd, callOrApplyChildDepth, isOptionalCall));
-            return optionalChain;
+            // We must take care to preserve our `this` value in cases like `a?.b?.()`.
+            return makeFunctionCallNode(location, optionalChain->expr(), previousBaseWasSuper, args, divotStart, divot, divotEnd, callOrApplyChildDepth, isOptionalCall);
         }
     }
 
@@ -1524,6 +1521,12 @@ ExpressionNode* ASTBuilder::makeFunctionCallNode(const JSTokenLocation& location
         // i.e:
         // o.hasOwnProperty(p)
         node = new (m_parserArena) HasOwnPropertyFunctionCallDotNode(location, dot->base(), dot->identifier(), dot->type(), args, divot, divotStart, divotEnd, isOptionalCall);
+    } else if (dot->identifier() == m_vm.propertyNames->construct
+        && dot->base()->isResolveNode()
+        && static_cast<ResolveNode*>(dot->base())->identifier() == m_vm.propertyNames->Reflect
+        && args->m_listNode
+        && args->m_listNode->m_next) {
+        node = new (m_parserArena) ReflectConstructFunctionCallDotNode(location, dot->base(), dot->identifier(), dot->type(), args, divot, divotStart, divotEnd, isOptionalCall);
     }
     if (!node)
         node = new (m_parserArena) FunctionCallDotNode(location, dot->base(), dot->identifier(), dot->type(), args, divot, divotStart, divotEnd, isOptionalCall);

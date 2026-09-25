@@ -41,6 +41,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <JavaScriptCore/Interpreter.h>
 #include <JavaScriptCore/JSDateMath.h>
 #include <JavaScriptCore/JSONAtomStringCache.h>
+#include <JavaScriptCore/JSONTransitionCache.h>
 #include <JavaScriptCore/KeyAtomStringCache.h>
 #include <JavaScriptCore/NativeFunction.h>
 #include <JavaScriptCore/NumericStrings.h>
@@ -594,6 +595,7 @@ public:
     WriteBarrier<JSSentinel> m_fastArrayValuesSentinel;
     WriteBarrier<JSSentinel> m_fastArrayKeysSentinel;
     WriteBarrier<JSSentinel> m_fastArrayEntriesSentinel;
+    WriteBarrier<JSSentinel> m_fastArraySentinel;
     WriteBarrier<JSSentinel> m_fastMapKeysSentinel;
     WriteBarrier<JSSentinel> m_fastMapValuesSentinel;
     WriteBarrier<JSSentinel> m_fastMapEntriesSentinel;
@@ -628,6 +630,7 @@ public:
     Ref<StringImpl> lastAtomizedIdentifierStringImpl { *StringImpl::empty() };
     Ref<AtomStringImpl> lastAtomizedIdentifierAtomStringImpl { *static_cast<AtomStringImpl*>(StringImpl::empty()) };
     JSONAtomStringCache jsonAtomStringCache;
+    JSONTransitionCache jsonTransitionCache;
     KeyAtomStringCache keyAtomStringCache;
     Vector<unsigned> stringSplitIndice;
     StringReplaceCache stringReplaceCache;
@@ -664,6 +667,7 @@ public:
     JSSentinel* fastArrayValuesSentinel() { return m_fastArrayValuesSentinel.get(); }
     JSSentinel* fastArrayKeysSentinel() { return m_fastArrayKeysSentinel.get(); }
     JSSentinel* fastArrayEntriesSentinel() { return m_fastArrayEntriesSentinel.get(); }
+    JSSentinel* fastArraySentinel() { return m_fastArraySentinel.get(); }
     JSSentinel* fastMapKeysSentinel() { return m_fastMapKeysSentinel.get(); }
     JSSentinel* fastMapValuesSentinel() { return m_fastMapValuesSentinel.get(); }
     JSSentinel* fastMapEntriesSentinel() { return m_fastMapEntriesSentinel.get(); }

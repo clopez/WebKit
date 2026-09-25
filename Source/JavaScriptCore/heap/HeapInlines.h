@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/Collector.h>
 #include <JavaScriptCore/GCDeferralContext.h>
 #include <JavaScriptCore/Heap.h>
 #include <JavaScriptCore/HeapCellInlines.h>
@@ -224,13 +225,14 @@ inline void Heap::stopIfNecessary()
         stopIfNecessarySlow();
 }
 
-template<typename Func>
-void Heap::forEachSlotVisitor(const Func& func)
+inline SlotVisitor& Heap::collectorSlotVisitor()
 {
-    func(*m_collectorSlotVisitor);
-    func(*m_mutatorSlotVisitor);
-    for (auto& visitor : m_parallelSlotVisitors)
-        func(*visitor);
+    return m_collector->collectorSlotVisitor();
+}
+
+inline bool Heap::isInPhase(CollectorPhase phase) const
+{
+    return m_collector->m_currentPhase == phase;
 }
 
 namespace GCClient {

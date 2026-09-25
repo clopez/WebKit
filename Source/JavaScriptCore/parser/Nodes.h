@@ -1091,6 +1091,14 @@ namespace JSC {
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
     };
 
+    class ReflectConstructFunctionCallDotNode final : public FunctionCallDotNode {
+    public:
+        ReflectConstructFunctionCallDotNode(const JSTokenLocation&, ExpressionNode* base, const Identifier&, DotType, ArgumentsNode*, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, bool isOptionalCall);
+
+    private:
+        RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
+    };
+
     class DeleteResolveNode final : public ExpressionNode, public ThrowableExpressionData {
     public:
         DeleteResolveNode(const JSTokenLocation&, const Identifier&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
@@ -1441,6 +1449,8 @@ namespace JSC {
 
         void setExpr(ExpressionNode* expr) { m_expr = expr; }
         ExpressionNode* expr() const { return m_expr; }
+
+        void emitCallee(BytecodeGenerator&, RegisterID* function, RegisterID* thisRegister);
 
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;

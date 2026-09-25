@@ -49,13 +49,17 @@ protected:
     void setNeedsToSendDescription(bool value) { m_needsToSendDescription = value; }
 
     void notifyEncodedFrame(std::span<const uint8_t>, const GPUVideoEncoderFrameInfo&);
-    void notifyDescription(std::span<const uint8_t>);
+    void notifyDescriptionIfNeeded(CMSampleBufferRef, CFStringRef boxName, const PlatformVideoColorSpace&);
     void notifyError();
     void notifyFrameDropped();
 
-    virtual bool convertAndNotify(RetainPtr<CMSampleBufferRef>&&, GPUVideoEncoderFrameInfo&&) = 0;
+    virtual bool convertAndNotify(RetainPtr<CMSampleBufferRef>&&, GPUVideoEncoderFrameInfo&&, const PlatformVideoColorSpace&) = 0;
+    virtual void configureAdditionalProperties() { }
+    void setProperty(CFStringRef, CFTypeRef);
 
     WorkQueue& queue() { return m_creationInfo.queue; }
+
+    static std::optional<Vector<uint8_t>> toVector(CMSampleBufferRef);
 
 private:
     void initialize(uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate) final;
@@ -67,6 +71,7 @@ private:
     void configureCompressionSession();
     void setEncoderBitrateBps(uint32_t);
     CMVideoCodecType codecType() const;
+    void notifyDescription(std::span<const uint8_t>, const PlatformVideoColorSpace&);
 
     const CreationInfo m_creationInfo;
     const GPUVideoEncoderCallback m_callback;
@@ -80,6 +85,7 @@ private:
     uint16_t m_width WTF_GUARDED_BY_CAPABILITY(queue()) { 0 };
     uint16_t m_height WTF_GUARDED_BY_CAPABILITY(queue()) { 0 };
     unsigned m_targetBitrateBps WTF_GUARDED_BY_CAPABILITY(queue()) { 0 };
+    PlatformVideoColorSpace m_colorSpace WTF_GUARDED_BY_CAPABILITY(queue());
 };
 
 }

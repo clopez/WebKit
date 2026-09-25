@@ -113,6 +113,7 @@
 #include <math.h>
 #include <wtf/Assertions.h>
 #include <wtf/RuntimeApplicationChecks.h>
+#include <wtf/ScopedLambda.h>
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -122,6 +123,10 @@
 #include "SpatialPortalController.h"
 #include "StylePortalTransform.h"
 #include "TypedElementDescendantIteratorInlines.h"
+#endif
+
+#if ENABLE(SMART_IMAGE_RESIZER)
+#include <WebKitAdditions/RenderBoxAdditions.cpp>
 #endif
 
 namespace WebCore {
@@ -467,6 +472,11 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
             && parent() && !parent()->normalChildNeedsLayout())
             parent()->setChildNeedsLayout();
     }
+
+#if ENABLE(SMART_IMAGE_RESIZER)
+    if (imageResizerNeedsUpdateDueToStyleChange(oldStyle, newStyle))
+        view().setSmartImageResizerNeedsUpdate();
+#endif
 
     if (RenderBlock::hasPercentHeightContainerMap() && firstChild()
         && oldHorizontalWritingMode != isHorizontalWritingMode())
@@ -1500,17 +1510,11 @@ bool RenderBox::applyCachedClipAndScrollPosition(RepaintRects& rects, const Rend
     if (effectiveOverflowY() == Overflow::Visible)
         clipRect.expandToInfiniteY();
 
-    if (context.scrollMargin && (isScrollContainerX() || isScrollContainerY())) {
-        auto borderWidths = this->borderWidths();
-        clipRect.contract(borderWidths);
-        auto scrollMarginEdges = LayoutBoxExtent {
-            Style::evaluate<LayoutUnit>(context.scrollMargin->top(), clipRect.height(), Style::ZoomFactor::none()),
-            Style::evaluate<LayoutUnit>(context.scrollMargin->right(), clipRect.width(), Style::ZoomFactor::none()),
-            Style::evaluate<LayoutUnit>(context.scrollMargin->bottom(), clipRect.height(), Style::ZoomFactor::none()),
-            Style::evaluate<LayoutUnit>(context.scrollMargin->left(), clipRect.width(), Style::ZoomFactor::none())
-        };
-
-        clipRect.expand(scrollMarginEdges);
+    if (context.scrollContainerClipRectAdjuster && (isScrollContainerX() || isScrollContainerY())) {
+        auto scrollportRect = clipRect;
+        scrollportRect.contract(borderWidths());
+        if (auto adjustedClipRect = context.adjustScrollContainerClipRect(frame(), scrollportRect))
+            clipRect = *adjustedClipRect;
     }
 
     bool intersects;
@@ -3587,7 +3591,7 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computeSizingKe
         if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(this)) {
             auto computedFixedLogicalWidth = style().logicalWidth().tryFixed();
             auto preferredRatio = renderImage->preferredAspectRatioAsSize();
-            if (computedFixedLogicalWidth && !style().aspectRatio().hasRatio()) {
+            if (computedFixedLogicalWidth && !style().aspectRatio().hasRatio() && !preferredRatio.isEmpty()) {
                 return resolveHeightForRatio(
                     borderAndPaddingLogicalWidth(),
                     borderAndPaddingLogicalHeight(),
@@ -3787,8 +3791,6 @@ bool RenderBox::skipContainingBlockForPercentHeightCalculation(const RenderBox& 
     // For quirks mode, we skip most auto-height containing blocks when computing percentages.
     auto shouldSkipContainingBlockInQuirksMode = [&] {
         ASSERT(document().inQuirksMode());
-        if (containingBlock.isFlexItem() && downcast<RenderFlexibleBox>(containingBlock.parent())->canUseFlexItemForPercentageResolution(containingBlock))
-            return false;
         if (containingBlock.isRenderTableCell())
             return false;
         if (containingBlock.isOutOfFlowPositioned())
@@ -3799,7 +3801,11 @@ bool RenderBox::skipContainingBlockForPercentHeightCalculation(const RenderBox& 
             return false;
         if (is<RenderView>(containingBlock))
             return false;
-        return containingBlock.style().logicalHeight().isAuto();
+        if (!containingBlock.style().logicalHeight().isAuto())
+            return false;
+        if (containingBlock.isFlexItem() && downcast<RenderFlexibleBox>(containingBlock.parent())->canUseFlexItemForPercentageResolution(containingBlock))
+            return false;
+        return true;
     };
     return document().inQuirksMode() && shouldSkipContainingBlockInQuirksMode();
 }

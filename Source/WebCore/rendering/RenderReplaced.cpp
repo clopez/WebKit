@@ -309,6 +309,13 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         return;
     }
 
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+    if (paintInfo.phase == PaintPhase::AXCustomColorCollectBackgrounds) {
+        paintInfo.axCustomColorBackdropContext()->recordBackdrop(*this, FloatRect { LayoutRect(adjustedPaintOffset, borderBoxSize()) }, paintInfo.paintBehavior);
+        return;
+    }
+#endif
+
     SetLayoutNeededForbiddenScope scope(*this);
 
     GraphicsContextStateSaver savedGraphicsContext(paintInfo.context(), false);
@@ -350,7 +357,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
     if (!canHaveChildren() && paintInfo.phase != PaintPhase::Foreground && paintInfo.phase != PaintPhase::Selection)
         return;
-    
+
     if (!paintInfo.shouldPaintWithinRoot(*this))
         return;
 
@@ -414,6 +421,10 @@ bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, const LayoutPoint& paintO
         && paintInfo.phase != PaintPhase::Mask
         && paintInfo.phase != PaintPhase::ClippingMask
         && paintInfo.phase != PaintPhase::EventRegion
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+        && paintInfo.phase != PaintPhase::AXCustomColorCollectBackgrounds
+        && paintInfo.phase != PaintPhase::AXCustomColorComputeBackdrops
+#endif
         && paintInfo.phase != PaintPhase::Accessibility)
         return false;
 
@@ -681,7 +692,7 @@ LayoutRect RenderReplaced::replacedContentRect(const LayoutSize& intrinsicSize) 
     case ObjectFit::Contain:
     case ObjectFit::ScaleDown:
     case ObjectFit::Cover:
-        finalRect.setSize(finalRect.size().fitToAspectRatio(effectiveIntrinsicSize, objectFit == ObjectFit::Cover ? AspectRatioFitGrow : AspectRatioFitShrink));
+        finalRect.setSize(finalRect.size().fitToAspectRatio(effectiveIntrinsicSize, objectFit == ObjectFit::Cover ? AspectRatioFit::Grow : AspectRatioFit::Shrink));
         if (objectFit != ObjectFit::ScaleDown || finalRect.width() <= effectiveIntrinsicSize.width())
             break;
         [[fallthrough]];
@@ -946,14 +957,20 @@ std::pair<LayoutUnit, LayoutUnit> RenderReplaced::computeAspectRatioAdjustedIntr
     auto computedAspectRatio = preferredAspectRatioAsSize().aspectRatioDouble();
     auto computedIntrinsicLogicalWidth = minLogicalWidth;
 
-    if (auto fixedLogicalHeight = style.logicalHeight().tryFixed())
-        computedIntrinsicLogicalWidth = LayoutUnit { fixedLogicalHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio };
+    if (hasReplacedLogicalHeight())
+        computedIntrinsicLogicalWidth = LayoutUnit { computeReplacedLogicalHeightUsing(style.logicalHeight()) * computedAspectRatio };
 
-    if (auto fixedLogicalMaxHeight = style.logicalMaxHeight().tryFixed())
-        computedIntrinsicLogicalWidth = std::min(computedIntrinsicLogicalWidth, LayoutUnit { fixedLogicalMaxHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio });
+    // computeReplacedLogicalHeightUsing() returns a content-box height, so the min/max clamps have to be
+    // content-box too - computeIntrinsicLogicalWidthContributions() adds the border and padding at the end.
+    if (auto fixedLogicalMaxHeight = style.logicalMaxHeight().tryFixed()) {
+        auto maxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalMaxHeight->resolveZoom(style.usedZoomForLength()) });
+        computedIntrinsicLogicalWidth = std::min(computedIntrinsicLogicalWidth, LayoutUnit { maxHeight * computedAspectRatio });
+    }
 
-    if (auto fixedLogicalMinHeight = style.logicalMinHeight().tryFixed())
-        computedIntrinsicLogicalWidth = std::max(computedIntrinsicLogicalWidth, LayoutUnit { fixedLogicalMinHeight->resolveZoom(style.usedZoomForLength()) * computedAspectRatio });
+    if (auto fixedLogicalMinHeight = style.logicalMinHeight().tryFixed()) {
+        auto minHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalMinHeight->resolveZoom(style.usedZoomForLength()) });
+        computedIntrinsicLogicalWidth = std::max(computedIntrinsicLogicalWidth, LayoutUnit { minHeight * computedAspectRatio });
+    }
 
     return { computedIntrinsicLogicalWidth, computedIntrinsicLogicalWidth };
 }

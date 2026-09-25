@@ -145,6 +145,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUVertexState.h
     Modules/WebGPU/GPUVertexStepMode.h
 
+    Modules/WebGPU/Implementation/WebGPUAPIUtilities.h
     Modules/WebGPU/Implementation/WebGPUAdapterImpl.h
     Modules/WebGPU/Implementation/WebGPUBindGroupImpl.h
     Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.h
@@ -1510,6 +1511,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     editing/Editor.h
     editing/EditorDeleteAction.h
     editing/EditorInsertAction.h
+    editing/EditorInternalCommand.h
     editing/FindOptions.h
     editing/FontAttributeChanges.h
     editing/FontAttributes.h
@@ -1565,6 +1567,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     history/ProcessSwapDisposition.h
 
     html/Allowlist.h
+    html/AnchorElementFunctions.h
     html/AttachmentAssociatedElement.h
     html/Autocapitalize.h
     html/AutocapitalizeTypes.h
@@ -2100,6 +2103,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PrintContext.h
     page/ProcessWarming.h
     page/QuirkBehaviors.h
+    page/QuirkSelectors.h
     page/QuirkTable.h
     page/Quirks.h
     page/QuirksData.h
@@ -2158,6 +2162,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/UserStyleSheetTypes.h
     page/ValidationMessageClient.h
     page/ViewportConfiguration.h
+    page/ViewportProximityInfo.h
     page/VisitedLinkStore.h
     page/WebCoreKeyboardUIMode.h
     page/WebKitBuffer.h
@@ -2494,8 +2499,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/AV1Utilities.h
     platform/graphics/AlphaPremultiplication.h
     platform/graphics/AnimationFrameRate.h
+    platform/graphics/AnnexBUtilities.h
     platform/graphics/ArrayPixelBuffer.h
-    platform/graphics/AsyncImageDecoder.h
+    platform/graphics/AspectRatioFit.h
     platform/graphics/AudioTrackPrivate.h
     platform/graphics/AudioTrackPrivateClient.h
     platform/graphics/AudioVideoRenderer.h
@@ -2520,6 +2526,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ColorTypes.h
     platform/graphics/ColorUtilities.h
     platform/graphics/ComplexTextController.h
+    platform/graphics/ConcreteObjectSize.h
     platform/graphics/ContentTypeUtilities.h
     platform/graphics/ContentsFormat.h
     platform/graphics/CopyImageOptions.h
@@ -2614,6 +2621,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GraphicsStyle.h
     platform/graphics/GraphicsTypes.h
     platform/graphics/GraphicsTypesGL.h
+    platform/graphics/H264Utilities.h
     platform/graphics/HEVCUtilities.h
     platform/graphics/HostingContext.h
     platform/graphics/Icon.h
@@ -2627,6 +2635,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageBufferDisplayListBackend.h
     platform/graphics/ImageBufferFormat.h
     platform/graphics/ImageBufferResourceLimits.h
+    platform/graphics/ImageBufferTransferIdentifier.h
     platform/graphics/ImageDecoder.h
     platform/graphics/ImageDecoderIdentifier.h
     platform/graphics/ImageFrame.h
@@ -2678,8 +2687,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/Model.h
     platform/graphics/ModelContext.h
     platform/graphics/NativeImage.h
+    platform/graphics/NaturalDimensions.h
     platform/graphics/NullGraphicsContext.h
     platform/graphics/NullImageBufferBackend.h
+    platform/graphics/ObjectSizeNegotiation.h
     platform/graphics/Path.h
     platform/graphics/PathElement.h
     platform/graphics/PathImpl.h
@@ -2714,6 +2725,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformVideoPresentationInterface.h
     platform/graphics/PlatformVideoTrackConfiguration.h
     platform/graphics/PlatformVideoTransferCharacteristics.h
+    platform/graphics/Polygon4D.h
     platform/graphics/Region.h
     platform/graphics/RenderingMode.h
     platform/graphics/RenderingResource.h

@@ -42,8 +42,11 @@ Ref<PresentationContextIOSurface> PresentationContextIOSurface::create(const WGP
 {
     auto presentationContextIOSurface = adoptRef(*new PresentationContextIOSurface(surfaceDescriptor, instance));
 
-    const auto& descriptor = surfaceDescriptor.cocoaDescriptor;
-    descriptor.compositorIntegrationRegister([presentationContext = presentationContextIOSurface.copyRef()](CFArrayRef ioSurfaces) {
+    const auto* descriptor = findChainedStruct<WGPUSurfaceDescriptorCocoaCustomSurface>(surfaceDescriptor.nextInChain);
+    if (!descriptor)
+        return presentationContextIOSurface;
+
+    descriptor->compositorIntegrationRegister([presentationContext = presentationContextIOSurface.copyRef()](CFArrayRef ioSurfaces) {
         presentationContext->renderBuffersWereRecreated(bridge_cast(ioSurfaces));
     }, [presentationContext = presentationContextIOSurface.copyRef()](WGPUWorkItem workItem) {
         presentationContext->onSubmittedWorkScheduled(makeBlockPtr(WTF::move(workItem)));
@@ -305,7 +308,7 @@ void PresentationContextIOSurface::configure(Device& device, const WGPUSwapChain
         }
     }
 
-    Vector viewFormats(wgpuTextureDescriptor.viewFormatsSpan());
+    Vector viewFormats(viewFormatsSpan(wgpuTextureDescriptor));
     if (NSString *error = device.errorValidatingTextureCreation(wgpuTextureDescriptor, viewFormats)) {
         generateAValidationError(device, error, reportValidationErrors);
         return;

@@ -42,8 +42,8 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUVideoDecoderVTBH265);
 
-GPUVideoDecoderVTBH265::GPUVideoDecoderVTBH265(WebRTCVideoDecoderCallback callback, std::optional<PlatformVideoColorSpace>&& colorSpaceOverride)
-    : WebRTCVideoDecoderVTB(callback, WTF::move(colorSpaceOverride))
+GPUVideoDecoderVTBH265::GPUVideoDecoderVTBH265(GPUVideoDecoderCallback callback, Ref<WorkQueue>&& queue, std::optional<PlatformVideoColorSpace>&& colorSpaceOverride)
+    : GPUVideoDecoderVTB(callback, WTF::move(queue), WTF::move(colorSpaceOverride))
 {
 }
 
@@ -52,7 +52,7 @@ int32_t GPUVideoDecoderVTBH265::decodeFrame(int64_t timeStamp, std::span<const u
     if (!m_isAnnexB)
         return decodeFrameInternal(timeStamp, data);
 
-    auto naluIndices = findHEVCNaluIndices(data);
+    auto naluIndices = findNaluIndices(data);
 
     // FIXME: Skip rebuilding the VideoInfo when the VPS/SPS/PPS triplet is unchanged from the previous one.
     if (RefPtr videoInfo = createVideoInfoFromHEVCAnnexBStream(data, naluIndices))
@@ -78,7 +78,7 @@ void GPUVideoDecoderVTBH265::setFormat(std::span<const uint8_t> data, uint16_t w
 
     RefPtr<VideoInfo> videoInfo;
     if (parameterSets)
-        videoInfo = createVideoInfoFromHVCC(data, *parameterSets);
+        videoInfo = createVideoInfoFromHVCC(*parameterSets);
     if (!videoInfo) {
         RELEASE_LOG_ERROR_IF(parameterSets, WebRTC, "Unable to create video info from hvcC data");
         videoInfo = VideoInfo::create({

@@ -183,7 +183,7 @@
 #include "LargestContentfulPaint.h"
 #include "LargestContentfulPaintData.h"
 #include "LayoutDisallowedScope.h"
-#include "LazyLoadImageObserver.h"
+#include "LazyLoadElementObserver.h"
 #include "LegacySchemeRegistry.h"
 #include "LinkLoader.h"
 #include "LoadableSpeculationRules.h"
@@ -441,10 +441,6 @@
 #include "MediaStreamTrack.h"
 #endif
 
-#if ENABLE(MODEL_ELEMENT)
-#include "LazyLoadModelObserver.h"
-#endif
-
 #if ENABLE(PICTURE_IN_PICTURE_API)
 #include "HTMLVideoElementPictureInPicture.h"
 #endif
@@ -460,7 +456,6 @@
 #if ENABLE(VIDEO)
 #include "CaptionUserPreferences.h"
 #include "CueMatch.h"
-#include "LazyLoadVideoObserver.h"
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -578,10 +573,7 @@ static bool canAccessAncestor(const SecurityOrigin& activeSecurityOrigin, Frame*
         return false;
 
     const bool isLocalActiveOrigin = activeSecurityOrigin.isLocal();
-    for (RefPtr<Frame> ancestorFrame = targetFrame; ancestorFrame; ancestorFrame = ancestorFrame->tree().parent()) {
-        RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestorFrame.get());
-        if (!localAncestor)
-            continue;
+    for (Ref localAncestor : inclusiveAncestorFrames<LocalFrame>(*targetFrame)) {
         RefPtr ancestorDocument = localAncestor->document();
         // FIXME: Should be an ASSERT? Frames should alway have documents.
         if (!ancestorDocument)
@@ -1070,9 +1062,7 @@ void Document::commonTeardown()
         rtcNetworkManager->close();
 #endif
 
-#if ENABLE(VIDEO)
-    m_lazyLoadVideoObserver = nullptr;
-#endif
+    m_lazyLoadElementObserver = nullptr;
 }
 
 Quirks& Document::ensureQuirks()
@@ -4175,7 +4165,7 @@ bool Document::isFullyActive() const
     // The document is fully active only if the ancestor chain reaches the main frame. A
     // RemoteFrame ancestor lives in another process, but if it became parentless without
     // being the main frame, its iframe was removed there and the chain was severed.
-    for (RefPtr ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent()) {
+    for (Ref ancestor : ancestorFrames(*frame)) {
         if (RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor.get())) {
             if (!localAncestor->document() || localAncestor->document()->frame() != localAncestor)
                 return false;
@@ -6511,9 +6501,9 @@ void Document::hoveredElementDidDetach(Element& element)
     if (!m_hoveredElement || &element != m_hoveredElement)
         return;
 
-    m_hoveredElement = element.parentElement();
+    m_hoveredElement = element.parentElementInComposedTree();
     while (m_hoveredElement && !m_hoveredElement->renderer())
-        m_hoveredElement = m_hoveredElement->parentElement();
+        m_hoveredElement = m_hoveredElement->parentElementInComposedTree();
     if (RefPtr frame = this->frame())
         frame->eventHandler().scheduleHoverStateUpdate();
 }
@@ -6523,10 +6513,23 @@ void Document::elementInActiveChainDidDetach(Element& element)
     if (!m_activeElement || &element != m_activeElement)
         return;
 
-    m_activeElement = element.parentElement();
+    m_activeElement = element.parentElementInComposedTree();
     while (m_activeElement && !m_activeElement->renderer())
-        m_activeElement = m_activeElement->parentElement();
+        m_activeElement = m_activeElement->parentElementInComposedTree();
 }
+
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+
+void Document::updateAXCustomColorModeTextBackdrops()
+{
+    if (!isAXCustomColorModeActive())
+        return;
+
+    if (CheckedPtr view = renderView())
+        axCustomColorModeController().updateTextBackdrops(view->frameView());
+}
+
+#endif // ENABLE(AX_CUSTOM_COLOR_MODE)
 
 void Document::updateEventRegions()
 {
@@ -8119,8 +8122,8 @@ RefPtr<Document> Document::sameOriginTopLevelTraversable() const
         return nullptr;
 
     RefPtr<Frame> topLevelAncestorFrame = m_frame;
-    for (RefPtr<Frame> parent = topLevelAncestorFrame->tree().parent(); parent; parent = parent->tree().parent())
-        topLevelAncestorFrame = parent;
+    for (Ref ancestor : ancestorFrames(*m_frame))
+        topLevelAncestorFrame = ancestor.ptr();
 
     RefPtr localTopAncestor = dynamicDowncast<LocalFrame>(topLevelAncestorFrame);
     if (!localTopAncestor)
@@ -8655,8 +8658,8 @@ bool Document::isSecureContext() const
     if (page() && page()->isServiceWorkerPage())
         return true;
 
-    for (RefPtr frame = m_frame->tree().parent(); frame; frame = frame->tree().parent()) {
-        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame)) {
+    for (Ref frame : ancestorFrames(*m_frame)) {
+        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get())) {
             Ref<Document> ancestorDocument = *localFrame->document();
             if (!isDocumentSecure(ancestorDocument))
                 return false;
@@ -9964,13 +9967,29 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
 
     m_hoveredElement = newHoveredElement;
 
+    auto isInForeignTopLayer = [](Element* candidate) {
+        for (RefPtr element = candidate; element; element = element->parentElementInComposedTree()) {
+            if (element->isInTopLayer())
+                return !element->isInActiveChain();
+        }
+        return false;
+    };
+    bool clearMustBeInActiveChain = mustBeInActiveChain;
+    bool setMustBeInActiveChain = mustBeInActiveChain;
+    if (mustBeInActiveChain && hasTopLayerElement()) {
+        clearMustBeInActiveChain = !isInForeignTopLayer(oldHoveredElement.get());
+        setMustBeInActiveChain = !isInForeignTopLayer(newHoveredElement.get());
+    }
+
     RefPtr commonAncestor = findNearestCommonComposedAncestorForHover(oldHoveredElement.get(), newHoveredElement.get());
+    if (commonAncestor && !commonAncestor->hovered())
+        commonAncestor = nullptr;
 
     if (oldHoveredElement != newHoveredElement) {
         for (CheckedPtr element = oldHoveredElement.get(); element; element = element->parentElementInComposedTree()) {
             if (element.get() == commonAncestor.get())
                 break;
-            if (mustBeInActiveChain && !element->isInActiveChain())
+            if (clearMustBeInActiveChain && !element->isInActiveChain())
                 continue;
             elementsToClearHover.append(*element);
             if (element->isInTopLayer())
@@ -9986,7 +10005,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     bool sawCommonAncestor = false;
     for (RefPtr element = newHoveredElement; element; element = element->parentElementInComposedTree()) {
         bool atTopLayerBoundary = element->isInTopLayer();
-        if (mustBeInActiveChain && !element->isInActiveChain()) {
+        if (setMustBeInActiveChain && !element->isInActiveChain()) {
             if (atTopLayerBoundary)
                 break;
             continue;
@@ -11932,30 +11951,12 @@ TextManipulationController& Document::textManipulationController()
     return *m_textManipulationController;
 }
 
-LazyLoadImageObserver& Document::lazyLoadImageObserver()
+LazyLoadElementObserver& Document::lazyLoadElementObserver()
 {
-    if (!m_lazyLoadImageObserver)
-        m_lazyLoadImageObserver = makeUnique<LazyLoadImageObserver>();
-    return *m_lazyLoadImageObserver;
+    if (!m_lazyLoadElementObserver)
+        m_lazyLoadElementObserver = makeUnique<LazyLoadElementObserver>();
+    return *m_lazyLoadElementObserver;
 }
-
-#if ENABLE(MODEL_ELEMENT)
-LazyLoadModelObserver& Document::lazyLoadModelObserver()
-{
-    if (!m_lazyLoadModelObserver)
-        m_lazyLoadModelObserver = makeUnique<LazyLoadModelObserver>();
-    return *m_lazyLoadModelObserver;
-}
-#endif
-
-#if ENABLE(VIDEO)
-LazyLoadVideoObserver& Document::lazyLoadVideoObserver()
-{
-    if (!m_lazyLoadVideoObserver)
-        m_lazyLoadVideoObserver = makeUnique<LazyLoadVideoObserver>();
-    return *m_lazyLoadVideoObserver;
-}
-#endif
 
 CrossOriginOpenerPolicy Document::crossOriginOpenerPolicy() const
 {
@@ -12013,6 +12014,29 @@ void Document::removeCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingCo
 {
     m_canvasContextsToPrepare.remove(context);
     context.setIsInPreparationForDisplayOrFlush(false);
+}
+
+void Document::serviceCanvasPaintEvents()
+{
+    auto canvases = std::exchange(m_canvasesNeedingPaintEvent, { });
+    for (RefPtr canvas : canvases) {
+        if (!canvas->isConnected())
+            continue;
+        canvas->dispatchPaintEvent();
+    }
+}
+
+void Document::requestCanvasPaintEvent(HTMLCanvasElement& canvas)
+{
+    bool shouldSchedule = m_canvasesNeedingPaintEvent.isEmptyIgnoringNullReferences();
+    m_canvasesNeedingPaintEvent.add(canvas);
+    if (shouldSchedule)
+        scheduleRenderingUpdate(RenderingUpdateStep::CanvasPaintEvent);
+}
+
+void Document::cancelCanvasPaintEvent(HTMLCanvasElement& canvas)
+{
+    m_canvasesNeedingPaintEvent.remove(canvas);
 }
 
 void Document::updateSleepDisablerIfNeeded()

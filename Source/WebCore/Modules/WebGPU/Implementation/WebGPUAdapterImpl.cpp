@@ -38,9 +38,9 @@ namespace WebCore::WebGPU {
 
 static String adapterName(WGPUAdapter adapter)
 {
-    WGPUAdapterProperties properties;
-    wgpuAdapterGetProperties(adapter, &properties);
-    return String::fromLatin1(properties.name);
+    WGPUAdapterInfo info;
+    wgpuAdapterGetInfo(adapter, &info);
+    return String::fromLatin1(info.name);
 }
 
 static Ref<SupportedFeatures> supportedFeatures(const Vector<WGPUFeatureName>& features)
@@ -119,23 +119,23 @@ static Ref<SupportedLimits> supportedLimits(WGPUAdapter adapter)
 
 static bool isFallbackAdapter(WGPUAdapter adapter)
 {
-    WGPUAdapterProperties properties;
-    wgpuAdapterGetProperties(adapter, &properties);
-    return properties.adapterType == WGPUAdapterType_CPU;
+    WGPUAdapterInfo info;
+    wgpuAdapterGetInfo(adapter, &info);
+    return info.adapterType == WGPUAdapterType_CPU;
 }
 
 static uint32_t subgroupMinSize(WGPUAdapter adapter)
 {
-    WGPUAdapterProperties properties;
-    wgpuAdapterGetProperties(adapter, &properties);
-    return properties.subgroupMinSize;
+    WGPUAdapterInfo info;
+    wgpuAdapterGetInfo(adapter, &info);
+    return info.subgroupMinSize;
 }
 
 static uint32_t subgroupMaxSize(WGPUAdapter adapter)
 {
-    WGPUAdapterProperties properties;
-    wgpuAdapterGetProperties(adapter, &properties);
-    return properties.subgroupMaxSize;
+    WGPUAdapterInfo info;
+    wgpuAdapterGetInfo(adapter, &info);
+    return info.subgroupMaxSize;
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AdapterImpl);
@@ -194,7 +194,7 @@ static void requestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice dev
 
 void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     auto features = descriptor.requiredFeatures.map([&convertToBackingContext = m_convertToBackingContext.get()](auto featureName) {
         return convertToBackingContext.convertToBacking(featureName);
@@ -303,12 +303,12 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
     WGPURequiredLimits requiredLimits { .limits = WTF::move(limits) };
 
     WGPUDeviceDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .requiredFeatureCount = features.size(),
         .requiredFeatures = features.size() ? features.span().data() : nullptr,
         .requiredLimits = &requiredLimits,
         .defaultQueue = {
-            .label = "queue"
+            .label = toBackingStringView("queue"_s)
         },
         .deviceLostCallback = nullptr,
         .deviceLostUserdata = nullptr,

@@ -41,6 +41,7 @@
 #include "CornerRadii.h"
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
+#include "Document.h"
 #include "DocumentPage.h"
 #include "EventRegion.h"
 #include "FontCascade.h"
@@ -141,6 +142,10 @@
 
 #if ENABLE(SPATIAL_PORTAL)
 #include "SpatialPortalController.h"
+#endif
+
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+#include <WebKitAdditions/AXCustomColorModeController.h>
 #endif
 
 namespace WebCore {
@@ -2516,14 +2521,12 @@ bool RenderLayerBacking::updateAncestorClippingStack(Vector<CompositedClipData>&
     if (!m_ancestorClippingStack && clippingData.isEmpty())
         return false;
 
-    RefPtr scrollingCoordinator = m_owningLayer.page().scrollingCoordinator();
-
     if (m_ancestorClippingStack && clippingData.isEmpty()) {
-        m_ancestorClippingStack->clear(scrollingCoordinator);
+        m_ancestorClippingStack->clear(compositor());
         m_ancestorClippingStack = nullptr;
         
         if (m_overflowControlsHostLayerAncestorClippingStack) {
-            m_overflowControlsHostLayerAncestorClippingStack->clear(scrollingCoordinator);
+            m_overflowControlsHostLayerAncestorClippingStack->clear(compositor());
             m_overflowControlsHostLayerAncestorClippingStack = nullptr;
         }
         return true;
@@ -2540,20 +2543,19 @@ bool RenderLayerBacking::updateAncestorClippingStack(Vector<CompositedClipData>&
         return false;
     }
     
-    m_ancestorClippingStack->updateWithClipData(scrollingCoordinator, Vector { clippingData });
+    m_ancestorClippingStack->updateWithClipData(compositor(), Vector { clippingData });
     LOG_WITH_STREAM(Compositing, stream << "layer " << &m_owningLayer << " ancestorClippingStack " << *m_ancestorClippingStack);
     if (m_overflowControlsHostLayerAncestorClippingStack)
-        m_overflowControlsHostLayerAncestorClippingStack->updateWithClipData(scrollingCoordinator, WTF::move(clippingData));
+        m_overflowControlsHostLayerAncestorClippingStack->updateWithClipData(compositor(), WTF::move(clippingData));
     return true;
 }
 
 void RenderLayerBacking::ensureOverflowControlsHostLayerAncestorClippingStack(const RenderLayer* compositedAncestor)
 {
-    RefPtr scrollingCoordinator = m_owningLayer.page().scrollingCoordinator();
     auto clippingData = m_ancestorClippingStack->compositedClipData();
 
     if (m_overflowControlsHostLayerAncestorClippingStack)
-        m_overflowControlsHostLayerAncestorClippingStack->updateWithClipData(scrollingCoordinator, WTF::move(clippingData));
+        m_overflowControlsHostLayerAncestorClippingStack->updateWithClipData(compositor(), WTF::move(clippingData));
     else
         m_overflowControlsHostLayerAncestorClippingStack = makeUnique<LayerAncestorClippingStack>(WTF::move(clippingData));
 
@@ -2701,13 +2703,11 @@ bool RenderLayerBacking::updateAncestorClipping(bool needsAncestorClip, const Re
             layersChanged = true;
         }
     } else if (m_ancestorClippingStack) {
-        RefPtr scrollingCoordinator = m_owningLayer.page().scrollingCoordinator();
-
-        m_ancestorClippingStack->clear(scrollingCoordinator);
+        m_ancestorClippingStack->clear(compositor());
         m_ancestorClippingStack = nullptr;
         
         if (m_overflowControlsHostLayerAncestorClippingStack) {
-            m_overflowControlsHostLayerAncestorClippingStack->clear(scrollingCoordinator);
+            m_overflowControlsHostLayerAncestorClippingStack->clear(compositor());
             m_overflowControlsHostLayerAncestorClippingStack = nullptr;
         }
         
@@ -3309,7 +3309,7 @@ void RenderLayerBacking::detachFromScrollingCoordinator(OptionSet<ScrollCoordina
     }
 
     if (roles.contains(ScrollCoordinationRole::ScrollingProxy) && m_ancestorClippingStack) {
-        m_ancestorClippingStack->detachFromScrollingCoordinator(*scrollingCoordinator);
+        m_ancestorClippingStack->detachFromScrollingCoordinator(compositor());
         LOG_WITH_STREAM(Compositing, stream << "Detaching nodes in ancestor clipping stack");
     }
 
@@ -4240,6 +4240,12 @@ void RenderLayerBacking::setContentsNeedDisplay(GraphicsLayer::ShouldClipToLayer
 
     m_owningLayer.invalidateEventRegion(RenderLayer::EventRegionInvalidationReason::Paint);
 
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+    // Without a controller no pass has run yet, and the first one will cover this repaint anyway.
+    if (CheckedPtr controller = renderer().document().axCustomColorModeControllerIfExists())
+        controller->setNeedsTextBackdropUpdate();
+#endif
+
     CheckedRef frameView = renderer().view().frameView();
     if (m_isMainFrameRenderViewLayer && frameView->isTrackingRepaints())
         frameView->addTrackedRepaintRect(owningLayer().absoluteBoundingBoxForPainting());
@@ -4283,6 +4289,12 @@ void RenderLayerBacking::setContentsNeedDisplayInRect(const LayoutRect& r, Graph
         m_owningLayer.setNeedsCompositingConfigurationUpdate();
 
     m_owningLayer.invalidateEventRegion(RenderLayer::EventRegionInvalidationReason::Paint);
+
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+    // Without a controller no pass has run yet, and the first one will cover this repaint anyway.
+    if (CheckedPtr controller = renderer().document().axCustomColorModeControllerIfExists())
+        controller->setNeedsTextBackdropUpdate();
+#endif
 
     FloatRect pixelSnappedRectForPainting = snapRectToDevicePixelsIfNeeded(r, renderer());
     CheckedRef frameView = renderer().view().frameView();

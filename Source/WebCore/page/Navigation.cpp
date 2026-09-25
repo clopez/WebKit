@@ -758,11 +758,16 @@ void Navigation::recursivelyDisposeOfForwardEntriesInParents(BackForwardItemIden
     if (!index)
         return;
 
-    for (size_t i = *index + 1; i < m_entries.size(); i++)
-        Ref { m_entries[i] }->dispatchDisposeEvent();
+    auto disposedEntries = m_entries.subvector(*index + 1);
 
     m_currentEntryIndex = index;
     m_entries.resize(*m_currentEntryIndex + 1);
+
+    for (auto& disposedEntry : disposedEntries)
+        disposedEntry->dispatchDisposeEvent();
+
+    if (!frame())
+        return;
 
     for (RefPtr child = frame()->tree().firstChild(); child; child = child->tree().nextSibling()) {
         RefPtr localChild = dynamicDowncast<LocalFrame>(child.get());
@@ -881,14 +886,6 @@ bool Navigation::documentCanHaveURLRewritten(const Document& document, const URL
         return false;
 
     if (documentURL.user() != targetURL.user() || documentURL.password() != targetURL.password())
-        return false;
-
-    // https://html.spec.whatwg.org/multipage/nav-history-apis.html#can-have-its-url-rewritten
-    if (documentURL.protocol() != targetURL.protocol()
-        || documentURL.user() != targetURL.user()
-        || documentURL.password() != targetURL.password()
-        || documentURL.host() != targetURL.host()
-        || documentURL.port() != targetURL.port())
         return false;
 
     if (targetURL.protocolIsInHTTPFamily())

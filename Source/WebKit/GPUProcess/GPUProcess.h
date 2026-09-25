@@ -29,6 +29,8 @@
 
 #include "AuxiliaryProcess.h"
 #include "GPUProcessPreferences.h"
+#include "RemoteSerializedImageBufferIdentifier.h"
+#include <WebCore/ImageBufferTransferIdentifier.h>
 #include "RemoteSnapshotIdentifier.h"
 #include "SandboxExtension.h"
 #include "SecurityFlags.h"
@@ -180,6 +182,14 @@ public:
     Ref<RemoteSnapshot> getOrCreateSnapshot(RemoteSnapshotIdentifier);
     RefPtr<RemoteSnapshot> snapshot(RemoteSnapshotIdentifier);
 
+    // Hands an ImageBuffer from one web process's rendering backend to another's. Unlike
+    // m_snapshots, the identifier is minted here and unguessable, so only a process it was given
+    // can claim the buffer. The depositing process owns an unclaimed buffer until the process
+    // brokering delivery hands it on, which only decides whose exit discards it.
+    WebCore::ImageBufferTransferIdentifier depositTransferredImageBuffer(WebCore::ProcessIdentifier owner, Ref<WebCore::ImageBuffer>&&);
+    RefPtr<WebCore::ImageBuffer> takeTransferredImageBuffer(WebCore::ImageBufferTransferIdentifier);
+    void removeTransferredImageBuffersForProcess(WebCore::ProcessIdentifier);
+
 #if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
 #if HAVE(CORE_RE)
     void requestSharedSimulationConnection(CoreIPCAuditToken&&, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&&);
@@ -197,6 +207,8 @@ public:
 
     void terminateWebProcess(WebCore::ProcessIdentifier, IPC::MessageName);
 
+    void handOverTransferredImageBuffers(Vector<WebCore::ImageBufferTransferIdentifier>&&, WebCore::ProcessIdentifier destinationProcess);
+
 private:
     GPUProcess();
 
@@ -208,6 +220,9 @@ private:
     void initializeSandbox(const AuxiliaryProcessInitializationParameters&, SandboxInitializationParameters&) override;
     Thread::QOS connectionReceiveQueueQOS() const override { return Thread::QOS::UserInteractive; }
     bool shouldTerminate() override;
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    void stopRunLoop() override;
+#endif
 
     void tryExitIfUnused();
     bool canExitUnderMemoryPressure() const;
@@ -310,6 +325,12 @@ private:
     // Do not add more globally shared resources.
     Lock m_globalResourceLocker;
     HashMap<RemoteSnapshotIdentifier, Ref<RemoteSnapshot>> m_snapshots WTF_GUARDED_BY_LOCK(m_globalResourceLocker);
+
+    struct TransferredImageBuffer {
+        Markable<WebCore::ProcessIdentifier> owner;
+        RefPtr<WebCore::ImageBuffer> imageBuffer;
+    };
+    HashMap<WebCore::ImageBufferTransferIdentifier, TransferredImageBuffer> m_transferredImageBuffers WTF_GUARDED_BY_LOCK(m_globalResourceLocker);
 
     struct GPUSession {
         String mediaCacheDirectory;

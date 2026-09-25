@@ -77,6 +77,10 @@
 #include "LocalDefaultSystemAppearance.h"
 #endif
 
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+#include <WebKitAdditions/AXCustomColorModeController.h>
+#endif
+
 namespace WebCore {
 
 SVGImage::SVGImage(ImageObserver* observer)
@@ -474,6 +478,27 @@ void SVGImage::computeIntrinsicDimensions(float& intrinsicWidth, float& intrinsi
         intrinsicRatio = FloatSize { intrinsicWidth, intrinsicHeight };
 }
 
+NaturalDimensions SVGImage::unorientedNaturalDimensions() const
+{
+    RefPtr rootElement = this->rootElement();
+    if (!rootElement)
+        return NaturalDimensions::none();
+
+    NaturalDimensions naturalDimensions;
+
+    if (rootElement->hasIntrinsicWidth())
+        naturalDimensions.width = rootElement->intrinsicWidth();
+    if (rootElement->hasIntrinsicHeight())
+        naturalDimensions.height = rootElement->intrinsicHeight();
+
+    if (naturalDimensions.width && naturalDimensions.height)
+        naturalDimensions.aspectRatio = FloatSize { *naturalDimensions.width, *naturalDimensions.height };
+    else if (auto viewBoxSize = rootElement->viewBox().size(); !viewBoxSize.isEmpty())
+        naturalDimensions.aspectRatio = viewBoxSize;
+
+    return naturalDimensions;
+}
+
 void SVGImage::startAnimationTimerFired()
 {
     startAnimation();
@@ -582,6 +607,9 @@ EncodedDataStatus SVGImage::dataChanged(bool allDataReceived)
                 m_page->settings().fontGenericFamilies() = parentSettings->fontGenericFamilies();
                 m_page->settings().setCSSDPropertyEnabled(parentSettings->cssDPropertyEnabled());
                 m_page->settings().setDownloadableBinaryFontTrustedTypes(parentSettings->downloadableBinaryFontTrustedTypes());
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+                m_page->settings().setAxCustomColorModeEnabled(AXCustomColorModeController::shouldAdjustSVGImages(m_page));
+#endif
             }
             protect(m_page)->setUseColorAppearance(observer->useSystemDarkAppearance(), false);
         }

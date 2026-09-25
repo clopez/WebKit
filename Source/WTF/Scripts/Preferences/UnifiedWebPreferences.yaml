@@ -832,6 +832,14 @@ CSSCalcSizeFunctionEnabled:
   humanReadableDescription: "Enable support for CSS calc-size()"
   defaultValue: false
 
+CSSClassPrefixSelectorEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS class prefix selector"
+  humanReadableDescription: "Enable the CSS class prefix selector (.foo-*)"
+  defaultValue: false
+
 CSSColorLayersEnabled:
   type: bool
   category: css
@@ -855,6 +863,14 @@ CSSCornerShapeEnabled:
   humanReadableName: "CSS corner-shape property"
   humanReadableDescription: "Enable support for CSS corner-shape property"
   defaultValue: true
+
+CSSCornersShorthandEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS corner shorthands"
+  humanReadableDescription: "Enable support for the CSS corner and corner-* shorthands"
+  defaultValue: false
 
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
@@ -998,11 +1014,11 @@ CSSLineFitEdgeEnabled:
 
 CSSLinkParametersEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS Linked Parameters"
   humanReadableDescription: "Enable passing CSS link parameters to linked resources"
-  defaultValue: false
+  defaultValue: true
 
 CSSMarkerContentEnabled:
   type: bool
@@ -1097,6 +1113,14 @@ CSSScrollAnchoringEnabled:
   humanReadableDescription: "Enable CSS Scroll Anchoring"
   defaultValue: true
 
+CSSScrollAxisLockEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS Scroll Axis Lock"
+  humanReadableDescription: "Enable scroll-axis-lock property"
+  defaultValue: false
+
 CSSScrollStateContainerQueriesEnabled:
   type: bool
   status: testable
@@ -1146,19 +1170,19 @@ CSSSelectorJITCompilerEnabled:
 
 CSSSizeShorthandEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
-  humanReadableName: "CSS size shorthand"
-  humanReadableDescription: "Enable the size shorthand for the width and height properties"
-  defaultValue: false
+  humanReadableName: "CSS size shorthands"
+  humanReadableDescription: "Enable the size, min-size and max-size shorthands for the width, height, min-width, min-height, max-width and max-height properties"
+  defaultValue: true
 
 CSSSymbolsFunctionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS symbols() function"
   humanReadableDescription: "Enable the CSS Counter Styles symbols() function"
-  defaultValue: false
+  defaultValue: true
 
 CSSTextDecorationInsetEnabled:
   type: bool
@@ -2591,6 +2615,14 @@ HTMLEnhancedSelectEnabled:
   humanReadableName: "Enhanced HTML select element"
   humanReadableDescription: "Enable enhanced HTML select element"
   defaultValue: true
+
+HTMLEnhancedSelectMultipleAndListBoxEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Enhanced HTML select element for multiple and list box"
+  humanReadableDescription: "Enable enhanced HTML select element for the multiple attribute and for list box rendering"
+  defaultValue: false
 
 HTMLEnhancedSelectParsingEnabled:
   type: bool
@@ -6170,14 +6202,12 @@ ThreadedTimeBasedAnimationsAtHighFrameRateEnabled:
 
 ThreadedTimeBasedAnimationsEnabled:
   type: bool
-  status: stable
+  status: preview
   category: animation
   humanReadableName: "Threaded Time-based Animations"
   humanReadableDescription: "Run qualifying time-based animations on a separate thread"
   condition: ENABLE(THREADED_ANIMATIONS)
-  defaultValue:
-    default: true
-    WebKitLegacy: false
+  defaultValue: false
 
 # FIXME: This is not relevant for WebKitLegacy, so it should be excluded from WebKitLegacy entirely.
 TiledScrollingIndicatorVisible:
@@ -6809,14 +6839,14 @@ WasmTailCallsEnabled:
 
 WasmWideArithmeticEnabled:
   type: bool
-  status: testable
+  status: stable
   category: javascript
   humanReadableName: "WebAssembly Wide Arithmetic"
   humanReadableDescription: "Allow the wide arithmetic instructions from the wasm wide-arithmetic spec."
   jscOptionName: useWasmWideArithmetic
   sharedPreferenceForWebProcess: true
   excludeFrom: [ WebKitLegacy, WebCore ]
-  defaultValue: false
+  defaultValue: true
 
 WebAPIStatisticsEnabled:
   type: bool

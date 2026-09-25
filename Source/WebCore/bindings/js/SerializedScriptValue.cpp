@@ -300,7 +300,8 @@ namespace {
 enum class ImageBitmapSerializationFlags : uint8_t {
     OriginClean              = 1 << 0, // ImageBitmap is always clean if serialized. However, at some point non-clean bitmaps were serialized. Can be removed once version is increased.
     PremultiplyAlpha         = 1 << 1,
-    ForciblyPremultiplyAlpha = 1 << 2
+    ForciblyPremultiplyAlpha = 1 << 2,
+    BufferAlphaUnpremultiplied = 1 << 3
 };
 
 }
@@ -824,6 +825,8 @@ private:
             flags.add(ImageBitmapSerializationFlags::PremultiplyAlpha);
         if (imageBitmap->forciblyPremultiplyAlpha())
             flags.add(ImageBitmapSerializationFlags::ForciblyPremultiplyAlpha);
+        if (imageBitmap->bufferAlphaFormat() == AlphaPremultiplication::Unpremultiplied)
+            flags.add(ImageBitmapSerializationFlags::BufferAlphaUnpremultiplied);
         write(ImageBitmapTag);
         write(static_cast<uint8_t>(flags.toRaw()));
         write(static_cast<int32_t>(logicalSize.width()));
@@ -3124,7 +3127,8 @@ private:
 
         buffer->putPixelBuffer(*pixelBuffer, { IntPoint::zero(), logicalSize });
         const bool originClean = true;
-        Ref bitmap = ImageBitmap::create(buffer.releaseNonNull(), originClean, flags.contains(ImageBitmapSerializationFlags::PremultiplyAlpha), flags.contains(ImageBitmapSerializationFlags::ForciblyPremultiplyAlpha));
+        auto bufferAlphaFormat = flags.contains(ImageBitmapSerializationFlags::BufferAlphaUnpremultiplied) ? AlphaPremultiplication::Unpremultiplied : AlphaPremultiplication::Premultiplied;
+        Ref bitmap = ImageBitmap::create(buffer.releaseNonNull(), originClean, flags.contains(ImageBitmapSerializationFlags::PremultiplyAlpha), flags.contains(ImageBitmapSerializationFlags::ForciblyPremultiplyAlpha), bufferAlphaFormat);
         return getJSValue(WTF::move(bitmap));
     }
 
@@ -3687,6 +3691,7 @@ SerializedScriptValueInternals SerializedScriptValueInternals::clone() const
 #endif
         .exposedMessagePortCount = exposedMessagePortCount,
         .nonSerializedDataToken = nonSerializedDataToken,
+        .detachedImageBitmaps = detachedImageBitmaps,
         .fileSystemHandleKeepAlives = fileSystemHandleKeepAlives.map([](const auto& alive) { return alive.copy(); }),
 #if ENABLE(WEB_CODECS)
         .serializedVideoFrames = serializedVideoFrames,
@@ -3708,7 +3713,6 @@ SerializedScriptValueInternals SerializedScriptValueInternals::clone() const
         }),
 #endif
         .sharedBufferContentsArray = copyArrayBufferContentsArray(sharedBufferContentsArray),
-        .detachedImageBitmaps = detachedImageBitmaps,
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
         .detachedOffscreenCanvases = detachedOffscreenCanvases.map([](const auto& canvas) {
             return makeUnique<DetachedOffscreenCanvas>(canvas->size(), canvas->originClean(), RefPtr { canvas->placeholderSource() });
@@ -3764,6 +3768,27 @@ std::optional<SerializedScriptValue::NonSerializedDataToken> SerializedScriptVal
 void SerializedScriptValue::setNonSerializedDataToken(std::optional<NonSerializedDataToken> token)
 {
     m_internals->nonSerializedDataToken = token;
+}
+
+Vector<ImageBufferTransferIdentifier> SerializedScriptValue::sinkBuffersIntoTransferHandles()
+{
+    Vector<ImageBufferTransferIdentifier> identifiers;
+    for (auto& bitmap : m_internals->detachedImageBitmaps) {
+        if (!bitmap)
+            continue;
+        if (auto handle = bitmap->sinkBufferIntoTransferHandle())
+            identifiers.append(handle->identifier);
+    }
+    return identifiers;
+}
+
+Vector<ImageBufferTransferIdentifier> SerializedScriptValue::transferredImageBufferIdentifiers() const
+{
+    return WTF::compactMap(m_internals->detachedImageBitmaps, [](auto& bitmap) -> std::optional<ImageBufferTransferIdentifier> {
+        if (!bitmap || !bitmap->transferHandle())
+            return std::nullopt;
+        return bitmap->transferHandle()->identifier;
+    });
 }
 
 RefPtr<SerializedScriptValue> SerializedScriptValue::convert(JSGlobalObject& globalObject, JSValue value)
@@ -4311,6 +4336,7 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
         , .serializedAudioChunks = WTF::move(serializedAudioChunks)
 #endif
         , .exposedMessagePortCount = exposedMessagePortsCount
+        , .detachedImageBitmaps = WTF::move(detachedImageBitmaps)
         , .fileSystemHandleKeepAlives = WTF::move(fileSystemHandleKeepAlives)
 #if ENABLE(WEB_CODECS)
         , .serializedVideoFrames = WTF::move(serializedVideoFrameData)
@@ -4328,7 +4354,6 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
         , .detachedMediaStreamTrackHandles = WTF::move(detachedMediaStreamTrackHandleStorages)
 #endif
         , .sharedBufferContentsArray = WTF::move(sharedBuffers)
-        , .detachedImageBitmaps = WTF::move(detachedImageBitmaps)
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
         , .detachedOffscreenCanvases = WTF::move(detachedCanvases)
         , .inMemoryOffscreenCanvases = WTF::move(inMemoryOffscreenCanvases)

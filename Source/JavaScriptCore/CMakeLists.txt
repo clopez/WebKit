@@ -595,6 +595,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     API/JSStringRefCF.h
     API/JSStringRefCPP.h
     API/JSStringRefPrivate.h
+    API/JSStringRefPtr.h
     API/JSTypedArray.h
     API/JSValue.h
     API/JSValueInternal.h
@@ -812,6 +813,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/CellContainerInlines.h
     heap/CellState.h
     heap/CollectionScope.h
+    heap/Collector.h
+    heap/CollectorInlines.h
     heap/CollectorPhase.h
     heap/CompleteSubspace.h
     heap/CompleteSubspaceInlines.h
@@ -1275,6 +1278,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSModuleRecord.h
     runtime/JSNativeStdFunction.h
     runtime/JSONAtomStringCache.h
+    runtime/JSONTransitionCache.h
     runtime/JSObject.h
     runtime/JSObjectInlines.h
     runtime/JSONObject.h

@@ -126,11 +126,11 @@ RefPtr<XRBinding> DeviceImpl::createXRBinding()
 
 RefPtr<Buffer> DeviceImpl::createBuffer(const BufferDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
     Ref convertToBackingContext = m_convertToBackingContext;
 
     WGPUBufferDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .usage = convertToBackingContext->convertBufferUsageFlagsToBacking(descriptor.usage),
         .size = descriptor.size,
         .mappedAtCreation = descriptor.mappedAtCreation,
@@ -141,7 +141,7 @@ RefPtr<Buffer> DeviceImpl::createBuffer(const BufferDescriptor& descriptor)
 
 RefPtr<Texture> DeviceImpl::createTexture(const TextureDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     Ref convertToBackingContext = m_convertToBackingContext;
 
@@ -150,7 +150,7 @@ RefPtr<Texture> DeviceImpl::createTexture(const TextureDescriptor& descriptor)
     });
 
     WGPUTextureDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .usage = convertToBackingContext->convertTextureUsageFlagsToBacking(descriptor.usage),
         .dimension = convertToBackingContext->convertToBacking(descriptor.dimension),
         .size = convertToBackingContext->convertToBacking(descriptor.size),
@@ -167,9 +167,10 @@ RefPtr<Texture> DeviceImpl::createTexture(const TextureDescriptor& descriptor)
 RefPtr<Sampler> DeviceImpl::createSampler(const SamplerDescriptor& descriptor)
 {
     Ref convertToBackingContext = m_convertToBackingContext;
+    auto label = toBackingStringView(descriptor.label);
 
     WGPUSamplerDescriptor backingDescriptor {
-        .label = descriptor.label,
+        .label = label,
         .addressModeU = convertToBackingContext->convertToBacking(descriptor.addressModeU),
         .addressModeV = convertToBackingContext->convertToBacking(descriptor.addressModeV),
         .addressModeW = convertToBackingContext->convertToBacking(descriptor.addressModeW),
@@ -192,11 +193,11 @@ void DeviceImpl::updateExternalTexture(const WebCore::WebGPU::ExternalTexture&, 
 
 RefPtr<ExternalTexture> DeviceImpl::importExternalTexture(const ExternalTextureDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     auto pixelBuffer = std::get_if<RetainPtr<CVPixelBufferRef>>(&descriptor.videoBacking);
     WGPUExternalTextureDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .pixelBuffer = pixelBuffer ? pixelBuffer->get() : nullptr,
         .colorSpace = m_convertToBackingContext->convertToBacking(descriptor.colorSpace),
         .visibleWidth = static_cast<uint32_t>(std::max(0, descriptor.visibleSize.width())),
@@ -207,7 +208,7 @@ RefPtr<ExternalTexture> DeviceImpl::importExternalTexture(const ExternalTextureD
 
 RefPtr<BindGroupLayout> DeviceImpl::createBindGroupLayout(const BindGroupLayoutDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     auto backingEntries = WTF::map(descriptor.entries, [&](auto& entry) {
         return WGPUBindGroupLayoutEntry {
@@ -237,7 +238,7 @@ RefPtr<BindGroupLayout> DeviceImpl::createBindGroupLayout(const BindGroupLayoutD
     });
 
     WGPUBindGroupLayoutDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .entryCount = backingEntries.size(),
         .entries = backingEntries.size() ? backingEntries.span().data() : nullptr,
     };
@@ -247,7 +248,7 @@ RefPtr<BindGroupLayout> DeviceImpl::createBindGroupLayout(const BindGroupLayoutD
 
 RefPtr<PipelineLayout> DeviceImpl::createPipelineLayout(const PipelineLayoutDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     Vector<WGPUBindGroupLayout> backingBindGroupLayouts;
     if (descriptor.bindGroupLayouts) {
@@ -257,7 +258,7 @@ RefPtr<PipelineLayout> DeviceImpl::createPipelineLayout(const PipelineLayoutDesc
     }
 
     WGPUPipelineLayoutDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .bindGroupLayoutCount = descriptor.bindGroupLayouts ? backingBindGroupLayouts.size() : 0,
         .bindGroupLayouts = descriptor.bindGroupLayouts ? backingBindGroupLayouts.span().data() : nullptr,
     };
@@ -267,7 +268,7 @@ RefPtr<PipelineLayout> DeviceImpl::createPipelineLayout(const PipelineLayoutDesc
 
 RefPtr<BindGroup> DeviceImpl::createBindGroup(const BindGroupDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     Ref convertToBackingContext = m_convertToBackingContext;
     SegmentedVector<WGPUExternalTexture, 1> chainedEntries;
@@ -285,7 +286,7 @@ RefPtr<BindGroup> DeviceImpl::createBindGroup(const BindGroupDescriptor& descrip
     });
 
     WGPUBindGroupDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .layout = convertToBackingContext->convertToBacking(protect(descriptor.layout)),
         .entryCount = backingEntries.size(),
         .entries = backingEntries.size() ? backingEntries.span().data() : nullptr,
@@ -296,7 +297,7 @@ RefPtr<BindGroup> DeviceImpl::createBindGroup(const BindGroupDescriptor& descrip
 
 RefPtr<ShaderModule> DeviceImpl::createShaderModule(const ShaderModuleDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     auto entryPoints = descriptor.hints.map([](const auto& hint) {
         return hint.key.utf8();
@@ -314,9 +315,15 @@ RefPtr<ShaderModule> DeviceImpl::createShaderModule(const ShaderModuleDescriptor
         });
     }
 
+    auto code = toBackingStringView(descriptor.code);
+    WGPUShaderSourceWGSL wgslSource {
+        .chain = { nullptr, WGPUSType_ShaderSourceWGSL },
+        .code = code,
+    };
+
     WGPUShaderModuleDescriptor backingDescriptor {
-        .wgslDescriptor = descriptor.code,
-        .label = label.legacyCStringPointer(),
+        .nextInChain = &wgslSource.chain,
+        .label = label,
         .hintCount = hintsEntries.size(),
         .hints = hintsEntries.size() ? &hintsEntries[0] : nullptr,
     };
@@ -327,7 +334,7 @@ RefPtr<ShaderModule> DeviceImpl::createShaderModule(const ShaderModuleDescriptor
 template <typename T>
 static auto convertToBacking(const ComputePipelineDescriptor& descriptor, ConvertToBackingContext& convertToBackingContext, NOESCAPE T&& callback)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     std::optional<UTF8CString> entryPoint;
     if (!descriptor.compute.entryPoint.isNull()) {
@@ -349,9 +356,9 @@ static auto convertToBacking(const ComputePipelineDescriptor& descriptor, Conver
     });
 
     WGPUComputePipelineDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .layout = descriptor.layout ? convertToBackingContext.convertToBacking(*protect(descriptor.layout)) : nullptr,
-        .compute = WGPUProgrammableStageDescriptor {
+        .compute = WGPUComputeState {
             .module = convertToBackingContext.convertToBacking(protect(descriptor.compute.module)),
             .entryPoint = entryPoint ? entryPoint->legacyCStringPointer() : nullptr,
             .constantCount = backingConstantEntries.size(),
@@ -372,7 +379,7 @@ RefPtr<ComputePipeline> DeviceImpl::createComputePipeline(const ComputePipelineD
 template <typename T>
 static auto convertToBacking(const RenderPipelineDescriptor& descriptor, ConvertToBackingContext& convertToBackingContext, NOESCAPE T&& callback)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
 
     std::optional<UTF8CString> vertexEntryPoint;
     if (!descriptor.vertex.entryPoint.isNull()) {
@@ -397,9 +404,9 @@ static auto convertToBacking(const RenderPipelineDescriptor& descriptor, Convert
         if (buffer) {
             SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE_IN_FUNCTION_TEMPLATE return buffer->attributes.map([&convertToBackingContext](const auto& attribute) {
                 return WGPUVertexAttribute {
-                    convertToBackingContext.convertToBacking(attribute.format),
-                    attribute.offset,
-                    attribute.shaderLocation,
+                    .format = convertToBackingContext.convertToBacking(attribute.format),
+                    .offset = attribute.offset,
+                    .shaderLocation = attribute.shaderLocation,
                 };
             });
         } else
@@ -409,16 +416,16 @@ static auto convertToBacking(const RenderPipelineDescriptor& descriptor, Convert
     Vector<WGPUVertexBufferLayout> backingBuffers(descriptor.vertex.buffers.size(), [&](size_t i) {
         const auto& buffer = descriptor.vertex.buffers[i];
         return WGPUVertexBufferLayout {
-            buffer ? buffer->arrayStride : WGPU_COPY_STRIDE_UNDEFINED,
-            buffer ? convertToBackingContext.convertToBacking(buffer->stepMode) : WGPUVertexStepMode_Vertex,
-            backingAttributes[i].size(),
-            backingAttributes[i].size() ? backingAttributes[i].span().data() : nullptr,
+            .arrayStride = buffer ? buffer->arrayStride : WGPU_COPY_STRIDE_UNDEFINED,
+            .stepMode = buffer ? convertToBackingContext.convertToBacking(buffer->stepMode) : WGPUVertexStepMode_Vertex,
+            .attributeCount = backingAttributes[i].size(),
+            .attributes = backingAttributes[i].size() ? backingAttributes[i].span().data() : nullptr,
         };
     });
 
     WGPUDepthStencilState depthStencilState {
         .format = descriptor.depthStencil ? convertToBackingContext.convertToBacking(descriptor.depthStencil->format) : WGPUTextureFormat_Undefined,
-        .depthWriteEnabled = descriptor.depthStencil ? descriptor.depthStencil->depthWriteEnabled : false,
+        .depthWriteEnabled = descriptor.depthStencil ? convertToBackingContext.convertToBacking(descriptor.depthStencil->depthWriteEnabled) : WGPUOptionalBool_False,
         .depthCompare = (descriptor.depthStencil && descriptor.depthStencil->depthCompare) ? convertToBackingContext.convertToBacking(*descriptor.depthStencil->depthCompare) : WGPUCompareFunction_Undefined,
         .stencilFront = {
             .compare = descriptor.depthStencil ? convertToBackingContext.convertToBacking(descriptor.depthStencil->stencilFront.compare) : WGPUCompareFunction_Undefined,
@@ -512,7 +519,7 @@ static auto convertToBacking(const RenderPipelineDescriptor& descriptor, Convert
     };
 
     WGPURenderPipelineDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .layout = descriptor.layout ? convertToBackingContext.convertToBacking(*protect(descriptor.layout)) : nullptr,
         .vertex = {
             .module = convertToBackingContext.convertToBacking(protect(descriptor.vertex.module)),
@@ -616,10 +623,10 @@ void DeviceImpl::createRenderPipelineWithPipelineLayoutFromPipelineAsync(const R
 
 RefPtr<CommandEncoder> DeviceImpl::createCommandEncoder(const std::optional<CommandEncoderDescriptor>& descriptor)
 {
-    auto label = descriptor ? descriptor->label.utf8() : UTF8CString(""_s);
+    auto label = toBackingStringView(descriptor ? descriptor->label : emptyString());
 
     WGPUCommandEncoderDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
     };
 
     return CommandEncoderImpl::create(adoptWebGPU(wgpuDeviceCreateCommandEncoder(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
@@ -627,7 +634,7 @@ RefPtr<CommandEncoder> DeviceImpl::createCommandEncoder(const std::optional<Comm
 
 RefPtr<RenderBundleEncoder> DeviceImpl::createRenderBundleEncoder(const RenderBundleEncoderDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
     Ref convertToBackingContext = m_convertToBackingContext;
 
     auto backingColorFormats = descriptor.colorFormats.map([&](auto colorFormat) {
@@ -635,7 +642,7 @@ RefPtr<RenderBundleEncoder> DeviceImpl::createRenderBundleEncoder(const RenderBu
     });
 
     WGPURenderBundleEncoderDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .colorFormatCount = backingColorFormats.size(),
         .colorFormats = backingColorFormats.size() ? backingColorFormats.span().data() : nullptr,
         .depthStencilFormat = descriptor.depthStencilFormat ? convertToBackingContext->convertToBacking(*descriptor.depthStencilFormat) : WGPUTextureFormat_Undefined,
@@ -649,11 +656,11 @@ RefPtr<RenderBundleEncoder> DeviceImpl::createRenderBundleEncoder(const RenderBu
 
 RefPtr<QuerySet> DeviceImpl::createQuerySet(const QuerySetDescriptor& descriptor)
 {
-    auto label = descriptor.label.utf8();
+    auto label = toBackingStringView(descriptor.label);
     Ref convertToBackingContext = m_convertToBackingContext;
 
     WGPUQuerySetDescriptor backingDescriptor {
-        .label = label.legacyCStringPointer(),
+        .label = label,
         .type = convertToBackingContext->convertToBacking(descriptor.type),
         .count = descriptor.count,
     };
@@ -764,7 +771,7 @@ void DeviceImpl::pauseAllErrorReporting(bool pause)
 
 void DeviceImpl::setLabelInternal(const String& label)
 {
-    wgpuDeviceSetLabel(m_backing.get(), label.utf8().legacyCStringPointer());
+    wgpuDeviceSetLabel(m_backing.get(), toBackingStringView(label));
 }
 
 Ref<CommandEncoder> DeviceImpl::invalidCommandEncoder()

@@ -71,6 +71,7 @@
 #import <wtf/CheckedPtr.h>
 #import <wtf/MainThread.h>
 #import <wtf/Markable.h>
+#import <wtf/MathExtras.h>
 #import <wtf/MonotonicTime.h>
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
@@ -131,6 +132,31 @@ static bool representsDraggableElement(const WebKit::InteractionInformationAtPos
 static bool isAnalyzableImageForLiveText(const WebKit::InteractionInformationAtPosition& info)
 {
     return info.isImage && info.image && info.hostImageOrVideoElementContext && !info.isAnimatedImage && !info.isContentEditable;
+}
+
+static bool representsSelectableContent(const WebKit::InteractionInformationAtPosition& info)
+{
+    return info.isSelectable() || info.isFocusableWithSelectableText();
+}
+
+static bool prefersDirectManipulation(const WebKit::InteractionInformationAtPosition& info)
+{
+    bool prefersInteraction = info.isRangeInput || info.isARIASlider || info.hasDirectionalResizeCursor || info.isInResizeControl;
+#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
+    prefersInteraction = prefersInteraction || info.isInteractiveModel;
+#endif
+    return prefersInteraction;
+}
+
+static bool representsSecondaryClickableElement(const WebKit::InteractionInformationAtPosition& info)
+{
+    if (prefersDirectManipulation(info))
+        return false;
+
+    if (representsSelectableContent(info))
+        return true;
+
+    return info.isOverVideo && info.selectability != WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToFocusableElement;
 }
 
 namespace WebKit {
@@ -267,6 +293,8 @@ static NSString *gestureLogDescription(NSGestureRecognizer *gesture)
     // These variables track the last reported value so that we can forward deltas.
     double _lastCumulativeMagnification;
     double _lastCumulativeRotation;
+
+    BOOL _everMagnifiedDuringCurrentGesture;
 }
 
 #if __has_include(<WebKitAdditions/WKAppKitGestureControllerAdditionsImpl.mm>)
@@ -1158,11 +1186,12 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
             }
 
             if (strongDeferring == strongSelf->_secondaryClickDeferringGestureRecognizer) {
-                const auto isSelectable = info.isSelectable() || info.isFocusableWithSelectableText();
+                const auto isSelectable = representsSelectableContent(info);
+                const auto prefersManipulation = prefersDirectManipulation(info);
 
-                WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG_DEBUG([webView _protectedPage]->logIdentifier(), "Resolved deferral: isSelectable=%d (selectability=%hhu overEditableContent=%d)", isSelectable, static_cast<uint8_t>(info.selectability), info.isOverEditableContent);
+                WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG_DEBUG([webView _protectedPage]->logIdentifier(), "Resolved deferral: isSelectable=%d prefersDirectManipulation=%d (selectability=%hhu overEditableContent=%d)", isSelectable, prefersManipulation, static_cast<uint8_t>(info.selectability), info.isOverEditableContent);
 
-                return !isSelectable && !overLiveTextImage;
+                return (!isSelectable || prefersManipulation) && !overLiveTextImage;
             }
 
             RELEASE_ASSERT_NOT_REACHED();
@@ -1221,18 +1250,18 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 - (BOOL)_secondaryClickShouldBeginAtLocation:(NSPoint)locationInViewCoordinates
 {
-    auto request = [self _positionInformationRequestAtLocation:locationInViewCoordinates];
+    int radius = static_cast<int>(std::ceil([_secondaryClickGestureRecognizer allowableMovement]));
 
     const auto& information = _positionInformationManager->currentInformation();
 
-    bool requestIsValid = _positionInformationManager->currentIsValid(request);
-    bool isSelectable = information.isSelectable() || information.isFocusableWithSelectableText();
+    bool requestIsValid = [self _positionInformationRequestIsValidAtLocation:locationInViewCoordinates withRadius:radius];
+    bool isSecondaryClickable = representsSecondaryClickableElement(information);
     bool isOverSelectableText = information.isOverSelectableText;
 
-    // The secondary click owns selectable points that are not over actual text (e.g. the page
-    // background). Over a run of selectable text, the text selection manager should win so that a
-    // long press selects a word instead of synthesizing a context menu.
-    bool shouldBegin = requestIsValid && isSelectable && !isOverSelectableText;
+    // The secondary click owns points that are not over selectable text (e.g. the page background
+    // or a video player). Over a run of selectable text, the text selection manager should win so
+    // that a long press selects a word instead of synthesizing a context menu.
+    bool shouldBegin = requestIsValid && isSecondaryClickable && !isOverSelectableText;
 
     if (!requestIsValid)
         _positionInformationManager->invalidate();
@@ -1327,10 +1356,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     const auto& information = _positionInformationManager->currentInformation();
 
     // FIXME: (rdar://181964604) Because of this logic, vertically scrolling over these elements likely will not work.
-    bool prefersInteraction = information.isRangeInput || information.isARIASlider || information.hasDirectionalResizeCursor || information.isInResizeControl;
-#if ENABLE(MODEL_ELEMENT_STAGE_MODE)
-    prefersInteraction = prefersInteraction || information.isInteractiveModel;
-#endif
+    bool prefersInteraction = prefersDirectManipulation(information);
     bool yieldToContent = requestIsValid && prefersInteraction;
 
     WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG(
@@ -1636,6 +1662,12 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     };
 
     CheckedPtr impl = [webView _impl];
+
+    if (phase == WebKit::WebWheelEvent::Phase::Began)
+        _everMagnifiedDuringCurrentGesture = NO;
+    if (!WTF::areEssentiallyEqual(impl->magnification(), 1.0))
+        _everMagnifiedDuringCurrentGesture = YES;
+
     bool forwardToGestureController = impl->allowsBackForwardNavigationGestures() && [self prefersForwardingToGestureController:gesture];
     if (forwardToGestureController && protect(impl->ensureGestureController())->handleScrollWheelEvent(makeWheelEvent(gestureDelta))) {
         WK_APPKIT_GESTURE_CONTROLLER_RELEASE_LOG_DEBUG([webView _protectedPage]->logIdentifier(), "View gesture controller handled gesture");
@@ -1643,6 +1675,11 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     }
 
     [webView _protectedPage]->handleNativeWheelEvent(makeWheelEvent(gestureDelta));
+}
+
+- (BOOL)everMagnifiedDuringCurrentGesture
+{
+    return _everMagnifiedDuringCurrentGesture;
 }
 
 #pragma mark - Momentum Handling

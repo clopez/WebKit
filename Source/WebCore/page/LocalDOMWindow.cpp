@@ -47,6 +47,7 @@
 #include "CrossOriginOpenerPolicy.h"
 #include "Crypto.h"
 #include "CustomElementRegistry.h"
+#include "DOMRect.h"
 #include "DOMSelection.h"
 #include "DOMStringList.h"
 #include "DOMTimer.h"
@@ -730,6 +731,20 @@ ExceptionOr<RefPtr<Element>> LocalDOMWindow::matchingElementInFlatTree(Node& sco
     }
 
     return RefPtr<Element> { nullptr };
+}
+
+ExceptionOr<Ref<DOMRect>> LocalDOMWindow::convertRectToMainFrameCoordinates(const DOMRectInit& rect)
+{
+    RefPtr document = this->document();
+    if (!document)
+        return Exception { ExceptionCode::InvalidStateError };
+
+    RefPtr view = document->view();
+    if (!view)
+        return Exception { ExceptionCode::InvalidStateError };
+
+    auto contentsRect = enclosingIntRect(FloatRect(rect.x, rect.y, rect.width, rect.height));
+    return DOMRect::create(view->contentsToMainFrameView(contentsRect));
 }
 
 #if ENABLE(ORIENTATION_EVENTS)
@@ -1664,10 +1679,7 @@ void LocalDOMWindow::notifyActivated(MonotonicTime activationTime)
     if (!frame)
         return;
 
-    for (RefPtr ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent()) {
-        RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor);
-        if (!localAncestor)
-            continue;
+    for (Ref localAncestor : ancestorFrames<LocalFrame>(*frame)) {
         if (RefPtr window = localAncestor->window())
             updateActivationTimestampAndNotify(*window, activationTime, closeWatcherEnabled);
     }
@@ -2971,11 +2983,8 @@ ExceptionOr<RefPtr<Frame>> LocalDOMWindow::createWindow(const String& urlString,
 #if PLATFORM(IOS_FAMILY)
 static bool shouldBypassPopupBlockerForQuirk(const Document* document, const String& urlString)
 {
-    if (RefPtr firstFrameDocument = document) {
-        if (firstFrameDocument->quirks().shouldAllowPopupFromMicrosoftOfficeToOneDrive())
-            return firstFrameDocument->quirks().needsPopupFromMicrosoftOfficeToOneDrive(firstFrameDocument->encodingParseURL(urlString));
-    }
-    return false;
+    RefPtr firstFrameDocument = document;
+    return firstFrameDocument && firstFrameDocument->quirks().needsPopupFromMicrosoftOfficeToOneDrive(urlString);
 }
 #endif
 

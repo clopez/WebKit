@@ -80,11 +80,39 @@ typedef enum WGPUSTypeExtended {
 
 const int WGPUTextureSampleType_ExternalTexture = WGPUTextureSampleType_Force32 - 1;
 
+typedef void (^WGPUWorkItem)(void);
+typedef void (^WGPUScheduleWorkBlock)(WGPUWorkItem workItem);
+typedef void (^WGPUDeviceLostBlockCallback)(WGPUDeviceLostReason reason, char const * message);
+
+typedef void (^WGPURenderBuffersWereRecreatedBlockCallback)(CFArrayRef ioSurfaces);
+typedef void (^WGPUOnSubmittedWorkScheduledCallback)(WGPUWorkItem);
+typedef void (^WGPUCompositorIntegrationRegisterBlockCallback)(WGPURenderBuffersWereRecreatedBlockCallback renderBuffersWereRecreated, WGPUOnSubmittedWorkScheduledCallback onSubmittedWorkScheduledCallback);
+
+// Can be chained in WGPUInstanceDescriptor, with sType WGPUSTypeExtended_InstanceCocoaDescriptor.
+typedef struct WGPUInstanceCocoaDescriptor {
+    WGPUChainedStruct chain;
+    // The API contract is: callers must call WebGPU's functions in a non-racey way with respect
+    // to each other. This scheduleWorkBlock will execute on a background thread, and it must
+    // schedule the block it's passed to be run in a non-racey way with regards to all the other
+    // WebGPU calls. If calls to scheduleWorkBlock are ordered (e.g. multiple calls on the same
+    // thread), then the work that is scheduled must also be ordered in the same order.
+    // It's fine to pass NULL here, but if you do, you must periodically call
+    // wgpuInstanceProcessEvents() to synchronously run the queued callbacks.
+    __unsafe_unretained WGPUScheduleWorkBlock scheduleWorkBlock;
+    const void* webProcessResourceOwner;
+} WGPUInstanceCocoaDescriptor;
+
+// Can be chained in WGPUSurfaceDescriptor, with sType WGPUSTypeExtended_SurfaceDescriptorCocoaSurfaceBacking.
+typedef struct WGPUSurfaceDescriptorCocoaCustomSurface {
+    WGPUChainedStruct chain;
+    WGPUCompositorIntegrationRegisterBlockCallback compositorIntegrationRegister;
+} WGPUSurfaceDescriptorCocoaCustomSurface;
+
 typedef struct WGPUExternalTextureBindingLayout {
 } WGPUExternalTextureBindingLayout;
 
 typedef struct WGPUExternalTextureDescriptor {
-    char const * label; // nullable
+    WGPUStringView label;
     CVPixelBufferRef pixelBuffer;
     WGPUColorSpace colorSpace;
     // The size the source presents the frame at, which the pixel buffer does not carry. Zero when the
@@ -133,7 +161,7 @@ typedef struct WGPUImageCopyExternalImage {
     WGPUColorSpace colorSpace;
 } WGPUImageCopyExternalImage;
 
-// WGPUImageCopyTexture plus the GPUImageCopyTextureTagged color-space and alpha tags.
+// WGPUTexelCopyTextureInfo plus the GPUImageCopyTextureTagged color-space and alpha tags.
 typedef struct WGPUImageCopyTextureTagged {
     WGPUTexture texture;
     uint32_t mipLevel;
@@ -145,7 +173,7 @@ typedef struct WGPUImageCopyTextureTagged {
 
 #if !defined(WGPU_SKIP_PROCS)
 
-typedef void (*WGPUProcRenderBundleSetLabel)(WGPURenderBundle renderBundle, char const * label);
+typedef void (*WGPUProcRenderBundleSetLabel)(WGPURenderBundle renderBundle, WGPUStringView label);
 
 typedef WGPUExternalTexture (*WGPUProcDeviceImportExternalTexture)(WGPUSwapChain swapChain);
 
@@ -156,7 +184,7 @@ typedef WGPUTexture (*WGPUProcSwapChainGetCurrentTexture)(WGPUSwapChain swapChai
 
 #if !defined(WGPU_SKIP_DECLARATIONS)
 
-WGPU_EXPORT void wgpuRenderBundleSetLabel(WGPURenderBundle renderBundle, char const * label);
+WGPU_EXPORT void wgpuRenderBundleSetLabel(WGPURenderBundle renderBundle, WGPUStringView label);
 
 // FIXME: https://github.com/webgpu-native/webgpu-headers/issues/89 is about moving this from WebGPUExt.h to WebGPU.h
 WGPU_EXPORT WGPUTexture wgpuSwapChainGetCurrentTexture(WGPUSwapChain swapChain, uint32_t frameIndex);
@@ -182,7 +210,7 @@ WGPU_EXPORT void wgpuDevicePauseErrorReporting(WGPUDevice device, WGPUBool pause
 WGPU_EXPORT void wgpuDeviceCreateComputePipelineWithPipelineLayoutFromPipelineAsync(WGPUDevice, const WGPUComputePipelineDescriptor*, WGPUComputePipeline, WGPUCreateComputePipelineAsyncCallback, void*) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuDeviceCreateRenderPipelineWithPipelineLayoutFromPipelineAsync(WGPUDevice, const WGPURenderPipelineDescriptor*, WGPURenderPipeline, WGPUCreateRenderPipelineAsyncCallback, void*) WGPU_FUNCTION_ATTRIBUTE;
 
-WGPU_EXPORT WGPUXRProjectionLayer wgpuBindingCreateXRProjectionLayer(WGPUXRBinding binding, WGPUTextureFormat colorFormat, WGPUTextureFormat* optionalDepthStencilFormat, WGPUTextureUsageFlags flags, double scale) WGPU_FUNCTION_ATTRIBUTE;
+WGPU_EXPORT WGPUXRProjectionLayer wgpuBindingCreateXRProjectionLayer(WGPUXRBinding binding, WGPUTextureFormat colorFormat, WGPUTextureFormat* optionalDepthStencilFormat, WGPUTextureUsage flags, double scale) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT WGPUXRSubImage wgpuBindingGetViewSubImage(WGPUXRBinding binding, WGPUXRProjectionLayer layer) WGPU_FUNCTION_ATTRIBUTE;
 
 WGPU_EXPORT WGPUTexture wgpuXRSubImageGetColorTexture(WGPUXRSubImage subImage) WGPU_FUNCTION_ATTRIBUTE;

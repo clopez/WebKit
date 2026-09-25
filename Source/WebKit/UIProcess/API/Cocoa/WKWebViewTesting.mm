@@ -59,6 +59,7 @@
 #import <WebCore/Color.h>
 #import <WebCore/NowPlayingInfo.h>
 #import <WebCore/ScrollingNodeID.h>
+#import <WebCore/TextIndicator.h>
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
@@ -393,6 +394,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 {
     RefPtr networkProcess = _page->websiteDataStore().networkProcessIfExists();
     return networkProcess ? networkProcess->processID() : 0;
+}
+
+- (uint64_t)_webPageProxyIdentifierForTesting
+{
+    return _page->identifier().toUInt64();
 }
 
 - (void)_setScrollingUpdatesDisabledForTesting:(BOOL)disabled
@@ -1241,6 +1247,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
         }
         completion(resultRanges.get());
     });
+}
+
+- (CGRect)_textIndicatorBoundingRectForTesting
+{
+    RefPtr textIndicator = _page->textIndicator();
+    if (!textIndicator)
+        return CGRectNull;
+
+    return textIndicator->textBoundingRectInRootViewCoordinates();
 }
 
 #if ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)

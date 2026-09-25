@@ -853,7 +853,14 @@ void SkiaCompositingLayer::paintContents(SkCanvas& canvas, PaintContext& context
                 SkPaint paint = setupPaint();
                 // The shader matrix maps the tile image into layer space, so it needs to be taken into account here.
                 const auto sampling = SkiaUtilities::samplingOptionsForMatrix(SkMatrix::Concat(canvas.getLocalToDeviceAs3x3(), matrix));
-                paint.setShader(tileImage->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat, sampling, matrix));
+                // Clamp tiles that do not repeat, so bilinear sampling at an edge cannot pick up the opposite one.
+                auto tileMode = [](float tileExtent, float contentsExtent, float phase) {
+                    return (phase || tileExtent < contentsExtent) ? SkTileMode::kRepeat : SkTileMode::kClamp;
+                };
+                paint.setShader(tileImage->makeShader(
+                    tileMode(m_contentsTiling.size.width(), m_contentsRect.width(), m_contentsTiling.phase.width()),
+                    tileMode(m_contentsTiling.size.height(), m_contentsRect.height(), m_contentsTiling.phase.height()),
+                    sampling, matrix));
                 drawRectRestricted(canvas, context.damageRegionOrNull(), SkRect(m_contentsRect), paint);
             }
         }
@@ -1789,7 +1796,7 @@ FloatRect SkiaCompositingLayer::transformedFlattenedBounds() const
     return bounds;
 }
 
-FloatPolygon3D SkiaCompositingLayer::geometryFor3DRenderingContext() const
+Polygon4D SkiaCompositingLayer::geometryFor3DRenderingContext() const
 {
     FloatRect bounds = m_rect;
     if (bounds.isEmpty() && isLeafOf3DRenderingContext() && !m_children.isEmpty() && !m_masksToBounds && !m_mask) {
@@ -1797,7 +1804,7 @@ FloatPolygon3D SkiaCompositingLayer::geometryFor3DRenderingContext() const
             bounds = inverse->mapRect(transformedFlattenedBounds());
     }
 
-    return FloatPolygon3D(bounds, m_transforms.combined);
+    return Polygon4D(bounds, m_transforms.combined);
 }
 
 void SkiaCompositingLayer::collect3DRenderingContextLayers(Vector<SkiaCompositingLayer3DRenderingContext::Layer>& layers)
@@ -1805,8 +1812,10 @@ void SkiaCompositingLayer::collect3DRenderingContextLayers(Vector<SkiaCompositin
     if (m_preserves3D || isLeafOf3DRenderingContext()) {
         // Add layers to 3d rendering context only if they get actually painted.
         bool hasVisualContentOrFilters = hasVisualContent() || filter() || m_backdrop.filter;
-        if (isVisible() && (hasVisualContentOrFilters || (isLeafOf3DRenderingContext() && !m_children.isEmpty())))
-            layers.append(SkiaCompositingLayer3DRenderingContext::Layer(Ref { *this }, geometryFor3DRenderingContext()));
+        if (isVisible() && (hasVisualContentOrFilters || (isLeafOf3DRenderingContext() && !m_children.isEmpty()))) {
+            if (auto geometry = geometryFor3DRenderingContext(); geometry.numberOfVertices() >= 3)
+                layers.append(SkiaCompositingLayer3DRenderingContext::Layer(Ref { *this }, WTF::move(geometry)));
+        }
 
         // Stop recursion on 3d rendering context leaf
         if (isLeafOf3DRenderingContext())

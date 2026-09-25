@@ -521,6 +521,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocum
         std::nullopt, /* sourceBackForwardItemIdentifier */
         WebCore::LockHistory::No,
         WebCore::LockBackForwardList::No,
+        WebCore::NavigationHistoryBehavior::Auto,
         { }, /* clientRedirectSourceForHistory */
         localFrame->effectiveSandboxFlags(),
         localFrame->effectiveReferrerPolicy(),
@@ -1059,6 +1060,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         std::nullopt, /* sourceBackForwardItemIdentifier */
         WebCore::LockHistory::No,
         WebCore::LockBackForwardList::No,
+        WebCore::NavigationHistoryBehavior::Auto,
         { }, /* clientRedirectSourceForHistory */
         localFrame->effectiveSandboxFlags(),
         localFrame->effectiveReferrerPolicy(),
@@ -1088,6 +1090,21 @@ void WebLocalFrameLoaderClient::clearLastBroadcastFrameTreeSyncData()
 {
     m_lastBroadcastFrameGeometry = std::nullopt;
     m_lastBroadcastFrameViewportInfo = std::nullopt;
+    m_lastAllRemoteDescendantsWereOffscreen = false;
+}
+
+void WebLocalFrameLoaderClient::broadcastFrameViewportInfoToOtherProcessesIfNeeded(const FrameViewportInfo& viewportInfo, bool hasOnScreenRemoteDescendant)
+{
+    if (m_localFrame->isMainFrame()) {
+        bool allRemoteDescendantsAreOffscreen = !hasOnScreenRemoteDescendant;
+        bool lastAllRemoteDescendantsWereOffscreen = m_lastAllRemoteDescendantsWereOffscreen;
+        m_lastAllRemoteDescendantsWereOffscreen = allRemoteDescendantsAreOffscreen;
+
+        if (allRemoteDescendantsAreOffscreen && lastAllRemoteDescendantsWereOffscreen)
+            return;
+    }
+
+    broadcastFrameViewportInfoToOtherProcesses(viewportInfo);
 }
 
 void WebLocalFrameLoaderClient::applyWebsitePolicies(WebsitePoliciesData&& websitePolicies)

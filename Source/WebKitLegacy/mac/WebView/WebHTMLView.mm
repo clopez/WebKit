@@ -1095,7 +1095,7 @@ static NSControlStateValue NODELETE kit(TriState state)
         promisedDragTIFFDataSource->removeClient(promisedDataClient());
 
     if (flagsChangedEventMonitor) {
-        [NSEvent removeMonitor:flagsChangedEventMonitor];
+        [NSEvent removeMonitor:protect(flagsChangedEventMonitor)];
         flagsChangedEventMonitor = nil;
     }
 #endif
@@ -1565,7 +1565,7 @@ static NSControlStateValue NODELETE kit(TriState state)
     _private->savedSubviews = self._subviewsIvar;
     // We need to keep the layer-hosting view in the subviews, otherwise the layers flash.
     if (_private->layerHostingView) {
-        NSMutableArray* newSubviews = [[NSMutableArray alloc] initWithObjects:_private->layerHostingView, nil];
+        NSMutableArray* newSubviews = [[NSMutableArray alloc] initWithObjects:protect(_private->layerHostingView).get(), nil];
         self._subviewsIvar = newSubviews;
     } else
         self._subviewsIvar = nil;
@@ -1576,13 +1576,14 @@ static NSControlStateValue NODELETE kit(TriState state)
  - (void)_restoreSubviews
  {
 #if PLATFORM(MAC)
+    RetainPtr savedSubviews = _private->savedSubviews;
     ASSERT(_private->subviewsSetAside);
     if (_private->layerHostingView) {
         [self._subviewsIvar release];
-        self._subviewsIvar = _private->savedSubviews;
+        self._subviewsIvar = savedSubviews;
     } else {
         ASSERT(self._subviewsIvar == nil);
-        self._subviewsIvar = _private->savedSubviews;
+        self._subviewsIvar = savedSubviews;
     }
     _private->savedSubviews = nil;
     _private->subviewsSetAside = NO;
@@ -2006,7 +2007,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         [pasteboard _web_writePromisedRTFDFromArchive:archive.get() containsImage:[[pasteboard types] containsObject:WebCore::legacyTIFFPasteboardTypeSingleton()]];
     } else if ([type isEqualToString:WebCore::legacyTIFFPasteboardTypeSingleton()] && _private->promisedDragTIFFDataSource) {
         if (RefPtr image = _private->promisedDragTIFFDataSource->image())
-            [pasteboard setData:(__bridge NSData *)image->adapter().tiffRepresentation() forType:WebCore::legacyTIFFPasteboardTypeSingleton()];
+            [pasteboard setData:protect((__bridge NSData *)image->adapter().tiffRepresentation()) forType:WebCore::legacyTIFFPasteboardTypeSingleton()];
         [self setPromisedDragTIFFDataSource:nullptr];
     }
 }
@@ -2111,13 +2112,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (BOOL)_canEdit
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor().canEdit();
+    return coreFrame && protect(coreFrame->editor())->canEdit();
 }
 
 - (BOOL)_canEditRichly
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor().canEditRichly();
+    return coreFrame && protect(coreFrame->editor())->canEditRichly();
 }
 
 - (BOOL)_canAlterCurrentSelection
@@ -2187,50 +2188,50 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (DOMNode *)_insertOrderedList
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame ? kit(coreFrame->editor().insertOrderedList().get()) : nil;
+    return coreFrame ? kit(protect(coreFrame->editor())->insertOrderedList().get()) : nil;
 }
 
 - (DOMNode *)_insertUnorderedList
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame ? kit(coreFrame->editor().insertUnorderedList().get()) : nil;
+    return coreFrame ? kit(protect(coreFrame->editor())->insertUnorderedList().get()) : nil;
 }
 
 - (BOOL)_canIncreaseSelectionListLevel
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor().canIncreaseSelectionListLevel();
+    return coreFrame && protect(coreFrame->editor())->canIncreaseSelectionListLevel();
 }
 
 - (BOOL)_canDecreaseSelectionListLevel
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor().canDecreaseSelectionListLevel();
+    return coreFrame && protect(coreFrame->editor())->canDecreaseSelectionListLevel();
 }
 
 - (DOMNode *)_increaseSelectionListLevel
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame ? kit(coreFrame->editor().increaseSelectionListLevel().get()) : nil;
+    return coreFrame ? kit(protect(coreFrame->editor())->increaseSelectionListLevel().get()) : nil;
 }
 
 - (DOMNode *)_increaseSelectionListLevelOrdered
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame ? kit(coreFrame->editor().increaseSelectionListLevelOrdered().get()) : nil;
+    return coreFrame ? kit(protect(coreFrame->editor())->increaseSelectionListLevelOrdered().get()) : nil;
 }
 
 - (DOMNode *)_increaseSelectionListLevelUnordered
 {
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame ? kit(coreFrame->editor().increaseSelectionListLevelUnordered().get()) : nil;
+    return coreFrame ? kit(protect(coreFrame->editor())->increaseSelectionListLevelUnordered().get()) : nil;
 }
 
 - (void)_decreaseSelectionListLevel
 {
     RefPtr coreFrame = core([self _frame]);
     if (coreFrame)
-        coreFrame->editor().decreaseSelectionListLevel();
+        protect(coreFrame->editor())->decreaseSelectionListLevel();
 }
 
 #if PLATFORM(MAC)
@@ -2285,7 +2286,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 #endif
 
-    [_private clear];
+    [protect(_private) clear];
 }
 
 #if PLATFORM(MAC)
@@ -2418,7 +2419,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!frame)
         return NO;
 
-    if (frame->document() && frame->document()->isFrameSet()) {
+    if (frame->document() && protect(frame->document())->isFrameSet()) {
         minimumPageWidth = 0;
         minimumPageHeight = 0;
     }
@@ -2447,7 +2448,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // If we are a frameset just print with the layout we have onscreen, otherwise relayout
     // according to the page width.
-    if (shrinkToFit && (!frame->document() || !frame->document()->isFrameSet())) {
+    if (shrinkToFit && (!frame->document() || !protect(frame->document())->isFrameSet())) {
         minLayoutSize = frame->resizePageRectsKeepingRatio(WebCore::FloatSize(pageLogicalWidth, pageLogicalHeight), WebCore::FloatSize(pageLogicalWidth * _WebHTMLViewPrintingMinimumShrinkFactor, pageLogicalHeight * _WebHTMLViewPrintingMinimumShrinkFactor));
         maximumShrinkRatio = _WebHTMLViewPrintingMaximumShrinkFactor / _WebHTMLViewPrintingMinimumShrinkFactor;
     }
@@ -2483,7 +2484,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // If we are a frameset just print with the layout we have onscreen, otherwise relayout
     // according to the page width.
-    if (shrinkToFit && (!frame->document() || !frame->document()->isFrameSet())) {
+    if (shrinkToFit && (!frame->document() || !protect(frame->document())->isFrameSet())) {
         minLayoutSize = frame->resizePageRectsKeepingRatio(WebCore::FloatSize(pageLogicalWidth, pageLogicalHeight), WebCore::FloatSize(pageLogicalWidth * _WebHTMLViewPrintingMinimumShrinkFactor, pageLogicalHeight * _WebHTMLViewPrintingMinimumShrinkFactor));
         maximumShrinkRatio = _WebHTMLViewPrintingMaximumShrinkFactor / _WebHTMLViewPrintingMinimumShrinkFactor;
     }
@@ -2615,7 +2616,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     // this view can be removed from it's superview, even though
     // it could be needed later, so close if needed.
     [self close];
-    [_private release];
+    // Retaining the member just to release it would be pointless.
+    SUPPRESS_UNRETAINED_ARG [_private release];
     _private = nil;
 
     [super dealloc];
@@ -2674,7 +2676,7 @@ static String commandNameForSelector(SEL selector)
     RefPtr coreFrame = core([self _frame]);
     if (!coreFrame)
         return WebCore::Editor::Command();
-    return coreFrame->editor().command(commandNameForSelector(selector));
+    return protect(coreFrame->editor())->command(commandNameForSelector(selector));
 }
 
 - (WebCore::Editor::Command)coreCommandByName:(const char*)name
@@ -2682,7 +2684,7 @@ static String commandNameForSelector(SEL selector)
     RefPtr coreFrame = core([self _frame]);
     if (!coreFrame)
         return WebCore::Editor::Command();
-    return coreFrame->editor().command(String::fromLatin1(name));
+    return protect(coreFrame->editor())->command(String::fromLatin1(name));
 }
 
 - (void)executeCoreCommandBySelector:(SEL)selector
@@ -2897,9 +2899,9 @@ IGNORE_WARNINGS_END
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
-            [menuItem setTitle:panelShowing
+            [menuItem setTitle:protect(panelShowing
                 ? UI_STRING_INTERNAL("Hide Spelling and Grammar", "menu item title")
-                : UI_STRING_INTERNAL("Show Spelling and Grammar", "menu item title")];
+                : UI_STRING_INTERNAL("Show Spelling and Grammar", "menu item title"))];
         }
         return [self _canEdit];
     }
@@ -2938,9 +2940,9 @@ IGNORE_WARNINGS_END
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             // Take control of the title of the menu item instead of just checking/unchecking it because
             // a check would be ambiguous.
-            [menuItem setTitle:(frame->editor().selectionHasStyle(WebCore::CSSPropertyDirection, "rtl"_s) != TriState::False)
+            [menuItem setTitle:protect((frame->editor().selectionHasStyle(WebCore::CSSPropertyDirection, "rtl"_s) != TriState::False)
                 ? UI_STRING_INTERNAL("Left to Right", "Left to Right context menu item")
-                : UI_STRING_INTERNAL("Right to Left", "Right to Left context menu item")];
+                : UI_STRING_INTERNAL("Right to Left", "Right to Left context menu item"))];
         }
         return [self _canEdit];
     } 
@@ -3000,9 +3002,9 @@ IGNORE_WARNINGS_END
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible];
-            [menuItem setTitle:panelShowing
+            [menuItem setTitle:protect(panelShowing
                 ? UI_STRING_INTERNAL("Hide Substitutions", "menu item title")
-                : UI_STRING_INTERNAL("Show Substitutions", "menu item title")];
+                : UI_STRING_INTERNAL("Show Substitutions", "menu item title"))];
         }
         return [self _canEdit];
     }
@@ -3256,7 +3258,7 @@ IGNORE_WARNINGS_END
             }];
         }
     } else {
-        [NSEvent removeMonitor:_private->flagsChangedEventMonitor];
+        [NSEvent removeMonitor:protect(_private->flagsChangedEventMonitor)];
         _private->flagsChangedEventMonitor = nil;
 #endif
     }
@@ -3301,7 +3303,7 @@ IGNORE_WARNINGS_END
 
     if (RefPtr coreFrame = core([self _frame])) {
         coreFrame->document()->styleScope().didChangeStyleSheetEnvironment();
-        coreFrame->document()->updateStyleIfNeeded();
+        protect(coreFrame->document())->updateStyleIfNeeded();
     }
 
 #ifdef LOG_TIMES
@@ -3318,7 +3320,7 @@ IGNORE_WARNINGS_END
     if (coreFrame->document()) {
         if (coreFrame->document()->backForwardCacheState() != WebCore::Document::NotInBackForwardCache)
             return;
-        coreFrame->document()->updateStyleIfNeeded();
+        protect(coreFrame->document())->updateStyleIfNeeded();
     }
 
     if (![self _needsLayout])
@@ -3710,7 +3712,7 @@ static RetainPtr<NSArray> customMenuFromDefaultItems(WebView *webView, const Web
     _private->handlingMouseDownEvent = YES;
     page->contextMenuController().clearContextMenu();
     coreFrame->eventHandler().mouseDown(event, [[self _webView] _pressureEvent]);
-    BOOL handledEvent = coreFrame->eventHandler().sendContextMenuEvent(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], page->chrome().platformPageClient()));
+    BOOL handledEvent = coreFrame->eventHandler().sendContextMenuEvent(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], protect(page->chrome().platformPageClient())));
     _private->handlingMouseDownEvent = NO;
 
     if (!handledEvent)
@@ -3838,7 +3840,7 @@ static BOOL currentScrollIsBlit(NSView *clipView)
     if (RefPtr frame = core([self _frame])) {
         if (frame->document() && frame->document()->backForwardCacheState() != WebCore::Document::NotInBackForwardCache)
             return;
-        frame->document()->scheduleFullStyleRebuild();
+        protect(frame->document())->scheduleFullStyleRebuild();
     }
 }
 
@@ -3941,7 +3943,7 @@ static BOOL currentScrollIsBlit(NSView *clipView)
 
 #ifdef LOG_TIMES
     double thisTime = CFAbsoluteTimeGetCurrent() - start;
-    LOG(Timing, "%s draw seconds = %f", widget->part()->baseURL().URL().latin1(), thisTime);
+    LOG(Timing, "%s draw seconds = %f", widget->part()->baseURL().URL().utf8(), thisTime);
 #endif
 
 #if PLATFORM(MAC)
@@ -4108,7 +4110,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             if ([hitHTMLView.get() _isSelectionEvent:event]) {
 #if ENABLE(DRAG_SUPPORT)
                 if (RefPtr page = coreFrame->page())
-                    result = coreFrame->eventHandler().eventMayStartDrag(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], page->chrome().platformPageClient()));
+                    result = coreFrame->eventHandler().eventMayStartDrag(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], protect(page->chrome().platformPageClient())));
 #endif
             } else if ([hitHTMLView.get() _isScrollBarEvent:event])
                 result = true;
@@ -4135,7 +4137,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(DRAG_SUPPORT)
             if (RefPtr coreFrame = core([hitHTMLView.get() _frame])) {
                 if (RefPtr page = coreFrame->page())
-                    result = coreFrame->eventHandler().eventMayStartDrag(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], page->chrome().platformPageClient()));
+                    result = coreFrame->eventHandler().eventMayStartDrag(WebCore::PlatformEventFactory::createPlatformMouseEvent(event, [[self _webView] _pressureEvent], protect(page->chrome().platformPageClient())));
             }
 #endif
             [hitHTMLView.get() _setMouseDownEvent:nil];
@@ -5188,7 +5190,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_applyEditingStyleToSelection:(Ref<WebCore::EditingStyle>&&)editingStyle withUndoAction:(WebCore::EditAction)undoAction
 {
     if (RefPtr coreFrame = core([self _frame]))
-        coreFrame->editor().applyStyleToSelection(WTF::move(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
+        protect(coreFrame->editor())->applyStyleToSelection(WTF::move(editingStyle), undoAction, WebCore::Editor::ColorFilterMode::InvertColor);
 }
 
 #if PLATFORM(MAC)
@@ -6113,7 +6115,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     WebFrame *webFrame = [self _frame];
     RefPtr coreFrame = core(webFrame);
     if (coreFrame && coreFrame->view())
-        coreFrame->view()->updateLayoutAndStyleIfNeededRecursive(WebCore::LayoutOptions::UpdateCompositingLayers);
+        protect(coreFrame->view())->updateLayoutAndStyleIfNeededRecursive(WebCore::LayoutOptions::UpdateCompositingLayers);
 }
 
 - (void) _destroyAllWebPlugins
@@ -6130,6 +6132,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)attachRootLayer:(CALayer *)layer
 {
+    RetainPtr layerHostingView = _private->layerHostingView;
     if (!_private->layerHostingView) {
         auto hostingView = adoptNS([[WebLayerHostingFlippedView alloc] initWithFrame:[self bounds]]);
         [hostingView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
@@ -6143,16 +6146,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     if ([self layer]) {
         // If we are in a layer-backed view, we need to manually initialize the geometry for our layer.
-        [viewLayer setBounds:NSRectToCGRect([_private->layerHostingView bounds])];
+        [viewLayer setBounds:NSRectToCGRect([layerHostingView bounds])];
         [viewLayer setAnchorPoint:CGPointMake(0, [self isFlipped] ? 1 : 0)];
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        CGPoint layerPosition = NSPointToCGPoint([self convertPointToBase:[_private->layerHostingView frame].origin]);
+        CGPoint layerPosition = NSPointToCGPoint([self convertPointToBase:[layerHostingView frame].origin]);
 ALLOW_DEPRECATED_DECLARATIONS_END
         [viewLayer setPosition:layerPosition];
     }
     
-    [_private->layerHostingView setLayer:viewLayer];
-    [_private->layerHostingView setWantsLayer:YES];
+    [layerHostingView setLayer:viewLayer];
+    [layerHostingView setWantsLayer:YES];
     
     // Parent our root layer in the container layer
     [viewLayer addSublayer:layer];
@@ -6167,9 +6170,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)detachRootLayer
 {
     if (_private->layerHostingView) {
-        [_private->layerHostingView setLayer:nil];
-        [_private->layerHostingView setWantsLayer:NO];
-        [_private->layerHostingView removeFromSuperview];
+        RetainPtr layerHostingView = _private->layerHostingView;
+        [layerHostingView setLayer:nil];
+        [layerHostingView setWantsLayer:NO];
+        [layerHostingView removeFromSuperview];
         _private->layerHostingView = nil;
     }
 }
@@ -6363,7 +6367,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     [self _executeSavedKeypressCommands];
 
-    if (!isTextInput(core([self _frame]))) {
+    if (!isTextInput(protect(core([self _frame])))) {
         LOG(TextInput, "selectedRange -> (NSNotFound, 0)");
         return NSMakeRange(NSNotFound, 0);
     }
@@ -6384,7 +6388,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!coreFrame)
         return NSMakeRange(0, 0); // FIXME: Why not NSNotFound, 0?
 
-    auto range = coreFrame->editor().compositionRange();
+    auto range = protect(coreFrame->editor())->compositionRange();
     if (!range)
         return NSMakeRange(NSNotFound, 0);
 
@@ -6468,7 +6472,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
     
     if (RefPtr coreFrame = core([self _frame]))
-        coreFrame->editor().confirmComposition();
+        protect(coreFrame->editor())->confirmComposition();
 }
 
 #if PLATFORM(MAC)
@@ -6553,7 +6557,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (replacementRange.location != NSNotFound)
         [[self _frame] _selectNSRange:replacementRange];
 
-    coreFrame->editor().setComposition(text, underlines, { }, { }, newSelRange.location, NSMaxRange(newSelRange));
+    protect(coreFrame->editor())->setComposition(text, underlines, { }, { }, newSelRange.location, NSMaxRange(newSelRange));
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -6695,7 +6699,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return;
     }
 
-    if (!coreFrame || !coreFrame->editor().canEdit())
+    if (!coreFrame)
+        return;
+
+    Ref editor = coreFrame->editor();
+    if (!editor->canEdit())
         return;
 
     BOOL needToRemoveSoftSpace = NO;
@@ -6719,14 +6727,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     bool eventHandled = false;
     String eventText = makeStringByReplacingAll(text, NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
-    if (!coreFrame->editor().hasComposition()) {
+    if (!editor->hasComposition()) {
         // An insertText: might be handled by other responders in the chain if we don't handle it.
         // One example is space bar that results in scrolling down the page.
 
         if (!dictationAlternativeLocations.isEmpty())
-            eventHandled = coreFrame->editor().insertDictatedText(eventText, dictationAlternativeLocations, event.get());
+            eventHandled = editor->insertDictatedText(eventText, dictationAlternativeLocations, event.get());
         else
-            eventHandled = coreFrame->editor().insertText(eventText, event.get(), replacesText ? WebCore::TextEventInputAutocompletion : WebCore::TextEventInputKeyboard);
+            eventHandled = editor->insertText(eventText, event.get(), replacesText ? WebCore::TextEventInputAutocompletion : WebCore::TextEventInputKeyboard);
         
 #if USE(INSERTION_UNDO_GROUPING)
         if (registerUndoGroup)
@@ -6734,7 +6742,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 #endif
     } else {
         eventHandled = true;
-        coreFrame->editor().confirmComposition(eventText);
+        editor->confirmComposition(eventText);
     }
     
     if (parameters)
@@ -6852,7 +6860,7 @@ static CGImageRef imageFromRect(WebCore::LocalFrame* frame, CGRect rect)
     auto* page = frame->page();
     if (!page)
         return nil;
-    WAKView* documentView = frame->view()->documentView();
+    WAKView* documentView = protect(frame->view())->documentView();
     if (!documentView)
         return nil;
     if (![documentView isKindOfClass:[WebHTMLView class]])
@@ -7071,7 +7079,7 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
     if (!coreFrame)
         return 0;
 
-    return coreFrame->editor().countMatchesForText(string, makeSimpleRange(core(range)), coreOptions(options), limit, markMatches, 0);
+    return protect(coreFrame->editor())->countMatchesForText(string, makeSimpleRange(protect(core(range))), coreOptions(options), limit, markMatches, 0);
 }
 
 - (void)setMarkedTextMatchesAreHighlighted:(BOOL)newValue
@@ -7079,7 +7087,7 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
     RefPtr coreFrame = core([self _frame]);
     if (!coreFrame)
         return;
-    coreFrame->editor().setMarkedTextMatchesAreHighlighted(newValue);
+    protect(coreFrame->editor())->setMarkedTextMatchesAreHighlighted(newValue);
 }
 
 - (BOOL)markedTextMatchesAreHighlighted
@@ -7116,7 +7124,7 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
     if (![string length])
         return NO;
     RefPtr coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor().findString(string, coreOptions(options));
+    return coreFrame && protect(coreFrame->editor())->findString(string, coreOptions(options));
 }
 
 #if ENABLE(WRITING_TOOLS)
@@ -7169,15 +7177,15 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
 {
     self = [super init];
     _lastResponderInChain = chain;
-    while (NSResponder *next = [_lastResponderInChain nextResponder])
+    while (NSResponder *next = [protect(_lastResponderInChain) nextResponder])
         _lastResponderInChain = next;
-    [_lastResponderInChain setNextResponder:self];
+    [protect(_lastResponderInChain) setNextResponder:self];
     return self;
 }
 
 - (void)detach
 {
-    [_lastResponderInChain setNextResponder:nil];
+    [protect(_lastResponderInChain) setNextResponder:nil];
     _lastResponderInChain = nil;
 }
 

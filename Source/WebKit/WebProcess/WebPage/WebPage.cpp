@@ -1352,8 +1352,7 @@ Awaitable<std::optional<FrameTreeNodeData>> WebPage::getFrameTreeForBackForwardC
         mainFrame->tree().specifiedName().string(),
         mainFrame->frameID(),
         std::nullopt,
-        std::nullopt,
-        topDocument ? std::optional { topDocument-> identifier() }  : std::nullopt,
+        topDocument ? std::optional { topDocument->identifier() } : std::nullopt,
         getCurrentProcessID(),
         false,
         false,
@@ -1761,6 +1760,9 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
         ASSERT(m_page->settings().siteIsolationEnabled());
         createProvisionalFrame(WTF::move(*provisionalFrameCreationParameters));
     }
+
+    didSetPageZoomFactor(parameters.pageZoomFactor);
+    didSetTextZoomFactor(parameters.textZoomFactor);
 
     platformReinitializeAccessibilityToken();
 }
@@ -2633,6 +2635,7 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     frameLoadRequest.setShouldTreatAsContinuingLoad(loadParameters.shouldTreatAsContinuingLoad);
     frameLoadRequest.setLockHistory(loadParameters.lockHistory);
     frameLoadRequest.setLockBackForwardList(loadParameters.lockBackForwardList);
+    frameLoadRequest.setNavigationHistoryBehavior(loadParameters.navigationHistoryBehavior);
     frameLoadRequest.setClientRedirectSourceForHistory(WTF::move(loadParameters.clientRedirectSourceForHistory));
     frameLoadRequest.setIsHandledByAboutSchemeHandler(loadParameters.isHandledByAboutSchemeHandler);
     if (loadParameters.isRequestFromClientOrUserInput)
@@ -4242,6 +4245,15 @@ void WebPage::setLastKnownMousePosition(WebCore::FrameIdentifier frameID, const 
         return;
 
     frame->coreLocalFrame()->eventHandler().setLastKnownMousePosition(eventPoint, globalPoint, WTF::move(source));
+}
+
+void WebPage::mousePointerDidDisappear()
+{
+    if (RefPtr page = corePage()) {
+        page->forEachLocalFrame([](LocalFrame& frame) {
+            frame.eventHandler().mousePointerDidDisappear();
+        });
+    }
 }
 
 void WebPage::startDeferringResizeEvents()
@@ -9056,10 +9068,8 @@ void WebPage::stopAllURLSchemeTasks()
 void WebPage::registerURLSchemeHandler(WebURLSchemeHandlerIdentifier handlerIdentifier, const String& scheme)
 {
     WEBPAGE_RELEASE_LOG(Process, "registerURLSchemeHandler: Registered handler %" PRIu64 " for the '%s' scheme", handlerIdentifier.toUInt64(), scheme.utf8());
-
     WebCore::LegacySchemeRegistry::registerURLSchemeAsHandledBySchemeHandler(scheme);
-    WebProcess::singleton().registerURLSchemeAsCORSEnabled(scheme);
-
+    WebCore::LegacySchemeRegistry::registerURLSchemeAsCORSEnabled(scheme);
     auto schemeResult = m_schemeToURLSchemeHandlerProxyMap.add(scheme, WebURLSchemeHandlerProxy::create(*this, handlerIdentifier));
     m_identifierToURLSchemeHandlerProxyMap.add(handlerIdentifier, Ref { schemeResult.iterator->value }.get());
 }
@@ -10768,7 +10778,7 @@ void WebPage::remoteDictionaryPopupInfoToRootView(WebCore::FrameIdentifier frame
         return completionHandler(popupInfo);
 #if PLATFORM(COCOA)
     auto textIndicatorData = textIndicator->data();
-    textIndicatorData.selectionRectInRootViewCoordinates = contentsToRootView<FloatRect>(frameID, popupInfo.textIndicator->selectionRectInRootViewCoordinates());
+    textIndicatorData.selectionRectInMainFrameViewCoordinates = contentsToRootView<FloatRect>(frameID, popupInfo.textIndicator->selectionRectInMainFrameViewCoordinates());
     textIndicatorData.textBoundingRectInRootViewCoordinates = contentsToRootView<FloatRect>(frameID, popupInfo.textIndicator->textBoundingRectInRootViewCoordinates());
     textIndicatorData.contentImageWithoutSelectionRectInRootViewCoordinates = contentsToRootView<FloatRect>(frameID, popupInfo.textIndicator->contentImageWithoutSelectionRectInRootViewCoordinates());
 

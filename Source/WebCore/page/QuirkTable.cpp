@@ -26,6 +26,7 @@
 #include "config.h"
 #include "QuirkTable.h"
 #include "QuirkBehaviors.h"
+#include "QuirkSelectors.h"
 
 #include <algorithm>
 #include <array>
@@ -46,6 +47,9 @@ static constexpr std::array microsoftTeamsHosts { "teams.live.com"_s, "teams.mic
 static constexpr std::array naverHostsWithoutSimulatedMouseEvents { "tv.naver.com"_s, "mail.naver.com"_s, "m.naver.com"_s };
 static constexpr std::array youTubeEmbedDomains { "youtube.com"_s, "youtube-nocookie.com"_s };
 static constexpr std::array claudeDomains { "claude.ai"_s, "claude.com"_s };
+static constexpr std::array kinjaLoginDomains { "jalopnik.com"_s, "kotaku.com"_s, "theroot.com"_s, "theinventory.com"_s };
+static constexpr std::array playStationSignInHosts { "www.playstation.com"_s, "my.playstation.com"_s };
+static constexpr std::array claudeLogoutSurvivingCookieNames { "__ssid"_s, "__cf_bm"_s, "anthropic-device-id"_s, "lastActiveOrg"_s, "activitySessionId"_s };
 
 static constexpr auto chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"_s;
 
@@ -112,12 +116,10 @@ static constexpr auto xGoogleSignInButtonFixScript = R"js((function() {
 })();
 )js"_s;
 
-static constexpr auto onSliderRole = "[role=slider], [role=slider] *"_s;
-static constexpr auto onDockerPanelTabBar = ".lm-DockPanel-tabBar, .lm-DockPanel-tabBar *"_s;
-
 namespace SiteSpecificQuirks {
 using namespace QuirkBehaviors;
 using namespace QuirkBehaviorConditions;
+using namespace QuirkSelectors;
 using namespace URLRefinement;
 using namespace BuildCondition;
 
@@ -125,6 +127,8 @@ static constexpr auto anyclipPlayerScriptURL = URLMatch::host("player.anyclip.co
 static constexpr auto ceacBrowserCloseScriptURL = URLMatch::anyURL().when(lastPathComponentIs("CheckBrowserClose.js"_s));
 static constexpr auto googleSignInClientScriptURL = URLMatch::host("accounts.google.com"_s).when(pathIs("/gsi/client"_s));
 static constexpr auto webExPushDownloadScriptURL = URLMatch::anyURL().when(lastPathComponentStartsWith("pushdownload."_s));
+static constexpr auto wordEditorScriptURL = URLMatch::anyURL().when(lastPathComponentIs("wordeditords.js"_s));
+static constexpr auto claudeLogoutURL = URLMatch::host("claude.ai"_s).when(pathIs("/api/auth/logout"_s));
 
 static constexpr Quirk fullTable[] = {
     // 365scores.com rdar://116491386
@@ -147,11 +151,10 @@ static constexpr Quirk fullTable[] = {
     { .match = URLMatch::anyTopLevelDomain("amazon"_s),
         .behaviors = {
             // amazon.com rdar://49124529
-            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
+            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk.when(elementMatchesSelector(onAmazonMagnifierLens)),
             // amazon.com rdar://49124313
             shouldDispatchSimulatedMouseEventsQuirk,
-        },
-        .site = QuirkSite::Amazon },
+        } },
 
     // amazon.com rdar://117771731
     { .match = URLMatch::anyTopLevelDomain("amazon"_s).when(pathIs("/gp/video/"_s)),
@@ -206,7 +209,7 @@ static constexpr Quirk fullTable[] = {
             // bing.com rdar://133223599
             maybeBypassBackForwardCache,
             // bing.com rdar://126573838
-            needsMediaRewriteRangeRequestQuirk,
+            needsMediaRewriteRangeRequestQuirk.when(secondaryURLMatches(URLMatch::domain("bing.com"_s))),
         },
         .site = QuirkSite::Bing },
 
@@ -224,9 +227,8 @@ static constexpr Quirk fullTable[] = {
     // Remove this once rdar://139478801 is resolved.
     { .match = URLMatch::domain("cbssports.com"_s),
         .behaviors = {
-            shouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk,
+            shouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk.when(elementMatchesSelector(onAviaButton)),
         },
-        .site = QuirkSite::CBSSports,
         .isAvailable = iOSFamily },
 
     { .match = URLMatch::hostOrSubdomainOf("ceac.state.gov"_s),
@@ -234,7 +236,7 @@ static constexpr Quirk fullTable[] = {
             // ceac.state.gov https://bugs.webkit.org/show_bug.cgi?id=193478
             needsFormControlToBeMouseFocusableQuirk,
             // ceac.state.gov https://bugs.webkit.org/show_bug.cgi?id=311383
-            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(ceacBeforeUnloadFixScript, ceacBrowserCloseScriptURL)),
+            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(ceacBeforeUnloadFixScript)).when(secondaryURLMatches(ceacBrowserCloseScriptURL)),
         } },
 
     // secure.chase.com rdar://126715227
@@ -248,11 +250,10 @@ static constexpr Quirk fullTable[] = {
 
     { .match = URLMatch::domain("claude.ai"_s),
         .behaviors = {
-            needsClaudeSidebarViewportUnitQuirk,
+            needsClaudeSidebarViewportUnitQuirk.when(elementMatchesSelector(onClaudeSidebar)),
             // rdar://174779259 - logout flow leaves identification cookies
             // causing redirect loop on next /chat boot.
-            // See Quirks::clearLogoutSurvivingIdentityCookiesIfNeeded().
-            needsLogoutCookieCleanupQuirk,
+            needsLogoutCookieCleanupQuirk(QuirkParameters::fromCookieNames(claudeLogoutSurvivingCookieNames)).when(secondaryURLMatches(claudeLogoutURL)),
         } },
 
     { .match = URLMatch::domain(claudeDomains),
@@ -289,7 +290,7 @@ static constexpr Quirk fullTable[] = {
 
     // player.anyclip.com rdar://138789765
     { .match = URLMatch::domain("dictionary.com"_s),
-        .behaviors = { needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(chromeUserAgentScript, anyclipPlayerScriptURL)) },
+        .behaviors = { needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(chromeUserAgentScript)).when(secondaryURLMatches(anyclipPlayerScriptURL)) },
         .isAvailable = iOSFamily },
 
     // digitaltrends.com rdar://121014613
@@ -310,7 +311,7 @@ static constexpr Quirk fullTable[] = {
         .isAvailable = iOSFamily && desktopContentModeQuirks },
 
     { .match = URLMatch::domain("ea.com"_s),
-        .behaviors = { shouldPreventKeyframeEffectAccelerationQuirk } },
+        .behaviors = { shouldPreventKeyframeEffectAccelerationQuirk.when(elementMatchesSelector(onEANetworkNav)) } },
 
     { .match = URLMatch::domain("espn.com"_s),
         .behaviors = {
@@ -324,18 +325,18 @@ static constexpr Quirk fullTable[] = {
 
     // Expedia Group rdar://126631968
     { .match = URLMatch::domain(expediaGroupDomains),
-        .behaviors = { needsExpediaGroupAnimationQuirk } },
+        .behaviors = { needsExpediaGroupAnimationQuirk.when(elementMatchesSelector(onExpediaOpeningMenu)) } },
     { .match = URLMatch::anyTopLevelDomain("ebookers"_s),
-        .behaviors = { needsExpediaGroupAnimationQuirk } },
+        .behaviors = { needsExpediaGroupAnimationQuirk.when(elementMatchesSelector(onExpediaOpeningMenu)) } },
     { .match = URLMatch::anyTopLevelDomain("expedia"_s),
-        .behaviors = { needsExpediaGroupAnimationQuirk } },
+        .behaviors = { needsExpediaGroupAnimationQuirk.when(elementMatchesSelector(onExpediaOpeningMenu)) } },
 
     { .match = URLMatch::domain("facebook.com"_s),
         .behaviors = {
             // facebook.com rdar://100871402
             needsFacebookRemoveNotSupportedQuirk,
             // facebook.com rdar://174179871
-            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
+            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk.when(elementMatchesSelector(onSliderRoleItself)),
             // facebook.com rdar://67273166
             requiresUserGestureToPauseInPictureInPictureQuirk,
             // facebook.com rdar://158736355
@@ -389,21 +390,19 @@ static constexpr Quirk fullTable[] = {
 
     // google.com https://bugs.webkit.org/show_bug.cgi?id=323851 rdar://181740296
     { .match = URLMatch::anyTopLevelDomain("google"_s).when(pathIs("/search"_s)),
-        .behaviors = { needsAnchorToBeMouseFocusableQuirk },
-        .site = QuirkSite::GoogleSearch },
+        .behaviors = { needsAnchorToBeMouseFocusableQuirk.when(elementMatchesSelector(onExpandablePanel)) } },
 
     { .match = URLMatch::anyTopLevelDomain("google"_s).when(pathStartsWith("/maps/"_s)),
         .behaviors = {
             // maps.google.com rdar://152194074
-            mayNeedToIgnoreContentObservation,
+            mayNeedToIgnoreContentObservation.when(elementMatchesSelector(onSuggestionsLabel)),
             // maps.google.com rdar://67358928
             needsGoogleMapsScrollingQuirk,
             // maps.google.com https://bugs.webkit.org/show_bug.cgi?id=214945
             shouldAvoidResizingWhenInputViewBoundsChangeQuirk,
             // maps.google.com rdar://49124313
             shouldDispatchSimulatedMouseEventsQuirk,
-        },
-        .site = QuirkSite::GoogleMaps },
+        } },
 
     { .match = URLMatch::host("docs.google.com"_s),
         .behaviors = {
@@ -413,8 +412,11 @@ static constexpr Quirk fullTable[] = {
             isTouchBarUpdateSuppressedForHiddenContentEditableQuirk,
             // docs.google.com rdar://49864669
             shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreasQuirk,
-        },
-        .site = QuirkSite::GoogleDocs },
+            // docs.google.com rdar://59402637
+            shouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk.when(elementMatchesSelector(onGoogleDocsMLPromotion)),
+            // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=199933
+            shouldOpenAsAboutBlankQuirk,
+        } },
 
     // docs.google.com https://bugs.webkit.org/show_bug.cgi?id=199587
     { .match = URLMatch::host("docs.google.com"_s).when(pathStartsWith("/spreadsheets/"_s)),
@@ -437,7 +439,7 @@ static constexpr Quirk fullTable[] = {
 
     // sites.google.com rdar://58653069
     { .match = URLMatch::host("sites.google.com"_s),
-        .behaviors = { shouldPreventDispatchOfTouchEventQuirk } },
+        .behaviors = { shouldPreventTouchEndDispatchQuirk.when(elementMatchesSelector(onGoogleSitesButton)) } },
 
     { .match = URLMatch::host("meet.google.com"_s),
         .behaviors = { shouldEnableCameraBackgroundPlayback } },
@@ -469,6 +471,9 @@ static constexpr Quirk fullTable[] = {
             implicitMuteWhenVolumeSetToZero,
         } },
 
+    // icloud.com rdar://187710972
+    { .match = URLMatch::domain("icloud.com"_s),
+        .behaviors = { mayNeedToIgnoreContentObservation.when(elementMatchesSelector(onTreeItem)) } },
     // icloud.com rdar://131836301
     { .match = URLMatch::domain("icloud.com"_s).when(pathOrFragmentContains("mail"_s)),
         .behaviors = { shouldSilenceWindowResizeEventsDuringApplicationSnapshotting } },
@@ -496,7 +501,7 @@ static constexpr Quirk fullTable[] = {
     { .match = URLMatch::domain("instagram.com"_s),
         .behaviors = {
             // rdar://166400170
-            needsInstagramResizingReelsQuirk,
+            needsInstagramResizingReelsQuirk.when(elementMatchesSelector(onElementContainingVideo)),
             // instagram.com: rdar://174936655
             shouldSendFakeTouchForceChangeEvent,
         } },
@@ -511,31 +516,31 @@ static constexpr Quirk fullTable[] = {
             needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(inVideoChromeObjectScript)),
         } },
 
+    // linkedin.com: native taps must reach the video.js player surface.
     { .match = URLMatch::domain("linkedin.com"_s),
-        .site = QuirkSite::LinkedIn },
+        .behaviors = { shouldAllowNativeTapsOnMediaElementsQuirk.when(elementMatchesSelector(onVideoJSTech)) } },
 
+    // live.com: rdar://167489768
+    { .match = QuirkURLMatch::embeddedDocumentInTopMatch(URLMatch::domain("live.com"_s), URLMatch::anyURL().when(lastPathComponentIs("wordeditorframe.aspx"_s))),
+        .behaviors = { needsChromeOSNavigatorUserAgentQuirk.when(secondaryURLMatches(wordEditorScriptURL)) } },
+
+    // live.com rdar://52116170
     { .match = URLMatch::domain("live.com"_s),
-        .behaviors = {
-            // live.com: rdar://167489768
-            needsChromeOSNavigatorUserAgentQuirk,
-            // live.com rdar://52116170
-            shouldAvoidResizingWhenInputViewBoundsChangeQuirk,
-        } },
+        .behaviors = { shouldAvoidResizingWhenInputViewBoundsChangeQuirk } },
 
     { .match = URLMatch::host("outlook.live.com"_s),
         .behaviors = {
             // outlook.live.com: rdar://136624720
             needsMozillaFileTypeForDataTransferQuirk,
             // outlook.live.com: rdar://152277211
-            mayNeedToIgnoreContentObservation,
+            mayNeedToIgnoreContentObservation.when(elementMatchesSelector(onSwatchColorPicker)),
             // Outlook detects Safari and handles selections incorrectly in their rich text editor roosterjs.
             needsUserAgentStringOverrideQuirk(QuirkParameters::fromUserAgent(chromeUserAgent)),
-        },
-        .site = QuirkSite::Outlook },
+        } },
 
     // outlook.live.com rdar://48008837
     { .match = URLMatch::host("outlook.live.com"_s),
-        .behaviors = { shouldPreventDispatchOfTouchEventQuirk },
+        .behaviors = { shouldPreventTouchMoveDispatchQuirk.when(elementMatchesSelector(onOutlookSuggestions)) },
         .isAvailable = touchEvents },
 
     // Microsoft office online generates data URLs with incorrect padding on Safari only (rdar://114573089).
@@ -564,13 +569,17 @@ static constexpr Quirk fullTable[] = {
             shouldNavigatorPluginsBeEmpty,
         } },
 
+    // Kinja login flow rdar://60601895
+    { .match = URLMatch::domain(kinjaLoginDomains),
+        .behaviors = { needsKinjaLoginStorageAccessQuirk.when(elementMatchesSelector(onKinjaLoginAvatar)) } },
+
     // medium.com rdar://50457837
     { .match = URLMatch::domain("medium.com"_s),
         .behaviors = { shouldDispatchSyntheticMouseEventsWhenModifyingSelectionQuirk } },
 
     // m365.cloud.microsoft rdar://157794706
     { .match = URLMatch::hostOrSubdomainOf("m365.cloud.microsoft"_s),
-        .behaviors = { shouldAllowPopupFromMicrosoftOfficeToOneDrive } },
+        .behaviors = { shouldAllowPopupFromMicrosoftOfficeToOneDrive.when(secondaryURLMatches(URLMatch::hostOrSubdomainOf("onedrive.live.com"_s))) } },
 
     // safe.menlosecurity.com rdar://135114489
     { .match = URLMatch::host("safe.menlosecurity.com"_s),
@@ -601,7 +610,7 @@ static constexpr Quirk fullTable[] = {
 
     // mybinder.org rdar://51770057
     { .match = URLMatch::domain("mybinder.org"_s),
-        .behaviors = { shouldDispatchSimulatedMouseEventsQuirk.when(elementMatchesSelector(onDockerPanelTabBar)) },
+        .behaviors = { shouldDispatchSimulatedMouseEventsQuirk.when(elementMatchesSelector(onDockPanelTabBar)) },
         .isAvailable = touchEvents || touchEventRegions },
 
     // naver.com rdar://48068610
@@ -704,13 +713,12 @@ static constexpr Quirk fullTable[] = {
     { .match = URLMatch::domain("soundcloud.com"_s),
         .behaviors = {
             // soundcloud.com rdar://52915981
-            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
+            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk.when(elementMatchesSelector(onSoundCloudSceneLayer)),
             // Soundcloud: rdar://102913500
             shouldExposeShowModalDialog,
             // soundcloud.com rdar://52915981
             shouldDispatchSimulatedMouseEventsQuirk,
-        },
-        .site = QuirkSite::SoundCloud },
+        } },
 
     // soylent.*: rdar://113314067
     { .match = URLMatch::anyTopLevelDomain("soylent"_s),
@@ -733,7 +741,7 @@ static constexpr Quirk fullTable[] = {
         .behaviors = { shouldTreatAddingMouseOutEventListenerAsContentChange } },
 
     { .match = URLMatch::anyTopLevelDomain("theguardian"_s),
-        .behaviors = { shouldHideSoftTopScrollEdgeEffectDuringFocusQuirk } },
+        .behaviors = { shouldHideSoftTopScrollEdgeEffectDuringFocusQuirk.when(elementMatchesSelector(onCrosswordID)) } },
 
     // theguardian.com rdar://166727225
     { .match = QuirkURLMatch::embeddedDocumentInTopMatch(URLMatch::anyTopLevelDomain("theguardian"_s), URLMatch::domain(youTubeEmbedDomains)),
@@ -744,6 +752,14 @@ static constexpr Quirk fullTable[] = {
     { .match = URLMatch::host(microsoftTeamsHosts),
         .behaviors = { shouldAllowMSTeamsProtocolWithoutUserGestureQuirk } },
 
+    // www.microsoft.com sign-in FIXME(218779): remove once the login flow redesign ships.
+    { .match = URLMatch::host("www.microsoft.com"_s),
+        .behaviors = { needsStorageAccessOnLoginButtonClickQuirk.when(elementMatchesSelector(onMicrosoftSignInButton)) } },
+
+    // playstation.com sign-in FIXME(218760): remove once the login flow redesign ships.
+    { .match = URLMatch::host(playStationSignInHosts),
+        .behaviors = { needsStorageAccessOnLoginButtonClickQuirk.when(elementMatchesSelector(onPlayStationSignInButton)) } },
+
     // teams.microsoft.com https://bugs.webkit.org/show_bug.cgi?id=219505
     { .match = URLMatch::host("teams.microsoft.com"_s).when(queryContains("Retried+3+times+without+success"_s)),
         .behaviors = { isMicrosoftTeamsRedirectURLQuirk } },
@@ -753,22 +769,22 @@ static constexpr Quirk fullTable[] = {
 
     // player.anyclip.com rdar://138789765
     { .match = URLMatch::domain("thesaurus.com"_s),
-        .behaviors = { needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(chromeUserAgentScript, anyclipPlayerScriptURL)) },
+        .behaviors = { needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(chromeUserAgentScript)).when(secondaryURLMatches(anyclipPlayerScriptURL)) },
         .isAvailable = iOSFamily },
 
     { .match = URLMatch::domain("tiktok.com"_s),
         .behaviors = {
-            needsTikTokOverflowingContentQuirk,
+            needsTikTokCommentsOverflowingContentQuirk.when(elementMatchesSelector(onTikTokCommentsContainer)),
+            needsTikTokVideoOverflowingContentQuirk.when(elementMatchesSelector(onTikTokVideoContainer)),
             // tiktok.com rdar://174179805
-            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk,
+            shouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk.when(elementMatchesSelector(onSliderRoleItself)),
             // tiktok.com rdar://174179805
             shouldDispatchSimulatedMouseEventsQuirk.when(elementMatchesSelector(onSliderRole)),
             // tiktok.com rdar://174179805
             shouldComputeSimulatedMouseEventMovementDeltaQuirk,
             // FIXME(rdar://148759791): Remove this once TikTok removes the outdated error message.
             needsChromeCompatibilityUserAgentQuirk(QuirkParameters::fromChromeCompatibilityVersion("136"_s)),
-        },
-        .site = QuirkSite::TikTok },
+        } },
 
     // trix-editor.org rdar://28242210
     { .match = URLMatch::domain("trix-editor.org"_s),
@@ -816,9 +832,8 @@ static constexpr Quirk fullTable[] = {
     // walmart.com: rdar://123734840
     { .match = URLMatch::domain("walmart.com"_s),
         .behaviors = {
-            mayNeedToIgnoreContentObservation,
+            mayNeedToIgnoreContentObservation.when(elementMatchesSelector(onButtonInListItem)),
         },
-        .site = QuirkSite::Walmart,
         .isAvailable = twoPhaseClicks },
 
     // weather.com rdar://139689157
@@ -827,7 +842,7 @@ static constexpr Quirk fullTable[] = {
 
     { .match = URLMatch::domain("webex.com"_s),
         .behaviors = {
-            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(webExUndefinedTouchScript, webExPushDownloadScriptURL)),
+            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(webExUndefinedTouchScript)).when(secondaryURLMatches(webExPushDownloadScriptURL)),
             // webex.com rdar://143715630
             needsWebExScrollabilityQuirk,
         },
@@ -872,7 +887,7 @@ static constexpr Quirk fullTable[] = {
             // x.com: rdar://73369869
             requiresUserGestureToPauseInPictureInPictureQuirk,
             // x.com: https://bugs.webkit.org/show_bug.cgi?id=323931 rdar://183399060
-            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(xGoogleSignInButtonFixScript, googleSignInClientScriptURL)),
+            needsScriptToEvaluateBeforeRunningScriptFromURLQuirk(QuirkParameters::fromScript(xGoogleSignInButtonFixScript)).when(secondaryURLMatches(googleSignInClientScriptURL)),
         } },
 
     { .match = URLMatch::domain("x.com"_s),
@@ -898,12 +913,16 @@ static constexpr Quirk fullTable[] = {
 
     // yahoo.com : rdar://142894603
     { .match = URLMatch::anyTopLevelDomain("yahoo"_s),
-        .behaviors = { shouldPreventDispatchOfTouchEventQuirk },
+        .behaviors = { shouldPreventTouchEndDispatchQuirk.when(elementMatchesSelector(onYahooButton)) },
         .isAvailable = touchEvents },
 
     // news.ycombinator.com: rdar://127246368
     { .match = URLMatch::host("news.ycombinator.com"_s),
         .behaviors = { shouldIgnoreTextAutoSizingQuirk } },
+
+    // Embedded youtube.com players need storage access for the "Watch later" button. rdar://64549429
+    { .match = QuirkURLMatch::embeddedDocument(URLMatch::domain("youtube.com"_s)),
+        .behaviors = { needsStorageAccessForYouTubeWatchLaterQuirk.when(elementMatchesSelector(onYouTubeWatchLaterIcon)) } },
 
     { .match = URLMatch::domain("youtube.com"_s),
         .behaviors = {
@@ -998,9 +1017,21 @@ consteval bool everyQuirkCarriesWhatItDeclares()
 
                 if (parametersNeeded.contains(QuirkParametersNeeded::NeedsChromeCompatibilityVersion) && behavior.parameters->chromeCompatibilityVersion.isEmpty())
                     return false;
+
+                if (parametersNeeded.contains(QuirkParametersNeeded::NeedsCookieNames) && behavior.parameters->cookieNames.empty())
+                    return false;
             }
 
             if (behavior.elementSelectorCondition && !behavior.quirkConditionsSupported.contains(QuirkConditionsSupported::ElementSelector))
+                return false;
+
+            if (behavior.secondaryURLCondition && !behavior.quirkConditionsSupported.contains(QuirkConditionsSupported::SecondaryURL))
+                return false;
+
+            if (behavior.quirkConditionsNeeded.contains(QuirkConditionsSupported::SecondaryURL) && !behavior.secondaryURLCondition)
+                return false;
+
+            if (behavior.quirkConditionsSupported.containsAll({ QuirkConditionsSupported::ElementSelector, QuirkConditionsSupported::SecondaryURL }))
                 return false;
         }
     }
@@ -1008,7 +1039,7 @@ consteval bool everyQuirkCarriesWhatItDeclares()
     return true;
 }
 
-static_assert(everyQuirkCarriesWhatItDeclares(), "A quirk in fullTable does not supply the parameters it declares, supplies parameters it does not declare, or applies a condition the behavior does not support");
+static_assert(everyQuirkCarriesWhatItDeclares(), "A quirk in fullTable does not supply the parameters it declares, supplies parameters it does not declare, applies a condition the behavior does not support, or omits a condition the behavior needs");
 
 consteval bool shouldEmit(const Quirk& quirk)
 {

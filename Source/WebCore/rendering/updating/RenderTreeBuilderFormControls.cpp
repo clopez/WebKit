@@ -92,17 +92,15 @@ void RenderTreeBuilder::FormControls::updateAfterDescendants(RenderElement& rend
         if (!selectElement)
             return;
 
-        RefPtr pickerElement = selectElement->pickerPopoverElement();
-        if (!pickerElement)
-            return;
-
-        if (CheckedPtr pickerElementRenderer = pickerElement->renderer())
-            updatePseudoElement(PseudoElementType::Checkmark, renderer, pickerElementRenderer->style().usedAppearance(), renderer.firstChild());
+        RefPtr container = selectElement->optionContainer();
+        CheckedPtr containerRenderer = container ? container->renderer() : nullptr;
+        if (containerRenderer)
+            updatePseudoElement(PseudoElementType::Checkmark, renderer, containerRenderer->style().usedAppearance(), renderer.firstChild());
 
         return;
     }
 
-    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(renderer.element()); select && select->usesMenuList()) {
+    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(renderer.element()); select && select->isDropdownBox(&renderer.style())) {
         updatePseudoElement(PseudoElementType::PickerIcon, renderer, renderer.style().usedAppearance());
         return;
     }

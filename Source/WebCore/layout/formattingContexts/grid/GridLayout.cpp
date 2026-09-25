@@ -106,14 +106,14 @@ static GridAreaSizes computeGridAreaSizes(const PlacedGridItems& gridItems, cons
 GridLayoutResult GridLayout::layout(const GridItemPlacementResult& gridItemPlacementResult, LeadingImplicitTracks leadingImplicitTracks, const GridLayoutState& gridLayoutState, GridLayoutScope scope)
 {
     auto& gridDefinition = gridLayoutState.gridDefinition;
-    auto& gridTemplateColumnsTrackSizes = gridDefinition.gridTemplateColumns.sizes;
-    auto& gridTemplateRowsTrackSizes = gridDefinition.gridTemplateRows.sizes;
+    auto& explicitColumnTrackSizes = gridDefinition.explicitGridTrackSizes.columnTrackSizes;
+    auto& explicitRowTrackSizes = gridDefinition.explicitGridTrackSizes.rowTrackSizes;
 
     auto& formattingContext = this->formattingContext();
     auto placedGridItems = formattingContext.constructPlacedGridItems(gridItemPlacementResult.gridAreas);
 
-    auto columnTrackSizingFunctionsList = trackSizingFunctions(gridItemPlacementResult.columnsCount, leadingImplicitTracks.columnsCount, gridTemplateColumnsTrackSizes, gridDefinition.gridAutoColumns, gridDefinition.zoom);
-    auto rowTrackSizingFunctionsList = trackSizingFunctions(gridItemPlacementResult.rowsCount, leadingImplicitTracks.rowsCount, gridTemplateRowsTrackSizes, gridDefinition.gridAutoRows, gridDefinition.zoom);
+    auto columnTrackSizingFunctionsList = trackSizingFunctions(gridItemPlacementResult.columnsCount, leadingImplicitTracks.columnsCount, explicitColumnTrackSizes, gridDefinition.gridAutoColumns, gridDefinition.zoom);
+    auto rowTrackSizingFunctionsList = trackSizingFunctions(gridItemPlacementResult.rowsCount, leadingImplicitTracks.rowsCount, explicitRowTrackSizes, gridDefinition.gridAutoRows, gridDefinition.zoom);
 
     // https://drafts.csswg.org/css-grid-1/#algo-grid-sizing
     // Fast path: the caller only needs the column sizes resolved by step 1 of the grid sizing
@@ -335,11 +335,20 @@ std::pair<UsedInlineSizes, UsedBlockSizes> GridLayout::layoutGridItems(const Pla
         auto inlineUsedSize = GridLayoutUtils::inlineUsedSize(gridItem, columnTrackSizingFunctions, inlineBorderAndPadding, gridAreaInlineSize, integrationUtils, inlineMargins);
         usedInlineSizes.append(inlineUsedSize);
 
-        // FIXME: investigate to check if we should use the inlineUsedSize or the size of the grid area in the inline direction.
-        auto blockUsedSize = GridLayoutUtils::blockUsedSize(gridItem, rowTrackSizingFunctions, blockBorderAndPadding, gridAreaBlockSize, formattingContext, inlineUsedSize, blockMargins);
-        usedBlockSizes.append(blockUsedSize);
-
-        integrationUtils.layoutGridItem(gridItem.layoutBox(), inlineUsedSize, blockUsedSize, gridAreaInlineSize);
+        // When the grid item has a fit-content block height RenderGrid just calls layout on it, so
+        // we do the same to match behavior instead of running layout to compute the min-content and
+        // max-content sizes as well which is what blockUsedSize does.
+        bool hasFitContentBlockSize = GridLayoutUtils::hasFitContentBlockSize(gridItem);
+        if (!hasFitContentBlockSize) {
+            auto usedBlockSize = GridLayoutUtils::blockUsedSize(gridItem, rowTrackSizingFunctions, blockBorderAndPadding, gridAreaBlockSize, formattingContext, gridAreaInlineSize, blockMargins);
+            integrationUtils.layoutGridItem(gridItem.layoutBox(), inlineUsedSize, usedBlockSize, gridAreaInlineSize);
+            usedBlockSizes.append(usedBlockSize);
+        } else {
+            integrationUtils.layoutGridItem(gridItem.layoutBox(), inlineUsedSize, { }, gridAreaInlineSize);
+            // The item's padding in its box geometry is resolved against the grid container rather than
+            // the grid area, so only take the content box size from it.
+            usedBlockSizes.append(formattingContext.geometryForGridItem(gridItem.layoutBox()).contentBoxHeight() + blockBorderAndPadding);
+        }
     }
     return { usedInlineSizes, usedBlockSizes };
 }

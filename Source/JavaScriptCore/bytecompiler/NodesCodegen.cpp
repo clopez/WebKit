@@ -1399,6 +1399,18 @@ RegisterID* FunctionCallValueNode::emitBytecode(BytecodeGenerator& generator, Re
         return ret;
     }
 
+    OptionalChainNode* optionalChain = m_expr->isOptionalChain() ? static_cast<OptionalChainNode*>(m_expr) : nullptr;
+    if (optionalChain && optionalChain->expr()->isLocation()) {
+        ASSERT(!isOptionalCall());
+        RefPtr<RegisterID> func = generator.tempDestination(dst);
+        RefPtr<RegisterID> returnValue = generator.finalDestination(dst, func.get());
+        CallArguments callArguments(generator, m_args);
+        optionalChain->emitCallee(generator, func.get(), callArguments.thisRegister());
+        RegisterID* ret = generator.emitCallInTailPosition(returnValue.get(), func.get(), NoExpectedFunction, callArguments, divot(), divotStart(), divotEnd(), DebuggableCall::Yes);
+        generator.emitProfileType(returnValue.get(), divotStart(), divotEnd());
+        return ret;
+    }
+
     RefPtr<RegisterID> func = nullptr;
     if (m_args && m_args->hasAssignments())
         func = generator.newTemporary();
@@ -2517,6 +2529,56 @@ RegisterID* ApplyFunctionCallDotNode::emitBytecode(BytecodeGenerator& generator,
     return returnValue.unsafeGet();
 }
 
+RegisterID* ReflectConstructFunctionCallDotNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
+{
+    ASSERT(m_args->m_listNode && m_args->m_listNode->m_next);
+    ArgumentListNode* argumentsListNode = m_args->m_listNode->m_next;
+    ArgumentListNode* newTargetNode = argumentsListNode->m_next;
+
+    RefPtr<RegisterID> function = generator.tempDestination(dst);
+    RefPtr<RegisterID> returnValue = generator.finalDestination(dst, function.get());
+
+    unsigned argumentCount = 0;
+    for (ArgumentListNode* argument = m_args->m_listNode; argument; argument = argument->m_next)
+        ++argumentCount;
+    CallArguments callArguments(generator, nullptr, argumentCount);
+
+    generator.emitNode(callArguments.thisRegister(), m_base);
+    if (m_base->isOptionalChainBase())
+        generator.emitOptionalCheck(callArguments.thisRegister());
+    generator.emitExpressionInfo(subexpressionDivot(), subexpressionStart(), subexpressionEnd());
+    generator.emitGetById(function.get(), callArguments.thisRegister(), generator.propertyNames().construct);
+    if (isOptionalCall())
+        generator.emitOptionalCheck(function.get());
+
+    unsigned argumentIndex = 0;
+    for (ArgumentListNode* argument = m_args->m_listNode; argument; argument = argument->m_next)
+        generator.emitNode(callArguments.argumentRegister(argumentIndex++), argument->m_expr);
+
+    RegisterID* target = callArguments.argumentRegister(0);
+    RegisterID* argumentsList = callArguments.argumentRegister(1);
+    RegisterID* newTarget = newTargetNode ? callArguments.argumentRegister(2) : target;
+
+    // FIXME: A simple array literal as the arguments list could become the arguments of an op_construct, which saves the array.
+    Ref<Label> realCall = generator.newLabel();
+    Ref<Label> end = generator.newLabel();
+    generator.emitDebugHook(WillExecuteExpression, divotStart());
+    generator.emitJumpIfNotReflectConstruct(function.get(), realCall.get());
+    generator.emitJumpIfFalse(generator.emitIsConstructor(generator.newTemporary(), target), realCall.get());
+    if (newTargetNode)
+        generator.emitJumpIfFalse(generator.emitIsConstructor(generator.newTemporary(), newTarget), realCall.get());
+    if (!argumentsListNode->m_expr->isArrayLiteral())
+        generator.emitJumpIfFalse(generator.emitIsObject(generator.newTemporary(), argumentsList), realCall.get());
+    generator.emitConstructVarargs(returnValue.get(), target, newTarget, argumentsList, generator.newTemporary(), 0, divot(), divotStart(), divotEnd(), DebuggableCall::No);
+    generator.emitJump(end.get());
+
+    generator.emitLabel(realCall.get());
+    RegisterID* ret = generator.emitCallInTailPosition(returnValue.get(), function.get(), NoExpectedFunction, callArguments, divot(), divotStart(), divotEnd(), DebuggableCall::Yes);
+    generator.emitLabel(end.get());
+    generator.emitProfileType(returnValue.get(), divotStart(), divotEnd());
+    return ret;
+}
+
 // ------------------------------ PostfixNode ----------------------------------
 
 static RegisterID* emitIncOrDec(BytecodeGenerator& generator, RegisterID* srcDst, Operator oper)
@@ -3547,6 +3609,46 @@ RegisterID* OptionalChainNode::emitBytecode(BytecodeGenerator& generator, Regist
         generator.popOptionalChainTarget(finalDest.get(), m_expr->isDeleteNode());
 
     return finalDest.unsafeGet();
+}
+
+void OptionalChainNode::emitCallee(BytecodeGenerator& generator, RegisterID* function, RegisterID* thisRegister)
+{
+    ASSERT(m_isOutermost);
+
+    generator.pushOptionalChainTarget();
+    if (m_expr->isBracketAccessorNode()) {
+        BracketAccessorNode* bracket = static_cast<BracketAccessorNode*>(m_expr);
+        ASSERT(!bracket->base()->isSuperNode());
+        generator.emitNode(thisRegister, bracket->base());
+        if (bracket->base()->isOptionalChainBase())
+            generator.emitOptionalCheck(thisRegister);
+
+        if (isNonIndexStringElement(*bracket->subscript())) {
+            generator.emitExpressionInfo(bracket->divot(), bracket->divotStart(), bracket->divotEnd());
+            generator.emitGetById(function, thisRegister, static_cast<StringNode*>(bracket->subscript())->value());
+        } else {
+            RefPtr<RegisterID> property = generator.emitNodeForProperty(bracket->subscript());
+            generator.emitExpressionInfo(bracket->divot(), bracket->divotStart(), bracket->divotEnd());
+            generator.emitGetByVal(function, thisRegister, property.get());
+        }
+    } else {
+        ASSERT(m_expr->isDotAccessorNode());
+        DotAccessorNode* dot = static_cast<DotAccessorNode*>(m_expr);
+        ASSERT(!dot->base()->isSuperNode());
+        generator.emitNode(thisRegister, dot->base());
+        if (dot->base()->isOptionalChainBase())
+            generator.emitOptionalCheck(thisRegister);
+
+        generator.emitExpressionInfo(dot->divot(), dot->divotStart(), dot->divotEnd());
+        dot->emitGetPropertyValue(generator, function, thisRegister);
+    }
+
+    Ref<Label> endLabel = generator.newLabel();
+    generator.emitJump(endLabel.get());
+    generator.popOptionalChainTarget();
+    generator.emitLoad(function, jsUndefined());
+    generator.emitLoad(thisRegister, jsUndefined());
+    generator.emitLabel(endLabel.get());
 }
 
 void OptionalChainNode::emitBytecodeInConditionContext(BytecodeGenerator& generator, Label& trueTarget, Label& falseTarget, FallThroughMode fallThroughMode)
@@ -5825,7 +5927,7 @@ void ArrayPatternNode::bindValue(BytecodeGenerator& generator, RegisterID* rhs) 
         return;
     }
 
-    RefPtr<RegisterID> iterable = rhs;
+    RefPtr<RegisterID> iterable = generator.move(generator.tempDestination(rhs), rhs);
     RefPtr<RegisterID> iterator = generator.newTemporary();
     RefPtr<RegisterID> nextOrIndex = generator.newTemporary();
     {
@@ -5837,7 +5939,7 @@ void ArrayPatternNode::bindValue(BytecodeGenerator& generator, RegisterID* rhs) 
     }
 
     if (m_targetPatterns.isEmpty()) {
-        generator.emitIteratorGenericClose(iterator.get(), this);
+        generator.emitIteratorClose(iterator.get(), nextOrIndex.get(), iterable.get(), this);
         return;
     }
 
@@ -5949,7 +6051,7 @@ void ArrayPatternNode::bindValue(BytecodeGenerator& generator, RegisterID* rhs) 
     auto emitIteratorClose = [&](BytecodeGenerator& generator) {
         Ref<Label> iteratorClosed = generator.newLabel();
         generator.emitJumpIfTrue(done.get(), iteratorClosed.get());
-        generator.emitIteratorGenericClose(iterator.get(), this);
+        generator.emitIteratorClose(iterator.get(), nextOrIndex.get(), iterable.get(), this);
         generator.emitLabel(iteratorClosed.get());
     };
 

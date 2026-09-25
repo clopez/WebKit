@@ -28,6 +28,7 @@
 #if ENABLE(WEBDRIVER_BIDI)
 #include "BidiDigitalCredentialsAgent.h"
 #endif
+#include "Connection.h"
 #include "ContextMenuContextData.h"
 #include "EditorState.h"
 #include "EnhancedSecurityTracking.h"
@@ -107,6 +108,7 @@
 
 #if PLATFORM(COCOA)
 #include "CocoaWindow.h"
+#include "InteractionInformationRequest.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(MODEL_PROCESS)
@@ -257,6 +259,7 @@ public:
     WebCore::FloatSize minimumUnobscuredSize;
     Deque<Ref<NativeWebMouseEvent>> mouseEventQueue;
     Vector<Ref<WebMouseEvent>> coalescedMouseEvents;
+    RunLoop::Timer remoteFrameMouseEventTimeoutTimer;
     WebCore::MediaProducerMutedStateFlags mutedState;
     WebNotificationManagerMessageHandler notificationManagerMessageHandler;
     OptionSet<WebCore::LayoutMilestone> observedLayoutMilestones;
@@ -320,6 +323,15 @@ public:
 #if PLATFORM(COCOA)
     WeakObjCPtr<WKWebView> cocoaView;
     std::optional<TransactionID> firstLayerTreeTransactionIdAfterDidCommitLoad;
+
+    struct OutstandingPositionInformationRequest {
+        InteractionInformationRequest request;
+        IPC::AsyncReplyID replyID;
+        Ref<IPC::Connection> connection;
+    };
+    std::optional<OutstandingPositionInformationRequest> outstandingPositionInformationRequest;
+
+    Markable<WebCore::FrameIdentifier> interactionFrameID;
 #endif
 
 #if USE(GLIB)

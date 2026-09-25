@@ -794,6 +794,8 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         completionHandler(remoteProcessIdentifier);
     });
     protect(websiteDataStore->networkProcess())->addAllowedFirstPartyForCookies(*remoteWorkerProcessProxy, site.domain(), LoadedWebArchive::No, [aggregator] { });
+    if (auto workerPageProxyID = remoteWorkerProcessProxy->remoteWorkerPageProxyID(workerType))
+        protect(websiteDataStore->networkProcess())->addAllowedWebPageProxyIdentifier(*remoteWorkerProcessProxy, *workerPageProxyID);
     remoteWorkerProcessProxy->establishRemoteWorkerContext(workerType, preferencesStore.store, site, serviceWorkerPageIdentifier, workerCrossOriginEmbedderPolicy, [aggregator] { });
 
     if (!processPool->m_remoteWorkerUserAgent.isNull())
@@ -1371,6 +1373,24 @@ Ref<WebUserContentControllerProxy> WebProcessPool::userContentControllerForRemot
     return *m_userContentControllerForRemoteWorkers;
 }
 
+static bool canShareProcessWithOpener(WebProcessProxy& openerProcess, const API::PageConfiguration& pageConfiguration, WebProcessProxy::LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity)
+{
+    // A FrameProcess created for a shared process in a group that does not have one would dedicate
+    // that process to a single site.
+    if (openerProcess.isSharedProcess())
+        return false;
+
+    // We do not support several WebsiteDataStores sharing a single process.
+    if (openerProcess.websiteDataStore() != &pageConfiguration.websiteDataStore())
+        return false;
+
+    if (openerProcess.lockdownMode() != lockdownMode || !enhancedSecurityStatesAreConsistent(openerProcess.enhancedSecurity(), enhancedSecurity))
+        return false;
+
+    auto sharedPreferences = openerProcess.sharedPreferencesForWebProcessValue();
+    return !updateSharedPreferencesForWebProcess(sharedPreferences, pageConfiguration.preferences().store(), lockdownMode == WebProcessProxy::LockdownMode::Enabled);
+}
+
 Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API::PageConfiguration>&& pageConfiguration)
 {
     if (!pageConfiguration->pageGroup())
@@ -1399,6 +1419,8 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         pageConfiguration->setProcessInheritedFromOpener(true);
     } else if (preferredFrameProcess)
         process = preferredFrameProcess->process();
+    else if (RefPtr openerProcess = pageConfiguration->preferredProcessFromOpener(); openerProcess && canShareProcessWithOpener(*openerProcess, pageConfiguration, lockdownMode, enhancedSecurity))
+        process = openerProcess;
     else if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration) && !siteIsolationEnabled) {
         // Sharing processes, e.g. when creating the page via window.open().
         process = relatedPage->ensureRunningProcess();
@@ -2258,7 +2280,7 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
         if (RefPtr frameProcess = browsingContextGroup.processForSite(site))
             process = &frameProcess->process();
         if (process && process->websiteDataStore() == dataStore.ptr() && process->websiteDataStore() == &page.websiteDataStore() && !process->isInProcessCache() && process->lockdownMode() == lockdownMode && enhancedSecurityStatesAreConsistent(process->enhancedSecurity(), enhancedSecurity)) {
-            protect(dataStore->networkProcess())->addAllowedFirstPartyForCookies(*process, mainFrameSite.domain(), LoadedWebArchive::No, [completionHandler = WTF::move(completionHandler), process, preventProcessShutdownScope = process->shutdownPreventingScope()] () mutable {
+            page.addAllowedFirstPartyForCookies(*process, mainFrameSite.domain(), LoadedWebArchive::No, [completionHandler = WTF::move(completionHandler), process, preventProcessShutdownScope = process->shutdownPreventingScope()] () mutable {
                 completionHandler(process.releaseNonNull(), nullptr, "Found process for the same site"_s);
             });
             return;
@@ -2325,7 +2347,7 @@ void WebProcessPool::prepareProcessForNavigation(Ref<WebProcessProxy>&& process,
         completionHandler(WTF::move(process), suspendedPage, reason);
     };
 
-    protect(dataStore->networkProcess())->addAllowedFirstPartyForCookies(process, site.domain(), loadedWebArchive, [callCompletionHandler = WTF::move(callCompletionHandler), weakSuspendedPage = WeakPtr { suspendedPage }]() mutable {
+    page.addAllowedFirstPartyForCookies(process, site.domain(), loadedWebArchive, [callCompletionHandler = WTF::move(callCompletionHandler), weakSuspendedPage = WeakPtr { suspendedPage }]() mutable {
         if (RefPtr suspendedPage = weakSuspendedPage.get())
             suspendedPage->waitUntilReadyToUnsuspend(WTF::move(callCompletionHandler));
         else
@@ -2435,19 +2457,16 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
 
     // If it is the first navigation in a DOM popup and there is no opener, then force a process swap no matter what since
     // popup windows are originally created in their opener's process.
-    // However, if the navigation is same-site with the related page (the opener), keep them in the same process,
-    // IFF the page was initially opened with noopener. If openerFrameIdentifier is set,
+    // However, if the navigation is same-site with the site the window was opened at, keep it in
+    // the opener's process. If openerFrameIdentifier is set,
     // the page was originally opened with an opener but COOP severed it, so we should still swap processes.
     // Note that we currently do not process swap if the window popup has a name. In theory, we should be able to swap in this case too
     // but we would need to transfer over the name to the new process. At this point, it is not clear it is worth the extra complexity.
     if (page.openedByDOM() && !navigation.openedByDOMWithOpener() && !page.hasCommittedAnyProvisionalLoads() && frameInfo.frameName.isEmpty() && !targetURL.protocolIsBlob()) {
-        bool isSameSiteWithRelatedPage = false;
-        if (!page.openerFrameIdentifier() && pageConfiguration->relatedPage()) {
-            RefPtr relatedPage = pageConfiguration->relatedPage();
-            auto& relatedPageURL = relatedPage->pageLoadState().url();
-            isSameSiteWithRelatedPage = relatedPageURL.isValid() && targetSite.matches(relatedPageURL);
-        }
-        if (!isSameSiteWithRelatedPage)
+        bool isSameSiteWithOpener = false;
+        if (!page.openerFrameIdentifier() && pageConfiguration->preferredProcessFromOpener())
+            isSameSiteWithOpener = targetSite == pageConfiguration->openedSite();
+        if (!isSameSiteWithOpener)
             return { createNewProcess(), nullptr, "Process swap because this is a first navigation in a DOM popup without opener"_s };
     }
 

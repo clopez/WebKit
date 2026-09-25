@@ -49,15 +49,17 @@ struct ShaderModuleParameters {
     const WGPUShaderModuleCompilationHint* hints;
 };
 
-static std::optional<ShaderModuleParameters> NODELETE findShaderModuleParameters(const WGPUShaderModuleDescriptor& descriptor)
+static std::optional<ShaderModuleParameters> findShaderModuleParameters(const WGPUShaderModuleDescriptor& descriptor)
 {
-    const auto& wgslCode = descriptor.wgslDescriptor;
-    const WGPUShaderModuleCompilationHint* hints = descriptor.hints;
+    auto* wgsl = findChainedStruct<WGPUShaderSourceWGSL>(descriptor.nextInChain);
+    if (!wgsl)
+        return std::nullopt;
 
+    auto wgslCode = fromAPI(wgsl->code);
     if (!wgslCode)
         return std::nullopt;
 
-    return { { wgslCode, hints } };
+    return { { WTF::move(wgslCode), descriptor.hints } };
 }
 
 static MTLCompileOptions *compileOptions(const WGSL::DeviceState& deviceState)
@@ -131,7 +133,7 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, Variant<WGS
     HashMap<String, WGSL::PipelineLayout*> wgslHints;
     Vector<WGSL::PipelineLayout> wgslPipelineLayouts;
     wgslPipelineLayouts.reserveCapacity(suppliedHints.hintCount);
-    for (const auto& hint : suppliedHints.hintsSpan()) {
+    for (const auto& hint : hintsSpan(suppliedHints)) {
         auto hintKey = fromAPI(hint.entryPoint);
         Ref layout = WebGPU::fromAPI(hint.layout);
         hints.add(hintKey, layout);
@@ -1043,29 +1045,29 @@ static WGSL::TexelFormat NODELETE wgslFormat(WGPUTextureFormat format)
 
 static WGSL::BindGroupLayoutEntry::BindingMember convertBindingLayout(const BindGroupLayout::Entry::BindingLayout& bindingLayout)
 {
-    return WTF::switchOn(bindingLayout, [](const WGPUBufferBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
+    return WTF::switchOn(bindingLayout, [](const BindGroupLayout::BufferBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
         return WGSL::BufferBindingLayout {
             .type = wgslBindingType(bindingLayout.type),
             .hasDynamicOffset = !!bindingLayout.hasDynamicOffset,
             .minBindingSize = bindingLayout.minBindingSize
         };
-    }, [](const WGPUSamplerBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
+    }, [](const BindGroupLayout::SamplerBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
         return WGSL::SamplerBindingLayout {
             .type = wgslSamplerType(bindingLayout.type)
         };
-    }, [](const WGPUTextureBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
+    }, [](const BindGroupLayout::TextureBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
         return WGSL::TextureBindingLayout {
             .sampleType = wgslSampleType(bindingLayout.sampleType),
             .viewDimension = wgslViewDimension(bindingLayout.viewDimension),
             .multisampled = !!bindingLayout.multisampled
         };
-    }, [](const WGPUStorageTextureBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
+    }, [](const BindGroupLayout::StorageTextureBindingLayout& bindingLayout) -> WGSL::BindGroupLayoutEntry::BindingMember {
         return WGSL::StorageTextureBindingLayout {
             .access = wgslAccess(bindingLayout.access),
             .format = wgslFormat(bindingLayout.format),
             .viewDimension = wgslViewDimension(bindingLayout.viewDimension)
         };
-    }, [](const WGPUExternalTextureBindingLayout&) -> WGSL::BindGroupLayoutEntry::BindingMember {
+    }, [](const BindGroupLayout::ExternalTextureBindingLayout&) -> WGSL::BindGroupLayoutEntry::BindingMember {
         return WGSL::ExternalTextureBindingLayout {
         };
     });
@@ -1187,7 +1189,7 @@ void wgpuShaderModuleGetCompilationInfoWithBlock(WGPUShaderModule shaderModule, 
     });
 }
 
-void wgpuShaderModuleSetLabel(WGPUShaderModule shaderModule, const char* label)
+void wgpuShaderModuleSetLabel(WGPUShaderModule shaderModule, WGPUStringView label)
 {
     protect(WebGPU::fromAPI(shaderModule))->setLabel(WebGPU::fromAPI(label));
 }

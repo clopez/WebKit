@@ -2749,9 +2749,13 @@ void RenderLayerCompositor::addToOverlapMap(LayerOverlapMap& overlapMap, const R
     if (layer.isRenderViewLayer())
         return;
 
-    auto clippedBounds = computeClippedOverlapBounds(overlapMap, layer, extent);
-
+    computeExtent(overlapMap, layer, extent);
     computeClippingScopes(layer, extent);
+
+    if (overlapMap.isCoveredByRecentRects(extent.bounds, extent.clippingScopes))
+        return;
+
+    auto clippedBounds = computeClippedOverlapBounds(overlapMap, layer, extent);
     overlapMap.add(layer, clippedBounds, extent.clippingScopes);
 }
 
@@ -5636,14 +5640,31 @@ std::optional<ScrollingNodeID> RenderLayerCompositor::registerScrollingNodeID(Sc
     return nodeID;
 }
 
+void RenderLayerCompositor::setNeedsScrollingTreeUpdateForChildrenOfNode(ScrollingCoordinator& scrollingCoordinator, ScrollingNodeID nodeID)
+{
+    for (auto childNodeID : scrollingCoordinator.childrenOfNode(nodeID)) {
+        if (auto weakLayer = m_scrollingNodeToLayerMap.get(childNodeID))
+            weakLayer->setNeedsScrollingTreeUpdate();
+    }
+}
+
+void RenderLayerCompositor::unparentChildrenAndDestroyScrollingNode(ScrollingNodeID nodeID)
+{
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
+    if (!scrollingCoordinator)
+        return;
+
+    // The children's layers are paint-order descendants of the layer being updated, which has not yet decided
+    // whether to traverse its descendants, so marking them is enough to get them reattached in this update.
+    setNeedsScrollingTreeUpdateForChildrenOfNode(*scrollingCoordinator, nodeID);
+    m_scrollingNodeToLayerMap.remove(nodeID);
+    scrollingCoordinator->unparentChildrenAndDestroyNode(nodeID);
+}
+
 void RenderLayerCompositor::detachScrollCoordinatedLayerWithRole(RenderLayer& layer, ScrollingCoordinator& scrollingCoordinator, ScrollCoordinationRole role)
 {
     auto unregisterNode = [&](ScrollingNodeID nodeID) {
-        auto childNodes = scrollingCoordinator.childrenOfNode(nodeID);
-        for (auto childNodeID : childNodes) {
-            if (auto weakLayer = m_scrollingNodeToLayerMap.get(childNodeID))
-                weakLayer->setNeedsScrollingTreeUpdate();
-        }
+        setNeedsScrollingTreeUpdateForChildrenOfNode(scrollingCoordinator, nodeID);
 
         m_scrollingNodeToLayerMap.remove(nodeID);
     };
@@ -5983,6 +6004,7 @@ std::optional<ScrollingNodeID> RenderLayerCompositor::updateScrollingNodeForScro
             return treeState.parentNodeID;
         }
         entry.overflowScrollProxyNodeID = *nodeID;
+        m_scrollingNodeToLayerMap.add(*nodeID, layer);
 #if ENABLE(SCROLLING_THREAD)
         if (RefPtr scrollingLayer = entry.scrollingLayer)
             scrollingLayer->setScrollingNodeID(*nodeID);

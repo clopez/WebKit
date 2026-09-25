@@ -166,13 +166,8 @@ if (ENABLE_AV1)
     list(APPEND WebCore_PRIVATE_LIBRARIES dav1d)
 endif ()
 
-if (NOT ENABLE_WEBGPU)
-    if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
-        target_link_options(WebCore PRIVATE "LINKER:-undefined,dynamic_lookup")
-    endif ()
-else ()
-    list(APPEND WebCore_LIBRARIES "$<TARGET_LINKER_FILE:WebGPU>")
-    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/WebGPU/Headers")
+if (ENABLE_WEBGPU)
+    list(APPEND WebCore_FRAMEWORKS WebGPU)
 endif ()
 
 set(WebCore_EXTRA_LINK_OPTIONS "LINKER:-force_load,$<TARGET_FILE:PAL>")
@@ -816,6 +811,7 @@ list(REMOVE_ITEM WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUVertexState.h
     Modules/WebGPU/GPUVertexStepMode.h
 
+    Modules/WebGPU/Implementation/WebGPUAPIUtilities.h
     Modules/WebGPU/Implementation/WebGPUAdapterImpl.h
     Modules/WebGPU/Implementation/WebGPUBindGroupImpl.h
     Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.h
@@ -1487,8 +1483,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/ios/LegacyPreviewLoaderClient.h
     platform/network/ios/WebCoreURLResponseIOS.h
 
+    platform/video-codecs/cocoa/GPUVideoDecoder.h
     platform/video-codecs/cocoa/GPUVideoEncoder.h
-    platform/video-codecs/cocoa/WebRTCVideoDecoder.h
 
     platform/xr/cocoa/PlatformXRPose.h
 
@@ -1810,9 +1806,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 set(CSS_VALUE_PLATFORM_DEFINES "WTF_PLATFORM_MAC WTF_PLATFORM_COCOA ENABLE_APPLE_PAY_NEW_BUTTON_TYPES HAVE_CORE_MATERIAL HAVE_MATERIAL_HOSTING")
 
 else ()
-
-
-target_compile_options(WebCore PRIVATE -Wno-\#warnings -Wno-abstract-final-class)
 
 set(BUNDLE_VERSION "${MACOSX_FRAMEWORK_BUNDLE_VERSION}")
 set(SHORT_VERSION_STRING "${WEBKIT_MAC_VERSION}")

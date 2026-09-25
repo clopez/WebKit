@@ -112,14 +112,14 @@ void QueueImpl::writeTexture(
 {
     Ref convertToBackingContext = m_convertToBackingContext;
 
-    WGPUImageCopyTexture backingDestination {
+    WGPUTexelCopyTextureInfo backingDestination {
         .texture = convertToBackingContext->convertToBacking(protect(destination.texture)),
         .mipLevel = destination.mipLevel,
         .origin = destination.origin ? convertToBackingContext->convertToBacking(*destination.origin) : WGPUOrigin3D { 0, 0, 0 },
         .aspect = convertToBackingContext->convertToBacking(destination.aspect),
     };
 
-    WGPUTextureDataLayout backingDataLayout {
+    WGPUTexelCopyBufferLayout backingDataLayout {
         .offset = dataLayout.offset,
         .bytesPerRow = dataLayout.bytesPerRow.value_or(WGPU_COPY_STRIDE_UNDEFINED),
         .rowsPerImage = dataLayout.rowsPerImage.value_or(WGPU_COPY_STRIDE_UNDEFINED),
@@ -173,6 +173,10 @@ static std::optional<SourceTextureFormat> NODELETE sourceTextureFormat(PixelForm
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
     case PixelFormat::RGBA16F:
         return SourceTextureFormat { WGPUTextureFormat_RGBA16Float, true };
+#endif
+#if ENABLE(PIXEL_FORMAT_RGBA16)
+    case PixelFormat::RGBA16:
+        return SourceTextureFormat { WGPUTextureFormat_RGBA16Unorm, true };
 #endif
 #if ENABLE(PIXEL_FORMAT_RGB10)
     case PixelFormat::RGB10:
@@ -277,7 +281,7 @@ void QueueImpl::copyExternalImageToTexture(
 
 void QueueImpl::setLabelInternal(const String& label)
 {
-    wgpuQueueSetLabel(m_backing.get(), label.utf8().legacyCStringPointer());
+    wgpuQueueSetLabel(m_backing.get(), toBackingStringView(label));
 }
 
 RefPtr<WebCore::NativeImage> QueueImpl::getNativeImage(WebCore::VideoFrame&)

@@ -112,16 +112,6 @@ void WebPageProxy::platformInitialize()
 {
 }
 
-PlatformDisplayID WebPageProxy::generateDisplayIDFromPageID() const
-{
-    // In order to ensure that we get a unique DisplayRefreshMonitor per-DrawingArea (necessary because DisplayRefreshMonitor
-    // is driven by that class), give each page a unique DisplayID derived from WebPage's unique ID.
-    // FIXME: While using the high end of the range of DisplayIDs makes a collision with real, non-RemoteLayerTreeDrawingArea
-    // DisplayIDs less likely, it is not entirely safe to have a RemoteLayerTreeDrawingArea and TiledCoreAnimationDrawingArea
-    // coeexist in the same process.
-    return std::numeric_limits<uint32_t>::max() - webPageIDInMainFrameProcess().toUInt64();
-}
-
 String WebPageProxy::userAgentForURL(const URL&)
 {
     return userAgent();
@@ -553,14 +543,16 @@ void WebPageProxy::selectWithTwoTouches(const WebCore::IntPoint from, const WebC
     protect(legacyMainFrameProcess())->sendWithAsyncReply(Messages::WebPage::SelectWithTwoTouches(from, to, gestureType, gestureState), WTF::move(callback), webPageIDInMainFrameProcess());
 }
 
-void WebPageProxy::startInteractionWithPositionInformation(const InteractionInformationAtPosition& positionInformation)
+void WebPageProxy::startInteractionWithPositionInformation(std::optional<WebCore::FrameIdentifier> frameID, const InteractionInformationAtPosition& positionInformation)
 {
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::StartInteractionWithElementContextOrPosition(positionInformation.elementContext, positionInformation.request.point), webPageIDInMainFrameProcess());
+    internals().interactionFrameID = frameID;
+    sendToProcessContainingFrame(frameID, Messages::WebPage::StartInteractionWithElementContextOrPosition(frameID, positionInformation.elementContext, positionInformation.request.point));
 }
 
 void WebPageProxy::stopInteraction()
 {
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::StopInteraction(), webPageIDInMainFrameProcess());
+    sendToProcessContainingFrame(internals().interactionFrameID.asOptional(), Messages::WebPage::StopInteraction());
+    internals().interactionFrameID = { };
 }
 
 bool WebPageProxy::isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const
@@ -573,19 +565,19 @@ void WebPageProxy::performActionOnElement(uint32_t action)
     auto authorizationToken = createVersion4UUIDString();
 
     m_performActionOnElementAuthTokens.add(authorizationToken);
-    
-    protect(legacyMainFrameProcess())->sendWithAsyncReply(Messages::WebPage::PerformActionOnElement(action, authorizationToken), [weakThis = WeakPtr { *this }, authorizationToken] () mutable {
+
+    sendWithAsyncReplyToProcessContainingFrame(internals().interactionFrameID.asOptional(), Messages::WebPage::PerformActionOnElement(action, authorizationToken), Messages::WebPage::PerformActionOnElement::Reply { [weakThis = WeakPtr { *this }, authorizationToken] () mutable {
         if (!weakThis)
             return;
 
         ASSERT(weakThis->isValidPerformActionOnElementAuthorizationToken(authorizationToken));
         weakThis->m_performActionOnElementAuthTokens.remove(authorizationToken);
-    }, webPageIDInMainFrameProcess());
+    } });
 }
 
 void WebPageProxy::performActionOnElements(uint32_t action, Vector<WebCore::ElementContext>&& elements)
 {
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::PerformActionOnElements(action, elements), webPageIDInMainFrameProcess());
+    sendToProcessContainingFrame(internals().interactionFrameID.asOptional(), Messages::WebPage::PerformActionOnElements(action, elements));
 }
 
 void WebPageProxy::saveImageToLibrary(IPC::Connection& connection, SharedMemory::Handle&& imageHandle, const String& authorizationToken)

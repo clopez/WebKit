@@ -80,13 +80,13 @@ public:
     static bool NODELETE containsStencilAspect(WGPUTextureFormat);
     static bool NODELETE isDepthOrStencilFormat(WGPUTextureFormat);
     static WGPUTextureFormat NODELETE aspectSpecificFormat(WGPUTextureFormat, WGPUTextureAspect);
-    static NSString* errorValidatingImageCopyTexture(const WGPUImageCopyTexture&, const WGPUExtent3D&);
-    static NSString* errorValidatingTextureCopyRange(const WGPUImageCopyTexture&, const WGPUExtent3D&);
+    static NSString* errorValidatingImageCopyTexture(const WGPUTexelCopyTextureInfo&, const WGPUExtent3D&);
+    static NSString* errorValidatingTextureCopyRange(const WGPUTexelCopyTextureInfo&, const WGPUExtent3D&);
     static bool NODELETE refersToSingleAspect(WGPUTextureFormat, WGPUTextureAspect);
     static bool NODELETE isValidDepthStencilCopySource(WGPUTextureFormat, WGPUTextureAspect);
     static bool NODELETE isValidDepthStencilCopyDestination(WGPUTextureFormat, WGPUTextureAspect);
-    static NSString* errorValidatingLinearTextureData(const WGPUTextureDataLayout&, uint64_t, WGPUTextureFormat, WGPUExtent3D);
-    static MTLTextureUsage NODELETE usage(WGPUTextureUsageFlags, WGPUTextureFormat);
+    static NSString* errorValidatingLinearTextureData(const WGPUTexelCopyBufferLayout&, uint64_t, WGPUTextureFormat, WGPUExtent3D);
+    static MTLTextureUsage NODELETE usage(WGPUTextureUsage, WGPUTextureFormat);
     static MTLPixelFormat NODELETE pixelFormat(WGPUTextureFormat);
     static WGPUTextureFormat NODELETE textureFormat(MTLPixelFormat);
     static std::optional<MTLPixelFormat> NODELETE depthOnlyAspectMetalFormat(WGPUTextureFormat);
@@ -118,7 +118,7 @@ public:
     uint32_t sampleCount() const { return m_sampleCount; }
     WGPUTextureDimension dimension() const { return m_dimension; }
     WGPUTextureFormat format() const { return m_format; }
-    WGPUTextureUsageFlags usage() const { return m_usage; }
+    WGPUTextureUsage usage() const { return m_usage; }
 
     Device& device() const { return m_device; }
 
@@ -174,7 +174,7 @@ private:
     const uint32_t m_sampleCount { 0 };
     const WGPUTextureDimension m_dimension { WGPUTextureDimension_2D };
     const WGPUTextureFormat m_format { WGPUTextureFormat_Undefined };
-    const WGPUTextureUsageFlags m_usage { WGPUTextureUsage_None };
+    const WGPUTextureUsage m_usage { WGPUTextureUsage_None };
 
     const Vector<WGPUTextureFormat> m_viewFormats;
 

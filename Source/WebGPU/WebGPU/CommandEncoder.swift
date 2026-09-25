@@ -63,8 +63,8 @@ func commandEncoderResolveQuerySet(
 @_expose(Cxx)
 func commandEncoderCopyBufferToTexture(
     _ commandEncoder: WebGPU.CommandEncoder,
-    source: WGPUImageCopyBuffer,
-    destination: WGPUImageCopyTexture,
+    source: WGPUTexelCopyBufferInfo,
+    destination: WGPUTexelCopyTextureInfo,
     copySize: WGPUExtent3D
 ) {
     commandEncoder.copyBufferToTexture(source: source, destination: destination, copySize: copySize)
@@ -73,8 +73,8 @@ func commandEncoderCopyBufferToTexture(
 @_expose(Cxx)
 func commandEncoderCopyTextureToBuffer(
     commandEncoder: WebGPU.CommandEncoder,
-    source: WGPUImageCopyTexture,
-    destination: WGPUImageCopyBuffer,
+    source: WGPUTexelCopyTextureInfo,
+    destination: WGPUTexelCopyBufferInfo,
     copySize: WGPUExtent3D
 ) {
     commandEncoder.copyTextureToBuffer(source: source, destination: destination, copySize: copySize)
@@ -83,8 +83,8 @@ func commandEncoderCopyTextureToBuffer(
 @_expose(Cxx)
 func commandEncoderCopyTextureToTexture(
     _ commandEncoder: WebGPU.CommandEncoder,
-    source: WGPUImageCopyTexture,
-    destination: WGPUImageCopyTexture,
+    source: WGPUTexelCopyTextureInfo,
+    destination: WGPUTexelCopyTextureInfo,
     copySize: WGPUExtent3D
 ) {
     commandEncoder.copyTextureToTexture(source: source, destination: destination, copySize: copySize)
@@ -151,7 +151,7 @@ func commandEncoderRunClearEncoder(
 }
 
 @_expose(Cxx)
-func commandEncoderClearTextureIfNeeded(_ commandEncoder: WebGPU.CommandEncoder, destination: WGPUImageCopyTexture, slice: UInt) {
+func commandEncoderClearTextureIfNeeded(_ commandEncoder: WebGPU.CommandEncoder, destination: WGPUTexelCopyTextureInfo, slice: UInt) {
     commandEncoder.clearTextureIfNeeded(destination: destination, slice: slice)
 }
 
@@ -161,6 +161,12 @@ func commandEncoderFinish(
     descriptor: WGPUCommandBufferDescriptor
 ) -> CxxBridging.RefCommandBuffer {
     commandEncoder.finish(descriptor: descriptor)
+}
+
+extension WGPURenderPassColorAttachment {
+    var depthSlice: UInt32? {
+        __depthSlice == WGPU_DEPTH_SLICE_UNDEFINED ? nil : __depthSlice
+    }
 }
 
 extension WebGPU.TextureOrTextureView {
@@ -281,12 +287,12 @@ extension WebGPU.CommandEncoder {
         return result
     }
 
-    fileprivate func clearTextureIfNeeded(destination: WGPUImageCopyTexture, slice: UInt) {
+    fileprivate func clearTextureIfNeeded(destination: WGPUTexelCopyTextureInfo, slice: UInt) {
         WebGPU.CommandEncoder.clearTextureIfNeeded(destination, slice, m_device.ptr(), m_blitCommandEncoder)
     }
 
     private func clearTextureIfNeeded(
-        destination: WGPUImageCopyTexture,
+        destination: WGPUTexelCopyTextureInfo,
         slice: UInt,
         device: WebGPU.Device,
         blitCommandEncoder: (any MTLBlitCommandEncoder)?
@@ -310,7 +316,7 @@ extension WebGPU.CommandEncoder {
         // A transient texture is memoryless, so it cannot be the destination of a blit. Its contents
         // never exist outside of the render pass which produces them, and every render pass using it
         // has to clear it, so there is nothing to lazily initialize here.
-        if (texture.usage() & WGPUTextureUsage_Transient.rawValue) != 0 {
+        if (texture.usage() & WGPUTextureUsage_Transient) != 0 {
             return
         }
 
@@ -610,11 +616,11 @@ extension WebGPU.CommandEncoder {
             return errorString("destination buffer is not valid")
         }
 
-        if source.usage() & WGPUBufferUsage_CopySrc.rawValue == 0 {
+        if source.usage() & WGPUBufferUsage_CopySrc == 0 {
             return errorString("source usage does not have COPY_SRC")
         }
 
-        if destination.usage() & WGPUBufferUsage_CopyDst.rawValue == 0 {
+        if destination.usage() & WGPUBufferUsage_CopyDst == 0 {
             return errorString("destination usage does not have COPY_DST")
         }
 
@@ -666,8 +672,8 @@ extension WebGPU.CommandEncoder {
     }
 
     private func errorValidatingCopyTextureToTexture(
-        source: WGPUImageCopyTexture,
-        destination: WGPUImageCopyTexture,
+        source: WGPUTexelCopyTextureInfo,
+        destination: WGPUTexelCopyTextureInfo,
         copySize: WGPUExtent3D
     ) -> String? {
         func refersToAllAspects(format: WGPUTextureFormat, aspect: WGPUTextureAspect) -> Bool {
@@ -703,7 +709,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if sourceTexture.usage() & WGPUTextureUsage_CopySrc.rawValue == 0 {
+        if sourceTexture.usage() & WGPUTextureUsage_CopySrc == 0 {
             return errorString("source texture usage does not contain CopySrc")
         }
 
@@ -711,7 +717,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if destinationTexture.usage() & WGPUTextureUsage_CopyDst.rawValue == 0 {
+        if destinationTexture.usage() & WGPUTextureUsage_CopyDst == 0 {
             return errorString("destination texture usage does not contain CopyDst")
         }
 
@@ -780,8 +786,8 @@ extension WebGPU.CommandEncoder {
     }
 
     private func errorValidatingCopyTextureToBuffer(
-        source: WGPUImageCopyTexture,
-        destination: WGPUImageCopyBuffer,
+        source: WGPUTexelCopyTextureInfo,
+        destination: WGPUTexelCopyBufferInfo,
         copySize: WGPUExtent3D
     ) -> String? {
         func errorString(_ error: String) -> String {
@@ -797,7 +803,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if sourceTexture.usage() & WGPUTextureUsage_CopySrc.rawValue == 0 {
+        if sourceTexture.usage() & WGPUTextureUsage_CopySrc == 0 {
             return errorString("sourceTexture usage does not contain CopySrc")
         }
 
@@ -823,7 +829,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if WebGPU.fromAPI(destination.buffer).usage() & WGPUBufferUsage_CopyDst.rawValue == 0 {
+        if WebGPU.fromAPI(destination.buffer).usage() & WGPUBufferUsage_CopyDst == 0 {
             return errorString("destination buffer usage does not contain CopyDst")
         }
 
@@ -855,7 +861,7 @@ extension WebGPU.CommandEncoder {
         return nil
     }
 
-    private func errorValidatingImageCopyBuffer(imageCopyBuffer: WGPUImageCopyBuffer) -> String? {
+    private func errorValidatingImageCopyBuffer(imageCopyBuffer: WGPUTexelCopyBufferInfo) -> String? {
         // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpuimagecopybuffer
         let buffer = WebGPU.fromAPI(imageCopyBuffer.buffer)
         if !CxxBridging.isValidToUseWithBufferCommandEncoder(buffer, self) {
@@ -870,8 +876,8 @@ extension WebGPU.CommandEncoder {
     }
 
     private func errorValidatingCopyBufferToTexture(
-        source: WGPUImageCopyBuffer,
-        destination: WGPUImageCopyTexture,
+        source: WGPUTexelCopyBufferInfo,
+        destination: WGPUTexelCopyTextureInfo,
         copySize: WGPUExtent3D
     ) -> String? {
         func errorString(_ error: String) -> String {
@@ -884,7 +890,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if sourceBuffer.usage() & WGPUBufferUsage_CopySrc.rawValue == 0 {
+        if sourceBuffer.usage() & WGPUBufferUsage_CopySrc == 0 {
             return errorString("source usage does not contain CopySrc")
         }
 
@@ -896,7 +902,7 @@ extension WebGPU.CommandEncoder {
             return errorString(error)
         }
 
-        if destinationTexture.usage() & WGPUTextureUsage_CopyDst.rawValue == 0 {
+        if destinationTexture.usage() & WGPUTextureUsage_CopyDst == 0 {
             return errorString("destination usage does not contain CopyDst")
         }
 
@@ -959,18 +965,12 @@ extension WebGPU.CommandEncoder {
         let collection = CollectionOfOne(descriptor)
         let descriptorSpan = collection.span
         if let timestampWrites = wgpuGetRenderPassDescriptorTimestampWrites(descriptorSpan)?[0] {
-            return errorValidatingTimestampWrites(
-                timestampWrites: WGPUComputePassTimestampWrites(
-                    querySet: timestampWrites.querySet,
-                    beginningOfPassWriteIndex: timestampWrites.beginningOfPassWriteIndex,
-                    endOfPassWriteIndex: timestampWrites.endOfPassWriteIndex
-                )
-            )
+            return errorValidatingTimestampWrites(timestampWrites: timestampWrites)
         }
         return nil
     }
 
-    private func errorValidatingTimestampWrites(timestampWrites: WGPUComputePassTimestampWrites) -> String? {
+    private func errorValidatingTimestampWrites(timestampWrites: WGPUPassTimestampWrites) -> String? {
         if !m_device.ptr().hasFeature(WGPUFeatureName_TimestampQuery) {
             return "device does not have timestamp query feature"
         }
@@ -1167,7 +1167,7 @@ extension WebGPU.CommandEncoder {
 
                 let textureIsDestroyed = texture.isDestroyed()
                 if !textureIsDestroyed {
-                    if (texture.usage() & WGPUTextureUsage_RenderAttachment.rawValue) == 0
+                    if (texture.usage() & WGPUTextureUsage_RenderAttachment) == 0
                         || !WebGPU.Texture.isColorRenderableFormat(textureFormat, m_device.ptr())
                     {
                         return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "color attachment is not renderable")
@@ -1191,7 +1191,7 @@ extension WebGPU.CommandEncoder {
                 mtlAttachment.slice = 0
                 var depthSliceOrArrayLayer: UInt64 = 0
                 // FIXME: (rdar://170907318) This should be changed to `if let` when possible.
-                if var depthSlice = Optional(fromCxx: attachment.depthSlice) {
+                if var depthSlice = attachment.depthSlice {
                     if !texture.is3DTexture() {
                         return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "depthSlice specified on 2D texture")
                     }
@@ -1572,7 +1572,7 @@ extension WebGPU.CommandEncoder {
         )
     }
 
-    func copyTextureToBuffer(source: WGPUImageCopyTexture, destination: WGPUImageCopyBuffer, copySize: WGPUExtent3D) {
+    func copyTextureToBuffer(source: WGPUTexelCopyTextureInfo, destination: WGPUTexelCopyBufferInfo, copySize: WGPUExtent3D) {
         // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copytexturetobuffer
 
         guard prepareTheEncoderState() else {
@@ -1704,7 +1704,7 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
-                    let newSource = WGPUImageCopyTexture(
+                    let newSource = WGPUTexelCopyTextureInfo(
                         texture: source.texture,
                         mipLevel: source.mipLevel,
                         origin: WGPUOrigin3D(x: source.origin.x, y: yPlusOriginY, z: zPlusOriginZ),
@@ -1719,8 +1719,8 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
-                    let newDestination = WGPUImageCopyBuffer(
-                        layout: WGPUTextureDataLayout(
+                    let newDestination = WGPUTexelCopyBufferInfo(
+                        layout: WGPUTexelCopyBufferLayout(
                             offset: tripleSum,
                             bytesPerRow: UInt32(WGPU_COPY_STRIDE_UNDEFINED),
                             rowsPerImage: UInt32(WGPU_COPY_STRIDE_UNDEFINED)
@@ -1882,7 +1882,7 @@ extension WebGPU.CommandEncoder {
         }
     }
 
-    func copyBufferToTexture(source: WGPUImageCopyBuffer, destination: WGPUImageCopyTexture, copySize: WGPUExtent3D) {
+    func copyBufferToTexture(source: WGPUTexelCopyBufferInfo, destination: WGPUTexelCopyTextureInfo, copySize: WGPUExtent3D) {
         guard prepareTheEncoderState() else {
             generateInvalidEncoderStateError()
             return
@@ -2051,8 +2051,8 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
-                    let newSource = WGPUImageCopyBuffer(
-                        layout: WGPUTextureDataLayout(
+                    let newSource = WGPUTexelCopyBufferInfo(
+                        layout: WGPUTexelCopyBufferLayout(
                             offset: tripleSum,
                             bytesPerRow: UInt32(WGPU_COPY_STRIDE_UNDEFINED),
                             rowsPerImage: UInt32(WGPU_COPY_STRIDE_UNDEFINED)
@@ -2064,7 +2064,7 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
-                    let newDestination = WGPUImageCopyTexture(
+                    let newDestination = WGPUTexelCopyTextureInfo(
                         texture: destination.texture,
                         mipLevel: destination.mipLevel,
                         origin: WGPUOrigin3D(
@@ -2359,7 +2359,7 @@ extension WebGPU.CommandEncoder {
         if !destination.isDestroyed() && !destination.isValid() {
             return false
         }
-        if (destination.usage() & WGPUBufferUsage_QueryResolve.rawValue) == 0 {
+        if (destination.usage() & WGPUBufferUsage_QueryResolve) == 0 {
             return false
         }
 
@@ -2389,7 +2389,7 @@ extension WebGPU.CommandEncoder {
         return true
     }
 
-    func copyTextureToTexture(source: WGPUImageCopyTexture, destination: WGPUImageCopyTexture, copySize: WGPUExtent3D) {
+    func copyTextureToTexture(source: WGPUTexelCopyTextureInfo, destination: WGPUTexelCopyTextureInfo, copySize: WGPUExtent3D) {
         // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copytexturetotexture
 
         guard self.prepareTheEncoderState() else {

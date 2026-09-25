@@ -469,7 +469,7 @@ size_t Device::enumerateFeatures(WGPUFeatureName* features)
 
 bool Device::getLimits(WGPUSupportedLimits& limits)
 {
-    limits.limits = m_capabilities.limits;
+    limits.limits = toAPI(m_capabilities.limits);
     return true;
 }
 
@@ -1443,7 +1443,7 @@ void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorB
     });
 }
 
-void wgpuDeviceSetLabel(WGPUDevice device, const char* label)
+void wgpuDeviceSetLabel(WGPUDevice device, WGPUStringView label)
 {
     WebGPU::fromAPI(device).setLabel(WebGPU::fromAPI(label));
 }

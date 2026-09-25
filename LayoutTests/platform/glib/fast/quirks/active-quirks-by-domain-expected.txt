@@ -117,7 +117,7 @@ https://mail.google.com/
     MaybeBypassBackForwardCache
 https://sites.google.com/
     MaybeBypassBackForwardCache
-    ShouldPreventDispatchOfTouchEventQuirk
+    ShouldPreventTouchEndDispatchQuirk
 https://meet.google.com/
     MaybeBypassBackForwardCache
     ShouldEnableCameraBackgroundPlayback
@@ -178,7 +178,7 @@ https://outlook.live.com/
     NeedsMozillaFileTypeForDataTransferQuirk
     NeedsUserAgentStringOverrideQuirk
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
-    ShouldPreventDispatchOfTouchEventQuirk
+    ShouldPreventTouchMoveDispatchQuirk
 https://live.com/
     ShouldAvoidResizingWhenInputViewBoundsChangeQuirk
 https://onedrive.live.com/
@@ -193,8 +193,16 @@ https://mailchimp.com/
     (none)
 https://www.marcus.com/
     ShouldExposeShowModalDialog
+https://jalopnik.com/
+    NeedsKinjaLoginStorageAccessQuirk
+https://kotaku.com/
+    NeedsKinjaLoginStorageAccessQuirk
 https://medium.com/
     ShouldDispatchSyntheticMouseEventsWhenModifyingSelectionQuirk
+https://www.microsoft.com/
+    NeedsStorageAccessOnLoginButtonClickQuirk
+https://microsoft.com/
+    (none)
 https://m365.cloud.microsoft/
     (none)
 https://cloud.microsoft/
@@ -224,6 +232,10 @@ https://www.pandora.com/
     ShouldExposeShowModalDialog
 https://www.pinterest.com/
     ShouldAllowNotificationPermissionWithoutUserGesture
+https://www.playstation.com/
+    NeedsStorageAccessOnLoginButtonClickQuirk
+https://my.playstation.com/
+    NeedsStorageAccessOnLoginButtonClickQuirk
 https://www.premierleague.com/
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
     ShouldDispatchPlayPauseEventsOnResume
@@ -266,7 +278,8 @@ https://www.theguardian.com/
 https://www.thesaurus.com/
     (none)
 https://www.tiktok.com/
-    NeedsTikTokOverflowingContentQuirk
+    NeedsTikTokCommentsOverflowingContentQuirk
+    NeedsTikTokVideoOverflowingContentQuirk
     ShouldComputeSimulatedMouseEventMovementDeltaQuirk
     ShouldDispatchSimulatedMouseEventsAssumeDefaultPreventedQuirk
     ShouldDispatchSimulatedMouseEventsQuirk
@@ -301,7 +314,7 @@ https://twitter.com/
 https://www.yahoo.com/
     NeedsYahooVolumeSliderQuirk
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
-    ShouldPreventDispatchOfTouchEventQuirk
+    ShouldPreventTouchEndDispatchQuirk
 https://news.ycombinator.com/
     ShouldIgnoreTextAutoSizingQuirk
 https://ycombinator.com/

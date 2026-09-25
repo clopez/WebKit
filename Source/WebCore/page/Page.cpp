@@ -1882,6 +1882,10 @@ void Page::windowScreenDidChange(PlatformDisplayID displayID, std::optional<Fram
         document.windowScreenDidChange(displayID);
     });
 
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    updateDisplayEDRHeadroom();
+#endif
+
     updateScreenSupportedContentsFormats();
 
 #if ENABLE(VIDEO)
@@ -2277,12 +2281,10 @@ void Page::syncLocalFrameInfoToRemote()
         if (!frameView)
             return;
 
-        frame.loader().client().broadcastFrameViewportInfoToOtherProcesses({
-            frameView->layoutViewportRect(),
-            frameView->scrollPosition()
-        });
-
+        auto layoutViewportRect = frameView->layoutViewportRect();
+        bool hasOnScreenRemoteDescendant = false;
         HashMap<FrameIdentifier, Ref<RemoteFrameLayoutInfo>> childrenFrameLayoutInfo;
+
         auto windowClipRectInContentCoordinates = [&frameView, rect = std::optional<LayoutRect> { }]() mutable {
             if (!rect)
                 rect = LayoutRect { frameView->windowToContents(frameView->windowClipRect()) };
@@ -2311,6 +2313,15 @@ void Page::syncLocalFrameInfoToRemote()
             };
 
             auto visibleRectInParent = frameView->visibleRectOfChild(*child.get());
+
+            if (visibleRectInParent) {
+                auto onScreenRectInParent = *visibleRectInParent;
+
+                // Use edgeInclusiveIntersect instead of intersects with layoutViewportRect to match
+                // how IntersectionObserver performs intersections.
+                if (onScreenRectInParent.edgeInclusiveIntersect(layoutViewportRect))
+                    hasOnScreenRemoteDescendant = true;
+            }
 
             auto onScreenRectInChildView = [&] {
                 if (!visibleRectInParent)
@@ -2354,6 +2365,11 @@ void Page::syncLocalFrameInfoToRemote()
                 frameView->appearanceOfOwnerElementOfChildFrame(*child)
             ));
         }
+
+        frame.loader().client().broadcastFrameViewportInfoToOtherProcessesIfNeeded({
+            layoutViewportRect,
+            frameView->scrollPosition()
+        }, hasOnScreenRemoteDescendant);
 
         if (childrenFrameLayoutInfo.isEmpty()) {
             ASSERT(!frame.tree().containsRemoteFrame());
@@ -2505,6 +2521,10 @@ void Page::updateRendering()
         document.updateIntersectionObservers();
     });
 
+    runProcessingStep(RenderingUpdateStep::CanvasPaintEvent, [] (Document& document) {
+        document.serviceCanvasPaintEvents();
+    });
+
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
         for (auto& image : protect(document.cachedResourceLoader())->allCachedSVGImages()) {
             if (RefPtr page = image->internalPage())
@@ -2617,6 +2637,14 @@ void Page::doAfterUpdateRendering()
     forEachDocument([] (Document& document) {
         document.updateEventRegions();
     });
+
+#if ENABLE(AX_CUSTOM_COLOR_MODE)
+    if (settings().axCustomColorModeEnabled()) {
+        forEachRenderableDocument([] (Document& document) {
+            document.updateAXCustomColorModeTextBackdrops();
+        });
+    }
+#endif
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::AccessibilityRegionUpdate);
@@ -5247,6 +5275,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
     case RenderingUpdateStep::Immersive: ts << "Immersive"_s; break;
 #endif
+    case RenderingUpdateStep::CanvasPaintEvent: ts << "CanvasPaintEvent"_s; break;
     }
     return ts;
 }

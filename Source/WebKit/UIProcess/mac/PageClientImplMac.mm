@@ -864,6 +864,19 @@ void PageClientImpl::didEndViewGesture()
     protect(m_impl)->suppressContentRelativeChildViews(WebViewImpl::ContentRelativeChildViewsSuppressionType::Restore);
 }
 
+bool PageClientImpl::everMagnifiedDuringCurrentGesture() const
+{
+#if HAVE(APPKIT_GESTURES_SUPPORT)
+    CheckedPtr impl = m_impl.get();
+    if (!impl)
+        return false;
+
+    return [impl->appKitGestureController() everMagnifiedDuringCurrentGesture];
+#else
+    return false;
+#endif
+}
+
 #if ENABLE(FULLSCREEN_API)
 
 WebFullScreenManagerProxyClient& PageClientImpl::fullScreenManagerProxyClient()
@@ -1281,7 +1294,7 @@ void PageClientImpl::showCaptionDisplaySettings(WebCore::HTMLMediaElementIdentif
     protect(m_impl)->showCaptionDisplaySettings(identifier, options, WTF::move(completionHandler));
 }
 
-void PageClientImpl::positionInformationDidChange(const InteractionInformationAtPosition& info)
+void PageClientImpl::positionInformationDidChange(const InteractionInformationAtPosition& info, std::optional<WebCore::FrameIdentifier>)
 {
     CheckedPtr impl = m_impl.get();
     if (!impl)

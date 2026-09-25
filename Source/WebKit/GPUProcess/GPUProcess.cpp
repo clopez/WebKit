@@ -155,6 +155,8 @@ void GPUProcess::removeGPUConnectionToWebProcess(GPUConnectionToWebProcess& conn
     ASSERT(m_webProcessConnections.contains(connection.webProcessIdentifier()));
     m_webProcessConnections.remove(connection.webProcessIdentifier());
 
+    removeTransferredImageBuffersForProcess(connection.webProcessIdentifier());
+
     recomputeNowPlayingOwner();
 
     tryExitIfUnusedAndUnderMemoryPressure();
@@ -551,6 +553,42 @@ void GPUProcess::updateSandboxAccess(const Vector<SandboxExtension::Handle>& ext
     RELEASE_LOG(WebRTC, "GPUProcess::updateSandboxAccess: Adding %zu extensions", extensions.size());
     for (auto& extension : extensions)
         SandboxExtension::consumePermanently(extension);
+}
+
+void GPUProcess::handOverTransferredImageBuffers(Vector<WebCore::ImageBufferTransferIdentifier>&& identifiers, WebCore::ProcessIdentifier destinationProcess)
+{
+    Locker locker(m_globalResourceLocker);
+    // Not waited for, so the destination may already have claimed some of them.
+    for (auto identifier : identifiers) {
+        auto iterator = m_transferredImageBuffers.find(identifier);
+        if (iterator != m_transferredImageBuffers.end())
+            iterator->value.owner = destinationProcess;
+    }
+}
+
+WebCore::ImageBufferTransferIdentifier GPUProcess::depositTransferredImageBuffer(WebCore::ProcessIdentifier owner, Ref<WebCore::ImageBuffer>&& imageBuffer)
+{
+    Locker locker(m_globalResourceLocker);
+    auto identifier = WebCore::ImageBufferTransferIdentifier::createVersion4();
+    auto result = m_transferredImageBuffers.add(identifier, TransferredImageBuffer { owner, WTF::move(imageBuffer) });
+    RELEASE_ASSERT(result.isNewEntry);
+    return identifier;
+}
+
+RefPtr<WebCore::ImageBuffer> GPUProcess::takeTransferredImageBuffer(WebCore::ImageBufferTransferIdentifier identifier)
+{
+    Locker locker(m_globalResourceLocker);
+    return m_transferredImageBuffers.take(identifier).imageBuffer;
+}
+
+void GPUProcess::removeTransferredImageBuffersForProcess(WebCore::ProcessIdentifier processIdentifier)
+{
+    Locker locker(m_globalResourceLocker);
+    // Keyed on the owner: once ownership has moved on, the depositing process going away must not
+    // take the buffer from the process it was handed to.
+    m_transferredImageBuffers.removeIf([&](auto& entry) {
+        return entry.value.owner == processIdentifier;
+    });
 }
 
 Ref<RemoteSnapshot> GPUProcess::getOrCreateSnapshot(RemoteSnapshotIdentifier snapshotIdentifier)

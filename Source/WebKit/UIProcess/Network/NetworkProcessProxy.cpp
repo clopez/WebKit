@@ -44,6 +44,8 @@
 #include "DownloadProxyMessages.h"
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
+#include "GPUProcessMessages.h"
+#include "GPUProcessProxy.h"
 #include "ITPThirdPartyData.h"
 #include "LegacyGlobalSettings.h"
 #include "LoadedWebArchive.h"
@@ -338,6 +340,7 @@ void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProces
 #endif
     parameters.sharedPreferencesForWebProcess = *webProcessProxy.sharedPreferencesForWebProcess();
     for (Ref page : webProcessProxy.mainPages()) {
+        parameters.allowedWebPageProxyIdentifiers.append(page->identifier());
         if (page->configuration().shouldRelaxThirdPartyCookieBlocking() == ShouldRelaxThirdPartyCookieBlocking::Yes)
             parameters.pagesWithRelaxedThirdPartyCookieBlocking.append(page->identifier());
         if (!page->corsDisablingPatterns().isEmpty())
@@ -2084,6 +2087,15 @@ void NetworkProcessProxy::addAllowedFirstPartyForCookies(WebProcessProxy& webPro
         completionHandler();
 }
 
+void NetworkProcessProxy::addAllowedWebPageProxyIdentifier(WebProcessProxy& webProcessProxy, WebPageProxyIdentifier pageID)
+{
+    auto& pages = m_allowedWebPageProxyIdentifiers.ensure(webProcessProxy, [] {
+        return HashSet<WebPageProxyIdentifier> { };
+    }).iterator->value;
+    if (pages.add(pageID).isNewEntry)
+        send(Messages::NetworkProcess::AddAllowedWebPageProxyIdentifier(webProcessProxy.coreProcessIdentifier(), pageID), 0);
+}
+
 void NetworkProcessProxy::addAllowedFilePaths(WebProcessProxy& webProcessProxy, const Vector<String>& paths)
 {
     auto& pathSet = m_allowedFilePathsByProcess.ensure(webProcessProxy, [] {
@@ -2170,6 +2182,17 @@ void NetworkProcessProxy::installMockParentalControlsURLFilterForTesting(Vector<
 void NetworkProcessProxy::flushNetworkProcessIPC(CompletionHandler<void()>&& completionHandler)
 {
     sendWithAsyncReply(Messages::NetworkProcess::FlushNetworkProcessIPC(), WTF::move(completionHandler));
+}
+
+void NetworkProcessProxy::handOverTransferredImageBuffers(Vector<WebCore::ImageBufferTransferIdentifier>&& transferIdentifiers, WebCore::ProcessIdentifier destinationProcess)
+{
+#if ENABLE(GPU_PROCESS)
+    if (RefPtr gpuProcess = GPUProcessProxy::singletonIfCreated())
+        gpuProcess->send(Messages::GPUProcess::HandOverTransferredImageBuffers(WTF::move(transferIdentifiers), destinationProcess), 0);
+#else
+    UNUSED_PARAM(transferIdentifiers);
+    UNUSED_PARAM(destinationProcess);
+#endif
 }
 
 void NetworkProcessProxy::receivedQualifiedServerTrust(WebKit::WebPageProxyIdentifier webPageID, WebCore::CertificateInfo&& serverTrust, WebCore::CertificateInfo&& qualifiedServerTrust)

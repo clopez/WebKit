@@ -172,6 +172,8 @@ public:
     // grid is determined by the lines/grid areas which come from track sizing.
     bool isExtrinsicallySized() const;
 
+    LayoutRange gridAreaRangeForOutOfFlow(const RenderBox&, Style::GridTrackSizingDirection) const;
+
 private:
     friend class GridTrackSizingAlgorithm;
     friend class GridTrackSizingAlgorithmStrategy;
@@ -241,7 +243,6 @@ private:
 
     void populateGridPositionsForDirection(const GridTrackSizingAlgorithm&, Style::GridTrackSizingDirection, GridLanesResultRef);
 
-    LayoutRange gridAreaRangeForOutOfFlow(const RenderBox&, Style::GridTrackSizingDirection) const;
     std::pair<LayoutUnit, LayoutUnit> gridAreaPositionForInFlowGridItem(const RenderBox&, Style::GridTrackSizingDirection) const;
 
     GridAxisPosition columnAxisPositionForGridItem(const RenderBox&) const;
@@ -305,7 +306,6 @@ private:
     class GridWrapper {
         Grid m_layoutGrid;
     public:
-        GridWrapper(RenderGrid&);
         void NODELETE resetCurrentGrid() const;
         mutable std::reference_wrapper<Grid> m_currentGrid { std::ref(m_layoutGrid) };
     } m_grid;

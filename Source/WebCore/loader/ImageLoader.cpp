@@ -50,7 +50,7 @@
 #include "HTMLSrcsetParser.h"
 #include "InspectorInstrumentation.h"
 #include "JSDOMPromiseDeferred.h"
-#include "LazyLoadImageObserver.h"
+#include "LazyLoadElementObserver.h"
 #include "LegacyRenderSVGImage.h"
 #include "LocalFrame.h"
 #include "Logging.h"
@@ -231,11 +231,19 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
         return;
     }
 
-    // Fire an error event if the URL contains only whitespace.
+    // Fire an error event if the URL contains only whitespace. However, if this is a lazily-loaded
+    // image that is not yet connected, defer the error until the element is inserted into a document
+    // (which re-runs this algorithm), matching the deferral of a lazily-loaded network request.
     if (StringView(attr).containsOnly<isASCIIWhitespace<char16_t>>()) {
         m_failedLoadURL = attr;
-        m_hasPendingErrorEvent = true;
-        loadEventSender().dispatchEventSoon(*this, eventNames().errorEvent);
+        RefPtr lazyImageElement = dynamicDowncast<HTMLImageElement>(element);
+        if (lazyImageElement && lazyImageElement->isLazyLoadable() && document->settings().lazyImageLoadingEnabled() && !element->isConnected()) {
+            loadEventSender().cancelEvent(*this, eventNames().errorEvent);
+            m_hasPendingErrorEvent = false;
+        } else {
+            m_hasPendingErrorEvent = true;
+            loadEventSender().dispatchEventSoon(*this, eventNames().errorEvent);
+        }
         didUpdateCachedImage(relevantMutation, WTF::move(newImage));
         return;
     }
@@ -384,7 +392,7 @@ void ImageLoader::didUpdateCachedImage(RelevantMutation relevantMutation, RefPtr
                 updateRenderer();
 
             if (m_lazyImageLoadState == LazyImageLoadState::Deferred)
-                LazyLoadImageObserver::observe(protect(element()));
+                LazyLoadElementObserver::observe(protect(element()));
 
             // If newImage is cached, addClient() will result in the load event
             // being queued to fire.
@@ -461,7 +469,7 @@ void ImageLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetr
     m_pendingURL = { };
 
     if (isDeferred()) {
-        LazyLoadImageObserver::unobserve(protect(element()), protect(document()));
+        LazyLoadElementObserver::unobserve(protect(element()), protect(document()));
         m_lazyImageLoadState = LazyImageLoadState::FullImage;
         LOG_WITH_STREAM(LazyLoading, stream << "ImageLoader " << this << " notifyFinished() for element " << element() << " setting lazy load state to " << m_lazyImageLoadState);
     }
@@ -761,7 +769,7 @@ void ImageLoader::resetLazyImageLoading(Document& document)
     LOG_WITH_STREAM(LazyLoading, stream << "ImageLoader " << this << " resetLazyImageLoading - state is " << m_lazyImageLoadState);
 
     if (isDeferred())
-        LazyLoadImageObserver::unobserve(protect(element()), document);
+        LazyLoadElementObserver::unobserve(protect(element()), document);
     m_lazyImageLoadState = LazyImageLoadState::None;
 }
 

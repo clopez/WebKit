@@ -129,6 +129,7 @@ set(TestWTF_SOURCES
     Tests/WTF/PreciseSum.cpp
     Tests/WTF/PriorityQueue.cpp
     Tests/WTF/RapidHash.cpp
+    Tests/WTF/ReadWriteLock.cpp
     Tests/WTF/RedBlackTree.cpp
     Tests/WTF/Ref.cpp
     Tests/WTF/RefCountedFixedVector.cpp
@@ -294,6 +295,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/FontCascade.cpp
         Tests/WebCore/FontShadowTests.cpp
         Tests/WebCore/GridPosition.cpp
+        Tests/WebCore/H264UtilitiesTests.cpp
         Tests/WebCore/HEVCUtilitiesTests.cpp
         Tests/WebCore/HTMLParserIdioms.cpp
         Tests/WebCore/HTTPHeaderField.cpp
@@ -321,6 +323,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/MonospaceFontTests.cpp
         Tests/WebCore/NativeImageTests.cpp
         Tests/WebCore/NowPlayingInfoTests.cpp
+        Tests/WebCore/ObjectSizeNegotiationTests.cpp
         Tests/WebCore/PODIntervalTree.cpp
         Tests/WebCore/ParsedContentRange.cpp
         Tests/WebCore/ParsedContentType.cpp

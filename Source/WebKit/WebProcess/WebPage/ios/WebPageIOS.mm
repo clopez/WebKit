@@ -345,6 +345,34 @@ static void convertContentToRootView(const LocalFrameView& view, Vector<Selectio
         geometry.setQuad(view.contentsToRootView(geometry.quad()));
 }
 
+static std::optional<IntRect> overflowClipRectForSelection(const VisibleSelection& selection)
+{
+    auto range = selection.range();
+    if (!range)
+        return std::nullopt;
+
+    CheckedPtr enclosingLayer = computeEnclosingLayer(*range).enclosingLayer;
+    if (!enclosingLayer)
+        return std::nullopt;
+
+    CheckedRef renderer = enclosingLayer->renderer();
+    std::optional<IntRect> clipRect;
+    CheckedPtr block = dynamicDowncast<RenderBlock>(renderer.get());
+    if (!block)
+        block = renderer->containingBlock();
+    for (; block && !is<RenderView>(*block); block = block->containingBlock()) {
+        if (!block->hasNonVisibleOverflow())
+            continue;
+
+        auto blockClipRect = enclosingIntRect(block->localToAbsoluteQuad(FloatQuad { block->overflowClipRect({ }) }).boundingBox());
+        if (clipRect)
+            clipRect->intersect(blockClipRect);
+        else
+            clipRect = blockClipRect;
+    }
+    return clipRect;
+}
+
 void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) const
 {
     getPlatformEditorStateCommon(frame, result);
@@ -466,13 +494,24 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
     // the top-level page as well as any CSS transforms on the remote ancestor frames -- so UIKit reads
     // the correct location synchronously without a UI-process round-trip. A plain translation offset
     // could not represent a scale on an ancestor iframe.
-    if (!frame.localMainFrame()) {
+    RefPtr localRootView = frame.rootFrame().view();
+    if (!frame.localMainFrame() && localRootView) {
+        auto frameClipRect = view->convertToRootView(IntRect { { }, view->size() });
+        for (RefPtr ancestor = dynamicDowncast<LocalFrameView>(view->parent()); ancestor; ancestor = dynamicDowncast<LocalFrameView>(ancestor->parent()))
+            frameClipRect.intersect(ancestor->convertToRootView(IntRect { { }, ancestor->size() }));
+        if (auto overflowClipRect = overflowClipRectForSelection(selection))
+            frameClipRect.intersect(view->contentsToRootView(*overflowClipRect));
+        if (visualData.selectionClipRect.isEmpty())
+            visualData.selectionClipRect = frameClipRect;
+        else
+            visualData.selectionClipRect.intersect(frameClipRect);
+
         auto convertRect = [&](IntRect& rect) {
-            rect = roundedIntRect(view->convertToRootViewAcrossIsolatedFrames(FloatRect { rect }));
+            rect = roundedIntRect(localRootView->convertToRootViewAcrossIsolatedFrames(FloatRect { rect }));
         };
         auto convertGeometries = [&](Vector<SelectionGeometry>& geometries) {
             for (auto& geometry : geometries)
-                geometry.setQuad(view->convertToRootViewAcrossIsolatedFrames(geometry.quad()));
+                geometry.setQuad(localRootView->convertToRootViewAcrossIsolatedFrames(geometry.quad()));
         };
         convertRect(visualData.caretRectAtStart);
         convertRect(visualData.caretRectAtEnd);
@@ -978,7 +1017,8 @@ Awaitable<DragInitiationResult> WebPage::requestDragStart(std::optional<WebCore:
     co_return { DragInitiationResult::RemoteFrameData {
         transformer.remoteFrameID(),
         transformer.transformToRemoteFrameCoordinates(clientPosition),
-        transformer.transformToRemoteFrameCoordinates(globalPosition)
+        // globalPosition is not frame-relative, so it survives the hop unchanged.
+        globalPosition
     } };
 }
 
@@ -1005,7 +1045,8 @@ Awaitable<DragInitiationResult> WebPage::requestAdditionalItemsForDragSession(st
     co_return { DragInitiationResult::RemoteFrameData {
         transformer.remoteFrameID(),
         transformer.transformToRemoteFrameCoordinates(clientPosition),
-        transformer.transformToRemoteFrameCoordinates(globalPosition)
+        // globalPosition is not frame-relative, so it survives the hop unchanged.
+        globalPosition
     } };
 }
 
@@ -2507,7 +2548,7 @@ static inline bool isObscuredElement(Element& element)
     return true;
 }
 
-void WebPage::startInteractionWithElementContextOrPosition(std::optional<WebCore::ElementContext>&& elementContext, WebCore::IntPoint&& point)
+void WebPage::startInteractionWithElementContextOrPosition(std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::ElementContext>&& elementContext, WebCore::IntPoint&& point)
 {
     if (elementContext) {
         m_interactionNode = elementForContext(*elementContext);
@@ -2515,9 +2556,15 @@ void WebPage::startInteractionWithElementContextOrPosition(std::optional<WebCore
             return;
     }
 
+    m_interactionNode = nullptr;
+
+    RefPtr localRoot = localRootFrame(frameID);
+    RefPtr localRootView = localRoot ? localRoot->view() : nullptr;
+    if (!localRootView)
+        return;
+
     FloatPoint adjustedPoint;
-    if (RefPtr localMainFrame = protect(m_page)->localMainFrame())
-        m_interactionNode = localMainFrame->nodeRespondingToInteraction(point, adjustedPoint);
+    m_interactionNode = localRoot->nodeRespondingToInteraction(localRootView->convertFromRootViewAcrossIsolatedFrames(FloatPoint { point }), adjustedPoint);
 }
 
 void WebPage::stopInteraction()
@@ -2768,7 +2815,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformationWitho
         }
         information.selectedIndex = element->selectedIndex();
         information.isMultiSelect = element->multiple();
-        information.usesBaseAppearancePicker = element->usesBaseAppearancePicker();
+        information.optionsAreRenderedWithBaseAppearance = element->optionsAreRenderedWithBaseAppearance();
     } else if (RefPtr element = dynamicDowncast<HTMLTextAreaElement>(*focusedElement)) {
         information.autocapitalizeType = element->autocapitalizeType();
         information.isAutocorrect = element->shouldAutocorrect();

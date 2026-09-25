@@ -952,6 +952,7 @@ void TestController::initialize(int argc, const char* argv[])
 
     m_useWaitToDumpWatchdogTimer = options.useWaitToDumpWatchdogTimer;
     m_forceNoTimeout = options.forceNoTimeout;
+    m_ipAddressSpaceOverrides = options.ipAddressSpaceOverrides;
     m_verbose = options.verbose;
     m_gcBetweenTests = options.gcBetweenTests;
     m_shouldDumpPixelsForAllTests = options.shouldDumpPixelsForAllTests;
@@ -1049,6 +1050,8 @@ WKWebsiteDataStoreRef TestController::defaultWebsiteDataStore()
     if (!dataStore) {
         auto configuration = adoptWK(WKWebsiteDataStoreConfigurationCreate());
         configureWebsiteDataStoreTemporaryDirectories(configuration.get());
+        if (!singleton().m_ipAddressSpaceOverrides.empty())
+            WKWebsiteDataStoreConfigurationSetIPAddressSpaceOverridesForTesting(configuration.get(), toWK(singleton().m_ipAddressSpaceOverrides.c_str()).get());
 
         // Including any non-trivial value of "persistent notifications have a minimum timeout before being closeable"
         // is counterproductive for layout tests - especially WPT tests. We cover the behavior in API tests.
@@ -1692,6 +1695,14 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
     {
         bool done { false };
         WKWebsiteDataStoreRemoveNetworkCache(websiteDataStore(), &done, [] (void* context) {
+            *(bool*)context = true;
+        });
+        runUntil(done, noTimeout);
+    }
+
+    {
+        bool done { false };
+        WKWebsiteDataStoreClearLocalNetworkAccessPermissionsForTesting(websiteDataStore(), &done, [] (void* context) {
             *(bool*)context = true;
         });
         runUntil(done, noTimeout);
@@ -2441,6 +2452,10 @@ if (window.testRunner) {
         const entries = await post(['GetAllStorageAccessEntries']);
         callback?.(entries);
     };
+    testRunner.setLocalNetworkAccessPermission = (granted, isLoopback, requestingOrigin) => // NOLINT
+        post(['SetLocalNetworkAccessPermission', { Value: granted, IsLoopback: isLoopback, TopOrigin: location.href, RequestingOrigin: requestingOrigin ?? location.href }]);
+    testRunner.revokeLocalNetworkAccessPermissions = () => // NOLINT
+        post(['RevokeLocalNetworkAccessPermissions', { Origin: location.href }]);
     testRunner.setStorageAccessPermission = async (granted, subFrameURL, callback) => { // NOLINT
         await post(['SetStorageAccessPermission', { Value: granted, SubFrameURL: subFrameURL }]);
         callback?.();
@@ -2690,6 +2705,20 @@ void TestController::didReceiveScriptMessage(WKScriptMessageRef message, Complet
 
     if (WKStringIsEqualToUTF8CString(command, "RemoveAllSessionCredentials"))
         return TestController::singleton().removeAllSessionCredentials(WTF::move(completionHandler));
+
+    if (WKStringIsEqualToUTF8CString(command, "RevokeLocalNetworkAccessPermissions")) {
+        auto origin = stringValue(dictionaryValue(argument), "Origin");
+        return WKWebsiteDataStoreRevokeLocalNetworkAccessPermissionsForTesting(websiteDataStore(), origin, completionHandler.leak(), adoptAndCallCompletionHandler);
+    }
+
+    if (WKStringIsEqualToUTF8CString(command, "SetLocalNetworkAccessPermission")) {
+        auto argumentDictionary = dictionaryValue(argument);
+        auto value = booleanValue(argumentDictionary, "Value");
+        auto isLoopback = booleanValue(argumentDictionary, "IsLoopback");
+        auto topOrigin = stringValue(argumentDictionary, "TopOrigin");
+        auto requestingOrigin = stringValue(argumentDictionary, "RequestingOrigin");
+        return WKWebsiteDataStoreSetLocalNetworkAccessPermissionForTesting(websiteDataStore(), topOrigin, requestingOrigin, isLoopback, value, completionHandler.leak(), adoptAndCallCompletionHandler);
+    }
 
     if (WKStringIsEqualToUTF8CString(command, "SetStorageAccessPermission")) {
         auto argumentDictionary = dictionaryValue(argument);

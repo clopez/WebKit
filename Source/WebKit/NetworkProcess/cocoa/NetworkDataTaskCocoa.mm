@@ -288,10 +288,8 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
         [mutableRequest _setAllowPrivateAccessTokensForThirdParty:YES];
 
 #if ENABLE(OPT_IN_PARTITIONED_COOKIES) && defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) && CFN_COOKIE_ACCEPTS_POLICY_PARTITION
-    if (isOptInCookiePartitioningEnabled() && [mutableRequest respondsToSelector:@selector(_setAllowOnlyPartitionedCookies:)]) {
-        auto shouldAllowOnlyPartitioned = thirdPartyCookieBlockingDecision == WebCore::ThirdPartyCookieBlockingDecision::AllExceptPartitioned ? YES : NO;
-        [mutableRequest _setAllowOnlyPartitionedCookies:shouldAllowOnlyPartitioned];
-    }
+    if (isOptInCookiePartitioningEnabled() && [mutableRequest respondsToSelector:@selector(_setAllowOnlyPartitionedCookies:)])
+        [mutableRequest _setAllowOnlyPartitionedCookies:shouldAllowOnlyPartitionedCookies(request) ? YES : NO];
 #endif
 
 #if ENABLE(APP_PRIVACY_REPORT)
@@ -460,8 +458,8 @@ void NetworkDataTaskCocoa::didReceiveResponse(WebCore::ResourceResponse&& respon
     }
 #endif
     auto resolvedIPAddress = WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get()));
-    if (resolvedIPAddress)
-        response.setIPAddressSpace(WebCore::classifyIPAddressSpace(*resolvedIPAddress));
+    if (CheckedPtr session = networkSession())
+        response.setIPAddressSpace(session->classifyConnectionAddressSpace(resolvedIPAddress, response.url()));
     NetworkDataTask::didReceiveResponse(WTF::move(response), negotiatedLegacyTLS, privateRelayed, resolvedIPAddress, WTF::move(completionHandler));
 }
 
@@ -469,8 +467,9 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
 {
     WTFEmitSignpost(m_task.get(), DataTask, "redirect");
 
-    if (auto resolvedIPAddress = WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get())))
-        redirectResponse.setIPAddressSpace(WebCore::classifyIPAddressSpace(*resolvedIPAddress));
+    auto resolvedIPAddress = WebCore::IPAddress::fromString(lastRemoteIPAddress(m_task.get()));
+    if (CheckedPtr session = networkSession())
+        redirectResponse.setIPAddressSpace(session->classifyConnectionAddressSpace(resolvedIPAddress, redirectResponse.url()));
 
     networkLoadMetrics().hasCrossOriginRedirect = networkLoadMetrics().hasCrossOriginRedirect || !WebCore::SecurityOrigin::create(request.url())->canRequest(redirectResponse.url(), WebCore::EmptyOriginAccessPatterns::singleton());
 

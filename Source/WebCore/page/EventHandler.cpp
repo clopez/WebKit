@@ -497,8 +497,7 @@ void EventHandler::clear()
     m_dragTarget = nullptr;
     m_shouldOnlyFireDragOverEvent = false;
 #endif
-    m_lastKnownMousePosition = std::nullopt;
-    m_lastKnownMouseGlobalPosition = { };
+    clearLastKnownMousePosition();
     m_mousePressNode = nullptr;
     m_mousePressed = false;
     m_capturesDragging = false;
@@ -771,14 +770,6 @@ bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestR
     return expandAndUpdateSelectionForMouseDownIfNeeded(*targetNode, newSelection, TextGranularity::ParagraphGranularity);
 }
 
-static uint64_t textDistance(const Position& start, const Position& end)
-{
-    auto range = makeSimpleRange(start, end);
-    if (!range)
-        return 0;
-    return characterCount(*range, TextIteratorBehavior::EmitsCharactersBetweenAllVisiblePositions);
-}
-
 bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestResults& event)
 {
     Ref frame = m_frame.get();
@@ -823,14 +814,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
         if (!frame->editor().behavior().shouldConsiderSelectionAsDirectional() && pos.isNotNull()) {
             // See <rdar://problem/3668157> REGRESSION (Mail): shift-click deselects when selection
             // was created right-to-left
-            Position start = newSelection.start();
-            Position end = newSelection.end();
-            int distanceToStart = textDistance(start, pos);
-            int distanceToEnd = textDistance(pos, end);
-            if (distanceToStart <= distanceToEnd)
-                newSelection = VisibleSelection(end, pos);
-            else
-                newSelection = VisibleSelection(start, pos);
+            newSelection = VisibleSelection(newSelection.endpointToPreserveWhenExtendedTo(pos), pos);
         } else {
             if (newSelection.directionality() == Directionality::Strong) {
                 RefPtr baseNode = newSelection.isBaseFirst() ? newSelection.base().computeNodeAfterPosition() : newSelection.base().computeNodeBeforePosition();
@@ -4168,6 +4152,9 @@ void EventHandler::fakeMouseMoveEventTimerFired()
 {
     ASSERT(!m_mousePressed);
 
+    if (!m_lastKnownMousePosition)
+        return;
+
     Ref frame = m_frame.get();
     if (!frame->view())
         return;
@@ -4176,7 +4163,7 @@ void EventHandler::fakeMouseMoveEventTimerFired()
         return;
 
     auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
-    PlatformMouseEvent fakeMouseMoveEvent(valueOrDefault(m_lastKnownMousePosition), m_lastKnownMouseGlobalPosition, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, modifiers, MonotonicTime::now(), 0, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
+    PlatformMouseEvent fakeMouseMoveEvent(*m_lastKnownMousePosition, m_lastKnownMouseGlobalPosition, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, modifiers, MonotonicTime::now(), 0, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
     mouseMoved(fakeMouseMoveEvent);
 }
 #endif // !ENABLE(IOS_TOUCH_EVENTS)
@@ -5811,6 +5798,32 @@ void EventHandler::setLastKnownMousePosition(const DoublePoint& position, const 
     m_lastKnownMousePosition = position;
     m_lastKnownMouseGlobalPosition = globalPosition;
     m_lastKnownMousePositionSource = WTF::move(source);
+}
+
+void EventHandler::clearLastKnownMousePosition()
+{
+    m_lastKnownMousePosition = std::nullopt;
+    m_lastKnownMouseGlobalPosition = { };
+    m_lastKnownMousePositionSource = std::nullopt;
+}
+
+void EventHandler::mousePointerDidDisappear()
+{
+    auto position = valueOrDefault(m_lastKnownMousePosition);
+    auto globalPosition = m_lastKnownMouseGlobalPosition;
+    clearLastKnownMousePosition();
+
+    updateLastScrollbarUnderMouse(nullptr, SetOrClearLastScrollbar::Clear);
+
+    Ref frame = m_frame.get();
+    RefPtr document = frame->document();
+    if (!document || !frame->view())
+        return;
+
+    auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
+    PlatformMouseEvent syntheticEvent(position, globalPosition, MouseButton::None, PlatformEvent::Type::NoType, 0, modifiers, MonotonicTime::now(), 0, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
+    updateMouseEventTargetNode(eventNames().mousemoveEvent, nullptr, syntheticEvent, FireMouseOverOut::Yes);
+    document->updateHoverActiveState(hoverTimerHitType, nullptr);
 }
 
 void EventHandler::setImmediateActionStage(ImmediateActionStage stage)

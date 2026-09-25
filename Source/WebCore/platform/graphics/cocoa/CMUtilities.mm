@@ -46,6 +46,8 @@
 #import <pal/spi/cocoa/AudioToolboxSPI.h>
 #import <wtf/Scope.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/FlipBytes.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cf/VectorCF.h>
 
@@ -316,7 +318,7 @@ static RetainPtr<CMFormatDescriptionRef> createAudioFormatDescription(const Audi
     return adoptCF(format);
 }
 
-static CFStringRef convertToCMColorPrimaries(PlatformVideoColorPrimaries primaries)
+CFStringRef convertToCMColorPrimaries(PlatformVideoColorPrimaries primaries)
 {
     switch (primaries) {
     case PlatformVideoColorPrimaries::Bt709:
@@ -337,7 +339,7 @@ static CFStringRef convertToCMColorPrimaries(PlatformVideoColorPrimaries primari
     }
 }
 
-static CFStringRef convertToCMTransferFunction(PlatformVideoTransferCharacteristics characteristics)
+CFStringRef convertToCMTransferFunction(PlatformVideoTransferCharacteristics characteristics)
 {
     switch (characteristics) {
     case PlatformVideoTransferCharacteristics::Smpte170m:
@@ -366,7 +368,7 @@ static CFStringRef convertToCMTransferFunction(PlatformVideoTransferCharacterist
     }
 }
 
-static CFStringRef convertToCMYCbCRMatrix(PlatformVideoMatrixCoefficients coefficients)
+CFStringRef convertToCMYCbCRMatrix(PlatformVideoMatrixCoefficients coefficients)
 {
     switch (coefficients) {
     case PlatformVideoMatrixCoefficients::Bt2020NonconstantLuminance:
@@ -611,14 +613,14 @@ RefPtr<VideoInfo> createVideoInfoFromFormatDescription(CMFormatDescriptionRef de
     });
 }
 
-std::expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const MediaSamplesBlock& samples, CMFormatDescriptionRef formatDescription)
+std::expected<RetainPtr<CMSampleBufferRef>, ASCIILiteral> toCMSampleBuffer(const MediaSamplesBlock& samples, CMFormatDescriptionRef formatDescription)
 {
     if (!samples.info())
-        return makeUnexpected("No TrackInfo found");
+        return makeUnexpected("No TrackInfo found"_s);
 
     RetainPtr format = formatDescription ? retainPtr(formatDescription) : createFormatDescriptionFromTrackInfo(*protect(samples.info()));
     if (!format)
-        return makeUnexpected("No CMFormatDescription available");
+        return makeUnexpected("No CMFormatDescription available"_s);
 
     RetainPtr<CMBlockBufferRef> completeBlockBuffers;
     if (samples.size() > 1) {
@@ -626,7 +628,7 @@ std::expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const Medi
         CMBlockBufferRef rawBlockBuffer = nullptr;
         auto err = PAL::CMBlockBufferCreateEmpty(kCFAllocatorDefault, samples.size(), 0, &rawBlockBuffer);
         if (err != kCMBlockBufferNoErr || !rawBlockBuffer)
-            return makeUnexpected("CMBlockBufferCreateEmpty failed");
+            return makeUnexpected("CMBlockBufferCreateEmpty failed"_s);
         completeBlockBuffers = adoptCF(rawBlockBuffer);
     }
 
@@ -639,14 +641,14 @@ std::expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const Medi
         RefPtr sampleData = sample.data;
         auto blockBuffer = sampleData->createCMBlockBuffer();
         if (!blockBuffer)
-            return makeUnexpected("Couldn't create CMBlockBuffer");
+            return makeUnexpected("Couldn't create CMBlockBuffer"_s);
 
         if (!completeBlockBuffers)
             completeBlockBuffers = WTF::move(blockBuffer);
         else {
             auto err = PAL::CMBlockBufferAppendBufferReference(completeBlockBuffers.get(), blockBuffer.get(), 0, 0, 0);
             if (err != kCMBlockBufferNoErr)
-                return makeUnexpected("CMBlockBufferAppendBufferReference failed");
+                return makeUnexpected("CMBlockBufferAppendBufferReference failed"_s);
         }
         packetTimings.append({ PAL::toCMTime(sample.duration), PAL::toCMTime(sample.presentationTime), PAL::toCMTime(sample.decodeTime) });
         packetSizes.append(sampleData->size());
@@ -655,13 +657,13 @@ std::expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const Medi
 
     CMSampleBufferRef rawSampleBuffer = nullptr;
     if (PAL::CMSampleBufferCreateReady(kCFAllocatorDefault, completeBlockBuffers.get(), format.get(), packetSizes.size(), packetTimings.size(), packetTimings.span().data(), packetSizes.size(), packetSizes.span().data(), &rawSampleBuffer))
-        return makeUnexpected("CMSampleBufferCreateReady failed: OOM");
+        return makeUnexpected("CMSampleBufferCreateReady failed: OOM"_s);
 
     if (samples.isVideo() && samples.size()) {
         auto attachmentsArray = PAL::CMSampleBufferGetSampleAttachmentsArray(rawSampleBuffer, true);
         ASSERT(attachmentsArray);
         if (!attachmentsArray)
-            return makeUnexpected("No sample attachment found");
+            return makeUnexpected("No sample attachment found"_s);
         ASSERT(size_t(CFArrayGetCount(attachmentsArray)) == samples.size());
         for (CFIndex i = 0, count = CFArrayGetCount(attachmentsArray); i < count; ++i) {
             CFMutableDictionaryRef attachments = checked_cf_cast<CFMutableDictionaryRef>(CFArrayGetValueAtIndex(attachmentsArray, i));
@@ -690,7 +692,7 @@ std::expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(const Medi
     RetainPtr attachmentsArray = PAL::CMSampleBufferGetSampleAttachmentsArray(rawSampleBuffer, true);
     ASSERT(attachmentsArray);
     if (!attachmentsArray)
-        return makeUnexpected("No sample attachment found");
+        return makeUnexpected("No sample attachment found"_s);
     if (static_cast<size_t>(CFArrayGetCount(attachmentsArray.get())) < samples.size()) {
         RELEASE_LOG_DEBUG(Media, "Encrypted sample doesn't contain sufficient attachments: %u (expected:%u)", static_cast<unsigned>(CFArrayGetCount(attachmentsArray.get())), static_cast<unsigned>(samples.size()));
         return adoptCF(rawSampleBuffer);
@@ -1209,6 +1211,85 @@ RetainPtr<CMBlockBufferRef> ensureContiguousBlockBuffer(CMBlockBufferRef rawBloc
         return nullptr;
     }
     return adoptCF(contiguousBuffer);
+}
+
+Vector<uint8_t> convertParameterSetsCMSampleBufferToAnnexB(CMSampleBufferRef sampleBuffer, bool isKeyframe, CMVideoFormatDescriptionGetParameterSetAtIndexFunction getParameterSetAtIndex)
+{
+    static constexpr uint8_t annexBHeaderBytes[] = { 0, 0, 0, 1 };
+    static constexpr size_t avccHeaderByteSize = sizeof(uint32_t);
+
+    Vector<uint8_t> annexBBuffer;
+
+    RetainPtr description = PAL::CMSampleBufferGetFormatDescription(sampleBuffer);
+    if (!description) {
+        RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB no description");
+        return annexBBuffer;
+    }
+
+    int naluHeaderSize = 0;
+    size_t paramSetCount = 0;
+    if (getParameterSetAtIndex(description, 0, nullptr, nullptr, &paramSetCount, &naluHeaderSize) != noErr)
+        return annexBBuffer;
+    if (naluHeaderSize != avccHeaderByteSize) {
+        RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB unexpected nalu header size");
+        return annexBBuffer;
+    }
+
+    if (isKeyframe) {
+        for (size_t i = 0; i < paramSetCount; ++i) {
+            const uint8_t* paramSet = nullptr;
+            size_t paramSetSize = 0;
+            if (getParameterSetAtIndex(description, i, &paramSet, &paramSetSize, nullptr, nullptr) != noErr || !paramSet)
+                return { };
+            annexBBuffer.append(std::span { annexBHeaderBytes });
+            annexBBuffer.append(unsafeMakeSpan(paramSet, paramSetSize));
+        }
+    }
+
+    RetainPtr blockBuffer = PAL::CMSampleBufferGetDataBuffer(sampleBuffer);
+    if (!blockBuffer) {
+        RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB no block buffer");
+        return { };
+    }
+
+    RetainPtr contiguousBuffer = ensureContiguousBlockBuffer(blockBuffer);
+    if (!contiguousBuffer) {
+        RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB unable to create a contiguous block buffer");
+        return { };
+    }
+
+    auto dataSpan = [&contiguousBuffer] -> std::optional<std::span<const uint8_t>> {
+        char* dataPtr = nullptr;
+        size_t blockBufferSize = PAL::CMBlockBufferGetDataLength(contiguousBuffer.get());
+        if (PAL::CMBlockBufferGetDataPointer(contiguousBuffer.get(), 0, nullptr, nullptr, &dataPtr) != noErr)
+            return { };
+        return unsafeMakeSpan(byteCast<uint8_t>(dataPtr), blockBufferSize);
+    }();
+    if (!dataSpan) {
+        RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB unable to get block buffer data");
+        return { };
+    }
+
+    auto data = *dataSpan;
+    while (data.size() > 0) {
+        if (data.size() < avccHeaderByteSize) {
+            RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB missing data");
+            return { };
+        }
+        uint32_t packetSize;
+        memcpySpan(asMutableByteSpan(packetSize), data.first(avccHeaderByteSize));
+        packetSize = flipBytes(packetSize);
+        size_t bytesWritten = packetSize + avccHeaderByteSize;
+        if (bytesWritten > data.size()) {
+            RELEASE_LOG_ERROR(WebRTC, "convertParameterSetsCMSampleBufferToAnnexB missing data");
+            return { };
+        }
+        annexBBuffer.append(std::span { annexBHeaderBytes });
+        annexBBuffer.append(data.subspan(avccHeaderByteSize, packetSize));
+        data = data.subspan(bytesWritten);
+    }
+
+    return annexBBuffer;
 }
 
 Ref<SharedBuffer> sharedBufferFromCMBlockBuffer(CMBlockBufferRef blockBuffer)

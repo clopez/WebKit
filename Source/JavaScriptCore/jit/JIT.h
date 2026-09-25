@@ -189,7 +189,7 @@ namespace JSC {
         static int NODELETE stackPointerOffsetFor(UnlinkedCodeBlock*);
         static int stackPointerOffsetFor(CodeBlock*);
 
-        JS_EXPORT_PRIVATE static UncheckedKeyHashMap<CString, Seconds> compileTimeStats();
+        JS_EXPORT_PRIVATE static UncheckedKeyHashMap<ASCIICString, Seconds> compileTimeStats();
         JS_EXPORT_PRIVATE static Seconds NODELETE totalCompileTime();
 
     private:
@@ -598,6 +598,7 @@ namespace JSC {
 
         void emitSlowCaseCall(Vector<SlowCaseEntry>::iterator&, SlowPathFunction);
 
+        void emit_op_iterator_close_check(const JSInstruction*);
         void emit_op_iterator_open(const JSInstruction*);
         void emitSlow_op_iterator_open(const JSInstruction*, Vector<SlowCaseEntry>::iterator&);
         template<typename Op> void emitIteratorOpenGeneric(const JSInstruction*);

@@ -129,6 +129,8 @@ public:
     WEBCORE_EXPORT void addHTTPHeaderField(const String& name, const String& value);
     WEBCORE_EXPORT void addUncommonHTTPHeaderField(const String& name, const String& value);
 
+    WEBCORE_EXPORT void removeHTTPHeaderField(HTTPHeaderName);
+
     // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
     template<size_t length> String httpHeaderField(ASCIILiteral) const = delete;
     template<size_t length> void setHTTPHeaderField(ASCIILiteral, const String&) = delete;
@@ -180,9 +182,9 @@ public:
         m_source = source;
     }
 
-    // FIXME: This should be eliminated from ResourceResponse.
-    // Network loading metrics should be delivered via didFinishLoad
-    // and should not be part of the ResourceResponse.
+    // FIXME <webkit.org/b/324751>: This should be eliminated from
+    // ResourceResponse. Network loading metrics should be delivered via
+    // didFinishLoading and should not be part of the ResourceResponse.
     const NetworkLoadMetrics* deprecatedNetworkLoadMetricsOrNull() const LIFETIME_BOUND
     {
         if (m_networkLoadMetrics)

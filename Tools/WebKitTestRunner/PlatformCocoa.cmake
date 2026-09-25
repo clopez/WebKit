@@ -42,11 +42,11 @@ set_target_properties(TestRunnerInjectedBundle PROPERTIES
 )
 
 if (USE_APPLE_INTERNAL_SDK)
-    set(WebKitTestRunner_CODE_SIGN_ENTITLEMENTS
+    set_property(TARGET WebKitTestRunner PROPERTY CODE_SIGN_ENTITLEMENTS
         "${WebKitTestRunner_DIR}/Configurations/WebKitTestRunner-internal.entitlements"
     )
 else ()
-    set(WebKitTestRunner_CODE_SIGN_ENTITLEMENTS
+    set_property(TARGET WebKitTestRunner PROPERTY CODE_SIGN_ENTITLEMENTS
         "${WebKitTestRunner_DIR}/Configurations/WebKitTestRunner.entitlements"
     )
 endif ()
@@ -313,7 +313,7 @@ set_target_properties(WebKitTestRunner PROPERTIES
 
 set(_wktr_bundle_id "org.webkit.WebKitTestRunner")
 
-if (WEBKIT_SDK_TARGET_OS STREQUAL "ios")
+if (USE_EXTENSIONKIT)
     add_dependencies(WebKitTestRunner WebContentExtension WebContentCaptivePortalExtension NetworkingExtension)
     if (ENABLE_GPU_PROCESS)
         add_dependencies(WebKitTestRunner GPUExtension)

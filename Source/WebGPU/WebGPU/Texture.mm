@@ -2054,7 +2054,7 @@ NSString *Device::errorValidatingTextureCreation(const WGPUTextureDescriptor& de
     return nil;
 }
 
-MTLTextureUsage Texture::usage(WGPUTextureUsageFlags usage, WGPUTextureFormat format)
+MTLTextureUsage Texture::usage(WGPUTextureUsage usage, WGPUTextureFormat format)
 {
     MTLTextureUsage result = MTLTextureUsageUnknown;
     if (usage & WGPUTextureUsage_TextureBinding)
@@ -2912,7 +2912,7 @@ std::optional<MTLPixelFormat> Texture::stencilOnlyAspectMetalFormat(WGPUTextureF
     }
 }
 
-static MTLStorageMode NODELETE storageMode(bool deviceHasUnifiedMemory, bool supportsNonPrivateDepthStencilTextures, WGPUTextureUsageFlags usage)
+static MTLStorageMode NODELETE storageMode(bool deviceHasUnifiedMemory, bool supportsNonPrivateDepthStencilTextures, WGPUTextureUsage usage)
 {
     if (usage & WGPUTextureUsage_Transient)
         return MTLStorageModeMemoryless;
@@ -2940,7 +2940,7 @@ Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createtexture
 
-    Vector viewFormats(descriptor.viewFormatsSpan());
+    Vector viewFormats(viewFormatsSpan(descriptor));
 
     if (NSString *error = errorValidatingTextureCreation(descriptor, viewFormats)) {
         generateAValidationError(error);
@@ -3175,7 +3175,7 @@ NSString* Texture::errorValidatingTextureViewCreation(const WGPUTextureViewDescr
     // The view's usage narrows the texture's, and each usage it keeps has to be supported by the
     // view's own format rather than by the format of the texture it is a view of.
     if (descriptor.usage & ~m_usage)
-        return ERROR_STRING([NSString stringWithFormat:@"view usage(%u) is not a subset of the texture's usage(%u)", descriptor.usage, m_usage]);
+        return ERROR_STRING([NSString stringWithFormat:@"view usage(%llu) is not a subset of the texture's usage(%llu)", descriptor.usage, m_usage]);
 
     if ((descriptor.usage & WGPUTextureUsage_StorageBinding) && !hasStorageBindingCapability(descriptor.format, m_device, WGPUStorageTextureAccess_WriteOnly))
         return ERROR_STRING(@"view usage contains storage binding and the view's format does not support it");
@@ -3312,7 +3312,7 @@ Ref<TextureView> Texture::createView(const WGPUTextureViewDescriptor& inputDescr
     }
 
     if (inputDescriptor.usage && (~usage() & inputDescriptor.usage)) {
-        device->generateAValidationError([NSString stringWithFormat:@"GPUTexture.createView: when the view's usage(%u) is specified it must be a subset of the Texture's usage(%u)", inputDescriptor.usage, usage()]);
+        device->generateAValidationError([NSString stringWithFormat:@"GPUTexture.createView: when the view's usage(%llu) is specified it must be a subset of the Texture's usage(%llu)", inputDescriptor.usage, usage()]);
         return TextureView::createInvalid(*this, device.get());
     }
 
@@ -3740,14 +3740,14 @@ WGPUExtent3D Texture::physicalTextureExtent(WGPUTextureDimension dimension, WGPU
     }
 }
 
-static WGPUExtent3D imageCopyTextureSubresourceSize(const WGPUImageCopyTexture& imageCopyTexture)
+static WGPUExtent3D imageCopyTextureSubresourceSize(const WGPUTexelCopyTextureInfo& imageCopyTexture)
 {
     // https://gpuweb.github.io/gpuweb/#imagecopytexture-subresource-size
 
     return protect(fromAPI(imageCopyTexture.texture))->physicalMiplevelSpecificTextureExtent(imageCopyTexture.mipLevel);
 }
 
-NSString* Texture::errorValidatingImageCopyTexture(const WGPUImageCopyTexture& imageCopyTexture, const WGPUExtent3D& copySize)
+NSString* Texture::errorValidatingImageCopyTexture(const WGPUTexelCopyTextureInfo& imageCopyTexture, const WGPUExtent3D& copySize)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-gpuimagecopytexture
 
@@ -4047,7 +4047,7 @@ bool Texture::isValidDepthStencilCopyDestination(WGPUTextureFormat format, WGPUT
     }
 }
 
-NSString* Texture::errorValidatingTextureCopyRange(const WGPUImageCopyTexture& imageCopyTexture, const WGPUExtent3D& copySize)
+NSString* Texture::errorValidatingTextureCopyRange(const WGPUTexelCopyTextureInfo& imageCopyTexture, const WGPUExtent3D& copySize)
 {
     // https://gpuweb.github.io/gpuweb/#validating-texture-copy-range
 
@@ -4080,7 +4080,7 @@ NSString* Texture::errorValidatingTextureCopyRange(const WGPUImageCopyTexture& i
     return nil;
 }
 
-NSString* Texture::errorValidatingLinearTextureData(const WGPUTextureDataLayout& layout, uint64_t byteSize, WGPUTextureFormat format, WGPUExtent3D copyExtent)
+NSString* Texture::errorValidatingLinearTextureData(const WGPUTexelCopyBufferLayout& layout, uint64_t byteSize, WGPUTextureFormat format, WGPUExtent3D copyExtent)
 {
 #define ERROR_STRING(...) ([NSString stringWithFormat:@"GPUTexture.validateLinearTextureData: %@", __VA_ARGS__])
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-linear-texture-data
@@ -4242,7 +4242,7 @@ void wgpuTextureUndestroy(WGPUTexture texture)
     protect(WebGPU::fromAPI(texture))->recreateIfNeeded();
 }
 
-void wgpuTextureSetLabel(WGPUTexture texture, const char* label)
+void wgpuTextureSetLabel(WGPUTexture texture, WGPUStringView label)
 {
     protect(WebGPU::fromAPI(texture))->setLabel(WebGPU::fromAPI(label));
 }
@@ -4282,7 +4282,7 @@ uint32_t wgpuTextureGetSampleCount(WGPUTexture texture)
     return protect(WebGPU::fromAPI(texture))->sampleCount();
 }
 
-WGPUTextureUsageFlags wgpuTextureGetUsage(WGPUTexture texture)
+WGPUTextureUsage wgpuTextureGetUsage(WGPUTexture texture)
 {
     return protect(WebGPU::fromAPI(texture))->usage();
 }

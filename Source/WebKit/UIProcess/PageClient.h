@@ -659,7 +659,7 @@ public:
     virtual bool isTextRecognitionInFullscreenVideoEnabled() const { return false; }
 
 #if PLATFORM(COCOA)
-    virtual void positionInformationDidChange(const InteractionInformationAtPosition&) = 0;
+    virtual void positionInformationDidChange(const InteractionInformationAtPosition&, std::optional<WebCore::FrameIdentifier>) = 0;
 #endif
 
 #if ENABLE(VIDEO)
@@ -685,6 +685,10 @@ public:
 
     virtual void willBeginViewGesture() { }
     virtual void didEndViewGesture() { }
+
+#if PLATFORM(MAC)
+    virtual bool everMagnifiedDuringCurrentGesture() const { return false; }
+#endif
 
     virtual void didFirstVisuallyNonEmptyLayoutForMainFrame() = 0;
     virtual void didFinishNavigation(API::Navigation*) = 0;

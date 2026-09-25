@@ -123,7 +123,6 @@ std::optional<NavigationActionData> WebFrameLoaderClient::navigationActionData(c
         { },
         WTF::move(originatingFrameID),
         originatingPageID,
-        WTF::move(parentFrameID),
         document ? std::optional { document->identifier() } : std::nullopt,
         getCurrentProcessID(),
         requestingFrame ? requestingFrame->isFocused() : false
@@ -169,6 +168,7 @@ std::optional<NavigationActionData> WebFrameLoaderClient::navigationActionData(c
         navigationAction.sourceBackForwardItemIdentifier(),
         navigationAction.lockHistory(),
         navigationAction.lockBackForwardList(),
+        navigationAction.navigationHistoryBehavior(),
         clientRedirectSourceForHistory,
         sandboxFlags,
         ReferrerPolicy::EmptyString,

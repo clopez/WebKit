@@ -907,12 +907,6 @@ imported/w3c/web-platform-tests/css/css-tables/calc-percent-plus-0px-fixed.html 
 imported/w3c/web-platform-tests/css/css-break/out-of-flow-in-multicolumn-028.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-break/out-of-flow-in-multicolumn-081.html [ Pass ]
 
-# Passing since 313074@main.
-imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/block-aspect-ratio-057.tentative.html [ Pass ]
-
-# Passing since somewhere in 313581@main..313587@main.
-imported/w3c/web-platform-tests/css/css-sizing/auto-scrollbar-inside-stf-abspos.html [ Pass ]
-
 # Passing since 313297@main.
 imported/w3c/web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.html [ Pass ]
 
@@ -981,6 +975,9 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/wide-gamut-canvas/2d.color
 storage/indexeddb/structured-clone-image-data-display-p3.html [ Pass ]
 
 imported/w3c/web-platform-tests/css/css-pseudo/marker-content-012.html [ Pass ]
+
+# Only implemented with libsoup for now.
+imported/w3c/web-platform-tests/fetch/compression-dictionary [ Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of PASSING tests.
@@ -1362,9 +1359,6 @@ imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-ro
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-element-overflow-scroll-blended-position-fixed.html [ Pass ]
 
 webkit.org/b/314312 media/media-sources-selection.html [ ImageOnlyFailure ]
-
-# Passes with the clampedBoundsOfProjectedQuad() fix from webkit.org/b/324623.
-webkit.org/b/324623 imported/w3c/web-platform-tests/css/filter-effects/filter-in-3d-transformed-ancestor-child-near-eye-plane.html [ ImageOnlyFailure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Compositing tests
@@ -1969,6 +1963,7 @@ imported/w3c/web-platform-tests/webcodecs/full-cycle-test.https.any.worker.html?
 
 http/tests/webcodecs/vp9-hdr.html [ Failure ]
 http/tests/webcodecs/av1-sdr.html [ Failure ]
+http/tests/webcodecs/hevc-hdr.html [ Failure ]
 http/wpt/webrtc/peer-connection-color-space.html [ Failure ]
 
 # Test decoding a corrupt frame after reset in a flush callback assert_unreached: Should have rejected: undefined Reached unreachable code
@@ -2200,8 +2195,6 @@ webgl/webgl-modify-after-drawimage.html [ Failure ]
 
 webkit.org/b/318780 [ Release ] http/wpt/service-workers/offscreencanvas-in-separate-service-worker-process-cpu-fallback.https.html [ Failure Pass ]
 webkit.org/b/318780 [ Release ] http/wpt/service-workers/offscreencanvas-in-separate-service-worker-process.https.html [ Failure Pass ]
-
-webkit.org/b/323074 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.resize.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of OffscreenCanvas-related bugs
@@ -3277,6 +3270,8 @@ imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/ [ Pa
 # This test times out only in mac-wk1, WPE and GTK.
 imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigation-and-the-tabindex-attribute/focus-tabindex-order.html [ Skip ]
 
+webkit.org/b/324671 imported/w3c/web-platform-tests/resource-timing/decoded-body-size-compressed.https.html [ Pass Failure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WPT-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -3301,6 +3296,8 @@ http/tests/xmlhttprequest/gzip-content-type.html [ Failure Pass ]
 webkit.org/b/264596 imported/w3c/web-platform-tests/xhr/ [ Skip ]
 
 webkit.org/b/189994 fast/files/xhr-response-blob.html [ Failure ]
+
+webkit.org/b/324671 http/tests/xmlhttprequest/abort-should-cancel-load.html [ Failure Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of XHR-related bugs
@@ -3420,8 +3417,6 @@ ipc/restrictedendpoints/deny-access-updateQuotaBasedOnSpaceUsageForTesting.html 
 ipc/restrictedendpoints/deny-access-webGPU.html [ Skip ]
 ipc/restrictedendpoints/deny-access-webPush.html [ Skip ]
 ipc/validate-message-check-in-networkconnectiontowebproces-crash.html [ Skip ]
-
-### NEEDS PROPER TRIAGGING/GARDENING
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of IPC testing
@@ -4298,9 +4293,6 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.isPoi
 # Flakies Aug2023
 webkit.org/b/261024 media/video-playsinline.html [ Failure Timeout Pass ]
 
-# Initial css/compositing test import
-imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-both-parent-and-blended-with-3D-transform.html [ ImageOnlyFailure ]
-
 webkit.org/b/245032 imported/w3c/web-platform-tests/css/compositing/root-element-background-image-transparency-004.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-001.html [ ImageOnlyFailure ]
@@ -4841,7 +4833,7 @@ webkit.org/b/303208 imported/blink/fast/pagination/viewport-y-horizontal-bt-rtl.
 # Hits assert in Debug, but since GTK/WPE bots run release with assertions enabled, skip. Tracked by https://bugs.webkit.org/show_bug.cgi?id=303414
 fullscreen/fullscreen-grid-item-container-type-crash.html [ Skip ]
 
-webkit.org/b/303539 imported/w3c/web-platform-tests/service-workers/service-worker/multipart-image.https.html [ Crash Failure ]
+webkit.org/b/303539 imported/w3c/web-platform-tests/service-workers/service-worker/multipart-image.https.html [ Crash Failure Pass ]
 
 webkit.org/b/303855 fast/css/view-transitions-scrolling-position-fixed.html [ Pass ImageOnlyFailure ]
 webkit.org/b/303856 fast/scrolling/rtl-scrollbars-positioning.html [ Pass ImageOnlyFailure ]
@@ -5119,43 +5111,6 @@ webkit.org/b/305531 webgl/webgl2-provoking-vertex-primitive-restart-uint16-nocra
 
 webkit.org/b/313641 imported/w3c/web-platform-tests/css/filter-effects/crashtests/fecomponenttransfer-tablevalues-crash.html [ Pass Timeout ]
 
-# Cross-origin isolation is not fully implemented (see webkit.org/b/268068), so SharedArrayBuffer
-# is not available in cross-origin isolated contexts.
-http/wpt/webaudio/the-audio-api/the-audioworklet-interface/shared-array-buffer.https.html [ Skip ]
-imported/w3c/web-platform-tests/IndexedDB/serialize-sharedarraybuffer-throws.https.html [ Skip ]
-imported/w3c/web-platform-tests/encoding/sharedarraybuffer.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cross-origin-isolated-permission.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/broadcastchannel-success-and-failure.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/broadcastchannel-success.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/identity-not-preserved.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/nested-sharedworker-success.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/nested-worker-success.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/no-transferring.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/serialization-via-history.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-failure.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-iframe-messagechannel.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-messagechannel-success.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-simple-success.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-serviceworker-failure.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-sharedworker-failure.https.html [ Skip ]
-imported/w3c/web-platform-tests/wasm/serialization/memory/messageport-via-sharedworker-success.tentative.https.html [ Skip ]
-imported/w3c/web-platform-tests/wasm/serialization/memory/window-success.tentative.https.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/audio-data.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/audio-decoder.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/audio-decoder.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/encoded-audio-chunk.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/encoded-audio-chunk.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/encoded-video-chunk.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/encoded-video-chunk.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/video-decoder.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/video-decoder.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/videoFrame-copyTo.crossOriginIsolated.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/webcodecs/videoFrame-copyTo.crossOriginIsolated.https.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/workers/Worker-creation-happens-in-parallel.https.html [ Skip ]
-imported/w3c/web-platform-tests/workers/postMessage_block.https.html [ Skip ]
-imported/w3c/web-platform-tests/workers/Worker-postMessage-happens-in-parallel.https.html [ Skip ]
 ipc/stream-sync-reply-shared-memory.html [ Skip ]
 webkit.org/b/297737 ipc/send-gradient.html [ Skip ]
 webkit.org/b/297737 ipc/send-filter.html [ Skip ]
@@ -5229,8 +5184,9 @@ webkit.org/b/321706 imported/w3c/web-platform-tests/web-locks/acquire.https.any.
 webkit.org/b/319044 imported/w3c/web-platform-tests/html/rendering/widgets/shadow-dom.html [ Failure ]
 webkit.org/b/319045 [ Debug ] accessibility/button-in-deep-dom.html [ Timeout ]
 webkit.org/b/319047 [ Debug ] imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-033.html [ Crash ]
-webkit.org/b/319049 [ Debug ] http/tests/cache/cancel-multiple-post-xhrs.html [ Pass Failure ]
+webkit.org/b/319049 http/tests/cache/cancel-multiple-post-xhrs.html [ Pass Failure ]
 webkit.org/b/319050 [ Debug ] imported/w3c/web-platform-tests/fetch/local-network-access/iframe.tentative.https.window.html [ Failure ]
+webkit.org/b/295047 http/wpt/fetch/local-network-access/address-space-overrides-apply-to-both-host-forms.html [ Skip ]
 webkit.org/b/319051 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Failure Pass ]
 webkit.org/b/319052 [ Debug ] http/tests/websocket/tests/hybi/inspector/handshake-error.html [ Pass Failure ]
 webkit.org/b/319053 [ Debug ] media/video-playback-restriction-play-before-load.html [ Failure Pass ]
@@ -5395,6 +5351,8 @@ webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/interfaces/WebSoc
 webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/opening-handshake/001.html?wpt_flags=h2 [ Pass ]
 webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Send-before-open.any.html?wpt_flags=h2 [ Pass ]
 webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/Send-before-open.any.worker.html?wpt_flags=h2 [ Pass ]
+
+webkit.org/b/324839 [ Debug ] imported/w3c/web-platform-tests/html/anonymous-iframe/cookie.tentative.https.window.html [ Crash Pass ]
 
 # End: Common failures between GTK and WPE.
 

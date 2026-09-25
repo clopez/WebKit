@@ -128,6 +128,8 @@ typedef NSVisualEffectView _WKPlatformVisualEffectView;
 
 @property (nonatomic, readonly) pid_t _networkProcessIdentifier;
 
+@property (nonatomic, readonly) uint64_t _webPageProxyIdentifierForTesting;
+
 @property (nonatomic, readonly) unsigned long _countOfUpdatesWithLayerChanges;
 
 - (void)_processWillSuspendForTesting:(void (^)(void))completionHandler;
@@ -198,6 +200,8 @@ typedef NSVisualEffectView _WKPlatformVisualEffectView;
 - (void)_setMediaVolumeForTesting:(float)volume;
 
 - (void)_textFragmentRangesWithCompletionHandlerForTesting:(void(^)(NSArray<NSValue *> *fragmentRanges))completionHandler WK_API_AVAILABLE(macos(26.0), ios(26.0), visionos(26.0));
+
+@property (nonatomic, readonly) CGRect _textIndicatorBoundingRectForTesting;
 
 @property (nonatomic, readonly) _WKRectEdge _fixedContainerEdges;
 #if TARGET_OS_IPHONE

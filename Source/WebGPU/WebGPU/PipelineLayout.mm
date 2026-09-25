@@ -46,7 +46,7 @@ Ref<PipelineLayout> Device::createPipelineLayout(const WGPUPipelineLayoutDescrip
         return PipelineLayout::createInvalid(*this);
 
     std::optional<Vector<Ref<BindGroupLayout>>> optionalBindGroupLayouts;
-    if (auto descriptorBindGroupLayouts = descriptor.bindGroupLayoutsSpan(); !descriptorBindGroupLayouts.empty()) {
+    if (auto descriptorBindGroupLayouts = bindGroupLayoutsSpan(descriptor); !descriptorBindGroupLayouts.empty()) {
         auto& deviceLimits = limits();
 
         if (descriptorBindGroupLayouts.size() > deviceLimits.maxBindGroups) {
@@ -381,7 +381,7 @@ void wgpuPipelineLayoutRelease(WGPUPipelineLayout pipelineLayout)
     WebGPU::fromAPI(pipelineLayout).deref();
 }
 
-void wgpuPipelineLayoutSetLabel(WGPUPipelineLayout pipelineLayout, const char* label)
+void wgpuPipelineLayoutSetLabel(WGPUPipelineLayout pipelineLayout, WGPUStringView label)
 {
     WebGPU::fromAPI(pipelineLayout).setLabel(WebGPU::fromAPI(label));
 }
