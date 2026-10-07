@@ -20,8 +20,11 @@
 #pragma once
 
 #include "WebExtensionMatchPattern.h"
-#include "WebKitWebExtensionMatchPattern.h"
 #include <wtf/RefPtr.h>
+
+#if ENABLE(2022_GLIB_API)
+#include "WebKitWebExtensionMatchPattern.h"
+#endif
 
 typedef struct _WebKitWebExtensionMatchPattern WebKitWebExtensionMatchPattern;
 

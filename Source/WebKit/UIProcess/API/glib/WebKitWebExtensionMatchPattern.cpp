@@ -18,13 +18,27 @@
  */
 
 #include "config.h"
-#include "WebKitWebExtensionMatchPattern.h"
+#include "WebKitWebExtensionMatchPatternPrivate.h"
 
 #include "WebExtensionMatchPattern.h"
 #include "WebKitError.h"
 #include "WebKitPrivate.h"
 
 #include <wtf/URLParser.h>
+
+#if !ENABLE(2022_GLIB_API)
+// SourcesWPE.txt builds this file for every WPE API version, but the public
+// header is only generated for the 2022 GLib API, so the older API gets the
+// few declarations this file needs from here instead.
+WEBKIT_API WebKitWebExtensionMatchPattern * webkit_web_extension_match_pattern_ref (WebKitWebExtensionMatchPattern *matchPattern);
+WEBKIT_API void webkit_web_extension_match_pattern_unref (WebKitWebExtensionMatchPattern *matchPattern);
+typedef enum {
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_NONE = 1 << 0,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_SCHEMES = 1 << 1,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_IGNORE_PATHS = 1 << 2,
+    WEBKIT_WEB_EXTENSION_MATCH_PATTERN_OPTIONS_MATCH_BIDIRECTIONALLY = 1 << 3,
+} WebKitWebExtensionMatchPatternOptions;
+#endif
 
 using namespace WebKit;
 
