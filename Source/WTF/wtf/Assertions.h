@@ -1050,7 +1050,7 @@ NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char*
 #else
 
 inline void WTFCrashWithInfo(int, const char*, const char*)
-#if COMPILER(CLANG)
+#if COMPILER(CLANG) && (OS(DARWIN) || PLATFORM(PLAYSTATION))
     __attribute__((optnone))
 #endif
 {
