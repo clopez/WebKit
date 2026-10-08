@@ -290,19 +290,25 @@ void JIT::emit_compareUnsignedAndJumpImpl(VirtualRegister op1, VirtualRegister o
 {
     if (isOperandConstantInt(op2)) {
         emitGetVirtualRegisterPayload(op1, regT0);
+#if USE(JSVALUE64)
         jitAssertIsJSInt32(regT0);
+#endif
         int32_t op2imm = getOperandConstantInt(op2);
         addJump(branch32(condition, regT0, Imm32(op2imm)), target);
     } else if (isOperandConstantInt(op1)) {
         emitGetVirtualRegisterPayload(op2, regT1);
+#if USE(JSVALUE64)
         jitAssertIsJSInt32(regT1);
+#endif
         int32_t op1imm = getOperandConstantInt(op1);
         addJump(branch32(commute(condition), regT1, Imm32(op1imm)), target);
     } else {
         emitGetVirtualRegisterPayload(op1, regT0);
         emitGetVirtualRegisterPayload(op2, regT1);
+#if USE(JSVALUE64)
         jitAssertIsJSInt32(regT0);
         jitAssertIsJSInt32(regT1);
+#endif
         addJump(branch32(condition, regT0, regT1), target);
     }
 }
