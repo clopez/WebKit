@@ -128,7 +128,7 @@ void linkPolymorphicCall(VM& vm, JSCell* owner, CallFrame* callFrame, CallLinkIn
     // GC jettisons CodeBlocks, changes CallLinkInfo etc. and breaks assumption done before and after this call.
     DeferGCForAWhile deferGCForAWhile(vm);
 
-    if (!newVariant || Options::forceICFailure()) {
+    if (!newVariant) {
         callLinkInfo.setVirtualCall(vm);
         return;
     }
@@ -787,7 +787,7 @@ void repatchGetBySlowPathCall(CodeBlock* codeBlock, PropertyInlineCache& propert
 
 static InlineCacheAction tryCacheArrayGetByVal(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue baseValue, JSValue index, PropertyInlineCache& propertyCache)
 {
-    if (!baseValue.isCell() || forceICFailure(globalObject))
+    if (!baseValue.isCell())
         return GiveUpOnCache;
 
     if (!index.isInt32())
@@ -1358,7 +1358,7 @@ void repatchPutBy(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue ba
 
 static InlineCacheAction tryCacheArrayPutByVal(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue baseValue, JSValue index, PropertyInlineCache& propertyCache, PutByKind putByKind)
 {
-    if (!baseValue.isCell() || forceICFailure(globalObject))
+    if (!baseValue.isCell())
         return GiveUpOnCache;
 
     if (!index.isInt32())
@@ -1963,9 +1963,6 @@ static InlineCacheAction tryCacheInstanceOf(JSGlobalObject* globalObject, CodeBl
 static InlineCacheAction tryCacheArrayInByVal(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue baseValue, JSValue index, PropertyInlineCache& propertyCache)
 {
     ASSERT(baseValue.isCell());
-
-    if (forceICFailure(globalObject))
-        return GiveUpOnCache;
 
     if (!index.isInt32())
         return RetryCacheLater;

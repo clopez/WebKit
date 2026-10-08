@@ -1,4 +1,3 @@
-//@ skip if !$jitTests
 //@ runDefault("--useLLInt=0", "--useDFGJIT=0")
 
 function shouldBe(actual, expected) {
