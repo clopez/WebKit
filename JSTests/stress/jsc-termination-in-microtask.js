@@ -1,4 +1,3 @@
-//@ skip if not $isWasmPlatform
 //@ runDefault("--watchdog=10", "--watchdog-exception-ok")
 
 async function asyncInfiniteLoop() {

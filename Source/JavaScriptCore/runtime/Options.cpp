@@ -696,10 +696,7 @@ void Options::setAllJITCodeValidations(bool value)
 
 static inline void NODELETE disableAllWasmJITOptions()
 {
-#if ENABLE(WEBASSEMBLY)
-    // This really only makes sense if could use wasm, otherwise we should not override this.
     Options::useLLInt() = true;
-#endif
     Options::useBBQJIT() = false;
     Options::useOMGJIT() = false;
 
@@ -730,10 +727,7 @@ static inline void NODELETE disableAllWasmOptions()
 
 static inline void NODELETE disableAllJITOptions()
 {
-#if ENABLE(WEBASSEMBLY)
-    // This really only makes sense if could use wasm, otherwise we should not override this.
     Options::useLLInt() = true;
-#endif
     Options::useJIT() = false;
     disableAllWasmJITOptions();
 

@@ -636,8 +636,7 @@ if $platform == "watchos"
 end
 
 if $architecture == "arm"
-    $isFTLPlatform = false
-    $isWasmPlatform = false
+    $runJITlessWasm = false # TODO: re-enable this when these tests pass <rdar://146100752>.
     $skipLockdown = true
 end
 

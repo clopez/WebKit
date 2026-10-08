@@ -1,4 +1,3 @@
-//@ skip if not $isWasmPlatform
 //@ runDefault("--thresholdForOptimizeAfterWarmUp=100", "--thresholdForOptimizeAfterLongWarmUp=100", "--thresholdForFTLOptimizeAfterWarmUp=1000", "--useConcurrentJIT=0", "--validateDFGClobberize=1")
 
 const v1 = WebAssembly.Memory;

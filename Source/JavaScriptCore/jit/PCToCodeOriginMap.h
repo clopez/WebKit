@@ -43,7 +43,6 @@ namespace B3 {
 class PCToOriginMap;
 }
 
-#if ENABLE(WEBASSEMBLY)
 namespace Wasm {
 class WasmOrigin {
     MAKE_VALIDATED_REINTERPRET_CAST
@@ -62,7 +61,6 @@ public:
 MAKE_VALIDATED_REINTERPRET_CAST_IMPL("WasmOrigin", WasmOrigin)
 
 } // namespace Wasm
-#endif
 
 class LinkBuffer;
 class PCToCodeOriginMapBuilder;

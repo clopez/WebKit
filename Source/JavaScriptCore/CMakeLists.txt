@@ -233,6 +233,7 @@ endif ()
 
 set(LLINT_ASM
     llint/InPlaceInterpreter.asm
+    llint/InPlaceInterpreter32_64.asm
     llint/InPlaceInterpreter64.asm
     llint/LowLevelInterpreter.asm
     llint/LowLevelInterpreter32_64.asm
