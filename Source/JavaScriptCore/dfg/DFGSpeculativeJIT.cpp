@@ -1861,7 +1861,13 @@ void SpeculativeJIT::compileStringSubstr(Node* node)
     if (lengthGPR != InvalidGPRReg) {
         // size = max(0, min(length, tempGPR))
         moveConditionally32(LessThan, lengthGPR, tempGPR, lengthGPR, tempGPR, tempGPR);
+#if USE(JSVALUE64)
         moveConditionally32(LessThan, tempGPR, TrustedImm32(0), TrustedImm32(0), tempGPR, tempGPR);
+#else
+        auto sizeIsNotNegative = branch32(GreaterThanOrEqual, tempGPR, TrustedImm32(0));
+        move(TrustedImm32(0), tempGPR);
+        sizeIsNotNegative.link(this);
+#endif
     }
 
     JumpList doneCases;
@@ -7932,6 +7938,7 @@ void SpeculativeJIT::compileStringEquality(
 
     done.link(this);
 
+#if USE(JSVALUE64)
     Vector<SilentRegisterSavePlan> savePlans;
     silentSpillAllRegistersImpl(false, savePlans, leftTempGPR);
     Label doneOperationCall = label();
@@ -7949,6 +7956,9 @@ void SpeculativeJIT::compileStringEquality(
             exceptionCheck(*exceptionReg);
         jump().linkTo(doneOperationCall, this);
     });
+#else
+    addSlowPathGenerator(slowPathCall(slowCase, this, operationCompareStringEq, leftTempGPR, LinkableConstant::globalObject(*this, node), leftGPR, rightGPR));
+#endif
 
     blessedBooleanResult(leftTempGPR, node);
 }
@@ -15772,6 +15782,7 @@ void SpeculativeJIT::compileNewButterflyWithSize(Node* node)
     storageResult(storageGPR, node);
 }
 
+#if USE(JSVALUE64)
 void SpeculativeJIT::compileGetCellButterflySlot(Node* node)
 {
     SpeculateCellOperand scratch(this, node->child1());
@@ -15845,6 +15856,7 @@ void SpeculativeJIT::compileArraySortCompact(Node* node)
     done.link(this);
     cellResult(scratchGPR, node);
 }
+#endif
 
 void SpeculativeJIT::compileArraySortCommit(Node* node)
 {

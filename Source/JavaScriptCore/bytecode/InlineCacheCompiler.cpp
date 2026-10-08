@@ -2035,6 +2035,7 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
     }
 
     case AccessCase::ArrayLengthStore: {
+#if USE(JSVALUE64)
         ASSERT(!accessCase.viaGlobalProxy());
 
         jit.load8(CCallHelpers::Address(baseGPR, JSCell::indexingTypeAndMiscOffset()), scratchGPR);
@@ -2081,6 +2082,9 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
         } else
             m_failAndIgnore.append(failAndIgnore);
         return;
+#else
+        RELEASE_ASSERT_NOT_REACHED();
+#endif
     }
 
     case AccessCase::RegExpLastIndexStore: {
@@ -2468,7 +2472,7 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
         fallThrough.append(jit.branchIfNotTrue(m_propertyCache.propertyGPR()));
 #else
         fallThrough.append(jit.branch32(CCallHelpers::NotEqual, m_propertyCache.propertyTagGPR(), CCallHelpers::TrustedImm32(JSValue::BooleanTag)));
-        fallThrough.append(jit.branchTest32(CCallHelpers::Zero, m_propertyCache.propertyPayloadGPR(), CCallHelpers::TrustedImm32(1)));
+        fallThrough.append(jit.branchTest32(CCallHelpers::Zero, m_propertyCache.propertyGPR(), CCallHelpers::TrustedImm32(1)));
 #endif
         emitDefaultGuard();
         break;
@@ -2482,7 +2486,7 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
         fallThrough.append(jit.branchIfNotFalse(m_propertyCache.propertyGPR()));
 #else
         fallThrough.append(jit.branch32(CCallHelpers::NotEqual, m_propertyCache.propertyTagGPR(), CCallHelpers::TrustedImm32(JSValue::BooleanTag)));
-        fallThrough.append(jit.branchTest32(CCallHelpers::NonZero, m_propertyCache.propertyPayloadGPR(), CCallHelpers::TrustedImm32(1)));
+        fallThrough.append(jit.branchTest32(CCallHelpers::NonZero, m_propertyCache.propertyGPR(), CCallHelpers::TrustedImm32(1)));
 #endif
         emitDefaultGuard();
         break;
@@ -3521,6 +3525,7 @@ void InlineCacheCompiler::generateAccessCase(unsigned index, AccessCase& accessC
     case AccessCase::LoadMegamorphicGetter:
     case AccessCase::IntrinsicGetter: {
         if (accessCase.m_type == AccessCase::LoadMegamorphicGetter) {
+#if USE(JSVALUE64)
             // Resolve the GetterSetter cell from the getter cache into scratchGPR, then fall through
             // to the shared getter-call sequence. A cache miss repatches to the generic slow path.
             ASSERT(!accessCase.viaGlobalProxy());
@@ -3547,6 +3552,9 @@ void InlineCacheCompiler::generateAccessCase(unsigned index, AccessCase& accessC
                 ok.link(&jit);
             } else
                 m_failAndRepatch.append(slowCases);
+#else
+            RELEASE_ASSERT_NOT_REACHED();
+#endif
         } else {
             Structure* currStructure = accessCase.structure();
             if (auto* object = accessCase.tryGetAlternateBase())
@@ -8382,6 +8390,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> getByIdMissHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> getByIdCustomAccessorHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> getByIdCustomValueHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> getByIdGetterHandler(VM&) { return { }; }
+MacroAssemblerCodeRef<JITThunkPtrTag> getByIdMegamorphicGetterHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> getByIdProxyObjectLoadHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> getByIdModuleNamespaceLoadHandler(VM&) { return { }; }
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdReplaceHandler(VM&) { return { }; }

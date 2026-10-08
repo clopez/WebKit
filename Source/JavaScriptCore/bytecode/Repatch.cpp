@@ -1042,7 +1042,7 @@ static InlineCacheAction tryCachePutBy(JSGlobalObject* globalObject, CodeBlock* 
         RefPtr<AccessCase> newCase;
 
         if (propertyName == vm.propertyNames->length) {
-            if (baseCell->type() == ArrayType)
+            if (is64Bit() && baseCell->type() == ArrayType)
                 newCase = AccessCase::create(vm, codeBlock, AccessCase::ArrayLengthStore, propertyName);
         } else if (propertyName == vm.propertyNames->lastIndex) {
             if (is<RegExpObject>(baseCell))
