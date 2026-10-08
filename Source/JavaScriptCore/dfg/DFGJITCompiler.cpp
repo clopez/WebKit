@@ -641,7 +641,7 @@ std::tuple<CompileTimePropertyInlineCache, PropertyInlineCacheIndex> JITCompiler
     DFG::UnlinkedPropertyInlineCache* propertyCache = &m_unlinkedPropertyInlineCaches.alloc();
     return std::tuple { propertyCache, PropertyInlineCacheIndex { index } };
 #else
-    PropertyInlineCache* propertyCache = jitCode()->common.m_handlerPropertyInlineCaches.add();
+    PropertyInlineCache* propertyCache = jitCode()->common.m_repatchingPropertyInlineCaches.add();
     return std::tuple { propertyCache, PropertyInlineCacheIndex(0) };
 #endif
 }
