@@ -11997,10 +11997,12 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
         Node* kindNode = jsConstant(jsNumber(static_cast<uint32_t>(IterationKind::Entries)));
         Node* next = jsConstant(m_vm->fastMapEntriesSentinel());
         Node* iterated = get(bytecode.m_iterable);
-        Node* storage = addToGraph(MapStorage, Edge(iterated, MapObjectUse));
+        // MapStorage has no 32-bit implementation. A null storage is valid: the first next() fills it in.
+        Node* storage = is64Bit() ? addToGraph(MapStorage, Edge(iterated, MapObjectUse)) : nullptr;
         Node* iterator = addToGraph(NewInternalFieldObject, OpInfo(m_graph.registerStructure(globalObject->mapIteratorStructure())));
         addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSMapIterator::Field::IteratedObject)), iterator, iterated);
-        addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSMapIterator::Field::Storage)), iterator, storage);
+        if (storage)
+            addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSMapIterator::Field::Storage)), iterator, storage);
         addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSMapIterator::Field::Kind)), iterator, kindNode);
         set(bytecode.m_iterator, iterator);
 
@@ -12069,10 +12071,12 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
         Node* kindNode = jsConstant(jsNumber(static_cast<uint32_t>(IterationKind::Values)));
         Node* next = jsConstant(m_vm->fastSetValuesSentinel());
         Node* iterated = get(bytecode.m_iterable);
-        Node* storage = addToGraph(MapStorage, Edge(iterated, SetObjectUse));
+        // MapStorage has no 32-bit implementation. A null storage is valid: the first next() fills it in.
+        Node* storage = is64Bit() ? addToGraph(MapStorage, Edge(iterated, SetObjectUse)) : nullptr;
         Node* iterator = addToGraph(NewInternalFieldObject, OpInfo(m_graph.registerStructure(globalObject->setIteratorStructure())));
         addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSSetIterator::Field::IteratedObject)), iterator, iterated);
-        addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSSetIterator::Field::Storage)), iterator, storage);
+        if (storage)
+            addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSSetIterator::Field::Storage)), iterator, storage);
         addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSSetIterator::Field::Kind)), iterator, kindNode);
         set(bytecode.m_iterator, iterator);
 
