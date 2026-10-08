@@ -35,6 +35,11 @@ class SVGNumberList final : public SVGValuePropertyList<SVGNumber> {
     using Base::Base;
 
 public:
+    SVGNumberList();
+    SVGNumberList(SVGPropertyOwner*, SVGPropertyAccess);
+    SVGNumberList(const SVGNumberList&, SVGPropertyAccess);
+    ~SVGNumberList();
+
     static Ref<SVGNumberList> create()
     {
         return adoptRef(*new SVGNumberList());

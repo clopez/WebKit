@@ -88,6 +88,14 @@ std::optional<SVGTransformValue::SVGTransformType> SVGTransformList::parseTransf
     return parseTransformTypeGeneric(buffer);
 }
 
+SVGTransformList::SVGTransformList() = default;
+
+SVGTransformList::SVGTransformList(SVGPropertyOwner* owner, SVGPropertyAccess access)
+    : Base(owner, access) { }
+
+SVGTransformList::SVGTransformList(const SVGTransformList& other, SVGPropertyAccess access)
+    : Base(other, access) { }
+
 ExceptionOr<RefPtr<SVGTransform>> SVGTransformList::consolidate()
 {
     auto result = canAlterList();
@@ -202,5 +210,7 @@ String SVGTransformList::valueAsString() const
     }
     return builder.toString();
 }
+
+SVGTransformList::~SVGTransformList() = default;
 
 }

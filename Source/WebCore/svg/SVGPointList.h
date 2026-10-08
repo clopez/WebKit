@@ -35,6 +35,12 @@ class SVGPointList final : public SVGValuePropertyList<SVGPoint> {
     using Base::Base;
 
 public:
+
+    SVGPointList();
+    SVGPointList(SVGPropertyOwner*, SVGPropertyAccess);
+    SVGPointList(const SVGPointList&, SVGPropertyAccess);
+    ~SVGPointList();
+
     static Ref<SVGPointList> create()
     {
         return adoptRef(*new SVGPointList());
