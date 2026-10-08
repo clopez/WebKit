@@ -3315,8 +3315,13 @@ else ()
         list(APPEND vpx_INCLUDE_DIRECTORIES
             Source/third_party/libvpx/source/config/linux/arm
         )
+        # The 32-bit ARM configuration enables VP9 post-processing
+        # (CONFIG_VP9_POSTPROC), which the other configurations disable, so
+        # only this one needs these two files.
         list(APPEND vpx_SOURCES
             Source/third_party/libvpx/source/libvpx/vpx_ports/aarch32_cpudetect.c
+            Source/third_party/libvpx/source/libvpx/vp9/common/vp9_mfqe.c
+            Source/third_party/libvpx/source/libvpx/vp9/common/vp9_postproc.c
         )
     endif ()
 endif ()
