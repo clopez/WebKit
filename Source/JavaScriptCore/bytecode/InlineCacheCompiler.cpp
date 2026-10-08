@@ -1653,7 +1653,12 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> putByValSlowPathCodeGenerator(VM& v
     // Call slow operation
     InlineCacheCompiler::emitDataICPrepareForCall(jit);
     jit.prepareCallOperation(vm);
+#if USE(JSVALUE64)
     jit.setupArguments<SlowOperatoin>(baseJSR, propertyJSR, valueJSR, propertyCacheGPR, profileGPR);
+#else
+    // profileGPR holds the handler here, see PropertyInlineCache::initializePredefinedRegisters().
+    jit.setupArguments<SlowOperatoin>(baseJSR, propertyJSR, valueJSR, propertyCacheGPR, CCallHelpers::TrustedImmPtr(nullptr));
+#endif
     jit.call(CCallHelpers::Address(propertyCacheGPR, HandlerPropertyInlineCache::offsetOfSlowOperation()), OperationPtrTag);
     InlineCacheCompiler::emitDataICRestoreAfterCall(jit);
 #if CPU(ARM_THUMB2)

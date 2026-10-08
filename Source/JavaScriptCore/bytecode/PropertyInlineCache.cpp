@@ -785,9 +785,13 @@ void PropertyInlineCache::initializePredefinedRegisters()
         m_extraGPR = BaselineJITRegisters::PutByVal::propertyJSR.payloadGPR();
         m_valueGPR = BaselineJITRegisters::PutByVal::valueJSR.payloadGPR();
         m_propertyCacheGPR = BaselineJITRegisters::PutByVal::propertyCacheGPR;
+#if USE(JSVALUE64)
         if (accessType != AccessType::DefinePrivateNameByVal && accessType != AccessType::SetPrivateNameByVal)
             m_arrayProfileGPR = BaselineJITRegisters::PutByVal::profileGPR;
-#if USE(JSVALUE32_64)
+#else
+        // The arguments of put_by_val take every temporary register of ARMv7, so profileGPR is the same
+        // register as GPRInfo::handlerGPR, which holds the handler while the IC runs.
+        static_assert(BaselineJITRegisters::PutByVal::profileGPR == GPRInfo::handlerGPR);
         m_baseTagGPR = BaselineJITRegisters::PutByVal::baseJSR.tagGPR();
         m_extraTagGPR = BaselineJITRegisters::PutByVal::propertyJSR.tagGPR();
         m_valueTagGPR = BaselineJITRegisters::PutByVal::valueJSR.tagGPR();
