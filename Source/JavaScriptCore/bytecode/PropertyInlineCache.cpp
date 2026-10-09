@@ -790,7 +790,8 @@ void PropertyInlineCache::initializePredefinedRegisters()
             m_arrayProfileGPR = BaselineJITRegisters::PutByVal::profileGPR;
 #else
         // The arguments of put_by_val take every temporary register of ARMv7, so profileGPR is the same
-        // register as GPRInfo::handlerGPR, which holds the handler while the IC runs.
+        // register as GPRInfo::handlerGPR, which holds the handler while the IC runs. The IC reads the
+        // profile from HandlerPropertyInlineCache::m_arrayProfile instead.
         static_assert(BaselineJITRegisters::PutByVal::profileGPR == GPRInfo::handlerGPR);
         m_baseTagGPR = BaselineJITRegisters::PutByVal::baseJSR.tagGPR();
         m_extraTagGPR = BaselineJITRegisters::PutByVal::propertyJSR.tagGPR();
@@ -838,6 +839,21 @@ void HandlerPropertyInlineCache::initializeFromUnlinkedPropertyInlineCache(VM& v
 
     m_slowOperation = slowOperationFromUnlinkedPropertyInlineCache(unlinkedPropertyCache);
     initializePredefinedRegisters();
+
+#if USE(JSVALUE32_64)
+    switch (accessType) {
+    case AccessType::PutByValStrict:
+    case AccessType::PutByValSloppy:
+    case AccessType::PutByValDirectStrict:
+    case AccessType::PutByValDirectSloppy: {
+        ConcurrentJSLocker locker(codeBlock->m_lock);
+        m_arrayProfile = codeBlock->getArrayProfile(locker, unlinkedPropertyCache.bytecodeIndex);
+        break;
+    }
+    default:
+        break;
+    }
+#endif
 }
 
 #if ENABLE(DFG_JIT)

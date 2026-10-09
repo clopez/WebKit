@@ -606,9 +606,17 @@ public:
     void clearInlinedHandler(CodeBlock*);
 
     static constexpr ptrdiff_t offsetOfSlowOperation() { return OBJECT_OFFSETOF(HandlerPropertyInlineCache, m_slowOperation); }
+#if USE(JSVALUE32_64)
+    static constexpr ptrdiff_t offsetOfArrayProfile() { return OBJECT_OFFSETOF(HandlerPropertyInlineCache, m_arrayProfile); }
+#endif
 
     CodePtr<OperationPtrTag> m_slowOperation;
     RefPtr<InlineCacheHandler> m_inlinedHandler;
+#if USE(JSVALUE32_64)
+    // Baseline put_by_val has no register left for its array profile on 32-bit, see initializePredefinedRegisters(),
+    // so the IC reads it from here.
+    ArrayProfile* m_arrayProfile { nullptr };
+#endif
 };
 
 // RepatchingPropertyInlineCache

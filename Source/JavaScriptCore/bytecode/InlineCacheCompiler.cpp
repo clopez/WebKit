@@ -1657,7 +1657,8 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> putByValSlowPathCodeGenerator(VM& v
     jit.setupArguments<SlowOperatoin>(baseJSR, propertyJSR, valueJSR, propertyCacheGPR, profileGPR);
 #else
     // profileGPR holds the handler here, see PropertyInlineCache::initializePredefinedRegisters().
-    jit.setupArguments<SlowOperatoin>(baseJSR, propertyJSR, valueJSR, propertyCacheGPR, CCallHelpers::TrustedImmPtr(nullptr));
+    jit.loadPtr(CCallHelpers::Address(propertyCacheGPR, HandlerPropertyInlineCache::offsetOfArrayProfile()), profileGPR);
+    jit.setupArguments<SlowOperatoin>(baseJSR, propertyJSR, valueJSR, propertyCacheGPR, profileGPR);
 #endif
     jit.call(CCallHelpers::Address(propertyCacheGPR, HandlerPropertyInlineCache::offsetOfSlowOperation()), OperationPtrTag);
     InlineCacheCompiler::emitDataICRestoreAfterCall(jit);
@@ -2646,6 +2647,23 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
             preservedState = allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
         };
 
+        auto recordMayStoreHole = [&](GPRReg freeScratchGPR) {
+            if (m_propertyCache.m_arrayProfileGPR != InvalidGPRReg) {
+                jit.or32(CCallHelpers::TrustedImm32(static_cast<uint32_t>(ArrayProfileFlag::MayStoreHole)), CCallHelpers::Address(m_propertyCache.m_arrayProfileGPR, ArrayProfile::offsetOfArrayProfileFlags()));
+                return;
+            }
+#if USE(JSVALUE32_64)
+            if (!m_propertyCache.isHandlerIC() || m_propertyCache.m_propertyCacheGPR == InvalidGPRReg)
+                return;
+            jit.loadPtr(CCallHelpers::Address(m_propertyCache.m_propertyCacheGPR, HandlerPropertyInlineCache::offsetOfArrayProfile()), freeScratchGPR);
+            auto noArrayProfile = jit.branchTestPtr(CCallHelpers::Zero, freeScratchGPR);
+            jit.or32(CCallHelpers::TrustedImm32(static_cast<uint32_t>(ArrayProfileFlag::MayStoreHole)), CCallHelpers::Address(freeScratchGPR, ArrayProfile::offsetOfArrayProfileFlags()));
+            noArrayProfile.link(&jit);
+#else
+            UNUSED_PARAM(freeScratchGPR);
+#endif
+        };
+
         CCallHelpers::Label storeResult;
         if (accessCase.m_type == AccessCase::IndexedArrayStorageStore) {
             fallThrough.append(jit.branch32(CCallHelpers::NotEqual, scratchGPR, CCallHelpers::TrustedImm32(ArrayStorageShape)));
@@ -2730,8 +2748,9 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
 
         if (accessCase.m_type == AccessCase::IndexedArrayStorageStore) {
             isOutOfBounds.link(&jit);
-            if (m_propertyCache.m_arrayProfileGPR != InvalidGPRReg)
-                jit.or32(CCallHelpers::TrustedImm32(static_cast<uint32_t>(ArrayProfileFlag::MayStoreHole)), CCallHelpers::Address(m_propertyCache.m_arrayProfileGPR, ArrayProfile::offsetOfArrayProfileFlags()));
+            // scratch2GPR holds a copy of the index, so it can be borrowed and reloaded.
+            recordMayStoreHole(scratch2GPR);
+            jit.zeroExtend32ToWord(propertyGPR, scratch2GPR);
             jit.add32(CCallHelpers::TrustedImm32(1), CCallHelpers::Address(scratchGPR, ArrayStorage::numValuesInVectorOffset()));
             jit.branch32(CCallHelpers::Below, scratch2GPR, CCallHelpers::Address(scratchGPR, ArrayStorage::lengthOffset())).linkTo(storeResult, &jit);
 
@@ -2742,8 +2761,7 @@ void InlineCacheCompiler::generateWithGuard(unsigned index, AccessCase& accessCa
         } else {
             isOutOfBounds.link(&jit);
             failAndIgnore.append(jit.branch32(CCallHelpers::AboveOrEqual, propertyGPR, CCallHelpers::Address(scratchGPR, Butterfly::offsetOfVectorLength())));
-            if (m_propertyCache.m_arrayProfileGPR != InvalidGPRReg)
-                jit.or32(CCallHelpers::TrustedImm32(static_cast<uint32_t>(ArrayProfileFlag::MayStoreHole)), CCallHelpers::Address(m_propertyCache.m_arrayProfileGPR, ArrayProfile::offsetOfArrayProfileFlags()));
+            recordMayStoreHole(scratch2GPR);
             jit.add32(CCallHelpers::TrustedImm32(1), propertyGPR, scratch2GPR);
             jit.store32(scratch2GPR, CCallHelpers::Address(scratchGPR, Butterfly::offsetOfPublicLength()));
             jit.jump().linkTo(storeResult, &jit);
