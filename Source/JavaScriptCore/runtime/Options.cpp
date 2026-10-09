@@ -954,6 +954,11 @@ void Options::notifyOptionsChanged()
         }
     }
 
+#if USE(JSVALUE32_64)
+    // The LOL JIT only exists on 64-bit, see BaselineJITPlan::compileInThreadImpl().
+    Options::useLOLJIT() = false;
+#endif
+
     // TODO
     if (Options::useLOLJIT())
         Options::forceOSRExitToLLInt() = true;
