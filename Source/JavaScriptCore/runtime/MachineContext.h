@@ -313,6 +313,9 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86_64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[REG_RBP]);
+#elif CPU(ARM_THUMB2)
+    // arm_fp is r11, the ARM-mode frame pointer. Thumb-2 code, including JIT and LLInt code, keeps it in r7.
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.arm_r7);
 #elif CPU(ARM)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.arm_fp);
 #elif CPU(ARM64)
@@ -827,7 +830,7 @@ inline void*& llintInstructionPointer(mcontext_t& machineContext)
 #if CPU(X86_64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[REG_R8]);
 #elif CPU(ARM)
-    return reinterpret_cast<void*&>((uintptr_t&) machineContext.arm_r8);
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.arm_r4);
 #elif CPU(ARM64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.regs[4]);
 #elif CPU(RISCV64)
