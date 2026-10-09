@@ -696,7 +696,6 @@ void Options::setAllJITCodeValidations(bool value)
 
 static inline void NODELETE disableAllWasmJITOptions()
 {
-    Options::useLLInt() = true;
     Options::useBBQJIT() = false;
     Options::useOMGJIT() = false;
 
