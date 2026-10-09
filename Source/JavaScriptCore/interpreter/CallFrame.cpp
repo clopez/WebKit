@@ -177,7 +177,9 @@ CallFrame* CallFrame::callerFrame(EntryFrame*& currEntryFrame) const
 
 SUPPRESS_ASAN CallFrame* CallFrame::unsafeCallerFrame(EntryFrame*& currEntryFrame) const
 {
-    if (unsafeCallerFrameOrEntryFrame() == currEntryFrame) {
+    // While vmEntryToJavaScript builds its frame, topEntryFrame may not be set yet, and the caller frame
+    // can be null too when the C++ caller keeps no frame pointer, as on 32-bit ARM. That is not an entry frame.
+    if (currEntryFrame && unsafeCallerFrameOrEntryFrame() == currEntryFrame) {
         VMEntryRecord* currVMEntryRecord = vmEntryRecord(currEntryFrame);
         currEntryFrame = currVMEntryRecord->unsafePrevTopEntryFrame();
         return currVMEntryRecord->unsafePrevTopCallFrame();
