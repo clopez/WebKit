@@ -42,7 +42,6 @@
 #include <WebKit/WKBundleBackForwardList.h>
 #include <WebKit/WKBundleFrame.h>
 #include <WebKit/WKBundleFramePrivate.h>
-#include <WebKit/WKBundleNodeHandlePrivate.h>
 #include <WebKit/WKBundlePage.h>
 #include <WebKit/WKBundlePagePrivate.h>
 #include <WebKit/WKBundlePrivate.h>
@@ -444,14 +443,6 @@ bool TestRunner::isPageBoxVisible(JSContextRef context, int pageIndex)
     auto frame = WKBundleFrameForJavaScriptContext(context);
     auto& injectedBundle = InjectedBundle::singleton();
     return WKBundleIsPageBoxVisible(injectedBundle.bundle(), frame, pageIndex);
-}
-
-void TestRunner::setValueForUser(JSContextRef context, JSValueRef element, JSStringRef value)
-{
-    if (!element || !JSValueIsObject(context, element))
-        return;
-
-    WKBundleNodeHandleSetHTMLInputElementValueForUser(adoptWK(WKBundleNodeHandleCreate(context, const_cast<JSObjectRef>(element))).get(), toWK(value).get());
 }
 
 void TestRunner::setAudioResult(JSContextRef context, JSValueRef data)
@@ -1527,13 +1518,13 @@ void TestRunner::simulatePrivateClickMeasurementSessionRestart()
 void TestRunner::setPrivateClickMeasurementTokenPublicKeyURLForTesting(JSStringRef urlString)
 {
     postSynchronousPageMessage("SetPrivateClickMeasurementTokenPublicKeyURLForTesting",
-        adoptWK(WKURLCreateWithUTF8CString(toWTFString(urlString).utf8().legacyCStringPointer())));
+        toWKURL(toWTFString(urlString)));
 }
 
 void TestRunner::setPrivateClickMeasurementTokenSignatureURLForTesting(JSStringRef urlString)
 {
     postSynchronousPageMessage("SetPrivateClickMeasurementTokenSignatureURLForTesting",
-        adoptWK(WKURLCreateWithUTF8CString(toWTFString(urlString).utf8().legacyCStringPointer())));
+        toWKURL(toWTFString(urlString)));
 }
 
 void TestRunner::setPrivateClickMeasurementAttributionReportURLsForTesting(JSStringRef sourceURLString, JSStringRef destinationURLString)

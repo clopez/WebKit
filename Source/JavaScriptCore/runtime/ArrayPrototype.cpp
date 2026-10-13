@@ -238,7 +238,7 @@ ALWAYS_INLINE JSString* fastArrayJoin(JSGlobalObject* globalObject, JSObject* th
     return fastArrayJoin(globalObject, thisObject, separator, length, sawHoles, genericCase);
 }
 
-inline bool NODELETE canUseDefaultArrayJoinForToString(JSObject* thisObject)
+inline bool LEGACY_NODELETE canUseDefaultArrayJoinForToString(JSObject* thisObject)
 {
     JSGlobalObject* globalObject = thisObject->realmMayBeNull();
     if (!globalObject)
@@ -1225,6 +1225,14 @@ JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncSplice, (JSGlobalObject* globalObject, Ca
         }
         setLength(globalObject, vm, result, actualDeleteCount);
         RETURN_IF_EXCEPTION(scope, { });
+    }
+
+    if (isJSArray(thisObj)) {
+        ArgList items = itemCount ? ArgList(callFrame, 2) : ArgList();
+        bool spliced = asArray(thisObj)->fastSplice(globalObject, length, actualStart, actualDeleteCount, std::span<const EncodedJSValue> { items.data(), items.size() });
+        RETURN_IF_EXCEPTION(scope, { });
+        if (spliced)
+            return JSValue::encode(result);
     }
 
     if (itemCount < actualDeleteCount) {

@@ -238,7 +238,7 @@ void ScreenCaptureKitSharingSessionManager::contentSharingPickerUpdatedFilterFor
     RELEASE_LOG(WebRTC, "ScreenCaptureKitSharingSessionManager::contentSharingPickerUpdatedFilterForStream");
 
     auto index = m_activeSources.findIf([stream](auto activeSource) {
-        return activeSource && [stream isEqual:activeSource->stream()];
+        return activeSource && [stream isEqual:protect(activeSource->stream())];
     });
     if (index == notFound) {
         if (stream) {
@@ -475,10 +475,10 @@ ScreenCaptureSessionSource::~ScreenCaptureSessionSource()
 
 bool ScreenCaptureSessionSource::operator==(const ScreenCaptureSessionSource& other) const
 {
-    if (![m_stream isEqual:other.stream()])
+    if (![m_stream isEqual:protect(other.stream())])
         return false;
 
-    if (![m_contentFilter isEqual:other.contentFilter()])
+    if (![m_contentFilter isEqual:protect(other.contentFilter())])
         return false;
 
     return m_observer == other.observer();

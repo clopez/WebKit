@@ -36,9 +36,12 @@
 #include "RemotePageProxy.h"
 #include "WebFrameProxy.h"
 #include "WebPageProxy.h"
+#include "WebPreferences.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <WebCore/IPAddressSpace.h>
+#include <WebCore/OriginAgentClusterPolicy.h>
+#include <WebCore/ResourceResponse.h>
 #include <WebCore/SecurityOrigin.h>
 
 #define BROWSINGCONTEXTGROUP_RELEASE_LOG(fmt, ...) RELEASE_LOG(SiteIsolation, "%p - BrowsingContextGroup::" fmt, this, ##__VA_ARGS__)
@@ -47,7 +50,10 @@ namespace WebKit {
 
 using namespace WebCore;
 
-BrowsingContextGroup::BrowsingContextGroup() = default;
+BrowsingContextGroup::BrowsingContextGroup(CrossOriginMode crossOriginMode)
+    : m_crossOriginMode(crossOriginMode)
+{
+}
 
 BrowsingContextGroup::~BrowsingContextGroup() = default;
 
@@ -64,7 +70,7 @@ void BrowsingContextGroup::sharedProcessForSite(WebsiteDataStore& websiteDataSto
     if (!preferences.siteIsolationEnabled() || !preferences.siteIsolationSharedProcessEnabled())
         return completionHandler(nullptr);
 
-    if (site.isEmpty() || m_processMap.contains(site))
+    if (site.isEmpty() || m_processMap.contains(site) || m_crossOriginMode == CrossOriginMode::Isolated)
         return completionHandler(nullptr);
 
     if (isLoopbackOrLocalNetworkSite(site, preferences.localNetworkAccessEnabled()))
@@ -109,30 +115,32 @@ void BrowsingContextGroup::sharedProcessForSite(WebsiteDataStore& websiteDataSto
         ASSERT(existingSharedProcess->isSharedProcess());
         RELEASE_ASSERT(!existingSharedProcess->process().isInProcessCache());
         existingSharedProcess->process().addSharedProcessDomain(site.domain());
-        BROWSINGCONTEXTGROUP_RELEASE_LOG("sharedProcessForSite: site %" SENSITIVE_LOG_STRING " joined shared process %d, which now hosts %u sites", site.loggingString().utf8().legacyCStringPointer(), existingSharedProcess->process().processID(), m_sharedProcessSites.size());
+        BROWSINGCONTEXTGROUP_RELEASE_LOG("sharedProcessForSite: site %" SENSITIVE_LOG_STRING " joined shared process %d, which now hosts %u sites", site.loggingString().utf8(), existingSharedProcess->process().processID(), m_sharedProcessSites.size());
         return completionHandler(existingSharedProcess.get());
     }
 
-    Ref process = protect(pageConfiguration.processPool())->processForSite(websiteDataStore, WebProcessProxy::IsolatedProcessType::Shared, site, mainFrameSite, lockdownMode, enhancedSecurity, pageConfiguration, ProcessSwapDisposition::Other);
+    Ref process = protect(pageConfiguration.processPool())->processForSite(websiteDataStore, WebProcessProxy::IsolatedProcessType::Shared, site, mainFrameSite, lockdownMode, enhancedSecurity, pageConfiguration, ProcessSwapDisposition::Other, m_crossOriginMode);
     ASSERT(!process->isInProcessCache());
     Ref frameProcess = FrameProcess::create(process, *this, std::nullopt, mainFrameSite, preferences, LoadedWebArchive::No, BrowsingContextGroupUpdate::AddProcessAndInjectBrowsingContext);
     ASSERT(frameProcess->isSharedProcess());
     ASSERT(frameProcess->process().isSharedProcess());
     frameProcess->process().addSharedProcessDomain(site.domain());
     m_sharedProcess = frameProcess.ptr();
-    BROWSINGCONTEXTGROUP_RELEASE_LOG("sharedProcessForSite: created shared process %d for site %" SENSITIVE_LOG_STRING, process->processID(), site.loggingString().utf8().legacyCStringPointer());
+    BROWSINGCONTEXTGROUP_RELEASE_LOG("sharedProcessForSite: created shared process %d for site %" SENSITIVE_LOG_STRING, process->processID(), site.loggingString().utf8());
     completionHandler(frameProcess.ptr());
 }
 
 Ref<FrameProcess> BrowsingContextGroup::ensureProcessForSite(const Site& site, const Site& mainFrameSite, WebProcessProxy& process, const WebPreferences& preferences, LoadedWebArchive loadedWebArchive, BrowsingContextGroupUpdate browsingContextGroupUpdate)
 {
+    ASSERT(process.isDummyProcessProxy() || process.crossOriginMode() == m_crossOriginMode);
+
     if (preferences.siteIsolationEnabled()) {
         RefPtr sharedProcess = liveSharedProcess();
         if (sharedProcess && (m_sharedProcessSites.contains(site) || process.isSharedProcess())) {
             ASSERT(&sharedProcess->process() == &process);
             if (m_sharedProcessSites.add(site).isNewEntry) {
                 process.addSharedProcessDomain(site.domain());
-                BROWSINGCONTEXTGROUP_RELEASE_LOG("ensureProcessForSite: site %" SENSITIVE_LOG_STRING " joined shared process %d, which now hosts %u sites", site.loggingString().utf8().legacyCStringPointer(), process.processID(), m_sharedProcessSites.size());
+                BROWSINGCONTEXTGROUP_RELEASE_LOG("ensureProcessForSite: site %" SENSITIVE_LOG_STRING " joined shared process %d, which now hosts %u sites", site.loggingString().utf8(), process.processID(), m_sharedProcessSites.size());
             }
             return sharedProcess.releaseNonNull();
         }
@@ -340,7 +348,7 @@ void BrowsingContextGroup::addPage(WebPageProxy& page)
             return true;
         }
 
-        createRemotePageIfNeeded(process->process(), site);
+        createRemotePageIfNeeded(protect(process->process()), site);
         return false;
     });
 }
@@ -378,7 +386,7 @@ bool BrowsingContextGroup::hasVisiblePage() const
     return false;
 }
 
-void BrowsingContextGroup::forEachRemotePage(const WebPageProxy& page, Function<void(RemotePageProxy&)>&& function)
+void BrowsingContextGroup::forEachRemotePage(const WebPageProxy& page, NOESCAPE const Function<void(RemotePageProxy&)>& function)
 {
     auto it = m_remotePages.find(page);
     if (it == m_remotePages.end())
@@ -456,10 +464,85 @@ WebCore::OriginKeyed BrowsingContextGroup::resolveAgentClusterKeying(const WebCo
     }).iterator->value;
 }
 
+WebCore::OriginKeyed BrowsingContextGroup::historicalAgentClusterKeying(const WebCore::SecurityOriginData& origin) const
+{
+    return m_historicalAgentClusterKeyMap.getOptional(origin).value_or(WebCore::OriginKeyed::No);
+}
+
+// https://html.spec.whatwg.org/multipage/webappapis.html#obtain-similar-origin-window-agent
+WebCore::AgentClusterIdentifier BrowsingContextGroup::agentClusterIdentifier(const WebCore::SecurityOriginData& origin, WebCore::OriginKeyed originKeyed, const std::optional<WebCore::SecurityOriginData>& crossOriginIsolationKey)
+{
+    // The second element is null for a site-keyed agent cluster and the third without a cross-origin isolation key.
+    std::tuple<WebCore::Site, WebCore::SecurityOriginData, WebCore::SecurityOriginData> key { WebCore::Site(origin), originKeyed == WebCore::OriginKeyed::Yes || crossOriginIsolationKey ? origin : WebCore::SecurityOriginData { }, crossOriginIsolationKey.value_or(WebCore::SecurityOriginData { }) };
+    return m_agentClusterIdentifiers.ensure(WTF::move(key), [] {
+        return WebCore::AgentClusterIdentifier::generate();
+    }).iterator->value;
+}
+
+AgentClusterRequest AgentClusterRequest::forNavigationAction(const URL& url, const URL& topLevelCreationURL, bool isSubstituteData)
+{
+    return { isSubstituteData ? Source::SubstituteData : Source::NavigationAction, WebCore::SecurityOrigin::create(url)->data(), topLevelCreationURL };
+}
+
+AgentClusterRequest AgentClusterRequest::forNavigationResponse(const WebCore::ResourceResponse& response, const URL& topLevelCreationURL, const WebPreferences& preferences)
+{
+    Ref origin = WebCore::SecurityOrigin::create(response.url());
+    auto isSecureContext = origin->isPotentiallyTrustworthy() && WebCore::SecurityOrigin::create(topLevelCreationURL)->isPotentiallyTrustworthy() ? WebCore::IsSecureContext::Yes : WebCore::IsSecureContext::No;
+    AgentClusterRequest request { Source::NavigationResponse, origin->data(), topLevelCreationURL };
+    // The WebContent process only applies these policies to http(s) and blob: documents.
+    bool hasPolicyHeaders = response.url().protocolIsInHTTPFamily() || response.url().protocolIsBlob();
+    if (hasPolicyHeaders && preferences.documentIsolationPolicyEnabled() && preferences.siteIsolationEnabled())
+        request.documentIsolationPolicy = WebCore::obtainDocumentIsolationPolicy(response, isSecureContext);
+    if (preferences.originAgentClusterEnabled())
+        request.requestedKeying = hasPolicyHeaders ? WebCore::obtainOriginAgentClusterPolicy(response, isSecureContext, nullptr) : WebCore::OriginKeyed::No;
+    return request;
+}
+
+WebCore::AgentClusterAssignment BrowsingContextGroup::assignAgentCluster(const AgentClusterRequest& request)
+{
+    auto& origin = request.origin;
+    WebCore::AgentClusterAssignment assignment { std::nullopt, WebCore::OriginKeyed::No, request.documentIsolationPolicy };
+    // https://html.spec.whatwg.org/multipage/origin.html#origin-keyed-agent-clusters
+    // A document with a Document-Isolation-Policy is origin-keyed and does not use the historical agent cluster key map.
+    if (assignment.documentIsolationPolicy != WebCore::DocumentIsolationPolicy::None)
+        assignment.isOriginKeyed = WebCore::OriginKeyed::Yes;
+    else {
+        switch (request.source) {
+        case AgentClusterRequest::Source::NavigationAction:
+            assignment.isOriginKeyed = historicalAgentClusterKeying(origin);
+            break;
+        case AgentClusterRequest::Source::SubstituteData:
+            // Substitute data gets no response decision, so its keying is recorded right away.
+            if (!origin.isOpaque())
+                assignment.isOriginKeyed = resolveAgentClusterKeying(origin, WebCore::OriginKeyed::No);
+            break;
+        case AgentClusterRequest::Source::NavigationResponse:
+            if (request.requestedKeying)
+                assignment.isOriginKeyed = resolveAgentClusterKeying(origin, *request.requestedKeying);
+            break;
+        }
+    }
+
+    // FIXME: Assign opaque origins an agent cluster too. Their responses can then no longer skip the policy decision through the injected bundle.
+    // A blob URL created by an opaque origin belongs to its creator's agent cluster, which needs the blob URL entry rather than the URL.
+    if (origin.isOpaque())
+        return assignment;
+
+    // https://wicg.github.io/document-isolation-policy/#coi-agent-cluster-key
+    std::optional<WebCore::SecurityOriginData> crossOriginIsolationKey;
+    if (assignment.documentIsolationPolicy != WebCore::DocumentIsolationPolicy::None)
+        crossOriginIsolationKey = origin;
+    else if (m_crossOriginMode == WebCore::CrossOriginMode::Isolated)
+        crossOriginIsolationKey = WebCore::SecurityOriginData::fromURL(request.topLevelCreationURL);
+    assignment.identifier = agentClusterIdentifier(origin, assignment.isOriginKeyed, crossOriginIsolationKey);
+    return assignment;
+}
+
 void BrowsingContextGroup::clearBrowsingContextGroupForTesting()
 {
     m_identifier = WebCore::BrowsingContextGroupIdentifier::generate();
     m_historicalAgentClusterKeyMap.clear();
+    m_agentClusterIdentifiers.clear();
 }
 
 } // namespace WebKit

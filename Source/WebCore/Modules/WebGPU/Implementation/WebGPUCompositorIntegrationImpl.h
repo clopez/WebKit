@@ -64,8 +64,7 @@ public:
 
     void setPresentationContext(PresentationContextImpl& presentationContext)
     {
-        ASSERT(!m_presentationContext);
-        m_presentationContext = presentationContext;
+        lazyInitialize(m_presentationContext, Ref { presentationContext });
     }
 
     void registerCallbacks(WTF::Function<void(CFArrayRef)>&& renderBuffersWereRecreatedCallback, WTF::Function<void(CompletionHandler<void()>&&)>&& onSubmittedWorkScheduledCallback)
@@ -77,7 +76,7 @@ public:
     }
 
     void withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)>) final;
-    void NODELETE paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t) final;
+    void LEGACY_NODELETE paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t) final;
 
 private:
     friend class DowncastConvertToBackingContext;
@@ -95,6 +94,7 @@ private:
     void updateContentsHeadroom(float) override;
 
     Seconds lastFrameGPUCost() const override;
+    Seconds lastFramePresentStall() const override;
 
 #if PLATFORM(COCOA)
     Vector<MachSendRight> recreateRenderBuffers(int width, int height, WebCore::ColorSpace&&, WebCore::AlphaPremultiplication, WebCore::WebGPU::TextureFormat, unsigned bufferCount, Device&) override;
@@ -106,7 +106,7 @@ private:
 
     WTF::Function<void(CompletionHandler<void()>&&)> m_onSubmittedWorkScheduledCallback;
 
-    RefPtr<PresentationContextImpl> m_presentationContext;
+    const RefPtr<PresentationContextImpl> m_presentationContext;
     const Ref<ConvertToBackingContext> m_convertToBackingContext;
     WeakPtr<Device> m_device;
 };

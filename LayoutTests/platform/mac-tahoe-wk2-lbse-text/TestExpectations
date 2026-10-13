@@ -58,13 +58,7 @@ svg/zoom/zoomed-inline-svg-getscreenctm.html [ Failure ]
 svg/custom/pattern-content-inheritance-cycle.svg  [ ImageOnlyFailure ]
 
 # Clipping problems
-css3/masking/reference-clip-path-change-repaint.html          [ Failure ]
 svg/batik/text/textProperties.svg                             [ ImageOnlyFailure ]
-svg/clip-path/hittest-transformed-clip-objectboundingbox.html [ Failure ]
-svg/clip-path/transformed-clip.svg                            [ ImageOnlyFailure ]
-
-# Bounding box issues
-imported/w3c/web-platform-tests/svg/interact/scripted/svg-pointer-events-bbox.html [ Failure ]
 
 # Failing WPT reftests
 imported/w3c/web-platform-tests/svg/painting/marker-009.svg                                                    [ ImageOnlyFailure ]
@@ -77,9 +71,6 @@ imported/w3c/web-platform-tests/svg/text/reftests/text-path-transformed-002.html
 # <foreignObject> issues
 svg/foreignObject/vertical-foreignObject.html                  [ ImageOnlyFailure ]
 
-# Text rendering has issues with CSS 'visibility'
-svg/batik/text/textProperties2.svg [ ImageOnlyFailure ]
-
 # Overflow/scrollbar handling issues
 svg/in-html/overflow-svg-root-attr.html  [ ImageOnlyFailure ]
 svg/in-html/overflow-svg-root-style.html [ ImageOnlyFailure ]
@@ -90,21 +81,6 @@ svg/css/mix-blend-mode-opacity-root.svg    [ ImageOnlyFailure ]
 
 # Non-scaling stroke issues
 svg/repaint/non-scaling-stroke-transform-animation.html               [ ImageOnlyFailure ]
-
-# SMIL animation issues
-svg/stroke/animated-non-scaling-stroke.html [ ImageOnlyFailure ]
-
-# SVG <image> (buffered-rendering) issues
-svg/repaint/buffered-rendering-static-image.html [ ImageOnlyFailure ]
-
-# Unknown error (nothing rendered)
-svg/text/adding-id-on-pending-path.html            [ ImageOnlyFailure ]
-
-# Hit testing
-svg/custom/image-clipped-hit.svg               [ Failure ]
-svg/hittest/svg-ellipse-non-scale-stroke.xhtml [ Failure ]
-svg/hittest/svg-ellipse-rect-stroke.xhtml      [ Failure ]
-svg/hittest/svg-shapes-non-scale-stroke.html   [ Failure ]
 
 ###############
 # Buggy tests #
@@ -223,7 +199,6 @@ imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-css-transform.svg 
 imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-rotate-transform.svg                                [ Pass ]
 imported/w3c/web-platform-tests/svg/struct/reftests/inner-svg-transform.svg                                       [ Pass ]
 svg/W3C-SVG-1.1/paths-data-03-f.svg                                                                               [ Pass ]
-svg/W3C-SVG-1.1/text-altglyph-01-b.svg                                                                            [ Pass ]
 svg/W3C-SVG-1.1/text-intro-01-t.svg                                                                               [ Pass ]
 svg/W3C-SVG-1.1/text-intro-02-b.svg                                                                               [ Pass ]
 svg/W3C-SVG-1.1/text-intro-03-b.svg                                                                               [ Pass ]

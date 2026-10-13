@@ -73,7 +73,7 @@ static std::unique_ptr<Style::ComputedStyle> firstLineStyleFor(const RenderObjec
     return Style::ComputedStyle::clonePtr(firstLineStyle.get());
 }
 
-static Layout::Box::IsAnonymous NODELETE isAnonymous(const RenderObject& renderer)
+static Layout::Box::IsAnonymous LEGACY_NODELETE isAnonymous(const RenderObject& renderer)
 {
     return renderer.isAnonymous() ? Layout::Box::IsAnonymous::Yes : Layout::Box::IsAnonymous::No;
 }
@@ -292,9 +292,7 @@ void BoxTreeUpdater::buildTreeForGridContent()
             insertChild(existingChildBox->removeFromParent(), gridItemRenderer.get(), gridItemRenderer->previousSibling());
             continue;
         }
-        auto style = Style::ComputedStyle::clone(gridItemRenderer->style());
-        auto gridItemBox = makeUniqueRef<Layout::ElementBox>(elementAttributes(gridItemRenderer.get()), WTF::move(style));
-        insertChild(WTF::move(gridItemBox), gridItemRenderer.get(), gridItemRenderer->previousSibling());
+        insertChild(createLayoutBox(gridItemRenderer.get()), gridItemRenderer.get(), gridItemRenderer->previousSibling());
     }
 }
 

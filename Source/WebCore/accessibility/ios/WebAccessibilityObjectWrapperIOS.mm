@@ -2148,6 +2148,11 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
     AXCoreObject::AccessibilityChildrenVector accessibleElements;
     for (const auto& object : objects) {
         Accessibility::enumerateUnignoredDescendants<AXCoreObject>(object.get(), true, [&accessibleElements] (AXCoreObject& descendant) {
+            if (std::optional representativeID = descendant.stitchedIntoID(); representativeID && *representativeID != descendant.objectID()) {
+                // Stitched into a neighbor, so already read as part of that neighbor's label.
+                return;
+            }
+
             RetainPtr wrapper = descendant.wrapper();
             if (wrapper && [wrapper.get() isAccessibilityElement])
                 accessibleElements.append(descendant);
@@ -2172,9 +2177,18 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
 - (NSArray *)accessibilityErrorMessageElements
 {
     RefPtr<AccessibilityObject> object = self.axBackingObject;
-    if (![self _prepareAccessibilityCall] || object->invalidStatus() == "false"_s)
+    if (![self _prepareAccessibilityCall] || object->invalidStatusIncludingInferred() == "false"_s)
         return nil;
     return accessibleElementsForObjects(object->errorMessageObjects());
+}
+
+- (id)accessibilityFormOwnerElement
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+
+    RefPtr owner = protect(self.axBackingObject)->formOwnerObject();
+    return owner ? owner->wrapper() : nil;
 }
 
 - (id)accessibilityLinkedElement
@@ -2248,7 +2262,7 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
         return nil;
 
     AX_ASSERT([self isAttachment]);
-    Widget* widget = protect(self.axBackingObject)->widgetForAttachmentView();
+    RefPtr widget = protect(self.axBackingObject)->widgetForAttachmentView();
     if (!widget)
         return nil;
     return widget->platformWidget();
@@ -3242,7 +3256,7 @@ static RenderObject* rendererForView(WAKView* view)
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    return protect(self.axBackingObject)->invalidStatus().createNSString().autorelease();
+    return protect(self.axBackingObject)->invalidStatusIncludingInferred().createNSString().autorelease();
 }
 
 - (NSString *)accessibilityCurrentState

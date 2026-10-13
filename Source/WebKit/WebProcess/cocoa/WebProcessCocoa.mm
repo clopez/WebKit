@@ -73,6 +73,7 @@
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/CPUMonitor.h>
 #import <WebCore/DisplayRefreshMonitorManager.h>
+#import <WebCore/FocusController.h>
 #import <WebCore/FontCache.h>
 #import <WebCore/FontCacheCoreText.h>
 #import <WebCore/FontCascade.h>
@@ -81,6 +82,7 @@
 #import <WebCore/IOSurface.h>
 #import <WebCore/Image.h>
 #import <WebCore/ImageDecoderCG.h>
+#import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/LocalizedDeviceModel.h>
 #import <WebCore/LocalizedStrings.h>
@@ -117,6 +119,7 @@
 #import <pal/spi/cocoa/pthreadSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
 #import <stdio.h>
+#import <wtf/AvailableMemory.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/FileHandle.h>
 #import <wtf/FileSystem.h>
@@ -220,7 +223,7 @@ void WebProcess::platformSetCacheModel(CacheModel)
 void WebProcess::bindAccessibilityFrameWithData(WebCore::FrameIdentifier frameID, std::span<const uint8_t> data)
 {
     if (!m_accessibilityRemoteFrameTokenCache)
-        m_accessibilityRemoteFrameTokenCache = adoptNS([[NSMutableDictionary alloc] init]);
+        lazyInitialize(m_accessibilityRemoteFrameTokenCache, adoptNS([[NSMutableDictionary alloc] init]));
 
     auto frameInt = frameID.toUInt64();
     [m_accessibilityRemoteFrameTokenCache setObject:toNSData(data).get() forKey:@(frameInt)];
@@ -233,6 +236,13 @@ id WebProcess::accessibilityFocusedUIElement()
             RefPtr page = WebProcess::singleton().focusedWebPage();
             if (!page || !page->accessibilityRemoteObject())
                 return nil;
+#if PLATFORM(MAC)
+            RefPtr corePage = page->corePage();
+            if (RefPtr focusedFrame = corePage ? corePage->focusController().localFocusedFrame() : nullptr) {
+                Ref rootFrame = focusedFrame->rootFrame();
+                return [[protect(page->accessibilityRemoteObjectForFrame(*focusedFrame)) accessibilityRootObjectWrapper:rootFrame.ptr()] accessibilityFocusedUIElement];
+            }
+#endif
             return [protect(page->accessibilityRemoteObject()) accessibilityFocusedUIElement];
         }, Accessibility::InteractiveTimeout);
 
@@ -402,6 +412,10 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     if (mach_port_t taskNamePort = MACH_PORT_NULL; task_name_for_pid(mach_task_self(), getpid(), &taskNamePort) == KERN_SUCCESS)
         parentProcessConnection()->send(Messages::WebProcessProxy::SetTaskNamePort(MachSendRight::adopt(taskNamePort)), 0);
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(UIPROCESS_PERIODIC_MEMORY_MONITOR)
+    parentProcessConnection()->send(Messages::WebProcessProxy::DidComputeAvailableMemory(WTF::availableMemory()), 0);
+#endif
 
 #if USE(EXTENSIONKIT)
     // Workaround for crash seen when running tests. See rdar://118186487.
@@ -681,7 +695,7 @@ void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParame
 
     if (!parameters.javaScriptConfigurationDirectory.isEmpty()) {
         auto javaScriptConfigFile = makeString(parameters.javaScriptConfigurationDirectory, "/JSC.config"_s);
-        JSC::processConfigFile(javaScriptConfigFile.utf8().data(), "com.apple.WebKit.WebContent", m_uiProcessBundleIdentifier.utf8().legacyCStringPointer());
+        JSC::processConfigFile(javaScriptConfigFile.utf8().data(), "com.apple.WebKit.WebContent"_s, m_uiProcessBundleIdentifier.utf8());
     }
 }
 
@@ -1078,7 +1092,7 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason reason)
     }
 
     if (!m_cpuMonitor) {
-        m_cpuMonitor = makeUnique<CPUMonitor>(cpuMonitoringInterval, [weakThis = WeakPtr { *this }](double cpuUsage) {
+        lazyInitialize(m_cpuMonitor, makeUnique<CPUMonitor>(cpuMonitoringInterval, [weakThis = WeakPtr { *this }](double cpuUsage) {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return;
@@ -1088,7 +1102,7 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason reason)
             else
                 WEBPROCESS_RELEASE_LOG_ERROR_WITH_THIS(protectedThis.get(), ProcessSuspension, "updateCPUMonitorState: WebProcess exceeded CPU limit of %.1f%% (was using %.1f%%) hasVisiblePages? %d", protectedThis->m_cpuLimit.value() * 100, cpuUsage * 100, protectedThis->hasVisibleWebPage());
             protect(protectedThis->parentProcessConnection())->send(Messages::WebProcessProxy::DidExceedCPULimit(), 0);
-        });
+        }));
     } else if (reason == CPUMonitorUpdateReason::VisibilityHasChanged) {
         // If the visibility has changed, stop the CPU monitor before setting its limit. This is needed because the CPU usage can vary wildly based on visibility and we would
         // not want to report that a process has exceeded its background CPU limit even though most of the CPU time was used while the process was visible.
@@ -1590,7 +1604,7 @@ void WebProcess::setNotifyState(const String& name, uint64_t state)
         m_notifyTokens.set(name, token);
 
     if (token == NOTIFY_TOKEN_INVALID) {
-        WEBPROCESS_RELEASE_LOG_ERROR(Process, "setNotifyState: Couldn't create token for %" PUBLIC_LOG_STRING ": %d", name.ascii().data(), status);
+        WEBPROCESS_RELEASE_LOG_ERROR(Process, "setNotifyState: Couldn't create token for %" PUBLIC_LOG_STRING ": %d", name.utf8(), status);
         return;
     }
 

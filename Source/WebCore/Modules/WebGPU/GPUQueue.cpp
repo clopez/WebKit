@@ -269,7 +269,7 @@ void GPUQueue::writeTexture(
 }
 
 #if PLATFORM(COCOA) && ENABLE(VIDEO) && ENABLE(WEB_CODECS)
-static PixelFormat NODELETE toPixelFormat(GPUTextureFormat textureFormat)
+static PixelFormat LEGACY_NODELETE toPixelFormat(GPUTextureFormat textureFormat)
 {
     switch (textureFormat) {
     case GPUTextureFormat::R8unorm:
@@ -438,7 +438,7 @@ static void getImageBytesFromVideoFrame(WebGPU::Queue& backing, const RefPtr<Vid
     RetainPtr platformImage = nativeImage->platformImage();
     if (!platformImage)
         return callback({ }, 0, 0);
-    RetainPtr pixelDataCfData = adoptCF(CGDataProviderCopyData(CGImageGetDataProvider(platformImage.get())));
+    RetainPtr pixelDataCfData = adoptCF(CGDataProviderCopyData(protect(CGImageGetDataProvider(platformImage.get()))));
     if (!pixelDataCfData)
         return callback({ }, 0, 0);
 
@@ -527,7 +527,7 @@ static void imageBytesForSource(WebGPU::Queue& backing, const GPUImageCopyExtern
             if (!platformImage)
                 return callback({ }, 0, 0);
 
-            if (CGColorSpaceGetModel(CGImageGetColorSpace(platformImage.get())) == kCGColorSpaceModelIndexed) {
+            if (CGColorSpaceGetModel(protect(CGImageGetColorSpace(platformImage.get()))) == kCGColorSpaceModelIndexed) {
                 auto indexedWidth = CGImageGetWidth(platformImage.get());
                 auto indexedHeight = CGImageGetHeight(platformImage.get());
                 RetainPtr bitmapContext = adoptCF(CGBitmapContextCreate(nullptr, indexedWidth, indexedHeight, 8, indexedWidth * 4, sRGBColorSpaceSingleton(), static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
@@ -808,7 +808,7 @@ static GPUResidentSource gpuResidentSourceForImageElement(ScriptExecutionContext
     // CoreGraphics decodes to premultiplied alpha, so compositing over the buffer's transparent
     // black leaves the decoded channels untouched; the copy is lossless for as long as the
     // destination wants premultiplied alpha too.
-    imageBuffer->context().drawImage(*image, destinationRect, sourceRect, { CompositeOperator::Copy, ImageOrientation::Orientation::FromImage });
+    imageBuffer->context().drawBitmapImage(*image, destinationRect, sourceRect, { CompositeOperator::Copy, ImageOrientation::Orientation::FromImage });
     return { WTF::move(imageBuffer) };
 }
 #endif // HAVE(IOSURFACE) && ENABLE(VIDEO) && ENABLE(WEB_CODECS)
@@ -1059,7 +1059,7 @@ static bool isStateValid(const auto& source, const std::optional<GPUOrigin2D>& o
 // FIXME: https://bugs.webkit.org/show_bug.cgi?id=263692 - this code should be removed, it is to unblock
 // compiler <-> pipeline dependencies
 #if PLATFORM(COCOA)
-static uint32_t NODELETE convertRGBA8888ToRGB10A2(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+static uint32_t LEGACY_NODELETE convertRGBA8888ToRGB10A2(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     uint32_t r0 = (static_cast<uint32_t>(r) << 2) | (static_cast<uint32_t>(r) >> 6);
     uint32_t g0 = (static_cast<uint32_t>(g) << 2) | (static_cast<uint32_t>(g) >> 6);
@@ -1462,7 +1462,7 @@ ExceptionOr<void> GPUQueue::copyExternalImageToTexture(ScriptExecutionContext& c
     return { };
 }
 
-ExceptionOr<void> GPUQueue::copyElementImageToTexture(const GPUCopyElementImageSource&, const GPUCopyElementImageDestination&)
+ExceptionOr<void> GPUQueue::drawElementImageToTexture(const GPUDrawElementImageSource&, const GPUDrawElementImageDestination&)
 {
     return Exception { ExceptionCode::InvalidStateError };
 }

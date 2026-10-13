@@ -59,8 +59,8 @@ Navigation::Navigation(WebCore::ProcessIdentifier processID, RefPtr<WebBackForwa
 {
 }
 
-Navigation::Navigation(WebCore::ProcessIdentifier processID, WebCore::ResourceRequest&& request, RefPtr<WebBackForwardListItem>&& fromItem)
-    : m_navigationID(WebCore::NavigationIdentifier::generate())
+Navigation::Navigation(WebCore::ProcessIdentifier processID, WebCore::ResourceRequest&& request, RefPtr<WebBackForwardListItem>&& fromItem, std::optional<WebCore::NavigationIdentifier> navigationID)
+    : m_navigationID(navigationID ? *navigationID : WebCore::NavigationIdentifier::generate())
     , m_processID(processID)
     , m_originalRequest(WTF::move(request))
     , m_currentRequest(m_originalRequest)
@@ -69,8 +69,8 @@ Navigation::Navigation(WebCore::ProcessIdentifier processID, WebCore::ResourceRe
 {
 }
 
-Navigation::Navigation(WebCore::ProcessIdentifier processID, Ref<WebBackForwardListFrameItem>&& targetFrameItem, RefPtr<WebBackForwardListItem>&& fromItem, FrameLoadType backForwardFrameLoadType)
-    : m_navigationID(WebCore::NavigationIdentifier::generate())
+Navigation::Navigation(WebCore::ProcessIdentifier processID, Ref<WebBackForwardListFrameItem>&& targetFrameItem, RefPtr<WebBackForwardListItem>&& fromItem, FrameLoadType backForwardFrameLoadType, std::optional<WebCore::NavigationIdentifier> navigationID)
+    : m_navigationID(navigationID ? *navigationID : WebCore::NavigationIdentifier::generate())
     , m_processID(processID)
     , m_originalRequest(WTF::URL { targetFrameItem->mainFrame()->url() })
     , m_currentRequest(m_originalRequest)
@@ -84,14 +84,14 @@ Navigation::Navigation(WebCore::ProcessIdentifier processID, std::unique_ptr<Sub
     : Navigation(processID)
 {
     ASSERT(substituteData);
-    m_substituteData = WTF::move(substituteData);
+    lazyInitialize(m_substituteData, WTF::move(substituteData));
 }
 
 Navigation::Navigation(WebCore::ProcessIdentifier processID, WebCore::ResourceRequest&& simulatedRequest, std::unique_ptr<SubstituteData>&& substituteData, RefPtr<WebKit::WebBackForwardListItem>&& fromItem)
-    : Navigation(processID, WTF::move(simulatedRequest), WTF::move(fromItem))
+    : Navigation(processID, WTF::move(simulatedRequest), WTF::move(fromItem), std::nullopt)
 {
     ASSERT(substituteData);
-    m_substituteData = WTF::move(substituteData);
+    lazyInitialize(m_substituteData, WTF::move(substituteData));
 }
 
 Navigation::~Navigation() = default;
@@ -106,6 +106,9 @@ void Navigation::setCurrentRequest(ResourceRequest&& request)
     m_currentRequest = WTF::move(request);
     m_hasStorageForCurrentSite = false;
     m_isEnhancedSecurityLinkForCurrentSite = false;
+    m_unpartitionedStorageSite = std::nullopt;
+    m_agentClusterOrigin = { };
+    m_agentClusterAssignment = std::nullopt;
 }
 
 void Navigation::upgradeCurrentInsecureRequest()

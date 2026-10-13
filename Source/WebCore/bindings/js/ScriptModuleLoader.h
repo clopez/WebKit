@@ -59,11 +59,10 @@ class ScriptModuleLoader final : private ModuleScriptLoaderClient {
     WTF_MAKE_NONCOPYABLE(ScriptModuleLoader);
 public:
     enum class OwnerType : uint8_t { Document, WorkerOrWorklet };
-    enum class ModuleType : uint8_t { Invalid, JavaScript, WebAssembly, JSON, Text };
+    enum class ModuleType : uint8_t { Invalid, JavaScript, WebAssembly, JSON, Text, CSS };
     explicit ScriptModuleLoader(ScriptExecutionContext*, OwnerType);
     ~ScriptModuleLoader();
 
-    UniqueRef<ScriptModuleLoader> shadowRealmLoader(JSC::JSGlobalObject* realmGlobal) const;
 
     ScriptExecutionContext* context();
 
@@ -85,7 +84,6 @@ private:
     MemoryCompactRobinHoodHashMap<String, URL> m_requestURLToResponseURLMap;
     HashSet<Ref<ModuleScriptLoader>> m_loaders;
     OwnerType m_ownerType;
-    JSC::JSGlobalObject* m_shadowRealmGlobal { nullptr };
 };
 
 } // namespace WebCore

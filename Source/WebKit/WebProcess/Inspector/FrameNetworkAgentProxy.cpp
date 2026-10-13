@@ -57,7 +57,10 @@
 #include <WebCore/ResourceLoadTiming.h>
 #include <WebCore/ResourceLoader.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/SharedBuffer.h>
 #include <optional>
+#include <wtf/CompletionHandler.h>
+#include <wtf/Function.h>
 #include <wtf/MainThread.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -171,7 +174,7 @@ static ResourceType resourceTypeForRequest(const ResourceRequest& request, Docum
     return ResourceType::Other;
 }
 
-void FrameNetworkAgentProxy::willSendRequest(ResourceLoaderIdentifier resourceID, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse, const CachedResource* cachedResource, ResourceLoader*)
+void FrameNetworkAgentProxy::willSendRequest(ResourceLoaderIdentifier resourceID, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse, const CachedResource* cachedResource, ResourceLoader* resourceLoader)
 {
     if (request.hiddenFromInspector())
         return;
@@ -213,7 +216,7 @@ void FrameNetworkAgentProxy::willSendRequest(ResourceLoaderIdentifier resourceID
     protect(WebProcess::singleton().parentProcessConnection())->send(
         Messages::ProxyingNetworkAgent::RequestWillBeSent(
             qualifyResourceID(resourceID), *frameID, loaderId, request.initiatorIdentifier(), documentURL, request,
-            WTF::move(optionalRedirectResponse), resourceType, timestamp, walltime, WTF::move(initiator)),
+            ResourceUtilities::copyRequestExtras(request, resourceLoader), WTF::move(optionalRedirectResponse), resourceType, timestamp, walltime, WTF::move(initiator)),
         page->identifier());
 }
 
@@ -253,7 +256,7 @@ void FrameNetworkAgentProxy::willSendRequestOfType(ResourceLoaderIdentifier reso
     protect(WebProcess::singleton().parentProcessConnection())->send(
         Messages::ProxyingNetworkAgent::RequestWillBeSent(
             qualifyResourceID(resourceID), *frameID, loaderId, request.initiatorIdentifier(), documentURL, request,
-            std::nullopt, ResourceType::Other, timestamp, walltime, WTF::move(initiator)),
+            ResourceUtilities::copyRequestExtras(request, nullptr), std::nullopt, ResourceType::Other, timestamp, walltime, WTF::move(initiator)),
         page->identifier());
 }
 
@@ -465,6 +468,32 @@ void FrameNetworkAgentProxy::setInitialScriptContent(ResourceLoaderIdentifier re
 void FrameNetworkAgentProxy::mainFrameNavigated(DocumentLoader&)
 {
     m_resourcesData->clear();
+}
+
+bool FrameNetworkAgentProxy::willIntercept(const ResourceRequest&)
+{
+    return false;
+}
+
+bool FrameNetworkAgentProxy::shouldInterceptRequest(const ResourceLoader&)
+{
+    return false;
+}
+
+bool FrameNetworkAgentProxy::shouldInterceptResponse(const ResourceResponse&)
+{
+    return false;
+}
+
+// interceptRequest and interceptResponse are unreachable while the predicates above decline; both resume the load rather than dropping the handler.
+void FrameNetworkAgentProxy::interceptRequest(ResourceLoader& loader, Function<void(const ResourceRequest&)>&& handler)
+{
+    handler(loader.request());
+}
+
+void FrameNetworkAgentProxy::interceptResponse(const ResourceResponse& response, ResourceLoaderIdentifier, CompletionHandler<void(const ResourceResponse&, RefPtr<FragmentedSharedBuffer>)>&& handler)
+{
+    handler(response, nullptr);
 }
 
 } // namespace WebKit

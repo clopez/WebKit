@@ -65,22 +65,22 @@
 #import <WebCore/WebCoreThreadMessage.h>
 #endif
 
-NSString *WebPreferencesChangedNotification = @"WebPreferencesChangedNotification";
-NSString *WebPreferencesRemovedNotification = @"WebPreferencesRemovedNotification";
-NSString *WebPreferencesChangedInternalNotification = @"WebPreferencesChangedInternalNotification";
-NSString *WebPreferencesCacheModelChangedInternalNotification = @"WebPreferencesCacheModelChangedInternalNotification";
+NSString * const WebPreferencesChangedNotification = @"WebPreferencesChangedNotification";
+NSString * const WebPreferencesRemovedNotification = @"WebPreferencesRemovedNotification";
+NSString * const WebPreferencesChangedInternalNotification = @"WebPreferencesChangedInternalNotification";
+NSString * const WebPreferencesCacheModelChangedInternalNotification = @"WebPreferencesCacheModelChangedInternalNotification";
 
 #define KEY(x) (_private->identifier ? [_private->identifier.get() stringByAppendingString:(x)] : (x))
 
 enum { WebPreferencesVersion = 1 };
 
-static RetainPtr<WebPreferences>& NODELETE standardPreferences()
+static RetainPtr<WebPreferences>& LEGACY_NODELETE standardPreferences()
 {
     static NeverDestroyed<RetainPtr<WebPreferences>> standardPreferences;
     return standardPreferences;
 }
 
-static RetainPtr<NSMutableDictionary>& NODELETE webPreferencesInstances()
+static RetainPtr<NSMutableDictionary>& LEGACY_NODELETE webPreferencesInstances()
 {
     static NeverDestroyed<RetainPtr<NSMutableDictionary>> webPreferencesInstances;
     return webPreferencesInstances;
@@ -88,7 +88,7 @@ static RetainPtr<NSMutableDictionary>& NODELETE webPreferencesInstances()
 
 static unsigned webPreferencesInstanceCountWithPrivateBrowsingEnabled;
 
-template<unsigned size> static bool NODELETE contains(const char* const (&array)[size], const char* item)
+template<unsigned size> static bool LEGACY_NODELETE contains(const char* const (&array)[size], const char* item)
 {
     if (!item)
         return false;
@@ -1543,7 +1543,7 @@ public:
         @{ WebKitDefaultTextEncodingNamePreferenceKey: PAL::defaultTextEncodingNameForSystemLanguage().createNSString().get() }];
 }
 
-static RetainPtr<NSString>& NODELETE classIBCreatorID()
+static RetainPtr<NSString>& LEGACY_NODELETE classIBCreatorID()
 {
     static NeverDestroyed<RetainPtr<NSString>> classIBCreatorID;
     return classIBCreatorID;
@@ -2706,14 +2706,14 @@ static RetainPtr<NSString>& NODELETE classIBCreatorID()
 
 + (void)_setCurrentNetworkLoaderSessionCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)policy
 {
-    auto cookieStorage = NetworkStorageSessionMap::defaultStorageSession().cookieStorage();
+    RetainPtr cookieStorage = protect(NetworkStorageSessionMap::defaultStorageSession())->cookieStorage();
     RELEASE_ASSERT(cookieStorage); // Will fail when NetworkStorageSessionMap::switchToNewTestingSession() was not called beforehand.
     CFHTTPCookieStorageSetCookieAcceptPolicy(cookieStorage.get(), policy);
 }
 
 + (void)_clearNetworkLoaderSession:(void (^)(void))completionHandler
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([completionHandler = makeBlockPtr(completionHandler)] {
+    protect(NetworkStorageSessionMap::defaultStorageSession())->deleteAllCookies([completionHandler = makeBlockPtr(completionHandler)] {
         completionHandler();
     });
 }

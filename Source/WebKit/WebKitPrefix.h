@@ -224,7 +224,7 @@
 #include <JavaScriptCore/SlotVisitor.h>
 #include <JavaScriptCore/SourceOrigin.h>
 #include <JavaScriptCore/SourceProvider.h>
-#include <JavaScriptCore/SourceTaintedOrigin.h>
+#include <JavaScriptCore/SourceTaintedness.h>
 #include <JavaScriptCore/SparseArrayValueMap.h>
 #include <JavaScriptCore/StackFrame.h>
 #include <JavaScriptCore/StackVisitor.h>
@@ -550,7 +550,7 @@
 #include "MessageReceiver.h"
 #include "MessageReceiverMap.h"
 #include "MessageSender.h"
-#include "MonotonicObjectIdentifier.h"
+#include <wtf/MonotonicObjectIdentifier.h>
 #include "ReceiverMatcher.h"
 #include "SandboxExtension.h"
 #include "ScopedActiveMessageReceiveQueue.h"

@@ -48,7 +48,7 @@ import socket
 import sys
 import time
 
-from Shared.steps import ShellMixin, SetBuildSummary, SetO3OptimizationLevel, WaitForDuration, InstallSwiftToolchain, SCAN_BUILD_PATH, SWIFT_TOOLCHAIN_NAME, SWIFT_TOOLCHAIN_BUNDLE_IDENTIFIER, SWIFT_DIR, USER_TOOLCHAINS_DIR, needs_swift_toolchain_setup
+from Shared.steps import ShellMixin, SetBuildSummary, SetO3OptimizationLevel, WaitForDuration, InstallSwiftToolchain, cmake_tools_path, SCAN_BUILD_PATH, SWIFT_TOOLCHAIN_NAME, SWIFT_TOOLCHAIN_BUNDLE_IDENTIFIER, SWIFT_DIR, USER_TOOLCHAINS_DIR, needs_swift_toolchain_setup
 from Shared import generate_s3_url
 
 if sys.version_info < (3, 9):  # noqa: UP036
@@ -597,6 +597,12 @@ class ResultsDBReportMixin(abc.ABC):
             configuration['style'] = style
         if (flavor := self.getProperty('flavor', None)) in ('wk1', 'wk2', 'site-isolation'):
             configuration['flavor'] = flavor
+        # GTK and WPE post-commit bots run on more than one architecture, and pooling their history
+        # can excuse a failure on this architecture with failures seen only on another one.
+        if platform and platform.lower() in ('gtk', 'wpe'):
+            architecture = self.getProperty('machine_architecture', None) or self.getProperty('architecture', None)
+            if architecture and ' ' not in architecture:
+                configuration['architecture'] = architecture
         return configuration
 
     def results_db_configuration(self):
@@ -2819,6 +2825,15 @@ class RevertAppliedChanges(steps.ShellSequence):
             config = self.getProperty('configuration').capitalize()
             target = os.path.join("WebKitBuild", platform, config, "build-webkit-options.txt")
             self.commands.append(util.ShellArg(command=['rm', '-f', target], logname='stdio'))
+        elif '--cmake' in (self.getProperty('additionalArguments') or []):
+            config = self.getProperty('configuration').capitalize()
+            if platform == 'ios':
+                is_simulator = 'simulator' in self.getProperty('fullPlatform')
+                platform_dir = 'cmake-iphonesimulator' if is_simulator else 'cmake-iphoneos'
+            else:
+                platform_dir = f'cmake-{platform}'  # e.g. 'cmake-mac'
+            target = os.path.join('WebKitBuild', platform_dir, config, 'build-webkit-options.txt')
+            self.commands.append(util.ShellArg(command=['rm', '-f', target], logname='stdio'))
         return super().run()
 
 
@@ -3211,7 +3226,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
     haltOnFailure = False
     build_command = ['perl', 'Tools/Scripts/build-webkit']
     filter_command = ['perl', 'Tools/Scripts/filter-build-webkit', '-logfile', 'build-log.txt']
-    VALID_ADDITIONAL_ARGUMENTS_LIST = []  # If additionalArguments is added to config.json for CompileWebKit step, it should be added here as well.
+    VALID_ADDITIONAL_ARGUMENTS_LIST = ['--cmake']  # If additionalArguments is added to config.json for CompileWebKit step, it should be added here as well.
     APPLE_PLATFORMS = ('mac', 'ios', 'visionos', 'tvos', 'watchos')
     MAX_ERROR_LINES = 1000
 
@@ -3239,6 +3254,8 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
         for additionalArgument in (additionalArguments or []):
             if additionalArgument in self.VALID_ADDITIONAL_ARGUMENTS_LIST:
                 build_command += [additionalArgument]
+        if '--cmake' in (additionalArguments or []):
+            self.env['PATH'] = cmake_tools_path(self.getProperty('builddir'))
         if platform in self.APPLE_PLATFORMS:
             # FIXME: Once WK_VALIDATE_DEPENDENCIES is set via xcconfigs, it can
             # be removed here. We can't have build-webkit pass this by default
@@ -4080,6 +4097,7 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
         self.pre_existing_flakes_in_results_db = {}
         self.unsupported_flakes_in_results_db = []
         self.unknown_flakes_in_results_db = []
+        self.tests_modified_by_change = []
         self.layout_test_driver = None
 
     def doStepIf(self, step):
@@ -4209,14 +4227,35 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
 
         self._parseRunWebKitTestsOutput(logText)
 
+    def modified_test_names(self):
+        """Tests this change modifies, named as run-webkit-tests reports failures."""
+        # modified_tests carries a 'LayoutTests/' prefix, failing tests are named relative to it.
+        prefix = 'LayoutTests/'
+        changed = set()
+        for test in self.getProperty('modified_tests', None) or []:
+            changed.add(test[len(prefix):] if test.startswith(prefix) else test)
+        return changed
+
     @defer.inlineCallbacks
     def filter_failures_using_results_db(self, failing_tests):
         self.failing_tests_filtered = failing_tests.copy()
         configuration = self.results_db_query_configuration()
 
-        identifier, has_commit = yield self.resolve_identifier_for_results_db(configuration, bool(failing_tests))
+        # The database only knows the test without this change, so it cannot vouch for one it modifies.
+        modified = self.modified_test_names()
+        self.tests_modified_by_change = [test for test in failing_tests if test in modified]
+        candidates = [test for test in failing_tests if test not in modified]
+        if self.tests_modified_by_change:
+            yield self._addToLog(
+                self.results_db_log_name,
+                'Not consulting the results database for {} failing test(s) modified by this change: {}\n'.format(
+                    len(self.tests_modified_by_change), ', '.join(self.tests_modified_by_change),
+                ),
+            )
 
-        tests = failing_tests[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]
+        identifier, has_commit = yield self.resolve_identifier_for_results_db(configuration, bool(candidates))
+
+        tests = candidates[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]
         unexplained = set()
         for test in tests:
             data = yield ResultsDatabase.is_test_pre_existing_failure(

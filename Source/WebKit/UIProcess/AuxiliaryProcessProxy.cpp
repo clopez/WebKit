@@ -46,7 +46,6 @@
 #include <wtf/text/MakeString.h>
 
 #if PLATFORM(COCOA)
-#include "CoreIPCSecureCoding.h"
 #include "SandboxUtilities.h"
 #include <sys/sysctl.h>
 #include <wtf/cf/TypeCastsCF.h>
@@ -91,13 +90,13 @@ private:
     RefPtr<ProcessThrottler::Activity> m_activity;
 };
 
-static HashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>& NODELETE connectionToProcessMap()
+static HashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>& LEGACY_NODELETE connectionToProcessMap()
 {
     static MainRunLoopNeverDestroyed<HashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>> map;
     return map.get();
 }
 
-static Seconds NODELETE adjustedTimeoutForThermalState(Seconds timeout)
+static Seconds LEGACY_NODELETE adjustedTimeoutForThermalState(Seconds timeout)
 {
 #if PLATFORM(VISION)
     return WebCore::ThermalMitigationNotifier::isThermalMitigationEnabled() ? (timeout * 20) : timeout;
@@ -651,12 +650,6 @@ AuxiliaryProcessCreationParameters AuxiliaryProcessProxy::auxiliaryProcessParame
     parameters.wtfLoggingChannels = UIProcess::wtfLogLevelString();
     parameters.webCoreLoggingChannels = UIProcess::webCoreLogLevelString();
     parameters.webKitLoggingChannels = UIProcess::webKitLogLevelString();
-#endif
-
-#if PLATFORM(COCOA)
-    auto* exemptClassNames = SecureCoding::classNamesExemptFromSecureCodingCrash();
-    if (exemptClassNames)
-        parameters.classNamesExemptFromSecureCodingCrash = WTF::makeUnique<HashSet<String>>(*exemptClassNames);
 #endif
 
 #if ENABLE(CORE_IPC_SIGNPOSTS)

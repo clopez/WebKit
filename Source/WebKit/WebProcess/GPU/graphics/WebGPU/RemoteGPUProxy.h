@@ -77,7 +77,7 @@ public:
 
     void paintToCanvas(WebCore::NativeImage&, const WebCore::IntSize&, WebCore::GraphicsContext&) final;
     WebGPUIdentifier backing() const { return m_backing; }
-    RefPtr<WebKit::Mesh> NODELETE createModelBacking(unsigned width, unsigned height, WebModel::ImageAsset&& diffuseTexture, WebModel::ImageAsset&& specularTexture, bool standardDynamicRange, CompletionHandler<void(Vector<MachSendRight>&&)>&&);
+    RefPtr<WebKit::Mesh> LEGACY_NODELETE createModelBacking(unsigned width, unsigned height, WebModel::ImageAsset&& diffuseTexture, WebModel::ImageAsset&& specularTexture, bool standardDynamicRange, CompletionHandler<void(Vector<MachSendRight>&&)>&&);
 
 private:
     friend class WebGPU::DowncastConvertToBackingContext;
@@ -162,7 +162,7 @@ private:
     const Ref<ModelConvertToBackingContext> m_modelConvertToBackingContext;
     ThreadSafeWeakPtr<SerialFunctionDispatcher> m_dispatcher;
     WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
-    RefPtr<IPC::StreamClientConnection> m_streamConnection;
+    const RefPtr<IPC::StreamClientConnection> m_streamConnection;
     WebGPUIdentifier m_backing { WebGPUIdentifier::generate() };
     bool m_didInitialize { false };
     bool m_lost { false };

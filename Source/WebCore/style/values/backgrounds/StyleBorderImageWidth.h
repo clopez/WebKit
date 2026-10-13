@@ -90,7 +90,7 @@ struct BorderImageWidthValue {
         return false;
     }
 
-    template<typename... F> decltype(auto) switchOn(F&&... f) const
+    template<typename... F> decltype(auto) switchOn(NOESCAPE F&&... f) const
     {
         return WTF::switchOn(m_value, std::forward<F>(f)...);
     }
@@ -177,7 +177,7 @@ template<> struct CSSValueCreation<BorderImageWidth> { auto operator()(CSSValueP
 // MARK: - Blending
 
 template<> struct Blending<BorderImageWidthValue> {
-    bool NODELETE canBlend(const BorderImageWidthValue&, const BorderImageWidthValue&);
+    bool LEGACY_NODELETE canBlend(const BorderImageWidthValue&, const BorderImageWidthValue&);
     auto requiresInterpolationForAccumulativeIteration(const BorderImageWidthValue&, const BorderImageWidthValue&) -> bool;
     auto blend(const BorderImageWidthValue&, const BorderImageWidthValue&, const BlendingContext&) -> BorderImageWidthValue;
 };

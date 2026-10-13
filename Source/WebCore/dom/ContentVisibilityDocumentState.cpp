@@ -111,7 +111,7 @@ IntersectionObserver* ContentVisibilityDocumentState::intersectionObserver(Docum
         auto observer = IntersectionObserver::create(document, WTF::move(callback), WTF::move(options), includeObscuredInsets);
         if (observer.hasException())
             return nullptr;
-        m_observer = observer.releaseReturnValue();
+        lazyInitialize(m_observer, observer.releaseReturnValue());
     }
     return m_observer.get();
 }
@@ -205,8 +205,8 @@ HadInitialVisibleContentVisibilityDetermination ContentVisibilityDocumentState::
     auto hadInitialVisibleContentVisibilityDetermination = HadInitialVisibleContentVisibilityDetermination::No;
     if (!elementsToCheck.isEmpty()) {
         Ref document = elementsToCheck.first()->document();
-        if (protect(m_observer)->updateObservations(*protect(document->frame())) == IntersectionObserver::NeedNotify::Yes)
-            protect(m_observer)->notify();
+        if (m_observer->updateObservations(*protect(document->frame())) == IntersectionObserver::NeedNotify::Yes)
+            m_observer->notify();
 
         for (auto& element : elementsToCheck) {
             checkRelevancyOfContentVisibilityElement(element, { ContentRelevancy::OnScreen });
@@ -226,7 +226,7 @@ void ContentVisibilityDocumentState::updateContentRelevancyForScrollIfNeeded(con
         return;
     auto findSkippedContentRoot = [](const Element& element) -> RefPtr<const Element> {
         RefPtr<const Element> found;
-        if (element.renderer() && element.renderer()->isSkippedContent()) {
+        if (CheckedPtr renderer = element.renderer(); renderer && renderer->isSkippedContent()) {
             for (RefPtr candidate = element; candidate; candidate = candidate->parentElementInComposedTree()) {
                 if (candidate->renderer() && candidate->renderStyle()->contentVisibility() == ContentVisibility::Auto)
                     found = candidate;

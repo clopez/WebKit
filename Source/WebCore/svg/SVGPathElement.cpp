@@ -46,7 +46,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(SVGPathElement);
 
 class PathCache {
 public:
-    static PathCache& NODELETE singleton();
+    static PathCache& LEGACY_NODELETE singleton();
 
     std::optional<DataRef<SVGPathByteStream::Data>> get(const AtomString& attributeValue) const;
     void add(const AtomString& attributeValue, DataRef<SVGPathByteStream::Data>);
@@ -98,7 +98,7 @@ void PathCache::clear()
 }
 
 inline SVGPathElement::SVGPathElement(const QualifiedName& tagName, Document& document)
-    : SVGGeometryElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
+    : SVGGeometryElement(tagName, document, PropertyRegistry::singleton())
 {
     ASSERT(hasTagName(SVGNames::pathTag));
 
@@ -282,7 +282,7 @@ void SVGPathElement::collectExtraStyleForPresentationalHints(MutableStylePropert
 {
     if (!document().settings().cssDPropertyEnabled())
         return;
-    if (!style.hasProperty(CSSPropertyD))
+    if (!style.hasProperty(CSSPropertyID::D))
         collectDPresentationalHint(style);
 }
 

@@ -54,14 +54,14 @@ public:
 
     ~RemoteDOMWindow() final;
 
-    RemoteFrame* NODELETE frame() const final { return m_frame; }
-    ScriptExecutionContext* NODELETE scriptExecutionContext() const final { return nullptr; }
+    RemoteFrame* LEGACY_NODELETE frame() const final { return m_frame; }
+    ScriptExecutionContext* LEGACY_NODELETE scriptExecutionContext() const final { return nullptr; }
 
     // DOM API exposed cross-origin.
-    WindowProxy* NODELETE self() const;
+    WindowProxy* LEGACY_NODELETE self() const;
     void focus(LocalDOMWindow& incumbentWindow);
     void blur();
-    unsigned NODELETE length() const;
+    unsigned LEGACY_NODELETE length() const;
     void frameDetached();
     ExceptionOr<void> postMessage(JSC::JSGlobalObject&, LocalDOMWindow& incumbentWindow, JSC::JSValue message, WindowPostMessageOptions&&);
 
@@ -77,7 +77,7 @@ private:
     void setLocation(LocalDOMWindow& activeWindow, const URL& completedURL, NavigationHistoryBehavior, SetLocationLocking, CanNavigateState) final;
 
     WeakPtr<RemoteFrame> m_frame;
-    RefPtr<const SecurityOrigin> m_detachedFrameDocumentSecurityOrigin;
+    const RefPtr<const SecurityOrigin> m_detachedFrameDocumentSecurityOrigin;
     bool m_isDetachedFrameDocumentSandboxedOrigin { false };
 };
 

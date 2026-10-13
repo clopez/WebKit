@@ -29,7 +29,7 @@
 #include <JavaScriptCore/Microtask.h>
 #include <JavaScriptCore/RegExpGlobalData.h>
 #include <JavaScriptCore/RuntimeFlags.h>
-#include <JavaScriptCore/SourceTaintedOrigin.h>
+#include <JavaScriptCore/SourceTaintedness.h>
 #include <JavaScriptCore/StructureCache.h>
 #include <JavaScriptCore/Watchpoint.h>
 #include <JavaScriptCore/WeakGCMap.h>
@@ -119,8 +119,6 @@ class RegExpPrototype;
 class RegExpStringIteratorPrototype;
 class SetIteratorPrototype;
 class SetPrototype;
-class ShadowRealmConstructor;
-class ShadowRealmPrototype;
 class SourceCodeKey;
 class SourceOrigin;
 class StringConstructor;
@@ -268,7 +266,6 @@ public:
 
     WriteBarrier<ObjectConstructor> m_objectConstructor;
     WriteBarrier<ArrayConstructor> m_arrayConstructor;
-    WriteBarrier<ShadowRealmConstructor> m_shadowRealmConstructor;
     WriteBarrier<RegExpConstructor> m_regExpConstructor;
     WriteBarrier<FunctionConstructor> m_functionConstructor;
     WriteBarrier<JSPromiseConstructor> m_promiseConstructor;
@@ -347,7 +344,6 @@ public:
     WriteBarrier<ObjectPrototype> m_objectPrototype;
     WriteBarrier<FunctionPrototype> m_functionPrototype;
     WriteBarrier<ArrayPrototype> m_arrayPrototype;
-    WriteBarrier<ShadowRealmPrototype> m_shadowRealmPrototype;
     WriteBarrier<RegExpPrototype> m_regExpPrototype;
     WriteBarrier<JSIteratorPrototype> m_iteratorPrototype;
     WriteBarrier<JSIteratorHelperPrototype> m_iteratorHelperPrototype;
@@ -405,7 +401,6 @@ public:
     FunctionStructures m_ordinaryFunctions;
     WriteBarrierStructureID m_boundFunctionStructure;
 
-    WriteBarrierStructureID m_shadowRealmObjectStructure;
     WriteBarrierStructureID m_regExpStructure;
 
     WriteBarrierStructureID m_asyncFunctionStructure;
@@ -431,7 +426,6 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_customGetterFunctionStructure;
     LazyProperty<JSGlobalObject, Structure> m_customSetterFunctionStructure;
     LazyProperty<JSGlobalObject, Structure> m_nativeStdFunctionStructure;
-    LazyProperty<JSGlobalObject, Structure> m_remoteFunctionStructure;
     WriteBarrier<AsyncFunctionPrototype> m_asyncFunctionPrototype;
     WriteBarrier<AsyncGeneratorFunctionPrototype> m_asyncGeneratorFunctionPrototype;
     LazyProperty<JSGlobalObject, Structure> m_iteratorResultObjectStructure;
@@ -592,9 +586,9 @@ public:
     void installObjectPropertyChangeAdaptiveWatchpoint(const ObjectPropertyCondition&, InlineWatchpointSet&);
     void installChainedWatchpoint(InlineWatchpointSet& from, InlineWatchpointSet& to);
 
-    inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& NODELETE typedArrayConstructorSpeciesAbsenceWatchpoint(TypedArrayType);
-    inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& NODELETE typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(TypedArrayType);
-    inline std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& NODELETE typedArrayPrototypeConstructorWatchpoint(TypedArrayType);
+    inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& LEGACY_NODELETE typedArrayConstructorSpeciesAbsenceWatchpoint(TypedArrayType);
+    inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& LEGACY_NODELETE typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(TypedArrayType);
+    inline std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& LEGACY_NODELETE typedArrayPrototypeConstructorWatchpoint(TypedArrayType);
 
     void addWeakTicket(DeferredWorkTimer::Ticket&);
     void clearWeakTickets();
@@ -723,12 +717,11 @@ public:
     }
 
     JS_EXPORT_PRIVATE static JSGlobalObject* create(VM&, Structure*);
-    JS_EXPORT_PRIVATE static JSGlobalObject* createWithCustomMethodTable(VM&, Structure*, const GlobalObjectMethodTable*);
 
     DECLARE_EXPORT_INFO;
 
     bool hasDebugger() const { return m_debugger; }
-    bool NODELETE hasInteractiveDebugger() const;
+    bool LEGACY_NODELETE hasInteractiveDebugger() const;
     const RuntimeFlags& runtimeFlags() const LIFETIME_BOUND { return m_runtimeFlags; }
 
 #if ENABLE(DFG_JIT)
@@ -771,7 +764,7 @@ public:
 
     JSScope* globalScopeExtension() LIFETIME_BOUND { return m_globalScopeExtension.get(); }
     void setGlobalScopeExtension(JSScope*);
-    void NODELETE clearGlobalScopeExtension();
+    void LEGACY_NODELETE clearGlobalScopeExtension();
 
     JSCallee* globalCallee() LIFETIME_BOUND { return m_globalCallee.get(); }
     JSCallee* evalCallee() LIFETIME_BOUND { return m_evalCallee.get(); }
@@ -867,7 +860,6 @@ public:
     BigIntPrototype* bigIntPrototype() const LIFETIME_BOUND { return m_bigIntPrototype.get(); }
     JSObject* datePrototype() const LIFETIME_BOUND;
     SymbolPrototype* symbolPrototype() const LIFETIME_BOUND { return m_symbolPrototype.get(); }
-    ShadowRealmPrototype* shadowRealmPrototype() const LIFETIME_BOUND { return m_shadowRealmPrototype.get(); }
     RegExpPrototype* regExpPrototype() const LIFETIME_BOUND { return m_regExpPrototype.get(); }
     JSObject* errorPrototype() const LIFETIME_BOUND;
     JSIteratorPrototype* iteratorPrototype() const LIFETIME_BOUND { return m_iteratorPrototype.get(); }
@@ -975,7 +967,6 @@ public:
     Structure* nativeStdFunctionStructure() const { return m_nativeStdFunctionStructure.get(this); }
     Structure* numberObjectStructure() const { return m_numberObjectStructure.get(this); }
     Structure* regExpStructure() const { return m_regExpStructure.get(); }
-    Structure* shadowRealmStructure() const { return m_shadowRealmObjectStructure.get(); }
     Structure* generatorStructure() const { return m_generatorStructure.get(); }
     Structure* asyncFunctionGeneratorStructure() const { return m_asyncFunctionGeneratorStructure.get(); }
     Structure* asyncFromSyncIteratorStructure() const { return m_asyncFromSyncIteratorStructure.get(); }
@@ -1003,7 +994,6 @@ public:
     Structure* regExpMatchesArrayWithIndicesStructure() const { return m_regExpMatchesArrayWithIndicesStructure.get(); }
     Structure* regExpMatchesIndicesArrayStructure() const { return m_regExpMatchesIndicesArrayStructure.get(); }
     Structure* regExpStringIteratorStructure() const { return m_regExpStringIteratorStructure.get(); }
-    Structure* remoteFunctionStructure() const { return m_remoteFunctionStructure.get(this); }
     Structure* moduleRecordStructure() const { return m_moduleRecordStructure.get(this); }
     Structure* syntheticModuleRecordStructure() const { return m_syntheticModuleRecordStructure.get(this); }
     Structure* moduleNamespaceObjectStructure() const { return m_moduleNamespaceObjectStructure.get(this); }
@@ -1066,7 +1056,7 @@ public:
     JS_EXPORT_PRIVATE void setInspectable(bool);
     JS_EXPORT_PRIVATE bool inspectable() const;
 
-    void NODELETE setIsITML();
+    void LEGACY_NODELETE setIsITML();
 
     RegExpGlobalData& regExpGlobalData() LIFETIME_BOUND { return m_regExpGlobalData; }
     static constexpr ptrdiff_t regExpGlobalDataOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_regExpGlobalData); }
@@ -1078,6 +1068,7 @@ public:
     static constexpr ptrdiff_t offsetOfCanDoASCIIUCADUCETLocaleCompare() { return OBJECT_OFFSETOF(JSGlobalObject, m_canDoASCIIUCADUCETLocaleCompare); }
     static constexpr ptrdiff_t offsetOfVarInjectionWatchpoint() { return OBJECT_OFFSETOF(JSGlobalObject, m_varInjectionWatchpointSet); }
     static constexpr ptrdiff_t offsetOfArrayIteratorProtocolWatchpointSet() { return OBJECT_OFFSETOF(JSGlobalObject, m_arrayIteratorProtocolWatchpointSet); }
+    static constexpr ptrdiff_t offsetOfStringIteratorProtocolWatchpointSet() { return OBJECT_OFFSETOF(JSGlobalObject, m_stringIteratorProtocolWatchpointSet); }
     static constexpr ptrdiff_t offsetOfVarReadOnlyWatchpoint() { return OBJECT_OFFSETOF(JSGlobalObject, m_varReadOnlyWatchpointSet); }
     static constexpr ptrdiff_t offsetOfFunctionProtoHasInstanceSymbolFunction() { return OBJECT_OFFSETOF(JSGlobalObject, m_functionProtoHasInstanceSymbolFunction); }
     static constexpr ptrdiff_t offsetOfPerformProxyObjectHasFunction() { return OBJECT_OFFSETOF(JSGlobalObject, m_performProxyObjectHasFunction); }
@@ -1095,7 +1086,7 @@ public:
 
 #if ENABLE(REMOTE_INSPECTOR)
     // FIXME: <http://webkit.org/b/246237> Local inspection should be controlled by `inspectable` API.
-    Inspector::JSGlobalObjectInspectorController& NODELETE inspectorController() const;
+    Inspector::JSGlobalObjectInspectorController& LEGACY_NODELETE inspectorController() const;
     JSGlobalObjectDebuggable& inspectorDebuggable() { return *m_inspectorDebuggable; }
 #endif
 
@@ -1104,8 +1095,8 @@ public:
     static constexpr ptrdiff_t globalLexicalBindingEpochOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_globalLexicalBindingEpoch); }
     unsigned* addressOfGlobalLexicalBindingEpoch() LIFETIME_BOUND { return &m_globalLexicalBindingEpoch; }
 
-    JS_EXPORT_PRIVATE void NODELETE setConsoleClient(WeakPtr<ConsoleClient>&&);
-    JS_EXPORT_PRIVATE CheckedPtr<ConsoleClient> NODELETE consoleClient() const;
+    JS_EXPORT_PRIVATE void LEGACY_NODELETE setConsoleClient(WeakPtr<ConsoleClient>&&);
+    JS_EXPORT_PRIVATE CheckedPtr<ConsoleClient> LEGACY_NODELETE consoleClient() const;
 
     void setName(const String&);
     const String& name() const LIFETIME_BOUND { return m_name; }
@@ -1116,7 +1107,7 @@ public:
     inline void setUnhandledRejectionCallback(VM&, JSObject*);
     JSObject* unhandledRejectionCallback() const LIFETIME_BOUND { return m_unhandledRejectionCallback.get(); }
 
-    static void NODELETE reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception*);
+    static void LEGACY_NODELETE reportUncaughtExceptionAtEventLoop(JSGlobalObject*, Exception*);
     static JSObject* currentScriptExecutionOwner(JSGlobalObject* global) { return global; }
     static ScriptExecutionStatus scriptExecutionStatus(JSGlobalObject*, JSObject*) { return ScriptExecutionStatus::Running; }
     static void reportViolationForUnsafeEval(JSGlobalObject*, const String&) { }
@@ -1210,7 +1201,6 @@ public:
 
     static bool supportsRichSourceInfo(const JSGlobalObject*) { return true; }
 
-    static JSGlobalObject* deriveShadowRealmGlobalObject(JSGlobalObject*);
 
     static bool shouldInterruptScript(const JSGlobalObject*) { return true; }
     static bool shouldInterruptScriptBeforeTimeout(const JSGlobalObject*) { return false; }
@@ -1257,11 +1247,10 @@ public:
     WriteBarrier<JSObject>* addressOfGlobalThis() LIFETIME_BOUND { return &m_globalThis; }
     OptionSet<CodeGenerationMode> defaultCodeGenerationMode() const;
 
-    FunctionExecutable* tryGetCachedFunctionExecutableForFunctionConstructor(const Identifier& name, StringView program, const SourceOrigin&, SourceTaintedOrigin, const String& sourceURL, const TextPosition& startPosition, LexicallyScopedFeatures, FunctionConstructionMode);
+    FunctionExecutable* tryGetCachedFunctionExecutableForFunctionConstructor(const Identifier& name, StringView program, const SourceOrigin&, SourceTaintedness, const String& sourceURL, const TextPosition& startPosition, LexicallyScopedFeatures, FunctionConstructionMode);
     void cachedFunctionExecutableForFunctionConstructor(FunctionExecutable*);
 
     static inline Structure* createStructure(VM&, JSValue prototype);
-    static inline Structure* createStructureForShadowRealm(VM&, JSValue prototype);
 
     inline void registerWeakMap(OpaqueJSWeakObjectMap*);
     inline void unregisterWeakMap(OpaqueJSWeakObjectMap*);
@@ -1324,7 +1313,7 @@ protected:
 private:
     friend class LLIntOffsetsExtractor;
 
-    static const GlobalObjectMethodTable* NODELETE baseGlobalObjectMethodTable();
+    static const GlobalObjectMethodTable* LEGACY_NODELETE baseGlobalObjectMethodTable();
 
     void notifyArrayBufferDetachingSlow();
     void fireWatchpointAndMakeAllArrayStructuresSlowPut(VM&);

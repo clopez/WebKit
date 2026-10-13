@@ -60,7 +60,7 @@ struct MaskBorderOutsetValue {
     constexpr bool isLength() const { return WTF::holdsAlternative<Length>(m_value); }
     constexpr bool isNumber() const { return WTF::holdsAlternative<Number>(m_value); }
 
-    template<typename... F> constexpr decltype(auto) switchOn(F&&... f) const
+    template<typename... F> constexpr decltype(auto) switchOn(NOESCAPE F&&... f) const
     {
         return WTF::switchOn(m_value, std::forward<F>(f)...);
     }
@@ -137,8 +137,8 @@ template<> struct CSSValueCreation<MaskBorderOutset> { auto operator()(CSSValueP
 // MARK: - Blending
 
 template<> struct Blending<MaskBorderOutsetValue> {
-    bool NODELETE canBlend(const MaskBorderOutsetValue&, const MaskBorderOutsetValue&);
-    bool NODELETE requiresInterpolationForAccumulativeIteration(const MaskBorderOutsetValue&, const MaskBorderOutsetValue&);
+    bool LEGACY_NODELETE canBlend(const MaskBorderOutsetValue&, const MaskBorderOutsetValue&);
+    bool LEGACY_NODELETE requiresInterpolationForAccumulativeIteration(const MaskBorderOutsetValue&, const MaskBorderOutsetValue&);
     auto blend(const MaskBorderOutsetValue&, const MaskBorderOutsetValue&, const BlendingContext&) -> MaskBorderOutsetValue;
 };
 

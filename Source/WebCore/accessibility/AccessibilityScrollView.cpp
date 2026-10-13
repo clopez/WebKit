@@ -46,6 +46,7 @@
 #include "Page.h"
 #include "RemoteFrameView.h"
 #include "RenderElement.h"
+#include "RenderElementInlines.h"
 #include "RenderObjectStyle.h"
 #include "Widget.h"
 
@@ -354,7 +355,7 @@ void AccessibilityScrollView::addLocalFrameChild()
         if (RefPtr localFrame = downcast<AXLocalFrame>(cache->create(AccessibilityRole::LocalFrame))) {
             localFrame->setLocalFrameView(localFrameView.get());
             localFrame->setWrapperFrom(*frameRoot);
-            m_localFrame = WTF::move(localFrame);
+            lazyInitialize(m_localFrame, localFrame.releaseNonNull());
         }
     }
 
@@ -381,6 +382,8 @@ void AccessibilityScrollView::addRemoteFrameChild()
         m_remoteFrame = downcast<AXRemoteFrame>(cache->create(AccessibilityRole::RemoteFrame));
         remoteFrame = m_remoteFrame;
         remoteFrame->setParent(this);
+        // Add the child before binding. Binding calls into AppKit, which can re-enter updateChildrenIfNecessary().
+        addChild(*remoteFrame);
 
 #if PLATFORM(COCOA)
         // Generate a new token and pass it back to the other remote frame so it can bind these objects together.
@@ -412,10 +415,10 @@ void AccessibilityScrollView::addRemoteFrameChild()
 #endif
         });
 #endif // PLATFORM(COCOA)
-    } else
+    } else {
         remoteFrame->setParent(this);
-
-    addChild(*remoteFrame);
+        addChild(*remoteFrame);
+    }
 }
 
 void AccessibilityScrollView::addChildren()
@@ -660,7 +663,7 @@ bool AccessibilityScrollView::isHostingFrameRenderHidden() const
 
     RefPtr frameOwner = frameOwnerElement();
     if (auto* renderer = frameOwner ? frameOwner->renderer() : nullptr)
-        return WebCore::isRenderHidden(protect(renderer->style()).get());
+        return WebCore::isRenderHidden(*renderer);
 
     return false;
 }

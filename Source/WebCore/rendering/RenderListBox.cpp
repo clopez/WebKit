@@ -31,7 +31,6 @@
 #include "config.h"
 #include "RenderListBox.h"
 
-#include "AXObjectCache.h"
 #include <wtf/Borrow.h>
 #include "CSSFontSelector.h"
 #include "DocumentInlines.h"
@@ -53,6 +52,7 @@
 #include "PaintInfo.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderLayer.h"
@@ -108,7 +108,7 @@ void RenderListBox::willBeDestroyed()
     RenderBlockFlow::willBeDestroyed();
 }
 
-HTMLSelectElement& NODELETE RenderListBox::selectElement() const
+HTMLSelectElement& LEGACY_NODELETE RenderListBox::selectElement() const
 {
     return downcast<HTMLSelectElement>(nodeForNonAnonymous());
 }
@@ -130,24 +130,21 @@ void RenderListBox::updateFromElement()
         std::optional<FontCascade> boldFont;
         for (auto& element : protect(selectElement())->listItems()) {
             String text;
-            Function<const FontCascade&()> selectFont = [&normalFont] () -> const FontCascade& {
-                return normalFont;
-            };
+            bool isGroupLabel = false;
             if (RefPtr optionElement = dynamicDowncast<HTMLOptionElement>(element.get()))
                 text = optionElement->textIndentedToRespectGroupLabel();
             else if (RefPtr optGroupElement = dynamicDowncast<HTMLOptGroupElement>(element.get())) {
                 text = optGroupElement->groupLabelText();
-                selectFont = [this, &normalFont, &boldFont] () -> const FontCascade& {
-                    if (!boldFont)
-                        boldFont = bolder(protect(document()), normalFont);
-                    return boldFont.value();
-                };
+                isGroupLabel = true;
             }
             if (text.isEmpty())
                 continue;
+            if (isGroupLabel && !boldFont)
+                boldFont = bolder(protect(document()), normalFont);
+            auto& font = isGroupLabel ? boldFont.value() : normalFont;
             text = applyTextTransform(style(), text);
             auto textRun = constructTextRun(text, style(), ExpansionBehavior::allowRightOnly());
-            logicalWidth = std::max(logicalWidth, selectFont().width(textRun));
+            logicalWidth = std::max(logicalWidth, font.width(textRun));
         }
         // FIXME: Is ceiling right here, or should we be doing some kind of rounding instead?
         m_optionsLogicalWidth = static_cast<int>(std::ceil(logicalWidth));
@@ -170,9 +167,6 @@ void RenderListBox::selectionChanged()
         else
             scrollToRevealSelection();
     }
-    
-    if (AXObjectCache* cache = protect(document())->existingAXObjectCache())
-        cache->deferSelectedChildrenChangedIfNeeded(protect(selectElement()));
 }
 
 void RenderListBox::layout()
@@ -261,8 +255,17 @@ void RenderListBox::computeIntrinsicLogicalWidthContributions()
     if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->isPositive()) {
         m_maxContentLogicalWidthContribution = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
         m_minContentLogicalWidthContribution = m_maxContentLogicalWidthContribution;
-    } else
+    } else {
         std::tie(m_minContentLogicalWidthContribution, m_maxContentLogicalWidthContribution) = computeIntrinsicLogicalWidths();
+
+        auto& logicalWidth = style().logicalWidth();
+        if (logicalWidth.isCalcSize() && (logicalWidth.isMinContent() || logicalWidth.isMaxContent())) {
+            // A calc-size() contributes the result of its calculation, not the size of its basis.
+            auto keywordLogicalWidth = logicalWidth.isMaxContent() ? m_maxContentLogicalWidthContribution : m_minContentLogicalWidthContribution;
+            m_minContentLogicalWidthContribution = resolveCalcSizeLogicalWidth(logicalWidth.calcSize(), keywordLogicalWidth, 0_lu);
+            m_maxContentLogicalWidthContribution = m_minContentLogicalWidthContribution;
+        }
+    }
 
     constrainIntrinsicLogicalWidthsByMinMax(m_minContentLogicalWidthContribution, m_maxContentLogicalWidthContribution);
 
@@ -381,7 +384,7 @@ std::optional<LayoutRect> RenderListBox::localBoundsOfOptGroup(const HTMLOptGrou
     return boundingBox;
 }
 
-void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const PaintFunction& paintFunction)
+void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffset, NOESCAPE const PaintFunction& paintFunction)
 {
     int listItemsSize = numItems();
     int firstVisibleItem = m_indexOfFirstVisibleItemInsidePaddingBeforeArea.value_or(indexOffset());
@@ -392,7 +395,7 @@ void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
 void RenderListBox::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style().usedVisibility() != Visibility::Visible)
+    if (usedStyle().visibility() != UsedVisibility::Visible)
         return;
     
     if (paintInfo.phase == PaintPhase::Foreground) {
@@ -483,7 +486,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     if (!itemStyle)
         return;
 
-    if (itemStyle->usedVisibility() == Visibility::Hidden)
+    if ((itemStyle->visibility() == Visibility::Hidden || itemStyle->isForceHidden()))
         return;
 
     String itemText;
@@ -554,10 +557,10 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, const LayoutPoint&
         else
             backColor = theme().inactiveListBoxSelectionBackgroundColor(styleColorOptions());
     } else
-        backColor = itemStyle->visitedDependentBackgroundColorApplyingColorFilter();
+        backColor = itemStyle->visitedDependentUsedBackgroundColorApplyingColorFilter();
 
     // Draw the background for this list box item
-    if (itemStyle->usedVisibility() == Visibility::Hidden)
+    if ((itemStyle->visibility() == Visibility::Hidden || itemStyle->isForceHidden()))
         return;
 
     LayoutRect itemRect = itemBoundingBoxRect(paintOffset, listIndex);
@@ -699,12 +702,7 @@ void RenderListBox::autoscroll(const IntPoint&)
 
     if (endIndex >= 0) {
         m_inAutoscroll = true;
-
-        if (!selectElement().multiple())
-            protect(selectElement())->setActiveSelectionAnchorIndex(endIndex);
-
-        selectElement().setActiveSelectionEndIndex(endIndex);
-        protect(selectElement())->updateListBoxSelection(!selectElement().multiple());
+        protect(selectElement())->updateListBoxSelectionForDrag(endIndex);
         m_inAutoscroll = false;
     }
 }
@@ -714,7 +712,7 @@ void RenderListBox::stopAutoscroll()
     if (selectElement().isDisabledFormControl())
         return;
 
-    protect(selectElement())->listBoxOnChange();
+    protect(selectElement())->handleListBoxMouseRelease();
 }
 
 bool RenderListBox::scrollToRevealElementAtListIndex(int index)

@@ -79,6 +79,11 @@ void WebRemoteFrameClient::frameDetached()
         protect(ownerElement->document())->checkCompleted();
 }
 
+void WebRemoteFrameClient::destroyProvisionalFrame()
+{
+    m_frame->destroyProvisionalFrame();
+}
+
 void WebRemoteFrameClient::frameRectDidChange(IntRect rect)
 {
     broadcastFrameRectToOtherProcesses(rect);
@@ -110,10 +115,10 @@ void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const Sec
     }
 
     if (!m_pendingPostMessages)
-        m_pendingPostMessages = PendingPostMessages::create();
+        lazyInitialize(m_pendingPostMessages, PendingPostMessages::create());
 
     RefPtr pendingPostMessages = m_pendingPostMessages;
-    pendingPostMessages->append(PendingPostMessage { source, sourceOrigin, target, targetOrigin, message, userGestureToken });
+    pendingPostMessages->append(PendingPostMessages::PendingPostMessage { source, sourceOrigin, target, targetOrigin, message, userGestureToken });
 
     if (message.transferredPorts.isEmpty())
         return;
@@ -123,26 +128,6 @@ void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const Sec
         for (auto& pendingPostMessage : messagesToSend)
             page->send(Messages::WebPageProxy::PostMessageToRemote(pendingPostMessage.source, pendingPostMessage.sourceOrigin, pendingPostMessage.target, pendingPostMessage.targetOrigin, pendingPostMessage.message, pendingPostMessage.userGestureToken));
     });
-}
-
-Vector<WebRemoteFrameClient::PendingPostMessage> WebRemoteFrameClient::PendingPostMessages::takeMessagesThroughNextPortTransfer()
-{
-    Vector<PendingPostMessage> messagesToSend;
-    ASSERT(m_pendingPostMessages.size() >= 1);
-    auto firstPendingMessage = m_pendingPostMessages[0];
-    ASSERT(!firstPendingMessage.message.transferredPorts.isEmpty());
-    messagesToSend.append(firstPendingMessage);
-    m_pendingPostMessages.removeAt(0);
-
-    for (auto& pendingPostMessage : m_pendingPostMessages) {
-        bool messageHasPorts = !pendingPostMessage.message.transferredPorts.isEmpty();
-        if (messageHasPorts)
-            break;
-        messagesToSend.append(pendingPostMessage);
-    }
-    if (messagesToSend.size() > 1)
-        m_pendingPostMessages.removeAt(0, messagesToSend.size() - 1);
-    return messagesToSend;
 }
 
 void WebRemoteFrameClient::changeLocation(FrameLoadRequest&& request, std::optional<PrivateClickMeasurement>&& privateClickMeasurement)
@@ -165,10 +150,10 @@ String WebRemoteFrameClient::renderTreeAsText(size_t baseIndent, OptionSet<Rende
 {
     RefPtr page = m_frame->page();
     if (!page)
-        return "Test Error - Missing page"_s;
+        return "Test Error - Missing page\n"_s;
     auto sendResult = page->sendSync(Messages::WebPageProxy::RenderTreeAsTextForTesting(m_frame->frameID(), baseIndent, behavior), IPC::Timeout::infinity(), IPC::SendSyncOption::MaintainOrderingWithAsyncMessages);
     if (!sendResult.succeeded())
-        return "Test Error - sending WebPageProxy::RenderTreeAsTextForTesting failed"_s;
+        return "Test Error - sending WebPageProxy::RenderTreeAsTextForTesting failed\n"_s;
     auto [result] = sendResult.takeReply();
     return result;
 }
@@ -177,11 +162,11 @@ String WebRemoteFrameClient::layerTreeAsText(size_t baseIndent, OptionSet<LayerT
 {
     RefPtr page = m_frame->page();
     if (!page)
-        return "Test Error - Missing page"_s;
+        return "Test Error - Missing page\n"_s;
     options.add(LayerTreeAsTextOptions::IncludeRootLayers);
     auto sendResult = page->sendSync(Messages::WebPageProxy::LayerTreeAsTextForTesting(m_frame->frameID(), baseIndent, options));
     if (!sendResult.succeeded())
-        return "Test Error - sending WebPageProxy::LayerTreeAsTextForTesting failed"_s;
+        return "Test Error - sending WebPageProxy::LayerTreeAsTextForTesting failed\n"_s;
     auto [result] = sendResult.takeReply();
     return result;
 }
@@ -285,9 +270,9 @@ void WebRemoteFrameClient::broadcastFrameTreeSyncDataToOtherProcesses(FrameTreeS
     WebFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(WTF::move(data));
 }
 
-void WebRemoteFrameClient::didNotifyUserActivation(MonotonicTime activationTime)
+void WebRemoteFrameClient::didNotifyUserActivation(MonotonicTime activationTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken)
 {
-    WebFrameLoaderClient::didNotifyUserActivation(activationTime);
+    WebFrameLoaderClient::didNotifyUserActivation(activationTime, forcedActivationToken);
 }
 
 void WebRemoteFrameClient::didConsumeUserActivation()

@@ -103,6 +103,8 @@ void RenderSVGModelObject::updateFromStyle()
     updateHasSVGTransformFlags();
     if (!hasLayer())
         updateLocalTransform();
+    else
+        m_localTransform = std::nullopt;
 }
 
 void RenderSVGModelObject::updateLocalTransform()
@@ -110,7 +112,10 @@ void RenderSVGModelObject::updateLocalTransform()
     TransformationMatrix transform;
     auto referenceBoxRect = transformReferenceBoxRect(style());
     applyTransform(transform, style(), referenceBoxRect, Style::TransformResolver::allTransformOperations);
-    m_localTransform = transform.toAffineTransform();
+
+    auto localTransform = transform.toAffineTransform();
+    auto oldTransform = std::exchange(m_localTransform, localTransform);
+    invalidateNonScalingStrokeCachesInSubtreeForSVG(oldTransform, localTransform);
 }
 
 LayoutRect RenderSVGModelObject::overflowClipRect(const LayoutPoint&, OverlayScrollbarSizeRelevancy, PaintPhase) const
@@ -253,7 +258,7 @@ void RenderSVGModelObject::styleDidChange(Style::Difference diff, const Style::C
     // FIXME: [LBSE] Upstream RenderElement changes
     // bool hasSVGMask = hasSVGMask();
     bool hasSVGMask = false;
-    if (hasSVGMask && hasLayer() && style().usedVisibility() != Visibility::Visible)
+    if (hasSVGMask && hasLayer() && usedStyle().visibility() != UsedVisibility::Visible)
         layer()->setHasVisibleContent();
 }
 
@@ -308,7 +313,7 @@ void RenderSVGModelObject::addFocusRingRects(Vector<LayoutRect>& rects, const La
 
 // FloatRect::intersects does not consider horizontal or vertical lines (because of isEmpty()).
 // So special-case handling of such lines.
-static bool NODELETE intersectsAllowingEmpty(const FloatRect& r, const FloatRect& other)
+static bool LEGACY_NODELETE intersectsAllowingEmpty(const FloatRect& r, const FloatRect& other)
 {
     if (r.isEmpty() && other.isEmpty())
         return false;
@@ -321,7 +326,7 @@ static bool NODELETE intersectsAllowingEmpty(const FloatRect& r, const FloatRect
 
 // One of the element types that can cause graphics to be drawn onto the target canvas. Specifically: circle, ellipse,
 // image, line, path, polygon, polyline, rect, text and use.
-static bool NODELETE isGraphicsElement(const RenderElement& renderer)
+static bool LEGACY_NODELETE isGraphicsElement(const RenderElement& renderer)
 {
     return renderer.isRenderSVGShape() || renderer.isRenderSVGText() || renderer.isRenderSVGImage() || renderer.element()->hasTagName(SVGNames::useTag);
 }
@@ -416,6 +421,7 @@ void RenderSVGModelObject::updateLayerTransform()
 {
     // Transform-origin depends on box size, so we need to update the layer transform after layout.
     if (hasLayer()) {
+        m_localTransform = std::nullopt;
         RenderLayerModelObject::updateLayerTransform();
         return;
     }

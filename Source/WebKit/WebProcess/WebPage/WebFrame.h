@@ -44,6 +44,7 @@
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/MarkupExclusionRule.h>
+#include <WebCore/PendingNavigateEventIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/ShareableBitmap.h>
@@ -137,20 +138,21 @@ public:
     WebPage* page() const;
 
     static WebFrame* webFrame(std::optional<WebCore::FrameIdentifier>);
-    static WebFrame* NODELETE fromCoreFrame(const WebCore::Frame&);
-    WebCore::LocalFrame* NODELETE coreLocalFrame() const;
-    WebCore::RemoteFrame* NODELETE coreRemoteFrame() const;
-    WebCore::Frame* NODELETE coreFrame() const;
+    static WebFrame* LEGACY_NODELETE fromCoreFrame(const WebCore::Frame&);
+    WebCore::LocalFrame* LEGACY_NODELETE coreLocalFrame() const;
+    WebCore::RemoteFrame* LEGACY_NODELETE coreRemoteFrame() const;
+    WebCore::Frame* LEGACY_NODELETE coreFrame() const;
 
     void createProvisionalFrame(ProvisionalFrameCreationParameters&&);
     void commitProvisionalFrame();
     void destroyProvisionalFrame();
+    void updateSandboxFlags(WebCore::SandboxFlags);
     void loadDidCommitInAnotherProcess(WebCore::ProcessIdentifier hostingProcessID, std::optional<WebCore::LayerHostingContextIdentifier>);
     WebCore::LocalFrame* provisionalFrame() { return m_provisionalFrame.get(); }
 
     Awaitable<std::optional<FrameInfoData>> getFrameInfo();
     FrameInfoData info() const;
-    FrameTreeNodeData frameTreeData() const;
+    std::optional<FrameTreeNodeData> frameTreeData() const;
 
     WebCore::FrameIdentifier frameID() const { return m_frameID; }
 
@@ -162,6 +164,7 @@ public:
     PolicyListenerIdentifier setUpPolicyListener(WebCore::FramePolicyFunction&&, ForNavigationAction, PolicyCheckKind, Markable<WebCore::ScriptExecutionContextIdentifier> initiatingDocument = { }, SingleThreadWeakPtr<WebCore::DocumentLoader>&& downloadAttributePolicyDocumentLoader = { });
     void invalidatePolicyListeners();
     void didReceivePolicyDecision(PolicyListenerIdentifier, PolicyDecision&&);
+    bool dispatchPendingNavigateEventAfterNavigationPolicy(WebCore::PendingNavigateEventIdentifier);
 
     void didFinishLoadInAnotherProcess();
     void removeFromTree();
@@ -178,14 +181,14 @@ public:
     WebCore::IntSize size() const;
 
     // WKBundleFrame API and SPI functions
-    bool NODELETE isMainFrame() const;
+    bool LEGACY_NODELETE isMainFrame() const;
     bool isRootFrame() const;
     String name() const;
     URL url() const;
     WebCore::CertificateInfo certificateInfo() const;
     String innerText() const;
     bool isFrameSet() const;
-    RefPtr<WebFrame> NODELETE parentFrame() const;
+    RefPtr<WebFrame> LEGACY_NODELETE parentFrame() const;
     Ref<API::Array> childFrames();
     JSGlobalContextRef jsContext();
     JSGlobalContextRef jsContextForWorld(WebCore::DOMWrapperWorld&);
@@ -213,7 +216,7 @@ public:
     RefPtr<InjectedBundleHitTestResult> hitTest(const WebCore::IntPoint, OptionSet<WebCore::HitTestRequest::Type> = defaultHitTestRequestTypes()) const;
 
     bool getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha);
-    bool NODELETE containsAnyFormElements() const;
+    bool LEGACY_NODELETE containsAnyFormElements() const;
     bool containsAnyFormControls() const;
     void stopLoading();
     void setAccessibleName(const AtomString&);
@@ -248,15 +251,15 @@ public:
 
     RefPtr<WebImage> createSelectionSnapshot() const;
 
-#if ENABLE(TWO_PHASE_CLICKS)
+#if ENABLE(TWO_PHASE_CLICKS) || ENABLE(UI_SIDE_COMPOSITING)
     std::optional<TransactionID> firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
     void setFirstLayerTreeTransactionIDAfterDidCommitLoad(TransactionID transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
 #endif
 
-    WebLocalFrameLoaderClient* NODELETE localFrameLoaderClient() const;
+    WebLocalFrameLoaderClient* LEGACY_NODELETE localFrameLoaderClient() const;
 
-    WebRemoteFrameClient* NODELETE remoteFrameClient() const;
-    WebFrameLoaderClient* NODELETE frameLoaderClient() const;
+    WebRemoteFrameClient* LEGACY_NODELETE remoteFrameClient() const;
+    WebFrameLoaderClient* LEGACY_NODELETE frameLoaderClient() const;
 
 #if ENABLE(APP_BOUND_DOMAINS)
     bool shouldEnableInAppBrowserPrivacyProtections();
@@ -277,7 +280,7 @@ public:
     WebCore::HandleUserInputEventResult handleMouseEvent(const WebMouseEvent&);
     bool handleKeyEvent(const WebKeyboardEvent&);
 
-    bool NODELETE isFocused() const;
+    bool LEGACY_NODELETE isFocused() const;
 
     String frameTextForTesting(bool);
 
@@ -357,7 +360,7 @@ private:
     bool m_wasRemovedInAnotherProcess { false };
     bool m_hasAppliedInitialRemoteFrameRect { false };
 
-#if ENABLE(TWO_PHASE_CLICKS)
+#if ENABLE(TWO_PHASE_CLICKS) || ENABLE(UI_SIDE_COMPOSITING)
     std::optional<TransactionID> m_firstLayerTreeTransactionIDAfterDidCommitLoad;
 #endif
     std::optional<NavigatingToAppBoundDomain> m_isNavigatingToAppBoundDomain;
@@ -365,7 +368,7 @@ private:
     Markable<WebCore::LayerHostingContextIdentifier> m_layerHostingContextIdentifier;
     Markable<WebCore::FrameIdentifier> m_frameIDBeforeProvisionalNavigation;
 
-    std::unique_ptr<FrameInspectorTarget> m_inspectorTarget;
+    const std::unique_ptr<FrameInspectorTarget> m_inspectorTarget;
 };
 
 RefPtr<WebCore::ShareableBitmap> shareableBitmapFromImageData(WebCore::ImageData&);

@@ -66,7 +66,7 @@ public:
 
     void resourceChanged(SVGElement&) final;
 
-    const RenderElement& NODELETE renderer() const final { return m_clientRenderer.get(); }
+    const RenderElement& LEGACY_NODELETE renderer() const final { return m_clientRenderer.get(); }
 
 private:
     const CheckedRef<RenderElement> m_clientRenderer;
@@ -125,8 +125,10 @@ void CSSSVGResourceElementClient::resourceChanged(SVGElement& element)
         clientLayerModelObject->invalidateCachedVisualOverflowRect();
         // Ensure the post-layout recursiveUpdateLayerPositions() processes this client layer
         // and generates repaint rects, even if the client's own geometry didn't change.
-        if (CheckedPtr layer = clientLayerModelObject->layer())
+        if (CheckedPtr layer = clientLayerModelObject->layer()) {
             layer->setSelfAndDescendantsNeedPositionUpdate();
+            layer->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
+        }
     }
 
     // Special case for markers. Markers can be attached to RenderSVGPath object. Marker positions are computed

@@ -478,7 +478,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
         // e.g given the chain: main <- cross-origin <- same-origin 2 <- same-origin 1 <- target
         // then scroll margin is applied to same-origin frame 1/2 but not to cross-origin and main frames.
         // Clips are visited from the target's frame outwards, so stop applying scroll margin once we see a cross-origin frame.
-        Ref targetSecurityOrigin = target.document().securityOrigin();
+        Ref targetSecurityOrigin = protect(target.document())->securityOrigin();
         auto& scrollMargin = scrollMarginBox();
         bool hasSeenCrossOriginFrame = false;
         auto applyScrollMargin = [&](const Frame& frame, const LayoutRect& clipRect) -> std::optional<LayoutRect> {
@@ -537,7 +537,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             intersectionState.absoluteIntersectionRect = rootAbsoluteIntersectionRect;
         else {
             auto rootViewIntersectionRect = hostFrameView.contentsToView(rootAbsoluteIntersectionRect);
-            intersectionState.absoluteIntersectionRect = targetRenderer->view().frameView().rootViewToContentsAcrossIsolatedFrames(rootViewIntersectionRect);
+            intersectionState.absoluteIntersectionRect = protect(targetRenderer->view().frameView())->rootViewToContentsAcrossIsolatedFrames(rootViewIntersectionRect);
         }
 
         intersectionState.isIntersecting = intersectionState.absoluteIntersectionRect->edgeInclusiveIntersect(*intersectionState.absoluteTargetRect);
@@ -599,7 +599,7 @@ auto IntersectionObserver::updateObservations(const Frame& hostFrame) -> NeedNot
         // Per HTML spec, "update the rendering" step (which includes "run the update intersection
         // observations") only occurs for fully active documents. Hence skip updating the target if
         // its document is not fully active.
-        if (!root() && !isDocumentFullyActive(target->document()))
+        if (!root() && !isDocumentFullyActive(protect(target->document())))
             continue;
 
         auto& targetRegistrations = target->intersectionObserverDataIfExists()->registrations;
@@ -611,7 +611,7 @@ auto IntersectionObserver::updateObservations(const Frame& hostFrame) -> NeedNot
 
         bool isSameOriginObservation = [&] () {
             if (RefPtr hostFrameSecurityOrigin = hostFrame.frameDocumentSecurityOrigin())
-                return protect(target->document().securityOrigin())->isSameOriginDomain(*hostFrameSecurityOrigin);
+                return protect(protect(target->document())->securityOrigin())->isSameOriginDomain(*hostFrameSecurityOrigin);
 
             return false;
         }();
@@ -747,12 +747,12 @@ bool IntersectionObserver::isReachableFromOpaqueRoots(JSC::AbstractSlotVisitor& 
     }
 
     for (auto& target : m_pendingTargets) {
-        if (containsWebCoreOpaqueRoot(visitor, target.get()))
+        SUPPRESS_UNCOUNTED_ARG SUPPRESS_UNCHECKED_ARG if (containsWebCoreOpaqueRoot(visitor, target.get()))
             return true;
     }
 
     for (auto& target : m_targetsWaitingForFirstObservation) {
-        if (containsWebCoreOpaqueRoot(visitor, target.get()))
+        SUPPRESS_UNCOUNTED_ARG SUPPRESS_UNCHECKED_ARG if (containsWebCoreOpaqueRoot(visitor, target.get()))
             return true;
     }
 

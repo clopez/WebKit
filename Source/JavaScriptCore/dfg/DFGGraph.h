@@ -49,6 +49,7 @@
 #include <wtf/StackCheck.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/UTF8CStringView.h>
 
 namespace WTF {
 template <typename T> class SingleRootGraph;
@@ -128,7 +129,7 @@ using SSANaturalLoops = NaturalLoops<SSACFG>;
         if (!!(assertion))                                              \
             break;                                                      \
         (graph).logAssertionFailure(                                    \
-            (node), __FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
+            (node), __FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion ""_s); \
         CRASH_WITH_SECURITY_IMPLICATION_AND_INFO(__VA_ARGS__);          \
     } while (false)
 
@@ -274,7 +275,7 @@ public:
     void packNodeIndices();
     void clearAbstractValues();
 
-    void NODELETE dethread();
+    void LEGACY_NODELETE dethread();
     
     FrozenValue* freeze(JSValue); // We use weak freezing by default.
     FrozenValue* freezeStrong(JSValue); // Shorthand for freeze(value)->strengthenTo(StrongValue).
@@ -314,7 +315,7 @@ public:
 
     void dump(PrintStream&, DumpContext*);
 
-    bool NODELETE terminalsAreValid();
+    bool LEGACY_NODELETE terminalsAreValid();
     
     enum PhiNodeDumpMode { DumpLivePhisOnly, DumpAllPhis };
     void dumpBlockHeader(PrintStream&, const char* prefix, BasicBlock*, PhiNodeDumpMode, DumpContext*);
@@ -554,7 +555,7 @@ public:
         return arithRound->canSpeculateInt32(pass) && !hasExitSite(arithRound->origin.semantic, Overflow) && !hasExitSite(arithRound->origin.semantic, NegativeZero);
     }
     
-    static ASCIILiteral NODELETE opName(NodeType);
+    static ASCIILiteral LEGACY_NODELETE opName(NodeType);
     
     RegisteredStructureSet* addStructureSet(const StructureSet& structureSet)
     {
@@ -759,19 +760,19 @@ public:
     // any GetLocals in the basic block.
     // FIXME: it may be appropriate, in the future, to generalize this to handle GetLocals
     // introduced anywhere in the basic block.
-    void NODELETE substituteGetLocal(BasicBlock& block, unsigned startIndexInBlock, VariableAccessData* variableAccessData, Node* newGetLocal);
+    void LEGACY_NODELETE substituteGetLocal(BasicBlock& block, unsigned startIndexInBlock, VariableAccessData* variableAccessData, Node* newGetLocal);
     
     void invalidateCFG();
     void invalidateNodeLiveness();
     
-    void NODELETE clearFlagsOnAllNodes(NodeFlags);
+    void LEGACY_NODELETE clearFlagsOnAllNodes(NodeFlags);
     
-    void NODELETE clearReplacements();
-    void NODELETE clearEpochs();
-    void NODELETE initializeNodeOwners();
+    void LEGACY_NODELETE clearReplacements();
+    void LEGACY_NODELETE clearEpochs();
+    void LEGACY_NODELETE initializeNodeOwners();
     
     BlockList blocksInPreOrder();
-    BlockList blocksInPostOrder(bool isSafeToValidate = true);
+    BlockList blocksInPostOrder();
     
     class NaturalBlockIterable {
     public:
@@ -865,19 +866,19 @@ public:
     };
 
     template<typename ChildFunctor>
-    ALWAYS_INLINE void doToChildren(Node* node, const ChildFunctor& functor)
+    ALWAYS_INLINE void doToChildren(Node* node, NOESCAPE const ChildFunctor& functor)
     {
         DFG_NODE_DO_TO_CHILDREN(*this, node, (ForwardingFunc<ChildFunctor>(functor)));
     }
     
     template<typename ChildFunctor>
-    ALWAYS_INLINE void doToAllChildren(Node* node, const ChildFunctor& functor)
+    ALWAYS_INLINE void doToAllChildren(Node* node, NOESCAPE const ChildFunctor& functor)
     {
         DFG_NODE_DO_TO_ALL_CHILDREN_COMMON(*this, node, (ForwardingFunc<ChildFunctor>(functor)), APPLY_THING_TO_DO);
     }
 
     template<typename ChildFunctor>
-    ALWAYS_INLINE void doToChildrenBreakOnDone(Node* node, const ChildFunctor& functor)
+    ALWAYS_INLINE void doToChildrenBreakOnDone(Node* node, NOESCAPE const ChildFunctor& functor)
     {
         DFG_NODE_DO_TO_CHILDREN_BREAK_ON_DONE(*this, node, (ForwardingFunc<ChildFunctor>(functor)));
     }
@@ -1120,7 +1121,7 @@ public:
     // any arguments because those are all presumed live. You can call forAllLiveInBytecode() to
     // also get the arguments. This is much faster than calling isLiveInBytecode() for each local.
     template<typename Functor>
-    void forAllLocalsAndTmpsLiveInBytecode(CodeOrigin codeOrigin, const Functor& functor)
+    void forAllLocalsAndTmpsLiveInBytecode(CodeOrigin codeOrigin, NOESCAPE const Functor& functor)
     {
         // Support for not redundantly reporting arguments. Necessary because in case of a varargs
         // call, only the callee knows that arguments are live while in the case of a non-varargs
@@ -1224,7 +1225,7 @@ public:
     // Tells you all of the operands live at the given CodeOrigin. This is a small
     // extension to forAllLocalsOrTmpsLiveInBytecode(), since all arguments are always presumed live.
     template<typename Functor>
-    void forAllLiveInBytecode(CodeOrigin codeOrigin, const Functor& functor)
+    void forAllLiveInBytecode(CodeOrigin codeOrigin, NOESCAPE const Functor& functor)
     {
         forAllLocalsAndTmpsLiveInBytecode(codeOrigin, functor);
         
@@ -1233,7 +1234,7 @@ public:
             functor(virtualRegisterForArgumentIncludingThis(argument));
     }
 
-    static unsigned NODELETE parameterSlotsForArgCount(unsigned);
+    static unsigned LEGACY_NODELETE parameterSlotsForArgCount(unsigned);
     
     unsigned frameRegisterCount();
     unsigned stackPointerOffset();
@@ -1272,13 +1273,13 @@ public:
 
     void logAssertionFailure(
         std::nullptr_t, const char* file, int line, const char* function,
-        const char* assertion);
+        UTF8CStringView assertion);
     void logAssertionFailure(
         Node*, const char* file, int line, const char* function,
-        const char* assertion);
+        UTF8CStringView assertion);
     void logAssertionFailure(
         BasicBlock*, const char* file, int line, const char* function,
-        const char* assertion);
+        UTF8CStringView assertion);
 
     bool hasDebuggerEnabled() const { return m_hasDebuggerEnabled; }
 

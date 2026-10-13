@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,14 +46,17 @@ public:
     RenderHTMLCanvas(HTMLCanvasElement&, Style::ComputedStyle&&);
     virtual ~RenderHTMLCanvas();
 
-    HTMLCanvasElement& NODELETE canvasElement() const;
+    HTMLCanvasElement& LEGACY_NODELETE canvasElement() const;
 
     void canvasSizeChanged();
 
     RenderBlock* innerRenderer() const { return m_innerRenderer.get(); }
     void setInnerRenderer(RenderBlock*);
 
-    std::optional<CanvasElementSnapshot> drawableRendererSnapshot(RenderElement&) const;
+    bool hasDrawableContent() const final;
+
+    DisplayList::RecorderImpl* canvasDrawableRecorder(RenderElement&, GraphicsContext&) const;
+    std::optional<CanvasElementSnapshot> canvasDrawableSnapshot(RenderElement&) const;
 
 private:
     void element() const = delete;
@@ -70,7 +73,7 @@ private:
     void styleDidChange(Style::Difference, const Style::ComputedStyle* oldStyle) override;
 
     SingleThreadWeakPtr<RenderBlock> m_innerRenderer;
-    HashMap<SingleThreadWeakRef<RenderElement>, UniqueRef<DisplayList::RecorderImpl>> m_drawableRendererSnapshotRecorderMap;
+    mutable HashMap<SingleThreadWeakRef<RenderElement>, Ref<DisplayList::RecorderImpl>> m_canvasDrawableRecorderMap;
 };
 
 } // namespace WebCore

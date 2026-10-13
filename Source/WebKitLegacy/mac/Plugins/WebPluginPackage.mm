@@ -31,13 +31,14 @@
 #import <WebKitLegacy/WebKitLogging.h>
 #import <WebKitLegacy/WebKitNSStringExtras.h>
 #import <WebKitLegacy/WebPluginViewFactory.h>
+#import <WebKitLegacy/WebPluginViewFactoryPrivate.h>
 
-NSString *WebPlugInBaseURLKey =                 @"WebPlugInBaseURLKey";
-NSString *WebPlugInAttributesKey =              @"WebPlugInAttributesKey";
+NSString * const WebPlugInBaseURLKey =                 @"WebPlugInBaseURLKey";
+NSString * const WebPlugInAttributesKey =              @"WebPlugInAttributesKey";
 NSString *WebPlugInContainerKey =               @"WebPlugInContainerKey";
-NSString *WebPlugInModeKey =                    @"WebPlugInModeKey";
-NSString *WebPlugInShouldLoadMainResourceKey =  @"WebPlugInShouldLoadMainResourceKey";
-NSString *WebPlugInContainingElementKey =       @"WebPlugInContainingElementKey";
+NSString * const WebPlugInModeKey =                    @"WebPlugInModeKey";
+NSString * const WebPlugInShouldLoadMainResourceKey =  @"WebPlugInShouldLoadMainResourceKey";
+NSString * const WebPlugInContainingElementKey =       @"WebPlugInContainingElementKey";
 
 @implementation WebPluginPackage
 
@@ -46,7 +47,7 @@ NSString *WebPlugInContainingElementKey =       @"WebPlugInContainingElementKey"
     if (!(self = [super initWithPath:pluginPath]))
         return nil;
 
-    nsBundle = [[NSBundle alloc] initWithPath:path.createNSString().get()];
+    nsBundle = adoptNS([[NSBundle alloc] initWithPath:path.createNSString().get()]);
 
     if (!nsBundle) {
         [self release];
@@ -78,14 +79,6 @@ NSString *WebPlugInContainingElementKey =       @"WebPlugInContainingElementKey"
     }
 
     return self;
-}
-
-- (void)dealloc
-{
-    // Retaining the member just to release it would be pointless.
-    SUPPRESS_UNRETAINED_ARG [nsBundle release];
-
-    [super dealloc];
 }
 
 - (Class)viewFactory

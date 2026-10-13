@@ -45,7 +45,7 @@ const CSSParserContext& strictCSSParserContext()
     return strictContext;
 }
 
-static void NODELETE applyUASheetBehaviorsToContext(CSSParserContext& context)
+static void LEGACY_NODELETE applyUASheetBehaviorsToContext(CSSParserContext& context)
 {
     // FIXME: We should turn all of the features on from their WebCore Settings defaults.
     context.cssAppearanceBaseEnabled = true;
@@ -62,6 +62,7 @@ static void NODELETE applyUASheetBehaviorsToContext(CSSParserContext& context)
 #endif
     context.cssInternalAutoBaseParsingEnabled = true;
     context.htmlEnhancedSelectEnabled = true;
+    context.openPseudoClassEnabled = true;
 }
 
 CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
@@ -130,7 +131,6 @@ CSSParserContext::CSSParserContext(const Settings& settings)
     , cssInternalAutoBaseParsingEnabled { settings.cssInternalAutoBaseParsingEnabled() }
     , cssMathDepthEnabled { settings.cssMathDepthEnabled() }
     , openPseudoClassEnabled { settings.openPseudoClassEnabled() }
-    , cssAttrSubstitutionFunctionEnabled { settings.cssAttrSubstitutionFunctionEnabled() }
     , cssScrollStateContainerQueriesEnabled { settings.cssScrollStateContainerQueriesEnabled() }
     , cssCalcMixEnabled { settings.cssCalcMixEnabled() }
     , cssIdentFunctionEnabled { settings.cssIdentFunctionEnabled() }
@@ -189,7 +189,6 @@ void add(Hasher& hasher, const CSSParserContext& context)
         context.webkitMediaTextTrackDisplayQuirkEnabled,
         context.cssMathDepthEnabled,
         context.openPseudoClassEnabled,
-        context.cssAttrSubstitutionFunctionEnabled,
         context.cssScrollStateContainerQueriesEnabled,
         context.cssCalcMixEnabled,
         context.cssIdentFunctionEnabled,

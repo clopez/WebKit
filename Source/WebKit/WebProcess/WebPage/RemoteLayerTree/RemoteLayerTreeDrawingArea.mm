@@ -45,12 +45,15 @@
 #import "WebProcess.h"
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/DebugPageOverlays.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/FrameInlines.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
+#import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
 #import <WebCore/RenderLayerCompositor.h>
 #import <WebCore/RenderView.h>
+#import <WebCore/RunLoopObserver.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/Settings.h>
 #import <WebCore/TiledBacking.h>
@@ -78,6 +81,11 @@ RemoteLayerTreeDrawingArea::RemoteLayerTreeDrawingArea(WebPage& webPage, const W
     , m_scheduleRenderingTimer(*this, &RemoteLayerTreeDrawingArea::scheduleRenderingUpdateTimerFired)
     , m_preferredFramesPerSecond(DefaultPreferredFramesPerSecond)
 {
+    lazyInitialize(m_postRenderingUpdateRunLoopObserver, makeUnique<RunLoopObserver>(RunLoopObserver::WellKnownOrder::PostRenderingUpdate, [weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis)
+            protectedThis->postRenderingUpdateRunLoopCallback();
+    }));
+
     if (auto viewExposedRect = parameters.viewExposedRect)
         setViewExposedRect(viewExposedRect);
 }
@@ -228,6 +236,18 @@ DelegatedScrollingMode RemoteLayerTreeDrawingArea::delegatedScrollingMode() cons
     return DelegatedScrollingMode::DelegatedToNativeScrollView;
 }
 
+static bool hasNeverPainted(WebPage& webPage)
+{
+    RefPtr page = webPage.corePage();
+    if (!page)
+        return false;
+    for (auto& rootFrame : page->rootFrames()) {
+        if (RefPtr view = rootFrame->view(); view && view->hasEverPainted())
+            return false;
+    }
+    return true;
+}
+
 void RemoteLayerTreeDrawingArea::setLayerTreeStateIsFrozen(bool isFrozen)
 {
     if (m_isRenderingSuspended == isFrozen)
@@ -237,10 +257,19 @@ void RemoteLayerTreeDrawingArea::setLayerTreeStateIsFrozen(bool isFrozen)
 
     m_isRenderingSuspended = isFrozen;
 
-    if (!m_isRenderingSuspended && m_hasDeferredRenderingUpdate) {
-        m_hasDeferredRenderingUpdate = false;
-        startRenderingUpdateTimer();
+    if (m_isRenderingSuspended) {
+        m_shouldStartRenderingUpdateBeforeDueTimers = false;
+        return;
     }
+
+    m_shouldStartRenderingUpdateBeforeDueTimers = hasNeverPainted(protect(m_webPage)) && !m_waitingForBackingStoreSwap;
+
+    bool hasPendingRenderingUpdate = std::exchange(m_hasDeferredRenderingUpdate, false);
+    if (m_shouldStartRenderingUpdateBeforeDueTimers && m_isScheduled && !m_scheduleRenderingTimer.isActive())
+        hasPendingRenderingUpdate = true;
+
+    if (hasPendingRenderingUpdate)
+        startRenderingUpdateTimer();
 }
 
 void RemoteLayerTreeDrawingArea::updateRenderingWithForcedRepaint()
@@ -303,7 +332,10 @@ void RemoteLayerTreeDrawingArea::startRenderingUpdateTimer()
         return;
     if (!m_updateStartTime)
         m_updateStartTime = MonotonicTime::now();
-    m_updateRenderingTimer.startOneShot(0_s);
+    if (m_shouldStartRenderingUpdateBeforeDueTimers)
+        m_updateRenderingTimer.startOneShotBeforeDueTimers();
+    else
+        m_updateRenderingTimer.startOneShot(0_s);
 }
 
 void RemoteLayerTreeDrawingArea::triggerRenderingUpdate()
@@ -327,6 +359,8 @@ void RemoteLayerTreeDrawingArea::updateRendering()
         m_deferredRenderingUpdateWhileWaitingForBackingStoreSwap = true;
         return;
     }
+
+    m_shouldStartRenderingUpdateBeforeDueTimers = false;
 
     // This function is not reentrant, e.g. a rAF callback may force repaint.
     if (m_inUpdateRendering)
@@ -433,19 +467,27 @@ void RemoteLayerTreeDrawingArea::updateRendering()
 
         RunLoop::mainSingleton().dispatch([pageID, flushSucceeded] () mutable {
             if (RefPtr webPage = WebProcess::singleton().webPage(pageID)) {
-                if (RefPtr drawingArea = dynamicDowncast<RemoteLayerTreeDrawingArea>(webPage->drawingArea())) {
+                if (RefPtr drawingArea = dynamicDowncast<RemoteLayerTreeDrawingArea>(webPage->drawingArea()))
                     drawingArea->didCompleteRenderingUpdateDisplayFlush(flushSucceeded);
-                    drawingArea->didCompleteRenderingFrame();
-                }
             }
         });
     });
+
+    didCompleteRenderingUpdateDisplay();
+
+    if (!m_postRenderingUpdateRunLoopObserver->isScheduled())
+        m_postRenderingUpdateRunLoopObserver->schedule();
+}
+
+void RemoteLayerTreeDrawingArea::postRenderingUpdateRunLoopCallback()
+{
+    didCompleteRenderingFrame();
+    m_postRenderingUpdateRunLoopObserver->invalidate();
 }
 
 void RemoteLayerTreeDrawingArea::didCompleteRenderingUpdateDisplayFlush(bool flushSucceeded)
 {
     protect(m_webPage)->didFlushLayerTreeAtTime(MonotonicTime::now(), flushSucceeded);
-    didCompleteRenderingUpdateDisplay();
 }
 
 void RemoteLayerTreeDrawingArea::displayDidRefresh(MonotonicTime start)

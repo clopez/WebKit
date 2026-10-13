@@ -62,6 +62,7 @@ void RenderSVGPath::updateShapeFromElement()
     m_fillBoundingBox = ensurePath().boundingRect();
     m_strokeBoundingBox = std::nullopt;
     m_approximateStrokeBoundingBox = std::nullopt;
+    m_hitTestStrokeBoundingBox = std::nullopt;
     updateMarkerPositions();
     updateZeroLengthSubpaths();
 
@@ -187,7 +188,7 @@ void RenderSVGPath::strokeZeroLengthSubpaths(GraphicsContext& context) const
     }
 }
 
-static inline RenderSVGResourceMarker* NODELETE markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
+static inline RenderSVGResourceMarker* LEGACY_NODELETE markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
 {
     switch (type) {
     case SVGMarkerType::Start:

@@ -35,7 +35,7 @@
 #include <WebCore/FloatQuad.h>
 #include <WebCore/LayoutRect.h>
 #include <WebCore/Path.h>
-#include <WebCore/TextIterator.h>
+#include <WebCore/TextIteratorBehavior.h>
 #include <iterator>
 #include <wtf/CompactUniquePtrTuple.h>
 #include <wtf/Forward.h>
@@ -69,6 +69,7 @@ class HTMLTextFormControlElement;
 class IntPoint;
 class IntSize;
 class ScrollableArea;
+class TextIterator;
 
 enum class CommandType: uint8_t;
 
@@ -93,12 +94,12 @@ public:
     void addAncestorFlags(const OptionSet<AXAncestorFlag>& flags) { m_ancestorFlags.add(flags); }
     bool ancestorFlagsAreInitialized() const { return m_ancestorFlags.contains(AXAncestorFlag::FlagsInitialized); }
     // Computes the flags that this object matches (no traversal is done).
-    OptionSet<AXAncestorFlag> NODELETE computeAncestorFlags() const;
+    OptionSet<AXAncestorFlag> LEGACY_NODELETE computeAncestorFlags() const;
     // Computes the flags that this object and all ancestors match, traversing all the way to the root.
     OptionSet<AXAncestorFlag> computeAncestorFlagsWithTraversal() const;
     void initializeAncestorFlags(const OptionSet<AXAncestorFlag>&);
     bool hasAncestorMatchingFlag(AXAncestorFlag) const;
-    bool NODELETE matchesAncestorFlag(AXAncestorFlag) const;
+    bool LEGACY_NODELETE matchesAncestorFlag(AXAncestorFlag) const;
 
     bool hasRareData() const { return !!m_rareDataWithBitfields.pointer(); }
     AXObjectRareData* rareData() const { return m_rareDataWithBitfields.pointer(); }
@@ -138,6 +139,8 @@ public:
     virtual bool isAccessibilityTableColumnInstance() const { return false; }
     virtual bool isAccessibilityListBoxInstance() const { return false; }
     virtual bool isAccessibilityListBoxOptionInstance() const { return false; }
+    virtual bool isAccessibilityProgressIndicatorInstance() const { return false; }
+    virtual bool isAccessibilitySliderInstance() const { return false; }
     bool isAXIsolatedObjectInstance() const final { return false; }
 
     bool isSecureField() const override { return false; }
@@ -244,6 +247,7 @@ public:
     bool isChecked() const override { return false; }
     bool isEnabled() const override { return false; }
     bool isSelected() const override;
+    String selectedOptionCheckmark() const final;
     bool isTabItemSelected() const;
     bool isFocused() const override { return false; }
     bool isIndeterminate() const override { return false; }
@@ -288,7 +292,7 @@ public:
     bool canSetSelectedAttribute() const override { return false; }
 
     Element* element() const final;
-    Node* NODELETE node() const override { return nullptr; }
+    Node* LEGACY_NODELETE node() const override { return nullptr; }
     RenderObject* renderer() const override { return nullptr; }
     CheckedPtr<RenderObject> rendererOrNearestAncestor() const;
     // Resolves the computed style if necessary (and safe to do so).
@@ -317,7 +321,7 @@ public:
     virtual float stepValueForRange() const { return 0.0f; }
     int layoutCount() const override { return 0; }
     double loadingProgress() const final;
-    WEBCORE_EXPORT static bool NODELETE isARIAControl(AccessibilityRole);
+    WEBCORE_EXPORT static bool LEGACY_NODELETE isARIAControl(AccessibilityRole);
     bool supportsCheckedState() const override;
 
     bool supportsARIAOwns() const override { return false; }
@@ -327,7 +331,9 @@ public:
     bool supportsHasPopup() const final;
     bool pressedIsPresent() const final;
     bool ariaIsMultiline() const;
-    String explicitInvalidStatus() const final;
+    String explicitInvalidStatus() const;
+    String invalidStatusIncludingInferred() const final;
+    RefPtr<AXCoreObject> formOwnerObject() const;
     bool supportsPressed() const;
     bool supportsExpanded() const final;
     bool supportsChecked() const final;
@@ -344,7 +350,7 @@ public:
 
     // This function checks if the object should be ignored when there's a modal dialog displayed.
     virtual bool ignoredFromModalPresence() const;
-    bool NODELETE isModalDescendant(Node&) const;
+    bool LEGACY_NODELETE isModalDescendant(Node&) const;
     bool isModalNode() const final;
 
     bool supportsSetSize() const final;
@@ -426,7 +432,7 @@ public:
     bool hasAttributedText() const;
     // Defined in AccessibilityObjectCocoa.mm: NSResponder is WAKResponder on iOS, which can
     // only be completed in an Objective-C++ translation unit.
-    static void makeFirstResponderForPlatformWidget(ChromeClient&, PlatformWidget);
+    static void makeFirstResponderForPlatformWidget(ChromeClient&, Widget&);
 #endif
     String textContentPrefixFromListMarker() const override;
 
@@ -991,9 +997,9 @@ protected:
 
     virtual bool shouldIgnoreAttributeRole() const { return false; }
     virtual AccessibilityRole buttonRoleType() const;
-    bool NODELETE dispatchTouchEvent();
+    bool LEGACY_NODELETE dispatchTouchEvent();
 
-    static bool NODELETE isARIAInput(AccessibilityRole);
+    static bool LEGACY_NODELETE isARIAInput(AccessibilityRole);
 
     AccessibilityObject* radioGroupAncestor() const;
 
@@ -1003,7 +1009,7 @@ protected:
 #if ASSERT_ENABLED
     void verifyChildrenIndexInParent() const final { return AXCoreObject::verifyChildrenIndexInParent(m_children); }
 #endif
-    void NODELETE resetChildrenIndexInParent() const;
+    void LEGACY_NODELETE resetChildrenIndexInParent() const;
 
 private:
     ProcessID processID() const final { return legacyPresentingApplicationPID(); }

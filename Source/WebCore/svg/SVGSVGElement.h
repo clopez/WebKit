@@ -30,6 +30,7 @@
 namespace WebCore {
 
 struct DOMMatrix2DInit;
+class RenderElement;
 class SMILTimeContainer;
 class SVGAngle;
 class SVGLength;
@@ -74,7 +75,7 @@ public: // DOM
     void pauseAnimations();
     void unpauseAnimations();
     bool resumePausedAnimationsIfNeeded(const IntRect&);
-    bool NODELETE animationsPaused() const;
+    bool LEGACY_NODELETE animationsPaused() const;
     float getCurrentTime() const;
     void setCurrentTime(float);
     
@@ -88,6 +89,8 @@ public:
     static Ref<SVGSVGElement> create(Document&);
     bool setViewForFragment(StringView fragmentIdentifier);
     void resetViewToDefault();
+
+    void setIgnoresPreserveAspectRatioForSVGImage(bool ignores) { m_ignoresPreserveAspectRatioForSVGImage = ignores; }
 
     using PropertyRegistry = SVGPropertyOwnerRegistry<SVGSVGElement, SVGGraphicsElement, SVGFitToViewBox>;
     using SVGGraphicsElement::ref;
@@ -118,7 +121,7 @@ public:
     FloatRect currentViewBoxRect() const;
     bool hasSynthesizedViewBoxForSVGImage() const;
 
-    bool viewBoxDisablesPainting();
+    bool viewBoxDisablesPainting() const;
 
     AffineTransform viewBoxToViewTransform(float viewWidth, float viewHeight) const;
     bool hasTransformRelatedAttributes() const final;
@@ -134,6 +137,7 @@ public:
     SVGAnimatedLength& heightAnimated() { return m_height; }
 
     void inheritViewAttributes(const SVGViewElement&);
+    void invalidateCurrentView(RenderElement&);
 
 private:
     SVGSVGElement(const QualifiedName&, Document&);
@@ -161,16 +165,17 @@ private:
     FloatSize computeCurrentViewportSizeExcludingZoom() const;
 
     RefPtr<SVGViewElement> findViewAnchor(StringView fragmentIdentifier) const;
-    SVGSVGElement* NODELETE findRootAnchor(const SVGViewElement*) const;
+    SVGSVGElement* LEGACY_NODELETE findRootAnchor(const SVGViewElement*) const;
     SVGSVGElement* findRootAnchor(StringView) const;
 
     bool m_useCurrentView { false };
+    bool m_ignoresPreserveAspectRatioForSVGImage { false };
     const Ref<SMILTimeContainer> m_timeContainer;
-    RefPtr<SVGViewSpec> m_viewSpec;
+    const RefPtr<SVGViewSpec> m_viewSpec;
     RefPtr<SVGViewElement> m_currentViewElement;
     String m_currentViewFragmentIdentifier;
 
-    Ref<SVGPoint> m_currentTranslate { SVGPoint::create() };
+    const Ref<SVGPoint> m_currentTranslate { SVGPoint::create() };
 
     mutable std::optional<FloatSize> m_cachedViewportSizeExcludingZoom;
     mutable std::optional<FloatSize> m_cachedViewportSizeForLengthResolution;

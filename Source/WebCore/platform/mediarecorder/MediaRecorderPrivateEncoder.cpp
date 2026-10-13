@@ -561,7 +561,7 @@ void MediaRecorderPrivateEncoder::enqueueCompressedAudioSampleBuffers()
         return;
 
     if (!m_audioCompressedAudioInfo) {
-        RetainPtr audioFormatDescription = PAL::CMSampleBufferGetFormatDescription(audioConverter()->getOutputSampleBuffer());
+        RetainPtr audioFormatDescription = PAL::CMSampleBufferGetFormatDescription(protect(audioConverter()->getOutputSampleBuffer()));
         m_audioCompressedAudioInfo = createAudioInfoFromFormatDescription(audioFormatDescription.get());
         ASSERT(m_audioCompressedAudioInfo);
         if (!m_audioCompressedAudioInfo) {
@@ -591,7 +591,7 @@ void MediaRecorderPrivateEncoder::enqueueCompressedAudioSampleBuffers()
         }
         if (!m_hasStartedAudibleAudioFrame && sample->duration())
             m_hasStartedAudibleAudioFrame = true;
-        m_encodedAudioFrames.append(samplesBlockFromCMSampleBuffer(sample->sampleBuffer(), m_audioCompressedAudioInfo.get()));
+        m_encodedAudioFrames.append(samplesBlockFromCMSampleBuffer(protect(sample->sampleBuffer()), m_audioCompressedAudioInfo.get()));
         m_lastEncodedAudioSampleRange = { sample->presentationTime(), sample->presentationEndTime() };
         LOG(MediaStream, "enqueueCompressedAudioSampleBuffers: adding compressed audio: %f-%f", sample->presentationTime().toDouble(), sample->presentationEndTime().toDouble());
     };

@@ -99,6 +99,8 @@
 #include "ProgressTracker.h"
 #include "Range.h"
 #include "RemoteFrame.h"
+#include "RenderBlockFlow.h"
+#include "RenderDescendantIterator.h"
 #include "RenderElementInlines.h"
 #include "RenderImage.h"
 #include "RenderImageResource.h"
@@ -151,9 +153,9 @@ AccessibilityObject::~AccessibilityObject()
 {
     AX_ASSERT(isDetached());
 
-    if (!cachedIsIgnored()) {
-        if (auto* cache = m_axObjectCache.get())
-            cache->decrementUnignoredContentObjectCount(role());
+    if (CheckedPtr cache = axObjectCache()) {
+        if (cache->isCounted(*this))
+            cache->uncount(*this);
     }
 }
 
@@ -1027,14 +1029,14 @@ std::optional<BoundaryPoint> AccessibilityObject::lastBoundaryPointContainedInRe
     return lastBoundaryPointContainedInRect(boundaryPoints, startBoundary, rect, midIndex + 1, rightIndex, isFlippedWritingMode);
 }
 
-static IntPoint NODELETE textStartPoint(const IntRect& rect, bool isFlippedWritingMode)
+static IntPoint LEGACY_NODELETE textStartPoint(const IntRect& rect, bool isFlippedWritingMode)
 {
     if (!isFlippedWritingMode)
         return rect.minXMinYCorner();
     return rect.maxXMinYCorner();
 }
 
-static IntPoint NODELETE textEndPoint(const IntRect& rect, bool isFlippedWritingMode)
+static IntPoint LEGACY_NODELETE textEndPoint(const IntRect& rect, bool isFlippedWritingMode)
 {
     if (!isFlippedWritingMode)
         return rect.maxXMaxYCorner();
@@ -2169,7 +2171,7 @@ bool AccessibilityObject::isReplacedElementForTextEmission() const
     // can apply the ignored check themselves: an ignored replaced element (e.g. a <legend>) emits
     // no U+FFFC, but its block boundaries still don't emit newlines.
     RefPtr node = this->node();
-    return node && !node->isTextNode() && isRendererReplacedElement(node->renderer());
+    return node && !node->isTextNode() && isRendererReplacedElement(protect(node->renderer()));
 }
 
 bool AccessibilityObject::isInUserAgentShadowTree() const
@@ -2199,7 +2201,7 @@ ModelPlayerAccessibilityChildren AccessibilityObject::modelElementChildren()
 #endif
 
 // Finds a RenderListItem parent given a node.
-static RenderListItem* NODELETE renderListItemContainer(Node* node)
+static RenderListItem* LEGACY_NODELETE renderListItemContainer(Node* node)
 {
     for (; node; node = node->parentNode()) {
         if (auto* listItem = dynamicDowncast<RenderListItem>(node->renderer()))
@@ -2819,6 +2821,17 @@ String AccessibilityObject::actionVerb() const
     return { };
 }
 
+RefPtr<AXCoreObject> AccessibilityObject::formOwnerObject() const
+{
+    if (CheckedPtr cache = axObjectCache()) {
+        RefPtr element = this->element();
+        return cache->formOwnerObject(element.get());
+    }
+
+    return nullptr;
+}
+
+// What an author explicitly noted is the invalid status of the element (e.g. via aria-invalid).
 String AccessibilityObject::explicitInvalidStatus() const
 {
     static NeverDestroyed<String> grammarValue = "grammar"_s;
@@ -2829,18 +2842,10 @@ String AccessibilityObject::explicitInvalidStatus() const
 
     // aria-invalid can return false (default), grammar, spelling, or true.
     auto ariaInvalid = getAttributeTrimmed(aria_invalidAttr);
-
-    if (ariaInvalid.isEmpty()) {
-        auto* htmlElement = dynamicDowncast<HTMLElement>(this->node());
-        if (RefPtr validatedFormListedElement = htmlElement ? htmlElement->asValidatedFormListedElement() : nullptr) {
-            // "willValidate" is true if the element is able to be validated.
-            if (validatedFormListedElement->willValidate() && !validatedFormListedElement->isValidFormControlElement())
-                return trueValue;
-        }
+    if (ariaInvalid.isEmpty())
         return { };
-    }
 
-    // If "false", "undefined" [sic, string value], empty, or missing, return "false".
+    // If "false" or "undefined" [sic, string value], return "false".
     if (ariaInvalid == falseValue || ariaInvalid == undefinedValue)
         return falseValue;
     // Besides true/false/undefined, the only tokens defined by WAI-ARIA 1.0...
@@ -2851,6 +2856,45 @@ String AccessibilityObject::explicitInvalidStatus() const
         return spellingValue;
     // Any other non empty string should be treated as "true".
     return trueValue;
+}
+
+String AccessibilityObject::invalidStatusIncludingInferred() const
+{
+    static NeverDestroyed<String> falseValue = "false"_s;
+    static NeverDestroyed<String> trueValue = "true"_s;
+
+    auto explicitStatus = explicitInvalidStatus();
+    if (!explicitStatus.isEmpty() && explicitStatus != falseValue)
+        return explicitStatus;
+
+    // HTML constraint validation, which the author opted into with required, type or pattern.
+    if (explicitStatus.isEmpty()) {
+        auto* htmlElement = dynamicDowncast<HTMLElement>(this->node());
+        if (RefPtr validatedFormListedElement = htmlElement ? htmlElement->asValidatedFormListedElement() : nullptr) {
+            // "willValidate" is true if the element is able to be validated.
+            if (validatedFormListedElement->willValidate() && !validatedFormListedElement->isValidFormControlElement()) {
+                // Being empty is the one kind of invalid that is not yet a statement about this page, since it
+                // is true of every required field from first paint. A value that is present but wrong, or one
+                // the page rejected itself through setCustomValidity, is the author saying something really is
+                // wrong, so those count straight away. Waiting for the user to work on the form or try to
+                // submit it is what :user-invalid does, and this is the same bit it is built on.
+                bool invalidOnlyBecauseEmpty = validatedFormListedElement->valueMissing() && !validatedFormListedElement->customError();
+                RefPtr document = this->document();
+                if (!invalidOnlyBecauseEmpty || !document || !document->settings().accessibilityFormErrorDetectionEnabled()
+                    || validatedFormListedElement->wasInteractedWithSinceLastFormSubmitEvent())
+                    return trueValue;
+            }
+        }
+    }
+
+    if (RefPtr element = this->element()) {
+        // Trust our field error-detection more than the author keeping their aria-invalid
+        // state up-to-date (this staleness was observed on a popular flight booking webpage).
+        if (CheckedPtr cache = axObjectCache(); cache && cache->fieldHasDetectedError(*element))
+            return trueValue;
+    }
+
+    return falseValue;
 }
 
 AccessibilityCurrentState AccessibilityObject::currentState() const
@@ -3358,7 +3402,7 @@ FloatSize AccessibilityObject::imageDataSize() const
 RefPtr<SharedBuffer> AccessibilityObject::imageData(const AXImageDataParameters& parameters) const
 {
     RefPtr image = imageFromRenderer(renderer());
-    if (!image || image->isNull())
+    if (!image || !image->hasSomethingToDraw())
         return nullptr;
 
     auto nativeSize = image->size();
@@ -3384,7 +3428,7 @@ RefPtr<SharedBuffer> AccessibilityObject::imageData(const AXImageDataParameters&
         return nullptr;
 
     // Draw the source image scaled into the buffer.
-    imageBuffer->context().drawImage(*image, FloatRect({ }, bufferSize), FloatRect({ }, nativeSize));
+    imageBuffer->context().drawImage(*image, ConcreteObjectSize::fixed(nativeSize), FloatRect({ }, bufferSize), FloatRect({ }, nativeSize));
 
     // Determine the extraction rect from subrect parameters or full image.
     IntRect extractionRect;
@@ -3465,14 +3509,38 @@ bool AccessibilityObject::isSelected() const
         return option->selected();
     }
 
+#if USE(ATSPI)
+    // ATSPI reports the focused or active menu item as selected, and announces it with a selected state change
+    // when it gets focus. ARIA menu items have no selected state otherwise, so other platforms don't do this.
     if (isMenuItem()) {
         if (isFocused())
             return true;
         WeakPtr parent = parentObjectUnignored();
         return parent && parent->activeDescendant() == this;
     }
+#endif // USE(ATSPI)
 
     return false;
+}
+
+String AccessibilityObject::selectedOptionCheckmark() const
+{
+    // Options in a base-appearance select render a ::checkmark, which the UA stylesheet hides unless the option is selected.
+    RefPtr option = dynamicDowncast<HTMLOptionElement>(node());
+    CheckedPtr renderer = option ? option->renderer() : nullptr;
+    CheckedPtr checkmark = renderer ? renderer->pseudoElementRenderer(PseudoElementType::Checkmark).get() : nullptr;
+    if (!checkmark || checkmark->usedStyle().visibility() != UsedVisibility::Visible || !option->selected())
+        return { };
+
+    StringBuilder glyph;
+    for (CheckedRef text : descendantsOfType<RenderText>(*checkmark))
+        glyph.append(text->text());
+    String trimmedGlyph = glyph.toString().trim(isASCIIWhitespace);
+    if (!trimmedGlyph.isEmpty())
+        return trimmedGlyph;
+
+    // A checkmark without text is drawn some other way, like with an image or borders.
+    return String { span(checkMarkCharacter) };
 }
 
 bool AccessibilityObject::isTabItemSelected() const
@@ -3687,7 +3755,7 @@ void AccessibilityObject::setFocused(bool focus)
 
         // Legacy WebKit1 case.
         if (frameView->platformWidget())
-            makeFirstResponderForPlatformWidget(page->chrome().client(), frameView->platformWidget());
+            makeFirstResponderForPlatformWidget(page->chrome().client(), *frameView);
 #endif
 #if PLATFORM(MAC)
         else
@@ -3903,7 +3971,7 @@ bool AccessibilityObject::isExpanded() const
 
     if (supportsExpanded()) {
         if (RefPtr select = dynamicDowncast<HTMLSelectElement>(node()); select && select->usesMenuList())
-            return select->popupIsVisible();
+            return select->isOpen();
         if (RefPtr commandForElement = this->commandForElement())
             return commandForElement->isPopoverShowing();
         if (RefPtr popoverTargetElement = this->popoverTargetElement())
@@ -3954,9 +4022,9 @@ HashMap<String, AXEditingStyleValueVariant> AccessibilityObject::resolvedEditing
         return { };
 
     HashMap<String, AXEditingStyleValueVariant> styles;
-    styles.add("bold"_s, selectionStyle->hasStyle(CSSPropertyFontWeight, "bold"_s));
-    styles.add("italic"_s, selectionStyle->hasStyle(CSSPropertyFontStyle, "italic"_s));
-    styles.add("underline"_s, selectionStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s));
+    styles.add("bold"_s, selectionStyle->hasStyle(CSSPropertyID::FontWeight, "bold"_s));
+    styles.add("italic"_s, selectionStyle->hasStyle(CSSPropertyID::FontStyle, "italic"_s));
+    styles.add("underline"_s, selectionStyle->hasStyle(CSSPropertyID::WebkitTextDecorationsInEffect, "underline"_s));
     styles.add("fontsize"_s, selectionStyle->legacyFontSize(*document));
     return styles;
 }
@@ -4408,7 +4476,7 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     if (CheckedPtr style = this->style()) {
         if (style->effectiveInert())
             return AccessibilityObjectInclusion::IgnoreObject;
-        if (isVisibilityHidden(*style)) {
+        if (renderer() ? isVisibilityHidden(*renderer()) : isVisibilityHidden(*style)) {
             isHiddenUntilFound = isHiddenUntilFoundContainer();
             if (!isHiddenUntilFound)
                 return AccessibilityObjectInclusion::IgnoreObject;
@@ -4430,7 +4498,7 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
 
     bool ignoreARIAHidden = isFocused();
     if (Accessibility::findAncestor<AccessibilityObject>(*this, false, [&] (const auto& object) {
-        const auto* style = object.style();
+        CheckedPtr style = object.style();
         if (style && style->display() == Style::DisplayType::None) {
             // We don't want to use AccessibilityObject::isRenderHidden(), as that also checks and returns true
             // for visibility:hidden, which would be wrong if |this| has a visibility:visible ancestor before
@@ -4477,7 +4545,7 @@ bool AccessibilityObject::isWithinHiddenWebArea() const
     CheckedPtr frameRenderer = renderView ? renderView->frameView().frame().ownerRenderer() : nullptr;
     while (frameRenderer) {
         const CheckedRef style = frameRenderer->style();
-        if (isVisibilityHidden(style) || style->effectiveInert())
+        if (isVisibilityHidden(*frameRenderer) || style->effectiveInert())
             return true;
 
         renderView = frameRenderer->document().renderView();
@@ -4537,14 +4605,11 @@ bool AccessibilityObject::isIgnoredWithoutCache(AXObjectCache* cache) const
         ignored = computeIsIgnored();
 
     auto previousLastKnownIsIgnoredValue = m_lastKnownIsIgnoredValue;
+    bool wasCounted = cache && cache->isCounted(*this);
     const_cast<AccessibilityObject*>(this)->setLastKnownIsIgnoredValue(ignored);
 
     if (cache) {
-        bool wasCountedAsUnignored = previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IncludeObject;
-        if (!wasCountedAsUnignored && !ignored)
-            cache->incrementUnignoredContentObjectCount(role());
-        else if (wasCountedAsUnignored && ignored)
-            cache->decrementUnignoredContentObjectCount(role());
+        cache->reconcileCount(*this, wasCounted);
 
         bool becameUnignored = previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IgnoreObject && !ignored;
         bool becameIgnored = !becameUnignored && previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IncludeObject && ignored;

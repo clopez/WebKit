@@ -73,7 +73,7 @@ public:
     typedef uint64_t TaskIdentifier;
     TaskIdentifier identifier() const;
 
-    NetworkSessionCocoa* NODELETE networkSession();
+    NetworkSessionCocoa* LEGACY_NODELETE networkSession();
     SessionSet* sessionSet() { return m_sessionSet.get(); }
 
     std::optional<WebCore::FrameIdentifier> frameID() const final { return m_frameID; }
@@ -92,7 +92,7 @@ private:
     WebCore::StoredCredentialsPolicy storedCredentialsPolicy() const final { return m_storedCredentialsPolicy; }
 
     WeakPtr<NetworkSocketChannel> m_channel;
-    RetainPtr<NSURLSessionWebSocketTask> m_task;
+    const RetainPtr<NSURLSessionWebSocketTask> m_task;
     bool m_didReportHandshakeRequest { false };
     bool m_receivedDidClose { false };
     bool m_receivedDidConnect { false };

@@ -55,9 +55,11 @@ public:
             , m_locationbarVisible(true)
             , m_resizable(true)
             , m_fullscreen(false)
+            , m_isPopup(false)
         {
 #if PLATFORM(GTK)
             zeroBytes(m_geometry);
+            m_hasCustomGeometry = false;
 #endif
         }
 
@@ -70,15 +72,18 @@ public:
             , m_locationbarVisible(webkit_window_properties_get_locationbar_visible(windowProperties))
             , m_resizable(webkit_window_properties_get_resizable(windowProperties))
             , m_fullscreen(webkit_window_properties_get_fullscreen(windowProperties))
+            , m_isPopup(webkit_window_properties_get_is_popup(windowProperties))
         {
 #if PLATFORM(GTK)
             webkit_window_properties_get_geometry(windowProperties, &m_geometry);
+            m_hasCustomGeometry = webkit_window_properties_get_has_custom_geometry(windowProperties);
 #endif
         }
 
 #if PLATFORM(GTK)
-        WindowProperties(cairo_rectangle_int_t* geometry, bool toolbarVisible, bool statusbarVisible, bool scrollbarsVisible, bool menubarVisible, bool locationbarVisible, bool resizable, bool fullscreen)
+        WindowProperties(cairo_rectangle_int_t* geometry, bool hasCustomGeometry, bool toolbarVisible, bool statusbarVisible, bool scrollbarsVisible, bool menubarVisible, bool locationbarVisible, bool resizable, bool fullscreen, bool isPopup = false)
             : m_isNull(false)
+            , m_hasCustomGeometry(hasCustomGeometry)
             , m_toolbarVisible(toolbarVisible)
             , m_statusbarVisible(statusbarVisible)
             , m_scrollbarsVisible(scrollbarsVisible)
@@ -86,11 +91,12 @@ public:
             , m_locationbarVisible(locationbarVisible)
             , m_resizable(resizable)
             , m_fullscreen(fullscreen)
+            , m_isPopup(isPopup)
         {
             m_geometry = *geometry;
         }
 #else
-        WindowProperties(bool toolbarVisible, bool statusbarVisible, bool scrollbarsVisible, bool menubarVisible, bool locationbarVisible, bool resizable, bool fullscreen)
+        WindowProperties(bool toolbarVisible, bool statusbarVisible, bool scrollbarsVisible, bool menubarVisible, bool locationbarVisible, bool resizable, bool fullscreen, bool isPopup = false)
             : m_isNull(false)
             , m_toolbarVisible(toolbarVisible)
             , m_statusbarVisible(statusbarVisible)
@@ -99,6 +105,7 @@ public:
             , m_locationbarVisible(locationbarVisible)
             , m_resizable(resizable)
             , m_fullscreen(fullscreen)
+            , m_isPopup(isPopup)
         {
         }
 #endif
@@ -112,6 +119,7 @@ public:
             g_assert_cmpint(m_geometry.y, ==, other.m_geometry.y);
             g_assert_cmpint(m_geometry.width, ==, other.m_geometry.width);
             g_assert_cmpint(m_geometry.height, ==, other.m_geometry.height);
+            g_assert_cmpint(static_cast<int>(m_hasCustomGeometry), ==, static_cast<int>(other.m_hasCustomGeometry));
 #endif
             g_assert_cmpint(static_cast<int>(m_toolbarVisible), ==, static_cast<int>(other.m_toolbarVisible));
             g_assert_cmpint(static_cast<int>(m_statusbarVisible), ==, static_cast<int>(other.m_statusbarVisible));
@@ -120,6 +128,7 @@ public:
             g_assert_cmpint(static_cast<int>(m_locationbarVisible), ==, static_cast<int>(other.m_locationbarVisible));
             g_assert_cmpint(static_cast<int>(m_resizable), ==, static_cast<int>(other.m_resizable));
             g_assert_cmpint(static_cast<int>(m_fullscreen), ==, static_cast<int>(other.m_fullscreen));
+            g_assert_cmpint(static_cast<int>(m_isPopup), ==, static_cast<int>(other.m_isPopup));
         }
 
     private:
@@ -127,6 +136,7 @@ public:
 
 #if PLATFORM(GTK)
         cairo_rectangle_int_t m_geometry;
+        bool m_hasCustomGeometry { false };
 #endif
         bool m_toolbarVisible;
         bool m_statusbarVisible;
@@ -136,6 +146,7 @@ public:
 
         bool m_resizable;
         bool m_fullscreen;
+        bool m_isPopup { false };
     };
 
     static void windowPropertiesNotifyCallback(GObject*, GParamSpec* paramSpec, UIClientTest* test)
@@ -439,6 +450,11 @@ public:
         m_windowProperties = windowProperties;
     }
 
+    void setFinalExpectedWindowProperties(const WindowProperties& windowProperties)
+    {
+        m_finalWindowProperties = windowProperties;
+    }
+
 #if PLATFORM(GTK)
     void setCreateNewWebViewsInWindowsWithDefaultSize(int width = 800, int height = 600)
     {
@@ -456,6 +472,39 @@ public:
         m_waitingForMouseTargetChange = false;
         return m_mouseTargetHitTestResult.get();
     }
+
+#if PLATFORM(GTK) && !USE(GTK4)
+    // Sends an enter or leave event with the given position. On Wayland, GDK fills leave events with the last known
+    // pointer position. Gives up after a second if the mouse target doesn't change.
+    WebKitHitTestResult* sendCrossingEventAndWaitUntilMouseTargetChanged(GdkEventType type, int x, int y)
+    {
+        GtkWidget* viewWidget = GTK_WIDGET(m_webView.get());
+        GdkEvent* event = gdk_event_new(type);
+        event->crossing.window = GDK_WINDOW(g_object_ref(gtk_widget_get_window(viewWidget)));
+        event->crossing.send_event = TRUE;
+        event->crossing.time = GDK_CURRENT_TIME;
+        event->crossing.x = x;
+        event->crossing.y = y;
+        event->crossing.mode = GDK_CROSSING_NORMAL;
+        event->crossing.detail = GDK_NOTIFY_NONLINEAR;
+        gdk_event_set_device(event, gdk_seat_get_pointer(gdk_display_get_default_seat(gtk_widget_get_display(viewWidget))));
+
+        GRefPtr<GSource> timeout = adoptGRef(g_timeout_source_new(1000));
+        g_source_set_callback(timeout.get(), [](gpointer mainLoop) -> gboolean {
+            g_main_loop_quit(static_cast<GMainLoop*>(mainLoop));
+            return G_SOURCE_REMOVE;
+        }, m_mainLoop, nullptr);
+        g_source_attach(timeout.get(), nullptr);
+
+        m_waitingForMouseTargetChange = true;
+        gtk_widget_event(viewWidget, event);
+        gdk_event_free(event);
+        g_main_loop_run(m_mainLoop);
+        m_waitingForMouseTargetChange = false;
+        g_source_destroy(timeout.get());
+        return m_mouseTargetHitTestResult.get();
+    }
+#endif
 
     void simulateUserInteraction()
     {
@@ -520,6 +569,11 @@ public:
     {
         g_assert_true(webView != m_webView.get());
 
+        WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(webView);
+        g_assert_nonnull(windowProperties);
+        if (!m_finalWindowProperties.isNull())
+            WindowProperties(windowProperties).assertEqual(m_finalWindowProperties);
+
         m_webViewEvents.append(Close);
         g_signal_handlers_disconnect_by_data(webView, this);
         g_object_unref(webView);
@@ -539,6 +593,7 @@ public:
     gboolean m_expectedVideoMedia;
     gboolean m_expectedDisplayMedia;
     WindowProperties m_windowProperties;
+    WindowProperties m_finalWindowProperties;
     HashSet<WTF::String> m_windowPropertiesChanged;
     GRefPtr<WebKitHitTestResult> m_mouseTargetHitTestResult;
     unsigned m_mouseTargetModifiers;
@@ -790,9 +845,9 @@ static void testWebViewWindowProperties(UIClientTest* test, gconstpointer)
     static const char* windowPropertiesString = "left=100,top=150,width=400,height=400,location=no,menubar=no,status=no,toolbar=no,scrollbars=no";
 #if PLATFORM(GTK)
     cairo_rectangle_int_t geometry = { 100, 150, 400, 400 };
-    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&geometry, false, false, false, false, false, true, false));
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&geometry, true, false, false, false, false, false, true, false, true));
 #else
-    test->setExpectedWindowProperties(UIClientTest::WindowProperties(false, false, false, false, false, true, false));
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(false, false, false, false, false, true, false, true));
 #endif
 
     GUniquePtr<char> htmlString(g_strdup_printf("<html><body onLoad=\"window.open('', '', '%s').close();\"></body></html>", windowPropertiesString));
@@ -802,7 +857,9 @@ static void testWebViewWindowProperties(UIClientTest* test, gconstpointer)
     static constexpr ASCIILiteral propertiesChanged[] = {
 #if PLATFORM(GTK)
         "geometry"_s,
+        "has-custom-geometry"_s,
 #endif
+        "is-popup"_s,
         "locationbar-visible"_s, "menubar-visible"_s, "statusbar-visible"_s, "toolbar-visible"_s, "scrollbars-visible"_s
     };
     for (size_t i = 0; i < G_N_ELEMENTS(propertiesChanged); ++i)
@@ -821,7 +878,7 @@ static void testWebViewOpenWindowDefaultSize(UIClientTest* test, gconstpointer)
     // If no size specified for window.open(), then new windows open with the default window size.
     cairo_rectangle_int_t expectedGeometry = { 0, 0, 623, 715 };
     test->setCreateNewWebViewsInWindowsWithDefaultSize(expectedGeometry.width, expectedGeometry.height);
-    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, false, false, false, false, false, true, false));
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, true, false, false, false, false, false, true, false, true));
     test->loadHtml("<html><body onLoad=\"window.open('', '', 'left=0,top=0,location=no,menubar=no,status=no,toolbar=no,scrollbars=no').close();\"></body></html>", nullptr);
     test->waitUntilMainLoopFinishes();
 }
@@ -832,9 +889,44 @@ static void testWebViewOpenWindowNoDefaultSize(UIClientTest* test, gconstpointer
     // on the create signal, then new windows open with the size of the previous window.
     cairo_rectangle_int_t expectedGeometry = { 0, 0, 527, 671 };
     test->showInWindow(expectedGeometry.width, expectedGeometry.height);
-    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, false, false, false, false, false, true, false));
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, true, false, false, false, false, false, true, false, true));
     test->loadHtml("<html><body onLoad=\"window.open('', '', 'left=0,top=0,location=no,menubar=no,status=no,toolbar=no,scrollbars=no').close();\"></body></html>", nullptr);
     test->waitUntilMainLoopFinishes();
+}
+
+static void testWebViewOpenWindowNoFeatures(UIClientTest* test, gconstpointer)
+{
+    // If no features specified for window.open(), and new windows are not set to a specific default size with gtk_window_set_default_size()
+    // on the create signal, then new windows open with the size of the previous window, but hasCustomGeometry and isPopup are false.
+    cairo_rectangle_int_t expectedGeometry = { 0, 0, 527, 671 };
+    test->showInWindow(expectedGeometry.width, expectedGeometry.height);
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, false, true, true, true, true, true, true, false, false));
+    test->loadHtml("<html><body onLoad=\"window.open('', '').close();\"></body></html>", nullptr);
+    test->waitUntilMainLoopFinishes();
+}
+
+static void testWebViewOpenWindowZeroSize(UIClientTest* test, gconstpointer)
+{
+    // Zero width and height mean fallback to default window size, and are not considered custom geometry.
+    cairo_rectangle_int_t expectedGeometry = { 0, 0, 527, 671 };
+    test->showInWindow(expectedGeometry.width, expectedGeometry.height);
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&expectedGeometry, false, true, true, true, true, true, true, false, true));
+    test->loadHtml("<html><body onLoad=\"window.open('', '', 'width=0,height=0').close();\"></body></html>", nullptr);
+    test->waitUntilMainLoopFinishes();
+}
+
+static void testWebViewWindowPropertiesResizeTo(UIClientTest* test, gconstpointer)
+{
+    cairo_rectangle_int_t initialGeometry = { 0, 0, 527, 671 };
+    cairo_rectangle_int_t finalGeometry = { 0, 0, 300, 200 };
+    test->showInWindow(initialGeometry.width, initialGeometry.height);
+    test->setExpectedWindowProperties(UIClientTest::WindowProperties(&initialGeometry, false, true, true, true, true, true, true, false, false));
+    test->setFinalExpectedWindowProperties(UIClientTest::WindowProperties(&finalGeometry, true, true, true, true, true, true, true, false, false));
+    test->loadHtml("<html><body onLoad=\"var w = window.open('', ''); w.resizeTo(300, 200); w.close();\"></body></html>", nullptr);
+    test->waitUntilMainLoopFinishes();
+
+    g_assert_true(test->m_windowPropertiesChanged.contains("geometry"_s));
+    g_assert_true(test->m_windowPropertiesChanged.contains("has-custom-geometry"_s));
 }
 #endif
 
@@ -952,6 +1044,50 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert_true(webkit_hit_test_result_context_is_selection(hitTestResult));
     g_assert_cmpuint(test->m_mouseTargetModifiers, ==, 0);
 }
+
+#if !USE(GTK4)
+static const char linkWithMouseLeaveListenerHTML[] =
+    "<html><body style='margin:0'>"
+    " <a id='link' href='http://www.webkitgtk.org' style='display:block; height:100px'>WebKitGTK</a>"
+    " <script>"
+    "   var didLeave = false;"
+    "   document.getElementById('link').addEventListener('mouseleave', () => { didLeave = true; });"
+    " </script>"
+    "</body></html>";
+
+static void testWebViewMouseLeaveWithPositionInside(UIClientTest* test, gconstpointer)
+{
+    test->showInWindow();
+    test->loadHtml(linkWithMouseLeaveListenerHTML, "file:///");
+    test->waitUntilLoadFinished();
+
+    WebKitHitTestResult* hitTestResult = test->moveMouseAndWaitUntilMouseTargetChanged(20, 20);
+    g_assert_true(webkit_hit_test_result_context_is_link(hitTestResult));
+
+    // The leave event still has the last position inside the link, which is what GDK sends on Wayland.
+    hitTestResult = test->sendCrossingEventAndWaitUntilMouseTargetChanged(GDK_LEAVE_NOTIFY, 20, 20);
+    g_assert_false(webkit_hit_test_result_context_is_link(hitTestResult));
+    g_assert_true(WebViewTest::javascriptResultToBoolean(test->runJavaScriptAndWaitUntilFinished("didLeave", nullptr)));
+    g_assert_false(WebViewTest::javascriptResultToBoolean(test->runJavaScriptAndWaitUntilFinished("document.getElementById('link').matches(':hover')", nullptr)));
+}
+
+static void testWebViewMouseEnterAndLeaveWithoutMotion(UIClientTest* test, gconstpointer)
+{
+    test->showInWindow();
+    test->loadHtml(linkWithMouseLeaveListenerHTML, "file:///");
+    test->waitUntilLoadFinished();
+
+    // An enter and then a leave with no motion event in between, which happens when only one pointer sample lands
+    // inside the view. The enter alone hovers the link, and on Wayland the leave event has the enter position.
+    WebKitHitTestResult* hitTestResult = test->sendCrossingEventAndWaitUntilMouseTargetChanged(GDK_ENTER_NOTIFY, 20, 20);
+    g_assert_true(webkit_hit_test_result_context_is_link(hitTestResult));
+
+    hitTestResult = test->sendCrossingEventAndWaitUntilMouseTargetChanged(GDK_LEAVE_NOTIFY, 20, 20);
+    g_assert_false(webkit_hit_test_result_context_is_link(hitTestResult));
+    g_assert_true(WebViewTest::javascriptResultToBoolean(test->runJavaScriptAndWaitUntilFinished("didLeave", nullptr)));
+    g_assert_false(WebViewTest::javascriptResultToBoolean(test->runJavaScriptAndWaitUntilFinished("document.getElementById('link').matches(':hover')", nullptr)));
+}
+#endif
 #endif // PLATFORM(GTK)
 
 static void testWebViewGeolocationPermissionRequests(UIClientTest* test, gconstpointer)
@@ -1729,10 +1865,17 @@ void beforeAll()
     // FIXME: Implement webkit_window_properties_get_geometry() in WPE.
     UIClientTest::add("WebKitWebView", "open-window-default-size", testWebViewOpenWindowDefaultSize);
     UIClientTest::add("WebKitWebView", "open-window-no-default-size", testWebViewOpenWindowNoDefaultSize);
+    UIClientTest::add("WebKitWebView", "open-window-no-features", testWebViewOpenWindowNoFeatures);
+    UIClientTest::add("WebKitWebView", "open-window-zero-size", testWebViewOpenWindowZeroSize);
+    UIClientTest::add("WebKitWebView", "open-window-resize-to", testWebViewWindowPropertiesResizeTo);
 #endif
     // FIXME: Implement mouse move in WPE.
 #if PLATFORM(GTK)
     UIClientTest::add("WebKitWebView", "mouse-target", testWebViewMouseTarget);
+#if !USE(GTK4)
+    UIClientTest::add("WebKitWebView", "mouse-leave-with-position-inside", testWebViewMouseLeaveWithPositionInside);
+    UIClientTest::add("WebKitWebView", "mouse-enter-and-leave-without-motion", testWebViewMouseEnterAndLeaveWithoutMotion);
+#endif
 #endif
     UIClientTest::add("WebKitWebView", "geolocation-permission-requests", testWebViewGeolocationPermissionRequests);
 #if ENABLE(ENCRYPTED_MEDIA)

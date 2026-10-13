@@ -42,18 +42,26 @@
 #include "PathUtilities.h"
 #include "RenderBlockFlow.h"
 #include "RenderChildIterator.h"
+#include "RenderElementInlines.h"
 #include "RenderInline.h"
 #include "RenderListBox.h"
 #include "RenderObjectDocument.h"
 #include "RenderSVGModelObject.h"
 #include "RenderTheme.h"
+#include "StyleBorderImageSizing.h"
 #include "StyleComputedStyle+GettersInlines.h"
+#include "StyleMaskBorderSizing.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
+#include "UsedStyle.h"
 #include <numeric>
 
 namespace WebCore {
 
-static bool NODELETE borderStyleFillsBorderArea(BorderStyle style)
+template<typename> struct NinePieceImageSizingKind;
+template<> struct NinePieceImageSizingKind<Style::BorderImage> { using type = Style::BorderImageSizing; };
+template<> struct NinePieceImageSizingKind<Style::MaskBorder> { using type = Style::MaskBorderSizing; };
+
+static bool LEGACY_NODELETE borderStyleFillsBorderArea(BorderStyle style)
 {
     switch (style) {
     case BorderStyle::None:
@@ -72,7 +80,7 @@ static bool NODELETE borderStyleFillsBorderArea(BorderStyle style)
     return true;
 }
 
-static bool NODELETE styleRequiresClipPolygon(BorderStyle style)
+static bool LEGACY_NODELETE styleRequiresClipPolygon(BorderStyle style)
 {
     switch (style) {
     case BorderStyle::None:
@@ -93,7 +101,7 @@ static bool NODELETE styleRequiresClipPolygon(BorderStyle style)
     return false;
 }
 
-static bool NODELETE borderStyleHasInnerDetail(BorderStyle style)
+static bool LEGACY_NODELETE borderStyleHasInnerDetail(BorderStyle style)
 {
     switch (style) {
     case BorderStyle::None:
@@ -114,12 +122,12 @@ static bool NODELETE borderStyleHasInnerDetail(BorderStyle style)
     return false;
 }
 
-static bool NODELETE borderStyleIsDottedOrDashed(BorderStyle style)
+static bool LEGACY_NODELETE borderStyleIsDottedOrDashed(BorderStyle style)
 {
     return style == BorderStyle::Dotted || style == BorderStyle::Dashed;
 }
 
-static bool NODELETE decorationHasAllSimpleEdges(const RectEdges<BorderEdge>& edges)
+static bool LEGACY_NODELETE decorationHasAllSimpleEdges(const RectEdges<BorderEdge>& edges)
 {
     for (auto side : allBoxSides) {
         auto& currEdge = edges.at(side);
@@ -203,8 +211,9 @@ bool BorderPainter::decorationHasAllSolidEdges(const RectEdges<BorderEdge>& edge
     return true;
 }
 
-void BorderPainter::paintBorder(const LayoutRect& rect, const Style::ComputedStyle& style, BleedAvoidance bleedAvoidance, RectEdges<bool> closedEdges) const
+void BorderPainter::paintBorder(const LayoutRect& rect, const UsedStyle& usedStyle, BleedAvoidance bleedAvoidance, RectEdges<bool> closedEdges) const
 {
+    auto& style = usedStyle.computedStyle();
     auto& graphicsContext = m_paintInfo.context();
 
     if (graphicsContext.paintingDisabled())
@@ -218,7 +227,7 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const Style::ComputedSty
         if (!protect(image->value)->isLoaded(m_renderer.ptr()))
             return false;
 
-        if (!protect(image->value)->canRender(m_renderer.ptr(), style.usedZoom()))
+        if (!protect(image->value)->canRender(m_renderer.ptr()))
             return false;
 
         auto rectWithOutsets = rect;
@@ -433,7 +442,7 @@ bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const Style:
     if (!image->isLoaded(m_renderer.ptr()))
         return true; // Never paint a nine-piece image incrementally, but don't paint the fallback borders either.
 
-    if (!image->canRender(m_renderer.ptr(), style.usedZoom()))
+    if (!image->canRender(m_renderer.ptr()))
         return false;
 
     CheckedPtr modelObject = dynamicDowncast<RenderBoxModelObject>(m_renderer);
@@ -455,12 +464,11 @@ bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const Style:
     rectWithOutsets.expand(style.imageOutsets(ninePieceImage, deviceScaleFactor));
     LayoutRect destination = LayoutRect(snapRectToDevicePixels(rectWithOutsets, deviceScaleFactor));
 
-    auto source = modelObject->calculateImageIntrinsicDimensions(image.get(), destination.size(), RenderBoxModelObject::ScaleByUsedZoom::No);
+    using Sizing = typename NinePieceImageSizingKind<T>::type;
 
-    // If both values are ‘auto’ then the intrinsic width and/or height of the image should be used, if any.
-    image->setContainerContextForRenderer(m_renderer, source, style.usedZoom());
+    auto source = modelObject->calculateImageIntrinsicDimensions(*image, Sizing { destination.size() }, RenderBoxModelObject::ScaleByUsedZoom::No);
 
-    NinePieceImagePainter::paint(ninePieceImage, m_paintInfo.context(), m_renderer.ptr(), style, destination, source, deviceScaleFactor, options);
+    NinePieceImagePainter::paint(ninePieceImage, m_paintInfo.context(), m_renderer, style, destination, source, deviceScaleFactor, options);
     return true;
 }
 
@@ -564,7 +572,7 @@ static inline bool colorNeedsAntiAliasAtCorner(BoxSide side, BoxSide adjacentSid
 }
 
 // This assumes that we draw in order: top, bottom, left, right.
-static inline bool NODELETE willBeOverdrawn(BoxSide side, BoxSide adjacentSide, const BorderEdges& edges)
+static inline bool LEGACY_NODELETE willBeOverdrawn(BoxSide side, BoxSide adjacentSide, const BorderEdges& edges)
 {
     switch (side) {
     case BoxSide::Top:
@@ -969,11 +977,11 @@ void BorderPainter::drawLineForBoxSide(GraphicsContext& graphicsContext, const D
         graphicsContext.drawRect(rect);
     };
 
-    auto drawLineFor = [&graphicsContext, &document, color, antialias](const FloatRect& rect, BoxSide side, BorderStyle borderStyle, const FloatSize& adjacent)
+    auto drawLineFor = [&graphicsContext, protectedDocument = Ref { document }, color, antialias](const FloatRect& rect, BoxSide side, BorderStyle borderStyle, const FloatSize& adjacent)
     {
         if (rect.isEmpty())
             return;
-        drawLineForBoxSide(graphicsContext, document, rect, side, color, borderStyle, adjacent.width(), adjacent.height(), antialias);
+        drawLineForBoxSide(graphicsContext, protectedDocument, rect, side, color, borderStyle, adjacent.width(), adjacent.height(), antialias);
     };
 
     float x1 = rect.x();

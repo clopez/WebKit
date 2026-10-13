@@ -75,11 +75,11 @@ public:
             layer.setOpaque(m_isOpaque);
         if (m_displayBuffer) {
             layer.setContentsFormat(m_contentsFormat);
-            layer.setDelegatedContents({ MachSendRight { m_displayBuffer }, { }, std::nullopt });
+            layer.setDelegatedContents({ MachSendRight { m_displayBuffer }, { } });
         } else
             layer.clearContents();
     }
-    GraphicsLayerCompositingCoordinatesOrientation NODELETE orientation() const final
+    GraphicsLayerCompositingCoordinatesOrientation LEGACY_NODELETE orientation() const final
     {
         return GraphicsLayerCompositingCoordinatesOrientation::TopDown;
     }
@@ -95,11 +95,11 @@ public:
 
         m_displayBuffer = MachSendRight { displayBuffer };
     }
-    void NODELETE setContentsFormat(ContentsFormat contentsFormat)
+    void LEGACY_NODELETE setContentsFormat(ContentsFormat contentsFormat)
     {
         m_contentsFormat = contentsFormat;
     }
-    void NODELETE setOpaque(bool opaque)
+    void LEGACY_NODELETE setOpaque(bool opaque)
     {
         m_isOpaque = opaque;
     }
@@ -133,7 +133,7 @@ std::unique_ptr<GPUCanvasContext> GPUCanvasContext::create(CanvasBase& canvas, G
     return context;
 }
 
-static GPUPresentationContextDescriptor NODELETE presentationContextDescriptor(GPUCompositorIntegration& compositorIntegration)
+static GPUPresentationContextDescriptor LEGACY_NODELETE presentationContextDescriptor(GPUCompositorIntegration& compositorIntegration)
 {
     return GPUPresentationContextDescriptor {
         compositorIntegration,
@@ -193,23 +193,20 @@ GPUCanvasContextCocoa::GPUCanvasContextCocoa(CanvasBase& canvas, Ref<GPUComposit
     , m_presentationContext(WTF::move(presentationContext))
     , m_width(getCanvasWidth(htmlOrOffscreenCanvas()))
     , m_height(getCanvasHeight(htmlOrOffscreenCanvas()))
-#if HAVE(SUPPORT_HDR_DISPLAY)
-    , m_screenPropertiesChangedObserver(ScreenPropertiesChangedObserver::create([weakThis = WeakPtr { *this }](PlatformDisplayID displayID) {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return;
-
-        Ref screen = PlatformScreen::singleton();
-        if (auto* screenData = screen->screenData(displayID))
-            protectedThis->updateScreenHeadroom(screenData->currentEDRHeadroom, screenData->suppressEDR);
-    }))
-#endif // HAVE(SUPPORT_HDR_DISPLAY)
 {
 #if HAVE(SUPPORT_HDR_DISPLAY)
-    if (document)
-        document->addScreenPropertiesChangedObserver(protect(*m_screenPropertiesChangedObserver));
-    else
-        m_screenPropertiesChangedObserver = nullptr;
+    if (document) {
+        lazyInitialize(m_screenPropertiesChangedObserver, ScreenPropertiesChangedObserver::create([weakThis = WeakPtr { *this }](PlatformDisplayID displayID) {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+
+            Ref screen = PlatformScreen::singleton();
+            if (auto* screenData = screen->screenData(displayID))
+                protectedThis->updateScreenHeadroom(screenData->currentEDRHeadroom, screenData->suppressEDR);
+        }));
+        document->addScreenPropertiesChangedObserver(*m_screenPropertiesChangedObserver);
+    }
 #else
     UNUSED_PARAM(document);
 #endif
@@ -224,7 +221,7 @@ GPUCanvasContextCocoa::~GPUCanvasContextCocoa()
 }
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
-static float NODELETE interpolateHeadroom(float headroomForLow, float headroomForHigh, float limit, float limitLow, float limitHigh)
+static float LEGACY_NODELETE interpolateHeadroom(float headroomForLow, float headroomForHigh, float limit, float limitLow, float limitHigh)
 {
     if (headroomForHigh <= headroomForLow || limitHigh <= limitLow)
         return headroomForHigh;
@@ -518,7 +515,7 @@ static ColorSpace toWebCoreColorSpace(const PredefinedColorSpace& colorSpace, co
     return ColorSpace::SRGB();
 }
 
-static WebGPU::TextureFormat NODELETE computeTextureFormat(GPUTextureFormat format, GPUCanvasToneMappingMode toneMappingMode)
+static WebGPU::TextureFormat LEGACY_NODELETE computeTextureFormat(GPUTextureFormat format, GPUCanvasToneMappingMode toneMappingMode)
 {
     // Force Bgra8unorm to both: clamp color values to SDR, and opt out of CALayer HDR.
     if (format == GPUTextureFormat::Rgba16float && toneMappingMode == GPUCanvasToneMappingMode::Standard)
@@ -527,7 +524,7 @@ static WebGPU::TextureFormat NODELETE computeTextureFormat(GPUTextureFormat form
     return WebCore::convertToBacking(format);
 }
 
-static bool NODELETE isSupportedContextFormat(GPUTextureFormat format)
+static bool LEGACY_NODELETE isSupportedContextFormat(GPUTextureFormat format)
 {
     return format == GPUTextureFormat::Bgra8unorm || format == GPUTextureFormat::Rgba8unorm || format == GPUTextureFormat::Rgba16float;
 }
@@ -575,7 +572,7 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
     m_currentEDRHeadroom = 0.f;
     m_suppressEDR = false;
 #endif // HAVE(SUPPORT_HDR_DISPLAY)
-    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace, configuration.toneMapping), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, is<OffscreenCanvas>(canvasBase()) ? 1 : 3, configuration.device->backing());
+    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace, configuration.toneMapping), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, is<OffscreenCanvas>(canvasBase()) ? 1 : 3, protect(configuration.device->backing()));
     // FIXME: This ASSERT() is wrong. It's totally possible for the IPC to the GPU process to timeout if the GPUP is busy, and return nothing here.
     ASSERT(!renderBuffers.isEmpty());
 
@@ -764,7 +761,8 @@ void GPUCanvasContextCocoa::updateFramePacing()
 
     auto now = MonotonicTime::now();
     auto gpuCost = m_compositorIntegration->lastFrameGPUCost();
-    m_framePacer.recordFrame(gpuCost, now);
+    auto presentStall = m_compositorIntegration->lastFramePresentStall();
+    m_framePacer.recordFrame(gpuCost, presentStall, now);
 
     if (!m_isRegisteredForPacing) {
         page->addGPUCanvasRequestingRenderingUpdatePacing(*this);
@@ -804,7 +802,7 @@ void GPUCanvasContextCocoa::updateMemoryCost() const
     if (RefPtr image = m_readDisplayBufferImage)
         newMemoryCost += image->sizeInBytes();
     if (m_currentTexture)
-        newMemoryCost += m_currentTexture->memoryCost();
+        newMemoryCost += m_currentTexture->estimatedMemoryCost();
     CanvasRenderingContext::updateMemoryCost(newMemoryCost);
 }
 

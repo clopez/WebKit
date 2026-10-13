@@ -62,14 +62,13 @@
 #include "SVGCircleElement.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGEllipseElement.h"
-#include "SVGInlineTextBoxInlines.h"
 #include "SVGLineElement.h"
 #include "SVGPathElement.h"
 #include "SVGPathUtilities.h"
 #include "SVGPolyElement.h"
 #include "SVGRectElement.h"
-#include "SVGRootInlineBox.h"
 #include "SVGStopElement.h"
+#include "SVGTextFragment.h"
 #include "Settings.h"
 #include "StyleCachedImage.h"
 #include "StyleComputedStyle+GettersInlines.h"
@@ -281,7 +280,7 @@ static TextStream& writePositionAndStyle(TextStream& ts, const RenderElement& re
         ts << " clipped"_s;
     }
 
-    ts << ' ' << enclosingIntRect(renderer.absoluteClippedOverflowRectForRenderTreeAsText());
+    ts << ' ' << enclosingIntRect(renderer.absoluteClippedOverflowRectForTextRepresentation());
 
     writeSVGPaintingFeatures(ts, renderer, behavior);
     return ts;
@@ -334,7 +333,7 @@ static void writeRenderSVGTextBox(TextStream& ts, const RenderSVGText& text)
     if (!box)
         return;
 
-    ts << ' ' << enclosingIntRect(FloatRect(text.location(), FloatSize(box->logicalWidth(), box->logicalHeight())));
+    ts << ' ' << enclosingIntRect(FloatRect(text.location(), box->visualRectIgnoringBlockDirection().size()));
     
     // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
     ts << " contains 1 chunk(s)"_s;
@@ -343,7 +342,7 @@ static void writeRenderSVGTextBox(TextStream& ts, const RenderSVGText& text)
         writeNameValuePair(ts, "color"_s, serializationForRenderTreeAsText(text.style().visitedDependentColor()));
 }
 
-static inline void writeSVGInlineTextBox(TextStream& ts, const InlineIterator::SVGTextBox& textBox)
+static inline void writeSVGTextBox(TextStream& ts, const InlineIterator::SVGTextBox& textBox)
 {
     auto& fragments = textBox.textFragments();
     if (fragments.isEmpty())
@@ -396,10 +395,10 @@ static inline void writeSVGInlineTextBox(TextStream& ts, const InlineIterator::S
     }
 }
 
-static inline void writeSVGInlineTextBoxes(TextStream& ts, const RenderSVGInlineText& text)
+static inline void writeSVGTextBoxes(TextStream& ts, const RenderSVGInlineText& text)
 {
     for (auto& box : InlineIterator::svgTextBoxesFor(text))
-        writeSVGInlineTextBox(ts, box);
+        writeSVGTextBox(ts, box);
 }
 
 enum class WriteIndentOrNot : bool { No, Yes };
@@ -552,7 +551,7 @@ void writeSVGInlineText(TextStream& ts, const RenderSVGInlineText& text, OptionS
     writeStandardPrefix(ts, text, behavior);
     ts << ' ' << enclosingIntRect(FloatRect(text.firstRunLocation(), text.floatLinesBoundingBox().size())) << '\n';
     writeResources(ts, text, behavior);
-    writeSVGInlineTextBoxes(ts, text);
+    writeSVGTextBoxes(ts, text);
 }
 
 void writeSVGImage(TextStream& ts, const LegacyRenderSVGImage& image, OptionSet<RenderAsTextFlag> behavior)

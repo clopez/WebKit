@@ -32,7 +32,6 @@
 #include "GCSegmentedArrayInlines.h"
 #include "HeapAnalyzer.h"
 #include "HeapCellInlines.h"
-#include "HeapProfiler.h"
 #include "IntegrityInlines.h"
 #include "JSArray.h"
 #include "JSCellInlines.h"
@@ -83,8 +82,8 @@ static void validate(JSCell* cell)
 }
 #endif
 
-SlotVisitor::SlotVisitor(JSC::Heap& heap, Collector& collector, ASCIICString codeName)
-    : Base(heap, collector, WTF::move(codeName), collector.m_opaqueRoots)
+SlotVisitor::SlotVisitor(Collector& collector, ASCIICString codeName)
+    : Base(collector, WTF::move(codeName), collector.m_opaqueRoots)
     , m_markingVersion(MarkedSpace::initialVersion)
 #if ASSERT_ENABLED
     , m_isCheckingForDefaultMarkViolation(false)
@@ -97,31 +96,28 @@ SlotVisitor::~SlotVisitor()
     clearMarkStacks();
 }
 
-void SlotVisitor::didStartMarking()
+void SlotVisitor::didStartMarking(CollectionScope scope, HeapVersion markingVersion, bool isAnalyzingHeap)
 {
-    auto scope = heap()->collectionScope();
-    if (scope) {
-        switch (*scope) {
-        case CollectionScope::Eden:
-            reset();
-            break;
-        case CollectionScope::Full:
-            m_extraMemorySize = 0;
-            break;
-        }
-    }
-
-    if (HeapProfiler* heapProfiler = vm().heapProfiler())
-        m_heapAnalyzer = heapProfiler->activeHeapAnalyzer();
-
-    m_markingVersion = heap()->objectSpace().markingVersion();
+    // The previous collection's End reset this visitor.
+    ASSERT(!m_bytesVisitedHeap);
+    ASSERT(!m_bytesVisitedInHeap);
+    ASSERT(!m_flushedBytesVisited);
+    ASSERT(!m_extraMemoryHeap);
+    ASSERT(!m_extraMemoryInHeap.hasOverflowed() && !m_extraMemoryInHeap);
+    ASSERT(!m_currentCell);
+    Base::didStartMarking(scope, isAnalyzingHeap);
+    m_markingVersion = markingVersion;
 }
 
 void SlotVisitor::reset()
 {
-    AbstractSlotVisitor::reset();
-    m_bytesVisited = 0;
-    m_heapAnalyzer = nullptr;
+    Base::reset();
+    // These counts should have been flushed to each heap by now.
+    RELEASE_ASSERT(!m_bytesVisitedInHeap);
+    RELEASE_ASSERT(!m_extraMemoryInHeap.hasOverflowed() && !m_extraMemoryInHeap);
+    m_bytesVisitedHeap = nullptr;
+    m_flushedBytesVisited = 0;
+    m_extraMemoryHeap = nullptr;
     RELEASE_ASSERT(!m_currentCell);
 }
 
@@ -148,6 +144,7 @@ void SlotVisitor::appendJSCellOrAuxiliary(HeapCell* heapCell)
         return;
     
     ASSERT(!m_isCheckingForDefaultMarkViolation);
+    ASSERT(m_collector.hasHeap(*heapCell->heap()));
     
     auto validateCell = [&] (JSCell* jsCell) {
         StructureID structureID = jsCell->structureID();
@@ -156,7 +153,7 @@ void SlotVisitor::appendJSCellOrAuxiliary(HeapCell* heapCell)
             WTF::dataFile().atomically(
                 [&] (PrintStream& out) {
                     out.print(text);
-                    out.print("GC type: ", heap()->collectionScope(), "\n");
+                    out.print("GC type: ", jsCell->heap()->collectionScope(), "\n");
                     out.print("Object at: ", RawPointer(jsCell), "\n");
                     out.print("Structure ID: ", structureID.bits(), " (", RawPointer(structureID.decode()), ")\n");
                     out.print("Object contents:");
@@ -173,10 +170,10 @@ void SlotVisitor::appendJSCellOrAuxiliary(HeapCell* heapCell)
                         out.print("\n");
                         out.print("Is marked raw: ", block.isMarkedRaw(jsCell), "\n");
                         out.print("Marking version: ", block.markingVersion(), "\n");
-                        out.print("Heap marking version: ", heap()->objectSpace().markingVersion(), "\n");
+                        out.print("Heap marking version: ", jsCell->heap()->objectSpace().markingVersion(), "\n");
                         out.print("Is newly allocated raw: ", block.isNewlyAllocated(jsCell), "\n");
                         out.print("Newly allocated version: ", block.newlyAllocatedVersion(), "\n");
-                        out.print("Heap newly allocated version: ", heap()->objectSpace().newlyAllocatedVersion(), "\n");
+                        out.print("Heap newly allocated version: ", jsCell->heap()->objectSpace().newlyAllocatedVersion(), "\n");
                     }
                     UNREACHABLE_FOR_PLATFORM();
                 });
@@ -210,7 +207,7 @@ void SlotVisitor::appendJSCellOrAuxiliary(HeapCell* heapCell)
     
         JSCell* jsCell = static_cast<JSCell*>(heapCell);
         validateCell(jsCell);
-        Integrity::auditCell(vm(), jsCell);
+        Integrity::auditCell(jsCell->vm(), jsCell);
         
         jsCell->setCellState(CellState::PossiblyGrey);
 
@@ -226,8 +223,12 @@ void SlotVisitor::appendJSCellOrAuxiliary(HeapCell* heapCell)
 
 void SlotVisitor::appendSlow(JSCell* cell, Dependency dependency)
 {
-    if (m_heapAnalyzer) [[unlikely]]
-        m_heapAnalyzer->analyzeEdge(m_currentCell, cell, rootMarkReason());
+    if (m_isAnalyzingHeap) [[unlikely]] {
+        // FIXME: A cross-heap edge appears in neither VM's snapshot: it goes to the target cell's VM's snapshot,
+        // which has no node for the source and drops it.
+        if (HeapAnalyzer* analyzer = cell->vm().activeHeapAnalyzer())
+            analyzer->analyzeEdge(m_currentCell, cell, rootMarkReason());
+    }
 
     appendHiddenSlowImpl(cell, dependency);
 }
@@ -278,7 +279,7 @@ void SlotVisitor::appendToMarkStack(JSCell* cell)
 template<typename ContainerType>
 ALWAYS_INLINE void SlotVisitor::appendToMarkStack(ContainerType& container, JSCell* cell)
 {
-    ASSERT(m_heap.isMarked(cell));
+    ASSERT(isMarked(cell));
 #if CPU(X86_64)
     if (Options::dumpZappedCellCrashData()) [[unlikely]] {
         if (cell->isZapped()) [[unlikely]]
@@ -290,7 +291,7 @@ ALWAYS_INLINE void SlotVisitor::appendToMarkStack(ContainerType& container, JSCe
     container.noteMarked();
     
     m_visitCount++;
-    m_bytesVisited += container.cellSize();
+    noteBytesVisited(container.vm().heap, container.cellSize());
 
     m_collectorStack.append(cell);
 }
@@ -299,7 +300,7 @@ void SlotVisitor::markAuxiliary(const void* base)
 {
     HeapCell* cell = std::bit_cast<HeapCell*>(base);
     
-    ASSERT(cell->heap() == heap());
+    ASSERT(m_collector.hasHeap(*cell->heap()));
     
     if (Heap::testAndSetMarked(m_markingVersion, cell))
         return;
@@ -317,14 +318,32 @@ void SlotVisitor::noteLiveAuxiliaryCell(HeapCell* cell)
     
     CellContainer container = cell->cellContainer();
     
-    container.assertValidCell(vm(), cell);
+    container.assertValidCell(cell->vm(), cell);
     container.noteMarked();
     
     m_visitCount++;
 
     size_t cellSize = container.cellSize();
-    m_bytesVisited += cellSize;
+    noteBytesVisited(container.vm().heap, cellSize);
     m_nonCellVisitCount += cellSize;
+}
+
+ALWAYS_INLINE void SlotVisitor::noteBytesVisited(JSC::Heap& heap, size_t bytes)
+{
+    if (&heap != m_bytesVisitedHeap) [[unlikely]] {
+        flushBytesVisited();
+        m_bytesVisitedHeap = &heap;
+    }
+    m_bytesVisitedInHeap += bytes;
+}
+
+NEVER_INLINE void SlotVisitor::flushBytesVisited()
+{
+    if (!m_bytesVisitedInHeap)
+        return;
+    m_bytesVisitedHeap->reportBytesVisited(m_bytesVisitedInHeap);
+    m_flushedBytesVisited += m_bytesVisitedInHeap;
+    m_bytesVisitedInHeap = 0;
 }
 
 class SetCurrentCellScope {
@@ -348,7 +367,7 @@ private:
 
 ALWAYS_INLINE void SlotVisitor::visitChildren(const JSCell* cell)
 {
-    ASSERT(m_heap.isMarked(cell));
+    ASSERT(isMarked(cell));
     
     SetCurrentCellScope currentCellScope(*this, cell);
     
@@ -399,9 +418,11 @@ ALWAYS_INLINE void SlotVisitor::visitChildren(const JSCell* cell)
         break;
     }
 
-    if (m_heapAnalyzer) [[unlikely]] {
-        if (m_isFirstVisit)
-            m_heapAnalyzer->analyzeNode(const_cast<JSCell*>(cell));
+    if (m_isAnalyzingHeap) [[unlikely]] {
+        if (m_isFirstVisit) {
+            if (HeapAnalyzer* analyzer = cell->vm().activeHeapAnalyzer())
+                analyzer->analyzeNode(const_cast<JSCell*>(cell));
+        }
     }
 }
 
@@ -413,13 +434,17 @@ void SlotVisitor::visitAsConstraint(const JSCell* cell)
 
 inline void SlotVisitor::propagateExternalMemoryVisitedIfNecessary()
 {
-    if (m_isFirstVisit) {
-        if (m_extraMemorySize.hasOverflowed())
-            heap()->reportExtraMemoryVisited(std::numeric_limits<size_t>::max());
-        else if (m_extraMemorySize)
-            heap()->reportExtraMemoryVisited(m_extraMemorySize);
-        m_extraMemorySize = 0;
-    }
+    if (m_isFirstVisit)
+        flushExtraMemoryVisited();
+}
+
+void SlotVisitor::flushExtraMemoryVisited()
+{
+    if (m_extraMemoryInHeap.hasOverflowed())
+        m_extraMemoryHeap->reportExtraMemoryVisited(std::numeric_limits<size_t>::max());
+    else if (m_extraMemoryInHeap)
+        m_extraMemoryHeap->reportExtraMemoryVisited(m_extraMemoryInHeap);
+    m_extraMemoryInHeap = 0;
 }
 
 void SlotVisitor::donateKnownParallel(MarkStackArray& from, MarkStackArray& to)
@@ -459,7 +484,7 @@ void SlotVisitor::donateKnownParallel()
 
 void SlotVisitor::updateMutatorIsStopped(const AbstractLocker&)
 {
-    m_mutatorIsStopped = (m_heap.worldIsStopped() & m_canOptimizeForStoppedMutator);
+    m_mutatorIsStopped = (m_collector.heap().worldIsStopped() & m_canOptimizeForStoppedMutator);
 }
 
 void SlotVisitor::updateMutatorIsStopped()
@@ -476,7 +501,7 @@ bool SlotVisitor::hasAcknowledgedThatTheMutatorIsResumed() const
 
 bool SlotVisitor::mutatorIsStoppedIsUpToDate() const
 {
-    return m_mutatorIsStopped == (m_heap.worldIsStopped() & m_canOptimizeForStoppedMutator);
+    return m_mutatorIsStopped == (m_collector.heap().worldIsStopped() & m_canOptimizeForStoppedMutator);
 }
 
 void SlotVisitor::optimizeForStoppedMutator()
@@ -673,7 +698,7 @@ NEVER_INLINE SlotVisitor::SharedDrainResult SlotVisitor::drainFromShared(SharedD
                     // - WebCore never releases access. But WebCore has a runloop. The runloop will check
                     //   if we reached termination.
                     // So, this tells the runloop that it's got things to do.
-                    m_heap.m_stopIfNecessaryTimer->scheduleSoon();
+                    m_collector.heap().m_stopIfNecessaryTimer->scheduleSoon();
                 }
 
                 auto isReady = [&] () -> bool {
@@ -739,10 +764,11 @@ SlotVisitor::SharedDrainResult SlotVisitor::drainInParallelPassively(MonotonicTi
     
     ASSERT(Options::numberOfGCMarkers());
     
+    JSC::Heap& heap = m_collector.heap();
     if (Options::numberOfGCMarkers() == 1
-        || (m_heap.m_worldState.load() & Heap::mutatorWaitingBit)
-        || !m_heap.hasHeapAccess()
-        || m_heap.worldIsStopped()) {
+        || (heap.m_worldState.load() & Heap::mutatorWaitingBit)
+        || !heap.hasHeapAccess()
+        || heap.worldIsStopped()) {
         // This is an optimization over drainInParallel() when we have a concurrent mutator but
         // otherwise it is not profitable.
         return drainInParallel(timeout);

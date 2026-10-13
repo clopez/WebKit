@@ -184,7 +184,7 @@ String quoteAndEscapeNonPrintables(StringView s)
     return result.toString();
 }
 
-inline bool NODELETE shouldEnableSubpixelPrecisionForTextDump(const Document& document)
+inline bool LEGACY_NODELETE shouldEnableSubpixelPrecisionForTextDump(const Document& document)
 {
     // If LBSE is activated and the document contains outermost <svg> elements, generate the text
     // representation with subpixel precision. It would be awkward to only see the SVG part of a
@@ -264,8 +264,8 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                 ts << " [color="_s << serializationForRenderTreeAsText(color) << ']';
 
             // Do not dump invalid or transparent backgrounds, since that is the default.
-            auto backgroundColor = renderElement->style().visitedDependentBackgroundColor();
-            if (!equalIgnoringSemanticColor(renderElement->parent()->style().visitedDependentBackgroundColor(), backgroundColor)
+            auto backgroundColor = renderElement->style().visitedDependentUsedBackgroundColor();
+            if (!equalIgnoringSemanticColor(renderElement->parent()->style().visitedDependentUsedBackgroundColor(), backgroundColor)
                 && backgroundColor != Color::transparentBlack)
                 ts << " [bgcolor="_s << serializationForRenderTreeAsText(backgroundColor) << ']';
             

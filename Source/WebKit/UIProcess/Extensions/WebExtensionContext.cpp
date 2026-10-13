@@ -168,7 +168,7 @@ void WebExtensionContext::setUniqueIdentifier(String&& uniqueIdentifier)
 RefPtr<WebExtensionLocalization> WebExtensionContext::localization()
 {
     if (!m_localization)
-        m_localization = WebExtensionLocalization::create(protect(extension())->localization()->localizationJSON(), baseURL().host().toString());
+        lazyInitialize(m_localization, WebExtensionLocalization::create(protect(extension())->localization()->localizationJSON(), baseURL().host().toString()));
     return m_localization;
 }
 
@@ -1272,7 +1272,7 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
         addInjectedContent(injectedContents, pattern);
 }
 
-static WebCore::UserScriptInjectionTime NODELETE toImpl(WebExtension::InjectionTime injectionTime)
+static WebCore::UserScriptInjectionTime LEGACY_NODELETE toImpl(WebExtension::InjectionTime injectionTime)
 {
     switch (injectionTime) {
     case WebExtension::InjectionTime::DocumentStart:
@@ -1642,7 +1642,7 @@ void WebExtensionContext::addDeclarativeNetRequestRulesToPrivateUserContentContr
     });
 }
 
-static HashMap<WebExtensionContextIdentifier, WeakRef<WebExtensionContext>>& NODELETE webExtensionContexts()
+static HashMap<WebExtensionContextIdentifier, WeakRef<WebExtensionContext>>& LEGACY_NODELETE webExtensionContexts()
 {
     static NeverDestroyed<HashMap<WebExtensionContextIdentifier, WeakRef<WebExtensionContext>>> contexts;
     return contexts;
@@ -1717,7 +1717,7 @@ const WebExtensionContext::UserContentControllerProxySet& WebExtensionContext::u
     return extensionController()->allNonPrivateUserContentControllers();
 }
 
-WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventListenerTypeSet&& typeSet, ContentWorldTypeSet&& contentWorldTypeSet, Function<bool(WebProcessProxy&, WebPageProxy&, WebFrameProxy&)>&& predicate) const
+WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventListenerTypeSet&& typeSet, ContentWorldTypeSet&& contentWorldTypeSet, NOESCAPE const Function<bool(WebProcessProxy&, WebPageProxy&, WebFrameProxy&)>& predicate) const
 {
     if (!isLoaded())
         return { };

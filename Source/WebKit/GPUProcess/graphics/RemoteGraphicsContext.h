@@ -84,7 +84,6 @@ public:
     void setShouldSmoothFonts(bool);
     void setShouldSubpixelQuantizeFonts(bool);
     void setShadowsIgnoreTransforms(bool);
-    void setDrawLuminanceMask(bool);
     void setLineCap(WebCore::LineCap);
     void setLineDash(FixedVector<double>&&, float dashOffset);
     void setLineJoin(WebCore::LineJoin);
@@ -103,6 +102,9 @@ public:
     void drawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, Ref<WebCore::Filter>&&);
     virtual void drawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
     void drawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions);
+#if USE(SYSTEM_PREVIEW)
+    void drawBadgeSystemImage(std::optional<WebCore::RenderingResourceIdentifier> imageIdentifier, const WebCore::FloatRect& destinationRect);
+#endif
     void drawSystemImage(Ref<WebCore::SystemImage>&&, const WebCore::FloatRect&);
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     void drawVideoFrame(SharedVideoFrame&&, const WebCore::FloatRect& destination, WebCore::ShouldDiscardAlpha, WebCore::ImagePaintingOptions);
@@ -153,7 +155,7 @@ public:
     void applyFillPattern();
 #endif
     void applyDeviceScaleFactor(float);
-    std::optional<WebKit::SharedPreferencesForWebProcess> NODELETE sharedPreferencesForWebProcess() const;
+    std::optional<WebKit::SharedPreferencesForWebProcess> LEGACY_NODELETE sharedPreferencesForWebProcess() const;
 
     void beginPage(const WebCore::FloatRect&);
     void endPage();
@@ -167,7 +169,7 @@ protected:
 
     void drawFilteredImageBufferInternal(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&, WebCore::FilterResults&);
 
-    RemoteResourceCache& NODELETE resourceCache() const;
+    RemoteResourceCache& LEGACY_NODELETE resourceCache() const;
     WebCore::GraphicsContext& context() LIFETIME_BOUND { return m_context; }
     RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier) const;
     std::optional<WebCore::SourceImage> sourceImage(WebCore::RenderingResourceIdentifier) const;
@@ -183,9 +185,9 @@ protected:
     WebCore::GraphicsContext& m_context;
     const Ref<RemoteRenderingBackend> m_renderingBackend;
     const Ref<RemoteSharedResourceCache> m_sharedResourceCache;
-    RefPtr<WebCore::ControlFactory> m_controlFactory;
+    const RefPtr<WebCore::ControlFactory> m_controlFactory;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
-    std::unique_ptr<SharedVideoFrameReader> m_sharedVideoFrameReader;
+    const std::unique_ptr<SharedVideoFrameReader> m_sharedVideoFrameReader;
 #endif
 };
 

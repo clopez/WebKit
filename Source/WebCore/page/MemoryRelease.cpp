@@ -101,8 +101,9 @@ static void releaseNoncriticalMemory(MaintainMemoryCache maintainMemoryCache)
         if (CheckedPtr renderView = document->renderView()) {
             LayoutIntegration::LineLayout::releaseCaches(*renderView);
             Layout::TextBreakingPositionCache::singleton().clear();
-            renderView->layoutContext().deleteDetachedRenderersNow();
-            renderView->layoutContext().deleteDetachedInlineContentNow();
+            CheckedRef layoutContext = renderView->layoutContext();
+            layoutContext->deleteDetachedRenderersNow();
+            layoutContext->deleteDetachedInlineContentNow();
         }
     }
 
@@ -147,7 +148,7 @@ static void releaseCriticalMemory(Synchronous synchronous, MaintainBackForwardCa
         return document.get();
     });
     for (auto& document : protectedDocuments) {
-        document->clearQuerySelectorAllResults();
+        document->clearQuerySelectorResults();
         document->styleScope().releaseMemory();
         if (RefPtr fontSelector = document->fontSelectorIfExists())
             fontSelector->emptyCaches();

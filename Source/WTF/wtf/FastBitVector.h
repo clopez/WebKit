@@ -320,7 +320,7 @@ public:
     }
     
     template<typename Func>
-    ALWAYS_INLINE void forEachSetBit(const Func& func) const
+    ALWAYS_INLINE void forEachSetBit(NOESCAPE const Func& func) const
     {
         size_t n = arrayLength();
         for (size_t i = 0; i < n; ++i) {
@@ -336,13 +336,13 @@ public:
     }
     
     template<typename Func>
-    ALWAYS_INLINE void forEachClearBit(const Func& func) const
+    ALWAYS_INLINE void forEachClearBit(NOESCAPE const Func& func) const
     {
         (~*this).forEachSetBit(func);
     }
     
     template<typename Func>
-    void forEachBit(bool value, const Func& func) const
+    void forEachBit(bool value, NOESCAPE const Func& func) const
     {
         if (value)
             forEachSetBit(func);
@@ -505,7 +505,7 @@ public:
     void fill(bool value) { value ? setAll() : clearAll(); }
     void grow(size_t newSize) { resize(newSize); }
 
-    WTF_EXPORT_PRIVATE void NODELETE clearRange(size_t begin, size_t end);
+    WTF_EXPORT_PRIVATE void LEGACY_NODELETE clearRange(size_t begin, size_t end);
 
     // Returns true if the contents of this bitvector changed.
     template<typename OtherWords>

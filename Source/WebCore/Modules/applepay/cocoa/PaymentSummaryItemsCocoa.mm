@@ -40,13 +40,17 @@ NSDecimalNumber *toDecimalNumber(const String& amount)
     return [NSDecimalNumber decimalNumberWithString:amount.createNSString().get() locale:@{ NSLocaleDecimalSeparator : @"." }];
 }
 
-static PKPaymentSummaryItemType NODELETE toPKPaymentSummaryItemType(ApplePayLineItem::Type type)
+static PKPaymentSummaryItemType LEGACY_NODELETE toPKPaymentSummaryItemType(ApplePayLineItem::Type type)
 {
     switch (type) {
     case ApplePayLineItem::Type::Final:
         return PKPaymentSummaryItemTypeFinal;
     case ApplePayLineItem::Type::Pending:
         return PKPaymentSummaryItemTypePending;
+#if ENABLE(APPLE_PAY_ESTIMATED_LINE_ITEM)
+    case ApplePayLineItem::Type::Estimated:
+        return PKPaymentSummaryItemTypeEstimated;
+#endif
     }
 }
 
@@ -65,7 +69,7 @@ static NSDate *toDate(WallTime date)
 
 #if HAVE(PASSKIT_RECURRING_SUMMARY_ITEM)
 
-static NSCalendarUnit NODELETE toCalendarUnit(ApplePayRecurringPaymentDateUnit unit)
+static NSCalendarUnit LEGACY_NODELETE toCalendarUnit(ApplePayRecurringPaymentDateUnit unit)
 {
     switch (unit) {
     case ApplePayRecurringPaymentDateUnit::Year:

@@ -162,6 +162,10 @@ using namespace WebCore;
 #define NSAccessibilityHighlightedSearchKey @"AXHighlightedSearchKey"
 #endif
 
+#ifndef NSAccessibilityFormFieldWithErrorSearchKey
+#define NSAccessibilityFormFieldWithErrorSearchKey @"AXFormFieldWithErrorSearchKey"
+#endif
+
 #ifndef NSAccessibilityKeyboardFocusableSearchKey
 #define NSAccessibilityKeyboardFocusableSearchKey @"AXKeyboardFocusableSearchKey"
 #endif
@@ -260,15 +264,15 @@ static NSArray *convertMathPairsToNSArray(const AccessibilityObject::Accessibili
 
 NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& children, BOOL returnPlatformElements)
 {
-    return createNSArray(children, [returnPlatformElements] (const auto& child) -> id {
-        auto wrapper = child->wrapper();
+    return createNSArray(children, [returnPlatformElements] (const auto& child) -> RetainPtr<id> {
+        RetainPtr wrapper = child->wrapper();
         // We want to return the attachment view instead of the object representing the attachment,
         // otherwise, we get palindrome errors in the AX hierarchy.
         if (child->isAttachment()) {
-            if (RetainPtr<id> attachmentView = wrapper.attachmentView)
-                return attachmentView.unsafeGet();
+            if (RetainPtr<id> attachmentView = wrapper.get().attachmentView)
+                return attachmentView;
         } else if (child->isRemoteFrame() && returnPlatformElements)
-            return child->remoteFramePlatformElement().unsafeGet();
+            return child->remoteFramePlatformElement();
 
         return wrapper;
     }).autorelease();
@@ -652,7 +656,8 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
 
         auto content = backingObject->contentForRange(*lineRange, AXCoreObject::SpellCheck::Yes);
         auto text = adoptNS([[NSMutableAttributedString alloc] init]);
-        for (id item in content.get()) {
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL id item in content.get()) {
             if ([item isKindOfClass:NSAttributedString.class])
                 [text appendAttributedString:item];
             else if ([item isKindOfClass:WebAccessibilityObjectWrapper.class]) {
@@ -859,7 +864,8 @@ static NSDictionary *dictionaryRemovingNonSupportedTypes(NSDictionary *dictionar
         return nil;
     AX_ASSERT([dictionary isKindOfClass:[NSDictionary class]]);
     auto mutableDictionary = adoptNS([dictionary mutableCopy]);
-    for (NSString *key in dictionary) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSString *key in dictionary) {
         id value = [dictionary objectForKey:key];
         if ([value isKindOfClass:[NSDictionary class]])
             [mutableDictionary setObject:protect(dictionaryRemovingNonSupportedTypes(value)) forKey:key];
@@ -929,6 +935,7 @@ static AccessibilitySearchKeyMap* createAccessibilitySearchKeyMap()
         SearchKeyEntry { NSAccessibilityHeadingSameLevelSearchKey, AccessibilitySearchKey::HeadingSameLevel },
         SearchKeyEntry { NSAccessibilityHeadingSearchKey, AccessibilitySearchKey::Heading },
         SearchKeyEntry { NSAccessibilityHighlightedSearchKey, AccessibilitySearchKey::Highlighted },
+        SearchKeyEntry { NSAccessibilityFormFieldWithErrorSearchKey, AccessibilitySearchKey::FormFieldWithError },
         SearchKeyEntry { NSAccessibilityKeyboardFocusableSearchKey, AccessibilitySearchKey::KeyboardFocusable },
         SearchKeyEntry { NSAccessibilityItalicFontSearchKey, AccessibilitySearchKey::ItalicFont },
         SearchKeyEntry { NSAccessibilityLandmarkSearchKey, AccessibilitySearchKey::Landmark },

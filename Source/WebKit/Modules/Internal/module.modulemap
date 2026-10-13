@@ -357,6 +357,12 @@ module WebKit_Internal [system] {
         requires objc
     }
 
+    module WKPortalVolumetricGestureController {
+        header "../../UIProcess/Cocoa/WKPortalVolumetricGestureController.h"
+        export *
+        requires objc
+    }
+
     module WKPreferencesInternal {
         header "../../UIProcess/API/Cocoa/WKPreferencesInternal.h"
         export *
@@ -432,6 +438,12 @@ module WebKit_Internal [system] {
     module WKMouseTrackingGestureRecognizer {
         requires objc
         header "../../UIProcess/mac/AppKitGestures/WKMouseTrackingGestureRecognizer.h"
+        export *
+    }
+
+    module WKPointerTrackingGestureRecognizer {
+        requires objc
+        header "../../UIProcess/mac/AppKitGestures/WKPointerTrackingGestureRecognizer.h"
         export *
     }
 

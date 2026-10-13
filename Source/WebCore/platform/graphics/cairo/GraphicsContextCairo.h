@@ -105,14 +105,14 @@ public:
     
     RenderingMode renderingMode() const final;
 
-    cairo_t* NODELETE cr() const;
+    cairo_t* LEGACY_NODELETE cr() const;
     Vector<float>& layers();
     void pushImageMask(cairo_surface_t*, const FloatRect&);
 
     // Exposed as public because freestanding functions use this.
     using GraphicsContext::nativeImageForDrawing;
 private:
-    RefPtr<cairo_t> m_cr;
+    const RefPtr<cairo_t> m_cr;
 
     class CairoState;
     CairoState* m_cairoState;

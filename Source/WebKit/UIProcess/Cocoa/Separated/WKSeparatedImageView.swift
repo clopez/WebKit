@@ -23,6 +23,7 @@
 
 #if HAVE_CORE_ANIMATION_SEPARATED_LAYERS
 
+import IOSurface
 import os
 @_weakLinked import RealityKit
 import WebKit_Internal
@@ -231,7 +232,7 @@ extension WKSeparatedImageView {
 
 // MARK: - Extensions
 
-extension Logger {
+extension os.Logger {
     static let separatedImage = Logger(subsystem: "com.apple.WebKit", category: "SeparatedImage")
 }
 

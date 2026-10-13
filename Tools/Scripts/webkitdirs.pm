@@ -3097,6 +3097,7 @@ sub generateBuildSystemFromCMakeProject
     push @args, "-DENABLE_SANITIZERS=thread" if tsanIsEnabled();
     push @args, "-DENABLE_SANITIZERS=undefined" if ubsanIsEnabled();
     push @args, "-DENABLE_SANITIZERS=fuzzer" if libFuzzerIsEnabled();
+    push @args, "-DGENERATE_DSYM=ON" if generateDsym();
 
     push @args, "-DLTO_MODE=$ltoMode" if ltoMode();
 
@@ -3853,10 +3854,16 @@ sub relaunchIOSSimulator($)
     shutDownIOSSimulatorDevice($simulatedDevice);
 
     chomp(my $developerDirectory = $ENV{DEVELOPER_DIR} || `xcode-select --print-path`);
-    my $iosSimulatorPath = File::Spec->catfile($developerDirectory, "Applications", "Simulator.app");
-    # Simulator.app needs to be running before the simulator is booted to have it visible.
-    system("open", "-a", $iosSimulatorPath, "--args", "-CurrentDeviceUDID", $simulatedDevice->{UDID}) == 0 or die "Failed to open $iosSimulatorPath: $!";
-    system("xcrun", "simctl", "boot", $simulatedDevice->{UDID}) == 0 or die "Failed to boot simulator $simulatedDevice->{UDID}: $!";
+    my $deviceHubPath = File::Spec->catfile($developerDirectory, "..", "Applications", "DeviceHub.app");
+    if (-d $deviceHubPath) {
+        exitStatus(system("xcrun", "simctl", "boot", $simulatedDevice->{UDID})) == 0 or die "Failed to boot simulator $simulatedDevice->{UDID}";
+        exitStatus(system("open", "-a", $deviceHubPath, "devices://device/open?id=$simulatedDevice->{UDID}")) == 0 or die "Failed to open $deviceHubPath";
+    } else {
+        my $iosSimulatorPath = File::Spec->catfile($developerDirectory, "Applications", "Simulator.app");
+        # Simulator.app needs to be running before the simulator is booted to have it visible.
+        exitStatus(system("open", "-a", $iosSimulatorPath, "--args", "-CurrentDeviceUDID", $simulatedDevice->{UDID})) == 0 or die "Failed to open $iosSimulatorPath";
+        exitStatus(system("xcrun", "simctl", "boot", $simulatedDevice->{UDID})) == 0 or die "Failed to boot simulator $simulatedDevice->{UDID}";
+    }
 
     waitUntilIOSSimulatorDeviceIsInState($simulatedDevice->{UDID}, SIMULATOR_DEVICE_STATE_BOOTED);
     waitUntilProcessNotRunning("com.apple.datamigrator");

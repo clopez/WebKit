@@ -118,7 +118,7 @@ static void applyBasicAuthorizationHeader(WebCore::ResourceRequest& request, con
     request.setHTTPHeaderField(WebCore::HTTPHeaderName::Authorization, credential.serializationForBasicAuthorizationHeader());
 }
 
-static float NODELETE toNSURLSessionTaskPriority(WebCore::ResourceLoadPriority priority)
+static float LEGACY_NODELETE toNSURLSessionTaskPriority(WebCore::ResourceLoadPriority priority)
 {
     switch (priority) {
     case WebCore::ResourceLoadPriority::VeryLow:
@@ -313,7 +313,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
         return;
     }
 
-    m_task = [m_sessionWrapper->session dataTaskWithRequest:nsRequest.get()];
+    lazyInitialize(m_task, retainPtr([m_sessionWrapper->session dataTaskWithRequest:nsRequest.get()]));
 
 #if HAVE(CFNETWORK_HOSTOVERRIDE)
     // Avoid setting host override for WPT, since we are using a local DNS resolver then.
@@ -555,8 +555,10 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
             auto protectedThis = weakThis.get();
             if (!protectedThis || !protectedThis->m_session)
                 return completionHandler({ });
-            if (!request.isNull())
+            if (!request.isNull()) {
                 protectedThis->restrictRequestReferrerToOriginIfNeeded(request);
+                updateTaskWithFirstPartyForSameSiteCookies(protectedThis->m_task.get(), request);
+            }
             protectedThis->m_previousRequest = request;
             completionHandler(WTF::move(request));
         });

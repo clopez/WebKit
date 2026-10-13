@@ -35,6 +35,8 @@
 #include "CommandLineAPIHost.h"
 #include "CommonVM.h"
 #include "DOMWrapperWorld.h"
+#include "DebuggerSuspensionController.h"
+#include "FrameInspectorController.h"
 #include "GraphicsContext.h"
 #include "InspectorAnimationAgent.h"
 #include "InspectorBackendClient.h"
@@ -44,7 +46,6 @@
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorFrontendClient.h"
 #include "InspectorIdentifierRegistry.h"
-#include "InspectorIndexedDBAgent.h"
 #include "InspectorInstrumentation.h"
 #include "InspectorLayerTreeAgent.h"
 #include "InspectorMemoryAgent.h"
@@ -63,6 +64,7 @@
 #include "PageDebugger.h"
 #include "PageDebuggerAgent.h"
 #include "PageHeapAgent.h"
+#include "PageIndexedDBAgent.h"
 #include "PageNetworkAgent.h"
 #include "PageRuntimeAgent.h"
 #include "PageTimelineAgent.h"
@@ -96,8 +98,9 @@ PageInspectorController::PageInspectorController(Page& page, std::unique_ptr<Ins
     , m_injectedScriptManager(WebInjectedScriptManager::create(*this, WebInjectedScriptHost::create()))
     , m_frontendRouter(FrontendRouter::create())
     , m_backendDispatcher(BackendDispatcher::create(m_frontendRouter.copyRef()))
-    , m_overlay(makeUniqueRefWithoutRefCountedCheck<InspectorOverlay>(*this, inspectorBackendClient.get()))
+    , m_overlay(makeUniqueRefWithoutRefCountedCheck<InspectorOverlay>(*this))
     , m_executionStopwatch(Stopwatch::create())
+    , m_debuggerSuspensionController(makeUniqueRef<DebuggerSuspensionController>(page))
     , m_inspectorBackendClient(WTF::move(inspectorBackendClient))
     , m_identifierRegistry(Inspector::LegacyIdentifierRegistry::create())
 {
@@ -179,7 +182,7 @@ void PageInspectorController::createLazyAgents()
     m_agents.append(makeUniqueRef<InspectorLayerTreeAgent>(pageContext));
     m_agents.append(makeUniqueRef<PageWorkerAgent>(pageContext));
     m_agents.append(makeUniqueRef<InspectorDOMStorageAgent>(pageContext));
-    m_agents.append(makeUniqueRef<InspectorIndexedDBAgent>(pageContext));
+    m_agents.append(makeUniqueRef<PageIndexedDBAgent>(pageContext));
 
     auto scriptProfilerAgent = makeUniqueRef<InspectorScriptProfilerAgent>(pageContext);
     m_instrumentingAgents->setPersistentScriptProfilerAgent(protect(scriptProfilerAgent).ptr());
@@ -422,6 +425,21 @@ Page& PageInspectorController::inspectedPage() const
     return m_page;
 }
 
+Page* PageInspectorController::overlayOwnerPage() const
+{
+    // Always non-null: this controller is owned by the page.
+    return m_page.ptr();
+}
+
+Vector<size_t> PageInspectorController::overlayOwnerFlexLineStarts(const RenderObject& renderer) const
+{
+    // Deliberately does not create the DOM agent: with no agent there is nothing cached to report.
+    CheckedPtr domAgent = m_domAgent;
+    if (!domAgent)
+        return { };
+    return domAgent->flexibleBoxRendererCachedItemsAtStartOfLine(renderer);
+}
+
 void PageInspectorController::dispatchMessageFromFrontend(const String& message)
 {
     m_backendDispatcher->dispatch(message);
@@ -527,6 +545,17 @@ JSC::Debugger* PageInspectorController::debugger()
 {
     ASSERT_IMPLIES(m_didCreateLazyAgents, m_debugger);
     return m_debugger.get();
+}
+
+void PageInspectorController::forEachDebugger(NOESCAPE const Function<void(JSC::Debugger&)>& functor)
+{
+    if (m_debugger)
+        functor(*m_debugger);
+
+    protect(m_page)->forEachLocalFrame([&](LocalFrame& frame) {
+        if (auto* frameDebugger = protect(frame.inspectorController())->debugger())
+            functor(*frameDebugger);
+    });
 }
 
 JSC::VM& PageInspectorController::vm()

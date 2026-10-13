@@ -57,16 +57,16 @@ class BlockDirectory {
 public:
     BlockDirectory(size_t cellSize);
     ~BlockDirectory();
-    void NODELETE setSubspace(Subspace*);
+    void LEGACY_NODELETE setSubspace(Subspace*);
     void lastChanceToFinalize();
     void prepareForAllocation();
     void stopAllocating();
     void stopAllocatingForGood();
     void resumeAllocating();
-    void NODELETE beginMarkingForFullCollection();
+    void LEGACY_NODELETE beginMarkingForFullCollection();
     void endMarking();
-    void NODELETE snapshotUnsweptForEdenCollection();
-    void NODELETE snapshotUnsweptForFullCollection();
+    void LEGACY_NODELETE snapshotUnsweptForEdenCollection();
+    void LEGACY_NODELETE snapshotUnsweptForFullCollection();
     void sweep();
     void shrink();
     void assertNoUnswept();
@@ -75,8 +75,8 @@ public:
     DestructionMode destruction() const { return m_attributes.destruction; }
     HeapCell::Kind cellKind() const { return m_attributes.cellKind; }
 
-    inline void forEachBlock(const std::invocable<MarkedBlock::Handle*> auto&);
-    inline void forEachNotEmptyBlock(const std::invocable<MarkedBlock::Handle*> auto&);
+    inline void forEachBlock(NOESCAPE const std::invocable<MarkedBlock::Handle*> auto&);
+    inline void forEachNotEmptyBlock(NOESCAPE const std::invocable<MarkedBlock::Handle*> auto&);
 
     // Intended for diagnostics only (rdar://157153895)
     bool isFreeListedCell(const void*);
@@ -120,7 +120,7 @@ public:
     bool isStealable(size_t index) const WTF_REQUIRES_SHARED_LOCK(m_bitvectorLock) { return stealableBits()[index]; }
 
     template<typename Func>
-    void forEachBitVector(const Func& func) WTF_REQUIRES_LOCK(m_bitvectorLock)
+    void forEachBitVector(NOESCAPE const Func& func) WTF_REQUIRES_LOCK(m_bitvectorLock)
     {
 #define BLOCK_DIRECTORY_BIT_CALLBACK(lowerBitName, capitalBitName) \
         func(m_bits.lowerBitName());
@@ -129,7 +129,7 @@ public:
     }
     
     template<typename Func>
-    void forEachBitVectorWithName(const Func& func) const WTF_REQUIRES_SHARED_LOCK(m_bitvectorLock)
+    void forEachBitVectorWithName(NOESCAPE const Func& func) const WTF_REQUIRES_SHARED_LOCK(m_bitvectorLock)
     {
 #define BLOCK_DIRECTORY_BIT_CALLBACK(lowerBitName, capitalBitName) \
         func(m_bits.lowerBitName(), #capitalBitName);
@@ -152,13 +152,13 @@ public:
     MarkedBlock::Handle* findBlockToSweep(unsigned& unsweptCursor);
 
     // FIXME: rdar://139998916
-    MarkedBlock::Handle* NODELETE findMarkedBlockHandleDebug(MarkedBlock*);
+    MarkedBlock::Handle* LEGACY_NODELETE findMarkedBlockHandleDebug(MarkedBlock*);
 
     void didFinishUsingBlock(MarkedBlock::Handle*);
     void didFinishUsingBlock(AbstractLocker&, MarkedBlock::Handle*) WTF_REQUIRES_LOCK(m_bitvectorLock);
 
     Subspace* subspace() const { return m_subspace; }
-    MarkedSpace& NODELETE markedSpace() const;
+    MarkedSpace& LEGACY_NODELETE markedSpace() const;
     
     void dump(PrintStream&) const;
     void dumpBits(PrintStream& = WTF::dataFile()) WTF_REQUIRES_SHARED_LOCK(m_bitvectorLock);

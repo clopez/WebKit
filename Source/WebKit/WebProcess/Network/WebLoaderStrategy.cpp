@@ -109,17 +109,17 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebLoaderStrategy);
 
-[[maybe_unused]] static uint64_t NODELETE pageIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
+[[maybe_unused]] static uint64_t LEGACY_NODELETE pageIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
 {
     return parameters ? parameters->pageID.toUInt64() : 0;
 }
 
-[[maybe_unused]] static uint64_t NODELETE frameIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
+[[maybe_unused]] static uint64_t LEGACY_NODELETE frameIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
 {
     return parameters ? parameters->frameID.toUInt64() : 0;
 }
 
-[[maybe_unused]] static uint64_t NODELETE resourceIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
+[[maybe_unused]] static uint64_t LEGACY_NODELETE resourceIDForLog(const std::optional<WebResourceLoader::TrackingParameters>& parameters)
 {
     return parameters ? parameters->resourceID.toUInt64() : 0;
 }
@@ -171,7 +171,7 @@ void WebLoaderStrategy::schedulePluginStreamLoad(LocalFrame& frame, NetscapePlug
     });
 }
 
-static Seconds NODELETE maximumBufferingTime(CachedResource* resource)
+static Seconds LEGACY_NODELETE maximumBufferingTime(CachedResource* resource)
 {
     if (!resource)
         return 0_s;
@@ -396,9 +396,9 @@ static void addParametersShared(const LocalFrame* frame, NetworkResourceLoadPara
 
     if (RefPtr document = frame->document()) {
         parameters.crossOriginEmbedderPolicy = document->crossOriginEmbedderPolicy();
+        parameters.documentIsolationPolicy = document->documentIsolationPolicy();
         parameters.isClearSiteDataHeaderEnabled = document->settings().clearSiteDataHTTPHeaderEnabled();
         parameters.isClearSiteDataExecutionContextEnabled = document->settings().clearSiteDataExecutionContextsSupportEnabled();
-        parameters.mayBlockNetworkRequest = !isMainFrameNavigation && document->settings().scriptTrackingPrivacyNetworkRequestBlockingEnabled();
         parameters.globalPrivacyControlEnabled = document->settings().globalPrivacyControlEnabled().value_or(false);
         parameters.clientAddressSpace = document->ipAddressSpace();
         parameters.clientIsSecureContext = document->isSecureContext();
@@ -542,6 +542,8 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     if (!loadParameters.sourceOrigin && document)
         loadParameters.sourceOrigin = document->securityOrigin();
+    if (RefPtr origin = document ? document->loadSourceOriginOverrideForTesting() : nullptr)
+        loadParameters.sourceOrigin = WTF::move(origin);
     if (!loadParameters.sourceOrigin) {
         auto origin = request.httpOrigin();
         if (!origin.isNull())
@@ -561,8 +563,10 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
             loadParameters.topOrigin = resourceLoader.documentLoader()->triggeringAction().requester()->topOrigin.ptr();
         else
             loadParameters.topOrigin = SecurityOrigin::create(request.url());
-    } else if (document)
+    } else if (document) {
         loadParameters.topOrigin = document->topOrigin();
+        loadParameters.hasUnpartitionedStorageAccess = document->hasUnpartitionedStorageAccess();
+    }
 
     if (document)
         loadParameters.documentURL = document->url();

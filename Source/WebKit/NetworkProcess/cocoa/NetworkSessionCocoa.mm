@@ -61,6 +61,7 @@
 #import <WebCore/WebCoreURLResponse.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/Borrow.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ObjCRuntimeExtras.h>
@@ -102,16 +103,8 @@ SOFT_LINK_CONSTANT_MAY_FAIL(SymptomPresentationLite, kSymptomAnalyticsServiceEnd
 void WebKit::NetworkSessionCocoa::removeNetworkWebsiteData(std::optional<WallTime>, std::optional<HashSet<WebCore::RegistrableDomain>>&&, CompletionHandler<void()>&& completionHandler) { completionHandler(); }
 #endif
 
-#if HAVE(NW_PROXY_CONFIG)
-#if __has_include(<Network/NSURLSession+Network.h>)
+#if HAVE(NW_PROXY_CONFIG) && __has_include(<Network/NSURLSession+Network.h>)
 #include <Network/NSURLSession+Network.h>
-#endif
-SOFT_LINK_LIBRARY_OPTIONAL(libnetwork)
-#define WebKit_libnetworkLibrary_SoftLinked
-SOFT_LINK_OPTIONAL(libnetwork, nw_context_add_proxy, void, __cdecl, (nw_context_t, nw_proxy_config_t))
-SOFT_LINK_OPTIONAL(libnetwork, nw_context_clear_proxies, void, __cdecl, (nw_context_t))
-SOFT_LINK_OPTIONAL(libnetwork, nw_proxy_config_create_with_agent_data, nw_proxy_config_t, __cdecl, (const uint8_t*, size_t, const uuid_t))
-SOFT_LINK_OPTIONAL(libnetwork, nw_proxy_config_stack_requires_http_protocols, bool, __cdecl, (nw_proxy_config_t))
 #endif
 
 #import "DeviceManagementSoftLink.h"
@@ -147,7 +140,7 @@ static NSURLSessionResponseDisposition toNSURLSessionResponseDisposition(WebCore
     }
 }
 
-static NSURLSessionAuthChallengeDisposition NODELETE toNSURLSessionAuthChallengeDisposition(WebKit::AuthenticationChallengeDisposition disposition)
+static NSURLSessionAuthChallengeDisposition LEGACY_NODELETE toNSURLSessionAuthChallengeDisposition(WebKit::AuthenticationChallengeDisposition disposition)
 {
     switch (disposition) {
     case WebKit::AuthenticationChallengeDisposition::UseCredential:
@@ -161,7 +154,7 @@ static NSURLSessionAuthChallengeDisposition NODELETE toNSURLSessionAuthChallenge
     }
 }
 
-static WebCore::NetworkLoadPriority NODELETE toNetworkLoadPriority(float priority)
+static WebCore::NetworkLoadPriority LEGACY_NODELETE toNetworkLoadPriority(float priority)
 {
     if (priority <= NSURLSessionTaskPriorityLow)
         return WebCore::NetworkLoadPriority::Low;
@@ -170,7 +163,7 @@ static WebCore::NetworkLoadPriority NODELETE toNetworkLoadPriority(float priorit
     return WebCore::NetworkLoadPriority::Medium;
 }
 
-static WebCore::PrivacyStance NODELETE toPrivacyStance(nw_connection_privacy_stance_t stance)
+static WebCore::PrivacyStance LEGACY_NODELETE toPrivacyStance(nw_connection_privacy_stance_t stance)
 {
     switch (stance) {
     case nw_connection_privacy_stance_unknown:
@@ -376,7 +369,7 @@ static void setIgnoreHSTS(NSMutableURLRequest *request, bool ignoreHSTS)
 
 static void setIgnoreHSTS(RetainPtr<NSURLRequest>& request, bool shouldIgnoreHSTS)
 {
-    auto mutableRequest = adoptNS([request mutableCopy]);
+    RetainPtr mutableRequest = checked_objc_cast<NSMutableURLRequest>(adoptNS([request mutableCopy]));
     setIgnoreHSTS(mutableRequest.get(), shouldIgnoreHSTS);
     request = mutableRequest;
 }
@@ -489,7 +482,8 @@ static void updateIgnoreStrictTransportSecuritySetting(RetainPtr<NSURLRequest>& 
         } else
             ASSERT_NOT_REACHED();
 
-        WebCore::ResourceResponse synthesizedResponse = WebCore::synthesizeRedirectResponseIfNecessary(retainPtr([task currentRequest]).get(), request, nil);
+        RetainPtr redirectResponse = WebCore::synthesizeRedirectResponseIfNecessary(retainPtr([task currentRequest]).get(), request, nil);
+        WebCore::ResourceResponse synthesizedResponse = redirectResponse.get();
         RetainPtr origin = [request valueForHTTPHeaderField:@"Origin"] ?: @"*";
         synthesizedResponse.setHTTPHeaderField(WebCore::HTTPHeaderName::AccessControlAllowOrigin, origin.get());
         networkDataTask->willPerformHTTPRedirection(WTF::move(synthesizedResponse), request, [completionHandler = makeBlockPtr(completionHandler), taskIdentifier, shouldIgnoreHSTS](auto&& request) {
@@ -677,21 +671,21 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
     if (!report)
         return nil;
 
-    OSObjectPtr path = dynamicOSObjectCast<nw_path_t>(error.userInfo[@"_NSURLErrorNWPathKey"]);
-    if (!path)
-        return nil;
-
     auto interfaces = adoptNS([[NSMutableArray alloc] initWithCapacity:1]);
     if (!interfaces.get())
         return nil;
-    nw_path_enumerate_interfaces(path.get(), ^bool(nw_interface_t interface) {
-        String name = String::fromUTF8(nw_interface_get_name(interface));
-        [interfaces addObject:@{
-            @"type" : description(nw_interface_get_type(interface)),
-            @"name" : name.createNSString().get() ?: @"",
-        }];
-        return true;
-    });
+
+    // The path may be a Swift NWPath that is not an nw_path_t; the report is still useful without interfaces.
+    if (OSObjectPtr path = dynamicOSObjectCast<nw_path_t>(error.userInfo[@"_NSURLErrorNWPathKey"])) {
+        nw_path_enumerate_interfaces(path.get(), ^bool(nw_interface_t interface) {
+            String name = String::fromUTF8(nw_interface_get_name(interface));
+            [interfaces addObject:@{
+                @"type" : description(nw_interface_get_type(interface)),
+                @"name" : name.createNSString().get() ?: @"",
+            }];
+            return true;
+        });
+    }
 
     String provider = String::fromUTF8(nw_resolution_report_get_provider_name(report.get()));
     String extraText = String::fromUTF8(nw_resolution_report_get_extended_dns_error_extra_text(report.get()));
@@ -826,7 +820,8 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
             uint64_t requestHeaderBytesSent = 0;
             uint64_t responseHeaderBytesReceived = 0;
 
-            for (NSURLSessionTaskTransactionMetrics *transactionMetrics in metrics.transactionMetrics) {
+            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+            for (SUPPRESS_UNRETAINED_LOCAL NSURLSessionTaskTransactionMetrics *transactionMetrics in metrics.transactionMetrics) {
                 requestHeaderBytesSent += transactionMetrics.countOfRequestHeaderBytesSent;
                 responseHeaderBytesReceived += transactionMetrics.countOfResponseHeaderBytesReceived;
             }
@@ -1540,8 +1535,10 @@ HashSet<WebCore::SecurityOriginData> NetworkSessionCocoa::originsWithCredentials
     bool shouldHandleSessionCredentialsOnly = credentialStorage.get() == [NSURLCredentialStorage sharedCredentialStorage];
     HashSet<WebCore::SecurityOriginData> origins;
     RetainPtr credentials = [credentialStorage allCredentials];
-    for (NSURLProtectionSpace *space in credentials.get()) {
-        for (NSURLCredential *credential in [credentials.get()[space] allValues]) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSURLProtectionSpace *space in credentials.get()) {
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSURLCredential *credential in [credentials.get()[space] allValues]) {
             if (!shouldHandleSessionCredentialsOnly || credential.persistence == NSURLCredentialPersistenceForSession) {
                 origins.add(WebCore::SecurityOriginData { String(space.protocol), String(space.host), space.port });
                 break;
@@ -1558,15 +1555,17 @@ void NetworkSessionCocoa::removeCredentialsForOrigins(const Vector<WebCore::Secu
         return;
 
     HashSet<WebCore::SecurityOriginData> originSet;
-    for (auto& origin : origins) {
+    for (auto& origin : borrow(origins)) {
         if (!origin.isNull() && !origin.isOpaque())
             originSet.add(origin);
     }
 
     bool shouldHandleSessionCredentialsOnly = credentialStorage.get() == [NSURLCredentialStorage sharedCredentialStorage];
     RetainPtr credentials = [credentialStorage allCredentials];
-    for (NSURLProtectionSpace *space in credentials.get()) {
-        for (NSURLCredential *credential in [credentials.get()[space] allValues]) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSURLProtectionSpace *space in credentials.get()) {
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSURLCredential *credential in [credentials.get()[space] allValues]) {
             if (shouldHandleSessionCredentialsOnly && credential.persistence != NSURLCredentialPersistenceForSession)
                 continue;
             auto origin = WebCore::SecurityOriginData { String(space.protocol), String(space.host), space.port };
@@ -1585,8 +1584,10 @@ void NetworkSessionCocoa::clearCredentials(WallTime modifiedSince)
     bool useSharedCredentialStorage = credentialStorage.get() == [NSURLCredentialStorage sharedCredentialStorage];
     bool shouldHandleSessionCredentialsOnly = useSharedCredentialStorage || (modifiedSince.secondsSinceEpoch().value() > 0.0);
     RetainPtr credentials = [credentialStorage allCredentials];
-    for (NSURLProtectionSpace *space in credentials.get()) {
-        for (NSURLCredential *credential in [credentials.get()[space] allValues]) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSURLProtectionSpace *space in credentials.get()) {
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSURLCredential *credential in [credentials.get()[space] allValues]) {
             if (shouldHandleSessionCredentialsOnly && credential.persistence != NSURLCredentialPersistenceForSession)
                 continue;
             [credentialStorage removeCredential:credential forProtectionSpace:space];
@@ -1655,7 +1656,7 @@ DMFWebsitePolicyMonitor *NetworkSessionCocoa::deviceManagementPolicyMonitor()
 #if HAVE(DEVICE_MANAGEMENT)
     ASSERT(m_deviceManagementRestrictionsEnabled);
     if (!m_deviceManagementPolicyMonitor)
-        m_deviceManagementPolicyMonitor = adoptNS([allocDMFWebsitePolicyMonitorInstance() initWithPolicyChangeHandler:nil]);
+        lazyInitialize(m_deviceManagementPolicyMonitor, adoptNS([allocDMFWebsitePolicyMonitorInstance() initWithPolicyChangeHandler:nil]));
     return m_deviceManagementPolicyMonitor.get();
 #else
     RELEASE_ASSERT_NOT_REACHED();
@@ -1971,7 +1972,8 @@ Vector<WebCore::SecurityOriginData> NetworkSessionCocoa::hostNamesWithAlternativ
     RetainPtr<_NSHTTPAlternativeServicesStorage> storage = m_defaultSessionSet->sessionWithCredentialStorage->session.get().configuration._alternativeServicesStorage;
     RetainPtr<NSArray<_NSHTTPAlternativeServiceEntry *>> entries = [storage HTTPServiceEntriesWithFilter:_NSHTTPAlternativeServicesFilter.emptyFilter];
 
-    for (_NSHTTPAlternativeServiceEntry* entry in entries.get()) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL _NSHTTPAlternativeServiceEntry* entry in entries.get()) {
         WebCore::SecurityOriginData origin = { "https"_s, entry.host, entry.port };
         origins.append(origin);
     }
@@ -2024,7 +2026,7 @@ void NetworkSessionCocoa::deleteAlternativeServicesForHostNames(const Vector<Str
 {
 #if HAVE(ALTERNATIVE_SERVICE)
     RetainPtr<_NSHTTPAlternativeServicesStorage> storage = m_defaultSessionSet->sessionWithCredentialStorage->session.get().configuration._alternativeServicesStorage;
-    for (auto& host : hosts)
+    for (auto& host : borrow(hosts))
         [storage removeHTTPAlternativeServiceEntriesWithRegistrableDomain:host.createNSString().get()];
 #else
     UNUSED_PARAM(hosts);
@@ -2071,10 +2073,6 @@ void NetworkSessionCocoa::forEachSessionWrapper(NOESCAPE const Function<void(Ses
 #if HAVE(NW_PROXY_CONFIG)
 void NetworkSessionCocoa::clearProxyConfigData()
 {
-    auto* clearProxies = nw_context_clear_proxiesPtr();
-    if (!clearProxies)
-        return;
-
     m_nwProxyConfigs.clear();
 
     RetainPtr<NSMutableSet> contexts = adoptNS([[NSMutableSet alloc] init]);
@@ -2084,36 +2082,28 @@ void NetworkSessionCocoa::clearProxyConfigData()
         [contexts.get() addObject:retainPtr(sessionWrapper.session.get()._networkContext).get()];
     });
 
-    for (nw_context_t context in contexts.get())
-        clearProxies(context);
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL nw_context_t context in contexts.get())
+        nw_context_clear_proxies(context);
 }
 
 void NetworkSessionCocoa::setProxyConfigData(const Vector<std::pair<Vector<uint8_t>, std::optional<WTF::UUID>>>& proxyConfigurations)
 {
-    auto* clearProxies = nw_context_clear_proxiesPtr();
-    auto* addProxy = nw_context_add_proxyPtr();
-    auto* createProxyConfig = nw_proxy_config_create_with_agent_dataPtr();
-    auto* requiresHTTPProtocols = nw_proxy_config_stack_requires_http_protocolsPtr();
-    if (!clearProxies || !addProxy || !createProxyConfig || !requiresHTTPProtocols)
-        return;
-
     m_nwProxyConfigs.clear();
 
     // If any of the proxies pass the `nw_proxy_config_stack_requires_http_protocols` check,
     // then we cannot set the proxy on the live nw_context_t and instead must destroy and recreate the NSURLSession
     bool recreateSessions = false;
-    for (auto& config : proxyConfigurations) {
+    for (auto& config : borrow(proxyConfigurations)) {
         uuid_t identifier;
         if (config.second)
             memcpySpan(asMutableByteSpan(identifier), config.second->span().first(sizeof(uuid_t)));
         else
             zeroBytes(identifier);
 
-        // This is correct but static analysis does not seem to recognize that `createProxyConfig` returns
-        // a +1 value.
-        SUPPRESS_RETAINPTR_CTOR_ADOPT auto nwProxyConfig = adoptNS(createProxyConfig(config.first.span().data(), config.first.size(), identifier));
+        RetainPtr nwProxyConfig = adoptNS(nw_proxy_config_create_with_agent_data(borrow(config.first)->span().data(), config.first.size(), identifier));
 
-        if (requiresHTTPProtocols(nwProxyConfig.get()))
+        if (nw_proxy_config_stack_requires_http_protocols(nwProxyConfig.get()))
             recreateSessions = true;
 
         m_nwProxyConfigs.append(WTF::move(nwProxyConfig));
@@ -2134,11 +2124,12 @@ void NetworkSessionCocoa::setProxyConfigData(const Vector<std::pair<Vector<uint8
         [contexts.get() addObject:retainPtr(sessionWrapper.session.get()._networkContext).get()];
     });
 
-    for (nw_context_t context in contexts.get()) {
-        clearProxies(context);
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL nw_context_t context in contexts.get()) {
+        nw_context_clear_proxies(context);
 
-        for (auto& proxyConfig : m_nwProxyConfigs)
-            addProxy(context, proxyConfig.get());
+        for (auto& proxyConfig : borrow(m_nwProxyConfigs))
+            nw_context_add_proxy(context, proxyConfig.get());
     }
 }
 
@@ -2146,7 +2137,7 @@ void NetworkSessionCocoa::applyProxyConfigurationToSessionConfiguration(NSURLSes
 {
     if (!m_nwProxyConfigs.isEmpty()) {
         RetainPtr nwProxyConfigurations = adoptNS([[NSMutableArray alloc] initWithCapacity:m_nwProxyConfigs.size()]);
-        for (auto& proxyConfig : m_nwProxyConfigs)
+        for (auto& proxyConfig : borrow(m_nwProxyConfigs))
             [nwProxyConfigurations addObject:proxyConfig.get()];
 
         configuration.proxyConfigurations = nwProxyConfigurations.get();

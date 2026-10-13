@@ -42,6 +42,7 @@
 #import "PlatformWritingToolsUtilities.h"
 #import "RemoteLayerTreeCommitBundle.h"
 #import "RemoteLayerTreeNode.h"
+#import "RemoteScrollingCoordinatorProxy.h"
 #import "TextExtractionFilter.h"
 #import "TransientZoomState.h"
 #import "UndoOrRedo.h"
@@ -91,6 +92,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -785,7 +787,7 @@ String PageClientImpl::dismissCorrectionPanelSoon(WebCore::ReasonForDismissingAl
 #endif
 }
 
-static inline NSCorrectionResponse NODELETE toCorrectionResponse(AutocorrectionResponse response)
+static inline NSCorrectionResponse LEGACY_NODELETE toCorrectionResponse(AutocorrectionResponse response)
 {
     switch (response) {
     case WebCore::AutocorrectionResponse::Reverted:
@@ -846,6 +848,40 @@ void PageClientImpl::scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID)
 {
     protect(m_impl)->suppressContentRelativeChildViews(WebViewImpl::ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
 }
+
+#if ENABLE(UI_SIDE_COMPOSITING)
+
+WebCore::FloatRect PageClientImpl::documentRect() const
+{
+    // In unscaled content coordinates. iOS uses the WKContentView's bounds, whose size follows the content size;
+    // macOS has no such view, so take the content size from the scrolling tree.
+    if (!m_impl)
+        return { };
+
+    CheckedPtr scrollingCoordinatorProxy = m_impl->page().scrollingCoordinatorProxy();
+    if (!scrollingCoordinatorProxy)
+        return { };
+
+    // The tree's contents size is scaled by the main frame scale, and callers like computeLayoutViewportRect()
+    // intersect this against rects in content coordinates, so undo it.
+    auto contentsSize = scrollingCoordinatorProxy->totalContentsSize();
+    auto mainFrameScaleFactor = scrollingCoordinatorProxy->mainFrameScaleFactor();
+    if (mainFrameScaleFactor > 0)
+        contentsSize.scale(1 / mainFrameScaleFactor);
+
+    return WebCore::FloatRect { WebCore::FloatPoint { }, contentsSize };
+}
+
+double PageClientImpl::minimumZoomScale() const
+{
+    // macOS has no meta viewport, so this is the gesture controller's minimum magnification.
+    if (!m_impl)
+        return 1;
+
+    return m_impl->page().minPageZoomFactor();
+}
+
+#endif // ENABLE(UI_SIDE_COMPOSITING)
 
 #if HAVE(NSREFRESHCONTROLLER)
 void PageClientImpl::topScrollStretchDidChange(CGFloat topScrollStretch)
@@ -1050,11 +1086,6 @@ CGRect PageClientImpl::boundsOfLayerInLayerBackedWindowCoordinates(CALayer *laye
     return [windowContentLayer convertRect:layer.bounds fromLayer:layer];
 }
 
-void PageClientImpl::didPerformImmediateActionHitTest(const WebHitTestResultData& result, bool contentPreventsDefault, API::Object* userData)
-{
-    protect(m_impl)->didPerformImmediateActionHitTest(result, contentPreventsDefault, userData);
-}
-
 NSObject *PageClientImpl::immediateActionAnimationControllerForHitTestResult(RefPtr<API::HitTestResult> hitTestResult, uint64_t type, RefPtr<API::Object> userData)
 {
     return protect(m_impl)->immediateActionAnimationControllerForHitTestResult(hitTestResult.get(), type, userData.get());
@@ -1120,6 +1151,13 @@ void PageClientImpl::didEndSyntheticMomentumScrolling()
 }
 
 #if ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)
+void PageClientImpl::pageScaleFactorDidChange()
+{
+    // With delegated scaling the contents size and scroll offset the color extensions are placed from come in
+    // unscaled, so a new committed scale moves them even though neither of those values changed.
+    protect(m_impl)->updateWebContentDistancesFromEdges();
+}
+
 void PageClientImpl::didUpdateTransientZoomStateForScrollPocket(std::optional<TransientZoomState> state)
 {
     protect(m_impl)->didUpdateTransientZoomStateForScrollPocket(state);
@@ -1209,7 +1247,7 @@ bool PageClientImpl::appUsesCustomAccentColor()
     static BOOL usesCustomAppAccentColor = [] {
         RetainPtr bundleForAccentColor = [NSBundle mainBundle];
         RetainPtr info = [bundleForAccentColor infoDictionary];
-        RetainPtr<NSString> accentColorName = info.get()[@"NSAccentColorName"];
+        RetainPtr accentColorName = dynamic_objc_cast<NSString>(info.get()[@"NSAccentColorName"]);
         BOOL usesCustomAppAccentColor = NO;
         if ([accentColorName length])
             usesCustomAppAccentColor = !![NSColor colorNamed:accentColorName.get() bundle:bundleForAccentColor.get()];

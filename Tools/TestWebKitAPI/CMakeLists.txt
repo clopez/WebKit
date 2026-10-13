@@ -56,7 +56,6 @@ set(TestWTF_SOURCES
     Tests/WTF/BoxPtr.cpp
     Tests/WTF/BumpPointerAllocator.cpp
     Tests/WTF/CString.cpp
-    Tests/WTF/CStringView.cpp
     Tests/WTF/CharacterProperties.cpp
     Tests/WTF/CheckedArithmeticOperations.cpp
     Tests/WTF/CheckedPtr.cpp
@@ -100,6 +99,7 @@ set(TestWTF_SOURCES
     Tests/WTF/JSONValue.cpp
     Tests/WTF/LEBDecoder.cpp
     Tests/WTF/LEBEncoder.cpp
+    Tests/WTF/LayeredHashMap.cpp
     Tests/WTF/LazyRef.cpp
     Tests/WTF/LazyUniqueRef.cpp
     Tests/WTF/LifecycleLogger.cpp
@@ -178,6 +178,7 @@ set(TestWTF_SOURCES
     Tests/WTF/TruncateFloat.cpp
     Tests/WTF/URL.cpp
     Tests/WTF/URLParser.cpp
+    Tests/WTF/UTF8CStringView.cpp
     Tests/WTF/UTF8Conversion.cpp
     Tests/WTF/UUID.cpp
     Tests/WTF/UniqueArray.cpp
@@ -268,6 +269,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/CSSParser.cpp
         Tests/WebCore/CSSParserFastPaths.cpp
         Tests/WebCore/CSSTokenizerTests.cpp
+        Tests/WebCore/CSSValueAggregates.cpp
         Tests/WebCore/CachedMatchFinder.cpp
         Tests/WebCore/ColorTests.cpp
         Tests/WebCore/ComplexTextController.cpp
@@ -318,6 +320,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/MIMESniffer.cpp
         Tests/WebCore/MIMETypeRegistry.cpp
         Tests/WebCore/MediaConstraintsTests.cpp
+        Tests/WebCore/MediaQueryListCapacity.cpp
         Tests/WebCore/MediaReorderQueue.cpp
         Tests/WebCore/MixedContentChecker.cpp
         Tests/WebCore/MonospaceFontTests.cpp
@@ -335,12 +338,12 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/PublicSuffix.cpp
         Tests/WebCore/PushDatabase.cpp
         Tests/WebCore/PushMessageCrypto.cpp
+        Tests/WebCore/QuirkMatchPattern.cpp
         Tests/WebCore/Quirks.cpp
         Tests/WebCore/RegionTests.cpp
         Tests/WebCore/RegistrableDomain.cpp
         Tests/WebCore/RenderStyleChange.cpp
         Tests/WebCore/STUNMessageParsingTest.cpp
-        Tests/WebCore/SVGImageCasts.cpp
         Tests/WebCore/SampleMap.cpp
         Tests/WebCore/SecurityOrigin.cpp
         Tests/WebCore/SerializedScriptValue.cpp
@@ -359,7 +362,6 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/TimeRanges.cpp
         Tests/WebCore/TransformationMatrix.cpp
         Tests/WebCore/U2fCommandConstructorTest.cpp
-        Tests/WebCore/URLMatch.cpp
         Tests/WebCore/URLParserTextEncoding.cpp
         Tests/WebCore/URLPatternTests.cpp
         Tests/WebCore/WebCodecsBufferTransfer.cpp

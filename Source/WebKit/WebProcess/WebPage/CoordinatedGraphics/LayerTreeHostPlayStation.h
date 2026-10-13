@@ -126,7 +126,7 @@ public:
 #if ENABLE(DAMAGE_TRACKING)
     void notifyFrameDamageForTesting(WebCore::Region&&);
     void resetDamageHistoryForTesting();
-    void foreachRegionInDamageHistoryForTesting(Function<void(const WebCore::Region&)>&&);
+    void foreachRegionInDamageHistoryForTesting(NOESCAPE const Function<void(const WebCore::Region&)>&);
 #endif
 
 private:
@@ -141,7 +141,7 @@ private:
 
     // CoordinatedPlatformLayer::Client
 #if USE(CAIRO)
-    WebCore::Cairo::PaintingEngine& NODELETE paintingEngine() override;
+    WebCore::Cairo::PaintingEngine& LEGACY_NODELETE paintingEngine() override;
 #elif USE(SKIA)
     WebCore::SkiaPaintingEngine& paintingEngine() const LIFETIME_BOUND override { return *m_skiaPaintingEngine.get(); }
 #endif
@@ -187,7 +187,7 @@ private:
 #if ENABLE(SCROLLING_THREAD)
     bool m_compositionRequiredInScrollingThread { false };
 #endif
-    RefPtr<ThreadedCompositor> m_compositor;
+    const RefPtr<ThreadedCompositor> m_compositor;
     struct {
         CompletionHandler<void()> callback;
 #if HAVE(DISPLAY_LINK)
@@ -201,7 +201,7 @@ private:
     WebCore::PlatformDisplayID m_displayID;
 #endif
 #if USE(CAIRO)
-    std::unique_ptr<WebCore::Cairo::PaintingEngine> m_paintingEngine;
+    const std::unique_ptr<WebCore::Cairo::PaintingEngine> m_paintingEngine;
 #elif USE(SKIA)
     std::unique_ptr<WebCore::SkiaPaintingEngine> m_skiaPaintingEngine;
 #endif

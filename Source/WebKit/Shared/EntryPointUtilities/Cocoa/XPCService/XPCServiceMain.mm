@@ -58,13 +58,13 @@
 
 namespace WebKit {
 
-static Vector<String>& NODELETE overrideLanguagesFromBootstrap()
+static Vector<String>& LEGACY_NODELETE overrideLanguagesFromBootstrap()
 {
     static NeverDestroyed<Vector<String>> languages;
     return languages;
 }
 
-static void NODELETE stageOverrideLanguagesForMainThread(Vector<String>&& languages)
+static void LEGACY_NODELETE stageOverrideLanguagesForMainThread(Vector<String>&& languages)
 {
     RELEASE_ASSERT(overrideLanguagesFromBootstrap().isEmpty());
     overrideLanguagesFromBootstrap().swap(languages);
@@ -117,7 +117,7 @@ NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashDueWebKitFrameworkVersionMi
 static void checkFrameworkVersion(xpc_object_t message)
 {
     auto uiProcessWebKitBundleVersion = xpcDictionaryGetString(message, "WebKitBundleVersion"_s);
-    auto webkitBundleVersion = ASCIILiteral::fromLiteralUnsafe(WEBKIT_BUNDLE_VERSION);
+    auto webkitBundleVersion = ASCIILiteral { WEBKIT_BUNDLE_VERSION };
     if (!uiProcessWebKitBundleVersion.isNull() && uiProcessWebKitBundleVersion != webkitBundleVersion) {
         auto errorMessage = makeString("WebKit framework version mismatch: "_s, uiProcessWebKitBundleVersion, " != "_s, webkitBundleVersion);
         logAndSetCrashLogMessage(errorMessage.utf8());
@@ -126,7 +126,9 @@ static void checkFrameworkVersion(xpc_object_t message)
 }
 #endif // PLATFORM(MAC)
 
+#if ENABLE(CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH)
 static bool s_isWebProcess = false;
+#endif
 
 static void setUserDirSuffix(String&& suffix)
 {
@@ -213,7 +215,9 @@ void XPCServiceEventHandler(xpc_connection_t peer)
 
             CFStringRef entryPointFunctionName = nullptr;
             if (serviceName.startsWith(webContentServiceName)) {
+#if ENABLE(CLOSE_WEBCONTENT_XPC_CONNECTION_POST_LAUNCH)
                 s_isWebProcess = true;
+#endif
 #if USE(EXTENSIONKIT)
                 setUserDirSuffix(WTF::move(uiProcessName));
 #else

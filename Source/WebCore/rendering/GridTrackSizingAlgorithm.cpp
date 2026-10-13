@@ -175,21 +175,21 @@ void GridTrack::ensureGrowthLimitIsBiggerThanBaseSize()
         m_growthLimit = std::max(m_baseSize, 0_lu);
 }
 
-static bool NODELETE hasRelativeMarginOrPaddingForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
+static bool LEGACY_NODELETE hasRelativeMarginOrPaddingForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
 {
     if (direction == Style::GridTrackSizingDirection::Columns)
         return gridItem.style().marginStart().isPercentOrCalculated() || gridItem.style().marginEnd().isPercentOrCalculated() || gridItem.style().paddingStart().isPercentOrCalculated() || gridItem.style().paddingEnd().isPercentOrCalculated();
     return gridItem.style().marginBefore().isPercentOrCalculated() || gridItem.style().marginAfter().isPercentOrCalculated() || gridItem.style().paddingBefore().isPercentOrCalculated() || gridItem.style().paddingAfter().isPercentOrCalculated();
 }
 
-static bool NODELETE hasRelativeOrKeywordOrAutoSizeForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
+static bool LEGACY_NODELETE hasRelativeOrKeywordOrAutoSizeForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
 {
     if (direction == Style::GridTrackSizingDirection::Columns)
         return gridItem.hasRelativeLogicalWidth() || gridItem.style().logicalWidth().isSizingKeywordOrAuto();
     return gridItem.hasRelativeLogicalHeight() || gridItem.style().logicalHeight().isSizingKeywordOrAuto();
 }
 
-static bool NODELETE shouldClearOverridingContainingBlockContentSizeForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
+static bool LEGACY_NODELETE shouldClearOverridingContainingBlockContentSizeForGridItem(const RenderBox& gridItem, Style::GridTrackSizingDirection direction)
 {
     return hasRelativeOrKeywordOrAutoSizeForGridItem(gridItem, direction) || hasRelativeMarginOrPaddingForGridItem(gridItem, direction);
 }
@@ -351,10 +351,10 @@ public:
     {
     }
 
-    RenderBox& NODELETE gridItem() const { return m_gridItem; }
-    GridSpan NODELETE span() const { return m_span; }
+    RenderBox& LEGACY_NODELETE gridItem() const { return m_gridItem; }
+    GridSpan LEGACY_NODELETE span() const { return m_span; }
 
-    bool NODELETE operator<(const GridItemWithSpan other) const { return m_span.integerSpan() < other.m_span.integerSpan(); }
+    bool LEGACY_NODELETE operator<(const GridItemWithSpan other) const { return m_span.integerSpan() < other.m_span.integerSpan(); }
 
 private:
     std::reference_wrapper<RenderBox> m_gridItem;
@@ -406,7 +406,7 @@ LayoutUnit GridTrackSizingAlgorithm::itemSizeForTrackSizeComputationPhaseGridLan
     return 0;
 }
 
-static bool NODELETE shouldProcessTrackForTrackSizeComputationPhase(TrackSizeComputationPhase phase, const Style::ZoomResolvable<Style::GridTrackSize>& trackSize)
+static bool LEGACY_NODELETE shouldProcessTrackForTrackSizeComputationPhase(TrackSizeComputationPhase phase, const Style::ZoomResolvable<Style::GridTrackSize>& trackSize)
 {
     switch (phase) {
     case TrackSizeComputationPhase::ResolveIntrinsicMinimums:
@@ -465,7 +465,7 @@ static void updateTrackSizeForTrackSizeComputationPhase(TrackSizeComputationPhas
     ASSERT_NOT_REACHED();
 }
 
-static bool NODELETE trackShouldGrowBeyondGrowthLimitsForTrackSizeComputationPhase(TrackSizeComputationPhase phase, const Style::ZoomResolvable<Style::GridTrackSize>& trackSize)
+static bool LEGACY_NODELETE trackShouldGrowBeyondGrowthLimitsForTrackSizeComputationPhase(TrackSizeComputationPhase phase, const Style::ZoomResolvable<Style::GridTrackSize>& trackSize)
 {
     switch (phase) {
     case TrackSizeComputationPhase::ResolveIntrinsicMinimums:
@@ -716,7 +716,7 @@ void GridTrackSizingAlgorithm::convertIndefiniteItemsToDefiniteGridLanes(const S
 }
 
 template <TrackSizeComputationVariant variant>
-static double NODELETE getSizeDistributionWeight(const GridTrack& track)
+static double LEGACY_NODELETE getSizeDistributionWeight(const GridTrack& track)
 {
     if (variant != TrackSizeComputationVariant::CrossingFlexibleTracks)
         return 0;
@@ -1126,6 +1126,9 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::minContentContributionForGridItem(R
                 auto stretchedSize = !GridLayoutFunctions::isOrthogonalGridItem(*renderGrid(), gridItem) ? gridItem.constrainLogicalHeightByMinMax(rowSize, { }) : gridItem.constrainLogicalWidthByMinMax(rowSize, renderGrid()->contentBoxWidth(), *renderGrid());
                 ScopedOverridingContentSizeForGridItem scope(*renderGrid(), gridItem, stretchedSize, Style::GridTrackSizingDirection::Rows);
                 return gridItem.minContentLogicalWidthContribution();
+            } else if (shouldTreatGridAreaBlockSizeAsIndefinite(gridItem)) {
+                ScopedGridAreaContentLogicalHeight scope(gridItem, std::nullopt);
+                return gridItem.minContentLogicalWidthContribution();
             }
             return gridItem.minContentLogicalWidthContribution();
         }();
@@ -1183,6 +1186,9 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::maxContentContributionForGridItem(R
                     ScopedGridAreaContentLogicalHeight scope(gridItem, rowsEstimate);
                     return gridItem.maxContentLogicalWidthContribution();
                 }
+            } else if (shouldTreatGridAreaBlockSizeAsIndefinite(gridItem)) {
+                ScopedGridAreaContentLogicalHeight scope(gridItem, std::nullopt);
+                return gridItem.maxContentLogicalWidthContribution();
             }
             return gridItem.maxContentLogicalWidthContribution();
         }();
@@ -1357,6 +1363,20 @@ void GridTrackSizingAlgorithm::cacheBaselineAlignedItem(const RenderBox& item, S
         if (cachingRowSubgridsForRootGrid && gridItemParentIsSubgridRowsOfRootGrid)
             m_rowSubgridsWithBaselineAlignedItems.add(*gridItemParent);
     }
+}
+
+// The first column pass runs before this layout sizes the rows, so the grid area block size still holds the previous
+// layout's row size. When the spanned rows are not definite, the item has an indefinite block size to resolve
+// against (https://drafts.csswg.org/css-grid-2/#algo-grid-sizing), not the previous row size.
+bool GridTrackSizingAlgorithmStrategy::shouldTreatGridAreaBlockSizeAsIndefinite(const RenderBox& gridItem) const
+{
+    if (sizingOperation() != SizingOperation::TrackSizing || sizingState() != GridTrackSizingAlgorithm::SizingState::ColumnSizingFirstIteration)
+        return false;
+    if (gridItem.parent() != renderGrid() || GridLayoutFunctions::isOrthogonalGridItem(*renderGrid(), gridItem))
+        return false;
+    if (renderGrid()->isGridLanes() || renderGrid()->isSubgridRows())
+        return false;
+    return !m_algorithm.estimatedGridAreaBreadthForGridItem(gridItem, Style::GridTrackSizingDirection::Rows);
 }
 
 bool GridTrackSizingAlgorithmStrategy::isComputingColumnIntrinsicWidthForNonOrthogonalItem(const RenderBox& gridItem) const
@@ -1789,7 +1809,7 @@ static std::optional<LayoutUnit> extraMarginFromSubgridAncestorGutters(const Ren
 }
 
 template<typename LeafItemHandler>
-void GridTrackSizingAlgorithm::traverseSubgridTreeForIntrinsicSizing(LeafItemHandler&& handleLeafItem)
+void GridTrackSizingAlgorithm::traverseSubgridTreeForIntrinsicSizing(NOESCAPE const LeafItemHandler& handleLeafItem)
 {
     auto& allTracks = tracks(m_direction);
     auto trackCount = allTracks.size();

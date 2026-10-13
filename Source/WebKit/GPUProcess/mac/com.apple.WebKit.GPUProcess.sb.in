@@ -91,6 +91,8 @@
 
 (define (allow-paravirtualization)
     (allow iokit-open-service (iokit-registry-entry-class "AppleVideoToolboxParavirtualizationDriver"))
+    (allow iokit-open-service (iokit-registry-entry-class "AppleM2ScalerParavirtDriver"))
+    (allow iokit-open-user-client (iokit-user-client-class "IOSurfaceAcceleratorParavirtClient"))
 
     (if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
         (allow iokit-open-user-client
@@ -1527,8 +1529,9 @@
     SYS_work_interval_ctl
     SYS_workq_kernreturn))
 
-(allow syscall-unix (with telemetry)
+(allow syscall-unix (with report) (with telemetry)
     (syscall-number
+        SYS_fgetattrlist
         SYS_openat_dprotected_np
         SYS_renameat))
 

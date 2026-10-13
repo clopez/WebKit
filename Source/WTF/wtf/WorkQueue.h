@@ -80,7 +80,7 @@ protected:
     uint32_t m_threadID { 0 };
 private:
     void platformInitialize(ASCIILiteral name, Type, QOS);
-    void NODELETE platformInvalidate();
+    void LEGACY_NODELETE platformInvalidate();
 };
 
 /**
@@ -98,6 +98,7 @@ public:
 
     // WorkQueueBase
     void dispatch(Function<void()>&&) override;
+    void dispatchAfter(Seconds, Function<void()>&&) override;
     bool isCurrent() const override;
     void ref() const override { GuaranteedSerialFunctionDispatcher::ref(); }
     void deref() const override { GuaranteedSerialFunctionDispatcher::deref(); }

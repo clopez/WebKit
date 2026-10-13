@@ -222,8 +222,6 @@ namespace JSC {
 
         virtual void emitBytecodeInConditionContext(BytecodeGenerator&, Label&, Label&, FallThroughMode);
 
-        virtual ExpressionNode* stripUnaryPlus() { return this; }
-
         ResultType resultDescriptor() const { return m_resultType; }
 
         bool isOptionalChainBase() const { return m_isOptionalChainBase; }
@@ -690,7 +688,7 @@ namespace JSC {
 
         bool isArrayLiteral() const final { return true; }
 
-        ArgumentListNode* NODELETE toArgumentList(ParserArena&, int) const;
+        ArgumentListNode* LEGACY_NODELETE toArgumentList(ParserArena&, int) const;
 
         ElementNode* elements() const { return m_element; }
     private:
@@ -763,7 +761,7 @@ namespace JSC {
         PropertyListNode(const JSTokenLocation&, PropertyNode*);
         PropertyListNode(const JSTokenLocation&, PropertyNode*, PropertyListNode*);
 
-        bool NODELETE hasStaticallyNamedProperty(const Identifier& propName);
+        bool LEGACY_NODELETE hasStaticallyNamedProperty(const Identifier& propName);
         bool isComputedClassField() const
         {
             return m_node->isComputedClassField();
@@ -772,7 +770,7 @@ namespace JSC {
         {
             return m_node->isInstanceClassField();
         }
-        bool NODELETE hasInstanceFields() const;
+        bool LEGACY_NODELETE hasInstanceFields() const;
 
         bool isStaticClassField() const
         {
@@ -799,7 +797,7 @@ namespace JSC {
             return m_hasPrivateAccessors;
         }
 
-        static bool NODELETE shouldCreateLexicalScopeForClass(PropertyListNode*);
+        static bool LEGACY_NODELETE shouldCreateLexicalScopeForClass(PropertyListNode*);
 
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID*, RegisterID*, Vector<UnlinkedFunctionExecutable::ClassElementDefinition>*, Vector<UnlinkedFunctionExecutable::ClassElementDefinition>*);
 
@@ -1228,8 +1226,6 @@ namespace JSC {
 
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
-
-        ExpressionNode* stripUnaryPlus() final { return expr(); }
     };
 
     class NegateNode final : public UnaryOpNode {
@@ -1629,8 +1625,8 @@ namespace JSC {
 
         void append(StatementNode*);
 
-        StatementNode* NODELETE singleStatement() const;
-        StatementNode* NODELETE lastStatement() const;
+        StatementNode* LEGACY_NODELETE singleStatement() const;
+        StatementNode* LEGACY_NODELETE lastStatement() const;
 
         bool hasCompletionValue() const;
         bool hasEarlyBreakOrContinue() const;
@@ -1824,7 +1820,7 @@ namespace JSC {
     class ContinueNode final : public StatementNode, public ThrowableExpressionData {
     public:
         ContinueNode(const JSTokenLocation&, const Identifier&);
-        Label* NODELETE trivialTarget(BytecodeGenerator&);
+        Label* LEGACY_NODELETE trivialTarget(BytecodeGenerator&);
 
     private:
         bool hasCompletionValue() const final { return false; }
@@ -1838,7 +1834,7 @@ namespace JSC {
     class BreakNode final : public StatementNode, public ThrowableExpressionData {
     public:
         BreakNode(const JSTokenLocation&, const Identifier&);
-        Label* NODELETE trivialTarget(BytecodeGenerator&);
+        Label* LEGACY_NODELETE trivialTarget(BytecodeGenerator&);
 
     private:
         bool hasCompletionValue() const final { return false; }
@@ -1924,7 +1920,7 @@ namespace JSC {
         using ParserArenaRoot::operator new;
 
         ScopeNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, LexicallyScopedFeatures);
-        ScopeNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, const SourceCode&, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, int numConstants);
+        ScopeNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, const SourceCode&, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures);
 
         const SourceCode& source() const LIFETIME_BOUND { return m_source; }
         SourceID sourceID() const { return m_source.providerID(); }
@@ -1965,13 +1961,6 @@ namespace JSC {
 
         VariableEnvironment& varDeclarations() LIFETIME_BOUND { return m_varDeclarations; }
 
-        int neededConstants()
-        {
-            // We may need 2 more constants than the count given by the parser,
-            // because of the various uses of jsUndefined() and jsNull().
-            return m_numConstants + 2;
-        }
-
         StatementNode* singleStatement() const;
 
         bool isEmptyBody() const { return !m_statements; }
@@ -1992,13 +1981,12 @@ namespace JSC {
         InnerArrowFunctionCodeFeatures m_innerArrowFunctionCodeFeatures;
         SourceCode m_source;
         VariableEnvironment m_varDeclarations;
-        int m_numConstants;
         SourceElements* m_statements;
     };
 
     class ProgramNode final : public ScopeNode {
     public:
-        ProgramNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, int numConstants, RefPtr<ModuleScopeData>&&);
+        ProgramNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, RefPtr<ModuleScopeData>&&);
 
         static constexpr bool scopeIsFunction = false;
 
@@ -2008,7 +1996,7 @@ namespace JSC {
 
     class EvalNode final : public ScopeNode {
     public:
-        EvalNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, int numConstants, RefPtr<ModuleScopeData>&&);
+        EvalNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, RefPtr<ModuleScopeData>&&);
 
         static constexpr bool scopeIsFunction = false;
 
@@ -2018,7 +2006,7 @@ namespace JSC {
 
     class ModuleProgramNode final : public ScopeNode {
     public:
-        ModuleProgramNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, int numConstants, RefPtr<ModuleScopeData>&&);
+        ModuleProgramNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, RefPtr<ModuleScopeData>&&);
 
         bool usesAwait() const { return m_usesAwait; }
 
@@ -2286,7 +2274,7 @@ namespace JSC {
 
     class FunctionNode final : public ScopeNode {
     public:
-        FunctionNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, int numConstants, RefPtr<ModuleScopeData>&&);
+        FunctionNode(ParserArena&, const JSTokenLocation& start, const JSTokenLocation& end, SourceElements*, VariableEnvironment&&, FunctionStack&&, VariableEnvironment&&, FunctionParameters*, const SourceCode&, CodeFeatures, LexicallyScopedFeatures, InnerArrowFunctionCodeFeatures, RefPtr<ModuleScopeData>&&);
 
         FunctionParameters* parameters() const { return m_parameters; }
 

@@ -98,7 +98,7 @@ public:
     static constexpr ptrdiff_t offsetOfLength() { return OBJECT_OFFSETOF(JSBoundFunction, m_length); }
     static constexpr ptrdiff_t offsetOfCanConstruct() { return OBJECT_OFFSETOF(JSBoundFunction, m_canConstruct); }
 
-    inline void forEachBoundArg(const Invocable<IterationStatus(JSValue)> auto& func);
+    inline void forEachBoundArg(NOESCAPE const Invocable<IterationStatus(JSValue)> auto& func);
 
     bool canConstruct()
     {
@@ -112,7 +112,7 @@ public:
         return m_isTainted;
     }
 
-    static bool NODELETE canSkipNameAndLengthMaterialization(JSGlobalObject*, Structure*);
+    static bool LEGACY_NODELETE canSkipNameAndLengthMaterialization(JSGlobalObject*, Structure*);
 
     DECLARE_EXPORT_INFO;
 
@@ -122,7 +122,7 @@ private:
     JSBoundFunction(VM&, NativeExecutable*, JSGlobalObject*, Structure*, JSObject* targetFunction, JSValue boundThis, unsigned boundArgsLength, JSValue arg0, JSValue arg1, JSValue arg2, JSString* nameMayBeNull, double length, const SourceCode&);
 
     JSString* nameSlow(VM&);
-    double NODELETE lengthSlow(VM&);
+    double LEGACY_NODELETE lengthSlow(VM&);
     bool canConstructSlow();
     String nameStringWithoutGCSlow(VM&);
 

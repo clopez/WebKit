@@ -337,7 +337,7 @@ JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSStrin
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto source = string->value(globalObject);
+    auto source = string->view(globalObject);
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     unsigned sourceLen = source->length();
@@ -356,8 +356,11 @@ JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSStrin
         if (callData.type == CallData::Type::None && !replacementString.length())
             RELEASE_AND_RETURN(scope, removeAllUsingRegExpSearch(vm, globalObject, string, source, regExp));
 
-        if (callData.type == CallData::Type::JS && !hasNamedCaptures && sourceLen >= Options::thresholdForStringReplaceCache())
-            RELEASE_AND_RETURN(scope, replaceAllWithCacheUsingRegExpSearch(vm, globalObject, string, source, regExp, uncheckedDowncast<JSFunction>(replaceValue)));
+        if (callData.type == CallData::Type::JS && !hasNamedCaptures && sourceLen >= Options::thresholdForStringReplaceCache()) {
+            auto resolved = string->value(globalObject);
+            RETURN_IF_EXCEPTION(scope, nullptr);
+            RELEASE_AND_RETURN(scope, replaceAllWithCacheUsingRegExpSearch(vm, globalObject, string, resolved, regExp, uncheckedDowncast<JSFunction>(replaceValue)));
+        }
     }
 
     if (callData.type == CallData::Type::None) {
@@ -471,7 +474,7 @@ JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSStrin
                 startPosition++;
                 if (startPosition > sourceLen)
                     break;
-                if (regExp->eitherUnicode() && U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
+                if (regExp->eitherUnicode() && startPosition < sourceLen && U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
                     startPosition++;
                     if (startPosition > sourceLen)
                         break;
@@ -563,7 +566,7 @@ JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSStrin
                 startPosition++;
                 if (startPosition > sourceLen)
                     break;
-                if (regExp->eitherUnicode() && U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
+                if (regExp->eitherUnicode() && startPosition < sourceLen && U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
                     startPosition++;
                     if (startPosition > sourceLen)
                         break;
@@ -611,10 +614,10 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplace, (JSGlobalObject* globalObject, 
     JSValue searchValue = callFrame->argument(0);
     if (searchValue.isObject()) {
         RegExpObject* regExpObject = dynamicDowncast<RegExpObject>(searchValue);
-        if (regExpObject && regExpObject->isSymbolReplaceFastAndNonObservable()) [[likely]] {
+        if (regExpObject && regExpObject->isSymbolReplaceFastAndNonObservable(globalObject)) [[likely]] {
             JSString* string = thisValue.toString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
-            if (regExpObject->isSymbolReplaceFastAndNonObservable()) [[likely]]
+            if (regExpObject->isSymbolReplaceFastAndNonObservable(globalObject)) [[likely]]
                 RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingRegExpSearch(vm, globalObject, string, regExpObject, callFrame->argument(1))));
             RELEASE_AND_RETURN(scope, JSValue::encode(regExpReplaceGeneric(globalObject, regExpObject, string, callFrame->argument(1))));
         }
@@ -672,12 +675,12 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceAll, (JSGlobalObject* globalObjec
     JSValue searchValue = callFrame->argument(0);
     if (searchValue.isObject()) {
         RegExpObject* regExpObject = dynamicDowncast<RegExpObject>(searchValue);
-        if (regExpObject && regExpObject->isSymbolReplaceFastAndNonObservable()) [[likely]] {
+        if (regExpObject && regExpObject->isSymbolReplaceFastAndNonObservable(globalObject)) [[likely]] {
             if (!regExpObject->regExp()->global()) [[unlikely]]
                 return throwVMTypeError(globalObject, scope, "String.prototype.replaceAll argument must not be a non-global regular expression"_s);
             JSString* string = thisValue.toString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
-            if (regExpObject->isSymbolReplaceFastAndNonObservable()) [[likely]]
+            if (regExpObject->isSymbolReplaceFastAndNonObservable(globalObject)) [[likely]]
                 RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingRegExpSearch(vm, globalObject, string, regExpObject, callFrame->argument(1))));
             RELEASE_AND_RETURN(scope, JSValue::encode(regExpReplaceGeneric(globalObject, regExpObject, string, callFrame->argument(1))));
         }
@@ -1253,7 +1256,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplit, (JSGlobalObject* globalObject, Ca
     //    directly — this beats the JS-builtin path on the steady state.
     if (separatorValue.isObject()) {
         JSObject* separatorObject = asObject(separatorValue);
-        if (auto* regExpObject = dynamicDowncast<RegExpObject>(separatorObject); regExpObject && regExpObject->isSymbolSplitFastAndNonObservable() && thisValue.isString() && (limitValue.isUndefined() || limitValue.isNumber())) {
+        if (auto* regExpObject = dynamicDowncast<RegExpObject>(separatorObject); regExpObject && regExpObject->isSymbolSplitFastAndNonObservable(globalObject) && thisValue.isString() && (limitValue.isUndefined() || limitValue.isNumber())) {
             unsigned limit = 0xFFFFFFFFu;
             if (!limitValue.isUndefined()) {
                 limit = limitValue.toUInt32(globalObject);
@@ -1317,7 +1320,7 @@ JSValue stringMatchSlow(JSGlobalObject* globalObject, JSString* thisString, JSVa
     auto* regExpObject = regExpCreate(globalObject, JSValue(), regexpValue, jsUndefined());
     RETURN_IF_EXCEPTION(scope, { });
 
-    if (regExpObject->isSymbolMatchFastAndNonObservable()) [[likely]]
+    if (regExpObject->isSymbolMatchFastAndNonObservable(globalObject)) [[likely]]
         RELEASE_AND_RETURN(scope, regExpMatchFast(globalObject, regExpObject, thisString));
 
     JSValue matcher = regExpObject->get(globalObject, vm.propertyNames->matchSymbol);
@@ -1347,10 +1350,10 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncMatch, (JSGlobalObject* globalObject, Ca
     JSValue regexpValue = callFrame->argument(0);
 
     if (regexpValue.isObject()) {
-        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolMatchFastAndNonObservable()) [[likely]] {
+        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolMatchFastAndNonObservable(globalObject)) [[likely]] {
             JSString* thisString = thisValue.toString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
-            if (regExpObject->isSymbolMatchFastAndNonObservable()) [[likely]]
+            if (regExpObject->isSymbolMatchFastAndNonObservable(globalObject)) [[likely]]
                 RELEASE_AND_RETURN(scope, JSValue::encode(regExpMatchFast(globalObject, regExpObject, thisString)));
             JSValue matcher = globalObject->linkTimeConstant(LinkTimeConstant::regExpPrototypeSymbolMatch);
             auto callData = JSC::getCallData(matcher);
@@ -1392,7 +1395,7 @@ JSValue stringSearchSlow(JSGlobalObject* globalObject, JSString* thisString, JSV
     JSObject* createdRegExp = regExpCreate(globalObject, JSValue(), regexpValue, jsUndefined());
     RETURN_IF_EXCEPTION(scope, { });
 
-    if (auto* regExpObject = dynamicDowncast<RegExpObject>(createdRegExp); regExpObject && regExpObject->isSymbolSearchFastAndNonObservable()) [[likely]]
+    if (auto* regExpObject = dynamicDowncast<RegExpObject>(createdRegExp); regExpObject && regExpObject->isSymbolSearchFastAndNonObservable(globalObject)) [[likely]]
         RELEASE_AND_RETURN(scope, regExpSearchFast(globalObject, regExpObject, thisString));
 
     JSValue searcher = createdRegExp->get(globalObject, vm.propertyNames->searchSymbol);
@@ -1428,7 +1431,7 @@ JSValue stringMatchAllSlow(JSGlobalObject* globalObject, JSString* thisString, J
     auto* regExpObject = regExpCreate(globalObject, JSValue(), pattern, OptionSet<Yarr::Flags> { Yarr::Flags::Global });
     RETURN_IF_EXCEPTION(scope, { });
 
-    if (regExpObject->isSymbolMatchAllFastAndNonObservable()) [[likely]] {
+    if (regExpObject->isSymbolMatchAllFastAndNonObservable(globalObject)) [[likely]] {
         RegExp* regExp = regExpObject->regExp();
         ASSERT(regExp->global());
         bool fullUnicode = regExp->eitherUnicode();
@@ -1472,10 +1475,10 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSearch, (JSGlobalObject* globalObject, C
     JSValue regexpValue = callFrame->argument(0);
 
     if (regexpValue.isObject()) {
-        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolSearchFastAndNonObservable()) [[likely]] {
+        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolSearchFastAndNonObservable(globalObject)) [[likely]] {
             JSString* thisString = thisValue.toString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
-            if (regExpObject->isSymbolSearchFastAndNonObservable()) [[likely]]
+            if (regExpObject->isSymbolSearchFastAndNonObservable(globalObject)) [[likely]]
                 RELEASE_AND_RETURN(scope, JSValue::encode(regExpSearchFast(globalObject, regExpObject, thisString)));
             // ToString(this) may have run user code that invalidated the fast path. The searcher
             // observed by GetMethod was still the primordial RegExp.prototype[@@search], so
@@ -1518,13 +1521,13 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncMatchAll, (JSGlobalObject* globalObject,
     JSValue regexpValue = callFrame->argument(0);
 
     if (regexpValue.isObject()) {
-        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolMatchAllFastAndNonObservable()) [[likely]] {
+        if (auto* regExpObject = dynamicDowncast<RegExpObject>(regexpValue); regExpObject && regExpObject->isSymbolMatchAllFastAndNonObservable(globalObject)) [[likely]] {
             if (!regExpObject->regExp()->global()) [[unlikely]]
                 return throwVMTypeError(globalObject, scope, "String.prototype.matchAll argument must not be a non-global regular expression"_s);
 
             JSString* thisString = thisValue.toString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
-            if (regExpObject->isSymbolMatchAllFastAndNonObservable()) [[likely]] {
+            if (regExpObject->isSymbolMatchAllFastAndNonObservable(globalObject)) [[likely]] {
                 RegExp* regExp = regExpObject->regExp();
                 bool global = regExp->global(); // This means that we may end up having a case that global = false if toString user function recompiles RegExp without "g" flag.
                 bool fullUnicode = regExp->eitherUnicode();
@@ -1939,7 +1942,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncTrimEnd, (JSGlobalObject* globalObject, 
     return JSValue::encode(trimString<TrimKind::TrimEnd>(globalObject, thisValue));
 }
 
-static inline unsigned NODELETE clampAndTruncateToUnsigned(double value, unsigned min, unsigned max)
+static inline unsigned LEGACY_NODELETE clampAndTruncateToUnsigned(double value, unsigned min, unsigned max)
 {
     if (value < min)
         return min;

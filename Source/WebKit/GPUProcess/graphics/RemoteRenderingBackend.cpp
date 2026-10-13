@@ -63,6 +63,7 @@
 #include <WebCore/ImageBufferDisplayListBackend.h>
 #include <WebCore/NullImageBufferBackend.h>
 #include <WebCore/RenderingResourceIdentifier.h>
+#include <wtf/Borrow.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/RunLoop.h>
 #include <wtf/StdLibExtras.h>
@@ -233,14 +234,24 @@ void RemoteRenderingBackend::moveSerializedBufferToTransferHeap(RemoteSerialized
     completionHandler(result);
 }
 
-void RemoteRenderingBackend::takeTransferredBuffer(WebCore::ImageBufferTransferIdentifier transferIdentifier, RenderingResourceIdentifier imageBufferIdentifier, RemoteGraphicsContextIdentifier contextIdentifier)
+static bool transferHandleDescribes(const ImageBufferTransferHandle& handle, const ImageBuffer& imageBuffer)
+{
+    if (handle.parameters != imageBuffer.parameters())
+        return false;
+    if (handle.renderingMode == imageBuffer.renderingMode())
+        return true;
+    return handle.renderingMode == RenderingMode::Accelerated && imageBuffer.renderingMode() == RenderingMode::Unaccelerated;
+}
+
+void RemoteRenderingBackend::takeTransferredBuffer(const ImageBufferTransferHandle& handle, RenderingResourceIdentifier imageBufferIdentifier, RemoteGraphicsContextIdentifier contextIdentifier)
 {
     assertIsCurrent(workQueue());
-    RefPtr imageBuffer = GPUProcess::singleton().takeTransferredImageBuffer(transferIdentifier);
+    RefPtr imageBuffer = GPUProcess::singleton().takeTransferredImageBuffer(handle.identifier);
+    if (imageBuffer && !transferHandleDescribes(handle, *imageBuffer))
+        imageBuffer = nullptr;
     if (!imageBuffer) {
-        // Discarded along with the process that owned it, or claimed already by a process that
-        // was given the same identifier. Neither is this process's doing, so it is left with a
-        // buffer that failed to be created rather than terminated.
+        // Discarded along with the process that owned it, claimed already by a process that was
+        // given the same identifier, or misdescribed by the sender.
         RELEASE_LOG(RemoteLayerBuffers, "[renderingBackend=%" PRIu64 "] RemoteRenderingBackend::takeTransferredBuffer - no buffer to take for image buffer %" PRIu64, m_renderingBackendIdentifier.toUInt64(), imageBufferIdentifier.toUInt64());
         imageBuffer = ImageBuffer::create<NullImageBufferBackend>({ 0, 0 }, 1, ColorSpace::SRGB(), { PixelFormat::BGRA8 }, RenderingPurpose::Unspecified, { });
         RELEASE_ASSERT(imageBuffer);
@@ -252,16 +263,27 @@ void RemoteRenderingBackend::takeTransferredBuffer(WebCore::ImageBufferTransferI
 
     ImageBufferCreationContext creationContext;
     adjustImageBufferCreationContext(m_sharedResourceCache, creationContext);
+#if HAVE(IOSURFACE)
+    // The sender may have kept a send right to the surface, and could then alias it in a buffer of its own
+    // with CreateMappableImageBuffer.
+    creationContext.surfacePool = nullptr;
+#endif
     imageBuffer->transferToNewContext(creationContext);
     auto result = m_remoteImageBuffers.add(imageBufferIdentifier, RemoteImageBuffer::create(imageBuffer.releaseNonNull(), imageBufferIdentifier, contextIdentifier, *this));
     MESSAGE_CHECK(result.isNewEntry, "Duplicate ImageBuffer");
 }
 
+void RemoteRenderingBackend::createSnapshot(RemoteSnapshotIdentifier snapshotIdentifier, FrameIdentifier rootFrameIdentifier, const FloatSize& size, CompletionHandler<void()>&& completionHandler)
+{
+    assertIsCurrent(workQueue());
+    GPUProcess::singleton().createSnapshot(snapshotIdentifier, rootFrameIdentifier, size, m_gpuConnectionToWebProcess->webProcessIdentifier());
+    completionHandler();
+}
+
 void RemoteRenderingBackend::createSnapshotRecorder(RemoteSnapshotRecorderIdentifier identifier, RemoteSnapshotIdentifier snapshotIdentifier)
 {
     assertIsCurrent(workQueue());
-    // FIXME: using global identifiers (snapshotIdentifier) is not secure. Do not follow this pattern.
-    Ref snapshot = GPUProcess::singleton().getOrCreateSnapshot(snapshotIdentifier);
+    Ref snapshot = GPUProcess::singleton().snapshotForRecorder(snapshotIdentifier);
     auto result = m_remoteSnapshotRecorders.add(identifier, RemoteSnapshotRecorder::create(identifier, snapshot, *this));
     MESSAGE_CHECK(result.isNewEntry, "Recorder already created");
 }
@@ -273,12 +295,7 @@ void RemoteRenderingBackend::sinkSnapshotRecorderIntoSnapshotFrame(RemoteSnapsho
     MESSAGE_CHECK(recorder, "Recorder sunk into snapshot before being cached");
     Ref snapshot = recorder->snapshot();
     // FIXME: using global identifiers (frameIdentifier) is not secure. Do not follow this pattern.
-    bool success = snapshot->setFrame(frameIdentifier, recorder->takeDisplayList(), workQueue());
-    MESSAGE_CHECK(success, "Frame already present");
-
-    // Note:
-    // Success completion handlers are used to ensure that getOrCreateSnapshot does not vivify already released snapshot identifier into a leaked object. Caller is expected to wait
-    // until completion of *all* handlers, failing or not, before consuming the snapshot, otherwise leaks occur.
+    snapshot->setFrame(frameIdentifier, recorder->takeDisplayList(), workQueue());
     completionHandler(true);
 }
 
@@ -317,7 +334,7 @@ static RefPtr<ImageBuffer> allocateImageBufferInternal(const FloatSize& logicalS
     return imageBuffer;
 }
 
-static void NODELETE adjustImageBufferRenderingMode(const RemoteSharedResourceCache& sharedResourceCache, RenderingPurpose purpose, RenderingMode& renderingMode)
+static void LEGACY_NODELETE adjustImageBufferRenderingMode(const RemoteSharedResourceCache& sharedResourceCache, RenderingPurpose purpose, RenderingMode& renderingMode)
 {
     if (renderingMode == RenderingMode::Accelerated && sharedResourceCache.reachedAcceleratedImageBufferLimit(purpose))
         renderingMode = RenderingMode::Unaccelerated;
@@ -632,7 +649,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplay(Vector<ImageBuffer
         RefPtr<RemoteImageBufferSet> remoteImageBufferSet = m_remoteImageBufferSets.get(swapBuffersInput[i].remoteBufferSet);
         MESSAGE_CHECK(remoteImageBufferSet, "BufferSet is being updated before being created");
         SwapBuffersDisplayRequirement displayRequirement = SwapBuffersDisplayRequirement::NeedsNormalDisplay;
-        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], displayRequirement, false);
+        remoteImageBufferSet->ensureBufferForDisplay(borrow(swapBuffersInput)[i], displayRequirement, false);
 
         if (displayRequirement != SwapBuffersDisplayRequirement::NeedsNoDisplay)
             remoteImageBufferSet->prepareBufferForDisplay(swapBuffersInput[i].dirtyRegion, swapBuffersInput[i].requiresClearedPixels);
@@ -649,7 +666,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplaySync(Vector<ImageBu
     for (unsigned i = 0; i < swapBuffersInput.size(); ++i) {
         RefPtr<RemoteImageBufferSet> remoteImageBufferSet = m_remoteImageBufferSets.get(swapBuffersInput[i].remoteBufferSet);
         MESSAGE_CHECK(remoteImageBufferSet, "BufferSet is being updated before being created");
-        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], outputData[i], true);
+        remoteImageBufferSet->ensureBufferForDisplay(borrow(swapBuffersInput)[i], borrow(outputData)[i], true);
     }
 
     completionHandler(WTF::move(outputData));

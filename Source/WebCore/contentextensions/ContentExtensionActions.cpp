@@ -48,12 +48,12 @@ static void append(Vector<uint8_t>& vector, size_t length)
     vector.append(asByteSpan(integer));
 }
 
-static void append(Vector<uint8_t>& vector, const CString& string)
+static void append(Vector<uint8_t>& vector, const CStringBase& string)
 {
     vector.append(string.span());
 }
 
-static size_t NODELETE deserializeLength(std::span<const uint8_t> span, size_t offset)
+static size_t LEGACY_NODELETE deserializeLength(std::span<const uint8_t> span, size_t offset)
 {
     return reinterpretCastSpanStartTo<const uint32_t>(span.subspan(offset));
 }
@@ -64,7 +64,7 @@ static String deserializeUTF8String(std::span<const uint8_t> span, size_t offset
     return String::fromUTF8(span.subspan(offset, length));
 }
 
-static void NODELETE writeLengthToVectorAtOffset(Vector<uint8_t>& vector, size_t offset)
+static void LEGACY_NODELETE writeLengthToVectorAtOffset(Vector<uint8_t>& vector, size_t offset)
 {
     auto length = vector.size() - offset;
     RELEASE_ASSERT(length <= std::numeric_limits<uint32_t>::max());
@@ -560,7 +560,7 @@ void RedirectAction::URLTransformAction::serialize(Vector<uint8_t>& vector) cons
         | hasUsername << 1
         | hasQuery << 0
     );
-    auto appendLengthAndString = [&] (const CString& string) {
+    auto appendLengthAndString = [&] (const CStringBase& string) {
         append(vector, string.length());
         append(vector, string);
     };

@@ -47,7 +47,7 @@ namespace LayoutIntegration {
 
 inline static float endPaddingQuirkValue(const RenderBlockFlow& flow)
 {
-    // FIXME: It's the copy of the lets-adjust-overflow-for-the-caret behavior from LegacyLineLayout::addOverflowFromInlineChildren.
+    // FIXME: It's the copy of the lets-adjust-overflow-for-the-caret behavior from legacy line layout.
     auto endPadding = flow.hasNonVisibleOverflow() ? flow.paddingEnd() : 0_lu;
     if (!endPadding)
         endPadding = flow.endPaddingWidthForCaret();
@@ -71,9 +71,9 @@ static std::tuple<float, float> glyphOverflowInInlineDirection(size_t firstTextB
             return FloatRect { };
         }
         auto character = isLeading ? textContent[0] : textContent[textContent.length() - 1];
-        auto& fontCascade = textBox.style().fontCascade();
-        auto glyphData = fontCascade.glyphDataForCharacter(character, !isLeftToRightDirection);
-        return (glyphData.font ? *glyphData.font : fontCascade.primaryFont()).boundsForGlyph(glyphData.glyph);
+        CheckedRef fontCascade = textBox.style().fontCascade();
+        auto glyphData = fontCascade->glyphDataForCharacter(character, !isLeftToRightDirection);
+        return protect(glyphData.font ? *glyphData.font : fontCascade->primaryFont())->boundsForGlyph(glyphData.glyph);
     };
 
     auto leadingOverflow = [&] {
@@ -395,7 +395,7 @@ void InlineContentBuilder::computeOverflowFromBoxes(InlineContent& inlineContent
         // display boxes (see InlineDisplayContentBuilder) RenderBlockFlow expects visual overflow.
         // Visual overflow propagation is slightly different from ink overflow when it comes to renderers with self painting layers.
         // -and for now we consult atomic renderers for such visual overflow which is not how we are supposed to do in LFC.
-        // (visual overflow is computed during their ::layout() call which we issue right before running inline layout in RenderBlockFlow::layoutModernLines)
+        // (visual overflow is computed during their ::layout() call which we issue right before running inline layout in RenderBlockFlow::layoutInlineContent)
         auto firstTextBoxIndex = std::optional<size_t> { };
         auto lastTextBoxIndex = std::optional<size_t> { };
         for (; boxIndex < boxes.size() && boxes[boxIndex].lineIndex() == lineIndex; ++boxIndex) {

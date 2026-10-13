@@ -64,11 +64,10 @@ DOMCacheStorage::~DOMCacheStorage() = default;
 std::optional<ClientOrigin> DOMCacheStorage::origin() const
 {
     RefPtr scriptExecutionContext = this->scriptExecutionContext();
-    RefPtr origin = scriptExecutionContext ? scriptExecutionContext->securityOrigin() : nullptr;
-    if (!origin)
+    if (!scriptExecutionContext || !scriptExecutionContext->securityOrigin())
         return std::nullopt;
 
-    return ClientOrigin { scriptExecutionContext->topOrigin().data(), origin->data() };
+    return scriptExecutionContext->storageClientOrigin();
 }
 
 static void doSequentialMatch(size_t index, Vector<Ref<DOMCache>>&& caches, DOMCache::RequestInfo&& info, CacheQueryOptions&& options, DOMCache::MatchCallback&& completionHandler)
@@ -214,7 +213,7 @@ void DOMCacheStorage::retrieveCaches(CompletionHandler<void(std::optional<Except
             m_updateCounter = cachesInfo.updateCounter;
 
             m_caches = WTF::map(WTF::move(cachesInfo.infos), [&] (DOMCacheEngine::CacheInfo&& info) {
-                return findCacheOrCreate(WTF::move(info), *context);
+                return protectedThis->findCacheOrCreate(WTF::move(info), *context);
             });
         }
         callback(std::nullopt);

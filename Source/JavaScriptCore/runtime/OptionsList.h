@@ -99,6 +99,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, structureHeapSizeInKB, 0, Normal, "Override for Structure Heap size (in KBs) if non-zero"_s) \
     v(Unsigned, jitMemoryReservationSize, 0, Normal, "Set this number to change the executable allocation size in ExecutableAllocatorFixedVMPool. (In bytes.)"_s) \
     v(Size, jitMemoryReservationAddress, 0, Restricted, "If non-zero, we will attempt to allocate JIT memory at the address provided and crash if we cannot.") \
+    v(Size, maximumCachedAssemblerDataCapacity, 4 * MB, Normal, "When useCachedAssemblerDataCapacityLimit is true, a thread does not keep an AssemblerData buffer larger than this cached for reuse. (In bytes.)"_s) \
     \
     v(Bool, forceCodeBlockLiveness, false, Normal, nullptr) \
     v(Bool, forceICFailure, false, Normal, nullptr) \
@@ -539,7 +540,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useB3HoistLoopInvariantValues, true, Normal, nullptr) \
     v(Bool, useB3CanonicalizePrePostIncrements, false, Normal, nullptr) \
     v(Bool, useB3EliminateWasmGCAllocations, true, Normal, "eliminate non-escaping wasm-GC struct allocations in B3"_s) \
-    v(Bool, useB3ReduceStrengthFixpoint, false, Normal, "iterate B3 reduceStrength to a fixpoint instead of a single pass (for debugging)"_s) \
+    v(Unsigned, maxB3WasmGCEpochSnapshotEntries, 1024 * 1024, Normal, "blocks times version counters above which B3 reduceStrength gives all wasm-GC struct fields one shared counter rather than one each"_s) \
     v(Bool, useB3SpecializeSelect, true, Normal, "turn Selects consumed by a nearby Check into control flow in B3"_s) \
     v(Bool, useAirOptimizePairedLoadStore, true, Normal, nullptr) \
     \
@@ -758,7 +759,7 @@ public:
     OptionRange(std::nullptr_t) { }
 
     bool init(const char*);
-    bool NODELETE isInRange(unsigned) const;
+    bool LEGACY_NODELETE isInRange(unsigned) const;
     const char* rangeString() const { return (m_state > InitError) ? m_rangeString : s_nullRangeStr; }
 
     void dump(PrintStream& out) const;

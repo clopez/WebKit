@@ -26,7 +26,10 @@
 #include "config.h"
 #include "HTMLSelectedContentElement.h"
 
+#include "Document.h"
 #include "ElementAncestorIteratorInlines.h"
+#include "ElementChildIteratorInlines.h"
+#include "EventLoop.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
@@ -59,6 +62,8 @@ auto HTMLSelectedContentElement::insertionSteps(InsertionType insertionType, Con
     ASSERT(document().settings().htmlEnhancedSelectEnabled());
     ASSERT(!document().settings().mutationEventsEnabled());
 
+    recalculateDisabledness();
+
     if (insertionType.connectedToDocument)
         return NeedsPostConnectionSteps::Yes;
     return NeedsPostConnectionSteps::No;
@@ -66,32 +71,11 @@ auto HTMLSelectedContentElement::insertionSteps(InsertionType insertionType, Con
 
 void HTMLSelectedContentElement::postConnectionSteps()
 {
-    RefPtr<HTMLSelectElement> nearestAncestorSelect;
-    m_isDisabled = false;
-    for (Ref ancestor : ancestorsOfType<HTMLElement>(*this)) {
-        if (auto* select = dynamicDowncast<HTMLSelectElement>(ancestor.get())) {
-            if (!nearestAncestorSelect) {
-                nearestAncestorSelect = select;
-                continue;
-            }
-            m_isDisabled = true;
-            break;
-        }
-        if (isAnyOf<HTMLOptionElement, HTMLSelectedContentElement>(ancestor)) {
-            m_isDisabled = true;
-            break;
-        }
-    }
-    if (m_isDisabled || !nearestAncestorSelect || nearestAncestorSelect->multiple())
+    RefPtr select = recalculateDisabledness();
+    if (m_isDisabled || !select || !select->updatesSelectedContent())
         return;
 
-    if (m_owningSelect != nearestAncestorSelect) {
-        if (auto* oldSelect = m_owningSelect.get())
-            oldSelect->unregisterSelectedContentElement();
-        m_owningSelect = nearestAncestorSelect;
-        nearestAncestorSelect->registerSelectedContentElement();
-    }
-    nearestAncestorSelect->updateSelectedContent();
+    select->updateSelectedContent(*this);
 }
 
 void HTMLSelectedContentElement::removingSteps(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
@@ -102,6 +86,73 @@ void HTMLSelectedContentElement::removingSteps(RemovalType removalType, Containe
         select->unregisterSelectedContentElement();
         m_owningSelect = nullptr;
     }
+}
+
+void HTMLSelectedContentElement::childrenChanged(const ChildChange& change)
+{
+    HTMLElement::childrenChanged(change);
+
+    // The contents reflect into the first child button's text, which the select may render.
+    if (RefPtr select = m_owningSelect)
+        select->buttonElementChildrenChanged();
+}
+
+void HTMLSelectedContentElement::movingSteps(MovingType movingType, ContainerNode& oldParent)
+{
+    HTMLElement::movingSteps(movingType, oldParent);
+
+    RefPtr select = recalculateDisabledness();
+    if (m_isDisabled || !select || !select->updatesSelectedContent())
+        return;
+
+    Ref document = this->document();
+    protect(document->eventLoop())->queueMicrotask(document->vm(), [weakThis = WeakPtr<HTMLSelectedContentElement, WeakPtrImplWithEventTargetData> { *this }, weakSelect = WeakPtr<HTMLSelectElement, WeakPtrImplWithEventTargetData> { *select }] {
+        RefPtr selectedContent = weakThis;
+        RefPtr select = weakSelect;
+        if (selectedContent && select)
+            select->updateSelectedContent(*selectedContent);
+    });
+}
+
+void HTMLSelectedContentElement::updateClonedOptionSelectedStates()
+{
+    ASSERT(document().settings().htmlEnhancedSelectMultipleSelectedContentEnabled());
+
+    for (Ref clone : childrenOfType<HTMLOptionElement>(*this)) {
+        if (RefPtr option = clone->selectedContentSource())
+            clone->setSelectedState(option->selected());
+    }
+}
+
+// https://html.spec.whatwg.org/#recalculate-a-selectedcontent-element's-disabledness
+RefPtr<HTMLSelectElement> HTMLSelectedContentElement::recalculateDisabledness()
+{
+    RefPtr<HTMLSelectElement> nearestAncestorSelect;
+    m_isDisabled = false;
+    for (Ref ancestor : ancestorsOfType<HTMLElement>(*this)) {
+        if (RefPtr select = dynamicDowncast<HTMLSelectElement>(ancestor)) {
+            if (!nearestAncestorSelect) {
+                nearestAncestorSelect = WTF::move(select);
+                continue;
+            }
+            m_isDisabled = true;
+            break;
+        }
+        if (isAnyOf<HTMLOptionElement, HTMLSelectedContentElement>(ancestor)) {
+            m_isDisabled = true;
+            break;
+        }
+    }
+
+    if (m_owningSelect != nearestAncestorSelect) {
+        if (auto* oldSelect = m_owningSelect.get())
+            oldSelect->unregisterSelectedContentElement();
+        m_owningSelect = nearestAncestorSelect;
+        if (nearestAncestorSelect)
+            nearestAncestorSelect->registerSelectedContentElement();
+    }
+
+    return nearestAncestorSelect;
 }
 
 } // namespace WebCore

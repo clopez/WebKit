@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "PendingPostMessages.h"
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
 #include <WebCore/MessageWithMessagePorts.h>
@@ -44,6 +45,7 @@ public:
 
 private:
     void frameDetached() final;
+    void destroyProvisionalFrame() final;
     void frameRectDidChange(WebCore::IntRect) final;
     void paintContents(WebCore::GraphicsContext&, const WebCore::IntRect&) final;
     void postMessageToRemote(WebCore::FrameIdentifier source, const WebCore::SecurityOriginData& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts&, const std::optional<WebCore::UserGestureTokenData>&) final;
@@ -75,34 +77,10 @@ private:
     void broadcastAllFrameTreeSyncDataToOtherProcesses(WebCore::FrameTreeSyncData&) final;
     void broadcastFrameTreeSyncDataToOtherProcesses(WebCore::FrameTreeSyncSerializationData&&) final;
 
-    void didNotifyUserActivation(MonotonicTime) final;
+    void didNotifyUserActivation(MonotonicTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken) final;
     void didConsumeUserActivation() final;
 
-    struct PendingPostMessage {
-        WebCore::FrameIdentifier source;
-        WebCore::SecurityOriginData sourceOrigin;
-        WebCore::FrameIdentifier target;
-        std::optional<WebCore::SecurityOriginData> targetOrigin;
-        WebCore::MessageWithMessagePorts message;
-        std::optional<WebCore::UserGestureTokenData> userGestureToken;
-    };
-
-    class PendingPostMessages : public RefCounted<PendingPostMessages> {
-    public:
-        static Ref<PendingPostMessages> create() { return adoptRef(*new PendingPostMessages()); }
-
-        bool isEmpty() const { return m_pendingPostMessages.isEmpty(); }
-        void append(PendingPostMessage&& message) { m_pendingPostMessages.append(WTF::move(message)); }
-
-        Vector<PendingPostMessage> takeMessagesThroughNextPortTransfer();
-
-    private:
-        PendingPostMessages() = default;
-
-        Vector<PendingPostMessage> m_pendingPostMessages;
-    };
-
-    RefPtr<PendingPostMessages> m_pendingPostMessages;
+    const RefPtr<PendingPostMessages> m_pendingPostMessages;
 };
 
 }

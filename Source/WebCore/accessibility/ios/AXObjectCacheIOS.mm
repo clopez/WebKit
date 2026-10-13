@@ -25,18 +25,21 @@
 
 #import "config.h"
 #import "AXObjectCache.h"
+#import "CocoaAccessibilityConstants.h"
 
 #if PLATFORM(IOS_FAMILY)
 
 #import "AXNotifications.h"
 #import "AccessibilityObject.h"
 #import "Chrome.h"
+#import "ChromeClient.h"
 #import "DocumentPage.h"
 #import "DocumentView.h"
 #import "RenderObject.h"
 #import "RenderObjectDocument.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 namespace WebCore {
 
@@ -93,6 +96,9 @@ ASCIILiteral AXObjectCache::notificationPlatformName(AXNotification notification
         break;
     case AXNotification::AnnouncementRequested:
         name = "AXAnnouncementRequested"_s;
+        break;
+    case AXNotification::PossibleFormValidationError:
+        name = "AXPossibleFormValidationError"_s;
         break;
     default:
         break;
@@ -157,6 +163,21 @@ void AXObjectCache::postPlatformARIANotifyNotification(AccessibilityObject&, con
     }
 }
 
+void AXObjectCache::postCaptionsDisplayedNotification(const Vector<String>& captions)
+{
+    // The UI process forwards the captions to MediaAccessibility, which notifies VoiceOver.
+    if (RefPtr page = document() ? document()->page() : nullptr)
+        page->chrome().client().didDisplayCaptions(Vector<String> { captions });
+
+    // For tests, also call the wrapper's accessibilityPostedNotification.
+    if (gShouldRepostNotificationsForTests) [[unlikely]] {
+        if (RefPtr root = getOrCreate(protect(m_document->view()))) {
+            RetainPtr textRuns = createNSArray(captions);
+            [protect(root->wrapper()) accessibilityPostedNotification:@"AXCaptionsDisplayed" userInfo:@{ @"AXCaptionsDisplayedTextRuns": textRuns.get() }];
+        }
+    }
+}
+
 // These are re-defined here for testing purposes. They are not in a header to prevent colliding with the SDK constants.
 static NSString * const UIAccessibilityPriorityLow = @"UIAccessibilityPriorityLow";
 static NSString * const UIAccessibilityPriorityDefault = @"UIAccessibilityPriorityDefault";
@@ -181,6 +202,31 @@ void AXObjectCache::postPlatformLiveRegionNotification(AccessibilityObject&, con
             [protect(root->wrapper()) accessibilityPostedNotification:notificationName.get() userInfo:@{ notificationName.get() : mutableAttributedString.get() }];
         }
     }
+}
+
+void AXObjectCache::postPlatformPossibleFormValidationErrorNotification(AccessibilityObject& object, const PossibleFormValidationErrorData& formData)
+{
+    RetainPtr notificationName = notificationPlatformName(AXNotification::PossibleFormValidationError).createNSString();
+    RetainPtr unannouncedText = createNSArray(formData.unannouncedText, [] (const String& text) {
+        return text.createNSString();
+    });
+    NSDictionary *userInfo = @{
+        NSAccessibilityFormValidationUnannouncedTextKey: unannouncedText.get(),
+        NSAccessibilityFormValidationErrorFieldCountKey: @(formData.errorFieldCount),
+        NSAccessibilityFormValidationTargetIsSubmitterKey: @(formData.targetIsSubmitter),
+    };
+
+    NSError *error = nil;
+    RetainPtr data = [NSKeyedArchiver archivedDataWithRootObject:userInfo requiringSecureCoding:YES error:&error];
+    // The wrapper must outlive the call chain. accessibilityOverrideProcessNotification re-enters WebKit and can
+    // detach the AccessibilityObject, clearing m_wrapper mid-call.
+    RetainPtr wrapper = object.wrapper();
+    if (data)
+        [wrapper accessibilityOverrideProcessNotification:notificationName.get() notificationData:data.get()];
+
+    // For tests, also call the wrapper's accessibilityPostedNotification.
+    if (gShouldRepostNotificationsForTests) [[unlikely]]
+        [wrapper accessibilityPostedNotification:notificationName.get() userInfo:userInfo];
 }
 
 void AXObjectCache::postTextSelectionChangePlatformNotification(AccessibilityObject* object, const AXTextStateChangeIntent&, const VisibleSelection&)

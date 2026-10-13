@@ -104,6 +104,7 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceTiming.h>
 #include <WebCore/ScriptController.h>
+#include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SubresourceLoader.h>
@@ -540,6 +541,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocum
         { }, /* request */
         { }, /* invalidURLString */
         std::nullopt, /* requester */
+        { }, /* pendingNavigateEventID */
     };
 
     // Notify the UIProcess.
@@ -604,7 +606,7 @@ void WebLocalFrameLoaderClient::dispatchDidStartProvisionalLoad()
     webPage->injectedBundleLoaderClient().didStartProvisionalLoadForFrame(*webPage, m_frame, userData);
     RefPtr provisionalLoader = m_localFrame->loader().provisionalDocumentLoader();
 
-    if (!provisionalLoader || provisionalLoader->isContinuingLoadAfterProvisionalLoadStarted())
+    if (!provisionalLoader || provisionalLoader->isContinuingLoadAfterProvisionalLoadStarted() || provisionalLoader->isCacheOnlyLoadRetry())
         return;
     
     auto& url = provisionalLoader->url();
@@ -696,12 +698,10 @@ void WebLocalFrameLoaderClient::dispatchDidCommitLoad(const std::optional<BackFo
     // Notify the UIProcess.
     auto frameInfo = frame->info();
     if (backForwardCacheData) {
-        // A page enters the back/forward cache whole, so the restored document is the main frame's and
-        // is therefore also the top origin.
+        // A page enters the back/forward cache whole, so the restored document is the main frame's.
         ASSERT(frame->isMainFrame());
         frameInfo.documentID = backForwardCacheData->documentID;
         frameInfo.securityOrigin = backForwardCacheData->documentOrigin;
-        frameInfo.topOrigin = backForwardCacheData->documentOrigin;
     }
     webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), WTF::move(frameInfo), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), !certificateInfo.isEmpty(), usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), containsPluginDocument, hasInsecureContent, documentLoader->mouseEventPolicy(), WTF::move(documentSecurityPolicy), cspOriginsThatUpgradeInsecureNavigations, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), m_localFrame->loader().loadingFromCachedPage() ? RestoredFromBackForwardCache::Yes : RestoredFromBackForwardCache::No, WTF::move(redirectReplaceFrameState)));
     webPage->didCommitLoad(m_frame.ptr());
@@ -747,7 +747,8 @@ void WebLocalFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceErr
     // the entire LocalFrameLoaderClient function was complete.
     std::optional<WebCore::NavigationIdentifier> navigationID;
     ResourceRequest request;
-    if (RefPtr documentLoader = m_localFrame->loader().provisionalDocumentLoader()) {
+    Ref frameLoader = m_localFrame->loader();
+    if (RefPtr documentLoader = frameLoader->provisionalDocumentLoader() ?: frameLoader->policyDocumentLoader()) {
         navigationID = documentLoader->navigationID();
         request = documentLoader->request();
     }
@@ -786,6 +787,13 @@ void WebLocalFrameLoaderClient::dispatchDidFinishDocumentLoad()
     RefPtr webPage = m_frame->page();
     if (!webPage)
         return;
+
+#if ASSERT_ENABLED
+    if (RefPtr document = m_localFrame->document()) {
+        auto& url = document->url();
+        ASSERT_WITH_MESSAGE(document->agentClusterIdentifier() || protect(document->securityOrigin())->isOpaque() || !(url.protocolIsInHTTPFamily() || url.protocolIsBlob()), "The UI process did not assign an agent cluster to %s", url.string().utf8());
+    }
+#endif
 
     RefPtr<API::Object> userData;
 
@@ -997,7 +1005,12 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceRe
         return;
     }
 
-    if ((!m_frame->isMainFrame() || m_frame->isSafeBrowsingCheckOngoing() == SafeBrowsingCheckOngoing::No) && webPage->shouldSkipDecidePolicyForResponse(response)) {
+    RefPtr policyDocumentLoader = m_localFrame->loader().provisionalDocumentLoader();
+
+    // Without an assignment from the UI process, only this decision assigns the document's agent cluster.
+    // FIXME: Once the UI process assigns agent clusters to opaque origins, they will need this decision too.
+    bool needsAgentClusterAssignment = !(policyDocumentLoader && policyDocumentLoader->agentClusterAssignment().identifier) && !SecurityOrigin::create(response.url())->isOpaque();
+    if (!needsAgentClusterAssignment && (!m_frame->isMainFrame() || m_frame->isSafeBrowsingCheckOngoing() == SafeBrowsingCheckOngoing::No) && webPage->shouldSkipDecidePolicyForResponse(response)) {
         WebLocalFrameLoaderClient_RELEASE_LOG(Network, "dispatchDecidePolicyForResponse: continuing because injected bundle says so");
         function(PolicyAction::Use);
         return;
@@ -1005,7 +1018,6 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceRe
 
     bool canShowResponse = webPage->canShowResponse(response);
 
-    RefPtr policyDocumentLoader = m_localFrame->loader().provisionalDocumentLoader();
     auto navigationID = policyDocumentLoader ? policyDocumentLoader->navigationID() : std::nullopt;
 
     Ref frame = m_frame;
@@ -1079,6 +1091,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         request,
         request.url().isValid() ? String() : request.url().string(), /* invalidURLString */
         std::nullopt, /* requester */
+        { }, /* pendingNavigateEventID */
     };
 
     webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForNewWindowAction(navigationActionData, frameName), [frame = m_frame, listenerID] (PolicyDecision&& policyDecision) {
@@ -1176,14 +1189,19 @@ void WebLocalFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(Frame
     WebFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(WTF::move(data));
 }
 
-void WebLocalFrameLoaderClient::didNotifyUserActivation(MonotonicTime activationTime)
+void WebLocalFrameLoaderClient::didNotifyUserActivation(MonotonicTime activationTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken)
 {
-    WebFrameLoaderClient::didNotifyUserActivation(activationTime);
+    WebFrameLoaderClient::didNotifyUserActivation(activationTime, forcedActivationToken);
 }
 
 void WebLocalFrameLoaderClient::didConsumeUserActivation()
 {
     WebFrameLoaderClient::didConsumeUserActivation();
+}
+
+void WebLocalFrameLoaderClient::didRevokeForcedUserActivation(WebCore::UserGestureTokenIdentifier forcedActivationToken)
+{
+    WebFrameLoaderClient::didRevokeForcedUserActivation(forcedActivationToken);
 }
 
 void WebLocalFrameLoaderClient::didHandleFirstUserGesture(MonotonicTime gestureTime)
@@ -1806,7 +1824,15 @@ void WebLocalFrameLoaderClient::transitionToCommittedForNewPage(InitializingIfra
     if (isMainFrame)
         view->setDelegatedScrollingMode(drawingArea->delegatedScrollingMode());
 
-    webPage->corePage()->setDelegatesScaling(drawingArea->usesDelegatedPageScaling());
+    RefPtr corePage = webPage->corePage();
+    corePage->setDelegatesScaling(drawingArea->usesDelegatedPageScaling());
+
+#if PLATFORM(MAC)
+    // Give the tiled backing a zoomed-out grid to fall back on. With a zero zoomedOutPageScaleFactor it drops the
+    // old grid as soon as the scale changes, and a frame can present with no tiles.
+    if (isMainFrame && drawingArea->usesDelegatedPageScaling())
+        corePage->setZoomedOutPageScaleFactor(webPage->minimumPageScaleFactorForUIProcessScale());
+#endif
 #endif
 
     if (webPage->scrollPinningBehavior() != ScrollPinningBehavior::DoNotPin)

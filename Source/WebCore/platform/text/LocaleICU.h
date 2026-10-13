@@ -58,7 +58,7 @@ public:
     String shortTimeFormat() final;
     String dateTimeFormatWithSeconds() final;
     String dateTimeFormatWithoutSeconds() final;
-    const Vector<String>& NODELETE monthLabels() final;
+    const Vector<String>& LEGACY_NODELETE monthLabels() final;
     const Vector<String>& shortMonthLabels() final;
     const Vector<String>& standAloneMonthLabels() final;
     const Vector<String>& shortStandAloneMonthLabels() final;
@@ -84,7 +84,7 @@ private:
     bool m_didCreateDecimalFormat { false };
 #endif
 
-    std::unique_ptr<Vector<String>> m_monthLabels;
+    const std::unique_ptr<Vector<String>> m_monthLabels;
     String m_dateFormat;
     String m_monthFormat;
     String m_shortMonthFormat;

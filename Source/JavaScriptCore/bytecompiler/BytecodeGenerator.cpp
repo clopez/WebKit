@@ -177,7 +177,7 @@ FinallyContext::FinallyContext(BytecodeGenerator& generator, Label& finallyLabel
 }
 
 template<typename EmitBytecodeFunctor>
-void BytecodeGenerator::asyncFuncParametersTryCatchWrap(const EmitBytecodeFunctor& emitBytecode)
+void BytecodeGenerator::asyncFuncParametersTryCatchWrap(NOESCAPE const EmitBytecodeFunctor& emitBytecode)
 {
     TryData* tryData = nullptr;
     if (m_asyncFuncParametersTryCatchInfo) {
@@ -539,11 +539,14 @@ BytecodeGenerator::BytecodeGenerator(VM& vm, FunctionNode* functionNode, Unlinke
         if (!shouldCaptureSomeOfTheThings)
             return false;
         if (m_needsArguments && uid == propertyNames().arguments.impl()) {
-            // Actually, we only need to capture the arguments object when we "need full activation"
-            // because of name scopes. But historically we did it this way, so for now we just preserve
-            // the old behavior.
-            // FIXME: https://bugs.webkit.org/show_bug.cgi?id=143072
-            return true;
+            // An async function with no await is inlined. Any other generator or async wrapper
+            // has a separate body that resolves this frame's arguments.
+            bool separateBodyResolvesArguments = isGeneratorOrAsyncFunctionWrapperParseMode(parseMode)
+                && !(isAsyncFunctionWrapperParseMode(parseMode) && functionNode->isAsyncFunctionWithoutAwait());
+            return separateBodyResolvesArguments
+                || (functionNode->features() & WithFeature)
+                || (functionNode->usesArrowFunction() && isArgumentsUsedInInnerArrowFunction())
+                || functionNode->captures(uid);
         }
         return functionNode->captures(uid);
     };
@@ -1228,7 +1231,7 @@ BytecodeGenerator::~BytecodeGenerator() = default;
 
 void BytecodeGenerator::initializeDefaultParameterValuesAndSetupFunctionScopeStack(
     FunctionParameters& parameters, bool isSimpleParameterList, FunctionNode* functionNode, SymbolTable* functionSymbolTable, 
-    int symbolTableConstantIndex, const ScopedLambda<bool (UniquedStringImpl*)>& captures, bool shouldCreateArgumentsVariableInParameterScope)
+    int symbolTableConstantIndex, NOESCAPE const ScopedLambda<bool(UniquedStringImpl*)>& captures, bool shouldCreateArgumentsVariableInParameterScope)
 {
     Vector<std::pair<Identifier, RefPtr<RegisterID>>> valuesToMoveIntoVars;
     ASSERT(!(isSimpleParameterList && shouldCreateArgumentsVariableInParameterScope));
@@ -2492,9 +2495,9 @@ void BytecodeGenerator::prepareLexicalScopeForNextForLoopIteration(VariableEnvir
     ASSERT(loopScope);
 
     struct SymbolTableNoLocks {
-        auto NODELETE begin() const { return symbolTable->begin(NoLockingNecessary); }
-        auto NODELETE end() const { return symbolTable->end(NoLockingNecessary); }
-        size_t NODELETE size() const { return symbolTable->scopeSize(); }
+        auto LEGACY_NODELETE begin() const { return symbolTable->begin(NoLockingNecessary); }
+        auto LEGACY_NODELETE end() const { return symbolTable->end(NoLockingNecessary); }
+        size_t LEGACY_NODELETE size() const { return symbolTable->scopeSize(); }
         SymbolTable* symbolTable;
     } symbolTableWithoutLocks { symbolTable };
 
@@ -3474,6 +3477,21 @@ RegisterID* BytecodeGenerator::emitNewArray(RegisterID* dst, ElementNode* elemen
     }
     ASSERT(!length);
     OpNewArray::emit(this, dst, argv.size() ? argv[0].get() : VirtualRegister { 0 }, argv.size(), recommendedIndexingType);
+    return dst;
+}
+
+RegisterID* BytecodeGenerator::emitNewArrayByReversingArguments(RegisterID* dst, CallArguments& callArguments)
+{
+    unsigned length = callArguments.argumentCountIncludingThis() - 1;
+    RefPtr<RegisterID> temporary = newTemporary();
+    for (unsigned index = 0; index < length / 2; ++index) {
+        RegisterID* low = callArguments.argumentRegister(index);
+        RegisterID* high = callArguments.argumentRegister(length - 1 - index);
+        move(temporary.get(), low);
+        move(low, high);
+        move(high, temporary.get());
+    }
+    OpNewArray::emit(this, dst, length ? callArguments.argumentRegister(length - 1) : VirtualRegister { 0 }, length, ArrayWithUndecided);
     return dst;
 }
 
@@ -4660,7 +4678,7 @@ bool BytecodeGenerator::emitReadOnlyExceptionIfNeeded(const Variable& variable)
     return false;
 }
 
-void BytecodeGenerator::emitTryWithFinallyThatDoesNotShadowException(const ScopedLambda<void(BytecodeGenerator&)>& emitTry, const ScopedLambda<void(BytecodeGenerator&)>& emitFinally)
+void BytecodeGenerator::emitTryWithFinallyThatDoesNotShadowException(NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitTry, NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitFinally)
 {
     Ref<Label> finallyLabel = newLabel();
     FinallyContext finallyContext(*this, finallyLabel.get());
@@ -4669,7 +4687,7 @@ void BytecodeGenerator::emitTryWithFinallyThatDoesNotShadowException(const Scope
     popFinallyControlFlowScope();
 }
 
-void BytecodeGenerator::emitTryWithFinallyThatDoesNotShadowException(FinallyContext& finallyContext, const ScopedLambda<void(BytecodeGenerator&)>& emitTry, const ScopedLambda<void(BytecodeGenerator&)>& emitFinally)
+void BytecodeGenerator::emitTryWithFinallyThatDoesNotShadowException(FinallyContext& finallyContext, NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitTry, NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitFinally)
 {
     Ref<Label> tryStartLabel = newEmittedLabel();
     TryData* tryData = pushTry(tryStartLabel.get(), *finallyContext.finallyLabel(), HandlerType::SynthesizedFinally);
@@ -4735,7 +4753,7 @@ void BytecodeGenerator::emitPrepareDisposable(RegisterID* value, const JSTextPos
     }
 }
 
-void BytecodeGenerator::emitUsingBodyScope(unsigned usingCount, bool hasAwaitUsing, const ScopedLambda<void(BytecodeGenerator&)>& emitBody)
+void BytecodeGenerator::emitUsingBodyScope(unsigned usingCount, bool hasAwaitUsing, NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitBody)
 {
     ASSERT(!hasAwaitUsing || isAsyncFunctionParseMode(parseMode()) || isModuleParseMode(parseMode()));
 
@@ -4946,7 +4964,7 @@ void BytecodeGenerator::emitUsingBodyScope(unsigned usingCount, bool hasAwaitUsi
     m_usingScopeStack.removeLast();
 }
 
-void BytecodeGenerator::emitBodyWithUsingIfNeeded(unsigned usingCount, bool hasAwaitUsing, const ScopedLambda<void(BytecodeGenerator&)>& emitBody)
+void BytecodeGenerator::emitBodyWithUsingIfNeeded(unsigned usingCount, bool hasAwaitUsing, NOESCAPE const ScopedLambda<void(BytecodeGenerator&)>& emitBody)
 {
     if (usingCount)
         emitUsingBodyScope(usingCount, hasAwaitUsing, emitBody);
@@ -4954,7 +4972,7 @@ void BytecodeGenerator::emitBodyWithUsingIfNeeded(unsigned usingCount, bool hasA
         emitBody(*this);
 }
 
-void BytecodeGenerator::emitEnumeration(ThrowableExpressionData* node, ExpressionNode* subjectNode, const ScopedLambda<void(BytecodeGenerator&, RegisterID*)>& callBack, ForOfNode* forLoopNode, RegisterID* forLoopSymbolTable)
+void BytecodeGenerator::emitEnumeration(ThrowableExpressionData* node, ExpressionNode* subjectNode, NOESCAPE const ScopedLambda<void(BytecodeGenerator&, RegisterID*)>& callBack, ForOfNode* forLoopNode, RegisterID* forLoopSymbolTable)
 {
     if (forLoopNode && forLoopNode->isForAwait()) {
         ASSERT(isAsyncFunctionParseMode(parseMode()) || isModuleParseMode(parseMode()));

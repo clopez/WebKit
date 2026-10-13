@@ -37,6 +37,7 @@
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderButton.h"
+#include "RenderElementInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
@@ -80,7 +81,7 @@ RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement& input, Style:
 
 RenderFileUploadControl::~RenderFileUploadControl() = default;
 
-HTMLInputElement& NODELETE RenderFileUploadControl::inputElement() const
+HTMLInputElement& LEGACY_NODELETE RenderFileUploadControl::inputElement() const
 {
     return downcast<HTMLInputElement>(nodeForNonAnonymous());
 }
@@ -105,13 +106,13 @@ void RenderFileUploadControl::updateFromElement()
         repaint();
 }
 
-static int NODELETE nodeLogicalWidth(Node* node)
+static int LEGACY_NODELETE nodeLogicalWidth(Node* node)
 {
     return (node && node->renderBox()) ? roundToInt(node->renderBox()->logicalSize().width()) : 0;
 }
 
 #if PLATFORM(COCOA)
-static int NODELETE nodeLogicalHeight(Node* node)
+static int LEGACY_NODELETE nodeLogicalHeight(Node* node)
 {
     return (node && node->renderBox()) ? roundToInt(node->renderBox()->logicalSize().height()) : 0;
 }
@@ -128,7 +129,7 @@ int RenderFileUploadControl::maxFilenameLogicalWidth() const
 
 void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style().usedVisibility() != Visibility::Visible)
+    if (usedStyle().visibility() != UsedVisibility::Visible)
         return;
     
     if (!paintInfo.context().paintingDisabled())

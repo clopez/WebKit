@@ -115,14 +115,14 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer& player)
         else
             runningQueue->dispatch(WTF::move(function));
     });
-    m_parser->setDidParseInitializationDataCallback([weakThis = ThreadSafeWeakPtr { *this }, this] (InitializationSegment&& segment) {
+    m_parser->setDidParseInitializationDataCallback([weakThis = ThreadSafeWeakPtr { *this }] (InitializationSegment&& segment) {
         if (RefPtr protectedThis = weakThis.get())
-            didParseInitializationData(WTF::move(segment));
+            protectedThis->didParseInitializationData(WTF::move(segment));
     });
 
-    m_parser->setDidProvideMediaDataCallback([weakThis = ThreadSafeWeakPtr { *this }, this] (Ref<MediaSampleAVFObjC>&& sample, TrackID trackId, const String& mediaType) {
+    m_parser->setDidProvideMediaDataCallback([weakThis = ThreadSafeWeakPtr { *this }] (Ref<MediaSampleAVFObjC>&& sample, TrackID trackId, const String& mediaType) {
         if (RefPtr protectedThis = weakThis.get())
-            didProvideMediaDataForTrackId(WTF::move(sample), trackId, mediaType);
+            protectedThis->didProvideMediaDataForTrackId(WTF::move(sample), trackId, mediaType);
     });
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
@@ -451,7 +451,7 @@ void MediaPlayerPrivateWebM::cancelLoad()
     }
 }
 
-PlatformLayer* MediaPlayerPrivateWebM::platformLayer() const
+PlatformLayer* MediaPlayerPrivateWebM::platformLayer()
 {
     return m_renderer->platformVideoLayer();
 }
@@ -1208,7 +1208,7 @@ void MediaPlayerPrivateWebM::enqueueSample(Ref<MediaSample>&& sample, TrackID tr
 
     PlatformSample platformSample = sample->platformSample();
 
-    CMFormatDescriptionRef formatDescription = PAL::CMSampleBufferGetFormatDescription(platformSample.cmSampleBuffer());
+    RetainPtr formatDescription = PAL::CMSampleBufferGetFormatDescription(protect(platformSample.cmSampleBuffer()));
     ASSERT(formatDescription);
     if (!formatDescription) {
         ERROR_LOG(logSiteIdentifier, "Received sample with a null formatDescription. Bailing.");

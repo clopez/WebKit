@@ -61,7 +61,7 @@ static const ASCIILiteral originCannotRequestGeolocationErrorMessage { "Origin d
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Geolocation);
 
-static RefPtr<GeolocationPosition> NODELETE createGeolocationPosition(std::optional<GeolocationPositionData>&& position)
+static RefPtr<GeolocationPosition> createGeolocationPosition(std::optional<GeolocationPositionData>&& position)
 {
     if (!position)
         return nullptr;
@@ -142,7 +142,7 @@ Ref<Geolocation> Geolocation::create(Navigator& navigator)
 }
 
 Geolocation::Geolocation(Navigator& navigator)
-    : ActiveDOMObject(navigator.scriptExecutionContext())
+    : ActiveDOMObject(protect(navigator.scriptExecutionContext()))
     , m_navigator(navigator)
     , m_resumeTimer(*this, &Geolocation::resumeTimerFired)
 {

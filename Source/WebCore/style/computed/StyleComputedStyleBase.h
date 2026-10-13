@@ -62,7 +62,7 @@ class ScrollTimeline;
 class TransformationMatrix;
 class ViewTimeline;
 
-enum CSSPropertyID : uint16_t;
+enum class CSSPropertyID : uint16_t;
 
 enum class AlignmentBaseline : uint8_t;
 enum class ApplePayButtonStyle : uint8_t;
@@ -487,12 +487,6 @@ public:
     inline const Color& colorForHighlight() const;
     inline void setColorForHighlight(Color&&);
 
-    inline bool usesCurrentBackgroundColorKeyword() const;
-    inline void setUsesCurrentBackgroundColorKeyword();
-
-    inline const WebCore::Color& currentBackgroundColor() const;
-    inline void setCurrentBackgroundColor(WebCore::Color);
-
     inline bool isLink() const;
     inline void setIsLink(bool);
 
@@ -531,6 +525,8 @@ public:
 
     inline bool insideSubmitButton() const;
     inline void setInsideSubmitButton(bool);
+    inline bool inBaseAppearanceSubtree() const;
+    inline void setInBaseAppearanceSubtree(bool);
 
     inline OptionSet<EventListenerRegionType> eventListenerRegionTypes() const;
     inline void setEventListenerRegionTypes(OptionSet<EventListenerRegionType>);
@@ -550,8 +546,10 @@ public:
     inline std::optional<size_t> usedPositionOptionIndex() const;
     inline void setUsedPositionOptionIndex(std::optional<size_t>);
 
-    inline bool NODELETE effectiveInert() const;
-    bool NODELETE effectiveInertOutOfLine() const;
+    inline void setOverrideBlendMode(std::optional<BlendMode>);
+
+    inline bool LEGACY_NODELETE effectiveInert() const;
+    bool LEGACY_NODELETE effectiveInertOutOfLine() const;
     inline void setEffectiveInert(bool);
 
 #if ENABLE(SMART_IMAGE_RESIZER)
@@ -573,6 +571,8 @@ public:
 
     inline StyleAppearance usedAppearance() const;
     inline void setUsedAppearance(StyleAppearance);
+
+    inline void setOverrideBackgroundColor(std::optional<Color>&&);
 
     inline void setUsedUserSelect(UserSelect);
 
@@ -598,8 +598,8 @@ public:
 
     // MARK: - Text Autosizing
 
-    AutosizeStatus NODELETE autosizeStatus() const;
-    void NODELETE setAutosizeStatus(AutosizeStatus);
+    AutosizeStatus LEGACY_NODELETE autosizeStatus() const;
+    void LEGACY_NODELETE setAutosizeStatus(AutosizeStatus);
 
     // MARK: - Pseudo element/style
 
@@ -608,15 +608,16 @@ public:
     inline bool isListMarkerStyle() const;
     const AtomString& pseudoElementNameArgument() const LIFETIME_BOUND;
 
-    std::optional<PseudoElementIdentifier> NODELETE pseudoElementIdentifier() const;
+    std::optional<PseudoElementIdentifier> LEGACY_NODELETE pseudoElementIdentifier() const;
     void setPseudoElementIdentifier(std::optional<PseudoElementIdentifier>&&);
 
     inline bool hasAnyPublicPseudoStyles() const;
     inline bool hasPseudoStyle(PseudoElementType) const;
     inline EnumSet<PseudoElementType> highlightPseudoElementTypes() const;
-    inline void setHasPseudoStyles(EnumSet<PseudoElementType>);
+    inline void setHasPseudoStyles(EnumSet<PseudoElementType>, PseudoElementBoxGeneration);
+    inline PseudoElementBoxGeneration pseudoElementBoxGeneration() const;
 
-    Style::ComputedStyle* NODELETE pseudoElementStyle(const PseudoElementIdentifier&) const;
+    Style::ComputedStyle* LEGACY_NODELETE pseudoElementStyle(const PseudoElementIdentifier&) const;
     Style::ComputedStyle* addPseudoElementStyle(std::unique_ptr<Style::ComputedStyle>);
 
     bool hasPseudoElementStyles() const { return !m_pseudoElementStyles.isEmpty(); }
@@ -658,18 +659,18 @@ public:
     WEBCORE_EXPORT FontCascade& mutableFontCascadeWithoutUpdate();
     void setFontCascade(FontCascade&&);
 
-    WEBCORE_EXPORT const FontCascadeDescription& NODELETE fontDescription() const;
+    WEBCORE_EXPORT const FontCascadeDescription& LEGACY_NODELETE fontDescription() const;
     WEBCORE_EXPORT FontCascadeDescription& mutableFontDescriptionWithoutUpdate();
     WEBCORE_EXPORT void setFontDescription(FontCascadeDescription&&);
     bool setFontDescriptionWithoutUpdate(FontCascadeDescription&&);
 
     WEBCORE_EXPORT const Font& primaryFont() const LIFETIME_BOUND;
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const LIFETIME_BOUND;
-    std::pair<FontOrientation, NonCJKGlyphOrientation> NODELETE fontAndGlyphOrientation();
-    float NODELETE usedFontSize() const;
+    std::pair<FontOrientation, NonCJKGlyphOrientation> LEGACY_NODELETE fontAndGlyphOrientation();
+    float LEGACY_NODELETE usedFontSize() const;
     inline WebkitLocale usedLocale() const;
 
-    const LineHeight& NODELETE textAutosizingAdjustedLineHeight() const;
+    const LineHeight& LEGACY_NODELETE textAutosizingAdjustedLineHeight() const;
     void setTextAutosizingAdjustedLineHeight(LineHeight&&);
     void setLineHeightFromAnimation(LineHeight&&);
 
@@ -686,7 +687,7 @@ public:
 
     // MARK: - Used Counter Directives
 
-    const CounterDirectiveMap& NODELETE usedCounterDirectives() const;
+    const CounterDirectiveMap& LEGACY_NODELETE usedCounterDirectives() const;
     void updateUsedCounterIncrementDirectives();
     void updateUsedCounterResetDirectives();
     void updateUsedCounterSetDirectives();
@@ -750,6 +751,8 @@ public:
     inline void setPerspectiveOrigin(PerspectiveOrigin&&);
     inline void setTransformOrigin(TransformOrigin&&);
 
+    inline bool hasLegacyLineClamp() const;
+
     // MARK: - Properties/descriptors that are not yet generated
 
     // `cursor`
@@ -771,7 +774,7 @@ public:
 
         inline bool hasAnyPublicPseudoStyles() const;
         bool hasPseudoStyle(PseudoElementType) const;
-        void setHasPseudoStyles(EnumSet<PseudoElementType>);
+        void setHasPseudoStyles(EnumSet<PseudoElementType>, PseudoElementBoxGeneration);
 
 #if !LOG_DISABLED
         void dumpDifferences(TextStream&, const NonInheritedFlags&) const;
@@ -792,7 +795,6 @@ public:
         PREFERRED_TYPE(bool) unsigned usesViewportUnits : 1;
         PREFERRED_TYPE(bool) unsigned isContainerDependent : 1;
         PREFERRED_TYPE(bool) unsigned useTreeCountingFunctions : 1;
-        PREFERRED_TYPE(bool) unsigned usesCurrentBackgroundColorKeyword : 1;
         PREFERRED_TYPE(bool) unsigned hasExplicitlyInheritedProperties : 1; // Explicitly inherits a non-inherited property.
         PREFERRED_TYPE(bool) unsigned disallowsFastPathInheritance : 1;
 
@@ -802,6 +804,8 @@ public:
         PREFERRED_TYPE(bool) unsigned isLink : 1;
         PREFERRED_TYPE(PseudoElementType) unsigned pseudoElementType : PseudoElementTypeBits;
         unsigned pseudoBits : PublicPseudoIDBits;
+        PREFERRED_TYPE(PseudoElementBoxGeneration) unsigned pseudoElementBoxGeneration : 1;
+        PREFERRED_TYPE(bool) unsigned useSVGZoomRulesForLength : 1;
     };
 
     struct InheritedFlags {

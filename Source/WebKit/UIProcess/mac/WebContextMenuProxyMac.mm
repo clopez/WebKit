@@ -1121,7 +1121,8 @@ static RetainPtr<NSDictionary> contentsOfContextMenuItem(NSMenuItem *item)
 
     if (RetainPtr<NSArray<NSMenuItem *>> submenuItems = item.submenu.itemArray) {
         RetainPtr children = adoptNS([[NSMutableArray alloc] initWithCapacity:[submenuItems count]]);
-        for (NSMenuItem *submenuItem : submenuItems.get())
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSMenuItem *submenuItem : submenuItems.get())
             [children addObject:contentsOfContextMenuItem(submenuItem).get()];
         result.get()[@"children"] = children.get();
     }
@@ -1135,7 +1136,8 @@ RetainPtr<NSArray> WebContextMenuProxyMac::platformData() const
 
     if (RetainPtr<NSArray<NSMenuItem *>> submenuItems = [m_menu itemArray]) {
         RetainPtr children = adoptNS([[NSMutableArray alloc] initWithCapacity:[submenuItems count]]);
-        for (NSMenuItem *submenuItem : submenuItems.get())
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSMenuItem *submenuItem : submenuItems.get())
             [children addObject:contentsOfContextMenuItem(submenuItem).get()];
         [result addObject:@{ @"children": children.get() }];
     }
@@ -1146,7 +1148,7 @@ RetainPtr<NSArray> WebContextMenuProxyMac::platformData() const
 WKCaptionStyleMenuController *WebContextMenuProxyMac::captionStyleMenuController()
 {
     if (!m_captionStyleMenuController) {
-        m_captionStyleMenuController = [WKCaptionStyleMenuController menuController];
+        lazyInitialize(m_captionStyleMenuController, retainPtr([WKCaptionStyleMenuController menuController]));
         [m_captionStyleMenuController setDelegate:RetainPtr { menuDelegate() }.get()];
     }
     return m_captionStyleMenuController.get();
@@ -1155,7 +1157,7 @@ WKCaptionStyleMenuController *WebContextMenuProxyMac::captionStyleMenuController
 WKMenuDelegate *WebContextMenuProxyMac::menuDelegate()
 {
     if (!m_menuDelegate)
-        m_menuDelegate = adoptNS([[WKMenuDelegate alloc] initWithMenuProxy:*this]);
+        lazyInitialize(m_menuDelegate, adoptNS([[WKMenuDelegate alloc] initWithMenuProxy:*this]));
     return m_menuDelegate.get();
 }
 
@@ -1166,7 +1168,7 @@ void WebContextMenuProxyMac::didShowContextMenu(NSMenu *)
 
 void WebContextMenuProxyMac::didDismissContextMenu(NSMenu *menu)
 {
-    protect(page())->didDismissContextMenu();
+    protect(page())->didDismissContextMenu(frameInfo());
 
     if (m_captionStyleMenuController && [m_captionStyleMenuController hasAncestor:menu])
         captionStyleMenuDidClose();

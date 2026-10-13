@@ -320,48 +320,51 @@ FrameInfoData WebFrame::info() const
     }
 
     return {
-        isMainFrame(),
         frameType,
         // FIXME: This should use the full request.
         ResourceRequest(url()),
         coreFrame ? SecurityOriginData::fromFrame(*coreFrame) : SecurityOriginData { },
-        coreFrame ? coreFrame->topOrigin().data() : SecurityOriginData { },
         coreFrame ? coreFrame->tree().specifiedName().string() : String(),
         frameID(),
         page ? std::optional { page->webPageProxyIdentifier() } : std::nullopt,
         document ? std::optional { document->identifier() } : std::nullopt,
-        getCurrentProcessID(),
         isFocused(),
         loadingFrame && loadingFrame->loader().errorOccurredInLoading(),
         WTF::move(metrics)
     };
 }
 
-FrameTreeNodeData WebFrame::frameTreeData() const
+std::optional<FrameTreeNodeData> WebFrame::frameTreeData() const
 {
-    FrameTreeNodeData data {
-        info(),
-        { },
-        { }
-    };
-
     if (!m_coreFrame) {
         ASSERT_NOT_REACHED();
-        return data;
+        return std::nullopt;
     }
 
-    data.children.reserveInitialCapacity(m_coreFrame->tree().childCount());
-
+    Vector<FrameTreeNodeData> children;
+    children.reserveInitialCapacity(m_coreFrame->tree().childCount());
     for (RefPtr child = m_coreFrame->tree().firstChild(); child; child = child->tree().nextSibling()) {
         RefPtr childWebFrame = WebFrame::fromCoreFrame(*child);
         if (!childWebFrame) {
             ASSERT_NOT_REACHED();
             continue;
         }
-        data.children.append(childWebFrame->frameTreeData());
+        auto data = childWebFrame->frameTreeData();
+        if (!data) {
+            ASSERT_NOT_REACHED();
+            continue;
+        }
+        children.append(WTF::move(*data));
     }
 
-    return data;
+    RefPtr page = m_coreFrame->page();
+
+    return FrameTreeNodeData {
+        info(),
+        WTF::move(children),
+        page ? page->mainFrameURL() : URL(),
+        getCurrentProcessID()
+    };
 }
 
 void WebFrame::invalidate()
@@ -553,6 +556,14 @@ void WebFrame::destroyProvisionalFrame()
     }
 }
 
+void WebFrame::updateSandboxFlags(SandboxFlags sandboxFlags)
+{
+    if (RefPtr localFrame = coreLocalFrame())
+        localFrame->updateSandboxFlags(sandboxFlags, Frame::NotifyUIProcess::No);
+    if (RefPtr provisionalFrame = m_provisionalFrame)
+        provisionalFrame->updateSandboxFlags(sandboxFlags, Frame::NotifyUIProcess::No);
+}
+
 void WebFrame::commitProvisionalFrame()
 {
     RefPtr localFrame = std::exchange(m_provisionalFrame, nullptr);
@@ -629,14 +640,19 @@ void WebFrame::removeFromTree()
     if (RefPtr client = localFrameLoaderClient())
         client->removeStorageAccess();
 
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(*coreFrame))
+        localFrame->loader().closeURL();
+
     // Instrumentation is added in createSubframe()/createProvisionalFrame() and normally removed in
-    // detachedFromParent2(). This removal path (a remote parent removing the frame ->
+    // detachedFromParent2(). This removal path (a remote ancestor removing the frame ->
     // frameWasRemovedInAnotherProcess -> removeFromTree) skips detachedFromParent2(), so tear the
     // instrumentation (incl. the paint-rect overlay) down here too; removeInstrumentationForFrame() is
     // idempotent, so the two removal paths never double-free.
     if (RefPtr backend = webPage->inspector(WebPage::LazyCreationPolicy::UseExistingOnly))
         backend->removeInstrumentationForFrame(frameID());
 
+    if (is<RemoteFrame>(*coreFrame))
+        coreFrame->disconnectOwnerElement();
     if (RefPtr parent = coreFrame->tree().parent())
         parent->tree().removeChild(*coreFrame);
     coreFrame->disconnectView();
@@ -667,6 +683,15 @@ void WebFrame::invalidatePolicyListeners()
     // Survivors go back before this point because cancelling can start a load, adding new checks.
     for (auto& policyCheck : policyChecksToCancel.values())
         policyCheck.policyFunction(PolicyAction::Ignore);
+}
+
+bool WebFrame::dispatchPendingNavigateEventAfterNavigationPolicy(WebCore::PendingNavigateEventIdentifier identifier)
+{
+    RefPtr coreFrame = coreLocalFrame();
+    if (!coreFrame)
+        return true;
+
+    return coreFrame->loader().dispatchPendingNavigateEventAfterNavigationPolicy(identifier);
 }
 
 void WebFrame::didReceivePolicyDecision(PolicyListenerIdentifier listenerID, PolicyDecision&& policyDecision)
@@ -718,14 +743,20 @@ void WebFrame::didReceivePolicyDecision(PolicyListenerIdentifier listenerID, Pol
     // any other, and m_policyDocumentLoader is its own. A new window skips it too, since its navigation state
     // belongs to the window being opened rather than to this frame.
     if (policyDecision.policyAction != PolicyAction::Download && policyCheck.kind != PolicyCheckKind::NewWindow) {
-        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get())) {
+        if (RefPtr localFrame = m_provisionalFrame ? m_provisionalFrame.get() : coreLocalFrame()) {
             auto& loader = localFrame->loader();
             if (RefPtr policyDocumentLoader = loader.policyDocumentLoader()) {
                 if (policyDecision.navigationID)
                     policyDocumentLoader->setNavigationID(*policyDecision.navigationID);
-                policyDocumentLoader->setIsOriginKeyedFromUIProcess(policyDecision.isOriginKeyed);
-            } else if (RefPtr provisionalDocumentLoader = loader.provisionalDocumentLoader())
-                provisionalDocumentLoader->setIsOriginKeyedFromUIProcess(policyDecision.isOriginKeyed);
+                policyDocumentLoader->setAgentClusterAssignment(policyDecision.agentClusterAssignment);
+                if (forNavigationAction)
+                    policyDocumentLoader->setUnpartitionedStorageSite(WTF::move(policyDecision.unpartitionedStorageSite));
+            } else if (RefPtr provisionalDocumentLoader = loader.provisionalDocumentLoader(); provisionalDocumentLoader && (!forNavigationAction || (policyDecision.navigationID && policyDecision.navigationID == provisionalDocumentLoader->navigationID()))) {
+                // A navigation action decision without a policy document loader, such as for a fragment navigation, belongs to another navigation than the provisional one, unless it is for a redirect.
+                provisionalDocumentLoader->setAgentClusterAssignment(policyDecision.agentClusterAssignment);
+                if (forNavigationAction)
+                    provisionalDocumentLoader->setUnpartitionedStorageSite(WTF::move(policyDecision.unpartitionedStorageSite));
+            }
         }
     }
 
@@ -1385,7 +1416,7 @@ void WebFrame::updateLocalFrameRect(WebCore::LocalFrame& localFrame, WebCore::In
         frameView->setExposedContentRect(FloatRect { { }, frameView->size() });
 #endif
 
-    if (!rectChanged)
+    if (oldRect.size() == newRect.size())
         return;
 
     if (RefPtr drawingArea = m_page ? m_page->drawingArea() : nullptr) {
@@ -1519,7 +1550,7 @@ std::optional<OptionSet<WebCore::AdvancedPrivacyProtections>> WebFrame::originat
 }
 
 #if ENABLE(CONTEXT_MENU_EVENT)
-static bool NODELETE isContextClick(const PlatformMouseEvent& event)
+static bool LEGACY_NODELETE isContextClick(const PlatformMouseEvent& event)
 {
 #if USE(APPKIT)
     return WebEventFactory::shouldBeHandledAsContextClick(event);
@@ -1666,7 +1697,7 @@ String WebFrame::frameTextForTesting(bool includeSubframes)
             continue;
         auto frameName = makeAtomString("\n--------\nFrame: '"_s, childWebFrame->name(), "'\n--------\n"_s);
         if (is<RemoteFrame>(*child))
-            builder.append(frameName, m_page->sendSync(Messages::WebPageProxy::FrameTextForTesting(child->frameID())).takeReplyOr("Sending WebPageProxy::FrameTextForTesting failed"_s));
+            builder.append(frameName, m_page->sendSync(Messages::WebPageProxy::FrameTextForTesting(child->frameID())).takeReplyOr("Sending WebPageProxy::FrameTextForTesting failed\n"_s));
         else if (!childWebFrame->innerText().isNull())
             builder.append(frameName, childWebFrame->frameTextForTesting(includeSubframes));
     }
@@ -1862,7 +1893,7 @@ void WebFrame::takeSnapshotOfNode(JSHandleIdentifier identifier, CompletionHandl
 CheckedRef<FrameInspectorTarget> WebFrame::ensureInspectorTarget()
 {
     if (!m_inspectorTarget)
-        m_inspectorTarget = makeUnique<FrameInspectorTarget>(*this);
+        lazyInitialize(m_inspectorTarget, makeUnique<FrameInspectorTarget>(*this));
     return *m_inspectorTarget;
 }
 

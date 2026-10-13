@@ -34,8 +34,6 @@
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLineBox.h"
 #include "LayoutIntegrationLineLayout.h"
-#include "LegacyInlineFlowBox.h"
-#include "LegacyInlineTextBox.h"
 #include "OutlinePainter.h"
 #include "RenderBlock.h"
 #include "RenderBoxInlines.h"
@@ -50,7 +48,6 @@
 #include "RenderLineBreak.h"
 #include "RenderListOutsideMarker.h"
 #include "RenderObjectInlines.h"
-#include "RenderSVGInline.h"
 #include "RenderTable.h"
 #include "RenderTheme.h"
 #include "RenderTreeBuilder.h"
@@ -79,13 +76,6 @@ RenderInline::RenderInline(Type type, Document& document, Style::ComputedStyle&&
 }
 
 RenderInline::~RenderInline() = default;
-
-void RenderInline::styleDidChange(Style::Difference diff, const Style::ComputedStyle* oldStyle)
-{
-    RenderBoxModelObject::styleDidChange(diff, oldStyle);
-
-    propagateStyleToAnonymousChildren(StylePropagationType::AllChildren);
-}
 
 ASCIILiteral RenderInline::renderName() const
 {

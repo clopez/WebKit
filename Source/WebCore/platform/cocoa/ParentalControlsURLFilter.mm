@@ -90,7 +90,7 @@ static bool wcrBrowserEngineClientEnabled()
     return [PAL::getWCRBrowserEngineClientClassSingleton() shouldEvaluateURLs];
 }
 
-static RefPtr<ParentalControlsURLFilter>& NODELETE globalFilter()
+static RefPtr<ParentalControlsURLFilter>& LEGACY_NODELETE globalFilter()
 {
     static MainThreadNeverDestroyed<RefPtr<ParentalControlsURLFilter>> filter;
     return filter.get();
@@ -130,7 +130,7 @@ ParentalControlsURLFilter::ParentalControlsURLFilter() = default;
 
 WorkQueue& ParentalControlsURLFilter::workQueueSingleton()
 {
-    static MainThreadNeverDestroyed<Ref<WorkQueue>> queue = WorkQueue::create("ParentalControlsContentFilter queue"_s);
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("ParentalControlsContentFilter queue"_s));
     return queue.get();
 }
 
@@ -231,14 +231,14 @@ void ParentalControlsURLFilter::isURLAllowedImpl(IsMainFrameLoad isMainFrame, co
         && [wcrBrowserEngineClient respondsToSelector:@selector(evaluateURL:mainDocumentURL:withCompletion:onCompletionQueue:)]) {
         [wcrBrowserEngineClient evaluateURL:url.createNSURL().get() mainDocumentURL:mainDocumentURL.createNSURL().get() withCompletion:makeBlockPtr([completionHandler = WTF::move(completionHandler)](BOOL shouldBlock, NSData *replacementData) mutable {
         completionHandler(!shouldBlock, replacementData);
-        }).get() onCompletionQueue:workQueueSingleton().dispatchQueue()];
+        }).get() onCompletionQueue:protect(workQueueSingleton().dispatchQueue())];
         return;
     }
 #endif
     UNUSED_PARAM(mainDocumentURL);
     [wcrBrowserEngineClient evaluateURL:url.createNSURL().get() withCompletion:makeBlockPtr([completionHandler = WTF::move(completionHandler)](BOOL shouldBlock, NSData *replacementData) mutable {
         completionHandler(!shouldBlock, replacementData);
-        }).get() onCompletionQueue:workQueueSingleton().dispatchQueue()];
+        }).get() onCompletionQueue:protect(workQueueSingleton().dispatchQueue())];
 }
 
 void ParentalControlsURLFilter::allowURL(const URL& url, CompletionHandler<void(bool)>&& completionHandler)

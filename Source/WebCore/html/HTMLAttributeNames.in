@@ -87,7 +87,6 @@ axis
 background
 behavior
 bgcolor
-bottommargin
 blocking
 border
 bordercolor
@@ -137,6 +136,7 @@ disablepictureinpicture
 disableremoteplayback
 download
 draggable
+drawable
 dropzone
 enctype
 end
@@ -182,7 +182,6 @@ kind
 label
 lang
 language
-layoutsubtree
 leftmargin
 link
 list
@@ -391,7 +390,6 @@ required
 results
 rev
 reversed
-rightmargin
 role
 rows
 rowspan
@@ -463,5 +461,8 @@ x-apple-data-detectors-type
 x-apple-pdf-annotation
 x-itunes-inherit-uri-query-component
 x-webkit-airplay
+x-webkit-fieldofview
+x-webkit-pitch
 x-webkit-projection
 x-webkit-wirelessvideoplaybackdisabled
+x-webkit-yaw

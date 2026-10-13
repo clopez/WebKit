@@ -37,6 +37,7 @@
 #include "AXTextRun.h"
 #include "AXUtilities.h"
 #include "AccessibilityNodeObject.h"
+#include "AccessibilityObjectInlines.h"
 #include "DateComponents.h"
 #include "Element.h"
 #include "HTMLNames.h"
@@ -134,6 +135,10 @@ bool isDefaultValue(AXProperty property, AXPropertyValueVariant& value)
         [](std::nullptr_t&) { return true; },
         [](Markable<AXID> typedValue) { return !typedValue; },
         [&](String& typedValue) {
+            // An absent invalid status reads back as "false", so as an optimization don't cache
+            // anything in that case.
+            if (property == AXProperty::InvalidStatus)
+                return typedValue.isEmpty() || typedValue == "false"_s;
             return typedValue.isEmpty(); // null or empty
         },
         [](bool typedValue) { return !typedValue; },
@@ -465,13 +470,13 @@ void AXIsolatedObject::setSelectedChildren(const AccessibilityChildrenVector& se
     AX_ASSERT(selectedChildren.isEmpty() || selectedChildren[0]->isAXIsolatedObjectInstance());
 
     auto childrenIDs = axIDs(selectedChildren);
-    performFunctionOnMainThread([selectedChildrenIDs = WTF::move(childrenIDs), protectedThis = Ref { *this }] (auto* object) {
+    performFunctionOnMainThread([selectedChildrenIDs = WTF::move(childrenIDs)](auto* object) {
         if (selectedChildrenIDs.isEmpty()) {
             object->setSelectedChildren({ });
             return;
         }
 
-        CheckedPtr axObjectCache = protectedThis->axObjectCache();
+        CheckedPtr axObjectCache = object->axObjectCache();
         if (!axObjectCache)
             return;
 
@@ -682,13 +687,13 @@ void AXIsolatedObject::setSelected(bool value)
 void AXIsolatedObject::setSelectedRows(AccessibilityChildrenVector&& selectedRows)
 {
     auto rowIDs = axIDs(selectedRows);
-    performFunctionOnMainThread([selectedRowIDs = WTF::move(rowIDs), protectedThis = Ref { *this }] (auto* object) {
+    performFunctionOnMainThread([selectedRowIDs = WTF::move(rowIDs)](auto* object) {
         if (selectedRowIDs.isEmpty()) {
             object->setSelectedRows({ });
             return;
         }
 
-        CheckedPtr axObjectCache = protectedThis->axObjectCache();
+        CheckedPtr axObjectCache = object->axObjectCache();
         if (!axObjectCache)
             return;
 
@@ -840,7 +845,8 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
     adjustedPoint.moveBy(-remoteFrameOffset());
 #endif
 
-    if (!bounds.contains(adjustedPoint) && !bounds.isEmpty()) {
+    bool containsPoint = bounds.contains(adjustedPoint);
+    if (!containsPoint && !bounds.isEmpty() && !isExpanded()) {
         // If our bounds are empty, we cannot possibly contain the hit-point. However, this may happen
         // because we haven't got geometry for |this| yet, but maybe our children contain the hit-point,
         // so check them before exiting. If our bounds are not empty and we don't contain the hit-point,
@@ -848,7 +854,8 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
         //
         // This early-exit makes the assumption that parents always contain their children's bounds, which
         // is generally true, but not always. This is OK since it's an approximate hit-test, but maybe we
-        // can improve this heuristic in the future.
+        // can improve this heuristic in the future. An expanded object can have a popup outside its
+        // bounds, such as the picker of a select, so check its children.
         return nullptr;
     }
 
@@ -886,7 +893,7 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
             return hitChild;
     }
 
-    if (bounds.isEmpty())
+    if (!containsPoint)
         return nullptr;
 
     RefPtr result = mutableThis;
@@ -1625,7 +1632,7 @@ AffineTransform AXIsolatedObject::frameScreenTransform() const
 }
 #endif
 
-static Seconds NODELETE relativeFrameTimeout(bool shouldServeInitialFrame)
+static Seconds LEGACY_NODELETE relativeFrameTimeout(bool shouldServeInitialFrame)
 {
     // If the request demands that we don't serve the (probably somewhat inaccurate) initial frame, use a much
     // longer timeout (5 seconds). In practice, at the time of writing, this should only be true for tests.
@@ -1684,7 +1691,7 @@ FloatRect AXIsolatedObject::relativeFrame() const
         // our row(s) have cached geometry we can use. For tables, this will probably be more accurate
         // than the ancestor bounding-box fallback below.
         for (const auto& child : const_cast<AXIsolatedObject*>(this)->unignoredChildren()) {
-            if (std::optional cachedFrame = downcast<AXIsolatedObject>(child)->cachedRelativeFrame())
+            if (std::optional cachedFrame = downcast<AXIsolatedObject>(child).cachedRelativeFrame())
                 relativeFrame.unite(*cachedFrame);
         }
     }
@@ -1711,7 +1718,7 @@ FloatRect AXIsolatedObject::relativeFrame() const
             // Prefer ARIA labels first, fall back to native labels if none provide geometry.
             auto uniteLabelsIntoRect = [&rectFromLabels](const AccessibilityChildrenVector& labels) {
                 for (const auto& label : labels) {
-                    std::optional frame = downcast<AXIsolatedObject>(label)->cachedRelativeFrame();
+                    std::optional frame = downcast<AXIsolatedObject>(label).cachedRelativeFrame();
                     if (!frame)
                         continue;
                     if (!rectFromLabels)

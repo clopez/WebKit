@@ -90,7 +90,7 @@ struct MaskBorderWidthValue {
         return false;
     }
 
-    template<typename... F> decltype(auto) switchOn(F&&... f) const
+    template<typename... F> decltype(auto) switchOn(NOESCAPE F&&... f) const
     {
         return WTF::switchOn(m_value, std::forward<F>(f)...);
     }
@@ -165,7 +165,7 @@ template<> struct CSSValueCreation<MaskBorderWidth> { auto operator()(CSSValuePo
 // MARK: - Blending
 
 template<> struct Blending<MaskBorderWidthValue> {
-    bool NODELETE canBlend(const MaskBorderWidthValue&, const MaskBorderWidthValue&);
+    bool LEGACY_NODELETE canBlend(const MaskBorderWidthValue&, const MaskBorderWidthValue&);
     auto requiresInterpolationForAccumulativeIteration(const MaskBorderWidthValue&, const MaskBorderWidthValue&) -> bool;
     auto blend(const MaskBorderWidthValue&, const MaskBorderWidthValue&, const BlendingContext&) -> MaskBorderWidthValue;
 };

@@ -153,8 +153,8 @@ void WebExtensionAPIAlarms::clearAll(Ref<WebExtensionCallbackHandler>&& callback
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/alarms/clearAll
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::AlarmsClearAll(), [protectedThis = Ref { *this }, callback = WTF::move(callback)](bool success) {
-        callback->call(JSValueMakeBoolean(callback->globalContext(), success));
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::AlarmsClearAll(), [protectedThis = Ref { *this }, callback = WTF::move(callback)] {
+        callback->call();
     }, extensionContext().identifier());
 }
 
@@ -163,7 +163,7 @@ WebExtensionAPIEvent& WebExtensionAPIAlarms::onAlarm()
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/alarms/onAlarm
 
     if (!m_onAlarm)
-        m_onAlarm = WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::AlarmsOnAlarm);
+        lazyInitialize(m_onAlarm, WebExtensionAPIEvent::create(*this, WebExtensionEventListenerType::AlarmsOnAlarm));
 
     return *m_onAlarm;
 }

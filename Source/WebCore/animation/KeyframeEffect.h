@@ -115,11 +115,11 @@ public:
     Element* target() const { return m_target.get(); }
     void setTarget(RefPtr<Element>&&);
 
-    bool NODELETE targetsPseudoElement() const;
+    bool LEGACY_NODELETE targetsPseudoElement() const;
     const String pseudoElement() const;
     ExceptionOr<void> setPseudoElement(const String&);
 
-    const std::optional<const Styleable> NODELETE targetStyleable() const;
+    const std::optional<const Styleable> LEGACY_NODELETE targetStyleable() const;
 
     Vector<ComputedKeyframe> getKeyframes();
     ExceptionOr<void> setBindingsKeyframes(JSC::JSGlobalObject&, Document&, JSC::Strong<JSC::JSObject>&&);
@@ -171,8 +171,9 @@ public:
     bool isCurrentlyAffectingProperty(CSSPropertyID, Accelerated = Accelerated::No) const;
     bool isRunningAcceleratedAnimationForProperty(CSSPropertyID) const;
     bool isRunningAcceleratedTransformRelatedAnimation() const;
+    bool isRunningOrAboutToRunAcceleratedTransformRelatedAnimation() const;
 
-    bool NODELETE requiresPseudoElement() const;
+    bool LEGACY_NODELETE requiresPseudoElement() const;
 
     void customPropertyRegistrationDidChange(const AtomString&);
 
@@ -214,7 +215,7 @@ private:
         ~CanBeAcceleratedMutationScope();
 
     private:
-        RefPtr<KeyframeEffect> m_effect;
+        const RefPtr<KeyframeEffect> m_effect;
         bool m_couldOriginallyPreventAcceleration;
 #if ENABLE(THREADED_ANIMATIONS)
         bool m_couldOriginallyBeAccelerated;
@@ -265,8 +266,8 @@ private:
         ~StackMembershipMutationScope();
 
     private:
-        RefPtr<KeyframeEffect> m_effect;
-        RefPtr<Element> m_originalTarget;
+        const RefPtr<KeyframeEffect> m_effect;
+        const RefPtr<Element> m_originalTarget;
         std::optional<Style::PseudoElementIdentifier> m_originalPseudoElementIdentifier;
     };
 

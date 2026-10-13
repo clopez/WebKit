@@ -45,6 +45,7 @@
 #import "Logging.h"
 #import "XPCEndpoint.h"
 #import <wtf/OSObjectPtr.h>
+#import <wtf/darwin/DarwinExtras.h>
 #import <wtf/darwin/XPCExtras.h>
 #import <wtf/darwin/XPCObjectPtr.h>
 #import <wtf/spi/cocoa/OSLogSPI.h>
@@ -226,11 +227,11 @@ bool AuxiliaryProcessProxy::LogXPCEventHandler::handleXPCEvent(xpc_object_t even
 
         OSObjectPtr<os_log_t> osLog;
         if (!subsystem.isEmpty() && !category.isEmpty())
-            osLog = adoptOSObject(os_log_create(subsystem.utf8().legacyCStringPointer(), category.utf8().legacyCStringPointer()));
+            osLog = adoptOSObject(osLogCreate(subsystem.utf8(), category.utf8()));
 
         process->didReceiveLogsDuringLaunchForTesting();
         auto message = messageString.utf8();
-        logWithProcessNamePrefix(osLog ? osLog.get() : OS_LOG_DEFAULT, static_cast<os_log_type_t>(logType), process->processName(), static_cast<int>(pid), CStringView::fromUTF8(message.spanIncludingNullTerminator()));
+        logWithProcessNamePrefix(osLog ? osLog.get() : OS_LOG_DEFAULT, static_cast<os_log_type_t>(logType), process->processName(), static_cast<int>(pid), UTF8CStringView::fromUTF8(message.spanIncludingNullTerminator()));
     } else if (messageName == disableLogMessageName) {
         RefPtr process = m_process.get();
         if (!process)

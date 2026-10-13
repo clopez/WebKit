@@ -82,7 +82,7 @@
 #include "JSMicrotask.h"
 #include "JSMicrotaskDispatcher.h"
 #include "JSModuleLoaderInlines.h"
-#include "JSONTransitionCacheInlines.h"
+#include "JSONCacheInlines.h"
 #include "JSPromise.h"
 #include "JSPromiseCombinatorsContextInlines.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
@@ -275,6 +275,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
 #endif
     , m_regExpCache(makeUnique<RegExpCache>())
     , m_compactVariableMap(adoptRef(*new CompactTDZEnvironmentMap))
+    , m_jsonCache(makeUniqueRef<JSONCache>())
     , m_syncResumeCallCache(makeUniqueRef<MicrotaskCallCache>())
     , m_codeCache(makeUnique<CodeCache>())
     , m_intlCache(makeUnique<IntlCache>())
@@ -417,7 +418,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_fastMapEntriesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastSetValuesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastSetEntriesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
-        m_fastStringValuesSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
+        m_fastStringSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
         m_fastAsyncGeneratorSentinel.setWithoutWriteBarrier(JSSentinel::create(*this, sentinelStructure));
     }
 
@@ -639,7 +640,7 @@ VM::~VM()
     ASSERT(currentThreadIsHoldingAPILock());
     m_apiLock->willDestroyVM(this);
     smallStrings.setIsInitialized(false);
-    heap.lastChanceToFinalize();
+    heap.shutDown();
 
     while (!m_microtaskQueues.isEmpty())
         m_microtaskQueues.begin()->remove();
@@ -777,7 +778,7 @@ Exception* VM::ensureTerminationException()
 }
 
 #if ENABLE(JIT)
-static ThunkGenerator NODELETE thunkGeneratorForIntrinsic(Intrinsic intrinsic)
+static ThunkGenerator LEGACY_NODELETE thunkGeneratorForIntrinsic(Intrinsic intrinsic)
 {
     switch (intrinsic) {
     case CharCodeAtIntrinsic:
@@ -834,8 +835,6 @@ static ThunkGenerator NODELETE thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return objectIsThunkGenerator;
     case BoundFunctionCallIntrinsic:
         return boundFunctionCallGenerator;
-    case RemoteFunctionCallIntrinsic:
-        return remoteFunctionCallGenerator;
     case NumberConstructorIntrinsic:
         return numberConstructorCallThunkGenerator;
     case StringConstructorIntrinsic:
@@ -942,30 +941,6 @@ NativeExecutable* VM::getBoundFunction(bool isJSFunction, SourceTaintedOrigin ta
     if (slowCase)
         return getOrCreate(m_slowCanConstructBoundExecutable);
     return getOrCreate(m_fastCanConstructBoundExecutable);
-}
-
-NativeExecutable* VM::getRemoteFunction(bool isJSFunction)
-{
-    bool slowCase = !isJSFunction;
-    auto getOrCreate = [&] (Weak<NativeExecutable>& slot) -> NativeExecutable* {
-        if (auto* cached = slot.get())
-            return cached;
-
-        Intrinsic intrinsic = NoIntrinsic;
-        if (!slowCase)
-            intrinsic = RemoteFunctionCallIntrinsic;
-
-        NativeExecutable* result = getHostFunction(
-            slowCase ? remoteFunctionCallGeneric : remoteFunctionCallForJSFunction,
-            ImplementationVisibility::Public, intrinsic,
-            callHostFunctionAsConstructor, nullptr, 0, String());
-        slot = Weak<NativeExecutable>(result);
-        return result;
-    };
-
-    if (slowCase)
-        return getOrCreate(m_slowRemoteFunctionExecutable);
-    return getOrCreate(m_fastRemoteFunctionExecutable);
 }
 
 CodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializationKind kind)
@@ -1161,8 +1136,12 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
 Exception* VM::throwException(JSGlobalObject* globalObject, JSValue thrownValue)
 {
     Exception* exception = dynamicDowncast<Exception>(thrownValue);
-    if (!exception)
-        exception = Exception::create(*this, thrownValue);
+    if (!exception) {
+        auto action = Exception::StackCaptureAction::CaptureStack;
+        if (!globalObject->debugger() && interpreter.isExceptionCaughtByUserCatchClause())
+            action = Exception::StackCaptureAction::DoNotCaptureStack;
+        exception = Exception::create(*this, thrownValue, action);
+    }
 
     return throwException(globalObject, exception);
 }
@@ -1381,7 +1360,7 @@ void VM::addImpureProperty(UniquedStringImpl* propertyName)
 }
 
 template<typename Func>
-static bool enableProfilerWithRespectToCount(unsigned& counter, const Func& doEnableWork)
+static bool enableProfilerWithRespectToCount(unsigned& counter, NOESCAPE const Func& doEnableWork)
 {
     bool needsToRecompile = false;
     if (!counter) {
@@ -1394,7 +1373,7 @@ static bool enableProfilerWithRespectToCount(unsigned& counter, const Func& doEn
 }
 
 template<typename Func>
-static bool disableProfilerWithRespectToCount(unsigned& counter, const Func& doDisableWork)
+static bool disableProfilerWithRespectToCount(unsigned& counter, NOESCAPE const Func& doDisableWork)
 {
     RELEASE_ASSERT(counter > 0);
     bool needsToRecompile = false;
@@ -1908,7 +1887,7 @@ void VM::beginMarking()
 void VM::reconcileWeakReferencesAtGCEnd()
 {
     m_syncResumeCallCache->reconcileWeakReferencesAtGCEnd(*this);
-    jsonTransitionCache.reconcileAtGCEnd();
+    m_jsonCache->reconcileTransitionsAtGCEnd();
 }
 
 void VM::clearMicrotaskCallCaches()
@@ -1923,7 +1902,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
         microtaskQueue->visitAggregate(visitor);
     });
     numericStrings.visitAggregate(visitor);
-    jsonTransitionCache.visitAggregate(visitor);
+    m_jsonCache->visitAggregate(visitor);
     m_builtinExecutables->visitAggregate(visitor);
     m_regExpCache->visitAggregate(visitor);
 
@@ -1998,7 +1977,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(m_fastMapEntriesSentinel);
     visitor.append(m_fastSetValuesSentinel);
     visitor.append(m_fastSetEntriesSentinel);
-    visitor.append(m_fastStringValuesSentinel);
+    visitor.append(m_fastStringSentinel);
     visitor.append(m_fastAsyncGeneratorSentinel);
     visitor.append(m_cachedSortScratch);
     visitor.append(m_sortScratchSentinel);

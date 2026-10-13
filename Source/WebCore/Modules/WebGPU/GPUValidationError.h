@@ -46,7 +46,7 @@ public:
     }
 
     Type type() const final { return Type::Validation; }
-    const String& NODELETE message() const LIFETIME_BOUND final;
+    const String& LEGACY_NODELETE message() const LIFETIME_BOUND final;
 
     WebGPU::ValidationError* backing() { return m_backing.get(); }
     const WebGPU::ValidationError* backing() const { return m_backing.get(); }
@@ -64,7 +64,7 @@ private:
     }
 
     String m_message;
-    RefPtr<WebGPU::ValidationError> m_backing;
+    const RefPtr<WebGPU::ValidationError> m_backing;
 };
 
 }

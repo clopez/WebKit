@@ -93,7 +93,6 @@ class MarkStackMergingConstraint;
 class BlockDirectory;
 class MarkedVectorBase;
 class MarkingConstraint;
-class MarkingConstraintSet;
 class MutatorScheduler;
 class RunningScope;
 class SlotVisitor;
@@ -102,7 +101,6 @@ class StopIfNecessaryTimer;
 class StructureAlignedMemoryAllocator;
 class SweepingScope;
 class VM;
-class VerifierSlotVisitor;
 class WeakGCHashTable;
 struct CurrentThreadState;
 
@@ -273,11 +271,9 @@ class Heap;
     v(proxyObjectSpace, cellHeapCellType, ProxyObject) \
     v(proxyRevokeSpace, cellHeapCellType, ProxyRevoke) \
     v(rawJSONObjectSpace, cellHeapCellType, JSRawJSONObject) \
-    v(remoteFunctionSpace, cellHeapCellType, JSRemoteFunction) \
     v(scopedArgumentsTableSpace, destructibleCellHeapCellType, ScopedArgumentsTable) \
     v(setIteratorSpace, cellHeapCellType, JSSetIterator) \
     v(setSpace, cellHeapCellType, JSSet) \
-    v(shadowRealmSpace, cellHeapCellType, ShadowRealmObject) \
     v(strictEvalActivationSpace, cellHeapCellType, StrictEvalActivation) \
     v(stringIteratorSpace, cellHeapCellType, JSStringIterator) \
     v(sourceCodeSpace, destructibleCellHeapCellType, JSSourceCode) \
@@ -349,7 +345,7 @@ public:
 
     Heap(VM&, HeapType);
     ~Heap();
-    void lastChanceToFinalize();
+    void shutDown();
     void releaseDelayedReleasedObjects();
 
     VM& vm() const;
@@ -392,7 +388,6 @@ public:
     JS_EXPORT_PRIVATE void addFinalizer(JSCell*, LambdaFinalizer);
 
     void notifyIsSafeToCollect();
-    bool isSafeToCollect() const { return m_isSafeToCollect; }
     
     bool isShuttingDown() const { return m_isShuttingDown; }
 
@@ -425,7 +420,9 @@ public:
     void collectIfNecessaryOrDefer(GCDeferralContext* = nullptr);
 
     void completeAllJITPlans();
-    
+
+    void reportBytesVisited(size_t bytes) { m_bytesVisitedDuringMarking.exchangeAdd(bytes, std::memory_order_relaxed); }
+
     // Note that:
     // 1. Use this API to report non-GC memory referenced by GC objects. Be sure to
     // call both of these functions: Calling only one may trigger catastropic
@@ -475,7 +472,7 @@ public:
 
     UncheckedKeyHashSet<MarkedVectorBase*>& markListSet() { return m_markListSet; }
 
-    template<typename Functor> inline void forEachProtectedCell(const Functor&);
+    template<typename Functor> inline void forEachProtectedCell(NOESCAPE const Functor&);
     template<typename Functor> inline void forEachCodeBlock(NOESCAPE const Functor&);
     template<typename Functor> inline void forEachCodeBlockIgnoringJITPlans(const AbstractLocker& codeBlockSetLocker, NOESCAPE const Functor&);
 
@@ -610,10 +607,6 @@ public:
 
     UncheckedKeyHashMap<JSCellButterfly*, JSString*> immutableButterflyToStringCache;
 
-    bool isMarkingForGCVerifier() const { return m_isMarkingForGCVerifier; }
-
-    void setKeepVerifierSlotVisitor();
-    void clearVerifierSlotVisitor();
 
     void appendPossiblyAccessedStringFromConcurrentThreadsOrGCOwnedDataScope(const JSString* owner, String&& string)
     {
@@ -630,11 +623,9 @@ public:
     bool isWasmCalleePendingDestruction(Wasm::Callee&);
 
     const TinyBloomFilter<uintptr_t>& boxedWasmCalleeFilter() const { return m_boxedWasmCalleeFilter; }
-    bool didDiscoverPendingWasmCallee(Wasm::Callee*);
+    bool markWasmCalleeIfPending(Wasm::Callee*);
 #endif
 
-    // This is a debug function for checking who marked the target cell.
-    void dumpVerifierMarkerData(HeapCell*);
 
 private:
     friend class AllocatingScope;
@@ -657,12 +648,9 @@ private:
     friend class MarkedBlock;
     friend class RunningScope;
     friend class SlotVisitor;
-    friend class SpaceTimeMutatorScheduler;
-    friend class StochasticSpaceTimeMutatorScheduler;
     friend class SweepingScope;
     friend class IncrementalSweeper;
     friend class VM;
-    friend class VerifierSlotVisitor;
     friend class WeakBlock;
     friend class WeakSet;
 
@@ -702,7 +690,7 @@ private:
     bool stopIfNecessarySlow(unsigned extraStateBits);
     
     template<typename Func>
-    void waitForCollector(const Func&);
+    void waitForCollector(NOESCAPE const Func&);
     
     JS_EXPORT_PRIVATE void acquireAccessSlow();
     JS_EXPORT_PRIVATE void releaseAccessSlow();
@@ -718,25 +706,28 @@ private:
     
     void setMutatorWaiting();
     void clearMutatorWaiting();
-    void notifyThreadStopping(const AbstractLocker&);
     
-    GCRequest::Ticket requestCollection(GCRequest);
+    void waitForMembershipChange(uint64_t ticket);
     void waitForCollection(GCRequest::Ticket);
+    void waitForAllCollections();
     
-    void willStartCollection();
-    void prepareForMarking();
+    void willStartCollection(CollectionScope);
     
     void gatherStackRoots(ConservativeRoots&);
     void gatherVMRoots(ConservativeRoots&);
     void beginMarking();
 #if ENABLE(WEBASSEMBLY)
-    void prepareWasmCalleeCleanup();
-    void finalizeWasmCalleeCleanup();
+    void beginMarkingWasmCallees();
+    void releaseUnmarkedWasmCallees();
 #endif
     void visitCompilerWorklistWeakReferences();
     void removeDeadCompilerWorklistEntries();
-    void updateObjectCounts();
+    void rememberExecutingAndCompilingCodeBlocks();
+    void recordBytesVisited(size_t bytesVisited);
     void endMarking();
+    void verifyHeapAfterMarking();
+    void pruneDeadReferences();
+    void prepareForAllocation();
 
     void cancelDeferredWorkIfNeeded();
     void reapWeakHandles();
@@ -755,7 +746,8 @@ private:
     JS_EXPORT_PRIVATE void addToRememberedSet(const JSCell*);
     double projectedGCRateLimitingValue(MonotonicTime);
     void updateAllocationLimits();
-    void didFinishCollection(Seconds duration);
+    void didFinishCollection();
+    void recordCollectionTime(Seconds duration);
     void gatherExtraHeapData(HeapProfiler&);
     void removeDeadHeapSnapshotNodes(HeapProfiler&);
     void runCollectionEpilogue();
@@ -768,20 +760,18 @@ private:
     void destroyAllPooledWeakBlocks();
     unsigned maxPooledWeakBlocks();
 
-    bool shouldDoFullCollection();
-
     inline void incrementDeferralDepth();
     inline void decrementDeferralDepth();
     inline void decrementDeferralDepthAndGCIfNeeded();
     JS_EXPORT_PRIVATE void decrementDeferralDepthAndGCIfNeededSlow();
 
     
-    void forEachCodeBlockImpl(const ScopedLambda<void(CodeBlock*)>&);
-    void forEachCodeBlockIgnoringJITPlansImpl(const AbstractLocker& codeBlockSetLocker, const ScopedLambda<void(CodeBlock*)>&);
+    void forEachCodeBlockImpl(NOESCAPE const ScopedLambda<void(CodeBlock*)>&);
+    void forEachCodeBlockIgnoringJITPlansImpl(const AbstractLocker& codeBlockSetLocker, NOESCAPE const ScopedLambda<void(CodeBlock*)>&);
     
     void setMutatorShouldBeFenced(bool value);
     
-    void addCoreConstraints();
+    Vector<std::unique_ptr<MarkingConstraint>> createCoreConstraints();
 
     enum class MemoryThresholdCallType {
         Cached,
@@ -794,15 +784,13 @@ private:
     void iterateExecutingAndCompilingCodeBlocks(Visitor&, NOESCAPE const Function<void(CodeBlock*)>&);
     
     template<typename Func, typename Visitor>
-    void iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor&, const Func&);
+    void iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor&, NOESCAPE const Func&);
     
     void dumpHeapStatisticsAtVMDestruction();
+    void lastChanceToFinalize();
 
-    static bool useGenerationalGC();
     bool shouldSweepSynchronously();
 
-    void verifyGC();
-    void verifierMark();
 
     Lock m_lock;
     const HeapType m_heapType;
@@ -829,7 +817,7 @@ private:
     size_t m_maxHeapSize;
     size_t m_totalBytesVisitedAfterLastFullCollect { 0 };
     size_t m_totalBytesVisited { 0 };
-    size_t m_totalBytesVisitedThisCycle { 0 };
+    Atomic<size_t> m_bytesVisitedDuringMarking { 0 };
     double m_incrementBalance { 0 };
     
     bool m_shouldDoOpportunisticFullCollection { false };
@@ -848,11 +836,12 @@ private:
 
     std::unique_ptr<MachineThreads> m_machineThreads;
     
-    const std::unique_ptr<Collector> m_collector;
+    // The Collector this heap owns, which collects only this heap. Null with useGlobalGC.
+    const std::unique_ptr<Collector> m_localCollector;
+    // The Collector that collects this heap: m_localCollector, or the global Collector.
+    Collector* const m_collector;
     std::unique_ptr<SlotVisitor> m_mutatorSlotVisitor;
     std::unique_ptr<MarkStackArray> m_mutatorMarkStack;
-    std::unique_ptr<MarkingConstraintSet> m_constraintSet;
-    std::unique_ptr<VerifierSlotVisitor> m_verifierSlotVisitor;
     
     StrongSet m_strongSet;
     std::unique_ptr<CodeBlockSet> m_codeBlocks;
@@ -863,8 +852,6 @@ private:
     bool m_isSafeToCollect { false };
     bool m_isShuttingDown { false };
     bool m_mutatorShouldBeFenced { false };
-    bool m_isMarkingForGCVerifier { false };
-    bool m_keepVerifierSlotVisitor { false };
     Lock m_wasmCalleesPendingDestructionLock;
 
     unsigned m_barrierThreshold { blackThreshold };
@@ -924,10 +911,10 @@ private:
     UncheckedKeyHashSet<Ref<Wasm::Callee>> m_wasmCalleesPendingDestruction WTF_GUARDED_BY_LOCK(m_wasmCalleesPendingDestructionLock);
     // We snapshot m_wasmCalleesPendingDestruction at the start of GC rather than consulting it
     // directly during scanning because new callees can be registered while we scan. Without the
-    // snapshot, a callee could be added after we already passed its frame, never get recorded
-    // as discovered, and be incorrectly destroyed.
+    // snapshot, a callee could be added after we already passed its frame, never be recorded
+    // as found on a stack, and be incorrectly destroyed.
     UncheckedKeyHashSet<const Wasm::Callee*> m_wasmCalleesPendingDestructionSnapshot;
-    UncheckedKeyHashSet<const Wasm::Callee*> m_wasmCalleesDiscoveredDuringGC;
+    UncheckedKeyHashSet<const Wasm::Callee*> m_wasmCalleesFoundOnStacks;
     TinyBloomFilter<uintptr_t> m_boxedWasmCalleeFilter;
 #endif
 
@@ -948,7 +935,6 @@ private:
     bool m_didDeferGCWork { false };
 
     uint64_t m_mutatorExecutionVersion { 0 };
-    uint64_t m_gcVersion { 0 };
 
     MonotonicTime m_lastGCEndTime;
     MonotonicTime m_currentGCStartTime;
@@ -1115,7 +1101,7 @@ public:
     CodeBlockSpaceAndSet codeBlockSpaceAndSet;
 
     template<typename Func>
-    void forEachCodeBlockSpace(const Func& func)
+    void forEachCodeBlockSpace(NOESCAPE const Func& func)
     {
         func(codeBlockSpaceAndSet);
     }
@@ -1155,7 +1141,7 @@ public:
     ScriptExecutableSpaceAndSets programExecutableSpaceAndSet;
 
     template<typename Func>
-    void forEachScriptExecutableSpace(const Func& func)
+    void forEachScriptExecutableSpace(NOESCAPE const Func& func)
     {
         if (m_evalExecutableSpace)
             func(*m_evalExecutableSpace);

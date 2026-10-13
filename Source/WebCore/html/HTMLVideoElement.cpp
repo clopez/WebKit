@@ -208,10 +208,10 @@ bool HTMLVideoElement::canShowWhileLocked() const
 void HTMLVideoElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
     if (name == widthAttr) {
-        addHTMLLengthToStyle(style, CSSPropertyWidth, value);
+        addHTMLLengthToStyle(style, CSSPropertyID::Width, value);
         applyAspectRatioFromWidthAndHeightAttributesToStyle(value, attributeWithoutSynchronization(heightAttr), style);
     } else if (name == heightAttr) {
-        addHTMLLengthToStyle(style, CSSPropertyHeight, value);
+        addHTMLLengthToStyle(style, CSSPropertyID::Height, value);
         applyAspectRatioFromWidthAndHeightAttributesToStyle(attributeWithoutSynchronization(widthAttr), value, style);
     } else
         HTMLMediaElement::collectPresentationalHintsForAttribute(name, value, style);
@@ -243,11 +243,26 @@ void HTMLVideoElement::attributeChanged(const QualifiedName& name, const AtomStr
         if (name == webkitprojectionAttr && oldValue != newValue && document().settings().spatialVideoRenderingEnabled())
             scheduleEvent(eventNames().webkitprojectionchangedEvent);
 
+        if ((name == webkitfieldofviewAttr || name == webkityawAttr || name == webkitpitchAttr) && document().settings().spatialVideoRenderingEnabled())
+            scheduleEvent(eventNames().webkitcameraviewchangedEvent);
+
 #if PLATFORM(IOS_FAMILY) && ENABLE(WIRELESS_PLAYBACK_TARGET)
         if (name == webkitairplayAttr)
             protect(mediaSession())->setWirelessVideoPlaybackDisabled(isWirelessPlaybackTargetDisabled());
 #endif
     }
+}
+
+void HTMLVideoElement::spatialCameraDidMove(double yaw, double pitch, double fieldOfView)
+{
+    if (m_cameraYaw == yaw && m_cameraPitch == pitch && m_cameraFieldOfView == fieldOfView)
+        return;
+
+    m_cameraYaw = yaw;
+    m_cameraPitch = pitch;
+    m_cameraFieldOfView = fieldOfView;
+
+    scheduleEvent(eventNames().webkitcameramovedEvent);
 }
 
 bool HTMLVideoElement::supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode) const
@@ -569,7 +584,7 @@ bool HTMLVideoElement::webkitSupportsPresentationMode(VideoPresentationMode mode
     return false;
 }
 
-static inline HTMLMediaElementEnums::VideoFullscreenMode NODELETE toFullscreenMode(HTMLVideoElement::VideoPresentationMode mode)
+static inline HTMLMediaElementEnums::VideoFullscreenMode LEGACY_NODELETE toFullscreenMode(HTMLVideoElement::VideoPresentationMode mode)
 {
     switch (mode) {
     case HTMLVideoElement::VideoPresentationMode::Fullscreen:

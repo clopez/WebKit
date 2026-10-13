@@ -27,8 +27,6 @@
 
 #include <JavaScriptCore/CollectionScope.h>
 #include <wtf/PrintStream.h>
-#include <wtf/RefPtr.h>
-#include <wtf/SharedTask.h>
 
 namespace JSC {
 
@@ -49,12 +47,11 @@ struct GCRequest {
     {
     }
     
-    bool NODELETE subsumedBy(const GCRequest& other) const;
+    bool LEGACY_NODELETE subsumedBy(const GCRequest& other) const;
     
     void dump(PrintStream&) const;
     
     std::optional<CollectionScope> scope;
-    RefPtr<SharedTask<void()>> didFinishEndPhase;
 };
 
 } // namespace JSC

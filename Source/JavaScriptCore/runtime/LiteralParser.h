@@ -41,6 +41,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 namespace JSC {
 
 class JSArray;
+class JSONCache;
 
 enum ParserMode : uint8_t { StrictJSON, SloppyJSON, JSONP };
 enum class JSONReviverMode : uint8_t { Disabled, Enabled };
@@ -131,18 +132,12 @@ template<typename CharacterType> struct LiteralParserToken {
 };
 
 template <typename CharType>
-ALWAYS_INLINE void NODELETE setParserTokenString(LiteralParserToken<CharType>&, const CharType* string);
+ALWAYS_INLINE void LEGACY_NODELETE setParserTokenString(LiteralParserToken<CharType>&, const CharType* string);
 
 template <typename CharType, JSONReviverMode reviverMode>
 class LiteralParser {
 public:
-    LiteralParser(JSGlobalObject* globalObject, std::span<const CharType> characters, ParserMode mode, CodeBlock* nullOrCodeBlock = nullptr)
-        : m_globalObject(globalObject)
-        , m_nullOrCodeBlock(nullOrCodeBlock)
-        , m_lexer(characters, mode)
-        , m_mode(mode)
-    {
-    }
+    LiteralParser(JSGlobalObject*, std::span<const CharType> characters, ParserMode, CodeBlock* nullOrCodeBlock = nullptr);
     
     String getErrorMessage()
     { 
@@ -223,10 +218,18 @@ private:
         TokenType nextMaybeIdentifier();
         TokenType nextAfterValue();
         bool consumeColon();
-        CharType peek() const { return m_ptr < m_end ? *m_ptr : 0; }
+        void skipWhitespaceBeforeKey();
+        CharType peek() const { return m_ptr < m_end ? *m_ptr : CharType { }; }
         TokenType nextString();
         TokenType nextNumber();
         bool tryConsumeStringEqualTo(std::span<const Latin1Character>);
+        std::span<const CharType> remaining() const { return { m_ptr, static_cast<size_t>(m_end - m_ptr) }; }
+        void advance(unsigned length)
+        {
+            ASSERT(length <= static_cast<size_t>(m_end - m_ptr));
+            m_ptr += length;
+        }
+        void cacheString(JSONCache&, JSString*, std::span<const CharType> source);
 
 #if !ASSERT_ENABLED
         using LiteralParserTokenPtr = const LiteralParserToken<CharType>*;
@@ -267,8 +270,8 @@ private:
 
         const CharType* ptr() const { return m_ptr; }
         const CharType* start() const { return m_start; }
-        inline const CharType* NODELETE currentTokenStart() const;
-        inline const CharType* NODELETE currentTokenEnd() const;
+        inline const CharType* LEGACY_NODELETE currentTokenStart() const;
+        inline const CharType* LEGACY_NODELETE currentTokenEnd() const;
         
     private:
         template<JSONIdentifierHint>
@@ -276,6 +279,7 @@ private:
         ALWAYS_INLINE TokenType lexIdentifier(LiteralParserToken<CharType>&);
         template<JSONIdentifierHint>
         ALWAYS_INLINE TokenType lexString(LiteralParserToken<CharType>&, CharType terminator);
+        ALWAYS_INLINE const CharType* findUnsafeStringCharacter(const CharType* start, const CharType* end, CharType terminator) const;
         TokenType lexStringSlow(LiteralParserToken<CharType>&, const CharType* runStart, CharType terminator);
         ALWAYS_INLINE TokenType lexNumber(LiteralParserToken<CharType>&);
         TokenType lexNumberError(LiteralParserToken<CharType>&);
@@ -305,14 +309,15 @@ private:
     JSArray* materializeArray(VM&, unsigned stackBase);
 
     static ALWAYS_INLINE bool equalIdentifier(UniquedStringImpl*, typename Lexer::LiteralParserTokenPtr);
-    static ALWAYS_INLINE AtomStringImpl* existingIdentifier(VM&, typename Lexer::LiteralParserTokenPtr);
-    static ALWAYS_INLINE Identifier makeIdentifier(VM&, typename Lexer::LiteralParserTokenPtr);
-    static ALWAYS_INLINE JSString* makeJSString(VM&, typename Lexer::LiteralParserTokenPtr);
+    static ALWAYS_INLINE AtomStringImpl* existingIdentifier(VM&, JSONCache&, typename Lexer::LiteralParserTokenPtr);
+    ALWAYS_INLINE Identifier makeIdentifier(VM&, typename Lexer::LiteralParserTokenPtr);
+    static ALWAYS_INLINE JSString* makeJSString(VM&, JSONCache&, typename Lexer::LiteralParserTokenPtr);
 
     void setErrorMessageForToken(TokenType);
 
     JSGlobalObject* const m_globalObject;
     CodeBlock* const m_nullOrCodeBlock;
+    JSONCache& m_jsonCache;
     Lexer m_lexer;
     const ParserMode m_mode;
     String m_parseErrorMessage;

@@ -43,13 +43,13 @@
 #include <wtf/text/StringBuilder.h>
 #endif
 
-namespace WebGPU {
+namespace WebGPU::Metal {
 
 #if !defined(NDEBUG) || (defined(ENABLE_LIBFUZZER) && ENABLE_LIBFUZZER && defined(ASAN_ENABLED) && ASAN_ENABLED)
 static bool enablePsoLogging();
 #endif
 
-std::optional<PreparedLibrary> prepareLibrary(const ShaderModule& shaderModule, PipelineLayout* pipelineLayout, const String& entryPoint, NSString *label, std::span<const WGPUConstantEntry> constants, BufferBindingSizesForPipeline& mininumBufferSizes, NSError **error)
+std::optional<PreparedLibrary> prepareLibrary(const ShaderModule& shaderModule, PipelineLayout* pipelineLayout, const String& entryPoint, NSString *label, std::span<const WebGPU::ConstantEntry> constants, BufferBindingSizesForPipeline& mininumBufferSizes, NSError **error)
 {
     HashMap<String, WGSL::ConstantValue> wgslConstantValues;
 
@@ -86,8 +86,8 @@ std::optional<PreparedLibrary> prepareLibrary(const ShaderModule& shaderModule, 
 
     const auto& entryPointInformation = iterator->value;
 
-    for (const auto entry : constants) {
-        auto keyEntry = fromAPI(entry.key);
+    for (const auto& entry : constants) {
+        auto& keyEntry = entry.key;
         auto indexIterator = entryPointInformation.specializationConstants.find(keyEntry);
         if (indexIterator == entryPointInformation.specializationConstants.end()) {
             // Per WebGPU spec: providing a value for an override declared in the
@@ -278,7 +278,7 @@ void Device::compileLibrary(const LibraryCompileRequest& request, LibraryCompila
     }
 
     NSError *error = nil;
-    id<MTLLibrary> library = WebGPU::compileLibrary(m_device, request, &error);
+    id<MTLLibrary> library = WebGPU::Metal::compileLibrary(m_device, request, &error);
     callback(library, error);
 }
 
@@ -695,4 +695,4 @@ void clearMetalPSORepro()
 
 #endif
 
-} // namespace WebGPU
+} // namespace WebGPU::Metal

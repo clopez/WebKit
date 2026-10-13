@@ -103,7 +103,7 @@ RenderLayerScrollableArea::RenderLayerScrollableArea(RenderLayer& layer)
 {
     auto& renderer = m_layer.renderer();
     if (renderer.settings().cssScrollAnchoringEnabled() && !is<HTMLHtmlElement>(renderer.element()) && !is<HTMLBodyElement>(renderer.element()))
-        m_scrollAnchoringController = WTF::makeUnique<ScrollAnchoringController>(*this);
+        lazyInitialize(m_scrollAnchoringController, WTF::makeUnique<ScrollAnchoringController>(*this));
 }
 
 RenderLayerScrollableArea::~RenderLayerScrollableArea() = default;
@@ -428,7 +428,7 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
         renderer.repaintUsingContainer(repaintContainer.get(), rectForRepaint);
 
         auto isScrolledBy = [](auto& renderer, auto& scrollableLayer) {
-            auto layer = renderer.enclosingLayer();
+            CheckedPtr layer = renderer.enclosingLayer();
             return layer && layer->ancestorLayerIsInContainingBlockChain(scrollableLayer);
         };
 
@@ -529,7 +529,7 @@ bool RenderLayerScrollableArea::scrollsOverflow() const
 bool RenderLayerScrollableArea::canUseCompositedScrolling() const
 {
     auto& renderer = m_layer.renderer();
-    bool isVisible = renderer.style().usedVisibility() == Visibility::Visible;
+    bool isVisible = renderer.usedStyle().visibility() == UsedVisibility::Visible;
     if (renderer.settings().asyncOverflowScrollingEnabled())
         return isVisible && scrollsOverflow() && !m_layer.isInsideSVGForeignObject();
 
@@ -1082,8 +1082,8 @@ std::optional<ScrollbarColor> RenderLayerScrollableArea::scrollbarColorStyle() c
         if (auto value = m_layer.renderer().style().scrollbarColor().tryValue()) {
             Style::ColorResolver colorResolver { m_layer.renderer().style() };
             return ScrollbarColor {
-                .thumbColor = colorResolver.colorResolvingCurrentColor(value->thumb),
-                .trackColor = colorResolver.colorResolvingCurrentColor(value->track)
+                .thumbColor = colorResolver.colorResolvingCurrentColorApplyingColorFilter(value->thumb),
+                .trackColor = colorResolver.colorResolvingCurrentColorApplyingColorFilter(value->track)
             };
         }
     }
@@ -1962,7 +1962,7 @@ void RenderLayerScrollableArea::scrollByRecursively(const IntSize& delta, Scroll
     auto& renderer = m_layer.renderer();
     bool restrictedByLineClamp = false;
     if (renderer.parent())
-        restrictedByLineClamp = !renderer.parent()->style().lineClamp().isNone();
+        restrictedByLineClamp = renderer.parent()->style().hasLegacyLineClamp();
 
     if (renderer.hasNonVisibleOverflow() && !restrictedByLineClamp) {
         ScrollOffset newScrollOffset = scrollOffset() + delta;

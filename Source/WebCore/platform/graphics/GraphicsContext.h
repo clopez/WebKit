@@ -126,8 +126,8 @@ public:
     std::optional<GraphicsDropShadow> dropShadow() const { return m_state.dropShadow(); }
     void setDropShadow(const GraphicsDropShadow& dropShadow) { m_state.setDropShadow(dropShadow); didUpdateState(m_state); }
     void clearDropShadow() { m_state.setDropShadow(std::nullopt); didUpdateState(m_state); }
-    bool hasBlurredDropShadow() const { return dropShadow() && dropShadow()->isBlurred(); }
-    bool hasDropShadow() const { return dropShadow() && dropShadow()->hasOutsets(); }
+    bool hasBlurredDropShadow() const { return m_state.dropShadow() && m_state.dropShadow()->isBlurred(); }
+    bool hasDropShadow() const { return m_state.dropShadow() && m_state.dropShadow()->hasOutsets(); }
 
     std::optional<GraphicsStyle> style() const { return m_state.style(); }
     void setStyle(const std::optional<GraphicsStyle>& style) { m_state.setStyle(style); didUpdateState(m_state); }
@@ -160,10 +160,7 @@ public:
 
     bool shadowsIgnoreTransforms() const { return m_state.shadowsIgnoreTransforms(); }
     void setShadowsIgnoreTransforms(bool shadowsIgnoreTransforms) { m_state.setShadowsIgnoreTransforms(shadowsIgnoreTransforms); didUpdateState(m_state); }
-    FloatSize NODELETE platformShadowOffset(const FloatSize&) const;
-
-    bool drawLuminanceMask() const { return m_state.drawLuminanceMask(); }
-    void setDrawLuminanceMask(bool drawLuminanceMask) { m_state.setDrawLuminanceMask(drawLuminanceMask); didUpdateState(m_state); }
+    FloatSize LEGACY_NODELETE platformShadowOffset(const FloatSize&) const;
 
     const GraphicsContextState& state() const LIFETIME_BOUND { return m_state; }
     void mergeLastChanges(const GraphicsContextState&);
@@ -265,16 +262,13 @@ public:
 
     WEBCORE_EXPORT virtual void drawSystemImage(SystemImage&, const FloatRect&);
 
-    WEBCORE_EXPORT ImageDrawResult drawImage(Image&, const FloatPoint& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
-    WEBCORE_EXPORT ImageDrawResult drawImage(Image&, const FloatRect& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
-    WEBCORE_EXPORT virtual ImageDrawResult drawImage(Image&, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
+    WEBCORE_EXPORT ImageDrawResult drawImage(Image&, ConcreteObjectSize, const FloatPoint& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage }, const ImageDrawingExtras* = nullptr);
+    WEBCORE_EXPORT ImageDrawResult drawImage(Image&, ConcreteObjectSize, const FloatRect& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage }, const ImageDrawingExtras* = nullptr);
+    WEBCORE_EXPORT virtual ImageDrawResult drawImage(Image&, ConcreteObjectSize, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage }, const ImageDrawingExtras* = nullptr);
 
     WEBCORE_EXPORT ImageDrawResult drawBitmapImage(BitmapImage&, const FloatPoint& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
     WEBCORE_EXPORT ImageDrawResult drawBitmapImage(BitmapImage&, const FloatRect& destination, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
     WEBCORE_EXPORT virtual ImageDrawResult drawBitmapImage(BitmapImage&, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions = { ImageOrientation::Orientation::FromImage });
-
-    WEBCORE_EXPORT virtual ImageDrawResult drawTiledImage(Image&, const FloatRect& destination, const FloatPoint& source, const FloatSize& tileSize, const FloatSize& spacing, ImagePaintingOptions = { });
-    WEBCORE_EXPORT virtual ImageDrawResult drawTiledImage(Image&, const FloatRect& destination, const FloatRect& source, const FloatSize& tileScaleFactor, Image::TileRule, Image::TileRule, ImagePaintingOptions = { });
 
     WEBCORE_EXPORT void drawImageBuffer(ImageBuffer&, const FloatPoint& destination, ImagePaintingOptions = { });
     WEBCORE_EXPORT void drawImageBuffer(ImageBuffer&, const FloatRect& destination, ImagePaintingOptions = { });
@@ -406,7 +400,7 @@ protected:
 
     float dashedLineCornerWidthForStrokeWidth(float) const;
     float dashedLinePatternWidthForStrokeWidth(float) const;
-    float NODELETE dashedLinePatternOffsetForPatternAndStrokeWidth(float patternWidth, float strokeWidth) const;
+    float LEGACY_NODELETE dashedLinePatternOffsetForPatternAndStrokeWidth(float patternWidth, float strokeWidth) const;
     Vector<FloatPoint> centerLineAndCutOffCorners(bool isVerticalLine, float cornerWidth, FloatPoint point1, FloatPoint point2) const;
 
     struct RectsAndStrokeColor {

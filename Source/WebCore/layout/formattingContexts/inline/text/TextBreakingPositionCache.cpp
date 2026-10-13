@@ -120,7 +120,7 @@ void TextBreakingPositionCache::evict()
         auto entrySize = approximateEntrySizeBytes(std::get<0>(evictedEntry->key), *evictedEntry->value);
         ASSERT(m_cachedContentSize >= entrySize);
         m_cachedContentSize -= entrySize;
-        m_breakingPositionMap.remove(evictedEntry->key);
+        m_breakingPositionMap.remove(evictedEntry);
     }
 }
 
@@ -161,7 +161,7 @@ void TextBreakingPositionCache::clear()
     m_cachedContentSize = 0;
 }
 
-void NODELETE add(Hasher& hasher, const TextBreakingPositionContext& context)
+void LEGACY_NODELETE add(Hasher& hasher, const TextBreakingPositionContext& context)
 {
     add(hasher, context.whitespaceCollapseBehavior, context.overflowWrap, context.lineBreak, context.wordBreak, context.nbspMode, context.locale);
 }

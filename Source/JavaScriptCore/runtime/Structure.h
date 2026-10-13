@@ -232,7 +232,7 @@ protected:
 private:
     inline void finishCreation(VM&, CreatingEarlyCellTag); // Defined in StructureInlines.h
 
-    void NODELETE validateFlags();
+    void LEGACY_NODELETE validateFlags();
 
 public:
     StructureID id() const { return StructureID::encode(this); }
@@ -311,13 +311,13 @@ public:
     // the lock. The callback is not called if there is no change being made, like if you call
     // removePropertyWithoutTransition() and the property is not found.
     template<typename Func>
-    PropertyOffset addPropertyWithoutTransition(VM&, PropertyName, unsigned attributes, const Func&);
+    PropertyOffset addPropertyWithoutTransition(VM&, PropertyName, unsigned attributes, NOESCAPE const Func&);
     template<typename Func>
-    PropertyOffset removePropertyWithoutTransition(VM&, PropertyName, const Func&);
+    PropertyOffset removePropertyWithoutTransition(VM&, PropertyName, NOESCAPE const Func&);
     template<typename Func>
-    PropertyOffset attributeChangeWithoutTransition(VM&, PropertyName, unsigned attributes, const Func&);
+    PropertyOffset attributeChangeWithoutTransition(VM&, PropertyName, unsigned attributes, NOESCAPE const Func&);
     template<typename Func>
-    auto addOrReplacePropertyWithoutTransition(VM&, PropertyName, unsigned attributes, const Func&) -> decltype(auto);
+    auto addOrReplacePropertyWithoutTransition(VM&, PropertyName, unsigned attributes, NOESCAPE const Func&) -> decltype(auto);
     void setPrototypeWithoutTransition(VM&, JSValue prototype);
         
     bool isDictionary() const { return dictionaryKind() != NoneDictionaryKind; }
@@ -583,10 +583,10 @@ public:
     // call. So, you have to assume the worst. Also, the functor returns true if it wishes for you
     // to continue or false if it's done.
     template<typename Functor>
-    void forEachPropertyConcurrently(const Functor&);
+    void forEachPropertyConcurrently(NOESCAPE const Functor&);
 
     template<typename Functor>
-    void forEachProperty(VM&, const Functor&);
+    void forEachProperty(VM&, NOESCAPE const Functor&);
 
     IGNORE_RETURN_TYPE_WARNINGS_BEGIN
     inline PropertyOffset get(VM&, Concurrency, UniquedStringImpl* uid, unsigned& attributes); // Defined in StructureInlines.h
@@ -611,10 +611,10 @@ public:
     void setContainsReadOnlyProperties() { setHasReadOnlyOrGetterSetterPropertiesExcludingProto(true); }
     
     void setCachedPropertyNameEnumerator(VM&, JSPropertyNameEnumerator*, StructureChain*);
-    JSPropertyNameEnumerator* NODELETE cachedPropertyNameEnumerator() const;
-    uintptr_t NODELETE cachedPropertyNameEnumeratorAndFlag() const;
-    bool NODELETE canCachePropertyNameEnumerator(VM&) const;
-    bool NODELETE canAccessPropertiesQuicklyForEnumeration() const;
+    JSPropertyNameEnumerator* LEGACY_NODELETE cachedPropertyNameEnumerator() const;
+    uintptr_t LEGACY_NODELETE cachedPropertyNameEnumeratorAndFlag() const;
+    bool LEGACY_NODELETE canCachePropertyNameEnumerator(VM&) const;
+    bool LEGACY_NODELETE canAccessPropertiesQuicklyForEnumeration() const;
 
     inline JSCellButterfly* cachedPropertyNames(CachedPropertyNamesKind kind) const; // Defined in StructureInlines.h
     inline JSCellButterfly* cachedPropertyNamesIgnoringSentinel(CachedPropertyNamesKind kind) const; // Defined in StructureInlines.h
@@ -737,7 +737,7 @@ public:
         
     inline void addTransitionWatchpoint(Watchpoint* watchpoint) const; // Defined in StructureInlinesLight.h
     
-    void NODELETE didTransitionFromThisStructureWithoutFiringWatchpoint() const;
+    void LEGACY_NODELETE didTransitionFromThisStructureWithoutFiringWatchpoint() const;
     void fireStructureTransitionWatchpoint(DeferredStructureTransitionWatchpointFire*) const;
 
     InlineWatchpointSet& transitionWatchpointSet() const
@@ -884,7 +884,7 @@ private:
     friend class LLIntOffsetsExtractor;
 
     JS_EXPORT_PRIVATE Structure(VM&, JSGlobalObject*, JSValue prototype, const TypeInfo&, const ClassInfo*, IndexingType, unsigned inlineCapacity);
-    Structure(VM&, CreatingEarlyCellTag);
+    JS_EXPORT_PRIVATE Structure(VM&, CreatingEarlyCellTag);
 
     static Structure* create(VM&, Structure*, DeferredStructureTransitionWatchpointFire*);
 
@@ -908,13 +908,13 @@ private:
 
     enum class ShouldPin : bool { No, Yes };
     template<ShouldPin, typename Func>
-    PropertyOffset add(VM&, PropertyName, unsigned attributes, const Func&);
+    PropertyOffset add(VM&, PropertyName, unsigned attributes, NOESCAPE const Func&);
     PropertyOffset add(VM&, PropertyName, unsigned attributes);
     template<ShouldPin, typename Func>
-    PropertyOffset remove(VM&, PropertyName, const Func&);
+    PropertyOffset remove(VM&, PropertyName, NOESCAPE const Func&);
     PropertyOffset remove(VM&, PropertyName);
     template<ShouldPin, typename Func>
-    PropertyOffset attributeChange(VM&, PropertyName, unsigned attributes, const Func&);
+    PropertyOffset attributeChange(VM&, PropertyName, unsigned attributes, NOESCAPE const Func&);
     PropertyOffset attributeChange(VM&, PropertyName, unsigned attributes);
 
 #if ASSERT_ENABLED
@@ -979,14 +979,14 @@ private:
     JS_EXPORT_PRIVATE void allocateRareData(VM&);
 
     template<typename DetailsFunc>
-    void checkOffsetConsistency(PropertyTable*, const DetailsFunc&) const;
+    void checkOffsetConsistency(PropertyTable*, NOESCAPE const DetailsFunc&) const;
     void checkOffsetConsistency() const;
 
     void startWatchingInternalProperties(VM&);
 
     inline void clearCachedPrototypeChain(); // Defined in StructureInlines.h
 
-    bool NODELETE holesMustForwardToPrototypeSlow(JSObject*) const;
+    bool LEGACY_NODELETE holesMustForwardToPrototypeSlow(JSObject*) const;
 
     // These need to be properly aligned at the beginning of the 'Structure'
     // part of the object.

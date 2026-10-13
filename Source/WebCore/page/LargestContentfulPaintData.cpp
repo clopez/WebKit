@@ -128,11 +128,12 @@ std::optional<float> LargestContentfulPaintData::effectiveVisualArea(const Eleme
         auto intersectingContentRect = intersection(absoluteContentRect, intersectionRect);
         area = intersectingContentRect.area();
 
-        auto naturalSize = image->imageSizeForRenderer(renderer.get(), 1);
-        if (naturalSize.isEmpty())
+        auto naturalDimensions = image->naturalDimensions();
+        auto naturalArea = naturalDimensions.width.value_or(0) * naturalDimensions.height.value_or(0);
+        if (!naturalArea)
             return { };
 
-        auto scaleFactor = absoluteContentRect.area() / FloatSize { naturalSize }.area();
+        auto scaleFactor = absoluteContentRect.area() / naturalArea;
         if (scaleFactor > 1)
             area /= scaleFactor;
 

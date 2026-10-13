@@ -93,7 +93,7 @@ public:
 
     FontPlatformData fontPlatformData(const FontDescription&, const FontCreationContext&);
 
-    WEBCORE_EXPORT FontCustomPlatformSerializedData NODELETE serializedData() const;
+    WEBCORE_EXPORT FontCustomPlatformSerializedData LEGACY_NODELETE serializedData() const;
     WEBCORE_EXPORT static std::optional<Ref<FontCustomPlatformData>> tryMakeFromSerializationData(FontCustomPlatformSerializedData&&, bool);
 
 #if USE(SKIA)
@@ -103,14 +103,14 @@ public:
 #endif
 
     static bool supportsFormat(const String&);
-    static bool NODELETE supportsTechnology(const FontTechnology&);
+    static bool LEGACY_NODELETE supportsTechnology(const FontTechnology&);
 
 #if PLATFORM(WIN) && USE(CAIRO)
     String name;
 #elif USE(CORE_TEXT)
     RetainPtr<CTFontDescriptorRef> fontDescriptor;
 #elif USE(CAIRO)
-    RefPtr<cairo_font_face_t> m_fontFace;
+    const RefPtr<cairo_font_face_t> m_fontFace;
 #elif USE(SKIA)
     sk_sp<SkTypeface> m_typeface;
     mutable HashMap<unsigned, sk_sp<SkTypeface>> m_variationTypefacesCache;

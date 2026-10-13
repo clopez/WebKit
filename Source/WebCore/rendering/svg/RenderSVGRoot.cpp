@@ -33,6 +33,7 @@
 #include "Page.h"
 #include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
+#include "RenderElementInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderInline.h"
@@ -47,8 +48,8 @@
 #include "SVGContainerLayout.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
-#include "SVGLayerTransformUpdater.h"
 #include "SVGSVGElement.h"
+#include "SVGTransformLayoutScope.h"
 #include "SVGViewSpec.h"
 #include "ScrollbarUpdateScope.h"
 #include "TransformState.h"
@@ -261,8 +262,8 @@ void RenderSVGRoot::layout()
         SetForScope trackLayoutSizeChanges(m_isLayoutSizeChanged, updateLayoutSizeIfNeeded());
 
         ASSERT(!m_didTransformToRootUpdate);
-        SVGLayerTransformUpdater transformUpdater(*this);
-        SetForScope trackTransformChanges(m_didTransformToRootUpdate, transformUpdater.layerTransformChanged());
+        SVGTransformLayoutScope transformScope(*this);
+        SetForScope trackTransformChanges(m_didTransformToRootUpdate, transformScope.layerTransformChanged());
         layoutChildren();
     }
 
@@ -364,24 +365,24 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     // z-index. We paint after we painted the background/border, so that the scrollbars will
     // sit above the background/border.
     if ((paintInfo.phase == PaintPhase::BlockBackground || paintInfo.phase == PaintPhase::ChildBlockBackground) && hasNonVisibleOverflow() && layer() && layer()->scrollableArea()
-        && style().usedVisibility() == Visibility::Visible && paintInfo.shouldPaintWithinRoot(*this) && !paintInfo.paintRootBackgroundOnly())
+        && usedStyle().visibility() == UsedVisibility::Visible && paintInfo.shouldPaintWithinRoot(*this) && !paintInfo.paintRootBackgroundOnly())
         layer()->scrollableArea()->paintOverflowControls(paintInfo.context(), paintInfo.paintBehavior, roundedIntPoint(adjustedPaintOffset), snappedIntRect(paintInfo.rect));
 }
 
 void RenderSVGRoot::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if ((paintInfo.phase == PaintPhase::BlockBackground || paintInfo.phase == PaintPhase::ChildBlockBackground) && style().usedVisibility() == Visibility::Visible) {
+    if ((paintInfo.phase == PaintPhase::BlockBackground || paintInfo.phase == PaintPhase::ChildBlockBackground) && usedStyle().visibility() == UsedVisibility::Visible) {
         if (hasVisibleBoxDecorations())
             paintBoxDecorations(paintInfo, paintOffset);
     }
 
     auto adjustedPaintOffset = paintOffset + location();
-    if (paintInfo.phase == PaintPhase::Mask && style().usedVisibility() == Visibility::Visible) {
+    if (paintInfo.phase == PaintPhase::Mask && usedStyle().visibility() == UsedVisibility::Visible) {
         paintSVGMask(paintInfo, adjustedPaintOffset);
         return;
     }
 
-    if (paintInfo.phase == PaintPhase::ClippingMask && style().usedVisibility() == Visibility::Visible) {
+    if (paintInfo.phase == PaintPhase::ClippingMask && usedStyle().visibility() == UsedVisibility::Visible) {
         paintSVGClippingMask(paintInfo, objectBoundingBox());
         return;
     }
@@ -428,7 +429,7 @@ void RenderSVGRoot::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (paintInfo.phase != PaintPhase::SelfOutline)
         paintContents(paintInfo, scrolledOffset);
 
-    if ((paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) && hasOutline() && style().usedVisibility() == Visibility::Visible)
+    if ((paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) && hasOutline() && usedStyle().visibility() == UsedVisibility::Visible)
         paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, borderBoxSize()));
 }
 

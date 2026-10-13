@@ -26,6 +26,8 @@
 #import "config.h"
 #import "SandboxInitializationParameters.h"
 
+#import <wtf/Borrow.h>
+
 namespace WebKit {
 
 SandboxInitializationParameters::SandboxInitializationParameters()
@@ -42,7 +44,7 @@ void SandboxInitializationParameters::appendPathInternal(ASCIILiteral name, cons
         normalizedPath[0] = '\0';
 
     m_parameterNames.append(name);
-    m_parameterValues.append(UTF8CString { byteCast<char8_t>(normalizedPath.data()) });
+    m_parameterValues.append(UTF8CString::unsafeFromUTF8(normalizedPath.data()));
 }
 
 void SandboxInitializationParameters::addConfDirectoryParameter(ASCIILiteral name, int confID)
@@ -59,9 +61,9 @@ void SandboxInitializationParameters::addPathParameter(ASCIILiteral name, NSStri
     appendPathInternal(name, [path length] ? [path fileSystemRepresentation] : "");
 }
 
-void SandboxInitializationParameters::addPathParameter(ASCIILiteral name, const char* path)
+void SandboxInitializationParameters::addPathParameter(ASCIILiteral name, UTF8CStringView path)
 {
-    appendPathInternal(name, path);
+    appendPathInternal(name, path.utf8());
 }
 
 void SandboxInitializationParameters::addParameter(ASCIILiteral name, UTF8CString&& value)
@@ -75,9 +77,11 @@ Vector<const char*> SandboxInitializationParameters::namedParameterVector() cons
     Vector<const char*> result;
     result.reserveInitialCapacity(m_parameterNames.size() * 2 + 1);
     ASSERT(m_parameterNames.size() == m_parameterValues.size());
+    Borrow borrowedNames = m_parameterNames;
+    Borrow borrowedValues = m_parameterValues;
     for (size_t i = 0; i < m_parameterNames.size(); ++i) {
-        result.append(m_parameterNames[i]);
-        result.append(m_parameterValues[i].legacyCStringPointer());
+        result.append(borrowedNames[i]);
+        result.append(borrowedValues[i].legacyCStringPointer());
     }
     result.append(nullptr);
     return result;

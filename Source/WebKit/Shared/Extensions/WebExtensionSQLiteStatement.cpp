@@ -49,7 +49,7 @@ WebExtensionSQLiteStatement::WebExtensionSQLiteStatement(Ref<WebExtensionSQLiteD
 
     db->assertQueue();
 
-    int result = sqlite3_prepare_v2(db->sqlite3Handle(), query.utf8().legacyCStringPointer(), -1, &m_handle, 0);
+    int result = WebCore::sqlitePrepare(db->sqlite3Handle(), query.utf8(), &m_handle);
     if (result != SQLITE_OK) {
         db->reportErrorWithCode(result, query, outError);
         return;
@@ -109,7 +109,7 @@ Ref<WebExtensionSQLiteRowEnumerator> WebExtensionSQLiteStatement::fetch()
     return WebExtensionSQLiteRowEnumerator::create(*this);
 }
 
-bool WebExtensionSQLiteStatement::fetchWithEnumerationCallback(Function<void(RefPtr<WebExtensionSQLiteRow>, bool)>& callback, RefPtr<API::Error>& outError)
+bool WebExtensionSQLiteStatement::fetchWithEnumerationCallback(NOESCAPE const Function<void(RefPtr<WebExtensionSQLiteRow>, bool)>& callback, RefPtr<API::Error>& outError)
 {
     Ref db = m_db;
 

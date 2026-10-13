@@ -116,10 +116,10 @@ public:
 
     virtual WebCore::PlatformWheelEvent filteredWheelEvent(const WebCore::PlatformWheelEvent& wheelEvent) { return wheelEvent; }
 
-    std::optional<WebCore::ScrollingNodeID> NODELETE rootScrollingNodeID() const;
+    std::optional<WebCore::ScrollingNodeID> LEGACY_NODELETE rootScrollingNodeID() const;
 
-    const RemoteLayerTreeHost* NODELETE layerTreeHost() const;
-    WebPageProxy& NODELETE webPageProxy() const;
+    const RemoteLayerTreeHost* LEGACY_NODELETE layerTreeHost() const;
+    WebPageProxy& LEGACY_NODELETE webPageProxy() const;
 
     virtual void stickyScrollingTreeNodeBeganSticking(WebCore::ScrollingNodeID);
 #if ENABLE(OVERLAY_REGIONS_REMOTE_EFFECT)
@@ -147,6 +147,10 @@ public:
     virtual void hasNodeWithAnimatedScrollChanged(bool) { }
     virtual void setRootNodeIsInUserScroll(bool) { }
     virtual void setRubberBandingInProgressForNode(WebCore::ScrollingNodeID, bool isRubberBanding) { }
+
+    // The main frame's scroll position changed in the UI-process tree. Platforms where the UI process owns the
+    // layout viewport have to refresh it, since it's derived from the scroll position.
+    virtual void mainFrameScrollPositionDidChange() { }
 
     virtual void scrollingTreeNodeDidBeginScrollSnapping(WebCore::ScrollingNodeID) { }
     virtual void scrollingTreeNodeDidEndScrollSnapping(WebCore::ScrollingNodeID) { }
@@ -179,10 +183,10 @@ public:
     void resetStateAfterProcessExited();
 
     virtual void displayDidRefresh(WebCore::PlatformDisplayID);
-    void NODELETE reportExposedUnfilledArea(MonotonicTime, unsigned unfilledArea);
+    void LEGACY_NODELETE reportExposedUnfilledArea(MonotonicTime, unsigned unfilledArea);
     void reportSynchronousScrollingReasonsChanged(MonotonicTime, OptionSet<WebCore::SynchronousScrollingReason>);
     void reportFilledVisibleFreshTile(MonotonicTime, unsigned);
-    bool NODELETE scrollingPerformanceTestingEnabled() const;
+    bool LEGACY_NODELETE scrollingPerformanceTestingEnabled() const;
     
     void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase);
     void deferWheelEventTestCompletionForReason(std::optional<WebCore::ScrollingNodeID>, WebCore::WheelEventTestMonitor::DeferReason);
@@ -203,8 +207,13 @@ public:
     int headerHeight() const;
     int footerHeight() const;
     float mainFrameScaleFactor() const;
+    // Syncs the UI-process-owned page scale into the scrolling tree when we aren't sending a delegated
+    // viewport update, e.g. after a navigation resets the scale.
+    void setDelegatedPageScaleFactor(float);
     WebCore::FloatSize totalContentsSize() const;
-    
+    WebCore::FloatSize sizeForVisibleContent() const;
+    bool isCommittingScrollingTreeState() const;
+
     void viewWillStartLiveResize();
     void viewWillEndLiveResize();
     void viewSizeDidChange();
@@ -217,7 +226,7 @@ public:
     void scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(WebCore::ScrollingNodeID, WebCore::ScrollbarOrientation, int);
     void requestFullScrollingTreeCommitForFrame(WebCore::FrameIdentifier);
     void receivedLastScrollingTreeNodeUpdateReply();
-    bool NODELETE isMonitoringWheelEvents();
+    bool LEGACY_NODELETE isMonitoringWheelEvents();
 
     void establishLayerTreeScrollingRelations(IPC::Connection&);
 

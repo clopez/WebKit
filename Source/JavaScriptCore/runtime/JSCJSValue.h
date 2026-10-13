@@ -216,9 +216,9 @@ public:
     inline const ClassInfo* classInfoOrNull() const; // Defined in JSCJSValueStructure.h
 
     // Non-inline versions of above for use in header ASSERT macros:
-    JS_EXPORT_PRIVATE bool NODELETE isGetterSetterSlow() const;
-    JS_EXPORT_PRIVATE bool NODELETE isCustomGetterSetterSlow() const;
-    JS_EXPORT_PRIVATE bool NODELETE isStringSlow() const;
+    JS_EXPORT_PRIVATE bool LEGACY_NODELETE isGetterSetterSlow() const;
+    JS_EXPORT_PRIVATE bool LEGACY_NODELETE isCustomGetterSetterSlow() const;
+    JS_EXPORT_PRIVATE bool LEGACY_NODELETE isStringSlow() const;
 
     // Extracting the value.
     inline bool getString(JSGlobalObject*, WTF::String&) const; // Defined in JSCJSValueCell.h
@@ -242,7 +242,7 @@ public:
     inline JSBigInt* asHeapBigInt() const; // Defined in JSCJSValueBigInt.h
 
     // toNumber conversion if it can be done without side effects.
-    std::optional<double> NODELETE toNumberFromPrimitive() const;
+    std::optional<double> LEGACY_NODELETE toNumberFromPrimitive() const;
 
     inline JSString* toString(JSGlobalObject*) const; // On exception, this returns the empty string. Defined in JSCJSValuePropertyInlines.h
     inline JSString* toStringOrNull(JSGlobalObject*) const; // On exception, this returns null, to make exception checks faster. Defined in JSCJSValuePropertyInlines.h
@@ -908,6 +908,21 @@ inline bool operator==(const JSValue a, const JSCell* b) { return a == JSValue(b
 
 inline int64_t tryConvertToInt52(double number)
 {
+#if CPU(ARM64) || CPU(X86_64)
+    // Unlike static_cast, these conversions are defined for NaN and out-of-range inputs. Comparing
+    // bit patterns after the round trip rejects NaN, infinities, fractions, and -0.0 at once, since
+    // 0 converts back to +0.0.
+#if CPU(ARM64)
+    int64_t asInt64 = vcvtd_s64_f64(number);
+#else
+    int64_t asInt64 = _mm_cvttsd_si64(_mm_set_sd(number));
+#endif
+    if (std::bit_cast<uint64_t>(static_cast<double>(asInt64)) != std::bit_cast<uint64_t>(number))
+        return JSValue::notInt52;
+    if (static_cast<uint64_t>(asInt64) + (static_cast<uint64_t>(1) << (JSValue::numberOfInt52Bits - 1)) >= (static_cast<uint64_t>(1) << JSValue::numberOfInt52Bits))
+        return JSValue::notInt52;
+    return asInt64;
+#else
     if (number != number)
         return JSValue::notInt52;
 #if OS(WINDOWS) && CPU(X86)
@@ -929,6 +944,7 @@ inline int64_t tryConvertToInt52(double number)
     if (asInt64 < -(static_cast<int64_t>(1) << (JSValue::numberOfInt52Bits - 1)))
         return JSValue::notInt52;
     return asInt64;
+#endif
 }
 
 inline bool isInt52(double number)

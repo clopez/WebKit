@@ -53,7 +53,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderWidget);
 
-static HashMap<SingleThreadWeakRef<const Widget>, SingleThreadWeakRef<RenderWidget>>& NODELETE widgetRendererMap()
+static HashMap<SingleThreadWeakRef<const Widget>, SingleThreadWeakRef<RenderWidget>>& LEGACY_NODELETE widgetRendererMap()
 {
     static NeverDestroyed<HashMap<SingleThreadWeakRef<const Widget>, SingleThreadWeakRef<RenderWidget>>> staticWidgetRendererMap;
     return staticWidgetRendererMap;
@@ -127,7 +127,7 @@ RenderWidget::~RenderWidget() = default;
 // Widgets are always placed on integer boundaries, so rounding the size is actually
 // the desired behavior. This function is here because it's otherwise seldom what we
 // want to do with a LayoutRect.
-static inline IntRect NODELETE roundedIntRect(const LayoutRect& rect)
+static inline IntRect LEGACY_NODELETE roundedIntRect(const LayoutRect& rect)
 {
     return IntRect(roundedIntPoint(rect.location()), roundedIntSize(rect.size()));
 }
@@ -155,10 +155,11 @@ bool RenderWidget::setWidgetGeometry(const LayoutRect& frame)
     if (!weakThis)
         return true;
 
-    if (boundsChanged)
+    bool sizeChanged = oldFrameRect.size() != newFrameRect.size();
+    if (sizeChanged)
         view().compositor().widgetDidChangeSize(*this);
 
-    return oldFrameRect.size() != newFrameRect.size();
+    return sizeChanged;
 }
 
 bool RenderWidget::updateWidgetGeometry()
@@ -204,7 +205,7 @@ void RenderWidget::setWidget(RefPtr<Widget>&& widget)
                     return;
             }
 
-            if (style().usedVisibility() != Visibility::Visible)
+            if (usedStyle().visibility() != UsedVisibility::Visible)
                 widget->hide();
             else {
                 widget->show();
@@ -232,7 +233,7 @@ void RenderWidget::styleDidChange(Style::Difference diff, const Style::ComputedS
 {
     RenderReplaced::styleDidChange(diff, oldStyle);
     if (m_widget) {
-        if (style().usedVisibility() != Visibility::Visible)
+        if (usedStyle().visibility() != UsedVisibility::Visible)
             protect(m_widget)->hide();
         else
             protect(m_widget)->show();
@@ -487,7 +488,7 @@ bool RenderWidget::requiresAcceleratedCompositing() const
     return false;
 }
 
-RemoteFrame* NODELETE RenderWidget::remoteFrame() const
+RemoteFrame* LEGACY_NODELETE RenderWidget::remoteFrame() const
 {
     return dynamicDowncast<RemoteFrame>(frameOwnerElement().contentFrame());
 }

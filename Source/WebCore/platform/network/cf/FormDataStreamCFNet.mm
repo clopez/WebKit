@@ -79,7 +79,7 @@ namespace WebCore {
 
 static void formEventCallback(CFReadStreamRef, CFStreamEventType, void* context);
 
-static CFStringRef NODELETE formDataPointerPropertyNameSingleton()
+static CFStringRef LEGACY_NODELETE formDataPointerPropertyNameSingleton()
 {
     static CFStringRef formDataPointerPropertyName = CFSTR("WebKitFormDataPointer");
     return formDataPointerPropertyName;
@@ -435,7 +435,7 @@ static CFIndex pendingStreamRead(CFReadStreamRef, UInt8* buffer, CFIndex bufferL
     }
 
     auto output = unsafeMakeSpan(buffer, static_cast<size_t>(bufferLength));
-    auto result = fields->state->readInto(output);
+    auto result = protect(fields->state)->readInto(output);
 
     if (!result) {
         error->domain = kCFStreamErrorDomainMacOSStatus;

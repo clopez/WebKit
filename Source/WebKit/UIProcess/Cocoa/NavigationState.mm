@@ -109,7 +109,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-static WeakHashMap<WebPageProxy, WeakPtr<NavigationState>>& NODELETE navigationStates()
+static WeakHashMap<WebPageProxy, WeakPtr<NavigationState>>& LEGACY_NODELETE navigationStates()
 {
     static NeverDestroyed<WeakHashMap<WebPageProxy, WeakPtr<NavigationState>>> navigationStates;
 
@@ -979,7 +979,8 @@ void NavigationState::NavigationClient::didFailProvisionalNavigationWithError(We
 
     auto errorWithRecoveryAttempter = createErrorWithRecoveryAttempter(navigationState->webView().get(), frameInfo, protect(error.nsError()).get(), url);
 
-    if (frameInfo.isMainFrame) {
+    RefPtr frame = WebFrameProxy::webFrame(frameInfo.frameID);
+    if (frame && frame->isMainFrame()) {
         // FIXME: We should assert that navigation is not null here, but it's currently null for some navigations through the back/forward cache.
         if (navigationState->m_navigationDelegateMethods.webViewDidFailProvisionalNavigationWithError)
             [navigationDelegate webView:navigationState->webView().get() didFailProvisionalNavigation:protect(wrapper(navigation)).get() withError:errorWithRecoveryAttempter.get()];
@@ -1480,7 +1481,7 @@ void NavigationState::NavigationClient::didFinishLoadForQuickLookDocumentInMainF
 #endif
 
 #if HAVE(APP_SSO)
-static SOAuthorizationLoadPolicy NODELETE soAuthorizationLoadPolicy(_WKSOAuthorizationLoadPolicy policy)
+static SOAuthorizationLoadPolicy LEGACY_NODELETE soAuthorizationLoadPolicy(_WKSOAuthorizationLoadPolicy policy)
 {
     switch (policy) {
     case _WKSOAuthorizationLoadPolicyAllow:
@@ -1492,7 +1493,7 @@ static SOAuthorizationLoadPolicy NODELETE soAuthorizationLoadPolicy(_WKSOAuthori
     return SOAuthorizationLoadPolicy::Allow;
 }
 
-static _WKSOAuthorizationLoadPolicy NODELETE wkSOAuthorizationLoadPolicy(SOAuthorizationLoadPolicy policy)
+static _WKSOAuthorizationLoadPolicy LEGACY_NODELETE wkSOAuthorizationLoadPolicy(SOAuthorizationLoadPolicy policy)
 {
     switch (policy) {
     case SOAuthorizationLoadPolicy::Allow:

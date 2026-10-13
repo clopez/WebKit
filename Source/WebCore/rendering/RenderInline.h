@@ -38,36 +38,16 @@ public:
     RenderInline(Type, Element&, Style::ComputedStyle&&);
     RenderInline(Type, Document&, Style::ComputedStyle&&);
     virtual ~RenderInline();
-
     bool requiresLayer() const override;
-
-protected:
-    void styleDidChange(Style::Difference, const Style::ComputedStyle* oldStyle) override;
 
 private:
     ASCIILiteral renderName() const override;
-
     bool canHaveChildren() const final { return true; }
-
     void layout() final { ASSERT_NOT_REACHED(); }
-
     void paint(PaintInfo&, const LayoutPoint&) override { ASSERT_NOT_REACHED(); }
-
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) final { ASSERT_NOT_REACHED(); return false; }
-
-    LayoutUnit offsetWidth() const final { return borderBoxRectInContainer().width(); }
-    LayoutUnit offsetHeight() const final { return borderBoxRectInContainer().height(); }
-
-protected:
-
-
-private:
-
-    LayoutRect frameRectForStickyPositioning() const final { return borderBoxRectInContainer(); }
-
     void imageChanged(WrappedImagePtr, const IntRect* = 0) final;
 };
-
 
 } // namespace WebCore
 

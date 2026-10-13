@@ -75,15 +75,6 @@ public:
 #endif
     }
 
-    bool haveSecureCodingRequest() const
-    {
-#if HAVE(WK_SECURE_CODING_NSURLREQUEST)
-        return true;
-#else
-        return false;
-#endif
-    }
-
     bool haveSecureCodingDataDetectors() const
     {
 #if HAVE(WK_SECURE_CODING_DATA_DETECTORS)
@@ -212,8 +203,6 @@ public:
     // Printing
     bool isPageBoxVisible(JSContextRef, int pageIndex);
     void setPrinting() const;
-
-    void setValueForUser(JSContextRef, JSValueRef element, JSStringRef value);
 
     // Audio testing.
     void setAudioResult(JSContextRef, JSValueRef data);

@@ -35,7 +35,7 @@ static NSString * const itemsKey = @"items";
 static NSString * const searchesKey = @"searches";
 static NSString * const searchStringKey = @"searchString";
 
-static NSString *searchFieldRecentSearchesPlistPath(NSString *baseDirectory)
+static RetainPtr<NSString> searchFieldRecentSearchesPlistPath(NSString *baseDirectory)
 {
     return [baseDirectory stringByAppendingPathComponent:@"RecentSearches.plist"];
 }
@@ -92,7 +92,8 @@ static RetainPtr<NSDictionary> typeCheckedRecentSearchesRemovingRecentSearchesAd
         return nil;
 
     RetainPtr<NSMutableArray> keysToRemove = adoptNS([[NSMutableArray alloc] init]);
-    for (NSString *key in itemsDictionary) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSString *key in itemsDictionary) {
         if (![key isKindOfClass:[NSString class]])
             return nil;
 
@@ -101,7 +102,8 @@ static RetainPtr<NSDictionary> typeCheckedRecentSearchesRemovingRecentSearchesAd
             return nil;
 
         RetainPtr<NSMutableArray> entriesToRemove = adoptNS([[NSMutableArray alloc] init]);
-        for (NSDictionary *recentSearch in recentSearches.get()) {
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL NSDictionary *recentSearch in recentSearches.get()) {
             RetainPtr dateAdded = typeCheckedDateInRecentSearch(recentSearch);
             if (!dateAdded)
                 return nil;
@@ -142,7 +144,7 @@ void saveRecentSearchesToFile(const String& name, const Vector<RecentSearch>& se
         [itemsDictionary removeObjectForKey:name.createNSString().get()];
     else {
         auto items = createNSArray(searchItems, [] (auto& item) {
-            return adoptNS([[NSDictionary alloc] initWithObjectsAndKeys:item.string.createNSString().get(), searchStringKey, toNSDateFromSystemClock(item.time), dateKey, nil]);
+            return adoptNS([[NSDictionary alloc] initWithObjectsAndKeys:item.string.createNSString().get(), searchStringKey, protect(toNSDateFromSystemClock(item.time)).get(), dateKey, nil]);
         });
         [itemsDictionary setObject:adoptNS([[NSDictionary alloc] initWithObjectsAndKeys:items.get(), searchesKey, nil]).get() forKey:name.createNSString().get()];
     }
@@ -168,7 +170,8 @@ Vector<RecentSearch> loadRecentSearchesFromFile(const String& name, const String
     if (!recentSearches)
         return searchItems;
 
-    for (NSDictionary *item in recentSearches.get()) {
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSDictionary *item in recentSearches.get()) {
         RetainPtr date = typeCheckedDateInRecentSearch(item);
         if (!date)
             continue;

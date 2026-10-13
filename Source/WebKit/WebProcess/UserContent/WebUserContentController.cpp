@@ -66,7 +66,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-static HashMap<UserContentControllerIdentifier, WeakPtr<WebUserContentController>>& NODELETE userContentControllers()
+static HashMap<UserContentControllerIdentifier, WeakPtr<WebUserContentController>>& LEGACY_NODELETE userContentControllers()
 {
     static NeverDestroyed<HashMap<UserContentControllerIdentifier, WeakPtr<WebUserContentController>>> userContentControllers;
 
@@ -183,7 +183,7 @@ void WebUserContentController::addContentWorldIfNecessary(const ContentWorldData
                 continue;
             if (!localFrame->hasUserContentProvider(*this))
                 continue;
-            localFrame->loader().client().dispatchGlobalObjectAvailable(scriptWorld->coreWorld());
+            localFrame->loader().client().dispatchGlobalObjectAvailable(protect(scriptWorld->coreWorld()));
         }
     });
 }
@@ -301,7 +301,7 @@ public:
 
     virtual ~WebUserMessageHandlerDescriptorProxy() = default;
 
-    ScriptMessageHandlerIdentifier NODELETE identifier() { return m_identifier; }
+    ScriptMessageHandlerIdentifier LEGACY_NODELETE identifier() { return m_identifier; }
 
 private:
     WebUserMessageHandlerDescriptorProxy(WebUserContentController& controller, const AtomString& name, InjectedBundleScriptWorld& world, ScriptMessageHandlerIdentifier identifier)
@@ -516,7 +516,7 @@ void WebUserContentController::addUserScriptInternal(InjectedBundleScriptWorld& 
         Page::forEachPage([&] (auto& page) {
             if (userScript.injectedFrames() == UserContentInjectedFrames::InjectInTopFrameOnly) {
                 if (RefPtr localMainFrame = page.localMainFrame(); localMainFrame && localMainFrame->hasUserContentProvider(*this))
-                    localMainFrame->injectUserScriptImmediately(world.coreWorld(), userScript);
+                    localMainFrame->injectUserScriptImmediately(protect(world.coreWorld()), userScript);
                 return;
             }
             Ref mainFrame { page.mainFrame() };

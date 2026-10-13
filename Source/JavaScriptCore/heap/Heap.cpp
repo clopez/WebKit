@@ -44,7 +44,6 @@
 #include "GCTypeMap.h"
 #include "GigacageAlignedMemoryAllocator.h"
 #include "HasOwnPropertyCache.h"
-#include "HeapHelperPool.h"
 #include "HeapIterationScope.h"
 #include "HeapProfiler.h"
 #include "HeapSnapshot.h"
@@ -61,11 +60,11 @@
 #include "JSIterator.h"
 #include "JSMicrotaskDispatcher.h"
 #include "JSModuleLoader.h"
+#include "JSONCache.h"
 #include "JSPromiseCombinatorsContext.h"
 #include "JSPromiseCombinatorsGlobalContext.h"
 #include "JSPromiseReaction.h"
 #include "JSRawJSONObject.h"
-#include "JSRemoteFunction.h"
 #include "JSSentinel.h"
 #include "JSVirtualMachineInternal.h"
 #include "JSWeakMap.h"
@@ -86,8 +85,7 @@
 #include "ProxyObject.h"
 #include "SamplingProfiler.h"
 #include "ShadowChicken.h"
-#include "SpaceTimeMutatorScheduler.h"
-#include "StochasticSpaceTimeMutatorScheduler.h"
+#include "SimpleMarkingConstraint.h"
 #include "StopIfNecessaryTimer.h"
 #include "StringSplitCache.h"
 #include "StructureAlignedMemoryAllocator.h"
@@ -95,12 +93,11 @@
 #include "SuperSampler.h"
 #include "SweepingScope.h"
 #include "SymbolTableInlines.h"
-#include "SynchronousStopTheWorldMutatorScheduler.h"
 #include "TypeProfiler.h"
 #include "TypeProfilerLog.h"
 #include "UnlinkedEvalCodeBlock.h"
 #include "VM.h"
-#include "VerifierSlotVisitorInlines.h"
+#include "VerifierSlotVisitor.h"
 #include "WasmCallee.h"
 #include "WeakMapImplInlines.h"
 #include "WeakSetInlines.h"
@@ -136,7 +133,7 @@ static constexpr bool verboseStop = false;
 
 namespace {
 
-static GrowthMode NODELETE growthMode(size_t ramSize)
+static GrowthMode LEGACY_NODELETE growthMode(size_t ramSize)
 {
     // An Aggressive heap uses more memory to go faster.
     // We do this for machines with enough RAM.
@@ -163,7 +160,7 @@ static size_t minHeapSize(HeapType heapType, size_t ramSize)
     }
 }
 
-static size_t NODELETE maxEdenSizeForRateLimiting(GrowthMode growthMode, size_t minBytesPerCycle)
+static size_t LEGACY_NODELETE maxEdenSizeForRateLimiting(GrowthMode growthMode, size_t minBytesPerCycle)
 {
     // Only do rate limiting for Aggressive heaps.
     if (growthMode == GrowthMode::Aggressive)
@@ -215,7 +212,7 @@ static void recordType(TypeCountSet& set, JSCell* cell)
     set.add(typeName);
 }
 
-constexpr bool NODELETE measurePhaseTiming()
+constexpr bool LEGACY_NODELETE measurePhaseTiming()
 {
     return false;
 }
@@ -252,12 +249,12 @@ public:
     {
     }
     
-    void NODELETE setScope(std::optional<CollectionScope> scope)
+    void LEGACY_NODELETE setScope(std::optional<CollectionScope> scope)
     {
         m_scope = scope;
     }
     
-    void NODELETE setScope(JSC::Heap& heap)
+    void LEGACY_NODELETE setScope(JSC::Heap& heap)
     {
         setScope(heap.collectionScope());
     }
@@ -296,10 +293,10 @@ Heap::Heap(VM& vm, HeapType heapType)
     , m_maxHeapSize(m_minBytesPerCycle)
     , m_objectSpace(this)
     , m_machineThreads(makeUnique<MachineThreads>())
-    , m_collector(makeUnique<Collector>(*this))
-    , m_mutatorSlotVisitor(makeUnique<SlotVisitor>(*this, *m_collector, "M"_s))
+    , m_localCollector(Options::useGlobalGC() ? nullptr : makeUnique<Collector>())
+    , m_collector(m_localCollector ? m_localCollector.get() : &Collector::globalCollector())
+    , m_mutatorSlotVisitor(makeUnique<SlotVisitor>(*m_collector, "M"_s))
     , m_mutatorMarkStack(makeUnique<MarkStackArray>())
-    , m_constraintSet(makeUnique<MarkingConstraintSet>(*this))
     , m_strongSet(vm)
     , m_codeBlocks(makeUnique<CodeBlockSet>())
     , m_jitStubRoutines(makeUnique<JITStubRoutineSet>())
@@ -392,37 +389,12 @@ Heap::Heap(VM& vm, HeapType heapType)
 
     m_worldState.store(0);
 
-    // FIXME: move Collector related initialization into Collector
-
-    for (unsigned i = 0, numberOfParallelThreads = heapHelperPool().numberOfThreads(); i < numberOfParallelThreads; ++i) {
-        std::unique_ptr<SlotVisitor> visitor = makeUnique<SlotVisitor>(*this, *m_collector, toASCIICString("P", i + 1));
-        if (Options::optimizeParallelSlotVisitorsForStoppedMutator())
-            visitor->optimizeForStoppedMutator();
-        m_collector->m_availableParallelSlotVisitors.append(visitor.get());
-        m_collector->m_parallelSlotVisitors.append(WTF::move(visitor));
-    }
-    
-    if (Options::useConcurrentGC()) {
-        if (Options::useStochasticMutatorScheduler())
-            m_collector->m_scheduler = makeUnique<StochasticSpaceTimeMutatorScheduler>(*this);
-        else
-            m_collector->m_scheduler = makeUnique<SpaceTimeMutatorScheduler>(*this);
-    } else {
-        // We simulate turning off concurrent GC by making the scheduler say that the world
-        // should always be stopped when the collector is running.
-        m_collector->m_scheduler = makeUnique<SynchronousStopTheWorldMutatorScheduler>();
-    }
-    
     if (Options::verifyHeap())
         m_verifier = makeUnique<HeapVerifier>(this, Options::numberOfGCCyclesToRecordForVerification());
-    
-    m_collector->m_collectorSlotVisitor->optimizeForStoppedMutator();
 
     // When memory is critical, allow allocating 25% of the amount above the critical threshold before collecting.
     size_t memoryAboveCriticalThreshold = static_cast<size_t>(static_cast<double>(m_ramSize) * (1.0 - Options::criticalGCMemoryThreshold()));
     m_maxEdenSizeWhenCritical = memoryAboveCriticalThreshold / 4;
-
-    m_collector->startThread();
 }
 
 #undef INIT_SERVER_ISO_SUBSPACE
@@ -433,13 +405,8 @@ Heap::~Heap()
     // Scribble m_worldState to make it clear that the heap has already been destroyed if we crash in checkConn
     m_worldState.store(0xbadbeeffu);
 
-    m_collector->forEachSlotVisitor(
-        [&] (SlotVisitor& visitor) {
-            visitor.clearMarkStacks();
-        });
     m_mutatorMarkStack->clear();
-    m_collector->m_raceMarkStack->clear();
-    
+
     while (WeakBlock* block = m_detachedWeakBlocks.removeHead())
         WeakBlock::destroy(*this, block);
     destroyAllPooledWeakBlocks();
@@ -471,13 +438,12 @@ void Heap::dumpHeapStatisticsAtVMDestruction()
 }
 
 // The VM is being destroyed and the collector will never run again.
-// Run all pending finalizers now because we won't get another chance.
-void Heap::lastChanceToFinalize()
+void Heap::shutDown()
 {
     MonotonicTime before;
     if (Options::logGC()) [[unlikely]] {
         before = MonotonicTime::now();
-        dataLog("[GC<", RawPointer(this), ">: shutdown ");
+        dataLog("[GC<", RawPointer(this), ">: shutdown: ");
     }
     
     m_isShuttingDown = true;
@@ -485,58 +451,30 @@ void Heap::lastChanceToFinalize()
     RELEASE_ASSERT(!vm().entryScope);
     RELEASE_ASSERT(m_mutatorState == MutatorState::Running);
     
-    m_collector->stopCollectingContinuously();
+    // notifyIsSafeToCollect() joins and sets m_isSafeToCollect, except with Options::useGC() off.
+    bool hadJoined = m_isSafeToCollect;
 
-    dataLogIf(Options::logGC(), "1");
-    
     // Prevent new collections from being started. This is probably not even necessary, since we're not
     // going to call into anything that starts collections. Still, this makes the algorithm more
     // obviously sound.
     m_isSafeToCollect = false;
-    
-    dataLogIf(Options::logGC(), "2");
+    dataLogIf(Options::logGC(), "disabled collection, ");
 
-    bool isCollecting;
-    {
-        Locker locker { *m_collector->m_threadLock };
-        isCollecting = m_collector->hasOutstandingRequest();
+    if (hadJoined) {
+        waitForMembershipChange(m_collector->requestMembershipChange({ Collector::MembershipChange::Kind::Leave, this, nullptr }));
+        dataLogIf(Options::logGC(), "left the collector, ");
     }
-    if (isCollecting) {
-        dataLogIf(Options::logGC(), "...]\n");
-        
-        // Wait for the current collection to finish.
-        waitForCollector(
-            [&] (const AbstractLocker&) -> bool {
-                return !m_collector->hasOutstandingRequest();
-            });
-        
-        dataLogIf(Options::logGC(), "[GC<", RawPointer(this), ">: shutdown ");
-    }
-    dataLogIf(Options::logGC(), "3");
-
-    RELEASE_ASSERT(m_collector->m_requests.isEmpty());
-    RELEASE_ASSERT(!m_collector->hasOutstandingRequest());
-    
-    // Carefully bring the thread down.
-    bool stopped = false;
-    {
-        Locker locker { *m_collector->m_threadLock };
-        stopped = m_collector->m_thread->tryStop(locker);
-        m_collector->m_threadShouldStop = true;
-        if (!stopped)
-            m_collector->m_threadCondition->notifyOne(locker);
-    }
-
-    dataLogIf(Options::logGC(), "4");
-    
-    if (!stopped)
-        m_collector->m_thread->join();
-    
-    dataLogIf(Options::logGC(), "5 ");
 
     if (Options::dumpHeapStatisticsAtVMDestruction()) [[unlikely]]
         dumpHeapStatisticsAtVMDestruction();
-    
+
+    lastChanceToFinalize();
+    dataLogIf(Options::logGC(), (MonotonicTime::now() - before).milliseconds(), "ms]\n");
+}
+
+// Run all pending finalizers now because we won't get another chance.
+void Heap::lastChanceToFinalize()
+{
     m_arrayBuffers.lastChanceToFinalize();
     m_objectSpace.lastChanceToFinalize();
     releaseDelayedReleasedObjects();
@@ -545,8 +483,6 @@ void Heap::lastChanceToFinalize()
 #endif
 
     m_objectSpace.freeMemory();
-
-    dataLogIf(Options::logGC(), (MonotonicTime::now() - before).milliseconds(), "ms]\n");
 }
 
 void Heap::releaseDelayedReleasedObjects()
@@ -623,6 +559,7 @@ void Heap::reportExtraMemoryAllocatedSlowCase(GCDeferralContext* deferralContext
 {
     didAllocate(size);
     if (cell) {
+        ASSERT(cell->heap() == this);
         if (isWithinThreshold(cell->cellState(), barrierThreshold())) [[unlikely]]
             reportExtraMemoryAllocatedPossiblyFromAlreadyMarkedCell(cell, size);
     }
@@ -683,6 +620,7 @@ void Heap::protect(JSValue k)
     if (!k.isCell())
         return;
 
+    ASSERT(k.asCell()->heap() == this);
     m_protectedValues.add(k.asCell());
 }
 
@@ -694,11 +632,13 @@ bool Heap::unprotect(JSValue k)
     if (!k.isCell())
         return false;
 
+    ASSERT(k.asCell()->heap() == this);
     return m_protectedValues.remove(k.asCell());
 }
 
 void Heap::addReference(JSCell* cell, ArrayBuffer* buffer)
 {
+    ASSERT(cell->heap() == this);
     if (m_arrayBuffers.addReference(cell, buffer)) {
         collectIfNecessaryOrDefer();
         didAllocate(buffer->gcSizeEstimateInBytes());
@@ -806,7 +746,7 @@ void Heap::iterateExecutingAndCompilingCodeBlocks(Visitor& visitor, NOESCAPE con
 }
 
 template<typename Func, typename Visitor>
-void Heap::iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor& visitor, const Func& func)
+void Heap::iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor& visitor, NOESCAPE const Func& func)
 {
     Vector<CodeBlock*, 256> codeBlocks;
     iterateExecutingAndCompilingCodeBlocks(visitor,
@@ -817,12 +757,9 @@ void Heap::iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor& vi
         func(codeBlock);
 }
 
-// Collector::runEndPhase calls this from another translation unit, which cannot instantiate a
-// definition that lives here.
-template void Heap::iterateExecutingAndCompilingCodeBlocks<SlotVisitor>(SlotVisitor&, NOESCAPE const Function<void(CodeBlock*)>&);
-
 void Heap::gatherStackRoots(ConservativeRoots& roots)
 {
+    ASSERT(m_collector->m_conductorThread);
     m_machineThreads->gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks, m_collector->m_conductingMutatorState, m_collector->m_conductorThread);
 #if ENABLE(C_LOOP)
     vm().cloopStack().gatherConservativeRoots(roots, *m_jitStubRoutines, *m_codeBlocks);
@@ -847,13 +784,18 @@ void Heap::gatherVMRoots(ConservativeRoots& roots)
 void Heap::beginMarking()
 {
     TimingScope timingScope(*this, "Heap::beginMarking"_s);
+    ASSERT(isInPhase(CollectorPhase::Begin));
+    ASSERT(m_collectionScope);
+    ASSERT(!m_bytesVisitedDuringMarking.load(std::memory_order_relaxed));
+    if (*m_collectionScope == CollectionScope::Full)
+        m_mutatorMarkStack->clear();
     m_jitStubRoutines->clearMarks();
     m_objectSpace.beginMarking();
     vm().beginMarking();
     setMutatorShouldBeFenced(true);
 
 #if ENABLE(WEBASSEMBLY)
-    prepareWasmCalleeCleanup();
+    beginMarkingWasmCallees();
 #endif
 }
 
@@ -862,6 +804,7 @@ void Heap::removeDeadCompilerWorklistEntries()
     if (!Options::useJIT())
         return;
 #if ENABLE(JIT)
+    ASSERT_IMPLIES(vm().numberOfActiveJITPlans(), m_collector->m_isCompilerThreadsSuspended);
     JITWorklist::ensureGlobalWorklist().removeDeadPlans(vm());
 #endif // ENABLE(JIT)
 }
@@ -919,26 +862,95 @@ void Heap::removeDeadHeapSnapshotNodes(HeapProfiler& heapProfiler)
     }
 }
 
-void Heap::updateObjectCounts()
+void Heap::rememberExecutingAndCompilingCodeBlocks()
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    iterateExecutingAndCompilingCodeBlocks(*m_mutatorSlotVisitor,
+        [&] (CodeBlock* codeBlock) {
+            writeBarrier(codeBlock);
+        });
+}
+
+void Heap::recordBytesVisited(size_t bytesVisited)
 {
     if (m_collectionScope && m_collectionScope.value() == CollectionScope::Full) {
         m_totalBytesVisitedAfterLastFullCollect = m_totalBytesVisited;
         m_totalBytesVisited = 0;
     }
-
-    m_totalBytesVisitedThisCycle = m_collector->bytesVisited();
-    
-    m_totalBytesVisited += m_totalBytesVisitedThisCycle;
+    m_totalBytesVisited += bytesVisited;
 }
 
 void Heap::endMarking()
 {
+    ASSERT(isInPhase(CollectorPhase::End));
+    ASSERT(m_objectSpace.isMarking());
+
+    recordBytesVisited(m_bytesVisitedDuringMarking.exchange(0, std::memory_order_relaxed));
+
     m_objectSpace.endMarking();
     setMutatorShouldBeFenced(Options::forceFencedBarrier());
 
 #if ENABLE(WEBASSEMBLY)
-    finalizeWasmCalleeCleanup();
+    releaseUnmarkedWasmCallees();
 #endif
+}
+
+void Heap::verifyHeapAfterMarking()
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    ASSERT(!m_objectSpace.isMarking());
+
+    if (m_verifier) [[unlikely]] {
+        m_verifier->gatherLiveCells(HeapVerifier::Phase::AfterMarking);
+        m_verifier->verify(HeapVerifier::Phase::AfterMarking);
+    }
+}
+
+void Heap::pruneDeadReferences()
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    ASSERT(!m_objectSpace.isMarking());
+
+    // This doesn't necessarily run on this heap's mutator thread. Clear the atom string table so that
+    // destroying an atom string here fails whichever thread it runs on.
+    auto* previous = Thread::currentSingleton().setCurrentAtomStringTable(nullptr);
+    auto scopeExit = makeScopeExit([&] {
+        Thread::currentSingleton().setCurrentAtomStringTable(previous);
+    });
+
+    if (vm().typeProfiler())
+        vm().typeProfiler()->invalidateTypeSetCache(vm());
+
+    cancelDeferredWorkIfNeeded();
+    reapWeakHandles();
+    reconcileWeakGCHashTables();
+    sweepArrayBuffers();
+    snapshotUnswept();
+    reconcileWeakReferencesAtGCEnd();
+    removeDeadCompilerWorklistEntries();
+    deleteUnmarkedCompiledCode();
+
+    m_codeBlocks->iterateCurrentlyExecuting(
+        [&] (CodeBlock* codeBlock) {
+            writeBarrier(codeBlock);
+        });
+    m_codeBlocks->clearCurrentlyExecutingAndRemoveDeadCodeBlocks(vm());
+}
+
+void Heap::prepareForAllocation()
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    ASSERT(!m_objectSpace.isMarking());
+
+    m_sweeper->startSweeping(*this);
+
+    m_objectSpace.prepareForAllocation();
+    updateAllocationLimits();
+
+    if (m_verifier) [[unlikely]] {
+        m_verifier->trimDeadCells();
+        m_verifier->verify(HeapVerifier::Phase::AfterGC);
+    }
 }
 
 size_t Heap::objectCount()
@@ -1129,6 +1141,9 @@ void Heap::addToRememberedSet(const JSCell* constCell)
 {
     JSCell* cell = const_cast<JSCell*>(constCell);
     ASSERT(cell);
+    // FIXME: Remember shared cells too. But the code below assumes the cell is marked only by this
+    // heap's collections and that no other thread writes to it.
+    ASSERT(cell->heap() == this);
     ASSERT(!Options::useConcurrentJIT() || !isCompilationThread());
     m_barriersExecuted++;
     if (m_mutatorShouldBeFenced) {
@@ -1238,16 +1253,24 @@ void Heap::collect(Synchronousness synchronousness, GCRequest request)
     if (!Options::useGC()) [[unlikely]]
         return;
 
-    switch (synchronousness) {
-    case Async: {
-        collectAsync(request);
+    if constexpr (validateDFGDoesGC)
+        vm().verifyCanGC();
+
+    if (!m_isSafeToCollect)
         return;
-    }
-    case Sync:
-        collectSync(request);
+
+    // A synchronous request needs a collection that starts after it; an asynchronous one doesn't.
+    if (synchronousness == Async && m_collector->isSubsumedByQueuedRequest(request))
         return;
-    }
-    RELEASE_ASSERT_NOT_REACHED();
+
+    ASSERT(vm().currentThreadIsHoldingAPILock());
+    RELEASE_ASSERT(vm().atomStringTable() == Thread::currentSingleton().atomStringTable());
+
+    stopIfNecessary();
+
+    GCRequest::Ticket ticket = m_collector->requestCollection(*this, request);
+    if (synchronousness == Sync)
+        waitForCollection(ticket);
 }
 
 void Heap::collectNow(Synchronousness synchronousness, GCRequest request)
@@ -1286,43 +1309,12 @@ void Heap::collectNow(Synchronousness synchronousness, GCRequest request)
 
 void Heap::collectAsync(GCRequest request)
 {
-    if (!Options::useGC()) [[unlikely]]
-        return;
-
-    if constexpr (validateDFGDoesGC)
-        vm().verifyCanGC();
-
-    if (!m_isSafeToCollect)
-        return;
-
-    bool alreadyRequested = false;
-    {
-        Locker locker { *m_collector->m_threadLock };
-        for (const GCRequest& previousRequest : m_collector->m_requests) {
-            if (request.subsumedBy(previousRequest)) {
-                alreadyRequested = true;
-                break;
-            }
-        }
-    }
-    if (alreadyRequested)
-        return;
-
-    requestCollection(request);
+    collect(Async, request);
 }
 
 void Heap::collectSync(GCRequest request)
 {
-    if (!Options::useGC()) [[unlikely]]
-        return;
-
-    if constexpr (validateDFGDoesGC)
-        vm().verifyCanGC();
-
-    if (!m_isSafeToCollect)
-        return;
-
-    waitForCollection(requestCollection(request));
+    collect(Sync, request);
 }
 
 ALWAYS_INLINE int asInt(CollectorPhase phase)
@@ -1489,37 +1481,11 @@ bool Heap::stopIfNecessarySlow(unsigned oldState)
 NEVER_INLINE void Heap::collectInMutatorThread()
 {
     CollectingScope collectingScope(*this);
-    for (;;) {
-        Collector::RunCurrentPhaseResult result = m_collector->runCurrentPhase(GCConductor::Mutator, nullptr);
-        switch (result) {
-        case Collector::RunCurrentPhaseResult::Finished:
-            return;
-        case Collector::RunCurrentPhaseResult::Continue:
-            break;
-        case Collector::RunCurrentPhaseResult::NeedCurrentThreadState:
-            sanitizeStackForVM(vm());
-            auto lambda = [&] (CurrentThreadState& state) {
-                for (;;) {
-                    Collector::RunCurrentPhaseResult result = m_collector->runCurrentPhase(GCConductor::Mutator, &state);
-                    switch (result) {
-                    case Collector::RunCurrentPhaseResult::Finished:
-                        return;
-                    case Collector::RunCurrentPhaseResult::Continue:
-                        break;
-                    case Collector::RunCurrentPhaseResult::NeedCurrentThreadState:
-                        RELEASE_ASSERT_NOT_REACHED();
-                        break;
-                    }
-                }
-            };
-            callWithCurrentThreadState(lambda);
-            return;
-        }
-    }
+    m_collector->collectInMutatorThread(*this);
 }
 
 template<typename Func>
-void Heap::waitForCollector(const Func& func)
+void Heap::waitForCollector(NOESCAPE const Func& func)
 {
     for (;;) {
         bool done;
@@ -1626,9 +1592,6 @@ bool Heap::relinquishConn(unsigned oldState)
     if (!(oldState & mutatorHasConnBit))
         return false; // Done.
     
-    if (m_collector->m_threadShouldStop)
-        return false;
-    
     if (!m_worldState.compareExchangeWeak(oldState, oldState & ~mutatorHasConnBit))
         return true; // Loop around.
     
@@ -1643,8 +1606,10 @@ void Heap::finishRelinquishingConn()
     sanitizeStackForVM(vm());
     
     Locker locker { *m_collector->m_threadLock };
-    if (!m_collector->m_requests.isEmpty())
+    if (m_collector->hasWorkWithLock()) {
+        RELEASE_ASSERT(!m_collector->m_threadShouldStop);
         m_collector->m_threadCondition->notifyOne(locker);
+    }
     ParkingLot::unparkAll(&m_worldState);
 }
 
@@ -1706,12 +1671,6 @@ void Heap::clearMutatorWaiting()
     m_worldState.exchangeAnd(~mutatorWaitingBit);
 }
 
-void Heap::notifyThreadStopping(const AbstractLocker&)
-{
-    clearMutatorWaiting();
-    ParkingLot::unparkAll(&m_worldState);
-}
-
 void Heap::runCollectionEpilogue()
 {
     MonotonicTime before;
@@ -1735,14 +1694,14 @@ void Heap::runCollectionEpilogue()
         cache->age(m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full ? CollectionScope::Full : CollectionScope::Eden);
 
     if (m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full) {
-        vm().jsonAtomStringCache.clear();
+        vm().jsonCache().clearStrings();
         vm().numericStrings.clearOnGarbageCollection();
         vm().stringReplaceCache.clear();
     }
     vm().keyAtomStringCache.clear();
     if (auto* cache = vm().stringSplitCache())
         cache->clear();
-    vm().jsonAtomStringCache.clearJSStrings();
+    vm().jsonCache().clearJSStrings();
 
     m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope.removeAllMatching([&](const auto& iter) {
         return !m_discoveredAccessedStringsFromGCOwnedDataScope.contains(iter.first);
@@ -1763,21 +1722,27 @@ void Heap::runCollectionEpilogue()
     }
 }
 
-GCRequest::Ticket Heap::requestCollection(GCRequest request)
+void Heap::waitForMembershipChange(Collector::MembershipChange::Ticket ticket)
 {
-    stopIfNecessary();
-    
-    ASSERT(vm().currentThreadIsHoldingAPILock());
-    RELEASE_ASSERT(vm().atomStringTable() == Thread::currentSingleton().atomStringTable());
-
-    return m_collector->requestCollection(request);
+    waitForCollector(
+        [&](const AbstractLocker&) WTF_REQUIRES_LOCK(*m_collector->m_threadLock) -> bool {
+            return m_collector->hasAppliedMembershipChangeWithLock(ticket);
+        });
 }
 
 void Heap::waitForCollection(GCRequest::Ticket ticket)
 {
     waitForCollector(
-        [&] (const AbstractLocker&) -> bool {
-            return m_collector->hasServedTicket(ticket);
+        [&](const AbstractLocker&) WTF_REQUIRES_LOCK(*m_collector->m_threadLock) -> bool {
+            return m_collector->hasServedTicketWithLock(ticket);
+        });
+}
+
+void Heap::waitForAllCollections()
+{
+    waitForCollector(
+        [&](const AbstractLocker&) WTF_REQUIRES_LOCK(*m_collector->m_threadLock) -> bool {
+            return !m_collector->hasPendingGCRequestWithLock();
         });
 }
 
@@ -1791,30 +1756,20 @@ void Heap::sweepEagerlyInEpilogue()
 #endif
 }
 
-void Heap::willStartCollection()
+void Heap::willStartCollection(CollectionScope scope)
 {
+    ASSERT(isInPhase(CollectorPhase::Begin));
     if (m_collectionScope) {
         dataLogLn("Collection scope already set during GC: ", *m_collectionScope);
         RELEASE_ASSERT_NOT_REACHED();
     }
 
-    ++m_gcVersion;
-    if (Options::verifyGC()) [[unlikely]] {
-        m_verifierSlotVisitor = makeUnique<VerifierSlotVisitor>(*this, *m_collector);
-        ASSERT(!m_isMarkingForGCVerifier);
-    }
-
     dataLogIf(Options::logGC(), "=> ");
     
-    if (shouldDoFullCollection()) {
-        m_collectionScope = CollectionScope::Full;
+    m_collectionScope = scope;
+    if (scope == CollectionScope::Full) {
         m_shouldDoFullCollection = false;
         dataLogIf(Options::logGC(), "FullCollection, ");
-    } else {
-        m_collectionScope = CollectionScope::Eden;
-        dataLogIf(Options::logGC(), "EdenCollection, ");
-    }
-    if (m_collectionScope.value() == CollectionScope::Full) {
         m_sizeBeforeLastFullCollect = m_sizeAfterLastCollect + totalBytesAllocatedThisCycle();
         m_extraMemorySize = 0;
         m_deprecatedExtraMemorySize = 0;
@@ -1825,8 +1780,10 @@ void Heap::willStartCollection()
         if (m_fullActivityCallback)
             m_fullActivityCallback->willCollect();
     } else {
-        ASSERT(m_collectionScope && m_collectionScope.value() == CollectionScope::Eden);
+        ASSERT(scope == CollectionScope::Eden);
+        dataLogIf(Options::logGC(), "EdenCollection, ");
         m_sizeBeforeLastEdenCollect = m_sizeAfterLastCollect + totalBytesAllocatedThisCycle();
+        m_bytesAllocatedBeforeLastEdenCollect = totalBytesAllocatedThisCycle();
     }
 
     if (m_edenActivityCallback)
@@ -1834,11 +1791,15 @@ void Heap::willStartCollection()
 
     for (auto* observer : m_observers)
         observer->willGarbageCollect();
-}
 
-void Heap::prepareForMarking()
-{
-    m_objectSpace.prepareForMarking();
+    if (m_verifier) [[unlikely]] {
+        // Verify that live objects from the last GC cycle haven't been corrupted by
+        // mutators before we begin this new GC cycle.
+        m_verifier->verify(HeapVerifier::Phase::BeforeGC);
+
+        m_verifier->startGC();
+        m_verifier->gatherLiveCells(HeapVerifier::Phase::BeforeMarking);
+    }
 }
 
 void Heap::cancelDeferredWorkIfNeeded()
@@ -1873,7 +1834,7 @@ void Heap::reconcileWeakGCHashTables()
 
 void Heap::sweepArrayBuffers()
 {
-    m_arrayBuffers.sweep(vm(), collectionScope().value_or(CollectionScope::Eden));
+    m_arrayBuffers.sweep(vm(), collectionScope().value_or(CollectionScope::Full));
 }
 
 void Heap::snapshotUnswept()
@@ -1984,13 +1945,10 @@ void Heap::updateAllocationLimits()
     dataLogIf(Options::logGC(), "=> ", currentHeapSize / 1024, "kb, ");
 }
 
-void Heap::didFinishCollection(Seconds duration)
+void Heap::didFinishCollection()
 {
+    ASSERT(isInPhase(CollectorPhase::End));
     CollectionScope scope = *m_collectionScope;
-    if (scope == CollectionScope::Full)
-        m_lastFullGCLength = duration;
-    else
-        m_lastEdenGCLength = duration;
 
 #if ENABLE(RESOURCE_USAGE)
     ASSERT(externalMemorySize() <= extraMemorySize());
@@ -2010,6 +1968,32 @@ void Heap::didFinishCollection(Seconds duration)
 
     for (auto* observer : m_observers)
         observer->didGarbageCollect(scope);
+
+    if (HeapInternal::verbose) {
+        dataLogLn(HeapInternal::verbose, "Heap state after GC:");
+        m_objectSpace.dumpBits();
+    }
+}
+
+void Heap::recordCollectionTime(Seconds duration)
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    ASSERT(!m_collectionScope);
+
+    if (m_lastCollectionScope == CollectionScope::Full)
+        m_lastFullGCLength = duration;
+    else
+        m_lastEdenGCLength = duration;
+
+    MonotonicTime now = MonotonicTime::now();
+    if (m_maxEdenSizeForRateLimiting) {
+        m_gcRateLimitingValue = projectedGCRateLimitingValue(now);
+        m_gcRateLimitingValue += 1.0;
+    }
+    m_lastGCEndTime = now;
+    m_totalGCTime += now - m_currentGCStartTime;
+    if (m_lastCollectionScope == CollectionScope::Full)
+        m_lastFullGCEndTime = m_lastGCEndTime;
 }
 
 GCActivityCallback* Heap::fullActivityCallback()
@@ -2049,11 +2033,14 @@ void Heap::didAllocate(size_t bytes)
 
 void Heap::addFinalizer(JSCell* cell, CFinalizer finalizer)
 {
+    // The handle lives in the cell's heap but names this heap's owner, which has to outlive it.
+    ASSERT(cell->heap() == this);
     WeakSet::allocate(cell, &m_cFinalizerOwner, std::bit_cast<void*>(finalizer)); // Balanced by CFinalizerOwner::finalize().
 }
 
 void Heap::addFinalizer(JSCell* cell, LambdaFinalizer function)
 {
+    ASSERT(cell->heap() == this);
     WeakSet::allocate(cell, &m_lambdaFinalizerOwner, function.leak()); // Balanced by LambdaFinalizerOwner::finalize().
 }
 
@@ -2105,25 +2092,10 @@ void Heap::disableStopIfNecessaryTimer()
     m_stopIfNecessaryTimer->disable();
 }
 
-bool Heap::useGenerationalGC()
-{
-    return Options::useGenerationalGC() && !VM::isInMiniMode();
-}
-
 bool Heap::shouldSweepSynchronously()
 {
     // updateAllocationLimits() updates info that overCriticalMemoryThreshold() needs.
     return overCriticalMemoryThreshold() || Options::sweepSynchronously() || VM::isInMiniMode();
-}
-
-bool Heap::shouldDoFullCollection()
-{
-    if (!useGenerationalGC())
-        return true;
-
-    if (!m_collector->m_currentRequest.scope)
-        return m_shouldDoFullCollection || overCriticalMemoryThreshold();
-    return *m_collector->m_currentRequest.scope == CollectionScope::Full;
 }
 
 void Heap::addDetachedWeakBlock(WeakBlock* block)
@@ -2187,7 +2159,7 @@ void Heap::destroyAllPooledWeakBlocks()
     m_pooledWeakBlockCount = 0;
 }
 
-void Heap::forEachCodeBlockImpl(const ScopedLambda<void(CodeBlock*)>& func)
+void Heap::forEachCodeBlockImpl(NOESCAPE const ScopedLambda<void(CodeBlock*)>& func)
 {
     // We don't know the full set of CodeBlocks until compilation has terminated.
     completeAllJITPlans();
@@ -2195,7 +2167,7 @@ void Heap::forEachCodeBlockImpl(const ScopedLambda<void(CodeBlock*)>& func)
     return m_codeBlocks->iterate(func);
 }
 
-void Heap::forEachCodeBlockIgnoringJITPlansImpl(const AbstractLocker& locker, const ScopedLambda<void(CodeBlock*)>& func)
+void Heap::forEachCodeBlockIgnoringJITPlansImpl(const AbstractLocker& locker, NOESCAPE const ScopedLambda<void(CodeBlock*)>& func)
 {
     return m_codeBlocks->iterate(locker, func);
 }
@@ -2282,7 +2254,7 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
         bool logRequestGC = false;
         // Don't log if we already have a request pending or if we have to come back later so we don't flood dataFile.
         if (Options::logGC()) [[unlikely]]
-            logRequestGC = m_collector->m_requests.isEmpty() && !deferralContext && !isDeferred();
+            logRequestGC = !m_collector->hasPendingGCRequest() && !deferralContext && !isDeferred();
         if (Options::gcMaxHeapSize()) [[unlikely]] {
             size_t bytesAllocatedThisCycle = totalBytesAllocatedThisCycle();
             if (bytesAllocatedThisCycle <= Options::gcMaxHeapSize())
@@ -2405,9 +2377,11 @@ constexpr bool samplingProfilerSupported = false;
 static UNUSED_FUNCTION void visitSamplingProfiler(VM&, AbstractSlotVisitor&) { };
 #endif
 
-void Heap::addCoreConstraints()
+Vector<std::unique_ptr<MarkingConstraint>> Heap::createCoreConstraints()
 {
-    m_constraintSet->add(
+    Vector<std::unique_ptr<MarkingConstraint>> constraints;
+
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Cs"_s, "Conservative Scan"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this, lastVersion = static_cast<uint64_t>(0)] (auto& visitor) mutable {
             bool shouldNotProduceWork = lastVersion == m_collector->m_phaseVersion;
@@ -2417,7 +2391,7 @@ void Heap::addCoreConstraints()
             // as the real GC. Otherwise, the GC verifier may report false negatives due to
             // variations in stack values. For this same reason, we will skip this constraint
             // when we're running the GC verification in the End phase.
-            if (shouldNotProduceWork || m_isMarkingForGCVerifier)
+            if (shouldNotProduceWork || visitor.collector().isMarkingForGCVerifier())
                 return;
             
             TimingScope preConvergenceTimingScope(*this, "Constraint: conservative scan"_s);
@@ -2438,26 +2412,28 @@ void Heap::addCoreConstraints()
 
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::ConservativeScan);
                 visitor.append(conservativeRoots);
-                if (m_verifierSlotVisitor) [[unlikely]] {
-                    SetRootMarkReasonScope rootScope(*m_verifierSlotVisitor, RootMarkReason::ConservativeScan);
-                    m_verifierSlotVisitor->append(conservativeRoots);
+                if (auto* verifierVisitor = m_collector->m_verifierSlotVisitor.get()) [[unlikely]] {
+                    SetRootMarkReasonScope rootScope(*verifierVisitor, RootMarkReason::ConservativeScan);
+                    verifierVisitor->append(conservativeRoots);
                 }
             }
 
             // JITStubRoutines must be visited after scanning ConservativeRoots since JITStubRoutines depend on the hook executed during gathering ConservativeRoots.
             SetRootMarkReasonScope rootScope(visitor, RootMarkReason::JITStubRoutines);
             m_jitStubRoutines->traceMarkedStubRoutines(visitor);
-            if (m_verifierSlotVisitor) [[unlikely]] {
-                // It's important to cast m_verifierSlotVisitor to an AbstractSlotVisitor here
+            if (auto* verifierVisitor = m_collector->m_verifierSlotVisitor.get()) [[unlikely]] {
+                // It's important to cast the verifier's visitor to an AbstractSlotVisitor here
                 // so that we'll call the AbstractSlotVisitor version of traceMarkedStubRoutines().
-                AbstractSlotVisitor& visitor = *m_verifierSlotVisitor;
+                AbstractSlotVisitor& visitor = *verifierVisitor;
                 m_jitStubRoutines->traceMarkedStubRoutines(visitor);
             }
             lastVersion = m_collector->m_phaseVersion;
         })),
-        ConstraintVolatility::GreyedByExecution);
-    
-    m_constraintSet->add(
+        ConstraintVolatility::GreyedByExecution,
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Sequential));
+
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Msr"_s, "Misc Small Roots"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             VM& vm = this->vm();
@@ -2497,18 +2473,22 @@ void Heap::addCoreConstraints()
                 visitor.appendUnbarriered(vm.m_terminationException);
             }
         })),
-        ConstraintVolatility::GreyedByExecution);
-    
-    m_constraintSet->add(
+        ConstraintVolatility::GreyedByExecution,
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Sequential));
+
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Sh"_s, "Strong Handles"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             SetRootMarkReasonScope rootScope(visitor, RootMarkReason::StrongHandles);
             m_strongSet.visitAggregate(visitor);
             vm().visitAggregate(visitor);
         })),
-        ConstraintVolatility::GreyedByExecution);
-    
-    m_constraintSet->add(
+        ConstraintVolatility::GreyedByExecution,
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Sequential));
+
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "D"_s, "Debugger"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             SetRootMarkReasonScope rootScope(visitor, RootMarkReason::Debugger);
@@ -2523,9 +2503,11 @@ void Heap::addCoreConstraints()
             if (auto* shadowChicken = vm.shadowChicken())
                 shadowChicken->visitChildren(visitor);
         })),
-        ConstraintVolatility::GreyedByExecution);
-    
-    m_constraintSet->add(
+        ConstraintVolatility::GreyedByExecution,
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Sequential));
+
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Ws"_s, "Weak Sets"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             SetRootMarkReasonScope rootScope(visitor, RootMarkReason::WeakSets);
@@ -2533,13 +2515,12 @@ void Heap::addCoreConstraints()
             visitor.addParallelConstraintTask(WTF::move(task));
         })),
         ConstraintVolatility::GreyedByMarking,
-        ConstraintParallelism::Parallel);
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Parallel));
     
-    m_constraintSet->add(
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "O"_s, "Output"_s,
-        MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([] (auto& visitor) {
-            JSC::Heap* heap = visitor.heap();
-
+        MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             auto callOutputConstraint = [] (auto& visitor, HeapCell* heapCell, HeapCell::Kind) {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::Output);
                 JSCell* cell = static_cast<JSCell*>(heapCell);
@@ -2553,23 +2534,24 @@ void Heap::addCoreConstraints()
 
             {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::ExecutableToCodeBlockEdges);
-                add(heap->functionExecutableSpaceAndSet.outputConstraintsSet);
-                add(heap->programExecutableSpaceAndSet.outputConstraintsSet);
-                if (heap->m_evalExecutableSpace)
-                    add(heap->m_evalExecutableSpace->outputConstraintsSet);
-                if (heap->m_moduleProgramExecutableSpace)
-                    add(heap->m_moduleProgramExecutableSpace->outputConstraintsSet);
+                add(functionExecutableSpaceAndSet.outputConstraintsSet);
+                add(programExecutableSpaceAndSet.outputConstraintsSet);
+                if (m_evalExecutableSpace)
+                    add(m_evalExecutableSpace->outputConstraintsSet);
+                if (m_moduleProgramExecutableSpace)
+                    add(m_moduleProgramExecutableSpace->outputConstraintsSet);
             }
-            if (heap->m_weakMapSpace) {
+            if (m_weakMapSpace) {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::WeakMapSpace);
-                add(*heap->m_weakMapSpace);
+                add(*m_weakMapSpace);
             }
         })),
         ConstraintVolatility::GreyedByMarking,
-        ConstraintParallelism::Parallel);
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Parallel));
 
 #if ENABLE(WEBASSEMBLY)
-    m_constraintSet->add(
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Pbc"_s, "Pinball Completions"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             // FIXME: Unlike the "Cs" constraint which is skipped during verification
@@ -2577,7 +2559,7 @@ void Heap::addCoreConstraints()
             // ConservativeRoots::genericAddPointer asserts isMarking(), which doesn't
             // hold during verification. This constraint could run always otherwise, but
             // that would require rethinking the assumptions in ConservativeRoots.
-            if (m_isMarkingForGCVerifier)
+            if (visitor.collector().isMarkingForGCVerifier())
                 return;
             IsoSubspace* subspace = m_pinballCompletionSpace.get();
             if (!subspace)
@@ -2596,17 +2578,19 @@ void Heap::addCoreConstraints()
             visitor.append(conservativeRoots);
         })),
         ConstraintVolatility::GreyedByMarking,
-        ConstraintConcurrency::Sequential);
+        ConstraintConcurrency::Sequential,
+        ConstraintParallelism::Sequential));
 #endif
 
 #if ENABLE(JIT)
     if (Options::useJIT()) {
-        m_constraintSet->add(
+        constraints.append(makeUnique<SimpleMarkingConstraint>(
             "Jw"_s, "JIT Worklist"_s,
             MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
                 SetRootMarkReasonScope rootScope(visitor, RootMarkReason::JITWorkList);
 
-                JITWorklist::ensureGlobalWorklist().visitWeakReferences(visitor);
+                ASSERT_IMPLIES(vm().numberOfActiveJITPlans(), m_collector->m_isCompilerThreadsSuspended);
+                JITWorklist::ensureGlobalWorklist().visitWeakReferences(vm(), visitor);
                 
                 // FIXME: This is almost certainly unnecessary.
                 // https://bugs.webkit.org/show_bug.cgi?id=166829
@@ -2619,11 +2603,13 @@ void Heap::addCoreConstraints()
                 if (Options::logGC() == GCLogging::Verbose)
                     dataLog("JIT Worklists:\n", visitor);
             })),
-            ConstraintVolatility::GreyedByMarking);
+            ConstraintVolatility::GreyedByMarking,
+            ConstraintConcurrency::Concurrent,
+            ConstraintParallelism::Sequential));
     }
 #endif
     
-    m_constraintSet->add(
+    constraints.append(makeUnique<SimpleMarkingConstraint>(
         "Cb"_s, "CodeBlocks"_s,
         MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
             SetRootMarkReasonScope rootScope(visitor, RootMarkReason::CodeBlocks);
@@ -2635,15 +2621,22 @@ void Heap::addCoreConstraints()
                         visitor.visitAsConstraint(codeBlock);
                 });
         })),
-        ConstraintVolatility::SeldomGreyed);
+        ConstraintVolatility::SeldomGreyed,
+        ConstraintConcurrency::Concurrent,
+        ConstraintParallelism::Sequential));
     
-    m_constraintSet->add(makeUnique<MarkStackMergingConstraint>(*this));
+    constraints.append(makeUnique<MarkStackMergingConstraint>(*this));
+
+    return constraints;
 }
 
 void Heap::addMarkingConstraint(std::unique_ptr<MarkingConstraint> constraint)
 {
-    PreventCollectionScope preventCollectionScope(*this);
-    m_constraintSet->add(WTF::move(constraint));
+    // With collection off, the heap never joins and no constraint would run.
+    if (!Options::useGC()) [[unlikely]]
+        return;
+    ASSERT(m_isSafeToCollect);
+    waitForMembershipChange(m_collector->requestMembershipChange({ Collector::MembershipChange::Kind::AddConstraint, this, WTF::move(constraint) }));
 }
 
 void Heap::notifyIsSafeToCollect()
@@ -2657,7 +2650,8 @@ void Heap::notifyIsSafeToCollect()
         dataLog("[GC<", RawPointer(this), ">: starting ");
     }
     
-    addCoreConstraints();
+    // Applying the join also adds this heap's core constraints.
+    m_collector->requestMembershipChange({ Collector::MembershipChange::Kind::Join, this, nullptr });
     
     m_isSafeToCollect = true;
     
@@ -2678,11 +2672,7 @@ void Heap::preventCollection() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     // see PreventCollectionScope.
     m_collector->m_collectContinuouslyLock.lock();
     
-    // Wait for all collections to finish.
-    waitForCollector(
-        [&] (const AbstractLocker&) -> bool {
-            return !m_collector->hasOutstandingRequest();
-        });
+    waitForAllCollections();
     
     // Now a collection can only start if this thread starts it.
     RELEASE_ASSERT(!m_collectionScope);
@@ -2742,75 +2732,6 @@ void Heap::addGCCompletionCallback(const GCCompletionCallback& callback)
 void Heap::removeGCCompletionCallback(const GCCompletionCallback& callback)
 {
     m_gcCompletionCallbacks.removeFirst(callback);
-}
-
-void Heap::verifierMark()
-{
-    RELEASE_ASSERT(!m_isMarkingForGCVerifier);
-
-    SetForScope isMarkingForGCVerifierScope(m_isMarkingForGCVerifier, true);
-    VerifierSlotVisitor& visitor = *m_verifierSlotVisitor;
-    do {
-        while (!visitor.isEmpty())
-            visitor.drain();
-        m_constraintSet->executeAllSynchronously(visitor);
-        visitor.executeConstraintTasks();
-    } while (!visitor.isEmpty());
-
-    visitor.setDoneMarking();
-}
-
-void Heap::dumpVerifierMarkerData(HeapCell* cell)
-{
-    if (!Options::verifyGC())
-        return;
-
-    if (!Heap::isMarked(cell)) {
-        dataLogLn("\n" "GC Verifier: cell ", RawPointer(cell), " was not marked by SlotVisitor");
-        return;
-    }
-
-    // Use VerifierSlotVisitorScope to keep it live.
-    RELEASE_ASSERT(m_verifierSlotVisitor && !m_isMarkingForGCVerifier);
-    VerifierSlotVisitor& visitor = *m_verifierSlotVisitor;
-    RELEASE_ASSERT(visitor.doneMarking());
-
-    if (!visitor.isMarked(cell)) {
-        dataLogLn("\n" "GC Verifier: ERROR cell ", RawPointer(cell), " was not marked by VerifierSlotVisitor");
-        return;
-    }
-
-    dataLogLn("\n" "GC Verifier: Found marked cell ", RawPointer(cell), " with MarkerData:");
-    visitor.dumpMarkerData(cell);
-}
-
-void Heap::verifyGC()
-{
-    RELEASE_ASSERT(m_verifierSlotVisitor);
-    verifierMark();
-    VerifierSlotVisitor& visitor = *m_verifierSlotVisitor;
-    RELEASE_ASSERT(visitor.doneMarking() && !m_isMarkingForGCVerifier);
-
-    visitor.forEachLiveCell([&] (HeapCell* cell) {
-        if (Heap::isMarked(cell))
-            return;
-
-        dataLogLn("\n" "GC Verifier: ERROR cell ", RawPointer(cell), " was not marked");
-        if (Options::verboseVerifyGC()) [[unlikely]]
-            visitor.dumpMarkerData(cell);
-        RELEASE_ASSERT(this->isMarked(cell));
-    });
-
-    if (!m_keepVerifierSlotVisitor)
-        clearVerifierSlotVisitor();
-}
-
-void Heap::setKeepVerifierSlotVisitor() { m_keepVerifierSlotVisitor = true; }
-
-void Heap::clearVerifierSlotVisitor()
-{
-    m_verifierSlotVisitor = nullptr;
-    m_keepVerifierSlotVisitor = false;
 }
 
 void Heap::scheduleOpportunisticFullCollection()
@@ -2878,21 +2799,21 @@ bool Heap::isWasmCalleePendingDestruction(Wasm::Callee& callee)
     return m_wasmCalleesPendingDestruction.contains(callee);
 }
 
-bool Heap::didDiscoverPendingWasmCallee(Wasm::Callee* callee)
+bool Heap::markWasmCalleeIfPending(Wasm::Callee* callee)
 {
     if (!m_wasmCalleesPendingDestructionSnapshot.contains(callee))
         return false;
-    m_wasmCalleesDiscoveredDuringGC.add(callee);
+    m_wasmCalleesFoundOnStacks.add(callee);
     return true;
 }
 
-void Heap::prepareWasmCalleeCleanup()
+void Heap::beginMarkingWasmCallees()
 {
     ASSERT(worldIsStopped());
     ASSERT(m_wasmCalleesPendingDestructionSnapshot.isEmpty());
-    ASSERT(m_wasmCalleesDiscoveredDuringGC.isEmpty());
+    ASSERT(m_wasmCalleesFoundOnStacks.isEmpty());
     m_wasmCalleesPendingDestructionSnapshot.clear();
-    m_wasmCalleesDiscoveredDuringGC.clear();
+    m_wasmCalleesFoundOnStacks.clear();
     m_boxedWasmCalleeFilter = TinyBloomFilter<uintptr_t>();
 
     Locker locker(m_wasmCalleesPendingDestructionLock);
@@ -2902,7 +2823,7 @@ void Heap::prepareWasmCalleeCleanup()
     }
 }
 
-void Heap::finalizeWasmCalleeCleanup()
+void Heap::releaseUnmarkedWasmCallees()
 {
     ASSERT(worldIsStopped());
     if (m_wasmCalleesPendingDestructionSnapshot.isEmpty())
@@ -2914,7 +2835,7 @@ void Heap::finalizeWasmCalleeCleanup()
         Locker locker(m_wasmCalleesPendingDestructionLock);
         wasmCalleesToRelease = m_wasmCalleesPendingDestruction.takeIf<8>([&](const auto& callee) {
             return m_wasmCalleesPendingDestructionSnapshot.contains(callee.ptr())
-                && !m_wasmCalleesDiscoveredDuringGC.contains(callee.ptr());
+                && !m_wasmCalleesFoundOnStacks.contains(callee.ptr());
         });
     }
 
@@ -2927,7 +2848,7 @@ void Heap::finalizeWasmCalleeCleanup()
         WTF::crossModifyingCodeFence();
 
     m_wasmCalleesPendingDestructionSnapshot.clear();
-    m_wasmCalleesDiscoveredDuringGC.clear();
+    m_wasmCalleesFoundOnStacks.clear();
 }
 
 #endif

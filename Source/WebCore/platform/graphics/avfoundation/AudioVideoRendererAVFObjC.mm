@@ -126,7 +126,7 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
     // addPeriodicTimeObserverForInterval: throws an exception if you pass a non-numeric CMTime, so just use
     // an arbitrarily large time value of once an hour:
     __block ThreadSafeWeakPtr weakThis { *this };
-    m_timeJumpedObserver = [m_synchronizer addPeriodicTimeObserverForInterval:PAL::toCMTime(MediaTime::createWithDouble(3600)) queue:mainDispatchQueueSingleton() usingBlock:^(CMTime time) {
+    lazyInitialize(m_timeJumpedObserver, retainPtr([m_synchronizer addPeriodicTimeObserverForInterval:PAL::toCMTime(MediaTime::createWithDouble(3600)) queue:mainDispatchQueueSingleton() usingBlock:^(CMTime time) {
 #if LOG_DISABLED
         UNUSED_PARAM(time);
 #endif
@@ -139,7 +139,7 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
 
         m_isSynchronizerSeeking = false;
         maybeCompleteSeek();
-    }];
+    }]));
     stall();
 }
 
@@ -714,7 +714,7 @@ Ref<MediaTimePromise> AudioVideoRendererAVFObjC::prepareToSeek(const MediaTime& 
         // In cases where the destination seek time matches too closely the synchronizer's existing time
         // no time jumped notification will be issued. In this case, just notify the MediaPlayer that
         // the seek completed successfully.
-        setTimeFloor(synchronizerTime);
+        setTimeFloor(seekTime);
         m_seekState = SeekCompleted;
 
         auto shouldBePlaying = this->shouldBePlaying();
@@ -725,7 +725,7 @@ Ref<MediaTimePromise> AudioVideoRendererAVFObjC::prepareToSeek(const MediaTime& 
         else
             updateSharedTimebase();
 
-        return MediaTimePromise::createAndResolve(synchronizerTime);
+        return MediaTimePromise::createAndResolve(seekTime);
     }
 
     setHasAvailableVideoFrame(false);
@@ -734,6 +734,7 @@ Ref<MediaTimePromise> AudioVideoRendererAVFObjC::prepareToSeek(const MediaTime& 
         properties.hasAudibleSample = false;
         properties.readyToRequestAudioData = false;
     }
+    removeBlockedSamples();
 
     setTimeFloor(seekTime);
     m_isSynchronizerSeeking = isSynchronizerSeeking;
@@ -1090,7 +1091,7 @@ RetainPtr<AVSampleBufferAudioRenderer> AudioVideoRendererAVFObjC::audioRendererF
     return itRenderer->value;
 }
 
-void AudioVideoRendererAVFObjC::applyOnAudioRenderers(NOESCAPE Function<void(AVSampleBufferAudioRenderer *)>&& function) const
+void AudioVideoRendererAVFObjC::applyOnAudioRenderers(NOESCAPE const Function<void(AVSampleBufferAudioRenderer *)>& function) const
 {
     for (auto& pair : m_audioRenderers) {
         RetainPtr renderer = pair.value;
@@ -2078,6 +2079,9 @@ void AudioVideoRendererAVFObjC::flushVideo()
     m_readyToRequestVideoData = true;
     if (RefPtr videoRenderer = m_videoRenderer)
         videoRenderer->flush();
+    removeBlockedSamples([&](auto trackId) {
+        return typeOf(trackId) == TrackType::Video;
+    });
     flushPendingSizeChanges();
     m_keyframeNeeded = true;
 }
@@ -2093,6 +2097,9 @@ void AudioVideoRendererAVFObjC::flushAudio()
     applyOnAudioRenderers([&](auto *renderer) {
         [renderer flush];
     });
+    removeBlockedSamples([&](auto trackId) {
+        return typeOf(trackId) == TrackType::Audio;
+    });
 }
 
 void AudioVideoRendererAVFObjC::flushAudioTrack(TrackIdentifier trackId)
@@ -2103,7 +2110,25 @@ void AudioVideoRendererAVFObjC::flushAudioTrack(TrackIdentifier trackId)
         return;
     audioTrackPropertiesFor(trackId).readyToRequestAudioData = true;
     [audioRenderer flush];
+    removeBlockedSamples([&](auto blockedTrackId) {
+        return blockedTrackId == trackId;
+    });
     setHasAvailableAudioSample(trackId, false);
+}
+
+void AudioVideoRendererAVFObjC::removeBlockedSamples(NOESCAPE const Function<bool(TrackIdentifier)>& predicate)
+{
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (!predicate) {
+        m_blockedSamples.clear();
+        return;
+    }
+    m_blockedSamples.removeAllMatching([&](auto& blockedSample) {
+        return predicate(blockedSample.first);
+    });
+#else
+    UNUSED_PARAM(predicate);
+#endif
 }
 
 void AudioVideoRendererAVFObjC::notifyRequiresFlushToResume()

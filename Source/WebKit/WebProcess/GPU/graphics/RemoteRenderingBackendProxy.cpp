@@ -410,13 +410,20 @@ RefPtr<RemoteImageBufferProxy> RemoteRenderingBackendProxy::takeTransferredBuffe
     auto resultIdentifier = result->renderingResourceIdentifier();
     auto addResult = m_imageBuffers.add(resultIdentifier, result);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
-    send(Messages::RemoteRenderingBackend::TakeTransferredBuffer(handle.identifier, resultIdentifier, result->contextIdentifier()));
+    send(Messages::RemoteRenderingBackend::TakeTransferredBuffer(handle, resultIdentifier, result->contextIdentifier()));
     return result;
 }
 
-UniqueRef<RemoteSnapshotRecorderProxy> RemoteRenderingBackendProxy::createSnapshotRecorder(const FloatRect& initialClip, RemoteSnapshotIdentifier snapshotIdentifier)
+void RemoteRenderingBackendProxy::createSnapshot(RemoteSnapshotIdentifier snapshotIdentifier, WebCore::FrameIdentifier rootFrameIdentifier, const WebCore::FloatSize& size)
 {
-    auto recorder = makeUniqueRef<RemoteSnapshotRecorderProxy>(initialClip, *this);
+    // Waited for, so that the snapshot exists before any frame hosted elsewhere is asked to record
+    // into it.
+    sendSync(Messages::RemoteRenderingBackend::CreateSnapshot(snapshotIdentifier, rootFrameIdentifier, size));
+}
+
+UniqueRef<RemoteSnapshotRecorderProxy> RemoteRenderingBackendProxy::createSnapshotRecorder(const FloatRect& initialClip, RemoteSnapshotIdentifier snapshotIdentifier, RenderingMode renderingMode)
+{
+    auto recorder = makeUniqueRef<RemoteSnapshotRecorderProxy>(initialClip, renderingMode, *this);
     send(Messages::RemoteRenderingBackend::CreateSnapshotRecorder(recorder->identifier(), snapshotIdentifier));
     return recorder;
 }
@@ -529,8 +536,7 @@ void RemoteRenderingBackendProxy::releaseFont(RenderingResourceIdentifier identi
 
 void RemoteRenderingBackendProxy::cacheFontCustomPlatformData(Ref<const FontCustomPlatformData>&& customPlatformData)
 {
-    Ref<FontCustomPlatformData> data = adoptRef(const_cast<FontCustomPlatformData&>(customPlatformData.leakRef()));
-    send(Messages::RemoteRenderingBackend::CacheFontCustomPlatformData(data->serializedData()));
+    send(Messages::RemoteRenderingBackend::CacheFontCustomPlatformData(customPlatformData->serializedData()));
 }
 
 void RemoteRenderingBackendProxy::releaseFontCustomPlatformData(RenderingResourceIdentifier identifier)
@@ -602,18 +608,20 @@ void RemoteRenderingBackendProxy::endPreparingImageBufferSetsForDisplay()
     bool needsSync = false;
 
     auto inputData = WTF::map(m_bufferSetsToPrepare, [&](auto& perLayerData) {
+        Ref bufferSet = perLayerData.bufferSet;
+
         // If the front buffer might be volatile, then we have to wait for the callback
         // to find out we were able to copy pixels from it or if it had been discarded.
-        if (perLayerData.bufferSet->requestedVolatility().contains(BufferInSetType::Front))
+        if (bufferSet->requestedVolatility().contains(BufferInSetType::Front))
             needsSync = true;
 
         // Using the  will mark buffers as non-volatile and
         // we don't know exactly which. Assume they all are non-volatile.
-        perLayerData.bufferSet->clearVolatility();
-        perLayerData.bufferSet->willPrepareForDisplay();
+        bufferSet->clearVolatility();
+        bufferSet->willPrepareForDisplay();
 
         return ImageBufferSetPrepareBufferForDisplayInputData {
-            perLayerData.bufferSet->identifier(),
+            bufferSet->identifier(),
             perLayerData.dirtyRegion,
             perLayerData.supportsPartialRepaint,
             perLayerData.hasEmptyDirtyRegion,

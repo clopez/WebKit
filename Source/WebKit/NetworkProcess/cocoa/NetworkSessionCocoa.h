@@ -141,7 +141,7 @@ public:
     bool deviceManagementRestrictionsEnabled() const { return m_deviceManagementRestrictionsEnabled; }
     bool allLoadsBlockedByDeviceManagementRestrictionsForTesting() const { return m_allLoadsBlockedByDeviceManagementRestrictionsForTesting; }
 
-    DMFWebsitePolicyMonitor *NODELETE deviceManagementPolicyMonitor();
+    DMFWebsitePolicyMonitor *LEGACY_NODELETE deviceManagementPolicyMonitor();
 
     CFDictionaryRef proxyConfiguration() const { return m_proxyConfiguration.get(); }
 
@@ -223,11 +223,11 @@ private:
     String m_boundInterfaceIdentifier;
     String m_sourceApplicationBundleIdentifier;
     String m_sourceApplicationSecondaryIdentifier;
-    RetainPtr<CFDictionaryRef> m_proxyConfiguration;
+    const RetainPtr<CFDictionaryRef> m_proxyConfiguration;
 #if HAVE(NW_PROXY_CONFIG)
     Vector<RetainPtr<nw_proxy_config_t>> m_nwProxyConfigs;
 #endif
-    RetainPtr<DMFWebsitePolicyMonitor> m_deviceManagementPolicyMonitor;
+    const RetainPtr<DMFWebsitePolicyMonitor> m_deviceManagementPolicyMonitor;
     bool m_deviceManagementRestrictionsEnabled { false };
     bool m_allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
     bool m_shouldLogCookieInformation { false };

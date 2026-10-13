@@ -49,7 +49,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WindowEventLoop);
 
-static MemoryCompactRobinHoodHashMap<String, CheckedPtr<WindowEventLoop>>& NODELETE windowEventLoopMap()
+static MemoryCompactRobinHoodHashMap<String, CheckedPtr<WindowEventLoop>>& LEGACY_NODELETE windowEventLoopMap()
 {
     RELEASE_ASSERT(isMainThread());
     static NeverDestroyed<MemoryCompactRobinHoodHashMap<String, CheckedPtr<WindowEventLoop>>> map;
@@ -122,7 +122,7 @@ bool WindowEventLoop::isContextThread() const
 MicrotaskQueue& WindowEventLoop::microtaskQueue()
 {
     if (!m_microtaskQueue)
-        m_microtaskQueue = MicrotaskQueue::create(commonVM(), *this);
+        lazyInitialize(m_microtaskQueue, MicrotaskQueue::create(commonVM(), *this));
     return *m_microtaskQueue;
 }
 
@@ -273,7 +273,7 @@ void WindowEventLoop::removeMutationObserversForContext(ScriptExecutionContext& 
 
     auto disconnectMatching = [&](HashSet<Ref<MutationObserver>>& observers) {
         observers.removeIf([&](auto& observer) {
-            auto* observerContext = observer->callback().scriptExecutionContext();
+            RefPtr observerContext = observer->callback().scriptExecutionContext();
             if (observerContext && observerContext != &context)
                 return false;
             observer->disconnect();
@@ -307,7 +307,7 @@ CustomElementQueue& WindowEventLoop::backupElementQueue()
         });
     }
     if (!m_customElementQueue)
-        m_customElementQueue = makeUnique<CustomElementQueue>();
+        lazyInitialize(m_customElementQueue, makeUnique<CustomElementQueue>());
     return *m_customElementQueue;
 }
 

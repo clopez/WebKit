@@ -119,7 +119,7 @@ public:
     void closeSocket(WebCore::LibWebRTCSocketIdentifier);
 
 #if PLATFORM(COCOA)
-    bool NODELETE webRTCInterfaceMonitoringViaNWEnabled() const;
+    bool LEGACY_NODELETE webRTCInterfaceMonitoringViaNWEnabled() const;
     const std::optional<audit_token_t>& sourceApplicationAuditToken() const LIFETIME_BOUND { return m_sourceApplicationAuditToken; }
     const UTF8CString& applicationBundleIdentifier() const LIFETIME_BOUND { return m_applicationBundleIdentifier; }
 #endif
@@ -157,13 +157,13 @@ private:
 
     void signalSocketIsClosed(WebCore::LibWebRTCSocketIdentifier);
 
-    void NODELETE assertIsRTCNetworkThread();
+    void LEGACY_NODELETE assertIsRTCNetworkThread();
 
     static constexpr size_t maxSockets { 256 };
 
     StdMap<WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<Socket>, SocketComparator> m_sockets;
     WeakPtr<NetworkConnectionToWebProcess> m_connection;
-    Ref<IPC::Connection> m_ipcConnection;
+    const Ref<IPC::Connection> m_ipcConnection;
     bool m_isStarted { true };
 
     NetworkRTCMonitor m_rtcMonitor;
@@ -178,7 +178,7 @@ private:
 #endif
 
 #if !PLATFORM(COCOA)
-    UniqueRef<webrtc::BasicPacketSocketFactory> m_packetSocketFactory;
+    const UniqueRef<webrtc::BasicPacketSocketFactory> m_packetSocketFactory;
 #endif
 };
 

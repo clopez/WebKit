@@ -47,6 +47,10 @@
 #include <WebCore/VisibilityChangeClient.h>
 #include <wtf/UniqueRef.h>
 
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE) || ENABLE(CONNECTED_VOLUMETRIC_SCENE)
+#include <WebCore/ModelPresentationMode.h>
+#endif
+
 #if ENABLE(MODEL_ELEMENT_STAGE_MODE)
 #include <WebCore/StageModeOperations.h>
 #endif
@@ -86,6 +90,9 @@ class HTMLModelElementEventListener;
 class HTMLModelElement final : public HTMLElement, private CachedRawResourceClient, public ModelPlayerClient, public ActiveDOMObject, public VisibilityChangeClient {
     WTF_MAKE_TZONE_ALLOCATED(HTMLModelElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLModelElement);
+#if ENABLE(CONNECTED_VOLUMETRIC_SCENE)
+    friend class ElementVolumetricScene;
+#endif
 public:
     USING_CAN_MAKE_WEAKPTR(HTMLElement);
 
@@ -120,7 +127,7 @@ public:
     using ReadyPromise = DOMPromiseProxyWithResolveCallback<IDLInterface<HTMLModelElement>>;
     ReadyPromise& ready() { return m_readyPromise.get(); }
 
-    WEBCORE_EXPORT RefPtr<Model> NODELETE model() const;
+    WEBCORE_EXPORT RefPtr<Model> LEGACY_NODELETE model() const;
 
 #if ENABLE(MODEL_ELEMENT_ENTITY_TRANSFORM)
     const DOMMatrixReadOnly& entityTransform() const;
@@ -174,7 +181,7 @@ public:
     WEBCORE_EXPORT bool supportsDragging() const;
     bool isDraggableIgnoringAttributes() const final;
 
-    WEBCORE_EXPORT bool NODELETE isInteractive() const;
+    WEBCORE_EXPORT bool LEGACY_NODELETE isInteractive() const;
 
 #if ENABLE(MODEL_ELEMENT_ANIMATIONS_CONTROL)
     double playbackRate() const { return m_playbackRate; }
@@ -213,11 +220,16 @@ public:
     void updateAnchorFromCSS();
 #endif
 
+#if ENABLE(CONNECTED_VOLUMETRIC_SCENE)
+    RefPtr<ModelPlayer> liveModelPlayer() const;
+    bool isPresentedInVolumetricScene() const { return m_presentationMode == ModelPresentationMode::Volumetric; }
+#endif
+
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&);
 
-    size_t NODELETE memoryCost() const;
+    size_t LEGACY_NODELETE memoryCost() const;
 #if ENABLE(RESOURCE_USAGE)
-    size_t NODELETE externalMemoryCost() const;
+    size_t LEGACY_NODELETE externalMemoryCost() const;
 #endif
 
     bool isIntersectingViewport() const { return m_isIntersectingViewport; }
@@ -230,6 +242,11 @@ public:
 
     WEBCORE_EXPORT String modelElementStateForTesting() const;
 
+#if ENABLE(MODEL_PROCESS)
+    WEBCORE_EXPORT void sceneGraphAsTextForTesting(const ModelSceneGraphAsTextOptions&, CompletionHandler<void(String&&)>&&) const;
+    String dumpLabelForTesting(unsigned treeOrderPosition) const;
+#endif
+
 private:
     HTMLModelElement(const QualifiedName&, Document&);
 
@@ -241,22 +258,23 @@ private:
     void deletePendingModelPlayer();
     void unloadModelPlayer(bool onSuspend);
     void reloadModelPlayer();
+    void updatePlayerVisibility();
     void startLoadModelTimer();
     void loadModelTimerFired();
 
-    HTMLModelElement& NODELETE readyPromiseResolve();
+    HTMLModelElement& LEGACY_NODELETE readyPromiseResolve();
 
     CachedResourceRequest createResourceRequest(const URL&, FetchOptions::Destination);
 
     // ActiveDOMObject.
-    bool NODELETE virtualHasPendingActivity() const final;
+    bool LEGACY_NODELETE virtualHasPendingActivity() const final;
     void resume() final;
     void suspend(ReasonForSuspension) final;
     void stop() final;
 
     // DOM overrides.
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
-    bool NODELETE isURLAttribute(const Attribute&) const final;
+    bool LEGACY_NODELETE isURLAttribute(const Attribute&) const final;
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
 
     // StyledElement
@@ -361,12 +379,17 @@ private:
     void modelResourceFinished();
     void sourceRequestResource();
     bool shouldDeferLoading() const;
-    bool NODELETE isModelDeferred() const;
+    bool LEGACY_NODELETE isModelDeferred() const;
     bool hasLiveModelPlayer() const;
     bool isModelLoading() const;
     bool isModelLoaded() const;
     bool isModelUnloading() const;
     bool isModelUnloaded() const;
+
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE) || ENABLE(CONNECTED_VOLUMETRIC_SCENE)
+    ModelPresentationMode presentationMode() const { return m_presentationMode; }
+    void setPresentationMode(ModelPresentationMode);
+#endif
 
     URL m_sourceURL;
     CachedResourceHandle<CachedRawResource> m_resource;
@@ -378,7 +401,7 @@ private:
     RefPtr<Model> m_model;
     UniqueRef<ReadyPromise> m_readyPromise;
 #if ENABLE(TOUCH_EVENTS)
-    RefPtr<HTMLModelElementEventListener> m_eventListener;
+    const RefPtr<HTMLModelElementEventListener> m_eventListener;
 #endif
     bool m_dataComplete { false };
     bool m_isDragging { false };
@@ -416,14 +439,16 @@ private:
     EnvironmentMapKind m_environmentMapKind { EnvironmentMapKind::Default };
     bool m_environmentMapFailed { false };
 
-    RefPtr<EnvironmentMapLoader> m_environmentMapLoader;
+    const RefPtr<EnvironmentMapLoader> m_environmentMapLoader;
     UniqueRef<EnvironmentMapPromise> m_environmentMapReadyPromise;
 #endif
 
+#if ENABLE(MODEL_ELEMENT_IMMERSIVE) || ENABLE(CONNECTED_VOLUMETRIC_SCENE)
+    ModelPresentationMode m_presentationMode { ModelPresentationMode::Inline };
+#endif
+
 #if ENABLE(MODEL_ELEMENT_IMMERSIVE)
-    bool m_detachedForImmersive { false };
     unsigned m_immersiveDetachGeneration { 0 };
-    void setDetachedForImmersive(bool);
 
     Vector<CompletionHandler<void(ExceptionOr<RefPtr<ModelPlayer>>)>> m_modelPlayerCreationCallbacks;
     void ensureModelPlayer(CompletionHandler<void(ExceptionOr<RefPtr<ModelPlayer>>)>&&);
@@ -432,12 +457,12 @@ private:
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
     PlatformDynamicRangeLimit m_dynamicRangeLimit { PlatformDynamicRangeLimit::initialValue() };
     using ScreenPropertiesChangedObserver = Observer<void(uint32_t)>;
-    RefPtr<ScreenPropertiesChangedObserver> m_screenPropertiesChangedObserver;
+    const RefPtr<ScreenPropertiesChangedObserver> m_screenPropertiesChangedObserver;
     float m_currentEDRHeadroom { 1.f };
     bool m_suppressEDR { false };
 #endif
 
-    void NODELETE triggerModelPlayerCreationCallbacksIfNeeded(ExceptionOr<RefPtr<ModelPlayer>>&&);
+    void LEGACY_NODELETE triggerModelPlayerCreationCallbacksIfNeeded(ExceptionOr<RefPtr<ModelPlayer>>&&);
 };
 
 } // namespace WebCore

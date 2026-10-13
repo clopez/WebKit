@@ -38,8 +38,9 @@
 
 namespace JSC {
 
-class MarkingConstraintSet;
 class AbstractSlotVisitor;
+class Heap;
+class MarkingConstraintSet;
 class SlotVisitor;
 
 class MarkingConstraint {
@@ -58,7 +59,7 @@ public:
     const ASCIICString& abbreviatedName() const LIFETIME_BOUND { return m_abbreviatedName; }
     const ASCIICString& name() const LIFETIME_BOUND { return m_name; }
     
-    void NODELETE resetStats();
+    void LEGACY_NODELETE resetStats();
     
     size_t lastVisitCount() const { return m_lastVisitCount; }
     
@@ -89,8 +90,9 @@ protected:
     void executeSynchronously(AbstractSlotVisitor&);
 
 private:
-    friend class MarkingConstraintSet; // So it can set m_index.
+    friend class MarkingConstraintSet; // So it can set m_index and m_heap.
     
+    SUPPRESS_FORWARD_DECL_MEMBER Heap* m_heap { nullptr }; // The heap that added this constraint. Heap is not refcounted.
     ASCIICString m_abbreviatedName;
     ASCIICString m_name;
     size_t m_lastVisitCount { 0 };

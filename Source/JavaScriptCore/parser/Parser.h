@@ -183,6 +183,7 @@ public:
 
     void startSwitch() { m_switchDepth++; }
     void endSwitch() { m_switchDepth--; }
+    bool isSwitchBlockScope() const { return !!m_switchDepth; }
     void startLoop() { m_loopDepth++; }
     void endLoop() { ASSERT(m_loopDepth); m_loopDepth--; }
     bool inLoop() { return !!m_loopDepth; }
@@ -634,7 +635,7 @@ public:
         return false;
     }
     template <typename Func>
-    void forEachUsedVariable(const Func& func)
+    void forEachUsedVariable(NOESCAPE const Func& func)
     {
         for (const UniquedStringImplPtrSet& set : m_usedVariables) {
             for (UniquedStringImpl* impl : set) {
@@ -675,6 +676,19 @@ public:
     void revertToPreviousUsedVariables(size_t size)
     {
         m_usedVariables.resize(size);
+        m_lastAddedUsedVariable = nullptr;
+    }
+    void mergeIntoPreviousUsedVariables(size_t size)
+    {
+        ASSERT(size);
+        if (m_usedVariables.size() <= size)
+            return;
+        UniquedStringImplPtrSet& destinationSet = m_usedVariables[size - 1];
+        for (size_t index = size; index < m_usedVariables.size(); ++index) {
+            for (UniquedStringImpl* impl : m_usedVariables[index])
+                destinationSet.add(impl);
+        }
+        m_usedVariables.shrink(size);
         m_lastAddedUsedVariable = nullptr;
     }
 
@@ -1531,7 +1545,6 @@ private:
         VariableEnvironment varDeclarations;
         VariableEnvironment lexicalVariables;
         CodeFeatures features;
-        int numConstants;
     };
     std::expected<ParseInnerResult, String> parseInner(const Identifier&, ParsingContext, std::optional<int> functionConstructorParametersEndPosition, const FixedVector<UnlinkedFunctionExecutable::ClassElementDefinition>*, const PrivateNameEnvironment* parentScopePrivateNames);
 
@@ -1810,6 +1823,8 @@ private:
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression tryParseArgumentsDotLengthForFastPath(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parsePrimaryExpression(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseArrayLiteral(TreeBuilder&);
+    template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseArrayElement(TreeBuilder&);
+    template <class TreeBuilder> ALWAYS_INLINE void parseSimpleArrayElementsAfterComma(TreeBuilder&, typename TreeBuilder::ElementList& tail);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseObjectLiteral(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeClassExpression parseClassExpression(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseFunctionExpression(TreeBuilder&);
@@ -1863,8 +1878,8 @@ private:
 
     template <class TreeBuilder> ALWAYS_INLINE bool isSimpleAssignmentTarget(TreeBuilder&, TreeExpression, bool ignoreStrictCheck = false);
 
-    ALWAYS_INLINE int NODELETE isBinaryOperator(JSTokenType);
-    bool NODELETE allowAutomaticSemicolon();
+    ALWAYS_INLINE int LEGACY_NODELETE isBinaryOperator(JSTokenType);
+    bool LEGACY_NODELETE allowAutomaticSemicolon();
     
     bool autoSemiColon()
     {
@@ -2111,7 +2126,6 @@ private:
     int m_statementDepth;
     FunctionMode m_functionMode;
     bool m_immediateParentAllowsFunctionDeclarationInStatement;
-    bool m_insideSwitchCaseBody { false };
     bool m_parsingBuiltin;
     bool m_isEvalContext;
     // offset 128
@@ -2204,7 +2218,6 @@ std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const I
                                     parseResult.value().features,
                                     currentScope()->lexicallyScopedFeatures(),
                                     currentScope()->innerArrowFunctionFeatures(),
-                                    parseResult.value().numConstants,
                                     WTF::move(m_moduleScopeData));
         result->setStartOffset(m_lexer->currentOffset());
         result->setEndOffset(m_lexer->currentOffset());

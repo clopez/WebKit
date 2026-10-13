@@ -64,12 +64,14 @@ NS_SWIFT_UI_ACTOR
 - (void)beginSuppressingSingleClickGestureForTextSelection;
 - (void)endSuppressingSingleClickGestureForTextSelection;
 - (NSGestureRecognizer *)activeDragGestureRecognizer;
+- (void)didReceiveDragStart;
 - (void)setGestureDraggingSession:(NSDraggingSession *)session;
 - (void)clearGestureDragState;
 - (void)setTextSelectionDragGesture:(NSGestureRecognizer *)gesture completionHandler:(void (^)(NSDraggingSession *))completionHandler;
 - (void)positionInformationDidChange:(const WebKit::InteractionInformationAtPosition&)info;
 - (void)didCommitLoadForMainFrame;
 - (void)didEndSyntheticMomentumScrolling;
+- (void)transformGestureWasNotHandledByContent;
 - (void)reset;
 
 @property (nonatomic, readonly) BOOL everMagnifiedDuringCurrentGesture;
@@ -106,6 +108,7 @@ NS_SWIFT_UI_ACTOR
 - (void)setUpPanGestureRecognizer;
 - (void)setUpDOMDoubleClickGestureRecognizer;
 - (void)resetDOMDoubleClickGestureRecognizer;
+- (BOOL)takeCompletedDOMDoubleClick;
 - (WKDeferringGestureRecognizer *)makeImageAnalysisDeferringGestureRecognizerWithName:(NSString *)name;
 
 - (NSPoint)panVelocityInView:(nullable NSView *)view;

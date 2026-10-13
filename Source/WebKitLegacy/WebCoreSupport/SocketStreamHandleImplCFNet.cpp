@@ -71,7 +71,7 @@ static inline CFRunLoopRef callbacksRunLoop()
 #endif
 }
 
-static inline auto NODELETE callbacksRunLoopMode()
+static inline auto LEGACY_NODELETE callbacksRunLoopMode()
 {
     return kCFRunLoopCommonModes;
 }
@@ -91,7 +91,7 @@ SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandl
     ASSERT(url.protocolIs("ws"_s) || url.protocolIs("wss"_s));
 
     URL httpsURL { makeString("https://"_s, m_url.host()) };
-    m_httpsURL = httpsURL.createCFURL();
+    lazyInitialize(m_httpsURL, httpsURL.createCFURL());
 
     // Don't check for HSTS violation for ephemeral sessions since
     // HSTS state should not transfer between regular and private browsing.
@@ -155,14 +155,6 @@ CFStringRef SocketStreamHandleImpl::copyPACExecutionDescription(void*)
 {
     return CFSTR("WebSocket proxy PAC file execution");
 }
-
-struct MainThreadPACCallbackInfo {
-    MainThreadPACCallbackInfo(SocketStreamHandle* handle, CFArrayRef proxyList)
-        : handle(handle), proxyList(proxyList)
-    { }
-    RefPtr<SocketStreamHandle> handle;
-    CFArrayRef proxyList;
-};
 
 void SocketStreamHandleImpl::pacExecutionCallback(void* client, CFArrayRef proxyList, CFErrorRef)
 {
@@ -311,8 +303,9 @@ void SocketStreamHandleImpl::createStreams()
         CFWriteStreamSetProperty(writeStream, kCFStreamPropertySourceApplication, m_auditData.sourceApplicationAuditData.get());
     }
 
-    m_readStream = adoptCF(readStream);
-    m_writeStream = adoptCF(writeStream);
+    // CFStreamCreatePairWithSocketToHost() returns both streams +1 through its out-parameters.
+    SUPPRESS_RETAINPTR_CTOR_ADOPT m_readStream = adoptCF(readStream);
+    SUPPRESS_RETAINPTR_CTOR_ADOPT m_writeStream = adoptCF(writeStream);
 
     switch (m_connectionType) {
     case Unknown:
@@ -358,7 +351,7 @@ bool SocketStreamHandleImpl::getStoredCONNECTProxyCredentials(const ProtectionSp
 
     // Try system credential storage first, matching HTTP behavior (CFNetwork only asks the client for password if it couldn't find it in Keychain).
     Credential storedCredential;
-    if (auto* storageSession = m_storageSessionProvider ? protect(m_storageSessionProvider)->storageSession() : nullptr) {
+    if (CheckedPtr storageSession = m_storageSessionProvider ? m_storageSessionProvider->storageSession() : nullptr) {
         storedCredential = CredentialStorage::getFromPersistentStorage(protectionSpace);
         if (storedCredential.isEmpty())
             storedCredential = storageSession->credentialStorage().get(m_credentialPartition, protectionSpace);

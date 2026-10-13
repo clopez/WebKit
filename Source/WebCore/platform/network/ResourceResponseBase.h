@@ -104,7 +104,7 @@ public:
 
     WEBCORE_EXPORT int httpStatusCode() const;
     WEBCORE_EXPORT void setHTTPStatusCode(int);
-    WEBCORE_EXPORT bool NODELETE isRedirection() const;
+    WEBCORE_EXPORT bool LEGACY_NODELETE isRedirection() const;
 
     WEBCORE_EXPORT const String& httpStatusText() const LIFETIME_BOUND;
     WEBCORE_EXPORT void setHTTPStatusText(String&&);
@@ -207,7 +207,7 @@ public:
         return 1280;
     }
 
-    WEBCORE_EXPORT void NODELETE setType(Type);
+    WEBCORE_EXPORT void LEGACY_NODELETE setType(Type);
     Type type() const { return m_type; }
 
     void setRedirected(bool isRedirected) { m_isRedirected = isRedirected; }
@@ -225,6 +225,9 @@ public:
 
     bool isRangeRequested() const { return m_isRangeRequested; }
     void setAsRangeRequested() { m_isRangeRequested = true; }
+
+    bool isFromPrevalentDomain() const { return m_isFromPrevalentDomain; }
+    void setIsFromPrevalentDomain(bool isFromPrevalentDomain) { m_isFromPrevalentDomain = isFromPrevalentDomain; }
 
     WEBCORE_EXPORT bool containsInvalidHTTPHeaders() const;
 
@@ -255,7 +258,7 @@ protected:
 
 private:
     void parseCacheControlDirectives() const;
-    void NODELETE updateHeaderParsedState(HTTPHeaderName);
+    void LEGACY_NODELETE updateHeaderParsedState(HTTPHeaderName);
     void sanitizeHTTPHeaderFieldsAccordingToTainting();
 
 protected:
@@ -295,6 +298,7 @@ private:
     mutable bool m_haveParsedContentRangeHeader : 1 { false };
     bool m_isRedirected : 1 { false };
     bool m_isRangeRequested : 1 { false };
+    bool m_isFromPrevalentDomain : 1 { false };
 
     Tainting m_tainting : bitWidthOfTainting { Tainting::Basic };
     Source m_source : bitWidthOfSource { Source::Unknown };
@@ -309,7 +313,7 @@ struct ResourceResponseData {
     ResourceResponseData() = default;
     ResourceResponseData(ResourceResponseData&&) = default;
     ResourceResponseData& operator=(ResourceResponseData&&) = default;
-    ResourceResponseData(URL&& url, String&& mimeType, long long expectedContentLength, String&& textEncodingName, int httpStatusCode, String&& httpStatusText, String&& httpVersion, HTTPHeaderMap&& httpHeaderFields, std::optional<NetworkLoadMetrics>&& networkLoadMetrics, ResourceResponseSource source, ResourceResponseBaseType type, ResourceResponseBaseTainting tainting, bool isRedirected, UsedLegacyTLS usedLegacyTLS, WasPrivateRelayed wasPrivateRelayed, String&& proxyName, bool isRangeRequested, std::optional<CertificateInfo>&& certificateInfo, IPAddressSpace ipAddressSpace)
+    ResourceResponseData(URL&& url, String&& mimeType, long long expectedContentLength, String&& textEncodingName, int httpStatusCode, String&& httpStatusText, String&& httpVersion, HTTPHeaderMap&& httpHeaderFields, std::optional<NetworkLoadMetrics>&& networkLoadMetrics, ResourceResponseSource source, ResourceResponseBaseType type, ResourceResponseBaseTainting tainting, bool isRedirected, UsedLegacyTLS usedLegacyTLS, WasPrivateRelayed wasPrivateRelayed, String&& proxyName, bool isRangeRequested, std::optional<CertificateInfo>&& certificateInfo, IPAddressSpace ipAddressSpace, bool isFromPrevalentDomain)
         : url(WTF::move(url))
         , mimeType(WTF::move(mimeType))
         , expectedContentLength(expectedContentLength)
@@ -329,6 +333,7 @@ struct ResourceResponseData {
         , isRangeRequested(isRangeRequested)
         , certificateInfo(WTF::move(certificateInfo))
         , ipAddressSpace(ipAddressSpace)
+        , isFromPrevalentDomain(isFromPrevalentDomain)
     {
     }
 
@@ -353,6 +358,7 @@ struct ResourceResponseData {
     bool isRangeRequested;
     std::optional<CertificateInfo> certificateInfo;
     IPAddressSpace ipAddressSpace;
+    bool isFromPrevalentDomain { false };
 };
 
 } // namespace WebCore

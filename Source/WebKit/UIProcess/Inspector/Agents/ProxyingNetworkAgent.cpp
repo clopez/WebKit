@@ -91,24 +91,6 @@ static Protocol::Page::ResourceType toProtocolResourceType(ResourceType type)
     return Protocol::Page::ResourceType::Other;
 }
 
-static Ref<Protocol::Network::Request> buildObjectForResourceRequest(const ResourceRequest& request)
-{
-    auto requestObject = Protocol::Network::Request::create()
-        .setUrl(request.url().string())
-        .setMethod(request.httpMethod())
-        .setHeaders(ResourceUtilities::buildObjectForHeaders(request.httpHeaderFields()))
-        .release();
-
-    if (RefPtr body = request.httpBody()) {
-        if (!body->isEmpty()) {
-            auto bytes = body->flatten();
-            requestObject->setPostData(String::fromUTF8WithLatin1Fallback(bytes.span()));
-        }
-    }
-
-    return requestObject;
-}
-
 static Protocol::Network::Response::Source toProtocolResponseSource(ResourceResponse::Source source)
 {
     switch (source) {
@@ -161,6 +143,9 @@ static RefPtr<Protocol::Network::Response> buildObjectForResourceResponse(const 
         auto* metrics = response.deprecatedNetworkLoadMetricsOrNull();
         responseObject->setTiming(ResourceUtilities::buildObjectForTiming(metrics ? *metrics : NetworkLoadMetrics::emptyMetrics(), *resourceLoadStartTime, monotonicTimeToProtocolSeconds));
     }
+
+    if (auto& certificateInfo = response.certificateInfo())
+        responseObject->setSecurity(ResourceUtilities::buildObjectForSecurity(*certificateInfo));
 
     return responseObject;
 }
@@ -495,6 +480,8 @@ CommandResult<Ref<Protocol::Runtime::RemoteObject>> ProxyingNetworkAgent::resolv
     return makeUnexpected("Not yet implemented"_s);
 }
 
+// FIXME: Forward interception to the WebContent processes. https://bugs.webkit.org/show_bug.cgi?id=324383
+
 CommandResult<void> ProxyingNetworkAgent::setInterceptionEnabled(bool)
 {
     return { };
@@ -510,29 +497,37 @@ CommandResult<void> ProxyingNetworkAgent::removeInterception(const String&, Prot
     return { };
 }
 
-CommandResult<void> ProxyingNetworkAgent::interceptContinue(const Protocol::Network::RequestId&, Protocol::Network::NetworkStage)
+CommandResult<void> ProxyingNetworkAgent::interceptContinue(const Protocol::Network::RequestId&, Protocol::Network::NetworkStage networkStage)
 {
+    switch (networkStage) {
+    case Protocol::Network::NetworkStage::Request:
+        return makeUnexpected("Missing pending intercept request for given requestId"_s);
+    case Protocol::Network::NetworkStage::Response:
+        return makeUnexpected("Missing pending intercept response for given requestId"_s);
+    }
+
+    ASSERT_NOT_REACHED();
     return { };
 }
 
 CommandResult<void> ProxyingNetworkAgent::interceptWithRequest(const Protocol::Network::RequestId&, const String&, const String&, RefPtr<JSON::Object>&&, const String&)
 {
-    return { };
+    return makeUnexpected("Missing pending intercept request for given requestId"_s);
 }
 
 CommandResult<void> ProxyingNetworkAgent::interceptWithResponse(const Protocol::Network::RequestId&, const String&, bool, const String&, std::optional<int>&&, const String&, RefPtr<JSON::Object>&&)
 {
-    return { };
+    return makeUnexpected("Missing pending intercept response for given requestId"_s);
 }
 
 CommandResult<void> ProxyingNetworkAgent::interceptRequestWithResponse(const Protocol::Network::RequestId&, const String&, bool, const String&, int, const String&, Ref<JSON::Object>&&)
 {
-    return { };
+    return makeUnexpected("Missing pending intercept request for given requestId"_s);
 }
 
 CommandResult<void> ProxyingNetworkAgent::interceptRequestWithError(const Protocol::Network::RequestId&, Protocol::Network::ResourceErrorType)
 {
-    return { };
+    return makeUnexpected("Missing pending intercept request for given requestId"_s);
 }
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
@@ -561,14 +556,14 @@ CommandResult<void> ProxyingNetworkAgent::setEmulatedConditions(std::optional<in
 
 // IPC message handlers from WebProcess FrameNetworkAgentProxy.
 
-void ProxyingNetworkAgent::requestWillBeSent(ResourceID resourceID, FrameID frameID, const String& loaderId, const String& targetID, const String& documentURL, const ResourceRequest& request, std::optional<ResourceResponse>&& redirectResponse, ResourceType resourceType, double timestamp, double walltime, InitiatorData&& initiator)
+void ProxyingNetworkAgent::requestWillBeSent(ResourceID resourceID, FrameID frameID, const String& loaderId, const String& targetID, const String& documentURL, const ResourceRequest& request, const RequestExtras& requestExtras, std::optional<ResourceResponse>&& redirectResponse, ResourceType resourceType, double timestamp, double walltime, InitiatorData&& initiator)
 {
     if (!m_enabled)
         return;
 
     auto requestId = IdentifierRegistry::protocolRequestId(resourceID.processIdentifier(), resourceID.object());
     auto frameIdString = IdentifierRegistry::protocolFrameId(frameID, resourceID.processIdentifier());
-    auto requestObject = buildObjectForResourceRequest(request);
+    auto requestObject = ResourceUtilities::buildObjectForResourceRequest(request, requestExtras);
     auto initiatorObject = ResourceUtilities::buildInitiatorObject(initiator);
 
     RefPtr<Protocol::Network::Response> redirectResponseObject;

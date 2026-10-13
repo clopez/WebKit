@@ -85,7 +85,7 @@ static void updateQueryIfNecessary(NSMutableDictionary *dictionary)
     [dictionary setObject:@YES forKey:(__bridge id)kSecAttrSynchronizable];
 }
 
-static inline RefPtr<ArrayBuffer> NODELETE alternateBlobIfNecessary(const WebKit::WebAuthenticationRequestData& requestData)
+static inline RefPtr<ArrayBuffer> LEGACY_NODELETE alternateBlobIfNecessary(const WebKit::WebAuthenticationRequestData& requestData)
 {
 #if HAVE(WEB_AUTHN_PRF_API)
     return nullptr;
@@ -199,7 +199,8 @@ static inline void performEnterpriseAttestation(const WebCore::PublicKeyCredenti
     cbor::CBORValue::MapValue attestationStatementMap;
     {
         Vector<cbor::CBORValue> cborArray;
-        for (id nsCert in chain.get())
+        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+        for (SUPPRESS_UNRETAINED_LOCAL id nsCert in chain.get())
             cborArray.append(cbor::CBORValue(makeVector((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)nsCert)).get())));
         attestationStatementMap[cbor::CBORValue("x5c")] = cbor::CBORValue(WTF::move(cborArray));
         attestationStatementMap[cbor::CBORValue("alg")] = cbor::CBORValue(coseAlgorithmES256);
@@ -226,7 +227,7 @@ static inline HashSet<String> produceHashSet(const Vector<PublicKeyCredentialDes
     return result;
 }
 
-static inline uint8_t NODELETE authDataFlags(ClientDataType type, LocalConnection::UserVerification verification, bool synchronizable, std::optional<MediationRequirement> mediation)
+static inline uint8_t LEGACY_NODELETE authDataFlags(ClientDataType type, LocalConnection::UserVerification verification, bool synchronizable, std::optional<MediationRequirement> mediation)
 {
     auto flags = 0;
     if (type != ClientDataType::Create || mediation != MediationRequirement::Conditional)
@@ -296,8 +297,9 @@ std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> LocalAuthenticator::g
     RetainPtr sortedAttributesArray = m_connection->getExistingCredentials(rpId);
     Vector<Ref<AuthenticatorAssertionResponse>> result;
     result.reserveInitialCapacity([sortedAttributesArray count]);
-    for (NSDictionary *attributes in sortedAttributesArray.get()) {
-        auto decodedResponse = cbor::CBORReader::read(makeVector(retainPtr(attributes[(id)kSecAttrApplicationTag]).get()));
+    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
+    for (SUPPRESS_UNRETAINED_LOCAL NSDictionary *attributes in sortedAttributesArray.get()) {
+        auto decodedResponse = cbor::CBORReader::read(makeVector(protect(checked_objc_cast<NSData>(attributes[(id)kSecAttrApplicationTag])).get()));
         if (!decodedResponse || !decodedResponse->isMap()) {
             ASSERT_NOT_REACHED();
             return std::nullopt;
@@ -325,7 +327,7 @@ std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> LocalAuthenticator::g
             credentialID = attributes[(id)kSecAttrApplicationLabel];
 
         RetainPtr<SecAccessControlRef> secAccessControl = (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl];
-        auto response = AuthenticatorAssertionResponse::create(LocalAuthenticatorInternal::toArrayBuffer(credentialID.get()), WTF::move(userHandle), String(username), secAccessControl.get(), AuthenticatorAttachment::Platform);
+        auto response = AuthenticatorAssertionResponse::create(LocalAuthenticatorInternal::toArrayBuffer(checked_objc_cast<NSData>(credentialID.get())), WTF::move(userHandle), String(username), secAccessControl.get(), AuthenticatorAttachment::Platform);
 
         auto group = groupForAttributes(attributes);
         if (!group.isNull()) {
@@ -341,7 +343,7 @@ std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> LocalAuthenticator::g
         if (it != responseMap.end() && it->second.isByteString())
             response->setLargeBlob(ArrayBuffer::create(it->second.getByteString()));
 
-        response->setAccessGroup(attributes[(id)kSecAttrAccessGroup]);
+        response->setAccessGroup(checked_objc_cast<NSString>(attributes[(id)kSecAttrAccessGroup]));
 
         result.append(WTF::move(response));
     }
@@ -502,7 +504,7 @@ std::optional<WebCore::ExceptionData> LocalAuthenticator::processLargeBlobExtens
         // FIXME: The Security framework API is missing the `CF_RETURNS_RETAINED` annotation (rdar://161546781).
         SUPPRESS_RETAINPTR_CTOR_ADOPT RetainPtr dict = bridge_cast(adoptCF(checked_cf_cast<CFDictionaryRef>(attributesArrayRef)));
 
-        auto decodedResponse = cbor::CBORReader::read(makeVector(retainPtr(dict.get()[(id)kSecAttrApplicationTag]).get()));
+        auto decodedResponse = cbor::CBORReader::read(makeVector(protect(checked_objc_cast<NSData>(dict.get()[(id)kSecAttrApplicationTag])).get()));
         if (!decodedResponse || !decodedResponse->isMap()) {
             ASSERT_NOT_REACHED();
             return WebCore::ExceptionData { ExceptionCode::UnknownError, "Could not read credential."_s };

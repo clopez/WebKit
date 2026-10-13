@@ -449,6 +449,7 @@ public:
 
 #if PLATFORM(MAC)
     virtual bool isViewVisible(NSView *, NSWindow *) const = 0;
+    virtual bool isPageClientImpl() const { return false; }
 #endif
 
     virtual void runModalJavaScriptDialog(CompletionHandler<void()>&& callback) { callback(); }
@@ -589,6 +590,13 @@ public:
     virtual WebCore::ColorSpace colorSpace() = 0;
 #endif
 
+#if ENABLE(UI_SIDE_COMPOSITING)
+    // The document rect in unscaled content coordinates, and the minimum scale it may be displayed at. Both
+    // feed WebPageProxy::computeLayoutViewportRect().
+    virtual WebCore::FloatRect documentRect() const = 0;
+    virtual double minimumZoomScale() const = 0;
+#endif
+
     virtual void reconcileEnclosingScrollViewContentOffset(EditorState&) { };
 
 #if ENABLE(TWO_PHASE_CLICKS)
@@ -617,8 +625,6 @@ public:
     virtual void saveImageToLibrary(const Ref<WebCore::SharedBuffer>&) = 0;
     virtual void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&) = 0;
     virtual void showDataDetectorsUIForPositionInformation(const InteractionInformationAtPosition&) = 0;
-    virtual double minimumZoomScale() const = 0;
-    virtual WebCore::FloatRect documentRect() const = 0;
     virtual WebCore::InteractiveWidgetValue viewportMetaTagInteractiveWidget() const = 0;
     virtual void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID) = 0;
     virtual void scrollingNodeScrollWillStartScroll(std::optional<WebCore::ScrollingNodeID>) = 0;
@@ -732,7 +738,6 @@ public:
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
     
 #if PLATFORM(MAC)
-    virtual void didPerformImmediateActionHitTest(const WebHitTestResultData&, bool contentPreventsDefault, API::Object*) = 0;
     virtual NSObject *immediateActionAnimationControllerForHitTestResult(RefPtr<API::HitTestResult>, uint64_t, RefPtr<API::Object>) = 0;
 #endif
 

@@ -135,7 +135,7 @@ public:
         void lastChanceToFinalize();
 
         BlockDirectory* directory() const;
-        Subspace* NODELETE subspace() const;
+        Subspace* LEGACY_NODELETE subspace() const;
         AlignedMemoryAllocator* alignedMemoryAllocator() const;
         JSC::Heap* heap() const;
         inline MarkedSpace* space() const;
@@ -157,7 +157,7 @@ public:
         
         // This is to be called by Subspace.
         template<typename DestroyFunc>
-        void finishSweepKnowingHeapCellType(FreeList*, const DestroyFunc&);
+        void finishSweepKnowingHeapCellType(FreeList*, NOESCAPE const DestroyFunc&);
         
         void unsweepWithNoNewlyAllocated();
         
@@ -194,12 +194,12 @@ public:
         bool isLive(const HeapCell*);
         bool isLiveCell(const void*);
 
-        template <typename Functor> IterationStatus forEachCell(const Functor&);
-        template <typename Functor> inline IterationStatus forEachLiveCell(const Functor&);
-        template <typename Functor> inline IterationStatus forEachDeadCell(const Functor&);
-        template <typename Functor> inline IterationStatus forEachMarkedCell(const Functor&);
+        template <typename Functor> IterationStatus forEachCell(NOESCAPE const Functor&);
+        template <typename Functor> inline IterationStatus forEachLiveCell(NOESCAPE const Functor&);
+        template <typename Functor> inline IterationStatus forEachDeadCell(NOESCAPE const Functor&);
+        template <typename Functor> inline IterationStatus forEachMarkedCell(NOESCAPE const Functor&);
             
-        JS_EXPORT_PRIVATE bool NODELETE areMarksStale();
+        JS_EXPORT_PRIVATE bool LEGACY_NODELETE areMarksStale();
         bool areMarksStaleForSweep();
         
         void assertMarksNotStale();
@@ -210,8 +210,8 @@ public:
         
         void removeFromDirectory();
         
-        void NODELETE didAddToDirectory(BlockDirectory*, unsigned index);
-        void NODELETE didRemoveFromDirectory();
+        void LEGACY_NODELETE didAddToDirectory(BlockDirectory*, unsigned index);
+        void LEGACY_NODELETE didRemoveFromDirectory();
         
         void* start() const LIFETIME_BOUND { return &m_block->atoms()[m_startAtom]; }
         void* end() const LIFETIME_BOUND { return &m_block->atoms()[endAtom]; }
@@ -237,7 +237,7 @@ public:
         MarksMode marksMode();
         
         template<bool, EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, typename DestroyFunc>
-        void specializedSweep(FreeList*, EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, const DestroyFunc&);
+        void specializedSweep(FreeList*, EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, NOESCAPE const DestroyFunc&);
         
         unsigned m_atomsPerCell { std::numeric_limits<unsigned>::max() };
         unsigned m_startAtom { std::numeric_limits<unsigned>::max() }; // Exact location of the first allocatable atom.
@@ -428,7 +428,7 @@ private:
     Atom* atoms();
         
     JS_EXPORT_PRIVATE void aboutToMarkSlow(HeapVersion markingVersion, HeapCell*);
-    void NODELETE clearHasAnyMarked();
+    void LEGACY_NODELETE clearHasAnyMarked();
     
     JS_EXPORT_PRIVATE void noteMarkedSlow();
     
@@ -438,7 +438,7 @@ private:
     // FIXME: rdar://139998916
     NO_RETURN_DUE_TO_CRASH NEVER_INLINE void analyzeInvalidHandleAndCrash(AbstractLocker&, HeapCell*);
     NO_RETURN_DUE_TO_CRASH NEVER_INLINE static void dumpInfoAndCrashForInvalidHandleV2(HeapCell*, uint64_t cellFirst8Bytes, uint64_t zeroCounts, uint64_t bitfield, uint64_t subspaceHash, VM* blockVM, VM* actualVM);
-    inline void NODELETE setupTestForDumpInfoAndCrash();
+    inline void LEGACY_NODELETE setupTestForDumpInfoAndCrash();
 };
 
 inline MarkedBlock::Header& MarkedBlock::header()
@@ -671,7 +671,7 @@ inline bool MarkedBlock::isAtom(const void* p)
 }
 
 template <typename Functor>
-inline IterationStatus MarkedBlock::Handle::forEachCell(const Functor& functor)
+inline IterationStatus MarkedBlock::Handle::forEachCell(NOESCAPE const Functor& functor)
 {
     HeapCell::Kind kind = m_attributes.cellKind;
     for (size_t i = m_startAtom; i < endAtom; i += m_atomsPerCell) {

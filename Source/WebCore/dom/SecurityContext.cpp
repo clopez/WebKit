@@ -53,7 +53,7 @@ void SecurityContext::setSecurityOriginPolicy(RefPtr<SecurityOriginPolicy>&& sec
         securityOriginDidChange();
 }
 
-ContentSecurityPolicy* SecurityContext::contentSecurityPolicy()
+SUPPRESS_NODELETE ContentSecurityPolicy* SecurityContext::contentSecurityPolicy()
 {
     if (!m_contentSecurityPolicy && m_hasEmptyContentSecurityPolicy)
         m_contentSecurityPolicy = makeEmptyContentSecurityPolicy();
@@ -206,6 +206,7 @@ PolicyContainer SecurityContext::policyContainer() const
         CheckedRef { *m_contentSecurityPolicy }->responseHeaders(),
         crossOriginEmbedderPolicy(),
         crossOriginOpenerPolicy(),
+        documentIsolationPolicy(),
         referrerPolicy(),
         ipAddressSpace()
     };
@@ -219,6 +220,7 @@ void SecurityContext::inheritPolicyContainerFrom(const PolicyContainer& policyCo
     protect(contentSecurityPolicy())->inheritHeadersFrom(policyContainer.contentSecurityPolicyResponseHeaders);
     setCrossOriginOpenerPolicy(policyContainer.crossOriginOpenerPolicy);
     setCrossOriginEmbedderPolicy(policyContainer.crossOriginEmbedderPolicy);
+    setDocumentIsolationPolicy(policyContainer.documentIsolationPolicy);
     setReferrerPolicy(policyContainer.referrerPolicy);
     setIPAddressSpace(policyContainer.ipAddressSpace);
 }

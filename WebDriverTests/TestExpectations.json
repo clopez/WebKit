@@ -186,8 +186,9 @@
     "imported/selenium/py/test/selenium/webdriver/common/bidi_browser_tests.py": {
         "subtests": {
             "test_create_user_context_with_accept_insecure_certs": { "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288104"}}},
-            "test_create_user_context_with_manual_proxy_all_params": { "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288104"}}},
-            "test_create_user_context_with_proxy_and_accept_insecure_certs": { "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288104"}}},
+            "test_create_user_context_with_manual_proxy_all_params": { "expected": { "all": { "status": ["SKIP"], "bug": ["webkit.org/b/288104", "webkit.org/b/325796", "webkit.org/b/324682"]}}},
+            "test_create_user_context_with_proxy_and_accept_insecure_certs": { "expected": { "all": { "status": ["SKIP"], "bug": ["webkit.org/b/288104", "webkit.org/b/325796", "webkit.org/324682"]}}},
+            "test_create_user_context_with_direct_proxy": { "expected": { "all": { "status": ["SKIP"], "bug": ["webkit.org/b/325796", "webkit.org/324682"]}}},
             "test_get_client_windows": { "expected": { "all": { "status": ["FAIL"], "bug": "webkit.org/b/288106"}}}
         }
     },
@@ -821,10 +822,7 @@
                 "expected": {"wpe": {"status": ["FAIL"], "bug": "webkit.org/b/184967"}}
             },
             "test_touch_pointer_in_shadow_tree[inner-open]": {
-                "expected": {
-                    "gtk": {"status": ["FAIL"], "bug": "webkit.org/b/184967"},
-                    "wpe": {"status": ["FAIL"], "bug": "webkit.org/b/322100"}
-                }
+                "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/184967"}}
             },
             "test_touch_pointer_in_shadow_tree[outer-open]": {
                 "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/184967"}}
@@ -963,7 +961,7 @@
                 "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/224736"}}
             },
             "test_sequence_of_keydown_printable_keys_sends_events": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/320476"}}
+                "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/224736"}}
             },
             "test_sequence_of_keydown_printable_characters_sends_events": {
                 "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/224736"}}
@@ -1010,9 +1008,6 @@
 
     "imported/w3c/webdriver/tests/classic/release_actions/sequence.py": {
         "subtests": {
-            "test_release_char_sequence_sends_keyup_events_in_reverse": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/320476"}}
-            },
             "test_release_mouse_sequence_resets_dblclick_state": {
                 "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/184967"}}
             },
@@ -1777,12 +1772,6 @@
 
     "imported/w3c/webdriver/tests/classic/execute_async_script/node.py": {
         "subtests": {
-            "test_stale_element[top_context]": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/323695"}}
-            },
-            "test_stale_element[child_context]": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/323695"}}
-            },
             "test_detached_shadow_root[child_context]": {
                 "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/230612"}}
             },
@@ -2072,12 +2061,6 @@
     },
     "imported/w3c/webdriver/tests/classic/execute_script/node.py": {
         "subtests": {
-            "test_stale_element[top_context]": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/323695"}}
-            },
-            "test_stale_element[child_context]": {
-                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/323695"}}
-            },
             "test_detached_shadow_root[child_context]": {
                 "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/230612"}}
             },
@@ -2245,6 +2228,14 @@
             },
             "test_get_current_url_nested_browsing_context": {
                 "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/180405"}}
+            }
+        }
+    },
+
+    "imported/w3c/webdriver/tests/classic/get_active_element/get.py": {
+        "subtests": {
+            "test_no_such_element": {
+                "expected": {"all": {"status": ["FAIL"], "bug": "webkit.org/b/327139"}}
             }
         }
     },

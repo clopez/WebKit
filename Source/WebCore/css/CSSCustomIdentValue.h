@@ -37,8 +37,8 @@ public:
 
     String customCSSText(const CSS::SerializationContext&) const;
     bool equals(const CSSCustomIdentValue&) const;
-    IterationStatus customVisitChildren(const Function<IterationStatus(CSSValue&)>&) const;
-    bool NODELETE addDerivedHash(Hasher&) const;
+    IterationStatus customVisitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>&) const;
+    bool LEGACY_NODELETE addDerivedHash(Hasher&) const;
 
     Ref<DeprecatedCSSOMValue> customCreateDeprecatedCSSOMWrapper(CSSStyleDeclaration&) const;
 

@@ -87,8 +87,7 @@
 #include "ImageOverlay.h"
 #include "InlineIteratorBoxInlines.h"
 #include "InlineIteratorLogicalOrderTraversal.h"
-#include "InlineIteratorTextBoxInlines.h"
-#include "LegacyLineLayout.h"
+#include "InlineIteratorTextBox.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShape.h"
 #include "LineSelection.h"
@@ -163,7 +162,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static Node* NODELETE nodeForRenderer(RenderObject& renderer)
+static Node* LEGACY_NODELETE nodeForRenderer(RenderObject& renderer)
 {
     if (!renderer.isRenderView()) [[likely]]
         return renderer.node();
@@ -317,10 +316,9 @@ AccessibilityObject* AccessibilityRenderObject::parentObject() const
 #endif // !USE(ATSPI)
 
     // Expose markers that are not direct children of a list item too.
-    if (m_renderer->isRenderListOutsideMarker()) {
-        for (CheckedRef listItemAncestor : ancestorsOfType<RenderListItem>(*m_renderer)) {
-            RefPtr parent = dynamicDowncast<AccessibilityRenderObject>(protect(axObjectCache())->getOrCreate(listItemAncestor));
-            if (parent && parent->markerRenderer() == m_renderer)
+    if (CheckedPtr marker = dynamicDowncast<RenderListOutsideMarker>(*m_renderer)) {
+        if (CheckedPtr listItem = marker->listItem(); listItem && listItem->markerBox() == marker) {
+            if (RefPtr parent = cache->getOrCreate(*listItem); parent && parent->isListItem())
                 return parent.unsafeGet();
         }
     }
@@ -577,16 +575,11 @@ String AccessibilityRenderObject::stringValue() const
         return text();
     }
 
-    // For menu list select elements, get the selected option's aria-label or label.
-    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(node()); selectElement && selectElement->usesMenuList()) {
-        if (RefPtr option = selectElement->selectedOption()) {
-            auto overriddenDescription = option->attributeTrimmedWithDefaultARIA(aria_labelAttr);
-            if (!overriddenDescription.isEmpty())
-                return overriddenDescription;
-            return option->label();
-        }
-        return String();
-    }
+    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(node()); selectElement && selectElement->isDropdownBox())
+        return selectElement->buttonText(HTMLSelectElement::ForAccessibility::Yes);
+
+    if (RefPtr optGroup = optGroupForLabel(); optGroup && role() == AccessibilityRole::ListBoxOption)
+        return optGroup->groupLabelText();
 
 #if PLATFORM(COCOA)
     if (is<RenderListItem>(m_renderer.get()))
@@ -993,7 +986,7 @@ AccessibilityObject* AccessibilityRenderObject::containingTree() const
     });
 }
 
-static AccessibilityObjectInclusion NODELETE objectInclusionFromAltText(const String& altText)
+static AccessibilityObjectInclusion LEGACY_NODELETE objectInclusionFromAltText(const String& altText)
 {
     // Don't ignore an image that has alt text.
     if (!altText.containsOnly<isASCIIWhitespace>())
@@ -1022,11 +1015,12 @@ bool AccessibilityRenderObject::computeIsIgnored() const
     AX_ASSERT(m_initialized);
 #endif
 
-    if (is<SelectPopoverElement>(node())) {
-        // The base-appearance select popover (Menu) must always be included so that it
+    if (RefPtr popover = dynamicDowncast<SelectPopoverElement>(node())) {
+        // The base-appearance picker (Menu) must always be included so that it
         // properly wraps the menu items. Check before the !m_renderer bailout
         // because the popover has display:contents (no renderer) when closed.
-        return false;
+        RefPtr select = popover->selectElement();
+        return !select || !select->usesBaseAppearancePicker();
     }
 
     if (!m_renderer)
@@ -1261,10 +1255,14 @@ bool AccessibilityRenderObject::computeIsIgnored() const
             if (image->borderBoxHeight() <= 1 || image->borderBoxWidth() <= 1)
                 return true;
 
-            // check whether rendered image was stretched from one-dimensional file image
-            if (image->cachedImage()) {
-                LayoutSize imageSize = protect(image->cachedImage())->imageSizeForRenderer(image, image->view().pageZoomFactor());
-                return imageSize.height() <= 1 || imageSize.width() <= 1;
+            if (RefPtr cachedImage = image->cachedImage()) {
+                // check whether the image has loaded
+                if (!cachedImage->hasImage())
+                    return true;
+
+                // check whether rendered image was stretched from one-dimensional file image
+                auto naturalDimensions = cachedImage->naturalDimensions();
+                return naturalDimensions.width && naturalDimensions.height && (*naturalDimensions.width <= 1 || *naturalDimensions.height <= 1);
             }
         }
         return false;
@@ -1312,9 +1310,7 @@ bool AccessibilityRenderObject::computeIsIgnored() const
     // Results in a lot of useless generics being exposed, which is wasteful. We should remove this.
     WeakPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*m_renderer);
     if (blockFlow && m_renderer->childrenInline() && !canSetFocusAttribute() && !blockFlow->hasBlocksInInlineLayout()) {
-        // FIXME: Do we really need to check for SVG content here?
-        auto hasInlineOrSVGContent = blockFlow->hasContentfulInlineLine() || (blockFlow->svgTextLayout() && blockFlow->svgTextLayout()->lineCount());
-        return !hasInlineOrSVGContent && !clickableSelfOrAncestor();
+        return !blockFlow->hasContentfulInlineLine() && !clickableSelfOrAncestor();
     }
 
     if (isCanvas()) {
@@ -1629,7 +1625,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
         if (textBoxStyle->textTransform().contains(Style::TextTransformValue::FullSizeKana)) {
             // We don't want to serve transformed kana text to AT since it is a visual affordance.
             // Using the original text from the renderer provides the untransformed string.
-            text = textBox->renderer().originalText().substring(textBox->start(), textBox->length());
+            text = protect(textBox->renderer())->originalText().substring(textBox->start(), textBox->length());
         }
 
         bool collapseTabs = textBoxStyle->collapseWhiteSpace();
@@ -1809,7 +1805,7 @@ int AccessibilityRenderObject::insertionPointLineNumber() const
     return lineForPosition(makeDeprecatedLegacyPosition(selectedTextRange->start));
 }
 
-static void NODELETE setTextSelectionIntent(AXObjectCache* cache, AXTextStateChangeType type)
+static void LEGACY_NODELETE setTextSelectionIntent(AXObjectCache* cache, AXTextStateChangeType type)
 {
     if (!cache)
         return;
@@ -1818,7 +1814,7 @@ static void NODELETE setTextSelectionIntent(AXObjectCache* cache, AXTextStateCha
     cache->setIsSynchronizingSelection(true);
 }
 
-static void NODELETE clearTextSelectionIntent(AXObjectCache* cache)
+static void LEGACY_NODELETE clearTextSelectionIntent(AXObjectCache* cache)
 {
     if (!cache)
         return;
@@ -1917,7 +1913,7 @@ bool AccessibilityRenderObject::press()
                 cache->postNotification(selectElement.get(), AXNotification::PressDidFail);
             return false;
         }
-        if (selectElement->popupIsVisible())
+        if (selectElement->isOpen())
             selectElement->hidePickerPopoverElement();
         else
             selectElement->openPickerForUserInteraction();
@@ -2495,6 +2491,10 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (m_ariaRole != AccessibilityRole::Unknown && !shouldIgnoreAttributeRole())
         return m_ariaRole;
 
+    // An optgroup with base appearance is represented by its label, as an item of the list box or picker.
+    if (RefPtr optGroup = optGroupForLabel())
+        return protect(optGroup->ownerSelectElement())->usesBaseAppearancePicker() ? AccessibilityRole::MenuItem : AccessibilityRole::ListBoxOption;
+
     if (isExposableTable())
         return AccessibilityRole::Table;
 
@@ -2536,20 +2536,13 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (m_renderer->isRenderTextControlMultiLine())
         return AccessibilityRole::TextArea;
     // Element-based check for HTMLSelectElement with any renderer.
-    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(node)) {
-        if (selectElement->usesMenuList())
-            return selectElement->multiple() ? AccessibilityRole::ListBox : AccessibilityRole::PopUpButton;
-        return AccessibilityRole::ListBox;
-    }
+    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(node))
+        return selectElement->isDropdownBox() ? AccessibilityRole::PopUpButton : AccessibilityRole::ListBox;
 
     // Options inside base-appearance selects are menu items.
     if (RefPtr option = dynamicDowncast<HTMLOptionElement>(node)) {
         if (RefPtr select = option->ownerSelectElement(); select && select->usesBaseAppearancePicker())
             return AccessibilityRole::MenuItem;
-    }
-    if (RefPtr optGroup = dynamicDowncast<HTMLOptGroupElement>(node)) {
-        if (RefPtr select = optGroup->ownerSelectElement(); select && select->usesBaseAppearancePicker())
-            return AccessibilityRole::Group;
     }
 
     if (m_renderer->isRenderOrLegacyRenderSVGRoot())
@@ -2792,7 +2785,7 @@ AccessibilitySVGObject* AccessibilityRenderObject::remoteSVGRootElement(CreateIf
 
     RefPtr rootSVGObject = createIfNecessary == CreateIfNecessary::Yes ? cache->getOrCreate(*rendererRoot) : cache->get(rendererRoot.get());
     AX_ASSERT(createIfNecessary == CreateIfNecessary::No || rootSVGObject);
-    return dynamicDowncast<AccessibilitySVGObject>(rootSVGObject).unsafeGet();
+    return dynamicDowncast<AccessibilitySVGObject>(rootSVGObject.unsafeGet());
 }
 
 void AccessibilityRenderObject::addRemoteSVGChildren()
@@ -2920,7 +2913,7 @@ void AccessibilityRenderObject::updateAttachmentViewParents()
     // updateChildrenIfNeeded == false because this is called right after we've added children, so we know
     // they're clean and don't need updating.
     for (const auto& child : children(/* updateChildrenIfNeeded */ false))
-        downcast<AccessibilityObject>(child)->overrideAttachmentParent(this);
+        downcast<AccessibilityObject>(child).overrideAttachmentParent(this);
 }
 #endif // PLATFORM(MAC)
 
@@ -3019,7 +3012,8 @@ void AccessibilityRenderObject::addChildren()
     };
 
     auto addListBoxChildrenIfNecessary = [&](Node& node) -> bool {
-        if (role() == AccessibilityRole::ListBox) {
+        // Only a RenderListBox paints its list items itself.
+        if (role() == AccessibilityRole::ListBox && is<RenderListBox>(m_renderer)) {
             if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(node)) {
                 for (const auto& listItem : selectElement->listItems())
                     addChild(protect(cache->getOrCreate(protect(listItem.get()))), AccessibilityObject::DescendIfIgnored::No);

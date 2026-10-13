@@ -68,6 +68,7 @@ class StreamServerConnectionClient : public StreamMessageReceiver, public CanMak
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(StreamServerConnectionClient);
 public:
     virtual void didReceiveInvalidMessage(StreamServerConnection&, MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) = 0;
+    virtual void didRunOutOfMessages() { }
 
 protected:
     virtual ~StreamServerConnectionClient() = default;
@@ -109,8 +110,8 @@ public:
         HasMoreMessages
     };
     DispatchResult dispatchStreamMessages(size_t messageLimit);
-    void NODELETE markCurrentlyDispatchedMessageAsInvalid(ASCIILiteral error);
-    void NODELETE markCurrentlyDispatchedMessageAsInvalid(const String&);
+    void LEGACY_NODELETE markCurrentlyDispatchedMessageAsInvalid(ASCIILiteral error);
+    void LEGACY_NODELETE markCurrentlyDispatchedMessageAsInvalid(const String&);
 
     void open(Client&, StreamConnectionWorkQueue&);
     void invalidate();
@@ -167,7 +168,7 @@ private:
     bool m_isDispatchingMessage { false };
 #endif
     friend class StreamConnectionWorkQueue;
-} SWIFT_SHARED_REFERENCE(refStreamServerConnection, derefStreamServerConnection) SWIFT_RETURNED_AS_UNRETAINED_BY_DEFAULT;
+} DERIVED_CLASS_SWIFT_SHARED_REFERENCE(refStreamServerConnection, derefStreamServerConnection);
 
 template<typename T>
 Error StreamServerConnection::send(T&& message, const ObjectIdentifierGenericBase& destinationID)
@@ -221,6 +222,7 @@ inline void markCurrentlyDispatchedMessageAsInvalid(const RefPtr<StreamServerCon
 
 }
 
+#if !ENABLE(SWIFT_BASE_CLASS_ANNOTATIONS)
 inline void refStreamServerConnection(IPC::StreamServerConnection* obj)
 {
     obj->ref();
@@ -230,3 +232,4 @@ inline void derefStreamServerConnection(IPC::StreamServerConnection* obj)
 {
     obj->deref();
 }
+#endif

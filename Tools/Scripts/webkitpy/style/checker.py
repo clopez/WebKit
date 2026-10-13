@@ -56,6 +56,7 @@ from webkitpy.style.checkers.jsonchecker import JSONContributorsChecker
 from webkitpy.style.checkers.jsonchecker import JSONFeaturesChecker
 from webkitpy.style.checkers.jsonchecker import JSONCSSPropertiesChecker
 from webkitpy.style.checkers.jsonchecker import JSONImportExpectationsChecker
+from webkitpy.style.checkers.jsonchecker import JSONQuirkTableChecker
 from webkitpy.style.checkers.jstest import JSTestChecker
 from webkitpy.style.checkers.messagesin import MessagesInChecker
 from webkitpy.style.checkers.png import PNGChecker
@@ -164,6 +165,10 @@ _PATH_RULES_SPECIFIER = [
     ([  # Ignore use of RetainPtr<NSObject *> for tests that ensure its compatibility with ReteainPtr<NSObject>.
       os.path.join('Tools', 'TestWebKitAPI', 'Tests', 'WTF', 'ns', 'RetainPtr.mm')],
      ["-runtime/retainptr"]),
+    ([  # Ignore append() of a default-constructed temporary in tests that compare it with constructAndAppend().
+        os.path.join('Tools', 'TestWebKitAPI', 'Tests', 'WTF', 'Deque.cpp'),
+        os.path.join('Tools', 'TestWebKitAPI', 'Tests', 'WTF', 'Vector.cpp')],
+     ["-runtime/construct_and_append"]),
     ([  # There is no clean way to avoid "yy_*" names used by flex.
       os.path.join('Source', 'WebCore', 'css', 'CSSParser.cpp'),
       # TestWebKitAPI uses funny macros like EXPECT_WK_STREQ.
@@ -450,6 +455,7 @@ _PATH_RULES_SPECIFIER = [
      ["-non-inclusive-term"]),
 
     ([  # The GTK/WPE MiniBrowser uses public API and GLib-style conventions and indentation.
+     os.path.join('Tools', 'MiniBrowser', 'glib'),
      os.path.join('Tools', 'MiniBrowser', 'gtk'),
      os.path.join('Tools', 'MiniBrowser', 'wpe')],
      ["-readability/enum_casing",
@@ -495,13 +501,7 @@ _PATH_RULES_SPECIFIER = [
       '.any.sharedworker.html',
       '.any.sharedworker-module.html',
       '.any.worker.html',
-      '.any.worker-module.html',
-      '.any.shadowrealm-in-window.html',
-      '.any.shadowrealm-in-shadowrealm.html',
-      '.any.shadowrealm-in-dedicatedworker.html',
-      '.any.shadowrealm-in-sharedworker.html',
-      '.any.shadowrealm-in-serviceworker.html',
-      '.any.shadowrealm-in-audioworklet.html'],
+      '.any.worker-module.html'],
      ['-wpt/lint/worker_collision']),
 
     ([  # Templated test sources and their generated dummy .html counterparts.
@@ -1035,6 +1035,8 @@ class CheckerDispatcher(object):
                 checker = JSONFeaturesChecker(file_path, handle_style_error)
             elif basename == 'CSSProperties.json':
                 checker = JSONCSSPropertiesChecker(file_path, handle_style_error)
+            elif basename == 'QuirkTable.json':
+                checker = JSONQuirkTableChecker(file_path, handle_style_error)
             elif basename == 'import-expectations.json':
                 checker = JSONImportExpectationsChecker(file_path, handle_style_error)
             else:

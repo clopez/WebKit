@@ -90,7 +90,7 @@ public:
 #endif
     };
 
-    SlotVisitor(Heap&, Collector&, ASCIICString codeName);
+    SlotVisitor(Collector&, ASCIICString codeName);
     ~SlotVisitor();
 
     void append(const ConservativeRoots&) final;
@@ -129,11 +129,13 @@ public:
     bool isMarked(MarkedBlock&, HeapCell*) const final;
     bool isMarked(PreciseAllocation&, HeapCell*) const final;
 
-    void NODELETE didStartMarking();
-    void NODELETE reset();
+    void LEGACY_NODELETE didStartMarking(CollectionScope, HeapVersion markingVersion, bool isAnalyzingHeap);
+    void LEGACY_NODELETE reset();
     void clearMarkStacks();
 
-    size_t bytesVisited() const { return m_bytesVisited; }
+    size_t bytesVisited() const { return m_flushedBytesVisited + m_bytesVisitedInHeap; }
+    void flushBytesVisited();
+    JS_EXPORT_PRIVATE void flushExtraMemoryVisited();
 
     void donate();
     void drain(MonotonicTime timeout = MonotonicTime::infinity());
@@ -169,15 +171,15 @@ public:
     
     Lock& rightToRun() LIFETIME_BOUND WTF_RETURNS_LOCK(m_rightToRun) { return m_rightToRun; }
     
-    void NODELETE updateMutatorIsStopped(const AbstractLocker&);
+    void LEGACY_NODELETE updateMutatorIsStopped(const AbstractLocker&);
     void updateMutatorIsStopped();
     
-    bool NODELETE hasAcknowledgedThatTheMutatorIsResumed() const;
-    bool NODELETE mutatorIsStoppedIsUpToDate() const;
+    bool LEGACY_NODELETE hasAcknowledgedThatTheMutatorIsResumed() const;
+    bool LEGACY_NODELETE mutatorIsStoppedIsUpToDate() const;
     
-    void NODELETE optimizeForStoppedMutator();
+    void LEGACY_NODELETE optimizeForStoppedMutator();
     
-    void didRace(const VisitRaceKey&) final;
+    JS_EXPORT_PRIVATE void didRace(const VisitRaceKey&) final;
     inline void didRace(JSCell* cell, const char* reason); // Defined in SlotVisitorInlines.h
     
     void visitAsConstraint(const JSCell*) final;
@@ -212,27 +214,35 @@ private:
     void visitChildren(const JSCell*);
 
     void propagateExternalMemoryVisitedIfNecessary();
+    ALWAYS_INLINE void noteBytesVisited(JSC::Heap&, size_t);
     
     void donateKnownParallel();
     void donateKnownParallel(MarkStackArray& from, MarkStackArray& to);
 
     void donateAll(const AbstractLocker&);
 
-    bool NODELETE hasWork(const AbstractLocker&);
+    bool LEGACY_NODELETE hasWork(const AbstractLocker&);
     bool didReachTermination(const AbstractLocker&);
 
     template<typename Func>
-    IterationStatus forEachMarkStack(const Func&);
+    IterationStatus forEachMarkStack(NOESCAPE const Func&);
 
-    MarkStackArray& NODELETE correspondingGlobalStack(MarkStackArray&);
+    MarkStackArray& LEGACY_NODELETE correspondingGlobalStack(MarkStackArray&);
 
     HeapVersion m_markingVersion;
 
-    size_t m_bytesVisited { 0 };
-    size_t m_nonCellVisitCount { 0 }; // Used for incremental draining, ignored otherwise.
-    CheckedSize m_extraMemorySize { 0 };
+    // Bytes of m_bytesVisitedHeap's cells this visitor marked and has not yet added to that heap's count. Marking a
+    // cell of another heap flushes it, which is rare since a heap's cells mostly reference their own heap's cells.
+    size_t m_bytesVisitedInHeap { 0 };
+    SUPPRESS_FORWARD_DECL_MEMBER JSC::Heap* m_bytesVisitedHeap { nullptr }; // Heap is not refcounted.
+    size_t m_flushedBytesVisited { 0 }; // What this visitor has added to the heaps' counts, for bytesVisited().
 
-    HeapAnalyzer* m_heapAnalyzer { nullptr };
+    size_t m_nonCellVisitCount { 0 }; // Used for incremental draining, ignored otherwise.
+
+    // Bytes of extra memory reported by cells of m_extraMemoryHeap and not yet added to that heap's count.
+    CheckedSize m_extraMemoryInHeap { 0 };
+    SUPPRESS_FORWARD_DECL_MEMBER JSC::Heap* m_extraMemoryHeap { nullptr }; // Heap is not refcounted.
+
     JSCell* m_currentCell { nullptr };
     bool m_isFirstVisit { false };
     bool m_mutatorIsStopped { false };

@@ -68,7 +68,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "JSMapIterator.h"
 #include "JSMicrotask.h"
 #include "JSPromise.h"
-#include "JSRemoteFunction.h"
 #include "JSSentinel.h"
 #include "JSSetIterator.h"
 #include "JSStringIteratorInlines.h"
@@ -158,48 +157,6 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationThrowOutOfMemoryError, void, (VM* vmP
     scope.throwException(globalObject, createOutOfMemoryError(globalObject));
 }
 
-static JSValue getWrappedValue(JSGlobalObject* globalObject, JSGlobalObject* targetGlobalObject, JSValue value)
-{
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    if (!value.isObject())
-        RELEASE_AND_RETURN(scope, value);
-
-    if (value.isCallable())
-        RELEASE_AND_RETURN(scope, JSRemoteFunction::tryCreate(targetGlobalObject, vm, static_cast<JSObject*>(value.asCell())));
-
-    throwTypeError(globalObject, scope, "value passing between realms must be callable or primitive"_s);
-    return jsUndefined();
-}
-
-JSC_DEFINE_JIT_OPERATION(operationGetWrappedValueForTarget, EncodedJSValue, (JSRemoteFunction* callee, EncodedJSValue encodedValue))
-{
-    JSGlobalObject* globalObject = callee->realm();
-    VM& vm = globalObject->vm();
-
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    ASSERT(isRemoteFunction(callee));
-
-    JSGlobalObject* targetGlobalObject = callee->targetFunction()->realm();
-    OPERATION_RETURN(scope, JSValue::encode(getWrappedValue(globalObject, targetGlobalObject, JSValue::decode(encodedValue))));
-}
-
-JSC_DEFINE_JIT_OPERATION(operationGetWrappedValueForCaller, EncodedJSValue, (JSRemoteFunction* callee, EncodedJSValue encodedValue))
-{
-    JSGlobalObject* globalObject = callee->realm();
-    VM& vm = globalObject->vm();
-
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    ASSERT(isRemoteFunction(callee));
-
-    OPERATION_RETURN(scope, JSValue::encode(getWrappedValue(globalObject, globalObject, JSValue::decode(encodedValue))));
-}
-
 static inline UGPRPair materializeTargetCode(VM& vm, JSFunction* targetFunction)
 {
     auto throwScope = DECLARE_THROW_SCOPE(vm);
@@ -229,51 +186,6 @@ JSC_DEFINE_JIT_OPERATION(operationMaterializeBoundFunctionTargetCode, UGPRPair, 
     auto scope = DECLARE_THROW_SCOPE(vm);
     auto* targetFunction = uncheckedDowncast<JSFunction>(callee->targetFunction()); // We call this function only when JSBoundFunction's target is JSFunction.
     OPERATION_RETURN(scope, materializeTargetCode(vm, targetFunction));
-}
-
-JSC_DEFINE_JIT_OPERATION(operationMaterializeRemoteFunctionTargetCode, UGPRPair, (JSRemoteFunction* callee))
-{
-    JSGlobalObject* globalObject = callee->realm();
-    VM& vm = globalObject->vm();
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    ASSERT(isRemoteFunction(callee));
-    auto* targetFunction = uncheckedDowncast<JSFunction>(callee->targetFunction()); // We call this function only when JSRemoteFunction's target is JSFunction.
-    OPERATION_RETURN(scope, materializeTargetCode(vm, targetFunction));
-}
-
-JSC_DEFINE_JIT_OPERATION(operationThrowRemoteFunctionException, EncodedJSValue, (JSRemoteFunction* callee))
-{
-    JSGlobalObject* globalObject = callee->realm();
-    VM& vm = globalObject->vm();
-
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    ASSERT(isRemoteFunction(callee));
-
-    Exception* exception = scope.exception();
-
-    // We should only be here when "rethrowing" an exception
-    RELEASE_ASSERT(exception);
-    JSValue exceptionValue = exception->value();
-
-    if (!scope.tryClearException()) [[unlikely]] {
-        scope.release();
-        OPERATION_RETURN(scope, encodedJSValue());
-    }
-
-    String exceptionString = exceptionValue.toWTFString(globalObject);
-    if (!scope.tryClearException()) [[unlikely]] {
-        scope.release();
-        OPERATION_RETURN(scope, encodedJSValue());
-    }
-
-    if (exceptionString.length())
-        OPERATION_RETURN(scope, throwVMTypeError(globalObject, scope, exceptionString));
-
-    OPERATION_RETURN(scope, throwVMTypeError(globalObject, scope));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationThrowIteratorResultIsNotObject, void, (JSGlobalObject* globalObject))
@@ -886,11 +798,10 @@ static ALWAYS_INLINE JSValue inByValMegamorphic(JSGlobalObject* globalObject, VM
         RELEASE_AND_RETURN(scope, jsBoolean(CommonSlowPaths::opInByVal(globalObject, baseValue, subscript, profile)));
     }
 
-    Identifier propertyName = subscript.toPropertyKey(globalObject);
-    RETURN_IF_EXCEPTION(scope, { });
+    auto propertyName = CacheableIdentifier::getCacheableIdentifier(subscript.asCell());
+    UniquedStringImpl* uid = const_cast<UniquedStringImpl*>(propertyName.data);
 
     JSObject* baseObject = asObject(baseValue);
-    UniquedStringImpl* uid = propertyName.impl();
     if (!canUseMegamorphicInById(vm, uid)) [[unlikely]] {
         dataLogLnIf(verbose, " ", __LINE__);
         if (propertyCache && propertyCache->considerRepatchingCacheMegamorphic(vm)) {
@@ -2008,12 +1919,11 @@ ALWAYS_INLINE static void putByValMegamorphic(JSGlobalObject* globalObject, VM& 
         return;
     }
 
-    Identifier propertyName = subscript.toPropertyKey(globalObject);
-    RETURN_IF_EXCEPTION(scope, void());
+    auto propertyName = CacheableIdentifier::getCacheableIdentifier(subscript.asCell());
+    UniquedStringImpl* uid = const_cast<UniquedStringImpl*>(propertyName.data);
 
     PutPropertySlot slot(baseValue, isStrict);
 
-    UniquedStringImpl* uid = propertyName.impl();
     if (!canUseMegamorphicPutById(vm, uid)) [[unlikely]] {
         if (propertyCache && propertyCache->considerRepatchingCacheMegamorphic(vm))
             repatchPutBySlowPathCall(callFrame->codeBlock(), *propertyCache, kind);
@@ -2967,12 +2877,6 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, UGPRPair, (VM* vmPointer, uint32_t b
     if (level == DFG::CannotCompile)
         OPERATION_RETURN(scope, encodeResult(nullptr, nullptr));
     
-    if (bytecodeIndex) {
-        // If we're attempting to OSR from a loop, assume that this should be
-        // separately optimized.
-        codeBlock->m_shouldAlwaysBeInlined = false;
-    }
-
     if (Options::verboseOSR()) [[unlikely]] {
         dataLog(
             *codeBlock, ": Entered optimize with bytecodeIndex = ", bytecodeIndex,
@@ -3006,13 +2910,6 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, UGPRPair, (VM* vmPointer, uint32_t b
     if (debugger && (debugger->isStepping() || codeBlock->baselineAlternative()->hasDebuggerRequests())) [[unlikely]] {
         CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("debugger is stepping or has requests"));
         updateAllPredictionsAndOptimizeAfterWarmUp(codeBlock);
-        OPERATION_RETURN(scope, encodeResult(nullptr, nullptr));
-    }
-
-    if (codeBlock->m_shouldAlwaysBeInlined) {
-        CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("should always be inlined"));
-        updateAllPredictionsAndOptimizeAfterWarmUp(codeBlock);
-        dataLogLnIf(Options::verboseOSR(), "Choosing not to optimize ", *codeBlock, " yet, because m_shouldAlwaysBeInlined == true.");
         OPERATION_RETURN(scope, encodeResult(nullptr, nullptr));
     }
 
@@ -3413,15 +3310,6 @@ JSC_DEFINE_JIT_OPERATION(operationIteratorNextTryFast, UGPRPair, (JSGlobalObject
         OPERATION_RETURN(scope, makeUGPRPair(JSValue::encode(jsBoolean(done)), JSValue::encode(value)));
     }
 
-    if (auto* stringIterator = dynamicDowncast<JSStringIterator>(iterator)) {
-        metadata.m_iterationMetadata.seenModes = metadata.m_iterationMetadata.seenModes | IterationMode::FastString;
-        JSString* nextValue = stringIterator->nextWithAdvance(globalObject, vm);
-        OPERATION_RETURN_IF_EXCEPTION(scope, makeUGPRPair(0, 0));
-        bool done = !nextValue;
-        JSValue value = done ? JSValue() : JSValue(nextValue);
-        OPERATION_RETURN(scope, makeUGPRPair(JSValue::encode(jsBoolean(done)), JSValue::encode(value)));
-    }
-
     RELEASE_ASSERT_NOT_REACHED();
     OPERATION_RETURN(scope, makeUGPRPair(0, 0));
 }
@@ -3447,6 +3335,23 @@ JSC_DEFINE_JIT_OPERATION(operationIteratorNextFastArray, UGPRPair, (JSGlobalObje
     OPERATION_RETURN_IF_EXCEPTION(scope, makeUGPRPair(0, 0));
 
     OPERATION_RETURN(scope, makeUGPRPair(JSValue::encode(jsBoolean(!hasNext)), JSValue::encode(value)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationIteratorNextFastString, UGPRPair, (JSGlobalObject* globalObject, JSString* string, EncodedJSValue* indexInFrame, void* metadataPointer))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto& metadata = *std::bit_cast<OpIteratorNext::Metadata*>(metadataPointer);
+    metadata.m_iterationMetadata.seenModes = metadata.m_iterationMetadata.seenModes | IterationMode::FastString;
+
+    auto [value, nextPosition] = JSStringIterator::advance(globalObject, vm, string, JSValue::decode(*indexInFrame).asInt32());
+    OPERATION_RETURN_IF_EXCEPTION(scope, makeUGPRPair(0, 0));
+    *indexInFrame = JSValue::encode(jsNumber(nextPosition));
+
+    OPERATION_RETURN(scope, makeUGPRPair(JSValue::encode(jsBoolean(!value)), JSValue::encode(value)));
 }
 
 #endif
@@ -3678,17 +3583,8 @@ static ALWAYS_INLINE JSValue getByValMegamorphic(JSGlobalObject* globalObject, V
 
     JSObject* baseObject = asObject(baseValue);
 
-    GCOwnedDataScope<AtomStringImpl*> propertyName;
-    Identifier propertyKey;
-    UniquedStringImpl* uid = nullptr;
-    if (subscript.isString()) {
-        propertyName = asString(subscript)->toAtomString(globalObject);
-        uid = propertyName.data;
-    } else {
-        propertyKey = subscript.toPropertyKey(globalObject);
-        uid = propertyKey.impl();
-    }
-    RETURN_IF_EXCEPTION(scope, { });
+    auto propertyName = CacheableIdentifier::getCacheableIdentifier(subscript.asCell());
+    UniquedStringImpl* uid = const_cast<UniquedStringImpl*>(propertyName.data);
 
     if (!canUseMegamorphicGetByIdExcludingIndex(vm, uid)) [[unlikely]] {
         if (propertyCache && propertyCache->considerRepatchingCacheMegamorphic(vm))

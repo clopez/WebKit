@@ -96,7 +96,7 @@ inline void ConservativeRoots::genericAddPointer(char* pointer, HeapVersion mark
         if (calleeBits.isNativeCallee()) {
             if (!boxedWasmCalleeFilter.ruleOut(std::bit_cast<uintptr_t>(pointer))) {
                 Wasm::Callee* wasmCallee = static_cast<Wasm::Callee*>(calleeBits.asNativeCallee());
-                if (m_heap.didDiscoverPendingWasmCallee(wasmCallee))
+                if (m_heap.markWasmCalleeIfPending(wasmCallee))
                     return;
             }
             // FIXME: We could probably just return here.
@@ -227,8 +227,8 @@ void ConservativeRoots::genericAddSpan(void* begin, void* end, MarkHook& markHoo
 
 class DummyMarkHook {
 public:
-    void NODELETE mark(void*) { }
-    void NODELETE markKnownJSCell(JSCell*) { }
+    void LEGACY_NODELETE mark(void*) { }
+    void LEGACY_NODELETE markKnownJSCell(JSCell*) { }
 };
 
 void ConservativeRoots::add(void* begin, void* end)

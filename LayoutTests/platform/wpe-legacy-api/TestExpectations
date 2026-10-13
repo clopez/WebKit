@@ -18,6 +18,8 @@
 
 fast/events/touch/touch-inside-iframe-scrolled.html [ Pass ]
 fast/events/touch/send-oncancel-event.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-layout-stale-002.html [ Pass ]
+loader/go-back-to-different-window-size.html [ Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of PASSING tests. See below where to put expected failures.
@@ -40,12 +42,23 @@ fast/events/touch/multi-touch-grouped-targets.html [ Skip ] # Timeout.
 
 webkit.org/b/278719 fast/events/touch/basic-multi-touch-events-limited.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/basic-multi-touch-events.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/coalesced-multi-touch-moves.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/touch-target-limited.html [ Skip ] # Timeout.
 webkit.org/b/278719 fast/events/touch/touch-target.html [ Timeout ]
 
 # These failures appear to be bugs in the EventSender
 fast/html/transient-activation.html [ Skip ] # Timeout
 fast/html/history-action-user-activation.html [ Skip ] # Timeout
+
+# The libwpe click count is not reset between tests, so clicks are merged with the previous test's.
+fast/html/details-add-summary-6-and-click.html [ Failure Pass ]
+fast/html/details-add-summary-7-and-click.html [ Failure Pass ]
+fast/html/details-add-summary-8-and-click.html [ Failure Pass ]
+fast/html/details-add-summary-9-and-click.html [ Failure Pass ]
+fast/html/details-add-summary-10-and-click.html [ Failure Pass ]
+fast/html/details-remove-summary-4-and-click.html [ Failure Pass ]
+fast/html/details-remove-summary-5-and-click.html [ Failure Pass ]
+fast/html/details-remove-summary-6-and-click.html [ Failure Pass ]
 
 webkit.org/b/296369 editing/deleting/paste-with-transparent-background-color-live-range.html [ Failure ]
 webkit.org/b/296369 editing/deleting/paste-with-transparent-background-color.html [ Failure ]
@@ -82,8 +95,6 @@ webkit.org/b/188509 fast/dom/Window/window-property-invalid-characters-ignored.h
 webkit.org/b/216650 fast/events/mouse-cursor-hidden-when-out-of-bounds.html [ Failure ]
 webkit.org/b/109469 fast/events/mouse-cursor-image-set.html [ Failure ]
 
-imported/w3c/web-platform-tests/css/css-view-transitions/pseudo-with-classes-mismatch-partial.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/pseudo-with-classes-mismatch-wildcard.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition-before-ready.html [ Failure ]
 
@@ -112,6 +123,8 @@ webkit.org/b/186879 fast/events/open-window-from-another-frame.html [ Timeout ]
 webkit.org/b/186879 fast/events/popup-allowed-from-gesture-initiated-event.html [ Timeout ]
 webkit.org/b/186879 fast/events/popup-blocked-from-fake-user-gesture.html [ Timeout ]
 webkit.org/b/186879 fast/events/popup-blocking-timers1.html [ Timeout ]
+
+webkit.org/b/327183 imported/w3c/web-platform-tests/html/semantics/interactive-elements/commands/option/option-accesskey.html [ Failure ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End of Triaged Expectations

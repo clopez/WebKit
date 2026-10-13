@@ -47,6 +47,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+// This needs to match how AccessibilityRenderObject and AccessibilityNodeObject add the children of a select.
+static bool listItemsAreChildrenOfSelect(const HTMLSelectElement& select)
+{
+    if (CheckedPtr renderer = select.renderer())
+        return is<RenderListBox>(*renderer);
+    return !select.usesMenuList();
+}
+
 AccessibilityListBoxOption::AccessibilityListBoxOption(AXID axID, RenderObject& renderer, AXObjectCache& cache)
     : AccessibilityRenderObject(axID, renderer, cache)
 {
@@ -80,9 +88,11 @@ Ref<AccessibilityListBoxOption> AccessibilityListBoxOption::create(AXID axID, HT
 
 bool AccessibilityListBoxOption::isEnabled() const
 {
-    return !(is<HTMLOptGroupElement>(m_node.get())
-        || equalLettersIgnoringASCIICase(getAttribute(aria_disabledAttr), "true"_s)
-        || hasAttribute(disabledAttr));
+    if (is<HTMLOptGroupElement>(m_node) || equalLettersIgnoringASCIICase(getAttribute(aria_disabledAttr), "true"_s))
+        return false;
+
+    RefPtr element = dynamicDowncast<Element>(m_node);
+    return !element || !element->isDisabledFormControl();
 }
 
 bool AccessibilityListBoxOption::isSelected() const
@@ -130,8 +140,32 @@ bool AccessibilityListBoxOption::computeIsIgnored() const
     if (!m_node || isIgnoredByDefault())
         return true;
 
-    RefPtr parent = parentObject();
-    return parent ? parent->isIgnored() : true;
+    // An optgroup that renders its own content is represented by its label instead.
+    if (canHaveChildren())
+        return true;
+
+    RefPtr select = listBoxOptionParentNode();
+    CheckedPtr cache = axObjectCache();
+    RefPtr selectObject = select && cache ? cache->getOrCreate(*select) : nullptr;
+    return !selectObject || selectObject->isIgnored();
+}
+
+bool AccessibilityListBoxOption::canHaveChildren() const
+{
+    RefPtr select = listBoxOptionParentNode();
+    return select && is<HTMLOptGroupElement>(m_node) && !listItemsAreChildrenOfSelect(*select);
+}
+
+void AccessibilityListBoxOption::addChildren()
+{
+    if (canHaveChildren()) {
+        AccessibilityRenderObject::addChildren();
+        return;
+    }
+
+    m_childrenInitialized = true;
+    m_childrenDirty = false;
+    m_subtreeDirty = false;
 }
 
 bool AccessibilityListBoxOption::canSetSelectedAttribute() const
@@ -177,36 +211,17 @@ AccessibilityObject* AccessibilityListBoxOption::parentObject() const
     if (!parentNode)
         return nullptr;
 
+    if (!listItemsAreChildrenOfSelect(*parentNode))
+        return AccessibilityRenderObject::parentObject();
+
     CheckedPtr cache = protect(protect(m_node)->document())->axObjectCache();
     return cache ? cache->getOrCreate(*parentNode) : nullptr;
 }
 
-void AccessibilityListBoxOption::setSelected(bool selected)
-{
-    RefPtr selectElement = listBoxOptionParentNode();
-    if (!selectElement)
-        return;
-
-    if (!canSetSelectedAttribute())
-        return;
-
-    bool isOptionSelected = isSelected();
-    if ((isOptionSelected && selected) || (!isOptionSelected && !selected))
-        return;
-
-    // Convert from the entire list index to the option index.
-    int optionIndex = selectElement->listToOptionIndex(listBoxOptionIndex());
-
-    if (selected && selectElement->usesBaseAppearancePicker()) {
-        selectElement->optionSelectedByUser(optionIndex, true);
-        selectElement->hidePickerPopoverElement();
-    } else
-        selectElement->accessKeySetSelectedIndex(optionIndex);
-}
-
 HTMLSelectElement* AccessibilityListBoxOption::listBoxOptionParentNode() const
 {
-    if (!m_node)
+    // A node that is being destroyed has no parent, and its tag name can no longer be checked.
+    if (!m_node || !m_node->parentNode())
         return nullptr;
 
     if (auto* option = dynamicDowncast<HTMLOptionElement>(*m_node))

@@ -40,8 +40,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <JavaScriptCore/Integrity.h>
 #include <JavaScriptCore/Interpreter.h>
 #include <JavaScriptCore/JSDateMath.h>
-#include <JavaScriptCore/JSONAtomStringCache.h>
-#include <JavaScriptCore/JSONTransitionCache.h>
 #include <JavaScriptCore/KeyAtomStringCache.h>
 #include <JavaScriptCore/NativeFunction.h>
 #include <JavaScriptCore/NumericStrings.h>
@@ -132,6 +130,7 @@ class JSPropertyNameEnumerator;
 class JITSizeStatistics;
 class JITThunks;
 class MegamorphicCache;
+class JSONCache;
 class MicrotaskCallCache;
 class MicrotaskQueue;
 class NativeExecutable;
@@ -294,14 +293,14 @@ public:
     inline CallFrame* topJSCallFrame() const;
 
     // Global object in which execution began.
-    JS_EXPORT_PRIVATE JSGlobalObject* NODELETE deprecatedVMEntryGlobalObject(JSGlobalObject*) const;
+    JS_EXPORT_PRIVATE JSGlobalObject* LEGACY_NODELETE deprecatedVMEntryGlobalObject(JSGlobalObject*) const;
 
     WeakRandom& random() LIFETIME_BOUND { return m_random; }
     WeakRandom& heapRandom() LIFETIME_BOUND { return m_heapRandom; }
     Integrity::Random& integrityRandom() LIFETIME_BOUND { return m_integrityRandom; }
 
     template<typename Type, typename Functor>
-    Type& ensureSideData(void* key, const Functor&);
+    Type& ensureSideData(void* key, NOESCAPE const Functor&);
 
     bool hasTerminationRequest() const { return m_hasTerminationRequest; }
     void clearHasTerminationRequest()
@@ -309,7 +308,7 @@ public:
         m_hasTerminationRequest = false;
         clearEntryScopeService(ConcurrentEntryScopeService::ResetTerminationRequest);
     }
-    void NODELETE setHasTerminationRequest();
+    void LEGACY_NODELETE setHasTerminationRequest();
 
     bool executionForbidden() const { return m_executionForbidden; }
     void setExecutionForbidden() { m_executionForbidden = true; }
@@ -402,6 +401,8 @@ public:
     EntryFrame* topEntryFrame { nullptr };
     void* maybeReturnPC { nullptr };
     JSPIContext* topJSPIContext { nullptr };
+    WriteBarrier<JSSentinel> m_fastArraySentinel;
+    WriteBarrier<JSSentinel> m_fastStringSentinel;
 private:
 
     struct EntryScopeServicesBits {
@@ -513,6 +514,7 @@ public:
 
     VMType vmType;
     bool m_mightBeExecutingTaintedCode { false };
+    bool m_mightHavePrevalentDomainTaintedCode { false };
     ClientData* clientData { nullptr };
 #if ENABLE(WEBASSEMBLY)
     Wasm::Context wasmContext;
@@ -595,13 +597,11 @@ public:
     WriteBarrier<JSSentinel> m_fastArrayValuesSentinel;
     WriteBarrier<JSSentinel> m_fastArrayKeysSentinel;
     WriteBarrier<JSSentinel> m_fastArrayEntriesSentinel;
-    WriteBarrier<JSSentinel> m_fastArraySentinel;
     WriteBarrier<JSSentinel> m_fastMapKeysSentinel;
     WriteBarrier<JSSentinel> m_fastMapValuesSentinel;
     WriteBarrier<JSSentinel> m_fastMapEntriesSentinel;
     WriteBarrier<JSSentinel> m_fastSetValuesSentinel;
     WriteBarrier<JSSentinel> m_fastSetEntriesSentinel;
-    WriteBarrier<JSSentinel> m_fastStringValuesSentinel;
     WriteBarrier<JSSentinel> m_fastAsyncGeneratorSentinel;
 
     WriteBarrier<JSCell> m_cachedSortScratch;
@@ -610,8 +610,6 @@ public:
     WriteBarrier<NativeExecutable> m_fastCanConstructBoundExecutable;
     WriteBarrier<NativeExecutable> m_slowCanConstructBoundExecutable;
 
-    Weak<NativeExecutable> m_fastRemoteFunctionExecutable;
-    Weak<NativeExecutable> m_slowRemoteFunctionExecutable;
 
     const Ref<DeferredWorkTimer> deferredWorkTimer;
 
@@ -629,8 +627,6 @@ public:
     WriteBarrier<JSString> lastCachedString;
     Ref<StringImpl> lastAtomizedIdentifierStringImpl { *StringImpl::empty() };
     Ref<AtomStringImpl> lastAtomizedIdentifierAtomStringImpl { *static_cast<AtomStringImpl*>(StringImpl::empty()) };
-    JSONAtomStringCache jsonAtomStringCache;
-    JSONTransitionCache jsonTransitionCache;
     KeyAtomStringCache keyAtomStringCache;
     Vector<unsigned> stringSplitIndice;
     StringReplaceCache stringReplaceCache;
@@ -638,6 +634,9 @@ public:
     bool mightBeExecutingTaintedCode() const { return m_mightBeExecutingTaintedCode; }
     bool* addressOfMightBeExecutingTaintedCode() LIFETIME_BOUND { return &m_mightBeExecutingTaintedCode; }
     void setMightBeExecutingTaintedCode(bool value = true) { m_mightBeExecutingTaintedCode = value; }
+
+    bool mightHavePrevalentDomainTaintedCode() const { return m_mightHavePrevalentDomainTaintedCode; }
+    void setMightHavePrevalentDomainTaintedCode() { m_mightHavePrevalentDomainTaintedCode = true; }
 
     AtomStringTable* atomStringTable() const { return m_atomStringTable; }
     WTF::SymbolRegistry& symbolRegistry() { return m_symbolRegistry.get(); }
@@ -673,7 +672,7 @@ public:
     JSSentinel* fastMapEntriesSentinel() { return m_fastMapEntriesSentinel.get(); }
     JSSentinel* fastSetValuesSentinel() { return m_fastSetValuesSentinel.get(); }
     JSSentinel* fastSetEntriesSentinel() { return m_fastSetEntriesSentinel.get(); }
-    JSSentinel* fastStringValuesSentinel() { return m_fastStringValuesSentinel.get(); }
+    JSSentinel* fastStringSentinel() { return m_fastStringSentinel.get(); }
     JSSentinel* fastAsyncGeneratorSentinel() { return m_fastAsyncGeneratorSentinel.get(); }
 
     inline JSPropertyNameEnumerator* emptyPropertyNameEnumerator();
@@ -764,7 +763,6 @@ public:
     NativeExecutable* getHostFunction(NativeFunction, ImplementationVisibility, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, unsigned length, const String& name);
 
     NativeExecutable* getBoundFunction(bool isJSFunction, SourceTaintedOrigin taintedness);
-    NativeExecutable* getRemoteFunction(bool isJSFunction);
 
     CodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
     MacroAssemblerCodeRef<JSEntryPtrTag> getCTIThrowExceptionFromCallSlowPath();
@@ -868,7 +866,7 @@ public:
     }
 
     void* lastStackTop() { return m_lastStackTop; }
-    void NODELETE setLastStackTop(const Thread&);
+    void LEGACY_NODELETE setLastStackTop(const Thread&);
     
 #if ENABLE(C_LOOP)
     ALWAYS_INLINE CLoopStack& cloopStack() { return traps().cloopStack(); }
@@ -943,6 +941,9 @@ public:
     LazyUniqueRef<VM, StringSplitCache> m_stringSplitCache;
     ALWAYS_INLINE StringSplitCache* stringSplitCache() { return m_stringSplitCache.getIfExists(); }
     StringSplitCache& ensureStringSplitCache() { return m_stringSplitCache.get(*this); }
+
+    const UniqueRef<JSONCache> m_jsonCache;
+    JSONCache& jsonCache() { return m_jsonCache.get(); }
 
     const UniqueRef<MicrotaskCallCache> m_syncResumeCallCache;
     MicrotaskCallCache& syncResumeCallCache() { return m_syncResumeCallCache.get(); }
@@ -1020,7 +1021,7 @@ public:
         DrainMicrotaskDelayScope& operator=(const DrainMicrotaskDelayScope&);
 
     private:
-        void NODELETE increment();
+        void LEGACY_NODELETE increment();
         void decrement();
 
         RefPtr<VM> m_vm;
@@ -1059,7 +1060,7 @@ public:
     ShadowChicken& ensureShadowChicken() { return m_shadowChicken.get(*this); }
     
     template<typename Func>
-    void logEvent(CodeBlock*, const char* summary, const Func& func);
+    void logEvent(CodeBlock*, const char* summary, NOESCAPE const Func&);
 
     inline std::optional<RefPtr<Thread>> ownerThread() const; // Defined in VMInlines.h
     inline std::optional<uint64_t> ownerThreadUID() const; // Defined in VMInlines.h
@@ -1095,7 +1096,7 @@ public:
 
     WTF::RunLoop& runLoop() const { return m_runLoop; }
 
-    static void NODELETE setCrashOnVMCreation(bool);
+    static void LEGACY_NODELETE setCrashOnVMCreation(bool);
 
     void addLoopHintExecutionCounter(const JSInstruction*);
     uintptr_t* getLoopHintExecutionCounter(const JSInstruction*);
@@ -1124,10 +1125,10 @@ public:
     void reconcileWeakReferencesAtGCEnd();
     DECLARE_VISIT_AGGREGATE;
 
-    void NODELETE addDebugger(Debugger&);
-    void NODELETE removeDebugger(Debugger&);
+    void LEGACY_NODELETE addDebugger(Debugger&);
+    void LEGACY_NODELETE removeDebugger(Debugger&);
     template<typename Func>
-    void forEachDebugger(const Func&);
+    void forEachDebugger(NOESCAPE const Func&);
 
     void changeNumberOfActiveJITPlans(int64_t value)
     {
@@ -1136,7 +1137,7 @@ public:
 
     int64_t numberOfActiveJITPlans() const { return m_numberOfActiveJITPlans.load(std::memory_order_relaxed); }
 
-    Ref<Waiter> NODELETE syncWaiter();
+    Ref<Waiter> LEGACY_NODELETE syncWaiter();
 
     void notifyDebuggerHookInjected() { m_isDebuggerHookInjected = true; }
     bool isDebuggerHookInjected() const { return m_isDebuggerHookInjected; }
@@ -1144,7 +1145,7 @@ public:
 
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     Wasm::DebugState* debugStateIfExists() { return m_debugState.get(); }
-    JS_EXPORT_PRIVATE Wasm::DebugState* NODELETE debugState();
+    JS_EXPORT_PRIVATE Wasm::DebugState* LEGACY_NODELETE debugState();
 #endif
 
 private:

@@ -318,7 +318,7 @@ public:
 
     void checkArgumentTypes();
 
-    void NODELETE clearGenerationInfo();
+    void LEGACY_NODELETE clearGenerationInfo();
 
     // These methods are used when generating 'unexpected'
     // calls out from JIT code to C++ helper routines -
@@ -653,8 +653,8 @@ public:
 
     void emitCall(Node*);
 
-    void emitAllocateButterfly(GPRReg storageGPR, GPRReg sizeGPR, GPRReg scratch1, GPRReg scratch2, GPRReg scratch3, JumpList& slowCases);
-    void emitInitializeButterfly(GPRReg storageGPR, GPRReg sizeGPR, GPRReg emptyValueGPR, GPRReg scratchGPR);
+    void emitAllocateButterfly(GPRReg storageGPR, GPRReg vectorLengthResultGPR, GPRReg sizeGPR, GPRReg scratch1, GPRReg scratch2, JumpList& slowCases);
+    void emitInitializeButterfly(GPRReg storageGPR, GPRReg vectorLengthGPR, GPRReg emptyValueGPR, GPRReg scratchGPR);
     void compileAllocateNewArrayWithSize(Node*, GPRReg resultGPR, GPRReg sizeGPR, RegisteredStructure, bool shouldConvertLargeSizeToArrayStorage = true);
     void compileAllocateNewArrayWithSize(Node*, GPRReg resultGPR, GPRReg sizeGPR, IndexingType, bool shouldConvertLargeSizeToArrayStorage = true);
     
@@ -1267,6 +1267,7 @@ public:
     void compileSymbolEquality(Node*);
     void compileHeapBigIntEquality(Node*);
     void compileHeapBigIntCompare(Node*, RelationalCondition);
+    bool tryCompileHeapBigIntCompareWithZero(Node*, RelationalCondition);
     void compilePeepHoleSymbolEquality(Node*, Node* branchNode);
     void compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Node*, Edge neitherDoubleNorHeapBigInt, Edge notDouble);
     void emitBitwiseJSValueEquality(GPRReg&, GPRReg&, GPRReg& result);
@@ -1401,18 +1402,18 @@ public:
     void compilePutByValMegamorphic(Node*);
 
     // We use a ScopedLambda to placate register allocation validation.
-    void compileGetByVal(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByVal(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
 
     void compileMultiGetByVal(Node*);
     void compileMultiPutByVal(Node*);
 
     void compileGetCharCodeAt(Node*);
-    void compileGetByValOnString(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnString(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compileStringFromCharCodeOrCodePoint(Node*);
     void compileGetByValMegamorphic(Node*);
 
-    void compileGetByValOnDirectArguments(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
-    void compileGetByValOnScopedArguments(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnDirectArguments(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnScopedArguments(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
 
     void compileGetPrivateName(Node*);
     void compileGetPrivateNameById(Node*);
@@ -1502,12 +1503,12 @@ public:
 #if USE(LARGE_TYPED_ARRAYS)
     void compileGetTypedArrayByteOffsetAsInt52(Node*);
 #endif
-    void compileGetByValOnIntTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnIntTypedArray(Node*, TypedArrayType, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForIntTypedArray(Node*, TypedArrayType);
-    void compileGetByValOnFloatTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnFloatTypedArray(Node*, TypedArrayType, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForFloatTypedArray(Node*, TypedArrayType);
-    void compileGetByValForObjectWithString(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
-    void compileGetByValForObjectWithSymbol(Node*, const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValForObjectWithString(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValForObjectWithSymbol(Node*, NOESCAPE const ScopedLambda<std::tuple<GPRReg, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForCellWithString(Node*);
     void compilePutByValForCellWithSymbol(Node*);
     void compileGetByValWithThis(Node*);
@@ -1619,7 +1620,7 @@ public:
     void compileThrow(Node*);
     void compileThrowStaticError(Node*);
 
-    void NODELETE compileExtractFromTuple(Node*);
+    void LEGACY_NODELETE compileExtractFromTuple(Node*);
     void compileStringIteratorNext(Node*);
     void compileEnumeratorNextUpdateIndexAndMode(Node*);
     void compileEnumeratorNextUpdatePropertyName(Node*);
@@ -1675,7 +1676,7 @@ public:
     void compileCallNumberConstructor(Node*);
     void compileLogShadowChickenPrologue(Node*);
     void compileLogShadowChickenTail(Node*);
-    void compileHasIndexedProperty(Node*, S_JITOperation_GCZ, const ScopedLambda<std::tuple<GPRReg, GPRReg>()>& prefix, bool = false);
+    void compileHasIndexedProperty(Node*, S_JITOperation_GCZ, NOESCAPE const ScopedLambda<std::tuple<GPRReg, GPRReg>()>& prefix, bool = false);
     void compileExtractCatchLocal(Node*);
     void compileClearCatchLocals(Node*);
     void compileProfileType(Node*);
@@ -1699,6 +1700,10 @@ public:
     void compileGlobalIsFinite(Node*);
     void compileNumberIsFinite(Node*);
     void compileNumberIsSafeInteger(Node*);
+    void emitDoubleIsNaN(FPRReg numberFPR, GPRReg resultGPR);
+    void emitDoubleIsFinite(FPRReg numberFPR, GPRReg resultGPR, FPRReg scratchFPR);
+    void emitDoubleIsSafeInteger(FPRReg numberFPR, GPRReg resultGPR, GPRReg scratchGPR, FPRReg scratchFPR, FPRReg limitFPR);
+    JumpList unboxDoubleForNumberPredicate(Edge, GPRReg argumentGPR, GPRReg resultGPR, FPRReg numberFPR, bool resultForInt32);
     void compileToIntegerOrInfinity(Node*);
     void compileToLength(Node*);
     void compileResolvePromiseFirstResolving(Node*);
@@ -2184,7 +2189,7 @@ public:
         return *this;
     }
 
-    void NODELETE adopt(GPRTemporary&);
+    void LEGACY_NODELETE adopt(GPRTemporary&);
 
     ~GPRTemporary()
     {

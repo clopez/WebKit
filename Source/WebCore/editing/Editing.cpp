@@ -231,7 +231,7 @@ Position nextVisuallyDistinctCandidate(const Position& position, SkipDisplayCont
         if (RefPtr node = nextPosition.containerNode()) {
             if (!node->renderer()) {
                 if (skipDisplayContents == SkipDisplayContents::No) {
-                    if (auto element = dynamicDowncast<Element>(node); element && element->hasDisplayContents())
+                    if (auto* element = dynamicDowncast<Element>(node); element && element->hasDisplayContents())
                         continue;
                 }
                 nextPosition = lastPositionInOrAfterNode(node.get());
@@ -505,13 +505,13 @@ bool isListItem(const Node& node)
     return isListHTMLElement(node.parentNode()) || (node.renderer() && node.renderer()->isRenderListItem());
 }
 
-Element* enclosingElementWithTag(const Position& position, const QualifiedName& tagName)
+RefPtr<Element> enclosingElementWithTag(const Position& position, const QualifiedName& tagName)
 {
     auto root = highestEditableRoot(position);
     for (RefPtr node = position.deprecatedNode(); node; node = node->parentNode()) {
         if (root && !node->hasEditableStyle())
             continue;
-        auto* element = dynamicDowncast<Element>(*node);
+        RefPtr element = dynamicDowncast<Element>(*node);
         if (!element)
             continue;
         if (element->hasTagName(tagName))
@@ -555,7 +555,7 @@ RefPtr<Node> highestEnclosingNodeOfType(const Position& position, bool (*nodeIsO
     return highest;
 }
 
-static bool NODELETE hasARenderedDescendant(Node* node, Node* excludedNode)
+static bool LEGACY_NODELETE hasARenderedDescendant(Node* node, Node* excludedNode)
 {
     for (auto* n = node->firstChild(); n;) {
         if (n == excludedNode) {
@@ -1139,7 +1139,7 @@ Position adjustedSelectionStartForStyleComputation(const VisibleSelection& selec
 }
 
 // FIXME: Should this be deprecated like deprecatedEnclosingBlockFlowElement is?
-static Element* NODELETE elementIfBlockFlow(Node& node)
+static Element* LEGACY_NODELETE elementIfBlockFlow(Node& node)
 {
     auto* element = dynamicDowncast<Element>(node);
     if (!element)
@@ -1153,7 +1153,7 @@ bool isBlockFlowElement(const Node& node)
     return elementIfBlockFlow(const_cast<Node&>(node));
 }
 
-Element* NODELETE deprecatedEnclosingBlockFlowElement(Node* node)
+Element* LEGACY_NODELETE deprecatedEnclosingBlockFlowElement(Node* node)
 {
     if (!node)
         return nullptr;

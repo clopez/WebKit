@@ -26,6 +26,7 @@
 #pragma once
 
 #import <WebGPU/WebGPU.h>
+#import <WebGPU/WebGPUCpp.h>
 #import <WebGPU/WebGPUExt.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/Deque.h>
@@ -35,7 +36,6 @@
 #import <wtf/MachSendRight.h>
 #import <wtf/Ref.h>
 #import <wtf/TZoneMalloc.h>
-#import <wtf/ThreadSafeRefCounted.h>
 #import <wtf/ThreadSafeWeakPtr.h>
 #import <wtf/ThreadSafetyAnalysis.h>
 #import <wtf/WeakObjCPtr.h>
@@ -48,7 +48,7 @@ namespace WTF {
 class MachSendRight;
 }
 
-namespace WebGPU {
+namespace WebGPU::Metal {
 
 class Adapter;
 class CommandBuffer;
@@ -57,7 +57,7 @@ class PresentationContext;
 class Texture;
 
 // https://gpuweb.github.io/gpuweb/#gpu
-class Instance : public WGPUInstanceImpl, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Instance> {
+class Instance final : public WebGPU::Instance, public WGPUInstanceImpl {
     WTF_MAKE_TZONE_ALLOCATED(Instance);
 public:
     static Ref<Instance> create(const WGPUInstanceDescriptor&);
@@ -70,9 +70,11 @@ public:
 
     Ref<PresentationContext> createSurface(const WGPUSurfaceDescriptor&);
     void processEvents();
-    void requestAdapter(const WGPURequestAdapterOptions&, CompletionHandler<void(WGPURequestAdapterStatus, Ref<Adapter>&&, String&&)>&& callback);
+    // Completes with nullptr when no adapter is available.
+    void requestAdapter(const WebGPU::RequestAdapterOptions&, CompletionHandler<void(RefPtr<Adapter>&&)>&&);
 
-    bool isValid() const { return m_isValid; }
+    void setLabel(String&&) final { }
+    bool isValid() const final { return m_isValid; }
     void retainDevice(Device&, id<MTLCommandBuffer>);
     void retainCommandBuffer(CommandBuffer&, id<MTLCommandBuffer>);
     void waitForCommandBufferCompletions();
@@ -80,7 +82,7 @@ public:
     // This can be called on a background thread.
     using WorkItem = Function<void()>;
     void scheduleWork(WorkItem&&);
-    const std::optional<const MachSendRight>& NODELETE webProcessID() const;
+    const std::optional<const MachSendRight>& LEGACY_NODELETE webProcessID() const;
     id<MTLDevice> device() const;
 
 private:
@@ -101,4 +103,4 @@ private:
     bool m_isValid { true };
 };
 
-} // namespace WebGPU
+} // namespace WebGPU::Metal

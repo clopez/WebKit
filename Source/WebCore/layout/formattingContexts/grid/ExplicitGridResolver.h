@@ -29,15 +29,17 @@
 
 namespace WebCore {
 
+class LayoutUnit;
+
 namespace Style {
 class ComputedStyle;
 struct GridTemplateList;
+struct ZoomFactor;
 }
 
 namespace Layout {
 
-struct AxisConstraint;
-struct GridLayoutConstraints;
+struct AutoRepeatConstraint;
 
 // https://drafts.csswg.org/css-grid-1/#explicit-grids
 // Resolves grid-template-{columns,rows} into the explicit grid's track lists. The rest of grid
@@ -45,10 +47,14 @@ struct GridLayoutConstraints;
 // auto-repeat mean the track lists in style are not the explicit grid's final tracks.
 class ExplicitGridResolver {
 public:
-    static ExplicitGridTrackSizes resolve(const Style::ComputedStyle& gridContainerStyle, const GridLayoutConstraints&);
+    static ExplicitGridTrackSizes resolve(const Style::ComputedStyle& gridContainerStyle, const AutoRepeatConstraint& inlineAxisAutoRepeatConstraint, const AutoRepeatConstraint& blockAxisAutoRepeatConstraint, LayoutUnit usedColumnGap, LayoutUnit usedRowGap);
 
 private:
-    static Vector<Style::GridTrackSize> resolveTrackSizes(const Style::GridTemplateList&, const AxisConstraint&);
+    struct ResolveTrackSizesResult {
+        Vector<Style::GridTrackSize> trackSizes;
+        WTF::Range<size_t> autoRepeatTracksIndexes;
+    };
+    static ResolveTrackSizesResult resolveTrackSizes(const Style::GridTemplateList&, const AutoRepeatConstraint&, LayoutUnit usedGap, Style::ZoomFactor);
 };
 
 } // namespace Layout

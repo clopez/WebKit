@@ -262,9 +262,9 @@ public:
     JS_EXPORT_PRIVATE static Info info();
     static unsigned numberOfVMs() { return singleton().m_numberOfVMs; }
 
-    JS_EXPORT_PRIVATE static void NODELETE setWasmDebuggerOnStop(StopTheWorldCallback);
-    JS_EXPORT_PRIVATE static void NODELETE setWasmDebuggerOnResume(PostResumeCallback);
-    JS_EXPORT_PRIVATE static void NODELETE setMemoryDebuggerCallback(StopTheWorldCallback);
+    JS_EXPORT_PRIVATE static void LEGACY_NODELETE setWasmDebuggerOnStop(StopTheWorldCallback);
+    JS_EXPORT_PRIVATE static void LEGACY_NODELETE setWasmDebuggerOnResume(PostResumeCallback);
+    JS_EXPORT_PRIVATE static void LEGACY_NODELETE setMemoryDebuggerCallback(StopTheWorldCallback);
 
     ALWAYS_INLINE CONCURRENT_SAFE static void requestStopAll(StopReason reason)
     {
@@ -291,17 +291,17 @@ public:
     using IteratorCallback = IterationStatus(VM&);
     using TestCallback = bool(VM&);
 
-    static inline VM* findMatchingVM(const Invocable<TestCallback> auto& test)
+    static inline VM* findMatchingVM(NOESCAPE const Invocable<TestCallback> auto& test)
     {
         SUPPRESS_FORWARD_DECL_ARG return singleton().findMatchingVMImpl(test);
     }
 
-    static inline void forEachVM(const Invocable<IteratorCallback> auto& functor)
+    static inline void forEachVM(NOESCAPE const Invocable<IteratorCallback> auto& functor)
     {
         SUPPRESS_FORWARD_DECL_ARG singleton().forEachVMImpl(functor);
     }
 
-    static inline Error forEachVMWithTimeout(Seconds timeout, const Invocable<IteratorCallback> auto& functor)
+    static inline Error forEachVMWithTimeout(Seconds timeout, NOESCAPE const Invocable<IteratorCallback> auto& functor)
     {
         SUPPRESS_FORWARD_DECL_ARG return singleton().forEachVMWithTimeoutImpl(timeout, functor);
     }
@@ -317,7 +317,7 @@ private:
     JS_EXPORT_PRIVATE CONCURRENT_SAFE void requestResumeAllInternal(StopReason);
 
     void resumeTheWorld() WTF_REQUIRES_LOCK(m_worldLock);
-    void NODELETE incrementActiveVMs(VM&) WTF_REQUIRES_LOCK(m_worldLock);
+    void LEGACY_NODELETE incrementActiveVMs(VM&) WTF_REQUIRES_LOCK(m_worldLock);
     void decrementActiveVMs(VM&) WTF_REQUIRES_LOCK(m_worldLock);
     void handleVMExit(VM&) WTF_REQUIRES_LOCK(m_worldLock);
     void enterStopTheWorldParticipation(VM&, StopTheWorldEvent);
@@ -329,11 +329,11 @@ private:
     void dispatchStopHandler(VM&);
 
     JS_EXPORT_PRIVATE static bool isValidVMSlow(VM*);
-    JS_EXPORT_PRIVATE VM* findMatchingVMImpl(const ScopedLambda<TestCallback>&);
-    JS_EXPORT_PRIVATE void forEachVMImpl(const ScopedLambda<IteratorCallback>&);
-    JS_EXPORT_PRIVATE Error forEachVMWithTimeoutImpl(Seconds timeout, const ScopedLambda<IteratorCallback>&);
+    JS_EXPORT_PRIVATE VM* findMatchingVMImpl(NOESCAPE const ScopedLambda<TestCallback>&);
+    JS_EXPORT_PRIVATE void forEachVMImpl(NOESCAPE const ScopedLambda<IteratorCallback>&);
+    JS_EXPORT_PRIVATE Error forEachVMWithTimeoutImpl(Seconds timeout, NOESCAPE const ScopedLambda<IteratorCallback>&);
 
-    void iterateVMs(const Invocable<IterationStatus(VM&)> auto&) WTF_REQUIRES_LOCK(m_worldLock);
+    void iterateVMs(NOESCAPE const Invocable<IterationStatus(VM&)> auto&) WTF_REQUIRES_LOCK(m_worldLock);
 
     DoublyLinkedList<VMThreadContext> m_vmList WTF_GUARDED_BY_LOCK(m_worldLock);
     Lock m_worldLock;
@@ -365,9 +365,8 @@ private:
     // Only notifyVMStop() may modify m_currentStopReason.
     StopReason m_currentStopReason { StopReason::None };
 
-    // Flags whether WasmDebugger post-resume callback is pending. Set when servicing WasmDebugger
-    // stop, atomically read-and-cleared by last VM exiting notifyVMStop().
-    Atomic<bool> m_needsWasmDebuggerOnResume { false };
+    // Flags whether WasmDebugger post-resume callback is pending. Set when servicing WasmDebugger stop.
+    Atomic<bool> m_wasmDebuggerResumePending { false };
 
     // Indicates the VM that will service the StopTheWorld request (i.e. drive the
     // enterStopTheWorldParticipation loop and invoke the callback), or the VM that may

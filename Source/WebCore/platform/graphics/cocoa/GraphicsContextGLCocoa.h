@@ -72,7 +72,7 @@ class WEBCORE_EXPORT GraphicsContextGLCocoa : public GraphicsContextGLANGLE, pub
 public:
     static RefPtr<GraphicsContextGLCocoa> create(WebCore::GraphicsContextGLAttributes&&, ProcessIdentity&& resourceOwner);
     ~GraphicsContextGLCocoa();
-    IOSurface* NODELETE displayBufferSurface();
+    IOSurface* LEGACY_NODELETE displayBufferSurface();
 
     enum class PbufferAttachmentUsage { Read, Write, ReadWrite };
     // Returns a handle which, if non-null, must be released via the
@@ -92,8 +92,6 @@ public:
     GCGLExternalSync createExternalSync(ExternalSyncSource&&) final;
     bool enableRequiredWebXRExtensions() final;
 
-    // GL_EXT_discard_framebuffer
-    void framebufferDiscard(GCGLenum, std::span<const GCGLenum>) final;
     // GL_WEBKIT_explicit_resolve_target
     void framebufferResolveRenderbuffer(GCGLenum, GCGLenum, GCGLenum, PlatformGLObject) final;
 #endif
@@ -127,10 +125,10 @@ protected:
     void invalidateKnownTextureContent(GCGLuint) final;
     bool reshapeDrawingBuffer() final;
 
-    IOSurfacePbuffer& NODELETE drawingBuffer();
-    IOSurfacePbuffer& NODELETE displayBuffer();
-    IOSurfacePbuffer& NODELETE copyBuffer();
-    IOSurfacePbuffer& NODELETE surfaceBuffer(SurfaceBuffer);
+    IOSurfacePbuffer& LEGACY_NODELETE drawingBuffer();
+    IOSurfacePbuffer& LEGACY_NODELETE displayBuffer();
+    IOSurfacePbuffer& LEGACY_NODELETE copyBuffer();
+    IOSurfacePbuffer& LEGACY_NODELETE surfaceBuffer(SurfaceBuffer);
     bool bindNextDrawingBuffer();
     IOSurfacePbuffer createDrawingBuffer();
     void freeDrawingBuffers();
@@ -150,10 +148,10 @@ protected:
     ProcessIdentity m_resourceOwner;
     ColorSpace m_drawingBufferColorSpace;
 #if ENABLE(VIDEO)
-    std::unique_ptr<GraphicsContextGLCVCocoa> m_cv;
+    const std::unique_ptr<GraphicsContextGLCVCocoa> m_cv;
 #endif
-    RetainPtr<MTLSharedEventListener> m_finishedMetalSharedEventListener;
-    RetainPtr<id> m_finishedMetalSharedEvent; // FIXME: Remove all C++ includees and use id<MTLSharedEvent>.
+    const RetainPtr<MTLSharedEventListener> m_finishedMetalSharedEventListener;
+    const RetainPtr<id> m_finishedMetalSharedEvent; // FIXME: Remove all C++ includees and use id<MTLSharedEvent>.
 #if ENABLE(WEBXR)
     using RasterizationRateMapArray =  EnumeratedArray<PlatformXR::Layout, RetainPtr<MTLRasterizationRateMap>, PlatformXR::Layout::Layered>;
     RasterizationRateMapArray m_rasterizationRateMap;

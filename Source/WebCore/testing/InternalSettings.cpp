@@ -141,12 +141,12 @@ public:
 #if ASSERT_ENABLED
     bool isRefCountedWrapper() const override { return true; }
 #endif
-    InternalSettings* NODELETE internalSettings() const { return m_internalSettings.get(); }
+    InternalSettings* LEGACY_NODELETE internalSettings() const { return m_internalSettings.get(); }
 
 private:
     bool isInternalSettingsWrapper() const final { return true; }
 
-    RefPtr<InternalSettings> m_internalSettings;
+    const RefPtr<InternalSettings> m_internalSettings;
 };
 
 ASCIILiteral InternalSettings::supplementName()
@@ -485,10 +485,11 @@ ExceptionOr<bool> InternalSettings::shouldDisplayTrackKind(TrackKind kind)
 
 ExceptionOr<void> InternalSettings::setEditableRegionEnabled(bool enabled)
 {
-    if (!m_page)
+    RefPtr page = m_page;
+    if (!page)
         return Exception { ExceptionCode::InvalidAccessError };
 #if ENABLE(EDITABLE_REGION)
-    m_page->setEditableRegionEnabled(enabled);
+    page->setEditableRegionEnabled(enabled);
 #else
     UNUSED_PARAM(enabled);
 #endif

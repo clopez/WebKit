@@ -168,6 +168,7 @@ set(WebKitGTK_HEADER_TEMPLATES
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitFileChooserRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitFindController.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitFormSubmissionRequest.h.in
+    ${WEBKIT_DIR}/UIProcess/API/glib/WebKitFrameInfo.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitGeolocationManager.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitGeolocationPermissionRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitHitTestResult.h.in
@@ -413,6 +414,7 @@ GENERATE_GLIB_API_HEADERS(WebKit WebKitGTK_HEADER_TEMPLATES
     "-DWTF_PLATFORM_WPE=0"
     "-DUSE_GTK4=$<BOOL:${USE_GTK4}>"
     "-DENABLE_2022_GLIB_API=$<BOOL:${ENABLE_2022_GLIB_API}>"
+    "-DENABLE_FUTURE_GLIB_API=$<BOOL:${ENABLE_FUTURE_GLIB_API}>"
     "-DUSE_GI_FINISH_FUNC_ANNOTATION=${USE_GI_FINISH_FUNC_ANNOTATION}"
 )
 unset(USE_GI_FINISH_FUNC_ANNOTATION)
@@ -424,6 +426,7 @@ GENERATE_GLIB_API_HEADERS(WebKit WebKitWebProcessExtension_HEADER_TEMPLATES
     "-DWTF_PLATFORM_WPE=0"
     "-DUSE_GTK4=$<BOOL:${USE_GTK4}>"
     "-DENABLE_2022_GLIB_API=$<BOOL:${ENABLE_2022_GLIB_API}>"
+    "-DENABLE_FUTURE_GLIB_API=$<BOOL:${ENABLE_FUTURE_GLIB_API}>"
 )
 
 if (NOT USE_GTK4)
