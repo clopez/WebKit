@@ -26,30 +26,31 @@
 #pragma once
 
 #include <JavaScriptCore/ArrayStorage.h>
+#include <JavaScriptCore/Butterfly.h>
 #include <JavaScriptCore/IndexingHeader.h>
 #include <JavaScriptCore/Structure.h>
 
 namespace JSC {
 
-inline size_t IndexingHeader::preCapacity(Structure* structure)
+inline size_t Butterfly::preCapacity(Structure* structure)
 {
     if (!hasAnyArrayStorage(structure->indexingType())) [[likely]]
         return 0;
     
-    return arrayStorage()->m_indexBias;
+    return IndexingHeader::from(this)->arrayStorage()->m_indexBias;
 }
 
-inline size_t IndexingHeader::indexingPayloadSizeInBytes(Structure* structure)
+inline size_t Butterfly::indexingPayloadSizeInBytes(Structure* structure)
 {
     switch (structure->indexingType()) {
     case ALL_UNDECIDED_INDEXING_TYPES:
     case ALL_INT32_INDEXING_TYPES:
     case ALL_DOUBLE_INDEXING_TYPES:
     case ALL_CONTIGUOUS_INDEXING_TYPES:
-        return vectorLength() * sizeof(EncodedJSValue);
+        return IndexingHeader::from(this)->vectorLength() * sizeof(EncodedJSValue);
         
     case ALL_ARRAY_STORAGE_INDEXING_TYPES:
-        return ArrayStorage::sizeFor(arrayStorage()->vectorLength());
+        return ArrayStorage::sizeFor(IndexingHeader::from(this)->arrayStorage()->vectorLength());
         
     default:
         ASSERT(!hasIndexedProperties(structure->indexingType()));
