@@ -29,6 +29,7 @@
 // Use forward declarations and WebPageProxyInternals.h instead.
 #include "APIObject.h"
 #include "MessageReceiver.h"
+#include "NavigationResponseProcessSwap.h"
 #include "RemoteSnapshotIdentifier.h"
 #include "RunJavaScriptResult.h"
 #include "TextExtractionAssertionScope.h"
@@ -1127,8 +1128,8 @@ public:
     WebCore::Color LEGACY_NODELETE underlayColor() const;
     void setUnderlayColor(const WebCore::Color&);
 
-    void triggerBrowsingContextGroupSwitchForNavigation(WebCore::NavigationIdentifier, WebCore::BrowsingContextGroupSwitchDecision, const WebCore::Site& responseSite, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, MonotonicTime originalNavigationStartTime, CompletionHandler<void(std::optional<WebCore::ProcessIdentifier> destinationWebProcess)>&&);
-    void triggerProcessSwapForEnhancedSecurity(WebCore::NavigationIdentifier, const WebCore::Site& responseSite, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, MonotonicTime originalNavigationStartTime, CompletionHandler<void(std::optional<WebCore::ProcessIdentifier> destinationWebProcess)>&&);
+    void triggerBrowsingContextGroupSwitchForNavigation(WebCore::NavigationIdentifier, WebCore::BrowsingContextGroupSwitchDecision, const WebCore::Site& responseSite, WebCore::ProcessIdentifier loadingWebProcess, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, MonotonicTime originalNavigationStartTime, CompletionHandler<void(NavigationResponseProcessSwapResult&&)>&&);
+    void triggerProcessSwapForEnhancedSecurity(WebCore::NavigationIdentifier, const WebCore::Site& responseSite, WebCore::ProcessIdentifier loadingWebProcess, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, MonotonicTime originalNavigationStartTime, CompletionHandler<void(NavigationResponseProcessSwapResult&&)>&&);
 
     // At this time, pageExtendedBackgroundColor can be set via pageExtendedBackgroundColorDidChange() which is a message
     // from the UIProcess, or by didCommitLayerTree(). When PLATFORM(MAC) adopts UI side compositing, we should get rid of
@@ -1870,6 +1871,7 @@ public:
     void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, std::optional<std::pair<Ref<API::WebsitePolicies>, Ref<WebProcessProxy>>>&&, Ref<API::NavigationAction>&&, WillContinueLoadInNewProcess, std::optional<SandboxExtensionHandle>, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void receivedNavigationResponsePolicyDecision(WebCore::PolicyAction, API::Navigation*, const WebCore::ResourceRequest&, Ref<API::NavigationResponse>&&, CompletionHandler<void(PolicyDecision&&)>&&);
     URL topLevelCreationURL(const URL&, bool isMainFrame) const;
+    bool topLevelIsSecureContext(const URL&, bool isMainFrame) const;
     void recordAgentClusterKeying(const API::Navigation&);
     void updateAgentClusterAssignmentForContinuingLoad(API::Navigation&, BrowsingContextGroup&, bool isMainFrame);
     void receivedNavigationActionPolicyDecision(WebProcessProxy&, WebCore::PolicyAction, API::Navigation&, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, WasNavigationIntercepted, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
@@ -3726,7 +3728,8 @@ private:
     void reportPageLoadResult(const WebCore::ResourceError&);
 
     void continueNavigationInNewProcess(API::Navigation&, WebFrameProxy&, RefPtr<SuspendedPageProxy>&&, BrowsingContextGroup&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, LoadedWebArchive, WebCore::NavigationUpgradeToHTTPSBehavior, WebCore::ProcessSwapDisposition, WebsiteDataStore* replacedDataStoreForWebArchiveLoad, MonotonicTime originalNavigationStartTime);
-    void performProcessSwapForNavigationResponse(API::Navigation&, Ref<BrowsingContextGroup>&&, Ref<WebProcessProxy>&&, WebCore::ProcessSwapDisposition, NetworkResourceLoadIdentifier, MonotonicTime originalNavigationStartTime, CompletionHandler<void(std::optional<WebCore::ProcessIdentifier> destinationWebProcess)>&&);
+    RefPtr<WebProcessProxy> processLoadingNavigation(const API::Navigation&, WebCore::ProcessIdentifier loadingWebProcess);
+    void performProcessSwapForNavigationResponse(API::Navigation&, Ref<BrowsingContextGroup>&&, Ref<WebProcessProxy>&&, WebCore::ProcessSwapDisposition, WebCore::ProcessIdentifier loadingWebProcess, NetworkResourceLoadIdentifier, MonotonicTime originalNavigationStartTime, CompletionHandler<void(NavigationResponseProcessSwapResult&&)>&&);
     void removeSuspendedPagesBeforeNavigation(WebProcessProxy&);
 
     void setNeedsFontAttributes(bool);

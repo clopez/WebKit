@@ -69,7 +69,11 @@ class RenderBoxModelObject : public RenderLayerModelObject {
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBoxModelObject);
 public:
     virtual ~RenderBoxModelObject();
-    
+
+    ASCIILiteral renderName() const override;
+    bool canHaveChildren() const override { return isInlineBox(); }
+    void paint(PaintInfo&, const LayoutPoint&) override { ASSERT_NOT_REACHED(); }
+
     LayoutSize relativePositionOffset() const;
 
     FloatRect constrainingRectForStickyPosition() const;
@@ -197,6 +201,8 @@ public:
     bool hasRunningAcceleratedAnimations() const;
 
     void applyTransform(TransformationMatrix&, const Style::ComputedStyle&, const FloatRect& boundingBox, OptionSet<Style::TransformResolverOption>) const override;
+
+    void imageChanged(WrappedImagePtr, const IntRect* = nullptr) override;
 
     bool LEGACY_NODELETE fixedBackgroundPaintsInLocalCoordinates() const;
     DecodingMode decodingModeForImageDraw(const Image&, const PaintInfo&) const;

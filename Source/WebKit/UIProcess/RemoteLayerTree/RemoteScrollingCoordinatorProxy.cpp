@@ -44,6 +44,7 @@
 #include <WebCore/ScrollingTreeOverflowScrollProxyNode.h>
 #include <WebCore/ScrollingTreeOverflowScrollingNode.h>
 #include <WebCore/ScrollingTreePositionedNode.h>
+#include <wtf/Borrow.h>
 #include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -72,16 +73,11 @@ WebPageProxy& RemoteScrollingCoordinatorProxy::webPageProxy() const
 
 std::optional<ScrollingNodeID> RemoteScrollingCoordinatorProxy::rootScrollingNodeID() const
 {
-    // FIXME: Locking.
-    // The scrolling thread replaces the root in commitTreeState(), so read it once. Calling
-    // rootNode() twice can see a node on the first read and nothing on the second. Taking
-    // the tree lock here isn't an option, since scrollingTreeNodeRequestsScroll() calls
-    // this with it already held.
-    RefPtr rootNode = m_scrollingTree->rootNode();
-    if (!rootNode)
+    // FIXME: Locking
+    if (!m_scrollingTree->rootNode())
         return std::nullopt;
 
-    return rootNode->scrollingNodeID();
+    return m_scrollingTree->rootNode()->scrollingNodeID();
 }
 
 const RemoteLayerTreeHost* RemoteScrollingCoordinatorProxy::layerTreeHost() const
@@ -219,7 +215,7 @@ void RemoteScrollingCoordinatorProxy::adjustMainFrameDelegatedScrollPosition(Scr
         }
     };
 
-    for (auto& request : requestData)
+    for (auto& request : borrow(requestData))
         handleOneRequest(request);
 }
 
@@ -299,14 +295,9 @@ void RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeUpdate()
         return;
 
     bool mainFrameScrollPositionChanged = false;
-
-    auto scrollUpdates = m_scrollingTree->takePendingScrollUpdates();
-
-    if (scrollUpdates.isEmpty())
-        return;
-
     auto rootNodeID = rootScrollingNodeID();
 
+    const Vector scrollUpdates = m_scrollingTree->takePendingScrollUpdates();
     for (unsigned i = 0; i < scrollUpdates.size(); ++i) {
         const auto& update = scrollUpdates[i];
         bool isLastUpdate = i == scrollUpdates.size() - 1;
@@ -343,7 +334,8 @@ void RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeUpdate()
         mainFrameScrollPositionDidChange();
 
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
-    webPageProxy->scheduleAccessibilityFrameGeometryUpdate();
+    if (!scrollUpdates.isEmpty())
+        webPageProxy->scheduleAccessibilityFrameGeometryUpdate();
 #endif
 }
 

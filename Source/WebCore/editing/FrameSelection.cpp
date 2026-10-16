@@ -154,7 +154,20 @@ IntRect DragCaretController::caretRectInRootViewCoordinates() const
     return { };
 }
 
-IntRect DragCaretController::editableElementRectInRootViewCoordinates() const
+IntRect DragCaretController::caretRectInMainFrameViewCoordinates() const
+{
+    if (!hasCaret())
+        return { };
+
+    if (RefPtr document = m_position.deepEquivalent().document()) {
+        if (RefPtr documentView = document->view())
+            return documentView->contentsToMainFrameView(m_position.absoluteCaretBounds());
+    }
+
+    return { };
+}
+
+IntRect DragCaretController::editableElementRectInMainFrameViewCoordinates() const
 {
     if (!hasCaret())
         return { };
@@ -173,7 +186,7 @@ IntRect DragCaretController::editableElementRectInRootViewCoordinates() const
         return { };
 
     if (RefPtr view = editableContainer->document().view())
-        return view->contentsToRootView(renderer->absoluteBoundingBoxRect()); // FIXME: Wrong for elements with visible layout overflow.
+        return view->contentsToMainFrameView(renderer->absoluteBoundingBoxRect()); // FIXME: Wrong for elements with visible layout overflow.
 
     return { };
 }
@@ -2086,12 +2099,12 @@ Color CaretBase::computeCaretColor(const Style::ComputedStyle& elementStyle, con
     Color surface;
     for (CheckedPtr renderer = firstRenderer; renderer && !surface.isOpaque(); renderer = renderer->parent()) {
         auto background = protect(renderer->style())->visitedDependentUsedBackgroundColorApplyingColorFilter();
-        if (CheckedPtr inlineBox = dynamicDowncast<RenderInline>(renderer.get())) {
+        if (renderer->isInlineBox()) {
             if (!background.isVisible())
                 continue;
             if (!caretPainter || !caretRectInPainterSpace)
                 continue;
-            if (!inlineBackgroundCoversCaret(*inlineBox, *caretPainter, *caretRectInPainterSpace))
+            if (!inlineBackgroundCoversCaret(downcast<RenderBoxModelObject>(*renderer), *caretPainter, *caretRectInPainterSpace))
                 continue;
         }
         surface = blendSourceOver(background, surface);
@@ -2642,7 +2655,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                document->page()->focusController().setFocusedElement(target.get(), protect(document->frame()), focusOptions);
+                protect(document->page()->focusController())->setFocusedElement(target.get(), protect(document->frame()), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2651,7 +2664,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        document->page()->focusController().setFocusedElement(nullptr, protect(document->frame()));
+        protect(document->page()->focusController())->setFocusedElement(nullptr, protect(document->frame()));
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const

@@ -356,7 +356,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
             HashSet<WebCore::RegistrableDomain> domainSet;
             for (auto&& entry : StorageAccessPromptQuirkController::sharedSingleton().cachedListData()) {
                 if (!entry.triggerPages.isEmpty()) {
-                    for (auto&& page : entry.triggerPages)
+                    for (auto&& page : borrow(entry.triggerPages))
                         domainSet.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString(page.string()));
                     continue;
                 }
@@ -403,7 +403,8 @@ WebProcessPool::~WebProcessPool()
 
     // Only remaining processes should be pre-warmed ones as other keep the process pool alive.
     while (!m_processes.isEmpty()) {
-        auto& process = m_processes.first();
+        // FIXME: `process` gets destroyed manually during the call to `shutDown`, so we can't statically verify lifetime safety here. This needs a new design.
+        SUPPRESS_UNBORROWED_LOCAL auto& process = m_processes.first();
 
         ASSERT(process->isPrewarmed());
         // We need to be the only one holding a reference to the pre-warmed process so that it gets destroyed.
@@ -1454,14 +1455,8 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 
     RefPtr relatedPage = pageConfiguration->relatedPage();
     bool siteIsolationEnabled = protect(pageConfiguration->preferences())->siteIsolationEnabled();
-    if (siteIsolationEnabled) {
-        Ref<WebPreferences> preferences = pageConfiguration->preferences();
-        // FIXME: we should enable UseUIProcessForBackForwardItemLoading not only here but also in test infrastructure
-        // when site isolation is enabled, but doing that causes a lot of test failures that we need to investigate.
-        // https://bugs.webkit.org/show_bug.cgi?id=316588
-        preferences->setUseUIProcessForBackForwardItemLoading(true);
-        preferences->setMultiProcessBackForwardCacheEnabled(true);
-    }
+    if (siteIsolationEnabled)
+        protect(pageConfiguration->preferences())->setMultiProcessBackForwardCacheEnabled(true);
     RefPtr preferredBrowsingContextGroup = pageConfiguration->preferredBrowsingContextGroup();
     RefPtr preferredFrameProcess = preferredBrowsingContextGroup ? preferredBrowsingContextGroup->processForSite(pageConfiguration->openedSite()) : nullptr;
     auto crossOriginMode = pageConfiguration->crossOriginMode();
@@ -1703,7 +1698,7 @@ void WebProcessPool::countWebPagesInAllProcessesForTesting(CompletionHandler<voi
     };
 
     Ref aggregator = ResultAggregator::create(WTF::move(completionHandler));
-    for (auto& process : m_processes) {
+    for (auto& process : borrow(m_processes)) {
         process->sendWithAsyncReply(Messages::WebProcess::CountWebPagesForTesting(), [aggregator] (unsigned count) mutable {
             aggregator->addWebPageCount(count);
         });
@@ -1902,7 +1897,7 @@ void WebProcessPool::startMemorySampler(const double interval)
     WebMemorySampler::singleton()->start(interval);
 #endif
     
-    for (auto& process : m_processes) {
+    for (auto& process : borrow(m_processes)) {
         if (!process->canSendMessage())
             continue;
 
@@ -3239,7 +3234,7 @@ void WebProcessPool::initializeAccessibilityIfNecessary()
     if (m_hasReceivedAXRequestInUIProcess)
         return;
 
-    for (auto& process : m_processes) {
+    for (auto& process : borrow(m_processes)) {
         auto handleArray = SandboxExtension::createHandlesForMachLookup({ }, process->auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
         process->send(Messages::WebProcess::InitializeAccessibility(WTF::move(handleArray)), 0);
     }

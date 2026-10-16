@@ -1536,6 +1536,18 @@ std::optional<LayoutRect> RenderLayer::cachedClippedOverflowRect() const
     return m_repaintRects.clippedOverflowRect;
 }
 
+bool RenderLayer::scheduledFullRepaintCoversContentPaintedBy(const RenderLayer& paintingLayer) const
+{
+    // Only NeedsFullRepaint is repainted in full after layout, and only within this layer's visual overflow.
+    if (!isSelfPaintingLayer() || m_repaintStatus != RepaintStatus::NeedsFullRepaint)
+        return false;
+    if (&paintingLayer == this)
+        return true;
+    auto paintingLayerRect = paintingLayer.cachedClippedOverflowRect();
+    auto layerRect = cachedClippedOverflowRect();
+    return paintingLayerRect && layerRect && paintingLayer.repaintContainer() == repaintContainer() && layerRect->contains(*paintingLayerRect);
+}
+
 void RenderLayer::computeRepaintRects(const RenderLayerModelObject* repaintContainer)
 {
     ASSERT(!m_visibleContentStatusDirty);
@@ -2152,8 +2164,8 @@ bool RenderLayer::computeHasVisibleContent() const
 
 static LayoutRect computeLayerPositionAndIntegralSize(const RenderLayerModelObject& renderer)
 {
-    if (auto* inlineRenderer = dynamicDowncast<RenderInline>(renderer); inlineRenderer && inlineRenderer->isInline())
-        return { LayoutPoint(), inlineRenderer->borderBoxRectInContainer().size() };
+    if (renderer.isInlineBox())
+        return { LayoutPoint(), downcast<RenderBoxModelObject>(renderer).borderBoxRectInContainer().size() };
 
     if (auto* boxRenderer = dynamicDowncast<RenderBox>(renderer)) {
         const auto& borderBox = boxRenderer->borderBoxRectInContainer();
@@ -2558,13 +2570,15 @@ RenderLayer::EnclosingCompositingLayerStatus RenderLayer::enclosingCompositingLa
         return layer.isSelfPaintingLayer() && !layer.renderer().hasPotentiallyScrollableOverflow() && !is<RenderView>(layer.renderer());
     };
 
-    auto fullRepaintAlreadyScheduled = isEligibleForFullRepaintCheck(*this) && needsFullRepaint();
+    auto fullRepaintAlreadyScheduled = isEligibleForFullRepaintCheck(*this) && scheduledFullRepaintCoversContentPaintedBy(*this);
     RenderLayer* repaintTarget = nullptr;
     if (includeSelf == IncludeSelf && (repaintTarget = repaintTargetForLayer(*this)))
         return { fullRepaintAlreadyScheduled, repaintTarget };
 
-    for (const RenderLayer* curr = paintOrderParent(); curr; curr = curr->paintOrderParent()) {
-        fullRepaintAlreadyScheduled = fullRepaintAlreadyScheduled || (isEligibleForFullRepaintCheck(*curr) && curr->needsFullRepaint());
+    for (const RenderLayer* curr = paintOrderParent(), *paintingLayer = isSelfPaintingLayer() ? this : nullptr; curr; curr = curr->paintOrderParent()) {
+        if (!paintingLayer && curr->isSelfPaintingLayer())
+            paintingLayer = curr;
+        fullRepaintAlreadyScheduled = fullRepaintAlreadyScheduled || (paintingLayer && isEligibleForFullRepaintCheck(*curr) && curr->scheduledFullRepaintCoversContentPaintedBy(*paintingLayer));
         if ((repaintTarget = repaintTargetForLayer(*curr)))
             return { fullRepaintAlreadyScheduled, repaintTarget };
     }
@@ -5647,6 +5661,9 @@ void RenderLayer::repaintBlockSelectionGaps()
         rect.intersect(downcast<RenderBox>(renderer()).overflowClipRect({ }));
     if (renderer().hasClip())
         rect.intersect(downcast<RenderBox>(renderer()).clipRect({ }));
+    // m_blockSelectionGapsBounds is in physical coordinates, but repaintRectangle() expects flipped block coordinates.
+    if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer()))
+        box->flipForWritingMode(rect);
     if (!rect.isEmpty())
         renderer().repaintRectangle(rect);
 }
@@ -5690,8 +5707,8 @@ LayoutRect RenderLayer::localBoundingBox(OptionSet<CalculateLayerBoundsFlag> fla
     // as part of our bounding box.  We do this because we are the responsible layer for both hit testing and painting those
     // floats.
     LayoutRect result;
-    if (CheckedPtr inlineBox = dynamicDowncast<RenderInline>(renderer()); inlineBox && renderer().isInline())
-        result = inlineBox->visualOverflowRect();
+    if (renderer().isInlineBox())
+        result = downcast<RenderBoxModelObject>(renderer()).visualOverflowRect();
     else if (CheckedPtr modelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
         result = modelObject->visualOverflowRectEquivalent();
     else if (CheckedPtr tableRow = dynamicDowncast<RenderTableRow>(renderer())) {

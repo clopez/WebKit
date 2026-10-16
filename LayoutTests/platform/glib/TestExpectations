@@ -1995,6 +1995,9 @@ imported/w3c/web-platform-tests/webcodecs/videoFrame-rgbx-imageBitmap.any.html [
 imported/w3c/web-platform-tests/webcodecs/videoFrame-rgbx-imageBitmap.any.worker.html [ Failure ]
 imported/w3c/web-platform-tests/webcodecs/videoFrame-rgbx-webgl.window.html [ Failure ]
 
+imported/w3c/web-platform-tests/webcodecs/videoFrame-copyTo-rgb.any.html [ Failure ]
+imported/w3c/web-platform-tests/webcodecs/videoFrame-copyTo-rgb.any.worker.html [ Failure ]
+
 # Test decoding a corrupt frame after reset in a flush callback assert_unreached: Should have rejected: undefined Reached unreachable code
 imported/w3c/web-platform-tests/webcodecs/videoDecoder-codec-specific.https.any.html?av1 [ Failure ]
 imported/w3c/web-platform-tests/webcodecs/videoDecoder-codec-specific.https.any.worker.html?av1 [ Failure ]
@@ -3295,7 +3298,6 @@ webkit.org/b/264596 imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-w
 imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.html [ Skip ]
 
 # Crashes on an assertion in SubresourceLoader::didReceiveResponse.
-imported/w3c/web-platform-tests/xhr/send-redirect.htm [ Skip ]
 
 webkit.org/b/189994 fast/files/xhr-response-blob.html [ Failure ]
 
@@ -3614,9 +3616,7 @@ fast/text/trak-optimizeLegibility.html [ ImageOnlyFailure ]
 fast/dom/Window/slow-unload-handler.html [ WontFix ]
 fast/dom/Window/slow-unload-handler-only-frame-is-stopped.html [ WontFix ]
 
-# Missing WebSpeech implementation
-webkit.org/b/136224 fast/speechrecognition [ Skip ]
-http/tests/media/media-stream/speech-recognition-iframe-allow-attribute.html [ Skip ]
+# Needs USE(AUDIO_SESSION)
 fast/mediastream/audio-session-stays-active-when-removing-session-during-speech-recognition.html [ Skip ]
 fast/mediastream/audio-session-active-when-capture-starts-and-stops.html [ Skip ]
 fast/mediastream/audio-session-stays-active-during-capture.html [ Skip ]
@@ -4221,10 +4221,6 @@ webkit.org/b/258162 fast/images/image-alt-text-vertical.html [ ImageOnlyFailure 
 fast/scrolling/keyboard-scrolling-distance-downArrow.html [ Skip ] # Timeout
 
 webkit.org/b/251107 webgl/1.0.x/conformance/textures/video/tex-2d-rgba-rgba-unsigned_byte.html [ Timeout ]
-
-# assertion failure
-webkit.org/b/286127 [ Debug ] editing/pasteboard/copy-paste-across-shadow-boundaries-with-style-2.html [ Crash ]
-webkit.org/b/286127 [ Release ] editing/pasteboard/copy-paste-across-shadow-boundaries-with-style-2.html [ Crash Pass ]
 
 # Test causes OOM in the EWS release bots
 webkit.org/b/283558 fast/css-custom-paint/out-of-memory-while-adding-worklet-module.html [ Skip ]
@@ -5153,12 +5149,6 @@ webkit.org/b/323309 ipc/getpixelbuffer-layerbacking-heap-disclosure.html [ Pass 
 webkit.org/b/323776 http/wpt/webcodecs/configure-encoder-big-frame-size.html [ Failure Pass ]
 
 
-webkit.org/b/324109 imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-outsets-sample-composited-child.html [ ImageOnlyFailure ]
-webkit.org/b/324109 imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-outsets-sample-composited-child-preserve-3d.html [ ImageOnlyFailure ]
-webkit.org/b/324109 imported/w3c/web-platform-tests/css/filter-effects/filter-outsets-clipped-by-document-edge.html [ ImageOnlyFailure ]
-webkit.org/b/324109 imported/w3c/web-platform-tests/css/filter-effects/fixed-pos-filter-clip-002.html [ ImageOnlyFailure ]
-webkit.org/b/324109 imported/w3c/web-platform-tests/css/filter-effects/will-change-blur-filter-under-clip.html [ ImageOnlyFailure ]
-
 # These now pass on the GLib ports; the generic expectations in LayoutTests/TestExpectations still apply elsewhere.
 webkit.org/b/249918 imported/w3c/web-platform-tests/css/css-lists/list-marker-symbol-bidi.html [ Pass ]
 imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-001.html [ Pass ]
@@ -5249,6 +5239,9 @@ webkit.org/b/325941 webrtc/video-update-often.html [ Pass Crash Timeout ]
 
 webkit.org/b/327264 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/two-phase/preview-finished-before-swap.tentative.https.html [ Failure Pass ]
 webkit.org/b/327264 imported/w3c/web-platform-tests/css/css-view-transitions/navigation/two-phase/preview-navigation-query.tentative.https.html [ Failure Pass ]
+
+# Spatial video support is not currently implemented
+media/modern-media-controls/spatial-video-support [ Skip ]
 
 # End: Common failures between GTK and WPE.
 

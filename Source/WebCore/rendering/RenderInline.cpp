@@ -77,36 +77,4 @@ RenderInline::RenderInline(Type type, Document& document, Style::ComputedStyle&&
 
 RenderInline::~RenderInline() = default;
 
-ASCIILiteral RenderInline::renderName() const
-{
-    if (isRelativelyPositioned())
-        return "RenderInline (relative positioned)"_s;
-    if (isStickilyPositioned())
-        return "RenderInline (sticky positioned)"_s;
-    // FIXME: Temporary hack while the new generated content system is being implemented.
-    if (isPseudoElement() || isAnonymous())
-        return "RenderInline (generated)"_s;
-    return "RenderInline"_s;
-}
-
-void RenderInline::imageChanged(WrappedImagePtr image, const IntRect*)
-{
-    if (!parent())
-        return;
-
-    bool isNonEmpty;
-    RefPtr styleImage = Style::findLayerUsedImage(style().backgroundLayers(), image, isNonEmpty);
-    if (styleImage && isNonEmpty) {
-        if (auto styleable = Styleable::fromRenderer(*this))
-            protect(document())->didLoadImage(protect(styleable->element).get(), protect(styleImage->cachedImage()));
-    }
-    // FIXME: We can do better.
-    repaint();
-}
-
-bool RenderInline::requiresLayer() const
-{
-    return RenderBoxModelObject::requiresLayer() || style().willChange().canCreateStackingContext();
-}
-
 } // namespace WebCore

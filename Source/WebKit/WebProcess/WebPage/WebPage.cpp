@@ -2853,22 +2853,34 @@ void WebPage::loadSimulatedRequestAndResponse(LoadParameters&& loadParameters, R
 
 void WebPage::stopLoading()
 {
+    stopLoadingInRootFrames(AbortOngoingNavigation::Yes);
+}
+
+// Only the main frame's Navigation API navigation can be left alone.
+void WebPage::stopLoadingInRootFrames(AbortOngoingNavigation abortOngoingNavigation)
+{
     if (!m_page)
         return;
 
     SendStopResponsivenessTimer stopper;
 
+    RefPtr localMainFrame = m_page->localMainFrame();
     for (Ref frame : copyToVectorOf<Ref<LocalFrame>>(m_page->rootFrames()))
-        frame->loader().stopForUserCancel();
+        frame->loader().stopForUserCancel(DeferCheckLoadComplete::No, frame.ptr() == localMainFrame ? abortOngoingNavigation : AbortOngoingNavigation::Yes);
 
-    if (RefPtr localMainFrame = m_page->localMainFrame())
+    if (localMainFrame)
         localMainFrame->loader().completePageTransitionIfNeeded();
 }
 
-void WebPage::stopLoadingDueToProcessSwap()
+void WebPage::stopLoadingDueToProcessSwap(WebCore::NavigationIdentifier navigationID)
 {
+    RefPtr localMainFrame = m_page->localMainFrame();
+    RefPtr documentLoader = localMainFrame ? localMainFrame->loader().provisionalDocumentLoader() : nullptr;
+    if (!documentLoader || documentLoader->navigationID() != navigationID)
+        return;
+
     SetForScope isStoppingLoadingDueToProcessSwap(m_isStoppingLoadingDueToProcessSwap, true);
-    stopLoading();
+    stopLoadingInRootFrames(AbortOngoingNavigation::No);
 }
 
 void WebPage::keepBlobURLAliveForNewWindowNavigation(URL&& blobURL, std::optional<SecurityOriginData>&& topOrigin)
@@ -5510,6 +5522,7 @@ bool WebPage::isParentProcessAWebBrowser() const
 void WebPage::adjustSettingsForLockdownMode(Settings& settings, const WebPreferencesStore* store)
 {
     bool originalSiteIsolationEnabled = settings.siteIsolationEnabled();
+    bool originalUseUIProcessForBackForwardItemLoading = settings.useUIProcessForBackForwardItemLoading();
     // Disable unstable Experimental settings, even if the user enabled them for local use.
     settings.disableUnstableFeaturesForModernWebKit();
     Settings::disableGlobalUnstableFeaturesForModernWebKit();
@@ -5519,6 +5532,8 @@ void WebPage::adjustSettingsForLockdownMode(Settings& settings, const WebPrefere
     // setting to avoid IPC state mismatch.
     if (originalSiteIsolationEnabled)
         settings.setSiteIsolationEnabled(true);
+    if (originalUseUIProcessForBackForwardItemLoading)
+        settings.setUseUIProcessForBackForwardItemLoading(true);
 
 #if PLATFORM(COCOA)
     if (settings.downloadableBinaryFontTrustedTypes() != DownloadableBinaryFontTrustedTypes::None) {
@@ -5563,6 +5578,8 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     bool requiresUserGestureForMedia = store.getBoolValueForKey(WebPreferencesKey::requiresUserGestureForMediaPlaybackKey());
     settings.setRequiresUserGestureForVideoPlayback(requiresUserGestureForMedia || store.getBoolValueForKey(WebPreferencesKey::requiresUserGestureForVideoPlaybackKey()));
     settings.setRequiresUserGestureForAudioPlayback(requiresUserGestureForMedia || store.getBoolValueForKey(WebPreferencesKey::requiresUserGestureForAudioPlaybackKey()));
+    // Always turn on UseUIProcessForBackForwardItemLoading if SiteIsolationEnabled is on.
+    settings.setUseUIProcessForBackForwardItemLoading(store.getBoolValueForKey(WebPreferencesKey::useUIProcessForBackForwardItemLoadingKey()) || store.getBoolValueForKey(WebPreferencesKey::siteIsolationEnabledKey()));
     settings.setUserInterfaceDirectionPolicy(static_cast<WebCore::UserInterfaceDirectionPolicy>(store.getUInt32ValueForKey(WebPreferencesKey::userInterfaceDirectionPolicyKey())));
     settings.setSystemLayoutDirection(static_cast<TextDirection>(store.getUInt32ValueForKey(WebPreferencesKey::systemLayoutDirectionKey())));
     settings.setJavaScriptRuntimeFlags(static_cast<JSC::RuntimeFlags>(store.getUInt32ValueForKey(WebPreferencesKey::javaScriptRuntimeFlagsKey())));
@@ -6222,7 +6239,7 @@ void WebPage::performDragControllerAction(std::optional<FrameIdentifier> frameID
         if (std::holds_alternative<RemoteUserInputEventData>(resolvedDragAction))
             return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { }, std::get<RemoteUserInputEventData>(resolvedDragAction));
         auto dragOperation = std::get<std::optional<DragOperation>>(resolvedDragAction);
-        return completionHandler(dragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInRootViewCoordinates(), m_page->dragCaretController().editableElementRectInRootViewCoordinates(), std::nullopt);
+        return completionHandler(dragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInMainFrameViewCoordinates(), m_page->dragCaretController().editableElementRectInMainFrameViewCoordinates(), std::nullopt);
     }
     case DragControllerAction::Exited:
         m_page->dragController().dragExited(*localFrame, WTF::move(dragData));

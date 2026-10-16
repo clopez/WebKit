@@ -55,6 +55,7 @@
 #include "HitTestResult.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorHistory.h"
+#include "InspectorIdentifierRegistry.h"
 #include "InspectorNodeFinder.h"
 #include "InspectorOverlayConfigParser.h"
 #include "InstrumentingAgents.h"
@@ -185,9 +186,7 @@ void FrameDOMAgent::didCreateFrontendAndBackend()
 
     Ref { m_instrumentingAgents.get() }->setPersistentFrameDOMAgent(this);
 
-    RefPtr frame = m_inspectedFrame.get();
-    if (frame)
-        m_document = frame->document();
+    m_document = protect(m_inspectedFrame)->document();
 
     // Force a layout so that we can collect additional information from the layout process, as
     // InspectorDOMAgent does. The flex line-start cache is only populated by layouts that run while a
@@ -403,6 +402,8 @@ Ref<Inspector::Protocol::DOM::Node> FrameDOMAgent::buildObjectForNode(Node* node
 
         // FIXME: <https://webkit.org/b/298980> Skip if child frame has its own FrameDOMAgent.
         if (RefPtr frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(*element)) {
+            if (RefPtr contentFrame = frameOwner->contentFrame())
+                value->setContentFrameId(IdentifierRegistry::protocolFrameId(*contentFrame));
             if (RefPtr document = frameOwner->contentDocument())
                 value->setContentDocument(buildObjectForNode(document.get(), 0));
         }
@@ -435,7 +436,8 @@ Ref<Inspector::Protocol::DOM::Node> FrameDOMAgent::buildObjectForNode(Node* node
         value->setDocumentURL(InspectorDOMAgent::documentURLString(document.get()));
         value->setBaseURL(InspectorDOMAgent::documentBaseURLString(document.get()));
         value->setXmlVersion(document->xmlVersion());
-        // FIXME: <https://webkit.org/b/298980> Set frameId for frame targets to enable frontend frame-to-target association.
+        if (RefPtr frame = document->frame())
+            value->setFrameId(IdentifierRegistry::protocolFrameId(*frame));
     } else if (RefPtr doctype = dynamicDowncast<DocumentType>(*node)) {
         value->setPublicId(doctype->publicId());
         value->setSystemId(doctype->systemId());
@@ -737,6 +739,22 @@ void FrameDOMAgent::didInsertDOMNode(Node& node)
     }
 }
 
+void FrameDOMAgent::frameOwnerContentFrameChanged(HTMLFrameOwnerElement& frameOwner)
+{
+    auto frameOwnerId = boundNodeId(&frameOwner);
+    if (!frameOwnerId)
+        return;
+
+    auto parentId = boundNodeId(protect(InspectorDOMAgent::innerParentNode(&frameOwner)));
+    m_frontendDispatcher->childNodeRemoved(parentId, frameOwnerId);
+    unbind(frameOwner);
+
+    auto value = buildObjectForNode(&frameOwner, 0);
+    RefPtr previousSibling = InspectorDOMAgent::innerPreviousSibling(&frameOwner);
+    auto prevId = boundNodeId(previousSibling.get());
+    m_frontendDispatcher->childNodeInserted(parentId, prevId, WTF::move(value));
+}
+
 void FrameDOMAgent::didRemoveDOMNode(Node& node)
 {
     if (frameContainsOnlyASCIIWhitespace(&node))
@@ -896,8 +914,7 @@ void FrameDOMAgent::pseudoElementDestroyed(PseudoElement& pseudoElement)
 
 void FrameDOMAgent::frameDocumentUpdated(LocalFrame& frame)
 {
-    RefPtr inspectedFrame = m_inspectedFrame.get();
-    if (!inspectedFrame || &frame != inspectedFrame.get())
+    if (&frame != m_inspectedFrame.ptr())
         return;
 
     RefPtr document = frame.document();
@@ -1873,8 +1890,8 @@ bool FrameDOMAgent::ownsElementSelection() const
     // The main frame belongs to the page target.
     // FIXME: A nested local subframe's overlay is not hosted by any compositor, so the page agent
     // keeps it too.
-    RefPtr frame = m_inspectedFrame.get();
-    return m_searchingForNode && frame && frame->isRootFrame() && !frame->isMainFrame();
+    Ref frame = m_inspectedFrame;
+    return m_searchingForNode && frame->isRootFrame() && !frame->isMainFrame();
 }
 
 void FrameDOMAgent::highlightMousedOverNode()

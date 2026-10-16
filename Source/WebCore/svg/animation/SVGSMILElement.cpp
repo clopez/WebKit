@@ -363,7 +363,7 @@ SMILTime SVGSMILElement::parseClockValue(StringView data)
         auto seconds = parseNumber(secondsString);
         if (!hours || !minutes || *minutes > 59 || !seconds || *seconds >= 60)
             return SMILTime::unresolved();
-        result = *hours * 60 * 60 + *minutes * 60 + *seconds;
+        result = static_cast<double>(*hours) * 60 * 60 + *minutes * 60 + *seconds;
     } else if (doublePointOne == 2 && doublePointTwo == notFound && parse.length() >= 5) {
         // Partial-clock-value: Minutes ":" Seconds ("." Fraction)?
         auto minutes = parseInteger<uint8_t>(parse.left(2));
@@ -1264,8 +1264,10 @@ bool SVGSMILElement::progress(SMILTime elapsed, SVGSMILElement& firstAnimation, 
             smilEventSenderSingleton().dispatchEventSoon(*this, eventNames().endEventEvent);
 
         // Coalesce the skipped repeat iterations into a single event instead of one per interval.
-        if (repeat > 1 || (repeat && m_activeState == Inactive))
+        if (repeat > 1 || (repeat && m_activeState == Inactive)) {
+            m_pendingRepeatIterations.append(repeat);
             smilEventSenderSingleton().dispatchEventSoon(*this, eventNames().repeatEventEvent);
+        }
     }
 
     m_nextProgressTime = calculateNextProgressTime(elapsed);

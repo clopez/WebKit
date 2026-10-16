@@ -132,8 +132,8 @@ static RenderObject* firstContentfulChild(const RenderBoxModelObject& renderer)
             continue;
         if (auto* text = dynamicDowncast<RenderText>(current); text && text->containsOnlyCollapsibleWhitespace())
             continue;
-        if (auto* renderInline = dynamicDowncast<RenderInline>(current)) {
-            if (auto* nested = firstContentfulChild(*renderInline))
+        if (current.isInlineBox()) {
+            if (auto* nested = firstContentfulChild(downcast<RenderBoxModelObject>(current)))
                 return nested;
             continue;
         }
@@ -210,6 +210,22 @@ RenderBoxModelObject::RenderBoxModelObject(Type type, Document& document, Style:
 RenderBoxModelObject::~RenderBoxModelObject()
 {
     // Do not add any code here. Add it to willBeDestroyed() instead.
+}
+
+ASCIILiteral RenderBoxModelObject::renderName() const
+{
+    if (isInlineBox()) {
+        // FIXME: Inline boxes still report the RenderInline name to keep render tree dump based test results unchanged.
+        if (isRelativelyPositioned())
+            return "RenderInline (relative positioned)"_s;
+        if (isStickilyPositioned())
+            return "RenderInline (sticky positioned)"_s;
+        if (isPseudoElement() || isAnonymous())
+            return "RenderInline (generated)"_s;
+        return "RenderInline"_s;
+    }
+    ASSERT_NOT_REACHED();
+    return { };
 }
 
 void RenderBoxModelObject::willBeDestroyed()
@@ -807,6 +823,21 @@ LayoutSize RenderBoxModelObject::calculateImageIntrinsicDimensions(const Style::
     return { LayoutUnit::fromFloatRound(concreteObjectSize.width()), LayoutUnit::fromFloatRound(concreteObjectSize.height()) };
 }
 
+void RenderBoxModelObject::imageChanged(WrappedImagePtr image, const IntRect*)
+{
+    if (!parent())
+        return;
+
+    bool isNonEmpty;
+    RefPtr styleImage = Style::findLayerUsedImage(style().backgroundLayers(), image, isNonEmpty);
+    if (styleImage && isNonEmpty) {
+        if (auto styleable = Styleable::fromRenderer(*this))
+            protect(document())->didLoadImage(protect(styleable->element).get(), protect(styleImage->cachedImage()));
+    }
+    // FIXME: We can do better.
+    repaint();
+}
+
 bool RenderBoxModelObject::fixedBackgroundPaintsInLocalCoordinates() const
 {
     if (!isDocumentElementRenderer())
@@ -932,7 +963,7 @@ void RenderBoxModelObject::applyTransform(TransformationMatrix&, const Style::Co
 
 bool RenderBoxModelObject::requiresLayer() const
 {
-    return isPositioned() || createsGroup() || requiresRenderingConsolidationForViewTransition() || hasRunningAcceleratedAnimations();
+    return isPositioned() || createsGroup() || requiresRenderingConsolidationForViewTransition() || hasRunningAcceleratedAnimations() || style().willChange().canCreateStackingContext();
 }
 
 void RenderBoxModelObject::removeOutOfFlowBoxesIfNeededOnStyleChange(const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle)

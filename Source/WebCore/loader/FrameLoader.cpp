@@ -350,7 +350,7 @@ public:
     {
         if (m_inProgress && m_frame->page()) {
             Ref frame = m_frame.get();
-            frame->page()->progress().progressCompleted(frame);
+            protect(frame->page()->progress())->progressCompleted(frame);
         }
     }
 
@@ -359,7 +359,7 @@ public:
         ASSERT(m_frame->page());
         if (!m_inProgress) {
             Ref frame = m_frame.get();
-            frame->page()->progress().progressStarted(frame);
+            protect(frame->page()->progress())->progressStarted(frame);
         }
         m_inProgress = true;
     }
@@ -1439,7 +1439,7 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
     if (hashChange)
-        m_frame->eventHandler().stopAutoscrollTimer();
+        protect(m_frame->eventHandler())->stopAutoscrollTimer();
     
     // It's important to model this as a load that starts and immediately finishes.
     // Otherwise, the parent frame may think we never finished loading.
@@ -2411,16 +2411,19 @@ void FrameLoader::stopAllLoadersAndCheckCompleteness()
     m_checkingLoadCompleteForDetachment = false;
 }
 
-void FrameLoader::stopForUserCancel(bool deferCheckLoadComplete)
+void FrameLoader::stopForUserCancel(DeferCheckLoadComplete deferCheckLoadComplete, AbortOngoingNavigation abortOngoingNavigation)
 {
     if (m_inStopForBackForwardCache)
         return;
     // Calling stopAllLoaders can cause the frame to be deallocated, including the frame loader.
     Ref frame = m_frame.get();
 
-    stopAllLoaders();
+    {
+        SetForScope doNotAbortNavigationAPI { m_doNotAbortNavigationAPI, m_doNotAbortNavigationAPI || abortOngoingNavigation == AbortOngoingNavigation::No };
+        stopAllLoaders();
+    }
 
-    if (frame->document()->settings().navigationAPIEnabled()) {
+    if (abortOngoingNavigation == AbortOngoingNavigation::Yes && frame->document()->settings().navigationAPIEnabled()) {
         if (RefPtr window = frame->document()->window())
             protect(window->navigation())->abortOngoingNavigationIfNeeded();
     }
@@ -2433,7 +2436,7 @@ void FrameLoader::stopForUserCancel(bool deferCheckLoadComplete)
         protect(view->layoutContext())->layout();
 #endif
 
-    if (deferCheckLoadComplete)
+    if (deferCheckLoadComplete == DeferCheckLoadComplete::Yes)
         scheduleCheckLoadComplete();
     else if (frame->page())
         checkLoadComplete();

@@ -217,6 +217,7 @@ list(APPEND TestWebCore_SOURCES
     Tests/WebCore/cocoa/CaptionPreferencesTests.mm
     Tests/WebCore/cocoa/CoreMediaUtilities.mm
     Tests/WebCore/cocoa/DatabaseTrackerTest.mm
+    Tests/WebCore/cocoa/DecodedMediaSamplesBlockTests.mm
     Tests/WebCore/cocoa/GraphicsContextCGTests.mm
     Tests/WebCore/cocoa/H264UtilitiesCocoaTests.mm
     Tests/WebCore/cocoa/HEVCUtilitiesCocoaTests.mm
@@ -225,6 +226,7 @@ list(APPEND TestWebCore_SOURCES
     Tests/WebCore/cocoa/ImageRotationSessionVT.cpp
     Tests/WebCore/cocoa/MediaPlayerPrivateAVFoundationObjCTests.mm
     Tests/WebCore/cocoa/MediaRecorderPrivateWriterTests.cpp
+    Tests/WebCore/cocoa/PaymentSummaryItemsCocoa.mm
     Tests/WebCore/cocoa/PrivateClickMeasurementCocoa.mm
     Tests/WebCore/cocoa/ResourceMonitor.mm
     Tests/WebCore/cocoa/ScrollbarWidthCrash.mm
